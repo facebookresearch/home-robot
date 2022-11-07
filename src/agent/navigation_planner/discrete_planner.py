@@ -253,7 +253,8 @@ class DiscretePlanner:
 
         state = [start[0] - x1 + 1, start[1] - y1 + 1]
         stg_x, stg_y, closest_goal_map, replan, stop = planner.get_short_term_goal(state)
-        closest_goal_map = remove_boundary(closest_goal_map)
+        if closest_goal_map is not None:
+            closest_goal_map = remove_boundary(closest_goal_map)
         stg_x, stg_y = stg_x + x1 - 1, stg_y + y1 - 1
         short_term_goal = int(stg_x), int(stg_y)
         return short_term_goal, closest_goal_map, replan, stop
