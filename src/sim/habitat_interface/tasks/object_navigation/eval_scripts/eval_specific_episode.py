@@ -53,7 +53,7 @@ if __name__ == "__main__":
     env = Env(config=config.TASK_CONFIG)
 
     scene_id = "ziup5kvtCCR"
-    episode_id = "3"
+    episode_id = "1"
 
     obs = reset_to_episode(env, scene_id, episode_id)
     agent.reset()
@@ -63,7 +63,7 @@ if __name__ == "__main__":
     while not env.episode_over:
         t += 1
         print(t)
-        print(obs["objectgoal"])
+        print(env.get_metrics())
         action = agent.act(obs)
         obs = env.step(action)
 
