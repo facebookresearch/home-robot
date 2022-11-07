@@ -245,10 +245,10 @@ class DiscretePlanner:
 
         # Dilate the goal
         selem = skimage.morphology.disk(self.goal_dilation_selem_radius)
-        goal_map = skimage.morphology.binary_dilation(goal_map, selem) != True
-        goal_map = 1 - goal_map * 1.
+        dilated_goal_map = skimage.morphology.binary_dilation(goal_map, selem) != True
+        dilated_goal_map = 1 - dilated_goal_map * 1.
 
-        planner.set_multi_goal(goal_map, self.timestep)
+        planner.set_multi_goal(dilated_goal_map, self.timestep)
         self.timestep += 1
 
         state = [start[0] - x1 + 1, start[1] - y1 + 1]
@@ -264,15 +264,10 @@ class DiscretePlanner:
         vis_planner.set_multi_goal(curr_loc_map)
         fmm_dist_ = vis_planner.fmm_dist.copy()
         goal_map_ = goal_map.copy()
-        goal_map_[goal_map_ == 0] = 10000 #np.max(goal_map_) + 1
-        fmm_dist_[fmm_dist_ == 0] = 10000 #np.max(fmm_dist_) + 1
+        goal_map_[goal_map_ == 0] = 10000
+        fmm_dist_[fmm_dist_ == 0] = 10000
         closest_goal_map = (goal_map_ * fmm_dist_) == (goal_map_ * fmm_dist_).min()
         closest_goal_map = remove_boundary(closest_goal_map)
-        print("closest_goal_map.sum()", closest_goal_map.sum())
-        cv2.imwrite("debug/curr_loc_map.png", (curr_loc_map * 255).astype(np.uint8))
-        cv2.imwrite("debug/fmm_dist_.png", (fmm_dist_ * 255).astype(np.uint8))
-        cv2.imwrite("debug/goal_map.png", (goal_map * 255).astype(np.uint8))
-        cv2.imwrite("debug/closest_goal_map.png", (closest_goal_map * 255).astype(np.uint8))
 
         return short_term_goal, closest_goal_map, replan, stop
 
