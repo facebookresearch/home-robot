@@ -44,7 +44,7 @@ class FMMPlanner:
 
         self.du = int(self.step_size / (self.scale * 1.))
         self.fmm_dist = None
-        self.closest_goal_map = None
+        self.goal_map = None
 
     def set_multi_goal(self, goal_map: np.ndarray, timestep: int = None):
         """Set long-term goal(s) used to compute distance from a binary
@@ -55,17 +55,7 @@ class FMMPlanner:
         dd = skfmm.distance(traversible_ma, dx=1)
         dd = ma.filled(dd, np.max(dd) + 1)
         self.fmm_dist = dd
-
-        # Select closest point on goal map for visualization
-        goal_map_ = goal_map.copy()
-        goal_map_[goal_map_ == 0] = np.max(goal_map_) + 1
-        fmm_dist_ = self.fmm_dist.copy()
-        fmm_dist_[fmm_dist_ == 0] = np.max(fmm_dist_) + 1
-        self.closest_goal_map = (goal_map_ * fmm_dist_) == (goal_map_ * fmm_dist_).min()
-        print("closest_goal_map.sum()", self.closest_goal_map.sum())
-        print("(goal_map_ * fmm_dist_).min()", (goal_map_ * fmm_dist_).min())
-        # if self.closest_goal_map.sum() > 1:
-        #     self.closest_goal_map = None  # If can't pick closest point, don't pick any
+        self.goal_map = goal_map
 
         r, c = self.traversible.shape
         dist_vis = np.zeros((r, c * 3))
@@ -119,10 +109,27 @@ class FMMPlanner:
 
         replan = subset[stg_x, stg_y] > -0.0001
 
+        # Select closest point on goal map for visualization
+        closest_goal_map = None
+        print("dist_mask.shape", dist_mask.shape)
+        print("mask.shape", mask.shape)
+        print("dist.shape", dist.shape)
+        print("subset.shape", subset.shape)
+
+        # goal_map = self.goal_map.copy()
+        # goal_map[goal_map == 0] = np.max(goal_map) + 1
+        # fmm_dist = self.fmm_dist.copy()
+        # fmm_dist[fmm_dist == 0] = np.max(fmm_dist) + 1
+        # self.closest_goal_map = (goal_map_ * fmm_dist_) == (goal_map_ * fmm_dist_).min()
+        # print("closest_goal_map.sum()", self.closest_goal_map.sum())
+        # print("(goal_map_ * fmm_dist_).min()", (goal_map_ * fmm_dist_).min())
+        # if self.closest_goal_map.sum() > 1:
+        #     self.closest_goal_map = None  # If can't pick closest point, don't pick any
+
         return (
             (stg_x + state[0] - self.du) * scale,
             (stg_y + state[1] - self.du) * scale,
-            self.closest_goal_map,
+            closest_goal_map,
             replan,
             stop
         )
