@@ -104,7 +104,7 @@ class DiscretePlanner:
              obstacle_map: np.ndarray,
              goal_map: np.ndarray,
              sensor_pose: np.ndarray,
-             found_goal: bool) -> DiscreteActions:
+             found_goal: bool) -> int:
         """Plan a low-level action.
 
         Args:
@@ -132,7 +132,7 @@ class DiscretePlanner:
         self.visited_map[gx1:gx2, gy1:gy2][start[0] - 0:start[0] + 1,
                                            start[1] - 0:start[1] + 1] = 1
 
-        if self.last_action == DiscreteActions.move_forward:
+        if self.last_action == DiscreteActions.move_forward.value:
             self._check_collision()
 
         # High-level goal -> short-term goal
@@ -159,7 +159,7 @@ class DiscretePlanner:
 
         # Short-term goal -> deterministic local policy
         if stop and found_goal:
-            action = DiscreteActions.stop
+            action = DiscreteActions.stop.value
         else:
             stg_x, stg_y = short_term_goal
             angle_st_goal = math.degrees(math.atan2(stg_x - start[0],
@@ -173,11 +173,11 @@ class DiscretePlanner:
                 relative_angle -= 360
 
             if relative_angle > self.turn_angle / 2.:
-                action = DiscreteActions.turn_right
+                action = DiscreteActions.turn_right.value
             elif relative_angle < -self.turn_angle / 2.:
-                action = DiscreteActions.turn_left
+                action = DiscreteActions.turn_left.value
             else:
-                action = DiscreteActions.move_forward
+                action = DiscreteActions.move_forward.value
 
         self.last_action = action
         return action
