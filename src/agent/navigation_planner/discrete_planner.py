@@ -267,10 +267,9 @@ class DiscretePlanner:
         goal_map_[goal_map_ == 0] = np.max(goal_map_) + 1
         fmm_dist_[fmm_dist_ == 0] = np.max(fmm_dist_) + 1
         closest_goal_map = (goal_map_ * fmm_dist_) == (goal_map_ * fmm_dist_).min()
+        closest_goal_map = remove_boundary(closest_goal_map)
         print("closest_goal_map.sum()", closest_goal_map.sum())
 
-        # if closest_goal_map is not None:
-        #     closest_goal_map = remove_boundary(closest_goal_map)
         # closest_goal_map = None
         # print("dist_mask.shape", dist_mask.shape)
         # print("mask.shape", mask.shape)
