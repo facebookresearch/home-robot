@@ -262,7 +262,7 @@ class DiscretePlanner:
         curr_loc_map = np.zeros_like(goal_map)
         curr_loc_map[start[0], start[1]] = 1
         vis_planner.set_multi_goal(curr_loc_map)
-        fmm_dist_ = planner.fmm_dist.copy()
+        fmm_dist_ = vis_planner.fmm_dist.copy()
         goal_map_ = goal_map.copy()
         goal_map_[goal_map_ == 0] = np.max(goal_map_) + 1
         fmm_dist_[fmm_dist_ == 0] = np.max(fmm_dist_) + 1
