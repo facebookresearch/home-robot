@@ -18,7 +18,7 @@ from natsort import natsorted
 import argparse
 from pathlib import Path
 import sys
-sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent.parent.parent.parent.parent))
 
 from habitat import Config
 from habitat.core.vector_env import VectorEnv
