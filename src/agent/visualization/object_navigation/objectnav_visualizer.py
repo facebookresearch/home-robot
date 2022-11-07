@@ -22,7 +22,10 @@ map_color_palette = [
     0.95,  # explored area
     0.96,
     0.36,
-    0.26,  # visited area & goal
+    0.26,  # visited area
+    0.12,
+    0.46,
+    0.70,  # goal
     *coco_categories_color_palette,
 ]
 
@@ -131,7 +134,7 @@ class ObjectNavVisualizer:
                 last_pose, curr_pose, self.visited_map_vis[gy1:gy2, gx1:gx2])
         self.last_xy = (curr_x, curr_y)
 
-        semantic_map += 4
+        semantic_map += 5
 
         # Obstacles, explored, and visited areas
         no_category_mask = semantic_map == 4 + self.num_sem_categories - 1
@@ -148,7 +151,7 @@ class ObjectNavVisualizer:
             selem = skimage.morphology.disk(4)
             goal_mat = 1 - skimage.morphology.binary_dilation(goal_map, selem) != True
             goal_mask = goal_mat == 1
-            semantic_map[goal_mask] = 3
+            semantic_map[goal_mask] = 4
 
         # Semantic categories
         semantic_map_vis = Image.new("P", (semantic_map.shape[1], semantic_map.shape[0]))
