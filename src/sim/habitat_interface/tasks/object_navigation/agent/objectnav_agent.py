@@ -65,12 +65,12 @@ class ObjectNavAgent(habitat.Agent):
         )
         self.visualizer = ObjectNavVisualizer(
             num_sem_categories=config.ENVIRONMENT.num_sem_categories,
-            map_size_cm = config.AGENT.SEMANTIC_MAP.map_size_cm,
-            map_resolution = config.AGENT.SEMANTIC_MAP.map_resolution,
-            visualize = config.VISUALIZE,
-            print_images = config.PRINT_IMAGES,
-            dump_location = config.DUMP_LOCATION,
-            exp_name = config.EXP_NAME
+            map_size_cm=config.AGENT.SEMANTIC_MAP.map_size_cm,
+            map_resolution=config.AGENT.SEMANTIC_MAP.map_resolution,
+            show_images=config.VISUALIZE,
+            print_images=config.PRINT_IMAGES,
+            dump_location=config.DUMP_LOCATION,
+            exp_name=config.EXP_NAME
         )
 
         self.goal_update_steps = self._module.goal_update_steps
