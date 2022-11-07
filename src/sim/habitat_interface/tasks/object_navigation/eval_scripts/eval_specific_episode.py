@@ -63,7 +63,8 @@ if __name__ == "__main__":
     while not env.episode_over:
         t += 1
         print(t)
-        print(obs.keys())
+        print(obs["objectgoal"])
+        print(env.current_episode.goals)
         action = agent.act(obs)
         obs = env.step(action)
 
