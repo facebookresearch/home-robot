@@ -216,6 +216,9 @@ class DiscretePlanner:
             new_mat[1:h + 1, 1:w + 1] = mat
             return new_mat
 
+        def remove_boundary(mat, value=1):
+            return mat[value:-value, value:-value]
+
         obstacles = obstacle_map[x1:x2, y1:y2]
 
         # Dilate obstacles
@@ -250,6 +253,7 @@ class DiscretePlanner:
 
         state = [start[0] - x1 + 1, start[1] - y1 + 1]
         stg_x, stg_y, closest_goal_map, replan, stop = planner.get_short_term_goal(state)
+        closest_goal_map = remove_boundary(closest_goal_map)
         stg_x, stg_y = stg_x + x1 - 1, stg_y + y1 - 1
         short_term_goal = int(stg_x), int(stg_y)
         return short_term_goal, closest_goal_map, replan, stop
