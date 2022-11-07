@@ -1,12 +1,12 @@
 from pathlib import Path
 import sys
-sys.path.insert(0, str(Path(__file__).resolve().parent.parent.parent.parent.parent))
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent.parent.parent.parent.parent))
 
 from habitat.core.env import Env
 from habitat.core.simulator import Observations
 
-from sim.habitat.utils.config_utils import get_config
-from sim.habitat.tasks.object_navigation.agent.objectnav_agent import ObjectNavAgent
+from sim.habitat_interface.utils.config_utils import get_config
+from sim.habitat_interface.tasks.object_navigation.agent.objectnav_agent import ObjectNavAgent
 
 
 def reset_to_episode(env: Env,
