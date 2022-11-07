@@ -63,7 +63,6 @@ if __name__ == "__main__":
     while not env.episode_over:
         t += 1
         print(t)
-        print(env.get_metrics())
         action = agent.act(obs)
         obs = env.step(action)
 

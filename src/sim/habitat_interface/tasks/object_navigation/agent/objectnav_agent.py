@@ -58,8 +58,8 @@ class ObjectNavAgent(habitat.Agent):
             goal_dilation_selem_radius=config.AGENT.PLANNER.goal_dilation_selem_radius,
             map_size_cm=config.AGENT.SEMANTIC_MAP.map_size_cm,
             map_resolution=config.AGENT.SEMANTIC_MAP.map_resolution,
-            visualize=config.VISUALIZE,
-            print_images=config.PRINT_IMAGES,
+            visualize=False,
+            print_images=False,
             dump_location=config.DUMP_LOCATION,
             exp_name=config.EXP_NAME
         )

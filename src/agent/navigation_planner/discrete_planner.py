@@ -3,7 +3,7 @@ import shutil
 import cv2
 import math
 import numpy as np
-from typing import Tuple, List, Optional
+from typing import Tuple, List
 import skimage.morphology
 from enum import Enum
 import time
@@ -104,7 +104,7 @@ class DiscretePlanner:
              obstacle_map: np.ndarray,
              goal_map: np.ndarray,
              sensor_pose: np.ndarray,
-             found_goal: bool) -> Tuple[int, Optional[np.ndarray]]:
+             found_goal: bool) -> Tuple[int, np.ndarray]:
         """Plan a low-level action.
 
         Args:
@@ -189,7 +189,7 @@ class DiscretePlanner:
                              goal_map: np.ndarray,
                              start: List[int],
                              planning_window: List[int],
-                             ) -> Tuple[Tuple[int, int], Optional[np.ndarray], bool, bool]:
+                             ) -> Tuple[Tuple[int, int], np.ndarray, bool, bool]:
         """Get short-term goal.
 
         Args:

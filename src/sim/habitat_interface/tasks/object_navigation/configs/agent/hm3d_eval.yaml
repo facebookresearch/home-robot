@@ -40,7 +40,6 @@ AGENT:
 
 EVAL_VECTORIZED:
   specific_episodes: 0      # 1: eval on specific episodes (for debugging), 0: eval on split normally
-  specific_category: 0      # "chair": eval only on chair episodes, 0: eval on all episodes
   goal_on_same_floor: 0     # 1: restrict to episodes with a goal on the same floor as the starting position
   split: val                # eval split
   num_episodes_per_env: 100 # number of eval episodes per environment
