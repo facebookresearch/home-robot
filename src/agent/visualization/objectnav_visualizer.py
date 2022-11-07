@@ -7,7 +7,7 @@ import skimage.morphology
 
 import agent.utils.visualization_utils as vu
 import agent.utils.pose_utils as pu
-from agent.perception.segmentation.coco_mask_rcnn.coco_categories import coco_categories_color_palette
+from agent.perception.segmentation.coco_maskrcnn.coco_categories import coco_categories_color_palette
 
 
 map_color_palette = [
