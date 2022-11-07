@@ -269,6 +269,10 @@ class DiscretePlanner:
         closest_goal_map = (goal_map_ * fmm_dist_) == (goal_map_ * fmm_dist_).min()
         closest_goal_map = remove_boundary(closest_goal_map)
         print("closest_goal_map.sum()", closest_goal_map.sum())
+        cv2.imwrite("curr_loc_map.png", (curr_loc_map * 255).astype(np.uint8))
+        cv2.imwrite("fmm_dist_.png", (fmm_dist_ * 255).astype(np.uint8))
+        cv2.imwrite("goal_map.png", (goal_map * 255).astype(np.uint8))
+        cv2.imwrite("closest_goal_map.png", (closest_goal_map * 255).astype(np.uint8))
 
         return short_term_goal, closest_goal_map, replan, stop
 
