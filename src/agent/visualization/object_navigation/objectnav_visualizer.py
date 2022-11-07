@@ -54,7 +54,9 @@ class ObjectNavVisualizer:
         os.makedirs(self.default_vis_dir, exist_ok=True)
 
         self.color_palette = [int(x * 255.) for x in map_color_palette]
-        self.legend = cv2.imread("submission/visualizer/legend.png")
+        self.legend = cv2.imread(
+            "agent/perception/segmentation/coco_maskrcnn/coco_categories_legend.png"
+        )
 
         self.num_sem_categories = num_sem_categories
         self.map_resolution = map_resolution

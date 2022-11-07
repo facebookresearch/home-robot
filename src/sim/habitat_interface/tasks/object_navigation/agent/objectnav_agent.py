@@ -12,7 +12,7 @@ from .objectnav_agent_module import ObjectNavAgentModule
 from sim.habitat_interface.tasks.object_navigation.obs_preprocessor.obs_preprocessor import ObsPreprocessor
 from agent.mapping.metric.semantic.semantic_map_state import SemanticMapState
 from agent.navigation_planner.discrete_planner import DiscretePlanner
-from agent.visualization.objectnav_visualizer import ObjectNavVisualizer
+from agent.visualization.object_navigation.objectnav_visualizer import ObjectNavVisualizer
 
 
 class ObjectNavAgent(habitat.Agent):
