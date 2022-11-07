@@ -144,8 +144,8 @@ class SemanticMapModule(nn.Module):
             batch_size,
             sequence_length,
             map_features_channels,
-            self.local_h,
-            self.local_w,
+            self.local_map_size,
+            self.local_map_size,
             device=device,
             dtype=dtype
         )
@@ -372,8 +372,8 @@ class SemanticMapModule(nn.Module):
         map_features = torch.zeros(
             local_map.size(0),
             map_features_channels,
-            self.local_h,
-            self.local_w,
+            self.local_map_size,
+            self.local_map_size,
             device=local_map.device,
             dtype=local_map.dtype
         )
