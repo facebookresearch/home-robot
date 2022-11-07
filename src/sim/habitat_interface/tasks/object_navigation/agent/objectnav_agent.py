@@ -150,7 +150,6 @@ class ObjectNavAgent(habitat.Agent):
 
         goal_map = goal_map.squeeze(1).cpu().numpy()
         found_goal = found_goal.squeeze(1).cpu()
-        goal_category = goal_category.cpu()
 
         for e in range(self.num_environments):
             if found_goal[e]:
@@ -236,6 +235,7 @@ class ObjectNavAgent(habitat.Agent):
         # print(f"[Agent] Semantic mapping and policy time: {t2 - t1:.2f}")
 
         # 3 - Planning
+        closest_goal_map = None
         if planner_inputs[0]["found_goal"]:
             self.episode_panorama_start_steps = 0
         if self.timesteps[0] < self.episode_panorama_start_steps:
@@ -243,7 +243,7 @@ class ObjectNavAgent(habitat.Agent):
         elif self.timesteps[0] > self.max_steps:
             action = HabitatSimActions.STOP
         else:
-            action = self.planner.plan(**planner_inputs[0])
+            action, closest_goal_map = self.planner.plan(**planner_inputs[0])
         self.obs_preprocessor.last_actions[0] = action
 
         # t3 = time.time()
@@ -252,6 +252,7 @@ class ObjectNavAgent(habitat.Agent):
         # 4 - Visualization
         vis_inputs[0]["semantic_frame"] = semantic_frame[0]
         vis_inputs[0]["goal_name"] = goal_name[0]
+        vis_inputs[0]["closest_goal_map"] = closest_goal_map
         self.visualizer.visualize(**planner_inputs[0], **vis_inputs[0])
 
         # t4 = time.time()

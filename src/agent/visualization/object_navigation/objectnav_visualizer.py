@@ -4,6 +4,7 @@ import numpy as np
 import cv2
 from PIL import Image
 import skimage.morphology
+from typing import Optional
 
 import agent.utils.visualization_utils as vu
 import agent.utils.pose_utils as pu
@@ -25,7 +26,10 @@ map_color_palette = [
     0.26,  # visited area
     0.12,
     0.46,
-    0.70,  # goal
+    0.70,  # closest goal
+    0.63,
+    0.78,
+    0.95,  # rest of goal
     *coco_categories_color_palette,
 ]
 
@@ -92,6 +96,7 @@ class ObjectNavVisualizer:
     def visualize(self,
                   obstacle_map: np.ndarray,
                   goal_map: np.ndarray,
+                  closest_goal_map: Optional[np.ndarray],
                   sensor_pose: np.ndarray,
                   found_goal: bool,
                   explored_map: np.ndarray,
@@ -105,6 +110,8 @@ class ObjectNavVisualizer:
         Args:
             obstacle_map: (M, M) binary local obstacle map prediction
             goal_map: (M, M) binary array denoting goal location
+            closest_goal_map: (M, M) binary array denoting closest goal
+             location in the goal map in geodesic distance
             sensor_pose: (7,) array denoting global pose (x, y, o)
              and local map boundaries planning window (gy1, gy2, gx1, gy2)
             found_goal: whether we found the object goal category
@@ -134,10 +141,10 @@ class ObjectNavVisualizer:
                 last_pose, curr_pose, self.visited_map_vis[gy1:gy2, gx1:gx2])
         self.last_xy = (curr_x, curr_y)
 
-        semantic_map += 5
+        semantic_map += 6
 
         # Obstacles, explored, and visited areas
-        no_category_mask = semantic_map == 5 + self.num_sem_categories - 1
+        no_category_mask = semantic_map == 6 + self.num_sem_categories - 1
         obstacle_mask = np.rint(obstacle_map) == 1
         explored_mask = np.rint(explored_map) == 1
         visited_mask = self.visited_map_vis[gy1:gy2, gx1:gx2] == 1
@@ -151,7 +158,11 @@ class ObjectNavVisualizer:
             selem = skimage.morphology.disk(4)
             goal_mat = 1 - skimage.morphology.binary_dilation(goal_map, selem) != True
             goal_mask = goal_mat == 1
-            semantic_map[goal_mask] = 4
+            semantic_map[goal_mask] = 5
+            if closest_goal_map is not None:
+                closest_goal_mat = 1 - skimage.morphology.binary_dilation(closest_goal_map, selem) != True
+                closest_goal_mask = closest_goal_mat == 1
+                semantic_map[closest_goal_mask] = 4
 
         # Semantic categories
         semantic_map_vis = Image.new("P", (semantic_map.shape[1], semantic_map.shape[0]))

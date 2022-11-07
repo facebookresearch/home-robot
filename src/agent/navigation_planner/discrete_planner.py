@@ -3,7 +3,7 @@ import shutil
 import cv2
 import math
 import numpy as np
-from typing import Tuple, List
+from typing import Tuple, List, Optional
 import skimage.morphology
 from enum import Enum
 import time
@@ -104,7 +104,7 @@ class DiscretePlanner:
              obstacle_map: np.ndarray,
              goal_map: np.ndarray,
              sensor_pose: np.ndarray,
-             found_goal: bool) -> int:
+             found_goal: bool) -> Tuple[int, Optional[np.ndarray]]:
         """Plan a low-level action.
 
         Args:
@@ -116,6 +116,8 @@ class DiscretePlanner:
 
         Returns:
             action: low-level action
+            closest_goal_map: (M, M) binary array denoting closest goal
+             location in the goal map in geodesic distance
         """
         self.last_pose = self.curr_pose
         obstacle_map = np.rint(obstacle_map)
@@ -137,7 +139,7 @@ class DiscretePlanner:
 
         # High-level goal -> short-term goal
         # t0 = time.time()
-        short_term_goal, replan, stop = self._get_short_term_goal(
+        short_term_goal, closest_goal_map, replan, stop = self._get_short_term_goal(
             obstacle_map,
             np.copy(goal_map),
             start,
@@ -180,14 +182,14 @@ class DiscretePlanner:
                 action = DiscreteActions.move_forward.value
 
         self.last_action = action
-        return action
+        return action, closest_goal_map
 
     def _get_short_term_goal(self,
                              obstacle_map: np.ndarray,
                              goal_map: np.ndarray,
                              start: List[int],
                              planning_window: List[int],
-                             ) -> Tuple[Tuple[int, int], bool, bool]:
+                             ) -> Tuple[Tuple[int, int], Optional[np.ndarray], bool, bool]:
         """Get short-term goal.
 
         Args:
@@ -198,6 +200,10 @@ class DiscretePlanner:
 
         Returns:
             short_term_goal: short-term goal position (x, y) in map
+            closest_goal_map: (M, M) binary array denoting closest goal
+             location in the goal map in geodesic distance
+            replan: binary flag to indicate we couldn't find a plan to reach
+             the goal
             stop: binary flag to indicate we've reached the goal
         """
         gx1, gx2, gy1, gy2 = planning_window
@@ -243,10 +249,10 @@ class DiscretePlanner:
         self.timestep += 1
 
         state = [start[0] - x1 + 1, start[1] - y1 + 1]
-        stg_x, stg_y, replan, stop = planner.get_short_term_goal(state)
+        stg_x, stg_y, closest_goal_map, replan, stop = planner.get_short_term_goal(state)
         stg_x, stg_y = stg_x + x1 - 1, stg_y + y1 - 1
         short_term_goal = int(stg_x), int(stg_y)
-        return short_term_goal, replan, stop
+        return short_term_goal, closest_goal_map, replan, stop
 
     def _check_collision(self):
         """Check whether we had a collision and update the collision map."""

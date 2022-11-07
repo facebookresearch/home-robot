@@ -43,6 +43,7 @@ class FMMPlanner:
             self.traversible = traversible
 
         self.du = int(self.step_size / (self.scale * 1.))
+        self.goal_map = None
         self.fmm_dist = None
 
     def set_multi_goal(self, goal_map: np.ndarray, timestep: int = None):
@@ -53,6 +54,7 @@ class FMMPlanner:
         traversible_ma[goal_map == 1] = 0
         dd = skfmm.distance(traversible_ma, dx=1)
         dd = ma.filled(dd, np.max(dd) + 1)
+        self.goal_map = goal_map
         self.fmm_dist = dd
 
         r, c = self.traversible.shape
@@ -107,8 +109,22 @@ class FMMPlanner:
 
         replan = subset[stg_x, stg_y] > -0.0001
 
-        return (stg_x + state[0] - self.du) * scale, \
-               (stg_y + state[1] - self.du) * scale, replan, stop
+        # Select closest point on goal map for visualization
+        goal_map = self.goal_map.copy()
+        goal_map[goal_map == 0] = 100000
+        fmm_dist = self.fmm_dist.copy()
+        fmm_dist[fmm_dist == 0] = 100000
+        closest_goal_map = (goal_map * fmm_dist) == (goal_map * fmm_dist).min()
+        if closest_goal_map.sum() > 1:
+            closest_goal_map = None  # If can't pick closest point, don't pick any
+
+        return (
+            (stg_x + state[0] - self.du) * scale,
+            (stg_y + state[1] - self.du) * scale,
+            closest_goal_map,
+            replan,
+            stop
+        )
 
     @staticmethod
     def get_mask(sx, sy, scale, step_size):

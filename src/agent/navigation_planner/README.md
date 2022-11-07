@@ -28,7 +28,7 @@ discrete_planner = DiscretePlanner(
 #    turn_left = 2
 #    turn_right = 3
 #
-discrete_action = planner.plan(
+discrete_action, _ = planner.plan(
     obstacle_map,
     goal_map,
     sensor_pose,
