@@ -252,11 +252,41 @@ class DiscretePlanner:
         self.timestep += 1
 
         state = [start[0] - x1 + 1, start[1] - y1 + 1]
-        stg_x, stg_y, closest_goal_map, replan, stop = planner.get_short_term_goal(state)
-        if closest_goal_map is not None:
-            closest_goal_map = remove_boundary(closest_goal_map)
+        stg_x, stg_y, replan, stop = planner.get_short_term_goal(state)
         stg_x, stg_y = stg_x + x1 - 1, stg_y + y1 - 1
         short_term_goal = int(stg_x), int(stg_y)
+
+        # Select closest point on goal map for visualization
+        # TODO How to do this without the overhead of creating another FMM planner?
+        vis_planner = FMMPlanner(traversible)
+        curr_loc_map = np.zeros_like(goal_map)
+        curr_loc_map[start[0], start[1]] = 1
+        vis_planner.set_multi_goal(curr_loc_map)
+        fmm_dist_ = planner.fmm_dist.copy()
+        goal_map_ = goal_map.copy()
+        goal_map_[goal_map_ == 0] = np.max(goal_map_) + 1
+        fmm_dist_[fmm_dist_ == 0] = np.max(fmm_dist_) + 1
+        closest_goal_map = (goal_map_ * fmm_dist_) == (goal_map_ * fmm_dist_).min()
+        print("closest_goal_map.sum()", closest_goal_map.sum())
+
+        # if closest_goal_map is not None:
+        #     closest_goal_map = remove_boundary(closest_goal_map)
+        # closest_goal_map = None
+        # print("dist_mask.shape", dist_mask.shape)
+        # print("mask.shape", mask.shape)
+        # print("dist.shape", dist.shape)
+        # print("subset.shape", subset.shape)
+        #
+        # goal_map = self.goal_map.copy()
+        # goal_map[goal_map == 0] = np.max(goal_map) + 1
+        # fmm_dist = self.fmm_dist.copy()
+        # fmm_dist[fmm_dist == 0] = np.max(fmm_dist) + 1
+        # self.closest_goal_map = (goal_map_ * fmm_dist_) == (goal_map_ * fmm_dist_).min()
+        # print("closest_goal_map.sum()", self.closest_goal_map.sum())
+        # print("(goal_map_ * fmm_dist_).min()", (goal_map_ * fmm_dist_).min())
+        # if self.closest_goal_map.sum() > 1:
+        #     self.closest_goal_map = None  # If can't pick closest point, don't pick any
+
         return short_term_goal, closest_goal_map, replan, stop
 
     def _check_collision(self):

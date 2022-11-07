@@ -109,27 +109,9 @@ class FMMPlanner:
 
         replan = subset[stg_x, stg_y] > -0.0001
 
-        # Select closest point on goal map for visualization
-        closest_goal_map = None
-        print("dist_mask.shape", dist_mask.shape)
-        print("mask.shape", mask.shape)
-        print("dist.shape", dist.shape)
-        print("subset.shape", subset.shape)
-
-        # goal_map = self.goal_map.copy()
-        # goal_map[goal_map == 0] = np.max(goal_map) + 1
-        # fmm_dist = self.fmm_dist.copy()
-        # fmm_dist[fmm_dist == 0] = np.max(fmm_dist) + 1
-        # self.closest_goal_map = (goal_map_ * fmm_dist_) == (goal_map_ * fmm_dist_).min()
-        # print("closest_goal_map.sum()", self.closest_goal_map.sum())
-        # print("(goal_map_ * fmm_dist_).min()", (goal_map_ * fmm_dist_).min())
-        # if self.closest_goal_map.sum() > 1:
-        #     self.closest_goal_map = None  # If can't pick closest point, don't pick any
-
         return (
             (stg_x + state[0] - self.du) * scale,
             (stg_y + state[1] - self.du) * scale,
-            closest_goal_map,
             replan,
             stop
         )
