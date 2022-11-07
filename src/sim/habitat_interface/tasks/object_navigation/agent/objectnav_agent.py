@@ -8,8 +8,8 @@ from habitat import Config
 from habitat.core.simulator import Observations
 from habitat.sims.habitat_simulator.actions import HabitatSimActions
 
-from .object_navigation_agent_module import ObjectNavAgentModule
-from sim.habitat.tasks.object_navigation.obs_preprocessor.obs_preprocessor import ObsPreprocessor
+from .objectnav_agent_module import ObjectNavAgentModule
+from sim.habitat_interface.tasks.object_navigation.obs_preprocessor.obs_preprocessor import ObsPreprocessor
 from agent.mapping.metric.semantic.semantic_map_state import SemanticMapState
 from agent.navigation_planner.discrete_planner import DiscretePlanner
 from agent.visualization.objectnav_visualizer import ObjectNavVisualizer
