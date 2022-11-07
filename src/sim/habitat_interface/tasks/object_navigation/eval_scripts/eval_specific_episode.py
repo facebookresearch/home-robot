@@ -64,7 +64,6 @@ if __name__ == "__main__":
         t += 1
         print(t)
         print(obs["objectgoal"])
-        print(env.current_episode.goals)
         action = agent.act(obs)
         obs = env.step(action)
 
