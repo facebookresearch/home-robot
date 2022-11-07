@@ -10,13 +10,15 @@ class SemanticMapState:
     agent's current goal.
     """
 
-    def __init__(self,
-                 device: torch.device,
-                 num_environments: int,
-                 num_sem_categories: int,
-                 map_resolution: int,
-                 map_size_cm: int,
-                 global_downscaling: int):
+    def __init__(
+        self,
+        device: torch.device,
+        num_environments: int,
+        num_sem_categories: int,
+        map_resolution: int,
+        map_size_cm: int,
+        global_downscaling: int,
+    ):
         """
         Arguments:
             device: torch device on which to store map state
@@ -32,7 +34,8 @@ class SemanticMapState:
         self.num_sem_categories = num_sem_categories
 
         self.map_size_parameters = MapSizeParameters(
-            map_resolution, map_size_cm, global_downscaling)
+            map_resolution, map_size_cm, global_downscaling
+        )
         self.resolution = map_resolution
         self.global_map_size_cm = map_size_cm
         self.global_downscaling = global_downscaling
@@ -49,14 +52,18 @@ class SemanticMapState:
         num_channels = self.num_sem_categories + 4
 
         self.global_map = torch.zeros(
-            self.num_environments, num_channels,
-            self.global_map_size, self.global_map_size,
-            device=self.device
+            self.num_environments,
+            num_channels,
+            self.global_map_size,
+            self.global_map_size,
+            device=self.device,
         )
         self.local_map = torch.zeros(
-            self.num_environments, num_channels,
-            self.local_map_size, self.local_map_size,
-            device=self.device
+            self.num_environments,
+            num_channels,
+            self.local_map_size,
+            self.local_map_size,
+            device=self.device,
         )
 
         # Global and local (x, y, o) sensor pose
@@ -67,10 +74,14 @@ class SemanticMapState:
         self.origins = torch.zeros(self.num_environments, 3, device=self.device)
 
         # Local map boundaries
-        self.lmb = torch.zeros(self.num_environments, 4, dtype=torch.int32, device=self.device)
+        self.lmb = torch.zeros(
+            self.num_environments, 4, dtype=torch.int32, device=self.device
+        )
 
         # Binary map encoding agent high-level goal
-        self.goal_map = np.zeros((self.num_environments, self.local_map_size, self.local_map_size))
+        self.goal_map = np.zeros(
+            (self.num_environments, self.local_map_size, self.local_map_size)
+        )
 
     def init_map_and_pose(self):
         """Initialize global and local map and sensor pose variables."""
@@ -82,9 +93,16 @@ class SemanticMapState:
         a specific environment.
         """
         init_map_and_pose_for_env(
-            e, self.local_map, self.global_map, self.local_pose, self.global_pose,
-            self.lmb, self.origins, self.map_size_parameters)
-        self.goal_map[e] *= 0.
+            e,
+            self.local_map,
+            self.global_map,
+            self.local_pose,
+            self.global_pose,
+            self.lmb,
+            self.origins,
+            self.map_size_parameters,
+        )
+        self.goal_map[e] *= 0.0
 
     def update_global_goal_for_env(self, e: int, goal_map: np.ndarray):
         """Update global goal for a specific environment with the goal action chosen
@@ -110,8 +128,10 @@ class SemanticMapState:
     def get_semantic_map(self, e) -> np.ndarray:
         """Get local map of semantic categories for an environment."""
         semantic_map = np.copy(self.local_map[e].cpu().float().numpy())
-        semantic_map[3 + self.num_sem_categories, :, :] = 1e-5  # Last category is unlabeled
-        semantic_map = semantic_map[4:4 + self.num_sem_categories, :, :].argmax(0)
+        semantic_map[
+            3 + self.num_sem_categories, :, :
+        ] = 1e-5  # Last category is unlabeled
+        semantic_map = semantic_map[4 : 4 + self.num_sem_categories, :, :].argmax(0)
         return semantic_map
 
     def get_planner_pose_inputs(self, e) -> np.ndarray:
@@ -122,10 +142,12 @@ class SemanticMapState:
              1-3: Global pose
              4-7: Local map boundaries
         """
-        return torch.cat([
-            self.local_pose[e] + self.origins[e],
-            self.lmb[e]
-        ]).cpu().float().numpy()
+        return (
+            torch.cat([self.local_pose[e] + self.origins[e], self.lmb[e]])
+            .cpu()
+            .float()
+            .numpy()
+        )
 
     def get_goal_map(self, e) -> np.ndarray:
         """Get binary goal map encoding current global goal for an

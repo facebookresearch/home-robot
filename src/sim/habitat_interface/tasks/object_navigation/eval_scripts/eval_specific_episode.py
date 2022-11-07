@@ -4,27 +4,32 @@ python sim/habitat_interface/tasks/object_navigation/eval_scripts/eval_specific_
 """
 from pathlib import Path
 import sys
-sys.path.insert(0, str(Path(__file__).resolve().parent.parent.parent.parent.parent.parent))
+
+sys.path.insert(
+    0, str(Path(__file__).resolve().parent.parent.parent.parent.parent.parent)
+)
 
 from habitat.core.env import Env
 from habitat.core.simulator import Observations
 
 from sim.habitat_interface.utils.config_utils import get_config
-from sim.habitat_interface.tasks.object_navigation.agent.objectnav_agent import ObjectNavAgent
+from sim.habitat_interface.tasks.object_navigation.agent.objectnav_agent import (
+    ObjectNavAgent,
+)
 
 
-def reset_to_episode(env: Env,
-                     scene_id: str,
-                     episode_id: str) -> Observations:
+def reset_to_episode(env: Env, scene_id: str, episode_id: str) -> Observations:
     """
     Adapted from:
     https://github.com/facebookresearch/habitat-lab/blob/main/habitat/core/env.py
     """
     env._reset_stats()
 
-    episode = [e for e in env.episodes
-               if e.episode_id == episode_id and
-               e.scene_id.endswith(f"{scene_id}.basis.glb")][0]
+    episode = [
+        e
+        for e in env.episodes
+        if e.episode_id == episode_id and e.scene_id.endswith(f"{scene_id}.basis.glb")
+    ][0]
     env._current_episode = episode
 
     env._episode_from_iter_on_reset = True
@@ -42,7 +47,9 @@ def reset_to_episode(env: Env,
 
 
 if __name__ == "__main__":
-    config_path = Path(__file__).resolve().parent.parent / "configs/agent/hm3d_eval.yaml"
+    config_path = (
+        Path(__file__).resolve().parent.parent / "configs/agent/hm3d_eval.yaml"
+    )
     config, config_str = get_config(config_path)
     config.defrost()
     config.NUM_ENVIRONMENTS = 1

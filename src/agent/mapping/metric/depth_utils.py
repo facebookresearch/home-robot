@@ -8,10 +8,10 @@ from . import rotation_utils as ru
 
 def get_camera_matrix(width, height, fov):
     """Returns a camera matrix from image size and fov."""
-    xc = (width - 1.) / 2.
-    zc = (height - 1.) / 2.
-    f = (width / 2.) / np.tan(np.deg2rad(fov / 2.))
-    camera_matrix = {'xc': xc, 'zc': zc, 'f': f}
+    xc = (width - 1.0) / 2.0
+    zc = (height - 1.0) / 2.0
+    f = (width / 2.0) / np.tan(np.deg2rad(fov / 2.0))
+    camera_matrix = {"xc": xc, "zc": zc, "f": f}
     camera_matrix = Namespace(**camera_matrix)
     return camera_matrix
 
@@ -29,25 +29,30 @@ def get_point_cloud_from_z_t(Y_t, camera_matrix, device, scale=1):
     """
     grid_x, grid_z = torch.meshgrid(
         torch.arange(Y_t.shape[-1], device=device),
-        torch.arange(Y_t.shape[-2] - 1, -1, -1, device=device))
+        torch.arange(Y_t.shape[-2] - 1, -1, -1, device=device),
+    )
     grid_x = grid_x.transpose(1, 0)
     grid_z = grid_z.transpose(1, 0)
     grid_x = grid_x.unsqueeze(0).expand(Y_t.size())
     grid_z = grid_z.unsqueeze(0).expand(Y_t.size())
 
-    X_t = (grid_x[:, ::scale, ::scale] - camera_matrix.xc) * \
-        Y_t[:, ::scale, ::scale] / camera_matrix.f
-    Z_t = (grid_z[:, ::scale, ::scale] - camera_matrix.zc) * \
-        Y_t[:, ::scale, ::scale] / camera_matrix.f
+    X_t = (
+        (grid_x[:, ::scale, ::scale] - camera_matrix.xc)
+        * Y_t[:, ::scale, ::scale]
+        / camera_matrix.f
+    )
+    Z_t = (
+        (grid_z[:, ::scale, ::scale] - camera_matrix.zc)
+        * Y_t[:, ::scale, ::scale]
+        / camera_matrix.f
+    )
 
-    XYZ = torch.stack(
-        (X_t, Y_t[:, ::scale, ::scale], Z_t), dim=len(Y_t.size()))
+    XYZ = torch.stack((X_t, Y_t[:, ::scale, ::scale], Z_t), dim=len(Y_t.size()))
 
     return XYZ
 
 
-def transform_camera_view_t(
-        XYZ, sensor_height, camera_elevation_degree, device):
+def transform_camera_view_t(XYZ, sensor_height, camera_elevation_degree, device):
     """
     Transforms the point cloud into geocentric frame to account for
     camera elevation and angle
@@ -58,11 +63,9 @@ def transform_camera_view_t(
     Output:
         XYZ : ...x3
     """
-    R = ru.get_r_matrix(
-        [1., 0., 0.], angle=np.deg2rad(camera_elevation_degree))
+    R = ru.get_r_matrix([1.0, 0.0, 0.0], angle=np.deg2rad(camera_elevation_degree))
     XYZ = torch.matmul(
-        XYZ.reshape(-1, 3),
-        torch.from_numpy(R).float().transpose(1, 0).to(device)
+        XYZ.reshape(-1, 3), torch.from_numpy(R).float().transpose(1, 0).to(device)
     ).reshape(XYZ.shape)
     XYZ[..., 2] = XYZ[..., 2] + sensor_height
     return XYZ
@@ -78,10 +81,9 @@ def transform_pose_t(XYZ, current_pose, device):
     Output:
         XYZ : ...x3
     """
-    R = ru.get_r_matrix([0., 0., 1.], angle=current_pose[2] - np.pi / 2.)
+    R = ru.get_r_matrix([0.0, 0.0, 1.0], angle=current_pose[2] - np.pi / 2.0)
     XYZ = torch.matmul(
-        XYZ.reshape(-1, 3),
-        torch.from_numpy(R).float().transpose(1, 0).to(device)
+        XYZ.reshape(-1, 3), torch.from_numpy(R).float().transpose(1, 0).to(device)
     ).reshape(XYZ.shape)
     XYZ[..., 0] += current_pose[0]
     XYZ[..., 1] += current_pose[1]

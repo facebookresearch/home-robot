@@ -1,4 +1,6 @@
-from agent.perception.segmentation.coco_maskrcnn.coco_categories import coco_categories_color_palette
+from agent.perception.segmentation.coco_maskrcnn.coco_categories import (
+    coco_categories_color_palette,
+)
 
 
 MIN_DEPTH_REPLACEMENT_VALUE = 10000
@@ -10,7 +12,7 @@ challenge_goal_name_to_goal_name = {
     "plant": "potted plant",
     "bed": "bed",
     "toilet": "toilet",
-    "tv_monitor": "tv"
+    "tv_monitor": "tv",
 }
 
 goal_id_to_goal_name = {

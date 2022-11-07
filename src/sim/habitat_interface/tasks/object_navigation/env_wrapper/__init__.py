@@ -15,21 +15,21 @@ def _get_env_gpus(config: Config, rank: int) -> List[int]:
     num_env_gpus = len(config.EVAL_VECTORIZED.simulator_gpu_ids)
     num_env_gpus_per_agent_process = num_env_gpus // num_agent_processes
     assert num_agent_processes > 0
-    assert (num_env_gpus >= num_agent_processes and
-            num_env_gpus % num_agent_processes == 0)
+    assert (
+        num_env_gpus >= num_agent_processes and num_env_gpus % num_agent_processes == 0
+    )
 
     def chunks(lst, n):
         """Yield successive n-sized chunks from lst."""
-        return [lst[i:i + n] for i in range(0, len(lst), n)]
+        return [lst[i : i + n] for i in range(0, len(lst), n)]
 
-    gpus = chunks(config.EVAL_VECTORIZED.simulator_gpu_ids,
-                  num_env_gpus_per_agent_process)[rank]
+    gpus = chunks(
+        config.EVAL_VECTORIZED.simulator_gpu_ids, num_env_gpus_per_agent_process
+    )[rank]
     return gpus
 
 
-def make_vector_envs(config: Config,
-                     max_scene_repeat_episodes: int = -1
-                     ) -> VectorEnv:
+def make_vector_envs(config: Config, max_scene_repeat_episodes: int = -1) -> VectorEnv:
     """Create vectorized environments and split scenes across environments.
     Arguments:
         max_scene_repeat_episodes: if > 0, this is the maximum number of
@@ -40,7 +40,7 @@ def make_vector_envs(config: Config,
     gpus = _get_env_gpus(config, rank=0)
     num_gpus = len(gpus)
     num_envs = config.NUM_ENVIRONMENTS
-    assert (num_envs >= num_gpus and num_envs % num_gpus == 0)
+    assert num_envs >= num_gpus and num_envs % num_gpus == 0
     num_envs_per_gpu = num_envs // num_gpus
 
     dataset = make_dataset(config.TASK_CONFIG.DATASET.TYPE)
@@ -75,22 +75,22 @@ def make_vector_envs(config: Config,
             if not proc_config.NO_GPU:
                 task_config.SIMULATOR.HABITAT_SIM_V0.GPU_DEVICE_ID = gpus[i]
             task_config.ENVIRONMENT.ITERATOR_OPTIONS.MAX_SCENE_REPEAT_STEPS = -1
-            task_config.ENVIRONMENT.ITERATOR_OPTIONS.MAX_SCENE_REPEAT_EPISODES = max_scene_repeat_episodes
+            task_config.ENVIRONMENT.ITERATOR_OPTIONS.MAX_SCENE_REPEAT_EPISODES = (
+                max_scene_repeat_episodes
+            )
             proc_config.freeze()
             configs.append(proc_config)
 
     envs = VectorEnv(
         make_env_fn=make_env_fn,
-        env_fn_args=tuple([(configs[rank],)
-                           for rank in range(len(configs))])
+        env_fn_args=tuple([(configs[rank],) for rank in range(len(configs))]),
     )
     return envs
 
 
 def make_vector_envs_on_specific_episodes(
-        config: Config,
-        scene2episodes: Dict[str, List[str]]
-        ) -> VectorEnv:
+    config: Config, scene2episodes: Dict[str, List[str]]
+) -> VectorEnv:
     """Create vectorized environments to evaluate specific episodes.
     Arguments:
         scene2episodes: mapping from scene ID to episode IDs
@@ -110,7 +110,9 @@ def make_vector_envs_on_specific_episodes(
         task_config.SEED += proc_id
         task_config.DATASET.CONTENT_SCENES = [scenes[proc_id]]
         if not proc_config.NO_GPU:
-            task_config.SIMULATOR.HABITAT_SIM_V0.GPU_DEVICE_ID = gpus[proc_id % num_gpus]
+            task_config.SIMULATOR.HABITAT_SIM_V0.GPU_DEVICE_ID = gpus[
+                proc_id % num_gpus
+            ]
         task_config.ENVIRONMENT.ITERATOR_OPTIONS.MAX_SCENE_REPEAT_STEPS = -1
         proc_config.freeze()
         configs.append(proc_config)
@@ -118,8 +120,9 @@ def make_vector_envs_on_specific_episodes(
 
     envs = VectorEnv(
         make_env_fn=make_env_on_specific_episodes_fn,
-        env_fn_args=tuple([(configs[rank], episode_ids[rank])
-                           for rank in range(len(configs))])
+        env_fn_args=tuple(
+            [(configs[rank], episode_ids[rank]) for rank in range(len(configs))]
+        ),
     )
     return envs
 

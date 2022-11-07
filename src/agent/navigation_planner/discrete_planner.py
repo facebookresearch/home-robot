@@ -26,17 +26,19 @@ class DiscretePlanner:
     using an FMM planner.
     """
 
-    def __init__(self,
-                 turn_angle: float,
-                 collision_threshold: float,
-                 obs_dilation_selem_radius: int,
-                 goal_dilation_selem_radius: int,
-                 map_size_cm: int,
-                 map_resolution: int,
-                 visualize: bool,
-                 print_images: bool,
-                 dump_location: str,
-                 exp_name: str):
+    def __init__(
+        self,
+        turn_angle: float,
+        collision_threshold: float,
+        obs_dilation_selem_radius: int,
+        goal_dilation_selem_radius: int,
+        map_size_cm: int,
+        map_resolution: int,
+        visualize: bool,
+        print_images: bool,
+        dump_location: str,
+        exp_name: str,
+    ):
         """
         Arguments:
             turn_angle (float): agent turn angle (in degrees)
@@ -58,8 +60,10 @@ class DiscretePlanner:
 
         self.map_size_cm = map_size_cm
         self.map_resolution = map_resolution
-        self.map_shape = (self.map_size_cm // self.map_resolution,
-                          self.map_size_cm // self.map_resolution)
+        self.map_shape = (
+            self.map_size_cm // self.map_resolution,
+            self.map_size_cm // self.map_resolution,
+        )
         self.turn_angle = turn_angle
         self.collision_threshold = collision_threshold
         self.start_obs_dilation_selem_radius = obs_dilation_selem_radius
@@ -82,29 +86,34 @@ class DiscretePlanner:
         self.visited_map = np.zeros(self.map_shape)
         self.col_width = 1
         self.last_pose = None
-        self.curr_pose = [self.map_size_cm / 100. / 2.,
-                          self.map_size_cm / 100. / 2., 0.]
+        self.curr_pose = [
+            self.map_size_cm / 100.0 / 2.0,
+            self.map_size_cm / 100.0 / 2.0,
+            0.0,
+        ]
         self.last_action = None
         self.timestep = 1
         self.curr_obs_dilation_selem_radius = self.start_obs_dilation_selem_radius
         self.obs_dilation_selem = skimage.morphology.disk(
-            self.curr_obs_dilation_selem_radius)
+            self.curr_obs_dilation_selem_radius
+        )
 
     def set_vis_dir(self, scene_id: str, episode_id: str):
         self.print_images = True
-        self.vis_dir = os.path.join(
-            self.default_vis_dir, f"{scene_id}_{episode_id}")
+        self.vis_dir = os.path.join(self.default_vis_dir, f"{scene_id}_{episode_id}")
         shutil.rmtree(self.vis_dir, ignore_errors=True)
         os.makedirs(self.vis_dir, exist_ok=True)
 
     def disable_print_images(self):
         self.print_images = False
 
-    def plan(self,
-             obstacle_map: np.ndarray,
-             goal_map: np.ndarray,
-             sensor_pose: np.ndarray,
-             found_goal: bool) -> Tuple[int, np.ndarray]:
+    def plan(
+        self,
+        obstacle_map: np.ndarray,
+        goal_map: np.ndarray,
+        sensor_pose: np.ndarray,
+        found_goal: bool,
+    ) -> Tuple[int, np.ndarray]:
         """Plan a low-level action.
 
         Args:
@@ -126,13 +135,16 @@ class DiscretePlanner:
         gx1, gx2, gy1, gy2 = int(gx1), int(gx2), int(gy1), int(gy2)
         planning_window = [gx1, gx2, gy1, gy2]
 
-        start = [int(start_y * 100. / self.map_resolution - gx1),
-                 int(start_x * 100. / self.map_resolution - gy1)]
+        start = [
+            int(start_y * 100.0 / self.map_resolution - gx1),
+            int(start_x * 100.0 / self.map_resolution - gy1),
+        ]
         start = pu.threshold_poses(start, obstacle_map.shape)
 
         self.curr_pose = [start_x, start_y, start_o]
-        self.visited_map[gx1:gx2, gy1:gy2][start[0] - 0:start[0] + 1,
-                                           start[1] - 0:start[1] + 1] = 1
+        self.visited_map[gx1:gx2, gy1:gy2][
+            start[0] - 0 : start[0] + 1, start[1] - 0 : start[1] + 1
+        ] = 1
 
         if self.last_action == DiscreteActions.move_forward.value:
             self._check_collision()
@@ -140,10 +152,7 @@ class DiscretePlanner:
         # High-level goal -> short-term goal
         # t0 = time.time()
         short_term_goal, closest_goal_map, replan, stop = self._get_short_term_goal(
-            obstacle_map,
-            np.copy(goal_map),
-            start,
-            planning_window
+            obstacle_map, np.copy(goal_map), start, planning_window
         )
         # t1 = time.time()
         # print(f"[Planning] get_short_term_goal() time: {t1 - t0}")
@@ -157,26 +166,26 @@ class DiscretePlanner:
             if self.curr_obs_dilation_selem_radius > 1:
                 self.curr_obs_dilation_selem_radius -= 1
                 self.obs_dilation_selem = skimage.morphology.disk(
-                    self.curr_obs_dilation_selem_radius)
+                    self.curr_obs_dilation_selem_radius
+                )
 
         # Short-term goal -> deterministic local policy
         if stop and found_goal:
             action = DiscreteActions.stop.value
         else:
             stg_x, stg_y = short_term_goal
-            angle_st_goal = math.degrees(math.atan2(stg_x - start[0],
-                                                    stg_y - start[1]))
-            angle_agent = start_o % 360.
+            angle_st_goal = math.degrees(math.atan2(stg_x - start[0], stg_y - start[1]))
+            angle_agent = start_o % 360.0
             if angle_agent > 180:
                 angle_agent -= 360
 
-            relative_angle = (angle_agent - angle_st_goal) % 360.
+            relative_angle = (angle_agent - angle_st_goal) % 360.0
             if relative_angle > 180:
                 relative_angle -= 360
 
-            if relative_angle > self.turn_angle / 2.:
+            if relative_angle > self.turn_angle / 2.0:
                 action = DiscreteActions.turn_right.value
-            elif relative_angle < -self.turn_angle / 2.:
+            elif relative_angle < -self.turn_angle / 2.0:
                 action = DiscreteActions.turn_left.value
             else:
                 action = DiscreteActions.move_forward.value
@@ -184,12 +193,13 @@ class DiscretePlanner:
         self.last_action = action
         return action, closest_goal_map
 
-    def _get_short_term_goal(self,
-                             obstacle_map: np.ndarray,
-                             goal_map: np.ndarray,
-                             start: List[int],
-                             planning_window: List[int],
-                             ) -> Tuple[Tuple[int, int], np.ndarray, bool, bool]:
+    def _get_short_term_goal(
+        self,
+        obstacle_map: np.ndarray,
+        goal_map: np.ndarray,
+        start: List[int],
+        planning_window: List[int],
+    ) -> Tuple[Tuple[int, int], np.ndarray, bool, bool]:
         """Get short-term goal.
 
         Args:
@@ -207,13 +217,16 @@ class DiscretePlanner:
             stop: binary flag to indicate we've reached the goal
         """
         gx1, gx2, gy1, gy2 = planning_window
-        x1, y1, = 0, 0
+        x1, y1, = (
+            0,
+            0,
+        )
         x2, y2 = obstacle_map.shape
 
         def add_boundary(mat, value=1):
             h, w = mat.shape
             new_mat = np.zeros((h + 2, w + 2)) + value
-            new_mat[1:h + 1, 1:w + 1] = mat
+            new_mat[1 : h + 1, 1 : w + 1] = mat
             return new_mat
 
         def remove_boundary(mat, value=1):
@@ -222,17 +235,15 @@ class DiscretePlanner:
         obstacles = obstacle_map[x1:x2, y1:y2]
 
         # Dilate obstacles
-        dilated_obstacles = cv2.dilate(
-            obstacles,
-            self.obs_dilation_selem,
-            iterations=1
-        )
+        dilated_obstacles = cv2.dilate(obstacles, self.obs_dilation_selem, iterations=1)
 
         traversible = 1 - dilated_obstacles
         traversible[self.collision_map[gx1:gx2, gy1:gy2][x1:x2, y1:y2] == 1] = 0
         traversible[self.visited_map[gx1:gx2, gy1:gy2][x1:x2, y1:y2] == 1] = 1
-        traversible[int(start[0] - x1) - 1:int(start[0] - x1) + 2,
-                    int(start[1] - y1) - 1:int(start[1] - y1) + 2] = 1
+        traversible[
+            int(start[0] - x1) - 1 : int(start[0] - x1) + 2,
+            int(start[1] - y1) - 1 : int(start[1] - y1) + 2,
+        ] = 1
         traversible = add_boundary(traversible)
         goal_map = add_boundary(goal_map, value=0)
 
@@ -240,13 +251,13 @@ class DiscretePlanner:
             traversible,
             vis_dir=self.vis_dir,
             visualize=self.visualize,
-            print_images=self.print_images
+            print_images=self.print_images,
         )
 
         # Dilate the goal
         selem = skimage.morphology.disk(self.goal_dilation_selem_radius)
         dilated_goal_map = skimage.morphology.binary_dilation(goal_map, selem) != True
-        dilated_goal_map = 1 - dilated_goal_map * 1.
+        dilated_goal_map = 1 - dilated_goal_map * 1.0
 
         planner.set_multi_goal(dilated_goal_map, self.timestep)
         self.timestep += 1
@@ -296,15 +307,17 @@ class DiscretePlanner:
             # Add obstacles to the collision map
             for i in range(length):
                 for j in range(width):
-                    wx = x1 + 0.05 * \
-                         ((i + buf) * np.cos(np.deg2rad(t1))
-                          + (j - width // 2) * np.sin(np.deg2rad(t1)))
-                    wy = y1 + 0.05 * \
-                         ((i + buf) * np.sin(np.deg2rad(t1))
-                          - (j - width // 2) * np.cos(np.deg2rad(t1)))
+                    wx = x1 + 0.05 * (
+                        (i + buf) * np.cos(np.deg2rad(t1))
+                        + (j - width // 2) * np.sin(np.deg2rad(t1))
+                    )
+                    wy = y1 + 0.05 * (
+                        (i + buf) * np.sin(np.deg2rad(t1))
+                        - (j - width // 2) * np.cos(np.deg2rad(t1))
+                    )
                     r, c = wy, wx
-                    r, c = int(r * 100 / self.map_resolution), \
-                           int(c * 100 / self.map_resolution)
-                    [r, c] = pu.threshold_poses([r, c],
-                                                self.collision_map.shape)
+                    r, c = int(r * 100 / self.map_resolution), int(
+                        c * 100 / self.map_resolution
+                    )
+                    [r, c] = pu.threshold_poses([r, c], self.collision_map.shape)
                     self.collision_map[r, c] = 1

@@ -14,7 +14,7 @@ from .constants import (
     goal_id_to_coco_id,
     frame_color_palette,
     MIN_DEPTH_REPLACEMENT_VALUE,
-    MAX_DEPTH_REPLACEMENT_VALUE
+    MAX_DEPTH_REPLACEMENT_VALUE,
 )
 
 
@@ -24,10 +24,7 @@ class ObsPreprocessor:
     agent or an environment.
     """
 
-    def __init__(self,
-                 config: Config,
-                 num_environments: int,
-                 device: torch.device):
+    def __init__(self, config: Config, num_environments: int, device: torch.device):
         self.num_environments = num_environments
         self.device = device
         self.num_sem_categories = config.ENVIRONMENT.num_sem_categories
@@ -38,16 +35,18 @@ class ObsPreprocessor:
         self.ground_truth_semantics = config.GROUND_TRUTH_SEMANTICS
 
         if not self.ground_truth_semantics:
-            from agent.perception.segmentation.coco_maskrcnn.coco_maskrcnn import COCOMaskRCNN
+            from agent.perception.segmentation.coco_maskrcnn.coco_maskrcnn import (
+                COCOMaskRCNN,
+            )
+
             self.segmentation = COCOMaskRCNN(
                 sem_pred_prob_thr=0.9,
                 sem_gpu_id=(-1 if device == torch.device("cpu") else device.index),
-                visualize=True
+                visualize=True,
             )
 
-        self.one_hot_encoding = torch.eye(
-            self.num_sem_categories, device=self.device)
-        self.color_palette = [int(x * 255.) for x in frame_color_palette]
+        self.one_hot_encoding = torch.eye(self.num_sem_categories, device=self.device)
+        self.color_palette = [int(x * 255.0) for x in frame_color_palette]
 
         self.last_poses = None
         self.last_actions = None
@@ -61,9 +60,10 @@ class ObsPreprocessor:
     def set_instance_id_to_category_id(self, instance_id_to_category_id):
         self.instance_id_to_category_id = instance_id_to_category_id.to(self.device)
 
-    def preprocess(self,
-                   obs: List[Observations],
-                   ) -> Tuple[Tensor, np.ndarray, Tensor, Tensor, List[str]]:
+    def preprocess(
+        self,
+        obs: List[Observations],
+    ) -> Tuple[Tensor, np.ndarray, Tensor, Tensor, List[str]]:
         """
         Preprocess observations of a single timestep batched across
         environments.
@@ -85,17 +85,11 @@ class ObsPreprocessor:
         obs_preprocessed, semantic_frame = self.preprocess_frame(obs)
         pose_delta, self.last_poses = self.preprocess_pose(obs, self.last_poses)
         goal, goal_name = self.preprocess_goal(obs)
-        return (
-            obs_preprocessed,
-            semantic_frame,
-            pose_delta,
-            goal,
-            goal_name
-        )
+        return (obs_preprocessed, semantic_frame, pose_delta, goal, goal_name)
 
-    def preprocess_sequence(self,
-                            seq_obs: List[Observations]
-                            ) -> Tuple[Tensor, np.ndarray, Tensor, Tensor, str]:
+    def preprocess_sequence(
+        self, seq_obs: List[Observations]
+    ) -> Tuple[Tensor, np.ndarray, Tensor, Tensor, str]:
         """
         Preprocess observations of a single environment batched across time.
 
@@ -120,7 +114,8 @@ class ObsPreprocessor:
         seq_pose_delta = torch.zeros(sequence_length, 3)
         for t in range(sequence_length):
             seq_pose_delta[t], self.last_poses = self.preprocess_pose(
-                [seq_obs[t]], self.last_poses)
+                [seq_obs[t]], self.last_poses
+            )
 
         goal, goal_name = self.preprocess_goal([seq_obs[0]])
         goal_name = goal_name[0] if goal_name is not None else goal_name
@@ -129,13 +124,12 @@ class ObsPreprocessor:
             seq_semantic_frame,
             seq_pose_delta,
             goal,
-            goal_name
+            goal_name,
         )
 
     def preprocess_goal(self, obs: List[Observations]) -> Tuple[Tensor, List[str]]:
         if "objectgoal" in obs[0]:
-            goal = torch.tensor([
-                goal_id_to_coco_id[ob["objectgoal"][0]] for ob in obs])
+            goal = torch.tensor([goal_id_to_coco_id[ob["objectgoal"][0]] for ob in obs])
             goal_name = [goal_id_to_goal_name[ob["objectgoal"][0]] for ob in obs]
         else:
             goal, goal_name = None, None
@@ -143,9 +137,13 @@ class ObsPreprocessor:
 
     def preprocess_frame(self, obs: List[Observations]) -> Tuple[Tensor, np.ndarray]:
         """Preprocess frame information in the observation."""
+
         def preprocess_depth(depth):
             # Rescale depth from [0.0, 1.0] to [min_depth, max_depth]
-            rescaled_depth = self.min_depth * 100. + depth * (self.max_depth - self.min_depth) * 100.
+            rescaled_depth = (
+                self.min_depth * 100.0
+                + depth * (self.max_depth - self.min_depth) * 100.0
+            )
 
             # Depth at the boundaries of [min_depth, max_depth] has been
             # thresholded and should not be considered in the point cloud
@@ -165,11 +163,14 @@ class ObsPreprocessor:
                 return rgb, depth, semantic
             else:
                 rgb = F.interpolate(
-                    rgb, scale_factor=1. / h_downscaling, mode='bilinear')
+                    rgb, scale_factor=1.0 / h_downscaling, mode="bilinear"
+                )
                 depth = F.interpolate(
-                    depth, scale_factor=1. / h_downscaling, mode='bilinear')
+                    depth, scale_factor=1.0 / h_downscaling, mode="bilinear"
+                )
                 semantic = F.interpolate(
-                    semantic, scale_factor=1. / h_downscaling, mode='nearest')
+                    semantic, scale_factor=1.0 / h_downscaling, mode="nearest"
+                )
                 return rgb, depth, semantic
 
         env_frame_height, env_frame_width = obs[0]["rgb"].shape[:2]
@@ -179,15 +180,17 @@ class ObsPreprocessor:
 
         depth = preprocess_depth(depth)
 
-        if (self.ground_truth_semantics
-                and "semantic" in obs[0]
-                and self.instance_id_to_category_id is not None):
+        if (
+            self.ground_truth_semantics
+            and "semantic" in obs[0]
+            and self.instance_id_to_category_id is not None
+        ):
             # Ground-truth semantic segmentation (useful for debugging)
             # TODO Allow multiple environments with ground-truth segmentation
             assert "semantic" in obs[0]
             semantic = torch.from_numpy(
-                np.stack([ob["semantic"] for ob in obs]
-            ).squeeze(-1).astype(np.int64)).to(self.device)
+                np.stack([ob["semantic"] for ob in obs]).squeeze(-1).astype(np.int64)
+            ).to(self.device)
             semantic = self.instance_id_to_category_id[semantic]
             semantic = self.one_hot_encoding[semantic]
 
@@ -197,22 +200,21 @@ class ObsPreprocessor:
                 semantic_ = semantic[0, :, :, i]
                 depth_md = torch.median(depth_[semantic_ == 1])
                 if depth_md != 0:
-                    filter_mask = ((depth_ >= depth_md + 50) |
-                                   (depth_ <= depth_md - 50))
+                    filter_mask = (depth_ >= depth_md + 50) | (depth_ <= depth_md - 50)
                     # pixels = int(semantic_[filter_mask].sum().item())
                     # if pixels > 0:
                     #     print(f"Filtering out {pixels} pixels")
-                    semantic[0, :, :, i][filter_mask] = 0.
+                    semantic[0, :, :, i][filter_mask] = 0.0
 
             semantic_vis = self._get_semantic_frame_vis(
-                rgb[0].cpu().numpy(), semantic[0].cpu().numpy())
+                rgb[0].cpu().numpy(), semantic[0].cpu().numpy()
+            )
             semantic_vis = np.expand_dims(semantic_vis, 0)
 
         else:
             # Predicted semantic segmentation
             semantic, semantic_vis = self.segmentation.get_prediction(
-                rgb.cpu().numpy(),
-                depth.cpu().squeeze(-1).numpy()
+                rgb.cpu().numpy(), depth.cpu().squeeze(-1).numpy()
             )
             semantic = torch.from_numpy(semantic).to(self.device)
 
@@ -240,20 +242,17 @@ class ObsPreprocessor:
         vis = vis[:, :, ::-1]
         return vis
 
-    def preprocess_pose(self,
-                        obs: List[Observations],
-                        last_poses: List[np.ndarray]
-                        ) -> Tuple[Tensor, List[np.ndarray]]:
+    def preprocess_pose(
+        self, obs: List[Observations], last_poses: List[np.ndarray]
+    ) -> Tuple[Tensor, List[np.ndarray]]:
         """Preprocess sensor pose information in the observation."""
         curr_poses = []
         pose_deltas = []
 
         for e in range(self.num_environments):
-            curr_pose = np.array([
-                obs[e]["gps"][0],
-                -obs[e]["gps"][1],
-                obs[e]["compass"][0]
-            ])
+            curr_pose = np.array(
+                [obs[e]["gps"][0], -obs[e]["gps"][1], obs[e]["compass"][0]]
+            )
             pose_delta = pu.get_rel_pose_change(curr_pose, last_poses[e])
             curr_poses.append(curr_pose)
             pose_deltas.append(pose_delta)

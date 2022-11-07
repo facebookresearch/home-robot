@@ -9,10 +9,14 @@ from habitat.core.simulator import Observations
 from habitat.sims.habitat_simulator.actions import HabitatSimActions
 
 from .objectnav_agent_module import ObjectNavAgentModule
-from sim.habitat_interface.tasks.object_navigation.obs_preprocessor.obs_preprocessor import ObsPreprocessor
+from sim.habitat_interface.tasks.object_navigation.obs_preprocessor.obs_preprocessor import (
+    ObsPreprocessor,
+)
 from agent.mapping.metric.semantic.semantic_map_state import SemanticMapState
 from agent.navigation_planner.discrete_planner import DiscretePlanner
-from agent.visualization.object_navigation.objectnav_visualizer import ObjectNavVisualizer
+from agent.visualization.object_navigation.objectnav_visualizer import (
+    ObjectNavVisualizer,
+)
 
 
 class ObjectNavAgent(habitat.Agent):
@@ -38,11 +42,11 @@ class ObjectNavAgent(habitat.Agent):
             self.device = torch.device(f"cuda:{self.device_id}")
             self._module = self._module.to(self.device)
             # Use DataParallel only as a wrapper to move model inputs to GPU
-            self.module = DataParallel(
-                self._module, device_ids=[self.device_id])
+            self.module = DataParallel(self._module, device_ids=[self.device_id])
 
         self.obs_preprocessor = ObsPreprocessor(
-            config, self.num_environments, self.device)
+            config, self.num_environments, self.device
+        )
         self.semantic_map = SemanticMapState(
             device=self.device,
             num_environments=self.num_environments,
@@ -61,7 +65,7 @@ class ObjectNavAgent(habitat.Agent):
             visualize=False,
             print_images=False,
             dump_location=config.DUMP_LOCATION,
-            exp_name=config.EXP_NAME
+            exp_name=config.EXP_NAME,
         )
         self.visualizer = ObjectNavVisualizer(
             num_sem_categories=config.ENVIRONMENT.num_sem_categories,
@@ -70,7 +74,7 @@ class ObjectNavAgent(habitat.Agent):
             show_images=config.VISUALIZE,
             print_images=config.PRINT_IMAGES,
             dump_location=config.DUMP_LOCATION,
-            exp_name=config.EXP_NAME
+            exp_name=config.EXP_NAME,
         )
 
         self.goal_update_steps = self._module.goal_update_steps
@@ -83,11 +87,9 @@ class ObjectNavAgent(habitat.Agent):
     # ------------------------------------------------------------------
 
     @torch.no_grad()
-    def prepare_planner_inputs(self,
-                               obs: torch.Tensor,
-                               pose_delta: torch.Tensor,
-                               goal_category: torch.Tensor
-                               ) -> Tuple[List[dict], List[dict]]:
+    def prepare_planner_inputs(
+        self, obs: torch.Tensor, pose_delta: torch.Tensor, goal_category: torch.Tensor
+    ) -> Tuple[List[dict], List[dict]]:
         """Prepare low-level planner inputs from an observation - this is
         the main inference function of the agent that lets it interact with
         vectorized environments.
@@ -115,10 +117,12 @@ class ObjectNavAgent(habitat.Agent):
                  predictions
         """
         dones = torch.tensor([False] * self.num_environments)
-        update_global = torch.tensor([
-            self.timesteps_before_goal_update[e] == 0
-            for e in range(self.num_environments)
-        ])
+        update_global = torch.tensor(
+            [
+                self.timesteps_before_goal_update[e] == 0
+                for e in range(self.num_environments)
+            ]
+        )
 
         (
             goal_map,
@@ -158,9 +162,7 @@ class ObjectNavAgent(habitat.Agent):
                 self.semantic_map.update_global_goal_for_env(e, goal_map[e])
                 self.timesteps_before_goal_update[e] = self.goal_update_steps
 
-        self.timesteps = [
-            self.timesteps[e] + 1 for e in range(self.num_environments)
-        ]
+        self.timesteps = [self.timesteps[e] + 1 for e in range(self.num_environments)]
         self.timesteps_before_goal_update = [
             self.timesteps_before_goal_update[e] - 1
             for e in range(self.num_environments)
@@ -179,7 +181,7 @@ class ObjectNavAgent(habitat.Agent):
             {
                 "explored_map": self.semantic_map.get_explored_map(e),
                 "semantic_map": self.semantic_map.get_semantic_map(e),
-                "timestep": self.timesteps[e]
+                "timestep": self.timesteps[e],
             }
             for e in range(self.num_environments)
         ]
@@ -221,7 +223,7 @@ class ObjectNavAgent(habitat.Agent):
             semantic_frame,
             pose_delta,
             goal_category,
-            goal_name
+            goal_name,
         ) = self.obs_preprocessor.preprocess([obs])
 
         # t1 = time.time()
@@ -229,7 +231,8 @@ class ObjectNavAgent(habitat.Agent):
 
         # 2 - Semantic mapping + policy
         planner_inputs, vis_inputs = self.prepare_planner_inputs(
-            obs_preprocessed, pose_delta, goal_category)
+            obs_preprocessed, pose_delta, goal_category
+        )
 
         # t2 = time.time()
         # print(f"[Agent] Semantic mapping and policy time: {t2 - t1:.2f}")

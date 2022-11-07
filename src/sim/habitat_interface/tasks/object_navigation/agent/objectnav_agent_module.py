@@ -2,11 +2,12 @@ import torch.nn as nn
 import time
 
 from agent.mapping.metric.semantic.semantic_map_module import SemanticMapModule
-from agent.navigation_policy.object_navigation.objectnav_frontier_exploration_policy import ObjectNavFrontierExplorationPolicy
+from agent.navigation_policy.object_navigation.objectnav_frontier_exploration_policy import (
+    ObjectNavFrontierExplorationPolicy,
+)
 
 
 class ObjectNavAgentModule(nn.Module):
-
     def __init__(self, config):
         super().__init__()
 
@@ -31,18 +32,20 @@ class ObjectNavAgentModule(nn.Module):
     def goal_update_steps(self):
         return self.policy.goal_update_steps
 
-    def forward(self,
-                seq_obs,
-                seq_pose_delta,
-                seq_goal_category,
-                seq_dones,
-                seq_update_global,
-                init_local_map,
-                init_global_map,
-                init_local_pose,
-                init_global_pose,
-                init_lmb,
-                init_origins):
+    def forward(
+        self,
+        seq_obs,
+        seq_pose_delta,
+        seq_goal_category,
+        seq_dones,
+        seq_update_global,
+        init_local_map,
+        init_global_map,
+        init_local_pose,
+        init_global_pose,
+        init_lmb,
+        init_origins,
+    ):
         """Update maps and poses with a sequence of observations, and predict
         high-level goals from map features.
 
@@ -109,7 +112,7 @@ class ObjectNavAgentModule(nn.Module):
             init_local_pose,
             init_global_pose,
             init_lmb,
-            init_origins
+            init_origins,
         )
 
         # t1 = time.time()

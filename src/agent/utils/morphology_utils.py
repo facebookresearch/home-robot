@@ -11,12 +11,9 @@ def binary_dilation(binary_image, kernel):
         binary image tensor of the same shape as input
     """
     return torch.clamp(
-        torch.nn.functional.conv2d(
-            binary_image,
-            kernel,
-            padding=kernel.shape[-1] // 2
-        ),
-        0, 1
+        torch.nn.functional.conv2d(binary_image, kernel, padding=kernel.shape[-1] // 2),
+        0,
+        1,
     )
 
 
@@ -31,11 +28,10 @@ def binary_erosion(binary_image, kernel):
     """
     return 1 - torch.clamp(
         torch.nn.functional.conv2d(
-            1 - binary_image,
-            kernel,
-            padding=kernel.shape[-1] // 2
+            1 - binary_image, kernel, padding=kernel.shape[-1] // 2
         ),
-        0, 1
+        0,
+        1,
     )
 
 

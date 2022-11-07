@@ -31,10 +31,9 @@ class COCOMaskRCNN:
         self.visualize = visualize
         self.num_sem_categories = len(coco_categories)
 
-    def get_prediction(self,
-                       images: np.ndarray,
-                       depths: Optional[np.ndarray] = None
-                       ) -> Tuple[np.ndarray, np.ndarray]:
+    def get_prediction(
+        self, images: np.ndarray, depths: Optional[np.ndarray] = None
+    ) -> Tuple[np.ndarray, np.ndarray]:
         """
         Arguments:
             images: images of shape (batch_size, H, W, 3) (in BGR order)
@@ -50,14 +49,18 @@ class COCOMaskRCNN:
         batch_size, height, width, _ = images.shape
 
         predictions, visualizations = self.segmentation_model.get_predictions(
-            images, visualize=self.visualize)
+            images, visualize=self.visualize
+        )
         one_hot_predictions = np.zeros(
-            (batch_size, height, width, self.num_sem_categories))
+            (batch_size, height, width, self.num_sem_categories)
+        )
 
         # t0 = time.time()
 
         for i in range(batch_size):
-            for j, class_idx in enumerate(predictions[i]["instances"].pred_classes.cpu().numpy()):
+            for j, class_idx in enumerate(
+                predictions[i]["instances"].pred_classes.cpu().numpy()
+            ):
                 if class_idx in list(coco_categories_mapping.keys()):
                     idx = coco_categories_mapping[class_idx]
                     obj_mask = predictions[i]["instances"].pred_masks[j] * 1.0
@@ -83,9 +86,7 @@ class COCOMaskRCNN:
         # print(f"[Obs preprocessing] Segmentation depth filtering time: {t1 - t0:.2f}")
 
         if self.visualize:
-            visualizations = np.stack([
-                vis.get_image() for vis in visualizations
-            ])
+            visualizations = np.stack([vis.get_image() for vis in visualizations])
         else:
             # Convert BGR to RGB for visualization
             visualizations = images[:, :, :, ::-1]
@@ -130,7 +131,9 @@ def setup_cfg(args):
     # Set score_threshold for builtin models
     cfg.MODEL.RETINANET.SCORE_THRESH_TEST = args.confidence_threshold
     cfg.MODEL.ROI_HEADS.SCORE_THRESH_TEST = args.confidence_threshold
-    cfg.MODEL.PANOPTIC_FPN.COMBINE.INSTANCES_CONFIDENCE_THRESH = args.confidence_threshold
+    cfg.MODEL.PANOPTIC_FPN.COMBINE.INSTANCES_CONFIDENCE_THRESH = (
+        args.confidence_threshold
+    )
     cfg.freeze()
     return cfg
 
@@ -143,9 +146,13 @@ def get_seg_parser():
         metavar="FILE",
         help="path to config file",
     )
-    parser.add_argument("--webcam", action="store_true", help="Take inputs from webcam.")
+    parser.add_argument(
+        "--webcam", action="store_true", help="Take inputs from webcam."
+    )
     parser.add_argument("--video-input", help="Path to video file.")
-    parser.add_argument("--input", nargs="+", help="A list of space separated input images")
+    parser.add_argument(
+        "--input", nargs="+", help="A list of space separated input images"
+    )
     parser.add_argument(
         "--output",
         help="A file or directory to save output visualizations. "
@@ -167,7 +174,6 @@ def get_seg_parser():
 
 
 class VisualizationDemo:
-
     def __init__(self, cfg, instance_mode=ColorMode.IMAGE):
         self.metadata = MetadataCatalog.get(
             cfg.DATASETS.TEST[0] if len(cfg.DATASETS.TEST) else "__unused"
@@ -177,10 +183,9 @@ class VisualizationDemo:
 
         self.predictor = BatchPredictor(cfg)
 
-    def run_on_images(self,
-                      images: np.ndarray,
-                      visualize=False
-                      ) -> Tuple[List[dict], List[VisImage]]:
+    def run_on_images(
+        self, images: np.ndarray, visualize=False
+    ) -> Tuple[List[dict], List[VisImage]]:
         """
         Arguments:
             images: images of shape (batch_size, H, W, 3) (in BGR order)
@@ -207,7 +212,8 @@ class VisualizationDemo:
                 pred = predictions[i]
                 image = images[i]
                 visualizer = Visualizer(
-                    image, self.metadata, instance_mode=self.instance_mode)
+                    image, self.metadata, instance_mode=self.instance_mode
+                )
                 if "panoptic_seg" in pred:
                     panoptic_seg, segments_info = pred["panoptic_seg"]
                     vis = visualizer.draw_panoptic_seg_predictions(
@@ -221,7 +227,8 @@ class VisualizationDemo:
                     if "instances" in pred:
                         instances = pred["instances"].to(self.cpu_device)
                         vis = visualizer.draw_instance_predictions(
-                            predictions=instances)
+                            predictions=instances
+                        )
                 visualizations.append(vis)
 
         # t2 = time.time()
@@ -231,7 +238,6 @@ class VisualizationDemo:
 
 
 class BatchPredictor:
-
     def __init__(self, cfg):
         self.cfg = cfg.clone()
         self.model = build_model(self.cfg)
