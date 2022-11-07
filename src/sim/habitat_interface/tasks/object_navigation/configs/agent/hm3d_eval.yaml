@@ -1,4 +1,4 @@
-BASE_TASK_CONFIG_PATH: sim/habitat/tasks/object_navigation/configs/task/hm3d_challenge2022_val.yaml
+BASE_TASK_CONFIG_PATH: sim/habitat_interface/tasks/object_navigation/configs/task/hm3d_challenge2022_val.yaml
 
 SIMULATOR_GPU_IDS: [1, 2, 3, 4, 5] # IDs of GPUs to use for vectorized environments
 NO_GPU: 0                 # 1: ignore IDs above and run on CPU, 0: run on GPUs with IDs above
