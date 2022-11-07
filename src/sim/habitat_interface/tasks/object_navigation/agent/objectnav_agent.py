@@ -171,7 +171,7 @@ class ObjectNavAgent(habitat.Agent):
             {
                 "obstacle_map": self.semantic_map.get_obstacle_map(e),
                 "goal_map": self.semantic_map.get_goal_map(e),
-                "sensor_pose": self.semantic_map.get_planner_pose_inputs(e)
+                "sensor_pose": self.semantic_map.get_planner_pose_inputs(e),
                 "found_goal": found_goal[e].item(),
             }
             for e in range(self.num_environments)
