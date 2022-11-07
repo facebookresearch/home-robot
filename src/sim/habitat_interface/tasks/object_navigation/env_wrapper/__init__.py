@@ -11,8 +11,8 @@ from .eval_env_wrapper import EvalEnvWrapper
 
 def _get_env_gpus(config: Config, rank: int) -> List[int]:
     """Get GPUs assigned to environments of a particular agent process."""
-    num_agent_processes = len(config.AGENT_GPU_IDS)
-    num_env_gpus = len(config.SIMULATOR_GPU_IDS)
+    num_agent_processes = 1
+    num_env_gpus = len(config.EVAL_VECTORIZED.simulator_gpu_ids)
     num_env_gpus_per_agent_process = num_env_gpus // num_agent_processes
     assert num_agent_processes > 0
     assert (num_env_gpus >= num_agent_processes and
@@ -22,7 +22,8 @@ def _get_env_gpus(config: Config, rank: int) -> List[int]:
         """Yield successive n-sized chunks from lst."""
         return [lst[i:i + n] for i in range(0, len(lst), n)]
 
-    gpus = chunks(config.SIMULATOR_GPU_IDS, num_env_gpus_per_agent_process)[rank]
+    gpus = chunks(config.EVAL_VECTORIZED.simulator_gpu_ids,
+                  num_env_gpus_per_agent_process)[rank]
     return gpus
 
 

@@ -1,6 +1,5 @@
 BASE_TASK_CONFIG_PATH: sim/habitat_interface/tasks/object_navigation/configs/task/hm3d_challenge2022_val.yaml
 
-SIMULATOR_GPU_IDS: [1, 2, 3, 4, 5] # IDs of GPUs to use for vectorized environments
 NO_GPU: 0                 # 1: ignore IDs above and run on CPU, 0: run on GPUs with IDs above
 NUM_ENVIRONMENTS: 20      # number of environments (per agent process)
 DUMP_LOCATION: sim/habitat_interface/tasks/object_navigation/datadump # path to dump models and log
@@ -39,6 +38,7 @@ AGENT:
     goal_dilation_selem_radius: 10  # radius (in cells) of goal dilation structuring element
 
 EVAL_VECTORIZED:
+  simulator_gpu_ids: [1, 2, 3, 4, 5] # IDs of GPUs to use for vectorized environments
   specific_episodes: 0      # 1: eval on specific episodes (for debugging), 0: eval on split normally
   goal_on_same_floor: 0     # 1: restrict to episodes with a goal on the same floor as the starting position
   split: val                # eval split

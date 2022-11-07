@@ -2,8 +2,8 @@
 This script is intended to run from the "src" root:
 python sim/habitat_interface/tasks/object_navigation/eval_scripts/eval_vectorized.py \
     --config_path sim/habitat_interface/tasks/object_navigation/configs/agent/hm3d_eval.yaml \
-    SIMULATOR_GPU_IDS [0, 1] \
-    NUM_ENVIRONMENTS 10 \
+    EVAL_VECTORIZED.simulator_gpu_ids "[0, 1]" \
+    NUM_ENVIRONMENTS 10
 """
 import time
 import torch

@@ -20,7 +20,7 @@ class ObjectNavAgent(habitat.Agent):
     Object Goal Navigation agent.
     """
 
-    def __init__(self, config: Config):
+    def __init__(self, config: Config, device_id: int = 0):
         self.max_steps = config.AGENT.max_steps
         self.num_environments = config.NUM_ENVIRONMENTS
         if config.AGENT.panorama_start:
@@ -34,7 +34,7 @@ class ObjectNavAgent(habitat.Agent):
             self.device = torch.device("cpu")
             self.module = self._module
         else:
-            self.device_id = 0
+            self.device_id = device_id
             self.device = torch.device(f"cuda:{self.device_id}")
             self._module = self._module.to(self.device)
             # Use DataParallel only as a wrapper to move model inputs to GPU
