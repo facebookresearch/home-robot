@@ -1,9 +1,9 @@
 """
 This script is intended to run from the "src" root:
 python sim/habitat_interface/tasks/object_navigation/eval_scripts/eval_vectorized.py \
+    --config_path sim/habitat_interface/tasks/object_navigation/configs/agent/hm3d_eval.yaml \
     SIMULATOR_GPU_IDS [0, 1] \
     NUM_ENVIRONMENTS 10 \
-    --config_path sim/habitat_interface/tasks/object_navigation/configs/agent/hm3d_eval.yaml
 """
 import time
 import torch
@@ -248,7 +248,7 @@ if __name__ == "__main__":
     parser.add_argument(
         "--config_path",
         type=str,
-        default="submission/configs/debug_config.yaml",
+        default="sim/habitat_interface/tasks/object_navigation/configs/agent/hm3d_eval.yaml",
         help="Path to config yaml",
     )
     parser.add_argument(
