@@ -115,6 +115,9 @@ class FMMPlanner:
         fmm_dist = self.fmm_dist.copy()
         fmm_dist[fmm_dist == 0] = 100000
         closest_goal_map = (goal_map * fmm_dist) == (goal_map * fmm_dist).min()
+        print("self.goal_map.shape", self.goal_map.shape)
+        print("self.fmm_dist.shape", self.fmm_dist.shape)
+        print("closest_goal_map.shape", closest_goal_map.shape)
         if closest_goal_map.sum() > 1:
             closest_goal_map = None  # If can't pick closest point, don't pick any
 
