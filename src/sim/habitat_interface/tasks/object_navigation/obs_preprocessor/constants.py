@@ -1,4 +1,4 @@
-from agent.perception.segmentation.coco_mask_rcnn.coco_categories import coco_categories_color_palette
+from agent.perception.segmentation.coco_maskrcnn.coco_categories import coco_categories_color_palette
 
 
 MIN_DEPTH_REPLACEMENT_VALUE = 10000
