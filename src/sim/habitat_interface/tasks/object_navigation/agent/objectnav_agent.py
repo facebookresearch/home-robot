@@ -234,8 +234,8 @@ class ObjectNavAgent(habitat.Agent):
         print(obs_preprocessed.dtype)
         print(pose_delta.shape)
         print(pose_delta.dtype)
-        np.save(f"{base_path}/obs_{self.timesteps[0]}.npy", obs_preprocessed.astype(np.float32))
-        np.save(f"{base_path}/pose_delta_{self.timesteps[0]}.npy", pose_delta.astype(np.float32))
+        np.save(f"{base_path}/obs_{self.timesteps[0]}.npy", obs_preprocessed.cpu().numpy().astype(np.float32))
+        np.save(f"{base_path}/pose_delta_{self.timesteps[0]}.npy", pose_delta.cpu().numpy().astype(np.float32))
         cv2.imwrite(f"{base_path}/semantic_{self.timesteps[0]}.png", semantic_frame)
 
         # t1 = time.time()
