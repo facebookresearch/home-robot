@@ -125,6 +125,10 @@ class SemanticMapState:
         """Get local explored map for an environment."""
         return np.copy(self.local_map[e, 1, :, :].cpu().float().numpy())
 
+    def get_visited_map(self, e) -> np.ndarray:
+        """Get local visited map for an environment."""
+        return np.copy(self.local_map[e, 3, :, :].cpu().float().numpy())
+
     def get_semantic_map(self, e) -> np.ndarray:
         """Get local map of semantic categories for an environment."""
         semantic_map = np.copy(self.local_map[e].cpu().float().numpy())
