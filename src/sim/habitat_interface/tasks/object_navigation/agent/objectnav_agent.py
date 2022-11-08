@@ -227,18 +227,18 @@ class ObjectNavAgent(habitat.Agent):
         ) = self.obs_preprocessor.preprocess([obs])
 
         # TODO Storing trajectory for stand-alone semantic mapping demo
-        # import numpy as np
-        # import cv2
-        # base_path = "agent/mapping/metric/semantic/demo_data"
-        # print(obs_preprocessed.shape)
-        # print(obs_preprocessed.dtype)
-        # print(pose_delta.shape)
-        # print(pose_delta.dtype)
-        # print(semantic_frame.shape)
-        # print(semantic_frame.dtype)
-        # np.save(f"{base_path}/obs_{self.timesteps[0]}.npy", obs_preprocessed[0].cpu().numpy().astype(np.float32))
-        # np.save(f"{base_path}/pose_delta_{self.timesteps[0]}.npy", pose_delta[0].cpu().numpy().astype(np.float32))
-        # cv2.imwrite(f"{base_path}/semantic_{self.timesteps[0]}.png", semantic_frame[0])
+        import numpy as np
+        import cv2
+        base_path = "agent/mapping/metric/semantic/demo_data"
+        print(obs_preprocessed.shape)
+        print(obs_preprocessed.dtype)
+        print(pose_delta.shape)
+        print(pose_delta.dtype)
+        print(semantic_frame.shape)
+        print(semantic_frame.dtype)
+        np.save(f"{base_path}/obs_{self.timesteps[0]}.npy", obs_preprocessed[0].cpu().numpy().astype(np.float32))
+        np.save(f"{base_path}/pose_delta_{self.timesteps[0]}.npy", pose_delta[0].cpu().numpy().astype(np.float32))
+        cv2.imwrite(f"{base_path}/semantic_{self.timesteps[0]}.png", semantic_frame[0])
 
         # t1 = time.time()
         # print(f"[Agent] Obs preprocessing time: {t1 - t0:.2f}")
