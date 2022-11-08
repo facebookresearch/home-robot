@@ -226,6 +226,15 @@ class ObjectNavAgent(habitat.Agent):
             goal_name,
         ) = self.obs_preprocessor.preprocess([obs])
 
+        # TODO Storing trajectory for stand-alone semantic mapping demo
+        import numpy as np
+        base_path = "agent/mapping/metric/semantic/demo_data"
+        print(obs_preprocessed.shape)
+        print(obs_preprocessed.dtype)
+        print(pose_delta.shape)
+        print(pose_delta.dtype)
+        #np.save(f"{base_path}/step{self.timesteps[0]}/obs_preprocessed.npy", )
+
         # t1 = time.time()
         # print(f"[Agent] Obs preprocessing time: {t1 - t0:.2f}")
 
