@@ -49,7 +49,7 @@ class LocalHelloRobot:
         """
         result = self._nav_mode_service(TriggerRequest())
         print(result.message)
-        self._goto_on_service(TriggerRequest())
+        result = self._goto_on_service(TriggerRequest())
         print(result.message)
 
     def set_pos_mode(self):

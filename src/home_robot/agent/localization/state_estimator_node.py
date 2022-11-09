@@ -53,7 +53,7 @@ class NavStateEstimator:
 
         self._filtered_pose = sp.SE3()
         self._slam_pose_sp = sp.SE3()
-        self._t_odom_prev = rospy.Time.now()
+        self._t_odom_prev: Optional[rospy.Time] = None
         self._pose_odom_prev = sp.SE3()
 
     def _publish_filtered_state(self, timestamp):
@@ -72,6 +72,8 @@ class NavStateEstimator:
             pose_diff_slam = self._filtered_pose.inverse() * self._slam_pose_sp
 
         # Update filtered pose
+        if self._t_odom_prev is None:
+            self._t_odom_prev = t_curr
         t_interval_secs = (t_curr - self._t_odom_prev).to_sec()
         w = cutoff_angle(t_interval_secs, SLAM_CUTOFF_HZ)
         coeff = 1 / (w + 1)
