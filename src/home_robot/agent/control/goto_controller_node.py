@@ -37,7 +37,7 @@ class GotoVelocityController:
 
         # Publishers
         rospy.init_node("goto_controller")
-        self.vel_command_pub = rospy.Publisher("/stretch/cmd_vel", Twist, queue_size=1)
+        self.vel_command_pub = rospy.Publisher("stretch/cmd_vel", Twist, queue_size=1)
 
         # Initialize
         self.xyt_loc = np.zeros(3)
@@ -121,19 +121,19 @@ class GotoVelocityController:
     def main(self):
         # Subscribers
         rospy.Subscriber(
-            "/state_estimator/pose_filtered",
+            "state_estimator/pose_filtered",
             PoseStamped,
             self._pose_update_callback,
             queue_size=1,
         )
         rospy.Subscriber(
-            "/odom",
+            "odom",
             Odometry,
             self._odom_update_callback,
             queue_size=1,
         )
         rospy.Subscriber(
-            "/goto_controller/goal", Pose, self._goal_update_callback, queue_size=1
+            "goto_controller/goal", Pose, self._goal_update_callback, queue_size=1
         )
 
         # Services
