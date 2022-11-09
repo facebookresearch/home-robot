@@ -5,9 +5,9 @@ import numpy as np
 
 V_MAX_DEFAULT = 0.2  # base.params["motion"]["default"]["vel_m"]
 W_MAX_DEFAULT = 0.45  # (vel_m_max - vel_m_default) / wheel_separation_m
-ACC_LIN = 0.1  # 0.25 * base.params["motion"]["max"]["accel_m"]
-ACC_ANG = 0.3  # 0.25 * (accel_m_max - accel_m_default) / wheel_separation_m
-TOL_LIN = 0.02
+ACC_LIN = 0.2  # 0.5 * base.params["motion"]["max"]["accel_m"]
+ACC_ANG = 0.6  # 0.5 * (accel_m_max - accel_m_default) / wheel_separation_m
+TOL_LIN = 0.025
 TOL_ANG = 0.1
 MAX_HEADING_ANG = np.pi / 4
 
@@ -94,12 +94,6 @@ class DDVelocityControlNoplan(DiffDriveVelocityController):
 
         # Rotate to correct yaw if XY position is at goal
         elif abs(ang_err) > self.ang_error_tol:
-            # Compute linear velocity -- edge closer to goal XY if possible
-            lin_err_projected = max(lin_err_abs * np.sin(heading_err_abs), 0.0)
-            v_cmd = self._velocity_feedback_control(
-                lin_err_projected, ACC_LIN, self.v_max
-            )
-
             # Compute angular velocity -- turn to goal orientation
             w_cmd = self._velocity_feedback_control(ang_err, ACC_ANG, self.w_max)
 
