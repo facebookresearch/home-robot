@@ -9,7 +9,7 @@ This just defines the standard interface for a motion planner
 
 
 class Planner(object):
-    """ planner base class """
+    """planner base class"""
 
     # def __init__(self, space: Space, validate_fn):
     def __init__(self, robot: Robot):
@@ -18,5 +18,5 @@ class Planner(object):
         # self.validate = validate_fn
 
     def plan(self, q0, qg):
-        """ returns a trajectory """
+        """returns a trajectory"""
         raise NotImplementedError

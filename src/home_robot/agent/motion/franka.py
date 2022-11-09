@@ -2,8 +2,7 @@ import numpy as np
 
 
 class FrankaPanda(object):
-    """ contains information about the franka robot
-    """
+    """contains information about the franka robot"""
 
     def __init__(self):
         # Distance from ee frame

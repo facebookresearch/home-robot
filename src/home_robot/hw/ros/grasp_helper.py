@@ -37,7 +37,7 @@ def msg_to_segmented_point_cloud(msg):
 
 
 class GraspClient(object):
-    """ send and receive grasp queries with no custom messages or anything else """
+    """send and receive grasp queries with no custom messages or anything else"""
 
     def __init__(
         self,

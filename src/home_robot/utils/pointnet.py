@@ -17,12 +17,12 @@ def pc_normalize(pc):
     if type(pc).__module__ == np.__name__:
         centroid = np.mean(pc, axis=0)
         pc = pc - centroid
-        m = np.max(np.sqrt(np.sum(pc ** 2, axis=1)))
+        m = np.max(np.sqrt(np.sum(pc**2, axis=1)))
         pc = pc / m
     else:
         centroid = torch.mean(pc, dim=0)
         pc = pc - centroid
-        m = torch.max(torch.sqrt(torch.sum(pc ** 2, dim=1)))
+        m = torch.max(torch.sqrt(torch.sum(pc**2, dim=1)))
         pc = pc / m
     return pc
 
@@ -98,7 +98,7 @@ def query_ball_point(radius, nsample, xyz, new_xyz):
         torch.arange(N, dtype=torch.long).to(device).view(1, 1, N).repeat([B, S, 1])
     )
     sqrdists = square_distance(new_xyz, xyz)
-    group_idx[sqrdists > radius ** 2] = N
+    group_idx[sqrdists > radius**2] = N
     group_idx = group_idx.sort(dim=-1)[0][:, :, :nsample]
     group_first = group_idx[:, :, 0].view(B, S, 1).repeat([1, 1, nsample])
     mask = group_idx == N

@@ -14,7 +14,7 @@ def try_executing_grasp(rob, grasp) -> bool:
     """Try executing a grasp."""
 
     q, _ = rob.update()
-    
+
     # Convert grasp pose to pos/quaternion
     grasp_pose = to_pos_quat(grasp)
     print("grasp xyz =", grasp_pose[0])
@@ -26,7 +26,7 @@ def try_executing_grasp(rob, grasp) -> bool:
     else:
         print(" --> ik failed")
         return False
-    
+
     # Standoff 8 cm above grasp position
     q_standoff = qi.copy()
     # q_standoff[HelloStretchIdx.LIFT] += 0.08   # was 8cm, now more
@@ -45,7 +45,7 @@ def try_executing_grasp(rob, grasp) -> bool:
         # Go to the grasp and try it
         q[HelloStretchIdx.LIFT] = 0.99
         rob.goto(q, move_base=False, wait=True, verbose=False)
-        #input('--> go high')
+        # input('--> go high')
         q_pre = q.copy()
         q_pre[5:] = q_standoff[5:]
         q_pre = model.update_gripper(q_pre, open=True)
@@ -53,21 +53,21 @@ def try_executing_grasp(rob, grasp) -> bool:
         rospy.sleep(2.0)
         rob.goto(q_pre, move_base=False, wait=False, verbose=False)
         model.set_config(q_standoff)
-        #input('--> gripper ready; go to standoff')
+        # input('--> gripper ready; go to standoff')
         q_standoff = model.update_gripper(q_standoff, open=True)
         rob.goto(q_standoff, move_base=False, wait=True, verbose=False)
-        #input('--> go to grasp')
+        # input('--> go to grasp')
         rob.move_base(theta=q_grasp[2])
         rospy.sleep(2.0)
         rob.goto(q_pre, move_base=False, wait=False, verbose=False)
         model.set_config(q_grasp)
         q_grasp = model.update_gripper(q_grasp, open=True)
         rob.goto(q_grasp, move_base=False, wait=True, verbose=True)
-        #input('--> close the gripper')
+        # input('--> close the gripper')
         q_grasp = model.update_gripper(q_grasp, open=False)
         rob.goto(q_grasp, move_base=False, wait=False, verbose=True)
-        rospy.sleep(2.)
-        
+        rospy.sleep(2.0)
+
         # Move back to standoff pose
         q_standoff = model.update_gripper(q_standoff, open=False)
         rob.goto(q, move_base=False, wait=True, verbose=False)
@@ -87,11 +87,11 @@ def divergence_from_vertical_grasp(grasp):
     return theta_x, theta_y
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     # Create the robot
     print("--------------")
     print("Start example - hardware using ROS")
-    rospy.init_node('hello_stretch_ros_test')
+    rospy.init_node("hello_stretch_ros_test")
     print("Create ROS interface")
     rob = HelloStretchROSInterface(visualize_planner=False)
     print("Wait...")
@@ -120,27 +120,27 @@ if __name__ == '__main__':
 
     # For video
     # Initial position
-    #rob.move_base([0, 0], 0)
+    # rob.move_base([0, 0], 0)
     # Move to before the chair
-    #rob.move_base([0.5, -0.5], np.pi/2)
+    # rob.move_base([0.5, -0.5], np.pi/2)
 
     q = model.update_look_at_ee(q)
     print("look at ee")
     rob.goto(q, wait=True)
 
-    min_grasp_score = 0.
+    min_grasp_score = 0.0
     max_tries = 10
     min_obj_pts = 100
     for attempt in range(max_tries):
-        rospy.sleep(2.)
+        rospy.sleep(2.0)
 
-        t0  = timeit.default_timer()
+        t0 = timeit.default_timer()
         rgb, depth, xyz = rob.get_images()
         camera_pose = rob.get_pose(rgb_cam.get_frame())
         print("getting images + cam pose took", timeit.default_timer() - t0, "seconds")
         semantics, semantics_vis = segmentation_model.get_prediction(
-                                np.expand_dims(rgb[:, :, ::-1], 0), np.expand_dims(depth, 0)
-                            )
+            np.expand_dims(rgb[:, :, ::-1], 0), np.expand_dims(depth, 0)
+        )
         cup_mask = semantics[0, :, :, coco_categories["cup"]]
         num_cup_pts = np.sum(cup_mask)
         print("found this many cup points:", num_cup_pts)
@@ -151,7 +151,9 @@ if __name__ == '__main__':
         mask_scene = mask_valid  # initial mask has to be good
         mask_scene = mask_scene.reshape(-1)
 
-        predicted_grasps = grasp_client.request(xyz, rgb, cup_mask, frame=rgb_cam.get_frame())
+        predicted_grasps = grasp_client.request(
+            xyz, rgb, cup_mask, frame=rgb_cam.get_frame()
+        )
         if 0 not in predicted_grasps:
             print("no predicted grasps")
             continue
@@ -170,16 +172,17 @@ if __name__ == '__main__':
             theta = max(theta_x, theta_y)
             print(i, "score =", score, theta, "xy =", theta_x, theta_y)
             # Reject grasps that arent top down for now
-            if theta > 0.3: continue
+            if theta > 0.3:
+                continue
             grasps.append(pose)
 
-        # Correct for the length of the Stretch gripper and the gripper upon 
+        # Correct for the length of the Stretch gripper and the gripper upon
         # which Graspnet was trained
         grasp_offset = np.eye(4)
         grasp_offset[2, 3] = -0.09
         original_grasps = grasps.copy()
         for i, grasp in enumerate(grasps):
-           grasps[i] = grasp @ grasp_offset
+            grasps[i] = grasp @ grasp_offset
 
         for grasp in grasps:
             print("Executing grasp")
@@ -187,4 +190,5 @@ if __name__ == '__main__':
             theta_x, theta_y = divergence_from_vertical_grasp(grasp)
             print("with xy =", theta_x, theta_y)
             grasp_completed = try_executing_grasp(rob, grasp)
-            if grasp_completed: break
+            if grasp_completed:
+                break

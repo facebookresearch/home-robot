@@ -12,7 +12,7 @@ from home_robot.utils.pose import to_matrix
 
 
 class Robot(object):
-    """ placeholder """
+    """placeholder"""
 
     def __init__(self, name="robot", urdf_path=None, visualize=False, assets_path=None):
         # Load and create planner
@@ -26,23 +26,23 @@ class Robot(object):
         raise NotImplementedError
 
     def get_dof(self):
-        """ return degrees of freedom of the robot """
+        """return degrees of freedom of the robot"""
         return self.dof
 
     def set_config(self, q):
-        """ put the robot in the right position """
+        """put the robot in the right position"""
         raise NotImplementedError
 
     def get_config(self):
-        """ turn current state into a vector """
+        """turn current state into a vector"""
         raise NotImplementedError
 
     def set_head_config(self, q):
-        """ just for the head """
+        """just for the head"""
         raise NotImplementedError
 
     def set_camera_to_head(self, camera, q=None):
-        """ take a bullet camera and put it on the robot's head """
+        """take a bullet camera and put it on the robot's head"""
         if q is not None:
             self.set_head_config(q)
         raise NotImplementedError
@@ -96,7 +96,7 @@ class HelloStretchIdx:
 
 
 class HelloStretch(Robot):
-    """ define motion planning structure for the robot """
+    """define motion planning structure for the robot"""
 
     # DEFAULT_BASE_HEIGHT = 0.09
     DEFAULT_BASE_HEIGHT = 0
@@ -199,7 +199,7 @@ class HelloStretch(Robot):
             self.ref.set_joint_position(idx, qq)
 
     def sample_uniform(self, q0=None, pos=None, radius=2.0):
-        """ Sample random configurations to seed the ik planner """
+        """Sample random configurations to seed the ik planner"""
         q = (np.random.random(self.dof) * self._rngs) + self._mins
         q[HelloStretchIdx.BASE_THETA] = np.random.random() * np.pi * 2
         # Set the gripper state
@@ -231,7 +231,7 @@ class HelloStretch(Robot):
         return q
 
     def _update_joints(self):
-        """ Get joint info from URDF or otherwise provide it """
+        """Get joint info from URDF or otherwise provide it"""
         self.joint_idx = [-1] * self.dof
         # Get the joint info we need from this
         joint_lift = self.ref.get_joint_info_by_name("joint_lift")
@@ -301,7 +301,7 @@ class HelloStretch(Robot):
         return self.backend
 
     def get_object(self) -> hrb.PbArticulatedObject:
-        """ return back-end reference to the Bullet object """
+        """return back-end reference to the Bullet object"""
         return self.ref
 
     def _set_joint_group(self, idxs, val):
@@ -309,7 +309,7 @@ class HelloStretch(Robot):
             self.ref.set_joint_position(idx, val)
 
     def vanish(self):
-        """ get rid of the robot """
+        """get rid of the robot"""
         self.ref.set_pose([0, 0, 1000], [0, 0, 0, 1])
 
     def set_config(self, q):
@@ -330,7 +330,7 @@ class HelloStretch(Robot):
         self._set_joint_group(self.gripper_idx, q[HelloStretchIdx.GRIPPER])
 
     def plan_look_at(self, q0, xyz):
-        """ assume this is a relative xyz """
+        """assume this is a relative xyz"""
         dx, dy = xyz[:2] - q0[:2]
         theta0 = q0[2]
         thetag = np.arctan2(dy, dx)
@@ -359,7 +359,7 @@ class HelloStretch(Robot):
         return [action, look_action]
 
     def interpolate(self, q0, qg, step=None, xy_tol=0.05, theta_tol=0.01):
-        """ interpolate from initial to final configuration. for this robot we break it up into
+        """interpolate from initial to final configuration. for this robot we break it up into
         four stages:
         1) rotate to point towards final location
         2) drive to final location
@@ -403,7 +403,7 @@ class HelloStretch(Robot):
         return self.ref.get_link_pose(link_name)
 
     def fk(self, q=None, as_matrix=False):
-        """ forward kinematics """
+        """forward kinematics"""
         pose = self.get_link_pose(self.ee_link_name, q)
         if as_matrix:
             return to_matrix(*pose)
@@ -415,7 +415,7 @@ class HelloStretch(Robot):
         return qi
 
     def update_gripper(self, qi, open=True):
-        """ update target state for gripper """
+        """update target state for gripper"""
         if open:
             qi[HelloStretchIdx.GRIPPER] = STRETCH_GRIPPER_OPEN
         else:
@@ -423,7 +423,7 @@ class HelloStretch(Robot):
         return qi
 
     def interpolate_xy(self, qi, xy0, dist, step=0.1):
-        """ just move forward with step to target distance """
+        """just move forward with step to target distance"""
         # create a trajectory here
         x, y = xy0
         theta = qi[HelloStretchIdx.BASE_THETA]
@@ -501,7 +501,7 @@ class HelloStretch(Robot):
             return None
 
     def static_ik(self, pose_query, q0):
-        """ constrainted ik, do not move the base? """
+        """constrainted ik, do not move the base?"""
         x0, y0 = q0[:2]
         pos, rot = pose_query
         se3 = pb.getMatrixFromQuaternion(rot)
@@ -548,19 +548,19 @@ class HelloStretch(Robot):
         return self.ref.get_link_pose(STRETCH_GRASP_FRAME)
 
     def update_look_front(self, q):
-        """ look in front so we can see the floor """
+        """look in front so we can see the floor"""
         return self.update_head(q, self.look_front)
 
     def update_look_ahead(self, q):
-        """ look straight ahead; cannot see terrain """
+        """look straight ahead; cannot see terrain"""
         return self.update_head(q, self.look_ahead)
 
     def update_look_at_ee(self, q):
-        """ turn and look at ee area """
+        """turn and look at ee area"""
         return self.update_head(q, self.look_at_ee)
 
     def interpolate_angle(self, qi, theta0, thetag, step=0.1):
-        """ just rotate to target angle """
+        """just rotate to target angle"""
         if theta0 > thetag:
             thetag2 = thetag + 2 * np.pi
         else:
