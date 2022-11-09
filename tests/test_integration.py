@@ -28,7 +28,7 @@ def test_goto(home_robot_stack, robot):
     xyt_goal = [0.2, 0.1, 0.1]
 
     # Activate goto controller & set goal
-    robot.toggle_controller()
+    robot.set_nav_mode()
     robot.set_goal(xyt_goal)
 
     # Wait for robot to reach goal
