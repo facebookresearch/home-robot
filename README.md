@@ -74,6 +74,18 @@ robot.set_goal(xyt: list)  # sets the goal for the goto controller
 robot.set_velocity(v: float, w: float)  # directly sets the linear and angular velocity of robot base (command gets overwritten immediately if goto controller is on)
 ```
 
+### Third Party Code
+
+#### Contact GraspNet
+
+Contact graspnet is supported as a way of generating candidate grasps for the Stretch to use on various objects. We have our own fork of [Contact Graspnet](https://github.com/cpaxton/contact_graspnet/tree/cpaxton/devel) which has been modified with a ROS interface.
+
+Follow the installation instructions as normal and start it with:
+```
+conda activate contact_graspnet_env
+~/src/contact_graspnet$ python contact_graspnet/graspnet_ros_server.py  --local_regions --filter_grasps
+```
+
 ### Stopping all processes
 ```sh
 mrp down
