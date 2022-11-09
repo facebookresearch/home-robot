@@ -1,0 +1,3 @@
+[submodule "hab_stretch"]
+	path = assets/hab_stretch
+	url = git@github.com:cpaxton/hab_stretch.git
