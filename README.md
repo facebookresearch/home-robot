@@ -17,6 +17,13 @@ Mostly Hello Stretch infrastructure
 1. Install stretch_ros following official instructions [here](https://github.com/hello-robot/stretch_ros/blob/dev/noetic/install_noetic.md)
 1. Install Hector SLAM: `sudo apt install ros-noetic-hector-*`
 
+Optionally, you can symlink `home_robot` into your ROS workspace, e.g.:
+```
+ln -s /path/to/home-robot $HOME/catkin_ws/src/home_robot
+cd $HOME/catkin_ws
+catkin_make
+```
+
 ## Usage
 
 ### Launching the hardware stack:
@@ -30,6 +37,12 @@ This launches:
 - Hector SLAM
 - State estimation node
 - Continuous controller node
+
+Alternate bringup in ROS:
+```
+roslaunch home_robot startup_stretch_hector_slam.launch
+```
+This does not however start the continuous control node, which needs to be launched separately.
 
 ### Launching a minimal kinematic simulation (no camera yet)
 ```sh
