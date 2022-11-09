@@ -24,6 +24,14 @@ cd $HOME/catkin_ws
 catkin_make
 ```
 
+### Perception and other dependencies
+
+TODO - remove this
+
+```
+python -m pip install 'git+https://github.com/facebookresearch/detectron2.git'
+```
+
 ## Usage
 
 ### Launching the hardware stack:
