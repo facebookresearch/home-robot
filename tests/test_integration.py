@@ -38,7 +38,7 @@ def test_goto(home_robot_stack, robot):
     xyt_new = robot.get_base_state()
 
     assert np.allclose(xyt_new[:2], xyt_goal[:2], atol=0.02)  # 2cm
-    assert np.allclose(xyt_new[2], xyt_goal[2], atol=0.087)  # 5 degrees
+    assert np.allclose(xyt_new[2], xyt_goal[2], atol=0.104)  # 6 degrees
 
     # Down processes
     mrp.cmd.down()
