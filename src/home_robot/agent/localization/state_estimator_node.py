@@ -48,12 +48,6 @@ def cutoff_angle(duration, cutoff_freq):
 
 class NavStateEstimator:
     def __init__(self):
-        # Publishers
-        rospy.init_node("state_estimator")
-        self._estimator_pub = rospy.Publisher(
-            "state_estimator/pose_filtered", PoseStamped, queue_size=1
-        )
-
         # Initialize
         self._slam_inject_lock = threading.Lock()
 
@@ -98,16 +92,24 @@ class NavStateEstimator:
             self._slam_pose_sp = pose_ros2sophus(pose.pose.pose)
 
     def run(self):
-        # This comes from hector_slam. It's a transform from src_frame = 'base_link', target_frame = 'map'
+        # ROS comms
+        rospy.init_node("state_estimator")
+
+        self._estimator_pub = rospy.Publisher(
+            "state_estimator/pose_filtered", PoseStamped, queue_size=1
+        )
+
         rospy.Subscriber(
             "poseupdate",
             PoseWithCovarianceStamped,
             self._slam_pose_callback,
             queue_size=1,
-        )
-        # This comes from wheel odometry.
-        rospy.Subscriber("odom", Odometry, self._odom_callback, queue_size=1)
+        )  # This comes from hector_slam. It's a transform from src_frame = 'base_link', target_frame = 'map'
+        rospy.Subscriber(
+            "odom", Odometry, self._odom_callback, queue_size=1
+        )  # This comes from wheel odometry.
 
+        # Run
         log.info("State Estimator launched.")
         rospy.spin()
 

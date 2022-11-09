@@ -36,10 +36,6 @@ class GotoVelocityController:
         # Control module
         self.control = DDVelocityControlNoplan(hz)
 
-        # Publishers
-        rospy.init_node("goto_controller")
-        self.vel_command_pub = rospy.Publisher("stretch/cmd_vel", Twist, queue_size=1)
-
         # Initialize
         self.xyt_loc = np.zeros(3)
         self.xyt_loc_odom = np.zeros(3)
@@ -126,7 +122,11 @@ class GotoVelocityController:
             rate.sleep()
 
     def main(self):
-        # Subscribers
+        # ROS comms
+        rospy.init_node("goto_controller")
+
+        self.vel_command_pub = rospy.Publisher("stretch/cmd_vel", Twist, queue_size=1)
+
         rospy.Subscriber(
             "state_estimator/pose_filtered",
             PoseStamped,
@@ -143,7 +143,6 @@ class GotoVelocityController:
             "goto_controller/goal", Pose, self._goal_update_callback, queue_size=1
         )
 
-        # Services
         rospy.Service("goto_controller/enable", Trigger, self._enable_service)
         rospy.Service("goto_controller/disable", Trigger, self._disable_service)
         rospy.Service(

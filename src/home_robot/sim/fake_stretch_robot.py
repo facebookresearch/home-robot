@@ -88,22 +88,6 @@ class FakeStretch:
         self._vel_cmd_cache = [0.0, 0.0]
         self._mode = ControlMode.POS  # start in position mode
 
-        # Ros stuff
-        rospy.init_node("fake_stretch_hw")
-        self._hector_slam_pub = rospy.Publisher(
-            "poseupdate",
-            PoseWithCovarianceStamped,
-            queue_size=1,
-        )
-        self._odom_pub = rospy.Publisher("odom", Odometry, queue_size=1)
-
-        self.switch_to_nav_mode_serv = rospy.Service(
-            "/switch_to_navigation_mode", Trigger, self._nav_mode_service
-        )
-        self.switch_to_pos_mode_serv = rospy.Service(
-            "/switch_to_position_mode", Trigger, self._pos_mode_service
-        )
-
     def _publish_slam(self, xyt, timestamp):
         msg = PoseWithCovarianceStamped()
         msg.header.stamp = timestamp
@@ -136,12 +120,28 @@ class FakeStretch:
 
     def run(self):
         """Launches the simulation loop"""
-        # Subscribers
+        # ROS comms
+        rospy.init_node("fake_stretch_hw")
+
+        self.switch_to_nav_mode_serv = rospy.Service(
+            "/switch_to_navigation_mode", Trigger, self._nav_mode_service
+        )
+        self.switch_to_pos_mode_serv = rospy.Service(
+            "/switch_to_position_mode", Trigger, self._pos_mode_service
+        )
+
+        self._hector_slam_pub = rospy.Publisher(
+            "poseupdate",
+            PoseWithCovarianceStamped,
+            queue_size=1,
+        )
+        self._odom_pub = rospy.Publisher("odom", Odometry, queue_size=1)
+
         rospy.Subscriber(
             "stretch/cmd_vel", Twist, self._vel_control_callback, queue_size=1
         )
 
-        # Sim loop
+        # Run sim loop
         dt_control = 1 / self.control_hz
 
         rate = rospy.Rate(self.sim_hz)
