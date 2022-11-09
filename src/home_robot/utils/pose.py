@@ -21,13 +21,10 @@ def compute_pose_from_rotation_matrix(T_pose, r_matrix):
 
 # batch*n
 def normalize_vector( v, return_mag =False):
-    batch=v.shape[0]
-    v_mag = torch.sqrt(v.pow(2).sum(1))# batch
-    v_mag = torch.max(v_mag, torch.autograd.Variable(torch.FloatTensor([1e-8]).cuda()))
-    v_mag = v_mag.view(batch,1).expand(batch,v.shape[1])
-    v = v / (v_mag + 1e-6)
+    v_mag = v.norm(dim=-1)
+    v = v / (v_mag.view(-1, 1).repeat(1, 3))
     if(return_mag==True):
-        return v, v_mag[:,0]
+        return v, v_mag
     else:
         return v
 
@@ -49,13 +46,13 @@ def cross_product( u, v):
 #poses batch*6
 #poses
 def compute_rotation_matrix_from_ortho6d(ortho6d):
-    x_raw = ortho6d[:,0:3]#batch*3
-    y_raw = ortho6d[:,3:6]#batch*3
+    x_raw = ortho6d[:,0:3]  #batch*3
+    y_raw = ortho6d[:,3:6]  #batch*3
         
     x = normalize_vector(x_raw) #batch*3
-    z = cross_product(x,y_raw) #batch*3
-    z = normalize_vector(z)#batch*3
-    y = cross_product(z,x)#batch*3
+    z = cross_product(x, y_raw) #batch*3
+    z = normalize_vector(z)  #batch*3
+    y = cross_product(z, x)  #batch*3
         
     x = x.view(-1,3,1)
     y = y.view(-1,3,1)
@@ -69,3 +66,9 @@ def to_pos_quat(matrix):
     w, x, y, z = tra.quaternion_from_matrix(matrix)
     pos = matrix[:3, 3]
     return pos, np.array([x, y, z, w])
+
+def to_matrix(pos, rot):
+    x, y, z, w = rot
+    T = tra.quaternion_matrix([w, x, y, z])
+    T[:3, 3] = pos
+    return T

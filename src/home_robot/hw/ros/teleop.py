@@ -1,9 +1,12 @@
 #!/usr/bin/env python
+
+
 """
 Based on code from Willow Garage:
     https://github.com/ros-visualization/visualization_tutorials/blob/indigo-devel/interactive_marker_tutorials/scripts/basic_controls.py
 
 """
+
 
 import numpy as np
 import rospy

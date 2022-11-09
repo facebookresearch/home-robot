@@ -2,7 +2,6 @@
 
 import rospy
 import numpy as np
-import ros_numpy
 
 from sensor_msgs.msg import Image
 

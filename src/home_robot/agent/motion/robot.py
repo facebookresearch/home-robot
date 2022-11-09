@@ -1,3 +1,4 @@
+from pdb import post_mortem
 import numpy as np
 import os
 import home_robot.utils.bullet as hrb
@@ -7,6 +8,7 @@ import trimesh.transformations as tra
 from tracikpy import TracIKSolver
 
 from home_robot.motion.space import Space
+from home_robot.utils.pose import to_matrix
 
 
 class Robot(object):
@@ -62,7 +64,8 @@ STRETCH_GRASP_OFFSET[:3, 3] = np.array([0, 0, -1 * STRETCH_STANDOFF_DISTANCE])
 STRETCH_TO_GRASP = np.eye(4)
 STRETCH_TO_GRASP[:3, 3] = np.array([0, 0, STRETCH_STANDOFF_DISTANCE])
 STRETCH_GRIPPER_OPEN = 0.22
-STRETCH_GRIPPER_CLOSE = -0.5
+STRETCH_GRIPPER_CLOSE = -0.2
+# STRETCH_GRIPPER_CLOSE = -0.5
 
 
 class HelloStretchIdx:
@@ -353,9 +356,12 @@ class HelloStretch(Robot):
             self.set_config(q)
         return self.ref.get_link_pose(link_name)
 
-    def fk(self, q=None):
+    def fk(self, q=None, as_matrix=False):
         """ forward kinematics """
-        return self.get_link_pose(self.ee_link_name, q)
+        pose = self.get_link_pose(self.ee_link_name, q)
+        if as_matrix:
+            return to_matrix(*pose)
+        return pose
 
     def update_head(self, qi, look_at):
         qi[HelloStretchIdx.HEAD_PAN] = look_at[0]
@@ -512,7 +518,7 @@ class HelloStretch(Robot):
         dist1 = np.abs(thetag - theta0)
         dist2 = np.abs(thetag2 - theta0)
         # TODO remove debug code
-        print("....", qi)
+        # print("....", qi)
         print("interp from", theta0, "to", thetag, "or maybe", thetag2)
         #print("dists =", dist1, dist2)
         if dist2 < dist1:
@@ -590,6 +596,9 @@ class HelloStretch(Robot):
         ignored = other objects to NOT check against
         """
         self.set_config(q)
+        # Check robot height
+        if q[HelloStretchIdx.LIFT] >= 1.:
+            return False
         # Check links against obstacles
         for name, obj in self.backend.objects.items():
             if obj.id == self.ref.id: continue
