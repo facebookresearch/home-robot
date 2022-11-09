@@ -17,7 +17,9 @@ def quaternion_msg_to_theta(msg):
 
 
 def matrix_from_pose_msg(msg):
-    T = tra.quaternion_matrix([msg.orientation.w, msg.orientation.x, msg.orientation.y, msg.orientation.z])
+    T = tra.quaternion_matrix(
+        [msg.orientation.w, msg.orientation.x, msg.orientation.y, msg.orientation.z]
+    )
     T[:3, 3] = np.array([msg.position.x, msg.position.y, msg.position.z])
     return T
 

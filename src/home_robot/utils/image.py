@@ -5,8 +5,25 @@ import trimesh.transformations as tra
 
 
 class Camera(object):
-    def __init__(self, pos, orn, height, width, fx, fy, px, py, near_val, far_val, pose_matrix,
-                 proj_matrix, view_matrix, fov, *args, **kwargs):
+    def __init__(
+        self,
+        pos,
+        orn,
+        height,
+        width,
+        fx,
+        fy,
+        px,
+        py,
+        near_val,
+        far_val,
+        pose_matrix,
+        proj_matrix,
+        view_matrix,
+        fov,
+        *args,
+        **kwargs
+    ):
         self.pos = pos
         self.orn = orn
         self.height = height
@@ -25,21 +42,21 @@ class Camera(object):
         """ create a dictionary so that we can extract the necessary information for
         creating point clouds later on if we so desire """
         info = {}
-        info['pos'] = self.pos
-        info['orn'] = self.orn
-        info['height'] = self.height
-        info['width'] = self.width
-        info['near_val'] = self.near_val
-        info['far_val'] = self.far_val
-        info['proj_matrix'] = self.proj_matrix
-        info['view_matrix'] = self.view_matrix
-        info['max_depth'] = self.max_depth
-        info['pose_matrix'] = self.pose_matrix
-        info['px'] = self.px
-        info['py'] = self.py
-        info['fx'] = self.fx
-        info['fy'] = self.fy
-        info['fov'] = self.fov
+        info["pos"] = self.pos
+        info["orn"] = self.orn
+        info["height"] = self.height
+        info["width"] = self.width
+        info["near_val"] = self.near_val
+        info["far_val"] = self.far_val
+        info["proj_matrix"] = self.proj_matrix
+        info["view_matrix"] = self.view_matrix
+        info["max_depth"] = self.max_depth
+        info["pose_matrix"] = self.pose_matrix
+        info["px"] = self.px
+        info["py"] = self.py
+        info["fx"] = self.fx
+        info["fy"] = self.fy
+        info["fov"] = self.fov
         return info
 
     def get_pose(self):
@@ -47,7 +64,9 @@ class Camera(object):
 
     def depth_to_xyz(self, depth):
         """get depth from numpy using simple pinhole self model"""
-        indices = np.indices((self.height, self.width), dtype=np.float32).transpose(1, 2, 0)
+        indices = np.indices((self.height, self.width), dtype=np.float32).transpose(
+            1, 2, 0
+        )
         z = depth
         # pixel indices start at top-left corner. for these equations, it starts at bottom-left
         x = (indices[:, :, 1] - self.px) * (z / self.fx)
@@ -66,7 +85,7 @@ class Camera(object):
 def z_from_opengl_depth(depth, camera: Camera):
     near = camera.near_val
     far = camera.far_val
-    #return (2.0 * near * far) / (near + far - depth * (far - near))
+    # return (2.0 * near * far) / (near + far - depth * (far - near))
     return (near * far) / (far - depth * (far - near))
 
 
@@ -76,26 +95,28 @@ def z_from_2(depth, camera: Camera):
     xlin = np.linspace(0, width - 1, width)
     ylin = np.linspace(0, height - 1, height)
     px, py = np.meshgrid(xlin, ylin)
-    x_over_z = (px - camera.px)/camera.fx
-    y_over_z = (py - camera.py)/camera.fy
-    z = distance / np.sqrt(1. + x_over_z**2 + y_over_z**2)
+    x_over_z = (px - camera.px) / camera.fx
+    y_over_z = (py - camera.py) / camera.fy
+    z = distance / np.sqrt(1.0 + x_over_z ** 2 + y_over_z ** 2)
     return z
 
 
 # We apply this correction to xyz when computing it in sim
 # R_CORRECTION = R1 @ R2
-T_CORRECTION = tra.euler_matrix(0, 0, np.pi/2)
+T_CORRECTION = tra.euler_matrix(0, 0, np.pi / 2)
 R_CORRECTION = T_CORRECTION[:3, :3]
 
 
 def opengl_depth_to_xyz(depth, camera: Camera):
     """get depth from numpy using simple pinhole camera model"""
-    indices = np.indices((camera.height, camera.width), dtype=np.float32).transpose(1, 2, 0)
+    indices = np.indices((camera.height, camera.width), dtype=np.float32).transpose(
+        1, 2, 0
+    )
     z = depth
     # pixel indices start at top-left corner. for these equations, it starts at bottom-left
-    #indices[..., 0] = np.flipud(indices[..., 0])
+    # indices[..., 0] = np.flipud(indices[..., 0])
     x = (indices[:, :, 1] - camera.px) * (z / camera.fx)
-    y = (indices[:, :, 0] - camera.py) * (z / camera.fy) #* -1
+    y = (indices[:, :, 0] - camera.py) * (z / camera.fy)  # * -1
     # Should now be height x width x 3, after this:
     xyz = np.stack([x, y, z], axis=-1) @ R_CORRECTION
     return xyz
@@ -103,7 +124,9 @@ def opengl_depth_to_xyz(depth, camera: Camera):
 
 def depth_to_xyz(depth, camera: Camera):
     """get depth from numpy using simple pinhole camera model"""
-    indices = np.indices((camera.height, camera.width), dtype=np.float32).transpose(1, 2, 0)
+    indices = np.indices((camera.height, camera.width), dtype=np.float32).transpose(
+        1, 2, 0
+    )
     z = depth
     # pixel indices start at top-left corner. for these equations, it starts at bottom-left
     x = (indices[:, :, 1] - camera.px) * (z / camera.fx)
@@ -147,10 +170,10 @@ def smooth_mask(mask, kernel=None):
     mask = mask.astype(np.uint8)
     # h, w = mask.shape[:2]
     mask = cv2.dilate(mask, kernel, iterations=3)
-    #mask = cv2.erode(mask, kernel, iterations=1)
+    # mask = cv2.erode(mask, kernel, iterations=1)
     # second step
     mask2 = mask
     mask2 = cv2.erode(mask2, kernel, iterations=3)
-    #mask2 = cv2.dilate(mask2, kernel, iterations=1)
+    # mask2 = cv2.dilate(mask2, kernel, iterations=1)
     mask2 = np.bitwise_and(mask, mask2)
     return mask, mask2

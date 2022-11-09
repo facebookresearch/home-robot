@@ -3,6 +3,7 @@
 import rospy
 from std_srvs.srv import Trigger
 
+
 class SwitchToPositionMode(object):
     def __init__(self):
         self.switch = rospy.ServiceProxy("switch_to_position_mode", Trigger)
@@ -13,5 +14,6 @@ class SwitchToPositionMode(object):
     def __call__(self):
         print("Switching to position...", self.switch())
 
-if __name__ == '__main__':
+
+if __name__ == "__main__":
     SwitchToPositionMode()

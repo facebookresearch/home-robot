@@ -9,8 +9,8 @@ def to_npy_file(description="data", **data):
     now = datetime.now()
     datestr = now.strftime("%Y_%m_%d-%H_%M_%S")
     filename = "%s_%s.npy" % (description, datestr)
-    
-    # This is for 
+
+    # This is for
     np.save(filename, data)
 
 

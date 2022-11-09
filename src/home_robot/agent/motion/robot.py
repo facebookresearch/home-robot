@@ -13,11 +13,14 @@ from home_robot.utils.pose import to_matrix
 
 class Robot(object):
     """ placeholder """
+
     def __init__(self, name="robot", urdf_path=None, visualize=False, assets_path=None):
         # Load and create planner
         self.backend = hrb.PbClient(visualize=visualize)
         # Create object reference
-        self.ref = self.backend.add_articulated_object(name, urdf_path, assets_path=assets_path)
+        self.ref = self.backend.add_articulated_object(
+            name, urdf_path, assets_path=assets_path
+        )
 
     def get_backend(self):
         raise NotImplementedError
@@ -43,17 +46,27 @@ class Robot(object):
         if q is not None:
             self.set_head_config(q)
         raise NotImplementedError
-    
+
 
 # Stretch stuff
-DEFAULT_STRETCH_URDF = 'assets/hab_stretch/urdf/stretch_dex_wrist_simplified.urdf'
-#PLANNER_STRETCH_URDF =  'assets/hab_stretch/urdf/planner_stretch_dex_wrist_simplified.urdf'
-PLANNER_STRETCH_URDF =  'assets/hab_stretch/urdf/planner_calibrated.urdf'
-STRETCH_HOME_Q = np.array([0, 0, 0,
-                     0.2, 0.057, # lift, arm
-                     0.0, # gripper
-                     0., 0., 3.0, # wrist,
-                     0., 0.,])
+DEFAULT_STRETCH_URDF = "assets/hab_stretch/urdf/stretch_dex_wrist_simplified.urdf"
+# PLANNER_STRETCH_URDF =  'assets/hab_stretch/urdf/planner_stretch_dex_wrist_simplified.urdf'
+PLANNER_STRETCH_URDF = "assets/hab_stretch/urdf/planner_calibrated.urdf"
+STRETCH_HOME_Q = np.array(
+    [
+        0,
+        0,
+        0,
+        0.2,
+        0.057,  # lift, arm
+        0.0,  # gripper
+        0.0,
+        0.0,
+        3.0,  # wrist,
+        0.0,
+        0.0,
+    ]
+)
 
 # This is the gripper, and the distance in the gripper frame to where the fingers will roughly meet
 STRETCH_GRASP_FRAME = "link_straight_gripper"
@@ -84,30 +97,49 @@ class HelloStretchIdx:
 
 class HelloStretch(Robot):
     """ define motion planning structure for the robot """
+
     # DEFAULT_BASE_HEIGHT = 0.09
     DEFAULT_BASE_HEIGHT = 0
     GRIPPER_OPEN = 0.6
     GRIPPER_CLOSED = -0.3
 
-    default_step = np.array([0.1, 0.1, 0.2, # x y theta
-                             0.025, 0.025, # lift and arm
-                             0.3, # gripper
-                             0.1, 0.1, 0.1, # wrist rpy
-                             0.2, 0.2, # head
-                             ])
-    default_tols = np.array([0.1, 0.1, 0.01, # x y theta
-                             0.001, 0.0025, # lift and arm
-                             0.01, # gripper
-                             0.01, 0.01, 0.01, # wrist rpy
-                             10.0, 10.0, # head - TODO handle this better
-                             ])
-    #look_at_ee = np.array([-np.pi/2, -np.pi/8])
-    look_at_ee = np.array([-np.pi/2, -np.pi/4])
-    look_front = np.array([0.,  -np.pi/4])
-    look_ahead = np.array([0.,  0.])
+    default_step = np.array(
+        [
+            0.1,
+            0.1,
+            0.2,  # x y theta
+            0.025,
+            0.025,  # lift and arm
+            0.3,  # gripper
+            0.1,
+            0.1,
+            0.1,  # wrist rpy
+            0.2,
+            0.2,  # head
+        ]
+    )
+    default_tols = np.array(
+        [
+            0.1,
+            0.1,
+            0.01,  # x y theta
+            0.001,
+            0.0025,  # lift and arm
+            0.01,  # gripper
+            0.01,
+            0.01,
+            0.01,  # wrist rpy
+            10.0,
+            10.0,  # head - TODO handle this better
+        ]
+    )
+    # look_at_ee = np.array([-np.pi/2, -np.pi/8])
+    look_at_ee = np.array([-np.pi / 2, -np.pi / 4])
+    look_front = np.array([0.0, -np.pi / 4])
+    look_ahead = np.array([0.0, 0.0])
     ee_link_name = "link_straight_gripper"
 
-    def __init__(self, name="robot", urdf_path=None, visualize=False, root='.'):
+    def __init__(self, name="robot", urdf_path=None, visualize=False, root="."):
         """Create the robot in bullet for things like kinematics; extract information"""
 
         # urdf
@@ -117,35 +149,32 @@ class HelloStretch(Robot):
         super(HelloStretch, self).__init__(name, urdf_path, visualize)
         # DOF: 3 for ee roll/pitch/yaw
         #      1 for gripper
-        #      1 for ee extension 
+        #      1 for ee extension
         #      3 for base x/y/theta
         #      2 for head
         self.dof = 3 + 2 + 4 + 2
         self.base_height = self.DEFAULT_BASE_HEIGHT
-        self.ik_solver = TracIKSolver(urdf_path,
-                                      'world',
-                                      'link_straight_gripper',
-                                      timeout=0.1,
-                                      epsilon=1e-5,
-                                      )
+        self.ik_solver = TracIKSolver(
+            urdf_path, "world", "link_straight_gripper", timeout=0.1, epsilon=1e-5
+        )
         assert self.ik_solver.number_of_joints == 11
-        self.static_ik_solver = TracIKSolver(urdf_path,
-                                             'base_theta_link',
-                                             'link_straight_gripper',
-                                             timeout=0.1,
-                                             epsilon=1e-5)
+        self.static_ik_solver = TracIKSolver(
+            urdf_path,
+            "base_theta_link",
+            "link_straight_gripper",
+            timeout=0.1,
+            epsilon=1e-5,
+        )
         assert self.static_ik_solver.number_of_joints == 9
 
-        self.lift_arm_ik_solver = TracIKSolver(urdf_path,
-                                               'base_link',
-                                               'link_arm_l0',
-                                               timeout=0.1,
-                                               epsilon=1e-5)
+        self.lift_arm_ik_solver = TracIKSolver(
+            urdf_path, "base_link", "link_arm_l0", timeout=0.1, epsilon=1e-5
+        )
         assert self.lift_arm_ik_solver.number_of_joints == 5
-        
+
         # ranges for joints
         self.range = np.zeros((self.dof, 2))
-        
+
         # Create object reference
         self.set_pose = self.ref.set_pose
         self.set_joint_position = self.ref.set_joint_position
@@ -153,7 +182,7 @@ class HelloStretch(Robot):
         self._update_joints()
 
     def set_head_config(self, q):
-        # WARNING: this sets all configs 
+        # WARNING: this sets all configs
         bidxs = [HelloStretchIdx.HEAD_PAN, HelloStretchIdx.HEAD_TILT]
         bidxs = [self.joint_idx[b] for b in bidxs]
         if len(q) == self.dof:
@@ -161,7 +190,7 @@ class HelloStretch(Robot):
         elif len(q) == 2:
             qidxs = [0, 1]
         else:
-            raise RuntimeError('unsupported number of head joints')
+            raise RuntimeError("unsupported number of head joints")
 
         for idx, qidx in zip(bidxs, qidxs):
             # Idx is the urdf joint index
@@ -169,7 +198,7 @@ class HelloStretch(Robot):
             qq = q[qidx]
             self.ref.set_joint_position(idx, qq)
 
-    def sample_uniform(self, q0=None, pos=None, radius=2.):
+    def sample_uniform(self, q0=None, pos=None, radius=2.0):
         """ Sample random configurations to seed the ik planner """
         q = (np.random.random(self.dof) * self._rngs) + self._mins
         q[HelloStretchIdx.BASE_THETA] = np.random.random() * np.pi * 2
@@ -205,40 +234,47 @@ class HelloStretch(Robot):
         """ Get joint info from URDF or otherwise provide it """
         self.joint_idx = [-1] * self.dof
         # Get the joint info we need from this
-        joint_lift = self.ref.get_joint_info_by_name('joint_lift')
-        self.range[HelloStretchIdx.LIFT] = np.array([joint_lift.lower_limit, joint_lift.upper_limit])
+        joint_lift = self.ref.get_joint_info_by_name("joint_lift")
+        self.range[HelloStretchIdx.LIFT] = np.array(
+            [joint_lift.lower_limit, joint_lift.upper_limit]
+        )
         self.joint_idx[HelloStretchIdx.LIFT] = joint_lift.index
-        joint_head_pan = self.ref.get_joint_info_by_name('joint_head_pan')
-        self.range[HelloStretchIdx.HEAD_PAN] = np.array([joint_head_pan.lower_limit,
-                                                         joint_head_pan.upper_limit])
+        joint_head_pan = self.ref.get_joint_info_by_name("joint_head_pan")
+        self.range[HelloStretchIdx.HEAD_PAN] = np.array(
+            [joint_head_pan.lower_limit, joint_head_pan.upper_limit]
+        )
         self.joint_idx[HelloStretchIdx.HEAD_PAN] = joint_head_pan.index
-        joint_head_tilt = self.ref.get_joint_info_by_name('joint_head_tilt')
-        self.range[HelloStretchIdx.HEAD_TILT] = np.array([joint_head_tilt.lower_limit,
-                                                         joint_head_tilt.upper_limit])
+        joint_head_tilt = self.ref.get_joint_info_by_name("joint_head_tilt")
+        self.range[HelloStretchIdx.HEAD_TILT] = np.array(
+            [joint_head_tilt.lower_limit, joint_head_tilt.upper_limit]
+        )
         self.joint_idx[HelloStretchIdx.HEAD_TILT] = joint_head_tilt.index
-        joint_wrist_yaw = self.ref.get_joint_info_by_name('joint_wrist_yaw')
-        self.range[HelloStretchIdx.WRIST_YAW] = np.array([joint_wrist_yaw.lower_limit,
-                                                          joint_wrist_yaw.upper_limit])
+        joint_wrist_yaw = self.ref.get_joint_info_by_name("joint_wrist_yaw")
+        self.range[HelloStretchIdx.WRIST_YAW] = np.array(
+            [joint_wrist_yaw.lower_limit, joint_wrist_yaw.upper_limit]
+        )
         self.joint_idx[HelloStretchIdx.WRIST_YAW] = joint_wrist_yaw.index
-        joint_wrist_roll = self.ref.get_joint_info_by_name('joint_wrist_roll')
-        self.range[HelloStretchIdx.WRIST_ROLL] = np.array([joint_wrist_roll.lower_limit,
-                                                           joint_wrist_roll.upper_limit])
+        joint_wrist_roll = self.ref.get_joint_info_by_name("joint_wrist_roll")
+        self.range[HelloStretchIdx.WRIST_ROLL] = np.array(
+            [joint_wrist_roll.lower_limit, joint_wrist_roll.upper_limit]
+        )
         self.joint_idx[HelloStretchIdx.WRIST_ROLL] = joint_wrist_roll.index
-        joint_wrist_pitch = self.ref.get_joint_info_by_name('joint_wrist_pitch')
-        self.range[HelloStretchIdx.WRIST_PITCH] = np.array([joint_wrist_pitch.lower_limit,
-                                                            joint_wrist_pitch.upper_limit])
+        joint_wrist_pitch = self.ref.get_joint_info_by_name("joint_wrist_pitch")
+        self.range[HelloStretchIdx.WRIST_PITCH] = np.array(
+            [joint_wrist_pitch.lower_limit, joint_wrist_pitch.upper_limit]
+        )
         self.joint_idx[HelloStretchIdx.WRIST_PITCH] = joint_wrist_pitch.index
 
-        # arm position 
+        # arm position
         # TODO: fix this so that it is not hard-coded any more
-        self.range[HelloStretchIdx.ARM] = np.array([0., 0.5])
+        self.range[HelloStretchIdx.ARM] = np.array([0.0, 0.5])
         self.arm_idx = []
         upper_limit = 0
         for i in range(4):
             joint = self.ref.get_joint_info_by_name("joint_arm_l%d" % i)
             self.arm_idx.append(joint.index)
             # TODO remove debug statement
-            #print(i, joint.name, joint.lower_limit, joint.upper_limit)
+            # print(i, joint.name, joint.lower_limit, joint.upper_limit)
             upper_limit += joint.upper_limit
 
         # TODO: gripper
@@ -247,12 +283,13 @@ class HelloStretch(Robot):
             joint = self.ref.get_joint_info_by_name("joint_gripper_finger_%s" % i)
             self.gripper_idx.append(joint.index)
             print(i, joint.name, joint.lower_limit, joint.upper_limit)
-            self.range[HelloStretchIdx.GRIPPER] = np.array([joint.lower_limit, joint.upper_limit]) * 0.5
+            self.range[HelloStretchIdx.GRIPPER] = (
+                np.array([joint.lower_limit, joint.upper_limit]) * 0.5
+            )
 
         self._mins = self.range[:, 0]
         self._maxs = self.range[:, 1]
         self._rngs = self.range[:, 1] - self.range[:, 0]
-
 
     def get_space(self) -> Space:
         """
@@ -276,19 +313,20 @@ class HelloStretch(Robot):
         self.ref.set_pose([0, 0, 1000], [0, 0, 0, 1])
 
     def set_config(self, q):
-        assert(len(q) == self.dof)
+        assert len(q) == self.dof
         x, y, theta = q[:3]
-        #quaternion = pb.getQuaternionFromEuler((0, 0, theta))
+        # quaternion = pb.getQuaternionFromEuler((0, 0, theta))
         self.ref.set_pose((0, 0, self.base_height), [0, 0, 0, 1])
-        #self.ref.set_pose((x, y, self.base_height), quaternion)
+        # self.ref.set_pose((x, y, self.base_height), quaternion)
         self.ref.set_joint_position(0, x)
         self.ref.set_joint_position(1, y)
         self.ref.set_joint_position(2, theta)
         for idx, qq in zip(self.joint_idx, q):
-            if idx < 0: continue
+            if idx < 0:
+                continue
             self.ref.set_joint_position(idx, qq)
         # Finally set the arm and gripper as groups
-        self._set_joint_group(self.arm_idx, q[HelloStretchIdx.ARM]/4.)
+        self._set_joint_group(self.arm_idx, q[HelloStretchIdx.ARM] / 4.0)
         self._set_joint_group(self.gripper_idx, q[HelloStretchIdx.GRIPPER])
 
     def plan_look_at(self, q0, xyz):
@@ -301,7 +339,7 @@ class HelloStretch(Robot):
         dist = np.abs(thetag - theta0)
         # Dumb check to see if we can get the rotation right
         if dist > np.pi:
-            thetag -= np.pi/2
+            thetag -= np.pi / 2
             dist = np.abs(thetag - theta0)
         # Getting the direction right here
         dirn = 1.0 if thetag > theta0 else -1.0
@@ -310,11 +348,13 @@ class HelloStretch(Robot):
         look_action = q0.copy()
         self.update_look_ahead(look_action)
 
-        # Compute the angle 
+        # Compute the angle
         head_height = 1.2
         distance = np.linalg.norm([dx, dy])
 
-        look_action[HelloStretchIdx.HEAD_TILT] = -1 * np.arctan((head_height - xyz[2]) / distance)
+        look_action[HelloStretchIdx.HEAD_TILT] = -1 * np.arctan(
+            (head_height - xyz[2]) / distance
+        )
 
         return [action, look_action]
 
@@ -337,15 +377,21 @@ class HelloStretch(Robot):
         if dist > xy_tol:
             dx, dy = xyg - xy0
             theta = np.arctan2(dy, dx)
-            for qi, ai in self.interpolate_angle(qi, theta0, theta, step[HelloStretchIdx.BASE_THETA]):
+            for qi, ai in self.interpolate_angle(
+                qi, theta0, theta, step[HelloStretchIdx.BASE_THETA]
+            ):
                 yield qi, ai
-            for qi, ai in self.interpolate_xy(qi, xy0, dist, step[HelloStretchIdx.BASE_X]):
+            for qi, ai in self.interpolate_xy(
+                qi, xy0, dist, step[HelloStretchIdx.BASE_X]
+            ):
                 yield qi, ai
         else:
             theta = theta0
         # update angle
         if np.abs(thetag - theta) > theta_tol:
-            for qi, ai in self.interpolate_angle(qi, theta, thetag, step[HelloStretchIdx.BASE_THETA]):
+            for qi, ai in self.interpolate_angle(
+                qi, theta, thetag, step[HelloStretchIdx.BASE_THETA]
+            ):
                 yield qi, ai
         # Finally interpolate the whole joint space
         for qi, ai in self.interpolate_arm(qi, qg, step):
@@ -391,8 +437,8 @@ class HelloStretch(Robot):
             dist -= dx
             x += np.cos(theta) * dx
             y += np.sin(theta) * dx
-            #x += np.sin(theta) * dx
-            #y += np.cos(theta) * dx
+            # x += np.sin(theta) * dx
+            # y += np.cos(theta) * dx
             qi[HelloStretchIdx.BASE_X] = x
             qi[HelloStretchIdx.BASE_Y] = y
             ai[0] = dx
@@ -437,8 +483,10 @@ class HelloStretch(Robot):
         x, y, z = pos
         pose[:3, 3] = np.array([x, y, z - self.base_height])
         q = self.ik_solver.ik(pose, self._to_ik_format(q0))
-        if q is not None:  return self._to_plan_format(q)
-        else: return None
+        if q is not None:
+            return self._to_plan_format(q)
+        else:
+            return None
 
     def lift_arm_ik_from_matrix(self, pose_matrix, q0):
         end_arm_idx = 3 + self.lift_arm_ik_solver.number_of_joints
@@ -449,7 +497,8 @@ class HelloStretch(Robot):
             res[3:end_arm_idx] = q
             res = self._to_plan_format(res)
             return res
-        else: return None
+        else:
+            return None
 
     def static_ik(self, pose_query, q0):
         """ constrainted ik, do not move the base? """
@@ -468,7 +517,7 @@ class HelloStretch(Robot):
         # We also need to correct for the current base rotation
         pose0 = pose
         pose[:3, 3] = np.array([x, y, z - self.base_height])
-        R_correct = tra.euler_matrix(0, 0, np.pi/2 - q0[2])
+        R_correct = tra.euler_matrix(0, 0, np.pi / 2 - q0[2])
         # Now apply the rotation correction
         pose = R_correct.T @ pose
 
@@ -485,12 +534,13 @@ class HelloStretch(Robot):
             # Convert into the planner format
             res = self._to_plan_format(res)
             res[:2] = np.array([x0, y0])
-            res[HelloStretchIdx.HEAD_PAN:] = q0[HelloStretchIdx.HEAD_PAN:]
+            res[HelloStretchIdx.HEAD_PAN :] = q0[HelloStretchIdx.HEAD_PAN :]
             # TODO remove debug code
-            # Update the config - useful for debugging 
+            # Update the config - useful for debugging
             # self.set_config(res)
             return res
-        else: return None
+        else:
+            return None
 
     def get_ee_pose(self, q=None):
         if q is not None:
@@ -520,18 +570,18 @@ class HelloStretch(Robot):
         # TODO remove debug code
         # print("....", qi)
         print("interp from", theta0, "to", thetag, "or maybe", thetag2)
-        #print("dists =", dist1, dist2)
+        # print("dists =", dist1, dist2)
         if dist2 < dist1:
             dist = dist2
             thetag = thetag2
         else:
             dist = dist1
         # Dumb check to see if we can get the rotation right
-        #if dist > np.pi:
+        # if dist > np.pi:
         #    thetag -= np.pi/2
         #    dist = np.abs(thetag - theta0)
         # TODO remove debug code
-        #print(" > interp from", theta0, "to", thetag)
+        # print(" > interp from", theta0, "to", thetag)
         # Getting the direction right here
         dirn = 1.0 if thetag > theta0 else -1.0
         while dist > 0:
@@ -555,7 +605,7 @@ class HelloStretch(Robot):
         while np.any(np.abs(qi - qg) > self.default_tols):
             qi = qi.copy()
             ai = qi.copy()
-            ai[:3] = np.zeros(3) # action does not move the base
+            ai[:3] = np.zeros(3)  # action does not move the base
             # TODO: we should handle look differently
             qi = self.update_head(qi.copy(), self.look_at_ee)
             dq = qg - qi
@@ -581,15 +631,14 @@ class HelloStretch(Robot):
         q[HelloStretchIdx.ARM] = a1
         x = q[HelloStretchIdx.BASE_X]
         y = q[HelloStretchIdx.BASE_Y]
-        theta = q[HelloStretchIdx.BASE_THETA] + np.pi/2
+        theta = q[HelloStretchIdx.BASE_THETA] + np.pi / 2
         da = a1 - a0
         dx, dy = da * np.cos(theta), da * np.sin(theta)
         q[HelloStretchIdx.BASE_X] += dx
         q[HelloStretchIdx.BASE_Y] += dy
         return q
 
-
-    def validate(self, q=None, ignored=[], distance=0., verbose=False):
+    def validate(self, q=None, ignored=[], distance=0.0, verbose=False):
         """
         Check collisions against different obstacles
         q = configuration to test
@@ -597,12 +646,14 @@ class HelloStretch(Robot):
         """
         self.set_config(q)
         # Check robot height
-        if q[HelloStretchIdx.LIFT] >= 1.:
+        if q[HelloStretchIdx.LIFT] >= 1.0:
             return False
         # Check links against obstacles
         for name, obj in self.backend.objects.items():
-            if obj.id == self.ref.id: continue
-            elif obj.id in ignored: continue
+            if obj.id == self.ref.id:
+                continue
+            elif obj.id in ignored:
+                continue
             elif self.ref.is_colliding(obj, distance=distance):
                 if verbose:
                     print("colliding with", name)
@@ -610,7 +661,7 @@ class HelloStretch(Robot):
         return True
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     robot = HelloStretch()
     q0 = STRETCH_HOME_Q.copy()
     q1 = STRETCH_HOME_Q.copy()
@@ -618,4 +669,3 @@ if __name__ == '__main__':
     q1[2] = -1.1
     for state, action in robot.interpolate_angle(q0, q0[2], q1[2]):
         print(action)
-

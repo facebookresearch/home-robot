@@ -3,8 +3,9 @@ import pybullet as pb
 from home_robot.motion.robot import Robot
 
 
-DEFAULT_FRANKA_URDF = 'assets/franka_panda/panda.urdf'
-DEFAULT_CALVIN_FRANKA_URDF = 'assets/franka_panda/panda_calvin.urdf'
+DEFAULT_FRANKA_URDF = "assets/franka_panda/panda.urdf"
+DEFAULT_CALVIN_FRANKA_URDF = "assets/franka_panda/panda_calvin.urdf"
+
 
 class Franka(Robot):
     def __init__(self, name="robot", urdf_path=None, visualize=False):

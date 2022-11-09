@@ -23,10 +23,7 @@ class GotoVelocityController:
     Target goal is update-able at any given instant.
     """
 
-    def __init__(
-        self,
-        hz: float,
-    ):
+    def __init__(self, hz: float):
         self.hz = hz
         self.dt = 1.0 / self.hz
 
@@ -56,16 +53,14 @@ class GotoVelocityController:
         self.track_yaw = not self.track_yaw
         status_str = "ON" if self.track_yaw else "OFF"
         return TriggerResponse(
-            success=True,
-            message=f"Yaw tracking is now {status_str}",
+            success=True, message=f"Yaw tracking is now {status_str}"
         )
 
     def _toggle_on_service(self, request):
         self.active = not self.active
         status_str = "RUNNING" if self.active else "STOPPED"
         return TriggerResponse(
-            success=True,
-            message=f"Goto controller is now {status_str}",
+            success=True, message=f"Goto controller is now {status_str}"
         )
 
     def _compute_error_pose(self):

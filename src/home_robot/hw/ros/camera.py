@@ -20,14 +20,14 @@ class RosCamera(Camera):
             if msg.encoding == "16UC1":
                 # depth support goes here
                 # Convert the image to metric (meters)
-                img = img / 1000.
+                img = img / 1000.0
             elif msg.encoding == "rgb8":
                 # color support - do nothing
                 pass
             self._img = img
             if self.buffer_size is not None:
                 self._add_to_buffer(img)
-    
+
     def _add_to_buffer(self, img):
         """ add to buffer and remove old image if buffer size exceeded """
         self._buffer.append(img)
@@ -69,13 +69,14 @@ class RosCamera(Camera):
         if device is not None:
             # Convert to tensor and get the formatting right
             import torch
-            img  = torch.FloatTensor(img).to(device).permute(2, 0, 1)
+
+            img = torch.FloatTensor(img).to(device).permute(2, 0, 1)
         return img
 
     def get_filtered(self, std_threshold=0.005, device=None):
         """ get image from buffer; do some smoothing """
         if self.buffer_size is None:
-            raise RuntimeError('no buffer')
+            raise RuntimeError("no buffer")
         with self._lock:
             imgs = [img[None] for img in self._buffer]
         # median = np.median(np.concatenate(imgs, axis=0), axis=0)
@@ -89,7 +90,8 @@ class RosCamera(Camera):
         if device is not None:
             # Convert to tensor and get the formatting right
             import torch
-            img  = torch.FloatTensor(img).to(device).permute(2, 0, 1)
+
+            img = torch.FloatTensor(img).to(device).permute(2, 0, 1)
         return img
 
     def get_frame(self):
@@ -98,11 +100,13 @@ class RosCamera(Camera):
     def get_K(self):
         return self.K.copy()
 
-    def __init__(self, name='/camera/color', verbose=True, flipxy=False, buffer_size=None):
+    def __init__(
+        self, name="/camera/color", verbose=True, flipxy=False, buffer_size=None
+    ):
         self.name = name
         self._img = None
         self._lock = threading.Lock()
-        cam_info = rospy.wait_for_message(name + '/camera_info', CameraInfo)
+        cam_info = rospy.wait_for_message(name + "/camera_info", CameraInfo)
         self.buffer_size = buffer_size
         if self.buffer_size is not None:
             # create buffer
@@ -125,4 +129,4 @@ class RosCamera(Camera):
             print(cam_info)
             print("---------------")
         self.frame_id = cam_info.header.frame_id
-        self._sub = rospy.Subscriber(name + '/image_raw', Image, self._cb, queue_size=1)
+        self._sub = rospy.Subscriber(name + "/image_raw", Image, self._cb, queue_size=1)

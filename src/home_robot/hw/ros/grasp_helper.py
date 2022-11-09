@@ -26,7 +26,7 @@ def msg_to_segmented_point_cloud(msg):
     print("got # pts =", len(msg.points))
     print("channel info:")
     for channel in msg.channels:
-        print('\t', channel.name, len(channel.values))
+        print("\t", channel.name, len(channel.values))
     for i in range(len(msg.points)):
         xyz[i] = np.array([msg.points[i].x, msg.points[i].y, msg.points[i].z])
         seg[i] = msg.channels[0].values[i]
@@ -39,11 +39,18 @@ def msg_to_segmented_point_cloud(msg):
 class GraspClient(object):
     """ send and receive grasp queries with no custom messages or anything else """
 
-    def __init__(self, topic="/grasping/request", offset=0., R=None, flip_grasps=True, debug=True):
+    def __init__(
+        self,
+        topic="/grasping/request",
+        offset=0.0,
+        R=None,
+        flip_grasps=True,
+        debug=True,
+    ):
         print("Initializing connection to ROS grasping server from the client...")
         # self.sub = rospy.Subscriber(recv_topic, PoseArray, queue_size=1, self._cb)
-        #self.sub2 = rospy.Subscriber(score_topic, FloatArray, queue_size=1, self._cb2)
-        #self.pub = rospy.Publisher(send_topic, PointCloud)
+        # self.sub2 = rospy.Subscriber(score_topic, FloatArray, queue_size=1, self._cb2)
+        # self.pub = rospy.Publisher(send_topic, PointCloud)
         rospy.wait_for_service(topic)
         self.proxy = rospy.ServiceProxy(topic, GraspRequest)
         self.grasp_lock = threading.Lock()
@@ -96,8 +103,10 @@ class GraspClient(object):
         self.req_id += 1
         xyz = xyz.reshape(-1, 3)
         for i in range(xyz.shape[0]):
-            msg.points.append(Point(xyz[i,0], xyz[i, 1], xyz[i, 2]))
-        msg.channels = ChannelFloat32(name="label", values=labels.astype(np.float32).tolist())
+            msg.points.append(Point(xyz[i, 0], xyz[i, 1], xyz[i, 2]))
+        msg.channels = ChannelFloat32(
+            name="label", values=labels.astype(np.float32).tolist()
+        )
         return msg
 
     def segmented_point_cloud_to_msg(self, xyz, rgb, labels):
@@ -129,7 +138,7 @@ class GraspClient(object):
             objs[obj_id] = (grasps, scores)
         return objs
 
-    def get_grasps(self, xyz, labels, timeout=10.):
+    def get_grasps(self, xyz, labels, timeout=10.0):
         msg = segmented_point_cloud_to_msg(xyz, labels)
         print("Sending grasp request...")
         with self.lock:
@@ -151,11 +160,16 @@ class GraspClient(object):
 
 
 class GraspServer(object):
-    def __init__(self, handle_request_fn, topic="/grasping/request", dbg_topic="/grasping/all_grasps"):
+    def __init__(
+        self,
+        handle_request_fn,
+        topic="/grasping/request",
+        dbg_topic="/grasping/all_grasps",
+    ):
         print("Initializing ROS grasping server...")
-        #self.sub = rospy.Subscriber(send_topic, PointCloud, queue_size=1, self._cb)
-        #self.pub = rospy.Publisher(recv_topic, PointCloud)
-        #self.queue = deque()
+        # self.sub = rospy.Subscriber(send_topic, PointCloud, queue_size=1, self._cb)
+        # self.pub = rospy.Publisher(recv_topic, PointCloud)
+        # self.queue = deque()
         self.handle_request_fn = handle_request_fn
         self.service = rospy.Service(topic, GraspRequest, self.process)
         self.pub = rospy.Publisher(dbg_topic, PoseArray)
@@ -165,17 +179,17 @@ class GraspServer(object):
         xyz, rgb, seg = msg_to_segmented_point_cloud(req.cloud)
         print()
         print("frame =", req.cloud.header.frame_id)
-        #print(xyz)
-        #print(seg)
+        # print(xyz)
+        # print(seg)
         grasps, scores = self.handle_request_fn(xyz, rgb, seg)
-        #print(grasps.keys())
+        # print(grasps.keys())
         resp = GraspRequestResponse()
         all_grasps = PoseArray()
         all_grasps.header.frame_id = req.cloud.header.frame_id
         for k in grasps.keys():
-            #print("----", k, "----")
+            # print("----", k, "----")
             obj_grasps = grasps[k]
-            #print(obj_grasps)
+            # print(obj_grasps)
             print(k, "# grasps =", obj_grasps.shape)
             grasps_msg = PoseArray()
             for g in obj_grasps:
@@ -193,7 +207,7 @@ class GraspServer(object):
     def _cb(self, msg):
         # Process into the right format and make it into a message queue
         self.queue.push_right(msg_to_segmented_point_cloud(msg))
-        
+
     def get(self):
         return self.queue.pop_left()
 

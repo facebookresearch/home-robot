@@ -7,7 +7,7 @@ from home_robot.motion.robot import HelloStretchIdx
 class LinearPlanner(Planner):
     """ linear configuration-space plans """
 
-    def __init__(self, robot, step_size=0.1,  *args, **kwargs):
+    def __init__(self, robot, step_size=0.1, *args, **kwargs):
         super(LinearPlanner, self).__init__(robot, *args, **kwargs)
         self.step_size = step_size
 
@@ -20,7 +20,7 @@ class LinearPlanner(Planner):
         ts = []
         t = 0
         traj.append(q0)
-        ts.append(0.)
+        ts.append(0.0)
         for q in self.robot.interpolate(q0, qg):
             if self.robot.validate(q):
                 traj.append(q)
@@ -33,9 +33,18 @@ class LinearPlanner(Planner):
 
 class StretchLinearWithOffsetPlanner(Planner):
     """ Plan to a stand-off position from which you can move straight to the goal grasp position """
-    def __init__(self, robot, step_size=0.1, standoff_range=[STRETCH_STANDOFF_WITH_MARGIN,
-                                                             STRETCH_STANDOFF_WITH_MARGIN + 0.2],
-                  *args, **kwargs):
+
+    def __init__(
+        self,
+        robot,
+        step_size=0.1,
+        standoff_range=[
+            STRETCH_STANDOFF_WITH_MARGIN,
+            STRETCH_STANDOFF_WITH_MARGIN + 0.2,
+        ],
+        *args,
+        **kwargs
+    ):
         """ save the standoff distance so we can randomly sample one that works """
         super(StretchLinearWithOffsetPlanner, self).__init__(robot, *args, **kwargs)
         self.step_size = step_size
@@ -64,7 +73,7 @@ class StretchLinearWithOffsetPlanner(Planner):
         # darm = qg[HelloStretchIdx.ARM] - q0[HelloStretchIdx.ARM]
         # retract arm first
         if not self.robot.validate(q0):
-            raise RuntimeError('invalid start configuration for planner')
+            raise RuntimeError("invalid start configuration for planner")
         q_retract = q0.copy()
         # TODO: for debugging
         # self.robot.validate(qi)
@@ -73,18 +82,21 @@ class StretchLinearWithOffsetPlanner(Planner):
         sequences = []
         retract = self._interpolate(q0, q_retract)
         # Check to see if planning failed here
-        if retract is None: return None
+        if retract is None:
+            return None
         sequences.append(retract)
-    
+
         # Try to find IK solutions
-        # 
+        #
         for i in range(tries):
             idx = i % len(poses)
             pos, orn = poses[idx]
             q = self.robot.ik((pos, orn), self.robot.sample_uniform(q0, pos))
             # Now move it back
             # This function puts the robot farther away by some random distance
-            q = self.robot.extend_arm_to(q, (np.random.random() * self.standoff_rng) + self.standoff_min)
+            q = self.robot.extend_arm_to(
+                q, (np.random.random() * self.standoff_rng) + self.standoff_min
+            )
             # print(q[HelloStretchIdx.ARM], self.robot.validate(q), self.robot.fk())
             # input('---')
             # TODO: to debug this, pass verbose=true to see what it's colliding with
@@ -124,9 +136,18 @@ class StretchLinearWithOffsetPlanner(Planner):
 class StretchLinearIKPlanner(Planner):
     """ Plan to a stand-off position from which you can move straight to the goal grasp position
     This version of the planner uses base rotation and IK to figure out an approach that we can follow"""
-    def __init__(self, robot, step_size=0.1, standoff_range=[STRETCH_STANDOFF_WITH_MARGIN,
-                                                             STRETCH_STANDOFF_WITH_MARGIN + 0.2],
-                  *args, **kwargs):
+
+    def __init__(
+        self,
+        robot,
+        step_size=0.1,
+        standoff_range=[
+            STRETCH_STANDOFF_WITH_MARGIN,
+            STRETCH_STANDOFF_WITH_MARGIN + 0.2,
+        ],
+        *args,
+        **kwargs
+    ):
         """ save the standoff distance so we can randomly sample one that works """
         super(StretchLinearWithOffsetPlanner, self).__init__(robot, *args, **kwargs)
         self.step_size = step_size
@@ -155,32 +176,35 @@ class StretchLinearIKPlanner(Planner):
         # darm = qg[HelloStretchIdx.ARM] - q0[HelloStretchIdx.ARM]
         # retract arm first
         if not self.robot.validate(q0):
-            raise RuntimeError('invalid start configuration for planner')
+            raise RuntimeError("invalid start configuration for planner")
         # Start from position with the arm fully retracted
         q_retract = q0.copy()
         q_retract[HelloStretchIdx.ARM] = 0
         sequences = []
         retract = self._interpolate(q0, q_retract)
         # Check to see if planning failed here
-        if retract is None: return None
+        if retract is None:
+            return None
         sequences.append(retract)
-    
+
         # Try to find IK solutions
-        # 
+        #
         for i in range(tries):
             idx = i % len(poses)
             pos, orn = poses[idx]
             q = self.robot.ik((pos, orn), self.robot.sample_uniform(q0, pos))
             # Now move it back
             # This function puts the robot farther away by some random distance
-            q = self.robot.extend_arm_to(q, (np.random.random() * self.standoff_rng) + self.standoff_min)
+            q = self.robot.extend_arm_to(
+                q, (np.random.random() * self.standoff_rng) + self.standoff_min
+            )
             # if grasping... make sure the gripper is open
             if grasp:
                 q = self.robot.config_open_gripper(q)
             # print(q[HelloStretchIdx.ARM], self.robot.validate(q), self.robot.fk())
             # input('---')
             # TODO: to debug this, pass verbose=true to see what it's colliding with
-            #if not self.robot.validate(q, ignored=ignored, verbose=False):
+            # if not self.robot.validate(q, ignored=ignored, verbose=False):
             if not self.robot.validate(q, verbose=False):
                 # Tried to compute a standoff at arm = 0
                 continue
@@ -196,7 +220,7 @@ class StretchLinearIKPlanner(Planner):
                 continue
 
             # Move to grasp - extend the arm
-            #grasp = self._interpolate(q_standoff, q_grasp, ignored=ignored)
+            # grasp = self._interpolate(q_standoff, q_grasp, ignored=ignored)
             grasp = self._interpolate(q_standoff, q_grasp)
             if grasp is not None:
                 sequences.append(standoff)

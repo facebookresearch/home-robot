@@ -15,7 +15,7 @@ class SlamPublisher(object):
         """ collect robot data here """
         tform = TransformStamped()
         tform.header = msg.header
-        tform.child_frame_id = "odom" # "base_link"
+        tform.child_frame_id = "odom"  # "base_link"
         tform.transform.translation.x = msg.pose.pose.position.x
         tform.transform.translation.y = msg.pose.pose.position.y
         tform.transform.translation.z = msg.pose.pose.position.z
@@ -26,12 +26,13 @@ class SlamPublisher(object):
         self.tf_publisher.sendTransform(tform)
 
     def __init__(self):
-        self._sub = rospy.Subscriber('/poseupdate', PoseWithCovarianceStamped, self._cb)
+        self._sub = rospy.Subscriber("/poseupdate", PoseWithCovarianceStamped, self._cb)
         self.tf_publisher = tf2_ros.TransformBroadcaster()
 
     def spin(self):
         rospy.spin()
 
-if __name__ == '__main__':
-    rospy.init_node('slam_republisher')
+
+if __name__ == "__main__":
+    rospy.init_node("slam_republisher")
     SlamPublisher().spin()

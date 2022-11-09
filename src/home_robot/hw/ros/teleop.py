@@ -18,7 +18,11 @@ from visualization_msgs.msg import *
 from geometry_msgs.msg import Pose, Point, Quaternion
 
 from home_robot.hardware.stretch_ros import HelloStretchROSInterface
-from home_robot.motion.robot import STRETCH_HOME_Q, STRETCH_GRASP_FRAME, STRETCH_TO_GRASP
+from home_robot.motion.robot import (
+    STRETCH_HOME_Q,
+    STRETCH_GRASP_FRAME,
+    STRETCH_TO_GRASP,
+)
 from home_robot.motion.robot import HelloStretchIdx
 from home_robot.ros.utils import *
 from home_robot.ros.position_mode import SwitchToPositionMode
@@ -69,7 +73,7 @@ counter = 0
 root_link = "map"
 
 
-def makeBox( msg, r, g, b ):
+def makeBox(msg, r, g, b):
     marker = Marker()
 
     marker.type = Marker.CUBE
@@ -83,12 +87,13 @@ def makeBox( msg, r, g, b ):
 
     return marker
 
-def makeBoxControl( msg , r, g, b):
+
+def makeBoxControl(msg, r, g, b):
     """ from willow teleop code """
-    control =  InteractiveMarkerControl()
+    control = InteractiveMarkerControl()
     control.always_visible = True
-    control.markers.append( makeBox(msg, r, g, b) )
-    msg.controls.append( control )
+    control.markers.append(makeBox(msg, r, g, b))
+    msg.controls.append(control)
     return control
 
 
@@ -103,7 +108,7 @@ def makeBaseMarker(position, orientation, root_link):
     int_marker.pose.orientation = orientation
     int_marker.scale = 0.5
     int_marker.name = "base_motion"
-    int_marker.description = "" # base motions in plane"
+    int_marker.description = ""  # base motions in plane"
 
     # Add a box
     makeBoxControl(int_marker, 0.0, 0.0, 1.0)
@@ -153,13 +158,13 @@ class TeleopMarkerServer(object):
         # Create a menu handler
         self.menu_handler = MenuHandler()
         # menu_handler.insert( "Home the robot", callback=self_cb_home())
-        self.menu_handler.insert( "Stow the arm", callback=self._cb_stow)
-        self.menu_handler.insert( "Raise the arm", callback=self._cb_raise)
-        self.menu_handler.insert( "Look straight", callback=self._cb_look_straight)
-        self.menu_handler.insert( "Look forward", callback=self._cb_look_front)
-        self.menu_handler.insert( "Look at gripper", callback=self._cb_look_at_ee)
-        self.menu_handler.insert( "Open gripper", callback=self._cb_open_ee)
-        self.menu_handler.insert( "Close gripper", callback=self._cb_close_ee)
+        self.menu_handler.insert("Stow the arm", callback=self._cb_stow)
+        self.menu_handler.insert("Raise the arm", callback=self._cb_raise)
+        self.menu_handler.insert("Look straight", callback=self._cb_look_straight)
+        self.menu_handler.insert("Look forward", callback=self._cb_look_front)
+        self.menu_handler.insert("Look at gripper", callback=self._cb_look_at_ee)
+        self.menu_handler.insert("Open gripper", callback=self._cb_open_ee)
+        self.menu_handler.insert("Close gripper", callback=self._cb_close_ee)
 
         # create a timer to update the published transforms
         self.counter = 0
@@ -229,7 +234,13 @@ class TeleopMarkerServer(object):
         arm_pose = self.robot.get_pose("link_arm_l0")
         with self._lock:
             q0, _ = self.robot.update()
-        arm_pose[:3, 3] = np.array([feedback.pose.position.x, feedback.pose.position.y, feedback.pose.position.z])
+        arm_pose[:3, 3] = np.array(
+            [
+                feedback.pose.position.x,
+                feedback.pose.position.y,
+                feedback.pose.position.z,
+            ]
+        )
         q = self.model.lift_arm_ik_from_matrix(arm_pose, q0)
         if q is not None:
             q[HelloStretchIdx.HEAD_PAN] = q0[HelloStretchIdx.HEAD_PAN]
@@ -240,10 +251,12 @@ class TeleopMarkerServer(object):
     def _cb_send_gripper_command(self, feedback):
         with self._lock:
             q, _ = self.robot.update()
-        ranges = self.model.range[HelloStretchIdx.WRIST_ROLL:(HelloStretchIdx.WRIST_YAW+1)]
+        ranges = self.model.range[
+            HelloStretchIdx.WRIST_ROLL : (HelloStretchIdx.WRIST_YAW + 1)
+        ]
         rpy = tra.euler_from_matrix(matrix_from_pose_msg(feedback.pose))
         rpy = np.clip(rpy, ranges[:, 0], ranges[:, 1])
-        q[HelloStretchIdx.WRIST_ROLL:(HelloStretchIdx.WRIST_YAW+1)] = rpy
+        q[HelloStretchIdx.WRIST_ROLL : (HelloStretchIdx.WRIST_YAW + 1)] = rpy
         self.robot.goto(q, move_base=False, wait=False)
 
     def add_arm_marker(self):
@@ -254,8 +267,11 @@ class TeleopMarkerServer(object):
         int_marker = self.make_arm_marker()
         self.arm_marker_name = int_marker.name
         self.marker_server.insert(int_marker, self._cb_send_arm_command)
-        self.marker_server.setCallback(self.arm_marker_name, self._cb_send_arm_command,
-                                       InteractiveMarkerFeedback.POSE_UPDATE)
+        self.marker_server.setCallback(
+            self.arm_marker_name,
+            self._cb_send_arm_command,
+            InteractiveMarkerFeedback.POSE_UPDATE,
+        )
         self.menu_handler.apply(self.marker_server, self.base_marker_name)
 
     def add_base_marker(self):
@@ -266,15 +282,18 @@ class TeleopMarkerServer(object):
         int_marker = makeBaseMarker(position, orientation, root_link)
         self.base_marker_name = int_marker.name
         self.marker_server.insert(int_marker, self._cb_send_command)
-        self.marker_server.setCallback(self.base_marker_name, self._cb_send_command,
-                                       InteractiveMarkerFeedback.POSE_UPDATE)
+        self.marker_server.setCallback(
+            self.base_marker_name,
+            self._cb_send_command,
+            InteractiveMarkerFeedback.POSE_UPDATE,
+        )
         self.menu_handler.apply(self.marker_server, self.base_marker_name)
 
     def get_x_cmd(self, cmd_xy, q):
         cur_xy = np.array([q[0], q[1]])
         dist = np.linalg.norm(cmd_xy - cur_xy)
         theta = np.arctan2(cmd_xy[0] - cur_xy[0], cmd_xy[1] - cur_xy[1])
-        dirn = -1 if np.abs(theta - (np.pi/2)) > 0 else 1
+        dirn = -1 if np.abs(theta - (np.pi / 2)) > 0 else 1
         return dist, dirn
 
     def make_arm_marker(self):
@@ -288,7 +307,7 @@ class TeleopMarkerServer(object):
         # int_marker.pose.orientation = orientation
         int_marker.scale = 0.25
         int_marker.name = "arm_control"
-        int_marker.description = "" # base motions in plane"
+        int_marker.description = ""  # base motions in plane"
 
         # Add a box
         makeBoxControl(int_marker, 0.0, 1.0, 0.0)
@@ -328,7 +347,7 @@ class TeleopMarkerServer(object):
         # int_marker.pose.orientation = orientation
         int_marker.scale = 0.25
         int_marker.name = "gripper"
-        int_marker.description = "" # base motions in plane"
+        int_marker.description = ""  # base motions in plane"
 
         # Add a box
         makeBoxControl(int_marker, 1.0, 0.0, 0.0)
@@ -366,10 +385,11 @@ class TeleopMarkerServer(object):
 
         self.gripper_marker_name = int_marker.name
         self.marker_server.insert(int_marker, self._cb_send_gripper_command)
-        self.marker_server.setCallback(self.gripper_marker_name, self._cb_send_gripper_command,
-                                       InteractiveMarkerFeedback.POSE_UPDATE)
-
-
+        self.marker_server.setCallback(
+            self.gripper_marker_name,
+            self._cb_send_gripper_command,
+            InteractiveMarkerFeedback.POSE_UPDATE,
+        )
 
     def check_switch_to_position_mode(self):
         """ only switch if necessary """
@@ -404,7 +424,7 @@ class TeleopMarkerServer(object):
         print("dist =", dist)
         print(dist, dirn, cmd_theta)
 
-        # Switch to positoin mode if we need to, before sending any commands 
+        # Switch to positoin mode if we need to, before sending any commands
         self.check_switch_to_position_mode()
 
         # Correct and command
@@ -429,7 +449,7 @@ class TeleopMarkerServer(object):
         # Reset everything to zero
         pose = Pose()
         # print(q[:2])
-        T =  tra.euler_matrix(0, 0, q[2])
+        T = tra.euler_matrix(0, 0, q[2])
         T[:2, 3] = q[:2]
         _, _, theta = tra.euler_from_matrix(T)
         pose.position.x = T[0, 3]
@@ -447,9 +467,9 @@ class TeleopMarkerServer(object):
         pose2.position.y = y
         pose2.position.z = z
         self.marker_server.setPose(self.arm_marker_name, pose2)
-            
-        #gripper_pose = self.robot.get_pose("link_gripper")
-        #x, y, z = gripper_pose[:3, 3]
+
+        # gripper_pose = self.robot.get_pose("link_gripper")
+        # x, y, z = gripper_pose[:3, 3]
         pose3 = Pose()
         pos, rot = self.model.fk(q)
         qx, qy, qz, qw = rot
@@ -463,11 +483,11 @@ class TeleopMarkerServer(object):
         pose3.position.x = ex
         pose3.position.y = ey
         pose3.position.z = ez
-        #w, x, y, z = tra.quaternion_from_matrix(R)
-        #pose3.orientation.x = x
-        #pose3.orientation.y = y
-        #pose3.orientation.z = z
-        #pose3.orientation.w = w
+        # w, x, y, z = tra.quaternion_from_matrix(R)
+        # pose3.orientation.x = x
+        # pose3.orientation.y = y
+        # pose3.orientation.z = z
+        # pose3.orientation.w = w
         self.marker_server.setPose(self.gripper_marker_name, pose3)
 
         # Finish
@@ -480,7 +500,7 @@ class TeleopMarkerServer(object):
         self.counter += 1
 
 
-if __name__=="__main__":
+if __name__ == "__main__":
     rospy.init_node("basic_controls")
     teleop_server = TeleopMarkerServer()
     rospy.spin()

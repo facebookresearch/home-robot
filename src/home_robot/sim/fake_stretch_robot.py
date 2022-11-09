@@ -9,10 +9,7 @@ import time
 import numpy as np
 from scipy.spatial.transform import Rotation as R
 import rospy
-from geometry_msgs.msg import (
-    PoseWithCovarianceStamped,
-    Twist,
-)
+from geometry_msgs.msg import PoseWithCovarianceStamped, Twist
 from nav_msgs.msg import Odometry
 
 from home_robot.utils.geometry import xyt2sophus
@@ -75,9 +72,7 @@ class FakeStretch:
         # Ros stuff
         rospy.init_node("fake_stretch_hw")
         self._hector_slam_pub = rospy.Publisher(
-            "/poseupdate",
-            PoseWithCovarianceStamped,
-            queue_size=1,
+            "/poseupdate", PoseWithCovarianceStamped, queue_size=1
         )
         self._odom_pub = rospy.Publisher("/odom", Odometry, queue_size=1)
 

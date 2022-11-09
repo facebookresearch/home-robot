@@ -80,10 +80,7 @@ class DDVelocityControlNoplan(DiffDriveVelocityController):
             # Compute linear velocity
             v_raw = self._velocity_feedback_control(lin_err_abs, ACC_LIN, self.v_max)
             v_limit = self._turn_rate_limit(
-                lin_err_abs,
-                heading_err_abs,
-                self.w_max / 2.0,
-                tol=self.lin_error_tol,
+                lin_err_abs, heading_err_abs, self.w_max / 2.0, tol=self.lin_error_tol
             )
             v_cmd = np.clip(v_raw, 0.0, v_limit)
 

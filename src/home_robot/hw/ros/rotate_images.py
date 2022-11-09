@@ -17,8 +17,9 @@ def callback(msg):
     msg2.header = msg.header
     pub.publish(msg2)
 
-if __name__ == '__main__':
-    rospy.init_node('rotate_images')
-    pub = rospy.Publisher('/rotated_image', Image, queue_size=2)
-    sub = rospy.Subscriber('/camera/color/image_raw', Image, callback)
+
+if __name__ == "__main__":
+    rospy.init_node("rotate_images")
+    pub = rospy.Publisher("/rotated_image", Image, queue_size=2)
+    sub = rospy.Subscriber("/camera/color/image_raw", Image, callback)
     rospy.spin()
