@@ -12,8 +12,8 @@ def load_lseg_model_for_inference(lang: str,
                        block_depth=0,
                        activation='lrelu',
                        crop_size=crop_size)
-    model_state_dict = model.state_dict()
 
+    model_state_dict = model.state_dict()
     pretrained_state_dict = torch.load(checkpoint_path)
     pretrained_state_dict = {k.lstrip('net.'): v
                              for k, v in pretrained_state_dict['state_dict'].items()}
