@@ -426,13 +426,6 @@ class LSegEncDecNet(LSegEnc):
 
         label_scores = pixel_features.permute((0, 2, 3, 1)) @ text_features.T
 
-        # TODO Additional layers?
-        if self.arch_option in [1, 2]:
-            for _ in range(self.block_depth - 1):
-                label_scores = self.scratch.head_block(label_scores)
-            label_scores = self.scratch.head_block(label_scores, False)
-        label_scores = self.scratch.output_conv(label_scores)
-
         predictions = torch.argmax(label_scores, dim=-1)
         one_hot_predictions = torch.eye(len(labels)).to(self.device)[predictions]
 
