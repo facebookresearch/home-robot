@@ -376,12 +376,7 @@ class LSegEncDecNet(LSegEnc):
         self.device = device
         self.scale_factor = scale_factor
         self.visualize = visualize
-        self.transform = transforms.Compose(
-            [
-                transforms.ToTensor(),
-                transforms.Normalize(norm_mean, norm_std),
-            ]
-        )
+        self.normalize = transforms.Normalize(norm_mean, norm_std)
 
         head = nn.Sequential(
             Interpolate(scale_factor=2, mode="bilinear", align_corners=True),
@@ -401,7 +396,8 @@ class LSegEncDecNet(LSegEnc):
         Returns:
             pixel_features: CLIP pixel features of shape (batch_size, 512, H, W)
         """
-        images = self.transform(images).to(self.device)
+        images = torch.from_numpy(images).to(self.device)
+        images = self.normalize(images)
         return self.forward(images)
 
     def decode(self,
