@@ -2,7 +2,10 @@ import clip
 import numpy as np
 import torch
 import torch.nn as nn
-from typing import List, Optional
+from typing import List, Optional, Tuple
+import torchvision.transforms as transforms
+from PIL import Image
+import matplotlib.patches as mpatches
 
 from .lseg_blocks import _make_encoder, FeatureFusionBlock_custom, forward_vit, Interpolate
 
@@ -226,6 +229,10 @@ class LSegNet(LSeg):
 
 
 class LSegEnc(BaseModel):
+    """
+    LSeg encoder network.
+    """
+
     def __init__(
         self,
         head,
@@ -310,41 +317,71 @@ class LSegEnc(BaseModel):
 
         return pixel_encoding
 
-    def decode(self, pixel_encoding: torch.Tensor, labels: Optional[List[str]] = None):
-        """Decode CLIP features to text labels.
 
-        Arguments:
-            pixel_encoding: CLIP visual features
-            labels: optional set of text labels - if not provided, we decode with
-             the labels passed at initialization time (it's more efficient to tokenize
-             them only once)
-        """
-        text = clip.tokenize(labels)
-        text_features = self.clip_pretrained.encode_text(text)
-        text_features /= text_features.norm(dim=-1, keepdim=True)
-
-        logits_per_image = pixel_encoding @ text_features.T
-        print("logits_per_image.shape", logits_per_image.shape)
-        print("self.arch_option")
-        return logits_per_image
-
-        # TODO
-        # out = logits_per_image.float().view(imshape[0], imshape[2], imshape[3], -1).permute(0, 3, 1, 2)
-        # if self.arch_option in [1, 2]:
-        #     for _ in range(self.block_depth - 1):
-        #         out = self.scratch.head_block(out)
-        #     out = self.scratch.head_block(out, False)
-        # out = self.scratch.output_conv(out)
+def get_new_palette(num_cls):
+    n = num_cls
+    palette = [0] * (n * 3)
+    for j in range(0, n):
+        lab = j
+        palette[j * 3 + 0] = 0
+        palette[j * 3 + 1] = 0
+        palette[j * 3 + 2] = 0
+        i = 0
+        while lab > 0:
+            palette[j * 3 + 0] |= ((lab >> 0) & 1) << (7 - i)
+            palette[j * 3 + 1] |= ((lab >> 1) & 1) << (7 - i)
+            palette[j * 3 + 2] |= ((lab >> 2) & 1) << (7 - i)
+            i = i + 1
+            lab >>= 3
+    return palette
 
 
-class LSegEncNet(LSegEnc):
-    """LSeg Encoder."""
+def get_new_mask_palette(npimg, new_palette, out_label_flag=False,
+                         labels=None, ignore_ids_list=[]):
+    """Get image color palette for visualizing masks."""
+    out_img = Image.fromarray(npimg.squeeze().astype("uint8"))
+    out_img.putpalette(new_palette)
 
-    def __init__(self, path=None, scale_factor=0.5, crop_size=480, **kwargs):
+    if out_label_flag:
+        assert labels is not None
+        u_index = np.unique(npimg)
+        patches = []
+        for i, index in enumerate(u_index):
+            if index in ignore_ids_list:
+                continue
+            label = labels[index]
+            cur_color = [
+                new_palette[index * 3] / 255.0,
+                new_palette[index * 3 + 1] / 255.0,
+                new_palette[index * 3 + 2] / 255.0,
+            ]
+            red_patch = mpatches.Patch(color=cur_color, label=label)
+            patches.append(red_patch)
+    return out_img, patches
+
+
+class LSegEncDecNet(LSegEnc):
+    """LSeg encoder & decoder wrapper."""
+
+    def __init__(self,
+                 path=None,
+                 scale_factor=0.5,
+                 crop_size=480,
+                 norm_mean=[0.5, 0.5, 0.5],
+                 norm_std=[0.5, 0.5, 0.5],
+                 visualize=True,
+                 **kwargs):
         kwargs["use_bn"] = True
 
         self.crop_size = crop_size
         self.scale_factor = scale_factor
+        self.visualize = visualize
+        self.transform = transforms.Compose(
+            [
+                transforms.ToTensor(),
+                transforms.Normalize(norm_mean, norm_std),
+            ]
+        )
 
         head = nn.Sequential(
             Interpolate(scale_factor=2, mode="bilinear", align_corners=True),
@@ -354,3 +391,61 @@ class LSegEncNet(LSegEnc):
 
         if path is not None:
             self.load(path)
+
+    def encode(self, images: np.ndarray) -> torch.Tensor:
+        """Encode RGB images to CLIP pixel features.
+
+        Arguments:
+            images: images of shape (batch_size, H, W, 3) (in RGB order)
+
+        Returns:
+            pixel_features: CLIP pixel features of shape (batch_size, 512, H, W)
+        """
+        images = self.transform(images).to(self.device)
+        return self.forward(images)
+
+    def decode(self,
+               pixel_features: torch.Tensor,
+               labels: Optional[List[str]] = None
+               ) -> Tuple[torch.Tensor, Optional[np.ndarray]]:
+        """Decode CLIP pixel features to text labels.
+
+        Arguments:
+            pixel_features: CLIP pixel features of shape (batch_size, 512, H, W)
+            labels: set of text labels
+
+        Returns:
+            one_hot_predictions: one hot segmentation predictions of shape
+             (batch_size, H, W, len(labels))
+            visualizations: prediction visualization images of shape
+             (batch_size, H, W, 3) if self.visualize=True else None
+        """
+        text = clip.tokenize(labels).to(self.device)
+        text_features = self.clip_pretrained.encode_text(text)
+        text_features /= text_features.norm(dim=-1, keepdim=True)
+
+        label_scores = pixel_features.transpose((0, 2, 3, 1)) @ text_features.T
+
+        # TODO Additional layers?
+        # if self.arch_option in [1, 2]:
+        #     for _ in range(self.block_depth - 1):
+        #         out = self.scratch.head_block(out)
+        #     out = self.scratch.head_block(out, False)
+        # out = self.scratch.output_conv(out)
+
+        predictions = torch.argmax(label_scores, dim=-1)
+        one_hot_predictions = torch.eye(len(labels)).to(self.device)[predictions]
+
+        if self.visualize:
+            visualizations = []
+            for prediction in predictions.cpu().numpy():
+                new_palette = get_new_palette(len(labels))
+                mask, patches = get_new_mask_palette(
+                    prediction, new_palette, out_label_flag=True, labels=labels)
+                mask = mask.convert("RGBA")
+                visualizations.append(np.array(mask))
+            visualizations = np.stack(visualizations)
+        else:
+            visualizations = None
+
+        return one_hot_predictions, visualizations
