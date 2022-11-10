@@ -4,10 +4,11 @@ import numpy as np
 from agent.mapping.metric.map_utils import MapSizeParameters, init_map_and_pose_for_env
 
 
-class SemanticMapState:
+class CategoricalSemanticMapState:
     """
-    This class holds the global and local map and sensor pose, as well as the
-    agent's current goal.
+    This class holds a semantic map with one channel per object category,
+    the global and local map and sensor pose, as well as the agent's
+    current goal in the local map.
     """
 
     def __init__(

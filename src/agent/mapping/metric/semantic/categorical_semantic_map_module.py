@@ -12,11 +12,11 @@ import agent.mapping.metric.map_utils as mu
 import agent.utils.pose_utils as pu
 
 
-class SemanticMapModule(nn.Module):
+class CategoricalSemanticMapModule(nn.Module):
     """
-    This class is responsible for updating the local and global maps and poses
-    and generating map features — it is a stateless PyTorch module with no
-    trainable parameters.
+    This class is responsible for updating a semantic map with one channel
+    per object category, the local and global maps and poses, and generating
+    map features — it is a stateless PyTorch module with no trainable parameters.
     """
 
     def __init__(
