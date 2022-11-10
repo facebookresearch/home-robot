@@ -366,14 +366,12 @@ class LSegEncDecNet(LSegEnc):
     def __init__(self,
                  path=None,
                  scale_factor=0.5,
-                 crop_size=480,
                  norm_mean=[0.5, 0.5, 0.5],
                  norm_std=[0.5, 0.5, 0.5],
                  visualize=True,
                  **kwargs):
         kwargs["use_bn"] = True
 
-        self.crop_size = crop_size
         self.scale_factor = scale_factor
         self.visualize = visualize
         self.transform = transforms.Compose(
