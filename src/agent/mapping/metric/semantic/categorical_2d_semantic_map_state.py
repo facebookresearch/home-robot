@@ -4,16 +4,16 @@ import numpy as np
 from agent.mapping.metric.map_utils import MapSizeParameters, init_map_and_pose_for_env
 
 
-class Dense2DVisionLanguageSemanticMapState:
+class Categorical2DSemanticMapState:
     """
-    This class holds a dense 2D semantic map with vision-language features,
-    the global and local map and sensor pose, as well as the agent's
+    This class holds a dense 2D semantic map with one channel per object
+    category, the global and local map and sensor pose, as well as the agent's
     current goal in the local map.
 
     Map proposed in:
-    Visual Language Maps for Robot Navigation
-    https://arxiv.org/pdf/2210.05714.pdf
-    https://github.com/vlmaps/vlmaps
+    Object Goal Navigation using Goal-Oriented Semantic Exploration
+    https://arxiv.org/pdf/2007.00643.pdf
+    https://github.com/devendrachaplot/Object-Goal-Navigation
     """
 
     def __init__(

@@ -12,16 +12,16 @@ import agent.mapping.metric.map_utils as mu
 import agent.utils.pose_utils as pu
 
 
-class Dense2DCategoricalSemanticMapModule(nn.Module):
+class VisionLanguage2DSemanticMapModule(nn.Module):
     """
-    This class is responsible for updating a dense 2D semantic map with one channel
-    per object category, the local and global maps and poses, and generating
+    This class is responsible for updating a dense 2D semantic map with
+    vision-language features, the local and global maps and poses, and generating
     map features — it is a stateless PyTorch module with no trainable parameters.
 
     Map proposed in:
-    Object Goal Navigation using Goal-Oriented Semantic Exploration
-    https://arxiv.org/pdf/2007.00643.pdf
-    https://github.com/devendrachaplot/Object-Goal-Navigation
+    Visual Language Maps for Robot Navigation
+    https://arxiv.org/pdf/2210.05714.pdf
+    https://github.com/vlmaps/vlmaps
     """
 
     def __init__(
