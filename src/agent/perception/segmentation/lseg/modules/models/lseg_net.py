@@ -400,7 +400,7 @@ class LSegEncDecNet(LSegEnc):
         Returns:
             pixel_features: CLIP pixel features of shape (batch_size, 512, H, W)
         """
-        images = torch.from_numpy(images).to(self.device).permute((0, 2, 3, 1))
+        images = torch.from_numpy(images).to(self.device).permute((0, 3, 1, 2))
         images = self.transform(images / 255.0)
         return self.forward(images)
 
