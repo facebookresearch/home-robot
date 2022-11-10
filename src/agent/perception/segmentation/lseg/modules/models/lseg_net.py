@@ -228,7 +228,6 @@ class LSegNet(LSeg):
 class LSegEnc(BaseModel):
     def __init__(
         self,
-
         head,
         features=256,
         backbone="clip_vitl16_384",
@@ -280,11 +279,6 @@ class LSegEnc(BaseModel):
 
         self.scratch.output_conv = head
 
-        # Preprocess features of text labels during initialization
-        text = clip.tokenize(self.labels)
-        self.text_features = self.clip_pretrained.encode_text(text)
-        self.text_features /= self.text_features.norm(dim=-1, keepdim=True)
-
     def forward(self, x):
         """Encode RGB image to CLIP features."""
         if self.channels_last == True:
@@ -317,7 +311,7 @@ class LSegEnc(BaseModel):
         return pixel_encoding
 
     def decode(self, pixel_encoding: torch.Tensor, labels: Optional[List[str]] = None):
-        """Decode CLIP features to labelset.
+        """Decode CLIP features to text labels.
 
         Arguments:
             pixel_encoding: CLIP visual features
@@ -325,12 +319,9 @@ class LSegEnc(BaseModel):
              the labels passed at initialization time (it's more efficient to tokenize
              them only once)
         """
-        if labels is None:
-            text_features = self.text_features
-        else:
-            text = clip.tokenize(labels)
-            text_features = self.clip_pretrained.encode_text(text)
-            text_features /= text_features.norm(dim=-1, keepdim=True)
+        text = clip.tokenize(labels)
+        text_features = self.clip_pretrained.encode_text(text)
+        text_features /= text_features.norm(dim=-1, keepdim=True)
 
         logits_per_image = pixel_encoding @ text_features.T
         print("logits_per_image.shape", logits_per_image.shape)
@@ -349,12 +340,11 @@ class LSegEnc(BaseModel):
 class LSegEncNet(LSegEnc):
     """LSeg Encoder."""
 
-    def __init__(self, labels=List[str], path=None, scale_factor=0.5, crop_size=480, **kwargs):
+    def __init__(self, path=None, scale_factor=0.5, crop_size=480, **kwargs):
         kwargs["use_bn"] = True
 
         self.crop_size = crop_size
         self.scale_factor = scale_factor
-        self.labels = labels
 
         head = nn.Sequential(
             Interpolate(scale_factor=2, mode="bilinear", align_corners=True),
