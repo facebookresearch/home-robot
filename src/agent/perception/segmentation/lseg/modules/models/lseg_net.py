@@ -442,7 +442,7 @@ class LSegEncDecNet(LSegEnc):
                 new_palette = get_new_palette(len(labels))
                 mask, patches = get_new_mask_palette(
                     prediction, new_palette, out_label_flag=True, labels=labels)
-                mask = mask.convert("RGBA")
+                mask = mask.convert("RGB")
                 visualizations.append(np.array(mask))
             visualizations = np.stack(visualizations)
         else:
