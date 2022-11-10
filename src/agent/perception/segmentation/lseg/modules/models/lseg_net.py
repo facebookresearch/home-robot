@@ -364,6 +364,7 @@ class LSegEncDecNet(LSegEnc):
     """LSeg encoder & decoder wrapper."""
 
     def __init__(self,
+                 device=torch.device,
                  path=None,
                  scale_factor=0.5,
                  norm_mean=[0.5, 0.5, 0.5],
@@ -372,6 +373,7 @@ class LSegEncDecNet(LSegEnc):
                  **kwargs):
         kwargs["use_bn"] = True
 
+        self.device = device
         self.scale_factor = scale_factor
         self.visualize = visualize
         self.transform = transforms.Compose(
