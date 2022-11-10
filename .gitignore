@@ -21,3 +21,4 @@ temp/
 scripts/
 docs_build/
 viz/
+checkpoints/
