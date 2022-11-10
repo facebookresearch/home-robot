@@ -89,7 +89,7 @@ def makeBox(msg, r, g, b):
 
 
 def makeBoxControl(msg, r, g, b):
-    """ from willow teleop code """
+    """from willow teleop code"""
     control = InteractiveMarkerControl()
     control.always_visible = True
     control.markers.append(makeBox(msg, r, g, b))
@@ -137,7 +137,7 @@ def makeBaseMarker(position, orientation, root_link):
 
 
 class TeleopMarkerServer(object):
-    """ server that publishes interactive marker messages and owns a robot interface """
+    """server that publishes interactive marker messages and owns a robot interface"""
 
     def __init__(self, connect_to_robot=True):
         self.marker_server = InteractiveMarkerServer("stretch_controls")
@@ -260,7 +260,7 @@ class TeleopMarkerServer(object):
         self.robot.goto(q, move_base=False, wait=False)
 
     def add_arm_marker(self):
-        """ add the arm marker widget """
+        """add the arm marker widget"""
         with self._lock:
             q, _ = self.robot.update()
 
@@ -392,7 +392,7 @@ class TeleopMarkerServer(object):
         )
 
     def check_switch_to_position_mode(self):
-        """ only switch if necessary """
+        """only switch if necessary"""
         if not self.robot.in_position_mode():
             self.switch_to_position_mode()
 

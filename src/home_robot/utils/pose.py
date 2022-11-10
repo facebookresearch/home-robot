@@ -74,7 +74,7 @@ def compute_rotation_matrix_from_ortho6d(ortho6d):
 
 
 def to_pos_quat(matrix):
-    """ utility to convert to (pos, quaternion) tuple in ROS quaternion format """
+    """utility to convert to (pos, quaternion) tuple in ROS quaternion format"""
     w, x, y, z = tra.quaternion_from_matrix(matrix)
     pos = matrix[:3, 3]
     return pos, np.array([x, y, z, w])

@@ -5,15 +5,14 @@ from home_robot.motion.robot import HelloStretchIdx
 
 
 class LinearPlanner(Planner):
-    """ linear configuration-space plans """
+    """linear configuration-space plans"""
 
     def __init__(self, robot, step_size=0.1, *args, **kwargs):
         super(LinearPlanner, self).__init__(robot, *args, **kwargs)
         self.step_size = step_size
 
     def plan(self, q0, qg):
-        """ linear planner goes from one point to another.
-        """
+        """linear planner goes from one point to another."""
         # interpolate to qg and test
         # traj = [q for q in self.robot.interpolate(q0, qg)]
         traj = []
@@ -32,7 +31,7 @@ class LinearPlanner(Planner):
 
 
 class StretchLinearWithOffsetPlanner(Planner):
-    """ Plan to a stand-off position from which you can move straight to the goal grasp position """
+    """Plan to a stand-off position from which you can move straight to the goal grasp position"""
 
     def __init__(
         self,
@@ -45,7 +44,7 @@ class StretchLinearWithOffsetPlanner(Planner):
         *args,
         **kwargs
     ):
-        """ save the standoff distance so we can randomly sample one that works """
+        """save the standoff distance so we can randomly sample one that works"""
         super(StretchLinearWithOffsetPlanner, self).__init__(robot, *args, **kwargs)
         self.step_size = step_size
         self.standoff_range = standoff_range
@@ -67,7 +66,7 @@ class StretchLinearWithOffsetPlanner(Planner):
         return traj, ts
 
     def plan(self, q0, poses, grasp=True, tries=100, ignored=[]):
-        """ we assume that the arm has to be at least extended enough that we can do this, so check
+        """we assume that the arm has to be at least extended enough that we can do this, so check
         the arm extension. This planner is designed for work with the stretch only.
         """
         # darm = qg[HelloStretchIdx.ARM] - q0[HelloStretchIdx.ARM]
@@ -134,7 +133,7 @@ class StretchLinearWithOffsetPlanner(Planner):
 
 
 class StretchLinearIKPlanner(Planner):
-    """ Plan to a stand-off position from which you can move straight to the goal grasp position
+    """Plan to a stand-off position from which you can move straight to the goal grasp position
     This version of the planner uses base rotation and IK to figure out an approach that we can follow"""
 
     def __init__(
@@ -148,7 +147,7 @@ class StretchLinearIKPlanner(Planner):
         *args,
         **kwargs
     ):
-        """ save the standoff distance so we can randomly sample one that works """
+        """save the standoff distance so we can randomly sample one that works"""
         super(StretchLinearWithOffsetPlanner, self).__init__(robot, *args, **kwargs)
         self.step_size = step_size
         self.standoff_range = standoff_range
@@ -170,7 +169,7 @@ class StretchLinearIKPlanner(Planner):
         return traj, ts
 
     def plan(self, q0, poses, tries=100, ignored=[]):
-        """ we assume that the arm has to be at least extended enough that we can do this, so check
+        """we assume that the arm has to be at least extended enough that we can do this, so check
         the arm extension. This planner is designed for work with the stretch only.
         """
         # darm = qg[HelloStretchIdx.ARM] - q0[HelloStretchIdx.ARM]

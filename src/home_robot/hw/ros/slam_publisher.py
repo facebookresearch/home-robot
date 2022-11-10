@@ -9,10 +9,10 @@ from geometry_msgs.msg import PoseWithCovarianceStamped, TransformStamped
 
 
 class SlamPublisher(object):
-    """ republish robot pose so that we can add it to ROS """
+    """republish robot pose so that we can add it to ROS"""
 
     def _cb(self, msg):
-        """ collect robot data here """
+        """collect robot data here"""
         tform = TransformStamped()
         tform.header = msg.header
         tform.child_frame_id = "odom"  # "base_link"

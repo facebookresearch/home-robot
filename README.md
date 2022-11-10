@@ -32,6 +32,8 @@ TODO - remove this
 python -m pip install 'git+https://github.com/facebookresearch/detectron2.git'
 ```
 
+You also need to install a supported grasp prediction library.
+
 ## Usage
 
 ### Launching the hardware stack:
@@ -82,7 +84,24 @@ robot.set_goal(xyt: list)  # sets the goal for the goto controller
 robot.set_velocity(v: float, w: float)  # directly sets the linear and angular velocity of robot base (command gets overwritten immediately if goto controller is on)
 ```
 
-### Third Party Code
+### Launching ROS Demo
+
+You need to create a catkin workspace on your server in order to run this demo, as this is where we will run [Contact Graspnet](https://github.com/cpaxton/contact_graspnet/tree/cpaxton/devel).
+
+Contact graspnet is downloaded under `third_party/`, but there is a `CATKIN_IGNORE` file in this directory. You want to symlink this file out into your workspace:
+```
+ROSWS=/path/to/ros_ws
+ln -s `rospack find home_robot`/third_party/contact_graspnet $ROSWS/src/contact_graspnet
+```
+... but it actually shouldn't be necessary. What is necessary is to build the grasp service defined in `home_robot` by placing it into `$ROSWS`.
+
+
+Put the robot in its initial position, e.g. so the arm is facing cups you can pick up. On the robot side:
+```
+roslaunch home_robot startup_stretch_hector_slam.launch
+```
+
+## Third Party Code
 
 #### Contact GraspNet
 

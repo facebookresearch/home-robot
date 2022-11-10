@@ -39,8 +39,8 @@ class Camera(object):
         self.orn = orn
 
     def to_dict(self):
-        """ create a dictionary so that we can extract the necessary information for
-        creating point clouds later on if we so desire """
+        """create a dictionary so that we can extract the necessary information for
+        creating point clouds later on if we so desire"""
         info = {}
         info["pos"] = self.pos
         info["orn"] = self.orn
@@ -97,7 +97,7 @@ def z_from_2(depth, camera: Camera):
     px, py = np.meshgrid(xlin, ylin)
     x_over_z = (px - camera.px) / camera.fx
     y_over_z = (py - camera.py) / camera.fy
-    z = distance / np.sqrt(1.0 + x_over_z ** 2 + y_over_z ** 2)
+    z = distance / np.sqrt(1.0 + x_over_z**2 + y_over_z**2)
     return z
 
 
@@ -137,7 +137,7 @@ def depth_to_xyz(depth, camera: Camera):
 
 
 def to_o3d_point_cloud(xyz, rgb=None, mask=None):
-    """ conversion to point cloud from image """
+    """conversion to point cloud from image"""
     xyz = xyz.reshape(-1, 3)
     if rgb is not None:
         rgb = rgb.reshape(-1, 3)

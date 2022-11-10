@@ -9,6 +9,10 @@ from home_robot.perception.constants import coco_categories
 from home_robot.ros.grasp_helper import GraspClient as RosGraspClient
 from home_robot.utils.pose import to_pos_quat
 
+import matplotlib.pyplot as plt
+
+visualize_masks = False
+
 
 def try_executing_grasp(rob, grasp) -> bool:
     """Try executing a grasp."""
@@ -132,7 +136,7 @@ if __name__ == '__main__':
     max_tries = 10
     min_obj_pts = 100
     for attempt in range(max_tries):
-        rospy.sleep(2.)
+        rospy.sleep(1.)
 
         t0  = timeit.default_timer()
         rgb, depth, xyz = rob.get_images()
@@ -142,6 +146,19 @@ if __name__ == '__main__':
                                 np.expand_dims(rgb[:, :, ::-1], 0), np.expand_dims(depth, 0)
                             )
         cup_mask = semantics[0, :, :, coco_categories["cup"]]
+
+        if visualize_masks:
+            plt.figure()
+            plt.subplot(131)
+            plt.imshow(rgb)
+            plt.subplot(132)
+            plt.imshow(cup_mask)
+            plt.subplot(133)
+            _cup_mask = cup_mask[:, :, None]
+            _cup_mask = np.repeat(_cup_mask, 3, axis=-1)
+            plt.imshow(_cup_mask * rgb / 255.)
+            plt.show()
+
         num_cup_pts = np.sum(cup_mask)
         print("found this many cup points:", num_cup_pts)
         if num_cup_pts < min_obj_pts:

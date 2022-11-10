@@ -2,7 +2,7 @@ import numpy as np
 
 
 class Space(object):
-    """ class defining a region over which we can sample parameters """
+    """class defining a region over which we can sample parameters"""
 
     def __init__(self, dof: int, mins, maxs):
         self.dof = dof
@@ -16,4 +16,4 @@ class Space(object):
         return (np.random.random(self.dof) * self.rngs) + self.mins
 
     def extend(self, q0, q1, step_size=0.1):
-        """ extend towards another configuration in this space """
+        """extend towards another configuration in this space"""

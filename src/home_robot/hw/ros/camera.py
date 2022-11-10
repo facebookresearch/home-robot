@@ -10,10 +10,10 @@ from sensor_msgs.msg import CameraInfo, Image
 
 
 class RosCamera(Camera):
-    """ compute camera parameters from ROS instead """
+    """compute camera parameters from ROS instead"""
 
     def _cb(self, msg):
-        """ capture the latest image and save it """
+        """capture the latest image and save it"""
         with self._lock:
             # print(msg.encoding)
             img = image_to_numpy(msg)
@@ -29,13 +29,13 @@ class RosCamera(Camera):
                 self._add_to_buffer(img)
 
     def _add_to_buffer(self, img):
-        """ add to buffer and remove old image if buffer size exceeded """
+        """add to buffer and remove old image if buffer size exceeded"""
         self._buffer.append(img)
         if len(self._buffer) > self.buffer_size:
             self._buffer.popleft()
 
     def valid_mask(self, depth):
-        """ return only valid pixels"""
+        """return only valid pixels"""
         depth = depth.reshape(-1)
         return np.bitwise_and(depth > self.near_val, depth < self.far_val)
 
@@ -59,7 +59,7 @@ class RosCamera(Camera):
                 rate.sleep()
 
     def get(self, device=None):
-        """ return the current image associated with this camera"""
+        """return the current image associated with this camera"""
         with self._lock:
             if self._img is None:
                 return None
@@ -74,7 +74,7 @@ class RosCamera(Camera):
         return img
 
     def get_filtered(self, std_threshold=0.005, device=None):
-        """ get image from buffer; do some smoothing """
+        """get image from buffer; do some smoothing"""
         if self.buffer_size is None:
             raise RuntimeError("no buffer")
         with self._lock:

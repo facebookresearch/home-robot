@@ -109,7 +109,7 @@ class PbArticulatedObject(PbObject):
         self._read_joint_info()
 
     def _read_joint_info(self):
-        """ get some joint info from pb for reproducing the robot """
+        """get some joint info from pb for reproducing the robot"""
         self.num_joints = pb.getNumJoints(self.id, self.client)
         self.joint_infos = []
         for i in range(self.num_joints):
@@ -144,7 +144,7 @@ class PbArticulatedObject(PbObject):
         )
 
     def get_link_pose(self, name):
-        """ get link pose - forward kinematrics """
+        """get link pose - forward kinematrics"""
         res = pb.getLinkState(
             self.id,
             self._link_idx[name],
@@ -242,7 +242,7 @@ class PbCamera(Camera):
         return rgb[:, :, :3], depth, seg
 
     def capture_pc(self):
-        """ show xyz from current camera position """
+        """show xyz from current camera position"""
         rgb, depth, seg = self.capture()
         xyz = opengl_depth_to_xyz(depth, camera=self)
         xyz = xyz.reshape(-1, 3)
@@ -337,7 +337,7 @@ class PbClient(object):
         pass
 
     def add_camera(self, pos, orn, camera_params):
-        """ todo: create a camera in the bullet scene """
+        """todo: create a camera in the bullet scene"""
         self.camera = PbCamera(self.id, pos, orn, **camera_params)
         return self.camera
 
