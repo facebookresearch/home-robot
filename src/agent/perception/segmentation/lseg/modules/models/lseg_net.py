@@ -401,7 +401,7 @@ class LSegEncDecNet(LSegEnc):
             pixel_features: CLIP pixel features of shape (batch_size, 512, H, W)
         """
         images = torch.from_numpy(images).to(self.device).permute((0, 3, 2, 1))
-        images = self.transform(images)
+        images = self.transform(images / 255.0)
         return self.forward(images)
 
     def decode(self,
@@ -424,7 +424,7 @@ class LSegEncDecNet(LSegEnc):
         text_features = self.clip_pretrained.encode_text(text)
         text_features /= text_features.norm(dim=-1, keepdim=True)
 
-        label_scores = pixel_features.transpose((0, 2, 3, 1)) @ text_features.T
+        label_scores = pixel_features.permute((0, 2, 3, 1)) @ text_features.T
 
         # TODO Additional layers?
         # if self.arch_option in [1, 2]:
