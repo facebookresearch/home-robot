@@ -376,7 +376,11 @@ class LSegEncDecNet(LSegEnc):
         self.device = device
         self.scale_factor = scale_factor
         self.visualize = visualize
-        self.transform = transforms.Normalize(norm_mean, norm_std)
+        self.transform = transforms.Compose(
+            [
+                transforms.Normalize(norm_mean, norm_std),
+            ]
+        )
 
         head = nn.Sequential(
             Interpolate(scale_factor=2, mode="bilinear", align_corners=True),
