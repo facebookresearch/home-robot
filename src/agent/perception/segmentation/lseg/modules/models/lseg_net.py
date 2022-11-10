@@ -422,7 +422,8 @@ class LSegEncDecNet(LSegEnc):
         """
         text = clip.tokenize(labels).to(self.device)
         text_features = self.clip_pretrained.encode_text(text)
-        text_features /= text_features.norm(dim=-1, keepdim=True).float()
+        text_features /= text_features.norm(dim=-1, keepdim=True)
+        text_features = text_features.float()
 
         label_scores = pixel_features.permute((0, 2, 3, 1)) @ text_features.T
 
