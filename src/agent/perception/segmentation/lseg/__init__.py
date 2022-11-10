@@ -1,6 +1,6 @@
 import torch
 
-from modules.models.lseg_net import LSegEncNet
+from .modules.models.lseg_net import LSegEncNet
 
 
 def load_lseg_model_for_inference(lang: str,
