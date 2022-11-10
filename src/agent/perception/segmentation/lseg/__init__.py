@@ -3,9 +3,9 @@ import torch
 from .modules.models.lseg_net import LSegEncDecNet
 
 
-def load_lseg_encoder_for_inference(checkpoint_path: str,
-                                    device: torch.device,
-                                    visualize=True) -> LSegEncDecNet:
+def load_lseg_for_inference(checkpoint_path: str,
+                            device: torch.device,
+                            visualize=True) -> LSegEncDecNet:
     model = LSegEncDecNet(arch_option=0,
                           block_depth=0,
                           activation='lrelu',
