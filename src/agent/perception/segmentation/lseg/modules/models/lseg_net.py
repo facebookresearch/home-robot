@@ -2,6 +2,7 @@ import clip
 import numpy as np
 import torch
 import torch.nn as nn
+from typing import List, Optional
 
 from .lseg_blocks import _make_encoder, FeatureFusionBlock_custom, forward_vit, Interpolate
 
@@ -208,8 +209,6 @@ class LSegNet(LSeg):
     """Network for semantic segmentation."""
 
     def __init__(self, labels, path=None, scale_factor=0.5, crop_size=480, **kwargs):
-
-        features = kwargs["features"] if "features" in kwargs else 256
         kwargs["use_bn"] = True
 
         self.crop_size = crop_size
@@ -229,6 +228,7 @@ class LSegNet(LSeg):
 class LSegEnc(BaseModel):
     def __init__(
         self,
+
         head,
         features=256,
         backbone="clip_vitl16_384",
@@ -280,14 +280,13 @@ class LSegEnc(BaseModel):
 
         self.scratch.output_conv = head
 
-        self.text = clip.tokenize(self.labels)
+        # Preprocess features of text labels during initialization
+        text = clip.tokenize(self.labels)
+        self.text_features = self.clip_pretrained.encode_text(text)
+        self.text_features /= self.text_features.norm(dim=-1, keepdim=True)
 
-    def forward(self, x, labelset):
-        if labelset == "":
-            text = self.text
-        else:
-            text = clip.tokenize(labelset)
-
+    def forward(self, x):
+        """Encode RGB image to CLIP features."""
         if self.channels_last == True:
             x.contiguous(memory_format=torch.channels_last)
 
@@ -303,38 +302,54 @@ class LSegEnc(BaseModel):
         path_2 = self.scratch.refinenet2(path_3, layer_2_rn)
         path_1 = self.scratch.refinenet1(path_2, layer_1_rn)
 
-        text = text.to(x.device)
         self.logit_scale = self.logit_scale.to(x.device)
-        text_features = self.clip_pretrained.encode_text(text)
 
         image_features = self.scratch.head1(path_1)
 
         imshape = image_features.shape
         image_features = image_features.permute(0, 2, 3, 1).reshape(-1, self.out_c)
-
-        # normalized features
         image_features = image_features / image_features.norm(dim=-1, keepdim=True)
-        text_features = text_features / text_features.norm(dim=-1, keepdim=True)
 
         pixel_encoding = self.logit_scale * image_features.half()
-
-        logits_per_image = pixel_encoding @ text_features.t()
         pixel_encoding = pixel_encoding.float().view(imshape[0], imshape[2], imshape[3], -1).permute(0, 3, 1, 2)
-
-        out = logits_per_image.float().view(imshape[0], imshape[2], imshape[3], -1).permute(0, 3, 1, 2)
-
         pixel_encoding = self.scratch.output_conv(pixel_encoding)
-        out = self.scratch.output_conv(out)
 
-        return pixel_encoding, out
+        return pixel_encoding
+
+    def decode(self, pixel_encoding: torch.Tensor, labels: Optional[List[str]] = None):
+        """Decode CLIP features to labelset.
+
+        Arguments:
+            pixel_encoding: CLIP visual features
+            labels: optional set of text labels - if not provided, we decode with
+             the labels passed at initialization time (it's more efficient to tokenize
+             them only once)
+        """
+        if labels is None:
+            text_features = self.text_features
+        else:
+            text = clip.tokenize(labels)
+            text_features = self.clip_pretrained.encode_text(text)
+            text_features /= text_features.norm(dim=-1, keepdim=True)
+
+        logits_per_image = pixel_encoding @ text_features.T
+        print("logits_per_image.shape", logits_per_image.shape)
+        print("self.arch_option")
+        return logits_per_image
+
+        # TODO
+        # out = logits_per_image.float().view(imshape[0], imshape[2], imshape[3], -1).permute(0, 3, 1, 2)
+        # if self.arch_option in [1, 2]:
+        #     for _ in range(self.block_depth - 1):
+        #         out = self.scratch.head_block(out)
+        #     out = self.scratch.head_block(out, False)
+        # out = self.scratch.output_conv(out)
 
 
 class LSegEncNet(LSegEnc):
-    """Network for semantic segmentation."""
+    """LSeg Encoder."""
 
-    def __init__(self, labels, path=None, scale_factor=0.5, crop_size=480, **kwargs):
-
-        features = kwargs["features"] if "features" in kwargs else 256
+    def __init__(self, labels=List[str], path=None, scale_factor=0.5, crop_size=480, **kwargs):
         kwargs["use_bn"] = True
 
         self.crop_size = crop_size
