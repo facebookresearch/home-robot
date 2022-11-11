@@ -364,7 +364,6 @@ class LSegEncDecNet(LSegEnc):
     """LSeg encoder & decoder wrapper."""
 
     def __init__(self,
-                 device=torch.device,
                  path=None,
                  scale_factor=0.5,
                  norm_mean=[0.5, 0.5, 0.5],
@@ -373,7 +372,6 @@ class LSegEncDecNet(LSegEnc):
                  **kwargs):
         kwargs["use_bn"] = True
 
-        self.device = device
         self.scale_factor = scale_factor
         self.visualize = visualize
         self.transform = transforms.Compose(
@@ -402,7 +400,8 @@ class LSegEncDecNet(LSegEnc):
         """
         if isinstance(images, np.ndarray):
             images = torch.from_numpy(images)
-        images = images.to(self.device).permute((0, 3, 1, 2))
+        device = next(self.parameters().device)
+        images = images.to(device).permute((0, 3, 1, 2))
         images = self.transform(images / 255.0)
         return self.forward(images)
 
@@ -422,7 +421,8 @@ class LSegEncDecNet(LSegEnc):
             visualizations: prediction visualization images of shape
              (batch_size, H, W, 3) if self.visualize=True else None
         """
-        text = clip.tokenize(labels).to(self.device)
+        device = next(self.parameters().device)
+        text = clip.tokenize(labels).to(device)
         text_features = self.clip_pretrained.encode_text(text)
         text_features /= text_features.norm(dim=-1, keepdim=True)
         text_features = text_features.float()
@@ -430,7 +430,7 @@ class LSegEncDecNet(LSegEnc):
         label_scores = pixel_features.permute((0, 2, 3, 1)) @ text_features.T
 
         predictions = torch.argmax(label_scores, dim=-1)
-        one_hot_predictions = torch.eye(len(labels)).to(self.device)[predictions]
+        one_hot_predictions = torch.eye(len(labels)).to(device)[predictions]
 
         if self.visualize:
             visualizations = []
