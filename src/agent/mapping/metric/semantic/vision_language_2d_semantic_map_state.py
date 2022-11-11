@@ -56,8 +56,9 @@ class VisionLanguage2DSemanticMapState:
         # 1: Explored Area
         # 2: Current Agent Location
         # 3: Past Agent Locations
-        # 4, 5, 6, .., lseg_features_dim + 3: LSeg CLIP features
-        num_channels = lseg_features_dim + 4
+        # 4: Number of Cell Updates
+        # 5, 6, .., lseg_features_dim + 4: LSeg CLIP features
+        num_channels = lseg_features_dim + 5
 
         self.global_map = torch.zeros(
             self.num_environments,
@@ -142,10 +143,10 @@ class VisionLanguage2DSemanticMapState:
         features to label set."""
         assert labels[-1] == "other"
         one_hot_categories, _ = lseg.decode(
-            self.local_map[[e], 4:, :, :], labels
+            self.local_map[[e], 5:, :, :], labels
         )
         one_hot_categories = one_hot_categories.squeeze(0)
-        empty_mask = self.local_map[e, 4:].sum(0) == 0
+        empty_mask = self.local_map[e, 5:].sum(0) == 0
         one_hot_categories[empty_mask, :] = 0
         one_hot_categories = one_hot_categories.cpu().float().numpy()
         one_hot_categories[:, :, -1] = 1e-5  # Last category is "other"

@@ -124,9 +124,9 @@ class VisionLanguage2DSemanticMapModule(nn.Module):
             seq_update_global: sequence of (batch_size, sequence_length) binary
              flags that indicate whether to update the global map and pose
             init_local_map: initial local map before any updates of shape
-             (batch_size, 4 + lseg_features_dim, M, M)
+             (batch_size, 5 + lseg_features_dim, M, M)
             init_global_map: initial global map before any updates of shape
-             (batch_size, 4 + lseg_features_dim, M * ds, M * ds)
+             (batch_size, 5 + lseg_features_dim, M * ds, M * ds)
             init_local_pose: initial local pose before any updates of shape
              (batch_size, 3)
             init_global_pose: initial global pose before any updates of shape
@@ -138,9 +138,9 @@ class VisionLanguage2DSemanticMapModule(nn.Module):
             seq_map_features: sequence of semantic map features of shape
              (batch_size, sequence_length, 8 + lseg_features_dim, M, M)
             final_local_map: final local map after all updates of shape
-             (batch_size, 4 + lseg_features_dim, M, M)
+             (batch_size, 5 + lseg_features_dim, M, M)
             final_global_map: final global map after all updates of shape
-             (batch_size, 4 + lseg_features_dim, M * ds, M * ds)
+             (batch_size, 5 + lseg_features_dim, M * ds, M * ds)
             seq_local_pose: sequence of local poses of shape
              (batch_size, sequence_length, 3)
             seq_global_pose: sequence of global poses of shape
@@ -226,12 +226,12 @@ class VisionLanguage2DSemanticMapModule(nn.Module):
              (batch_size, 3 + 1, frame_height, frame_width)
             pose_delta: delta in pose since last frame of shape (batch_size, 3)
             prev_map: previous local map of shape
-             (batch_size, 4 + lseg_features_dim, M, M)
+             (batch_size, 5 + lseg_features_dim, M, M)
             prev_pose: previous pose of shape (batch_size, 3)
 
         Returns:
             current_map: current local map updated with current observation
-             and location of shape (batch_size, 4 + lseg_features_dim, M, M)
+             and location of shape (batch_size, 5 + lseg_features_dim, M, M)
             current_pose: current pose updated with pose delta of shape (batch_size, 3)
         """
         batch_size, _, h, w = obs.size()
@@ -313,7 +313,7 @@ class VisionLanguage2DSemanticMapModule(nn.Module):
 
         agent_view = torch.zeros(
             batch_size,
-            4 + self.lseg_features_dim,
+            5 + self.lseg_features_dim,
             self.local_map_size_cm // self.xy_resolution,
             self.local_map_size_cm // self.xy_resolution,
             device=device,
@@ -326,7 +326,7 @@ class VisionLanguage2DSemanticMapModule(nn.Module):
         y2 = y1 + self.vision_range
         agent_view[:, 0:1, y1:y2, x1:x2] = fp_map_pred
         agent_view[:, 1:2, y1:y2, x1:x2] = fp_exp_pred
-        agent_view[:, 4 : 4 + self.lseg_features_dim, y1:y2, x1:x2] = (
+        agent_view[:, 5 : 5 + self.lseg_features_dim, y1:y2, x1:x2] = (
             all_height_proj[:, 1 : 1 + self.lseg_features_dim]
         )
 
@@ -367,16 +367,15 @@ class VisionLanguage2DSemanticMapModule(nn.Module):
         )
         print("current_map[:, :4].sum()", current_map[:, :4].sum())
         for e in range(batch_size):
-            update_mask = translated[e, 4:].sum(0) > 0
+            update_mask = translated[e, 5:].sum(0) > 0
             print("update_mask.shape", update_mask.shape)
-            #print("prev_map[e, 4:][update_mask].shape", prev_map[e, 4:][update_mask].shape)
-            print("prev_map[e, 4:, update_mask].shape", prev_map[e, 4:, update_mask].shape)
-            print("translated[e, 4:, update_mask].shape", translated[e, 4:, update_mask].shape)
-            current_map[e, 4:, update_mask] = torch.mean(
+            print("prev_map[e, 5:, update_mask].shape", prev_map[e, 5:, update_mask].shape)
+            print("translated[e, 5:, update_mask].shape", translated[e, 5:, update_mask].shape)
+            current_map[e, 5:, update_mask] = torch.mean(
                 torch.cat(
                     (
-                        prev_map[e, 4:, update_mask].unsqueeze(1),
-                        translated[e, 4:, update_mask].unsqueeze(1)
+                        prev_map[e, 5:, update_mask].unsqueeze(1),
+                        translated[e, 5:, update_mask].unsqueeze(1)
                     ),
                     1
                 ),
@@ -436,9 +435,9 @@ class VisionLanguage2DSemanticMapModule(nn.Module):
 
         Arguments:
             local_map: local map of shape
-             (batch_size, 4 + lseg_features_dim, M, M)
+             (batch_size, 5 + lseg_features_dim, M, M)
             global_map: global map of shape
-             (batch_size, 4 + lseg_features_dim, M * ds, M * ds)
+             (batch_size, 5 + lseg_features_dim, M * ds, M * ds)
 
         Returns:
             map_features: semantic map features of shape
@@ -462,6 +461,6 @@ class VisionLanguage2DSemanticMapModule(nn.Module):
             global_map[:, 0:4, :, :]
         )
         # Local CLIP map cell features
-        map_features[:, 8:, :, :] = local_map[:, 4:, :, :]
+        map_features[:, 8:, :, :] = local_map[:, 5:, :, :]
 
         return map_features.detach()
