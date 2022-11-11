@@ -367,7 +367,7 @@ class VisionLanguage2DSemanticMapModule(nn.Module):
         )
         print("current_map[:, :4].sum()", current_map[:, :4].sum())
         for e in range(batch_size):
-            update_mask = translated[e, 4:].sum(1) > 0
+            update_mask = translated[e, 4:].sum(0) > 0
             print("update_mask.shape", update_mask.shape)
             current_map[e, 4:, update_mask] = torch.mean(
                 torch.cat(
