@@ -38,7 +38,6 @@ class VisionLanguage2DSemanticMapModule(nn.Module):
         vision_range: int,
         global_downscaling: int,
         du_scale: int,
-        cat_pred_threshold: float,
         exp_pred_threshold: float,
         map_pred_threshold: float,
     ):
@@ -58,8 +57,6 @@ class VisionLanguage2DSemanticMapModule(nn.Module):
              the number of local map cells)
             global_downscaling: ratio of global over local map
             du_scale: frame downscaling before projecting to point cloud
-            cat_pred_threshold: number of depth points to be in bin to
-             classify it as a certain semantic category
             exp_pred_threshold: number of depth points to be in bin to
              consider it as explored
             map_pred_threshold: number of depth points to be in bin to
@@ -88,7 +85,6 @@ class VisionLanguage2DSemanticMapModule(nn.Module):
         self.xy_resolution = self.z_resolution = map_resolution
         self.vision_range = vision_range
         self.du_scale = du_scale
-        self.cat_pred_threshold = cat_pred_threshold
         self.exp_pred_threshold = exp_pred_threshold
         self.map_pred_threshold = map_pred_threshold
 
@@ -332,7 +328,6 @@ class VisionLanguage2DSemanticMapModule(nn.Module):
         agent_view[:, 1:2, y1:y2, x1:x2] = fp_exp_pred
         agent_view[:, 4 : 4 + self.lseg_features_dim, y1:y2, x1:x2] = (
             all_height_proj[:, 1 : 1 + self.lseg_features_dim]
-            / self.cat_pred_threshold
         )
 
         current_pose = pu.get_new_pose_batch(prev_pose.clone(), pose_delta)
@@ -435,7 +430,7 @@ class VisionLanguage2DSemanticMapModule(nn.Module):
         map_features[:, 4:8, :, :] = nn.MaxPool2d(self.global_downscaling)(
             global_map[:, 0:4, :, :]
         )
-        # Local semantic categories
+        # Local CLIP map cell features
         map_features[:, 8:, :, :] = local_map[:, 4:, :, :]
 
         return map_features.detach()

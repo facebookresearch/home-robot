@@ -141,8 +141,8 @@ class VisionLanguage2DSemanticMapState:
         """Get local map of semantic categories for an environment - decode CLIP
         features to label set."""
         one_hot_categories, _ = lseg.decode(
-            self.local_map[e, 3:, :, :], labels
-        ).cpu().float().numpy()
+            self.local_map[[e], 4:, :, :], labels
+        ).squeeze(0).cpu().float().numpy()
         one_hot_categories[-1, :, :] = 1e-5  # Last category is "other"
         semantic_map = one_hot_categories.argmax(0)
         return semantic_map
