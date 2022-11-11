@@ -372,7 +372,7 @@ class VisionLanguage2DSemanticMapModule(nn.Module):
             current_map[e, 5:, update_mask] = (
                 (prev_map[e, 5:, update_mask] * prev_map[e, 4, update_mask] +
                  translated[e, 5:, update_mask]) /
-                prev_map[e, 4, update_mask] + 1
+                (prev_map[e, 4, update_mask] + 1)
             )
 
             # Average existing features and most recent view
