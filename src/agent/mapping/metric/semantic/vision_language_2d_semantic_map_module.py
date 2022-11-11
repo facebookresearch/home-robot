@@ -350,6 +350,11 @@ class VisionLanguage2DSemanticMapModule(nn.Module):
         translated[:, :4] = torch.clamp(translated[:, :4], min=0.0, max=1.0)
 
         # TODO Fix aggregation
+        print(prev_map.shape)
+        print(translated.shape)
+        # Aggregation:
+        #  max for first 4 dimensions (obstacle, explored, past locations)
+        #  mean for CLIP map cell features
         maps = torch.cat((prev_map.unsqueeze(1), translated.unsqueeze(1)), 1)
         current_map, _ = torch.max(maps[:, :, : 4 + self.lseg_features_dim], 1)
 
