@@ -349,6 +349,7 @@ class VisionLanguage2DSemanticMapModule(nn.Module):
         # Clamp to [0, 1] after transform agent view to map coordinates
         # TODO Avoid clamping to [0, 1]
         print(translated.mean())
+        print(translated.shape)
         translated = torch.clamp(translated, min=0.0, max=1.0)
         print(translated.mean())
 
