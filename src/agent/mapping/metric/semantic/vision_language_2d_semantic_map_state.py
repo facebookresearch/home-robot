@@ -144,7 +144,10 @@ class VisionLanguage2DSemanticMapState:
         one_hot_categories, _ = lseg.decode(
             self.local_map[[e], 4:, :, :], labels
         )
-        one_hot_categories = one_hot_categories.squeeze(0).cpu().float().numpy()
+        one_hot_categories = one_hot_categories.squeeze(0)
+        empty_mask = self.local_map[e, 4:].sum(0) == 0
+        one_hot_categories[:, empty_mask] = 0
+        one_hot_categories = one_hot_categories.cpu().float().numpy()
         one_hot_categories[-1, :, :] = 1e-5  # Last category is "other"
         semantic_map = one_hot_categories.argmax(-1)
         return semantic_map
