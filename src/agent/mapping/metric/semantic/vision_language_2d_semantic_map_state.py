@@ -152,7 +152,7 @@ class VisionLanguage2DSemanticMapState:
         print(one_hot_categories.shape, one_hot_categories.sum())
         one_hot_categories = one_hot_categories.cpu().float().numpy()
         one_hot_categories[:, :, -1] = 1e-5  # Last category is "other"
-        semantic_map = one_hot_categories.argmax(1)
+        semantic_map = one_hot_categories.argmax(-1)
         print()
         return semantic_map
 
