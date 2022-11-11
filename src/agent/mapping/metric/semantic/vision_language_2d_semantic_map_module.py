@@ -365,9 +365,8 @@ class VisionLanguage2DSemanticMapModule(nn.Module):
         )
         for e in range(batch_size):
             update_mask = translated[e, 5:].sum(0) > 0
-            print("prev_map[e, 4, update_mask].sum()", prev_map[e, 4, update_mask].sum())
-            print("prev_map[e, 4, update_mask]", prev_map[e, 4, update_mask])
-            print()
+            # TODO Proper mean across all updates of the same cell instead
+            #  of last 2 updates
             # current_map[e, 5:, update_mask] = (
             #     (prev_map[e, 5:, update_mask] * prev_map[e, 4, update_mask] +
             #      translated[e, 5:, update_mask]) /
@@ -379,23 +378,6 @@ class VisionLanguage2DSemanticMapModule(nn.Module):
             )
 
             current_map[e, 4, update_mask] += 1
-
-
-            # print("update_mask.shape", update_mask.shape)
-            # print("prev_map[e, 5:, update_mask].shape", prev_map[e, 5:, update_mask].shape)
-            # print("translated[e, 5:, update_mask].shape", translated[e, 5:, update_mask].shape)
-            # current_map[e, 5:, update_mask] = torch.mean(
-            #     torch.cat(
-            #         (
-            #             prev_map[e, 5:, update_mask].unsqueeze(1),
-            #             translated[e, 5:, update_mask].unsqueeze(1)
-            #         ),
-            #         1
-            #     ),
-            #     1
-            # )
-        #maps = torch.cat((prev_map.unsqueeze(1), translated.unsqueeze(1)), 1)
-        #current_map, _ = torch.max(maps[:, :, : 4 + self.lseg_features_dim], 1)
 
         # Reset current location
         current_map[:, 2, :, :].fill_(0.0)
