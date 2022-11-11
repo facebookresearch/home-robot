@@ -350,14 +350,11 @@ class VisionLanguage2DSemanticMapModule(nn.Module):
         translated[:, :4] = torch.clamp(translated[:, :4], min=0.0, max=1.0)
 
         # TODO Fix aggregation
-        print(prev_map.shape)
-        print(translated.shape)
-        print(translated[:, 4:].sum(1).shape)
-        print((translated[:, 4:].sum(1) == 0).sum())
         # Aggregation:
         #  max for first 4 dimensions (obstacle, explored, past locations)
         #  mean for CLIP map cell features
-        current_map = torch.zeros_like(prev_map)
+        current_map = prev_map.copy()
+        print("current_map[:, :4].sum()", current_map[:, :4].sum())
         current_map[:, :4], _ = torch.max(
             torch.cat(
                 (
@@ -368,9 +365,10 @@ class VisionLanguage2DSemanticMapModule(nn.Module):
             ),
             1
         )
-        for e in batch_size:
+        print("current_map[:, :4].sum()", current_map[:, :4].sum())
+        for e in range(batch_size):
             update_mask = translated[e, 4:].sum(1) > 0
-            print(update_mask.shape)
+            print("update_mask.shape", update_mask.shape)
             current_map[e, 4:, update_mask] = torch.mean(
                 torch.cat(
                     (
