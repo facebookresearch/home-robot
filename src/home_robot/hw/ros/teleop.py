@@ -18,14 +18,14 @@ from visualization_msgs.msg import *
 from geometry_msgs.msg import Pose, Point, Quaternion
 
 from home_robot.hardware.stretch_ros import HelloStretchROSInterface
-from home_robot.motion.robot import (
+from home_robot.agent.motion.robot import (
     STRETCH_HOME_Q,
     STRETCH_GRASP_FRAME,
     STRETCH_TO_GRASP,
 )
-from home_robot.motion.robot import HelloStretchIdx
-from home_robot.ros.utils import *
-from home_robot.ros.position_mode import SwitchToPositionMode
+from home_robot.agent.motion.robot import HelloStretchIdx
+from home_robot.hw.ros.utils import *
+from home_robot.hw.ros.position_mode import SwitchToPositionMode
 
 
 """

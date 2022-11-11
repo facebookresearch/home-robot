@@ -1,7 +1,7 @@
 # Copyright Meta 2022
 
-from home_robot.motion.robot import Robot
-from home_robot.motion.space import Space
+from home_robot.agent.motion.robot import Robot
+from home_robot.agent.motion.space import Space
 
 """
 This just defines the standard interface for a motion planner

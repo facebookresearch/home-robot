@@ -1,5 +1,5 @@
-from home_robot.motion.base import Planner
-from home_robot.motion.space import Space
+from home_robot.agent.motion.base import Planner
+from home_robot.agent.motion.space import Space
 
 
 def RRT(object):

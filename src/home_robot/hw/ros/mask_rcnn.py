@@ -3,7 +3,7 @@ import torch
 import torchvision
 import numpy as np
 
-from home_robot.ros.camera import RosCamera
+from home_robot.hw.ros.camera import RosCamera
 from torchvision.utils import draw_bounding_boxes
 from torchvision.models.detection import (
     maskrcnn_resnet50_fpn,

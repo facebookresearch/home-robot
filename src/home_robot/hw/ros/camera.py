@@ -4,7 +4,7 @@ import threading
 from collections import deque
 
 from home_robot.utils.image import Camera
-from home_robot.ros.msg_numpy import image_to_numpy
+from home_robot.hw.ros.msg_numpy import image_to_numpy
 
 from sensor_msgs.msg import CameraInfo, Image
 

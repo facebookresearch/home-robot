@@ -2,11 +2,11 @@ import rospy
 import timeit
 import numpy as np
 
-from home_robot.hardware.stretch_ros import HelloStretchROSInterface
-from home_robot.motion.robot import STRETCH_HOME_Q, HelloStretchIdx
-from home_robot.perception.detectron2_segmentation import Detectron2Segmentation
-from home_robot.perception.constants import coco_categories
-from home_robot.ros.grasp_helper import GraspClient as RosGraspClient
+from home_robot.hw.ros.stretch_ros import HelloStretchROSInterface
+from home_robot.agent.motion.robot import STRETCH_HOME_Q, HelloStretchIdx
+from home_robot.agent.perception.detectron2_segmentation import Detectron2Segmentation
+from home_robot.agent.perception.constants import coco_categories
+from home_robot.hw.ros.grasp_helper import GraspClient as RosGraspClient
 from home_robot.utils.pose import to_pos_quat
 
 import matplotlib.pyplot as plt

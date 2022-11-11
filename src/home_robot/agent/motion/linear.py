@@ -1,7 +1,7 @@
 import numpy as np
-from home_robot.motion.base import Planner
-from home_robot.motion.robot import STRETCH_STANDOFF_WITH_MARGIN
-from home_robot.motion.robot import HelloStretchIdx
+from home_robot.agent.motion.base import Planner
+from home_robot.agent.motion.robot import STRETCH_STANDOFF_WITH_MARGIN
+from home_robot.agent.motion.robot import HelloStretchIdx
 
 
 class LinearPlanner(Planner):

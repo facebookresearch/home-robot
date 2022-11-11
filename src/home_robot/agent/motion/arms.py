@@ -1,6 +1,6 @@
 import pybullet as pb
 
-from home_robot.motion.robot import Robot
+from home_robot.agent.motion.robot import Robot
 
 
 DEFAULT_FRANKA_URDF = "assets/franka_panda/panda.urdf"

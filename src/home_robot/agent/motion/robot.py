@@ -7,7 +7,7 @@ import trimesh.transformations as tra
 
 from tracikpy import TracIKSolver
 
-from home_robot.motion.space import Space
+from home_robot.agent.motion.space import Space
 from home_robot.utils.pose import to_matrix
 
 

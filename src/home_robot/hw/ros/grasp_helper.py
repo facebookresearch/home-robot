@@ -9,13 +9,13 @@ from collections import deque
 import trimesh.transformations as tra
 
 from home_robot.srv import GraspRequest, GraspRequestResponse
-from home_robot.ros.utils import matrix_to_pose_msg
-from home_robot.ros.utils import matrix_from_pose_msg
+from home_robot.hw.ros.utils import matrix_to_pose_msg
+from home_robot.hw.ros.utils import matrix_from_pose_msg
 
 # For debugging only
 import tf2_ros
 from geometry_msgs.msg import TransformStamped
-from home_robot.ros.utils import ros_pose_to_transform
+from home_robot.hw.ros.utils import ros_pose_to_transform
 
 
 def msg_to_segmented_point_cloud(msg):

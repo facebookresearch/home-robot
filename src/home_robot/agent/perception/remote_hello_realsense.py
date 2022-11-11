@@ -23,7 +23,7 @@ from droidlet.dashboard.o3dviz import serialize as o3d_pickle
 from data_compression import *
 from segmentation.constants import coco_categories
 from segmentation.detectron2_segmentation import Detectron2Segmentation
-from home_robot.ros.camera import RosCamera
+from home_robot.hw.ros.camera import RosCamera
 
 
 # Configure depth and color streams
