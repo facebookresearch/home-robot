@@ -276,6 +276,7 @@ class VisionLanguage2DSemanticMapModule(nn.Module):
         )
 
         # TODO Batch LSeg inference across time
+        print(rgb.shape)
         pixel_features = self.lseg.encode(rgb)
 
         feat[:, 1:, :] = nn.AvgPool2d(self.du_scale)(pixel_features).view(
