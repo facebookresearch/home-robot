@@ -368,15 +368,15 @@ class VisionLanguage2DSemanticMapModule(nn.Module):
             print("prev_map[e, 4, update_mask].sum()", prev_map[e, 4, update_mask].sum())
             print("prev_map[e, 4, update_mask]", prev_map[e, 4, update_mask])
             print()
-            current_map[e, 5:, update_mask] = (
-                (prev_map[e, 5:, update_mask] * prev_map[e, 4, update_mask] +
-                 translated[e, 5:, update_mask]) /
-                prev_map[e, 4, update_mask] + 1
-            )
             # current_map[e, 5:, update_mask] = (
-            #     (prev_map[e, 5:, update_mask] + translated[e, 5:, update_mask]) /
-            #     2
+            #     (prev_map[e, 5:, update_mask] * prev_map[e, 4, update_mask] +
+            #      translated[e, 5:, update_mask]) /
+            #     prev_map[e, 4, update_mask] + 1
             # )
+            current_map[e, 5:, update_mask] = (
+                (prev_map[e, 5:, update_mask] + translated[e, 5:, update_mask]) /
+                2
+            )
 
             current_map[e, 4, update_mask] += 1
 
