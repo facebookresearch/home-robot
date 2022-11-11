@@ -371,13 +371,13 @@ class VisionLanguage2DSemanticMapModule(nn.Module):
             #     prev_map[e, 4, update_mask] + 1
             # )
             current_map[e, 5:, update_mask] = (
-                (prev_map[e, 5:, update_mask] * translated[e, 5:, update_mask]) /
+                (prev_map[e, 5:, update_mask] + translated[e, 5:, update_mask]) /
                 2
             )
 
             current_map[e, 4, update_mask] += 1
 
-            
+
             # print("update_mask.shape", update_mask.shape)
             # print("prev_map[e, 5:, update_mask].shape", prev_map[e, 5:, update_mask].shape)
             # print("translated[e, 5:, update_mask].shape", translated[e, 5:, update_mask].shape)
