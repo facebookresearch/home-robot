@@ -368,11 +368,12 @@ class VisionLanguage2DSemanticMapModule(nn.Module):
 
             # TODO Proper mean across all updates of the same cell instead
             #  of last 2 updates
-            # current_map[e, 5:, update_mask] = (
-            #     (prev_map[e, 5:, update_mask] * prev_map[e, 4, update_mask] +
-            #      translated[e, 5:, update_mask]) /
-            #     prev_map[e, 4, update_mask] + 1
-            # )
+            print("torch.unique(prev_map[e, 4, update_mask])", torch.unique(prev_map[e, 4, update_mask]))
+            current_map[e, 5:, update_mask] = (
+                (prev_map[e, 5:, update_mask] * prev_map[e, 4, update_mask] +
+                 translated[e, 5:, update_mask]) /
+                prev_map[e, 4, update_mask] + 1
+            )
 
             # Average existing features and most recent view
             # current_map[e, 5:, update_mask] = (
@@ -381,7 +382,7 @@ class VisionLanguage2DSemanticMapModule(nn.Module):
             # )
 
             # Keep most recent view only
-            current_map[e, 5:, update_mask] = translated[e, 5:, update_mask]
+            # current_map[e, 5:, update_mask] = translated[e, 5:, update_mask]
 
             current_map[e, 4, update_mask] += 1
 
