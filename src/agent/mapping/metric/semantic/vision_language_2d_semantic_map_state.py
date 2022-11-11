@@ -143,9 +143,12 @@ class VisionLanguage2DSemanticMapState:
         one_hot_categories, _ = lseg.decode(
             self.local_map[[e], 4:, :, :], labels
         )
+        print(one_hot_categories.shape)
         one_hot_categories = one_hot_categories.squeeze(0).cpu().float().numpy()
+        print(one_hot_categories.shape)
         one_hot_categories[-1, :, :] = 1e-5  # Last category is "other"
         semantic_map = one_hot_categories.argmax(0)
+        print(semantic_map.shape)
         return semantic_map
 
     def get_planner_pose_inputs(self, e) -> np.ndarray:
