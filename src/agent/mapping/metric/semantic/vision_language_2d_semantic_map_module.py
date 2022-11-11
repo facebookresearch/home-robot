@@ -352,6 +352,8 @@ class VisionLanguage2DSemanticMapModule(nn.Module):
         # TODO Fix aggregation
         print(prev_map.shape)
         print(translated.shape)
+        print(translated.sum(0).sum(0).shape)
+        print((translated.sum(0).sum(0) == 0).sum())
         # Aggregation:
         #  max for first 4 dimensions (obstacle, explored, past locations)
         #  mean for CLIP map cell features
