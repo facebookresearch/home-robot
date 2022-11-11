@@ -391,7 +391,7 @@ class LSegEncDecNet(LSegEnc):
         if path is not None:
             self.load(path)
 
-    def encode(self, images: np.ndarray) -> torch.Tensor:
+    def encode(self, images) -> torch.Tensor:
         """Encode RGB images to CLIP pixel features.
 
         Arguments:
@@ -400,7 +400,9 @@ class LSegEncDecNet(LSegEnc):
         Returns:
             pixel_features: CLIP pixel features of shape (batch_size, 512, H, W)
         """
-        images = torch.from_numpy(images).to(self.device).permute((0, 3, 1, 2))
+        if isinstance(images, np.ndarray):
+            images = torch.from_numpy(images)
+        images = images.to(self.device).permute((0, 3, 1, 2))
         images = self.transform(images / 255.0)
         return self.forward(images)
 
