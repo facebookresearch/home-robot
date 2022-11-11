@@ -140,15 +140,13 @@ class VisionLanguage2DSemanticMapState:
     def get_semantic_map(self, e, lseg: LSegEncDecNet, labels: List[str]) -> np.ndarray:
         """Get local map of semantic categories for an environment - decode CLIP
         features to label set."""
+        assert labels[-1] == "other"
         one_hot_categories, _ = lseg.decode(
             self.local_map[[e], 4:, :, :], labels
         )
-        print(one_hot_categories.shape)
         one_hot_categories = one_hot_categories.squeeze(0).cpu().float().numpy()
-        print(one_hot_categories.shape)
         one_hot_categories[-1, :, :] = 1e-5  # Last category is "other"
         semantic_map = one_hot_categories.argmax(-1)
-        print(semantic_map.shape)
         return semantic_map
 
     def get_planner_pose_inputs(self, e) -> np.ndarray:

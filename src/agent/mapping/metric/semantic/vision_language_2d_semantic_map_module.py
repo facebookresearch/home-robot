@@ -348,7 +348,9 @@ class VisionLanguage2DSemanticMapModule(nn.Module):
 
         # Clamp to [0, 1] after transform agent view to map coordinates
         # TODO Avoid clamping to [0, 1]
+        print(translated.mean())
         translated = torch.clamp(translated, min=0.0, max=1.0)
+        print(translated.mean())
 
         # TODO Fix aggregation
         maps = torch.cat((prev_map.unsqueeze(1), translated.unsqueeze(1)), 1)
