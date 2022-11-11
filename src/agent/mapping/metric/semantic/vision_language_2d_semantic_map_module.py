@@ -358,7 +358,7 @@ class VisionLanguage2DSemanticMapModule(nn.Module):
         #  max for first 4 dimensions (obstacle, explored, past locations)
         #  mean for CLIP map cell features
         current_map = torch.zeros_like(prev_map)
-        current_map[:, :4] = torch.max(
+        current_map[:, :4], _ = torch.max(
             torch.cat(
                 (
                     prev_map[:, :4].unsqueeze(1),
