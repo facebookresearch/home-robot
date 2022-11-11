@@ -17,8 +17,6 @@ class LocalHelloRobot:
     """
 
     def __init__(self):
-        rospy.init_node("user")
-
         self._base_state = None
 
         # Ros pubsub
@@ -100,6 +98,7 @@ class LocalHelloRobot:
 
 if __name__ == "__main__":
     # Launches an interactive terminal if file is directly run
+    rospy.init_node("user")
     robot = LocalHelloRobot()
 
     import code
