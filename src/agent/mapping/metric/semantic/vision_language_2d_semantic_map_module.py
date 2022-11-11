@@ -369,14 +369,14 @@ class VisionLanguage2DSemanticMapModule(nn.Module):
         for e in range(batch_size):
             update_mask = translated[e, 4:].sum(0) > 0
             print("update_mask.shape", update_mask.shape)
-            print("prev_map[:, :4][update_mask].shape", prev_map[:, :4][update_mask].shape)
-            print("prev_map[:, :4, update_mask].shape", prev_map[:, :4, update_mask].shape)
-            print("translated[:, :4, update_mask].shape", translated[:, :4, update_mask].shape)
+            print("prev_map[e, 4:][update_mask].shape", prev_map[e, 4:][update_mask].shape)
+            print("prev_map[e, 4:, update_mask].shape", prev_map[e, 4:, update_mask].shape)
+            print("translated[e, 4:, update_mask].shape", translated[e, 4:, update_mask].shape)
             current_map[e, 4:, update_mask] = torch.mean(
                 torch.cat(
                     (
-                        prev_map[:, :4, update_mask].unsqueeze(1),
-                        translated[:, :4, update_mask].unsqueeze(1)
+                        prev_map[e, 4:, update_mask].unsqueeze(1),
+                        translated[e, 4:, update_mask].unsqueeze(1)
                     ),
                     1
                 ),
