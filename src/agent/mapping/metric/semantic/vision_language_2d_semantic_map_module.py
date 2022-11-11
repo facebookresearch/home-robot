@@ -10,6 +10,7 @@ import agent.mapping.metric.depth_utils as du
 import agent.mapping.metric.rotation_utils as ru
 import agent.mapping.metric.map_utils as mu
 import agent.utils.pose_utils as pu
+from agent.perception.segmentation.lseg import load_lseg_for_inference
 
 
 class VisionLanguage2DSemanticMapModule(nn.Module):
@@ -26,11 +27,12 @@ class VisionLanguage2DSemanticMapModule(nn.Module):
 
     def __init__(
         self,
+        lseg_checkpoint_path: str,
+        lseg_features_dim: int,
         frame_height: int,
         frame_width: int,
         camera_height: int,
         hfov: int,
-        num_sem_categories: int,
         map_size_cm: int,
         map_resolution: int,
         vision_range: int,
@@ -42,11 +44,13 @@ class VisionLanguage2DSemanticMapModule(nn.Module):
     ):
         """
         Arguments:
+            lseg_checkpoint_path: pre-trained LSeg checkpoint path
+            lseg_features_dim: number of dimensions of vision-language
+             (CLIP) features
             frame_height: first-person frame height
             frame_width: first-person frame width
             camera_height: camera sensor height (in metres)
             hfov: horizontal field of view (in degrees)
-            num_sem_categories: number of semantic segmentation categories
             map_size_cm: global map size (in centimetres)
             map_resolution: size of map bins (in centimeters)
             vision_range: diameter of the circular region of the local map
@@ -66,7 +70,11 @@ class VisionLanguage2DSemanticMapModule(nn.Module):
         self.screen_h = frame_height
         self.screen_w = frame_width
         self.camera_matrix = du.get_camera_matrix(self.screen_w, self.screen_h, hfov)
-        self.num_sem_categories = num_sem_categories
+
+        self.lseg = load_lseg_for_inference(
+            lseg_checkpoint_path, self.device, visualize=False
+        )
+        self.lseg_features_dim = lseg_features_dim
 
         self.map_size_parameters = mu.MapSizeParameters(
             map_resolution, map_size_cm, global_downscaling
@@ -111,9 +119,8 @@ class VisionLanguage2DSemanticMapModule(nn.Module):
         features at each time step.
 
         Arguments:
-            seq_obs: sequence of frames containing (RGB, depth, segmentation)
-             of shape (batch_size, sequence_length, 3 + 1 + num_sem_categories,
-             frame_height, frame_width)
+            seq_obs: sequence of frames containing (RGB, depth) of shape
+             (batch_size, sequence_length, 3 + 1, frame_height, frame_width)
             seq_pose_delta: sequence of delta in pose since last frame of shape
              (batch_size, sequence_length, 3)
             seq_dones: sequence of (batch_size, sequence_length) binary flags
@@ -121,9 +128,9 @@ class VisionLanguage2DSemanticMapModule(nn.Module):
             seq_update_global: sequence of (batch_size, sequence_length) binary
              flags that indicate whether to update the global map and pose
             init_local_map: initial local map before any updates of shape
-             (batch_size, 4 + num_sem_categories, M, M)
+             (batch_size, 4 + lseg_features_dim, M, M)
             init_global_map: initial global map before any updates of shape
-             (batch_size, 4 + num_sem_categories, M * ds, M * ds)
+             (batch_size, 4 + lseg_features_dim, M * ds, M * ds)
             init_local_pose: initial local pose before any updates of shape
              (batch_size, 3)
             init_global_pose: initial global pose before any updates of shape
@@ -133,11 +140,11 @@ class VisionLanguage2DSemanticMapModule(nn.Module):
 
         Returns:
             seq_map_features: sequence of semantic map features of shape
-             (batch_size, sequence_length, 8 + num_sem_categories, M, M)
+             (batch_size, sequence_length, 8 + lseg_features_dim, M, M)
             final_local_map: final local map after all updates of shape
-             (batch_size, 4 + num_sem_categories, M, M)
+             (batch_size, 4 + lseg_features_dim, M, M)
             final_global_map: final global map after all updates of shape
-             (batch_size, 4 + num_sem_categories, M * ds, M * ds)
+             (batch_size, 4 + lseg_features_dim, M * ds, M * ds)
             seq_local_pose: sequence of local poses of shape
              (batch_size, sequence_length, 3)
             seq_global_pose: sequence of global poses of shape
@@ -150,7 +157,7 @@ class VisionLanguage2DSemanticMapModule(nn.Module):
         batch_size, sequence_length = seq_obs.shape[:2]
         device, dtype = seq_obs.device, seq_obs.dtype
 
-        map_features_channels = 8 + self.num_sem_categories
+        map_features_channels = 8 + self.lseg_features_dim
         seq_map_features = torch.zeros(
             batch_size,
             sequence_length,
@@ -219,22 +226,24 @@ class VisionLanguage2DSemanticMapModule(nn.Module):
         differentiable projective geometry.
 
         Args:
-            obs: current frame containing (rgb, depth, segmentation) of shape
-             (batch_size, 3 + 1 + num_sem_categories, frame_height, frame_width)
+            obs: current frame containing (rgb, depth) of shape
+             (batch_size, 3 + 1, frame_height, frame_width)
             pose_delta: delta in pose since last frame of shape (batch_size, 3)
             prev_map: previous local map of shape
-             (batch_size, 4 + num_sem_categories, M, M)
+             (batch_size, 4 + lseg_features_dim, M, M)
             prev_pose: previous pose of shape (batch_size, 3)
 
         Returns:
             current_map: current local map updated with current observation
-             and location of shape (batch_size, 4 + num_sem_categories, M, M)
+             and location of shape (batch_size, 4 + lseg_features_dim, M, M)
             current_pose: current pose updated with pose delta of shape (batch_size, 3)
         """
         batch_size, obs_channels, h, w = obs.size()
         device, dtype = obs.device, obs.dtype
 
+        rgb = obs[:, :3, :, :].float()
         depth = obs[:, 3, :, :].float()
+
         point_cloud_t = du.get_point_cloud_from_z_t(
             depth, self.camera_matrix, device, scale=self.du_scale
         )
@@ -247,7 +256,7 @@ class VisionLanguage2DSemanticMapModule(nn.Module):
             agent_view_t, self.shift_loc, device
         )
 
-        voxel_channels = 1 + self.num_sem_categories
+        voxel_channels = 1 + self.lseg_features_dim
 
         init_grid = torch.zeros(
             batch_size,
@@ -265,7 +274,11 @@ class VisionLanguage2DSemanticMapModule(nn.Module):
             device=device,
             dtype=torch.float32,
         )
-        feat[:, 1:, :] = nn.AvgPool2d(self.du_scale)(obs[:, 4:, :, :]).view(
+
+        # TODO Batch LSeg inference across time
+        pixel_features = self.lseg.encode(rgb)
+
+        feat[:, 1:, :] = nn.AvgPool2d(self.du_scale)(pixel_features).view(
             batch_size, obs_channels - 4, h // self.du_scale * w // self.du_scale
         )
 
@@ -317,8 +330,8 @@ class VisionLanguage2DSemanticMapModule(nn.Module):
         y2 = y1 + self.vision_range
         agent_view[:, 0:1, y1:y2, x1:x2] = fp_map_pred
         agent_view[:, 1:2, y1:y2, x1:x2] = fp_exp_pred
-        agent_view[:, 4 : 4 + self.num_sem_categories, y1:y2, x1:x2] = (
-            all_height_proj[:, 1 : 1 + self.num_sem_categories]
+        agent_view[:, 4 : 4 + self.lseg_features_dim, y1:y2, x1:x2] = (
+            all_height_proj[:, 1 : 1 + self.lseg_features_dim]
             / self.cat_pred_threshold
         )
 
@@ -339,10 +352,12 @@ class VisionLanguage2DSemanticMapModule(nn.Module):
         translated = F.grid_sample(rotated, trans_mat, align_corners=True)
 
         # Clamp to [0, 1] after transform agent view to map coordinates
+        # TODO Avoid clamping to [0, 1]
         translated = torch.clamp(translated, min=0.0, max=1.0)
 
+        # TODO Fix aggregation
         maps = torch.cat((prev_map.unsqueeze(1), translated.unsqueeze(1)), 1)
-        current_map, _ = torch.max(maps[:, :, : 4 + self.num_sem_categories], 1)
+        current_map, _ = torch.max(maps[:, :, : 4 + self.lseg_features_dim], 1)
 
         # Reset current location
         current_map[:, 2, :, :].fill_(0.0)
@@ -395,15 +410,15 @@ class VisionLanguage2DSemanticMapModule(nn.Module):
 
         Arguments:
             local_map: local map of shape
-             (batch_size, 4 + num_sem_categories, M, M)
+             (batch_size, 4 + lseg_features_dim, M, M)
             global_map: global map of shape
-             (batch_size, 4 + num_sem_categories, M * ds, M * ds)
+             (batch_size, 4 + lseg_features_dim, M * ds, M * ds)
 
         Returns:
             map_features: semantic map features of shape
-             (batch_size, 8 + num_sem_categories, M, M)
+             (batch_size, 8 + lseg_features_dim, M, M)
         """
-        map_features_channels = 8 + self.num_sem_categories
+        map_features_channels = 8 + self.lseg_features_dim
 
         map_features = torch.zeros(
             local_map.size(0),

@@ -1,7 +1,9 @@
 import torch
 import numpy as np
+from typing import List
 
 from agent.mapping.metric.map_utils import MapSizeParameters, init_map_and_pose_for_env
+from agent.perception.segmentation.lseg.modules.models.lseg_net import LSegEncDecNet
 
 
 class VisionLanguage2DSemanticMapState:
@@ -20,7 +22,7 @@ class VisionLanguage2DSemanticMapState:
         self,
         device: torch.device,
         num_environments: int,
-        num_sem_categories: int,
+        lseg_features_dim: int,
         map_resolution: int,
         map_size_cm: int,
         global_downscaling: int,
@@ -30,14 +32,14 @@ class VisionLanguage2DSemanticMapState:
             device: torch device on which to store map state
             num_environments: number of parallel maps (always 1 in real-world but
              multiple in simulation)
-            num_sem_categories: number of semantic channels in the map
+            lseg_features_dim: number of dimensions of vision-language (CLIP) features
             map_resolution: size of map bins (in centimeters)
             map_size_cm: global map size (in centimetres)
             global_downscaling: ratio of global over local map
         """
         self.device = device
         self.num_environments = num_environments
-        self.num_sem_categories = num_sem_categories
+        self.lseg_features_dim = lseg_features_dim
 
         self.map_size_parameters = MapSizeParameters(
             map_resolution, map_size_cm, global_downscaling
@@ -54,8 +56,8 @@ class VisionLanguage2DSemanticMapState:
         # 1: Explored Area
         # 2: Current Agent Location
         # 3: Past Agent Locations
-        # 4, 5, 6, .., num_sem_categories + 3: Semantic Categories
-        num_channels = self.num_sem_categories + 4
+        # 4, 5, 6, .., lseg_features_dim + 3: LSeg CLIP features
+        num_channels = lseg_features_dim + 4
 
         self.global_map = torch.zeros(
             self.num_environments,
@@ -135,13 +137,14 @@ class VisionLanguage2DSemanticMapState:
         """Get local visited map for an environment."""
         return np.copy(self.local_map[e, 3, :, :].cpu().float().numpy())
 
-    def get_semantic_map(self, e) -> np.ndarray:
-        """Get local map of semantic categories for an environment."""
-        semantic_map = np.copy(self.local_map[e].cpu().float().numpy())
-        semantic_map[
-            3 + self.num_sem_categories, :, :
-        ] = 1e-5  # Last category is unlabeled
-        semantic_map = semantic_map[4 : 4 + self.num_sem_categories, :, :].argmax(0)
+    def get_semantic_map(self, e, lseg: LSegEncDecNet, labels: List[str]) -> np.ndarray:
+        """Get local map of semantic categories for an environment - decode CLIP
+        features to label set."""
+        one_hot_categories, _ = lseg.decode(
+            self.local_map[e, 3:, :, :], labels
+        ).cpu().float().numpy()
+        one_hot_categories[-1, :, :] = 1e-5  # Last category is "other"
+        semantic_map = one_hot_categories.argmax(0)
         return semantic_map
 
     def get_planner_pose_inputs(self, e) -> np.ndarray:
