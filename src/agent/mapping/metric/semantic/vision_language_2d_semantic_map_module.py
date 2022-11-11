@@ -72,7 +72,7 @@ class VisionLanguage2DSemanticMapModule(nn.Module):
         self.camera_matrix = du.get_camera_matrix(self.screen_w, self.screen_h, hfov)
 
         self.lseg = load_lseg_for_inference(
-            lseg_checkpoint_path, self.device, visualize=False
+            lseg_checkpoint_path, torch.device("cpu"), visualize=False
         )
         self.lseg_features_dim = lseg_features_dim
 
