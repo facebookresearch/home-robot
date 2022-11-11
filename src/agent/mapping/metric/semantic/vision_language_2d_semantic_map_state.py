@@ -145,15 +145,11 @@ class VisionLanguage2DSemanticMapState:
             self.local_map[[e], 4:, :, :], labels
         )
         one_hot_categories = one_hot_categories.squeeze(0)
-        print(one_hot_categories.shape, one_hot_categories.sum())
         empty_mask = self.local_map[e, 4:].sum(0) == 0
-        print(empty_mask.shape, empty_mask.sum())
         one_hot_categories[empty_mask, :] = 0
-        print(one_hot_categories.shape, one_hot_categories.sum())
         one_hot_categories = one_hot_categories.cpu().float().numpy()
         one_hot_categories[:, :, -1] = 1e-5  # Last category is "other"
         semantic_map = one_hot_categories.argmax(-1)
-        print()
         return semantic_map
 
     def get_planner_pose_inputs(self, e) -> np.ndarray:
