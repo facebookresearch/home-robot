@@ -350,7 +350,7 @@ class VisionLanguage2DSemanticMapModule(nn.Module):
 
         # Aggregation:
         #  0-3: max for obstacle, explored, past locations
-        #  4: +1 for updated cells
+        #  4: +1 count for updated cells
         #  5-517: mean for CLIP map cell features
         current_map = prev_map.clone()
         current_map[:, :4], _ = torch.max(
@@ -366,20 +366,12 @@ class VisionLanguage2DSemanticMapModule(nn.Module):
         for e in range(batch_size):
             update_mask = translated[e, 5:].sum(0) > 0
 
-            # TODO Proper mean across all updates of the same cell instead
-            #  of last 2 updates
-            print("torch.unique(prev_map[e, 4, update_mask])", torch.unique(prev_map[e, 4, update_mask]))
+            # Average features of all previous views and most recent view
             current_map[e, 5:, update_mask] = (
                 (prev_map[e, 5:, update_mask] * prev_map[e, 4, update_mask] +
                  translated[e, 5:, update_mask]) /
                 (prev_map[e, 4, update_mask] + 1)
             )
-
-            # Average existing features and most recent view
-            # current_map[e, 5:, update_mask] = (
-            #     (prev_map[e, 5:, update_mask] + translated[e, 5:, update_mask]) /
-            #     2
-            # )
 
             # Keep most recent view only
             # current_map[e, 5:, update_mask] = translated[e, 5:, update_mask]
