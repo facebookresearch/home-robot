@@ -238,7 +238,7 @@ class VisionLanguage2DSemanticMapModule(nn.Module):
              and location of shape (batch_size, 4 + lseg_features_dim, M, M)
             current_pose: current pose updated with pose delta of shape (batch_size, 3)
         """
-        batch_size, obs_channels, h, w = obs.size()
+        batch_size, _, h, w = obs.size()
         device, dtype = obs.device, obs.dtype
 
         rgb = obs[:, :3, :, :].float()
@@ -281,11 +281,11 @@ class VisionLanguage2DSemanticMapModule(nn.Module):
         print(obs[:, 4:].shape)
         print(nn.AvgPool2d(self.du_scale)(pixel_features).shape)
         print(nn.AvgPool2d(self.du_scale)(pixel_features).view(
-            batch_size, obs_channels - 4, h // self.du_scale * w // self.du_scale
+            batch_size, self.lseg_features_dim, h // self.du_scale * w // self.du_scale
         ).shape)
 
         feat[:, 1:, :] = nn.AvgPool2d(self.du_scale)(pixel_features).view(
-            batch_size, obs_channels - 4, h // self.du_scale * w // self.du_scale
+            batch_size, self.lseg_features_dim, h // self.du_scale * w // self.du_scale
         )
 
         XYZ_cm_std = agent_view_centered_t.float()
@@ -323,7 +323,7 @@ class VisionLanguage2DSemanticMapModule(nn.Module):
 
         agent_view = torch.zeros(
             batch_size,
-            obs_channels,
+            4 + self.lseg_features_dim,
             self.local_map_size_cm // self.xy_resolution,
             self.local_map_size_cm // self.xy_resolution,
             device=device,
