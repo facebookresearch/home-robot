@@ -400,7 +400,7 @@ class LSegEncDecNet(LSegEnc):
         """
         if isinstance(images, np.ndarray):
             images = torch.from_numpy(images)
-        device = next(self.parameters().device)
+        device = next(self.parameters()).device
         images = images.to(device).permute((0, 3, 1, 2))
         images = self.transform(images / 255.0)
         return self.forward(images)
@@ -421,7 +421,7 @@ class LSegEncDecNet(LSegEnc):
             visualizations: prediction visualization images of shape
              (batch_size, H, W, 3) if self.visualize=True else None
         """
-        device = next(self.parameters().device)
+        device = next(self.parameters()).device
         text = clip.tokenize(labels).to(device)
         text_features = self.clip_pretrained.encode_text(text)
         text_features /= text_features.norm(dim=-1, keepdim=True)
