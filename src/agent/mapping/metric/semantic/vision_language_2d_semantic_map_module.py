@@ -353,7 +353,7 @@ class VisionLanguage2DSemanticMapModule(nn.Module):
         # Aggregation:
         #  max for first 4 dimensions (obstacle, explored, past locations)
         #  mean for CLIP map cell features
-        current_map = prev_map.copy()
+        current_map = prev_map.clone()
         print("current_map[:, :4].sum()", current_map[:, :4].sum())
         current_map[:, :4], _ = torch.max(
             torch.cat(
