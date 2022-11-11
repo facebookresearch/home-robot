@@ -365,6 +365,7 @@ class VisionLanguage2DSemanticMapModule(nn.Module):
         )
         for e in range(batch_size):
             update_mask = translated[e, 5:].sum(0) > 0
+
             # TODO Proper mean across all updates of the same cell instead
             #  of last 2 updates
             # current_map[e, 5:, update_mask] = (
@@ -372,10 +373,15 @@ class VisionLanguage2DSemanticMapModule(nn.Module):
             #      translated[e, 5:, update_mask]) /
             #     prev_map[e, 4, update_mask] + 1
             # )
-            current_map[e, 5:, update_mask] = (
-                (prev_map[e, 5:, update_mask] + translated[e, 5:, update_mask]) /
-                2
-            )
+
+            # Average existing features and most recent view
+            # current_map[e, 5:, update_mask] = (
+            #     (prev_map[e, 5:, update_mask] + translated[e, 5:, update_mask]) /
+            #     2
+            # )
+
+            # Keep most recent view only
+            current_map[e, 5:, update_mask] = translated[e, 5:, update_mask]
 
             current_map[e, 4, update_mask] += 1
 
