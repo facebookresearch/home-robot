@@ -346,15 +346,13 @@ class VisionLanguage2DSemanticMapModule(nn.Module):
         rotated = F.grid_sample(agent_view, rot_mat, align_corners=True)
         translated = F.grid_sample(rotated, trans_mat, align_corners=True)
 
-        # Clamp to [0, 1] after transform agent view to map coordinates
         translated[:, :4] = torch.clamp(translated[:, :4], min=0.0, max=1.0)
 
-        # TODO Fix aggregation
         # Aggregation:
-        #  max for first 4 dimensions (obstacle, explored, past locations)
-        #  mean for CLIP map cell features
+        #  0-3: max for obstacle, explored, past locations
+        #  4: +1 for updated cells
+        #  5-517: mean for CLIP map cell features
         current_map = prev_map.clone()
-        print("current_map[:, :4].sum()", current_map[:, :4].sum())
         current_map[:, :4], _ = torch.max(
             torch.cat(
                 (
@@ -365,22 +363,27 @@ class VisionLanguage2DSemanticMapModule(nn.Module):
             ),
             1
         )
-        print("current_map[:, :4].sum()", current_map[:, :4].sum())
         for e in range(batch_size):
             update_mask = translated[e, 5:].sum(0) > 0
-            print("update_mask.shape", update_mask.shape)
-            print("prev_map[e, 5:, update_mask].shape", prev_map[e, 5:, update_mask].shape)
-            print("translated[e, 5:, update_mask].shape", translated[e, 5:, update_mask].shape)
-            current_map[e, 5:, update_mask] = torch.mean(
-                torch.cat(
-                    (
-                        prev_map[e, 5:, update_mask].unsqueeze(1),
-                        translated[e, 5:, update_mask].unsqueeze(1)
-                    ),
-                    1
-                ),
-                1
+            current_map[e, 5:, update_mask] = (
+                (prev_map[e, 5:, update_mask] * prev_map[e, 4, update_mask] +
+                 translated[e, 5:, update_mask]) /
+                prev_map[e, 4, update_mask] + 1
             )
+            current_map[e, 4, update_mask] += 1
+            # print("update_mask.shape", update_mask.shape)
+            # print("prev_map[e, 5:, update_mask].shape", prev_map[e, 5:, update_mask].shape)
+            # print("translated[e, 5:, update_mask].shape", translated[e, 5:, update_mask].shape)
+            # current_map[e, 5:, update_mask] = torch.mean(
+            #     torch.cat(
+            #         (
+            #             prev_map[e, 5:, update_mask].unsqueeze(1),
+            #             translated[e, 5:, update_mask].unsqueeze(1)
+            #         ),
+            #         1
+            #     ),
+            #     1
+            # )
         #maps = torch.cat((prev_map.unsqueeze(1), translated.unsqueeze(1)), 1)
         #current_map, _ = torch.max(maps[:, :, : 4 + self.lseg_features_dim], 1)
 

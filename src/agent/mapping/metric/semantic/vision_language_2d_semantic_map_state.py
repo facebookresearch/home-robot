@@ -57,7 +57,7 @@ class VisionLanguage2DSemanticMapState:
         # 2: Current Agent Location
         # 3: Past Agent Locations
         # 4: Number of Cell Updates
-        # 5, 6, .., lseg_features_dim + 4: LSeg CLIP features
+        # 5, 6, .., lseg_features_dim + 5: LSeg CLIP features
         num_channels = lseg_features_dim + 5
 
         self.global_map = torch.zeros(
