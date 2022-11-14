@@ -17,6 +17,15 @@ Mostly Hello Stretch infrastructure
 1. Install stretch_ros following official instructions [here](https://github.com/hello-robot/stretch_ros/blob/dev/noetic/install_noetic.md)
 1. Install Hector SLAM: `sudo apt install ros-noetic-hector-*`
 
+#### Conflicting Processes Already Running
+
+- Restart stretch
+- See running processes using:
+
+```sh
+mrp info
+```
+
 ## Usage
 
 ### Launching the hardware stack:
