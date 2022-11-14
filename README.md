@@ -13,16 +13,37 @@ Mostly Hello Stretch infrastructure
 
 ### Additional instructions for setting up on hardware
 
-1. Setup the Stretch robot following official instructions [here](https://github.com/hello-robot/stretch_install)
-   - This step can be skipped if you're setting up a new user on a functional robot.
-1. Install stretch_ros following official instructions [here](https://github.com/hello-robot/stretch_ros/blob/dev/noetic/install_noetic.md). (Instructions are outdated, see notes below.)
-   - Note 1: The branch `dev/install_20.04` does not exist anymore. Clone `master` directly.
-   - Note 2: The file `stretch_install_nonfactory.sh` also does not exist anymore. Run `stretch_new_robot_install.sh` if installing on a fresh robot, else run `stretch_new_user_install.sh`.
+1. Install firmware from Hello Robot
+```sh
+# Copy robot factory data into your user workspace
+cp -r /etc/hello-robot/stretch-re* ~
 
-1. Clone the official setup scripts: `git clone https://github.com/hello-robot/stretch_install`
-   - Note: After running the install script, do `cd ~/catkin_ws && catkin_make` to build everything and make scripts like `stretch_robot_home.py` available.
-1. `cd stretch_install` and run `./stretch_new_robot_install.sh` if installing on new robot, else run `./stretch_new_user_install.sh`
+# Clone the official setup scripts
+cd ~
+git clone https://github.com/hello-robot/stretch_install
+cd stretch_install
+
+# Run setup script (DO NOT RUN BOTH)
+./stretch_new_robot_installation.sh  # if installing into a new robot
+./stretch_new_user_installation.sh  # if installing into a new user account on a already-set-up robot
+```
 1. Modify your `.bashrc` to perform stretch setup BEFORE initializing conda
+1. Launch a new bash shell. Activate an conda env with Python 3.8 installed.
+1. Link `home_robot` and install ROS stack
+```sh
+# Create symlink in catkin workspace
+ln -s /path/to/home-robot $HOME/catkin_ws/src/home_robot
+
+# Build catkin workspace
+cd ~/catkin_ws
+catkin_make
+
+# Add newly built setup.bash to .bashrc
+echo "source ~/catkin_ws/devel/setup.bash" > ~/.bashrc
+```
+1. Run `stretch_robot_home.py` to calibrate robot. Run `stretch_robot_system_check.py` to make sure that things are normal.
+
+#### Additional hardware stack dependencies
 1. Install Hector SLAM: `sudo apt install ros-noetic-hector-*`
 
 #### Conflicting Processes Already Running
@@ -140,4 +161,5 @@ To format manually, run: `black .`
   - Conda stream with ROS binaries
 - [codekansas/strech-robot](https://github.com/codekansas/stretch-robot)
   - Some misc code for interacting with RealSense camera, streaming
+
 
