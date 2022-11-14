@@ -14,7 +14,11 @@ Mostly Hello Stretch infrastructure
 ### Additional instructions for setting up on hardware
 
 1. Setup the Stretch robot following official instructions [here](https://github.com/hello-robot/stretch_install)
-1. Install stretch_ros following official instructions [here](https://github.com/hello-robot/stretch_ros/blob/dev/noetic/install_noetic.md)
+   - This step can be skipped if you're setting up a new user on a functional robot.
+1. Install stretch_ros following official instructions [here](https://github.com/hello-robot/stretch_ros/blob/dev/noetic/install_noetic.md). (Instructions are outdated, see notes below.)
+   - Note 1: The branch `dev/install_20.04` does not exist anymore. Clone `master` directly.
+   - Note 2: The file `stretch_install_nonfactory.sh` also does not exist anymore. Run `stretch_new_robot_install.sh` if installing on a fresh robot, else run `stretch_new_user_install.sh`.
+   - Note 3: After running the install script, do `cd ~/catkin_ws && catkin_make` to build everything and make scripts like `stretch_robot_home.py` available.
 1. Install Hector SLAM: `sudo apt install ros-noetic-hector-*`
 
 #### Conflicting Processes Already Running
@@ -75,7 +79,7 @@ robot.set_velocity(v: float, w: float)  # directly sets the linear and angular v
 
 ```py
 robot.set_nav_mode()  # Enables continuous control
-robot.set_goal(]1.0, 0.0, 0.0])  # Sets XYZ target
+robot.set_goal([1.0, 0.0, 0.0])  # Sets XYZ target
 robot.get_base_state()  # Shows the robot's XYZ coordinates
 ```
 
