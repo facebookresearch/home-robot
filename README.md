@@ -14,36 +14,36 @@ Mostly Hello Stretch infrastructure
 ### Additional instructions for setting up on hardware
 
 1. Install firmware from Hello Robot
-```sh
-# Copy robot factory data into your user workspace
-cp -r /etc/hello-robot/stretch-re* ~
+    ```sh
+    # Copy robot factory data into your user workspace
+    cp -r /etc/hello-robot/stretch-re* ~
 
-# Clone the official setup scripts
-cd ~
-git clone https://github.com/hello-robot/stretch_install
-cd stretch_install
+    # Clone the official setup scripts
+    cd ~
+    git clone https://github.com/hello-robot/stretch_install
+    cd stretch_install
 
-# Run setup script (DO NOT RUN BOTH)
-./stretch_new_robot_installation.sh  # if installing into a new robot
-./stretch_new_user_installation.sh  # if installing into a new user account on a already-set-up robot
-```
+    # Run setup script (DO NOT RUN BOTH)
+    ./stretch_new_robot_installation.sh  # if installing into a new robot
+    ./stretch_new_user_installation.sh  # if installing into a new user account on a already-set-up robot
+    ```
 1. Open `~/.bashrc`. You will see a block of commands that initializes Stretch, and another block that initializes Conda. If needed, move the stretch setup block BEFORE the conda initialization.
 1. Launch a new bash shell. Activate an conda env with Python 3.8 installed.
 1. Link `home_robot` and install ROS stack
-```sh
-# Create symlink in catkin workspace
-ln -s /abs/path/to/home-robot/rospkg $HOME/catkin_ws/src/home_robot
+    ```sh
+    # Create symlink in catkin workspace
+    ln -s /abs/path/to/home-robot/rospkg $HOME/catkin_ws/src/home_robot
 
-# Install dependencies for catkin
-pip install empy catkin_pkg rospkg
+    # Install dependencies for catkin
+    pip install empy catkin_pkg rospkg
 
-# Build catkin workspace
-cd ~/catkin_ws
-catkin_make
+    # Build catkin workspace
+    cd ~/catkin_ws
+    catkin_make
 
-# Add newly built setup.bash to .bashrc
-echo "source ~/catkin_ws/devel/setup.bash" > ~/.bashrc
-```
+    # Add newly built setup.bash to .bashrc
+    echo "source ~/catkin_ws/devel/setup.bash" > ~/.bashrc
+    ```
 1. Calibrate robot following instructions [here](https://github.com/hello-robot/stretch_ros/tree/master/stretch_calibration#checking-the-current-calibration-with-new-observations).
 1. Generate URDF from calibration data: `rosrun stretch_calibration update_urdf_after_xacro_change.sh`.
 1. Run `stretch_robot_system_check.py` to make sure that things are normal.
