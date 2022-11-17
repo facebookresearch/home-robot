@@ -6,7 +6,11 @@ import trimesh.transformations as tra
 
 
 from home_robot.agent.motion.robot import HelloStretch, HelloStretchIdx
-from home_robot.agent.motion.robot import STRETCH_HOME_Q, STRETCH_GRASP_FRAME, STRETCH_STANDOFF_DISTANCE
+from home_robot.agent.motion.robot import (
+    STRETCH_HOME_Q,
+    STRETCH_GRASP_FRAME,
+    STRETCH_STANDOFF_DISTANCE,
+)
 
 # For handling grasping
 from home_robot.utils.pose import to_pos_quat
@@ -18,7 +22,7 @@ BASE_THETA_IDX = HelloStretchIdx.BASE_THETA
 LIFT_IDX = HelloStretchIdx.LIFT
 ARM_IDX = HelloStretchIdx.ARM
 
-#from home_robot.agent.motion.robot import (
+# from home_robot.agent.motion.robot import (
 #        BASE_X_IDX, B
 GRIPPER_IDX = HelloStretchIdx.GRIPPER
 WRIST_ROLL_IDX = HelloStretchIdx.WRIST_ROLL
@@ -34,7 +38,7 @@ HOME = STRETCH_HOME_Q
 
 
 class AbstractStretchInterface(abc.ABC):
-    """ Basic abstract class containing references to methods we need to overwrite """
+    """Basic abstract class containing references to methods we need to overwrite"""
 
     def __init__(self):
         pass
@@ -48,32 +52,33 @@ class AbstractStretchInterface(abc.ABC):
         return self.model
 
     def get_backend(self):
-        """ reference to planner physics objects """
+        """reference to planner physics objects"""
         return self.obj.get_backend()
 
     def goto(self, q, *args, **kwargs):
         raise NotImplementedError
 
-    def wait(self, q1, max_wait_t=10., no_base=False, verbose=False):
-        """ helper function to wait until we reach a position """
+    def wait(self, q1, max_wait_t=10.0, no_base=False, verbose=False):
+        """helper function to wait until we reach a position"""
         t0 = timeit.default_timer()
         while (timeit.default_timer() - t0) < max_wait_t:
             # update and get pose metrics
             q0, dq0 = self.update()
             err = np.abs(q1 - q0)
             if no_base:
-                err[:3] = 0.
+                err[:3] = 0.0
             dt = timeit.default_timer() - t0
             if verbose:
                 print("goal =", q1)
                 print(dt, err < self.exec_tol)
                 self.pretty_print(err)
-            if np.all(err < self.exec_tol): return True
+            if np.all(err < self.exec_tol):
+                return True
             time.sleep(self.wait_time_step)
         return False
 
     def set_planner_config(self, q):
-        """ update planner representation internally """
+        """update planner representation internally"""
         self.model.set_config(q)
 
     def pretty_print(self, q):
@@ -104,12 +109,12 @@ class AbstractStretchInterface(abc.ABC):
         self.goto(q, wait=wait, move_base=False)
 
     def stow(self, wait=False):
-        """ put that wrist away so we dont break it """
+        """put that wrist away so we dont break it"""
         q = STRETCH_HOME_Q
         self.goto(q, wait=wait, move_base=False)
 
     def stow_wrist(self, wait=False):
-        """ put that wrist away so we dont break it """
+        """put that wrist away so we dont break it"""
         q, _ = self.update()
         q[HelloStretchIdx.WRIST_ROLL] = STRETCH_HOME_Q[HelloStretchIdx.WRIST_ROLL]
         q[HelloStretchIdx.WRIST_PITCH] = STRETCH_HOME_Q[HelloStretchIdx.WRIST_PITCH]
@@ -152,15 +157,15 @@ class AbstractStretchInterface(abc.ABC):
             if qi is not None:
                 print(" - IK found")
                 self.model.set_config(qi)
-                input('---')
+                input("---")
             else:
                 # Grasp attempt failure
                 continue
-            # Record the initial q value here and use it 
+            # Record the initial q value here and use it
             theta0 = q[2]
             q1 = qi.copy()
             q1[HelloStretchIdx.LIFT] += 0.08
-            #q1[HelloStretchIdx.LIFT] += 0.2
+            # q1[HelloStretchIdx.LIFT] += 0.2
             if q1 is not None:
                 # Run a validity check to make sure we can actually pick this thing up
                 if not self.model.validate(q1):
@@ -175,7 +180,7 @@ class AbstractStretchInterface(abc.ABC):
                     q[HelloStretchIdx.LIFT] = 0.99
                     self.goto(q, move_base=False, wait=True, verbose=False)
                     if pause:
-                        input('--> go high')
+                        input("--> go high")
                     q_pre = q.copy()
                     q_pre[5:] = q1[5:]
                     q_pre = self.model.update_gripper(q_pre, open=True)
@@ -184,11 +189,11 @@ class AbstractStretchInterface(abc.ABC):
                     self.goto(q_pre, move_base=False, wait=False, verbose=False)
                     self.model.set_config(q1)
                     if pause:
-                        input('--> gripper ready; go to standoff')
+                        input("--> gripper ready; go to standoff")
                     q1 = self.model.update_gripper(q1, open=True)
                     self.goto(q1, move_base=False, wait=True, verbose=False)
                     if pause:
-                        input('--> go to grasp')
+                        input("--> go to grasp")
                     self.move_base(theta=q2[2])
                     time.sleep(2.0)
                     self.goto(q_pre, move_base=False, wait=False, verbose=False)
@@ -196,13 +201,12 @@ class AbstractStretchInterface(abc.ABC):
                     q2 = self.model.update_gripper(q2, open=True)
                     self.goto(q2, move_base=False, wait=True, verbose=True)
                     if pause:
-                        input('--> close the gripper')
+                        input("--> close the gripper")
                     q2 = self.model.update_gripper(q2, open=False)
                     self.goto(q2, move_base=False, wait=False, verbose=True)
-                    time.sleep(2.)
+                    time.sleep(2.0)
                     q = self.model.update_gripper(q, open=False)
                     self.goto(q, move_base=False, wait=True, verbose=False)
                     self.move_base(theta=q[0])
                     return True
         return False
- 

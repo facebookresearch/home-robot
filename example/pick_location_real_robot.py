@@ -132,7 +132,7 @@ if __name__ == "__main__":
     # rob.move_base([0.5, -0.5], np.pi/2)
     print("Moving to grasp location...")
     xyt_goal = np.array([0.8, 0.4, np.pi / 2])
-    #xyt_goal = np.array([0.5, 0., 0.])
+    # xyt_goal = np.array([0.5, 0., 0.])
     nav_client.set_nav_mode()
     nav_client.set_goal(xyt_goal)
     while True:
@@ -142,11 +142,11 @@ if __name__ == "__main__":
         rospy.sleep(0.2)
     nav_client.set_pos_mode()
 
-    rospy.sleep(0.5) # Wait for robot to stabilize
+    rospy.sleep(0.5)  # Wait for robot to stabilize
     xyt_robot = nav_client.get_base_state()
     se3_robot = sp.SE3(
-        sp.SO3.exp(np.array([0, 0, xyt_robot[2]])).matrix(), 
-        np.array([xyt_robot[0], xyt_robot[1], 0])
+        sp.SO3.exp(np.array([0, 0, xyt_robot[2]])).matrix(),
+        np.array([xyt_robot[0], xyt_robot[1], 0]),
     )
 
     q = model.update_look_at_ee(q)
@@ -154,8 +154,8 @@ if __name__ == "__main__":
     rob.goto(q, wait=True)
 
     # Grasping
-    x_vec = np.array([ 0. , -0.5,  0.8])
-    r_vec = np.array([-0.3,  2.5, -0.2])
+    x_vec = np.array([0.0, -0.5, 0.8])
+    r_vec = np.array([-0.3, 2.5, -0.2])
     se3_grasp = sp.SE3(sp.SO3.exp(r_vec).matrix(), x_vec)
     se3_grasp_abs = se3_robot * se3_grasp
     grasp = se3_grasp_abs.matrix()

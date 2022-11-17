@@ -24,27 +24,27 @@ from std_msgs.msg import String
 from std_srvs.srv import Trigger
 
 
-ROS_ARM_JOINTS = ['joint_arm_l0', 'joint_arm_l1', 'joint_arm_l2', 'joint_arm_l3']
+ROS_ARM_JOINTS = ["joint_arm_l0", "joint_arm_l1", "joint_arm_l2", "joint_arm_l3"]
 ROS_LIFT_JOINT = "joint_lift"
 ROS_GRIPPER_FINGER = "joint_gripper_finger_left"
 # ROS_GRIPPER_FINGER2 = "joint_gripper_finger_right"
-ROS_HEAD_PAN = 'joint_head_pan'
-ROS_HEAD_TILT = 'joint_head_tilt'
-ROS_WRIST_YAW = 'joint_wrist_yaw'
-ROS_WRIST_PITCH = 'joint_wrist_pitch'
-ROS_WRIST_ROLL = 'joint_wrist_roll'
+ROS_HEAD_PAN = "joint_head_pan"
+ROS_HEAD_TILT = "joint_head_tilt"
+ROS_WRIST_YAW = "joint_wrist_yaw"
+ROS_WRIST_PITCH = "joint_wrist_pitch"
+ROS_WRIST_ROLL = "joint_wrist_roll"
 
 
 ROS_TO_CONFIG = {
-        ROS_LIFT_JOINT: HelloStretchIdx.LIFT,
-        ROS_GRIPPER_FINGER: HelloStretchIdx.GRIPPER,
-        # ROS_GRIPPER_FINGER2: HelloStretchIdx.GRIPPER,
-        ROS_WRIST_YAW: HelloStretchIdx.WRIST_YAW,
-        ROS_WRIST_PITCH: HelloStretchIdx.WRIST_PITCH,
-        ROS_WRIST_ROLL: HelloStretchIdx.WRIST_ROLL,
-        ROS_HEAD_PAN: HelloStretchIdx.HEAD_PAN,
-        ROS_HEAD_TILT: HelloStretchIdx.HEAD_TILT,
-        }
+    ROS_LIFT_JOINT: HelloStretchIdx.LIFT,
+    ROS_GRIPPER_FINGER: HelloStretchIdx.GRIPPER,
+    # ROS_GRIPPER_FINGER2: HelloStretchIdx.GRIPPER,
+    ROS_WRIST_YAW: HelloStretchIdx.WRIST_YAW,
+    ROS_WRIST_PITCH: HelloStretchIdx.WRIST_PITCH,
+    ROS_WRIST_ROLL: HelloStretchIdx.WRIST_ROLL,
+    ROS_HEAD_PAN: HelloStretchIdx.HEAD_PAN,
+    ROS_HEAD_TILT: HelloStretchIdx.HEAD_TILT,
+}
 
 
 CONFIG_TO_ROS = {}
@@ -57,17 +57,24 @@ CONFIG_TO_ROS[HelloStretchIdx.ARM] = ROS_ARM_JOINTS
 
 
 class HelloStretchROSInterface(AbstractStretchInterface):
-    """ Indicate which joints to use + how to control the robot"""
+    """Indicate which joints to use + how to control the robot"""
 
-    exec_tol = np.array([1e-3, 1e-3, 0.01, # x y theta
-                         0.005, # lift
-                         0.01, # arm
-                         1., # gripper - this never works
-                         #0.015, 0.015, 0.015,  #wrist variables
-                         0.05, 0.05, 0.05,  #wrist variables
-                         0.1, 0.1 # head  and tilt
-                         ]
-                         )
+    exec_tol = np.array(
+        [
+            1e-3,
+            1e-3,
+            0.01,  # x y theta
+            0.005,  # lift
+            0.01,  # arm
+            1.0,  # gripper - this never works
+            # 0.015, 0.015, 0.015,  #wrist variables
+            0.05,
+            0.05,
+            0.05,  # wrist variables
+            0.1,
+            0.1,  # head  and tilt
+        ]
+    )
 
     dist_tol = 1e-4
     theta_tol = 1e-3
@@ -77,15 +84,15 @@ class HelloStretchROSInterface(AbstractStretchInterface):
     odom_link = "map"
 
     def config_to_ros_msg(self, q):
-        """ convert into a joint state message"""
+        """convert into a joint state message"""
         msg = JointTrajectoryPoint()
-        msg.positions = [0.] * len(self.ros_joint_names)
+        msg.positions = [0.0] * len(self.ros_joint_names)
         idx = 0
         for i in range(3, self.dof):
             names = CONFIG_TO_ROS[i]
             for _ in names:
                 # Only for arm - but this is a dumb way to check
-                if 'arm' in names[0]:
+                if "arm" in names[0]:
                     msg.positions[idx] = q[i] / len(names)
                 else:
                     msg.positions[idx] = q[i]
@@ -94,64 +101,72 @@ class HelloStretchROSInterface(AbstractStretchInterface):
 
     def config_to_ros_trajectory_goal(self, q):
         trajectory_goal = FollowJointTrajectoryGoal()
-        trajectory_goal.goal_time_tolerance = rospy.Time(1.)
+        trajectory_goal.goal_time_tolerance = rospy.Time(1.0)
         trajectory_goal.trajectory.joint_names = self.ros_joint_names
         trajectory_goal.trajectory.points = [self.config_to_ros_msg(q)]
         trajectory_goal.trajectory.header.stamp = rospy.Time.now()
         return trajectory_goal
 
     def config_from_ros_msg(self, msg):
-        """ convert from a joint state message """
+        """convert from a joint state message"""
         q = np.zeros(self.dof)
         raise NotImplementedError()
         return q
 
     def get_pose(self, frame, lookup_time=None, timeout_s=None):
-        """ look up a particular frame in base coords """
+        """look up a particular frame in base coords"""
         if lookup_time is None:
-            lookup_time = rospy.Time(0) # return most recent transform
+            lookup_time = rospy.Time(0)  # return most recent transform
         if timeout_s is None:
             timeout_ros = rospy.Duration(0.1)
         else:
             timeout_ros = rospy.Duration(timeout_s)
         try:
-            stamped_transform =  self.tf2_buffer.lookup_transform(self.odom_link, frame,
-                                                                  lookup_time, timeout_ros)
+            stamped_transform = self.tf2_buffer.lookup_transform(
+                self.odom_link, frame, lookup_time, timeout_ros
+            )
             pose_mat = ros_numpy.numpify(stamped_transform.transform)
-        except (tf2_ros.LookupException, tf2_ros.ConnectivityException,
-                tf2_ros.ExtrapolationException) as e:
+        except (
+            tf2_ros.LookupException,
+            tf2_ros.ConnectivityException,
+            tf2_ros.ExtrapolationException,
+        ) as e:
             print("!!! Lookup failed from", self.base_link, "to", self.odom_link, "!!!")
             return None
         return pose_mat
 
     def get_base_pose(self, lookup_time=None, timeout_s=None):
-        """ lookup the base pose using TF2 buffer
+        """lookup the base pose using TF2 buffer
 
         Based on this:
             https://github.com/hello-robot/stretch_ros/blob/master/hello_helpers/src/hello_helpers/hello_misc.py#L213
         """
         if lookup_time is None:
-            lookup_time = rospy.Time(0) # return most recent transform
+            lookup_time = rospy.Time(0)  # return most recent transform
         if timeout_s is None:
             timeout_ros = rospy.Duration(0.1)
         else:
             timeout_ros = rospy.Duration(timeout_s)
         try:
-            # stamped_transform =  self.tf2_buffer.lookup_transform(self.base_link, self.odom_link, 
-            stamped_transform =  self.tf2_buffer.lookup_transform(self.odom_link, self.base_link,
-                                                                  lookup_time, timeout_ros)
+            # stamped_transform =  self.tf2_buffer.lookup_transform(self.base_link, self.odom_link,
+            stamped_transform = self.tf2_buffer.lookup_transform(
+                self.odom_link, self.base_link, lookup_time, timeout_ros
+            )
             pose_mat = ros_numpy.numpify(stamped_transform.transform)
-            
+
             r0 = pose_mat[:2, 3]
-            _, _,  theta = tra.euler_from_matrix(pose_mat)
+            _, _, theta = tra.euler_from_matrix(pose_mat)
             return (r0[0], r0[1], theta), stamped_transform.header.stamp
-        except (tf2_ros.LookupException, tf2_ros.ConnectivityException,
-                tf2_ros.ExtrapolationException) as e:
+        except (
+            tf2_ros.LookupException,
+            tf2_ros.ConnectivityException,
+            tf2_ros.ExtrapolationException,
+        ) as e:
             print("!!! Lookup failed from", self.base_link, "to", self.odom_link, "!!!")
             return None, None
 
     def __del__(self):
-        """ overwrite delete function since we do not need it any more """
+        """overwrite delete function since we do not need it any more"""
         pass
 
     def _js_cb(self, msg):
@@ -178,7 +193,7 @@ class HelloStretchROSInterface(AbstractStretchInterface):
         if pos is not None:
             x, y, theta = pos
         else:
-            x, y, theta = 0., 0., 0.
+            x, y, theta = 0.0, 0.0, 0.0
         with self._js_lock:
             pos, vel = self.pos.copy(), self.vel.copy()
         pos[:3] = np.array([x, y, theta])
@@ -198,15 +213,16 @@ class HelloStretchROSInterface(AbstractStretchInterface):
         while not rospy.is_shutdown():
             q0, _ = self.update()
             plan = self.model.plan_look_at(q0, xyz)
-            print("base theta =", plan[0][2], "yaw =", plan[1][HelloStretchIdx.HEAD_TILT])
+            print(
+                "base theta =", plan[0][2], "yaw =", plan[1][HelloStretchIdx.HEAD_TILT]
+            )
             if np.abs(plan[0][2]) < 0.05:
                 break
             self.goto_theta(plan[0][2])
             rospy.sleep(0.5)
         self.goto(plan[1], wait=True)
 
-    def move_base(self, pos=None, theta=None, verbose=True, pos_tol=0.075,
-                  wait_t=1.0):
+    def move_base(self, pos=None, theta=None, verbose=True, pos_tol=0.075, wait_t=1.0):
         # multi-step action. first rotate...
         # pos = (x, y) theta
         pos_reached = False
@@ -234,7 +250,7 @@ class HelloStretchROSInterface(AbstractStretchInterface):
                 break
             else:
                 for i, action in enumerate(plan):
-                    #print(action)
+                    # print(action)
                     print(i, "move:", action[0], "rotate:", action[2])
                     if np.abs(action[0]) > 0.05 and not pos_reached:
                         if verbose:
@@ -259,17 +275,17 @@ class HelloStretchROSInterface(AbstractStretchInterface):
 
     def goto_x(self, x, wait=False, verbose=True):
         trajectory_goal = FollowJointTrajectoryGoal()
-        trajectory_goal.goal_time_tolerance = rospy.Time(1.)
+        trajectory_goal.goal_time_tolerance = rospy.Time(1.0)
         trajectory_goal.trajectory.joint_names = [
-                "translate_mobile_base",
-                ]
+            "translate_mobile_base",
+        ]
         msg = JointTrajectoryPoint()
         msg.positions = [x]
         trajectory_goal.trajectory.points = [msg]
         trajectory_goal.trajectory.header.stamp = rospy.Time.now()
         self.trajectory_client.send_goal(trajectory_goal)
         if wait:
-            #  Waiting for result seems to hang 
+            #  Waiting for result seems to hang
             self.trajectory_client.wait_for_result()
             # self.wait(q, max_wait_t, True, verbose)
             print("-- TODO: wait for xy")
@@ -277,10 +293,10 @@ class HelloStretchROSInterface(AbstractStretchInterface):
 
     def goto_theta(self, theta, wait=False, verbose=True):
         trajectory_goal = FollowJointTrajectoryGoal()
-        trajectory_goal.goal_time_tolerance = rospy.Time(1.)
+        trajectory_goal.goal_time_tolerance = rospy.Time(1.0)
         trajectory_goal.trajectory.joint_names = [
-                "rotate_mobile_base",
-                ]
+            "rotate_mobile_base",
+        ]
         msg = JointTrajectoryPoint()
         msg.positions = [theta]
         trajectory_goal.trajectory.points = [msg]
@@ -301,18 +317,26 @@ class HelloStretchROSInterface(AbstractStretchInterface):
         return x1 + (rng * diff)
 
     def goto_wrist(self, roll, pitch, yaw, verbose=False, wait=False):
-        """ Separate out wrist commands from everything else """
+        """Separate out wrist commands from everything else"""
         q, _ = self.update()
-        r0, p0, y0 = (q[HelloStretchIdx.WRIST_ROLL], q[HelloStretchIdx.WRIST_PITCH], q[HelloStretchIdx.WRIST_YAW])
+        r0, p0, y0 = (
+            q[HelloStretchIdx.WRIST_ROLL],
+            q[HelloStretchIdx.WRIST_PITCH],
+            q[HelloStretchIdx.WRIST_YAW],
+        )
         print("--------")
         print("roll", roll, "curr =", r0)
         print("pitch", pitch, "curr =", p0)
         print("yaw", yaw, "curr =", y0)
         trajectory_goal = FollowJointTrajectoryGoal()
-        trajectory_goal.goal_time_tolerance = rospy.Time(1.)
-        trajectory_goal.trajectory.joint_names = [ROS_WRIST_ROLL, ROS_WRIST_PITCH, ROS_WRIST_YAW]
+        trajectory_goal.goal_time_tolerance = rospy.Time(1.0)
+        trajectory_goal.trajectory.joint_names = [
+            ROS_WRIST_ROLL,
+            ROS_WRIST_PITCH,
+            ROS_WRIST_YAW,
+        ]
         n_pts = 10
-        #for i, q in enumerate(self._interp(np.array([r0, p0, y0]), np.array([roll, pitch, yaw]), n_pts)):
+        # for i, q in enumerate(self._interp(np.array([r0, p0, y0]), np.array([roll, pitch, yaw]), n_pts)):
         #    pt = JointTrajectoryPoint()
         #    pt.positions = q
         #    pt.time_from_start = rospy.Time(i / n_pts)
@@ -325,12 +349,12 @@ class HelloStretchROSInterface(AbstractStretchInterface):
         trajectory_goal.trajectory.header.stamp = rospy.Time.now()
         self.trajectory_client.send_goal(trajectory_goal)
 
-    def goto(self, q, move_base=False, wait=True, max_wait_t=10., verbose=False):
-        """ some of these params are unsupported """
+    def goto(self, q, move_base=False, wait=True, max_wait_t=10.0, verbose=False):
+        """some of these params are unsupported"""
         goal = self.config_to_ros_trajectory_goal(q)
         self.trajectory_client.send_goal(goal)
         if wait:
-            #  Waiting for result seems to hang 
+            #  Waiting for result seems to hang
             # self.trajectory_client.wait_for_result()
             print("waiting for result...")
             self.wait(q, max_wait_t, not move_base, verbose)
@@ -343,7 +367,7 @@ class HelloStretchROSInterface(AbstractStretchInterface):
         return self.mode == "position"
 
     def get_images(self, filter_depth=True, compute_xyz=True):
-        """ helper logic to get images from the robot's camera feed """
+        """helper logic to get images from the robot's camera feed"""
         rgb = self.rgb_cam.get()
         if filter_depth:
             dpt = self.dpt_cam.get_filtered()
@@ -365,15 +389,22 @@ class HelloStretchROSInterface(AbstractStretchInterface):
             xyz = xyz.reshape(-1, 3)
 
             # Rotate the sretch camera so that top of image is "up"
-            R_stretch_camera = tra.euler_matrix(0, 0, -np.pi/2)[:3, :3]
+            R_stretch_camera = tra.euler_matrix(0, 0, -np.pi / 2)[:3, :3]
             xyz = xyz @ R_stretch_camera
             xyz = xyz.reshape(H, W, 3)
             imgs[-1] = xyz
 
         return imgs
 
-    def __init__(self, model=None, visualize_planner=False, root='.', init_cameras=True, depth_buffer_size=5):
-        """ Create an interface into ROS execution here. This one needs to connect to:
+    def __init__(
+        self,
+        model=None,
+        visualize_planner=False,
+        root=".",
+        init_cameras=True,
+        depth_buffer_size=5,
+    ):
+        """Create an interface into ROS execution here. This one needs to connect to:
             - joint_states to read current position
             - tf for SLAM
             - FollowJointTrajectory for arm motions
@@ -385,25 +416,27 @@ class HelloStretchROSInterface(AbstractStretchInterface):
         # No hardware interface here for the ROS code
         if model is None:
             model = HelloStretch(visualize=visualize_planner, root=root)
-        self.model = model  # This is the model 
+        self.model = model  # This is the model
         self.dof = model.dof
 
         if init_cameras:
             print("Creating cameras...")
-            self.rgb_cam = RosCamera('/camera/color')
-            self.dpt_cam = RosCamera('/camera/aligned_depth_to_color', buffer_size=depth_buffer_size)
+            self.rgb_cam = RosCamera("/camera/color")
+            self.dpt_cam = RosCamera(
+                "/camera/aligned_depth_to_color", buffer_size=depth_buffer_size
+            )
             print("Waiting for camera images...")
             self.rgb_cam.wait_for_image()
             self.dpt_cam.wait_for_image()
             print("..done.")
             print("rgb frame =", self.rgb_cam.get_frame())
             print("dpt frame =", self.dpt_cam.get_frame())
-            #camera_pose = self.get_pose(self.rgb_cam.get_frame())
-            #print("camera rgb pose:")
-            #print(camera_pose)
+            # camera_pose = self.get_pose(self.rgb_cam.get_frame())
+            # print("camera rgb pose:")
+            # print(camera_pose)
         else:
             self.rgb_cam, self.dpt_cam = None, None
-        
+
         # Store latest joint state message - lock for access
         self._js_lock = threading.Lock()
         self.mode = ""
@@ -418,17 +451,24 @@ class HelloStretchROSInterface(AbstractStretchInterface):
             print(self.switch_to_position())
 
         # ROS stuff
-        self.trajectory_client = actionlib.SimpleActionClient('/stretch_controller/follow_joint_trajectory',
-                                                              FollowJointTrajectoryAction)
+        self.trajectory_client = actionlib.SimpleActionClient(
+            "/stretch_controller/follow_joint_trajectory", FollowJointTrajectoryAction
+        )
         self.tf2_buffer = tf2_ros.Buffer()
         self.tf2_listener = tf2_ros.TransformListener(self.tf2_buffer)
-        self.joint_state_subscriber = rospy.Subscriber('stretch/joint_states', JointState, self._js_cb, queue_size=100)
+        self.joint_state_subscriber = rospy.Subscriber(
+            "stretch/joint_states", JointState, self._js_cb, queue_size=100
+        )
         print("Waiting for trajectory server...")
-        server_reached = self.trajectory_client.wait_for_server(timeout=rospy.Duration(30.0))
+        server_reached = self.trajectory_client.wait_for_server(
+            timeout=rospy.Duration(30.0)
+        )
         print("... connected.")
         if not server_reached:
             print("ERROR: Failed to connect to arm action server.")
-            rospy.signal_shutdown('Unable to connect to arm action server. Timeout exceeded.')
+            rospy.signal_shutdown(
+                "Unable to connect to arm action server. Timeout exceeded."
+            )
             sys.exit()
 
         self.ros_joint_names = []
@@ -436,11 +476,12 @@ class HelloStretchROSInterface(AbstractStretchInterface):
             self.ros_joint_names += CONFIG_TO_ROS[i]
         self.reset_state()
 
-if __name__ == '__main__':
+
+if __name__ == "__main__":
     # Create the robot
     print("--------------")
     print("Start example - hardware using ROS")
-    rospy.init_node('hello_stretch_ros_test')
+    rospy.init_node("hello_stretch_ros_test")
     print("Create ROS interface")
     rob = HelloStretchROSInterface(visualize_planner=True, init_cameras=False)
     print("Wait...")
