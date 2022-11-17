@@ -13,50 +13,58 @@ Mostly Hello Stretch infrastructure
 
 ### Additional instructions for setting up on hardware
 
-1. Setup the Stretch robot following official instructions [here](https://github.com/hello-robot/stretch_install)
-1. Install stretch_ros following official instructions [here](https://github.com/hello-robot/stretch_ros/blob/dev/noetic/install_noetic.md)
-1. Install Hector SLAM: `sudo apt install ros-noetic-hector-*`
+1. Install firmware from Hello Robot
+```sh
+# Copy robot factory data into your user workspace
+cp -r /etc/hello-robot/stretch-re* ~
 
-Optionally, you can symlink `home_robot` into your ROS workspace, e.g.:
+# Clone the official setup scripts
+cd ~
+git clone https://github.com/hello-robot/stretch_install
+cd stretch_install
+
+# Run setup script (DO NOT RUN BOTH)
+./stretch_new_robot_installation.sh  # if installing into a new robot
+./stretch_new_user_installation.sh  # if installing into a new user account on a already-set-up robot
 ```
-ln -s /path/to/home-robot $HOME/catkin_ws/src/home_robot
-cd $HOME/catkin_ws
+1. Modify your `.bashrc` to perform stretch setup BEFORE initializing conda
+1. Launch a new bash shell. Activate an conda env with Python 3.8 installed.
+1. Link `home_robot` and install ROS stack
+```sh
+# Create symlink in catkin workspace
+ln -s /abs/path/to/home-robot/rospkg $HOME/catkin_ws/src/home_robot
+
+# Build catkin workspace
+cd ~/catkin_ws
 catkin_make
+
+# Add newly built setup.bash to .bashrc
+echo "source ~/catkin_ws/devel/setup.bash" > ~/.bashrc
 ```
+1. Run `stretch_robot_home.py` to calibrate robot. Run `stretch_robot_system_check.py` to make sure that things are normal.
 
-### Perception and other dependencies
+#### Additional hardware stack dependencies
+1. Hector SLAM: `sudo apt install ros-noetic-hector-*`
+1. (For grasping only) Detectron 2: `python -m pip install 'git+https://github.com/facebookresearch/detectron2.git'`
 
-TODO - remove this
+You also need to install a supported grasp prediction library. (TODO: clarify?)
 
-```
-python -m pip install 'git+https://github.com/facebookresearch/detectron2.git'
-```
-
-You also need to install a supported grasp prediction library.
 
 ## Usage
 
 ### Launching the hardware stack:
 ```sh
-cd src/home_robot
-mrp up hw_stack
-```
-
-This launches:
-- Stretch ROS driver
-- Hector SLAM
-- State estimation node
-- Continuous controller node
-
-Alternate bringup in ROS:
-```
+# Launch core components
 roslaunch home_robot startup_stretch_hector_slam.launch
+
+# Launch state estimator & goto controller
+cd /path/to/home-robot/src/home_robot
+mrp up agent_procs
 ```
-This does not however start the continuous control node, which needs to be launched separately.
 
 ### Launching a minimal kinematic simulation (no camera yet)
 ```sh
-cd src/home_robot
+cd /path/to/home-robot/src/home_robot
 mrp up sim_stack
 ```
 
