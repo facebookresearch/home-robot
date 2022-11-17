@@ -11,7 +11,7 @@ mrp.process(name="agent_procs", deps=["goto_controller", "state_estimator"])
 
 mrp.process(
     name="hw_stack",
-    deps=["roscore_hw", "stretch_core", "stretch_hector_slam", "agent_procs"],
+    deps=["stretch_core", "stretch_hector_slam", "agent_procs"],
 )
 
 mrp.process(

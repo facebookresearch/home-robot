@@ -32,7 +32,7 @@ cd stretch_install
 1. Link `home_robot` and install ROS stack
 ```sh
 # Create symlink in catkin workspace
-ln -s /path/to/home-robot $HOME/catkin_ws/src/home_robot
+ln -s /abs/path/to/home-robot/ros $HOME/catkin_ws/src/home_robot
 
 # Build catkin workspace
 cd ~/catkin_ws
