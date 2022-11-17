@@ -18,7 +18,6 @@ pip_deps = [
 env = mrp.Conda.SharedEnv(
     name="stretch_control_env",
     channels=["conda-forge", "robostack"],
-    use_mamba=True,
     dependencies=[
         "python=3.8",
         "cmake",

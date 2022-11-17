@@ -7,8 +7,8 @@ Mostly Hello Stretch infrastructure
 
 ## Installation
 
-1. Prepare a conda environment (ex: `conda create -n home_robot python=3.8`)
-1. Install Mamba (needed for MRP): `conda install -c conda-forge mamba`
+1. Prepare a conda environment (ex: `conda create -n home_robot python=3.8 && conda activate home_robot`)
+1. Install Mamba (optional but highly recommended): `conda install -c conda-forge mamba`
 1. Install repo `pip install -e .`
 
 ### Additional instructions for setting up on hardware
