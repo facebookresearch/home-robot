@@ -55,15 +55,6 @@ Mostly Hello Stretch infrastructure
 You also need to install a supported grasp prediction library. (TODO: clarify?)
 
 
-#### Conflicting Processes Already Running
-
-- Restart stretch
-- See running processes using:
-
-```sh
-mrp info
-```
-
 ## Usage
 
 ### Launching the hardware stack:
@@ -136,6 +127,12 @@ Put the robot in its initial position, e.g. so the arm is facing cups you can pi
 ```
 roslaunch home_robot startup_stretch_hector_slam.launch
 ```
+
+### Troubleshooting 
+
+- `ImportError: cannot import name 'gcd' from 'fractions'`: Launch ros nodes from an env with Python 3.8 instead of 3.9
+- Conflicting Processes Already Running: `mrp down`, restart robot if that doesn't work.
+
 
 ## Third Party Code
 
