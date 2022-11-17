@@ -1,8 +1,6 @@
 from setuptools import setup
 
-install_requires = [
-    "numpy",
-]
+install_requires = ["numpy", "empy", "catkin_pkg", "rospkg"]
 
 setup(
     name="home_robot",
