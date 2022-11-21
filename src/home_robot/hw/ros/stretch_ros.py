@@ -113,7 +113,7 @@ class HelloStretchROSInterface(AbstractStretchInterface):
         raise NotImplementedError()
         return q
 
-    def get_pose(self, frame, lookup_time=None, timeout_s=None):
+    def get_pose(self, frame, base_frame=None, lookup_time=None, timeout_s=None):
         """look up a particular frame in base coords"""
         if lookup_time is None:
             lookup_time = rospy.Time(0)  # return most recent transform
@@ -121,9 +121,11 @@ class HelloStretchROSInterface(AbstractStretchInterface):
             timeout_ros = rospy.Duration(0.1)
         else:
             timeout_ros = rospy.Duration(timeout_s)
+        if base_frame is None:
+            base_frame = self.odom_link
         try:
             stamped_transform = self.tf2_buffer.lookup_transform(
-                self.odom_link, frame, lookup_time, timeout_ros
+                base_frame, frame, lookup_time, timeout_ros
             )
             pose_mat = ros_numpy.numpify(stamped_transform.transform)
         except (
@@ -273,6 +275,26 @@ class HelloStretchROSInterface(AbstractStretchInterface):
                 rospy.sleep(wait_t)
         return q0
 
+    def _construct_ros_goal(self, joint_name, position):
+        trajectory_goal = FollowJointTrajectoryGoal()
+        trajectory_goal.goal_time_tolerance = rospy.Time(1.)
+        trajectory_goal.trajectory.joint_names = [
+                joint_name,
+                ]
+        msg = JointTrajectoryPoint()
+        msg.positions = [position]
+        trajectory_goal.trajectory.points = [msg]
+        trajectory_goal.trajectory.header.stamp = rospy.Time.now()
+        return trajectory_goal
+
+    def _send_goal(self, trajectory_goal, wait):
+        self.trajectory_client.send_goal(trajectory_goal)
+        if wait:
+            self.trajectory_client.wait_for_result(timeout=rospy.Duration(20.0))
+            #self.trajectory_client.wait_for_result()
+            # self.wait(q, max_wait_t, True, verbose)
+            print("-- TODO: wait for xy")
+
     def goto_x(self, x, wait=False, verbose=True):
         trajectory_goal = FollowJointTrajectoryGoal()
         trajectory_goal.goal_time_tolerance = rospy.Time(1.0)
@@ -307,6 +329,71 @@ class HelloStretchROSInterface(AbstractStretchInterface):
             # self.wait(q, max_wait_t, True, verbose)
             print("-- TODO: wait for theta")
         return True
+
+    def goto_lift_position(self, delta_position, wait=False):
+        # TODO spowers: utilize config_to_ros_trajectory_goal?
+        success = False
+        if abs(delta_position) > 0: #self.exec_tol[HelloStretchIdx.LIFT]:
+            position = self.pos[HelloStretchIdx.LIFT] + delta_position
+            # TODO spowers: position testing is here, and force testing is in stretch_demo_env.
+            # Consolidate...
+            if position > 0.1 and position < 1:
+                trajectory_goal = self._construct_ros_goal("joint_lift", position)
+                self._send_goal(trajectory_goal, wait)
+                success = True
+
+        return success
+
+    def goto_arm_position(self, delta_position, wait=False):
+        if abs(delta_position) > 0: #self.exec_tol[HelloStretchIdx.ARM]:
+            position = self.pos[HelloStretchIdx.ARM] + delta_position
+            trajectory_goal = self._construct_ros_goal(f"wrist_extension", position)
+            self._send_goal(trajectory_goal, wait)
+        return True
+
+    def goto_wrist_yaw_position(self, delta_position, wait=False):
+        if abs(delta_position) > 0: #self.exec_tol[HelloStretchIdx.WRIST_YAW]:
+            position = self.pos[HelloStretchIdx.WRIST_YAW] + delta_position
+            trajectory_goal = self._construct_ros_goal(f"joint_wrist_yaw", position)
+            self._send_goal(trajectory_goal, wait)
+        return True
+
+    def goto_wrist_roll_position(self, delta_position, wait=False):
+        if abs(delta_position) > 0: #self.exec_tol[HelloStretchIdx.WRIST_ROLL]:
+            position = self.pos[HelloStretchIdx.WRIST_ROLL] + delta_position
+            trajectory_goal = self._construct_ros_goal(f"joint_wrist_roll", position)
+            self._send_goal(trajectory_goal, wait)
+        return True
+
+    def goto_wrist_pitch_position(self, delta_position, wait=False):
+        if abs(delta_position) > 0: #self.exec_tol[HelloStretchIdx.WRIST_PITCH]:
+            position = self.pos[HelloStretchIdx.WRIST_PITCH] + delta_position
+            trajectory_goal = self._construct_ros_goal(f"joint_wrist_pitch", position)
+            self._send_goal(trajectory_goal, wait)
+        return True
+
+    def goto_gripper_position(self, delta_position, wait=False):
+        if abs(delta_position) > 0: # TODO controller seems to be commanding 0.05s.... self.exec_tol[HelloStretchIdx.GRIPPER]:  #0: #0.01:  # TODO: this is ...really high? (5?) self.exec_tol[HelloStretchIdx.GRIPPER]:
+            position = self.pos[HelloStretchIdx.GRIPPER] + delta_position
+            trajectory_goal = self._construct_ros_goal(f"joint_gripper_finger_left", position)
+            self._send_goal(trajectory_goal, wait)
+        return True
+
+    def goto_head_pan_position(self, delta_position, wait=False):
+        if abs(delta_position) > 0: #self.exec_tol[HelloStretchIdx.HEAD_PAN]:
+            position = self.pos[HelloStretchIdx.HEAD_PAN] + delta_position
+            trajectory_goal = self._construct_ros_goal(f"joint_head_pan", position)
+            self._send_goal(trajectory_goal, wait)
+        return True
+
+    def goto_head_tilt_position(self, delta_position, wait=False):
+        if abs(delta_position) > 0: #self.exec_tol[HelloStretchIdx.HEAD_TILT]:
+            position = self.pos[HelloStretchIdx.HEAD_TILT] + delta_position
+            trajectory_goal = self._construct_ros_goal(f"joint_head_tilt", position)
+            self._send_goal(trajectory_goal, wait)
+        return True
+
+
 
     def _interp(self, x1, x2, num_steps=10):
         diff = x2 - x1
@@ -396,6 +483,9 @@ class HelloStretchROSInterface(AbstractStretchInterface):
 
         return imgs
 
+    def get_camera_pose(self):
+        return self.get_pose(self.rgb_cam.get_frame(), timeout_s=10.0)
+
     def __init__(
         self,
         model=None,
@@ -419,6 +509,9 @@ class HelloStretchROSInterface(AbstractStretchInterface):
         self.model = model  # This is the model
         self.dof = model.dof
 
+        # Create the tf2 buffer first, used in camera init
+        self.tf2_buffer = tf2_ros.Buffer()
+
         if init_cameras:
             print("Creating cameras...")
             self.rgb_cam = RosCamera("/camera/color")
@@ -431,9 +524,8 @@ class HelloStretchROSInterface(AbstractStretchInterface):
             print("..done.")
             print("rgb frame =", self.rgb_cam.get_frame())
             print("dpt frame =", self.dpt_cam.get_frame())
-            # camera_pose = self.get_pose(self.rgb_cam.get_frame())
-            # print("camera rgb pose:")
-            # print(camera_pose)
+            if self.rgb_cam.get_frame() != self.dpt_cam.get_frame():
+                raise RuntimeError('issue with camera setup; depth and rgb not aligned')
         else:
             self.rgb_cam, self.dpt_cam = None, None
 
@@ -454,7 +546,6 @@ class HelloStretchROSInterface(AbstractStretchInterface):
         self.trajectory_client = actionlib.SimpleActionClient(
             "/stretch_controller/follow_joint_trajectory", FollowJointTrajectoryAction
         )
-        self.tf2_buffer = tf2_ros.Buffer()
         self.tf2_listener = tf2_ros.TransformListener(self.tf2_buffer)
         self.joint_state_subscriber = rospy.Subscriber(
             "stretch/joint_states", JointState, self._js_cb, queue_size=100
