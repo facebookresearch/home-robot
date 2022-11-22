@@ -48,10 +48,10 @@ def try_executing_grasp(rob, grasp) -> bool:
 
         # Go to the grasp and try it
         q[HelloStretchIdx.LIFT] = 0.99
-        rob.goto(q, move_base=False, wait=True, verbose=False)
+        rob.goto(q, move_base=False, wait=True, verbose=False)  # move arm to top
         # input('--> go high')
         q_pre = q.copy()
-        q_pre[5:] = q_standoff[5:]
+        q_pre[5:] = q_standoff[5:]  # TODO: Add constants for joint indices
         q_pre = model.update_gripper(q_pre, open=True)
         rob.move_base(theta=q_standoff[2])
         rospy.sleep(2.0)
