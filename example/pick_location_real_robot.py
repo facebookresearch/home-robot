@@ -110,7 +110,7 @@ if __name__ == "__main__":
     print("We have updated the robot state. Now test goto.")
 
     # Continuous nav interface
-    nav_client = LocalHelloRobot()
+    nav_client = LocalHelloRobot(init_node=False)
 
     """
     rgb_cam = rob.rgb_cam

@@ -16,10 +16,13 @@ class LocalHelloRobot:
     Currently only works with a local rosmaster
     """
 
-    def __init__(self):
+    def __init__(self, init_node: bool = True):
         self._base_state = None
 
         # Ros pubsub
+        if init_node:
+            rospy.init_node("user")
+
         self._goal_pub = rospy.Publisher("goto_controller/goal", Pose, queue_size=1)
         self._velocity_pub = rospy.Publisher("stretch/cmd_vel", Twist, queue_size=1)
 
@@ -98,7 +101,6 @@ class LocalHelloRobot:
 
 if __name__ == "__main__":
     # Launches an interactive terminal if file is directly run
-    rospy.init_node("user")
     robot = LocalHelloRobot()
 
     import code
