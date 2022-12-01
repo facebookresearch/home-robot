@@ -1,6 +1,8 @@
 import argparse
 import pdb
 
+import numpy as np
+
 import rospy
 from std_srvs.srv import Trigger, TriggerRequest
 from std_srvs.srv import SetBool, SetBoolRequest
@@ -93,6 +95,80 @@ class LocalHelloRobot:
         msg.linear.x = v
         msg.angular.z = w
         self._velocity_pub.publish(msg)
+
+    # New interface
+    def get_robot_state(self):
+        """
+        base
+            pose_se2
+            twist_se2
+        arm
+            joint_positions
+            ee
+                pose
+                    base
+                        pos
+                        quat
+                    world
+                        pos
+                        quat
+        head
+            joint_positions
+                pan
+                tilt
+            pose
+                base
+                    pos
+                    quat
+                world
+                    pos
+                    quat
+        """
+
+    def get_camera_image(self):
+        pass
+
+    def get_joint_limits(self):
+        """
+        arm
+            max
+            min
+        head
+            pan
+                max
+                min
+            tilt
+                max
+                min
+        """
+        pass
+
+    def get_ee_limits(self):
+        """
+        max
+        min
+        """
+        pass
+
+    # Mode switching ?
+    def set_navigation_mode(self):
+        pass
+
+    def set_manipulation_mode(self):
+        pass
+
+    # Control
+    def move_to(self, xyt, relative=False, avoid_obstacles=False):
+        pass
+
+    def set_arm_joint_positions(self, q):
+        pass
+
+    def set_ee_pose(self, pos, quat=None, world_frame=False):
+        pass
+
+    def set_camera_pose(self, pan=None, tilt=None):
+        pass
 
     # Subscriber callbacks
     def _state_callback(self, msg: PoseStamped):
