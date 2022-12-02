@@ -18,7 +18,11 @@ class Recorder(object):
     def __init__(self, filename, start_recording=True, model=None, robot=None):
         """Collect information"""
         print("robot")
-        self.robot = HelloStretchROSInterface(visualize_planner=False, model=model) if robot is None else robot
+        self.robot = (
+            HelloStretchROSInterface(visualize_planner=False, model=model)
+            if robot is None
+            else robot
+        )
         print("done")
         print("done")
         self.rgb_cam = self.robot.rgb_cam
@@ -35,11 +39,13 @@ class Recorder(object):
         self.idx += 1
 
     def _construct_camera_info(self, camera):
-        return {"distortion_model": camera.distortion_model,
-                "D": camera.D,
-                "K": camera.K,
-                "R": camera.R,
-                "P": camera.P}
+        return {
+            "distortion_model": camera.distortion_model,
+            "D": camera.D,
+            "K": camera.K,
+            "R": camera.R,
+            "P": camera.P,
+        }
 
     def save_frame(self):
         # record rgb and depth
@@ -49,8 +55,13 @@ class Recorder(object):
         depth_camera_info = self._construct_camera_info(self.robot.dpt_cam)
         camera_pose = self.robot.get_camera_pose()
         self.writer.add_img_frame(rgb=rgb, depth=(depth * 10000).astype(np.uint16))
-        self.writer.add_frame(q=q, dq=dq, color_camera_info=color_camera_info, depth_camera_info=depth_camera_info,
-                              camera_pose=camera_pose)  # TODO: camera info every frame...? Probably not necessary
+        self.writer.add_frame(
+            q=q,
+            dq=dq,
+            color_camera_info=color_camera_info,
+            depth_camera_info=depth_camera_info,
+            camera_pose=camera_pose,
+        )  # TODO: camera info every frame...? Probably not necessary
 
         return rgb, depth, q, dq
 
