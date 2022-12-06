@@ -12,7 +12,7 @@ import matplotlib.pyplot as plt
 
 
 def parse_args():
-    parser = argparse.ArgumentParser('collect_data')
+    parser = argparse.ArgumentParser("collect_data")
     args = parser.parse_args()
     return args
 
