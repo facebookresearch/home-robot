@@ -523,8 +523,9 @@ class HelloStretchROSInterface(AbstractStretchInterface):
             self.dpt_cam = RosCamera(
                 "/camera/aligned_depth_to_color", buffer_size=depth_buffer_size
             )
-            print("Waiting for camera images...")
+            print("Waiting for rgb camera images...")
             self.rgb_cam.wait_for_image()
+            print("Waiting for depth camera images...")
             self.dpt_cam.wait_for_image()
             print("..done.")
             print("rgb frame =", self.rgb_cam.get_frame())
