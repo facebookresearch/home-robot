@@ -495,6 +495,7 @@ class HelloStretchROSInterface(AbstractStretchInterface):
         root=".",
         init_cameras=True,
         depth_buffer_size=5,
+        urdf_path=None,
     ):
         """Create an interface into ROS execution here. This one needs to connect to:
             - joint_states to read current position
@@ -507,7 +508,9 @@ class HelloStretchROSInterface(AbstractStretchInterface):
 
         # No hardware interface here for the ROS code
         if model is None:
-            model = HelloStretch(visualize=visualize_planner, root=root)
+            model = HelloStretch(
+                visualize=visualize_planner, root=root, urdf_path=urdf_path
+            )
         self.model = model  # This is the model
         self.dof = model.dof
 
