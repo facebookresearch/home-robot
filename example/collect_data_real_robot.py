@@ -4,7 +4,11 @@ import timeit
 import numpy as np
 
 from home_robot.hw.ros.stretch_ros import HelloStretchROSInterface
-from home_robot.agent.motion.robot import STRETCH_HOME_Q, HelloStretchIdx
+from home_robot.agent.motion.robot import (
+    STRETCH_HOME_Q,
+    STRETCH_PREGRASP_Q,
+    HelloStretchIdx,
+)
 from home_robot.agent.perception.constants import coco_categories
 from home_robot.utils.pose import to_pos_quat
 
@@ -34,7 +38,7 @@ if __name__ == "__main__":
     dpt_cam.wait_for_image()
     print("took", timeit.default_timer() - t0, "seconds to get images")
 
-    home_q = STRETCH_HOME_Q
+    home_q = STRETCH_PREGRASP_Q
     model = rob.get_model()
     q, _ = rob.update()
     print("q =", q)
