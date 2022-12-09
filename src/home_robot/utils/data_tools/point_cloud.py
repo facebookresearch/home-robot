@@ -27,7 +27,7 @@ def show_point_cloud(xyz, rgb=None, orig=None, R=None, save=None, grasps=[]):
         if np.any(rgb > 1):
             print("WARNING: rgb values too high! Normalizing...")
             rgb = rgb / np.max(rgb)
- 
+
     pcd = get_pcd(xyz, rgb)
     show_pcd(pcd, orig, R, save, grasps)
 
@@ -43,7 +43,8 @@ def show_pcd(pcd, orig=None, R=None, save=None, grasps=[]):
         geoms.append(coords)
     for grasp in grasps:
         coords = o3d.geometry.TriangleMesh.create_coordinate_frame(
-                size=0.05, origin=grasp[:3, 3])
+            size=0.05, origin=grasp[:3, 3]
+        )
         coords = coords.rotate(grasp[:3, :3])
         geoms.append(coords)
     viz = o3d.visualization.Visualizer()

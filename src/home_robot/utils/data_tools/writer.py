@@ -11,7 +11,7 @@ class DataWriter(object):
     trials. This is a replacement for using numpy or pickle objects since hdf5 is slightly
     more suitable for training.
 
-    The idea is that each trial is listed as a top-level hdf5 "group," which contains state, 
+    The idea is that each trial is listed as a top-level hdf5 "group," which contains state,
     observation, action spaces, among other things.
     """
 
@@ -34,7 +34,7 @@ class DataWriter(object):
         self.reset()
 
     def reset(self):
-        """ Reset all information about the trial here """
+        """Reset all information about the trial here"""
         self.temporal_data = {}
         self.config_data = {}
         self.img_data = {}
@@ -43,30 +43,38 @@ class DataWriter(object):
         data = self.fix_data(data)
         for k, v in data.items():
             if k in self.config_data:
-                raise RuntimeError('duplicate key: ' + str(k) + ' was in config data already.')
+                raise RuntimeError(
+                    "duplicate key: " + str(k) + " was in config data already."
+                )
             if k in self.temporal_data:
-                raise RuntimeError('duplicate key: ' + str(k) + ' was in temporal data already.')
+                raise RuntimeError(
+                    "duplicate key: " + str(k) + " was in temporal data already."
+                )
             if k not in self.img_data:
                 self.img_data[k] = []
             data = image.img_to_bytes(v)
             self.img_data[k].append(data)
 
     def add_frame(self, **data):
-        """ Add data fields to tracked temporal data """
+        """Add data fields to tracked temporal data"""
         data = self.fix_data(data)
         for k, v in data.items():
             # TODO check data types here
             if k in self.config_data:
-                raise RuntimeError('duplicate key: ' + str(k) + ' was in config data already.')
+                raise RuntimeError(
+                    "duplicate key: " + str(k) + " was in config data already."
+                )
             if k in self.img_data:
-                raise RuntimeError('duplicate key: ' + str(k) + ' was in image data already.')
+                raise RuntimeError(
+                    "duplicate key: " + str(k) + " was in image data already."
+                )
             if k not in self.temporal_data:
                 self.temporal_data[k] = []
             self.temporal_data[k].append(v)
         return True
 
     def fix_data(self, data):
-        """ Flatten dictionaries """
+        """Flatten dictionaries"""
         new_data = {}
         for k, v in data.items():
             if isinstance(v, dict):
@@ -94,16 +102,22 @@ class DataWriter(object):
         return new_data
 
     def add_config(self, **data):
-        """ Add data fields to tracked config (global) data """
+        """Add data fields to tracked config (global) data"""
         data = self.fix_data(data)
         for k, v in data.items():
             # TODO check data types here
             if k in self.config_data:
-                raise RuntimeError('duplicate key: ' + str(k) + ' was in config data already.')
+                raise RuntimeError(
+                    "duplicate key: " + str(k) + " was in config data already."
+                )
             if k in self.temporal_data:
-                raise RuntimeError('duplicate key: ' + str(k) + ' was in temporal data already.')
+                raise RuntimeError(
+                    "duplicate key: " + str(k) + " was in temporal data already."
+                )
             if k in self.img_data:
-                raise RuntimeError('duplicate key: ' + str(k) + ' was in image data already.')
+                raise RuntimeError(
+                    "duplicate key: " + str(k) + " was in image data already."
+                )
             self.config_data[k] = v
         return True
 
@@ -126,14 +140,20 @@ class DataWriter(object):
         data.update(self.config_data)
         for k, v in data.items():
             # Add this to the hdf5 file
-            if k[-1] == '_':
-                raise RuntimeError('invalid name for dataset key: ' + str(key) + ' cannot end with _; this is reserved.')
+            if k[-1] == "_":
+                raise RuntimeError(
+                    "invalid name for dataset key: "
+                    + str(key)
+                    + " cannot end with _; this is reserved."
+                )
             try:
                 trial[k] = v
             except TypeError as e:
                 print(e)
                 print("Cannot use type: ", k)
-                import pdb; pdb.set_trace()
+                import pdb
+
+                pdb.set_trace()
         for k, v in self.img_data.items():
             for i, bindata in enumerate(v):
                 ki = os.path.join(k, str(i))

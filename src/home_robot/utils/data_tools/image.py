@@ -11,7 +11,7 @@ def img_from_bytes(data: bytes, height=None, width=None) -> np.ndarray:
     image = Image.open(io.BytesIO(data), mode="r", formats=["png"])
     # image = Image.open(data, mode='r', formats=['webp'])
     if height and width:
-        image =image.resize([width, height])
+        image = image.resize([width, height])
     return np.asarray(image)
 
 
@@ -42,7 +42,9 @@ def torch_to_bytes(img: np.ndarray) -> bytes:
     return img_to_bytes(img)
 
 
-def png_to_gif(group: h5py.Group, key: str, name: str, save = True, height=None, width=None):
+def png_to_gif(
+    group: h5py.Group, key: str, name: str, save=True, height=None, width=None
+):
     """
     Write key out as a gif
     """
@@ -51,9 +53,7 @@ def png_to_gif(group: h5py.Group, key: str, name: str, save = True, height=None,
     img_stream = group[key]
     # for i,aimg in enumerate(tqdm(group[key], ncols=50)):
     for ki, k in tqdm(
-        sorted(
-            [(int(j), j) for j in img_stream.keys()], key=lambda pair: pair[0]
-        ),
+        sorted([(int(j), j) for j in img_stream.keys()], key=lambda pair: pair[0]),
         ncols=50,
     ):
         bindata = img_stream[k][()]
@@ -71,14 +71,15 @@ def pngs_to_gifs(filename: str, key: str):
     for group_name, group in h5.items():
         png_to_gif(group, key, group_name + ".gif")
 
+
 def schema_to_gifs(filename: str):
     keys = [
-            "top_rgb",
-            "right_rgb",
-            "left_rgb",
-            "wrist_rgb",
-            ]
-    h5 = h5py.File(filename, 'r')
+        "top_rgb",
+        "right_rgb",
+        "left_rgb",
+        "wrist_rgb",
+    ]
+    h5 = h5py.File(filename, "r")
     x = 1
     for group_name, grp in h5.items():
         print(f"Processing {group_name}, {x}/{len(h5.keys())}")
@@ -87,8 +88,10 @@ def schema_to_gifs(filename: str):
         gif_name = group_name + ".gif"
         for key in keys:
             if key in grp.keys():
-                gifs.append(png_to_gif(grp, key, name = "", height = 120, width = 155, save = False))
-        # TODO logic for concatenating the gifs and saving with group's name 
+                gifs.append(
+                    png_to_gif(grp, key, name="", height=120, width=155, save=False)
+                )
+        # TODO logic for concatenating the gifs and saving with group's name
         concatenated_gif = None
         for gif in gifs:
             if gif:
@@ -99,35 +102,39 @@ def schema_to_gifs(filename: str):
         imageio.mimsave(gif_name, concatenated_gif)
         optimize(gif_name)
 
+
 ##### RGB Augmentations #####
 
+
 def standardize_image(image):
-    """ Convert a numpy.ndarray [H x W x 3] of images to [0,1] range, and then standardizes
-        @return: a [H x W x 3] numpy array of np.float32
+    """Convert a numpy.ndarray [H x W x 3] of images to [0,1] range, and then standardizes
+    @return: a [H x W x 3] numpy array of np.float32
     """
     image_standardized = np.zeros_like(image).astype(np.float32)
 
-    mean=[0.485, 0.456, 0.406]
-    std=[0.229, 0.224, 0.225]
+    mean = [0.485, 0.456, 0.406]
+    std = [0.229, 0.224, 0.225]
     for i in range(3):
-        image_standardized[...,i] = (image[...,i]/255. - mean[i]) / std[i]
+        image_standardized[..., i] = (image[..., i] / 255.0 - mean[i]) / std[i]
 
     return image_standardized
 
+
 def unstandardize_image(image):
-    """ Convert a numpy.ndarray [H x W x 3] standardized image back to RGB (type np.uint8)
-        Inverse of standardize_image()
-        @return: a [H x W x 3] numpy array of type np.uint8
+    """Convert a numpy.ndarray [H x W x 3] standardized image back to RGB (type np.uint8)
+    Inverse of standardize_image()
+    @return: a [H x W x 3] numpy array of type np.uint8
     """
 
     mean = np.array([0.485, 0.456, 0.406])
     std = np.array([0.229, 0.224, 0.225])
-    orig_img = (image * std[None,None,:] + mean[None,None,:]) * 255.
+    orig_img = (image * std[None, None, :] + mean[None, None, :]) * 255.0
     return orig_img.round().astype(np.uint8)
 
+
 def random_color_warp(image, d_h=None, d_s=None, d_l=None):
-    """ Given an RGB image [H x W x 3], add random hue, saturation and luminosity to the image
-        Code adapted from: https://github.com/yuxng/PoseCNN/blob/master/lib/utils/blob.py
+    """Given an RGB image [H x W x 3], add random hue, saturation and luminosity to the image
+    Code adapted from: https://github.com/yuxng/PoseCNN/blob/master/lib/utils/blob.py
     """
     H, W, _ = image.shape
 
@@ -170,9 +177,7 @@ def png_to_mp4(group: h5py.Group, key: str, name: str, fps=10):
 
     # for i,aimg in enumerate(tqdm(group[key], ncols=50)):
     for ki, k in tqdm(
-        sorted(
-            [(int(j), j) for j in img_stream.keys()], key=lambda pair: pair[0]
-        ),
+        sorted([(int(j), j) for j in img_stream.keys()], key=lambda pair: pair[0]),
         ncols=50,
     ):
 
@@ -185,7 +190,7 @@ def png_to_mp4(group: h5py.Group, key: str, name: str, fps=10):
         img[:, :, 2] = _img[:, :, 0]
 
         if writer is None:
-            fourcc = cv2.VideoWriter_fourcc('m', 'p', '4', 'v')
+            fourcc = cv2.VideoWriter_fourcc("m", "p", "4", "v")
             writer = cv2.VideoWriter(name, fourcc, fps, (h, w))
         writer.write(img)
     writer.release()
@@ -194,7 +199,7 @@ def png_to_mp4(group: h5py.Group, key: str, name: str, fps=10):
 def pngs_to_mp4(filename: str, key: str, vid_name: str, fps: int):
     h5 = h5py.File(filename, "r")
     for group_name, group in h5.items():
-        png_to_mp4(group, key,str(vid_name) + "_" + group_name  + ".mp4", fps=fps)
+        png_to_mp4(group, key, str(vid_name) + "_" + group_name + ".mp4", fps=fps)
 
 
 if __name__ == "__main__":

@@ -17,16 +17,24 @@ class Trial(object):
         self.name = name
         self.h5_filename = h5_filename
         self.group = None
-        
+
         temporal_keys = group[base.TEMPORAL_KEYS][()]
         config_keys = group[base.CONFIG_KEYS][()]
         image_keys = group[base.IMAGE_KEYS][()]
-        temporal_keys = str(temporal_keys, 'utf-8') if type(temporal_keys) == bytes else temporal_keys
-        config_keys = str(config_keys, 'utf-8') if type(config_keys) == bytes else config_keys
-        image_keys = str(image_keys, 'utf-8') if type(image_keys) == bytes else image_keys
-        self.temporal_keys = temporal_keys.split(',')
-        self.config_keys = config_keys.split(',')
-        self.image_keys = image_keys.split(',')
+        temporal_keys = (
+            str(temporal_keys, "utf-8")
+            if type(temporal_keys) == bytes
+            else temporal_keys
+        )
+        config_keys = (
+            str(config_keys, "utf-8") if type(config_keys) == bytes else config_keys
+        )
+        image_keys = (
+            str(image_keys, "utf-8") if type(image_keys) == bytes else image_keys
+        )
+        self.temporal_keys = temporal_keys.split(",")
+        self.config_keys = config_keys.split(",")
+        self.image_keys = image_keys.split(",")
         if len(self.temporal_keys) > 0:
             self.length = group[self.temporal_keys[0]].shape[0]
         else:
@@ -58,7 +66,7 @@ class Trial(object):
         if depth:
             return arr / depth_factor
         elif rgb:
-            return arr / 255.
+            return arr / 255.0
         else:
             return arr
 
@@ -66,9 +74,15 @@ class Trial(object):
 class DatasetBase(torch.utils.data.Dataset):
     """Access hdf5 file(s) and creates data slices that we can use for training neural
     net models."""
-    
-    def __init__(self, dirname, template="*.h5", verbose=False, trial_list: list = None,
-                 TrialType = None):
+
+    def __init__(
+        self,
+        dirname,
+        template="*.h5",
+        verbose=False,
+        trial_list: list = None,
+        TrialType=None,
+    ):
         """
         Take all files in directory
         """
@@ -85,25 +99,27 @@ class DatasetBase(torch.utils.data.Dataset):
         self.process_files(files)
 
     def get_h5_file(self, filename):
-       if filename in self.h5s:
-           return self.h5s[filename]
-       else:
-            h5 = h5py.File(filename, 'r')
+        if filename in self.h5s:
+            return self.h5s[filename]
+        else:
+            h5 = h5py.File(filename, "r")
             self.h5s[filename] = h5
             return h5
 
     def process_files(self, files):
         """Read through the set of files and track unique files and everything else."""
         if self.verbose:
-            print('Found these files:', files)
+            print("Found these files:", files)
         self.trials = []
         self.h5s = {}
         lens = []
         for filename in files:
             # Check each file to see how many entires it has
-            with h5py.File(filename, 'r') as h5:
+            with h5py.File(filename, "r") as h5:
                 for key, h5_trial in h5.items():
-                    if not self.trial_list or (self.trial_list and key in self.trial_list):
+                    if not self.trial_list or (
+                        self.trial_list and key in self.trial_list
+                    ):
                         # Open the trial and extract metadata
                         trial = self.Trial(key, filename, self, h5_trial)
                         if self.verbose:

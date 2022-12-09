@@ -1,5 +1,6 @@
 import argparse
 import rospy
+import sys
 import timeit
 import numpy as np
 
@@ -17,6 +18,10 @@ import matplotlib.pyplot as plt
 
 def parse_args():
     parser = argparse.ArgumentParser("collect_data")
+    parser.add_argument("name", default="test", help="name of task to train")
+    parser.add_argument(
+        "-n", "--num-frames", help="number of frames per keypoint", default=50, type=int
+    )
     args = parser.parse_args()
     return args
 
@@ -49,9 +54,30 @@ if __name__ == "__main__":
     q, _ = rob.update()
     print("q =", q)
 
-    input("Press enter when ready to collect frames")
-    rate = rospy.rate(10)
-    for i in range(100):
-        # add frames and joint state info to buffer
-        q, dq = rob.update()
-        rate.sleep()
+    # Main loop. collect waypoints and move the robot.
+    while not done and not rospy.is_shutdown():
+
+        valid_inp = False
+        while not valid_inp and not rospy.is_shutdown():
+            inp = input("Collect keypoint data? y/n:")
+            if len(inp) > 0 and inp[0].lower() in ["y", "n"]:
+                if inp[0].lower() == "y":
+                    break
+                else:
+                    print("Quitting.")
+                    done = True
+                    break
+
+        if not done and not rospy.is_shutdown():
+            print("Capturing frames...")
+            rate = rospy.Rate(10)
+            for i in range(args.num_frames):
+                # add frames and joint state info to buffer
+                q, dq = rob.update()
+                # Get the rgb and depth
+                rgb, depth, xyz = rob.get_images()
+                rate.sleep()
+                if rospy.is_shutdown():
+                    print("Abort.")
+                    done = True
+                    break
