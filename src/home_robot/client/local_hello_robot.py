@@ -9,11 +9,58 @@ import rospy
 from std_srvs.srv import Trigger, TriggerRequest
 from std_srvs.srv import SetBool, SetBoolRequest
 from geometry_msgs.msg import PoseStamped, Pose, Twist
+import actionlib
+from control_msgs.msg import FollowJointTrajectoryAction
+from control_msgs.msg import FollowJointTrajectoryGoal
+from trajectory_msgs.msg import JointTrajectoryPoint
 
 from home_robot.utils.geometry import xyt2sophus, sophus2xyt, xyt_base_to_global
 from home_robot.utils.geometry.ros import pose_sophus2ros, pose_ros2sophus
-from home_robot.hw.ros.stretch_ros import HelloStretchROSInterface
 
+
+class HelloStretchIdx:
+    BASE_X = 0
+    BASE_Y = 1
+    BASE_THETA = 2
+    LIFT = 3
+    ARM = 4
+    GRIPPER = 5
+    WRIST_ROLL = 6
+    WRIST_PITCH = 7
+    WRIST_YAW = 8
+    HEAD_PAN = 9
+    HEAD_TILT = 10
+
+
+ROS_ARM_JOINTS = ["joint_arm_l0", "joint_arm_l1", "joint_arm_l2", "joint_arm_l3"]
+ROS_LIFT_JOINT = "joint_lift"
+ROS_GRIPPER_FINGER = "joint_gripper_finger_left"
+# ROS_GRIPPER_FINGER2 = "joint_gripper_finger_right"
+ROS_HEAD_PAN = "joint_head_pan"
+ROS_HEAD_TILT = "joint_head_tilt"
+ROS_WRIST_YAW = "joint_wrist_yaw"
+ROS_WRIST_PITCH = "joint_wrist_pitch"
+ROS_WRIST_ROLL = "joint_wrist_roll"
+
+
+ROS_TO_CONFIG = {
+    ROS_LIFT_JOINT: HelloStretchIdx.LIFT,
+    ROS_GRIPPER_FINGER: HelloStretchIdx.GRIPPER,
+    # ROS_GRIPPER_FINGER2: HelloStretchIdx.GRIPPER,
+    ROS_WRIST_YAW: HelloStretchIdx.WRIST_YAW,
+    ROS_WRIST_PITCH: HelloStretchIdx.WRIST_PITCH,
+    ROS_WRIST_ROLL: HelloStretchIdx.WRIST_ROLL,
+    ROS_HEAD_PAN: HelloStretchIdx.HEAD_PAN,
+    ROS_HEAD_TILT: HelloStretchIdx.HEAD_TILT,
+}
+
+
+CONFIG_TO_ROS = {}
+for k, v in ROS_TO_CONFIG.items():
+    if v not in CONFIG_TO_ROS:
+        CONFIG_TO_ROS[v] = []
+    CONFIG_TO_ROS[v].append(k)
+CONFIG_TO_ROS[HelloStretchIdx.ARM] = ROS_ARM_JOINTS
 
 class LocalHelloRobot:
     """
@@ -25,9 +72,18 @@ class LocalHelloRobot:
         self._base_state = None
 
         # Ros interface from old home robot
+        """
         self.robot = HelloStretchROSInterface(visualize_planner=False)
         self.robot.rgb_cam.wait_for_image()
         self.robot.dpt_cam.wait_for_image()
+        """
+        self.trajectory_client = actionlib.SimpleActionClient(
+            "/stretch_controller/follow_joint_trajectory", FollowJointTrajectoryAction
+        )
+        self.dof = 11
+        self.ros_joint_names = []
+        for i in range(3, self.dof):
+            self.ros_joint_names += CONFIG_TO_ROS[i]
 
         # Ros pubsub
         if init_node:
@@ -44,9 +100,9 @@ class LocalHelloRobot:
         )
 
         self._nav_mode_service = rospy.ServiceProxy(
-            "/switch_to_navigation_mode", Trigger
+            "switch_to_navigation_mode", Trigger
         )
-        self._pos_mode_service = rospy.ServiceProxy("/switch_to_position_mode", Trigger)
+        self._pos_mode_service = rospy.ServiceProxy("switch_to_position_mode", Trigger)
         self._goto_on_service = rospy.ServiceProxy("goto_controller/enable", Trigger)
         self._goto_off_service = rospy.ServiceProxy("goto_controller/disable", Trigger)
         self._set_yaw_service = rospy.ServiceProxy(
@@ -148,8 +204,11 @@ class LocalHelloRobot:
         return self.get_robot_state["base"]
 
     def get_camera_image(self):
+        """
         rgb, depth, xyz = self.robot.get_images()
         return rgb, depth
+        """
+        pass
 
     def get_joint_limits(self):
         """
@@ -219,6 +278,30 @@ class LocalHelloRobot:
         # Set goal
         msg = pose_sophus2ros(xyt2sophus(xyt_goal))
         self._goal_pub.publish(msg)
+        
+    def _config_to_ros_msg(self, q):
+        """convert into a joint state message"""
+        msg = JointTrajectoryPoint()
+        msg.positions = [0.0] * len(self.ros_joint_names)
+        idx = 0
+        for i in range(3, self.dof):
+            names = CONFIG_TO_ROS[i]
+            for _ in names:
+                # Only for arm - but this is a dumb way to check
+                if "arm" in names[0]:
+                    msg.positions[idx] = q[i] / len(names)
+                else:
+                    msg.positions[idx] = q[i]
+                idx += 1
+        return msg
+
+    def _generate_ros_trajectory_goal(self, q):
+        trajectory_goal = FollowJointTrajectoryGoal()
+        trajectory_goal.goal_time_tolerance = rospy.Time(1.0)
+        trajectory_goal.trajectory.joint_names = self.ros_joint_names
+        trajectory_goal.trajectory.points = [self._config_to_ros_msg(q)]
+        trajectory_goal.trajectory.header.stamp = rospy.Time.now()
+        return trajectory_goal
 
     def set_arm_joint_positions(self, joint_positions: Iterable[float]):
         """
@@ -236,9 +319,12 @@ class LocalHelloRobot:
                 HEAD_TILT = 10
         """
         assert len(joint_positions) == 6, "Joint position vector must be of length 6."
-        q = self.robot.update()
+        q = [0] * 11
         q[3:9] = joint_positions
-        self.robot.goto(q, move_base=False)
+        goal = self._generate_ros_trajectory_goal(q)
+        self.trajectory_client.send_goal(goal)
+
+        return True
 
     def set_ee_pose(
         self,
@@ -256,12 +342,14 @@ class LocalHelloRobot:
     def set_camera_pose(
         self, pan: Optional[float] = None, tilt: Optional[float] = None
     ):
-        q = self.robot.update()
+        """
         if pan is not None:
             q[9] = pan
         if tilt is not None:
             q[10] = tilt
         self.robot.goto(q, move_base=False)
+        """
+        pass
 
     # Subscriber callbacks
     def _state_callback(self, msg: PoseStamped):
