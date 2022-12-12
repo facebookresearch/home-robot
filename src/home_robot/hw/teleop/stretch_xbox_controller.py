@@ -2,7 +2,7 @@ import rospy
 import time
 import numpy as np
 from sensor_msgs.msg import JointState, Joy
-from stretch_xbox_controller_teleop import (
+from home_robot.hw.teleop.stretch_xbox_controller_teleop import (
     manage_lift_arm,
     manage_base,
     manage_end_of_arm,
