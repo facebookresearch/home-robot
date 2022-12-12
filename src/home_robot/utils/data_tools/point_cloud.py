@@ -20,7 +20,7 @@ def get_pcd(xyz, rgb=None):
     return pcd
 
 
-def show_point_cloud(xyz, rgb=None, orig=None, R=None, save=None, grasps=[]):
+def show_point_cloud(xyz, rgb=None, orig=None, R=None, save=None, grasps=None):
     # http://www.open3d.org/docs/0.9.0/tutorial/Basic/working_with_numpy.html
     if rgb is not None:
         rgb = rgb.reshape(-1, 3)
@@ -32,7 +32,9 @@ def show_point_cloud(xyz, rgb=None, orig=None, R=None, save=None, grasps=[]):
     show_pcd(pcd, orig, R, save, grasps)
 
 
-def show_pcd(pcd, orig=None, R=None, save=None, grasps=[]):
+def show_pcd(pcd, orig=None, R=None, save=None, grasps=None):
+    """Visualize a point cloud from Open3d, with some optional helpers for visualizing extras
+    like origin cooridnate frame or grasp locations."""
     geoms = [pcd]
     if orig is not None:
         coords = o3d.geometry.TriangleMesh.create_coordinate_frame(
@@ -41,12 +43,15 @@ def show_pcd(pcd, orig=None, R=None, save=None, grasps=[]):
         if R is not None:
             coords = coords.rotate(R)
         geoms.append(coords)
-    for grasp in grasps:
-        coords = o3d.geometry.TriangleMesh.create_coordinate_frame(
-            size=0.05, origin=grasp[:3, 3]
-        )
-        coords = coords.rotate(grasp[:3, :3])
-        geoms.append(coords)
+    if grasps is not None:
+        # If we were given grasps to visualize, then visualize them
+        # Otherwise we can skip this part
+        for grasp in grasps:
+            coords = o3d.geometry.TriangleMesh.create_coordinate_frame(
+                size=0.05, origin=grasp[:3, 3]
+            )
+            coords = coords.rotate(grasp[:3, :3])
+            geoms.append(coords)
     viz = o3d.visualization.Visualizer()
     viz.create_window()
     for geom in geoms:
