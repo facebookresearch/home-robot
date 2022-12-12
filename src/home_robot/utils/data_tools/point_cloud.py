@@ -260,8 +260,8 @@ def add_multiplicative_noise(depth_img, gamma_shape=10000, gamma_scale=0.0001):
 
 def add_additive_noise_to_xyz(
     xyz_img,
-    gp_rescale_factor_range=[12, 20],
-    gaussian_scale_range=[0.0, 0.003],
+    gp_rescale_factor_range=(12, 20),
+    gaussian_scale_range=(0.0, 0.003),
     valid_mask=None,
 ):
     """Add (approximate) Gaussian Process noise to ordered point cloud
