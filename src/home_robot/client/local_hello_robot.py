@@ -2,9 +2,10 @@ from collections import defaultdict
 import argparse
 import pdb
 from typing import Optional, Iterable
+from dataclasses import dataclass
 
 import numpy as np
-
+import sophus as sp
 import rospy
 from std_srvs.srv import Trigger, TriggerRequest
 from std_srvs.srv import SetBool, SetBoolRequest
@@ -13,6 +14,14 @@ from geometry_msgs.msg import PoseStamped, Pose, Twist
 from home_robot.utils.geometry import xyt2sophus, sophus2xyt, xyt_base_to_global
 from home_robot.utils.geometry.ros import pose_sophus2ros, pose_ros2sophus
 from home_robot.hw.ros.stretch_ros import HelloStretchROSInterface
+
+T_LOC_STABILIZE = 1
+
+
+@dataclass
+class ManipulatorBaseParams:
+    xyt_base: np.ndarray
+    se3_base: sp.SE3
 
 
 class LocalHelloRobot:
@@ -72,6 +81,10 @@ class LocalHelloRobot:
         print(result.message)
         result = self._goto_off_service(TriggerRequest())
         print(result.message)
+
+        # Wait for navigation to stabilize
+
+        # Home base translation joint
 
     def set_yaw_tracking(self, value: bool = True):
         """
