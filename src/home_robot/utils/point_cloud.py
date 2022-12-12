@@ -341,7 +341,9 @@ def dropout_random_ellipses(
     return depth_img
 
 
-def get_xyz_coordinates(depth: Tensor, mask: Tensor, pose: Tensor, inv_intrinsics: Tensor) -> Tensor:
+def get_xyz_coordinates(
+    depth: Tensor, mask: Tensor, pose: Tensor, inv_intrinsics: Tensor
+) -> Tensor:
     """Returns the XYZ coordinates for a posed RGBD image.
 
     Args:
@@ -360,20 +362,28 @@ def get_xyz_coordinates(depth: Tensor, mask: Tensor, pose: Tensor, inv_intrinsic
     flipped_mask = ~mask
 
     # Gets the pixel grid.
-    xs, ys = torch.meshgrid(torch.arange(0, width), torch.arange(0, height), indexing="xy")
+    xs, ys = torch.meshgrid(
+        torch.arange(0, width), torch.arange(0, height), indexing="xy"
+    )
     xy = torch.stack([xs, ys], dim=-1)[None, :, :].repeat_interleave(bsz, dim=0)
     xy = xy[flipped_mask.squeeze(1)]
     xyz = torch.cat((xy, torch.ones_like(xy[..., :1])), dim=-1)
 
     # Associates poses and intrinsics with XYZ coordinates.
-    inv_intrinsics = inv_intrinsics[:, None, None, :, :].expand(bsz, height, width, 3, 3)[flipped_mask.squeeze(1)]
-    pose = pose[:, None, None, :, :].expand(bsz, height, width, 4, 4)[flipped_mask.squeeze(1)]
+    inv_intrinsics = inv_intrinsics[:, None, None, :, :].expand(
+        bsz, height, width, 3, 3
+    )[flipped_mask.squeeze(1)]
+    pose = pose[:, None, None, :, :].expand(bsz, height, width, 4, 4)[
+        flipped_mask.squeeze(1)
+    ]
     depth = depth[flipped_mask]
 
     # Applies intrinsics and extrinsics.
     xyz = xyz.to(inv_intrinsics).unsqueeze(1) @ inv_intrinsics
     xyz = xyz * depth[:, None, None]
-    xyz = (xyz[..., None, :] * pose[..., None, :3, :3]).sum(dim=-1) + pose[..., None, :3, 3]
+    xyz = (xyz[..., None, :] * pose[..., None, :3, :3]).sum(dim=-1) + pose[
+        ..., None, :3, 3
+    ]
     xyz = xyz.squeeze(1)
 
     return xyz
