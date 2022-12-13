@@ -110,6 +110,10 @@ class LocalHelloRobot:
             "/stretch_controller/follow_joint_trajectory", FollowJointTrajectoryAction
         )
 
+        self.trajectory_client = actionlib.SimpleActionClient(
+            "/stretch_controller/follow_joint_trajectory", FollowJointTrajectoryAction
+        )
+
         # Initialize control mode
         self._control_mode = BaseControlMode.NAVIGATION
 
