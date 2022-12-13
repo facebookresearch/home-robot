@@ -36,8 +36,8 @@ from home_robot.hw.ros.path import get_package_path
 from home_robot.agent.motion.robot import PLANNER_STRETCH_URDF, STRETCH_TO_GRASP
 from home_robot.utils.data.writer import DataWriter
 
-from interactive_markers.interactive_marker_server import *
-from interactive_markers.menu_handler import *
+from interactive_markers.interactive_marker_server import InteractiveMarkerServer
+from interactive_markers.menu_handler import MenuHandler
 from visualization_msgs.msg import *
 from geometry_msgs.msg import Point, Quaternion
 from tf.broadcaster import TransformBroadcaster
