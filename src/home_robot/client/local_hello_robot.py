@@ -2,7 +2,7 @@ from collections import defaultdict
 from enum import Enum
 import argparse
 import pdb
-import logging
+import time
 from typing import Optional, Iterable, List, Dict
 from dataclasses import dataclass
 
@@ -20,7 +20,6 @@ from trajectory_msgs.msg import JointTrajectoryPoint
 from home_robot.utils.geometry import xyt2sophus, sophus2xyt, xyt_base_to_global
 from home_robot.utils.geometry.ros import pose_sophus2ros, pose_ros2sophus
 
-log = logging.getLogger(__file__)
 
 
 T_LOC_STABILIZE = 1.0
@@ -34,6 +33,7 @@ class ManipulatorBaseParams:
 
 
 class BaseControlMode(Enum):
+    IDLE = 0
     VELOCITY = 1
     NAVIGATION = 2
     MANIPULATION = 3
@@ -63,8 +63,11 @@ def limit_control_mode(valid_modes: List[BaseControlMode]):
             if self._control_mode in valid_modes:
                 return func(self, *args, **kwargs)
             else:
-                log.warning(
+                rospy.logwarn(
                     f"'{func.__name__}' is only available in the following modes: {valid_modes}"
+                )
+                rospy.logwarn(
+                    f"Current mode is: {self._control_mode}"
                 )
                 return None
 
@@ -81,10 +84,12 @@ class LocalHelloRobot:
 
     def __init__(self, init_node: bool = True):
         self._base_state = None
+        self._control_mode = BaseControlMode.IDLE
 
         # Ros pubsub
         if init_node:
             rospy.init_node("user")
+
 
         self._goal_pub = rospy.Publisher("goto_controller/goal", Pose, queue_size=1)
         self._velocity_pub = rospy.Publisher("stretch/cmd_vel", Twist, queue_size=1)
@@ -114,8 +119,11 @@ class LocalHelloRobot:
             "/stretch_controller/follow_joint_trajectory", FollowJointTrajectoryAction
         )
 
-        # Initialize control mode
-        self._control_mode = BaseControlMode.NAVIGATION
+        # Initialize control mode & home robot
+        self.switch_to_manipulation_mode()
+        self.close_gripper()
+        self.set_arm_joint_positions([0.1, 0.3, 0, 0, 0, 0])
+        self._control_mode = BaseControlMode.IDLE
 
     # Getter interfaces
     def get_robot_state(self):
@@ -189,8 +197,8 @@ class LocalHelloRobot:
 
         # Switch interface mode & print messages
         self._control_mode = BaseControlMode.VELOCITY
-        log.info(result1.message)
-        log.info(result2.message)
+        rospy.loginfo(result1.message)
+        rospy.loginfo(result2.message)
 
         return result1.success and result2.success
 
@@ -200,8 +208,8 @@ class LocalHelloRobot:
 
         # Switch interface mode & print messages
         self._control_mode = BaseControlMode.NAVIGATION
-        log.info(result1.message)
-        log.info(result2.message)
+        rospy.loginfo(result1.message)
+        rospy.loginfo(result2.message)
 
         return result1.success and result2.success
 
@@ -216,8 +224,8 @@ class LocalHelloRobot:
 
         # Switch interface mode & print messages
         self._control_mode = BaseControlMode.MANIPULATION
-        log.info(result1.message)
-        log.info(result2.message)
+        rospy.loginfo(result1.message)
+        rospy.loginfo(result2.message)
 
         return result1.success and result2.success
 
@@ -302,12 +310,15 @@ class LocalHelloRobot:
         # TODO: check pose
         raise NotImplementedError
 
+    @limit_control_mode([BaseControlMode.VELOCITY, BaseControlMode.NAVIGATION, BaseControlMode.MANIPULATION])
     def open_gripper(self):
         self._send_ros_trajectory_goals({ROS_GRIPPER_FINGER: STRETCH_GRIPPER_OPEN})
 
+    @limit_control_mode([BaseControlMode.VELOCITY, BaseControlMode.NAVIGATION, BaseControlMode.MANIPULATION])
     def close_gripper(self):
         self._send_ros_trajectory_goals({ROS_GRIPPER_FINGER: STRETCH_GRIPPER_CLOSE})
 
+    @limit_control_mode([BaseControlMode.VELOCITY, BaseControlMode.NAVIGATION, BaseControlMode.MANIPULATION])
     def set_camera_pan_tilt(
         self, pan: Optional[float] = None, tilt: Optional[float] = None
     ):
@@ -319,9 +330,11 @@ class LocalHelloRobot:
 
         self._send_ros_trajectory_goals(joint_goals)
 
+    @limit_control_mode([BaseControlMode.VELOCITY, BaseControlMode.NAVIGATION, BaseControlMode.MANIPULATION])
     def set_camera_pose(self, pose_so3):
         raise NotImplementedError  # TODO
 
+    @limit_control_mode([BaseControlMode.NAVIGATION])
     def navigate_to_camera_pose(self, pose_se3):
         # Compute base pose
         # Navigate to base pose
@@ -370,5 +383,4 @@ if __name__ == "__main__":
     robot = LocalHelloRobot()
 
     import code
-
     code.interact(local=locals())
