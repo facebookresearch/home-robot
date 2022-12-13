@@ -21,7 +21,6 @@ from home_robot.utils.geometry import xyt2sophus, sophus2xyt, xyt_base_to_global
 from home_robot.utils.geometry.ros import pose_sophus2ros, pose_ros2sophus
 
 
-
 T_LOC_STABILIZE = 1.0
 T_GOAL_TIME_TOL = 1.0
 
@@ -66,9 +65,7 @@ def limit_control_mode(valid_modes: List[BaseControlMode]):
                 rospy.logwarn(
                     f"'{func.__name__}' is only available in the following modes: {valid_modes}"
                 )
-                rospy.logwarn(
-                    f"Current mode is: {self._control_mode}"
-                )
+                rospy.logwarn(f"Current mode is: {self._control_mode}")
                 return None
 
         return wrapper
@@ -90,7 +87,6 @@ class LocalHelloRobot:
         if init_node:
             rospy.init_node("user")
 
-
         self._goal_pub = rospy.Publisher("goto_controller/goal", Pose, queue_size=1)
         self._velocity_pub = rospy.Publisher("stretch/cmd_vel", Twist, queue_size=1)
 
@@ -105,14 +101,11 @@ class LocalHelloRobot:
             "switch_to_navigation_mode", Trigger
         )
         self._pos_mode_service = rospy.ServiceProxy("switch_to_position_mode", Trigger)
+
         self._goto_on_service = rospy.ServiceProxy("goto_controller/enable", Trigger)
         self._goto_off_service = rospy.ServiceProxy("goto_controller/disable", Trigger)
         self._set_yaw_service = rospy.ServiceProxy(
             "goto_controller/set_yaw_tracking", SetBool
-        )
-
-        self.trajectory_client = actionlib.SimpleActionClient(
-            "/stretch_controller/follow_joint_trajectory", FollowJointTrajectoryAction
         )
 
         self.trajectory_client = actionlib.SimpleActionClient(
@@ -310,15 +303,33 @@ class LocalHelloRobot:
         # TODO: check pose
         raise NotImplementedError
 
-    @limit_control_mode([BaseControlMode.VELOCITY, BaseControlMode.NAVIGATION, BaseControlMode.MANIPULATION])
+    @limit_control_mode(
+        [
+            BaseControlMode.VELOCITY,
+            BaseControlMode.NAVIGATION,
+            BaseControlMode.MANIPULATION,
+        ]
+    )
     def open_gripper(self):
         self._send_ros_trajectory_goals({ROS_GRIPPER_FINGER: STRETCH_GRIPPER_OPEN})
 
-    @limit_control_mode([BaseControlMode.VELOCITY, BaseControlMode.NAVIGATION, BaseControlMode.MANIPULATION])
+    @limit_control_mode(
+        [
+            BaseControlMode.VELOCITY,
+            BaseControlMode.NAVIGATION,
+            BaseControlMode.MANIPULATION,
+        ]
+    )
     def close_gripper(self):
         self._send_ros_trajectory_goals({ROS_GRIPPER_FINGER: STRETCH_GRIPPER_CLOSE})
 
-    @limit_control_mode([BaseControlMode.VELOCITY, BaseControlMode.NAVIGATION, BaseControlMode.MANIPULATION])
+    @limit_control_mode(
+        [
+            BaseControlMode.VELOCITY,
+            BaseControlMode.NAVIGATION,
+            BaseControlMode.MANIPULATION,
+        ]
+    )
     def set_camera_pan_tilt(
         self, pan: Optional[float] = None, tilt: Optional[float] = None
     ):
@@ -330,7 +341,13 @@ class LocalHelloRobot:
 
         self._send_ros_trajectory_goals(joint_goals)
 
-    @limit_control_mode([BaseControlMode.VELOCITY, BaseControlMode.NAVIGATION, BaseControlMode.MANIPULATION])
+    @limit_control_mode(
+        [
+            BaseControlMode.VELOCITY,
+            BaseControlMode.NAVIGATION,
+            BaseControlMode.MANIPULATION,
+        ]
+    )
     def set_camera_pose(self, pose_so3):
         raise NotImplementedError  # TODO
 
@@ -352,7 +369,12 @@ class LocalHelloRobot:
                     ROS_ARM_JOINTS_ACTUAL
                 )
 
-        # Preprocess input
+        # Preprocess base translation joint (stretch_driver errors out if translation value is 0)
+        if ROS_BASE_TRANSLATION_JOINT in joint_goals:
+            if joint_goals[ROS_BASE_TRANSLATION_JOINT] == 0:
+                joint_goals.pop(ROS_BASE_TRANSLATION_JOINT)
+
+        # Parse input
         joint_names = []
         joint_values = []
         for name, val in joint_goals.items():
@@ -383,4 +405,5 @@ if __name__ == "__main__":
     robot = LocalHelloRobot()
 
     import code
+
     code.interact(local=locals())
