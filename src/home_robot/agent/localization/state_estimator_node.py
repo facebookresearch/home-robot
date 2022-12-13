@@ -6,7 +6,13 @@ import numpy as np
 import sophus as sp
 from scipy.spatial.transform import Rotation as R
 import rospy
-from geometry_msgs.msg import Pose, PoseStamped, PoseWithCovarianceStamped
+import tf2_ros
+from geometry_msgs.msg import (
+    Pose,
+    PoseStamped,
+    PoseWithCovarianceStamped,
+    TransformStamped,
+)
 from nav_msgs.msg import Odometry
 
 
@@ -53,10 +59,29 @@ class NavStateEstimator:
         self._pose_odom_prev = sp.SE3()
 
     def _publish_filtered_state(self, timestamp):
+        pose_msg = pose_sophus2ros(self._filtered_pose)
+
+        # Publish pose msg
         pose_out = PoseStamped()
         pose_out.header.stamp = timestamp
-        pose_out.pose = pose_sophus2ros(self._filtered_pose)
+        pose_out.pose = pose_msg
+
         self._estimator_pub.publish(pose_out)
+
+        # Publish to tf2
+        t = TransformStamped()
+        t.header.stamp = timestamp
+        t.header.frame_id = self._world_frame_id
+        t.child_frame_id = self._base_frame_id
+        t.transform.translation.x = pose_msg.translation.x
+        t.transform.translation.y = pose_msg.translation.y
+        t.transform.translation.z = 0
+        t.transform.rotation.x = pose_msg.rotation.x
+        t.transform.rotation.y = pose_msg.rotation.y
+        t.transform.rotation.z = pose_msg.rotation.z
+        t.transform.rotation.w = pose_msg.rotation.w
+
+        self._tf_broadcaster.sendTransform(t)
 
     def _odom_callback(self, pose: Odometry):
         t_curr = rospy.Time.now()
@@ -96,6 +121,9 @@ class NavStateEstimator:
         self._estimator_pub = rospy.Publisher(
             "state_estimator/pose_filtered", PoseStamped, queue_size=1
         )
+        self._world_frame_id = "odom"
+        self._base_frame_id = "base_link_estimator"
+        self._tf_broadcaster = tf2_ros.TransformBroadcaster()
 
         rospy.Subscriber(
             "poseupdate",
