@@ -82,6 +82,7 @@ class LocalHelloRobot:
     def __init__(self, init_node: bool = True):
         self._base_state = None
         self._control_mode = BaseControlMode.IDLE
+        self._manipulator_params = None
 
         # Ros pubsub
         if init_node:
@@ -213,7 +214,11 @@ class LocalHelloRobot:
         # Wait for navigation to stabilize
         rospy.sleep(T_LOC_STABILIZE)
 
-        # Set manipulator params TODO
+        # Set manipulator params
+        self._manipulator_params = ManipulatorBaseParams(
+            xyt_base=self._base_state,
+            se3_base=xyt2sophus(self._base_state),
+        )
 
         # Switch interface mode & print messages
         self._control_mode = BaseControlMode.MANIPULATION
@@ -276,8 +281,14 @@ class LocalHelloRobot:
             WRIST_YAW = 5
         """
         assert len(joint_positions) == 6, "Joint position vector must be of length 6."
+
+        # Preprocess base translation joint position (command is actually delta position)
+        base_joint_pos_curr = self._compute_base_translation_pos()
+        base_joint_pos_cmd = joint_positions[0] - base_joint_pos_curr
+
+        # Construct and send command
         joint_goals = {
-            ROS_BASE_TRANSLATION_JOINT: joint_positions[0],
+            ROS_BASE_TRANSLATION_JOINT: base_joint_pos_cmd,
             ROS_LIFT_JOINT: joint_positions[1],
             ROS_ARM_JOINT: joint_positions[2],
             ROS_WRIST_ROLL: joint_positions[3],
@@ -394,6 +405,11 @@ class LocalHelloRobot:
 
         # Send goal
         self.trajectory_client.send_goal(goal_msg)
+
+    def _compute_base_translation_pos(self):
+        l0_pose = self._manipulator_params.se3_base
+        l1_pose = sophus2xyt(self._base_state)
+        return (l0_pose.inverse() * l1_pose).translation()[0]
 
     # Subscriber callbacks
     def _state_callback(self, msg: PoseStamped):
