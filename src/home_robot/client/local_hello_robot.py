@@ -3,7 +3,7 @@ from enum import Enum
 import argparse
 import pdb
 import logging
-from typing import Optional, Iterable, List
+from typing import Optional, Iterable, List, Dict
 from dataclasses import dataclass
 
 import numpy as np
@@ -23,7 +23,8 @@ from home_robot.utils.geometry.ros import pose_sophus2ros, pose_ros2sophus
 log = logging.getLogger(__file__)
 
 
-T_LOC_STABILIZE = 1
+T_LOC_STABILIZE = 1.0
+T_GOAL_TIME_TOL = 1.0
 
 
 @dataclass
@@ -38,49 +39,38 @@ class BaseControlMode(Enum):
     MANIPULATION = 3
 
 
-class HelloStretchIdx:
-    BASE_X = 0
-    BASE_Y = 1
-    BASE_THETA = 2
-    LIFT = 3
-    ARM = 4
-    GRIPPER = 5
-    WRIST_ROLL = 6
-    WRIST_PITCH = 7
-    WRIST_YAW = 8
-    HEAD_PAN = 9
-    HEAD_TILT = 10
-
-
-ROS_ARM_JOINTS = ["joint_arm_l0", "joint_arm_l1", "joint_arm_l2", "joint_arm_l3"]
+ROS_BASE_TRANSLATION_JOINT = "translate_mobile_base"
+ROS_ARM_JOINT = "joint_arm"
 ROS_LIFT_JOINT = "joint_lift"
-ROS_GRIPPER_FINGER = "joint_gripper_finger_left"
-# ROS_GRIPPER_FINGER2 = "joint_gripper_finger_right"
-ROS_HEAD_PAN = "joint_head_pan"
-ROS_HEAD_TILT = "joint_head_tilt"
 ROS_WRIST_YAW = "joint_wrist_yaw"
 ROS_WRIST_PITCH = "joint_wrist_pitch"
 ROS_WRIST_ROLL = "joint_wrist_roll"
+ROS_GRIPPER_FINGER = "joint_gripper_finger_left"  # used to control entire gripper
+ROS_HEAD_PAN = "joint_head_pan"
+ROS_HEAD_TILT = "joint_head_tilt"
+
+ROS_ARM_JOINTS_ACTUAL = ["joint_arm_l0", "joint_arm_l1", "joint_arm_l2", "joint_arm_l3"]
+
+STRETCH_GRIPPER_OPEN = 0.22
+STRETCH_GRIPPER_CLOSE = -0.2
 
 
-ROS_TO_CONFIG = {
-    ROS_LIFT_JOINT: HelloStretchIdx.LIFT,
-    ROS_GRIPPER_FINGER: HelloStretchIdx.GRIPPER,
-    # ROS_GRIPPER_FINGER2: HelloStretchIdx.GRIPPER,
-    ROS_WRIST_YAW: HelloStretchIdx.WRIST_YAW,
-    ROS_WRIST_PITCH: HelloStretchIdx.WRIST_PITCH,
-    ROS_WRIST_ROLL: HelloStretchIdx.WRIST_ROLL,
-    ROS_HEAD_PAN: HelloStretchIdx.HEAD_PAN,
-    ROS_HEAD_TILT: HelloStretchIdx.HEAD_TILT,
-}
+def limit_control_mode(valid_modes: List[BaseControlMode]):
+    """Decorator for checking if a robot method is executed while the correct mode is present."""
 
+    def decorator(func):
+        def wrapper(self, *args, **kwargs):
+            if self._control_mode in valid_modes:
+                return func(self, *args, **kwargs)
+            else:
+                log.warning(
+                    f"'{func.__name__}' is only available in the following modes: {valid_modes}"
+                )
+                return None
 
-CONFIG_TO_ROS = {}
-for k, v in ROS_TO_CONFIG.items():
-    if v not in CONFIG_TO_ROS:
-        CONFIG_TO_ROS[v] = []
-    CONFIG_TO_ROS[v].append(k)
-CONFIG_TO_ROS[HelloStretchIdx.ARM] = ROS_ARM_JOINTS
+        return wrapper
+
+    return decorator
 
 
 class LocalHelloRobot:
@@ -91,20 +81,6 @@ class LocalHelloRobot:
 
     def __init__(self, init_node: bool = True):
         self._base_state = None
-
-        # Ros interface from old home robot
-        """
-        self.robot = HelloStretchROSInterface(visualize_planner=False)
-        self.robot.rgb_cam.wait_for_image()
-        self.robot.dpt_cam.wait_for_image()
-        """
-        self.trajectory_client = actionlib.SimpleActionClient(
-            "/stretch_controller/follow_joint_trajectory", FollowJointTrajectoryAction
-        )
-        self.dof = 11
-        self.ros_joint_names = []
-        for i in range(3, self.dof):
-            self.ros_joint_names += CONFIG_TO_ROS[i]
 
         # Ros pubsub
         if init_node:
@@ -130,9 +106,14 @@ class LocalHelloRobot:
             "goto_controller/toggle_yaw_tracking", Trigger
         )
 
+        self.trajectory_client = actionlib.SimpleActionClient(
+            "/stretch_controller/follow_joint_trajectory", FollowJointTrajectoryAction
+        )
+
         # Initialize control mode
         self._control_mode = BaseControlMode.NAVIGATION
 
+    # Getter interfaces
     def get_robot_state(self):
         """
         Note: read poses from tf2 buffer
@@ -197,7 +178,7 @@ class LocalHelloRobot:
         """
         raise NotImplementedError
 
-    # Mode switching ?
+    # Mode switching interfaces
     def switch_to_velocity_mode(self):
         result1 = self._nav_mode_service(TriggerRequest())
         result2 = self._goto_off_service(TriggerRequest())
@@ -236,28 +217,18 @@ class LocalHelloRobot:
 
         return result1.success and result2.success
 
-    def _check_mode(self, func_name: str, valid_modes: List[BaseControlMode]) -> bool:
-        if self._control_mode in valid_modes:
-            return True
-        else:
-            log.warning(
-                f"'{func_name}' is only available in the following modes: {valid_modes}"
-            )
-            return False
-
-    # Control
+    # Control interfaces
+    @limit_control_mode([BaseControlMode.VELOCITY])
     def set_velocity(self, v, w):
         """
         Directly sets the linear and angular velocity of robot base.
         """
-        if not self._check_mode_valid("set_velocity", [BaseControlMode.VELOCITY]):
-            return
-
         msg = Twist()
         msg.linear.x = v
         msg.angular.z = w
         self._velocity_pub.publish(msg)
 
+    @limit_control_mode([BaseControlMode.NAVIGATION])
     def navigate_to(
         self,
         xyt: Iterable[float],
@@ -268,9 +239,6 @@ class LocalHelloRobot:
         """
         Cannot be used in manipulation mode.
         """
-        if not self._check_mode_valid("navigate_to", [BaseControlMode.NAVIGATION]):
-            return
-
         # Parse inputs
         assert len(xyt) == 3, "Input goal location must be of length 3."
 
@@ -291,62 +259,32 @@ class LocalHelloRobot:
         msg = pose_sophus2ros(xyt2sophus(xyt_goal))
         self._goal_pub.publish(msg)
 
-    def _config_to_ros_msg(self, q):
-        """convert into a joint state message"""
-        msg = JointTrajectoryPoint()
-        msg.positions = [0.0] * len(self.ros_joint_names)
-        idx = 0
-        for i in range(3, self.dof):
-            names = CONFIG_TO_ROS[i]
-            for _ in names:
-                # Only for arm - but this is a dumb way to check
-                if "arm" in names[0]:
-                    msg.positions[idx] = q[i] / len(names)
-                else:
-                    msg.positions[idx] = q[i]
-                idx += 1
-        return msg
-
-    def _generate_ros_trajectory_goal(self, q):
-        trajectory_goal = FollowJointTrajectoryGoal()
-        trajectory_goal.goal_time_tolerance = rospy.Time(1.0)
-        trajectory_goal.trajectory.joint_names = self.ros_joint_names
-        trajectory_goal.trajectory.points = [self._config_to_ros_msg(q)]
-        trajectory_goal.trajectory.header.stamp = rospy.Time.now()
-        return trajectory_goal
-
+    @limit_control_mode([BaseControlMode.MANIPULATION])
     def set_arm_joint_positions(self, joint_positions: Iterable[float]):
         """
-        q: list of robot joint positions:
-                BASE_X = 0
-                BASE_Y = 1
-                BASE_THETA = 2
-                LIFT = 3
-                ARM = 4
-                GRIPPER = 5
-                WRIST_ROLL = 6
-                WRIST_PITCH = 7
-                WRIST_YAW = 8
-                HEAD_PAN = 9
-                HEAD_TILT = 10
-
-        TODO: new q
-                BASE_THETA = 2
-                LIFT = 3
-                ARM = 4
-                GRIPPER = 5
-                WRIST_ROLL = 6
-                WRIST_PITCH = 7
-                WRIST_YAW = 8
+        list of robot arm joint positions:
+            BASE_TRANSLATION = 0
+            LIFT = 1
+            ARM = 2
+            WRIST_ROLL = 3
+            WRIST_PITCH = 4
+            WRIST_YAW = 5
         """
         assert len(joint_positions) == 6, "Joint position vector must be of length 6."
-        q = [0] * 11
-        q[3:9] = joint_positions
-        goal = self._generate_ros_trajectory_goal(q)
-        self.trajectory_client.send_goal(goal)
+        joint_goals = {
+            ROS_BASE_TRANSLATION_JOINT: joint_positions[0],
+            ROS_LIFT_JOINT: joint_positions[1],
+            ROS_ARM_JOINT: joint_positions[2],
+            ROS_WRIST_ROLL: joint_positions[3],
+            ROS_WRIST_PITCH: joint_positions[4],
+            ROS_WRIST_YAW: joint_positions[5],
+        }
+
+        self._send_ros_trajectory_goals(joint_goals)
 
         return True
 
+    @limit_control_mode([BaseControlMode.MANIPULATION])
     def set_ee_pose(
         self,
         pos: Iterable[float],
@@ -357,29 +295,66 @@ class LocalHelloRobot:
         Does not rotate base.
         Cannot be used in navigation mode.
         """
-        if not self._check_mode_valid("set_ee_pose", [BaseControlMode.MANIPULATION]):
-            return
-
         # TODO: check pose
         raise NotImplementedError
+
+    def open_gripper(self):
+        self._send_ros_trajectory_goals({ROS_GRIPPER_FINGER: STRETCH_GRIPPER_OPEN})
+
+    def close_gripper(self):
+        self._send_ros_trajectory_goals({ROS_GRIPPER_FINGER: STRETCH_GRIPPER_CLOSE})
 
     def set_camera_pan_tilt(
         self, pan: Optional[float] = None, tilt: Optional[float] = None
     ):
-        """
+        joint_goals = {}
         if pan is not None:
-            q[9] = pan
+            joint_goals[ROS_HEAD_PAN] = pan
         if tilt is not None:
-            q[10] = tilt
-        self.robot.goto(q, move_base=False)
-        """
-        pass
+            joint_goals[ROS_HEAD_TILT] = tilt
+
+        self._send_ros_trajectory_goals(joint_goals)
+
+    def set_camera_pose(self, pose_so3):
+        raise NotImplementedError  # TODO
 
     def navigate_to_camera_pose(self, pose_se3):
         # Compute base pose
         # Navigate to base pose
         # Perform camera pan/tilt
-        pass  # TODO
+        raise NotImplementedError  # TODO
+
+    # Helper functions
+    def _send_ros_trajectory_goals(self, joint_goals: Dict[str, float]):
+        # Preprocess arm joints (arm joints are actually 4 joints in one)
+        if ROS_ARM_JOINT in joint_goals:
+            arm_joint_goal = joint_goals.pop(ROS_ARM_JOINT)
+
+            for arm_joint_name in ROS_ARM_JOINTS_ACTUAL:
+                joint_goals[arm_joint_name] = arm_joint_goal / len(
+                    ROS_ARM_JOINTS_ACTUAL
+                )
+
+        # Preprocess input
+        joint_names = []
+        joint_values = []
+        for name, val in joint_goals.items():
+            joint_names.append(name)
+            joint_values.append(val)
+
+        # Construct goal positions
+        point_msg = JointTrajectoryPoint()
+        point_msg.positions = joint_values
+
+        # Construct goal msg
+        goal_msg = FollowJointTrajectoryGoal()
+        goal_msg.goal_time_tolerance = rospy.Time(T_GOAL_TIME_TOL)
+        goal_msg.trajectory.joint_names = joint_names
+        goal_msg.trajectory.points = [point_msg]
+        goal_msg.trajectory.header.stamp = rospy.Time.now()
+
+        # Send goal
+        self.trajectory_client.send_goal(goal_msg)
 
     # Subscriber callbacks
     def _state_callback(self, msg: PoseStamped):
