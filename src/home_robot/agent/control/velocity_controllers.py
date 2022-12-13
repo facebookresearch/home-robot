@@ -7,8 +7,8 @@ V_MAX_DEFAULT = 0.2  # base.params["motion"]["default"]["vel_m"]
 W_MAX_DEFAULT = 0.45  # (vel_m_max - vel_m_default) / wheel_separation_m
 ACC_LIN = 0.2  # 0.5 * base.params["motion"]["max"]["accel_m"]
 ACC_ANG = 0.6  # 0.5 * (accel_m_max - accel_m_default) / wheel_separation_m
-TOL_LIN = 0.025
-TOL_ANG = 0.1
+TOL_LIN = 0.05
+TOL_ANG = 0.2
 MAX_HEADING_ANG = np.pi / 4
 
 
