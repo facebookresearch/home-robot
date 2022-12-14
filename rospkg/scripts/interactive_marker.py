@@ -35,7 +35,13 @@ import numpy as np
 from home_robot.hw.ros.stretch_ros import HelloStretchROSInterface
 from home_robot.hw.ros.path import get_package_path
 from home_robot.hw.ros.utils import to_normalized_quaternion_msg, matrix_from_pose_msg
-from home_robot.agent.motion.robot import PLANNER_STRETCH_URDF, STRETCH_TO_GRASP
+from home_robot.agent.motion.robot import (
+    PLANNER_STRETCH_URDF,
+    STRETCH_TO_GRASP,
+    STRETCH_HOME_Q,
+    STRETCH_PREGRASP_Q,
+    HelloStretchIdx,
+)
 from home_robot.utils.data_tools.writer import DataWriter
 from home_robot.utils.pose import to_matrix
 
@@ -60,9 +66,21 @@ class InteractiveMarkerManager(object):
 
         In the future this should use Austin's API"""
         self.robot = robot
+        self.model = self.robot.get_model()
+
+        # Set up some teleop tools
         self.menu_handler = MenuHandler()
+        self.menu_handler.insert("Stow the arm", callback=self._cb_stow)
+        self.menu_handler.insert("Raise the arm", callback=self._cb_raise)
+        self.menu_handler.insert("Look straight", callback=self._cb_look_straight)
+        self.menu_handler.insert("Look forward", callback=self._cb_look_front)
+        self.menu_handler.insert("Look at gripper", callback=self._cb_look_at_ee)
+        self.menu_handler.insert("Open gripper", callback=self._cb_open_ee)
+        self.menu_handler.insert("Close gripper", callback=self._cb_close_ee)
+
         self.br = TransformBroadcaster()
         self._pose_lock = Lock()
+        self._cmd_lock = Lock()
 
         # Track the pose for where we're currently commanding the robot
         self.pose = None
@@ -85,6 +103,61 @@ class InteractiveMarkerManager(object):
             False, InteractiveMarkerControl.NONE, position, orientation, True
         )
         self.server.applyChanges()
+
+    def _cb_open_ee(self, msg):
+        print("Opening the gripper")
+        with self._cmd_lock:
+            q, _ = self.robot.update()
+            q = self.model.update_gripper(q, open=True)
+            self.robot.goto(q, move_base=False, wait=False)
+
+    def _cb_close_ee(self, msg):
+        print("Closing the gripper")
+        with self._cmd_lock:
+            q, _ = self.robot.update()
+            q = self.model.update_gripper(q, open=False)
+            self.robot.goto(q, move_base=False, wait=False)
+
+    def _cb_stow(self, msg):
+        print("Stowing the robot arm")
+        with self._cmd_lock:
+            q, _ = self.robot.update()
+            q[HelloStretchIdx.ARM] = 0
+            self.robot.goto(q, move_base=False, wait=False)
+            rospy.sleep(1.0)
+            self.robot.goto(STRETCH_HOME_Q, move_base=False, wait=False)
+
+    def _cb_raise(self, msg):
+        print("Raising the robot arm")
+        with self._cmd_lock:
+            q, _ = self.robot.update()
+            q[HelloStretchIdx.ARM] = 0
+            self.robot.goto(q, move_base=False, wait=False)
+            rospy.sleep(1.0)
+            q = STRETCH_PREGRASP_Q.copy()
+            q = self.model.update_look_at_ee(q)
+            self.robot.goto(q, move_base=False, wait=False)
+
+    def _cb_look_at_ee(self, msg):
+        print("Looking at the arm ee")
+        with self._cmd_lock:
+            q, _ = self.robot.update()
+            q = self.model.update_look_at_ee(q)
+            self.robot.goto(q, move_base=False, wait=False)
+
+    def _cb_look_straight(self, msg):
+        print("Looking straight ahead")
+        with self._cmd_lock:
+            q, _ = self.robot.update()
+            q = self.model.update_look_ahead(q)
+            self.robot.goto(q, move_base=False, wait=False)
+
+    def _cb_look_front(self, msg):
+        print("Looking at the front")
+        with self._cmd_lock:
+            q, _ = self.robot.update()
+            q = self.model.update_look_front(q)
+            self.robot.goto(q, move_base=False, wait=False)
 
     #####################################################################
     # Utils from willow garage
