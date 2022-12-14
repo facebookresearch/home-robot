@@ -18,6 +18,7 @@ from control_msgs.msg import FollowJointTrajectoryAction
 from control_msgs.msg import FollowJointTrajectoryGoal
 from trajectory_msgs.msg import JointTrajectoryPoint
 from sensor_msgs.msg import JointState
+from nav_msgs.msg import Odometry
 
 from home_robot.utils.geometry import xyt2sophus, sophus2xyt, xyt_base_to_global
 from home_robot.utils.geometry.ros import pose_sophus2ros, pose_ros2sophus
@@ -55,13 +56,15 @@ def limit_control_mode(valid_modes: List[ControlMode]):
 
     def decorator(func):
         def wrapper(self, *args, **kwargs):
-            if self._robot_state.base_control_mode in valid_modes:
+            curr_mode = self._robot_state.base_control_mode
+
+            if curr_mode in valid_modes:
                 return func(self, *args, **kwargs)
             else:
                 rospy.logerr(
                     f"'{func.__name__}' is only available in the following modes: {valid_modes}"
                 )
-                rospy.logerr(f"Current mode is: {self._control_mode}")
+                rospy.logerr(f"Current mode is: {curr_mode}")
                 return None
 
         return wrapper
@@ -78,7 +81,8 @@ class StretchRobotState:
     base_control_mode: ControlMode
 
     last_base_update_timestamp: rospy.Time
-    t_base: sp.SE3
+    t_base_filtered: sp.SE3
+    t_base_odom: sp.SE3
 
     last_joint_update_timestamp: rospy.Time
     q_lift: float
@@ -102,8 +106,22 @@ class LocalHelloRobot:
     Currently only works with a local rosmaster
     """
 
-    def __init__(self, init_node: bool = True, init_cameras=True):
-        self._robot_state = StretchRobotState(base_control_mode=ControlMode.IDLE)
+    def __init__(self, init_node: bool = True, init_cameras: bool = False):
+        self._robot_state = StretchRobotState(
+            base_control_mode=ControlMode.IDLE,
+            last_base_update_timestamp=rospy.Time(),
+            t_base_filtered=sp.SE3(),
+            t_base_odom=sp.SE3(),
+            last_joint_update_timestamp=rospy.Time(),
+            q_lift=0.0,
+            q_arm=0.0,
+            q_wrist_yaw=0.0,
+            q_wrist_pitch=0.0,
+            q_wrist_roll=0.0,
+            q_gripper_finger=0.0,
+            q_head_pan=0.0,
+            q_head_tilt=0.0,
+        )
 
         # Cameras
         if init_cameras:
@@ -128,6 +146,12 @@ class LocalHelloRobot:
         self._goal_pub = rospy.Publisher("goto_controller/goal", Pose, queue_size=1)
         self._velocity_pub = rospy.Publisher("stretch/cmd_vel", Twist, queue_size=1)
 
+        self._odom_sub = rospy.Subscriber(
+            "odom",
+            Odometry,
+            self._odom_callback,
+            queue_size=1,
+        )
         self._base_state_sub = rospy.Subscriber(
             "state_estimator/pose_filtered",
             PoseStamped,
@@ -158,12 +182,13 @@ class LocalHelloRobot:
 
         # Initialize control mode & home robot
         self.switch_to_manipulation_mode()
+        self.set_arm_joint_positions([0, 0.3, 0, 0, 0, 0])
+        self.set_camera_pan_tilt(0, 0)
         self.close_gripper()
-        self.set_arm_joint_positions([0.1, 0.3, 0, 0, 0, 0])
         self._robot_state.base_control_mode = ControlMode.IDLE
 
     # Getter interfaces
-    def get_robot_state(self):
+    def get_state(self):
         """
         base
             pose
@@ -189,13 +214,13 @@ class LocalHelloRobot:
         output = defaultdict(dict)
 
         # Base state
-        output["base"]["pose_se2"] = sophus2xyt(robot_state.t_base)
+        output["base"]["pose_se2"] = sophus2xyt(robot_state.t_base_filtered)
         output["base"]["twist_se2"] = np.zeros(3)
 
         # Manipulator states
         output["joint_positions"] = np.array(
             [
-                self._compute_base_translation_pos(robot_state.t_base),
+                self._compute_base_translation_pos(robot_state.t_base_odom),
                 robot_state.q_lift,
                 robot_state.q_arm,
                 robot_state.q_wrist_yaw,
@@ -300,11 +325,11 @@ class LocalHelloRobot:
 
         # Set manipulator params
         self._manipulator_params = ManipulatorBaseParams(
-            se3_base=self._robot_state.t_base,
+            se3_base=self._robot_state.t_base_odom,
         )
 
         # Switch interface mode & print messages
-        self._robot_state.bsae_control_mode = ControlMode.MANIPULATION
+        self._robot_state.base_control_mode = ControlMode.MANIPULATION
         rospy.loginfo(result1.message)
         rospy.loginfo(result2.message)
 
@@ -374,9 +399,9 @@ class LocalHelloRobot:
             ROS_BASE_TRANSLATION_JOINT: base_joint_pos_cmd,
             ROS_LIFT_JOINT: joint_positions[1],
             ROS_ARM_JOINT: joint_positions[2],
-            ROS_WRIST_YAW: joint_positions[3],
-            ROS_WRIST_PITCH: joint_positions[4],
-            ROS_WRIST_ROLL: joint_positions[5],
+            # ROS_WRIST_YAW: joint_positions[3],
+            # ROS_WRIST_PITCH: joint_positions[4],
+            # ROS_WRIST_ROLL: joint_positions[5],
         }
 
         self._send_ros_trajectory_goals(joint_goals)
@@ -494,21 +519,25 @@ class LocalHelloRobot:
             return 0.0
 
         l0_pose = self._manipulator_params.se3_base
-        l1_pose = self._robot_state.t_base if t_base is None else t_base
+        l1_pose = self._robot_state.t_base_odom if t_base is None else t_base
         return (l0_pose.inverse() * l1_pose).translation()[0]
 
     # Subscriber callbacks
+    def _odom_callback(self, msg: Odometry):
+        self._robot_state.last_base_update_timestamp = msg.header.stamp
+        self._robot_state.t_base_odom = pose_ros2sophus(msg.pose.pose)
+
     def _base_state_callback(self, msg: PoseStamped):
         self._robot_state.last_base_update_timestamp = msg.header.stamp
-        self._robot_state.t_base = pose_ros2sophus(msg.pose)
+        self._robot_state.t_base_filtered = pose_ros2sophus(msg.pose)
 
     def _joint_state_callback(self, msg: JointState):
         self._robot_state.last_joint_update_timestamp = msg.header.stamp
 
-        if ROS_ARM_JOINTS_ACTUAL[0] in msg.names:
+        if ROS_ARM_JOINTS_ACTUAL[0] in msg.name:
             self._robot_state.q_arm = 0.0
 
-        for name, pos in zip(msg.names, msg.position):
+        for name, pos in zip(msg.name, msg.position):
             if name == ROS_LIFT_JOINT:
                 self._robot_state.q_lift = pos
             elif name in ROS_ARM_JOINTS_ACTUAL:
