@@ -71,6 +71,7 @@ class InteractiveMarkerManager(object):
         self.allow_base_motion = allow_base_motion
         self.model = self.robot.get_model()
         self.verbose = verbose
+        self.save_depth_factor = 1000
 
         # Set up some teleop tools
         self.menu_handler = MenuHandler()
@@ -135,6 +136,9 @@ class InteractiveMarkerManager(object):
                 self.writer = self.get_writer()
             if not self.recording:
                 self.recording = True
+                writer.add_config(depth_factor=self.save_depth_factor)
+                writer.add_config(rgb_cam=self.robot.rgb_cam.get_info())
+                writer.add_config(dpt_cam=self.robot.dpt_cam.get_info())
             else:
                 self.recording = False
                 inp = input("Enter demonstration name:")
@@ -228,6 +232,26 @@ class InteractiveMarkerManager(object):
         while not rospy.is_shutdown():
             if self.recording:
                 print("...")
+                # Now get the information we need from the cameras
+                # And save it out
+                rgb, depth, xyz = rob.get_images()
+                q, dq = rob.update()
+                marker_pose = self.pose.copy()
+                base_pose = rob.get_base_pose()
+                ee_pose = rob.get_pose(STRETCH_GRASP_FRAME)
+                # Add array info
+                writer.add_frame(
+                    q=q,
+                    dq=dq,
+                    base_pose=base_pose,
+                    ee_pose=ee_pose,
+                    marker_pose=marker_pose,
+                )
+                # Add compressed image information
+                writer.add_img_frame(
+                    rgb=rgb, depth=(depth * self.save_depth_factor).astype(np.uint16)
+                )
+                # We also need camera info...
             if self.done:
                 if self.recording:
                     print("Writing file...")

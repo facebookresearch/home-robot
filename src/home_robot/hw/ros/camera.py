@@ -100,6 +100,34 @@ class RosCamera(Camera):
     def get_K(self):
         return self.K.copy()
 
+    def get_info(self):
+        return {
+            "D",
+            self.D,
+            "K",
+            self.K,
+            "fx",
+            self.fx,
+            "fy",
+            self.fy,
+            "px",
+            self.px,
+            "py",
+            self.py,
+            "near_val",
+            self.near_val,
+            "far_val",
+            self.far_val,
+            "R",
+            self.R,
+            "P",
+            self.P,
+            "height",
+            self.height,
+            "width",
+            self.width,
+        }
+
     def __init__(
         self, name="/camera/color", verbose=True, flipxy=False, buffer_size=None
     ):
