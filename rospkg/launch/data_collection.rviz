@@ -6,16 +6,16 @@ Panels:
       Expanded:
         - /Global Options1
         - /Status1
-        - /Map1
-        - /Path1
-        - /RobotModel1
         - /TF1/Frames1
         - /TF1/Tree1
-        - /DepthCloud1
+        - /DepthCloud1/Status1
         - /DepthCloud1/Occlusion Compensation1
+        - /RGB1
+        - /Depth (aligned)1
         - /InteractiveMarkers1
         - /PoseArray1
         - /Labeler1
+        - /DepthCloud2/Auto Size1
       Splitter Ratio: 0.5257270932197571
     Tree Height: 1799
   - Class: rviz/Selection
@@ -359,106 +359,10 @@ Visualization Manager:
       Use rainbow: true
       Value: true
     - Class: rviz/TF
-      Enabled: true
+      Enabled: false
       Frame Timeout: 150
       Frames:
         All Enabled: false
-        base_link:
-          Value: false
-        camera_accel_frame:
-          Value: false
-        camera_accel_optical_frame:
-          Value: false
-        camera_aligned_depth_to_color_frame:
-          Value: false
-        camera_bottom_screw_frame:
-          Value: false
-        camera_color_frame:
-          Value: false
-        camera_color_optical_frame:
-          Value: false
-        camera_depth_frame:
-          Value: false
-        camera_depth_optical_frame:
-          Value: false
-        camera_gyro_frame:
-          Value: false
-        camera_gyro_optical_frame:
-          Value: false
-        camera_infra1_frame:
-          Value: false
-        camera_infra1_optical_frame:
-          Value: false
-        camera_infra2_frame:
-          Value: false
-        camera_infra2_optical_frame:
-          Value: false
-        camera_link:
-          Value: false
-        caster_link:
-          Value: false
-        laser:
-          Value: false
-        link_arm_l0:
-          Value: false
-        link_arm_l1:
-          Value: false
-        link_arm_l2:
-          Value: false
-        link_arm_l3:
-          Value: false
-        link_arm_l4:
-          Value: false
-        link_aruco_inner_wrist:
-          Value: false
-        link_aruco_left_base:
-          Value: false
-        link_aruco_right_base:
-          Value: false
-        link_aruco_shoulder:
-          Value: false
-        link_aruco_top_wrist:
-          Value: false
-        link_gripper_finger_left:
-          Value: false
-        link_gripper_finger_right:
-          Value: false
-        link_gripper_fingertip_left:
-          Value: false
-        link_gripper_fingertip_right:
-          Value: false
-        link_head:
-          Value: false
-        link_head_pan:
-          Value: false
-        link_head_tilt:
-          Value: false
-        link_left_wheel:
-          Value: false
-        link_lift:
-          Value: false
-        link_mast:
-          Value: false
-        link_right_wheel:
-          Value: false
-        link_straight_gripper:
-          Value: true
-        link_wrist_pitch:
-          Value: false
-        link_wrist_roll:
-          Value: false
-        link_wrist_yaw:
-          Value: false
-        link_wrist_yaw_bottom:
-          Value: false
-        map:
-          Value: false
-        odom:
-          Value: false
-        respeaker_base:
-          Value: false
-        scanmatcher_frame:
-          Value: false
       Marker Alpha: 1
       Marker Scale: 1
       Name: TF
@@ -466,76 +370,9 @@ Visualization Manager:
       Show Axes: true
       Show Names: true
       Tree:
-        map:
-          odom:
-            base_link:
-              caster_link:
-                {}
-              laser:
-                {}
-              link_aruco_left_base:
-                {}
-              link_aruco_right_base:
-                {}
-              link_left_wheel:
-                {}
-              link_mast:
-                link_head:
-                  link_head_pan:
-                    link_head_tilt:
-                      camera_bottom_screw_frame:
-                        camera_link:
-                          camera_accel_frame:
-                            camera_accel_optical_frame:
-                              {}
-                          camera_aligned_depth_to_color_frame:
-                            {}
-                          camera_color_frame:
-                            camera_color_optical_frame:
-                              {}
-                          camera_depth_frame:
-                            camera_depth_optical_frame:
-                              {}
-                          camera_gyro_frame:
-                            camera_gyro_optical_frame:
-                              {}
-                          camera_infra1_frame:
-                            camera_infra1_optical_frame:
-                              {}
-                          camera_infra2_frame:
-                            camera_infra2_optical_frame:
-                              {}
-                link_lift:
-                  link_arm_l4:
-                    link_arm_l3:
-                      link_arm_l2:
-                        link_arm_l1:
-                          link_arm_l0:
-                            link_aruco_inner_wrist:
-                              {}
-                            link_aruco_top_wrist:
-                              {}
-                            link_wrist_yaw:
-                              link_wrist_yaw_bottom:
-                                link_wrist_pitch:
-                                  link_wrist_roll:
-                                    link_straight_gripper:
-                                      link_gripper_finger_left:
-                                        link_gripper_fingertip_left:
-                                          {}
-                                      link_gripper_finger_right:
-                                        link_gripper_fingertip_right:
-                                          {}
-                  link_aruco_shoulder:
-                    {}
-                respeaker_base:
-                  {}
-              link_right_wheel:
-                {}
-          scanmatcher_frame:
-            {}
+        {}
       Update Interval: 0
-      Value: true
+      Value: false
     - Alpha: 1
       Auto Size:
         Auto Size Factor: 1
@@ -575,7 +412,7 @@ Visualization Manager:
       Value: true
     - Class: rviz/Image
       Enabled: false
-      Image Topic: /rotated_image
+      Image Topic: /rotated_color
       Max Value: 1
       Median window: 5
       Min Value: 0
@@ -587,7 +424,7 @@ Visualization Manager:
       Value: false
     - Class: rviz/Image
       Enabled: false
-      Image Topic: /rotated_image
+      Image Topic: /rotated_depth
       Max Value: 1
       Median window: 5
       Min Value: 0
@@ -641,6 +478,43 @@ Visualization Manager:
       Show Visual Aids: true
       Update Topic: /demo_control/update
       Value: true
+    - Alpha: 1
+      Auto Size:
+        Auto Size Factor: 1
+        Value: false
+      Autocompute Intensity Bounds: true
+      Autocompute Value Bounds:
+        Max Value: 10
+        Min Value: -10
+        Value: true
+      Axis: Z
+      Channel Name: intensity
+      Class: rviz/DepthCloud
+      Color: 255; 255; 255
+      Color Image Topic: /color/image_raw
+      Color Transformer: RGB8
+      Color Transport Hint: raw
+      Decay Time: 0
+      Depth Map Topic: /depth/image_raw
+      Depth Map Transport Hint: raw
+      Enabled: false
+      Invert Rainbow: false
+      Max Color: 255; 255; 255
+      Min Color: 0; 0; 0
+      Name: DepthCloud
+      Occlusion Compensation:
+        Occlusion Time-Out: 30
+        Value: false
+      Position Transformer: XYZ
+      Queue Size: 5
+      Selectable: true
+      Size (Pixels): 3
+      Size (m): 0.004999999888241291
+      Style: Flat Squares
+      Topic Filter: true
+      Use Fixed Frame: true
+      Use rainbow: true
+      Value: false
   Enabled: true
   Global Options:
     Background Color: 48; 48; 48
@@ -685,9 +559,9 @@ Visualization Manager:
       Invert Z Axis: false
       Name: Current View
       Near Clip Distance: 0.009999999776482582
-      Pitch: 0.12520194053649902
+      Pitch: 0.41020187735557556
       Target Frame: <Fixed Frame>
-      Yaw: 1.0267194509506226
+      Yaw: 0.7817196249961853
     Saved: ~
 Window Geometry:
   Depth (aligned):

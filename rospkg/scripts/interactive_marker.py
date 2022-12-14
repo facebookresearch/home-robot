@@ -257,14 +257,14 @@ class InteractiveMarkerManager(object):
                 if self.recording:
                     print("Writing file...")
                     if self.writer is not None:
-                        self.writer.close()
+                        self.writer.write_trial(str(self.idx))
                         self.writer = None
                 break
             rate.sleep()
 
     def __del__(self):
         if self.writer is not None:
-            self.writer.close()
+            self.writer.write_trial(str(self.idx))
 
     #####################################################################
     # Utils from willow garage
