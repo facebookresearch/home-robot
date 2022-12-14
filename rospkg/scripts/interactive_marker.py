@@ -96,7 +96,6 @@ class InteractiveMarkerManager(object):
         self._hdf5_lock = Lock()
 
         # Track the pose for where we're currently commanding the robot
-        self.pose = None
         self.done = False
         self.recording = False
         self.writer = self.get_writer()
@@ -111,7 +110,8 @@ class InteractiveMarkerManager(object):
             pose_mat = rob.get_pose(
                 frame="link_straight_gripper", base_frame="base_link"
             )
-            pose_mat = pose_mat @ STRETCH_TO_GRASP
+        pose_mat = pose_mat @ STRETCH_TO_GRASP
+        self.pose = pose_mat
 
         position = Point(*pose_mat[:3, 3])
         orientation = Quaternion(*tra.quaternion_from_matrix(pose_mat))
@@ -241,7 +241,7 @@ class InteractiveMarkerManager(object):
                 base_pose = rob.get_base_pose()
                 ee_pose = rob.get_pose(STRETCH_GRASP_FRAME)
                 # Add array info
-                writer.add_frame(
+                self.writer.add_frame(
                     q=q,
                     dq=dq,
                     base_pose=base_pose,
@@ -249,15 +249,16 @@ class InteractiveMarkerManager(object):
                     marker_pose=marker_pose,
                 )
                 # Add compressed image information
-                writer.add_img_frame(
+                self.writer.add_img_frame(
                     rgb=rgb, depth=(depth * self.save_depth_factor).astype(np.uint16)
                 )
                 # We also need camera info...
             if self.done:
                 if self.recording:
                     print("Writing file...")
-                    self.writer.close()
-                    self.writer = None
+                    if self.writer is not None:
+                        self.writer.close()
+                        self.writer = None
                 break
             rate.sleep()
 
