@@ -81,6 +81,11 @@ class InteractiveMarkerManager(object):
         self.menu_handler.insert("Open gripper", callback=self._cb_open_ee)
         self.menu_handler.insert("Close gripper", callback=self._cb_close_ee)
         self.menu_handler.insert("Go To Marker", callback=self._cb_move_to_marker)
+        self.menu_handler.insert(
+            "Start/Stop Recording", callback=self._cb_toggle_recording
+        )
+        self.menu_handler.insert("Record Keyframe", callback=self._cb_record_keyframe)
+        self.menu_handler.insert("Quit", callback=self._cb_quit)
 
         self.br = TransformBroadcaster()
         self._pose_lock = Lock()
@@ -88,6 +93,9 @@ class InteractiveMarkerManager(object):
 
         # Track the pose for where we're currently commanding the robot
         self.pose = None
+        self.done = False
+        self.recording = False
+        self.writer = None
 
         self.server = InteractiveMarkerServer("demo_control")
         rate = rospy.Rate(10)
@@ -107,6 +115,15 @@ class InteractiveMarkerManager(object):
             False, InteractiveMarkerControl.NONE, position, orientation, True
         )
         self.server.applyChanges()
+
+    def _cb_quit(self, *args, **kwargs):
+        self.done = True
+
+    def _cb_toggle_recording(self, msg):
+        raise NotImplementedError()
+
+    def _cb_record_keyframe(self, msg):
+        raise NotImplementedError()
 
     def check_switch_to_position_mode(self):
         """only switch if necessary"""
@@ -340,7 +357,7 @@ if __name__ == "__main__":
     # Create robot interface
     planner_urdf = os.path.join(get_package_path(), "..", PLANNER_STRETCH_URDF)
     rob = HelloStretchROSInterface(
-        visualize_planner=False, init_cameras=False, urdf_path=planner_urdf
+        visualize_planner=False, init_cameras=True, urdf_path=planner_urdf
     )
     manager = InteractiveMarkerManager(rob)
     manager.spin()
