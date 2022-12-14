@@ -53,6 +53,7 @@ from geometry_msgs.msg import Point, Quaternion
 from tf.broadcaster import TransformBroadcaster
 import tf.transformations as tra
 
+from datetime import datetime
 from random import random
 from math import sin
 from threading import Lock
@@ -90,12 +91,13 @@ class InteractiveMarkerManager(object):
         self.br = TransformBroadcaster()
         self._pose_lock = Lock()
         self._cmd_lock = Lock()
+        self._hdf5_lock = Lock()
 
         # Track the pose for where we're currently commanding the robot
         self.pose = None
         self.done = False
         self.recording = False
-        self.writer = None
+        self.writer = self.get_writer()
 
         self.server = InteractiveMarkerServer("demo_control")
         rate = rospy.Rate(10)
@@ -120,8 +122,24 @@ class InteractiveMarkerManager(object):
     def _cb_quit(self, *args, **kwargs):
         self.done = True
 
+    def get_writer(self):
+        filename = datetime.now().strftime("%Y_%m_%d-%H_%M_%S-demo.h5")
+        dirname = os.path.join(get_package_path(), "stretch_demos")
+        self.idx = 0
+        return DataWriter(filename, dirname)
+
     def _cb_toggle_recording(self, msg):
-        raise NotImplementedError()
+        with self._hdf5_lock:
+            if self.writer is None:
+                print("Creating a writer...")
+                self.writer = self.get_writer()
+            if not self.recording:
+                self.recording = True
+            else:
+                self.recording = False
+                inp = input("Enter demonstration name:")
+                self.writer.write_trial(str(self.idx) + "_" + str(inp))
+                self.idx += 1
 
     def _cb_record_keyframe(self, msg):
         raise NotImplementedError()
@@ -213,8 +231,14 @@ class InteractiveMarkerManager(object):
             if self.done:
                 if self.recording:
                     print("Writing file...")
+                    self.writer.close()
+                    self.writer = None
                 break
             rate.sleep()
+
+    def __del__(self):
+        if self.writer is not None:
+            self.writer.close()
 
     #####################################################################
     # Utils from willow garage
