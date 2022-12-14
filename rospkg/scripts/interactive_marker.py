@@ -34,9 +34,10 @@ import numpy as np
 # Our imports
 from home_robot.hw.ros.stretch_ros import HelloStretchROSInterface
 from home_robot.hw.ros.path import get_package_path
-from home_robot.hw.ros.utils import to_normalized_quaternion_msg
+from home_robot.hw.ros.utils import to_normalized_quaternion_msg, matrix_from_pose_msg
 from home_robot.agent.motion.robot import PLANNER_STRETCH_URDF, STRETCH_TO_GRASP
 from home_robot.utils.data_tools.writer import DataWriter
+from home_robot.utils.pose import to_matrix
 
 from interactive_markers.interactive_marker_server import InteractiveMarkerServer
 from interactive_markers.menu_handler import MenuHandler
@@ -104,9 +105,13 @@ class InteractiveMarkerManager(object):
             )
         elif feedback.event_type == InteractiveMarkerFeedback.POSE_UPDATE:
             rospy.loginfo(s + ": pose changed")
+            print("\nMarker moved to:")
+            pose = matrix_from_pose_msg(feedback.pose)
             pos = feedback.pose.position
             rot = feedback.pose.orientation
-            print(pos, rot)
+            print(pos)
+            print(rot)
+            print(pose)
         elif feedback.event_type == InteractiveMarkerFeedback.MOUSE_DOWN:
             rospy.loginfo(s + ": mouse down" + mp + ".")
         elif feedback.event_type == InteractiveMarkerFeedback.MOUSE_UP:
