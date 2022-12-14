@@ -60,12 +60,13 @@ from threading import Lock
 class InteractiveMarkerManager(object):
     """Wrap interactive marker script into a class for simplicity and cleanliness"""
 
-    def __init__(self, robot):
+    def __init__(self, robot, allow_base_motion=False):
         """Takes robot as an argument - in case we want to do IK and actually move the robot
         to different positions interactively.
 
         In the future this should use Austin's API"""
         self.robot = robot
+        self.allow_base_motion = allow_base_motion
         self.model = self.robot.get_model()
 
         # Set up some teleop tools
@@ -77,6 +78,7 @@ class InteractiveMarkerManager(object):
         self.menu_handler.insert("Look at gripper", callback=self._cb_look_at_ee)
         self.menu_handler.insert("Open gripper", callback=self._cb_open_ee)
         self.menu_handler.insert("Close gripper", callback=self._cb_close_ee)
+        self.menu_handler.insert("Go To Marker", callback=self._cb_move_to_marker)
 
         self.br = TransformBroadcaster()
         self._pose_lock = Lock()
@@ -103,6 +105,25 @@ class InteractiveMarkerManager(object):
             False, InteractiveMarkerControl.NONE, position, orientation, True
         )
         self.server.applyChanges()
+
+    def check_switch_to_position_mode(self):
+        """only switch if necessary"""
+        if not self.robot.in_position_mode():
+            self.switch_to_position_mode()
+
+    def _cb_move_to_marker(self, feedback):
+        with self._cmd_lock:
+            self.check_switch_to_position_mode()
+            q0, _ = self.robot.update()
+            with self._pose_lock:
+                if self.pose is None:
+                    return
+                q = self.model.lift_arm_ik_from_matrix(self.pose, q0)
+                print("Attempting to move...")
+                print(self.pose)
+                print("q =", q)
+            if q is not None:
+                self.robot.goto(q, move_base=False, wait=False)
 
     def _cb_open_ee(self, msg):
         print("Opening the gripper")
@@ -132,6 +153,7 @@ class InteractiveMarkerManager(object):
         with self._cmd_lock:
             q, _ = self.robot.update()
             q[HelloStretchIdx.ARM] = 0
+            q[HelloStretchIdx.LIFT] = 0.5
             self.robot.goto(q, move_base=False, wait=False)
             rospy.sleep(1.0)
             q = STRETCH_PREGRASP_Q.copy()
@@ -180,9 +202,10 @@ class InteractiveMarkerManager(object):
             )
         elif feedback.event_type == InteractiveMarkerFeedback.POSE_UPDATE:
             rospy.loginfo(s + ": pose changed")
-            print("\nMarker moved to:")
             pose = matrix_from_pose_msg(feedback.pose)
-            print(pose)
+            if self.verbose:
+                print("\nMarker moved to:")
+                print(pose)
             with self._pose_lock:
                 self.pose = pose
         elif feedback.event_type == InteractiveMarkerFeedback.MOUSE_DOWN:
@@ -195,7 +218,13 @@ class InteractiveMarkerManager(object):
     # Marker Creation
 
     def make6DofMarker(
-        self, fixed, interaction_mode, position, orientation, show_6dof=False
+        self,
+        fixed,
+        interaction_mode,
+        position,
+        orientation,
+        show_6dof=False,
+        allow_base_motion=False,
     ):
         int_marker = InteractiveMarker()
         int_marker.header.frame_id = "base_link"
@@ -263,6 +292,9 @@ class InteractiveMarkerManager(object):
                 control.orientation_mode = InteractiveMarkerControl.FIXED
             int_marker.controls.append(control)
 
+            # NOTE: If you want to add move-y, you can do it here.
+            # But for a marker in the base coordinates of the robot, this might not make sense,
+            # unless we allow the robot to "strafe."
             control = InteractiveMarkerControl()
             control.orientation = to_normalized_quaternion_msg(1, 0, 0, 1)
             control.name = "move_y"
