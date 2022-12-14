@@ -165,8 +165,6 @@ class LocalHelloRobot:
     # Getter interfaces
     def get_robot_state(self):
         """
-        Note: read poses from tf2 buffer
-
         base
             pose
                 pos
