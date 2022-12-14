@@ -38,6 +38,7 @@ from home_robot.hw.ros.utils import to_normalized_quaternion_msg, matrix_from_po
 from home_robot.agent.motion.robot import (
     PLANNER_STRETCH_URDF,
     STRETCH_TO_GRASP,
+    STRETCH_GRASP_FRAME,
     STRETCH_GRASP_OFFSET,
     STRETCH_HOME_Q,
     STRETCH_PREGRASP_Q,
@@ -136,9 +137,9 @@ class InteractiveMarkerManager(object):
                 self.writer = self.get_writer()
             if not self.recording:
                 self.recording = True
-                writer.add_config(depth_factor=self.save_depth_factor)
-                writer.add_config(rgb_cam=self.robot.rgb_cam.get_info())
-                writer.add_config(dpt_cam=self.robot.dpt_cam.get_info())
+                self.writer.add_config(depth_factor=self.save_depth_factor)
+                self.writer.add_config(rgb_cam=self.robot.rgb_cam.get_info())
+                self.writer.add_config(dpt_cam=self.robot.dpt_cam.get_info())
             else:
                 self.recording = False
                 inp = input("Enter demonstration name:")
@@ -228,7 +229,7 @@ class InteractiveMarkerManager(object):
 
     def spin(self):
         """Call this to run data collection in a loop"""
-        rate = rospy.Rate(10)
+        rate = rospy.Rate(5)
         while not rospy.is_shutdown():
             if self.recording:
                 print("...")
