@@ -186,6 +186,18 @@ class InteractiveMarkerManager(object):
             q = self.model.update_look_front(q)
             self.robot.goto(q, move_base=False, wait=False)
 
+    def spin(self):
+        """Call this to run data collection in a loop"""
+        rate = rospy.Rate(10)
+        while not rospy.is_shutdown():
+            if self.recording:
+                print("...")
+            if self.quit:
+                if self.recording:
+                    print("Writing file...")
+                break
+            rate.sleep()
+
     #####################################################################
     # Utils from willow garage
     def processFeedback(self, feedback):
@@ -331,4 +343,4 @@ if __name__ == "__main__":
         visualize_planner=False, init_cameras=False, urdf_path=planner_urdf
     )
     manager = InteractiveMarkerManager(rob)
-    rospy.spin()
+    manager.spin()

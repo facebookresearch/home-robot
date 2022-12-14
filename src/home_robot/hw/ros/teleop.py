@@ -165,15 +165,30 @@ class TeleopMarkerServer(object):
         self.menu_handler.insert("Look at gripper", callback=self._cb_look_at_ee)
         self.menu_handler.insert("Open gripper", callback=self._cb_open_ee)
         self.menu_handler.insert("Close gripper", callback=self._cb_close_ee)
+        self.menu_handler.insert(
+            "Start/Stop Recording", callback=self._cb_toggle_recording
+        )
+        self.menu_handler.insert("Record Keyframe", callback=self._cb_record_keyframe)
+        self.menu_handler.insert("Quit", callback=self._cb_quit)
 
         # create a timer to update the published transforms
         self.counter = 0
+        self.done = False
         self.br = TransformBroadcaster()
         self.add_base_marker()
         self.add_arm_marker()
         self.add_gripper_marker()
         rospy.Timer(rospy.Duration(0.01), self._cb_update_poses)
         self.marker_server.applyChanges()
+
+    def _cb_quit(self, *args, **kwargs):
+        self.done = True
+
+    def _cb_toggle_recording(self, msg):
+        raise NotImplementedError()
+
+    def _cb_record_keyframe(self, msg):
+        raise NotImplementedError()
 
     def _cb_open_ee(self, msg):
         print("Opening the gripper")
