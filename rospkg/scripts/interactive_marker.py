@@ -29,12 +29,14 @@ POSSIBILITY OF SUCH DAMAGE.
 import rospy
 import copy
 import os
+import numpy as np
 
 # Our imports
 from home_robot.hw.ros.stretch_ros import HelloStretchROSInterface
 from home_robot.hw.ros.path import get_package_path
+from home_robot.hw.ros.utils import to_normalized_quaternion_msg
 from home_robot.agent.motion.robot import PLANNER_STRETCH_URDF, STRETCH_TO_GRASP
-from home_robot.utils.data.writer import DataWriter
+from home_robot.utils.data_tools.writer import DataWriter
 
 from interactive_markers.interactive_marker_server import InteractiveMarkerServer
 from interactive_markers.menu_handler import MenuHandler
@@ -109,12 +111,14 @@ class InteractiveMarkerManager(object):
             rospy.loginfo(s + ": mouse down" + mp + ".")
         elif feedback.event_type == InteractiveMarkerFeedback.MOUSE_UP:
             rospy.loginfo(s + ": mouse up" + mp + ".")
-        server.applyChanges()
+        self.server.applyChanges()
 
     #####################################################################
     # Marker Creation
 
-    def make6DofMarker(fixed, interaction_mode, position, orientation, show_6dof=False):
+    def make6DofMarker(
+        self, fixed, interaction_mode, position, orientation, show_6dof=False
+    ):
         int_marker = InteractiveMarker()
         int_marker.header.frame_id = "base_link"
         int_marker.pose.position = position
@@ -142,10 +146,7 @@ class InteractiveMarkerManager(object):
 
         if show_6dof:
             control = InteractiveMarkerControl()
-            control.orientation.w = 1
-            control.orientation.x = 1
-            control.orientation.y = 0
-            control.orientation.z = 0
+            control.orientation = to_normalized_quaternion_msg(1, 1, 0, 0)
             control.name = "rotate_x"
             control.interaction_mode = InteractiveMarkerControl.ROTATE_AXIS
             if fixed:
@@ -153,10 +154,7 @@ class InteractiveMarkerManager(object):
             int_marker.controls.append(control)
 
             control = InteractiveMarkerControl()
-            control.orientation.w = 1
-            control.orientation.x = 1
-            control.orientation.y = 0
-            control.orientation.z = 0
+            control.orientation = to_normalized_quaternion_msg(1, 1, 0, 0)
             control.name = "move_x"
             control.interaction_mode = InteractiveMarkerControl.MOVE_AXIS
             if fixed:
@@ -164,10 +162,7 @@ class InteractiveMarkerManager(object):
             int_marker.controls.append(control)
 
             control = InteractiveMarkerControl()
-            control.orientation.w = 1
-            control.orientation.x = 0
-            control.orientation.y = 1
-            control.orientation.z = 0
+            control.orientation = to_normalized_quaternion_msg(1, 0, 1, 0)
             control.name = "rotate_z"
             control.interaction_mode = InteractiveMarkerControl.ROTATE_AXIS
             if fixed:
@@ -175,10 +170,7 @@ class InteractiveMarkerManager(object):
             int_marker.controls.append(control)
 
             control = InteractiveMarkerControl()
-            control.orientation.w = 1
-            control.orientation.x = 0
-            control.orientation.y = 1
-            control.orientation.z = 0
+            control.orientation = to_normalized_quaternion_msg(1, 0, 1, 0)
             control.name = "move_z"
             control.interaction_mode = InteractiveMarkerControl.MOVE_AXIS
             if fixed:
@@ -186,10 +178,7 @@ class InteractiveMarkerManager(object):
             int_marker.controls.append(control)
 
             control = InteractiveMarkerControl()
-            control.orientation.w = 1
-            control.orientation.x = 0
-            control.orientation.y = 0
-            control.orientation.z = 1
+            control.orientation = to_normalized_quaternion_msg(1, 0, 0, 1)
             control.name = "rotate_y"
             control.interaction_mode = InteractiveMarkerControl.ROTATE_AXIS
             if fixed:
@@ -197,18 +186,15 @@ class InteractiveMarkerManager(object):
             int_marker.controls.append(control)
 
             control = InteractiveMarkerControl()
-            control.orientation.w = 1
-            control.orientation.x = 0
-            control.orientation.y = 0
-            control.orientation.z = 1
+            control.orientation = to_normalized_quaternion_msg(1, 0, 0, 1)
             control.name = "move_y"
             control.interaction_mode = InteractiveMarkerControl.MOVE_AXIS
             if fixed:
                 control.orientation_mode = InteractiveMarkerControl.FIXED
             int_marker.controls.append(control)
 
-        server.insert(int_marker, processFeedback)
-        menu_handler.apply(server, int_marker.name)
+        self.server.insert(int_marker, self.processFeedback)
+        self.menu_handler.apply(self.server, int_marker.name)
 
 
 if __name__ == "__main__":
