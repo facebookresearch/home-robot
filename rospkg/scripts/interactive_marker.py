@@ -102,7 +102,7 @@ class InteractiveMarkerManager(object):
 
         pose_mat = None
         while not rospy.is_shutdown() and pose_mat is None:
-            print("getting pose...")
+            print("Getting of the end effector...")
             rate.sleep()
             pose_mat = rob.get_pose(
                 frame="link_straight_gripper", base_frame="base_link"
@@ -115,6 +115,7 @@ class InteractiveMarkerManager(object):
             False, InteractiveMarkerControl.NONE, position, orientation, True
         )
         self.server.applyChanges()
+        print("Marker initialized. Move the marker and right-click for options.")
 
     def _cb_quit(self, *args, **kwargs):
         self.done = True
@@ -209,7 +210,7 @@ class InteractiveMarkerManager(object):
         while not rospy.is_shutdown():
             if self.recording:
                 print("...")
-            if self.quit:
+            if self.done:
                 if self.recording:
                     print("Writing file...")
                 break
