@@ -21,6 +21,7 @@ from sensor_msgs.msg import JointState
 
 from home_robot.utils.geometry import xyt2sophus, sophus2xyt, xyt_base_to_global
 from home_robot.utils.geometry.ros import pose_sophus2ros, pose_ros2sophus
+from home_robot.hw.ros.camera import RosCamera
 
 
 T_LOC_STABILIZE = 1.0
@@ -42,11 +43,6 @@ STRETCH_GRIPPER_OPEN = 0.22
 STRETCH_GRIPPER_CLOSE = -0.2
 
 
-@dataclass
-class ManipulatorBaseParams:
-    se3_base: sp.SE3
-
-
 class ControlMode(Enum):
     IDLE = 0
     VELOCITY = 1
@@ -62,10 +58,10 @@ def limit_control_mode(valid_modes: List[ControlMode]):
             if self._robot_state.base_control_mode in valid_modes:
                 return func(self, *args, **kwargs)
             else:
-                rospy.logwarn(
+                rospy.logerr(
                     f"'{func.__name__}' is only available in the following modes: {valid_modes}"
                 )
-                rospy.logwarn(f"Current mode is: {self._control_mode}")
+                rospy.logerr(f"Current mode is: {self._control_mode}")
                 return None
 
         return wrapper
@@ -95,14 +91,35 @@ class StretchRobotState:
     q_head_tilt: float
 
 
+@dataclass
+class ManipulatorBaseParams:
+    se3_base: sp.SE3
+
+
 class LocalHelloRobot:
     """
     ROS interface for robot base control
     Currently only works with a local rosmaster
     """
 
-    def __init__(self, init_node: bool = True):
+    def __init__(self, init_node: bool = True, init_cameras=True):
         self._robot_state = StretchRobotState(base_control_mode=ControlMode.IDLE)
+
+        # Cameras
+        if init_cameras:
+            rospy.loginfo("Creating cameras...")
+            self.rgb_cam = RosCamera("/camera/color")
+            self.dpt_cam = RosCamera(
+                "/camera/aligned_depth_to_color", buffer_size=depth_buffer_size
+            )
+            rospy.loginfo("Waiting for camera images...")
+            self.rgb_cam.wait_for_image()
+            self.dpt_cam.wait_for_image()
+            rospy.loginfo("Done.")
+            rospy.loginfo("rgb frame =", self.rgb_cam.get_frame())
+            rospy.loginfo("dpt frame =", self.dpt_cam.get_frame())
+        else:
+            self.rgb_cam, self.dpt_cam = None, None
 
         # Ros pubsub
         if init_node:
@@ -198,12 +215,38 @@ class LocalHelloRobot:
     def get_base_state(self):
         return self.get_robot_state["base"]
 
-    def get_camera_image(self):
-        """
-        rgb, depth, xyz = self.robot.get_images()
-        return rgb, depth
-        """
-        pass
+    def get_camera_image(self, filter_depth=True, compute_xyz=True):
+        if self.rgb_cam is None or self.dpt_cam is None:
+            rospy.logerr("Cameras not initialized!")
+            return
+
+        rgb = self.rgb_cam.get()
+        if filter_depth:
+            dpt = self.dpt_cam.get_filtered()
+        else:
+            dpt = self.dpt_cam.get()
+        if compute_xyz:
+            xyz = self.dpt_cam.depth_to_xyz(self.dpt_cam.fix_depth(dpt))
+            imgs = [rgb, dpt, xyz]
+        else:
+            imgs = [rgb, dpt]
+            xyz = None
+
+        # Get xyz in base coords for later
+        imgs = [np.rot90(np.fliplr(np.flipud(x))) for x in imgs]
+
+        if xyz is not None:
+            xyz = imgs[-1]
+            H, W = rgb.shape[:2]
+            xyz = xyz.reshape(-1, 3)
+
+            # Rotate the sretch camera so that top of image is "up"
+            R_stretch_camera = tra.euler_matrix(0, 0, -np.pi / 2)[:3, :3]
+            xyz = xyz @ R_stretch_camera
+            xyz = xyz.reshape(H, W, 3)
+            imgs[-1] = xyz
+
+        return imgs
 
     def get_joint_limits(self):
         """
