@@ -8,7 +8,7 @@ from sensor_msgs.msg import Image
 
 rospy.init_node('png_sender')
 #client = imagiz.Client("cc1", server_ip="192.168.0.79", server_port=5555)
-client = imagiz.TCP_Client(client_name="cc1", server_ip="192.168.0.48", server_port=9990)
+client = imagiz.TCP_Client(client_name="cc1", server_ip="192.168.0.79", server_port=9990)
 print("---------------")
 encode_param = [int(cv2.IMWRITE_JPEG_QUALITY), 90]
 lock = threading.Lock()
