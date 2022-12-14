@@ -4,5 +4,6 @@
 	<node pkg="rviz" type="rviz" name="rviz" 
 		args="-d $(find home_robot)/launch/data_collection.rviz"/>
 	<node pkg="home_robot" type="rotate_images.py" name="rotate_images_from_stretch_head"/>
-	<node pkg="home_robot" type="interactive_marker.py" name="data_annotation_marker"/>
+	<node pkg="home_robot" type="interactive_marker.py" name="data_annotation_marker"
+	      output="screen"/>
 </launch>

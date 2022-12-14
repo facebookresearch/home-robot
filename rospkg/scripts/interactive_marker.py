@@ -48,6 +48,7 @@ import tf.transformations as tra
 
 from random import random
 from math import sin
+from threading import Lock
 
 
 class InteractiveMarkerManager(object):
@@ -61,6 +62,7 @@ class InteractiveMarkerManager(object):
         self.robot = robot
         self.menu_handler = MenuHandler()
         self.br = TransformBroadcaster()
+        self._pose_lock = Lock()
 
         # Track the pose for where we're currently commanding the robot
         self.pose = None
@@ -107,11 +109,9 @@ class InteractiveMarkerManager(object):
             rospy.loginfo(s + ": pose changed")
             print("\nMarker moved to:")
             pose = matrix_from_pose_msg(feedback.pose)
-            pos = feedback.pose.position
-            rot = feedback.pose.orientation
-            print(pos)
-            print(rot)
             print(pose)
+            with self._pose_lock:
+                self.pose = pose
         elif feedback.event_type == InteractiveMarkerFeedback.MOUSE_DOWN:
             rospy.loginfo(s + ": mouse down" + mp + ".")
         elif feedback.event_type == InteractiveMarkerFeedback.MOUSE_UP:
