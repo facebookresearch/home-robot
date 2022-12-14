@@ -38,12 +38,13 @@ from home_robot.hw.ros.utils import to_normalized_quaternion_msg, matrix_from_po
 from home_robot.agent.motion.robot import (
     PLANNER_STRETCH_URDF,
     STRETCH_TO_GRASP,
+    STRETCH_GRASP_OFFSET,
     STRETCH_HOME_Q,
     STRETCH_PREGRASP_Q,
     HelloStretchIdx,
 )
 from home_robot.utils.data_tools.writer import DataWriter
-from home_robot.utils.pose import to_matrix
+from home_robot.utils.pose import to_matrix, to_pos_quat
 
 from interactive_markers.interactive_marker_server import InteractiveMarkerServer
 from interactive_markers.menu_handler import MenuHandler
@@ -60,7 +61,7 @@ from threading import Lock
 class InteractiveMarkerManager(object):
     """Wrap interactive marker script into a class for simplicity and cleanliness"""
 
-    def __init__(self, robot, allow_base_motion=False):
+    def __init__(self, robot, allow_base_motion=False, verbose=False):
         """Takes robot as an argument - in case we want to do IK and actually move the robot
         to different positions interactively.
 
@@ -68,6 +69,7 @@ class InteractiveMarkerManager(object):
         self.robot = robot
         self.allow_base_motion = allow_base_motion
         self.model = self.robot.get_model()
+        self.verbose = verbose
 
         # Set up some teleop tools
         self.menu_handler = MenuHandler()
@@ -118,7 +120,10 @@ class InteractiveMarkerManager(object):
             with self._pose_lock:
                 if self.pose is None:
                     return
-                q = self.model.lift_arm_ik_from_matrix(self.pose, q0)
+                # q = self.model.lift_arm_ik_from_matrix(self.pose, q0)
+                ee_pose = self.pose @ STRETCH_GRASP_OFFSET
+                ee_pose = to_pos_quat(ee_pose)
+                q = self.model.static_ik(ee_pose, q0)
                 print("Attempting to move...")
                 print(self.pose)
                 print("q =", q)
@@ -195,13 +200,21 @@ class InteractiveMarkerManager(object):
             mp += " in frame " + feedback.header.frame_id
 
         if feedback.event_type == InteractiveMarkerFeedback.BUTTON_CLICK:
-            rospy.loginfo(s + ": button click" + mp + ".")
+            if self.verbose:
+                rospy.loginfo(s + ": button click" + mp + ".")
         elif feedback.event_type == InteractiveMarkerFeedback.MENU_SELECT:
-            rospy.loginfo(
-                s + ": menu item " + str(feedback.menu_entry_id) + " clicked" + mp + "."
-            )
+            if self.verbose:
+                rospy.loginfo(
+                    s
+                    + ": menu item "
+                    + str(feedback.menu_entry_id)
+                    + " clicked"
+                    + mp
+                    + "."
+                )
         elif feedback.event_type == InteractiveMarkerFeedback.POSE_UPDATE:
-            rospy.loginfo(s + ": pose changed")
+            if self.verbose:
+                rospy.loginfo(s + ": pose changed")
             pose = matrix_from_pose_msg(feedback.pose)
             if self.verbose:
                 print("\nMarker moved to:")
@@ -209,9 +222,11 @@ class InteractiveMarkerManager(object):
             with self._pose_lock:
                 self.pose = pose
         elif feedback.event_type == InteractiveMarkerFeedback.MOUSE_DOWN:
-            rospy.loginfo(s + ": mouse down" + mp + ".")
+            if self.verbose:
+                rospy.loginfo(s + ": mouse down" + mp + ".")
         elif feedback.event_type == InteractiveMarkerFeedback.MOUSE_UP:
-            rospy.loginfo(s + ": mouse up" + mp + ".")
+            if self.verbose:
+                rospy.loginfo(s + ": mouse up" + mp + ".")
         self.server.applyChanges()
 
     #####################################################################
