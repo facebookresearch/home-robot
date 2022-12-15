@@ -7,6 +7,7 @@ from home_robot.utils.data_tools.image import img_from_bytes
 from sensor_msgs.msg import Image
 
 rospy.init_node("local_republisher")
+show_images = True
 
 color_server = imagiz.TCP_Server(port=9990)
 depth_server = imagiz.TCP_Server(port=9991)
@@ -25,18 +26,21 @@ while not rospy.is_shutdown():
     for server, name in zip(servers, ["color", "depth"]):
         message = server.receive()
         if name == "color":
-            # frame = img_from_bytes(message.image)
-            frame = cv2.imdecode(message.image, 1)
+            frame = img_from_bytes(message.image, format="webp")
+            # frame = cv2.imdecode(message.image, 1)
             pub_color.publish(numpy_to_image(frame, "8UC3"))
-            cv2.imshow(name, frame)
-            cv2.waitKey(1)
         elif name == "depth":
             # frame = cv2.imdecode(message.image, 0)
-            frame = img_from_bytes(message.image)
+            frame = (img_from_bytes(message.image, format="png") / 1000.0).astype(
+                np.float32
+            )
             # print(frame)
             # print(frame.shape)
-            pub_depth.publish(
-                numpy_to_image((frame / 1000.0).astype(np.float32), "32FC1")
-            )
-        break
+            # pub_depth.publish(
+            #    numpy_to_image((frame / 1000.0).astype(np.float32), "32FC1")
+            # )
+        if show_images:
+            print(frame)
+            cv2.imshow(name, frame)
+            cv2.waitKey(1)
     rate.sleep()
