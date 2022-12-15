@@ -20,19 +20,19 @@ def encode_color(frame):
     r, image = cv2.imencode(".jpg", frame, encode_param)
     return image
 def encode_depth(frame):
-    r, image = cv2.imencode(".png", frame * 1000)
-    return image.astype(np.uint16)
+    frame = (frame * 1000).astype(np.uint16)
+    r, image = cv2.imencode(".png", frame)
+    return image
 
 encoders = [encode_color, encode_depth]
 
 
 print("Waiting for images from ROS...")
-rate = rospy.Rate(30)
+rate = rospy.Rate(15)
 while not rospy.is_shutdown():
     for camera, client, encode in zip(cameras, clients, encoders):
         frame = camera.get()
         if frame is not None:
-            print("Sending frame...")
-            client.send(encode_color(frame))
+            client.send(encode(frame))
     rate.sleep()
 
