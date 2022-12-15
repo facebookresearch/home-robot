@@ -36,7 +36,7 @@ def encode_color(frame):
 def encode_depth(frame):
     frame = (frame * 1000).astype(np.uint16)
     # r, image = cv2.imencode(".png", frame)
-    image = img_to_bytes(frame)
+    image = img_to_bytes(frame, format="png")
     print("depth len =", len(image))
     return image
 
