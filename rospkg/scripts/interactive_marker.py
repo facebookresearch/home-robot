@@ -129,6 +129,7 @@ class InteractiveMarkerManager(object):
 
     def _cb_reset_marker(self, feedback):
         pose_mat = None
+        rate = rospy.Rate(10)
         while not rospy.is_shutdown() and pose_mat is None:
             print("Getting of the end effector...")
             rate.sleep()
