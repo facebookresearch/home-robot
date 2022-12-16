@@ -185,7 +185,6 @@ class InteractiveMarkerManager(object):
                 print("Attempting to move...")
                 print(self.pose)
                 print("q =", self.goal_q)
-            if q is not None:
                 self.robot.goto(self.goal_q, move_base=False, wait=False)
 
     def _cb_open_ee(self, msg):
