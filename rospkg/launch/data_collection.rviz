@@ -8,6 +8,8 @@ Panels:
         - /Status1
         - /TF1/Frames1
         - /TF1/Tree1
+        - /DepthCloud1
+        - /DepthCloud1/Status1
         - /DepthCloud1/Occlusion Compensation1
         - /RGB1
         - /Depth (aligned)1
@@ -385,13 +387,13 @@ Visualization Manager:
       Channel Name: intensity
       Class: rviz/DepthCloud
       Color: 255; 255; 255
-      Color Image Topic: /camera/color/image_raw
+      Color Image Topic: /server/color/image_raw
       Color Transformer: RGB8
       Color Transport Hint: raw
       Decay Time: 0
-      Depth Map Topic: /camera/aligned_depth_to_color/image_raw
+      Depth Map Topic: /server/depth/image_raw
       Depth Map Transport Hint: raw
-      Enabled: false
+      Enabled: true
       Invert Rainbow: false
       Max Color: 255; 255; 255
       Min Color: 0; 0; 0
@@ -405,10 +407,10 @@ Visualization Manager:
       Size (Pixels): 3
       Size (m): 0.004999999888241291
       Style: Flat Squares
-      Topic Filter: true
+      Topic Filter: false
       Use Fixed Frame: true
       Use rainbow: true
-      Value: false
+      Value: true
     - Class: rviz/Image
       Enabled: true
       Image Topic: /server/color/image_raw
@@ -542,7 +544,7 @@ Visualization Manager:
   Views:
     Current:
       Class: rviz/XYOrbit
-      Distance: 3.852750301361084
+      Distance: 7.604645252227783
       Enable Stereo Rendering:
         Stereo Eye Separation: 0.05999999865889549
         Stereo Focal Distance: 1
@@ -558,9 +560,9 @@ Visualization Manager:
       Invert Z Axis: false
       Name: Current View
       Near Clip Distance: 0.009999999776482582
-      Pitch: 0.2552017867565155
+      Pitch: -0.04979829117655754
       Target Frame: <Fixed Frame>
-      Yaw: 0.8367195725440979
+      Yaw: 4.38672399520874
     Saved: ~
 Window Geometry:
   Depth (aligned):
