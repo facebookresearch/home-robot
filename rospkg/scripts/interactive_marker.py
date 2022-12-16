@@ -128,6 +128,7 @@ class InteractiveMarkerManager(object):
         print("Marker initialized. Move the marker and right-click for options.")
 
     def _cb_reset_marker(self, feedback):
+        pose_mat = None
         while not rospy.is_shutdown() and pose_mat is None:
             print("Getting of the end effector...")
             rate.sleep()
