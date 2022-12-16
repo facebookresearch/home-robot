@@ -109,18 +109,22 @@ class InteractiveMarkerManager(object):
         self.server = InteractiveMarkerServer("demo_control")
         rate = rospy.Rate(10)
 
-        self.pose, self.goal_q = self.get_current_pose()
+        pose_mat, curr_q = self.get_current_pose()
 
-        position = Point(*pose_mat[:3, 3])
-        orientation = Quaternion(*tra.quaternion_from_matrix(pose_mat))
-        self.make6DofMarker(
-            False, InteractiveMarkerControl.NONE, position, orientation, True
-        )
+        with self._pose_lock:
+            self.pose = pose_mat
+            self.goal_q = curr_q
+            position = Point(*pose_mat[:3, 3])
+            orientation = Quaternion(*tra.quaternion_from_matrix(pose_mat))
+            self.make6DofMarker(
+                False, InteractiveMarkerControl.NONE, position, orientation, True
+            )
         self.server.applyChanges()
         print("Marker initialized. Move the marker and right-click for options.")
 
     def get_current_pose(self):
         pose_mat = None
+        rate = rospy.Rate(10)
         while not rospy.is_shutdown() and pose_mat is None:
             print("Getting of the end effector...")
             rate.sleep()
@@ -261,13 +265,13 @@ class InteractiveMarkerManager(object):
         rate = rospy.Rate(5)
         while not rospy.is_shutdown():
             if self.recording:
-                print("...")
+                print("...", self.frame_idx)
                 # Now get the information we need from the cameras
                 # And save it out
                 rgb, depth, xyz = rob.get_images()
                 q, dq = rob.update()
                 marker_pose = self.pose.copy()
-                base_pose = rob.get_base_pose()
+                base_pose, base_pose_t = rob.get_base_pose()
                 ee_pose = rob.get_pose(STRETCH_GRASP_FRAME)
                 # Add array info
                 self.writer.add_frame(
