@@ -58,7 +58,6 @@ class DataWriter(object):
     def add_frame(self, **data):
         """Add data fields to tracked temporal data"""
         data = self.fix_data(data)
-        breakpoint()
         for k, v in data.items():
             # TODO check data types here
             if k in self.config_data:
