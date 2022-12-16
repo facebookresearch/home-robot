@@ -7,7 +7,7 @@ from home_robot.utils.data_tools.image import img_from_bytes
 from sensor_msgs.msg import Image, CameraInfo
 
 rospy.init_node("local_republisher")
-show_images = True
+show_images = False
 
 color_server = imagiz.TCP_Server(port=9990)
 depth_server = imagiz.TCP_Server(port=9991)
@@ -24,13 +24,16 @@ pub_depth_cam_info = rospy.Publisher(
 )
 
 reference_frame = None
+sequence_id = 0
 
 
 def send_and_receive_camera_info(cam_info, publisher):
     global reference_frame
+    global sequence_id
     if reference_frame is None:
         reference_frame = cam_info.header.frame_id
     cam_info.header.stamp = rospy.Time.now()
+    cam_info.header.seq = sequence_id
     publisher.publish(cam_info)
 
 
@@ -56,6 +59,7 @@ while not rospy.is_shutdown():
             msg = numpy_to_image(frame, "8UC3")
             msg.header.stamp = rospy.Time.now()
             msg.header.frame_id = reference_frame
+            msg.header.seq = sequence_id
             pub_color.publish(msg)
         elif name == "depth":
             # frame = cv2.imdecode(message.image, 0)
@@ -66,9 +70,11 @@ while not rospy.is_shutdown():
             msg = numpy_to_image((frame / 1000.0).astype(np.float32), "32FC1")
             msg.header.stamp = rospy.Time.now()
             msg.header.frame_id = reference_frame
+            msg.header.seq = sequence_id
             pub_depth.publish(msg)
         if show_images:
             cv2.imshow(name, frame)
             cv2.waitKey(1)
     rate.sleep()
+    sequence_id += 1
 print("Done.")
