@@ -4,7 +4,7 @@ import cv2
 import numpy as np
 from home_robot.hw.ros.msg_numpy import image_to_numpy, numpy_to_image
 from home_robot.utils.data_tools.image import img_from_bytes
-from sensor_msgs.msg import Image
+from sensor_msgs.msg import Image, CameraInfo
 
 rospy.init_node("local_republisher")
 show_images = True
@@ -16,7 +16,26 @@ pub_color = rospy.Publisher("/server/color/image_raw", Image, queue_size=2)
 pub_depth = rospy.Publisher("/server/depth/image_raw", Image, queue_size=2)
 pub_rotated_color = rospy.Publisher("/server/rotated_color", Image, queue_size=2)
 pub_rotated_depth = rospy.Publisher("/server/rotated_depth", Image, queue_size=2)
+pub_color_cam_info = rospy.Publisher(
+    "/server/color/camera_info", CameraInfo, queue_size=1
+)
+pub_depth_cam_info = rospy.Publisher(
+    "/server/depth/camera_info", CameraInfo, queue_size=1
+)
 
+
+def send_and_receive_camera_info(cam_info, publisher):
+    publisher.publish(cam_info)
+
+
+cb_color_cam_info = lambda msg: send_and_receive_camera_info(msg, pub_color_cam_info)
+cb_depth_cam_info = lambda msg: send_and_receive_camera_info(msg, pub_depth_cam_info)
+sub_color_cam_info = rospy.Subscriber(
+    "/camera/color/camera_info", CameraInfo, cb_color_cam_info
+)
+sub_depth_cam_info = rospy.Subscriber(
+    "/camera/aligned_depth_to_color/camera_info", CameraInfo, cb_color_cam_info
+)
 
 servers = [color_server, depth_server]
 for server in servers:
@@ -34,13 +53,12 @@ while not rospy.is_shutdown():
             frame = (img_from_bytes(message.image, format="png") / 1000.0).astype(
                 np.float32
             )
-            # print(frame)
-            # print(frame.shape)
-            # pub_depth.publish(
-            #    numpy_to_image((frame / 1000.0).astype(np.float32), "32FC1")
-            # )
+            # Publish images to the new topic
+            pub_depth.publish(
+                numpy_to_image((frame / 1000.0).astype(np.float32), "32FC1")
+            )
         if show_images:
-            print(frame)
             cv2.imshow(name, frame)
             cv2.waitKey(1)
     rate.sleep()
+print("Done.")
