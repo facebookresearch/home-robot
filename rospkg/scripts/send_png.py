@@ -23,13 +23,15 @@ cameras = [color_camera, depth_camera]
 
 # Encode everything
 encode_param = [int(cv2.IMWRITE_JPEG_QUALITY), 90]
+show_sizes = False
 
 
 def encode_color(frame):
     # r, image = cv2.imencode(".jpg", frame, encode_param)
     image = img_to_bytes(frame, format="webp")
     # image = img_to_bytes(frame)
-    print("color len =", len(image))
+    if show_sizes:
+        print("color len =", len(image))
     return image
 
 
@@ -37,7 +39,8 @@ def encode_depth(frame):
     frame = (frame * 1000).astype(np.uint16)
     # r, image = cv2.imencode(".png", frame)
     image = img_to_bytes(frame, format="png")
-    print("depth len =", len(image))
+    if show_sizes:
+        print("depth len =", len(image))
     return image
 
 
@@ -51,3 +54,4 @@ while not rospy.is_shutdown():
         if frame is not None:
             client.send(encode(frame))
     rate.sleep()
+print("Done.")
