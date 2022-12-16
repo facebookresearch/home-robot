@@ -103,21 +103,13 @@ class InteractiveMarkerManager(object):
         # Track the pose for where we're currently commanding the robot
         self.done = False
         self.recording = False
+        self.frame_idx = -1
         self.writer = self.get_writer()
 
         self.server = InteractiveMarkerServer("demo_control")
         rate = rospy.Rate(10)
 
-        pose_mat = None
-        while not rospy.is_shutdown() and pose_mat is None:
-            print("Getting of the end effector...")
-            rate.sleep()
-            pose_mat = rob.get_pose(
-                frame="link_straight_gripper", base_frame="base_link"
-            )
-        pose_mat = pose_mat @ STRETCH_TO_GRASP
-        self.pose = pose_mat
-        self.goal_q, _ = self.robot.update()
+        self.pose, self.goal_q = self.get_current_pose()
 
         position = Point(*pose_mat[:3, 3])
         orientation = Quaternion(*tra.quaternion_from_matrix(pose_mat))
@@ -127,9 +119,8 @@ class InteractiveMarkerManager(object):
         self.server.applyChanges()
         print("Marker initialized. Move the marker and right-click for options.")
 
-    def _cb_reset_marker(self, feedback):
+    def get_current_pose(self):
         pose_mat = None
-        rate = rospy.Rate(10)
         while not rospy.is_shutdown() and pose_mat is None:
             print("Getting of the end effector...")
             rate.sleep()
@@ -137,9 +128,14 @@ class InteractiveMarkerManager(object):
                 frame="link_straight_gripper", base_frame="base_link"
             )
         pose_mat = pose_mat @ STRETCH_TO_GRASP
+        goal_q, _ = self.robot.update()
+        return pose_mat, goal_q
+
+    def _cb_reset_marker(self, feedback):
+        pose_mat, curr_q = self.get_current_pose()
         with self._pose_lock:
             self.pose = pose_mat
-            self.goal_q, _ = self.robot.update()
+            self.goal_q = curr_q
             pose_msg = matrix_to_pose_msg(self.pose)
             self.server.setPose(feedback.marker_name, pose_msg)
         self.server.applyChanges()
@@ -154,6 +150,9 @@ class InteractiveMarkerManager(object):
         return DataWriter(filename, dirname)
 
     def _cb_toggle_recording(self, msg):
+        """
+        start or stop recording
+        """
         with self._hdf5_lock:
             if self.writer is None:
                 print("Creating a writer...")
@@ -163,6 +162,8 @@ class InteractiveMarkerManager(object):
                 self.writer.add_config(depth_factor=self.save_depth_factor)
                 self.writer.add_config(rgb_cam=self.robot.rgb_cam.get_info())
                 self.writer.add_config(dpt_cam=self.robot.dpt_cam.get_info())
+                # Track how many frames we have added
+                self.frame_idx = 0
             else:
                 self.recording = False
                 inp = input("Enter demonstration name:")
@@ -170,7 +171,17 @@ class InteractiveMarkerManager(object):
                 self.idx += 1
 
     def _cb_record_keyframe(self, msg):
-        raise NotImplementedError()
+        """record a single keyframe"""
+        if self.recording:
+            # Get keypoint information and record it
+            pose_mat, curr_q = self.get_current_pose()
+            self.writer.add_frame(
+                keypoint=self.frame_idx, keypoint_pose=pose_mat, keypoint_q=curr_q
+            )
+        else:
+            rospy.logerr(
+                "Cannot record a keyframe when you have not started recording!"
+            )
 
     def check_switch_to_position_mode(self):
         """only switch if necessary"""
@@ -270,6 +281,7 @@ class InteractiveMarkerManager(object):
                 self.writer.add_img_frame(
                     rgb=rgb, depth=(depth * self.save_depth_factor).astype(np.uint16)
                 )
+                self.frame_idx += 1
                 # We also need camera info...
             if self.done:
                 if self.recording:
