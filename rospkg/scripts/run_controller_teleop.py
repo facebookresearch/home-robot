@@ -1,3 +1,5 @@
+#!/usr/bin/env python
+
 import rospy
 import os
 from home_robot.hw.teleop.stretch_xbox_controller import StretchXboxController
