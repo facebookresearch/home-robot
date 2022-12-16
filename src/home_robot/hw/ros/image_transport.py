@@ -2,12 +2,17 @@ import rospy
 import imagiz
 import cv2
 import numpy as np
+import threading
 from home_robot.hw.ros.msg_numpy import image_to_numpy, numpy_to_image
+from home_robot.hw.ros.camera import RosCamera
 from home_robot.utils.data_tools.image import img_from_bytes
+from home_robot.utils.data_tools.image import img_to_bytes
 from sensor_msgs.msg import Image, CameraInfo
 
 
 class ImageServer(object):
+    """Receives compressed images from remote - faster than ROS"""
+
     def __init__(self, show_images=False):
         self.show_images = show_images
         self.color_server = imagiz.TCP_Server(port=9990)
@@ -83,4 +88,57 @@ class ImageServer(object):
                     cv2.waitKey(1)
             rate.sleep()
             self.sequence_id += 1
+        print("Done.")
+
+
+class ImageClient(object):
+    """sends images to the server"""
+
+    def __init__(self, show_sizes=False):
+        self.color_client = imagiz.TCP_Client(
+            client_name="color", server_ip="192.168.0.79", server_port=9990
+        )
+        self.depth_client = imagiz.TCP_Client(
+            client_name="depth", server_ip="192.168.0.79", server_port=9991
+        )
+        self.clients = [self.color_client, self.depth_client]
+
+        self.color_camera = RosCamera("/camera/color")
+        self.depth_camera = RosCamera("/camera/aligned_depth_to_color")
+        self.cameras = [self.color_camera, self.depth_camera]
+
+        # Encode everything
+        # JPEG compression
+        # TODO currently unused - example code
+        self.encode_param = [int(cv2.IMWRITE_JPEG_QUALITY), 90]
+        self.show_sizes = show_sizes
+        self.encoders = [self.encode_color, self.encode_depth]
+
+    def encode_color(self, frame):
+        # r, image = cv2.imencode(".jpg", frame, encode_param)
+        image = img_to_bytes(frame, format="webp")
+        # image = img_to_bytes(frame)
+        if self.show_sizes:
+            print("color len =", len(image))
+        return image
+
+    def encode_depth(self, frame):
+        frame = (frame * 1000).astype(np.uint16)
+        # r, image = cv2.imencode(".png", frame)
+        image = img_to_bytes(frame, format="png")
+        if self.show_sizes:
+            print("depth len =", len(image))
+        return image
+
+    def spin(self, rate=15):
+        print("Waiting for images from ROS...")
+        rate = rospy.Rate(rate)
+        while not rospy.is_shutdown():
+            for camera, client, encode in zip(
+                self.cameras, self.clients, self.encoders
+            ):
+                frame = camera.get().copy()
+                if frame is not None:
+                    client.send(encode(frame))
+            rate.sleep()
         print("Done.")

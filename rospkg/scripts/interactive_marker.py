@@ -87,6 +87,7 @@ class InteractiveMarkerManager(object):
         self.menu_handler.insert("Look at gripper", callback=self._cb_look_at_ee)
         self.menu_handler.insert("Open gripper", callback=self._cb_open_ee)
         self.menu_handler.insert("Close gripper", callback=self._cb_close_ee)
+        self.menu_handler.insert("Reset Marker", callback=self._cb_reset_marker)
         self.menu_handler.insert("Go To Marker", callback=self._cb_move_to_marker)
         self.menu_handler.insert(
             "Start/Stop Recording", callback=self._cb_toggle_recording
@@ -125,6 +126,21 @@ class InteractiveMarkerManager(object):
         )
         self.server.applyChanges()
         print("Marker initialized. Move the marker and right-click for options.")
+
+    def _cb_reset_marker(self, feedback):
+        while not rospy.is_shutdown() and pose_mat is None:
+            print("Getting of the end effector...")
+            rate.sleep()
+            pose_mat = rob.get_pose(
+                frame="link_straight_gripper", base_frame="base_link"
+            )
+        pose_mat = pose_mat @ STRETCH_TO_GRASP
+        with self._pose_lock:
+            self.pose = pose_mat
+            self.goal_q, _ = self.robot.update()
+            pose_msg = matrix_to_pose_msg(self.pose)
+            self.server.setPose(feedback.marker_name, pose_msg)
+        self.server.applyChanges()
 
     def _cb_quit(self, *args, **kwargs):
         self.done = True
