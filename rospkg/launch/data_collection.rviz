@@ -9,7 +9,6 @@ Panels:
         - /TF1/Frames1
         - /TF1/Tree1
         - /DepthCloud1
-        - /DepthCloud1/Status1
         - /DepthCloud1/Occlusion Compensation1
         - /RGB1
         - /Depth (aligned)1
@@ -17,7 +16,6 @@ Panels:
         - /PoseArray1
         - /Labeler1
         - /DepthCloud2
-        - /DepthCloud2/Status1
         - /DepthCloud2/Auto Size1
       Splitter Ratio: 0.5257270932197571
     Tree Height: 1799
@@ -450,9 +448,9 @@ Visualization Manager:
       Class: rviz/Axes
       Enabled: false
       Length: 1
-      Name: Axes
+      Name: World frame
       Radius: 0.10000000149011612
-      Reference Frame: <Fixed Frame>
+      Reference Frame: map
       Show Trail: false
       Value: false
     - Alpha: 1
@@ -546,7 +544,7 @@ Visualization Manager:
   Views:
     Current:
       Class: rviz/XYOrbit
-      Distance: 3.9915308952331543
+      Distance: 7.0344414710998535
       Enable Stereo Rendering:
         Stereo Eye Separation: 0.05999999865889549
         Stereo Focal Distance: 1
@@ -562,9 +560,9 @@ Visualization Manager:
       Invert Z Axis: false
       Name: Current View
       Near Clip Distance: 0.009999999776482582
-      Pitch: 0.1702014058828354
+      Pitch: 0.3652014136314392
       Target Frame: <Fixed Frame>
-      Yaw: 0.21354597806930542
+      Yaw: 1.4485498666763306
     Saved: ~
 Window Geometry:
   Depth (aligned):

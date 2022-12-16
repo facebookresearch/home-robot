@@ -34,7 +34,11 @@ import numpy as np
 # Our imports
 from home_robot.hw.ros.stretch_ros import HelloStretchROSInterface
 from home_robot.hw.ros.path import get_package_path
-from home_robot.hw.ros.utils import to_normalized_quaternion_msg, matrix_from_pose_msg
+from home_robot.hw.ros.utils import (
+    to_normalized_quaternion_msg,
+    matrix_from_pose_msg,
+    matrix_to_pose_msg,
+)
 from home_robot.agent.motion.robot import (
     PLANNER_STRETCH_URDF,
     STRETCH_TO_GRASP,
@@ -112,6 +116,7 @@ class InteractiveMarkerManager(object):
             )
         pose_mat = pose_mat @ STRETCH_TO_GRASP
         self.pose = pose_mat
+        self.goal_q, _ = self.robot.update()
 
         position = Point(*pose_mat[:3, 3])
         orientation = Quaternion(*tra.quaternion_from_matrix(pose_mat))
@@ -161,15 +166,11 @@ class InteractiveMarkerManager(object):
             with self._pose_lock:
                 if self.pose is None:
                     return
-                # q = self.model.lift_arm_ik_from_matrix(self.pose, q0)
-                ee_pose = self.pose @ STRETCH_GRASP_OFFSET
-                ee_pose = to_pos_quat(ee_pose)
-                q = self.model.static_ik(ee_pose, q0)
                 print("Attempting to move...")
                 print(self.pose)
-                print("q =", q)
+                print("q =", self.goal_q)
             if q is not None:
-                self.robot.goto(q, move_base=False, wait=False)
+                self.robot.goto(self.goal_q, move_base=False, wait=False)
 
     def _cb_open_ee(self, msg):
         print("Opening the gripper")
@@ -295,18 +296,35 @@ class InteractiveMarkerManager(object):
         elif feedback.event_type == InteractiveMarkerFeedback.POSE_UPDATE:
             if self.verbose:
                 rospy.loginfo(s + ": pose changed")
+
+            # Correct pose - make sure it stays reasonable
+            feedback.pose.position.x = 0
+
             pose = matrix_from_pose_msg(feedback.pose)
             if self.verbose:
                 print("\nMarker moved to:")
                 print(pose)
+
+            q0, _ = self.robot.update()
+            ee_pose = self.pose @ STRETCH_GRASP_OFFSET
+            ee_pose = to_pos_quat(ee_pose)
+            q = self.model.static_ik(ee_pose, q0)
             with self._pose_lock:
-                self.pose = pose
+                if q is not None:
+                    self.pose = pose
+                    self.goal_q = q
+                    print(q)
+                else:
+                    pose_msg = matrix_to_pose_msg(self.pose)
+                    self.server.setPose(feedback.marker_name, pose_msg)
+
         elif feedback.event_type == InteractiveMarkerFeedback.MOUSE_DOWN:
             if self.verbose:
                 rospy.loginfo(s + ": mouse down" + mp + ".")
         elif feedback.event_type == InteractiveMarkerFeedback.MOUSE_UP:
             if self.verbose:
                 rospy.loginfo(s + ": mouse up" + mp + ".")
+
         self.server.applyChanges()
 
     #####################################################################

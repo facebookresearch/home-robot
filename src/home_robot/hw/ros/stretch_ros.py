@@ -496,6 +496,8 @@ class HelloStretchROSInterface(AbstractStretchInterface):
         init_cameras=True,
         depth_buffer_size=None,
         urdf_path=None,
+        color_topic=None,
+        depth_topic=None,
     ):
         """Create an interface into ROS execution here. This one needs to connect to:
             - joint_states to read current position
@@ -517,12 +519,15 @@ class HelloStretchROSInterface(AbstractStretchInterface):
         # Create the tf2 buffer first, used in camera init
         self.tf2_buffer = tf2_ros.Buffer()
 
+        if color_topic is None:
+            color_topic = "/camera/color"
+        if depth_topic is None:
+            depth_topic = "/camera/aligned_depth_to_color"
+
         if init_cameras:
             print("Creating cameras...")
-            self.rgb_cam = RosCamera("/camera/color")
-            self.dpt_cam = RosCamera(
-                "/camera/aligned_depth_to_color", buffer_size=depth_buffer_size
-            )
+            self.rgb_cam = RosCamera(color_topic)
+            self.dpt_cam = RosCamera(depth_topic, buffer_size=depth_buffer_size)
             self.filter_depth = depth_buffer_size is not None
             print("Waiting for rgb camera images...")
             self.rgb_cam.wait_for_image()
