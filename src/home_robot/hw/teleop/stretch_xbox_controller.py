@@ -344,7 +344,9 @@ if __name__ == "__main__":
     video_filename = "test"
     fps = 10
 
-    stretch_planner_urdf_path = os.path.join(get_package_path(), "../assets/hab_stretch/urdf/planner_calibrated.urdf")
+    stretch_planner_urdf_path = os.path.join(
+        get_package_path(), "../assets/hab_stretch/urdf/planner_calibrated.urdf"
+    )
     model = HelloStretch(
         visualize=False,
         root="",
