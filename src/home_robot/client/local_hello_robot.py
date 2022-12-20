@@ -127,9 +127,7 @@ class LocalHelloRobot:
         if init_cameras:
             rospy.loginfo("Creating cameras...")
             self.rgb_cam = RosCamera("/camera/color")
-            self.dpt_cam = RosCamera(
-                "/camera/aligned_depth_to_color", buffer_size=depth_buffer_size
-            )
+            self.dpt_cam = RosCamera("/camera/aligned_depth_to_color", buffer_size=None)
             rospy.loginfo("Waiting for camera images...")
             self.rgb_cam.wait_for_image()
             self.dpt_cam.wait_for_image()
@@ -236,7 +234,7 @@ class LocalHelloRobot:
         return output
 
     def get_base_state(self):
-        return self.get_robot_state["base"]
+        return self.get_robot_state()["base"]
 
     def get_camera_image(self, filter_depth=True, compute_xyz=True):
         if self.rgb_cam is None or self.dpt_cam is None:
