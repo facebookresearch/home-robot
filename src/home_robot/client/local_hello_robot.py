@@ -1,3 +1,4 @@
+import os
 from collections import defaultdict
 from enum import Enum
 import argparse
@@ -9,6 +10,7 @@ from dataclasses import dataclass
 
 import numpy as np
 import sophus as sp
+from scipy.spatial.transform import Rotation as R
 import rospy
 from std_srvs.srv import Trigger, TriggerRequest
 from std_srvs.srv import SetBool, SetBoolRequest
@@ -20,13 +22,25 @@ from trajectory_msgs.msg import JointTrajectoryPoint
 from sensor_msgs.msg import JointState
 from nav_msgs.msg import Odometry
 
-from home_robot.utils.geometry import xyt2sophus, sophus2xyt, xyt_base_to_global
+import home_robot
+from home_robot.utils.geometry import (
+    xyt2sophus,
+    sophus2xyt,
+    xyt_base_to_global,
+    posquat2sophus,
+)
 from home_robot.utils.geometry.ros import pose_sophus2ros, pose_ros2sophus
 from home_robot.hw.ros.camera import RosCamera
+from home_robot.agent.motion.ik import PybulletIKSolver
 
 
 T_LOC_STABILIZE = 1.0
 T_GOAL_TIME_TOL = 1.0
+
+URDF_PATH = "assets/planner_calibrated_simplified.urdf"
+URDF_ABS_PATH = os.path.join(os.path.dirname(home_robot.__file__), URDF_PATH)
+EE_LINK_NAME = "link_straight_gripper"
+CONTROLLED_JOINTS = [0, 3, 4, 5, 6, 7, 8, 9, 10]
 
 ROS_BASE_TRANSLATION_JOINT = "translate_mobile_base"
 ROS_ARM_JOINT = "joint_arm"
@@ -176,6 +190,11 @@ class LocalHelloRobot:
 
         self.trajectory_client = actionlib.SimpleActionClient(
             "/stretch_controller/follow_joint_trajectory", FollowJointTrajectoryAction
+        )
+
+        # IK
+        self.ik_solver = PybulletIKSolver(
+            URDF_ABS_PATH, EE_LINK_NAME, CONTROLLED_JOINTS
         )
 
         # Initialize control mode & home robot
@@ -417,8 +436,30 @@ class LocalHelloRobot:
         Does not rotate base.
         Cannot be used in navigation mode.
         """
-        # TODO: check pose
-        raise NotImplementedError
+        # Compute pose relative to base
+        if relative:
+            pos_rel = pos
+            quat_rel = quat
+        else:
+            pose_base_abs = xyt2sophus(self.get_base_state()["pose_se2"])
+            pose_ee_abs = posquat2sophus(pos, quat)
+            pose_ee_rel = pose_base_abs.inverse() * pose_ee_abs
+
+            pos_rel = pose_ee_rel.translation()
+            quat_rel = R.from_matrix(pose_ee_rel.so3().matrix()).as_quat()
+
+        # Perform IK
+        q_raw = self.ik_solver.compute_ik(pos_rel, quat_rel)
+
+        # Combine arm telescoping joints
+        q_manip = np.zeros(6)
+        q_manip[0] = q_raw[0]  # base X translation
+        q_manip[1] = q_raw[1]  # lift
+        q_manip[2] = np.sum(q_raw[2:6])  # squeeze arm telescoping joints into 1
+        q_manip[3:6] = q_raw[6:9]  # yaw pitch roll
+
+        # Execute joint command
+        self.set_arm_joint_positions(q_manip)
 
     @limit_control_mode(
         [

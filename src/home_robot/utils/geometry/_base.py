@@ -1,3 +1,5 @@
+from typing import Iterable
+
 import numpy as np
 import sophus as sp
 from scipy.spatial.transform import Rotation
@@ -63,3 +65,8 @@ def sophus2xyt(se3: sp.SE3) -> np.ndarray:
     x_vec = se3.translation()
     r_vec = se3.so3().log()
     return np.array([x_vec[0], x_vec[1], r_vec[2]])
+
+
+def posquat2sophus(pos: Iterable[float], quat: Iterable[float]) -> sp.SE3:
+    r_mat = Rotation.from_quat(quat).as_matrix()
+    return sp.SE3(r_mat, pos)
