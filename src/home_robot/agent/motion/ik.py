@@ -14,7 +14,7 @@ class PybulletIKSolver:
         )
 
         self.ee_idx = self.get_link_names().index(ee_link_name)
-        self.controlled_joints = controlled_joints
+        self.controlled_joints = np.array(controlled_joints)
 
     def get_joint_names(self):
         names = []
@@ -25,7 +25,7 @@ class PybulletIKSolver:
     def get_link_names(self):
         names = []
         for i in range(p.getNumJoints(self.robot_id)):
-            names.append(p.getJointInfo(self.robot_id, i)[12])
+            names.append(p.getJointInfo(self.robot_id, i)[12].decode('utf-8'))
         return names
 
     def compute_ik(self, pos_desired, quat_desired):

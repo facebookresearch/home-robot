@@ -37,8 +37,10 @@ from home_robot.agent.motion.ik import PybulletIKSolver
 T_LOC_STABILIZE = 1.0
 T_GOAL_TIME_TOL = 1.0
 
-URDF_PATH = "assets/planner_calibrated_simplified.urdf"
+URDF_PATH = "assets/hab_stretch/urdf/planner_calibrated_simplified.urdf"
 URDF_ABS_PATH = os.path.join(os.path.dirname(home_robot.__file__), URDF_PATH)
+URDF_ABS_PATH = "/home/hello-robot/catkin_ws/src/home_robot/" + URDF_PATH
+print(URDF_ABS_PATH)
 EE_LINK_NAME = "link_straight_gripper"
 CONTROLLED_JOINTS = [0, 3, 4, 5, 6, 7, 8, 9, 10]
 
