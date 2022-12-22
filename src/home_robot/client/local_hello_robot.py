@@ -31,7 +31,7 @@ from home_robot.utils.geometry import (
 )
 from home_robot.hw.ros.camera import RosCamera
 from home_robot.hw.ros.path import get_package_path
-from home_robot.hw.ros.utils import matrix_from_pose_msg
+from home_robot.hw.ros.utils import matrix_from_pose_msg, matrix_to_pose_msg
 from home_robot.agent.motion.ik import PybulletIKSolver
 
 # IK solver configuration
@@ -399,7 +399,7 @@ class LocalHelloRobot:
             xyt_goal = xyt
 
         # Set goal
-        msg = pose_sophus2ros(xyt2sophus(xyt_goal))
+        msg = matrix_to_pose_msg(xyt2sophus(xyt_goal).matrix())
         self._goal_pub.publish(msg)
 
     @limit_control_mode([ControlMode.MANIPULATION])
@@ -424,9 +424,9 @@ class LocalHelloRobot:
             ROS_BASE_TRANSLATION_JOINT: base_joint_pos_cmd,
             ROS_LIFT_JOINT: joint_positions[1],
             ROS_ARM_JOINT: joint_positions[2],
-            # ROS_WRIST_YAW: joint_positions[3],
-            # ROS_WRIST_PITCH: joint_positions[4],
-            # ROS_WRIST_ROLL: joint_positions[5],
+            ROS_WRIST_YAW: joint_positions[3],
+            ROS_WRIST_PITCH: joint_positions[4],
+            ROS_WRIST_ROLL: joint_positions[5],
         }
 
         self._send_ros_trajectory_goals(joint_goals)
