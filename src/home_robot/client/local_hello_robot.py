@@ -31,19 +31,21 @@ from home_robot.utils.geometry import (
 )
 from home_robot.utils.geometry.ros import pose_sophus2ros, pose_ros2sophus
 from home_robot.hw.ros.camera import RosCamera
+from home_robot.hw.ros.path import get_package_path
 from home_robot.agent.motion.ik import PybulletIKSolver
 
-
-T_LOC_STABILIZE = 1.0
-T_GOAL_TIME_TOL = 1.0
-
+# IK solver configuration
+try:
+    PKG_PATH = get_package_path()
+except:
+    PKG_PATH = os.path.dirname(home_robot.__file__)
 URDF_PATH = "assets/hab_stretch/urdf/planner_calibrated_simplified.urdf"
-URDF_ABS_PATH = os.path.join(os.path.dirname(home_robot.__file__), URDF_PATH)
-URDF_ABS_PATH = "/home/hello-robot/catkin_ws/src/home_robot/" + URDF_PATH
-print(URDF_ABS_PATH)
+URDF_ABS_PATH = os.path.join(PKG_PATH, URDF_PATH)
+
 EE_LINK_NAME = "link_straight_gripper"
 CONTROLLED_JOINTS = [0, 3, 4, 5, 6, 7, 8, 9, 10]
 
+# Joint names in the ROS joint trajectory server
 ROS_BASE_TRANSLATION_JOINT = "translate_mobile_base"
 ROS_ARM_JOINT = "joint_arm"
 ROS_LIFT_JOINT = "joint_lift"
@@ -55,6 +57,10 @@ ROS_HEAD_PAN = "joint_head_pan"
 ROS_HEAD_TILT = "joint_head_tilt"
 
 ROS_ARM_JOINTS_ACTUAL = ["joint_arm_l0", "joint_arm_l1", "joint_arm_l2", "joint_arm_l3"]
+
+# Parameters
+T_LOC_STABILIZE = 1.0
+T_GOAL_TIME_TOL = 1.0
 
 STRETCH_GRIPPER_OPEN = 0.22
 STRETCH_GRIPPER_CLOSE = -0.2

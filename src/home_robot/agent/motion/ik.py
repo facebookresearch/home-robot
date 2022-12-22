@@ -19,13 +19,13 @@ class PybulletIKSolver:
     def get_joint_names(self):
         names = []
         for i in range(p.getNumJoints(self.robot_id)):
-            names.append(p.getJointInfo(self.robot_id, i)[1])
+            names.append(p.getJointInfo(self.robot_id, i)[1].decode("utf-8"))
         return names
 
     def get_link_names(self):
         names = []
         for i in range(p.getNumJoints(self.robot_id)):
-            names.append(p.getJointInfo(self.robot_id, i)[12].decode('utf-8'))
+            names.append(p.getJointInfo(self.robot_id, i)[12].decode("utf-8"))
         return names
 
     def compute_ik(self, pos_desired, quat_desired):
