@@ -29,9 +29,9 @@ from home_robot.utils.geometry import (
     xyt_base_to_global,
     posquat2sophus,
 )
-from home_robot.utils.geometry.ros import pose_sophus2ros, pose_ros2sophus
 from home_robot.hw.ros.camera import RosCamera
 from home_robot.hw.ros.path import get_package_path
+from home_robot.hw.ros.utils import matrix_from_pose_msg
 from home_robot.agent.motion.ik import PybulletIKSolver
 
 # IK solver configuration
@@ -572,11 +572,11 @@ class LocalHelloRobot:
     # Subscriber callbacks
     def _odom_callback(self, msg: Odometry):
         self._robot_state.last_base_update_timestamp = msg.header.stamp
-        self._robot_state.t_base_odom = pose_ros2sophus(msg.pose.pose)
+        self._robot_state.t_base_odom = sp.SE3(matrix_from_pose_msg(msg.pose.pose))
 
     def _base_state_callback(self, msg: PoseStamped):
         self._robot_state.last_base_update_timestamp = msg.header.stamp
-        self._robot_state.t_base_filtered = pose_ros2sophus(msg.pose)
+        self._robot_state.t_base_filtered = sp.SE3(matrix_from_pose_msg(msg.pose))
 
     def _joint_state_callback(self, msg: JointState):
         self._robot_state.last_joint_update_timestamp = msg.header.stamp

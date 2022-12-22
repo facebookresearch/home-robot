@@ -1,6 +1,7 @@
 import logging
 import time
 import threading
+from typing import Optional
 
 import numpy as np
 import sophus as sp
@@ -15,33 +16,11 @@ from geometry_msgs.msg import (
 )
 from nav_msgs.msg import Odometry
 
+from home_robot.hw.ros.utils import matrix_to_pose_msg, matrix_from_pose_msg
 
 log = logging.getLogger(__name__)
 
 SLAM_CUTOFF_HZ = 0.2
-
-
-def pose_ros2sophus(pose):
-    r_mat = R.from_quat(
-        (pose.orientation.x, pose.orientation.y, pose.orientation.z, pose.orientation.w)
-    ).as_matrix()
-    t_vec = np.array([pose.position.x, pose.position.y, pose.position.z])
-    return sp.SE3(r_mat, t_vec)
-
-
-def pose_sophus2ros(pose_se3):
-    quat = R.from_matrix(pose_se3.so3().matrix()).as_quat()
-
-    pose = Pose()
-    pose.position.x = pose_se3.translation()[0]
-    pose.position.y = pose_se3.translation()[1]
-    pose.position.z = pose_se3.translation()[2]
-    pose.orientation.x = quat[0]
-    pose.orientation.y = quat[1]
-    pose.orientation.z = quat[2]
-    pose.orientation.w = quat[3]
-
-    return pose
 
 
 def cutoff_angle(duration, cutoff_freq):
@@ -59,7 +38,7 @@ class NavStateEstimator:
         self._pose_odom_prev = sp.SE3()
 
     def _publish_filtered_state(self, timestamp):
-        pose_msg = pose_sophus2ros(self._filtered_pose)
+        pose_msg = matrix_to_pose_msg(self._filtered_pose.matrix())
 
         # Publish pose msg
         pose_out = PoseStamped()
@@ -87,7 +66,7 @@ class NavStateEstimator:
         t_curr = rospy.Time.now()
 
         # Compute injected signals into filtered pose
-        pose_odom = pose_ros2sophus(pose.pose.pose)
+        pose_odom = sp.SE3(matrix_from_pose_msg(pose.pose.pose))
         pose_diff_odom = self._pose_odom_prev.inverse() * pose_odom
         with self._slam_inject_lock:
             pose_diff_slam = self._filtered_pose.inverse() * self._slam_pose_sp
@@ -112,7 +91,7 @@ class NavStateEstimator:
     def _slam_pose_callback(self, pose: PoseWithCovarianceStamped):
         # Update slam pose for filtering
         with self._slam_inject_lock:
-            self._slam_pose_sp = pose_ros2sophus(pose.pose.pose)
+            self._slam_pose_sp = sp.SE3(matrix_from_pose_msg(pose.pose.pose))
 
     def run(self):
         # ROS comms
