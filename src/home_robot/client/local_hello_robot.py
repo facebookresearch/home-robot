@@ -29,7 +29,6 @@ from home_robot.utils.geometry import (
     xyt_base_to_global,
     posquat2sophus,
 )
-from home_robot.hw.ros.camera import RosCamera
 from home_robot.hw.ros.path import get_package_path
 from home_robot.hw.ros.utils import matrix_from_pose_msg, matrix_to_pose_msg
 from home_robot.agent.motion.ik import PybulletIKSolver
@@ -147,15 +146,7 @@ class LocalHelloRobot:
 
         # Cameras
         if init_cameras:
-            rospy.loginfo("Creating cameras...")
-            self.rgb_cam = RosCamera("/camera/color")
-            self.dpt_cam = RosCamera("/camera/aligned_depth_to_color", buffer_size=None)
-            rospy.loginfo("Waiting for camera images...")
-            self.rgb_cam.wait_for_image()
-            self.dpt_cam.wait_for_image()
-            rospy.loginfo("Done.")
-            rospy.loginfo("rgb frame =", self.rgb_cam.get_frame())
-            rospy.loginfo("dpt frame =", self.dpt_cam.get_frame())
+            raise NotImplementedError
         else:
             self.rgb_cam, self.dpt_cam = None, None
 
