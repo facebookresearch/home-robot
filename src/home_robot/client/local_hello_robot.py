@@ -255,7 +255,7 @@ class LocalHelloRobot:
         return output
 
     def get_base_state(self):
-        return self.get_robot_state()["base"]
+        return self.get_state()["base"]
 
     def get_camera_image(self, filter_depth=True, compute_xyz=True):
         if self.rgb_cam is None or self.dpt_cam is None:
@@ -337,7 +337,7 @@ class LocalHelloRobot:
 
     def switch_to_manipulation_mode(self):
         result1 = self._pos_mode_service(TriggerRequest())
-        result2 = self._goto_off_service(TriggerRequest())
+        # result2 = self._goto_off_service(TriggerRequest())
 
         # Wait for navigation to stabilize
         rospy.sleep(T_LOC_STABILIZE)
@@ -350,9 +350,9 @@ class LocalHelloRobot:
         # Switch interface mode & print messages
         self._robot_state.base_control_mode = ControlMode.MANIPULATION
         rospy.loginfo(result1.message)
-        rospy.loginfo(result2.message)
+        # rospy.loginfo(result2.message)
 
-        return result1.success and result2.success
+        return result1.success # and result2.success
 
     # Control interfaces
     @limit_control_mode([ControlMode.VELOCITY])

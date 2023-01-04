@@ -14,7 +14,7 @@ class PybulletIKSolver:
         )
 
         self.ee_idx = self.get_link_names().index(ee_link_name)
-        self.controlled_joints = np.array(controlled_joints)
+        self.controlled_joints = controlled_joints
 
     def get_joint_names(self):
         names = []
@@ -35,6 +35,7 @@ class PybulletIKSolver:
             pos_desired,
             quat_desired,
         )
+        q_full = np.array(q_full)
 
         if self.controlled_joints is not None:
             q_out = q_full[self.controlled_joints]
