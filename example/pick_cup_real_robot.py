@@ -12,8 +12,7 @@ from home_robot.agent.perception.detectron2_segmentation import Detectron2Segmen
 from home_robot.agent.perception.constants import coco_categories
 from home_robot.hw.ros.grasp_helper import GraspClient as RosGraspClient
 from home_robot.utils.pose import to_pos_quat
-
-import matplotlib.pyplot as plt
+import home_robot.utils.visualization as viz
 
 visualize_masks = False
 
@@ -126,7 +125,7 @@ if __name__ == "__main__":
     q = model.update_gripper(q, open=True)
     rob.goto(q, move_base=False, wait=True)
 
-    # For video
+    # Example commands - navigation
     # Initial position
     # rob.move_base([0, 0], 0)
     # Move to before the chair
@@ -151,17 +150,9 @@ if __name__ == "__main__":
         )
         cup_mask = semantics[0, :, :, coco_categories["cup"]]
 
+        visualize_masks = True
         if visualize_masks:
-            plt.figure()
-            plt.subplot(131)
-            plt.imshow(rgb)
-            plt.subplot(132)
-            plt.imshow(cup_mask)
-            plt.subplot(133)
-            _cup_mask = cup_mask[:, :, None]
-            _cup_mask = np.repeat(_cup_mask, 3, axis=-1)
-            plt.imshow(_cup_mask * rgb / 255.0)
-            plt.show()
+            viz.show_image_with_mask(rgb, depth, cup_mask)
 
         num_cup_pts = np.sum(cup_mask)
         print("found this many cup points:", num_cup_pts)
@@ -204,6 +195,8 @@ if __name__ == "__main__":
         original_grasps = grasps.copy()
         for i, grasp in enumerate(grasps):
             grasps[i] = grasp @ grasp_offset
+
+        breakpoint()
 
         for grasp in grasps:
             print("Executing grasp")
