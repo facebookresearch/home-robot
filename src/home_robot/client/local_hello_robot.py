@@ -38,7 +38,7 @@ try:
     PKG_PATH = get_package_path()
 except:
     PKG_PATH = os.path.dirname(home_robot.__file__)
-URDF_PATH = "../../assets/planner_calibrated_simplified.urdf"
+URDF_PATH = "../../assets/hab_stretch/urdf/planner_calibrated_simplified.urdf"
 URDF_ABS_PATH = os.path.join(PKG_PATH, URDF_PATH)
 
 EE_LINK_NAME = "link_straight_gripper"
