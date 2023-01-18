@@ -3,6 +3,7 @@ from typing import List, Optional
 import threading
 
 import numpy as np
+import sophus as sp
 import rospy
 from std_srvs.srv import Trigger, TriggerResponse
 from std_srvs.srv import SetBool, SetBoolResponse
@@ -10,8 +11,8 @@ from geometry_msgs.msg import Twist, Pose, PoseStamped
 from nav_msgs.msg import Odometry
 
 from home_robot.agent.control.velocity_controllers import DDVelocityControlNoplan
+from home_robot.hw.ros.utils import matrix_from_pose_msg
 from home_robot.utils.geometry import xyt_global_to_base, sophus2xyt, xyt2sophus
-from home_robot.utils.geometry.ros import pose_ros2sophus
 
 
 log = logging.getLogger(__name__)
@@ -45,15 +46,15 @@ class GotoVelocityController:
         self.track_yaw = True
 
     def _pose_update_callback(self, msg: PoseStamped):
-        pose_sp = pose_ros2sophus(msg.pose)
+        pose_sp = sp.SE3(matrix_from_pose_msg(msg.pose))
         self.xyt_loc = sophus2xyt(pose_sp)
 
     def _odom_update_callback(self, msg: Odometry):
-        pose_sp = pose_ros2sophus(msg.pose.pose)
+        pose_sp = sp.SE3(matrix_from_pose_msg(msg.pose.pose))
         self.xyt_loc_odom = sophus2xyt(pose_sp)
 
     def _goal_update_callback(self, msg: Pose):
-        pose_sp = pose_ros2sophus(msg)
+        pose_sp = sp.SE3(matrix_from_pose_msg(msg))
 
         if self.odom_only:
             # Project absolute goal from current odometry reading
