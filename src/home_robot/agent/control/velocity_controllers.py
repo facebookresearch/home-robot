@@ -3,12 +3,17 @@ from typing import Tuple
 
 import numpy as np
 
-V_MAX_DEFAULT = 0.2  # base.params["motion"]["default"]["vel_m"]
-W_MAX_DEFAULT = 0.45  # (vel_m_max - vel_m_default) / wheel_separation_m
+# Parameters of the trapezoidal velocity profile (acceleration & max speed)
+V_MAX = 0.2  # base.params["motion"]["default"]["vel_m"]
+W_MAX = 0.45  # (vel_m_max - vel_m_default) / wheel_separation_m
 ACC_LIN = 0.2  # 0.5 * base.params["motion"]["max"]["accel_m"]
 ACC_ANG = 0.6  # 0.5 * (accel_m_max - accel_m_default) / wheel_separation_m
-TOL_LIN = 0.025
-TOL_ANG = 0.1
+
+# Tolerances for determining whether the goal position or orientation is reached
+TOL_LIN = 0.05
+TOL_ANG = 0.087  # 5 degrees
+
+# Maximum angle error at which the controller would still exert linear motion
 MAX_HEADING_ANG = np.pi / 4
 
 
@@ -29,8 +34,8 @@ class DDVelocityControlNoplan(DiffDriveVelocityController):
     """
 
     def __init__(self, hz):
-        self.v_max = V_MAX_DEFAULT
-        self.w_max = W_MAX_DEFAULT
+        self.v_max = V_MAX
+        self.w_max = W_MAX
         self.lin_error_tol = TOL_LIN
         self.ang_error_tol = TOL_ANG
 
