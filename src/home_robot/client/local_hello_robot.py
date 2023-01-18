@@ -437,8 +437,8 @@ class LocalHelloRobot:
         """
         # Compute pose relative to base
         if relative:
-            pos_rel = pos
-            quat_rel = quat
+            pos_rel = np.array(pos)
+            quat_rel = np.array(quat)
         else:
             pose_base_abs = xyt2sophus(self.get_base_state()["pose_se2"])
             pose_ee_abs = posquat2sophus(pos, quat)

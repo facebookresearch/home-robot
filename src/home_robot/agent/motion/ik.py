@@ -14,7 +14,7 @@ class PybulletIKSolver:
         )
 
         self.ee_idx = self.get_link_names().index(ee_link_name)
-        self.controlled_joints = np.array(controlled_joints)
+        self.controlled_joints = np.array(controlled_joints, dtype=np.int32)
 
     def get_joint_names(self):
         names = []
@@ -29,11 +29,13 @@ class PybulletIKSolver:
         return names
 
     def compute_ik(self, pos_desired, quat_desired):
-        q_full = p.calculateInverseKinematics(
-            self.robot_id,
-            self.ee_idx,
-            pos_desired,
-            quat_desired,
+        q_full = np.array(
+            p.calculateInverseKinematics(
+                self.robot_id,
+                self.ee_idx,
+                pos_desired,
+                quat_desired,
+            )
         )
 
         if self.controlled_joints is not None:
