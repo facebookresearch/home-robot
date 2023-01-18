@@ -10,6 +10,8 @@ pip_deps = [
     "numpy",
     "scipy",
     "sophuspy",
+    "pybullet",
+    "trimesh",
     f"-e {os.path.abspath(PROJECT_ROOT_DIR)}",
 ]
 

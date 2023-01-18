@@ -41,6 +41,10 @@ jobs:
             source ~/.bashrc
             conda activate ~/testenv
             pip install -e .
+            cd src/home_robot
+            mrp up --norun
+            cd -
+            conda activate mrp_stretch_control_env
             pytest tests/
 
 workflows:

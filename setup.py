@@ -6,9 +6,8 @@ install_requires = [
 ]
 
 # For data_tools sub-module
-client_requires = ["numpy", "trimesh", "pybullet"]
 data_tools_requires = ["h5py", "imageio", "pygifsicle"]
-install_requires += data_tools_requires + client_requires
+install_requires += data_tools_requires
 
 setup(
     name="home_robot",
