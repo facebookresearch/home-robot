@@ -28,7 +28,8 @@ jobs:
           command: |
             apt-get update
             apt-get install -y build-essential
-            [ -d ~/testenv ] || conda env create -f tests/test_env.yml -p ~/testenv
+            conda install -n base -c conda-forge mamba
+            [ -d ~/testenv ] || mamba env create -f tests/test_env.yml -p ~/testenv
       - save_cache:
           key: deps9-{{ .Branch }}-{{ checksum "tests/test_env.yml" }}
           paths:
@@ -45,7 +46,6 @@ jobs:
             mrp up --norun
             cd -
             conda activate ~/testenv/envs/mrp_stretch_control_env
-            conda install -c conda-forge mamba
             pytest tests/
 
 workflows:
