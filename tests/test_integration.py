@@ -7,6 +7,9 @@ import mrp
 from home_robot.client import LocalHelloRobot
 
 
+MAX_RETRIES = 30
+
+
 @pytest.fixture()
 def home_robot_stack():
     mrp.import_msetup("../src/home_robot")
@@ -15,7 +18,13 @@ def home_robot_stack():
 
 @pytest.fixture()
 def robot():
-    robot = LocalHelloRobot()
+    retries = 0
+    while retries < MAX_RETRIES:
+        try:
+            robot = LocalHelloRobot()
+        except Exception:
+            time.sleep(1)
+            continue
 
     # HACK: wait for controller to launch
     while robot.get_base_state() is None:
