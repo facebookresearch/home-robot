@@ -45,6 +45,7 @@ jobs:
             mrp up --norun
             cd -
             conda activate ~/testenv/envs/mrp_stretch_control_env
+            conda install -c conda-forge mamba
             pytest tests/
 
 workflows:
