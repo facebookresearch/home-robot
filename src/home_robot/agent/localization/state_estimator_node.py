@@ -52,13 +52,13 @@ class NavStateEstimator:
         t.header.stamp = timestamp
         t.header.frame_id = self._world_frame_id
         t.child_frame_id = self._base_frame_id
-        t.transform.translation.x = pose_msg.translation.x
-        t.transform.translation.y = pose_msg.translation.y
+        t.transform.translation.x = pose_msg.position.x
+        t.transform.translation.y = pose_msg.position.y
         t.transform.translation.z = 0
-        t.transform.rotation.x = pose_msg.rotation.x
-        t.transform.rotation.y = pose_msg.rotation.y
-        t.transform.rotation.z = pose_msg.rotation.z
-        t.transform.rotation.w = pose_msg.rotation.w
+        t.transform.rotation.x = pose_msg.orientation.x
+        t.transform.rotation.y = pose_msg.orientation.y
+        t.transform.rotation.z = pose_msg.orientation.z
+        t.transform.rotation.w = pose_msg.orientation.w
 
         self._tf_broadcaster.sendTransform(t)
 

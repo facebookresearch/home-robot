@@ -252,7 +252,7 @@ class LocalHelloRobot:
         return output
 
     def get_base_state(self):
-        return self.get_robot_state()["base"]
+        return self.get_state()["base"]
 
     def get_camera_image(self, filter_depth=True, compute_xyz=True):
         if self.rgb_cam is None or self.dpt_cam is None:
