@@ -1,14 +1,6 @@
 from setuptools import setup
 
-install_requires = [
-    "numpy",
-    "scipy",
-    "sophuspy",
-    "pybullet",
-    "trimesh",
-    "opencv-python",
-    "open3d",
-]
+install_requires = []
 
 # For data_tools sub-module
 data_tools_requires = ["h5py", "imageio", "pygifsicle"]
@@ -18,7 +10,7 @@ setup(
     name="home_robot",
     version="0.1.0",
     packages=["home_robot"],
-    package_dir={"": "."},
+    package_dir={"": "src"},
     install_requires=install_requires,
     zip_safe=False,
 )

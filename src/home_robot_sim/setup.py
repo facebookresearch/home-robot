@@ -2,14 +2,13 @@ from setuptools import setup
 
 install_requires = [
     "numpy",
-    "Pyro5",
-    "pynput",
+    "habitat-sim",
 ]
 
 setup(
-    name="home_robot_client",
-    version="1.0.0",
-    packages=["home_robot_client"],
+    name="home_robot_sim",
+    version="0.1.0",
+    packages=["home_robot_sim"],
     package_dir={"": "."},
     install_requires=install_requires,
     zip_safe=False,
