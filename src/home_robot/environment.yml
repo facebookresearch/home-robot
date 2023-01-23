@@ -1,7 +1,9 @@
+name: home_robot
 channels:
   - conda-forge
   - robostack
 dependencies:
+  - python ==3.9
   - cmake
   - pybind11
   - ros-noetic-desktop

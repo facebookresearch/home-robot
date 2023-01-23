@@ -5,113 +5,18 @@
 
 Mostly Hello Stretch infrastructure
 
-## Installation
+## Installation & Usage
 
-1. Prepare a conda environment (ex: `conda create -n home_robot python=3.8 && conda activate home_robot`)
-1. Install Mamba (optional but highly recommended): `conda install -c conda-forge mamba`
-1. Install repo `pip install -e .`
+This project contains numerous packages. See individual package docs for corresponding details & instructions.
 
-### Additional instructions for setting up on hardware
+| Resource | Description |
+| -------- | ----------- |
+| [home_robot](src/home_robot) | Core package |
+| [home_robot_hw](src/home_robot_hw) | ROS package containing hardware drivers for the Hello Stretch Robot |
+| [home_robot_sim](src/home_robot_sim) | Simulation |
+| [home_robot_client](src/home_robot_client) | Minimal remote client |
 
-1. Install firmware from Hello Robot
-    ```sh
-    # Copy robot factory data into your user workspace
-    cp -r /etc/hello-robot/stretch-re* ~
-
-    # Clone the official setup scripts
-    cd ~
-    git clone https://github.com/hello-robot/stretch_install
-    cd stretch_install
-
-    # Run setup script (DO NOT RUN BOTH)
-    ./stretch_new_robot_install.sh  # if installing into a new robot
-    ./stretch_new_user_install.sh  # if installing into a new user account on a already-set-up robot
-    ```
-1. Open `~/.bashrc`. You will see a block of commands that initializes Stretch, and another block that initializes Conda. If needed, move the stretch setup block BEFORE the conda initialization.
-1. Launch a new bash shell. Activate an conda env with Python 3.8 installed.
-1. Link `home_robot` and install ROS stack
-    ```sh
-    # Create symlink in catkin workspace
-    ln -s /abs/path/to/home-robot/rospkg $HOME/catkin_ws/src/home_robot
-
-    # Install dependencies for catkin
-    pip install empy catkin_pkg rospkg
-
-    # Build catkin workspace
-    cd ~/catkin_ws
-    catkin_make
-
-    # Add newly built setup.bash to .bashrc
-    echo "source ~/catkin_ws/devel/setup.bash" >> ~/.bashrc
-    ```
-1. Calibrate robot following instructions [here](https://github.com/hello-robot/stretch_ros/tree/master/stretch_calibration#checking-the-current-calibration-with-new-observations).
-1. Generate URDF from calibration data: `rosrun stretch_calibration update_urdf_after_xacro_change.sh`.
-1. Run `stretch_robot_system_check.py` to make sure that things are normal.
-
-#### Additional hardware stack dependencies
-1. Hector SLAM: `sudo apt install ros-noetic-hector-*`
-1. (For grasping only) Detectron 2: `python -m pip install 'git+https://github.com/facebookresearch/detectron2.git'`
-
-You also need to install a supported grasp prediction library. (TODO: clarify?)
-
-
-## Usage
-
-### Launching the hardware stack:
-```sh
-# Launch core components
-roslaunch home_robot startup_stretch_hector_slam.launch
-
-# Launch state estimator & goto controller
-cd /path/to/home-robot/src/home_robot
-mrp up agent_procs
-```
-
-### Launching a minimal kinematic simulation (no camera yet)
-```sh
-cd /path/to/home-robot/src/home_robot
-mrp up sim_stack
-```
-
-This launches:
-- Fake stretch node (A kinematic simulation that publishes 100% accurate odometry and slam information and accepts velocity control inputs)
-- State estimation node
-- Continuous controller node
-
-### Stopping all processes
-```sh
-mrp down
-```
-
-### Launching a simple local command line interface (CLI) on the robot:
-
-The CLI currently exposes a simple base control interface via the terminal.
-The interface `home_robot.client.LocalHelloRobot` can also be imported and used within user scripts.
-
-```sh
-cd src/home_robot/client
-mrp up local_cli --attach
-```
-
-Available commands:
-```py
-robot.get_base_state()  # returns base location in the form of [x, y, rz]
-robot.set_nav_mode()  # enables continuous navigation
-robot.set_pos_mode()  # enables position control
-robot.set_yaw_tracking(value: bool)  # turns yaw tracking on/off (robot only tries to reach the xy position of goal if off)
-robot.set_goal(xyt: list)  # sets the goal for the goto controller
-robot.set_velocity(v: float, w: float)  # directly sets the linear and angular velocity of robot base (command gets overwritten immediately if goto controller is on)
-```
-
-#### Getting Started
-
-```py
-robot.set_nav_mode()  # Enables continuous control
-robot.set_goal(]1.0, 0.0, 0.0])  # Sets XYZ target
-robot.get_base_state()  # Shows the robot's XYZ coordinates
-```
-
-### Launching ROS Demo
+### Launching ROS Demo (outdated)
 
 You need to create a catkin workspace on your server in order to run this demo, as this is where we will run [Contact Graspnet](https://github.com/cpaxton/contact_graspnet/tree/cpaxton/devel).
 
@@ -131,7 +36,6 @@ roslaunch home_robot startup_stretch_hector_slam.launch
 ### Troubleshooting 
 
 - `ImportError: cannot import name 'gcd' from 'fractions'`: Launch ros nodes from an env with Python 3.8 instead of 3.9
-- Conflicting Processes Already Running: `mrp down`, restart robot if that doesn't work.
 
 
 ## Third Party Code

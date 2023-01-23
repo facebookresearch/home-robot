@@ -1,0 +1,15 @@
+name: home_robot_sim
+channels:
+  - conda-forge
+  - robostack
+  - aihabitat-nightly
+dependencies:
+  - python ==3.9
+  - cmake
+  - pybind11
+  - ros-noetic-desktop
+  - habitat-sim
+  - pip:
+    - numpy
+    - scipy
+    - sophuspy
