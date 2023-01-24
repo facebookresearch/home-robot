@@ -4,7 +4,7 @@ channels:
   - robostack
   - aihabitat-nightly
 dependencies:
-  - python ==3.9
+  - python ==3.8
   - cmake
   - pybind11
   - ros-noetic-desktop

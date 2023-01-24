@@ -8,7 +8,7 @@
 ## Installation
 ```sh
 # Set up Conda environment
-mamba create -f environment.yml
+mamba env create -f environment.yml
 conda activate home_robot_sim
 
 # Install home_robot
