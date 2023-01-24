@@ -25,17 +25,22 @@ python -m home_robot.client.local_hello_robot
 
 Available commands:
 ```py
+# Query states
 robot.get_base_state()  # returns base location in the form of [x, y, rz]
-robot.set_nav_mode()  # enables continuous navigation
-robot.set_pos_mode()  # enables position control
-robot.set_yaw_tracking(value: bool)  # turns yaw tracking on/off (robot only tries to reach the xy position of goal if off)
-robot.set_goal(xyt: list)  # sets the goal for the goto controller
-robot.set_velocity(v: float, w: float)  # directly sets the linear and angular velocity of robot base (command gets overwritten immediately if goto controller is on)
+
+# Mode switching
+robot.switch_to_velocity_mode()  # enables base velocity control
+robot.switch_to_navigation_mode()  # enables continuous navigation
+robot.switch_to_manipulation_mode()  # enables gripper control
+
+# Velocity mode
+robot.set_velocity(v: float, w: float)  # directly sets the linear and angular velocity of robot base
+
+# Navigation mode
+robot.navigate_to(xyt: list, relative: bool = False, position_only: bool = False)
+
+# Manipulation mode
+robot.set_arm_joint_positions(joint_positions: list)  # joint positions: [BASE_TRANSLATION, ARM_LIFT, ARM_EXTENTION, WRIST_YAW, WRIST_PITCH, WRIST_ROLL]
+robot.set_ee_pose(pos: list, quat: list, relative: bool = False)
 ```
 
-Basic example:
-```py
-robot.set_nav_mode()  # Enables continuous control
-robot.set_goal(]1.0, 0.0, 0.0])  # Sets XYZ target
-robot.get_base_state()  # Shows the robot's XYZ coordinates
-```

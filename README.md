@@ -16,7 +16,58 @@ This project contains numerous packages. See individual package docs for corresp
 | [home_robot_sim](src/home_robot_sim) | Simulation |
 | [home_robot_client](src/home_robot_client) | Minimal remote client |
 
-### Launching ROS Demo (outdated)
+### Getting Started on the Hello Stretch
+
+1. SSH into the onboard computer on the Hello Stretch.
+1. Install [home_robot_hw](src/home_robot_hw).
+1. Install [home_robot](src/home_robot).
+1. Launch the ROS hardware stack:
+  ```sh
+  conda deactivate
+  roslaunch home_robot startup_stretch_hector_slam.launch
+  ```
+1. In a separate shell, launch home-robot helper nodes:
+  ```sh
+  conda activate home_robot
+  python -m home_robot.nodes.state_estimator &
+  python -m home_robot.nodes.goto_controller &
+  ```
+1. Launch interactive client: `python -m home_robot.client.local_hello_robot`
+
+You should then be able to command the robot using the following commands:
+```py
+# Query states
+robot.get_base_state()  # returns base location in the form of [x, y, rz]
+
+# Mode switching
+robot.switch_to_velocity_mode()  # enables base velocity control
+robot.switch_to_navigation_mode()  # enables continuous navigation
+robot.switch_to_manipulation_mode()  # enables gripper control
+
+# Velocity mode
+robot.set_velocity(v: float, w: float)  # directly sets the linear and angular velocity of robot base
+
+# Navigation mode
+robot.navigate_to(xyt: list, relative: bool = False, position_only: bool = False)
+
+# Manipulation mode
+robot.set_arm_joint_positions(joint_positions: list)  # joint positions: [BASE_TRANSLATION, ARM_LIFT, ARM_EXTENTION, WRIST_YAW, WRIST_PITCH, WRIST_ROLL]
+robot.set_ee_pose(pos: list, quat: list, relative: bool = False)
+```
+
+Basic example:
+```py
+robot.get_base_state()  # Shows the robot's SE2 coordinates (should be [0, 0, 0])
+
+robot.switch_to_navigation_mode()
+robot.navigate_to([0.3, 0.3, 0.0])  # Sets SE2 target
+robot.get_base_state()  # Shows the robot's SE2 coordinates (should be close to [0.3, 0.3, 0])
+
+robot.switch_to_manipulation_mode()
+robot.set_ee_pose([0.5, 0.6, 0.5], [0, 0, 0, 1])
+```
+
+### Launching Grasping Demo (outdated)
 
 You need to create a catkin workspace on your server in order to run this demo, as this is where we will run [Contact Graspnet](https://github.com/cpaxton/contact_graspnet/tree/cpaxton/devel).
 
@@ -33,14 +84,7 @@ Put the robot in its initial position, e.g. so the arm is facing cups you can pi
 roslaunch home_robot startup_stretch_hector_slam.launch
 ```
 
-### Troubleshooting 
-
-- `ImportError: cannot import name 'gcd' from 'fractions'`: Launch ros nodes from an env with Python 3.8 instead of 3.9
-
-
-## Third Party Code
-
-#### Contact GraspNet
+#### Note: Contact GraspNet
 
 Contact graspnet is supported as a way of generating candidate grasps for the Stretch to use on various objects. We have our own fork of [Contact Graspnet](https://github.com/cpaxton/contact_graspnet/tree/cpaxton/devel) which has been modified with a ROS interface.
 
@@ -49,6 +93,11 @@ Follow the installation instructions as normal and start it with:
 conda activate contact_graspnet_env
 ~/src/contact_graspnet$ python contact_graspnet/graspnet_ros_server.py  --local_regions --filter_grasps
 ```
+
+### Troubleshooting 
+
+- `ImportError: cannot import name 'gcd' from 'fractions'`: Launch ros nodes from an env with Python 3.8 instead of 3.9
+
 
 ## Code Contribution
 
