@@ -11,5 +11,6 @@ setup(
     packages=["home_robot_sim"],
     package_dir={"": "."},
     install_requires=install_requires,
+    tests_require=["pytest"],
     zip_safe=False,
 )

@@ -59,17 +59,19 @@ jobs:
             source ~/.bashrc
             conda activate ~/env_home_robot_sim
             cd ~/home-robot/src/home_robot
-            pip install -e .
+            python setup.py test
             cd ~/home-robot/src/home_robot_sim
-            pip install -e .
+            python setup.py test
+            roscore &
             python -m home_robot_sim.nodes.fake_stretch_robot &
       - run:
           name: Install core library and run tests
           command: |
             source ~/.bashrc
-            conda activate ~/home_robot
-            cd src/home_robot
-            pip install -e .
+            conda activate ~/env_home_robot
+            cd ~/home-robot/src/home_robot
+            python setup.py test
+            cd -
             pytest tests/
 
 workflows:

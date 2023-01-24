@@ -12,5 +12,6 @@ setup(
     packages=["home_robot_client"],
     package_dir={"": "."},
     install_requires=install_requires,
+    tests_require=["pytest"],
     zip_safe=False,
 )

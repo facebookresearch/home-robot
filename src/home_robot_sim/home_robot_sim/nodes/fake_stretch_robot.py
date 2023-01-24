@@ -15,7 +15,7 @@ from nav_msgs.msg import Odometry
 from std_srvs.srv import Trigger, TriggerResponse
 
 from home_robot.utils.geometry import xyt2sophus
-from home_robot.utils.geometry.ros import pose_sophus2ros
+from home_robot.hw.ros.utils import matrix_to_pose_msg
 
 
 log = logging.getLogger(__name__)
@@ -88,13 +88,13 @@ class FakeStretch:
     def _publish_slam(self, xyt, timestamp):
         msg = PoseWithCovarianceStamped()
         msg.header.stamp = timestamp
-        msg.pose.pose = pose_sophus2ros(xyt2sophus(xyt))
+        msg.pose.pose = matrix_to_pose_msg(xyt2sophus(xyt).matrix())
         self._hector_slam_pub.publish(msg)
 
     def _publish_odom(self, xyt, timestamp):
         msg = Odometry()
         msg.header.stamp = timestamp
-        msg.pose.pose = pose_sophus2ros(xyt2sophus(xyt))
+        msg.pose.pose = matrix_to_pose_msg(xyt2sophus(xyt).matrix())
         self._odom_pub.publish(msg)
 
     def _vel_control_callback(self, cmd_vel: Twist):

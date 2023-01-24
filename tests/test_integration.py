@@ -3,7 +3,6 @@ import time
 import subprocess
 
 import numpy as np
-import mrp
 
 import home_robot
 
@@ -13,7 +12,6 @@ MAX_RETRIES = 30
 
 @pytest.fixture()
 def home_robot_stack():
-    subprocess.run(["roscore"])
     subprocess.run(["python", "-m", "home_robot.nodes.state_estimator"])
     subprocess.run(["python", "-m", "home_robot.nodes.goto_controller"])
 
@@ -40,7 +38,7 @@ def test_goto(home_robot_stack, robot):
 
     # Activate goto controller & set goal
     robot.switch_to_navigation_mode()
-    robot.set_goal(xyt_goal)
+    robot.navigate_to(xyt_goal)
 
     # Wait for robot to reach goal
     time.sleep(5)
@@ -49,6 +47,3 @@ def test_goto(home_robot_stack, robot):
     xyt_new = robot.get_base_state()["pose_se2"]
 
     assert np.allclose(xyt_new[:2], xyt_goal[:2], atol=0.05)  # 5cm
-
-    # Down processes
-    mrp.cmd.down()
