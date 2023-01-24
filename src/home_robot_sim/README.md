@@ -6,16 +6,12 @@
 - Same interface as home_robot_hw
 
 ## Installation
+
+After installing [home_robot](../home_robot):
+
 ```sh
-# Set up Conda environment
-mamba env create -f environment.yml
-conda activate home_robot_sim
-
-# Install home_robot
-cd src/home_robot
-pip install -e .
-
-cd -
+# Install simulation deps
+mamba install -c conda-forge -c ai-habitat habitat-sim
 
 # Install sim
 cd src/home_robot_sim

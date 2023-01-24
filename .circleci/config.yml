@@ -35,7 +35,7 @@ jobs:
       - restore_cache:
           key: deps9-{{ .Branch }}-{{ checksum "src/home_robot/environment.yml" }}
       - run:
-          name: Setup core env
+          name: Setup env
           command: |
             [ -d ~/env_home_robot ] || mamba env create -f src/home_robot/environment.yml -p ~/env_home_robot
       - save_cache:
@@ -43,35 +43,16 @@ jobs:
           paths:
             - "~/env_home_robot"
             - "/usr/lib"
-      - restore_cache:
-          key: deps9-{{ .Branch }}-{{ checksum "src/home_robot_sim/environment.yml" }}
       - run:
-          name: Setup sim env
-          command: |
-            [ -d ~/env_home_robot_sim ] || mamba env create -f src/home_robot_sim/environment.yml -p ~/env_home_robot_sim
-      - save_cache:
-          key: deps9-{{ .Branch }}-{{ checksum "src/home_robot_sim/environment.yml" }}
-          paths:
-            - "~/env_home_robot_sim"
-      - run:
-          name: Install and run simulation
-          command: |
-            source ~/.bashrc
-            conda activate ~/env_home_robot_sim
-            cd ~/home-robot/src/home_robot
-            python setup.py test
-            cd ~/home-robot/src/home_robot_sim
-            python setup.py test
-            roscore &
-            python -m home_robot_sim.nodes.fake_stretch_robot &
-      - run:
-          name: Install core library and run tests
+          name: Install libraries and run tests
           command: |
             source ~/.bashrc
             conda activate ~/env_home_robot
             cd ~/home-robot/src/home_robot
-            python setup.py test
-            cd -
+            pip install -e .
+            cd ~/home-robot/src/home_robot_sim
+            pip install -e .
+            cd ~/home-robot
             pytest tests/
 
 workflows:
