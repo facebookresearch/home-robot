@@ -22,16 +22,16 @@ This project contains numerous packages. See individual package docs for corresp
 1. Install [home_robot_hw](src/home_robot_hw).
 1. Install [home_robot](src/home_robot).
 1. Launch the ROS hardware stack:
-  ```sh
-  conda deactivate
-  roslaunch home_robot startup_stretch_hector_slam.launch
-  ```
+    ```sh
+    conda deactivate
+    roslaunch home_robot startup_stretch_hector_slam.launch
+    ```
 1. In a separate shell, launch home-robot helper nodes:
-  ```sh
-  conda activate home_robot
-  python -m home_robot.nodes.state_estimator &
-  python -m home_robot.nodes.goto_controller &
-  ```
+    ```sh
+    conda activate home_robot
+    python -m home_robot.nodes.state_estimator &
+    python -m home_robot.nodes.goto_controller &
+    ```
 1. Launch interactive client: `python -m home_robot.client.local_hello_robot`
 
 You should then be able to command the robot using the following commands:
