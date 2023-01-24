@@ -25,30 +25,45 @@ jobs:
           name: Install Submodules
           command: git submodule sync && git submodule update --init
       - restore_cache:
-          key: deps9-{{ .Branch }}-{{ checksum "tests/test_env.yml" }}
+          key: deps9-{{ .Branch }}-{{ checksum "src/home_robot/environment.yml" }}
       - run:
-          name: Setup env
+          name: Setup core env
           command: |
             apt-get update
             apt-get install -y build-essential
             conda install -y -n base -c conda-forge mamba
-            [ -d ~/testenv ] || mamba env create -f tests/test_env.yml -p ~/testenv
+            [ -d ~/env_home_robot ] || mamba env create -f src/home_robot/environment.yml -p ~/env_home_robot
       - save_cache:
-          key: deps9-{{ .Branch }}-{{ checksum "tests/test_env.yml" }}
+          key: deps9-{{ .Branch }}-{{ checksum "src/home_robot/environment.yml" }}
           paths:
-            - "~/testenv"
+            - "~/env_home_robot"
             - "/usr/lib"
+      - restore_cache:
+          key: deps9-{{ .Branch }}-{{ checksum "src/home_robot_sim/environment.yml" }}
       - run:
-          name: Run tests
+          name: Setup sim env
           command: |
-            conda init bash
-            source ~/.bashrc
-            conda activate ~/testenv
+            conda install -y -n base -c conda-forge mamba
+            [ -d ~/env_home_robot_sim ] || mamba env create -f src/home_robot_sim/environment.yml -p ~/env_home_robot_sim
+      - save_cache:
+          key: deps9-{{ .Branch }}-{{ checksum "src/home_robot_sim/environment.yml" }}
+          paths:
+            - "~/env_home_robot_sim"
+      - run:
+          name: Install and run simulation
+          command: |
+            conda activate ~/env_home_robot_sim
+            cd ~/home-robot/src/home_robot
             pip install -e .
+            cd ~/home-robot/src/home_robot_sim
+            pip install -e .
+            python -m home_robot_sim.nodes.fake_stretch_robot &
+      - run:
+          name: Install core library and run tests
+          command: |
+            conda activate ~/home_robot
             cd src/home_robot
-            mrp up --norun
-            cd -
-            conda activate mrp_stretch_control_env
+            pip install -e .
             pytest tests/
 
 workflows:

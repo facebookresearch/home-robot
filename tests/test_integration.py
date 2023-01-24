@@ -1,10 +1,11 @@
 import pytest
 import time
+import subprocess
 
 import numpy as np
 import mrp
 
-from home_robot.client import LocalHelloRobot
+import home_robot
 
 
 MAX_RETRIES = 30
@@ -12,8 +13,9 @@ MAX_RETRIES = 30
 
 @pytest.fixture()
 def home_robot_stack():
-    mrp.import_msetup("../src/home_robot")
-    mrp.cmd.up("sim_stack")
+    subprocess.run(["roscore"])
+    subprocess.run(["python", "-m", "home_robot.nodes.state_estimator"])
+    subprocess.run(["python", "-m", "home_robot.nodes.goto_controller"])
 
 
 @pytest.fixture()
@@ -21,7 +23,7 @@ def robot():
     retries = 0
     while retries < MAX_RETRIES:
         try:
-            robot = LocalHelloRobot()
+            robot = home_robot.client.LocalHelloRobot()
         except Exception:
             time.sleep(1)
             continue
