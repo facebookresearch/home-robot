@@ -2,13 +2,14 @@ import matplotlib.pyplot as plt
 
 
 def show_image(rgb):
-    """ Simple helper function to show images """
+    """Simple helper function to show images"""
     plt.figure()
     plt.imshow(rgb)
     plt.show()
 
+
 def show_image_with_mask(rgb, mask):
-    """ tool for showing a mask and some other stuff """
+    """tool for showing a mask and some other stuff"""
     plt.figure()
     plt.subplot(131)
     plt.imshow(rgb)
