@@ -6,12 +6,12 @@ dependencies:
   - python ==3.8
   - cmake
   - pybind11
+  - pytorch
   - ros-noetic-desktop
   - pip:
     - numpy
     - scipy
     - sophuspy
-    - pytorch
     - pybullet
     - trimesh
     - pytest
