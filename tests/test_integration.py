@@ -1,5 +1,5 @@
 import pytest
-import os
+import signal
 import time
 from subprocess import Popen
 
@@ -54,5 +54,4 @@ def test_goto(home_robot_stack, robot):
     assert np.allclose(xyt_new[:2], xyt_goal[:2], atol=0.05)  # 5cm
 
     for p in home_robot_stack[::-1]:
-        p.terminate()
-
+        p.send_signal(signal.SIGINT)
