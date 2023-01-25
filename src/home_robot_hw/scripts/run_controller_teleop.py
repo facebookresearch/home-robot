@@ -7,10 +7,12 @@ from home_robot.agent.motion.robot import HelloStretch
 from home_robot.hw.ros.path import get_package_path
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     rospy.init_node("xbox_controller")
 
-    stretch_planner_urdf_path = os.path.join(get_package_path(), "../assets/hab_stretch/urdf/planner_calibrated.urdf")
+    stretch_planner_urdf_path = os.path.join(
+        get_package_path(), "../assets/hab_stretch/urdf/planner_calibrated.urdf"
+    )
     model = HelloStretch(
         visualize=False,
         root="",

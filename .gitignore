@@ -19,7 +19,6 @@ examples/outputs/
 theseus/extlib/*.so
 data/
 temp/
-scripts/
 docs_build/
 viz/
 

@@ -6,7 +6,7 @@ setup(
     name="home_robot",
     version="1.0.0",
     packages=["home_robot"],
-    package_dir={"": "../src"},
+    package_dir={"": ".."},
     install_requires=install_requires,
     zip_safe=False,
 )

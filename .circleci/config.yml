@@ -24,31 +24,32 @@ jobs:
       - run:
           name: Install Submodules
           command: git submodule sync && git submodule update --init
-      - restore_cache:
-          key: deps9-{{ .Branch }}-{{ checksum "tests/test_env.yml" }}
-      - run:
-          name: Setup env
+      - run: 
+          name: Setup conda & mamba
           command: |
             apt-get update
             apt-get install -y build-essential
-            conda install -y -n base -c conda-forge mamba
-            [ -d ~/testenv ] || mamba env create -f tests/test_env.yml -p ~/testenv
-      - save_cache:
-          key: deps9-{{ .Branch }}-{{ checksum "tests/test_env.yml" }}
-          paths:
-            - "~/testenv"
-            - "/usr/lib"
-      - run:
-          name: Run tests
-          command: |
             conda init bash
             source ~/.bashrc
-            conda activate ~/testenv
-            pip install -e .
-            cd src/home_robot
-            mrp up --norun
-            cd -
-            conda activate mrp_stretch_control_env
+            conda install -y -n base -c conda-forge mamba
+      - restore_cache:
+          key: deps9-{{ .Branch }}-{{ checksum "src/home_robot/environment.yml" }}
+      - run:
+          name: Setup env
+          command: |
+            [ -d ~/env_home_robot ] || mamba env create -f src/home_robot/environment.yml -p ~/env_home_robot
+      - save_cache:
+          key: deps9-{{ .Branch }}-{{ checksum "src/home_robot/environment.yml" }}
+          paths:
+            - "~/env_home_robot"
+            - "/usr/lib"
+      - run:
+          name: Install libraries and run tests
+          command: |
+            source ~/.bashrc
+            conda activate ~/env_home_robot
+            pip install -e src/home_robot
+            pip install -e src/home_robot_sim
             pytest tests/
 
 workflows:
