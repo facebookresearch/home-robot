@@ -1,8 +1,9 @@
+import os
 from setuptools import setup
 
 install_requires = [
     "numpy",
-    # "habitat-sim",
+    # f"habitat-lab @ {os.path.dirname(os.path.realpath(__file__))}/third_party/habitat-lab/habitat-lab",
     "home-robot",
 ]
 

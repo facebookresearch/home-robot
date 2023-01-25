@@ -11,11 +11,10 @@ After installing [home_robot](../home_robot):
 
 ```sh
 # Install simulation deps
-mamba install -c conda-forge -c ai-habitat habitat-sim
+mamba install -c conda-forge -c aihabitat habitat-sim withbullet
 
 # Install sim
-cd src/home_robot_sim
-pip install -e .
+pip install -e src/home_robot_sim
 ```
 
 ## Usage
