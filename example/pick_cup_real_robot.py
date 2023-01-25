@@ -7,13 +7,12 @@ import timeit
 import numpy as np
 
 from home_robot.hw.ros.stretch_ros import HelloStretchROSInterface
-from home_robot.agent.motion.robot import STRETCH_HOME_Q, HelloStretchIdx
+from home_robot.agent.motion.robot import STRETCH_PREGRASP_Q, HelloStretchIdx
 from home_robot.agent.perception.detectron2_segmentation import Detectron2Segmentation
 from home_robot.agent.perception.constants import coco_categories
 from home_robot.hw.ros.grasp_helper import GraspClient as RosGraspClient
 from home_robot.utils.pose import to_pos_quat
-
-import matplotlib.pyplot as plt
+import home_robot.utils.visualization as viz
 
 visualize_masks = False
 
@@ -28,7 +27,7 @@ def try_executing_grasp(rob, grasp) -> bool:
     print("grasp xyz =", grasp_pose[0])
 
     # If can't plan to reach grasp, return
-    qi = model.static_ik(grasp_pose, q)
+    qi = model.manip_ik(grasp_pose, q)
     if qi is not None:
         model.set_config(qi)
     else:
@@ -120,13 +119,13 @@ if __name__ == "__main__":
         sem_pred_prob_thr=0.9, sem_gpu_id=-1, visualize=True
     )
 
-    home_q = STRETCH_HOME_Q
+    home_q = STRETCH_PREGRASP_Q
     model = rob.get_model()
     q = model.update_look_front(home_q.copy())
     q = model.update_gripper(q, open=True)
     rob.goto(q, move_base=False, wait=True)
 
-    # For video
+    # Example commands - navigation
     # Initial position
     # rob.move_base([0, 0], 0)
     # Move to before the chair
@@ -136,6 +135,7 @@ if __name__ == "__main__":
     print("look at ee")
     rob.goto(q, wait=True)
 
+    dry_run = True
     min_grasp_score = 0.0
     max_tries = 10
     min_obj_pts = 100
@@ -151,17 +151,9 @@ if __name__ == "__main__":
         )
         cup_mask = semantics[0, :, :, coco_categories["cup"]]
 
+        visualize_masks = True
         if visualize_masks:
-            plt.figure()
-            plt.subplot(131)
-            plt.imshow(rgb)
-            plt.subplot(132)
-            plt.imshow(cup_mask)
-            plt.subplot(133)
-            _cup_mask = cup_mask[:, :, None]
-            _cup_mask = np.repeat(_cup_mask, 3, axis=-1)
-            plt.imshow(_cup_mask * rgb / 255.0)
-            plt.show()
+            viz.show_image_with_mask(rgb, cup_mask)
 
         num_cup_pts = np.sum(cup_mask)
         print("found this many cup points:", num_cup_pts)
@@ -210,6 +202,9 @@ if __name__ == "__main__":
             print(grasp)
             theta_x, theta_y = divergence_from_vertical_grasp(grasp)
             print("with xy =", theta_x, theta_y)
-            grasp_completed = try_executing_grasp(rob, grasp)
+            if not dry_run:
+                grasp_completed = try_executing_grasp(rob, grasp)
+            else:
+                grasp_completed = False
             if grasp_completed:
                 break

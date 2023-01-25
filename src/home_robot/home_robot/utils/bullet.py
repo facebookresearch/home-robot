@@ -7,7 +7,6 @@ import pybullet_data
 from collections import namedtuple
 import matplotlib.pyplot as plt
 import numpy as np
-import open3d
 import trimesh
 import trimesh.transformations as tra
 

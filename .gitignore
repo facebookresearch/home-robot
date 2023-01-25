@@ -13,7 +13,7 @@ __pycache__/
 *.egg-info/
 expts/
 *.ipynb_checkpoints
-examples/*.ipynb_checkpoints
+example/*.ipynb_checkpoints
 outputs/
 examples/outputs/
 theseus/extlib/*.so
@@ -21,6 +21,9 @@ data/
 temp/
 docs_build/
 viz/
+
+# Git stuff
+*~HEAD
 
 # Data types
 *.h5

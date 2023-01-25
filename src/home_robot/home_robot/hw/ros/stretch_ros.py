@@ -17,6 +17,7 @@ from home_robot.hw.ros.abstract import AbstractStretchInterface
 from home_robot.agent.motion.robot import HelloStretch, HelloStretchIdx
 from home_robot.agent.motion.robot import STRETCH_HOME_Q
 from home_robot.hw.ros.camera import RosCamera
+from home_robot.hw.ros.path import get_urdf_dir
 
 import actionlib
 from control_msgs.msg import FollowJointTrajectoryAction
@@ -511,6 +512,10 @@ class HelloStretchROSInterface(AbstractStretchInterface):
         Based on this code:
         https://github.com/hello-robot/stretch_ros/blob/master/hello_helpers/src/hello_helpers/hello_misc.py
         """
+
+        if urdf_path is None:
+            # By default try to use ROS to find the URDF
+            urdf_path = get_urdf_dir()
 
         # No hardware interface here for the ROS code
         if model is None:

@@ -9,7 +9,8 @@ import home_robot.utils.bullet as hrb
 import pybullet as pb
 import trimesh.transformations as tra
 
-from tracikpy import TracIKSolver
+# from tracikpy import TracIKSolver
+from home_robot.agent.motion.ik import PybulletIKSolver
 
 from home_robot.agent.motion.space import Space
 from home_robot.utils.pose import to_matrix
@@ -56,6 +57,8 @@ class Robot(object):
 DEFAULT_STRETCH_URDF = "assets/hab_stretch/urdf/stretch_dex_wrist_simplified.urdf"
 # PLANNER_STRETCH_URDF =  'assets/hab_stretch/urdf/planner_stretch_dex_wrist_simplified.urdf'
 PLANNER_STRETCH_URDF = "assets/hab_stretch/urdf/planner_calibrated.urdf"
+MANIP_STRETCH_URDF = "assets/hab_stretch/urdf/planner_calibrated_manipulation_mode.urdf"
+
 STRETCH_HOME_Q = np.array(
     [
         0,  # x
@@ -77,7 +80,7 @@ STRETCH_PREGRASP_Q = np.array(
         0,  # y
         0,  # theta
         0.6,  # lift
-        0.06,  # arm
+        0.01,  # arm
         0.0,  # gripper rpy
         3.14,  # wrist roll
         -1.57,  # wrist pitch
@@ -158,23 +161,14 @@ class HelloStretch(Robot):
     look_at_ee = np.array([-np.pi / 2, -np.pi / 4])
     look_front = np.array([0.0, -np.pi / 4])
     look_ahead = np.array([0.0, 0.0])
+
+    # For inverse kinematics mode
     ee_link_name = "link_straight_gripper"
+    manip_mode_controlled_joints = [0, 3, 4, 5, 6, 7, 8, 9, 10]
+    full_body_controlled_joints = [0, 1, 2, 5, 6, 7, 8, 9, 10, 11, 12]
 
-    def __init__(self, name="robot", urdf_path=None, visualize=False, root="."):
-        """Create the robot in bullet for things like kinematics; extract information"""
-
-        # urdf
-        if urdf_path is None:
-            urdf_path = PLANNER_STRETCH_URDF
-        urdf_path = os.path.join(root, urdf_path)
-        super(HelloStretch, self).__init__(name, urdf_path, visualize)
-        # DOF: 3 for ee roll/pitch/yaw
-        #      1 for gripper
-        #      1 for ee extension
-        #      3 for base x/y/theta
-        #      2 for head
-        self.dof = 3 + 2 + 4 + 2
-        self.base_height = self.DEFAULT_BASE_HEIGHT
+    def _create_ik_solvers_trac_ik(self):
+        """Deprecated functionality for trac ik solvers"""
         self.ik_solver = TracIKSolver(
             urdf_path, "world", "link_straight_gripper", timeout=0.1, epsilon=1e-5
         )
@@ -193,6 +187,43 @@ class HelloStretch(Robot):
         )
         assert self.lift_arm_ik_solver.number_of_joints == 5
 
+    def _create_ik_solvers(self):
+        """create ik solvers using pybullet"""
+        self.ik_solver = PybulletIKSolver(
+            self.full_body_urdf_path,
+            self.ee_link_name,
+            self.full_body_controlled_joints,
+        )
+        self.manip_ik_solver = PybulletIKSolver(
+            self.manip_mode_urdf_path,
+            self.ee_link_name,
+            self.manip_mode_controlled_joints,
+        )
+
+    def __init__(self, name="robot", urdf_path=None, visualize=False, root="."):
+        """Create the robot in bullet for things like kinematics; extract information"""
+
+        # urdf
+        if urdf_path is None:
+            full_body_urdf = PLANNER_STRETCH_URDF
+            manip_urdf = MANIP_STRETCH_URDF
+        else:
+            full_body_urdf = os.path.join(urdf_path, "planner_calibrated.urdf")
+            manip_urdf = os.path.join(
+                urdf_path, "planner_calibrated_manipulation_mode.urdf"
+            )
+        self.full_body_urdf_path = os.path.join(root, full_body_urdf)
+        self.manip_mode_urdf_path = os.path.join(root, manip_urdf)
+        super(HelloStretch, self).__init__(name, self.full_body_urdf_path, visualize)
+
+        # DOF: 3 for ee roll/pitch/yaw
+        #      1 for gripper
+        #      1 for ee extension
+        #      3 for base x/y/theta
+        #      2 for head
+        self.dof = 3 + 2 + 4 + 2
+        self.base_height = self.DEFAULT_BASE_HEIGHT
+
         # ranges for joints
         self.range = np.zeros((self.dof, 2))
 
@@ -201,6 +232,7 @@ class HelloStretch(Robot):
         self.set_joint_position = self.ref.set_joint_position
 
         self._update_joints()
+        self._create_ik_solvers()
 
     def set_head_config(self, q):
         # WARNING: this sets all configs
