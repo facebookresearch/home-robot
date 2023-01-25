@@ -48,11 +48,8 @@ jobs:
           command: |
             source ~/.bashrc
             conda activate ~/env_home_robot
-            cd ~/home-robot/src/home_robot
-            pip install -e .
-            cd ~/home-robot/src/home_robot_sim
-            pip install -e .
-            cd ~/home-robot
+            pip install -e src/home_robot
+            pip install -e src/home_robot_sim
             pytest tests/
 
 workflows:

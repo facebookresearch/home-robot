@@ -1,6 +1,8 @@
 from setuptools import setup
 
-install_requires = []
+install_requires = [
+    "numpy",
+]
 
 # For data_tools sub-module
 data_tools_requires = ["h5py", "imageio", "pygifsicle"]

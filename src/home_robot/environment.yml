@@ -13,3 +13,4 @@ dependencies:
     - sophuspy
     - pybullet
     - trimesh
+    - pytest
