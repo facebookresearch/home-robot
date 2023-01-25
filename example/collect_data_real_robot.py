@@ -10,7 +10,6 @@ import numpy as np
 
 from home_robot.hw.ros.stretch_ros import HelloStretchROSInterface
 from home_robot.agent.motion.robot import (
-    STRETCH_HOME_Q,
     STRETCH_PREGRASP_Q,
     HelloStretchIdx,
 )

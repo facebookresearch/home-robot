@@ -7,7 +7,7 @@ import timeit
 import numpy as np
 
 from home_robot.hw.ros.stretch_ros import HelloStretchROSInterface
-from home_robot.agent.motion.robot import STRETCH_HOME_Q, HelloStretchIdx
+from home_robot.agent.motion.robot import STRETCH_PREGRASP_Q, HelloStretchIdx
 from home_robot.agent.perception.detectron2_segmentation import Detectron2Segmentation
 from home_robot.agent.perception.constants import coco_categories
 from home_robot.hw.ros.grasp_helper import GraspClient as RosGraspClient
@@ -153,7 +153,7 @@ if __name__ == "__main__":
 
         visualize_masks = True
         if visualize_masks:
-            viz.show_image_with_mask(rgb, depth, cup_mask)
+            viz.show_image_with_mask(rgb, cup_mask)
 
         num_cup_pts = np.sum(cup_mask)
         print("found this many cup points:", num_cup_pts)
