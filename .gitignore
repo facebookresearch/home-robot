@@ -22,6 +22,9 @@ temp/
 docs_build/
 viz/
 
+# Git stuff
+*~HEAD
+
 # Data types
 *.h5
 *.hdf5

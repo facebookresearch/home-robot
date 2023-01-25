@@ -119,7 +119,7 @@ if __name__ == "__main__":
         sem_pred_prob_thr=0.9, sem_gpu_id=-1, visualize=True
     )
 
-    home_q = STRETCH_HOME_Q
+    home_q = STRETCH_PREGRASP_Q
     model = rob.get_model()
     q = model.update_look_front(home_q.copy())
     q = model.update_gripper(q, open=True)
@@ -135,6 +135,7 @@ if __name__ == "__main__":
     print("look at ee")
     rob.goto(q, wait=True)
 
+    dry_run = True
     min_grasp_score = 0.0
     max_tries = 10
     min_obj_pts = 100
@@ -196,13 +197,14 @@ if __name__ == "__main__":
         for i, grasp in enumerate(grasps):
             grasps[i] = grasp @ grasp_offset
 
-        breakpoint()
-
         for grasp in grasps:
             print("Executing grasp")
             print(grasp)
             theta_x, theta_y = divergence_from_vertical_grasp(grasp)
             print("with xy =", theta_x, theta_y)
-            grasp_completed = try_executing_grasp(rob, grasp)
+            if not dry_run:
+                grasp_completed = try_executing_grasp(rob, grasp)
+            else:
+                grasp_completed = False
             if grasp_completed:
                 break
