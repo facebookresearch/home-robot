@@ -34,10 +34,7 @@ from home_robot.hw.ros.utils import matrix_from_pose_msg, matrix_to_pose_msg
 from home_robot.agent.motion.ik import PybulletIKSolver
 
 # IK solver configuration
-try:
-    PKG_PATH = get_package_path()
-except:
-    PKG_PATH = os.path.dirname(home_robot.__file__)
+PKG_PATH = os.path.dirname(home_robot.__file__)
 URDF_PATH = "../../../assets/hab_stretch/urdf/planner_calibrated_manipulation_mode.urdf"
 URDF_ABS_PATH = os.path.join(PKG_PATH, URDF_PATH)
 
