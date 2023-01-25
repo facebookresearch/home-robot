@@ -20,9 +20,10 @@ def home_robot_stack():
 
     return [p_roscore, p_sim, p_se, p_gc]
 
+
 @pytest.fixture()
 def robot():
-    time.sleep(1) # HACK: wait for stack to launch
+    time.sleep(1)  # HACK: wait for stack to launch
 
     retries = 0
     while retries < MAX_RETRIES:
