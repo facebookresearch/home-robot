@@ -189,8 +189,16 @@ class HelloStretch(Robot):
 
     def _create_ik_solvers(self):
         """ create ik solvers using pybullet """
-        self.ik_solver = PybulletIKSolver(self.full_body_urdf_path, self.ee_link_name, self.full_body_controlled_joints)
-        self.manip_ik_solver = PybulletIKSolver(self.manip_mode_urdf_path, self.ee_link_name, self.manip_mode_controlled_joints)
+        self.ik_solver = PybulletIKSolver(
+            self.full_body_urdf_path,
+            self.ee_link_name,
+            self.full_body_controlled_joints,
+        )
+        self.manip_ik_solver = PybulletIKSolver(
+            self.manip_mode_urdf_path,
+            self.ee_link_name,
+            self.manip_mode_controlled_joints,
+        )
 
     def __init__(self, name="robot", urdf_path=None, visualize=False, root="."):
         """Create the robot in bullet for things like kinematics; extract information"""
@@ -201,7 +209,9 @@ class HelloStretch(Robot):
             manip_urdf = MANIP_STRETCH_URDF
         else:
             full_body_urdf = os.path.join(urdf_path, "planner_calibrated.urdf")
-            manip_urdf = os.path.join(urdf_path, "planner_calibrated_manipulation_mode.urdf")
+            manip_urdf = os.path.join(
+                urdf_path, "planner_calibrated_manipulation_mode.urdf"
+            )
         self.full_body_urdf_path = os.path.join(root, full_body_urdf)
         self.manip_mode_urdf_path = os.path.join(root, manip_urdf)
         super(HelloStretch, self).__init__(name, self.full_body_urdf_path, visualize)
