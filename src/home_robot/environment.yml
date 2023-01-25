@@ -14,4 +14,3 @@ dependencies:
     - pybullet
     - trimesh
     - pytest
-    - open3d
