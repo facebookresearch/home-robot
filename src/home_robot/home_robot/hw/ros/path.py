@@ -16,3 +16,8 @@ def get_package_path():
 
 def get_urdf_path():
     return os.path.join(get_package_path(), "..", "..", PLANNER_STRETCH_URDF)
+
+
+def get_urdf_dir():
+    """ location of the calibrated urdfs for use in planning """
+    return os.path.join(get_package_path(), "../../assets/hab_stretch/urdf")

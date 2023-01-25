@@ -27,7 +27,7 @@ def try_executing_grasp(rob, grasp) -> bool:
     print("grasp xyz =", grasp_pose[0])
 
     # If can't plan to reach grasp, return
-    qi = model.static_ik(grasp_pose, q)
+    qi = model.manip_ik(grasp_pose, q)
     if qi is not None:
         model.set_config(qi)
     else:
@@ -100,7 +100,7 @@ if __name__ == "__main__":
     print("Start example - hardware using ROS")
     rospy.init_node("hello_stretch_ros_test")
     print("Create ROS interface")
-    rob = HelloStretchROSInterface(visualize_planner=False)
+    rob = HelloStretchROSInterface(visualize_planner=True)
     print("Wait...")
     rospy.sleep(0.5)  # Make sure we have time to get ROS messages
     for i in range(1):
