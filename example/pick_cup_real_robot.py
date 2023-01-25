@@ -100,7 +100,7 @@ if __name__ == "__main__":
     print("Start example - hardware using ROS")
     rospy.init_node("hello_stretch_ros_test")
     print("Create ROS interface")
-    rob = HelloStretchROSInterface(visualize_planner=True)
+    rob = HelloStretchROSInterface(visualize_planner=False)
     print("Wait...")
     rospy.sleep(0.5)  # Make sure we have time to get ROS messages
     for i in range(1):
