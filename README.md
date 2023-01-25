@@ -115,6 +115,9 @@ To enforce this in VSCode, install [black](https://github.com/psf/black), [set y
 
 To format manually, run: `black .`
 
+## License
+Home Robot is MIT licensed. See the [LICENSE](https://github.com/facebookresearch/home-robot/blob/main/LICENSE) for details.
+
 ## References (temp)
 
 - [cpaxton/home_robot](https://github.com/cpaxton/home_robot)
