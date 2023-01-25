@@ -168,7 +168,7 @@ class HelloStretch(Robot):
     full_body_controlled_joints = [0, 1, 2, 5, 6, 7, 8, 9, 10, 11, 12]
 
     def _create_ik_solvers_trac_ik(self):
-        """ Deprecated functionality for trac ik solvers """
+        """Deprecated functionality for trac ik solvers"""
         self.ik_solver = TracIKSolver(
             urdf_path, "world", "link_straight_gripper", timeout=0.1, epsilon=1e-5
         )
@@ -188,7 +188,7 @@ class HelloStretch(Robot):
         assert self.lift_arm_ik_solver.number_of_joints == 5
 
     def _create_ik_solvers(self):
-        """ create ik solvers using pybullet """
+        """create ik solvers using pybullet"""
         self.ik_solver = PybulletIKSolver(
             self.full_body_urdf_path,
             self.ee_link_name,
