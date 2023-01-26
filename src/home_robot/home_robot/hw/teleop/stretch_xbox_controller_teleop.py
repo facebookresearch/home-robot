@@ -1,9 +1,7 @@
 #!/usr/bin/env python
-
 """
-Copied from stretch-body/stretch_xbox_controller_teleop.py
+Copied from https://github.com/hello-robot/stretch_body/blob/master/tools/bin/stretch_xbox_controller_teleop.py
 """
-# TODO: actual link to original
 # TODO: move this somewhere better, since it's in the "ros" folder but isn't actually ROS
 
 from __future__ import print_function
