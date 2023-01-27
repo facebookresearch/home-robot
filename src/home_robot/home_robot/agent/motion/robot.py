@@ -528,6 +528,28 @@ class HelloStretch(Robot):
         qi[HelloStretchIdx.WRIST_ROLL] = q[10]
         return qi
 
+    def _from_manip_format(self, q_raw, q_init):
+        # combine arm telescoping joints
+        # This is sort of an action representation
+        q_manip = np.zeros(6)
+        q_manip[0] = q_raw[0]  # base x translation
+        q_manip[1] = q_raw[1]  # lift
+        q_manip[2] = np.sum(q_raw[2:6])  # squeeze arm telescoping joints into 1
+        q_manip[3:6] = q_raw[6:9]  # yaw pitch roll
+        print("action =", q_manip)
+
+        # Compute the actual robot conmfiguration
+        q = q_init.copy()
+        # Get the theta - we can then convert this over to see where the robot will end up
+        theta = q_init[HelloStretchIdx.BASE_THETA]
+        q[HelloStretchIdx.BASE_X] += q_manip[0]
+        q[HelloStretchIdx.BASE_Y] += 0
+        # No change to theta
+        q[HelloStretchIdx.LIFT] = q_manip[1]
+        q[HelloStretchIdx.ARM] = q_manip[2]
+        q[HelloStretchIdx.WRIST_ROLL:HelloStretchIdx.WRIST_YAW+1] = q_manip[3:6]
+        return q
+
     def ik(self, pose, q0):
         pos, rot = pose
         se3 = pb.getMatrixFromQuaternion(rot)
@@ -541,34 +563,27 @@ class HelloStretch(Robot):
         else:
             return None
 
-    def lift_arm_ik_from_matrix(self, pose_matrix, q0):
-        end_arm_idx = 3 + self.lift_arm_ik_solver.number_of_joints
-        q0 = self._to_ik_format(q0)
-        ee_pose = self.get_ee_pose()
-        print(ee_pose[0])
-        print(ee_pose[1])
-        print(pose_matrix[:3, 3])
-        w, x, y, z = tra.quaternion_from_matrix(pose_matrix)
-        print([x, y, z, w])
-        print("----------------")
+    def manip_ik(self, pose_query, q0, relative: bool = True, update_pb: bool = True):
+        """IK in manipulation mode. Takes in a 4x4 pose_query matrix in se(3) and initial
+        configuration of the robot.
 
-        q = self.lift_arm_ik_solver.ik(pose_matrix, q0[3:end_arm_idx])
+        By default move relative. easier that way.
+        """
 
-        se3 = pb.getMatrixFromQuaternion(ee_pose[1])
-        pose2 = np.eye(4)
-        pose2[:3, :3] = np.array(se3).reshape(3, 3)
-        pose2[:3, 3] = np.array(ee_pose[0])
-        q2 = self.lift_arm_ik_solver.ik(pose2, q0[3:end_arm_idx])
-        print(q)
-        print(q2)
-
-        if q is not None:
-            res = q0.copy()
-            res[3:end_arm_idx] = q
-            res = self._to_plan_format(res)
-            return res
+        # Perform IK
+        # These should be relative to the robot's base
+        if relative:
+            pos, quat = pose_query
         else:
-            return None
+            # We need to compute this relative to the robot...
+            # So how do we do that?
+            # This logic currently in local hello robot client
+            raise NotImplementedError()
+        q = self._from_manip_format(self.manip_ik_solver.compute_ik(pos, quat), q0)
+        print(q)
+        breakpoint()
+        self.set_config(q)
+        return q
 
     def static_ik(self, pose_query, q0):
         """constrainted ik, do not move the base?"""

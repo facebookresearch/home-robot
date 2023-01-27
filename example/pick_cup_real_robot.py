@@ -2,6 +2,7 @@
 #
 # This source code is licensed under the MIT license found in the
 # LICENSE file in the root directory of this source tree.
+import click
 import rospy
 import timeit
 import numpy as np
@@ -19,7 +20,11 @@ visualize_masks = False
 
 def try_executing_grasp(rob, grasp) -> bool:
     """Try executing a grasp."""
+    
+    # Get the kinematics model from the robot reference
+    model = rob.get_model()
 
+    # Get our current joint states
     q, _ = rob.update()
 
     # Convert grasp pose to pos/quaternion
@@ -28,6 +33,7 @@ def try_executing_grasp(rob, grasp) -> bool:
 
     # If can't plan to reach grasp, return
     qi = model.manip_ik(grasp_pose, q)
+    breakpoint()
     if qi is not None:
         model.set_config(qi)
     else:
@@ -93,27 +99,26 @@ def divergence_from_vertical_grasp(grasp):
     theta_y = np.abs(np.arctan(dirn[1] / dirn[2]))
     return theta_x, theta_y
 
-
-if __name__ == "__main__":
+@click.command()
+@click.option("--dry-run", default=False, is_flag=True)
+@click.option("--show-masks", default=False, is_flag=True)
+def main(dry_run, show_masks):
     # Create the robot
     print("--------------")
     print("Start example - hardware using ROS")
     rospy.init_node("hello_stretch_ros_test")
+
     print("Create ROS interface")
-    rob = HelloStretchROSInterface(visualize_planner=False)
-    print("Wait...")
+    rob = HelloStretchROSInterface(visualize_planner=True)
     rospy.sleep(0.5)  # Make sure we have time to get ROS messages
-    for i in range(1):
-        q = rob.update()
-        print(rob.get_base_pose())
-    print("--------------")
-    print("We have updated the robot state. Now test goto.")
+    q = rob.update()
 
     rgb_cam = rob.rgb_cam
     dpt_cam = rob.dpt_cam
     rgb_cam.wait_for_image()
     dpt_cam.wait_for_image()
 
+    # Create a grasping client using ROS
     grasp_client = RosGraspClient()
     segmentation_model = Detectron2Segmentation(
         sem_pred_prob_thr=0.9, sem_gpu_id=-1, visualize=True
@@ -135,7 +140,6 @@ if __name__ == "__main__":
     print("look at ee")
     rob.goto(q, wait=True)
 
-    dry_run = True
     min_grasp_score = 0.0
     max_tries = 10
     min_obj_pts = 100
@@ -151,7 +155,6 @@ if __name__ == "__main__":
         )
         cup_mask = semantics[0, :, :, coco_categories["cup"]]
 
-        visualize_masks = True
         if visualize_masks:
             viz.show_image_with_mask(rgb, cup_mask)
 
@@ -208,3 +211,7 @@ if __name__ == "__main__":
                 grasp_completed = False
             if grasp_completed:
                 break
+
+
+if __name__ == "__main__":
+    main()
