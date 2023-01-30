@@ -1,0 +1,18 @@
+name: home_robot
+channels:
+  - conda-forge
+  - robostack
+dependencies:
+  - python ==3.8
+  - cmake
+  - pybind11
+  - pytorch
+  - ros-noetic-desktop
+  - pip:
+    - numpy
+    - scipy
+    - sophuspy
+    - pybullet
+    - trimesh
+    - pytest
+    - open3d

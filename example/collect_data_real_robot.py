@@ -1,3 +1,7 @@
+# Copyright (c) Meta Platforms, Inc. and affiliates.
+#
+# This source code is licensed under the MIT license found in the
+# LICENSE file in the root directory of this source tree.
 import argparse
 import rospy
 import sys
@@ -6,7 +10,6 @@ import numpy as np
 
 from home_robot.hw.ros.stretch_ros import HelloStretchROSInterface
 from home_robot.agent.motion.robot import (
-    STRETCH_HOME_Q,
     STRETCH_PREGRASP_Q,
     HelloStretchIdx,
 )

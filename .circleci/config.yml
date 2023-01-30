@@ -21,26 +21,35 @@ jobs:
       - image: continuumio/miniconda3
     steps:
       - checkout
+      - run:
+          name: Install Submodules
+          command: git submodule sync && git submodule update --init
+      - run: 
+          name: Setup conda & mamba
+          command: |
+            apt-get update
+            apt-get install -y build-essential libgl1-mesa-glx
+            conda init bash
+            source ~/.bashrc
+            conda install -y -n base -c conda-forge mamba
       - restore_cache:
-          key: deps9-{{ .Branch }}-{{ checksum "tests/test_env.yml" }}
+          key: deps9-{{ .Branch }}-{{ checksum "src/home_robot/environment.yml" }}
       - run:
           name: Setup env
           command: |
-            apt-get update
-            apt-get install -y build-essential
-            [ -d ~/testenv ] || conda env create -f tests/test_env.yml -p ~/testenv
+            [ -d ~/env_home_robot ] || mamba env create -f src/home_robot/environment.yml -p ~/env_home_robot
       - save_cache:
-          key: deps9-{{ .Branch }}-{{ checksum "tests/test_env.yml" }}
+          key: deps9-{{ .Branch }}-{{ checksum "src/home_robot/environment.yml" }}
           paths:
-            - "~/testenv"
+            - "~/env_home_robot"
             - "/usr/lib"
       - run:
-          name: Run tests
+          name: Install libraries and run tests
           command: |
-            conda init bash
             source ~/.bashrc
-            conda activate ~/testenv
-            pip install -e .
+            conda activate ~/env_home_robot
+            pip install -e src/home_robot
+            pip install -e src/home_robot_sim
             pytest tests/
 
 workflows:
