@@ -47,5 +47,5 @@ TASK:
 DATASET:
   TYPE: ObjectNav-v1
   SPLIT: val
-  DATA_PATH: "home_robot/experimental/theo/habitat_projects/datasets/episode_datasets/objectgoal_floorplanner_33categories/{split}/{split}.json.gz"
-  SCENES_DIR: "home_robot/experimental/theo/habitat_projects/datasets/scene_datasets/floorplanner/configs/scenes"
+  DATA_PATH: "home_robot/experimental/theo/habitat_projects/datasets/episode_datasets/floorplanner/indoor_only/v0.2.0_receptacle_cat_indoor_only/{split}/{split}.json.gz"
+  SCENES_DIR: "home_robot/experimental/theo/habitat_projects/datasets/scene_datasets/floorplanner/v0.2.0/configs/scenes"

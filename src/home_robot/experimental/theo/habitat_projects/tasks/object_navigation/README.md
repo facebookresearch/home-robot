@@ -45,32 +45,22 @@ export PYTHONPATH=$PYTHONPATH:/path/to/home-robot-dev/habitat-lab/
 
 ## Dataset Setup
 
-### Scene dataset setup
+### Scene dataset setup (v0.2.0)
 
 ```
-wget --no-check-certificate https://aspis.cmpt.sfu.ca/projects/scenebuilder/fphab/v0.1.1/fphab.zip -O src/home_robot/experimental/theo/habitat_projects/datasets/scene_datasets/floorplanner.zip
-unzip src/home_robot/experimental/theo/habitat_projects/datasets/scene_datasets/floorplanner.zip -d src/home_robot/experimental/theo/habitat_projects/datasets/scene_datasets/
-mv src/home_robot/experimental/theo/habitat_projects/datasets/scene_datasets/fphab src/home_robot/experimental/theo/habitat_projects/datasets/scene_datasets/floorplanner
-```
-
-[TEMPORARY] Until the scene dataset is updated to reflect new semantic-id mapping:
-```
-wget https://www.dropbox.com/s/0p1bk1jpd2s7h7k/objects_updated_semantic_mapping.zip -O src/home_robot/experimental/theo/habitat_projects/datasets/scene_datasets/objects_updated_semantic_mapping.zip
-unzip src/home_robot/experimental/theo/habitat_projects/datasets/scene_datasets/objects_updated_semantic_mapping.zip -d src/home_robot/experimental/theo/habitat_projects/datasets/scene_datasets/
-rm -rf src/home_robot/experimental/theo/habitat_projects/datasets/scene_datasets/floorplanner/configs/objects
-mv src/home_robot/experimental/theo/habitat_projects/datasets/scene_datasets/objects src/home_robot/experimental/theo/habitat_projects/datasets/scene_datasets/floorplanner/configs/objects
+wget --no-check-certificate https://aspis.cmpt.sfu.ca/projects/scenebuilder/fphab/v0.2.0/fphab-v0.2.0.zip -O src/home_robot/experimental/theo/habitat_projects/datasets/scene_datasets/fphab-v0.2.0.zip
+unzip src/home_robot/experimental/theo/habitat_projects/datasets/scene_datasets/fphab-v0.2.0.zip -d src/home_robot/experimental/theo/habitat_projects/datasets/scene_datasets/
+mkdir -p src/home_robot/experimental/theo/habitat_projects/datasets/scene_datasets/floorplanner
+mv src/home_robot/experimental/theo/habitat_projects/datasets/scene_datasets/fphab-v0.2.0 src/home_robot/experimental/theo/habitat_projects/datasets/scene_datasets/floorplanner/v0.2.0
 ```
 
 
 ### Episode dataset setup
 
 ```
-wget https://www.dropbox.com/s/hbpipa4bslussad/val_6_categories.zip -O src/home_robot/experimental/theo/habitat_projects/datasets/episode_datasets/val_6_categories.zip
-unzip src/home_robot/experimental/theo/habitat_projects/datasets/episode_datasets/val_6_categories.zip -d src/home_robot/experimental/theo/habitat_projects/datasets/episode_datasets/val_6categories
-wget https://www.dropbox.com/s/x2cid4m01a8glci/val_33_categories.zip -O src/home_robot/experimental/theo/habitat_projects/datasets/episode_datasets/val_33_categories.zip
-unzip src/home_robot/experimental/theo/habitat_projects/datasets/episode_datasets/val_33_categories.zip -d src/home_robot/experimental/theo/habitat_projects/datasets/episode_datasets/objectgoal_floorplanner_33categories
-wget https://www.dropbox.com/s/hia29wa9crv4ytj/val_receptacles_only.zip -O src/home_robot/experimental/theo/habitat_projects/datasets/episode_datasets/val_receptacle_categories.zip
-unzip src/home_robot/experimental/theo/habitat_projects/datasets/episode_datasets/val_receptacle_categories.zip -d src/home_robot/experimental/theo/habitat_projects/datasets/episode_datasets/objectgoal_floorplanner_receptacle_categories
+mkdir -p src/home_robot/experimental/theo/habitat_projects/datasets/episode_datasets/floorplanner/indoor_only/
+wget https://www.dropbox.com/s/n1g1s6uvowo4tbm/v0.2.0_receptacle_cat_indoor_only_val.zip -O src/home_robot/experimental/theo/habitat_projects/datasets/episode_datasets/floorplanner/indoor_only/v0.2.0_receptacle_cat_indoor_only_val.zip
+unzip src/home_robot/experimental/theo/habitat_projects/datasets/episode_datasets/floorplanner/indoor_only/v0.2.0_receptacle_cat_indoor_only_val.zip -d src/home_robot/experimental/theo/habitat_projects/datasets/episode_datasets/floorplanner/indoor_only/
 ```
 
 [TEMPORARY] Floorplanner dataset episodes need to point to the right scene dataset config for scenes to load correctly:
@@ -78,7 +68,7 @@ unzip src/home_robot/experimental/theo/habitat_projects/datasets/episode_dataset
 > Add the below line after L93 of `habitat-lab/habitat/core/env.py`
 
 ```
-self.current_episode.scene_dataset_config = "/path/to/home-robot-dev/src/home_robot/experimental/theo/habitat_projects/datasets/scene_datasets/floorplanner/hab-fp.scene_dataset_config.json"
+self.current_episode.scene_dataset_config = "/path/to/home-robot-dev/src/home_robot/experimental/theo/habitat_projects/datasets/scene_datasets/floorplanner/v0.2.0/hab-fp.scene_dataset_config.json"
 ```
 
 
