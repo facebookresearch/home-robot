@@ -217,7 +217,7 @@ mukul_33categories_indexes = {
 mukul_33categories_padded = ["."] + [mukul_33categories_indexes[i] for i in range(1, 34)] + ["other"]
 
 mukul_33categories_legend_path = (
-    "home_robot/experimental/theo/habitat_projects/tasks/object_navigation/obs_preprocessor/mukul_33categories_legend.png"
+    "home_robot/home_robot/experimental/theo/habitat_projects/tasks/object_navigation/obs_preprocessor/mukul_33categories_legend.png"
 )
 
 mukul_33categories_color_palette = [255, 255, 255] + list(d3_40_colors_rgb[1:34].flatten())

@@ -48,19 +48,19 @@ export PYTHONPATH=$PYTHONPATH:/path/to/home-robot-dev/habitat-lab/
 ### Scene dataset setup (v0.2.0)
 
 ```
-wget --no-check-certificate https://aspis.cmpt.sfu.ca/projects/scenebuilder/fphab/v0.2.0/fphab-v0.2.0.zip -O src/home_robot/experimental/theo/habitat_projects/datasets/scene_datasets/fphab-v0.2.0.zip
-unzip src/home_robot/experimental/theo/habitat_projects/datasets/scene_datasets/fphab-v0.2.0.zip -d src/home_robot/experimental/theo/habitat_projects/datasets/scene_datasets/
-mkdir -p src/home_robot/experimental/theo/habitat_projects/datasets/scene_datasets/floorplanner
-mv src/home_robot/experimental/theo/habitat_projects/datasets/scene_datasets/fphab-v0.2.0 src/home_robot/experimental/theo/habitat_projects/datasets/scene_datasets/floorplanner/v0.2.0
+wget --no-check-certificate https://aspis.cmpt.sfu.ca/projects/scenebuilder/fphab/v0.2.0/fphab-v0.2.0.zip -O src/home_robot/home_robot/experimental/theo/habitat_projects/datasets/scene_datasets/fphab-v0.2.0.zip
+unzip src/home_robot/home_robot/experimental/theo/habitat_projects/datasets/scene_datasets/fphab-v0.2.0.zip -d src/home_robot/home_robot/experimental/theo/habitat_projects/datasets/scene_datasets/
+mkdir -p src/home_robot/home_robot/experimental/theo/habitat_projects/datasets/scene_datasets/floorplanner
+mv src/home_robot/home_robot/experimental/theo/habitat_projects/datasets/scene_datasets/fphab-v0.2.0 src/home_robot/home_robot/experimental/theo/habitat_projects/datasets/scene_datasets/floorplanner/v0.2.0
 ```
 
 
 ### Episode dataset setup
 
 ```
-mkdir -p src/home_robot/experimental/theo/habitat_projects/datasets/episode_datasets/floorplanner/indoor_only/
-wget https://www.dropbox.com/s/n1g1s6uvowo4tbm/v0.2.0_receptacle_cat_indoor_only_val.zip -O src/home_robot/experimental/theo/habitat_projects/datasets/episode_datasets/floorplanner/indoor_only/v0.2.0_receptacle_cat_indoor_only_val.zip
-unzip src/home_robot/experimental/theo/habitat_projects/datasets/episode_datasets/floorplanner/indoor_only/v0.2.0_receptacle_cat_indoor_only_val.zip -d src/home_robot/experimental/theo/habitat_projects/datasets/episode_datasets/floorplanner/indoor_only/
+mkdir -p src/home_robot/home_robot/experimental/theo/habitat_projects/datasets/episode_datasets/floorplanner/indoor_only/
+wget https://www.dropbox.com/s/n1g1s6uvowo4tbm/v0.2.0_receptacle_cat_indoor_only_val.zip -O src/home_robot/home_robot/experimental/theo/habitat_projects/datasets/episode_datasets/floorplanner/indoor_only/v0.2.0_receptacle_cat_indoor_only_val.zip
+unzip src/home_robot/home_robot/experimental/theo/habitat_projects/datasets/episode_datasets/floorplanner/indoor_only/v0.2.0_receptacle_cat_indoor_only_val.zip -d src/home_robot/home_robot/experimental/theo/habitat_projects/datasets/episode_datasets/floorplanner/indoor_only/
 ```
 
 [TEMPORARY] Floorplanner dataset episodes need to point to the right scene dataset config for scenes to load correctly:
@@ -68,24 +68,24 @@ unzip src/home_robot/experimental/theo/habitat_projects/datasets/episode_dataset
 > Add the below line after L93 of `habitat-lab/habitat/core/env.py`
 
 ```
-self.current_episode.scene_dataset_config = "/path/to/home-robot-dev/src/home_robot/experimental/theo/habitat_projects/datasets/scene_datasets/floorplanner/v0.2.0/hab-fp.scene_dataset_config.json"
+self.current_episode.scene_dataset_config = "/path/to/home-robot-dev/src/home_robot/home_robot/experimental/theo/habitat_projects/datasets/scene_datasets/floorplanner/v0.2.0/hab-fp.scene_dataset_config.json"
 ```
 
 
 ## Demo setup
 
-Update `GROUND_TRUTH_SEMANTICS:1` in `src/home_robot/experimental/theo/habitat_projects/tasks/object_navigation/configs/agent/floorplanner_eval.yaml` and run the following:
+Update `GROUND_TRUTH_SEMANTICS:1` in `src/home_robot/home_robot/experimental/theo/habitat_projects/tasks/object_navigation/configs/agent/floorplanner_eval.yaml` and run the following:
 
 ```
 cd src
-python home_robot/experimental/theo/habitat_projects/tasks/object_navigation/eval_scripts/eval_specific_episode.py
+python home_robot/home_robot/experimental/theo/habitat_projects/tasks/object_navigation/eval_scripts/eval_specific_episode.py
 ```
 
-Results are saved to `src/home_robot/experimental/theo/habitat_projects/tasks/object_navigation/datadump/images/debug`.
+Results are saved to `src/home_robot/home_robot/experimental/theo/habitat_projects/tasks/object_navigation/datadump/images/debug`.
 
 ## Install Detic
 ```
-cd /path/to/home-robot-dev/src/home_robot/agent/perception/detection/detic
+cd /path/to/home-robot-dev/src/home_robot/home_robot/agent/perception/detection/detic
 python -m pip install 'git+https://github.com/facebookresearch/detectron2.git'
 pip install -r requirements.txt
 mkdir models
@@ -98,14 +98,14 @@ python demo.py --config-file configs/Detic_LCOCOI21k_CLIP_SwinB_896b32_4x_ft4x_m
 
 ## Run
 
-> Note: Ensure `GROUND_TRUTH_SEMANTICS:0` in `src/home_robot/experimental/theo/habitat_projects/tasks/object_navigation/configs/agent/floorplanner_eval.yaml` to test DETIC perception.
+> Note: Ensure `GROUND_TRUTH_SEMANTICS:0` in `src/home_robot/home_robot/experimental/theo/habitat_projects/tasks/object_navigation/configs/agent/floorplanner_eval.yaml` to test DETIC perception.
 
 ```
 cd /path/to/home-robot-dev/src
 
 # Single episode to debug (ensuring )
-python home_robot/experimental/theo/habitat_projects/tasks/object_navigation/eval_scripts/eval_specific_episode.py
+python home_robot/home_robot/experimental/theo/habitat_projects/tasks/object_navigation/eval_scripts/eval_specific_episode.py
 
 # Vectorized evaluation
-sbatch home_robot/experimental/theo/habitat_projects/tasks/object_navigation/eval_scripts/eval_vectorized.sh --config_path home_robot/experimental/theo/habitat_projects/tasks/object_navigation/configs/agent/floorplanner_eval.yaml
+sbatch home_robot/home_robot/experimental/theo/habitat_projects/tasks/object_navigation/eval_scripts/eval_vectorized.sh --config_path home_robot/home_robot/experimental/theo/habitat_projects/tasks/object_navigation/configs/agent/floorplanner_eval.yaml
 ```

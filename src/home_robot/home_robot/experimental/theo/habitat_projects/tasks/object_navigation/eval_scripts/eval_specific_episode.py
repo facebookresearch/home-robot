@@ -71,10 +71,10 @@ if __name__ == "__main__":
     agent = ObjectNavAgent(config=config)
     env = Env(config=config.TASK_CONFIG)
 
-    scene_id = "102343992"
-    episode_id = "1446"
-    obs = reset_to_episode(env, scene_id, episode_id)
-    # obs = env.reset()
+    # scene_id = "102343992"
+    # episode_id = "1446"
+    # obs = reset_to_episode(env, scene_id, episode_id)
+    obs = env.reset()
 
     agent.reset(env)
     # agent.set_vis_dir(scene_id=scene_id, episode_id=episode_id)
