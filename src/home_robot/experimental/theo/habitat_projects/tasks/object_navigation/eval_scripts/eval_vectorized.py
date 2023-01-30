@@ -185,6 +185,30 @@ class VectorizedEvaluator:
                             f"after {round(time.time() - start_time, 2)} seconds"
                         )
 
+                        # [temporary] to print running metrics
+                        aggregated_metrics = defaultdict(list)
+                        metrics = set(
+                            [k for k in list(episode_metrics.values())[0].keys() if k != "goal_name"]
+                        )
+                        for v in episode_metrics.values():
+                            k = "success"
+                            aggregated_metrics[f"{k[:3]}/total"].append(v[k])
+                            aggregated_metrics[f"{k[:3]}/{v['goal_name'][:8]}"].append(v[k])
+                        
+                        aggregated_metrics = dict(
+                            sorted(
+                                {
+                                    k2: v2
+                                    for k1, v1 in aggregated_metrics.items()
+                                    for k2, v2 in {
+                                        f"{k1[:15]}/mean": np.round(np.mean(v1), 2),
+                                    }.items()
+                                }.items()
+                            )
+                        )
+
+                        print(aggregated_metrics)
+
                     agent.reset_vectorized_for_env(e)
 
         envs.close()
