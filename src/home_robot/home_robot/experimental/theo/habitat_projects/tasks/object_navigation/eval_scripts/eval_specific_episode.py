@@ -87,3 +87,7 @@ if __name__ == "__main__":
         obs = env.step(action)
 
     print(env.get_metrics())
+
+# env.apply_action(action)
+# spin_once() # only on hardware
+# env.get_observation()
