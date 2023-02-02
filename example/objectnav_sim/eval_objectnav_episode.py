@@ -1,18 +1,12 @@
-"""
-This script is intended to run from the "src" root:
-python home_robot/experimental/theo/habitat_projects/tasks/object_navigation/eval_scripts/eval_specific_episode.py
-
-View printed images at:
-home_robot/experimental/theo/habitat_projects/tasks/object_navigation/datadump/images
-"""
-
 from pathlib import Path
 import sys
 
+# TODO Install home_robot and remove this
+print(Path(__file__).resolve().parent.parent.parent)
 sys.path.insert(
     0,
     str(
-        Path(__file__).resolve().parent.parent.parent.parent.parent.parent.parent.parent
+        Path(__file__).resolve().parent.parent.parent / "src/home_robot"
     ),
 )
 
@@ -54,12 +48,7 @@ def reset_to_episode(env: Env, scene_id: str, episode_id: str) -> Observations:
 
 
 if __name__ == "__main__":
-    # config_path = (
-    #     Path(__file__).resolve().parent.parent / "configs/agent/hm3d_eval.yaml"
-    # )
-    config_path = (
-            Path(__file__).resolve().parent.parent / "configs/agent/floorplanner_eval.yaml"
-    )
+    config_path = "configs/agent/floorplanner_eval.yaml"
     config, config_str = get_config(config_path)
     config.defrost()
     config.NUM_ENVIRONMENTS = 1
@@ -87,7 +76,3 @@ if __name__ == "__main__":
         obs = env.step(action)
 
     print(env.get_metrics())
-
-# env.apply_action(action)
-# spin_once() # only on hardware
-# env.get_observation()
