@@ -2,5 +2,6 @@
 class Action:
     pass
 
-class Observation:
+
+class Observations:
     pass

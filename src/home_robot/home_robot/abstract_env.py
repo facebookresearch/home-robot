@@ -1,11 +1,13 @@
-import home_robot
+from abc import ABC, abstractmethod
 
-class Env:
-    def __init__(self):
+from .core_interfaces import Action, Observations
+
+
+class Env(ABC):
+    @abstractmethod
+    def apply_action(self, action: Action):
         pass
 
-    def apply_action(self, action: home_robot.Action):
-        pass
-
-    def get_observation(self) -> home_robot.Observation:
+    @abstractmethod
+    def get_observation(self) -> Observations:
         pass

@@ -1,13 +1,16 @@
-from abc import ABC, abstractmethod
-
+from .abstract_agent import Agent
 from home_robot.core_interfaces import Action, Observations
 
 
-class Agent(ABC):
-    @abstractmethod
-    def reset(self) -> Observations:
+class ObjectNavAgent(Agent):
+    def __init__(self):
+        # TODO
         pass
 
-    @abstractmethod
+    def reset(self) -> Observations:
+        # TODO
+        pass
+
     def act(self, obs: Observations) -> Action:
+        # TODO
         pass
