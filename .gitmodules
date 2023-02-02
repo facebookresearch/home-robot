@@ -4,3 +4,6 @@
 [submodule "third_party/contact_graspnet"]
 	path = third_party/contact_graspnet
 	url = git@github.com:cpaxton/contact_graspnet.git
+[submodule "src/third_party/habitat-lab"]
+	path = src/third_party/habitat-lab
+	url = git@github.com:facebookresearch/habitat-lab
