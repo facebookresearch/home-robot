@@ -5,7 +5,7 @@ from home_robot.core_interfaces import Action, Observations
 
 class Agent(ABC):
     @abstractmethod
-    def reset(self) -> Observations:
+    def reset(self):
         pass
 
     @abstractmethod
