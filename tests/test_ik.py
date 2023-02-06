@@ -4,14 +4,19 @@
 # LICENSE file in the root directory of this source tree.
 import pytest
 import numpy
+from home_robot.agent.motion.robot import HelloStretch
+from home_robot.agent.motion.robot import STRETCH_HOME_Q
 
 
-def fk_ik_helper(rob, q):
+def fk_ik_helper(robot, q):
     """ do (1) generate random robot 
         generate fk for it; randomize robot
         """
     pass
 
+
+def get_ik_solver():
+    return HelloStretch(urdf_path='./assets/hab_stretch/urdf/', visualize=True)
 
 def test_ik():
     """
@@ -24,8 +29,12 @@ def test_ik():
     test_poses = [([-0.10281811, -0.7189281 ,  0.71703106], [-0.7079143 ,  0.12421559,  0.1409881 , -0.68084526]),
                   ([-0.01556295, -0.51387864,  0.8205258 ], [-0.7090214 ,  0.12297839,  0.14050716, -0.6800168 ]),
                   ]
+    robot = get_ik_solver()
+    q0 = STRETCH_HOME_Q
     for pos, quat in test_poses:
         print(pos, quat)
+        res = robot.manip_ik((pos, quat), q0, relative=True)
+        print(res)
                   
 
 def test_fk_ik():

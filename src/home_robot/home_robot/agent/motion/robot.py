@@ -563,13 +563,15 @@ class HelloStretch(Robot):
         else:
             return None
 
-    def manip_ik(self, pose_query, q0, relative: bool = True, update_pb: bool = True):
+    def manip_ik(self, pose_query, q0=None, relative: bool = True, update_pb: bool = True):
         """IK in manipulation mode. Takes in a 4x4 pose_query matrix in se(3) and initial
         configuration of the robot.
 
         By default move relative. easier that way.
         """
 
+        if q0 is None:
+            q0 = STRETCH_HOME_Q
         # Perform IK
         # These should be relative to the robot's base
         if relative:
@@ -580,8 +582,8 @@ class HelloStretch(Robot):
             # This logic currently in local hello robot client
             raise NotImplementedError()
         q = self._from_manip_format(self.manip_ik_solver.compute_ik(pos, quat), q0)
-        print(q)
-        breakpoint()
+        #print(q)
+        #breakpoint()
         self.set_config(q)
         return q
 
