@@ -82,6 +82,7 @@ python eval_episode.py
 Results are saved to `datadump/images/debug`.
 
 ## Install Detic
+TODO Fix these instructions to start by downloading submodule
 ```
 cd /path/to/home-robot-dev/src/home_robot/home_robot/agent/perception/detection/detic
 python -m pip install 'git+https://github.com/facebookresearch/detectron2.git'

@@ -22,10 +22,10 @@ class Observations:
     def __init__(self,
                  rgb: np.array,
                  depth: np.array,
-                 semantic: Optional[np.array],
                  compass: np.array,
                  gps: np.array,
-                 task_observations: Dict[str, Any]):
+                 task_observations: Dict[str, Any],
+                 semantic: Optional[np.array] = None):
         """
         Arguments:
             rgb: (camera_height, camera_width, 3) in [0, 255]
