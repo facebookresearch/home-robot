@@ -39,15 +39,13 @@ class HabitatObjectNavEnv(HabitatEnv):
                 raise NotImplementedError
 
         if not self.ground_truth_semantics:
-            from home_robot.agent.perception.detection.detic.detic_loader import get_detic
-            if config.AGENT.SEMANTIC_MAP.semantic_categories == "mukul_indoor":
-                self.segmentation = get_detic(
-                    vocabulary="custom",
-                    custom_vocabulary=",".join(mukul_33categories_padded),
-                    sem_gpu_id=(-1 if config.NO_GPU else self.habitat_env.sim.gpu_device),
-                )
-            else:
-                raise NotImplementedError
+            from home_robot.perception.detection.detic.detic_perception import DeticPerception
+            # TODO Specify confidence threshold as a parameter
+            self.segmentation = DeticPerception(
+                vocabulary="custom",
+                custom_vocabulary=",".join(mukul_33categories_padded),
+                sem_gpu_id=(-1 if config.NO_GPU else self.habitat_env.sim.gpu_device),
+            )
 
     def reset(self):
         habitat_obs = self.habitat_env.reset()
@@ -59,42 +57,32 @@ class HabitatObjectNavEnv(HabitatEnv):
                         habitat_obs: habitat.core.simulator.Observations
                         ) -> home_robot.core_interfaces.Observations:
         depth = self._preprocess_depth(habitat_obs["depth"])
-
-        semantic, semantic_vis = self._preprocess_semantic(
-            rgb=habitat_obs["rgb"],
-            depth=depth,
-            semantic=habitat_obs["semantic"],
-        )
-
         goal_id, goal_name = self._preprocess_goal(habitat_obs["objectgoal"])
-
         obs = home_robot.core_interfaces.Observations(
             rgb=habitat_obs["rgb"],
             depth=depth,
-            semantic=semantic,
             compass=habitat_obs["compass"],
             gps=habitat_obs["gps"],
             task_observations={
                 "goal_id": goal_id,
                 "goal_name": goal_name,
-                "semantic_frame": semantic_vis
             }
         )
+        obs = self._preprocess_semantic(obs, habitat_obs["semantic"])
         return obs
 
     def _preprocess_semantic(self,
-                             rgb: np.ndarray,
-                             depth: np.ndarray,
-                             semantic: np.array,
-                             ) -> Tuple[np.array, np.array]:
+                             obs: home_robot.core_interfaces.Observations,
+                             habitat_semantic: np.ndarray
+                             ) -> home_robot.core_interfaces.Observations:
         if self.ground_truth_semantics:
             instance_id_to_category_id = self.semantic_category_mapping.instance_id_to_category_id
-            semantic = instance_id_to_category_id[semantic[:, :, -1]]
+            obs.semantic = instance_id_to_category_id[habitat_semantic[:, :, -1]]
             # TODO Ground-truth semantic visualization
-            semantic_vis = rgb
+            obs.task_observations["semantic_frame"] = obs.rgb
         else:
-            semantic, semantic_vis = self.segmentation.get_prediction(rgb, depth)
-        return semantic.astype(int), semantic_vis
+            obs = self.segmentation.predict(obs, depth_threshold=0.5)
+        return obs
 
     def _preprocess_depth(self, depth: np.array) -> np.array:
         rescaled_depth = self.min_depth + depth * (self.max_depth - self.min_depth)
