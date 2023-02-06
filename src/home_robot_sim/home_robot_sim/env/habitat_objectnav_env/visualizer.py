@@ -10,14 +10,11 @@ from PIL import Image
 import skimage.morphology
 from typing import Optional
 
-from habitat import Config
-
 import home_robot.agent.utils.visualization_utils as vu
 import home_robot.agent.utils.pose_utils as pu
-from home_robot.experimental.theo.habitat_projects.tasks.object_navigation.obs_preprocessor.constants import (
+from .constants import (
     HM3DtoCOCOIndoor,
     FloorplannertoMukulIndoor,
-    HM3DtoLongTailIndoor
 )
 
 
@@ -26,7 +23,7 @@ class Visualizer:
     This class is intended to visualize a single object goal navigation task.
     """
 
-    def __init__(self, config: Config):
+    def __init__(self, config):
         self.show_images = config.VISUALIZE
         self.print_images = config.PRINT_IMAGES
         self.default_vis_dir = f"{config.DUMP_LOCATION}/images/{config.EXP_NAME}"
@@ -37,8 +34,6 @@ class Visualizer:
         if "hm3d" in self.episodes_data_path:
             if config.AGENT.SEMANTIC_MAP.semantic_categories == "coco_indoor":
                 self.semantic_category_mapping = HM3DtoCOCOIndoor()
-            # elif config.AGENT.SEMANTIC_MAP.semantic_categories == "longtail_indoor":
-            #     self.semantic_category_mapping = HM3DtoLongTailIndoor()
             else:
                 raise NotImplementedError
         elif "floorplanner" in self.episodes_data_path:
@@ -248,6 +243,6 @@ class Visualizer:
 
         # Draw legend
         lx, ly, _ = self.legend.shape
-        vis_image[537 : 537 + lx, 155 : 155 + ly, :] = self.legend
+        vis_image[537: 537 + lx, 155: 155 + ly, :] = self.legend
 
         return vis_image
