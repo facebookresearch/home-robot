@@ -4,10 +4,10 @@ from typing import Any, Dict, Optional
 import habitat
 
 import home_robot
-import home_robot.abstract_env
+import home_robot.core.abstract_env
 
 
-class HabitatEnv(home_robot.abstract_env.Env):
+class HabitatEnv(home_robot.core.abstract_env.Env):
     """
     Base environment that lets a home_robot agent interact with the Habitat
     simulator.
@@ -25,7 +25,7 @@ class HabitatEnv(home_robot.abstract_env.Env):
         self._last_obs = self._preprocess_obs(self.habitat_env.reset())
 
     def apply_action(self,
-                     action: home_robot.core_interfaces.Action,
+                     action: home_robot.core.interfaces.Action,
                      info: Optional[Dict[str, Any]] = None):
         if info is not None:
             self._process_info(info)
@@ -33,7 +33,7 @@ class HabitatEnv(home_robot.abstract_env.Env):
         habitat_obs = self.habitat_env.step(habitat_action)
         self._last_obs = self._preprocess_obs(habitat_obs)
 
-    def get_observation(self) -> home_robot.core_interfaces.Observations:
+    def get_observation(self) -> home_robot.core.interfaces.Observations:
         return self._last_obs
 
     @property
@@ -46,13 +46,13 @@ class HabitatEnv(home_robot.abstract_env.Env):
     @abstractmethod
     def _preprocess_obs(self,
                         habitat_obs: habitat.core.simulator.Observations
-                        ) -> home_robot.core_interfaces.Observations:
+                        ) -> home_robot.core.interfaces.Observations:
         """Translate Habitat observations into home_robot observations."""
         pass
 
     @abstractmethod
     def _preprocess_action(self,
-                           action: home_robot.core_interfaces.Action,
+                           action: home_robot.core.interfaces.Action,
                            ) -> Any:
         """Translate a home_robot action into a Habitat action."""
         pass

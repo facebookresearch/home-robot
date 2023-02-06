@@ -55,10 +55,10 @@ class HabitatObjectNavEnv(HabitatEnv):
 
     def _preprocess_obs(self,
                         habitat_obs: habitat.core.simulator.Observations
-                        ) -> home_robot.core_interfaces.Observations:
+                        ) -> home_robot.core.interfaces.Observations:
         depth = self._preprocess_depth(habitat_obs["depth"])
         goal_id, goal_name = self._preprocess_goal(habitat_obs["objectgoal"])
-        obs = home_robot.core_interfaces.Observations(
+        obs = home_robot.core.interfaces.Observations(
             rgb=habitat_obs["rgb"],
             depth=depth,
             compass=habitat_obs["compass"],
@@ -72,9 +72,9 @@ class HabitatObjectNavEnv(HabitatEnv):
         return obs
 
     def _preprocess_semantic(self,
-                             obs: home_robot.core_interfaces.Observations,
+                             obs: home_robot.core.interfaces.Observations,
                              habitat_semantic: np.ndarray
-                             ) -> home_robot.core_interfaces.Observations:
+                             ) -> home_robot.core.interfaces.Observations:
         if self.ground_truth_semantics:
             instance_id_to_category_id = self.semantic_category_mapping.instance_id_to_category_id
             obs.semantic = instance_id_to_category_id[habitat_semantic[:, :, -1]]
@@ -96,7 +96,7 @@ class HabitatObjectNavEnv(HabitatEnv):
     def _preprocess_goal(self, goal: np.array) -> Tuple[int, str]:
         return self.semantic_category_mapping.map_goal_id(goal[0])
 
-    def _preprocess_action(self, action: home_robot.core_interfaces.Action) -> int:
+    def _preprocess_action(self, action: home_robot.core.interfaces.Action) -> int:
         return HabitatSimActions[action.name]
 
     def _process_info(self, info: Dict[str, Any]) -> Any:
