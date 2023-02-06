@@ -1,4 +1,4 @@
-from typing import Dict
+from typing import Dict, Any, Optional
 from abc import ABC, abstractmethod
 
 from .core_interfaces import Action, Observations
@@ -10,7 +10,7 @@ class Env(ABC):
         pass
 
     @abstractmethod
-    def apply_action(self, action: Action):
+    def apply_action(self, action: Action, info: Optional[Dict[str, Any]] = None):
         pass
 
     @abstractmethod

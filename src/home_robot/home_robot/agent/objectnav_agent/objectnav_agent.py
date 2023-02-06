@@ -1,32 +1,20 @@
-from typing import List, Tuple, Dict
+from typing import List, Tuple, Dict, Any
 import torch
 from torch.nn import DataParallel
+import numpy as np
 
-import habitat
-from habitat import Config
-from habitat.core.env import Env
-from habitat.core.simulator import Observations
-from habitat.sims.habitat_simulator.actions import HabitatSimActions
-
-from .objectnav_agent_module import ObjectNavAgentModule
+from home_robot.agent.abstract_agent import Agent
+from home_robot.core_interfaces import DiscreteNavigationAction, Observations
 from home_robot.agent.mapping.dense.semantic.categorical_2d_semantic_map_state import (
     Categorical2DSemanticMapState,
 )
 from home_robot.agent.navigation_planner.discrete_planner import DiscretePlanner
-from home_robot.experimental.theo.habitat_projects.tasks.object_navigation.obs_preprocessor.obs_preprocessor import (
-    ObsPreprocessor,
-)
-from home_robot.experimental.theo.habitat_projects.tasks.object_navigation.visualizer.visualizer import (
-    Visualizer,
-)
+import home_robot.agent.utils.pose_utils as pu
+from .objectnav_agent_module import ObjectNavAgentModule
 
 
-class ObjectNavAgent(habitat.Agent):
-    """
-    Object Goal Navigation agent.
-    """
-
-    def __init__(self, config: Config, device_id: int = 0):
+class ObjectNavAgent(Agent):
+    def __init__(self, config, device_id: int = 0):
         self.max_steps = config.AGENT.max_steps
         self.num_environments = config.NUM_ENVIRONMENTS
         if config.AGENT.panorama_start:
@@ -46,9 +34,6 @@ class ObjectNavAgent(habitat.Agent):
             # Use DataParallel only as a wrapper to move model inputs to GPU
             self.module = DataParallel(self._module, device_ids=[self.device_id])
 
-        self.obs_preprocessor = ObsPreprocessor(
-            config, self.num_environments, self.device
-        )
         self.semantic_map = Categorical2DSemanticMapState(
             device=self.device,
             num_environments=self.num_environments,
@@ -69,15 +54,18 @@ class ObjectNavAgent(habitat.Agent):
             dump_location=config.DUMP_LOCATION,
             exp_name=config.EXP_NAME,
         )
-        self.visualizer = Visualizer(config)
+        self.one_hot_encoding = torch.eye(config.AGENT.SEMANTIC_MAP.num_sem_categories,
+                                          device=self.device)
 
         self.goal_update_steps = self._module.goal_update_steps
         self.timesteps = None
         self.timesteps_before_goal_update = None
         self.episode_panorama_start_steps = None
+        self.last_poses = None
 
     # ------------------------------------------------------------------
-    # Inference methods to interact with vectorized environments
+    # Inference methods to interact with vectorized simulation
+    # environments
     # ------------------------------------------------------------------
 
     @torch.no_grad()
@@ -186,39 +174,38 @@ class ObjectNavAgent(habitat.Agent):
         """Initialize agent state."""
         self.timesteps = [0] * self.num_environments
         self.timesteps_before_goal_update = [0] * self.num_environments
+        self.last_poses = [np.zeros(3)] * self.num_environments
         self.semantic_map.init_map_and_pose()
 
     def reset_vectorized_for_env(self, e: int):
         """Initialize agent state for a specific environment."""
         self.timesteps[e] = 0
         self.timesteps_before_goal_update[e] = 0
+        self.last_poses[e] = np.zeros(3)
         self.semantic_map.init_map_and_pose_for_env(e)
 
-    # ------------------------------------------------------------------
-    # Inference methods to interact with a single un-vectorized environment
-    # ------------------------------------------------------------------
+    # ---------------------------------------------------------------------
+    # Inference methods to interact with the robot or a single un-vectorized
+    # simulation environment
+    # ---------------------------------------------------------------------
 
-    def reset(self, env: Env):
+    def reset(self):
         """Initialize agent state."""
         self.reset_vectorized()
-        self.obs_preprocessor.reset(env)
         self.planner.reset()
-        self.visualizer.reset()
         self.episode_panorama_start_steps = self.panorama_start_steps
 
-    @torch.no_grad()
-    def act(self, obs: Observations) -> Dict[str, int]:
+    def act(self, obs: Observations) -> Tuple[DiscreteNavigationAction, Dict[str, Any]]:
         """Act end-to-end."""
         # t0 = time.time()
 
         # 1 - Obs preprocessing
         (
             obs_preprocessed,
-            semantic_frame,
             pose_delta,
             goal_category,
-            goal_name,
-        ) = self.obs_preprocessor.preprocess([obs])
+            goal_name
+        ) = self._preprocess_obs(obs)
 
         # t1 = time.time()
         # print(f"[Agent] Obs preprocessing time: {t1 - t0:.2f}")
@@ -236,33 +223,41 @@ class ObjectNavAgent(habitat.Agent):
         if planner_inputs[0]["found_goal"]:
             self.episode_panorama_start_steps = 0
         if self.timesteps[0] < self.episode_panorama_start_steps:
-            action = HabitatSimActions.TURN_RIGHT
+            action = DiscreteNavigationAction.TURN_RIGHT
         elif self.timesteps[0] > self.max_steps:
-            action = HabitatSimActions.STOP
+            action = DiscreteNavigationAction.STOP
         else:
             action, closest_goal_map = self.planner.plan(**planner_inputs[0])
-        self.obs_preprocessor.last_actions[0] = action
 
         # t3 = time.time()
         # print(f"[Agent] Planning time: {t3 - t2:.2f}")
-
-        # 4 - Visualization
-        vis_inputs[0]["semantic_frame"] = semantic_frame[0]
-        vis_inputs[0]["goal_name"] = goal_name[0]
-        vis_inputs[0]["closest_goal_map"] = closest_goal_map
-        self.visualizer.visualize(**planner_inputs[0], **vis_inputs[0])
-
-        # t4 = time.time()
-        # print(f"[Agent] Visualization time: {t4 - t3:.2f}")
-        # print(f"[Agent] Total time: {t4 - t0:.2f}")
+        # print(f"[Agent] Total time: {t3 - t0:.2f}")
         # print()
 
-        return {"action": action}
+        vis_inputs[0]["semantic_frame"] = obs.task_observations["semantic_frame"]
+        vis_inputs[0]["goal_name"] = obs.task_observations["goal_name"]
+        vis_inputs[0]["closest_goal_map"] = closest_goal_map
+        info = {**planner_inputs[0], **vis_inputs[0]}
 
-    def set_vis_dir(self, scene_id: str, episode_id: str):
-        """
-        Reset visualization directory - if we have access to
-        environment object and scene_id and episode_id.
-        """
-        self.planner.set_vis_dir(scene_id, episode_id)
-        self.visualizer.set_vis_dir(scene_id, episode_id)
+        return action, info
+
+    def _preprocess_obs(self, obs: Observations):
+        rgb = torch.from_numpy(obs.rgb).to(self.device)
+        depth = torch.from_numpy(obs.depth).unsqueeze(-1).to(self.device) * 100.0  # m to cm
+        semantic = self.one_hot_encoding[torch.from_numpy(obs.semantic).to(self.device)]
+        obs_preprocessed = torch.cat([rgb, depth, semantic], dim=-1).unsqueeze(0)
+        obs_preprocessed = obs_preprocessed.permute(0, 3, 1, 2)
+
+        curr_pose = np.array([obs.gps[0], -obs.gps[1], obs.compass[0]])
+        pose_delta = torch.tensor(pu.get_rel_pose_change(curr_pose, self.last_poses[0])).unsqueeze(0)
+        self.last_poses[0] = curr_pose
+
+        goal_category = torch.tensor(obs.task_observations["goal_id"]).unsqueeze(0)
+        goal_name = [obs.task_observations["goal_name"]]
+
+        return (
+            obs_preprocessed,
+            pose_delta,
+            goal_category,
+            goal_name
+        )

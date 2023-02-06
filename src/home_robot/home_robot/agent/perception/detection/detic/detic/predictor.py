@@ -84,58 +84,104 @@ class VisualizationDemo(object):
             self.predictor = DefaultPredictor(cfg)
         reset_cls_test(self.predictor.model, classifier, num_classes)
 
+    # def get_prediction(
+    #     self, images: np.ndarray, depths: Optional[np.ndarray] = None
+    # ) -> Tuple[np.ndarray, np.ndarray]:
+    #     """
+    #     Arguments:
+    #         images: images of shape (batch_size, H, W, 3) (in BGR order)
+    #         depths: depth frames of shape (batch_size, H, W)
+    #
+    #     Returns:
+    #         one_hot_predictions: one hot segmentation predictions of shape
+    #          (batch_size, H, W, num_sem_categories)
+    #         visualizations: prediction visualization images
+    #          shape (batch_size, H, W, 3) if self.visualize=True, else
+    #          original images
+    #     """
+    #     batch_size, height, width, _ = images.shape
+    #
+    #     one_hot_predictions = np.zeros(
+    #         (batch_size, height, width, self.num_sem_categories)
+    #     )
+    #     visualizations = images
+    #
+    #     for i, image in enumerate(images):
+    #         prediction, visualization = self.run_on_image(image)
+    #         if self.visualize:
+    #             visualizations[i] = visualization.get_image()
+    #
+    #         for j, class_idx in enumerate(
+    #             prediction["instances"].pred_classes.cpu().numpy()
+    #         ):
+    #             if class_idx in self.categories_mapping:
+    #                 idx = self.categories_mapping[class_idx]
+    #                 obj_mask = prediction["instances"].pred_masks[j] * 1.0
+    #                 obj_mask = obj_mask.cpu().numpy()
+    #
+    #                 if depths is not None:
+    #                     depth = depths[i]
+    #                     md = np.median(depth[obj_mask == 1])
+    #                     if md == 0:
+    #                         filter_mask = np.ones_like(obj_mask, dtype=bool)
+    #                     else:
+    #                         # Restrict objects to 1m depth
+    #                         filter_mask = (depth >= md + 50) | (depth <= md - 50)
+    #                     # print(
+    #                     #     f"Median object depth: {md.item()}, filtering out "
+    #                     #     f"{np.count_nonzero(filter_mask)} pixels"
+    #                     # )
+    #                     obj_mask[filter_mask] = 0.0
+    #
+    #                 one_hot_predictions[i, :, :, idx] += obj_mask
+    #
+    #     return one_hot_predictions, visualizations
+
     def get_prediction(
-        self, images: np.ndarray, depths: Optional[np.ndarray] = None
+        self, image: np.ndarray, depth: Optional[np.ndarray] = None
     ) -> Tuple[np.ndarray, np.ndarray]:
         """
         Arguments:
-            images: images of shape (batch_size, H, W, 3) (in BGR order)
-            depths: depth frames of shape (batch_size, H, W)
+            image: image of shape (H, W, 3) (in BGR order)
+            depth: depth frame of shape (H, W), used for depth filtering
 
         Returns:
-            one_hot_predictions: one hot segmentation predictions of shape
-             (batch_size, H, W, num_sem_categories)
-            visualizations: prediction visualization images
-             shape (batch_size, H, W, 3) if self.visualize=True, else
-             original images
+            prediction: segmentation predictions of shape (H, W) with
+             indices in [0, num_sem_categories - 1]
+            visualization: prediction visualization image of shape
+             (H, W, 3) if self.visualize=True, else original image
         """
-        batch_size, height, width, _ = images.shape
+        height, width, _ = image.shape
 
-        one_hot_predictions = np.zeros(
-            (batch_size, height, width, self.num_sem_categories)
-        )
-        visualizations = images
+        pred, vis = self.run_on_image(image)
 
-        for i, image in enumerate(images):
-            prediction, visualization = self.run_on_image(image)
-            if self.visualize:
-                visualizations[i] = visualization.get_image()
+        visualization = vis.get_image() if self.visualize else image
 
-                for j, class_idx in enumerate(
-                    prediction["instances"].pred_classes.cpu().numpy()
-                ):
-                    if class_idx in self.categories_mapping:
-                        idx = self.categories_mapping[class_idx]
-                        obj_mask = prediction["instances"].pred_masks[j] * 1.0
-                        obj_mask = obj_mask.cpu().numpy()
+        prediction = np.zeros((height, width))
+        for j, class_idx in enumerate(
+            pred["instances"].pred_classes.cpu().numpy()
+        ):
+            if class_idx in self.categories_mapping:
+                idx = self.categories_mapping[class_idx]
+                obj_mask = pred["instances"].pred_masks[j] * 1.0
+                obj_mask = obj_mask.cpu().numpy()
 
-                        if depths is not None:
-                            depth = depths[i]
-                            md = np.median(depth[obj_mask == 1])
-                            if md == 0:
-                                filter_mask = np.ones_like(obj_mask, dtype=bool)
-                            else:
-                                # Restrict objects to 1m depth
-                                filter_mask = (depth >= md + 50) | (depth <= md - 50)
-                            # print(
-                            #     f"Median object depth: {md.item()}, filtering out "
-                            #     f"{np.count_nonzero(filter_mask)} pixels"
-                            # )
-                            obj_mask[filter_mask] = 0.0
+                if depth is not None:
+                    md = np.median(depth[obj_mask == 1])
+                    if md == 0:
+                        filter_mask = np.ones_like(obj_mask, dtype=bool)
+                    else:
+                        # Restrict objects to 1m depth
+                        filter_mask = (depth >= md + 0.5) | (depth <= md - 0.5)
+                    # print(
+                    #     f"Median object depth: {md.item()}, filtering out "
+                    #     f"{np.count_nonzero(filter_mask)} pixels"
+                    # )
+                    obj_mask[filter_mask] = 0.0
 
-                        one_hot_predictions[i, :, :, idx] += obj_mask
+                prediction[obj_mask.astype(bool)] = idx
 
-        return one_hot_predictions, visualizations
+        return prediction, visualization
 
     def run_on_image(self, image):
         """
