@@ -3,6 +3,8 @@
 # This source code is licensed under the MIT license found in the
 # LICENSE file in the root directory of this source tree.
 import pytest
+import numpy
+
 
 def fk_ik_helper(rob, q):
     """ do (1) generate random robot 
@@ -10,7 +12,28 @@ def fk_ik_helper(rob, q):
         """
     pass
 
+
+def test_ik():
+    """
+    Goal pos and rot: (array([-0.10281811, -0.7189281 ,  0.71703106], dtype=float32), array([-0.7079143 ,  0.12421559,  0.1409881 , -0.68084526]))
+    Current best solution: (array([-0.1350856 , -0.71864623,  0.71646219]), array([ 0.7084716 , -0.12145648, -0.13812223,  0.68135047]))
+
+    2nd Goal pos and rot: (array([-0.01556295, -0.51387864,  0.8205258 ], dtype=float32), array([-0.7090214 ,  0.12297839,  0.14050716, -0.6800168 ]))
+    Current best solution: (array([-0.12925884, -0.51288551,  0.8185215 ]), array([ 0.71091503, -0.1131743 , -0.13030495,  0.68177122]))
+    """
+    test_poses = [([-0.10281811, -0.7189281 ,  0.71703106], [-0.7079143 ,  0.12421559,  0.1409881 , -0.68084526]),
+                  ([-0.01556295, -0.51387864,  0.8205258 ], [-0.7090214 ,  0.12297839,  0.14050716, -0.6800168 ]),
+                  ]
+    for pos, quat in test_poses:
+        print(pos, quat)
+                  
+
 def test_fk_ik():
+    np.random.seed(0)
     rob = HelloStretch()
     for i in range(1000):
         res = fk_ik_helper(rob, q)
+
+
+if __name__ == '__main__':
+    test_ik()
