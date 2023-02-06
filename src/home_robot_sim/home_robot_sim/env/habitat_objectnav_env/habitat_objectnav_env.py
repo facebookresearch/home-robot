@@ -82,6 +82,9 @@ class HabitatObjectNavEnv(HabitatEnv):
             obs.task_observations["semantic_frame"] = obs.rgb
         else:
             obs = self.segmentation.predict(obs, depth_threshold=0.5)
+            if type(self.semantic_category_mapping) == FloorplannertoMukulIndoor:
+                # First index is a dummy unused category
+                obs.semantic[obs.semantic == 0] = self.semantic_category_mapping.num_sem_categories - 1
         return obs
 
     def _preprocess_depth(self, depth: np.array) -> np.array:
