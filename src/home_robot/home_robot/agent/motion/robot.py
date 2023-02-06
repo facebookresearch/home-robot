@@ -164,7 +164,8 @@ class HelloStretch(Robot):
 
     # For inverse kinematics mode
     ee_link_name = "link_straight_gripper"
-    manip_mode_controlled_joints = [0, 3, 4, 5, 6, 7, 8, 9, 10]
+    #manip_mode_controlled_joints = [0, 3, 4, 5, 6, 7, 8, 9, 10]
+    manip_mode_controlled_joints = [0, 5, 6, 7, 8, 9, 10, 11, 12]
     full_body_controlled_joints = [0, 1, 2, 5, 6, 7, 8, 9, 10, 11, 12]
 
     def _create_ik_solvers_trac_ik(self):
@@ -531,23 +532,16 @@ class HelloStretch(Robot):
     def _from_manip_format(self, q_raw, q_init):
         # combine arm telescoping joints
         # This is sort of an action representation
-        q_manip = np.zeros(6)
-        q_manip[0] = q_raw[0]  # base x translation
-        q_manip[1] = q_raw[1]  # lift
-        q_manip[2] = np.sum(q_raw[2:6])  # squeeze arm telescoping joints into 1
-        q_manip[3:6] = q_raw[6:9]  # yaw pitch roll
-        print("action =", q_manip)
-
         # Compute the actual robot conmfiguration
         q = q_init.copy()
         # Get the theta - we can then convert this over to see where the robot will end up
         theta = q_init[HelloStretchIdx.BASE_THETA]
-        q[HelloStretchIdx.BASE_X] += q_manip[0]
-        q[HelloStretchIdx.BASE_Y] += 0
+        q[HelloStretchIdx.BASE_X] += q_raw[0]
+        # q[HelloStretchIdx.BASE_Y] += 0
         # No change to theta
-        q[HelloStretchIdx.LIFT] = q_manip[1]
-        q[HelloStretchIdx.ARM] = q_manip[2]
-        q[HelloStretchIdx.WRIST_ROLL:HelloStretchIdx.WRIST_YAW+1] = q_manip[3:6]
+        q[HelloStretchIdx.LIFT] = q_raw[1]
+        q[HelloStretchIdx.ARM] = np.sum(q_raw[2:6])
+        q[HelloStretchIdx.WRIST_ROLL:HelloStretchIdx.WRIST_YAW+1] = q_raw[6:9]
         return q
 
     def ik(self, pose, q0):
@@ -581,9 +575,10 @@ class HelloStretch(Robot):
             # So how do we do that?
             # This logic currently in local hello robot client
             raise NotImplementedError()
-        q = self._from_manip_format(self.manip_ik_solver.compute_ik(pos, quat), q0)
-        #print(q)
-        #breakpoint()
+        _q = self.manip_ik_solver.compute_ik(pos, quat)
+        print(_q)
+        q = self._from_manip_format(_q, q0)
+        breakpoint()
         self.set_config(q)
         return q
 
