@@ -12,7 +12,7 @@ import skimage.morphology
 import time
 
 import home_robot.agent.utils.pose_utils as pu
-from home_robot.core_interfaces import DiscreteNavigationAction
+from home_robot.core.interfaces import DiscreteNavigationAction
 from .fmm_planner import FMMPlanner
 
 

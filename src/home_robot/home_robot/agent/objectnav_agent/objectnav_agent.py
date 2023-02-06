@@ -3,8 +3,8 @@ import torch
 from torch.nn import DataParallel
 import numpy as np
 
-from home_robot.agent.abstract_agent import Agent
-from home_robot.core_interfaces import DiscreteNavigationAction, Observations
+from home_robot.core.abstract_agent import Agent
+from home_robot.core.interfaces import DiscreteNavigationAction, Observations
 from home_robot.agent.mapping.dense.semantic.categorical_2d_semantic_map_state import (
     Categorical2DSemanticMapState,
 )

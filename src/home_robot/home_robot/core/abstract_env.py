@@ -1,7 +1,7 @@
 from typing import Dict, Any, Optional
 from abc import ABC, abstractmethod
 
-from .core_interfaces import Action, Observations
+from .interfaces import Action, Observations
 
 
 class Env(ABC):
