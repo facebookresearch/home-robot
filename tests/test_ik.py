@@ -46,6 +46,7 @@ def test_ik():
         robot.set_config(res)
         pos2, quat2 = robot.get_ee_pose()
         print("PRED:", pos2, quat2)
+        print("x motion:", res[0])
         input('press enter to continue')
 
         print("-------- 2 ---------")
@@ -56,6 +57,7 @@ def test_ik():
         robot.set_config(res)
         pos2, quat2 = robot.get_ee_pose()
         print("PRED:", pos2, quat2)
+        print("x motion:", res[0])
         input('press enter to continue')
  
                   
