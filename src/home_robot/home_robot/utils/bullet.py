@@ -152,6 +152,14 @@ class PbArticulatedObject(PbObject):
             physicsClientId=self.client,
         )
 
+    def get_num_joints(self):
+        return pb.getNumJoints(self.id, self.client)
+
+    def set_joint_positions(self, positions, indices=None):
+        dof = self.get_num_joints()
+        for i, q in enumerate(positions):
+            self.set_joint_position(i, q)
+
     def get_joint_positions(self):
         return pb.getJointState(self.id, jointIndices=np.arange(self.num_joints), physicsClientId=self.client)
 
@@ -356,3 +364,65 @@ class PbClient(object):
     def add_ground_plane(self):
         pb.setAdditionalSearchPath(pybullet_data.getDataPath())
         self.plane_id = pb.loadURDF("plane.urdf")
+
+
+class PybulletIKSolver:
+    """ Create a wrapper for solving inverse kinematics using PyBullet """
+    def __init__(self, urdf_path, ee_link_name, controlled_joints=None,
+                 visualize=False):
+        self.env = PbClient(visualize=visualize, is_simulation=False)
+        self.robot = self.env.add_articulated_object("robot", urdf_path)
+        self.pc_id = self.env.id
+        self.robot_id = self.robot.id
+        self.visualize = visualize
+
+        # Debugging code, not very robust
+        if visualize:
+            self.debug_block = PbArticulatedObject('red_block',
+                                                   './assets/red_block.urdf',
+                                                   client=self.env.id)
+
+        self.ee_idx = self.get_link_names().index(ee_link_name)
+        self.controlled_joints = np.array(controlled_joints, dtype=np.int32)
+
+    def get_joint_names(self):
+        return self.robot.get_joint_names()
+
+    def get_link_names(self):
+        return self.robot.get_link_names()
+
+    def get_num_joints(self):
+        return self.robot.get_num_joints()
+
+    def compute_ik(self, pos_desired, quat_desired, q_init):
+        # TODO - remove debug code
+        #qq = [p[0] for p in p.getJointStates(self.robot_id,
+        #    #jointIndices=np.arange(self.get_num_joints()),
+        #    jointIndices=np.arange(self.ee_idx),
+        #    physicsClientId=self.pc_id)]
+
+        self.robot.set_joint_positions(q_init)
+        if self.visualize:
+            self.debug_block.set_pose(pos_desired, quat_desired)
+            input('--- Press enter to solve ---')
+
+        q_full = np.array(
+            pb.calculateInverseKinematics(
+                self.robot_id,
+                self.ee_idx,
+                pos_desired,
+                quat_desired,
+                #maxNumIterations=1000,
+                #residualThreshold=1e-6,
+                physicsClientId=self.pc_id,
+            )
+        )
+        self.robot.set_joint_positions(q_full)
+        breakpoint()
+
+        if self.controlled_joints is not None:
+            q_out = q_full[self.controlled_joints]
+        else:
+            q_out = q_full
+
+        return q_out

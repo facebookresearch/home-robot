@@ -4,8 +4,8 @@
 # LICENSE file in the root directory of this source tree.
 import pytest
 import numpy
-from home_robot.agent.motion.robot import HelloStretch
-from home_robot.agent.motion.robot import STRETCH_HOME_Q
+from home_robot.agent.motion.stretch import HelloStretch
+from home_robot.agent.motion.stretch import STRETCH_HOME_Q
 from home_robot.utils.bullet import PbArticulatedObject
 
 
@@ -17,7 +17,7 @@ def fk_ik_helper(robot, q):
 
 
 def get_ik_solver():
-    return HelloStretch(urdf_path='./assets/hab_stretch/urdf/', visualize=True)
+    return HelloStretch(urdf_path='./assets/hab_stretch/urdf/', visualize=False)
 
 def test_ik():
     """
