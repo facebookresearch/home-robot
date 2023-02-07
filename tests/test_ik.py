@@ -5,8 +5,9 @@
 import pytest
 import numpy
 from home_robot.agent.motion.stretch import HelloStretch
-from home_robot.agent.motion.stretch import STRETCH_HOME_Q
+from home_robot.agent.motion.stretch import STRETCH_HOME_Q, STRETCH_GRASP_OFFSET
 from home_robot.utils.bullet import PbArticulatedObject
+from home_robot.utils.pose import to_matrix, to_pos_quat
 
 
 def fk_ik_helper(robot, q):
@@ -31,10 +32,12 @@ def test_ik():
     q0 = STRETCH_HOME_Q
     block = PbArticulatedObject('red_block', './assets/red_block.urdf', client=robot.ref.client)
     robot.set_config(q0)
-    test_poses = [robot.get_ee_pose(),
-                  ([-0.10281811, -0.7189281 ,  0.71703106], [-0.7079143 ,  0.12421559,  0.1409881 , -0.68084526]),
-                  ([-0.01556295, -0.51387864,  0.8205258 ], [-0.7090214 ,  0.12297839,  0.14050716, -0.6800168 ]),
-                  ]
+    test_poses = [
+        ([-0.10281811, -0.7189281 ,  0.71703106], [-0.7079143 ,  0.12421559,  0.1409881 , -0.68084526]),
+        ([-0.01556295, -0.51387864,  0.8205258 ], [-0.7090214 ,  0.12297839,  0.14050716, -0.6800168 ]),
+        ]
+    test_poses = [to_pos_quat(to_matrix(pos, quat) @ STRETCH_GRASP_OFFSET) for pos, quat in test_poses]
+    test_poses = [robot.get_ee_pose()] + test_poses
     for pos, quat in test_poses:
         print("-------- 1 ---------")
         print("GOAL:", pos, quat)
