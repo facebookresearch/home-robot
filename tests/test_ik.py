@@ -6,6 +6,7 @@ import pytest
 import numpy
 from home_robot.agent.motion.robot import HelloStretch
 from home_robot.agent.motion.robot import STRETCH_HOME_Q
+from home_robot.utils.bullet import PbArticulatedObject
 
 
 def fk_ik_helper(robot, q):
@@ -31,15 +32,16 @@ def test_ik():
                   ]
     robot = get_ik_solver()
     q0 = STRETCH_HOME_Q
+    block = PbArticulatedObject('red_block', './assets/red_block.urdf', client=robot.ref.client)
     for pos, quat in test_poses:
         print("--------")
         print("GOAL:", pos, quat)
-        # pose = to_matrix(pos, quat)
-        # pose = pose @ 
+        block.set_pose(pos, quat)
         res = robot.manip_ik((pos, quat), q0, relative=True)
         robot.set_config(res)
         pos2, quat2 = robot.get_ee_pose()
         print("PRED:", pos2, quat2)
+        input('press enter to continue')
                   
 
 def test_fk_ik():
