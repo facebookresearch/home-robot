@@ -541,8 +541,9 @@ class HelloStretch(Robot):
         # No change to theta
         q[HelloStretchIdx.LIFT] = q_raw[1]
         q[HelloStretchIdx.ARM] = np.sum(q_raw[2:6])
-        q[HelloStretchIdx.WRIST_ROLL:HelloStretchIdx.WRIST_YAW+1] = q_raw[6:9]
-        breakpoint()
+        q[HelloStretchIdx.WRIST_ROLL] = q_raw[8]
+        q[HelloStretchIdx.WRIST_PITCH] = q_raw[7]
+        q[HelloStretchIdx.WRIST_YAW] = q_raw[6]
         return q
 
     def ik(self, pose, q0):
@@ -578,7 +579,6 @@ class HelloStretch(Robot):
             raise NotImplementedError()
         _q = self.manip_ik_solver.compute_ik(pos, quat)
         q = self._from_manip_format(_q, q0)
-        breakpoint()
         self.set_config(q)
         return q
 

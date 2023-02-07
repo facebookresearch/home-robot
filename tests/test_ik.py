@@ -27,17 +27,17 @@ def test_ik():
     2nd Goal pos and rot: (array([-0.01556295, -0.51387864,  0.8205258 ], dtype=float32), array([-0.7090214 ,  0.12297839,  0.14050716, -0.6800168 ]))
     Current best solution: (array([-0.12925884, -0.51288551,  0.8185215 ]), array([ 0.71091503, -0.1131743 , -0.13030495,  0.68177122]))
     """
-    test_poses = [([-0.10281811, -0.7189281 ,  0.71703106], [-0.7079143 ,  0.12421559,  0.1409881 , -0.68084526]),
-                  ([-0.01556295, -0.51387864,  0.8205258 ], [-0.7090214 ,  0.12297839,  0.14050716, -0.6800168 ]),
-                  ]
     robot = get_ik_solver()
     q0 = STRETCH_HOME_Q
     block = PbArticulatedObject('red_block', './assets/red_block.urdf', client=robot.ref.client)
     robot.set_config(q0)
+    test_poses = [robot.get_ee_pose(),
+                  ([-0.10281811, -0.7189281 ,  0.71703106], [-0.7079143 ,  0.12421559,  0.1409881 , -0.68084526]),
+                  ([-0.01556295, -0.51387864,  0.8205258 ], [-0.7090214 ,  0.12297839,  0.14050716, -0.6800168 ]),
+                  ]
     for pos, quat in test_poses:
         print("--------")
         print("GOAL:", pos, quat)
-        pos, quat = robot.get_ee_pose()
         block.set_pose(pos, quat)
         res = robot.manip_ik((pos, quat), q0, relative=True)
         robot.set_config(res)
