@@ -36,7 +36,7 @@ def test_ik():
                   ([-0.01556295, -0.51387864,  0.8205258 ], [-0.7090214 ,  0.12297839,  0.14050716, -0.6800168 ]),
                   ]
     for pos, quat in test_poses:
-        print("--------")
+        print("-------- 1 ---------")
         print("GOAL:", pos, quat)
         block.set_pose(pos, quat)
         res = robot.manip_ik((pos, quat), q0, relative=True)
@@ -44,6 +44,17 @@ def test_ik():
         pos2, quat2 = robot.get_ee_pose()
         print("PRED:", pos2, quat2)
         input('press enter to continue')
+
+        print("-------- 2 ---------")
+        pos, quat = robot.get_ee_pose()
+        print("GOAL:", pos, quat)
+        block.set_pose(pos, quat)
+        res = robot.manip_ik((pos, quat), q0, relative=True)
+        robot.set_config(res)
+        pos2, quat2 = robot.get_ee_pose()
+        print("PRED:", pos2, quat2)
+        input('press enter to continue')
+ 
                   
 
 def test_fk_ik():
