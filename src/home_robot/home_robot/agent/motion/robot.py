@@ -164,8 +164,9 @@ class HelloStretch(Robot):
 
     # For inverse kinematics mode
     ee_link_name = "link_straight_gripper"
-    #manip_mode_controlled_joints = [0, 3, 4, 5, 6, 7, 8, 9, 10]
-    manip_mode_controlled_joints = [0, 5, 6, 7, 8, 9, 10, 11, 12]
+    manip_mode_controlled_joints = [0, 3, 4, 5, 6, 7, 8, 9, 10]
+    # manip_mode_controlled_joints = [0, 5, 6, 7, 8, 9, 10, 11, 12]
+    # manip_mode_controlled_joints = [0, 7, 8, 9, 10, 11, 12, 13, 14]
     full_body_controlled_joints = [0, 1, 2, 5, 6, 7, 8, 9, 10, 11, 12]
 
     def _create_ik_solvers_trac_ik(self):
@@ -580,6 +581,7 @@ class HelloStretch(Robot):
         _q = self.manip_ik_solver.compute_ik(pos, quat)
         q = self._from_manip_format(_q, q0)
         self.set_config(q)
+        breakpoint()
         return q
 
     def static_ik(self, pose_query, q0):
