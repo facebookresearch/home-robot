@@ -126,8 +126,8 @@ class HelloStretch(Robot):
     # For inverse kinematics mode
     ee_link_name = "link_straight_gripper"
     manip_mode_controlled_joints = [0, 3, 4, 5, 6, 7, 8, 9, 10]
-    # manip_mode_controlled_joints = [0, 5, 6, 7, 8, 9, 10, 11, 12]
-    # manip_mode_controlled_joints = [0, 7, 8, 9, 10, 11, 12, 13, 14]
+    #manip_mode_controlled_joints = [0, 5, 6, 7, 8, 9, 10, 11, 12]
+    #manip_mode_controlled_joints = [0, 7, 8, 9, 10, 11, 12, 13, 14]
     full_body_controlled_joints = [0, 1, 2, 5, 6, 7, 8, 9, 10, 11, 12]
 
     def _create_ik_solvers(self):
@@ -456,22 +456,19 @@ class HelloStretch(Robot):
         return qi
 
     def _to_manip_format(self, q):
-        qi = np.zeros(self.ik_solver.get_num_joints())
-        breakpoint()
+        qi = np.zeros(self.manip_ik_solver.get_dof())
         qi[0] = q[HelloStretchIdx.BASE_X]
-        qi[1] = q[HelloStretchIdx.BASE_Y]
-        qi[2] = q[HelloStretchIdx.BASE_THETA]
-        qi[3] = q[HelloStretchIdx.LIFT]
+        qi[1] = q[HelloStretchIdx.LIFT]
         # Next 4 are all arm joints
         arm_ext = q[HelloStretchIdx.ARM] / 4.0
+        qi[2] = arm_ext
+        qi[3] = arm_ext
         qi[4] = arm_ext
         qi[5] = arm_ext
-        qi[6] = arm_ext
-        qi[7] = arm_ext
         # Wrist joints
-        qi[8] = q[HelloStretchIdx.WRIST_YAW]
-        qi[9] = q[HelloStretchIdx.WRIST_PITCH]
-        qi[10] = q[HelloStretchIdx.WRIST_ROLL]
+        qi[6] = q[HelloStretchIdx.WRIST_YAW]
+        qi[7] = q[HelloStretchIdx.WRIST_PITCH]
+        qi[8] = q[HelloStretchIdx.WRIST_ROLL]
         return qi
 
     def _to_plan_format(self, q):

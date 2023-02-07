@@ -121,6 +121,7 @@ class PbArticulatedObject(PbObject):
         """get some joint info from pb for reproducing the robot"""
         self.num_joints = pb.getNumJoints(self.id, self.client)
         self.joint_infos = []
+        self.controllable_joint_infos = []
         for i in range(self.num_joints):
             self.joint_infos.append(
                 PbJointInfo(*pb.getJointInfo(self.id, i, self.client))
@@ -129,6 +130,9 @@ class PbArticulatedObject(PbObject):
             self._link_idx[self.joint_infos[-1].link_name.decode()] = self.joint_infos[
                 -1
             ].index
+            info = self.joint_infos[-1]
+            if info.type in [0, 1, 2]:
+                self.controllable_joint_infos.append(info)
 
     def get_joint_info_by_name(self, name):
         for info in self.joint_infos:
@@ -155,10 +159,13 @@ class PbArticulatedObject(PbObject):
     def get_num_joints(self):
         return pb.getNumJoints(self.id, self.client)
 
+    def get_num_controllable_joints(self):
+        return len(self.controllable_joint_infos)
+
     def set_joint_positions(self, positions, indices=None):
-        dof = self.get_num_joints()
-        for i, q in enumerate(positions):
-            self.set_joint_position(i, q)
+        dof = self.get_num_controllable_joints()
+        for i, q in zip(self.controllable_joint_infos, positions):
+            self.set_joint_position(i.index, q)
 
     def get_joint_positions(self):
         return pb.getJointState(self.id, jointIndices=np.arange(self.num_joints), physicsClientId=self.client)
@@ -394,6 +401,18 @@ class PybulletIKSolver:
     def get_num_joints(self):
         return self.robot.get_num_joints()
 
+    def get_num_controllable_joints(self):
+        return self.robot.get_num_controllable_joints()
+
+    def set_joint_positions(self, q_init):
+        q_full = np.zeros(self.get_num_controllable_joints())
+        q_full[self.controlled_joints] = q_init
+        self.robot.set_joint_positions(q_full)
+        breakpoint()
+
+    def get_dof(self):
+        return len(self.controlled_joints)
+
     def compute_ik(self, pos_desired, quat_desired, q_init):
         # TODO - remove debug code
         #qq = [p[0] for p in p.getJointStates(self.robot_id,
@@ -401,7 +420,7 @@ class PybulletIKSolver:
         #    jointIndices=np.arange(self.ee_idx),
         #    physicsClientId=self.pc_id)]
 
-        self.robot.set_joint_positions(q_init)
+        self.set_joint_positions(q_init)
         if self.visualize:
             self.debug_block.set_pose(pos_desired, quat_desired)
             input('--- Press enter to solve ---')
