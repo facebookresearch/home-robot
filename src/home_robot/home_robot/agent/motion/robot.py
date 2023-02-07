@@ -576,9 +576,7 @@ class HelloStretch(Robot):
             # This logic currently in local hello robot client
             raise NotImplementedError()
         _q = self.manip_ik_solver.compute_ik(pos, quat)
-        print(_q)
         q = self._from_manip_format(_q, q0)
-        breakpoint()
         self.set_config(q)
         return q
 

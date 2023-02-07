@@ -32,9 +32,14 @@ def test_ik():
     robot = get_ik_solver()
     q0 = STRETCH_HOME_Q
     for pos, quat in test_poses:
-        print(pos, quat)
+        print("--------")
+        print("GOAL:", pos, quat)
+        # pose = to_matrix(pos, quat)
+        # pose = pose @ 
         res = robot.manip_ik((pos, quat), q0, relative=True)
-        print(res)
+        robot.set_config(res)
+        pos2, quat2 = robot.get_ee_pose()
+        print("PRED:", pos2, quat2)
                   
 
 def test_fk_ik():

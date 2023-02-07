@@ -39,6 +39,8 @@ class PybulletIKSolver:
                 self.ee_idx,
                 pos_desired,
                 quat_desired,
+                maxNumIterations=1000,
+                residualThreshold=1e-6,
             )
         )
 
