@@ -536,7 +536,7 @@ class HelloStretch(Robot):
         q = q_init.copy()
         # Get the theta - we can then convert this over to see where the robot will end up
         theta = q_init[HelloStretchIdx.BASE_THETA]
-        q[HelloStretchIdx.BASE_X] = q_raw[0]
+        q[HelloStretchIdx.BASE_X] -= q_raw[0]
         # q[HelloStretchIdx.BASE_Y] += 0
         # No change to theta
         q[HelloStretchIdx.LIFT] = q_raw[1]
@@ -577,6 +577,7 @@ class HelloStretch(Robot):
             raise NotImplementedError()
         _q = self.manip_ik_solver.compute_ik(pos, quat)
         q = self._from_manip_format(_q, q0)
+        breakpoint()
         self.set_config(q)
         return q
 
