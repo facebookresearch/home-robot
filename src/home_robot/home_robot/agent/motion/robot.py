@@ -536,12 +536,13 @@ class HelloStretch(Robot):
         q = q_init.copy()
         # Get the theta - we can then convert this over to see where the robot will end up
         theta = q_init[HelloStretchIdx.BASE_THETA]
-        q[HelloStretchIdx.BASE_X] -= q_raw[0]
+        q[HelloStretchIdx.BASE_X] = q_raw[0]
         # q[HelloStretchIdx.BASE_Y] += 0
         # No change to theta
         q[HelloStretchIdx.LIFT] = q_raw[1]
         q[HelloStretchIdx.ARM] = np.sum(q_raw[2:6])
         q[HelloStretchIdx.WRIST_ROLL:HelloStretchIdx.WRIST_YAW+1] = q_raw[6:9]
+        breakpoint()
         return q
 
     def ik(self, pose, q0):

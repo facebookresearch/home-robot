@@ -33,9 +33,11 @@ def test_ik():
     robot = get_ik_solver()
     q0 = STRETCH_HOME_Q
     block = PbArticulatedObject('red_block', './assets/red_block.urdf', client=robot.ref.client)
+    robot.set_config(q0)
     for pos, quat in test_poses:
         print("--------")
         print("GOAL:", pos, quat)
+        pos, quat = robot.get_ee_pose()
         block.set_pose(pos, quat)
         res = robot.manip_ik((pos, quat), q0, relative=True)
         robot.set_config(res)

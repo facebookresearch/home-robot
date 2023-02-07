@@ -152,6 +152,9 @@ class PbArticulatedObject(PbObject):
             physicsClientId=self.client,
         )
 
+    def get_joint_positions(self):
+        return pb.getJointState(self.id, jointIndices=np.arange(self.num_joints), physicsClientId=self.client)
+
     def get_link_pose(self, name):
         """get link pose - forward kinematrics"""
         res = pb.getLinkState(

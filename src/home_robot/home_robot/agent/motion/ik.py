@@ -32,7 +32,15 @@ class PybulletIKSolver:
             names.append(p.getJointInfo(self.robot_id, i)[12].decode("utf-8"))
         return names
 
+    def get_num_joints(self):
+        return p.getNumJoints(self.robot_id, self.pc_id)
+
     def compute_ik(self, pos_desired, quat_desired):
+        #qq = [p[0] for p in p.getJointStates(self.robot_id,
+        #    #jointIndices=np.arange(self.get_num_joints()),
+        #    jointIndices=np.arange(self.ee_idx),
+        #    physicsClientId=self.pc_id)]
+
         q_full = np.array(
             p.calculateInverseKinematics(
                 self.robot_id,
