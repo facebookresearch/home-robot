@@ -408,7 +408,6 @@ class PybulletIKSolver:
         q_full = np.zeros(self.get_num_controllable_joints())
         q_full[self.controlled_joints] = q_init
         self.robot.set_joint_positions(q_full)
-        breakpoint()
 
     def get_dof(self):
         return len(self.controlled_joints)

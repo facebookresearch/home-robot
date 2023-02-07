@@ -17,7 +17,7 @@ def fk_ik_helper(robot, q):
 
 
 def get_ik_solver():
-    return HelloStretch(urdf_path='./assets/hab_stretch/urdf/', visualize=False)
+    return HelloStretch(urdf_path='./assets/hab_stretch/urdf/', visualize=True)
 
 def test_ik():
     """

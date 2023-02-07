@@ -132,17 +132,20 @@ class HelloStretch(Robot):
 
     def _create_ik_solvers(self):
         """create ik solvers using pybullet"""
+        # You can set one of the visualize flags to true to debug IK issues
+        # This is not exposed manually - only one though or it will fail
         self.ik_solver = PybulletIKSolver(
             self.full_body_urdf_path,
             self.ee_link_name,
             self.full_body_controlled_joints,
             visualize=False,
         )
+        # You can set one of the visualize flags to true to debug IK issues
         self.manip_ik_solver = PybulletIKSolver(
             self.manip_mode_urdf_path,
             self.ee_link_name,
             self.manip_mode_controlled_joints,
-            visualize=True,
+            visualize=False,
         )
 
     def __init__(self, name="robot", urdf_path=None, visualize=False, root="."):
@@ -438,7 +441,6 @@ class HelloStretch(Robot):
 
     def _to_ik_format(self, q):
         qi = np.zeros(self.ik_solver.get_num_joints())
-        breakpoint()
         qi[0] = q[HelloStretchIdx.BASE_X]
         qi[1] = q[HelloStretchIdx.BASE_Y]
         qi[2] = q[HelloStretchIdx.BASE_THETA]
