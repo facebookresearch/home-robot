@@ -414,12 +414,7 @@ class PybulletIKSolver:
         return len(self.controlled_joints)
 
     def compute_ik(self, pos_desired, quat_desired, q_init):
-        # TODO - remove debug code
-        #qq = [p[0] for p in p.getJointStates(self.robot_id,
-        #    #jointIndices=np.arange(self.get_num_joints()),
-        #    jointIndices=np.arange(self.ee_idx),
-        #    physicsClientId=self.pc_id)]
-
+        # This version assumes that q_init is NOT in the right format yet
         self.set_joint_positions(q_init)
         if self.visualize:
             self.debug_block.set_pose(pos_desired, quat_desired)
@@ -436,8 +431,10 @@ class PybulletIKSolver:
                 physicsClientId=self.pc_id,
             )
         )
+        # In the ik format - controllable joints only
         self.robot.set_joint_positions(q_full)
-        breakpoint()
+        if self.visualize:
+            input('--- Solved. Press enter to finish ---')
 
         if self.controlled_joints is not None:
             q_out = q_full[self.controlled_joints]
