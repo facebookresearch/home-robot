@@ -18,6 +18,7 @@ from nav_msgs.msg import Odometry
 from home_robot.agent.control.velocity_controllers import DDVelocityControlNoplan
 from home_robot.utils.geometry import xyt_global_to_base, sophus2xyt, xyt2sophus
 from home_robot_hw.ros.utils import matrix_from_pose_msg
+from home_robot_hw.ros.visualizer import Visualizer
 
 
 log = logging.getLogger(__name__)
@@ -34,7 +35,7 @@ class GotoVelocityController:
     def __init__(
         self,
         hz: float,
-        odom_only_feedback: bool = False,
+        odom_only_feedback: bool = True,
     ):
         self.hz = hz
         self.odom_only = odom_only_feedback
@@ -50,6 +51,9 @@ class GotoVelocityController:
         self.active = False
         self.track_yaw = True
 
+        # Visualizations
+        self.goal_visualizer = Visualizer("goto_controller/goal_abs")
+
     def _pose_update_callback(self, msg: PoseStamped):
         pose_sp = sp.SE3(matrix_from_pose_msg(msg.pose))
         self.xyt_loc = sophus2xyt(pose_sp)
@@ -63,13 +67,18 @@ class GotoVelocityController:
 
         if self.odom_only:
             # Project absolute goal from current odometry reading
-            pose_delta = xyt2sophus(self.xyt_loc).inverse() * pose_sp
+            pose_delta = xyt2sophus(self.xyt_loc_odom).inverse() * pose_sp
             pose_goal = xyt2sophus(self.xyt_loc_odom) * pose_delta
         else:
             # Assign absolute goal directly
             pose_goal = pose_sp
 
         self.xyt_goal = sophus2xyt(pose_goal)
+
+        # Visualize
+        self.goal_visualizer(
+            (self.xyt_loc * self.xyt_loc_odom.inverse() * pose_goal).matrix()
+        )
 
     def _enable_service(self, request):
         self.active = True
