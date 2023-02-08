@@ -7,16 +7,16 @@ import time
 import numpy as np
 import os
 from sensor_msgs.msg import JointState, Joy
-from home_robot.hw.teleop.stretch_xbox_controller_teleop import (
+from home_robot_hw.teleop.stretch_xbox_controller_teleop import (
     manage_lift_arm,
     manage_base,
     manage_end_of_arm,
     manage_head,
     set_use_dex_wrist_mapping,
 )
-from home_robot.hw.ros.stretch_ros import HelloStretchROSInterface
-from home_robot.hw.ros.recorder import Recorder, pngs_to_mp4
-from home_robot.hw.ros.path import get_package_path
+from home_robot_hw.ros.stretch_ros import HelloStretchROSInterface
+from home_robot_hw.ros.recorder import Recorder, pngs_to_mp4
+from home_robot_hw.ros.path import get_package_path
 from home_robot.agent.motion.robot import HelloStretch
 
 

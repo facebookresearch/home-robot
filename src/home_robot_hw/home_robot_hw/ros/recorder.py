@@ -8,9 +8,9 @@ import h5py
 
 from tqdm import tqdm
 
-from home_robot.hw.ros.stretch_ros import HelloStretchROSInterface
 from home_robot.utils.data_tools.writer import DataWriter
 from home_robot.utils.data_tools.image import img_from_bytes
+from home_robot_hw.ros.stretch_ros import HelloStretchROSInterface
 
 import argparse
 import cv2

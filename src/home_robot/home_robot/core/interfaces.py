@@ -6,15 +6,23 @@ from dataclasses import dataclass
 
 class Action:
     """Controls."""
+
     pass
 
 
 class DiscreteNavigationAction(Action, Enum):
     """Discrete navigation controls."""
+
     STOP = 0
     MOVE_FORWARD = 1
     TURN_LEFT = 2
     TURN_RIGHT = 3
+
+
+@dataclass
+class Pose:
+    position: np.ndarray
+    orientation: np.ndarray
 
 
 @dataclass
@@ -25,14 +33,19 @@ class Observations:
     # Typed observations
     # --------------------------------------------------------
 
+    # Joint states
+    joint_positions: np.ndarray
+
     # Pose
-    compass: np.array
-    gps: np.array
+    base_pose: Pose
+    ee_pose: Pose
 
     # Camera
     rgb: np.ndarray  # (camera_height, camera_width, 3) in [0, 255]
     depth: np.ndarray  # (camera_height, camera_width) in meters
-    semantic: Optional[np.array] = None  # (camera_height, camera_width) in [0, num_sem_categories - 1]
+    semantic: Optional[
+        np.array
+    ] = None  # (camera_height, camera_width) in [0, num_sem_categories - 1]
 
     # --------------------------------------------------------
     # Untyped task-specific observations

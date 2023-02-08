@@ -1,3 +1,4 @@
+#!/usr/bin/env python
 # Copyright (c) Meta Platforms, Inc. and affiliates.
 #
 # This source code is licensed under the MIT license found in the
@@ -15,8 +16,8 @@ from geometry_msgs.msg import Twist, Pose, PoseStamped
 from nav_msgs.msg import Odometry
 
 from home_robot.agent.control.velocity_controllers import DDVelocityControlNoplan
-from home_robot.hw.ros.utils import matrix_from_pose_msg
 from home_robot.utils.geometry import xyt_global_to_base, sophus2xyt, xyt2sophus
+from home_robot_hw.ros.utils import matrix_from_pose_msg
 
 
 log = logging.getLogger(__name__)
@@ -112,7 +113,7 @@ class GotoVelocityController:
     def _run_control_loop(self):
         rate = rospy.Rate(self.hz)
 
-        while True:
+        while not rospy.is_shutdown():
             if self.active and self.xyt_goal is not None:
                 # Get state estimation
                 xyt_err = self._compute_error_pose()
