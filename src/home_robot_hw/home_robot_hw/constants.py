@@ -33,7 +33,7 @@ for k, v in ROS_TO_CONFIG.items():
 CONFIG_TO_ROS[HelloStretchIdx.ARM] = ROS_ARM_JOINTS
 # ROS_JOINT_NAMES += ROS_ARM_JOINTS
 
-T_LOC_STABILIZE = 1.
+T_LOC_STABILIZE = 1.0
 
 
 class ControlMode(Enum):

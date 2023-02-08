@@ -4,7 +4,7 @@ from home_robot_hw.ros.utils import matrix_to_pose_msg
 
 
 class Visualizer(object):
-    """ Simple visualizer to send a single marker message """
+    """Simple visualizer to send a single marker message"""
 
     def __init__(self, topic_name, rgba=None):
         self.pub = rospy.Publisher(topic_name, Marker, queue_size=1)

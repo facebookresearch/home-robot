@@ -14,7 +14,7 @@ if __name__ == "__main__":
     config.EXP_NAME = "debug"
     config.freeze()
 
-    rospy.init_node('eval_episode_stretch_objectnav')
+    rospy.init_node("eval_episode_stretch_objectnav")
     agent = ObjectNavAgent(config=config)
     env = StretchObjectNavEnv(config=config)
 
@@ -28,6 +28,6 @@ if __name__ == "__main__":
         obs = env.get_observation()
         action, info = agent.act(obs)
         env.apply_action(action, info=info)
-        input('press enter for next action')
+        input("press enter for next action")
 
     print(env.get_episode_metrics())

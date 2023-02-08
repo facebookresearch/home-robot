@@ -5,7 +5,8 @@ import yacs.config
 
 
 class Config(yacs.config.CfgNode):
-    """ store a yaml config """
+    """store a yaml config"""
+
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs, new_allowed=True)
 

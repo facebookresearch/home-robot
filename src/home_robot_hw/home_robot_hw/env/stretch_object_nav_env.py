@@ -13,13 +13,19 @@ from home_robot_hw.env.visualizer import Visualizer
 
 # REAL_WORLD_CATEGORIES = ["other", "chair", "mug", "other",]
 # REAL_WORLD_CATEGORIES = ["other", "backpack", "other",]
-REAL_WORLD_CATEGORIES = ["other", "chair", "other",]
+REAL_WORLD_CATEGORIES = [
+    "other",
+    "chair",
+    "other",
+]
 
 
 class StretchObjectNavEnv(StretchEnv):
     """Create a detic-based object nav environment"""
 
-    def __init__(self, config=None, forward_step=0.25, rotate_step=30., *args, **kwargs):
+    def __init__(
+        self, config=None, forward_step=0.25, rotate_step=30.0, *args, **kwargs
+    ):
         super().__init__(*args, **kwargs)
 
         # TODO: pass this in or load from cfg
@@ -72,7 +78,7 @@ class StretchObjectNavEnv(StretchEnv):
         print("-------")
         print(action)
         print(continuous_action)
-        rospy.sleep(5.)
+        rospy.sleep(5.0)
 
     def set_goal(self, goal):
         """set a goal as a string"""
@@ -116,7 +122,7 @@ class StretchObjectNavEnv(StretchEnv):
         )
         # Run the segmentation model here
         obs = self.segmentation.predict(obs, depth_threshold=0.5)
-        obs.semantic[obs.semantic==0] = len(self.goal_options) - 1
+        obs.semantic[obs.semantic == 0] = len(self.goal_options) - 1
         return obs
 
     @property
@@ -127,13 +133,13 @@ class StretchObjectNavEnv(StretchEnv):
         pass
 
     def rotate(self, theta):
-        """ just rotate and keep trying"""
+        """just rotate and keep trying"""
         # init_pose = self.get_base_pose()
         init_pose = sophus2xyt(self.get_base_pose())
         xyt = [0, 0, theta]
         goal_pose = xyt_base_to_global(xyt, init_pose)
         rate = rospy.Rate(5)
-        err = float('Inf'), float('Inf')
+        err = float("Inf"), float("Inf")
         pos_tol, ori_tol = 0.1, 0.1
         while not rospy.is_shutdown():
             # curr_pose = self.get_base_pose()
@@ -141,7 +147,7 @@ class StretchObjectNavEnv(StretchEnv):
             print("init =", init_pose)
             print("curr =", curr_pose)
             print("goal =", goal_pose)
-    
+
             print("error =", err)
             if err[0] < pos_tol and err[1] < ori_tol:
                 break
@@ -159,12 +165,13 @@ if __name__ == "__main__":
 
     # Debug the observation space
     import matplotlib.pyplot as plt
+
     while not rospy.is_shutdown():
 
         while not rospy.is_shutdown():
             cmd = None
             try:
-                cmd = input('Enter a number 0-3:')
+                cmd = input("Enter a number 0-3:")
                 cmd = DiscreteNavigationAction(int(cmd))
             except ValueError:
                 cmd = None
@@ -206,7 +213,7 @@ if False:
     xyt[:2] = obs.gps
     # xyt = obs2xyt(obs.base_pose)
     xyt[0] += 0.1
-    #rob.navigate_to(xyt)
+    # rob.navigate_to(xyt)
     rob.rotate(0.2)
     rospy.sleep(10.0)
     obs = rob.get_observation()
