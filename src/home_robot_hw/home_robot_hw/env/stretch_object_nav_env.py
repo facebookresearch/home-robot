@@ -29,7 +29,7 @@ class StretchObjectNavEnv(StretchEnv):
         # TODO Specify confidence threshold as a parameter
         self.segmentation = DeticPerception(
             vocabulary="custom",
-            custom_vocabulary=",".join(self.goal_options),
+            custom_vocabulary=",".join(self.goal_options) + ",other",
             sem_gpu_id=0,
         )
         if config is not None:
