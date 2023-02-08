@@ -6,6 +6,7 @@ import home_robot
 import home_robot.core.abstract_env
 import numpy as np
 import rospy
+import sophus as sp
 import tf2_ros
 import threading
 
@@ -20,10 +21,18 @@ from std_srvs.srv import Trigger, TriggerRequest
 from std_srvs.srv import SetBool, SetBoolRequest
 from trajectory_msgs.msg import JointTrajectoryPoint
 
+from home_robot.utils.geometry import (
+    xyt2sophus,
+    sophus2xyt,
+    xyt_base_to_global,
+    posquat2sophus,
+)
+
 from home_robot.core.interfaces import Action, Observations
 from home_robot.agent.motion.robot import HelloStretchIdx
 from home_robot_hw.ros.camera import RosCamera
 from home_robot_hw.constants import (ROS_ARM_JOINTS, ROS_LIFT_JOINT, ROS_GRIPPER_FINGER, ROS_HEAD_PAN, ROS_HEAD_TILT, ROS_WRIST_ROLL, ROS_WRIST_YAW, ROS_WRIST_PITCH, ROS_GRIPPER_FINGER, ROS_TO_CONFIG, CONFIG_TO_ROS)
+from home_robot_hw.ros.utils import matrix_from_pose_msg, matrix_to_pose_msg
 
 
 MIN_DEPTH_REPLACEMENT_VALUE = 10000
@@ -70,6 +79,10 @@ class StretchEnv(home_robot.core.abstract_env.Env):
 
     def _reset_messages(self):
         self._current_mode = None
+        self._last_odom_update_timestamp = rospy.Time(0)
+        self._last_base_update_timestamp = rospy.Time(0)
+        self._t_base_filtered = None
+        self._t_base_odom = None
 
     def in_position_mode(self):
         """ is the robot in position mode """
@@ -81,13 +94,13 @@ class StretchEnv(home_robot.core.abstract_env.Env):
 
     def _odom_callback(self, msg: Odometry):
         """ odometry callback """
-        self._robot_state.last_base_update_timestamp = msg.header.stamp
-        self._robot_state.t_base_odom = sp.SE3(matrix_from_pose_msg(msg.pose.pose))
+        self._last_odom_update_timestamp = msg.header.stamp
+        self._t_base_odom = sp.SE3(matrix_from_pose_msg(msg.pose.pose))
 
     def _base_state_callback(self, msg: PoseStamped):
         """ base state updates from SLAM system """
-        self._robot_state.last_base_update_timestamp = msg.header.stamp
-        self._robot_state.t_base_filtered = sp.SE3(matrix_from_pose_msg(msg.pose))
+        self._last_base_update_timestamp = msg.header.stamp
+        self._t_base_filtered = sp.SE3(matrix_from_pose_msg(msg.pose))
 
     def _js_callback(self, msg):
         """ Read in current joint information from ROS topics and update state """
@@ -156,7 +169,8 @@ class StretchEnv(home_robot.core.abstract_env.Env):
             queue_size=1,
         )
         self._base_state_sub = rospy.Subscriber(
-            "state_estimator/pose_filtered",
+            #"state_estimator/pose_filtered",
+            "slam_out_pose",
             PoseStamped,
             self._base_state_callback,
             queue_size=1,

@@ -26,6 +26,7 @@ class StretchObjectNavEnv(StretchEnv):
             custom_vocabulary=",".join(self.goal_options),
             sem_gpu_id=0,
         )
+        self.sample_goal()
 
     """
     def _preprocess_obs(self,
@@ -71,7 +72,7 @@ class StretchObjectNavEnv(StretchEnv):
         rgb, depth = self.get_images(compute_xyz=False, rotate_images=True)
         xy = 0, 0
         theta = 0
-        home_robot.core.interfaces.Observations(
+        obs = home_robot.core.interfaces.Observations(
             rgb=rgb,
             depth=depth,
             compass=xy,
@@ -81,7 +82,9 @@ class StretchObjectNavEnv(StretchEnv):
                 "goal_name": self.current_goal_name,
             }
         )
-        return rgb, depth
+        # Run the segmentation model here
+        obs = self.segmentation.predict(obs, depth_threshold=0.5)
+        return obs
 
     @property
     def episode_over(self) -> bool:
@@ -100,7 +103,9 @@ if __name__ == '__main__':
     print("Create ROS interface")
     rob = StretchObjectNavEnv(init_cameras=True)
     obs = rob.get_observation()
-    rgb, depth = obs
+    rgb, depth = obs.rgb, obs.depth
+
+    # Add a visualiztion for debugging
     import matplotlib.pyplot as plt
     depth[depth > 5] = 0
     plt.subplot(121); plt.imshow(rgb)
@@ -109,4 +114,6 @@ if __name__ == '__main__':
     print("values:")
     print("RGB =", np.unique(rgb))
     print("Depth =", np.unique(depth))
+    print("Compass =", obs.compass)
+    print("Gps =", obs.gps)
     plt.show()
