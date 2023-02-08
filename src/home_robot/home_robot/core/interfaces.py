@@ -37,8 +37,9 @@ class Observations:
     joint_positions: np.ndarray
 
     # Pose
-    base_pose: Pose
-    ee_pose: Pose
+    # TODO: add these instead of gps + compass
+    # base_pose: Pose
+    # ee_pose: Pose
 
     # Pose
     gps: np.ndarray

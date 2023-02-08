@@ -137,6 +137,10 @@ class StretchEnv(home_robot.core.abstract_env.Env):
         with self._js_lock:
             self.pos, self.vel, self.frc = pos, vel, trq
 
+    def get_joint_state(self):
+        with self._js_lock:
+            return self.pos, self.vel, self.frc
+
     def _create_cameras(self, color_topic=None, depth_topic=None):
         if self.rgb_cam is not None or self.dpt_cam is not None:
             raise RuntimeError("Already created cameras")
