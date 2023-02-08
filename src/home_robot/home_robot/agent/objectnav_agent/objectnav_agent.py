@@ -10,6 +10,8 @@ from home_robot.agent.mapping.dense.semantic.categorical_2d_semantic_map_state i
 )
 from home_robot.agent.navigation_planner.discrete_planner import DiscretePlanner
 import home_robot.agent.utils.pose_utils as pu
+from home_robot.utils.geometry import obs2xyt
+
 from .objectnav_agent_module import ObjectNavAgentModule
 
 
@@ -54,8 +56,9 @@ class ObjectNavAgent(Agent):
             dump_location=config.DUMP_LOCATION,
             exp_name=config.EXP_NAME,
         )
-        self.one_hot_encoding = torch.eye(config.AGENT.SEMANTIC_MAP.num_sem_categories,
-                                          device=self.device)
+        self.one_hot_encoding = torch.eye(
+            config.AGENT.SEMANTIC_MAP.num_sem_categories, device=self.device
+        )
 
         self.goal_update_steps = self._module.goal_update_steps
         self.timesteps = None
@@ -200,12 +203,9 @@ class ObjectNavAgent(Agent):
         # t0 = time.time()
 
         # 1 - Obs preprocessing
-        (
-            obs_preprocessed,
-            pose_delta,
-            goal_category,
-            goal_name
-        ) = self._preprocess_obs(obs)
+        (obs_preprocessed, pose_delta, goal_category, goal_name) = self._preprocess_obs(
+            obs
+        )
 
         # t1 = time.time()
         # print(f"[Agent] Obs preprocessing time: {t1 - t0:.2f}")
@@ -243,21 +243,21 @@ class ObjectNavAgent(Agent):
 
     def _preprocess_obs(self, obs: Observations):
         rgb = torch.from_numpy(obs.rgb).to(self.device)
-        depth = torch.from_numpy(obs.depth).unsqueeze(-1).to(self.device) * 100.0  # m to cm
+        depth = (
+            torch.from_numpy(obs.depth).unsqueeze(-1).to(self.device) * 100.0
+        )  # m to cm
         semantic = self.one_hot_encoding[torch.from_numpy(obs.semantic).to(self.device)]
         obs_preprocessed = torch.cat([rgb, depth, semantic], dim=-1).unsqueeze(0)
         obs_preprocessed = obs_preprocessed.permute(0, 3, 1, 2)
 
-        curr_pose = np.array([obs.gps[0], -obs.gps[1], obs.compass[0]])
-        pose_delta = torch.tensor(pu.get_rel_pose_change(curr_pose, self.last_poses[0])).unsqueeze(0)
+        curr_pose = obs2xyt(obs.base_pose)
+        curr_pose[1] = -curr_pose[1]  # agent y axis is flipped, not sure why
+        pose_delta = torch.tensor(
+            pu.get_rel_pose_change(curr_pose, self.last_poses[0])
+        ).unsqueeze(0)
         self.last_poses[0] = curr_pose
 
         goal_category = torch.tensor(obs.task_observations["goal_id"]).unsqueeze(0)
         goal_name = [obs.task_observations["goal_name"]]
 
-        return (
-            obs_preprocessed,
-            pose_delta,
-            goal_category,
-            goal_name
-        )
+        return (obs_preprocessed, pose_delta, goal_category, goal_name)
