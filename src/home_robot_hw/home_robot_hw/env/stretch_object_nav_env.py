@@ -104,13 +104,13 @@ if __name__ == '__main__':
     xyt[2]  = obs.gps
     xyt[0] += 0.1
     rob.navigate_to(xyt)
-    rospy.sleep(5.)
+    rospy.sleep(10.)
     obs = rob.get_observation()
     observations.append(obs)
 
     xyt[0] = 0
     rob.navigate_to(xyt)
-    rospy.sleep(5.)
+    rospy.sleep(10.)
     obs = rob.get_observation()
     observations.append(obs)
 
