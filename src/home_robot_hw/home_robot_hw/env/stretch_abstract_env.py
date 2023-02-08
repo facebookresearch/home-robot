@@ -1,5 +1,5 @@
 from abc import abstractmethod
-from typing import Any, Dict, Optional
+from typing import Optional, Iterable, List, Dict, Any
 
 import actionlib
 import home_robot
@@ -31,7 +31,7 @@ from home_robot.utils.geometry import (
 from home_robot.core.interfaces import Action, Observations
 from home_robot.agent.motion.robot import HelloStretchIdx
 from home_robot_hw.ros.camera import RosCamera
-from home_robot_hw.constants import (ROS_ARM_JOINTS, ROS_LIFT_JOINT, ROS_GRIPPER_FINGER, ROS_HEAD_PAN, ROS_HEAD_TILT, ROS_WRIST_ROLL, ROS_WRIST_YAW, ROS_WRIST_PITCH, ROS_GRIPPER_FINGER, ROS_TO_CONFIG, CONFIG_TO_ROS)
+from home_robot_hw.constants import (ROS_ARM_JOINTS, ROS_LIFT_JOINT, ROS_GRIPPER_FINGER, ROS_HEAD_PAN, ROS_HEAD_TILT, ROS_WRIST_ROLL, ROS_WRIST_YAW, ROS_WRIST_PITCH, ROS_GRIPPER_FINGER, ROS_TO_CONFIG, CONFIG_TO_ROS, ControlMode)
 from home_robot_hw.ros.utils import matrix_from_pose_msg, matrix_to_pose_msg
 
 
@@ -63,6 +63,7 @@ class StretchEnv(home_robot.core.abstract_env.Env):
         https://github.com/hello-robot/stretch_ros/blob/master/hello_helpers/src/hello_helpers/hello_misc.py
         """
 
+        self._base_control_mode = ControlMode.IDLE
         self._depth_buffer_size = depth_buffer_size
         self._create_pubs_subs()
         self.rgb_cam, self.dpt_cam = None, None
@@ -160,11 +161,15 @@ class StretchEnv(home_robot.core.abstract_env.Env):
         """ create ROS publishers and subscribers - only call once """
         # Store latest joint state message - lock for access
         self._js_lock = threading.Lock()
-        self.mode = ""
         self._mode_sub = rospy.Subscriber("mode", String, self._mode_callback, queue_size=1)
         # Create the tf2 buffer first, used in camera init
         self.tf2_buffer = tf2_ros.Buffer()
         self.tf2_listener = tf2_ros.TransformListener(self.tf2_buffer)
+
+        # Create command publishers
+        self._goal_pub = rospy.Publisher("goto_controller/goal", Pose, queue_size=1)
+        self._velocity_pub = rospy.Publisher("stretch/cmd_vel", Twist, queue_size=1)
+
         # Create trajectory client with which we can control the robot
         self.trajectory_client = actionlib.SimpleActionClient(
             "/stretch_controller/follow_joint_trajectory", FollowJointTrajectoryAction
@@ -218,7 +223,8 @@ class StretchEnv(home_robot.core.abstract_env.Env):
         result2 = self._goto_off_service(TriggerRequest())
 
         # Switch interface mode & print messages
-        self._robot_state.base_control_mode = ControlMode.VELOCITY
+        # TODO - switch control mode in robot state
+        self._base_control_mode = ControlMode.VELOCITY
         rospy.loginfo(result1.message)
         rospy.loginfo(result2.message)
 
@@ -230,7 +236,7 @@ class StretchEnv(home_robot.core.abstract_env.Env):
         result2 = self._goto_on_service(TriggerRequest())
 
         # Switch interface mode & print messages
-        self._robot_state.base_control_mode = ControlMode.NAVIGATION
+        self._base_control_mode = ControlMode.NAVIGATION
         rospy.loginfo(result1.message)
         rospy.loginfo(result2.message)
 
@@ -249,7 +255,7 @@ class StretchEnv(home_robot.core.abstract_env.Env):
         )
 
         # Switch interface mode & print messages
-        self._robot_state.base_control_mode = ControlMode.MANIPULATION
+        self._base_control_mode = ControlMode.MANIPULATION
         rospy.loginfo(result1.message)
         rospy.loginfo(result2.message)
 
@@ -291,6 +297,46 @@ class StretchEnv(home_robot.core.abstract_env.Env):
             imgs[-1] = xyz
 
         return imgs
+
+    # Control interfaces
+    def set_velocity(self, v, w):
+        """
+        Directly sets the linear and angular velocity of robot base.
+        """
+        msg = Twist()
+        msg.linear.x = v
+        msg.angular.z = w
+        self._velocity_pub.publish(msg)
+
+    def navigate_to(
+        self,
+        xyt: Iterable[float],
+        relative: bool = False,
+        position_only: bool = False,
+        avoid_obstacles: bool = False,
+    ):
+        """
+        Cannot be used in manipulation mode.
+        """
+        # Parse inputs
+        assert len(xyt) == 3, "Input goal location must be of length 3."
+
+        if avoid_obstacles:
+            raise NotImplementedError("Obstacle avoidance unavailable.")
+
+        # Set yaw tracking
+        self._set_yaw_service(SetBoolRequest(data=(not position_only)))
+
+        # Compute absolute goal
+        if relative:
+            xyt_base = self.get_base_state()["pose_se2"]
+            xyt_goal = xyt_base_to_global(xyt, xyt_base)
+        else:
+            xyt_goal = xyt
+
+        # Set goal
+        msg = matrix_to_pose_msg(xyt2sophus(xyt_goal).matrix())
+        self._goal_pub.publish(msg)
 
     @abstractmethod
     def reset(self):

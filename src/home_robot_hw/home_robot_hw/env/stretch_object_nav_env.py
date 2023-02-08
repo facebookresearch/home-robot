@@ -28,25 +28,6 @@ class StretchObjectNavEnv(StretchEnv):
         )
         self.reset()
 
-    """
-    def _preprocess_obs(self,
-                        ) -> home_robot.core.interfaces.Observations:
-        depth = self._preprocess_depth(habitat_obs["depth"])
-        goal_id, goal_name = self._preprocess_goal(habitat_obs["objectgoal"])
-        obs = home_robot.core.interfaces.Observations(
-            rgb=habitat_obs["rgb"],
-            depth=depth,
-            compass=habitat_obs["compass"],
-            gps=habitat_obs["gps"],
-            task_observations={
-                "goal_id": goal_id,
-                "goal_name": goal_name,
-            }
-        )
-        obs = self._preprocess_semantic(obs, habitat_obs["semantic"])
-        return obs
-    """
-
     def reset(self):
         self.sample_goal()
         self._episode_start_pose = self.get_base_pose()
@@ -112,18 +93,39 @@ if __name__ == '__main__':
     rospy.init_node("hello_stretch_ros_test")
     print("Create ROS interface")
     rob = StretchObjectNavEnv(init_cameras=True)
+    rob.switch_to_navigation_mode()
+
+    observations = [] 
     obs = rob.get_observation()
-    rgb, depth = obs.rgb, obs.depth
+    observations.append(obs)
 
-    # Add a visualiztion for debugging
-    import matplotlib.pyplot as plt
-    depth[depth > 5] = 0
-    plt.subplot(121); plt.imshow(rgb)
-    plt.subplot(122); plt.imshow(depth)
+    xyt = np.zeros(3)
+    xyt[:2] = obs.compass
+    xyt[2]  = obs.gps
+    xyt[0] += 0.1
+    rob.navigate_to(xyt)
+    rospy.sleep(5.)
+    obs = rob.get_observation()
+    observations.append(obs)
 
-    print("values:")
-    print("RGB =", np.unique(rgb))
-    print("Depth =", np.unique(depth))
-    print("Compass =", obs.compass)
-    print("Gps =", obs.gps)
-    plt.show()
+    xyt[0] = 0
+    rob.navigate_to(xyt)
+    rospy.sleep(5.)
+    obs = rob.get_observation()
+    observations.append(obs)
+
+    for obs in observations:
+        rgb, depth = obs.rgb, obs.depth
+
+        # Add a visualiztion for debugging
+        import matplotlib.pyplot as plt
+        depth[depth > 5] = 0
+        plt.subplot(121); plt.imshow(rgb)
+        plt.subplot(122); plt.imshow(depth)
+
+        print("values:")
+        print("RGB =", np.unique(rgb))
+        print("Depth =", np.unique(depth))
+        print("Compass =", obs.compass)
+        print("Gps =", obs.gps)
+        plt.show()
