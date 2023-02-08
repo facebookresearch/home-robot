@@ -1,5 +1,5 @@
 <?xml version="1.0"?>
 <launch>
-	<node name="goto_controller" pkg="home_robot" type="goto_controller.py" output="screen" required="false"/>
+	<node name="goto_controller" pkg="home_robot" type="goto_controller.py" output="screen" required="true"/>
 	<node name="state_estimator" pkg="home_robot" type="state_estimator.py" output="screen" required="true"/>
 </launch>
