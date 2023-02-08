@@ -21,14 +21,10 @@ def xyt_global_to_base(XYT, current_pose):
     Output:
         XYZ : ...x3
     """
-    XYT = np.asarray(XYT, dtype=np.float32)
-    new_T = XYT[2] - current_pose[2]
-    R = Rotation.from_euler("Z", current_pose[2]).as_matrix()
-    XYT[0] = XYT[0] - current_pose[0]
-    XYT[1] = XYT[1] - current_pose[1]
-    out_XYT = np.matmul(XYT.reshape(-1, 3), R).reshape((-1, 3))
-    out_XYT = out_XYT.ravel()
-    return [out_XYT[0], out_XYT[1], new_T]
+    pose_world2target = xyt2sophus(XYT)
+    pose_world2base = xyt2sophus(current_pose)
+    pose_base2target = pose_world2base.inverse() * pose_world2target
+    return sophus2xyt(pose_base2target)
 
 
 def xyt_base_to_global(out_XYT, current_pose):
@@ -40,19 +36,10 @@ def xyt_base_to_global(out_XYT, current_pose):
     Output:
         XYZ : ...x3
     """
-    R = Rotation.from_euler("Z", current_pose[2]).as_matrix()
-    Rinv = np.linalg.inv(R)
-
-    XYT = np.matmul(R, out_XYT)
-
-    XYT[0] = XYT[0] + current_pose[0]
-    XYT[1] = XYT[1] + current_pose[1]
-
-    XYT[2] = out_XYT[2] + current_pose[2]
-
-    XYT = np.asarray(XYT)
-
-    return XYT
+    pose_base2target = xyt2sophus(out_XYT)
+    pose_world2base = xyt2sophus(current_pose)
+    pose_world2target = pose_world2base * pose_base2target
+    return sophus2xyt(pose_world2target)
 
 
 def xyt2sophus(xyt: np.ndarray) -> sp.SE3:
