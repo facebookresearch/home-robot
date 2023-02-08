@@ -13,6 +13,9 @@ After installing [home_robot](../home_robot):
 # Install simulation deps
 mamba install -c conda-forge -c aihabitat habitat-sim withbullet
 
+# If needed, update submodules
+git submodule update --init
+
 # Install sim
 pip install -e src/home_robot_sim
 ```

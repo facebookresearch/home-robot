@@ -7,10 +7,11 @@ from setuptools import setup
 install_requires = ["numpy", "empy", "catkin_pkg", "rospkg"]
 
 setup(
-    name="home_robot",
+    name="home_robot_hw",
     version="1.0.0",
-    packages=["home_robot"],
-    package_dir={"": ".."},
+    packages=["home_robot_hw"],
+    package_dir={"": ".",
+                },
     install_requires=install_requires,
     zip_safe=False,
 )
