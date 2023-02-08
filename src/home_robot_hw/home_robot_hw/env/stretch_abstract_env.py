@@ -19,12 +19,16 @@ from std_srvs.srv import SetBool, SetBoolRequest
 from trajectory_msgs.msg import JointTrajectoryPoint
 
 from home_robot.core.interfaces import Action, Observations
+from home_robot.agent.motion.robot import HelloStretchIdx
 from home_robot_hw.ros.camera import RosCamera
 from home_robot_hw.constants import (ROS_ARM_JOINTS, ROS_LIFT_JOINT, ROS_GRIPPER_FINGER, ROS_HEAD_PAN, ROS_HEAD_TILT, ROS_WRIST_ROLL, ROS_WRIST_YAW, ROS_WRIST_PITCH, ROS_GRIPPER_FINGER, ROS_TO_CONFIG, CONFIG_TO_ROS)
 
 
 class StretchEnv(home_robot.core.abstract_env.Env):
     """ Defines a ROS-based interface to the real Stretch robot. Collect observations and command the robot."""
+
+    # 3 for base position + rotation, 2 for lift + extension, 3 for rpy, 1 for gripper, 2 for head
+    dof = 3 + 2 + 3 + 1 + 2
 
     def __init__(
         self,
