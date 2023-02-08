@@ -46,6 +46,7 @@ class StretchEnv(home_robot.core.abstract_env.Env):
         https://github.com/hello-robot/stretch_ros/blob/master/hello_helpers/src/hello_helpers/hello_misc.py
         """
 
+        self._depth_buffer_size = depth_buffer_size
         self._create_services()
         self._create_pubs_subs()
         self.rgb_cam, self.dpt_cam = None, None
@@ -94,7 +95,7 @@ class StretchEnv(home_robot.core.abstract_env.Env):
             depth_topic = "/camera/aligned_depth_to_color"
         print("Creating cameras...")
         self.rgb_cam = RosCamera(color_topic)
-        self.dpt_cam = RosCamera(depth_topic, buffer_size=depth_buffer_size)
+        self.dpt_cam = RosCamera(depth_topic, buffer_size=self._depth_buffer_size)
         self.filter_depth = depth_buffer_size is not None
         print("Waiting for rgb camera images...")
         self.rgb_cam.wait_for_image()
