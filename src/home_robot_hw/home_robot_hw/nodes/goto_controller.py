@@ -65,6 +65,7 @@ class GotoVelocityController:
     def _goal_update_callback(self, msg: Pose):
         pose_sp = sp.SE3(matrix_from_pose_msg(msg))
 
+        """
         if self.odom_only:
             # Project absolute goal from current odometry reading
             pose_delta = xyt2sophus(self.xyt_loc_odom).inverse() * pose_sp
@@ -72,6 +73,9 @@ class GotoVelocityController:
         else:
             # Assign absolute goal directly
             pose_goal = pose_sp
+        """
+
+        pose_goal = pose_sp
 
         self.xyt_goal = sophus2xyt(pose_goal)
 
@@ -111,7 +115,7 @@ class GotoVelocityController:
         Updates error based on robot localization
         """
         xyt_loc = self.xyt_loc_odom if self.odom_only else self.xyt_loc
-        xyt_err = xyt_global_to_base(self.xyt_goal, self.xyt_loc)
+        xyt_err = xyt_global_to_base(self.xyt_goal, xyt_loc)
         if not self.track_yaw:
             xyt_err[2] = 0.0
 
