@@ -13,8 +13,8 @@ from detectron2.utils.visualizer import ColorMode, Visualizer
 sys.path.insert(0, str(Path(__file__).resolve().parent / 'Detic/third_party/CenterNet2/'))
 from centernet.config import add_centernet_config
 
-from home_robot.perception.abstract_perception import PerceptionModule
-from home_robot.core_interfaces import Observations
+from home_robot.core.abstract_perception import PerceptionModule
+from home_robot.core.interfaces import Observations
 from home_robot.perception.detection.detic.Detic.detic.config import add_detic_config
 from home_robot.perception.detection.detic.Detic.detic.modeling.text.text_encoder import build_text_encoder
 from home_robot.perception.detection.detic.Detic.detic.modeling.utils import reset_cls_test

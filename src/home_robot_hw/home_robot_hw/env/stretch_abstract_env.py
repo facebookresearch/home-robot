@@ -1,12 +1,25 @@
 from abc import abstractmethod
 from typing import Any, Dict, Optional
 
-import rospy
+import actionlib
 import home_robot
 import home_robot.core.abstract_env
+import numpy as np
+import rospy
 import tf2_ros
+import threading
+
+# Import ROS messages and tools
+from control_msgs.msg import FollowJointTrajectoryAction
+from control_msgs.msg import FollowJointTrajectoryGoal
+from sensor_msgs.msg import JointState
+from std_msgs.msg import String
+from std_srvs.srv import Trigger, TriggerRequest
+from std_srvs.srv import SetBool, SetBoolRequest
+from trajectory_msgs.msg import JointTrajectoryPoint
 
 from home_robot.core.interfaces import Action, Observations
+from home_robot_hw.ros.camera import RosCamera
 from home_robot_hw.constants import (ROS_ARM_JOINTS, ROS_LIFT_JOINT, ROS_GRIPPER_FINGER, ROS_HEAD_PAN, ROS_HEAD_TILT, ROS_WRIST_ROLL, ROS_WRIST_YAW, ROS_WRIST_PITCH, ROS_GRIPPER_FINGER, ROS_TO_CONFIG, CONFIG_TO_ROS)
 
 
@@ -17,7 +30,6 @@ class StretchEnv(home_robot.core.abstract_env.Env):
         self,
         init_cameras=True,
         depth_buffer_size=None,
-        urdf_path=None,
         color_topic=None,
         depth_topic=None,
         ):
@@ -30,30 +42,52 @@ class StretchEnv(home_robot.core.abstract_env.Env):
         https://github.com/hello-robot/stretch_ros/blob/master/hello_helpers/src/hello_helpers/hello_misc.py
         """
 
-        if urdf_path is None:
-            # By default try to use ROS to find the URDF
-            urdf_path = get_urdf_dir()
-
-        if color_topic is None:
-            color_topic = "/camera/color"
-        if depth_topic is None:
-            depth_topic = "/camera/aligned_depth_to_color"
-
         self._create_services()
         self._create_pubs_subs()
+        self.rgb_cam, self.dpt_cam = None, None
         if init_cameras:
-            self._create_cameras()
-        else:
-            self.rgb_cam, self.dpt_cam = None, None
+            self._create_cameras(color_topic, depth_topic)
+
+        self._reset_messages()
 
         print("... done.")
         if not self.in_position_mode():
             print("Switching to position mode...")
             print(self.switch_to_position())
 
-    def _create_cameras(self):
+    def _reset_messages(self):
+        self._current_mode = None
+
+    def _mode_cb(self, msg):
+        """ get position or navigation mode from stretch ros """
+        self._current_mode = msg.data
+
+    def _js_cb(self, msg):
+        """ Read in current joint information from ROS topics and update state """
+        # loop over all joint state info
+        pos, vel, trq = np.zeros(self.dof), np.zeros(self.dof), np.zeros(self.dof)
+        for name, p, v, e in zip(msg.name, msg.position, msg.velocity, msg.effort):
+            # Check name etc
+            if name in ROS_ARM_JOINTS:
+                pos[HelloStretchIdx.ARM] += p
+                vel[HelloStretchIdx.ARM] += v
+                trq[HelloStretchIdx.ARM] += e
+            elif name in ROS_TO_CONFIG:
+                idx = ROS_TO_CONFIG[name]
+                pos[idx] = p
+                vel[idx] = v
+                trq[idx] = e
+        trq[HelloStretchIdx.ARM] /= 4
+        with self._js_lock:
+            self.pos, self.vel, self.frc = pos, vel, trq
+
+    def _create_cameras(self, color_topic=None, depth_topic=None):
         if self.rgb_cam is not None or self.dpt_cam is not None:
             raise RuntimeError('Already created cameras')
+        if color_topic is None:
+            color_topic = "/camera/color"
+        if depth_topic is None:
+            depth_topic = "/camera/aligned_depth_to_color"
         print("Creating cameras...")
         self.rgb_cam = RosCamera(color_topic)
         self.dpt_cam = RosCamera(depth_topic, buffer_size=depth_buffer_size)
