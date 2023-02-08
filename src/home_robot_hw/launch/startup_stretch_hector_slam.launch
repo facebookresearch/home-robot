@@ -4,7 +4,7 @@
 	<arg name="start_robot" default="true"/>
 	<arg name="teleop_keyboard" default="false"/>
 	<arg name="start_rs_ros" default="true"/>
-	<arg name="start_joy_node" default="true"/>
+	<arg name="start_joy_node" default="false"/>
 
 	<!-- bring up rviz? -->
 	<param name="/use_sim_time" value="false"/>
