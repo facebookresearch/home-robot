@@ -115,7 +115,8 @@ class GotoVelocityController:
         Updates error based on robot localization
         """
         xyt_loc = self.xyt_loc_odom if self.odom_only else self.xyt_loc
-        xyt_err = xyt_global_to_base(self.xyt_goal, self.xyt_loc)
+        xyt_err = xyt_global_to_base(self.xyt_goal, xyt_loc)
+        print(">>> err =", xyt_err[2], "=", xyt_loc[2], self.xyt_goal[2])
         if not self.track_yaw:
             xyt_err[2] = 0.0
         else:
