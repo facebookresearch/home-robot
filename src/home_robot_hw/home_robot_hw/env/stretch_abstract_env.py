@@ -349,6 +349,8 @@ class StretchEnv(home_robot.core.abstract_env.Env):
         if relative:
             xyt_base = sophus2xyt(self.get_base_pose())
             xyt_goal = xyt_base_to_global(xyt, xyt_base)
+            print("base =", xyt_base)
+            print("goal =", xyt_goal)
         else:
             xyt_goal = xyt
 
