@@ -47,18 +47,18 @@ class StretchEnv(home_robot.core.abstract_env.Env):
         """
 
         self._depth_buffer_size = depth_buffer_size
-        self._create_services()
         self._create_pubs_subs()
         self.rgb_cam, self.dpt_cam = None, None
         if init_cameras:
             self._create_cameras(color_topic, depth_topic)
-
+        self._create_services()
         self._reset_messages()
-
         print("... done.")
         if not self.in_position_mode():
             print("Switching to position mode...")
             print(self.switch_to_position())
+        if init_cameras:
+            self.wait_for_cameras()
 
     def _reset_messages(self):
         self._current_mode = None
@@ -96,7 +96,11 @@ class StretchEnv(home_robot.core.abstract_env.Env):
         print("Creating cameras...")
         self.rgb_cam = RosCamera(color_topic)
         self.dpt_cam = RosCamera(depth_topic, buffer_size=self._depth_buffer_size)
-        self.filter_depth = depth_buffer_size is not None
+        self.filter_depth = self._depth_buffer_size is not None
+
+    def wait_for_cameras(self):
+        if self.rgb_cam is None or self.dpt_cam is None:
+            raise RuntimeError('cameras not initialized')
         print("Waiting for rgb camera images...")
         self.rgb_cam.wait_for_image()
         print("Waiting for depth camera images...")
