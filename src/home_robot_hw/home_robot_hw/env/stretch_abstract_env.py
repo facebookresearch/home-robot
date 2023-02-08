@@ -29,6 +29,7 @@ from home_robot.utils.geometry import (
 )
 
 from home_robot.core.interfaces import Action, Observations
+from home_robot.core.state import ManipulatorBaseParams
 from home_robot.agent.motion.robot import HelloStretchIdx
 from home_robot_hw.ros.camera import RosCamera
 from home_robot_hw.constants import (
@@ -277,7 +278,7 @@ class StretchEnv(home_robot.core.abstract_env.Env):
 
         # Set manipulator params
         self._manipulator_params = ManipulatorBaseParams(
-            se3_base=self._robot_state.t_base_odom,
+            se3_base=self._t_base_odom,
         )
 
         # Switch interface mode & print messages

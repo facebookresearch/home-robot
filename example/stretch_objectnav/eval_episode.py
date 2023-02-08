@@ -16,7 +16,6 @@ if __name__ == "__main__":
 
     rospy.init_node('eval_episode_stretch_objectnav')
     agent = ObjectNavAgent(config=config)
-    # env = HabitatObjectNavEnv(Env(config=config.TASK_CONFIG), config=config)
     env = StretchObjectNavEnv(config=config)
 
     agent.reset()
@@ -25,7 +24,7 @@ if __name__ == "__main__":
     t = 0
     while not env.episode_over:
         t += 1
-        print(t)
+        print("STEP =", t)
         obs = env.get_observation()
         action, info = agent.act(obs)
         env.apply_action(action, info=info)
