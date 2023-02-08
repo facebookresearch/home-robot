@@ -77,7 +77,11 @@ class GotoVelocityController:
 
         # Visualize
         self.goal_visualizer(
-            (self.xyt_loc * self.xyt_loc_odom.inverse() * pose_goal).matrix()
+            (
+                xyt2sophus(self.xyt_loc)
+                * xyt2sophus(self.xyt_loc_odom).inverse()
+                * pose_goal
+            ).matrix()
         )
 
     def _enable_service(self, request):
