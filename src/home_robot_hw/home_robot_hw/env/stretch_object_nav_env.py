@@ -12,7 +12,8 @@ from home_robot_hw.env.visualizer import Visualizer
 
 
 # REAL_WORLD_CATEGORIES = ["other", "chair", "mug", "other",]
-REAL_WORLD_CATEGORIES = ["other", "backpack", "other",]
+# REAL_WORLD_CATEGORIES = ["other", "backpack", "other",]
+REAL_WORLD_CATEGORIES = ["other", "chair", "other",]
 
 
 class StretchObjectNavEnv(StretchEnv):
@@ -49,10 +50,13 @@ class StretchObjectNavEnv(StretchEnv):
             self.visualizer.visualize(**info)
         continuous_action = np.zeros(3)
         if action == DiscreteNavigationAction.MOVE_FORWARD:
+            print("FORWARD")
             continuous_action[0] = self.forward_step
         elif action == DiscreteNavigationAction.TURN_RIGHT:
+            print("TURN RIGHT")
             continuous_action[2] = -self.rotate_step
         elif action == DiscreteNavigationAction.TURN_LEFT:
+            print("TURN LEFT")
             continuous_action[2] = self.rotate_step
         else:
             # Do nothing if "stop"
@@ -153,6 +157,46 @@ if __name__ == "__main__":
     rob = StretchObjectNavEnv(init_cameras=True)
     rob.switch_to_navigation_mode()
 
+    # Debug the observation space
+    import matplotlib.pyplot as plt
+    while not rospy.is_shutdown():
+
+        while not rospy.is_shutdown():
+            cmd = None
+            try:
+                cmd = input('Enter a number 0-3:')
+                cmd = DiscreteNavigationAction(int(cmd))
+            except ValueError:
+                cmd = None
+            if cmd is not None:
+                break
+        rob.apply_action(cmd)
+
+        obs = rob.get_observation()
+        rgb, depth = obs.rgb, obs.depth
+        # xyt = obs2xyt(obs.base_pose)
+
+        # Add a visualiztion for debugging
+        depth[depth > 5] = 0
+        plt.subplot(121)
+        plt.imshow(rgb)
+        plt.subplot(122)
+        plt.imshow(depth)
+        # plt.subplot(133); plt.imshow(obs.semantic
+
+        print()
+        print("----------------")
+        print("values:")
+        print("RGB =", np.unique(rgb))
+        print("Depth =", np.unique(depth))
+        # print("XY =", xyt[:2])
+        # print("Yaw=", xyt[-1])
+        print("Compass =", obs.compass)
+        print("Gps =", obs.gps)
+        plt.show()
+
+
+if False:
     observations = []
     obs = rob.get_observation()
     observations.append(obs)
@@ -174,9 +218,6 @@ if __name__ == "__main__":
     rospy.sleep(10.0)
     obs = rob.get_observation()
     observations.append(obs)
-
-    # Debug the observation space
-    import matplotlib.pyplot as plt
 
     for obs in observations:
         rgb, depth = obs.rgb, obs.depth
