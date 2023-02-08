@@ -10,7 +10,7 @@ class Config(yacs.config.CfgNode):
         super().__init__(*args, **kwargs, new_allowed=True)
 
 
-def get_config(path: str, opts: Optional[list] = None) -> Tuple[CN, str]:
+def get_config(path: str, opts: Optional[list] = None) -> Tuple[Config, str]:
     """Get configuration and ensure consistency between configurations
     inherited from the task and defaults and our code's configuration.
 
@@ -20,12 +20,12 @@ def get_config(path: str, opts: Optional[list] = None) -> Tuple[CN, str]:
     """
 
     # Start with our code's config
-    cfg = Config()
-    cfg.merge_from_file("floorplanner_eval.yaml")
+    config = Config()
+    config.merge_from_file("configs/agent/floorplanner_eval.yaml")
 
     # Add command line arguments
     if opts is not None:
-        cfg.merge_from_list(opts)
+        config.merge_from_list(opts)
     config.freeze()
 
     # Generate a string representation of our code's config

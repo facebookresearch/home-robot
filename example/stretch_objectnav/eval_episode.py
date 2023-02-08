@@ -1,4 +1,5 @@
 #!/usr/bin/env python
+import rospy
 from home_robot.agent.objectnav_agent.objectnav_agent import ObjectNavAgent
 from home_robot.utils.config import get_config
 from home_robot_hw.env.stretch_object_nav_env import StretchObjectNavEnv
@@ -10,10 +11,10 @@ if __name__ == "__main__":
     config.defrost()
     config.NUM_ENVIRONMENTS = 1
     config.PRINT_IMAGES = 1
-    config.TASK_CONFIG.DATASET.SPLIT = "val"
     config.EXP_NAME = "debug"
     config.freeze()
 
+    rospy.init_node('eval_episode_stretch_objectnav')
     agent = ObjectNavAgent(config=config)
     # env = HabitatObjectNavEnv(Env(config=config.TASK_CONFIG), config=config)
     env = StretchObjectNavEnv()
