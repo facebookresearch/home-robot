@@ -56,12 +56,16 @@ class StretchEnv(home_robot.core.abstract_env.Env):
         print("... done.")
         if not self.in_position_mode():
             print("Switching to position mode...")
-            print(self.switch_to_position())
+            print(self.switch_to_position_mode())
         if init_cameras:
             self.wait_for_cameras()
 
     def _reset_messages(self):
         self._current_mode = None
+
+    def in_position_mode(self):
+        """ is the robot in position mode """
+        return self._current_mode == "position"
 
     def _mode_cb(self, msg):
         """ get position or navigation mode from stretch ros """
@@ -153,6 +157,14 @@ class StretchEnv(home_robot.core.abstract_env.Env):
         )
         print("Wait for mode service...")
         self._pos_mode_service.wait_for_service()
+
+    def switch_to_position_mode(self):
+        """ switch stretch to position control """
+        self._pos_mode_service()
+
+    def switch_to_navigation_mode(self):
+        """ switch stretch to navigation control """
+        self._nav_mode_service()
 
     @abstractmethod
     def reset(self):
