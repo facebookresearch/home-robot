@@ -7,6 +7,7 @@ from typing import Any, Dict, Optional
 from home_robot.core.interfaces import Action, Observations
 from home_robot_hw.env.stretch_abstract_env import StretchEnv
 from home_robot.perception.detection.detic.detic_perception import DeticPerception
+from home_robot.utils.geometry import sophus2obs, obs2xyt
 
 
 REAL_WORLD_CATEGORIES=["chair", "mug"]
@@ -26,32 +27,14 @@ class StretchObjectNavEnv(StretchEnv):
             custom_vocabulary=",".join(self.goal_options),
             sem_gpu_id=0,
         )
-        self.sample_goal()
-
-    """
-    def _preprocess_obs(self,
-                        ) -> home_robot.core.interfaces.Observations:
-        depth = self._preprocess_depth(habitat_obs["depth"])
-        goal_id, goal_name = self._preprocess_goal(habitat_obs["objectgoal"])
-        obs = home_robot.core.interfaces.Observations(
-            rgb=habitat_obs["rgb"],
-            depth=depth,
-            compass=habitat_obs["compass"],
-            gps=habitat_obs["gps"],
-            task_observations={
-                "goal_id": goal_id,
-                "goal_name": goal_name,
-            }
-        )
-        obs = self._preprocess_semantic(obs, habitat_obs["semantic"])
-        return obs
-    """
+        self.reset()
 
     def reset(self):
         self.sample_goal()
+        self._episode_start_pose = self.get_base_pose()
 
     def apply_action(self, action: Action, info: Optional[Dict[str, Any]] = None):
-        pass
+        print(action)
 
     def set_goal(self, goal):
         """ set a goal as a string"""
@@ -69,14 +52,20 @@ class StretchObjectNavEnv(StretchEnv):
         self.current_goal_name = self.goal_options[idx]
 
     def get_observation(self) -> Observations:
+        """ Get Detic and rgb/xyz/theta from this """
         rgb, depth = self.get_images(compute_xyz=False, rotate_images=True)
-        xy = 0, 0
-        theta = 0
+        current_pose = self.get_base_pose()
+
+        # use sophus to get the relative translation
+        relative_pose = self._episode_start_pose.inverse() * current_pose
+        euler_angles = relative_pose.so3().log()
+        theta = euler_angles[-1]
+
+        # Create the observation
         obs = home_robot.core.interfaces.Observations(
             rgb=rgb,
             depth=depth,
-            compass=xy,
-            gps=theta,
+            base_pose=sophus2obs(relative_pose)
             task_observations={
                 "goal_id": self.current_goal_id,
                 "goal_name": self.current_goal_name,
@@ -102,18 +91,42 @@ if __name__ == '__main__':
     rospy.init_node("hello_stretch_ros_test")
     print("Create ROS interface")
     rob = StretchObjectNavEnv(init_cameras=True)
+    rob.switch_to_navigation_mode()
+
+    observations = [] 
     obs = rob.get_observation()
-    rgb, depth = obs.rgb, obs.depth
+    observations.append(obs)
 
-    # Add a visualiztion for debugging
+    xyt = obs2xyt(obs.base_pose)
+    xyt[0] += 0.1
+    rob.navigate_to(xyt)
+    rospy.sleep(10.)
+    obs = rob.get_observation()
+    observations.append(obs)
+
+    xyt[0] = 0
+    rob.navigate_to(xyt)
+    rospy.sleep(10.)
+    obs = rob.get_observation()
+    observations.append(obs)
+
+    # Debug the observation space
     import matplotlib.pyplot as plt
-    depth[depth > 5] = 0
-    plt.subplot(121); plt.imshow(rgb)
-    plt.subplot(122); plt.imshow(depth)
+    for obs in observations:
+        rgb, depth = obs.rgb, obs.depth
+        xyt = obs2xyt(obs.base_pose)
 
-    print("values:")
-    print("RGB =", np.unique(rgb))
-    print("Depth =", np.unique(depth))
-    print("Compass =", obs.compass)
-    print("Gps =", obs.gps)
-    plt.show()
+        # Add a visualiztion for debugging
+        depth[depth > 5] = 0
+        plt.subplot(121); plt.imshow(rgb)
+        plt.subplot(122); plt.imshow(depth)
+        # plt.subplot(133); plt.imshow(obs.semantic
+        
+        print()
+        print("----------------")
+        print("values:")
+        print("RGB =", np.unique(rgb))
+        print("Depth =", np.unique(depth))
+        print("XY =", xyt[:2])
+        print("Yaw=", xyt[-1])
+        plt.show()

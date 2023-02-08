@@ -1,3 +1,5 @@
+from enum import Enum
+
 from home_robot.agent.motion.robot import HelloStretch, HelloStretchIdx
 
 
@@ -31,4 +33,10 @@ for k, v in ROS_TO_CONFIG.items():
 CONFIG_TO_ROS[HelloStretchIdx.ARM] = ROS_ARM_JOINTS
 # ROS_JOINT_NAMES += ROS_ARM_JOINTS
 
+
+class ControlMode(Enum):
+    IDLE = 0
+    VELOCITY = 1
+    NAVIGATION = 2
+    MANIPULATION = 3
 

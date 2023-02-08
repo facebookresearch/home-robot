@@ -1,5 +1,5 @@
 from abc import abstractmethod
-from typing import Any, Dict, Optional
+from typing import Optional, Iterable, List, Dict, Any
 
 import actionlib
 import home_robot
@@ -31,7 +31,7 @@ from home_robot.utils.geometry import (
 from home_robot.core.interfaces import Action, Observations
 from home_robot.agent.motion.robot import HelloStretchIdx
 from home_robot_hw.ros.camera import RosCamera
-from home_robot_hw.constants import (ROS_ARM_JOINTS, ROS_LIFT_JOINT, ROS_GRIPPER_FINGER, ROS_HEAD_PAN, ROS_HEAD_TILT, ROS_WRIST_ROLL, ROS_WRIST_YAW, ROS_WRIST_PITCH, ROS_GRIPPER_FINGER, ROS_TO_CONFIG, CONFIG_TO_ROS)
+from home_robot_hw.constants import (ROS_ARM_JOINTS, ROS_LIFT_JOINT, ROS_GRIPPER_FINGER, ROS_HEAD_PAN, ROS_HEAD_TILT, ROS_WRIST_ROLL, ROS_WRIST_YAW, ROS_WRIST_PITCH, ROS_GRIPPER_FINGER, ROS_TO_CONFIG, CONFIG_TO_ROS, ControlMode)
 from home_robot_hw.ros.utils import matrix_from_pose_msg, matrix_to_pose_msg
 
 
@@ -63,6 +63,7 @@ class StretchEnv(home_robot.core.abstract_env.Env):
         https://github.com/hello-robot/stretch_ros/blob/master/hello_helpers/src/hello_helpers/hello_misc.py
         """
 
+        self._base_control_mode = ControlMode.IDLE
         self._depth_buffer_size = depth_buffer_size
         self._create_pubs_subs()
         self.rgb_cam, self.dpt_cam = None, None
@@ -71,9 +72,7 @@ class StretchEnv(home_robot.core.abstract_env.Env):
         self._create_services()
         self._reset_messages()
         print("... done.")
-        if not self.in_position_mode():
-            print("Switching to position mode...")
-            print(self.switch_to_position_mode())
+        self.wait_for_pose()
         if init_cameras:
             self.wait_for_cameras()
 
@@ -101,6 +100,10 @@ class StretchEnv(home_robot.core.abstract_env.Env):
         """ base state updates from SLAM system """
         self._last_base_update_timestamp = msg.header.stamp
         self._t_base_filtered = sp.SE3(matrix_from_pose_msg(msg.pose))
+
+    def get_base_pose(self):
+        """ get the latest base pose from sensors """
+        return self._t_base_filtered
 
     def _js_callback(self, msg):
         """ Read in current joint information from ROS topics and update state """
@@ -146,15 +149,27 @@ class StretchEnv(home_robot.core.abstract_env.Env):
         if self.rgb_cam.get_frame() != self.dpt_cam.get_frame():
             raise RuntimeError("issue with camera setup; depth and rgb not aligned")
 
+    def wait_for_pose(self):
+        """ wait until we have an accurate pose estimate """
+        rate = rospy.Rate(10)
+        while not rospy.is_shutdown():
+            if self._t_base_filtered is not None:
+                break
+            rate.sleep()
+
     def _create_pubs_subs(self):
         """ create ROS publishers and subscribers - only call once """
         # Store latest joint state message - lock for access
         self._js_lock = threading.Lock()
-        self.mode = ""
         self._mode_sub = rospy.Subscriber("mode", String, self._mode_callback, queue_size=1)
         # Create the tf2 buffer first, used in camera init
         self.tf2_buffer = tf2_ros.Buffer()
         self.tf2_listener = tf2_ros.TransformListener(self.tf2_buffer)
+
+        # Create command publishers
+        self._goal_pub = rospy.Publisher("goto_controller/goal", Pose, queue_size=1)
+        self._velocity_pub = rospy.Publisher("stretch/cmd_vel", Twist, queue_size=1)
+
         # Create trajectory client with which we can control the robot
         self.trajectory_client = actionlib.SimpleActionClient(
             "/stretch_controller/follow_joint_trajectory", FollowJointTrajectoryAction
@@ -169,8 +184,7 @@ class StretchEnv(home_robot.core.abstract_env.Env):
             queue_size=1,
         )
         self._base_state_sub = rospy.Subscriber(
-            #"state_estimator/pose_filtered",
-            "slam_out_pose",
+            "state_estimator/pose_filtered",
             PoseStamped,
             self._base_state_callback,
             queue_size=1,
@@ -203,13 +217,49 @@ class StretchEnv(home_robot.core.abstract_env.Env):
         print("Wait for mode service...")
         self._pos_mode_service.wait_for_service()
 
-    def switch_to_position_mode(self):
-        """ switch stretch to position control """
-        self._pos_mode_service()
+    # Mode switching interfaces
+    def switch_to_velocity_mode(self):
+        result1 = self._nav_mode_service(TriggerRequest())
+        result2 = self._goto_off_service(TriggerRequest())
+
+        # Switch interface mode & print messages
+        # TODO - switch control mode in robot state
+        self._base_control_mode = ControlMode.VELOCITY
+        rospy.loginfo(result1.message)
+        rospy.loginfo(result2.message)
+
+        return result1.success and result2.success
 
     def switch_to_navigation_mode(self):
         """ switch stretch to navigation control """
-        self._nav_mode_service()
+        result1 = self._nav_mode_service(TriggerRequest())
+        result2 = self._goto_on_service(TriggerRequest())
+
+        # Switch interface mode & print messages
+        self._base_control_mode = ControlMode.NAVIGATION
+        rospy.loginfo(result1.message)
+        rospy.loginfo(result2.message)
+
+        return result1.success and result2.success
+
+    def switch_to_manipulation_mode(self):
+        result1 = self._pos_mode_service(TriggerRequest())
+        result2 = self._goto_off_service(TriggerRequest())
+
+        # Wait for navigation to stabilize
+        rospy.sleep(T_LOC_STABILIZE)
+
+        # Set manipulator params
+        self._manipulator_params = ManipulatorBaseParams(
+            se3_base=self._robot_state.t_base_odom,
+        )
+
+        # Switch interface mode & print messages
+        self._base_control_mode = ControlMode.MANIPULATION
+        rospy.loginfo(result1.message)
+        rospy.loginfo(result2.message)
+
+        return result1.success and result2.success
 
     def process_depth(self, depth):
         depth[depth < self.min_depth_val] = MIN_DEPTH_REPLACEMENT_VALUE
@@ -247,6 +297,46 @@ class StretchEnv(home_robot.core.abstract_env.Env):
             imgs[-1] = xyz
 
         return imgs
+
+    # Control interfaces
+    def set_velocity(self, v, w):
+        """
+        Directly sets the linear and angular velocity of robot base.
+        """
+        msg = Twist()
+        msg.linear.x = v
+        msg.angular.z = w
+        self._velocity_pub.publish(msg)
+
+    def navigate_to(
+        self,
+        xyt: Iterable[float],
+        relative: bool = False,
+        position_only: bool = False,
+        avoid_obstacles: bool = False,
+    ):
+        """
+        Cannot be used in manipulation mode.
+        """
+        # Parse inputs
+        assert len(xyt) == 3, "Input goal location must be of length 3."
+
+        if avoid_obstacles:
+            raise NotImplementedError("Obstacle avoidance unavailable.")
+
+        # Set yaw tracking
+        self._set_yaw_service(SetBoolRequest(data=(not position_only)))
+
+        # Compute absolute goal
+        if relative:
+            xyt_base = self.get_base_state()["pose_se2"]
+            xyt_goal = xyt_base_to_global(xyt, xyt_base)
+        else:
+            xyt_goal = xyt
+
+        # Set goal
+        msg = matrix_to_pose_msg(xyt2sophus(xyt_goal).matrix())
+        self._goal_pub.publish(msg)
 
     @abstractmethod
     def reset(self):
