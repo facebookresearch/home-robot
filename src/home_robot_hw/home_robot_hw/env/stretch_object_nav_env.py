@@ -1,5 +1,6 @@
-import rospy
 import home_robot
+import numpy as np
+import rospy
 
 from typing import Any, Dict, Optional
 
@@ -16,21 +17,71 @@ class StretchObjectNavEnv(StretchEnv):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
 
+        # TODO: pass this in or load from cfg
+        self.goal_options = REAL_WORLD_CATEGORIES
+
         # TODO Specify confidence threshold as a parameter
         self.segmentation = DeticPerception(
             vocabulary="custom",
-            custom_vocabulary=",".join(REAL_WORLD_CATEGORIES),
+            custom_vocabulary=",".join(self.goal_options),
             sem_gpu_id=0,
         )
 
+    """
+    def _preprocess_obs(self,
+                        ) -> home_robot.core.interfaces.Observations:
+        depth = self._preprocess_depth(habitat_obs["depth"])
+        goal_id, goal_name = self._preprocess_goal(habitat_obs["objectgoal"])
+        obs = home_robot.core.interfaces.Observations(
+            rgb=habitat_obs["rgb"],
+            depth=depth,
+            compass=habitat_obs["compass"],
+            gps=habitat_obs["gps"],
+            task_observations={
+                "goal_id": goal_id,
+                "goal_name": goal_name,
+            }
+        )
+        obs = self._preprocess_semantic(obs, habitat_obs["semantic"])
+        return obs
+    """
+
     def reset(self):
-        pass
+        self.sample_goal()
 
     def apply_action(self, action: Action, info: Optional[Dict[str, Any]] = None):
         pass
 
+    def set_goal(self, goal):
+        """ set a goal as a string"""
+        if goal in self.goal_options:
+            self.current_goal_id = self.goal_options.index(goal)
+            self.current_goal_name = goal
+            return True
+        else:
+            return False
+
+    def sample_goal(self):
+        """ set a random goal """
+        idx = np.random.randint(len(self.goal_options))
+        self.current_goal_id = idx
+        self.current_goal_name = self.goal_options[idx]
+
     def get_observation(self) -> Observations:
-        pass
+        rgb, depth = self.get_images(compute_xyz=False, rotate_images=True)
+        xy = 0, 0
+        theta = 0
+        home_robot.core.interfaces.Observations(
+            rgb=rgb,
+            depth=depth,
+            compass=xy,
+            gps=theta,
+            task_observations={
+                "goal_id": self.current_goal_id,
+                "goal_name": self.current_goal_name,
+            }
+        )
+        return rgb, depth
 
     @property
     def episode_over(self) -> bool:
@@ -48,4 +99,14 @@ if __name__ == '__main__':
     rospy.init_node("hello_stretch_ros_test")
     print("Create ROS interface")
     rob = StretchObjectNavEnv(init_cameras=True)
-   
+    obs = rob.get_observation()
+    rgb, depth = obs
+    import matplotlib.pyplot as plt
+    depth[depth > 5] = 0
+    plt.subplot(121); plt.imshow(rgb)
+    plt.subplot(122); plt.imshow(depth)
+
+    print("values:")
+    print("RGB =", np.unique(rgb))
+    print("Depth =", np.unique(depth))
+    plt.show()

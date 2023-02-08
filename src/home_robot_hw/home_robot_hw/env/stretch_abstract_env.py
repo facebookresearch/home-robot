@@ -12,6 +12,8 @@ import threading
 # Import ROS messages and tools
 from control_msgs.msg import FollowJointTrajectoryAction
 from control_msgs.msg import FollowJointTrajectoryGoal
+from geometry_msgs.msg import PoseStamped, Pose, Twist
+from nav_msgs.msg import Odometry
 from sensor_msgs.msg import JointState
 from std_msgs.msg import String
 from std_srvs.srv import Trigger, TriggerRequest
@@ -24,11 +26,17 @@ from home_robot_hw.ros.camera import RosCamera
 from home_robot_hw.constants import (ROS_ARM_JOINTS, ROS_LIFT_JOINT, ROS_GRIPPER_FINGER, ROS_HEAD_PAN, ROS_HEAD_TILT, ROS_WRIST_ROLL, ROS_WRIST_YAW, ROS_WRIST_PITCH, ROS_GRIPPER_FINGER, ROS_TO_CONFIG, CONFIG_TO_ROS)
 
 
+MIN_DEPTH_REPLACEMENT_VALUE = 10000
+MAX_DEPTH_REPLACEMENT_VALUE = 10001
+
+
 class StretchEnv(home_robot.core.abstract_env.Env):
     """ Defines a ROS-based interface to the real Stretch robot. Collect observations and command the robot."""
 
     # 3 for base position + rotation, 2 for lift + extension, 3 for rpy, 1 for gripper, 2 for head
     dof = 3 + 2 + 3 + 1 + 2
+    min_depth_val = 0.1
+    max_depth_val = 4.0
 
     def __init__(
         self,
@@ -67,11 +75,21 @@ class StretchEnv(home_robot.core.abstract_env.Env):
         """ is the robot in position mode """
         return self._current_mode == "position"
 
-    def _mode_cb(self, msg):
+    def _mode_callback(self, msg):
         """ get position or navigation mode from stretch ros """
         self._current_mode = msg.data
 
-    def _js_cb(self, msg):
+    def _odom_callback(self, msg: Odometry):
+        """ odometry callback """
+        self._robot_state.last_base_update_timestamp = msg.header.stamp
+        self._robot_state.t_base_odom = sp.SE3(matrix_from_pose_msg(msg.pose.pose))
+
+    def _base_state_callback(self, msg: PoseStamped):
+        """ base state updates from SLAM system """
+        self._robot_state.last_base_update_timestamp = msg.header.stamp
+        self._robot_state.t_base_filtered = sp.SE3(matrix_from_pose_msg(msg.pose))
+
+    def _js_callback(self, msg):
         """ Read in current joint information from ROS topics and update state """
         # loop over all joint state info
         pos, vel, trq = np.zeros(self.dof), np.zeros(self.dof), np.zeros(self.dof)
@@ -120,7 +138,7 @@ class StretchEnv(home_robot.core.abstract_env.Env):
         # Store latest joint state message - lock for access
         self._js_lock = threading.Lock()
         self.mode = ""
-        self._mode_sub = rospy.Subscriber("mode", String, self._mode_cb, queue_size=1)
+        self._mode_sub = rospy.Subscriber("mode", String, self._mode_callback, queue_size=1)
         # Create the tf2 buffer first, used in camera init
         self.tf2_buffer = tf2_ros.Buffer()
         self.tf2_listener = tf2_ros.TransformListener(self.tf2_buffer)
@@ -128,9 +146,22 @@ class StretchEnv(home_robot.core.abstract_env.Env):
         self.trajectory_client = actionlib.SimpleActionClient(
             "/stretch_controller/follow_joint_trajectory", FollowJointTrajectoryAction
         )
-        self.joint_state_subscriber = rospy.Subscriber(
-            "stretch/joint_states", JointState, self._js_cb, queue_size=100
+        self._joint_state_subscriber = rospy.Subscriber(
+            "stretch/joint_states", JointState, self._js_callback, queue_size=100
         )
+        self._odom_sub = rospy.Subscriber(
+            "odom",
+            Odometry,
+            self._odom_callback,
+            queue_size=1,
+        )
+        self._base_state_sub = rospy.Subscriber(
+            "state_estimator/pose_filtered",
+            PoseStamped,
+            self._base_state_callback,
+            queue_size=1,
+        )
+ 
         print("Waiting for trajectory server...")
         server_reached = self.trajectory_client.wait_for_server(
             timeout=rospy.Duration(30.0)
@@ -165,6 +196,43 @@ class StretchEnv(home_robot.core.abstract_env.Env):
     def switch_to_navigation_mode(self):
         """ switch stretch to navigation control """
         self._nav_mode_service()
+
+    def process_depth(self, depth):
+        depth[depth < self.min_depth_val] = MIN_DEPTH_REPLACEMENT_VALUE
+        depth[depth > self.max_depth_val] = MAX_DEPTH_REPLACEMENT_VALUE
+        return depth
+
+    def get_images(self, compute_xyz=False, rotate_images=True):
+        """helper logic to get images from the robot's camera feed"""
+        rgb = self.rgb_cam.get()
+        if self.filter_depth:
+            dpt = self.dpt_cam.get_filtered()
+        else:
+            dpt = self.process_depth(self.dpt_cam.get())
+        if compute_xyz:
+            xyz = self.dpt_cam.depth_to_xyz(self.dpt_cam.fix_depth(dpt))
+            imgs = [rgb, dpt, xyz]
+        else:
+            imgs = [rgb, dpt]
+            xyz = None
+
+        if rotate_images:
+            # Get xyz in base coords for later
+            imgs = [np.rot90(np.fliplr(np.flipud(x))) for x in imgs]
+
+
+        if xyz is not None:
+            xyz = imgs[-1]
+            H, W = rgb.shape[:2]
+            xyz = xyz.reshape(-1, 3)
+
+            # Rotate the sretch camera so that top of image is "up"
+            R_stretch_camera = tra.euler_matrix(0, 0, -np.pi / 2)[:3, :3]
+            xyz = xyz @ R_stretch_camera
+            xyz = xyz.reshape(H, W, 3)
+            imgs[-1] = xyz
+
+        return imgs
 
     @abstractmethod
     def reset(self):
