@@ -11,8 +11,8 @@ from home_robot.utils.geometry import sophus2obs, obs2xyt
 from home_robot_hw.env.visualizer import Visualizer
 
 
-# REAL_WORLD_CATEGORIES = ["chair", "mug"]
-REAL_WORLD_CATEGORIES = ["backpack"]
+# REAL_WORLD_CATEGORIES = ["other", "chair", "mug", "other",]
+REAL_WORLD_CATEGORIES = ["other", "backpack", "other",]
 
 
 class StretchObjectNavEnv(StretchEnv):
@@ -29,7 +29,7 @@ class StretchObjectNavEnv(StretchEnv):
         # TODO Specify confidence threshold as a parameter
         self.segmentation = DeticPerception(
             vocabulary="custom",
-            custom_vocabulary=",".join(self.goal_options) + ",other",
+            custom_vocabulary=",".join(self.goal_options),
             sem_gpu_id=0,
         )
         if config is not None:
@@ -81,7 +81,8 @@ class StretchObjectNavEnv(StretchEnv):
 
     def sample_goal(self):
         """set a random goal"""
-        idx = np.random.randint(len(self.goal_options))
+        # idx = np.random.randint(len(self.goal_options) - 2) + 1
+        idx = 1
         self.current_goal_id = idx
         self.current_goal_name = self.goal_options[idx]
 
@@ -111,6 +112,7 @@ class StretchObjectNavEnv(StretchEnv):
         )
         # Run the segmentation model here
         obs = self.segmentation.predict(obs, depth_threshold=0.5)
+        obs.semantic[obs.semantic==0] = len(self.goal_options) - 1
         return obs
 
     @property
