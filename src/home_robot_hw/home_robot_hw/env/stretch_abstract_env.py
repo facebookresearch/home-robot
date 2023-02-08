@@ -71,9 +71,6 @@ class StretchEnv(home_robot.core.abstract_env.Env):
         self._create_services()
         self._reset_messages()
         print("... done.")
-        if not self.in_position_mode():
-            print("Switching to position mode...")
-            print(self.switch_to_position_mode())
         if init_cameras:
             self.wait_for_cameras()
 
@@ -101,6 +98,10 @@ class StretchEnv(home_robot.core.abstract_env.Env):
         """ base state updates from SLAM system """
         self._last_base_update_timestamp = msg.header.stamp
         self._t_base_filtered = sp.SE3(matrix_from_pose_msg(msg.pose))
+
+    def get_base_pose(self):
+        """ get the latest base pose from sensors """
+        return self._t_base_filtered
 
     def _js_callback(self, msg):
         """ Read in current joint information from ROS topics and update state """
@@ -169,8 +170,7 @@ class StretchEnv(home_robot.core.abstract_env.Env):
             queue_size=1,
         )
         self._base_state_sub = rospy.Subscriber(
-            #"state_estimator/pose_filtered",
-            "slam_out_pose",
+            "state_estimator/pose_filtered",
             PoseStamped,
             self._base_state_callback,
             queue_size=1,
@@ -203,13 +203,48 @@ class StretchEnv(home_robot.core.abstract_env.Env):
         print("Wait for mode service...")
         self._pos_mode_service.wait_for_service()
 
-    def switch_to_position_mode(self):
-        """ switch stretch to position control """
-        self._pos_mode_service()
+    # Mode switching interfaces
+    def switch_to_velocity_mode(self):
+        result1 = self._nav_mode_service(TriggerRequest())
+        result2 = self._goto_off_service(TriggerRequest())
+
+        # Switch interface mode & print messages
+        self._robot_state.base_control_mode = ControlMode.VELOCITY
+        rospy.loginfo(result1.message)
+        rospy.loginfo(result2.message)
+
+        return result1.success and result2.success
 
     def switch_to_navigation_mode(self):
         """ switch stretch to navigation control """
-        self._nav_mode_service()
+        result1 = self._nav_mode_service(TriggerRequest())
+        result2 = self._goto_on_service(TriggerRequest())
+
+        # Switch interface mode & print messages
+        self._robot_state.base_control_mode = ControlMode.NAVIGATION
+        rospy.loginfo(result1.message)
+        rospy.loginfo(result2.message)
+
+        return result1.success and result2.success
+
+    def switch_to_manipulation_mode(self):
+        result1 = self._pos_mode_service(TriggerRequest())
+        result2 = self._goto_off_service(TriggerRequest())
+
+        # Wait for navigation to stabilize
+        rospy.sleep(T_LOC_STABILIZE)
+
+        # Set manipulator params
+        self._manipulator_params = ManipulatorBaseParams(
+            se3_base=self._robot_state.t_base_odom,
+        )
+
+        # Switch interface mode & print messages
+        self._robot_state.base_control_mode = ControlMode.MANIPULATION
+        rospy.loginfo(result1.message)
+        rospy.loginfo(result2.message)
+
+        return result1.success and result2.success
 
     def process_depth(self, depth):
         depth[depth < self.min_depth_val] = MIN_DEPTH_REPLACEMENT_VALUE

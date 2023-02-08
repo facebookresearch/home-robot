@@ -49,6 +49,7 @@ class StretchObjectNavEnv(StretchEnv):
 
     def reset(self):
         self.sample_goal()
+        self._episode_start_pose = self.get_base_pose()
 
     def apply_action(self, action: Action, info: Optional[Dict[str, Any]] = None):
         pass
@@ -70,12 +71,16 @@ class StretchObjectNavEnv(StretchEnv):
 
     def get_observation(self) -> Observations:
         rgb, depth = self.get_images(compute_xyz=False, rotate_images=True)
-        xy = 0, 0
+        current_pose = self.get_base_pose()
+
+        relative_pose = self._episode_start_pose * current_pose.inverse()
+        print(relative_pose)
+        print("xyz =", relative_pose.translation())
         theta = 0
         obs = home_robot.core.interfaces.Observations(
             rgb=rgb,
             depth=depth,
-            compass=xy,
+            compass=relative_pose.translation()[:2],
             gps=theta,
             task_observations={
                 "goal_id": self.current_goal_id,
