@@ -9,6 +9,7 @@ PRINT_IMAGES: 1           # 1: save visualization as images, 0: no image saving
 GROUND_TRUTH_SEMANTICS: 1 # 1: use ground-truth semantics (for debugging / ablations)
 
 ENVIRONMENT:
+  forward: 0.25           # forward motion (in meters)
   turn_angle: 30.0        # agent turn angle (in degrees)
   frame_height: 480       # first-person frame height (in pixels)
   frame_width: 640        # first-person frame width (in pixels)

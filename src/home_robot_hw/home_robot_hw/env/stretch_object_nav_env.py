@@ -4,7 +4,7 @@ import rospy
 
 from typing import Any, Dict, Optional
 
-from home_robot.core.interfaces import Action, Observations
+from home_robot.core.interfaces import Action, Observations, DiscreteNavigationAction
 from home_robot_hw.env.stretch_abstract_env import StretchEnv
 from home_robot.perception.detection.detic.detic_perception import DeticPerception
 from home_robot.utils.geometry import sophus2obs, obs2xyt
@@ -16,11 +16,13 @@ REAL_WORLD_CATEGORIES = ["chair", "mug"]
 class StretchObjectNavEnv(StretchEnv):
     """Create a detic-based object nav environment"""
 
-    def __init__(self, *args, **kwargs):
+    def __init__(self, forward_step=0.25, rotate_step=30., *args, **kwargs):
         super().__init__(*args, **kwargs)
 
         # TODO: pass this in or load from cfg
         self.goal_options = REAL_WORLD_CATEGORIES
+        self.forward_step = forward_step  # in meters
+        self.rotate_step = np.radians(rotate_step)
 
         # TODO Specify confidence threshold as a parameter
         self.segmentation = DeticPerception(
@@ -35,7 +37,21 @@ class StretchObjectNavEnv(StretchEnv):
         self._episode_start_pose = self.get_base_pose()
 
     def apply_action(self, action: Action, info: Optional[Dict[str, Any]] = None):
+        continuous_action = np.zeros(3)
+        if action == DiscreteNavigationAction.MOVE_FORWARD:
+            continuous_action[0] = self.forward_step
+        elif action == DiscreteNavigationAction.TURN_RIGHT:
+            continuous_action[2] = -self.rotate_step
+        elif action == DiscreteNavigationAction.TURN_LEFT:
+            continuous_action[2] = self.rotate_step
+        else:
+            # Do nothing if "stop"
+            pass 
+        self.navigate_to(continuous_action, relative=True)
+        print("-------")
         print(action)
+        print(continuous_action)
+        rospy.sleep(5.)
 
     def set_goal(self, goal):
         """set a goal as a string"""
