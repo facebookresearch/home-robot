@@ -11,7 +11,7 @@ install_requires = [
     "numpy",
     "home-robot",
     "habitat-sim",
-    f"habitat-lab @ git+ssh://git@github.com/facebookresearch/habitat-lab@stable#egg=habitat-lab&subdirectory=habitat-lab"
+    f"habitat-lab @ git+ssh://git@github.com/facebookresearch/habitat-lab@stable#egg=habitat-lab&subdirectory=habitat-lab",
 ]
 
 setup(

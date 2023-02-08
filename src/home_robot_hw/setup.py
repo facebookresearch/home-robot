@@ -10,8 +10,9 @@ setup(
     name="home_robot_hw",
     version="1.0.0",
     packages=["home_robot_hw"],
-    package_dir={"": ".",
-                },
+    package_dir={
+        "": ".",
+    },
     install_requires=install_requires,
     zip_safe=False,
 )

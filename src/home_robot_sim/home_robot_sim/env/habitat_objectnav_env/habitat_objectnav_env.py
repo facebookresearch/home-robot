@@ -26,7 +26,10 @@ class HabitatObjectNavEnv(HabitatEnv):
         self.visualizer = Visualizer(config)
 
         self.episodes_data_path = config.TASK_CONFIG.DATASET.DATA_PATH
-        assert ("floorplanner" in self.episodes_data_path or "hm3d" in self.episodes_data_path)
+        assert (
+            "floorplanner" in self.episodes_data_path
+            or "hm3d" in self.episodes_data_path
+        )
         if "hm3d" in self.episodes_data_path:
             if config.AGENT.SEMANTIC_MAP.semantic_categories == "coco_indoor":
                 self.semantic_category_mapping = HM3DtoCOCOIndoor()
@@ -39,7 +42,10 @@ class HabitatObjectNavEnv(HabitatEnv):
                 raise NotImplementedError
 
         if not self.ground_truth_semantics:
-            from home_robot.perception.detection.detic.detic_perception import DeticPerception
+            from home_robot.perception.detection.detic.detic_perception import (
+                DeticPerception,
+            )
+
             # TODO Specify confidence threshold as a parameter
             self.segmentation = DeticPerception(
                 vocabulary="custom",
@@ -49,13 +55,15 @@ class HabitatObjectNavEnv(HabitatEnv):
 
     def reset(self):
         habitat_obs = self.habitat_env.reset()
-        self.semantic_category_mapping.reset_instance_id_to_category_id(self.habitat_env)
+        self.semantic_category_mapping.reset_instance_id_to_category_id(
+            self.habitat_env
+        )
         self._last_obs = self._preprocess_obs(habitat_obs)
         self.visualizer.reset()
 
-    def _preprocess_obs(self,
-                        habitat_obs: habitat.core.simulator.Observations
-                        ) -> home_robot.core.interfaces.Observations:
+    def _preprocess_obs(
+        self, habitat_obs: habitat.core.simulator.Observations
+    ) -> home_robot.core.interfaces.Observations:
         depth = self._preprocess_depth(habitat_obs["depth"])
         goal_id, goal_name = self._preprocess_goal(habitat_obs["objectgoal"])
         obs = home_robot.core.interfaces.Observations(
@@ -66,17 +74,18 @@ class HabitatObjectNavEnv(HabitatEnv):
             task_observations={
                 "goal_id": goal_id,
                 "goal_name": goal_name,
-            }
+            },
         )
         obs = self._preprocess_semantic(obs, habitat_obs["semantic"])
         return obs
 
-    def _preprocess_semantic(self,
-                             obs: home_robot.core.interfaces.Observations,
-                             habitat_semantic: np.ndarray
-                             ) -> home_robot.core.interfaces.Observations:
+    def _preprocess_semantic(
+        self, obs: home_robot.core.interfaces.Observations, habitat_semantic: np.ndarray
+    ) -> home_robot.core.interfaces.Observations:
         if self.ground_truth_semantics:
-            instance_id_to_category_id = self.semantic_category_mapping.instance_id_to_category_id
+            instance_id_to_category_id = (
+                self.semantic_category_mapping.instance_id_to_category_id
+            )
             obs.semantic = instance_id_to_category_id[habitat_semantic[:, :, -1]]
             # TODO Ground-truth semantic visualization
             obs.task_observations["semantic_frame"] = obs.rgb
@@ -84,7 +93,9 @@ class HabitatObjectNavEnv(HabitatEnv):
             obs = self.segmentation.predict(obs, depth_threshold=0.5)
             if type(self.semantic_category_mapping) == FloorplannertoMukulIndoor:
                 # First index is a dummy unused category
-                obs.semantic[obs.semantic == 0] = self.semantic_category_mapping.num_sem_categories - 1
+                obs.semantic[obs.semantic == 0] = (
+                    self.semantic_category_mapping.num_sem_categories - 1
+                )
         return obs
 
     def _preprocess_depth(self, depth: np.array) -> np.array:

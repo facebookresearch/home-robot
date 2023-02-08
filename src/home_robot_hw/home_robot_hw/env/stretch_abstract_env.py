@@ -31,7 +31,20 @@ from home_robot.utils.geometry import (
 from home_robot.core.interfaces import Action, Observations
 from home_robot.agent.motion.robot import HelloStretchIdx
 from home_robot_hw.ros.camera import RosCamera
-from home_robot_hw.constants import (ROS_ARM_JOINTS, ROS_LIFT_JOINT, ROS_GRIPPER_FINGER, ROS_HEAD_PAN, ROS_HEAD_TILT, ROS_WRIST_ROLL, ROS_WRIST_YAW, ROS_WRIST_PITCH, ROS_GRIPPER_FINGER, ROS_TO_CONFIG, CONFIG_TO_ROS, ControlMode)
+from home_robot_hw.constants import (
+    ROS_ARM_JOINTS,
+    ROS_LIFT_JOINT,
+    ROS_GRIPPER_FINGER,
+    ROS_HEAD_PAN,
+    ROS_HEAD_TILT,
+    ROS_WRIST_ROLL,
+    ROS_WRIST_YAW,
+    ROS_WRIST_PITCH,
+    ROS_GRIPPER_FINGER,
+    ROS_TO_CONFIG,
+    CONFIG_TO_ROS,
+    ControlMode,
+)
 from home_robot_hw.ros.utils import matrix_from_pose_msg, matrix_to_pose_msg
 
 
@@ -40,7 +53,7 @@ MAX_DEPTH_REPLACEMENT_VALUE = 10001
 
 
 class StretchEnv(home_robot.core.abstract_env.Env):
-    """ Defines a ROS-based interface to the real Stretch robot. Collect observations and command the robot."""
+    """Defines a ROS-based interface to the real Stretch robot. Collect observations and command the robot."""
 
     # 3 for base position + rotation, 2 for lift + extension, 3 for rpy, 1 for gripper, 2 for head
     dof = 3 + 2 + 3 + 1 + 2
@@ -53,7 +66,7 @@ class StretchEnv(home_robot.core.abstract_env.Env):
         depth_buffer_size=None,
         color_topic=None,
         depth_topic=None,
-        ):
+    ):
         """Create an interface into ROS execution here. This one needs to connect to:
             - joint_states to read current position
             - tf for SLAM
@@ -84,29 +97,29 @@ class StretchEnv(home_robot.core.abstract_env.Env):
         self._t_base_odom = None
 
     def in_position_mode(self):
-        """ is the robot in position mode """
+        """is the robot in position mode"""
         return self._current_mode == "position"
 
     def _mode_callback(self, msg):
-        """ get position or navigation mode from stretch ros """
+        """get position or navigation mode from stretch ros"""
         self._current_mode = msg.data
 
     def _odom_callback(self, msg: Odometry):
-        """ odometry callback """
+        """odometry callback"""
         self._last_odom_update_timestamp = msg.header.stamp
         self._t_base_odom = sp.SE3(matrix_from_pose_msg(msg.pose.pose))
 
     def _base_state_callback(self, msg: PoseStamped):
-        """ base state updates from SLAM system """
+        """base state updates from SLAM system"""
         self._last_base_update_timestamp = msg.header.stamp
         self._t_base_filtered = sp.SE3(matrix_from_pose_msg(msg.pose))
 
     def get_base_pose(self):
-        """ get the latest base pose from sensors """
+        """get the latest base pose from sensors"""
         return self._t_base_filtered
 
     def _js_callback(self, msg):
-        """ Read in current joint information from ROS topics and update state """
+        """Read in current joint information from ROS topics and update state"""
         # loop over all joint state info
         pos, vel, trq = np.zeros(self.dof), np.zeros(self.dof), np.zeros(self.dof)
         for name, p, v, e in zip(msg.name, msg.position, msg.velocity, msg.effort):
@@ -126,7 +139,7 @@ class StretchEnv(home_robot.core.abstract_env.Env):
 
     def _create_cameras(self, color_topic=None, depth_topic=None):
         if self.rgb_cam is not None or self.dpt_cam is not None:
-            raise RuntimeError('Already created cameras')
+            raise RuntimeError("Already created cameras")
         if color_topic is None:
             color_topic = "/camera/color"
         if depth_topic is None:
@@ -138,7 +151,7 @@ class StretchEnv(home_robot.core.abstract_env.Env):
 
     def wait_for_cameras(self):
         if self.rgb_cam is None or self.dpt_cam is None:
-            raise RuntimeError('cameras not initialized')
+            raise RuntimeError("cameras not initialized")
         print("Waiting for rgb camera images...")
         self.rgb_cam.wait_for_image()
         print("Waiting for depth camera images...")
@@ -150,7 +163,7 @@ class StretchEnv(home_robot.core.abstract_env.Env):
             raise RuntimeError("issue with camera setup; depth and rgb not aligned")
 
     def wait_for_pose(self):
-        """ wait until we have an accurate pose estimate """
+        """wait until we have an accurate pose estimate"""
         rate = rospy.Rate(10)
         while not rospy.is_shutdown():
             if self._t_base_filtered is not None:
@@ -158,10 +171,12 @@ class StretchEnv(home_robot.core.abstract_env.Env):
             rate.sleep()
 
     def _create_pubs_subs(self):
-        """ create ROS publishers and subscribers - only call once """
+        """create ROS publishers and subscribers - only call once"""
         # Store latest joint state message - lock for access
         self._js_lock = threading.Lock()
-        self._mode_sub = rospy.Subscriber("mode", String, self._mode_callback, queue_size=1)
+        self._mode_sub = rospy.Subscriber(
+            "mode", String, self._mode_callback, queue_size=1
+        )
         # Create the tf2 buffer first, used in camera init
         self.tf2_buffer = tf2_ros.Buffer()
         self.tf2_listener = tf2_ros.TransformListener(self.tf2_buffer)
@@ -189,7 +204,7 @@ class StretchEnv(home_robot.core.abstract_env.Env):
             self._base_state_callback,
             queue_size=1,
         )
- 
+
         print("Waiting for trajectory server...")
         server_reached = self.trajectory_client.wait_for_server(
             timeout=rospy.Duration(30.0)
@@ -203,7 +218,7 @@ class StretchEnv(home_robot.core.abstract_env.Env):
             sys.exit()
 
     def _create_services(self):
-        """ Create services to activate/deactive robot modes """
+        """Create services to activate/deactive robot modes"""
         self._nav_mode_service = rospy.ServiceProxy(
             "switch_to_navigation_mode", Trigger
         )
@@ -231,7 +246,7 @@ class StretchEnv(home_robot.core.abstract_env.Env):
         return result1.success and result2.success
 
     def switch_to_navigation_mode(self):
-        """ switch stretch to navigation control """
+        """switch stretch to navigation control"""
         result1 = self._nav_mode_service(TriggerRequest())
         result2 = self._goto_on_service(TriggerRequest())
 
@@ -283,7 +298,6 @@ class StretchEnv(home_robot.core.abstract_env.Env):
         if rotate_images:
             # Get xyz in base coords for later
             imgs = [np.rot90(np.fliplr(np.flipud(x))) for x in imgs]
-
 
         if xyz is not None:
             xyz = imgs[-1]
@@ -360,11 +374,10 @@ class StretchEnv(home_robot.core.abstract_env.Env):
         pass
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     # Create the robot
     print("--------------")
     print("Start example - hardware using ROS")
     rospy.init_node("hello_stretch_ros_test")
     print("Create ROS interface")
     rob = StretchEnv(init_cameras=True)
-   

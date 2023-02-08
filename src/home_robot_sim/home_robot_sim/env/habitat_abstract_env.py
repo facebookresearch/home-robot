@@ -24,9 +24,11 @@ class HabitatEnv(home_robot.core.abstract_env.Env):
     def reset(self):
         self._last_obs = self._preprocess_obs(self.habitat_env.reset())
 
-    def apply_action(self,
-                     action: home_robot.core.interfaces.Action,
-                     info: Optional[Dict[str, Any]] = None):
+    def apply_action(
+        self,
+        action: home_robot.core.interfaces.Action,
+        info: Optional[Dict[str, Any]] = None,
+    ):
         if info is not None:
             self._process_info(info)
         habitat_action = self._preprocess_action(action)
@@ -44,16 +46,17 @@ class HabitatEnv(home_robot.core.abstract_env.Env):
         return self.habitat_env.get_metrics()
 
     @abstractmethod
-    def _preprocess_obs(self,
-                        habitat_obs: habitat.core.simulator.Observations
-                        ) -> home_robot.core.interfaces.Observations:
+    def _preprocess_obs(
+        self, habitat_obs: habitat.core.simulator.Observations
+    ) -> home_robot.core.interfaces.Observations:
         """Translate Habitat observations into home_robot observations."""
         pass
 
     @abstractmethod
-    def _preprocess_action(self,
-                           action: home_robot.core.interfaces.Action,
-                           ) -> Any:
+    def _preprocess_action(
+        self,
+        action: home_robot.core.interfaces.Action,
+    ) -> Any:
         """Translate a home_robot action into a Habitat action."""
         pass
 

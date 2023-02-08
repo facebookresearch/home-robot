@@ -39,4 +39,3 @@ class ControlMode(Enum):
     VELOCITY = 1
     NAVIGATION = 2
     MANIPULATION = 3
-

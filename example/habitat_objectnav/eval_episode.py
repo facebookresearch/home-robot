@@ -4,22 +4,20 @@ import sys
 # TODO Install home_robot, home_robot_sim and remove this
 sys.path.insert(
     0,
-    str(
-        Path(__file__).resolve().parent.parent.parent / "src/home_robot"
-    ),
+    str(Path(__file__).resolve().parent.parent.parent / "src/home_robot"),
 )
 sys.path.insert(
     0,
-    str(
-        Path(__file__).resolve().parent.parent.parent / "src/home_robot_sim"
-    ),
+    str(Path(__file__).resolve().parent.parent.parent / "src/home_robot_sim"),
 )
 
 from habitat.core.env import Env
 
 from config_utils import get_config
 from home_robot.agent.objectnav_agent.objectnav_agent import ObjectNavAgent
-from home_robot_sim.env.habitat_objectnav_env.habitat_objectnav_env import HabitatObjectNavEnv
+from home_robot_sim.env.habitat_objectnav_env.habitat_objectnav_env import (
+    HabitatObjectNavEnv,
+)
 
 
 if __name__ == "__main__":
