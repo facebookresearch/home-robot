@@ -15,7 +15,7 @@ ACC_ANG = 0.6  # 0.5 * (accel_m_max - accel_m_default) / wheel_separation_m
 
 # Tolerances for determining whether the goal position or orientation is reached
 TOL_LIN = 0.1
-TOL_ANG = 0.087  # 5 degrees
+TOL_ANG = 0.2  # 5 degrees
 
 # Maximum angle error at which the controller would still exert linear motion
 MAX_HEADING_ANG = np.pi / 4
