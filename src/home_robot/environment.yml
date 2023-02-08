@@ -16,3 +16,6 @@ dependencies:
     - trimesh
     - pytest
     - open3d
+    - scikit-image
+    - scikit-fmm
+    - numpy-quaternion
