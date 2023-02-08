@@ -8,6 +8,8 @@ import numpy as np
 import sophus as sp
 from scipy.spatial.transform import Rotation
 
+from home_robot.core.interfaces import Pose
+
 
 def xyt_global_to_base(XYT, current_pose):
     """
@@ -74,3 +76,21 @@ def sophus2xyt(se3: sp.SE3) -> np.ndarray:
 def posquat2sophus(pos: Iterable[float], quat: Iterable[float]) -> sp.SE3:
     r_mat = Rotation.from_quat(quat).as_matrix()
     return sp.SE3(r_mat, pos)
+
+
+def obs2xyt(pose: Pose):
+    pos = pose.position
+    quat = pose.orientation
+    return sophus2xyt(posquat2sophus(pos, quat))
+
+
+def xyt2obs(xyt: np.ndarray):
+    pose_sp = xyt2sophus(xyt)
+    return sophus2obs(pose_sp)
+
+
+def sophus2obs(pose_sp):
+    return Pose(
+        position=pose_sp.translation(),
+        orientation=Rotation.from_matrix(pose_sp.so3().matrix()).as_quat(),
+    )

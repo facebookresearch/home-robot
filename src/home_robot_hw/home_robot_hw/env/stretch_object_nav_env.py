@@ -7,6 +7,7 @@ from typing import Any, Dict, Optional
 from home_robot.core.interfaces import Action, Observations
 from home_robot_hw.env.stretch_abstract_env import StretchEnv
 from home_robot.perception.detection.detic.detic_perception import DeticPerception
+from home_robot.utils.geometry import sophus2obs, obs2xyt
 
 
 REAL_WORLD_CATEGORIES=["chair", "mug"]
@@ -64,8 +65,7 @@ class StretchObjectNavEnv(StretchEnv):
         obs = home_robot.core.interfaces.Observations(
             rgb=rgb,
             depth=depth,
-            gps=relative_pose.translation()[:2],
-            compass=theta,
+            base_pose=sophus2obs(relative_pose)
             task_observations={
                 "goal_id": self.current_goal_id,
                 "goal_name": self.current_goal_name,
@@ -97,9 +97,7 @@ if __name__ == '__main__':
     obs = rob.get_observation()
     observations.append(obs)
 
-    xyt = np.zeros(3)
-    xyt[:2] = obs.compass
-    xyt[2]  = obs.gps
+    xyt = obs2xyt(obs.base_pose)
     xyt[0] += 0.1
     rob.navigate_to(xyt)
     rospy.sleep(10.)
@@ -116,6 +114,7 @@ if __name__ == '__main__':
     import matplotlib.pyplot as plt
     for obs in observations:
         rgb, depth = obs.rgb, obs.depth
+        xyt = obs2xyt(obs.base_pose)
 
         # Add a visualiztion for debugging
         depth[depth > 5] = 0
@@ -128,7 +127,6 @@ if __name__ == '__main__':
         print("values:")
         print("RGB =", np.unique(rgb))
         print("Depth =", np.unique(depth))
-        print()
-        print("Compass =", obs.compass)
-        print("Gps =", obs.gps)
+        print("XY =", xyt[:2])
+        print("Yaw=", xyt[-1])
         plt.show()
