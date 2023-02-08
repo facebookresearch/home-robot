@@ -118,6 +118,8 @@ class GotoVelocityController:
         xyt_err = xyt_global_to_base(self.xyt_goal, self.xyt_loc)
         if not self.track_yaw:
             xyt_err[2] = 0.0
+        else:
+            xyt_err[2] = (xyt_err[2] + np.pi) % (2 * np.pi) - np.pi
 
         return xyt_err
 
