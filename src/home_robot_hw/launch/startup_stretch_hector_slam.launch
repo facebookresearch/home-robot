@@ -64,5 +64,6 @@
 	</include>
 
 	<include file="$(find home_robot)/launch/controller.launch" if="$(arg start_joy_node)"/>
+	<include file="$(find home_robot)/launch/home_robot_nodes.launch"/>
 
 </launch>
