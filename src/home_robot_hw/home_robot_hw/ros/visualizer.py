@@ -21,4 +21,7 @@ class Visualizer(object):
         marker.color.g = self.rgba[1]
         marker.color.b = self.rgba[2]
         marker.color.a = self.rgba[3]
+        marker.scale.x = 0.2
+        marker.scale.y = 0.05
+        marker.scale.z = 0.05
         self.pub.publish(marker)
