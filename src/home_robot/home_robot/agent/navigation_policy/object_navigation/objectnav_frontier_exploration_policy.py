@@ -2,9 +2,12 @@
 #
 # This source code is licensed under the MIT license found in the
 # LICENSE file in the root directory of this source tree.
+import numpy as np
+import scipy
+import skimage.morphology
+from sklearn.cluster import DBSCAN
 import torch
 import torch.nn as nn
-import skimage.morphology
 
 from home_robot.agent.utils.morphology_utils import binary_dilation
 
@@ -54,6 +57,29 @@ class ObjectNavFrontierExplorationPolicy(nn.Module):
         goal_map = self.explore_otherwise(map_features, goal_map, found_goal)
         return goal_map, found_goal
 
+    def cluster_filtering(self, m):
+        # m is a 480x480 goal map
+        if not m.any():
+            return m
+        device = m.device
+
+        # cluster goal points
+        k = DBSCAN(eps=4, min_samples=1)
+        m = m.cpu().numpy()
+        data = np.array(m.nonzero()).T
+        k.fit(data)
+
+        # mask all points not in the largest cluster
+        mode = scipy.stats.mode(k.labels_, keepdims=True).mode.item()
+        mode_mask = (k.labels_ != mode).nonzero()
+        x = data[mode_mask]
+
+        m_filtered = np.copy(m)
+        m_filtered[x] = 0.0
+        m_filtered = torch.tensor(m_filtered, device=device)
+        
+        return m_filtered
+
     def reach_goal_if_in_map(self, map_features, goal_category):
         """If the goal category is in the semantic map, reach it."""
         batch_size, _, height, width = map_features.shape
@@ -64,6 +90,8 @@ class ObjectNavFrontierExplorationPolicy(nn.Module):
 
         for e in range(batch_size):
             category_map = map_features[e, goal_category[e] + 8, :, :]
+            category_map = self.cluster_filtering(category_map)
+            
 
             if (category_map == 1).sum() > 0:
                 goal_map[e] = category_map == 1

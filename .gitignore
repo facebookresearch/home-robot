@@ -17,10 +17,11 @@ example/*.ipynb_checkpoints
 outputs/
 examples/outputs/
 theseus/extlib/*.so
-data/
 temp/
 docs_build/
 viz/
+datasets/
+datadump/
 
 # Git stuff
 *~HEAD
