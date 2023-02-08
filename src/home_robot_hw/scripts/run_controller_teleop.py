@@ -7,9 +7,9 @@
 
 import rospy
 import os
-from home_robot.hw.teleop.stretch_xbox_controller import StretchXboxController
+from home_robot_hw.teleop.stretch_xbox_controller import StretchXboxController
 from home_robot.agent.motion.robot import HelloStretch
-from home_robot.hw.ros.path import get_package_path
+from home_robot_hw.ros.path import get_package_path
 
 
 if __name__ == "__main__":
