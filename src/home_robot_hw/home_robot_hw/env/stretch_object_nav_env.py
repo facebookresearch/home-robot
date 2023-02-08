@@ -66,7 +66,9 @@ class StretchObjectNavEnv(StretchEnv):
         obs = home_robot.core.interfaces.Observations(
             rgb=rgb,
             depth=depth,
-            base_pose=sophus2obs(relative_pose),
+            compass=relative_pose.translation()[:2],
+            gps=theta,
+            # base_pose=sophus2obs(relative_pose),
             task_observations={
                 "goal_id": self.current_goal_id,
                 "goal_name": self.current_goal_name,
@@ -97,7 +99,10 @@ if __name__ == "__main__":
     obs = rob.get_observation()
     observations.append(obs)
 
-    xyt = obs2xyt(obs.base_pose)
+    xyt = np.zeros(3)
+    xyt[:2] = obs.compass
+    xyt[2] = obs.gps
+    # xyt = obs2xyt(obs.base_pose)
     xyt[0] += 0.1
     rob.navigate_to(xyt)
     rospy.sleep(10.0)
@@ -115,7 +120,7 @@ if __name__ == "__main__":
 
     for obs in observations:
         rgb, depth = obs.rgb, obs.depth
-        xyt = obs2xyt(obs.base_pose)
+        # xyt = obs2xyt(obs.base_pose)
 
         # Add a visualiztion for debugging
         depth[depth > 5] = 0
@@ -130,6 +135,8 @@ if __name__ == "__main__":
         print("values:")
         print("RGB =", np.unique(rgb))
         print("Depth =", np.unique(depth))
-        print("XY =", xyt[:2])
-        print("Yaw=", xyt[-1])
+        # print("XY =", xyt[:2])
+        # print("Yaw=", xyt[-1])
+        print("Compass =", obs.compass)
+        print("Gps =", obs.gps)
         plt.show()
