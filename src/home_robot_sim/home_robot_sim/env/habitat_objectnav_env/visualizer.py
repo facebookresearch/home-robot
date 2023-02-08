@@ -30,7 +30,10 @@ class Visualizer:
         os.makedirs(self.default_vis_dir, exist_ok=True)
 
         self.episodes_data_path = config.TASK_CONFIG.DATASET.DATA_PATH
-        assert ("floorplanner" in self.episodes_data_path or "hm3d" in self.episodes_data_path)
+        assert (
+            "floorplanner" in self.episodes_data_path
+            or "hm3d" in self.episodes_data_path
+        )
         if "hm3d" in self.episodes_data_path:
             if config.AGENT.SEMANTIC_MAP.semantic_categories == "coco_indoor":
                 self.semantic_category_mapping = HM3DtoCOCOIndoor()
@@ -42,9 +45,7 @@ class Visualizer:
             else:
                 raise NotImplementedError
 
-        self.legend = cv2.imread(
-            self.semantic_category_mapping.categories_legend_path
-        )
+        self.legend = cv2.imread(self.semantic_category_mapping.categories_legend_path)
 
         self.num_sem_categories = config.AGENT.SEMANTIC_MAP.num_sem_categories
         self.map_resolution = config.AGENT.SEMANTIC_MAP.map_resolution
@@ -132,7 +133,9 @@ class Visualizer:
         semantic_map += 6
 
         # Obstacles, explored, and visited areas
-        no_category_mask = semantic_map == 6 + self.num_sem_categories - 1  # Assumes the last category is "other"
+        no_category_mask = (
+            semantic_map == 6 + self.num_sem_categories - 1
+        )  # Assumes the last category is "other"
         obstacle_mask = np.rint(obstacle_map) == 1
         explored_mask = np.rint(explored_map) == 1
         visited_mask = self.visited_map_vis[gy1:gy2, gx1:gx2] == 1
@@ -190,7 +193,8 @@ class Visualizer:
 
         if self.print_images:
             cv2.imwrite(
-                os.path.join(self.vis_dir, "snapshot_{:03d}.png".format(timestep)), self.image_vis
+                os.path.join(self.vis_dir, "snapshot_{:03d}.png".format(timestep)),
+                self.image_vis,
             )
 
     def _init_vis_image(self, goal_name: str):
@@ -243,6 +247,6 @@ class Visualizer:
 
         # Draw legend
         lx, ly, _ = self.legend.shape
-        vis_image[537: 537 + lx, 155: 155 + ly, :] = self.legend
+        vis_image[537 : 537 + lx, 155 : 155 + ly, :] = self.legend
 
         return vis_image

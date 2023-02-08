@@ -11,6 +11,7 @@ from yacs.config import CfgNode as CN
 #         if isinstance(v, dict):
 #             entries[k] = make_config_recursive(v)
 
+
 class Config:
     def __init__(self, **entries):
         self.__dict__.update(entries)
@@ -27,11 +28,11 @@ def get_config(path: str, opts: Optional[list] = None) -> Tuple[CN, str]:
 
     # Start with our code's config
     print("Loading config from:", path)
-    with open(path, 'r') as f:
+    with open(path, "r") as f:
         data = yaml.safe_load(f)
         config = Config(**data)
     breakpoint()
-    #$ config.merge_from_file(path)
+    # $ config.merge_from_file(path)
 
     # Add command line arguments
     if opts is not None:

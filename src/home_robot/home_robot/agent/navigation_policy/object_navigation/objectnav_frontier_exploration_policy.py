@@ -77,7 +77,7 @@ class ObjectNavFrontierExplorationPolicy(nn.Module):
         m_filtered = np.copy(m)
         m_filtered[x] = 0.0
         m_filtered = torch.tensor(m_filtered, device=device)
-        
+
         return m_filtered
 
     def reach_goal_if_in_map(self, map_features, goal_category):
@@ -91,7 +91,6 @@ class ObjectNavFrontierExplorationPolicy(nn.Module):
         for e in range(batch_size):
             category_map = map_features[e, goal_category[e] + 8, :, :]
             category_map = self.cluster_filtering(category_map)
-            
 
             if (category_map == 1).sum() > 0:
                 goal_map[e] = category_map == 1

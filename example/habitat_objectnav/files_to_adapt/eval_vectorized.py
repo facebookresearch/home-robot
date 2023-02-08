@@ -188,13 +188,19 @@ class VectorizedEvaluator:
                         # [temporary] to print running metrics
                         aggregated_metrics = defaultdict(list)
                         metrics = set(
-                            [k for k in list(episode_metrics.values())[0].keys() if k != "goal_name"]
+                            [
+                                k
+                                for k in list(episode_metrics.values())[0].keys()
+                                if k != "goal_name"
+                            ]
                         )
                         for v in episode_metrics.values():
                             k = "success"
                             aggregated_metrics[f"{k[:3]}/total"].append(v[k])
-                            aggregated_metrics[f"{k[:3]}/{v['goal_name'][:8]}"].append(v[k])
-                        
+                            aggregated_metrics[f"{k[:3]}/{v['goal_name'][:8]}"].append(
+                                v[k]
+                            )
+
                         aggregated_metrics = dict(
                             sorted(
                                 {
