@@ -48,6 +48,7 @@ from home_robot_hw.constants import (
     T_LOC_STABILIZE,
 )
 from home_robot_hw.ros.utils import matrix_from_pose_msg, matrix_to_pose_msg
+from home_robot_hw.ros.visualizer import Visualizer
 
 
 MIN_DEPTH_REPLACEMENT_VALUE = 10000
