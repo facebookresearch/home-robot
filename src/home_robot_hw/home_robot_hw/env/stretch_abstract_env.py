@@ -44,6 +44,7 @@ from home_robot_hw.constants import (
     ROS_TO_CONFIG,
     CONFIG_TO_ROS,
     ControlMode,
+    T_LOC_STABILIZE,
 )
 from home_robot_hw.ros.utils import matrix_from_pose_msg, matrix_to_pose_msg
 
@@ -88,6 +89,12 @@ class StretchEnv(home_robot.core.abstract_env.Env):
         self.wait_for_pose()
         if init_cameras:
             self.wait_for_cameras()
+
+    def in_manipulation_mode(self):
+        return self._base_control_mode == ControlMode.MANIPULATION
+
+    def in_navigation_mode(self):
+        return self._base_control_mode == ControlMode.NAVIGATION
 
     def _reset_messages(self):
         self._current_mode = None

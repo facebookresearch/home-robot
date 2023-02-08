@@ -46,8 +46,14 @@ class StretchObjectNavEnv(StretchEnv):
             continuous_action[2] = self.rotate_step
         else:
             # Do nothing if "stop"
-            pass 
-        self.navigate_to(continuous_action, relative=True)
+            continuous_action = None
+            if not self.in_manipulation_mode():
+                self.switch_to_manipulation_mode()
+
+        if continuous_action is not None:
+            if not self.in_navigation_mode():
+                self.switch_to_navigation_mode()
+            self.navigate_to(continuous_action, relative=True)
         print("-------")
         print(action)
         print(continuous_action)

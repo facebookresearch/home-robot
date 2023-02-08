@@ -10,7 +10,7 @@ import numpy as np
 
 from sensor_msgs.msg import Image
 
-from home_robot.hw.ros.msg_numpy import image_to_numpy, numpy_to_image
+from home_robot_hw.ros.msg_numpy import image_to_numpy, numpy_to_image
 
 
 pub_color = None
