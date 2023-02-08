@@ -34,7 +34,7 @@ class StretchObjectNavEnv(StretchEnv):
         self._episode_start_pose = self.get_base_pose()
 
     def apply_action(self, action: Action, info: Optional[Dict[str, Any]] = None):
-        pass
+        print(action)
 
     def set_goal(self, goal):
         """ set a goal as a string"""
@@ -52,6 +52,7 @@ class StretchObjectNavEnv(StretchEnv):
         self.current_goal_name = self.goal_options[idx]
 
     def get_observation(self) -> Observations:
+        """ Get Detic and rgb/xyz/theta from this """
         rgb, depth = self.get_images(compute_xyz=False, rotate_images=True)
         current_pose = self.get_base_pose()
 
@@ -59,9 +60,6 @@ class StretchObjectNavEnv(StretchEnv):
         relative_pose = self._episode_start_pose.inverse() * current_pose
         euler_angles = relative_pose.so3().log()
         theta = euler_angles[-1]
-        print(relative_pose)
-        print("xyz =", relative_pose.translation())
-        print("rpy", euler_angles)
 
         # Create the observation
         obs = home_robot.core.interfaces.Observations(
@@ -102,26 +100,30 @@ if __name__ == '__main__':
     xyt = obs2xyt(obs.base_pose)
     xyt[0] += 0.1
     rob.navigate_to(xyt)
-    rospy.sleep(5.)
+    rospy.sleep(10.)
     obs = rob.get_observation()
     observations.append(obs)
 
     xyt[0] = 0
     rob.navigate_to(xyt)
-    rospy.sleep(5.)
+    rospy.sleep(10.)
     obs = rob.get_observation()
     observations.append(obs)
 
+    # Debug the observation space
+    import matplotlib.pyplot as plt
     for obs in observations:
         rgb, depth = obs.rgb, obs.depth
         xyt = obs2xyt(obs.base_pose)
 
         # Add a visualiztion for debugging
-        import matplotlib.pyplot as plt
         depth[depth > 5] = 0
         plt.subplot(121); plt.imshow(rgb)
         plt.subplot(122); plt.imshow(depth)
-
+        # plt.subplot(133); plt.imshow(obs.semantic
+        
+        print()
+        print("----------------")
         print("values:")
         print("RGB =", np.unique(rgb))
         print("Depth =", np.unique(depth))
