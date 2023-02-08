@@ -8,6 +8,7 @@ from home_robot.core.interfaces import Action, Observations, DiscreteNavigationA
 from home_robot_hw.env.stretch_abstract_env import StretchEnv
 from home_robot.perception.detection.detic.detic_perception import DeticPerception
 from home_robot.utils.geometry import sophus2obs, obs2xyt
+from .visualizer import Visualizer
 
 
 REAL_WORLD_CATEGORIES = ["chair", "mug"]
@@ -16,7 +17,7 @@ REAL_WORLD_CATEGORIES = ["chair", "mug"]
 class StretchObjectNavEnv(StretchEnv):
     """Create a detic-based object nav environment"""
 
-    def __init__(self, forward_step=0.25, rotate_step=30., *args, **kwargs):
+    def __init__(self, config, forward_step=0.25, rotate_step=30., *args, **kwargs):
         super().__init__(*args, **kwargs)
 
         # TODO: pass this in or load from cfg
@@ -30,13 +31,16 @@ class StretchObjectNavEnv(StretchEnv):
             custom_vocabulary=",".join(self.goal_options),
             sem_gpu_id=0,
         )
+        self.visualizer = Visualizer(config)
         self.reset()
 
     def reset(self):
         self.sample_goal()
         self._episode_start_pose = self.get_base_pose()
+        self.visualizer.reset()
 
     def apply_action(self, action: Action, info: Optional[Dict[str, Any]] = None):
+        self.visualizer.visualize(**info)
         continuous_action = np.zeros(3)
         if action == DiscreteNavigationAction.MOVE_FORWARD:
             continuous_action[0] = self.forward_step
