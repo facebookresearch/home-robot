@@ -113,7 +113,7 @@ class GotoVelocityController:
     def _run_control_loop(self):
         rate = rospy.Rate(self.hz)
 
-        while True:
+        while not rospy.is_shutdown():
             if self.active and self.xyt_goal is not None:
                 # Get state estimation
                 xyt_err = self._compute_error_pose()
