@@ -26,7 +26,7 @@ class StretchObjectNavEnv(StretchEnv):
             custom_vocabulary=",".join(self.goal_options),
             sem_gpu_id=0,
         )
-        self.sample_goal()
+        self.reset()
 
     """
     def _preprocess_obs(self,
@@ -73,10 +73,15 @@ class StretchObjectNavEnv(StretchEnv):
         rgb, depth = self.get_images(compute_xyz=False, rotate_images=True)
         current_pose = self.get_base_pose()
 
-        relative_pose = self._episode_start_pose * current_pose.inverse()
+        # use sophus to get the relative translation
+        relative_pose = self._episode_start_pose.inverse() * current_pose
+        euler_angles = relative_pose.so3().log()
+        theta = euler_angles[-1]
         print(relative_pose)
         print("xyz =", relative_pose.translation())
-        theta = 0
+        print("rpy", euler_angles)
+
+        # Create the observation
         obs = home_robot.core.interfaces.Observations(
             rgb=rgb,
             depth=depth,

@@ -71,6 +71,7 @@ class StretchEnv(home_robot.core.abstract_env.Env):
         self._create_services()
         self._reset_messages()
         print("... done.")
+        self.wait_for_pose()
         if init_cameras:
             self.wait_for_cameras()
 
@@ -146,6 +147,14 @@ class StretchEnv(home_robot.core.abstract_env.Env):
         print("dpt frame =", self.dpt_cam.get_frame())
         if self.rgb_cam.get_frame() != self.dpt_cam.get_frame():
             raise RuntimeError("issue with camera setup; depth and rgb not aligned")
+
+    def wait_for_pose(self):
+        """ wait until we have an accurate pose estimate """
+        rate = rospy.Rate(10)
+        while not rospy.is_shutdown():
+            if self._t_base_filtered is not None:
+                break
+            rate.sleep()
 
     def _create_pubs_subs(self):
         """ create ROS publishers and subscribers - only call once """
