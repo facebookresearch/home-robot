@@ -11,7 +11,8 @@ from home_robot.utils.geometry import sophus2obs, obs2xyt
 from .visualizer import Visualizer
 
 
-REAL_WORLD_CATEGORIES = ["chair", "mug"]
+# REAL_WORLD_CATEGORIES = ["chair", "mug"]
+REAL_WORLD_CATEGORIES = ["backpack"]
 
 
 class StretchObjectNavEnv(StretchEnv):
@@ -50,9 +51,10 @@ class StretchObjectNavEnv(StretchEnv):
             continuous_action[2] = self.rotate_step
         else:
             # Do nothing if "stop"
-            continuous_action = None
-            if not self.in_manipulation_mode():
-                self.switch_to_manipulation_mode()
+            # continuous_action = None
+            # if not self.in_manipulation_mode():
+            #     self.switch_to_manipulation_mode()
+            pass
 
         if continuous_action is not None:
             if not self.in_navigation_mode():
@@ -112,6 +114,25 @@ class StretchObjectNavEnv(StretchEnv):
 
     def get_episode_metrics(self) -> Dict:
         pass
+
+    def rotate(self, theta):
+        """ just rotate and keep trying"""
+        # init_pose = self.get_base_pose()
+        init_pose = sophus2xyt(self.get_base_pose())
+        xyt = [0, 0, theta]
+        goal_pose = xyt_base_to_global(xyt, init_pose)
+        rate = rospy.Rate(5)
+        err = float('Inf'), float('Inf')
+        pos_tol = 0.1, ori_tol = 0.1
+        while not rospy.is_shutdown():
+            # curr_pose = self.get_base_pose()
+            curr_pose = sophus2xyt(self.get_base_pose())
+            print("goal =", goal_pose)
+    
+            print("error =", err)
+            if err[0] < pos_tol and err[1] < ori_tol:
+                break
+            rate.sleep()
 
 
 if __name__ == "__main__":
