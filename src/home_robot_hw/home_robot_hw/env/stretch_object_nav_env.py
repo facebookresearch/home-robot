@@ -10,11 +10,12 @@ from home_robot.perception.detection.detic.detic_perception import DeticPercepti
 from home_robot.utils.geometry import sophus2obs, obs2xyt
 
 
-REAL_WORLD_CATEGORIES=["chair", "mug"]
+REAL_WORLD_CATEGORIES = ["chair", "mug"]
 
 
 class StretchObjectNavEnv(StretchEnv):
-    """ Create a detic-based object nav environment""" 
+    """Create a detic-based object nav environment"""
+
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
 
@@ -37,7 +38,7 @@ class StretchObjectNavEnv(StretchEnv):
         print(action)
 
     def set_goal(self, goal):
-        """ set a goal as a string"""
+        """set a goal as a string"""
         if goal in self.goal_options:
             self.current_goal_id = self.goal_options.index(goal)
             self.current_goal_name = goal
@@ -46,13 +47,13 @@ class StretchObjectNavEnv(StretchEnv):
             return False
 
     def sample_goal(self):
-        """ set a random goal """
+        """set a random goal"""
         idx = np.random.randint(len(self.goal_options))
         self.current_goal_id = idx
         self.current_goal_name = self.goal_options[idx]
 
     def get_observation(self) -> Observations:
-        """ Get Detic and rgb/xyz/theta from this """
+        """Get Detic and rgb/xyz/theta from this"""
         rgb, depth = self.get_images(compute_xyz=False, rotate_images=True)
         current_pose = self.get_base_pose()
 
@@ -65,11 +66,11 @@ class StretchObjectNavEnv(StretchEnv):
         obs = home_robot.core.interfaces.Observations(
             rgb=rgb,
             depth=depth,
-            base_pose=sophus2obs(relative_pose)
+            base_pose=sophus2obs(relative_pose),
             task_observations={
                 "goal_id": self.current_goal_id,
                 "goal_name": self.current_goal_name,
-            }
+            },
         )
         # Run the segmentation model here
         obs = self.segmentation.predict(obs, depth_threshold=0.5)
@@ -83,8 +84,7 @@ class StretchObjectNavEnv(StretchEnv):
         pass
 
 
-
-if __name__ == '__main__':
+if __name__ == "__main__":
     # Create the robot
     print("--------------")
     print("Start example - hardware using ROS")
@@ -93,35 +93,38 @@ if __name__ == '__main__':
     rob = StretchObjectNavEnv(init_cameras=True)
     rob.switch_to_navigation_mode()
 
-    observations = [] 
+    observations = []
     obs = rob.get_observation()
     observations.append(obs)
 
     xyt = obs2xyt(obs.base_pose)
     xyt[0] += 0.1
     rob.navigate_to(xyt)
-    rospy.sleep(10.)
+    rospy.sleep(10.0)
     obs = rob.get_observation()
     observations.append(obs)
 
     xyt[0] = 0
     rob.navigate_to(xyt)
-    rospy.sleep(10.)
+    rospy.sleep(10.0)
     obs = rob.get_observation()
     observations.append(obs)
 
     # Debug the observation space
     import matplotlib.pyplot as plt
+
     for obs in observations:
         rgb, depth = obs.rgb, obs.depth
         xyt = obs2xyt(obs.base_pose)
 
         # Add a visualiztion for debugging
         depth[depth > 5] = 0
-        plt.subplot(121); plt.imshow(rgb)
-        plt.subplot(122); plt.imshow(depth)
+        plt.subplot(121)
+        plt.imshow(rgb)
+        plt.subplot(122)
+        plt.imshow(depth)
         # plt.subplot(133); plt.imshow(obs.semantic
-        
+
         print()
         print("----------------")
         print("values:")
