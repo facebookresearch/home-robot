@@ -4,7 +4,7 @@ import sys
 from habitat.core.env import Env
 
 from home_robot.core.abstract_agent import Agent
-from home_robot.core.interfaces import DiscreteNavigationAction, Observation
+from home_robot.core.interfaces import DiscreteNavigationAction, Observations
 from home_robot_sim.env.habitat_objectnav_env.habitat_objectnav_env import (
     HabitatObjectNavEnv,
 )
@@ -24,7 +24,7 @@ class TestAgent(Agent):
         pass
 
     def act(self, obs):
-        assert type(obs) is Observation
+        assert type(obs) is Observations
         return DiscreteNavigationAction.FORWARD, {}
 
 

@@ -23,6 +23,7 @@ jobs:
 
   integration-sim:
     <<: *gpu
+    working_directory: ~/home-robot
     steps:
       - checkout
       - run: 
@@ -59,10 +60,11 @@ jobs:
               export PATH=$HOME/miniconda/bin:/usr/local/cuda/bin:$PATH
             fi
             conda init bash
-            source ~/.bashrc
-            conda install -y -n base -c conda-forge mamba
       - run:
-          name: Install Submodules
+          name: Install mamba
+          command: conda install -y -n base -c conda-forge mamba
+      - run:
+          name: Sync submodules
           command: git submodule sync && git submodule update --init
       - restore_cache:
           key: deps9-{{ .Branch }}-{{ checksum "src/home_robot/environment.yml" }}
@@ -78,13 +80,11 @@ jobs:
       - run:
           name: Install home-robot-sim dependencies
           command: |
-            source ~/.bashrc
             conda activate ~/env_home_robot
             mamba env update -f src/home_robot_sim/environment.yml
       - run:
           name: Install libraries and run tests
           command: |
-            source ~/.bashrc
             conda activate ~/env_home_robot
             pip install -e src/home_robot
             pip install -e src/home_robot_sim
