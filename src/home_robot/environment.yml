@@ -6,7 +6,7 @@ dependencies:
   - pybind11
   - pytorch
   - pip:
-    - numpy
+    - numpy <1.24
     - scipy
     - sophuspy
     - pybullet
