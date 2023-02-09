@@ -1,13 +1,10 @@
-name: home_robot
 channels:
   - conda-forge
-  - robostack
 dependencies:
-  - python ==3.8
+  - python ==3.8.*
   - cmake
   - pybind11
   - pytorch
-  - ros-noetic-desktop
   - pip:
     - numpy
     - scipy
@@ -19,3 +16,7 @@ dependencies:
     - scikit-image
     - scikit-fmm
     - numpy-quaternion
+    # data tools
+    - h5py
+    - imageio
+    - pygifsicle
