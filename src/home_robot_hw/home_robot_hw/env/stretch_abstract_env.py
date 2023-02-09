@@ -29,6 +29,7 @@ from home_robot.utils.geometry import (
 )
 
 from home_robot.core.interfaces import Action, Observations
+from home_robot.core.state import ManipulatorBaseParams
 from home_robot.agent.motion.robot import HelloStretchIdx
 from home_robot_hw.ros.camera import RosCamera
 from home_robot_hw.constants import (
@@ -44,8 +45,10 @@ from home_robot_hw.constants import (
     ROS_TO_CONFIG,
     CONFIG_TO_ROS,
     ControlMode,
+    T_LOC_STABILIZE,
 )
 from home_robot_hw.ros.utils import matrix_from_pose_msg, matrix_to_pose_msg
+from home_robot_hw.ros.visualizer import Visualizer
 
 
 MIN_DEPTH_REPLACEMENT_VALUE = 10000
@@ -88,6 +91,12 @@ class StretchEnv(home_robot.core.abstract_env.Env):
         self.wait_for_pose()
         if init_cameras:
             self.wait_for_cameras()
+
+    def in_manipulation_mode(self):
+        return self._base_control_mode == ControlMode.MANIPULATION
+
+    def in_navigation_mode(self):
+        return self._base_control_mode == ControlMode.NAVIGATION
 
     def _reset_messages(self):
         self._current_mode = None
@@ -136,6 +145,10 @@ class StretchEnv(home_robot.core.abstract_env.Env):
         trq[HelloStretchIdx.ARM] /= 4
         with self._js_lock:
             self.pos, self.vel, self.frc = pos, vel, trq
+
+    def get_joint_state(self):
+        with self._js_lock:
+            return self.pos, self.vel, self.frc
 
     def _create_cameras(self, color_topic=None, depth_topic=None):
         if self.rgb_cam is not None or self.dpt_cam is not None:
@@ -266,7 +279,7 @@ class StretchEnv(home_robot.core.abstract_env.Env):
 
         # Set manipulator params
         self._manipulator_params = ManipulatorBaseParams(
-            se3_base=self._robot_state.t_base_odom,
+            se3_base=self._t_base_odom,
         )
 
         # Switch interface mode & print messages
@@ -343,8 +356,11 @@ class StretchEnv(home_robot.core.abstract_env.Env):
 
         # Compute absolute goal
         if relative:
-            xyt_base = self.get_base_state()["pose_se2"]
+            # xyt_base = sophus2xyt(self.get_base_pose())
+            xyt_base = sophus2xyt(self._t_base_odom)
             xyt_goal = xyt_base_to_global(xyt, xyt_base)
+            print("base =", xyt_base)
+            print("goal =", xyt_goal)
         else:
             xyt_goal = xyt
 

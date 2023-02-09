@@ -4,11 +4,12 @@ NO_GPU: 1                 # 1: ignore IDs above and run on CPU, 0: run on GPUs w
 NUM_ENVIRONMENTS: 35      # number of environments (per agent process)
 DUMP_LOCATION: datadump   # path to dump models and log
 EXP_NAME: eval_floorplanner       # experiment name
-VISUALIZE: 0              # 1: render observation and predicted semantic map, 0: no visualization
+VISUALIZE: 1              # 1: render observation and predicted semantic map, 0: no visualization
 PRINT_IMAGES: 1           # 1: save visualization as images, 0: no image saving
 GROUND_TRUTH_SEMANTICS: 1 # 1: use ground-truth semantics (for debugging / ablations)
 
 ENVIRONMENT:
+  forward: 0.25           # forward motion (in meters)
   turn_angle: 30.0        # agent turn angle (in degrees)
   frame_height: 480       # first-person frame height (in pixels)
   frame_width: 640        # first-person frame width (in pixels)
@@ -23,7 +24,7 @@ AGENT:
 
   SEMANTIC_MAP:
     semantic_categories: mukul_indoor # map semantic channel categories ("coco_indoor", "longtail_indoor", "mukul_indoor")
-    num_sem_categories: 35            # number of map semantic channel categories (16, 257, 35)
+    num_sem_categories: 3             # number of map semantic channel categories (16, 257, 35)
     map_size_cm: 4800        # global map size (in centimeters)
     map_resolution: 5        # size of map bins (in centimeters)
     vision_range: 100        # diameter of local map region visible by the agent (in cells)
