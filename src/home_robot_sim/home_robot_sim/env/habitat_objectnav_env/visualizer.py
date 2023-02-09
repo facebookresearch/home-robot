@@ -106,6 +106,11 @@ class Visualizer:
             timestep: time step within the episode
             visualize_goal: if True, visualize goal
         """
+        # Do nothing if visualization is off
+        if not self.show_images and not self.print_images:
+            return
+
+        # Initialize
         if self.image_vis is None:
             self.image_vis = self._init_vis_image(goal_name)
 

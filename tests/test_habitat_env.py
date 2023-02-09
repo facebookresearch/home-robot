@@ -1,7 +1,10 @@
 from pathlib import Path
 import sys
+import pytest
+from subprocess import Popen
 
-from habitat.core.env import Env
+from hydra import compose, initialize
+import habitat
 
 from home_robot.core.abstract_agent import Agent
 from home_robot.core.interfaces import DiscreteNavigationAction, Observations
@@ -13,10 +16,9 @@ sys.path.insert(
     0,
     str(Path(__file__).resolve().parent.parent / "example/habitat_objectnav"),
 )
-from config_utils import get_config
 
 TEST_NUM_STEPS = 3
-CONFIG_PATH = "floorplanner_eval_test.yaml"
+CONFIG_NAME = "floorplanner_eval_test"
 
 
 class TestAgent(Agent):
@@ -28,20 +30,35 @@ class TestAgent(Agent):
         return DiscreteNavigationAction.FORWARD, {}
 
 
-def test_objectnav_env():
+@pytest.fixture
+def download_dataset():
+    p_sim = Popen(
+        [
+            "python",
+            "-m",
+            "habitat_sim.utils.datasets_download",
+            "--uids" "habitat_test_pointnav_dataset" "--data-path",
+            "data/",
+        ]
+    )
+    p_sim.wait()
+
+
+def test_objectnav_env(download_dataset):
     # Parse configuration
-    config_path = "configs/agent/floorplanner_eval.yaml"
-    config, config_str = get_config(config_path)
-    config.defrost()
-    config.NUM_ENVIRONMENTS = 1
-    config.PRINT_IMAGES = 0
-    config.TASK_CONFIG.DATASET.SPLIT = "val"
-    config.EXP_NAME = "test"
-    config.freeze()
+    with initialize(version_base=None, config_path="."):
+        cfg = compose(config_name=CONFIG_NAME)
 
     # Initialize agent & env
     agent = TestAgent()
-    env = HabitatObjectNavEnv(Env(config=config.TASK_CONFIG), config=config)
+    env = HabitatObjectNavEnv(
+        habitat.Env(
+            config=habitat.get_config(
+                "benchmark/nav/objectnav/objectnav_hm3d_with_semantic.yaml"
+            )
+        ),
+        config=cfg,
+    )
 
     agent.reset()
     env.reset()
