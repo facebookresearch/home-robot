@@ -1,0 +1,6 @@
+channels:
+  - conda-forge
+  - aihabitat
+dependencies:
+  - habitat-sim
+  - withbullet
