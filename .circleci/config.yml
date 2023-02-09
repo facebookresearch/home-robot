@@ -1,9 +1,16 @@
 version: 2.1
 
+gpu: &gpu
+  machine:
+    image: ubuntu-1604-cuda-10.1:201909-23
+  resource_class: gpu.nvidia.medium
+  environment:
+    FPS_THRESHOLD: 900
+
 jobs:
   formatting:
     working_directory: ~/home-robot
-    resource_class: large
+    resource_class: small
     docker:
       - image: circleci/python:3.8
     steps:
@@ -15,10 +22,7 @@ jobs:
             black --check .
 
   integration-sim:
-    working_directory: ~/home-robot
-    resource_class: gpu.nvidia.medium
-    docker:
-      - image: ubuntu-1604-cuda-10.1:201909-23
+    <<: *gpu
     steps:
       - checkout
       - run: 
