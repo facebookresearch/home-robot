@@ -29,6 +29,7 @@ class HabitatObjectNavEnv(HabitatEnv):
         assert (
             "floorplanner" in self.episodes_data_path
             or "hm3d" in self.episodes_data_path
+            or "mp3d" in self.episodes_data_path
         )
         if "hm3d" in self.episodes_data_path:
             if config.AGENT.SEMANTIC_MAP.semantic_categories == "coco_indoor":
@@ -36,6 +37,13 @@ class HabitatObjectNavEnv(HabitatEnv):
             else:
                 raise NotImplementedError
         elif "floorplanner" in self.episodes_data_path:
+            if config.AGENT.SEMANTIC_MAP.semantic_categories == "mukul_indoor":
+                self.semantic_category_mapping = FloorplannertoMukulIndoor()
+            else:
+                raise NotImplementedError
+        elif "mp3d" in self.episodes_data_path:
+            # TODO This is a hack to get unit tests running, we'll need to
+            #  adapt this if we want to run ObjectNav on MP3D
             if config.AGENT.SEMANTIC_MAP.semantic_categories == "mukul_indoor":
                 self.semantic_category_mapping = FloorplannertoMukulIndoor()
             else:

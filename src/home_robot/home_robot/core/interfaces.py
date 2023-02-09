@@ -34,7 +34,7 @@ class Observations:
     # --------------------------------------------------------
 
     # Joint states
-    joint_positions: np.ndarray
+    # joint_positions: np.ndarray
 
     # Pose
     # TODO: add these instead of gps + compass

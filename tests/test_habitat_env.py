@@ -3,8 +3,8 @@ import sys
 import pytest
 from subprocess import Popen
 
-import hydra
 import habitat
+from habitat.config.default import Config
 
 from home_robot.core.abstract_agent import Agent
 from home_robot.core.interfaces import DiscreteNavigationAction, Observations
@@ -31,20 +31,17 @@ class DummyTestAgent(Agent):
 
 
 def test_objectnav_env():
-    # Parse configuration
-    with hydra.initialize(version_base=None, config_path="."):
-        cfg = hydra.compose(config_name=CONFIG_NAME)
+    config = Config()
+    config.merge_from_file("configs/test_agent.yaml")
+    task_config = Config()
+    task_config.merge_from_other_cfg(habitat.config.default._C)
+    task_config.merge_from_file("configs/test_task.yaml")
+    config.TASK_CONFIG = task_config
+    config.freeze()
 
     # Initialize agent & env
     agent = DummyTestAgent()
-    env = HabitatObjectNavEnv(
-        habitat.Env(
-            config=habitat.get_config(
-                "benchmark/nav/objectnav/objectnav_hm3d_with_semantic.yaml"
-            )
-        ),
-        config=cfg,
-    )
+    env = HabitatObjectNavEnv(habitat.Env(config=config.TASK_CONFIG), config=config)
 
     agent.reset()
     env.reset()
@@ -60,4 +57,8 @@ def test_objectnav_env():
 
 
 if __name__ == "__main__":
+    # git clone https://github.com/facebookresearch/habitat-sim
+    # python habitat-sim/src_python/habitat_sim/utils/datasets_download.py --uids mp3d_example_scene --data-path data/
+    # mkdir data/scene_datasets/mp3d_example/mp3d
+    # mv data/scene_datasets/mp3d_example/17DRP5sb8fy data/scene_datasets/mp3d_example/mp3d
     test_objectnav_env()
