@@ -9,13 +9,13 @@ import rospy
 import os
 from home_robot_hw.teleop.stretch_xbox_controller import StretchXboxController
 from home_robot.agent.motion.robot import HelloStretch
-from home_robot_hw.ros.path import get_urdf_path
+from home_robot_hw.ros.path import get_urdf_dir
 
 
 if __name__ == "__main__":
     rospy.init_node("xbox_controller")
 
-    stretch_planner_urdf_path = get_urdf_path()
+    stretch_planner_urdf_path = get_urdf_dir()
     print(stretch_planner_urdf_path)
     model = HelloStretch(
         visualize=False,
