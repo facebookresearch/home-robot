@@ -18,7 +18,7 @@ jobs:
     working_directory: ~/home-robot
     resource_class: large
     docker:
-      - image: continuumio/miniconda3
+      - image: mambaorg/micromamba
     steps:
       - checkout
       - run:
@@ -29,9 +29,6 @@ jobs:
           command: |
             apt-get update
             apt-get install -y build-essential libgl1-mesa-glx
-            conda init bash
-            source ~/.bashrc
-            conda install -y -n base -c conda-forge mamba
       - restore_cache:
           key: deps9-{{ .Branch }}-{{ checksum "src/home_robot/environment.yml" }}
       - run:
@@ -43,6 +40,10 @@ jobs:
           paths:
             - "~/env_home_robot"
             - "/usr/lib"
+      - run:
+          name: Install home-robot-sim dependencies
+          command: |
+            mamba env update -f src/home_robot_sim/environment.yml
       - run:
           name: Install libraries and run tests
           command: |
