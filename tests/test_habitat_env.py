@@ -3,7 +3,7 @@ import sys
 import pytest
 from subprocess import Popen
 
-from hydra import compose, initialize
+import hydra
 import habitat
 
 from home_robot.core.abstract_agent import Agent
@@ -21,7 +21,7 @@ TEST_NUM_STEPS = 3
 CONFIG_NAME = "floorplanner_eval_test"
 
 
-class TestAgent(Agent):
+class DummyTestAgent(Agent):
     def reset(self):
         pass
 
@@ -30,27 +30,13 @@ class TestAgent(Agent):
         return DiscreteNavigationAction.FORWARD, {}
 
 
-@pytest.fixture
-def download_dataset():
-    p_sim = Popen(
-        [
-            "python",
-            "-m",
-            "habitat_sim.utils.datasets_download",
-            "--uids" "habitat_test_pointnav_dataset" "--data-path",
-            "data/",
-        ]
-    )
-    p_sim.wait()
-
-
-def test_objectnav_env(download_dataset):
+def test_objectnav_env():
     # Parse configuration
-    with initialize(version_base=None, config_path="."):
-        cfg = compose(config_name=CONFIG_NAME)
+    with hydra.initialize(version_base=None, config_path="."):
+        cfg = hydra.compose(config_name=CONFIG_NAME)
 
     # Initialize agent & env
-    agent = TestAgent()
+    agent = DummyTestAgent()
     env = HabitatObjectNavEnv(
         habitat.Env(
             config=habitat.get_config(
