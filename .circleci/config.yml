@@ -1,9 +1,16 @@
 version: 2.1
 
+gpu: &gpu
+  machine:
+    image: ubuntu-2004-cuda-11.4:202110-01
+  resource_class: gpu.nvidia.medium
+  environment:
+    FPS_THRESHOLD: 900
+
 jobs:
   formatting:
     working_directory: ~/home-robot
-    resource_class: large
+    resource_class: small
     docker:
       - image: circleci/python:3.8
     steps:
@@ -15,42 +22,77 @@ jobs:
             black --check .
 
   integration-sim:
+    <<: *gpu
     working_directory: ~/home-robot
-    resource_class: large
-    docker:
-      - image: continuumio/miniconda3
     steps:
       - checkout
-      - run:
-          name: Install Submodules
-          command: git submodule sync && git submodule update --init
       - run: 
-          name: Setup conda & mamba
+          name: Install system deps
           command: |
-            apt-get update
-            apt-get install -y build-essential libgl1-mesa-glx
+            sudo apt-get update || true
+            sudo apt-get install -y --no-install-recommends \
+                build-essential \
+                git \
+                curl \
+                vim \
+                ca-certificates \
+                libbullet-dev \
+                libjpeg-dev \
+                libglm-dev \
+                libegl1-mesa-dev \
+                xorg-dev \
+                freeglut3-dev \
+                pkg-config \
+                wget \
+                zip \
+                libhdf5-dev \
+                unzip || true
+      - run:
+          name: Install conda and dependencies
+          no_output_timeout: 20m
+          command: |
+            if [ ! -d ~/miniconda ]
+            then
+              curl -o ~/miniconda.sh -O  https://repo.anaconda.com/miniconda/Miniconda3-latest-Linux-x86_64.sh
+              chmod +x ~/miniconda.sh
+              bash ~/miniconda.sh -b -p $HOME/miniconda
+              rm ~/miniconda.sh
+              export PATH=$HOME/miniconda/bin:/usr/local/cuda/bin:$PATH
+            fi
             conda init bash
-            source ~/.bashrc
-            conda install -y -n base -c conda-forge mamba
+      - run:
+          name: Install mamba
+          command: conda install -y -n base -c conda-forge mamba
+      - run:
+          name: Sync submodules
+          command: git submodule sync && git submodule update --init
       - restore_cache:
-          key: deps9-{{ .Branch }}-{{ checksum "src/home_robot/environment.yml" }}
+          key: deps1-{{ .Branch }}-{{ checksum "src/home_robot/environment.yml" }}
       - run:
           name: Setup env
           command: |
             [ -d ~/env_home_robot ] || mamba env create -f src/home_robot/environment.yml -p ~/env_home_robot
       - save_cache:
-          key: deps9-{{ .Branch }}-{{ checksum "src/home_robot/environment.yml" }}
+          key: deps1-{{ .Branch }}-{{ checksum "src/home_robot/environment.yml" }}
           paths:
             - "~/env_home_robot"
-            - "/usr/lib"
+      - run:
+          name: Install home-robot-sim dependencies & download data
+          command: |
+            conda activate ~/env_home_robot
+            mamba env update -f src/home_robot_sim/environment.yml
+            pip install -e src/third_party/habitat-lab
+            python -m habitat_sim.utils.datasets_download --uids mp3d_example_scene --data-path data/
+            mkdir -p tests/data/scene_datasets/mp3d_example/mp3d
+            mv data/scene_datasets/mp3d_example/17DRP5sb8fy tests/data/scene_datasets/mp3d_example/mp3d
       - run:
           name: Install libraries and run tests
           command: |
-            source ~/.bashrc
             conda activate ~/env_home_robot
             pip install -e src/home_robot
             pip install -e src/home_robot_sim
-            pytest tests/
+            cd tests
+            pytest .
 
 workflows:
   main:

@@ -4,13 +4,7 @@
 # LICENSE file in the root directory of this source tree.
 from setuptools import setup
 
-install_requires = [
-    "numpy",
-]
-
-# For data_tools sub-module
-data_tools_requires = ["h5py", "imageio", "pygifsicle"]
-install_requires += data_tools_requires
+install_requires = ["numpy<1.24", "scipy", "sophuspy"]
 
 setup(
     name="home-robot",

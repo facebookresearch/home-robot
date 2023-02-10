@@ -12,6 +12,8 @@ After installing [home_robot](../home_robot):
 ```sh
 # Install simulation deps
 mamba install -c conda-forge -c aihabitat habitat-sim withbullet
+git submodule update --init
+pip install -e src/third_party/habitat-lab  # NOTE: Habitat-lab@v0.2.2 only works in editable mode
 
 # If needed, update submodules
 git submodule update --init
