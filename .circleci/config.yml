@@ -67,16 +67,15 @@ jobs:
           name: Sync submodules
           command: git submodule sync && git submodule update --init
       - restore_cache:
-          key: deps9-{{ .Branch }}-{{ checksum "src/home_robot/environment.yml" }}
+          key: deps1-{{ .Branch }}-{{ checksum "src/home_robot/environment.yml" }}
       - run:
           name: Setup env
           command: |
             [ -d ~/env_home_robot ] || mamba env create -f src/home_robot/environment.yml -p ~/env_home_robot
       - save_cache:
-          key: deps9-{{ .Branch }}-{{ checksum "src/home_robot/environment.yml" }}
+          key: deps1-{{ .Branch }}-{{ checksum "src/home_robot/environment.yml" }}
           paths:
             - "~/env_home_robot"
-            - "/usr/lib"
       - run:
           name: Install home-robot-sim dependencies & download data
           command: |
