@@ -21,7 +21,7 @@ jobs:
             pip install black==22.3.0
             black --check .
 
-  integration-sim:
+  home_robot_sim:
     <<: *gpu
     working_directory: ~/home-robot
     steps:
@@ -83,7 +83,7 @@ jobs:
             mamba env update -f src/home_robot_sim/environment.yml
             pip install -e src/third_party/habitat-lab
             python -m habitat_sim.utils.datasets_download --uids mp3d_example_scene --data-path data/
-            mkdir -p tests/data/scene_datasets/mp3d_example/mp3d
+            mkdir -p tests/home_robot_sim/data/scene_datasets/mp3d_example/mp3d
             mv data/scene_datasets/mp3d_example/17DRP5sb8fy tests/data/scene_datasets/mp3d_example/mp3d
       - run:
           name: Install libraries and run tests
@@ -91,11 +91,11 @@ jobs:
             conda activate ~/env_home_robot
             pip install -e src/home_robot
             pip install -e src/home_robot_sim
-            cd tests
+            cd tests/home_robot_sim
             pytest .
 
 workflows:
   main:
     jobs:
       - formatting
-      - integration-sim
+      - home_robot_sim

@@ -20,6 +20,7 @@ theseus/extlib/*.so
 temp/
 docs_build/
 viz/
+data/
 datasets/
 datadump/
 
