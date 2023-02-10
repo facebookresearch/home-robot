@@ -91,7 +91,8 @@ jobs:
             conda activate ~/env_home_robot
             pip install -e src/home_robot
             pip install -e src/home_robot_sim
-            pytest tests/
+            cd tests
+            pytest .
 
 workflows:
   main:
