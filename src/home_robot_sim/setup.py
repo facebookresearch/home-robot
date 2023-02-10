@@ -5,13 +5,10 @@
 import os
 from setuptools import setup
 
-SRC_PATH = os.path.dirname(os.path.dirname(os.path.realpath(__file__)))
-
 install_requires = [
     "numpy",
     "home-robot",
     "habitat-sim",
-    f"habitat @ file://localhost/{SRC_PATH}/third_party/habitat-lab",
     # Installing habitat-lab directly from git (does not work due to bug in habitat-lab@v0.2.2):
     # "habitat @ git+ssh://git@github.com/facebookresearch/habitat-lab.git@v0.2.2",
     # Latest habitat version (not used due to Hydra migration):

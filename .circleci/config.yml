@@ -81,6 +81,7 @@ jobs:
           command: |
             conda activate ~/env_home_robot
             mamba env update -f src/home_robot_sim/environment.yml
+            pip install -e src/third_party/habitat-lab
             python -m habitat_sim.utils.datasets_download --uids mp3d_example_scene --data-path data/
             mkdir -p tests/data/scene_datasets/mp3d_example/mp3d
             mv data/scene_datasets/mp3d_example/17DRP5sb8fy tests/data/scene_datasets/mp3d_example/mp3d
