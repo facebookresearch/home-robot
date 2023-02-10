@@ -17,6 +17,7 @@ sys.path.insert(
     str(Path(__file__).resolve().parent.parent / "example/habitat_objectnav"),
 )
 
+CONFIG_DIR = str(Path(__file__).resolve().parent / "configs")
 TEST_NUM_STEPS = 3
 CONFIG_NAME = "floorplanner_eval_test"
 
@@ -32,10 +33,10 @@ class DummyTestAgent(Agent):
 
 def test_objectnav_env():
     config = Config()
-    config.merge_from_file("configs/test_agent.yaml")
+    config.merge_from_file(f"{CONFIG_DIR}/test_agent.yaml")
     task_config = Config()
     task_config.merge_from_other_cfg(habitat.config.default._C)
-    task_config.merge_from_file("configs/test_task.yaml")
+    task_config.merge_from_file(f"{CONFIG_DIR}/test_task.yaml")
     config.TASK_CONFIG = task_config
     config.freeze()
 
@@ -50,15 +51,7 @@ def test_objectnav_env():
     t = 0
     for _ in range(TEST_NUM_STEPS):
         t += 1
-        print(t)
         obs = env.get_observation()
         action, info = agent.act(obs)
         env.apply_action(action, info=info)
-
-
-if __name__ == "__main__":
-    # git clone https://github.com/facebookresearch/habitat-sim
-    # python habitat-sim/src_python/habitat_sim/utils/datasets_download.py --uids mp3d_example_scene --data-path data/
-    # mkdir data/scene_datasets/mp3d_example/mp3d
-    # mv data/scene_datasets/mp3d_example/17DRP5sb8fy data/scene_datasets/mp3d_example/mp3d
-    test_objectnav_env()
+        print(f"Step {t} complete.")
