@@ -119,4 +119,5 @@ class HabitatObjectNavEnv(HabitatEnv):
         return HabitatSimActions[action.name]
 
     def _process_info(self, info: Dict[str, Any]) -> Any:
-        self.visualizer.visualize(**info)
+        if info:
+            self.visualizer.visualize(**info)

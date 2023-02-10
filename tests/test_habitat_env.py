@@ -27,7 +27,7 @@ class DummyTestAgent(Agent):
 
     def act(self, obs):
         assert type(obs) is Observations
-        return DiscreteNavigationAction.FORWARD, {}
+        return DiscreteNavigationAction.MOVE_FORWARD, {}
 
 
 def test_objectnav_env():
