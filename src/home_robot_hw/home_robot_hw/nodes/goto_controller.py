@@ -15,7 +15,7 @@ from std_srvs.srv import SetBool, SetBoolResponse
 from geometry_msgs.msg import Twist, Pose, PoseStamped
 from nav_msgs.msg import Odometry
 
-from home_robot.agent.control.velocity_controllers import DDVelocityControlNoplan
+from home_robot.control.velocity_controllers import DDVelocityControlNoplan
 from home_robot.utils.geometry import xyt_global_to_base, sophus2xyt, xyt2sophus
 from home_robot_hw.ros.utils import matrix_from_pose_msg
 from home_robot_hw.ros.visualizer import Visualizer
