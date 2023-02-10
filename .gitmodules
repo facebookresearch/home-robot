@@ -7,3 +7,6 @@
 [submodule "src/home_robot/home_robot/perception/detection/detic/Detic"]
 	path = src/home_robot/home_robot/perception/detection/detic/Detic
 	url = git@github.com:facebookresearch/Detic.git
+[submodule "src/third_party/habitat-lab"]
+	path = src/third_party/habitat-lab
+	url = https://github.com/facebookresearch/habitat-lab

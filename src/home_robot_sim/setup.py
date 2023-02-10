@@ -5,11 +5,14 @@
 import os
 from setuptools import setup
 
+SRC_PATH = os.path.dirname(os.path.dirname(os.path.realpath(__file__)))
+
 install_requires = [
     "numpy",
     "home-robot",
     "habitat-sim",
-    "habitat @ git+ssh://git@github.com/facebookresearch/habitat-lab.git@v0.2.2",
+    f"habitat @ file://localhost/{SRC_PATH}/third_party/habitat-lab",
+    # "habitat @ git+ssh://git@github.com/facebookresearch/habitat-lab.git@v0.2.2",
     # "habitat-lab @ git+ssh://git@github.com/facebookresearch/habitat-lab@stable&subdirectory=habitat-lab",
 ]
 
