@@ -168,7 +168,11 @@ class PbArticulatedObject(PbObject):
             self.set_joint_position(i.index, q)
 
     def get_joint_positions(self):
-        return pb.getJointState(self.id, jointIndices=np.arange(self.num_joints), physicsClientId=self.client)
+        return pb.getJointState(
+            self.id,
+            jointIndices=np.arange(self.num_joints),
+            physicsClientId=self.client,
+        )
 
     def get_link_pose(self, name):
         """get link pose - forward kinematrics"""
@@ -374,9 +378,11 @@ class PbClient(object):
 
 
 class PybulletIKSolver:
-    """ Create a wrapper for solving inverse kinematics using PyBullet """
-    def __init__(self, urdf_path, ee_link_name, controlled_joints=None,
-                 visualize=False):
+    """Create a wrapper for solving inverse kinematics using PyBullet"""
+
+    def __init__(
+        self, urdf_path, ee_link_name, controlled_joints=None, visualize=False
+    ):
         self.env = PbClient(visualize=visualize, is_simulation=False)
         self.robot = self.env.add_articulated_object("robot", urdf_path)
         self.pc_id = self.env.id
@@ -385,9 +391,9 @@ class PybulletIKSolver:
 
         # Debugging code, not very robust
         if visualize:
-            self.debug_block = PbArticulatedObject('red_block',
-                                                   './assets/red_block.urdf',
-                                                   client=self.env.id)
+            self.debug_block = PbArticulatedObject(
+                "red_block", "./assets/red_block.urdf", client=self.env.id
+            )
 
         self.ee_idx = self.get_link_names().index(ee_link_name)
         self.controlled_joints = np.array(controlled_joints, dtype=np.int32)
@@ -417,7 +423,7 @@ class PybulletIKSolver:
         self.set_joint_positions(q_init)
         if self.visualize:
             self.debug_block.set_pose(pos_desired, quat_desired)
-            input('--- Press enter to solve ---')
+            input("--- Press enter to solve ---")
 
         q_full = np.array(
             pb.calculateInverseKinematics(
@@ -425,15 +431,15 @@ class PybulletIKSolver:
                 self.ee_idx,
                 pos_desired,
                 quat_desired,
-                #maxNumIterations=1000,
-                #residualThreshold=1e-6,
+                # maxNumIterations=1000,
+                # residualThreshold=1e-6,
                 physicsClientId=self.pc_id,
             )
         )
         # In the ik format - controllable joints only
         self.robot.set_joint_positions(q_full)
         if self.visualize:
-            input('--- Solved. Press enter to finish ---')
+            input("--- Solved. Press enter to finish ---")
 
         if self.controlled_joints is not None:
             q_out = q_full[self.controlled_joints]

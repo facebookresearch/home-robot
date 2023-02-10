@@ -126,8 +126,8 @@ class HelloStretch(Robot):
     # For inverse kinematics mode
     ee_link_name = "link_straight_gripper"
     manip_mode_controlled_joints = [0, 3, 4, 5, 6, 7, 8, 9, 10]
-    #manip_mode_controlled_joints = [0, 5, 6, 7, 8, 9, 10, 11, 12]
-    #manip_mode_controlled_joints = [0, 7, 8, 9, 10, 11, 12, 13, 14]
+    # manip_mode_controlled_joints = [0, 5, 6, 7, 8, 9, 10, 11, 12]
+    # manip_mode_controlled_joints = [0, 7, 8, 9, 10, 11, 12, 13, 14]
     full_body_controlled_joints = [0, 1, 2, 5, 6, 7, 8, 9, 10, 11, 12]
 
     def _create_ik_solvers(self):
@@ -516,7 +516,9 @@ class HelloStretch(Robot):
         else:
             return None
 
-    def manip_ik(self, pose_query, q0=None, relative: bool = True, update_pb: bool = True):
+    def manip_ik(
+        self, pose_query, q0=None, relative: bool = True, update_pb: bool = True
+    ):
         """IK in manipulation mode. Takes in a 4x4 pose_query matrix in se(3) and initial
         configuration of the robot.
 

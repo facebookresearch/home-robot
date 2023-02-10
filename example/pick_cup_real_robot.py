@@ -20,7 +20,7 @@ visualize_masks = False
 
 def try_executing_grasp(rob, grasp) -> bool:
     """Try executing a grasp."""
-    
+
     # Get the kinematics model from the robot reference
     model = rob.get_model()
 
@@ -98,6 +98,7 @@ def divergence_from_vertical_grasp(grasp):
     theta_x = np.abs(np.arctan(dirn[0] / dirn[2]))
     theta_y = np.abs(np.arctan(dirn[1] / dirn[2]))
     return theta_x, theta_y
+
 
 @click.command()
 @click.option("--dry-run", default=False, is_flag=True)

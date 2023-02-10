@@ -11,14 +11,15 @@ from home_robot.utils.pose import to_matrix, to_pos_quat
 
 
 def fk_ik_helper(robot, q):
-    """ do (1) generate random robot 
-        generate fk for it; randomize robot
-        """
+    """do (1) generate random robot
+    generate fk for it; randomize robot
+    """
     pass
 
 
 def get_ik_solver():
-    return HelloStretch(urdf_path='./assets/hab_stretch/urdf/', visualize=True)
+    return HelloStretch(urdf_path="./assets/hab_stretch/urdf/", visualize=True)
+
 
 def test_ik():
     """
@@ -30,13 +31,24 @@ def test_ik():
     """
     robot = get_ik_solver()
     q0 = STRETCH_HOME_Q
-    block = PbArticulatedObject('red_block', './assets/red_block.urdf', client=robot.ref.client)
+    block = PbArticulatedObject(
+        "red_block", "./assets/red_block.urdf", client=robot.ref.client
+    )
     robot.set_config(q0)
     test_poses = [
-        ([-0.10281811, -0.7189281 ,  0.71703106], [-0.7079143 ,  0.12421559,  0.1409881 , -0.68084526]),
-        ([-0.01556295, -0.51387864,  0.8205258 ], [-0.7090214 ,  0.12297839,  0.14050716, -0.6800168 ]),
-        ]
-    test_poses = [to_pos_quat(to_matrix(pos, quat) @ STRETCH_GRASP_OFFSET) for pos, quat in test_poses]
+        (
+            [-0.10281811, -0.7189281, 0.71703106],
+            [-0.7079143, 0.12421559, 0.1409881, -0.68084526],
+        ),
+        (
+            [-0.01556295, -0.51387864, 0.8205258],
+            [-0.7090214, 0.12297839, 0.14050716, -0.6800168],
+        ),
+    ]
+    test_poses = [
+        to_pos_quat(to_matrix(pos, quat) @ STRETCH_GRASP_OFFSET)
+        for pos, quat in test_poses
+    ]
     test_poses = [robot.get_ee_pose()] + test_poses
     for pos, quat in test_poses:
         print("-------- 1 ---------")
@@ -47,7 +59,7 @@ def test_ik():
         pos2, quat2 = robot.get_ee_pose()
         print("PRED:", pos2, quat2)
         print("x motion:", res[0])
-        input('press enter to continue')
+        input("press enter to continue")
 
         print("-------- 2 ---------")
         pos, quat = robot.get_ee_pose()
@@ -58,9 +70,8 @@ def test_ik():
         pos2, quat2 = robot.get_ee_pose()
         print("PRED:", pos2, quat2)
         print("x motion:", res[0])
-        input('press enter to continue')
- 
-                  
+        input("press enter to continue")
+
 
 def test_fk_ik():
     np.random.seed(0)
@@ -69,5 +80,5 @@ def test_fk_ik():
         res = fk_ik_helper(rob, q)
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     test_ik()
