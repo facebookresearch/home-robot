@@ -2,6 +2,6 @@ channels:
   - conda-forge
   - aihabitat
 dependencies:
-  - habitat-sim
+  - habitat-sim ==0.2.2
   - withbullet
   - headless
