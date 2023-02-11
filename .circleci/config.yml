@@ -84,7 +84,7 @@ jobs:
             pip install -e src/third_party/habitat-lab
             python -m habitat_sim.utils.datasets_download --uids mp3d_example_scene --data-path data/
             mkdir -p tests/home_robot_sim/data/scene_datasets/mp3d_example/mp3d
-            mv data/scene_datasets/mp3d_example/17DRP5sb8fy tests/data/scene_datasets/mp3d_example/mp3d
+            mv data/scene_datasets/mp3d_example/17DRP5sb8fy tests/home_robot_sim/data/scene_datasets/mp3d_example/mp3d
       - run:
           name: Install libraries and run tests
           command: |
