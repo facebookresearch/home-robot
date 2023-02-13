@@ -125,8 +125,30 @@ class HelloStretch(Robot):
 
     # For inverse kinematics mode
     ee_link_name = "link_straight_gripper"
-    manip_mode_controlled_joints = ['base_x_joint', 'joint_lift', 'joint_arm_l3', 'joint_arm_l2', 'joint_arm_l1', 'joint_arm_l0', 'joint_wrist_yaw', 'joint_wrist_pitch', 'joint_wrist_roll']
-    full_body_controlled_joints = ['base_x_joint', 'base_y_joint', 'base_theta_joint', 'joint_lift', 'joint_arm_l3', 'joint_arm_l2', 'joint_arm_l1', 'joint_arm_l0', 'joint_wrist_yaw', 'joint_wrist_pitch', 'joint_wrist_roll']
+    manip_mode_controlled_joints = [
+        "base_x_joint",
+        "joint_lift",
+        "joint_arm_l3",
+        "joint_arm_l2",
+        "joint_arm_l1",
+        "joint_arm_l0",
+        "joint_wrist_yaw",
+        "joint_wrist_pitch",
+        "joint_wrist_roll",
+    ]
+    full_body_controlled_joints = [
+        "base_x_joint",
+        "base_y_joint",
+        "base_theta_joint",
+        "joint_lift",
+        "joint_arm_l3",
+        "joint_arm_l2",
+        "joint_arm_l1",
+        "joint_arm_l0",
+        "joint_wrist_yaw",
+        "joint_wrist_pitch",
+        "joint_wrist_roll",
+    ]
 
     def _create_ik_solvers(self):
         """create ik solvers using pybullet"""

@@ -41,8 +41,13 @@ def test_controlled_joints():
     ref = robot.ref
     manip_ik_solver = robot.manip_ik_solver
     full_body_ik_solver = robot.ik_solver
-    assert ref.get_num_controllable_joints() == full_body_ik_solver.get_num_controllable_joints()
-    assert (ref.get_num_controllable_joints() - 2) == manip_ik_solver.get_num_controllable_joints()
+    assert (
+        ref.get_num_controllable_joints()
+        == full_body_ik_solver.get_num_controllable_joints()
+    )
+    assert (
+        ref.get_num_controllable_joints() - 2
+    ) == manip_ik_solver.get_num_controllable_joints()
     manip_mode_controlled_joints = np.array([0, 3, 4, 5, 6, 7, 8, 9, 10])
     full_body_controlled_joints = np.array([0, 1, 2, 5, 6, 7, 8, 9, 10, 11, 12])
     assert np.all(manip_mode_controlled_joints == manip_ik_solver.controlled_joints)
