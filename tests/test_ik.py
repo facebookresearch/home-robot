@@ -19,7 +19,7 @@ def compute_err(pos1, pos2):
 
 
 def ik_helper(robot, pos, quat, indicator_block, err_threshold, debug=False):
-    """ ik test helper function. """
+    """ik test helper function."""
     print("GOAL:", pos, quat)
     indicator_block.set_pose(pos, quat)
     res = robot.manip_ik((pos, quat), STRETCH_HOME_Q, relative=True)
