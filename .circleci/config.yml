@@ -51,6 +51,35 @@ jobs:
             pip install black==22.3.0
             black --check .
 
+  home_robot:
+    <<: *gpu
+    working_directory: ~/home-robot
+    steps:
+      - checkout
+      - run: 
+          name: Install system deps
+          command: |
+            sudo apt-get update || true
+            sudo apt-get install -y --no-install-recommends \
+                build-essential \
+                git \
+                curl \
+                vim \
+                ca-certificates \
+                unzip || true
+      - run:
+          name: Sync submodules
+          command: git submodule sync && git submodule update --init
+      - conda_env_setup
+      - run:
+          name: Install libraries and run tests
+          command: |
+            conda activate ~/env_home_robot
+            pip install -e src/home_robot
+            cd tests/home_robot
+            pytest .
+
+
   home_robot_sim:
     <<: *gpu
     working_directory: ~/home-robot
@@ -103,4 +132,5 @@ workflows:
   main:
     jobs:
       - formatting
+      - home_robot
       - home_robot_sim
