@@ -18,6 +18,10 @@ def compute_err(pos1, pos2):
     return np.linalg.norm(pos1 - pos2)
 
 
+def quaternion_distance(quat1, quat2):
+    return 1 - ((quat1 * quat2).sum() ** 2)
+
+
 def ik_helper(robot, pos, quat, indicator_block, err_threshold, debug=False):
     """ik test helper function."""
     print("GOAL:", pos, quat)
@@ -30,6 +34,7 @@ def ik_helper(robot, pos, quat, indicator_block, err_threshold, debug=False):
     err = compute_err(pos2, pos)
     print("error was:", err)
     assert err < err_threshold
+    assert quaternion_distance(quat, quat2) < err_threshold
     if debug:
         input("press enter to continue")
 
@@ -88,7 +93,8 @@ def test_ik(debug=False, err_threshold=1e-4):
 
         # Additional consistency check
         pos1, quat1 = robot.get_ee_pose()
-        assert np.allclose(pos, pos1)
+        assert compute_err(pos, pos1) < err_threshold
+        assert quaternion_distance(quat, quat1) < err_threshold
 
         print("-------- 2: FK + IK Consistency  ---------")
         ik_helper(robot, pos1, quat1, block, err_threshold, debug)
