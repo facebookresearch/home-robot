@@ -7,6 +7,36 @@ gpu: &gpu
   environment:
     FPS_THRESHOLD: 900
 
+commands:
+  conda_env_setup:
+    steps:
+      - run:
+          name: Install conda and dependencies
+          no_output_timeout: 20m
+          command: |
+            if [ ! -d ~/miniconda ]
+            then
+              curl -o ~/miniconda.sh -O  https://repo.anaconda.com/miniconda/Miniconda3-latest-Linux-x86_64.sh
+              chmod +x ~/miniconda.sh
+              bash ~/miniconda.sh -b -p $HOME/miniconda
+              rm ~/miniconda.sh
+              export PATH=$HOME/miniconda/bin:/usr/local/cuda/bin:$PATH
+            fi
+            conda init bash
+      - run:
+          name: Install mamba
+          command: conda install -y -n base -c conda-forge mamba
+      - restore_cache:
+          key: deps1-{{ .Branch }}-{{ checksum "src/home_robot/environment.yml" }}
+      - run:
+          name: Setup env
+          command: |
+            [ -d ~/env_home_robot ] || mamba env create -f src/home_robot/environment.yml -p ~/env_home_robot
+      - save_cache:
+          key: deps1-{{ .Branch }}-{{ checksum "src/home_robot/environment.yml" }}
+          paths:
+            - "~/env_home_robot"
+
 jobs:
   formatting:
     working_directory: ~/home-robot
@@ -48,34 +78,9 @@ jobs:
                 libhdf5-dev \
                 unzip || true
       - run:
-          name: Install conda and dependencies
-          no_output_timeout: 20m
-          command: |
-            if [ ! -d ~/miniconda ]
-            then
-              curl -o ~/miniconda.sh -O  https://repo.anaconda.com/miniconda/Miniconda3-latest-Linux-x86_64.sh
-              chmod +x ~/miniconda.sh
-              bash ~/miniconda.sh -b -p $HOME/miniconda
-              rm ~/miniconda.sh
-              export PATH=$HOME/miniconda/bin:/usr/local/cuda/bin:$PATH
-            fi
-            conda init bash
-      - run:
-          name: Install mamba
-          command: conda install -y -n base -c conda-forge mamba
-      - run:
           name: Sync submodules
           command: git submodule sync && git submodule update --init
-      - restore_cache:
-          key: deps1-{{ .Branch }}-{{ checksum "src/home_robot/environment.yml" }}
-      - run:
-          name: Setup env
-          command: |
-            [ -d ~/env_home_robot ] || mamba env create -f src/home_robot/environment.yml -p ~/env_home_robot
-      - save_cache:
-          key: deps1-{{ .Branch }}-{{ checksum "src/home_robot/environment.yml" }}
-          paths:
-            - "~/env_home_robot"
+      - conda_env_setup
       - run:
           name: Install home-robot-sim dependencies & download data
           command: |
