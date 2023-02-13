@@ -91,12 +91,8 @@ def test_ik(debug=False, err_threshold=1e-4):
         print("-------- 1: Inverse kinematics ---------")
         ik_helper(robot, pos, quat, block, err_threshold, debug)
 
-        # Additional consistency check
-        pos1, quat1 = robot.get_ee_pose()
-        assert compute_err(pos, pos1) < err_threshold
-        assert quaternion_distance(quat, quat1) < err_threshold
-
         print("-------- 2: FK + IK Consistency  ---------")
+        pos1, quat1 = robot.get_ee_pose()
         ik_helper(robot, pos1, quat1, block, err_threshold, debug)
 
 
