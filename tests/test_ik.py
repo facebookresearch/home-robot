@@ -2,16 +2,20 @@
 #
 # This source code is licensed under the MIT license found in the
 # LICENSE file in the root directory of this source tree.
+import os
 import pytest
+
 import numpy as np
 from home_robot.agent.motion.stretch import HelloStretch
 from home_robot.agent.motion.stretch import STRETCH_HOME_Q, STRETCH_GRASP_OFFSET
 from home_robot.utils.bullet import PbArticulatedObject
 from home_robot.utils.pose import to_matrix, to_pos_quat
+from home_robot.utils.path import REPO_ROOT_PATH
 
 
 def get_ik_solver(debug=False):
-    return HelloStretch(urdf_path="./assets/hab_stretch/urdf/", visualize=debug)
+    urdf_abs_path = os.path.join(REPO_ROOT_PATH, "assets/hab_stretch/urdf/")
+    return HelloStretch(urdf_path=urdf_abs_path, visualize=debug)
 
 
 def compute_err(pos1, pos2):
