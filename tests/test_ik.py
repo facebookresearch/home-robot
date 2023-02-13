@@ -73,7 +73,9 @@ def test_ik(debug=False, err_threshold=1e-4):
     """
     robot = get_ik_solver(debug)
     block = PbArticulatedObject(
-        "red_block", "./assets/red_block.urdf", client=robot.ref.client
+        "red_block",
+        os.path.join(REPO_ROOT_PATH, "assets/red_block.urdf"),
+        client=robot.ref.client,
     )
     robot.set_config(STRETCH_HOME_Q)
     test_poses = [
