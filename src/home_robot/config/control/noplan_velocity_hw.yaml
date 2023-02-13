@@ -1,0 +1,13 @@
+# Parameters of the trapezoidal velocity profile (acceleration & max speed)
+v_max: 0.2  # base.params["motion"]["default"]["vel_m"]
+w_max: 0.45  # (vel_m_max - vel_m_default) / wheel_separation_m
+acc_lin: 0.2  # 0.5 * base.params["motion"]["max"]["accel_m"]
+acc_ang: 0.6  # 0.5 * (accel_m_max - accel_m_default) / wheel_separation_m
+
+# Tolerances for determining whether the goal position or orientation is reached
+tol_lin: 0.1
+tol_ang: 0.2  # 5 degrees
+
+# Maximum angle error at which the controller would still exert linear motion
+max_heading_ang: 0.7854  # 45 degrees
+

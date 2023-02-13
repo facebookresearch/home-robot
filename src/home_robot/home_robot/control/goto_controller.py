@@ -10,6 +10,7 @@ import numpy as np
 import sophus as sp
 
 from home_robot.utils.geometry import xyt_global_to_base, sophus2xyt
+from home_robot.utils.config import get_control_config
 
 from .feedback.velocity_controllers import DDVelocityControlNoplan
 
@@ -25,12 +26,14 @@ class GotoVelocityController:
 
     def __init__(
         self,
-        hz: float,
+        cfg_name: Optional[str] = None,
     ):
-        self.hz = hz
+        if cfg_name is None:
+            cfg_name = "noplan_velocity_sim"
+        cfg = get_control_config(cfg_name)
 
         # Control module
-        self.control = DDVelocityControlNoplan(hz)
+        self.control = DDVelocityControlNoplan(cfg)
 
         # Initialize
         self.xyt_loc = np.zeros(3)

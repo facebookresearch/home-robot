@@ -36,12 +36,13 @@ class GotoVelocityControllerNode:
         self,
         hz: float,
         odom_only_feedback: bool = True,
+        config_name: str = "noplan_velocity_hw",
     ):
         self.hz = hz
         self.odom_only = odom_only_feedback
 
         # Control module
-        self.controller = GotoVelocityController(hz)
+        self.controller = GotoVelocityController(config_name)
 
         # Initialize
         self.xyt_goal: Optional[np.ndarray] = None

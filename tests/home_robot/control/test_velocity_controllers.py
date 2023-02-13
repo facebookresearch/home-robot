@@ -8,7 +8,6 @@ from home_robot.control.goto_controller import GotoVelocityController
 
 from utils import generate_controller_input, get_controller_output
 
-HZ = 20
 NUM_ENTRIES = 10
 DATASET_DIR = os.path.dirname(os.path.abspath(__file__))
 DATASET_FILE = "test_xyt_data.json"
@@ -16,7 +15,7 @@ DATASET_FILE = "test_xyt_data.json"
 
 @pytest.fixture
 def controller():
-    return GotoVelocityController(hz=HZ)
+    return GotoVelocityController()
 
 
 @pytest.fixture

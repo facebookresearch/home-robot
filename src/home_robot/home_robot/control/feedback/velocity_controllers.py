@@ -7,19 +7,6 @@ from typing import Tuple
 
 import numpy as np
 
-# Parameters of the trapezoidal velocity profile (acceleration & max speed)
-V_MAX = 0.2  # base.params["motion"]["default"]["vel_m"]
-W_MAX = 0.45  # (vel_m_max - vel_m_default) / wheel_separation_m
-ACC_LIN = 0.2  # 0.5 * base.params["motion"]["max"]["accel_m"]
-ACC_ANG = 0.6  # 0.5 * (accel_m_max - accel_m_default) / wheel_separation_m
-
-# Tolerances for determining whether the goal position or orientation is reached
-TOL_LIN = 0.1
-TOL_ANG = 0.2  # 5 degrees
-
-# Maximum angle error at which the controller would still exert linear motion
-MAX_HEADING_ANG = np.pi / 4
-
 
 class DiffDriveVelocityController(abc.ABC):
     """
@@ -37,11 +24,8 @@ class DDVelocityControlNoplan(DiffDriveVelocityController):
     Does not plan at all, instead uses heuristics to gravitate towards the goal.
     """
 
-    def __init__(self, hz):
-        self.v_max = V_MAX
-        self.w_max = W_MAX
-        self.lin_error_tol = TOL_LIN
-        self.ang_error_tol = TOL_ANG
+    def __init__(self, cfg: "DictConfig"):
+        self.cfg = cfg
 
     @staticmethod
     def _velocity_feedback_control(x_err, a, v_max):
@@ -53,8 +37,7 @@ class DDVelocityControlNoplan(DiffDriveVelocityController):
         v = min(a * t, v_max)
         return v * np.sign(x_err)
 
-    @staticmethod
-    def _turn_rate_limit(lin_err, heading_diff, w_max):
+    def _turn_rate_limit(self, lin_err, heading_diff, w_max):
         """
         Compute velocity limit that prevents path from overshooting goal
 
@@ -68,7 +51,7 @@ class DDVelocityControlNoplan(DiffDriveVelocityController):
         assert lin_err >= 0.0
         assert heading_diff >= 0.0
 
-        if heading_diff > MAX_HEADING_ANG:
+        if heading_diff > self.cfg.max_heading_ang:
             return 0.0
         else:
             return (
@@ -88,22 +71,28 @@ class DDVelocityControlNoplan(DiffDriveVelocityController):
         heading_err_abs = abs(heading_err)
 
         # Go to goal XY position if not there yet
-        if lin_err_abs > self.lin_error_tol:
+        if lin_err_abs > self.cfg.tol_lin:
             # Compute linear velocity -- move towards goal XY
-            v_raw = self._velocity_feedback_control(lin_err_abs, ACC_LIN, self.v_max)
+            v_raw = self._velocity_feedback_control(
+                lin_err_abs, self.cfg.acc_lin, self.cfg.v_max
+            )
             v_limit = self._turn_rate_limit(
                 lin_err_abs,
                 heading_err_abs,
-                self.w_max / 2.0,
+                self.cfg.w_max / 2.0,
             )
             v_cmd = np.clip(v_raw, 0.0, v_limit)
 
             # Compute angular velocity -- turn towards goal XY
-            w_cmd = self._velocity_feedback_control(heading_err, ACC_ANG, self.w_max)
+            w_cmd = self._velocity_feedback_control(
+                heading_err, self.cfg.acc_ang, self.cfg.w_max
+            )
 
         # Rotate to correct yaw if XY position is at goal
-        elif abs(ang_err) > self.ang_error_tol:
+        elif abs(ang_err) > self.cfg.tol_ang:
             # Compute angular velocity -- turn to goal orientation
-            w_cmd = self._velocity_feedback_control(ang_err, ACC_ANG, self.w_max)
+            w_cmd = self._velocity_feedback_control(
+                ang_err, self.cfg.acc_ang, self.cfg.w_max
+            )
 
         return v_cmd, w_cmd
