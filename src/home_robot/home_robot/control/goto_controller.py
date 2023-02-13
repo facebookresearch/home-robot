@@ -9,7 +9,7 @@ from typing import List, Optional
 import numpy as np
 import sophus as sp
 
-from home_robot.utils.geometry import xyt_global_to_base, sophus2xyt, xyt2sophus
+from home_robot.utils.geometry import xyt_global_to_base, sophus2xyt
 
 from .feedback.velocity_controllers import DDVelocityControlNoplan
 
@@ -26,17 +26,14 @@ class GotoVelocityController:
     def __init__(
         self,
         hz: float,
-        odom_only_feedback: bool = True,
     ):
         self.hz = hz
-        self.odom_only = odom_only_feedback
 
         # Control module
         self.control = DDVelocityControlNoplan(hz)
 
         # Initialize
         self.xyt_loc = np.zeros(3)
-        self.xyt_loc_odom = np.zeros(3)
         self.xyt_goal: Optional[np.ndarray] = None
 
         self.active = False
@@ -46,18 +43,7 @@ class GotoVelocityController:
         self.xyt_loc = sophus2xyt(pose)
 
     def update_goal(self, pose: sp.SE3):
-        """
-        if self.odom_only:
-            # Project absolute goal from current odometry reading
-            pose_delta = xyt2sophus(self.xyt_loc_odom).inverse() * pose
-            pose_goal = xyt2sophus(self.xyt_loc_odom) * pose_delta
-        else:
-            # Assign absolute goal directly
-            pose_goal = pose
-        """
-
-        pose_goal = pose
-        self.xyt_goal = sophus2xyt(pose_goal)
+        self.xyt_goal = sophus2xyt(pose)
 
     def set_yaw_tracking(self, value: bool):
         self.track_yaw = value
@@ -74,7 +60,7 @@ class GotoVelocityController:
 
         return xyt_err
 
-    def step(self):
+    def compute_control(self):
         # Get state estimation
         xyt_err = self._compute_error_pose()
 
