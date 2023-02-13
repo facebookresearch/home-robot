@@ -34,6 +34,21 @@ def ik_helper(robot, pos, quat, indicator_block, err_threshold, debug=False):
         input("press enter to continue")
 
 
+def test_controlled_joints():
+    # Create robot
+    robot = get_ik_solver()
+    # Get the pybullet backend object reference
+    ref = robot.ref
+    manip_ik_solver = robot.manip_ik_solver
+    full_body_ik_solver = robot.ik_solver
+    assert ref.get_num_controllable_joints() == full_body_ik_solver.get_num_controllable_joints()
+    assert (ref.get_num_controllable_joints() - 2) == manip_ik_solver.get_num_controllable_joints()
+    manip_mode_controlled_joints = np.array([0, 3, 4, 5, 6, 7, 8, 9, 10])
+    full_body_controlled_joints = np.array([0, 1, 2, 5, 6, 7, 8, 9, 10, 11, 12])
+    assert np.all(manip_mode_controlled_joints == manip_ik_solver.controlled_joints)
+    assert np.all(full_body_controlled_joints == full_body_ik_solver.controlled_joints)
+
+
 def test_ik(debug=False, err_threshold=1e-4):
     """
     Goal pos and rot: (array([-0.10281811, -0.7189281 ,  0.71703106], dtype=float32), array([-0.7079143 ,  0.12421559,  0.1409881 , -0.68084526]))
@@ -72,4 +87,5 @@ def test_ik(debug=False, err_threshold=1e-4):
 
 
 if __name__ == "__main__":
-    test_ik()
+    # test_ik()
+    test_controlled_joints()

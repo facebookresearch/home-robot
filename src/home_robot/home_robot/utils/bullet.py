@@ -122,6 +122,7 @@ class PbArticulatedObject(PbObject):
         self.num_joints = pb.getNumJoints(self.id, self.client)
         self.joint_infos = []
         self.controllable_joint_infos = []
+        self.controllable_joint_name_to_idx = {}
         for i in range(self.num_joints):
             self.joint_infos.append(
                 PbJointInfo(*pb.getJointInfo(self.id, i, self.client))
@@ -132,7 +133,14 @@ class PbArticulatedObject(PbObject):
             ].index
             info = self.joint_infos[-1]
             if info.type in [0, 1, 2]:
+                controllable_idx = len(self.controllable_joint_infos)
                 self.controllable_joint_infos.append(info)
+                # Create mapping to joint index
+                if isinstance(info.name, bytes):
+                    name = info.name.decode('ascii')
+                else:
+                    name = info.name
+                self.controllable_joint_name_to_idx[name] = controllable_idx
 
     def get_joint_info_by_name(self, name):
         for info in self.joint_infos:
@@ -161,6 +169,9 @@ class PbArticulatedObject(PbObject):
 
     def get_num_controllable_joints(self):
         return len(self.controllable_joint_infos)
+
+    def controllable_joints_to_indices(self, controlled_joints):
+        return [self.controllable_joint_name_to_idx[joint_name] for joint_name in controlled_joints]
 
     def set_joint_positions(self, positions, indices=None):
         dof = self.get_num_controllable_joints()
@@ -381,7 +392,7 @@ class PybulletIKSolver:
     """Create a wrapper for solving inverse kinematics using PyBullet"""
 
     def __init__(
-        self, urdf_path, ee_link_name, controlled_joints=None, visualize=False
+        self, urdf_path, ee_link_name, controlled_joints, visualize=False
     ):
         self.env = PbClient(visualize=visualize, is_simulation=False)
         self.robot = self.env.add_articulated_object("robot", urdf_path)
@@ -396,7 +407,8 @@ class PybulletIKSolver:
             )
 
         self.ee_idx = self.get_link_names().index(ee_link_name)
-        self.controlled_joints = np.array(controlled_joints, dtype=np.int32)
+        self.controlled_joints = self.robot.controllable_joints_to_indices(controlled_joints)
+        self.controlled_joints = np.array(self.controlled_joints, dtype=np.int32)
 
     def get_joint_names(self):
         return self.robot.get_joint_names()
