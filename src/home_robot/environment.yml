@@ -17,6 +17,7 @@ dependencies:
     - scikit-fmm
     - numpy-quaternion
     # data tools
+    - yacs
     - h5py
     - imageio
     - pygifsicle
