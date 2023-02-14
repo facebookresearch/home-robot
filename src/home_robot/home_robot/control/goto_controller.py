@@ -15,6 +15,8 @@ from .feedback.velocity_controllers import DDVelocityControlNoplan
 
 log = logging.getLogger(__name__)
 
+DEFAULT_CFG_NAME = "noplan_velocity_sim"
+
 
 def xyt_global_to_base(xyt_world2target, xyt_world2base):
     x_diff = xyt_world2target[0] - xyt_world2base[0]
@@ -38,11 +40,10 @@ class GotoVelocityController:
 
     def __init__(
         self,
-        cfg_name: Optional[str] = None,
+        cfg: Optional["DictConfig"] = None,
     ):
-        if cfg_name is None:
-            cfg_name = "noplan_velocity_sim"
-        cfg = get_control_config(cfg_name)
+        if cfg is None:
+            cfg = get_control_config(DEFAULT_CFG_NAME)
 
         # Control module
         self.control = DDVelocityControlNoplan(cfg)
