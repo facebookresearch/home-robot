@@ -7,15 +7,27 @@ import logging
 from typing import List, Optional
 
 import numpy as np
-import sophus as sp
 
-from home_robot.utils.geometry import xyt_global_to_base, sophus2xyt
 from home_robot.utils.config import get_control_config
 
 from .feedback.velocity_controllers import DDVelocityControlNoplan
 
 
 log = logging.getLogger(__name__)
+
+
+def xyt_global_to_base(xyt_world2target, xyt_world2base):
+    x_diff = xyt_world2target[0] - xyt_world2base[0]
+    y_diff = xyt_world2target[1] - xyt_world2base[1]
+    theta_diff = xyt_world2target[2] - xyt_world2base[2]
+    theta_base = xyt_world2base[2]
+
+    xyt_base2target = np.zeros(3)
+    xyt_base2target[0] = x_diff * np.cos(theta_base) + y_diff * np.sin(theta_base)
+    xyt_base2target[1] = x_diff * -np.sin(theta_base) + y_diff * np.cos(theta_base)
+    xyt_base2target[2] = theta_diff
+
+    return xyt_base2target
 
 
 class GotoVelocityController:
@@ -42,11 +54,11 @@ class GotoVelocityController:
         self.active = False
         self.track_yaw = True
 
-    def update_pose_feedback(self, pose):
-        self.xyt_loc = sophus2xyt(pose)
+    def update_pose_feedback(self, xyt_current: np.ndarray):
+        self.xyt_loc = xyt_current
 
-    def update_goal(self, pose: sp.SE3):
-        self.xyt_goal = sophus2xyt(pose)
+    def update_goal(self, xyt_goal: np.ndarray):
+        self.xyt_goal = xyt_goal
 
     def set_yaw_tracking(self, value: bool):
         self.track_yaw = value
