@@ -121,6 +121,8 @@ class PbArticulatedObject(PbObject):
         """get some joint info from pb for reproducing the robot"""
         self.num_joints = pb.getNumJoints(self.id, self.client)
         self.joint_infos = []
+        self.controllable_joint_infos = []
+        self.controllable_joint_name_to_idx = {}
         for i in range(self.num_joints):
             self.joint_infos.append(
                 PbJointInfo(*pb.getJointInfo(self.id, i, self.client))
@@ -129,6 +131,16 @@ class PbArticulatedObject(PbObject):
             self._link_idx[self.joint_infos[-1].link_name.decode()] = self.joint_infos[
                 -1
             ].index
+            info = self.joint_infos[-1]
+            if info.type in [0, 1, 2]:
+                controllable_idx = len(self.controllable_joint_infos)
+                self.controllable_joint_infos.append(info)
+                # Create mapping to joint index
+                if isinstance(info.name, bytes):
+                    name = info.name.decode("ascii")
+                else:
+                    name = info.name
+                self.controllable_joint_name_to_idx[name] = controllable_idx
 
     def get_joint_info_by_name(self, name):
         for info in self.joint_infos:
@@ -149,6 +161,30 @@ class PbArticulatedObject(PbObject):
             idx,
             targetValue=pos,
             targetVelocity=0.0,
+            physicsClientId=self.client,
+        )
+
+    def get_num_joints(self):
+        return pb.getNumJoints(self.id, self.client)
+
+    def get_num_controllable_joints(self):
+        return len(self.controllable_joint_infos)
+
+    def controllable_joints_to_indices(self, controlled_joints):
+        return [
+            self.controllable_joint_name_to_idx[joint_name]
+            for joint_name in controlled_joints
+        ]
+
+    def set_joint_positions(self, positions, indices=None):
+        dof = self.get_num_controllable_joints()
+        for i, q in zip(self.controllable_joint_infos, positions):
+            self.set_joint_position(i.index, q)
+
+    def get_joint_positions(self):
+        return pb.getJointState(
+            self.id,
+            jointIndices=np.arange(self.num_joints),
             physicsClientId=self.client,
         )
 
@@ -353,3 +389,76 @@ class PbClient(object):
     def add_ground_plane(self):
         pb.setAdditionalSearchPath(pybullet_data.getDataPath())
         self.plane_id = pb.loadURDF("plane.urdf")
+
+
+class PybulletIKSolver:
+    """Create a wrapper for solving inverse kinematics using PyBullet"""
+
+    def __init__(self, urdf_path, ee_link_name, controlled_joints, visualize=False):
+        self.env = PbClient(visualize=visualize, is_simulation=False)
+        self.robot = self.env.add_articulated_object("robot", urdf_path)
+        self.pc_id = self.env.id
+        self.robot_id = self.robot.id
+        self.visualize = visualize
+
+        # Debugging code, not very robust
+        if visualize:
+            self.debug_block = PbArticulatedObject(
+                "red_block", "./assets/red_block.urdf", client=self.env.id
+            )
+
+        self.ee_idx = self.get_link_names().index(ee_link_name)
+        self.controlled_joints = self.robot.controllable_joints_to_indices(
+            controlled_joints
+        )
+        self.controlled_joints = np.array(self.controlled_joints, dtype=np.int32)
+
+    def get_joint_names(self):
+        return self.robot.get_joint_names()
+
+    def get_link_names(self):
+        return self.robot.get_link_names()
+
+    def get_num_joints(self):
+        return self.robot.get_num_joints()
+
+    def get_num_controllable_joints(self):
+        return self.robot.get_num_controllable_joints()
+
+    def set_joint_positions(self, q_init):
+        q_full = np.zeros(self.get_num_controllable_joints())
+        q_full[self.controlled_joints] = q_init
+        self.robot.set_joint_positions(q_full)
+
+    def get_dof(self):
+        return len(self.controlled_joints)
+
+    def compute_ik(self, pos_desired, quat_desired, q_init):
+        # This version assumes that q_init is NOT in the right format yet
+        self.set_joint_positions(q_init)
+        if self.visualize:
+            self.debug_block.set_pose(pos_desired, quat_desired)
+            input("--- Press enter to solve ---")
+
+        q_full = np.array(
+            pb.calculateInverseKinematics(
+                self.robot_id,
+                self.ee_idx,
+                pos_desired,
+                quat_desired,
+                # maxNumIterations=1000,
+                # residualThreshold=1e-6,
+                physicsClientId=self.pc_id,
+            )
+        )
+        # In the ik format - controllable joints only
+        self.robot.set_joint_positions(q_full)
+        if self.visualize:
+            input("--- Solved. Press enter to finish ---")
+
+        if self.controlled_joints is not None:
+            q_out = q_full[self.controlled_joints]
+        else:
+            q_out = q_full
+
+        return q_out
