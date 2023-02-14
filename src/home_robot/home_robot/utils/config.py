@@ -1,7 +1,12 @@
 from typing import Tuple, Optional
+from pathlib import Path
 import json
 import yaml
 import yacs.config
+
+import hydra
+
+import home_robot
 
 
 class Config(yacs.config.CfgNode):
@@ -44,3 +49,16 @@ def get_config(path: str, opts: Optional[list] = None) -> Tuple[Config, str]:
     config_str = json.dumps(config_dict, indent=4)
 
     return config, config_str
+
+
+# New configuration system
+CONTROL_CONFIG_DIR = str(
+    Path(home_robot.__path__[0]).parent.resolve() / "config" / "control"
+)
+
+
+def get_control_config(cfg_name):
+    with hydra.initialize_config_dir(CONTROL_CONFIG_DIR):
+        cfg = hydra.compose(config_name=cfg_name)
+
+    return cfg

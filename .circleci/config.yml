@@ -7,6 +7,36 @@ gpu: &gpu
   environment:
     FPS_THRESHOLD: 900
 
+commands:
+  conda_env_setup:
+    steps:
+      - run:
+          name: Install conda and dependencies
+          no_output_timeout: 20m
+          command: |
+            if [ ! -d ~/miniconda ]
+            then
+              curl -o ~/miniconda.sh -O  https://repo.anaconda.com/miniconda/Miniconda3-latest-Linux-x86_64.sh
+              chmod +x ~/miniconda.sh
+              bash ~/miniconda.sh -b -p $HOME/miniconda
+              rm ~/miniconda.sh
+              export PATH=$HOME/miniconda/bin:/usr/local/cuda/bin:$PATH
+            fi
+            conda init bash
+      - run:
+          name: Install mamba
+          command: conda install -y -n base -c conda-forge mamba
+      - restore_cache:
+          key: deps1-{{ .Branch }}-{{ checksum "src/home_robot/environment.yml" }}
+      - run:
+          name: Setup env
+          command: |
+            [ -d ~/env_home_robot ] || mamba env create -f src/home_robot/environment.yml -p ~/env_home_robot
+      - save_cache:
+          key: deps1-{{ .Branch }}-{{ checksum "src/home_robot/environment.yml" }}
+          paths:
+            - "~/env_home_robot"
+
 jobs:
   formatting:
     working_directory: ~/home-robot
@@ -21,7 +51,36 @@ jobs:
             pip install black==22.3.0
             black --check .
 
-  integration-sim:
+  home_robot:
+    <<: *gpu
+    working_directory: ~/home-robot
+    steps:
+      - checkout
+      - run: 
+          name: Install system deps
+          command: |
+            sudo apt-get update || true
+            sudo apt-get install -y --no-install-recommends \
+                build-essential \
+                git \
+                curl \
+                vim \
+                ca-certificates \
+                unzip || true
+      - run:
+          name: Sync submodules
+          command: git submodule sync && git submodule update --init
+      - conda_env_setup
+      - run:
+          name: Install libraries and run tests
+          command: |
+            conda activate ~/env_home_robot
+            pip install -e src/home_robot
+            cd tests/home_robot
+            pytest .
+
+
+  home_robot_sim:
     <<: *gpu
     working_directory: ~/home-robot
     steps:
@@ -48,34 +107,9 @@ jobs:
                 libhdf5-dev \
                 unzip || true
       - run:
-          name: Install conda and dependencies
-          no_output_timeout: 20m
-          command: |
-            if [ ! -d ~/miniconda ]
-            then
-              curl -o ~/miniconda.sh -O  https://repo.anaconda.com/miniconda/Miniconda3-latest-Linux-x86_64.sh
-              chmod +x ~/miniconda.sh
-              bash ~/miniconda.sh -b -p $HOME/miniconda
-              rm ~/miniconda.sh
-              export PATH=$HOME/miniconda/bin:/usr/local/cuda/bin:$PATH
-            fi
-            conda init bash
-      - run:
-          name: Install mamba
-          command: conda install -y -n base -c conda-forge mamba
-      - run:
           name: Sync submodules
           command: git submodule sync && git submodule update --init
-      - restore_cache:
-          key: deps1-{{ .Branch }}-{{ checksum "src/home_robot/environment.yml" }}
-      - run:
-          name: Setup env
-          command: |
-            [ -d ~/env_home_robot ] || mamba env create -f src/home_robot/environment.yml -p ~/env_home_robot
-      - save_cache:
-          key: deps1-{{ .Branch }}-{{ checksum "src/home_robot/environment.yml" }}
-          paths:
-            - "~/env_home_robot"
+      - conda_env_setup
       - run:
           name: Install home-robot-sim dependencies & download data
           command: |
@@ -83,19 +117,20 @@ jobs:
             mamba env update -f src/home_robot_sim/environment.yml
             pip install -e src/third_party/habitat-lab
             python -m habitat_sim.utils.datasets_download --uids mp3d_example_scene --data-path data/
-            mkdir -p tests/data/scene_datasets/mp3d_example/mp3d
-            mv data/scene_datasets/mp3d_example/17DRP5sb8fy tests/data/scene_datasets/mp3d_example/mp3d
+            mkdir -p tests/home_robot_sim/data/scene_datasets/mp3d_example/mp3d
+            mv data/scene_datasets/mp3d_example/17DRP5sb8fy tests/home_robot_sim/data/scene_datasets/mp3d_example/mp3d
       - run:
           name: Install libraries and run tests
           command: |
             conda activate ~/env_home_robot
             pip install -e src/home_robot
             pip install -e src/home_robot_sim
-            cd tests
+            cd tests/home_robot_sim
             pytest .
 
 workflows:
   main:
     jobs:
       - formatting
-      - integration-sim
+      - home_robot
+      - home_robot_sim

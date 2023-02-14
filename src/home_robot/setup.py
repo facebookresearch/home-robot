@@ -4,7 +4,7 @@
 # LICENSE file in the root directory of this source tree.
 from setuptools import setup
 
-install_requires = ["numpy<1.24", "scipy", "sophuspy"]
+install_requires = ["numpy<1.24", "scipy", "sophuspy", "hydra-core"]
 
 setup(
     name="home-robot",

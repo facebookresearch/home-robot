@@ -14,12 +14,11 @@ from home_robot_sim.env.habitat_objectnav_env.habitat_objectnav_env import (
 
 sys.path.insert(
     0,
-    str(Path(__file__).resolve().parent.parent / "example/habitat_objectnav"),
+    str(Path(__file__).resolve().parent.parent.parent / "example/habitat_objectnav"),
 )
 
 CONFIG_DIR = str(Path(__file__).resolve().parent / "configs")
 TEST_NUM_STEPS = 3
-CONFIG_NAME = "floorplanner_eval_test"
 
 
 class DummyTestAgent(Agent):
