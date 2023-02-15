@@ -17,7 +17,7 @@ import home_robot.utils.visualization as viz
 from home_robot_hw.ros.utils import ros_pose_to_transform
 from home_robot_hw.ros.utils import matrix_to_pose_msg
 from geometry_msgs.msg import TransformStamped
-from home_robot_hw.env.stretch_abstract_env import StretchEnv
+from home_robot_hw.env.stretch_grasping_env import StretchGraspingEnv
 
 visualize_masks = False
 
