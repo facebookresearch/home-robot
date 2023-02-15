@@ -7,7 +7,7 @@ These assume a Hello Robot Stretch v2 on Ubuntu 20.04.
 
 ```
 # Make sure ROS can find python properly
-sudo apt install python-is-python3
+sudo apt install python-is-python3 pybind11-dev
 
 # Install SLAM dependency on the robot
 sudo apt install ros-noetic-hector-slam 
