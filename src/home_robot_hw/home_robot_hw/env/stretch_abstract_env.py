@@ -166,7 +166,7 @@ class StretchEnv(home_robot.core.abstract_env.Env):
 
     def get_base_pose(self):
         """get the latest base pose from sensors"""
-        return self._t_base_filtered
+        return sophus2xyt(self._t_base_filtered)
 
     def _js_callback(self, msg):
         """Read in current joint information from ROS topics and update state"""
@@ -347,7 +347,7 @@ class StretchEnv(home_robot.core.abstract_env.Env):
 
     def update(self):
         # Return a full state for the robot
-        pos, _ = self.get_base_pose()
+        pos = self.get_base_pose()
         if pos is not None:
             x, y, theta = pos
         else:
@@ -504,7 +504,6 @@ class StretchEnv(home_robot.core.abstract_env.Env):
 
         # Compute absolute goal
         if relative:
-            # xyt_base = sophus2xyt(self.get_base_pose())
             xyt_base = sophus2xyt(self._t_base_odom)
             xyt_goal = xyt_base_to_global(xyt, xyt_base)
             print("base =", xyt_base)
