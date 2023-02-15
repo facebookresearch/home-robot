@@ -665,7 +665,7 @@ class HelloStretch(Robot):
         """
         self.set_config(q)
         # Check robot height
-        if q[HelloStretchIdx.LIFT] >= 1.0:
+        if q[HelloStretchIdx.LIFT] >= 1.2:
             return False
         # Check links against obstacles
         for name, obj in self.backend.objects.items():
