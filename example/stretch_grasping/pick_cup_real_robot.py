@@ -34,6 +34,7 @@ def try_executing_grasp(rob, model, grasp, grasp_client) -> bool:
 
     # If can't plan to reach grasp, return
     qi = model.manip_ik(grasp_pose, q)
+    qi = model.update_gripper(qi, open=True)
     print("x motion =", qi[0])
     if qi is not None:
         model.set_config(qi)
@@ -69,34 +70,45 @@ def try_executing_grasp(rob, model, grasp, grasp_client) -> bool:
         grasp_client.broadcaster.sendTransform(t)
 
         # Go to the grasp and try it
+        # First we need to create and move to a decent pre-grasp pose
         q[HelloStretchIdx.LIFT] = 0.99
         rob.goto(q, move_base=False, wait=True, verbose=False)  # move arm to top
         # input('--> go high')
         q_pre = q.copy()
+        # NOTE: this gets the gripper in the right orientation before we start to move - nothing
+        # else should change except lift and arm!
         q_pre[5:] = q_standoff[5:]  # TODO: Add constants for joint indices
         q_pre = model.update_gripper(q_pre, open=True)
-        # rob.move_base(theta=q_standoff[2])  # TODO: Replace with navigate_to()
+        rob.move_base(theta=q_standoff[2])
         rospy.sleep(2.0)
         rob.goto(q_pre, move_base=False, wait=False, verbose=False)
+
+        # Move to standoff pose
         model.set_config(q_standoff)
-        # input('--> gripper ready; go to standoff')
+        print("Q =", q_standoff)
+        print(q_grasp != q_standoff)
+        input('--> gripper ready; go to standoff')
         q_standoff = model.update_gripper(q_standoff, open=True)
         rob.goto(q_standoff, move_base=False, wait=True, verbose=False)
-        # input('--> go to grasp')
-        # rob.move_base(theta=q_grasp[2])  # TODO: Replace with navigate_to()
-        rospy.sleep(2.0)
-        rob.goto(q_pre, move_base=False, wait=False, verbose=False)
+
+        # move down to grasp pose
         model.set_config(q_grasp)
-        q_grasp = model.update_gripper(q_grasp, open=True)
+        print("Q =", q_grasp)
+        print(q_grasp != q_standoff)
+        input('--> go to grasp')
         rob.goto(q_grasp, move_base=False, wait=True, verbose=True)
-        # input('--> close the gripper')
-        q_grasp = model.update_gripper(q_grasp, open=False)
-        rob.goto(q_grasp, move_base=False, wait=False, verbose=True)
+
+        # move down to close gripper
+        q_grasp_closed = model.update_gripper(q_grasp, open=False)
+        print("Q =", q_grasp_closed)
+        print(q_grasp != q_grasp_closed)
+        input('--> close the gripper')
+        rob.goto(q_grasp_closed, move_base=False, wait=False, verbose=True)
         rospy.sleep(2.0)
 
         # Move back to standoff pose
         q_standoff = model.update_gripper(q_standoff, open=False)
-        rob.goto(q, move_base=False, wait=True, verbose=False)
+        rob.goto(q_standoff, move_base=False, wait=True, verbose=False)
 
         # Move back to original pose
         q_pre = model.update_gripper(q_pre, open=False)
