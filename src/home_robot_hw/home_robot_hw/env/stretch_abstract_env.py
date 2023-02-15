@@ -100,6 +100,9 @@ class StretchEnv(home_robot.core.abstract_env.Env):
     theta_tol = 1e-3
     wait_time_step = 1e-3
 
+    base_link = "base_link"
+    odom_link = "map"
+
     def __init__(
         self,
         init_cameras=True,
