@@ -31,7 +31,8 @@ class StretchGraspingEnv(StretchEnv):
 
     def reset(self):
         # TODO Make this better
-        self.current_goal_name = self.goal_options[1]
+        self.current_goal_id = 1
+        self.current_goal_name = self.goal_options[self.current_goal_id]
 
     def apply_action(self, action: Action, info: Optional[Dict[str, Any]] = None):
         # TODO Determine what form the grasp action should take and move
