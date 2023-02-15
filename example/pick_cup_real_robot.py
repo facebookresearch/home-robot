@@ -104,7 +104,7 @@ def divergence_from_vertical_grasp(grasp):
 @click.option("--dry-run", default=False, is_flag=True)
 @click.option("--show-masks", default=False, is_flag=True)
 @click.option("--visualize-planner", default=False, is_flag=True)
-def main(dry_run, show_masks):
+def main(dry_run, show_masks, visualize_planner):
     # Create the robot
     print("--------------")
     print("Start example - hardware using ROS")
