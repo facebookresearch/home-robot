@@ -11,11 +11,11 @@ class StretchGraspingEnv(StretchEnv):
 
     def __init__(self, *args, **kwargs):
         # TODO Specify confidence threshold as a parameter
-        self.segmentation = DeticPerception(
-            vocabulary="custom",
-            custom_vocabulary=",".join(self.goal_options),
-            sem_gpu_id=0,
-        )
+        # self.segmentation = DeticPerception(
+        #     vocabulary="custom",
+        #     custom_vocabulary=",".join(self.goal_options),
+        #     sem_gpu_id=0,
+        # )
 
     def reset(self):
         pass
