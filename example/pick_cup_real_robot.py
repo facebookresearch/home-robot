@@ -7,7 +7,7 @@ import rospy
 import timeit
 import numpy as np
 
-from home_robot.agent.motion.stretch import STRETCH_PREGRASP_Q, HelloStretchIdx
+from home_robot.agent.motion.stretch import STRETCH_PREGRASP_Q, HelloStretchIdx, HelloStretch
 from home_robot.agent.perception.detectron2_segmentation import Detectron2Segmentation
 from home_robot.agent.perception.constants import coco_categories
 from home_robot_hw.ros.stretch_ros import HelloStretchROSInterface
@@ -21,11 +21,8 @@ from geometry_msgs.msg import TransformStamped
 visualize_masks = False
 
 
-def try_executing_grasp(rob, grasp, grasp_client) -> bool:
+def try_executing_grasp(rob, model, grasp, grasp_client) -> bool:
     """Try executing a grasp."""
-
-    # Get the kinematics model from the robot reference
-    model = rob.get_model()
 
     # Get our current joint states
     q, _ = rob.update()
@@ -36,11 +33,16 @@ def try_executing_grasp(rob, grasp, grasp_client) -> bool:
 
     # If can't plan to reach grasp, return
     qi = model.manip_ik(grasp_pose, q)
+    print("x motion =", qi[0])
     if qi is not None:
         model.set_config(qi)
     else:
         print(" --> ik failed")
         return False
+    # TODO: remove this when the base is moving again!!!
+    if np.abs(qi[0]) > 0.0025:
+        return False
+    input('press enter to move')
 
     # Standoff 8 cm above grasp position
     q_standoff = qi.copy()
@@ -121,7 +123,8 @@ def main(dry_run, show_masks, visualize_planner):
     rospy.init_node("hello_stretch_ros_test")
 
     print("Create ROS interface")
-    rob = HelloStretchROSInterface(visualize_planner=visualize_planner)
+    # TODO: Get rid of this, replace it with the environemnt from home_robot_hw
+    rob = HelloStretchROSInterface()
     rospy.sleep(0.5)  # Make sure we have time to get ROS messages
     q = rob.update()
 
@@ -137,10 +140,12 @@ def main(dry_run, show_masks, visualize_planner):
     )
 
     home_q = STRETCH_PREGRASP_Q
-    model = rob.get_model()
-    q = model.update_look_front(home_q.copy())
-    q = model.update_gripper(q, open=True)
-    rob.goto(q, move_base=False, wait=True)
+    # TODO: pass in visualize_planner flag here instead of up there
+    model = HelloStretch(visualize=visualize_planner)
+    home_q = model.update_look_front(home_q.copy())
+    home_q = model.update_gripper(home_q, open=True)
+    rob.goto(home_q, move_base=False, wait=True)
+    home_q = model.update_look_at_ee(home_q)
 
     # Example commands - navigation
     # Initial position
@@ -148,14 +153,12 @@ def main(dry_run, show_masks, visualize_planner):
     # Move to before the chair
     # rob.move_base([0.5, -0.5], np.pi/2)
 
-    q = model.update_look_at_ee(q)
-    print("look at ee")
-    rob.goto(q, wait=True)
-
     min_grasp_score = 0.0
     max_tries = 10
     min_obj_pts = 100
     for attempt in range(max_tries):
+        print("look at ee")
+        rob.goto(home_q, move_base=False, wait=True)
         rospy.sleep(1.0)
 
         t0 = timeit.default_timer()
@@ -218,7 +221,7 @@ def main(dry_run, show_masks, visualize_planner):
             theta_x, theta_y = divergence_from_vertical_grasp(grasp)
             print("with xy =", theta_x, theta_y)
             if not dry_run:
-                grasp_completed = try_executing_grasp(rob, grasp, grasp_client)
+                grasp_completed = try_executing_grasp(rob, model, grasp, grasp_client)
             else:
                 grasp_completed = False
             if grasp_completed:
