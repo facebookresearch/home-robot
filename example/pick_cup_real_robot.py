@@ -33,7 +33,6 @@ def try_executing_grasp(rob, grasp) -> bool:
 
     # If can't plan to reach grasp, return
     qi = model.manip_ik(grasp_pose, q)
-    breakpoint()
     if qi is not None:
         model.set_config(qi)
     else:
