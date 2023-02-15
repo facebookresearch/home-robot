@@ -55,7 +55,7 @@ class StretchGraspingEnv(StretchEnv):
             },
         )
         # Run the segmentation model here
-        obs = self.segmentation.predict(obs, depth_threshold=0.5)
+        obs = self.segmentation.predict(obs)
         obs.semantic[obs.semantic == 0] = len(self.goal_options) - 1
         obs.task_observations["goal_mask"] = obs.semantic == self.current_goal_id
         return obs
