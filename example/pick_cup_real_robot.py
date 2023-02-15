@@ -103,6 +103,7 @@ def divergence_from_vertical_grasp(grasp):
 @click.command()
 @click.option("--dry-run", default=False, is_flag=True)
 @click.option("--show-masks", default=False, is_flag=True)
+@click.option("--visualize-planner", default=False, is_flag=True)
 def main(dry_run, show_masks):
     # Create the robot
     print("--------------")
@@ -110,7 +111,7 @@ def main(dry_run, show_masks):
     rospy.init_node("hello_stretch_ros_test")
 
     print("Create ROS interface")
-    rob = HelloStretchROSInterface(visualize_planner=True)
+    rob = HelloStretchROSInterface(visualize_planner=visualize_planner)
     rospy.sleep(0.5)  # Make sure we have time to get ROS messages
     q = rob.update()
 
