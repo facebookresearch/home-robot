@@ -12,6 +12,7 @@ import threading
 import timeit
 import time
 import ros_numpy
+import trimesh.transformations as tra
 
 # Import ROS messages and tools
 from control_msgs.msg import FollowJointTrajectoryAction

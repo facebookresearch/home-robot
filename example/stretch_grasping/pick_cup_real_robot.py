@@ -164,7 +164,7 @@ def main(dry_run, show_masks, visualize_planner):
         rospy.sleep(1.0)
 
         t0 = timeit.default_timer()
-        rgb, depth, xyz = rob.get_images()
+        rgb, depth, xyz = rob.get_images(compute_xyz=True)
         camera_pose = rob.get_pose(rgb_cam.get_frame())
         print("getting images + cam pose took", timeit.default_timer() - t0, "seconds")
         semantics, semantics_vis = segmentation_model.get_prediction(
