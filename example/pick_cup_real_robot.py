@@ -14,11 +14,14 @@ from home_robot_hw.ros.stretch_ros import HelloStretchROSInterface
 from home_robot_hw.ros.grasp_helper import GraspClient as RosGraspClient
 from home_robot.utils.pose import to_pos_quat
 import home_robot.utils.visualization as viz
+from home_robot_hw.ros.utils import ros_pose_to_transform
+from home_robot_hw.ros.utils import matrix_to_pose_msg
+from geometry_msgs.msg import TransformStamped
 
 visualize_masks = False
 
 
-def try_executing_grasp(rob, grasp) -> bool:
+def try_executing_grasp(rob, grasp, grasp_client) -> bool:
     """Try executing a grasp."""
 
     # Get the kinematics model from the robot reference
@@ -53,6 +56,14 @@ def try_executing_grasp(rob, grasp) -> bool:
             print("invalid standoff config:", q_standoff)
             return False
         print("found standoff")
+
+        # Visualize the grasp and standoff in RViz
+        t = TransformStamped()
+        t.header.stamp = rospy.Time.now()
+        t.child_frame_id = id
+        t.header.frame_id = "map"
+        t.transform = ros_pose_to_transform(matrix_to_pose_msg(grasp))
+        grasp_client.broadcaster.sendTransform(t)
 
         # Go to the grasp and try it
         q[HelloStretchIdx.LIFT] = 0.99
@@ -207,7 +218,7 @@ def main(dry_run, show_masks, visualize_planner):
             theta_x, theta_y = divergence_from_vertical_grasp(grasp)
             print("with xy =", theta_x, theta_y)
             if not dry_run:
-                grasp_completed = try_executing_grasp(rob, grasp)
+                grasp_completed = try_executing_grasp(rob, grasp, grasp_client)
             else:
                 grasp_completed = False
             if grasp_completed:
