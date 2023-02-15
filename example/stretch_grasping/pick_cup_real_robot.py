@@ -17,6 +17,7 @@ import home_robot.utils.visualization as viz
 from home_robot_hw.ros.utils import ros_pose_to_transform
 from home_robot_hw.ros.utils import matrix_to_pose_msg
 from geometry_msgs.msg import TransformStamped
+from home_robot_hw.env.stretch_abstract_env import StretchEnv
 
 visualize_masks = False
 
@@ -124,7 +125,7 @@ def main(dry_run, show_masks, visualize_planner):
 
     print("Create ROS interface")
     # TODO: Get rid of this, replace it with the environemnt from home_robot_hw
-    rob = HelloStretchROSInterface()
+    rob = StretchEnv()
     rospy.sleep(0.5)  # Make sure we have time to get ROS messages
     q = rob.update()
 
@@ -135,13 +136,14 @@ def main(dry_run, show_masks, visualize_planner):
 
     # Create a grasping client using ROS
     grasp_client = RosGraspClient()
+
     segmentation_model = Detectron2Segmentation(
         sem_pred_prob_thr=0.9, sem_gpu_id=-1, visualize=True
     )
 
-    home_q = STRETCH_PREGRASP_Q
-    # TODO: pass in visualize_planner flag here instead of up there
     model = HelloStretch(visualize=visualize_planner)
+
+    home_q = STRETCH_PREGRASP_Q
     home_q = model.update_look_front(home_q.copy())
     home_q = model.update_gripper(home_q, open=True)
     rob.goto(home_q, move_base=False, wait=True)
