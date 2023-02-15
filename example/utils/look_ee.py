@@ -7,7 +7,7 @@ import timeit
 import numpy as np
 
 from home_robot_hw.ros.stretch_ros import HelloStretchROSInterface
-from home_robot.agent.motion.robot import STRETCH_HOME_Q, HelloStretchIdx
+from home_robot.agent.motion.stretch import STRETCH_HOME_Q, HelloStretchIdx
 
 
 if __name__ == "__main__":
