@@ -10,7 +10,7 @@ class StretchGraspingEnv(StretchEnv):
     """Create a Detic-based grasping environment"""
 
     def __init__(self, *args, **kwargs):
-        pass
+        super().__init__(*args, **kwargs)
         # TODO Specify confidence threshold as a parameter
         # self.segmentation = DeticPerception(
         #     vocabulary="custom",
