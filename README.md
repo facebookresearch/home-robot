@@ -19,7 +19,7 @@ This project contains numerous packages. See individual package docs for corresp
 ### Getting Started on the Hello Stretch
 
 1. SSH into the onboard computer on the Hello Stretch.
-1. Install [home_robot_hw](src/home_robot_hw).
+1. Install [home_robot_hw](src/home_robot_hw/install.md).
 1. Install [home_robot](src/home_robot).
 1. Launch the ROS hardware stack:
     ```sh
