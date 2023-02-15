@@ -79,7 +79,7 @@ def try_executing_grasp(rob, model, grasp, grasp_client) -> bool:
         # else should change except lift and arm!
         q_pre[5:] = q_standoff[5:]  # TODO: Add constants for joint indices
         q_pre = model.update_gripper(q_pre, open=True)
-        rob.move_base(theta=q_standoff[2])
+        # rob.move_base(theta=q_standoff[2])  # TODO Replace this
         rospy.sleep(2.0)
         rob.goto(q_pre, move_base=False, wait=False, verbose=False)
 
