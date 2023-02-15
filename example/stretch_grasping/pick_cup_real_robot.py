@@ -75,7 +75,7 @@ def try_executing_grasp(rob, model, grasp, grasp_client) -> bool:
         q_pre = q.copy()
         q_pre[5:] = q_standoff[5:]  # TODO: Add constants for joint indices
         q_pre = model.update_gripper(q_pre, open=True)
-        rob.move_base(theta=q_standoff[2])
+        # rob.move_base(theta=q_standoff[2])  # TODO: Replace with navigate_to()
         rospy.sleep(2.0)
         rob.goto(q_pre, move_base=False, wait=False, verbose=False)
         model.set_config(q_standoff)
@@ -83,7 +83,7 @@ def try_executing_grasp(rob, model, grasp, grasp_client) -> bool:
         q_standoff = model.update_gripper(q_standoff, open=True)
         rob.goto(q_standoff, move_base=False, wait=True, verbose=False)
         # input('--> go to grasp')
-        rob.move_base(theta=q_grasp[2])
+        # rob.move_base(theta=q_grasp[2])  # TODO: Replace with navigate_to()
         rospy.sleep(2.0)
         rob.goto(q_pre, move_base=False, wait=False, verbose=False)
         model.set_config(q_grasp)
