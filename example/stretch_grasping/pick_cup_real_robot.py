@@ -138,6 +138,7 @@ def main(dry_run, show_masks, visualize_planner):
     print("Create ROS interface")
     # TODO: Get rid of this, replace it with the environemnt from home_robot_hw
     rob = StretchGraspingEnv()
+    rob.reset()
     rospy.sleep(0.5)  # Make sure we have time to get ROS messages
     q = rob.update()
 
