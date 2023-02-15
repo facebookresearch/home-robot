@@ -149,6 +149,7 @@ def main(dry_run, show_masks, visualize_planner):
     # Create a grasping client using ROS
     grasp_client = RosGraspClient()
 
+    # TODO Replace this by Detic and move it to env
     segmentation_model = Detectron2Segmentation(
         sem_pred_prob_thr=0.9, sem_gpu_id=-1, visualize=True
     )
