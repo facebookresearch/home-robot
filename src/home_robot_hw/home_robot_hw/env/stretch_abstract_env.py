@@ -33,7 +33,7 @@ from home_robot.utils.geometry import (
 
 from home_robot.core.interfaces import Action, Observations
 from home_robot.core.state import ManipulatorBaseParams
-from home_robot.agent.motion.robot import HelloStretchIdx
+from home_robot.agent.motion.stretch import HelloStretchIdx
 from home_robot_hw.ros.camera import RosCamera
 from home_robot_hw.constants import (
     ROS_ARM_JOINTS,
