@@ -49,7 +49,7 @@
 	<include file="$(find home_robot)/launch/visualization.launch" if="$(arg rviz)" />
 
 	<!-- launch the main mapping node -->
-	<include file="$(find home_robot)/launch/stretch_hector_mapping.launch">
+	<include file="$(find home_robot_hw)/launch/stretch_hector_mapping.launch">
 		<arg name="pub_map_odom_transform" value="true"/>
 	</include>
 
@@ -63,7 +63,7 @@
 		<arg name="teleop_type" value="keyboard"/>
 	</include>
 
-	<include file="$(find home_robot)/launch/controller.launch" if="$(arg start_joy_node)"/>
-	<include file="$(find home_robot)/launch/home_robot_nodes.launch"/>
+	<include file="$(find home_robot_hw)/launch/controller.launch" if="$(arg start_joy_node)"/>
+	<include file="$(find home_robot_hw)/launch/home_robot_nodes.launch"/>
 
 </launch>
