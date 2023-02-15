@@ -46,7 +46,7 @@
 		<!-- -->
 
 	<!-- Rviz visualization -->
-	<include file="$(find home_robot)/launch/visualization.launch" if="$(arg rviz)" />
+	<include file="$(find home_robot_hw)/launch/visualization.launch" if="$(arg rviz)" />
 
 	<!-- launch the main mapping node -->
 	<include file="$(find home_robot_hw)/launch/stretch_hector_mapping.launch">

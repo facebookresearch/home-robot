@@ -33,9 +33,9 @@ from home_robot.utils.geometry import (
     xyt_base_to_global,
     posquat2sophus,
 )
-from home_robot.hw.ros.path import get_package_path
-from home_robot.hw.ros.utils import matrix_from_pose_msg, matrix_to_pose_msg
 from home_robot.agent.motion.ik import PybulletIKSolver
+from home_robot_hw.ros.path import get_package_path
+from home_robot_hw.ros.utils import matrix_from_pose_msg, matrix_to_pose_msg
 
 # IK solver configuration
 PKG_PATH = os.path.dirname(home_robot.__file__)
