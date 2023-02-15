@@ -361,6 +361,100 @@ class StretchEnv(home_robot.core.abstract_env.Env):
         pos[:3] = np.array([x, y, theta])
         return pos, vel
 
+    def move_base(self, pos=None, theta=None, verbose=True, pos_tol=0.075, wait_t=1.0):
+        # multi-step action. first rotate...
+        # pos = (x, y) theta
+        pos_reached = False
+        q0 = None
+        while not rospy.is_shutdown():
+            # loop - update the pose we think we are in
+            q0, _ = self.update()
+            q1 = q0.copy()
+            if pos is None:
+                dist = 0
+            else:
+                dist = np.linalg.norm(q0[:2] - pos)
+            if dist > pos_tol and not pos_reached:
+                q1[:2] = pos
+            else:
+                # In order to stop us from getting caught in an i
+                pos_reached = True
+            # Try to get to the final position
+            print("Distance to goal:", dist)
+            print("Theta goal =", theta, "curr =", q0[2])
+            if theta is not None:
+                q1[2] = theta
+            plan = self._get_linear_plan(q0, q1)
+            if len(plan) < 1:
+                break
+            else:
+                for i, action in enumerate(plan):
+                    # print(action)
+                    print(i, "move:", action[0], "rotate:", action[2])
+                    if np.abs(action[0]) > 0.05 and not pos_reached:
+                        if verbose:
+                            print(i, "move x", action[0])
+                        self.goto_x(action[0])
+                        break
+                    elif np.abs(action[2]) > 0.02:
+                        if verbose:
+                            print(i, "move theta", action[2])
+                        self.goto_theta(action[2])
+                        break
+                    else:
+                        # we're close enough the actions are tiny
+                        if verbose:
+                            print(i, "actions are tiny")
+                else:
+                    if verbose:
+                        print("no remaining actions worth doing")
+                    break
+                rospy.sleep(wait_t)
+        return q0
+    
+    def _get_linear_plan(self, q0, qg, max_plan_length=10):
+        plan = []
+        for q, a in self.model.interpolate(q0, qg):
+            plan.append(a)
+            # print("Q", q)
+            # print("a", a)
+        return plan
+
+    def goto_x(self, x, wait=False, verbose=True):
+        trajectory_goal = FollowJointTrajectoryGoal()
+        trajectory_goal.goal_time_tolerance = rospy.Time(1.0)
+        trajectory_goal.trajectory.joint_names = [
+            "translate_mobile_base",
+        ]
+        msg = JointTrajectoryPoint()
+        msg.positions = [x]
+        trajectory_goal.trajectory.points = [msg]
+        trajectory_goal.trajectory.header.stamp = rospy.Time.now()
+        self.trajectory_client.send_goal(trajectory_goal)
+        if wait:
+            #  Waiting for result seems to hang
+            self.trajectory_client.wait_for_result()
+            # self.wait(q, max_wait_t, True, verbose)
+            print("-- TODO: wait for xy")
+        return True
+
+    def goto_theta(self, theta, wait=False, verbose=True):
+        trajectory_goal = FollowJointTrajectoryGoal()
+        trajectory_goal.goal_time_tolerance = rospy.Time(1.0)
+        trajectory_goal.trajectory.joint_names = [
+            "rotate_mobile_base",
+        ]
+        msg = JointTrajectoryPoint()
+        msg.positions = [theta]
+        trajectory_goal.trajectory.points = [msg]
+        trajectory_goal.trajectory.header.stamp = rospy.Time.now()
+        self.trajectory_client.send_goal(trajectory_goal)
+        if wait:
+            self.trajectory_client.wait_for_result()
+            # self.wait(q, max_wait_t, True, verbose)
+            print("-- TODO: wait for theta")
+        return True
+
     def pretty_print(self, q):
         print("-" * 20)
         print("lift:      ", q[LIFT_IDX])
