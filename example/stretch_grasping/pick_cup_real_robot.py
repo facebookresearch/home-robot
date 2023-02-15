@@ -19,7 +19,7 @@ from home_robot_hw.ros.utils import matrix_to_pose_msg
 from geometry_msgs.msg import TransformStamped
 from home_robot_hw.env.stretch_grasping_env import StretchGraspingEnv
 
-visualize_masks = False
+visualize_masks = True
 
 
 def try_executing_grasp(rob, model, grasp, grasp_client) -> bool:
