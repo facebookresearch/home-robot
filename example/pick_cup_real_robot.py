@@ -57,10 +57,10 @@ def try_executing_grasp(rob, grasp, grasp_client) -> bool:
             return False
         print("found standoff")
 
-        # Visualize the grasp and standoff in RViz
+        # Visualize the grasp in RViz
         t = TransformStamped()
         t.header.stamp = rospy.Time.now()
-        t.child_frame_id = id
+        t.child_frame_id = "predicted_grasp"
         t.header.frame_id = "map"
         t.transform = ros_pose_to_transform(matrix_to_pose_msg(grasp))
         grasp_client.broadcaster.sendTransform(t)
