@@ -149,11 +149,6 @@ def main(dry_run, show_masks, visualize_planner):
     # Create a grasping client using ROS
     grasp_client = RosGraspClient()
 
-    # TODO Replace this by Detic and move it to env
-    segmentation_model = Detectron2Segmentation(
-        sem_pred_prob_thr=0.9, sem_gpu_id=-1, visualize=True
-    )
-
     model = HelloStretch(visualize=visualize_planner)
 
     home_q = STRETCH_PREGRASP_Q
@@ -177,13 +172,12 @@ def main(dry_run, show_masks, visualize_planner):
         rospy.sleep(1.0)
 
         t0 = timeit.default_timer()
-        rgb, depth, xyz = rob.get_images(compute_xyz=True)
+        obs = rob.get_observation()
+        rgb, depth, xyz = obs.rgb, obs.depth, obs.xyz
         camera_pose = rob.get_pose(rgb_cam.get_frame())
         print("getting images + cam pose took", timeit.default_timer() - t0, "seconds")
-        semantics, semantics_vis = segmentation_model.get_prediction(
-            np.expand_dims(rgb[:, :, ::-1], 0), np.expand_dims(depth, 0)
-        )
-        cup_mask = semantics[0, :, :, coco_categories["cup"]]
+
+        cup_mask = obs.task_observations["goal_mask"]
 
         if visualize_masks:
             viz.show_image_with_mask(rgb, cup_mask)

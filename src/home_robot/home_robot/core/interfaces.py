@@ -48,6 +48,7 @@ class Observations:
     # Camera
     rgb: np.ndarray  # (camera_height, camera_width, 3) in [0, 255]
     depth: np.ndarray  # (camera_height, camera_width) in meters
+    xyz: Optional[np.ndarray] = None # (camera_height, camera_width, 3) in camera coordinates
     semantic: Optional[
         np.array
     ] = None  # (camera_height, camera_width) in [0, num_sem_categories - 1]
