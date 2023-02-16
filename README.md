@@ -101,19 +101,15 @@ conda activate contact_graspnet_env
 
 ## Code Contribution
 
-We enforce linters for our code. The `formatting` test will not pass if your code does not conform.
+We enforce linters for our code. The `lint` test will not pass if your code does not conform.
 
-To make this easy for yourself, you can either
-- Add the formattings to your IDE
-- Install the git [pre-commit](https://pre-commit.com/) hooks by running
-    ```bash
-    pip install pre-commit
-    pre-commit install
-    ```
+Install the git [pre-commit](https://pre-commit.com/) hooks by running
+  ```bash
+  pip install pre-commit
+  pre-commit install
+  ```
 
-To enforce this in VSCode, install [black](https://github.com/psf/black), [set your Python formatter to black](https://code.visualstudio.com/docs/python/editing#_formatting) and [set Format On Save to true](https://code.visualstudio.com/updates/v1_6#_format-on-save).
-
-To format manually, run: `black .`
+To format manually, run: `pre-commit run --show-diff-on-failure --all-files`
 
 ## License
 Home Robot is MIT licensed. See the [LICENSE](./LICENSE) for details.
