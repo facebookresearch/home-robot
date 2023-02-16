@@ -47,7 +47,7 @@ class StretchGraspingEnv(StretchEnv):
             rgb=rgb.copy(),
             depth=depth.copy(),
             xyz=xyz.copy(),
-            gps=np.zeros(2),      # TODO Replace
+            gps=np.zeros(2),  # TODO Replace
             compass=np.zeros(1),  # TODO Replace
             task_observations={
                 "goal_id": self.current_goal_id,

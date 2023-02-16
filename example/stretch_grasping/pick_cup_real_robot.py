@@ -7,7 +7,11 @@ import rospy
 import timeit
 import numpy as np
 
-from home_robot.agent.motion.stretch import STRETCH_PREGRASP_Q, HelloStretchIdx, HelloStretch
+from home_robot.agent.motion.stretch import (
+    STRETCH_PREGRASP_Q,
+    HelloStretchIdx,
+    HelloStretch,
+)
 from home_robot.agent.perception.detectron2_segmentation import Detectron2Segmentation
 from home_robot.agent.perception.constants import coco_categories
 from home_robot_hw.ros.stretch_ros import HelloStretchROSInterface
@@ -44,7 +48,7 @@ def try_executing_grasp(rob, model, grasp, grasp_client) -> bool:
     # TODO: remove this when the base is moving again!!!
     if np.abs(qi[0]) > 0.0025:
         return False
-    input('press enter to move')
+    input("press enter to move")
 
     # Standoff 8 cm above grasp position
     q_standoff = qi.copy()
@@ -87,7 +91,7 @@ def try_executing_grasp(rob, model, grasp, grasp_client) -> bool:
         model.set_config(q_standoff)
         print("Q =", q_standoff)
         print(q_grasp != q_standoff)
-        input('--> gripper ready; go to standoff')
+        input("--> gripper ready; go to standoff")
         q_standoff = model.update_gripper(q_standoff, open=True)
         rob.goto(q_standoff, move_base=False, wait=True, verbose=False)
 
@@ -95,14 +99,14 @@ def try_executing_grasp(rob, model, grasp, grasp_client) -> bool:
         model.set_config(q_grasp)
         print("Q =", q_grasp)
         print(q_grasp != q_standoff)
-        input('--> go to grasp')
+        input("--> go to grasp")
         rob.goto(q_grasp, move_base=False, wait=True, verbose=True)
 
         # move down to close gripper
         q_grasp_closed = model.update_gripper(q_grasp, open=False)
         print("Q =", q_grasp_closed)
         print(q_grasp != q_grasp_closed)
-        input('--> close the gripper')
+        input("--> close the gripper")
         rob.goto(q_grasp_closed, move_base=False, wait=False, verbose=True)
         rospy.sleep(2.0)
 
