@@ -47,10 +47,8 @@ jobs:
       - checkout
       - run:
           name: Running precommit checks
-          working_directory: ~/project
           command: |
             pip install pre-commit
-            pip install -e ".[dev]"
             pre-commit install-hooks
             pre-commit run --all-files
 
@@ -134,6 +132,6 @@ jobs:
 workflows:
   main:
     jobs:
-      - formatting
+      - lint
       - home_robot
       - home_robot_sim
