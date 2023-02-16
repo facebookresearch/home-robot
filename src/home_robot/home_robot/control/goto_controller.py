@@ -75,7 +75,7 @@ class GotoVelocityController:
 
     def update_goal(self, xyt_goal: np.ndarray, relative: bool = False):
         if relative:
-            self.xyt_goal = xyt_base_to_global(self.xyt_goal, self.xyt_loc)
+            self.xyt_goal = xyt_base_to_global(xyt_goal, self.xyt_loc)
         else:
             self.xyt_goal = xyt_goal
 
