@@ -19,7 +19,7 @@ sudo apt install ros-noetic-hector-slam
 # Set up the python package for ROS
 ln -s $HOME_ROBOT_ROOT/src/home_robot_hw $HOME/catkin_ws/src/home_robot_hw
 
-# Rebuild ROS to make sure paths are correc5
+# Rebuild ROS to make sure paths are correct
 cd $HOME/catkin_ws
 catkin_make
 ```
