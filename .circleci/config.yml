@@ -38,7 +38,7 @@ commands:
             - "~/env_home_robot"
 
 jobs:
-  precommit_lint:
+  lint:
     working_directory: ~/home-robot
     resource_class: small
     docker:

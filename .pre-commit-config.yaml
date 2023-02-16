@@ -8,17 +8,17 @@ repos:
     rev: 3.9.2
     hooks:
       - id: flake8
-        exclude: examples/
+        exclude: projects/ | src/home_robot/home_robot/experimental
 
   - repo: https://github.com/pre-commit/mirrors-mypy
     rev: v0.981
     hooks:
       - id: mypy
         args: [--no-strict-optional, --ignore-missing-imports]
-        exclude: examples/
+        exclude: projects/ | src/home_robot/home_robot/experimental
 
   - repo: https://github.com/pycqa/isort
     rev: 5.11.5
     hooks:
       - id: isort
-        exclude: examples/
+        exclude: projects/ | src/home_robot/home_robot/experimental
