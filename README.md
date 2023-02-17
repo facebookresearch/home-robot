@@ -98,6 +98,14 @@ conda activate contact_graspnet_env
 
 - `ImportError: cannot import name 'gcd' from 'fractions'`: Launch ros nodes from an env with Python 3.8 instead of 3.9
 
+### Syncing code between Robot and Server
+
+Let `ROBOT_IP` store the robot's IP and let `SERVER_IP` store the server's IP. If your local network doesn't have access to internet we recommend using `rsync` with `--update` flag to sync your code changes across the machines. Usage:
+```
+rsync -rvu /abs/path/to/local/home-robot $ROBOT_USER@$ROBOT_IP:/abs/path/to/remote/home-robot
+```
+
+The above command will do a *r*ecursive *u*pdating of changed files while echoing a *v*erbose output.
 
 ## Code Contribution
 
