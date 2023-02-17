@@ -16,6 +16,7 @@ from geometry_msgs.msg import Twist, Pose, PoseStamped
 from nav_msgs.msg import Odometry
 
 from home_robot.control.goto_controller import GotoVelocityController
+from home_robot.utils.config import get_control_config
 from home_robot.utils.geometry import xyt_global_to_base, sophus2xyt, xyt2sophus
 from home_robot_hw.ros.utils import matrix_from_pose_msg
 from home_robot_hw.ros.visualizer import Visualizer
@@ -42,7 +43,8 @@ class GotoVelocityControllerNode:
         self.odom_only = odom_only_feedback
 
         # Control module
-        self.controller = GotoVelocityController(config_name)
+        controller_cfg = get_control_config(config_name)
+        self.controller = GotoVelocityController(controller_cfg)
 
         # Initialize
         self.xyt_goal: Optional[np.ndarray] = None

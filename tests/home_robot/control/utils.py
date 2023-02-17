@@ -1,7 +1,5 @@
 import numpy as np
 
-from home_robot.utils.geometry import xyt2sophus
-
 np.random.seed(0)
 
 
@@ -17,8 +15,8 @@ def get_controller_output(controller, input):
     yaw_on, loc_rand, is_new_goal, goal_rand = input
 
     controller.set_yaw_tracking(yaw_on)
-    controller.update_pose_feedback(xyt2sophus(loc_rand))
+    controller.update_pose_feedback(loc_rand)
     if is_new_goal:
-        controller.update_goal(xyt2sophus(goal_rand))
+        controller.update_goal(goal_rand)
 
     return controller.compute_control()
