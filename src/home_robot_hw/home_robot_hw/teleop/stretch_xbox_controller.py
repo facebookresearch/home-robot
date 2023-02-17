@@ -2,22 +2,24 @@
 #
 # This source code is licensed under the MIT license found in the
 # LICENSE file in the root directory of this source tree.
-import rospy
-import time
-import numpy as np
 import os
+import time
+
+import numpy as np
+import rospy
 from sensor_msgs.msg import JointState, Joy
+
+from home_robot.agent.motion.robot import HelloStretch
+from home_robot_hw.ros.path import get_package_path
+from home_robot_hw.ros.recorder import Recorder, pngs_to_mp4
+from home_robot_hw.ros.stretch_ros import HelloStretchROSInterface
 from home_robot_hw.teleop.stretch_xbox_controller_teleop import (
-    manage_lift_arm,
     manage_base,
     manage_end_of_arm,
     manage_head,
+    manage_lift_arm,
     set_use_dex_wrist_mapping,
 )
-from home_robot_hw.ros.stretch_ros import HelloStretchROSInterface
-from home_robot_hw.ros.recorder import Recorder, pngs_to_mp4
-from home_robot_hw.ros.path import get_package_path
-from home_robot.agent.motion.robot import HelloStretch
 
 
 class StretchXboxController(object):

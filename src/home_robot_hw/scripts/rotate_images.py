@@ -5,13 +5,11 @@
 # This source code is licensed under the MIT license found in the
 # LICENSE file in the root directory of this source tree.
 
-import rospy
 import numpy as np
-
+import rospy
 from sensor_msgs.msg import Image
 
 from home_robot_hw.ros.msg_numpy import image_to_numpy, numpy_to_image
-
 
 pub_color = None
 pub_rotated_color = None

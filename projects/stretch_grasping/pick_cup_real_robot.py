@@ -7,22 +7,21 @@ import timeit
 import click
 import numpy as np
 import rospy
+from geometry_msgs.msg import TransformStamped
 
+import home_robot.utils.visualization as viz
 from home_robot.agent.motion.stretch import (
     STRETCH_PREGRASP_Q,
-    HelloStretchIdx,
     HelloStretch,
+    HelloStretchIdx,
 )
-from home_robot.agent.perception.detectron2_segmentation import Detectron2Segmentation
 from home_robot.agent.perception.constants import coco_categories
-from home_robot_hw.ros.stretch_ros import HelloStretchROSInterface
-from home_robot_hw.ros.grasp_helper import GraspClient as RosGraspClient
+from home_robot.agent.perception.detectron2_segmentation import Detectron2Segmentation
 from home_robot.utils.pose import to_pos_quat
-import home_robot.utils.visualization as viz
-from home_robot_hw.ros.utils import ros_pose_to_transform
-from home_robot_hw.ros.utils import matrix_to_pose_msg
-from geometry_msgs.msg import TransformStamped
 from home_robot_hw.env.stretch_grasping_env import StretchGraspingEnv
+from home_robot_hw.ros.grasp_helper import GraspClient as RosGraspClient
+from home_robot_hw.ros.stretch_ros import HelloStretchROSInterface
+from home_robot_hw.ros.utils import matrix_to_pose_msg, ros_pose_to_transform
 
 visualize_masks = True
 

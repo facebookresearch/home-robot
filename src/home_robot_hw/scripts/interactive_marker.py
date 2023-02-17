@@ -26,42 +26,42 @@ ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 POSSIBILITY OF SUCH DAMAGE.
 """
 
-import rospy
 import copy
 import os
-import numpy as np
+from datetime import datetime
+from math import sin
+from random import random
+from threading import Lock
 
-# Our imports
-from home_robot.hw.ros.stretch_ros import HelloStretchROSInterface
-from home_robot.hw.ros.path import get_package_path
-from home_robot.hw.ros.utils import (
-    to_normalized_quaternion_msg,
-    matrix_from_pose_msg,
-    matrix_to_pose_msg,
-)
+import numpy as np
+import rospy
+import tf.transformations as tra
+from geometry_msgs.msg import Point, Quaternion
+from interactive_markers.interactive_marker_server import InteractiveMarkerServer
+from interactive_markers.menu_handler import MenuHandler
+from tf.broadcaster import TransformBroadcaster
+from visualization_msgs.msg import *
+
 from home_robot.agent.motion.robot import (
     PLANNER_STRETCH_URDF,
-    STRETCH_TO_GRASP,
     STRETCH_GRASP_FRAME,
     STRETCH_GRASP_OFFSET,
     STRETCH_HOME_Q,
     STRETCH_PREGRASP_Q,
+    STRETCH_TO_GRASP,
     HelloStretchIdx,
+)
+from home_robot.hw.ros.path import get_package_path
+
+# Our imports
+from home_robot.hw.ros.stretch_ros import HelloStretchROSInterface
+from home_robot.hw.ros.utils import (
+    matrix_from_pose_msg,
+    matrix_to_pose_msg,
+    to_normalized_quaternion_msg,
 )
 from home_robot.utils.data_tools.writer import DataWriter
 from home_robot.utils.pose import to_matrix, to_pos_quat
-
-from interactive_markers.interactive_marker_server import InteractiveMarkerServer
-from interactive_markers.menu_handler import MenuHandler
-from visualization_msgs.msg import *
-from geometry_msgs.msg import Point, Quaternion
-from tf.broadcaster import TransformBroadcaster
-import tf.transformations as tra
-
-from datetime import datetime
-from random import random
-from math import sin
-from threading import Lock
 
 
 class InteractiveMarkerManager(object):

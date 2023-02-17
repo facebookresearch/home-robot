@@ -1,15 +1,14 @@
-import home_robot
+from typing import Any, Dict, Optional
+
 import numpy as np
 import rospy
 
-from typing import Any, Dict, Optional
-
-from home_robot.core.interfaces import Action, Observations, DiscreteNavigationAction
-from home_robot_hw.env.stretch_abstract_env import StretchEnv
+import home_robot
+from home_robot.core.interfaces import Action, DiscreteNavigationAction, Observations
 from home_robot.perception.detection.detic.detic_perception import DeticPerception
-from home_robot.utils.geometry import sophus2obs, obs2xyt
+from home_robot.utils.geometry import obs2xyt, sophus2obs
+from home_robot_hw.env.stretch_abstract_env import StretchEnv
 from home_robot_hw.env.visualizer import Visualizer
-
 
 # REAL_WORLD_CATEGORIES = ["other", "chair", "mug", "other",]
 # REAL_WORLD_CATEGORIES = ["other", "backpack", "other",]
