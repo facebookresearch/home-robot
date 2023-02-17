@@ -8,7 +8,7 @@ import home_robot
 
 
 class HabitatAgent(habitat.Agent, ABC):
-    def __init__(self, home_robot_agent: home_robot.core.abstract_agent.Agent):
+    def __init__(self, home_robot_agent: home_robot.core.Agent):
         self.home_robot_agent = home_robot_agent
 
     @abstractmethod
