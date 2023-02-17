@@ -17,8 +17,7 @@ repos:
         exclude: |
             (?x)^(
                 src/home_robot/home_robot/agent/perception/detection/lseg/|
-                src/home_robot/home_robot/perception/detection/detic/|
-                src/home_robot_hw/
+                src/home_robot/home_robot/perception/detection/detic/
             )
 
   - repo: https://github.com/pre-commit/mirrors-mypy
@@ -30,7 +29,6 @@ repos:
             (?x)^(
                 src/home_robot/home_robot/agent/perception/detection/lseg/|
                 src/home_robot/home_robot/perception/detection/detic/|
-                src/home_robot_hw/|
                 projects/|
                 src/home_robot/home_robot/experimental/
             )|setup.py$
@@ -45,6 +43,5 @@ repos:
                 src/home_robot/home_robot/perception/detection/detic/|
                 projects/|
                 src/home_robot/home_robot/experimental/|
-                tests/|
-                src/home_robot_hw/
+                tests/
             )
