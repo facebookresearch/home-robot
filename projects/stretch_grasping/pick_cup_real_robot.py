@@ -8,22 +8,30 @@ import click
 import numpy as np
 import rospy
 
-import home_robot.utils.visualization as viz
-from home_robot.agent.motion.robot import STRETCH_PREGRASP_Q, HelloStretchIdx
-from home_robot.agent.perception.constants import coco_categories
+from home_robot.agent.motion.stretch import (
+    STRETCH_PREGRASP_Q,
+    HelloStretchIdx,
+    HelloStretch,
+)
 from home_robot.agent.perception.detectron2_segmentation import Detectron2Segmentation
-from home_robot.hw.ros.grasp_helper import GraspClient as RosGraspClient
-from home_robot.hw.ros.stretch_ros import HelloStretchROSInterface
+from home_robot.agent.perception.constants import coco_categories
+from home_robot_hw.ros.stretch_ros import HelloStretchROSInterface
+from home_robot_hw.ros.grasp_helper import GraspClient as RosGraspClient
 from home_robot.utils.pose import to_pos_quat
+import home_robot.utils.visualization as viz
+from home_robot_hw.ros.utils import ros_pose_to_transform
+from home_robot_hw.ros.utils import matrix_to_pose_msg
+from geometry_msgs.msg import TransformStamped
+from home_robot_hw.env.stretch_grasping_env import StretchGraspingEnv
 
-visualize_masks = False
+visualize_masks = True
 
 
-def try_executing_grasp(rob, grasp) -> bool:
-    """Try executing a grasp."""
+def try_executing_grasp(rob, model, grasp, grasp_client) -> bool:
+    """Try executing a grasp. Takes in robot model and a potential grasp; will execute this grasp
+    if possible. Grasp-client is just used to send a debugging TF frame for now.
 
-    # Get the kinematics model from the robot reference
-    model = rob.get_model()
+    Returns true if the grasp was possible and was executed; false if not."""
 
     # Get our current joint states
     q, _ = rob.update()
@@ -34,12 +42,17 @@ def try_executing_grasp(rob, grasp) -> bool:
 
     # If can't plan to reach grasp, return
     qi = model.manip_ik(grasp_pose, q)
-    breakpoint()
+    qi = model.update_gripper(qi, open=True)
+    print("x motion =", qi[0])
     if qi is not None:
         model.set_config(qi)
     else:
         print(" --> ik failed")
         return False
+    # TODO: remove this when the base is moving again!!!
+    if np.abs(qi[0]) > 0.0025:
+        return False
+    input("press enter to move")
 
     # Standoff 8 cm above grasp position
     q_standoff = qi.copy()
@@ -56,35 +69,54 @@ def try_executing_grasp(rob, grasp) -> bool:
             return False
         print("found standoff")
 
+        # Visualize the grasp in RViz
+        t = TransformStamped()
+        t.header.stamp = rospy.Time.now()
+        t.child_frame_id = "predicted_grasp"
+        t.header.frame_id = "map"
+        t.transform = ros_pose_to_transform(matrix_to_pose_msg(grasp))
+        grasp_client.broadcaster.sendTransform(t)
+
         # Go to the grasp and try it
+        # First we need to create and move to a decent pre-grasp pose
         q[HelloStretchIdx.LIFT] = 0.99
         rob.goto(q, move_base=False, wait=True, verbose=False)  # move arm to top
         # input('--> go high')
         q_pre = q.copy()
+        # NOTE: this gets the gripper in the right orientation before we start to move - nothing
+        # else should change except lift and arm!
         q_pre[5:] = q_standoff[5:]  # TODO: Add constants for joint indices
         q_pre = model.update_gripper(q_pre, open=True)
-        rob.move_base(theta=q_standoff[2])
+        # rob.move_base(theta=q_standoff[2])  # TODO Replace this
         rospy.sleep(2.0)
         rob.goto(q_pre, move_base=False, wait=False, verbose=False)
+
+        # Move to standoff pose
         model.set_config(q_standoff)
-        # input('--> gripper ready; go to standoff')
+        print("Q =", q_standoff)
+        print(q_grasp != q_standoff)
+        input("--> gripper ready; go to standoff")
         q_standoff = model.update_gripper(q_standoff, open=True)
         rob.goto(q_standoff, move_base=False, wait=True, verbose=False)
-        # input('--> go to grasp')
-        rob.move_base(theta=q_grasp[2])
-        rospy.sleep(2.0)
-        rob.goto(q_pre, move_base=False, wait=False, verbose=False)
+
+        # move down to grasp pose
         model.set_config(q_grasp)
-        q_grasp = model.update_gripper(q_grasp, open=True)
+        print("Q =", q_grasp)
+        print(q_grasp != q_standoff)
+        input("--> go to grasp")
         rob.goto(q_grasp, move_base=False, wait=True, verbose=True)
-        # input('--> close the gripper')
-        q_grasp = model.update_gripper(q_grasp, open=False)
-        rob.goto(q_grasp, move_base=False, wait=False, verbose=True)
+
+        # move down to close gripper
+        q_grasp_closed = model.update_gripper(q_grasp, open=False)
+        print("Q =", q_grasp_closed)
+        print(q_grasp != q_grasp_closed)
+        input("--> close the gripper")
+        rob.goto(q_grasp_closed, move_base=False, wait=False, verbose=True)
         rospy.sleep(2.0)
 
         # Move back to standoff pose
         q_standoff = model.update_gripper(q_standoff, open=False)
-        rob.goto(q, move_base=False, wait=True, verbose=False)
+        rob.goto(q_standoff, move_base=False, wait=True, verbose=False)
 
         # Move back to original pose
         q_pre = model.update_gripper(q_pre, open=False)
@@ -104,14 +136,17 @@ def divergence_from_vertical_grasp(grasp):
 @click.command()
 @click.option("--dry-run", default=False, is_flag=True)
 @click.option("--show-masks", default=False, is_flag=True)
-def main(dry_run, show_masks):
+@click.option("--visualize-planner", default=False, is_flag=True)
+def main(dry_run, show_masks, visualize_planner):
     # Create the robot
     print("--------------")
     print("Start example - hardware using ROS")
     rospy.init_node("hello_stretch_ros_test")
 
     print("Create ROS interface")
-    rob = HelloStretchROSInterface(visualize_planner=True)
+    # TODO: Get rid of this, replace it with the environemnt from home_robot_hw
+    rob = StretchGraspingEnv()
+    rob.reset()
     rospy.sleep(0.5)  # Make sure we have time to get ROS messages
     q = rob.update()
 
@@ -122,15 +157,14 @@ def main(dry_run, show_masks):
 
     # Create a grasping client using ROS
     grasp_client = RosGraspClient()
-    segmentation_model = Detectron2Segmentation(
-        sem_pred_prob_thr=0.9, sem_gpu_id=-1, visualize=True
-    )
+
+    model = HelloStretch(visualize=visualize_planner)
 
     home_q = STRETCH_PREGRASP_Q
-    model = rob.get_model()
-    q = model.update_look_front(home_q.copy())
-    q = model.update_gripper(q, open=True)
-    rob.goto(q, move_base=False, wait=True)
+    home_q = model.update_look_front(home_q.copy())
+    home_q = model.update_gripper(home_q, open=True)
+    rob.goto(home_q, move_base=False, wait=True)
+    home_q = model.update_look_at_ee(home_q)
 
     # Example commands - navigation
     # Initial position
@@ -138,24 +172,21 @@ def main(dry_run, show_masks):
     # Move to before the chair
     # rob.move_base([0.5, -0.5], np.pi/2)
 
-    q = model.update_look_at_ee(q)
-    print("look at ee")
-    rob.goto(q, wait=True)
-
     min_grasp_score = 0.0
     max_tries = 10
     min_obj_pts = 100
     for attempt in range(max_tries):
+        print("look at ee")
+        rob.goto(home_q, move_base=False, wait=True)
         rospy.sleep(1.0)
 
         t0 = timeit.default_timer()
-        rgb, depth, xyz = rob.get_images()
+        obs = rob.get_observation()
+        rgb, depth, xyz = obs.rgb, obs.depth, obs.xyz
         camera_pose = rob.get_pose(rgb_cam.get_frame())
         print("getting images + cam pose took", timeit.default_timer() - t0, "seconds")
-        semantics, semantics_vis = segmentation_model.get_prediction(
-            np.expand_dims(rgb[:, :, ::-1], 0), np.expand_dims(depth, 0)
-        )
-        cup_mask = semantics[0, :, :, coco_categories["cup"]]
+
+        cup_mask = obs.task_observations["goal_mask"]
 
         if visualize_masks:
             viz.show_image_with_mask(rgb, cup_mask)
@@ -208,7 +239,7 @@ def main(dry_run, show_masks):
             theta_x, theta_y = divergence_from_vertical_grasp(grasp)
             print("with xy =", theta_x, theta_y)
             if not dry_run:
-                grasp_completed = try_executing_grasp(rob, grasp)
+                grasp_completed = try_executing_grasp(rob, model, grasp, grasp_client)
             else:
                 grasp_completed = False
             if grasp_completed:

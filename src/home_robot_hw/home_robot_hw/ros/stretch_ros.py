@@ -14,8 +14,8 @@ import trimesh.transformations as tra
 
 
 from home_robot_hw.ros.abstract import AbstractStretchInterface
-from home_robot.agent.motion.robot import HelloStretch, HelloStretchIdx
-from home_robot.agent.motion.robot import STRETCH_HOME_Q
+from home_robot.agent.motion.stretch import HelloStretch, HelloStretchIdx
+from home_robot.agent.motion.stretch import STRETCH_HOME_Q
 from home_robot_hw.ros.camera import RosCamera
 from home_robot_hw.ros.path import get_urdf_dir
 

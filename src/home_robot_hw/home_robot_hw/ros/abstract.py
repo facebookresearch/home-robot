@@ -9,8 +9,8 @@ import timeit
 import trimesh.transformations as tra
 
 
-from home_robot.agent.motion.robot import HelloStretch, HelloStretchIdx
-from home_robot.agent.motion.robot import (
+from home_robot.agent.motion.stretch import HelloStretch, HelloStretchIdx
+from home_robot.agent.motion.stretch import (
     STRETCH_HOME_Q,
     STRETCH_GRASP_FRAME,
     STRETCH_STANDOFF_DISTANCE,

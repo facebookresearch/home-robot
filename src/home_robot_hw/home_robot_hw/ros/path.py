@@ -6,7 +6,7 @@ import os
 import rospy
 import rospkg
 
-from home_robot.agent.motion.robot import PLANNER_STRETCH_URDF
+from home_robot.agent.motion.stretch import PLANNER_STRETCH_URDF
 
 
 def get_package_path():
@@ -15,9 +15,9 @@ def get_package_path():
 
 
 def get_urdf_path():
-    return os.path.join(get_package_path(), "..", "..", PLANNER_STRETCH_URDF)
+    return os.path.join(get_package_path(), PLANNER_STRETCH_URDF)
 
 
 def get_urdf_dir():
     """location of the calibrated urdfs for use in planning"""
-    return os.path.join(get_package_path(), "../../assets/hab_stretch/urdf")
+    return os.path.join(get_package_path(), "assets/hab_stretch/urdf")
