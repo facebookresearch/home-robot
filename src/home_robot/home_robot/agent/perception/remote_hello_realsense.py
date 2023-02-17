@@ -3,30 +3,31 @@
 # This source code is licensed under the MIT license found in the
 # LICENSE file in the root directory of this source tree.
 
+import copy
+import json
+
 # python -m Pyro4.naming -n <MYIP>
 import logging
-import os
-import json
-import time
-import copy
 import math
+import os
+import time
 from math import *
 
+import numpy as np
+import obstacle_utils
+import open3d as o3d
 import pyrealsense2 as rs
 import Pyro4
-import numpy as np
 import torch
-import open3d as o3d
-from droidlet.lowlevel.hello_robot.remote.utils import transform_global_to_base, goto
-from slam_pkg.utils import depth_util as du
-import obstacle_utils
-from obstacle_utils import is_obstacle
-from droidlet.dashboard.o3dviz import serialize as o3d_pickle
 from data_compression import *
+from droidlet.dashboard.o3dviz import serialize as o3d_pickle
+from droidlet.lowlevel.hello_robot.remote.utils import goto, transform_global_to_base
+from obstacle_utils import is_obstacle
 from segmentation.constants import coco_categories
 from segmentation.detectron2_segmentation import Detectron2Segmentation
-from home_robot.hw.ros.camera import RosCamera
+from slam_pkg.utils import depth_util as du
 
+from home_robot.hw.ros.camera import RosCamera
 
 # Configure depth and color streams
 CH = 480

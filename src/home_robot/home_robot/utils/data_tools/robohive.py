@@ -6,16 +6,17 @@ Source  :: https://github.com/vikashplus/mj_envs
 License :: Under Apache License, Version 2.0 (the "License"); you may not use this file except in compliance with the License. You may obtain a copy of the License at http://www.apache.org/licenses/LICENSE-2.0 Unless required by applicable law or agreed to in writing, software distributed under the License is distributed on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the License for the specific language governing permissions and limitations under the License.
 ================================================= """
 
-import gym
-from mj_envs.utils.viz_paths import plot_paths as plotnsave_paths
-import click
-import numpy as np
+import os
 import pickle
 import time
-import os
+
+import click
+import gym
+import numpy as np
 
 # Import the writer to save out data to hdf5
 from data_tools.writer import DataWriter
+from mj_envs.utils.viz_paths import plot_paths as plotnsave_paths
 
 DESC = """
 Helper script to examine an environment and associated policy for behaviors; \n

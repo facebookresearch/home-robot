@@ -5,9 +5,8 @@
 import sys
 import time
 
-from pynput import keyboard
 import numpy as np
-
+from pynput import keyboard
 
 UP = keyboard.Key.up
 DOWN = keyboard.Key.down

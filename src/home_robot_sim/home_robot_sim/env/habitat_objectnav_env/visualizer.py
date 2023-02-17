@@ -4,18 +4,17 @@
 # LICENSE file in the root directory of this source tree.
 import os
 import shutil
-import numpy as np
-import cv2
-from PIL import Image
-import skimage.morphology
 from typing import Optional
 
-import home_robot.agent.utils.visualization_utils as vu
+import cv2
+import numpy as np
+import skimage.morphology
+from PIL import Image
+
 import home_robot.agent.utils.pose_utils as pu
-from .constants import (
-    HM3DtoCOCOIndoor,
-    FloorplannertoMukulIndoor,
-)
+import home_robot.agent.utils.visualization_utils as vu
+
+from .constants import FloorplannertoMukulIndoor, HM3DtoCOCOIndoor
 
 
 class Visualizer:

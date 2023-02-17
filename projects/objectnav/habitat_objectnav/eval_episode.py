@@ -1,5 +1,5 @@
-from pathlib import Path
 import sys
+from pathlib import Path
 
 # TODO Install home_robot, home_robot_sim and remove this
 sys.path.insert(
@@ -11,14 +11,13 @@ sys.path.insert(
     str(Path(__file__).resolve().parent.parent.parent / "src/home_robot_sim"),
 )
 
+from config_utils import get_config
 from habitat.core.env import Env
 
-from config_utils import get_config
 from home_robot.agent.objectnav_agent.objectnav_agent import ObjectNavAgent
 from home_robot_sim.env.habitat_objectnav_env.habitat_objectnav_env import (
     HabitatObjectNavEnv,
 )
-
 
 if __name__ == "__main__":
     config_path = "configs/agent/floorplanner_eval.yaml"

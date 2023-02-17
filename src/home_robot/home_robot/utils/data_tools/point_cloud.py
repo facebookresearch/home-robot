@@ -2,15 +2,16 @@
 #
 # This source code is licensed under the MIT license found in the
 # LICENSE file in the root directory of this source tree.
-import numpy as np
 import io
-import imageio
-import h5py
-from tqdm import tqdm
-import open3d as o3d
-import matplotlib.pyplot as plt
-import trimesh.transformations as tra
+
 import cv2
+import h5py
+import imageio
+import matplotlib.pyplot as plt
+import numpy as np
+import open3d as o3d
+import trimesh.transformations as tra
+from tqdm import tqdm
 
 
 def get_pcd(xyz, rgb=None):

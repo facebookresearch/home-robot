@@ -2,9 +2,10 @@
 #
 # This source code is licensed under the MIT license found in the
 # LICENSE file in the root directory of this source tree.
+import os
+
 import h5py
 import numpy as np
-import os
 
 import home_robot.utils.data_tools.base as base
 import home_robot.utils.data_tools.image as image

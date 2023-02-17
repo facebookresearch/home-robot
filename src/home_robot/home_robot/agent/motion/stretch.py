@@ -2,17 +2,18 @@
 #
 # This source code is licensed under the MIT license found in the
 # LICENSE file in the root directory of this source tree.
-from pdb import post_mortem
-import numpy as np
 import os
-import home_robot.utils.bullet as hrb
+from pdb import post_mortem
+
+import numpy as np
 import trimesh.transformations as tra
+
+import home_robot.utils.bullet as hrb
 
 # from tracikpy import TracIKSolver
 from home_robot.agent.motion.robot import Robot
 from home_robot.utils.bullet import PybulletIKSolver
 from home_robot.utils.pose import to_matrix
-
 
 # Stretch stuff
 DEFAULT_STRETCH_URDF = "assets/hab_stretch/urdf/stretch_dex_wrist_simplified.urdf"

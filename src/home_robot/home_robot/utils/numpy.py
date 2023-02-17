@@ -2,8 +2,9 @@
 #
 # This source code is licensed under the MIT license found in the
 # LICENSE file in the root directory of this source tree.
-import numpy as np
 from datetime import datetime
+
+import numpy as np
 
 
 def to_npy_file(description="data", **data):

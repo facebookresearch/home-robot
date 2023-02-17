@@ -3,8 +3,8 @@
 # This source code is licensed under the MIT license found in the
 # LICENSE file in the root directory of this source tree.
 import numpy as np
-import torch
 import quaternion
+import torch
 
 
 def get_l2_distance(x1, x2, y1, y2):

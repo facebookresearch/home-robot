@@ -5,9 +5,9 @@
 import numpy as np
 import scipy
 import skimage.morphology
-from sklearn.cluster import DBSCAN
 import torch
 import torch.nn as nn
+from sklearn.cluster import DBSCAN
 
 from home_robot.agent.utils.morphology_utils import binary_dilation
 
