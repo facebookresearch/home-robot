@@ -16,8 +16,9 @@ class Space(object):
         assert len(self.maxs) == self.dof
         self.rngs = maxs - mins
 
-    def sample_uniform(cls):
+    def sample_uniform(self):
         return (np.random.random(self.dof) * self.rngs) + self.mins
 
     def extend(self, q0, q1, step_size=0.1):
         """extend towards another configuration in this space"""
+        raise NotImplementedError()

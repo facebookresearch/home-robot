@@ -6,7 +6,6 @@ import pybullet as pb
 
 from home_robot.agent.motion.robot import Robot
 
-
 DEFAULT_FRANKA_URDF = "assets/franka_panda/panda.urdf"
 DEFAULT_CALVIN_FRANKA_URDF = "assets/franka_panda/panda_calvin.urdf"
 
