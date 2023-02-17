@@ -11,7 +11,7 @@ from home_robot.agent.motion.stretch import PLANNER_STRETCH_URDF
 
 def get_package_path():
     r = rospkg.RosPack()
-    return r.get_path("home_robot")
+    return r.get_path("home_robot_hw")
 
 
 def get_urdf_path():
