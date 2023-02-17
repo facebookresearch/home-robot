@@ -2,7 +2,7 @@
 #
 # This source code is licensed under the MIT license found in the
 # LICENSE file in the root directory of this source tree.
-from setuptools import setup
+from setuptools import setup, find_packages
 
 install_requires = [
     "numpy",
@@ -13,8 +13,7 @@ install_requires = [
 setup(
     name="home-robot-client",
     version="0.1.0",
-    packages=["home_robot_client"],
-    package_dir={"": "."},
+    packages=find_packages(where="."),
     install_requires=install_requires,
-    zip_safe=False,
+    include_package_data=True,
 )

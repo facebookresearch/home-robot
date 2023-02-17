@@ -6,7 +6,7 @@ import rospy
 import timeit
 import numpy as np
 
-from home_robot.hw.ros.stretch_ros import HelloStretchROSInterface
+from home_robot_hw.ros.stretch_ros import HelloStretchROSInterface
 from home_robot.agent.motion.robot import STRETCH_HOME_Q, HelloStretchIdx
 
 
@@ -29,5 +29,6 @@ if __name__ == "__main__":
 
     home_q = STRETCH_HOME_Q
     model = rob.get_model()
-    q = model.update_look_at_ee(home_q.copy())
+    q = model.update_look_front(home_q.copy())
+    q = model.update_gripper(q, open=True)
     rob.goto(q, move_base=False, wait=True)

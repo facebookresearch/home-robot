@@ -26,14 +26,14 @@ catkin_make
 
 ### Setting up ROS Network
 
-We use a client-server setup for controlling the robots, where low-level control runs on the robot and large neural nets are evaluated on a "server."
+We use a client-server setup for controlling the robots, where low-level control runs on the robot and large neural nets are evaluated on a "server" -- which here refers to a local workstation with a GPU. For best performance, your server should be on the same wireless network as the robot, preferrably with an ethernet connection to the router for lowest latency.
 
 We recommend adding to your `~/.bashrc` file:
 
 ```
-# Whatever your IP address is
+# Whatever your robot's IP address is
 export HELLO_ROBOT_IP=10.0.0.6
-# Whatever your Server IP address is
+# Whatever your server IP address is
 export SERVER_IP=10.0.0.2
 ```
 
