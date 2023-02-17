@@ -7,6 +7,7 @@ import logging
 from typing import Optional
 
 import numpy as np
+from omegaconf import DictConfig
 
 from home_robot.utils.config import get_control_config
 
