@@ -61,7 +61,7 @@ def xyt_base_to_global(xyt_base2target, xyt_world2base):
     base_cos = np.cos(xyt_world2base[2])
     base_sin = np.sin(xyt_world2base[2])
     x_base2target = xyt_base2target[0] * base_cos - xyt_base2target[1] * base_sin
-    y_base2target = xyt_base2target[1] * base_sin + xyt_base2target[1] * base_cos
+    y_base2target = xyt_base2target[0] * base_sin + xyt_base2target[1] * base_cos
 
     xyt_world2target = np.zeros(3)
     xyt_world2target[0] = xyt_world2base[0] + x_base2target
