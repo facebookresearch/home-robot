@@ -9,6 +9,10 @@ import rospy
 import sophus as sp
 import tf2_ros
 import threading
+import timeit
+import time
+import ros_numpy
+import trimesh.transformations as tra
 
 # Import ROS messages and tools
 from control_msgs.msg import FollowJointTrajectoryAction
@@ -30,7 +34,7 @@ from home_robot.utils.geometry import (
 
 from home_robot.core.interfaces import Action, Observations
 from home_robot.core.state import ManipulatorBaseParams
-from home_robot.agent.motion.robot import HelloStretchIdx
+from home_robot.agent.motion.stretch import HelloStretchIdx
 from home_robot_hw.ros.camera import RosCamera
 from home_robot_hw.constants import (
     ROS_ARM_JOINTS,
@@ -54,6 +58,18 @@ from home_robot_hw.ros.visualizer import Visualizer
 MIN_DEPTH_REPLACEMENT_VALUE = 10000
 MAX_DEPTH_REPLACEMENT_VALUE = 10001
 
+BASE_X_IDX = HelloStretchIdx.BASE_X
+BASE_Y_IDX = HelloStretchIdx.BASE_Y
+BASE_THETA_IDX = HelloStretchIdx.BASE_THETA
+LIFT_IDX = HelloStretchIdx.LIFT
+ARM_IDX = HelloStretchIdx.ARM
+GRIPPER_IDX = HelloStretchIdx.GRIPPER
+WRIST_ROLL_IDX = HelloStretchIdx.WRIST_ROLL
+WRIST_PITCH_IDX = HelloStretchIdx.WRIST_PITCH
+WRIST_YAW_IDX = HelloStretchIdx.WRIST_YAW
+HEAD_PAN_IDX = HelloStretchIdx.HEAD_PAN
+HEAD_TILT_IDX = HelloStretchIdx.HEAD_TILT
+
 
 class StretchEnv(home_robot.core.abstract_env.Env):
     """Defines a ROS-based interface to the real Stretch robot. Collect observations and command the robot."""
@@ -62,6 +78,30 @@ class StretchEnv(home_robot.core.abstract_env.Env):
     dof = 3 + 2 + 3 + 1 + 2
     min_depth_val = 0.1
     max_depth_val = 4.0
+
+    exec_tol = np.array(
+        [
+            1e-3,
+            1e-3,
+            0.01,  # x y theta
+            0.005,  # lift
+            0.01,  # arm
+            1.0,  # gripper - this never works
+            # 0.015, 0.015, 0.015,  #wrist variables
+            0.05,
+            0.05,
+            0.05,  # wrist variables
+            0.1,
+            0.1,  # head  and tilt
+        ]
+    )
+
+    dist_tol = 1e-4
+    theta_tol = 1e-3
+    wait_time_step = 1e-3
+
+    base_link = "base_link"
+    odom_link = "map"
 
     def __init__(
         self,
@@ -91,6 +131,11 @@ class StretchEnv(home_robot.core.abstract_env.Env):
         self.wait_for_pose()
         if init_cameras:
             self.wait_for_cameras()
+
+    def reset_state(self):
+        self.pos = np.zeros(self.dof)
+        self.vel = np.zeros(self.dof)
+        self.frc = np.zeros(self.dof)
 
     def in_manipulation_mode(self):
         return self._base_control_mode == ControlMode.MANIPULATION
@@ -125,7 +170,7 @@ class StretchEnv(home_robot.core.abstract_env.Env):
 
     def get_base_pose(self):
         """get the latest base pose from sensors"""
-        return self._t_base_filtered
+        return sophus2xyt(self._t_base_filtered)
 
     def _js_callback(self, msg):
         """Read in current joint information from ROS topics and update state"""
@@ -230,6 +275,11 @@ class StretchEnv(home_robot.core.abstract_env.Env):
             )
             sys.exit()
 
+        self.ros_joint_names = []
+        for i in range(3, self.dof):
+            self.ros_joint_names += CONFIG_TO_ROS[i]
+        self.reset_state()
+
     def _create_services(self):
         """Create services to activate/deactive robot modes"""
         self._nav_mode_service = rospy.ServiceProxy(
@@ -244,6 +294,84 @@ class StretchEnv(home_robot.core.abstract_env.Env):
         )
         print("Wait for mode service...")
         self._pos_mode_service.wait_for_service()
+
+    def goto(self, q, move_base=False, wait=True, max_wait_t=10.0, verbose=False):
+        """some of these params are unsupported"""
+        goal = self.config_to_ros_trajectory_goal(q)
+        self.trajectory_client.send_goal(goal)
+        if wait:
+            #  Waiting for result seems to hang
+            # self.trajectory_client.wait_for_result()
+            print("waiting for result...")
+            self.wait(q, max_wait_t, not move_base, verbose)
+        return True
+
+    def config_to_ros_trajectory_goal(self, q):
+        trajectory_goal = FollowJointTrajectoryGoal()
+        trajectory_goal.goal_time_tolerance = rospy.Time(1.0)
+        trajectory_goal.trajectory.joint_names = self.ros_joint_names
+        trajectory_goal.trajectory.points = [self.config_to_ros_msg(q)]
+        trajectory_goal.trajectory.header.stamp = rospy.Time.now()
+        return trajectory_goal
+
+    def config_to_ros_msg(self, q):
+        """convert into a joint state message"""
+        msg = JointTrajectoryPoint()
+        msg.positions = [0.0] * len(self.ros_joint_names)
+        idx = 0
+        for i in range(3, self.dof):
+            names = CONFIG_TO_ROS[i]
+            for _ in names:
+                # Only for arm - but this is a dumb way to check
+                if "arm" in names[0]:
+                    msg.positions[idx] = q[i] / len(names)
+                else:
+                    msg.positions[idx] = q[i]
+                idx += 1
+        return msg
+
+    def wait(self, q1, max_wait_t=10.0, no_base=False, verbose=False):
+        """helper function to wait until we reach a position"""
+        t0 = timeit.default_timer()
+        while (timeit.default_timer() - t0) < max_wait_t:
+            # update and get pose metrics
+            q0, dq0 = self.update()
+            err = np.abs(q1 - q0)
+            if no_base:
+                err[:3] = 0.0
+            dt = timeit.default_timer() - t0
+            if verbose:
+                print("goal =", q1)
+                print(dt, err < self.exec_tol)
+                self.pretty_print(err)
+            if np.all(err < self.exec_tol):
+                return True
+            time.sleep(self.wait_time_step)
+        return False
+
+    def update(self):
+        # Return a full state for the robot
+        pos = self.get_base_pose()
+        if pos is not None:
+            x, y, theta = pos
+        else:
+            x, y, theta = 0.0, 0.0, 0.0
+        with self._js_lock:
+            pos, vel = self.pos.copy(), self.vel.copy()
+        pos[:3] = np.array([x, y, theta])
+        return pos, vel
+
+    def pretty_print(self, q):
+        print("-" * 20)
+        print("lift:      ", q[LIFT_IDX])
+        print("arm:       ", q[ARM_IDX])
+        print("gripper:   ", q[GRIPPER_IDX])
+        print("wrist yaw: ", q[WRIST_YAW_IDX])
+        print("wrist pitch:", q[WRIST_PITCH_IDX])
+        print("wrist roll: ", q[WRIST_ROLL_IDX])
+        print("head pan:   ", q[HEAD_PAN_IDX])
+        print("head tilt:   ", q[HEAD_TILT_IDX])
+        print("-" * 20)
 
     # Mode switching interfaces
     def switch_to_velocity_mode(self):
@@ -325,6 +453,30 @@ class StretchEnv(home_robot.core.abstract_env.Env):
 
         return imgs
 
+    def get_pose(self, frame, base_frame=None, lookup_time=None, timeout_s=None):
+        """look up a particular frame in base coords"""
+        if lookup_time is None:
+            lookup_time = rospy.Time(0)  # return most recent transform
+        if timeout_s is None:
+            timeout_ros = rospy.Duration(0.1)
+        else:
+            timeout_ros = rospy.Duration(timeout_s)
+        if base_frame is None:
+            base_frame = self.odom_link
+        try:
+            stamped_transform = self.tf2_buffer.lookup_transform(
+                base_frame, frame, lookup_time, timeout_ros
+            )
+            pose_mat = ros_numpy.numpify(stamped_transform.transform)
+        except (
+            tf2_ros.LookupException,
+            tf2_ros.ConnectivityException,
+            tf2_ros.ExtrapolationException,
+        ) as e:
+            print("!!! Lookup failed from", self.base_link, "to", self.odom_link, "!!!")
+            return None
+        return pose_mat
+
     # Control interfaces
     def set_velocity(self, v, w):
         """
@@ -356,7 +508,6 @@ class StretchEnv(home_robot.core.abstract_env.Env):
 
         # Compute absolute goal
         if relative:
-            # xyt_base = sophus2xyt(self.get_base_pose())
             xyt_base = sophus2xyt(self._t_base_odom)
             xyt_goal = xyt_base_to_global(xyt, xyt_base)
             print("base =", xyt_base)
