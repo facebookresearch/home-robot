@@ -27,7 +27,10 @@ visualize_masks = True
 
 
 def try_executing_grasp(rob, model, grasp, grasp_client) -> bool:
-    """Try executing a grasp."""
+    """Try executing a grasp. Takes in robot model and a potential grasp; will execute this grasp
+    if possible. Grasp-client is just used to send a debugging TF frame for now.
+
+    Returns true if the grasp was possible and was executed; false if not."""
 
     # Get our current joint states
     q, _ = rob.update()
