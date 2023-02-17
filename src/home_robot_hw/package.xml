@@ -1,8 +1,8 @@
 <?xml version="1.0"?>
 <package format="2">
-  <name>home_robot</name>
+  <name>home_robot_hw</name>
   <version>1.0.0</version>
-  <description>The home_robot package</description>
+  <description>The home_robot ROS package</description>
 
   <!-- One maintainer tag required, multiple allowed, one person per tag -->
   <!-- Example:  -->
