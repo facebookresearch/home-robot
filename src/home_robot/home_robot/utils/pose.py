@@ -2,11 +2,11 @@
 #
 # This source code is licensed under the MIT license found in the
 # LICENSE file in the root directory of this source tree.
+import numpy as np
 import torch
 import torch.nn as nn
-from torch.autograd import Variable
-import numpy as np
 import trimesh.transformations as tra
+from torch.autograd import Variable
 
 # Code adapted from the rotation continuity repo (https://github.com/papagina/RotationContinuity)
 

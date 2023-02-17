@@ -6,20 +6,20 @@
 # https://github.com/facebookresearch/detectron2/blob/master/demo/demo.py and
 # https://github.com/facebookresearch/detectron2/blob/master/demo/predictor.py
 
-from typing import Optional, List, Tuple
 import argparse
-import torch
-import numpy as np
 import time
+from typing import List, Optional, Tuple
 
+import numpy as np
+import torch
+from detectron2.checkpoint import DetectionCheckpointer
 from detectron2.config import get_cfg
-from detectron2.utils.logger import setup_logger
 from detectron2.data.catalog import MetadataCatalog
 from detectron2.modeling import build_model
-from detectron2.checkpoint import DetectionCheckpointer
-from detectron2.utils.visualizer import ColorMode, Visualizer, VisImage
+from detectron2.utils.logger import setup_logger
+from detectron2.utils.visualizer import ColorMode, VisImage, Visualizer
 
-from .constants import coco_categories_mapping, coco_categories
+from .constants import coco_categories, coco_categories_mapping
 
 
 class Detectron2Segmentation:

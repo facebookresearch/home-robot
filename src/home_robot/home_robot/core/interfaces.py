@@ -1,7 +1,8 @@
-from typing import Optional, Any, Dict
-import numpy as np
-from enum import Enum
 from dataclasses import dataclass
+from enum import Enum
+from typing import Any, Dict, Optional
+
+import numpy as np
 
 
 class Action:

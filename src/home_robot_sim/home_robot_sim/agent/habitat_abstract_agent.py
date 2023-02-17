@@ -1,5 +1,5 @@
 from abc import ABC, abstractmethod
-from typing import Any, Union, Dict
+from typing import Any, Dict, Union
 
 import habitat
 from habitat.core.simulator import Observations

@@ -12,7 +12,6 @@ from home_robot.utils.config import get_control_config
 
 from .feedback.velocity_controllers import DDVelocityControlNoplan
 
-
 log = logging.getLogger(__name__)
 
 DEFAULT_CFG_NAME = "noplan_velocity_sim"

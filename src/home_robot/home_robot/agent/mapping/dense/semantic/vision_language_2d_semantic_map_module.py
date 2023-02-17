@@ -3,16 +3,17 @@
 # This source code is licensed under the MIT license found in the
 # LICENSE file in the root directory of this source tree.
 from typing import Tuple
-import torch
-from torch import Tensor, IntTensor
-import torch.nn as nn
-from torch.nn import functional as F
+
 import numpy as np
 import skimage.morphology
+import torch
+import torch.nn as nn
+from torch import IntTensor, Tensor
+from torch.nn import functional as F
 
 import home_robot.agent.mapping.dense.depth_utils as du
-import home_robot.agent.mapping.dense.rotation_utils as ru
 import home_robot.agent.mapping.dense.map_utils as mu
+import home_robot.agent.mapping.dense.rotation_utils as ru
 import home_robot.agent.utils.pose_utils as pu
 from home_robot.agent.perception.detection.lseg import load_lseg_for_inference
 

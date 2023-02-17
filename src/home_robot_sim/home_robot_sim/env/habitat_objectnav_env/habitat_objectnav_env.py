@@ -1,17 +1,18 @@
-from typing import Tuple, Any, Dict, Optional
-import numpy as np
+from typing import Any, Dict, Optional, Tuple
 
 import habitat
+import numpy as np
 from habitat.sims.habitat_simulator.actions import HabitatSimActions
 
-from home_robot_sim.env.habitat_abstract_env import HabitatEnv
 import home_robot
+from home_robot_sim.env.habitat_abstract_env import HabitatEnv
+
 from .constants import (
-    HM3DtoCOCOIndoor,
-    FloorplannertoMukulIndoor,
-    mukul_33categories_padded,
-    MIN_DEPTH_REPLACEMENT_VALUE,
     MAX_DEPTH_REPLACEMENT_VALUE,
+    MIN_DEPTH_REPLACEMENT_VALUE,
+    FloorplannertoMukulIndoor,
+    HM3DtoCOCOIndoor,
+    mukul_33categories_padded,
 )
 from .visualizer import Visualizer
 

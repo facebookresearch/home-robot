@@ -1,12 +1,11 @@
-import pandas as pd
-from typing import Tuple
 from abc import ABC, abstractmethod
 from pathlib import Path
-import numpy as np
+from typing import Tuple
 
+import numpy as np
+import pandas as pd
 from habitat.core.env import Env
 from habitat_sim.utils.common import d3_40_colors_rgb
-
 
 MIN_DEPTH_REPLACEMENT_VALUE = 10000
 MAX_DEPTH_REPLACEMENT_VALUE = 10001

@@ -1,5 +1,6 @@
-import torch.nn as nn
 import time
+
+import torch.nn as nn
 
 from home_robot.agent.mapping.dense.semantic.categorical_2d_semantic_map_module import (
     Categorical2DSemanticMapModule,
