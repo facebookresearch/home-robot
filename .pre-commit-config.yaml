@@ -33,7 +33,7 @@ repos:
                 src/home_robot_hw/|
                 projects/|
                 src/home_robot/home_robot/experimental/
-            )
+            )|setup.py$
 
   - repo: https://github.com/pycqa/flake8
     rev: 3.9.2
