@@ -3,20 +3,17 @@
 # This source code is licensed under the MIT license found in the
 # LICENSE file in the root directory of this source tree.
 import argparse
-import rospy
 import sys
 import timeit
-import numpy as np
-
-from home_robot.hw.ros.stretch_ros import HelloStretchROSInterface
-from home_robot.agent.motion.robot import (
-    STRETCH_PREGRASP_Q,
-    HelloStretchIdx,
-)
-from home_robot.agent.perception.constants import coco_categories
-from home_robot.utils.pose import to_pos_quat
 
 import matplotlib.pyplot as plt
+import numpy as np
+import rospy
+
+from home_robot.agent.motion.robot import STRETCH_PREGRASP_Q, HelloStretchIdx
+from home_robot.agent.perception.constants import coco_categories
+from home_robot.hw.ros.stretch_ros import HelloStretchROSInterface
+from home_robot.utils.pose import to_pos_quat
 
 
 def parse_args():

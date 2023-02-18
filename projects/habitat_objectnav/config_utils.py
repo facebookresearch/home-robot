@@ -1,8 +1,8 @@
-from typing import Tuple, Optional
 import json
-import yaml
+from typing import Optional, Tuple
 
 import habitat.config.default
+import yaml
 from habitat.config.default import Config
 
 

@@ -2,13 +2,14 @@
 #
 # This source code is licensed under the MIT license found in the
 # LICENSE file in the root directory of this source tree.
-from PIL import Image
-import numpy as np
 import io
-import imageio
+
 import h5py
-from tqdm import tqdm
+import imageio
+import numpy as np
+from PIL import Image
 from pygifsicle import optimize
+from tqdm import tqdm
 
 
 def img_from_bytes(data: bytes, height=None, width=None, format="png") -> np.ndarray:

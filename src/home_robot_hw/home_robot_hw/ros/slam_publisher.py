@@ -5,11 +5,11 @@
 # This source code is licensed under the MIT license found in the
 # LICENSE file in the root directory of this source tree.
 
-import rospy
 import threading
+
+import rospy
 import tf
 import tf2_ros
-
 from geometry_msgs.msg import PoseWithCovarianceStamped, TransformStamped
 
 

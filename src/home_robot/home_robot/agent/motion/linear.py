@@ -3,9 +3,9 @@
 # This source code is licensed under the MIT license found in the
 # LICENSE file in the root directory of this source tree.
 import numpy as np
+
 from home_robot.agent.motion.base import Planner
-from home_robot.agent.motion.robot import STRETCH_STANDOFF_WITH_MARGIN
-from home_robot.agent.motion.robot import HelloStretchIdx
+from home_robot.agent.motion.robot import STRETCH_STANDOFF_WITH_MARGIN, HelloStretchIdx
 
 
 class LinearPlanner(Planner):
@@ -69,9 +69,11 @@ class StretchLinearWithOffsetPlanner(Planner):
                 return None
         return traj, ts
 
-    def plan(self, q0, poses, grasp=True, tries=100, ignored=[]):
+    def plan(self, q0, poses, tries=100, grasp=False, ignored=[]):
         """we assume that the arm has to be at least extended enough that we can do this, so check
         the arm extension. This planner is designed for work with the stretch only.
+
+        Grasp indicates planner should try to close gripper around an object.
         """
         # darm = qg[HelloStretchIdx.ARM] - q0[HelloStretchIdx.ARM]
         # retract arm first
@@ -172,7 +174,7 @@ class StretchLinearIKPlanner(Planner):
                 return None
         return traj, ts
 
-    def plan(self, q0, poses, tries=100, ignored=[]):
+    def plan(self, q0, poses, tries=100, grasp=False, ignored=[]):
         """we assume that the arm has to be at least extended enough that we can do this, so check
         the arm extension. This planner is designed for work with the stretch only.
         """

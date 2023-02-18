@@ -12,25 +12,24 @@ Based on code from Willow Garage:
 """
 
 
-import numpy as np
-import rospy
 import threading
 
+import numpy as np
+import rospy
+from geometry_msgs.msg import Point, Pose, Quaternion
 from interactive_markers.interactive_marker_server import *
 from interactive_markers.menu_handler import *
 from visualization_msgs.msg import *
-from geometry_msgs.msg import Pose, Point, Quaternion
 
-from home_robot.hardware.stretch_ros import HelloStretchROSInterface
 from home_robot.agent.motion.robot import (
-    STRETCH_HOME_Q,
     STRETCH_GRASP_FRAME,
+    STRETCH_HOME_Q,
     STRETCH_TO_GRASP,
+    HelloStretchIdx,
 )
-from home_robot.agent.motion.robot import HelloStretchIdx
-from home_robot.hw.ros.utils import *
+from home_robot.hardware.stretch_ros import HelloStretchROSInterface
 from home_robot.hw.ros.position_mode import SwitchToPositionMode
-
+from home_robot.hw.ros.utils import *
 
 """
 Copyright (c) 2011, Willow Garage, Inc.
@@ -58,17 +57,16 @@ ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 POSSIBILITY OF SUCH DAMAGE.
 """
 
-import rospy
 import copy
+from math import sin
+from random import random
 
+import rospy
+from geometry_msgs.msg import Point
 from interactive_markers.interactive_marker_server import *
 from interactive_markers.menu_handler import *
-from visualization_msgs.msg import *
-from geometry_msgs.msg import Point
 from tf.broadcaster import TransformBroadcaster
-
-from random import random
-from math import sin
+from visualization_msgs.msg import *
 
 server = None
 br = None

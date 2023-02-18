@@ -19,7 +19,7 @@ class HabitatEnv(home_robot.core.abstract_env.Env):
 
     def __init__(self, habitat_env: habitat.core.env.Env):
         self.habitat_env = habitat_env
-        self._last_obs = None
+        self._last_obs: Optional[habitat.core.interfaces.Observations] = None
 
     def reset(self):
         self._last_obs = self._preprocess_obs(self.habitat_env.reset())

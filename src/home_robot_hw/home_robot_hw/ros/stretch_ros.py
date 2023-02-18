@@ -3,44 +3,43 @@
 # This source code is licensed under the MIT license found in the
 # LICENSE file in the root directory of this source tree.
 import argparse
-import numpy as np
-import rospy
-import ros_numpy
+import sys
 import threading
 import time
 import timeit
-import sys
-import trimesh.transformations as tra
-
-
-from home_robot_hw.ros.abstract import AbstractStretchInterface
-from home_robot.agent.motion.stretch import HelloStretch, HelloStretchIdx
-from home_robot.agent.motion.stretch import STRETCH_HOME_Q
-from home_robot_hw.ros.camera import RosCamera
-from home_robot_hw.ros.path import get_urdf_dir
 
 import actionlib
-from control_msgs.msg import FollowJointTrajectoryAction
-from control_msgs.msg import FollowJointTrajectoryGoal
-from trajectory_msgs.msg import JointTrajectoryPoint
+import numpy as np
+import ros_numpy
+import rospy
 import tf2_ros
+import trimesh.transformations as tra
+from control_msgs.msg import FollowJointTrajectoryAction, FollowJointTrajectoryGoal
 from sensor_msgs.msg import JointState
 from std_msgs.msg import String
 from std_srvs.srv import Trigger
+from trajectory_msgs.msg import JointTrajectoryPoint
 
+from home_robot.agent.motion.stretch import (
+    STRETCH_HOME_Q,
+    HelloStretch,
+    HelloStretchIdx,
+)
 from home_robot_hw.constants import (
+    CONFIG_TO_ROS,
     ROS_ARM_JOINTS,
-    ROS_LIFT_JOINT,
     ROS_GRIPPER_FINGER,
     ROS_HEAD_PAN,
     ROS_HEAD_TILT,
+    ROS_LIFT_JOINT,
+    ROS_TO_CONFIG,
+    ROS_WRIST_PITCH,
     ROS_WRIST_ROLL,
     ROS_WRIST_YAW,
-    ROS_WRIST_PITCH,
-    ROS_GRIPPER_FINGER,
-    ROS_TO_CONFIG,
-    CONFIG_TO_ROS,
 )
+from home_robot_hw.ros.abstract import AbstractStretchInterface
+from home_robot_hw.ros.camera import RosCamera
+from home_robot_hw.ros.path import get_urdf_dir
 
 
 class HelloStretchROSInterface(AbstractStretchInterface):

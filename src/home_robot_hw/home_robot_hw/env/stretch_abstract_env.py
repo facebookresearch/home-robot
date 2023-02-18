@@ -1,59 +1,54 @@
+import threading
+import time
+import timeit
 from abc import abstractmethod
-from typing import Optional, Iterable, List, Dict, Any
+from typing import Any, Dict, Iterable, List, Optional
 
 import actionlib
-import home_robot
-import home_robot.core.abstract_env
 import numpy as np
+import ros_numpy
 import rospy
 import sophus as sp
 import tf2_ros
-import threading
-import timeit
-import time
-import ros_numpy
 import trimesh.transformations as tra
 
 # Import ROS messages and tools
-from control_msgs.msg import FollowJointTrajectoryAction
-from control_msgs.msg import FollowJointTrajectoryGoal
-from geometry_msgs.msg import PoseStamped, Pose, Twist
+from control_msgs.msg import FollowJointTrajectoryAction, FollowJointTrajectoryGoal
+from geometry_msgs.msg import Pose, PoseStamped, Twist
 from nav_msgs.msg import Odometry
 from sensor_msgs.msg import JointState
 from std_msgs.msg import String
-from std_srvs.srv import Trigger, TriggerRequest
-from std_srvs.srv import SetBool, SetBoolRequest
+from std_srvs.srv import SetBool, SetBoolRequest, Trigger, TriggerRequest
 from trajectory_msgs.msg import JointTrajectoryPoint
 
-from home_robot.utils.geometry import (
-    xyt2sophus,
-    sophus2xyt,
-    xyt_base_to_global,
-    posquat2sophus,
-)
-
+import home_robot
+import home_robot.core.abstract_env
+from home_robot.agent.motion.stretch import HelloStretchIdx
 from home_robot.core.interfaces import Action, Observations
 from home_robot.core.state import ManipulatorBaseParams
-from home_robot.agent.motion.stretch import HelloStretchIdx
-from home_robot_hw.ros.camera import RosCamera
+from home_robot.utils.geometry import (
+    posquat2sophus,
+    sophus2xyt,
+    xyt2sophus,
+    xyt_base_to_global,
+)
 from home_robot_hw.constants import (
+    CONFIG_TO_ROS,
     ROS_ARM_JOINTS,
-    ROS_LIFT_JOINT,
     ROS_GRIPPER_FINGER,
     ROS_HEAD_PAN,
     ROS_HEAD_TILT,
+    ROS_LIFT_JOINT,
+    ROS_TO_CONFIG,
+    ROS_WRIST_PITCH,
     ROS_WRIST_ROLL,
     ROS_WRIST_YAW,
-    ROS_WRIST_PITCH,
-    ROS_GRIPPER_FINGER,
-    ROS_TO_CONFIG,
-    CONFIG_TO_ROS,
-    ControlMode,
     T_LOC_STABILIZE,
+    ControlMode,
 )
+from home_robot_hw.ros.camera import RosCamera
 from home_robot_hw.ros.utils import matrix_from_pose_msg, matrix_to_pose_msg
 from home_robot_hw.ros.visualizer import Visualizer
-
 
 MIN_DEPTH_REPLACEMENT_VALUE = 10000
 MAX_DEPTH_REPLACEMENT_VALUE = 10001

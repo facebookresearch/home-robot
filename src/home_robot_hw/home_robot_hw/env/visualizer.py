@@ -4,15 +4,15 @@
 # LICENSE file in the root directory of this source tree.
 import os
 import shutil
-import numpy as np
-import cv2
-from PIL import Image
-import skimage.morphology
 from typing import Optional
 
-import home_robot.agent.utils.visualization_utils as vu
-import home_robot.agent.utils.pose_utils as pu
+import cv2
+import numpy as np
+import skimage.morphology
+from PIL import Image
 
+import home_robot.agent.utils.pose_utils as pu
+import home_robot.agent.utils.visualization_utils as vu
 
 map_color_palette = [
     int(x * 255.0)

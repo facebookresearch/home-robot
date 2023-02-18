@@ -36,6 +36,7 @@ class Camera(object):
         self.py = py
         self.fov = fov
         self.near_val = near_val
+        self.far_val = far_val
         self.fx = fx
         self.fy = fy
         self.pose_matrix = pose_matrix
@@ -95,13 +96,13 @@ def z_from_opengl_depth(depth, camera: Camera):
 
 def z_from_2(depth, camera: Camera):
     # TODO - remove this?
-    height, width = distance.shape
+    height, width = depth.shape
     xlin = np.linspace(0, width - 1, width)
     ylin = np.linspace(0, height - 1, height)
     px, py = np.meshgrid(xlin, ylin)
     x_over_z = (px - camera.px) / camera.fx
     y_over_z = (py - camera.py) / camera.fy
-    z = distance / np.sqrt(1.0 + x_over_z**2 + y_over_z**2)
+    z = depth / np.sqrt(1.0 + x_over_z**2 + y_over_z**2)
     return z
 
 

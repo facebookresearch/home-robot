@@ -2,6 +2,10 @@
 
 [![CircleCI](https://dl.circleci.com/status-badge/img/gh/facebookresearch/home-robot/tree/main.svg?style=shield&circle-token=282f21120e0b390d466913ef0c0a92f0048d52a3)](https://dl.circleci.com/status-badge/redirect/gh/facebookresearch/home-robot/tree/main)
 [![Code style: black](https://img.shields.io/badge/code%20style-black-000000.svg)](https://github.com/psf/black)
+[![Imports: isort](https://img.shields.io/badge/%20imports-isort-%231674b1?style=flat&labelColor=ef8336)](https://timothycrosley.github.io/isort/)
+[![GitHub license](https://img.shields.io/badge/license-MIT-blue.svg)](https://github.com/facebookresearch/home-robot/blob/main/LICENSE)
+[![Python 3.8](https://img.shields.io/badge/python-3.7-blue.svg)](https://www.python.org/downloads/release/python-370/)
+[![pre-commit](https://img.shields.io/badge/pre--commit-enabled-brightgreen?logo=pre-commit&logoColor=white)](https://github.com/pre-commit/pre-commit)
 
 Mostly Hello Stretch infrastructure
 
@@ -114,19 +118,15 @@ The above command will do a *r*ecursive *u*pdating of changed files while echoin
 
 ## Code Contribution
 
-We enforce linters for our code. The `formatting` test will not pass if your code does not conform.
+We enforce linters for our code. The `lint` test will not pass if your code does not conform.
 
-To make this easy for yourself, you can either
-- Add the formattings to your IDE
-- Install the git [pre-commit](https://pre-commit.com/) hooks by running
-    ```bash
-    pip install pre-commit
-    pre-commit install
-    ```
+Install the git [pre-commit](https://pre-commit.com/) hooks by running
+  ```bash
+  pip install pre-commit
+  pre-commit install
+  ```
 
-To enforce this in VSCode, install [black](https://github.com/psf/black), [set your Python formatter to black](https://code.visualstudio.com/docs/python/editing#_formatting) and [set Format On Save to true](https://code.visualstudio.com/updates/v1_6#_format-on-save).
-
-To format manually, run: `black .`
+To format manually, run: `pre-commit run --show-diff-on-failure --all-files`
 
 ## License
 Home Robot is MIT licensed. See the [LICENSE](./LICENSE) for details.

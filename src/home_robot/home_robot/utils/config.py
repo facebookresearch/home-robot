@@ -1,10 +1,10 @@
-from typing import Tuple, Optional
-from pathlib import Path
 import json
-import yaml
-import yacs.config
+from pathlib import Path
+from typing import Optional, Tuple
 
 import hydra
+import yacs.config
+import yaml
 
 import home_robot
 

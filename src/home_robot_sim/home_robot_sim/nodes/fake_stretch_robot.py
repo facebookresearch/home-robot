@@ -12,15 +12,14 @@ import time
 from enum import Enum
 
 import numpy as np
-from scipy.spatial.transform import Rotation as R
 import rospy
 from geometry_msgs.msg import PoseWithCovarianceStamped, Twist
 from nav_msgs.msg import Odometry
+from scipy.spatial.transform import Rotation as R
 from std_srvs.srv import Trigger, TriggerResponse
 
-from home_robot.utils.geometry import xyt2sophus
 from home_robot.hw.ros.utils import matrix_to_pose_msg
-
+from home_robot.utils.geometry import xyt2sophus
 
 log = logging.getLogger(__name__)
 

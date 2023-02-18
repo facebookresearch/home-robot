@@ -2,9 +2,9 @@
 #
 # This source code is licensed under the MIT license found in the
 # LICENSE file in the root directory of this source tree.
-import trimesh.transformations as tra
 import numpy as np
-from geometry_msgs.msg import Quaternion, Pose, Point, Transform
+import trimesh.transformations as tra
+from geometry_msgs.msg import Point, Pose, Quaternion, Transform
 
 
 def theta_to_quaternion_msg(theta):
