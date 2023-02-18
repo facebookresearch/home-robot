@@ -24,9 +24,12 @@ repos:
     rev: v0.981
     hooks:
       - id: mypy
-        args: [--no-strict-optional, --ignore-missing-imports]
+        args: [--install-types, --non-interactive, --no-strict-optional, --ignore-missing-imports]
         exclude: |
             (?x)^(
+                src/home_robot/home_robot/agent/|
+                src/home_robot/home_robot/utils/data_tools/|
+                src/home_robot_hw/|
                 src/home_robot/home_robot/agent/perception/detection/lseg/|
                 src/home_robot/home_robot/perception/detection/detic/|
                 projects/|
@@ -39,6 +42,9 @@ repos:
       - id: flake8
         exclude: |
             (?x)^(
+                src/home_robot/home_robot/agent/|
+                src/home_robot/home_robot/utils/|
+                src/home_robot_hw/|
                 src/home_robot/home_robot/agent/perception/detection/lseg/|
                 src/home_robot/home_robot/perception/detection/detic/|
                 projects/|
