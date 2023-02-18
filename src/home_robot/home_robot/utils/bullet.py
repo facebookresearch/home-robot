@@ -179,7 +179,10 @@ class PbArticulatedObject(PbObject):
         ]
 
     def set_joint_positions(self, positions, indices=None):
+        """set joint positions of a bullet articulated object"""
         dof = self.get_num_controllable_joints()
+        if len(positions) > dof:
+            raise RuntimeError("too many positions sent to set_joint_positions")
         for i, q in zip(self.controllable_joint_infos, positions):
             self.set_joint_position(i.index, q)
 
@@ -258,10 +261,12 @@ class PbCamera(Camera):
         aspect_ratio = self.width / self.height
         e = 1 / (np.tan(np.radians(self.fov / 2.0)))
         t = self.near_val / e
-        b = -t
         r = t * aspect_ratio
-        l = -r
-        alpha = self.width / (r - l)  # pixels per meter
+        # Old code: uses variables from lit
+        # l = -r
+        # alpha = self.width / (r - l)  # pixels per meter
+        # Convert to pixels per meter
+        alpha = self.width / (2 * r)
         focal_length = (
             self.near_val * alpha
         )  # focal length of virtual camera (frustum camera)

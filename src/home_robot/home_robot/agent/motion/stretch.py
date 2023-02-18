@@ -3,9 +3,9 @@
 # This source code is licensed under the MIT license found in the
 # LICENSE file in the root directory of this source tree.
 import os
-from pdb import post_mortem
 
 import numpy as np
+import pybullet as pb
 import trimesh.transformations as tra
 
 import home_robot.utils.bullet as hrb
@@ -513,7 +513,6 @@ class HelloStretch(Robot):
         # Compute the actual robot conmfiguration
         q = q_init.copy()
         # Get the theta - we can then convert this over to see where the robot will end up
-        theta = q_init[HelloStretchIdx.BASE_THETA]
         q[HelloStretchIdx.BASE_X] = q_raw[0]
         # q[HelloStretchIdx.BASE_Y] += 0
         # No change to theta
@@ -649,8 +648,6 @@ class HelloStretch(Robot):
         a1 = arm
         q = q.copy()
         q[HelloStretchIdx.ARM] = a1
-        x = q[HelloStretchIdx.BASE_X]
-        y = q[HelloStretchIdx.BASE_Y]
         theta = q[HelloStretchIdx.BASE_THETA] + np.pi / 2
         da = a1 - a0
         dx, dy = da * np.cos(theta), da * np.sin(theta)

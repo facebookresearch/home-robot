@@ -4,7 +4,15 @@
 # LICENSE file in the root directory of this source tree.
 from setuptools import find_packages, setup
 
-install_requires = ["numpy<1.24", "scipy", "hydra-core", "yacs"]
+install_requires = [
+    "numpy<1.24",
+    "scipy",
+    "hydra-core",
+    "yacs",
+    "h5py",
+    "pybullet",
+    "pygifsicle",
+]
 
 setup(
     name="home-robot",

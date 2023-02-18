@@ -61,3 +61,10 @@ alias ssh-robot="ssh hello-robot@$HELLO_ROBOT_IP"
 ```
 
 Setting the server/hello robot IP addresses explicitly will help reduce some potential errors with Ros multi-node communication.
+
+## SymLink Assets
+
+Due to the organization of the code we want to symlink `assets` folder into `home_robot_hw` package in `catkin_ws`. Run the following:
+```
+ln -s /absolute/path/to/assets /absolute/path/to/catkin_ws/src/home_robot_hw/assets
+```
