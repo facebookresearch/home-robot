@@ -17,7 +17,7 @@ from home_robot_hw.teleop.stretch_xbox_controller_teleop import (
 from home_robot_hw.ros.stretch_ros import HelloStretchROSInterface
 from home_robot_hw.ros.recorder import Recorder, pngs_to_mp4
 from home_robot_hw.ros.path import get_package_path
-from home_robot.agent.motion.robot import HelloStretch
+from home_robot.agent.motion.stretch import HelloStretch
 
 
 class StretchXboxController(object):
