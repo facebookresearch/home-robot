@@ -1,4 +1,4 @@
-from typing import Any, Dict, Optional, Tuple
+from typing import Any, Dict, Optional, Tuple, Union, cast
 
 import habitat
 import numpy as np
@@ -18,6 +18,8 @@ from .visualizer import Visualizer
 
 
 class HabitatObjectNavEnv(HabitatEnv):
+    semantic_category_mapping: Union[HM3DtoCOCOIndoor, FloorplannertoMukulIndoor]
+
     def __init__(self, habitat_env: habitat.core.env.Env, config):
         super().__init__(habitat_env)
 
@@ -117,7 +119,10 @@ class HabitatObjectNavEnv(HabitatEnv):
         return self.semantic_category_mapping.map_goal_id(goal[0])
 
     def _preprocess_action(self, action: home_robot.core.interfaces.Action) -> int:
-        return HabitatSimActions[action.name]
+        discrete_action = cast(
+            home_robot.core.interfaces.DiscreteNavigationAction, action
+        )
+        return HabitatSimActions[discrete_action.name]
 
     def _process_info(self, info: Dict[str, Any]) -> Any:
         if info:

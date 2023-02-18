@@ -246,7 +246,7 @@ class Visualizer:
         )
 
         # Draw outlines
-        color = [100, 100, 100]
+        color = (100, 100, 100)
         vis_image[49, 15:655] = color
         vis_image[49, 670:1150] = color
         vis_image[50:530, 14] = color
