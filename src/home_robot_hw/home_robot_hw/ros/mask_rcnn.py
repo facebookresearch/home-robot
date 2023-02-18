@@ -2,21 +2,18 @@
 #
 # This source code is licensed under the MIT license found in the
 # LICENSE file in the root directory of this source tree.
+import matplotlib.pyplot as plt
+import numpy as np
 import rospy
 import torch
 import torchvision
-import numpy as np
+import torchvision.transforms.functional as F
+from torchvision.models.detection import (  # , MaskRCNN_ResNet50_FPN_Weights
+    maskrcnn_resnet50_fpn,
+)
+from torchvision.utils import draw_bounding_boxes
 
 from home_robot.hw.ros.camera import RosCamera
-from torchvision.utils import draw_bounding_boxes
-from torchvision.models.detection import (
-    maskrcnn_resnet50_fpn,
-)  # , MaskRCNN_ResNet50_FPN_Weights
-
-import matplotlib.pyplot as plt
-
-import torchvision.transforms.functional as F
-
 
 plt.rcParams["savefig.bbox"] = "tight"
 

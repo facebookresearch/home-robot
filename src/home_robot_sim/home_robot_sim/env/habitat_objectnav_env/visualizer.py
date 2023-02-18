@@ -4,18 +4,17 @@
 # LICENSE file in the root directory of this source tree.
 import os
 import shutil
-import numpy as np
-import cv2
-from PIL import Image
-import skimage.morphology
 from typing import Optional
 
-import home_robot.agent.utils.visualization_utils as vu
+import cv2
+import numpy as np
+import skimage.morphology
+from PIL import Image
+
 import home_robot.agent.utils.pose_utils as pu
-from .constants import (
-    HM3DtoCOCOIndoor,
-    FloorplannertoMukulIndoor,
-)
+import home_robot.agent.utils.visualization_utils as vu
+
+from .constants import FloorplannertoMukulIndoor, HM3DtoCOCOIndoor
 
 
 class Visualizer:
@@ -160,13 +159,12 @@ class Visualizer:
         # Goal
         if visualize_goal:
             selem = skimage.morphology.disk(4)
-            goal_mat = 1 - skimage.morphology.binary_dilation(goal_map, selem) != True
+            goal_mat = 1 - skimage.morphology.binary_dilation(goal_map, selem) != 1
             goal_mask = goal_mat == 1
             semantic_map[goal_mask] = 5
             if closest_goal_map is not None:
                 closest_goal_mat = (
-                    1 - skimage.morphology.binary_dilation(closest_goal_map, selem)
-                    != True
+                    1 - skimage.morphology.binary_dilation(closest_goal_map, selem) != 1
                 )
                 closest_goal_mask = closest_goal_mat == 1
                 semantic_map[closest_goal_mask] = 4
@@ -248,7 +246,7 @@ class Visualizer:
         )
 
         # Draw outlines
-        color = [100, 100, 100]
+        color = (100, 100, 100)
         vis_image[49, 15:655] = color
         vis_image[49, 670:1150] = color
         vis_image[50:530, 14] = color

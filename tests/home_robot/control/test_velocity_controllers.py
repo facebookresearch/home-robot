@@ -1,12 +1,11 @@
-import os
 import json
-import pytest
+import os
 
 import numpy as np
+import pytest
+from utils import generate_controller_input, get_controller_output
 
 from home_robot.control.goto_controller import GotoVelocityController
-
-from utils import generate_controller_input, get_controller_output
 
 NUM_ENTRIES = 10
 DATASET_DIR = os.path.dirname(os.path.abspath(__file__))

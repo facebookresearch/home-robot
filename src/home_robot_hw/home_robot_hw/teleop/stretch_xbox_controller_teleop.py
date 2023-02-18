@@ -12,13 +12,14 @@ For further information about the Contents including inquiries about dual licens
 # TODO: move this somewhere better, since it's in the "ros" folder but isn't actually ROS
 
 from __future__ import print_function
-import stretch_body.xbox_controller as xc
 
-import stretch_body.robot as rb
-from stretch_body.hello_utils import *
+import argparse
 import os
 import time
-import argparse
+
+import stretch_body.robot as rb
+import stretch_body.xbox_controller as xc
+from stretch_body.hello_utils import *
 
 print_stretch_re_use()
 

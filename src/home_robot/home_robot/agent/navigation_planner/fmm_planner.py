@@ -2,12 +2,13 @@
 #
 # This source code is licensed under the MIT license found in the
 # LICENSE file in the root directory of this source tree.
-from typing import List
-import cv2
-import skfmm
-import numpy as np
-from numpy import ma
 import os
+from typing import List
+
+import cv2
+import numpy as np
+import skfmm
+from numpy import ma
 
 
 class FMMPlanner:

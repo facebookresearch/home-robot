@@ -2,12 +2,12 @@
 #
 # This source code is licensed under the MIT license found in the
 # LICENSE file in the root directory of this source tree.
+from time import time
+
+import numpy as np
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-from time import time
-import numpy as np
-
 
 # reference https://github.com/yanx27/Pointnet_Pointnet2_pytorch, modified by Yang You
 

@@ -7,19 +7,20 @@ python home_robot/experimental/theo/habitat_projects/tasks/object_navigation/eva
     EVAL_VECTORIZED.num_episodes_per_env 1
 """
 
-import time
-import torch
+import argparse
+import glob
 import json
-from collections import defaultdict
-import numpy as np
 import os
 import shutil
-import cv2
-import glob
-from natsort import natsorted
-import argparse
-from pathlib import Path
 import sys
+import time
+from collections import defaultdict
+from pathlib import Path
+
+import cv2
+import numpy as np
+import torch
+from natsort import natsorted
 
 sys.path.insert(
     0,
@@ -31,7 +32,6 @@ sys.path.insert(
 from habitat import Config
 from habitat.core.vector_env import VectorEnv
 
-from home_robot.experimental.theo.habitat_projects.utils.config_utils import get_config
 from home_robot.experimental.theo.habitat_projects.tasks.object_navigation.agent.objectnav_agent import (
     ObjectNavAgent,
 )
@@ -39,6 +39,7 @@ from home_robot.experimental.theo.habitat_projects.tasks.object_navigation.env_w
     make_vector_envs,
     make_vector_envs_on_specific_episodes,
 )
+from home_robot.experimental.theo.habitat_projects.utils.config_utils import get_config
 
 
 class VectorizedEvaluator:

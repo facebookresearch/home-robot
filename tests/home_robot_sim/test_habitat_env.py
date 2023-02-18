@@ -1,9 +1,9 @@
-from pathlib import Path
 import sys
-import pytest
+from pathlib import Path
 from subprocess import Popen
 
 import habitat
+import pytest
 from habitat.config.default import Config
 
 from home_robot.core.abstract_agent import Agent

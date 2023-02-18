@@ -1,10 +1,10 @@
-import numpy as np
 from typing import Any, Dict, Optional
 
-from home_robot.core.interfaces import Action, Observations, DiscreteNavigationAction
-from home_robot_hw.env.stretch_abstract_env import StretchEnv
-from home_robot.perception.detection.detic.detic_perception import DeticPerception
+import numpy as np
 
+from home_robot.core.interfaces import Action, DiscreteNavigationAction, Observations
+from home_robot.perception.detection.detic.detic_perception import DeticPerception
+from home_robot_hw.env.stretch_abstract_env import StretchEnv
 
 REAL_WORLD_CATEGORIES = [
     "other",

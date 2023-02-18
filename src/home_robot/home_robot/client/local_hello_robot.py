@@ -2,38 +2,37 @@
 #
 # This source code is licensed under the MIT license found in the
 # LICENSE file in the root directory of this source tree.
-import os
-from collections import defaultdict
-from enum import Enum
 import argparse
 import copy
+import os
 import pdb
 import time
-from typing import Optional, Iterable, List, Dict
+from collections import defaultdict
 from dataclasses import dataclass
+from enum import Enum
+from typing import Dict, List, Optional
 
-import numpy as np
-import sophus as sp
-from scipy.spatial.transform import Rotation as R
-import rospy
-from std_srvs.srv import Trigger, TriggerRequest
-from std_srvs.srv import SetBool, SetBoolRequest
-from geometry_msgs.msg import PoseStamped, Pose, Twist
 import actionlib
-from control_msgs.msg import FollowJointTrajectoryAction
-from control_msgs.msg import FollowJointTrajectoryGoal
-from trajectory_msgs.msg import JointTrajectoryPoint
-from sensor_msgs.msg import JointState
+import numpy as np
+import rospy
+import sophus as sp
+import trimesh.transformations as tra
+from control_msgs.msg import FollowJointTrajectoryAction, FollowJointTrajectoryGoal
+from geometry_msgs.msg import Pose, PoseStamped, Twist
 from nav_msgs.msg import Odometry
+from scipy.spatial.transform import Rotation as R
+from sensor_msgs.msg import JointState
+from std_srvs.srv import SetBool, SetBoolRequest, Trigger, TriggerRequest
+from trajectory_msgs.msg import JointTrajectoryPoint
 
 import home_robot
-from home_robot.utils.geometry import (
-    xyt2sophus,
-    sophus2xyt,
-    xyt_base_to_global,
-    posquat2sophus,
-)
 from home_robot.agent.motion.ik import PybulletIKSolver
+from home_robot.utils.geometry import (
+    posquat2sophus,
+    sophus2xyt,
+    xyt2sophus,
+    xyt_base_to_global,
+)
 from home_robot_hw.ros.path import get_package_path
 from home_robot_hw.ros.utils import matrix_from_pose_msg, matrix_to_pose_msg
 
@@ -366,7 +365,7 @@ class LocalHelloRobot:
     @limit_control_mode([ControlMode.NAVIGATION])
     def navigate_to(
         self,
-        xyt: Iterable[float],
+        xyt: List[float],
         relative: bool = False,
         position_only: bool = False,
         avoid_obstacles: bool = False,
@@ -395,7 +394,7 @@ class LocalHelloRobot:
         self._goal_pub.publish(msg)
 
     @limit_control_mode([ControlMode.MANIPULATION])
-    def set_arm_joint_positions(self, joint_positions: Iterable[float]):
+    def set_arm_joint_positions(self, joint_positions: List[float]):
         """
         list of robot arm joint positions:
             BASE_TRANSLATION = 0
@@ -428,8 +427,8 @@ class LocalHelloRobot:
     @limit_control_mode([ControlMode.MANIPULATION])
     def set_ee_pose(
         self,
-        pos: Iterable[float],
-        quat: Optional[Iterable[float]] = None,
+        pos: List[float],
+        quat: Optional[List[float]] = None,
         relative: bool = False,
     ):
         """
@@ -573,26 +572,27 @@ class LocalHelloRobot:
     def _joint_state_callback(self, msg: JointState):
         self._robot_state.last_joint_update_timestamp = msg.header.stamp
 
+        map_name2state = {
+            ROS_LIFT_JOINT: "q_lift",
+            ROS_WRIST_YAW: "wrist_yaw",
+            ROS_WRIST_PITCH: "wrist_pitch",
+            ROS_WRIST_ROLL: "wrist_roll",
+            ROS_GRIPPER_FINGER: "gripper_finger",
+            ROS_HEAD_PAN: "head_pan",
+            ROS_HEAD_TILT: "head_tilt",
+        }
+
         if ROS_ARM_JOINTS_ACTUAL[0] in msg.name:
             self._robot_state.q_arm = 0.0
 
         for name, pos in zip(msg.name, msg.position):
-            if name == ROS_LIFT_JOINT:
-                self._robot_state.q_lift = pos
-            elif name in ROS_ARM_JOINTS_ACTUAL:
+            # Arm telescoping joint: add displacement together
+            if name in ROS_ARM_JOINTS_ACTUAL:
                 self._robot_state.q_arm += pos
-            elif name == ROS_WRIST_YAW:
-                self._robot_state.q_wrist_yaw = pos
-            elif name == ROS_WRIST_PITCH:
-                self._robot_state.q_wrist_pitch = pos
-            elif name == ROS_WRIST_ROLL:
-                self._robot_state.q_wrist_roll = pos
-            elif name == ROS_GRIPPER_FINGER:
-                self._robot_state.q_gripper_finger = pos
-            elif name == ROS_HEAD_PAN:
-                self._robot_state.q_head_pan = pos
-            elif name == ROS_HEAD_TILT:
-                self._robot_state.q_head_tilt = pos
+
+            # Normal joints
+            elif name in map_name2state:
+                setattr(self._robot_state, map_name2state[name], pos)
 
 
 if __name__ == "__main__":

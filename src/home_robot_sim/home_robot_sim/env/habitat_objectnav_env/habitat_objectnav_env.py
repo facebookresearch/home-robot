@@ -1,22 +1,25 @@
-from typing import Tuple, Any, Dict, Optional
-import numpy as np
+from typing import Any, Dict, Optional, Tuple, Union, cast
 
 import habitat
+import numpy as np
 from habitat.sims.habitat_simulator.actions import HabitatSimActions
 
-from home_robot_sim.env.habitat_abstract_env import HabitatEnv
 import home_robot
+from home_robot_sim.env.habitat_abstract_env import HabitatEnv
+
 from .constants import (
-    HM3DtoCOCOIndoor,
-    FloorplannertoMukulIndoor,
-    mukul_33categories_padded,
-    MIN_DEPTH_REPLACEMENT_VALUE,
     MAX_DEPTH_REPLACEMENT_VALUE,
+    MIN_DEPTH_REPLACEMENT_VALUE,
+    FloorplannertoMukulIndoor,
+    HM3DtoCOCOIndoor,
+    mukul_33categories_padded,
 )
 from .visualizer import Visualizer
 
 
 class HabitatObjectNavEnv(HabitatEnv):
+    semantic_category_mapping: Union[HM3DtoCOCOIndoor, FloorplannertoMukulIndoor]
+
     def __init__(self, habitat_env: habitat.core.env.Env, config):
         super().__init__(habitat_env)
 
@@ -116,7 +119,10 @@ class HabitatObjectNavEnv(HabitatEnv):
         return self.semantic_category_mapping.map_goal_id(goal[0])
 
     def _preprocess_action(self, action: home_robot.core.interfaces.Action) -> int:
-        return HabitatSimActions[action.name]
+        discrete_action = cast(
+            home_robot.core.interfaces.DiscreteNavigationAction, action
+        )
+        return HabitatSimActions[discrete_action.name]
 
     def _process_info(self, info: Dict[str, Any]) -> Any:
         if info:
