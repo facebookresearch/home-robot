@@ -69,7 +69,7 @@ class StretchLinearWithOffsetPlanner(Planner):
                 return None
         return traj, ts
 
-    def plan(self, q0, poses, grasp=True, tries=100, grasp=False, ignored=[]):
+    def plan(self, q0, poses, tries=100, grasp=False, ignored=[]):
         """we assume that the arm has to be at least extended enough that we can do this, so check
         the arm extension. This planner is designed for work with the stretch only.
 
@@ -174,7 +174,7 @@ class StretchLinearIKPlanner(Planner):
                 return None
         return traj, ts
 
-    def plan(self, q0, poses, tries=100, ignored=[]):
+    def plan(self, q0, poses, tries=100, grasp=False, ignored=[]):
         """we assume that the arm has to be at least extended enough that we can do this, so check
         the arm extension. This planner is designed for work with the stretch only.
         """
