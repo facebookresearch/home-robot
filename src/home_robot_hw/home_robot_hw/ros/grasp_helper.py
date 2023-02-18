@@ -2,24 +2,25 @@
 #
 # This source code is licensed under the MIT license found in the
 # LICENSE file in the root directory of this source tree.
-import rospy
-import numpy as np
 import threading
-
-from sensor_msgs.msg import PointCloud, ChannelFloat32
-from geometry_msgs.msg import PoseArray, Point
-from std_msgs.msg import Float32MultiArray
 from collections import deque
-import trimesh.transformations as tra
 
-from home_robot.srv import GraspRequest, GraspRequestResponse
-from home_robot_hw.ros.utils import matrix_to_pose_msg
-from home_robot_hw.ros.utils import matrix_from_pose_msg
+import numpy as np
+import rospy
 
 # For debugging only
 import tf2_ros
-from geometry_msgs.msg import TransformStamped
-from home_robot_hw.ros.utils import ros_pose_to_transform
+import trimesh.transformations as tra
+from geometry_msgs.msg import Point, PoseArray, TransformStamped
+from sensor_msgs.msg import ChannelFloat32, PointCloud
+from std_msgs.msg import Float32MultiArray
+
+from home_robot.srv import GraspRequest, GraspRequestResponse
+from home_robot_hw.ros.utils import (
+    matrix_from_pose_msg,
+    matrix_to_pose_msg,
+    ros_pose_to_transform,
+)
 
 
 def msg_to_segmented_point_cloud(msg):

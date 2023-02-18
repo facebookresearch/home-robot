@@ -2,15 +2,15 @@
 #
 # This source code is licensed under the MIT license found in the
 # LICENSE file in the root directory of this source tree.
-import numpy as np
-import rospy
 import threading
 from collections import deque
 
+import numpy as np
+import rospy
+from sensor_msgs.msg import CameraInfo, Image
+
 from home_robot.utils.image import Camera
 from home_robot_hw.ros.msg_numpy import image_to_numpy
-
-from sensor_msgs.msg import CameraInfo, Image
 
 
 class RosCamera(Camera):

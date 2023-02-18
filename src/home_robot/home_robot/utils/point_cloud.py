@@ -2,15 +2,17 @@
 #
 # This source code is licensed under the MIT license found in the
 # LICENSE file in the root directory of this source tree.
-import numpy as np
 import io
-import imageio
-import h5py
-from tqdm import tqdm
-import open3d as o3d
-import matplotlib.pyplot as plt
-import trimesh.transformations as tra
+
 import cv2
+import h5py
+import imageio
+import matplotlib.pyplot as plt
+import numpy as np
+import open3d as o3d
+import torch
+import trimesh.transformations as tra
+from tqdm import tqdm
 
 
 def get_pcd(xyz, rgb=None):
@@ -112,13 +114,13 @@ def z_from_opengl_depth(depth, camera):
 
 def z_from_2(depth, camera):
     # TODO - remove this?
-    height, width = distance.shape
+    height, width = depth.shape
     xlin = np.linspace(0, width - 1, width)
     ylin = np.linspace(0, height - 1, height)
     px, py = np.meshgrid(xlin, ylin)
     x_over_z = (px - camera.px) / camera.fx
     y_over_z = (py - camera.py) / camera.fy
-    z = distance / np.sqrt(1.0 + x_over_z**2 + y_over_z**2)
+    z = depth / np.sqrt(1.0 + x_over_z**2 + y_over_z**2)
     return z
 
 
@@ -164,7 +166,7 @@ def build_matrix_of_indices(height, width):
 
 
 def pose_from_camera_params(camera_params):
-    look_at = camera_params["look_at"]
+    # look_at = camera_params["look_at"]
     look_from = camera_params["look_from"]
     up_vector = camera_params["up_vector"]
     pose = np.eye(4)
@@ -196,10 +198,10 @@ def pb_compute_xyz(depth_img, camera_params):
         aspect_ratio = camera_params["width"] / camera_params["height"]
         e = 1 / (np.tan(np.radians(camera_params["fov"] / 2.0)))
         t = camera_params["near_val"] / e
-        b = -t
+        # b = -t
         r = t * aspect_ratio
-        l = -r
-        alpha = camera_params["width"] / (r - l)  # pixels per meter
+        L = -r
+        alpha = camera_params["width"] / (r - L)  # pixels per meter
         focal_length = (
             camera_params["near_val"] * alpha
         )  # focal length of virtual camera (frustum camera)
@@ -346,8 +348,11 @@ def dropout_random_ellipses(
 
 
 def get_xyz_coordinates(
-    depth: Tensor, mask: Tensor, pose: Tensor, inv_intrinsics: Tensor
-) -> Tensor:
+    depth: torch.Tensor,
+    mask: torch.Tensor,
+    pose: torch.Tensor,
+    inv_intrinsics: torch.Tensor,
+) -> torch.Tensor:
     """Returns the XYZ coordinates for a posed RGBD image.
 
     Args:

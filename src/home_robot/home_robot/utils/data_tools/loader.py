@@ -3,13 +3,13 @@
 # This source code is licensed under the MIT license found in the
 # LICENSE file in the root directory of this source tree.
 import glob
-import h5py
-import numpy as np
 import os
-import torch
 
 import data_tools.base as base
 import data_tools.image as image
+import h5py
+import numpy as np
+import torch
 
 
 class Trial(object):

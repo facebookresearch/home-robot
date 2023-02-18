@@ -2,18 +2,17 @@
 #
 # This source code is licensed under the MIT license found in the
 # LICENSE file in the root directory of this source tree.
-import rospy
-import numpy as np
-import h5py
+import argparse
 
+import cv2
+import h5py
+import numpy as np
+import rospy
 from tqdm import tqdm
 
-from home_robot.utils.data_tools.writer import DataWriter
 from home_robot.utils.data_tools.image import img_from_bytes
+from home_robot.utils.data_tools.writer import DataWriter
 from home_robot_hw.ros.stretch_ros import HelloStretchROSInterface
-
-import argparse
-import cv2
 
 
 class Recorder(object):

@@ -6,6 +6,7 @@ import abc
 from typing import Tuple
 
 import numpy as np
+from omegaconf import DictConfig
 
 
 class DiffDriveVelocityController(abc.ABC):
@@ -24,7 +25,7 @@ class DDVelocityControlNoplan(DiffDriveVelocityController):
     Does not plan at all, instead uses heuristics to gravitate towards the goal.
     """
 
-    def __init__(self, cfg: "DictConfig"):
+    def __init__(self, cfg: DictConfig):
         self.cfg = cfg
 
     @staticmethod

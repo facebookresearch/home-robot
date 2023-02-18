@@ -7,14 +7,15 @@
 Load data and visualize it
 """
 
-import os
 import json
+import os
+import pickle
+
 import numpy as np
 import open3d as o3d
+import torch
 import trimesh
 import trimesh.transformations as tra
-import torch
-import pickle
 
 
 class Camera(object):

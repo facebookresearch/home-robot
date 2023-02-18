@@ -3,22 +3,22 @@
 # This source code is licensed under the MIT license found in the
 # LICENSE file in the root directory of this source tree.
 import abc
-import numpy as np
 import time
 import timeit
+
+import numpy as np
 import trimesh.transformations as tra
 
-
-from home_robot.agent.motion.stretch import HelloStretch, HelloStretchIdx
 from home_robot.agent.motion.stretch import (
-    STRETCH_HOME_Q,
     STRETCH_GRASP_FRAME,
+    STRETCH_HOME_Q,
     STRETCH_STANDOFF_DISTANCE,
+    HelloStretch,
+    HelloStretchIdx,
 )
 
 # For handling grasping
 from home_robot.utils.pose import to_pos_quat
-
 
 BASE_X_IDX = HelloStretchIdx.BASE_X
 BASE_Y_IDX = HelloStretchIdx.BASE_Y

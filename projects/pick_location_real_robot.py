@@ -2,21 +2,20 @@
 #
 # This source code is licensed under the MIT license found in the
 # LICENSE file in the root directory of this source tree.
-import rospy
 import timeit
-import numpy as np
-import sophus as sp
-
-from home_robot.hw.ros.stretch_ros import HelloStretchROSInterface
-from home_robot.agent.motion.robot import STRETCH_HOME_Q, HelloStretchIdx
-from home_robot.agent.perception.detectron2_segmentation import Detectron2Segmentation
-from home_robot.agent.perception.constants import coco_categories
-from home_robot.hw.ros.grasp_helper import GraspClient as RosGraspClient
-from home_robot.utils.pose import to_pos_quat
-
-from home_robot.client import LocalHelloRobot
 
 import matplotlib.pyplot as plt
+import numpy as np
+import rospy
+import sophus as sp
+
+from home_robot.agent.motion.robot import STRETCH_HOME_Q, HelloStretchIdx
+from home_robot.agent.perception.constants import coco_categories
+from home_robot.agent.perception.detectron2_segmentation import Detectron2Segmentation
+from home_robot.client import LocalHelloRobot
+from home_robot.hw.ros.grasp_helper import GraspClient as RosGraspClient
+from home_robot.hw.ros.stretch_ros import HelloStretchROSInterface
+from home_robot.utils.pose import to_pos_quat
 
 visualize_masks = False
 

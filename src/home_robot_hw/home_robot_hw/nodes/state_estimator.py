@@ -4,14 +4,13 @@
 # This source code is licensed under the MIT license found in the
 # LICENSE file in the root directory of this source tree.
 import logging
-import time
 import threading
+import time
 from typing import Optional
 
 import numpy as np
-import sophus as sp
-from scipy.spatial.transform import Rotation as R
 import rospy
+import sophus as sp
 import tf2_ros
 from geometry_msgs.msg import (
     Pose,
@@ -20,8 +19,9 @@ from geometry_msgs.msg import (
     TransformStamped,
 )
 from nav_msgs.msg import Odometry
+from scipy.spatial.transform import Rotation as R
 
-from home_robot_hw.ros.utils import matrix_to_pose_msg, matrix_from_pose_msg
+from home_robot_hw.ros.utils import matrix_from_pose_msg, matrix_to_pose_msg
 
 log = logging.getLogger(__name__)
 

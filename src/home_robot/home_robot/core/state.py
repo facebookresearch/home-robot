@@ -1,5 +1,6 @@
-import sophus as sp
 from dataclasses import dataclass
+
+import sophus as sp
 
 
 @dataclass

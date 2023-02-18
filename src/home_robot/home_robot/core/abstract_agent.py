@@ -1,5 +1,5 @@
-from typing import Dict, Any, Tuple
 from abc import ABC, abstractmethod
+from typing import Any, Dict, Tuple
 
 from .interfaces import Action, Observations
 

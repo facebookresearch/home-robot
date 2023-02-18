@@ -4,23 +4,21 @@
 # This source code is licensed under the MIT license found in the
 # LICENSE file in the root directory of this source tree.
 import logging
-from typing import List, Optional
 import threading
+from typing import List, Optional
 
 import numpy as np
-import sophus as sp
 import rospy
-from std_srvs.srv import Trigger, TriggerResponse
-from std_srvs.srv import SetBool, SetBoolResponse
-from geometry_msgs.msg import Twist, Pose, PoseStamped
+import sophus as sp
+from geometry_msgs.msg import Pose, PoseStamped, Twist
 from nav_msgs.msg import Odometry
+from std_srvs.srv import SetBool, SetBoolResponse, Trigger, TriggerResponse
 
 from home_robot.control.goto_controller import GotoVelocityController
 from home_robot.utils.config import get_control_config
-from home_robot.utils.geometry import xyt_global_to_base, sophus2xyt, xyt2sophus
+from home_robot.utils.geometry import sophus2xyt, xyt2sophus, xyt_global_to_base
 from home_robot_hw.ros.utils import matrix_from_pose_msg
 from home_robot_hw.ros.visualizer import Visualizer
-
 
 log = logging.getLogger(__name__)
 
