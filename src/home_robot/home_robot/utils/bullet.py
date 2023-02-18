@@ -26,7 +26,7 @@ and data generation.
 """
 
 PbJointInfo = namedtuple(
-    "JointInfo",
+    "PbJointInfo",
     [
         "index",
         "name",
