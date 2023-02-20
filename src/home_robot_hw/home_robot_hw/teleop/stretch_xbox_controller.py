@@ -9,7 +9,6 @@ import numpy as np
 import rospy
 from sensor_msgs.msg import JointState, Joy
 
-from home_robot.agent.motion.robot import HelloStretch
 from home_robot.agent.motion.stretch import HelloStretch
 from home_robot_hw.ros.path import get_package_path
 from home_robot_hw.ros.recorder import Recorder, pngs_to_mp4

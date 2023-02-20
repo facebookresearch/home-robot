@@ -16,9 +16,9 @@ from home_robot.utils.image import (
     T_CORRECTION,
     Camera,
     opengl_depth_to_xyz,
-    show_point_cloud,
     z_from_opengl_depth,
 )
+from home_robot.utils.point_cloud import show_point_cloud
 
 """
 This file contains simple tools for creating and loading objects in pybullet for easy simulation

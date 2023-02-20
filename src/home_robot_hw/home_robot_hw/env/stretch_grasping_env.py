@@ -13,21 +13,26 @@ REAL_WORLD_CATEGORIES = [
 ]
 
 
+DETIC = "detic"
+
+
 class StretchGraspingEnv(StretchEnv):
     """Create a Detic-based grasping environment"""
 
-    def __init__(self, *args, **kwargs):
+    def __init__(self, segmentation_method=DETIC, *args, **kwargs):
         super().__init__(*args, **kwargs)
 
         # TODO: pass this in or load from cfg
         self.goal_options = REAL_WORLD_CATEGORIES
 
-        # TODO Specify confidence threshold as a parameter
-        self.segmentation = DeticPerception(
-            vocabulary="custom",
-            custom_vocabulary=",".join(self.goal_options),
-            sem_gpu_id=0,
-        )
+        self.segmentation_method = segmentation_method
+        if self.segmentation_method == DETIC:
+            # TODO Specify confidence threshold as a parameter
+            self.segmentation = DeticPerception(
+                vocabulary="custom",
+                custom_vocabulary=",".join(self.goal_options),
+                sem_gpu_id=0,
+            )
 
     def reset(self):
         # TODO Make this better
@@ -55,9 +60,10 @@ class StretchGraspingEnv(StretchEnv):
             },
         )
         # Run the segmentation model here
-        obs = self.segmentation.predict(obs)
-        obs.semantic[obs.semantic == 0] = len(self.goal_options) - 1
-        obs.task_observations["goal_mask"] = obs.semantic == self.current_goal_id
+        if self.segmentation_method == DETIC:
+            obs = self.segmentation.predict(obs)
+            obs.semantic[obs.semantic == 0] = len(self.goal_options) - 1
+            obs.task_observations["goal_mask"] = obs.semantic == self.current_goal_id
         return obs
 
     @property
