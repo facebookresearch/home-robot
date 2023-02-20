@@ -262,13 +262,13 @@ class StretchEnv(home_robot.core.abstract_env.Env):
         server_reached = self.trajectory_client.wait_for_server(
             timeout=rospy.Duration(30.0)
         )
-        print("... connected.")
         if not server_reached:
             print("ERROR: Failed to connect to arm action server.")
             rospy.signal_shutdown(
                 "Unable to connect to arm action server. Timeout exceeded."
             )
             sys.exit()
+        print("... connected.")
 
         self.ros_joint_names = []
         for i in range(3, self.dof):

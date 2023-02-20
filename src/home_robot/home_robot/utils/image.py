@@ -158,20 +158,6 @@ def to_o3d_point_cloud(xyz, rgb=None, mask=None):
     return pcd
 
 
-def show_point_cloud(xyz, rgb=None, orig=None, R=None):
-    # http://www.open3d.org/docs/0.9.0/tutorial/Basic/working_with_numpy.html
-    import open3d as o3d
-
-    pcd = to_o3d_point_cloud(xyz, rgb)
-    geoms = [pcd]
-    if orig is not None:
-        coords = o3d.geometry.TriangleMesh.create_coordinate_frame(origin=orig)
-        if R is not None:
-            coords = coords.rotate(R)
-        geoms.append(coords)
-    o3d.visualization.draw_geometries(geoms)
-
-
 def smooth_mask(mask, kernel=None):
     if kernel is None:
         kernel = np.ones((5, 5))

@@ -10,3 +10,9 @@
 [submodule "src/third_party/habitat-lab"]
 	path = src/third_party/habitat-lab
 	url = https://github.com/facebookresearch/habitat-lab
+[submodule "src/third_party/detectron2"]
+	path = src/third_party/detectron2
+	url = git@github.com:facebookresearch/detectron2.git
+[submodule "src/third_party/contact_graspnet"]
+	path = src/third_party/contact_graspnet
+	url = git@github.com:cpaxton/contact_graspnet.git
