@@ -5,8 +5,8 @@ acc_lin: 0.2  # base.params["motion"]["max"]["accel_m"]
 acc_ang: 0.6  # (accel_m_max - accel_m_default) / wheel_separation_m
 
 # Tolerances for determining whether the goal position or orientation is reached
-tol_lin: 0.01
-tol_ang: 0.025
+lin_error_tol: 0.01
+ang_error_tol: 0.025
 
 # Maximum angle error at which the controller would still exert linear motion
 max_heading_ang: 0.7854  # 45 degrees
