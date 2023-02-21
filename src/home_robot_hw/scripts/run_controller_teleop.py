@@ -6,6 +6,7 @@
 # LICENSE file in the root directory of this source tree.
 
 import os
+import rospy
 
 from home_robot.agent.motion.stretch import HelloStretch
 from home_robot_hw.ros.path import get_urdf_dir
