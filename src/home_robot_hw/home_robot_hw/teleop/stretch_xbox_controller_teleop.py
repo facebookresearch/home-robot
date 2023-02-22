@@ -245,9 +245,12 @@ def manage_head(robot, controller_state):
 ############################
 # Regular Motion
 dead_zone = 0.01  # 0.25 #0.1 #0.2 #0.3 #0.4
+#move_s = 0.6
 move_s = 0.6
-max_dist_m = 0.06  # 0.04 #0.05
-accel_m = 0.2  # 0.1
+#max_dist_m = 0.06  # 0.04 #0.05
+max_dist_m = 0.2  # 0.04 #0.05
+#accel_m = 0.2  # 0.1
+accel_m = 4.0  # 0.1
 command_to_linear_motion = CommandToLinearMotion(dead_zone, move_s, max_dist_m, accel_m)
 
 move_s = 0.05
@@ -296,10 +299,12 @@ def manage_base(robot, controller_state):
         if abs(forward_command) > dead_zone:
             output_sign = math.copysign(1, forward_command)
             if not fast_navigation_mode:
+                # print("Base motion")
                 d_m, v_m, a_m = command_to_linear_motion.get_dist_vel_accel(
                     output_sign, forward_command
                 )
             else:
+                print("Fast base motion")
                 d_m, v_m, a_m = fast_command_to_linear_motion.get_dist_vel_accel(
                     output_sign, forward_command
                 )
