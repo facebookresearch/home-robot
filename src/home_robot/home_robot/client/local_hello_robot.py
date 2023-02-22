@@ -26,7 +26,7 @@ from std_srvs.srv import SetBool, SetBoolRequest, Trigger, TriggerRequest
 from trajectory_msgs.msg import JointTrajectoryPoint
 
 import home_robot
-from home_robot.agent.motion.ik import PybulletIKSolver
+from home_robot.utils.bullet import PybulletIKSolver
 from home_robot.utils.geometry import (
     posquat2sophus,
     sophus2xyt,
