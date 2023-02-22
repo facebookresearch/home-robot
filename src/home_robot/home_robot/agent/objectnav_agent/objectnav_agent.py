@@ -4,14 +4,13 @@ import numpy as np
 import torch
 from torch.nn import DataParallel
 
-import home_robot.agent.utils.pose_utils as pu
-from home_robot.agent.mapping.dense.semantic.categorical_2d_semantic_map_state import (
+import home_robot.utils.pose as pu
+from home_robot.mapping.semantic.categorical_2d_semantic_map_state import (
     Categorical2DSemanticMapState,
 )
-from home_robot.agent.navigation_planner.discrete_planner import DiscretePlanner
+from home_robot.navigation_planner.discrete_planner import DiscretePlanner
 from home_robot.core.abstract_agent import Agent
 from home_robot.core.interfaces import DiscreteNavigationAction, Observations
-from home_robot.utils.geometry import obs2xyt
 
 from .objectnav_agent_module import ObjectNavAgentModule
 
