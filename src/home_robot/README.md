@@ -2,9 +2,9 @@
 
 ## Installation
 ```sh
+cd $HOME_ROBOT_ROOT/src/home_robot
 mamba env create -n home_robot -f environment.yml
 conda activate home_robot
-cd src/home_robot
 pip install -e .
 ```
 
