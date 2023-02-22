@@ -248,7 +248,7 @@ dead_zone = 0.01  # 0.25 #0.1 #0.2 #0.3 #0.4
 #move_s = 0.6
 move_s = 0.6
 #max_dist_m = 0.06  # 0.04 #0.05
-max_dist_m = 0.2  # 0.04 #0.05
+max_dist_m = 0.3  # 0.04 #0.05
 #accel_m = 0.2  # 0.1
 accel_m = 4.0  # 0.1
 command_to_linear_motion = CommandToLinearMotion(dead_zone, move_s, max_dist_m, accel_m)
@@ -261,16 +261,22 @@ command_to_rotary_motion = CommandToRotaryMotion(
 )
 ############################
 # Fast Motion
+# fast_move_s = 0.6
+# fast_max_dist_m = 0.12
+# fast_accel_m = 0.8
 fast_move_s = 0.6
-fast_max_dist_m = 0.12
-fast_accel_m = 0.8
+fast_max_dist_m = 0.3
+fast_accel_m = 4
 # fast, but unstable on thresholds: 0.6 s, 0.15 m, 0.8 m/s^2
 
 fast_command_to_linear_motion = CommandToLinearMotion(
     dead_zone, fast_move_s, fast_max_dist_m, fast_accel_m
 )
+# fast_move_s = 0.2
+# fast_max_dist_rad = 0.6
+# fast_accel_rad = 0.8
 fast_move_s = 0.2
-fast_max_dist_rad = 0.6
+fast_max_dist_rad = 0.2
 fast_accel_rad = 0.8
 fast_command_to_rotary_motion = CommandToRotaryMotion(
     dead_zone, fast_move_s, fast_max_dist_rad, fast_accel_rad
@@ -299,7 +305,7 @@ def manage_base(robot, controller_state):
         if abs(forward_command) > dead_zone:
             output_sign = math.copysign(1, forward_command)
             if not fast_navigation_mode:
-                # print("Base motion")
+                print("Base motion")
                 d_m, v_m, a_m = command_to_linear_motion.get_dist_vel_accel(
                     output_sign, forward_command
                 )
