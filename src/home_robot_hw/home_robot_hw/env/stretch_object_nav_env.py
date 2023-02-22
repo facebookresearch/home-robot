@@ -104,7 +104,7 @@ class StretchObjectNavEnv(StretchEnv):
         relative_pose = self._episode_start_pose.inverse() * current_pose
         euler_angles = relative_pose.so3().log()
         theta = euler_angles[-1]
-        pos, vel, frc = self.get_joint_state()
+        # pos, vel, frc = self.get_joint_state()
 
         # Create the observation
         obs = home_robot.core.interfaces.Observations(
@@ -117,7 +117,7 @@ class StretchObjectNavEnv(StretchEnv):
                 "goal_id": self.current_goal_id,
                 "goal_name": self.current_goal_name,
             },
-            joint_positions=pos,
+            # joint_positions=pos,
         )
         # Run the segmentation model here
         obs = self.segmentation.predict(obs, depth_threshold=0.5)
