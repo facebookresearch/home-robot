@@ -10,3 +10,6 @@
 [submodule "src/third_party/habitat-lab"]
 	path = src/third_party/habitat-lab
 	url = https://github.com/facebookresearch/habitat-lab
+[submodule "src/home_robot/home_robot/agent/imagenav_agent/SuperGluePretrainedNetwork"]
+	path = src/home_robot/home_robot/agent/imagenav_agent/SuperGluePretrainedNetwork
+	url = git@github.com:magicleap/SuperGluePretrainedNetwork.git
