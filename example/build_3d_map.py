@@ -29,10 +29,8 @@ def combine_point_clouds(pc_xyz, pc_rgb, xyz, rgb):
     else:
         np.concatenate([pc_rgb, rgb], axis=0)
         np.concatenate([pc_xyz, xyz], axis=0)
-    pcd = numpy_to_pcd(xyz, rgb)
-    voxels = open3d.geometry.VoxelGrid.create_from_point_cloud(pcd, voxel_size=0.01)
-    open3d.visualization.draw_geometries([voxels])
-    input("---")
+    pcd = numpy_to_pcd(xyz, rgb).voxel_down_sample(voxel_size=0.01)
+    open3d.visualization.draw_geometries([pcd])
     return pcd_to_numpy(pcd)
 
 
@@ -86,6 +84,8 @@ def main(rate=10):
         # Run until we control+C this script
         collector.step()  # Append latest observations
         rate.sleep()
+        # TODO: remove debug break
+        break
 
     print("Done collecting data.")
     collector.show()
