@@ -19,6 +19,8 @@ In general this is the recommended workflow:
   - If desired, run [rviz](http://wiki.ros.org/rviz) on the server to see what the robot is seeing.
   - Start running your AI code on the server!
 
+We provide a couple connections for useful perception libraries like [Detic](https://github.com/facebookresearch/Detic) and [Contact Graspnet](https://github.com/NVlabs/contact_graspnet), which you can then use as a part of your methods.
+
 ## Installation & Usage
 
 This project contains numerous packages. See individual package docs for corresponding details & instructions.
