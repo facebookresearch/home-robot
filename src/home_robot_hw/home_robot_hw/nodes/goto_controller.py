@@ -119,12 +119,16 @@ class GotoVelocityControllerNode:
         rate = rospy.Rate(self.hz)
 
         while not rospy.is_shutdown():
-            if self.active and self.xyt_goal is not None:
-                # Compute control
-                v_cmd, w_cmd = self.controller.compute_control()
+            if self.xyt_goal is not None:
+                if self.active:
+                    # Compute control
+                    v_cmd, w_cmd = self.controller.compute_control()
 
-                # Command robot
-                self._set_velocity(v_cmd, w_cmd)
+                    # Command robot
+                    self._set_velocity(v_cmd, w_cmd)
+                else:
+                    log.warn("Received a goal while NOT active. Goal will be unset.")
+                    self.xyt_goal = None
 
             # Spin
             rate.sleep()
