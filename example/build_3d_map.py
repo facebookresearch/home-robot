@@ -21,7 +21,7 @@ from home_robot.utils.pose import to_pos_quat
 from home_robot_hw.env.stretch_grasping_env import StretchGraspingEnv
 
 
-def combine_point_clouds(pc_xyz, pc_rgb, xyz, rgb):
+def combine_point_clouds(pc_xyz: np.ndarray, pc_rgb: np.ndarray, xyz: np.ndarray, rgb: np.ndarray) -> np.ndarray:
     """Tool to combine point clouds without duplicates. Concatenate, voxelize, and then return
     the finished results."""
     if pc_rgb is None:
