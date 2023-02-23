@@ -85,17 +85,18 @@ class GotoVelocityControllerNode:
         self.goal_visualizer(pose_goal.matrix())
 
     def _enable_service(self, request):
+        self.xyt_goal = None
         self.active = True
         return TriggerResponse(
             success=True,
-            message=f"Goto controller is now RUNNING",
+            message="Goto controller is now RUNNING",
         )
 
     def _disable_service(self, request):
         self.active = False
         return TriggerResponse(
             success=True,
-            message=f"Goto controller is now STOPPED",
+            message="Goto controller is now STOPPED",
         )
 
     def _set_yaw_tracking_service(self, request: SetBool):
@@ -128,7 +129,6 @@ class GotoVelocityControllerNode:
                     self._set_velocity(v_cmd, w_cmd)
                 else:
                     log.warn("Received a goal while NOT active. Goal will be unset.")
-                    self.xyt_goal = None
 
             # Spin
             rate.sleep()
