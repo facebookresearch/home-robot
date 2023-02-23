@@ -439,9 +439,10 @@ class PybulletIKSolver:
     def get_dof(self):
         return len(self.controlled_joints)
 
-    def compute_ik(self, pos_desired, quat_desired, q_init):
-        # This version assumes that q_init is NOT in the right format yet
-        self.set_joint_positions(q_init)
+    def compute_ik(self, pos_desired, quat_desired, q_init=None):
+        if q_init is not None:
+            # This version assumes that q_init is NOT in the right format yet
+            self.set_joint_positions(q_init)
         if self.visualize:
             self.debug_block.set_pose(pos_desired, quat_desired)
             input("--- Press enter to solve ---")
