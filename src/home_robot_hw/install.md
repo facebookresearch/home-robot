@@ -24,6 +24,19 @@ cd $HOME/catkin_ws
 catkin_make
 ```
 
+We recommend you add this to your robot's `~/.bashrc` or equivalent:
+```
+source $HOME/catkin_ws/devel/setup.bash
+```
+
+If using the `zsh` shell there is an equivalent:
+```
+source $HOME/catkin_ws/devel/setup.zsh
+```
+
+These will ensure you can run the ROS-side launch files easily, and focus development on the server side.
+
+
 ### Setting up ROS Network
 
 We use a client-server setup for controlling the robots, where low-level control runs on the robot and large neural nets are evaluated on a "server" -- which here refers to a local workstation with a GPU. For best performance, your server should be on the same wireless network as the robot, preferrably with an ethernet connection to the router for lowest latency.
