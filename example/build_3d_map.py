@@ -29,7 +29,6 @@ def combine_point_clouds(pc_xyz, pc_rgb, xyz, rgb):
     else:
         np.concatenate([pc_rgb, rgb], axis=0)
         np.concatenate([pc_xyz, xyz], axis=0)
-    print(np.unique(rgb))
     pcd = numpy_to_pcd(xyz, rgb).voxel_down_sample(voxel_size=0.05)
     return pcd_to_numpy(pcd)
 
@@ -76,8 +75,6 @@ class RosMapDataCollector(object):
             rgb = obs[0]
             xyz = obs[1]
             pc_xyz, pc_rgb = combine_point_clouds(pc_xyz, pc_rgb, xyz, rgb)
-            print(np.unique(pc_rgb))
-            print(pc_xyz.shape, pc_rgb.shape)
 
         show_point_cloud(pc_xyz, pc_rgb / 255)
 
