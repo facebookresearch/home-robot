@@ -9,6 +9,16 @@
 
 Mostly Hello Stretch infrastructure
 
+## Core Concepts
+
+This package assumes you have a low-cost mobile robot with limited compute -- initially a [Hello Robot Stretch](hello-robot.com/) - and a "server" workstation with more GPU compute. Both are assumed to be running on the same network.
+
+In general this is the recommended workflow:
+  - Turn on your robot; for the Stretch, run `stretch_robot_home.py` to get it ready to use.
+  - From your server, connect to the robot and start a [ROS launch file](http://wiki.ros.org/roslaunch) which brings up necessary low-level control and hardware drivers.
+  - If desired, run [rviz](http://wiki.ros.org/rviz) on the server to see what the robot is seeing.
+  - Start running your AI code on the server!
+
 ## Installation & Usage
 
 This project contains numerous packages. See individual package docs for corresponding details & instructions.
@@ -28,18 +38,12 @@ git submodule update --recursive --init
 ```
 
 1. SSH into the onboard computer on the Hello Stretch.
-1. Install [home_robot_hw](src/home_robot_hw/install.md).
-1. Install [home_robot](src/home_robot).
+1. Install the core [home_robot](src/home_robot) python package.
+1. Install [home_robot_hw](src/home_robot_hw/install.md) and complete the setup.
 1. Launch the ROS hardware stack:
     ```sh
-    conda deactivate
+    conda deactivate  # If you are using conda - not required on robot!
     roslaunch home_robot startup_stretch_hector_slam.launch
-    ```
-1. In a separate shell, launch home-robot helper nodes:
-    ```sh
-    conda activate home_robot
-    python -m home_robot.nodes.state_estimator &
-    python -m home_robot.nodes.goto_controller &
     ```
 1. Launch interactive client: `python -m home_robot.client.local_hello_robot`
 
@@ -59,7 +63,7 @@ robot.set_velocity(v: float, w: float)  # directly sets the linear and angular v
 # Navigation mode
 robot.navigate_to(xyt: list, relative: bool = False, position_only: bool = False)
 
-# Manipulation mode
+# Manipulation mode (outdated)
 robot.set_arm_joint_positions(joint_positions: list)  # joint positions: [BASE_TRANSLATION, ARM_LIFT, ARM_EXTENTION, WRIST_YAW, WRIST_PITCH, WRIST_ROLL]
 robot.set_ee_pose(pos: list, quat: list, relative: bool = False)
 ```
