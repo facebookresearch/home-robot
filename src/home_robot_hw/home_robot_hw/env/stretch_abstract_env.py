@@ -269,7 +269,7 @@ class StretchEnv(home_robot.core.abstract_env.Env):
                 "Unable to connect to arm action server. Timeout exceeded."
             )
             sys.exit()
-        print("... connected.")
+        print("... connected to arm action server.")
 
         self.ros_joint_names = []
         for i in range(3, self.dof):

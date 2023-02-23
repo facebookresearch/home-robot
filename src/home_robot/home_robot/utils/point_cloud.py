@@ -46,7 +46,7 @@ def show_point_cloud(xyz, rgb=None, orig=None, R=None, save=None, grasps=[]):
     show_pcd(pcd, orig, R, save, grasps)
 
 
-def show_pcd(pcd: o3d.geometry.PointCloud, orig=None, R=None, save=None, grasps=[]):
+def show_pcd(pcd: o3d.geometry.PointCloud, orig : np.ndarray = None, R : np.ndarray = None, save : str = None, grasps : list = []):
     geoms = [pcd]
     if orig is not None:
         coords = o3d.geometry.TriangleMesh.create_coordinate_frame(
@@ -66,7 +66,7 @@ def show_pcd(pcd: o3d.geometry.PointCloud, orig=None, R=None, save=None, grasps=
     for geom in geoms:
         viz.add_geometry(geom)
     viz.run()
-    if save:
+    if save is not None:
         viz.capture_screen_image(save, True)
     viz.destroy_window()
 
