@@ -1,10 +1,15 @@
 # Stand-alone grasping setup
 
 ## Environment setup on server
+
+These are notes for setting up grasping and subject to change; you should follow the instructions in the appropriate readmes to set up your environment.
 ```
-# General installation
-conda create -n home_robot python=3.8 && conda activate home_robot
+# Optionally install mamba in your base environment
 conda install -c conda-forge mamba
+# Create the home_robot conda environment for grasping
+conda create -n home_robot python=3.8 && conda activate home_robot
+# Install the home_robot repo
+cd $HOME_ROBOT_ROOT/src/home_robot
 pip install -e .
 
 # Specific to stand-alone grasping script
