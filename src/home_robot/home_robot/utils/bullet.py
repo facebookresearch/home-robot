@@ -18,7 +18,6 @@ from home_robot.utils.image import (
     opengl_depth_to_xyz,
     z_from_opengl_depth,
 )
-from home_robot.utils.point_cloud import show_point_cloud
 
 """
 This file contains simple tools for creating and loading objects in pybullet for easy simulation
@@ -306,7 +305,9 @@ class PbCamera(Camera):
         xyz = trimesh.transform_points(xyz, self.pose_matrix)
         return rgb, xyz, seg
 
-    def show(self, images=False, show_pc=True, test_id=2):
+    def show(self, images=False, show_pc=True, test_id=2) -> np.ndarray:
+        """Display what we can see in the pybullet scene and return xyz points if you want to
+        visualize them in open3d."""
         rgb, depth, seg = self.capture()
         # rgb = np.flip(rgb, axis=0)
         # depth = np.flip(depth, axis=0)
@@ -339,9 +340,7 @@ class PbCamera(Camera):
             print("red size -", maxs - mins)
 
         xyz = trimesh.transform_points(xyz, self.pose_matrix)
-        # SHow pc
-        if show_pc:
-            show_point_cloud(xyz, rgb / 255.0, orig=np.zeros(3))
+        return xyz
 
     def get_pose(self):
         # return T_CORRECTION @ self.pose_matrix.copy()
