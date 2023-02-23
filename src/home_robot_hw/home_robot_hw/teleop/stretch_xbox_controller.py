@@ -108,6 +108,7 @@ class StretchXboxController(object):
     def _set_mode(self) -> None:
         """If the robot is not in position mode, make sure that it is."""
         if not self._robot.in_position_mode():
+            print("--> Switching to position mode")
             self._robot.switch_to_position()
 
     def _create_arm_extension_loop(self, controller_state):
@@ -118,7 +119,6 @@ class StretchXboxController(object):
             converted_lift_command, converted_arm_command = manage_lift_arm(
                 robot=None, controller_state=controller_state
             )
-            self._set_mode()
             self._robot.goto_arm_position(
                 arm_scale * converted_arm_command[0], wait=True
             )
@@ -133,7 +133,6 @@ class StretchXboxController(object):
             converted_lift_command, converted_arm_command = manage_lift_arm(
                 robot=None, controller_state=controller_state
             )
-            self._set_mode()
             self._robot.goto_lift_position(
                 lift_scale * converted_lift_command[0], wait=True
             )
@@ -149,7 +148,6 @@ class StretchXboxController(object):
                 wrist_pitch_command,
                 gripper_command,
             ) = manage_end_of_arm(robot=None, controller_state=controller_state)
-            self._set_mode()
             if wrist_yaw_command[0] != 0:
                 self._robot.goto_wrist_yaw_position(wrist_yaw_command[0], wait=True)
 
@@ -165,7 +163,6 @@ class StretchXboxController(object):
                 gripper_command,
             ) = manage_end_of_arm(robot=None, controller_state=controller_state)
             if wrist_roll_command[0] != 0:
-                self._set_mode()
                 self._robot.goto_wrist_roll_position(wrist_roll_command[0], wait=True)
 
         return callback
@@ -180,7 +177,6 @@ class StretchXboxController(object):
                 gripper_command,
             ) = manage_end_of_arm(robot=None, controller_state=controller_state)
             if wrist_pitch_command[0] != 0:
-                self._set_mode()
                 self._robot.goto_wrist_pitch_position(wrist_pitch_command[0], wait=True)
 
         return callback
@@ -193,7 +189,6 @@ class StretchXboxController(object):
                 wrist_pitch_command,
                 gripper_command,
             ) = manage_end_of_arm(robot=None, controller_state=controller_state)
-            self._set_mode()
             self._robot.goto_gripper_position(gripper_command[0], wait=True)
 
         return callback
@@ -203,7 +198,6 @@ class StretchXboxController(object):
             head_pan_command, head_tilt_command = manage_head(
                 robot=None, controller_state=controller_state
             )
-            self._set_mode()
             self._robot.goto_head_pan_position(head_pan_command[0], wait=True)
 
         return callback
@@ -213,7 +207,6 @@ class StretchXboxController(object):
             head_pan_command, head_tilt_command = manage_head(
                 robot=None, controller_state=controller_state
             )
-            self._set_mode()
             self._robot.goto_head_tilt_position(head_tilt_command[0], wait=True)
 
         return callback
