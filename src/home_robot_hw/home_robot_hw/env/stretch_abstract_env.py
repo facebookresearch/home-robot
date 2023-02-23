@@ -73,6 +73,7 @@ class StretchEnv(home_robot.core.abstract_env.Env):
     dof = 3 + 2 + 3 + 1 + 2
     min_depth_val = 0.1
     max_depth_val = 4.0
+    goal_time_tolerance = 1.0
 
     exec_tol = np.array(
         [
@@ -301,9 +302,10 @@ class StretchEnv(home_robot.core.abstract_env.Env):
             self.wait(q, max_wait_t, not move_base, verbose)
         return True
 
-    def config_to_ros_trajectory_goal(self, q):
+    def config_to_ros_trajectory_goal(self, q: np.ndarray) -> FollowJointTrajectoryGoal:
+        """ Create a joint trajectory goal to move the arm."""
         trajectory_goal = FollowJointTrajectoryGoal()
-        trajectory_goal.goal_time_tolerance = rospy.Time(1.0)
+        trajectory_goal.goal_time_tolerance = rospy.Time(self.goal_time_tolerance)
         trajectory_goal.trajectory.joint_names = self.ros_joint_names
         trajectory_goal.trajectory.points = [self.config_to_ros_msg(q)]
         trajectory_goal.trajectory.header.stamp = rospy.Time.now()
