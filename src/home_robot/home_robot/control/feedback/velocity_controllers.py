@@ -72,7 +72,7 @@ class DDVelocityControlNoplan(DiffDriveVelocityController):
         heading_err_abs = abs(heading_err)
 
         # Go to goal XY position if not there yet
-        if lin_err_abs > self.cfg.tol_lin:
+        if lin_err_abs > self.cfg.lin_error_tol:
             # Compute linear velocity -- move towards goal XY
             v_raw = self._velocity_feedback_control(
                 lin_err_abs, self.cfg.acc_lin, self.cfg.v_max
@@ -90,7 +90,7 @@ class DDVelocityControlNoplan(DiffDriveVelocityController):
             )
 
         # Rotate to correct yaw if XY position is at goal
-        elif abs(ang_err) > self.cfg.tol_ang:
+        elif abs(ang_err) > self.cfg.ang_error_tol:
             # Compute angular velocity -- turn to goal orientation
             w_cmd = self._velocity_feedback_control(
                 ang_err, self.cfg.acc_ang, self.cfg.w_max
