@@ -6,7 +6,7 @@ import rospy
 import home_robot
 from home_robot.core.interfaces import Action, DiscreteNavigationAction, Observations
 from home_robot.perception.detection.detic.detic_perception import DeticPerception
-from home_robot.utils.geometry import obs2xyt, sophus2obs
+from home_robot.utils.geometry import xyt2sophus, xyt_base_to_global
 from home_robot_hw.env.stretch_abstract_env import StretchEnv
 from home_robot_hw.env.visualizer import Visualizer
 
@@ -46,7 +46,7 @@ class StretchObjectNavEnv(StretchEnv):
 
     def reset(self):
         self.sample_goal()
-        self._episode_start_pose = self.get_base_pose()
+        self._episode_start_pose = xyt2sophus(self.get_base_pose())
         if self.visualizer is not None:
             self.visualizer.reset()
 
@@ -98,13 +98,13 @@ class StretchObjectNavEnv(StretchEnv):
     def get_observation(self) -> Observations:
         """Get Detic and rgb/xyz/theta from this"""
         rgb, depth = self.get_images(compute_xyz=False, rotate_images=True)
-        current_pose = self.get_base_pose()
+        current_pose = xyt2sophus(self.get_base_pose())
 
         # use sophus to get the relative translation
         relative_pose = self._episode_start_pose.inverse() * current_pose
         euler_angles = relative_pose.so3().log()
         theta = euler_angles[-1]
-        pos, vel, frc = self.get_joint_state()
+        # pos, vel, frc = self.get_joint_state()
 
         # Create the observation
         obs = home_robot.core.interfaces.Observations(
@@ -117,7 +117,7 @@ class StretchObjectNavEnv(StretchEnv):
                 "goal_id": self.current_goal_id,
                 "goal_name": self.current_goal_name,
             },
-            joint_positions=pos,
+            # joint_positions=pos,
         )
         # Run the segmentation model here
         obs = self.segmentation.predict(obs, depth_threshold=0.5)
@@ -133,16 +133,14 @@ class StretchObjectNavEnv(StretchEnv):
 
     def rotate(self, theta):
         """just rotate and keep trying"""
-        # init_pose = self.get_base_pose()
-        init_pose = sophus2xyt(self.get_base_pose())
+        init_pose = self.get_base_pose()
         xyt = [0, 0, theta]
         goal_pose = xyt_base_to_global(xyt, init_pose)
         rate = rospy.Rate(5)
         err = float("Inf"), float("Inf")
         pos_tol, ori_tol = 0.1, 0.1
         while not rospy.is_shutdown():
-            # curr_pose = self.get_base_pose()
-            curr_pose = sophus2xyt(self.get_base_pose())
+            curr_pose = self.get_base_pose()
             print("init =", init_pose)
             print("curr =", curr_pose)
             print("goal =", goal_pose)
