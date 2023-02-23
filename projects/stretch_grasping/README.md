@@ -9,7 +9,8 @@ pip install -e .
 
 # Specific to stand-alone grasping script
 pip install trimesh pybullet matplotlib open3d opencv-python rospkg numpy==1.21
-git clone https://github.com/mjd3/tracikpy.git && pip install tracikpy
+# Hint: using mamba instead of conda is strongly recommended for faster installation
+# mamba install pytorch==1.11.0 torchvision==0.12.0 torchaudio==0.11.0 cudatoolkit=11.3 -c pytorch
 conda install pytorch==1.11.0 torchvision==0.12.0 torchaudio==0.11.0 cudatoolkit=11.3 -c pytorch
 python -m pip install 'git+https://github.com/facebookresearch/detectron2.git'
 ```
