@@ -5,6 +5,7 @@ dependencies:
   - cmake
   - pybind11
   - pytorch
+  - torchvision
   - pip:
     - numpy <1.24 # certain deprecated operations were used in other deps
     - scipy
@@ -17,6 +18,13 @@ dependencies:
     - scikit-image
     - scikit-fmm
     - numpy-quaternion
+    # Neural networks
+    - openai-clip
+    - timm
+    # visualizations and debugging
+    - matplotlib
+    # Command line tools
+    - click
     # data tools
     - yacs
     - h5py

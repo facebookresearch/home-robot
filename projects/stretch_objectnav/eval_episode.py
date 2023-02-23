@@ -17,6 +17,11 @@ if __name__ == "__main__":
     rospy.init_node("eval_episode_stretch_objectnav")
     agent = ObjectNavAgent(config=config)
     env = StretchObjectNavEnv(config=config)
+    
+    print()
+    print("==============")
+    env.switch_to_navigation_mode()
+    print("==============")
 
     agent.reset()
     env.reset()

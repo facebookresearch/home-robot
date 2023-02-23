@@ -15,10 +15,11 @@ import trimesh.transformations as tra
 from tqdm import tqdm
 
 
-def get_pcd(xyz, rgb=None):
+def numpy_to_pcd(xyz : np.ndarray, rgb : np.ndarray = None) -> o3d.geometry.PointCloud:
+    """Create an open3d pointcloud from a single xyz/rgb pair"""
     xyz = xyz.reshape(-1, 3)
     if rgb is not None:
-        rgb = rgb.reshape(-1, 3) / 255
+        rgb = rgb.reshape(-1, 3)
     pcd = o3d.geometry.PointCloud()
     pcd.points = o3d.utility.Vector3dVector(xyz)
     if rgb is not None:
@@ -26,19 +27,26 @@ def get_pcd(xyz, rgb=None):
     return pcd
 
 
+def pcd_to_numpy(pcd : o3d.geometry.PointCloud) -> (np.ndarray, np.ndarray):
+    """Convert an open3d point cloud into xyz, rgb numpy arrays and return them."""
+    xyz = np.asarray(pcd.points)
+    rgb = np.asarray(pcd.colors)
+    return xyz, rgb
+
+
 def show_point_cloud(xyz, rgb=None, orig=None, R=None, save=None, grasps=[]):
     # http://www.open3d.org/docs/0.9.0/tutorial/Basic/working_with_numpy.html
     if rgb is not None:
         rgb = rgb.reshape(-1, 3)
-    #    if np.any(rgb > 1):
-    #        print("WARNING: rgb values too high! Normalizing...")
-    #        rgb = rgb / np.max(rgb)
+        if np.any(rgb > 1):
+            print("WARNING: rgb values too high! Normalizing...")
+            rgb = rgb / np.max(rgb)
 
-    pcd = get_pcd(xyz, rgb)
+    pcd = numpy_to_pcd(xyz, rgb)
     show_pcd(pcd, orig, R, save, grasps)
 
 
-def show_pcd(pcd, orig=None, R=None, save=None, grasps=[]):
+def show_pcd(pcd: o3d.geometry.PointCloud, orig : np.ndarray = None, R : np.ndarray = None, save : str = None, grasps : list = []):
     geoms = [pcd]
     if orig is not None:
         coords = o3d.geometry.TriangleMesh.create_coordinate_frame(
@@ -58,7 +66,7 @@ def show_pcd(pcd, orig=None, R=None, save=None, grasps=[]):
     for geom in geoms:
         viz.add_geometry(geom)
     viz.run()
-    if save:
+    if save is not None:
         viz.capture_screen_image(save, True)
     viz.destroy_window()
 
@@ -103,25 +111,6 @@ def sim_depth_to_world_xyz(depth, width, height, view_matrix, proj_matrix):
     # show_point_cloud(points)
     # import pdb; pdb.set_trace()
     return points
-
-
-def z_from_opengl_depth(depth, camera):
-    near = camera.near_val
-    far = camera.far_val
-    # return (2.0 * near * far) / (near + far - depth * (far - near))
-    return (near * far) / (far - depth * (far - near))
-
-
-def z_from_2(depth, camera):
-    # TODO - remove this?
-    height, width = depth.shape
-    xlin = np.linspace(0, width - 1, width)
-    ylin = np.linspace(0, height - 1, height)
-    px, py = np.meshgrid(xlin, ylin)
-    x_over_z = (px - camera.px) / camera.fx
-    y_over_z = (py - camera.py) / camera.fy
-    z = depth / np.sqrt(1.0 + x_over_z**2 + y_over_z**2)
-    return z
 
 
 # We apply this correction to xyz when computing it in sim
@@ -173,57 +162,6 @@ def pose_from_camera_params(camera_params):
     pose[:3, 3] = look_from
     pose[:3, 2] = up_vector
     return pose
-
-
-def pb_compute_xyz(depth_img, camera_params):
-    """Compute ordered point cloud from depth image and camera parameters.
-    Assumes camera uses left-handed coordinate system, with
-        x-axis pointing right
-        y-axis pointing up
-        z-axis pointing "forward"
-    @param depth_img: a [H x W] numpy array of depth values in meters
-    @param camera_params: a dictionary with parameters of the camera used
-    @return: a [H x W x 3] numpy array
-
-    from chris xie:
-    https://github.com/chrisdxie/uois/blob/master/src/util/utilities.py#L204
-    https://github.com/chrisdxie/uois/blob/master/LICENSE
-    """
-
-    # Compute focal length from camera parameters
-    if "fx" in camera_params and "fy" in camera_params:
-        fx = camera_params["fx"]
-        fy = camera_params["fy"]
-    else:  # simulated data
-        aspect_ratio = camera_params["width"] / camera_params["height"]
-        e = 1 / (np.tan(np.radians(camera_params["fov"] / 2.0)))
-        t = camera_params["near_val"] / e
-        # b = -t
-        r = t * aspect_ratio
-        L = -r
-        alpha = camera_params["width"] / (r - L)  # pixels per meter
-        focal_length = (
-            camera_params["near_val"] * alpha
-        )  # focal length of virtual camera (frustum camera)
-        fx = focal_length
-        fy = focal_length
-
-    if "x_offset" in camera_params and "y_offset" in camera_params:
-        x_offset = camera_params["x_offset"]
-        y_offset = camera_params["y_offset"]
-    else:  # simulated data
-        x_offset = camera_params["width"] / 2
-        y_offset = camera_params["height"] / 2
-
-    indices = build_matrix_of_indices(camera_params["height"], camera_params["width"])
-    indices[..., 0] = np.flipud(
-        indices[..., 0]
-    )  # pixel indices start at top-left corner. for these equations, it starts at bottom-left
-    z_e = depth_img
-    x_e = (indices[..., 1] - x_offset) * z_e / fx
-    y_e = (indices[..., 0] - y_offset) * z_e / fy
-    xyz_img = np.stack([x_e, y_e, z_e], axis=-1)  # Shape: [H x W x 3]
-    return xyz_img
 
 
 ##### Depth augmentations #####

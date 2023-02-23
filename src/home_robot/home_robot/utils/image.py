@@ -93,18 +93,6 @@ def z_from_opengl_depth(depth, camera: Camera):
     return (near * far) / (far - depth * (far - near))
 
 
-def z_from_2(depth, camera: Camera):
-    # TODO - remove this?
-    height, width = depth.shape
-    xlin = np.linspace(0, width - 1, width)
-    ylin = np.linspace(0, height - 1, height)
-    px, py = np.meshgrid(xlin, ylin)
-    x_over_z = (px - camera.px) / camera.fx
-    y_over_z = (py - camera.py) / camera.fy
-    z = depth / np.sqrt(1.0 + x_over_z**2 + y_over_z**2)
-    return z
-
-
 # We apply this correction to xyz when computing it in sim
 # R_CORRECTION = R1 @ R2
 T_CORRECTION = tra.euler_matrix(0, 0, np.pi / 2)
@@ -138,38 +126,6 @@ def depth_to_xyz(depth, camera: Camera):
     # Should now be height x width x 3, after this:
     xyz = np.stack([x, y, z], axis=-1)
     return xyz
-
-
-def to_o3d_point_cloud(xyz, rgb=None, mask=None):
-    """conversion to point cloud from image"""
-    import open3d as o3d
-
-    xyz = xyz.reshape(-1, 3)
-    if rgb is not None:
-        rgb = rgb.reshape(-1, 3)
-    if mask is not None:
-        mask = mask.reshape(-1)
-        xyz = xyz[mask.astype(np.bool)]
-        rgb = rgb[mask.astype(np.bool)]
-    pcd = o3d.geometry.PointCloud()
-    pcd.points = o3d.utility.Vector3dVector(xyz)
-    if rgb is not None:
-        pcd.colors = o3d.utility.Vector3dVector(rgb)
-    return pcd
-
-
-def show_point_cloud(xyz, rgb=None, orig=None, R=None):
-    # http://www.open3d.org/docs/0.9.0/tutorial/Basic/working_with_numpy.html
-    import open3d as o3d
-
-    pcd = to_o3d_point_cloud(xyz, rgb)
-    geoms = [pcd]
-    if orig is not None:
-        coords = o3d.geometry.TriangleMesh.create_coordinate_frame(origin=orig)
-        if R is not None:
-            coords = coords.rotate(R)
-        geoms.append(coords)
-    o3d.visualization.draw_geometries(geoms)
 
 
 def smooth_mask(mask, kernel=None):

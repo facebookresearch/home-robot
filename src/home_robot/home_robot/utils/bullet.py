@@ -16,7 +16,6 @@ from home_robot.utils.image import (
     T_CORRECTION,
     Camera,
     opengl_depth_to_xyz,
-    show_point_cloud,
     z_from_opengl_depth,
 )
 
@@ -306,7 +305,9 @@ class PbCamera(Camera):
         xyz = trimesh.transform_points(xyz, self.pose_matrix)
         return rgb, xyz, seg
 
-    def show(self, images=False, show_pc=True, test_id=2):
+    def show(self, images=False, show_pc=True, test_id=2) -> np.ndarray:
+        """Display what we can see in the pybullet scene and return xyz points if you want to
+        visualize them in open3d."""
         rgb, depth, seg = self.capture()
         # rgb = np.flip(rgb, axis=0)
         # depth = np.flip(depth, axis=0)
@@ -339,9 +340,7 @@ class PbCamera(Camera):
             print("red size -", maxs - mins)
 
         xyz = trimesh.transform_points(xyz, self.pose_matrix)
-        # SHow pc
-        if show_pc:
-            show_point_cloud(xyz, rgb / 255.0, orig=np.zeros(3))
+        return xyz
 
     def get_pose(self):
         # return T_CORRECTION @ self.pose_matrix.copy()
@@ -440,9 +439,10 @@ class PybulletIKSolver:
     def get_dof(self):
         return len(self.controlled_joints)
 
-    def compute_ik(self, pos_desired, quat_desired, q_init):
-        # This version assumes that q_init is NOT in the right format yet
-        self.set_joint_positions(q_init)
+    def compute_ik(self, pos_desired, quat_desired, q_init=None):
+        if q_init is not None:
+            # This version assumes that q_init is NOT in the right format yet
+            self.set_joint_positions(q_init)
         if self.visualize:
             self.debug_block.set_pose(pos_desired, quat_desired)
             input("--- Press enter to solve ---")
