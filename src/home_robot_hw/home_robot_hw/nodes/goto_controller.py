@@ -56,12 +56,12 @@ class GotoVelocityControllerNode:
     def _pose_update_callback(self, msg: PoseStamped):
         if not self.odom_only:
             pose_sp = sp.SE3(matrix_from_pose_msg(msg.pose))
-            self.controller.update_pose_feedback(pose_sp)
+            self.controller.update_pose_feedback(sophus2xyt(pose_sp))
 
     def _odom_update_callback(self, msg: Odometry):
         if self.odom_only:
             pose_sp = sp.SE3(matrix_from_pose_msg(msg.pose.pose))
-            self.controller.update_pose_feedback(pose_sp)
+            self.controller.update_pose_feedback(sophus2xyt(pose_sp))
 
     def _goal_update_callback(self, msg: Pose):
         pose_sp = sp.SE3(matrix_from_pose_msg(msg))
