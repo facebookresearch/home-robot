@@ -12,7 +12,7 @@ import open3d
 import rospy
 
 from home_robot.agent.motion.stretch import STRETCH_PREGRASP_Q, HelloStretchIdx
-from home_robot.utils.data_tools.point_cloud import (
+from home_robot.utils.point_cloud import (
     numpy_to_pcd,
     pcd_to_numpy,
     show_point_cloud,
@@ -52,10 +52,19 @@ class RosMapDataCollector(object):
         self.started = False
 
     def step(self):
-        """Step the collector. Get a single observation of the world."""
+        """Step the collector. Get a single observation of the world. Remove bad points, such as
+        those from too far or too near the camera."""
         rgb, depth, xyz = self.env.get_images(compute_xyz=True)
         q, dq = self.env.update()
-        self.observations.append((rgb, depth, xyz, q, dq))
+
+        # apply depth filter
+        depth = depth.reshape(-1)
+        rgb = rgb.reshape(-1, 3)
+        xyz = xyz.reshape(-1, 3)
+        valid_depth = np.bitwise_and(depth > 0.1, depth < 4.)
+        rgb = rgb[valid_depth, :]
+        xyz = xyz[valid_depth, :]
+        self.observations.append((rgb, xyz, q, dq))
 
     def show(self):
         """Display the aggregated point cloud."""
