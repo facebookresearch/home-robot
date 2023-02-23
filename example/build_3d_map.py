@@ -29,10 +29,8 @@ def combine_point_clouds(pc_xyz, pc_rgb, xyz, rgb):
     else:
         np.concatenate([pc_rgb, rgb], axis=0)
         np.concatenate([pc_xyz, xyz], axis=0)
-    pcd = numpy_to_pcd(xyz, rgb)
-    voxels = open3d.geometry.VoxelGrid.create_from_point_cloud(pcd, voxel_size=0.01)
-    open3d.visualization.draw_geometries([voxels])
-    input("---")
+    print(np.unique(rgb))
+    pcd = numpy_to_pcd(xyz, rgb).voxel_down_sample(voxel_size=0.05)
     return pcd_to_numpy(pcd)
 
 
@@ -70,22 +68,31 @@ class RosMapDataCollector(object):
             # dpt = obs[1].reshape(-1)
             xyz = obs[2].reshape(-1, 3)
             pc_xyz, pc_rgb = combine_point_clouds(pc_xyz, pc_rgb, xyz, rgb)
+            print(np.unique(pc_rgb))
             print(pc_xyz.shape, pc_rgb.shape)
+
+        show_point_cloud(pc_xyz, pc_rgb)
 
 
 @click.command()
-@click.option("--rate", default=10, type=int)
-def main(rate=10):
+@click.option("--rate", default=1, type=int)
+@click.option("--max-frames", default=5, type=int)
+def main(rate=10, max_frames=-1):
     rospy.init_node("build_3d_map")
     env = StretchGraspingEnv(segmentation_method=None)
     collector = RosMapDataCollector(env)
 
     rate = rospy.Rate(rate)
     print("Press ctrl+c to finish...")
+    frames = 0
     while not rospy.is_shutdown():
         # Run until we control+C this script
         collector.step()  # Append latest observations
         rate.sleep()
+
+        frames += 1
+        if max_frames > 0 and frames >= max_frames:
+            break
 
     print("Done collecting data.")
     collector.show()
