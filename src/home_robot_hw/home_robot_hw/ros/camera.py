@@ -19,7 +19,6 @@ class RosCamera(Camera):
     def _cb(self, msg):
         """capture the latest image and save it"""
         with self._lock:
-            # print(msg.encoding)
             img = image_to_numpy(msg)
             if msg.encoding == "16UC1":
                 # depth support goes here
@@ -49,8 +48,11 @@ class RosCamera(Camera):
         rgb = rgb.reshape(-1, 3)[mask]
         return xyz, rgb
 
-    def wait_for_image(self):
-        rate = rospy.Rate(10)
+    def wait_for_image(self) -> None:
+        """ Wait for image. Needs to be sort of slow, in order to make sure we give it time
+        to update the image in the backend."""
+        rospy.sleep(0.5)
+        rate = rospy.Rate(2)
         while not rospy.is_shutdown():
             with self._lock:
                 if self.buffer_size is None:
@@ -73,7 +75,6 @@ class RosCamera(Camera):
         if device is not None:
             # Convert to tensor and get the formatting right
             import torch
-
             img = torch.FloatTensor(img).to(device).permute(2, 0, 1)
         return img
 
@@ -157,6 +158,4 @@ class RosCamera(Camera):
             print("---------------")
         self.frame_id = cam_info.header.frame_id
         self.topic_name = name + "/image_raw"
-        self._sub = rospy.Subscriber(self.topic_name, Image, self._cb, queue_size=10)
-        print("Waiting for", self.topic_name)
-        self.wait_for_image()
+        self._sub = rospy.Subscriber(self.topic_name, Image, self._cb, queue_size=1)
