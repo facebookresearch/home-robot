@@ -10,18 +10,18 @@ from detectron2.data import MetadataCatalog
 from detectron2.engine.defaults import DefaultPredictor
 from detectron2.utils.visualizer import ColorMode, Visualizer
 
+from home_robot.core.abstract_perception import PerceptionModule
+from home_robot.core.interfaces import Observations
+
 sys.path.insert(
     0, str(Path(__file__).resolve().parent / "Detic/third_party/CenterNet2/")
 )
-from centernet.config import add_centernet_config
-
-from home_robot.core.abstract_perception import PerceptionModule
-from home_robot.core.interfaces import Observations
-from home_robot.perception.detection.detic.Detic.detic.config import add_detic_config
-from home_robot.perception.detection.detic.Detic.detic.modeling.text.text_encoder import (
+from centernet.config import add_centernet_config  # noqa: E402
+from home_robot.perception.detection.detic.Detic.detic.config import add_detic_config  # noqa: E402
+from home_robot.perception.detection.detic.Detic.detic.modeling.text.text_encoder import (  # noqa: E402
     build_text_encoder,
 )
-from home_robot.perception.detection.detic.Detic.detic.modeling.utils import (
+from home_robot.perception.detection.detic.Detic.detic.modeling.utils import (  # noqa: E402
     reset_cls_test,
 )
 

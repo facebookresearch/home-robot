@@ -5,8 +5,6 @@ repos:
       - id: black
         exclude: |
             (?x)^(
-                src/home_robot/home_robot/agent/perception/detection/lseg/|
-                src/home_robot/home_robot/perception/detection/detic/
             )
 
   - repo: https://github.com/pycqa/isort
@@ -16,8 +14,6 @@ repos:
         args: ["--profile", "black", "--filter-files"]
         exclude: |
             (?x)^(
-                src/home_robot/home_robot/agent/perception/detection/lseg/|
-                src/home_robot/home_robot/perception/detection/detic/
             )
 
   - repo: https://github.com/pre-commit/mirrors-mypy
@@ -27,27 +23,18 @@ repos:
         args: [--install-types, --non-interactive, --no-strict-optional, --ignore-missing-imports]
         exclude: |
             (?x)^(
-                src/home_robot/home_robot/agent/|
-                src/home_robot/home_robot/utils/data_tools/|
                 src/home_robot_hw/|
-                src/home_robot/home_robot/agent/perception/detection/lseg/|
-                src/home_robot/home_robot/perception/detection/detic/|
                 projects/|
-                src/home_robot/home_robot/experimental/
             )|setup.py$
 
   - repo: https://github.com/pycqa/flake8
-    rev: 3.9.2
+    rev: 5.0.4
     hooks:
       - id: flake8
         exclude: |
             (?x)^(
-                src/home_robot/home_robot/agent/|
-                src/home_robot/home_robot/utils/|
                 src/home_robot_hw/|
-                src/home_robot/home_robot/agent/perception/detection/lseg/|
-                src/home_robot/home_robot/perception/detection/detic/|
+                src/home_robot/home_robot/utils/data_tools/|
                 projects/|
-                src/home_robot/home_robot/experimental/|
                 tests/
             )
