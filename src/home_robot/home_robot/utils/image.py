@@ -143,6 +143,7 @@ def depth_to_xyz(depth, camera: Camera):
 def to_o3d_point_cloud(xyz, rgb=None, mask=None):
     """conversion to point cloud from image"""
     import open3d as o3d
+
     xyz = xyz.reshape(-1, 3)
     if rgb is not None:
         rgb = rgb.reshape(-1, 3)
@@ -160,6 +161,7 @@ def to_o3d_point_cloud(xyz, rgb=None, mask=None):
 def show_point_cloud(xyz, rgb=None, orig=None, R=None):
     # http://www.open3d.org/docs/0.9.0/tutorial/Basic/working_with_numpy.html
     import open3d as o3d
+
     pcd = to_o3d_point_cloud(xyz, rgb)
     geoms = [pcd]
     if orig is not None:
