@@ -29,7 +29,7 @@ def numpy_to_pcd(xyz, rgb=None):
 def pcd_to_numpy(pcd):
     """Convert an open3d point cloud into xyz, rgb numpy arrays and return them."""
     xyz = np.asarray(pcd.points)
-    rgb = np.asarray(pcd.colors)
+    rgb = np.asarray(pcd.colors * 255)
     return xyz, rgb
 
 
