@@ -11,8 +11,8 @@ import numpy as np
 import skimage.morphology
 from PIL import Image
 
-import home_robot.agent.utils.pose_utils as pu
-import home_robot.agent.utils.visualization_utils as vu
+import home_robot.utils.pose as pu
+import home_robot.utils.visualization as vu
 
 map_color_palette = [
     int(x * 255.0)
