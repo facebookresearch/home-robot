@@ -4,7 +4,6 @@
 # LICENSE file in the root directory of this source tree.
 import cv2
 import numpy as np
-import open3d as o3d
 import trimesh.transformations as tra
 
 
@@ -143,6 +142,8 @@ def depth_to_xyz(depth, camera: Camera):
 
 def to_o3d_point_cloud(xyz, rgb=None, mask=None):
     """conversion to point cloud from image"""
+    import open3d as o3d
+
     xyz = xyz.reshape(-1, 3)
     if rgb is not None:
         rgb = rgb.reshape(-1, 3)
