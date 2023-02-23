@@ -82,6 +82,15 @@ robot.switch_to_manipulation_mode()
 robot.set_ee_pose([0.5, 0.6, 0.5], [0, 0, 0, 1])
 ```
 
+### Development
+
+To develop in `home-robot`, install the git pre-commit hooks:
+```
+python -m pip install pre-commit
+cd $HOME_ROBOT_ROOT
+pre-commit install
+```
+
 ### Launching Grasping Demo (outdated)
 
 You need to create a catkin workspace on your server in order to run this demo, as this is where we will run [Contact Graspnet](https://github.com/cpaxton/contact_graspnet/tree/cpaxton/devel).
