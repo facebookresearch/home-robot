@@ -19,7 +19,7 @@ def numpy_to_pcd(xyz : np.ndarray, rgb : np.ndarray = None) -> o3d.geometry.Poin
     """Create an open3d pointcloud from a single xyz/rgb pair"""
     xyz = xyz.reshape(-1, 3)
     if rgb is not None:
-        rgb = rgb.reshape(-1, 3) / 255
+        rgb = rgb.reshape(-1, 3)
     pcd = o3d.geometry.PointCloud()
     pcd.points = o3d.utility.Vector3dVector(xyz)
     if rgb is not None:
@@ -30,7 +30,7 @@ def numpy_to_pcd(xyz : np.ndarray, rgb : np.ndarray = None) -> o3d.geometry.Poin
 def pcd_to_numpy(pcd : o3d.geometry.PointCloud) -> (np.ndarray, np.ndarray):
     """Convert an open3d point cloud into xyz, rgb numpy arrays and return them."""
     xyz = np.asarray(pcd.points)
-    rgb = np.asarray(pcd.colors) * 255
+    rgb = np.asarray(pcd.colors)
     return xyz, rgb
 
 

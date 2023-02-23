@@ -73,14 +73,13 @@ class RosMapDataCollector(object):
         # Do the other stuff we need
         pc_xyz, pc_rgb = None, None
         for obs in self.observations:
-            rgb = obs[0].reshape(-1, 3)
-            # dpt = obs[1].reshape(-1)
-            xyz = obs[2].reshape(-1, 3)
+            rgb = obs[0]
+            xyz = obs[1]
             pc_xyz, pc_rgb = combine_point_clouds(pc_xyz, pc_rgb, xyz, rgb)
             print(np.unique(pc_rgb))
             print(pc_xyz.shape, pc_rgb.shape)
 
-        show_point_cloud(pc_xyz, pc_rgb)
+        show_point_cloud(pc_xyz, pc_rgb / 255)
 
 
 @click.command()
