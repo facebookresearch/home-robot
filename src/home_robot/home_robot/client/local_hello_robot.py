@@ -448,7 +448,7 @@ class LocalHelloRobot:
             quat_rel = R.from_matrix(pose_ee_rel.so3().matrix()).as_quat()
 
         # Perform IK
-        q_raw = self.ik_solver.compute_ik(pos_rel, quat_rel)
+        q_raw = self.ik_solver.compute_ik(pos_rel, quat_rel, None)
 
         # Combine arm telescoping joints
         q_manip = np.zeros(6)
