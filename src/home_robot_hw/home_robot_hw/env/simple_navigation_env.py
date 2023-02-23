@@ -7,10 +7,10 @@ import home_robot
 from home_robot_hw.env.stretch_abstract_env import StretchEnv
 
 class StretchSimpleNavEnv(StretchEnv):
-    """Create a detic-based object nav environment"""
+    """Simple environment to move robot forward by 0.25m"""
 
     def __init__(
-        self, config=None, forward_step=0.25, *args, **kwargs
+        self, forward_step=0.25, *args, **kwargs
     ):
         super().__init__(*args, **kwargs)
 
@@ -22,11 +22,10 @@ class StretchSimpleNavEnv(StretchEnv):
 
     def apply_action(self):
         continuous_action = np.zeros(3)
-        continuous_action[0] = 0.25
-        if continuous_action is not None:
-            if not self.in_navigation_mode():
-                self.switch_to_navigation_mode()
-            self.navigate_to(continuous_action, relative=True)
+        continuous_action[0] = self.forward_step
+        if not self.in_navigation_mode():
+            self.switch_to_navigation_mode()
+        self.navigate_to(continuous_action, relative=True)
         print("-------")
         print(continuous_action)
         rospy.sleep(5.0)
@@ -49,7 +48,6 @@ if __name__ == "__main__":
     print("Create ROS interface")
     env = StretchSimpleNavEnv()
 
-    env.reset()
     env.apply_action()
     rospy.sleep(1.0)
     print("Confirm the robot has moved forward")
