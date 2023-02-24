@@ -17,10 +17,17 @@ class StretchSimpleNavEnv(StretchEnv):
         self.forward_step = forward_step  # in meters
         self.reset()
 
-    def reset(self):
+    def reset(self) -> None:
+        """overriding reset function to get current pose of robot"""
         self._current_pose = self.get_base_pose()
 
-    def apply_action(self):
+    def apply_action(self) -> None:
+        """
+        method creates a 3-valued array which stores an SE2 navigation goal
+            x, y, theta
+        x is stored as forward_step and the robot is asked to move
+        relative to current position
+        """
         continuous_action = np.zeros(3)
         continuous_action[0] = self.forward_step
         if not self.in_navigation_mode():
@@ -30,14 +37,14 @@ class StretchSimpleNavEnv(StretchEnv):
         print(continuous_action)
         rospy.sleep(5.0)
 
-    def episode_over(self):
-        return True
+    def episode_over(self) -> None:
+        pass
 
-    def get_episode_metrics(self):
-        return True
+    def get_episode_metrics(self) -> None:
+        pass
 
-    def get_observation(self):
-        return False
+    def get_observation(self) -> None:
+        pass
 
 
 if __name__ == "__main__":
