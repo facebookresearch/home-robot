@@ -9,7 +9,7 @@ import pybullet as pb
 import trimesh.transformations as tra
 
 import home_robot.utils.bullet as hrb
-
+from home_robot.agent.motion.pinocchio_ik_solver import CEM, PinocchioIKSolver
 from home_robot.agent.motion.robot import Robot
 from home_robot.utils.bullet import PybulletIKSolver
 from home_robot.utils.pose import to_matrix
@@ -150,7 +150,7 @@ class HelloStretch(Robot):
         "joint_wrist_roll",
     ]
 
-    def _create_ik_solvers(self):
+    def _create_ik_solvers(self, manip_type: String = "pybullet"):
         """create ik solvers using pybullet"""
         # You can set one of the visualize flags to true to debug IK issues
         # This is not exposed manually - only one though or it will fail
@@ -161,12 +161,19 @@ class HelloStretch(Robot):
             visualize=False,
         )
         # You can set one of the visualize flags to true to debug IK issues
-        self.manip_ik_solver = PybulletIKSolver(
-            self.manip_mode_urdf_path,
-            self.ee_link_name,
-            self.manip_mode_controlled_joints,
-            visualize=False,
-        )
+        if manip_type == "pybullet":
+            self.manip_ik_solver = PybulletIKSolver(
+                self.manip_mode_urdf_path,
+                self.ee_link_name,
+                self.manip_mode_controlled_joints,
+                visualize=False,
+            )
+        elif manip_type == "pinocchio":
+            self.manip_ik_solver = PinocchioIKSolver(
+                self.manip_mode_urdf_path,
+                self.ee_link_name,
+                self.manip_mode_controlled_joints,
+            )
 
     def __init__(self, name="robot", urdf_path=None, visualize=False, root="."):
         """Create the robot in bullet for things like kinematics; extract information"""
@@ -529,7 +536,7 @@ class HelloStretch(Robot):
         pose[:3, :3] = np.array(se3).reshape(3, 3)
         x, y, z = pos
         pose[:3, 3] = np.array([x, y, z - self.base_height])
-        q = self.ik_solver.ik(pose, self._to_ik_format(q0))
+        q = self.ik_solver.compute_ik(pose, self._to_ik_format(q0))
         if q is not None:
             return self._to_plan_format(q)
         else:
