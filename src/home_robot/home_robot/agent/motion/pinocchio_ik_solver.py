@@ -1,4 +1,5 @@
 import os
+from typing import Tuple
 
 import numpy as np
 import pinocchio
@@ -67,7 +68,7 @@ class PinocchioIKSolver:
 
         return q_out
 
-    def compute_fk(self, q) -> tuple[np.ndarray, np.ndarray]:
+    def compute_fk(self, q) -> Tuple[np.ndarray, np.ndarray]:
         """given joint values return end-effector position and quaternion associated with it"""
         q_model = self._qmap_control2model(q)
         pinocchio.forwardKinematics(self.model, self.data, q_model)
@@ -77,7 +78,7 @@ class PinocchioIKSolver:
 
         return pos.copy(), quat.copy()
 
-    def compute_ik(self, pos, quat, max_iterations=100) -> tuple[np.ndarray, bool]:
+    def compute_ik(self, pos, quat, max_iterations=100) -> Tuple[np.ndarray, bool]:
         """given end-effector position and quaternion, return joint values"""
         i = 0
         q = self.q_neutral.copy()

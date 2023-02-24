@@ -150,7 +150,7 @@ class HelloStretch(Robot):
         "joint_wrist_roll",
     ]
 
-    def _create_ik_solvers(self, manip_type: String = "pybullet"):
+    def _create_ik_solvers(self, ik_type: str = "pybullet"):
         """create ik solvers using pybullet"""
         # You can set one of the visualize flags to true to debug IK issues
         # This is not exposed manually - only one though or it will fail
@@ -161,21 +161,28 @@ class HelloStretch(Robot):
             visualize=False,
         )
         # You can set one of the visualize flags to true to debug IK issues
-        if manip_type == "pybullet":
+        if ik_type == "pybullet":
             self.manip_ik_solver = PybulletIKSolver(
                 self.manip_mode_urdf_path,
                 self.ee_link_name,
                 self.manip_mode_controlled_joints,
                 visualize=False,
             )
-        elif manip_type == "pinocchio":
+        elif ik_type == "pinocchio":
             self.manip_ik_solver = PinocchioIKSolver(
                 self.manip_mode_urdf_path,
                 self.ee_link_name,
                 self.manip_mode_controlled_joints,
             )
 
-    def __init__(self, name="robot", urdf_path=None, visualize=False, root="."):
+    def __init__(
+        self,
+        name: str = "robot",
+        urdf_path=None,
+        visualize=False,
+        root=".",
+        ik_type: str = "pybullet",
+    ):
         """Create the robot in bullet for things like kinematics; extract information"""
 
         # urdf
@@ -207,7 +214,8 @@ class HelloStretch(Robot):
         self.set_joint_position = self.ref.set_joint_position
 
         self._update_joints()
-        self._create_ik_solvers()
+        self._create_ik_solvers(ik_type=ik_type)
+        self._ik_type = ik_type
 
     def set_head_config(self, q):
         # WARNING: this sets all configs
@@ -431,7 +439,8 @@ class HelloStretch(Robot):
             return to_matrix(*pose)
         return pose
 
-    def update_head(self, qi, look_at):
+    def update_head(self, qi, look_at) -> np.ndarray:
+        """move head based on look_at and return the joint-state"""
         qi[HelloStretchIdx.HEAD_PAN] = look_at[0]
         qi[HelloStretchIdx.HEAD_TILT] = look_at[1]
         return qi
