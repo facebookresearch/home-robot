@@ -83,7 +83,7 @@ class RosMapDataCollector(object):
 
 @click.command()
 @click.option("--rate", default=5, type=int)
-@click.option("--max-frames", default=125, type=int)
+@click.option("--max-frames", default=50, type=int)
 @click.option("--visualize", default=False, is_flag=True)
 def main(rate, max_frames, visualize):
     rospy.init_node("build_3d_map")
@@ -114,10 +114,10 @@ def main(rate, max_frames, visualize):
         print("Time =", ti)
         if step == 0 and ti < 5.0:
             env.navigate_to((0.5, 0, 0))
-        elif ti > 5.0 and step <= 1:
+        elif ti >= 5.0 and step <= 1 and ti < 15.:
             env.navigate_to((0.5, 0.5, np.pi / 2))
             step = 1
-        elif ti > 15. and step <= 2:
+        elif ti >= 15. and step <= 2:
             env.navigate_to((0, 0, 0))
             step = 2
 
@@ -128,6 +128,7 @@ def main(rate, max_frames, visualize):
         rate.sleep()
 
     print("Done collecting data.")
+    env.navigate_to((0, 0, 0))
     collector.show()
 
 
