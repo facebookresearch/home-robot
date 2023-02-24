@@ -121,6 +121,11 @@ class StretchEnv(home_robot.core.abstract_env.Env):
         self.rgb_cam, self.dpt_cam = None, None
         if init_cameras:
             self._create_cameras(color_topic, depth_topic)
+
+        # Create visualizer information
+        self.goal_visualizer = Visualizer("command_pose", rgba=[1., 0., 0., 0.5])
+        self.curr_visualizer = Visualizer("current_pose", rgba=[0., 0., 1., 0.5])
+
         self._create_services()
         self._reset_messages()
         print("... done.")
@@ -163,6 +168,7 @@ class StretchEnv(home_robot.core.abstract_env.Env):
         """base state updates from SLAM system"""
         self._last_base_update_timestamp = msg.header.stamp
         self._t_base_filtered = sp.SE3(matrix_from_pose_msg(msg.pose))
+        self.curr_visualizer(self._t_base_filtered.matrix())
 
     def get_base_pose(self):
         """get the latest base pose from sensors"""
@@ -507,13 +513,16 @@ class StretchEnv(home_robot.core.abstract_env.Env):
         if relative:
             xyt_base = sophus2xyt(self._t_base_odom)
             xyt_goal = xyt_base_to_global(xyt, xyt_base)
+            print("Sending relative goal:")
             print("base =", xyt_base)
             print("goal =", xyt_goal)
         else:
             xyt_goal = xyt
 
         # Set goal
-        msg = matrix_to_pose_msg(xyt2sophus(xyt_goal).matrix())
+        goal_matrix = xyt2sophus(xyt_goal).matrix()
+        self.goal_visualizer(goal_matrix)
+        msg = matrix_to_pose_msg(goal_matrix)
         self._goal_pub.publish(msg)
 
     @abstractmethod
