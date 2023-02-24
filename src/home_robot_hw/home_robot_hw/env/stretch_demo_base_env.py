@@ -3,20 +3,20 @@ import os
 import tempfile
 import time
 
-import gym
 import h5py
 import numpy as np
+from home_robot_hw.env.stretch_abstract_env import StretchEnv
 import rospy
-from data_tools.image import img_from_bytes
-from home_robot.hardware.stretch_ros import (HelloStretchIdx,
-                                             HelloStretchROSInterface)
+from home_robot.utils.data_tools.image import img_from_bytes
+from home_robot.agent.motion.stretch import HelloStretch, HelloStretchIdx
 
 CAMERA_FAR_PLANE = 1  # m
 CAMERA_SCALE_CONST = 10000
 STRETCH_URDF_DIR = os.environ["STRETCH_URDF_DIR"]  # TODO: pass in
 
 
-class StretchDemoBaseEnv(gym.Env): # TODO don't want this to be a gym env
+class StretchDemoBaseEnv(StretchEnv):
+    """base environment to work with demonstrations; both for recording and replaying"""
     NODE_INITIALIZED = False
 
     def __init__(self, initialize_ros):
@@ -39,7 +39,8 @@ class StretchDemoBaseEnv(gym.Env): # TODO don't want this to be a gym env
             rospy.init_node(f"demo_env_{timestamp}".replace(".", "_"))
         cls.NODE_INITIALIZED = True
 
-    def _recursive_listdir(self, directory):
+    def _recursive_listdir(self, directory: str) -> list[str]:
+        """returns a list of all files in a directory, recursively"""
         # From: https://stackoverflow.com/questions/19309667/recursive-os-listdir
         return [os.path.join(dp, f) for dp, dn, fn in os.walk(directory) for f in fn]
 
@@ -47,16 +48,9 @@ class StretchDemoBaseEnv(gym.Env): # TODO don't want this to be a gym env
     def load_all_h5_from_dir(
         self, directory, only_key_frames, temp_aggregation_file
     ):  # TODO: where should this go
+        """method to recursively load all H5s from given directory"""
         h5_id = 0
         output_path = temp_aggregation_file.name
-        """output_path = os.path.join(directory, "aggregated.h5")
-
-        # For some reason this file is sometimes corrupted (I guess not closed properly if we abort uncleanly). Since
-        # it's fine to just recreate it (not re-using it anyway), just clear it out.
-        try:
-            os.remove(output_path)
-        except OSError:
-            pass"""
 
         for _ in range(5):
             try:
@@ -74,7 +68,7 @@ class StretchDemoBaseEnv(gym.Env): # TODO don't want this to be a gym env
                         ):
                             file_path = os.path.join(directory, filename)
                             linked_files_group[f"file_{h5_id}"] = h5py.ExternalLink(
-                                filename=file_path, path=f"."
+                                filename=file_path, path="."
                             )  # TODO: does this need to be a string. Doing it for consistency with DataWriter for now
                             h5_id += 1
 
@@ -88,6 +82,7 @@ class StretchDemoBaseEnv(gym.Env): # TODO don't want this to be a gym env
         return h5py.File(output_path, "r")
 
     def randomly_select_traj_from_dir(self, directory, only_key_frames):
+        """randomly selects a trajectory from a directory of H5s"""
         for _ in range(25):
             try:
                 with tempfile.NamedTemporaryFile(
@@ -162,7 +157,7 @@ class StretchDemoBaseEnv(gym.Env): # TODO don't want this to be a gym env
         joint_angles[HelloStretchIdx.WRIST_ROLL] = pin[7]
         return joint_angles
 
-    def gripper_fk(self, model, pose):
+    def gripper_fk(self, model: HelloStretch, pose):
         pin_pose = self.convert_ros_pose_to_pinocchio(pose)
         ee_pos, ee_rot = model.fk(pin_pose)
         gripper_pos, gripper_rot = (

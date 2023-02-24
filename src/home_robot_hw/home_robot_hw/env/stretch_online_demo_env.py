@@ -1,15 +1,16 @@
+import datetime
 import os
 import uuid
-import rospy
-import datetime
-import tf2_ros
-import geometry_msgs
 
-from home_robot.hardware.stretch_ros import HelloStretchROSInterface
-from home_robot.ros.stretch_xbox_controller import StretchXboxController
-from home_robot.ros.recorder import Recorder
-from home_robot.motion.robot import HelloStretch
-from home_robot.envs.imitation.stretch_demo_base_env import StretchDemoBaseEnv
+import geometry_msgs
+import rospy
+import tf2_ros
+from home_robot.agent.motion.stretch import HelloStretch
+
+from home_robot_hw.env.stretch_demo_base_env import StretchDemoBaseEnv
+from home_robot_hw.ros.recorder import Recorder
+from home_robot_hw.ros.stretch_ros import HelloStretchROSInterface
+from home_robot_hw.teleop.stretch_xbox_controller import StretchXboxController
 
 
 class StretchOnlineDemoEnv(StretchDemoBaseEnv):
@@ -17,37 +18,63 @@ class StretchOnlineDemoEnv(StretchDemoBaseEnv):
     This env uses the controller to actively collect and store demos, while also returning them (via step) in a form
     that can be trained on on-line.
     """
-    def __init__(self, output_file_dir, camera_info_in_state=False, record_key_frames=False, record_all_frames=False):
+
+    def __init__(
+        self,
+        output_file_dir,
+        camera_info_in_state=False,
+        record_key_frames=False,
+        record_all_frames=False,
+    ):
         super().__init__(initialize_ros=True)
         self._episode_in_progress = False
         self._camera_info_in_state = camera_info_in_state
 
         # TODO: don't hardcode this path
         robot_name = f"robot_{uuid.uuid4()}"
-        self._model = HelloStretch(name=robot_name, visualize=False, root="", urdf_path=self.urdf_path)
-        self._robot = HelloStretchROSInterface(init_cameras=True, model=self._model, depth_buffer_size=None)  # TODO: would 0 work?
-        self._controller_handler = StretchXboxController(self._model, start_button_callback=self._start_button_callback,
-                                                         back_button_callback=self._back_button_callback)
+        self._model = HelloStretch(
+            name=robot_name, visualize=False, root="", urdf_path=self.urdf_path
+        )
+        self._robot = HelloStretchROSInterface(
+            init_cameras=True, model=self._model, depth_buffer_size=None
+        )  # TODO: would 0 work?
+        self._controller_handler = StretchXboxController(
+            self._model,
+            start_button_callback=self._start_button_callback,
+            back_button_callback=self._back_button_callback,
+        )
 
         # Storing episode replay parameters
         os.makedirs(output_file_dir, exist_ok=True)
         timestamp = datetime.datetime.now().strftime("%b_%d_%Y_%H.%M.%S.%f")
         output_filename = os.path.join(output_file_dir, f"demo_{timestamp}.h5")
-        self._recorder = Recorder(output_filename, model=self._model, robot=self._robot) if record_all_frames else None
+        self._recorder = (
+            Recorder(output_filename, model=self._model, robot=self._robot)
+            if record_all_frames
+            else None
+        )
 
-        key_frame_output_filename = os.path.join(output_file_dir, f"demo_{timestamp}_key_frames.h5")
-        self._key_frame_recorder = Recorder(key_frame_output_filename, model=self._model, robot=self._robot) if record_key_frames else None
+        key_frame_output_filename = os.path.join(
+            output_file_dir, f"demo_{timestamp}_key_frames.h5"
+        )
+        self._key_frame_recorder = (
+            Recorder(key_frame_output_filename, model=self._model, robot=self._robot)
+            if record_key_frames
+            else None
+        )
 
         # Step-related parameters
         self._next_step_done = False  # Related to replay - when we say an episode is done, the next step should have done=True
         self._step_rate = rospy.Rate(10)  # hz
         self._current_timestep = 0
 
-        self.observation_space, self.action_space = self.get_stretch_obs_and_action_space(self._camera_info_in_state)
+        (
+            self.observation_space,
+            self.action_space,
+        ) = self.get_stretch_obs_and_action_space(self._camera_info_in_state)
 
         self._key_frame_poses = []
         self._pose_broadcaster = tf2_ros.TransformBroadcaster()
-
 
     def __del__(self):
         self.close()
@@ -107,15 +134,30 @@ class StretchOnlineDemoEnv(StretchDemoBaseEnv):
                 pose = self.gripper_fk(self._model, q)
                 self._key_frame_poses.append(pose)
             else:
-                print("Attempted to save a keyframe before starting an episode. Please hit the start button first.")
+                print(
+                    "Attempted to save a keyframe before starting an episode. Please hit the start button first."
+                )
 
     def reset(self):
         rgb, depth = self.get_images_from_robot(self._robot)
-        color_camera_info, depth_camera_info, camera_pose = self.construct_camera_data_from_robot(self._robot)
+        (
+            color_camera_info,
+            depth_camera_info,
+            camera_pose,
+        ) = self.construct_camera_data_from_robot(self._robot)
         self._current_timestep = 0
-        observation = self.construct_observation(rgb, depth, self._robot.pos, color_camera_info, depth_camera_info, camera_pose,
-                                                 camera_info_in_state=self._camera_info_in_state, current_time=0, max_time=1,
-                                                 model=self._model)  # TODO: we don't know the max time yet... (though in this case it's 0 regardless)
+        observation = self.construct_observation(
+            rgb,
+            depth,
+            self._robot.pos,
+            color_camera_info,
+            depth_camera_info,
+            camera_pose,
+            camera_info_in_state=self._camera_info_in_state,
+            current_time=0,
+            max_time=1,
+            model=self._model,
+        )  # TODO: we don't know the max time yet... (though in this case it's 0 regardless)
         return observation
 
     def step(self, _):
@@ -130,15 +172,30 @@ class StretchOnlineDemoEnv(StretchDemoBaseEnv):
 
         if self._recorder is not None:
             rgb, depth, absolute_pose, delta_pose = self._recorder.save_frame()
-            color_camera_info, depth_camera_info, camera_pose = self.construct_camera_data_from_robot(self._robot)
+            (
+                color_camera_info,
+                depth_camera_info,
+                camera_pose,
+            ) = self.construct_camera_data_from_robot(self._robot)
 
             # TODO: how to do time? We don't know the max (currently unused downstream anyway...) This is currently always just ratio of 1
             self._current_timestep += 1
-            observation = self.construct_observation(rgb, depth, self._robot.pos, color_camera_info, depth_camera_info, camera_pose,
-                                                camera_info_in_state=self._camera_info_in_state, current_time=self._current_timestep, max_time=self._current_timestep,
-                                                model=self._model)
+            observation = self.construct_observation(
+                rgb,
+                depth,
+                self._robot.pos,
+                color_camera_info,
+                depth_camera_info,
+                camera_pose,
+                camera_info_in_state=self._camera_info_in_state,
+                current_time=self._current_timestep,
+                max_time=self._current_timestep,
+                model=self._model,
+            )
 
-        info = {"demo_action": None}  # If we start using the Online env in the training loop, this class will need to be updated to be consistent
+        info = {
+            "demo_action": None
+        }  # If we start using the Online env in the training loop, this class will need to be updated to be consistent
         reward = 0
 
         if done:
@@ -159,38 +216,12 @@ class StretchOnlineDemoEnv(StretchDemoBaseEnv):
 
 if __name__ == "__main__":
     import faulthandler
+
     faulthandler.enable()
-    from home_robot.envs.imitation.stretch_live_env import StretchLiveEnv
-
-    #demo_dir = "/home/spowers/Datasets/Stretch/demo_data/kitchen_test/bottle_from_sink/1"
-    #demo_dir = "/home/spowers/Datasets/Stretch/demo_data/kitchen_test/bottle_to_sink/1"
-
-    #demo_dir = "/home/spowers/Datasets/Stretch/demo_data/kitchen_test/bottle_from_sink/v2/1"
-    #demo_dir = "/home/spowers/Datasets/Stretch/demo_data/kitchen_test/bottle_from_sink/v2/2"
-    #demo_dir = "/home/spowers/Datasets/Stretch/demo_data/kitchen_test/bottle_from_sink/v2/3"
-
-    #demo_dir = "/home/spowers/Datasets/Stretch/demo_data/kitchen_test/bottle_to_sink/v2/1"
-    #demo_dir = "/home/spowers/Datasets/Stretch/demo_data/kitchen_test/bottle_to_sink/v2/2"
-    #demo_dir = "/home/spowers/Datasets/Stretch/demo_data/kitchen_test/bottle_to_sink/v2/3"
-
-    demo_dir = "/home/spowers/Datasets/Stretch/demo_data/kitchen_test/v3/bottle_to_sink/1"
-    #demo_dir = "/home/spowers/Datasets/Stretch/demo_data/kitchen_test/v3/bottle_from_sink/1"
-
-    #demo_dir = "/home/spowers/Datasets/Stretch/demo_data/kitchen_test/v3/open_oven/0"
-    #demo_dir = "/home/spowers/Datasets/Stretch/demo_data/kitchen_test/v3/close_oven/0"
-
-    #demo_dir = "/home/spowers/Datasets/Stretch/demo_data/kitchen_test/v3/cup_into_oven/0"
-    #demo_dir = "/home/spowers/Datasets/Stretch/demo_data/kitchen_test/v3/cup_from_oven/0"
-
-    #demo_dir = "/home/spowers/Datasets/Stretch/demo_data/kitchen_test/v3/pinto_into_oven/0"
-    #demo_dir = "/home/spowers/Datasets/Stretch/demo_data/kitchen_test/v3/pinto_from_oven/0"
-
-    #demo_dir = "/home/spowers/Datasets/Stretch/demo_data/kitchen_test/v3/jello_onto_oven/0"
-    #demo_dir = "/home/spowers/Datasets/Stretch/demo_data/kitchen_test/v3/jello_from_oven_top/0"
-
-    #env = StretchOfflineDemoEnv(demo_dir=demo_dir, state_augmentation_scale=0, camera_info_in_state=True, use_key_frames=True, command_absolute=True)
-    #env = StretchLiveEnv(demo_dir=demo_dir, camera_info_in_state=True)
-    env = StretchOnlineDemoEnv(output_file_dir=demo_dir, camera_info_in_state=True, record_key_frames=True)
+    demo_dir = "/home/spowers/Datasets/Stretch/demo_data/kitchen_test/v3/bottle_to_sink/1"  # TODO get from CLI
+    env = StretchOnlineDemoEnv(
+        output_file_dir=demo_dir, camera_info_in_state=True, record_key_frames=True
+    )
     done = False
     env.reset()
 
