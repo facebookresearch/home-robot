@@ -91,7 +91,7 @@ def main(rate, max_frames, visualize):
     collector = RosMapDataCollector(env, visualize)
 
     # Tuck the arm away
-    env.goto(STRETCH_NAVIGATION_Q)
+    env.goto(STRETCH_NAVIGATION_Q, wait=False)
 
     rate = rospy.Rate(rate)
     print("Press ctrl+c to finish...")
@@ -102,7 +102,6 @@ def main(rate, max_frames, visualize):
     # TODO: replace env with client
     if not env.in_navigation_mode():
         env.switch_to_navigation_mode()
-    env.navigate_to((0.5, 0, 0))
     step = 0
     while not rospy.is_shutdown():
         # Run until we control+C this script
@@ -110,7 +109,9 @@ def main(rate, max_frames, visualize):
         rate.sleep()
 
         ti = (rospy.Time.now() - t0).to_sec()
-        if ti > 5.0 and step <= 1:
+        if step == 0:
+            env.navigate_to((0.5, 0, 0))
+        elif ti > 5.0 and step <= 1:
             env.navigate_to((0.5, 0.5, np.pi / 2))
             step = 1
         elif ti > 15. and step <= 2:
