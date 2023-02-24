@@ -120,8 +120,10 @@ class NavStateEstimator:
         self._estimator_pub = rospy.Publisher(
             "state_estimator/pose_filtered", PoseStamped, queue_size=1
         )
-        self._world_frame_id = "odom"
-        self._base_frame_id = "base_link_estimator"
+        self._world_frame_id = "map"
+        # TODO: if we need to debug this vs. the scan matcher
+        # self._base_frame_id = "base_link_estimator"
+        self._base_frame_id = "base_link"
         self._tf_broadcaster = tf2_ros.TransformBroadcaster()
     
         # This comes from hector_slam.

@@ -38,7 +38,7 @@
 	<!-- -->
 
 	<!-- LASER SCAN MATCHER FOR ODOMETRY -->
-	<include file="$(find stretch_core)/launch/stretch_scan_matcher.launch" />
+	<!--include file="$(find stretch_core)/launch/stretch_scan_matcher.launch" /-->
 	<!-- -->
 
 	<!-- Rviz visualization -->
@@ -46,7 +46,7 @@
 
 	<!-- launch the main mapping node -->
 	<include file="$(find home_robot_hw)/launch/stretch_hector_mapping.launch">
-		<arg name="pub_map_odom_transform" value="true"/>
+		<arg name="pub_map_odom_transform" value="false"/>
 	</include>
 
 	<include file="$(find hector_geotiff_launch)/launch/geotiff_mapper.launch">
