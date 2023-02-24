@@ -1,0 +1,3 @@
+
+class StretchCameraClient:
+    pass
