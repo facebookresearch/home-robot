@@ -76,7 +76,8 @@ class RosMapDataCollector(object):
             xyz = obs[1]
             pc_xyz, pc_rgb = combine_point_clouds(pc_xyz, pc_rgb, xyz, rgb)
 
-        show_point_cloud(pc_xyz, pc_rgb / 255)
+        # Visualize point clloud + origin
+        show_point_cloud(pc_xyz, pc_rgb / 255, orig=np.zeros(3))
 
 
 @click.command()
