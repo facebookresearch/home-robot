@@ -27,9 +27,9 @@ def combine_point_clouds(pc_xyz: np.ndarray, pc_rgb: np.ndarray, xyz: np.ndarray
     if pc_rgb is None:
         pc_rgb, pc_xyz = rgb, xyz
     else:
-        np.concatenate([pc_rgb, rgb], axis=0)
-        np.concatenate([pc_xyz, xyz], axis=0)
-    pcd = numpy_to_pcd(xyz, rgb).voxel_down_sample(voxel_size=0.01)
+        pc_rgb = np.concatenate([pc_rgb, rgb], axis=0)
+        pc_xyz = np.concatenate([pc_xyz, xyz], axis=0)
+    pcd = numpy_to_pcd(pc_xyz, pc_rgb).voxel_down_sample(voxel_size=0.01)
     return pcd_to_numpy(pcd)
 
 

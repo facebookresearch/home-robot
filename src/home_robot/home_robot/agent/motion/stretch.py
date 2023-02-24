@@ -69,6 +69,7 @@ STRETCH_NAVIGATION_Q = np.array(
 
 # This is the gripper, and the distance in the gripper frame to where the fingers will roughly meet
 STRETCH_GRASP_FRAME = "link_straight_gripper"
+STRETCH_CAMERA_FRAME = "camera_color_optical_frame"
 STRETCH_STANDOFF_DISTANCE = 0.235
 STRETCH_STANDOFF_WITH_MARGIN = 0.25
 # Offset from a predicted grasp point to STRETCH_GRASP_FRAME
