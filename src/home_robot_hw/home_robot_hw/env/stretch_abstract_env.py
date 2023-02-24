@@ -122,10 +122,6 @@ class StretchEnv(home_robot.core.abstract_env.Env):
         if init_cameras:
             self._create_cameras(color_topic, depth_topic)
 
-        # Create visualizer information
-        self.goal_visualizer = Visualizer("command_pose", rgba=[1., 0., 0., 0.5])
-        self.curr_visualizer = Visualizer("current_pose", rgba=[0., 0., 1., 0.5])
-
         self._create_services()
         self._reset_messages()
         print("... done.")
@@ -234,6 +230,11 @@ class StretchEnv(home_robot.core.abstract_env.Env):
         """create ROS publishers and subscribers - only call once"""
         # Store latest joint state message - lock for access
         self._js_lock = threading.Lock()
+
+        # Create visualizers for pose information
+        self.goal_visualizer = Visualizer("command_pose", rgba=[1., 0., 0., 0.5])
+        self.curr_visualizer = Visualizer("current_pose", rgba=[0., 0., 1., 0.5])
+
         self._mode_sub = rospy.Subscriber(
             "mode", String, self._mode_callback, queue_size=1
         )
