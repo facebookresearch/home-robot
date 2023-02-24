@@ -8,6 +8,7 @@ import tf
 from geometry_msgs.msg import PoseStamped
 from home_robot.agent.motion.stretch import STRETCH_CAMERA_FRAME, STRETCH_BASE_FRAME
 from home_robot.utils.pose import to_matrix
+from home_robot_hw.ros.utils import matrix_to_pose_msg
 
 
 class CameraPosePublisher(object):
@@ -16,6 +17,7 @@ class CameraPosePublisher(object):
     def __init__(self, topic_name="camera_pose"):
         self._pub = rospy.Publisher(topic_name, PoseStamped)
         self._listener = tf.TransformListener()
+        self._seq = 0
 
     def spin(self, rate=10):
         rate = rospy.Rate(rate)
@@ -23,6 +25,11 @@ class CameraPosePublisher(object):
             try:
                 (trans, rot) = self._listener.lookupTransform(STRETCH_BASE_FRAME, STRETCH_CAMERA_FRAME, rospy.Time(0))
                 matrix = to_matrix(trans, rot)
+                msg = PoseStamped(pose=matrix_to_pose_msg(matrix))
+                msg.header.stamp = rospy.Time.now()
+                msg.header.seq = self._seq
+                self._pub.publish(msg)
+                self._seq += 1
             except (tf.LookupException, tf.ConnectivityException, tf.ExtrapolationException):
                 continue
         rate.sleep()
