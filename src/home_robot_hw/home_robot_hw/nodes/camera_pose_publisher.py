@@ -7,6 +7,7 @@ import rospy
 import tf
 from geometry_msgs.msg import PoseStamped
 from home_robot.agent.motion.stretch import STRETCH_CAMERA_FRAME, STRETCH_BASE_FRAME
+from home_robot.utils.pose import to_matrix
 
 
 class CameraPosePublisher(object):
@@ -21,7 +22,7 @@ class CameraPosePublisher(object):
         while not rospy.is_shutdown():
             try:
                 (trans, rot) = self._listener.lookupTransform(STRETCH_BASE_FRAME, STRETCH_CAMERA_FRAME, rospy.Time(0))
-                print(trans, rot)
+                matrix = to_matrix(trans, rot)
             except (tf.LookupException, tf.ConnectivityException, tf.ExtrapolationException):
                 continue
         rate.sleep()
