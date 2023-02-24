@@ -6,7 +6,7 @@
 import rospy
 import tf
 from geometry_msgs.msg import PoseStamped
-from home_robot.agent.motion.stretch import STRETCH_CAMERA_FRAME
+from home_robot.agent.motion.stretch import STRETCH_CAMERA_FRAME, STRETCH_BASE_FRAME
 
 
 class CameraPosePublisher(object):
@@ -17,11 +17,16 @@ class CameraPosePublisher(object):
         self._listener = tf.TransformListener()
 
     def spin(self, rate=10):
+        rate = rospy.Rate(rate)
         while not rospy.is_shutdown():
             try:
-                (trans, rot) = listener.lookupTransform(STRETCH_BASE_FRAME, STRETCH_CAMERA_FRAME, rospy.Time(0))
+                (trans, rot) = self._listener.lookupTransform(STRETCH_BASE_FRAME, STRETCH_CAMERA_FRAME, rospy.Time(0))
                 print(trans, rot)
             except (tf.LookupException, tf.ConnectivityException, tf.ExtrapolationException):
-
                 continue
+        rate.sleep()
 
+if __name__ == '__main__':
+    rospy.init_node('camera_pose_publisher')
+    publisher = CameraPosePublisher()
+    publisher.spin()
