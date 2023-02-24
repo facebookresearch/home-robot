@@ -82,8 +82,8 @@ class RosMapDataCollector(object):
 
 
 @click.command()
-@click.option("--rate", default=1, type=int)
-@click.option("--max-frames", default=25, type=int)
+@click.option("--rate", default=5, type=int)
+@click.option("--max-frames", default=125, type=int)
 @click.option("--visualize", default=False, is_flag=True)
 def main(rate, max_frames, visualize):
     rospy.init_node("build_3d_map")
@@ -94,22 +94,25 @@ def main(rate, max_frames, visualize):
     env.goto(STRETCH_NAVIGATION_Q, wait=False)
 
     rate = rospy.Rate(rate)
-    print("Press ctrl+c to finish...")
-    frames = 0
-    t0 = rospy.Time.now()
 
     # Move the robot
     # TODO: replace env with client
     if not env.in_navigation_mode():
         env.switch_to_navigation_mode()
+    # Sequence information if we are executing the ttrajectory
     step = 0
+    # Number of frames collected
+    frames = 0
+
+    print("Press ctrl+c to finish...")
+    t0 = rospy.Time.now()
     while not rospy.is_shutdown():
         # Run until we control+C this script
         collector.step()  # Append latest observations
-        rate.sleep()
 
         ti = (rospy.Time.now() - t0).to_sec()
-        if step == 0:
+        print("Time =", ti)
+        if step == 0 and ti < 5.0:
             env.navigate_to((0.5, 0, 0))
         elif ti > 5.0 and step <= 1:
             env.navigate_to((0.5, 0.5, np.pi / 2))
@@ -121,6 +124,8 @@ def main(rate, max_frames, visualize):
         frames += 1
         if max_frames > 0 and frames >= max_frames:
             break
+
+        rate.sleep()
 
     print("Done collecting data.")
     collector.show()
