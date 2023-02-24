@@ -76,13 +76,18 @@ class GotoVelocityControllerNode:
             pose_goal = pose_sp
         """
 
-        pose_goal = pose_sp
+        if self.active:
+            pose_goal = pose_sp
 
-        self.controller.update_goal(sophus2xyt(pose_goal))
-        self.xyt_goal = self.controller.xyt_goal
+            self.controller.update_goal(sophus2xyt(pose_goal))
+            self.xyt_goal = self.controller.xyt_goal
 
-        # Visualize
-        self.goal_visualizer(pose_goal.matrix())
+            # Visualize
+            self.goal_visualizer(pose_goal.matrix())
+
+        # Do not update goal if controller is not active (prevents _enable_service to suddenly start moving the robot)
+        else:
+            log.warn("Received a goal while NOT active. Goal is not updated.")
 
     def _enable_service(self, request: TriggerRequest) -> TriggerResponse:
         """activates the controller and acks activation request"""
@@ -95,8 +100,8 @@ class GotoVelocityControllerNode:
 
     def _disable_service(self, request: TriggerRequest) -> TriggerResponse:
         """disables the controller and acks deactivation request"""
-        self.xyt_goal = None
         self.active = False
+        self.xyt_goal = None
         return TriggerResponse(
             success=True,
             message="Goto controller is now STOPPED",
@@ -123,16 +128,12 @@ class GotoVelocityControllerNode:
         rate = rospy.Rate(self.hz)
 
         while not rospy.is_shutdown():
-            if self.xyt_goal is not None:
-                if self.active:
-                    # Compute control
-                    v_cmd, w_cmd = self.controller.compute_control()
+            if self.active and self.xyt_goal is not None:
+                # Compute control
+                v_cmd, w_cmd = self.controller.compute_control()
 
-                    # Command robot
-                    self._set_velocity(v_cmd, w_cmd)
-                else:
-                    log.warn("Received a goal while NOT active. Goal will be unset.")
-                    self.xyt_goal = None
+                # Command robot
+                self._set_velocity(v_cmd, w_cmd)
 
             # Spin
             rate.sleep()
