@@ -11,7 +11,7 @@ import numpy as np
 import open3d
 import rospy
 
-from home_robot.agent.motion.stretch import STRETCH_HOME_Q
+from home_robot.agent.motion.stretch import HelloStretch, STRETCH_HOME_Q
 from home_robot.utils.point_cloud import (
     numpy_to_pcd,
     pcd_to_numpy,
@@ -29,7 +29,7 @@ def combine_point_clouds(pc_xyz: np.ndarray, pc_rgb: np.ndarray, xyz: np.ndarray
     else:
         np.concatenate([pc_rgb, rgb], axis=0)
         np.concatenate([pc_xyz, xyz], axis=0)
-    pcd = numpy_to_pcd(xyz, rgb).voxel_down_sample(voxel_size=0.05)
+    pcd = numpy_to_pcd(xyz, rgb).voxel_down_sample(voxel_size=0.01)
     return pcd_to_numpy(pcd)
 
 
@@ -45,10 +45,11 @@ class RosMapDataCollector(object):
     This is an example collecting the data; not necessarily the way you should do it.
     """
 
-    def __init__(self, env):
+    def __init__(self, env, visualize_planner=False):
         self.env = env  # Get the connection to the ROS environment via agent
         self.observations = []
         self.started = False
+        self.robot_model = HelloStretch(visualize=visualize_planner)
 
     def step(self):
         """Step the collector. Get a single observation of the world. Remove bad points, such as
@@ -83,10 +84,11 @@ class RosMapDataCollector(object):
 @click.command()
 @click.option("--rate", default=1, type=int)
 @click.option("--max-frames", default=5, type=int)
-def main(rate=10, max_frames=-1):
+@click.option("--visualize", default=False, is_flag=True)
+def main(rate, max_frames, visualize):
     rospy.init_node("build_3d_map")
     env = StretchGraspingEnv(segmentation_method=None)
-    collector = RosMapDataCollector(env)
+    collector = RosMapDataCollector(env, visualize)
 
     # Tuck the arm away
     env.goto(STRETCH_HOME_Q)
