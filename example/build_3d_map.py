@@ -11,7 +11,7 @@ import numpy as np
 import open3d
 import rospy
 
-from home_robot.agent.motion.stretch import HelloStretch, STRETCH_HOME_Q
+from home_robot.agent.motion.stretch import HelloStretch, STRETCH_NAVIGATION_Q
 from home_robot.utils.point_cloud import (
     numpy_to_pcd,
     pcd_to_numpy,
@@ -91,7 +91,7 @@ def main(rate, max_frames, visualize):
     collector = RosMapDataCollector(env, visualize)
 
     # Tuck the arm away
-    env.goto(STRETCH_HOME_Q)
+    env.goto(STRETCH_NAVIGATION_Q)
 
     rate = rospy.Rate(rate)
     print("Press ctrl+c to finish...")
@@ -110,10 +110,10 @@ def main(rate, max_frames, visualize):
         rate.sleep()
 
         ti = (rospy.Time.now() - t0).to_sec()
-        if ti > 5.0 and step < 1:
+        if ti > 5.0 and step <= 1:
             env.navigate_to((0.5, 0.5, np.pi / 2))
             step = 1
-        elif ti > 10. and step < 2:
+        elif ti > 15. and step <= 2:
             env.navigate_to((0, 0, 0))
             step = 2
 

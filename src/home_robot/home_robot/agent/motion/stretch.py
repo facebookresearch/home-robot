@@ -50,6 +50,22 @@ STRETCH_PREGRASP_Q = np.array(
         0.0,
     ]
 )
+STRETCH_NAVIGATION_Q = np.array(
+    [
+        0,  # x
+        0,  # y
+        0,  # theta
+        0.5,  # lift
+        0.01,  # arm
+        0.0,  # gripper rpy
+        3.14,  # wrist roll
+        -1.57,  # wrist pitch
+        0.0,  # wrist yaw
+        0.0,
+        -np.pi / 4,
+    ]
+)
+
 
 # This is the gripper, and the distance in the gripper frame to where the fingers will roughly meet
 STRETCH_GRASP_FRAME = "link_straight_gripper"
