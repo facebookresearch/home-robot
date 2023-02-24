@@ -48,6 +48,10 @@ class PinocchioIKSolver:
             for j in controlled_joints
         ]
 
+    def get_dof(self) -> int:
+        """returns dof for the manipulation chain"""
+        return len(self.controlled_joints)
+
     def _qmap_control2model(self, q_input):
         q_out = self.q_neutral.copy()
         for i, joint_idx in enumerate(self.controlled_joints):
@@ -63,7 +67,8 @@ class PinocchioIKSolver:
 
         return q_out
 
-    def compute_fk(self, q):
+    def compute_fk(self, q) -> tuple[np.ndarray, np.ndarray]:
+        """given joint values return end-effector position and quaternion associated with it"""
         q_model = self._qmap_control2model(q)
         pinocchio.forwardKinematics(self.model, self.data, q_model)
         pinocchio.updateFramePlacement(self.model, self.data, self.ee_frame_idx)
@@ -72,7 +77,8 @@ class PinocchioIKSolver:
 
         return pos.copy(), quat.copy()
 
-    def compute_ik(self, pos, quat, max_iterations=100):
+    def compute_ik(self, pos, quat, max_iterations=100) -> tuple[np.ndarray, bool]:
+        """given end-effector position and quaternion, return joint values"""
         i = 0
         q = self.q_neutral.copy()
         desired_ee_pose = pinocchio.SE3(R.from_quat(quat).as_matrix(), pos)
@@ -102,6 +108,48 @@ class PinocchioIKSolver:
         q_control = self._qmap_model2control(q.flatten())
 
         return q_control, success
+
+    def compute_ik_opt(self, pose_query):
+        max_iterations = 30
+        num_samples = 100
+        num_top = 10  # TODO: what is this?
+        pos_error_tol = 0.005
+        ori_error_tol = 0.2
+        pos_desired, quat_desired = pose_query
+        ik_solver = self
+
+        opt = CEM(
+            max_iterations=max_iterations,
+            num_samples=num_samples,
+            num_top=num_top,
+            tol=pos_error_tol,
+        )
+
+        def solve_ik(dr):
+            pos = pos_desired
+            quat = (R.from_rotvec(dr) * R.from_quat(quat_desired)).as_quat()
+
+            q, ik_success = ik_solver.compute_ik(pos, quat)
+            pos_out, rot_out = ik_solver.compute_fk(q)
+
+            cost_pos = np.linalg.norm(pos - pos_out)
+            cost_rot = (
+                1 - (rot_out * quat_desired).sum() ** 2
+            )  # TODO: just minimize dr?
+
+            cost = cost_pos  # + cost_rot  # TODO: scaling?
+
+            return cost, q
+
+        cost_opt, q_result = opt.optimize(
+            solve_ik, x0=np.zeros(3), sigma0=np.array([0, 0, ori_error_tol / 2])
+        )
+        pos_out, quat_out = ik_solver.compute_fk(q_result)
+        print(
+            f"After ik optimization, cost: {cost_opt}, result: {pos_out, quat_out} vs desired: {pose_query}"
+        )
+        # pos_out, quat_out = self.fk(q_result)
+        return q_result
 
 
 class CEM:
