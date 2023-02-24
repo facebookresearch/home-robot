@@ -166,6 +166,10 @@ class StretchEnv(home_robot.core.abstract_env.Env):
         self._t_base_filtered = sp.SE3(matrix_from_pose_msg(msg.pose))
         self.curr_visualizer(self._t_base_filtered.matrix())
 
+    def _camera_pose_callback(self, msg: PoseStamped):
+        self._last_camera_update_timestamp = msg.header.stamp
+        self._t_camera_pose = sp.SE3(matrix_from_pose_msg(msg.pose))
+
     def get_base_pose(self):
         """get the latest base pose from sensors"""
         return sophus2xyt(self._t_base_filtered)
@@ -265,6 +269,7 @@ class StretchEnv(home_robot.core.abstract_env.Env):
             self._base_state_callback,
             queue_size=1,
         )
+        self._camera_pose_sub = rospy.Subscriber("camera_pose", PoseStamped, self._camera_pose_callback, queue_size=1)
 
         print("Waiting for trajectory server...")
         server_reached = self.trajectory_client.wait_for_server(
