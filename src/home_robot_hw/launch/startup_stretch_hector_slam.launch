@@ -20,10 +20,6 @@
 	<!-- -->
 
 	<!-- Realsense driver -->
-	<!--include file="$(find stretch_core)/launch/d435i_high_resolution.launch"></include>
-	<node name="d435i_configure" pkg="stretch_core" type="d435i_configure" output="screen">
-	   <param name="initial_mode" type="string" value="High Accuracy"/>
-	</node-->
 	<include file="$(find realsense2_camera)/launch/rs_aligned_depth.launch" if="$(arg start_rs_ros)">
 		<arg name="camera" value="camera"/>
 		<arg name="align_depth" value="true"/>
@@ -43,7 +39,7 @@
 
 	<!-- LASER SCAN MATCHER FOR ODOMETRY -->
 	<include file="$(find stretch_core)/launch/stretch_scan_matcher.launch" />
-		<!-- -->
+	<!-- -->
 
 	<!-- Rviz visualization -->
 	<include file="$(find home_robot_hw)/launch/visualization.launch" if="$(arg rviz)" />
