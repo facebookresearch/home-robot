@@ -12,7 +12,7 @@ import rospy
 import sophus as sp
 from geometry_msgs.msg import Pose, PoseStamped, Twist
 from nav_msgs.msg import Odometry
-from std_srvs.srv import SetBool, SetBoolResponse, Trigger, TriggerResponse
+from std_srvs.srv import SetBool, SetBoolResponse, Trigger, TriggerResponse, TriggerRequest
 
 from home_robot.control.goto_controller import GotoVelocityController
 from home_robot.utils.config import get_control_config
@@ -84,7 +84,8 @@ class GotoVelocityControllerNode:
         # Visualize
         self.goal_visualizer(pose_goal.matrix())
 
-    def _enable_service(self, request):
+    def _enable_service(self, request: TriggerRequest) -> TriggerResponse:
+        """activates the controller and acks activation request"""
         self.xyt_goal = None
         self.active = True
         return TriggerResponse(
@@ -92,7 +93,9 @@ class GotoVelocityControllerNode:
             message="Goto controller is now RUNNING",
         )
 
-    def _disable_service(self, request):
+    def _disable_service(self, request: TriggerRequest) -> TriggerResponse:
+        """disables the controller and acks deactivation request"""
+        self.xyt_goal = None
         self.active = False
         return TriggerResponse(
             success=True,
@@ -129,6 +132,7 @@ class GotoVelocityControllerNode:
                     self._set_velocity(v_cmd, w_cmd)
                 else:
                     log.warn("Received a goal while NOT active. Goal will be unset.")
+                    self.xyt_goal = None
 
             # Spin
             rate.sleep()
