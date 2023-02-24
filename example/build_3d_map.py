@@ -11,7 +11,7 @@ import numpy as np
 import open3d
 import rospy
 
-from home_robot.agent.motion.stretch import STRETCH_PREGRASP_Q, HelloStretchIdx
+from home_robot.agent.motion.stretch import STRETCH_HOME_Q
 from home_robot.utils.point_cloud import (
     numpy_to_pcd,
     pcd_to_numpy,
@@ -86,6 +86,9 @@ def main(rate=10, max_frames=-1):
     rospy.init_node("build_3d_map")
     env = StretchGraspingEnv(segmentation_method=None)
     collector = RosMapDataCollector(env)
+
+    # Tuck the arm away
+    env.goto(STRETCH_HOME_Q)
 
     rate = rospy.Rate(rate)
     print("Press ctrl+c to finish...")
