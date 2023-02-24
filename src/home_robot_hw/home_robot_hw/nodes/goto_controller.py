@@ -34,7 +34,7 @@ class GotoVelocityControllerNode:
     def __init__(
         self,
         hz: float,
-        odom_only_feedback: bool = True,
+        odom_only_feedback: bool = False,
         config_name: str = "noplan_velocity_hw",
     ):
         self.hz = hz
@@ -45,6 +45,7 @@ class GotoVelocityControllerNode:
         self.controller = GotoVelocityController(controller_cfg)
 
         # Initialize
+        self.xyt_filtered: Optional[np.ndarray] = None
         self.xyt_goal: Optional[np.ndarray] = None
 
         self.active = False
@@ -54,13 +55,14 @@ class GotoVelocityControllerNode:
         self.goal_visualizer = Visualizer("goto_controller/goal_abs")
 
     def _pose_update_callback(self, msg: PoseStamped):
+        pose_sp = sp.SE3(matrix_from_pose_msg(msg.pose))
+        self.xyt_filtered = sophus2xyt(pose_sp)
         if not self.odom_only:
-            pose_sp = sp.SE3(matrix_from_pose_msg(msg.pose))
-            self.controller.update_pose_feedback(sophus2xyt(pose_sp))
+            self.controller.update_pose_feedback(self.xyt_filtered)
 
     def _odom_update_callback(self, msg: Odometry):
+        pose_sp = sp.SE3(matrix_from_pose_msg(msg.pose.pose))
         if self.odom_only:
-            pose_sp = sp.SE3(matrix_from_pose_msg(msg.pose.pose))
             self.controller.update_pose_feedback(sophus2xyt(pose_sp))
 
     def _goal_update_callback(self, msg: Pose):
