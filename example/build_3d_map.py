@@ -83,7 +83,7 @@ class RosMapDataCollector(object):
 
 @click.command()
 @click.option("--rate", default=1, type=int)
-@click.option("--max-frames", default=5, type=int)
+@click.option("--max-frames", default=25, type=int)
 @click.option("--visualize", default=False, is_flag=True)
 def main(rate, max_frames, visualize):
     rospy.init_node("build_3d_map")
@@ -96,10 +96,26 @@ def main(rate, max_frames, visualize):
     rate = rospy.Rate(rate)
     print("Press ctrl+c to finish...")
     frames = 0
+    t0 = rospy.Time.now()
+
+    # Move the robot
+    # TODO: replace env with client
+    if not env.in_navigation_mode():
+        env.switch_to_navigation_mode()
+    env.navigate_to((0.5, 0, 0))
+    step = 0
     while not rospy.is_shutdown():
         # Run until we control+C this script
         collector.step()  # Append latest observations
         rate.sleep()
+
+        ti = (rospy.Time.now() - t0).to_sec()
+        if ti > 5.0 and step < 1:
+            env.navigate_to((0.5, 0.5, np.pi / 2))
+            step = 1
+        elif ti > 10. and step < 2:
+            env.navigate_to((0, 0, 0))
+            step = 2
 
         frames += 1
         if max_frames > 0 and frames >= max_frames:
