@@ -34,18 +34,15 @@ This project contains numerous packages. See individual package docs for corresp
 
 ### Getting Started on the Hello Stretch
 
-Clone the repo on your Stretch Robot and the local GPU machine.
-```
-git clone https://github.com/vidhiJain/home-robot.git
-```
-
-Make sure you update all submodules by running:
-```
-git submodule update --recursive --init
-```
-If the modules do not update as expected, make sure that you have added the SSH public key of your robot and machine to your Github.
-
-1. SSH into the onboard computer on the Hello Stretch.
+1. Clone the repo on your Stretch Robot and the local GPU machine.
+    ```sh
+    git clone https://github.com/vidhiJain/home-robot.git
+    ```
+1. Make sure you update all submodules by running:
+    ```sh
+    git submodule update --recursive --init
+    ```
+    If the modules do not update as expected, make sure that you have added the [SSH public key](https://docs.github.com/en/authentication/connecting-to-github-with-ssh) of your robot and machine to authenticate your Github account.
 1. Install the core [home_robot](src/home_robot) python package.
 1. Install [home_robot_hw](src/home_robot_hw/install.md) and complete the setup.
 1. Launch the ROS hardware stack:
@@ -53,7 +50,10 @@ If the modules do not update as expected, make sure that you have added the SSH 
     conda deactivate  # If you are using conda - not required on robot!
     roslaunch home_robot startup_stretch_hector_slam.launch
     ```
-1. Launch interactive client: `python -m home_robot.client.local_hello_robot`
+1. Launch interactive client: 
+    ```sh 
+    python -m home_robot.client.local_hello_robot
+    ```
 
 You should then be able to command the robot using the following commands:
 ```py
