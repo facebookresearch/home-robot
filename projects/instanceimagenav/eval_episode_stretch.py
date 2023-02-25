@@ -15,6 +15,11 @@ if __name__ == "__main__":
     env = StretchImageNavEnv(config=config)
     agent = ImageNavAgent(config=config)
 
+    print()
+    print("==============")
+    env.switch_to_navigation_mode()
+    print("==============")
+
     env.reset()
     agent.reset()
 

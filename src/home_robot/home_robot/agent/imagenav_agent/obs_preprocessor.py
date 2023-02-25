@@ -9,7 +9,7 @@ from omegaconf import DictConfig
 
 from habitat.core.simulator import Observations
 
-from home_robot.agent.utils import pose_utils as pu
+import home_robot.utils.pose as pu
 from home_robot.core.interfaces import Observations
 
 from home_robot.perception.detection.detic.detic_mask import Detic

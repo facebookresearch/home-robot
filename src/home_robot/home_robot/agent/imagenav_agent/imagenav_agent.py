@@ -9,10 +9,11 @@ import numpy as np
 
 from home_robot.core.abstract_agent import Agent
 from home_robot.core.interfaces import DiscreteNavigationAction, Observations
-from home_robot.agent.mapping.dense.semantic.categorical_2d_semantic_map_module import (
+
+from home_robot.mapping.semantic.categorical_2d_semantic_map_module import (
     Categorical2DSemanticMapModule,
 )
-from home_robot.agent.mapping.dense.semantic.categorical_2d_semantic_map_state import (
+from home_robot.mapping.semantic.categorical_2d_semantic_map_state import (
     Categorical2DSemanticMapState,
 )
 from .frontier_exploration import FrontierExplorationPolicy

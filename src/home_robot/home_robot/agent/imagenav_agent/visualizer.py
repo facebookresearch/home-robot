@@ -12,8 +12,7 @@ from habitat.utils.visualizations.utils import images_to_video, draw_collision
 from habitat.utils.visualizations import maps
 from habitat.utils.render_wrapper import append_text_to_image
 
-
-from home_robot.agent.utils import pose_utils as pu
+import home_robot.utils.pose as pu
 
 
 # TODO: map to our custom Detic values

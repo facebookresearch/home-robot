@@ -8,9 +8,7 @@ import rospy
 
 import home_robot
 from home_robot.core.interfaces import Action, DiscreteNavigationAction, Observations
-from home_robot.utils.geometry import (
-    sophus2xyt, xyt_base_to_global
-)
+from home_robot.utils.geometry import xyt2sophus, xyt_base_to_global
 from home_robot_hw.env.stretch_abstract_env import StretchEnv
 
 
@@ -38,9 +36,7 @@ class StretchImageNavEnv(StretchEnv):
         return goal_image
 
     def reset(self):
-        self._episode_start_pose = self.get_base_pose()
-        if self.visualizer is not None:
-            self.visualizer.reset()
+        self._episode_start_pose = xyt2sophus(self.get_base_pose())
 
     def apply_action(self, action: Action):
         continuous_action = np.zeros(3)
@@ -72,13 +68,13 @@ class StretchImageNavEnv(StretchEnv):
     def get_observation(self) -> Observations:
         """Get Detic and rgb/xyz/theta from this"""
         rgb, depth = self.get_images(compute_xyz=False, rotate_images=True)
-        current_pose = self.get_base_pose()
+        current_pose = xyt2sophus(self.get_base_pose())
 
         # use sophus to get the relative translation
         relative_pose = self._episode_start_pose.inverse() * current_pose
         euler_angles = relative_pose.so3().log()
         theta = euler_angles[-1]
-        pos, vel, frc = self.get_joint_state()
+        # pos, vel, frc = self.get_joint_state()
 
         # Create the observation
         return home_robot.core.interfaces.Observations(
@@ -87,7 +83,7 @@ class StretchImageNavEnv(StretchEnv):
             gps=relative_pose.translation()[:2],
             compass=np.array([theta]),
             task_observations={"instance_imagegoal": self.image_goal},
-            joint_positions=pos,
+            # joint_positions=pos,
         )
 
     @property
@@ -99,14 +95,14 @@ class StretchImageNavEnv(StretchEnv):
 
     def rotate(self, theta):
         """just rotate and keep trying"""
-        init_pose = sophus2xyt(self.get_base_pose())
+        init_pose = self.get_base_pose()
         xyt = [0, 0, theta]
         goal_pose = xyt_base_to_global(xyt, init_pose)
         rate = rospy.Rate(5)
         err = float("Inf"), float("Inf")
         pos_tol, ori_tol = 0.1, 0.1
         while not rospy.is_shutdown():
-            curr_pose = sophus2xyt(self.get_base_pose())
+            curr_pose = self.get_base_pose()
             print("init =", init_pose)
             print("curr =", curr_pose)
             print("goal =", goal_pose)
@@ -144,6 +140,7 @@ if __name__ == "__main__":
 
         obs = rob.get_observation()
         rgb, depth = obs.rgb, obs.depth
+        # xyt = obs2xyt(obs.base_pose)
 
         # Add a visualiztion for debugging
         depth[depth > 5] = 0
@@ -151,13 +148,62 @@ if __name__ == "__main__":
         plt.imshow(rgb)
         plt.subplot(122)
         plt.imshow(depth)
+        # plt.subplot(133); plt.imshow(obs.semantic
 
         print()
         print("----------------")
         print("values:")
         print("RGB =", np.unique(rgb))
         print("Depth =", np.unique(depth))
+        # print("XY =", xyt[:2])
+        # print("Yaw=", xyt[-1])
         print("Compass =", obs.compass)
         print("Gps =", obs.gps)
         plt.show()
 
+
+if False:
+    observations = []
+    obs = rob.get_observation()
+    observations.append(obs)
+
+    xyt = np.zeros(3)
+    xyt[2] = obs.compass
+    xyt[:2] = obs.gps
+    # xyt = obs2xyt(obs.base_pose)
+    xyt[0] += 0.1
+    # rob.navigate_to(xyt)
+    rob.rotate(0.2)
+    rospy.sleep(10.0)
+    obs = rob.get_observation()
+    observations.append(obs)
+
+    xyt[0] = 0
+    # rob.navigate_to(xyt)
+    rob.rotate(-0.2)
+    rospy.sleep(10.0)
+    obs = rob.get_observation()
+    observations.append(obs)
+
+    for obs in observations:
+        rgb, depth = obs.rgb, obs.depth
+        # xyt = obs2xyt(obs.base_pose)
+
+        # Add a visualiztion for debugging
+        depth[depth > 5] = 0
+        plt.subplot(121)
+        plt.imshow(rgb)
+        plt.subplot(122)
+        plt.imshow(depth)
+        # plt.subplot(133); plt.imshow(obs.semantic
+
+        print()
+        print("----------------")
+        print("values:")
+        print("RGB =", np.unique(rgb))
+        print("Depth =", np.unique(depth))
+        # print("XY =", xyt[:2])
+        # print("Yaw=", xyt[-1])
+        print("Compass =", obs.compass)
+        print("Gps =", obs.gps)
+        plt.show()

@@ -10,7 +10,7 @@ import skfmm
 import numpy as np
 from numpy import ma
 
-from home_robot.agent.utils import pose_utils as pu
+import home_robot.utils.pose as pu
 
 
 # Same enum as HabitatSimActions without Habitat dependency
