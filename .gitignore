@@ -29,7 +29,6 @@ datadump/
 # Data types
 *.h5
 *.hdf5
-*.png
 *.mp4
 
 src/home_robot/home_robot/agent/imagenav_agent/SuperGluePretrainedNetwork

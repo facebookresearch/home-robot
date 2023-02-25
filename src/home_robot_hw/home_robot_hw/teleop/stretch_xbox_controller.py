@@ -9,7 +9,6 @@ import numpy as np
 import rospy
 from sensor_msgs.msg import JointState, Joy
 
-from home_robot.agent.motion.robot import HelloStretch
 from home_robot.agent.motion.stretch import HelloStretch
 from home_robot_hw.ros.path import get_package_path
 from home_robot_hw.ros.recorder import Recorder, pngs_to_mp4
@@ -105,6 +104,12 @@ class StretchXboxController(object):
                  'left_pad_pressed': self.left_pad.pressed,
                  'right_pad_pressed': self.right_pad.pressed}"""
         return state
+
+    def _set_mode(self) -> None:
+        """If the robot is not in position mode, make sure that it is."""
+        if not self._robot.in_position_mode():
+            print("--> Switching to position mode")
+            self._robot.switch_to_position()
 
     def _create_arm_extension_loop(self, controller_state):
         arm_scale = 1.0  # TODO: better config/less hacky
@@ -271,9 +276,11 @@ class StretchXboxController(object):
 
         # Execute the commands
         if translation_command is not None:
+            self._set_mode()
             self._robot.goto_x(translation_command[0])
 
         if rotation_command is not None:
+            self._set_mode()
             self._robot.goto_theta(rotation_command[0])
 
         # These are in loops because it feels more natural to hold the button in these cases rather than press it repeatedly
