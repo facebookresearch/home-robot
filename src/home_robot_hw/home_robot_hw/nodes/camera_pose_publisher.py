@@ -23,7 +23,7 @@ class CameraPosePublisher(object):
         rate = rospy.Rate(rate)
         while not rospy.is_shutdown():
             try:
-                (trans, rot) = self._listener.lookupTransform(STRETCH_BASE_FRAME, STRETCH_CAMERA_FRAME, rospy.Time(0))
+                (trans, rot) = self._listener.lookupTransform("map", STRETCH_CAMERA_FRAME, rospy.Time(0))
                 matrix = to_matrix(trans, rot)
                 msg = PoseStamped(pose=matrix_to_pose_msg(matrix))
                 msg.header.stamp = rospy.Time.now()

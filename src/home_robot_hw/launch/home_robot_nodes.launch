@@ -2,5 +2,5 @@
 <launch>
 	<node name="goto_controller" pkg="home_robot_hw" type="goto_controller.py" output="screen" required="true"/>
 	<node name="state_estimator" pkg="home_robot_hw" type="state_estimator.py" output="screen" required="true"/>
-	<node name="camera_pose_publisher" pkg="home_robot_hw", type="camera_pose_publisher.py" output="screen" required="true"/>
+	<node name="camera_pose_publisher" pkg="home_robot_hw" type="camera_pose_publisher.py" output="screen" required="true"/>
 </launch>
