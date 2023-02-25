@@ -10,6 +10,8 @@ import click
 import numpy as np
 import open3d
 import rospy
+import trimesh
+import trimesh.transformations as tra
 
 from home_robot.agent.motion.stretch import HelloStretch, STRETCH_NAVIGATION_Q
 from home_robot.utils.point_cloud import (
@@ -54,16 +56,21 @@ class RosMapDataCollector(object):
     def step(self):
         """Step the collector. Get a single observation of the world. Remove bad points, such as
         those from too far or too near the camera."""
-        rgb, depth, xyz = self.env.get_images(compute_xyz=True)
+        rgb, depth, xyz = self.env.get_images(compute_xyz=True, rotate_images=False)
         q, dq = self.env.update()
+        camera_pose = self.env.get_camera_pose_matrix(rotated=False)
 
         # apply depth filter
         depth = depth.reshape(-1)
         rgb = rgb.reshape(-1, 3)
-        xyz = xyz.reshape(-1, 3)
+        cam_xyz = xyz.reshape(-1, 3)
+        xyz = trimesh.transform_points(cam_xyz, camera_pose)
         valid_depth = np.bitwise_and(depth > 0.1, depth < 4.)
         rgb = rgb[valid_depth, :]
         xyz = xyz[valid_depth, :]
+        # TODO: remove debug code
+        # For now you can use this to visualize a single frame
+        # show_point_cloud(xyz, rgb / 255, orig=np.zeros(3))
         self.observations.append((rgb, xyz, q, dq))
 
     def show(self):
@@ -83,7 +90,7 @@ class RosMapDataCollector(object):
 
 @click.command()
 @click.option("--rate", default=5, type=int)
-@click.option("--max-frames", default=50, type=int)
+@click.option("--max-frames", default=3, type=int)
 @click.option("--visualize", default=False, is_flag=True)
 def main(rate, max_frames, visualize):
     rospy.init_node("build_3d_map")
@@ -104,24 +111,27 @@ def main(rate, max_frames, visualize):
     # Number of frames collected
     frames = 0
 
-    print("Press ctrl+c to finish...")
+    collector.step()  # Append latest observations
+    # print("Press ctrl+c to finish...")
     t0 = rospy.Time.now()
     while not rospy.is_shutdown():
         # Run until we control+C this script
-        collector.step()  # Append latest observations
 
         ti = (rospy.Time.now() - t0).to_sec()
         print("Time =", ti)
-        if step == 0 and ti < 5.0:
+        if step == 0:
             env.navigate_to((0.5, 0, 0))
-        elif ti >= 5.0 and step <= 1 and ti < 15.:
+        elif step == 1:
             env.navigate_to((0.5, 0.5, np.pi / 2))
-            step = 1
-        elif ti >= 15. and step <= 2:
+        elif step == 2:
             env.navigate_to((0, 0, 0))
             step = 2
 
+        input("press enter when ready")
+        collector.step()  # Append latest observations
+
         frames += 1
+        step = frames % 3
         if max_frames > 0 and frames >= max_frames:
             break
 

@@ -174,6 +174,19 @@ class StretchEnv(home_robot.core.abstract_env.Env):
         """get the latest base pose from sensors"""
         return sophus2xyt(self._t_base_filtered)
 
+    def get_base_pose_matrix(self):
+        """get matrix version of the base pose """
+        return self._t_base_filtered.matrix()
+
+    def get_camera_pose_matrix(self, rotated=False):
+        """get matrix version of the camera pose"""
+        mat = self._t_camera_pose.matrix()
+        if rotated:
+            # If we are using the rotated versions of the images
+            return mat @ tra.euler_matrix(0, 0, -np.pi / 2)
+        else:
+            return mat
+
     def _js_callback(self, msg):
         """Read in current joint information from ROS topics and update state"""
         # loop over all joint state info
@@ -454,11 +467,12 @@ class StretchEnv(home_robot.core.abstract_env.Env):
             H, W = rgb.shape[:2]
             xyz = xyz.reshape(-1, 3)
 
-            # Rotate the sretch camera so that top of image is "up"
-            R_stretch_camera = tra.euler_matrix(0, 0, -np.pi / 2)[:3, :3]
-            xyz = xyz @ R_stretch_camera
-            xyz = xyz.reshape(H, W, 3)
-            imgs[-1] = xyz
+            if rotate_images:
+                # Rotate the sretch camera so that top of image is "up"
+                R_stretch_camera = tra.euler_matrix(0, 0, -np.pi / 2)[:3, :3]
+                xyz = xyz @ R_stretch_camera
+                xyz = xyz.reshape(H, W, 3)
+                imgs[-1] = xyz
 
         return imgs
 
