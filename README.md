@@ -34,10 +34,16 @@ This project contains numerous packages. See individual package docs for corresp
 
 ### Getting Started on the Hello Stretch
 
+Clone the repo on your Stretch Robot and the local GPU machine.
+```
+git clone https://github.com/vidhiJain/home-robot.git
+```
+
 Make sure you update all submodules by running:
 ```
 git submodule update --recursive --init
 ```
+If the modules do not update as expected, make sure that you have added the SSH public key of your robot and machine to your Github.
 
 1. SSH into the onboard computer on the Hello Stretch.
 1. Install the core [home_robot](src/home_robot) python package.
