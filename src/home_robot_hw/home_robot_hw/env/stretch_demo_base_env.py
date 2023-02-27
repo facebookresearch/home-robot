@@ -168,7 +168,7 @@ class StretchDemoBaseEnv(StretchEnv):
 
     def gripper_ik(self, model, pos, rot, current_joints):
         shifted_pos, shifted_rot = pos, rot
-        pose = model.pb_ik_solver_optimize((shifted_pos, shifted_rot))
+        pose = model.compute_ik_opt((shifted_pos, shifted_rot))
         ros_pose = self.convert_pinocchio_pose_to_ros(
             pose.copy()
         )  # TODO: copying just to be safe...
