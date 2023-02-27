@@ -434,6 +434,7 @@ class HelloStretch(Robot):
 
     def fk(self, q=None, as_matrix=False):
         """forward kinematics"""
+        pose = None
         if self._ik_type == "pybullet":
             pose = self.get_link_pose(self.ee_link_name, q)
         elif self._ik_type == "pinocchio":
