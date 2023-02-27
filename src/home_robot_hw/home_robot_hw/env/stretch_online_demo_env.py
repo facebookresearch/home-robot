@@ -213,6 +213,19 @@ class StretchOnlineDemoEnv(StretchDemoBaseEnv):
 
         return observation, reward, done, info
 
+    # over-riding abstract function to enable usage
+    def apply_action(self):
+        pass
+
+    def get_observation(self):
+        pass
+
+    def episode_over(self):
+        pass
+    
+    def get_episode_metrics(self):
+        pass
+
 
 if __name__ == "__main__":
     import faulthandler
