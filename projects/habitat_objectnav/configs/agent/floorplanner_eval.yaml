@@ -1,5 +1,3 @@
-BASE_TASK_CONFIG_PATH: configs/task/floorplanner_val.yaml
-
 NO_GPU: 1                 # 1: ignore IDs above and run on CPU, 0: run on GPUs with IDs above
 NUM_ENVIRONMENTS: 35      # number of environments (per agent process)
 DUMP_LOCATION: datadump   # path to dump models and log

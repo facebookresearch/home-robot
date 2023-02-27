@@ -19,7 +19,7 @@ conda activate home-robot
 git clone https://github.com/3dlg-hcvc/habitat-sim --branch floorplanner
 cd habitat-sim
 pip install -r requirements.txt
-python setup.py install --headless
+python setup.py install --headless --with-bullet
 # (if the above commands runs out of memory) 
 # python setup.py build_ext --parallel 8 install --headless
 

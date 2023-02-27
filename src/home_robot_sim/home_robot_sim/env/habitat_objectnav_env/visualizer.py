@@ -28,7 +28,7 @@ class Visualizer:
         self.default_vis_dir = f"{config.DUMP_LOCATION}/images/{config.EXP_NAME}"
         os.makedirs(self.default_vis_dir, exist_ok=True)
 
-        self.episodes_data_path = config.TASK_CONFIG.DATASET.DATA_PATH
+        self.episodes_data_path = config.habitat.dataset.data_path
         assert (
             "floorplanner" in self.episodes_data_path
             or "hm3d" in self.episodes_data_path

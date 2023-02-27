@@ -3,10 +3,15 @@ from typing import Optional, Tuple
 
 import habitat.config.default
 import yaml
-from habitat.config.default import Config
+from omegaconf import DictConfig
+from habitat_baselines.config.default import get_config as get_habitat_config
+import os
 
+def get_config(path: str, opts: Optional[list] = None):
+    config = get_habitat_config(path)
+    return config, ""
 
-def get_config(path: str, opts: Optional[list] = None) -> Tuple[Config, str]:
+def get_config_old(path: str, opts: Optional[list] = None):
     """Get configuration and ensure consistency between configurations
     inherited from the task and defaults and our code's configuration.
 
@@ -14,14 +19,14 @@ def get_config(path: str, opts: Optional[list] = None) -> Tuple[Config, str]:
         path: path to our code's config
         opts: command line arguments overriding the config
     """
-    config = Config()
+    config = DictConfig()
 
     # Start with our code's config
     config.merge_from_file(path)
 
     # Add Habitat's default config and the base task config path specified
     # in our code's config under TASK_CONFIG
-    task_config = Config()
+    task_config = DictConfig()
     task_config.merge_from_other_cfg(habitat.config.default._C)
     task_config.merge_from_file(config.BASE_TASK_CONFIG_PATH)
     config.TASK_CONFIG = task_config

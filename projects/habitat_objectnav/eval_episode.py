@@ -18,19 +18,25 @@ from home_robot.agent.objectnav_agent.objectnav_agent import ObjectNavAgent
 from home_robot_sim.env.habitat_objectnav_env.habitat_objectnav_env import (
     HabitatObjectNavEnv,
 )
+from omegaconf import  OmegaConf, DictConfig
 
 if __name__ == "__main__":
-    config_path = "configs/agent/floorplanner_eval.yaml"
+    config_path = "rearrange/modular_nav.yaml"
     config, config_str = get_config(config_path)
-    config.defrost()
-    config.NUM_ENVIRONMENTS = 1
-    config.PRINT_IMAGES = 1
-    config.TASK_CONFIG.DATASET.SPLIT = "val"
-    config.EXP_NAME = "debug"
-    config.freeze()
+    OmegaConf.set_readonly(config, False)
+
+    config.habitat_baselines.num_environments = 1
+    OmegaConf.set_struct(config.habitat_baselines,  False)
+    config.habitat_baselines.print_images = 1
+    config.habitat.dataset.split = "val"
+    config.habitat_baselines.exp_name = "debug"
+
+    OmegaConf.set_readonly(config, True)
+    baseline_config = OmegaConf.load('projects/habitat_objectnav/configs/agent/floorplanner_eval.yaml')
+    config = DictConfig({**config, **baseline_config})
 
     agent = ObjectNavAgent(config=config)
-    env = HabitatObjectNavEnv(Env(config=config.TASK_CONFIG), config=config)
+    env = HabitatObjectNavEnv(Env(config=config.habitat), config=config)
 
     agent.reset()
     env.reset()
