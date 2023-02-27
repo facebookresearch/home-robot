@@ -2,6 +2,7 @@ import datetime
 import os
 import tempfile
 import time
+from typing import List
 
 import h5py
 import numpy as np
@@ -9,10 +10,10 @@ from home_robot_hw.env.stretch_abstract_env import StretchEnv
 import rospy
 from home_robot.utils.data_tools.image import img_from_bytes
 from home_robot.agent.motion.stretch import HelloStretch, HelloStretchIdx
+from home_robot_hw.ros.path import get_urdf_dir
 
 CAMERA_FAR_PLANE = 1  # m
 CAMERA_SCALE_CONST = 10000
-STRETCH_URDF_DIR = os.environ["STRETCH_URDF_DIR"]  # TODO: pass in
 
 
 class StretchDemoBaseEnv(StretchEnv):
@@ -22,7 +23,7 @@ class StretchDemoBaseEnv(StretchEnv):
     def __init__(self, initialize_ros):
         super().__init__()
         self.urdf_path = os.path.join(
-            STRETCH_URDF_DIR, "planner_calibrated_simplified_fixed_base.urdf"
+            get_urdf_dir(), "planner_calibrated_simplified_fixed_base.urdf"
         )  # TODO: pass in urdf path
 
         if initialize_ros and not self.NODE_INITIALIZED:
@@ -39,7 +40,7 @@ class StretchDemoBaseEnv(StretchEnv):
             rospy.init_node(f"demo_env_{timestamp}".replace(".", "_"))
         cls.NODE_INITIALIZED = True
 
-    def _recursive_listdir(self, directory: str) -> list[str]:
+    def _recursive_listdir(self, directory: str) -> List[str]:
         """returns a list of all files in a directory, recursively"""
         # From: https://stackoverflow.com/questions/19309667/recursive-os-listdir
         return [os.path.join(dp, f) for dp, dn, fn in os.walk(directory) for f in fn]
