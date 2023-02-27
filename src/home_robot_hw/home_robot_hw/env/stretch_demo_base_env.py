@@ -21,13 +21,13 @@ class StretchDemoBaseEnv(StretchEnv):
     NODE_INITIALIZED = False
 
     def __init__(self, initialize_ros):
+        if initialize_ros and not self.NODE_INITIALIZED:
+            print("Initializing ROS node")
+            self.initialize_ros_node()
         super().__init__()
         self.urdf_path = os.path.join(
             get_urdf_dir(), "planner_calibrated_simplified_fixed_base.urdf"
         )  # TODO: pass in urdf path
-
-        if initialize_ros and not self.NODE_INITIALIZED:
-            self.initialize_ros_node()
 
     @classmethod
     def initialize_ros_node(cls):
