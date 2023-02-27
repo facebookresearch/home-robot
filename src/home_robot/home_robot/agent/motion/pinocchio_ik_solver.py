@@ -118,6 +118,8 @@ class PinocchioIKSolver:
         ori_error_tol = 0.2
         pos_desired, quat_desired = pose_query
         ik_solver = self
+        pos_wt = 1.0
+        rot_wt = 0.0
 
         opt = CEM(
             max_iterations=max_iterations,
@@ -130,7 +132,7 @@ class PinocchioIKSolver:
             pos = pos_desired
             quat = (R.from_rotvec(dr) * R.from_quat(quat_desired)).as_quat()
 
-            q, ik_success = ik_solver.compute_ik(pos, quat)
+            q, _ = ik_solver.compute_ik(pos, quat)
             pos_out, rot_out = ik_solver.compute_fk(q)
 
             cost_pos = np.linalg.norm(pos - pos_out)
@@ -138,7 +140,7 @@ class PinocchioIKSolver:
                 1 - (rot_out * quat_desired).sum() ** 2
             )  # TODO: just minimize dr?
 
-            cost = cost_pos  # + cost_rot  # TODO: scaling?
+            cost = pos_wt * cost_pos + rot_wt * cost_rot
 
             return cost, q
 
