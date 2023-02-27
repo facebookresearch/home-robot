@@ -33,13 +33,13 @@ def cutoff_angle(duration, cutoff_freq):
 
 
 class NavStateEstimator:
-    def __init__(self, trust_slam=False):
+    def __init__(self, trust_slam: bool = False, use_history: bool = True):
         """Create nav state estimator.
 
         trust_slam: just use the slam pose instead of odometry.
         """
         self._trust_slam = trust_slam
-        self._use_history = True
+        self._use_history = use_history
 
         # Create a lock to handle thread safety for pose updates
         self._slam_inject_lock = threading.Lock()
