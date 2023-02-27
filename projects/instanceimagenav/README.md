@@ -87,15 +87,15 @@ python projects/instanceimagenav/eval_episode_habitat.py
 
 This will generate step-wise images and a video for a single episode. The results are saved to `projects/instanceimagenav/datadump/[images|videos]/debug`.
 
-If the enviornment installation went properly, the resulting video should look something like [this](https://drive.google.com/file/d/1x7WAqF_Gs3IdMdPc2_T-BmlP6evNzXkH/view?usp=share_link). This episode's metrics were:
+If the enviornment installation went properly, the resulting video should look something like [this](https://drive.google.com/file/d/1g8RJNdQPGKkYRHWaYc56v5TksmeGR_ra/view?usp=share_link). This episode's metrics were:
 
 ```json
 {
     "success": 1.00,
-    "spl": 0.85,
-    "soft_spl": 0.84,
+    "spl": 0.61,
+    "soft_spl": 0.61,
     "distance_to_goal": 0.05,
-    "num_steps": 102,
+    "num_steps": 137,
 }
 ```
 

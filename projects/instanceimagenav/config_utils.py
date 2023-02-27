@@ -25,7 +25,7 @@ def get_config(path: str, opts: Optional[list] = None) -> Tuple[DictConfig, str]
         del config.habitat.task.measurements.distance_to_goal_reward
 
         agent_height, agent_radius = (1.41, 0.17)
-        cam_height, cam_width, cam_hfov = (640, 360, 42)  # (400, 224, 42)
+        cam_height, cam_width, cam_hfov = (640, 480, 42)
         cam_position = [0, 1.31, 0]
 
         config.habitat.simulator.agents.main_agent.height = agent_height
