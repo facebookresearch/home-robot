@@ -33,7 +33,7 @@ class StretchOnlineDemoEnv(StretchDemoBaseEnv):
         # TODO: don't hardcode this path
         robot_name = f"robot_{uuid.uuid4()}"
         self._model = HelloStretch(
-            name=robot_name, visualize=False, root="", urdf_path=self.urdf_path
+            name=robot_name, visualize=False, root=""
         )
         self._robot = HelloStretchROSInterface(
             init_cameras=True, model=self._model, depth_buffer_size=None
@@ -68,10 +68,10 @@ class StretchOnlineDemoEnv(StretchDemoBaseEnv):
         self._step_rate = rospy.Rate(10)  # hz
         self._current_timestep = 0
 
-        (
-            self.observation_space,
-            self.action_space,
-        ) = self.get_stretch_obs_and_action_space(self._camera_info_in_state)
+        # (
+        #     self.observation_space,
+        #     self.action_space,
+        # ) = self.get_stretch_obs_and_action_space(self._camera_info_in_state)
 
         self._key_frame_poses = []
         self._pose_broadcaster = tf2_ros.TransformBroadcaster()
@@ -231,7 +231,7 @@ if __name__ == "__main__":
     import faulthandler
 
     faulthandler.enable()
-    demo_dir = "/home/spowers/Datasets/Stretch/demo_data/kitchen_test/v3/bottle_to_sink/1"  # TODO get from CLI
+    demo_dir = os.path.expanduser("~/H5s/")  # TODO get from CLI
     env = StretchOnlineDemoEnv(
         output_file_dir=demo_dir, camera_info_in_state=True, record_key_frames=True
     )

@@ -25,9 +25,9 @@ class StretchDemoBaseEnv(StretchEnv):
             print("Initializing ROS node")
             self.initialize_ros_node()
         super().__init__()
-        self.urdf_path = os.path.join(
-            get_urdf_dir(), "planner_calibrated_simplified_fixed_base.urdf"
-        )  # TODO: pass in urdf path
+        # self.urdf_path = os.path.join(
+        #     get_urdf_dir(), "planner_calibrated_simplified_fixed_base.urdf"
+        # )  # TODO: pass in urdf path
 
     @classmethod
     def initialize_ros_node(cls):
