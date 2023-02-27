@@ -81,6 +81,10 @@ class Recorder(object):
             rate.sleep()
         self.finish_recording()
 
+    def close(self):
+        """clean-up: delete self"""
+        del self
+
 
 def png_to_mp4(group: h5py.Group, key: str, name: str, fps=10):
     """
