@@ -12,7 +12,7 @@ import rospy
 import sophus as sp
 from geometry_msgs.msg import Pose, PoseStamped, Twist
 from nav_msgs.msg import Odometry
-from std_srvs.srv import SetBool, SetBoolResponse, Trigger, TriggerResponse
+from std_srvs.srv import SetBool, SetBoolResponse, Trigger, TriggerResponse, TriggerRequest
 
 from home_robot.control.goto_controller import GotoVelocityController
 from home_robot.utils.config import get_control_config
@@ -76,26 +76,35 @@ class GotoVelocityControllerNode:
             pose_goal = pose_sp
         """
 
-        pose_goal = pose_sp
+        if self.active:
+            pose_goal = pose_sp
 
-        self.controller.update_goal(sophus2xyt(pose_goal))
-        self.xyt_goal = self.controller.xyt_goal
+            self.controller.update_goal(sophus2xyt(pose_goal))
+            self.xyt_goal = self.controller.xyt_goal
 
-        # Visualize
-        self.goal_visualizer(pose_goal.matrix())
+            # Visualize
+            self.goal_visualizer(pose_goal.matrix())
 
-    def _enable_service(self, request):
+        # Do not update goal if controller is not active (prevents _enable_service to suddenly start moving the robot)
+        else:
+            log.warn("Received a goal while NOT active. Goal is not updated.")
+
+    def _enable_service(self, request: TriggerRequest) -> TriggerResponse:
+        """activates the controller and acks activation request"""
+        self.xyt_goal = None
         self.active = True
         return TriggerResponse(
             success=True,
-            message=f"Goto controller is now RUNNING",
+            message="Goto controller is now RUNNING",
         )
 
-    def _disable_service(self, request):
+    def _disable_service(self, request: TriggerRequest) -> TriggerResponse:
+        """disables the controller and acks deactivation request"""
         self.active = False
+        self.xyt_goal = None
         return TriggerResponse(
             success=True,
-            message=f"Goto controller is now STOPPED",
+            message="Goto controller is now STOPPED",
         )
 
     def _set_yaw_tracking_service(self, request: SetBool):
