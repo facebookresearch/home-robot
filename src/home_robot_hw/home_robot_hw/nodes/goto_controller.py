@@ -141,7 +141,8 @@ class GotoVelocityControllerNode:
         while not rospy.is_shutdown():
             if self.active and self.xyt_goal is not None:
                 # Compute control
-                v_cmd, w_cmd, done = self.controller.compute_control()
+                v_cmd, w_cmd = self.controller.compute_control()
+                done = self.controller.is_done()
 
                 # Check if actually done (velocity = 0)
                 if done and self.vel_odom is not None:
