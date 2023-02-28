@@ -134,7 +134,7 @@ class IINAgentModule(nn.Module):
         """
         # Reset the last channel of the local map each step when found_goal=False
         # init_local_map: [8, 21, 480, 480]
-        init_local_map[:, -1][seq_found_goal[:, 0] is False] *= 0.0
+        init_local_map[:, -1][seq_found_goal[:, 0] == 0] *= 0.0
 
         # Update map with observations and generate map features
         batch_size, sequence_length = seq_obs.shape[:2]
@@ -162,7 +162,7 @@ class IINAgentModule(nn.Module):
         # Predict high-level goals from map features.
         # the last channel of map_features is cut off -- used for goal det/loc.
         explore_map = self.exploration_policy(seq_map_features.flatten(0, 1)[:, :-1])
-        seq_goal_map[seq_found_goal[:, 0] is False] = explore_map[seq_found_goal[:, 0] is False]
+        seq_goal_map[seq_found_goal[:, 0] == 0] = explore_map[seq_found_goal[:, 0] == 0]
 
         # predict if the goal is found and where it is.
         seq_goal_map, seq_found_goal = self.superglue(

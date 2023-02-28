@@ -90,7 +90,7 @@ class FMMPlanner:
             selem = skimage.morphology.disk(goal_dilation)
             dilated_goal_map = skimage.morphology.binary_dilation(
                 dilated_goal_map, selem
-            ) is not True
+            ) != 1
             dilated_goal_map = 1 - dilated_goal_map * 1.0
 
         traversible_ma = ma.masked_values(self.traversible * 1, 0)
