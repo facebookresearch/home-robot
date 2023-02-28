@@ -13,7 +13,7 @@ import rospy
 import trimesh
 import trimesh.transformations as tra
 
-from home_robot.agent.motion.stretch import HelloStretch, STRETCH_NAVIGATION_Q
+from home_robot.motion.stretch import HelloStretch, STRETCH_NAVIGATION_Q
 from home_robot.utils.point_cloud import (
     numpy_to_pcd,
     pcd_to_numpy,

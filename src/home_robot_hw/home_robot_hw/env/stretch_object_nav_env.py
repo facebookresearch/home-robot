@@ -33,11 +33,11 @@ class StretchObjectNavEnv(StretchEnv):
         self.rotate_step = np.radians(rotate_step)
 
         # TODO Specify confidence threshold as a parameter
-        self.segmentation = DeticPerception(
-            vocabulary="custom",
-            custom_vocabulary=",".join(self.goal_options),
-            sem_gpu_id=0,
-        )
+        #self.segmentation = DeticPerception(
+        #    vocabulary="custom",
+        #    custom_vocabulary=",".join(self.goal_options),
+        #    sem_gpu_id=0,
+        #)
         if config is not None:
             self.visualizer = Visualizer(config)
         else:
@@ -51,6 +51,8 @@ class StretchObjectNavEnv(StretchEnv):
             self.visualizer.reset()
 
     def apply_action(self, action: Action, info: Optional[Dict[str, Any]] = None):
+        """Discrete action space. make predictions for where the robot should go, move by a fixed
+        amount forward or rotationally."""
         if self.visualizer is not None:
             self.visualizer.visualize(**info)
         continuous_action = np.zeros(3)
@@ -73,11 +75,8 @@ class StretchObjectNavEnv(StretchEnv):
         if continuous_action is not None:
             if not self.in_navigation_mode():
                 self.switch_to_navigation_mode()
-            self.navigate_to(continuous_action, relative=True)
-        print("-------")
-        print(action)
-        print(continuous_action)
-        rospy.sleep(5.0)
+            self.navigate_to(continuous_action, relative=True, blocking=True)
+        rospy.sleep(0.5)
 
     def set_goal(self, goal):
         """set a goal as a string"""
@@ -120,8 +119,9 @@ class StretchObjectNavEnv(StretchEnv):
             # joint_positions=pos,
         )
         # Run the segmentation model here
-        obs = self.segmentation.predict(obs, depth_threshold=0.5)
-        obs.semantic[obs.semantic == 0] = len(self.goal_options) - 1
+        # obs = self.segmentation.predict(obs, depth_threshold=0.5)
+        # obs.semantic[obs.semantic == 0] = len(self.goal_options) - 1
+        obs.semantic = np.zeros_like(obs.depth).astype(np.int64)
         return obs
 
     @property
