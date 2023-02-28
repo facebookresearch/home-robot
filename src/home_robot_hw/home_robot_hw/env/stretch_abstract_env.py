@@ -17,7 +17,7 @@ from control_msgs.msg import FollowJointTrajectoryAction, FollowJointTrajectoryG
 from geometry_msgs.msg import Pose, PoseStamped, Twist
 from nav_msgs.msg import Odometry
 from sensor_msgs.msg import JointState
-from std_msgs.msg import String
+from std_msgs.msg import String, Bool
 from std_srvs.srv import SetBool, SetBoolRequest, Trigger, TriggerRequest
 from trajectory_msgs.msg import JointTrajectoryPoint
 
@@ -146,10 +146,20 @@ class StretchEnv(home_robot.core.abstract_env.Env):
         self._last_base_update_timestamp = rospy.Time(0)
         self._t_base_filtered = None
         self._t_base_odom = None
+        self._at_goal = False
+        self._goal_reset_t = rospy.Time(0)
 
     def in_position_mode(self):
         """is the robot in position mode"""
         return self._current_mode == "position"
+
+    def at_goal(self) -> bool:
+        """Returns true if the agent is currently at its goal location"""
+        return self._at_goal
+
+    def _at_goal_callback(self, msg):
+        """Is the velocity controller done moving; is it at its goal?"""
+        self._at_goal = msg.data
 
     def _mode_callback(self, msg):
         """get position or navigation mode from stretch ros"""
@@ -252,6 +262,11 @@ class StretchEnv(home_robot.core.abstract_env.Env):
         self.goal_visualizer = Visualizer("command_pose", rgba=[1., 0., 0., 0.5])
         self.curr_visualizer = Visualizer("current_pose", rgba=[0., 0., 1., 0.5])
 
+        self._at_goal_sub = rospy.Subscriber(
+            "stretch/at_goal",
+            Bool,
+            self._at_goal_callback,
+            queue_size=10)
         self._mode_sub = rospy.Subscriber(
             "mode", String, self._mode_callback, queue_size=1
         )
@@ -539,6 +554,10 @@ class StretchEnv(home_robot.core.abstract_env.Env):
             print("goal =", xyt_goal)
         else:
             xyt_goal = xyt
+
+        # Clear self.at_goal
+        self._at_goal = False
+        self._goal_reset_t = rospy.Time.now()
 
         # Set goal
         goal_matrix = xyt2sophus(xyt_goal).matrix()
