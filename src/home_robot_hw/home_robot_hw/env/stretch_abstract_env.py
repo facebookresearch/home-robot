@@ -23,7 +23,7 @@ from trajectory_msgs.msg import JointTrajectoryPoint
 
 import home_robot
 import home_robot.core.abstract_env
-from home_robot.agent.motion.stretch import HelloStretchIdx
+from home_robot.motion.stretch import HelloStretchIdx
 from home_robot.core.interfaces import Action, Observations
 from home_robot.core.state import ManipulatorBaseParams
 from home_robot.utils.geometry import (
