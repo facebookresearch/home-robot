@@ -3,6 +3,7 @@ from typing import Callable, List, Tuple
 
 import numpy as np
 import pinocchio
+import rospkg
 from scipy.spatial.transform import Rotation as R
 
 # --DEFAULTS--
@@ -16,9 +17,11 @@ CEM_NUM_SAMPLES = 50
 CEM_NUM_TOP = 10
 
 # URDF
-HAB_STRETCH_PATH = "../hab_stretch"
-URDF_REL_PATH = "urdf/planner_calibrated_simplified.urdf"
-URDF_PATH = os.path.join(HAB_STRETCH_PATH, URDF_REL_PATH)
+r = rospkg.RosPack()
+pkg_path = r.get_path("home_robot_hw")
+REL_URDF_DIR = os.path.join(pkg_path, "assets/hab_stretch/urdf")
+URDF_NAME = "planner_calibrated_simplified.urdf"
+URDF_PATH = os.path.join(REL_URDF_DIR, URDF_NAME)
 
 EE_NAME = "link_straight_gripper"
 PIN_CONTROLLED_JOINTS = [

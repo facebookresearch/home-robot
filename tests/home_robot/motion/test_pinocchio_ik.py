@@ -1,10 +1,15 @@
 import numpy as np
 from scipy.spatial.transform import Rotation as R
 
-from home_robot_hw.agent.motion.pinocchio_ik_solver import (
-    CEM, CEM_MAX_ITERATIONS, CEM_NUM_SAMPLES, CEM_NUM_TOP, EE_NAME,
-    ORI_ERROR_TOL, PIN_CONTROLLED_JOINTS, POS_ERROR_TOL, URDF_PATH,
-    PinocchioIKSolver)
+from home_robot.agent.motion.pinocchio_ik_solver import (CEM,
+                                                         CEM_MAX_ITERATIONS,
+                                                         CEM_NUM_SAMPLES,
+                                                         CEM_NUM_TOP, EE_NAME,
+                                                         ORI_ERROR_TOL,
+                                                         PIN_CONTROLLED_JOINTS,
+                                                         POS_ERROR_TOL,
+                                                         URDF_PATH,
+                                                         PinocchioIKSolver)
 
 if __name__ == "__main__":
     pos_desired = np.array([-0.10281811, -0.7189281, 0.71703106])
@@ -54,3 +59,6 @@ if __name__ == "__main__":
         f"Resulting EE pose via FK: pos={pos_out2.tolist()}, quat={quat_out2.tolist()}"
     )
     print(f"Pos error: {pos_err2}")
+
+    # TODO assert for error with CEM being less than erro without CEM
+    # TODO assert at the end of optimization either i >= max_iterations or err <= cost_tol
