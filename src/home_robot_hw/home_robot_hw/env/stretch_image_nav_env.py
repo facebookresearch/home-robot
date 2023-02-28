@@ -30,7 +30,7 @@ class StretchImageNavEnv(StretchEnv):
     def _load_image_goal(self, goal_img_path) -> np.ndarray:
         goal_image = cv2.imread(goal_img_path)
         # opencv loads as BGR, but we use RGB.
-        goal_image = cv2.cvtColor(cv2.COLOR_BGR2RGB)
+        goal_image = goal_image[:, :, ::-1]
         assert goal_image.shape[0] == 512
         assert goal_image.shape[1] == 512
         return goal_image
