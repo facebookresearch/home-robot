@@ -49,7 +49,6 @@ class NavStateEstimator:
         self._slam_pose_sp = sp.SE3()
         self._slam_pose_prev = sp.SE3()
         self._t_odom_prev: Optional[rospy.Time] = None
-        self._pose_odom_sp = sp.SE3()
         self._pose_odom_prev = sp.SE3()
 
     def _publish_filtered_state(self, timestamp):
