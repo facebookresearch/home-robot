@@ -1,4 +1,5 @@
 import numpy as np
+import pytest
 from scipy.spatial.transform import Rotation as R
 
 from home_robot.agent.motion.pinocchio_ik_solver import (CEM,
@@ -11,7 +12,8 @@ from home_robot.agent.motion.pinocchio_ik_solver import (CEM,
                                                          URDF_PATH,
                                                          PinocchioIKSolver)
 
-if __name__ == "__main__":
+
+def test_pinocchio_ik():
     pos_desired = np.array([-0.10281811, -0.7189281, 0.71703106])
     # pos_desired = np.array([-0.11556295, -0.51387864,  0.8205258 ])
     quat_desired = np.array([-0.7079143, 0.12421559, 0.1409881, -0.68084526])
@@ -42,7 +44,7 @@ if __name__ == "__main__":
 
         return cost, q
 
-    _, q_result = opt.optimize(
+    best_cost, q_result, last_iter, opt_sigma = opt.optimize(
         solve_ik, x0=np.zeros(3), sigma0=np.array(ORI_ERROR_TOL) / 2
     )
     pos_out2, quat_out2 = ik_solver.compute_fk(q_result)
@@ -59,6 +61,16 @@ if __name__ == "__main__":
         f"Resulting EE pose via FK: pos={pos_out2.tolist()}, quat={quat_out2.tolist()}"
     )
     print(f"Pos error: {pos_err2}")
+    assert pos_err2 < pos_err1
+    assert (
+        best_cost <= POS_ERROR_TOL
+        or np.all(opt_sigma) <= POS_ERROR_TOL
+        or last_iter >= CEM_MAX_ITERATIONS
+    )
 
     # TODO assert for error with CEM being less than erro without CEM
     # TODO assert at the end of optimization either i >= max_iterations or err <= cost_tol
+
+
+if __name__ == "__main__":
+    test_pinocchio_ik()
