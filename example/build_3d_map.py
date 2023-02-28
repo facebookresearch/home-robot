@@ -123,6 +123,14 @@ def main(rate, max_frames, visualize):
         (0.2, 0.3, 5 * np.pi / 8),
         (0.0, 0.3, -np.pi / 2),
         (0, 0, 0),
+        (0.2, 0, 0),
+        (0.5, 0, 0),
+        (0.7, 0.2, np.pi / 4),
+        (0.7, 0.4, np.pi / 2),
+        (0.5, 0.4, np.pi),
+        (0.2, 0.2, 5 * np.pi / 8),
+        (0, 0, - np.pi / 2),
+        (0, 0, 0),
     ]
 
     collector.step()  # Append latest observations
@@ -140,7 +148,7 @@ def main(rate, max_frames, visualize):
         collector.step()  # Append latest observations
 
         frames += 1
-        if max_frames > 0 and frames >= max_frames or step > len(trajectory):
+        if max_frames > 0 and frames >= max_frames or step >= len(trajectory):
             break
 
         rate.sleep()
