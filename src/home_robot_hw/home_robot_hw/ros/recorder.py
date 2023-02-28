@@ -8,38 +8,45 @@ import cv2
 import h5py
 import numpy as np
 import rospy
-from tqdm import tqdm
-
 from home_robot.utils.data_tools.image import img_from_bytes
 from home_robot.utils.data_tools.writer import DataWriter
+from tqdm import tqdm
+
 from home_robot_hw.ros.stretch_ros import HelloStretchROSInterface
 
 
 class Recorder(object):
     """ROS object that subscribes from information from the robot and publishes it out."""
 
-    def __init__(self, filename, start_recording=True, model=None, robot=None):
+    def __init__(self, filename, start_recording=False, model=None, robot=None):
         """Collect information"""
-        print("robot")
+        print("Connecting to robot environment...")
         self.robot = (
             HelloStretchROSInterface(visualize_planner=False, model=model)
             if robot is None
             else robot
         )
-        print("done")
-        print("done")
+        print("... done connecting to robot environment")
         self.rgb_cam = self.robot.rgb_cam
         self.dpt_cam = self.robot.dpt_cam
         self.writer = DataWriter(filename)
         self.idx = 0
-        self._recording_started = False
+        self._recording_started = start_recording
+        self._filename = filename
 
-    def start_recording(self):
-        print("Starting to record...")
+    def start_recording(self, task_name):
         self._recording_started = True
+        # add camera-info as config
+        color_camera_info = self._construct_camera_info(self.robot.rgb_cam)
+        depth_camera_info = self._construct_camera_info(self.robot.dpt_cam)
+        self.writer.add_config(
+            color_camera_info=color_camera_info, depth_camera_info=depth_camera_info, task_name=task_name,
+        )
+
+        print(f"Ready to record demonstration to file: {self._filename}")
 
     def finish_recording(self):
-        print("... done recording.")
+        print(f"... done recording trial named: {self.idx}.")
         self.writer.write_trial(self.idx)
         self.idx += 1
 
@@ -53,20 +60,31 @@ class Recorder(object):
         }
 
     def save_frame(self):
+        """saves the following to an H5 file:
+        1. rgb image
+        2. depth image
+        3. base pose
+        4. joint positions
+        5. joint velocities
+        6. camera pose
+        7. camera info
+        8. end-effector pose
+        """
         # record rgb and depth
         rgb, depth = self.robot.get_images(compute_xyz=False)
         q, dq = self.robot.update()
-        color_camera_info = self._construct_camera_info(self.robot.rgb_cam)
-        depth_camera_info = self._construct_camera_info(self.robot.dpt_cam)
+        # TODO get the following from TF lookup
+        ee_pose = self.robot.model.fk(q)
+        base_pose = self.robot.get_base_pose()
         camera_pose = self.robot.get_camera_pose()
         self.writer.add_img_frame(rgb=rgb, depth=(depth * 10000).astype(np.uint16))
         self.writer.add_frame(
             q=q,
             dq=dq,
-            color_camera_info=color_camera_info,
-            depth_camera_info=depth_camera_info,
+            ee_pose=ee_pose,
+            base_pose=base_pose,
             camera_pose=camera_pose,
-        )  # TODO: camera info every frame...? Probably not necessary
+        )
 
         return rgb, depth, q, dq
 
@@ -100,7 +118,6 @@ def png_to_mp4(group: h5py.Group, key: str, name: str, fps=10):
         sorted([(int(j), j) for j in img_stream.keys()], key=lambda pair: pair[0]),
         ncols=50,
     ):
-
         bindata = img_stream[k][()]
         _img = img_from_bytes(bindata)
         w, h = _img.shape[:2]
