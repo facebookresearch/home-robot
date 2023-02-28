@@ -10,7 +10,7 @@ import trimesh.transformations as tra
 
 import home_robot.utils.bullet as hrb
 
-from home_robot.agent.motion.robot import Robot
+from home_robot.motion.robot import Robot
 from home_robot.utils.bullet import PybulletIKSolver
 from home_robot.utils.pose import to_matrix
 

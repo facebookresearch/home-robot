@@ -2,8 +2,8 @@
 #
 # This source code is licensed under the MIT license found in the
 # LICENSE file in the root directory of this source tree.
-from home_robot.agent.motion.base import Planner
-from home_robot.agent.motion.space import Space
+from home_robot.motion.base import Planner
+from home_robot.motion.space import Space
 
 
 def RRT(object):
