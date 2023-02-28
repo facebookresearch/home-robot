@@ -23,7 +23,9 @@ from home_robot.utils.pose import to_pos_quat
 from home_robot_hw.env.stretch_grasping_env import StretchGraspingEnv
 
 
-def combine_point_clouds(pc_xyz: np.ndarray, pc_rgb: np.ndarray, xyz: np.ndarray, rgb: np.ndarray) -> np.ndarray:
+def combine_point_clouds(
+    pc_xyz: np.ndarray, pc_rgb: np.ndarray, xyz: np.ndarray, rgb: np.ndarray
+) -> np.ndarray:
     """Tool to combine point clouds without duplicates. Concatenate, voxelize, and then return
     the finished results."""
     if pc_rgb is None:
@@ -65,7 +67,7 @@ class RosMapDataCollector(object):
         rgb = rgb.reshape(-1, 3)
         cam_xyz = xyz.reshape(-1, 3)
         xyz = trimesh.transform_points(cam_xyz, camera_pose)
-        valid_depth = np.bitwise_and(depth > 0.1, depth < 4.)
+        valid_depth = np.bitwise_and(depth > 0.1, depth < 4.0)
         rgb = rgb[valid_depth, :]
         xyz = xyz[valid_depth, :]
         # TODO: remove debug code
@@ -90,7 +92,7 @@ class RosMapDataCollector(object):
 
 @click.command()
 @click.option("--rate", default=5, type=int)
-@click.option("--max-frames", default=5, type=int)
+@click.option("--max-frames", default=10, type=int)
 @click.option("--visualize", default=False, is_flag=True)
 def main(rate, max_frames, visualize):
     rospy.init_node("build_3d_map")
@@ -111,6 +113,18 @@ def main(rate, max_frames, visualize):
     # Number of frames collected
     frames = 0
 
+    trajectory = [
+        (0, 0, 0),
+        (0.2, 0, 0),
+        (0.3, 0.15, np.pi / 4),
+        (0.5, 0.3, np.pi / 4),
+        (0.5, 0.5, np.pi / 2),
+        (0.4, 0.5, np.pi),
+        (0.2, 0.3, 5 * np.pi / 8),
+        (0.0, 0.3, -np.pi / 2),
+        (0, 0, 0),
+    ]
+
     collector.step()  # Append latest observations
     # print("Press ctrl+c to finish...")
     t0 = rospy.Time.now()
@@ -119,23 +133,14 @@ def main(rate, max_frames, visualize):
 
         ti = (rospy.Time.now() - t0).to_sec()
         print("t =", ti)
-        if step == 0:
-            env.navigate_to((0.25, 0, 0), blocking=True)
-        elif step == 1:
-            env.navigate_to((0.3, 0.2, np.pi / 4), blocking=True)
-        elif step == 2:
-            env.navigate_to((0.5, 0.5, np.pi / 2), blocking=True)
-        elif step == 3:
-            env.navigate_to((0.0, 0.3, -np.pi / 2), blocking=True)
-        elif step == 4:
-            env.navigate_to((0, 0, 0), blocking=True)
-            step = 2
+        env.navigate_to(trajectory[step], blocking=True)
+        rospy.sleep(1.0)
+        step += 1
 
         collector.step()  # Append latest observations
 
         frames += 1
-        step = frames % 5
-        if max_frames > 0 and frames >= max_frames:
+        if max_frames > 0 and frames >= max_frames or step > len(trajectory):
             break
 
         rate.sleep()
