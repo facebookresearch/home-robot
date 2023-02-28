@@ -33,13 +33,13 @@ class EpisodeManager(object):
             back_button_callback=self.record_keyframe,
         )
         self._is_recording = False
+        date_time_string = datetime.now().strftime("%m-%d_%H-%M-%S")
+        filename = os.path.join(self.file_path, date_time_string)
+        self._keyframe_recorder = Recorder(filename)
 
     def toggle_episode(self):
         if not self._is_recording:
             self._is_recording = True
-            date_time_string = datetime.now().strftime("%m-%d_%H-%M-%S")
-            filename = os.path.join(self.file_path, date_time_string)
-            self._keyframe_recorder = Recorder(filename)
             self._keyframe_recorder.start_recording(self.task_name)
         else:
             self._is_recording = False
