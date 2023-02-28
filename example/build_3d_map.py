@@ -106,7 +106,7 @@ def main(rate, max_frames, visualize):
     # TODO: replace env with client
     if not env.in_navigation_mode():
         env.switch_to_navigation_mode()
-    # Sequence information if we are executing the ttrajectory
+    # Sequence information if we are executing the trajectory
     step = 0
     # Number of frames collected
     frames = 0
