@@ -38,6 +38,10 @@ class EpisodeManager(object):
         self._keyframe_recorder = Recorder(filename)
 
     def toggle_episode(self):
+        """toggles episode recording state
+        Note: This script automatically collects a keyframe at the end when
+        episode is terminated. It doesn't require the last frame to be explicitly marked as a keyframe
+        """
         if not self._is_recording:
             self._is_recording = True
             self._keyframe_recorder.start_recording(self.task_name)
