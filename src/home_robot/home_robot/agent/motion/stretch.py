@@ -193,19 +193,21 @@ class HelloStretch(Robot):
                 self.ee_link_name,
                 self.manip_mode_controlled_joints,
             )
+        else:
+            raise ValueError(f"Unknown ik_type {ik_type}")
 
     def __init__(
         self,
         name: str = "robot",
-        urdf_path=None,
-        visualize=False,
-        root=".",
+        urdf_path: str = "",
+        visualize: bool = False,
+        root: str = ".",
         ik_type: str = "pybullet",
     ):
         """Create the robot in bullet for things like kinematics; extract information"""
 
         # urdf
-        if urdf_path is None:
+        if not urdf_path:
             full_body_urdf = PLANNER_STRETCH_URDF
             manip_urdf = MANIP_STRETCH_URDF
         else:
@@ -462,7 +464,7 @@ class HelloStretch(Robot):
             return to_matrix(*pose)
         return pose
 
-    def update_head(self, qi, look_at) -> np.ndarray:
+    def update_head(self, qi: np.ndarray, look_at) -> np.ndarray:
         """move head based on look_at and return the joint-state"""
         qi[HelloStretchIdx.HEAD_PAN] = look_at[0]
         qi[HelloStretchIdx.HEAD_TILT] = look_at[1]
