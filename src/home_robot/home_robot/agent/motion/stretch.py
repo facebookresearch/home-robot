@@ -3,6 +3,7 @@
 # This source code is licensed under the MIT license found in the
 # LICENSE file in the root directory of this source tree.
 import os
+from typing import Tuple
 
 import numpy as np
 import pybullet as pb
@@ -450,7 +451,7 @@ class HelloStretch(Robot):
             self.set_config(q)
         return self.ref.get_link_pose(link_name)
 
-    def fk(self, q=None, as_matrix=False):
+    def fk(self, q=None, as_matrix=False) -> Tuple[np.ndarray, np.ndarray]:
         """forward kinematics"""
         pose = None
         if self._ik_type == "pybullet":
