@@ -90,7 +90,7 @@ class FMMPlanner:
             selem = skimage.morphology.disk(goal_dilation)
             dilated_goal_map = skimage.morphology.binary_dilation(
                 dilated_goal_map, selem
-            ) != True
+            ) is not True
             dilated_goal_map = 1 - dilated_goal_map * 1.0
 
         traversible_ma = ma.masked_values(self.traversible * 1, 0)
@@ -292,6 +292,10 @@ class DiscretePlanner:
             closest_goal_map: (M, M) binary array denoting closest goal
              location in the goal map in geodesic distance
         """
+        print("obstacle_map", obstacle_map.shape, obstacle_map.sum())
+        print("goal_map", goal_map.shape, goal_map.sum())
+        raise NotImplementedError
+
         self.last_pose = self.curr_pose
         obstacle_map = np.rint(obstacle_map)
 
@@ -386,8 +390,8 @@ class DiscretePlanner:
         while replan:
             # dilate the obstacle map
             obs_dilation_selem = skimage.morphology.disk(
-                    self.curr_obs_dilation_selem_radius
-                )
+                self.curr_obs_dilation_selem_radius
+            )
             dilated_obstacles = cv2.dilate(
                 obstacle_map, obs_dilation_selem, iterations=1
             )
