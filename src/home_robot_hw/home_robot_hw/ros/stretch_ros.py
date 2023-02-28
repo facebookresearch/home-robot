@@ -7,6 +7,7 @@ import sys
 import threading
 import time
 import timeit
+from typing import List, Tuple
 
 import actionlib
 import numpy as np
@@ -123,7 +124,7 @@ class HelloStretchROSInterface(AbstractStretchInterface):
             return None
         return pose_mat
 
-    def get_base_pose(self, lookup_time=None, timeout_s=None):
+    def get_base_pose(self, lookup_time=None, timeout_s=None) -> Tuple[Tuple, rospy.rostime.Time]:
         """lookup the base pose using TF2 buffer
 
         Based on this:
