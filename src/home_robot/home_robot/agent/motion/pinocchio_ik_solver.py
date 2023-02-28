@@ -218,4 +218,4 @@ class CEM:
             mu = np.mean(x_arr[idx_sorted_arr[: self.num_top], :], axis=0)
             sigma = np.std(x_arr[idx_sorted_arr[: self.num_top], :], axis=0)
 
-        return cost_arr[i_best], aux_outputs[i_best]
+        return cost_arr[i_best], aux_outputs[i_best], i, sigma
