@@ -123,6 +123,6 @@ class GotoVelocityController:
         xyt_err = self._compute_error_pose()
 
         # Compute control
-        v_cmd, w_cmd = self.control(xyt_err)
+        v_cmd, w_cmd, done = self.control(xyt_err)
 
-        return v_cmd, w_cmd
+        return v_cmd, w_cmd, done

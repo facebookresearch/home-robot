@@ -11,7 +11,8 @@ import numpy as np
 import rospy
 import sophus as sp
 from geometry_msgs.msg import Pose, PoseStamped, Twist
-from nav_msgs.msg import Odometry, Bool
+from nav_msgs.msg import Odometry
+from std_msgs.msg import Bool
 from std_srvs.srv import SetBool, SetBoolResponse, Trigger, TriggerResponse, TriggerRequest
 
 from home_robot.control.goto_controller import GotoVelocityController
@@ -136,7 +137,7 @@ class GotoVelocityControllerNode:
 
                 # Command robot
                 self._set_velocity(v_cmd, w_cmd)
-                self._at_goal_pub.publish(done)
+                self.at_goal_pub.publish(done)
 
             # Spin
             rate.sleep()
