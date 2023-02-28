@@ -292,10 +292,6 @@ class DiscretePlanner:
             closest_goal_map: (M, M) binary array denoting closest goal
              location in the goal map in geodesic distance
         """
-        print("obstacle_map", obstacle_map.shape, obstacle_map.sum())
-        print("goal_map", goal_map.shape, goal_map.sum())
-        raise NotImplementedError
-
         self.last_pose = self.curr_pose
         obstacle_map = np.rint(obstacle_map)
 
