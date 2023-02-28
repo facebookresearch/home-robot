@@ -17,7 +17,21 @@ class EpisodeManager(object):
     and time.
     """
 
-    def __init__(self, task_name, dir_path):
+    def __init__(self, task_name: str, dir_path: str = os.path.expanduser("~/H5s/")):
+        """
+        task_name: name of the task to record, string
+        dir_path: path to the directory where the task directory will be created
+
+        The resulting directory structure is as follows:
+            dir_path
+            |--task_name_0
+            |  |--date_time_string_0.h5
+            |  |--date_time_string_1.h5
+            |--task_name_1
+            |  |--date_time_string_0.h5
+            ...
+        A new date_time_string file is created whenever this script is run for a task
+        """
         stretch_planner_urdf_path = get_urdf_dir()
         self.model = HelloStretch(
             visualize=False,
