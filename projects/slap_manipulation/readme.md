@@ -9,4 +9,5 @@
 - [ ] Finish data-pipeline
 - [ ] Load pre-trained weights and run initial tests
 - [ ] Collect new data from stretch
+- [ ] Port over dataloaders to visualize and train using collected H5s
 
