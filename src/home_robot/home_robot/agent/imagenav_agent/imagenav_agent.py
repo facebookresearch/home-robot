@@ -301,6 +301,7 @@ class ImageNavAgent(Agent):
             ]
         )
 
+        print("goal_map0", self.goal_map.sum())
         (
             self.goal_map,
             self.found_goal,
@@ -326,6 +327,7 @@ class ImageNavAgent(Agent):
             matches,
             confidence,
         )
+        print("goal_map1", self.goal_map.sum())
 
         self.semantic_map.local_pose = seq_local_pose[:, -1]
         self.semantic_map.global_pose = seq_global_pose[:, -1]
