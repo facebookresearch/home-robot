@@ -121,6 +121,7 @@ class StretchEnv(home_robot.core.abstract_env.Env):
         self.rgb_cam, self.dpt_cam = None, None
         if init_cameras:
             self._create_cameras(color_topic, depth_topic)
+
         self._create_services()
         self._reset_messages()
         print("... done.")
@@ -163,10 +164,28 @@ class StretchEnv(home_robot.core.abstract_env.Env):
         """base state updates from SLAM system"""
         self._last_base_update_timestamp = msg.header.stamp
         self._t_base_filtered = sp.SE3(matrix_from_pose_msg(msg.pose))
+        self.curr_visualizer(self._t_base_filtered.matrix())
+
+    def _camera_pose_callback(self, msg: PoseStamped):
+        self._last_camera_update_timestamp = msg.header.stamp
+        self._t_camera_pose = sp.SE3(matrix_from_pose_msg(msg.pose))
 
     def get_base_pose(self):
         """get the latest base pose from sensors"""
         return sophus2xyt(self._t_base_filtered)
+
+    def get_base_pose_matrix(self):
+        """get matrix version of the base pose """
+        return self._t_base_filtered.matrix()
+
+    def get_camera_pose_matrix(self, rotated=False):
+        """get matrix version of the camera pose"""
+        mat = self._t_camera_pose.matrix()
+        if rotated:
+            # If we are using the rotated versions of the images
+            return mat @ tra.euler_matrix(0, 0, -np.pi / 2)
+        else:
+            return mat
 
     def _js_callback(self, msg):
         """Read in current joint information from ROS topics and update state"""
@@ -228,6 +247,11 @@ class StretchEnv(home_robot.core.abstract_env.Env):
         """create ROS publishers and subscribers - only call once"""
         # Store latest joint state message - lock for access
         self._js_lock = threading.Lock()
+
+        # Create visualizers for pose information
+        self.goal_visualizer = Visualizer("command_pose", rgba=[1., 0., 0., 0.5])
+        self.curr_visualizer = Visualizer("current_pose", rgba=[0., 0., 1., 0.5])
+
         self._mode_sub = rospy.Subscriber(
             "mode", String, self._mode_callback, queue_size=1
         )
@@ -258,6 +282,7 @@ class StretchEnv(home_robot.core.abstract_env.Env):
             self._base_state_callback,
             queue_size=1,
         )
+        self._camera_pose_sub = rospy.Subscriber("camera_pose", PoseStamped, self._camera_pose_callback, queue_size=1)
 
         print("Waiting for trajectory server...")
         server_reached = self.trajectory_client.wait_for_server(
@@ -442,11 +467,12 @@ class StretchEnv(home_robot.core.abstract_env.Env):
             H, W = rgb.shape[:2]
             xyz = xyz.reshape(-1, 3)
 
-            # Rotate the sretch camera so that top of image is "up"
-            R_stretch_camera = tra.euler_matrix(0, 0, -np.pi / 2)[:3, :3]
-            xyz = xyz @ R_stretch_camera
-            xyz = xyz.reshape(H, W, 3)
-            imgs[-1] = xyz
+            if rotate_images:
+                # Rotate the stretch camera so that top of image is "up"
+                R_stretch_camera = tra.euler_matrix(0, 0, -np.pi / 2)[:3, :3]
+                xyz = xyz @ R_stretch_camera
+                xyz = xyz.reshape(H, W, 3)
+                imgs[-1] = xyz
 
         return imgs
 
@@ -507,13 +533,16 @@ class StretchEnv(home_robot.core.abstract_env.Env):
         if relative:
             xyt_base = sophus2xyt(self._t_base_odom)
             xyt_goal = xyt_base_to_global(xyt, xyt_base)
+            print("Sending relative goal:")
             print("base =", xyt_base)
             print("goal =", xyt_goal)
         else:
             xyt_goal = xyt
 
         # Set goal
-        msg = matrix_to_pose_msg(xyt2sophus(xyt_goal).matrix())
+        goal_matrix = xyt2sophus(xyt_goal).matrix()
+        self.goal_visualizer(goal_matrix)
+        msg = matrix_to_pose_msg(goal_matrix)
         self._goal_pub.publish(msg)
 
     @abstractmethod

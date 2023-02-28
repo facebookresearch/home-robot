@@ -16,6 +16,7 @@ from .objectnav_agent_module import ObjectNavAgentModule
 
 
 class ObjectNavAgent(Agent):
+    """Simple object nav agent based on a 2D semantic map"""
     def __init__(self, config, device_id: int = 0):
         self.max_steps = config.AGENT.max_steps
         self.num_environments = config.NUM_ENVIRONMENTS
