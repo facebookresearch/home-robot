@@ -36,7 +36,8 @@ class NavStateEstimator:
     def __init__(self, trust_slam: bool = False, use_history: bool = True):
         """Create nav state estimator.
 
-        trust_slam: just use the slam pose instead of odometry.
+        trust_slam: Just use the slam pose instead of odometry.
+        use_history: Use previous filtered signals to compute current signal.
         """
         self._trust_slam = trust_slam
         self._use_history = use_history
