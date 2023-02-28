@@ -34,7 +34,7 @@ PIN_CONTROLLED_JOINTS = [
 
 
 class PinocchioIKSolver:
-    """IK solver using pinocchio which can handle constraint-based optimization for IK solutions"""
+    """IK solver using pinocchio which can handle end-effector constraints for optimized IK solutions"""
 
     EPS = 1e-4
     DT = 1e-1
@@ -60,7 +60,7 @@ class PinocchioIKSolver:
         """returns dof for the manipulation chain"""
         return len(self.controlled_joints)
 
-    def _qmap_control2model(self, q_input) -> np.ndarray:
+    def _qmap_control2model(self, q_input: np.ndarray) -> np.ndarray:
         """returns a full joint configuration from a partial joint configuration"""
         q_out = self.q_neutral.copy()
         for i, joint_idx in enumerate(self.controlled_joints):
@@ -68,7 +68,7 @@ class PinocchioIKSolver:
 
         return q_out
 
-    def _qmap_model2control(self, q_input) -> np.ndarray:
+    def _qmap_model2control(self, q_input: np.ndarray) -> np.ndarray:
         """returns a partial joint configuration from a full joint configuration"""
         q_out = np.empty(len(self.controlled_joints))
         for i, joint_idx in enumerate(self.controlled_joints):
@@ -87,7 +87,9 @@ class PinocchioIKSolver:
 
         return pos.copy(), quat.copy()
 
-    def compute_ik(self, pos, quat, max_iterations=100) -> Tuple[np.ndarray, bool]:
+    def compute_ik(
+        self, pos: np.ndarray, quat: np.ndarray, max_iterations=100
+    ) -> Tuple[np.ndarray, bool]:
         """given end-effector position and quaternion, return joint values"""
         i = 0
         q = self.q_neutral.copy()
@@ -119,7 +121,7 @@ class PinocchioIKSolver:
 
         return q_control, success
 
-    def compute_ik_opt(self, pose_query):
+    def compute_ik_opt(self, pose_query: Tuple[np.ndarray, np.ndarray]):
         """optimization-based IK solver using CEM"""
         max_iterations = 30
         num_samples = 100
