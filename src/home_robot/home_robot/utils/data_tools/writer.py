@@ -134,7 +134,7 @@ class DataWriter(object):
         else:
             trial_id = str(trial_id)
         self.num_trials += 1
-        with h5py.File(self.filename, "w") as h5_file:
+        with h5py.File(self.filename, "a") as h5_file:
             trial = h5_file.create_group(trial_id)
 
             # Now write the example out here
@@ -148,7 +148,7 @@ class DataWriter(object):
                 if k[-1] == "_":
                     raise RuntimeError(
                         "invalid name for dataset key: "
-                        + str(key)
+                        + str(k)
                         + " cannot end with _; this is reserved."
                     )
                 try:
