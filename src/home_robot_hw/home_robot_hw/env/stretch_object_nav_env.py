@@ -33,11 +33,11 @@ class StretchObjectNavEnv(StretchEnv):
         self.rotate_step = np.radians(rotate_step)
 
         # TODO Specify confidence threshold as a parameter
-        #self.segmentation = DeticPerception(
-        #    vocabulary="custom",
-        #    custom_vocabulary=",".join(self.goal_options),
-        #    sem_gpu_id=0,
-        #)
+        self.segmentation = DeticPerception(
+            vocabulary="custom",
+            custom_vocabulary=",".join(self.goal_options),
+            sem_gpu_id=0,
+        )
         if config is not None:
             self.visualizer = Visualizer(config)
         else:
@@ -120,9 +120,8 @@ class StretchObjectNavEnv(StretchEnv):
             # joint_positions=pos,
         )
         # Run the segmentation model here
-        # obs = self.segmentation.predict(obs, depth_threshold=0.5)
-        # obs.semantic[obs.semantic == 0] = len(self.goal_options) - 1
-        obs.semantic = np.zeros_like(obs.depth).astype(np.int64)
+        obs = self.segmentation.predict(obs, depth_threshold=0.5)
+        obs.semantic[obs.semantic == 0] = len(self.goal_options) - 1
         return obs
 
     @property
