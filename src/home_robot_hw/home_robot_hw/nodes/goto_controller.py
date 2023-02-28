@@ -137,7 +137,7 @@ class GotoVelocityControllerNode:
 
                 # Command robot
                 self._set_velocity(v_cmd, w_cmd)
-                self._at_goal_pub.publish(done)
+                self.at_goal_pub.publish(done)
 
             # Spin
             rate.sleep()
