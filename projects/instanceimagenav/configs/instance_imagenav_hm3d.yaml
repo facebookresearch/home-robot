@@ -11,7 +11,7 @@ defaults:
 
 habitat:
   dataset:
-    split: val
+    split: minival
     data_path: data/datasets/instance_imagenav/hm3d/v3/{split}/{split}.json.gz
   environment:
     max_episode_steps: 1000
