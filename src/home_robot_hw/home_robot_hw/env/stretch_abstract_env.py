@@ -516,6 +516,7 @@ class StretchEnv(home_robot.core.abstract_env.Env):
         relative: bool = False,
         position_only: bool = False,
         avoid_obstacles: bool = False,
+        blocking: bool = False,
     ):
         """
         Cannot be used in manipulation mode.
