@@ -143,7 +143,7 @@ def main(rate, max_frames, visualize):
         print("t =", ti)
         env.navigate_to(trajectory[step], blocking=True)
         print("DONE NAVIGATING")
-        rospy.sleep(10.0)
+        input("... press enter ...")
         print("CAPTURING FRAME")
         step += 1
 
