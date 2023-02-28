@@ -573,7 +573,8 @@ class StretchEnv(home_robot.core.abstract_env.Env):
                     break
                 else:
                     rate.sleep()
-            rospy.sleep(self.msg_delay_t)
+            # TODO: this should be unnecessary
+            rospy.sleep(self.msg_delay_t * 10)
 
     @abstractmethod
     def reset(self):
