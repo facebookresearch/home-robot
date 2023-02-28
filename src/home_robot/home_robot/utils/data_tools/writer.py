@@ -78,7 +78,7 @@ class DataWriter(object):
             self.temporal_data[k].append(v)
         return True
 
-    def fix_data(self, data) -> Dict:
+    def fix_data(self, data) -> Dict[str]:
         """Flatten dictionaries"""
         new_data = {}
         for k, v in data.items():
@@ -91,7 +91,7 @@ class DataWriter(object):
                 new_data[k] = v
         return new_data
 
-    def flatten_dict(self, key, data) -> Dict:
+    def flatten_dict(self, key, data) -> Dict[str]:
         """Take a dictionary (data) and turn it into a flat dict, with keys separated by
         slashes as per os.path.join"""
         new_data = {}
