@@ -1,5 +1,5 @@
 import os
-from typing import Tuple
+from typing import Callable, List, Tuple
 
 import numpy as np
 import pinocchio
@@ -34,11 +34,18 @@ PIN_CONTROLLED_JOINTS = [
 
 
 class PinocchioIKSolver:
+    """IK solver using pinocchio which can handle constraint-based optimization for IK solutions"""
+
     EPS = 1e-4
     DT = 1e-1
     DAMP = 1e-12
 
-    def __init__(self, urdf_path, ee_link_name, controlled_joints):
+    def __init__(self, urdf_path: str, ee_link_name: str, controlled_joints: List[str]):
+        """
+        urdf_path: path to urdf file
+        ee_link_name: name of the end-effector link
+        controlled_joints: list of joint names to control
+        """
         self.model = pinocchio.buildModelFromUrdf(urdf_path)
         self.data = self.model.createData()
         self.q_neutral = pinocchio.neutral(self.model)
@@ -53,14 +60,16 @@ class PinocchioIKSolver:
         """returns dof for the manipulation chain"""
         return len(self.controlled_joints)
 
-    def _qmap_control2model(self, q_input):
+    def _qmap_control2model(self, q_input) -> np.ndarray:
+        """returns a full joint configuration from a partial joint configuration"""
         q_out = self.q_neutral.copy()
         for i, joint_idx in enumerate(self.controlled_joints):
             q_out[joint_idx] = q_input[i]
 
         return q_out
 
-    def _qmap_model2control(self, q_input):
+    def _qmap_model2control(self, q_input) -> np.ndarray:
+        """returns a partial joint configuration from a full joint configuration"""
         q_out = np.empty(len(self.controlled_joints))
         for i, joint_idx in enumerate(self.controlled_joints):
             if joint_idx >= 0:
@@ -111,6 +120,7 @@ class PinocchioIKSolver:
         return q_control, success
 
     def compute_ik_opt(self, pose_query):
+        """optimization-based IK solver using CEM"""
         max_iterations = 30
         num_samples = 100
         num_top = 10  # TODO: what is this?
@@ -156,13 +166,22 @@ class PinocchioIKSolver:
 
 
 class CEM:
-    def __init__(self, max_iterations, num_samples, num_top, tol):
+    """class implementing generic CEM solver for optimization"""
+
+    def __init__(self, max_iterations: int, num_samples: int, num_top: int, tol: float):
+        """
+        max_iterations: max number of iterations
+        num_samples: number of samples per iteration
+        num_top: number of top samples to use for next iteration
+        tol: tolerance for stopping criterion
+        """
         self.max_iterations = max_iterations
         self.num_samples = num_samples
         self.num_top = num_top
         self.cost_tol = tol
 
-    def optimize(self, func, x0, sigma0):
+    def optimize(self, func: Callable, x0: np.ndarray, sigma0: np.ndarray):
+        """optimize function func with initial guess mu=x0 and initial std=sigma0"""
         i = 0
         mu = x0
         sigma = sigma0
