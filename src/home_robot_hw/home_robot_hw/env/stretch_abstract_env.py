@@ -468,7 +468,7 @@ class StretchEnv(home_robot.core.abstract_env.Env):
             xyz = xyz.reshape(-1, 3)
 
             if rotate_images:
-                # Rotate the sretch camera so that top of image is "up"
+                # Rotate the stretch camera so that top of image is "up"
                 R_stretch_camera = tra.euler_matrix(0, 0, -np.pi / 2)[:3, :3]
                 xyz = xyz @ R_stretch_camera
                 xyz = xyz.reshape(H, W, 3)
