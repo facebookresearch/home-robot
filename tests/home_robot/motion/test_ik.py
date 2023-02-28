@@ -7,7 +7,7 @@ import os
 import numpy as np
 import pytest
 
-from home_robot.agent.motion.stretch import (
+from home_robot.motion.stretch import (
     STRETCH_GRASP_OFFSET,
     STRETCH_HOME_Q,
     HelloStretch,
