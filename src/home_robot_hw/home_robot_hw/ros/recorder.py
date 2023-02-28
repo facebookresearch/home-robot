@@ -61,7 +61,7 @@ class Recorder(object):
             "P": camera.P,
         }
 
-    def save_frame(self):
+    def save_frame(self, is_keyframe=False):
         """saves the following to an H5 file:
         1. rgb image
         2. depth image
@@ -87,6 +87,10 @@ class Recorder(object):
             [base_pose[0][0], base_pose[0][1], base_pose[0][2], base_pose[1].to_sec()]
         )
         camera_pose = self.robot.get_camera_pose()
+        if is_keyframe:
+            user_keyframe = np.array([1])
+        else:
+            user_keyframe = np.array([0])
         self.writer.add_img_frame(rgb=rgb, depth=(depth * 10000).astype(np.uint16))
         self.writer.add_frame(
             q=q,
@@ -94,6 +98,7 @@ class Recorder(object):
             ee_pose=ee_pose,
             base_pose=base_pose,
             camera_pose=camera_pose,
+            user_keyframe=user_keyframe,
         )
 
         return rgb, depth, q, dq

@@ -52,7 +52,7 @@ class EpisodeManager(object):
 
     def record_keyframe(self):
         """add a keyframe to the current episode"""
-        self._keyframe_recorder.save_frame()
+        self._keyframe_recorder.save_frame(is_keyframe=True)
 
 
 @click.command()
