@@ -92,7 +92,7 @@ class RosMapDataCollector(object):
 
 @click.command()
 @click.option("--rate", default=5, type=int)
-@click.option("--max-frames", default=10, type=int)
+@click.option("--max-frames", default=20, type=int)
 @click.option("--visualize", default=False, is_flag=True)
 def main(rate, max_frames, visualize):
     rospy.init_node("build_3d_map")
@@ -115,12 +115,12 @@ def main(rate, max_frames, visualize):
 
     trajectory = [
         (0, 0, 0),
-        (0.2, 0, 0),
-        (0.3, 0.15, np.pi / 4),
-        (0.5, 0.3, np.pi / 4),
-        (0.5, 0.5, np.pi / 2),
-        (0.4, 0.5, np.pi),
-        (0.2, 0.3, 5 * np.pi / 8),
+        (0.4, 0, 0),
+        (0.75, 0.15, np.pi / 4),
+        (0.85, 0.3, np.pi / 4),
+        (0.95, 0.5, np.pi / 2),
+        (1.0, 0.55, np.pi),
+        (0.6, 0.3, 5 * np.pi / 8),
         (0.0, 0.3, -np.pi / 2),
         (0, 0, 0),
         (0.2, 0, 0),
@@ -142,7 +142,9 @@ def main(rate, max_frames, visualize):
         ti = (rospy.Time.now() - t0).to_sec()
         print("t =", ti)
         env.navigate_to(trajectory[step], blocking=True)
-        rospy.sleep(1.0)
+        print("DONE NAVIGATING")
+        rospy.sleep(10.0)
+        print("CAPTURING FRAME")
         step += 1
 
         collector.step()  # Append latest observations
