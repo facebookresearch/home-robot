@@ -28,8 +28,8 @@ if __name__ == "__main__":
         t += 1
         print("STEP =", t)
         obs = env.get_observation()
-        action, info = agent.act(obs)
-        env.apply_action(action, info=info)
+        action = agent.act(obs)
+        env.apply_action(action)
         input("press enter for next action")
     
     record_video(
