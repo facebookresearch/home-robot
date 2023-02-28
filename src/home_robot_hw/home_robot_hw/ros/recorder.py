@@ -40,7 +40,9 @@ class Recorder(object):
         color_camera_info = self._construct_camera_info(self.robot.rgb_cam)
         depth_camera_info = self._construct_camera_info(self.robot.dpt_cam)
         self.writer.add_config(
-            color_camera_info=color_camera_info, depth_camera_info=depth_camera_info, task_name=task_name,
+            color_camera_info=color_camera_info,
+            depth_camera_info=depth_camera_info,
+            task_name=task_name,
         )
 
         print(f"Ready to record demonstration to file: {self._filename}")
@@ -75,7 +77,15 @@ class Recorder(object):
         q, dq = self.robot.update()
         # TODO get the following from TF lookup
         ee_pose = self.robot.model.fk(q)
+        # output of above is a tuple of two ndarrays
+        # ee-pose should be 1 ndarray of 7 values
+        ee_pose = np.concatenate((ee_pose[0], ee_pose[1]), axis=0)
+        # elements in following are of type: Tuple(Tuple(x,y,theta), rospy.Time)
+        # change to ndarray with 4 floats
         base_pose = self.robot.get_base_pose()
+        base_pose = np.array(
+            [base_pose[0][0], base_pose[0][1], base_pose[0][2], base_pose[1].to_sec()]
+        )
         camera_pose = self.robot.get_camera_pose()
         self.writer.add_img_frame(rgb=rgb, depth=(depth * 10000).astype(np.uint16))
         self.writer.add_frame(
