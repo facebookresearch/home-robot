@@ -279,7 +279,7 @@ class ImageNavAgent(Agent):
                 "closest_goal_map": closest_goal_map,
                 "last_goal_image": obs.task_observations["instance_imagegoal"],
                 "last_collisions": collision,
-                "last_td_map": obs.task_observations["top_down_map"],
+                "last_td_map": obs.task_observations.get("top_down_map"),
             }
             self.visualizer.visualize(**info)
 
