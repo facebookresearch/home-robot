@@ -120,7 +120,7 @@ def main(rate, max_frames, visualize):
         (0.85, 0.3, np.pi / 4),
         (0.95, 0.5, np.pi / 2),
         (1.0, 0.55, np.pi),
-        (0.6, 0.3, 5 * np.pi / 8),
+        (0.6, 0.3, -np.pi / 8),
         (0.0, 0.3, -np.pi / 2),
         (0, 0, 0),
         (0.2, 0, 0),
@@ -128,7 +128,7 @@ def main(rate, max_frames, visualize):
         (0.7, 0.2, np.pi / 4),
         (0.7, 0.4, np.pi / 2),
         (0.5, 0.4, np.pi),
-        (0.2, 0.2, 5 * np.pi / 8),
+        (0.2, 0.2, -np.pi / 4),
         (0, 0, - np.pi / 2),
         (0, 0, 0),
     ]
