@@ -11,7 +11,7 @@ import numpy as np
 import rospy
 import sophus as sp
 from geometry_msgs.msg import Pose, PoseStamped, Twist
-from nav_msgs.msg import Odometry
+from nav_msgs.msg import Odometry, Bool
 from std_srvs.srv import SetBool, SetBoolResponse, Trigger, TriggerResponse, TriggerRequest
 
 from home_robot.control.goto_controller import GotoVelocityController
@@ -132,10 +132,11 @@ class GotoVelocityControllerNode:
         while not rospy.is_shutdown():
             if self.active and self.xyt_goal is not None:
                 # Compute control
-                v_cmd, w_cmd = self.controller.compute_control()
+                v_cmd, w_cmd, done = self.controller.compute_control()
 
                 # Command robot
                 self._set_velocity(v_cmd, w_cmd)
+                self._at_goal_pub.publish(done)
 
             # Spin
             rate.sleep()
@@ -145,6 +146,7 @@ class GotoVelocityControllerNode:
         rospy.init_node("goto_controller")
 
         self.vel_command_pub = rospy.Publisher("stretch/cmd_vel", Twist, queue_size=1)
+        self.at_goal_pub = rospy.Publisher("stretch/at_goal", Bool, queue_size=1)
 
         rospy.Subscriber(
             "state_estimator/pose_filtered",
