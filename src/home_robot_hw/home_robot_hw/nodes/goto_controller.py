@@ -24,6 +24,9 @@ from home_robot_hw.ros.visualizer import Visualizer
 log = logging.getLogger(__name__)
 
 CONTROL_HZ = 20
+VEL_THRESHOlD = 0.01
+RVEL_THRESHOLD = 0.05
+
 
 
 class GotoVelocityControllerNode:
@@ -46,10 +49,12 @@ class GotoVelocityControllerNode:
         self.controller = GotoVelocityController(controller_cfg)
 
         # Initialize
+        self.vel_odom: Optional[np.ndarray] = None
         self.xyt_filtered: Optional[np.ndarray] = None
         self.xyt_goal: Optional[np.ndarray] = None
 
         self.active = False
+        self.is_done = True
         self.track_yaw = True
 
         # Visualizations
@@ -63,6 +68,7 @@ class GotoVelocityControllerNode:
 
     def _odom_update_callback(self, msg: Odometry):
         pose_sp = sp.SE3(matrix_from_pose_msg(msg.pose.pose))
+        self.vel_odom = np.array([msg.twist.twist.linear.x, msg.twist.twist.angular.z])
         if self.odom_only:
             self.controller.update_pose_feedback(sophus2xyt(pose_sp))
 
@@ -84,6 +90,8 @@ class GotoVelocityControllerNode:
 
             self.controller.update_goal(sophus2xyt(pose_goal))
             self.xyt_goal = self.controller.xyt_goal
+
+            self.is_done = False
 
             # Visualize
             self.goal_visualizer(pose_goal.matrix())
@@ -135,9 +143,14 @@ class GotoVelocityControllerNode:
                 # Compute control
                 v_cmd, w_cmd, done = self.controller.compute_control()
 
+                # Check if actually done (velocity = 0)
+                if done and self.vel_odom is not None:
+                    if self.vel_odom[0] < VEL_THRESHOlD and self.vel_odom[1] < RVEL_THRESHOLD:
+                        self.is_done = True
+
                 # Command robot
                 self._set_velocity(v_cmd, w_cmd)
-                self.at_goal_pub.publish(done)
+                self.at_goal_pub.publish(self.is_done)
 
             # Spin
             rate.sleep()
