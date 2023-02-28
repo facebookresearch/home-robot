@@ -120,18 +120,17 @@ def main(rate, max_frames, visualize):
         ti = (rospy.Time.now() - t0).to_sec()
         print("t =", ti)
         if step == 0:
-            env.navigate_to((0.25, 0, 0))
+            env.navigate_to((0.25, 0, 0), blocking=True)
         elif step == 1:
-            env.navigate_to((0.3, 0.2, np.pi / 4))
+            env.navigate_to((0.3, 0.2, np.pi / 4), blocking=True)
         elif step == 2:
-            env.navigate_to((0.5, 0.5, np.pi / 2))
+            env.navigate_to((0.5, 0.5, np.pi / 2), blocking=True)
         elif step == 3:
-            env.navigate_to((0.0, 0.3, -np.pi / 2))
+            env.navigate_to((0.0, 0.3, -np.pi / 2), blocking=True)
         elif step == 4:
-            env.navigate_to((0, 0, 0))
+            env.navigate_to((0, 0, 0), blocking=True)
             step = 2
 
-        input("press enter when ready")
         collector.step()  # Append latest observations
 
         frames += 1

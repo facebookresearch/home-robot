@@ -75,6 +75,7 @@ class StretchObjectNavEnv(StretchEnv):
         if continuous_action is not None:
             if not self.in_navigation_mode():
                 self.switch_to_navigation_mode()
+                rospy.sleep(self.msg_delay_t)
             self.navigate_to(continuous_action, relative=True, blocking=True)
         rospy.sleep(0.5)
 

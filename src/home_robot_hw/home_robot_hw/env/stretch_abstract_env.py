@@ -95,6 +95,7 @@ class StretchEnv(home_robot.core.abstract_env.Env):
     dist_tol = 1e-4
     theta_tol = 1e-3
     wait_time_step = 1e-3
+    msg_delay_t = 0.1
 
     base_link = "base_link"
     odom_link = "map"
@@ -549,9 +550,6 @@ class StretchEnv(home_robot.core.abstract_env.Env):
         if relative:
             xyt_base = sophus2xyt(self._t_base_odom)
             xyt_goal = xyt_base_to_global(xyt, xyt_base)
-            print("Sending relative goal:")
-            print("base =", xyt_base)
-            print("goal =", xyt_goal)
         else:
             xyt_goal = xyt
 
@@ -564,6 +562,18 @@ class StretchEnv(home_robot.core.abstract_env.Env):
         self.goal_visualizer(goal_matrix)
         msg = matrix_to_pose_msg(goal_matrix)
         self._goal_pub.publish(msg)
+
+        if blocking:
+            print("Waiting...")
+            rospy.sleep(self.msg_delay_t)
+            rate = rospy.Rate(10)
+            while not rospy.is_shutdown():
+                print("...", self._at_goal)
+                if self._at_goal:
+                    break
+                else:
+                    rate.sleep()
+            rospy.sleep(self.msg_delay_t)
 
     @abstractmethod
     def reset(self):
