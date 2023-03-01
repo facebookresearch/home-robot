@@ -1,20 +1,31 @@
 import hydra
-from slap_manipulation.env.stretch_manipulation import StretchManipulationEnv
-from slap_manipulation.policy.interaction_prediction_module import IPModule
+import rospy
+
+from slap_manipulation.env.stretch_manipulation_env import StretchManipulationEnv
 from slap_manipulation.policy.action_prediction_module import APModule
+from slap_manipulation.policy.interaction_prediction_module import IPModule
 
 
-@hydra.main(version_base=None, config_path="./conf", config_name="all_tasks_01_31")
-def main(cfg):
+def create_apm_input(raw_data, p_i):
+    return raw_data
+
+
+def create_ipm_input(raw_data):
+    return raw_data
+
+
+# @hydra.main(version_base=None, config_path="./conf", config_name="all_tasks_01_31")
+def main(cfg=None):
+    rospy.init_node("slap_inference")
     # create the robot object
-    robot = StretchManipulationEnv(cfg)
+    robot = StretchManipulationEnv(init_cameras=True)
     # create IPM object
     ipm_model = IPModule()
     # create APM object
     apm_model = APModule()
     # load model-weights
-    ipm_model.load_state_dict(cfg.ipm_weights)
-    apm_model.load_state_dict(cfg.apm_weights)
+    # ipm_model.load_state_dict(cfg.ipm_weights)
+    # apm_model.load_state_dict(cfg.apm_weights)
 
     print("Loaded models successfully")
     cmds = [
@@ -36,18 +47,22 @@ def main(cfg):
         print(f"Executing {input_cmd}")
         # get from the robot: pcd=(xyz, rgb), gripper-state,
         # construct input vector from raw data
-        raw_observations = robot.get_observations()
+        raw_observations = robot.get_observation()
         input_vector = create_ipm_input(raw_observations)
         # run inference on sensor data for IPM
         interaction_point = ipm_model.eval(input_vector)
         # ask if ok to run APM inference
-        for i in range(cfg.num_keypoints):
+        for i in range(1):  # cfg.num_keypoints
             # run APM inference on sensor
-            raw_observations = robot.get_observations()
+            raw_observations = robot.get_observation()
             input_vector = create_apm_input(raw_observations, interaction_point)
             action = apm_model.eval(input_vector)
             # ask if ok to execute
             res = input("Execute the output? (y/n)")
-            if res == 'y':
+            if res == "y":
                 robot.apply_action(action)
             pass
+
+
+if __name__ == "__main__":
+    main()
