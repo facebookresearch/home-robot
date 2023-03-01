@@ -572,11 +572,9 @@ class StretchEnv(home_robot.core.abstract_env.Env):
         self._goal_pub.publish(msg)
 
         if blocking:
-            print("----- blocking -----")
             rospy.sleep(self.msg_delay_t)
             rate = rospy.Rate(10)
             while not rospy.is_shutdown():
-                print(self.at_goal())
                 if self.at_goal():
                     break
                 else:

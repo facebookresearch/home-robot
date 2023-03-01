@@ -88,14 +88,15 @@ class RosMapDataCollector(object):
 
         # Visualize point clloud + origin
         show_point_cloud(pc_xyz, pc_rgb / 255, orig=np.zeros(3))
-
+        return pc_xyz, pc_rgb
 
 @click.command()
 @click.option("--rate", default=5, type=int)
 @click.option("--max-frames", default=20, type=int)
 @click.option("--visualize", default=False, is_flag=True)
 @click.option("--manual_wait", default=False, is_flag=True)
-def main(rate, max_frames, visualize, manual_wait):
+@click.option("--pcd-filename", default="output.ply", type=str)
+def main(rate, max_frames, visualize, manual_wait, pcd_filename):
     rospy.init_node("build_3d_map")
     env = StretchGraspingEnv(segmentation_method=None)
     collector = RosMapDataCollector(env, visualize)
@@ -126,14 +127,14 @@ def main(rate, max_frames, visualize, manual_wait):
         (0.6, 0.45, 9 * np.pi / 8),
         (0.0, 0.3, -np.pi / 2),
         (0, 0, 0),
-        #(0.2, 0, 0),
-        #(0.5, 0, 0),
-        #(0.7, 0.2, np.pi / 4),
-        #(0.7, 0.4, np.pi / 2),
-        #(0.5, 0.4, np.pi),
-        #(0.2, 0.2, -np.pi / 4),
-        #(0, 0, - np.pi / 2),
-        #(0, 0, 0),
+        (0.2, 0, 0),
+        (0.5, 0, 0),
+        (0.7, 0.2, np.pi / 4),
+        (0.7, 0.4, np.pi / 2),
+        (0.5, 0.4, np.pi),
+        (0.2, 0.2, -np.pi / 4),
+        (0, 0, - np.pi / 2),
+        (0, 0, 0),
     ]
 
     collector.step()  # Append latest observations
@@ -161,7 +162,12 @@ def main(rate, max_frames, visualize, manual_wait):
 
     print("Done collecting data.")
     env.navigate_to((0, 0, 0))
-    collector.show()
+    pc_xyz, pc_rgb = collector.show()
+
+    # Create pointcloud
+    if len(pcd_filename) > 0:
+        pcd = numpy_to_pcd(pc_xyz, pc_rgb / 255)
+        open3d.io.write_point_cloud(pcd_filename, pcd)
 
 
 if __name__ == "__main__":
