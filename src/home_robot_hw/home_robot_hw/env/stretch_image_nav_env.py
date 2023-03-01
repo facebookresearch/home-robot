@@ -81,7 +81,7 @@ class StretchImageNavEnv(StretchEnv):
             gps=relative_pose.translation()[:2],
             compass=np.array([theta]),
             task_observations={"instance_imagegoal": self.image_goal},
-            camera_extrinsic=camera_pose,
+            # camera_extrinsic=camera_pose,
         )
 
     @property

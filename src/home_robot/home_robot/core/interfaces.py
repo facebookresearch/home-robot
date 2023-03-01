@@ -55,6 +55,7 @@ class Observations:
     semantic: Optional[
         np.array
     ] = None  # (camera_height, camera_width) in [0, num_sem_categories - 1]
+    camera_extrinsic: Optional[np.array] = None  # (4, 4) camera pose in world coordinates
 
     # --------------------------------------------------------
     # Untyped task-specific observations
