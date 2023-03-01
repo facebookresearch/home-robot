@@ -49,5 +49,5 @@ def main(cfg):
             # ask if ok to execute
             res = input("Execute the output? (y/n)")
             if res == 'y':
-                robot.execute_action(action)
+                robot.apply_action(action)
             pass

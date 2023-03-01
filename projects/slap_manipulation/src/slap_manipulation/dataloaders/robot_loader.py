@@ -10,7 +10,7 @@ import trimesh
 import trimesh.transformations as tra
 import yaml
 from home_robot.utils.data_tools.camera import Camera
-from home_robot.utils.data_tools.loader import DatasetBase, Trial
+from home_robot.utils.data_tools.loader import Trial
 from home_robot.utils.point_cloud import (
     add_additive_noise_to_xyz,
     depth_to_xyz,
