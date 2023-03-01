@@ -7,8 +7,6 @@ from numpy import ndarray
 import skimage.morphology
 from omegaconf import DictConfig
 
-from habitat.core.simulator import Observations
-
 import home_robot.utils.pose as pu
 from home_robot.core.interfaces import Observations
 
@@ -94,7 +92,6 @@ class ObsPreprocessor:
             ds = rgb.shape[1] / self.frame_width
             if ds == 1:
                 return rgb, depth
-            
             dim = (self.frame_width, self.frame_height)
             rgb = cv2.resize(rgb, dim, interpolation=cv2.INTER_AREA)
             depth = cv2.resize(depth, dim, interpolation=cv2.INTER_NEAREST)[:, :, None]
@@ -117,7 +114,7 @@ class ObsPreprocessor:
 
             # set matched rgb keypoints as goal points
             kp_loc = np.zeros((*rgb.shape[:2], 1), dtype=rgb.dtype)
-            kp_loc[matched_rgb_keypoints[:, 1], matched_rgb_keypoints[:, 0],] = 1
+            kp_loc[matched_rgb_keypoints[:, 1], matched_rgb_keypoints[:, 0]] = 1
 
             if self.preprojection_kp_dilation > 0:
                 disk = skimage.morphology.disk(self.preprojection_kp_dilation)
@@ -150,7 +147,7 @@ class ObsPreprocessor:
         return obs_preprocessed, matches, confidence
 
     def _preprocess_pose(self, obs: Observations) -> Tuple[Tensor, ndarray]:
-        curr_pose = np.array([obs.gps[0], -obs.gps[1], obs.compass[0]])
+        curr_pose = np.array([obs.gps[0], obs.gps[1], obs.compass[0]])
         pose_delta = torch.tensor(
             pu.get_rel_pose_change(curr_pose, self.last_pose)
         ).unsqueeze(0).to(device=self.device)
