@@ -4,12 +4,12 @@ import numpy as np
 import pytest
 from scipy.spatial.transform import Rotation as R
 
-from home_robot.agent.motion.pinocchio_ik_solver import (
+from home_robot.motion.pinocchio_ik_solver import (
     CEM_MAX_ITERATIONS,
     POS_ERROR_TOL,
 )
-from home_robot.agent.motion.pinocchio_ik_solver import PositionIKOptimizer
-from home_robot.agent.motion.stretch import (
+from home_robot.motion.pinocchio_ik_solver import PositionIKOptimizer
+from home_robot.motion.stretch import (
     STRETCH_GRASP_OFFSET,
     STRETCH_HOME_Q,
     HelloStretch,
