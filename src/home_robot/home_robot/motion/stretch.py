@@ -59,8 +59,8 @@ STRETCH_NAVIGATION_Q = np.array(
         0.01,  # arm
         0.0,  # gripper rpy
         0.0,  # wrist roll
-        3.0,  # wrist pitch
-        0.0,  # wrist yaw
+        0.0,  # wrist pitch
+        3.0,  # wrist yaw
         0.0,
         -np.pi / 4,
     ]
