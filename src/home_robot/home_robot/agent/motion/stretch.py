@@ -597,6 +597,8 @@ class HelloStretch(Robot):
             # This logic currently in local hello robot client
             raise NotImplementedError()
         _q = self.manip_ik_solver.compute_ik(pos, quat, self._to_manip_format(q0))
+        if self._ik_type == 'pinocchio':
+            _q = _q[0]
         q = self._from_manip_format(_q, q0)
         self.set_config(q)
         return q
