@@ -65,6 +65,9 @@ class StretchImageNavEnv(StretchEnv):
         rgb, depth = self.get_images(compute_xyz=False, rotate_images=True)
         current_pose = xyt2sophus(self.get_base_pose())
 
+        # Gets current camera pose from SLAM system as a 4x4 matrix in SE(3)
+        camera_pose = self.get_camera_pose_matrix()
+
         # use sophus to get the relative translation
         relative_pose = self._episode_start_pose.inverse() * current_pose
         euler_angles = relative_pose.so3().log()
@@ -78,7 +81,7 @@ class StretchImageNavEnv(StretchEnv):
             gps=relative_pose.translation()[:2],
             compass=np.array([theta]),
             task_observations={"instance_imagegoal": self.image_goal},
-            # joint_positions=pos,
+            camera_extrinsic=camera_pose,
         )
 
     @property
