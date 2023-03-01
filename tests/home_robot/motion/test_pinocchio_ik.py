@@ -1,53 +1,65 @@
+import os
+
 import numpy as np
 import pytest
 from scipy.spatial.transform import Rotation as R
 
-from home_robot.agent.motion.pinocchio_ik_solver import (CEM,
-                                                         CEM_MAX_ITERATIONS,
-                                                         CEM_NUM_SAMPLES,
-                                                         CEM_NUM_TOP, EE_NAME,
-                                                         ORI_ERROR_TOL,
-                                                         PIN_CONTROLLED_JOINTS,
-                                                         POS_ERROR_TOL,
-                                                         URDF_PATH,
-                                                         PinocchioIKSolver)
+from home_robot.agent.motion.pinocchio_ik_solver import (CEM_MAX_ITERATIONS,
+                                                         POS_ERROR_TOL)
+from home_robot.agent.motion.stretch import (STRETCH_GRASP_OFFSET,
+                                             STRETCH_HOME_Q, HelloStretch)
+from home_robot.utils.bullet import PbArticulatedObject
+from home_robot.utils.path import REPO_ROOT_PATH
+from home_robot.utils.pose import to_matrix, to_pos_quat
 
 
-def test_pinocchio_ik():
+def get_ik_solver(debug=False):
+    urdf_abs_path = os.path.join(REPO_ROOT_PATH, "assets/hab_stretch/urdf/")
+    return HelloStretch(urdf_path=urdf_abs_path, visualize=debug, ik_type="pinocchio")
+
+
+def compute_err(pos1, pos2):
+    return np.linalg.norm(pos1 - pos2)
+
+
+def quaternion_distance(quat1, quat2):
+    return 1 - ((quat1 * quat2).sum() ** 2)
+
+
+def ik_helper(robot, pos, quat, indicator_block, err_threshold, debug=False):
+    """ik test helper function."""
+    print("GOAL:", pos, quat)
+    indicator_block.set_pose(pos, quat)
+    res = robot.manip_ik((pos, quat), STRETCH_HOME_Q, relative=True)
+    robot.set_config(res)
+    pos2, quat2 = robot.get_ee_pose()
+    print("PRED:", pos2, quat2)
+    print("x motion:", res[0])
+    err = compute_err(pos2, pos)
+    print("error was:", err)
+    assert err < err_threshold
+    assert quaternion_distance(quat, quat2) < err_threshold
+    if debug:
+        input("press enter to continue")
+
+
+def test_pinocchio_ik_optimization():
     pos_desired = np.array([-0.10281811, -0.7189281, 0.71703106])
     # pos_desired = np.array([-0.11556295, -0.51387864,  0.8205258 ])
     quat_desired = np.array([-0.7079143, 0.12421559, 0.1409881, -0.68084526])
 
-    ik_solver = PinocchioIKSolver(URDF_PATH, EE_NAME, PIN_CONTROLLED_JOINTS)
+    robot = get_ik_solver()
 
     # Directly solve with IK
-    q, _ = ik_solver.compute_ik(pos_desired, quat_desired)
-    pos_out1, quat_out1 = ik_solver.compute_fk(q)
+    q, _ = robot.manip_ik_solver.compute_ik(pos_desired, quat_desired)
+    pos_out1, quat_out1 = robot.manip_ik_solver.compute_fk(q)
     pos_err1 = np.linalg.norm(pos_out1 - pos_desired)
 
     # Solve with CEM
-    opt = CEM(
-        max_iterations=CEM_MAX_ITERATIONS,
-        num_samples=CEM_NUM_SAMPLES,
-        num_top=CEM_NUM_TOP,
-        tol=POS_ERROR_TOL,
+    q_result, best_cost, last_iter, opt_sigma = robot.manip_ik_solver.compute_ik_opt(
+        (pos_desired, quat_desired)
     )
-
-    def solve_ik(dr):
-        pos = pos_desired
-        quat = (R.from_rotvec(dr) * R.from_quat(quat_desired)).as_quat()
-
-        q, _ = ik_solver.compute_ik(pos, quat)
-        pos_out, _ = ik_solver.compute_fk(q)
-
-        cost = np.linalg.norm(pos - pos_out)
-
-        return cost, q
-
-    best_cost, q_result, last_iter, opt_sigma = opt.optimize(
-        solve_ik, x0=np.zeros(3), sigma0=np.array(ORI_ERROR_TOL) / 2
-    )
-    pos_out2, quat_out2 = ik_solver.compute_fk(q_result)
+    pos_out2, quat_out2 = robot.manip_ik_solver.compute_fk(q_result)
     pos_err2 = np.linalg.norm(pos_out2 - pos_desired)
 
     print(f"Desired EE pose: pos={pos_desired.tolist()}, quat={quat_desired.tolist()}")
@@ -68,9 +80,46 @@ def test_pinocchio_ik():
         or last_iter >= CEM_MAX_ITERATIONS
     )
 
-    # TODO assert for error with CEM being less than erro without CEM
-    # TODO assert at the end of optimization either i >= max_iterations or err <= cost_tol
+
+def test_ik(debug=False, err_threshold=1e-4):
+    """
+    Goal pos and rot: (array([-0.10281811, -0.7189281 ,  0.71703106], dtype=float32), array([-0.7079143 ,  0.12421559,  0.1409881 , -0.68084526]))
+    Current best solution: (array([-0.1350856 , -0.71864623,  0.71646219]), array([ 0.7084716 , -0.12145648, -0.13812223,  0.68135047]))
+
+    2nd Goal pos and rot: (array([-0.01556295, -0.51387864,  0.8205258 ], dtype=float32), array([-0.7090214 ,  0.12297839,  0.14050716, -0.6800168 ]))
+    Current best solution: (array([-0.12925884, -0.51288551,  0.8185215 ]), array([ 0.71091503, -0.1131743 , -0.13030495,  0.68177122]))
+    """
+    robot = get_ik_solver(debug)
+    block = PbArticulatedObject(
+        "red_block",
+        os.path.join(REPO_ROOT_PATH, "assets/red_block.urdf"),
+        client=robot.ref.client,
+    )
+    robot.set_config(STRETCH_HOME_Q)
+    test_poses = [
+        (
+            [-0.10281811, -0.7189281, 0.71703106],
+            [-0.7079143, 0.12421559, 0.1409881, -0.68084526],
+        ),
+        (
+            [-0.01556295, -0.51387864, 0.8205258],
+            [-0.7090214, 0.12297839, 0.14050716, -0.6800168],
+        ),
+    ]
+    test_poses = [
+        to_pos_quat(to_matrix(pos, quat) @ STRETCH_GRASP_OFFSET)
+        for pos, quat in test_poses
+    ]
+    test_poses = [robot.get_ee_pose()] + test_poses
+    for pos, quat in test_poses:
+        print("-------- 1: Inverse kinematics ---------")
+        ik_helper(robot, pos, quat, block, err_threshold, debug)
+
+        print("-------- 2: FK + IK Consistency  ---------")
+        pos1, quat1 = robot.get_ee_pose()
+        ik_helper(robot, pos1, quat1, block, err_threshold, debug)
 
 
 if __name__ == "__main__":
-    test_pinocchio_ik()
+    test_ik()
+    test_pinocchio_ik_optimization()
