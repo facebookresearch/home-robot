@@ -10,7 +10,7 @@ import pybullet as pb
 import trimesh.transformations as tra
 
 import home_robot.utils.bullet as hrb
-from home_robot.motion.pinocchio_ik_solver import CEM, PinocchioIKSolver
+from home_robot.motion.pinocchio_ik_solver import PinocchioIKSolver
 from home_robot.motion.robot import Robot
 from home_robot.utils.bullet import PybulletIKSolver
 from home_robot.utils.pose import to_matrix
@@ -66,6 +66,17 @@ STRETCH_NAVIGATION_Q = np.array(
         -np.pi / 4,
     ]
 )
+PIN_CONTROLLED_JOINTS = [
+    # "base_x_joint",
+    "joint_lift",
+    "joint_arm_l0",
+    "joint_arm_l1",
+    "joint_arm_l2",
+    "joint_arm_l3",
+    "joint_wrist_yaw",
+    "joint_wrist_pitch",
+    "joint_wrist_roll",
+]
 
 
 # This is the gripper, and the distance in the gripper frame to where the fingers will roughly meet
@@ -597,6 +608,8 @@ class HelloStretch(Robot):
             # This logic currently in local hello robot client
             raise NotImplementedError()
         _q = self.manip_ik_solver.compute_ik(pos, quat, self._to_manip_format(q0))
+        if self._ik_type == "pinocchio":
+            _q = _q[0]
         q = self._from_manip_format(_q, q0)
         self.set_config(q)
         return q
