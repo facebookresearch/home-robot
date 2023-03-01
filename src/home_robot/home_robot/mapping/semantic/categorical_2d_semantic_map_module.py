@@ -44,6 +44,7 @@ class Categorical2DSemanticMapModule(nn.Module):
         cat_pred_threshold: float,
         exp_pred_threshold: float,
         map_pred_threshold: float,
+        explored_disk_radius: int = 40,  # TODO Pass this as parameter
     ):
         """
         Arguments:
@@ -65,6 +66,8 @@ class Categorical2DSemanticMapModule(nn.Module):
              consider it as explored
             map_pred_threshold: number of depth points to be in bin to
              consider it as obstacle
+            explored_disk_radius: radius of disk around the agent to
+             consider explored at each step (in cells)
         """
         super().__init__()
 
@@ -72,6 +75,7 @@ class Categorical2DSemanticMapModule(nn.Module):
         self.screen_w = frame_width
         self.camera_matrix = du.get_camera_matrix(self.screen_w, self.screen_h, hfov)
         self.num_sem_categories = num_sem_categories
+        self.explored_disk_radius = explored_disk_radius
 
         self.map_size_parameters = mu.MapSizeParameters(
             map_resolution, map_size_cm, global_downscaling
@@ -359,13 +363,14 @@ class Categorical2DSemanticMapModule(nn.Module):
 
             # Set a disk around the agent to explored
             try:
-                # TODO Set this as a parameter
                 # radius = 10 => ideal for Habitat
                 # radius = 40 => ideal on robot
-                radius = 40
-                explored_disk = torch.from_numpy(skimage.morphology.disk(radius))
+                r = self.explored_disk_radius
+                explored_disk = torch.from_numpy(
+                    skimage.morphology.disk(r)
+                )
                 current_map[
-                    e, 1, y - radius : y + radius + 1, x - radius : x + radius + 1
+                    e, 1, y - r : y + r + 1, x - r : x + r + 1
                 ][explored_disk == 1] = 1
             except IndexError:
                 pass
