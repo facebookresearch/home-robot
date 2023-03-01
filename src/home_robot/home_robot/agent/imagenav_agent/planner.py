@@ -11,14 +11,7 @@ import numpy as np
 from numpy import ma
 
 import home_robot.utils.pose as pu
-
-
-# Same enum as HabitatSimActions without Habitat dependency
-class DiscreteActions(Enum):
-    stop = 0
-    move_forward = 1
-    turn_left = 2
-    turn_right = 3
+from home_robot.core.interfaces import DiscreteNavigationAction
 
 
 class FMMPlanner:
@@ -310,7 +303,7 @@ class DiscretePlanner:
             start[0] - 0 : start[0] + 1, start[1] - 0 : start[1] + 1
         ] = 1
 
-        if self.last_action == DiscreteActions.move_forward:
+        if self.last_action == DiscreteNavigationAction.MOVE_FORWARD:
             self._check_collision()
 
         (
@@ -323,7 +316,7 @@ class DiscretePlanner:
 
         # Short-term goal -> deterministic local policy
         if stop and found_goal:
-            action = DiscreteActions.stop
+            action = DiscreteNavigationAction.STOP
         else:
             stg_x, stg_y = short_term_goal
             angle_st_goal = math.degrees(math.atan2(stg_x - start[0], stg_y - start[1]))
@@ -336,11 +329,11 @@ class DiscretePlanner:
                 relative_angle -= 360
 
             if relative_angle > self.turn_angle / 2.0:
-                action = DiscreteActions.turn_right
+                action = DiscreteNavigationAction.TURN_RIGHT
             elif relative_angle < -self.turn_angle / 2.0:
-                action = DiscreteActions.turn_left
+                action = DiscreteNavigationAction.TURN_LEFT
             else:
-                action = DiscreteActions.move_forward
+                action = DiscreteNavigationAction.MOVE_FORWARD
 
         self.last_action = action
         return action, closest_goal_map
