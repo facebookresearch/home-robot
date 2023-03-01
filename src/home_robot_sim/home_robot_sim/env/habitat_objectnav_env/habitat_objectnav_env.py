@@ -81,7 +81,7 @@ class HabitatObjectNavEnv(HabitatEnv):
             rgb=habitat_obs["rgb"],
             depth=depth,
             compass=habitat_obs["compass"],
-            gps=habitat_obs["gps"],
+            gps=self._preprocess_xy(habitat_obs["gps"]),
             task_observations={
                 "goal_id": goal_id,
                 "goal_name": goal_name,

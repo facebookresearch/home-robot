@@ -15,7 +15,10 @@ class DiffDriveVelocityController(abc.ABC):
     """
 
     @abc.abstractmethod
-    def __call__(self, xyt_err) -> Tuple[float, float]:
+    def __call__(self, xyt_err: np.ndarray) -> Tuple[float, float, bool]:
+        """Contain execution logic, predict velocities for the left and right wheels. Expected to
+        return true/false if we have reached this goal and the controller will be moving no
+        farther."""
         pass
 
 
@@ -61,8 +64,9 @@ class DDVelocityControlNoplan(DiffDriveVelocityController):
                 / (np.sin(heading_diff) + heading_diff * np.cos(heading_diff) + 1e-5)
             )
 
-    def __call__(self, xyt_err):
+    def __call__(self, xyt_err: np.ndarray) -> Tuple[float, float, bool]:
         v_cmd = w_cmd = 0
+        done = True
 
         # Compute errors
         lin_err_abs = np.linalg.norm(xyt_err[0:2])
@@ -88,6 +92,7 @@ class DDVelocityControlNoplan(DiffDriveVelocityController):
             w_cmd = self._velocity_feedback_control(
                 heading_err, self.cfg.acc_ang, self.cfg.w_max
             )
+            done = False
 
         # Rotate to correct yaw if XY position is at goal
         elif abs(ang_err) > self.cfg.ang_error_tol:
@@ -95,5 +100,6 @@ class DDVelocityControlNoplan(DiffDriveVelocityController):
             w_cmd = self._velocity_feedback_control(
                 ang_err, self.cfg.acc_ang, self.cfg.w_max
             )
+            done = False
 
-        return v_cmd, w_cmd
+        return v_cmd, w_cmd, done
