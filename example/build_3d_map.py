@@ -13,7 +13,7 @@ import rospy
 import trimesh
 import trimesh.transformations as tra
 
-from home_robot.agent.motion.stretch import HelloStretch, STRETCH_NAVIGATION_Q
+from home_robot.motion.stretch import HelloStretch, STRETCH_NAVIGATION_Q
 from home_robot.utils.point_cloud import (
     numpy_to_pcd,
     pcd_to_numpy,
@@ -23,7 +23,9 @@ from home_robot.utils.pose import to_pos_quat
 from home_robot_hw.env.stretch_grasping_env import StretchGraspingEnv
 
 
-def combine_point_clouds(pc_xyz: np.ndarray, pc_rgb: np.ndarray, xyz: np.ndarray, rgb: np.ndarray) -> np.ndarray:
+def combine_point_clouds(
+    pc_xyz: np.ndarray, pc_rgb: np.ndarray, xyz: np.ndarray, rgb: np.ndarray
+) -> np.ndarray:
     """Tool to combine point clouds without duplicates. Concatenate, voxelize, and then return
     the finished results."""
     if pc_rgb is None:
@@ -65,7 +67,7 @@ class RosMapDataCollector(object):
         rgb = rgb.reshape(-1, 3)
         cam_xyz = xyz.reshape(-1, 3)
         xyz = trimesh.transform_points(cam_xyz, camera_pose)
-        valid_depth = np.bitwise_and(depth > 0.1, depth < 4.)
+        valid_depth = np.bitwise_and(depth > 0.1, depth < 4.0)
         rgb = rgb[valid_depth, :]
         xyz = xyz[valid_depth, :]
         # TODO: remove debug code
@@ -86,30 +88,56 @@ class RosMapDataCollector(object):
 
         # Visualize point clloud + origin
         show_point_cloud(pc_xyz, pc_rgb / 255, orig=np.zeros(3))
+        return pc_xyz, pc_rgb
 
 
 @click.command()
 @click.option("--rate", default=5, type=int)
-@click.option("--max-frames", default=5, type=int)
+@click.option("--max-frames", default=20, type=int)
 @click.option("--visualize", default=False, is_flag=True)
-def main(rate, max_frames, visualize):
+@click.option("--manual_wait", default=False, is_flag=True)
+@click.option("--pcd-filename", default="output.ply", type=str)
+def main(rate, max_frames, visualize, manual_wait, pcd_filename):
     rospy.init_node("build_3d_map")
     env = StretchGraspingEnv(segmentation_method=None)
     collector = RosMapDataCollector(env, visualize)
 
     # Tuck the arm away
+    print("Sending arm to  home...")
     env.goto(STRETCH_NAVIGATION_Q, wait=False)
+    print("... done.")
 
     rate = rospy.Rate(rate)
 
     # Move the robot
     # TODO: replace env with client
     if not env.in_navigation_mode():
+        print("Switch to navigation mode...")
         env.switch_to_navigation_mode()
     # Sequence information if we are executing the trajectory
     step = 0
     # Number of frames collected
     frames = 0
+
+    trajectory = [
+        (0, 0, 0),
+        (0.4, 0, 0),
+        (0.75, 0.15, np.pi / 4),
+        (0.85, 0.3, np.pi / 4),
+        (0.95, 0.5, np.pi / 2),
+        (1.0, 0.55, np.pi),
+        (0.6, 0.45, 9 * np.pi / 8),
+        (0.0, 0.3, -np.pi / 2),
+        (0, 0, 0),
+        (0.2, 0, 0),
+        (0.5, 0, 0),
+        (0.7, 0.2, np.pi / 4),
+        (0.7, 0.4, np.pi / 2),
+        (0.5, 0.4, np.pi),
+        (0.2, 0.2, -np.pi / 4),
+        (0, 0, - np.pi / 2),
+        (0, 0, 0),
+    ]
 
     collector.step()  # Append latest observations
     # print("Press ctrl+c to finish...")
@@ -118,32 +146,30 @@ def main(rate, max_frames, visualize):
         # Run until we control+C this script
 
         ti = (rospy.Time.now() - t0).to_sec()
-        print("t =", ti)
-        if step == 0:
-            env.navigate_to((0.25, 0, 0))
-        elif step == 1:
-            env.navigate_to((0.3, 0.2, np.pi / 4))
-        elif step == 2:
-            env.navigate_to((0.5, 0.5, np.pi / 2))
-        elif step == 3:
-            env.navigate_to((0.0, 0.3, -np.pi / 2))
-        elif step == 4:
-            env.navigate_to((0, 0, 0))
-            step = 2
+        print("t =", ti, trajectory[step])
+        env.navigate_to(trajectory[step], blocking=True)
+        print("... done navigating.")
+        if manual_wait:
+            input("... press enter ...")
+        print("... capturing frame!")
+        step += 1
 
-        input("press enter when ready")
         collector.step()  # Append latest observations
 
         frames += 1
-        step = frames % 5
-        if max_frames > 0 and frames >= max_frames:
+        if max_frames > 0 and frames >= max_frames or step >= len(trajectory):
             break
 
         rate.sleep()
 
     print("Done collecting data.")
     env.navigate_to((0, 0, 0))
-    collector.show()
+    pc_xyz, pc_rgb = collector.show()
+
+    # Create pointcloud
+    if len(pcd_filename) > 0:
+        pcd = numpy_to_pcd(pc_xyz, pc_rgb / 255)
+        open3d.io.write_point_cloud(pcd_filename, pcd)
 
 
 if __name__ == "__main__":

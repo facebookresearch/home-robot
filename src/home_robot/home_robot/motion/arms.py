@@ -4,7 +4,7 @@
 # LICENSE file in the root directory of this source tree.
 import pybullet as pb
 
-from home_robot.agent.motion.robot import Robot
+from home_robot.motion.robot import Robot
 
 DEFAULT_FRANKA_URDF = "assets/franka_panda/panda.urdf"
 DEFAULT_CALVIN_FRANKA_URDF = "assets/franka_panda/panda_calvin.urdf"
