@@ -35,6 +35,9 @@ class GotoVelocityControllerNode:
     Target goal is update-able at any given instant.
     """
 
+    # How long should the controller report done before we're actually confident that we're done?
+    done_t = rospy.Duration(1.0)
+
     def __init__(
         self,
         hz: float,
@@ -55,6 +58,8 @@ class GotoVelocityControllerNode:
 
         self.active = False
         self.is_done = True
+        self.controller_finished = True
+        self.done_since = rospy.Time(0)
         self.track_yaw = True
 
         # Visualizations
@@ -92,6 +97,7 @@ class GotoVelocityControllerNode:
             self.xyt_goal = self.controller.xyt_goal
 
             self.is_done = False
+            self.controller_finished = False
 
             # Visualize
             self.goal_visualizer(pose_goal.matrix())
@@ -141,13 +147,21 @@ class GotoVelocityControllerNode:
         while not rospy.is_shutdown():
             if self.active and self.xyt_goal is not None:
                 # Compute control
+                self.is_done = False
                 v_cmd, w_cmd = self.controller.compute_control()
                 done = self.controller.is_done()
 
                 # Check if actually done (velocity = 0)
                 if done and self.vel_odom is not None:
                     if self.vel_odom[0] < VEL_THRESHOlD and self.vel_odom[1] < RVEL_THRESHOLD:
-                        self.is_done = True
+                        if not self.controller_finished:
+                            self.controller_finished = True
+                            self.done_since = rospy.Time.now()
+                        elif self.controller_finished and (rospy.Time.now() - self.done_since) > self.done_t:
+                            self.is_done = True
+                    else:
+                        self.controller_finished = False
+                        self.done_since = rospy.Time(0)
 
                 # Command robot
                 self._set_velocity(v_cmd, w_cmd)
