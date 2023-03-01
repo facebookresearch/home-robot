@@ -100,7 +100,9 @@ def main(rate, max_frames, visualize):
     collector = RosMapDataCollector(env, visualize)
 
     # Tuck the arm away
+    print("Sending arm to  home...")
     env.goto(STRETCH_NAVIGATION_Q, wait=False)
+    print("Done. Switch to navigation mode...")
 
     rate = rospy.Rate(rate)
 
@@ -120,7 +122,7 @@ def main(rate, max_frames, visualize):
         (0.85, 0.3, np.pi / 4),
         (0.95, 0.5, np.pi / 2),
         (1.0, 0.55, np.pi),
-        (0.6, 0.3, 5 * np.pi / 8),
+        (0.6, 0.3, -np.pi / 8),
         (0.0, 0.3, -np.pi / 2),
         (0, 0, 0),
         (0.2, 0, 0),
@@ -128,7 +130,7 @@ def main(rate, max_frames, visualize):
         (0.7, 0.2, np.pi / 4),
         (0.7, 0.4, np.pi / 2),
         (0.5, 0.4, np.pi),
-        (0.2, 0.2, 5 * np.pi / 8),
+        (0.2, 0.2, -np.pi / 4),
         (0, 0, - np.pi / 2),
         (0, 0, 0),
     ]
@@ -142,9 +144,9 @@ def main(rate, max_frames, visualize):
         ti = (rospy.Time.now() - t0).to_sec()
         print("t =", ti)
         env.navigate_to(trajectory[step], blocking=True)
-        print("DONE NAVIGATING")
-        rospy.sleep(10.0)
-        print("CAPTURING FRAME")
+        print("... done navigating.")
+        # input("... press enter ...")
+        print("... capturing frame!")
         step += 1
 
         collector.step()  # Append latest observations
