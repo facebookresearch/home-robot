@@ -64,7 +64,7 @@ class DDVelocityControlNoplan(DiffDriveVelocityController):
                 / (np.sin(heading_diff) + heading_diff * np.cos(heading_diff) + 1e-5)
             )
 
-    def __call__(self, xyt_err):
+    def __call__(self, xyt_err: np.ndarray) -> Tuple[float, float, bool]:
         v_cmd = w_cmd = 0
         done = True
 
