@@ -123,7 +123,7 @@ def main(rate, max_frames, visualize, manual_wait):
         (0.85, 0.3, np.pi / 4),
         (0.95, 0.5, np.pi / 2),
         (1.0, 0.55, np.pi),
-        (0.6, 0.45, 5 * np.pi / 8),
+        (0.6, 0.45, 9 * np.pi / 8),
         (0.0, 0.3, -np.pi / 2),
         (0, 0, 0),
         #(0.2, 0, 0),
