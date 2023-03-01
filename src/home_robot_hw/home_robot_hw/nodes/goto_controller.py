@@ -36,7 +36,7 @@ class GotoVelocityControllerNode:
     """
 
     # How long should the controller report done before we're actually confident that we're done?
-    done_t = rospy.Duration(1.0)
+    done_t = rospy.Duration(0.5)
 
     def __init__(
         self,
@@ -175,7 +175,7 @@ class GotoVelocityControllerNode:
         rospy.init_node("goto_controller")
 
         self.vel_command_pub = rospy.Publisher("stretch/cmd_vel", Twist, queue_size=1)
-        self.at_goal_pub = rospy.Publisher("stretch/at_goal", Bool, queue_size=1)
+        self.at_goal_pub = rospy.Publisher("goto_controller/at_goal", Bool, queue_size=1)
 
         rospy.Subscriber(
             "state_estimator/pose_filtered",
