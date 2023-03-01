@@ -66,6 +66,17 @@ STRETCH_NAVIGATION_Q = np.array(
         -np.pi / 4,
     ]
 )
+PIN_CONTROLLED_JOINTS = [
+    # "base_x_joint",
+    "joint_lift",
+    "joint_arm_l0",
+    "joint_arm_l1",
+    "joint_arm_l2",
+    "joint_arm_l3",
+    "joint_wrist_yaw",
+    "joint_wrist_pitch",
+    "joint_wrist_roll",
+]
 
 
 # This is the gripper, and the distance in the gripper frame to where the fingers will roughly meet

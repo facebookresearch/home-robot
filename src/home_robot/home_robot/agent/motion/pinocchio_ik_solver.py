@@ -3,7 +3,6 @@ from typing import Callable, List, Tuple
 
 import numpy as np
 import pinocchio
-import rospkg
 from scipy.spatial.transform import Rotation as R
 
 # --DEFAULTS--
@@ -15,26 +14,6 @@ ORI_ERROR_TOL = [0.1, 0.1, np.pi / 2]
 CEM_MAX_ITERATIONS = 5
 CEM_NUM_SAMPLES = 50
 CEM_NUM_TOP = 10
-
-# URDF
-r = rospkg.RosPack()
-pkg_path = r.get_path("home_robot_hw")
-REL_URDF_DIR = os.path.join(pkg_path, "assets/hab_stretch/urdf")
-URDF_NAME = "planner_calibrated_simplified.urdf"
-URDF_PATH = os.path.join(REL_URDF_DIR, URDF_NAME)
-
-EE_NAME = "link_straight_gripper"
-PIN_CONTROLLED_JOINTS = [
-    # "base_x_joint",
-    "joint_lift",
-    "joint_arm_l0",
-    "joint_arm_l1",
-    "joint_arm_l2",
-    "joint_arm_l3",
-    "joint_wrist_yaw",
-    "joint_wrist_pitch",
-    "joint_wrist_roll",
-]
 
 
 class PinocchioIKSolver:
