@@ -73,7 +73,7 @@ superglue:
   sinkhorn_iterations: 20
   match_threshold: 0.2
   score_function: confidence_sum    # or match_count
-  score_thresh: 10 # 24.5
+  score_thresh: 6 # 24.5
   match_projection_threshold: 0.2   # confidence must be at least this high to project as goal point.
 exp_name: debug
 num_environments: 1
