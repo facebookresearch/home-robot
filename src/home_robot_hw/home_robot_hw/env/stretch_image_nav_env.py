@@ -7,6 +7,7 @@ from omegaconf import DictConfig
 import rospy
 
 import home_robot
+from home_robot.motion.stretch import STRETCH_HOME_Q
 from home_robot.core.interfaces import Action, DiscreteNavigationAction, Observations
 from home_robot.utils.geometry import xyt2sophus, xyt_base_to_global
 from home_robot_hw.env.stretch_abstract_env import StretchEnv
@@ -37,6 +38,7 @@ class StretchImageNavEnv(StretchEnv):
 
     def reset(self):
         self._episode_start_pose = xyt2sophus(self.get_base_pose())
+        self.goto(STRETCH_HOME_Q)
 
     def apply_action(self, action: Action):
         continuous_action = np.zeros(3)
