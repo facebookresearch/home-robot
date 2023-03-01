@@ -106,11 +106,20 @@ class StretchObjectNavEnv(StretchEnv):
         theta = euler_angles[-1]
         # pos, vel, frc = self.get_joint_state()
 
+        # GPS in robot coordinates
+        # TODO: this should actually be correct as-is
+        # TODO: t his is the correct version
+        # gps = relative_pose.translation()[:2]
+        relative_trans = relative_pose.translation()
+        # TODO: move into its own function
+        # Invert the Y coordinate to make +y right, consistent with habitat
+        gps = np.array([relative_trans[0], -relative_trans[1]])
+
         # Create the observation
         obs = home_robot.core.interfaces.Observations(
             rgb=rgb.copy(),
             depth=depth.copy(),
-            gps=relative_pose.translation()[:2],
+            gps=gps,
             compass=np.array([theta]),
             # base_pose=sophus2obs(relative_pose),
             task_observations={

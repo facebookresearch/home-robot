@@ -565,7 +565,7 @@ class StretchEnv(home_robot.core.abstract_env.Env):
 
         # Compute absolute goal
         if relative:
-            xyt_base = sophus2xyt(self._t_base_odom)
+            xyt_base = sophus2xyt(self._t_base_filtered)
             xyt_goal = xyt_base_to_global(xyt, xyt_base)
         else:
             xyt_goal = xyt
