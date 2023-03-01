@@ -90,6 +90,7 @@ class RosMapDataCollector(object):
         show_point_cloud(pc_xyz, pc_rgb / 255, orig=np.zeros(3))
         return pc_xyz, pc_rgb
 
+
 @click.command()
 @click.option("--rate", default=5, type=int)
 @click.option("--max-frames", default=20, type=int)
