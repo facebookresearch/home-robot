@@ -264,7 +264,7 @@ class StretchEnv(home_robot.core.abstract_env.Env):
         self.curr_visualizer = Visualizer("current_pose", rgba=[0., 0., 1., 0.5])
 
         self._at_goal_sub = rospy.Subscriber(
-            "stretch/at_goal",
+            "goto_controller/at_goal",
             Bool,
             self._at_goal_callback,
             queue_size=10)
