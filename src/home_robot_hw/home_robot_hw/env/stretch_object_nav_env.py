@@ -51,6 +51,8 @@ class StretchObjectNavEnv(StretchEnv):
             self.visualizer.reset()
 
     def apply_action(self, action: Action, info: Optional[Dict[str, Any]] = None):
+        """Discrete action space. make predictions for where the robot should go, move by a fixed
+        amount forward or rotationally."""
         if self.visualizer is not None:
             self.visualizer.visualize(**info)
         continuous_action = np.zeros(3)
@@ -73,11 +75,9 @@ class StretchObjectNavEnv(StretchEnv):
         if continuous_action is not None:
             if not self.in_navigation_mode():
                 self.switch_to_navigation_mode()
-            self.navigate_to(continuous_action, relative=True)
-        print("-------")
-        print(action)
-        print(continuous_action)
-        rospy.sleep(5.0)
+                rospy.sleep(self.msg_delay_t)
+            self.navigate_to(continuous_action, relative=True, blocking=True)
+        rospy.sleep(0.5)
 
     def set_goal(self, goal):
         """set a goal as a string"""
@@ -106,11 +106,14 @@ class StretchObjectNavEnv(StretchEnv):
         theta = euler_angles[-1]
         # pos, vel, frc = self.get_joint_state()
 
+        # GPS in robot coordinates
+        gps = relative_pose.translation()[:2]
+
         # Create the observation
         obs = home_robot.core.interfaces.Observations(
             rgb=rgb.copy(),
             depth=depth.copy(),
-            gps=relative_pose.translation()[:2],
+            gps=gps,
             compass=np.array([theta]),
             # base_pose=sophus2obs(relative_pose),
             task_observations={

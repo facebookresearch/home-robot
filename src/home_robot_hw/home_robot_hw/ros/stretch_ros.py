@@ -20,7 +20,7 @@ from std_msgs.msg import String
 from std_srvs.srv import Trigger
 from trajectory_msgs.msg import JointTrajectoryPoint
 
-from home_robot.agent.motion.stretch import (
+from home_robot.motion.stretch import (
     STRETCH_HOME_Q,
     HelloStretch,
     HelloStretchIdx,

@@ -243,6 +243,8 @@ class ObjectNavAgent(Agent):
         return action, info
 
     def _preprocess_obs(self, obs: Observations):
+        """Take a home-robot observation, preprocess it to put it into the correct format for the
+        semantic map."""
         rgb = torch.from_numpy(obs.rgb).to(self.device)
         depth = (
             torch.from_numpy(obs.depth).unsqueeze(-1).to(self.device) * 100.0
@@ -251,11 +253,7 @@ class ObjectNavAgent(Agent):
         obs_preprocessed = torch.cat([rgb, depth, semantic], dim=-1).unsqueeze(0)
         obs_preprocessed = obs_preprocessed.permute(0, 3, 1, 2)
 
-        curr_pose = np.array([obs.gps[0], -obs.gps[1], obs.compass[0]])
-        """
-        curr_pose = obs2xyt(obs.base_pose)
-        curr_pose[1] = -curr_pose[1]  # agent y axis is flipped, not sure why
-        """
+        curr_pose = np.array([obs.gps[0], obs.gps[1], obs.compass[0]])
         pose_delta = torch.tensor(
             pu.get_rel_pose_change(curr_pose, self.last_poses[0])
         ).unsqueeze(0)

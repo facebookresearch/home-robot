@@ -6,7 +6,7 @@
 import rospy
 import tf
 from geometry_msgs.msg import PoseStamped
-from home_robot.agent.motion.stretch import STRETCH_CAMERA_FRAME, STRETCH_BASE_FRAME
+from home_robot.motion.stretch import STRETCH_CAMERA_FRAME, STRETCH_BASE_FRAME
 from home_robot.utils.pose import to_matrix
 from home_robot_hw.ros.utils import matrix_to_pose_msg
 
@@ -15,7 +15,7 @@ class CameraPosePublisher(object):
     """ publishes the camera pose constantly so that we do not have a dependency on /tf"""
 
     def __init__(self, topic_name="camera_pose"):
-        self._pub = rospy.Publisher(topic_name, PoseStamped)
+        self._pub = rospy.Publisher(topic_name, PoseStamped, queue_size=10)
         self._listener = tf.TransformListener()
         self._seq = 0
 
