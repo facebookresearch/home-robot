@@ -534,6 +534,17 @@ class StretchEnv(home_robot.core.abstract_env.Env):
         msg.angular.z = w
         self._velocity_pub.publish(msg)
 
+    def recent_depth_image(self, seconds):
+        """Return true if we have up to date depth."""
+        print("depth t =", self.dpt_cam.get_time())
+        print("now =", rospy.Time.now())
+        print("goal_t =", self._goal_reset_t)
+        if self._goal_reset_t is not None and (rospy.Time.now() - self._goal_reset_t).to_sec() > self.msg_delay_t:
+            return (self.dpt_cam.get_time() - self._goal_reset_t).to_sec() > seconds
+        else:
+            return False
+        # return (rospy.Time.now() - self.dpt_cam.get_time()).to_sec() < seconds
+
     def navigate_to(
         self,
         xyt: Iterable[float],
@@ -575,7 +586,7 @@ class StretchEnv(home_robot.core.abstract_env.Env):
             rospy.sleep(self.msg_delay_t)
             rate = rospy.Rate(10)
             while not rospy.is_shutdown():
-                if self.at_goal():
+                if self.at_goal() and self.recent_depth_image(0.5 * self.msg_delay_t):
                     break
                 else:
                     rate.sleep()
