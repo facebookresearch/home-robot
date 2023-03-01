@@ -95,7 +95,7 @@ class StretchEnv(home_robot.core.abstract_env.Env):
     dist_tol = 1e-4
     theta_tol = 1e-3
     wait_time_step = 1e-3
-    msg_delay_t = 0.1
+    msg_delay_t = 0.25
 
     base_link = "base_link"
     odom_link = "map"
@@ -156,11 +156,15 @@ class StretchEnv(home_robot.core.abstract_env.Env):
 
     def at_goal(self) -> bool:
         """Returns true if the agent is currently at its goal location"""
-        return self._at_goal
+        if self._goal_reset_t is not None and (rospy.Time.now() - self._goal_reset_t).to_sec() > self.msg_delay_t:
+            return self._at_goal
+        else:
+            return False
 
     def _at_goal_callback(self, msg):
         """Is the velocity controller done moving; is it at its goal?"""
         self._at_goal = msg.data
+        self._goal_reset_t = rospy.Time.now()
 
     def _mode_callback(self, msg):
         """get position or navigation mode from stretch ros"""
@@ -426,8 +430,11 @@ class StretchEnv(home_robot.core.abstract_env.Env):
 
     def switch_to_navigation_mode(self):
         """switch stretch to navigation control"""
+        print("nav mode")
         result1 = self._nav_mode_service(TriggerRequest())
+        print("goto on")
         result2 = self._goto_on_service(TriggerRequest())
+        print("done srv")
 
         # Switch interface mode & print messages
         self._base_control_mode = ControlMode.NAVIGATION
@@ -555,7 +562,7 @@ class StretchEnv(home_robot.core.abstract_env.Env):
 
         # Clear self.at_goal
         self._at_goal = False
-        self._goal_reset_t = rospy.Time.now()
+        self._goal_reset_t = None
 
         # Set goal
         goal_matrix = xyt2sophus(xyt_goal).matrix()
@@ -564,15 +571,17 @@ class StretchEnv(home_robot.core.abstract_env.Env):
         self._goal_pub.publish(msg)
 
         if blocking:
+            print("----- blocking -----")
             rospy.sleep(self.msg_delay_t)
             rate = rospy.Rate(10)
             while not rospy.is_shutdown():
-                if self._at_goal:
+                print(self.at_goal())
+                if self.at_goal():
                     break
                 else:
                     rate.sleep()
             # TODO: this should be unnecessary
-            rospy.sleep(self.msg_delay_t * 10)
+            rospy.sleep(self.msg_delay_t * 5)
 
     @abstractmethod
     def reset(self):

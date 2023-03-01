@@ -94,7 +94,8 @@ class RosMapDataCollector(object):
 @click.option("--rate", default=5, type=int)
 @click.option("--max-frames", default=20, type=int)
 @click.option("--visualize", default=False, is_flag=True)
-def main(rate, max_frames, visualize):
+@click.option("--manual_wait", default=False, is_flag=True)
+def main(rate, max_frames, visualize, manual_wait):
     rospy.init_node("build_3d_map")
     env = StretchGraspingEnv(segmentation_method=None)
     collector = RosMapDataCollector(env, visualize)
@@ -122,17 +123,17 @@ def main(rate, max_frames, visualize):
         (0.85, 0.3, np.pi / 4),
         (0.95, 0.5, np.pi / 2),
         (1.0, 0.55, np.pi),
-        (0.6, 0.3, -np.pi / 8),
+        (0.6, 0.45, 5 * np.pi / 8),
         (0.0, 0.3, -np.pi / 2),
         (0, 0, 0),
-        (0.2, 0, 0),
-        (0.5, 0, 0),
-        (0.7, 0.2, np.pi / 4),
-        (0.7, 0.4, np.pi / 2),
-        (0.5, 0.4, np.pi),
-        (0.2, 0.2, -np.pi / 4),
-        (0, 0, - np.pi / 2),
-        (0, 0, 0),
+        #(0.2, 0, 0),
+        #(0.5, 0, 0),
+        #(0.7, 0.2, np.pi / 4),
+        #(0.7, 0.4, np.pi / 2),
+        #(0.5, 0.4, np.pi),
+        #(0.2, 0.2, -np.pi / 4),
+        #(0, 0, - np.pi / 2),
+        #(0, 0, 0),
     ]
 
     collector.step()  # Append latest observations
@@ -142,10 +143,11 @@ def main(rate, max_frames, visualize):
         # Run until we control+C this script
 
         ti = (rospy.Time.now() - t0).to_sec()
-        print("t =", ti)
+        print("t =", ti, trajectory[step])
         env.navigate_to(trajectory[step], blocking=True)
         print("... done navigating.")
-        # input("... press enter ...")
+        if manual_wait:
+            input("... press enter ...")
         print("... capturing frame!")
         step += 1
 
