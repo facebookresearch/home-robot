@@ -12,16 +12,7 @@ import torch
 import torch.nn as nn
 import wandb
 import yaml
-from data_tools.point_cloud import get_pcd, show_pcd, show_point_cloud
-from home_robot.datasets.rlbench_loader import RLBenchDataset
-from home_robot.datasets.robopen_loader import (
-    RoboPenDataset,
-    show_point_cloud_with_keypt_and_closest_pt,
-)
-
-# Perceiver networks
-from home_robot.policy.attention import Attention
-from home_robot.policy.components import PositionalEncoding, SAModule
+from home_robot.utils.point_cloud import numpy_to_pcd, show_pcd, show_point_cloud
 from perceiver_pytorch.perceiver_io import (
     FeedForward,
     PreNorm,
@@ -32,11 +23,23 @@ from perceiver_pytorch.perceiver_io import (
 from torch_geometric.nn import MLP, Linear, PointConv, radius
 from tqdm import tqdm
 
+from slap_manipulation.dataloaders.rlbench_loader import RLBenchDataset
+from slap_manipulation.dataloaders.robot_loader import (
+    RobotDataset,
+    show_point_cloud_with_keypt_and_closest_pt,
+)
+
 # Optimizer from ARM
 from slap_manipulation.optim.lamb import Lamb
 
 # Network blocks from ARM
-from slap_manipulation.policy.components import DenseBlock
+# Perceiver networks
+from slap_manipulation.policy.components import (
+    Attention,
+    DenseBlock,
+    PositionalEncoding,
+    SAModule,
+)
 
 np.random.seed(0)
 torch.manual_seed(0)
@@ -376,11 +379,14 @@ class IPModule(torch.nn.Module):
         return best_val_loss, False
 
     def _preprocess_input(self, xyz, rgb):
-        pcd = get_pcd(xyz.detach().cpu().numpy(), rgb.detach().cpu().numpy())
+        pcd = numpy_to_pcd(xyz.detach().cpu().numpy(), rgb.detach().cpu().numpy())
         downpcd = pcd.voxel_down_sample(voxel_size=self._voxel_size)
         down_xyz = torch.Tensor(np.asarray(downpcd.points)).to(self.device)
         down_rgb = torch.Tensor(np.asarray(downpcd.colors)).to(self.device)
         return down_xyz, down_rgb
+
+    def eval(self, data):
+        return None
 
     def predict(self, feat, xyz, lang):
         """
@@ -421,7 +427,7 @@ class IPModule(torch.nn.Module):
     ):
         if torch.any(rgb) > 1:
             rgb = rgb / 255.0
-        pcd = get_pcd(xyz.detach().cpu().numpy(), rgb.detach().cpu().numpy())
+        pcd = numpy_to_pcd(xyz.detach().cpu().numpy(), rgb.detach().cpu().numpy())
         geoms = [pcd]
         closest_pt_sphere = o3d.geometry.TriangleMesh.create_sphere(radius=0.02)
         closest_pt_sphere.translate(pred_pos)
