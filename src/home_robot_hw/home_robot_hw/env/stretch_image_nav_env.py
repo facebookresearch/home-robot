@@ -59,10 +59,6 @@ class StretchImageNavEnv(StretchEnv):
         if not self.in_navigation_mode():
             self.switch_to_navigation_mode()
         self.navigate_to(continuous_action, relative=True, blocking=True)
-        print("-------")
-        print(action)
-        print(continuous_action)
-        rospy.sleep(5.0)
 
     def get_observation(self) -> Observations:
         """Get Detic and rgb/xyz/theta from this"""

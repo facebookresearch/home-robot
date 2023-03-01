@@ -30,7 +30,6 @@ if __name__ == "__main__":
         obs = env.get_observation()
         action = agent.act(obs)
         env.apply_action(action)
-        input("press enter for next action")
     
     record_video(
         target_dir=f"{config.dump_location}/videos/{config.exp_name}",
