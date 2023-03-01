@@ -83,4 +83,4 @@ generate_videos: True
 frame_width: 240
 frame_height: 320
 preprojection_kp_dilation: 4        # KP-based loc: how much to dilate keypoints prior to projection and aggregation
-stretch_goal_image_path: "image_goals/plant0.png"  # path to the goal image to be used in physical stretch operation
+stretch_goal_image_path: "image_goals/plant1.png"  # path to the goal image to be used in physical stretch operation
