@@ -19,11 +19,6 @@ if __name__ == "__main__":
     agent = ObjectNavAgent(config=config)
     env = StretchObjectNavEnv(config=config)
     env.goto(STRETCH_HOME_Q)
-    
-    print()
-    print("==============")
-    env.switch_to_navigation_mode()
-    print("==============")
 
     agent.reset()
     env.reset()
@@ -35,6 +30,5 @@ if __name__ == "__main__":
         obs = env.get_observation()
         action, info = agent.act(obs)
         env.apply_action(action, info=info)
-        input("press enter for next action")
 
     print(env.get_episode_metrics())
