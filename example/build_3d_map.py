@@ -10,8 +10,10 @@ import click
 import numpy as np
 import open3d
 import rospy
+import trimesh
+import trimesh.transformations as tra
 
-from home_robot.agent.motion.stretch import STRETCH_PREGRASP_Q, HelloStretchIdx
+from home_robot.agent.motion.stretch import HelloStretch, STRETCH_NAVIGATION_Q
 from home_robot.utils.point_cloud import (
     numpy_to_pcd,
     pcd_to_numpy,
@@ -27,9 +29,9 @@ def combine_point_clouds(pc_xyz: np.ndarray, pc_rgb: np.ndarray, xyz: np.ndarray
     if pc_rgb is None:
         pc_rgb, pc_xyz = rgb, xyz
     else:
-        np.concatenate([pc_rgb, rgb], axis=0)
-        np.concatenate([pc_xyz, xyz], axis=0)
-    pcd = numpy_to_pcd(xyz, rgb).voxel_down_sample(voxel_size=0.05)
+        pc_rgb = np.concatenate([pc_rgb, rgb], axis=0)
+        pc_xyz = np.concatenate([pc_xyz, xyz], axis=0)
+    pcd = numpy_to_pcd(pc_xyz, pc_rgb).voxel_down_sample(voxel_size=0.01)
     return pcd_to_numpy(pcd)
 
 
@@ -45,24 +47,30 @@ class RosMapDataCollector(object):
     This is an example collecting the data; not necessarily the way you should do it.
     """
 
-    def __init__(self, env):
+    def __init__(self, env, visualize_planner=False):
         self.env = env  # Get the connection to the ROS environment via agent
         self.observations = []
         self.started = False
+        self.robot_model = HelloStretch(visualize=visualize_planner)
 
     def step(self):
         """Step the collector. Get a single observation of the world. Remove bad points, such as
         those from too far or too near the camera."""
-        rgb, depth, xyz = self.env.get_images(compute_xyz=True)
+        rgb, depth, xyz = self.env.get_images(compute_xyz=True, rotate_images=False)
         q, dq = self.env.update()
+        camera_pose = self.env.get_camera_pose_matrix(rotated=False)
 
         # apply depth filter
         depth = depth.reshape(-1)
         rgb = rgb.reshape(-1, 3)
-        xyz = xyz.reshape(-1, 3)
+        cam_xyz = xyz.reshape(-1, 3)
+        xyz = trimesh.transform_points(cam_xyz, camera_pose)
         valid_depth = np.bitwise_and(depth > 0.1, depth < 4.)
         rgb = rgb[valid_depth, :]
         xyz = xyz[valid_depth, :]
+        # TODO: remove debug code
+        # For now you can use this to visualize a single frame
+        # show_point_cloud(xyz, rgb / 255, orig=np.zeros(3))
         self.observations.append((rgb, xyz, q, dq))
 
     def show(self):
@@ -76,30 +84,65 @@ class RosMapDataCollector(object):
             xyz = obs[1]
             pc_xyz, pc_rgb = combine_point_clouds(pc_xyz, pc_rgb, xyz, rgb)
 
-        show_point_cloud(pc_xyz, pc_rgb / 255)
+        # Visualize point clloud + origin
+        show_point_cloud(pc_xyz, pc_rgb / 255, orig=np.zeros(3))
 
 
 @click.command()
-@click.option("--rate", default=1, type=int)
+@click.option("--rate", default=5, type=int)
 @click.option("--max-frames", default=5, type=int)
-def main(rate=10, max_frames=-1):
+@click.option("--visualize", default=False, is_flag=True)
+def main(rate, max_frames, visualize):
     rospy.init_node("build_3d_map")
     env = StretchGraspingEnv(segmentation_method=None)
-    collector = RosMapDataCollector(env)
+    collector = RosMapDataCollector(env, visualize)
+
+    # Tuck the arm away
+    env.goto(STRETCH_NAVIGATION_Q, wait=False)
 
     rate = rospy.Rate(rate)
-    print("Press ctrl+c to finish...")
+
+    # Move the robot
+    # TODO: replace env with client
+    if not env.in_navigation_mode():
+        env.switch_to_navigation_mode()
+    # Sequence information if we are executing the trajectory
+    step = 0
+    # Number of frames collected
     frames = 0
+
+    collector.step()  # Append latest observations
+    # print("Press ctrl+c to finish...")
+    t0 = rospy.Time.now()
     while not rospy.is_shutdown():
         # Run until we control+C this script
+
+        ti = (rospy.Time.now() - t0).to_sec()
+        print("t =", ti)
+        if step == 0:
+            env.navigate_to((0.25, 0, 0))
+        elif step == 1:
+            env.navigate_to((0.3, 0.2, np.pi / 4))
+        elif step == 2:
+            env.navigate_to((0.5, 0.5, np.pi / 2))
+        elif step == 3:
+            env.navigate_to((0.0, 0.3, -np.pi / 2))
+        elif step == 4:
+            env.navigate_to((0, 0, 0))
+            step = 2
+
+        input("press enter when ready")
         collector.step()  # Append latest observations
-        rate.sleep()
 
         frames += 1
+        step = frames % 5
         if max_frames > 0 and frames >= max_frames:
             break
 
+        rate.sleep()
+
     print("Done collecting data.")
+    env.navigate_to((0, 0, 0))
     collector.show()
 
 
