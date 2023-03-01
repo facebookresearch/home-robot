@@ -12,6 +12,7 @@ import rospy
 import sophus as sp
 from geometry_msgs.msg import Pose, PoseStamped, Twist
 from nav_msgs.msg import Odometry
+from std_msgs.msg import Bool
 from std_srvs.srv import SetBool, SetBoolResponse, Trigger, TriggerResponse, TriggerRequest
 
 from home_robot.control.goto_controller import GotoVelocityController
@@ -23,6 +24,9 @@ from home_robot_hw.ros.visualizer import Visualizer
 log = logging.getLogger(__name__)
 
 CONTROL_HZ = 20
+VEL_THRESHOlD = 0.001
+RVEL_THRESHOLD = 0.005
+
 
 
 class GotoVelocityControllerNode:
@@ -30,6 +34,9 @@ class GotoVelocityControllerNode:
     Self-contained controller module for moving a diff drive robot to a target goal.
     Target goal is update-able at any given instant.
     """
+
+    # How long should the controller report done before we're actually confident that we're done?
+    done_t = rospy.Duration(1.0)
 
     def __init__(
         self,
@@ -45,10 +52,14 @@ class GotoVelocityControllerNode:
         self.controller = GotoVelocityController(controller_cfg)
 
         # Initialize
+        self.vel_odom: Optional[np.ndarray] = None
         self.xyt_filtered: Optional[np.ndarray] = None
         self.xyt_goal: Optional[np.ndarray] = None
 
         self.active = False
+        self.is_done = True
+        self.controller_finished = True
+        self.done_since = rospy.Time(0)
         self.track_yaw = True
 
         # Visualizations
@@ -62,6 +73,7 @@ class GotoVelocityControllerNode:
 
     def _odom_update_callback(self, msg: Odometry):
         pose_sp = sp.SE3(matrix_from_pose_msg(msg.pose.pose))
+        self.vel_odom = np.array([msg.twist.twist.linear.x, msg.twist.twist.angular.z])
         if self.odom_only:
             self.controller.update_pose_feedback(sophus2xyt(pose_sp))
 
@@ -83,6 +95,9 @@ class GotoVelocityControllerNode:
 
             self.controller.update_goal(sophus2xyt(pose_goal))
             self.xyt_goal = self.controller.xyt_goal
+
+            self.is_done = False
+            self.controller_finished = False
 
             # Visualize
             self.goal_visualizer(pose_goal.matrix())
@@ -132,10 +147,25 @@ class GotoVelocityControllerNode:
         while not rospy.is_shutdown():
             if self.active and self.xyt_goal is not None:
                 # Compute control
+                self.is_done = False
                 v_cmd, w_cmd = self.controller.compute_control()
+                done = self.controller.is_done()
+
+                # Check if actually done (velocity = 0)
+                if done and self.vel_odom is not None:
+                    if self.vel_odom[0] < VEL_THRESHOlD and self.vel_odom[1] < RVEL_THRESHOLD:
+                        if not self.controller_finished:
+                            self.controller_finished = True
+                            self.done_since = rospy.Time.now()
+                        elif self.controller_finished and (rospy.Time.now() - self.done_since) > self.done_t:
+                            self.is_done = True
+                    else:
+                        self.controller_finished = False
+                        self.done_since = rospy.Time(0)
 
                 # Command robot
                 self._set_velocity(v_cmd, w_cmd)
+                self.at_goal_pub.publish(self.is_done)
 
             # Spin
             rate.sleep()
@@ -145,6 +175,7 @@ class GotoVelocityControllerNode:
         rospy.init_node("goto_controller")
 
         self.vel_command_pub = rospy.Publisher("stretch/cmd_vel", Twist, queue_size=1)
+        self.at_goal_pub = rospy.Publisher("goto_controller/at_goal", Bool, queue_size=1)
 
         rospy.Subscriber(
             "state_estimator/pose_filtered",

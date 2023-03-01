@@ -42,7 +42,7 @@ from interactive_markers.menu_handler import MenuHandler
 from tf.broadcaster import TransformBroadcaster
 from visualization_msgs.msg import *
 
-from home_robot.agent.motion.robot import (
+from home_robot.motion.robot import (
     PLANNER_STRETCH_URDF,
     STRETCH_GRASP_FRAME,
     STRETCH_GRASP_OFFSET,

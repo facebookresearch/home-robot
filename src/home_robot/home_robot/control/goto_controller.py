@@ -93,17 +93,21 @@ class GotoVelocityController:
 
         self.active = False
         self.track_yaw = True
+        self._is_done = False
 
     def update_pose_feedback(self, xyt_current: np.ndarray):
         self.xyt_loc = xyt_current
+        self._is_done = False
 
     def update_goal(self, xyt_goal: np.ndarray, relative: bool = False):
+        self._is_done = False
         if relative:
             self.xyt_goal = xyt_base_to_global(xyt_goal, self.xyt_loc)
         else:
             self.xyt_goal = xyt_goal
 
     def set_yaw_tracking(self, value: bool):
+        self._is_done = False
         self.track_yaw = value
 
     def _compute_error_pose(self):
@@ -118,11 +122,16 @@ class GotoVelocityController:
 
         return xyt_err
 
+    def is_done(self) -> bool:
+        """ Tell us if this is done and has reached its goal."""
+        return self._is_done
+
     def compute_control(self):
         # Get state estimation
         xyt_err = self._compute_error_pose()
 
         # Compute control
-        v_cmd, w_cmd = self.control(xyt_err)
+        v_cmd, w_cmd, done = self.control(xyt_err)
+        self._is_done = done
 
         return v_cmd, w_cmd
