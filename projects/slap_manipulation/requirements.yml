@@ -1,31 +1,23 @@
 channels:
   - conda-forge
   - default
+  - pytorch
 dependencies:
   - python=3.9
-  - torchaudio
-  - pytorch
+  - pytorch=1.12.1
+  - torchaudio=0.12.1
   - cudatoolkit=11.6
-  - torchvision
+  - torchvision=0.13.1
   - trimesh
   - h5py
   - imageio
-  - opencv
-  - seaborn
-  - flake8
-  - vulture
-  - pyright
-  - black
-  - isort
-  - ripgrep
   - pdbpp
-  - neovim
   - mypy
   - pylint
-  - json
   - pinocchio
   - cmake
   - pybind11
+  - pip
   - pip:
     - numpy <1.24 # certain deprecated operations were used in other deps
     - scipy
@@ -47,7 +39,5 @@ dependencies:
     - click
     # data tools
     - yacs
-    - h5py
-    - imageio
     - pygifsicle
 
