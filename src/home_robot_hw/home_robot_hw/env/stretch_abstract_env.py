@@ -96,6 +96,7 @@ class StretchEnv(home_robot.core.abstract_env.Env):
     theta_tol = 1e-3
     wait_time_step = 1e-3
     msg_delay_t = 0.25
+    block_spin_rate = 10
 
     base_link = "base_link"
     odom_link = "map"
@@ -582,14 +583,16 @@ class StretchEnv(home_robot.core.abstract_env.Env):
 
         if blocking:
             rospy.sleep(self.msg_delay_t)
-            rate = rospy.Rate(10)
+            rate = rospy.Rate(self.block_spin_rate)
             while not rospy.is_shutdown():
-                if self.at_goal() and self.recent_depth_image(0.5 * self.msg_delay_t):
+                # Verify that we are at goal and perception is synchronized with pose
+                if self.at_goal() and self.recent_depth_image(self.msg_delay_t):
                     break
                 else:
                     rate.sleep()
             # TODO: this should be unnecessary
-            rospy.sleep(self.msg_delay_t * 5)
+            # Make sure that depth and position are synchonized
+            # rospy.sleep(self.msg_delay_t * 5)
 
     @abstractmethod
     def reset(self):
