@@ -51,17 +51,14 @@ class StretchImageNavEnv(StretchEnv):
         elif action == DiscreteNavigationAction.TURN_LEFT:
             print("TURN LEFT")
             continuous_action[2] = self.rotate_step
+        elif action == DiscreteNavigationAction.STOP:
+            print("Done!")
         else:
-            # Do nothing if "stop"
-            # continuous_action = None
-            # if not self.in_manipulation_mode():
-            #     self.switch_to_manipulation_mode()
-            pass
+            raise RuntimeError("Action type not supported: " + str(action))
 
-        if continuous_action is not None:
-            if not self.in_navigation_mode():
-                self.switch_to_navigation_mode()
-            self.navigate_to(continuous_action, relative=True)
+        if not self.in_navigation_mode():
+            self.switch_to_navigation_mode()
+        self.navigate_to(continuous_action, relative=True, blocking=True)
         print("-------")
         print(action)
         print(continuous_action)
