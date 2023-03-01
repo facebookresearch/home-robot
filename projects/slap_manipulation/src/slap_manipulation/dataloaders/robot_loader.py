@@ -76,7 +76,7 @@ class RPHighLevelTrial(Trial):
         self.keypoints = idx
 
 
-class RoboPenDataset(RLBenchDataset):
+class RobotDataset(RLBenchDataset):
     """train on a dataset from RLBench"""
 
     def __init__(
@@ -550,7 +550,7 @@ def debug_get_datum(data_dir, k_index, split):
     with open(split, "r") as f:
         train_test_split = json.load(f)
     # debug_list = ["26_11_2022_18_40_48", "26_11_2022_18_43_08"]
-    loader = RoboPenDataset(
+    loader = RobotDataset(
         data_dir,
         num_pts=8000,
         data_augmentation=True,
@@ -586,7 +586,7 @@ def show_all_keypoints(data_dir, split, template):
     if split:
         with open(split, "r") as f:
             train_test_split = yaml.safe_load(f)
-    loader = RoboPenDataset(
+    loader = RobotDataset(
         data_dir,
         template=template,
         num_pts=8000,

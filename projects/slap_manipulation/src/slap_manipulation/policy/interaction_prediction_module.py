@@ -95,7 +95,7 @@ class SupervisedLocalityLoss(torch.nn.Module):
         return loss
 
 
-class QueryPointnet(torch.nn.Module):
+class IPModule(torch.nn.Module):
     """
     Query evaluator.
     This is modified based on our previous version of the code.
@@ -963,7 +963,7 @@ def main():
         drop_last=True,
     )
     # load the model
-    model = QueryPointnet(
+    model = IPModule(
         xent_loss=args.loss_fn == "xent",
         use_proprio=True,
         name=f"classify-{args.task_name}",
