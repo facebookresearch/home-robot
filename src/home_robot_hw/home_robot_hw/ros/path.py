@@ -5,9 +5,7 @@
 import os
 
 import rospkg
-import rospy
-
-from home_robot.agent.motion.stretch import PLANNER_STRETCH_URDF
+from home_robot.motion.stretch import PLANNER_STRETCH_URDF
 
 
 def get_package_path():
