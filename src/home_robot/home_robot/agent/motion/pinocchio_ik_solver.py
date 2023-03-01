@@ -64,6 +64,10 @@ class PinocchioIKSolver:
         """returns dof for the manipulation chain"""
         return len(self.controlled_joints)
 
+    def get_num_controllable_joints(self) -> int:
+        """returns number of controllable joints under this solver's purview"""
+        return len(self.controlled_joints)
+
     def _qmap_control2model(self, q_input: np.ndarray) -> np.ndarray:
         """returns a full joint configuration from a partial joint configuration"""
         q_out = self.q_neutral.copy()
@@ -92,11 +96,14 @@ class PinocchioIKSolver:
         return pos.copy(), quat.copy()
 
     def compute_ik(
-        self, pos: np.ndarray, quat: np.ndarray, max_iterations=100
+        self, pos: np.ndarray, quat: np.ndarray, q_init=None, max_iterations=100
     ) -> Tuple[np.ndarray, bool]:
         """given end-effector position and quaternion, return joint values"""
         i = 0
-        q = self.q_neutral.copy()
+        if q_init is None:
+            q = self.q_neutral.copy()
+        else:
+            q = self._qmap_control2model(q_init)
         desired_ee_pose = pinocchio.SE3(R.from_quat(quat).as_matrix(), pos)
         while True:
             pinocchio.forwardKinematics(self.model, self.data, q)
@@ -160,7 +167,7 @@ class PinocchioIKSolver:
 
             return cost, q
 
-        cost_opt, q_result = opt.optimize(
+        cost_opt, q_result, max_iter, opt_sigma = opt.optimize(
             solve_ik, x0=np.zeros(3), sigma0=np.array([0, 0, ori_error_tol / 2])
         )
         pos_out, quat_out = ik_solver.compute_fk(q_result)
@@ -168,7 +175,7 @@ class PinocchioIKSolver:
             f"After ik optimization, cost: {cost_opt}, result: {pos_out, quat_out} vs desired: {pose_query}"
         )
         # pos_out, quat_out = self.fk(q_result)
-        return q_result
+        return q_result, cost_opt, max_iter, opt_sigma
 
 
 class CEM:
