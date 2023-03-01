@@ -536,14 +536,12 @@ class StretchEnv(home_robot.core.abstract_env.Env):
 
     def recent_depth_image(self, seconds):
         """Return true if we have up to date depth."""
-        print("depth t =", self.dpt_cam.get_time())
-        print("now =", rospy.Time.now())
-        print("goal_t =", self._goal_reset_t)
+        # Make sure we have a goal and our poses and depths are synced up - we need to have
+        # received depth after we stopped moving
         if self._goal_reset_t is not None and (rospy.Time.now() - self._goal_reset_t).to_sec() > self.msg_delay_t:
             return (self.dpt_cam.get_time() - self._goal_reset_t).to_sec() > seconds
         else:
             return False
-        # return (rospy.Time.now() - self.dpt_cam.get_time()).to_sec() < seconds
 
     def navigate_to(
         self,
