@@ -118,13 +118,13 @@ class StretchEnv(home_robot.core.abstract_env.Env):
 
         self._base_control_mode = ControlMode.IDLE
         self._depth_buffer_size = depth_buffer_size
+        self._reset_messages()
         self._create_pubs_subs()
         self.rgb_cam, self.dpt_cam = None, None
         if init_cameras:
             self._create_cameras(color_topic, depth_topic)
 
         self._create_services()
-        self._reset_messages()
         print("... done.")
         self.wait_for_pose()
         if init_cameras:
@@ -164,7 +164,10 @@ class StretchEnv(home_robot.core.abstract_env.Env):
     def _at_goal_callback(self, msg):
         """Is the velocity controller done moving; is it at its goal?"""
         self._at_goal = msg.data
-        self._goal_reset_t = rospy.Time.now()
+        if not self._at_goal:
+            self._goal_reset_t = None
+        elif self._goal_reset_t is None:
+            self._goal_reset_t = rospy.Time.now()
 
     def _mode_callback(self, msg):
         """get position or navigation mode from stretch ros"""
@@ -430,11 +433,9 @@ class StretchEnv(home_robot.core.abstract_env.Env):
 
     def switch_to_navigation_mode(self):
         """switch stretch to navigation control"""
-        print("nav mode")
-        result1 = self._nav_mode_service(TriggerRequest())
-        print("goto on")
+        if not self.in_navigation_mode():
+            result1 = self._nav_mode_service(TriggerRequest())
         result2 = self._goto_on_service(TriggerRequest())
-        print("done srv")
 
         # Switch interface mode & print messages
         self._base_control_mode = ControlMode.NAVIGATION
