@@ -142,6 +142,8 @@ class PositionIKOptimizer:
         self.pos_error_tol = pos_error_tol
         if type(ori_error_range) is float:
             self.ori_error_range = ori_error_range * np.ones(3)
+        else:
+            self.ori_error_range = ori_error_range
 
         cem_params = {} if cem_params is None else cem_params
         max_iterations = (

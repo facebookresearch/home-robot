@@ -67,8 +67,8 @@ def test_pinocchio_ik_optimization():
     # pos_desired = np.array([-0.11556295, -0.51387864,  0.8205258 ])
     quat_desired = np.array([-0.7079143, 0.12421559, 0.1409881, -0.68084526])
 
-    ik_solver = get_ik_solver()
-    robot = get_ik_optimizer(ik_solver)
+    robot = get_ik_solver()
+    ik_opt = get_ik_optimizer(robot.manip_ik_solver)
 
     # Directly solve with IK
     q, _ = robot.manip_ik_solver.compute_ik(pos_desired, quat_desired)
@@ -76,7 +76,7 @@ def test_pinocchio_ik_optimization():
     pos_err1 = np.linalg.norm(pos_out1 - pos_desired)
 
     # Solve with CEM
-    q_result, best_cost, last_iter, opt_sigma = robot.manip_ik_solver.compute_ik_opt(
+    q_result, best_cost, last_iter, opt_sigma = ik_opt.compute_ik_opt(
         (pos_desired, quat_desired)
     )
     pos_out2, quat_out2 = robot.manip_ik_solver.compute_fk(q_result)
