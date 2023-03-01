@@ -15,7 +15,7 @@ class DiffDriveVelocityController(abc.ABC):
     """
 
     @abc.abstractmethod
-    def __call__(self, xyt_err) -> Tuple[float, float, bool]:
+    def __call__(self, xyt_err: np.ndarray) -> Tuple[float, float, bool]:
         """Contain execution logic, predict velocities for the left and right wheels. Expected to
         return true/false if we have reached this goal and the controller will be moving no
         farther."""
@@ -64,7 +64,7 @@ class DDVelocityControlNoplan(DiffDriveVelocityController):
                 / (np.sin(heading_diff) + heading_diff * np.cos(heading_diff) + 1e-5)
             )
 
-    def __call__(self, xyt_err):
+    def __call__(self, xyt_err: np.ndarray) -> Tuple[float, float, bool]:
         v_cmd = w_cmd = 0
         done = True
 
