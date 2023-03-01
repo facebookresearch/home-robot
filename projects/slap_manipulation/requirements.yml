@@ -40,4 +40,5 @@ dependencies:
     # data tools
     - yacs
     - pygifsicle
+    - perceiver-pytorch
 
