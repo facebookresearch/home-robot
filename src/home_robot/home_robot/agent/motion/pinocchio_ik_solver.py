@@ -1,9 +1,11 @@
 import os
-from typing import Callable, List, Tuple
+from typing import Callable, List, Tuple, Optional, Dict, Union
 
 import numpy as np
 import pinocchio
 from scipy.spatial.transform import Rotation as R
+
+from home_robot.utils.bullet import PybulletIKSolver
 
 # --DEFAULTS--
 # Error tolerances
@@ -111,56 +113,100 @@ class PinocchioIKSolver:
 
         return q_control, success
 
-    def compute_ik_opt(self, pose_query: Tuple[np.ndarray, np.ndarray]):
-        """optimization-based IK solver using CEM"""
-        max_iterations = 30
-        num_samples = 100
-        num_top = 10  # TODO: what is this?
-        pos_error_tol = 0.005
-        ori_error_tol = 0.2
-        pos_desired, quat_desired = pose_query
-        ik_solver = self
-        pos_wt = 1.0
-        rot_wt = 0.0
 
-        opt = CEM(
+class PositionIKOptimizer:
+    """
+    Solver that jointly optimizes IK and best orientation to achieve desired position
+    """
+
+    max_iterations: int = 30  # Max num of iterations for CEM
+    num_samples: int = 100  # Total candidate samples for each CEM iteration
+    num_top: int = 10  # Top N candidates for each CEM iteration
+
+    def __init__(
+        self,
+        ik_solver: Union[PinocchioIKSolver, PybulletIKSolver],
+        pos_error_tol: float,
+        ori_error_range: Union[float, np.ndarray],
+        pos_weight: float = 1.0,
+        ori_weight: float = 0.0,
+        cem_params: Optional[Dict] = None,
+    ):
+        self.pos_wt = pos_weight
+        self.ori_wt = ori_weight
+
+        # Initialize IK solver
+        self.ik_solver = ik_solver
+
+        # Initialize optimizer
+        self.pos_error_tol = pos_error_tol
+        if type(ori_error_range) is float:
+            self.ori_error_range = ori_error_range * np.ones(3)
+
+        cem_params = {} if cem_params is None else cem_params
+        max_iterations = (
+            cem_params["max_iterations"]
+            if "max_iterations" in cem_params
+            else self.max_iterations
+        )
+        num_samples = (
+            cem_params["num_samples"]
+            if "num_samples" in cem_params
+            else self.num_samples
+        )
+        num_top = cem_params["num_top"] if "num_top" in cem_params else self.num_top
+
+        self.opt = CEM(
             max_iterations=max_iterations,
             num_samples=num_samples,
             num_top=num_top,
-            tol=pos_error_tol,
+            tol=self.pos_error_tol,
+            sigma0=self.ori_error_range / 2,
         )
 
+    def compute_ik_opt(self, pose_query: Tuple[np.ndarray, np.ndarray]):
+        """optimization-based IK solver using CEM"""
+        pos_desired, quat_desired = pose_query
+
+        # Function to optimize: IK error given delta from original desired orientation
         def solve_ik(dr):
             pos = pos_desired
             quat = (R.from_rotvec(dr) * R.from_quat(quat_desired)).as_quat()
 
-            q, _ = ik_solver.compute_ik(pos, quat)
-            pos_out, rot_out = ik_solver.compute_fk(q)
+            q, _ = self.ik_solver.compute_ik(pos, quat)
+            pos_out, rot_out = self.ik_solver.compute_fk(q)
 
             cost_pos = np.linalg.norm(pos - pos_out)
             cost_rot = (
                 1 - (rot_out * quat_desired).sum() ** 2
             )  # TODO: just minimize dr?
 
-            cost = pos_wt * cost_pos + rot_wt * cost_rot
+            cost = self.pos_wt * cost_pos + self.ori_wt * cost_rot
 
             return cost, q
 
-        cost_opt, q_result, max_iter, opt_sigma = opt.optimize(
-            solve_ik, x0=np.zeros(3), sigma0=np.array([0, 0, ori_error_tol / 2])
+        # Optimize for IK and best orientation (x=0 -> use original desired orientation)
+        cost_opt, q_result, max_iter, opt_sigma = self.opt.optimize(
+            solve_ik, x0=np.zeros(3)
         )
-        pos_out, quat_out = ik_solver.compute_fk(q_result)
+        pos_out, quat_out = self.ik_solver.compute_fk(q_result)
         print(
             f"After ik optimization, cost: {cost_opt}, result: {pos_out, quat_out} vs desired: {pose_query}"
         )
-        # pos_out, quat_out = self.fk(q_result)
         return q_result, cost_opt, max_iter, opt_sigma
 
 
 class CEM:
     """class implementing generic CEM solver for optimization"""
 
-    def __init__(self, max_iterations: int, num_samples: int, num_top: int, tol: float):
+    def __init__(
+        self,
+        max_iterations: int,
+        num_samples: int,
+        num_top: int,
+        tol: float,
+        sigma0: np.ndarray,
+    ):
         """
         max_iterations: max number of iterations
         num_samples: number of samples per iteration
@@ -171,12 +217,17 @@ class CEM:
         self.num_samples = num_samples
         self.num_top = num_top
         self.cost_tol = tol
+        self.sigma0 = sigma0
 
-    def optimize(self, func: Callable, x0: np.ndarray, sigma0: np.ndarray):
+    def optimize(self, func: Callable, x0: np.ndarray):
         """optimize function func with initial guess mu=x0 and initial std=sigma0"""
+        assert (
+            x0.shape == self.sigma0.shape
+        ), f"x0 and sigma0 must have same shape, got {x0.shape} and {self.sigma0.shape}"
+
         i = 0
         mu = x0
-        sigma = sigma0
+        sigma = self.sigma0
         while True:
             # Sample x
             x_arr = mu + sigma * np.random.randn(self.num_samples, x0.shape[0])

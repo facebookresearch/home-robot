@@ -4,10 +4,16 @@ import numpy as np
 import pytest
 from scipy.spatial.transform import Rotation as R
 
-from home_robot.agent.motion.pinocchio_ik_solver import (CEM_MAX_ITERATIONS,
-                                                         POS_ERROR_TOL)
-from home_robot.agent.motion.stretch import (STRETCH_GRASP_OFFSET,
-                                             STRETCH_HOME_Q, HelloStretch)
+from home_robot.agent.motion.pinocchio_ik_solver import (
+    CEM_MAX_ITERATIONS,
+    POS_ERROR_TOL,
+)
+from home_robot.agent.motion.pinocchio_ik_solver import PositionIKOptimizer
+from home_robot.agent.motion.stretch import (
+    STRETCH_GRASP_OFFSET,
+    STRETCH_HOME_Q,
+    HelloStretch,
+)
 from home_robot.utils.bullet import PbArticulatedObject
 from home_robot.utils.path import REPO_ROOT_PATH
 from home_robot.utils.pose import to_matrix, to_pos_quat
@@ -19,6 +25,14 @@ def get_ik_solver(debug=False, override=None):
         urdf_path=urdf_abs_path,
         visualize=debug,
         ik_type="pinocchio" if override is None else "pybullet",
+    )
+
+
+def get_ik_optimizer(ik_solver):
+    return PositionIKOptimizer(
+        ik_solver,
+        pos_error_tol=0.005,
+        ori_error_range=np.array([0.0, 0.0, 0.2]),  # solve for yaw only
     )
 
 
@@ -53,7 +67,8 @@ def test_pinocchio_ik_optimization():
     # pos_desired = np.array([-0.11556295, -0.51387864,  0.8205258 ])
     quat_desired = np.array([-0.7079143, 0.12421559, 0.1409881, -0.68084526])
 
-    robot = get_ik_solver()
+    ik_solver = get_ik_solver()
+    robot = get_ik_optimizer(ik_solver)
 
     # Directly solve with IK
     q, _ = robot.manip_ik_solver.compute_ik(pos_desired, quat_desired)
@@ -171,9 +186,13 @@ def test_pinocchio_against_pybullet(debug=False, err_threshold=1e-4):
 
         print("-------- 2: FK + IK Consistency  ---------")
         pos1, quat1 = pinocchio_robot.get_ee_pose()
-        pin_pos, pin_quat, pin_q = ik_helper(pinocchio_robot, pos1, quat1, pin_block, err_threshold, debug)
+        pin_pos, pin_quat, pin_q = ik_helper(
+            pinocchio_robot, pos1, quat1, pin_block, err_threshold, debug
+        )
         pos1, quat1 = pb_robot.get_ee_pose()
-        pb_pos, pb_quat, pb_q = ik_helper(pb_robot, pos1, quat1, pb_block, err_threshold, debug)
+        pb_pos, pb_quat, pb_q = ik_helper(
+            pb_robot, pos1, quat1, pb_block, err_threshold, debug
+        )
         pos_err = compute_err(pin_pos, pb_pos)
         quat_err = quaternion_distance(pin_quat, pb_quat)
         assert pos_err < err_threshold
