@@ -24,8 +24,8 @@ from home_robot_hw.ros.visualizer import Visualizer
 log = logging.getLogger(__name__)
 
 CONTROL_HZ = 20
-VEL_THRESHOlD = 0.01
-RVEL_THRESHOLD = 0.05
+VEL_THRESHOlD = 0.001
+RVEL_THRESHOLD = 0.005
 
 
 
@@ -36,7 +36,7 @@ class GotoVelocityControllerNode:
     """
 
     # How long should the controller report done before we're actually confident that we're done?
-    done_t = rospy.Duration(0.5)
+    done_t = rospy.Duration(1.0)
 
     def __init__(
         self,
