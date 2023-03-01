@@ -104,13 +104,14 @@ def main(rate, max_frames, visualize, manual_wait, pcd_filename):
     # Tuck the arm away
     print("Sending arm to  home...")
     env.goto(STRETCH_NAVIGATION_Q, wait=False)
-    print("Done. Switch to navigation mode...")
+    print("... done.")
 
     rate = rospy.Rate(rate)
 
     # Move the robot
     # TODO: replace env with client
     if not env.in_navigation_mode():
+        print("Switch to navigation mode...")
         env.switch_to_navigation_mode()
     # Sequence information if we are executing the trajectory
     step = 0
