@@ -359,7 +359,10 @@ class Categorical2DSemanticMapModule(nn.Module):
 
             # Set a disk around the agent to explored
             try:
-                radius = 10
+                # TODO Set this as a parameter
+                # radius = 10 => ideal for Habitat
+                # radius = 40 => ideal on robot
+                radius = 40
                 explored_disk = torch.from_numpy(skimage.morphology.disk(radius))
                 current_map[
                     e, 1, y - radius : y + radius + 1, x - radius : x + radius + 1
