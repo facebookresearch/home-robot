@@ -49,10 +49,11 @@ if __name__ == "__main__":
 
     q = model.update_look_at_ee(q)
     robot.goto(q, wait=True)
+    rospy.sleep(1.0)
     q = model.update_look_front(q)
     robot.goto(q, wait=True)
 
-    print(f"Confirm that the robot head has moved accordingly.")
+    print(f"Confirm that the robot head has turned to look at the gripper then back.")
     input("(press enter to continue)")
 
     # Navigation
@@ -73,12 +74,14 @@ if __name__ == "__main__":
     print("Testing robot manipulation...")
     robot.switch_to_manipulation_mode()
 
-    pos_diff_goal = np.array([0.1, 0.0, 0.1])
+    pos_diff_goal = np.array([0.0, -0.2, 0.2])
     pos, quat = model.get_ee_pose(q)
     q = model.manip_ik((pos + pos_diff_goal, quat))
     robot.goto(q, wait=True)
 
     print(
-        f"Confirm that the robot EE moved by {pos_diff_goal} (lift upwards and extend outwards by 10cm)"
+        f"Confirm that the robot EE moved by {pos_diff_goal} (lift upwards and extend outwards by 20cm)"
     )
     input("(press enter to continue)")
+
+    print("Test complete!")
