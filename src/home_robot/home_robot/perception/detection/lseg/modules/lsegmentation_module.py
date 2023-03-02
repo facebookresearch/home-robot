@@ -2,22 +2,22 @@
 #
 # This source code is licensed under the MIT license found in the
 # LICENSE file in the root directory of this source tree.
-from argparse import ArgumentParser
 import random
 import time
+from argparse import ArgumentParser
 
-from data import get_available_datasets, get_dataset
-from encoding.nn import SegmentationLosses
-from encoding.utils import (
-    batch_intersection_union,
-    batch_pix_accuracy,
-    SegmentationMetric,
-)
 import pytorch_lightning as pl
 import torch
 
 # add mixed precision
 import torch.cuda.amp as amp
+from data import get_available_datasets, get_dataset
+from encoding.nn import SegmentationLosses
+from encoding.utils import (
+    SegmentationMetric,
+    batch_intersection_union,
+    batch_pix_accuracy,
+)
 
 
 class LSegmentationModule(pl.LightningModule):

@@ -21,11 +21,7 @@ from std_msgs.msg import String
 from std_srvs.srv import Trigger
 from trajectory_msgs.msg import JointTrajectoryPoint
 
-from home_robot.motion.stretch import (
-    STRETCH_HOME_Q,
-    HelloStretch,
-    HelloStretchIdx,
-)
+from home_robot.motion.stretch import STRETCH_HOME_Q, HelloStretch, HelloStretchIdx
 from home_robot_hw.constants import (
     CONFIG_TO_ROS,
     ROS_ARM_JOINTS,
@@ -124,7 +120,9 @@ class HelloStretchROSInterface(AbstractStretchInterface):
             return None
         return pose_mat
 
-    def get_base_pose(self, lookup_time=None, timeout_s=None) -> Tuple[Tuple, rospy.rostime.Time]:
+    def get_base_pose(
+        self, lookup_time=None, timeout_s=None
+    ) -> Tuple[Tuple, rospy.rostime.Time]:
         """lookup the base pose using TF2 buffer
 
         Based on this:

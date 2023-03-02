@@ -13,7 +13,13 @@ import sophus as sp
 from geometry_msgs.msg import Pose, PoseStamped, Twist
 from nav_msgs.msg import Odometry
 from std_msgs.msg import Bool
-from std_srvs.srv import SetBool, SetBoolResponse, Trigger, TriggerResponse, TriggerRequest
+from std_srvs.srv import (
+    SetBool,
+    SetBoolResponse,
+    Trigger,
+    TriggerRequest,
+    TriggerResponse,
+)
 
 from home_robot.control.goto_controller import GotoVelocityController
 from home_robot.utils.config import get_control_config
@@ -26,7 +32,6 @@ log = logging.getLogger(__name__)
 CONTROL_HZ = 20
 VEL_THRESHOlD = 0.001
 RVEL_THRESHOLD = 0.005
-
 
 
 class GotoVelocityControllerNode:
@@ -153,11 +158,17 @@ class GotoVelocityControllerNode:
 
                 # Check if actually done (velocity = 0)
                 if done and self.vel_odom is not None:
-                    if self.vel_odom[0] < VEL_THRESHOlD and self.vel_odom[1] < RVEL_THRESHOLD:
+                    if (
+                        self.vel_odom[0] < VEL_THRESHOlD
+                        and self.vel_odom[1] < RVEL_THRESHOLD
+                    ):
                         if not self.controller_finished:
                             self.controller_finished = True
                             self.done_since = rospy.Time.now()
-                        elif self.controller_finished and (rospy.Time.now() - self.done_since) > self.done_t:
+                        elif (
+                            self.controller_finished
+                            and (rospy.Time.now() - self.done_since) > self.done_t
+                        ):
                             self.is_done = True
                     else:
                         self.controller_finished = False
@@ -175,7 +186,9 @@ class GotoVelocityControllerNode:
         rospy.init_node("goto_controller")
 
         self.vel_command_pub = rospy.Publisher("stretch/cmd_vel", Twist, queue_size=1)
-        self.at_goal_pub = rospy.Publisher("goto_controller/at_goal", Bool, queue_size=1)
+        self.at_goal_pub = rospy.Publisher(
+            "goto_controller/at_goal", Bool, queue_size=1
+        )
 
         rospy.Subscriber(
             "state_estimator/pose_filtered",
