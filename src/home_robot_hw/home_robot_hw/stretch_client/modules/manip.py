@@ -11,21 +11,20 @@ class StretchManipulationInterface(AbstractControlModule):
         self.ros_client = ros_client
 
     def _enable_hook(self) -> bool:
-        result1 = self._pos_mode_service(TriggerRequest())
-        result2 = self._goto_off_service(TriggerRequest())
+        """Called when interface is enabled."""
+        # Switch interface mode & print messages
+        result = self._pos_mode_service(TriggerRequest())
+        rospy.loginfo(result.message)
 
         # Set manipulator params
         self._manipulator_params = ManipulatorBaseParams(
             se3_base=self._t_base_odom,
         )
 
-        # Switch interface mode & print messages
-        rospy.loginfo(result1.message)
-        rospy.loginfo(result2.message)
-
-        return result1.success and result2.success
+        return result.success
 
     def _disable_hook(self) -> bool:
+        """Called when interface is disabled."""
         return True
 
     # Interface methods

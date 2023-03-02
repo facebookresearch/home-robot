@@ -25,16 +25,20 @@ class AbstractControlModule(abc.ABC):
 
     @abc.abstractmethod
     def _enable_hook(self):
+        """Called when interface is enabled."""
         pass
 
     @abc.abstractmethod
     def _disable_hook(self):
+        """Called when interface is disabled."""
         pass
 
     def enable(self):
+        """Allows methods decorated with 'enforce_enabled' to be run."""
         self._is_enabled = True
         return self._enable_hook()
 
     def disable(self):
+        """Causes methods decorated with 'enforce_enabled' to raise an error."""
         self._is_enabled = False
         return self._disable_hook()

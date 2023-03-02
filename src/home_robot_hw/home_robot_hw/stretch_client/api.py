@@ -35,22 +35,30 @@ class StretchClient:
         """Switch stretch to navigation control
         Robot base is now controlled via continuous velocity feedback.
         """
-        if self.in_manipulation_mode():
-            self.manip.disable()
         self._base_control_mode = ControlMode.NAVIGATION
 
-        return self.nav.enable()
+        result_pre = True
+        if self.in_manipulation_mode():
+            result_pre = self.manip.disable()
+
+        result_post = self.nav.enable()
+
+        return result_pre and result_post
 
     def switch_to_manipulation_mode(self):
         """Switch stretch to manipulation control
         Robot base is now controlled via position control.
         Base rotation is locked.
         """
-        if self.in_navigation_mode():
-            self.nav.disable()
         self._base_control_mode = ControlMode.MANIPULATION
+        
+        result_pre = True
+        if self.in_navigation_mode():
+            result_pre = self.nav.disable()
 
-        return self.manip.enable()
+        result_post = self.manip.enable()
+
+        return result_pre and result_post
 
     def in_manipulation_mode(self):
         return self._base_control_mode == ControlMode.MANIPULATION

@@ -15,19 +15,16 @@ class StretchNavigationInterface(AbstractControlModule):
     # Enable / disable
 
     def _enable_hook(self) -> bool:
-        if not self.in_navigation_mode():
-            result1 = self._nav_mode_service(TriggerRequest())
-        result2 = self._goto_on_service(TriggerRequest())
-
-        # Switch interface mode & print messages
-        rospy.loginfo(result1.message)
-        rospy.loginfo(result2.message)
-
-        return result1.success and result2.success
+        """Called when interface is enabled."""
+        result = self._nav_mode_service(TriggerRequest())
+        rospy.loginfo(result.message)
+        return result.success
 
     def _disable_hook(self) -> bool:
+        """Called when interface is disabled."""
+        result = self._goto_off_service(TriggerRequest())
         rospy.sleep(T_LOC_STABILIZE)  # wait for robot movement to stop
-        return True
+        return result.success
 
     # Interface methods
 
@@ -50,6 +47,8 @@ class StretchNavigationInterface(AbstractControlModule):
         msg = Twist()
         msg.linear.x = v
         msg.angular.z = w
+
+        self._goto_off_service(TriggerRequest())
         self._velocity_pub.publish(msg)
 
 
@@ -89,6 +88,8 @@ class StretchNavigationInterface(AbstractControlModule):
         goal_matrix = xyt2sophus(xyt_goal).matrix()
         self.goal_visualizer(goal_matrix)
         msg = matrix_to_pose_msg(goal_matrix)
+
+        self._goto_on_service(TriggerRequest())
         self._goal_pub.publish(msg)
 
         if blocking:
