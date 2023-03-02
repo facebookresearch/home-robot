@@ -69,7 +69,7 @@ class StretchManipulationEnv(StretchEnv):
         # add grasp-offset to this pose
         ee_pose_0 = self.robot.fk(q)
         breakpoint()
-        ee_pose_1 = self.get_pose(STRETCH_GRASP_FRAME, base_frame=STRETCH_BASE_FRAME)
+        ee_pose_1 = self.get_pose("link_grasp_center", base_frame=STRETCH_BASE_FRAME)
         # QUESTION: what is the difference between above two?
         # output of above is a tuple of two ndarrays
         # ee-pose should be 1 ndarray of 7 values
