@@ -30,3 +30,4 @@ datadump/
 *.h5
 *.hdf5
 *.mp4
+*.ply
