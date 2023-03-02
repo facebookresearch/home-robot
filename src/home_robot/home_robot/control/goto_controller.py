@@ -123,7 +123,7 @@ class GotoVelocityController:
         return xyt_err
 
     def is_done(self) -> bool:
-        """ Tell us if this is done and has reached its goal."""
+        """Tell us if this is done and has reached its goal."""
         return self._is_done
 
     def compute_control(self):

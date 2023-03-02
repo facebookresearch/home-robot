@@ -79,7 +79,9 @@ class NavStateEstimator:
 
         self._tf_broadcaster.sendTransform(t)
 
-    def _filter_signals(self, slam_update: sp.SE3, odom_update: sp.SE3, t_interval: float) -> sp.SE3:
+    def _filter_signals(
+        self, slam_update: sp.SE3, odom_update: sp.SE3, t_interval: float
+    ) -> sp.SE3:
         """
         The discrete high pass filter can be written as:
         ```
@@ -147,7 +149,9 @@ class NavStateEstimator:
             self._t_odom_prev = t_curr
         t_interval_secs = (t_curr - self._t_odom_prev).to_sec()
 
-        self._filtered_pose = self._filter_signals(self._slam_pose_sp, pose_odom, t_interval_secs)
+        self._filtered_pose = self._filter_signals(
+            self._slam_pose_sp, pose_odom, t_interval_secs
+        )
         self._publish_filtered_state(pose.header.stamp)
 
         # Update variables
@@ -170,7 +174,7 @@ class NavStateEstimator:
         # self._base_frame_id = "base_link_estimator"
         self._base_frame_id = "base_link"
         self._tf_broadcaster = tf2_ros.TransformBroadcaster()
-    
+
         # This comes from hector_slam.
         # It's a transform from src_frame = 'base_link', target_frame = 'map'
         # The *inverse* is published by default from hector as the transform from map to base -
@@ -184,9 +188,7 @@ class NavStateEstimator:
             queue_size=1,
         )
         # This pose update comes from wheel odometry
-        rospy.Subscriber(
-            "odom", Odometry, self._odom_callback, queue_size=1
-        )
+        rospy.Subscriber("odom", Odometry, self._odom_callback, queue_size=1)
 
         # Run
         log.info("State Estimator launched.")
