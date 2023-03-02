@@ -20,13 +20,13 @@ MAX_DEPTH_REPLACEMENT_VALUE = 10001
 class StretchCameraInterface:
     def __init__(
         self,
-        ros_client: "StretchRosInterface",
+        ros_client,
         init_cameras: bool = True,
         color_topic: Optional[str] = None,
         depth_topic: Optional[str] = None,
         depth_buffer_size: Optional[int] = None,
     ):
-        self.ros_client = ros_client
+        self._ros_client = ros_client
         self._color_topic = DEFAULT_COLOR_TOPIC if color_topic is None else color_topic
         self._depth_topic = DEFAULT_DEPTH_TOPIC if depth_topic is None else depth_topic
         self._depth_buffer_size = depth_buffer_size
@@ -55,7 +55,7 @@ class StretchCameraInterface:
         if tilt is not None:
             joint_goals[ROS_HEAD_TILT] = tilt
 
-        self._send_ros_trajectory_goals(joint_goals)
+        self._ros_client.send_ros_trajectory_goals(joint_goals)
 
     def process_depth(self, depth):
         depth[depth < self.min_depth_val] = MIN_DEPTH_REPLACEMENT_VALUE
@@ -94,19 +94,8 @@ class StretchCameraInterface:
 
         return imgs
 
-    def recent_depth_image(self, seconds):
-        """Return true if we have up to date depth."""
-        # Make sure we have a goal and our poses and depths are synced up - we need to have
-        # received depth after we stopped moving
-        if (
-            self._goal_reset_t is not None
-            and (rospy.Time.now() - self._goal_reset_t).to_sec() > self.msg_delay_t
-        ):
-            return (self.dpt_cam.get_time() - self._goal_reset_t).to_sec() > seconds
-        else:
-            return False
-
     # Helper methods
+
     def _create_cameras(self, color_topic=None, depth_topic=None):
         if self.rgb_cam is not None or self.dpt_cam is not None:
             raise RuntimeError("Already created cameras")

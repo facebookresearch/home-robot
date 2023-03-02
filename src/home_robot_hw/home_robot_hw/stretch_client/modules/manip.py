@@ -27,7 +27,7 @@ class StretchManipulationInterface(AbstractControlModule):
 
         # Set manipulator params
         self._manipulator_params = ManipulatorBaseParams(
-            se3_base=self._ros_client._t_base_odom,
+            se3_base=self._ros_client.se3_base_odom,
         )
 
         return result.success
@@ -40,7 +40,7 @@ class StretchManipulationInterface(AbstractControlModule):
 
     def get_joint_state(self):
         with self._js_lock:
-            return self.pos, self.vel, self.frc
+            return self.ros_client.pos, self.ros_client.vel, self.ros_client.frc
 
     @enforce_enabled
     def goto(self, q, move_base=False, wait=True, max_wait_t=10.0, verbose=False):

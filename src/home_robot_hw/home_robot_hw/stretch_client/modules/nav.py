@@ -17,6 +17,8 @@ from .abstract import AbstractControlModule, enforce_enabled
 
 
 class StretchNavigationInterface(AbstractControlModule):
+    msg_delay_t = 0.25
+
     def __init__(self, ros_client):
         self._ros_client = ros_client
         self._wait_for_pose()
@@ -43,15 +45,16 @@ class StretchNavigationInterface(AbstractControlModule):
 
     def get_pose(self):
         """get the latest base pose from sensors"""
-        return sophus2xyt(self._ros_client.t_base_filtered)
+        return sophus2xyt(self._ros_client.se3_base_filtered)
 
     def at_goal(self) -> bool:
         """Returns true if the agent is currently at its goal location"""
         if (
-            self._goal_reset_t is not None
-            and (rospy.Time.now() - self._goal_reset_t).to_sec() > self.msg_delay_t
+            self._ros_client.goal_reset_t is not None
+            and (rospy.Time.now() - self._ros_client.goal_reset_t).to_sec()
+            > self.msg_delay_t
         ):
-            return self._at_goal
+            return self._ros_client.at_goal
         else:
             return False
 
@@ -90,14 +93,14 @@ class StretchNavigationInterface(AbstractControlModule):
 
         # Compute absolute goal
         if relative:
-            xyt_base = sophus2xyt(self._ros_client.t_base_filtered)
+            xyt_base = sophus2xyt(self._ros_client.se3_base_filtered)
             xyt_goal = xyt_base_to_global(xyt, xyt_base)
         else:
             xyt_goal = xyt
 
         # Clear self.at_goal
-        self._at_goal = False
-        self._goal_reset_t = None
+        self._ros_client.at_goal = False
+        self._ros_client.goal_reset_t = None
 
         # Set goal
         goal_matrix = xyt2sophus(xyt_goal).matrix()
@@ -112,7 +115,9 @@ class StretchNavigationInterface(AbstractControlModule):
             rate = rospy.Rate(self.block_spin_rate)
             while not rospy.is_shutdown():
                 # Verify that we are at goal and perception is synchronized with pose
-                if self.at_goal() and self.recent_depth_image(self.msg_delay_t):
+                if self.at_goal() and self._ros_client.recent_depth_image(
+                    self.msg_delay_t
+                ):
                     break
                 else:
                     rate.sleep()
@@ -125,6 +130,6 @@ class StretchNavigationInterface(AbstractControlModule):
         """wait until we have an accurate pose estimate"""
         rate = rospy.Rate(10)
         while not rospy.is_shutdown():
-            if self._t_base_filtered is not None:
+            if self._ros_client.se3_base_filtered is not None:
                 break
             rate.sleep()

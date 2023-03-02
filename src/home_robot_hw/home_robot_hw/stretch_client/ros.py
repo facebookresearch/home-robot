@@ -4,6 +4,7 @@
 # LICENSE file in the root directory of this source tree.
 import sys
 import threading
+from typing import Optional
 
 import actionlib
 import numpy as np
@@ -50,80 +51,26 @@ T_GOAL_TIME_TOL = 1.0
 
 class StretchRosInterface:
     def __init__(self):
+        # Initialize caches
+        self.current_mode: Optional[str] = None
+
+        self.pos = np.zeros(self.dof)
+        self.vel = np.zeros(self.dof)
+        self.frc = np.zeros(self.dof)
+
+        self.se3_base_filtered: Optional[sp.SE3] = None
+        self.se3_base_odom: Optional[sp.SE3] = None
+        self.at_goal: bool = False
+
+        self.last_odom_update_timestamp = rospy.Time(0)
+        self.last_base_update_timestamp = rospy.Time(0)
+        self.goal_reset_t = rospy.Time(0)
+
+        # Initialize ros communication
         self._create_pubs_subs()
         self._create_services()
 
-    def _create_services(self):
-        """Create services to activate/deactive robot modes"""
-        self.nav_mode_service = rospy.ServiceProxy("switch_to_navigation_mode", Trigger)
-        self.pos_mode_service = rospy.ServiceProxy("switch_to_position_mode", Trigger)
-
-        self.goto_on_service = rospy.ServiceProxy("goto_controller/enable", Trigger)
-        self.goto_off_service = rospy.ServiceProxy("goto_controller/disable", Trigger)
-        self.set_yaw_service = rospy.ServiceProxy(
-            "goto_controller/set_yaw_tracking", SetBool
-        )
-        print("Wait for mode service...")
-        self.pos_mode_service.wait_for_service()
-
-    def _create_pubs_subs(self):
-        """create ROS publishers and subscribers - only call once"""
-        # Store latest joint state message - lock for access
-        self._js_lock = threading.Lock()
-
-        self._at_goal_sub = rospy.Subscriber(
-            "goto_controller/at_goal", Bool, self._at_goal_callback, queue_size=10
-        )
-        self._mode_sub = rospy.Subscriber(
-            "mode", String, self._mode_callback, queue_size=1
-        )
-        # Create the tf2 buffer first, used in camera init
-        self.tf2_buffer = tf2_ros.Buffer()
-        self.tf2_listener = tf2_ros.TransformListener(self.tf2_buffer)
-
-        # Create command publishers
-        self.goal_pub = rospy.Publisher("goto_controller/goal", Pose, queue_size=1)
-        self.velocity_pub = rospy.Publisher("stretch/cmd_vel", Twist, queue_size=1)
-
-        # Create trajectory client with which we can control the robot
-        self.trajectory_client = actionlib.SimpleActionClient(
-            "/stretch_controller/follow_joint_trajectory", FollowJointTrajectoryAction
-        )
-        self._joint_state_subscriber = rospy.Subscriber(
-            "stretch/joint_states", JointState, self._js_callback, queue_size=100
-        )
-        self._odom_sub = rospy.Subscriber(
-            "odom",
-            Odometry,
-            self._odom_callback,
-            queue_size=1,
-        )
-        self._base_state_sub = rospy.Subscriber(
-            "state_estimator/pose_filtered",
-            PoseStamped,
-            self._base_state_callback,
-            queue_size=1,
-        )
-        self._camera_pose_sub = rospy.Subscriber(
-            "camera_pose", PoseStamped, self._camera_pose_callback, queue_size=1
-        )
-
-        print("Waiting for trajectory server...")
-        server_reached = self.trajectory_client.wait_for_server(
-            timeout=rospy.Duration(30.0)
-        )
-        if not server_reached:
-            print("ERROR: Failed to connect to arm action server.")
-            rospy.signal_shutdown(
-                "Unable to connect to arm action server. Timeout exceeded."
-            )
-            sys.exit()
-        print("... connected to arm action server.")
-
-        self.ros_joint_names = []
-        for i in range(3, self.dof):
-            self.ros_joint_names += CONFIG_TO_ROS[i]
-        self.reset_state()
+    # Interfaces
 
     def send_ros_trajectory_goals(self, joint_goals: Dict[str, float]):
         # Preprocess arm joints (arm joints are actually 4 joints in one)
@@ -160,6 +107,96 @@ class StretchRosInterface:
 
         # Send goal
         self.trajectory_client.send_goal(goal_msg)
+
+    def recent_depth_image(self, seconds):
+        """Return true if we have up to date depth."""
+        # Make sure we have a goal and our poses and depths are synced up - we need to have
+        # received depth after we stopped moving
+        if (
+            self._goal_reset_t is not None
+            and (rospy.Time.now() - self._goal_reset_t).to_sec() > self.msg_delay_t
+        ):
+            return (self.dpt_cam.get_time() - self._goal_reset_t).to_sec() > seconds
+        else:
+            return False
+
+    # Initialization macros
+
+    def _create_services(self):
+        """Create services to activate/deactive robot modes"""
+        self.nav_mode_service = rospy.ServiceProxy("switch_to_navigation_mode", Trigger)
+        self.pos_mode_service = rospy.ServiceProxy("switch_to_position_mode", Trigger)
+
+        self.goto_on_service = rospy.ServiceProxy("goto_controller/enable", Trigger)
+        self.goto_off_service = rospy.ServiceProxy("goto_controller/disable", Trigger)
+        self.set_yaw_service = rospy.ServiceProxy(
+            "goto_controller/set_yaw_tracking", SetBool
+        )
+        print("Wait for mode service...")
+        self.pos_mode_service.wait_for_service()
+
+    def _create_pubs_subs(self):
+        """create ROS publishers and subscribers - only call once"""
+        # Create the tf2 buffer first, used in camera init
+        self.tf2_buffer = tf2_ros.Buffer()
+        self.tf2_listener = tf2_ros.TransformListener(self.tf2_buffer)
+
+        # Create command publishers
+        self.goal_pub = rospy.Publisher("goto_controller/goal", Pose, queue_size=1)
+        self.velocity_pub = rospy.Publisher("stretch/cmd_vel", Twist, queue_size=1)
+
+        # Create subscribers
+        self._odom_sub = rospy.Subscriber(
+            "odom",
+            Odometry,
+            self._odom_callback,
+            queue_size=1,
+        )
+        self._base_state_sub = rospy.Subscriber(
+            "state_estimator/pose_filtered",
+            PoseStamped,
+            self._base_state_callback,
+            queue_size=1,
+        )
+        self._camera_pose_sub = rospy.Subscriber(
+            "camera_pose", PoseStamped, self._camera_pose_callback, queue_size=1
+        )
+        self._at_goal_sub = rospy.Subscriber(
+            "goto_controller/at_goal", Bool, self._at_goal_callback, queue_size=10
+        )
+        self._mode_sub = rospy.Subscriber(
+            "mode", String, self._mode_callback, queue_size=1
+        )
+
+        # Create trajectory client with which we can control the robot
+        self.trajectory_client = actionlib.SimpleActionClient(
+            "/stretch_controller/follow_joint_trajectory", FollowJointTrajectoryAction
+        )
+
+        self._js_lock = (
+            threading.Lock()
+        )  # store latest joint state message - lock for access
+        self._joint_state_subscriber = rospy.Subscriber(
+            "stretch/joint_states", JointState, self._js_callback, queue_size=100
+        )
+
+        print("Waiting for trajectory server...")
+        server_reached = self.trajectory_client.wait_for_server(
+            timeout=rospy.Duration(30.0)
+        )
+        if not server_reached:
+            print("ERROR: Failed to connect to arm action server.")
+            rospy.signal_shutdown(
+                "Unable to connect to arm action server. Timeout exceeded."
+            )
+            sys.exit()
+        print("... connected to arm action server.")
+
+        self.ros_joint_names = []
+        for i in range(3, self.dof):
+            self.ros_joint_names += CONFIG_TO_ROS[i]
+
+    # Rostopic callbacks
 
     def _at_goal_callback(self, msg):
         """Is the velocity controller done moving; is it at its goal?"""
