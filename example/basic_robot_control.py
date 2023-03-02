@@ -54,6 +54,7 @@ if __name__ == '__main__':
     robot.manip.goto(q)
 
     # Test command in wrong mode
+    assert robot.in_manipulation_mode()
     try:
         robot.nav.navigate_to()
     except TypeError:
