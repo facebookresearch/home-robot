@@ -39,7 +39,7 @@ if __name__ == '__main__':
     assert robot.in_manipulation_mode()
 
     # Get ee pose
-    pos, quat = robot.manip.get_ee_pose()
+    pos, quat = robot.manip.get_ee_pose(relative=True)
 
     # Command the robot arm 1
     q_desired = np.random.randn(6)
@@ -59,6 +59,9 @@ if __name__ == '__main__':
         robot.nav.navigate_to()
     except TypeError:
         pass  # prints out an rospy.logerr that alerts the user of erroneous mode
+
+    # Some commands are still available
+    xyt = robot.nav.get_pose()
 
     # Stop all robot motion
     robot.stop()
