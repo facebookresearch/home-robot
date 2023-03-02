@@ -13,18 +13,18 @@ class StretchRosInterface:
 
     def _create_services(self):
         """Create services to activate/deactive robot modes"""
-        self._nav_mode_service = rospy.ServiceProxy(
+        self.nav_mode_service = rospy.ServiceProxy(
             "switch_to_navigation_mode", Trigger
         )
-        self._pos_mode_service = rospy.ServiceProxy("switch_to_position_mode", Trigger)
+        self.pos_mode_service = rospy.ServiceProxy("switch_to_position_mode", Trigger)
 
-        self._goto_on_service = rospy.ServiceProxy("goto_controller/enable", Trigger)
-        self._goto_off_service = rospy.ServiceProxy("goto_controller/disable", Trigger)
-        self._set_yaw_service = rospy.ServiceProxy(
+        self.goto_on_service = rospy.ServiceProxy("goto_controller/enable", Trigger)
+        self.goto_off_service = rospy.ServiceProxy("goto_controller/disable", Trigger)
+        self.set_yaw_service = rospy.ServiceProxy(
             "goto_controller/set_yaw_tracking", SetBool
         )
         print("Wait for mode service...")
-        self._pos_mode_service.wait_for_service()
+        self.pos_mode_service.wait_for_service()
 
     def _create_pubs_subs(self):
         """create ROS publishers and subscribers - only call once"""
@@ -48,8 +48,8 @@ class StretchRosInterface:
         self.tf2_listener = tf2_ros.TransformListener(self.tf2_buffer)
 
         # Create command publishers
-        self._goal_pub = rospy.Publisher("goto_controller/goal", Pose, queue_size=1)
-        self._velocity_pub = rospy.Publisher("stretch/cmd_vel", Twist, queue_size=1)
+        self.goal_pub = rospy.Publisher("goto_controller/goal", Pose, queue_size=1)
+        self.velocity_pub = rospy.Publisher("stretch/cmd_vel", Twist, queue_size=1)
 
         # Create trajectory client with which we can control the robot
         self.trajectory_client = actionlib.SimpleActionClient(

@@ -8,17 +8,17 @@ from .abstract import AbstractControlModule, enforce_enabled
 
 class StretchManipulationInterface(AbstractControlModule):
     def __init__(self, ros_client):
-        self.ros_client = ros_client
+        self._ros_client = ros_client
 
     def _enable_hook(self) -> bool:
         """Called when interface is enabled."""
         # Switch interface mode & print messages
-        result = self._pos_mode_service(TriggerRequest())
+        result = self._ros_client.pos_mode_service(TriggerRequest())
         rospy.loginfo(result.message)
 
         # Set manipulator params
         self._manipulator_params = ManipulatorBaseParams(
-            se3_base=self._t_base_odom,
+            se3_base=self._ros_client._t_base_odom,
         )
 
         return result.success
@@ -72,7 +72,7 @@ class StretchManipulationInterface(AbstractControlModule):
             ROS_WRIST_ROLL: joint_positions[5],
         }
 
-        self._send_ros_trajectory_goals(joint_goals)
+        self._ros_client.send_ros_trajectory_goals(joint_goals)
 
         return True
 

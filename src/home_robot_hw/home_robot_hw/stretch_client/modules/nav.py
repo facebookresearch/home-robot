@@ -10,19 +10,19 @@ from .abstract import AbstractControlModule, enforce_enabled
 
 class StretchNavigationInterface(AbstractControlModule):
     def __init__(self, ros_client):
-        self.ros_client = ros_client
+        self._ros_client = ros_client
 
     # Enable / disable
 
     def _enable_hook(self) -> bool:
         """Called when interface is enabled."""
-        result = self._nav_mode_service(TriggerRequest())
+        result = self._ros_client.nav_mode_service(TriggerRequest())
         rospy.loginfo(result.message)
         return result.success
 
     def _disable_hook(self) -> bool:
         """Called when interface is disabled."""
-        result = self._goto_off_service(TriggerRequest())
+        result = self._ros_client.goto_off_service(TriggerRequest())
         rospy.sleep(T_LOC_STABILIZE)  # wait for robot movement to stop
         return result.success
 
@@ -30,7 +30,7 @@ class StretchNavigationInterface(AbstractControlModule):
 
     def get_pose(self):
         """get the latest base pose from sensors"""
-        return sophus2xyt(self._t_base_filtered)
+        return sophus2xyt(self._ros_client.t_base_filtered)
 
     def at_goal(self) -> bool:
         """Returns true if the agent is currently at its goal location"""
@@ -48,8 +48,8 @@ class StretchNavigationInterface(AbstractControlModule):
         msg.linear.x = v
         msg.angular.z = w
 
-        self._goto_off_service(TriggerRequest())
-        self._velocity_pub.publish(msg)
+        self._ros_client.goto_off_service(TriggerRequest())
+        self._ros_client.velocity_pub.publish(msg)
 
 
     @enforce_enabled
@@ -71,11 +71,11 @@ class StretchNavigationInterface(AbstractControlModule):
             raise NotImplementedError("Obstacle avoidance unavailable.")
 
         # Set yaw tracking
-        self._set_yaw_service(SetBoolRequest(data=(not position_only)))
+        self._ros_client.set_yaw_service(SetBoolRequest(data=(not position_only)))
 
         # Compute absolute goal
         if relative:
-            xyt_base = sophus2xyt(self._t_base_filtered)
+            xyt_base = sophus2xyt(self._ros_client.t_base_filtered)
             xyt_goal = xyt_base_to_global(xyt, xyt_base)
         else:
             xyt_goal = xyt
@@ -89,8 +89,8 @@ class StretchNavigationInterface(AbstractControlModule):
         self.goal_visualizer(goal_matrix)
         msg = matrix_to_pose_msg(goal_matrix)
 
-        self._goto_on_service(TriggerRequest())
-        self._goal_pub.publish(msg)
+        self._ros_client.goto_on_service(TriggerRequest())
+        self._ros_client.goal_pub.publish(msg)
 
         if blocking:
             rospy.sleep(self.msg_delay_t)
