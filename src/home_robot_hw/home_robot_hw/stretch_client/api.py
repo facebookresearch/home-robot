@@ -36,7 +36,7 @@ class StretchClient:
         Robot base is now controlled via continuous velocity feedback.
         """
         result_pre = True
-        if self.in_manipulation_mode():
+        if self.manip.is_enabled():
             result_pre = self.manip.disable()
 
         result_post = self.nav.enable()
@@ -51,7 +51,7 @@ class StretchClient:
         Base rotation is locked.
         """
         result_pre = True
-        if self.in_navigation_mode():
+        if self.nav.is_enabled:
             result_pre = self.nav.disable()
 
         result_post = self.manip.enable()

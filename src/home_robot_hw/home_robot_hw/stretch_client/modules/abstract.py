@@ -2,7 +2,7 @@ import abc
 import rospy
 
 
-def decorator(func):
+def enforce_enabled(func):
     """Decorator for checking if a control method is executed while module is enabled."""
     def wrapper(self, *args, **kwargs):
         if self.is_enabled:
@@ -23,21 +23,21 @@ class AbstractControlModule(abc.ABC):
         return self._is_enabled
 
     @abc.abstractmethod
-    def _enable_hook(self):
+    def _enable_hook(self) -> bool:
         """Called when interface is enabled."""
         pass
 
     @abc.abstractmethod
-    def _disable_hook(self):
+    def _disable_hook(self) -> bool:
         """Called when interface is disabled."""
         pass
 
-    def enable(self):
+    def enable(self) -> bool:
         """Allows methods decorated with 'enforce_enabled' to be run."""
         self._is_enabled = True
         return self._enable_hook()
 
-    def disable(self):
+    def disable(self) -> bool:
         """Causes methods decorated with 'enforce_enabled' to raise an error."""
         self._is_enabled = False
         return self._disable_hook()
