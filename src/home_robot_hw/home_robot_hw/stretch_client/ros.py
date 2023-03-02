@@ -2,9 +2,51 @@
 #
 # This source code is licensed under the MIT license found in the
 # LICENSE file in the root directory of this source tree.
+import sys
+import threading
 
+import numpy as np
+import sophus as sp
 import rospy
+import tf2_ros
+import actionlib
 
+from control_msgs.msg import FollowJointTrajectoryAction, FollowJointTrajectoryGoal
+from geometry_msgs.msg import Pose, PoseStamped, Twist
+from nav_msgs.msg import Odometry
+from sensor_msgs.msg import JointState
+from std_msgs.msg import String, Bool
+from std_srvs.srv import SetBool, SetBoolRequest, Trigger, TriggerRequest
+from trajectory_msgs.msg import JointTrajectoryPoint
+
+from home_robot.motion.stretch import HelloStretchIdx
+from home_robot_hw.ros.utils import matrix_from_pose_msg
+from home_robot_hw.constants import (
+    CONFIG_TO_ROS,
+    ROS_ARM_JOINTS,
+    ROS_GRIPPER_FINGER,
+    ROS_HEAD_PAN,
+    ROS_HEAD_TILT,
+    ROS_LIFT_JOINT,
+    ROS_TO_CONFIG,
+    ROS_WRIST_PITCH,
+    ROS_WRIST_ROLL,
+    ROS_WRIST_YAW,
+)
+
+BASE_X_IDX = HelloStretchIdx.BASE_X
+BASE_Y_IDX = HelloStretchIdx.BASE_Y
+BASE_THETA_IDX = HelloStretchIdx.BASE_THETA
+LIFT_IDX = HelloStretchIdx.LIFT
+ARM_IDX = HelloStretchIdx.ARM
+GRIPPER_IDX = HelloStretchIdx.GRIPPER
+WRIST_ROLL_IDX = HelloStretchIdx.WRIST_ROLL
+WRIST_PITCH_IDX = HelloStretchIdx.WRIST_PITCH
+WRIST_YAW_IDX = HelloStretchIdx.WRIST_YAW
+HEAD_PAN_IDX = HelloStretchIdx.HEAD_PAN
+HEAD_TILT_IDX = HelloStretchIdx.HEAD_TILT
+
+T_GOAL_TIME_TOL = 1.0
 
 class StretchRosInterface:
     def __init__(self):
@@ -30,10 +72,6 @@ class StretchRosInterface:
         """create ROS publishers and subscribers - only call once"""
         # Store latest joint state message - lock for access
         self._js_lock = threading.Lock()
-
-        # Create visualizers for pose information
-        self.goal_visualizer = Visualizer("command_pose", rgba=[1., 0., 0., 0.5])
-        self.curr_visualizer = Visualizer("current_pose", rgba=[0., 0., 1., 0.5])
 
         self._at_goal_sub = rospy.Subscriber(
             "goto_controller/at_goal",

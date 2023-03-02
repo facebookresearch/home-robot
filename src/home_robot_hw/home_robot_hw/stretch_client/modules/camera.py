@@ -2,33 +2,43 @@
 #
 # This source code is licensed under the MIT license found in the
 # LICENSE file in the root directory of this source tree.
+from typing import Optional
+
+import numpy as np
 import rospy
+import trimesh.transformations as tra
 
 from home_robot_hw.ros.camera import RosCamera
+
+DEFAULT_COLOR_TOPIC = "/camera/color"
+DEFAULT_DEPTH_TOPIC = "/camera/aligned_depth_to_color"
 
 MIN_DEPTH_REPLACEMENT_VALUE = 10000
 MAX_DEPTH_REPLACEMENT_VALUE = 10001
 
 class StretchCameraInterface:
-    def __init__(self, ros_client):
+    def __init__(
+        self, 
+        ros_client: "StretchRosInterface",
+        init_cameras: bool = True, 
+        color_topic: Optional[str] = None,
+        depth_topic: Optional[str] = None,
+        depth_buffer_size: Optional[int] = None,
+    ):
         self.ros_client = ros_client
+        self._color_topic = DEFAULT_COLOR_TOPIC if color_topic is None else color_topic
+        self._depth_topic = DEFAULT_DEPTH_TOPIC if depth_topic is None else depth_topic
+        self._depth_buffer_size = depth_buffer_size
+
+        # Init cameras
+        self.rgb_cam, self.dpt_cam = None, None
+        if init_cameras:
+            self._create_cameras(color_topic, depth_topic)
+            self._wait_for_cameras()
 
     # Interface methods
 
-    def wait_for_cameras(self):
-        if self.rgb_cam is None or self.dpt_cam is None:
-            raise RuntimeError("cameras not initialized")
-        print("Waiting for rgb camera images...")
-        self.rgb_cam.wait_for_image()
-        print("Waiting for depth camera images...")
-        self.dpt_cam.wait_for_image()
-        print("..done.")
-        print("rgb frame =", self.rgb_cam.get_frame())
-        print("dpt frame =", self.dpt_cam.get_frame())
-        if self.rgb_cam.get_frame() != self.dpt_cam.get_frame():
-            raise RuntimeError("issue with camera setup; depth and rgb not aligned")
-
-    def get_pose(rotated=False):
+    def get_pose(self, rotated=False):
         """get matrix version of the camera pose"""
         mat = self._t_camera_pose.matrix()
         if rotated:
@@ -95,15 +105,23 @@ class StretchCameraInterface:
             return False
 
     # Helper methods
-
     def _create_cameras(self, color_topic=None, depth_topic=None):
         if self.rgb_cam is not None or self.dpt_cam is not None:
             raise RuntimeError("Already created cameras")
-        if color_topic is None:
-            color_topic = "/camera/color"
-        if depth_topic is None:
-            depth_topic = "/camera/aligned_depth_to_color"
         print("Creating cameras...")
-        self.rgb_cam = RosCamera(color_topic)
-        self.dpt_cam = RosCamera(depth_topic, buffer_size=self._depth_buffer_size)
+        self.rgb_cam = RosCamera(self._color_topic)
+        self.dpt_cam = RosCamera(self._depth_topic, buffer_size=self._depth_buffer_size)
         self.filter_depth = self._depth_buffer_size is not None
+
+    def _wait_for_cameras(self):
+        if self.rgb_cam is None or self.dpt_cam is None:
+            raise RuntimeError("cameras not initialized")
+        print("Waiting for rgb camera images...")
+        self.rgb_cam.wait_for_image()
+        print("Waiting for depth camera images...")
+        self.dpt_cam.wait_for_image()
+        print("..done.")
+        print("rgb frame =", self.rgb_cam.get_frame())
+        print("dpt frame =", self.dpt_cam.get_frame())
+        if self.rgb_cam.get_frame() != self.dpt_cam.get_frame():
+            raise RuntimeError("issue with camera setup; depth and rgb not aligned")

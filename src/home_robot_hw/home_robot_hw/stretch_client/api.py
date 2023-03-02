@@ -2,6 +2,7 @@
 #
 # This source code is licensed under the MIT license found in the
 # LICENSE file in the root directory of this source tree.
+from typing import Optional, Dict
 
 import rospy
 
@@ -15,16 +16,23 @@ from .modules.camera import StretchCameraInterface
 class StretchClient:
     """Defines a ROS-based interface to the real Stretch robot. Collect observations and command the robot."""
 
-    def __init__(self, init_cameras: bool = True, init_node: bool = False):
+    def __init__(
+        self, 
+        init_node: bool = False,
+        camera_overrides: Optional[Dict] = None,
+    ):
         # Ros
         if init_node:
             rospy.init_node("stretch_user_client")
         self._ros_client = StretchRosInterface()
 
         # Interface modules
+        if camera_overrides is None:
+            camera_overrides = {}
+
         self.nav = StretchNavigationInterface(self._ros_client)
         self.manip = StretchManipulationInterface(self._ros_client)
-        self.camera = StretchCameraInterface(self._ros_client)
+        self.camera = StretchCameraInterface(self._ros_client, **camera_overrides)
 
         # Init control mode
         self._base_control_mode = ControlMode.IDLE

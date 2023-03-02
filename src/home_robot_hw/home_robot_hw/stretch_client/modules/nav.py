@@ -2,15 +2,32 @@
 #
 # This source code is licensed under the MIT license found in the
 # LICENSE file in the root directory of this source tree.
+from typing import Iterable
+
 import rospy
 
+from geometry_msgs.msg import Twist
+from std_srvs.srv import SetBoolRequest, TriggerRequest
+
+from home_robot.utils.geometry import (
+    sophus2xyt,
+    xyt2sophus,
+    xyt_base_to_global,
+)
 from home_robot_hw.constants import T_LOC_STABILIZE
+from home_robot_hw.ros.utils import matrix_to_pose_msg
+from home_robot_hw.ros.visualizer import Visualizer
 
 from .abstract import AbstractControlModule, enforce_enabled
 
 class StretchNavigationInterface(AbstractControlModule):
     def __init__(self, ros_client):
         self._ros_client = ros_client
+        self._wait_for_pose()
+
+        # Create visualizers for pose information
+        self.goal_visualizer = Visualizer("command_pose", rgba=[1., 0., 0., 0.5])
+        self.curr_visualizer = Visualizer("current_pose", rgba=[0., 0., 1., 0.5])
 
     # Enable / disable
 
@@ -105,3 +122,11 @@ class StretchNavigationInterface(AbstractControlModule):
             # TODO: add this back in if we are having trouble building maps
             # Make sure that depth and position are synchonized
             # rospy.sleep(self.msg_delay_t * 5)
+
+    def _wait_for_pose(self):
+        """wait until we have an accurate pose estimate"""
+        rate = rospy.Rate(10)
+        while not rospy.is_shutdown():
+            if self._t_base_filtered is not None:
+                break
+            rate.sleep()
