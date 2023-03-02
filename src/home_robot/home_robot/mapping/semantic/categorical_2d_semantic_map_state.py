@@ -5,10 +5,7 @@
 import numpy as np
 import torch
 
-from home_robot.mapping.map_utils import (
-    MapSizeParameters,
-    init_map_and_pose_for_env,
-)
+from home_robot.mapping.map_utils import MapSizeParameters, init_map_and_pose_for_env
 
 
 class Categorical2DSemanticMapState:

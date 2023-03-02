@@ -50,11 +50,11 @@ class RosCamera(Camera):
         return xyz, rgb
 
     def get_time(self):
-        """ Get time image was received last"""
+        """Get time image was received last"""
         return self._t
 
     def wait_for_image(self) -> None:
-        """ Wait for image. Needs to be sort of slow, in order to make sure we give it time
+        """Wait for image. Needs to be sort of slow, in order to make sure we give it time
         to update the image in the backend."""
         rospy.sleep(0.2)
         rate = rospy.Rate(2)
@@ -80,6 +80,7 @@ class RosCamera(Camera):
         if device is not None:
             # Convert to tensor and get the formatting right
             import torch
+
             img = torch.FloatTensor(img).to(device).permute(2, 0, 1)
         return img
 

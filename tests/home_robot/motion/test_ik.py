@@ -9,18 +9,14 @@ import pytest
 from scipy.spatial.transform import Rotation as R
 
 from home_robot.motion.pinocchio_ik_solver import PositionIKOptimizer
-from home_robot.motion.stretch import (
-    STRETCH_GRASP_OFFSET,
-    STRETCH_HOME_Q,
-    HelloStretch,
-)
+from home_robot.motion.stretch import STRETCH_GRASP_OFFSET, STRETCH_HOME_Q, HelloStretch
 from home_robot.utils.bullet import PbArticulatedObject
 from home_robot.utils.path import REPO_ROOT_PATH
 from home_robot.utils.pose import to_matrix, to_pos_quat
 
 # Hyperparams
 DEBUG = False
-URDF_ABS_PATH= os.path.join(REPO_ROOT_PATH, "assets/hab_stretch/urdf/")
+URDF_ABS_PATH = os.path.join(REPO_ROOT_PATH, "assets/hab_stretch/urdf/")
 
 POS_ERROR_TOL = 1e-4  # 0.1 mm
 ORI_ERROR_TOL = 1e-6  # 0.1 degrees in quat distance
@@ -43,14 +39,17 @@ TEST_DATA = [
 
 # Helper functions
 
+
 def compute_err(pos1, pos2):
     return np.linalg.norm(pos1 - pos2)
+
 
 def quaternion_distance(quat1, quat2):
     """
     Returns: (1 - cos(theta_diff)) / 2
     """
     return 1 - ((quat1 * quat2).sum() ** 2)
+
 
 def ik_helper(robot, pos, quat, indicator_block=None, debug=DEBUG):
     """ik test helper function."""
@@ -70,13 +69,16 @@ def ik_helper(robot, pos, quat, indicator_block=None, debug=DEBUG):
         input("press enter to continue")
     return pos2, quat2, res
 
+
 # Tests
+
 
 @pytest.fixture(params=TEST_DATA)
 def test_pose(request):
     pos_raw, quat_raw = request.param
     pos, quat = to_pos_quat(to_matrix(pos_raw, quat_raw) @ STRETCH_GRASP_OFFSET)
     return pos, quat
+
 
 @pytest.fixture
 def pb_robot():
@@ -85,6 +87,8 @@ def pb_robot():
         visualize=DEBUG,
         ik_type="pybullet",
     )
+
+
 @pytest.fixture
 def pin_robot():
     return HelloStretch(
@@ -93,12 +97,14 @@ def pin_robot():
         ik_type="pinocchio",
     )
 
+
 @pytest.fixture(params=["pybullet", "pinocchio"])
 def robot(request, pb_robot, pin_robot):
     if request.param == "pybullet":
         return pb_robot
     elif request.param == "pinocchio":
         return pin_robot
+
 
 @pytest.fixture
 def pin_ik_optimizer(pin_robot):
@@ -107,6 +113,7 @@ def pin_ik_optimizer(pin_robot):
         pos_error_tol=CEM_POS_ERROR_TOL,
         ori_error_range=np.array([0.0, 0.0, CEM_YAW_ERROR_TOL]),  # solve for yaw only
     )
+
 
 def test_ik_solvers(robot, test_pose):
     # Create block for visualization
@@ -139,12 +146,8 @@ def test_pinocchio_against_pybullet(pin_robot, pb_robot, test_pose):
 
     # Run ik
     print("-------- 1: Inverse kinematics ---------")
-    pin_pos, pin_quat, pin_q = ik_helper(
-        pin_robot, pos, quat
-    )
-    pb_pos, pb_quat, pb_q = ik_helper(
-        pb_robot, pos, quat
-    )
+    pin_pos, pin_quat, pin_q = ik_helper(pin_robot, pos, quat)
+    pb_pos, pb_quat, pb_q = ik_helper(pb_robot, pos, quat)
     print(f"Pinocchio: {pin_pos}, {pin_quat}, {pin_q}")
     print(f"PyBullet: {pb_pos}, {pb_quat}, {pb_q}")
     pos_err = compute_err(pin_pos, pb_pos)
@@ -154,13 +157,9 @@ def test_pinocchio_against_pybullet(pin_robot, pb_robot, test_pose):
 
     print("-------- 2: FK + IK Consistency  ---------")
     pos1, quat1 = pin_robot.get_ee_pose()
-    pin_pos, pin_quat, pin_q = ik_helper(
-        pin_robot, pos1, quat1
-    )
+    pin_pos, pin_quat, pin_q = ik_helper(pin_robot, pos1, quat1)
     pos1, quat1 = pb_robot.get_ee_pose()
-    pb_pos, pb_quat, pb_q = ik_helper(
-        pb_robot, pos1, quat1
-    )
+    pb_pos, pb_quat, pb_q = ik_helper(pb_robot, pos1, quat1)
     pos_err = compute_err(pin_pos, pb_pos)
     quat_err = quaternion_distance(pin_quat, pb_quat)
     assert pos_err < POS_ERROR_TOL
