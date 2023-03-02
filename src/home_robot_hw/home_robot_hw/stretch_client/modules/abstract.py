@@ -8,10 +8,9 @@ def decorator(func):
         if self.is_enabled:
             return func(self, *args, **kwargs)
         else:
-            rospy.logerr(
-                f"{type(self).__name__} methods are only available in when the corresponding mode is active."
-            )
-            return None
+            err_str = f"{type(self).__name__} methods are only available in when the corresponding mode is active."
+            rospy.logerr(err_str)
+            raise TypeError(err_str)
 
     return wrapper
 

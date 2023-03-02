@@ -37,7 +37,7 @@ class StretchCameraInterface:
         else:
             return mat
 
-    def set_camera_pan_tilt(
+    def set_pan_tilt(
         self, pan: Optional[float] = None, tilt: Optional[float] = None
     ):
         joint_goals = {}

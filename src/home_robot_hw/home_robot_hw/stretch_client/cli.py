@@ -7,8 +7,8 @@
 
 import code
 
-from .stretch_hw_interface import StretchClientApi
+from .api import StretchClient
 
 if __name__ == '__main__':
-    stretch = StretchClientApi()
+    robot = StretchClient()
     code.interact(local=locals())
