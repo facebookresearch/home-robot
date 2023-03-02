@@ -53,7 +53,9 @@ if __name__ == "__main__":
     q = model.update_look_front(q)
     robot.goto(q, wait=True)
 
-    print(f"Confirm that the robot head has turned to look at the gripper then back.")
+    print(f"Confirm that the robot head has:")
+    print(f"\t1. Turned to face the gripper")
+    print(f"\t2. Turned back to face forwards")
     input("(press enter to continue)")
 
     # Navigation
@@ -67,7 +69,9 @@ if __name__ == "__main__":
     assert np.allclose(xyt_curr[:2], xyt_goal[:2], atol=POS_TOL)
     assert np.allclose(xyt_curr[2], xyt_goal[2], atol=YAW_TOL)
 
-    print(f"Confirm that the robot moved to {xyt_goal} (forward left, facing right)")
+    print(
+        f"Confirm that the robot moved to {xyt_goal} (moved forward-left, turned to face right)"
+    )
     input("(press enter to continue)")
 
     # Manipulation
