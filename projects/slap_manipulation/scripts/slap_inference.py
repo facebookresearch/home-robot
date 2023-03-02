@@ -20,9 +20,9 @@ def main(cfg=None):
     # create the robot object
     robot = StretchManipulationEnv(init_cameras=True)
     # create IPM object
-    ipm_model = IPModule()
+    ipm_model = IPModule(dry_run=True)
     # create APM object
-    apm_model = APModule()
+    apm_model = APModule(dry_run=True)
     # load model-weights
     # ipm_model.load_state_dict(cfg.ipm_weights)
     # apm_model.load_state_dict(cfg.apm_weights)

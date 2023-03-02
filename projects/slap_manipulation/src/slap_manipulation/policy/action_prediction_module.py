@@ -106,6 +106,7 @@ class APModule(torch.nn.Module):
         num_heads=3,
         multi_head=False,
         validate=False,
+        dry_run=False,
     ):
         super().__init__()
 
@@ -203,7 +204,7 @@ class APModule(torch.nn.Module):
             "up": [0.43890929711345494, 0.024286597087151203, 0.89820308956788786],
             "zoom": 0.43999999999999972,
         }
-        if not validate:
+        if not validate and not dry_run:
             self.setup_training()
             self.start_time = 0.0
 

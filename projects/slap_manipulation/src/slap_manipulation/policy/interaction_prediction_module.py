@@ -147,6 +147,7 @@ class IPModule(torch.nn.Module):
         skip_ambiguous_pts=False,
         locality_loss_wt=1e-0,
         locality_loss_spread=0.25,
+        dry_run=False,
     ):
         super().__init__()
         self.name = name
@@ -318,8 +319,9 @@ class IPModule(torch.nn.Module):
             ),
             context_dim=latent_dim,
         )
-        self.setup_training()
-        self.start_time = 0.0
+        if not dry_run:
+            self.setup_training()
+            self.start_time = 0.0
 
     def setup_training(self):
         # get today's date
