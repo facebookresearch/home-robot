@@ -5,22 +5,20 @@
 import sys
 import threading
 
-import numpy as np
-import sophus as sp
-import rospy
-import tf2_ros
 import actionlib
-
+import numpy as np
+import rospy
+import sophus as sp
+import tf2_ros
 from control_msgs.msg import FollowJointTrajectoryAction, FollowJointTrajectoryGoal
 from geometry_msgs.msg import Pose, PoseStamped, Twist
 from nav_msgs.msg import Odometry
 from sensor_msgs.msg import JointState
-from std_msgs.msg import String, Bool
+from std_msgs.msg import Bool, String
 from std_srvs.srv import SetBool, SetBoolRequest, Trigger, TriggerRequest
 from trajectory_msgs.msg import JointTrajectoryPoint
 
 from home_robot.motion.stretch import HelloStretchIdx
-from home_robot_hw.ros.utils import matrix_from_pose_msg
 from home_robot_hw.constants import (
     CONFIG_TO_ROS,
     ROS_ARM_JOINTS,
@@ -33,6 +31,7 @@ from home_robot_hw.constants import (
     ROS_WRIST_ROLL,
     ROS_WRIST_YAW,
 )
+from home_robot_hw.ros.utils import matrix_from_pose_msg
 
 BASE_X_IDX = HelloStretchIdx.BASE_X
 BASE_Y_IDX = HelloStretchIdx.BASE_Y
@@ -48,6 +47,7 @@ HEAD_TILT_IDX = HelloStretchIdx.HEAD_TILT
 
 T_GOAL_TIME_TOL = 1.0
 
+
 class StretchRosInterface:
     def __init__(self):
         self._create_pubs_subs()
@@ -55,9 +55,7 @@ class StretchRosInterface:
 
     def _create_services(self):
         """Create services to activate/deactive robot modes"""
-        self.nav_mode_service = rospy.ServiceProxy(
-            "switch_to_navigation_mode", Trigger
-        )
+        self.nav_mode_service = rospy.ServiceProxy("switch_to_navigation_mode", Trigger)
         self.pos_mode_service = rospy.ServiceProxy("switch_to_position_mode", Trigger)
 
         self.goto_on_service = rospy.ServiceProxy("goto_controller/enable", Trigger)
@@ -74,10 +72,8 @@ class StretchRosInterface:
         self._js_lock = threading.Lock()
 
         self._at_goal_sub = rospy.Subscriber(
-            "goto_controller/at_goal",
-            Bool,
-            self._at_goal_callback,
-            queue_size=10)
+            "goto_controller/at_goal", Bool, self._at_goal_callback, queue_size=10
+        )
         self._mode_sub = rospy.Subscriber(
             "mode", String, self._mode_callback, queue_size=1
         )
@@ -108,7 +104,9 @@ class StretchRosInterface:
             self._base_state_callback,
             queue_size=1,
         )
-        self._camera_pose_sub = rospy.Subscriber("camera_pose", PoseStamped, self._camera_pose_callback, queue_size=1)
+        self._camera_pose_sub = rospy.Subscriber(
+            "camera_pose", PoseStamped, self._camera_pose_callback, queue_size=1
+        )
 
         print("Waiting for trajectory server...")
         server_reached = self.trajectory_client.wait_for_server(

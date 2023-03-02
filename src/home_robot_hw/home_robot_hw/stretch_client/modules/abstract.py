@@ -1,9 +1,11 @@
 import abc
+
 import rospy
 
 
 def enforce_enabled(func):
     """Decorator for checking if a control method is executed while module is enabled."""
+
     def wrapper(self, *args, **kwargs):
         if self.is_enabled:
             return func(self, *args, **kwargs)

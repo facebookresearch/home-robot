@@ -5,20 +5,16 @@
 from typing import Iterable
 
 import rospy
-
 from geometry_msgs.msg import Twist
 from std_srvs.srv import SetBoolRequest, TriggerRequest
 
-from home_robot.utils.geometry import (
-    sophus2xyt,
-    xyt2sophus,
-    xyt_base_to_global,
-)
+from home_robot.utils.geometry import sophus2xyt, xyt2sophus, xyt_base_to_global
 from home_robot_hw.constants import T_LOC_STABILIZE
 from home_robot_hw.ros.utils import matrix_to_pose_msg
 from home_robot_hw.ros.visualizer import Visualizer
 
 from .abstract import AbstractControlModule, enforce_enabled
+
 
 class StretchNavigationInterface(AbstractControlModule):
     def __init__(self, ros_client):
@@ -26,8 +22,8 @@ class StretchNavigationInterface(AbstractControlModule):
         self._wait_for_pose()
 
         # Create visualizers for pose information
-        self.goal_visualizer = Visualizer("command_pose", rgba=[1., 0., 0., 0.5])
-        self.curr_visualizer = Visualizer("current_pose", rgba=[0., 0., 1., 0.5])
+        self.goal_visualizer = Visualizer("command_pose", rgba=[1.0, 0.0, 0.0, 0.5])
+        self.curr_visualizer = Visualizer("current_pose", rgba=[0.0, 0.0, 1.0, 0.5])
 
     # Enable / disable
 
@@ -51,11 +47,14 @@ class StretchNavigationInterface(AbstractControlModule):
 
     def at_goal(self) -> bool:
         """Returns true if the agent is currently at its goal location"""
-        if self._goal_reset_t is not None and (rospy.Time.now() - self._goal_reset_t).to_sec() > self.msg_delay_t:
+        if (
+            self._goal_reset_t is not None
+            and (rospy.Time.now() - self._goal_reset_t).to_sec() > self.msg_delay_t
+        ):
             return self._at_goal
         else:
             return False
-    
+
     @enforce_enabled
     def set_velocity(self, v, w):
         """
@@ -67,7 +66,6 @@ class StretchNavigationInterface(AbstractControlModule):
 
         self._ros_client.goto_off_service(TriggerRequest())
         self._ros_client.velocity_pub.publish(msg)
-
 
     @enforce_enabled
     def navigate_to(

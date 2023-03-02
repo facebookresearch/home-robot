@@ -2,22 +2,23 @@
 #
 # This source code is licensed under the MIT license found in the
 # LICENSE file in the root directory of this source tree.
-from typing import Optional, Dict
+from typing import Dict, Optional
 
 import rospy
 
 from home_robot_hw.constants import ControlMode
 
-from .ros import StretchRosInterface
-from .modules.nav import StretchNavigationInterface
-from .modules.manip import StretchManipulationInterface
 from .modules.camera import StretchCameraInterface
+from .modules.manip import StretchManipulationInterface
+from .modules.nav import StretchNavigationInterface
+from .ros import StretchRosInterface
+
 
 class StretchClient:
     """Defines a ROS-based interface to the real Stretch robot. Collect observations and command the robot."""
 
     def __init__(
-        self, 
+        self,
         init_node: bool = False,
         camera_overrides: Optional[Dict] = None,
     ):
@@ -65,7 +66,7 @@ class StretchClient:
         result_post = self.manip.enable()
 
         self._base_control_mode = ControlMode.MANIPULATION
-        
+
         return result_pre and result_post
 
     def in_manipulation_mode(self):
@@ -104,4 +105,3 @@ class StretchClient:
             print("!!! Lookup failed from", self.base_link, "to", self.odom_link, "!!!")
             return None
         return pose_mat
-

@@ -5,7 +5,7 @@ import numpy as np
 from home_robot.motion.stretch import HelloStretch
 from home_robot_hw.client import StretchClient
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     robot = StretchClient()
     model = HelloStretch()
 

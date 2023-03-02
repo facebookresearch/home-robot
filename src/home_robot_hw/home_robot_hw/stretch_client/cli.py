@@ -9,6 +9,6 @@ import code
 
 from .api import StretchClient
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     robot = StretchClient()
     code.interact(local=locals())

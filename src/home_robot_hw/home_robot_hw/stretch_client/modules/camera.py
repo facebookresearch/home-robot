@@ -16,11 +16,12 @@ DEFAULT_DEPTH_TOPIC = "/camera/aligned_depth_to_color"
 MIN_DEPTH_REPLACEMENT_VALUE = 10000
 MAX_DEPTH_REPLACEMENT_VALUE = 10001
 
+
 class StretchCameraInterface:
     def __init__(
-        self, 
+        self,
         ros_client: "StretchRosInterface",
-        init_cameras: bool = True, 
+        init_cameras: bool = True,
         color_topic: Optional[str] = None,
         depth_topic: Optional[str] = None,
         depth_buffer_size: Optional[int] = None,
@@ -47,9 +48,7 @@ class StretchCameraInterface:
         else:
             return mat
 
-    def set_pan_tilt(
-        self, pan: Optional[float] = None, tilt: Optional[float] = None
-    ):
+    def set_pan_tilt(self, pan: Optional[float] = None, tilt: Optional[float] = None):
         joint_goals = {}
         if pan is not None:
             joint_goals[ROS_HEAD_PAN] = pan
@@ -99,7 +98,10 @@ class StretchCameraInterface:
         """Return true if we have up to date depth."""
         # Make sure we have a goal and our poses and depths are synced up - we need to have
         # received depth after we stopped moving
-        if self._goal_reset_t is not None and (rospy.Time.now() - self._goal_reset_t).to_sec() > self.msg_delay_t:
+        if (
+            self._goal_reset_t is not None
+            and (rospy.Time.now() - self._goal_reset_t).to_sec() > self.msg_delay_t
+        ):
             return (self.dpt_cam.get_time() - self._goal_reset_t).to_sec() > seconds
         else:
             return False

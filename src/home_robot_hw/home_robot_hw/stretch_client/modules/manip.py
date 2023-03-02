@@ -5,18 +5,15 @@
 from typing import List, Optional
 
 import numpy as np
-from scipy.spatial.transform import Rotation as R
 import rospy
-
+from scipy.spatial.transform import Rotation as R
 from std_srvs.srv import TriggerRequest
 
-from home_robot.utils.geometry import (
-    posquat2sophus,
-    xyt2sophus,
-)
 from home_robot.core.state import ManipulatorBaseParams
+from home_robot.utils.geometry import posquat2sophus, xyt2sophus
 
 from .abstract import AbstractControlModule, enforce_enabled
+
 
 class StretchManipulationInterface(AbstractControlModule):
     def __init__(self, ros_client):
