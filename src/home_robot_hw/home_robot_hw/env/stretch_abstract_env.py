@@ -17,15 +17,15 @@ from control_msgs.msg import FollowJointTrajectoryAction, FollowJointTrajectoryG
 from geometry_msgs.msg import Pose, PoseStamped, Twist
 from nav_msgs.msg import Odometry
 from sensor_msgs.msg import JointState
-from std_msgs.msg import String, Bool
+from std_msgs.msg import Bool, String
 from std_srvs.srv import SetBool, SetBoolRequest, Trigger, TriggerRequest
 from trajectory_msgs.msg import JointTrajectoryPoint
 
 import home_robot
 import home_robot.core.abstract_env
-from home_robot.motion.stretch import HelloStretchIdx
 from home_robot.core.interfaces import Action, Observations
 from home_robot.core.state import ManipulatorBaseParams
+from home_robot.motion.stretch import HelloStretchIdx
 from home_robot.utils.geometry import (
     posquat2sophus,
     sophus2xyt,
@@ -157,7 +157,10 @@ class StretchEnv(home_robot.core.abstract_env.Env):
 
     def at_goal(self) -> bool:
         """Returns true if the agent is currently at its goal location"""
-        if self._goal_reset_t is not None and (rospy.Time.now() - self._goal_reset_t).to_sec() > self.msg_delay_t:
+        if (
+            self._goal_reset_t is not None
+            and (rospy.Time.now() - self._goal_reset_t).to_sec() > self.msg_delay_t
+        ):
             return self._at_goal
         else:
             return False
@@ -194,7 +197,7 @@ class StretchEnv(home_robot.core.abstract_env.Env):
         return sophus2xyt(self._t_base_filtered)
 
     def get_base_pose_matrix(self):
-        """get matrix version of the base pose """
+        """get matrix version of the base pose"""
         return self._t_base_filtered.matrix()
 
     def get_camera_pose_matrix(self, rotated=False):
@@ -268,14 +271,12 @@ class StretchEnv(home_robot.core.abstract_env.Env):
         self._js_lock = threading.Lock()
 
         # Create visualizers for pose information
-        self.goal_visualizer = Visualizer("command_pose", rgba=[1., 0., 0., 0.5])
-        self.curr_visualizer = Visualizer("current_pose", rgba=[0., 0., 1., 0.5])
+        self.goal_visualizer = Visualizer("command_pose", rgba=[1.0, 0.0, 0.0, 0.5])
+        self.curr_visualizer = Visualizer("current_pose", rgba=[0.0, 0.0, 1.0, 0.5])
 
         self._at_goal_sub = rospy.Subscriber(
-            "goto_controller/at_goal",
-            Bool,
-            self._at_goal_callback,
-            queue_size=10)
+            "goto_controller/at_goal", Bool, self._at_goal_callback, queue_size=10
+        )
         self._mode_sub = rospy.Subscriber(
             "mode", String, self._mode_callback, queue_size=1
         )
@@ -306,7 +307,9 @@ class StretchEnv(home_robot.core.abstract_env.Env):
             self._base_state_callback,
             queue_size=1,
         )
-        self._camera_pose_sub = rospy.Subscriber("camera_pose", PoseStamped, self._camera_pose_callback, queue_size=1)
+        self._camera_pose_sub = rospy.Subscriber(
+            "camera_pose", PoseStamped, self._camera_pose_callback, queue_size=1
+        )
 
         print("Waiting for trajectory server...")
         server_reached = self.trajectory_client.wait_for_server(
@@ -352,7 +355,7 @@ class StretchEnv(home_robot.core.abstract_env.Env):
         return True
 
     def config_to_ros_trajectory_goal(self, q: np.ndarray) -> FollowJointTrajectoryGoal:
-        """ Create a joint trajectory goal to move the arm."""
+        """Create a joint trajectory goal to move the arm."""
         trajectory_goal = FollowJointTrajectoryGoal()
         trajectory_goal.goal_time_tolerance = rospy.Time(self.goal_time_tolerance)
         trajectory_goal.trajectory.joint_names = self.ros_joint_names
@@ -539,7 +542,10 @@ class StretchEnv(home_robot.core.abstract_env.Env):
         """Return true if we have up to date depth."""
         # Make sure we have a goal and our poses and depths are synced up - we need to have
         # received depth after we stopped moving
-        if self._goal_reset_t is not None and (rospy.Time.now() - self._goal_reset_t).to_sec() > self.msg_delay_t:
+        if (
+            self._goal_reset_t is not None
+            and (rospy.Time.now() - self._goal_reset_t).to_sec() > self.msg_delay_t
+        ):
             return (self.dpt_cam.get_time() - self._goal_reset_t).to_sec() > seconds
         else:
             return False

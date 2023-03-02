@@ -1,10 +1,10 @@
 import argparse
-import torch
-import numpy as np
 import sys
 from pathlib import Path
 from typing import Optional
 
+import numpy as np
+import torch
 from detectron2.config import get_cfg
 from detectron2.data import MetadataCatalog
 from detectron2.engine.defaults import DefaultPredictor
@@ -17,14 +17,16 @@ sys.path.insert(
     0, str(Path(__file__).resolve().parent / "Detic/third_party/CenterNet2/")
 )
 from centernet.config import add_centernet_config  # noqa: E402
-from home_robot.perception.detection.detic.Detic.detic.config import add_detic_config  # noqa: E402
+
+from home_robot.perception.detection.detic.Detic.detic.config import (  # noqa: E402
+    add_detic_config,
+)
 from home_robot.perception.detection.detic.Detic.detic.modeling.text.text_encoder import (  # noqa: E402
     build_text_encoder,
 )
 from home_robot.perception.detection.detic.Detic.detic.modeling.utils import (  # noqa: E402
     reset_cls_test,
 )
-
 
 BUILDIN_CLASSIFIER = {
     "lvis": Path(__file__).resolve().parent
