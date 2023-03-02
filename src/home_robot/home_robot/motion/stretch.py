@@ -470,7 +470,7 @@ class HelloStretch(Robot):
         if self._ik_type == "pybullet":
             pose = self.get_link_pose(self.ee_link_name, q)
         elif self._ik_type == "pinocchio":
-            pose = self.manip_ik_solver.compute_fk(q)
+            pose = self.ik_solver.compute_fk(q)
         if as_matrix:
             return to_matrix(*pose)
         return pose

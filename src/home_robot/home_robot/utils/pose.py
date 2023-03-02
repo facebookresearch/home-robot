@@ -2,10 +2,10 @@
 #
 # This source code is licensed under the MIT license found in the
 # LICENSE file in the root directory of this source tree.
-import trimesh.transformations as tra
 import numpy as np
 import quaternion
 import torch
+import trimesh.transformations as tra
 
 # Code adapted from the rotation continuity repo (https://github.com/papagina/RotationContinuity)
 
