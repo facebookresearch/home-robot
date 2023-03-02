@@ -84,7 +84,8 @@ def to_pos_quat(matrix):
     return pos, np.array([x, y, z, w])
 
 
-def to_matrix(pos, rot):
+def to_matrix(pos, rot) -> np.ndarray:
+    """converts pos, quat to matrix format"""
     x, y, z, w = rot
     T = tra.quaternion_matrix([w, x, y, z])
     T[:3, 3] = pos
