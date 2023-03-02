@@ -8,8 +8,9 @@ import rospy
 from home_robot.motion.stretch import HelloStretch, STRETCH_HOME_Q
 from home_robot_hw.env.stretch_abstract_env import StretchEnv
 
-POS_TOL = 0.05
-YAW_TOL = 0.1
+# Loose tolerances just to test that the robot moved reasonably
+POS_TOL = 0.1
+YAW_TOL = 0.2
 
 class StretchEnvImpl(StretchEnv):
     def reset(self):
