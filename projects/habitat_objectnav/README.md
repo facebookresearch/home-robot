@@ -27,7 +27,8 @@ cd ..
 git clone --branch modular_nav_obj_on_rec https://github.com/facebookresearch/habitat-lab.git
 cd habitat-lab 
 pip install -r requirements.txt
-python setup.py develop --all
+# Not clear if this should have --all or just be a pip install .
+python setup.py develop
 pip install natsort scikit-image scikit-fmm pandas
 
 cd ..
