@@ -4,6 +4,7 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 import torch_geometric.transforms as T
+from einops import rearrange, reduce, repeat
 from perceiver_pytorch.perceiver_io import (
     FeedForward,
     PreNorm,
@@ -11,6 +12,7 @@ from perceiver_pytorch.perceiver_io import (
     default,
     exists,
 )
+from torch import einsum
 from torch.nn import BatchNorm1d as BN
 from torch.nn import Identity
 from torch.nn import Linear as Lin
