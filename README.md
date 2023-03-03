@@ -51,10 +51,6 @@ This project contains numerous packages. See individual package docs for corresp
     roslaunch home_robot_hw startup_stretch_hector_slam.launch
     ```
     Note: If this fails, `pip install sophuspy`.
-1. Launch interactive client: 
-    ```sh 
-    python -m home_robot.client.local_hello_robot
-    ```
 
 You should then be able to command the robot using the following commands:
 ```py
