@@ -10,7 +10,7 @@ from scipy.spatial.transform import Rotation as R
 from std_srvs.srv import TriggerRequest
 
 from home_robot.core.state import ManipulatorBaseParams
-from home_robot.motion.stretch import HelloStretchIdx
+from home_robot.motion.stretch import STRETCH_HOME_Q, HelloStretchIdx
 from home_robot.utils.geometry import posquat2sophus, xyt2sophus
 
 from .abstract import AbstractControlModule, enforce_enabled
@@ -60,6 +60,10 @@ class StretchManipulationInterface(AbstractControlModule):
         return True
 
     @enforce_enabled
+    def home(self, blocking=False):
+        return self.goto(STRETCH_HOME_Q, wait=blocking)
+
+    @enforce_enabled
     def set_joint_positions(
         self,
         joint_positions: List[float],
@@ -101,8 +105,6 @@ class StretchManipulationInterface(AbstractControlModule):
 
         if blocking:
             self.wait()
-
-        return True
 
     @enforce_enabled
     def set_ee_pose(
