@@ -3,6 +3,7 @@
 # This source code is licensed under the MIT license found in the
 # LICENSE file in the root directory of this source tree.
 import os
+from typing import Dict
 
 import h5py
 import numpy as np
@@ -34,7 +35,6 @@ class DataWriter(object):
             filename = os.path.join(self.dirname, self.filename)
         else:
             filename = self.filename
-        self.h5 = h5py.File(filename, "w")
         self.num_trials = 0
         self.reset()
 
@@ -78,7 +78,7 @@ class DataWriter(object):
             self.temporal_data[k].append(v)
         return True
 
-    def fix_data(self, data):
+    def fix_data(self, data) -> Dict[str]:
         """Flatten dictionaries"""
         new_data = {}
         for k, v in data.items():
@@ -91,7 +91,7 @@ class DataWriter(object):
                 new_data[k] = v
         return new_data
 
-    def flatten_dict(self, key, data):
+    def flatten_dict(self, key, data) -> Dict[str]:
         """Take a dictionary (data) and turn it into a flat dict, with keys separated by
         slashes as per os.path.join"""
         new_data = {}
@@ -135,37 +135,38 @@ class DataWriter(object):
         else:
             trial_id = str(trial_id)
         self.num_trials += 1
-        trial = self.h5.create_group(trial_id)
+        with h5py.File(self.filename, "a") as h5_file:
+            trial = h5_file.create_group(trial_id)
 
-        # Now write the example out here
-        temporal_keys = ",".join(list(self.temporal_data.keys()))
-        img_keys = ",".join(list(self.img_data.keys()))
-        config_keys = ",".join(list(self.config_data.keys()))
-        data = self.temporal_data
-        data.update(self.config_data)
-        for k, v in data.items():
-            # Add this to the hdf5 file
-            if k[-1] == "_":
-                raise RuntimeError(
-                    "invalid name for dataset key: "
-                    + str(key)
-                    + " cannot end with _; this is reserved."
-                )
-            try:
-                trial[k] = v
-            except TypeError as e:
-                print(e)
-                print("Cannot use type: ", k)
-                import pdb
+            # Now write the example out here
+            temporal_keys = ",".join(list(self.temporal_data.keys()))
+            img_keys = ",".join(list(self.img_data.keys()))
+            config_keys = ",".join(list(self.config_data.keys()))
+            data = self.temporal_data
+            data.update(self.config_data)
+            for k, v in data.items():
+                # Add this to the hdf5 file
+                if k[-1] == "_":
+                    raise RuntimeError(
+                        "invalid name for dataset key: "
+                        + str(k)
+                        + " cannot end with _; this is reserved."
+                    )
+                try:
+                    trial[k] = v
+                except TypeError as e:
+                    print(e)
+                    print("Cannot use type: ", k)
+                    import pdb
 
-                pdb.set_trace()
-        for k, v in self.img_data.items():
-            for i, bindata in enumerate(v):
-                ki = os.path.join(k, str(i))
-                trial[ki] = np.void(bindata)
-        trial[base.TEMPORAL_KEYS] = temporal_keys
-        trial[base.CONFIG_KEYS] = config_keys
-        trial[base.IMAGE_KEYS] = img_keys
+                    pdb.set_trace()
+            for k, v in self.img_data.items():
+                for i, bindata in enumerate(v):
+                    ki = os.path.join(k, str(i))
+                    trial[ki] = np.void(bindata)
+            trial[base.TEMPORAL_KEYS] = temporal_keys
+            trial[base.CONFIG_KEYS] = config_keys
+            trial[base.IMAGE_KEYS] = img_keys
 
         # At the end, clear current stored data + configs
         self.reset()

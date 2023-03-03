@@ -1,8 +1,8 @@
 from abc import abstractmethod
 from typing import Any, Dict, Optional
-import numpy as np
 
 import habitat
+import numpy as np
 
 import home_robot
 import home_robot.core.abstract_env

@@ -5,8 +5,8 @@
 import os
 from argparse import ArgumentParser
 
-from encoding.models.sseg.base import up_kwargs
 import torchvision.transforms as transforms
+from encoding.models.sseg.base import up_kwargs
 
 from .lsegmentation_module import LSegmentationModule
 from .models.lseg_net import LSegNet

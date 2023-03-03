@@ -2,10 +2,10 @@
 #
 # This source code is licensed under the MIT license found in the
 # LICENSE file in the root directory of this source tree.
-import trimesh.transformations as tra
 import numpy as np
 import quaternion
 import torch
+import trimesh.transformations as tra
 
 # Code adapted from the rotation continuity repo (https://github.com/papagina/RotationContinuity)
 
@@ -84,7 +84,8 @@ def to_pos_quat(matrix):
     return pos, np.array([x, y, z, w])
 
 
-def to_matrix(pos, rot):
+def to_matrix(pos, rot) -> np.ndarray:
+    """converts pos, quat to matrix format"""
     x, y, z, w = rot
     T = tra.quaternion_matrix([w, x, y, z])
     T[:3, 3] = pos

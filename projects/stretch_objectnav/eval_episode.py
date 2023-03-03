@@ -2,6 +2,7 @@
 import rospy
 
 from home_robot.agent.objectnav_agent.objectnav_agent import ObjectNavAgent
+from home_robot.motion.stretch import STRETCH_HOME_Q
 from home_robot.utils.config import get_config
 from home_robot_hw.env.stretch_object_nav_env import StretchObjectNavEnv
 

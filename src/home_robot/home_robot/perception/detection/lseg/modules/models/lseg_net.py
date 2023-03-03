@@ -2,20 +2,21 @@
 #
 # This source code is licensed under the MIT license found in the
 # LICENSE file in the root directory of this source tree.
+from typing import List, Optional, Tuple
+
 import clip
+import matplotlib.patches as mpatches
 import numpy as np
 import torch
 import torch.nn as nn
-from typing import List, Optional, Tuple
 import torchvision.transforms as transforms
 from PIL import Image
-import matplotlib.patches as mpatches
 
 from .lseg_blocks import (
-    _make_encoder,
     FeatureFusionBlock_custom,
-    forward_vit,
     Interpolate,
+    _make_encoder,
+    forward_vit,
 )
 
 

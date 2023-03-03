@@ -6,12 +6,11 @@ import rospy
 import home_robot
 from home_robot_hw.env.stretch_abstract_env import StretchEnv
 
+
 class StretchSimpleNavEnv(StretchEnv):
     """Simple environment to move robot forward by 0.25m"""
 
-    def __init__(
-        self, forward_step=0.25, *args, **kwargs
-    ):
+    def __init__(self, forward_step=0.25, *args, **kwargs):
         super().__init__(*args, **kwargs)
 
         self.forward_step = forward_step  # in meters

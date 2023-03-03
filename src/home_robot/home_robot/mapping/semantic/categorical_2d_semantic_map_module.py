@@ -11,10 +11,10 @@ import torch.nn as nn
 from torch import IntTensor, Tensor
 from torch.nn import functional as F
 
-import home_robot.utils.depth as du
 import home_robot.mapping.map_utils as mu
-import home_robot.utils.rotation as ru
+import home_robot.utils.depth as du
 import home_robot.utils.pose as pu
+import home_robot.utils.rotation as ru
 
 
 class Categorical2DSemanticMapModule(nn.Module):
