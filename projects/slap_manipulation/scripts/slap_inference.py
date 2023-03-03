@@ -1,6 +1,7 @@
 import hydra
 import numpy as np
 import rospy
+import torch
 import trimesh
 from slap_manipulation.env.stretch_manipulation_env import StretchManipulationEnv
 from slap_manipulation.policy.action_prediction_module import APModule
@@ -35,18 +36,25 @@ def create_ipm_input(
     cam_xyz = xyz.reshape(-1, 3)
     xyz = trimesh.transform_points(cam_xyz, camera_pose)
 
-    # apply depth filter
+    # apply depth and z-filter for comparative distribution to training data
     if filter_depth:
-        valid_depth = np.bitwise_and(depth > 0.1, depth < 4.0)
+        valid_depth = np.bitwise_and(depth > 0.1, depth < 1.0)
         rgb = rgb[valid_depth, :]
         xyz = xyz[valid_depth, :]
+        z_mask = xyz[:, 2] > 0.5
+        rgb = rgb[z_mask, :]
+        xyz = xyz[z_mask, :]
 
+    # get 8k points for tractable learning
     downsample_mask = np.arange(rgb.shape[0])
     np.random.shuffle(downsample_mask)
     if num_pts != -1:
         downsample_mask = downsample_mask[:num_pts]
     rgb = rgb[downsample_mask]
     xyz = xyz[downsample_mask]
+
+    # mean-center the point cloud
+    xyz -= xyz.mean(axis=0)
 
     if debug:
         show_point_cloud(xyz, rgb / 255.0, orig=np.zeros(3))
@@ -66,7 +74,7 @@ def main(cfg):
     # create APM object
     apm_model = APModule(dry_run=cfg.dry_run)
     # load model-weights
-    # ipm_model.load_state_dict(cfg.ipm_weights)
+    ipm_model.load_state_dict(torch.load(cfg.ipm_weights))
     # apm_model.load_state_dict(cfg.apm_weights)
 
     print("Loaded models successfully")
@@ -90,7 +98,9 @@ def main(cfg):
         # get from the robot: pcd=(xyz, rgb), gripper-state,
         # construct input vector from raw data
         raw_observations = robot.get_observation()
-        input_vector = create_ipm_input(raw_observations, input_cmd, filter_depth=True)
+        input_vector = create_ipm_input(
+            raw_observations, input_cmd, filter_depth=True, debug=True
+        )
         # run inference on sensor data for IPM
         interaction_point = ipm_model.predict(*input_vector)
         print(f"Interaction point is {interaction_point}")
