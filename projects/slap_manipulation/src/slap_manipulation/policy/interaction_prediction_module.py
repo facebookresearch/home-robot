@@ -4,6 +4,7 @@ import os
 import random
 from pprint import pprint
 from time import time
+from typing import List, Tuple
 
 import clip
 import numpy as np
@@ -21,6 +22,8 @@ from perceiver_pytorch.perceiver_io import (
 )
 from slap_manipulation.dataloaders.rlbench_loader import RLBenchDataset
 from slap_manipulation.dataloaders.robot_loader import (
+    VOXEL_SIZE_1,
+    VOXEL_SIZE_2,
     RobotDataset,
     show_point_cloud_with_keypt_and_closest_pt,
 )
@@ -434,34 +437,43 @@ class IPModule(torch.nn.Module):
             return val_loss, True
         return best_val_loss, False
 
-    def _preprocess_input(self, xyz, rgb):
-        pcd = numpy_to_pcd(xyz.detach().cpu().numpy(), rgb.detach().cpu().numpy())
-        downpcd = pcd.voxel_down_sample(voxel_size=self._voxel_size)
-        down_xyz = torch.Tensor(np.asarray(downpcd.points)).to(self.device)
-        down_rgb = torch.Tensor(np.asarray(downpcd.colors)).to(self.device)
+    def _preprocess_input(self, xyz: np.ndarray, rgb: np.ndarray):
+        pcd = numpy_to_pcd(xyz, rgb)
+        downpcd = pcd.voxel_down_sample(voxel_size=VOXEL_SIZE_2)
+        down_xyz = np.asarray(downpcd.points)
+        down_rgb = np.asarray(downpcd.colors)
         return down_xyz, down_rgb
 
-    def eval(self, data):
-        return None
-
-    def predict(self, feat, xyz, lang):
+    def predict(
+        self,
+        feat: Tuple[np.ndarray],
+        xyz: np.ndarray,
+        proprio: np.ndarray,
+        lang: List[str],
+    ):
         """
         helper function for predicting index of closest voxel and encoded spatial features
 
-        feat: tuple (rgb, proprio)
+        feat: scene features: tuple (rgb, <add other feats as we expand repertoire>)
         xyz: point-cloud locations for each feat
         lang: language annotation which is encoded
+        proprio: proprioception, an np.ndarray (gripper-action, gripper-width, time)
         """
-        rgb = feat[0]
-        proprio = feat[1]
-        down_xyz, down_rgb = self._preprocess_input(xyz, rgb)
+        t_rgb = torch.FloatTensor(feat[0]).to(self.device)
+        t_xyz = torch.FloatTensor(xyz).to(self.device)
+        t_proprio = torch.FloatTensor(proprio).to(self.device)
+        down_xyz, down_rgb = self._preprocess_input(xyz, feat[0])
+        t_down_xyz, t_down_rgb = torch.FloatTensor(down_xyz).to(
+            self.device
+        ), torch.FloatTensor(down_rgb).to(self.device)
+
         classification_probs, xyz, rgb = self.forward(
-            rgb,
-            down_rgb,
-            xyz,
-            down_xyz,
+            t_rgb,
+            t_down_rgb,
+            t_xyz,
+            t_down_xyz,
             lang,
-            proprio,
+            t_proprio,
         )
         return (self.predict_closest_idx(classification_probs)[0], xyz, rgb)
 
@@ -642,6 +654,7 @@ class IPModule(torch.nn.Module):
         if not os.path.exists(output_dir):
             os.makedirs(output_dir)
         with open(os.path.join(output_dir, output_file), "w") as f:
+            # FIXME: replace with yaml
             json.dump(metrics, f, indent=4)
 
     def clip_encode_text(self, text):
@@ -952,7 +965,7 @@ def main():
             # template="**/*.h5",
             dr_factor=5,
         )
-        valid_dataset = RoboPenDataset(
+        valid_dataset = RobotDataset(
             args.datadir,
             num_pts=8000,
             data_augmentation=False,
@@ -962,7 +975,7 @@ def main():
             template=args.template,
             # template="**/*.h5",
         )
-        test_dataset = RoboPenDataset(
+        test_dataset = RobotDataset(
             args.datadir,
             num_pts=8000,
             data_augmentation=False,
