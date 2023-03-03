@@ -38,6 +38,9 @@ if __name__ == "__main__":
     robot.switch_to_manipulation_mode()
     assert robot.in_manipulation_mode()
 
+    # Home robot
+    robot.home()
+
     # Get ee pose
     pos, quat = robot.manip.get_ee_pose(relative=True)
 

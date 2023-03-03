@@ -60,7 +60,7 @@ class StretchManipulationInterface(AbstractControlModule):
         return True
 
     @enforce_enabled
-    def home(self, blocking=False):
+    def home(self, blocking=True):
         return self.goto(STRETCH_HOME_Q, wait=blocking)
 
     @enforce_enabled
