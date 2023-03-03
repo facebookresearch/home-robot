@@ -9,6 +9,11 @@ import torch
 import trimesh
 import trimesh.transformations as tra
 import yaml
+from slap_manipulation.dataloaders.annotations import load_annotations_dict
+from slap_manipulation.dataloaders.rlbench_loader import RLBenchDataset
+
+# TODO Replace with Stretch embodiment
+from home_robot.motion.franka import FrankaPanda
 from home_robot.utils.data_tools.camera import Camera
 from home_robot.utils.data_tools.loader import Trial
 from home_robot.utils.point_cloud import (
@@ -18,10 +23,8 @@ from home_robot.utils.point_cloud import (
     numpy_to_pcd,
 )
 
-from slap_manipulation.dataloaders.annotations import load_annotations_dict
-from slap_manipulation.dataloaders.rlbench_loader import RLBenchDataset
-# TODO Replace with Stretch embodiment
-from home_robot.motion.franka import FrankaPanda
+VOXEL_SIZE_1 = 0.001
+VOXEL_SIZE_2 = 0.01
 
 
 def show_point_cloud_with_keypt_and_closest_pt(
@@ -206,8 +209,7 @@ class RobotDataset(RLBenchDataset):
 
     def process_images_from_view(self, trial, view_name, idx):
         rgb = trial.get_img(view_name + "_rgb", idx, rgb=True)
-        depth = trial.get_img(view_name + "_depth", idx,
-                              depth=True, depth_factor=1000)
+        depth = trial.get_img(view_name + "_depth", idx, depth=True, depth_factor=1000)
 
         # get camera details
         camera_intrinsics = self.cam_intrinsics[view_name]
@@ -317,8 +319,7 @@ class RobotDataset(RLBenchDataset):
                 chosen_idx = keypoint_idx % len(keypoints)
         k_idx = keypoints[chosen_idx]  # actual keypoint index in the episode
         if verbose:
-            print(
-                f"Key-point index chosen: abs={k_idx}, relative={chosen_idx}")
+            print(f"Key-point index chosen: abs={k_idx}, relative={chosen_idx}")
 
         # create proprio features
         proprio = trial["gripper_state"][()]
@@ -344,8 +345,7 @@ class RobotDataset(RLBenchDataset):
 
         # choose an input frame-idx, in our case this is the 1st frame
         # associated with current keypoint
-        input_keyframes = self.extract_manual_keyframes(
-            trial["input_keyframe"][()])
+        input_keyframes = self.extract_manual_keyframes(trial["input_keyframe"][()])
         if self.use_first_frame_as_input:
             if verbose:
                 print(
@@ -623,4 +623,3 @@ def show_all_keypoints(data_dir, split, template):
 if __name__ == "__main__":
     show_all_keypoints()
     pass
-
