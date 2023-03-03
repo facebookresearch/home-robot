@@ -12,7 +12,6 @@ import torch
 import torch.nn as nn
 import wandb
 import yaml
-from home_robot.utils.point_cloud import numpy_to_pcd, show_pcd, show_point_cloud
 from perceiver_pytorch.perceiver_io import (
     FeedForward,
     PreNorm,
@@ -20,9 +19,6 @@ from perceiver_pytorch.perceiver_io import (
     default,
     exists,
 )
-from torch_geometric.nn import MLP, Linear, PointConv, radius
-from tqdm import tqdm
-
 from slap_manipulation.dataloaders.rlbench_loader import RLBenchDataset
 from slap_manipulation.dataloaders.robot_loader import (
     RobotDataset,
@@ -40,6 +36,10 @@ from slap_manipulation.policy.components import (
     PositionalEncoding,
     SAModule,
 )
+from torch_geometric.nn import MLP, Linear, PointConv, radius
+from tqdm import tqdm
+
+from home_robot.utils.point_cloud import numpy_to_pcd, show_pcd, show_point_cloud
 
 np.random.seed(0)
 torch.manual_seed(0)
@@ -51,6 +51,60 @@ NUM_LATENTS = 256
 # NUM_LATENTS = 128
 LATENT_DIM = 512
 # LATENT_DIM = 256
+
+
+def process_data(
+    xyz,
+    rgb,
+    voxel_size_1=0.001,
+    voxel_size_2=0.01,
+    debug_voxelization=False,
+    num_pts=8000,
+):
+    """helper function which takes in unprocessed point-cloud, it returns processed,
+    voxelized point-clouds and most relevant, closest points to the contact point"""
+    # Get only a few points that we care about here
+    orig_xyz, orig_rgb = xyz.reshape(-1, 3), rgb.reshape(-1, 3)
+    downsample = np.arange(orig_rgb.shape[0])
+    np.random.shuffle(downsample)
+    rgb = np.copy(orig_rgb[downsample[:num_pts]])
+    xyz = np.copy(orig_xyz[downsample[:num_pts]])
+
+    # mean-center the data and save center
+    center = np.mean(xyz, axis=0)
+    # center = np.zeros(3)
+    center[-1] = 0
+    centered_xyz = xyz - center[None].repeat(xyz.shape[0], axis=0)
+    centered_pcd = numpy_to_pcd(centered_xyz, rgb)
+    centered_downsampled = centered_pcd.voxel_down_sample(voxel_size_1)
+    centered_xyz = np.asarray(centered_downsampled.points)
+    centered_rgb = np.asarray(centered_downsampled.colors)
+    # voxelize at a granular voxel-size then choose X points
+    uncentered_pcd = numpy_to_pcd(xyz, rgb)
+    uncentered_pcd_downsampled = uncentered_pcd.voxel_down_sample(voxel_size_1)
+    uncentered_xyz = np.asarray(uncentered_pcd_downsampled.points)
+    uncentered_rgb = np.asarray(uncentered_pcd_downsampled.colors)
+
+    # further voxelize the point-cloud
+    pcd_voxel_size_2 = uncentered_pcd_downsampled.voxel_down_sample(voxel_size_2)
+    xyz_voxel_size_2 = np.asarray(pcd_voxel_size_2.points)
+    rgb_voxel_size_2 = np.asarray(pcd_voxel_size_2.colors)
+    if debug_voxelization:
+        show_point_cloud(uncentered_xyz, uncentered_rgb)
+        show_point_cloud(xyz_voxel_size_2, rgb_voxel_size_2)
+
+    processed_data = {
+        "xyz": torch.FloatTensor(uncentered_xyz),
+        "rgb": torch.FloatTensor(uncentered_rgb),
+        "xyz_downsampled": torch.FloatTensor(xyz_voxel_size_2),
+        "rgb_downsampled": torch.FloatTensor(rgb_voxel_size_2),
+        "center": center,
+        "centered_xyz": torch.FloatTensor(centered_xyz),
+        "centered_rgb": torch.FloatTensor(centered_rgb),
+        "orig_xyz": orig_xyz,
+        "orig_rgb": orig_rgb,
+    }
+    return processed_data
 
 
 class LocalityLoss(torch.nn.Module):
