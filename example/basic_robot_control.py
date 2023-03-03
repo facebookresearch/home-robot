@@ -46,8 +46,8 @@ if __name__ == "__main__":
     pos_desired = np.array([-0.10281811, -0.7189281, 0.71703106])
     quat_desired = np.array([-0.7079143, 0.12421559, 0.1409881, -0.68084526])
 
-    robot.manip.set_joint_positions(q_desired)
-    robot.manip.set_ee_pose(pos_desired, quat_desired)
+    robot.manip.set_joint_positions(q_desired, blocking=True)
+    robot.manip.set_ee_pose(pos_desired, quat_desired, blocking=True)
 
     # Command the robot arm 2
     q = model.compute_ik(pos_desired, quat_desired)
