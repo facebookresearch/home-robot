@@ -467,10 +467,7 @@ class HelloStretch(Robot):
     def fk(self, q=None, as_matrix=False) -> Tuple[np.ndarray, np.ndarray]:
         """forward kinematics"""
         pose = None
-        if self._ik_type == "pybullet":
-            pose = self.get_link_pose(self.ee_link_name, q)
-        elif self._ik_type == "pinocchio":
-            pose = self.ik_solver.compute_fk(q)
+        pose = self.get_link_pose(self.ee_link_name, q)
         if as_matrix:
             return to_matrix(*pose)
         return pose
