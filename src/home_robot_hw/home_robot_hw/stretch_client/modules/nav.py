@@ -11,7 +11,6 @@ from std_srvs.srv import SetBoolRequest, TriggerRequest
 from home_robot.utils.geometry import sophus2xyt, xyt2sophus, xyt_base_to_global
 from home_robot_hw.constants import T_LOC_STABILIZE
 from home_robot_hw.ros.utils import matrix_to_pose_msg
-from home_robot_hw.ros.visualizer import Visualizer
 
 from .abstract import AbstractControlModule, enforce_enabled
 
@@ -22,10 +21,6 @@ class StretchNavigationInterface(AbstractControlModule):
     def __init__(self, ros_client):
         self._ros_client = ros_client
         self._wait_for_pose()
-
-        # Create visualizers for pose information
-        self.goal_visualizer = Visualizer("command_pose", rgba=[1.0, 0.0, 0.0, 0.5])
-        self.curr_visualizer = Visualizer("current_pose", rgba=[0.0, 0.0, 1.0, 0.5])
 
     # Enable / disable
 
@@ -57,6 +52,22 @@ class StretchNavigationInterface(AbstractControlModule):
             return self._ros_client.at_goal
         else:
             return False
+
+    @enforce_enabled
+    def wait(self):
+        """Wait until goal is reached"""
+        rospy.sleep(self.msg_delay_t)
+        rate = rospy.Rate(self.block_spin_rate)
+        while not rospy.is_shutdown():
+            # Verify that we are at goal and perception is synchronized with pose
+            if self.at_goal() and self._ros_client.recent_depth_image(self.msg_delay_t):
+                break
+            else:
+                rate.sleep()
+        # TODO: this should be unnecessary
+        # TODO: add this back in if we are having trouble building maps
+        # Make sure that depth and position are synchonized
+        # rospy.sleep(self.msg_delay_t * 5)
 
     @enforce_enabled
     def set_velocity(self, v, w):
@@ -104,27 +115,14 @@ class StretchNavigationInterface(AbstractControlModule):
 
         # Set goal
         goal_matrix = xyt2sophus(xyt_goal).matrix()
-        self.goal_visualizer(goal_matrix)
+        self._ros_client.goal_visualizer(goal_matrix)
         msg = matrix_to_pose_msg(goal_matrix)
 
         self._ros_client.goto_on_service(TriggerRequest())
         self._ros_client.goal_pub.publish(msg)
 
         if blocking:
-            rospy.sleep(self.msg_delay_t)
-            rate = rospy.Rate(self.block_spin_rate)
-            while not rospy.is_shutdown():
-                # Verify that we are at goal and perception is synchronized with pose
-                if self.at_goal() and self._ros_client.recent_depth_image(
-                    self.msg_delay_t
-                ):
-                    break
-                else:
-                    rate.sleep()
-            # TODO: this should be unnecessary
-            # TODO: add this back in if we are having trouble building maps
-            # Make sure that depth and position are synchonized
-            # rospy.sleep(self.msg_delay_t * 5)
+            self.wait()
 
     def _wait_for_pose(self):
         """wait until we have an accurate pose estimate"""

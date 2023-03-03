@@ -10,14 +10,16 @@ from scipy.spatial.transform import Rotation as R
 from std_srvs.srv import TriggerRequest
 
 from home_robot.core.state import ManipulatorBaseParams
+from home_robot.motion.stretch import HelloStretchIdx
 from home_robot.utils.geometry import posquat2sophus, xyt2sophus
 
 from .abstract import AbstractControlModule, enforce_enabled
 
 
 class StretchManipulationInterface(AbstractControlModule):
-    def __init__(self, ros_client):
+    def __init__(self, ros_client, robot_model):
         self._ros_client = ros_client
+        self._robot_model = robot_model
 
     def _enable_hook(self) -> bool:
         """Called when interface is enabled."""
@@ -43,19 +45,27 @@ class StretchManipulationInterface(AbstractControlModule):
             return self.ros_client.pos, self.ros_client.vel, self.ros_client.frc
 
     @enforce_enabled
+    def wait(self):
+        self._ros_client.wait_for_trajectory_action()
+
+    @enforce_enabled
     def goto(self, q, move_base=False, wait=True, max_wait_t=10.0, verbose=False):
-        """some of these params are unsupported"""
+        """Directly command the robot using generalized coordinates
+        some of these params are unsupported
+        """
         goal = self.config_to_ros_trajectory_goal(q)
         self.trajectory_client.send_goal(goal)
         if wait:
-            #  Waiting for result seems to hang
-            # self.trajectory_client.wait_for_result()
-            print("waiting for result...")
-            self.wait(q, max_wait_t, not move_base, verbose)
+            self.wait()
         return True
 
     @enforce_enabled
-    def set_arm_joint_positions(self, joint_positions: List[float]):
+    def set_joint_positions(
+        self,
+        joint_positions: List[float],
+        relative_base: bool = False,
+        blocking: bool = True,
+    ):
         """
         list of robot arm joint positions:
             BASE_TRANSLATION = 0
@@ -64,24 +74,30 @@ class StretchManipulationInterface(AbstractControlModule):
             WRIST_YAW = 3
             WRIST_PITCH = 4
             WRIST_ROLL = 5
+
+        Args:
+            joint_positions: List of length 6 containing desired joint positions
+            relative_base: Whether the base joint moves relative to current base position
+            blocking: Whether command blocks until completetion
         """
         assert len(joint_positions) == 6, "Joint position vector must be of length 6."
 
         # Preprocess base translation joint position (command is actually delta position)
         base_joint_pos_curr = self._compute_base_translation_pos()
-        base_joint_pos_cmd = joint_positions[0] - base_joint_pos_curr
+        if not relative_base:
+            base_joint_pos_cmd = joint_positions[0] - base_joint_pos_curr
 
         # Construct and send command
         joint_goals = {
-            ROS_BASE_TRANSLATION_JOINT: base_joint_pos_cmd,
-            ROS_LIFT_JOINT: joint_positions[1],
-            ROS_ARM_JOINT: joint_positions[2],
-            ROS_WRIST_YAW: joint_positions[3],
-            ROS_WRIST_PITCH: joint_positions[4],
-            ROS_WRIST_ROLL: joint_positions[5],
+            self._ros_client.BASE_TRANSLATION_JOINT: base_joint_pos_cmd,
+            self._ros_client.LIFT_JOINT: joint_positions[1],
+            self._ros_client.ARM_JOINT: joint_positions[2],
+            self._ros_client.WRIST_YAW: joint_positions[3],
+            self._ros_client.WRIST_PITCH: joint_positions[4],
+            self._ros_client.WRIST_ROLL: joint_positions[5],
         }
 
-        self._ros_client.send_ros_trajectory_goals(joint_goals)
+        self._ros_client.send_ros_trajectory_goals(joint_goals, blocking=blocking)
 
         return True
 
@@ -90,11 +106,17 @@ class StretchManipulationInterface(AbstractControlModule):
         self,
         pos: List[float],
         quat: Optional[List[float]] = None,
-        relative: bool = False,
+        relative: bool = True,
+        blocking: bool = True,
     ):
-        """
+        """Command gripper to pose
         Does not rotate base.
         Cannot be used in navigation mode.
+
+        Args:
+            pos: Desired position
+            quat: Desired orientation in quaternion (xyzw)
+            relative: Whether specified pose is relative to base (relative to world if set to False)
         """
         # Compute pose relative to base
         if relative:
@@ -109,14 +131,25 @@ class StretchManipulationInterface(AbstractControlModule):
             quat_rel = R.from_matrix(pose_ee_rel.so3().matrix()).as_quat()
 
         # Perform IK
-        q_raw = self.ik_solver.compute_ik(pos_rel, quat_rel, None)
-
-        # Combine arm telescoping joints
-        q_manip = np.zeros(6)
-        q_manip[0] = q_raw[0]  # base X translation
-        q_manip[1] = q_raw[1]  # lift
-        q_manip[2] = np.sum(q_raw[2:6])  # squeeze arm telescoping joints into 1
-        q_manip[3:6] = q_raw[6:9]  # yaw pitch roll
+        q = self._robot_model.manip_ik((pos_rel, quat_rel))
+        joint_pos = self._extract_joint_pos(q)
 
         # Execute joint command
-        self.set_arm_joint_positions(q_manip)
+        self.set_joint_positions(joint_pos, blocking=blocking)
+
+    # Helper methods
+
+    def _compute_base_translation_pos(self):
+        l0_pose = self._manipulator_params.se3_base
+        l1_pose = self._ros_client.se3_base_odom
+        return (l0_pose.inverse() * l1_pose).translation()[0]
+
+    def _extract_joint_pos(self, q):
+        return [
+            q[HelloStretchIdx.BASE_X],
+            q[HelloStretchIdx.LIFT],
+            q[HelloStretchIdx.ARM],
+            q[HelloStretchIdx.WRIST_PITCH],
+            q[HelloStretchIdx.WRIST_ROLL],
+            q[HelloStretchIdx.WRIST_YAW],
+        ]

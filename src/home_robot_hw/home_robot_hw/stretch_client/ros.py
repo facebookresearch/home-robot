@@ -33,23 +33,27 @@ from home_robot_hw.constants import (
     ROS_WRIST_YAW,
 )
 from home_robot_hw.ros.utils import matrix_from_pose_msg
+from home_robot_hw.ros.visualizer import Visualizer
 
-BASE_X_IDX = HelloStretchIdx.BASE_X
-BASE_Y_IDX = HelloStretchIdx.BASE_Y
-BASE_THETA_IDX = HelloStretchIdx.BASE_THETA
-LIFT_IDX = HelloStretchIdx.LIFT
-ARM_IDX = HelloStretchIdx.ARM
-GRIPPER_IDX = HelloStretchIdx.GRIPPER
-WRIST_ROLL_IDX = HelloStretchIdx.WRIST_ROLL
-WRIST_PITCH_IDX = HelloStretchIdx.WRIST_PITCH
-WRIST_YAW_IDX = HelloStretchIdx.WRIST_YAW
-HEAD_PAN_IDX = HelloStretchIdx.HEAD_PAN
-HEAD_TILT_IDX = HelloStretchIdx.HEAD_TILT
-
+# Parameters
 T_GOAL_TIME_TOL = 1.0
 
 
 class StretchRosInterface:
+    """Interface object with ROS topics and services"""
+
+    # Joint names in the ROS joint trajectory server
+    BASE_TRANSLATION_JOINT = "translate_mobile_base"
+    ARM_JOINT = "joint_arm"
+    LIFT_JOINT = "joint_lift"
+    WRIST_YAW = "joint_wrist_yaw"
+    WRIST_PITCH = "joint_wrist_pitch"
+    WRIST_ROLL = "joint_wrist_roll"
+    GRIPPER_FINGER = "joint_gripper_finger_left"  # used to control entire gripper
+    HEAD_PAN = "joint_head_pan"
+    HEAD_TILT = "joint_head_tilt"
+    ARM_JOINTS_ACTUAL = ["joint_arm_l0", "joint_arm_l1", "joint_arm_l2", "joint_arm_l3"]
+
     def __init__(self):
         # Initialize caches
         self.current_mode: Optional[str] = None
@@ -60,6 +64,7 @@ class StretchRosInterface:
 
         self.se3_base_filtered: Optional[sp.SE3] = None
         self.se3_base_odom: Optional[sp.SE3] = None
+        self.se3_camera_pose: Optional[sp.SE3] = None
         self.at_goal: bool = False
 
         self.last_odom_update_timestamp = rospy.Time(0)
@@ -70,22 +75,26 @@ class StretchRosInterface:
         self._create_pubs_subs()
         self._create_services()
 
+        # Create visualizers for pose information
+        self.goal_visualizer = Visualizer("command_pose", rgba=[1.0, 0.0, 0.0, 0.5])
+        self.curr_visualizer = Visualizer("current_pose", rgba=[0.0, 0.0, 1.0, 0.5])
+
     # Interfaces
 
-    def send_ros_trajectory_goals(self, joint_goals: Dict[str, float]):
+    def send_trajectory_goals(self, joint_goals: Dict[str, float]):
         # Preprocess arm joints (arm joints are actually 4 joints in one)
-        if ROS_ARM_JOINT in joint_goals:
-            arm_joint_goal = joint_goals.pop(ROS_ARM_JOINT)
+        if self.ARM_JOINT in joint_goals:
+            arm_joint_goal = joint_goals.pop(self.ARM_JOINT)
 
-            for arm_joint_name in ROS_ARM_JOINTS_ACTUAL:
+            for arm_joint_name in self.ARM_JOINTS_ACTUAL:
                 joint_goals[arm_joint_name] = arm_joint_goal / len(
-                    ROS_ARM_JOINTS_ACTUAL
+                    self.ARM_JOINTS_ACTUAL
                 )
 
         # Preprocess base translation joint (stretch_driver errors out if translation value is 0)
-        if ROS_BASE_TRANSLATION_JOINT in joint_goals:
-            if joint_goals[ROS_BASE_TRANSLATION_JOINT] == 0:
-                joint_goals.pop(ROS_BASE_TRANSLATION_JOINT)
+        if self.BASE_TRANSLATION_JOINT in joint_goals:
+            if joint_goals[self.BASE_TRANSLATION_JOINT] == 0:
+                joint_goals.pop(self.BASE_TRANSLATION_JOINT)
 
         # Parse input
         joint_names = []
@@ -107,6 +116,9 @@ class StretchRosInterface:
 
         # Send goal
         self.trajectory_client.send_goal(goal_msg)
+
+    def wait_for_trajectory_action(self):
+        self.trajectory_client.wait_for_result()
 
     def recent_depth_image(self, seconds):
         """Return true if we have up to date depth."""
@@ -213,17 +225,17 @@ class StretchRosInterface:
     def _odom_callback(self, msg: Odometry):
         """odometry callback"""
         self._last_odom_update_timestamp = msg.header.stamp
-        self._t_base_odom = sp.SE3(matrix_from_pose_msg(msg.pose.pose))
+        self.se3_base_odom = sp.SE3(matrix_from_pose_msg(msg.pose.pose))
 
     def _base_state_callback(self, msg: PoseStamped):
         """base state updates from SLAM system"""
         self._last_base_update_timestamp = msg.header.stamp
-        self._t_base_filtered = sp.SE3(matrix_from_pose_msg(msg.pose))
-        self.curr_visualizer(self._t_base_filtered.matrix())
+        self.se3_base_filtered = sp.SE3(matrix_from_pose_msg(msg.pose))
+        self.curr_visualizer(self.se3_base_filtered.matrix())
 
     def _camera_pose_callback(self, msg: PoseStamped):
         self._last_camera_update_timestamp = msg.header.stamp
-        self._t_camera_pose = sp.SE3(matrix_from_pose_msg(msg.pose))
+        self.se3_camera_pose = sp.SE3(matrix_from_pose_msg(msg.pose))
 
     def _js_callback(self, msg):
         """Read in current joint information from ROS topics and update state"""

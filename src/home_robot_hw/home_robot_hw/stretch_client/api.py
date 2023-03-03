@@ -6,6 +6,7 @@ from typing import Dict, Optional
 
 import rospy
 
+from home_robot.motion.stretch import HelloStretch
 from home_robot_hw.constants import ControlMode
 
 from .modules.camera import StretchCameraInterface
@@ -27,13 +28,18 @@ class StretchClient:
             rospy.init_node("stretch_user_client")
         self._ros_client = StretchRosInterface()
 
+        # Robot model
+        self._robot_model = HelloStretch()
+
         # Interface modules
         if camera_overrides is None:
             camera_overrides = {}
 
-        self.nav = StretchNavigationInterface(self._ros_client)
-        self.manip = StretchManipulationInterface(self._ros_client)
-        self.camera = StretchCameraInterface(self._ros_client, **camera_overrides)
+        self.nav = StretchNavigationInterface(self._ros_client, self._robot_model)
+        self.manip = StretchManipulationInterface(self._ros_client, self._robot_model)
+        self.camera = StretchCameraInterface(
+            self._ros_client, self._robot_model, **camera_overrides
+        )
 
         # Init control mode
         self._base_control_mode = ControlMode.IDLE

@@ -21,12 +21,15 @@ class StretchCameraInterface:
     def __init__(
         self,
         ros_client,
+        robot_model,
         init_cameras: bool = True,
         color_topic: Optional[str] = None,
         depth_topic: Optional[str] = None,
         depth_buffer_size: Optional[int] = None,
     ):
         self._ros_client = ros_client
+        self._robot_model = robot_model
+
         self._color_topic = DEFAULT_COLOR_TOPIC if color_topic is None else color_topic
         self._depth_topic = DEFAULT_DEPTH_TOPIC if depth_topic is None else depth_topic
         self._depth_buffer_size = depth_buffer_size
@@ -41,21 +44,41 @@ class StretchCameraInterface:
 
     def get_pose(self, rotated=False):
         """get matrix version of the camera pose"""
-        mat = self._t_camera_pose.matrix()
+        mat = self._ros_client.se3_camera_pose.matrix()
         if rotated:
             # If we are using the rotated versions of the images
             return mat @ tra.euler_matrix(0, 0, -np.pi / 2)
         else:
             return mat
 
-    def set_pan_tilt(self, pan: Optional[float] = None, tilt: Optional[float] = None):
+    def set_pan_tilt(
+        self,
+        pan: Optional[float] = None,
+        tilt: Optional[float] = None,
+        blocking: bool = False,
+    ):
         joint_goals = {}
         if pan is not None:
-            joint_goals[ROS_HEAD_PAN] = pan
+            joint_goals[self._ros_client.HEAD_PAN] = pan
         if tilt is not None:
-            joint_goals[ROS_HEAD_TILT] = tilt
+            joint_goals[self._ros_client.HEAD_TILT] = tilt
 
-        self._ros_client.send_ros_trajectory_goals(joint_goals)
+        self._ros_client.send_trajectory_goals(joint_goals)
+
+        if blocking:
+            self._ros_client.wait_for_trajectory_action()
+
+    def look_at_ee(self, blocking: bool = False):
+        pan, tilt = self._robot_model.look_at_ee
+        self.set_pan_tilt(pan, tilt, blocking=blocking)
+
+    def look_front(self, blocking: bool = False):
+        pan, tilt = self._robot_model.look_front
+        self.set_pan_tilt(pan, tilt, blocking=blocking)
+
+    def look_ahead(self, blocking: bool = False):
+        pan, tilt = self._robot_model.look_ahead
+        self.set_pan_tilt(pan, tilt, blocking=blocking)
 
     def process_depth(self, depth):
         depth[depth < self.min_depth_val] = MIN_DEPTH_REPLACEMENT_VALUE
