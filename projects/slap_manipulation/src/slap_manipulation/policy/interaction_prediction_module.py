@@ -467,7 +467,7 @@ class IPModule(torch.nn.Module):
             self.device
         ), torch.FloatTensor(down_rgb).to(self.device)
 
-        classification_probs, xyz, rgb = self.forward(
+        classification_scores, xyz, rgb = self.forward(
             t_rgb,
             t_down_rgb,
             t_xyz,
@@ -475,7 +475,8 @@ class IPModule(torch.nn.Module):
             lang,
             t_proprio,
         )
-        return (self.predict_closest_idx(classification_probs)[0], xyz, rgb)
+        self.visualize_top_attention(t_down_xyz, t_down_rgb, classification_scores)
+        return (self.predict_closest_idx(classification_scores)[0], xyz, rgb)
 
     def predict_closest_idx(self, classification_probs) -> torch.Tensor:
         # predict the closest centroid
@@ -531,6 +532,17 @@ class IPModule(torch.nn.Module):
         # del vis
         # if viewpt:
         #     del ctr
+
+    def visualize_top_attention(self, xyz, rgb, classification_scores):
+        xyz = xyz.detach().cpu().numpy()
+        new_rgb = rgb.detach().cpu().numpy().copy()
+        show_point_cloud(xyz, new_rgb)
+        _, mask = torch.sort(classification_scores, descending=True)
+        top_05 = int(classification_scores.shape[1] * 0.05)
+        mask = mask.squeeze()[:top_05].detach().cpu().numpy()
+        # mask = (classification_probs > thresh).detach().cpu().numpy()
+        new_rgb[mask] = np.array([1, 0, 0]).reshape(1, 3)
+        show_point_cloud(xyz, new_rgb)
 
     def show_validation_on_sensor(self, data, viz=False):
         """
