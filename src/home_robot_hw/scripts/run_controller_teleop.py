@@ -9,7 +9,7 @@ import os
 
 import rospy
 
-from home_robot.agent.motion.stretch import HelloStretch
+from home_robot.motion.stretch import HelloStretch
 from home_robot_hw.ros.path import get_urdf_dir
 from home_robot_hw.teleop.stretch_xbox_controller import StretchXboxController
 

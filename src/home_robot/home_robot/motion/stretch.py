@@ -3,14 +3,15 @@
 # This source code is licensed under the MIT license found in the
 # LICENSE file in the root directory of this source tree.
 import os
+from typing import Tuple
 
 import numpy as np
 import pybullet as pb
 import trimesh.transformations as tra
 
 import home_robot.utils.bullet as hrb
-
-from home_robot.agent.motion.robot import Robot
+from home_robot.motion.pinocchio_ik_solver import PinocchioIKSolver
+from home_robot.motion.robot import Robot
 from home_robot.utils.bullet import PybulletIKSolver
 from home_robot.utils.pose import to_matrix
 
@@ -50,9 +51,38 @@ STRETCH_PREGRASP_Q = np.array(
         0.0,
     ]
 )
+STRETCH_NAVIGATION_Q = np.array(
+    [
+        0,  # x
+        0,  # y
+        0,  # theta
+        0.5,  # lift
+        0.01,  # arm
+        0.0,  # gripper rpy
+        0.0,  # wrist roll
+        0.0,  # wrist pitch
+        3.0,  # wrist yaw
+        0.0,
+        -np.pi / 4,
+    ]
+)
+PIN_CONTROLLED_JOINTS = [
+    # "base_x_joint",
+    "joint_lift",
+    "joint_arm_l0",
+    "joint_arm_l1",
+    "joint_arm_l2",
+    "joint_arm_l3",
+    "joint_wrist_yaw",
+    "joint_wrist_pitch",
+    "joint_wrist_roll",
+]
+
 
 # This is the gripper, and the distance in the gripper frame to where the fingers will roughly meet
 STRETCH_GRASP_FRAME = "link_straight_gripper"
+STRETCH_CAMERA_FRAME = "camera_color_optical_frame"
+STRETCH_BASE_FRAME = "base_link"
 STRETCH_STANDOFF_DISTANCE = 0.235
 STRETCH_STANDOFF_WITH_MARGIN = 0.25
 # Offset from a predicted grasp point to STRETCH_GRASP_FRAME
@@ -150,7 +180,7 @@ class HelloStretch(Robot):
         "joint_wrist_roll",
     ]
 
-    def _create_ik_solvers(self):
+    def _create_ik_solvers(self, ik_type: str = "pybullet"):
         """create ik solvers using pybullet"""
         # You can set one of the visualize flags to true to debug IK issues
         # This is not exposed manually - only one though or it will fail
@@ -161,18 +191,34 @@ class HelloStretch(Robot):
             visualize=False,
         )
         # You can set one of the visualize flags to true to debug IK issues
-        self.manip_ik_solver = PybulletIKSolver(
-            self.manip_mode_urdf_path,
-            self.ee_link_name,
-            self.manip_mode_controlled_joints,
-            visualize=False,
-        )
+        if ik_type == "pybullet":
+            self.manip_ik_solver = PybulletIKSolver(
+                self.manip_mode_urdf_path,
+                self.ee_link_name,
+                self.manip_mode_controlled_joints,
+                visualize=False,
+            )
+        elif ik_type == "pinocchio":
+            self.manip_ik_solver = PinocchioIKSolver(
+                self.manip_mode_urdf_path,
+                self.ee_link_name,
+                self.manip_mode_controlled_joints,
+            )
+        else:
+            raise ValueError(f"Unknown ik_type {ik_type}")
 
-    def __init__(self, name="robot", urdf_path=None, visualize=False, root="."):
+    def __init__(
+        self,
+        name: str = "robot",
+        urdf_path: str = "",
+        visualize: bool = False,
+        root: str = ".",
+        ik_type: str = "pybullet",
+    ):
         """Create the robot in bullet for things like kinematics; extract information"""
 
         # urdf
-        if urdf_path is None:
+        if not urdf_path:
             full_body_urdf = PLANNER_STRETCH_URDF
             manip_urdf = MANIP_STRETCH_URDF
         else:
@@ -200,7 +246,8 @@ class HelloStretch(Robot):
         self.set_joint_position = self.ref.set_joint_position
 
         self._update_joints()
-        self._create_ik_solvers()
+        self._create_ik_solvers(ik_type=ik_type)
+        self._ik_type = ik_type
 
     def set_head_config(self, q):
         # WARNING: this sets all configs
@@ -417,14 +464,19 @@ class HelloStretch(Robot):
             self.set_config(q)
         return self.ref.get_link_pose(link_name)
 
-    def fk(self, q=None, as_matrix=False):
+    def fk(self, q=None, as_matrix=False) -> Tuple[np.ndarray, np.ndarray]:
         """forward kinematics"""
-        pose = self.get_link_pose(self.ee_link_name, q)
+        pose = None
+        if self._ik_type == "pybullet":
+            pose = self.get_link_pose(self.ee_link_name, q)
+        elif self._ik_type == "pinocchio":
+            pose = self.ik_solver.compute_fk(q)
         if as_matrix:
             return to_matrix(*pose)
         return pose
 
-    def update_head(self, qi, look_at):
+    def update_head(self, qi: np.ndarray, look_at) -> np.ndarray:
+        """move head based on look_at and return the joint-state"""
         qi[HelloStretchIdx.HEAD_PAN] = look_at[0]
         qi[HelloStretchIdx.HEAD_TILT] = look_at[1]
         return qi
@@ -529,7 +581,7 @@ class HelloStretch(Robot):
         pose[:3, :3] = np.array(se3).reshape(3, 3)
         x, y, z = pos
         pose[:3, 3] = np.array([x, y, z - self.base_height])
-        q = self.ik_solver.ik(pose, self._to_ik_format(q0))
+        q = self.ik_solver.compute_ik(pose, self._to_ik_format(q0))
         if q is not None:
             return self._to_plan_format(q)
         else:
@@ -556,6 +608,8 @@ class HelloStretch(Robot):
             # This logic currently in local hello robot client
             raise NotImplementedError()
         _q = self.manip_ik_solver.compute_ik(pos, quat, self._to_manip_format(q0))
+        if self._ik_type == "pinocchio":
+            _q = _q[0]
         q = self._from_manip_format(_q, q0)
         self.set_config(q)
         return q

@@ -15,7 +15,7 @@ import trimesh.transformations as tra
 from tqdm import tqdm
 
 
-def numpy_to_pcd(xyz : np.ndarray, rgb : np.ndarray = None) -> o3d.geometry.PointCloud:
+def numpy_to_pcd(xyz: np.ndarray, rgb: np.ndarray = None) -> o3d.geometry.PointCloud:
     """Create an open3d pointcloud from a single xyz/rgb pair"""
     xyz = xyz.reshape(-1, 3)
     if rgb is not None:
@@ -27,7 +27,7 @@ def numpy_to_pcd(xyz : np.ndarray, rgb : np.ndarray = None) -> o3d.geometry.Poin
     return pcd
 
 
-def pcd_to_numpy(pcd : o3d.geometry.PointCloud) -> (np.ndarray, np.ndarray):
+def pcd_to_numpy(pcd: o3d.geometry.PointCloud) -> (np.ndarray, np.ndarray):
     """Convert an open3d point cloud into xyz, rgb numpy arrays and return them."""
     xyz = np.asarray(pcd.points)
     rgb = np.asarray(pcd.colors)
@@ -46,7 +46,13 @@ def show_point_cloud(xyz, rgb=None, orig=None, R=None, save=None, grasps=[]):
     show_pcd(pcd, orig, R, save, grasps)
 
 
-def show_pcd(pcd: o3d.geometry.PointCloud, orig : np.ndarray = None, R : np.ndarray = None, save : str = None, grasps : list = []):
+def show_pcd(
+    pcd: o3d.geometry.PointCloud,
+    orig: np.ndarray = None,
+    R: np.ndarray = None,
+    save: str = None,
+    grasps: list = [],
+):
     geoms = [pcd]
     if orig is not None:
         coords = o3d.geometry.TriangleMesh.create_coordinate_frame(
