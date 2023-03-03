@@ -399,6 +399,7 @@ class StretchEnv(home_robot.core.abstract_env.Env):
         return False
 
     def update(self):
+        """Return the full joint-state of the robot"""
         # Return a full state for the robot
         pos = self.get_base_pose()
         if pos is not None:
