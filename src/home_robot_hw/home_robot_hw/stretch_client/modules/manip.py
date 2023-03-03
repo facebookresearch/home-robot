@@ -21,6 +21,8 @@ class StretchManipulationInterface(AbstractControlModule):
         self._ros_client = ros_client
         self._robot_model = robot_model
 
+    # Enable / disable
+
     def _enable_hook(self) -> bool:
         """Called when interface is enabled."""
         # Switch interface mode & print messages

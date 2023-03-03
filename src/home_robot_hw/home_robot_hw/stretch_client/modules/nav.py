@@ -126,6 +126,8 @@ class StretchNavigationInterface(AbstractControlModule):
         if blocking:
             self.wait()
 
+    # Helper methods
+
     def _wait_for_pose(self):
         """wait until we have an accurate pose estimate"""
         rate = rospy.Rate(10)
