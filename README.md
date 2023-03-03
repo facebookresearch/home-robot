@@ -48,8 +48,9 @@ This project contains numerous packages. See individual package docs for corresp
 1. Launch the ROS hardware stack:
     ```sh
     conda deactivate  # If you are using conda - not required on robot!
-    roslaunch home_robot startup_stretch_hector_slam.launch
+    roslaunch home_robot_hw startup_stretch_hector_slam.launch
     ```
+    Note: If this fails, `pip install sophuspy`.
 1. Launch interactive client: 
     ```sh 
     python -m home_robot.client.local_hello_robot
