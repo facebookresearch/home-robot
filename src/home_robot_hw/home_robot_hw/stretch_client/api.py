@@ -6,7 +6,7 @@ from typing import Dict, Optional
 
 import rospy
 
-from home_robot.motion.stretch import HelloStretch
+from home_robot.motion.stretch import STRETCH_HOME_Q, HelloStretch
 from home_robot_hw.constants import ControlMode
 
 from .modules.camera import StretchCameraInterface
@@ -20,7 +20,7 @@ class StretchClient:
 
     def __init__(
         self,
-        init_node: bool = False,
+        init_node: bool = True,
         camera_overrides: Optional[Dict] = None,
     ):
         # Ros
@@ -51,7 +51,7 @@ class StretchClient:
         Robot base is now controlled via continuous velocity feedback.
         """
         result_pre = True
-        if self.manip.is_enabled():
+        if self.manip.is_enabled:
             result_pre = self.manip.disable()
 
         result_post = self.nav.enable()
@@ -80,6 +80,11 @@ class StretchClient:
 
     def in_navigation_mode(self):
         return self._base_control_mode == ControlMode.NAVIGATION
+
+    def home(self):
+        self.stop()
+        self.switch_to_manipulation_mode()
+        self.manip.goto(STRETCH_HOME_Q, wait=True)
 
     def stop(self):
         self.nav.disable()

@@ -4,7 +4,7 @@
 # LICENSE file in the root directory of this source tree.
 import sys
 import threading
-from typing import Optional
+from typing import Dict, Optional
 
 import actionlib
 import numpy as np
@@ -35,12 +35,14 @@ from home_robot_hw.constants import (
 from home_robot_hw.ros.utils import matrix_from_pose_msg
 from home_robot_hw.ros.visualizer import Visualizer
 
-# Parameters
-T_GOAL_TIME_TOL = 1.0
-
 
 class StretchRosInterface:
     """Interface object with ROS topics and services"""
+
+    goal_time_tolerance = 1.0
+
+    # 3 for base position + rotation, 2 for lift + extension, 3 for rpy, 1 for gripper, 2 for head
+    dof = 3 + 2 + 3 + 1 + 2
 
     # Joint names in the ROS joint trajectory server
     BASE_TRANSLATION_JOINT = "translate_mobile_base"
@@ -74,6 +76,10 @@ class StretchRosInterface:
         # Initialize ros communication
         self._create_pubs_subs()
         self._create_services()
+
+        self._ros_joint_names = []
+        for i in range(3, self.dof):
+            self._ros_joint_names += CONFIG_TO_ROS[i]
 
         # Create visualizers for pose information
         self.goal_visualizer = Visualizer("command_pose", rgba=[1.0, 0.0, 0.0, 0.5])
@@ -109,7 +115,7 @@ class StretchRosInterface:
 
         # Construct goal msg
         goal_msg = FollowJointTrajectoryGoal()
-        goal_msg.goal_time_tolerance = rospy.Time(T_GOAL_TIME_TOL)
+        goal_msg.goal_time_tolerance = rospy.Time(self.goal_time_tolerance)
         goal_msg.trajectory.joint_names = joint_names
         goal_msg.trajectory.points = [point_msg]
         goal_msg.trajectory.header.stamp = rospy.Time.now()
@@ -132,7 +138,16 @@ class StretchRosInterface:
         else:
             return False
 
-    # Initialization macros
+    def config_to_ros_trajectory_goal(self, q: np.ndarray) -> FollowJointTrajectoryGoal:
+        """Create a joint trajectory goal to move the arm."""
+        trajectory_goal = FollowJointTrajectoryGoal()
+        trajectory_goal.goal_time_tolerance = rospy.Time(self.goal_time_tolerance)
+        trajectory_goal.trajectory.joint_names = self.ros_joint_names
+        trajectory_goal.trajectory.points = [self._config_to_ros_msg(q)]
+        trajectory_goal.trajectory.header.stamp = rospy.Time.now()
+        return trajectory_goal
+
+    # Helper functions
 
     def _create_services(self):
         """Create services to activate/deactive robot modes"""
@@ -207,6 +222,22 @@ class StretchRosInterface:
         self.ros_joint_names = []
         for i in range(3, self.dof):
             self.ros_joint_names += CONFIG_TO_ROS[i]
+
+    def _config_to_ros_msg(self, q):
+        """convert into a joint state message"""
+        msg = JointTrajectoryPoint()
+        msg.positions = [0.0] * len(self._ros_joint_names)
+        idx = 0
+        for i in range(3, self.dof):
+            names = CONFIG_TO_ROS[i]
+            for _ in names:
+                # Only for arm - but this is a dumb way to check
+                if "arm" in names[0]:
+                    msg.positions[idx] = q[i] / len(names)
+                else:
+                    msg.positions[idx] = q[i]
+                idx += 1
+        return msg
 
     # Rostopic callbacks
 

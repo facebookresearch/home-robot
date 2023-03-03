@@ -17,9 +17,11 @@ from .abstract import AbstractControlModule, enforce_enabled
 
 class StretchNavigationInterface(AbstractControlModule):
     msg_delay_t = 0.25
+    block_spin_rate = 10
 
-    def __init__(self, ros_client):
+    def __init__(self, ros_client, robot_model):
         self._ros_client = ros_client
+        self._robot_model = robot_model
         self._wait_for_pose()
 
     # Enable / disable

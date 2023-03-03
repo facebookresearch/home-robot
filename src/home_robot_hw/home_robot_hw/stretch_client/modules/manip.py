@@ -10,7 +10,7 @@ from scipy.spatial.transform import Rotation as R
 from std_srvs.srv import TriggerRequest
 
 from home_robot.core.state import ManipulatorBaseParams
-from home_robot.motion.stretch import STRETCH_HOME_Q, HelloStretchIdx
+from home_robot.motion.stretch import HelloStretchIdx
 from home_robot.utils.geometry import posquat2sophus, xyt2sophus
 
 from .abstract import AbstractControlModule, enforce_enabled
@@ -53,21 +53,16 @@ class StretchManipulationInterface(AbstractControlModule):
         """Directly command the robot using generalized coordinates
         some of these params are unsupported
         """
-        goal = self.config_to_ros_trajectory_goal(q)
-        self.trajectory_client.send_goal(goal)
+        goal = self._ros_client.config_to_ros_trajectory_goal(q)
+        self._ros_client.trajectory_client.send_goal(goal)
         if wait:
             self.wait()
         return True
 
     @enforce_enabled
-    def home(self, blocking=True):
-        return self.goto(STRETCH_HOME_Q, wait=blocking)
-
-    @enforce_enabled
     def set_joint_positions(
         self,
         joint_positions: List[float],
-        relative_base: bool = False,
         blocking: bool = True,
     ):
         """
@@ -86,14 +81,9 @@ class StretchManipulationInterface(AbstractControlModule):
         """
         assert len(joint_positions) == 6, "Joint position vector must be of length 6."
 
-        # Preprocess base translation joint position (command is actually delta position)
-        base_joint_pos_curr = self._compute_base_translation_pos()
-        if not relative_base:
-            base_joint_pos_cmd = joint_positions[0] - base_joint_pos_curr
-
         # Construct and send command
         joint_goals = {
-            self._ros_client.BASE_TRANSLATION_JOINT: base_joint_pos_cmd,
+            self._ros_client.BASE_TRANSLATION_JOINT: joint_positions[0],
             self._ros_client.LIFT_JOINT: joint_positions[1],
             self._ros_client.ARM_JOINT: joint_positions[2],
             self._ros_client.WRIST_YAW: joint_positions[3],

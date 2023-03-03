@@ -2,8 +2,8 @@ import time
 
 import numpy as np
 
-from home_robot.motion.stretch import HelloStretch
-from home_robot_hw.client import StretchClient
+from home_robot.motion.stretch import STRETCH_HOME_Q, HelloStretch
+from home_robot_hw.stretch_client import StretchClient
 
 if __name__ == "__main__":
     robot = StretchClient()
@@ -14,9 +14,14 @@ if __name__ == "__main__":
 
     # Get camera pose
     camera_pose = robot.camera.get_pose()
+    print(f"camera_pose={camera_pose}")
 
     # Move camera
     robot.camera.set_pan_tilt(pan=np.pi / 4, tilt=-np.pi / 3)
+    time.sleep(1)
+    robot.camera.look_at_ee()
+    time.sleep(1)
+    robot.camera.look_ahead()
 
     # Switch to navigation mode
     robot.switch_to_navigation_mode()
@@ -24,14 +29,15 @@ if __name__ == "__main__":
 
     # Get base pose
     xyt = robot.nav.get_pose()
+    print(f"xyt={xyt}")
 
     # Command robot velocities
-    robot.nav.set_velocity(v=0.1, w=0.0)
-    time.sleep(1)
+    robot.nav.set_velocity(v=0.2, w=0.0)
+    time.sleep(2)
     robot.nav.set_velocity(v=0.0, w=0.0)
 
     # Command the robot to navigate to a waypoint
-    xyt_goal = [0.25, 0.25, -np.pi / 2]
+    xyt_goal = [0.15, 0.15, -np.pi / 4]
     robot.nav.navigate_to(xyt_goal, blocking=True)
 
     # Switch to manipulation mode
@@ -41,20 +47,21 @@ if __name__ == "__main__":
     # Home robot
     robot.home()
 
-    # Get ee pose
-    pos, quat = robot.manip.get_ee_pose(relative=True)
-
     # Command the robot arm 1
-    q_desired = np.random.randn(6)
-    pos_desired = np.array([-0.10281811, -0.7189281, 0.71703106])
-    quat_desired = np.array([-0.7079143, 0.12421559, 0.1409881, -0.68084526])
-
+    q_desired = np.array([-0.1, 0.5, 0.4, 0, 0, 0])
     robot.manip.set_joint_positions(q_desired, blocking=True)
+
+    pos_desired = np.array([0.2, -0.2, 0.4])
+    quat_desired = np.array([-0.7079143, 0.12421559, 0.1409881, -0.68084526])
     robot.manip.set_ee_pose(pos_desired, quat_desired, blocking=True)
 
     # Command the robot arm 2
-    q = model.compute_ik(pos_desired, quat_desired)
-    robot.manip.goto(q)
+    robot.manip.goto(STRETCH_HOME_Q)
+
+    # Gripper commands
+    robot.manip.open_gripper(blocking=True)
+    time.sleep(1)
+    robot.manip.close_gripper()
 
     # Test command in wrong mode
     assert robot.in_manipulation_mode()
@@ -65,6 +72,7 @@ if __name__ == "__main__":
 
     # Some commands are still available
     xyt = robot.nav.get_pose()
+    print(f"xyt={xyt}")
 
     # Stop all robot motion
     robot.stop()
