@@ -101,10 +101,10 @@ python demo.py --config-file configs/Detic_LCOCOI21k_CLIP_SwinB_896b32_4x_ft4x_m
 > Note: Ensure `GROUND_TRUTH_SEMANTICS:0` in `configs/agent/floorplanner_eval.yaml` to test DETIC perception.
 
 ```
-cd /path/to/home-robot-dev/src
+cd /path/to/home-robot
 
 # Single episode to debug (ensuring)
-python eval_specific_episode.py
+python project/habitat_objectnav/eval_episode.py
 
 # Vectorized evaluation
 sbatch eval_vectorized.sh --config_path configs/agent/floorplanner_eval.yaml
