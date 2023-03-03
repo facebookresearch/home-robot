@@ -1,28 +1,70 @@
 import hydra
+import numpy as np
 import rospy
-
+import trimesh
 from slap_manipulation.env.stretch_manipulation_env import StretchManipulationEnv
 from slap_manipulation.policy.action_prediction_module import APModule
 from slap_manipulation.policy.interaction_prediction_module import IPModule
+
+from home_robot.utils.point_cloud import show_point_cloud
+
+# TODO: move this to a constants file
+STRETCH_GRIPPER_MAX = 0.6
 
 
 def create_apm_input(raw_data, p_i):
     return raw_data
 
 
-def create_ipm_input(raw_data):
-    return raw_data
+def create_ipm_input(
+    raw_data: dict, lang: list[str], filter_depth=False, debug=False, num_pts=8000
+):
+    input_vector = ()
+    depth = raw_data["depth"]
+    rgb = raw_data["rgb"].astype(np.float64)
+    xyz = raw_data["xyz"].astype(np.float64)
+    camera_pose = raw_data["camera_pose"]
+    proprio = raw_data["gripper_state"].astype(np.float64)
+    if proprio < 0.8 * STRETCH_GRIPPER_MAX:
+        proprio = np.array([1.0, proprio, -1.0])
+    else:
+        proprio = np.array([0.0, proprio, -1.0])
+
+    depth = depth.reshape(-1)
+    rgb = rgb.reshape(-1, 3)
+    cam_xyz = xyz.reshape(-1, 3)
+    xyz = trimesh.transform_points(cam_xyz, camera_pose)
+
+    # apply depth filter
+    if filter_depth:
+        valid_depth = np.bitwise_and(depth > 0.1, depth < 4.0)
+        rgb = rgb[valid_depth, :]
+        xyz = xyz[valid_depth, :]
+
+    downsample_mask = np.arange(rgb.shape[0])
+    np.random.shuffle(downsample_mask)
+    if num_pts != -1:
+        downsample_mask = downsample_mask[:num_pts]
+    rgb = rgb[downsample_mask]
+    xyz = xyz[downsample_mask]
+
+    if debug:
+        show_point_cloud(xyz, rgb / 255.0, orig=np.zeros(3))
+
+    input_vector = ([rgb / 255.0], xyz, proprio, lang)
+    return input_vector
 
 
-# @hydra.main(version_base=None, config_path="./conf", config_name="all_tasks_01_31")
-def main(cfg=None):
+@hydra.main(version_base=None, config_path="./conf", config_name="test")
+def main(cfg):
     rospy.init_node("slap_inference")
     # create the robot object
     robot = StretchManipulationEnv(init_cameras=True)
     # create IPM object
-    ipm_model = IPModule(dry_run=True)
+    ipm_model = IPModule(dry_run=cfg.dry_run)
+    ipm_model.to(ipm_model.device)
     # create APM object
-    apm_model = APModule(dry_run=True)
+    apm_model = APModule(dry_run=cfg.dry_run)
     # load model-weights
     # ipm_model.load_state_dict(cfg.ipm_weights)
     # apm_model.load_state_dict(cfg.apm_weights)
@@ -48,20 +90,24 @@ def main(cfg=None):
         # get from the robot: pcd=(xyz, rgb), gripper-state,
         # construct input vector from raw data
         raw_observations = robot.get_observation()
-        input_vector = create_ipm_input(raw_observations)
+        input_vector = create_ipm_input(raw_observations, input_cmd, filter_depth=True)
         # run inference on sensor data for IPM
-        interaction_point = ipm_model.eval(input_vector)
+        interaction_point = ipm_model.predict(*input_vector)
+        print(f"Interaction point is {interaction_point}")
+        experiment_running = False
         # ask if ok to run APM inference
-        for i in range(1):  # cfg.num_keypoints
-            # run APM inference on sensor
-            raw_observations = robot.get_observation()
-            input_vector = create_apm_input(raw_observations, interaction_point)
-            action = apm_model.eval(input_vector)
-            # ask if ok to execute
-            res = input("Execute the output? (y/n)")
-            if res == "y":
-                robot.apply_action(action)
-            pass
+        use_regressor = False
+        if use_regressor:
+            for i in range(1):  # cfg.num_keypoints
+                # run APM inference on sensor
+                raw_observations = robot.get_observation()
+                input_vector = create_apm_input(raw_observations, interaction_point)
+                action = apm_model.predict(*input_vector)
+                # ask if ok to execute
+                res = input("Execute the output? (y/n)")
+                if res == "y":
+                    robot.apply_action(action)
+                pass
 
 
 if __name__ == "__main__":
