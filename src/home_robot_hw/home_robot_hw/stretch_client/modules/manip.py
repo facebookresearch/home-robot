@@ -97,7 +97,10 @@ class StretchManipulationInterface(AbstractControlModule):
             self._ros_client.WRIST_ROLL: joint_positions[5],
         }
 
-        self._ros_client.send_ros_trajectory_goals(joint_goals, blocking=blocking)
+        self._ros_client.send_trajectory_goals(joint_goals)
+
+        if blocking:
+            self.wait()
 
         return True
 
@@ -136,6 +139,26 @@ class StretchManipulationInterface(AbstractControlModule):
 
         # Execute joint command
         self.set_joint_positions(joint_pos, blocking=blocking)
+
+    @enforce_enabled
+    def open_gripper(self, blocking: bool = True):
+        gripper_target = self._robot_model.range[HelloStretchIdx.GRIPPER][1]
+        self.move_gripper(gripper_target, blocking=blocking)
+
+    @enforce_enabled
+    def close_gripper(self, blocking: bool = True):
+        gripper_target = self._robot_model.range[HelloStretchIdx.GRIPPER][0]
+        self.move_gripper(gripper_target, blocking=blocking)
+
+    @enforce_enabled
+    def move_gripper(self, target, blocking: bool = True):
+        joint_goals = {
+            self._ros_client.GRIPPER_FINGER: target,
+        }
+        self._ros_client.send_trajectory_goals(joint_goals)
+
+        if blocking:
+            self.wait()
 
     # Helper methods
 
