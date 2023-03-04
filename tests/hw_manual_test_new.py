@@ -6,7 +6,6 @@ import time
 
 import numpy as np
 
-from home_robot.motion.stretch import HelloStretch
 from home_robot_hw.stretch_client import StretchClient
 
 # Loose tolerances just to test that the robot moved reasonably
@@ -17,7 +16,6 @@ YAW_TOL = 0.2
 if __name__ == "__main__":
     print("Initializing...")
     robot = StretchClient()
-    model = HelloStretch()
 
     # Reset robot
     print("Resetting robot...")
@@ -38,7 +36,7 @@ if __name__ == "__main__":
     xyt_goal = [0.25, 0.25, -np.pi / 2]
     robot.nav.navigate_to(xyt_goal, blocking=True)
 
-    xyt_curr = robot.nav.get_pose()
+    xyt_curr = robot.nav.get_base_pose()
     assert np.allclose(xyt_curr[:2], xyt_goal[:2], atol=POS_TOL)
     assert np.allclose(xyt_curr[2], xyt_goal[2], atol=YAW_TOL)
 
