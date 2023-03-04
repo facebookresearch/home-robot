@@ -6,7 +6,7 @@ import time
 
 import numpy as np
 
-from home_robot.motion.stretch import STRETCH_HOME_Q, HelloStretch
+from home_robot.motion.stretch import HelloStretch
 from home_robot_hw.stretch_client import StretchClient
 
 # Loose tolerances just to test that the robot moved reasonably
@@ -19,9 +19,9 @@ if __name__ == "__main__":
     robot = StretchClient()
     model = HelloStretch()
 
-    # Home robot
-    print("Homing robot...")
-    robot.home()
+    # Reset robot
+    print("Resetting robot...")
+    robot.reset()
 
     # Head movement
     print("Testing robot head movement...")

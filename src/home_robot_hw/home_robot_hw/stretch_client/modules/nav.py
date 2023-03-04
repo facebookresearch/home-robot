@@ -126,6 +126,10 @@ class StretchNavigationInterface(AbstractControlModule):
         if blocking:
             self.wait()
 
+    @enforce_enabled
+    def home(self):
+        self.navigate_to([0.0, 0.0, 0.0], blocking=True)
+
     # Helper methods
 
     def _wait_for_pose(self):

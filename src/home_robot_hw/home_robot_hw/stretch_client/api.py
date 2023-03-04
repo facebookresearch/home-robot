@@ -6,7 +6,7 @@ from typing import Dict, Optional
 
 import rospy
 
-from home_robot.motion.stretch import STRETCH_HOME_Q, HelloStretch
+from home_robot.motion.stretch import HelloStretch
 from home_robot_hw.constants import ControlMode
 
 from .modules.camera import StretchCameraInterface
@@ -81,10 +81,13 @@ class StretchClient:
     def in_navigation_mode(self):
         return self._base_control_mode == ControlMode.NAVIGATION
 
-    def home(self):
+    def reset(self):
         self.stop()
         self.switch_to_manipulation_mode()
-        self.manip.goto(STRETCH_HOME_Q, wait=True)
+        self.manip.home()
+        self.switch_to_navigation_mode()
+        self.nav.home()
+        self.stop()
 
     def stop(self):
         self.nav.disable()

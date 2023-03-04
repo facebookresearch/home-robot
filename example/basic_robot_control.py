@@ -40,12 +40,15 @@ if __name__ == "__main__":
     xyt_goal = [0.15, 0.15, -np.pi / 4]
     robot.nav.navigate_to(xyt_goal, blocking=True)
 
+    # Home robot base (navigate back to origin)
+    robot.nav.home()
+
     # Switch to manipulation mode
     robot.switch_to_manipulation_mode()
     assert robot.in_manipulation_mode()
 
-    # Home robot
-    robot.home()
+    # Home robot joints (moves to predefined home joint configuration)
+    robot.manip.home()
 
     # Command the robot arm 1
     q_desired = np.array([-0.1, 0.5, 0.4, 0, 0, 0])
