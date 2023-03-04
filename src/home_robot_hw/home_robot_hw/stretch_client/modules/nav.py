@@ -40,7 +40,7 @@ class StretchNavigationInterface(AbstractControlModule):
 
     # Interface methods
 
-    def get_pose(self):
+    def get_base_pose(self):
         """get the latest base pose from sensors"""
         return sophus2xyt(self._ros_client.se3_base_filtered)
 

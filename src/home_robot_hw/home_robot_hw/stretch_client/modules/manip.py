@@ -62,7 +62,7 @@ class StretchManipulationInterface(AbstractControlModule):
         return True
 
     @enforce_enabled
-    def set_joint_positions(
+    def goto_joint_positions(
         self,
         joint_positions: List[float],
         blocking: bool = True,
@@ -99,7 +99,7 @@ class StretchManipulationInterface(AbstractControlModule):
             self.wait()
 
     @enforce_enabled
-    def set_ee_pose(
+    def goto_ee_pose(
         self,
         pos: List[float],
         quat: Optional[List[float]] = None,
@@ -132,7 +132,7 @@ class StretchManipulationInterface(AbstractControlModule):
         joint_pos = self._extract_joint_pos(q)
 
         # Execute joint command
-        self.set_joint_positions(joint_pos, blocking=blocking)
+        self.goto_joint_positions(joint_pos, blocking=blocking)
 
     @enforce_enabled
     def open_gripper(self, blocking: bool = True):

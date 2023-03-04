@@ -28,7 +28,7 @@ if __name__ == "__main__":
     assert robot.in_navigation_mode()
 
     # Get base pose
-    xyt = robot.nav.get_pose()
+    xyt = robot.nav.get_base_pose()
     print(f"xyt={xyt}")
 
     # Command robot velocities
@@ -49,11 +49,11 @@ if __name__ == "__main__":
 
     # Command the robot arm 1
     q_desired = np.array([-0.1, 0.5, 0.4, 0, 0, 0])
-    robot.manip.set_joint_positions(q_desired, blocking=True)
+    robot.manip.goto_joint_positions(q_desired, blocking=True)
 
     pos_desired = np.array([0.2, -0.2, 0.4])
     quat_desired = np.array([-0.7079143, 0.12421559, 0.1409881, -0.68084526])
-    robot.manip.set_ee_pose(pos_desired, quat_desired, blocking=True)
+    robot.manip.goto_ee_pose(pos_desired, quat_desired, blocking=True)
 
     # Command the robot arm 2
     robot.manip.goto(STRETCH_HOME_Q)
@@ -71,7 +71,7 @@ if __name__ == "__main__":
         pass  # prints out an rospy.logerr that alerts the user of erroneous mode
 
     # Some commands are still available
-    xyt = robot.nav.get_pose()
+    xyt = robot.nav.get_base_pose()
     print(f"xyt={xyt}")
 
     # Stop all robot motion

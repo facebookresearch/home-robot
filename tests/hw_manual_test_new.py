@@ -50,7 +50,7 @@ if __name__ == "__main__":
     robot.switch_to_manipulation_mode()
 
     pos_diff_goal = np.array([0.0, -0.2, 0.2])
-    robot.manip.set_ee_pose(pos_diff_goal, relative=True)
+    robot.manip.goto_ee_pose(pos_diff_goal, relative=True)
 
     print(
         f"Confirm that the robot EE moved by {pos_diff_goal} (lift upwards and extend outwards by 10cm)"
