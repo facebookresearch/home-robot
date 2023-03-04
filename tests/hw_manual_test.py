@@ -49,10 +49,13 @@ if __name__ == "__main__":
 
     q = model.update_look_at_ee(q)
     robot.goto(q, wait=True)
+    rospy.sleep(1.0)
     q = model.update_look_front(q)
     robot.goto(q, wait=True)
 
-    print(f"Confirm that the robot head has moved accordingly.")
+    print(f"Confirm that the robot head has:")
+    print(f"\t1. Turned to face the gripper")
+    print(f"\t2. Turned back to face forwards")
     input("(press enter to continue)")
 
     # Navigation
@@ -66,19 +69,23 @@ if __name__ == "__main__":
     assert np.allclose(xyt_curr[:2], xyt_goal[:2], atol=POS_TOL)
     assert np.allclose(xyt_curr[2], xyt_goal[2], atol=YAW_TOL)
 
-    print(f"Confirm that the robot moved to {xyt_goal} (forward left, facing right)")
+    print(
+        f"Confirm that the robot moved to {xyt_goal} (moved forward-left, turned to face right)"
+    )
     input("(press enter to continue)")
 
     # Manipulation
     print("Testing robot manipulation...")
     robot.switch_to_manipulation_mode()
 
-    pos_diff_goal = np.array([0.1, 0.0, 0.1])
+    pos_diff_goal = np.array([0.0, -0.2, 0.2])
     pos, quat = model.get_ee_pose(q)
     q = model.manip_ik((pos + pos_diff_goal, quat))
     robot.goto(q, wait=True)
 
     print(
-        f"Confirm that the robot EE moved by {pos_diff_goal} (lift upwards and extend outwards by 10cm)"
+        f"Confirm that the robot EE moved by {pos_diff_goal} (lift upwards and extend outwards by 20cm)"
     )
     input("(press enter to continue)")
+
+    print("Test complete!")
