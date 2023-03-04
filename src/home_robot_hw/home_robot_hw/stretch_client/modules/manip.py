@@ -29,11 +29,6 @@ class StretchManipulationInterface(AbstractControlModule):
         result = self._ros_client.pos_mode_service(TriggerRequest())
         rospy.loginfo(result.message)
 
-        # Set manipulator params
-        self._manipulator_params = ManipulatorBaseParams(
-            se3_base=self._ros_client.se3_base_odom,
-        )
-
         return result.success
 
     def _disable_hook(self) -> bool:
@@ -45,6 +40,22 @@ class StretchManipulationInterface(AbstractControlModule):
     def get_joint_state(self):
         with self._js_lock:
             return self.ros_client.pos, self.ros_client.vel, self.ros_client.frc
+
+    def get_ee_pose(self):
+        q, _, _ = self.get_joint_state()
+        pos, quat = self._robot_model.fk(pos, as_matrix=False)
+        return pos, quat
+
+    def get_joint_positions(self):
+        q, _, _ = self.get_joint_state()
+        return [
+            0.0,
+            q[HelloStretchIdx.LIFT],
+            q[HelloStretchIdx.ARM],
+            q[HelloStretchIdx.YAW],
+            q[HelloStretchIdx.PITCH],
+            q[HelloStretchIdx.ROLL],
+        ]
 
     @enforce_enabled
     def wait(self):
@@ -69,6 +80,7 @@ class StretchManipulationInterface(AbstractControlModule):
     def goto_joint_positions(
         self,
         joint_positions: List[float],
+        relative: bool = False,
         blocking: bool = True,
     ):
         """
@@ -87,14 +99,21 @@ class StretchManipulationInterface(AbstractControlModule):
         """
         assert len(joint_positions) == 6, "Joint position vector must be of length 6."
 
+        # Compute joint states
+        joint_pos_goal = np.array(
+            joint_positions
+        )  # base x translation is always relative
+        if relative:
+            joint_pos_goal[1:] += self.get_joint_positions()
+
         # Construct and send command
         joint_goals = {
-            self._ros_client.BASE_TRANSLATION_JOINT: joint_positions[0],
-            self._ros_client.LIFT_JOINT: joint_positions[1],
-            self._ros_client.ARM_JOINT: joint_positions[2],
-            self._ros_client.WRIST_YAW: joint_positions[3],
-            self._ros_client.WRIST_PITCH: joint_positions[4],
-            self._ros_client.WRIST_ROLL: joint_positions[5],
+            self._ros_client.BASE_TRANSLATION_JOINT: joint_pos_goal[0],
+            self._ros_client.LIFT_JOINT: joint_pos_goal[1],
+            self._ros_client.ARM_JOINT: joint_pos_goal[2],
+            self._ros_client.WRIST_YAW: joint_pos_goal[3],
+            self._ros_client.WRIST_PITCH: joint_pos_goal[4],
+            self._ros_client.WRIST_ROLL: joint_pos_goal[5],
         }
 
         self._ros_client.send_trajectory_goals(joint_goals)
@@ -107,7 +126,8 @@ class StretchManipulationInterface(AbstractControlModule):
         self,
         pos: List[float],
         quat: Optional[List[float]] = None,
-        relative: bool = True,
+        relative: bool = False,
+        world_frame: bool = False,
         blocking: bool = True,
     ):
         """Command gripper to pose
@@ -117,22 +137,32 @@ class StretchManipulationInterface(AbstractControlModule):
         Args:
             pos: Desired position
             quat: Desired orientation in quaternion (xyzw)
-            relative: Whether specified pose is relative to base (relative to world if set to False)
+            relative: Whether specified pose is relative to current pose
+            world_frame: Infer poses in world frame instead of base frame
+            blocking: Whether command blocks until completetion
         """
-        # Compute pose relative to base
-        if relative:
-            pos_rel = np.array(pos)
-            quat_rel = np.array(quat)
-        else:
-            pose_base_abs = xyt2sophus(self.get_base_state()["pose_se2"])
-            pose_ee_abs = posquat2sophus(pos, quat)
-            pose_ee_rel = pose_base_abs.inverse() * pose_ee_abs
+        # Compute IK goal: pose relative to base
+        pose_input = posquat2sophus(np.array(pos), np.array(quat))
 
-            pos_rel = pose_ee_rel.translation()
-            quat_rel = R.from_matrix(pose_ee_rel.so3().matrix()).as_quat()
+        if world_frame:
+            pose_base2ee = pose_input
+        else:
+            pose_world2base = xyt2sophus(self.get_base_state()["pose_se2"])
+            pose_world2ee = posquat2sophus(pos, quat)
+            pose_base2ee = pose_world2base.inverse() * pose_world2ee
+
+        if relative:
+            pos_ee_curr, quat_ee_curr = self.get_ee_pose()
+            pose_base2ee_curr = posquat2sophus(pos_ee_curr, quat_ee_curr)
+            pose_ik_goal = pose_base2ee_curr * pose_base2ee
+        else:
+            pose_ik_goal = pose_base2ee
+
+        pos_ik_goal = pose_ik_goal.translation()
+        quat_ik_goal = R.from_matrix(pose_ik_goal.so3().matrix()).as_quat()
 
         # Perform IK
-        q = self._robot_model.manip_ik((pos_rel, quat_rel))
+        q = self._robot_model.manip_ik((pos_ik_goal, quat_ik_goal))
         joint_pos = self._extract_joint_pos(q)
 
         # Execute joint command
