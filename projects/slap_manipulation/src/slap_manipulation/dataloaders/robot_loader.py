@@ -376,6 +376,12 @@ class RobotDataset(RLBenchDataset):
                 )
                 rgbs.append(v_rgb)
                 xyzs.append(v_xyz)
+
+        # randomly dropout 1/3rd of the point-clouds
+        num_keep = int(len(rgbs) * 0.66)
+        idx_keep = np.random.choice(len(rgbs), num_keep, replace=False)
+        rgbs = [rgbs[i] for i in idx_keep]
+        xyzs = [xyzs[i] for i in idx_keep]
         rgb = np.concatenate(rgbs, axis=0)
         xyz = np.concatenate(xyzs, axis=0)
         z_mask = xyz[:, 2] > 0.0
@@ -591,7 +597,7 @@ def show_all_keypoints(data_dir, split, template):
         first_frame_only=True,
         # first_keypoint_only=True,
         keypoint_range=[0, 1, 2],
-        trial_list=train_test_split["train"],
+        trial_list=train_test_split["train"] if split else [],
         orientation_type="quaternion",
         show_voxelized_input_and_reference=True,
         show_cropped=True,
