@@ -55,6 +55,14 @@ mkdir -p datasets/scene_datasets/floorplanner
 mv datasets/scene_datasets/fphab-v0.2.0 datasets/scene_datasets/floorplanner/v0.2.0
 ```
 
+The google scanned objects and amazon berkeley objects will need to be in `data/objects/google_object_dataset` and `data/objects/amazon_berkeley` respectively.
+
+### Other instructions
+
+Rough notes; some things were missing for configuring a new environment:
+  - Download the objects into `HOME_ROBOT_ROOT/data`
+  - Download the urdf into `HOME_ROBOT_ROOT/data/robots/hab_stretch` - robot should be at `data/robots/hab_stretch/urdf/` - robot from [the FAIR distribution here in zip format](http://dl.fbaipublicfiles.com/habitat/robots/hab_stretch_v1.0.zip)
+
 
 ### Episode dataset setup
 
@@ -103,6 +111,7 @@ python demo.py --config-file configs/Detic_LCOCOI21k_CLIP_SwinB_896b32_4x_ft4x_m
 cd /path/to/home-robot
 
 # Single episode to debug (ensuring)
+export HABITAT_SIM_LOG=quiet
 python project/habitat_objectnav/eval_episode.py
 
 # Vectorized evaluation
