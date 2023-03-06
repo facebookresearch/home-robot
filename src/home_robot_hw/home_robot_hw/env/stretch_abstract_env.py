@@ -17,15 +17,15 @@ from control_msgs.msg import FollowJointTrajectoryAction, FollowJointTrajectoryG
 from geometry_msgs.msg import Pose, PoseStamped, Twist
 from nav_msgs.msg import Odometry
 from sensor_msgs.msg import JointState
-from std_msgs.msg import String
+from std_msgs.msg import Bool, String
 from std_srvs.srv import SetBool, SetBoolRequest, Trigger, TriggerRequest
 from trajectory_msgs.msg import JointTrajectoryPoint
 
 import home_robot
 import home_robot.core.abstract_env
-from home_robot.agent.motion.stretch import HelloStretchIdx
 from home_robot.core.interfaces import Action, Observations
 from home_robot.core.state import ManipulatorBaseParams
+from home_robot.motion.stretch import HelloStretchIdx
 from home_robot.utils.geometry import (
     posquat2sophus,
     sophus2xyt,
@@ -95,6 +95,8 @@ class StretchEnv(home_robot.core.abstract_env.Env):
     dist_tol = 1e-4
     theta_tol = 1e-3
     wait_time_step = 1e-3
+    msg_delay_t = 0.25
+    block_spin_rate = 10
 
     base_link = "base_link"
     odom_link = "map"
@@ -117,12 +119,13 @@ class StretchEnv(home_robot.core.abstract_env.Env):
 
         self._base_control_mode = ControlMode.IDLE
         self._depth_buffer_size = depth_buffer_size
+        self._reset_messages()
         self._create_pubs_subs()
         self.rgb_cam, self.dpt_cam = None, None
         if init_cameras:
             self._create_cameras(color_topic, depth_topic)
+
         self._create_services()
-        self._reset_messages()
         print("... done.")
         self.wait_for_pose()
         if init_cameras:
@@ -145,10 +148,30 @@ class StretchEnv(home_robot.core.abstract_env.Env):
         self._last_base_update_timestamp = rospy.Time(0)
         self._t_base_filtered = None
         self._t_base_odom = None
+        self._at_goal = False
+        self._goal_reset_t = rospy.Time(0)
 
     def in_position_mode(self):
         """is the robot in position mode"""
         return self._current_mode == "position"
+
+    def at_goal(self) -> bool:
+        """Returns true if the agent is currently at its goal location"""
+        if (
+            self._goal_reset_t is not None
+            and (rospy.Time.now() - self._goal_reset_t).to_sec() > self.msg_delay_t
+        ):
+            return self._at_goal
+        else:
+            return False
+
+    def _at_goal_callback(self, msg):
+        """Is the velocity controller done moving; is it at its goal?"""
+        self._at_goal = msg.data
+        if not self._at_goal:
+            self._goal_reset_t = None
+        elif self._goal_reset_t is None:
+            self._goal_reset_t = rospy.Time.now()
 
     def _mode_callback(self, msg):
         """get position or navigation mode from stretch ros"""
@@ -163,10 +186,28 @@ class StretchEnv(home_robot.core.abstract_env.Env):
         """base state updates from SLAM system"""
         self._last_base_update_timestamp = msg.header.stamp
         self._t_base_filtered = sp.SE3(matrix_from_pose_msg(msg.pose))
+        self.curr_visualizer(self._t_base_filtered.matrix())
+
+    def _camera_pose_callback(self, msg: PoseStamped):
+        self._last_camera_update_timestamp = msg.header.stamp
+        self._t_camera_pose = sp.SE3(matrix_from_pose_msg(msg.pose))
 
     def get_base_pose(self):
         """get the latest base pose from sensors"""
         return sophus2xyt(self._t_base_filtered)
+
+    def get_base_pose_matrix(self):
+        """get matrix version of the base pose"""
+        return self._t_base_filtered.matrix()
+
+    def get_camera_pose_matrix(self, rotated=False):
+        """get matrix version of the camera pose"""
+        mat = self._t_camera_pose.matrix()
+        if rotated:
+            # If we are using the rotated versions of the images
+            return mat @ tra.euler_matrix(0, 0, -np.pi / 2)
+        else:
+            return mat
 
     def _js_callback(self, msg):
         """Read in current joint information from ROS topics and update state"""
@@ -228,6 +269,14 @@ class StretchEnv(home_robot.core.abstract_env.Env):
         """create ROS publishers and subscribers - only call once"""
         # Store latest joint state message - lock for access
         self._js_lock = threading.Lock()
+
+        # Create visualizers for pose information
+        self.goal_visualizer = Visualizer("command_pose", rgba=[1.0, 0.0, 0.0, 0.5])
+        self.curr_visualizer = Visualizer("current_pose", rgba=[0.0, 0.0, 1.0, 0.5])
+
+        self._at_goal_sub = rospy.Subscriber(
+            "goto_controller/at_goal", Bool, self._at_goal_callback, queue_size=10
+        )
         self._mode_sub = rospy.Subscriber(
             "mode", String, self._mode_callback, queue_size=1
         )
@@ -257,6 +306,9 @@ class StretchEnv(home_robot.core.abstract_env.Env):
             PoseStamped,
             self._base_state_callback,
             queue_size=1,
+        )
+        self._camera_pose_sub = rospy.Subscriber(
+            "camera_pose", PoseStamped, self._camera_pose_callback, queue_size=1
         )
 
         print("Waiting for trajectory server...")
@@ -303,7 +355,7 @@ class StretchEnv(home_robot.core.abstract_env.Env):
         return True
 
     def config_to_ros_trajectory_goal(self, q: np.ndarray) -> FollowJointTrajectoryGoal:
-        """ Create a joint trajectory goal to move the arm."""
+        """Create a joint trajectory goal to move the arm."""
         trajectory_goal = FollowJointTrajectoryGoal()
         trajectory_goal.goal_time_tolerance = rospy.Time(self.goal_time_tolerance)
         trajectory_goal.trajectory.joint_names = self.ros_joint_names
@@ -385,7 +437,8 @@ class StretchEnv(home_robot.core.abstract_env.Env):
 
     def switch_to_navigation_mode(self):
         """switch stretch to navigation control"""
-        result1 = self._nav_mode_service(TriggerRequest())
+        if not self.in_navigation_mode():
+            result1 = self._nav_mode_service(TriggerRequest())
         result2 = self._goto_on_service(TriggerRequest())
 
         # Switch interface mode & print messages
@@ -442,11 +495,12 @@ class StretchEnv(home_robot.core.abstract_env.Env):
             H, W = rgb.shape[:2]
             xyz = xyz.reshape(-1, 3)
 
-            # Rotate the sretch camera so that top of image is "up"
-            R_stretch_camera = tra.euler_matrix(0, 0, -np.pi / 2)[:3, :3]
-            xyz = xyz @ R_stretch_camera
-            xyz = xyz.reshape(H, W, 3)
-            imgs[-1] = xyz
+            if rotate_images:
+                # Rotate the stretch camera so that top of image is "up"
+                R_stretch_camera = tra.euler_matrix(0, 0, -np.pi / 2)[:3, :3]
+                xyz = xyz @ R_stretch_camera
+                xyz = xyz.reshape(H, W, 3)
+                imgs[-1] = xyz
 
         return imgs
 
@@ -484,12 +538,25 @@ class StretchEnv(home_robot.core.abstract_env.Env):
         msg.angular.z = w
         self._velocity_pub.publish(msg)
 
+    def recent_depth_image(self, seconds):
+        """Return true if we have up to date depth."""
+        # Make sure we have a goal and our poses and depths are synced up - we need to have
+        # received depth after we stopped moving
+        if (
+            self._goal_reset_t is not None
+            and (rospy.Time.now() - self._goal_reset_t).to_sec() > self.msg_delay_t
+        ):
+            return (self.dpt_cam.get_time() - self._goal_reset_t).to_sec() > seconds
+        else:
+            return False
+
     def navigate_to(
         self,
         xyt: Iterable[float],
         relative: bool = False,
         position_only: bool = False,
         avoid_obstacles: bool = False,
+        blocking: bool = False,
     ):
         """
         Cannot be used in manipulation mode.
@@ -505,16 +572,34 @@ class StretchEnv(home_robot.core.abstract_env.Env):
 
         # Compute absolute goal
         if relative:
-            xyt_base = sophus2xyt(self._t_base_odom)
+            xyt_base = sophus2xyt(self._t_base_filtered)
             xyt_goal = xyt_base_to_global(xyt, xyt_base)
-            print("base =", xyt_base)
-            print("goal =", xyt_goal)
         else:
             xyt_goal = xyt
 
+        # Clear self.at_goal
+        self._at_goal = False
+        self._goal_reset_t = None
+
         # Set goal
-        msg = matrix_to_pose_msg(xyt2sophus(xyt_goal).matrix())
+        goal_matrix = xyt2sophus(xyt_goal).matrix()
+        self.goal_visualizer(goal_matrix)
+        msg = matrix_to_pose_msg(goal_matrix)
         self._goal_pub.publish(msg)
+
+        if blocking:
+            rospy.sleep(self.msg_delay_t)
+            rate = rospy.Rate(self.block_spin_rate)
+            while not rospy.is_shutdown():
+                # Verify that we are at goal and perception is synchronized with pose
+                if self.at_goal() and self.recent_depth_image(self.msg_delay_t):
+                    break
+                else:
+                    rate.sleep()
+            # TODO: this should be unnecessary
+            # TODO: add this back in if we are having trouble building maps
+            # Make sure that depth and position are synchonized
+            # rospy.sleep(self.msg_delay_t * 5)
 
     @abstractmethod
     def reset(self):

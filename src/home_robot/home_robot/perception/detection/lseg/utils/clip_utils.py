@@ -8,10 +8,10 @@ import clip
 import cv2
 import networkx as nx
 import numpy as np
+import torch
 from PIL import Image
 from pytorch_grad_cam import GradCAM
 from pytorch_grad_cam.utils.image import preprocess_image, show_cam_on_image
-import torch
 from torchvision import transforms
 
 

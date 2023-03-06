@@ -2,6 +2,7 @@ from abc import abstractmethod
 from typing import Any, Dict, Optional
 
 import habitat
+import numpy as np
 
 import home_robot
 import home_robot.core.abstract_env
@@ -51,6 +52,10 @@ class HabitatEnv(home_robot.core.abstract_env.Env):
     ) -> home_robot.core.interfaces.Observations:
         """Translate Habitat observations into home_robot observations."""
         pass
+
+    def _preprocess_xy(self, xy: np.array) -> np.array:
+        """Translate Habitat navigation (x, y) (i.e., GPS sensor) into robot (x, y)."""
+        return np.array([xy[0], -1 * xy[1]])
 
     @abstractmethod
     def _preprocess_action(

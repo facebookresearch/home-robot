@@ -9,7 +9,7 @@ import timeit
 import numpy as np
 import trimesh.transformations as tra
 
-from home_robot.agent.motion.stretch import (
+from home_robot.motion.stretch import (
     STRETCH_GRASP_FRAME,
     STRETCH_HOME_Q,
     STRETCH_STANDOFF_DISTANCE,
@@ -26,7 +26,7 @@ BASE_THETA_IDX = HelloStretchIdx.BASE_THETA
 LIFT_IDX = HelloStretchIdx.LIFT
 ARM_IDX = HelloStretchIdx.ARM
 
-# from home_robot.agent.motion.robot import (
+# from home_robot.motion.robot import (
 #        BASE_X_IDX, B
 GRIPPER_IDX = HelloStretchIdx.GRIPPER
 WRIST_ROLL_IDX = HelloStretchIdx.WRIST_ROLL

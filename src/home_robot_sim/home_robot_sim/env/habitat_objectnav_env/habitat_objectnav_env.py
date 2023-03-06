@@ -1,11 +1,15 @@
-from typing import Any, Dict, Optional, Tuple, Union, cast, List
+from typing import Any, Dict, List, Optional, Tuple, Union, cast
 
 import habitat
 import numpy as np
+import torch
+from habitat.core.simulator import Observations
+from torch import Tensor
 
 import home_robot
+from home_robot.core.interfaces import DiscreteNavigationAction
 from home_robot_sim.env.habitat_abstract_env import HabitatEnv
-from torch import Tensor
+
 from .constants import (
     MAX_DEPTH_REPLACEMENT_VALUE,
     MIN_DEPTH_REPLACEMENT_VALUE,
@@ -14,9 +18,6 @@ from .constants import (
     mukul_33categories_padded,
 )
 from .visualizer import Visualizer
-from habitat.core.simulator import Observations
-from home_robot.core.interfaces import DiscreteNavigationAction
-import torch
 
 
 class HabitatObjectNavEnv(HabitatEnv):
@@ -112,7 +113,7 @@ class HabitatObjectNavEnv(HabitatEnv):
             rgb=habitat_obs["robot_head_rgb"],
             depth=depth,
             compass=habitat_obs["robot_start_compass"],
-            gps=habitat_obs["robot_start_gps"],
+            gps=self._preprocess_xy(habitat_obs["robot_start_gps"]),
             task_observations={
                 "goal_id": goal_id,
                 "goal_name": goal_name,

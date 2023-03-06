@@ -5,17 +5,19 @@ import torch
 from torch.nn import DataParallel
 
 import home_robot.utils.pose as pu
+from home_robot.core.abstract_agent import Agent
+from home_robot.core.interfaces import DiscreteNavigationAction, Observations
 from home_robot.mapping.semantic.categorical_2d_semantic_map_state import (
     Categorical2DSemanticMapState,
 )
 from home_robot.navigation_planner.discrete_planner import DiscretePlanner
-from home_robot.core.abstract_agent import Agent
-from home_robot.core.interfaces import DiscreteNavigationAction, Observations
 
 from .objectnav_agent_module import ObjectNavAgentModule
 
 
 class ObjectNavAgent(Agent):
+    """Simple object nav agent based on a 2D semantic map"""
+
     def __init__(self, config, device_id: int = 0):
         self.max_steps = config.AGENT.max_steps
         self.num_environments = config.habitat_baselines.num_environments
@@ -242,6 +244,8 @@ class ObjectNavAgent(Agent):
         return action, info
 
     def _preprocess_obs(self, obs: Observations):
+        """Take a home-robot observation, preprocess it to put it into the correct format for the
+        semantic map."""
         rgb = torch.from_numpy(obs.rgb).to(self.device)
         depth = (
             torch.from_numpy(obs.depth).unsqueeze(-1).to(self.device) * 100.0
@@ -250,11 +254,7 @@ class ObjectNavAgent(Agent):
         obs_preprocessed = torch.cat([rgb, depth, semantic], dim=-1).unsqueeze(0)
         obs_preprocessed = obs_preprocessed.permute(0, 3, 1, 2)
 
-        curr_pose = np.array([obs.gps[0], -obs.gps[1], obs.compass[0]])
-        """
-        curr_pose = obs2xyt(obs.base_pose)
-        curr_pose[1] = -curr_pose[1]  # agent y axis is flipped, not sure why
-        """
+        curr_pose = np.array([obs.gps[0], obs.gps[1], obs.compass[0]])
         pose_delta = torch.tensor(
             pu.get_rel_pose_change(curr_pose, self.last_poses[0])
         ).unsqueeze(0)

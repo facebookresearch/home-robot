@@ -12,7 +12,14 @@ import rospy
 import sophus as sp
 from geometry_msgs.msg import Pose, PoseStamped, Twist
 from nav_msgs.msg import Odometry
-from std_srvs.srv import SetBool, SetBoolResponse, Trigger, TriggerResponse
+from std_msgs.msg import Bool
+from std_srvs.srv import (
+    SetBool,
+    SetBoolResponse,
+    Trigger,
+    TriggerRequest,
+    TriggerResponse,
+)
 
 from home_robot.control.goto_controller import GotoVelocityController
 from home_robot.utils.config import get_control_config
@@ -23,6 +30,8 @@ from home_robot_hw.ros.visualizer import Visualizer
 log = logging.getLogger(__name__)
 
 CONTROL_HZ = 20
+VEL_THRESHOlD = 0.001
+RVEL_THRESHOLD = 0.005
 
 
 class GotoVelocityControllerNode:
@@ -31,10 +40,13 @@ class GotoVelocityControllerNode:
     Target goal is update-able at any given instant.
     """
 
+    # How long should the controller report done before we're actually confident that we're done?
+    done_t = rospy.Duration(1.0)
+
     def __init__(
         self,
         hz: float,
-        odom_only_feedback: bool = True,
+        odom_only_feedback: bool = False,
         config_name: str = "noplan_velocity_hw",
     ):
         self.hz = hz
@@ -45,22 +57,29 @@ class GotoVelocityControllerNode:
         self.controller = GotoVelocityController(controller_cfg)
 
         # Initialize
+        self.vel_odom: Optional[np.ndarray] = None
+        self.xyt_filtered: Optional[np.ndarray] = None
         self.xyt_goal: Optional[np.ndarray] = None
 
         self.active = False
+        self.is_done = True
+        self.controller_finished = True
+        self.done_since = rospy.Time(0)
         self.track_yaw = True
 
         # Visualizations
         self.goal_visualizer = Visualizer("goto_controller/goal_abs")
 
     def _pose_update_callback(self, msg: PoseStamped):
+        pose_sp = sp.SE3(matrix_from_pose_msg(msg.pose))
+        self.xyt_filtered = sophus2xyt(pose_sp)
         if not self.odom_only:
-            pose_sp = sp.SE3(matrix_from_pose_msg(msg.pose))
-            self.controller.update_pose_feedback(sophus2xyt(pose_sp))
+            self.controller.update_pose_feedback(self.xyt_filtered)
 
     def _odom_update_callback(self, msg: Odometry):
+        pose_sp = sp.SE3(matrix_from_pose_msg(msg.pose.pose))
+        self.vel_odom = np.array([msg.twist.twist.linear.x, msg.twist.twist.angular.z])
         if self.odom_only:
-            pose_sp = sp.SE3(matrix_from_pose_msg(msg.pose.pose))
             self.controller.update_pose_feedback(sophus2xyt(pose_sp))
 
     def _goal_update_callback(self, msg: Pose):
@@ -76,26 +95,38 @@ class GotoVelocityControllerNode:
             pose_goal = pose_sp
         """
 
-        pose_goal = pose_sp
+        if self.active:
+            pose_goal = pose_sp
 
-        self.controller.update_goal(sophus2xyt(pose_goal))
-        self.xyt_goal = self.controller.xyt_goal
+            self.controller.update_goal(sophus2xyt(pose_goal))
+            self.xyt_goal = self.controller.xyt_goal
 
-        # Visualize
-        self.goal_visualizer(pose_goal.matrix())
+            self.is_done = False
+            self.controller_finished = False
 
-    def _enable_service(self, request):
+            # Visualize
+            self.goal_visualizer(pose_goal.matrix())
+
+        # Do not update goal if controller is not active (prevents _enable_service to suddenly start moving the robot)
+        else:
+            log.warn("Received a goal while NOT active. Goal is not updated.")
+
+    def _enable_service(self, request: TriggerRequest) -> TriggerResponse:
+        """activates the controller and acks activation request"""
+        self.xyt_goal = None
         self.active = True
         return TriggerResponse(
             success=True,
-            message=f"Goto controller is now RUNNING",
+            message="Goto controller is now RUNNING",
         )
 
-    def _disable_service(self, request):
+    def _disable_service(self, request: TriggerRequest) -> TriggerResponse:
+        """disables the controller and acks deactivation request"""
         self.active = False
+        self.xyt_goal = None
         return TriggerResponse(
             success=True,
-            message=f"Goto controller is now STOPPED",
+            message="Goto controller is now STOPPED",
         )
 
     def _set_yaw_tracking_service(self, request: SetBool):
@@ -121,10 +152,31 @@ class GotoVelocityControllerNode:
         while not rospy.is_shutdown():
             if self.active and self.xyt_goal is not None:
                 # Compute control
+                self.is_done = False
                 v_cmd, w_cmd = self.controller.compute_control()
+                done = self.controller.is_done()
+
+                # Check if actually done (velocity = 0)
+                if done and self.vel_odom is not None:
+                    if (
+                        self.vel_odom[0] < VEL_THRESHOlD
+                        and self.vel_odom[1] < RVEL_THRESHOLD
+                    ):
+                        if not self.controller_finished:
+                            self.controller_finished = True
+                            self.done_since = rospy.Time.now()
+                        elif (
+                            self.controller_finished
+                            and (rospy.Time.now() - self.done_since) > self.done_t
+                        ):
+                            self.is_done = True
+                    else:
+                        self.controller_finished = False
+                        self.done_since = rospy.Time(0)
 
                 # Command robot
                 self._set_velocity(v_cmd, w_cmd)
+                self.at_goal_pub.publish(self.is_done)
 
             # Spin
             rate.sleep()
@@ -134,6 +186,9 @@ class GotoVelocityControllerNode:
         rospy.init_node("goto_controller")
 
         self.vel_command_pub = rospy.Publisher("stretch/cmd_vel", Twist, queue_size=1)
+        self.at_goal_pub = rospy.Publisher(
+            "goto_controller/at_goal", Bool, queue_size=1
+        )
 
         rospy.Subscriber(
             "state_estimator/pose_filtered",

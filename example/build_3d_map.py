@@ -10,26 +10,26 @@ import click
 import numpy as np
 import open3d
 import rospy
+import trimesh
+import trimesh.transformations as tra
 
-from home_robot.agent.motion.stretch import STRETCH_PREGRASP_Q, HelloStretchIdx
-from home_robot.utils.point_cloud import (
-    numpy_to_pcd,
-    pcd_to_numpy,
-    show_point_cloud,
-)
+from home_robot.motion.stretch import STRETCH_NAVIGATION_Q, HelloStretch
+from home_robot.utils.point_cloud import numpy_to_pcd, pcd_to_numpy, show_point_cloud
 from home_robot.utils.pose import to_pos_quat
 from home_robot_hw.env.stretch_grasping_env import StretchGraspingEnv
 
 
-def combine_point_clouds(pc_xyz: np.ndarray, pc_rgb: np.ndarray, xyz: np.ndarray, rgb: np.ndarray) -> np.ndarray:
+def combine_point_clouds(
+    pc_xyz: np.ndarray, pc_rgb: np.ndarray, xyz: np.ndarray, rgb: np.ndarray
+) -> np.ndarray:
     """Tool to combine point clouds without duplicates. Concatenate, voxelize, and then return
     the finished results."""
     if pc_rgb is None:
         pc_rgb, pc_xyz = rgb, xyz
     else:
-        np.concatenate([pc_rgb, rgb], axis=0)
-        np.concatenate([pc_xyz, xyz], axis=0)
-    pcd = numpy_to_pcd(xyz, rgb).voxel_down_sample(voxel_size=0.05)
+        pc_rgb = np.concatenate([pc_rgb, rgb], axis=0)
+        pc_xyz = np.concatenate([pc_xyz, xyz], axis=0)
+    pcd = numpy_to_pcd(pc_xyz, pc_rgb).voxel_down_sample(voxel_size=0.01)
     return pcd_to_numpy(pcd)
 
 
@@ -45,24 +45,30 @@ class RosMapDataCollector(object):
     This is an example collecting the data; not necessarily the way you should do it.
     """
 
-    def __init__(self, env):
+    def __init__(self, env, visualize_planner=False):
         self.env = env  # Get the connection to the ROS environment via agent
         self.observations = []
         self.started = False
+        self.robot_model = HelloStretch(visualize=visualize_planner)
 
     def step(self):
         """Step the collector. Get a single observation of the world. Remove bad points, such as
         those from too far or too near the camera."""
-        rgb, depth, xyz = self.env.get_images(compute_xyz=True)
+        rgb, depth, xyz = self.env.get_images(compute_xyz=True, rotate_images=False)
         q, dq = self.env.update()
+        camera_pose = self.env.get_camera_pose_matrix(rotated=False)
 
         # apply depth filter
         depth = depth.reshape(-1)
         rgb = rgb.reshape(-1, 3)
-        xyz = xyz.reshape(-1, 3)
-        valid_depth = np.bitwise_and(depth > 0.1, depth < 4.)
+        cam_xyz = xyz.reshape(-1, 3)
+        xyz = trimesh.transform_points(cam_xyz, camera_pose)
+        valid_depth = np.bitwise_and(depth > 0.1, depth < 4.0)
         rgb = rgb[valid_depth, :]
         xyz = xyz[valid_depth, :]
+        # TODO: remove debug code
+        # For now you can use this to visualize a single frame
+        # show_point_cloud(xyz, rgb / 255, orig=np.zeros(3))
         self.observations.append((rgb, xyz, q, dq))
 
     def show(self):
@@ -76,31 +82,90 @@ class RosMapDataCollector(object):
             xyz = obs[1]
             pc_xyz, pc_rgb = combine_point_clouds(pc_xyz, pc_rgb, xyz, rgb)
 
-        show_point_cloud(pc_xyz, pc_rgb / 255)
+        # Visualize point clloud + origin
+        show_point_cloud(pc_xyz, pc_rgb / 255, orig=np.zeros(3))
+        return pc_xyz, pc_rgb
 
 
 @click.command()
-@click.option("--rate", default=1, type=int)
-@click.option("--max-frames", default=5, type=int)
-def main(rate=10, max_frames=-1):
+@click.option("--rate", default=5, type=int)
+@click.option("--max-frames", default=20, type=int)
+@click.option("--visualize", default=False, is_flag=True)
+@click.option("--manual_wait", default=False, is_flag=True)
+@click.option("--pcd-filename", default="output.ply", type=str)
+def main(rate, max_frames, visualize, manual_wait, pcd_filename):
     rospy.init_node("build_3d_map")
     env = StretchGraspingEnv(segmentation_method=None)
-    collector = RosMapDataCollector(env)
+    collector = RosMapDataCollector(env, visualize)
+
+    # Tuck the arm away
+    print("Sending arm to  home...")
+    env.goto(STRETCH_NAVIGATION_Q, wait=False)
+    print("... done.")
 
     rate = rospy.Rate(rate)
-    print("Press ctrl+c to finish...")
+
+    # Move the robot
+    # TODO: replace env with client
+    if not env.in_navigation_mode():
+        print("Switch to navigation mode...")
+        env.switch_to_navigation_mode()
+    # Sequence information if we are executing the trajectory
+    step = 0
+    # Number of frames collected
     frames = 0
+
+    trajectory = [
+        (0, 0, 0),
+        (0.4, 0, 0),
+        (0.75, 0.15, np.pi / 4),
+        (0.85, 0.3, np.pi / 4),
+        (0.95, 0.5, np.pi / 2),
+        (1.0, 0.55, np.pi),
+        (0.6, 0.45, 9 * np.pi / 8),
+        (0.0, 0.3, -np.pi / 2),
+        (0, 0, 0),
+        (0.2, 0, 0),
+        (0.5, 0, 0),
+        (0.7, 0.2, np.pi / 4),
+        (0.7, 0.4, np.pi / 2),
+        (0.5, 0.4, np.pi),
+        (0.2, 0.2, -np.pi / 4),
+        (0, 0, -np.pi / 2),
+        (0, 0, 0),
+    ]
+
+    collector.step()  # Append latest observations
+    # print("Press ctrl+c to finish...")
+    t0 = rospy.Time.now()
     while not rospy.is_shutdown():
         # Run until we control+C this script
+
+        ti = (rospy.Time.now() - t0).to_sec()
+        print("t =", ti, trajectory[step])
+        env.navigate_to(trajectory[step], blocking=True)
+        print("... done navigating.")
+        if manual_wait:
+            input("... press enter ...")
+        print("... capturing frame!")
+        step += 1
+
         collector.step()  # Append latest observations
-        rate.sleep()
 
         frames += 1
-        if max_frames > 0 and frames >= max_frames:
+        if max_frames > 0 and frames >= max_frames or step >= len(trajectory):
             break
 
+        rate.sleep()
+
     print("Done collecting data.")
-    collector.show()
+    env.navigate_to((0, 0, 0))
+    pc_xyz, pc_rgb = collector.show()
+
+    # Create pointcloud
+    if len(pcd_filename) > 0:
+        pcd = numpy_to_pcd(pc_xyz, pc_rgb / 255)
+        open3d.io.write_point_cloud(pcd_filename, pcd)
 
 
 if __name__ == "__main__":

@@ -28,6 +28,7 @@ class RosCamera(Camera):
                 # color support - do nothing
                 pass
             self._img = img
+            self._t = msg.header.stamp
             if self.buffer_size is not None:
                 self._add_to_buffer(img)
 
@@ -48,10 +49,14 @@ class RosCamera(Camera):
         rgb = rgb.reshape(-1, 3)[mask]
         return xyz, rgb
 
+    def get_time(self):
+        """Get time image was received last"""
+        return self._t
+
     def wait_for_image(self) -> None:
-        """ Wait for image. Needs to be sort of slow, in order to make sure we give it time
+        """Wait for image. Needs to be sort of slow, in order to make sure we give it time
         to update the image in the backend."""
-        rospy.sleep(0.5)
+        rospy.sleep(0.2)
         rate = rospy.Rate(2)
         while not rospy.is_shutdown():
             with self._lock:
@@ -62,7 +67,7 @@ class RosCamera(Camera):
                     # Wait until we have a full buffer
                     if len(self._buffer) >= self.buffer_size:
                         break
-                rate.sleep()
+            rate.sleep()
 
     def get(self, device=None):
         """return the current image associated with this camera"""
@@ -75,6 +80,7 @@ class RosCamera(Camera):
         if device is not None:
             # Convert to tensor and get the formatting right
             import torch
+
             img = torch.FloatTensor(img).to(device).permute(2, 0, 1)
         return img
 
@@ -126,6 +132,7 @@ class RosCamera(Camera):
     ):
         self.name = name
         self._img = None
+        self._t = rospy.Time(0)
         self._lock = threading.Lock()
         self._camera_info_topic = name + "/camera_info"
         print("Waiting for camera info on", self._camera_info_topic + "...")
