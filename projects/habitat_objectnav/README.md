@@ -64,12 +64,11 @@ wget https://www.dropbox.com/s/n1g1s6uvowo4tbm/v0.2.0_receptacle_cat_indoor_only
 unzip datasets/episode_datasets/floorplanner/indoor_only/v0.2.0_receptacle_cat_indoor_only_val.zip -d datasets/episode_datasets/floorplanner/indoor_only/
 ```
 
-[TEMPORARY] Floorplanner dataset episodes need to point to the right scene dataset config for scenes to load correctly:
+## Create episode symlink
 
-> Add the below line after L93 of `habitat-lab/habitat/core/env.py`
-
+For example:
 ```
-self.current_episode.scene_dataset_config = "/path/to/datasets/scene_datasets/floorplanner/v0.2.0/hab-fp.scene_dataset_config.json"
+ln -s ~/src/habitat-lab/data/datasets/floorplanner/v0.2.0/ ~/src/home-robot/data/datasets/floorplanner/v0.2.0
 ```
 
 
