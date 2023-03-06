@@ -41,7 +41,7 @@ def create_ipm_input(
         valid_depth = np.bitwise_and(depth > 0.1, depth < 1.0)
         rgb = rgb[valid_depth, :]
         xyz = xyz[valid_depth, :]
-        z_mask = xyz[:, 2] > 0.5
+        z_mask = xyz[:, 2] > 0.7
         rgb = rgb[z_mask, :]
         xyz = xyz[z_mask, :]
 
