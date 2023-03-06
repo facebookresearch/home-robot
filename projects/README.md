@@ -3,7 +3,7 @@
 1. Make sure the main hector-slam launch file is up and running.
 1. On a new terminal run `rosrun joy joy_node`
 1. Turn on the controller and make sure it is connect to the PC
-1. Run the data collection script: `python projects/collect_h5.py`
+1. Run the data collection script: `python projects/collect_h5.py --task-name <name of task>`
 
 Note that the script collect keyframe based demonstrations at the moment, i.e. user needs to communicate episode start, moments of interest during episode and episode end to the script.
 
