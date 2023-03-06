@@ -57,8 +57,8 @@ class StretchManipulationEnv(StretchEnv):
         8. end-effector pose
         """
         # record rgb and depth
-        camera_pose = self.get_camera_pose_matrix()
-        rgb, depth, xyz = self.get_images(compute_xyz=True, rotate_images=True)
+        camera_pose = self.get_camera_pose_matrix(rotated=False)
+        rgb, depth, xyz = self.get_images(compute_xyz=True, rotate_images=False)
         q, dq = self.update()
         ee_pose_0 = self.robot.fk(q)
         ee_pose = np.concatenate((ee_pose_0[0], ee_pose_0[1]), axis=0)
