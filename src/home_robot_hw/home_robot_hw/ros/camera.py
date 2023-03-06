@@ -67,7 +67,7 @@ class RosCamera(Camera):
                     # Wait until we have a full buffer
                     if len(self._buffer) >= self.buffer_size:
                         break
-                rate.sleep()
+            rate.sleep()
 
     def get(self, device=None):
         """return the current image associated with this camera"""
