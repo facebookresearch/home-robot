@@ -43,7 +43,7 @@ class StretchManipulationInterface(AbstractControlModule):
 
     def get_ee_pose(self):
         q, _, _ = self.get_joint_state()
-        pos, quat = self._robot_model.fk(pos, as_matrix=False)
+        pos, quat = self._robot_model.fk(q, as_matrix=False)
         return pos, quat
 
     def get_joint_positions(self):

@@ -4,7 +4,9 @@
 # LICENSE file in the root directory of this source tree.
 from typing import Dict, Optional
 
+import ros_numpy
 import rospy
+import tf2_ros
 
 from home_robot.motion.stretch import HelloStretch
 from home_robot_hw.constants import ControlMode
@@ -115,7 +117,7 @@ class StretchClient:
             tf2_ros.LookupException,
             tf2_ros.ConnectivityException,
             tf2_ros.ExtrapolationException,
-        ) as e:
+        ):
             print("!!! Lookup failed from", self.base_link, "to", self.odom_link, "!!!")
             return None
         return pose_mat
