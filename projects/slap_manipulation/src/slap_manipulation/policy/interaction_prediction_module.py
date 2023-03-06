@@ -378,18 +378,18 @@ class IPModule(torch.nn.Module):
             context_dim=latent_dim,
         )
         if not dry_run:
-            self.setup_training()
+            # self.setup_training()
             self.start_time = 0.0
 
-    def setup_training(self):
-        # get today's date
-        date_time = datetime.datetime.now().strftime("%Y-%m-%d_%H-%M")
-        folder_name = self.name + "_" + date_time
-        # append folder name to current working dir
-        path = os.path.join(os.getcwd(), folder_name)
-        if not os.path.exists(path):
-            os.mkdir(path)
-        self._save_dir = path
+    # def setup_training(self):
+    #     # get today's date
+    #     date_time = datetime.datetime.now().strftime("%Y-%m-%d_%H-%M")
+    #     folder_name = self.name + "_" + date_time
+    #     # append folder name to current working dir
+    #     path = os.path.join(os.getcwd(), folder_name)
+    #     if not os.path.exists(path):
+    #         os.mkdir(path)
+    #     self._save_dir = path
 
     def get_optimizer(self):
         """optimizer config"""
@@ -422,16 +422,13 @@ class IPModule(torch.nn.Module):
         return new_batch
 
     def get_best_name(self):
-        filename = os.path.join(self._save_dir, "best_" + self.name + ".pth")
+        filename = "best_" + self.name + ".pth"
         return filename
 
     def smart_save(self, epoch, val_loss, best_val_loss):
         if val_loss < best_val_loss:
             time_elapsed = int((time() - self.start_time) / 60)
-            filename = os.path.join(
-                self._save_dir,
-                self.name + "_%04d" % (epoch) + "_%06d" % (time_elapsed) + ".pth",
-            )
+            filename = self.name + "_%04d" % (epoch) + "_%06d" % (time_elapsed) + ".pth"
             torch.save(self.state_dict(), filename)
             filename = self.get_best_name()
             torch.save(self.state_dict(), filename)
