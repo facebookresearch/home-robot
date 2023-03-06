@@ -160,8 +160,6 @@ class RobotDataset(RLBenchDataset):
         self.calibration_json_path = "./assets/robopen08_calibration.json"
         self.intrinsics_json_path = "./assets/robopen08_intrinsics.json"
         self.cam_intrinsics, self.cam_extrinsics = self.read_cam_config()
-        self.task_var_path = "./assets/robopen/task_variations.yaml"
-        self.task_variations = self.read_tasks(self.task_var_path)
 
         self.debug_closest_pt = False
         self.robot = FrankaPanda()
@@ -181,11 +179,6 @@ class RobotDataset(RLBenchDataset):
         ee_pose[:3, 3] = pos
         ee_pose = self.robot.apply_grasp_offset(ee_pose)
         return ee_pose
-
-    def read_tasks(self, path):
-        with open(path, "r") as f:
-            task_variations = yaml.load(f, Loader=yaml.FullLoader)
-        return task_variations
 
     def read_cam_config(self):
         with open(self.cam_mapping_json_path, "r") as f:

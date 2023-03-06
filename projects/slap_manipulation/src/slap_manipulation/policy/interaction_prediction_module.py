@@ -963,8 +963,8 @@ def main():
     if args.source == "robopen":
         # Get the robopebn dataset
         task_name = args.task_name
-        Dataset = RoboPenDataset
-        train_dataset = RoboPenDataset(
+        Dataset = RobotDataset
+        train_dataset = RobotDataset(
             args.datadir,
             trial_list=train_list,
             data_augmentation=args.data_augmentation,
