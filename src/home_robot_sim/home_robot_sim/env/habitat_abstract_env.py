@@ -55,7 +55,7 @@ class HabitatEnv(home_robot.core.abstract_env.Env):
 
     def _preprocess_xy(self, xy: np.array) -> np.array:
         """Translate Habitat navigation (x, y) (i.e., GPS sensor) into robot (x, y)."""
-        return np.array([xy[0], -1 * xy[1]])
+        return np.array([xy[1], xy[0]])
 
     @abstractmethod
     def _preprocess_action(
