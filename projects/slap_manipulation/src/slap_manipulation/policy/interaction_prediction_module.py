@@ -7,6 +7,7 @@ from time import time
 from typing import List, Tuple
 
 import clip
+import hydra
 import numpy as np
 import open3d as o3d
 import torch
@@ -697,7 +698,7 @@ class IPModule(torch.nn.Module):
 
         return lang
 
-    def do_epoch(self, loader, optimizer=None, train=True):
+    def do_epoch(self, loader, optimizer=None, train=True, debug=False):
         if train:
             self.train()
             if optimizer is None:
@@ -736,7 +737,7 @@ class IPModule(torch.nn.Module):
             #        down_xyz.detach().cpu().numpy(),
             #        down_rgb.detach().cpu().numpy(),
             #        orig=np.zeros(3))
-            if False:
+            if debug:
                 show_point_cloud_with_keypt_and_closest_pt(
                     down_xyz.detach().cpu().numpy(),
                     down_rgb.detach().cpu().numpy(),
@@ -939,11 +940,11 @@ def parse_args():
     return args
 
 
-# @hydra.main()
-def main():
+@hydra.main(version_base=None, config_path="./conf", config_name="ipm_training")
+def main(cfg):
     args = parse_args()
-    if args.split is not None:
-        with open(args.split, "r") as f:
+    if cfg.split is not None:
+        with open(cfg.split, "r") as f:
             train_test_split = yaml.safe_load(f)
         print(train_test_split)
         valid_list = train_test_split["val"]
@@ -952,49 +953,47 @@ def main():
     else:
         train_test_split = None
         valid_list, test_list = None, None
-    wandb_flag = True if args.wandb else False
     # Set up data augmentation
     # This is a warning for you - if things are not going well
-    if args.data_augmentation:
+    if cfg.data_augmentation:
         print("-> Using data augmentation on training data.")
     else:
         print("-> NOT using data augmentation.")
     # Set up data loaders
-    if args.source == "robopen":
+    if cfg.source == "robopen":
         # Get the robopebn dataset
-        task_name = args.task_name
         Dataset = RobotDataset
         train_dataset = RobotDataset(
-            args.datadir,
+            cfg.datadir,
             trial_list=train_list,
-            data_augmentation=args.data_augmentation,
+            data_augmentation=cfg.data_augmentation,
             ori_dr_range=np.pi / 8,
             num_pts=8000,
             random_idx=False,
             keypoint_range=[0, 1, 2],
-            color_jitter=args.color_jitter,
-            template=args.template,
+            color_jitter=cfg.color_jitter,
+            template=cfg.template,
             # template="**/*.h5",
             dr_factor=5,
         )
         valid_dataset = RobotDataset(
-            args.datadir,
+            cfg.datadir,
             num_pts=8000,
             data_augmentation=False,
             trial_list=valid_list,
             keypoint_range=[0, 1, 2],
             color_jitter=False,
-            template=args.template,
+            template=cfg.template,
             # template="**/*.h5",
         )
         test_dataset = RobotDataset(
-            args.datadir,
+            cfg.datadir,
             num_pts=8000,
             data_augmentation=False,
             trial_list=valid_list,
             keypoint_range=[0, 1, 2],
             color_jitter=False,
-            template=args.template,
+            template=cfg.template,
             # template="**/*.h5",
         )
     else:
@@ -1005,11 +1004,11 @@ def main():
             train_dataset_dir,
             # trial_list=overfit_list,
             num_pts=8000,
-            data_augmentation=args.data_augmentation,
+            data_augmentation=cfg.data_augmentation,
             ori_dr_range=np.pi / 8,
             random_idx=False,
             first_keypoint_only=first_keypoint_only,
-            color_jitter=args.color_jitter,
+            color_jitter=cfg.color_jitter,
         )
         test_dataset = Dataset(
             valid_dataset_dir,
@@ -1024,7 +1023,7 @@ def main():
         valid_dataset = test_dataset
 
     # Create data loaders
-    num_workers = 8 if not args.debug else 0
+    num_workers = 8 if not cfg.debug else 0
     B = 1
     train_data = torch.utils.data.DataLoader(
         train_dataset,
@@ -1051,22 +1050,22 @@ def main():
     )
     # load the model
     model = IPModule(
-        xent_loss=args.loss_fn == "xent",
+        xent_loss=cfg.loss_fn == "xent",
         use_proprio=True,
-        name=f"classify-{args.task_name}",
+        name=f"classify-{cfg.task_name}",
     )
     model.to(model.device)
 
     optimizer = model.get_optimizer()
     # scheduler = torch.optim.lr_scheduler.StepLR(optimizer, step_size=20, gamma=0.5)
-    if args.resume:
+    if cfg.resume:
         print(f"Resuming by loading the best model: {model.get_best_name()}")
         args.load = model.get_best_name()
-    if len(args.load) > 0:
+    if cfg.load:
         # load the model now
         model.load_state_dict(torch.load(args.load))
         print("--> loaded last best <--")
-    if args.validate:
+    if cfg.validate:
         # Make sure we load something
         if len(args.load) == 0:
             args.load = "best_%s.pth" % model.name
@@ -1083,7 +1082,7 @@ def main():
     else:
         best_valid_loss = float("Inf")
         print("Starting training")
-        if wandb_flag:
+        if cfg.wandb:
             wandb.init(project="classification-v1", name=f"{model.name}")
             # wandb.config.data_voxel_1 = test_dataset._voxel_size
             # wandb.config.data_voxel_2 = test_dataset._voxel_size_2
@@ -1099,7 +1098,7 @@ def main():
             valid_loss = res
             print("avg train dist:", avg_train_dist)
             print("avg valid dist:", avg_valid_dist)
-            if wandb_flag:
+            if cfg.wandb:
                 wandb.log(
                     {
                         "train_loss": train_loss,
@@ -1119,8 +1118,8 @@ def main():
                 print(f"--> reloading best model from: {model.get_best_name()}")
                 print(f"--> best loss was {best_valid_loss}")
                 model.load_state_dict(torch.load(model.get_best_name()))
-            if args.run_for and (time() - start_time) > args.run_for:
-                print(f" --> Stopping training after {args.run_for} seconds")
+            if cfg.run_for > 0 and (time() - model.start_time) > cfg.run_for:
+                print(f" --> Stopping training after {cfg.run_for} seconds")
                 break
 
 
