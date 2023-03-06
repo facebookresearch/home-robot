@@ -2,7 +2,10 @@ import matplotlib.pyplot as plt
 import numpy as np
 import open3d as o3d
 import torch
+import torchvision.transforms as T
 import trimesh.transformations as tra
+from PIL import Image
+
 from home_robot.utils.data_tools.loader import DatasetBase, Trial
 from home_robot.utils.point_cloud import (
     add_additive_noise_to_xyz,
@@ -10,8 +13,6 @@ from home_robot.utils.point_cloud import (
     numpy_to_pcd,
     show_point_cloud,
 )
-import torchvision.transforms as T
-from PIL import Image
 
 
 def show_point_cloud_with_keypt_and_closest_pt(
@@ -87,10 +88,9 @@ class RLBenchDataset(DatasetBase):
         self.num_pts = num_pts
         self.data_augmentation = data_augmentation
         if color_jitter:
-            self.color_jitter = T.ColorJitter(brightness=0.25,
-                                              hue=0.05,
-                                              saturation=0.1,
-                                              contrast=0.1)
+            self.color_jitter = T.ColorJitter(
+                brightness=0.25, hue=0.05, saturation=0.1, contrast=0.1
+            )
         else:
             self.color_jitter = None
         self.ori_dr_range = ori_dr_range
@@ -111,8 +111,8 @@ class RLBenchDataset(DatasetBase):
         self._local_problem_size = 0.1
 
         self.debug_closest_pt = debug_closest_pt
-        self.task_name = ''
-        self.h5_filename = ''
+        self.task_name = ""
+        self.h5_filename = ""
 
     def normalize_rgb(self, rgb):
         """make sure rgb values are in -1 to 1"""
@@ -144,7 +144,7 @@ class RLBenchDataset(DatasetBase):
             pil_img = self.color_jitter(pil_img)
             rgb = np.array(pil_img)
             # For debugging the effects of color randomization / jitter
-            # TODO - @priyam - fix or remove 
+            # TODO - @priyam - fix or remove
             # TODO - remove this from code, it's debug code
             # for _ in range(10):
             #     pil_img = self.color_jitter(pil_img)
@@ -266,7 +266,7 @@ class RLBenchDataset(DatasetBase):
 
         # for the voxelized pcd
         if xyz2.shape[0] < 10:
-            return ( None, None, None, None, None, None)
+            return (None, None, None, None, None, None)
         pcd_tree = o3d.geometry.KDTreeFlann(pcd_downsampled2)
         # Find closest points based on ref_ee_keyframe
         # This is used to supervise the location when we're detecting where the action
@@ -426,18 +426,22 @@ class RLBenchDataset(DatasetBase):
             crop_keyframes.append(_keyframe)
         return crop_ref_ee_keyframe, crop_ee_keyframe, crop_keyframes
 
-    def _assert_positions_match_ee_keyframes(self, crop_ee_keyframe, positions, tol=1e-6):
-        """ sanity check to make sure our data pipeline is consistent with multi head vs
-        single channel data """
+    def _assert_positions_match_ee_keyframes(
+        self, crop_ee_keyframe, positions, tol=1e-6
+    ):
+        """sanity check to make sure our data pipeline is consistent with multi head vs
+        single channel data"""
         if len(positions.shape) == 1:
-            positions = positions.reshape(1,3)
+            positions = positions.reshape(1, 3)
         for pos in positions:
             err = np.linalg.norm(crop_ee_keyframe[:3, 3] - pos)
             if err < tol:
                 return True
         else:
-            raise RuntimeError('crop ee keyframe and keypoints do not line up; '
-                               'you have a logic error')
+            raise RuntimeError(
+                "crop ee keyframe and keypoints do not line up; "
+                "you have a logic error"
+            )
 
     def dr_rotation_translation(
         self, orig_xyz, xyz, ee_keyframe, ref_ee_keyframe, keyframes
@@ -470,7 +474,6 @@ class RLBenchDataset(DatasetBase):
 
             # Now add a random shift
             shift = ((np.random.rand(3) * 2) - 1) * self.cart_dr_range
-            shift[-1] = 0  # do not move on the zero axis
 
             # Add shift to everything... yeah this could be written better
             ref_ee_keyframe[:3, 3] += shift
@@ -672,4 +675,3 @@ def debug_get_datum():
 if __name__ == "__main__":
     debug_get_datum()
     pass
-
