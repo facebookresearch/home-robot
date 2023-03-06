@@ -15,7 +15,9 @@ from .constants import (
     MIN_DEPTH_REPLACEMENT_VALUE,
     FloorplannertoMukulIndoor,
     HM3DtoCOCOIndoor,
+    RearrangeCategories,
     mukul_33categories_padded,
+    rearrange_3categories_padded,
 )
 from .visualizer import Visualizer
 
@@ -37,42 +39,47 @@ class HabitatObjectNavEnv(HabitatEnv):
             or "hm3d" in self.episodes_data_path
             or "mp3d" in self.episodes_data_path
         )
+
         if "hm3d" in self.episodes_data_path:
             if config.AGENT.SEMANTIC_MAP.semantic_categories == "coco_indoor":
                 self.semantic_category_mapping = HM3DtoCOCOIndoor()
             else:
                 raise NotImplementedError
+        elif (
+            "floorplanner" in self.episodes_data_path
+            and "CatNavToObjTask" in config.habitat.task.type
+        ):
+            self.semantic_category_mapping = RearrangeCategories()
+            self._obj_name_to_id_mapping = {
+                "action_figure": 0,
+                "cup": 1,
+                "dishtowel": 2,
+                "hat": 3,
+                "sponge": 4,
+                "stuffed_toy": 5,
+                "tape": 6,
+                "vase": 7,
+            }
+            self._rec_name_to_id_mapping = {
+                "armchair": 0,
+                "armoire": 1,
+                "bar_stool": 2,
+                "coffee_table": 3,
+                "desk": 4,
+                "dining_table": 5,
+                "kitchen_island": 6,
+                "sofa": 7,
+                "stool": 8,
+            }
+            self._obj_id_to_name_mapping = {
+                k: v for v, k in self._obj_name_to_id_mapping.items()
+            }
+            self._rec_id_to_name_mapping = {
+                k: v for v, k in self._rec_name_to_id_mapping.items()
+            }
         elif "floorplanner" in self.episodes_data_path:
             if config.AGENT.SEMANTIC_MAP.semantic_categories == "mukul_indoor":
                 self.semantic_category_mapping = FloorplannertoMukulIndoor()
-                # Todo: move these to semantic category mapping
-                self._obj_name_to_id_mapping = {
-                    "action_figure": 0,
-                    "cup": 1,
-                    "dishtowel": 2,
-                    "hat": 3,
-                    "sponge": 4,
-                    "stuffed_toy": 5,
-                    "tape": 6,
-                    "vase": 7,
-                }
-                self._rec_name_to_id_mapping = {
-                    "armchair": 0,
-                    "armoire": 1,
-                    "bar_stool": 2,
-                    "coffee_table": 3,
-                    "desk": 4,
-                    "dining_table": 5,
-                    "kitchen_island": 6,
-                    "sofa": 7,
-                    "stool": 8,
-                }
-                self._obj_id_to_name_mapping = {
-                    k: v for v, k in self._obj_name_to_id_mapping.items()
-                }
-                self._rec_id_to_name_mapping = {
-                    k: v for v, k in self._rec_name_to_id_mapping.items()
-                }
             else:
                 raise NotImplementedError
         elif "mp3d" in self.episodes_data_path:
@@ -107,7 +114,9 @@ class HabitatObjectNavEnv(HabitatEnv):
         self, habitat_obs: habitat.core.simulator.Observations
     ) -> home_robot.core.interfaces.Observations:
         depth = self._preprocess_depth(habitat_obs["robot_head_depth"])
-        goal_id, goal_name = self._preprocess_goal(habitat_obs, self.goal_type)
+        object_goal, recep_goal, goal_name = self._preprocess_goal(
+            habitat_obs, self.goal_type
+        )
 
         obs = home_robot.core.interfaces.Observations(
             rgb=habitat_obs["robot_head_rgb"],
@@ -115,7 +124,8 @@ class HabitatObjectNavEnv(HabitatEnv):
             compass=habitat_obs["robot_start_compass"],
             gps=self._preprocess_xy(habitat_obs["robot_start_gps"]),
             task_observations={
-                "goal_id": goal_id,
+                "object_goal": object_goal,
+                "recep_goal": recep_goal,
                 "goal_name": goal_name,
             },
         )
@@ -144,9 +154,9 @@ class HabitatObjectNavEnv(HabitatEnv):
             )
             # Assign semantic id of 1 for object_category, 2 for start_receptacle, 3 for goal_receptacle
             semantic = semantic + start_recep_seg * 2 + goal_recep_seg * 3
+            semantic = torch.clip(semantic, 0, 3)
             # TODO: update semantic_category_mapping
             obs.semantic = instance_id_to_category_id[semantic]
-
             # TODO Ground-truth semantic visualization
             obs.task_observations["semantic_frame"] = obs.rgb
         else:
@@ -188,7 +198,7 @@ class HabitatObjectNavEnv(HabitatEnv):
             object_goal_ids = None
             rec_goal_ids.append(rec_goal_id)
         goal_names.append(goal_name)
-        return object_goal_ids[0], goal_names[0]
+        return object_goal_ids[0], rec_goal_ids[0], goal_names[0]
 
     def _preprocess_action(self, action: home_robot.core.interfaces.Action) -> int:
         # convert planner output to continuous Habitat actions

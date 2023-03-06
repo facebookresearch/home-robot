@@ -263,6 +263,54 @@ class HM3DtoCOCOIndoor(SemanticCategoryMapping):
         return 16
 
 
+rearrange_3categories_indexes = {
+    1: "object",
+    2: "start_receptacle",
+    3: "goal_receptacle",
+}
+
+rearrange_3categories_padded = (
+    ["."] + [rearrange_3categories_indexes[i] for i in range(1, 4)] + ["other"]
+)
+
+rearrange_3categories_legend_path = str(
+    Path(__file__).resolve().parent / "rearrange_3categories_legend.png"
+)
+
+rearrange_3categories_color_palette = [255, 255, 255] + list(
+    d3_40_colors_rgb[1:4].flatten()
+)
+rearrange_3categories_frame_color_palette = rearrange_3categories_color_palette + [
+    255,
+    255,
+    255,
+]
+
+rearrange_3categories_map_color_palette = [
+    int(x * 255.0)
+    for x in [
+        1.0,
+        1.0,
+        1.0,  # empty space
+        0.6,
+        0.6,
+        0.6,  # obstacles
+        0.95,
+        0.95,
+        0.95,  # explored area
+        0.96,
+        0.36,
+        0.26,  # visited area
+        0.12,
+        0.46,
+        0.70,  # closest goal
+        0.63,
+        0.78,
+        0.95,  # rest of goal
+        *[x / 255.0 for x in rearrange_3categories_color_palette],
+    ]
+]
+
 # ----------------------------------------------------
 # Mukul 33 Indoor Categories
 # ----------------------------------------------------
@@ -385,6 +433,42 @@ class FloorplannertoMukulIndoor(SemanticCategoryMapping):
     def num_sem_categories(self):
         # 0 is unused, 1 to 33 are semantic categories, 34 is "other/misc"
         return 35
+
+
+class RearrangeCategories(SemanticCategoryMapping):
+    def __init__(self):
+        super().__init__()
+        self.goal_id_to_goal_name = rearrange_3categories_indexes
+        self._instance_id_to_category_id = None
+
+    def map_goal_id(self, goal_id: int) -> Tuple[int, str]:
+        return (goal_id, self.goal_id_to_goal_name[goal_id])
+
+    def reset_instance_id_to_category_id(self, env: Env):
+        # Identity everywhere except index 0 mapped to 4
+        self._instance_id_to_category_id = np.arange(self.num_sem_categories)
+        self._instance_id_to_category_id[0] = self.num_sem_categories - 1
+
+    @property
+    def instance_id_to_category_id(self) -> np.ndarray:
+        return self._instance_id_to_category_id
+
+    @property
+    def map_color_palette(self):
+        return rearrange_3categories_map_color_palette
+
+    @property
+    def frame_color_palette(self):
+        return rearrange_3categories_frame_color_palette
+
+    @property
+    def categories_legend_path(self):
+        return rearrange_3categories_legend_path
+
+    @property
+    def num_sem_categories(self):
+        # 0 is unused, 1 is object category, 2 is start receptacle category, 3 is goal receptacle category, 4 is "other/misc"
+        return 5
 
 
 # ----------------------------------------------------

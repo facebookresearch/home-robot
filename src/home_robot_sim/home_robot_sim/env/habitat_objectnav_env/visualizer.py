@@ -14,7 +14,7 @@ from PIL import Image
 import home_robot.utils.pose as pu
 import home_robot.utils.visualization as vu
 
-from .constants import FloorplannertoMukulIndoor, HM3DtoCOCOIndoor
+from .constants import FloorplannertoMukulIndoor, HM3DtoCOCOIndoor, RearrangeCategories
 
 
 class Visualizer:
@@ -39,6 +39,38 @@ class Visualizer:
                 self.semantic_category_mapping = HM3DtoCOCOIndoor()
             else:
                 raise NotImplementedError
+        elif (
+            "floorplanner" in self.episodes_data_path
+            and "CatNavToObjTask" in config.habitat.task.type
+        ):
+            self.semantic_category_mapping = RearrangeCategories()
+            self._obj_name_to_id_mapping = {
+                "action_figure": 0,
+                "cup": 1,
+                "dishtowel": 2,
+                "hat": 3,
+                "sponge": 4,
+                "stuffed_toy": 5,
+                "tape": 6,
+                "vase": 7,
+            }
+            self._rec_name_to_id_mapping = {
+                "armchair": 0,
+                "armoire": 1,
+                "bar_stool": 2,
+                "coffee_table": 3,
+                "desk": 4,
+                "dining_table": 5,
+                "kitchen_island": 6,
+                "sofa": 7,
+                "stool": 8,
+            }
+            self._obj_id_to_name_mapping = {
+                k: v for v, k in self._obj_name_to_id_mapping.items()
+            }
+            self._rec_id_to_name_mapping = {
+                k: v for v, k in self._rec_name_to_id_mapping.items()
+            }
         elif "floorplanner" in self.episodes_data_path:
             if config.AGENT.SEMANTIC_MAP.semantic_categories == "mukul_indoor":
                 self.semantic_category_mapping = FloorplannertoMukulIndoor()
