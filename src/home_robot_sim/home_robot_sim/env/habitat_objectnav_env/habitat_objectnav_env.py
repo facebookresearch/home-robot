@@ -178,12 +178,11 @@ class HabitatObjectNavEnv(HabitatEnv):
         self, obs: List[Observations], goal_type
     ) -> Tuple[Tensor, List[str]]:
         assert "object_category" in obs
-        object_goal_ids, rec_goal_ids, goal_names = [], [], []
+        obj_goal_id, rec_goal_id, goal_name = None, None, None
 
         if goal_type in ["object", "object_on_recep"]:
             goal_name = self._obj_id_to_name_mapping[obs["object_category"][0]]
             obj_goal_id = 1  # semantic sensor returns binary mask for goal object
-            object_goal_ids.append(obj_goal_id)
         if goal_type == "object_on_recep":
             goal_name = (
                 self._obj_id_to_name_mapping[obs["object_category"][0]]
@@ -191,14 +190,11 @@ class HabitatObjectNavEnv(HabitatEnv):
                 + self._rec_id_to_name_mapping[obs["start_receptacle"][0]]
             )
             rec_goal_id = 2
-            rec_goal_ids.append(rec_goal_id)
         if goal_type == "recep":
             goal_name = self._rec_id_to_name_mapping[obs["goal_receptacle"][0]]
             rec_goal_id = 3
-            object_goal_ids = None
-            rec_goal_ids.append(rec_goal_id)
-        goal_names.append(goal_name)
-        return object_goal_ids[0], rec_goal_ids[0], goal_names[0]
+            obj_goal_id = None
+        return obj_goal_id, rec_goal_id, goal_name
 
     def _preprocess_action(self, action: home_robot.core.interfaces.Action) -> int:
         # convert planner output to continuous Habitat actions
