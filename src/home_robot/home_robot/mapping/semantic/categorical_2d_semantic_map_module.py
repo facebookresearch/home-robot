@@ -236,7 +236,6 @@ class Categorical2DSemanticMapModule(nn.Module):
              and location of shape (batch_size, 5 + num_sem_categories, M, M)
             current_pose: current pose updated with pose delta of shape (batch_size, 3)
         """
-        agent_camera_tilt = -0.7125
         batch_size, obs_channels, h, w = obs.size()
         device, dtype = obs.device, obs.dtype
 
@@ -246,7 +245,7 @@ class Categorical2DSemanticMapModule(nn.Module):
         )
 
         agent_view_t = du.transform_camera_view_t(
-            point_cloud_t, self.agent_height, np.rad2deg(agent_camera_tilt), device
+            point_cloud_t, self.agent_height, 0, device
         )
 
         agent_view_centered_t = du.transform_pose_t(
