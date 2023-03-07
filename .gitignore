@@ -30,3 +30,6 @@ datadump/
 *.h5
 *.hdf5
 *.mp4
+
+# Detic model files
+*.pth
