@@ -121,7 +121,7 @@ class HabitatObjectNavEnv(HabitatEnv):
         obs = home_robot.core.interfaces.Observations(
             rgb=habitat_obs["robot_head_rgb"],
             depth=depth,
-            compass=habitat_obs["robot_start_compass"],
+            compass=habitat_obs["robot_start_compass"] - (np.pi / 2),
             gps=self._preprocess_xy(habitat_obs["robot_start_gps"]),
             task_observations={
                 "object_goal": object_goal,
