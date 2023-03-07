@@ -12,10 +12,14 @@ import yaml
 from slap_manipulation.dataloaders.annotations import load_annotations_dict
 from slap_manipulation.dataloaders.rlbench_loader import RLBenchDataset
 
+from home_robot.core.interfaces import Observations
+
 # TODO Replace with Stretch embodiment
 from home_robot.motion.franka import FrankaPanda
+from home_robot.perception.detection.detic.detic_perception import DeticPerception
 from home_robot.utils.data_tools.camera import Camera
 from home_robot.utils.data_tools.loader import Trial
+from home_robot.utils.image import rotate_image
 from home_robot.utils.point_cloud import (
     add_additive_noise_to_xyz,
     depth_to_xyz,
@@ -23,6 +27,13 @@ from home_robot.utils.point_cloud import (
     numpy_to_pcd,
 )
 
+REAL_WORLD_CATEGORIES = [
+    "cup",
+    "bottle",
+    "drawer",
+    "basket",
+    "bowl",
+]
 VOXEL_SIZE_1 = 0.001
 VOXEL_SIZE_2 = 0.01
 
@@ -171,6 +182,13 @@ class RobotDataset(RLBenchDataset):
         self.visualize = visualize
         self.visualize_reg_targets = visualize_reg_targets
 
+        # setup segmentation pipeline
+        self.segmentor = DeticPerception(
+            vocabulary="custom",
+            custom_vocabulary=",".join(REAL_WORLD_CATEGORIES),
+            sem_gpu_id=0,
+        )
+
     def get_gripper_pose(self, trial, idx):
         ee_pose = trial["ee_pose"][idx]
         pos = ee_pose[:3]
@@ -203,6 +221,8 @@ class RobotDataset(RLBenchDataset):
     def process_images_from_view(self, trial, view_name, idx):
         rgb = trial.get_img(view_name + "_rgb", idx, rgb=True)
         depth = trial.get_img(view_name + "_depth", idx, depth=True, depth_factor=1000)
+        # rgb_img = rgb.copy()
+        # depth_img = depth.copy()
 
         # get camera details
         camera_intrinsics = self.cam_intrinsics[view_name]
@@ -264,7 +284,32 @@ class RobotDataset(RLBenchDataset):
         mask = np.bitwise_and(depth < 1.5, depth > 0.3)
         rgb = rgb[mask]
         xyz = xyz[mask]
-
+        #
+        # from matplotlib import pyplot as plt
+        #
+        # plt.imshow(rgb_img)
+        # plt.show()
+        # breakpoint()
+        # res = input("Run detic on this?")
+        # if res == "y":
+        #     res1 = input("Rotate? ")
+        #     if res1 == 'y':
+        #         rgb_img, depth_img = rotate_image([rgb_img, depth_img])
+        #
+        #     # test DeticPerception
+        #     # Create the observation
+        #     obs = Observations(
+        #         rgb=rgb_img.copy(),
+        #         depth=depth_img.copy(),
+        #         xyz=xyz.copy(),
+        #         gps=np.zeros(2),  # TODO Replace
+        #         compass=np.zeros(1),  # TODO Replace
+        #         task_observations={},
+        #     )
+        #     # Run the segmentation model here
+        #     obs = self.segmentor.predict(obs)
+        #     plt.imshow(obs.task_observations["semantic_frame"])
+        #     plt.show()
         return rgb, xyz
 
     def extract_manual_keyframes(self, user_keyframe_array):
@@ -378,10 +423,9 @@ class RobotDataset(RLBenchDataset):
                 xyzs.append(v_xyz)
 
         # randomly dropout 1/3rd of the point-clouds
-        num_keep = int(len(rgbs) * 0.66)
-        idx_keep = np.random.choice(len(rgbs), num_keep, replace=False)
-        rgbs = [rgbs[i] for i in idx_keep]
-        xyzs = [xyzs[i] for i in idx_keep]
+        idx_dropout = np.random.choice([False, True], size=len(rgbs), p=[0.33, 0.67])
+        rgbs = [rgbs[i] for i in idx_dropout]
+        xyzs = [xyzs[i] for i in idx_dropout]
         rgb = np.concatenate(rgbs, axis=0)
         xyz = np.concatenate(xyzs, axis=0)
         z_mask = xyz[:, 2] > 0.0
