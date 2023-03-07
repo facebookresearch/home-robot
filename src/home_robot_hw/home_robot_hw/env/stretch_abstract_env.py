@@ -489,6 +489,7 @@ class StretchEnv(home_robot.core.abstract_env.Env):
 
         if rotate_images:
             # Get xyz in base coords for later
+            # TODO: replace with the new util function
             imgs = [np.rot90(np.fliplr(np.flipud(x))) for x in imgs]
 
         if xyz is not None:
