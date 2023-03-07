@@ -36,23 +36,83 @@ This project contains numerous packages. See individual package docs for corresp
 
 1. Clone the repo on your Stretch Robot and the local GPU machine.
     ```sh
-    git clone https://github.com/vidhiJain/home-robot.git
-    ```
-1. Make sure you update all submodules by running:
-    ```sh
+    git clone https://github.com/facebookresearch/home-robot.git
+    
+    # Make sure you update all submodules by running
     git submodule update --recursive --init
     ```
     If the modules do not update as expected, make sure that you have added the [SSH public key](https://docs.github.com/en/authentication/connecting-to-github-with-ssh) of your robot and machine to authenticate your Github account.
-1. Install the core [home_robot](src/home_robot) python package.
-1. Install [home_robot_hw](src/home_robot_hw/install.md) and complete the setup.
+    
+    Set the env variables
+    ```sh
+    export HOME_ROBOT_ROOT=$(pwd)/home-robot
+    ```
+
+1. Install the core [home_robot](src/home_robot) python package. Main aspects reproduced here for convenience:
+
+    For installing on server-side:
+    ```sh
+    cd $HOME_ROBOT_ROOT/src/home_robot
+    mamba env create -n home_robot -f environment.yml
+    conda activate home_robot
+    pip install -e .
+    ```
+
+    For installing on robot-side:
+    ```sh
+    cd $HOME_ROBOT_ROOT/src/home_robot
+    pip install -e .
+    ```
+1. Install [home_robot_hw](src/home_robot_hw/install.md) and complete the setup. Main aspects reproduced here for convenience:
+    ```sh
+    # Create symlink in catkin workspace
+    ln -s /abs/path/to/home-robot/src/home_robot_hw $HOME/catkin_ws/src/home_robot_hw
+
+    # Install dependencies for catkin
+    pip install empy catkin_pkg rospkg
+
+    # Build catkin workspace
+    cd ~/catkin_ws  
+    rm -rf build/ devel/  # Optional to ignore stale cached files
+    catkin_make
+
+    # Add newly built setup.bash to .bashrc
+    echo "source ~/catkin_ws/devel/setup.bash" >> ~/.bashrc
+    ```
+
+ 
 1. Launch the ROS hardware stack:
     ```sh
     conda deactivate  # If you are using conda - not required on robot!
     roslaunch home_robot_hw startup_stretch_hector_slam.launch
     ```
-1. Run hardware test: `python tests/hw_manual_test.py` 
-1. Run simple navigation example (moves the robot forward by 0.25 m): `python src/home_robot_hw/home_robot_hw/env/simple_navigation_env.py`. This file also serves as a simple example of how to setup your own environments implementing stretch functionality. Every environment interfaces with the base Stretch controllers, models and environments to implement application-level requirements.
+    Sanity check: run hardware test to test head movement, navigation (moved forward-left, turned to face right) and manipulation (lift upwards and extend outwards by 20cm).  
+    ```sh 
+    python tests/hw_manual_test.py
+    ```  
 
+### Run
+Assuming `roslaunch home_robot_hw startup_stretch_hector_slam.launch` is running in a separate terminal, you could run the following scripts:
+
+1. Run simple navigation example (moves the robot forward by 0.25 m): 
+    ```sh
+    python src/home_robot_hw/home_robot_hw/env/simple_navigation_env.py
+    ```
+    This file also serves as a simple example of how to setup your own environments implementing Stretch functionality. Every environment interfaces with the base Stretch controllers, models and environments to implement application-level requirements.
+
+1. Collect the data through teleoperation.
+    ```sh
+    python collect_h5.py --task_name TASK_NAME  --dir_path DIR_PATH
+    ```
+    This will save the teleoperation files at `DIR_PATH/TASK_NAME-{iteration}/{datetime}.h5`.
+
+    To give trajectory commands through the Xbox controller, open a separate terminal and:
+    ```sh
+    rosrun joy joy_node
+    ```
+
+    Check Dataloaders to load data into torch.    
+    
 <!-- You should then be able to command the robot using the following commands: -->
 <!-- ```py -->
 <!-- # Query states -->
