@@ -49,7 +49,8 @@ class EpisodeManager(object):
         self._is_recording = False
         date_time_string = datetime.now().strftime("%m-%d_%H-%M-%S")
         filename = os.path.join(self.file_path, date_time_string)
-        self._keyframe_recorder = Recorder(filename)
+        self._keyframe_recorder = Recorder(f"{filename}.h5")
+        self._k_idx = 0
 
     def toggle_episode(self):
         """toggles episode recording state
@@ -62,11 +63,15 @@ class EpisodeManager(object):
         else:
             self._is_recording = False
             self._keyframe_recorder.save_frame()
+            print(f"Keyframe saved: {self._k_idx}")
             self._keyframe_recorder.finish_recording()
+            self._k_idx = 0
 
     def record_keyframe(self):
         """add a keyframe to the current episode"""
         self._keyframe_recorder.save_frame(is_keyframe=True)
+        print(f"Keyframe saved: {self._k_idx}")
+        self._k_idx += 1
 
 
 @click.command()

@@ -50,40 +50,41 @@ This project contains numerous packages. See individual package docs for corresp
     conda deactivate  # If you are using conda - not required on robot!
     roslaunch home_robot_hw startup_stretch_hector_slam.launch
     ```
-    Note: If this fails, `pip install sophuspy`.
+1. Run hardware test: `python tests/hw_manual_test.py` 
+1. Run simple navigation example (moves the robot forward by 0.25 m): `python src/home_robot_hw/home_robot_hw/env/simple_navigation_env.py`. This file also serves as a simple example of how to setup your own environments implementing stretch functionality. Every environment interfaces with the base Stretch controllers, models and environments to implement application-level requirements.
 
-You should then be able to command the robot using the following commands:
-```py
-# Query states
-robot.get_base_state()  # returns base location in the form of [x, y, rz]
+<!-- You should then be able to command the robot using the following commands: -->
+<!-- ```py -->
+<!-- # Query states -->
+<!-- robot.get_base_state()  # returns base location in the form of [x, y, rz] -->
+<!---->
+<!-- # Mode switching -->
+<!-- robot.switch_to_velocity_mode()  # enables base velocity control -->
+<!-- robot.switch_to_navigation_mode()  # enables continuous navigation -->
+<!-- robot.switch_to_manipulation_mode()  # enables gripper control -->
+<!---->
+<!-- # Velocity mode -->
+<!-- robot.set_velocity(v: float, w: float)  # directly sets the linear and angular velocity of robot base -->
+<!---->
+<!-- # Navigation mode -->
+<!-- robot.navigate_to(xyt: list, relative: bool = False, position_only: bool = False) -->
+<!---->
+<!-- # Manipulation mode (outdated) -->
+<!-- robot.set_arm_joint_positions(joint_positions: list)  # joint positions: [BASE_TRANSLATION, ARM_LIFT, ARM_EXTENTION, WRIST_YAW, WRIST_PITCH, WRIST_ROLL] -->
+<!-- robot.set_ee_pose(pos: list, quat: list, relative: bool = False) -->
+<!-- ``` -->
 
-# Mode switching
-robot.switch_to_velocity_mode()  # enables base velocity control
-robot.switch_to_navigation_mode()  # enables continuous navigation
-robot.switch_to_manipulation_mode()  # enables gripper control
-
-# Velocity mode
-robot.set_velocity(v: float, w: float)  # directly sets the linear and angular velocity of robot base
-
-# Navigation mode
-robot.navigate_to(xyt: list, relative: bool = False, position_only: bool = False)
-
-# Manipulation mode (outdated)
-robot.set_arm_joint_positions(joint_positions: list)  # joint positions: [BASE_TRANSLATION, ARM_LIFT, ARM_EXTENTION, WRIST_YAW, WRIST_PITCH, WRIST_ROLL]
-robot.set_ee_pose(pos: list, quat: list, relative: bool = False)
-```
-
-Basic example:
-```py
-robot.get_base_state()  # Shows the robot's SE2 coordinates (should be [0, 0, 0])
-
-robot.switch_to_navigation_mode()
-robot.navigate_to([0.3, 0.3, 0.0])  # Sets SE2 target
-robot.get_base_state()  # Shows the robot's SE2 coordinates (should be close to [0.3, 0.3, 0])
-
-robot.switch_to_manipulation_mode()
-robot.set_ee_pose([0.5, 0.6, 0.5], [0, 0, 0, 1])
-```
+<!-- Basic example: -->
+<!-- ```py -->
+<!-- robot.get_base_state()  # Shows the robot's SE2 coordinates (should be [0, 0, 0]) -->
+<!---->
+<!-- robot.switch_to_navigation_mode() -->
+<!-- robot.navigate_to([0.3, 0.3, 0.0])  # Sets SE2 target -->
+<!-- robot.get_base_state()  # Shows the robot's SE2 coordinates (should be close to [0.3, 0.3, 0]) -->
+<!---->
+<!-- robot.switch_to_manipulation_mode() -->
+<!-- robot.set_ee_pose([0.5, 0.6, 0.5], [0, 0, 0, 1]) -->
+<!-- ``` -->
 
 ### Development
 
