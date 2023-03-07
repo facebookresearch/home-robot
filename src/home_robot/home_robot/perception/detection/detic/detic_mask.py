@@ -1,49 +1,52 @@
 import sys
 from pathlib import Path
 
-sys.path.insert(
-    0, str(Path(__file__).resolve().parent / "Detic/third_party/CenterNet2/")
-)
-
 import cv2
 import numpy as np
 import torch
-
+from centernet.config import add_centernet_config
 from detectron2.config import get_cfg
 from detectron2.data import MetadataCatalog
 from detectron2.engine.defaults import DefaultPredictor
 from detectron2.utils.visualizer import ColorMode, Visualizer
 
-from centernet.config import add_centernet_config
 from home_robot.perception.detection.detic.Detic.detic.config import add_detic_config
-from home_robot.perception.detection.detic.Detic.detic.modeling.text.text_encoder import build_text_encoder
+from home_robot.perception.detection.detic.Detic.detic.modeling.text.text_encoder import (
+    build_text_encoder,
+)
 from home_robot.perception.detection.detic.Detic.detic.modeling.utils import (
     reset_cls_test,
 )
 
+sys.path.insert(
+    0, str(Path(__file__).resolve().parent / "Detic/third_party/CenterNet2/")
+)
+
 BUILDIN_CLASSIFIER = {
-    'lvis': 'Detic/datasets/metadata/lvis_v1_clip_a+cname.npy',
-    'objects365': 'Detic/datasets/metadata/o365_clip_a+cnamefix.npy',
-    'openimages': 'Detic/datasets/metadata/oid_clip_a+cname.npy',
-    'coco': 'Detic/datasets/metadata/coco_clip_a+cname.npy',
+    "lvis": "Detic/datasets/metadata/lvis_v1_clip_a+cname.npy",
+    "objects365": "Detic/datasets/metadata/o365_clip_a+cnamefix.npy",
+    "openimages": "Detic/datasets/metadata/oid_clip_a+cname.npy",
+    "coco": "Detic/datasets/metadata/coco_clip_a+cname.npy",
 }
 
 BUILDIN_METADATA_PATH = {
-    'lvis': 'lvis_v1_val',
-    'objects365': 'objects365_v2_val',
-    'openimages': 'oid_val_expanded',
-    'coco': 'coco_2017_val',
+    "lvis": "lvis_v1_val",
+    "objects365": "objects365_v2_val",
+    "openimages": "oid_val_expanded",
+    "coco": "coco_2017_val",
 }
+
 
 class Detic:
     def __init__(self, config, visualize: bool = False) -> None:
-        if config.vocabulary == 'custom':
+        if config.vocabulary == "custom":
             self.metadata = MetadataCatalog.get("__unused")
-            self.metadata.thing_classes = config.custom_vocabulary.split(',')
+            self.metadata.thing_classes = config.custom_vocabulary.split(",")
             classifier = self._get_clip_embeddings(self.metadata.thing_classes)
         else:
             self.metadata = MetadataCatalog.get(
-                BUILDIN_METADATA_PATH[config.vocabulary])
+                BUILDIN_METADATA_PATH[config.vocabulary]
+            )
             classifier = BUILDIN_CLASSIFIER[config.vocabulary]
 
         self.augment_mask_with_box = config.augment_mask_with_box
@@ -55,7 +58,7 @@ class Detic:
         reset_cls_test(self.predictor.model, classifier, num_classes)
 
     @staticmethod
-    def _get_clip_embeddings(vocabulary, prompt='a '):
+    def _get_clip_embeddings(vocabulary, prompt="a "):
         text_encoder = build_text_encoder(pretrain=True)
         text_encoder.eval()
         texts = [prompt + x for x in vocabulary]
@@ -74,10 +77,14 @@ class Detic:
         cfg.MODEL.WEIGHTS = weights
         cfg.MODEL.RETINANET.SCORE_THRESH_TEST = config.confidence_threshold
         cfg.MODEL.ROI_HEADS.SCORE_THRESH_TEST = config.confidence_threshold
-        cfg.MODEL.PANOPTIC_FPN.COMBINE.INSTANCES_CONFIDENCE_THRESH = config.confidence_threshold
-        cfg.MODEL.ROI_BOX_HEAD.ZEROSHOT_WEIGHT_PATH = 'rand'
+        cfg.MODEL.PANOPTIC_FPN.COMBINE.INSTANCES_CONFIDENCE_THRESH = (
+            config.confidence_threshold
+        )
+        cfg.MODEL.ROI_BOX_HEAD.ZEROSHOT_WEIGHT_PATH = "rand"
         cfg.MODEL.ROI_BOX_HEAD.CAT_FREQ_PATH = str(
-            Path(__file__).resolve().parent / "Detic" / cfg.MODEL.ROI_BOX_HEAD.CAT_FREQ_PATH
+            Path(__file__).resolve().parent
+            / "Detic"
+            / cfg.MODEL.ROI_BOX_HEAD.CAT_FREQ_PATH
         )
         cfg.MODEL.ROI_HEADS.ONE_CLASS_PER_PROPOSAL = True
         cfg.freeze()
@@ -122,10 +129,10 @@ class Detic:
     @staticmethod
     def get_default_goal_mask(h: int, w: int) -> np.ndarray:
         m = np.ones((h, w), dtype=bool)
-        m[:int(h/3)] = False
-        m[int(h - h / 8):] = False
-        m[:, :int(w/3)] = False
-        m[:, int(w - w/3):] = False
+        m[: int(h / 3)] = False
+        m[int(h - h / 8) :] = False
+        m[:, : int(w / 3)] = False
+        m[:, int(w - w / 3) :] = False
         return m
 
     @staticmethod
@@ -135,7 +142,7 @@ class Detic:
         y1 = y2 - ((y2 - y1) / 4)
 
         y2 = min(y2, best_mask.shape[0] - 1)
-        best_mask[int(y1):int(y2), int(x1):int(x2)] = True
+        best_mask[int(y1) : int(y2), int(x1) : int(x2)] = True
         return best_mask
 
     def get_goal_mask(self, goal_img: np.ndarray) -> np.ndarray:
@@ -145,13 +152,13 @@ class Detic:
         center point, default to a central crop.
         """
         h, w = goal_img.shape[:2]
-        ch, cw = int(h/2), int(w/2)
-    
+        ch, cw = int(h / 2), int(w / 2)
+
         goal_img = cv2.cvtColor(goal_img, cv2.COLOR_RGB2BGR)
         predictions, viz = self.run_on_image(goal_img)
         if "instances" not in predictions:
             return self.get_default_goal_mask(h, w), viz
-        
+
         instances = predictions["instances"].to(self.cpu_device)
         n_instances = instances.pred_masks.shape[0]
         if n_instances == 0:
@@ -166,7 +173,7 @@ class Detic:
         best_conf = 0.0
         for i in range(n_instances):
             conf = scores[i].item()
-            
+
             x1, y1, x2, y2 = boxes[i]
             in_bbox = ch > y1 and ch < y2 and cw > x1 and cw < x2
             if in_bbox and conf > best_conf:
@@ -176,7 +183,7 @@ class Detic:
 
         if best_mask is None:
             return self.get_default_goal_mask(h, w), viz
-        
+
         if self.augment_mask_with_box:
             best_mask = self.augment_mask(best_mask, best_box)
         return best_mask.numpy(), viz
