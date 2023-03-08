@@ -42,7 +42,9 @@ class GraspPlanner(object):
         self.robot_client.goto(home_q, move_base=False, wait=True)
 
     def try_grasping(self, visualize: bool = False, dry_run: bool = False):
-        """Detect grasps and try to pick up an object in front of the robot."""
+        """Detect grasps and try to pick up an object in front of the robot.
+        Visualize - will show debug point clouds
+        Dry run - does not actually move, just computes everything"""
         home_q = STRETCH_PREGRASP_Q
         home_q = self.robot_model.update_look_front(home_q.copy())
         home_q = self.robot_model.update_gripper(home_q, open=True)
