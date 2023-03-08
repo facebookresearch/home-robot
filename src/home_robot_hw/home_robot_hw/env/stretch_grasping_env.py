@@ -119,7 +119,7 @@ class StretchGraspingEnv(StretchEnv):
 
     def get_observation(self) -> Observations:
         """Get Detic and rgb/xyz/theta from this"""
-        rgb, depth = self.get_images(compute_xyz=False, rotate_images=True)
+        rgb, depth, xyz = self.get_images(compute_xyz=True, rotate_images=True)
         current_pose = xyt2sophus(self.get_base_pose())
 
         # use sophus to get the relative translation
@@ -133,8 +133,9 @@ class StretchGraspingEnv(StretchEnv):
 
         # Create the observation
         obs = home_robot.core.interfaces.Observations(
-            rgb=rgb.copy(),
-            depth=depth.copy(),
+            rgb=rgb,
+            depth=depth,
+            xyz=xyz,
             gps=gps,
             compass=np.array([theta]),
             # base_pose=sophus2obs(relative_pose),

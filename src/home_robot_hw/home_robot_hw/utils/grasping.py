@@ -32,6 +32,7 @@ class GraspingUtility:
             self.robot_client.goto(home_q, move_base=False, wait=True)
             rospy.sleep(1.0)
 
+            # Get the observations - we need depth and xyz point clouds
             t0 = timeit.default_timer()
             obs = self.robot_client.get_observation()
             rgb, depth, xyz = obs.rgb, obs.depth, obs.xyz
