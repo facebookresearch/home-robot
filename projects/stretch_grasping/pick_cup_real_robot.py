@@ -19,7 +19,7 @@ def main(dry_run, visualize_masks, visualize_planner):
     rospy.init_node("hello_stretch_ros_test")
 
     env = StretchGraspingEnv(visualize_planner=visualize_planner)
-    env.reset(goal_category="cup")
+    env.reset(goal="cup")
     # TODO Call apply_action() instead of try_grasping()
     env.try_grasping(visualize=visualize_masks, dry_run=dry_run)
 
