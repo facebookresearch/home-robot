@@ -13,6 +13,7 @@ import home_robot.utils.bullet as hrb
 from home_robot.motion.pinocchio_ik_solver import PinocchioIKSolver
 from home_robot.motion.robot import Robot
 from home_robot.utils.bullet import PybulletIKSolver
+from home_robot.utils.pinocchio import ros_pose_to_pinocchio
 from home_robot.utils.pose import to_matrix
 
 # Stretch stuff
@@ -67,7 +68,7 @@ STRETCH_NAVIGATION_Q = np.array(
     ]
 )
 PIN_CONTROLLED_JOINTS = [
-    # "base_x_joint",
+    "base_x_joint",
     "joint_lift",
     "joint_arm_l0",
     "joint_arm_l1",
@@ -164,7 +165,7 @@ class HelloStretch(Robot):
         "joint_arm_l0",
         "joint_wrist_yaw",
         "joint_wrist_pitch",
-        "joint_wrist_roll",
+        "joint_wrist_r8ll",
     ]
     full_body_controlled_joints = [
         "base_x_joint",
@@ -463,6 +464,14 @@ class HelloStretch(Robot):
         if q is not None:
             self.set_config(q)
         return self.ref.get_link_pose(link_name)
+
+    def manip_fk(self, q=None) -> Tuple[np.ndarray, np.ndarray]:
+        pin_pose = ros_pose_to_pinocchio(q)
+        if self._ik_type == "pinocchio":
+            ee_pos, ee_quat = self.manip_ik_solver.compute_fk(pin_pose)
+        elif self._ik_type == "pybullet":
+            ee_pos, ee_quat = self.fk(q)
+        return ee_pos.copy(), ee_quat.copy()
 
     def fk(self, q=None, as_matrix=False) -> Tuple[np.ndarray, np.ndarray]:
         """forward kinematics"""
