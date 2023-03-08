@@ -28,6 +28,7 @@ class PickAndPlaceAgent(Agent):
     def reset(self):
         """Clear internal task state and reset component agents."""
         self.state = SimpleTaskState.FIND_OBJECT
+        self.object_nav_agent.reset()
 
     def act(self, obs: Observations) -> Tuple[Action, Dict[str, Any]]:
         """
