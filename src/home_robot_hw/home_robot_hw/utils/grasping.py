@@ -16,8 +16,9 @@ from home_robot_hw.ros.grasp_helper import GraspClient as RosGraspClient
 from home_robot_hw.ros.utils import matrix_to_pose_msg, ros_pose_to_transform
 
 
-class GraspingUtility:
-    """Simple grasp planner which integrates with a ROS service runnning e.g. contactgraspnet"""
+class GraspPlanner(object):
+    """Simple grasp planner which integrates with a ROS service runnning e.g. contactgraspnet.
+    Will choose and execute a grasp based on distance from base."""
 
     def __init__(self, robot_client, visualize_planner=False):
         self.robot_client = robot_client
@@ -33,8 +34,9 @@ class GraspingUtility:
     def go_to_nav_mode(self):
         """Move the arm and head into nav mode."""
         home_q = STRETCH_NAVIGATION_Q
-        # TODO - should be this
+        # TODO - should be looking down to make sure we can see the objects
         # home_q = self.robot_model.update_look_front(home_q.copy())
+        # NOTE: for now we have to do this though - until bugs are fixed in semantic map
         home_q = self.robot_model.update_look_ahead(home_q.copy())
         self.robot_client.goto(home_q, move_base=False, wait=True)
 

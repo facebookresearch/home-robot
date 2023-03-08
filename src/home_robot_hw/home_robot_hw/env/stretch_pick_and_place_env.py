@@ -10,7 +10,7 @@ from home_robot.perception.detection.detic.detic_perception import DeticPercepti
 from home_robot.utils.geometry import xyt2sophus
 from home_robot_hw.env.stretch_abstract_env import StretchEnv
 from home_robot_hw.env.visualizer import Visualizer
-from home_robot_hw.utils.grasping import GraspingUtility
+from home_robot_hw.utils.grasping import GraspPlanner
 
 REAL_WORLD_CATEGORIES = [
     "other",
@@ -59,7 +59,9 @@ class StretchPickandPlaceEnv(StretchEnv):
                 sem_gpu_id=0,
             )
 
-        self.grasp_planner = GraspingUtility(self, visualize_planner=visualize_planner)
+        # Create a simple grasp planner object, which will let us pick stuff up.
+        # This takes in a reference to the robot client - will replace "self" with "self.client"
+        self.grasp_planner = GraspPlanner(self, visualize_planner=visualize_planner)
 
     def reset(self, goal: str):
         self.set_goal(goal)
