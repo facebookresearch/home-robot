@@ -1,4 +1,5 @@
 import timeit
+from typing import Tuple
 
 import numpy as np
 import rospy
@@ -40,7 +41,7 @@ class GraspPlanner(object):
         home_q = self.robot_model.update_look_ahead(home_q.copy())
         self.robot_client.goto(home_q, move_base=False, wait=True)
 
-    def try_grasping(self, visualize=False, dry_run=False):
+    def try_grasping(self, visualize: bool = False, dry_run: bool = False):
         """Detect grasps and try to pick up an object in front of the robot."""
         home_q = STRETCH_PREGRASP_Q
         home_q = self.robot_model.update_look_front(home_q.copy())
@@ -125,7 +126,7 @@ class GraspPlanner(object):
                 if grasp_completed:
                     break
 
-    def try_executing_grasp(self, grasp) -> bool:
+    def try_executing_grasp(self, grasp: np.ndarray) -> bool:
         """Try executing a grasp. Takes in robot self.robot_model and a potential grasp; will execute
         this grasp if possible. Grasp-client is just used to send a debugging TF frame for now.
 
@@ -231,7 +232,8 @@ class GraspPlanner(object):
             return True
 
 
-def divergence_from_vertical_grasp(grasp):
+def divergence_from_vertical_grasp(grasp: np.ndarray) -> Tuple[float, float]:
+    """Grasp should be a matrix in SE(3). Compute if its roughly vertical. Returns angles from vertical."""
     dirn = grasp[:3, 2]
     theta_x = np.abs(np.arctan(dirn[0] / dirn[2]))
     theta_y = np.abs(np.arctan(dirn[1] / dirn[2]))
