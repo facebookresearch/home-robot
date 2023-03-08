@@ -5,8 +5,8 @@
 import glob
 import os
 
-import data_tools.base as base
-import data_tools.image as image
+import home_robot.utils.data_tools.base as base
+import home_robot.utils.data_tools.image as image
 import h5py
 import numpy as np
 import torch
