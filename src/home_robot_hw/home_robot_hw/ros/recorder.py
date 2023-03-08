@@ -8,10 +8,10 @@ import cv2
 import h5py
 import numpy as np
 import rospy
-from home_robot.utils.data_tools.image import img_from_bytes
-from home_robot.utils.data_tools.writer import DataWriter
 from tqdm import tqdm
 
+from home_robot.utils.data_tools.image import img_from_bytes
+from home_robot.utils.data_tools.writer import DataWriter
 from home_robot_hw.ros.stretch_ros import HelloStretchROSInterface
 
 
@@ -73,7 +73,7 @@ class Recorder(object):
         8. end-effector pose
         """
         # record rgb and depth
-        rgb, depth = self.robot.get_images(compute_xyz=False)
+        rgb, depth, xyz = self.robot.get_images(compute_xyz=True)
         q, dq = self.robot.update()
         # TODO get the following from TF lookup
         ee_pose = self.robot.model.fk(q)
@@ -99,6 +99,7 @@ class Recorder(object):
             base_pose=base_pose,
             camera_pose=camera_pose,
             user_keyframe=user_keyframe,
+            xyz=xyz,
         )
 
         return rgb, depth, q, dq
