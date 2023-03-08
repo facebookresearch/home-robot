@@ -1,7 +1,8 @@
 import h5py
 import rospy
+from geometry_msgs.msg import TransformStamped
 from matplotlib import pyplot as plt
-from visualization_msgs.msg import Marker
+from tf2_ros import tf2_ros
 
 from home_robot.utils.data_tools.image import img_from_bytes
 
@@ -15,30 +16,26 @@ def view_keyframe_imgs(file_object: h5py.File, trial_name: str):
         plt.show()
 
 
-def plot_ee_pose(file_object: h5py.File, trial_name: str, marker_pub: rospy.Publisher):
+def plot_ee_pose(
+    file_object: h5py.File, trial_name: str, ros_pub: tf2_ros.TransformBroadcaster
+):
     num_keyframes = len(file_object[f"{trial_name}/ee_pose"][()])
-    breakpoint()
     for i in range(num_keyframes):
-        ee_marker = Marker()
-        ee_marker.header.frame_id = "base_link"
-        ee_marker.header.stamp = rospy.Time.now()
-        ee_marker.ns = "end_effector"
-        ee_marker.id = 0
-        ee_marker.type = Marker.ARROW
-        ee_marker.action = Marker.ADD
-        ee_marker.pose.position.x = file_object[f"{trial_name}/ee_pose"][()][i][0]
-        ee_marker.pose.position.y = file_object[f"{trial_name}/ee_pose"][()][i][1]
-        ee_marker.pose.position.z = file_object[f"{trial_name}/ee_pose"][()][i][2]
-        ee_marker.pose.orientation.x = file_object[f"{trial_name}/ee_pose"][()][i][3]
-        ee_marker.pose.orientation.y = file_object[f"{trial_name}/ee_pose"][()][i][4]
-        ee_marker.pose.orientation.z = file_object[f"{trial_name}/ee_pose"][()][i][5]
-        ee_marker.pose.orientation.w = file_object[f"{trial_name}/ee_pose"][()][i][6]
-        ee_marker.scale.x = 0.20
-        ee_marker.scale.y = 0.05
-        ee_marker.scale.z = 0.05
-        ee_marker.color.a = 1.0
-        ee_marker.color.r = 1.0
-        ee_marker.color.g = 0.0
-        ee_marker.color.b = 0.0
-        marker_pub.publish(ee_marker)
+        pos = file_object[f"{trial_name}/ee_pose"][()][i][:3]
+        rot = file_object[f"{trial_name}/ee_pose"][()][i][3:]
+        pose_message = TransformStamped()
+        pose_message.header.stamp = rospy.Time.now()
+        pose_message.header.frame_id = "base_link"
+
+        pose_message.child_frame_id = f"key_frame_{i}"
+        pose_message.transform.translation.x = pos[0]
+        pose_message.transform.translation.y = pos[1]
+        pose_message.transform.translation.z = pos[2]
+
+        pose_message.transform.rotation.x = rot[0]
+        pose_message.transform.rotation.y = rot[1]
+        pose_message.transform.rotation.z = rot[2]
+        pose_message.transform.rotation.w = rot[3]
+
+        ros_pub.sendTransform(pose_message)
         input("Press enter to continue")
