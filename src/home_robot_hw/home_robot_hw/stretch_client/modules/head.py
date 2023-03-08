@@ -17,7 +17,7 @@ MIN_DEPTH_REPLACEMENT_VALUE = 10000
 MAX_DEPTH_REPLACEMENT_VALUE = 10001
 
 
-class StretchCameraInterface:
+class StretchHeadInterface:
     min_depth_val = 0.1
     max_depth_val = 4.0
 
