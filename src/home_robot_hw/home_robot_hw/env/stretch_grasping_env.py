@@ -42,7 +42,30 @@ class StretchGraspingEnv(StretchEnv):
     def apply_action(self, action: Action, info: Optional[Dict[str, Any]] = None):
         # TODO Determine what form the grasp action should take and move
         #  grasping execution logic here
-        pass
+        if self.visualizer is not None:
+            self.visualizer.visualize(**info)
+        continuous_action = np.zeros(3)
+        if action == DiscreteNavigationAction.MOVE_FORWARD:
+            print("FORWARD")
+            continuous_action[0] = self.forward_step
+        elif action == DiscreteNavigationAction.TURN_RIGHT:
+            print("TURN RIGHT")
+            continuous_action[2] = -self.rotate_step
+        elif action == DiscreteNavigationAction.TURN_LEFT:
+            print("TURN LEFT")
+            continuous_action[2] = self.rotate_step
+        else:
+            # Do nothing if "stop"
+            # continuous_action = None
+            # if not self.in_manipulation_mode():
+            #     self.switch_to_manipulation_mode()
+
+        if continuous_action is not None:
+            if not self.in_navigation_mode():
+                self.switch_to_navigation_mode()
+                rospy.sleep(self.msg_delay_t)
+            self.navigate_to(continuous_action, relative=True, blocking=True)
+        rospy.sleep(0.5)
 
     def get_observation(self) -> Observations:
         rgb, depth, xyz = self.get_images(compute_xyz=True, rotate_images=True)
