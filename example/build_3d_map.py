@@ -136,7 +136,6 @@ def main(rate, max_frames, visualize, manual_wait, pcd_filename):
         frames += 1
         if max_frames > 0 and frames >= max_frames or step >= len(trajectory):
             break
-        break
 
         rate.sleep()
 
@@ -149,7 +148,7 @@ def main(rate, max_frames, visualize, manual_wait, pcd_filename):
         pcd = numpy_to_pcd(pc_xyz, pc_rgb / 255)
         open3d.io.write_point_cloud(pcd_filename, pcd)
 
-    rospy.spin()
+    rospy.signal_shutdown("done")
 
 
 if __name__ == "__main__":
