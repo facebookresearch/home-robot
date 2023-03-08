@@ -30,6 +30,5 @@ if __name__ == "__main__":
         obs = env.get_observation()
         action, info = agent.act(obs)
         env.apply_action(action, info=info)
-        input("--- press enter for the next action ---")
 
     print(env.get_episode_metrics())
