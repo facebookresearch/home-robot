@@ -105,7 +105,7 @@ class StretchPickandPlaceEnv(StretchEnv):
             print("PICK UP THE TARGET OBJECT")
             print(" - Robot in navigation mode:", self.in_navigation_mode())
             if self.in_navigation_mode():
-                continuous_action[2] = -self.rotate_step
+                continuous_action[2] = np.pi / 2
             else:
                 continuous_action = None
             try_to_grasp = True

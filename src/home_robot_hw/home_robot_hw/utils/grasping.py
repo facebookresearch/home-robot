@@ -33,7 +33,9 @@ class GraspingUtility:
     def go_to_nav_mode(self):
         """Move the arm and head into nav mode."""
         home_q = STRETCH_NAVIGATION_Q
-        home_q = self.robot_model.update_look_front(home_q.copy())
+        # TODO - should be this
+        # home_q = self.robot_model.update_look_front(home_q.copy())
+        home_q = self.robot_model.update_look_ahead(home_q.copy())
         self.robot_client.goto(home_q, move_base=False, wait=True)
 
     def try_grasping(self, visualize=False, dry_run=False):
