@@ -20,8 +20,8 @@ REAL_WORLD_CATEGORIES = [
 DETIC = "detic"
 
 
-class StretchGraspingEnv(StretchEnv):
-    """Create a Detic-based grasping environment"""
+class StretchPickandPlaceEnv(StretchEnv):
+    """Create a Detic-based pick and place environment"""
 
     def __init__(
         self,
