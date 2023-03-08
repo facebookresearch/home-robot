@@ -21,7 +21,7 @@ def main(dry_run, visualize_masks, visualize_planner):
     env = StretchGraspingEnv(visualize_planner=visualize_planner)
     env.reset(goal="cup")
     # TODO Call apply_action() instead of try_grasping()
-    env.try_grasping(visualize=visualize_masks, dry_run=dry_run)
+    env.try_grasping(visualize_masks=visualize_masks, dry_run=dry_run)
 
 
 if __name__ == "__main__":
