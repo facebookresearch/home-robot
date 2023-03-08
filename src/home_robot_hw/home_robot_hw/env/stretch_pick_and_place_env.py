@@ -33,9 +33,15 @@ class StretchPickandPlaceEnv(StretchEnv):
         rotate_step=30.0,
         segmentation_method=DETIC,
         visualize_planner=False,
+        ros_grasping=True,
         *args,
         **kwargs
     ):
+        """
+        Defines discrete planning environment.
+
+        ros_grasping: create ROS grasp planner
+        """
         super().__init__(*args, **kwargs)
 
         # TODO: pass this in or load from cfg
@@ -59,9 +65,12 @@ class StretchPickandPlaceEnv(StretchEnv):
                 sem_gpu_id=0,
             )
 
-        # Create a simple grasp planner object, which will let us pick stuff up.
-        # This takes in a reference to the robot client - will replace "self" with "self.client"
-        self.grasp_planner = GraspPlanner(self, visualize_planner=visualize_planner)
+        if ros_grasping:
+            # Create a simple grasp planner object, which will let us pick stuff up.
+            # This takes in a reference to the robot client - will replace "self" with "self.client"
+            self.grasp_planner = GraspPlanner(self, visualize_planner=visualize_planner)
+        else:
+            self.grasp_planner = None
 
     def reset(self, goal: str):
         """Reset the robot and prepare to run a trial. Make sure we have images and up to date state info."""

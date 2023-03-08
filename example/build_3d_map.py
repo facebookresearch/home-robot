@@ -76,7 +76,7 @@ class RosMapDataCollector(object):
 @click.option("--pcd-filename", default="output.ply", type=str)
 def main(rate, max_frames, visualize, manual_wait, pcd_filename):
     rospy.init_node("build_3d_map")
-    env = StretchPickandPlaceEnv(segmentation_method=None)
+    env = StretchPickandPlaceEnv(segmentation_method=None, ros_grasping=False)
     collector = RosMapDataCollector(env, visualize)
 
     # Tuck the arm away
@@ -148,6 +148,8 @@ def main(rate, max_frames, visualize, manual_wait, pcd_filename):
     if len(pcd_filename) > 0:
         pcd = numpy_to_pcd(pc_xyz, pc_rgb / 255)
         open3d.io.write_point_cloud(pcd_filename, pcd)
+
+    rospy.spin()
 
 
 if __name__ == "__main__":
