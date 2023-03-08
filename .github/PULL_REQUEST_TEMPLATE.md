@@ -19,3 +19,9 @@
 - [ ] Bug fix (non-breaking change which fixes an issue)
 - [ ] New feature (non-breaking change which adds functionality)
 - [ ] Breaking change (fix or feature that would cause existing functionality to change)
+
+# Checklist:
+
+- [ ] I have made changes to existing documentation where needed.
+- [ ] I have added tests that show that the PR is functional.
+- [ ] I ran `tests/hw_manual_test.py` on hardware and observed that robot behavior looks normal.
