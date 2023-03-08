@@ -64,6 +64,7 @@ class StretchPickandPlaceEnv(StretchEnv):
         self.grasp_planner = GraspPlanner(self, visualize_planner=visualize_planner)
 
     def reset(self, goal: str):
+        """Reset the robot and prepare to run a trial. Make sure we have images and up to date state info."""
         self.set_goal(goal)
         rospy.sleep(0.5)  # Make sure we have time to get ROS messages
         self.update()
@@ -130,8 +131,8 @@ class StretchPickandPlaceEnv(StretchEnv):
             self.grasp_planner.go_to_manip_mode()
             self.grasp_planner.try_grasping()
 
-    def set_goal(self, goal):
-        """set a goal as a string"""
+    def set_goal(self, goal: str):
+        """Set the goal class as a string. Goal should be an object class we want to pick up."""
         assert goal in self.goal_options
         self.current_goal_id = self.goal_options.index(goal)
         self.current_goal_name = goal
