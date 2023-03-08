@@ -5,11 +5,7 @@ import rospy
 from geometry_msgs.msg import TransformStamped
 
 import home_robot.utils.visualization as viz
-from home_robot.agent.motion.stretch import (
-    STRETCH_PREGRASP_Q,
-    HelloStretch,
-    HelloStretchIdx,
-)
+from home_robot.motion.stretch import STRETCH_PREGRASP_Q, HelloStretch, HelloStretchIdx
 from home_robot.utils.pose import to_pos_quat
 from home_robot_hw.ros.grasp_helper import GraspClient as RosGraspClient
 from home_robot_hw.ros.utils import matrix_to_pose_msg, ros_pose_to_transform
