@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 import rospy
 
-from home_robot.agent.hierarchical.simple import SimplePickPlaceAgent
+from home_robot.agent.hierarchical.pick_and_place_agent import PickAndPlaceAgent
 from home_robot.motion.stretch import STRETCH_HOME_Q
 from home_robot.utils.config import get_config
 from home_robot_hw.env.stretch_grasping_env import StretchGraspingEnv

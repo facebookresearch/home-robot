@@ -12,12 +12,27 @@ from home_robot_hw.ros.utils import matrix_to_pose_msg, ros_pose_to_transform
 
 
 class GraspingUtility:
+    """Simple grasp planner which integrates with a ROS service runnning e.g. contactgraspnet"""
+
     def __init__(self, robot_client, visualize_planner=False):
         self.robot_client = robot_client
         self.robot_model = HelloStretch(visualize=visualize_planner)
         self.grasp_client = RosGraspClient()
 
+    def go_to_manip_mode(self):
+        """Move the arm and head into manip mode."""
+        home_q = STRETCH_PREGRASP_Q
+        home_q = self.robot_model.update_look_at_ee(home_q)
+        self.robot_client.goto(home_q, move_base=False, wait=True)
+
+    def go_to_nav_mode(self):
+        """Move the arm and head into nav mode."""
+        home_q = STRETCH_PREGRASP_Q
+        home_q = self.robot_model.update_look_front(home_q.copy())
+        self.robot_client.goto(home_q, move_base=False, wait=True)
+
     def try_grasping(self, visualize=False, dry_run=False):
+        """Detect grasps and try to pick up an object in front of the robot."""
         home_q = STRETCH_PREGRASP_Q
         home_q = self.robot_model.update_look_front(home_q.copy())
         home_q = self.robot_model.update_gripper(home_q, open=True)
