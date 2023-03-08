@@ -1,6 +1,6 @@
 NO_GPU: 1                 # 1: ignore IDs above and run on CPU, 0: run on GPUs with IDs above
 NUM_ENVIRONMENTS: 35      # number of environments (per agent process)
-DUMP_LOCATION: datadump   # path to dump models and log
+DUMP_LOCATION: dump_new1   # path to dump models and log
 EXP_NAME: eval_floorplanner       # experiment name
 VISUALIZE: 0              # 1: render observation and predicted semantic map, 0: no visualization
 PRINT_IMAGES: 1           # 1: save visualization as images, 0: no image saving
@@ -10,7 +10,7 @@ ENVIRONMENT:
   turn_angle: 30.0        # agent turn angle (in degrees)
   frame_height: 640       # first-person frame height (in pixels)
   frame_width: 480        # first-person frame width (in pixels)
-  camera_height: 0.88     # camera sensor height (in metres)
+  camera_height: 1.25     # camera sensor height (in metres)
   hfov: 42.0              # horizontal field of view (in degrees)
   min_depth: 0.5          # minimum depth for depth sensor (in metres)
   max_depth: 5.0          # maximum depth for depth sensor (in metres)
