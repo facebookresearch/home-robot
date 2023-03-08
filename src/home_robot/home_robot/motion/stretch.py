@@ -63,7 +63,7 @@ STRETCH_NAVIGATION_Q = np.array(
         0.0,  # wrist pitch
         3.0,  # wrist yaw
         0.0,
-        -np.pi / 4,
+        0.0,  # TODO - should be this: -np.pi / 4,
     ]
 )
 PIN_CONTROLLED_JOINTS = [

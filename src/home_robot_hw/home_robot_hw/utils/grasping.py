@@ -7,6 +7,7 @@ from geometry_msgs.msg import TransformStamped
 import home_robot.utils.visualization as viz
 from home_robot.motion.stretch import (
     STRETCH_NAVIGATION_Q,
+    STRETCH_PREGRASP_Q,
     HelloStretch,
     HelloStretchIdx,
 )
