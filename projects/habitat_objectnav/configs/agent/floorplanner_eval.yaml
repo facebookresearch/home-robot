@@ -1,6 +1,6 @@
 NO_GPU: 1                 # 1: ignore IDs above and run on CPU, 0: run on GPUs with IDs above
 NUM_ENVIRONMENTS: 35      # number of environments (per agent process)
-DUMP_LOCATION: data_dump   # path to dump models and log
+DUMP_LOCATION: datadump   # path to dump models and log
 EXP_NAME: eval_floorplanner       # experiment name
 VISUALIZE: 0              # 1: render observation and predicted semantic map, 0: no visualization
 PRINT_IMAGES: 1           # 1: save visualization as images, 0: no image saving
