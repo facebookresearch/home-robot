@@ -48,7 +48,7 @@ This project contains numerous packages. See individual package docs for corresp
     export HOME_ROBOT_ROOT=$(pwd)/home-robot
     ```
 
-1. Install the core [home_robot](src/home_robot) python package. Main aspects reproduced here for convenience:
+1. Install the core [home_robot](src/home_robot) python package on your Hello Robot and local GPU Server. Main aspects reproduced here for convenience:
 
     For installing on server-side:
     ```sh
@@ -63,10 +63,10 @@ This project contains numerous packages. See individual package docs for corresp
     cd $HOME_ROBOT_ROOT/src/home_robot
     pip install -e .
     ```
-1. Install [home_robot_hw](src/home_robot_hw/install.md) and complete the setup. Main aspects reproduced here for convenience:
+1. Install [home_robot_hw](src/home_robot_hw/install.md) on your Hello Robot and complete the setup. Main aspects reproduced here for convenience:
     ```sh
     # Create symlink in catkin workspace
-    ln -s /abs/path/to/home-robot/src/home_robot_hw $HOME/catkin_ws/src/home_robot_hw
+    ln -s $HOME_ROBOT_ROOT/src/home_robot_hw $HOME/catkin_ws/src/home_robot_hw
 
     # Install dependencies for catkin
     pip install empy catkin_pkg rospkg
@@ -92,26 +92,8 @@ This project contains numerous packages. See individual package docs for corresp
     ```  
 
 ### Run
-Assuming `roslaunch home_robot_hw startup_stretch_hector_slam.launch` is running in a separate terminal, you could run the following scripts:
-
-1. Run simple navigation example (moves the robot forward by 0.25 m): 
-    ```sh
-    python src/home_robot_hw/home_robot_hw/env/simple_navigation_env.py
-    ```
-    This file also serves as a simple example of how to setup your own environments implementing Stretch functionality. Every environment interfaces with the base Stretch controllers, models and environments to implement application-level requirements.
-
-1. Collect the data through teleoperation.
-    ```sh
-    python collect_h5.py --task_name TASK_NAME  --dir_path DIR_PATH
-    ```
-    This will save the teleoperation files at `DIR_PATH/TASK_NAME-{iteration}/{datetime}.h5`.
-
-    To give trajectory commands through the Xbox controller, open a separate terminal and:
-    ```sh
-    rosrun joy joy_node
-    ```
-
-    Check Dataloaders to load data into torch.    
+Assuming `roslaunch home_robot_hw startup_stretch_hector_slam.launch` is running in a separate terminal, you could run the scripts in [Projects](https://github.com/facebookresearch/home-robot/tree/main/projects) folder.
+ 
     
 <!-- You should then be able to command the robot using the following commands: -->
 <!-- ```py -->
