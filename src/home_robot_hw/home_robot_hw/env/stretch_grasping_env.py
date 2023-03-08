@@ -1,17 +1,19 @@
 from typing import Any, Dict, Optional
 
 import numpy as np
+import rospy
 
+import home_robot
 from home_robot.core.interfaces import Action, DiscreteNavigationAction, Observations
 from home_robot.perception.detection.detic.detic_perception import DeticPerception
+from home_robot.utils.geometry import xyt2sophus
 from home_robot_hw.env.stretch_abstract_env import StretchEnv
+from home_robot_hw.utils.grasping import GraspingUtility
 
-# REAL_WORLD_CATEGORIES = ["other", "chair", "mug", "other",]
-# REAL_WORLD_CATEGORIES = ["other", "backpack", "other",]
 REAL_WORLD_CATEGORIES = [
     "other",
     "chair",
-    "mug",
+    "cup",
     "table" "other",
 ]
 
@@ -27,6 +29,7 @@ class StretchGraspingEnv(StretchEnv):
         forward_step=0.25,
         rotate_step=30.0,
         segmentation_method=DETIC,
+        visualize_planner=False,
         *args,
         **kwargs
     ):
@@ -46,16 +49,19 @@ class StretchGraspingEnv(StretchEnv):
                 sem_gpu_id=0,
             )
 
-        if config is not None:
-            self.visualizer = Visualizer(config)
-        else:
-            self.visualizer = None
-        self.reset()
+        self.grasping_utility = GraspingUtility(
+            self, visualize_planner=visualize_planner
+        )
 
-    def reset(self):
-        # TODO Make this better
-        self.current_goal_id = 1
-        self.current_goal_name = self.goal_options[self.current_goal_id]
+    def reset(self, goal: str):
+        self.set_goal(goal)
+        rospy.sleep(0.5)  # Make sure we have time to get ROS messages
+        self.update()
+        self.rgb_cam.wait_for_image()
+        self.dpt_cam.wait_for_image()
+
+    def try_grasping(self, visualize_masks=False, dry_run=False):
+        self.grasping_utility.try_grasping(visualize=visualize_masks, dry_run=dry_run)
 
     def apply_action(self, action: Action, info: Optional[Dict[str, Any]] = None):
         # TODO Determine what form the grasp action should take and move
@@ -90,12 +96,9 @@ class StretchGraspingEnv(StretchEnv):
 
     def set_goal(self, goal):
         """set a goal as a string"""
-        if goal in self.goal_options:
-            self.current_goal_id = self.goal_options.index(goal)
-            self.current_goal_name = goal
-            return True
-        else:
-            return False
+        assert goal in self.goal_options
+        self.current_goal_id = self.goal_options.index(goal)
+        self.current_goal_name = goal
 
     def sample_goal(self):
         """set a random goal"""
