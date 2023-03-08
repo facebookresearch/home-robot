@@ -40,6 +40,13 @@ class StretchGraspingEnv(StretchEnv):
         self.forward_step = forward_step  # in meters
         self.rotate_step = np.radians(rotate_step)
 
+        # Create a visualizer
+        if config is not None:
+            self.visualizer = Visualizer(config)
+        else:
+            self.visualizer = None
+
+        # Set up the segmenter
         self.segmentation_method = segmentation_method
         if self.segmentation_method == DETIC:
             # TODO Specify confidence threshold as a parameter
@@ -59,6 +66,9 @@ class StretchGraspingEnv(StretchEnv):
         self.update()
         self.rgb_cam.wait_for_image()
         self.dpt_cam.wait_for_image()
+        self._episode_start_pose = xyt2sophus(self.get_base_pose())
+        if self.visualizer is not None:
+            self.visualizer.reset()
 
     def try_grasping(self, visualize_masks=False, dry_run=False):
         self.grasping_utility.try_grasping(visualize=visualize_masks, dry_run=dry_run)
