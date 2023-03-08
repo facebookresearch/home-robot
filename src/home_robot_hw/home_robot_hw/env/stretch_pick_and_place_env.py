@@ -14,9 +14,9 @@ from home_robot_hw.utils.grasping import GraspingUtility
 
 REAL_WORLD_CATEGORIES = [
     "other",
-    "chair",
+    # "chair",
     "cup",
-    "table",
+    # "table",
     "other",
 ]
 
@@ -72,6 +72,7 @@ class StretchPickandPlaceEnv(StretchEnv):
             self.visualizer.reset()
 
         # Set the robot's head into "navigation" mode - facing forward
+        self.switch_to_navigation_mode()
         self.grasp_planner.go_to_nav_mode()
 
     def try_grasping(self, visualize_masks=False, dry_run=False):
@@ -80,7 +81,7 @@ class StretchPickandPlaceEnv(StretchEnv):
     def apply_action(self, action: Action, info: Optional[Dict[str, Any]] = None):
         # TODO Determine what form the grasp action should take and move
         #  grasping execution logic here
-        if self.visualizer is not None:
+        if self.visualizer is not None and info is not None:
             self.visualizer.visualize(**info)
         continuous_action = np.zeros(3)
         try_to_grasp = False
@@ -102,10 +103,12 @@ class StretchPickandPlaceEnv(StretchEnv):
             pass
         elif action == DiscreteNavigationAction.PICK_OBJECT:
             print("PICK UP THE TARGET OBJECT")
+            print(" - Robot in navigation mode:", self.in_navigation_mode())
             if self.in_navigation_mode():
                 continuous_action[2] = -self.rotate_step
             else:
                 continuous_action = None
+            try_to_grasp = True
         else:
             print("Action not implemented in pick-and-place environment:", action)
             continuous_action = None

@@ -42,15 +42,16 @@ class PickAndPlaceAgent(Agent):
             info: additional information (e.g., for debugging, visualization)
         """
         action = DiscreteNavigationAction.STOP
+        action_info = None
         # Look for the goal object.
         if self.state == SimpleTaskState.FIND_OBJECT:
-            action = self.object_nav_agent.act(obs)
+            action, action_info = self.object_nav_agent.act(obs)
             if action == DiscreteNavigationAction.STOP:
                 self.state = SimpleTaskState.PICK_OBJECT
         # If we have found the object, then try to pick it up.
         if self.state == SimpleTaskState.PICK_OBJECT:
             # Try to grab the object.
             # If we grasped the object, then we should increment our state again
-            return DiscreteNavigationAction.PICK_OBJECT
+            return DiscreteNavigationAction.PICK_OBJECT, action_info
         # If we did not find anything else to do, just stop
-        return action
+        return action, action_info
