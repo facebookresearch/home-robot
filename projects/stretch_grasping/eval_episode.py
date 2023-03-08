@@ -4,7 +4,7 @@ import rospy
 from home_robot.agent.hierarchical.simple import SimplePickPlaceAgent
 from home_robot.motion.stretch import STRETCH_HOME_Q
 from home_robot.utils.config import get_config
-from home_robot_hw.env.stretch_object_nav_env import StretchGraspingEnv
+from home_robot_hw.env.stretch_grasping_env import StretchGraspingEnv
 
 if __name__ == "__main__":
     config_path = "configs/agent/floorplanner_eval.yaml"
