@@ -7,10 +7,13 @@ from home_robot.core.interfaces import Action, DiscreteNavigationAction, Observa
 
 
 class SimpleTaskState(Enum):
-    FIND_OBJECT = 0
-    PICK_OBJECT = 1
-    FIND_GOAL = 2
-    PLACE_OBJECT = 3
+    """Track task state."""
+
+    NOT_STARTED = 0
+    FIND_OBJECT = 1
+    PICK_OBJECT = 2
+    FIND_GOAL = 3
+    PLACE_OBJECT = 4
 
 
 class SimplePickPlaceAgent(Agent):
