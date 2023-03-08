@@ -1,10 +1,12 @@
 from typing import Any, Dict, Optional
 
 import numpy as np
+import rospy
 
 from home_robot.core.interfaces import Action, DiscreteNavigationAction, Observations
 from home_robot.perception.detection.detic.detic_perception import DeticPerception
 from home_robot_hw.env.stretch_abstract_env import StretchEnv
+from home_robot_hw.utils.grasping import GraspingUtility
 
 REAL_WORLD_CATEGORIES = [
     "other",
@@ -12,14 +14,15 @@ REAL_WORLD_CATEGORIES = [
     "other",
 ]
 
-
 DETIC = "detic"
 
 
 class StretchGraspingEnv(StretchEnv):
     """Create a Detic-based grasping environment"""
 
-    def __init__(self, segmentation_method=DETIC, *args, **kwargs):
+    def __init__(
+        self, segmentation_method=DETIC, visualize_planner=False, *args, **kwargs
+    ):
         super().__init__(*args, **kwargs)
 
         # TODO: pass this in or load from cfg
@@ -34,38 +37,25 @@ class StretchGraspingEnv(StretchEnv):
                 sem_gpu_id=0,
             )
 
-    def reset(self):
-        # TODO Make this better
-        self.current_goal_id = 1
-        self.current_goal_name = self.goal_options[self.current_goal_id]
+        self.grasping_utility = GraspingUtility(
+            self, visualize_planner=visualize_planner
+        )
+
+    def reset(self, goal_category: str):
+        assert goal_category in REAL_WORLD_CATEGORIES
+        self.current_goal_id = REAL_WORLD_CATEGORIES.index(goal_category)
+        self.current_goal_name = goal_category
+        rospy.sleep(0.5)  # Make sure we have time to get ROS messages
+        self.update()
+        self.rgb_cam.wait_for_image()
+        self.dpt_cam.wait_for_image()
+
+    def try_grasping(self, visualize_masks=False, dry_run=False):
+        self.grasping_utility.try_grasping(visualize=visualize_masks, dry_run=dry_run)
 
     def apply_action(self, action: Action, info: Optional[Dict[str, Any]] = None):
-        # TODO Determine what form the grasp action should take and move
-        #  grasping execution logic here
-        if self.visualizer is not None:
-            self.visualizer.visualize(**info)
-        continuous_action = np.zeros(3)
-        if action == DiscreteNavigationAction.MOVE_FORWARD:
-            print("FORWARD")
-            continuous_action[0] = self.forward_step
-        elif action == DiscreteNavigationAction.TURN_RIGHT:
-            print("TURN RIGHT")
-            continuous_action[2] = -self.rotate_step
-        elif action == DiscreteNavigationAction.TURN_LEFT:
-            print("TURN LEFT")
-            continuous_action[2] = self.rotate_step
-        else:
-            # Do nothing if "stop"
-            # continuous_action = None
-            # if not self.in_manipulation_mode():
-            #     self.switch_to_manipulation_mode()
-
-        if continuous_action is not None:
-            if not self.in_navigation_mode():
-                self.switch_to_navigation_mode()
-                rospy.sleep(self.msg_delay_t)
-            self.navigate_to(continuous_action, relative=True, blocking=True)
-        rospy.sleep(0.5)
+        # TODO apply_action() should call try_grasping()
+        pass
 
     def get_observation(self) -> Observations:
         rgb, depth, xyz = self.get_images(compute_xyz=True, rotate_images=True)
