@@ -9,13 +9,15 @@ from home_robot.motion.stretch import STRETCH_HOME_Q, STRETCH_PREGRASP_Q
 from home_robot.perception.detection.detic.detic_perception import DeticPerception
 from home_robot.utils.geometry import xyt2sophus
 from home_robot_hw.env.stretch_abstract_env import StretchEnv
+from home_robot_hw.env.visualizer import Visualizer
 from home_robot_hw.utils.grasping import GraspingUtility
 
 REAL_WORLD_CATEGORIES = [
     "other",
     "chair",
     "cup",
-    "table" "other",
+    "table",
+    "other",
 ]
 
 DETIC = "detic"
@@ -57,9 +59,7 @@ class StretchPickandPlaceEnv(StretchEnv):
                 sem_gpu_id=0,
             )
 
-        self.grasping_utility = GraspingUtility(
-            self, visualize_planner=visualize_planner
-        )
+        self.grasp_planner = GraspingUtility(self, visualize_planner=visualize_planner)
 
     def reset(self, goal: str):
         self.set_goal(goal)
@@ -71,6 +71,9 @@ class StretchPickandPlaceEnv(StretchEnv):
         if self.visualizer is not None:
             self.visualizer.reset()
 
+        # Set the robot's head into "navigation" mode - facing forward
+        self.grasp_planner.go_to_nav_mode()
+
     def try_grasping(self, visualize_masks=False, dry_run=False):
         self.grasping_utility.try_grasping(visualize=visualize_masks, dry_run=dry_run)
 
@@ -80,6 +83,7 @@ class StretchPickandPlaceEnv(StretchEnv):
         if self.visualizer is not None:
             self.visualizer.visualize(**info)
         continuous_action = np.zeros(3)
+        try_to_grasp = False
         if action == DiscreteNavigationAction.MOVE_FORWARD:
             print("FORWARD")
             continuous_action[0] = self.forward_step
@@ -89,13 +93,24 @@ class StretchPickandPlaceEnv(StretchEnv):
         elif action == DiscreteNavigationAction.TURN_LEFT:
             print("TURN LEFT")
             continuous_action[2] = self.rotate_step
-        else:
+        elif action == DiscreteNavigationAction.STOP:
+            print("DONE!")
             # Do nothing if "stop"
             # continuous_action = None
             # if not self.in_manipulation_mode():
             #     self.switch_to_manipulation_mode()
             pass
+        elif action == DiscreteNavigationAction.PICK_OBJECT:
+            print("PICK UP THE TARGET OBJECT")
+            if self.in_navigation_mode():
+                continuous_action[2] = -self.rotate_step
+            else:
+                continuous_action = None
+        else:
+            print("Action not implemented in pick-and-place environment:", action)
+            continuous_action = None
 
+        # Move, if we are not doing anything with the arm
         if continuous_action is not None:
             if not self.in_navigation_mode():
                 self.switch_to_navigation_mode()
@@ -104,6 +119,11 @@ class StretchPickandPlaceEnv(StretchEnv):
 
         # Sleep after sending the navigate command
         rospy.sleep(0.5)
+
+        # After optionally moving - try to grasp
+        if try_to_grasp:
+            self.grasp_planner.go_to_manip_mode()
+            self.grasp_planner.try_grasping()
 
     def set_goal(self, goal):
         """set a goal as a string"""
@@ -134,9 +154,9 @@ class StretchPickandPlaceEnv(StretchEnv):
 
         # Create the observation
         obs = home_robot.core.interfaces.Observations(
-            rgb=rgb,
-            depth=depth,
-            xyz=xyz,
+            rgb=rgb.copy(),
+            depth=depth.copy(),
+            xyz=xyz.copy(),
             gps=gps,
             compass=np.array([theta]),
             # base_pose=sophus2obs(relative_pose),

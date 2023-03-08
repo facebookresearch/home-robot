@@ -1,4 +1,4 @@
-BASE_TASK_CONFIG_PATH: configs/task/floorplanner_val_receptacle_categories.yaml
+BASE_TASK_CONFIG_PATH: projects/stretch_grasping/configs/task/floorplanner_val_receptacle_categories.yaml
 
 NO_GPU: 0                 # 1: ignore IDs above and run on CPU, 0: run on GPUs with IDs above
 NUM_ENVIRONMENTS: 18      # number of environments (per agent process)
