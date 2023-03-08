@@ -13,7 +13,7 @@ class SimpleTaskState(Enum):
     PLACE_OBJECT = 3
 
 
-class SimplePickPlaceAgent(Agent):
+class PickAndPlaceAgent(Agent):
     """Create a simple version of a pick and place agent which uses a 2D semantic map to find
     objects and try to grasp them."""
 
