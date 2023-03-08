@@ -506,7 +506,13 @@ class StretchEnv(home_robot.core.abstract_env.Env):
 
         return imgs
 
-    def get_pose(self, frame, base_frame=None, lookup_time=None, timeout_s=None):
+    def get_pose(
+        self,
+        frame: str,
+        base_frame: Optional[str] = None,
+        lookup_time: Optional[float] = None,
+        timeout_s: Optional[float] = None,
+    ) -> np.ndarray:
         """look up a particular frame in base coords"""
         if lookup_time is None:
             lookup_time = rospy.Time(0)  # return most recent transform
