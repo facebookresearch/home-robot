@@ -13,24 +13,11 @@ import rospy
 import trimesh
 import trimesh.transformations as tra
 
+from home_robot.mapping.voxel import combine_point_clouds
 from home_robot.motion.stretch import STRETCH_NAVIGATION_Q, HelloStretch
 from home_robot.utils.point_cloud import numpy_to_pcd, pcd_to_numpy, show_point_cloud
 from home_robot.utils.pose import to_pos_quat
-from home_robot_hw.env.stretch_grasping_env import StretchGraspingEnv
-
-
-def combine_point_clouds(
-    pc_xyz: np.ndarray, pc_rgb: np.ndarray, xyz: np.ndarray, rgb: np.ndarray
-) -> np.ndarray:
-    """Tool to combine point clouds without duplicates. Concatenate, voxelize, and then return
-    the finished results."""
-    if pc_rgb is None:
-        pc_rgb, pc_xyz = rgb, xyz
-    else:
-        pc_rgb = np.concatenate([pc_rgb, rgb], axis=0)
-        pc_xyz = np.concatenate([pc_xyz, xyz], axis=0)
-    pcd = numpy_to_pcd(pc_xyz, pc_rgb).voxel_down_sample(voxel_size=0.01)
-    return pcd_to_numpy(pcd)
+from home_robot_hw.env.stretch_pick_and_place_env import StretchPickandPlaceEnv
 
 
 class RosMapDataCollector(object):
@@ -95,7 +82,7 @@ class RosMapDataCollector(object):
 @click.option("--pcd-filename", default="output.ply", type=str)
 def main(rate, max_frames, visualize, manual_wait, pcd_filename):
     rospy.init_node("build_3d_map")
-    env = StretchGraspingEnv(segmentation_method=None)
+    env = StretchPickandPlaceEnv(segmentation_method=None)
     collector = RosMapDataCollector(env, visualize)
 
     # Tuck the arm away
