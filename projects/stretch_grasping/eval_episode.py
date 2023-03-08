@@ -1,8 +1,8 @@
 #!/usr/bin/env python
 import rospy
 
+from home_robot.agent.hierarchical.simple import SimplePickPlaceAgent
 from home_robot.motion.stretch import STRETCH_HOME_Q
-from home_robot.agent.objectnav_agent.objectnav_agent import ObjectNavAgent
 from home_robot.utils.config import get_config
 from home_robot_hw.env.stretch_object_nav_env import StretchGraspingEnv
 
@@ -16,7 +16,7 @@ if __name__ == "__main__":
     config.freeze()
 
     rospy.init_node("eval_episode_stretch_objectnav")
-    agent = ObjectNavAgent(config=config)
+    agent = SimplePickPlaceAgent(config=config)
     env = StretchGraspingEnv(config=config)
     env.goto(STRETCH_HOME_Q)
 
