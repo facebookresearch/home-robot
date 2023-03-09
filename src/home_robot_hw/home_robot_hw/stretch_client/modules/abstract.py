@@ -1,4 +1,6 @@
 import abc
+import threading
+from typing import Callable
 
 import rospy
 
@@ -18,7 +20,29 @@ def enforce_enabled(func):
 
 
 class AbstractControlModule(abc.ABC):
+    """
+    Abstract control module that implements the following functionalities
+    - Enabling / disabling the module to control access of methods
+    - Concurrency management
+    """
+
     _is_enabled: bool = False
+
+    def __init__(self):
+        self._wait_threads = []
+
+    def _register_wait(self, func):
+        thr = threading.Thread(target=func)
+        self._wait_threads.append()
+        thr.start()
+
+    def is_busy(self):
+        return bool(self._busy_threads)
+
+    def wait(self):
+        while self._wait_threads:
+            thr = self._wait_threads.pop()
+            thr.join()
 
     @property
     def is_enabled(self):

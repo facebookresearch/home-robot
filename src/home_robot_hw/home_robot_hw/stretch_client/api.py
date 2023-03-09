@@ -84,6 +84,13 @@ class StretchClient:
     def in_navigation_mode(self):
         return self._base_control_mode == ControlMode.NAVIGATION
 
+    # General control methods
+
+    def wait(self):
+        self.nav.wait()
+        self.manip.wait()
+        self.head.wait()
+
     def reset(self):
         self.stop()
         self.switch_to_manipulation_mode()

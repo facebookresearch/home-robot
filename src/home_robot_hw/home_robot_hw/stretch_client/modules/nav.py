@@ -57,22 +57,6 @@ class StretchNavigationClient(AbstractControlModule):
             return False
 
     @enforce_enabled
-    def wait(self):
-        """Wait until goal is reached"""
-        rospy.sleep(self.msg_delay_t)
-        rate = rospy.Rate(self.block_spin_rate)
-        while not rospy.is_shutdown():
-            # Verify that we are at goal and perception is synchronized with pose
-            if self.at_goal() and self._ros_client.recent_depth_image(self.msg_delay_t):
-                break
-            else:
-                rate.sleep()
-        # TODO: this should be unnecessary
-        # TODO: add this back in if we are having trouble building maps
-        # Make sure that depth and position are synchonized
-        # rospy.sleep(self.msg_delay_t * 5)
-
-    @enforce_enabled
     def set_velocity(self, v, w):
         """
         Directly sets the linear and angular velocity of robot base.
@@ -124,6 +108,7 @@ class StretchNavigationClient(AbstractControlModule):
         self._ros_client.goto_on_service(TriggerRequest())
         self._ros_client.goal_pub.publish(msg)
 
+        self._register_wait(self._wait_for_goal_reached)
         if blocking:
             self.wait()
 
@@ -140,3 +125,18 @@ class StretchNavigationClient(AbstractControlModule):
             if self._ros_client.se3_base_filtered is not None:
                 break
             rate.sleep()
+
+    def _wait_for_goal_reached(self):
+        """Wait until goal is reached"""
+        rospy.sleep(self.msg_delay_t)
+        rate = rospy.Rate(self.block_spin_rate)
+        while not rospy.is_shutdown():
+            # Verify that we are at goal and perception is synchronized with pose
+            if self.at_goal() and self._ros_client.recent_depth_image(self.msg_delay_t):
+                break
+            else:
+                rate.sleep()
+        # TODO: this should be unnecessary
+        # TODO: add this back in if we are having trouble building maps
+        # Make sure that depth and position are synchonized
+        # rospy.sleep(self.msg_delay_t * 5)

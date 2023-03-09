@@ -11,6 +11,8 @@ import trimesh.transformations as tra
 from home_robot.motion.robot import Robot
 from home_robot_hw.ros.camera import RosCamera
 
+from .abstract import AbstractControlModule
+
 DEFAULT_COLOR_TOPIC = "/camera/color"
 DEFAULT_DEPTH_TOPIC = "/camera/aligned_depth_to_color"
 
@@ -18,7 +20,7 @@ MIN_DEPTH_REPLACEMENT_VALUE = 10000
 MAX_DEPTH_REPLACEMENT_VALUE = 10001
 
 
-class StretchHeadClient:
+class StretchHeadClient(AbstractControlModule):
     min_depth_val = 0.1
     max_depth_val = 4.0
 
@@ -69,8 +71,9 @@ class StretchHeadClient:
 
         self._ros_client.send_trajectory_goals(joint_goals)
 
+        self._register_wait(self._ros_client.wait_for_trajectory_action)
         if blocking:
-            self._ros_client.wait_for_trajectory_action()
+            self.wait()
 
     def look_at_ee(self, blocking: bool = False):
         pan, tilt = self._robot_model.look_at_ee
