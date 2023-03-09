@@ -45,6 +45,8 @@ class RosMapDataCollector(object):
         rgb, depth, xyz = self.env.get_images(compute_xyz=True, rotate_images=False)
         q, dq = self.env.update()
         camera_pose = self.env.get_camera_pose_matrix(rotated=False)
+        orig_rgb = rgb.copy()
+        orig_depth = depth.copy()
 
         # apply depth filter
         depth = depth.reshape(-1)
@@ -56,7 +58,15 @@ class RosMapDataCollector(object):
         # TODO: remove debug code
         # For now you can use this to visualize a single frame
         # show_point_cloud(xyz, rgb / 255, orig=np.zeros(3))
-        self.voxel_map.add(camera_pose, xyz, rgb, depth=depth, K=self.env.rgb_cam.K)
+        self.voxel_map.add(
+            camera_pose,
+            xyz,
+            rgb,
+            depth=depth,
+            K=self.env.rgb_cam.K,
+            orig_rgb=orig_rgb,
+            orig_depth=orig_depth,
+        )
 
     def show(self) -> Tuple[np.ndarray, np.ndarray]:
         """Display the aggregated point cloud."""
