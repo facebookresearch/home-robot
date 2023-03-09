@@ -24,7 +24,7 @@ class StretchManipulationEnv(StretchEnv):
         """Reset is called at the beginning of each episode where the
         robot retracts gripper and sets itself to a neutral position"""
         # TODO: implement this
-        pass
+        raise NotImplementedError
 
     def apply_action(self, manip_action) -> None:
         """
@@ -40,10 +40,10 @@ class StretchManipulationEnv(StretchEnv):
 
     # over-riding the following methods from the parent class
     def episode_over(self) -> None:
-        pass
+        raise NotImplementedError
 
     def get_episode_metrics(self) -> None:
-        pass
+        raise NotImplementedError
 
     def get_observation(self) -> Dict[str, np.ndarray]:
         """Collects sensor data and passes as a dictionary to SLAP
@@ -66,6 +66,7 @@ class StretchManipulationEnv(StretchEnv):
         # TODO get the ee-pose from TF lookup
         # ee_pose_1 = self.get_pose("link_grasp_center", base_frame=STRETCH_BASE_FRAME)
         base_pose = self.get_base_pose()
+        # TODO convert the following to use home_robot.core.interface.Observations
         observations = {
             "rgb": rgb,
             "depth": depth,
