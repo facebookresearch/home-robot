@@ -7,12 +7,8 @@
 
 ## Environment Setup
 
+On machine with GPU:
 ```
-
-git clone git@github.com:cpaxton/home-robot-dev.git
-cd home-robot-dev
-git checkout lang-rearrange-baseline
-
 conda create -n home-robot python=3.10 cmake pytorch pytorch-cuda=11.7 -c pytorch -c nvidia -y
 conda activate home-robot
 
@@ -22,16 +18,43 @@ pip install -r requirements.txt
 python setup.py install --headless --with-bullet
 # (if the above commands runs out of memory) 
 # python setup.py build_ext --parallel 8 install --headless
-
 cd ..
+
 git clone --branch modular_nav_obj_on_rec https://github.com/facebookresearch/habitat-lab.git
-cd habitat-lab 
+cd habitat-lab
+pip install -e habitat-baselines
+cd habitat-lab
 pip install -r requirements.txt
 # Not clear if this should have --all or just be a pip install .
 python setup.py develop
-pip install natsort scikit-image scikit-fmm pandas
+cd ../..
 
+pip install natsort scikit-image scikit-fmm pandas trimesh scikit-learn
+```
+
+On Mac:
+```
+conda create -n home-robot python=3.10 cmake
+conda activate home-robot
+
+conda install pytorch torchvision torchaudio -c pytorch
+
+git clone https://github.com/3dlg-hcvc/habitat-sim --branch floorplanner
+cd habitat-sim
+pip install -r requirements.txt
+python setup.py install --with-bullet
 cd ..
+
+git clone --branch modular_nav_obj_on_rec https://github.com/facebookresearch/habitat-lab.git
+cd habitat-lab
+pip install -e habitat-baselines
+cd habitat-lab
+pip install -r requirements.txt
+# Not clear if this should have --all or just be a pip install .
+python setup.py develop
+cd ../..
+
+pip install natsort scikit-image scikit-fmm pandas trimesh scikit-learn
 ```
 
 **[IMPORTANT]: Add habitat-lab path to PYTHONPATH**:
