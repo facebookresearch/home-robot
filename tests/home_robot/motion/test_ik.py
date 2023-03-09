@@ -9,7 +9,11 @@ import pytest
 from scipy.spatial.transform import Rotation as R
 
 from home_robot.motion.pinocchio_ik_solver import PositionIKOptimizer
-from home_robot.motion.stretch import STRETCH_GRASP_OFFSET, STRETCH_HOME_Q, HelloStretch
+from home_robot.motion.stretch import (
+    STRETCH_GRASP_OFFSET,
+    STRETCH_HOME_Q,
+    HelloStretchKinematics,
+)
 from home_robot.utils.bullet import PbArticulatedObject
 from home_robot.utils.path import REPO_ROOT_PATH
 from home_robot.utils.pose import to_matrix, to_pos_quat
@@ -82,7 +86,7 @@ def test_pose(request):
 
 @pytest.fixture
 def pb_robot():
-    return HelloStretch(
+    return HelloStretchKinematics(
         urdf_path=URDF_ABS_PATH,
         visualize=DEBUG,
         ik_type="pybullet",
@@ -91,7 +95,7 @@ def pb_robot():
 
 @pytest.fixture
 def pin_robot():
-    return HelloStretch(
+    return HelloStretchKinematics(
         urdf_path=URDF_ABS_PATH,
         visualize=DEBUG,
         ik_type="pinocchio",

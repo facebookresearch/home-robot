@@ -12,8 +12,8 @@ from geometry_msgs.msg import TransformStamped
 import home_robot.utils.visualization as viz
 from home_robot.agent.motion.stretch import (
     STRETCH_PREGRASP_Q,
-    HelloStretch,
     HelloStretchIdx,
+    HelloStretchKinematics,
 )
 from home_robot.agent.perception.constants import coco_categories
 from home_robot.agent.perception.detectron2_segmentation import Detectron2Segmentation
@@ -157,7 +157,7 @@ def main(dry_run, show_masks, visualize_planner):
     # Create a grasping client using ROS
     grasp_client = RosGraspClient()
 
-    model = HelloStretch(visualize=visualize_planner)
+    model = HelloStretchKinematics(visualize=visualize_planner)
 
     home_q = STRETCH_PREGRASP_Q
     home_q = model.update_look_front(home_q.copy())

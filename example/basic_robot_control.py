@@ -2,12 +2,12 @@ import time
 
 import numpy as np
 
-from home_robot.motion.stretch import STRETCH_HOME_Q, HelloStretch
+from home_robot.motion.stretch import STRETCH_HOME_Q, HelloStretchKinematics
 from home_robot_hw.stretch_client import StretchClient
 
 if __name__ == "__main__":
     robot = StretchClient()
-    model = HelloStretch()
+    model = HelloStretchKinematics()
 
     # Acquire camera observations
     imgs = robot.camera.get_images()

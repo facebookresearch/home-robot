@@ -13,7 +13,7 @@ import rospy
 import trimesh
 import trimesh.transformations as tra
 
-from home_robot.motion.stretch import STRETCH_NAVIGATION_Q, HelloStretch
+from home_robot.motion.stretch import STRETCH_NAVIGATION_Q, HelloStretchKinematics
 from home_robot.utils.point_cloud import numpy_to_pcd, pcd_to_numpy, show_point_cloud
 from home_robot.utils.pose import to_pos_quat
 from home_robot_hw.env.stretch_grasping_env import StretchGraspingEnv
@@ -49,7 +49,7 @@ class RosMapDataCollector(object):
         self.env = env  # Get the connection to the ROS environment via agent
         self.observations = []
         self.started = False
-        self.robot_model = HelloStretch(visualize=visualize_planner)
+        self.robot_model = HelloStretchKinematics(visualize=visualize_planner)
 
     def step(self):
         """Step the collector. Get a single observation of the world. Remove bad points, such as

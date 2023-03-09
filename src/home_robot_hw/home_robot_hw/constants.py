@@ -1,6 +1,6 @@
 from enum import Enum
 
-from home_robot.motion.stretch import HelloStretch, HelloStretchIdx
+from home_robot.motion.stretch import HelloStretchIdx
 
 ROS_ARM_JOINTS = ["joint_arm_l0", "joint_arm_l1", "joint_arm_l2", "joint_arm_l3"]
 ROS_LIFT_JOINT = "joint_lift"
