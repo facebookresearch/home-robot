@@ -8,6 +8,7 @@ import rospy
 from geometry_msgs.msg import Twist
 from std_srvs.srv import SetBoolRequest, TriggerRequest
 
+from home_robot.motion.robot import Robot
 from home_robot.utils.geometry import sophus2xyt, xyt2sophus, xyt_base_to_global
 from home_robot_hw.constants import T_LOC_STABILIZE
 from home_robot_hw.ros.utils import matrix_to_pose_msg
@@ -19,7 +20,7 @@ class StretchNavigationClient(AbstractControlModule):
     msg_delay_t = 0.25
     block_spin_rate = 10
 
-    def __init__(self, ros_client, robot_model):
+    def __init__(self, ros_client, robot_model: Robot):
         self._ros_client = ros_client
         self._robot_model = robot_model
         self._wait_for_pose()

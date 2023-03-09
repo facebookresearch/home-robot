@@ -8,7 +8,8 @@ import ros_numpy
 import rospy
 import tf2_ros
 
-from home_robot.motion.stretch import HelloStretch
+from home_robot.motion.robot import Robot
+from home_robot.motion.stretch import HelloStretchKinematics
 from home_robot_hw.constants import ControlMode
 
 from .modules.head import StretchHeadClient
@@ -31,7 +32,7 @@ class StretchClient:
         self._ros_client = StretchRosInterface()
 
         # Robot model
-        self._robot_model = HelloStretch()
+        self._robot_model = HelloStretchKinematics()
 
         # Interface modules
         if camera_overrides is None:
@@ -96,7 +97,11 @@ class StretchClient:
         self.manip.disable()
         self._base_control_mode = ControlMode.IDLE
 
-    # General state getters
+    # Other interfaces
+
+    @property
+    def robot_model(self) -> Robot:
+        return self._robot_model
 
     def get_frame_pose(self, frame, base_frame=None, lookup_time=None, timeout_s=None):
         """look up a particular frame in base coords"""

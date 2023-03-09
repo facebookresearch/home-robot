@@ -8,6 +8,7 @@ import numpy as np
 import rospy
 import trimesh.transformations as tra
 
+from home_robot.motion.robot import Robot
 from home_robot_hw.ros.camera import RosCamera
 
 DEFAULT_COLOR_TOPIC = "/camera/color"
@@ -24,7 +25,7 @@ class StretchHeadClient:
     def __init__(
         self,
         ros_client,
-        robot_model,
+        robot_model: Robot,
         init_cameras: bool = True,
         color_topic: Optional[str] = None,
         depth_topic: Optional[str] = None,
