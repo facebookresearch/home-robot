@@ -2,7 +2,6 @@ from typing import List, Tuple
 
 import h5py
 import numpy as np
-import rospy
 from geometry_msgs.msg import TransformStamped
 from matplotlib import pyplot as plt
 from tf2_ros import tf2_ros
@@ -11,6 +10,7 @@ from home_robot.utils.data_tools.image import img_from_bytes
 
 
 def view_keyframe_imgs(file_object: h5py.File, trial_name: str):
+    """utility to view keyframe images for named trial from h5 file"""
     num_keyframes = len(file_object[f"{trial_name}/rgb"].keys())
     for i in range(num_keyframes):
         _key = f"{trial_name}/rgb/{i}"
@@ -22,6 +22,7 @@ def view_keyframe_imgs(file_object: h5py.File, trial_name: str):
 def plot_ee_pose(
     file_object: h5py.File, trial_name: str, ros_pub: tf2_ros.TransformBroadcaster
 ) -> List[Tuple[np.ndarray, np.ndarray]]:
+    """plot keyframes as TF to be visualized in RVIZ, also return the ee pose associated with them"""
     num_keyframes = len(file_object[f"{trial_name}/ee_pose"][()])
     ee_pose = []
     for i in range(num_keyframes):

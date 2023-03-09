@@ -4,6 +4,7 @@ import rospy
 import tf2_ros
 
 from home_robot.utils.data_tools.h5_utils import plot_ee_pose, view_keyframe_imgs
+from home_robot_hw.env.stretch_manipulation_env import StretchManipulationEnv
 
 
 @click.command()
@@ -13,7 +14,8 @@ from home_robot.utils.data_tools.h5_utils import plot_ee_pose, view_keyframe_img
     help="Absolute or relative path to h5 file to be introspected",
 )
 @click.option("--trial", default="", help="Trial name as a string which to introspect")
-def main(h5_file, trial):
+@click.option("--replay", default=False, help="To replay the episode on Stretch")
+def main(h5_file, trial, replay):
     if not h5_file:
         print("No file path provided. Program will exit")
         return
@@ -21,7 +23,11 @@ def main(h5_file, trial):
     ros_pub = tf2_ros.TransformBroadcaster()
     file = h5py.File(h5_file, "r")
     view_keyframe_imgs(file, trial)
-    plot_ee_pose(file, trial, ros_pub)
+    ee_pose = plot_ee_pose(file, trial, ros_pub)
+    if replay:
+        robot = StretchManipulationEnv(init_cameras=True)
+        for pose in ee_pose:
+            robot.apply_action({"pos": pose[0], "rot": pose[1]})
 
 
 if __name__ == "__main__":
