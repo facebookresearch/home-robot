@@ -1,4 +1,7 @@
+from typing import List, Tuple
+
 import h5py
+import numpy as np
 import rospy
 from geometry_msgs.msg import TransformStamped
 from matplotlib import pyplot as plt
@@ -18,11 +21,13 @@ def view_keyframe_imgs(file_object: h5py.File, trial_name: str):
 
 def plot_ee_pose(
     file_object: h5py.File, trial_name: str, ros_pub: tf2_ros.TransformBroadcaster
-):
+) -> List[Tuple[np.ndarray, np.ndarray]]:
     num_keyframes = len(file_object[f"{trial_name}/ee_pose"][()])
+    ee_pose = []
     for i in range(num_keyframes):
         pos = file_object[f"{trial_name}/ee_pose"][()][i][:3]
         rot = file_object[f"{trial_name}/ee_pose"][()][i][3:]
+        ee_pose.append((pos, rot))
         pose_message = TransformStamped()
         pose_message.header.stamp = rospy.Time.now()
         pose_message.header.frame_id = "base_link"
@@ -39,3 +44,5 @@ def plot_ee_pose(
 
         ros_pub.sendTransform(pose_message)
         input("Press enter to continue")
+
+    return ee_pose
