@@ -14,7 +14,7 @@ STRETCH_GRIPPER_MAX = 0.6
 
 
 def create_apm_input(raw_data, p_i):
-    return raw_data
+    raise NotImplementedError
 
 
 def create_ipm_input(
