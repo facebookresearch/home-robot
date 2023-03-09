@@ -1,6 +1,6 @@
 import numpy as np
 
-from home_robot_hw.env.stretch_abstract_env import HelloStretchIdx
+from home_robot.motion.stretch import HelloStretchIdx
 
 """
 Model as dumped by fixed-base URDF that following use:

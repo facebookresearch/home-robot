@@ -146,5 +146,6 @@ def smooth_mask(mask, kernel=None):
 
 
 def rotate_image(imgs: List[np.ndarray]) -> List[np.ndarray]:
+    """stretch specific routine to flip and rotate sideways images for normal viewing"""
     imgs = [np.rot90(np.fliplr(np.flipud(x))) for x in imgs]
     return imgs
