@@ -137,7 +137,6 @@ def main(rate, max_frames, visualize, manual_wait, pcd_filename, pkl_filename):
         frames += 1
         if max_frames > 0 and frames >= max_frames or step >= len(trajectory):
             break
-        break
 
         rate.sleep()
 

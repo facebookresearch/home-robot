@@ -86,7 +86,7 @@ class SparseVoxelMap(object):
                 data[k].append(v)
         data["world_xyx"] = self.xyz
         data["world_feats"] = self.feats
-        with open(filename, "w") as f:
+        with open(filename, "wb") as f:
             pickle.dump(data, f)
 
     def recompute_map(self):
