@@ -1,2 +1,5 @@
 dry_run: True
 ipm_weights: /home/priparashar/classify-multi-task_0035_000388.pth
+execution:
+  use_regressor: False
+

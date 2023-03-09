@@ -114,8 +114,7 @@ def main(cfg):
         print(f"Interaction point is {interaction_point}")
         experiment_running = False
         # ask if ok to run APM inference
-        use_regressor = False
-        if use_regressor:
+        if cfg.execution.use_regressor:
             for i in range(1):  # cfg.num_keypoints
                 # run APM inference on sensor
                 raw_observations = robot.get_observation()
