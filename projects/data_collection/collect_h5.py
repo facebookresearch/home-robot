@@ -17,7 +17,7 @@ class EpisodeManager(object):
     and time.
     """
 
-    def __init__(self, task_name: str, dir_path: str = os.path.expanduser("~/H5s/")):
+    def __init__(self, task_name: str, dir_path: str = "./H5s/"):
         """
         task_name: name of the task to record, string
         dir_path: path to the directory where the task directory will be created
@@ -76,7 +76,7 @@ class EpisodeManager(object):
 
 @click.command()
 @click.option("--task-name", default="task", help="Name of the task to record")
-@click.option("--dir-path", default="~/H5s/", help="Path of root data directory")
+@click.option("--dir-path", default="./H5s/", help="Path of root data directory")
 def main(task_name, dir_path):
     rospy.init_node("h5_demo_recorder")
     rate = rospy.Rate(10)
