@@ -13,18 +13,17 @@ import torch
 import trimesh.transformations as tra
 import wandb
 import yaml
-
-# Default debug dataset paths
-# from home_robot.policy.pt_query import train_dataset_dir, valid_dataset_dir
-from home_robot.utils.point_cloud import numpy_to_pcd
-from torch_geometric.nn import MLP, Linear
-from tqdm import tqdm
-
 from slap_manipulation.dataloaders.rlbench_loader import RLBenchDataset
 from slap_manipulation.dataloaders.robot_loader import RobotDataset
 from slap_manipulation.optim.lamb import Lamb
 from slap_manipulation.policy.components import DenseBlock, GlobalSAModule
 from slap_manipulation.policy.components import PtnetSAModule as SAModule
+from torch_geometric.nn import MLP, Linear
+from tqdm import tqdm
+
+# Default debug dataset paths
+# from home_robot.policy.pt_query import train_dataset_dir, valid_dataset_dir
+from home_robot.utils.point_cloud import numpy_to_pcd
 
 np.random.seed(0)
 torch.manual_seed(0)
@@ -520,11 +519,7 @@ class APModule(torch.nn.Module):
         query_pt = data["query_pt"]
         # query_pt = data["crop_ref_ee_keyframe_pos"]
         print("--- ", cmd, " ---")
-        (
-            delta_ee_pos,
-            abs_ee_ori,
-            gripper_state,
-        ) = self.forward(
+        (delta_ee_pos, abs_ee_ori, gripper_state,) = self.forward(
             crop_xyz,
             crop_rgb,
             proprio,
@@ -629,11 +624,7 @@ class APModule(torch.nn.Module):
             crop_target_ori = batch["ee_keyframe_ori_crop"][0]
             target_angles = batch["target_ee_angles"]
 
-            (
-                delta_ee_pos,
-                abs_ee_ori,
-                gripper_state,
-            ) = self.forward(
+            (delta_ee_pos, abs_ee_ori, gripper_state,) = self.forward(
                 crop_xyz,
                 crop_rgb,
                 proprio,

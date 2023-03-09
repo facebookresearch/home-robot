@@ -2,20 +2,19 @@ import yaml
 
 
 def load_annotations_dict(filename):
-    """ load annotations from a file """
+    """load annotations from a file"""
     with open(filename) as f:
         data = yaml.safe_load(f)
     labels = {}
     for entry in data.values():
-        key = entry['name']
+        key = entry["name"]
         skill_labels = []
-        alts = entry['alt_name']
+        alts = entry["alt_name"]
         labels[key] = [key]
         for alt in alts:
             labels[key].append(alt)
     return labels
 
 
-if __name__ == '__main__':
-    print(load_annotations_dict('assets/language_variations/v0.yml'))
-
+if __name__ == "__main__":
+    print(load_annotations_dict("assets/language_variations/v0.yml"))
