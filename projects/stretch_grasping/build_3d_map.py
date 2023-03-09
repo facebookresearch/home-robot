@@ -56,7 +56,7 @@ class RosMapDataCollector(object):
         # TODO: remove debug code
         # For now you can use this to visualize a single frame
         # show_point_cloud(xyz, rgb / 255, orig=np.zeros(3))
-        self.voxel_map.add(camera_pose, xyz, rgb)
+        self.voxel_map.add(camera_pose, xyz, rgb, depth=depth, K=self.env.rgb_cam.K)
 
     def show(self) -> Tuple[np.ndarray, np.ndarray]:
         """Display the aggregated point cloud."""
@@ -74,7 +74,8 @@ class RosMapDataCollector(object):
 @click.option("--visualize", default=False, is_flag=True)
 @click.option("--manual_wait", default=False, is_flag=True)
 @click.option("--pcd-filename", default="output.ply", type=str)
-def main(rate, max_frames, visualize, manual_wait, pcd_filename):
+@click.option("--pkl-filename", default="output.pkl", type=str)
+def main(rate, max_frames, visualize, manual_wait, pcd_filename, pkl_filename):
     rospy.init_node("build_3d_map")
     env = StretchPickandPlaceEnv(segmentation_method=None, ros_grasping=False)
     collector = RosMapDataCollector(env, visualize)
@@ -136,6 +137,7 @@ def main(rate, max_frames, visualize, manual_wait, pcd_filename):
         frames += 1
         if max_frames > 0 and frames >= max_frames or step >= len(trajectory):
             break
+        break
 
         rate.sleep()
 
@@ -147,6 +149,8 @@ def main(rate, max_frames, visualize, manual_wait, pcd_filename):
     if len(pcd_filename) > 0:
         pcd = numpy_to_pcd(pc_xyz, pc_rgb / 255)
         open3d.io.write_point_cloud(pcd_filename, pcd)
+    if len(pkl_filename) > 0:
+        collector.voxel_map.write_to_pickle(pkl_filename)
 
     rospy.signal_shutdown("done")
 

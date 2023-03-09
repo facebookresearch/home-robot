@@ -2,6 +2,7 @@
 #
 # This source code is licensed under the MIT license found in the
 # LICENSE file in the root directory of this source tree.
+import pickle
 from typing import Tuple
 
 import numpy as np
@@ -67,6 +68,26 @@ class SparseVoxelMap(object):
             return self.xyz, self.feats
         else:
             return self.xyz.copy(), self.feats.copy()
+
+    def write_to_pickle(self, filename):
+        """Write out to a pickle file. This is a rough, quick-and-easy output for debugging, not intended to replace the scalable data writer in data_tools for bigger efforts."""
+        data = {}
+        data["poses"] = []
+        data["xyz"] = []
+        data["feats"] = []
+        for camera_pose, xyz, feats, info in self.observations:
+            # add it to pickle
+            data["poses"].append(camera_pose)
+            data["xyz"].append(xyz)
+            data["feats"].append(feats)
+            for k, v in info.items():
+                if k not in data:
+                    data[k] = []
+                data[k].append(v)
+        data["world_xyx"] = self.xyz
+        data["world_feats"] = self.feats
+        with open(filename, "w") as f:
+            pickle.dump(data, f)
 
     def recompute_map(self):
         """Recompute the entire map from scratch instead of doing incremental updates"""
