@@ -17,7 +17,7 @@ class EpisodeManager(object):
     and time.
     """
 
-    def __init__(self, task_name: str, dir_path: str = os.path.expanduser("~/H5s/")):
+    def __init__(self, task_name: str, dir_path: str = "./H5s/"):
         """
         task_name: name of the task to record, string
         dir_path: path to the directory where the task directory will be created
@@ -48,8 +48,9 @@ class EpisodeManager(object):
         )
         self._is_recording = False
         date_time_string = datetime.now().strftime("%m-%d_%H-%M-%S")
-        filename = os.path.join(self.file_path, date_time_string)
-        self._keyframe_recorder = Recorder(filename + ".h5")
+        filename = os.path.join(self.file_path, date_time_string + ".h5")
+        self._keyframe_recorder = Recorder(filename)
+        self._k_idx = 0
 
     def toggle_episode(self):
         """toggles episode recording state
@@ -62,20 +63,24 @@ class EpisodeManager(object):
         else:
             self._is_recording = False
             self._keyframe_recorder.save_frame()
+            print(f"Keyframe saved: {self._k_idx}")
             self._keyframe_recorder.finish_recording()
+            self._k_idx = 0
 
     def record_keyframe(self):
         """add a keyframe to the current episode"""
         self._keyframe_recorder.save_frame(is_keyframe=True)
+        print(f"Keyframe saved: {self._k_idx}")
+        self._k_idx += 1
 
 
 @click.command()
 @click.option("--task-name", default="task", help="Name of the task to record")
-def main(task_name):
+@click.option("--dir-path", default="./H5s/", help="Path of root data directory")
+def main(task_name, dir_path):
     rospy.init_node("h5_demo_recorder")
     rate = rospy.Rate(10)
-    data_directory = os.path.expanduser("~/H5s/")
-    em = EpisodeManager(task_name, data_directory)
+    em = EpisodeManager(task_name, dir_path)
     while not rospy.is_shutdown():
         rospy.spin()
         rate.sleep()
