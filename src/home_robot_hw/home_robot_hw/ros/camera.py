@@ -57,7 +57,7 @@ class RosCamera(Camera):
         """Wait for image. Needs to be sort of slow, in order to make sure we give it time
         to update the image in the backend."""
         rospy.sleep(0.2)
-        rate = rospy.Rate(1)
+        rate = rospy.Rate(2)
         while not rospy.is_shutdown():
             with self._lock:
                 if self.buffer_size is None:
