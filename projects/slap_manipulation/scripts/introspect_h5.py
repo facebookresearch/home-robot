@@ -2,7 +2,8 @@ import click
 import h5py
 import rospy
 import tf2_ros
-from slap_manipulation.utils.h5_utils import plot_ee_pose, view_keyframe_imgs
+
+from home_robot.utils.data_tools.h5_utils import plot_ee_pose, view_keyframe_imgs
 
 
 @click.command()
