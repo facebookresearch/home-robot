@@ -8,7 +8,7 @@ import ros_numpy
 import rospy
 import tf2_ros
 
-from home_robot.motion.stretch import HelloStretch
+from home_robot.motion.stretch import HelloStretchKinematics
 from home_robot_hw.constants import ControlMode
 
 from .modules.head import StretchHeadInterface
@@ -31,7 +31,7 @@ class StretchClient:
         self._ros_client = StretchRosInterface()
 
         # Robot model
-        self._robot_model = HelloStretch()
+        self._robot_model = HelloStretchKinematics()
 
         # Interface modules
         if camera_overrides is None:
