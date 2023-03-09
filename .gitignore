@@ -33,3 +33,4 @@ datadump/
 
 # Detic model files
 *.pth
+*.ply
