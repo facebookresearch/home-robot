@@ -76,7 +76,7 @@ class Recorder(object):
         rgb, depth, xyz = self.robot.get_images(compute_xyz=True)
         q, dq = self.robot.update()
         # TODO get the following from TF lookup
-        ee_pose = self.robot.model.fk(q)
+        ee_pose = self.robot.model.manip_fk(q)
         # output of above is a tuple of two ndarrays
         # ee-pose should be 1 ndarray of 7 values
         ee_pose = np.concatenate((ee_pose[0], ee_pose[1]), axis=0)
