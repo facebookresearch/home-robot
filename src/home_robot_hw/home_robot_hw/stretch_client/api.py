@@ -11,9 +11,9 @@ import tf2_ros
 from home_robot.motion.stretch import HelloStretch
 from home_robot_hw.constants import ControlMode
 
-from .modules.head import StretchHeadInterface
-from .modules.manip import StretchManipulationInterface
-from .modules.nav import StretchNavigationInterface
+from .modules.head import StretchHeadControl
+from .modules.manip import StretchManipulationControl
+from .modules.nav import StretchNavigationControl
 from .ros import StretchRosInterface
 
 
@@ -37,9 +37,9 @@ class StretchClient:
         if camera_overrides is None:
             camera_overrides = {}
 
-        self.nav = StretchNavigationInterface(self._ros_client, self._robot_model)
-        self.manip = StretchManipulationInterface(self._ros_client, self._robot_model)
-        self.head = StretchHeadInterface(
+        self.nav = StretchNavigationControl(self._ros_client, self._robot_model)
+        self.manip = StretchManipulationControl(self._ros_client, self._robot_model)
+        self.head = StretchHeadControl(
             self._ros_client, self._robot_model, **camera_overrides
         )
 

@@ -15,7 +15,7 @@ from home_robot_hw.ros.utils import matrix_to_pose_msg
 from .abstract import AbstractControlModule, enforce_enabled
 
 
-class StretchNavigationInterface(AbstractControlModule):
+class StretchNavigationControl(AbstractControlModule):
     msg_delay_t = 0.25
     block_spin_rate = 10
 
