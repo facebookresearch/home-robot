@@ -49,7 +49,7 @@ class EpisodeManager(object):
         self._is_recording = False
         date_time_string = datetime.now().strftime("%m-%d_%H-%M-%S")
         filename = os.path.join(self.file_path, date_time_string)
-        self._keyframe_recorder = Recorder(filename)
+        self._keyframe_recorder = Recorder(filename + ".h5")
 
     def toggle_episode(self):
         """toggles episode recording state
