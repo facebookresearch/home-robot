@@ -2,6 +2,7 @@ from typing import List, Tuple
 
 import h5py
 import numpy as np
+import rospy
 from geometry_msgs.msg import TransformStamped
 from matplotlib import pyplot as plt
 from tf2_ros import tf2_ros
