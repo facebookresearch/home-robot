@@ -65,7 +65,9 @@ def create_ipm_input(
     if debug:
         show_point_cloud(xyz, rgb / 255.0, orig=np.zeros(3))
 
-    input_vector = ([rgb / 255.0], xyz, proprio, lang)
+    if np.any(rgb) > 1.0:
+        rgb = rgb / 255.0
+    input_vector = ([rgb], xyz, proprio, lang)
     return input_vector
 
 
