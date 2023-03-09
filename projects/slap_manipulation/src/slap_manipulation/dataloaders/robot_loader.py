@@ -1,6 +1,6 @@
 import json
 import math
-from typing import List, Optional, Sequence, TypeVar, Union
+from typing import List, Optional, Sequence, Tuple, TypeVar, Union
 
 import click
 import numpy as np
@@ -250,8 +250,10 @@ class RobotDataset(RLBenchDataset):
         #     cam_intrinsic_dict[cam_mapping["camera_mapping"][camid]] = cami
         return cam_intrinsic_dict, cam_extrinsic_dict
 
-    def process_images_from_view(self, trial: Trial, view_name: str, idx: int):
-        """process image from a given camera
+    def process_images_from_view(
+        self, trial: Trial, view_name: str, idx: int
+    ) -> Tuple[np.ndarray, np.ndarray]:
+        """process rgb and depth image from a given camera into a structured PCD
         Args:
             trial:      Trial object
             view_name:  semantic name of the camera

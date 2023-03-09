@@ -465,6 +465,7 @@ class HelloStretch(Robot):
         return self.ref.get_link_pose(link_name)
 
     def manip_fk(self, q=None) -> Tuple[np.ndarray, np.ndarray]:
+        """manipulator specific forward kinematics; uses separate URDF than the full-body fk() method"""
         pin_pose = self.ros_pose_to_pinocchio(q)
         if self._ik_type == "pinocchio":
             ee_pos, ee_quat = self.manip_ik_solver.compute_fk(pin_pose)
