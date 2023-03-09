@@ -70,6 +70,10 @@ class StretchPickandPlaceEnv(StretchEnv):
             # This takes in a reference to the robot client - will replace "self" with "self.client"
             self.grasp_planner = GraspPlanner(self, visualize_planner=visualize_planner)
         else:
+            if visualize_planner:
+                raise RuntimeError(
+                    "Param visualize_planner was set to True, but no planner is being created; cannot visualize!"
+                )
             self.grasp_planner = None
 
     def reset(self, goal: str):
