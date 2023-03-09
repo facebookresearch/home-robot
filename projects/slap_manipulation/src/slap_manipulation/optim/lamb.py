@@ -1,29 +1,32 @@
-"""Lamb optimizer."""
+# MIT License
+#
+# Copyright (c) 2019 cybertronai
+#
+# Permission is hereby granted, free of charge, to any person obtaining a copy
+# of this software and associated documentation files (the "Software"), to deal
+# in the Software without restriction, including without limitation the rights
+# to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+# copies of the Software, and to permit persons to whom the Software is
+# furnished to do so, subject to the following conditions:
+#
+# The above copyright notice and this permission notice shall be included in all
+# copies or substantial portions of the Software.
+#
+# THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+# IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+# FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+# AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+# LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+# OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+# SOFTWARE.
 
-# LAMB optimizer used as is.
-# 2ndary source: https://github.com/peract/peract/blob/main/helpers/optim/lamb.py
-# Source: https://github.com/cybertronai/pytorch-lamb
-# License: https://github.com/cybertronai/pytorch-lamb/blob/master/LICENSE
-# Note: Also available at https://github.com/jettify/pytorch-optimizer
+"""Lamb optimizer."""
 
 import collections
 import math
 
 import torch
 from torch.optim import Optimizer
-
-# def log_lamb_rs(optimizer: Optimizer, event_writer: SummaryWriter, token_count: int):
-#     """Log a histogram of trust ratio scalars in across layers."""
-#     results = collections.defaultdict(list)
-#     for group in optimizer.param_groups:
-#         for p in group['params']:
-#             state = optimizer.state[p]
-#             for i in ('weight_norm', 'adam_norm', 'trust_ratio'):
-#                 if i in state:
-#                     results[i].append(state[i])
-#
-#     for k, v in results.items():
-#         event_writer.add_histogram(f'lamb/{k}', torch.tensor(v), token_count)
 
 
 class Lamb(Optimizer):
@@ -42,6 +45,12 @@ class Lamb(Optimizer):
             Adam. Useful for comparison purposes.
     .. _Large Batch Optimization for Deep Learning: Training BERT in 76 minutes:
         https://arxiv.org/abs/1904.00962
+
+    LAMB optimizer used as is from primary source.
+    2ndary source: https://github.com/peract/peract/blob/main/helpers/optim/lamb.py
+    Source: https://github.com/cybertronai/pytorch-lamb
+    License: https://github.com/cybertronai/pytorch-lamb/blob/master/LICENSE
+    Note: Also available at https://github.com/jettify/pytorch-optimizer
     """
 
     def __init__(
