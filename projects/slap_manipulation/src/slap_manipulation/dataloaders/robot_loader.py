@@ -39,18 +39,31 @@ VOXEL_SIZE_2 = 0.01
 
 
 def show_point_cloud_with_keypt_and_closest_pt(
-    xyz, rgb, keypt_orig, keypt_rot, closest_pt
+    xyz: np.ndarray,
+    rgb: np.ndarray,
+    keyframe_orig: np.ndarray,
+    keyframe_rot: np.ndarray,
+    closest_pt: np.ndarray,
 ):
+    """
+    Method to visualize input point-cloud along with ee pose and labeled interaction point
+    Args:
+        xyz: (Nx3) point cloud points
+        rgb: (Nx3) point cloud color
+        keyframe_orig: (3x1 vector) ee/keyframe position
+        keyframe_rot: (3x3 matrix) ee/keyframe orientation as rotation matrix
+        closest_pt: (3x1 vector) labeled interaction point
+    """
     if np.any(rgb) > 1:
         rgb = rgb / 255.0
     pcd = numpy_to_pcd(xyz, rgb)
     geoms = [pcd]
-    if keypt_orig is not None:
+    if keyframe_orig is not None:
         coords = o3d.geometry.TriangleMesh.create_coordinate_frame(
-            size=0.1, origin=keypt_orig
+            size=0.1, origin=keyframe_orig
         )
-        if keypt_rot is not None:
-            coords = coords.rotate(keypt_rot)
+        if keyframe_rot is not None:
+            coords = coords.rotate(keyframe_rot)
         geoms.append(coords)
     if closest_pt is not None:
         closest_pt_sphere = o3d.geometry.TriangleMesh.create_sphere(radius=0.02)
@@ -91,26 +104,24 @@ class RPHighLevelTrial(Trial):
 
 
 class RobotDataset(RLBenchDataset):
-    """train on a dataset from RLBench"""
+    """train on a dataset from robot dataset"""
 
     def __init__(
         self,
         dirname,
         template="*.h5",
-        predict: str = "",
         verbose=False,
-        num_pts=10000,
+        num_pts=8000,
         data_augmentation=True,
-        random_idx=False,
         random_cmd=True,
         first_keypoint_only=False,
         keypoint_range: list = [0, 1, 2],
         show_voxelized_input_and_reference=False,
-        show_input_and_reference=False,
+        show_raw_input_and_reference=False,
         show_cropped=False,
         ori_dr_range=np.pi / 4,
         cart_dr_range=1.0,
-        first_frame_only=False,
+        first_frame_as_input=False,
         trial_list: list = [],
         orientation_type="quaternion",
         multi_step=False,
@@ -126,12 +137,32 @@ class RobotDataset(RLBenchDataset):
         *args,
         **kwargs,
     ):
+        """
+        dirname:                name of dir with all h5 files
+        template:               template for glob to find all h5 files
+        verbose:                prints info about number of files, their names and trial info
+        num_pts:                number of points to sample from point cloud
+        data_augmentation:      whether to apply domain randomization
+        random_cmd:             whether to randomly sample a task language variation from the list of commands
+        first_keypoint_only:    whether to only use the first keypoint in the sequence
+        keypoint_range:         list of keypoint indices to use for training
+        show_voxelized_input_and_reference: whether to show voxelized input and reference point clouds
+        show_raw_input_and_reference: whether to show raw input and reference point clouds
+        show_cropped:           whether to show cropped input point-cloud
+        ori_dr_range:           magnitude for domain randomization for orientation
+        cart_dr_range:          magnitude for domain randomization for cartesian position
+        first_frame_as_input:   whether to only use the first frame in the sequence for input PCD
+        trial_list:             list of trials to sample from; if not provided all trials found are used
+        orientation_type:       type of orientation to use for training; can be "quaternion" or "euler"
+        multi_step:             whether to return output signals for multi-step regression training
+        crop_radius:            whether to crop the input point cloud to a sphere of radius crop_radius_range
+        """
         if yaml_file is not None:
             self.annotations = load_annotations_dict(yaml_file)
         else:
             self.annotations = None
-        self.random_idx = random_idx
         self.random_cmd = random_cmd
+        # TODO: deprecate this and use only keypoint_range to constrain index of sampled keyframe
         self.first_keypoint_only = first_keypoint_only
         self.keypoint_to_use = None
         self.multi_step = multi_step
@@ -164,7 +195,6 @@ class RobotDataset(RLBenchDataset):
         self._local_problem_size = 0.1
         self.num_pts = num_pts
         self.DEBUG = True
-        self.predict = predict  # can be "contact" or "release"
 
         # configuration and data files
         self.cam_mapping_json_path = "./assets/robopen08_mapping.json"
@@ -176,9 +206,9 @@ class RobotDataset(RLBenchDataset):
         self.robot = FrankaPanda()
 
         self.show_voxelized_input_and_reference = show_voxelized_input_and_reference
-        self.show_input_and_reference = show_input_and_reference
+        self.show_input_and_reference = show_raw_input_and_reference
         self.show_cropped = show_cropped
-        self.use_first_frame_as_input = first_frame_only
+        self.use_first_frame_as_input = first_frame_as_input
         self.visualize = visualize
         self.visualize_reg_targets = visualize_reg_targets
 
@@ -190,6 +220,7 @@ class RobotDataset(RLBenchDataset):
         )
 
     def get_gripper_pose(self, trial, idx):
+        """add grasp offset to ee pose and return gripper pose"""
         ee_pose = trial["ee_pose"][idx]
         pos = ee_pose[:3]
         x, y, z, w = ee_pose[3:]
@@ -199,6 +230,7 @@ class RobotDataset(RLBenchDataset):
         return ee_pose
 
     def read_cam_config(self):
+        """read camera intrinsics and extrinsics from json files"""
         with open(self.cam_mapping_json_path, "r") as f:
             cam_mapping = json.load(f)
         # with open(self.intrinsics_json_path, "r") as f:
@@ -218,7 +250,14 @@ class RobotDataset(RLBenchDataset):
         #     cam_intrinsic_dict[cam_mapping["camera_mapping"][camid]] = cami
         return cam_intrinsic_dict, cam_extrinsic_dict
 
-    def process_images_from_view(self, trial, view_name, idx):
+    def process_images_from_view(self, trial: Trial, view_name: str, idx: int):
+        """process image from a given camera
+        Args:
+            trial:      Trial object
+            view_name:  semantic name of the camera
+                        expect images to be <view_name>_rgb, <view_name>_depth
+            idx:        index of the image
+        """
         rgb = trial.get_img(view_name + "_rgb", idx, rgb=True)
         depth = trial.get_img(view_name + "_depth", idx, depth=True, depth_factor=1000)
         # rgb_img = rgb.copy()
@@ -313,7 +352,7 @@ class RobotDataset(RLBenchDataset):
         return rgb, xyz
 
     def extract_manual_keyframes(self, user_keyframe_array):
-        """returns indices of all keyframes"""
+        """returns indices of all user-tagged keyframes"""
         # return indices of all elements == 1
         user_keyframe_array = user_keyframe_array.squeeze()
         idx = np.arange(len(user_keyframe_array))
@@ -597,9 +636,8 @@ def debug_get_datum(data_dir, k_index, split):
         data_dir,
         num_pts=8000,
         data_augmentation=True,
-        random_idx=False,
         ori_dr_range=np.pi / 8,
-        first_frame_only=True,
+        first_frame_as_input=True,
         # first_keypoint_only=True,
         keypoint_range=[k_index],
         trial_list=train_test_split["test"],
@@ -635,10 +673,9 @@ def show_all_keypoints(data_dir, split, template):
         num_pts=8000,
         data_augmentation=False,
         crop_radius=True,
-        random_idx=False,
         ori_dr_range=np.pi / 8,
         cart_dr_range=0.0,
-        first_frame_only=True,
+        first_frame_as_input=True,
         # first_keypoint_only=True,
         keypoint_range=[0, 1, 2],
         trial_list=train_test_split["train"] if split else [],
