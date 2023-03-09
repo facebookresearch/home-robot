@@ -5,6 +5,7 @@
 import argparse
 import sys
 import timeit
+from typing import Tuple
 
 import click
 import numpy as np
@@ -13,7 +14,7 @@ import rospy
 import trimesh
 import trimesh.transformations as tra
 
-from home_robot.mapping.voxel import combine_point_clouds
+from home_robot.mapping.voxel import SparseVoxelMap
 from home_robot.motion.stretch import STRETCH_NAVIGATION_Q, HelloStretch
 from home_robot.utils.point_cloud import numpy_to_pcd, pcd_to_numpy, show_point_cloud
 from home_robot.utils.pose import to_pos_quat
@@ -34,9 +35,9 @@ class RosMapDataCollector(object):
 
     def __init__(self, env, visualize_planner=False):
         self.env = env  # Get the connection to the ROS environment via agent
-        self.observations = []
         self.started = False
         self.robot_model = HelloStretch(visualize=visualize_planner)
+        self.voxel_map = SparseVoxelMap(resolution=0.01)
 
     def step(self):
         """Step the collector. Get a single observation of the world. Remove bad points, such as
@@ -48,28 +49,21 @@ class RosMapDataCollector(object):
         # apply depth filter
         depth = depth.reshape(-1)
         rgb = rgb.reshape(-1, 3)
-        cam_xyz = xyz.reshape(-1, 3)
-        xyz = trimesh.transform_points(cam_xyz, camera_pose)
+        xyz = xyz.reshape(-1, 3)
         valid_depth = np.bitwise_and(depth > 0.1, depth < 4.0)
         rgb = rgb[valid_depth, :]
         xyz = xyz[valid_depth, :]
         # TODO: remove debug code
         # For now you can use this to visualize a single frame
         # show_point_cloud(xyz, rgb / 255, orig=np.zeros(3))
-        self.observations.append((rgb, xyz, q, dq))
+        self.voxel_map.add(camera_pose, xyz, rgb)
 
-    def show(self):
+    def show(self) -> Tuple[np.ndarray, np.ndarray]:
         """Display the aggregated point cloud."""
 
         # Create a combined point cloud
         # Do the other stuff we need
-        pc_xyz, pc_rgb = None, None
-        for obs in self.observations:
-            rgb = obs[0]
-            xyz = obs[1]
-            pc_xyz, pc_rgb = combine_point_clouds(pc_xyz, pc_rgb, xyz, rgb)
-
-        # Visualize point clloud + origin
+        pc_xyz, pc_rgb = self.voxel_map.get_data()
         show_point_cloud(pc_xyz, pc_rgb / 255, orig=np.zeros(3))
         return pc_xyz, pc_rgb
 
@@ -82,7 +76,7 @@ class RosMapDataCollector(object):
 @click.option("--pcd-filename", default="output.ply", type=str)
 def main(rate, max_frames, visualize, manual_wait, pcd_filename):
     rospy.init_node("build_3d_map")
-    env = StretchPickandPlaceEnv(segmentation_method=None)
+    env = StretchPickandPlaceEnv(segmentation_method=None, ros_grasping=False)
     collector = RosMapDataCollector(env, visualize)
 
     # Tuck the arm away
@@ -153,6 +147,8 @@ def main(rate, max_frames, visualize, manual_wait, pcd_filename):
     if len(pcd_filename) > 0:
         pcd = numpy_to_pcd(pc_xyz, pc_rgb / 255)
         open3d.io.write_point_cloud(pcd_filename, pcd)
+
+    rospy.signal_shutdown("done")
 
 
 if __name__ == "__main__":
