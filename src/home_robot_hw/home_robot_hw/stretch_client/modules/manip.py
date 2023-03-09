@@ -16,7 +16,7 @@ from home_robot.utils.geometry import posquat2sophus, xyt2sophus
 from .abstract import AbstractControlModule, enforce_enabled
 
 
-class StretchManipulationControl(AbstractControlModule):
+class StretchManipulationClient(AbstractControlModule):
     def __init__(self, ros_client, robot_model):
         self._ros_client = ros_client
         self._robot_model = robot_model
