@@ -17,10 +17,8 @@ if __name__ == "__main__":
     print(f"camera_pose={camera_pose}")
 
     # Move camera
-    robot.camera.set_pan_tilt(pan=np.pi / 4, tilt=-np.pi / 3)
-    time.sleep(1)
-    robot.camera.look_at_ee()
-    time.sleep(1)
+    robot.camera.set_pan_tilt(pan=np.pi / 4, tilt=-np.pi / 3, blocking=True)
+    robot.camera.look_at_ee(blocking=True)
     robot.camera.look_ahead()
 
     # Switch to navigation mode
@@ -63,7 +61,6 @@ if __name__ == "__main__":
 
     # Gripper commands
     robot.manip.open_gripper(blocking=True)
-    time.sleep(1)
     robot.manip.close_gripper()
 
     # Test command in wrong mode
