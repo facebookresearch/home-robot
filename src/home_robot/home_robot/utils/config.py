@@ -27,7 +27,7 @@ def get_config(path: str, opts: Optional[list] = None) -> Tuple[Config, str]:
 
     # Start with our code's config
     config = Config()
-    config.merge_from_file("configs/agent/floorplanner_eval.yaml")
+    config.merge_from_file(path)
 
     # Add command line arguments
     if opts is not None:
