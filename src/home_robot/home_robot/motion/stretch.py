@@ -13,6 +13,7 @@ import home_robot.utils.bullet as hrb
 from home_robot.motion.pinocchio_ik_solver import PinocchioIKSolver
 from home_robot.motion.robot import Robot
 from home_robot.utils.bullet import PybulletIKSolver
+from home_robot.utils.pinocchio import ros_pose_to_pinocchio
 from home_robot.utils.pose import to_matrix
 
 # Stretch stuff
@@ -466,7 +467,7 @@ class HelloStretch(Robot):
 
     def manip_fk(self, q=None) -> Tuple[np.ndarray, np.ndarray]:
         """manipulator specific forward kinematics; uses separate URDF than the full-body fk() method"""
-        pin_pose = self.ros_pose_to_pinocchio(q)
+        pin_pose = ros_pose_to_pinocchio(q)
         if self._ik_type == "pinocchio":
             ee_pos, ee_quat = self.manip_ik_solver.compute_fk(pin_pose)
         elif self._ik_type == "pybullet":
@@ -735,18 +736,6 @@ class HelloStretch(Robot):
                     print("colliding with", name)
                 return False
         return True
-
-    def ros_pose_to_pinocchio(self, joint_angles):
-        pin_compatible_joints = np.zeros(9)
-        pin_compatible_joints[0] = joint_angles[HelloStretchIdx.BASE_X]
-        pin_compatible_joints[1] = joint_angles[HelloStretchIdx.LIFT]
-        pin_compatible_joints[2] = pin_compatible_joints[3] = pin_compatible_joints[
-            4
-        ] = pin_compatible_joints[5] = (joint_angles[HelloStretchIdx.ARM] / 4)
-        pin_compatible_joints[6] = joint_angles[HelloStretchIdx.WRIST_YAW]
-        pin_compatible_joints[7] = joint_angles[HelloStretchIdx.WRIST_PITCH]
-        pin_compatible_joints[8] = joint_angles[HelloStretchIdx.WRIST_ROLL]
-        return pin_compatible_joints
 
 
 if __name__ == "__main__":

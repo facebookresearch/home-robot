@@ -12,6 +12,7 @@ from home_robot.motion.pinocchio_ik_solver import PositionIKOptimizer
 from home_robot.motion.stretch import STRETCH_GRASP_OFFSET, STRETCH_HOME_Q, HelloStretch
 from home_robot.utils.bullet import PbArticulatedObject
 from home_robot.utils.path import REPO_ROOT_PATH
+from home_robot.utils.pinocchio import ros_pose_to_pinocchio
 from home_robot.utils.pose import to_matrix, to_pos_quat
 
 # Hyperparams
@@ -34,6 +35,13 @@ TEST_DATA = [
         [-0.01556295, -0.51387864, 0.8205258],
         [-0.7090214, 0.12297839, 0.14050716, -0.6800168],
     ),
+]
+
+TEST_JOINTS = [
+    (
+        [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10],
+        [0, 3, 1, 1, 1, 1, 8, 7, 6],
+    )
 ]
 
 
@@ -78,6 +86,12 @@ def test_pose(request):
     pos_raw, quat_raw = request.param
     pos, quat = to_pos_quat(to_matrix(pos_raw, quat_raw) @ STRETCH_GRASP_OFFSET)
     return pos, quat
+
+
+@pytest.fixture(params=TEST_JOINTS)
+def test_joints(request):
+    ros_pose, pin_pose_grnd = request.param
+    return ros_pose, pin_pose_grnd
 
 
 @pytest.fixture
@@ -199,3 +213,9 @@ def test_pinocchio_ik_optimization(pin_robot, pin_ik_optimizer, test_pose):
         or np.all(opt_sigma) <= pin_ik_optimizer.opt.cost_tol
         or last_iter >= pin_ik_optimizer.opt.max_iterations
     )
+
+
+def test_ros_to_pin(test_joints):
+    pin_pose = ros_pose_to_pinocchio(test_joints[0])
+    assert len(pin_pose) == len(test_joints[1])
+    assert pin_pose == pytest.approx(test_joints[1])

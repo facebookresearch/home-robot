@@ -33,6 +33,7 @@ def convert_pinocchio_pose_to_ros(pin):
 
 
 def ros_pose_to_pinocchio(joint_angles):
+    """utility to convert Stretch joint angle output to pinocchio joint pose format"""
     pin_compatible_joints = np.zeros(9)
     pin_compatible_joints[0] = joint_angles[HelloStretchIdx.BASE_X]
     pin_compatible_joints[1] = joint_angles[HelloStretchIdx.LIFT]
