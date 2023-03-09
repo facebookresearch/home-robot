@@ -156,7 +156,7 @@ class SupervisedLocalityLoss(torch.nn.Module):
         return loss
 
 
-class IPModule(torch.nn.Module):
+class InteractionPredictionModule(torch.nn.Module):
     """
     Query evaluator.
     This is modified based on our previous version of the code.
@@ -1046,7 +1046,7 @@ def main(cfg):
         drop_last=True,
     )
     # load the model
-    model = IPModule(
+    model = InteractionPredictionModule(
         xent_loss=cfg.loss_fn == "xent",
         use_proprio=True,
         name=f"classify-{cfg.task_name}",

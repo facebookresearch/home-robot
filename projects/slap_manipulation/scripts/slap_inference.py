@@ -4,8 +4,10 @@ import rospy
 import torch
 import trimesh
 from slap_manipulation.env.stretch_manipulation_env import StretchManipulationEnv
-from slap_manipulation.policy.action_prediction_module import APModule
-from slap_manipulation.policy.interaction_prediction_module import IPModule
+from slap_manipulation.policy.action_prediction_module import ActionPredictionModule
+from slap_manipulation.policy.interaction_prediction_module import (
+    InteractionPredictionModule,
+)
 
 from home_robot.utils.point_cloud import show_point_cloud
 
@@ -14,12 +16,16 @@ STRETCH_GRIPPER_MAX = 0.6
 
 
 def create_apm_input(raw_data, p_i):
+    """takes raw data from stretch_manipulation_env and converts it into input batch
+    for Action Prediction Module by cropping around predicted p_i: interaction_point"""
     raise NotImplementedError
 
 
 def create_ipm_input(
     raw_data: dict, lang: list[str], filter_depth=False, debug=False, num_pts=8000
 ):
+    """takes raw data from stretch_manipulation_env, and language command from user.
+    Converts it into input batch used in Interaction Prediction Module"""
     input_vector = ()
     depth = raw_data["depth"]
     rgb = raw_data["rgb"].astype(np.float64)
@@ -69,10 +75,10 @@ def main(cfg):
     # create the robot object
     robot = StretchManipulationEnv(init_cameras=True)
     # create IPM object
-    ipm_model = IPModule(dry_run=cfg.dry_run)
+    ipm_model = InteractionPredictionModule(dry_run=cfg.dry_run)
     ipm_model.to(ipm_model.device)
     # create APM object
-    apm_model = APModule(dry_run=cfg.dry_run)
+    apm_model = ActionPredictionModule(dry_run=cfg.dry_run)
     # load model-weights
     ipm_model.load_state_dict(torch.load(cfg.ipm_weights))
     # apm_model.load_state_dict(cfg.apm_weights)

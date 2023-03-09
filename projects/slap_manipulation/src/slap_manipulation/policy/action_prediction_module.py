@@ -92,7 +92,7 @@ class QueryRegressionHead(torch.nn.Module):
         return delta_ee_pos, abs_ee_ori, self.to_activation(gripper)
 
 
-class APModule(torch.nn.Module):
+class ActionPredictionModule(torch.nn.Module):
     def __init__(
         self,
         lr=1e-4,
@@ -773,7 +773,7 @@ def main(
     B = 1
 
     # create model, load weights for classifier
-    model = APModule(
+    model = ActionPredictionModule(
         name=f"regress_{task_name}",
         max_iter=max_iter,
         lr=learning_rate,
