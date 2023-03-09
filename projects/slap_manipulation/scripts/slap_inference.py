@@ -3,13 +3,13 @@ import numpy as np
 import rospy
 import torch
 import trimesh
-from slap_manipulation.env.stretch_manipulation_env import StretchManipulationEnv
 from slap_manipulation.policy.action_prediction_module import ActionPredictionModule
 from slap_manipulation.policy.interaction_prediction_module import (
     InteractionPredictionModule,
 )
 
 from home_robot.utils.point_cloud import show_point_cloud
+from home_robot_hw.env.stretch_manipulation_env import StretchManipulationEnv
 
 # TODO: move this to a constants file
 STRETCH_GRIPPER_MAX = 0.6

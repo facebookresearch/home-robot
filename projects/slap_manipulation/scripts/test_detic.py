@@ -2,10 +2,10 @@ import numpy as np
 import rospy
 from matplotlib import pyplot as plt
 from PIL import Image
-from slap_manipulation.env.stretch_manipulation_env import StretchManipulationEnv
 
 from home_robot.core.interfaces import Observations
 from home_robot.perception.detection.detic.detic_perception import DeticPerception
+from home_robot_hw.env.stretch_manipulation_env import StretchManipulationEnv
 
 REAL_WORLD_CATEGORIES = ["cup", "bottle", "drawer", "basket", "bowl", "computer", "mug"]
 
