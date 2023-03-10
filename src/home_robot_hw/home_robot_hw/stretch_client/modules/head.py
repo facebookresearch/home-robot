@@ -9,6 +9,7 @@ import rospy
 import trimesh.transformations as tra
 
 from home_robot.motion.robot import Robot
+from home_robot.motion.stretch import HelloStretchIdx
 
 from .abstract import AbstractControlModule
 
