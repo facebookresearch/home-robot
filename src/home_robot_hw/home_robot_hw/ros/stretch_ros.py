@@ -496,6 +496,10 @@ class HelloStretchROSInterface(AbstractStretchInterface):
         Based on this code:
         https://github.com/hello-robot/stretch_ros/blob/master/hello_helpers/src/hello_helpers/hello_misc.py
         """
+        # Deprecation warning
+        rospy.logwarn(
+            "'HelloStretchROSInterface' is being deprecated. Use 'home_robot_hw.StretchClient' to interact with the robot."
+        )
 
         if urdf_path is None:
             # By default try to use ROS to find the URDF
