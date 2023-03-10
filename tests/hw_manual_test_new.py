@@ -23,8 +23,8 @@ if __name__ == "__main__":
 
     # Head movement
     print("Testing robot head movement...")
-    robot.camera.look_at_ee()
-    robot.camera.look_at_front()
+    robot.head.look_at_ee()
+    robot.head.look_front()
 
     print(f"Confirm that the robot head has moved accordingly.")
     input("(press enter to continue)")
