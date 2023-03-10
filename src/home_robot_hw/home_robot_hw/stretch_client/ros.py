@@ -289,8 +289,8 @@ class StretchRosInterface:
 
     def _at_goal_callback(self, msg):
         """Is the velocity controller done moving; is it at its goal?"""
-        self._at_goal = msg.data
-        if not self._at_goal:
+        self.at_goal = msg.data
+        if not self.at_goal:
             self._goal_reset_t = None
         elif self._goal_reset_t is None:
             self._goal_reset_t = rospy.Time.now()

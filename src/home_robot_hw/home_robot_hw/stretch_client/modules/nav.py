@@ -132,9 +132,6 @@ class StretchNavigationClient(AbstractControlModule):
         rospy.sleep(self._ros_client.msg_delay_t)
         rate = rospy.Rate(self.block_spin_rate)
         while not rospy.is_shutdown():
-            import pdb
-
-            pdb.set_trace()
             # Verify that we are at goal and perception is synchronized with pose
             if self.at_goal() and self._ros_client.recent_depth_image(
                 self._ros_client.msg_delay_t
