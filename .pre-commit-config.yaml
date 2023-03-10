@@ -17,6 +17,8 @@ repos:
         args: [--install-types, --non-interactive, --no-strict-optional, --ignore-missing-imports]
         exclude: |
             (?x)^(
+                src/home_robot_hw/home_robot_hw/ros/|
+                src/home_robot_hw/home_robot_hw/teleop/|
                 projects/|
             )|setup.py$
 
@@ -26,6 +28,8 @@ repos:
       - id: flake8
         exclude: |
             (?x)^(
+                src/home_robot_hw/home_robot_hw/ros/|
+                src/home_robot_hw/home_robot_hw/teleop/|
                 src/home_robot/home_robot/utils/data_tools/|
                 projects/|
                 tests/
