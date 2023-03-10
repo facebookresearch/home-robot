@@ -40,17 +40,13 @@ class StretchManipulationClient(AbstractControlModule):
 
     # Interface methods
 
-    def get_joint_state(self):
-        with self._js_lock:
-            return self._ros_client.pos, self._ros_client.vel, self._ros_client.frc
-
     def get_ee_pose(self):
-        q, _, _ = self.get_joint_state()
+        q, _, _ = self._ros_client.get_joint_state()
         pos, quat = self._robot_model.fk(q, as_matrix=False)
         return pos, quat
 
     def get_joint_positions(self):
-        q, _, _ = self.get_joint_state()
+        q, _, _ = self._ros_client.get_joint_state()
         return [
             0.0,
             q[HelloStretchIdx.LIFT],

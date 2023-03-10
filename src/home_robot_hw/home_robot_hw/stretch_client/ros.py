@@ -32,8 +32,12 @@ from home_robot_hw.constants import (
     ROS_WRIST_ROLL,
     ROS_WRIST_YAW,
 )
+from home_robot_hw.ros.camera import RosCamera
 from home_robot_hw.ros.utils import matrix_from_pose_msg
 from home_robot_hw.ros.visualizer import Visualizer
+
+DEFAULT_COLOR_TOPIC = "/camera/color"
+DEFAULT_DEPTH_TOPIC = "/camera/aligned_depth_to_color"
 
 
 class StretchRosInterface:
@@ -57,7 +61,13 @@ class StretchRosInterface:
     HEAD_TILT = "joint_head_tilt"
     ARM_JOINTS_ACTUAL = ["joint_arm_l0", "joint_arm_l1", "joint_arm_l2", "joint_arm_l3"]
 
-    def __init__(self):
+    def __init__(
+        self,
+        init_cameras: bool = True,
+        color_topic: Optional[str] = None,
+        depth_topic: Optional[str] = None,
+        depth_buffer_size: Optional[int] = None,
+    ):
         # Initialize caches
         self.current_mode: Optional[str] = None
 
@@ -86,7 +96,21 @@ class StretchRosInterface:
         for i in range(3, self.dof):
             self._ros_joint_names += CONFIG_TO_ROS[i]
 
+        # Initialize cameras
+        self._color_topic = DEFAULT_COLOR_TOPIC if color_topic is None else color_topic
+        self._depth_topic = DEFAULT_DEPTH_TOPIC if depth_topic is None else depth_topic
+        self._depth_buffer_size = depth_buffer_size
+
+        self.rgb_cam, self.dpt_cam = None, None
+        if init_cameras:
+            self._create_cameras(color_topic, depth_topic)
+            self._wait_for_cameras()
+
     # Interfaces
+
+    def get_joint_state(self):
+        with self._js_lock:
+            return self._ros_client.pos, self._ros_client.vel, self._ros_client.frc
 
     def send_trajectory_goals(self, joint_goals: Dict[str, float]):
         # Preprocess arm joints (arm joints are actually 4 joints in one)
@@ -223,6 +247,27 @@ class StretchRosInterface:
         self.ros_joint_names = []
         for i in range(3, self.dof):
             self.ros_joint_names += CONFIG_TO_ROS[i]
+
+    def _create_cameras(self, color_topic=None, depth_topic=None):
+        if self.rgb_cam is not None or self.dpt_cam is not None:
+            raise RuntimeError("Already created cameras")
+        print("Creating cameras...")
+        self.rgb_cam = RosCamera(self._color_topic)
+        self.dpt_cam = RosCamera(self._depth_topic, buffer_size=self._depth_buffer_size)
+        self.filter_depth = self._depth_buffer_size is not None
+
+    def _wait_for_cameras(self):
+        if self.rgb_cam is None or self.dpt_cam is None:
+            raise RuntimeError("cameras not initialized")
+        print("Waiting for rgb camera images...")
+        self.rgb_cam.wait_for_image()
+        print("Waiting for depth camera images...")
+        self.dpt_cam.wait_for_image()
+        print("..done.")
+        print("rgb frame =", self.rgb_cam.get_frame())
+        print("dpt frame =", self.dpt_cam.get_frame())
+        if self.rgb_cam.get_frame() != self.dpt_cam.get_frame():
+            raise RuntimeError("issue with camera setup; depth and rgb not aligned")
 
     def _config_to_ros_msg(self, q):
         """convert into a joint state message"""

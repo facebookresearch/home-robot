@@ -2,19 +2,15 @@
 #
 # This source code is licensed under the MIT license found in the
 # LICENSE file in the root directory of this source tree.
-from typing import Optional
+from typing import Optional, Tuple
 
 import numpy as np
 import rospy
 import trimesh.transformations as tra
 
 from home_robot.motion.robot import Robot
-from home_robot_hw.ros.camera import RosCamera
 
 from .abstract import AbstractControlModule
-
-DEFAULT_COLOR_TOPIC = "/camera/color"
-DEFAULT_DEPTH_TOPIC = "/camera/aligned_depth_to_color"
 
 MIN_DEPTH_REPLACEMENT_VALUE = 10000
 MAX_DEPTH_REPLACEMENT_VALUE = 10001
@@ -28,25 +24,11 @@ class StretchHeadClient(AbstractControlModule):
         self,
         ros_client,
         robot_model: Robot,
-        init_cameras: bool = True,
-        color_topic: Optional[str] = None,
-        depth_topic: Optional[str] = None,
-        depth_buffer_size: Optional[int] = None,
     ):
         super().__init__()
 
         self._ros_client = ros_client
         self._robot_model = robot_model
-
-        self._color_topic = DEFAULT_COLOR_TOPIC if color_topic is None else color_topic
-        self._depth_topic = DEFAULT_DEPTH_TOPIC if depth_topic is None else depth_topic
-        self._depth_buffer_size = depth_buffer_size
-
-        # Init cameras
-        self.rgb_cam, self.dpt_cam = None, None
-        if init_cameras:
-            self._create_cameras(color_topic, depth_topic)
-            self._wait_for_cameras()
 
     # Interface methods
 
@@ -58,6 +40,10 @@ class StretchHeadClient(AbstractControlModule):
             return mat @ tra.euler_matrix(0, 0, -np.pi / 2)
         else:
             return mat
+
+    def get_pan_tilt(self) -> Tuple[float, float]:
+        q, _, _ = self._ros_client.get_joint_state()
+        return q[HelloStretchIdx.HEAD_PAN], q[HelloStretchIdx.HEAD_TILT]
 
     def set_pan_tilt(
         self,
@@ -89,20 +75,17 @@ class StretchHeadClient(AbstractControlModule):
         pan, tilt = self._robot_model.look_ahead
         self.set_pan_tilt(pan, tilt, blocking=blocking)
 
-    def process_depth(self, depth):
-        depth[depth < self.min_depth_val] = MIN_DEPTH_REPLACEMENT_VALUE
-        depth[depth > self.max_depth_val] = MAX_DEPTH_REPLACEMENT_VALUE
-        return depth
-
     def get_images(self, compute_xyz=False, rotate_images=True):
         """helper logic to get images from the robot's camera feed"""
-        rgb = self.rgb_cam.get()
-        if self.filter_depth:
-            dpt = self.dpt_cam.get_filtered()
+        rgb = self._ros_client.rgb_cam.get()
+        if self._ros_client.filter_depth:
+            dpt = self._ros_client.dpt_cam.get_filtered()
         else:
-            dpt = self.process_depth(self.dpt_cam.get())
+            dpt = self._process_depth(self._ros_client.dpt_cam.get())
         if compute_xyz:
-            xyz = self.dpt_cam.depth_to_xyz(self.dpt_cam.fix_depth(dpt))
+            xyz = self._ros_client.dpt_cam.depth_to_xyz(
+                self._ros_client.dpt_cam.fix_depth(dpt)
+            )
             imgs = [rgb, dpt, xyz]
         else:
             imgs = [rgb, dpt]
@@ -128,29 +111,15 @@ class StretchHeadClient(AbstractControlModule):
 
     # Helper methods
 
-    def _create_cameras(self, color_topic=None, depth_topic=None):
-        if self.rgb_cam is not None or self.dpt_cam is not None:
-            raise RuntimeError("Already created cameras")
-        print("Creating cameras...")
-        self.rgb_cam = RosCamera(self._color_topic)
-        self.dpt_cam = RosCamera(self._depth_topic, buffer_size=self._depth_buffer_size)
-        self.filter_depth = self._depth_buffer_size is not None
-
-    def _wait_for_cameras(self):
-        if self.rgb_cam is None or self.dpt_cam is None:
-            raise RuntimeError("cameras not initialized")
-        print("Waiting for rgb camera images...")
-        self.rgb_cam.wait_for_image()
-        print("Waiting for depth camera images...")
-        self.dpt_cam.wait_for_image()
-        print("..done.")
-        print("rgb frame =", self.rgb_cam.get_frame())
-        print("dpt frame =", self.dpt_cam.get_frame())
-        if self.rgb_cam.get_frame() != self.dpt_cam.get_frame():
-            raise RuntimeError("issue with camera setup; depth and rgb not aligned")
+    def _process_depth(self, depth):
+        depth[depth < self.min_depth_val] = MIN_DEPTH_REPLACEMENT_VALUE
+        depth[depth > self.max_depth_val] = MAX_DEPTH_REPLACEMENT_VALUE
+        return depth
 
     def _enable_hook(self) -> bool:
+        """Dummy override for abstract method"""
         pass
 
     def _disable_hook(self) -> bool:
+        """Dummy override for abstract method"""
         pass

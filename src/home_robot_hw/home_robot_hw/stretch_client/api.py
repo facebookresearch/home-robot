@@ -29,20 +29,18 @@ class StretchClient:
         # Ros
         if init_node:
             rospy.init_node("stretch_user_client")
-        self._ros_client = StretchRosInterface()
+
+        if camera_overrides is None:
+            camera_overrides = {}
+        self._ros_client = StretchRosInterface(**camera_overrides)
 
         # Robot model
         self._robot_model = HelloStretchKinematics()
 
         # Interface modules
-        if camera_overrides is None:
-            camera_overrides = {}
-
         self.nav = StretchNavigationClient(self._ros_client, self._robot_model)
         self.manip = StretchManipulationClient(self._ros_client, self._robot_model)
-        self.head = StretchHeadClient(
-            self._ros_client, self._robot_model, **camera_overrides
-        )
+        self.head = StretchHeadClient(self._ros_client, self._robot_model)
 
         # Init control mode
         self._base_control_mode = ControlMode.IDLE
