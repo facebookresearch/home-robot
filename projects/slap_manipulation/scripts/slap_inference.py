@@ -67,7 +67,7 @@ def create_ipm_input(
 
     if np.any(rgb) > 1.0:
         rgb = rgb / 255.0
-    input_vector = ([rgb], xyz, proprio, lang)
+    input_vector = ((rgb), xyz, proprio, lang)
     return input_vector
 
 
