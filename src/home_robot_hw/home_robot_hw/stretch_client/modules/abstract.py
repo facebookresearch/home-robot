@@ -40,11 +40,12 @@ class AbstractControlModule(abc.ABC):
         """
         with self._wait_lock:
             thr = threading.Thread(target=func)
-            self._wait_threads.append()
+            self._wait_threads.append(thr)
             thr.start()
 
     def _update_wait_threads(self):
-        for i, thr in enumerate(self._wait_threads)[::-1]:
+        for i in range(len(self._wait_threads))[::-1]:
+            thr = self._wait_threads[i]
             if not thr.is_alive():
                 self._wait_threads.pop(i)
 
@@ -57,7 +58,8 @@ class AbstractControlModule(abc.ABC):
     def wait(self, timeout=None):
         """Wait for all action threads to complete"""
         with self._wait_lock:
-            for i, thr in enumerate(self._wait_threads)[::-1]:
+            for i in range(len(self._wait_threads))[::-1]:
+                thr = self._wait_threads[i]
                 if thr.is_alive():
                     thr.join(timeout=timeout)
                 if not thr.is_alive():  # check if thread is alive in case of a timeout

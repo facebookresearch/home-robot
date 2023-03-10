@@ -10,17 +10,18 @@ if __name__ == "__main__":
     model = HelloStretchKinematics()
 
     # Acquire camera observations
-    imgs = robot.camera.get_images()
+    imgs = robot.head.get_images()
 
     # Get camera pose
-    camera_pose = robot.camera.get_pose()
+    camera_pose = robot.head.get_pose()
     print(f"camera_pose={camera_pose}")
 
     # Move camera
-    robot.camera.set_pan_tilt(pan=np.pi / 4, tilt=-np.pi / 3, blocking=True)
-    robot.camera.look_at_ee(blocking=True)
-    robot.camera.look_ahead()
+    robot.head.set_pan_tilt(pan=np.pi / 4, tilt=-np.pi / 3, blocking=True)
+    robot.head.look_at_ee(blocking=True)
+    robot.head.look_ahead()
 
+    """
     # Switch to navigation mode
     robot.switch_to_navigation_mode()
     assert robot.in_navigation_mode()
@@ -36,10 +37,13 @@ if __name__ == "__main__":
 
     # Command the robot to navigate to a waypoint
     xyt_goal = [0.15, 0.15, -np.pi / 4]
+    print("Nav to xyt_goal blocking..")
     robot.nav.navigate_to(xyt_goal, blocking=True)
+    print("Done, homing...")
 
     # Home robot base (navigate back to origin)
     robot.nav.home()
+    """
 
     # Switch to manipulation mode
     robot.switch_to_manipulation_mode()

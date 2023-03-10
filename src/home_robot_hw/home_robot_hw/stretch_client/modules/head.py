@@ -33,6 +33,8 @@ class StretchHeadClient(AbstractControlModule):
         depth_topic: Optional[str] = None,
         depth_buffer_size: Optional[int] = None,
     ):
+        super().__init__()
+
         self._ros_client = ros_client
         self._robot_model = robot_model
 
@@ -146,3 +148,9 @@ class StretchHeadClient(AbstractControlModule):
         print("dpt frame =", self.dpt_cam.get_frame())
         if self.rgb_cam.get_frame() != self.dpt_cam.get_frame():
             raise RuntimeError("issue with camera setup; depth and rgb not aligned")
+
+    def _enable_hook(self) -> bool:
+        pass
+
+    def _disable_hook(self) -> bool:
+        pass

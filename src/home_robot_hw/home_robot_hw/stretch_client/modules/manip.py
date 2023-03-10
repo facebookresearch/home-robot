@@ -19,6 +19,8 @@ from .abstract import AbstractControlModule, enforce_enabled
 
 class StretchManipulationClient(AbstractControlModule):
     def __init__(self, ros_client, robot_model: Robot):
+        super().__init__()
+
         self._ros_client = ros_client
         self._robot_model = robot_model
 

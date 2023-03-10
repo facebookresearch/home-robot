@@ -17,10 +17,11 @@ from .abstract import AbstractControlModule, enforce_enabled
 
 
 class StretchNavigationClient(AbstractControlModule):
-    msg_delay_t = 0.25
     block_spin_rate = 10
 
     def __init__(self, ros_client, robot_model: Robot):
+        super().__init__()
+
         self._ros_client = ros_client
         self._robot_model = robot_model
         self._wait_for_pose()
@@ -48,9 +49,9 @@ class StretchNavigationClient(AbstractControlModule):
     def at_goal(self) -> bool:
         """Returns true if the agent is currently at its goal location"""
         if (
-            self._ros_client.goal_reset_t is not None
-            and (rospy.Time.now() - self._ros_client.goal_reset_t).to_sec()
-            > self.msg_delay_t
+            self._ros_client._goal_reset_t is not None
+            and (rospy.Time.now() - self._ros_client._goal_reset_t).to_sec()
+            > self._ros_client.msg_delay_t
         ):
             return self._ros_client.at_goal
         else:
@@ -128,11 +129,13 @@ class StretchNavigationClient(AbstractControlModule):
 
     def _wait_for_goal_reached(self):
         """Wait until goal is reached"""
-        rospy.sleep(self.msg_delay_t)
+        rospy.sleep(self._ros_client.msg_delay_t)
         rate = rospy.Rate(self.block_spin_rate)
         while not rospy.is_shutdown():
             # Verify that we are at goal and perception is synchronized with pose
-            if self.at_goal() and self._ros_client.recent_depth_image(self.msg_delay_t):
+            if self.at_goal() and self._ros_client.recent_depth_image(
+                self._ros_client.msg_delay_t
+            ):
                 break
             else:
                 rate.sleep()

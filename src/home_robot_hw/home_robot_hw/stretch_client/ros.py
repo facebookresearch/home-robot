@@ -40,6 +40,7 @@ class StretchRosInterface:
     """Interface object with ROS topics and services"""
 
     goal_time_tolerance = 1.0
+    msg_delay_t = 0.25
 
     # 3 for base position + rotation, 2 for lift + extension, 3 for rpy, 1 for gripper, 2 for head
     dof = 3 + 2 + 3 + 1 + 2
@@ -73,6 +74,10 @@ class StretchRosInterface:
         self.last_base_update_timestamp = rospy.Time(0)
         self.goal_reset_t = rospy.Time(0)
 
+        # Create visualizers for pose information
+        self.goal_visualizer = Visualizer("command_pose", rgba=[1.0, 0.0, 0.0, 0.5])
+        self.curr_visualizer = Visualizer("current_pose", rgba=[0.0, 0.0, 1.0, 0.5])
+
         # Initialize ros communication
         self._create_pubs_subs()
         self._create_services()
@@ -80,10 +85,6 @@ class StretchRosInterface:
         self._ros_joint_names = []
         for i in range(3, self.dof):
             self._ros_joint_names += CONFIG_TO_ROS[i]
-
-        # Create visualizers for pose information
-        self.goal_visualizer = Visualizer("command_pose", rgba=[1.0, 0.0, 0.0, 0.5])
-        self.curr_visualizer = Visualizer("current_pose", rgba=[0.0, 0.0, 1.0, 0.5])
 
     # Interfaces
 
