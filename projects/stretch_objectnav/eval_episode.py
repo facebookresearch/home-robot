@@ -5,6 +5,7 @@ from home_robot.motion.stretch import STRETCH_HOME_Q
 from home_robot.agent.objectnav_agent.objectnav_agent import ObjectNavAgent
 from home_robot.utils.config import get_config
 from home_robot_hw.env.stretch_object_nav_env import StretchObjectNavEnv
+from home_robot.core.interfaces import DiscreteNavigationAction
 
 if __name__ == "__main__":
     config_path = "configs/agent/floorplanner_eval.yaml"
@@ -29,6 +30,10 @@ if __name__ == "__main__":
         print("STEP =", t)
         obs = env.get_observation()
         action, info = agent.act(obs)
+        if t <= 10:
+            action = DiscreteNavigationAction.TURN_RIGHT
+        else:
+            action = DiscreteNavigationAction.STOP
         env.apply_action(action, info=info)
 
     print(env.get_episode_metrics())

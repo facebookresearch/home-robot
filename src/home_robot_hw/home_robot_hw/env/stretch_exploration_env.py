@@ -1,51 +1,34 @@
 from typing import Any, Dict, Optional
 
+import os
 import numpy as np
 import rospy
 
 import home_robot
 from home_robot.core.interfaces import Action, DiscreteNavigationAction, Observations
-from home_robot.perception.detection.detic.detic_perception import DeticPerception
 from home_robot.utils.geometry import xyt2sophus, xyt_base_to_global
 from home_robot_hw.env.stretch_abstract_env import StretchEnv
-from home_robot_hw.env.visualizer import Visualizer
-
-# REAL_WORLD_CATEGORIES = ["other", "chair", "mug", "other",]
-# REAL_WORLD_CATEGORIES = ["other", "backpack", "other",]
-REAL_WORLD_CATEGORIES = [
-    "other",
-    "chair",
-    "other",
-]
+from home_robot_hw.env.visualizer import ExplorationVisualizer
 
 
-class StretchObjectNavEnv(StretchEnv):
-    """Create a detic-based object nav environment"""
+class StretchExplorationEnv(StretchEnv):
+    """Create an exploration environment for occupancy mapping"""
 
     def __init__(
         self, config=None, forward_step=0.25, rotate_step=30.0, *args, **kwargs
     ):
         super().__init__(*args, **kwargs)
 
-        # TODO: pass this in or load from cfg
-        self.goal_options = REAL_WORLD_CATEGORIES
         self.forward_step = forward_step  # in meters
         self.rotate_step = np.radians(rotate_step)
 
-        # TODO Specify confidence threshold as a parameter
-        self.segmentation = DeticPerception(
-            vocabulary="custom",
-            custom_vocabulary=",".join(self.goal_options),
-            sem_gpu_id=0,
-        )
         if config is not None:
-            self.visualizer = Visualizer(config)
+            self.visualizer = ExplorationVisualizer(config)
         else:
             self.visualizer = None
         self.reset()
 
     def reset(self):
-        self.sample_goal()
         self._episode_start_pose = xyt2sophus(self.get_base_pose())
         if self.visualizer is not None:
             self.visualizer.reset()
@@ -53,7 +36,7 @@ class StretchObjectNavEnv(StretchEnv):
     def apply_action(self, action: Action, info: Optional[Dict[str, Any]] = None):
         """Discrete action space. make predictions for where the robot should go, move by a fixed
         amount forward or rotationally."""
-        if self.visualizer is not None and info is not None:
+        if self.visualizer is not None:
             self.visualizer.visualize(**info)
         continuous_action = np.zeros(3)
         if action == DiscreteNavigationAction.MOVE_FORWARD:
@@ -79,22 +62,6 @@ class StretchObjectNavEnv(StretchEnv):
             self.navigate_to(continuous_action, relative=True, blocking=True)
         rospy.sleep(0.5)
 
-    def set_goal(self, goal):
-        """set a goal as a string"""
-        if goal in self.goal_options:
-            self.current_goal_id = self.goal_options.index(goal)
-            self.current_goal_name = goal
-            return True
-        else:
-            return False
-
-    def sample_goal(self):
-        """set a random goal"""
-        # idx = np.random.randint(len(self.goal_options) - 2) + 1
-        idx = 1
-        self.current_goal_id = idx
-        self.current_goal_name = self.goal_options[idx]
-
     def get_observation(self) -> Observations:
         """Get Detic and rgb/xyz/theta from this"""
         rgb, depth = self.get_images(compute_xyz=False, rotate_images=True)
@@ -115,16 +82,7 @@ class StretchObjectNavEnv(StretchEnv):
             depth=depth.copy(),
             gps=gps,
             compass=np.array([theta]),
-            # base_pose=sophus2obs(relative_pose),
-            task_observations={
-                "goal_id": self.current_goal_id,
-                "goal_name": self.current_goal_name,
-            },
-            # joint_positions=pos,
         )
-        # Run the segmentation model here
-        obs = self.segmentation.predict(obs, depth_threshold=0.5)
-        obs.semantic[obs.semantic == 0] = len(self.goal_options) - 1
         return obs
 
     @property
@@ -160,24 +118,41 @@ if __name__ == "__main__":
     print("Start example - hardware using ROS")
     rospy.init_node("hello_stretch_ros_test")
     print("Create ROS interface")
-    rob = StretchObjectNavEnv(init_cameras=True)
+    rob = StretchExplorationEnv(init_cameras=True)
     rob.switch_to_navigation_mode()
 
+    save_dir = '/home/santhosh/Research/transparent_images_dataset'
+    os.makedirs(save_dir, exist_ok=True)
+
+    image_count = 0
     # Debug the observation space
     import matplotlib.pyplot as plt
 
+    rgb, depth = None, None
     while not rospy.is_shutdown():
 
         while not rospy.is_shutdown():
             cmd = None
             try:
-                cmd = input("Enter a number 0-3:")
-                cmd = DiscreteNavigationAction(int(cmd))
+                cmd = input("Enter a number 1-4:")
+                cmd = int(cmd)
+                assert cmd in [1, 2, 3, 4]
+                if cmd == 4:
+                    cmd = None
+                    if rgb is not None:
+                        rgb_save_path = os.path.join(save_dir, f"rgb_{image_count}.npy")
+                        depth_save_path = os.path.join(save_dir, f"depth_{image_count}.npy")
+                        np.save(rgb_save_path, rgb)
+                        np.save(depth_save_path, depth)
+                        image_count += 1
+                else:
+                    cmd = DiscreteNavigationAction(cmd)
             except ValueError:
                 cmd = None
             if cmd is not None:
                 break
-        rob.apply_action(cmd)
+        if cmd is not None:
+            rob.apply_action(cmd)
 
         obs = rob.get_observation()
         rgb, depth = obs.rgb, obs.depth

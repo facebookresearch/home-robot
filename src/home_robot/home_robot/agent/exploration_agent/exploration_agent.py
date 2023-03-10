@@ -1,6 +1,5 @@
 from typing import Any, Dict, List, Tuple
 
-import math
 import numpy as np
 import torch
 from torch.nn import DataParallel
@@ -13,10 +12,10 @@ from home_robot.navigation_planner.discrete_planner import DiscretePlanner
 from home_robot.core.abstract_agent import Agent
 from home_robot.core.interfaces import DiscreteNavigationAction, Observations
 
-from .objectnav_agent_module import ObjectNavAgentModule
+from .exploration_agent_module import ExplorationAgentModule
 
 
-class ObjectNavAgent(Agent):
+class ExplorationAgent(Agent):
     """Simple object nav agent based on a 2D semantic map"""
     def __init__(self, config, device_id: int = 0):
         self.max_steps = config.AGENT.max_steps
@@ -199,7 +198,6 @@ class ObjectNavAgent(Agent):
         self.reset_vectorized()
         self.planner.reset()
         self.episode_panorama_start_steps = self.panorama_start_steps
-        self.summed_poses = np.array([0., 0., 0.])
 
     def act(self, obs: Observations) -> Tuple[DiscreteNavigationAction, Dict[str, Any]]:
         """Act end-to-end."""
@@ -259,23 +257,6 @@ class ObjectNavAgent(Agent):
         pose_delta = torch.tensor(
             pu.get_rel_pose_change(curr_pose, self.last_poses[0])
         ).unsqueeze(0)
-        ########################################################################
-        # Debugging
-        ########################################################################
-        self.summed_poses = np.array(
-            pu.get_new_pose(self.summed_poses, pose_delta.squeeze().cpu().numpy())
-        )
-        dp_x, dp_y, dp_o = pose_delta.squeeze().cpu().numpy().tolist()
-        dp_o = 180.0 * dp_o / math.pi
-        p_x, p_y, p_o = curr_pose.tolist()
-        p_o = 180.0 * p_o / math.pi
-        s_x, s_y, s_o = self.summed_poses.tolist()
-        print(
-            "Current delta: {:6.2f}, {:6.2f}, {:6.2f} | pose: {:6.2f}, {:6.2f}, {:6.2f} | summed pose: {:6.2f}, {:6.2f}, {:6.2f}".format(
-                dp_x, dp_y, dp_o, p_x, p_y, p_o, s_x, s_y, s_o
-            )
-        )
-        ########################################################################
         self.last_poses[0] = curr_pose
 
         goal_category = torch.tensor(obs.task_observations["goal_id"]).unsqueeze(0)
