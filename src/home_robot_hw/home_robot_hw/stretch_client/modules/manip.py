@@ -42,7 +42,7 @@ class StretchManipulationClient(AbstractControlModule):
 
     def get_joint_state(self):
         with self._js_lock:
-            return self.ros_client.pos, self.ros_client.vel, self.ros_client.frc
+            return self._ros_client.pos, self._ros_client.vel, self._ros_client.frc
 
     def get_ee_pose(self):
         q, _, _ = self.get_joint_state()
@@ -150,7 +150,7 @@ class StretchManipulationClient(AbstractControlModule):
         if world_frame:
             pose_base2ee = pose_input
         else:
-            pose_world2base = xyt2sophus(self.get_base_state()["pose_se2"])
+            pose_world2base = self._ros_client.se3_base_filtered
             pose_world2ee = posquat2sophus(pos, quat)
             pose_base2ee = pose_world2base.inverse() * pose_world2ee
 
