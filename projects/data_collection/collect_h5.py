@@ -4,7 +4,7 @@ from datetime import datetime
 import click
 import rospy
 
-from home_robot.motion.stretch import HelloStretch
+from home_robot.motion.stretch import HelloStretchKinematics
 from home_robot_hw.ros.path import get_urdf_dir
 from home_robot_hw.ros.recorder import Recorder
 from home_robot_hw.teleop.stretch_xbox_controller import StretchXboxController
@@ -33,7 +33,7 @@ class EpisodeManager(object):
         A new date_time_string file is created whenever this script is run for a task
         """
         stretch_planner_urdf_path = get_urdf_dir()
-        self.model = HelloStretch(
+        self.model = HelloStretchKinematics(
             visualize=False,
             root="",
             urdf_path=stretch_planner_urdf_path,

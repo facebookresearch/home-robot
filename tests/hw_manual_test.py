@@ -5,7 +5,7 @@
 import numpy as np
 import rospy
 
-from home_robot.motion.stretch import STRETCH_HOME_Q, HelloStretch
+from home_robot.motion.stretch import STRETCH_HOME_Q, HelloStretchKinematics
 from home_robot_hw.env.stretch_abstract_env import StretchEnv
 
 # Loose tolerances just to test that the robot moved reasonably
@@ -36,7 +36,7 @@ if __name__ == "__main__":
     rospy.init_node("hw_manual_test")
     robot = StretchEnvImpl()
 
-    model = HelloStretch()
+    model = HelloStretchKinematics()
 
     # Home robot
     print("Homing robot...")
