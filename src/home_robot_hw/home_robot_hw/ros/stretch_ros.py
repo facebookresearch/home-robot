@@ -21,7 +21,11 @@ from std_msgs.msg import String
 from std_srvs.srv import Trigger
 from trajectory_msgs.msg import JointTrajectoryPoint
 
-from home_robot.motion.stretch import STRETCH_HOME_Q, HelloStretch, HelloStretchIdx
+from home_robot.motion.stretch import (
+    STRETCH_HOME_Q,
+    HelloStretchIdx,
+    HelloStretchKinematics,
+)
 from home_robot_hw.constants import (
     CONFIG_TO_ROS,
     ROS_ARM_JOINTS,
@@ -499,7 +503,7 @@ class HelloStretchROSInterface(AbstractStretchInterface):
 
         # No hardware interface here for the ROS code
         if model is None:
-            model = HelloStretch(
+            model = HelloStretchKinematics(
                 visualize=visualize_planner, root=root, urdf_path=urdf_path
             )
         self.model = model  # This is the model

@@ -15,7 +15,7 @@ import trimesh
 import trimesh.transformations as tra
 
 from home_robot.mapping.voxel import SparseVoxelMap
-from home_robot.motion.stretch import STRETCH_NAVIGATION_Q, HelloStretch
+from home_robot.motion.stretch import STRETCH_NAVIGATION_Q, HelloStretchKinematics
 from home_robot.utils.point_cloud import numpy_to_pcd, pcd_to_numpy, show_point_cloud
 from home_robot.utils.pose import to_pos_quat
 from home_robot_hw.env.stretch_pick_and_place_env import StretchPickandPlaceEnv
@@ -36,7 +36,7 @@ class RosMapDataCollector(object):
     def __init__(self, env, visualize_planner=False):
         self.env = env  # Get the connection to the ROS environment via agent
         self.started = False
-        self.robot_model = HelloStretch(visualize=visualize_planner)
+        self.robot_model = HelloStretchKinematics(visualize=visualize_planner)
         self.voxel_map = SparseVoxelMap(resolution=0.01)
 
     def step(self):

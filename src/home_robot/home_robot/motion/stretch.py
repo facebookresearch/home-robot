@@ -110,7 +110,7 @@ class HelloStretchIdx:
     HEAD_TILT = 10
 
 
-class HelloStretch(Robot):
+class HelloStretchKinematics(Robot):
     """define motion planning structure for the robot"""
 
     # DEFAULT_BASE_HEIGHT = 0.09
@@ -228,7 +228,9 @@ class HelloStretch(Robot):
             )
         self.full_body_urdf_path = os.path.join(root, full_body_urdf)
         self.manip_mode_urdf_path = os.path.join(root, manip_urdf)
-        super(HelloStretch, self).__init__(name, self.full_body_urdf_path, visualize)
+        super(HelloStretchKinematics, self).__init__(
+            name, self.full_body_urdf_path, visualize
+        )
 
         # DOF: 3 for ee roll/pitch/yaw
         #      1 for gripper
@@ -732,7 +734,7 @@ class HelloStretch(Robot):
 
 
 if __name__ == "__main__":
-    robot = HelloStretch()
+    robot = HelloStretchKinematics()
     q0 = STRETCH_HOME_Q.copy()
     q1 = STRETCH_HOME_Q.copy()
     q0[2] = -1.18
