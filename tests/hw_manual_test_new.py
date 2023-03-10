@@ -21,7 +21,6 @@ if __name__ == "__main__":
     print("Resetting robot...")
     robot.reset()
 
-    """
     # Head movement
     print("Testing robot head movement...")
     robot.head.look_at_ee()
@@ -43,7 +42,6 @@ if __name__ == "__main__":
 
     print(f"Confirm that the robot moved to {xyt_goal} (forward left, facing right)")
     input("(press enter to continue)")
-    """
 
     # Manipulation
     print("Testing robot manipulation...")
