@@ -17,7 +17,6 @@ repos:
         args: [--install-types, --non-interactive, --no-strict-optional, --ignore-missing-imports]
         exclude: |
             (?x)^(
-                src/home_robot_hw/|
                 projects/|
             )|setup.py$
 
@@ -27,7 +26,6 @@ repos:
       - id: flake8
         exclude: |
             (?x)^(
-                src/home_robot_hw/|
                 src/home_robot/home_robot/utils/data_tools/|
                 projects/|
                 tests/
