@@ -34,7 +34,7 @@ if __name__ == "__main__":
     robot.switch_to_navigation_mode()
 
     xyt_goal = [0.25, 0.25, -np.pi / 2]
-    robot.nav.navigate_to(xyt_goal, blocking=True)
+    robot.nav.navigate_to(xyt_goal)
 
     xyt_curr = robot.nav.get_base_pose()
     assert np.allclose(xyt_curr[:2], xyt_goal[:2], atol=POS_TOL)

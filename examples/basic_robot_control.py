@@ -17,8 +17,8 @@ if __name__ == "__main__":
     print(f"camera_pose={camera_pose}")
 
     # Move camera
-    robot.head.set_pan_tilt(pan=np.pi / 4, tilt=-np.pi / 3, blocking=True)
-    robot.head.look_at_ee(blocking=True)
+    robot.head.set_pan_tilt(pan=np.pi / 4, tilt=-np.pi / 3)
+    robot.head.look_at_ee()
     robot.head.look_ahead()
 
     # Switch to navigation mode
@@ -36,7 +36,7 @@ if __name__ == "__main__":
 
     # Command the robot to navigate to a waypoint
     xyt_goal = [0.15, 0.15, -np.pi / 4]
-    robot.nav.navigate_to(xyt_goal, blocking=True)
+    robot.nav.navigate_to(xyt_goal)
 
     # Home robot base (navigate back to origin)
     robot.nav.home()
@@ -50,11 +50,11 @@ if __name__ == "__main__":
 
     # Command the robot arm 1
     q_desired = np.array([-0.1, 0.5, 0.3, 0, 0, 0])
-    robot.manip.goto_joint_positions(q_desired, blocking=True)
+    robot.manip.goto_joint_positions(q_desired)
 
     pos_desired = np.array([0.2, -0.2, 0.4])
     quat_desired = np.array([-0.7079143, 0.12421559, 0.1409881, -0.68084526])
-    robot.manip.goto_ee_pose(pos_desired, quat_desired, blocking=True)
+    robot.manip.goto_ee_pose(pos_desired, quat_desired)
 
     # Command the robot arm 2
     robot.manip.goto(STRETCH_HOME_Q)

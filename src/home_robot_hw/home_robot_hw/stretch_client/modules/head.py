@@ -49,7 +49,7 @@ class StretchHeadClient(AbstractControlModule):
         self,
         pan: Optional[float] = None,
         tilt: Optional[float] = None,
-        blocking: bool = False,
+        blocking: bool = True,
     ):
         joint_goals = {}
         if pan is not None:
@@ -63,15 +63,15 @@ class StretchHeadClient(AbstractControlModule):
         if blocking:
             self.wait()
 
-    def look_at_ee(self, blocking: bool = False):
+    def look_at_ee(self, blocking: bool = True):
         pan, tilt = self._robot_model.look_at_ee
         self.set_pan_tilt(pan, tilt, blocking=blocking)
 
-    def look_front(self, blocking: bool = False):
+    def look_front(self, blocking: bool = True):
         pan, tilt = self._robot_model.look_front
         self.set_pan_tilt(pan, tilt, blocking=blocking)
 
-    def look_ahead(self, blocking: bool = False):
+    def look_ahead(self, blocking: bool = True):
         pan, tilt = self._robot_model.look_ahead
         self.set_pan_tilt(pan, tilt, blocking=blocking)
 
