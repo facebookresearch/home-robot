@@ -2,7 +2,7 @@ import os
 
 import rospy
 
-from home_robot.motion.stretch import HelloStretch
+from home_robot.motion.stretch import HelloStretchKinematics
 from home_robot_hw.ros.path import get_package_path
 from home_robot_hw.ros.recorder import Recorder, pngs_to_mp4
 from home_robot_hw.teleop.stretch_xbox_controller import StretchXboxController
@@ -17,7 +17,7 @@ if __name__ == "__main__":
     stretch_planner_urdf_path = os.path.join(
         get_package_path(), "../assets/hab_stretch/urdf/planner_calibrated.urdf"
     )
-    model = HelloStretch(
+    model = HelloStretchKinematics(
         visualize=False,
         root="",
         urdf_path=stretch_planner_urdf_path,
