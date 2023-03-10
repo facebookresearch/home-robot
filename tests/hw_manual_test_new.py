@@ -21,6 +21,7 @@ if __name__ == "__main__":
     print("Resetting robot...")
     robot.reset()
 
+    """
     # Head movement
     print("Testing robot head movement...")
     robot.head.look_at_ee()
@@ -42,15 +43,14 @@ if __name__ == "__main__":
 
     print(f"Confirm that the robot moved to {xyt_goal} (forward left, facing right)")
     input("(press enter to continue)")
+    """
 
     # Manipulation
     print("Testing robot manipulation...")
     robot.switch_to_manipulation_mode()
 
-    pos_diff_goal = np.array([0.0, -0.2, 0.2])
+    pos_diff_goal = np.array([0.2, -0.2, 0.2])
     robot.manip.goto_ee_pose(pos_diff_goal, relative=True)
 
-    print(
-        f"Confirm that the robot EE moved by {pos_diff_goal} (lift upwards and extend outwards by 10cm)"
-    )
+    print(f"Confirm that the robot EE moved by {pos_diff_goal} (X is forward, Z is up)")
     input("(press enter to continue)")

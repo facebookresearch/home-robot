@@ -140,18 +140,21 @@ class StretchManipulationClient(AbstractControlModule):
             world_frame: Infer poses in world frame instead of base frame
             blocking: Whether command blocks until completetion
         """
+        pos_ee_curr, quat_ee_curr = self.get_ee_pose()
+        if quat is None:
+            quat = quat_ee_curr
+
         # Compute IK goal: pose relative to base
         pose_input = posquat2sophus(np.array(pos), np.array(quat))
 
         if world_frame:
-            pose_base2ee = pose_input
-        else:
+            pose_world2ee = pose_input
             pose_world2base = self._ros_client.se3_base_filtered
-            pose_world2ee = posquat2sophus(pos, quat)
             pose_base2ee = pose_world2base.inverse() * pose_world2ee
+        else:
+            pose_base2ee = pose_input
 
         if relative:
-            pos_ee_curr, quat_ee_curr = self.get_ee_pose()
             pose_base2ee_curr = posquat2sophus(pos_ee_curr, quat_ee_curr)
             pose_ik_goal = pose_base2ee_curr * pose_base2ee
         else:
