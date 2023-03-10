@@ -49,7 +49,7 @@ if __name__ == "__main__":
     robot.manip.home()
 
     # Command the robot arm 1
-    q_desired = np.array([-0.1, 0.5, 0.4, 0, 0, 0])
+    q_desired = np.array([-0.1, 0.5, 0.3, 0, 0, 0])
     robot.manip.goto_joint_positions(q_desired, blocking=True)
 
     pos_desired = np.array([0.2, -0.2, 0.4])
