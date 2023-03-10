@@ -54,7 +54,7 @@ if __name__ == "__main__":
 
     pos_desired = np.array([0.2, -0.2, 0.4])
     quat_desired = np.array([-0.7079143, 0.12421559, 0.1409881, -0.68084526])
-    robot.manip.goto_ee_pose(pos_desired, quat_desired)
+    robot.manip.goto_ee_pose(pos_desired, quat_desired, relative=True)
 
     # Command the robot arm 2
     robot.manip.goto(STRETCH_HOME_Q)
