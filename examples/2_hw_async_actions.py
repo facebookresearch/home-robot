@@ -7,14 +7,14 @@ from home_robot_hw.stretch_client import StretchClient
 
 if __name__ == "__main__":
     robot = StretchClient()
-    robot.home()
+    robot.manip.home()
 
     # Async navigation
     robot.switch_to_navigation_mode()
 
-    robot.navigate_to([1, 0, 0], blocking=False)
+    robot.nav.navigate_to([1, 0, 0], blocking=False)
     time.sleep(1)
-    robot.navigate_to([0.2, 0.5, 0], blocking=False)  # update goal
+    robot.nav.navigate_to([0.2, 0.5, 0], blocking=False)  # update goal
     robot.nav.wait()  # wait for nav actions to complete
 
     # Async nav and head motion
