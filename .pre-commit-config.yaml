@@ -16,11 +16,11 @@ repos:
       - id: mypy
         args: [--install-types, --non-interactive, --no-strict-optional, --ignore-missing-imports]
         exclude: |
-            (?x)^(
-                src/home_robot_hw/home_robot_hw/ros/|
-                src/home_robot_hw/home_robot_hw/teleop/|
-                projects/|
-            )|setup.py$
+            (?x)(
+                ^src/home_robot_hw/home_robot_hw/ros/|
+                ^src/home_robot_hw/home_robot_hw/teleop/|
+                ^projects/
+            )
 
   - repo: https://github.com/pycqa/flake8
     rev: 5.0.4
