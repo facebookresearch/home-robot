@@ -9,6 +9,7 @@ import torch
 import torch.nn as nn
 from sklearn.cluster import DBSCAN
 
+from home_robot.mapping.semantic.constants import MapConstants as MC
 from home_robot.utils.morphology import binary_dilation
 
 
@@ -134,16 +135,22 @@ class ObjectNavFrontierExplorationPolicy(nn.Module):
             # if the category goal was not found previously
             if not found_goal_current[e]:
                 # the category to navigate to
-                category_map = map_features[e, goal_category[e] + 10, :, :]
+                category_map = map_features[
+                    e, goal_category[e] + 2 * MC.NON_SEM_CHANNELS, :, :
+                ]
                 if small_goal_category is not None:
                     # additionally check if the category has the required small object on it
                     category_map = (
                         category_map
-                        * map_features[e, small_goal_category[e] + 10, :, :]
+                        * map_features[
+                            e, small_goal_category[e] + 2 * MC.NON_SEM_CHANNELS, :, :
+                        ]
                     )
                 if reject_visited_regions:
                     # remove the receptacles that the already been close to
-                    category_map = category_map * (1 - map_features[e, 4, :, :])
+                    category_map = category_map * (
+                        1 - map_features[e, MC.BEEN_CLOSE_MAP, :, :]
+                    )
                 # if the desired category is found with required constraints, set goal for navigation
                 if (category_map == 1).sum() > 0:
                     goal_map[e] = category_map == 1
@@ -153,7 +160,7 @@ class ObjectNavFrontierExplorationPolicy(nn.Module):
     def explore_otherwise(self, map_features, goal_map, found_goal):
         """Explore closest unexplored region otherwise."""
         # Select unexplored area
-        frontier_map = (map_features[:, [1], :, :] == 0).float()
+        frontier_map = (map_features[:, [MC.EXPLORED_MAP], :, :] == 0).float()
 
         # Dilate explored area
         frontier_map = 1 - binary_dilation(

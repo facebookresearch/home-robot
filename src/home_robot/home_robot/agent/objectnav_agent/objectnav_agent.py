@@ -180,6 +180,7 @@ class ObjectNavAgent(Agent):
             {
                 "explored_map": self.semantic_map.get_explored_map(e),
                 "semantic_map": self.semantic_map.get_semantic_map(e),
+                "been_close_map": self.semantic_map.get_been_close_map(e),
                 "timestep": self.timesteps[e],
             }
             for e in range(self.num_environments)

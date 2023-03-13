@@ -307,6 +307,9 @@ rearrange_3categories_map_color_palette = [
         0.63,
         0.78,
         0.95,  # rest of goal
+        0.87,
+        0.61,
+        0.84,  # been close map
         *[x / 255.0 for x in rearrange_3categories_color_palette],
     ]
 ]

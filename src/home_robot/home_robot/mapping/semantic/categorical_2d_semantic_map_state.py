@@ -6,6 +6,7 @@ import numpy as np
 import torch
 
 from home_robot.mapping.map_utils import MapSizeParameters, init_map_and_pose_for_env
+from home_robot.mapping.semantic.constants import MapConstants as MC
 
 
 class Categorical2DSemanticMapState:
@@ -53,14 +54,14 @@ class Categorical2DSemanticMapState:
         self.global_map_size = self.global_map_size_cm // self.resolution
         self.local_map_size = self.local_map_size_cm // self.resolution
 
-        # Map consists of multiple channels containing the following:
+        # Map consists of multiple channels (5 NON_SEM_CHANNELS followed by semantic channels) containing the following:
         # 0: Obstacle Map
         # 1: Explored Area
         # 2: Current Agent Location
         # 3: Past Agent Locations
         # 4: Regions agent has been close to
-        # 5, 6, 7, .., num_sem_categories + 4: Semantic Categories
-        num_channels = self.num_sem_categories + 5
+        # 5, 6, 7, .., num_sem_categories + 5: Semantic Categories
+        num_channels = self.num_sem_categories + MC.NON_SEM_CHANNELS
 
         self.global_map = torch.zeros(
             self.num_environments,
@@ -130,27 +131,29 @@ class Categorical2DSemanticMapState:
 
     def get_obstacle_map(self, e) -> np.ndarray:
         """Get local obstacle map for an environment."""
-        return np.copy(self.local_map[e, 0, :, :].cpu().float().numpy())
+        return np.copy(self.local_map[e, MC.OBSTACLE_MAP, :, :].cpu().float().numpy())
 
     def get_explored_map(self, e) -> np.ndarray:
         """Get local explored map for an environment."""
-        return np.copy(self.local_map[e, 1, :, :].cpu().float().numpy())
+        return np.copy(self.local_map[e, MC.EXPLORED_MAP, :, :].cpu().float().numpy())
 
     def get_visited_map(self, e) -> np.ndarray:
         """Get local visited map for an environment."""
-        return np.copy(self.local_map[e, 3, :, :].cpu().float().numpy())
+        return np.copy(self.local_map[e, MC.VISITED_MAP, :, :].cpu().float().numpy())
 
     def get_been_close_map(self, e) -> np.ndarray:
         """Get map showing regions the agent has been close to"""
-        return np.copy(self.local_map[e, 4, :, :].cpu().float().numpy())
+        return np.copy(self.local_map[e, MC.BEEN_CLOSE_MAP, :, :].cpu().float().numpy())
 
     def get_semantic_map(self, e) -> np.ndarray:
         """Get local map of semantic categories for an environment."""
         semantic_map = np.copy(self.local_map[e].cpu().float().numpy())
         semantic_map[
-            4 + self.num_sem_categories, :, :
+            MC.NON_SEM_CHANNELS + self.num_sem_categories - 1, :, :
         ] = 1e-5  # Last category is unlabeled
-        semantic_map = semantic_map[5 : 5 + self.num_sem_categories, :, :].argmax(0)
+        semantic_map = semantic_map[
+            MC.NON_SEM_CHANNELS : MC.NON_SEM_CHANNELS + self.num_sem_categories, :, :
+        ].argmax(0)
         return semantic_map
 
     def get_planner_pose_inputs(self, e) -> np.ndarray:
