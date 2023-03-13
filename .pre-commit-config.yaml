@@ -16,11 +16,15 @@ repos:
       - id: mypy
         args: [--install-types, --non-interactive, --no-strict-optional, --ignore-missing-imports]
         exclude: |
-            (?x)(
-                ^src/home_robot_hw/home_robot_hw/ros/|
-                ^src/home_robot_hw/home_robot_hw/teleop/|
-                ^projects/
-            )
+            (?x)^(
+                projects/
+                | src/home_robot/home_robot/experimental/
+                | src/home_robot/home_robot/utils/data_tools/
+                | src/home_robot_hw/home_robot_hw/ros/
+                | src/home_robot_hw/home_robot_hw/teleop/
+                | src/home_robot_hw/home_robot_hw/agent/
+                | src/home_robot_hw/home_robot_hw/env/
+            ) | setup.py$
 
   - repo: https://github.com/pycqa/flake8
     rev: 5.0.4
@@ -28,9 +32,8 @@ repos:
       - id: flake8
         exclude: |
             (?x)^(
-                src/home_robot_hw/home_robot_hw/ros/|
-                src/home_robot_hw/home_robot_hw/teleop/|
-                src/home_robot/home_robot/utils/data_tools/|
-                projects/|
-                tests/
+                projects/
+                | src/home_robot_hw/home_robot_hw/ros/
+                | src/home_robot_hw/home_robot_hw/teleop/
+                | src/home_robot/home_robot/utils/data_tools/
             )
