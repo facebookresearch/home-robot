@@ -3,7 +3,7 @@
 # This source code is licensed under the MIT license found in the
 # LICENSE file in the root directory of this source tree.
 import os
-from typing import Dict
+from typing import Any, Dict
 
 import h5py
 import numpy as np
@@ -78,7 +78,7 @@ class DataWriter(object):
             self.temporal_data[k].append(v)
         return True
 
-    def fix_data(self, data) -> Dict[str]:
+    def fix_data(self, data: Dict[str, Any]) -> Dict[str, Any]:
         """Flatten dictionaries"""
         new_data = {}
         for k, v in data.items():
@@ -91,7 +91,7 @@ class DataWriter(object):
                 new_data[k] = v
         return new_data
 
-    def flatten_dict(self, key, data) -> Dict[str]:
+    def flatten_dict(self, key: str, data: Dict[str, Any]) -> Dict[str, Any]:
         """Take a dictionary (data) and turn it into a flat dict, with keys separated by
         slashes as per os.path.join"""
         new_data = {}

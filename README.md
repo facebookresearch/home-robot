@@ -34,53 +34,62 @@ This project contains numerous packages. See individual package docs for corresp
 
 ### Getting Started on the Hello Stretch
 
-Make sure you update all submodules by running:
-```
-git submodule update --recursive --init
-```
+1. Clone the repo on your Stretch Robot and the local GPU machine.
+    ```sh
+    git clone https://github.com/facebookresearch/home-robot.git
+    
+    # Make sure you update all submodules by running
+    git submodule update --recursive --init
+    ```
+    If the modules do not update as expected, make sure that you have added the [SSH public key](https://docs.github.com/en/authentication/connecting-to-github-with-ssh) of your robot and machine to authenticate your Github account.
+    
+    Set the env variables
+    ```sh
+    export HOME_ROBOT_ROOT=$(pwd)/home-robot
+    ```
 
-1. SSH into the onboard computer on the Hello Stretch.
-1. Install the core [home_robot](src/home_robot) python package.
-1. Install [home_robot_hw](src/home_robot_hw/install.md) and complete the setup.
+1. Install the core [home_robot](src/home_robot) python package. Main aspects reproduced here for convenience:
+
+    For installing on server-side:
+    ```sh
+    cd $HOME_ROBOT_ROOT/src/home_robot
+    mamba env create -n home_robot -f environment.yml
+    conda activate home_robot
+    pip install -e .
+    ```
+
+    For installing on robot-side:
+    ```sh
+    cd $HOME_ROBOT_ROOT/src/home_robot
+    pip install -e .
+    ```
+1. Install [home_robot_hw](src/home_robot_hw/install.md) and complete the setup. Main aspects reproduced here for convenience:
+    ```sh
+    # Create symlink in catkin workspace
+    ln -s /abs/path/to/home-robot/src/home_robot_hw $HOME/catkin_ws/src/home_robot_hw
+
+    # Install dependencies for catkin
+    pip install empy catkin_pkg rospkg
+
+    # Build catkin workspace
+    cd ~/catkin_ws  
+    rm -rf build/ devel/  # Optional to ignore stale cached files
+    catkin_make
+
+    # Add newly built setup.bash to .bashrc
+    echo "source ~/catkin_ws/devel/setup.bash" >> ~/.bashrc
+    ```
+
+ 
 1. Launch the ROS hardware stack:
     ```sh
     conda deactivate  # If you are using conda - not required on robot!
-    roslaunch home_robot startup_stretch_hector_slam.launch
+    roslaunch home_robot_hw startup_stretch_hector_slam.launch
     ```
-1. Launch interactive client: `python -m home_robot.client.local_hello_robot`
-
-You should then be able to command the robot using the following commands:
-```py
-# Query states
-robot.get_base_state()  # returns base location in the form of [x, y, rz]
-
-# Mode switching
-robot.switch_to_velocity_mode()  # enables base velocity control
-robot.switch_to_navigation_mode()  # enables continuous navigation
-robot.switch_to_manipulation_mode()  # enables gripper control
-
-# Velocity mode
-robot.set_velocity(v: float, w: float)  # directly sets the linear and angular velocity of robot base
-
-# Navigation mode
-robot.navigate_to(xyt: list, relative: bool = False, position_only: bool = False)
-
-# Manipulation mode (outdated)
-robot.set_arm_joint_positions(joint_positions: list)  # joint positions: [BASE_TRANSLATION, ARM_LIFT, ARM_EXTENTION, WRIST_YAW, WRIST_PITCH, WRIST_ROLL]
-robot.set_ee_pose(pos: list, quat: list, relative: bool = False)
-```
-
-Basic example:
-```py
-robot.get_base_state()  # Shows the robot's SE2 coordinates (should be [0, 0, 0])
-
-robot.switch_to_navigation_mode()
-robot.navigate_to([0.3, 0.3, 0.0])  # Sets SE2 target
-robot.get_base_state()  # Shows the robot's SE2 coordinates (should be close to [0.3, 0.3, 0])
-
-robot.switch_to_manipulation_mode()
-robot.set_ee_pose([0.5, 0.6, 0.5], [0, 0, 0, 1])
-```
+    Sanity check: run hardware test to test head movement, navigation (moved forward-left, turned to face right) and manipulation (lift upwards and extend outwards by 20cm).  
+    ```sh 
+    python tests/hw_manual_test.py
+    ```  
 
 ### Development
 
@@ -90,6 +99,29 @@ python -m pip install pre-commit
 cd $HOME_ROBOT_ROOT
 pre-commit install
 ```
+
+### Working with Stretch Environments
+Assuming `roslaunch home_robot_hw startup_stretch_hector_slam.launch` is running in a separate terminal, you could run the following scripts:
+
+Run simple navigation example (moves the robot forward by 0.25 m): 
+  ```sh
+  python src/home_robot_hw/home_robot_hw/env/simple_navigation_env.py
+  ```
+This file also serves as a simple example of how to setup your own environments implementing Stretch functionality. Every environment interfaces with the base Stretch controllers, models and environments to implement application-level requirements.
+
+### Collecting data on the real robot
+We provide scripts to collect data in H5 format using `Recorder` class. Follow the instructions for recording these files. If your application needs more/fewer data-sources, sub-class `Recorder` and over-ride the `save_frame` method
+Collect the data through teleoperation.
+  ```sh
+  python collect_h5.py --task_name TASK_NAME  --dir_path DIR_PATH
+  ```
+  This will save the teleoperation files at `DIR_PATH/TASK_NAME-{iteration}/{datetime}.h5`.
+
+  Turn on the controller and make sure it is connected to the robot (top two blue lights should be on). To give trajectory commands through the Xbox controller, open a separate terminal and:
+  ```sh
+  rosrun joy joy_node
+  ```
+Refer to [official hello robot keybindings](https://docs.hello-robot.com/0.2/stretch-tutorials/getting_started/images/xbox.png) to learn how to operate Stretch with the controller. We also provide a `Dataloaders` to load data into torch (WIP). 
 
 ### Launching Grasping Demo (outdated)
 
