@@ -1,3 +1,4 @@
+import sys
 import threading
 import time
 import timeit
@@ -403,6 +404,7 @@ class StretchEnv(home_robot.core.abstract_env.Env):
         return False
 
     def update(self):
+        """Return the full joint-state of the robot"""
         # Return a full state for the robot
         pos = self.get_base_pose()
         if pos is not None:
@@ -492,6 +494,7 @@ class StretchEnv(home_robot.core.abstract_env.Env):
 
         if rotate_images:
             # Get xyz in base coords for later
+            # TODO: replace with the new util function
             imgs = [np.rot90(np.fliplr(np.flipud(x))) for x in imgs]
 
         if xyz is not None:
@@ -508,7 +511,13 @@ class StretchEnv(home_robot.core.abstract_env.Env):
 
         return imgs
 
-    def get_pose(self, frame, base_frame=None, lookup_time=None, timeout_s=None):
+    def get_pose(
+        self,
+        frame: str,
+        base_frame: Optional[str] = None,
+        lookup_time: Optional[float] = None,
+        timeout_s: Optional[float] = None,
+    ) -> np.ndarray:
         """look up a particular frame in base coords"""
         if lookup_time is None:
             lookup_time = rospy.Time(0)  # return most recent transform
@@ -528,7 +537,13 @@ class StretchEnv(home_robot.core.abstract_env.Env):
             tf2_ros.ConnectivityException,
             tf2_ros.ExtrapolationException,
         ) as e:
-            print("!!! Lookup failed from", self.base_link, "to", self.odom_link, "!!!")
+            print(
+                "!!! Lookup failed from",
+                self.base_link,
+                "to",
+                self.odom_link,
+                f"!!!. Exception: {e}",
+            )
             return None
         return pose_mat
 

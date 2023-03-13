@@ -4,7 +4,6 @@
 # LICENSE file in the root directory of this source tree.
 import timeit
 
-import numpy as np
 import rospy
 
 from home_robot.motion.stretch import STRETCH_HOME_Q, HelloStretchIdx

@@ -95,11 +95,11 @@ class NavStateEstimator:
         output[t] = coeff * output[t-1] + (1 - coeff) * input[t]
         ```
 
-        In the high pass filter case, we are injecting the output signal with the difference 
-        between measurements, while in the low pass filter case, we are injecting the output 
-        signal with the absolute value of the measurements. 
+        In the high pass filter case, we are injecting the output signal with the difference
+        between measurements, while in the low pass filter case, we are injecting the output
+        signal with the absolute value of the measurements.
 
-        Slightly hand-wavy way of fusing the two filters to process the signals by simply adding 
+        Slightly hand-wavy way of fusing the two filters to process the signals by simply adding
         together the injected signals of both slam + LPF and odom + HPF into the output pose:
         ```
         output_pose[t] = coeff * output_pose[t-1] \
