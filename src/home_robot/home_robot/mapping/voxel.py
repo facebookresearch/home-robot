@@ -69,7 +69,7 @@ class SparseVoxelMap(object):
         else:
             return self.xyz.copy(), self.feats.copy()
 
-    def write_to_pickle(self, filename):
+    def write_to_pickle(self, filename: str):
         """Write out to a pickle file. This is a rough, quick-and-easy output for debugging, not intended to replace the scalable data writer in data_tools for bigger efforts."""
         data = {}
         data["poses"] = []
