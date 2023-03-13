@@ -1,3 +1,8 @@
+"""
+This is only for processing inference-time data at the moment.
+TODO:   Make these methods generic enough to support H5 data processing as well.
+        Right now the data processing in dataloaders occures using class's native methods
+"""
 from typing import List, Tuple
 
 import numpy as np
@@ -15,6 +20,9 @@ def get_local_action_prediction_problem(
     xyz: np.ndarray,
     p_i: np.ndarray,
 ) -> Tuple[np.ndarray, np.ndarray, bool]:
+    """
+    Create local problem around predicted interaction point for regression training
+    """
     # crop from og pcd and mean-center it
     crop_xyz, crop_rgb = crop_around_voxel(xyz, feat, p_i, cfg.local_problem_size)
     crop_xyz = crop_xyz - p_i[None].repeat(crop_xyz.shape[0], axis=0)

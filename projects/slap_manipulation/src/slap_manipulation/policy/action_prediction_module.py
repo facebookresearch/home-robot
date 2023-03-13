@@ -334,7 +334,7 @@ class ActionPredictionModule(torch.nn.Module):
 
     def predict(
         self,
-        feat: Tuple[np.ndarray],
+        feat: np.ndarray,
         xyz: np.ndarray,
         proprio: np.ndarray,
         lang: List[str],

@@ -1,3 +1,5 @@
+from typing import Any, Dict, Tuple
+
 import hydra
 import numpy as np
 import rospy
@@ -18,15 +20,36 @@ from home_robot_hw.env.stretch_manipulation_env import StretchManipulationEnv
 STRETCH_GRIPPER_MAX = 0.6
 
 
+def get_proprio(raw_data, time=0.0):
+    proprio = raw_data["gripper_state"].astype(np.float64)
+    if proprio < 0.8 * STRETCH_GRIPPER_MAX:
+        proprio = np.array([1.0, proprio, time])
+    else:
+        proprio = np.array([0.0, proprio, time])
+
+    return proprio
+
+
 def create_apm_input(
-    cfg, raw_data: Dict[str, Any], ipm_input_vector: Tuple, p_i: np.ndarray
+    cfg,
+    raw_data: Dict[str, Any],
+    ipm_input_vector: Tuple,
+    p_i: np.ndarray,
+    time: float = 0.0,
 ):
     """takes raw data from stretch_manipulation_env and converts it into input batch
     for Action Prediction Module by cropping around predicted p_i: interaction_point"""
     feat = np.concatenate(ipm_input_vector[0], axis=-1)
     xyz = ipm_input_vector[1]
-    cropped_feat, cropped_xyz = get_local_action_prediction_problem(cfg, feat, xyz, p_i)
-    raise NotImplementedError
+    cropped_feat, cropped_xyz, status = get_local_action_prediction_problem(
+        cfg, feat, xyz, p_i
+    )
+    if not status:
+        raise RuntimeError(
+            "Interaction Prediction Module predicted an interaction point with no tractable local problem around it"
+        )
+    proprio = get_proprio(raw_data, time=time)
+    return (cropped_feat, cropped_xyz, proprio)
 
 
 def create_ipm_input(
@@ -45,11 +68,7 @@ def create_ipm_input(
     rgb = raw_data["rgb"].astype(np.float64)
     xyz = raw_data["xyz"].astype(np.float64)
     camera_pose = raw_data["camera_pose"]
-    proprio = raw_data["gripper_state"].astype(np.float64)
-    if proprio < 0.8 * STRETCH_GRIPPER_MAX:
-        proprio = np.array([1.0, proprio, -1.0])
-    else:
-        proprio = np.array([0.0, proprio, -1.0])
+    proprio = get_proprio(raw_data, time=-1.0)
 
     depth = depth.reshape(-1)
     rgb = rgb.reshape(-1, 3)
@@ -134,12 +153,18 @@ def main(cfg):
         experiment_running = False
         # ask if ok to run APM inference
         if cfg.execution.use_regressor:
+            current_time = [-1.0, 0.0, 1.0]
             for i in range(cfg.num_keypoints):
                 # run APM inference on sensor
                 raw_observations = robot.get_observation()
                 apm_input_vector = create_apm_input(
-                    raw_observations, ipm_input_vector, interaction_point
+                    cfg,
+                    raw_observations,
+                    ipm_input_vector,
+                    interaction_point,
+                    time=current_time[i],
                 )
+                apm_input_vector += (input_cmd,)
                 action = apm_model.predict(*apm_input_vector)
                 # ask if ok to execute
                 res = input("Execute the output? (y/n)")
