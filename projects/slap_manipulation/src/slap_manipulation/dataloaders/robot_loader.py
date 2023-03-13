@@ -464,6 +464,7 @@ class RobotDataset(RLBenchDataset):
                 xyzs.append(v_xyz)
 
         # randomly dropout 1/3rd of the point-clouds
+        # TODO: update this to dropout each frame with 0.33 probability
         idx_dropout = np.random.choice([False, True], size=len(rgbs), p=[0.33, 0.67])
         rgbs = [rgbs[i] for i in idx_dropout]
         xyzs = [xyzs[i] for i in idx_dropout]

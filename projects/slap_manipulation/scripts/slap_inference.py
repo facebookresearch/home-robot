@@ -7,6 +7,9 @@ from slap_manipulation.policy.action_prediction_module import ActionPredictionMo
 from slap_manipulation.policy.interaction_prediction_module import (
     InteractionPredictionModule,
 )
+from slap_manipulation.utils.input_preprocessing import (
+    get_local_action_prediction_problem,
+)
 
 from home_robot.utils.point_cloud import show_point_cloud
 from home_robot_hw.env.stretch_manipulation_env import StretchManipulationEnv
@@ -15,9 +18,14 @@ from home_robot_hw.env.stretch_manipulation_env import StretchManipulationEnv
 STRETCH_GRIPPER_MAX = 0.6
 
 
-def create_apm_input(raw_data, p_i):
+def create_apm_input(
+    cfg, raw_data: Dict[str, Any], ipm_input_vector: Tuple, p_i: np.ndarray
+):
     """takes raw data from stretch_manipulation_env and converts it into input batch
     for Action Prediction Module by cropping around predicted p_i: interaction_point"""
+    feat = np.concatenate(ipm_input_vector[0], axis=-1)
+    xyz = ipm_input_vector[1]
+    cropped_feat, cropped_xyz = get_local_action_prediction_problem(cfg, feat, xyz, p_i)
     raise NotImplementedError
 
 
@@ -25,7 +33,13 @@ def create_ipm_input(
     raw_data: dict, lang: list[str], filter_depth=False, debug=False, num_pts=8000
 ):
     """takes raw data from stretch_manipulation_env, and language command from user.
-    Converts it into input batch used in Interaction Prediction Module"""
+    Converts it into input batch used in Interaction Prediction Module
+    Return: obs_vector = ((rgb), xyz, proprio, lang)
+        obs_vector[0]: tuple of features per point in PCD; each element is expected to be Nxfeat_dim
+        obs_vector[1]: xyz coordinates of PCD points; N x 3
+        obs_vector[2]: proprioceptive state of robot; 3-dim vector: [gripper-state, gripper-width, time] # probably do not need time for IPM training
+        obs_vector[3]: language command; list of 1 string # should this be a list? only 1 string.
+    """
     input_vector = ()
     depth = raw_data["depth"]
     rgb = raw_data["rgb"].astype(np.float64)
@@ -62,11 +76,11 @@ def create_ipm_input(
     # mean-center the point cloud
     xyz -= xyz.mean(axis=0)
 
-    if debug:
-        show_point_cloud(xyz, rgb / 255.0, orig=np.zeros(3))
-
     if np.any(rgb) > 1.0:
         rgb = rgb / 255.0
+    if debug:
+        show_point_cloud(xyz, rgb, orig=np.zeros(3))
+
     input_vector = ((rgb), xyz, proprio, lang)
     return input_vector
 
@@ -106,20 +120,27 @@ def main(cfg):
         # get from the robot: pcd=(xyz, rgb), gripper-state,
         # construct input vector from raw data
         raw_observations = robot.get_observation()
-        input_vector = create_ipm_input(
+        ipm_input_vector = create_ipm_input(
             raw_observations, input_cmd, filter_depth=True, debug=True
         )
         # run inference on sensor data for IPM
-        interaction_point = ipm_model.predict(*input_vector)
+        (
+            interaction_point,
+            interaction_scores,
+            ipm_feat,
+            input_down_pcd,
+        ) = ipm_model.predict(*ipm_input_vector)
         print(f"Interaction point is {interaction_point}")
         experiment_running = False
         # ask if ok to run APM inference
         if cfg.execution.use_regressor:
-            for i in range(1):  # cfg.num_keypoints
+            for i in range(cfg.num_keypoints):
                 # run APM inference on sensor
                 raw_observations = robot.get_observation()
-                input_vector = create_apm_input(raw_observations, interaction_point)
-                action = apm_model.predict(*input_vector)
+                apm_input_vector = create_apm_input(
+                    raw_observations, ipm_input_vector, interaction_point
+                )
+                action = apm_model.predict(*apm_input_vector)
                 # ask if ok to execute
                 res = input("Execute the output? (y/n)")
                 if res == "y":
