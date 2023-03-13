@@ -286,6 +286,18 @@ rearrange_3categories_frame_color_palette = rearrange_3categories_color_palette 
     255,
 ]
 
+
+class PaletteIndices:
+    EMPTY_SPACE = 0
+    OBSTACLES = 1
+    EXPLORED = 2
+    VISITED = 3
+    CLOSEST_GOAL = 4
+    REST_OF_GOAL = 5
+    BEEN_CLOSE = 6
+    SEM_START = 7
+
+
 rearrange_3categories_map_color_palette = [
     int(x * 255.0)
     for x in [
@@ -307,6 +319,9 @@ rearrange_3categories_map_color_palette = [
         0.63,
         0.78,
         0.95,  # rest of goal
+        0.6,
+        0.87,
+        0.54,  # been close map
         *[x / 255.0 for x in rearrange_3categories_color_palette],
     ]
 ]

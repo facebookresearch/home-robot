@@ -14,7 +14,9 @@ from PIL import Image
 import home_robot.utils.pose as pu
 import home_robot.utils.visualization as vu
 
-from .constants import FloorplannertoMukulIndoor, HM3DtoCOCOIndoor, RearrangeCategories
+from .constants import FloorplannertoMukulIndoor, HM3DtoCOCOIndoor
+from .constants import PaletteIndices as PI
+from .constants import RearrangeCategories
 
 
 class Visualizer:
@@ -123,6 +125,7 @@ class Visualizer:
         found_goal: bool,
         explored_map: np.ndarray,
         semantic_map: np.ndarray,
+        been_close_map: np.ndarray,
         semantic_frame: np.ndarray,
         goal_name: str,
         timestep: int,
@@ -175,32 +178,32 @@ class Visualizer:
             )
         self.last_xy = (curr_x, curr_y)
 
-        semantic_map += 6
+        semantic_map += PI.SEM_START
 
         # Obstacles, explored, and visited areas
         no_category_mask = (
-            semantic_map == 6 + self.num_sem_categories - 1
+            semantic_map == PI.SEM_START + self.num_sem_categories - 1
         )  # Assumes the last category is "other"
         obstacle_mask = np.rint(obstacle_map) == 1
         explored_mask = np.rint(explored_map) == 1
         visited_mask = self.visited_map_vis[gy1:gy2, gx1:gx2] == 1
-        semantic_map[no_category_mask] = 0
-        semantic_map[np.logical_and(no_category_mask, explored_mask)] = 2
-        semantic_map[np.logical_and(no_category_mask, obstacle_mask)] = 1
-        semantic_map[visited_mask] = 3
+        semantic_map[no_category_mask] = PI.EMPTY_SPACE
+        semantic_map[np.logical_and(no_category_mask, explored_mask)] = PI.EXPLORED
+        semantic_map[np.logical_and(no_category_mask, obstacle_mask)] = PI.OBSTACLES
+        semantic_map[visited_mask] = PI.VISITED
 
         # Goal
         if visualize_goal:
             selem = skimage.morphology.disk(4)
             goal_mat = 1 - skimage.morphology.binary_dilation(goal_map, selem) != 1
             goal_mask = goal_mat == 1
-            semantic_map[goal_mask] = 5
+            semantic_map[goal_mask] = PI.REST_OF_GOAL
             if closest_goal_map is not None:
                 closest_goal_mat = (
                     1 - skimage.morphology.binary_dilation(closest_goal_map, selem) != 1
                 )
                 closest_goal_mask = closest_goal_mat == 1
-                semantic_map[closest_goal_mask] = 4
+                semantic_map[closest_goal_mask] = PI.CLOSEST_GOAL
 
         # Semantic categories
         semantic_map_vis = Image.new(
@@ -211,6 +214,16 @@ class Visualizer:
         semantic_map_vis = semantic_map_vis.convert("RGB")
         semantic_map_vis = np.flipud(semantic_map_vis)
         semantic_map_vis = semantic_map_vis[:, :, [2, 1, 0]]
+        # overlay the regions the agent has been close to
+        been_close_map = np.flipud(np.rint(been_close_map) == 1)
+        color_index = PI.BEEN_CLOSE * 3
+        color = self.semantic_category_mapping.map_color_palette[
+            color_index : color_index + 3
+        ][::-1]
+        semantic_map_vis[been_close_map] = (
+            semantic_map_vis[been_close_map] + color
+        ) / 2
+
         semantic_map_vis = cv2.resize(
             semantic_map_vis, (480, 480), interpolation=cv2.INTER_NEAREST
         )
