@@ -5,6 +5,7 @@
 from typing import Tuple
 
 import numpy as np
+import pytorch3d.transforms as pt
 import skimage.morphology
 import torch
 import torch.nn as nn
@@ -105,6 +106,7 @@ class Categorical2DSemanticMapModule(nn.Module):
         seq_pose_delta: Tensor,
         seq_dones: Tensor,
         seq_update_global: Tensor,
+        seq_camera_poses: Tensor,
         init_local_map: Tensor,
         init_global_map: Tensor,
         init_local_pose: Tensor,
@@ -125,6 +127,8 @@ class Categorical2DSemanticMapModule(nn.Module):
              that indicate episode restarts
             seq_update_global: sequence of (batch_size, sequence_length) binary
              flags that indicate whether to update the global map and pose
+            seq_camera_poses: sequence of (batch_size, 4, 4) extrinsic camera
+             matrices
             init_local_map: initial local map before any updates of shape
              (batch_size, 5 + num_sem_categories, M, M)
             init_global_map: initial global map before any updates of shape
@@ -175,7 +179,6 @@ class Categorical2DSemanticMapModule(nn.Module):
         local_map, local_pose = init_local_map.clone(), init_local_pose.clone()
         global_map, global_pose = init_global_map.clone(), init_global_pose.clone()
         lmb, origins = init_lmb.clone(), init_origins.clone()
-
         for t in range(sequence_length):
             # Reset map and pose for episodes done at time step t
             for e in range(batch_size):
@@ -192,7 +195,11 @@ class Categorical2DSemanticMapModule(nn.Module):
                     )
 
             local_map, local_pose = self._update_local_map_and_pose(
-                seq_obs[:, t], seq_pose_delta[:, t], local_map, local_pose
+                seq_obs[:, t],
+                seq_pose_delta[:, t],
+                local_map,
+                local_pose,
+                seq_camera_poses,
             )
 
             for e in range(batch_size):
@@ -218,7 +225,12 @@ class Categorical2DSemanticMapModule(nn.Module):
         )
 
     def _update_local_map_and_pose(
-        self, obs: Tensor, pose_delta: Tensor, prev_map: Tensor, prev_pose: Tensor
+        self,
+        obs: Tensor,
+        pose_delta: Tensor,
+        prev_map: Tensor,
+        prev_pose: Tensor,
+        camera_pose: Tensor,
     ) -> Tuple[Tensor, Tensor]:
         """Update local map and sensor pose given a new observation using parameter-free
         differentiable projective geometry.
@@ -230,6 +242,7 @@ class Categorical2DSemanticMapModule(nn.Module):
             prev_map: previous local map of shape
              (batch_size, 5 + num_sem_categories, M, M)
             prev_pose: previous pose of shape (batch_size, 3)
+            camera_pose: current camera poseof shape (batch_size, 4, 4)
 
         Returns:
             current_map: current local map updated with current observation
@@ -239,13 +252,19 @@ class Categorical2DSemanticMapModule(nn.Module):
         batch_size, obs_channels, h, w = obs.size()
         device, dtype = obs.device, obs.dtype
 
+        camera_pose = np.asarray(camera_pose)
+        _, _, tilt = pt.matrix_to_euler_angles(
+            torch.tensor(camera_pose[:3, :3]), convention="YZX"
+        )
+        tilt = tilt.item()
         depth = obs[:, 3, :, :].float()
         point_cloud_t = du.get_point_cloud_from_z_t(
             depth, self.camera_matrix, device, scale=self.du_scale
         )
+        agent_height = camera_pose[1, 3] * 100
 
         agent_view_t = du.transform_camera_view_t(
-            point_cloud_t, self.agent_height, 0, device
+            point_cloud_t, agent_height, np.rad2deg(tilt), device
         )
 
         agent_view_centered_t = du.transform_pose_t(

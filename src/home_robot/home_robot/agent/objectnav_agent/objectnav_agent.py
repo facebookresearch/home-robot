@@ -80,6 +80,7 @@ class ObjectNavAgent(Agent):
         pose_delta: torch.Tensor,
         object_goal_category=None,
         recep_goal_category=None,
+        camera_pose=None,
     ) -> Tuple[List[dict], List[dict]]:
         """Prepare low-level planner inputs from an observation - this is
         the main inference function of the agent that lets it interact with
@@ -134,6 +135,7 @@ class ObjectNavAgent(Agent):
             pose_delta.unsqueeze(1),
             dones.unsqueeze(1),
             update_global.unsqueeze(1),
+            camera_pose,
             self.semantic_map.local_map,
             self.semantic_map.global_map,
             self.semantic_map.local_pose,
@@ -221,6 +223,7 @@ class ObjectNavAgent(Agent):
             object_goal_category,
             recep_goal_category,
             goal_name,
+            camera_pose,
         ) = self._preprocess_obs(obs)
 
         # t1 = time.time()
@@ -232,6 +235,7 @@ class ObjectNavAgent(Agent):
             pose_delta,
             object_goal_category=object_goal_category,
             recep_goal_category=recep_goal_category,
+            camera_pose=camera_pose,
         )
 
         # t2 = time.time()
@@ -256,6 +260,7 @@ class ObjectNavAgent(Agent):
         vis_inputs[0]["semantic_frame"] = obs.task_observations["semantic_frame"]
         vis_inputs[0]["goal_name"] = obs.task_observations["goal_name"]
         vis_inputs[0]["closest_goal_map"] = closest_goal_map
+        vis_inputs[0]["third_person_image"] = obs.third_person_image
         info = {**planner_inputs[0], **vis_inputs[0]}
 
         return action, info
@@ -294,4 +299,5 @@ class ObjectNavAgent(Agent):
             object_goal_category,
             recep_goal_category,
             goal_name,
+            obs.camera_pose,
         )

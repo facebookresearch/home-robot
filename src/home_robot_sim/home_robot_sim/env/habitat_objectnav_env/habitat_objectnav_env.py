@@ -128,6 +128,8 @@ class HabitatObjectNavEnv(HabitatEnv):
                 "recep_goal": recep_goal,
                 "goal_name": goal_name,
             },
+            third_person_image=habitat_obs["robot_third_rgb"],
+            camera_pose=habitat_obs["camera_pose"],
         )
         obs = self._preprocess_semantic(obs, habitat_obs)
         return obs

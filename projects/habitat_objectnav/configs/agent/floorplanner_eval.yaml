@@ -13,7 +13,7 @@ ENVIRONMENT:
   camera_height: 1.25     # camera sensor height (in metres)
   hfov: 42.0              # horizontal field of view (in degrees)
   min_depth: 0.0          # minimum depth for depth sensor (in metres)
-  max_depth: 10.0          # maximum depth for depth sensor (in metres)
+  max_depth: 10.0         # maximum depth for depth sensor (in metres)
 
 AGENT:
   max_steps: 500          # maximum number of steps before stopping an episode

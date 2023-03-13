@@ -127,6 +127,7 @@ class Visualizer:
         goal_name: str,
         timestep: int,
         visualize_goal: bool = True,
+        third_person_image=None,
     ):
         """Visualize frame input and semantic map.
 
@@ -216,7 +217,13 @@ class Visualizer:
         self.image_vis[50:530, 670:1150] = semantic_map_vis
 
         # First-person semantic frame
-        self.image_vis[50:530, 15:655] = cv2.resize(semantic_frame, (640, 480))
+        self.image_vis[50 : 50 + 480, 15 : 15 + 360] = cv2.resize(
+            semantic_frame, (360, 480)
+        )
+
+        self.image_vis[50:530, 1165 : 1165 + 480] = cv2.resize(
+            third_person_image, (480, 480)
+        )
 
         # Agent arrow
         pos = (
@@ -241,7 +248,7 @@ class Visualizer:
             )
 
     def _init_vis_image(self, goal_name: str):
-        vis_image = np.ones((655, 1165, 3)).astype(np.uint8) * 255
+        vis_image = np.ones((655, 1820, 3)).astype(np.uint8) * 255
         font = cv2.FONT_HERSHEY_SIMPLEX
         fontScale = 1
         color = (20, 20, 20)  # BGR

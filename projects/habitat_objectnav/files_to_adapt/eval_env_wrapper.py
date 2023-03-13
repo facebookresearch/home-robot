@@ -119,6 +119,7 @@ class EvalEnvWrapper(Env):
         self.scene_id = None
         self.episode_id = None
         self.last_semantic_frame = None
+        self.last_third_person_rgb_frame = None
         self.last_goal_name = None
         self.last_closest_goal_map = None
         self.episode_panorama_start_steps = None
@@ -180,11 +181,12 @@ class EvalEnvWrapper(Env):
             pose_delta,
             goal_category,
             goal_name,
+            third_person_rgb_frame,
         ) = self.obs_preprocessor.preprocess([obs])
 
         self.last_semantic_frame = semantic_frame[0]
         self.last_goal_name = goal_name[0]
-
+        self.last_third_person_rgb_frame = third_person_rgb_frame[0]
         info = {"pose_delta": pose_delta, "goal_category": goal_category}
 
         return obs_preprocessed, info
@@ -197,6 +199,7 @@ class EvalEnvWrapper(Env):
         vis_inputs["semantic_frame"] = self.last_semantic_frame
         vis_inputs["goal_name"] = self.last_goal_name
         vis_inputs["closest_goal_map"] = self.last_closest_goal_map
+        vis_inputs["third_person_rgb_frame"] = self.last_third_person_rgb_frame
         self.visualizer.visualize(**planner_inputs, **vis_inputs)
 
         # 2 - Planning
