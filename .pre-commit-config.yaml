@@ -10,6 +10,18 @@ repos:
       - id: isort
         args: ["--profile", "black", "--filter-files"]
 
+  - repo: https://github.com/pycqa/flake8
+    rev: 5.0.4
+    hooks:
+      - id: flake8
+        exclude: |
+            (?x)^(
+                projects/
+                | src/home_robot_hw/home_robot_hw/ros/
+                | src/home_robot_hw/home_robot_hw/teleop/
+                | src/home_robot/home_robot/utils/data_tools/
+            )
+
   - repo: https://github.com/pre-commit/mirrors-mypy
     rev: v0.981
     hooks:
@@ -25,15 +37,3 @@ repos:
                 | src/home_robot_hw/home_robot_hw/agent/
                 | src/home_robot_hw/home_robot_hw/env/
             ) | setup.py$
-
-  - repo: https://github.com/pycqa/flake8
-    rev: 5.0.4
-    hooks:
-      - id: flake8
-        exclude: |
-            (?x)^(
-                projects/
-                | src/home_robot_hw/home_robot_hw/ros/
-                | src/home_robot_hw/home_robot_hw/teleop/
-                | src/home_robot/home_robot/utils/data_tools/
-            )
