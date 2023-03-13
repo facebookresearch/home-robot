@@ -1,6 +1,6 @@
 NO_GPU: 1                 # 1: ignore IDs above and run on CPU, 0: run on GPUs with IDs above
 NUM_ENVIRONMENTS: 35      # number of environments (per agent process)
-DUMP_LOCATION: dump_new   # path to dump models and log
+DUMP_LOCATION: datadump   # path to dump models and log
 EXP_NAME: eval_floorplanner       # experiment name
 VISUALIZE: 0              # 1: render observation and predicted semantic map, 0: no visualization
 PRINT_IMAGES: 1           # 1: save visualization as images, 0: no image saving
@@ -16,7 +16,7 @@ ENVIRONMENT:
   max_depth: 10.0         # maximum depth for depth sensor (in metres)
 
 AGENT:
-  max_steps: 5000         # maximum number of steps before stopping an episode
+  max_steps: 500         # maximum number of steps before stopping an episode
   panorama_start: 1       # 1: turn around 360 degrees when starting an episode, 0: don't
 
   SEMANTIC_MAP:
