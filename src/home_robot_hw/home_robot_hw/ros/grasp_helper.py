@@ -15,12 +15,12 @@ from geometry_msgs.msg import Point, PoseArray, TransformStamped
 from sensor_msgs.msg import ChannelFloat32, PointCloud
 from std_msgs.msg import Float32MultiArray
 
-from home_robot.srv import GraspRequest, GraspRequestResponse
 from home_robot_hw.ros.utils import (
     matrix_from_pose_msg,
     matrix_to_pose_msg,
     ros_pose_to_transform,
 )
+from home_robot_hw.srv import GraspRequest, GraspRequestResponse
 
 
 def msg_to_segmented_point_cloud(msg):

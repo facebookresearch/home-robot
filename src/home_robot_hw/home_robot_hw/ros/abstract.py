@@ -13,7 +13,6 @@ from home_robot.motion.stretch import (
     STRETCH_GRASP_FRAME,
     STRETCH_HOME_Q,
     STRETCH_STANDOFF_DISTANCE,
-    HelloStretch,
     HelloStretchIdx,
 )
 

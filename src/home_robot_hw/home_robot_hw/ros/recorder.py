@@ -73,10 +73,10 @@ class Recorder(object):
         8. end-effector pose
         """
         # record rgb and depth
-        rgb, depth = self.robot.get_images(compute_xyz=False)
+        rgb, depth, xyz = self.robot.get_images(compute_xyz=True)
         q, dq = self.robot.update()
         # TODO get the following from TF lookup
-        ee_pose = self.robot.model.fk(q)
+        ee_pose = self.robot.model.manip_fk(q)
         # output of above is a tuple of two ndarrays
         # ee-pose should be 1 ndarray of 7 values
         ee_pose = np.concatenate((ee_pose[0], ee_pose[1]), axis=0)
@@ -99,6 +99,7 @@ class Recorder(object):
             base_pose=base_pose,
             camera_pose=camera_pose,
             user_keyframe=user_keyframe,
+            xyz=xyz,
         )
 
         return rgb, depth, q, dq

@@ -67,7 +67,7 @@ STRETCH_NAVIGATION_Q = np.array(
     ]
 )
 PIN_CONTROLLED_JOINTS = [
-    # "base_x_joint",
+    "base_x_joint",
     "joint_lift",
     "joint_arm_l0",
     "joint_arm_l1",
@@ -110,7 +110,7 @@ class HelloStretchIdx:
     HEAD_TILT = 10
 
 
-class HelloStretch(Robot):
+class HelloStretchKinematics(Robot):
     """define motion planning structure for the robot"""
 
     # DEFAULT_BASE_HEIGHT = 0.09
@@ -228,7 +228,9 @@ class HelloStretch(Robot):
             )
         self.full_body_urdf_path = os.path.join(root, full_body_urdf)
         self.manip_mode_urdf_path = os.path.join(root, manip_urdf)
-        super(HelloStretch, self).__init__(name, self.full_body_urdf_path, visualize)
+        super(HelloStretchKinematics, self).__init__(
+            name, self.full_body_urdf_path, visualize
+        )
 
         # DOF: 3 for ee roll/pitch/yaw
         #      1 for gripper
@@ -464,13 +466,20 @@ class HelloStretch(Robot):
             self.set_config(q)
         return self.ref.get_link_pose(link_name)
 
+    def manip_fk(self, q: np.ndarray = None) -> Tuple[np.ndarray, np.ndarray]:
+        """manipulator specific forward kinematics; uses separate URDF than the full-body fk() method"""
+        assert q.shape == (self.dof,)
+        pin_pose = self._ros_pose_to_pinocchio(q)
+        if self._ik_type == "pinocchio":
+            ee_pos, ee_quat = self.manip_ik_solver.compute_fk(pin_pose)
+        elif self._ik_type == "pybullet":
+            ee_pos, ee_quat = self.fk(q)
+        return ee_pos.copy(), ee_quat.copy()
+
     def fk(self, q=None, as_matrix=False) -> Tuple[np.ndarray, np.ndarray]:
         """forward kinematics"""
         pose = None
-        if self._ik_type == "pybullet":
-            pose = self.get_link_pose(self.ee_link_name, q)
-        elif self._ik_type == "pinocchio":
-            pose = self.ik_solver.compute_fk(q)
+        pose = self.get_link_pose(self.ee_link_name, q)
         if as_matrix:
             return to_matrix(*pose)
         return pose
@@ -573,6 +582,22 @@ class HelloStretch(Robot):
         q[HelloStretchIdx.WRIST_PITCH] = q_raw[7]
         q[HelloStretchIdx.WRIST_YAW] = q_raw[6]
         return q
+
+    def _pinocchio_pose_to_ros(self, joint_angles):
+        raise NotImplementedError
+
+    def _ros_pose_to_pinocchio(self, joint_angles):
+        """utility to convert Stretch joint angle output to pinocchio joint pose format"""
+        pin_compatible_joints = np.zeros(9)
+        pin_compatible_joints[0] = joint_angles[HelloStretchIdx.BASE_X]
+        pin_compatible_joints[1] = joint_angles[HelloStretchIdx.LIFT]
+        pin_compatible_joints[2] = pin_compatible_joints[3] = pin_compatible_joints[
+            4
+        ] = pin_compatible_joints[5] = (joint_angles[HelloStretchIdx.ARM] / 4)
+        pin_compatible_joints[6] = joint_angles[HelloStretchIdx.WRIST_YAW]
+        pin_compatible_joints[7] = joint_angles[HelloStretchIdx.WRIST_PITCH]
+        pin_compatible_joints[8] = joint_angles[HelloStretchIdx.WRIST_ROLL]
+        return pin_compatible_joints
 
     def ik(self, pose, q0):
         pos, rot = pose
@@ -732,7 +757,7 @@ class HelloStretch(Robot):
 
 
 if __name__ == "__main__":
-    robot = HelloStretch()
+    robot = HelloStretchKinematics()
     q0 = STRETCH_HOME_Q.copy()
     q1 = STRETCH_HOME_Q.copy()
     q0[2] = -1.18
