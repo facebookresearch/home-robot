@@ -52,3 +52,5 @@ if __name__ == "__main__":
 
     print(f"Confirm that the robot EE moved by {pos_diff_goal} (X is forward, Z is up)")
     input("(press enter to continue)")
+
+    print(f"Test complete!")
