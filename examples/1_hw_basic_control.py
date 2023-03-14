@@ -1,5 +1,3 @@
-import time
-
 import numpy as np
 
 from home_robot.motion.stretch import STRETCH_HOME_Q, HelloStretchKinematics
@@ -27,12 +25,7 @@ if __name__ == "__main__":
 
     # Get base pose
     xyt = robot.nav.get_base_pose()
-    print(f"xyt={xyt}")
-
-    # Command robot velocities
-    robot.nav.set_velocity(v=0.2, w=0.0)
-    time.sleep(2)
-    robot.nav.set_velocity(v=0.0, w=0.0)
+    print(f"Base pose: xyt={xyt}")
 
     # Command the robot to navigate to a waypoint
     xyt_goal = [0.15, 0.15, -np.pi / 4]
@@ -48,7 +41,12 @@ if __name__ == "__main__":
     # Home robot joints (moves to predefined home joint configuration)
     robot.manip.home()
 
+    # Get gripper pose
+    pos, quat = robot.manip.get_ee_pose()
+    print(f"EE pose: pos={pos}, quat={quat}")
+
     # Command the robot arm 1
+    # (joints: [base translation, arm lift, arm extend, gripper yaw, gripper pitch, gripper roll])
     q_desired = np.array([-0.1, 0.5, 0.3, 0, 0, 0])
     robot.manip.goto_joint_positions(q_desired)
 
@@ -72,7 +70,7 @@ if __name__ == "__main__":
 
     # Some commands are still available
     xyt = robot.nav.get_base_pose()
-    print(f"xyt={xyt}")
+    print(f"Base pose: xyt={xyt}")
 
     # Stop all robot motion
     robot.stop()
