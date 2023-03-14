@@ -169,13 +169,9 @@ class DiscretePlanner:
 
         stg_x, stg_y = short_term_goal
         angle_st_goal = math.degrees(math.atan2(stg_x - start[0], stg_y - start[1]))
-        angle_agent = start_o % 360.0
-        if angle_agent > 180:
-            angle_agent -= 360
+        angle_agent = pu.normalize_angle(start_o)
+        relative_angle = pu.normalize_angle(angle_agent - angle_st_goal)
 
-        relative_angle = (angle_agent - angle_st_goal) % 360.0
-        if relative_angle > 180:
-            relative_angle -= 360
         # Short-term goal -> deterministic local policy
         if relative_angle > self.turn_angle / 2.0:
             action = DiscreteNavigationAction.TURN_RIGHT

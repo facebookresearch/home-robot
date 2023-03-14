@@ -131,9 +131,9 @@ class Categorical2DSemanticMapModule(nn.Module):
             seq_camera_poses: sequence of (batch_size, 4, 4) extrinsic camera
              matrices
             init_local_map: initial local map before any updates of shape
-             (batch_size, 5 + num_sem_categories, M, M)
+             (batch_size, MC.NON_SEM_CHANNELS + num_sem_categories, M, M)
             init_global_map: initial global map before any updates of shape
-             (batch_size, 5 + num_sem_categories, M * ds, M * ds)
+             (batch_size, MC.NON_SEM_CHANNELS + num_sem_categories, M * ds, M * ds)
             init_local_pose: initial local pose before any updates of shape
              (batch_size, 3)
             init_global_pose: initial global pose before any updates of shape
@@ -143,11 +143,11 @@ class Categorical2DSemanticMapModule(nn.Module):
 
         Returns:
             seq_map_features: sequence of semantic map features of shape
-             (batch_size, sequence_length, 10 + num_sem_categories, M, M)
+             (batch_size, sequence_length, 2 * MC.NON_SEM_CHANNELS + num_sem_categories, M, M)
             final_local_map: final local map after all updates of shape
-             (batch_size, 5 + num_sem_categories, M, M)
+             (batch_size, MC.NON_SEM_CHANNELS + num_sem_categories, M, M)
             final_global_map: final global map after all updates of shape
-             (batch_size, 5 + num_sem_categories, M * ds, M * ds)
+             (batch_size, MC.NON_SEM_CHANNELS + num_sem_categories, M * ds, M * ds)
             seq_local_pose: sequence of local poses of shape
              (batch_size, sequence_length, 3)
             seq_global_pose: sequence of global poses of shape
@@ -241,31 +241,28 @@ class Categorical2DSemanticMapModule(nn.Module):
              (batch_size, 3 + 1 + num_sem_categories, frame_height, frame_width)
             pose_delta: delta in pose since last frame of shape (batch_size, 3)
             prev_map: previous local map of shape
-             (batch_size, 5 + num_sem_categories, M, M)
+             (batch_size, MC.NON_SEM_CHANNELS + num_sem_categories, M, M)
             prev_pose: previous pose of shape (batch_size, 3)
             camera_pose: current camera poseof shape (batch_size, 4, 4)
 
         Returns:
             current_map: current local map updated with current observation
-             and location of shape (batch_size, 5 + num_sem_categories, M, M)
+             and location of shape (batch_size, MC.NON_SEM_CHANNELS + num_sem_categories, M, M)
             current_pose: current pose updated with pose delta of shape (batch_size, 3)
         """
         batch_size, obs_channels, h, w = obs.size()
         device, dtype = obs.device, obs.dtype
-
-        camera_pose = np.asarray(camera_pose)
-        _, _, tilt = pt.matrix_to_euler_angles(
-            torch.tensor(camera_pose[:3, :3]), convention="YZX"
-        )
-        tilt = tilt.item()
+        tilt = pt.matrix_to_euler_angles(camera_pose[:, :3, :3], convention="YZX")[
+            :, -1
+        ]
         depth = obs[:, 3, :, :].float()
         point_cloud_t = du.get_point_cloud_from_z_t(
             depth, self.camera_matrix, device, scale=self.du_scale
         )
-        agent_height = camera_pose[1, 3] * 100
+        agent_height = camera_pose[:, 1, 3] * 100
 
         agent_view_t = du.transform_camera_view_t(
-            point_cloud_t, agent_height, np.rad2deg(tilt), device
+            point_cloud_t, agent_height, torch.rad2deg(tilt).numpy(), device
         )
 
         agent_view_centered_t = du.transform_pose_t(
@@ -329,7 +326,7 @@ class Categorical2DSemanticMapModule(nn.Module):
 
         agent_view = torch.zeros(
             batch_size,
-            5 + self.num_sem_categories,
+            MC.NON_SEM_CHANNELS + self.num_sem_categories,
             self.local_map_size_cm // self.xy_resolution,
             self.local_map_size_cm // self.xy_resolution,
             device=device,
@@ -371,7 +368,9 @@ class Categorical2DSemanticMapModule(nn.Module):
         # Clamp to [0, 1] after transform agent view to map coordinates
         translated = torch.clamp(translated, min=0.0, max=1.0)
         maps = torch.cat((prev_map.unsqueeze(1), translated.unsqueeze(1)), 1)
-        current_map, _ = torch.max(maps[:, :, : 5 + self.num_sem_categories], 1)
+        current_map, _ = torch.max(
+            maps[:, :, : MC.NON_SEM_CHANNELS + self.num_sem_categories], 1
+        )
 
         # Reset current location
         current_map[:, MC.CURRENT_LOCATION, :, :].fill_(0.0)

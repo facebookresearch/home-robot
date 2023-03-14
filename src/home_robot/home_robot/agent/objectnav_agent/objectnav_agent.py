@@ -78,9 +78,9 @@ class ObjectNavAgent(Agent):
         self,
         obs: torch.Tensor,
         pose_delta: torch.Tensor,
-        object_goal_category=None,
-        recep_goal_category=None,
-        camera_pose=None,
+        object_goal_category: torch.Tensor = None,
+        recep_goal_category: torch.Tensor = None,
+        camera_pose: torch.Tensor = None,
     ) -> Tuple[List[dict], List[dict]]:
         """Prepare low-level planner inputs from an observation - this is
         the main inference function of the agent that lets it interact with
@@ -93,7 +93,9 @@ class ObjectNavAgent(Agent):
              (num_environments, 3 + 1 + num_sem_categories, frame_height, frame_width)
             pose_delta: sensor pose delta (dy, dx, dtheta) since last frame
              of shape (num_environments, 3)
-            goal_category: semantic goal category
+            object_goal_category: semantic category of small object goals
+            recep_goal_category: semantic category of receptacle goals
+            camera_pose: camera extrinsic pose of shape (num_environments, 4, 4)
 
         Returns:
             planner_inputs: list of num_environments planner inputs dicts containing
@@ -300,5 +302,5 @@ class ObjectNavAgent(Agent):
             object_goal_category,
             recep_goal_category,
             goal_name,
-            obs.camera_pose,
+            torch.tensor(np.asarray(obs.camera_pose)).unsqueeze(0),
         )

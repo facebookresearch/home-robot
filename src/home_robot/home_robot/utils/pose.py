@@ -151,3 +151,10 @@ def threshold_poses(coords, shape):
     coords[0] = min(max(0, coords[0]), shape[0] - 1)
     coords[1] = min(max(0, coords[1]), shape[1] - 1)
     return coords
+
+
+def normalize_angle(angle_in_degrees):
+    angle_in_degrees = angle_in_degrees % 360.0
+    if angle_in_degrees > 180:
+        angle_in_degrees -= 360
+    return angle_in_degrees
