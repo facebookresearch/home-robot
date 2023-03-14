@@ -39,15 +39,17 @@ class ObjectNavAgentModule(nn.Module):
         self,
         seq_obs,
         seq_pose_delta,
-        seq_goal_category,
         seq_dones,
         seq_update_global,
+        seq_camera_poses,
         init_local_map,
         init_global_map,
         init_local_pose,
         init_global_pose,
         init_lmb,
         init_origins,
+        seq_object_goal_category=None,
+        seq_recep_goal_category=None,
     ):
         """Update maps and poses with a sequence of observations, and predict
         high-level goals from map features.
@@ -64,6 +66,7 @@ class ObjectNavAgentModule(nn.Module):
              indicate episode restarts
             seq_update_global: sequence of (batch_size, sequence_length) binary
              flags that indicate whether to update the global map and pose
+            seq_camera_poses: sequence of (batch_size, 4, 4) camera poses
             init_local_map: initial local map before any updates of shape
              (batch_size, 4 + num_sem_categories, M, M)
             init_global_map: initial global map before any updates of shape
@@ -110,6 +113,7 @@ class ObjectNavAgentModule(nn.Module):
             seq_pose_delta,
             seq_dones,
             seq_update_global,
+            seq_camera_poses,
             init_local_map,
             init_global_map,
             init_local_pose,
@@ -124,8 +128,13 @@ class ObjectNavAgentModule(nn.Module):
         # Predict high-level goals from map features
         # batched across sequence length x num environments
         map_features = seq_map_features.flatten(0, 1)
-        goal_category = seq_goal_category.flatten(0, 1)
-        goal_map, found_goal = self.policy(map_features, goal_category)
+        if seq_object_goal_category is not None:
+            seq_object_goal_category = seq_object_goal_category.flatten(0, 1)
+        if seq_recep_goal_category is not None:
+            seq_recep_goal_category = seq_recep_goal_category.flatten(0, 1)
+        goal_map, found_goal = self.policy(
+            map_features, seq_object_goal_category, seq_recep_goal_category
+        )
         seq_goal_map = goal_map.view(batch_size, sequence_length, *goal_map.shape[-2:])
         seq_found_goal = found_goal.view(batch_size, sequence_length)
 

@@ -81,11 +81,14 @@ class HabitatObjectNavEnv(HabitatEnv):
             rgb=habitat_obs["rgb"],
             depth=depth,
             compass=habitat_obs["compass"],
-            gps=self._preprocess_xy(habitat_obs["gps"]),
+            gps=habitat_obs["gps"],
             task_observations={
-                "goal_id": goal_id,
+                "object_goal": goal_id,
                 "goal_name": goal_name,
+                "recep_goal": None,
             },
+            camera_pose=None,
+            third_person_image=None,
         )
         obs = self._preprocess_semantic(obs, habitat_obs["semantic"])
         return obs

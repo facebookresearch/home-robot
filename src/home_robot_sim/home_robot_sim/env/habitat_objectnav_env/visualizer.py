@@ -15,6 +15,8 @@ import home_robot.utils.pose as pu
 import home_robot.utils.visualization as vu
 
 from .constants import FloorplannertoMukulIndoor, HM3DtoCOCOIndoor
+from .constants import PaletteIndices as PI
+from .constants import RearrangeCategories
 
 
 class Visualizer:
@@ -27,8 +29,10 @@ class Visualizer:
         self.print_images = config.PRINT_IMAGES
         self.default_vis_dir = f"{config.DUMP_LOCATION}/images/{config.EXP_NAME}"
         os.makedirs(self.default_vis_dir, exist_ok=True)
-
-        self.episodes_data_path = config.TASK_CONFIG.DATASET.DATA_PATH
+        if hasattr(config, "habitat"):  # hydra configs
+            self.episodes_data_path = config.habitat.dataset.data_path
+        else:
+            self.episodes_data_path = config.TASK_CONFIG.DATASET.DATA_PATH
         assert (
             "floorplanner" in self.episodes_data_path
             or "hm3d" in self.episodes_data_path
@@ -39,6 +43,39 @@ class Visualizer:
                 self.semantic_category_mapping = HM3DtoCOCOIndoor()
             else:
                 raise NotImplementedError
+        elif (
+            "floorplanner" in self.episodes_data_path
+            and hasattr(config, "habitat")
+            and "CatNavToObjTask" in config.habitat.task.type
+        ):
+            self.semantic_category_mapping = RearrangeCategories()
+            self._obj_name_to_id_mapping = {
+                "action_figure": 0,
+                "cup": 1,
+                "dishtowel": 2,
+                "hat": 3,
+                "sponge": 4,
+                "stuffed_toy": 5,
+                "tape": 6,
+                "vase": 7,
+            }
+            self._rec_name_to_id_mapping = {
+                "armchair": 0,
+                "armoire": 1,
+                "bar_stool": 2,
+                "coffee_table": 3,
+                "desk": 4,
+                "dining_table": 5,
+                "kitchen_island": 6,
+                "sofa": 7,
+                "stool": 8,
+            }
+            self._obj_id_to_name_mapping = {
+                k: v for v, k in self._obj_name_to_id_mapping.items()
+            }
+            self._rec_id_to_name_mapping = {
+                k: v for v, k in self._rec_name_to_id_mapping.items()
+            }
         elif "floorplanner" in self.episodes_data_path:
             if config.AGENT.SEMANTIC_MAP.semantic_categories == "mukul_indoor":
                 self.semantic_category_mapping = FloorplannertoMukulIndoor()
@@ -91,10 +128,12 @@ class Visualizer:
         found_goal: bool,
         explored_map: np.ndarray,
         semantic_map: np.ndarray,
+        been_close_map: np.ndarray,
         semantic_frame: np.ndarray,
         goal_name: str,
         timestep: int,
         visualize_goal: bool = True,
+        third_person_image=None,
     ):
         """Visualize frame input and semantic map.
 
@@ -142,32 +181,32 @@ class Visualizer:
             )
         self.last_xy = (curr_x, curr_y)
 
-        semantic_map += 6
+        semantic_map += PI.SEM_START
 
         # Obstacles, explored, and visited areas
         no_category_mask = (
-            semantic_map == 6 + self.num_sem_categories - 1
+            semantic_map == PI.SEM_START + self.num_sem_categories - 1
         )  # Assumes the last category is "other"
         obstacle_mask = np.rint(obstacle_map) == 1
         explored_mask = np.rint(explored_map) == 1
         visited_mask = self.visited_map_vis[gy1:gy2, gx1:gx2] == 1
-        semantic_map[no_category_mask] = 0
-        semantic_map[np.logical_and(no_category_mask, explored_mask)] = 2
-        semantic_map[np.logical_and(no_category_mask, obstacle_mask)] = 1
-        semantic_map[visited_mask] = 3
+        semantic_map[no_category_mask] = PI.EMPTY_SPACE
+        semantic_map[np.logical_and(no_category_mask, explored_mask)] = PI.EXPLORED
+        semantic_map[np.logical_and(no_category_mask, obstacle_mask)] = PI.OBSTACLES
+        semantic_map[visited_mask] = PI.VISITED
 
         # Goal
         if visualize_goal:
             selem = skimage.morphology.disk(4)
             goal_mat = 1 - skimage.morphology.binary_dilation(goal_map, selem) != 1
             goal_mask = goal_mat == 1
-            semantic_map[goal_mask] = 5
+            semantic_map[goal_mask] = PI.REST_OF_GOAL
             if closest_goal_map is not None:
                 closest_goal_mat = (
                     1 - skimage.morphology.binary_dilation(closest_goal_map, selem) != 1
                 )
                 closest_goal_mask = closest_goal_mat == 1
-                semantic_map[closest_goal_mask] = 4
+                semantic_map[closest_goal_mask] = PI.CLOSEST_GOAL
 
         # Semantic categories
         semantic_map_vis = Image.new(
@@ -178,13 +217,30 @@ class Visualizer:
         semantic_map_vis = semantic_map_vis.convert("RGB")
         semantic_map_vis = np.flipud(semantic_map_vis)
         semantic_map_vis = semantic_map_vis[:, :, [2, 1, 0]]
+        # overlay the regions the agent has been close to
+        been_close_map = np.flipud(np.rint(been_close_map) == 1)
+        color_index = PI.BEEN_CLOSE * 3
+        color = self.semantic_category_mapping.map_color_palette[
+            color_index : color_index + 3
+        ][::-1]
+        semantic_map_vis[been_close_map] = (
+            semantic_map_vis[been_close_map] + color
+        ) / 2
+
         semantic_map_vis = cv2.resize(
             semantic_map_vis, (480, 480), interpolation=cv2.INTER_NEAREST
         )
         self.image_vis[50:530, 670:1150] = semantic_map_vis
 
         # First-person semantic frame
-        self.image_vis[50:530, 15:655] = cv2.resize(semantic_frame, (640, 480))
+        self.image_vis[50 : 50 + 480, 15 : 15 + 360] = cv2.resize(
+            semantic_frame, (360, 480)
+        )
+
+        if third_person_image is not None:
+            self.image_vis[50:530, 1165 : 1165 + 480] = cv2.resize(
+                third_person_image, (480, 480)
+            )
 
         # Agent arrow
         pos = (
@@ -209,7 +265,7 @@ class Visualizer:
             )
 
     def _init_vis_image(self, goal_name: str):
-        vis_image = np.ones((655, 1165, 3)).astype(np.uint8) * 255
+        vis_image = np.ones((655, 1820, 3)).astype(np.uint8) * 255
         font = cv2.FONT_HERSHEY_SIMPLEX
         fontScale = 1
         color = (20, 20, 20)  # BGR
