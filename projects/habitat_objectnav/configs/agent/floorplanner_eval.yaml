@@ -1,3 +1,5 @@
+BASE_TASK_CONFIG_PATH: configs/task/floorplanner_val.yaml
+
 NO_GPU: 1                 # 1: ignore IDs above and run on CPU, 0: run on GPUs with IDs above
 NUM_ENVIRONMENTS: 35      # number of environments (per agent process)
 DUMP_LOCATION: datadump   # path to dump models and log
@@ -8,26 +10,26 @@ GROUND_TRUTH_SEMANTICS: 1 # 1: use ground-truth semantics (for debugging / ablat
 
 ENVIRONMENT:
   turn_angle: 30.0        # agent turn angle (in degrees)
-  frame_height: 640       # first-person frame height (in pixels)
-  frame_width: 480        # first-person frame width (in pixels)
-  camera_height: 1.25     # camera sensor height (in metres)
-  hfov: 42.0              # horizontal field of view (in degrees)
-  min_depth: 0.0          # minimum depth for depth sensor (in metres)
-  max_depth: 10.0         # maximum depth for depth sensor (in metres)
+  frame_height: 480       # first-person frame height (in pixels)
+  frame_width: 640        # first-person frame width (in pixels)
+  camera_height: 0.88     # camera sensor height (in metres)
+  hfov: 79.0              # horizontal field of view (in degrees)
+  min_depth: 0.5          # minimum depth for depth sensor (in metres)
+  max_depth: 5.0          # maximum depth for depth sensor (in metres)
 
 AGENT:
-  max_steps: 500         # maximum number of steps before stopping an episode
+  max_steps: 500          # maximum number of steps before stopping an episode
   panorama_start: 1       # 1: turn around 360 degrees when starting an episode, 0: don't
 
   SEMANTIC_MAP:
-    semantic_categories: rearrange # map semantic channel categories ("coco_indoor", "longtail_indoor", "mukul_indoor")
-    num_sem_categories: 5    # Following 5 categories: ["misc", "object_category", "start_receptacle", "goal_receptacle", "others"]
+    semantic_categories: mukul_indoor # map semantic channel categories ("coco_indoor", "longtail_indoor", "mukul_indoor")
+    num_sem_categories: 35            # number of map semantic channel categories (16, 257, 35)
     map_size_cm: 4800        # global map size (in centimeters)
     map_resolution: 5        # size of map bins (in centimeters)
     vision_range: 100        # diameter of local map region visible by the agent (in cells)
     global_downscaling: 2    # ratio of global over local map
     du_scale: 4              # frame downscaling before projecting to point cloud
-    cat_pred_threshold: 1.0  # number of depth points to be in bin to classify it as a certain semantic category
+    cat_pred_threshold: 5.0  # number of depth points to be in bin to classify it as a certain semantic category
     exp_pred_threshold: 1.0  # number of depth points to be in bin to consider it as explored
     map_pred_threshold: 1.0  # number of depth points to be in bin to consider it as obstacle
 

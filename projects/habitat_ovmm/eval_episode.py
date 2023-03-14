@@ -15,7 +15,9 @@ from config_utils import get_config
 from habitat.core.env import Env
 from omegaconf import DictConfig, OmegaConf
 
-from home_robot.agent.ovmm_agent.ovmm_agent import OpenVocabManipAgent
+from home_robot.agent.objectnav_agent.objectnav_agent import (
+    ObjectNavAgent as OpenVocabManipAgent,
+)
 from home_robot_sim.env.habitat_ovmm_env.habitat_ovmm_env import (
     HabitatOpenVocabManipEnv,
 )

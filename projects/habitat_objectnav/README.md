@@ -7,51 +7,30 @@
 
 ## Environment Setup
 
-On an Ubuntu machine with GPU:
 ```
-conda env create -n home-robot --file=src/home_robot/environment.yml
+
+git clone git@github.com:cpaxton/home-robot-dev.git
+cd home-robot-dev
+git checkout lang-rearrange-baseline
+
+conda create -n home-robot python=3.10 cmake pytorch pytorch-cuda=11.7 -c pytorch -c nvidia -y
 conda activate home-robot
 
 git clone https://github.com/3dlg-hcvc/habitat-sim --branch floorplanner
 cd habitat-sim
-python -m pip install -r requirements.txt
-python setup.py install --headless --with-bullet
+pip install -r requirements.txt
+python setup.py install --headless
 # (if the above commands runs out of memory) 
 # python setup.py build_ext --parallel 8 install --headless
+
 cd ..
-
-git clone --branch modular_nav_obj_on_rec https://github.com/facebookresearch/habitat-lab.git
-cd habitat-lab
-python -m pip install -e ./habitat-baselines
-cd habitat-lab
-python -m pip install -r requirements.txt
-python -m pip install -e .
-cd ../..
-```
-
-On Mac:
-```
-conda create -n home-robot python=3.10 cmake
-conda activate home-robot
-
-conda install pytorch torchvision torchaudio -c pytorch
-
-git clone https://github.com/3dlg-hcvc/habitat-sim --branch floorplanner
-cd habitat-sim
+git clone --branch v0.2.2 https://github.com/facebookresearch/habitat-lab.git
+cd habitat-lab 
 pip install -r requirements.txt
-python setup.py install --with-bullet
+python setup.py develop --all
+pip install natsort scikit-image scikit-fmm pandas
+
 cd ..
-
-git clone --branch modular_nav_obj_on_rec https://github.com/facebookresearch/habitat-lab.git
-cd habitat-lab
-pip install -e habitat-baselines
-cd habitat-lab
-pip install -r requirements.txt
-# Not clear if this should have --all or just be a pip install .
-python setup.py develop
-cd ../..
-
-pip install natsort scikit-image scikit-fmm pandas trimesh scikit-learn
 ```
 
 **[IMPORTANT]: Add habitat-lab path to PYTHONPATH**:
@@ -75,14 +54,6 @@ mkdir -p datasets/scene_datasets/floorplanner
 mv datasets/scene_datasets/fphab-v0.2.0 datasets/scene_datasets/floorplanner/v0.2.0
 ```
 
-The google scanned objects and amazon berkeley objects will need to be in `data/objects/google_object_dataset` and `data/objects/amazon_berkeley` respectively.
-
-### Other instructions
-
-Rough notes; some things were missing for configuring a new environment:
-  - Download the objects into `HOME_ROBOT_ROOT/data`
-  - Download the urdf into `HOME_ROBOT_ROOT/data/robots/hab_stretch` - robot should be at `data/robots/hab_stretch/urdf/` - robot from [the FAIR distribution here in zip format](http://dl.fbaipublicfiles.com/habitat/robots/hab_stretch_v1.0.zip)
-
 
 ### Episode dataset setup
 
@@ -92,11 +63,12 @@ wget https://www.dropbox.com/s/n1g1s6uvowo4tbm/v0.2.0_receptacle_cat_indoor_only
 unzip datasets/episode_datasets/floorplanner/indoor_only/v0.2.0_receptacle_cat_indoor_only_val.zip -d datasets/episode_datasets/floorplanner/indoor_only/
 ```
 
-## Create episode symlink
+[TEMPORARY] Floorplanner dataset episodes need to point to the right scene dataset config for scenes to load correctly:
 
-For example:
+> Add the below line after L93 of `habitat-lab/habitat/core/env.py`
+
 ```
-ln -s ~/src/habitat-lab/data/datasets/floorplanner/v0.2.0/ ~/src/home-robot/data/datasets/floorplanner/v0.2.0
+self.current_episode.scene_dataset_config = "/path/to/datasets/scene_datasets/floorplanner/v0.2.0/hab-fp.scene_dataset_config.json"
 ```
 
 
@@ -128,11 +100,10 @@ python demo.py --config-file configs/Detic_LCOCOI21k_CLIP_SwinB_896b32_4x_ft4x_m
 > Note: Ensure `GROUND_TRUTH_SEMANTICS:0` in `configs/agent/floorplanner_eval.yaml` to test DETIC perception.
 
 ```
-cd /path/to/home-robot
+cd /path/to/home-robot-dev/src
 
 # Single episode to debug (ensuring)
-export HABITAT_SIM_LOG=quiet
-python project/habitat_objectnav/eval_episode.py
+python eval_specific_episode.py
 
 # Vectorized evaluation
 sbatch eval_vectorized.sh --config_path configs/agent/floorplanner_eval.yaml

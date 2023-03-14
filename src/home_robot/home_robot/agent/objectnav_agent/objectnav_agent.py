@@ -20,7 +20,7 @@ class ObjectNavAgent(Agent):
 
     def __init__(self, config, device_id: int = 0):
         self.max_steps = config.AGENT.max_steps
-        self.set_num_environments(config)
+        self.num_environments = config.NUM_ENVIRONMENTS
         if config.AGENT.panorama_start:
             self.panorama_start_steps = int(360 / config.ENVIRONMENT.turn_angle)
         else:
@@ -296,11 +296,14 @@ class ObjectNavAgent(Agent):
             ).unsqueeze(0)
         goal_name = [obs.task_observations["goal_name"]]
 
+        camera_pose = obs.camera_pose
+        if camera_pose is not None:
+            camera_pose = torch.tensor(np.asarray(camera_pose)).unsqueeze(0)
         return (
             obs_preprocessed,
             pose_delta,
             object_goal_category,
             recep_goal_category,
             goal_name,
-            torch.tensor(np.asarray(obs.camera_pose)).unsqueeze(0),
+            camera_pose,
         )

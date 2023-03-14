@@ -132,7 +132,7 @@ cd /path/to/home-robot
 
 # Single episode to debug (ensuring)
 export HABITAT_SIM_LOG=quiet
-python project/habitat_objectnav/eval_episode.py
+python project/habitat_ovmm/eval_episode.py
 
 # Vectorized evaluation
 sbatch eval_vectorized.sh --config_path configs/agent/floorplanner_eval.yaml
