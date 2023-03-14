@@ -2,6 +2,8 @@
 #
 # This source code is licensed under the MIT license found in the
 # LICENSE file in the root directory of this source tree.
+from typing import List
+
 import cv2
 import numpy as np
 import trimesh.transformations as tra
@@ -141,3 +143,9 @@ def smooth_mask(mask, kernel=None):
     # mask2 = cv2.dilate(mask2, kernel, iterations=1)
     mask2 = np.bitwise_and(mask, mask2)
     return mask, mask2
+
+
+def rotate_image(imgs: List[np.ndarray]) -> List[np.ndarray]:
+    """stretch specific routine to flip and rotate sideways images for normal viewing"""
+    imgs = [np.rot90(np.fliplr(np.flipud(x))) for x in imgs]
+    return imgs

@@ -18,6 +18,8 @@ class DiscreteNavigationAction(Action, Enum):
     MOVE_FORWARD = 1
     TURN_LEFT = 2
     TURN_RIGHT = 3
+    PICK_OBJECT = 4
+    PLACE_OBJECT = 5
 
 
 @dataclass
@@ -55,8 +57,8 @@ class Observations:
     semantic: Optional[
         np.array
     ] = None  # (camera_height, camera_width) in [0, num_sem_categories - 1]
-    camera_extrinsic: Optional[np.array] = None  # (4, 4) camera pose in world coordinates
-
+    third_person_image: Optional[np.array] = None
+    camera_pose: Optional[np.array] = None
     # --------------------------------------------------------
     # Untyped task-specific observations
     # --------------------------------------------------------

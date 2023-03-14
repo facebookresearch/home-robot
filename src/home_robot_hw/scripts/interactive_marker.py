@@ -40,7 +40,11 @@ from geometry_msgs.msg import Point, Quaternion
 from interactive_markers.interactive_marker_server import InteractiveMarkerServer
 from interactive_markers.menu_handler import MenuHandler
 from tf.broadcaster import TransformBroadcaster
-from visualization_msgs.msg import *
+from visualization_msgs.msg import (
+    InteractiveMarker,
+    InteractiveMarkerControl,
+    InteractiveMarkerFeedback,
+)
 
 from home_robot.hw.ros.path import get_package_path
 
@@ -107,7 +111,6 @@ class InteractiveMarkerManager(object):
         self.writer = self.get_writer()
 
         self.server = InteractiveMarkerServer("demo_control")
-        rate = rospy.Rate(10)
 
         pose_mat, curr_q = self.get_current_pose()
 

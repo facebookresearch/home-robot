@@ -32,3 +32,6 @@ datadump/
 *.mp4
 
 src/home_robot/home_robot/agent/imagenav_agent/SuperGluePretrainedNetwork
+# Detic model files
+*.pth
+*.ply

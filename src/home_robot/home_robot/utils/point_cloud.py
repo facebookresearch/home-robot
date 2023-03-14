@@ -34,7 +34,9 @@ def pcd_to_numpy(pcd: o3d.geometry.PointCloud) -> (np.ndarray, np.ndarray):
     return xyz, rgb
 
 
-def show_point_cloud(xyz, rgb=None, orig=None, R=None, save=None, grasps=[]):
+def show_point_cloud(
+    xyz: np.ndarray, rgb: np.ndarray = None, orig=None, R=None, save=None, grasps=[]
+):
     # http://www.open3d.org/docs/0.9.0/tutorial/Basic/working_with_numpy.html
     if rgb is not None:
         rgb = rgb.reshape(-1, 3)

@@ -1,0 +1,69 @@
+task_0:
+        name: "pick up the bottle"
+        alt_name:
+                - "pick up a bottle from the table"
+                - "pick up a bottle"
+                - "grab my water bottle"
+
+task_1:
+        name: "pick up a lemon"
+        alt_name: 
+                - "pick the lemon from inside the white basket"
+                - "grab a lemon from the basket on the table"
+                - "hand me a lemon from that white basket"
+
+task_8:
+        name: "pick up the lemon"
+        alt_name: 
+                - "pick the lemon from inside the white basket"
+                - "grab a lemon from the basket on the table"
+                - "hand me a lemon from that white basket"
+
+task_2:
+        name: "place lemon in bowl"
+        alt_name: 
+                - "place the lemon from your gripper into the bowl"
+                - "add the lemon to a bowl on the table"
+                - "put the lemon in the bowl"
+
+task_3:
+        name: "place in the basket"
+        alt_name: 
+                - "place the object in your hand into the basket"
+                - "put the object into the white basket"
+                - "place the thing into the basket on the table"
+
+task_4:
+        name: "open bottom drawer"
+        alt_name: 
+                - "open the bottom drawer of the shelf on the table"
+                - "pull the second drawer out"
+                - "open the lowest drawer"
+
+task_9:
+        name: "open the bottom drawer"
+        alt_name: 
+                - "open the bottom drawer of the shelf on the table"
+                - "pull the second drawer out"
+                - "open the lowest drawer"
+
+task_5:
+        name: "close the drawer"
+        alt_name:
+                - "close the drawers"
+                - "push in the drawer"
+                - "close the drawer with your gripper"
+
+task_6:
+        name: "open top drawer"
+        alt_name: 
+                - "open the top drawer of the shelf on the table"
+                - "pull the first drawer out"
+                - "open the highest drawer"
+
+task_7:
+        name: "place in the drawer"
+        alt_name:
+                - "put it into the drawer"
+                - "place the object into the open drawer"
+                - "add the object to the drawer"
