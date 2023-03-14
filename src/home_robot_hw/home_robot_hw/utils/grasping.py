@@ -9,8 +9,8 @@ import home_robot.utils.visualization as viz
 from home_robot.motion.stretch import (
     STRETCH_NAVIGATION_Q,
     STRETCH_PREGRASP_Q,
-    HelloStretch,
     HelloStretchIdx,
+    HelloStretchKinematics,
 )
 from home_robot.utils.pose import to_pos_quat
 from home_robot_hw.ros.grasp_helper import GraspClient as RosGraspClient
@@ -23,7 +23,7 @@ class GraspPlanner(object):
 
     def __init__(self, robot_client, visualize_planner=False):
         self.robot_client = robot_client
-        self.robot_model = HelloStretch(visualize=visualize_planner)
+        self.robot_model = HelloStretchKinematics(visualize=visualize_planner)
         self.grasp_client = RosGraspClient()
 
     def go_to_manip_mode(self):
