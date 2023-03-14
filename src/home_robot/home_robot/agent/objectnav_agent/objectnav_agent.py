@@ -285,12 +285,18 @@ class ObjectNavAgent(Agent):
         ).unsqueeze(0)
         self.last_poses[0] = curr_pose
         object_goal_category = None
-        if obs.task_observations["object_goal"] is not None:
+        if (
+            "object_goal" in obs.task_observations
+            and obs.task_observations["object_goal"] is not None
+        ):
             object_goal_category = torch.tensor(
                 obs.task_observations["object_goal"]
             ).unsqueeze(0)
         recep_goal_category = None
-        if obs.task_observations["recep_goal"] is not None:
+        if (
+            "recep_goal" in obs.task_observations
+            and obs.task_observations["recep_goal"] is not None
+        ):
             recep_goal_category = torch.tensor(
                 obs.task_observations["recep_goal"]
             ).unsqueeze(0)

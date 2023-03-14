@@ -2,6 +2,7 @@
 import rospy
 
 from home_robot.agent.objectnav_agent.objectnav_agent import ObjectNavAgent
+from home_robot.core.interfaces import DiscreteNavigationAction
 from home_robot.motion.stretch import STRETCH_HOME_Q
 from home_robot.utils.config import get_config
 from home_robot_hw.env.stretch_object_nav_env import StretchObjectNavEnv
@@ -27,8 +28,12 @@ if __name__ == "__main__":
     while not env.episode_over:
         t += 1
         obs = env.get_observation()
-        action, info = agent.act(obs)
-        print("STEP =", t)
+        _, info = agent.act(obs)
+        if t < 24:
+            action = DiscreteNavigationAction.TURN_RIGHT
+        else:
+            action = DiscreteNavigationAction.STOP
+        print("STEP =", t, "ACTION =", action)
         env.apply_action(action, info=info)
 
     print(env.get_episode_metrics())
