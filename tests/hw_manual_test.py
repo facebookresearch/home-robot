@@ -6,7 +6,7 @@ import time
 
 import numpy as np
 
-from home_robot_hw.stretch_client import StretchClient
+from home_robot_hw.remote import StretchClient
 
 # Loose tolerances just to test that the robot moved reasonably
 POS_TOL = 0.1

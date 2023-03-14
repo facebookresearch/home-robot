@@ -69,4 +69,9 @@ roslaunch home_robot startup_stretch_hector_slam.launch
 
 ### On user machine: Interacting with the robot via the client
 
-See [examples](../../examples/) for common robot commands.
+See [examples](../../examples/) for common API usage.
+
+You can also start an interactive command line interface (CLI) with:
+```sh
+python -m home_robot_hw.remote.interactive_cli
+```
