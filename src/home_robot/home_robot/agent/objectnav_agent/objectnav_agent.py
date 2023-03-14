@@ -20,7 +20,7 @@ class ObjectNavAgent(Agent):
 
     def __init__(self, config, device_id: int = 0):
         self.max_steps = config.AGENT.max_steps
-        self.num_environments = config.habitat_baselines.num_environments
+        self.set_num_environments(config)
         if config.AGENT.panorama_start:
             self.panorama_start_steps = int(360 / config.ENVIRONMENT.turn_angle)
         else:
