@@ -29,8 +29,10 @@ class Visualizer:
         self.print_images = config.PRINT_IMAGES
         self.default_vis_dir = f"{config.DUMP_LOCATION}/images/{config.EXP_NAME}"
         os.makedirs(self.default_vis_dir, exist_ok=True)
-
-        self.episodes_data_path = config.habitat.dataset.data_path
+        if hasattr(config, "habitat"):  # hydra configs
+            self.episodes_data_path = config.habitat.dataset.data_path
+        else:
+            self.episodes_data_path = config.TASK_CONFIG.DATASET.DATA_PATH
         assert (
             "floorplanner" in self.episodes_data_path
             or "hm3d" in self.episodes_data_path
@@ -43,6 +45,7 @@ class Visualizer:
                 raise NotImplementedError
         elif (
             "floorplanner" in self.episodes_data_path
+            and hasattr(config, "habitat")
             and "CatNavToObjTask" in config.habitat.task.type
         ):
             self.semantic_category_mapping = RearrangeCategories()
