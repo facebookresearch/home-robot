@@ -45,16 +45,22 @@ if __name__ == "__main__":
     pos, quat = robot.manip.get_ee_pose()
     print(f"EE pose: pos={pos}, quat={quat}")
 
-    # Command the robot arm 1
+    # Command the robot arm 1: Direct joint control
     # (joints: [base translation, arm lift, arm extend, gripper yaw, gripper pitch, gripper roll])
     q_desired = np.array([-0.1, 0.5, 0.3, 0, 0, 0])
     robot.manip.goto_joint_positions(q_desired)
 
-    pos_desired = np.array([0.2, -0.2, 0.4])
+    # Command the robot arm 2: Absolute EE control
+    pos_desired = np.array([0.1, -0.2, 0.4])
     quat_desired = np.array([-0.7079143, 0.12421559, 0.1409881, -0.68084526])
-    robot.manip.goto_ee_pose(pos_desired, quat_desired, relative=True)
+    robot.manip.goto_ee_pose(pos_desired, quat_desired, relative=False)
 
-    # Command the robot arm 2
+    # Command the robot arm 3: Relative EE control
+    #   (note: orientation stays the same if not specified)
+    pos_desired = np.array([-0.1, -0.1, -0.1])
+    robot.manip.goto_ee_pose(pos_desired, relative=True)
+
+    # Command the robot arm 4: For backward compatibility
     robot.manip.goto(STRETCH_HOME_Q)
 
     # Gripper commands
