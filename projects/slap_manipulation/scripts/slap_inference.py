@@ -116,7 +116,7 @@ def main(cfg):
     apm_model = ActionPredictionModule(dry_run=cfg.dry_run)
     # load model-weights
     ipm_model.load_state_dict(torch.load(cfg.ipm_weights))
-    # apm_model.load_state_dict(cfg.apm_weights)
+    apm_model.load_state_dict(cfg.apm_weights)
 
     print("Loaded models successfully")
     cmds = [
