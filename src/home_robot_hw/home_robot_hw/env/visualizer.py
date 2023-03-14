@@ -98,6 +98,7 @@ class Visualizer:
         timestep: int,
         visualize_goal: bool = True,
         been_close_map: Optional[np.ndarray] = None,
+        third_person_image: Optional[np.ndarray] = None,
     ):
         """Visualize frame input and semantic map.
 
