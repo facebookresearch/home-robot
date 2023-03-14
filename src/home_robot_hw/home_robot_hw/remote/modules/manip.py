@@ -42,7 +42,7 @@ class StretchManipulationClient(AbstractControlModule):
 
     def get_ee_pose(self):
         q, _, _ = self._ros_client.get_joint_state()
-        pos, quat = self._robot_model.fk(q, as_matrix=False)
+        pos, quat = self._robot_model.manip_fk(q)
         return pos, quat
 
     def get_joint_positions(self):
@@ -150,18 +150,18 @@ class StretchManipulationClient(AbstractControlModule):
         if world_frame:
             pose_world2ee = pose_input
             pose_world2base = self._ros_client.se3_base_filtered
-            pose_base2ee = pose_world2base.inverse() * pose_world2ee
+            pose_desired = pose_world2base.inverse() * pose_world2ee
         else:
-            pose_base2ee = pose_input
+            pose_desired = pose_input
 
         if relative:
             pose_base2ee_curr = posquat2sophus(pos_ee_curr, quat_ee_curr)
-            pose_ik_goal = pose_base2ee_curr * pose_base2ee
+            pose_base2ee_desired = pose_base2ee_curr * pose_desired
         else:
-            pose_ik_goal = pose_base2ee
+            pose_base2ee_desired = pose_desired
 
-        pos_ik_goal = pose_ik_goal.translation()
-        quat_ik_goal = R.from_matrix(pose_ik_goal.so3().matrix()).as_quat()
+        pos_ik_goal = pose_base2ee_desired.translation()
+        quat_ik_goal = R.from_matrix(pose_base2ee_desired.so3().matrix()).as_quat()
 
         # Perform IK
         q = self._robot_model.manip_ik((pos_ik_goal, quat_ik_goal))
