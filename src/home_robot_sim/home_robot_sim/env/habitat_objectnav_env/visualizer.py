@@ -234,9 +234,10 @@ class Visualizer:
             semantic_frame, (360, 480)
         )
 
-        self.image_vis[50:530, 1165 : 1165 + 480] = cv2.resize(
-            third_person_image, (480, 480)
-        )
+        if third_person_image is not None:
+            self.image_vis[50:530, 1165 : 1165 + 480] = cv2.resize(
+                third_person_image, (480, 480)
+            )
 
         # Agent arrow
         pos = (
