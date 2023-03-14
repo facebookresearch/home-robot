@@ -166,7 +166,6 @@ class StretchPickandPlaceEnv(StretchEnv):
         relative_pose = self._episode_start_pose.inverse() * current_pose
         euler_angles = relative_pose.so3().log()
         theta = euler_angles[-1]
-        # pos, vel, frc = self.get_joint_state()
 
         # GPS in robot coordinates
         gps = relative_pose.translation()[:2]
@@ -182,7 +181,10 @@ class StretchPickandPlaceEnv(StretchEnv):
             task_observations={
                 "goal_id": self.current_goal_id,
                 "goal_name": self.current_goal_name,
+                "object_goal": self.current_goal_id,
+                "recep_goal": self.current_goal_id,
             },
+            camera_pose=self.get_camera_pose_matrix(rotated=False),
             # joint_positions=pos,
         )
         # Run the segmentation model here

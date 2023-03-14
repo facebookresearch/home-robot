@@ -121,7 +121,10 @@ class StretchObjectNavEnv(StretchEnv):
             task_observations={
                 "goal_id": self.current_goal_id,
                 "goal_name": self.current_goal_name,
+                "object_goal": self.current_goal_id,
+                "recep_goal": self.current_goal_id,
             },
+            camera_pose=self.get_camera_pose_matrix(rotated=False),
             # joint_positions=pos,
         )
         # Run the segmentation model here
