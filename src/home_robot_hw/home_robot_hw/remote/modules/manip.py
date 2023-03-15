@@ -40,9 +40,20 @@ class StretchManipulationClient(AbstractControlModule):
 
     # Interface methods
 
-    def get_ee_pose(self):
+    def get_ee_pose(self, world_frame=False):
         q, _, _ = self._ros_client.get_joint_state()
-        pos, quat = self._robot_model.manip_fk(q)
+        pos_base, quat_base = self._robot_model.manip_fk(q)
+
+        if world_frame:
+            pose_base2ee = posquat2sophus(pos_base, quat_base)
+            pose_world2base = self._ros_client.se3_base_filtered
+            pose_world2ee = pose_world2base * pose_base2ee
+
+            pos = pose_world2ee.translation()
+            quat = R.from_matrix(pose_world2ee.so3().matrix()).as_quat()
+        else:
+            pos, quat = pos_base, quat_base
+
         return pos, quat
 
     def get_joint_positions(self):
@@ -140,7 +151,7 @@ class StretchManipulationClient(AbstractControlModule):
             world_frame: Infer poses in world frame instead of base frame
             blocking: Whether command blocks until completetion
         """
-        pos_ee_curr, quat_ee_curr = self.get_ee_pose()
+        pos_ee_curr, quat_ee_curr = self.get_ee_pose(world_frame=world_frame)
         if quat is None:
             quat = [0, 0, 0, 1] if relative else quat_ee_curr
 
