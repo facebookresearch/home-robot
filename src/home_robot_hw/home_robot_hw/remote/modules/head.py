@@ -65,14 +65,17 @@ class StretchHeadClient(AbstractControlModule):
             self.wait()
 
     def look_at_ee(self, blocking: bool = True):
+        """Point camera sideways towards the gripper"""
         pan, tilt = self._robot_model.look_at_ee
         self.set_pan_tilt(pan, tilt, blocking=blocking)
 
     def look_front(self, blocking: bool = True):
+        """Point camera forwards at a 45-degree downwards angle"""
         pan, tilt = self._robot_model.look_front
         self.set_pan_tilt(pan, tilt, blocking=blocking)
 
     def look_ahead(self, blocking: bool = True):
+        """Point camera forwards horizontally"""
         pan, tilt = self._robot_model.look_ahead
         self.set_pan_tilt(pan, tilt, blocking=blocking)
 
