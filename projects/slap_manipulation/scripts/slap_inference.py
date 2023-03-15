@@ -21,6 +21,12 @@ STRETCH_GRIPPER_MAX = 0.6
 
 
 def get_proprio(raw_data, time=0.0):
+    """create a proprio vector from gripper-width
+    proprio_vector: (gripper-action, gripper-width, time in task)
+        gripper-action: 1.0 if gripper is closing, 0.0 if gripper is opening
+        gripper-width: actual gripper width  TODO: normalize this
+        time: normalized time in task (-1.0 is start of task, 1.0 is the end)
+    """
     proprio = raw_data["gripper_state"].astype(np.float64)
     if proprio < 0.8 * STRETCH_GRIPPER_MAX:
         proprio = np.array([1.0, proprio, time])
