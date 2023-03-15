@@ -91,7 +91,9 @@ class Recorder(object):
             user_keyframe = np.array([1])
         else:
             user_keyframe = np.array([0])
-        self.writer.add_img_frame(rgb=rgb, depth=(depth * 10000).astype(np.uint16))
+        self.writer.add_img_frame(
+            head_rgb=rgb, head_depth=(depth * 10000).astype(np.uint16)
+        )
         self.writer.add_frame(
             q=q,
             dq=dq,
