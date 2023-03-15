@@ -87,8 +87,9 @@ class StretchPickandPlaceEnv(StretchEnv):
         if self.visualizer is not None:
             self.visualizer.reset()
 
-        # Set the robot's head into "navigation" mode - facing forward
+        # Switch control mode on the robot to nav
         self.switch_to_navigation_mode()
+        # Set the robot's head into "navigation" mode - facing forward
         self.grasp_planner.go_to_nav_mode()
 
     def try_grasping(self, visualize_masks=False, dry_run=False):

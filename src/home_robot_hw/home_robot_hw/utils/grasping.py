@@ -36,9 +36,9 @@ class GraspPlanner(object):
         """Move the arm and head into nav mode."""
         home_q = STRETCH_NAVIGATION_Q
         # TODO - should be looking down to make sure we can see the objects
-        # home_q = self.robot_model.update_look_front(home_q.copy())
+        home_q = self.robot_model.update_look_front(home_q.copy())
         # NOTE: for now we have to do this though - until bugs are fixed in semantic map
-        home_q = self.robot_model.update_look_ahead(home_q.copy())
+        # home_q = self.robot_model.update_look_ahead(home_q.copy())
         self.robot_client.goto(home_q, move_base=False, wait=True)
 
     def try_grasping(self, visualize: bool = False, dry_run: bool = False):
