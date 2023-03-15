@@ -185,7 +185,7 @@ class StretchPickandPlaceEnv(StretchEnv):
                 "object_goal": self.current_goal_id,
                 "recep_goal": self.current_goal_id,
             },
-            camera_pose=self.get_camera_pose_matrix(rotated=False),
+            camera_pose=self.get_camera_pose_matrix(rotated=True),
             # joint_positions=pos,
         )
         # Run the segmentation model here
