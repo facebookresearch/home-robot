@@ -11,14 +11,21 @@ class SimpleTaskState(Enum):
 
     NOT_STARTED = 0
     FIND_OBJECT = 1
-    PICK_OBJECT = 2
-    FIND_GOAL = 3
-    PLACE_OBJECT = 4
+    ORIENT_OBJ = 2
+    PICK_OBJECT = 3
+    ORIENT_NAV = 4
+    FIND_GOAL = 5
+    ORIENT_PLACE = 6
+    PLACE_OBJECT = 7
 
 
 class PickAndPlaceAgent(Agent):
     """Create a simple version of a pick and place agent which uses a 2D semantic map to find
     objects and try to grasp them."""
+
+    # For debugging
+    # Force the robot to jump right to an attempt to pick objects
+    force_pick = True
 
     def __init__(self, config, device_id: int = 0):
         """Create the component object nav agent"""
@@ -46,12 +53,20 @@ class PickAndPlaceAgent(Agent):
         # Look for the goal object.
         if self.state == SimpleTaskState.FIND_OBJECT:
             action, action_info = self.object_nav_agent.act(obs)
+            if self.force_pick:
+                print("-> Actually predicted:", action)
+                action = DiscreteNavigationAction.STOP
             if action == DiscreteNavigationAction.STOP:
-                self.state = SimpleTaskState.PICK_OBJECT
+                self.state = SimpleTaskState.ORIENT_OBJ
         # If we have found the object, then try to pick it up.
-        if self.state == SimpleTaskState.PICK_OBJECT:
+        if self.state == SimpleTaskState.ORIENT_OBJ:
             # Try to grab the object.
             # If we grasped the object, then we should increment our state again
-            return DiscreteNavigationAction.PICK_OBJECT, action_info
+            self.state = SimpleTaskState.PICK_OBJECT
+            return DiscreteNavigationAction.MANIP_MODE, action_info
+        if self.state == SimpleTaskState.PICK_OBJECT:
+            # Try to grab the object
+            self.state = SimpleTaskState.ORIENT_NAV
+            return DiscreteNavigationAction.NAVIGATION_MODE, action_info
         # If we did not find anything else to do, just stop
         return action, action_info
