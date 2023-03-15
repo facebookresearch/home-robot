@@ -21,50 +21,65 @@ class GraspPlanner(object):
     """Simple grasp planner which integrates with a ROS service runnning e.g. contactgraspnet.
     Will choose and execute a grasp based on distance from base."""
 
-    def __init__(self, robot_client, visualize_planner=False):
+    def __init__(self, robot_client, env, visualize_planner=False):
         self.robot_client = robot_client
+        self.env = env
         self.robot_model = HelloStretchKinematics(visualize=visualize_planner)
         self.grasp_client = RosGraspClient()
 
     def go_to_manip_mode(self):
         """Move the arm and head into manip mode."""
+        """
         home_q = STRETCH_PREGRASP_Q
         home_q = self.robot_model.update_look_at_ee(home_q)
         self.robot_client.goto(home_q, move_base=False, wait=True)
+        """
+        self.robot_client.head.look_at_ee(blocking=False)
+        self.robot_client.manip.home()
 
     def go_to_nav_mode(self):
         """Move the arm and head into nav mode."""
+        """
         home_q = STRETCH_NAVIGATION_Q
         # TODO - should be looking down to make sure we can see the objects
         home_q = self.robot_model.update_look_front(home_q.copy())
         # NOTE: for now we have to do this though - until bugs are fixed in semantic map
         # home_q = self.robot_model.update_look_ahead(home_q.copy())
         self.robot_client.goto(home_q, move_base=False, wait=True)
+        """
+        self.robot_client.head.look_front(blocking=False)
+        self.robot_client.manip.home()
 
     def try_grasping(self, visualize: bool = False, dry_run: bool = False):
         """Detect grasps and try to pick up an object in front of the robot.
         Visualize - will show debug point clouds
         Dry run - does not actually move, just computes everything"""
+        """
         home_q = STRETCH_PREGRASP_Q
         home_q = self.robot_model.update_look_front(home_q.copy())
         home_q = self.robot_model.update_gripper(home_q, open=True)
         self.robot_client.goto(home_q, move_base=False, wait=True)
         home_q = self.robot_model.update_look_at_ee(home_q)
+        """
+        self.robot_client.switch_to_manipulation_mode()
+        self.robot_client.head.look_front(blocking=False)
+        self.robot_client.manip.open_gripper()
 
         min_grasp_score = 0.0
         max_tries = 10
         min_obj_pts = 100
         for attempt in range(max_tries):
             print("look at ee")
-            self.robot_client.goto(home_q, move_base=False, wait=True)
+            # self.robot_client.goto(home_q, move_base=False, wait=True)
+            self.robot_client.manip.home()
             rospy.sleep(1.0)
 
             # Get the observations - we need depth and xyz point clouds
             t0 = timeit.default_timer()
-            obs = self.robot_client.get_observation()
+            obs = self.env.get_observation()
             rgb, depth, xyz = obs.rgb, obs.depth, obs.xyz
-            camera_pose = self.robot_client.get_pose(
-                self.robot_client.rgb_cam.get_frame()
+            camera_pose = self.robot_client.get_frame_pose(
+                self.robot_client._ros_client.rgb_cam.get_frame()
             )
             print(
                 "getting images + cam pose took", timeit.default_timer() - t0, "seconds"
@@ -80,12 +95,17 @@ class GraspPlanner(object):
             if num_object_pts < min_obj_pts:
                 continue
 
-            mask_valid = depth > self.robot_client.dpt_cam.near_val  # remove bad points
+            mask_valid = (
+                depth > self.robot_client._ros_client.dpt_cam.near_val
+            )  # remove bad points
             mask_scene = mask_valid  # initial mask has to be good
             mask_scene = mask_scene.reshape(-1)
 
             predicted_grasps = self.grasp_client.request(
-                xyz, rgb, object_mask, frame=self.robot_client.rgb_cam.get_frame()
+                xyz,
+                rgb,
+                object_mask,
+                frame=self.robot_client._ros_client.rgb_cam.get_frame(),
             )
             if 0 not in predicted_grasps:
                 print("no predicted grasps")
@@ -127,6 +147,8 @@ class GraspPlanner(object):
                     grasp_completed = False
                 if grasp_completed:
                     break
+
+        self.robot_client.switch_to_navigation_mode()
 
     def try_executing_grasp(self, grasp: np.ndarray) -> bool:
         """Try executing a grasp. Takes in robot self.robot_model and a potential grasp; will execute
