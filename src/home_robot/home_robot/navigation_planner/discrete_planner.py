@@ -28,6 +28,7 @@ class DiscretePlanner:
         self,
         turn_angle: float,
         collision_threshold: float,
+        step_size: int,
         obs_dilation_selem_radius: int,
         goal_dilation_selem_radius: int,
         map_size_cm: int,
@@ -64,6 +65,7 @@ class DiscretePlanner:
         )
         self.turn_angle = turn_angle
         self.collision_threshold = collision_threshold
+        self.step_size = step_size
         self.start_obs_dilation_selem_radius = obs_dilation_selem_radius
         self.goal_dilation_selem_radius = goal_dilation_selem_radius
 
@@ -241,6 +243,7 @@ class DiscretePlanner:
 
         planner = FMMPlanner(
             traversible,
+            step_size=self.step_size,
             vis_dir=self.vis_dir,
             visualize=self.visualize,
             print_images=self.print_images,
