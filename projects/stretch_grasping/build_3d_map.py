@@ -34,8 +34,8 @@ class RosMapDataCollector(object):
     This is an example collecting the data; not necessarily the way you should do it.
     """
 
-    def __init__(self, env, visualize_planner=False):
-        self.env = env  # Get the connection to the ROS environment via agent
+    def __init__(self, robot, visualize_planner=False):
+        self.robot = robot  # Get the connection to the ROS environment via agent
         self.started = False
         self.robot_model = HelloStretchKinematics(visualize=visualize_planner)
         self.voxel_map = SparseVoxelMap(resolution=0.01)
@@ -43,9 +43,10 @@ class RosMapDataCollector(object):
     def step(self):
         """Step the collector. Get a single observation of the world. Remove bad points, such as
         those from too far or too near the camera."""
-        rgb, depth, xyz = self.env.get_images(compute_xyz=True, rotate_images=False)
-        q, dq = self.env.update()
-        camera_pose = self.env.get_camera_pose_matrix(rotated=False)
+        rgb, depth, xyz = self.robot.head.get_images(
+            compute_xyz=True, rotate_images=False
+        )
+        camera_pose = self.robot.head.get_pose(rotated=False)
         orig_rgb = rgb.copy()
         orig_depth = depth.copy()
 
@@ -64,7 +65,7 @@ class RosMapDataCollector(object):
             xyz,
             rgb,
             depth=depth,
-            K=self.env.rgb_cam.K,
+            K=self.robot.head._ros_client.rgb_cam.K,
             orig_rgb=orig_rgb,
             orig_depth=orig_depth,
         )
@@ -87,10 +88,8 @@ class RosMapDataCollector(object):
 @click.option("--pcd-filename", default="output.ply", type=str)
 @click.option("--pkl-filename", default="output.pkl", type=str)
 def main(rate, max_frames, visualize, manual_wait, pcd_filename, pkl_filename):
-    rospy.init_node("build_3d_map")
-    # env = StretchPickandPlaceEnv(segmentation_method=None, ros_grasping=False)
     robot = StretchClient()
-    collector = RosMapDataCollector(env, visualize)
+    collector = RosMapDataCollector(robot, visualize)
 
     # Tuck the arm away
     print("Sending arm to  home...")
@@ -102,7 +101,7 @@ def main(rate, max_frames, visualize, manual_wait, pcd_filename, pkl_filename):
 
     # Move the robot
     # TODO: replace env with client
-    robot.switch_to_navitation_mode()
+    robot.switch_to_navigation_mode()
     # Sequence information if we are executing the trajectory
     step = 0
     # Number of frames collected
