@@ -49,6 +49,7 @@ class ObjectNavAgent(Agent):
         self.planner = DiscretePlanner(
             turn_angle=config.ENVIRONMENT.turn_angle,
             collision_threshold=config.AGENT.PLANNER.collision_threshold,
+            step_size=config.AGENT.PLANNER.step_size,
             obs_dilation_selem_radius=config.AGENT.PLANNER.obs_dilation_selem_radius,
             goal_dilation_selem_radius=config.AGENT.PLANNER.goal_dilation_selem_radius,
             map_size_cm=config.AGENT.SEMANTIC_MAP.map_size_cm,
