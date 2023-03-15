@@ -3,9 +3,9 @@
 - Wrapper around [stretch_body](https://github.com/hello-robot/stretch_body) and [stretch_ros](https://github.com/hello-robot/stretch_ros)
 - Same interface as home_robot_sim
 
-## Installation: User machine
+## Installation: Workstation
 
-On the user machine, we install `home_robot_hw` as a pip package containing a client that is capable of connecting to ROS master running on the robot.
+On the workstation, we install `home_robot_hw` as a pip package containing a client that is capable of connecting to ROS master running on the robot.
 
 After creating a conda env and installing [home_robot](../home_robot) into it,
 
@@ -67,7 +67,7 @@ On the robot, we install `home_robot_hw` directly into the native environment (w
 roslaunch home_robot startup_stretch_hector_slam.launch
 ```
 
-### On user machine: Interacting with the robot via the client
+### On workstation: Interacting with the robot via the client
 
 See [examples](../../examples/) for common API usage.
 
