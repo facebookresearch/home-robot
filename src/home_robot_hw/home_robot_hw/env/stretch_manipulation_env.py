@@ -6,8 +6,8 @@ import trimesh
 from home_robot.motion.stretch import (
     STRETCH_BASE_FRAME,
     STRETCH_GRASP_FRAME,
-    HelloStretch,
     HelloStretchIdx,
+    HelloStretchKinematics,
 )
 from home_robot.utils.point_cloud import show_point_cloud
 from home_robot_hw.env.stretch_abstract_env import StretchEnv
@@ -18,7 +18,7 @@ class StretchManipulationEnv(StretchEnv):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        self.robot = HelloStretch(ik_type="pinocchio")
+        self.robot = HelloStretchKinematics(ik_type="pinocchio")
 
     def reset(self) -> None:
         """Reset is called at the beginning of each episode where the
