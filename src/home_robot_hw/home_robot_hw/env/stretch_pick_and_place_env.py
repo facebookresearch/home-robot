@@ -101,7 +101,6 @@ class StretchPickandPlaceEnv(StretchEnv):
         if self.visualizer is not None and info is not None:
             self.visualizer.visualize(**info)
         continuous_action = np.zeros(3)
-        try_to_grasp = False
         if action == DiscreteNavigationAction.MOVE_FORWARD:
             print("FORWARD")
             continuous_action[0] = self.forward_step
@@ -118,14 +117,18 @@ class StretchPickandPlaceEnv(StretchEnv):
             # if not self.in_manipulation_mode():
             #     self.switch_to_manipulation_mode()
             pass
-        elif action == DiscreteNavigationAction.PICK_OBJECT:
+        elif action == DiscreteNavigationAction.MANIPULATION_MODE:
             print("PICK UP THE TARGET OBJECT")
             print(" - Robot in navigation mode:", self.in_navigation_mode())
+            continuous_action = None
             if self.in_navigation_mode():
-                continuous_action[2] = np.pi / 2
-            else:
-                continuous_action = None
-            try_to_grasp = True
+                self.switch_to_navigation_mode()
+                rospy.sleep(self.msg_delay_t)
+            self.navigate_to([0, 0, np.pi / 2], relative=True, blocking=True)
+            self.grasp_planner.go_to_manip_mode()
+        elif action == DiscreteNavigationAction.PICK_OBJECT:
+            continuous_action = None
+            self.grasp_planner.try_grasping()
         else:
             print("Action not implemented in pick-and-place environment:", action)
             continuous_action = None
@@ -136,14 +139,6 @@ class StretchPickandPlaceEnv(StretchEnv):
                 self.switch_to_navigation_mode()
                 rospy.sleep(self.msg_delay_t)
             self.navigate_to(continuous_action, relative=True, blocking=True)
-
-        # Sleep after sending the navigate command
-        rospy.sleep(0.5)
-
-        # After optionally moving - try to grasp
-        if try_to_grasp:
-            self.grasp_planner.go_to_manip_mode()
-            self.grasp_planner.try_grasping()
 
     def set_goal(self, goal: str):
         """Set the goal class as a string. Goal should be an object class we want to pick up."""

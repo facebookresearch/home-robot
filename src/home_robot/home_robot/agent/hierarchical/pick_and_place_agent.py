@@ -25,7 +25,7 @@ class PickAndPlaceAgent(Agent):
 
     # For debugging
     # Force the robot to jump right to an attempt to pick objects
-    force_pick = True
+    skip_find_object = True
 
     def __init__(self, config, device_id: int = 0):
         """Create the component object nav agent"""
@@ -53,7 +53,7 @@ class PickAndPlaceAgent(Agent):
         # Look for the goal object.
         if self.state == SimpleTaskState.FIND_OBJECT:
             action, action_info = self.object_nav_agent.act(obs)
-            if self.force_pick:
+            if self.skip_find_object:
                 print("-> Actually predicted:", action)
                 action = DiscreteNavigationAction.STOP
             if action == DiscreteNavigationAction.STOP:
@@ -63,10 +63,10 @@ class PickAndPlaceAgent(Agent):
             # Try to grab the object.
             # If we grasped the object, then we should increment our state again
             self.state = SimpleTaskState.PICK_OBJECT
-            return DiscreteNavigationAction.MANIP_MODE, action_info
+            return DiscreteNavigationAction.MANIPULATION_MODE, action_info
         if self.state == SimpleTaskState.PICK_OBJECT:
             # Try to grab the object
-            self.state = SimpleTaskState.ORIENT_NAV
-            return DiscreteNavigationAction.NAVIGATION_MODE, action_info
+            # self.state = SimpleTaskState.ORIENT_NAV
+            return DiscreteNavigationAction.PICK_OBJECT, action_info
         # If we did not find anything else to do, just stop
         return action, action_info
