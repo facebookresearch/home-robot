@@ -16,6 +16,8 @@ if __name__ == "__main__":
     config.EXP_NAME = "debug"
     config.freeze()
 
+    circle = False
+
     rospy.init_node("eval_episode_stretch_objectnav")
     agent = ObjectNavAgent(config=config)
     env = StretchObjectNavEnv(config=config)
@@ -29,7 +31,9 @@ if __name__ == "__main__":
         t += 1
         obs = env.get_observation()
         _, info = agent.act(obs)
-        if t % 2 == 0:
+        if circle and (t < 8):
+            action = DiscreteNavigationAction.TURN_RIGHT
+        elif t % 2 == 0:
             action = DiscreteNavigationAction.TURN_RIGHT
         elif t % 2 == 1:
             action = DiscreteNavigationAction.TURN_LEFT

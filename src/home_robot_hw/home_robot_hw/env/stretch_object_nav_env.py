@@ -58,7 +58,11 @@ class StretchObjectNavEnv(StretchEnv):
         self.switch_to_navigation_mode()
         # put the robot in the correct mode with head facing forward
         home_q = STRETCH_NAVIGATION_Q
+        # TODO: get this right
+        # tilted
         home_q = self.robot_model.update_look_front(home_q.copy())
+        # Flat
+        # home_q = self.robot_model.update_look_ahead(home_q.copy())
         self.goto(home_q, move_base=False, wait=True)
 
     def apply_action(self, action: Action, info: Optional[Dict[str, Any]] = None):
@@ -133,7 +137,7 @@ class StretchObjectNavEnv(StretchEnv):
                 "object_goal": self.current_goal_id,
                 "recep_goal": self.current_goal_id,
             },
-            camera_pose=self.get_camera_pose_matrix(rotated=False),
+            camera_pose=self.get_camera_pose_matrix(rotated=True),
             # joint_positions=pos,
         )
         # Run the segmentation model here
