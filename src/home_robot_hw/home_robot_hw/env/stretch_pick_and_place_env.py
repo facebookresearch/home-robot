@@ -129,7 +129,7 @@ class StretchPickandPlaceEnv(StretchEnv):
             if self.in_navigation_mode():
                 self.switch_to_navigation_mode()
                 rospy.sleep(self.msg_delay_t)
-            self.navigate_to([0, 0, np.pi / 2], relative=True, blocking=True)
+            # self.navigate_to([0, 0, np.pi / 2], relative=True, blocking=True)
             self.grasp_planner.go_to_manip_mode()
         elif action == DiscreteNavigationAction.PICK_OBJECT:
             continuous_action = None

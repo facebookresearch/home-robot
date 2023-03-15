@@ -34,8 +34,12 @@ class GraspPlanner(object):
         home_q = self.robot_model.update_look_at_ee(home_q)
         self.robot_client.goto(home_q, move_base=False, wait=True)
         """
+        self.robot_client.switch_to_manipulation_mode()
         self.robot_client.head.look_at_ee(blocking=False)
-        self.robot_client.manip.home()
+        self.robot_client.manip.goto_joint_positions(
+            self.robot_client.manip._extract_joint_pos(STRETCH_PREGRASP_Q)
+        )
+        self.robot_client.switch_to_navigation_mode()
 
     def go_to_nav_mode(self):
         """Move the arm and head into nav mode."""
@@ -47,8 +51,12 @@ class GraspPlanner(object):
         # home_q = self.robot_model.update_look_ahead(home_q.copy())
         self.robot_client.goto(home_q, move_base=False, wait=True)
         """
+        self.robot_client.switch_to_manipulation_mode()
         self.robot_client.head.look_front(blocking=False)
-        self.robot_client.manip.home()
+        self.robot_client.manip.goto_joint_positions(
+            self.robot_client.manip._extract_joint_pos(STRETCH_NAVIGATION_Q)
+        )
+        self.robot_client.switch_to_navigation_mode()
 
     def try_grasping(self, visualize: bool = False, dry_run: bool = False):
         """Detect grasps and try to pick up an object in front of the robot.
@@ -70,8 +78,9 @@ class GraspPlanner(object):
         min_obj_pts = 100
         for attempt in range(max_tries):
             print("look at ee")
-            # self.robot_client.goto(home_q, move_base=False, wait=True)
-            self.robot_client.manip.home()
+            self.robot_client.manip.goto_joint_positions(
+                self.robot_client.manip._extract_joint_pos(STRETCH_PREGRASP_Q)
+            )
             rospy.sleep(1.0)
 
             # Get the observations - we need depth and xyz point clouds
