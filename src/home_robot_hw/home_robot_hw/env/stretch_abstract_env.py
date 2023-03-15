@@ -210,7 +210,7 @@ class StretchEnv(home_robot.core.abstract_env.Env):
         mat = self._t_camera_pose.matrix()
         if rotated:
             # If we are using the rotated versions of the images
-            return mat @ tra.euler_matrix(0, 0, -np.pi / 2)
+            return mat @ tra.euler_matrix(0, np.pi / 2, 0)
         else:
             return mat
 

@@ -40,9 +40,9 @@ def show_point_cloud(
     # http://www.open3d.org/docs/0.9.0/tutorial/Basic/working_with_numpy.html
     if rgb is not None:
         rgb = rgb.reshape(-1, 3)
-        if np.any(rgb > 1):
-            print("WARNING: rgb values too high! Normalizing...")
-            rgb = rgb / np.max(rgb)
+        # if np.any(rgb > 1):
+        #    print("WARNING: rgb values too high! Normalizing...")
+        #    rgb = rgb / np.max(rgb)
 
     pcd = numpy_to_pcd(xyz, rgb)
     show_pcd(pcd, orig, R, save, grasps)
