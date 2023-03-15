@@ -93,7 +93,7 @@ class StretchPickandPlaceEnv(StretchEnv):
         self.grasp_planner.go_to_nav_mode()
 
     def try_grasping(self, visualize_masks=False, dry_run=False):
-        self.grasping_utility.try_grasping(visualize=visualize_masks, dry_run=dry_run)
+        self.grasp_planner.try_grasping(visualize=visualize_masks, dry_run=dry_run)
 
     def apply_action(self, action: Action, info: Optional[Dict[str, Any]] = None):
         # TODO Determine what form the grasp action should take and move
