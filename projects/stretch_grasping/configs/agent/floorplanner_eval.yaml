@@ -11,10 +11,10 @@ GROUND_TRUTH_SEMANTICS: 0 # 1: use ground-truth semantics (for debugging / ablat
 ENVIRONMENT:
   forward: 0.25           # forward motion (in meters)
   turn_angle: 30.0        # agent turn angle (in degrees)
-  frame_height: 480       # first-person frame height (in pixels)
-  frame_width: 640        # first-person frame width (in pixels)
+  frame_height: 640       # first-person frame height (in pixels)
+  frame_width: 480        # first-person frame width (in pixels)
   camera_height: 0.88     # camera sensor height (in metres)
-  hfov: 79.0              # horizontal field of view (in degrees)
+  hfov: 42.0              # horizontal field of view (in degrees)
   min_depth: 0.5          # minimum depth for depth sensor (in metres)
   max_depth: 5.0          # maximum depth for depth sensor (in metres)
 
