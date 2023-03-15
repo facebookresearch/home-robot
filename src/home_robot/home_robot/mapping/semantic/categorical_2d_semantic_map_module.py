@@ -31,7 +31,8 @@ class Categorical2DSemanticMapModule(nn.Module):
     https://github.com/devendrachaplot/Object-Goal-Navigation
     """
 
-    debug_mode = True
+    # If true, display point cloud visualizations using Open3d
+    debug_mode = False
 
     def __init__(
         self,
