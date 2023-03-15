@@ -45,12 +45,21 @@ map_color_palette = [
 ]
 
 
+class PI:
+    EMPTY_SPACE = 0
+    OBSTACLES = 1
+    EXPLORED = 2
+    VISITED = 3
+    CLOSEST_GOAL = 4
+    REST_OF_GOAL = 5
+    BEEN_CLOSE = 6
+    SEM_START = 7
+
+
 class Visualizer:
     """
     This class is intended to visualize a single object goal navigation task.
     """
-
-    semantic_channel_id = 7
 
     def __init__(self, config):
         self.show_images = config.VISUALIZE
@@ -143,19 +152,19 @@ class Visualizer:
             )
         self.last_xy = (curr_x, curr_y)
 
-        semantic_map += self.semantic_channel_id
+        semantic_map += PI.SEM_START
 
         # Obstacles, explored, and visited areas
         no_category_mask = (
-            semantic_map == self.semantic_channel_id + self.num_sem_categories - 1
+            semantic_map == PI.SEM_START + self.num_sem_categories - 1
         )  # Assumes the last category is "other"
         obstacle_mask = np.rint(obstacle_map) == 1
         explored_mask = np.rint(explored_map) == 1
         visited_mask = self.visited_map_vis[gy1:gy2, gx1:gx2] == 1
-        semantic_map[no_category_mask] = 0
-        semantic_map[np.logical_and(no_category_mask, explored_mask)] = 2
-        semantic_map[np.logical_and(no_category_mask, obstacle_mask)] = 1
-        semantic_map[visited_mask] = 3
+        semantic_map[no_category_mask] = PI.EMPTY_SPACE
+        semantic_map[np.logical_and(no_category_mask, explored_mask)] = PI.EXPLORED
+        semantic_map[np.logical_and(no_category_mask, obstacle_mask)] = PI.OBSTACLES
+        semantic_map[visited_mask] = PI.VISITED
 
         # Goal
         if visualize_goal:
@@ -164,13 +173,13 @@ class Visualizer:
                 1 - skimage.morphology.binary_dilation(goal_map, selem)
             ) is not True
             goal_mask = goal_mat == 1
-            semantic_map[goal_mask] = 5
+            semantic_map[goal_mask] = PI.REST_OF_GOAL
             if closest_goal_map is not None:
                 closest_goal_mat = (
                     1 - skimage.morphology.binary_dilation(closest_goal_map, selem)
                 ) is not True
                 closest_goal_mask = closest_goal_mat == 1
-                semantic_map[closest_goal_mask] = 4
+                semantic_map[closest_goal_mask] = PI.CLOSEST_GOAL
 
         # Semantic categories
         semantic_map_vis = Image.new(
