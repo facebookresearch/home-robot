@@ -15,7 +15,7 @@ from home_robot_hw.env.visualizer import Visualizer
 # REAL_WORLD_CATEGORIES = ["other", "backpack", "other",]
 REAL_WORLD_CATEGORIES = [
     "other",
-    "chair",
+    "cup",
     "other",
 ]
 
