@@ -8,7 +8,9 @@ from typing import List, Tuple
 import numpy as np
 
 
-def crop_around_voxel(feat, xyz, crop_location, crop_size):
+def crop_around_voxel(
+    feat: np.ndarray, xyz: np.ndarray, crop_location: np.ndarray, crop_size: float
+) -> Tuple[np.ndarray, np.ndarray]:
     """Crop a point cloud around given voxel"""
     mask = np.linalg.norm(xyz - crop_location, axis=1) < crop_size
     return xyz[mask, :], feat[mask, :]
