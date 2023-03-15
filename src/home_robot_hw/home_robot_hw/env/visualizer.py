@@ -50,6 +50,8 @@ class Visualizer:
     This class is intended to visualize a single object goal navigation task.
     """
 
+    semantic_channel_id = 7
+
     def __init__(self, config):
         self.show_images = config.VISUALIZE
         self.print_images = config.PRINT_IMAGES
@@ -141,11 +143,11 @@ class Visualizer:
             )
         self.last_xy = (curr_x, curr_y)
 
-        semantic_map += 6
+        semantic_map += self.semantic_channel_id
 
         # Obstacles, explored, and visited areas
         no_category_mask = (
-            semantic_map == 6 + self.num_sem_categories - 1
+            semantic_map == self.semantic_channel_id + self.num_sem_categories - 1
         )  # Assumes the last category is "other"
         obstacle_mask = np.rint(obstacle_map) == 1
         explored_mask = np.rint(explored_map) == 1
