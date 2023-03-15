@@ -19,6 +19,7 @@ from home_robot.motion.stretch import STRETCH_NAVIGATION_Q, HelloStretchKinemati
 from home_robot.utils.point_cloud import numpy_to_pcd, pcd_to_numpy, show_point_cloud
 from home_robot.utils.pose import to_pos_quat
 from home_robot_hw.env.stretch_pick_and_place_env import StretchPickandPlaceEnv
+from home_robot_hw.remote import StretchClient
 
 
 class RosMapDataCollector(object):
@@ -87,21 +88,21 @@ class RosMapDataCollector(object):
 @click.option("--pkl-filename", default="output.pkl", type=str)
 def main(rate, max_frames, visualize, manual_wait, pcd_filename, pkl_filename):
     rospy.init_node("build_3d_map")
-    env = StretchPickandPlaceEnv(segmentation_method=None, ros_grasping=False)
+    # env = StretchPickandPlaceEnv(segmentation_method=None, ros_grasping=False)
+    robot = StretchClient()
     collector = RosMapDataCollector(env, visualize)
 
     # Tuck the arm away
     print("Sending arm to  home...")
-    env.goto(STRETCH_NAVIGATION_Q, wait=False)
+    # env.goto(STRETCH_NAVIGATION_Q, wait=False)
+    robot.reset()
     print("... done.")
 
     rate = rospy.Rate(rate)
 
     # Move the robot
     # TODO: replace env with client
-    if not env.in_navigation_mode():
-        print("Switch to navigation mode...")
-        env.switch_to_navigation_mode()
+    robot.switch_to_navitation_mode()
     # Sequence information if we are executing the trajectory
     step = 0
     # Number of frames collected
@@ -135,7 +136,8 @@ def main(rate, max_frames, visualize, manual_wait, pcd_filename, pkl_filename):
 
         ti = (rospy.Time.now() - t0).to_sec()
         print("t =", ti, trajectory[step])
-        env.navigate_to(trajectory[step], blocking=True)
+        # env.navigate_to(trajectory[step], blocking=True)
+        robot.nav.navigate_to(trajectory[step])
         print("... done navigating.")
         if manual_wait:
             input("... press enter ...")
@@ -151,7 +153,7 @@ def main(rate, max_frames, visualize, manual_wait, pcd_filename, pkl_filename):
         rate.sleep()
 
     print("Done collecting data.")
-    env.navigate_to((0, 0, 0))
+    robot.nav.navigate_to((0, 0, 0))
     pc_xyz, pc_rgb = collector.show()
 
     # Create pointcloud
