@@ -50,7 +50,9 @@ if __name__ == "__main__":
     pos_diff_goal = np.array([0.2, -0.2, 0.2])
     robot.manip.goto_ee_pose(pos_diff_goal, relative=True)
 
-    print(f"Confirm that the robot EE moved by {pos_diff_goal} (X is forward, Z is up)")
+    print(
+        f"Confirm that the robot EE moved by {pos_diff_goal} (+X is forward, +Y is left, +Z is up)"
+    )
     input("(press enter to continue)")
 
     print(f"Test complete!")
