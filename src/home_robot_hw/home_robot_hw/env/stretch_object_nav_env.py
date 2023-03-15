@@ -6,6 +6,7 @@ import rospy
 import home_robot
 from home_robot.core.interfaces import Action, DiscreteNavigationAction, Observations
 from home_robot.motion.stretch import STRETCH_HOME_Q
+from home_robot.motion.stretch import STRETCH_NAVIGATION_Q, HelloStretchKinematics
 from home_robot.perception.detection.detic.detic_perception import DeticPerception
 from home_robot.utils.geometry import xyt2sophus, xyt_base_to_global
 from home_robot_hw.env.stretch_abstract_env import StretchEnv
@@ -43,6 +44,9 @@ class StretchObjectNavEnv(StretchEnv):
             self.visualizer = Visualizer(config)
         else:
             self.visualizer = None
+
+        # Create a robot model, but we never need to visualize
+        self.robot_model = HelloStretchKinematics(visualize=False)
         self.reset()
 
     def reset(self):
@@ -51,6 +55,13 @@ class StretchObjectNavEnv(StretchEnv):
         if self.visualizer is not None:
             self.visualizer.reset()
         self.goto(STRETCH_HOME_Q)
+
+        # Switch control mode on the robot to nav
+        self.switch_to_navigation_mode()
+        # put the robot in the correct mode with head facing forward
+        home_q = STRETCH_NAVIGATION_Q
+        home_q = self.robot_model.update_look_front(home_q.copy())
+        self.goto(home_q, move_base=False, wait=True)
 
     def apply_action(self, action: Action, info: Optional[Dict[str, Any]] = None):
         """Discrete action space. make predictions for where the robot should go, move by a fixed

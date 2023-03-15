@@ -445,14 +445,20 @@ class StretchEnv(home_robot.core.abstract_env.Env):
         """switch stretch to navigation control"""
         if not self.in_navigation_mode():
             result1 = self._nav_mode_service(TriggerRequest())
+        else:
+            result1 = None
         result2 = self._goto_on_service(TriggerRequest())
 
         # Switch interface mode & print messages
         self._base_control_mode = ControlMode.NAVIGATION
-        rospy.loginfo(result1.message)
+        if result1 is not None:
+            rospy.loginfo(result1.message)
+            nav_mode_success = result1.success
+        else:
+            nav_mode_success = True
         rospy.loginfo(result2.message)
 
-        return result1.success and result2.success
+        return nav_mode_success and result2.success
 
     def switch_to_manipulation_mode(self):
         result1 = self._pos_mode_service(TriggerRequest())
