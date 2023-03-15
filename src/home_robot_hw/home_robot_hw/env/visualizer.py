@@ -169,15 +169,13 @@ class Visualizer:
         # Goal
         if visualize_goal:
             selem = skimage.morphology.disk(4)
-            goal_mat = (
-                1 - skimage.morphology.binary_dilation(goal_map, selem)
-            ) is not True
+            goal_mat = (1 - skimage.morphology.binary_dilation(goal_map, selem)) != 1
             goal_mask = goal_mat == 1
             semantic_map[goal_mask] = PI.REST_OF_GOAL
             if closest_goal_map is not None:
                 closest_goal_mat = (
                     1 - skimage.morphology.binary_dilation(closest_goal_map, selem)
-                ) is not True
+                ) != 1
                 closest_goal_mask = closest_goal_mat == 1
                 semantic_map[closest_goal_mask] = PI.CLOSEST_GOAL
 
