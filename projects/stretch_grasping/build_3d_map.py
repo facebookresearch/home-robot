@@ -93,8 +93,11 @@ def main(rate, max_frames, visualize, manual_wait, pcd_filename, pkl_filename):
 
     # Tuck the arm away
     print("Sending arm to  home...")
-    # env.goto(STRETCH_NAVIGATION_Q, wait=False)
-    robot.reset()
+    robot.switch_to_manipulation_mode()
+    robot.head.look_front(blocking=False)
+    robot.manip.goto_joint_positions(
+        robot.manip._extract_joint_pos(STRETCH_NAVIGATION_Q)
+    )
     print("... done.")
 
     rate = rospy.Rate(rate)
