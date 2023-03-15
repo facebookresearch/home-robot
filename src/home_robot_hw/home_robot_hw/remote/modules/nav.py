@@ -76,7 +76,7 @@ class StretchNavigationClient(AbstractControlModule):
         relative: bool = False,
         position_only: bool = False,
         avoid_obstacles: bool = False,
-        blocking: bool = False,
+        blocking: bool = True,
     ):
         """
         Cannot be used in manipulation mode.

@@ -11,13 +11,13 @@ Mostly Hello Stretch infrastructure
 
 ## Core Concepts
 
-This package assumes you have a low-cost mobile robot with limited compute -- initially a [Hello Robot Stretch](hello-robot.com/) - and a "server" workstation with more GPU compute. Both are assumed to be running on the same network.
+This package assumes you have a low-cost mobile robot with limited compute -- initially a [Hello Robot Stretch](hello-robot.com/) - and a "workstation" with more GPU compute. Both are assumed to be running on the same network.
 
 In general this is the recommended workflow:
   - Turn on your robot; for the Stretch, run `stretch_robot_home.py` to get it ready to use.
-  - From your server, connect to the robot and start a [ROS launch file](http://wiki.ros.org/roslaunch) which brings up necessary low-level control and hardware drivers.
-  - If desired, run [rviz](http://wiki.ros.org/rviz) on the server to see what the robot is seeing.
-  - Start running your AI code on the server!
+  - From your workstation, connect to the robot and start a [ROS launch file](http://wiki.ros.org/roslaunch) which brings up necessary low-level control and hardware drivers.
+  - If desired, run [rviz](http://wiki.ros.org/rviz) on the workstation to see what the robot is seeing.
+  - Start running your AI code on the workstation!
 
 We provide a couple connections for useful perception libraries like [Detic](https://github.com/facebookresearch/Detic) and [Contact Graspnet](https://github.com/NVlabs/contact_graspnet), which you can then use as a part of your methods.
 
@@ -50,7 +50,7 @@ This project contains numerous packages. See individual package docs for corresp
 
 1. Install the core [home_robot](src/home_robot) python package. Main aspects reproduced here for convenience:
 
-    For installing on server-side:
+    For installing on workstation-side:
     ```sh
     cd $HOME_ROBOT_ROOT/src/home_robot
     mamba env create -n home_robot -f environment.yml
@@ -125,7 +125,7 @@ Refer to [official hello robot keybindings](https://docs.hello-robot.com/0.2/str
 
 ### Launching Grasping Demo (outdated)
 
-You need to create a catkin workspace on your server in order to run this demo, as this is where we will run [Contact Graspnet](https://github.com/cpaxton/contact_graspnet/tree/cpaxton/devel).
+You need to create a catkin workspace on your workstation in order to run this demo, as this is where we will run [Contact Graspnet](https://github.com/cpaxton/contact_graspnet/tree/cpaxton/devel).
 
 Contact graspnet is downloaded under `third_party/`, but there is a `CATKIN_IGNORE` file in this directory. You want to symlink this file out into your workspace:
 ```
@@ -154,9 +154,9 @@ conda activate contact_graspnet_env
 
 - `ImportError: cannot import name 'gcd' from 'fractions'`: Launch ros nodes from an env with Python 3.8 instead of 3.9
 
-### Syncing code between Robot and Server
+### Syncing code between Robot and Workstation
 
-Let `ROBOT_IP` store the robot's IP and let `SERVER_IP` store the server's IP. If your local network doesn't have access to internet we recommend using `rsync` with `--update` flag to sync your code changes across the machines. Usage:
+Let `ROBOT_IP` store the robot's IP and let `WORKSTATION_IP` store the workstation's IP. If your local network doesn't have access to internet we recommend using `rsync` with `--update` flag to sync your code changes across the machines. Usage:
 ```
 rsync -rvu /abs/path/to/local/home-robot $ROBOT_USER@$ROBOT_IP:/abs/path/to/remote/home-robot
 ```
