@@ -29,8 +29,10 @@ if __name__ == "__main__":
         t += 1
         obs = env.get_observation()
         _, info = agent.act(obs)
-        if t < 24:
+        if t % 2 == 0:
             action = DiscreteNavigationAction.TURN_RIGHT
+        elif t % 2 == 1:
+            action = DiscreteNavigationAction.TURN_LEFT
         else:
             action = DiscreteNavigationAction.STOP
         print("STEP =", t, "ACTION =", action)
