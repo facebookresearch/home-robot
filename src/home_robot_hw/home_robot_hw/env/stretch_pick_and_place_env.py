@@ -10,6 +10,7 @@ from home_robot.perception.detection.detic.detic_perception import DeticPercepti
 from home_robot.utils.geometry import xyt2sophus
 from home_robot_hw.env.stretch_abstract_env import StretchEnv
 from home_robot_hw.env.visualizer import Visualizer
+from home_robot_hw.remote import StretchClient
 from home_robot_hw.utils.grasping import GraspPlanner
 
 REAL_WORLD_CATEGORIES = [
@@ -49,6 +50,8 @@ class StretchPickandPlaceEnv(StretchEnv):
         self.forward_step = forward_step  # in meters
         self.rotate_step = np.radians(rotate_step)
 
+        self.robot = StretchClient(init_node=False)
+
         # Create a visualizer
         if config is not None:
             self.visualizer = Visualizer(config)
@@ -68,7 +71,9 @@ class StretchPickandPlaceEnv(StretchEnv):
         if ros_grasping:
             # Create a simple grasp planner object, which will let us pick stuff up.
             # This takes in a reference to the robot client - will replace "self" with "self.client"
-            self.grasp_planner = GraspPlanner(self, visualize_planner=visualize_planner)
+            self.grasp_planner = GraspPlanner(
+                self.robot, self, visualize_planner=visualize_planner
+            )
         else:
             if visualize_planner:
                 raise RuntimeError(
@@ -155,7 +160,9 @@ class StretchPickandPlaceEnv(StretchEnv):
 
     def get_observation(self) -> Observations:
         """Get Detic and rgb/xyz/theta from this"""
-        rgb, depth, xyz = self.get_images(compute_xyz=True, rotate_images=True)
+        rgb, depth, xyz = self.robot.head.get_images(
+            compute_xyz=True, rotate_images=True
+        )
         current_pose = xyt2sophus(self.get_base_pose())
 
         # use sophus to get the relative translation
