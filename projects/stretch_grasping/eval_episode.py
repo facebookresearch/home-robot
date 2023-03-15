@@ -18,7 +18,6 @@ if __name__ == "__main__":
     rospy.init_node("eval_episode_stretch_objectnav")
     agent = PickAndPlaceAgent(config=config)
     env = StretchPickandPlaceEnv(config=config)
-    env.goto(STRETCH_HOME_Q)
 
     agent.reset()
     env.reset("cup")
