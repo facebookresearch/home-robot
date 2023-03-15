@@ -12,7 +12,7 @@ from std_srvs.srv import TriggerRequest
 from home_robot.core.state import ManipulatorBaseParams
 from home_robot.motion.robot import Robot
 from home_robot.motion.stretch import STRETCH_HOME_Q, HelloStretchIdx
-from home_robot.utils.geometry import posquat2sophus, xyt2sophus
+from home_robot.utils.geometry import posquat2sophus, sophus2posquat, xyt2sophus
 
 from .abstract import AbstractControlModule, enforce_enabled
 
@@ -49,8 +49,8 @@ class StretchManipulationClient(AbstractControlModule):
             pose_world2base = self._ros_client.se3_base_filtered
             pose_world2ee = pose_world2base * pose_base2ee
 
-            pos = pose_world2ee.translation()
-            quat = R.from_matrix(pose_world2ee.so3().matrix()).as_quat()
+            pos, quat = sophus2posquat(pose_world2ee)
+
         else:
             pos, quat = pos_base, quat_base
 
@@ -171,8 +171,7 @@ class StretchManipulationClient(AbstractControlModule):
         else:
             pose_base2ee_desired = pose_desired
 
-        pos_ik_goal = pose_base2ee_desired.translation()
-        quat_ik_goal = R.from_matrix(pose_base2ee_desired.so3().matrix()).as_quat()
+        pos_ik_goal, quat_ik_goal = sophus2posquat(pose_base2ee_desired)
 
         # Perform IK
         q = self._robot_model.manip_ik((pos_ik_goal, quat_ik_goal))
