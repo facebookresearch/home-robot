@@ -8,7 +8,7 @@ from home_robot.utils.config import get_config
 from home_robot_hw.env.stretch_object_nav_env import StretchObjectNavEnv
 
 if __name__ == "__main__":
-    config_path = "configs/agent/floorplanner_eval.yaml"
+    config_path = "projects/stretch_objectnav/configs/agent/floorplanner_eval.yaml"
     config, config_str = get_config(config_path)
     config.defrost()
     config.NUM_ENVIRONMENTS = 1
