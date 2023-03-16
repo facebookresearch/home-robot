@@ -173,6 +173,18 @@ class StretchManipulationClient(AbstractControlModule):
         if blocking:
             self.wait()
 
+    def solve_fk(self, joint_positions):
+        q, _, _ = self._ros_client.get_joint_state()
+        q[HelloStretchIdx.BASE_X] = joint_positions[0]
+        q[HelloStretchIdx.LIFT] = joint_positions[1]
+        q[HelloStretchIdx.ARM] = joint_positions[2]
+        q[HelloStretchIdx.WRIST_YAW] = joint_positions[3]
+        q[HelloStretchIdx.WRIST_PITCH] = joint_positions[4]
+        q[HelloStretchIdx.WRIST_ROLL] = joint_positions[5]
+
+        pos, quat = self._robot_model.manip_fk(q)
+        return pos, quat
+
     def solve_ik(
         self,
         pos: List[float],

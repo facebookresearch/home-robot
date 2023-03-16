@@ -3,6 +3,7 @@
 # This source code is licensed under the MIT license found in the
 # LICENSE file in the root directory of this source tree.
 from collections import namedtuple
+from typing import Tuple
 
 import matplotlib.pyplot as plt
 import numpy as np
@@ -422,6 +423,7 @@ class PybulletIKSolver:
                 "red_block", "./assets/red_block.urdf", client=self.env.id
             )
 
+        self.ee_link_name = ee_link_name
         self.ee_idx = self.get_link_names().index(ee_link_name)
         self.controlled_joints = self.robot.controllable_joints_to_indices(
             controlled_joints
@@ -450,6 +452,11 @@ class PybulletIKSolver:
 
     def get_dof(self):
         return len(self.controlled_joints)
+
+    def compute_fk(self, q: np.ndarray) -> Tuple[np.ndarray, np.ndarray]:
+        self.set_joint_positions(q)
+        pos, quat = self.robot.get_link_pose(self.ee_link_name)
+        return pos, quat
 
     def compute_ik(
         self,
