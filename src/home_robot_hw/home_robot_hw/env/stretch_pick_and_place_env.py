@@ -15,9 +15,9 @@ from home_robot_hw.utils.grasping import GraspPlanner
 
 REAL_WORLD_CATEGORIES = [
     "other",
-    # "chair",
+    "chair",
     "cup",
-    # "table",
+    "table",
     "other",
 ]
 
@@ -81,9 +81,9 @@ class StretchPickandPlaceEnv(StretchEnv):
                 )
             self.grasp_planner = None
 
-    def reset(self, goal: str):
+    def reset(self, goal_find: str, goal_obj: str, goal_place: str):
         """Reset the robot and prepare to run a trial. Make sure we have images and up to date state info."""
-        self.set_goal(goal)
+        self.set_goal(goal_find, goal_obj, goal_place)
         rospy.sleep(0.5)  # Make sure we have time to get ROS messages
         self.update()
         self.rgb_cam.wait_for_image()
@@ -145,10 +145,11 @@ class StretchPickandPlaceEnv(StretchEnv):
                 rospy.sleep(self.msg_delay_t)
             self.navigate_to(continuous_action, relative=True, blocking=True)
 
-    def set_goal(self, goal: str):
+    def set_goal(self, goal_find: str, goal_obj: str, goal_place: str):
         """Set the goal class as a string. Goal should be an object class we want to pick up."""
-        assert goal in self.goal_options
-        self.current_goal_id = self.goal_options.index(goal)
+        for goal in [goal_find, goal_obj, goal_place]:
+            assert goal in self.goal_options
+        self.current_goal_id = self.goal_options.index(goal_obj)
         self.current_goal_name = goal
 
     def sample_goal(self):
