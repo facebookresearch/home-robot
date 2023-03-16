@@ -4,8 +4,8 @@ import numpy as np
 import rospy
 
 import home_robot
-from home_robot.motion.stretch import STRETCH_HOME_Q
 from home_robot.core.interfaces import Action, DiscreteNavigationAction, Observations
+from home_robot.motion.stretch import STRETCH_HOME_Q
 from home_robot.perception.detection.detic.detic_perception import DeticPerception
 from home_robot.utils.geometry import xyt2sophus, xyt_base_to_global
 from home_robot_hw.env.stretch_abstract_env import StretchEnv
