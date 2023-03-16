@@ -201,7 +201,6 @@ class StretchManipulationClient(AbstractControlModule):
         if full_body_cfg is None:
             return None
 
-        breakpoint()
         return full_body_cfg
 
     @enforce_enabled
