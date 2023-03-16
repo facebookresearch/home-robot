@@ -36,7 +36,7 @@ def get_proprio(raw_data, time=0.0):
     return proprio
 
 
-def create_apm_input(
+def create_action_prediction_input(
     cfg,
     raw_data: Dict[str, Any],
     ipm_input_vector: Tuple,
@@ -58,7 +58,7 @@ def create_apm_input(
     return (cropped_feat, cropped_xyz, proprio)
 
 
-def create_ipm_input(
+def create_interaction_prediction_input(
     raw_data: dict, lang: list[str], filter_depth=False, debug=False, num_pts=8000
 ):
     """takes raw data from stretch_manipulation_env, and language command from user.
@@ -116,13 +116,13 @@ def main(cfg):
     # create the robot object
     robot = StretchManipulationEnv(init_cameras=True)
     # create IPM object
-    ipm_model = InteractionPredictionModule(dry_run=cfg.dry_run)
-    ipm_model.to(ipm_model.device)
+    interaction_predictor = InteractionPredictionModule(dry_run=cfg.dry_run)
+    interaction_predictor.to(interaction_predictor.device)
     # create APM object
-    apm_model = ActionPredictionModule(dry_run=cfg.dry_run)
+    action_predictor = ActionPredictionModule(dry_run=cfg.dry_run)
     # load model-weights
-    ipm_model.load_state_dict(torch.load(cfg.ipm_weights))
-    apm_model.load_state_dict(cfg.apm_weights)
+    interaction_predictor.load_state_dict(torch.load(cfg.ipm_weights))
+    action_predictor.load_state_dict(cfg.apm_weights)
 
     print("Loaded models successfully")
     cmds = [
@@ -145,7 +145,7 @@ def main(cfg):
         # get from the robot: pcd=(xyz, rgb), gripper-state,
         # construct input vector from raw data
         raw_observations = robot.get_observation()
-        ipm_input_vector = create_ipm_input(
+        ipm_input_vector = create_interaction_prediction_input(
             raw_observations, input_cmd, filter_depth=True, debug=True
         )
         # run inference on sensor data for IPM
@@ -154,16 +154,16 @@ def main(cfg):
             interaction_scores,
             ipm_feat,
             input_down_pcd,
-        ) = ipm_model.predict(*ipm_input_vector)
+        ) = interaction_predictor.predict(*ipm_input_vector)
         print(f"Interaction point is {interaction_point}")
         experiment_running = False
         # ask if ok to run APM inference
-        if cfg.execution.use_regressor:
+        if cfg.execution.predict_action:
             current_time = [-1.0, 0.0, 1.0]
             for i in range(cfg.num_keypoints):
                 # run APM inference on sensor
                 raw_observations = robot.get_observation()
-                apm_input_vector = create_apm_input(
+                apm_input_vector = create_action_prediction_input(
                     cfg,
                     raw_observations,
                     ipm_input_vector,
@@ -171,7 +171,7 @@ def main(cfg):
                     time=current_time[i],
                 )
                 apm_input_vector += (input_cmd,)
-                action = apm_model.predict(*apm_input_vector)
+                action = action_predictor.predict(*apm_input_vector)
                 # ask if ok to execute
                 res = input("Execute the output? (y/n)")
                 if res == "y":

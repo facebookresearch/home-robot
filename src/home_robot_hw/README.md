@@ -3,7 +3,24 @@
 - Wrapper around [stretch_body](https://github.com/hello-robot/stretch_body) and [stretch_ros](https://github.com/hello-robot/stretch_ros)
 - Same interface as home_robot_sim
 
-## Installation
+## Installation: Workstation
+
+On the workstation, we install `home_robot_hw` as a pip package containing a client that is capable of connecting to ROS master running on the robot.
+
+After creating a conda env and installing [home_robot](../home_robot) into it,
+
+```sh
+# Install dependencies
+mamba env update -f src/home_robot_hw/environment.yml
+
+# Install home_robot_hw
+pip install -e src/home_robot_hw
+```
+
+## Installation: Stretch robot
+
+On the robot, we install `home_robot_hw` directly into the native environment (without conda) as a ROS package.
+
 1. Install firmware from Hello Robot
     ```sh
     # Copy robot factory data into your user workspace
@@ -45,7 +62,16 @@
 
 ## Usage
 
-### Launching the Hello Stretch hardware drivers
+### On robot: Launching the Hello Stretch hardware drivers
 ```sh
 roslaunch home_robot startup_stretch_hector_slam.launch
+```
+
+### On workstation: Interacting with the robot via the client
+
+See [examples](../../examples/) for common API usage.
+
+You can also start an interactive command line interface (CLI) with:
+```sh
+python -m home_robot_hw.remote.interactive_cli
 ```

@@ -1,8 +1,7 @@
 dry_run: True
-ipm_weights: /home/priparashar/classify-multi-task_0035_000388.pth
 num_keypoints: 3
 local_problem_size: 0.1
 num_pts: 8000
 execution:
-  use_regressor: False
+  predict_action: False
 
