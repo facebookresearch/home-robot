@@ -182,13 +182,12 @@ class StretchManipulationClient(AbstractControlModule):
         pos_ik_goal, quat_ik_goal = sophus2posquat(pose_base2ee_desired)
 
         # Perform IK
-        q = self._robot_model.manip_ik((pos_ik_goal, quat_ik_goal))
-        if q is None:
+        full_body_cfg = self._robot_model.manip_ik((pos_ik_goal, quat_ik_goal))
+        if full_body_cfg is None:
             return False
-        joint_pos = self._extract_joint_pos(q)
+        joint_pos = self._extract_joint_pos(full_body_cfg)
 
         # Execute joint command
-        breakpoint()
         self.goto_joint_positions(joint_pos, blocking=blocking)
 
         return True
