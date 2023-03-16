@@ -158,7 +158,7 @@ def main(cfg):
         print(f"Interaction point is {interaction_point}")
         experiment_running = False
         # ask if ok to run APM inference
-        if cfg.execution.use_regressor:
+        if cfg.execution.predict_action:
             current_time = [-1.0, 0.0, 1.0]
             for i in range(cfg.num_keypoints):
                 # run APM inference on sensor
