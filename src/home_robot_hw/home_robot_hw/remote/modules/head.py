@@ -20,6 +20,7 @@ MAX_DEPTH_REPLACEMENT_VALUE = 10001
 class StretchHeadClient(AbstractControlModule):
     min_depth_val = 0.1
     max_depth_val = 4.0
+    camera_frame = "camera_color_optical_frame"
 
     def __init__(
         self,
@@ -41,6 +42,9 @@ class StretchHeadClient(AbstractControlModule):
             return mat @ tra.euler_matrix(0, 0, -np.pi / 2)
         else:
             return mat
+
+    def get_pose_in_base_coords(self, rotated=False):
+        return self._ros_client.get_frame_pose(self.camera_frame)
 
     def get_pan_tilt(self) -> Tuple[float, float]:
         q, _, _ = self._ros_client.get_joint_state()

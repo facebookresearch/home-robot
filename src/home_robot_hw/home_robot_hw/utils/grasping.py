@@ -88,7 +88,11 @@ class GraspPlanner(object):
             t0 = timeit.default_timer()
             obs = self.env.get_observation()
             rgb, depth, xyz = obs.rgb, obs.depth, obs.xyz
-            camera_pose = self.robot_client.head.get_pose()
+            # TODO: verify this is correct
+            # In world coordinates
+            # camera_pose = self.robot_client.head.get_pose()
+            # In base coordinates
+            camera_pose = self.robot_client.head.get_pose_in_base_coords()
             print(
                 "getting images + cam pose took", timeit.default_timer() - t0, "seconds"
             )
