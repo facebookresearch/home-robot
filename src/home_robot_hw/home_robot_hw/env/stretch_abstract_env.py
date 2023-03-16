@@ -117,6 +117,10 @@ class StretchEnv(home_robot.core.abstract_env.Env):
         Based on this code:
         https://github.com/hello-robot/stretch_ros/blob/master/hello_helpers/src/hello_helpers/hello_misc.py
         """
+        # Deprecation warning
+        rospy.logwarn(
+            "'StretchEnv' is being deprecated. Use 'home_robot_hw.StretchClient' to interact with the robot."
+        )
 
         self._base_control_mode = ControlMode.IDLE
         self._depth_buffer_size = depth_buffer_size

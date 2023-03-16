@@ -1,9 +1,7 @@
-import time
-
 import numpy as np
 
 from home_robot.motion.stretch import STRETCH_HOME_Q, HelloStretchKinematics
-from home_robot_hw.stretch_client import StretchClient
+from home_robot_hw.remote import StretchClient
 
 if __name__ == "__main__":
     robot = StretchClient()
@@ -17,8 +15,8 @@ if __name__ == "__main__":
     print(f"camera_pose={camera_pose}")
 
     # Move camera
-    robot.head.set_pan_tilt(pan=np.pi / 4, tilt=-np.pi / 3, blocking=True)
-    robot.head.look_at_ee(blocking=True)
+    robot.head.set_pan_tilt(pan=np.pi / 4, tilt=-np.pi / 3)
+    robot.head.look_at_ee()
     robot.head.look_ahead()
 
     # Switch to navigation mode
@@ -27,16 +25,11 @@ if __name__ == "__main__":
 
     # Get base pose
     xyt = robot.nav.get_base_pose()
-    print(f"xyt={xyt}")
-
-    # Command robot velocities
-    robot.nav.set_velocity(v=0.2, w=0.0)
-    time.sleep(2)
-    robot.nav.set_velocity(v=0.0, w=0.0)
+    print(f"Base pose: xyt={xyt}")
 
     # Command the robot to navigate to a waypoint
     xyt_goal = [0.15, 0.15, -np.pi / 4]
-    robot.nav.navigate_to(xyt_goal, blocking=True)
+    robot.nav.navigate_to(xyt_goal)
 
     # Home robot base (navigate back to origin)
     robot.nav.home()
@@ -48,15 +41,26 @@ if __name__ == "__main__":
     # Home robot joints (moves to predefined home joint configuration)
     robot.manip.home()
 
-    # Command the robot arm 1
+    # Get gripper pose
+    pos, quat = robot.manip.get_ee_pose()
+    print(f"EE pose: pos={pos}, quat={quat}")
+
+    # Command the robot arm 1: Direct joint control
+    # (joints: [base translation, arm lift, arm extend, gripper yaw, gripper pitch, gripper roll])
     q_desired = np.array([-0.1, 0.5, 0.3, 0, 0, 0])
-    robot.manip.goto_joint_positions(q_desired, blocking=True)
+    robot.manip.goto_joint_positions(q_desired)
 
-    pos_desired = np.array([0.2, -0.2, 0.4])
+    # Command the robot arm 2: Absolute EE control
+    pos_desired = np.array([0.1, -0.2, 0.4])
     quat_desired = np.array([-0.7079143, 0.12421559, 0.1409881, -0.68084526])
-    robot.manip.goto_ee_pose(pos_desired, quat_desired, blocking=True)
+    robot.manip.goto_ee_pose(pos_desired, quat_desired, relative=False)
 
-    # Command the robot arm 2
+    # Command the robot arm 3: Relative EE control
+    #   (note: orientation stays the same if not specified)
+    pos_desired = np.array([-0.1, -0.1, -0.1])
+    robot.manip.goto_ee_pose(pos_desired, relative=True)
+
+    # Command the robot arm 4: For backward compatibility
     robot.manip.goto(STRETCH_HOME_Q)
 
     # Gripper commands
@@ -72,7 +76,7 @@ if __name__ == "__main__":
 
     # Some commands are still available
     xyt = robot.nav.get_base_pose()
-    print(f"xyt={xyt}")
+    print(f"Base pose: xyt={xyt}")
 
     # Stop all robot motion
     robot.stop()

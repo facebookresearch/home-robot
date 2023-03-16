@@ -110,7 +110,7 @@ class StretchRosInterface:
 
     def get_joint_state(self):
         with self._js_lock:
-            return self._ros_client.pos, self._ros_client.vel, self._ros_client.frc
+            return self.pos, self.vel, self.frc
 
     def send_trajectory_goals(self, joint_goals: Dict[str, float]):
         # Preprocess arm joints (arm joints are actually 4 joints in one)
