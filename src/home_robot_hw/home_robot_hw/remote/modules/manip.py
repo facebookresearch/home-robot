@@ -17,6 +17,8 @@ from home_robot.utils.geometry import posquat2sophus, sophus2posquat, xyt2sophus
 from .abstract import AbstractControlModule, enforce_enabled
 
 GRIPPER_MOTION_SECS = 2.2
+JOINT_POS_TOL = 0.005
+JOINT_ANG_TOL = 0.05
 
 
 class StretchManipulationClient(AbstractControlModule):
@@ -135,24 +137,41 @@ class StretchManipulationClient(AbstractControlModule):
         self.base_x = joint_pos_goal[0]
 
         # Send command to trajectory server
-        if debug:
-            print("-- joint goto cmd --")
-            print("Initial joint pos: [", *(f"{x:.3f}" for x in joint_pos_init), "]")
-            print("Desired joint pos: [", *(f"{x:.3f}" for x in joint_pos_goal), "]")
-
         self._ros_client.send_trajectory_goals(joint_goals)
 
-        self._register_wait(self._ros_client.wait_for_trajectory_action)
+        # Wait logic
+        def joint_move_wait():
+            # Wait for action to complete
+            self._ros_client.wait_for_trajectory_action()
+
+            # Check final joint states
+            joint_pos_final = self.get_joint_positions()
+            joint_err = np.array(joint_pos_final) - np.array(joint_pos_goal)
+            arm_success = np.allclose(joint_err[:3], 0.0, atol=JOINT_POS_TOL)
+            wrist_success = np.allclose(joint_err[3:], 0.0, atol=JOINT_ANG_TOL)
+            if not (arm_success and wrist_success):
+                print("Warning: Joint goal not achieved.")
+
+            # Debug print
+            if debug:
+                print("-- joint goto cmd --")
+                print(
+                    "Initial joint pos: [", *(f"{x:.3f}" for x in joint_pos_init), "]"
+                )
+                print(
+                    "Desired joint pos: [", *(f"{x:.3f}" for x in joint_pos_goal), "]"
+                )
+                print(
+                    "Achieved joint pos: [",
+                    *(f"{x:.3f}" for x in joint_pos_final),
+                    "]",
+                )
+                print("--------------------")
+
+        self._register_wait(joint_move_wait)
+
         if blocking:
             self.wait()
-
-        if debug:
-            print(
-                "Achieved joint pos: [",
-                *(f"{x:.3f}" for x in self.get_joint_positions()),
-                "]",
-            )
-            print("--------------------")
 
     def solve_ik(
         self,
@@ -229,11 +248,15 @@ class StretchManipulationClient(AbstractControlModule):
         full_body_cfg = self.solve_ik(
             pos, quat, relative, world_frame, initial_cfg, debug
         )
+        if full_body_cfg is None:
+            print("Warning: Cannot find an IK solution for desired EE pose!")
+            return False
+
         joint_pos = self._extract_joint_pos(full_body_cfg)
         self.goto_joint_positions(joint_pos, blocking=blocking, debug=debug)
 
         # Debug print
-        if debug:
+        if debug and blocking:
             pos, quat = self.get_ee_pose()
             print(f"Achieved EE pose: pos={pos}; quat={quat}")
             print("=======================")
