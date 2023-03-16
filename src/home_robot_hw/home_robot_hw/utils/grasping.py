@@ -71,7 +71,8 @@ class GraspPlanner(object):
         self.robot_client.goto(home_q, move_base=False, wait=True)
         home_q = self.robot_model.update_look_at_ee(home_q)
         """
-        self.robot_client.switch_to_manipulation_mode()
+        if not self.robot_client.in_position_mode():
+            self.robot_client.switch_to_manipulation_mode()
         self.robot_client.head.look_at_ee(blocking=False)
         self.robot_client.manip.open_gripper()
 
@@ -224,6 +225,8 @@ class GraspPlanner(object):
         self.robot_client.manip.goto_joint_positions(joint_pos_pre)
         if wait_for_input:
             input("4) went to pregrasp")
+        print("!!! GRASP SUCCESS !!!")
+        return True
 
     def try_executing_grasp_old(self, grasp: np.ndarray) -> bool:
         """Try executing a grasp. Takes in robot self.robot_model and a potential grasp; will execute
