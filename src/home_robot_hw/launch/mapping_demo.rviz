@@ -6,6 +6,7 @@ Panels:
       Expanded:
         - /Global Options1
         - /Status1
+        - /TF1
         - /TF1/Frames1
         - /TF1/Tree1
         - /DepthCloud1/Occlusion Compensation1
@@ -361,7 +362,7 @@ Visualization Manager:
       Frames:
         All Enabled: false
         base_link:
-          Value: true
+          Value: false
         camera_accel_frame:
           Value: false
         camera_accel_optical_frame:
@@ -393,6 +394,260 @@ Visualization Manager:
         camera_link:
           Value: false
         caster_link:
+          Value: false
+        grasp_0:
+          Value: false
+        grasp_1:
+          Value: false
+        grasp_10:
+          Value: false
+        grasp_100:
+          Value: false
+        grasp_101:
+          Value: false
+        grasp_102:
+          Value: false
+        grasp_103:
+          Value: false
+        grasp_104:
+          Value: false
+        grasp_105:
+          Value: false
+        grasp_106:
+          Value: false
+        grasp_107:
+          Value: false
+        grasp_108:
+          Value: false
+        grasp_109:
+          Value: false
+        grasp_11:
+          Value: false
+        grasp_110:
+          Value: false
+        grasp_111:
+          Value: false
+        grasp_112:
+          Value: false
+        grasp_113:
+          Value: false
+        grasp_114:
+          Value: false
+        grasp_115:
+          Value: false
+        grasp_116:
+          Value: false
+        grasp_117:
+          Value: false
+        grasp_118:
+          Value: false
+        grasp_119:
+          Value: false
+        grasp_12:
+          Value: false
+        grasp_120:
+          Value: false
+        grasp_121:
+          Value: false
+        grasp_122:
+          Value: false
+        grasp_123:
+          Value: false
+        grasp_124:
+          Value: false
+        grasp_125:
+          Value: false
+        grasp_126:
+          Value: false
+        grasp_13:
+          Value: false
+        grasp_14:
+          Value: false
+        grasp_15:
+          Value: false
+        grasp_16:
+          Value: false
+        grasp_17:
+          Value: false
+        grasp_18:
+          Value: false
+        grasp_19:
+          Value: false
+        grasp_2:
+          Value: false
+        grasp_20:
+          Value: false
+        grasp_21:
+          Value: false
+        grasp_22:
+          Value: false
+        grasp_23:
+          Value: false
+        grasp_24:
+          Value: false
+        grasp_25:
+          Value: false
+        grasp_26:
+          Value: false
+        grasp_27:
+          Value: false
+        grasp_28:
+          Value: false
+        grasp_29:
+          Value: false
+        grasp_3:
+          Value: false
+        grasp_30:
+          Value: false
+        grasp_31:
+          Value: false
+        grasp_32:
+          Value: false
+        grasp_33:
+          Value: false
+        grasp_34:
+          Value: false
+        grasp_35:
+          Value: false
+        grasp_36:
+          Value: false
+        grasp_37:
+          Value: false
+        grasp_38:
+          Value: false
+        grasp_39:
+          Value: false
+        grasp_4:
+          Value: false
+        grasp_40:
+          Value: false
+        grasp_41:
+          Value: false
+        grasp_42:
+          Value: false
+        grasp_43:
+          Value: false
+        grasp_44:
+          Value: false
+        grasp_45:
+          Value: false
+        grasp_46:
+          Value: false
+        grasp_47:
+          Value: false
+        grasp_48:
+          Value: false
+        grasp_49:
+          Value: false
+        grasp_5:
+          Value: false
+        grasp_50:
+          Value: false
+        grasp_51:
+          Value: false
+        grasp_52:
+          Value: false
+        grasp_53:
+          Value: false
+        grasp_54:
+          Value: false
+        grasp_55:
+          Value: false
+        grasp_56:
+          Value: false
+        grasp_57:
+          Value: false
+        grasp_58:
+          Value: false
+        grasp_59:
+          Value: false
+        grasp_6:
+          Value: false
+        grasp_60:
+          Value: false
+        grasp_61:
+          Value: false
+        grasp_62:
+          Value: false
+        grasp_63:
+          Value: false
+        grasp_64:
+          Value: false
+        grasp_65:
+          Value: false
+        grasp_66:
+          Value: false
+        grasp_67:
+          Value: false
+        grasp_68:
+          Value: false
+        grasp_69:
+          Value: false
+        grasp_7:
+          Value: false
+        grasp_70:
+          Value: false
+        grasp_71:
+          Value: false
+        grasp_72:
+          Value: false
+        grasp_73:
+          Value: false
+        grasp_74:
+          Value: false
+        grasp_75:
+          Value: false
+        grasp_76:
+          Value: false
+        grasp_77:
+          Value: false
+        grasp_78:
+          Value: false
+        grasp_79:
+          Value: false
+        grasp_8:
+          Value: false
+        grasp_80:
+          Value: false
+        grasp_81:
+          Value: false
+        grasp_82:
+          Value: false
+        grasp_83:
+          Value: false
+        grasp_84:
+          Value: false
+        grasp_85:
+          Value: false
+        grasp_86:
+          Value: false
+        grasp_87:
+          Value: false
+        grasp_88:
+          Value: false
+        grasp_89:
+          Value: false
+        grasp_9:
+          Value: false
+        grasp_90:
+          Value: false
+        grasp_91:
+          Value: false
+        grasp_92:
+          Value: false
+        grasp_93:
+          Value: false
+        grasp_94:
+          Value: false
+        grasp_95:
+          Value: false
+        grasp_96:
+          Value: false
+        grasp_97:
+          Value: false
+        grasp_98:
+          Value: false
+        grasp_99:
           Value: false
         laser:
           Value: false
@@ -439,7 +694,7 @@ Visualization Manager:
         link_right_wheel:
           Value: false
         link_straight_gripper:
-          Value: false
+          Value: true
         link_wrist_pitch:
           Value: false
         link_wrist_roll:
@@ -450,6 +705,8 @@ Visualization Manager:
           Value: false
         map:
           Value: false
+        predicted_grasp:
+          Value: true
         respeaker_base:
           Value: false
         scanmatcher_frame:
@@ -484,7 +741,260 @@ Visualization Manager:
                             {}
                         camera_aligned_depth_to_color_frame:
                           camera_color_optical_frame:
-                            {}
+                            grasp_0:
+                              {}
+                            grasp_1:
+                              {}
+                            grasp_10:
+                              {}
+                            grasp_100:
+                              {}
+                            grasp_101:
+                              {}
+                            grasp_102:
+                              {}
+                            grasp_103:
+                              {}
+                            grasp_104:
+                              {}
+                            grasp_105:
+                              {}
+                            grasp_106:
+                              {}
+                            grasp_107:
+                              {}
+                            grasp_108:
+                              {}
+                            grasp_109:
+                              {}
+                            grasp_11:
+                              {}
+                            grasp_110:
+                              {}
+                            grasp_111:
+                              {}
+                            grasp_112:
+                              {}
+                            grasp_113:
+                              {}
+                            grasp_114:
+                              {}
+                            grasp_115:
+                              {}
+                            grasp_116:
+                              {}
+                            grasp_117:
+                              {}
+                            grasp_118:
+                              {}
+                            grasp_119:
+                              {}
+                            grasp_12:
+                              {}
+                            grasp_120:
+                              {}
+                            grasp_121:
+                              {}
+                            grasp_122:
+                              {}
+                            grasp_123:
+                              {}
+                            grasp_124:
+                              {}
+                            grasp_125:
+                              {}
+                            grasp_126:
+                              {}
+                            grasp_13:
+                              {}
+                            grasp_14:
+                              {}
+                            grasp_15:
+                              {}
+                            grasp_16:
+                              {}
+                            grasp_17:
+                              {}
+                            grasp_18:
+                              {}
+                            grasp_19:
+                              {}
+                            grasp_2:
+                              {}
+                            grasp_20:
+                              {}
+                            grasp_21:
+                              {}
+                            grasp_22:
+                              {}
+                            grasp_23:
+                              {}
+                            grasp_24:
+                              {}
+                            grasp_25:
+                              {}
+                            grasp_26:
+                              {}
+                            grasp_27:
+                              {}
+                            grasp_28:
+                              {}
+                            grasp_29:
+                              {}
+                            grasp_3:
+                              {}
+                            grasp_30:
+                              {}
+                            grasp_31:
+                              {}
+                            grasp_32:
+                              {}
+                            grasp_33:
+                              {}
+                            grasp_34:
+                              {}
+                            grasp_35:
+                              {}
+                            grasp_36:
+                              {}
+                            grasp_37:
+                              {}
+                            grasp_38:
+                              {}
+                            grasp_39:
+                              {}
+                            grasp_4:
+                              {}
+                            grasp_40:
+                              {}
+                            grasp_41:
+                              {}
+                            grasp_42:
+                              {}
+                            grasp_43:
+                              {}
+                            grasp_44:
+                              {}
+                            grasp_45:
+                              {}
+                            grasp_46:
+                              {}
+                            grasp_47:
+                              {}
+                            grasp_48:
+                              {}
+                            grasp_49:
+                              {}
+                            grasp_5:
+                              {}
+                            grasp_50:
+                              {}
+                            grasp_51:
+                              {}
+                            grasp_52:
+                              {}
+                            grasp_53:
+                              {}
+                            grasp_54:
+                              {}
+                            grasp_55:
+                              {}
+                            grasp_56:
+                              {}
+                            grasp_57:
+                              {}
+                            grasp_58:
+                              {}
+                            grasp_59:
+                              {}
+                            grasp_6:
+                              {}
+                            grasp_60:
+                              {}
+                            grasp_61:
+                              {}
+                            grasp_62:
+                              {}
+                            grasp_63:
+                              {}
+                            grasp_64:
+                              {}
+                            grasp_65:
+                              {}
+                            grasp_66:
+                              {}
+                            grasp_67:
+                              {}
+                            grasp_68:
+                              {}
+                            grasp_69:
+                              {}
+                            grasp_7:
+                              {}
+                            grasp_70:
+                              {}
+                            grasp_71:
+                              {}
+                            grasp_72:
+                              {}
+                            grasp_73:
+                              {}
+                            grasp_74:
+                              {}
+                            grasp_75:
+                              {}
+                            grasp_76:
+                              {}
+                            grasp_77:
+                              {}
+                            grasp_78:
+                              {}
+                            grasp_79:
+                              {}
+                            grasp_8:
+                              {}
+                            grasp_80:
+                              {}
+                            grasp_81:
+                              {}
+                            grasp_82:
+                              {}
+                            grasp_83:
+                              {}
+                            grasp_84:
+                              {}
+                            grasp_85:
+                              {}
+                            grasp_86:
+                              {}
+                            grasp_87:
+                              {}
+                            grasp_88:
+                              {}
+                            grasp_89:
+                              {}
+                            grasp_9:
+                              {}
+                            grasp_90:
+                              {}
+                            grasp_91:
+                              {}
+                            grasp_92:
+                              {}
+                            grasp_93:
+                              {}
+                            grasp_94:
+                              {}
+                            grasp_95:
+                              {}
+                            grasp_96:
+                              {}
+                            grasp_97:
+                              {}
+                            grasp_98:
+                              {}
+                            grasp_99:
+                              {}
                         camera_color_frame:
                           {}
                         camera_depth_frame:
@@ -526,6 +1036,8 @@ Visualization Manager:
                 {}
             link_right_wheel:
               {}
+          predicted_grasp:
+            {}
           scanmatcher_frame:
             {}
       Update Interval: 0
@@ -674,7 +1186,7 @@ Visualization Manager:
       Marker Topic: /goto_controller/goal_abs
       Name: Marker
       Namespaces:
-        {}
+        "": true
       Queue Size: 100
       Value: true
     - Class: rviz/Marker
@@ -721,7 +1233,7 @@ Visualization Manager:
   Views:
     Current:
       Class: rviz/XYOrbit
-      Distance: 6.02351188659668
+      Distance: 4.226734161376953
       Enable Stereo Rendering:
         Stereo Eye Separation: 0.05999999865889549
         Stereo Focal Distance: 1
@@ -737,9 +1249,9 @@ Visualization Manager:
       Invert Z Axis: false
       Name: Current View
       Near Clip Distance: 0.009999999776482582
-      Pitch: 0.40479663014411926
+      Pitch: 0.6697964072227478
       Target Frame: <Fixed Frame>
-      Yaw: 5.588471412658691
+      Yaw: 3.2652859687805176
     Saved: ~
 Window Geometry:
   Depth (aligned):
