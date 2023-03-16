@@ -20,10 +20,7 @@ def run_experiment():
     config.freeze()
 
     rospy.init_node("eval_episode_stretch_objectnav")
-    agent = PickAndPlaceAgent(config=config)
     env = StretchPickandPlaceEnv(config=config)
-
-    agent.reset()
     env.reset("cup")
 
     pose = np.array(
@@ -43,7 +40,7 @@ def run_experiment():
 
     env.switch_to_manipulation_mode()
     env.grasp_planner.go_to_manip_mode()
-    env.grasp_planner.try_executing_grasp(pose)
+    env.grasp_planner.try_executing_grasp(pose, wait_for_input=True)
 
 
 if __name__ == "__main__":

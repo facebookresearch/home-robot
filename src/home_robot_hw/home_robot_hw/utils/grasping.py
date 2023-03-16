@@ -164,7 +164,9 @@ class GraspPlanner(object):
         Then return that plan."""
         pass
 
-    def try_executing_grasp(self, grasp: np.ndarray) -> bool:
+    def try_executing_grasp(
+        self, grasp: np.ndarray, wait_for_input: bool = False
+    ) -> bool:
         # Convert grasp pose to pos/quaternion
         grasp_pos, grasp_quat = to_pos_quat(grasp)
         self.robot_client.switch_to_manipulation_mode()
@@ -188,28 +190,36 @@ class GraspPlanner(object):
         # Standoff 8 cm above grasp position
         standoff_pos = grasp_pos + np.array([0.0, 0.0, 0.08])
         success = self.robot_client.manip.goto_ee_pose(standoff_pos, grasp_quat)
-        # input("1) went to standoff")
         if not success:
-            print("invalid standoff pose")
+            print("1) invalid standoff pose")
             return False
+        if wait_for_input:
+            input("1) went to standoff")
 
         # Move to grasp
         success = self.robot_client.manip.goto_ee_pose(grasp_pos, grasp_quat)
-        # input("2) went to grasp")
         if not success:
-            print("invalid grasp pose")
+            print("2) invalid grasp pose")
             return False
+        if wait_for_input:
+            input("2) went to grasp")
 
         # Close gripper
         self.robot_client.manip.close_gripper()
 
         # Move back to standoff
-        self.robot_client.manip.goto_ee_pose(standoff_pos, grasp_quat)
-        # input("3) went back to standoff")
+        success = self.robot_client.manip.goto_ee_pose(standoff_pos, grasp_quat)
+        if not success:
+            print("3) return to standoff failed")
+            return False
+        if wait_for_input:
+            input("3) went back to standoff")
 
         # Move to original pose
-        self.robot_client.manip.goto_ee_pose(pos_pre, quat_pre)
-        # input("4) went to pregrasp")
+        print(pos_pre, joint_pos_pre)
+        self.robot_client.manip.goto_joint_positions(joint_pos_pre)
+        if wait_for_input:
+            input("4) went to pregrasp")
 
     def try_executing_grasp_old(self, grasp: np.ndarray) -> bool:
         """Try executing a grasp. Takes in robot self.robot_model and a potential grasp; will execute
