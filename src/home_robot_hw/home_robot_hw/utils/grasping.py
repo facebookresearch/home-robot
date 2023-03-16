@@ -70,14 +70,14 @@ class GraspPlanner(object):
         home_q = self.robot_model.update_look_at_ee(home_q)
         """
         self.robot_client.switch_to_manipulation_mode()
-        self.robot_client.head.look_front(blocking=False)
+        self.robot_client.head.look_at_ee(blocking=False)
         self.robot_client.manip.open_gripper()
 
         min_grasp_score = 0.0
         max_tries = 10
         min_obj_pts = 100
         for attempt in range(max_tries):
-            print("look at ee")
+            self.robot_client.head.look_at_ee(blocking=False)
             self.robot_client.manip.goto_joint_positions(
                 self.robot_client.manip._extract_joint_pos(STRETCH_PREGRASP_Q)
             )
@@ -87,9 +87,7 @@ class GraspPlanner(object):
             t0 = timeit.default_timer()
             obs = self.env.get_observation()
             rgb, depth, xyz = obs.rgb, obs.depth, obs.xyz
-            camera_pose = self.robot_client.get_frame_pose(
-                self.robot_client._ros_client.rgb_cam.get_frame()
-            )
+            camera_pose = self.robot_client.head.get_pose()
             print(
                 "getting images + cam pose took", timeit.default_timer() - t0, "seconds"
             )
