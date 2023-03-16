@@ -215,6 +215,7 @@ class RobotDataset(RLBenchDataset):
             self._robot_max_grasp = STRETCH_GRIPPER_OPEN
         else:
             raise ValueError("robot must be franka or stretch")
+        self._robot = robot
 
         self.show_voxelized_input_and_reference = show_voxelized_input_and_reference
         self.show_input_and_reference = show_raw_input_and_reference
@@ -273,38 +274,43 @@ class RobotDataset(RLBenchDataset):
         """
         rgb = trial.get_img(view_name + "_rgb", idx, rgb=True)
         depth = trial.get_img(view_name + "_depth", idx, depth=True, depth_factor=1000)
+        if self._robot == "stretch":
+            xyz = trial[idx][view_name + "_xyz"][()]
         # rgb_img = rgb.copy()
         # depth_img = depth.copy()
 
         # get camera details
-        camera_intrinsics = self.cam_intrinsics[view_name]
-        if view_name != "wrist":
-            camera_position = self.cam_extrinsics[view_name]["camera_base_pos"]
-            camera_rot = self.cam_extrinsics[view_name]["camera_base_ori"]
-        else:
-            camera_position = self.cam_extrinsics[view_name]["camera_ee_pos"]
-            camera_rot = self.cam_extrinsics[view_name]["camera_ee_ori"]
-        padded_rot = np.concatenate((camera_rot, np.zeros((1, 3))))
-        padded_trans = np.append(camera_position, 1.0)
-        camera_matrix = np.concatenate(
-            (padded_rot, padded_trans.reshape(-1, 1)), axis=1
-        )
+        if self._robot == "franka":
+            camera_intrinsics = self.cam_intrinsics[view_name]
+            if view_name != "wrist":
+                camera_position = self.cam_extrinsics[view_name]["camera_base_pos"]
+                camera_rot = self.cam_extrinsics[view_name]["camera_base_ori"]
+            else:
+                camera_position = self.cam_extrinsics[view_name]["camera_ee_pos"]
+                camera_rot = self.cam_extrinsics[view_name]["camera_ee_ori"]
+            padded_rot = np.concatenate((camera_rot, np.zeros((1, 3))))
+            padded_trans = np.append(camera_position, 1.0)
+            camera_matrix = np.concatenate(
+                (padded_rot, padded_trans.reshape(-1, 1)), axis=1
+            )
 
         if self.data_augmentation:
             depth = dropout_random_ellipses(depth, dropout_mean=10)
+            # TODO: this would not work as expected esp when we combine multiple PCDs
 
         # convert rgb, depth to rgbd point-cloud
-        camera = Camera(
-            pos=camera_position,
-            orn=camera_rot,
-            height=camera_intrinsics["height"],
-            width=camera_intrinsics["width"],
-            fx=camera_intrinsics["fx"],
-            fy=camera_intrinsics["fy"],
-            px=camera_intrinsics["ppx"],
-            py=camera_intrinsics["ppy"],
-        )
-        xyz = depth_to_xyz(depth, camera)
+        if self._robot == "franka":
+            camera = Camera(
+                pos=camera_position,
+                orn=camera_rot,
+                height=camera_intrinsics["height"],
+                width=camera_intrinsics["width"],
+                fx=camera_intrinsics["fx"],
+                fy=camera_intrinsics["fy"],
+                px=camera_intrinsics["ppx"],
+                py=camera_intrinsics["ppy"],
+            )
+            xyz = depth_to_xyz(depth, camera)
         if self.data_augmentation:
             xyz = add_additive_noise_to_xyz(
                 xyz,
@@ -313,30 +319,31 @@ class RobotDataset(RLBenchDataset):
                 gaussian_scale_range=[0.0, 0.001],
             )
 
-        # transform the resultant x,y,z to robot-frame
-        H, W, C = xyz.shape
-        xyz = xyz.reshape(-1, C)
-        # Now it is in world frame
-        xyz = trimesh.transform_points(xyz, camera_matrix)
-        # xyz = xyz.reshape(H, W, C)
-        if view_name == "wrist":
-            # transform from ee to the world frame
-            # TODO: get ee-pose as a matrix
-            ee_pose = trial["ee_pose"][idx]
-            pos = ee_pose[:3]
-            x, y, z, w = ee_pose[3:]
-            ee_pose = tra.quaternion_matrix([w, x, y, z])
-            ee_pose[:3, 3] = pos
-            xyz = trimesh.transform_points(xyz, ee_pose)
+        if self._robot == "franka":
+            # transform the resultant x,y,z to robot-frame
+            H, W, C = xyz.shape
+            xyz = xyz.reshape(-1, C)
+            # Now it is in world frame
+            xyz = trimesh.transform_points(xyz, camera_matrix)
+            # xyz = xyz.reshape(H, W, C)
+            if view_name == "wrist":
+                # transform from ee to the world frame
+                # TODO: get ee-pose as a matrix
+                ee_pose = trial["ee_pose"][idx]
+                pos = ee_pose[:3]
+                x, y, z, w = ee_pose[3:]
+                ee_pose = tra.quaternion_matrix([w, x, y, z])
+                ee_pose[:3, 3] = pos
+                xyz = trimesh.transform_points(xyz, ee_pose)
 
         # downsample point-cloud by distance (heuristic)
-        # TODO get mask from mdetr
         rgb = rgb.reshape(-1, C)
         depth = depth.reshape(-1)
         mask = np.bitwise_and(depth < 1.5, depth > 0.3)
         rgb = rgb[mask]
         xyz = xyz[mask]
         #
+        # TODO: get mask from mdetr
         # from matplotlib import pyplot as plt
         #
         # plt.imshow(rgb_img)

@@ -24,6 +24,7 @@ def main(h5_file, trial, replay):
     file = h5py.File(h5_file, "r")
     view_keyframe_imgs(file, trial)
     print(f"Key schema: {file[trial].keys()}")
+    breakpoint()
     ee_pose = plot_ee_pose(file, trial, ros_pub)
     if replay:
         robot = StretchManipulationEnv(init_cameras=True)
