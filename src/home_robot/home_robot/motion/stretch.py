@@ -180,7 +180,7 @@ class HelloStretchKinematics(Robot):
         "joint_wrist_roll",
     ]
 
-    def _create_ik_solvers(self, ik_type: str = "pybullet"):
+    def _create_ik_solvers(self, ik_type: str = "pybullet", visualize: bool = False):
         """create ik solvers using pybullet"""
         # You can set one of the visualize flags to true to debug IK issues
         # This is not exposed manually - only one though or it will fail
@@ -196,7 +196,7 @@ class HelloStretchKinematics(Robot):
                 self.manip_mode_urdf_path,
                 self.ee_link_name,
                 self.manip_mode_controlled_joints,
-                visualize=False,
+                visualize=visualize,
             )
         elif ik_type == "pinocchio":
             self.manip_ik_solver = PinocchioIKSolver(
@@ -248,7 +248,7 @@ class HelloStretchKinematics(Robot):
         self.set_joint_position = self.ref.set_joint_position
 
         self._update_joints()
-        self._create_ik_solvers(ik_type=ik_type)
+        self._create_ik_solvers(ik_type=ik_type, visualize=visualize)
         self._ik_type = ik_type
 
     def set_head_config(self, q):

@@ -25,6 +25,7 @@ class StretchClient:
         self,
         init_node: bool = True,
         camera_overrides: Optional[Dict] = None,
+        visualize_ik: bool = True,
     ):
         # Ros
         if init_node:
@@ -35,7 +36,7 @@ class StretchClient:
         self._ros_client = StretchRosInterface(**camera_overrides)
 
         # Robot model
-        self._robot_model = HelloStretchKinematics()
+        self._robot_model = HelloStretchKinematics(visualize=visualize_ik)
 
         # Interface modules
         self.nav = StretchNavigationClient(self._ros_client, self._robot_model)
