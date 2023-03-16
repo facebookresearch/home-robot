@@ -93,7 +93,7 @@ class StretchPickandPlaceEnv(StretchEnv):
             self.visualizer.reset()
 
         # Switch control mode on the robot to nav
-        self.switch_to_navigation_mode()
+        self.robot.switch_to_navigation_mode()
         # Set the robot's head into "navigation" mode - facing forward
         self.grasp_planner.go_to_nav_mode()
 
@@ -119,15 +119,15 @@ class StretchPickandPlaceEnv(StretchEnv):
             print("DONE!")
             # Do nothing if "stop"
             # continuous_action = None
-            # if not self.in_manipulation_mode():
-            #     self.switch_to_manipulation_mode()
+            # if not self.robot.in_manipulation_mode():
+            #     self.robot.switch_to_manipulation_mode()
             pass
         elif action == DiscreteNavigationAction.MANIPULATION_MODE:
             print("PICK UP THE TARGET OBJECT")
-            print(" - Robot in navigation mode:", self.in_navigation_mode())
+            print(" - Robot in navigation mode:", self.robot.in_navigation_mode())
             continuous_action = None
-            if self.in_navigation_mode():
-                self.switch_to_navigation_mode()
+            if self.robot.in_navigation_mode():
+                self.robot.switch_to_navigation_mode()
                 rospy.sleep(self.msg_delay_t)
             # self.navigate_to([0, 0, np.pi / 2], relative=True, blocking=True)
             self.grasp_planner.go_to_manip_mode()
@@ -140,8 +140,8 @@ class StretchPickandPlaceEnv(StretchEnv):
 
         # Move, if we are not doing anything with the arm
         if continuous_action is not None:
-            if not self.in_navigation_mode():
-                self.switch_to_navigation_mode()
+            if not self.robot.in_navigation_mode():
+                self.robot.switch_to_navigation_mode()
                 rospy.sleep(self.msg_delay_t)
             self.navigate_to(continuous_action, relative=True, blocking=True)
 
