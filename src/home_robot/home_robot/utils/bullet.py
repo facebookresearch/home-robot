@@ -442,7 +442,10 @@ class PybulletIKSolver:
 
     def set_joint_positions(self, q_init):
         q_full = np.zeros(self.get_num_controllable_joints())
-        q_full[self.controlled_joints] = q_init
+        if q_init.shape[0] == len(self.controlled_joints):
+            q_full[self.controlled_joints] = q_init
+        else:
+            q_full[self.controlled_joints] = q_init[self.controlled_joints]
         self.robot.set_joint_positions(q_full)
 
     def get_dof(self):

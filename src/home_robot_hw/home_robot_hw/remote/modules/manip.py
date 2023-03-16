@@ -200,9 +200,9 @@ class StretchManipulationClient(AbstractControlModule):
         )
         if full_body_cfg is None:
             return None
-        joint_pos = self._extract_joint_pos(full_body_cfg)
 
-        return joint_pos
+        breakpoint()
+        return full_body_cfg
 
     @enforce_enabled
     def goto_ee_pose(
@@ -227,8 +227,10 @@ class StretchManipulationClient(AbstractControlModule):
             blocking: Whether command blocks until completetion
             initial_cfg: Preferred (initial) joint state configuration
         """
-        joint_pos = self.solve_ik(pos, quat, relative, world_frame, initial_cfg, debug)
-
+        full_body_cfg = self.solve_ik(
+            pos, quat, relative, world_frame, initial_cfg, debug
+        )
+        joint_pos = self._extract_joint_pos(full_body_cfg)
         self.goto_joint_positions(joint_pos, blocking=blocking, debug=debug)
 
         # Debug print

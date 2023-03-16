@@ -1,5 +1,5 @@
 import timeit
-from typing import Tuple
+from typing import Optional, Tuple
 
 import numpy as np
 import rospy
@@ -164,20 +164,47 @@ class GraspPlanner(object):
 
         self.robot_client.switch_to_navigation_mode()
 
-    def plan_to_grasp(self, grasp: np.ndarray):
+    def plan_to_grasp(self, grasp: np.ndarray) -> Optional[np.ndarray]:
         """Create offsets for the full trajectory plan to get to the object.
         Then return that plan."""
-        pass
+        grasp_pos, grasp_quat = to_pos_quat(grasp)
+        self.robot_client.switch_to_manipulation_mode()
+        self.robot_client.manip.open_gripper()
+
+        # Get pregrasp pose: current pose + maxed out lift
+        pos_pre, quat_pre = self.robot_client.manip.get_ee_pose()
+        joint_pos_pre = self.robot_client.manip.get_joint_positions()
+        pregrasp_cfg = joint_pos_pre.copy()
+        pregrasp_cfg[1] = 0.95
+        initial_pt = ("initial", joint_pos_pre)
+        pregrasp = ("pregrasp", pregrasp_cfg)
+
+        # Try grasp first
+        grasp_cfg = self.robot_client.manip.solve_ik(grasp_pos, grasp_quat)
+        if grasp_cfg is not None:
+            grasp_pt = ("grasp", self.robot_client.manip._extract_joint_pos(grasp_cfg))
+        else:
+            return None
+
+        standoff_pos = grasp_pos + np.array([0.0, 0.0, 0.08])
+        standoff_cfg = self.robot_client.manip.solve_ik(
+            standoff_pos, grasp_quat, initial_cfg=grasp_cfg
+        )
+        if standoff_cfg is not None:
+            standoff = (
+                "standoff",
+                self.robot_client.manip._extract_joint_pos(standoff_cfg),
+            )
+        else:
+            return None
+
+        return [pregrasp, standoff, grasp_pt, standoff, initial_pt]
 
     def try_executing_grasp(
         self, grasp: np.ndarray, wait_for_input: bool = False
     ) -> bool:
-        # Convert grasp pose to pos/quaternion
-        grasp_pos, grasp_quat = to_pos_quat(grasp)
-        self.robot_client.switch_to_manipulation_mode()
-        self.robot_client.manip.open_gripper()
-        print("grasp xyz =", grasp_pos)
 
+        # Convert grasp pose to pos/quaternion
         # Visualize the grasp in RViz
         t = TransformStamped()
         t.header.stamp = rospy.Time.now()
@@ -186,152 +213,21 @@ class GraspPlanner(object):
         t.transform = ros_pose_to_transform(matrix_to_pose_msg(grasp))
         self.grasp_client.broadcaster.sendTransform(t)
 
-        # Get pregrasp pose: current pose + maxed out lift
-        pos_pre, quat_pre = self.robot_client.manip.get_ee_pose()
-        joint_pos_pre = self.robot_client.manip.get_joint_positions()
-        joint_pos_pre[1] = 0.95
-        self.robot_client.manip.goto_joint_positions(joint_pos_pre)
+        trajectory = self.plan_to_grasp(grasp)
+        breakpoint()
 
-        # Standoff 8 cm above grasp position
-        standoff_pos = grasp_pos + np.array([0.0, 0.0, 0.08])
-        success = self.robot_client.manip.goto_ee_pose(standoff_pos, grasp_quat)
-        if not success:
-            print("1) invalid standoff pose")
+        if trajectory is None:
+            print("Planning failed")
             return False
-        if wait_for_input:
-            input("1) went to standoff")
 
-        # Move to grasp
-        success = self.robot_client.manip.goto_ee_pose(grasp_pos, grasp_quat)
-        if not success:
-            print("2) invalid grasp pose")
-            return False
-        if wait_for_input:
-            input("2) went to grasp")
-
-        # Close gripper
-        self.robot_client.manip.close_gripper()
-
-        # Move back to standoff
-        success = self.robot_client.manip.goto_ee_pose(standoff_pos, grasp_quat)
-        if not success:
-            print("3) return to standoff failed")
-            return False
-        if wait_for_input:
-            input("3) went back to standoff")
-
-        # Move to original pose
-        print(pos_pre, joint_pos_pre)
-        self.robot_client.manip.goto_joint_positions(joint_pos_pre)
-        if wait_for_input:
-            input("4) went to pregrasp")
+        for i, (name, waypoint) in enumerate(trajectory):
+            self.robot_client.manip.goto_joint_positions(waypoint)
+            if wait_for_input:
+                input(f"{i+1}) went to {name}")
+            else:
+                print(f"{i+1}) went to {name}")
         print("!!! GRASP SUCCESS !!!")
         return True
-
-    def try_executing_grasp_old(self, grasp: np.ndarray) -> bool:
-        """Try executing a grasp. Takes in robot self.robot_model and a potential grasp; will execute
-        this grasp if possible. Grasp-client is just used to send a debugging TF frame for now.
-
-        Returns true if the grasp was possible and was executed; false if not."""
-        # Get our current joint states
-        q, _ = self.robot_client.update()
-
-        # Convert grasp pose to pos/quaternion
-        grasp_pose = to_pos_quat(grasp)
-        print("grasp xyz =", grasp_pose[0])
-
-        # If can't plan to reach grasp, return
-        qi = self.robot_model.manip_ik(grasp_pose, q)
-        qi = self.robot_model.update_gripper(qi, open=True)
-        print("x motion =", qi[0])
-        if qi is not None:
-            self.robot_model.set_config(qi)
-        else:
-            print(" --> ik failed")
-            return False
-        # TODO: remove this when the base is moving again!!!
-        if np.abs(qi[0]) > 0.0025:
-            return False
-        input("press enter to move")
-
-        # Standoff 8 cm above grasp position
-        q_standoff = qi.copy()
-        # q_standoff[HelloStretchIdx.LIFT] += 0.08   # was 8cm, now more
-        q_standoff[HelloStretchIdx.LIFT] += 0.1
-
-        # Actual grasp position
-        q_grasp = qi.copy()
-
-        if q_standoff is not None:
-            # If standoff position invalid, return
-            if not self.robot_model.validate(q_standoff):
-                print("invalid standoff config:", q_standoff)
-                return False
-            print("found standoff")
-
-            # Visualize the grasp in RViz
-            t = TransformStamped()
-            t.header.stamp = rospy.Time.now()
-            t.child_frame_id = "predicted_grasp"
-            t.header.frame_id = "map"
-            t.transform = ros_pose_to_transform(matrix_to_pose_msg(grasp))
-            self.grasp_client.broadcaster.sendTransform(t)
-
-            # Go to the grasp and try it
-            # First we need to create and move to a decent pre-grasp pose
-            q[HelloStretchIdx.LIFT] = 0.99
-            self.robot_client.goto(
-                q, move_base=False, wait=True, verbose=False
-            )  # move arm to top
-            # input('--> go high')
-            q_pre = q.copy()
-            # NOTE: this gets the gripper in the right orientation before we start to move - nothing
-            # else should change except lift and arm!
-            q_pre[5:] = q_standoff[5:]  # TODO: Add constants for joint indices
-            q_pre = self.robot_model.update_gripper(q_pre, open=True)
-            # self.robot_client.move_base(theta=q_standoff[2])  # TODO Replace this
-            rospy.sleep(2.0)
-            self.robot_client.goto(q_pre, move_base=False, wait=False, verbose=False)
-
-            # Move to standoff pose
-            self.robot_model.set_config(q_standoff)
-            print("Q =", q_standoff)
-            print(q_grasp != q_standoff)
-            input("--> gripper ready; go to standoff")
-            q_standoff = self.robot_model.update_gripper(q_standoff, open=True)
-            self.robot_client.goto(
-                q_standoff, move_base=False, wait=True, verbose=False
-            )
-
-            # move down to grasp pose
-            self.robot_model.set_config(q_grasp)
-            print("Q =", q_grasp)
-            print(q_grasp != q_standoff)
-            input("--> go to grasp")
-            self.robot_client.goto(q_grasp, move_base=False, wait=True, verbose=True)
-
-            # move down to close gripper
-            q_grasp_closed = self.robot_model.update_gripper(q_grasp, open=False)
-            print("Q =", q_grasp_closed)
-            print(q_grasp != q_grasp_closed)
-            input("--> close the gripper")
-            self.robot_client.goto(
-                q_grasp_closed, move_base=False, wait=False, verbose=True
-            )
-            rospy.sleep(2.0)
-
-            # Move back to standoff pose
-            q_standoff = self.robot_model.update_gripper(q_standoff, open=False)
-            self.robot_client.goto(
-                q_standoff, move_base=False, wait=True, verbose=False
-            )
-
-            # Move back to original pose
-            q_pre = self.robot_model.update_gripper(q_pre, open=False)
-            self.robot_client.goto(q_pre, move_base=False, wait=True, verbose=False)
-
-            # We completed the grasp
-            return True
 
 
 def divergence_from_vertical_grasp(grasp: np.ndarray) -> Tuple[float, float]:
