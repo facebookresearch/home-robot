@@ -39,11 +39,13 @@ class HabitatImageNavEnv(HabitatEnv):
             if k in metrics:
                 task_observations[k] = metrics[k]
 
+        gps = habitat_obs["gps"]
+        gps[1] = -gps[1]
         return home_robot.core.interfaces.Observations(
             rgb=habitat_obs["rgb"],
             depth=depth,
             compass=habitat_obs["compass"],
-            gps=habitat_obs["gps"],
+            gps=gps,
             task_observations=task_observations,
         )
 
