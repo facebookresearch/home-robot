@@ -21,7 +21,7 @@ def run_experiment():
 
     rospy.init_node("eval_episode_stretch_objectnav")
     env = StretchPickandPlaceEnv(config=config)
-    env.reset("cup")
+    env.reset("table", "cup", "chair")
 
     pose = np.array(
         [
