@@ -127,7 +127,9 @@ class GraspPlanner(object):
             print("got this many grasps:", len(predicted_grasps))
 
             grasps = []
-            for i, (score, grasp) in enumerate(zip(scores, predicted_grasps)):
+            for i, (score, grasp) in sorted(
+                enumerate(zip(scores, predicted_grasps)), key=lambda x: x[1]
+            ):
                 pose = grasp
                 pose = camera_pose @ pose
                 if score < min_grasp_score:
@@ -191,6 +193,7 @@ class GraspPlanner(object):
                 True,
             )
         else:
+            print("-> could not solve for grasp")
             return None
 
         # Standoff is 8cm over the grasp for now
@@ -206,6 +209,7 @@ class GraspPlanner(object):
                 False,
             )
         else:
+            print("-> could not solve for standoff")
             return None
         back_cfg = self.robot_client.manip._extract_joint_pos(standoff_cfg)
         back_cfg[2] = 0.01
