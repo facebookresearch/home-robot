@@ -98,6 +98,7 @@ class StretchManipulationClient(AbstractControlModule):
         joint_positions: List[float],
         relative: bool = False,
         blocking: bool = True,
+        debug: bool = False,
     ):
         """
         list of robot arm joint positions:
@@ -116,30 +117,42 @@ class StretchManipulationClient(AbstractControlModule):
         assert len(joint_positions) == 6, "Joint position vector must be of length 6."
 
         # Compute joint states
+        joint_pos_init = self.get_joint_positions()
         joint_pos_goal = np.array(joint_positions)
         if relative:
-            joint_pos_goal += self.get_joint_positions()
+            joint_pos_goal += np.array(joint_pos_init)
 
-        # Base x translation command is relative
-        base_x_new = joint_pos_goal[0]
-        joint_pos_goal[0] = base_x_new - self.base_x
-        self.base_x = base_x_new
-
-        # Construct and send command
+        # Construct command
+        #   (note: base translation joint command is relative)
         joint_goals = {
-            self._ros_client.BASE_TRANSLATION_JOINT: joint_pos_goal[0],
+            self._ros_client.BASE_TRANSLATION_JOINT: joint_pos_goal[0] - self.base_x,
             self._ros_client.LIFT_JOINT: joint_pos_goal[1],
             self._ros_client.ARM_JOINT: joint_pos_goal[2],
             self._ros_client.WRIST_YAW: joint_pos_goal[3],
             self._ros_client.WRIST_PITCH: joint_pos_goal[4],
             self._ros_client.WRIST_ROLL: joint_pos_goal[5],
         }
+        self.base_x = joint_pos_goal[0]
+
+        # Send command to trajectory server
+        if debug:
+            print("-- joint goto cmd --")
+            print("Initial joint pos: [", *(f"{x:.3f}" for x in joint_pos_init), "]")
+            print("Desired joint pos: [", *(f"{x:.3f}" for x in joint_pos_goal), "]")
 
         self._ros_client.send_trajectory_goals(joint_goals)
 
         self._register_wait(self._ros_client.wait_for_trajectory_action)
         if blocking:
             self.wait()
+
+        if debug:
+            print(
+                "Achieved joint pos: [",
+                *(f"{x:.3f}" for x in self.get_joint_positions()),
+                "]",
+            )
+            print("--------------------")
 
     @enforce_enabled
     def goto_ee_pose(
@@ -149,6 +162,7 @@ class StretchManipulationClient(AbstractControlModule):
         relative: bool = False,
         world_frame: bool = False,
         blocking: bool = True,
+        debug: bool = False,
     ):
         """Command gripper to pose
         Does not rotate base.
@@ -190,7 +204,18 @@ class StretchManipulationClient(AbstractControlModule):
         joint_pos = self._extract_joint_pos(full_body_cfg)
 
         # Execute joint command
-        self.goto_joint_positions(joint_pos, blocking=blocking)
+        if debug:
+            print("=== EE goto command ===")
+            print(f"Initial EE pose: pos={pos_ee_curr}; quat={quat_ee_curr}")
+            print(f"Desired EE pose: pos={pos_ik_goal}; quat={quat_ik_goal}")
+
+        self.goto_joint_positions(joint_pos, blocking=blocking, debug=debug)
+
+        # Debug print
+        if debug:
+            pos, quat = self.get_ee_pose()
+            print(f"Achieved EE pose: pos={pos}; quat={quat}")
+            print("=======================")
 
         return True
 
