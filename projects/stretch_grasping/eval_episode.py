@@ -20,7 +20,7 @@ if __name__ == "__main__":
     env = StretchPickandPlaceEnv(config=config)
 
     agent.reset()
-    env.reset("cup")
+    env.reset("table", "cup", "chair")
 
     t = 0
     while not env.episode_over:

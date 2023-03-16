@@ -71,7 +71,7 @@ class GraspPlanner(object):
         self.robot_client.goto(home_q, move_base=False, wait=True)
         home_q = self.robot_model.update_look_at_ee(home_q)
         """
-        if not self.robot_client.in_position_mode():
+        if not self.robot_client.in_manipulation_mode():
             self.robot_client.switch_to_manipulation_mode()
         self.robot_client.head.look_at_ee(blocking=False)
         self.robot_client.manip.open_gripper()
