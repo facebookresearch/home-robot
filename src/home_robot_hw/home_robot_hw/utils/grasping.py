@@ -183,10 +183,6 @@ class GraspPlanner(object):
             print("invalid standoff pose")
             return False
 
-        # HACK: Origin of manipulator has been updated to current position
-        grasp_pos[0] = 0.0
-        standoff_pos[0] = 0.0
-
         # Move to grasp
         success = self.robot_client.manip.goto_ee_pose(grasp_pos, grasp_quat)
         if not success:

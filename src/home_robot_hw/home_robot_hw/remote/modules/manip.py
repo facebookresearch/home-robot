@@ -24,6 +24,9 @@ class StretchManipulationClient(AbstractControlModule):
         self._ros_client = ros_client
         self._robot_model = robot_model
 
+        # Tmp: keep track of base_x movement
+        self.base_x = 0.0
+
     # Enable / disable
 
     def _enable_hook(self) -> bool:
@@ -31,6 +34,7 @@ class StretchManipulationClient(AbstractControlModule):
         # Switch interface mode & print messages
         result = self._ros_client.pos_mode_service(TriggerRequest())
         rospy.loginfo(result.message)
+        self.base_x = 0.0
 
         return result.success
 
@@ -43,6 +47,7 @@ class StretchManipulationClient(AbstractControlModule):
     def get_ee_pose(self, world_frame=False):
         q, _, _ = self._ros_client.get_joint_state()
         pos_base, quat_base = self._robot_model.manip_fk(q)
+        pos_base[0] = self.base_x
 
         if world_frame:
             pose_base2ee = posquat2sophus(pos_base, quat_base)
@@ -59,7 +64,7 @@ class StretchManipulationClient(AbstractControlModule):
     def get_joint_positions(self):
         q, _, _ = self._ros_client.get_joint_state()
         return [
-            0.0,
+            self.base_x,
             q[HelloStretchIdx.LIFT],
             q[HelloStretchIdx.ARM],
             q[HelloStretchIdx.WRIST_YAW],
@@ -109,11 +114,14 @@ class StretchManipulationClient(AbstractControlModule):
         assert len(joint_positions) == 6, "Joint position vector must be of length 6."
 
         # Compute joint states
-        joint_pos_goal = np.array(
-            joint_positions
-        )  # base x translation is always relative
+        joint_pos_goal = np.array(joint_positions)
         if relative:
-            joint_pos_goal[1:] += self.get_joint_positions()
+            joint_pos_goal += self.get_joint_positions()
+
+        # Base x translation command is relative
+        base_x_new = joint_pos_goal[0]
+        joint_pos_goal[0] = base_x_new - self.base_x
+        self.base_x = base_x_new
 
         # Construct and send command
         joint_goals = {
