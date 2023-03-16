@@ -182,17 +182,9 @@ class HelloStretchKinematics(Robot):
     ]
 
     def _create_ik_solvers(self, ik_type: str = "pybullet", visualize: bool = False):
-        """create ik solvers using pybullet"""
+        """Create ik solvers using pybullet or something else."""
         # You can set one of the visualize flags to true to debug IK issues
         # This is not exposed manually - only one though or it will fail
-        self.ik_solver = PybulletIKSolver(
-            self.full_body_urdf_path,
-            self.ee_link_name,
-            self.full_body_controlled_joints,
-            visualize=False,
-            joint_range=self.range,
-        )
-        # You can set one of the visualize flags to true to debug IK issues
         if ik_type == "pybullet":
             self.manip_ik_solver = PybulletIKSolver(
                 self.manip_mode_urdf_path,

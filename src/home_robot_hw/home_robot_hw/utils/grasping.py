@@ -176,29 +176,38 @@ class GraspPlanner(object):
         joint_pos_pre = self.robot_client.manip.get_joint_positions()
         pregrasp_cfg = joint_pos_pre.copy()
         pregrasp_cfg[1] = 0.95
-        initial_pt = ("initial", joint_pos_pre)
-        pregrasp = ("pregrasp", pregrasp_cfg)
+        initial_pt = ("initial", joint_pos_pre, False)
+        pregrasp = ("pregrasp", pregrasp_cfg, False)
 
         # Try grasp first
         grasp_cfg = self.robot_client.manip.solve_ik(grasp_pos, grasp_quat)
         if grasp_cfg is not None:
-            grasp_pt = ("grasp", self.robot_client.manip._extract_joint_pos(grasp_cfg))
+            grasp_pt = (
+                "grasp",
+                self.robot_client.manip._extract_joint_pos(grasp_cfg),
+                True,
+            )
         else:
             return None
 
         standoff_pos = grasp_pos + np.array([0.0, 0.0, 0.08])
         standoff_cfg = self.robot_client.manip.solve_ik(
-            standoff_pos, grasp_quat, initial_cfg=grasp_cfg
+            standoff_pos,
+            grasp_quat,  # initial_cfg=grasp_cfg
         )
         if standoff_cfg is not None:
             standoff = (
                 "standoff",
                 self.robot_client.manip._extract_joint_pos(standoff_cfg),
+                False,
             )
         else:
             return None
+        back_cfg = self.robot_client.manip._extract_joint_pos(standoff_cfg)
+        back_cfg[2] = 0.01
+        back = ("back", back_cfg, False)
 
-        return [pregrasp, standoff, grasp_pt, standoff, initial_pt]
+        return [pregrasp, back, standoff, grasp_pt, standoff, back, initial_pt]
 
     def try_executing_grasp(
         self, grasp: np.ndarray, wait_for_input: bool = False
@@ -220,8 +229,10 @@ class GraspPlanner(object):
             print("Planning failed")
             return False
 
-        for i, (name, waypoint) in enumerate(trajectory):
+        for i, (name, waypoint, should_grasp) in enumerate(trajectory):
             self.robot_client.manip.goto_joint_positions(waypoint)
+            if should_grasp:
+                self.robot_client.manip.close_gripper()
             if wait_for_input:
                 input(f"{i+1}) went to {name}")
             else:
