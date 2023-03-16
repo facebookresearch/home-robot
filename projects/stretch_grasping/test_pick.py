@@ -37,6 +37,9 @@ def run_experiment():
         ]
     )
     pos, quat = to_pos_quat(pose)
+    pose1 = env.robot.head.get_pose()
+    pose2 = env.robot.head.get_pose_in_base_coords()
+    breakpoint()
 
     env.switch_to_manipulation_mode()
     env.grasp_planner.go_to_manip_mode()
