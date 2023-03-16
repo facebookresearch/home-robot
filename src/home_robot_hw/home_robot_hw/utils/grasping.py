@@ -174,12 +174,15 @@ class GraspPlanner(object):
         # Get pregrasp pose: current pose + maxed out lift
         pos_pre, quat_pre = self.robot_client.manip.get_ee_pose()
         joint_pos_pre = self.robot_client.manip.get_joint_positions()
+        # Save initial waypoint to return to
+        initial_pt = ("initial", joint_pos_pre, False)
+
+        # Create a pregrasp point at the top of the robot's arc
         pregrasp_cfg = joint_pos_pre.copy()
         pregrasp_cfg[1] = 0.95
-        initial_pt = ("initial", joint_pos_pre, False)
         pregrasp = ("pregrasp", pregrasp_cfg, False)
 
-        # Try grasp first
+        # Try grasp first - find an IK solution for this
         grasp_cfg = self.robot_client.manip.solve_ik(grasp_pos, grasp_quat)
         if grasp_cfg is not None:
             grasp_pt = (
@@ -190,6 +193,7 @@ class GraspPlanner(object):
         else:
             return None
 
+        # Standoff is 8cm over the grasp for now
         standoff_pos = grasp_pos + np.array([0.0, 0.0, 0.08])
         standoff_cfg = self.robot_client.manip.solve_ik(
             standoff_pos,
