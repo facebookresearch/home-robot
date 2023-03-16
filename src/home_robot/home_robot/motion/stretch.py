@@ -484,8 +484,8 @@ class HelloStretchKinematics(Robot):
     def manip_fk(self, q: np.ndarray = None) -> Tuple[np.ndarray, np.ndarray]:
         """manipulator specific forward kinematics; uses separate URDF than the full-body fk() method"""
         assert q.shape == (self.dof,)
-        pin_pose = self._ros_pose_to_pinocchio(q)
         if self._ik_type == "pinocchio":
+            pin_pose = self._ros_pose_to_pinocchio(q)
             ee_pos, ee_quat = self.manip_ik_solver.compute_fk(pin_pose)
         elif self._ik_type == "pybullet":
             ee_pos, ee_quat = self.fk(q)
