@@ -1,14 +1,13 @@
 from typing import Any, Dict, Optional
 
-import numpy as np
 import cv2
+import numpy as np
+import rospy
 from omegaconf import DictConfig
 
-import rospy
-
 import home_robot
-from home_robot.motion.stretch import STRETCH_HOME_Q
 from home_robot.core.interfaces import Action, DiscreteNavigationAction, Observations
+from home_robot.motion.stretch import STRETCH_HOME_Q
 from home_robot.utils.geometry import xyt2sophus, xyt_base_to_global
 from home_robot_hw.env.stretch_abstract_env import StretchEnv
 
@@ -16,7 +15,9 @@ from home_robot_hw.env.stretch_abstract_env import StretchEnv
 class StretchImageNavEnv(StretchEnv):
     """Create a detic-based object nav environment"""
 
-    def __init__(self, config: Optional[DictConfig] = None, *args, **kwargs):
+    def __init__(
+        self, config: Optional[DictConfig] = None, *args: Any, **kwargs: Any
+    ) -> None:
         super().__init__(*args, **kwargs)
         if config:
             self.forward_step = config.habitat.simulator.forward_step_size  # in meters
@@ -28,7 +29,7 @@ class StretchImageNavEnv(StretchEnv):
             self.image_goal = None
         self.reset()
 
-    def _load_image_goal(self, goal_img_path) -> np.ndarray:
+    def _load_image_goal(self, goal_img_path: str) -> np.ndarray:
         goal_image = cv2.imread(goal_img_path)
         # opencv loads as BGR, but we use RGB.
         goal_image = goal_image[:, :, ::-1]
@@ -36,11 +37,11 @@ class StretchImageNavEnv(StretchEnv):
         assert goal_image.shape[1] == 512
         return goal_image
 
-    def reset(self):
+    def reset(self) -> None:
         self._episode_start_pose = xyt2sophus(self.get_base_pose())
         self.goto(STRETCH_HOME_Q)
 
-    def apply_action(self, action: Action):
+    def apply_action(self, action: Action) -> None:
         continuous_action = np.zeros(3)
         if action == DiscreteNavigationAction.MOVE_FORWARD:
             print("FORWARD")
@@ -91,7 +92,7 @@ class StretchImageNavEnv(StretchEnv):
     def get_episode_metrics(self) -> Dict:
         pass
 
-    def rotate(self, theta):
+    def rotate(self, theta: float) -> None:
         """just rotate and keep trying"""
         init_pose = self.get_base_pose()
         xyt = [0, 0, theta]

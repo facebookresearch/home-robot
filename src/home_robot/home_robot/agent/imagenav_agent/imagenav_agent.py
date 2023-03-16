@@ -206,7 +206,7 @@ class IINAgentModule(nn.Module):
 
 
 class ImageNavAgent(Agent):
-    def __init__(self, config, device_id: int = 0) -> None:
+    def __init__(self, config: DictConfig, device_id: int = 0) -> None:
         self.device = torch.device(f"cuda:{device_id}")
         self.obs_preprocessor = ObsPreprocessor(config, self.device)
 
