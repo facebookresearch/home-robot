@@ -160,6 +160,7 @@ class GraspPlanner(object):
     def try_executing_grasp(self, grasp: np.ndarray) -> bool:
         # Convert grasp pose to pos/quaternion
         grasp_pos, grasp_quat = to_pos_quat(grasp)
+        self.robot_client.manip.open_gripper()
         print("grasp xyz =", grasp_pos)
 
         # Visualize the grasp in RViz
@@ -171,20 +172,22 @@ class GraspPlanner(object):
         self.grasp_client.broadcaster.sendTransform(t)
 
         # Get pregrasp pose: current pose + maxed out lift
+        pos_pre, quat_pre = self.robot_client.manip.get_ee_pose()
         joint_pos_pre = self.robot_client.manip.get_joint_positions()
         joint_pos_pre[1] = 0.99
         self.robot_client.manip.goto_joint_positions(joint_pos_pre)
-        pos_pre, quat_pre = self.robot_client.manip.get_ee_pose()
 
         # Standoff 8 cm above grasp position
         standoff_pos = grasp_pos + np.array([0.0, 0.0, 0.08])
         success = self.robot_client.manip.goto_ee_pose(standoff_pos, grasp_quat)
+        input("1) went to standoff")
         if not success:
             print("invalid standoff pose")
             return False
 
         # Move to grasp
         success = self.robot_client.manip.goto_ee_pose(grasp_pos, grasp_quat)
+        input("2) went to grasp")
         if not success:
             print(" --> ik failed")
             return False
@@ -194,9 +197,11 @@ class GraspPlanner(object):
 
         # Move back to standoff
         self.robot_client.manip.goto_ee_pose(standoff_pos, grasp_quat)
+        input("3) went back to standoff")
 
         # Move to original pose
         self.robot_client.manip.goto_ee_pose(pos_pre, quat_pre)
+        input("4) went to pregrasp")
 
     def try_executing_grasp_old(self, grasp: np.ndarray) -> bool:
         """Try executing a grasp. Takes in robot self.robot_model and a potential grasp; will execute
