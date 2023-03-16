@@ -227,7 +227,6 @@ class GraspPlanner(object):
         self.grasp_client.broadcaster.sendTransform(t)
 
         trajectory = self.plan_to_grasp(grasp)
-        breakpoint()
 
         if trajectory is None:
             print("Planning failed")
