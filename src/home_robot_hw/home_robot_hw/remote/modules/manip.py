@@ -16,6 +16,8 @@ from home_robot.utils.geometry import posquat2sophus, sophus2posquat, xyt2sophus
 
 from .abstract import AbstractControlModule, enforce_enabled
 
+GRIPPER_MOTION_SECS = 2.2
+
 
 class StretchManipulationClient(AbstractControlModule):
     def __init__(self, ros_client, robot_model: Robot):
@@ -209,7 +211,10 @@ class StretchManipulationClient(AbstractControlModule):
         }
         self._ros_client.send_trajectory_goals(joint_goals)
 
-        self._register_wait(self._ros_client.wait_for_trajectory_action)
+        def wait_for_gripper():
+            rospy.sleep(GRIPPER_MOTION_SECS)
+
+        self._register_wait(wait_for_gripper)
         if blocking:
             self.wait()
 
