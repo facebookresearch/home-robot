@@ -6,7 +6,7 @@ import rospy
 from omegaconf import DictConfig
 
 import home_robot
-from home_robot.core.interfaces import Action, DiscreteNavigationAction, Observations
+from home_robot.core.interfaces import DiscreteNavigationAction, Observations
 from home_robot.motion.stretch import STRETCH_HOME_Q
 from home_robot.utils.geometry import xyt2sophus, xyt_base_to_global
 from home_robot_hw.env.stretch_abstract_env import StretchEnv
@@ -30,6 +30,7 @@ class StretchImageNavEnv(StretchEnv):
         self.reset()
 
     def _load_image_goal(self, goal_img_path: str) -> np.ndarray:
+        """Load the pre-computed image goal from disk."""
         goal_image = cv2.imread(goal_img_path)
         # opencv loads as BGR, but we use RGB.
         goal_image = goal_image[:, :, ::-1]
@@ -41,7 +42,8 @@ class StretchImageNavEnv(StretchEnv):
         self._episode_start_pose = xyt2sophus(self.get_base_pose())
         self.goto(STRETCH_HOME_Q)
 
-    def apply_action(self, action: Action) -> None:
+    def apply_action(self, action: DiscreteNavigationAction) -> None:
+        """Convert a DiscreteNavigationAction to a continuous action and perform it"""
         continuous_action = np.zeros(3)
         if action == DiscreteNavigationAction.MOVE_FORWARD:
             print("FORWARD")
@@ -62,12 +64,12 @@ class StretchImageNavEnv(StretchEnv):
         self.navigate_to(continuous_action, relative=True, blocking=True)
 
     def get_observation(self) -> Observations:
-        """Get Detic and rgb/xyz/theta from this"""
+        """Get rgbd/xyz/theta from this"""
         rgb, depth = self.get_images(compute_xyz=False, rotate_images=True)
         current_pose = xyt2sophus(self.get_base_pose())
 
         # Gets current camera pose from SLAM system as a 4x4 matrix in SE(3)
-        camera_pose = self.get_camera_pose_matrix()
+        # camera_pose = self.get_camera_pose_matrix()
 
         # use sophus to get the relative translation
         relative_pose = self._episode_start_pose.inverse() * current_pose

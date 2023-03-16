@@ -23,6 +23,11 @@ from .visualizer import NavVisualizer
 
 
 class IINAgentModule(nn.Module):
+    """
+    An agent module that maintains a 2D map, explores with FBE, and detects and
+    localizes object goals from keypoint correspondences.
+    """
+
     def __init__(self, config: DictConfig) -> None:
         super().__init__()
 
@@ -206,6 +211,8 @@ class IINAgentModule(nn.Module):
 
 
 class ImageNavAgent(Agent):
+    """Class for a modular agent that navigates to objects specified by images."""
+
     def __init__(self, config: DictConfig, device_id: int = 0) -> None:
         self.device = torch.device(f"cuda:{device_id}")
         self.obs_preprocessor = ObsPreprocessor(config, self.device)
@@ -321,6 +328,10 @@ class ImageNavAgent(Agent):
         confidence: torch.Tensor,
         camera_pose: Optional[torch.Tensor] = None,
     ) -> Tuple[List[dict], List[dict]]:
+        """
+        Determine a long-term navigation goal in 2D map space for a local policy to
+        execute.
+        """
         dones = torch.zeros(self.num_environments, dtype=torch.bool)
         update_global = torch.tensor(
             [
@@ -398,6 +409,10 @@ class ImageNavAgent(Agent):
         return planner_inputs, vis_inputs
 
     def _prep_goal_map_input(self) -> None:
+        """
+        Perform optional clustering of the goal channel to mitigate noisy projection
+        splatter.
+        """
         goal_map = self.goal_map.squeeze(1).cpu().numpy()
 
         if not self.goal_filtering:

@@ -13,6 +13,12 @@ MAX_DEPTH_REPLACEMENT_VALUE = 10001
 
 
 class HabitatImageNavEnv(HabitatEnv):
+    """
+    This class is a Habitat simulation environment for performing an Image Goal
+    Navigation task (InstanceImageNav) using Home Robot APIs.
+    Task definition: https://arxiv.org/pdf/2211.15876
+    """
+
     def __init__(self, habitat_env: habitat.core.env.Env, config: DictConfig) -> None:
         super().__init__(habitat_env)
 
@@ -24,6 +30,7 @@ class HabitatImageNavEnv(HabitatEnv):
         )
 
     def reset(self) -> None:
+        """Initialize a new episode."""
         habitat_obs = self.habitat_env.reset()
         self._last_obs = self._preprocess_obs(habitat_obs)
 

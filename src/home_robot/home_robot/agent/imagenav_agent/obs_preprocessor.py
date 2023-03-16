@@ -16,6 +16,8 @@ from .superglue import Matching
 
 
 class ObsPreprocessor:
+    """Preprocess raw home-Robot observations for consumption by an ImageNav agent."""
+
     def __init__(self, config: DictConfig, device: torch.device) -> None:
         self.device = device
         self.frame_height = config.frame_height
@@ -43,6 +45,7 @@ class ObsPreprocessor:
         self.step = None
 
     def reset(self) -> None:
+        """Reset for a new episode since pre-processing is temporally dependent."""
         self.goal_image = None
         self.goal_image_keypoints = None
         self.goal_mask = None
@@ -77,7 +80,7 @@ class ObsPreprocessor:
             ) = self.matching.get_goal_image_keypoints(img_goal)
             self.goal_mask, _ = self.instance_seg.get_goal_mask(img_goal)
 
-        pose_delta, self.last_pose = self._preprocess_pose(obs)
+        pose_delta, self.last_pose = self._preprocess_pose_and_delta(obs)
         obs_preprocessed, matches, confidence = self._preprocess_frame(obs)
 
         camera_pose = obs.camera_pose
@@ -91,6 +94,7 @@ class ObsPreprocessor:
         """Preprocess frame information in the observation."""
 
         def downscale(rgb: ndarray, depth: ndarray) -> Tuple[ndarray, ndarray]:
+            """downscale RGB and depth frames to self.frame_{width,height}"""
             ds = rgb.shape[1] / self.frame_width
             if ds == 1:
                 return rgb, depth
@@ -106,6 +110,10 @@ class ObsPreprocessor:
             matches: ndarray,
             confidence: ndarray,
         ) -> ndarray:
+            """
+            Given keypoint correspondences, determine the egocentric pixel coordinates
+            of matched keypoints that lie within a mask of the goal object.
+            """
             goal_keypoints = goal_keypoints[0].cpu().to(dtype=int).numpy()
             rgb_keypoints = rgb_keypoints[0].cpu().to(dtype=int).numpy()
             confidence = confidence[0]
@@ -148,7 +156,8 @@ class ObsPreprocessor:
         obs_preprocessed = obs_preprocessed.unsqueeze(0)
         return obs_preprocessed, matches, confidence
 
-    def _preprocess_pose(self, obs: Observations) -> Tuple[Tensor, ndarray]:
+    def _preprocess_pose_and_delta(self, obs: Observations) -> Tuple[Tensor, ndarray]:
+        """merge GPS+compass. Compute the delta from the previous timestep."""
         curr_pose = np.array([obs.gps[0], obs.gps[1], obs.compass[0]])
         pose_delta = (
             torch.tensor(pu.get_rel_pose_change(curr_pose, self.last_pose))

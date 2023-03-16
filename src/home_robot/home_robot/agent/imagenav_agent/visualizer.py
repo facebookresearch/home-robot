@@ -1,7 +1,7 @@
 import glob
 import os
 import shutil
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Dict, List, Optional
 
 import cv2
 import numpy as np
@@ -13,116 +13,41 @@ from natsort import natsorted
 from PIL import Image
 
 import home_robot.utils.pose as pu
+from home_robot.perception.detection.coco_maskrcnn.coco_categories import (
+    coco_categories_color_palette,
+)
+from home_robot.utils.visualization import draw_line, get_contour_points
 
-# TODO: map to our custom Detic values
-coco_categories_color_palette = [
-    0.9400000000000001,
-    0.7818,
-    0.66,  # chair
-    0.9400000000000001,
-    0.8868,
-    0.66,  # couch
-    0.8882000000000001,
-    0.9400000000000001,
-    0.66,  # potted plant
-    0.7832000000000001,
-    0.9400000000000001,
-    0.66,  # bed
-    0.6782000000000001,
-    0.9400000000000001,
-    0.66,  # toilet
-    0.66,
-    0.9400000000000001,
-    0.7468000000000001,  # tv
-    0.66,
-    0.9400000000000001,
-    0.8518000000000001,  # dining-table
-    0.66,
-    0.9232,
-    0.9400000000000001,  # oven
-    0.66,
-    0.8182,
-    0.9400000000000001,  # sink
-    0.66,
-    0.7132,
-    0.9400000000000001,  # refrigerator
-    0.7117999999999999,
-    0.66,
-    0.9400000000000001,  # book
-    0.8168,
-    0.66,
-    0.9400000000000001,  # clock
-    0.9218,
-    0.66,
-    0.9400000000000001,  # vase
-    0.9400000000000001,
-    0.66,
-    0.8531999999999998,  # cup
-    0.9400000000000001,
-    0.66,
-    0.748199999999999,  # bottle
+MAP_COLOR_PALETTE = [
+    int(x * 255.0)
+    for x in [
+        1.0,
+        1.0,
+        1.0,  # empty space
+        0.6,
+        0.6,
+        0.6,  # obstacles
+        0.95,
+        0.95,
+        0.95,  # explored area
+        0.96,
+        0.36,
+        0.26,  # visited area
+        0.12,
+        0.46,
+        0.70,  # closest goal
+        0.63,
+        0.78,
+        0.95,  # rest of goal
+        *coco_categories_color_palette,
+    ]
 ]
-
-map_color_palette = [
-    1.0,
-    1.0,
-    1.0,  # empty space
-    0.6,
-    0.6,
-    0.6,  # obstacles
-    0.95,
-    0.95,
-    0.95,  # explored area
-    0.96,
-    0.36,
-    0.26,  # visited area
-    0.12,
-    0.46,
-    0.70,  # closest goal
-    0.63,
-    0.78,
-    0.95,  # rest of goal
-    *coco_categories_color_palette,
-]
-
-
-def get_contour_points(
-    pos: Tuple[float, float, float],
-    origin: Tuple[float, float],
-    size: int = 20,
-) -> np.ndarray:
-    x, y, o = pos
-    pt1 = (int(x) + origin[0], int(y) + origin[1])
-    pt2 = (
-        int(x + size / 1.5 * np.cos(o + np.pi * 4 / 3)) + origin[0],
-        int(y + size / 1.5 * np.sin(o + np.pi * 4 / 3)) + origin[1],
-    )
-    pt3 = (int(x + size * np.cos(o)) + origin[0], int(y + size * np.sin(o)) + origin[1])
-    pt4 = (
-        int(x + size / 1.5 * np.cos(o - np.pi * 4 / 3)) + origin[0],
-        int(y + size / 1.5 * np.sin(o - np.pi * 4 / 3)) + origin[1],
-    )
-
-    return np.array([pt1, pt2, pt3, pt4])
-
-
-def draw_line(
-    start: Tuple[int, int],
-    end: Tuple[int, int],
-    mat: np.ndarray,
-    steps: int = 25,
-    w: int = 1,
-) -> np.ndarray:
-    for i in range(steps + 1):
-        x = int(np.rint(start[0] + (end[0] - start[0]) * i / steps))
-        y = int(np.rint(start[1] + (end[1] - start[1]) * i / steps))
-        mat[x - w : x + w, y - w : y + w] = 1
-    return mat
 
 
 def append_text_to_image_right_align(
     image: np.ndarray, text: List[str], font_size: float = 0.5
 ) -> np.ndarray:
+    """Write lines of text over the top of an image. Text is aligned top-right."""
     h, w, c = image.shape
     font_thickness = 2
     font = cv2.FONT_HERSHEY_SIMPLEX
@@ -166,6 +91,7 @@ def record_video(
     image_dir: str,
     episode_name: str = "0",
 ) -> None:
+    """Converts a directory of image snapshots into a video."""
     print(f"Recording video {episode_name}")
 
     # Semantic map vis
@@ -183,7 +109,7 @@ def record_video(
 
 class NavVisualizer:
     """
-    This class is intended to visualize a single object goal navigation task.
+    This class is intended to visualize a single image goal navigation task.
     """
 
     def __init__(
@@ -207,8 +133,6 @@ class NavVisualizer:
         self.default_vis_dir = f"{dump_location}/images/{exp_name}"
         if self.print_images:
             os.makedirs(self.default_vis_dir, exist_ok=True)
-
-        self.color_palette = [int(x * 255.0) for x in map_color_palette]
 
         self.num_sem_categories = num_sem_categories
         self.map_resolution = map_resolution
@@ -314,6 +238,7 @@ class NavVisualizer:
             cv2.imwrite(os.path.join(self.vis_dir, name), frame)
 
     def pad_frame(self, frame: np.ndarray, width: int) -> np.ndarray:
+        """Pad the width of a frame to `width` centered white sides."""
         h = frame.shape[0]
         w = frame.shape[1]
         left_bar = np.ones((h, (width - w) // 2, 3), dtype=np.uint8) * 255
@@ -323,6 +248,7 @@ class NavVisualizer:
         return np.concatenate([left_bar, frame, right_bar], axis=1)
 
     def make_keypoint(self, timestep: int) -> np.ndarray:
+        """Create the keypoint-matching sub-frame."""
         fname = os.path.join(self.vis_dir, f"superglue_{timestep}.png")
         assert os.path.exists(fname), f"keypoint frame does not exist at `{fname}`."
 
@@ -364,6 +290,7 @@ class NavVisualizer:
         return frame
 
     def make_goal(self, goal_img: np.ndarray) -> np.ndarray:
+        """make the goal image sub-frame."""
         border_size = 10
         text_bar_height = 50 - border_size
         new_h = self.ind_frame_height - text_bar_height - 2 * border_size
@@ -403,6 +330,10 @@ class NavVisualizer:
         found_goal: bool,
         metrics: Dict[str, float],
     ) -> np.ndarray:
+        """
+        make the egocentric RGB observation sub-frame. Overlay a goal detected banner
+        and a collision border.
+        """
         border_size = 10
         text_bar_height = 50 - border_size
         new_h = self.ind_frame_height - text_bar_height - 2 * border_size
@@ -455,7 +386,7 @@ class NavVisualizer:
         goal_map: np.ndarray,
         visualize_goal: bool,
     ) -> np.ndarray:
-
+        """make the predicted map sub-frame."""
         if semantic_map is None:
             fill_val = self.num_sem_categories - 1
             semantic_map = np.zeros_like(obstacle_map) + fill_val
@@ -510,7 +441,7 @@ class NavVisualizer:
         semantic_map_vis = Image.new(
             "P", (semantic_map.shape[1], semantic_map.shape[0])
         )
-        semantic_map_vis.putpalette(self.color_palette)
+        semantic_map_vis.putpalette(MAP_COLOR_PALETTE)
         semantic_map_vis.putdata(semantic_map.flatten().astype(np.uint8))
         semantic_map_vis = semantic_map_vis.convert("RGB")
         semantic_map_vis = np.flipud(semantic_map_vis)
@@ -536,7 +467,7 @@ class NavVisualizer:
         )
         pos = (pos[0] * new_w / old_w, pos[1] * new_h / old_h, pos[2])
         agent_arrow = get_contour_points(pos, origin=(0, 0))
-        color = self.color_palette[9:12][::-1]
+        color = MAP_COLOR_PALETTE[9:12][::-1]
         cv2.drawContours(semantic_map_vis, [agent_arrow], 0, color, -1)
 
         semantic_map_vis = cv2.cvtColor(semantic_map_vis, cv2.COLOR_RGB2BGR)
@@ -577,7 +508,10 @@ class NavVisualizer:
         return frame
 
     def make_td_map(self, top_down_map: np.ndarray) -> np.ndarray:
-
+        """
+        In Habitat Simulation, an oracle top-down map may be provided.
+        Visualize that sub-frame.
+        """
         border_size = 10
         text_bar_height = 50 - border_size
         new_h = self.ind_frame_height - text_bar_height - 2 * border_size
@@ -623,6 +557,7 @@ class NavVisualizer:
     def _write_metrics(
         self, frame: np.ndarray, metrics: Dict[str, float]
     ) -> np.ndarray:
+        """If metrics are provided, write them on the RGB frame."""
         if metrics is None:
             return frame
 
@@ -634,6 +569,7 @@ class NavVisualizer:
         return append_text_to_image_right_align(frame, lines, font_size=0.8)
 
     def _add_border(self, frame: np.ndarray, border_size: int) -> np.ndarray:
+        """Add a white border to a frame."""
         h, w = frame.shape[:2]
         side = np.ones((h, border_size, 3), dtype=np.uint8) * 255
         frame = np.concatenate([side, frame, side], axis=1)
@@ -642,6 +578,7 @@ class NavVisualizer:
         return frame
 
     def _found_goal_detection(self, view: np.ndarray, alpha: float = 0.4) -> np.ndarray:
+        """overlay a green goal detected banner"""
         strip_width = view.shape[0] // 15
         mask = np.ones(view.shape)
         mask[strip_width:-strip_width] = 0

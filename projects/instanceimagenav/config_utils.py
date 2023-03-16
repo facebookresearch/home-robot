@@ -11,8 +11,8 @@ from omegaconf import DictConfig, OmegaConf
 
 
 def get_config(path: str, opts: Optional[list] = None) -> Tuple[DictConfig, str]:
-    """Get configuration and ensure consistency between configurations
-    inherited from the task and defaults and our code's configuration.
+    """Get configuration and ensure consistency between configurations inherited from
+    the task and defaults and our code's configuration. Assume Stretch embodiment.
 
     Arguments:
         path: path to our code's config
