@@ -154,27 +154,18 @@ class StretchManipulationClient(AbstractControlModule):
             )
             print("--------------------")
 
-    @enforce_enabled
-    def goto_ee_pose(
+    def solve_ik(
         self,
         pos: List[float],
         quat: Optional[List[float]] = None,
         relative: bool = False,
         world_frame: bool = False,
-        blocking: bool = True,
+        initial_cfg: np.ndarray = None,
         debug: bool = False,
-    ):
-        """Command gripper to pose
-        Does not rotate base.
-        Cannot be used in navigation mode.
+    ) -> Optional[np.ndarray]:
+        """Solve inverse kinematics appropriately (or at least try to) and get the joint position
+        that we will be moving to."""
 
-        Args:
-            pos: Desired position
-            quat: Desired orientation in quaternion (xyzw)
-            relative: Whether specified pose is relative to current pose
-            world_frame: Infer poses in world frame instead of base frame
-            blocking: Whether command blocks until completetion
-        """
         pos_ee_curr, quat_ee_curr = self.get_ee_pose(world_frame=world_frame)
         if quat is None:
             quat = [0, 0, 0, 1] if relative else quat_ee_curr
@@ -197,17 +188,46 @@ class StretchManipulationClient(AbstractControlModule):
 
         pos_ik_goal, quat_ik_goal = sophus2posquat(pose_base2ee_desired)
 
-        # Perform IK
-        full_body_cfg = self._robot_model.manip_ik((pos_ik_goal, quat_ik_goal))
-        if full_body_cfg is None:
-            return False
-        joint_pos = self._extract_joint_pos(full_body_cfg)
-
         # Execute joint command
         if debug:
             print("=== EE goto command ===")
             print(f"Initial EE pose: pos={pos_ee_curr}; quat={quat_ee_curr}")
             print(f"Desired EE pose: pos={pos_ik_goal}; quat={quat_ik_goal}")
+
+        # Perform IK
+        full_body_cfg = self._robot_model.manip_ik(
+            (pos_ik_goal, quat_ik_goal), q0=initial_cfg
+        )
+        if full_body_cfg is None:
+            return None
+        joint_pos = self._extract_joint_pos(full_body_cfg)
+
+        return joint_pos
+
+    @enforce_enabled
+    def goto_ee_pose(
+        self,
+        pos: List[float],
+        quat: Optional[List[float]] = None,
+        relative: bool = False,
+        world_frame: bool = False,
+        blocking: bool = True,
+        debug: bool = False,
+        initial_cfg: np.ndarray = None,
+    ) -> bool:
+        """Command gripper to pose
+        Does not rotate base.
+        Cannot be used in navigation mode.
+
+        Args:
+            pos: Desired position
+            quat: Desired orientation in quaternion (xyzw)
+            relative: Whether specified pose is relative to current pose
+            world_frame: Infer poses in world frame instead of base frame
+            blocking: Whether command blocks until completetion
+            initial_cfg: Preferred (initial) joint state configuration
+        """
+        joint_pos = self.solve_ik(pos, quat, relative, world_frame, initial_cfg, debug)
 
         self.goto_joint_positions(joint_pos, blocking=blocking, debug=debug)
 
