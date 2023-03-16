@@ -448,47 +448,59 @@ class PybulletIKSolver:
     def get_dof(self):
         return len(self.controlled_joints)
 
-    def compute_ik(self, pos_desired, quat_desired, q_init=None):
+    def compute_ik(
+        self,
+        pos_desired,
+        quat_desired,
+        q_init: np.ndarray = None,
+        num_attempts: int = 5,
+        verbose: bool = False,
+    ):
         if q_init is not None:
             # This version assumes that q_init is NOT in the right format yet
             self.set_joint_positions(q_init)
+            num_attempts = 1
         elif self.controlled_joints is not None and self.range is not None:
             rng = self.range[:, 1] - self.range[:, 0]
+            rng[np.isinf(rng)] = 0
             q_init = (np.random.random() * rng) + self.range[:, 0]
         if self.visualize:
             self.debug_block.set_pose(pos_desired, quat_desired)
             input("--- Press enter to solve ---")
 
-        q_full = np.array(
-            pb.calculateInverseKinematics(
-                self.robot_id,
-                self.ee_idx,
-                pos_desired,
-                quat_desired,
-                # maxNumIterations=1000,
-                # residualThreshold=1e-6,
-                physicsClientId=self.pc_id,
+        for _ in range(num_attempts):
+            q_full = np.array(
+                pb.calculateInverseKinematics(
+                    self.robot_id,
+                    self.ee_idx,
+                    pos_desired,
+                    quat_desired,
+                    # maxNumIterations=1000,
+                    # residualThreshold=1e-6,
+                    physicsClientId=self.pc_id,
+                )
             )
-        )
-        # In the ik format - controllable joints only
-        self.robot.set_joint_positions(q_full)
-        if self.visualize:
-            input("--- Solved. Press enter to finish ---")
+            # In the ik format - controllable joints only
+            self.robot.set_joint_positions(q_full)
+            if self.visualize:
+                input("--- Solved. Press enter to finish ---")
 
-        if self.controlled_joints is not None:
-            q_out = q_full[self.controlled_joints]
-            if self.range is not None:
-                if not (
-                    np.all(q_out > self.range[:, 0])
-                    and np.all(q_out < self.range[:, 1])
-                ):
-                    print("---")
-                    print("IK failure:")
-                    print(q_out > self.range[:, 0])
-                    print(q_out < self.range[:, 1])
-                    print("---")
-                    return None
-        else:
-            q_out = q_full
+            if self.controlled_joints is not None:
+                q_out = q_full[self.controlled_joints]
+                if self.range is not None:
+                    if not (
+                        np.all(q_out > self.range[:, 0])
+                        and np.all(q_out < self.range[:, 1])
+                    ):
+                        if verbose:
+                            print("------")
+                            print("IK failure:")
+                            print(q_out > self.range[:, 0])
+                            print(q_out < self.range[:, 1])
+                        q_out = None
+            else:
+                q_out = q_full
+            if q_out is not None:
+                break
 
         return q_out
