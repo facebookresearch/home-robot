@@ -46,7 +46,6 @@ class Categorical2DSemanticMapModule(nn.Module):
         cat_pred_threshold: float,
         exp_pred_threshold: float,
         map_pred_threshold: float,
-        explored_disk_radius: int = 40,  # TODO Pass this as parameter
     ):
         """
         Arguments:
@@ -68,8 +67,6 @@ class Categorical2DSemanticMapModule(nn.Module):
              consider it as explored
             map_pred_threshold: number of depth points to be in bin to
              consider it as obstacle
-            explored_disk_radius: radius of disk around the agent to
-             consider explored at each step (in cells)
         """
         super().__init__()
 
@@ -77,7 +74,6 @@ class Categorical2DSemanticMapModule(nn.Module):
         self.screen_w = frame_width
         self.camera_matrix = du.get_camera_matrix(self.screen_w, self.screen_h, hfov)
         self.num_sem_categories = num_sem_categories
-        self.explored_disk_radius = explored_disk_radius
 
         self.map_size_parameters = mu.MapSizeParameters(
             map_resolution, map_size_cm, global_downscaling
@@ -261,7 +257,7 @@ class Categorical2DSemanticMapModule(nn.Module):
                 :, -1
             ]
         else:
-            tilt = 0
+            tilt = torch.zeros(batch_size)
         depth = obs[:, 3, :, :].float()
         point_cloud_t = du.get_point_cloud_from_z_t(
             depth, self.camera_matrix, device, scale=self.du_scale
@@ -397,12 +393,8 @@ class Categorical2DSemanticMapModule(nn.Module):
 
             # Set a disk around the agent to explored
             try:
-                # radius = 10 => ideal for Habitat
-                # radius = 40 => ideal on robot
-                r = self.explored_disk_radius
-                explored_disk = torch.from_numpy(
-                    skimage.morphology.disk(r)
-                )
+                radius = 10
+                explored_disk = torch.from_numpy(skimage.morphology.disk(radius))
                 current_map[
                     e,
                     MC.EXPLORED_MAP,

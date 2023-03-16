@@ -1,23 +1,16 @@
 # Instance ImageNav on Stretch
 
-This directory contains scripts to demo our modular InstanceImageNav model in Habitat and on a Stretch robot.
+This directory contains scripts to demo our modular InstanceImageNav model (Mod-IIN) in Habitat and on a Stretch robot.
 
 In short, our method explores the environment using **frontier-based exploration (FBE)**. A SuperGLue-based **keypoint matching** system is used to detect if the goal instance is visible. Upon positive detection, keypoint correspondences localize the goal instance with the aid of **Detic instance segmentation**. Finally, an **analytic local navigator** conveys the agent to the goal.
 
 ## Environment Setup
 
-These are the installation directions that work for me.
-
-Components:
-
-- Habitat v0.2.3 (Sim & Lab)
-- Detic
-- SuperGlue
-- HM3D Scene Dataset
-- 2023 Habitat Instance ImageNav Challenge Dataset
-
 ```bash
-git clone -b imagenav --recurse-submodules git@github.com:jacobkrantz/home-robot.git
+git clone --recurse-submodules git@github.com:facebookresearch/home-robot.git
+
+# if you have already cloned home-robot, without the submodules, run:
+git submodule update --recursive --init
 
 conda create -n iin_demo python=3.8 cmake=3.14.0
 conda activate iin_demo
@@ -40,43 +33,53 @@ cd ..
 # ------------------------------------------------------------
 
 
-cd home-robot
+# -------------------- Install Home-Robot --------------------
+cd src/home_robot
+conda env update --file environment.yml --prune
+pip install -e .
+cd ../src/home_robot_sim
+pip install -e .
+cd ../..
+# ------------------------------------------------------------
 
 
 # -------------------- Detic + Detectron2 --------------------
-# Install a compatible pytorch.
-#   NOTE: I'm using cuda version 10.2 (cu102).
-#     replace with your version, as long as its detectron2-compatible.
-pip install torch==1.10.1+cu102 torchvision==0.11.2+cu102 -f https://download.pytorch.org/whl/cu102/torch_stable.html
 # Install Detectron2
-pip install detectron2 -f https://dl.fbaipublicfiles.com/detectron2/wheels/cu102/torch1.10/index.html
+pip install -e src/thrid_party/detectron2
 # Install Detic requirements
-pip install src/home_robot/home_robot/perception/detection/detic/Detic/requirements.txt
+pip install -r src/home_robot/home_robot/perception/detection/detic/Detic/requirements.txt
 # download Detic model weights
+mkdir -p src/home_robot/home_robot/perception/detection/detic/Detic/models
 wget https://dl.fbaipublicfiles.com/detic/Detic_LCOCOI21k_CLIP_SwinB_896b32_4x_ft4x_max-size.pth \
   -O src/home_robot/home_robot/perception/detection/detic/Detic/models/Detic_LCOCOI21k_CLIP_SwinB_896b32_4x_ft4x_max-size.pth
 # ------------------------------------------------------------
 
 
+# ----------------------- This Project -----------------------
 cd projects/instanceimagenav
 pip install -r requirements.txt
-
-# now within this directory, get the scene dataset and episode dataset:
-
-
-# --------------------  SCENE DATASET  --------------------
+mkdir -p data/scene_datasets
+# --------------------  SCENE DATASET  -----------------------
 #   Dataset: HM3D (w/ Semantics v0.2)
 #   Download the HM3D scenes from https://aihabitat.org/datasets/hm3d/ 
 #   Alternatively, link a local copy.
-#   Extract to data/scene_datasets/hm3d/{SPLIT}/...
+#   Extract to data/scene_datasets/hm3d_v0.2/{SPLIT}/...
+# ------------------------------------------------------------
 
-# -------------------- EPISODE DATASET --------------------
-#   Dataset: Habitat ImageNav Challenge Dataset (2023)
-#   Download: https://drive.google.com/file/d/1GXHa0TpqJjvV1OO4Epu0aaU7CY1J-iFW/view?usp=share_link
+mkdir -p data/datasets/instance_imagenav/hm3d/v3
+# -------------------- EPISODE DATASET -----------------------
+#   Dataset: Habitat ImageNav Challenge Dataset (2023) 
 #   Extract to data/datasets/instance_imagenav/hm3d/v3/{SPLIT}/content/{SCENE}.json.gz
+cd data/datasets
+wget https://dl.fbaipublicfiles.com/habitat/data/datasets/imagenav/hm3d/v3/instance_imagenav_hm3d_v3.zip
+unzip instance_imagenav_hm3d_v3.zip
+mv instance_imagenav_hm3d_v3/* instance_imagenav/hm3d/v3
+rm -r instance_imagenav_hm3d_v3 instance_imagenav_hm3d_v3.zip
+cd ..
+# ------------------------------------------------------------
 ```
 
-At this point, the simulation demo should run successfully. If you want to run the physical Stretch demo, you will additionally need to install `home_robot_hw` and `home_robot` to this environment.
+At this point, the simulation demo should run successfully. If you want to run the physical Stretch demo, you will additionally need to install `home_robot_hw` to this environment.
 
 ## Run Demo: Simulation
 

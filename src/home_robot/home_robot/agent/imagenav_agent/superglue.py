@@ -1,6 +1,6 @@
 import os
 import shutil
-from typing import Any, Dict, Optional, Union
+from typing import Any, Dict, List, Optional, Tuple, Union
 
 import cv2
 import matplotlib
@@ -53,7 +53,7 @@ class Matching(nn.Module):
         self.default_vis_dir = default_vis_dir
         self.vis_dir = default_vis_dir
 
-    def set_vis_dir(self, episode_id: str):
+    def set_vis_dir(self, episode_id: str) -> None:
         if self.print_images:
             self.vis_dir = os.path.join(self.default_vis_dir, str(episode_id))
             shutil.rmtree(self.vis_dir, ignore_errors=True)
@@ -61,19 +61,19 @@ class Matching(nn.Module):
 
     @staticmethod
     def _make_matching_plot(
-        img0,
-        img1,
-        kpts0,
-        kpts1,
-        mkpts0,
-        mkpts1,
-        color,
-        text,
-        path,
+        img0: np.ndarray,
+        img1: np.ndarray,
+        kpts0: np.ndarray,
+        kpts1: np.ndarray,
+        mkpts0: np.ndarray,
+        mkpts1: np.ndarray,
+        color: np.ndarray,
+        text: List[str],
+        path: str,
         show_keypoints=False,
-        small_text=[],
-    ):
-        def plot_image_pair(imgs, dpi=200):
+        small_text: List[str] = [],
+    ) -> None:
+        def plot_image_pair(imgs: List[np.ndarray], dpi: int = 200) -> None:
             fig, ax = plt.subplots(1, 2, figsize=(7.5, 4), dpi=dpi)
             fig.set_facecolor("black")
             for i in range(2):
@@ -84,12 +84,20 @@ class Matching(nn.Module):
                     spine.set_visible(False)
             plt.tight_layout()
 
-        def plot_keypoints(kpts0, kpts1, color="w", ps=2):
+        def plot_keypoints(
+            kpts0: np.ndarray, kpts1: np.ndarray, color: str = "w", ps: int = 2
+        ) -> None:
             ax = plt.gcf().axes
             ax[0].scatter(kpts0[:, 0], kpts0[:, 1], c=color, s=ps)
             ax[1].scatter(kpts1[:, 0], kpts1[:, 1], c=color, s=ps)
 
-        def plot_matches(kpts0, kpts1, color, lw=1.5, ps=4):
+        def plot_matches(
+            kpts0: np.ndarray,
+            kpts1: np.ndarray,
+            color: str,
+            lw: float = 1.5,
+            ps: int = 4,
+        ) -> None:
             fig = plt.gcf()
             ax = fig.axes
             fig.canvas.draw()
@@ -147,7 +155,12 @@ class Matching(nn.Module):
         plt.savefig(str(path), bbox_inches="tight", pad_inches=0)
         plt.close()
 
-    def _visualize(self, matcher_inputs, matcher_outputs, step):
+    def _visualize(
+        self,
+        matcher_inputs: Dict[str, Any],
+        matcher_outputs: Dict[str, Any],
+        step: int,
+    ) -> None:
         if not self.print_images:
             return
 
@@ -202,7 +215,7 @@ class Matching(nn.Module):
     @torch.no_grad()
     def get_goal_image_keypoints(
         self, goal_image: np.ndarray, idx: int = 0
-    ) -> Dict[str, Any]:
+    ) -> Tuple[np.ndarray, Dict[str, Any]]:
         goal_img = self._preprocess_image(goal_image)
         pred = self.matcher.superpoint({"image": goal_img})
         return goal_img, {f"{k}{idx}": v for k, v in pred.items()}

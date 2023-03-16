@@ -1,21 +1,12 @@
-import sys
-from pathlib import Path
-
-# TODO Install home_robot, home_robot_sim and remove this
-parent = Path(__file__).resolve().parent.parent.parent
-sys.path.insert(0, str(parent / "src/home_robot"))
-sys.path.insert(0, str(parent / "src/home_robot_sim"))
-
-from config_utils import get_config
 import habitat_extensions  # noqa
+from config_utils import get_config
 from habitat.core.env import Env
 
 from home_robot.agent.imagenav_agent.imagenav_agent import ImageNavAgent
+from home_robot.agent.imagenav_agent.visualizer import record_video
 from home_robot_sim.env.habitat_imagenav_env.habitat_imagenav_env import (
     HabitatImageNavEnv,
 )
-from home_robot.agent.imagenav_agent.visualizer import record_video
-
 
 if __name__ == "__main__":
     config, config_str = get_config("configs/instance_imagenav_hm3d.yaml")
@@ -36,8 +27,8 @@ if __name__ == "__main__":
         env.apply_action(action)
 
     metrics = {
-        k:v
-        for k,v in env.get_episode_metrics().items()
+        k: v
+        for k, v in env.get_episode_metrics().items()
         if k not in ["top_down_map", "collisions"]
     }
     print(metrics)

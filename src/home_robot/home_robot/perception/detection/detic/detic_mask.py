@@ -1,25 +1,30 @@
 import sys
 from pathlib import Path
+from typing import Dict, List, Optional, Tuple
 
 import cv2
 import numpy as np
 import torch
-from centernet.config import add_centernet_config
-from detectron2.config import get_cfg
+from detectron2.config import CfgNode, get_cfg
 from detectron2.data import MetadataCatalog
 from detectron2.engine.defaults import DefaultPredictor
-from detectron2.utils.visualizer import ColorMode, Visualizer
-
-from home_robot.perception.detection.detic.Detic.detic.config import add_detic_config
-from home_robot.perception.detection.detic.Detic.detic.modeling.text.text_encoder import (
-    build_text_encoder,
-)
-from home_robot.perception.detection.detic.Detic.detic.modeling.utils import (
-    reset_cls_test,
-)
+from detectron2.utils.visualizer import ColorMode, VisImage, Visualizer
+from omegaconf import DictConfig
 
 sys.path.insert(
     0, str(Path(__file__).resolve().parent / "Detic/third_party/CenterNet2/")
+)
+
+from centernet.config import add_centernet_config  # noqa:E402
+
+from home_robot.perception.detection.detic.Detic.detic.config import (  # noqa:E402
+    add_detic_config,
+)
+from home_robot.perception.detection.detic.Detic.detic.modeling.text.text_encoder import (  # noqa:E402
+    build_text_encoder,
+)
+from home_robot.perception.detection.detic.Detic.detic.modeling.utils import (  # noqa:E402
+    reset_cls_test,
 )
 
 BUILDIN_CLASSIFIER = {
@@ -38,7 +43,7 @@ BUILDIN_METADATA_PATH = {
 
 
 class Detic:
-    def __init__(self, config, visualize: bool = False) -> None:
+    def __init__(self, config: DictConfig, visualize: bool = False) -> None:
         if config.vocabulary == "custom":
             self.metadata = MetadataCatalog.get("__unused")
             self.metadata.thing_classes = config.custom_vocabulary.split(",")
@@ -58,7 +63,7 @@ class Detic:
         reset_cls_test(self.predictor.model, classifier, num_classes)
 
     @staticmethod
-    def _get_clip_embeddings(vocabulary, prompt="a "):
+    def _get_clip_embeddings(vocabulary: List[str], prompt: str = "a ") -> torch.Tensor:
         text_encoder = build_text_encoder(pretrain=True)
         text_encoder.eval()
         texts = [prompt + x for x in vocabulary]
@@ -66,7 +71,7 @@ class Detic:
         return emb
 
     @staticmethod
-    def setup_cfg(config):
+    def setup_cfg(config: DictConfig) -> CfgNode:
         config_file = str(Path(__file__).resolve().parent / config.config_file)
         weights = str(Path(__file__).resolve().parent / config.weights)
 
@@ -90,7 +95,7 @@ class Detic:
         cfg.freeze()
         return cfg
 
-    def run_on_image(self, image):
+    def run_on_image(self, image: np.ndarray) -> Tuple[Dict, Optional[VisImage]]:
         """
         Args:
             image (np.ndarray): an image of shape (H, W, C) (in BGR order).
@@ -136,7 +141,7 @@ class Detic:
         return m
 
     @staticmethod
-    def augment_mask(best_mask, best_box):
+    def augment_mask(best_mask: np.ndarray, best_box: np.ndarray) -> np.ndarray:
         """make bottom 1/4 of box True"""
         x1, y1, x2, y2 = best_box
         y1 = y2 - ((y2 - y1) / 4)
@@ -145,7 +150,9 @@ class Detic:
         best_mask[int(y1) : int(y2), int(x1) : int(x2)] = True
         return best_mask
 
-    def get_goal_mask(self, goal_img: np.ndarray) -> np.ndarray:
+    def get_goal_mask(
+        self, goal_img: np.ndarray
+    ) -> Tuple[np.ndarray, Optional[VisImage]]:
         """
         Take the highest confidence instance segmentation mask whose bounding
         box contains the image center point. If no bounding box contains the

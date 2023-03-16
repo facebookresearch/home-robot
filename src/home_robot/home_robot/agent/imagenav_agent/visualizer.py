@@ -1,19 +1,18 @@
-from typing import Any, Dict, List
 import glob
-from natsort import natsorted
 import os
 import shutil
-import numpy as np
+from typing import Any, Dict, List, Optional, Tuple
+
 import cv2
-from PIL import Image
+import numpy as np
 import skimage.morphology
-from typing import Optional
-from habitat.utils.visualizations.utils import images_to_video, draw_collision
-from habitat.utils.visualizations import maps
 from habitat.utils.render_wrapper import append_text_to_image
+from habitat.utils.visualizations import maps
+from habitat.utils.visualizations.utils import draw_collision, images_to_video
+from natsort import natsorted
+from PIL import Image
 
 import home_robot.utils.pose as pu
-
 
 # TODO: map to our custom Detic values
 coco_categories_color_palette = [
@@ -87,7 +86,11 @@ map_color_palette = [
 ]
 
 
-def get_contour_points(pos, origin, size=20):
+def get_contour_points(
+    pos: Tuple[float, float, float],
+    origin: Tuple[float, float],
+    size: int = 20,
+) -> np.ndarray:
     x, y, o = pos
     pt1 = (int(x) + origin[0], int(y) + origin[1])
     pt2 = (
@@ -103,7 +106,13 @@ def get_contour_points(pos, origin, size=20):
     return np.array([pt1, pt2, pt3, pt4])
 
 
-def draw_line(start, end, mat, steps=25, w=1):
+def draw_line(
+    start: Tuple[int, int],
+    end: Tuple[int, int],
+    mat: np.ndarray,
+    steps: int = 25,
+    w: int = 1,
+) -> np.ndarray:
     for i in range(steps + 1):
         x = int(np.rint(start[0] + (end[0] - start[0]) * i / steps))
         y = int(np.rint(start[1] + (end[1] - start[1]) * i / steps))
@@ -113,7 +122,7 @@ def draw_line(start, end, mat, steps=25, w=1):
 
 def append_text_to_image_right_align(
     image: np.ndarray, text: List[str], font_size: float = 0.5
-):
+) -> np.ndarray:
     h, w, c = image.shape
     font_thickness = 2
     font = cv2.FONT_HERSHEY_SIMPLEX
@@ -156,7 +165,7 @@ def record_video(
     target_dir: str,
     image_dir: str,
     episode_name: str = "0",
-):
+) -> None:
     print(f"Recording video {episode_name}")
 
     # Semantic map vis
@@ -185,7 +194,7 @@ class NavVisualizer:
         print_images: bool,
         dump_location: str,
         exp_name: str,
-    ):
+    ) -> None:
         """
         Arguments:
             num_sem_categories: number of semantic segmentation categories
@@ -214,13 +223,13 @@ class NavVisualizer:
         self.last_xy = None
         self.ind_frame_height = 450
 
-    def reset(self):
+    def reset(self) -> None:
         self.vis_dir = self.default_vis_dir
         self.image_vis = None
         self.visited_map_vis = np.zeros(self.map_shape)
         self.last_xy = None
 
-    def set_vis_dir(self, episode_id: str):
+    def set_vis_dir(self, episode_id: str) -> None:
         self.vis_dir = os.path.join(self.default_vis_dir, str(episode_id))
         shutil.rmtree(self.vis_dir, ignore_errors=True)
         os.makedirs(self.vis_dir, exist_ok=True)
@@ -241,7 +250,7 @@ class NavVisualizer:
         semantic_map: Optional[np.ndarray] = None,
         visualize_goal: bool = True,
         metrics: Dict[str, Any] = None,
-    ):
+    ) -> None:
         """Visualize frame input and semantic map.
 
         Args:
@@ -283,9 +292,7 @@ class NavVisualizer:
             goal_map,
             visualize_goal,
         )
-        td_map_frame = (
-            None if last_td_map is None else self.make_td_map(last_td_map)
-        )
+        td_map_frame = None if last_td_map is None else self.make_td_map(last_td_map)
 
         kp_frame = self.make_keypoint(timestep)
 
@@ -306,30 +313,28 @@ class NavVisualizer:
             name = f"snapshot_{timestep}_{i}.png"
             cv2.imwrite(os.path.join(self.vis_dir, name), frame)
 
-    def pad_frame(self, frame, width):
+    def pad_frame(self, frame: np.ndarray, width: int) -> np.ndarray:
         h = frame.shape[0]
         w = frame.shape[1]
         left_bar = np.ones((h, (width - w) // 2, 3), dtype=np.uint8) * 255
-        right_bar = np.ones(
-            (h, (width - w - left_bar.shape[1]), 3), dtype=np.uint8
-        ) * 255
+        right_bar = (
+            np.ones((h, (width - w - left_bar.shape[1]), 3), dtype=np.uint8) * 255
+        )
         return np.concatenate([left_bar, frame, right_bar], axis=1)
 
-    def make_keypoint(self, timestep):
+    def make_keypoint(self, timestep: int) -> np.ndarray:
         fname = os.path.join(self.vis_dir, f"superglue_{timestep}.png")
-        assert os.path.exists(fname), (
-            f"keypoint frame does not exist at `{fname}`."
-        )
+        assert os.path.exists(fname), f"keypoint frame does not exist at `{fname}`."
 
         border_size = 10
         text_bar_height = 50 - border_size
         kp_img = cv2.imread(fname)
         os.remove(fname)
-        
+
         new_h = self.ind_frame_height - text_bar_height - 2 * border_size
         new_w = int((new_h / kp_img.shape[0]) * kp_img.shape[1])
         kp_img = cv2.resize(kp_img, (new_w, new_h))
-        
+
         kp_img = self._add_border(kp_img, border_size)
 
         w = kp_img.shape[1]
@@ -358,7 +363,7 @@ class NavVisualizer:
 
         return frame
 
-    def make_goal(self, goal_img):
+    def make_goal(self, goal_img: np.ndarray) -> np.ndarray:
         border_size = 10
         text_bar_height = 50 - border_size
         new_h = self.ind_frame_height - text_bar_height - 2 * border_size
@@ -391,7 +396,13 @@ class NavVisualizer:
         )
         return frame
 
-    def make_observations(self, sem_img, collision, found_goal, metrics):
+    def make_observations(
+        self,
+        sem_img: np.ndarray,
+        collision: bool,
+        found_goal: bool,
+        metrics: Dict[str, float],
+    ) -> np.ndarray:
         border_size = 10
         text_bar_height = 50 - border_size
         new_h = self.ind_frame_height - text_bar_height - 2 * border_size
@@ -436,15 +447,15 @@ class NavVisualizer:
 
     def make_map_preds(
         self,
-        sensor_pose,
-        obstacle_map,
-        explored_map,
-        semantic_map,
-        closest_goal_map,
-        goal_map,
-        visualize_goal,
-    ):
-        
+        sensor_pose: np.ndarray,
+        obstacle_map: np.ndarray,
+        explored_map: np.ndarray,
+        semantic_map: np.ndarray,
+        closest_goal_map: np.ndarray,
+        goal_map: np.ndarray,
+        visualize_goal: bool,
+    ) -> np.ndarray:
+
         if semantic_map is None:
             fill_val = self.num_sem_categories - 1
             semantic_map = np.zeros_like(obstacle_map) + fill_val
@@ -485,13 +496,16 @@ class NavVisualizer:
         # Goal
         if visualize_goal:
             selem = skimage.morphology.disk(4)
-            goal_mat = 1 - skimage.morphology.binary_dilation(goal_map, selem) != True
+            goal_mat = (
+                1 - skimage.morphology.binary_dilation(goal_map, selem)
+                != True  # noqa:E712
+            )
             goal_mask = goal_mat == 1
             semantic_map[goal_mask] = 21
             if closest_goal_map is not None:
                 closest_goal_mat = (
                     1 - skimage.morphology.binary_dilation(closest_goal_map, selem)
-                    != True
+                    != True  # noqa:E712
                 )
                 closest_goal_mask = closest_goal_mat == 1
                 semantic_map[closest_goal_mask] = 4
@@ -525,7 +539,7 @@ class NavVisualizer:
             np.deg2rad(-curr_o),
         )
         pos = (pos[0] * new_w / old_w, pos[1] * new_h / old_h, pos[2])
-        agent_arrow = get_contour_points(pos, origin=(0,0))
+        agent_arrow = get_contour_points(pos, origin=(0, 0))
         color = self.color_palette[9:12][::-1]
         cv2.drawContours(semantic_map_vis, [agent_arrow], 0, color, -1)
 
@@ -535,9 +549,9 @@ class NavVisualizer:
         color = [100, 100, 100]
         h, w = semantic_map_vis.shape[:2]
         semantic_map_vis[0, 0:] = color
-        semantic_map_vis[h-1, 0:] = color
+        semantic_map_vis[h - 1, 0:] = color
         semantic_map_vis[0:, 0] = color
-        semantic_map_vis[0:, w-1] = color
+        semantic_map_vis[0:, w - 1] = color
 
         semantic_map_vis = self._add_border(semantic_map_vis, border_size)
         w = semantic_map_vis.shape[1]
@@ -566,24 +580,22 @@ class NavVisualizer:
         )
         return frame
 
-    def make_td_map(self, top_down_map):
-        
+    def make_td_map(self, top_down_map: np.ndarray) -> np.ndarray:
+
         border_size = 10
         text_bar_height = 50 - border_size
         new_h = self.ind_frame_height - text_bar_height - 2 * border_size
 
-        td_map = maps.colorize_draw_agent_and_fit_to_height(
-            top_down_map, new_h
-        )
+        td_map = maps.colorize_draw_agent_and_fit_to_height(top_down_map, new_h)
         td_map = cv2.cvtColor(td_map, cv2.COLOR_RGB2BGR)
 
         # add map outline
         color = [100, 100, 100]
         h, w = td_map.shape[:2]
         td_map[0, 0:] = color
-        td_map[h-1, 0:] = color
+        td_map[h - 1, 0:] = color
         td_map[0:, 0] = color
-        td_map[0:, w-1] = color
+        td_map[0:, w - 1] = color
 
         td_map = self._add_border(td_map, border_size)
         w = td_map.shape[1]
@@ -612,7 +624,9 @@ class NavVisualizer:
         )
         return frame
 
-    def _write_metrics(self, frame, metrics):
+    def _write_metrics(
+        self, frame: np.ndarray, metrics: Dict[str, float]
+    ) -> np.ndarray:
         if metrics is None:
             return frame
 
@@ -623,7 +637,7 @@ class NavVisualizer:
 
         return append_text_to_image_right_align(frame, lines, font_size=0.8)
 
-    def _add_border(self, frame, border_size):
+    def _add_border(self, frame: np.ndarray, border_size: int) -> np.ndarray:
         h, w = frame.shape[:2]
         side = np.ones((h, border_size, 3), dtype=np.uint8) * 255
         frame = np.concatenate([side, frame, side], axis=1)

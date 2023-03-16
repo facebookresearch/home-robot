@@ -1,5 +1,4 @@
 from typing import Optional, Tuple
-from omegaconf import DictConfig, OmegaConf
 
 from habitat import get_config as get_habitat_config
 from habitat.config import read_write
@@ -8,6 +7,7 @@ from habitat.config.default_structured_configs import (
     FogOfWarConfig,
     TopDownMapMeasurementConfig,
 )
+from omegaconf import DictConfig, OmegaConf
 
 
 def get_config(path: str, opts: Optional[list] = None) -> Tuple[DictConfig, str]:
@@ -31,15 +31,31 @@ def get_config(path: str, opts: Optional[list] = None) -> Tuple[DictConfig, str]
         config.habitat.simulator.agents.main_agent.height = agent_height
         config.habitat.simulator.agents.main_agent.radius = agent_radius
 
-        config.habitat.simulator.agents.main_agent.sim_sensors.rgb_sensor.height = cam_height
-        config.habitat.simulator.agents.main_agent.sim_sensors.rgb_sensor.width = cam_width
-        config.habitat.simulator.agents.main_agent.sim_sensors.rgb_sensor.position = cam_position
-        config.habitat.simulator.agents.main_agent.sim_sensors.rgb_sensor.hfov = cam_hfov
+        config.habitat.simulator.agents.main_agent.sim_sensors.rgb_sensor.height = (
+            cam_height
+        )
+        config.habitat.simulator.agents.main_agent.sim_sensors.rgb_sensor.width = (
+            cam_width
+        )
+        config.habitat.simulator.agents.main_agent.sim_sensors.rgb_sensor.position = (
+            cam_position
+        )
+        config.habitat.simulator.agents.main_agent.sim_sensors.rgb_sensor.hfov = (
+            cam_hfov
+        )
 
-        config.habitat.simulator.agents.main_agent.sim_sensors.depth_sensor.height = cam_height
-        config.habitat.simulator.agents.main_agent.sim_sensors.depth_sensor.width = cam_width
-        config.habitat.simulator.agents.main_agent.sim_sensors.depth_sensor.position = cam_position
-        config.habitat.simulator.agents.main_agent.sim_sensors.depth_sensor.hfov = cam_hfov
+        config.habitat.simulator.agents.main_agent.sim_sensors.depth_sensor.height = (
+            cam_height
+        )
+        config.habitat.simulator.agents.main_agent.sim_sensors.depth_sensor.width = (
+            cam_width
+        )
+        config.habitat.simulator.agents.main_agent.sim_sensors.depth_sensor.position = (
+            cam_position
+        )
+        config.habitat.simulator.agents.main_agent.sim_sensors.depth_sensor.hfov = (
+            cam_hfov
+        )
 
         if config.generate_videos:
             config.habitat.task.measurements.update(

@@ -1,8 +1,10 @@
+import numpy as np
+import skimage.morphology
 import torch
 import torch.nn as nn
-import skimage.morphology
 
-from home_robot.utils.morphology import binary_dilation
+from home_robot.mapping.semantic.constants import MapConstants as MC
+from home_robot.utils.morphology import binary_dilation, binary_erosion
 
 
 class FrontierExplorationPolicy(nn.Module):
@@ -11,7 +13,7 @@ class FrontierExplorationPolicy(nn.Module):
     unexplored region.
     """
 
-    def __init__(self):
+    def __init__(self) -> None:
         super().__init__()
 
         self.dilate_explored_kernel = nn.Parameter(
@@ -30,10 +32,10 @@ class FrontierExplorationPolicy(nn.Module):
         )
 
     @property
-    def goal_update_steps(self):
+    def goal_update_steps(self) -> int:
         return 1
 
-    def forward(self, map_features):
+    def forward(self, map_features: np.ndarray) -> np.ndarray:
         """
         Arguments:
             map_features: semantic map features of shape
@@ -43,12 +45,10 @@ class FrontierExplorationPolicy(nn.Module):
             goal_map: binary map encoding goal(s) of shape (batch_size, M, M)
         """
         # Select unexplored area
-        frontier_map = (map_features[:, [1], :, :] == 0).float()
+        frontier_map = (map_features[:, [MC.EXPLORED_MAP], :, :] == 0).float()
 
         # Dilate explored area
-        frontier_map = 1 - binary_dilation(
-            1 - frontier_map, self.dilate_explored_kernel
-        )
+        frontier_map = binary_erosion(frontier_map, self.dilate_explored_kernel)
 
         # Select the frontier
         frontier_map = (

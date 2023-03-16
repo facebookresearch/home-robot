@@ -1,15 +1,15 @@
 from typing import Any, List, Optional, Tuple
-from omegaconf import DictConfig
 
+import numpy as np
 from habitat.core.embodied_task import Measure
 from habitat.core.registry import registry
 from habitat.core.simulator import AgentState
 from habitat.core.utils import try_cv2_import
-from habitat.tasks.utils import cartesian_to_polar
 from habitat.tasks.nav.nav import NavigationEpisode
+from habitat.tasks.utils import cartesian_to_polar
 from habitat.utils.geometry_utils import quaternion_rotate_vector
 from habitat.utils.visualizations import fog_of_war, maps
-import numpy as np
+from omegaconf import DictConfig
 
 try:
     from habitat.sims.habitat_simulator.habitat_simulator import HabitatSim
@@ -100,9 +100,7 @@ class MyTopDownMap(Measure):
             for goal in episode.goals:
                 if self._is_on_same_floor(goal.position[1]):
                     try:
-                        self._draw_point(
-                            goal.position, maps.MAP_TARGET_POINT_INDICATOR
-                        )
+                        self._draw_point(goal.position, maps.MAP_TARGET_POINT_INDICATOR)
                     except AttributeError:
                         pass
 
@@ -112,16 +110,12 @@ class MyTopDownMap(Measure):
                 try:
                     sem_scene = self._sim.semantic_annotations()
                     object_id = goal.object_id
-                    assert int(
-                        sem_scene.objects[object_id].id.split("_")[-1]
-                    ) == int(
+                    assert int(sem_scene.objects[object_id].id.split("_")[-1]) == int(
                         goal.object_id
                     ), f"Object_id doesn't correspond to id in semantic scene objects dictionary for episode: {episode}"
 
                     center = sem_scene.objects[object_id].aabb.center
-                    x_len, _, z_len = (
-                        sem_scene.objects[object_id].aabb.sizes / 2.0
-                    )
+                    x_len, _, z_len = sem_scene.objects[object_id].aabb.sizes / 2.0
                     # Nodes to draw rectangle
                     corners = [
                         center + np.array([x, 0, z])
@@ -161,10 +155,8 @@ class MyTopDownMap(Measure):
         self, episode: NavigationEpisode, agent_position: AgentState
     ):
         if self._config.draw_shortest_path:
-            _shortest_path_points = (
-                self._sim.get_straight_shortest_path_points(
-                    agent_position, episode.goals[0].position
-                )
+            _shortest_path_points = self._sim.get_straight_shortest_path_points(
+                agent_position, episode.goals[0].position
             )
             self._shortest_path_points = [
                 maps.to_grid(
@@ -182,9 +174,7 @@ class MyTopDownMap(Measure):
                 self.line_thickness,
             )
 
-    def _is_on_same_floor(
-        self, height, ref_floor_height=None, ceiling_height=2.0
-    ):
+    def _is_on_same_floor(self, height, ref_floor_height=None, ceiling_height=2.0):
         if ref_floor_height is None:
             ref_floor_height = self._sim.get_agent(0).state.position[1]
         return ref_floor_height < height < ref_floor_height + ceiling_height
@@ -212,13 +202,11 @@ class MyTopDownMap(Measure):
             self._draw_shortest_path(episode, agent_position)
 
         if self._config.draw_source:
-            self._draw_point(
-                episode.start_position, maps.MAP_SOURCE_POINT_INDICATOR
-            )
+            self._draw_point(episode.start_position, maps.MAP_SOURCE_POINT_INDICATOR)
 
         # want initial map
         self.update_metric(None, None)
-        self._step_count -=1
+        self._step_count -= 1
 
     def update_metric(self, episode, action, *args: Any, **kwargs: Any):
         self._step_count += 1
@@ -282,7 +270,5 @@ class MyTopDownMap(Measure):
                 self.get_polar_angle(),
                 fov=self._config.fog_of_war.fov,
                 max_line_len=self._config.fog_of_war.visibility_dist
-                / maps.calculate_meters_per_pixel(
-                    self._map_resolution, sim=self._sim
-                ),
+                / maps.calculate_meters_per_pixel(self._map_resolution, sim=self._sim),
             )

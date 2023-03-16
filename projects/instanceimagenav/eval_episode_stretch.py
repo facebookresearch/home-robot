@@ -1,12 +1,10 @@
 #!/usr/bin/env python
 import rospy
-
 from config_utils import get_config
 
 from home_robot.agent.imagenav_agent.imagenav_agent import ImageNavAgent
-from home_robot_hw.env.stretch_image_nav_env import StretchImageNavEnv
 from home_robot.agent.imagenav_agent.visualizer import record_video
-
+from home_robot_hw.env.stretch_image_nav_env import StretchImageNavEnv
 
 if __name__ == "__main__":
     config, config_str = get_config("configs/instance_imagenav_hm3d.yaml")
@@ -30,7 +28,7 @@ if __name__ == "__main__":
         obs = env.get_observation()
         action = agent.act(obs)
         env.apply_action(action)
-    
+
     record_video(
         target_dir=f"{config.dump_location}/videos/{config.exp_name}",
         image_dir=f"{config.dump_location}/images/{config.exp_name}",

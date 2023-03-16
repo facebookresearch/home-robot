@@ -1,35 +1,37 @@
-from typing import Any, Dict, Tuple, List
+from typing import Any, Dict, List, Optional, Tuple
 
-from omegaconf import DictConfig
+import numpy as np
+import scipy
 import torch
 import torch.nn as nn
-import scipy
+from omegaconf import DictConfig
 from sklearn.cluster import DBSCAN
-import numpy as np
 
 from home_robot.core.abstract_agent import Agent
 from home_robot.core.interfaces import DiscreteNavigationAction, Observations
-
 from home_robot.mapping.semantic.categorical_2d_semantic_map_module import (
     Categorical2DSemanticMapModule,
 )
 from home_robot.mapping.semantic.categorical_2d_semantic_map_state import (
     Categorical2DSemanticMapState,
 )
+from home_robot.navigation_planner.discrete_planner import DiscretePlanner
+
 from .frontier_exploration import FrontierExplorationPolicy
 from .obs_preprocessor import ObsPreprocessor
-from .planner import DiscretePlanner
 from .visualizer import NavVisualizer
 
 
 class IINAgentModule(nn.Module):
-    def __init__(self, config: DictConfig):
+    def __init__(self, config: DictConfig) -> None:
         super().__init__()
 
         self.semantic_map_module = Categorical2DSemanticMapModule(
             frame_height=config.frame_height,
             frame_width=config.frame_width,
-            camera_height=config.habitat.simulator.agents.main_agent.sim_sensors.rgb_sensor.position[1],
+            camera_height=config.habitat.simulator.agents.main_agent.sim_sensors.rgb_sensor.position[
+                1
+            ],
             hfov=config.habitat.simulator.agents.main_agent.sim_sensors.rgb_sensor.hfov,
             num_sem_categories=config.semantic_map.num_sem_categories,
             map_size_cm=config.semantic_map.map_size_cm,
@@ -45,10 +47,17 @@ class IINAgentModule(nn.Module):
         self.exploration_policy = FrontierExplorationPolicy()
 
     @property
-    def goal_update_steps(self):
+    def goal_update_steps(self) -> int:
         return self.exploration_policy.goal_update_steps
 
-    def superglue(self, goal_map, found_goal, local_map, matches, confidence):
+    def superglue(
+        self,
+        goal_map: torch.Tensor,
+        found_goal: torch.Tensor,
+        local_map: torch.Tensor,
+        matches: torch.Tensor,
+        confidence: torch.Tensor,
+    ) -> Tuple[torch.Tensor, torch.Tensor]:
         """Goal detection and localization via SuperGlue"""
 
         score_func = self.goal_policy_config.score_function
@@ -75,21 +84,31 @@ class IINAgentModule(nn.Module):
 
     def forward(
         self,
-        seq_obs,
-        seq_pose_delta,
-        seq_dones,
-        seq_update_global,
-        seq_found_goal,
-        seq_goal_map,
-        init_local_map,
-        init_global_map,
-        init_local_pose,
-        init_global_pose,
-        init_lmb,
-        init_origins,
-        matches,
-        confidence,
-    ):
+        seq_obs: torch.Tensor,
+        seq_pose_delta: torch.Tensor,
+        seq_dones: torch.Tensor,
+        seq_update_global: torch.Tensor,
+        seq_camera_poses: Optional[torch.Tensor],
+        seq_found_goal: torch.Tensor,
+        seq_goal_map: torch.Tensor,
+        init_local_map: torch.Tensor,
+        init_global_map: torch.Tensor,
+        init_local_pose: torch.Tensor,
+        init_global_pose: torch.Tensor,
+        init_lmb: torch.Tensor,
+        init_origins: torch.Tensor,
+        matches: torch.Tensor,
+        confidence: torch.Tensor,
+    ) -> Tuple[
+        torch.Tensor,
+        torch.Tensor,
+        torch.Tensor,
+        torch.Tensor,
+        torch.Tensor,
+        torch.Tensor,
+        torch.Tensor,
+        torch.Tensor,
+    ]:
         """Update maps and poses with a sequence of observations, and predict
         high-level goals from map features.
 
@@ -103,6 +122,7 @@ class IINAgentModule(nn.Module):
              indicate episode restarts
             seq_update_global: sequence of (batch_size, sequence_length) binary
              flags that indicate whether to update the global map and pose
+            seq_camera_poses: sequence of (batch_size, 4, 4) camera poses
             init_local_map: initial local map before any updates of shape
              (batch_size, 4 + num_sem_categories, M, M)
             init_global_map: initial global map before any updates of shape
@@ -151,6 +171,7 @@ class IINAgentModule(nn.Module):
             seq_pose_delta,
             seq_dones,
             seq_update_global,
+            seq_camera_poses,
             init_local_map,
             init_global_map,
             init_local_pose,
@@ -168,7 +189,9 @@ class IINAgentModule(nn.Module):
         seq_goal_map, seq_found_goal = self.superglue(
             seq_goal_map, seq_found_goal, final_local_map, matches, confidence
         )
-        seq_goal_map = seq_goal_map.view(batch_size, sequence_length, *seq_goal_map.shape[-2:])
+        seq_goal_map = seq_goal_map.view(
+            batch_size, sequence_length, *seq_goal_map.shape[-2:]
+        )
 
         return (
             seq_goal_map,
@@ -183,7 +206,7 @@ class IINAgentModule(nn.Module):
 
 
 class ImageNavAgent(Agent):
-    def __init__(self, config, device_id: int = 0):
+    def __init__(self, config, device_id: int = 0) -> None:
         self.device = torch.device(f"cuda:{device_id}")
         self.obs_preprocessor = ObsPreprocessor(config, self.device)
 
@@ -207,6 +230,7 @@ class ImageNavAgent(Agent):
             goal_dilation_selem_radius=config.planner.goal_dilation_selem_radius,
             map_size_cm=config.semantic_map.map_size_cm,
             map_resolution=config.semantic_map.map_resolution,
+            visualize=False,
             print_images=False,
             dump_location=config.dump_location,
             exp_name=config.exp_name,
@@ -238,7 +262,7 @@ class ImageNavAgent(Agent):
                 exp_name=config.exp_name,
             )
 
-    def reset(self):
+    def reset(self) -> None:
         """Initialize agent state."""
         self.obs_preprocessor.reset()
         if self.visualizer is not None:
@@ -251,14 +275,18 @@ class ImageNavAgent(Agent):
         self.goal_map[:] *= 0
         self.planner.reset()
 
-    def act(self, obs: Observations) -> Tuple[DiscreteNavigationAction, Dict[str, Any]]:
+    def act(self, obs: Observations) -> DiscreteNavigationAction:
         """Act end-to-end."""
         (
-            obs_preprocessed, pose_delta, matches, confidence
+            obs_preprocessed,
+            pose_delta,
+            camera_pose,
+            matches,
+            confidence,
         ) = self.obs_preprocessor.preprocess(obs)
 
         planner_inputs, vis_inputs = self._prepare_planner_inputs(
-            obs_preprocessed, pose_delta, matches, confidence
+            obs_preprocessed, pose_delta, matches, confidence, camera_pose
         )
 
         closest_goal_map = None
@@ -274,7 +302,6 @@ class ImageNavAgent(Agent):
             info = {
                 **planner_inputs[0],
                 **vis_inputs[0],
-                # TODO: convert to obs_preprocessed[:3]
                 "semantic_frame": obs.rgb,
                 "closest_goal_map": closest_goal_map,
                 "last_goal_image": obs.task_observations["instance_imagegoal"],
@@ -290,8 +317,9 @@ class ImageNavAgent(Agent):
         self,
         obs: torch.Tensor,
         pose_delta: torch.Tensor,
-        matches,
-        confidence,
+        matches: torch.Tensor,
+        confidence: torch.Tensor,
+        camera_pose: Optional[torch.Tensor] = None,
     ) -> Tuple[List[dict], List[dict]]:
         dones = torch.zeros(self.num_environments, dtype=torch.bool)
         update_global = torch.tensor(
@@ -315,6 +343,7 @@ class ImageNavAgent(Agent):
             pose_delta.unsqueeze(1),
             dones.unsqueeze(1),
             update_global.unsqueeze(1),
+            camera_pose,
             self.found_goal,
             self.goal_map,
             self.semantic_map.local_map,
@@ -368,7 +397,7 @@ class ImageNavAgent(Agent):
 
         return planner_inputs, vis_inputs
 
-    def _prep_goal_map_input(self):
+    def _prep_goal_map_input(self) -> None:
         goal_map = self.goal_map.squeeze(1).cpu().numpy()
 
         if not self.goal_filtering:

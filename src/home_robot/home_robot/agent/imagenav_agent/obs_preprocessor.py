@@ -1,34 +1,30 @@
-from typing import Tuple
+from typing import Optional, Tuple
+
 import cv2
-import torch
-from torch import Tensor
 import numpy as np
-from numpy import ndarray
 import skimage.morphology
+import torch
+from numpy import ndarray
 from omegaconf import DictConfig
+from torch import Tensor
 
 import home_robot.utils.pose as pu
 from home_robot.core.interfaces import Observations
-
 from home_robot.perception.detection.detic.detic_mask import Detic
+
 from .superglue import Matching
 
 
 class ObsPreprocessor:
-
     def __init__(self, config: DictConfig, device: torch.device) -> None:
         self.device = device
         self.frame_height = config.frame_height
         self.frame_width = config.frame_width
 
         self.depth_filtering = config.semantic_prediction.depth_filtering
-        self.depth_filter_range_cm = (
-            config.semantic_prediction.depth_filter_range_cm
-        )
+        self.depth_filter_range_cm = config.semantic_prediction.depth_filter_range_cm
         self.preprojection_kp_dilation = config.preprojection_kp_dilation
-        self.match_projection_threshold = (
-            config.superglue.match_projection_threshold
-        )
+        self.match_projection_threshold = config.superglue.match_projection_threshold
 
         #  initialize detection and localization modules
         self.matching = Matching(
@@ -46,14 +42,16 @@ class ObsPreprocessor:
         self.last_pose = None
         self.step = None
 
-    def reset(self):
+    def reset(self) -> None:
         self.goal_image = None
         self.goal_image_keypoints = None
         self.goal_mask = None
         self.last_pose = np.zeros(3)
         self.step = 0
 
-    def preprocess(self, obs: Observations) -> Tuple[Tensor, ndarray, ndarray]:
+    def preprocess(
+        self, obs: Observations
+    ) -> Tuple[Tensor, Optional[Tensor], ndarray, ndarray]:
         """
         Preprocess observations of a single timestep batched across
         environments.
@@ -69,26 +67,30 @@ class ObsPreprocessor:
             matches: keypoint correspondences from goal image to egocentric
                image of shape (1, n)
             confidence: keypoint correspondence confidence of shape (1, n)
+            camera_pose: camera extrinsic pose of shape (num_environments, 4, 4)
         """
         if self.goal_image is None:
             img_goal = obs.task_observations["instance_imagegoal"]
             (
-                self.goal_image, self.goal_image_keypoints
+                self.goal_image,
+                self.goal_image_keypoints,
             ) = self.matching.get_goal_image_keypoints(img_goal)
             self.goal_mask, _ = self.instance_seg.get_goal_mask(img_goal)
 
         pose_delta, self.last_pose = self._preprocess_pose(obs)
         obs_preprocessed, matches, confidence = self._preprocess_frame(obs)
 
-        self.step += 1
-        return obs_preprocessed, pose_delta, matches, confidence
+        camera_pose = obs.camera_pose
+        if camera_pose is not None:
+            camera_pose = torch.tensor(np.asarray(camera_pose)).unsqueeze(0)
 
-    def _preprocess_frame(
-        self, obs: Observations
-    ) -> Tuple[Tensor, ndarray, ndarray]:
+        self.step += 1
+        return obs_preprocessed, pose_delta, camera_pose, matches, confidence
+
+    def _preprocess_frame(self, obs: Observations) -> Tuple[Tensor, ndarray, ndarray]:
         """Preprocess frame information in the observation."""
 
-        def downscale(rgb: ndarray, depth: ndarray):
+        def downscale(rgb: ndarray, depth: ndarray) -> Tuple[ndarray, ndarray]:
             ds = rgb.shape[1] / self.frame_width
             if ds == 1:
                 return rgb, depth
@@ -98,8 +100,12 @@ class ObsPreprocessor:
             return rgb, depth
 
         def preprocess_keypoint_localization(
-            rgb, goal_keypoints, rgb_keypoints, matches, confidence
-        ):
+            rgb: ndarray,
+            goal_keypoints: torch.Tensor,
+            rgb_keypoints: torch.Tensor,
+            matches: ndarray,
+            confidence: ndarray,
+        ) -> ndarray:
             goal_keypoints = goal_keypoints[0].cpu().to(dtype=int).numpy()
             rgb_keypoints = rgb_keypoints[0].cpu().to(dtype=int).numpy()
             confidence = confidence[0]
@@ -118,18 +124,14 @@ class ObsPreprocessor:
 
             if self.preprojection_kp_dilation > 0:
                 disk = skimage.morphology.disk(self.preprojection_kp_dilation)
-                kp_loc = np.expand_dims(
-                    cv2.dilate(kp_loc, disk, iterations=1), axis=2
-                )
+                kp_loc = np.expand_dims(cv2.dilate(kp_loc, disk, iterations=1), axis=2)
 
             return kp_loc
 
         depth = np.expand_dims(obs.depth, axis=2) * 100.0
         rgb, depth = downscale(obs.rgb, depth)
 
-        (
-            goal_keypoints, rgb_keypoints, matches, confidence
-        ) = self.matching(
+        (goal_keypoints, rgb_keypoints, matches, confidence) = self.matching(
             rgb,
             goal_image=self.goal_image,
             goal_image_keypoints=self.goal_image_keypoints,
@@ -148,7 +150,9 @@ class ObsPreprocessor:
 
     def _preprocess_pose(self, obs: Observations) -> Tuple[Tensor, ndarray]:
         curr_pose = np.array([obs.gps[0], obs.gps[1], obs.compass[0]])
-        pose_delta = torch.tensor(
-            pu.get_rel_pose_change(curr_pose, self.last_pose)
-        ).unsqueeze(0).to(device=self.device)
+        pose_delta = (
+            torch.tensor(pu.get_rel_pose_change(curr_pose, self.last_pose))
+            .unsqueeze(0)
+            .to(device=self.device)
+        )
         return pose_delta, curr_pose
