@@ -188,8 +188,9 @@ class StretchManipulationClient(AbstractControlModule):
         joint_pos = self._extract_joint_pos(q)
 
         # Execute joint command
-        breakpoint()
+        print(f"Desired joint pos: {joint_pos}")
         self.goto_joint_positions(joint_pos, blocking=blocking)
+        print(f"Achieved joint pos: {self.get_joint_positions()}")
 
         return True
 

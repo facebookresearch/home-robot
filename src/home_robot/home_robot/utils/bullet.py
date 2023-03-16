@@ -407,6 +407,17 @@ class PybulletIKSolver:
         self.robot_id = self.robot.id
         self.visualize = visualize
 
+        robot = self.env.objects["robot"]
+        self.upper_limits = [
+            info.upper_limit for info in robot.controllable_joint_infos[:-2]
+        ]
+        self.lower_limits = [
+            info.lower_limit for info in robot.controllable_joint_infos[:-2]
+        ]
+        self.joint_ranges = [
+            u - l for u, l in zip(self.upper_limits, self.lower_limits)
+        ]
+
         # Debugging code, not very robust
         if visualize:
             self.debug_block = PbArticulatedObject(
@@ -453,6 +464,9 @@ class PybulletIKSolver:
                 self.ee_idx,
                 pos_desired,
                 quat_desired,
+                lowerLimits=self.lower_limits,
+                upperLimits=self.upper_limits,
+                jointRanges=self.joint_ranges,
                 # maxNumIterations=1000,
                 # residualThreshold=1e-6,
                 physicsClientId=self.pc_id,

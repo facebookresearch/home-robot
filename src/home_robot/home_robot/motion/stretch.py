@@ -213,7 +213,7 @@ class HelloStretchKinematics(Robot):
         urdf_path: str = "",
         visualize: bool = False,
         root: str = ".",
-        ik_type: str = "pybullet",
+        ik_type: str = "pinocchio",
     ):
         """Create the robot in bullet for things like kinematics; extract information"""
 
