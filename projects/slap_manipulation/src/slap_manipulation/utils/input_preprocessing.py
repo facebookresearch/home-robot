@@ -23,7 +23,8 @@ def get_local_action_prediction_problem(
     p_i: np.ndarray,
 ) -> Tuple[np.ndarray, np.ndarray, bool]:
     """
-    Create local problem around predicted interaction point for regression training
+    Returns a cropped version of the input point-cloud mean-centered around the predicted
+    interaction point (p_i)
     """
     # crop from og pcd and mean-center it
     crop_xyz, crop_rgb = crop_around_voxel(xyz, feat, p_i, cfg.local_problem_size)
