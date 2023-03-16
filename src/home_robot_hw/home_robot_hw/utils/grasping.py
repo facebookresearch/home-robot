@@ -174,7 +174,7 @@ class GraspPlanner(object):
         # Get pregrasp pose: current pose + maxed out lift
         pos_pre, quat_pre = self.robot_client.manip.get_ee_pose()
         joint_pos_pre = self.robot_client.manip.get_joint_positions()
-        joint_pos_pre[1] = 0.99
+        joint_pos_pre[1] = 0.95
         self.robot_client.manip.goto_joint_positions(joint_pos_pre)
 
         # Standoff 8 cm above grasp position
