@@ -400,12 +400,20 @@ class PbClient(object):
 class PybulletIKSolver:
     """Create a wrapper for solving inverse kinematics using PyBullet"""
 
-    def __init__(self, urdf_path, ee_link_name, controlled_joints, visualize=False):
+    def __init__(
+        self,
+        urdf_path,
+        ee_link_name,
+        controlled_joints,
+        joint_range=None,
+        visualize=False,
+    ):
         self.env = PbClient(visualize=visualize, is_simulation=False)
         self.robot = self.env.add_articulated_object("robot", urdf_path)
         self.pc_id = self.env.id
         self.robot_id = self.robot.id
         self.visualize = visualize
+        self.range = joint_range
 
         # Debugging code, not very robust
         if visualize:
@@ -465,6 +473,17 @@ class PybulletIKSolver:
 
         if self.controlled_joints is not None:
             q_out = q_full[self.controlled_joints]
+            if self.range is not None:
+                if not (
+                    np.all(q_out > self.range[:, 0])
+                    and np.all(q_out < self.range[:, 1])
+                ):
+                    print("---")
+                    print("IK failure:")
+                    print(q_out > self.range[:, 0])
+                    print(q_out < self.range[:, 1])
+                    print("---")
+                    return None
         else:
             q_out = q_full
 
