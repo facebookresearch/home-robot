@@ -352,10 +352,11 @@ class PbClient(object):
     Physics client; connects to backend.
     """
 
-    def __init__(self, visualize=True, is_simulation=True, assets_path=None):
+    def __init__(self, visualize=False, is_simulation=True, assets_path=None):
         self.is_simulation = is_simulation
         if visualize:
             self.id = pb.connect(pb.GUI)
+            raise RuntimeError()
         else:
             self.id = pb.connect(pb.DIRECT)
 
@@ -451,6 +452,9 @@ class PybulletIKSolver:
         if q_init is not None:
             # This version assumes that q_init is NOT in the right format yet
             self.set_joint_positions(q_init)
+        elif self.controlled_joints is not None and self.range is not None:
+            rng = self.range[:, 1] - self.range[:, 0]
+            q_init = (np.random.random() * rng) + self.range[:, 0]
         if self.visualize:
             self.debug_block.set_pose(pos_desired, quat_desired)
             input("--- Press enter to solve ---")

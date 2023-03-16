@@ -1,12 +1,16 @@
 #!/usr/bin/env python
+import numpy as np
 import rospy
 
 from home_robot.agent.hierarchical.pick_and_place_agent import PickAndPlaceAgent
 from home_robot.motion.stretch import STRETCH_HOME_Q
 from home_robot.utils.config import get_config
+from home_robot.utils.pose import to_pos_quat
 from home_robot_hw.env.stretch_pick_and_place_env import StretchPickandPlaceEnv
 
-if __name__ == "__main__":
+
+def run_experiment():
+
     config_path = "projects/stretch_grasping/configs/agent/floorplanner_eval.yaml"
     config, config_str = get_config(config_path)
     config.defrost()
@@ -22,13 +26,25 @@ if __name__ == "__main__":
     agent.reset()
     env.reset("cup")
 
-    t = 0
-    while not env.episode_over:
-        t += 1
-        print("STEP =", t)
-        obs = env.get_observation()
-        action, info = agent.act(obs)
-        env.apply_action(action, info=info)
-        input("----")
+    pose = np.array(
+        [
+            [0.23301425, -0.97144842, -0.04463536, -0.00326367],
+            [-0.97188458, -0.23103087, -0.04544342, -0.44448592],
+            [0.0338338, 0.05396939, -0.99796923, 0.99206106],
+            [
+                0.0,
+                0.0,
+                0.0,
+                1.0,
+            ],
+        ]
+    )
+    pos, quat = to_pos_quat(pose)
 
-    print(env.get_episode_metrics())
+    env.switch_to_manipulation_mode()
+    env.grasp_planner.go_to_manip_mode()
+    env.grasp_planner.try_executing_grasp(pose)
+
+
+if __name__ == "__main__":
+    run_experiment()

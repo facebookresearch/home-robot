@@ -644,8 +644,12 @@ class HelloStretchKinematics(Robot):
         By default move relative. easier that way.
         """
 
-        if q0 is None:
-            q0 = STRETCH_HOME_Q
+        if q0 is not None:
+            self._to_manip_format(q0)
+            default_q = q0
+        else:
+            # q0 = STRETCH_HOME_Q
+            default_q = STRETCH_HOME_Q
         # Perform IK
         # These should be relative to the robot's base
         if relative:
@@ -655,12 +659,12 @@ class HelloStretchKinematics(Robot):
             # So how do we do that?
             # This logic currently in local hello robot client
             raise NotImplementedError()
-        _q = self.manip_ik_solver.compute_ik(pos, quat, self._to_manip_format(q0))
+        _q = self.manip_ik_solver.compute_ik(pos, quat, q0)
         if _q is None:
             return None
         if self._ik_type == "pinocchio":
             _q = _q[0]
-        q = self._from_manip_format(_q, q0)
+        q = self._from_manip_format(_q, default_q)
         self.set_config(q)
         return q
 
