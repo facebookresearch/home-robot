@@ -160,6 +160,51 @@ class GraspPlanner(object):
         self.robot_client.switch_to_navigation_mode()
 
     def try_executing_grasp(self, grasp: np.ndarray) -> bool:
+        # Convert grasp pose to pos/quaternion
+        grasp_pos, grasp_quat = to_pos_quat(grasp)
+        print("grasp xyz =", grasp_pos)
+
+        # Visualize the grasp in RViz
+        t = TransformStamped()
+        t.header.stamp = rospy.Time.now()
+        t.child_frame_id = "predicted_grasp"
+        t.header.frame_id = "map"
+        t.transform = ros_pose_to_transform(matrix_to_pose_msg(grasp))
+        self.grasp_client.broadcaster.sendTransform(t)
+
+        # Get pregrasp pose: current pose + maxed out lift
+        joint_pos_pre = self.robot_client.manip.get_joint_positions()
+        joint_pos_pre[1] = 0.99
+        self.robot_client.manip.goto_joint_positions(joint_pos_pre)
+        pos_pre, quat_pre = self.robot_client.manip.get_ee_pose()
+
+        # Standoff 8 cm above grasp position
+        standoff_pos = grasp_pos + np.array([0.0, 0.0, 0.08])
+        success = self.robot_client.manip.goto_ee_pose(standoff_pos, grasp_quat)
+        if not success:
+            print("invalid standoff pose")
+            return False
+
+        # HACK: Origin of manipulator has been updated to current position
+        grasp_pos[0] = 0.0
+        standoff_pos[0] = 0.0
+
+        # Move to grasp
+        success = self.robot_client.manip.goto_ee_pose(grasp_pos, grasp_quat)
+        if not success:
+            print(" --> ik failed")
+            return False
+
+        # Close gripper
+        self.robot_client.manip.close_gripper()
+
+        # Move back to standoff
+        self.robot_client.manip.goto_ee_pose(standoff_pos, grasp_quat)
+
+        # Move to original pose
+        self.robot_client.manip.goto_ee_pose(pos_pre, quat_pre)
+
+    def try_executing_grasp_old(self, grasp: np.ndarray) -> bool:
         """Try executing a grasp. Takes in robot self.robot_model and a potential grasp; will execute
         this grasp if possible. Grasp-client is just used to send a debugging TF frame for now.
 

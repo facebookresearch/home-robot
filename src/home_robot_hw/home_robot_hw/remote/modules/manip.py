@@ -175,10 +175,14 @@ class StretchManipulationClient(AbstractControlModule):
 
         # Perform IK
         q = self._robot_model.manip_ik((pos_ik_goal, quat_ik_goal))
+        if q is None:
+            return False
         joint_pos = self._extract_joint_pos(q)
 
         # Execute joint command
         self.goto_joint_positions(joint_pos, blocking=blocking)
+
+        return True
 
     @enforce_enabled
     def open_gripper(self, blocking: bool = True):
