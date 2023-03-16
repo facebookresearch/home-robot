@@ -58,7 +58,9 @@ class GraspPlanner(object):
         )
         self.robot_client.switch_to_navigation_mode()
 
-    def try_grasping(self, visualize: bool = False, dry_run: bool = False):
+    def try_grasping(
+        self, visualize: bool = False, dry_run: bool = False, max_tries: int = 1
+    ):
         """Detect grasps and try to pick up an object in front of the robot.
         Visualize - will show debug point clouds
         Dry run - does not actually move, just computes everything"""
@@ -74,7 +76,6 @@ class GraspPlanner(object):
         self.robot_client.manip.open_gripper()
 
         min_grasp_score = 0.0
-        max_tries = 10
         min_obj_pts = 100
         for attempt in range(max_tries):
             self.robot_client.head.look_at_ee(blocking=False)
@@ -144,16 +145,17 @@ class GraspPlanner(object):
                 grasps[i] = grasp @ grasp_offset
 
             for grasp in grasps:
-                print("Executing grasp")
+                print("Executing grasp:")
                 print(grasp)
                 theta_x, theta_y = divergence_from_vertical_grasp(grasp)
-                print("with xy =", theta_x, theta_y)
+                print(" - with theta x/y from vertical =", theta_x, theta_y)
                 if not dry_run:
                     grasp_completed = self.try_executing_grasp(grasp)
                 else:
                     grasp_completed = False
                 if grasp_completed:
                     break
+            break
 
         self.robot_client.switch_to_navigation_mode()
 
@@ -165,6 +167,7 @@ class GraspPlanner(object):
     def try_executing_grasp(self, grasp: np.ndarray) -> bool:
         # Convert grasp pose to pos/quaternion
         grasp_pos, grasp_quat = to_pos_quat(grasp)
+        self.robot_client.switch_to_manipulation_mode()
         self.robot_client.manip.open_gripper()
         print("grasp xyz =", grasp_pos)
 
@@ -199,6 +202,7 @@ class GraspPlanner(object):
 
         # Close gripper
         self.robot_client.manip.close_gripper()
+        rospy.sleep(2.0)
 
         # Move back to standoff
         self.robot_client.manip.goto_ee_pose(standoff_pos, grasp_quat)

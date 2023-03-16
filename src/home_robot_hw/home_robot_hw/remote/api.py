@@ -25,7 +25,7 @@ class StretchClient:
         self,
         init_node: bool = True,
         camera_overrides: Optional[Dict] = None,
-        visualize_ik: bool = True,
+        visualize_ik: bool = False,
     ):
         # Ros
         if init_node:
