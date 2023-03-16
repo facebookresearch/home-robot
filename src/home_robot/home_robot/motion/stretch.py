@@ -196,7 +196,7 @@ class HelloStretchKinematics(Robot):
                 self.manip_mode_urdf_path,
                 self.ee_link_name,
                 self.manip_mode_controlled_joints,
-                visualize=visualize,
+                visualize=False,
             )
         elif ik_type == "pinocchio":
             self.manip_ik_solver = PinocchioIKSolver(
