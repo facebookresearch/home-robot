@@ -202,7 +202,6 @@ class GraspPlanner(object):
 
         # Close gripper
         self.robot_client.manip.close_gripper()
-        rospy.sleep(2.0)
 
         # Move back to standoff
         self.robot_client.manip.goto_ee_pose(standoff_pos, grasp_quat)
