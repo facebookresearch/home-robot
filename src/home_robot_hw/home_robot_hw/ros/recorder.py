@@ -78,7 +78,7 @@ class Recorder(object):
         # output of above is a tuple of two ndarrays
         # ee-pose should be 1 ndarray of 7 values
         ee_pose = to_pos_quat(ee_pose)
-        ee_pose = np.array(ee_pose[0], ee_pose[1])
+        ee_pose = np.concatenate(ee_pose)
         # elements in following are of type: Tuple(Tuple(x,y,theta), rospy.Time)
         # change to ndarray with 4 floats
         base_pose = self.robot.get_base_pose()
