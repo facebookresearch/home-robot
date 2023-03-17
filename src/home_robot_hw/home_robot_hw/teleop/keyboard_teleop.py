@@ -8,6 +8,7 @@ from enum import Enum
 
 import numpy as np
 from pynput import keyboard as kb
+from scipy.spatial.transform import Rotation as R
 
 from home_robot_hw.remote import StretchClient
 
@@ -25,7 +26,7 @@ class ControlMode(Enum):
     MANIP = 1
 
 
-class RobotBaseController:
+class RobotController:
     def __init__(self, hz=HZ_DEFAULT):
         # Params
         self.dt = 1.0 / hz
@@ -44,6 +45,7 @@ class RobotBaseController:
         self.mode = ControlMode.NAV
 
     def on_press(self, key):
+        print(key)
         if key == kb.key.esc:
             self.alive = False
             return False  # returning False from a callback stops listener
@@ -92,7 +94,9 @@ class RobotBaseController:
                 )
 
                 # Command robot
-                self.robot.nav.set_velocity(vel, rvel)
+                print(vel, rvel)
+                if vel or rvel:
+                    self.robot.nav.set_velocity(vel, rvel)
 
             # Manipulator
             elif self.mode == ControlMode.MANIP:
@@ -110,12 +114,13 @@ class RobotBaseController:
                 )
 
                 # Command robot
-                self.robot.manip.goto_ee_pose(
-                    [x, y, z],
-                    R.from_rotvec([0, 0, rz]).as_quat(),
-                    relative=True,
-                    blocking=False,
-                )
+                if x or y or z or rz:
+                    self.robot.manip.goto_ee_pose(
+                        [x, y, z],
+                        R.from_rotvec([0, 0, rz]).as_quat(),
+                        relative=True,
+                        blocking=False,
+                    )
 
             # Spin
             time.sleep(self.dt)
@@ -137,7 +142,7 @@ class RobotBaseController:
             print("IN MANIPULATION MODE")
 
 
-def run_teleop(mover):
+def run_teleop():
     robot_controller = RobotController()
     listener = kb.Listener(
         on_press=robot_controller.on_press,
