@@ -99,7 +99,7 @@ class Recorder(object):
             base_pose=base_pose,
             camera_pose=camera_pose,
             user_keyframe=user_keyframe,
-            xyz=xyz,
+            head_xyz=xyz,
         )
 
         return rgb, depth, q, dq

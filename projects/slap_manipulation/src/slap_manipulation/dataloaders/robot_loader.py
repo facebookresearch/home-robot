@@ -275,6 +275,7 @@ class RobotDataset(RLBenchDataset):
         rgb = trial.get_img(view_name + "_rgb", idx, rgb=True)
         depth = trial.get_img(view_name + "_depth", idx, depth=True, depth_factor=1000)
         if self._robot == "stretch":
+            breakpoint()
             xyz = trial[idx][view_name + "_xyz"][()]
         # rgb_img = rgb.copy()
         # depth_img = depth.copy()
@@ -391,7 +392,7 @@ class RobotDataset(RLBenchDataset):
             chosen_idx = self.keypoint_range[chosen_idx]
         else:
             chosen_idx = keypoint_idx % len(keypoints)
-        time_step = np.array([(chosen_idx / (len(keypoints) - 1) - 0.5) * 2])
+        time_step = np.array([(chosen_idx / len(keypoints) - 0.5) * 2])
         return (
             keypoints[chosen_idx],
             time_step,
@@ -456,7 +457,6 @@ class RobotDataset(RLBenchDataset):
         input_keyframes = []
         for i in range(num_input_frames):
             input_keyframes.append(keypoints[0] - i - 1)
-        breakpoint()
         if self.use_first_frame_as_input:
             raise RuntimeError(
                 "use_first_frame_as_input was used but it doesn't do anything right now"
