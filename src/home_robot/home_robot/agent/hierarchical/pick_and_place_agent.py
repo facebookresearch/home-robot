@@ -25,10 +25,17 @@ class PickAndPlaceAgent(Agent):
 
     # For debugging
     # Force the robot to jump right to an attempt to pick objects
-    skip_find_object = True
 
-    def __init__(self, config, device_id: int = 0):
+    def __init__(
+        self, config, device_id: int = 0, skip_find_object=False, skip_place=False
+    ):
         """Create the component object nav agent"""
+
+        # Flags used for skipping through state machine when debugging
+        self.skip_find_object = skip_find_object
+        self.skip_place = skip_place
+
+        # Agent for object nav
         self.object_nav_agent = ObjectNavAgent(config, device_id)
         self.reset()
 
@@ -36,6 +43,24 @@ class PickAndPlaceAgent(Agent):
         """Clear internal task state and reset component agents."""
         self.state = SimpleTaskState.FIND_OBJECT
         self.object_nav_agent.reset()
+
+    def _preprocess_obs_for_find(self, obs: Observations) -> Observations:
+        task_info = obs["task_observations"]
+        obs.task_observations = {
+            "recep_goal": None,
+            "object_goal": task_info["object_id"],
+            "goal_name": task_info["object_name"],
+        }
+        return obs
+
+    def _preprocess_obs_for_place(self, obs: Observations) -> Observations:
+        task_info = obs["task_observations"]
+        obs.task_observations = {
+            "recep_goal": task_info["place_recep_id"],
+            "object_goal": None,
+            "goal_name": task_info["place_recep_name"],
+        }
+        return obs
 
     def act(self, obs: Observations) -> Tuple[Action, Dict[str, Any]]:
         """
@@ -48,10 +73,12 @@ class PickAndPlaceAgent(Agent):
             action: home_robot action
             info: additional information (e.g., for debugging, visualization)
         """
+        breakpoint()
         action = DiscreteNavigationAction.STOP
         action_info = None
         # Look for the goal object.
         if self.state == SimpleTaskState.FIND_OBJECT:
+            obs = self._preprocess_obs_for_find(obs)
             action, action_info = self.object_nav_agent.act(obs)
             if self.skip_find_object:
                 print("-> Actually predicted:", action)
@@ -66,7 +93,14 @@ class PickAndPlaceAgent(Agent):
             return DiscreteNavigationAction.MANIPULATION_MODE, action_info
         if self.state == SimpleTaskState.PICK_OBJECT:
             # Try to grab the object
-            # self.state = SimpleTaskState.ORIENT_NAV
+            if not self.skip_place:
+                self.state = SimpleTaskState.ORIENT_NAV
             return DiscreteNavigationAction.PICK_OBJECT, action_info
+        elif self.state == SimpleTaskState.ORIENT_NAV:
+            return DiscreteNavigationAction.NAVIGATION_MODE, action_info
+        elif self.state == SimpleTaskState.FIND_GOAL:
+            # Find the goal location
+            obs = self._preprocess_obs_for_place(obs)
+            action, action_info = self.object_nav_agent.act(obs)
         # If we did not find anything else to do, just stop
         return action, action_info

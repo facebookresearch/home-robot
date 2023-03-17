@@ -36,7 +36,7 @@ class StretchPickandPlaceEnv(StretchEnv):
         visualize_planner=False,
         ros_grasping=True,
         *args,
-        **kwargs
+        **kwargs,
     ):
         """
         Defines discrete planning environment.
@@ -148,7 +148,22 @@ class StretchPickandPlaceEnv(StretchEnv):
     def set_goal(self, goal_find: str, goal_obj: str, goal_place: str):
         """Set the goal class as a string. Goal should be an object class we want to pick up."""
         for goal in [goal_find, goal_obj, goal_place]:
-            assert goal in self.goal_options
+            assert goal in self.goal_optionsA
+        goal_obj_id = self.goal_options.index(goal_obj)
+        goal_find_id = self.goal_options.index(goal_find)
+        goal_place_id = self.goal_options.index(goal_place)
+        self.task_info = {
+            "object_name": goal_obj,
+            "start_recep_name": goal_find,
+            "place_recep_name": goal_place,
+            "object_id": goal_obj_id,
+            "start_recep_id": goal_find_id,
+            "place_recep_id": goal_place_id,
+            "goal_name": f"{goal_obj} from {goal_find} to {goal_place}",
+            # Consistency - add ids for the first task
+            "object_goal": goal_obj_id,
+            "recep_goal": goal_find_id,
+        }
         self.current_goal_id = self.goal_options.index(goal_obj)
         self.current_goal_name = goal
 
@@ -182,12 +197,7 @@ class StretchPickandPlaceEnv(StretchEnv):
             gps=gps,
             compass=np.array([theta]),
             # base_pose=sophus2obs(relative_pose),
-            task_observations={
-                "goal_id": self.current_goal_id,
-                "goal_name": self.current_goal_name,
-                "object_goal": self.current_goal_id,
-                "recep_goal": self.current_goal_id,
-            },
+            task_observations=self.task_info,
             camera_pose=self.get_camera_pose_matrix(rotated=True),
             # joint_positions=pos,
         )
