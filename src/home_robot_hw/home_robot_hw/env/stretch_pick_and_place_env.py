@@ -35,6 +35,7 @@ class StretchPickandPlaceEnv(StretchEnv):
         segmentation_method=DETIC,
         visualize_planner=False,
         ros_grasping=True,
+        test_grasping=False,
         *args,
         **kwargs,
     ):
@@ -49,6 +50,7 @@ class StretchPickandPlaceEnv(StretchEnv):
         self.goal_options = REAL_WORLD_CATEGORIES
         self.forward_step = forward_step  # in meters
         self.rotate_step = np.radians(rotate_step)
+        self.test_grasping = test_grasping
 
         self.robot = StretchClient(init_node=False)
 
@@ -129,17 +131,21 @@ class StretchPickandPlaceEnv(StretchEnv):
             if self.robot.in_navigation_mode():
                 self.robot.switch_to_navigation_mode()
                 rospy.sleep(self.msg_delay_t)
-            # self.navigate_to([0, 0, np.pi / 2], relative=True, blocking=True)
+            if not self.test_grasping:
+                # We skip this so we can just have the robot pointed at an object
+                self.navigate_to([0, 0, np.pi / 2], relative=True, blocking=True)
             self.grasp_planner.go_to_manip_mode()
         elif action == DiscreteNavigationAction.PICK_OBJECT:
             continuous_action = None
+            # Attempt to grasp something
+            # We need to record the results of the last grasping attempt
             self.grasp_planner.try_grasping()
         else:
             print("Action not implemented in pick-and-place environment:", action)
             continuous_action = None
 
         # Move, if we are not doing anything with the arm
-        if continuous_action is not None:
+        if continuous_action is not None and not self.test_grasping:
             print("Execute navigation action:", continuous_action)
             if not self.robot.in_navigation_mode():
                 self.robot.switch_to_navigation_mode()
