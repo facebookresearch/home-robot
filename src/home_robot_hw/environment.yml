@@ -1,0 +1,8 @@
+channels:
+  - conda-forge
+  - robostack
+  - robostack-staging
+dependencies:
+  - ros-noetic-desktop
+  - ros-noetic-ros-numpy
+  - catkin_tools
