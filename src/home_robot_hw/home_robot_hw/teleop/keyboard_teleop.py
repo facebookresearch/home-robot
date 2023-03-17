@@ -42,15 +42,15 @@ class RobotController:
 
         # Controller states
         self.alive = True
-        self.mode = ControlMode.NAV
+        self.gripper_state = 0
+        self._mode = ControlMode.MANIP
 
     def on_press(self, key):
-        print(key)
-        if key == kb.key.esc:
+        if key == kb.Key.esc:
             self.alive = False
             return False  # returning False from a callback stops listener
-        elif key == kb.key.space:
-            self._set_mode((self.mode + 1 % 2))
+        elif key == kb.Key.enter:
+            self._switch_mode()
         else:
             self.key_states[key] = 1
 
@@ -59,61 +59,39 @@ class RobotController:
             self.key_states[key] = 0
 
     def run(self):
-        print(
-            "(+[__]o) Teleoperation started. ^o^"
-            "-------------------------------------\n"
-            "Enter:\t Switch modes\n"
-            "Esc:\t End teleoperation\n"
-            "\n"
-            "== Navigation mode commands ==\n"
-            "Up:\t Move forwards\n"
-            "Down:\t Move backwards\n"
-            "Left:\t Rotate counterclockwise\n"
-            "Right:\t Rotate clockwise\n"
-            "\n"
-            "== Manipulation mode commands ==\n"
-            "W:\t Raise arm upwards\n"
-            "A:\t Strafe left\n"
-            "S:\t Lower arm downwards\n"
-            "D:\t Strafe right\n"
-            "I:\t Extend arm\n"
-            "J:\t Rotate gripper counterclockwise\n"
-            "K:\t Retract arm\n"
-            "L:\t Rotate gripper clockwise\n"
-            "Space:\t Close gripper (when held)\n"
-            "-------------------------------------\n"
-        )
-        self._set_mode(ControlMode.NAV)
+        # Initialize in NAV mode
+        self._mode = ControlMode.MANIP
+        self._switch_mode()
 
+        # Run loop
         while self.alive:
             # Base
-            if self.mode == ControlMode.NAV:
+            if self._mode == ControlMode.NAV:
                 vel = self._compute_net_command(kb.Key.up, kb.Key.down, BASE_VEL_MAX)
                 rvel = self._compute_net_command(
                     kb.Key.left, kb.Key.right, BASE_RVEL_MAX
                 )
 
-                # Command robot
-                print(vel, rvel)
+                # Command robot base
                 if vel or rvel:
                     self.robot.nav.set_velocity(vel, rvel)
 
             # Manipulator
-            elif self.mode == ControlMode.MANIP:
+            elif self._mode == ControlMode.MANIP:
                 x = self._compute_net_command(
-                    kb.KeyCode.from_char("a"), kb.KeyCode.from_char("d"), EE_DIFF
+                    kb.KeyCode.from_char("A"), kb.KeyCode.from_char("D"), EE_DIFF
                 )
                 z = self._compute_net_command(
-                    kb.KeyCode.from_char("w"), kb.KeyCode.from_char("s"), EE_DIFF
+                    kb.KeyCode.from_char("W"), kb.KeyCode.from_char("S"), EE_DIFF
                 )
                 y = self._compute_net_command(
-                    kb.KeyCode.from_char("k"), kb.KeyCode.from_char("i"), EE_DIFF
+                    kb.KeyCode.from_char("K"), kb.KeyCode.from_char("I"), EE_DIFF
                 )
                 rz = self._compute_net_command(
-                    kb.KeyCode.from_char("k"), kb.KeyCode.from_char("i"), WRIST_DIFF
+                    kb.KeyCode.from_char("J"), kb.KeyCode.from_char("L"), WRIST_DIFF
                 )
 
-                # Command robot
+                # Command arm
                 if x or y or z or rz:
                     self.robot.manip.goto_ee_pose(
                         [x, y, z],
@@ -121,6 +99,15 @@ class RobotController:
                         relative=True,
                         blocking=False,
                     )
+
+                # Command gripper
+                if kb.Key.space in self.key_states:
+                    if self.gripper_state == 0 and self.key_states[kb.Key.space]:
+                        self.robot.manip.close_gripper(blocking=False)
+                        self.gripper_state = 1
+                    elif self.gripper_state == 1 and not self.key_states[kb.Key.space]:
+                        self.robot.manip.open_gripper(blocking=False)
+                        self.gripper_state = 0
 
             # Spin
             time.sleep(self.dt)
@@ -130,13 +117,14 @@ class RobotController:
         neg_val = self.key_states[neg_key] if neg_key in self.key_states else 0
         return intensity * (pos_val - neg_val)
 
-    def _set_mode(self, mode):
-        self.mode = mode
-        if mode == ControlMode.NAV:
+    def _switch_mode(self):
+        if self._mode == ControlMode.MANIP:
+            self._mode = ControlMode.NAV
             self.robot.switch_to_navigation_mode()
             self.robot.head.look_ahead()
             print("IN NAVIGATION MODE")
-        elif mode == ControlMode.MANIP:
+        elif self._mode == ControlMode.NAV:
+            self._mode = ControlMode.MANIP
             self.robot.switch_to_manipulation_mode()
             self.robot.head.look_at_ee()
             print("IN MANIPULATION MODE")
@@ -151,6 +139,33 @@ def run_teleop():
     )
 
     # Start teleop
+    print(
+        "(+[__]o) Teleoperation started. ^o^"
+        "-------------------------------------\n"
+        "\n"
+        "== General commands ==\n"
+        "Enter:\t Switch modes\n"
+        "Esc:\t End teleoperation\n"
+        "\n"
+        "== Navigation mode commands ==\n"
+        "Up:\t Move forwards\n"
+        "Down:\t Move backwards\n"
+        "Left:\t Rotate counterclockwise\n"
+        "Right:\t Rotate clockwise\n"
+        "\n"
+        "== Manipulation mode commands ==\n"
+        "W:\t Raise arm upwards\n"
+        "A:\t Strafe left\n"
+        "S:\t Lower arm downwards\n"
+        "D:\t Strafe right\n"
+        "I:\t Extend arm\n"
+        "J:\t Rotate gripper counterclockwise\n"
+        "K:\t Retract arm\n"
+        "L:\t Rotate gripper clockwise\n"
+        "Space:\t Close gripper (when held)\n"
+        "-------------------------------------\n"
+    )
+
     listener.start()
     robot_controller.run()
 
