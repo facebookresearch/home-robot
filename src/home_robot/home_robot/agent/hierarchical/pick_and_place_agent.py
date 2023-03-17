@@ -45,21 +45,17 @@ class PickAndPlaceAgent(Agent):
         self.object_nav_agent.reset()
 
     def _preprocess_obs_for_find(self, obs: Observations) -> Observations:
-        task_info = obs["task_observations"]
-        obs.task_observations = {
-            "recep_goal": None,
-            "object_goal": task_info["object_id"],
-            "goal_name": task_info["object_name"],
-        }
+        task_info = obs.task_observations
+        obs.task_observations["recep_goal"] = None
+        obs.task_observations["object_goal"] = task_info["object_id"]
+        obs.task_observations["goal_name"] = task_info["object_name"]
         return obs
 
     def _preprocess_obs_for_place(self, obs: Observations) -> Observations:
-        task_info = obs["task_observations"]
-        obs.task_observations = {
-            "recep_goal": task_info["place_recep_id"],
-            "object_goal": None,
-            "goal_name": task_info["place_recep_name"],
-        }
+        task_info = obs.task_observations
+        obs.task_observations["recep_goal"] = task_info["place_recep_id"]
+        obs.task_observations["object_goal"] = None
+        obs.task_observations["goal_name"] = task_info["place_recep_name"]
         return obs
 
     def act(self, obs: Observations) -> Tuple[Action, Dict[str, Any]]:
@@ -73,7 +69,6 @@ class PickAndPlaceAgent(Agent):
             action: home_robot action
             info: additional information (e.g., for debugging, visualization)
         """
-        breakpoint()
         action = DiscreteNavigationAction.STOP
         action_info = None
         # Look for the goal object.
