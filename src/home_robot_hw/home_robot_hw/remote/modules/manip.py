@@ -17,7 +17,7 @@ from home_robot.utils.geometry import posquat2sophus, sophus2posquat, xyt2sophus
 from .abstract import AbstractControlModule, enforce_enabled
 
 GRIPPER_MOTION_SECS = 2.2
-JOINT_POS_TOL = 0.005
+JOINT_POS_TOL = 0.015
 JOINT_ANG_TOL = 0.05
 
 
