@@ -82,7 +82,7 @@ class StretchRosInterface:
 
         self.last_odom_update_timestamp = rospy.Time(0)
         self.last_base_update_timestamp = rospy.Time(0)
-        self.goal_reset_t = rospy.Time(0)
+        self._goal_reset_t = rospy.Time(0)
 
         # Create visualizers for pose information
         self.goal_visualizer = Visualizer("command_pose", rgba=[1.0, 0.0, 0.0, 0.5])
