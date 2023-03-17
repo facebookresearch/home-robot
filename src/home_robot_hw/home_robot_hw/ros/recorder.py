@@ -79,6 +79,7 @@ class Recorder(object):
         # ee-pose should be 1 ndarray of 7 values
         ee_pose = to_pos_quat(ee_pose)
         ee_pose = np.concatenate(ee_pose)
+        gripper_state = np.array(self.robot.get_gripper_state(q))
         # elements in following are of type: Tuple(Tuple(x,y,theta), rospy.Time)
         # change to ndarray with 4 floats
         base_pose = self.robot.get_base_pose()
@@ -94,6 +95,7 @@ class Recorder(object):
             q=q,
             dq=dq,
             ee_pose=ee_pose,
+            gripper_state=gripper_state,
             base_pose=base_pose,
             camera_pose=camera_pose,
             user_keyframe=user_keyframe,

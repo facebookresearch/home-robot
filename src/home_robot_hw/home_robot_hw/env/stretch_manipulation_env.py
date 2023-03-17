@@ -31,6 +31,7 @@ class StretchManipulationEnv(StretchEnv):
         manip_action: Manipulation action in cartesian space
                       (pos, quat)
         """
+        # TODO: add gripper-action to StretchManipulationEnv.apply_action
         if manip_action is None:
             # TODO modify this to generate a dictionary using current pose
             current_pose = self.get_pose(STRETCH_GRASP_FRAME, STRETCH_BASE_FRAME)
@@ -39,6 +40,10 @@ class StretchManipulationEnv(StretchEnv):
         q = self.robot.manip_ik((manip_action["pos"], manip_action["rot"]), q0=q0)
         self.goto(q, wait=True, move_base=True)
         print("Moved to predicted action")
+
+    def get_gripper_state(self, q: np.ndarray):
+        """returns gripper state from full joint state"""
+        return q[HelloStretchIdx.GRIPPER]
 
     # over-riding the following methods from the parent class
     def episode_over(self) -> None:
