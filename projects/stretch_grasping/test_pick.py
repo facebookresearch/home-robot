@@ -55,7 +55,6 @@ def run_experiment():
     print("head pose in base coords:")
     print(pose2)
 
-    env.switch_to_manipulation_mode()
     env.grasp_planner.go_to_manip_mode()
     env.grasp_planner.try_executing_grasp(pose, wait_for_input=True)
 

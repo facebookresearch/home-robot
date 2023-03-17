@@ -140,15 +140,16 @@ class StretchPickandPlaceEnv(StretchEnv):
 
         # Move, if we are not doing anything with the arm
         if continuous_action is not None:
+            print("Execute navigation action:", continuous_action)
             if not self.robot.in_navigation_mode():
                 self.robot.switch_to_navigation_mode()
                 rospy.sleep(self.msg_delay_t)
-            self.navigate_to(continuous_action, relative=True, blocking=True)
+            self.robot.nav.navigate_to(continuous_action, relative=True, blocking=True)
 
     def set_goal(self, goal_find: str, goal_obj: str, goal_place: str):
         """Set the goal class as a string. Goal should be an object class we want to pick up."""
         for goal in [goal_find, goal_obj, goal_place]:
-            assert goal in self.goal_optionsA
+            assert goal in self.goal_options
         goal_obj_id = self.goal_options.index(goal_obj)
         goal_find_id = self.goal_options.index(goal_find)
         goal_place_id = self.goal_options.index(goal_place)
