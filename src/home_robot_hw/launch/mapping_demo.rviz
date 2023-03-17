@@ -6,7 +6,6 @@ Panels:
       Expanded:
         - /Global Options1
         - /Status1
-        - /TF1
         - /TF1/Frames1
         - /TF1/Tree1
         - /DepthCloud1/Occlusion Compensation1
@@ -358,104 +357,10 @@ Visualization Manager:
       Use rainbow: true
       Value: true
     - Class: rviz/TF
-      Enabled: true
+      Enabled: false
       Frame Timeout: 150
       Frames:
         All Enabled: false
-        base_link:
-          Value: false
-        camera_accel_frame:
-          Value: false
-        camera_accel_optical_frame:
-          Value: false
-        camera_aligned_depth_to_color_frame:
-          Value: false
-        camera_bottom_screw_frame:
-          Value: false
-        camera_color_frame:
-          Value: false
-        camera_color_optical_frame:
-          Value: false
-        camera_depth_frame:
-          Value: false
-        camera_depth_optical_frame:
-          Value: false
-        camera_gyro_frame:
-          Value: false
-        camera_gyro_optical_frame:
-          Value: false
-        camera_infra1_frame:
-          Value: false
-        camera_infra1_optical_frame:
-          Value: false
-        camera_infra2_frame:
-          Value: false
-        camera_infra2_optical_frame:
-          Value: false
-        camera_link:
-          Value: false
-        caster_link:
-          Value: false
-        laser:
-          Value: false
-        link_arm_l0:
-          Value: false
-        link_arm_l1:
-          Value: false
-        link_arm_l2:
-          Value: false
-        link_arm_l3:
-          Value: false
-        link_arm_l4:
-          Value: false
-        link_aruco_inner_wrist:
-          Value: false
-        link_aruco_left_base:
-          Value: false
-        link_aruco_right_base:
-          Value: false
-        link_aruco_shoulder:
-          Value: false
-        link_aruco_top_wrist:
-          Value: false
-        link_gripper_finger_left:
-          Value: false
-        link_gripper_finger_right:
-          Value: false
-        link_gripper_fingertip_left:
-          Value: false
-        link_gripper_fingertip_right:
-          Value: false
-        link_head:
-          Value: false
-        link_head_pan:
-          Value: false
-        link_head_tilt:
-          Value: false
-        link_left_wheel:
-          Value: false
-        link_lift:
-          Value: false
-        link_mast:
-          Value: false
-        link_right_wheel:
-          Value: false
-        link_straight_gripper:
-          Value: true
-        link_wrist_pitch:
-          Value: false
-        link_wrist_roll:
-          Value: false
-        link_wrist_yaw:
-          Value: false
-        link_wrist_yaw_bottom:
-          Value: false
-        map:
-          Value: false
-        respeaker_base:
-          Value: false
-        scanmatcher_frame:
-          Value: false
       Marker Alpha: 1
       Marker Scale: 1
       Name: TF
@@ -463,75 +368,9 @@ Visualization Manager:
       Show Axes: true
       Show Names: true
       Tree:
-        map:
-          base_link:
-            caster_link:
-              {}
-            laser:
-              {}
-            link_aruco_left_base:
-              {}
-            link_aruco_right_base:
-              {}
-            link_left_wheel:
-              {}
-            link_mast:
-              link_head:
-                link_head_pan:
-                  link_head_tilt:
-                    camera_bottom_screw_frame:
-                      camera_link:
-                        camera_accel_frame:
-                          camera_accel_optical_frame:
-                            {}
-                        camera_aligned_depth_to_color_frame:
-                          {}
-                        camera_color_frame:
-                          camera_color_optical_frame:
-                            {}
-                        camera_depth_frame:
-                          camera_depth_optical_frame:
-                            {}
-                        camera_gyro_frame:
-                          camera_gyro_optical_frame:
-                            {}
-                        camera_infra1_frame:
-                          camera_infra1_optical_frame:
-                            {}
-                        camera_infra2_frame:
-                          camera_infra2_optical_frame:
-                            {}
-              link_lift:
-                link_arm_l4:
-                  link_arm_l3:
-                    link_arm_l2:
-                      link_arm_l1:
-                        link_arm_l0:
-                          link_aruco_inner_wrist:
-                            {}
-                          link_aruco_top_wrist:
-                            {}
-                          link_wrist_yaw:
-                            link_wrist_yaw_bottom:
-                              link_wrist_pitch:
-                                link_wrist_roll:
-                                  link_straight_gripper:
-                                    link_gripper_finger_left:
-                                      link_gripper_fingertip_left:
-                                        {}
-                                    link_gripper_finger_right:
-                                      link_gripper_fingertip_right:
-                                        {}
-                link_aruco_shoulder:
-                  {}
-              respeaker_base:
-                {}
-            link_right_wheel:
-              {}
-          scanmatcher_frame:
-            {}
+        {}
       Update Interval: 0
-      Value: true
+      Value: false
     - Alpha: 1
       Auto Size:
         Auto Size Factor: 1
@@ -695,6 +534,24 @@ Visualization Manager:
         "": true
       Queue Size: 100
       Value: true
+    - Alpha: 1
+      Class: rviz/Axes
+      Enabled: true
+      Length: 0.10000000149011612
+      Name: Gripper
+      Radius: 0.009999999776482582
+      Reference Frame: link_straight_gripper
+      Show Trail: false
+      Value: true
+    - Alpha: 1
+      Class: rviz/Axes
+      Enabled: true
+      Length: 0.10000000149011612
+      Name: Predicted Grasp
+      Radius: 0.009999999776482582
+      Reference Frame: predicted_grasp
+      Show Trail: false
+      Value: true
   Enabled: true
   Global Options:
     Background Color: 48; 48; 48
@@ -723,7 +580,7 @@ Visualization Manager:
   Views:
     Current:
       Class: rviz/XYOrbit
-      Distance: 7.133549690246582
+      Distance: 4.260813236236572
       Enable Stereo Rendering:
         Stereo Eye Separation: 0.05999999865889549
         Stereo Focal Distance: 1
@@ -739,9 +596,9 @@ Visualization Manager:
       Invert Z Axis: false
       Name: Current View
       Near Clip Distance: 0.009999999776482582
-      Pitch: 0.3247966766357422
+      Pitch: 0.21979662775993347
       Target Frame: <Fixed Frame>
-      Yaw: 2.857107400894165
+      Yaw: 0.35392969846725464
     Saved: ~
 Window Geometry:
   Depth (aligned):
@@ -751,7 +608,7 @@ Window Geometry:
   Height: 2096
   Hide Left Dock: true
   Hide Right Dock: false
-  QMainWindow State: 000000ff00000000fd00000004000000000000028600000792fc0200000008fc0000003d000007920000000000fffffffaffffffff0100000002fb000000100044006900730070006c0061007900730000000000ffffffff0000015600fffffffb0000001200530065006c0065006300740069006f006e0000000000000002860000007400fffffffb0000001e0054006f006f006c002000500072006f007000650072007400690065007302000001ed000001df00000185000000a3fb000000120056006900650077007300200054006f006f02000001df000002110000018500000122fb000000200054006f006f006c002000500072006f0070006500720074006900650073003203000002880000011d000002210000017afb0000002000730065006c0065006300740069006f006e00200062007500660066006500720200000138000000aa0000023a00000294fb00000014005700690064006500530074006500720065006f02000000e6000000d2000003ee0000030bfb0000000c004b0069006e0065006300740200000186000001060000030c00000261fb00000008005200470042005d00000004c4000000db0000000000000000000000010000024e00000792fc0200000005fb00000006005200470042010000003d000003700000001600fffffffb0000001e00440065007000740068002000280061006c00690067006e00650064002901000003b30000041c0000001600fffffffb0000001e0054006f006f006c002000500072006f00700065007200740069006500730100000041000000780000000000000000fb0000000a0056006900650077007300000002f0000002af000000a400fffffffb0000001200530065006c0065006300740069006f006e010000025a000000b200000000000000000000000200000490000000a9fc0100000001fb0000000a00560069006500770073030000004e00000080000002e100000197000000030000075c0000003efc0100000002fb0000000800540069006d006501000000000000075c000003bc00fffffffb0000000800540069006d00650100000000000004500000000000000000000005080000079200000004000000040000000800000008fc0000000100000002000000010000000a0054006f006f006c00730100000000ffffffff0000000000000000
+  QMainWindow State: 000000ff00000000fd00000004000000000000028600000792fc0200000009fc0000003d000007920000000000fffffffaffffffff0100000002fb000000100044006900730070006c0061007900730000000000ffffffff0000015600fffffffb0000001200530065006c0065006300740069006f006e0000000000000002860000007400fffffffb0000001e0054006f006f006c002000500072006f007000650072007400690065007302000001ed000001df00000185000000a3fb000000120056006900650077007300200054006f006f02000001df000002110000018500000122fb000000200054006f006f006c002000500072006f0070006500720074006900650073003203000002880000011d000002210000017afb0000002000730065006c0065006300740069006f006e00200062007500660066006500720200000138000000aa0000023a00000294fb00000014005700690064006500530074006500720065006f02000000e6000000d2000003ee0000030bfb0000000c004b0069006e0065006300740200000186000001060000030c00000261fb00000008005200470042005d00000004c4000000db0000000000000000fb0000000c00430061006d00650072006100000006e9000000e60000000000000000000000010000024e00000792fc0200000005fb00000006005200470042010000003d000003700000001600fffffffb0000001e00440065007000740068002000280061006c00690067006e00650064002901000003b30000041c0000001600fffffffb0000001e0054006f006f006c002000500072006f00700065007200740069006500730100000041000000780000000000000000fb0000000a0056006900650077007300000002f0000002af000000a400fffffffb0000001200530065006c0065006300740069006f006e010000025a000000b200000000000000000000000200000490000000a9fc0100000001fb0000000a00560069006500770073030000004e00000080000002e100000197000000030000075c0000003efc0100000002fb0000000800540069006d006501000000000000075c000003bc00fffffffb0000000800540069006d00650100000000000004500000000000000000000005080000079200000004000000040000000800000008fc0000000100000002000000010000000a0054006f006f006c00730100000000ffffffff0000000000000000
   RGB:
     collapsed: false
   Selection:
