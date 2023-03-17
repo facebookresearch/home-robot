@@ -51,7 +51,5 @@
 		<arg name="teleop_type" value="keyboard"/>
 	</include>
 
-	<include file="$(find home_robot_hw)/launch/controller.launch" if="$(arg start_joy_node)"/>
 	<include file="$(find home_robot_hw)/launch/home_robot_nodes.launch"/>
-
 </launch>
