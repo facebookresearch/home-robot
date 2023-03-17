@@ -46,7 +46,7 @@ STRETCH_PREGRASP_Q = np.array(
         0.0,  # gripper rpy
         0.0,  # wrist roll
         -1.51,  # wrist pitch
-        -1.57,  # wrist yaw
+        1.57,  # wrist yaw
         0.0,
         0.0,
     ]
