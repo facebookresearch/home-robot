@@ -60,10 +60,10 @@ class EpisodeManager(object):
         if not self._is_recording:
             self._is_recording = True
             self._keyframe_recorder.start_recording(self.task_name)
+            self._keyframe_recorder.save_frame()
+            print("Start frame saved")
         else:
             self._is_recording = False
-            self._keyframe_recorder.save_frame()
-            print(f"Keyframe saved: {self._k_idx}")
             self._keyframe_recorder.finish_recording()
             self._k_idx = 0
 

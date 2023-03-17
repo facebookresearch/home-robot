@@ -133,7 +133,7 @@ class RobotDataset(RLBenchDataset):
         crop_radius_range=[0.3, 1.0],
         visualize=False,
         visualize_reg_targets=False,
-        yaml_file="./assets/language_variations/v0.yml",
+        yaml_file=None,  # "./assets/language_variations/v0.yml",
         dr_factor=1,
         robot="stretch",
         *args,
@@ -225,11 +225,11 @@ class RobotDataset(RLBenchDataset):
         self.visualize_reg_targets = visualize_reg_targets
 
         # setup segmentation pipeline
-        self.segmentor = DeticPerception(
-            vocabulary="custom",
-            custom_vocabulary=",".join(REAL_WORLD_CATEGORIES),
-            sem_gpu_id=0,
-        )
+        # self.segmentor = DeticPerception(
+        #     vocabulary="custom",
+        #     custom_vocabulary=",".join(REAL_WORLD_CATEGORIES),
+        #     sem_gpu_id=0,
+        # )
 
     def get_gripper_pose(self, trial, idx):
         """add grasp offset to ee pose and return gripper pose"""
@@ -423,6 +423,9 @@ class RobotDataset(RLBenchDataset):
             print(f"Key-point index chosen: abs={current_keypoint_idx}")
 
         gripper_width_array = trial["gripper_state"][()]
+        if len(gripper_width_array.shape) == 1:
+            num_samples = gripper_width_array.shape[0]
+            gripper_width_array = gripper_width_array.reshape(num_samples, 1)
         min_gripper = 0.95 * self._robot_max_grasp  # 95% of max_width
         gripper_state = (gripper_width_array <= min_gripper).astype(int)
         interaction_pt = -1
@@ -436,7 +439,7 @@ class RobotDataset(RLBenchDataset):
             interaction_pt = other_keypoint
             if i == 0:
                 continue
-            if gripper_state[other_keypoint][0] != gripper_state[i - 1][0]:
+            if gripper_state[other_keypoint] != gripper_state[i - 1]:
                 break
 
         if verbose:
@@ -453,6 +456,7 @@ class RobotDataset(RLBenchDataset):
         input_keyframes = []
         for i in range(num_input_frames):
             input_keyframes.append(keypoints[0] - i - 1)
+        breakpoint()
         if self.use_first_frame_as_input:
             raise RuntimeError(
                 "use_first_frame_as_input was used but it doesn't do anything right now"
@@ -481,7 +485,7 @@ class RobotDataset(RLBenchDataset):
 
         # get point-cloud in base-frame from the cameras
         rgbs, xyzs = [], []
-        for view in ["wrist"]:  # TODO: make keys consistent with stretch H5 schema
+        for view in ["head"]:  # TODO: make keys consistent with stretch H5 schema
             for image_index in input_keyframes:
                 v_rgb, v_xyz = self.process_images_from_view(
                     trial,
@@ -689,7 +693,8 @@ def debug_get_datum(data_dir, k_index, split):
 )
 @click.option("--split", help="json file with train-test-val split")
 @click.option("--template", default="*.h5")
-def show_all_keypoints(data_dir, split, template):
+@click.option("--robot", default="stretch")
+def show_all_keypoints(data_dir, split, template, robot):
     """function which visualizes keypoints overlaid on initial frame, then
     visualizes the input frame for each keypoint with labeled interaction
     point overlaid"""
@@ -704,7 +709,7 @@ def show_all_keypoints(data_dir, split, template):
         crop_radius=True,
         ori_dr_range=np.pi / 8,
         cart_dr_range=0.0,
-        first_frame_as_input=True,
+        first_frame_as_input=False,
         # first_keypoint_only=True,
         keypoint_range=[0, 1, 2],
         trial_list=train_test_split["train"] if split else [],
@@ -714,6 +719,7 @@ def show_all_keypoints(data_dir, split, template):
         verbose=False,
         multi_step=False,
         visualize=True,
+        robot=robot,
     )
     skip_names = ["30_11_2022_15_22_40"]
     for trial in loader.trials:
