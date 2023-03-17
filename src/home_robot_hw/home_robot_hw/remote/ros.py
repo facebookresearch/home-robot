@@ -332,3 +332,179 @@ class StretchRosInterface:
         trq[HelloStretchIdx.ARM] /= 4
         with self._js_lock:
             self.pos, self.vel, self.frc = pos, vel, trq
+
+    def _construct_single_joint_ros_goal(
+        self, joint_name, position, goal_time_tolerance=1
+    ):
+        trajectory_goal = FollowJointTrajectoryGoal()
+        trajectory_goal.goal_time_tolerance = rospy.Duration(goal_time_tolerance)
+        trajectory_goal.trajectory.joint_names = [
+            joint_name,
+        ]
+        msg = JointTrajectoryPoint()
+        msg.positions = [position]
+        trajectory_goal.trajectory.points = [msg]
+        trajectory_goal.trajectory.header.stamp = rospy.Time.now()
+        return trajectory_goal
+
+    def goto_x(self, x, wait=False, verbose=True):
+        trajectory_goal = self._construct_single_joint_ros_goal(
+            "translate_mobile_base", x
+        )
+        self.trajectory_client.send_goal(trajectory_goal)
+        if wait:
+            #  Waiting for result seems to hang
+            self.trajectory_client.wait_for_result()
+            # self.wait(q, max_wait_t, True, verbose)
+            # print("-- TODO: wait for xy")
+        return True
+
+    def goto_theta(self, theta, wait=False, verbose=True):
+        trajectory_goal = self._construct_single_joint_ros_goal(
+            "rotate_mobile_base", theta
+        )
+        self.trajectory_client.send_goal(trajectory_goal)
+        if wait:
+            self.trajectory_client.wait_for_result()
+            # self.wait(q, max_wait_t, True, verbose)
+            # print("-- TODO: wait for theta")
+        return True
+
+    def goto_lift_position(self, delta_position, wait=False):
+        # TODO spowers: utilize config_to_ros_trajectory_goal?
+        success = False
+        if abs(delta_position) > 0:  # self.exec_tol[HelloStretchIdx.LIFT]:
+            position = self.pos[HelloStretchIdx.LIFT] + delta_position
+            if position > 0.1 and position < 1:
+                trajectory_goal = self._construct_single_joint_ros_goal(
+                    "joint_lift", position
+                )
+                self.trajectory_client.send_goal(trajectory_goal)
+                if wait:
+                    self.trajectory_client.wait_for_result()
+                    # self.wait(q, max_wait_t, True, verbose)
+                    # print("-- TODO: wait for theta")
+                success = True
+        return success
+
+    def goto_arm_position(self, delta_position, wait=False):
+        if abs(delta_position) > 0:  # self.exec_tol[HelloStretchIdx.ARM]:
+            position = self.pos[HelloStretchIdx.ARM] + delta_position
+            trajectory_goal = self._construct_single_joint_ros_goal(
+                "wrist_extension", position
+            )
+            self.trajectory_client.send_goal(trajectory_goal)
+            if wait:
+                self.trajectory_client.wait_for_result()
+        return True
+
+    def goto_wrist_yaw_position(self, delta_position, wait=False):
+        if abs(delta_position) > 0:  # self.exec_tol[HelloStretchIdx.WRIST_YAW]:
+            position = self.pos[HelloStretchIdx.WRIST_YAW] + delta_position
+            trajectory_goal = self._construct_single_joint_ros_goal(
+                "joint_wrist_yaw", position
+            )
+            self.trajectory_client.send_goal(trajectory_goal)
+            if wait:
+                self.trajectory_client.wait_for_result()
+        return True
+
+    def goto_wrist_roll_position(self, delta_position, wait=False):
+        if abs(delta_position) > 0:  # self.exec_tol[HelloStretchIdx.WRIST_ROLL]:
+            position = self.pos[HelloStretchIdx.WRIST_ROLL] + delta_position
+            trajectory_goal = self._construct_single_joint_ros_goal(
+                "joint_wrist_roll", position
+            )
+            self.trajectory_client.send_goal(trajectory_goal)
+            if wait:
+                self.trajectory_client.wait_for_result()
+        return True
+
+    def goto_wrist_pitch_position(self, delta_position, wait=False):
+        if abs(delta_position) > 0:  # self.exec_tol[HelloStretchIdx.WRIST_PITCH]:
+            position = self.pos[HelloStretchIdx.WRIST_PITCH] + delta_position
+            trajectory_goal = self._construct_single_joint_ros_goal(
+                "joint_wrist_pitch", position
+            )
+            self.trajectory_client.send_goal(trajectory_goal)
+            if wait:
+                self.trajectory_client.wait_for_result()
+        return True
+
+    def goto_gripper_position(self, delta_position, wait=False):
+        if (
+            abs(delta_position) > 0
+        ):  # TODO controller seems to be commanding 0.05s.... self.exec_tol[HelloStretchIdx.GRIPPER]:  #0: #0.01:  # TODO: this is ...really high? (5?) self.exec_tol[HelloStretchIdx.GRIPPER]:
+            position = self.pos[HelloStretchIdx.GRIPPER] + delta_position
+            trajectory_goal = self._construct_single_joint_ros_goal(
+                "joint_gripper_finger_left", position
+            )
+            self.trajectory_client.send_goal(trajectory_goal)
+            if wait:
+                self.trajectory_client.wait_for_result()
+        return True
+
+    def goto_head_pan_position(self, delta_position, wait=False):
+        if abs(delta_position) > 0:  # self.exec_tol[HelloStretchIdx.HEAD_PAN]:
+            position = self.pos[HelloStretchIdx.HEAD_PAN] + delta_position
+            trajectory_goal = self._construct_single_joint_ros_goal(
+                "joint_head_pan", position
+            )
+            self.trajectory_client.send_goal(trajectory_goal)
+            if wait:
+                self.trajectory_client.wait_for_result()
+        return True
+
+    def goto_head_tilt_position(self, delta_position, wait=False):
+        if abs(delta_position) > 0:  # self.exec_tol[HelloStretchIdx.HEAD_TILT]:
+            position = self.pos[HelloStretchIdx.HEAD_TILT] + delta_position
+            trajectory_goal = self._construct_single_joint_ros_goal(
+                "joint_head_tilt", position
+            )
+            self.trajectory_client.send_goal(trajectory_goal)
+            if wait:
+                self.trajectory_client.wait_for_result()
+        return True
+
+    def _interp(self, x1, x2, num_steps=10):
+        diff = x2 - x1
+        rng = np.arange(num_steps + 1) / num_steps
+        rng = rng[:, None].repeat(3, axis=1)
+        diff = diff[None].repeat(num_steps + 1, axis=0)
+        x1 = x1[None].repeat(num_steps + 1, axis=0)
+        return x1 + (rng * diff)
+
+    def goto_wrist(self, roll, pitch, yaw, verbose=False, wait=False):
+        """Separate out wrist commands from everything else"""
+        q = self.pos
+        r0, p0, y0 = (
+            q[HelloStretchIdx.WRIST_ROLL],
+            q[HelloStretchIdx.WRIST_PITCH],
+            q[HelloStretchIdx.WRIST_YAW],
+        )
+        print("--------")
+        print("roll", roll, "curr =", r0)
+        print("pitch", pitch, "curr =", p0)
+        print("yaw", yaw, "curr =", y0)
+        trajectory_goal = FollowJointTrajectoryGoal()
+        trajectory_goal.goal_time_tolerance = rospy.Duration(1)
+        trajectory_goal.trajectory.joint_names = [
+            ROS_WRIST_ROLL,
+            ROS_WRIST_PITCH,
+            ROS_WRIST_YAW,
+        ]
+        pt = JointTrajectoryPoint()
+        pt.positions = [roll, pitch, yaw]
+        trajectory_goal.trajectory.points = [pt]
+        trajectory_goal.trajectory.header.stamp = rospy.Time.now()
+        self.trajectory_client.send_goal(trajectory_goal)
+        if wait:
+            self.trajectory_client.wait_for_result()
+
+    def goto(self, q, move_base=False, wait=False, max_wait_t=10.0, verbose=False):
+        """some of these params are unsupported"""
+        goal = self.config_to_ros_trajectory_goal(q)
+        self.trajectory_client.send_goal(goal)
+        if wait:
+            self.trajectory_client.wait_for_result()
+        return True

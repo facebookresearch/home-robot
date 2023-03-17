@@ -10,9 +10,9 @@ import rospy
 from sensor_msgs.msg import JointState, Joy
 
 from home_robot.motion.stretch import HelloStretchKinematics
+from home_robot_hw.remote.ros import StretchRosInterface
 from home_robot_hw.ros.path import get_package_path
 from home_robot_hw.ros.recorder import Recorder, pngs_to_mp4
-from home_robot_hw.ros.stretch_ros import HelloStretchROSInterface
 from home_robot_hw.teleop.stretch_xbox_controller_teleop import (
     manage_base,
     manage_end_of_arm,
@@ -30,9 +30,7 @@ class StretchXboxController(object):
         start_button_callback=None,
         back_button_callback=None,
     ):
-        self._robot = HelloStretchROSInterface(
-            init_cameras=False, model=model, depth_buffer_size=1
-        )
+        self._robot = StretchRosInterface(init_cameras=False, depth_buffer_size=1)
         self._on_first_joystick_input = on_first_joystick_input
         self._joystick_subscriber = rospy.Subscriber(
             "joy", Joy, self._joystick_callback, queue_size=1
@@ -276,11 +274,11 @@ class StretchXboxController(object):
 
         # Execute the commands
         if translation_command is not None:
-            self._set_mode()
+            # self._set_mode()
             self._robot.goto_x(translation_command[0])
 
         if rotation_command is not None:
-            self._set_mode()
+            # self._set_mode()
             self._robot.goto_theta(rotation_command[0])
 
         # These are in loops because it feels more natural to hold the button in these cases rather than press it repeatedly
