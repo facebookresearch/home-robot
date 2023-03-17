@@ -23,7 +23,7 @@ def main(test_pick=False):
     agent = PickAndPlaceAgent(
         config=config, skip_find_object=test_pick, skip_place=test_pick
     )
-    env = StretchPickandPlaceEnv(config=config)
+    env = StretchPickandPlaceEnv(config=config, test_grasping=test_pick)
 
     agent.reset()
     env.reset("table", "cup", "chair")

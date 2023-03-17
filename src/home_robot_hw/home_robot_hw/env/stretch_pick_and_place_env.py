@@ -133,7 +133,9 @@ class StretchPickandPlaceEnv(StretchEnv):
                 rospy.sleep(self.msg_delay_t)
             if not self.test_grasping:
                 # We skip this so we can just have the robot pointed at an object
-                self.navigate_to([0, 0, np.pi / 2], relative=True, blocking=True)
+                self.robot.nav.navigate_to(
+                    [0, 0, np.pi / 2], relative=True, blocking=True
+                )
             self.grasp_planner.go_to_manip_mode()
         elif action == DiscreteNavigationAction.PICK_OBJECT:
             continuous_action = None
