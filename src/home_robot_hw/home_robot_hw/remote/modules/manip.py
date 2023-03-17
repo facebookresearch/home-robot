@@ -173,6 +173,10 @@ class StretchManipulationClient(AbstractControlModule):
         if blocking:
             self.wait()
 
+    def solve_fk(self, full_body_cfg):
+        pos, quat = self._robot_model.manip_fk(full_body_cfg)
+        return pos, quat
+
     def solve_ik(
         self,
         pos: List[float],
