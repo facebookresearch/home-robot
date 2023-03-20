@@ -9,7 +9,7 @@ from home_robot.hardware.stretch_ros import HelloStretchROSInterface
 #from home_robot.ros.stretch_xbox_controller import StretchXboxController
 from home_robot.ros.recorder import Recorder
 from home_robot.motion.robot import HelloStretch
-from home_robot.envs.imitation.stretch_demo_base_env import StretchDemoBaseEnv
+from fair_home_robot.projects.stretch_continual.envs.stretch_demo_base_env import StretchDemoBaseEnv
 from fair_home_robot.projects.stretch_continual.envs.stretch_offline_demo_env import StretchOfflineDemoEnv  # TODO: rename
 
 
@@ -161,7 +161,7 @@ class StretchOnlineDemoEnv(StretchDemoBaseEnv):
 if __name__ == "__main__":
     import faulthandler
     faulthandler.enable()
-    from home_robot.envs.imitation.stretch_live_env import StretchLiveEnv
+    from fair_home_robot.projects.stretch_continual.envs.stretch_live_env import StretchLiveEnv
 
     base_dir = os.path.join(os.environ["DATASET_ROOT"], "demo_data/kitchen_test/offline_eval")
     demo_dir = f"{base_dir}/bottle_to_sink/3"

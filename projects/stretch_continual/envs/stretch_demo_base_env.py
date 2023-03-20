@@ -16,6 +16,20 @@ CAMERA_SCALE_CONST = 10000
 STRETCH_URDF_DIR = os.environ["STRETCH_URDF_DIR"]
 
 
+class CacheContainer(object):
+    """
+    Spoof file-like object for when we want to cache the h5 information instead of re-loading it
+    """
+    def __init__(self, cached_data):
+        self.cached_data = cached_data
+
+    def __enter__(self):
+        return self.cached_data
+
+    def __exit__(self, *args):
+        pass
+
+
 class StretchDemoBaseEnv(gym.Env):
     NODE_INITIALIZED = False
 
@@ -23,7 +37,7 @@ class StretchDemoBaseEnv(gym.Env):
         super().__init__()
         self.urdf_path = os.path.join(STRETCH_URDF_DIR, "planner_calibrated_simplified_fixed_base.urdf")  # TODO: pass in urdf path
         self._include_context = include_context
-        self._trajectory_cache = {}
+        self._trajectory_cache = {"linked_files": {}}
 
         if initialize_ros and not self.NODE_INITIALIZED:
             self.initialize_ros_node()
@@ -41,41 +55,61 @@ class StretchDemoBaseEnv(gym.Env):
         # From: https://stackoverflow.com/questions/19309667/recursive-os-listdir
         return [os.path.join(dp, f) for dp, dn, fn in os.walk(directory) for f in fn]
 
-    def load_all_h5_from_dir(self, directory, only_key_frames, temp_aggregation_file):  # TODO: where should this go
+    def _recursively_load_h5py(self, trajectory_data):
+        extracted_data = {}
+        for traj_key, traj_value in trajectory_data.items():
+            if isinstance(traj_value, h5py.Group):
+                extracted_data[traj_key] = self._recursively_load_h5py(traj_value)
+            else:
+                extracted_data[traj_key] = np.array(traj_value)
+
+        return extracted_data
+
+    def load_all_h5_from_dir(self, directory, only_key_frames, temp_aggregation_file, cache):
+        """
+        We may have multiple h5 files, each of which may have multiple trajectories. This method loads all the h5 files
+        into an aggregated h5 via ExternalLink. If we're caching, we'll load it into a local dictionary, and spoof
+        that as a file-like object, so we can use these loading methods interchangeably.
+        """
         h5_id = 0
         output_path = temp_aggregation_file.name
 
-        for _ in range(5):
-            try:
-                with h5py.File(output_path, 'w') as output_file:
-                    linked_files_group = output_file.create_group("linked_files")
+        if not cache or len(self._trajectory_cache["linked_files"]) == 0:
+            for _ in range(5):
+                try:
+                    with h5py.File(output_path, 'w') as output_file:
+                        linked_files_group = output_file.create_group("linked_files")
 
-                    # TODO: this isn't a huge problem with my small dataset, but re-loading everything at each
-                    # timestep is ...suboptimal
-                    for filename in self._recursive_listdir(directory):
-                        file_allowed = only_key_frames == ("key_frames" in filename)  # If we expect it, it should be there. If we don't, it should not
-                        if os.path.splitext(filename)[-1].lower() == ".h5" and "aggregated" not in filename and file_allowed:
-                            file_path = os.path.join(directory, filename)
-                            linked_files_group[f"file_{h5_id}"] = h5py.ExternalLink(filename=file_path,
-                                                                                    path=f".")  # TODO: does this need to be a string. Doing it for consistency with DataWriter for now
+                        for filename in self._recursive_listdir(directory):
+                            file_allowed = only_key_frames == ("key_frames" in filename)  # If we expect it, it should be there. If we don't, it should not
+                            if os.path.splitext(filename)[-1].lower() == ".h5" and "aggregated" not in filename and file_allowed:
+                                file_path = os.path.join(directory, filename)
+                                linked_files_group[f"file_{h5_id}"] = h5py.ExternalLink(filename=file_path,
+                                                                                        path=f".")  # TODO: does this need to be a string. Doing it for consistency with DataWriter for now
 
-                            with h5py.File(file_path, 'r') as trajectory_file:
-                                self._trajectory_cache[f"file_{h5_id}"] = trajectory_file
+                                if cache:
+                                    with h5py.File(file_path, 'r') as trajectory_file:
+                                        self._trajectory_cache["linked_files"][f"file_{h5_id}"] = self._recursively_load_h5py(trajectory_data=trajectory_file)
 
-                            h5_id += 1
+                                h5_id += 1
 
-                break
-            except (BlockingIOError, OSError) as e:
-                print(f"Failing to open or read {output_path} with error {e}. Retrying...")
-                time.sleep(1)  # TODO: handle last try
+                    break
+                except (BlockingIOError, OSError) as e:
+                    print(f"Failing to open or read {output_path} with error {e}. Retrying...")
+                    time.sleep(1)  # TODO: handle last try
 
-        return h5py.File(output_path, 'r')
+        if cache:
+            demo_data = CacheContainer(self._trajectory_cache)
+        else:
+            demo_data = h5py.File(output_path, 'r')
 
-    def randomly_select_traj_from_dir(self, directory, only_key_frames):
+        return demo_data
+
+    def randomly_select_traj_from_dir(self, directory, only_key_frames, cache):
         for _ in range(25):
             try:
                 with tempfile.NamedTemporaryFile(dir=directory) as temp_aggregation_file:
-                    with self.load_all_h5_from_dir(directory, only_key_frames, temp_aggregation_file) as h5_file:
+                    with self.load_all_h5_from_dir(directory, only_key_frames, temp_aggregation_file, cache=cache) as h5_file:
                         aggregated_h5 = h5_file['linked_files']  # TODO: load from the cache that's being created or no?
                         traj_counts = [(file_key, len(item.keys())) if item is not None else (None, 0) for file_key, item in aggregated_h5.items()]
                         total_trajs = np.array([count[1] for count in traj_counts]).sum()
@@ -93,7 +127,7 @@ class StretchDemoBaseEnv(gym.Env):
 
                 break
             except (BlockingIOError, OSError, KeyError):
-                time.sleep(1)  # TODO: handle last try
+                time.sleep(1)   # If we run out of tries, traj will be None
 
         return traj
 

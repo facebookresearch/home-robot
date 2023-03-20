@@ -10,7 +10,7 @@ import sys
 
 from home_robot.hardware.stretch_ros import HelloStretchROSInterface, HelloStretchIdx
 from home_robot.motion.robot import HelloStretch
-from home_robot.envs.imitation.stretch_demo_base_env import StretchDemoBaseEnv
+from fair_home_robot.projects.stretch_continual.envs.stretch_demo_base_env import StretchDemoBaseEnv  # TODO: rename
 
 
 # Returns the next observation from the demo, instead of the true observation from the robot. Useful for
@@ -122,7 +122,7 @@ class StretchLiveEnv(StretchDemoBaseEnv):
         return obs
 
     def reset(self, ensure_first=True):
-        self._current_trajectory = self.randomly_select_traj_from_dir(self._demo_dir, only_key_frames=self._use_key_frames)
+        self._current_trajectory = self.randomly_select_traj_from_dir(self._demo_dir, only_key_frames=self._use_key_frames, cache=True)
         self._current_timestep = 0
         pose = self._current_trajectory['q'][0]
 
