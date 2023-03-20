@@ -1,62 +1,49 @@
 from typing import Any, Dict, Optional
 
+import cv2
 import numpy as np
 import rospy
+from omegaconf import DictConfig
 
 import home_robot
-from home_robot.core.interfaces import Action, DiscreteNavigationAction, Observations
+from home_robot.core.interfaces import DiscreteNavigationAction, Observations
 from home_robot.motion.stretch import STRETCH_HOME_Q
-from home_robot.perception.detection.detic.detic_perception import DeticPerception
 from home_robot.utils.geometry import xyt2sophus, xyt_base_to_global
 from home_robot_hw.env.stretch_abstract_env import StretchEnv
-from home_robot_hw.env.visualizer import Visualizer
-
-# REAL_WORLD_CATEGORIES = ["other", "chair", "mug", "other",]
-# REAL_WORLD_CATEGORIES = ["other", "backpack", "other",]
-REAL_WORLD_CATEGORIES = [
-    "other",
-    "chair",
-    "other",
-]
 
 
-class StretchObjectNavEnv(StretchEnv):
+class StretchImageNavEnv(StretchEnv):
     """Create a detic-based object nav environment"""
 
     def __init__(
-        self, config=None, forward_step=0.25, rotate_step=30.0, *args, **kwargs
-    ):
+        self, config: Optional[DictConfig] = None, *args: Any, **kwargs: Any
+    ) -> None:
         super().__init__(*args, **kwargs)
-
-        # TODO: pass this in or load from cfg
-        self.goal_options = REAL_WORLD_CATEGORIES
-        self.forward_step = forward_step  # in meters
-        self.rotate_step = np.radians(rotate_step)
-
-        # TODO Specify confidence threshold as a parameter
-        self.segmentation = DeticPerception(
-            vocabulary="custom",
-            custom_vocabulary=",".join(self.goal_options),
-            sem_gpu_id=0,
-        )
-        if config is not None:
-            self.visualizer = Visualizer(config)
+        if config:
+            self.forward_step = config.habitat.simulator.forward_step_size  # in meters
+            self.rotate_step = np.radians(config.habitat.simulator.turn_angle)
+            self.image_goal = self._load_image_goal(config.stretch_goal_image_path)
         else:
-            self.visualizer = None
+            self.forward_step = 0.25
+            self.rotate_step = np.radians(30)
+            self.image_goal = None
         self.reset()
 
-    def reset(self):
-        self.sample_goal()
+    def _load_image_goal(self, goal_img_path: str) -> np.ndarray:
+        """Load the pre-computed image goal from disk."""
+        goal_image = cv2.imread(goal_img_path)
+        # opencv loads as BGR, but we use RGB.
+        goal_image = goal_image[:, :, ::-1]
+        assert goal_image.shape[0] == 512
+        assert goal_image.shape[1] == 512
+        return goal_image
+
+    def reset(self) -> None:
         self._episode_start_pose = xyt2sophus(self.get_base_pose())
-        if self.visualizer is not None:
-            self.visualizer.reset()
         self.goto(STRETCH_HOME_Q)
 
-    def apply_action(self, action: Action, info: Optional[Dict[str, Any]] = None):
-        """Discrete action space. make predictions for where the robot should go, move by a fixed
-        amount forward or rotationally."""
-        if self.visualizer is not None:
-            self.visualizer.visualize(**info)
+    def apply_action(self, action: DiscreteNavigationAction) -> None:
+        """Convert a DiscreteNavigationAction to a continuous action and perform it"""
         continuous_action = np.zeros(3)
         if action == DiscreteNavigationAction.MOVE_FORWARD:
             print("FORWARD")
@@ -67,40 +54,22 @@ class StretchObjectNavEnv(StretchEnv):
         elif action == DiscreteNavigationAction.TURN_LEFT:
             print("TURN LEFT")
             continuous_action[2] = self.rotate_step
+        elif action == DiscreteNavigationAction.STOP:
+            print("Done!")
         else:
-            # Do nothing if "stop"
-            # continuous_action = None
-            # if not self.in_manipulation_mode():
-            #     self.switch_to_manipulation_mode()
-            pass
+            raise RuntimeError("Action type not supported: " + str(action))
 
-        if continuous_action is not None:
-            if not self.in_navigation_mode():
-                self.switch_to_navigation_mode()
-                rospy.sleep(self.msg_delay_t)
-            self.navigate_to(continuous_action, relative=True, blocking=True)
-        rospy.sleep(0.5)
-
-    def set_goal(self, goal):
-        """set a goal as a string"""
-        if goal in self.goal_options:
-            self.current_goal_id = self.goal_options.index(goal)
-            self.current_goal_name = goal
-            return True
-        else:
-            return False
-
-    def sample_goal(self):
-        """set a random goal"""
-        # idx = np.random.randint(len(self.goal_options) - 2) + 1
-        idx = 1
-        self.current_goal_id = idx
-        self.current_goal_name = self.goal_options[idx]
+        if not self.in_navigation_mode():
+            self.switch_to_navigation_mode()
+        self.navigate_to(continuous_action, relative=True, blocking=True)
 
     def get_observation(self) -> Observations:
-        """Get Detic and rgb/xyz/theta from this"""
+        """Get rgbd/xyz/theta from this"""
         rgb, depth = self.get_images(compute_xyz=False, rotate_images=True)
         current_pose = xyt2sophus(self.get_base_pose())
+
+        # Gets current camera pose from SLAM system as a 4x4 matrix in SE(3)
+        # camera_pose = self.get_camera_pose_matrix()
 
         # use sophus to get the relative translation
         relative_pose = self._episode_start_pose.inverse() * current_pose
@@ -108,26 +77,15 @@ class StretchObjectNavEnv(StretchEnv):
         theta = euler_angles[-1]
         # pos, vel, frc = self.get_joint_state()
 
-        # GPS in robot coordinates
-        gps = relative_pose.translation()[:2]
-
         # Create the observation
-        obs = home_robot.core.interfaces.Observations(
+        return home_robot.core.interfaces.Observations(
             rgb=rgb.copy(),
             depth=depth.copy(),
-            gps=gps,
+            gps=relative_pose.translation()[:2],
             compass=np.array([theta]),
-            # base_pose=sophus2obs(relative_pose),
-            task_observations={
-                "goal_id": self.current_goal_id,
-                "goal_name": self.current_goal_name,
-            },
-            # joint_positions=pos,
+            task_observations={"instance_imagegoal": self.image_goal},
+            # camera_extrinsic=camera_pose,
         )
-        # Run the segmentation model here
-        obs = self.segmentation.predict(obs, depth_threshold=0.5)
-        obs.semantic[obs.semantic == 0] = len(self.goal_options) - 1
-        return obs
 
     @property
     def episode_over(self) -> bool:
@@ -136,7 +94,7 @@ class StretchObjectNavEnv(StretchEnv):
     def get_episode_metrics(self) -> Dict:
         pass
 
-    def rotate(self, theta):
+    def rotate(self, theta: float) -> None:
         """just rotate and keep trying"""
         init_pose = self.get_base_pose()
         xyt = [0, 0, theta]
@@ -162,7 +120,7 @@ if __name__ == "__main__":
     print("Start example - hardware using ROS")
     rospy.init_node("hello_stretch_ros_test")
     print("Create ROS interface")
-    rob = StretchObjectNavEnv(init_cameras=True)
+    rob = StretchImageNavEnv(init_cameras=True)
     rob.switch_to_navigation_mode()
 
     # Debug the observation space
