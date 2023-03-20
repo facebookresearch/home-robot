@@ -274,9 +274,9 @@ class RobotDataset(RLBenchDataset):
         """
         rgb = trial.get_img(view_name + "_rgb", idx, rgb=True)
         depth = trial.get_img(view_name + "_depth", idx, depth=True, depth_factor=1000)
+        xyz = None
         if self._robot == "stretch":
-            breakpoint()
-            xyz = trial[idx][view_name + "_xyz"][()]
+            xyz = trial[view_name + "_xyz"][idx]
         # rgb_img = rgb.copy()
         # depth_img = depth.copy()
 
