@@ -78,9 +78,8 @@ class EpisodeManager(object):
 @click.option("--task-name", default="task", help="Name of the task to record")
 @click.option("--dir-path", default="./H5s/", help="Path of root data directory")
 def main(task_name, dir_path):
-    rospy.init_node("h5_demo_recorder")
-    rate = rospy.Rate(10)
     em = EpisodeManager(task_name, dir_path)
+    rate = rospy.Rate(10)
     while not rospy.is_shutdown():
         rospy.spin()
         rate.sleep()
