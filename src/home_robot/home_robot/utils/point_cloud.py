@@ -35,15 +35,8 @@ def pcd_to_numpy(pcd: o3d.geometry.PointCloud) -> (np.ndarray, np.ndarray):
 
 
 def show_point_cloud(
-    xyz: np.ndarray, rgb: np.ndarray = None, orig=None, R=None, save=None, grasps=[]
+    xyz: np.ndarray, rgb: np.ndarray = None, orig=None, R=None, save=None, grasps=None
 ):
-    # http://www.open3d.org/docs/0.9.0/tutorial/Basic/working_with_numpy.html
-    if rgb is not None:
-        rgb = rgb.reshape(-1, 3)
-        if np.any(rgb > 1):
-            print("WARNING: rgb values too high! Normalizing...")
-            rgb = rgb / np.max(rgb)
-
     pcd = numpy_to_pcd(xyz, rgb)
     show_pcd(pcd, orig, R, save, grasps)
 
@@ -53,30 +46,114 @@ def show_pcd(
     orig: np.ndarray = None,
     R: np.ndarray = None,
     save: str = None,
-    grasps: list = [],
+    grasps: list = None,
 ):
+    geoms = create_visualization_geometries(pcd=pcd, orig=orig, R=R, grasps=grasps)
+    o3d.visualization.draw_geometries(geoms, output_path=save)
+
+    if save is not None:
+        save_geometries_as_image(geoms)
+
+
+def create_visualization_geometries(pcd=None, xyz=None, rgb=None, orig=None, R=None, size=1.0,
+                     arrow_pos=None, arrow_size=1.0, arrow_R=None, arrow_color=None,
+                     sphere_pos=None, sphere_size=1.0, sphere_color=None, grasps=None):
+    assert pcd is not None or xyz is not None, "One of pcd or xyz must be specified"
+
+    if rgb is not None:
+        rgb = rgb.reshape(-1, 3)
+        if np.any(rgb > 1):
+            print("WARNING: rgb values too high! Normalizing...")
+            rgb = rgb / np.max(rgb)
+
+    if pcd is None:
+        pcd = numpy_to_pcd(xyz, rgb)
+
     geoms = [pcd]
     if orig is not None:
-        coords = o3d.geometry.TriangleMesh.create_coordinate_frame(
-            size=0.1, origin=orig
-        )
+        coords = o3d.geometry.TriangleMesh.create_coordinate_frame(origin=orig, size=size)
         if R is not None:
-            coords = coords.rotate(R)
+            coords = coords.rotate(R, orig)
         geoms.append(coords)
-    for grasp in grasps:
-        coords = o3d.geometry.TriangleMesh.create_coordinate_frame(
-            size=0.05, origin=grasp[:3, 3]
-        )
-        coords = coords.rotate(grasp[:3, :3])
-        geoms.append(coords)
-    viz = o3d.visualization.Visualizer()
-    viz.create_window()
+
+    if arrow_pos is not None:
+        arrow = o3d.geometry.TriangleMesh.create_arrow()
+        arrow = arrow.scale(arrow_size, center=np.zeros(3, ))
+
+        if arrow_color is not None:
+            arrow = arrow.paint_uniform_color(arrow_color)
+
+        if arrow_R is not None:
+            arrow = arrow.rotate(arrow_R, center=(0, 0, 0))
+
+        arrow = arrow.translate(arrow_pos)
+        geoms.append(arrow)
+
+    if sphere_pos is not None:
+        sphere = o3d.geometry.TriangleMesh.create_sphere(radius=sphere_size)
+
+        if sphere_color is not None:
+            sphere = sphere.paint_uniform_color(sphere_color)
+
+        sphere = sphere.translate(sphere_pos)
+        geoms.append(sphere)
+
+    if grasps is not None:
+        for grasp in grasps:
+            coords = o3d.geometry.TriangleMesh.create_coordinate_frame(
+                size=0.05, origin=grasp[:3, 3]
+            )
+            coords = coords.rotate(grasp[:3, :3])
+            geoms.append(coords)
+
+    return geoms
+
+
+def save_geometries_as_image(geoms, camera_extrinsic=None, look_at_point=None, output_path=None, zoom=None,
+                             point_size=None, near_clipping=None, far_clipping=None):
+    """
+    Helper function to allow manipulation of the camera to get a better image of the point cloud.
+    """
+
+    vis = o3d.visualization.Visualizer()
+    vis.create_window()
+
     for geom in geoms:
-        viz.add_geometry(geom)
-    viz.run()
-    if save is not None:
-        viz.capture_screen_image(save, True)
-    viz.destroy_window()
+        # Note: the point cloud is rotated by 90 degrees from expected -- possibly due to a mismatch in notation
+        rotation_matrix = geom.get_rotation_matrix_from_xyz((0, 0, -np.pi/2))
+        geom.rotate(rotation_matrix, center=look_at_point)
+
+        vis.add_geometry(geom)
+        vis.update_geometry(geom)
+
+    view_control = vis.get_view_control()
+    camera_params = view_control.convert_to_pinhole_camera_parameters()
+
+    if camera_extrinsic is not None:
+        camera_params.extrinsic = camera_extrinsic
+        view_control.convert_from_pinhole_camera_parameters(camera_params)
+
+    if look_at_point is not None:
+        view_control.set_lookat(look_at_point)
+
+    if zoom is not None:
+        view_control.set_zoom(zoom)
+
+    if near_clipping is not None:
+        view_control.set_constant_z_near(near_clipping)
+
+    if far_clipping is not None:
+        view_control.set_constant_z_far(far_clipping)
+
+    render_options = vis.get_render_option()
+
+    if point_size is not None:
+        render_options.point_size = point_size
+
+    vis.poll_events()
+    vis.update_renderer()
+    vis.capture_screen_image(output_path, do_render=True)
+    vis.destroy_window()
 
 
 def fix_opengl_image(rgb, depth, camera_params=None):
