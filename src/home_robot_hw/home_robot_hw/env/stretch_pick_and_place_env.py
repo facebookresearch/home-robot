@@ -178,10 +178,10 @@ class StretchPickandPlaceEnv(StretchEnv):
 
     def sample_goal(self):
         """set a random goal"""
-        # idx = np.random.randint(len(self.goal_options) - 2) + 1
-        idx = 2
-        self.current_goal_id = idx
-        self.current_goal_name = self.goal_options[idx]
+        goal_obj_idx = np.random.randint(len(self.goal_options))
+        goal_obj = self.goal_options[goal_obj_idx]
+        self.current_goal_id = self.goal_options.index(goal_obj_idx)
+        self.current_goal_name = goal_obj
 
     def get_observation(self) -> Observations:
         """Get Detic and rgb/xyz/theta from this"""

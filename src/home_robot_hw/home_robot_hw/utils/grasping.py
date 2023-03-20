@@ -75,6 +75,7 @@ class GraspPlanner(object):
             self.robot_client.switch_to_manipulation_mode()
         self.robot_client.head.look_at_ee(blocking=False)
         self.robot_client.manip.open_gripper()
+        visualize = True
 
         min_grasp_score = 0.0
         min_obj_pts = 100
@@ -147,7 +148,7 @@ class GraspPlanner(object):
             # Correct for the length of the Stretch gripper and the gripper upon
             # which Graspnet was trained
             grasp_offset = np.eye(4)
-            grasp_offset[2, 3] = -0.09
+            grasp_offset[2, 3] = -0.10
             for i, grasp in enumerate(grasps):
                 grasps[i] = grasp @ grasp_offset
 
