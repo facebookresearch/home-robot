@@ -13,7 +13,7 @@ from home_robot.hardware.stretch_ros import HelloStretchROSInterface, HelloStret
 
 CAMERA_FAR_PLANE = 1  # m
 CAMERA_SCALE_CONST = 10000
-STRETCH_URDF_DIR = os.environ["STRETCH_URDF_DIR"]  # TODO: pass in
+STRETCH_URDF_DIR = os.environ["STRETCH_URDF_DIR"]
 
 
 class StretchDemoBaseEnv(gym.Env):
@@ -23,6 +23,7 @@ class StretchDemoBaseEnv(gym.Env):
         super().__init__()
         self.urdf_path = os.path.join(STRETCH_URDF_DIR, "planner_calibrated_simplified_fixed_base.urdf")  # TODO: pass in urdf path
         self._include_context = include_context
+        self._trajectory_cache = {}
 
         if initialize_ros and not self.NODE_INITIALIZED:
             self.initialize_ros_node()
@@ -40,18 +41,9 @@ class StretchDemoBaseEnv(gym.Env):
         # From: https://stackoverflow.com/questions/19309667/recursive-os-listdir
         return [os.path.join(dp, f) for dp, dn, fn in os.walk(directory) for f in fn]
 
-    # TODO: util functions should go where?
     def load_all_h5_from_dir(self, directory, only_key_frames, temp_aggregation_file):  # TODO: where should this go
         h5_id = 0
         output_path = temp_aggregation_file.name
-        """output_path = os.path.join(directory, "aggregated.h5")
-
-        # For some reason this file is sometimes corrupted (I guess not closed properly if we abort uncleanly). Since
-        # it's fine to just recreate it (not re-using it anyway), just clear it out.
-        try:
-            os.remove(output_path)
-        except OSError:
-            pass"""
 
         for _ in range(5):
             try:
@@ -66,6 +58,10 @@ class StretchDemoBaseEnv(gym.Env):
                             file_path = os.path.join(directory, filename)
                             linked_files_group[f"file_{h5_id}"] = h5py.ExternalLink(filename=file_path,
                                                                                     path=f".")  # TODO: does this need to be a string. Doing it for consistency with DataWriter for now
+
+                            with h5py.File(file_path, 'r') as trajectory_file:
+                                self._trajectory_cache[f"file_{h5_id}"] = trajectory_file
+
                             h5_id += 1
 
                 break
@@ -83,16 +79,13 @@ class StretchDemoBaseEnv(gym.Env):
                         aggregated_h5 = h5_file['linked_files']  # TODO: load from the cache that's being created or no?
                         traj_counts = [(file_key, len(item.keys())) if item is not None else (None, 0) for file_key, item in aggregated_h5.items()]
                         total_trajs = np.array([count[1] for count in traj_counts]).sum()
-                        #print(f"Running with {total_trajs} total trajectories")
                         traj_id = np.random.randint(total_trajs)
-                        #print(f"Running with traj id: {traj_id}")
                         curr_id = 0
                         traj = None
 
                         for file_id, count in traj_counts:
                             # If this file contains our selected trajectory (i.e. it's within the count for this file), grab it
                             if curr_id + count > traj_id:
-                                #print(f"Loading entry: {traj_id - curr_id} from file {aggregated_h5[file_id].file}")
                                 traj = aggregated_h5[file_id][f"{traj_id - curr_id}"]
                                 break
 
@@ -160,8 +153,7 @@ class StretchDemoBaseEnv(gym.Env):
 
     def construct_observation(self, image, depth, pose, color_camera_info, depth_camera_info, camera_pose,
                               camera_info_in_state, current_time, max_time, model,
-                              context_observation=None,
-                              pos_augmentation=None):  # TODO: better place
+                              context_observation=None):  # TODO: better place
         """
         Expects {color, depth}_camera_info to be a dict of D (5,), K (3x3), R (3x3), P (3x4)
         Expects camera_pose to be shape (1, 4, 4) -- TODO check
@@ -170,9 +162,6 @@ class StretchDemoBaseEnv(gym.Env):
 
         # The ee pose from fk doesn't include the offset to the gripper properly -- include it
         ee_pos, ee_rot = self.gripper_fk(model, pose)
-
-        if pos_augmentation is not None:
-            ee_pos += pos_augmentation
 
         gripper_pose = pose[HelloStretchIdx.GRIPPER]
         adjusted_pose = np.concatenate((ee_pos, ee_rot, np.array([gripper_pose, time_fraction])),

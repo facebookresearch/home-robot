@@ -7,24 +7,20 @@ from home_robot.envs.imitation.stretch_demo_base_env import StretchDemoBaseEnv
 
 
 class StretchOfflineDemoEnv(StretchDemoBaseEnv):
-    def __init__(self, demo_dir, state_augmentation_scale, camera_info_in_state=False, include_context=False,
-                 single_step_trajectory=True, eval_pos_only=False):
+    def __init__(self, demo_dir, camera_info_in_state=False, include_context=False,
+                 single_step_trajectory=True, eval_pos_only=False, use_key_frames=True):
         super().__init__(initialize_ros=False, include_context=include_context)
         self._demo_dir = demo_dir
         self._current_timestep = 0
         self._current_trajectory = None
         self._camera_info_in_state = camera_info_in_state
-        self._use_key_frames = True
+        self._use_key_frames = use_key_frames
         self._model = None
         self._cached_camera_data = None
         self._single_step_trajectory = single_step_trajectory
         self._random_trajectory_start = True
         self._context_observation = None
         self._eval_pos_only = eval_pos_only
-
-        # TODO: remove these augmentations. This is a hacky test, but shouldn't be on the env to do -- the method should do it...?
-        self._image_augmentation = None #torchvision.transforms.Compose((torchvision.transforms.ColorJitter(0.2, 0.2, 0.2, 0.2),))  # TODO: the method should do this not the env, I'm just being lazy
-        self._state_augmentation = None #lambda: np.random.normal(0, state_augmentation_scale, size=(3,))  # TODO: currently just pos
 
         self.observation_space, self.action_space = self.get_stretch_obs_and_action_space(self._camera_info_in_state)
 
@@ -53,17 +49,12 @@ class StretchOfflineDemoEnv(StretchDemoBaseEnv):
         obs = self.get_numpy_image(trajectory['rgb'][f'{timestep}'])
         depth = self.get_numpy_image(trajectory['depth'][f'{timestep}'])
 
-        pos_augmentation = None
-        if self._state_augmentation is not None:
-            pos_augmentation = self._state_augmentation()
-
         obs = self.construct_observation(obs, depth, trajectory['q'][timestep],
                                          color_camera_info, depth_camera_info, camera_pose,
                                          camera_info_in_state=self._camera_info_in_state,
                                          current_time=timestep,
                                          max_time=len(trajectory['q']),
-                                         model=self.model, context_observation=context_observation,
-                                         pos_augmentation=pos_augmentation)
+                                         model=self.model, context_observation=context_observation)
         return obs
 
     def reset(self, ensure_first=False):

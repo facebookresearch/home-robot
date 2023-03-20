@@ -118,8 +118,7 @@ class StretchLiveEnv(StretchDemoBaseEnv):
                                          camera_info_in_state=self._camera_info_in_state,
                                          current_time=timestep,
                                          max_time=len(trajectory['q']),
-                                         model=self.model, context_observation=context_observation,
-                                         pos_augmentation=None)
+                                         model=self.model, context_observation=context_observation)
         return obs
 
     def reset(self, ensure_first=True):

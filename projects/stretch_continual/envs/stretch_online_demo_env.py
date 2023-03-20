@@ -6,10 +6,11 @@ import tf2_ros
 import geometry_msgs
 
 from home_robot.hardware.stretch_ros import HelloStretchROSInterface
-from home_robot.ros.stretch_xbox_controller import StretchXboxController
+#from home_robot.ros.stretch_xbox_controller import StretchXboxController
 from home_robot.ros.recorder import Recorder
 from home_robot.motion.robot import HelloStretch
 from home_robot.envs.imitation.stretch_demo_base_env import StretchDemoBaseEnv
+from fair_home_robot.projects.stretch_continual.envs.stretch_offline_demo_env import StretchOfflineDemoEnv  # TODO: rename
 
 
 class StretchOnlineDemoEnv(StretchDemoBaseEnv):
@@ -181,9 +182,9 @@ if __name__ == "__main__":
     #base_dir = os.path.join(os.environ["DATASET_ROOT"], "demo_data/kitchen_test/bottle_multi")
     #demo_dir = f"{base_dir}/pose_2/0"
 
-    #env = StretchOfflineDemoEnv(demo_dir=demo_dir, state_augmentation_scale=0, camera_info_in_state=True, use_key_frames=True, command_absolute=True)
+    env = StretchOfflineDemoEnv(demo_dir=demo_dir, camera_info_in_state=True, use_key_frames=True)
     #env = StretchLiveEnv(demo_dir=demo_dir, camera_info_in_state=True)
-    env = StretchOnlineDemoEnv(output_file_dir=demo_dir, camera_info_in_state=True, record_key_frames=True)
+    #env = StretchOnlineDemoEnv(output_file_dir=demo_dir, camera_info_in_state=True, record_key_frames=True)
     done = False
     env.reset()
 
