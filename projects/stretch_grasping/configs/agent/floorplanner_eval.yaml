@@ -36,8 +36,8 @@ AGENT:
 
   PLANNER:
     collision_threshold: 0.20       # forward move distance under which we consider there's a collision (in meters)
-    obs_dilation_selem_radius: 3    # radius (in cells) of obstacle dilation structuring element
-    goal_dilation_selem_radius: 5  # radius (in cells) of goal dilation structuring element
+    obs_dilation_selem_radius: 5    # radius (in cells) of obstacle dilation structuring element
+    goal_dilation_selem_radius: 7  # radius (in cells) of goal dilation structuring element
     step_size: 5                    # maximum distance of the short-term goal selected by the planner
 
 EVAL_VECTORIZED:
