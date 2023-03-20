@@ -22,8 +22,9 @@ WRIST_DIFF = 0.1
 
 
 class ControlMode(Enum):
-    NAV = 0
-    MANIP = 1
+    NULL = 0
+    NAV = 1
+    MANIP = 2
 
 
 class RobotController:
@@ -34,7 +35,6 @@ class RobotController:
         # Robot
         print("Connecting to robot...")
         self.robot = StretchClient()
-        self.robot.switch_to_navigation_mode()
         print("Connected.")
 
         # Keyboard
@@ -79,16 +79,16 @@ class RobotController:
             # Manipulator
             elif self._mode == ControlMode.MANIP:
                 x = self._compute_net_command(
-                    kb.KeyCode.from_char("A"), kb.KeyCode.from_char("D"), EE_DIFF
+                    kb.KeyCode.from_char("a"), kb.KeyCode.from_char("d"), EE_DIFF
                 )
                 z = self._compute_net_command(
-                    kb.KeyCode.from_char("W"), kb.KeyCode.from_char("S"), EE_DIFF
+                    kb.KeyCode.from_char("w"), kb.KeyCode.from_char("s"), EE_DIFF
                 )
                 y = self._compute_net_command(
-                    kb.KeyCode.from_char("K"), kb.KeyCode.from_char("I"), EE_DIFF
+                    kb.KeyCode.from_char("k"), kb.KeyCode.from_char("i"), EE_DIFF
                 )
                 rz = self._compute_net_command(
-                    kb.KeyCode.from_char("J"), kb.KeyCode.from_char("L"), WRIST_DIFF
+                    kb.KeyCode.from_char("j"), kb.KeyCode.from_char("l"), WRIST_DIFF
                 )
 
                 # Command arm
@@ -119,14 +119,21 @@ class RobotController:
 
     def _switch_mode(self):
         if self._mode == ControlMode.MANIP:
-            self._mode = ControlMode.NAV
+            self._mode = ControlMode.NULL
+
             self.robot.switch_to_navigation_mode()
             self.robot.head.look_ahead()
+
+            self._mode = ControlMode.NAV
             print("IN NAVIGATION MODE")
+
         elif self._mode == ControlMode.NAV:
-            self._mode = ControlMode.MANIP
+            self._mode = ControlMode.NULL
+
             self.robot.switch_to_manipulation_mode()
             self.robot.head.look_at_ee()
+
+            self._mode = ControlMode.MANIP
             print("IN MANIPULATION MODE")
 
 
@@ -135,7 +142,7 @@ def run_teleop():
     listener = kb.Listener(
         on_press=robot_controller.on_press,
         on_release=robot_controller.on_release,
-        suppress=True,  # suppress terminal outputs
+        suppress=False,  # suppress terminal outputs
     )
 
     # Start teleop
