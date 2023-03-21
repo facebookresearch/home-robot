@@ -25,6 +25,7 @@ class StretchClient:
         self,
         init_node: bool = True,
         camera_overrides: Optional[Dict] = None,
+        urdf_path: str = ""
     ):
         # Ros
         if init_node:
@@ -35,10 +36,10 @@ class StretchClient:
         self._ros_client = StretchRosInterface(**camera_overrides)
 
         # Robot model
-        self._robot_model = HelloStretchKinematics()
+        self._robot_model = HelloStretchKinematics(urdf_path=urdf_path)
 
         # Interface modules
-        self.nav = StretchNavigationClient(self._ros_client, self._robot_model)
+        self.nav = StretchNavigationClient(self._ros_client, self._robot_model) #-- TODO: whatever is supposed to be populating se3_base_filtered never is...
         self.manip = StretchManipulationClient(self._ros_client, self._robot_model)
         self.head = StretchHeadClient(self._ros_client, self._robot_model)
 
@@ -107,6 +108,10 @@ class StretchClient:
     @property
     def robot_model(self) -> Robot:
         return self._robot_model
+
+    @property
+    def robot_joint_pos(self):
+        return self._ros_client.pos
 
     def get_frame_pose(self, frame, base_frame=None, lookup_time=None, timeout_s=None):
         """look up a particular frame in base coords"""

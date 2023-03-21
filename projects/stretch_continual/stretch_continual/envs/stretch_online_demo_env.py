@@ -5,12 +5,11 @@ import datetime
 import tf2_ros
 import geometry_msgs
 
-from home_robot.hardware.stretch_ros import HelloStretchROSInterface
-#from home_robot.ros.stretch_xbox_controller import StretchXboxController
-from home_robot.ros.recorder import Recorder
-from home_robot.motion.robot import HelloStretch
-from fair_home_robot.projects.stretch_continual.envs.stretch_demo_base_env import StretchDemoBaseEnv
-from fair_home_robot.projects.stretch_continual.envs.stretch_offline_demo_env import StretchOfflineDemoEnv  # TODO: rename
+#from home_robot_hw.teleop.stretch_xbox_controller import StretchXboxController
+#from home_robot_hw.ros.recorder import Recorder
+from home_robot_hw.remote.api import StretchClient
+from stretch_continual.envs.stretch_demo_base_env import StretchDemoBaseEnv
+from stretch_continual.envs.stretch_offline_demo_env import StretchOfflineDemoEnv  # TODO: rename
 
 
 class StretchOnlineDemoEnv(StretchDemoBaseEnv):
@@ -24,10 +23,8 @@ class StretchOnlineDemoEnv(StretchDemoBaseEnv):
         self._camera_info_in_state = camera_info_in_state
 
         # TODO: don't hardcode this path
-        robot_name = f"robot_{uuid.uuid4()}"
-        self._model = HelloStretch(name=robot_name, visualize=False, root="", urdf_path=self.urdf_path)
-        self._robot = HelloStretchROSInterface(init_cameras=True, model=self._model, depth_buffer_size=None)  # TODO: would 0 work?
-        self._controller_handler = StretchXboxController(self._model, start_button_callback=self._start_button_callback,
+        self._robot = StretchClient()
+        self._controller_handler = StretchXboxController(self._model, start_button_callback=self._start_button_callback,  # TODO: XboxController not using the correct API...
                                                          back_button_callback=self._back_button_callback)
 
         # Storing episode replay parameters
@@ -161,7 +158,7 @@ class StretchOnlineDemoEnv(StretchDemoBaseEnv):
 if __name__ == "__main__":
     import faulthandler
     faulthandler.enable()
-    from fair_home_robot.projects.stretch_continual.envs.stretch_live_env import StretchLiveEnv
+    from stretch_continual.envs.stretch_live_env import StretchLiveEnv
 
     base_dir = os.path.join(os.environ["DATASET_ROOT"], "demo_data/kitchen_test/offline_eval")
     demo_dir = f"{base_dir}/bottle_to_sink/3"
@@ -182,8 +179,8 @@ if __name__ == "__main__":
     #base_dir = os.path.join(os.environ["DATASET_ROOT"], "demo_data/kitchen_test/bottle_multi")
     #demo_dir = f"{base_dir}/pose_2/0"
 
-    env = StretchOfflineDemoEnv(demo_dir=demo_dir, camera_info_in_state=True, use_key_frames=True)
-    #env = StretchLiveEnv(demo_dir=demo_dir, camera_info_in_state=True)
+    #env = StretchOfflineDemoEnv(demo_dir=demo_dir, camera_info_in_state=True, use_key_frames=True)
+    env = StretchLiveEnv(demo_dir=demo_dir, camera_info_in_state=True)
     #env = StretchOnlineDemoEnv(output_file_dir=demo_dir, camera_info_in_state=True, record_key_frames=True)
     done = False
     env.reset()

@@ -1,9 +1,9 @@
 import uuid
 import numpy as np
 
-from home_robot.hardware.stretch_ros import HelloStretchIdx
-from home_robot.motion.robot import HelloStretch
+from home_robot.motion.stretch import HelloStretchIdx
 from stretch_continual.envs.stretch_demo_base_env import StretchDemoBaseEnv
+from home_robot.motion.stretch import HelloStretchKinematics
 
 
 class StretchOfflineDemoEnv(StretchDemoBaseEnv):
@@ -15,34 +15,25 @@ class StretchOfflineDemoEnv(StretchDemoBaseEnv):
         self._current_trajectory = None
         self._camera_info_in_state = camera_info_in_state
         self._use_key_frames = use_key_frames
-        self._model = None
         self._cached_camera_data = None
         self._single_step_trajectory = single_step_trajectory
         self._random_trajectory_start = True
         self._context_observation = None
         self._eval_pos_only = eval_pos_only
 
+        self._model = None
+
         self.observation_space, self.action_space = self.get_stretch_obs_and_action_space(self._camera_info_in_state)
 
     @property
     def model(self):
         if self._model is None:
-            robot_name = f"robot_{uuid.uuid4()}"
-            self._model = HelloStretch(name=robot_name, visualize=False, root="", urdf_path=self.urdf_path)
+            self._model = HelloStretchKinematics(urdf_path=self._urdf_path)
         return self._model
 
-    def _get_observation_for_timestep(self, trajectory, timestep, cache_camera, use_camera_cache, context_observation):
-        assert not (cache_camera and use_camera_cache), "Can't both recreate and use the camera cache"
-
+    def _get_observation_for_timestep(self, trajectory, timestep, context_observation):
         if self._camera_info_in_state:
-            if use_camera_cache:
-                color_camera_info, depth_camera_info, camera_pose = self._cached_camera_data
-            else:
-                color_camera_info, depth_camera_info, camera_pose = self.construct_camera_data_from_demo(trajectory, timestep=timestep)
-
-                if cache_camera:
-                    self._cached_camera_data = color_camera_info, depth_camera_info, camera_pose
-
+            color_camera_info, depth_camera_info, camera_pose = self._construct_camera_data_from_demo(trajectory, timestep=timestep)
         else:
             color_camera_info, depth_camera_info, camera_pose = None, None, None
 
@@ -57,6 +48,12 @@ class StretchOfflineDemoEnv(StretchDemoBaseEnv):
                                          model=self.model, context_observation=context_observation)
         return obs
 
+    def _construct_camera_data_from_demo(self, trajectory, timestep):
+        color_camera_info = {k: np.array(v)[timestep] for k, v in trajectory["color_camera_info"].items()}
+        depth_camera_info = {k: np.array(v)[timestep] for k, v in trajectory["depth_camera_info"].items()}
+        camera_pose = np.array(trajectory["camera_pose"][timestep])
+        return color_camera_info, depth_camera_info, camera_pose
+
     def reset(self, ensure_first=False):
         self._current_trajectory = self.randomly_select_traj_from_dir(self._demo_dir, only_key_frames=self._use_key_frames, cache=True)
 
@@ -68,11 +65,9 @@ class StretchOfflineDemoEnv(StretchDemoBaseEnv):
         # TODO: not caching camera here...
         if self._include_context:
             self._context_observation = self._get_observation_for_timestep(self._current_trajectory, timestep=0,
-                                                                           cache_camera=False, use_camera_cache=False,
                                                                            context_observation=None)
 
         initial_observation = self._get_observation_for_timestep(self._current_trajectory, timestep=self._current_timestep,
-                                                                 cache_camera=False, use_camera_cache=False,
                                                                  context_observation=self._context_observation)
         return initial_observation
 
@@ -104,7 +99,6 @@ class StretchOfflineDemoEnv(StretchDemoBaseEnv):
                 "eval_pos_only": self._eval_pos_only}
 
         obs = self._get_observation_for_timestep(self._current_trajectory, timestep=self._current_timestep,
-                                                 cache_camera=False, use_camera_cache=False,
                                                  context_observation=self._context_observation)
 
         reward = 0

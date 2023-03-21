@@ -8,9 +8,9 @@ import timeit
 import select
 import sys
 
-from home_robot.hardware.stretch_ros import HelloStretchROSInterface, HelloStretchIdx
-from home_robot.motion.robot import HelloStretch
 from stretch_continual.envs.stretch_demo_base_env import StretchDemoBaseEnv
+from home_robot.motion.stretch import HelloStretchIdx
+from home_robot_hw.remote.api import StretchClient
 
 
 # Returns the next observation from the demo, instead of the true observation from the robot. Useful for
@@ -22,7 +22,15 @@ class StretchLiveEnv(StretchDemoBaseEnv):
     """
     Initializes from a demo, and then runs the predicted actions on the real robot
     """
-    def __init__(self, demo_dir, camera_info_in_state=False, use_true_action=True, perturb_start_state=False, include_context=False):
+    exec_tol = np.array([1e-1, 1e-1, 0.01, # x y theta
+                         0.001, # lift
+                         0.01, # arm* 0.01
+                         0.01, # gripper* - 0.05
+                         0.015, 0.05, 0.015,  #wrist variables* 0.015 -- the wrist sometimes has trouble holding itself up...
+                         0.01, 0.01 # head  and tilt
+                         ])
+
+    def __init__(self, demo_dir, camera_info_in_state=False, use_true_action=False, perturb_start_state=False, include_context=False):
         super().__init__(initialize_ros=True, include_context=include_context)
 
         self._demo_dir = demo_dir
@@ -40,52 +48,24 @@ class StretchLiveEnv(StretchDemoBaseEnv):
                                      0, 0, 0,  # wrist roll, pitch, yaw
                                      0.1, 0])  # head pan and tilt
 
-        self._model = None
-        self._robot = None
+        self._client = None
 
         self._context_observation = None  # TODO: de-dupe with offline
         self.observation_space, self.action_space = self.get_stretch_obs_and_action_space(self._camera_info_in_state)
 
     @property
-    def robot(self):
-        if self._robot is None:
-            self._robot = HelloStretchROSInterface(init_cameras=True, model=self.model, depth_buffer_size=None)
-            rospy.sleep(5.0)  # Give the robot a little time to start up (specifically let the joint_state callback fire) - TODO: hacky, testing. Do it more purposefully
-
-        return self._robot
+    def client(self):
+        if self._client is None:
+            self._client = StretchClient(urdf_path=self._urdf_path, init_node=self._initialize_ros)
+            self._client.switch_to_manipulation_mode()
+        return self._client
 
     @property
     def model(self):
-        if self._model is None:
-            robot_name = f"robot_{uuid.uuid4()}"
-            self._model = HelloStretch(name=robot_name, visualize=False, root="", urdf_path=self.urdf_path)
-        return self._model
+        return self.client.robot_model
 
     def _get_robot_pose(self):
-        return self.robot.pos
-
-    def _safe_goto_pose(self, goal_pose):
-        current_pose = self.robot.pos
-        stash_pos = np.array(
-            [0.00000000e+00, 0.00000000e+00, 0.00000000e+00, 6.00262851e-01, 1.00017558e-01, 9.35872167e-05,
-             -3.06796158e-03, -1.38058271e-02, 3.11973343e+00, -8.96607323e-02, 5.06114632e-02])
-
-        # Rotate the wrist so it's out of the way
-        #current_pose[HelloStretchIdx.WRIST_YAW] = stash_pos[HelloStretchIdx.WRIST_YAW]
-        #current_pose[HelloStretchIdx.WRIST_ROLL] = stash_pos[HelloStretchIdx.WRIST_ROLL]
-        #current_pose[HelloStretchIdx.WRIST_PITCH] = stash_pos[HelloStretchIdx.WRIST_PITCH]
-        #self.robot.goto(current_pose, max_wait_t=2)
-
-        # Retract the arm
-        #current_pose[HelloStretchIdx.ARM] = stash_pos[HelloStretchIdx.ARM]
-        #self.robot.goto(current_pose, max_wait_t=2)
-
-        # Move the robot to the right lift location
-        #current_pose[HelloStretchIdx.LIFT] = goal_pose[HelloStretchIdx.LIFT]
-        #self.robot.goto(current_pose, max_wait_t=2)
-
-        # Move the robot into the final goal position
-        self.robot.goto(goal_pose, max_wait_t=2)
+        return self.client.robot_joint_pos
 
     def _get_observation_for_timestep(self, trajectory, timestep, cache_camera, use_camera_cache, context_observation):
         assert not (cache_camera and use_camera_cache), "Can't both recreate and use the camera cache"
@@ -95,7 +75,7 @@ class StretchLiveEnv(StretchDemoBaseEnv):
             if use_camera_cache:
                 color_camera_info, depth_camera_info, camera_pose = self._cached_camera_data
             else:
-                color_camera_info, depth_camera_info, camera_pose = self.construct_camera_data_from_robot(self.robot)
+                color_camera_info, depth_camera_info, camera_pose = self.construct_camera_data_from_robot(self.client)
 
                 if cache_camera:
                     self._cached_camera_data = color_camera_info, depth_camera_info, camera_pose
@@ -103,8 +83,8 @@ class StretchLiveEnv(StretchDemoBaseEnv):
         else:
             color_camera_info, depth_camera_info, camera_pose = None, None, None
 
-        rgb, depth = self.get_images_from_robot(self.robot)
-        pos = self._robot.pos
+        rgb, depth = self.get_images_from_robot(self.client)
+        pos = self._get_robot_pose()
 
         if DEBUG:
             rgb = self.get_numpy_image(self._current_trajectory['rgb'][f"0"])
@@ -121,6 +101,20 @@ class StretchLiveEnv(StretchDemoBaseEnv):
                                          model=self.model, context_observation=context_observation)
         return obs
 
+    def _goto(self, pose):
+        # We store the full joint angles, but the client expects [Base translation, lift, arm, yaw, pitch, roll],
+        # so translate
+        reduced_pose = np.array([pose[HelloStretchIdx.BASE_X],
+                                 pose[HelloStretchIdx.LIFT],
+                                 pose[HelloStretchIdx.ARM],
+                                 pose[HelloStretchIdx.WRIST_YAW],
+                                 pose[HelloStretchIdx.WRIST_PITCH],
+                                 pose[HelloStretchIdx.WRIST_ROLL]])
+        gripper = pose[HelloStretchIdx.GRIPPER]
+
+        self.client.manip.goto_joint_positions(reduced_pose)
+        self.client.manip.move_gripper(gripper)
+
     def reset(self, ensure_first=True):
         self._current_trajectory = self.randomly_select_traj_from_dir(self._demo_dir, only_key_frames=self._use_key_frames, cache=True)
         self._current_timestep = 0
@@ -133,8 +127,7 @@ class StretchLiveEnv(StretchDemoBaseEnv):
         go_to_pose = True
 
         while go_to_pose:
-            self._safe_goto_pose(pose)
-            #self.robot.goto(pose, max_wait_t=2.0)
+            self._goto(pose)
             time.sleep(1)
             command = input("Robot in a good state to start? (r to retry)")
             go_to_pose = "r" in command.lower()
@@ -171,44 +164,22 @@ class StretchLiveEnv(StretchDemoBaseEnv):
 
         return done, continue_to_next
 
-    def _interpolate_robot_to_in_3space(self, goal_joints, goal_gripper, original_head_pan, original_head_tilt):
-        # Very naive (TODO) interpolation in coordinate space -- very jerky
-        num_steps = 4
-        current_pose = self.gripper_fk(self.model, self._robot.pos)
-        goal_pose = self.gripper_fk(self.model, goal_joints)
-        delta_pose = ((goal_pose[0] - current_pose[0])/num_steps, (goal_pose[1] - current_pose[1])/num_steps)
-        original_gripper = self._robot.pos[-1]
-        delta_gripper = (goal_gripper - original_gripper)/num_steps
-        err = 0
-        next_q = None
-
-        for step_id in range(num_steps):
-            next_pose = (current_pose[0] + (step_id + 1) * delta_pose[0], current_pose[1] + step_id * delta_pose[1])
-            next_joints = self.gripper_ik(self.model, *next_pose, self._robot.pos)
-
-            next_joints[HelloStretchIdx.GRIPPER] = original_gripper + step_id * delta_gripper
-            next_joints[HelloStretchIdx.HEAD_PAN] = original_head_pan
-            next_joints[HelloStretchIdx.HEAD_TILT] = original_head_tilt
-
-            next_q, err = self.robot.goto(next_joints, max_wait_t=1.0/num_steps)
-
-        return next_q, err
-
     def _interpolate_robot_to_in_joint_space(self, goal_joints):
         # Very naive (TODO) interpolation in joint space
         num_steps = 10
-        original_joints = self._robot.pos
-        delta_joints = (goal_joints - self._robot.pos)/num_steps
+        original_joints = self._get_robot_pose()
+        delta_joints = (goal_joints - original_joints)/num_steps
 
         # If our delta is "sufficiently large", step through the intermediate poses
-        if np.any(np.abs(delta_joints) > self.robot.exec_tol):
+        if np.any(np.abs(delta_joints) > self.exec_tol):
             for step_id in range(1, num_steps):
                 next_joints = original_joints + step_id * delta_joints
-                self.robot.goto(next_joints, max_wait_t=0.5)
+                self._goto(next_joints)
 
         # Step to the desired end state regardless
-        next_q, err = self.robot.goto(goal_joints, max_wait_t=1.0)
-        return next_q, err
+        self._goto(goal_joints)
+        current_pose = self._get_robot_pose()
+        return current_pose
 
     def step(self, action):
         print("==========================STEP START================================")
@@ -235,7 +206,7 @@ class StretchLiveEnv(StretchDemoBaseEnv):
             rot = trimesh.util.unitize(rot)
             print(f"EE (after norm) pos {pos}, rot: {rot}")
             print(f"q0 (robot pose): {self._get_robot_pose()}")
-            action = self.gripper_ik(self.model, pos, rot, current_joints=self._get_robot_pose())
+            action = self.gripper_ik(self.client, pos, rot, current_joints=self._get_robot_pose())
             print(f"PB Action: {action}")
 
             if action is None:
@@ -267,7 +238,7 @@ class StretchLiveEnv(StretchDemoBaseEnv):
 
             # If each dimension is either close enough, or effectively stationary, move on
             while not done and not end_action and timeit.default_timer() - start_time < max_seconds and \
-                    (err is None or last_q is None or np.any(np.logical_and(err > self.robot.exec_tol, np.abs(next_q - last_q) > self.robot.exec_tol/10))):
+                    (err is None or last_q is None or np.any(np.logical_and(err > self.exec_tol, np.abs(next_q - last_q) > self.exec_tol/10))):
                 last_q = next_q
                 next_q, err = self._interpolate_robot_to_in_joint_space(action) #, gripper, original_head_pan, original_head_tilt)
                 #next_q, err = self.robot.goto(action, max_wait_t=1.0)

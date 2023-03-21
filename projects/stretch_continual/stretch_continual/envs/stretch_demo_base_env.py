@@ -8,7 +8,7 @@ import time
 import tempfile
 
 from data_tools.image import img_from_bytes
-from home_robot.hardware.stretch_ros import HelloStretchROSInterface, HelloStretchIdx
+from home_robot.motion.stretch import HelloStretchIdx
 
 
 CAMERA_FAR_PLANE = 1  # m
@@ -35,21 +35,22 @@ class StretchDemoBaseEnv(gym.Env):
 
     def __init__(self, initialize_ros, include_context):
         super().__init__()
-        self.urdf_path = os.path.join(STRETCH_URDF_DIR, "planner_calibrated_simplified_fixed_base.urdf")  # TODO: pass in urdf path
+        self._urdf_path = STRETCH_URDF_DIR  #os.path.join(STRETCH_URDF_DIR, "planner_calibrated_simplified_fixed_base.urdf")  # TODO: pass in urdf path
+        self._initialize_ros = initialize_ros  # TODO: remove?
         self._include_context = include_context
         self._trajectory_cache = {"linked_files": {}}
 
-        if initialize_ros and not self.NODE_INITIALIZED:
-            self.initialize_ros_node()
+        #if initialize_ros and not self.NODE_INITIALIZED:
+        #    self.initialize_ros_node()
 
-    @classmethod
+    """@classmethod
     def initialize_ros_node(cls):
         name = rospy.get_name()
         if "unnamed" in name:
             timestamp = datetime.datetime.now().timestamp()  # TODO: fractions make dupes less likely, but also are technically not-ROS-y and might die
             rospy.get_master().getPid()
             rospy.init_node(f"demo_env_{timestamp}".replace(".", "_"))
-        cls.NODE_INITIALIZED = True
+        cls.NODE_INITIALIZED = True"""
 
     def _recursive_listdir(self, directory):
         # From: https://stackoverflow.com/questions/19309667/recursive-os-listdir
@@ -162,8 +163,9 @@ class StretchDemoBaseEnv(gym.Env):
         return joint_angles
 
     def gripper_fk(self, model, pose):
-        pin_pose = self.convert_ros_pose_to_pinocchio(pose)
-        ee_pos, ee_rot = model.fk(pin_pose)
+        #pin_pose = self.convert_ros_pose_to_pinocchio(pose)
+        pose = pose.copy()  # TODO: something is being changed in-place, this prevents that.  I think it's been fixed so...check and remove
+        ee_pos, ee_rot = model.fk(pose)
         gripper_pos, gripper_rot = ee_pos.copy(), ee_rot.copy()  # TODO: something is being changed in-place, this prevents that
         return gripper_pos, gripper_rot
 
@@ -237,12 +239,6 @@ class StretchDemoBaseEnv(gym.Env):
              "state_vector": gym.spaces.Box(low=-1, high=1, shape=(state_size,))})  # TODO: low/high? Esp for x, y (7 > 2pi)
         action_space = gym.spaces.Box(low=-50, high=50, shape=(action_size,))  # TODO: low and high - the high is based on brief observation - TODO: not currently used
         return observation_space, action_space
-
-    def construct_camera_data_from_demo(self, trajectory, timestep):
-        color_camera_info = {k: np.array(v)[timestep] for k, v in trajectory["color_camera_info"].items()}
-        depth_camera_info = {k: np.array(v)[timestep] for k, v in trajectory["depth_camera_info"].items()}
-        camera_pose = np.array(trajectory["camera_pose"][timestep])
-        return color_camera_info, depth_camera_info, camera_pose
 
     def construct_camera_data_from_robot(self, robot):
         color_camera_info = {"D": robot.rgb_cam.D, "K": robot.rgb_cam.K, "R": robot.rgb_cam.R, "P": robot.rgb_cam.P}

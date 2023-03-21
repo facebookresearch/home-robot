@@ -104,7 +104,7 @@ class StretchManipulationClient(AbstractControlModule):
         Args:
             joint_positions: List of length 6 containing desired joint positions
             relative_base: Whether the base joint moves relative to current base position
-            blocking: Whether command blocks until completetion
+            blocking: Whether command blocks until completion
         """
         assert len(joint_positions) == 6, "Joint position vector must be of length 6."
 
