@@ -266,7 +266,7 @@ class Categorical2DSemanticMapModule(nn.Module):
             # For habitat - pull x angle
             # tilt = angles[:, -1]
             # For real robot
-            tilt = angles[:, 1]  # - np.pi / 2
+            tilt = angles[:, 1]
 
             # Get the agent pose
             # hab_agent_height = camera_pose[:, 1, 3] * 100
