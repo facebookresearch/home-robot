@@ -209,21 +209,6 @@ class RLBenchDataset(DatasetBase):
             print("rgb", rgb.shape)
             show_point_cloud(xyz, rgb)
 
-        # TODO: remove deadcode
-        # debug_og = False
-        # if debug_og:
-        #     print(f"OG point-cloud has {xyz.shape} points")
-        #     rgb_ims = []
-        #     for view in ["overhead", "left", "right", "front"]:
-        #         view_name = view + "_rgb"
-        #         rgb_ims.append(trial[view_name][idx])
-        #     f, axarr = plt.subplots(2, 2)
-        #     axarr[0, 0].imshow(rgb_ims[0])
-        #     axarr[0, 1].imshow(rgb_ims[1])
-        #     axarr[1, 0].imshow(rgb_ims[2])
-        #     axarr[1, 1].imshow(rgb_ims[3])
-        #     plt.show()
-
         xyz, rgb = xyz.reshape(-1, 3), rgb.reshape(-1, 3)
         # voxelize at a granular voxel-size rather than random downsample
         pcd = numpy_to_pcd(xyz, rgb)

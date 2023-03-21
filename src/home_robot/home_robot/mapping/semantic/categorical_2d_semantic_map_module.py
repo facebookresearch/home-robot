@@ -257,7 +257,7 @@ class Categorical2DSemanticMapModule(nn.Module):
                 :, -1
             ]
         else:
-            tilt = 0
+            tilt = torch.zeros(batch_size)
         depth = obs[:, 3, :, :].float()
         point_cloud_t = du.get_point_cloud_from_z_t(
             depth, self.camera_matrix, device, scale=self.du_scale

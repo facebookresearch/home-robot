@@ -54,8 +54,8 @@ class EpisodeManager(object):
 
     def toggle_episode(self):
         """toggles episode recording state
-        Note: This script automatically collects a keyframe at the end when
-        episode is terminated. It doesn't require the last frame to be explicitly marked as a keyframe
+        Note: This script automatically collects a keyframe at the beginning when
+        episode is started. Every frame to be considered for task should be explicitly marked as keyframe
         """
         if not self._is_recording:
             self._is_recording = True

@@ -21,6 +21,7 @@ temp/
 docs_build/
 viz/
 datasets/
+scene_datasets/
 datadump/
 
 # Git stuff
