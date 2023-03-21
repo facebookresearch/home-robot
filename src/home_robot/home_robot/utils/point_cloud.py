@@ -49,10 +49,10 @@ def show_pcd(
     grasps: list = None,
 ):
     geoms = create_visualization_geometries(pcd=pcd, orig=orig, R=R, grasps=grasps)
-    o3d.visualization.draw_geometries(geoms, output_path=save)
+    o3d.visualization.draw_geometries(geoms)
 
     if save is not None:
-        save_geometries_as_image(geoms)
+        save_geometries_as_image(geoms, output_path=save)
 
 
 def create_visualization_geometries(pcd=None, xyz=None, rgb=None, orig=None, R=None, size=1.0,
@@ -114,15 +114,10 @@ def save_geometries_as_image(geoms, camera_extrinsic=None, look_at_point=None, o
     """
     Helper function to allow manipulation of the camera to get a better image of the point cloud.
     """
-
     vis = o3d.visualization.Visualizer()
     vis.create_window()
 
     for geom in geoms:
-        # Note: the point cloud is rotated by 90 degrees from expected -- possibly due to a mismatch in notation
-        rotation_matrix = geom.get_rotation_matrix_from_xyz((0, 0, -np.pi/2))
-        geom.rotate(rotation_matrix, center=look_at_point)
-
         vis.add_geometry(geom)
         vis.update_geometry(geom)
 
@@ -130,7 +125,12 @@ def save_geometries_as_image(geoms, camera_extrinsic=None, look_at_point=None, o
     camera_params = view_control.convert_to_pinhole_camera_parameters()
 
     if camera_extrinsic is not None:
-        camera_params.extrinsic = camera_extrinsic
+        # The extrinsic seems to have a different convention - switch from our camera to open3d's version
+        camera_extrinsic_o3d = camera_extrinsic.copy()
+        camera_extrinsic_o3d[:3, :3] = np.matmul(camera_extrinsic_o3d[:3, :3], np.array([[0, 1, 0], [-1, 0, 0], [0, 0, 1]]))
+        camera_extrinsic_o3d[:, 3] = np.matmul(camera_extrinsic_o3d[:, 3], np.array([[1, 0, 0, 0], [0, 0, -1, 0], [0, 1, 0, 0], [0, 0, 0, 1]]))
+
+        camera_params.extrinsic = camera_extrinsic_o3d
         view_control.convert_from_pinhole_camera_parameters(camera_params)
 
     if look_at_point is not None:

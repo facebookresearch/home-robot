@@ -8,6 +8,7 @@ import open3d as o3d
 import trimesh.transformations as tra
 import torch
 from torch_geometric.nn.pool.voxel_grid import voxel_grid
+from home_robot.utils.image import Camera
 
 
 def depth_to_xyz(depth, camera: Camera):
