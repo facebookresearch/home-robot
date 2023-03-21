@@ -22,6 +22,8 @@ class DiscretePlanner:
     """
     This class translates planner inputs into a discrete low-level action
     using an FMM planner.
+
+    This is a wrapper used to navigate to a particular object/goal location.
     """
 
     def __init__(
@@ -151,9 +153,20 @@ class DiscretePlanner:
 
         # High-level goal -> short-term goal
         # t0 = time.time()
+        # Extracts a local waypoint
+        # Defined by the step size - should be relatively close to the robot
         short_term_goal, closest_goal_map, replan, stop = self._get_short_term_goal(
             obstacle_map, np.copy(goal_map), start, planning_window
         )
+        # Short term goal is in cm, start_x and start_y are in m
+        debug = True
+        if debug:
+            print("Current pose:", start)
+            print("Short term goal:", short_term_goal)
+            dist_to_short_term_goal = np.linalg.norm(
+                np.array(start) - np.array(short_term_goal[:2])
+            )
+            print("Distance:", dist_to_short_term_goal)
         # t1 = time.time()
         # print(f"[Planning] get_short_term_goal() time: {t1 - t0}")
 
@@ -174,13 +187,29 @@ class DiscretePlanner:
         angle_agent = pu.normalize_angle(start_o)
         relative_angle = pu.normalize_angle(angle_agent - angle_st_goal)
 
+        # Sample a goal in the goal map
+        goal_x, goal_y = np.nonzero(closest_goal_map)
+        idx = np.random.randint(len(goal_x))
+        goal_x, goal_y = goal_x[idx], goal_y[idx]
+        angle_goal = math.degrees(math.atan2(goal_x - start[0], goal_y - start[1]))
+        angle_goal = pu.normalize_angle(angle_goal)
+        relative_angle_goal = pu.normalize_angle(angle_agent - angle_goal)
+
         # Short-term goal -> deterministic local policy
         if relative_angle > self.turn_angle / 2.0:
             action = DiscreteNavigationAction.TURN_RIGHT
         elif relative_angle < -self.turn_angle / 2.0:
             action = DiscreteNavigationAction.TURN_LEFT
         elif stop and found_goal:
-            action = DiscreteNavigationAction.STOP
+            # Try to orient towards the goal object - or at least any point sampled from the goal
+            # object.
+            print(">>> orient towards the goal.")
+            if relative_angle_goal > self.turn_angle / 2.0:
+                action = DiscreteNavigationAction.TURN_RIGHT
+            elif relative_angle_goal < -self.turn_angle / 2.0:
+                action = DiscreteNavigationAction.TURN_LEFT
+            else:
+                action = DiscreteNavigationAction.STOP
         else:
             action = DiscreteNavigationAction.MOVE_FORWARD
 
