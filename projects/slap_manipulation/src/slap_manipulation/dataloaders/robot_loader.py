@@ -26,6 +26,7 @@ from home_robot.utils.point_cloud import (
     depth_to_xyz,
     dropout_random_ellipses,
     numpy_to_pcd,
+    show_point_cloud,
 )
 
 REAL_WORLD_CATEGORIES = [
@@ -56,7 +57,7 @@ def show_point_cloud_with_keypt_and_closest_pt(
         closest_pt: (3x1 vector) labeled interaction point
     """
     if np.any(rgb) > 1:
-        rgb = rgb / 255.0
+        rgb = rgb / np.max(rgb)
     pcd = numpy_to_pcd(xyz, rgb)
     geoms = [pcd]
     if keyframe_orig is not None:
@@ -273,8 +274,7 @@ class RobotDataset(RLBenchDataset):
             idx:        index of the image
         """
         rgb = trial.get_img(view_name + "_rgb", idx, rgb=True)
-        depth = trial.get_img(view_name + "_depth", idx, depth=True, depth_factor=1000)
-        xyz = None
+        depth = trial.get_img(view_name + "_depth", idx, depth=True, depth_factor=10000)
         if self._robot == "stretch":
             xyz = trial[view_name + "_xyz"][idx]
         # rgb_img = rgb.copy()
@@ -319,11 +319,13 @@ class RobotDataset(RLBenchDataset):
                 gp_rescale_factor_range=[12, 20],
                 gaussian_scale_range=[0.0, 0.001],
             )
+        H, W, C = xyz.shape
+        xyz = xyz.reshape(-1, C)
+
+        # TODO: transform points wrt camera_matrix of Stretch
 
         if self._robot == "franka":
             # transform the resultant x,y,z to robot-frame
-            H, W, C = xyz.shape
-            xyz = xyz.reshape(-1, C)
             # Now it is in world frame
             xyz = trimesh.transform_points(xyz, camera_matrix)
             # xyz = xyz.reshape(H, W, C)
@@ -336,10 +338,15 @@ class RobotDataset(RLBenchDataset):
                 ee_pose = tra.quaternion_matrix([w, x, y, z])
                 ee_pose[:3, 3] = pos
                 xyz = trimesh.transform_points(xyz, ee_pose)
+        elif self._robot == "stretch":
+            camera_matrix = trial["camera_pose"][idx]
+            xyz = trimesh.transform_points(xyz, camera_matrix)
+        breakpoint()
 
         # downsample point-cloud by distance (heuristic)
         rgb = rgb.reshape(-1, C)
         depth = depth.reshape(-1)
+        xyz = xyz.reshape(-1, C)
         mask = np.bitwise_and(depth < 1.5, depth > 0.3)
         rgb = rgb[mask]
         xyz = xyz[mask]
@@ -495,11 +502,15 @@ class RobotDataset(RLBenchDataset):
                 rgbs.append(v_rgb)
                 xyzs.append(v_xyz)
 
-        # randomly dropout 1/3rd of the point-clouds
-        # TODO: update this to dropout each frame with 0.33 probability
-        idx_dropout = np.random.choice([False, True], size=len(rgbs), p=[0.33, 0.67])
-        rgbs = [rgbs[i] for i in idx_dropout]
-        xyzs = [xyzs[i] for i in idx_dropout]
+        drop_frames = False  # TODO: get this from cfg
+        if drop_frames:
+            # randomly dropout 1/3rd of the point-clouds
+            # TODO: update this to dropout each frame with 0.33 probability
+            idx_dropout = np.random.choice(
+                [False, True], size=len(rgbs), p=[0.33, 0.67]
+            )
+            rgbs = [rgbs[i] for i in idx_dropout]
+            xyzs = [xyzs[i] for i in idx_dropout]
         rgb = np.concatenate(rgbs, axis=0)
         xyz = np.concatenate(xyzs, axis=0)
         z_mask = xyz[:, 2] > 0.0
@@ -731,7 +742,7 @@ def show_all_keypoints(data_dir, split, template, robot):
             num_keypt = trial.num_keypoints
             for i in range(num_keypt):
                 print("Keypoint requested: ", i)
-                data = loader.get_datum(trial, i, verbose=False)
+                print(loader.get_datum(trial, i, verbose=False))
             # data = loader.get_datum(trial, 1, verbose=False)
 
 
