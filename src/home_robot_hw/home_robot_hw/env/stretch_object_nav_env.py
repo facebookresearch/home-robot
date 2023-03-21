@@ -5,7 +5,6 @@ import rospy
 
 import home_robot
 from home_robot.core.interfaces import Action, DiscreteNavigationAction, Observations
-from home_robot.motion.stretch import STRETCH_HOME_Q
 from home_robot.motion.stretch import STRETCH_NAVIGATION_Q, HelloStretchKinematics
 from home_robot.perception.detection.detic.detic_perception import DeticPerception
 from home_robot.utils.geometry import xyt2sophus, xyt_base_to_global
@@ -54,7 +53,6 @@ class StretchObjectNavEnv(StretchEnv):
         self._episode_start_pose = xyt2sophus(self.get_base_pose())
         if self.visualizer is not None:
             self.visualizer.reset()
-        self.goto(STRETCH_HOME_Q)
 
         # Switch control mode on the robot to nav
         self.switch_to_navigation_mode()
