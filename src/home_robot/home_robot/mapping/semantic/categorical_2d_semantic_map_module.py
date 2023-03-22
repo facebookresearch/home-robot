@@ -253,8 +253,8 @@ class Categorical2DSemanticMapModule(nn.Module):
         batch_size, obs_channels, h, w = obs.size()
         device, dtype = obs.device, obs.dtype
         if camera_pose is not None:
-            tilt = pt.matrix_to_euler_angles(camera_pose[:, :3, :3], convention="YZX")[
-                :, -1
+            tilt = pt.matrix_to_euler_angles(camera_pose[:, :3, :3], convention="ZYX")[
+                :, 1
             ]
         else:
             tilt = 0
@@ -263,7 +263,7 @@ class Categorical2DSemanticMapModule(nn.Module):
             depth, self.camera_matrix, device, scale=self.du_scale
         )
         if camera_pose is not None:
-            agent_height = camera_pose[:, 1, 3] * 100
+            agent_height = camera_pose[:, 2, 3] * 100
         else:
             agent_height = self.agent_height
 

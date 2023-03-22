@@ -80,6 +80,7 @@ class ObjectNavAgent(Agent):
         pose_delta: torch.Tensor,
         object_goal_category: torch.Tensor = None,
         recep_goal_category: torch.Tensor = None,
+        nav_to_recep: torch.Tensor = None,
         camera_pose: torch.Tensor = None,
     ) -> Tuple[List[dict], List[dict]]:
         """Prepare low-level planner inputs from an observation - this is
@@ -122,7 +123,6 @@ class ObjectNavAgent(Agent):
             object_goal_category = object_goal_category.unsqueeze(1)
         if recep_goal_category is not None:
             recep_goal_category = recep_goal_category.unsqueeze(1)
-
         (
             goal_map,
             found_goal,
@@ -146,6 +146,7 @@ class ObjectNavAgent(Agent):
             self.semantic_map.origins,
             seq_object_goal_category=object_goal_category,
             seq_recep_goal_category=recep_goal_category,
+            seq_nav_to_recep=nav_to_recep,
         )
 
         self.semantic_map.local_pose = seq_local_pose[:, -1]
@@ -196,6 +197,8 @@ class ObjectNavAgent(Agent):
         self.timesteps_before_goal_update = [0] * self.num_environments
         self.last_poses = [np.zeros(3)] * self.num_environments
         self.semantic_map.init_map_and_pose()
+        self.episode_panorama_start_steps = self.panorama_start_steps
+        self.planner.reset()
 
     def reset_vectorized_for_env(self, e: int):
         """Initialize agent state for a specific environment."""
@@ -203,6 +206,8 @@ class ObjectNavAgent(Agent):
         self.timesteps_before_goal_update[e] = 0
         self.last_poses[e] = np.zeros(3)
         self.semantic_map.init_map_and_pose_for_env(e)
+        self.episode_panorama_start_steps = self.panorama_start_steps
+        self.planner.reset()
 
     # ---------------------------------------------------------------------
     # Inference methods to interact with the robot or a single un-vectorized
@@ -213,7 +218,9 @@ class ObjectNavAgent(Agent):
         """Initialize agent state."""
         self.reset_vectorized()
         self.planner.reset()
-        self.episode_panorama_start_steps = self.panorama_start_steps
+
+    def get_nav_to_recep(self):
+        return None
 
     def act(self, obs: Observations) -> Tuple[DiscreteNavigationAction, Dict[str, Any]]:
         """Act end-to-end."""
@@ -239,6 +246,7 @@ class ObjectNavAgent(Agent):
             object_goal_category=object_goal_category,
             recep_goal_category=recep_goal_category,
             camera_pose=camera_pose,
+            nav_to_recep=self.get_nav_to_recep(),
         )
 
         # t2 = time.time()

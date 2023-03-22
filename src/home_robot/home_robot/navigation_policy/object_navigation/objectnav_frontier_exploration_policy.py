@@ -42,14 +42,16 @@ class ObjectNavFrontierExplorationPolicy(nn.Module):
     def goal_update_steps(self):
         return 1
 
-    def forward(self, map_features, object_category=None, recep_category=None):
+    def forward(
+        self, map_features, object_category=None, recep_category=None, nav_to_recep=None
+    ):
         """
         Arguments:
             map_features: semantic map features of shape
              (batch_size, 9 + num_sem_categories, M, M)
             object_category: object goal category
             recep_category: receptacle goal category
-
+            nav_to_recep: If both object_category and recep_category are specified, whether to navigate to receptacle
         Returns:
             goal_map: binary map encoding goal(s) of shape (batch_size, M, M)
             found_goal: binary variables to denote whether we found the object
@@ -57,24 +59,48 @@ class ObjectNavFrontierExplorationPolicy(nn.Module):
         """
         assert object_category is not None or recep_category is not None
         if object_category is not None and recep_category is not None:
-            # First check if object (small goal) and recep category are in the same cell of the map. if found, set it as a goal
-            goal_map, found_goal = self.reach_goal_if_in_map(
-                map_features,
-                recep_category,
-                small_goal_category=object_category,
-            )
-            # Then check if the recep category exists in the map. if found, set it as a goal
-            goal_map, found_rec_goal = self.reach_goal_if_in_map(
-                map_features,
-                recep_category,
-                reject_visited_regions=True,
-                goal_map=goal_map,
-                found_goal=found_goal,
-            )
-            # Otherwise, set closest frontier as the goal
-            goal_map = self.explore_otherwise(map_features, goal_map, found_rec_goal)
-            return goal_map, found_goal
-
+            if nav_to_recep is None:
+                nav_to_recep = torch.tensor([0] ** map_features.shape[0])
+            # there is at least one instance in the batch where the goal is object
+            if nav_to_recep.sum() < map_features.shape[0]:
+                # First check if object (small goal) and recep category are in the same cell of the map. if found, set it as a goal
+                goal_map, found_goal = self.reach_goal_if_in_map(
+                    map_features,
+                    recep_category,
+                    small_goal_category=object_category,
+                )
+                # Then check if the recep category exists in the map. if found, set it as a goal
+                goal_map, found_rec_goal = self.reach_goal_if_in_map(
+                    map_features,
+                    recep_category,
+                    reject_visited_regions=True,
+                    goal_map=goal_map,
+                    found_goal=found_goal,
+                )
+                # Otherwise, set closest frontier as the goal
+                goal_map_1 = self.explore_otherwise(
+                    map_features, goal_map, found_rec_goal
+                )
+                found_goal_1 = found_goal
+            # there is at least one instance in the batch where the goal is receptacle
+            elif nav_to_recep.sum() > 0:
+                # if the goal is found, reach it
+                goal_map, found_goal = self.reach_goal_if_in_map(
+                    map_features, recep_category
+                )
+                # otherwise, do frontier exploration
+                goal_map_2 = self.explore_otherwise(map_features, goal_map, found_goal)
+                found_goal_2 = found_goal
+            if nav_to_recep.sum() == 0:
+                return goal_map_1, found_goal_1
+            elif nav_to_recep.sum() == map_features.shape[0]:
+                return goal_map_2, found_goal_2
+            else:
+                goal_map = goal_map_2 * nav_to_recep + (1 - nav_to_recep) * goal_map_1
+                found_goal = (
+                    found_goal_2 * nav_to_recep + (1 - nav_to_recep) * found_goal_1
+                )
+                return goal_map, found_goal
         else:
             # Here, the goal is specified by a single object or receptacle to navigate to with no additional constraints (eg. the given object can be on any receptacle)
             goal_category = (

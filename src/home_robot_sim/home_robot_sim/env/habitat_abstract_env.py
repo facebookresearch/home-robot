@@ -1,11 +1,14 @@
 from abc import abstractmethod
-from typing import Any, Dict, Optional
+from typing import Any, Dict, Optional, TypeVar
 
 import habitat
 import numpy as np
+from gym import spaces
 
 import home_robot
 import home_robot.core.abstract_env
+
+ActType = TypeVar("ActType")
 
 
 class HabitatEnv(home_robot.core.abstract_env.Env):
@@ -24,6 +27,7 @@ class HabitatEnv(home_robot.core.abstract_env.Env):
 
     def reset(self):
         self._last_obs = self._preprocess_obs(self.habitat_env.reset())
+        return self._last_obs
 
     def apply_action(
         self,
@@ -69,3 +73,28 @@ class HabitatEnv(home_robot.core.abstract_env.Env):
     def _process_info(self, info: Dict[str, Any]) -> Any:
         """Process info given along with the action."""
         pass
+
+    @property
+    def observation_space(self):
+        return self.habitat_env.observation_space
+
+    def close(self):
+        return self.habitat_env.close()
+
+    def seed(self, seed=None):
+        return self.habitat_env.seed(seed)
+
+    @property
+    def action_space(self) -> spaces.Space[ActType]:
+        return self.habitat_env.action_space
+
+    def current_episode(self, all_info: bool = False) -> int:
+        return self.habitat_env.current_episode(all_info)
+
+    @property
+    def number_of_episodes(self) -> int:
+        return self.habitat_env.number_of_episodes
+
+    @property
+    def original_action_space(self) -> spaces.space:
+        return self.habitat_env.original_action_space

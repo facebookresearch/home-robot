@@ -50,6 +50,7 @@ class ObjectNavAgentModule(nn.Module):
         init_origins,
         seq_object_goal_category=None,
         seq_recep_goal_category=None,
+        seq_nav_to_recep=None,
     ):
         """Update maps and poses with a sequence of observations, and predict
         high-level goals from map features.
@@ -133,7 +134,10 @@ class ObjectNavAgentModule(nn.Module):
         if seq_recep_goal_category is not None:
             seq_recep_goal_category = seq_recep_goal_category.flatten(0, 1)
         goal_map, found_goal = self.policy(
-            map_features, seq_object_goal_category, seq_recep_goal_category
+            map_features,
+            seq_object_goal_category,
+            seq_recep_goal_category,
+            seq_nav_to_recep,
         )
         seq_goal_map = goal_map.view(batch_size, sequence_length, *goal_map.shape[-2:])
         seq_found_goal = found_goal.view(batch_size, sequence_length)

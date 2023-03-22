@@ -1,8 +1,10 @@
+import os
 from typing import Any, Dict, List, Optional, Tuple, Union, cast
 
 import habitat
 import numpy as np
 import torch
+from habitat.core.environments import GymHabitatEnv
 from habitat.core.simulator import Observations
 from skimage import color
 from torch import Tensor
@@ -21,7 +23,7 @@ from home_robot_sim.env.habitat_objectnav_env.visualizer import Visualizer
 class HabitatOpenVocabManipEnv(HabitatEnv):
     semantic_category_mapping: Union[RearrangeCategories]
 
-    def __init__(self, habitat_env: habitat.core.env.Env, config):
+    def __init__(self, habitat_env: habitat.core.env.Env, config, dataset):
         super().__init__(habitat_env)
         self.min_depth = config.ENVIRONMENT.min_depth
         self.max_depth = config.ENVIRONMENT.max_depth
@@ -29,6 +31,8 @@ class HabitatOpenVocabManipEnv(HabitatEnv):
         self.visualizer = Visualizer(config)
         self.goal_type = config.habitat.task.goal_type
         self.episodes_data_path = config.habitat.dataset.data_path
+        self._dataset = dataset
+        self.video_dir = config.habitat_baselines.video_dir
         assert (
             "floorplanner" in self.episodes_data_path
             or "hm3d" in self.episodes_data_path
@@ -37,27 +41,10 @@ class HabitatOpenVocabManipEnv(HabitatEnv):
 
         if "floorplanner" in self.episodes_data_path:
             self.semantic_category_mapping = RearrangeCategories()
-            self._obj_name_to_id_mapping = {
-                "action_figure": 0,
-                "cup": 1,
-                "dishtowel": 2,
-                "hat": 3,
-                "sponge": 4,
-                "stuffed_toy": 5,
-                "tape": 6,
-                "vase": 7,
-            }
-            self._rec_name_to_id_mapping = {
-                "armchair": 0,
-                "armoire": 1,
-                "bar_stool": 2,
-                "coffee_table": 3,
-                "desk": 4,
-                "dining_table": 5,
-                "kitchen_island": 6,
-                "sofa": 7,
-                "stool": 8,
-            }
+            self._obj_name_to_id_mapping = self._dataset.obj_category_to_obj_category_id
+            self._rec_name_to_id_mapping = (
+                self._dataset.recep_category_to_recep_category_id
+            )
             self._obj_id_to_name_mapping = {
                 k: v for v, k in self._obj_name_to_id_mapping.items()
             }
@@ -80,6 +67,13 @@ class HabitatOpenVocabManipEnv(HabitatEnv):
                 sem_gpu_id=(-1 if config.NO_GPU else self.habitat_env.sim.gpu_device),
             )
 
+    def set_vis_dir(self):
+        scene_id = (
+            self.habitat_env.current_episode().scene_id.split("/")[-1].split(".")[0]
+        )
+        episode_id = self.habitat_env.current_episode().episode_id
+        self.visualizer.set_vis_dir(scene_id=scene_id, episode_id=episode_id)
+
     def reset(self):
         habitat_obs = self.habitat_env.reset()
         self.semantic_category_mapping.reset_instance_id_to_category_id(
@@ -87,6 +81,13 @@ class HabitatOpenVocabManipEnv(HabitatEnv):
         )
         self._last_obs = self._preprocess_obs(habitat_obs)
         self.visualizer.reset()
+        self.set_vis_dir()
+        return self._last_obs
+
+    def update_hab_pose(self, hab_pose):
+        hab_pose[[0, 1, 2]] = hab_pose[[2, 0, 1]]
+        hab_pose[:, [0, 1, 2]] = hab_pose[:, [2, 0, 1]]
+        return hab_pose
 
     def _preprocess_obs(
         self, habitat_obs: habitat.core.simulator.Observations
@@ -107,7 +108,7 @@ class HabitatOpenVocabManipEnv(HabitatEnv):
                 "goal_name": goal_name,
             },
             third_person_image=habitat_obs["robot_third_rgb"],
-            camera_pose=habitat_obs["camera_pose"],
+            camera_pose=self.update_hab_pose(np.asarray(habitat_obs["camera_pose"])),
         )
         obs = self._preprocess_semantic(obs, habitat_obs)
         return obs
@@ -159,7 +160,7 @@ class HabitatOpenVocabManipEnv(HabitatEnv):
         assert "object_category" in obs
         obj_goal_id, rec_goal_id, goal_name = None, None, None
 
-        if goal_type in ["object", "object_on_recep"]:
+        if goal_type in ["object", "object_on_recep", "ovmm"]:
             goal_name = self._obj_id_to_name_mapping[obs["object_category"][0]]
             obj_goal_id = 1  # semantic sensor returns binary mask for goal object
         if goal_type == "object_on_recep":
@@ -169,6 +170,14 @@ class HabitatOpenVocabManipEnv(HabitatEnv):
                 + self._rec_id_to_name_mapping[obs["start_receptacle"][0]]
             )
             rec_goal_id = 2
+        elif goal_type == "ovmm":
+            goal_name = (
+                self._obj_id_to_name_mapping[obs["object_category"][0]]
+                + " "
+                + self._rec_id_to_name_mapping[obs["start_receptacle"][0]]
+                + " "
+                + self._rec_id_to_name_mapping[obs["goal_receptacle"][0]]
+            )
         if goal_type == "recep":
             goal_name = self._rec_id_to_name_mapping[obs["goal_receptacle"][0]]
             rec_goal_id = 3
@@ -176,25 +185,30 @@ class HabitatOpenVocabManipEnv(HabitatEnv):
         return obj_goal_id, rec_goal_id, goal_name
 
     def _preprocess_action(self, action: home_robot.core.interfaces.Action) -> int:
-        # convert planner output to continuous Habitat actions
+        # convert planner output to continupous Habitat actions
+        # First 8 are arm actions, next two are base waypoints, last is stop
         action_map = {
-            DiscreteNavigationAction.TURN_RIGHT: [0, 0, -1, -1],
-            DiscreteNavigationAction.MOVE_FORWARD: [0, 1, 0, -1],
-            DiscreteNavigationAction.TURN_LEFT: [0, 0, 1, -1],
-            DiscreteNavigationAction.STOP: [0, 0, 0, 1],
+            DiscreteNavigationAction.TURN_RIGHT: [0] * 8 + [0, -1, -1],
+            DiscreteNavigationAction.MOVE_FORWARD: [0] * 8 + [1, 0, -1],
+            DiscreteNavigationAction.TURN_LEFT: [0] * 8 + [0, 1, -1],
+            DiscreteNavigationAction.STOP: [0] * 8 + [0, 0, 1],
+            DiscreteNavigationAction.EMPTY_ACTION: [0] * 8 + [0, 0, -1],
         }
-        print(action)
         cont_action = action_map[action]
-        actions = {
-            "action": ("arm_action", "base_velocity", "rearrange_stop"),
-            "action_args": {
-                "arm_action": np.array([cont_action[0]], dtype=np.float32),
-                "base_vel": np.array(cont_action[1:3], dtype=np.float32),
-                "rearrange_stop": np.array([cont_action[-1]], dtype=np.float32),
-            },
-        }
-        return actions
+        return np.array(cont_action, dtype=np.float32)
 
     def _process_info(self, info: Dict[str, Any]) -> Any:
         if info:
             self.visualizer.visualize(**info)
+
+    def apply_action(
+        self,
+        action: home_robot.core.interfaces.Action,
+        info: Optional[Dict[str, Any]] = None,
+    ):
+        if info is not None:
+            self._process_info(info)
+        habitat_action = self._preprocess_action(action)
+        habitat_obs, _, dones, infos = self.habitat_env.step(habitat_action)
+        self._last_obs = self._preprocess_obs(habitat_obs)
+        return self._last_obs, dones, infos
