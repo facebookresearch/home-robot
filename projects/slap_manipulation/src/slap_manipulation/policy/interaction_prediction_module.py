@@ -444,7 +444,7 @@ class InteractionPredictionModule(torch.nn.Module):
 
     def predict(
         self,
-        feat: Tuple[np.ndarray],
+        feat: np.ndarray,
         xyz: np.ndarray,
         proprio: np.ndarray,
         lang: List[str],
@@ -457,10 +457,10 @@ class InteractionPredictionModule(torch.nn.Module):
         lang: language annotation which is encoded
         proprio: proprioception, an np.ndarray (gripper-action, gripper-width, time)
         """
-        t_rgb = torch.FloatTensor(feat[0]).to(self.device)
+        t_rgb = torch.FloatTensor(feat).to(self.device)
         t_xyz = torch.FloatTensor(xyz).to(self.device)
         t_proprio = torch.FloatTensor(proprio).to(self.device)
-        down_xyz, down_rgb = self._preprocess_input(xyz, feat[0])
+        down_xyz, down_rgb = self._preprocess_input(xyz, feat)
         t_down_xyz, t_down_rgb = torch.FloatTensor(down_xyz).to(
             self.device
         ), torch.FloatTensor(down_rgb).to(self.device)
@@ -475,7 +475,7 @@ class InteractionPredictionModule(torch.nn.Module):
         )
         self.visualize_top_attention(t_down_xyz, t_down_rgb, classification_scores)
         return (
-            self.predict_closest_idx(classification_scores)[0].numpy(),
+            self.predict_closest_idx(classification_scores)[0].detach().cpu().numpy(),
             classification_scores,
             output_feat,
             (down_xyz, down_rgb),

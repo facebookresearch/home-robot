@@ -101,12 +101,12 @@ def create_interaction_prediction_input(
     # mean-center the point cloud
     xyz -= xyz.mean(axis=0)
 
-    if np.any(rgb) > 1.0:
+    if np.any(rgb > 1.0):
         rgb = rgb / 255.0
     if debug:
         show_point_cloud(xyz, rgb, orig=np.zeros(3))
 
-    input_vector = ((rgb), xyz, proprio, lang)
+    input_vector = (rgb, xyz, proprio, lang)
     return input_vector
 
 
@@ -121,8 +121,10 @@ def main(cfg):
     # create APM object
     action_predictor = ActionPredictionModule(dry_run=cfg.dry_run)
     # load model-weights
-    interaction_predictor.load_state_dict(torch.load(cfg.ipm_weights))
-    action_predictor.load_state_dict(cfg.apm_weights)
+    if cfg.interaction_weights:
+        interaction_predictor.load_state_dict(torch.load(cfg.interaction_weights))
+    if cfg.action_weights:
+        action_predictor.load_state_dict(cfg.action_weights)
 
     print("Loaded models successfully")
     cmds = [
