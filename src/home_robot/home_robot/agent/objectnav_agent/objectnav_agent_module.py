@@ -23,13 +23,16 @@ class ObjectNavAgentModule(nn.Module):
             map_size_cm=config.AGENT.SEMANTIC_MAP.map_size_cm,
             map_resolution=config.AGENT.SEMANTIC_MAP.map_resolution,
             vision_range=config.AGENT.SEMANTIC_MAP.vision_range,
+            been_close_to_radius=config.AGENT.SEMANTIC_MAP.been_close_to_radius,
             global_downscaling=config.AGENT.SEMANTIC_MAP.global_downscaling,
             du_scale=config.AGENT.SEMANTIC_MAP.du_scale,
             cat_pred_threshold=config.AGENT.SEMANTIC_MAP.cat_pred_threshold,
             exp_pred_threshold=config.AGENT.SEMANTIC_MAP.exp_pred_threshold,
             map_pred_threshold=config.AGENT.SEMANTIC_MAP.map_pred_threshold,
         )
-        self.policy = ObjectNavFrontierExplorationPolicy()
+        self.policy = ObjectNavFrontierExplorationPolicy(
+            exploration_strategy=config.AGENT.exploration_strategy
+        )
 
     @property
     def goal_update_steps(self):
