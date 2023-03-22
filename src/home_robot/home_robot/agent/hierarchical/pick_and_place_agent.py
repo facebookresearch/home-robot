@@ -46,7 +46,7 @@ class PickAndPlaceAgent(Agent):
 
     def _preprocess_obs_for_find(self, obs: Observations) -> Observations:
         task_info = obs.task_observations
-        obs.task_observations["recep_goal"] = task_info["place_recep_id"]
+        obs.task_observations["recep_goal"] = task_info["start_recep_id"]
         obs.task_observations["object_goal"] = task_info["object_id"]
         obs.task_observations["goal_name"] = task_info["object_name"]
         return obs
