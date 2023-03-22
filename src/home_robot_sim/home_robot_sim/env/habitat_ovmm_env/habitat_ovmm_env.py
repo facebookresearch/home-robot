@@ -93,9 +93,12 @@ class HabitatOpenVocabManipEnv(HabitatEnv):
         self, habitat_obs: habitat.core.simulator.Observations
     ) -> home_robot.core.interfaces.Observations:
         depth = self._preprocess_depth(habitat_obs["robot_head_depth"])
-        object_goal, recep_goal, goal_name = self._preprocess_goal(
-            habitat_obs, self.goal_type
-        )
+        (
+            object_goal,
+            start_recep_goal,
+            end_recep_goal,
+            goal_name,
+        ) = self._preprocess_goal(habitat_obs, self.goal_type)
 
         obs = home_robot.core.interfaces.Observations(
             rgb=habitat_obs["robot_head_rgb"],
@@ -104,7 +107,8 @@ class HabitatOpenVocabManipEnv(HabitatEnv):
             gps=self._preprocess_xy(habitat_obs["robot_start_gps"]),
             task_observations={
                 "object_goal": object_goal,
-                "recep_goal": recep_goal,
+                "start_recep_goal": start_recep_goal,
+                "end_recep_goal": end_recep_goal,
                 "goal_name": goal_name,
             },
             third_person_image=habitat_obs["robot_third_rgb"],
@@ -158,7 +162,12 @@ class HabitatOpenVocabManipEnv(HabitatEnv):
         self, obs: List[Observations], goal_type
     ) -> Tuple[Tensor, List[str]]:
         assert "object_category" in obs
-        obj_goal_id, rec_goal_id, goal_name = None, None, None
+        obj_goal_id, start_rec_goal_id, end_rec_goal_id, goal_name = (
+            None,
+            None,
+            None,
+            None,
+        )
 
         if goal_type in ["object", "object_on_recep", "ovmm"]:
             goal_name = self._obj_id_to_name_mapping[obs["object_category"][0]]
@@ -169,7 +178,7 @@ class HabitatOpenVocabManipEnv(HabitatEnv):
                 + " on "
                 + self._rec_id_to_name_mapping[obs["start_receptacle"][0]]
             )
-            rec_goal_id = 2
+            start_rec_goal_id = 2
         elif goal_type == "ovmm":
             goal_name = (
                 self._obj_id_to_name_mapping[obs["object_category"][0]]
@@ -178,11 +187,12 @@ class HabitatOpenVocabManipEnv(HabitatEnv):
                 + " "
                 + self._rec_id_to_name_mapping[obs["goal_receptacle"][0]]
             )
-        if goal_type == "recep":
+            start_rec_goal_id = 2
+            end_rec_goal_id = 3
+        elif goal_type == "recep":
             goal_name = self._rec_id_to_name_mapping[obs["goal_receptacle"][0]]
-            rec_goal_id = 3
-            obj_goal_id = None
-        return obj_goal_id, rec_goal_id, goal_name
+            end_rec_goal_id = 3
+        return obj_goal_id, start_rec_goal_id, end_rec_goal_id, goal_name
 
     def _preprocess_action(self, action: home_robot.core.interfaces.Action) -> int:
         # convert planner output to continupous Habitat actions

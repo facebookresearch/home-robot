@@ -80,7 +80,8 @@ class ObjectNavAgent(Agent):
         obs: torch.Tensor,
         pose_delta: torch.Tensor,
         object_goal_category: torch.Tensor = None,
-        recep_goal_category: torch.Tensor = None,
+        start_recep_goal_category: torch.Tensor = None,
+        end_recep_goal_category: torch.Tensor = None,
         nav_to_recep: torch.Tensor = None,
         camera_pose: torch.Tensor = None,
     ) -> Tuple[List[dict], List[dict]]:
@@ -96,7 +97,8 @@ class ObjectNavAgent(Agent):
             pose_delta: sensor pose delta (dy, dx, dtheta) since last frame
              of shape (num_environments, 3)
             object_goal_category: semantic category of small object goals
-            recep_goal_category: semantic category of receptacle goals
+            start_recep_goal_category: semantic category of start receptacle goals
+            end_recep_goal_category: semantic category of end receptacle goals
             camera_pose: camera extrinsic pose of shape (num_environments, 4, 4)
 
         Returns:
@@ -122,8 +124,10 @@ class ObjectNavAgent(Agent):
 
         if object_goal_category is not None:
             object_goal_category = object_goal_category.unsqueeze(1)
-        if recep_goal_category is not None:
-            recep_goal_category = recep_goal_category.unsqueeze(1)
+        if start_recep_goal_category is not None:
+            start_recep_goal_category = start_recep_goal_category.unsqueeze(1)
+        if end_recep_goal_category is not None:
+            end_recep_goal_category = end_recep_goal_category.unsqueeze(1)
         (
             goal_map,
             found_goal,
@@ -146,7 +150,8 @@ class ObjectNavAgent(Agent):
             self.semantic_map.lmb,
             self.semantic_map.origins,
             seq_object_goal_category=object_goal_category,
-            seq_recep_goal_category=recep_goal_category,
+            seq_start_recep_goal_category=start_recep_goal_category,
+            seq_end_recep_goal_category=end_recep_goal_category,
             seq_nav_to_recep=nav_to_recep,
         )
 
@@ -232,7 +237,8 @@ class ObjectNavAgent(Agent):
             obs_preprocessed,
             pose_delta,
             object_goal_category,
-            recep_goal_category,
+            start_recep_goal_category,
+            end_recep_goal_category,
             goal_name,
             camera_pose,
         ) = self._preprocess_obs(obs)
@@ -245,7 +251,8 @@ class ObjectNavAgent(Agent):
             obs_preprocessed,
             pose_delta,
             object_goal_category=object_goal_category,
-            recep_goal_category=recep_goal_category,
+            start_recep_goal_category=start_recep_goal_category,
+            end_recep_goal_category=end_recep_goal_category,
             camera_pose=camera_pose,
             nav_to_recep=self.get_nav_to_recep(),
         )
@@ -301,13 +308,21 @@ class ObjectNavAgent(Agent):
             object_goal_category = torch.tensor(
                 obs.task_observations["object_goal"]
             ).unsqueeze(0)
-        recep_goal_category = None
+        start_recep_goal_category = None
         if (
-            "recep_goal" in obs.task_observations
-            and obs.task_observations["recep_goal"] is not None
+            "start_recep_goal" in obs.task_observations
+            and obs.task_observations["start_recep_goal"] is not None
         ):
-            recep_goal_category = torch.tensor(
-                obs.task_observations["recep_goal"]
+            start_recep_goal_category = torch.tensor(
+                obs.task_observations["start_recep_goal"]
+            ).unsqueeze(0)
+        end_recep_goal_category = None
+        if (
+            "end_recep_goal" in obs.task_observations
+            and obs.task_observations["end_recep_goal"] is not None
+        ):
+            end_recep_goal_category = torch.tensor(
+                obs.task_observations["end_recep_goal"]
             ).unsqueeze(0)
         goal_name = [obs.task_observations["goal_name"]]
 
@@ -318,7 +333,8 @@ class ObjectNavAgent(Agent):
             obs_preprocessed,
             pose_delta,
             object_goal_category,
-            recep_goal_category,
+            start_recep_goal_category,
+            end_recep_goal_category,
             goal_name,
             camera_pose,
         )
