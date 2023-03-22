@@ -28,5 +28,10 @@ class SamplingBasedObjectNavAgent(Agent):
         self.voxel_map = SparseVoxelMap()
 
     def reset(self):
+        """Clear information in the voxel map"""
         self.voxel_map.reset()
         self.planner.reset()
+
+    def act(self, obs: Observations) -> Tuple[DiscreteNavigationAction, Dict[str, Any]]:
+        """Use this action to move around in the world"""
+        pass

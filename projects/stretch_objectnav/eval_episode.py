@@ -3,6 +3,7 @@ import click
 import rospy
 
 from home_robot.agent.objectnav_agent.objectnav_agent import ObjectNavAgent
+from home_robot.agent.objectnav_agent.sampling_agent import SamplingBasedObjectNavAgent
 from home_robot.motion.stretch import STRETCH_HOME_Q
 from home_robot.utils.config import get_config
 from home_robot_hw.env.stretch_object_nav_env import StretchObjectNavEnv
@@ -27,9 +28,10 @@ def main(agent):
     if agent == "discrete":
         agent = ObjectNavAgent(config=config)
     elif agent == "sampling":
-        env = StretchObjectNavEnv(config=config)
+        agent = SamplingBasedObjectNavAgent(config=config)
     else:
         raise NotImplementedError(f"agent {agent} not recognized")
+    env = StretchObjectNavEnv(config=config)
 
     agent.reset()
     env.reset()
