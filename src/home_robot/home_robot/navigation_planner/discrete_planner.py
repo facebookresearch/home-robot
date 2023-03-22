@@ -182,7 +182,9 @@ class DiscretePlanner:
         if replan:
             print("Could not find a path to the high-level goal. Stopping.")
             action = DiscreteNavigationAction.STOP
-            return action, closest_goal_map
+            # TODO Calling the STOP action here will cause the agent to try grasping
+            #   we need different STOP_SUCCESS and STOP_FAILURE actions
+            raise NotImplementedError
 
             # # Clean collision map
             # self.collision_map *= 0
