@@ -31,7 +31,7 @@ class ObjectNavAgentModule(nn.Module):
             map_pred_threshold=config.AGENT.SEMANTIC_MAP.map_pred_threshold,
         )
         self.policy = ObjectNavFrontierExplorationPolicy(
-            frontier=config.AGENT.exploration_strategy
+            exploration_strategy=config.AGENT.exploration_strategy
         )
 
     @property
