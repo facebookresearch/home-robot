@@ -39,7 +39,7 @@ class DiscretePlanner:
         print_images: bool,
         dump_location: str,
         exp_name: str,
-        min_goal_distance: float = 4.5,
+        min_goal_distance_cm: float = 60.0,
     ):
         """
         Arguments:
@@ -82,7 +82,7 @@ class DiscretePlanner:
         self.timestep = None
         self.curr_obs_dilation_selem_radius = None
         self.obs_dilation_selem = None
-        self.min_goal_distance = min_goal_distance
+        self.min_goal_distance_cm = min_goal_distance_cm
 
     def reset(self):
         self.vis_dir = self.default_vis_dir
@@ -199,8 +199,11 @@ class DiscretePlanner:
         idx = np.random.randint(len(goal_x))
         goal_x, goal_y = goal_x[idx], goal_y[idx]
         distance_to_goal = np.linalg.norm(np.array([goal_x, goal_y]) - start)
+        # Actual metric distance to goal
+        distance_to_goal_cm = distance_to_goal * self.map_resolution
         angle_goal = math.degrees(math.atan2(goal_x - start[0], goal_y - start[1]))
         angle_goal = pu.normalize_angle(angle_goal)
+        # Angle needed to orient towards the goal
         relative_angle_goal = pu.normalize_angle(angle_agent - angle_goal)
 
         if debug:
@@ -208,9 +211,15 @@ class DiscretePlanner:
             print("Stop:", stop)
             print("Angle to goal:", relative_angle_goal)
             print("Distance to goal", distance_to_goal)
+            print(
+                "Distance in cm:",
+                distance_to_goal_cm,
+                ">",
+                self.min_goal_distance_cm,
+            )
 
         # Short-term goal -> deterministic local policy
-        if distance_to_goal > self.min_goal_distance or not found_goal:
+        if not (found_goal and stop):
             print(">>>> STILL FAR FROM GOAL")
             if relative_angle > self.turn_angle / 2.0:
                 action = DiscreteNavigationAction.TURN_RIGHT
