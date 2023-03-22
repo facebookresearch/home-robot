@@ -69,7 +69,7 @@ class RosCamera(Camera):
                         break
             rate.sleep()
 
-    def get(self, device=None):
+    def get(self, device=None, rotate_image=True):
         """return the current image associated with this camera"""
         with self._lock:
             if self._img is None:
@@ -77,14 +77,21 @@ class RosCamera(Camera):
             else:
                 # We are using torch
                 img = self._img.copy()
+
+        # TODO: for consistency with the previous camera settings...would it be better to keep it as-is here, and switch everything else?
+        if rotate_image:
+            img = np.rot90(img, k=3)
+
         if device is not None:
-            # Convert to tensor and get the formatting right
             import torch
 
-            img = torch.FloatTensor(img).to(device).permute(2, 0, 1)
+            img = torch.FloatTensor(img)
+
+            img = img.to(device)
+
         return img
 
-    def get_filtered(self, std_threshold=0.005, device=None):
+    def get_filtered(self, std_threshold=0.005, device=None, rotate_image=True):
         """get image from buffer; do some smoothing"""
         if self.buffer_size is None:
             raise RuntimeError("no buffer")
@@ -98,11 +105,16 @@ class RosCamera(Camera):
         avg = avg.reshape(-1)
         avg[std.reshape(-1) > std_threshold] = 0
         img = avg.reshape(*dims)
+
+        if rotate_image:
+            img = np.rot90(img, k=3)
+
         if device is not None:
-            # Convert to tensor and get the formatting right
+            # Convert to tensor
             import torch
 
-            img = torch.FloatTensor(img).to(device).permute(2, 0, 1)
+            img = torch.FloatTensor(img).to(device)
+
         return img
 
     def get_frame(self):
@@ -155,8 +167,8 @@ class RosCamera(Camera):
         self.py = self.K[1, 2]
         self.R = np.array(cam_info.R).reshape(3, 3)  # Rectification matrix
         self.P = np.array(cam_info.P).reshape(3, 4)  # Projection/camera matrix
-        self.near_val = 0.1
-        self.far_val = 5.0
+        self.near_val = 0.0  # 0.1 -- TODO spowers: temp for testing
+        self.far_val = 1.0  # 5.0
         if verbose:
             print()
             print("---------------")

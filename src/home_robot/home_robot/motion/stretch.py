@@ -67,7 +67,7 @@ STRETCH_NAVIGATION_Q = np.array(
     ]
 )
 PIN_CONTROLLED_JOINTS = [
-    "base_x_joint",
+    "ignore",  # "base_x_joint",
     "joint_lift",
     "joint_arm_l0",
     "joint_arm_l1",
@@ -80,17 +80,17 @@ PIN_CONTROLLED_JOINTS = [
 
 
 # This is the gripper, and the distance in the gripper frame to where the fingers will roughly meet
-STRETCH_GRASP_FRAME = "link_straight_gripper"
+STRETCH_GRASP_FRAME = "link_gripper_fingertip_center"  # "link_straight_gripper"
 STRETCH_CAMERA_FRAME = "camera_color_optical_frame"
 STRETCH_BASE_FRAME = "base_link"
-STRETCH_STANDOFF_DISTANCE = 0.235
-STRETCH_STANDOFF_WITH_MARGIN = 0.25
+# STRETCH_STANDOFF_DISTANCE = 0.235
+# STRETCH_STANDOFF_WITH_MARGIN = 0.25
 # Offset from a predicted grasp point to STRETCH_GRASP_FRAME
-STRETCH_GRASP_OFFSET = np.eye(4)
-STRETCH_GRASP_OFFSET[:3, 3] = np.array([0, 0, -1 * STRETCH_STANDOFF_DISTANCE])
+# STRETCH_GRASP_OFFSET = np.eye(4)
+# STRETCH_GRASP_OFFSET[:3, 3] = np.array([0, 0, -1 * STRETCH_STANDOFF_DISTANCE])
 # Offset from STRETCH_GRASP_FRAME to predicted grasp point
-STRETCH_TO_GRASP = np.eye(4)
-STRETCH_TO_GRASP[:3, 3] = np.array([0, 0, STRETCH_STANDOFF_DISTANCE])
+# STRETCH_TO_GRASP = np.eye(4)
+# STRETCH_TO_GRASP[:3, 3] = np.array([0, 0, STRETCH_STANDOFF_DISTANCE])
 STRETCH_GRIPPER_OPEN = 0.22
 STRETCH_GRIPPER_CLOSE = -0.2
 # STRETCH_GRIPPER_CLOSE = -0.5
@@ -154,9 +154,10 @@ class HelloStretchKinematics(Robot):
     look_ahead = np.array([0.0, 0.0])
 
     # For inverse kinematics mode
-    ee_link_name = "link_straight_gripper"
+    # ee_link_name = "link_straight_gripper"
+    ee_link_name = "link_gripper_fingertip_center"  # "link_straight_gripper"
     manip_mode_controlled_joints = [
-        "base_x_joint",
+        "ignore",  # "base_x_joint",  # TODO: temp...until I merge together my straight link with allowing base x motion
         "joint_lift",
         "joint_arm_l3",
         "joint_arm_l2",

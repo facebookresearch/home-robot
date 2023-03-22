@@ -49,16 +49,32 @@ def show_pcd(
     grasps: list = None,
 ):
     geoms = create_visualization_geometries(pcd=pcd, orig=orig, R=R, grasps=grasps)
-    o3d.visualization.draw_geometries(geoms, output_path=save)
+    o3d.visualization.draw_geometries(geoms)
 
     if save is not None:
-        save_geometries_as_image(geoms)
+        save_geometries_as_image(geoms, output_path=save)
 
 
-def create_visualization_geometries(pcd=None, xyz=None, rgb=None, orig=None, R=None, size=1.0,
-                     arrow_pos=None, arrow_size=1.0, arrow_R=None, arrow_color=None,
-                     sphere_pos=None, sphere_size=1.0, sphere_color=None, grasps=None):
-    assert pcd is not None or xyz is not None, "One of pcd or xyz must be specified"
+def create_visualization_geometries(
+    pcd=None,
+    xyz=None,
+    rgb=None,
+    orig=None,
+    R=None,
+    size=1.0,
+    arrow_pos=None,
+    arrow_size=1.0,
+    arrow_R=None,
+    arrow_color=None,
+    sphere_pos=None,
+    sphere_size=1.0,
+    sphere_color=None,
+    grasps=None,
+):
+    assert (pcd is not None) != (xyz is not None), "One of pcd or xyz must be specified"
+
+    if xyz is not None:
+        xyz = xyz.reshape(-1, 3)
 
     if rgb is not None:
         rgb = rgb.reshape(-1, 3)
@@ -71,14 +87,21 @@ def create_visualization_geometries(pcd=None, xyz=None, rgb=None, orig=None, R=N
 
     geoms = [pcd]
     if orig is not None:
-        coords = o3d.geometry.TriangleMesh.create_coordinate_frame(origin=orig, size=size)
+        coords = o3d.geometry.TriangleMesh.create_coordinate_frame(
+            origin=orig, size=size
+        )
         if R is not None:
             coords = coords.rotate(R, orig)
         geoms.append(coords)
 
     if arrow_pos is not None:
         arrow = o3d.geometry.TriangleMesh.create_arrow()
-        arrow = arrow.scale(arrow_size, center=np.zeros(3, ))
+        arrow = arrow.scale(
+            arrow_size,
+            center=np.zeros(
+                3,
+            ),
+        )
 
         if arrow_color is not None:
             arrow = arrow.paint_uniform_color(arrow_color)
@@ -109,20 +132,23 @@ def create_visualization_geometries(pcd=None, xyz=None, rgb=None, orig=None, R=N
     return geoms
 
 
-def save_geometries_as_image(geoms, camera_extrinsic=None, look_at_point=None, output_path=None, zoom=None,
-                             point_size=None, near_clipping=None, far_clipping=None):
+def save_geometries_as_image(
+    geoms,
+    camera_extrinsic=None,
+    look_at_point=None,
+    output_path=None,
+    zoom=None,
+    point_size=None,
+    near_clipping=None,
+    far_clipping=None,
+):
     """
     Helper function to allow manipulation of the camera to get a better image of the point cloud.
     """
-
     vis = o3d.visualization.Visualizer()
     vis.create_window()
 
     for geom in geoms:
-        # Note: the point cloud is rotated by 90 degrees from expected -- possibly due to a mismatch in notation
-        rotation_matrix = geom.get_rotation_matrix_from_xyz((0, 0, -np.pi/2))
-        geom.rotate(rotation_matrix, center=look_at_point)
-
         vis.add_geometry(geom)
         vis.update_geometry(geom)
 
@@ -130,7 +156,17 @@ def save_geometries_as_image(geoms, camera_extrinsic=None, look_at_point=None, o
     camera_params = view_control.convert_to_pinhole_camera_parameters()
 
     if camera_extrinsic is not None:
-        camera_params.extrinsic = camera_extrinsic
+        # The extrinsic seems to have a different convention - switch from our camera to open3d's version
+        camera_extrinsic_o3d = camera_extrinsic.copy()
+        camera_extrinsic_o3d[:3, :3] = np.matmul(
+            camera_extrinsic_o3d[:3, :3], np.array([[0, 1, 0], [-1, 0, 0], [0, 0, 1]])
+        )
+        camera_extrinsic_o3d[:, 3] = np.matmul(
+            camera_extrinsic_o3d[:, 3],
+            np.array([[1, 0, 0, 0], [0, 0, -1, 0], [0, 1, 0, 0], [0, 0, 0, 1]]),
+        )
+
+        camera_params.extrinsic = camera_extrinsic_o3d
         view_control.convert_from_pinhole_camera_parameters(camera_params)
 
     if look_at_point is not None:
@@ -150,6 +186,7 @@ def save_geometries_as_image(geoms, camera_extrinsic=None, look_at_point=None, o
     if point_size is not None:
         render_options.point_size = point_size
 
+    # vis.run()
     vis.poll_events()
     vis.update_renderer()
     vis.capture_screen_image(output_path, do_render=True)

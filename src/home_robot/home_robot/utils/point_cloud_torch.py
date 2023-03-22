@@ -4,10 +4,9 @@ to allow operations to be done on the GPU for speed.
 """
 import cv2
 import numpy as np
-import open3d as o3d
-import trimesh.transformations as tra
 import torch
 from torch_geometric.nn.pool.voxel_grid import voxel_grid
+from home_robot.utils.image import Camera
 
 
 def depth_to_xyz(depth, camera: Camera):
@@ -114,7 +113,11 @@ def dropout_random_ellipses(
     return depth_img
 
 
-def grid_pool_point_cloud(unbatched_xyz, unbatched_batch_ids, voxel_size, use_random_centers=False):
+def grid_pool_point_cloud(unbatched_xyz, unbatched_batch_ids, voxel_size, use_random_centers=True):
+    """
+    Overlays a grid, and selects one point in each grid cell (if one exists). If use_random_centers is True,
+    the point selected is random within that cell. Otherwise it's whichever voxel_grid returns first.
+    """
     # Voxel grid returns a list, same length as the original, with a mapping to unique grid identifiers
     xyz_grid_indices = voxel_grid(unbatched_xyz, voxel_size, unbatched_batch_ids)
 
@@ -127,7 +130,7 @@ def grid_pool_point_cloud(unbatched_xyz, unbatched_batch_ids, voxel_size, use_ra
     # from that operation, we can use the count maps as indices into the original xyzs, by doing cumsum
     _, xyz_to_grid_id_sort_mapping = torch.sort(xyz_to_grid_id, stable=True)
 
-    if use_random_centers is True:
+    if use_random_centers:
         random_offsets = (torch.rand(grid_cell_counts.shape[0]).to(grid_cell_counts.device) * grid_cell_counts).int()
     else:
         random_offsets = 0

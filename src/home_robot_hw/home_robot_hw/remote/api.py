@@ -25,7 +25,8 @@ class StretchClient:
         self,
         init_node: bool = True,
         camera_overrides: Optional[Dict] = None,
-        urdf_path: str = ""
+        urdf_path: str = "",
+        ik_type: str = "pybullet",
     ):
         # Ros
         if init_node:
@@ -36,10 +37,12 @@ class StretchClient:
         self._ros_client = StretchRosInterface(**camera_overrides)
 
         # Robot model
-        self._robot_model = HelloStretchKinematics(urdf_path=urdf_path)
+        self._robot_model = HelloStretchKinematics(urdf_path=urdf_path, ik_type=ik_type)
 
         # Interface modules
-        self.nav = StretchNavigationClient(self._ros_client, self._robot_model) #-- TODO: whatever is supposed to be populating se3_base_filtered never is...
+        self.nav = StretchNavigationClient(
+            self._ros_client, self._robot_model
+        )  # -- TODO: whatever is supposed to be populating se3_base_filtered never is...
         self.manip = StretchManipulationClient(self._ros_client, self._robot_model)
         self.head = StretchHeadClient(self._ros_client, self._robot_model)
 
@@ -113,7 +116,21 @@ class StretchClient:
     def robot_joint_pos(self):
         return self._ros_client.pos
 
-    def get_frame_pose(self, frame, base_frame=None, lookup_time=None, timeout_s=None):
+    @property
+    def camera_pose(self):
+        return self._ros_client.se3_camera_pose
+
+    @property
+    def rgb_cam(self):
+        return self._ros_client.rgb_cam
+
+    @property
+    def dpt_cam(self):
+        return self._ros_client.dpt_cam
+
+    def get_frame_pose(
+        self, frame, base_frame=None, lookup_time=None, timeout_s=None
+    ):  # TODO: this won't work at all? no odom_link, no tf2_buffer...
         """look up a particular frame in base coords"""
         if lookup_time is None:
             lookup_time = rospy.Time(0)  # return most recent transform

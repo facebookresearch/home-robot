@@ -82,7 +82,7 @@ class Camera(object):
         return xyz
 
     def fix_depth(self, depth):
-        if isinstance(depth, np.array):
+        if isinstance(depth, np.ndarray):
             depth = depth.copy()
         else:
             # Assuming it's a torch tensor instead
