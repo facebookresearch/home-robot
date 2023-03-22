@@ -177,6 +177,9 @@ class StretchLiveEnv(StretchDemoBaseEnv):
 
         self.client.manip.goto_joint_positions(reduced_pose)
         self.client.manip.move_gripper(gripper)
+        self.client.head.set_pan_tilt(
+            pose[HelloStretchIdx.HEAD_PAN], pose[HelloStretchIdx.HEAD_TILT]
+        )
 
     def reset(self, ensure_first=True):
         self._current_trajectory = self.randomly_select_traj_from_dir(
@@ -287,7 +290,7 @@ class StretchLiveEnv(StretchDemoBaseEnv):
             print(f"EE (after norm) pos {pos}, rot: {rot}")
             print(f"q0 (robot pose): {self._get_robot_pose()}")
             action = self.gripper_ik(
-                self.client, pos, rot, current_joints=self._get_robot_pose()
+                self.model, pos, rot, current_joints=self._get_robot_pose()
             )
             print(f"PB Action: {action}")
 
@@ -339,9 +342,10 @@ class StretchLiveEnv(StretchDemoBaseEnv):
                 )
             ):
                 last_q = next_q
-                next_q, err = self._interpolate_robot_to_in_joint_space(
+                next_q = self._interpolate_robot_to_in_joint_space(
                     action
                 )  # , gripper, original_head_pan, original_head_tilt)
+                err = np.abs(next_q - action)
                 # next_q, err = self.robot.goto(action, max_wait_t=1.0)
                 end_episode, end_action = self._give_user_stop_option()
                 done = done or end_episode

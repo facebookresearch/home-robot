@@ -208,10 +208,10 @@ class StretchDemoBaseEnv(gym.Env):
 
     def gripper_ik(self, model, pos, rot, current_joints):
         shifted_pos, shifted_rot = pos, rot
-        pose = model.pb_ik_solver_optimize((shifted_pos, shifted_rot))
-        ros_pose = self.convert_pinocchio_pose_to_ros(
-            pose.copy()
-        )  # TODO: copying just to be safe...
+        ros_pose = model.manip_ik((shifted_pos, shifted_rot), q0=current_joints)
+        # ros_pose = self.convert_pinocchio_pose_to_ros(
+        #    pose.copy()
+        # )  # TODO: copying just to be safe...
 
         # Prevent full rotations of the wrist...TODO:??
         raw_roll = ros_pose[HelloStretchIdx.WRIST_ROLL]
