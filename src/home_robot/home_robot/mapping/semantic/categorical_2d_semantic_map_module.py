@@ -33,6 +33,7 @@ class Categorical2DSemanticMapModule(nn.Module):
 
     # If true, display point cloud visualizations using Open3d
     debug_mode = False
+    min_obs_height_cm = 10
 
     def __init__(
         self,
@@ -101,7 +102,9 @@ class Categorical2DSemanticMapModule(nn.Module):
         self.agent_height = camera_height * 100.0
         self.max_voxel_height = int(360 / self.z_resolution)
         self.min_voxel_height = int(-40 / self.z_resolution)
-        self.min_mapped_height = int(25 / self.z_resolution - self.min_voxel_height)
+        self.min_mapped_height = int(
+            self.min_obs_height_cm / self.z_resolution - self.min_voxel_height
+        )
         self.max_mapped_height = int(
             (self.agent_height + 1) / self.z_resolution - self.min_voxel_height
         )

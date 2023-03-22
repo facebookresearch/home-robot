@@ -39,7 +39,7 @@ class DiscretePlanner:
         print_images: bool,
         dump_location: str,
         exp_name: str,
-        min_goal_distance: float = 4.5,
+        min_goal_distance_cm: float = 60.0,
     ):
         """
         Arguments:
@@ -82,7 +82,7 @@ class DiscretePlanner:
         self.timestep = None
         self.curr_obs_dilation_selem_radius = None
         self.obs_dilation_selem = None
-        self.min_goal_distance = min_goal_distance
+        self.min_goal_distance_cm = min_goal_distance_cm
 
     def reset(self):
         self.vis_dir = self.default_vis_dir
@@ -173,20 +173,26 @@ class DiscretePlanner:
                 start - np.array(short_term_goal[:2])
             )
             print("Distance:", dist_to_short_term_goal)
+            print("Replan:", replan)
+            print()
         # t1 = time.time()
         # print(f"[Planning] get_short_term_goal() time: {t1 - t0}")
 
         # We were not able to find a path to the high-level goal
         if replan:
-            # Clean collision map
-            self.collision_map *= 0
+            print("Could not find a path to the high-level goal. Stopping.")
+            action = DiscreteNavigationAction.STOP
+            return action, closest_goal_map
 
-            # Reduce obstacle dilation
-            if self.curr_obs_dilation_selem_radius > 1:
-                self.curr_obs_dilation_selem_radius -= 1
-                self.obs_dilation_selem = skimage.morphology.disk(
-                    self.curr_obs_dilation_selem_radius
-                )
+            # # Clean collision map
+            # self.collision_map *= 0
+            #
+            # # Reduce obstacle dilation
+            # if self.curr_obs_dilation_selem_radius > 1:
+            #     self.curr_obs_dilation_selem_radius -= 1
+            #     self.obs_dilation_selem = skimage.morphology.disk(
+            #         self.curr_obs_dilation_selem_radius
+            #     )
 
         stg_x, stg_y = short_term_goal
         angle_st_goal = math.degrees(math.atan2(stg_x - start[0], stg_y - start[1]))
@@ -199,8 +205,11 @@ class DiscretePlanner:
         idx = np.random.randint(len(goal_x))
         goal_x, goal_y = goal_x[idx], goal_y[idx]
         distance_to_goal = np.linalg.norm(np.array([goal_x, goal_y]) - start)
+        # Actual metric distance to goal
+        distance_to_goal_cm = distance_to_goal * self.map_resolution
         angle_goal = math.degrees(math.atan2(goal_x - start[0], goal_y - start[1]))
         angle_goal = pu.normalize_angle(angle_goal)
+        # Angle needed to orient towards the goal
         relative_angle_goal = pu.normalize_angle(angle_agent - angle_goal)
 
         if debug:
@@ -208,10 +217,15 @@ class DiscretePlanner:
             print("Stop:", stop)
             print("Angle to goal:", relative_angle_goal)
             print("Distance to goal", distance_to_goal)
+            print(
+                "Distance in cm:",
+                distance_to_goal_cm,
+                ">",
+                self.min_goal_distance_cm,
+            )
 
         # Short-term goal -> deterministic local policy
-        if distance_to_goal > self.min_goal_distance or not found_goal:
-            print(">>>> STILL FAR FROM GOAL")
+        if not (found_goal and stop):
             if relative_angle > self.turn_angle / 2.0:
                 action = DiscreteNavigationAction.TURN_RIGHT
             elif relative_angle < -self.turn_angle / 2.0:
@@ -221,13 +235,16 @@ class DiscretePlanner:
         else:
             # Try to orient towards the goal object - or at least any point sampled from the goal
             # object.
+            print()
+            print("----------------------------")
             print(">>> orient towards the goal.")
-            if relative_angle_goal > self.turn_angle / 2.0:
+            if relative_angle_goal > 2 * self.turn_angle / 3.0:
                 action = DiscreteNavigationAction.TURN_RIGHT
-            elif relative_angle_goal < -self.turn_angle / 2.0:
+            elif relative_angle_goal < -2 * self.turn_angle / 3.0:
                 action = DiscreteNavigationAction.TURN_LEFT
             else:
                 action = DiscreteNavigationAction.STOP
+                print("!!! DONE !!!")
 
         self.last_action = action
         return action, closest_goal_map

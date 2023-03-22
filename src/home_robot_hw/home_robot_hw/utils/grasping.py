@@ -59,7 +59,7 @@ class GraspPlanner(object):
         self.robot_client.switch_to_navigation_mode()
 
     def try_grasping(
-        self, visualize: bool = False, dry_run: bool = False, max_tries: int = 1
+        self, visualize: bool = False, dry_run: bool = False, max_tries: int = 10
     ):
         """Detect grasps and try to pick up an object in front of the robot.
         Visualize - will show debug point clouds

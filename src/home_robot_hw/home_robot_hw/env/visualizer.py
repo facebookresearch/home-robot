@@ -35,10 +35,13 @@ map_color_palette = [
         0.63,
         0.78,
         0.95,  # rest of goal
-        0.2,
-        0.8,
-        0.0,  # category index 0
         1.0,
+        0.0,
+        0.0,  # category index 0
+        0.0,
+        1.0,
+        0.0,  # category index 1
+        0.0,
         0.0,
         1.0,  # category index 1
     ]

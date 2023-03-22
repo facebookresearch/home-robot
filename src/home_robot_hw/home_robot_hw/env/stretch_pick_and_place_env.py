@@ -100,7 +100,9 @@ class StretchPickandPlaceEnv(StretchEnv):
         self.grasp_planner.go_to_nav_mode()
 
     def try_grasping(self, visualize_masks=False, dry_run=False):
-        self.grasp_planner.try_grasping(visualize=visualize_masks, dry_run=dry_run)
+        return self.grasp_planner.try_grasping(
+            visualize=visualize_masks, dry_run=dry_run
+        )
 
     def apply_action(self, action: Action, info: Optional[Dict[str, Any]] = None):
         # TODO Determine what form the grasp action should take and move
@@ -131,11 +133,14 @@ class StretchPickandPlaceEnv(StretchEnv):
             if self.in_navigation_mode():
                 self.switch_to_navigation_mode()
                 rospy.sleep(self.msg_delay_t)
-            self.navigate_to([0, 0, np.pi / 2], relative=True, blocking=True)
+            self.robot.nav.navigate_to([0, 0, np.pi / 2], relative=True, blocking=True)
             self.grasp_planner.go_to_manip_mode()
         elif action == DiscreteNavigationAction.PICK_OBJECT:
             continuous_action = None
-            self.grasp_planner.try_grasping()
+            while not rospy.is_shutdown():
+                ok = self.grasp_planner.try_grasping()
+                if ok:
+                    break
         else:
             print("Action not implemented in pick-and-place environment:", action)
             continuous_action = None

@@ -10,6 +10,7 @@ from home_robot.perception.detection.detic.detic_perception import DeticPercepti
 from home_robot.utils.geometry import xyt2sophus, xyt_base_to_global
 from home_robot_hw.env.stretch_abstract_env import StretchEnv
 from home_robot_hw.env.visualizer import Visualizer
+from home_robot_hw.remote import StretchClient
 
 # REAL_WORLD_CATEGORIES = ["other", "chair", "mug", "other",]
 # REAL_WORLD_CATEGORIES = ["other", "backpack", "other",]
@@ -45,7 +46,8 @@ class StretchObjectNavEnv(StretchEnv):
             self.visualizer = None
 
         # Create a robot model, but we never need to visualize
-        self.robot_model = HelloStretchKinematics(visualize=False)
+        self.robot = StretchClient(init_node=False)
+        self.robot_model = self.robot.robot_model
         self.reset()
 
     def reset(self):
@@ -55,7 +57,7 @@ class StretchObjectNavEnv(StretchEnv):
             self.visualizer.reset()
 
         # Switch control mode on the robot to nav
-        self.switch_to_navigation_mode()
+        self.robot.switch_to_navigation_mode()
         # put the robot in the correct mode with head facing forward
         home_q = STRETCH_NAVIGATION_Q
         # TODO: get this right
@@ -89,9 +91,9 @@ class StretchObjectNavEnv(StretchEnv):
 
         if continuous_action is not None:
             if not self.in_navigation_mode():
-                self.switch_to_navigation_mode()
+                self.robot.switch_to_navigation_mode()
                 rospy.sleep(self.msg_delay_t)
-            self.navigate_to(continuous_action, relative=True, blocking=True)
+            self.robot.nav.navigate_to(continuous_action, relative=True, blocking=True)
         rospy.sleep(0.5)
 
     def set_goal(self, goal):
