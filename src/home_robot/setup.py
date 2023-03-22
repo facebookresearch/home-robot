@@ -6,6 +6,7 @@ from setuptools import find_packages, setup
 
 install_requires = [
     "numpy<1.24",
+    "numpy-quaternion",
     "scipy",
     "hydra-core",
     "yacs",
