@@ -220,7 +220,6 @@ class DiscretePlanner:
 
         # Short-term goal -> deterministic local policy
         if not (found_goal and stop):
-            print(">>>> STILL FAR FROM GOAL")
             if relative_angle > self.turn_angle / 2.0:
                 action = DiscreteNavigationAction.TURN_RIGHT
             elif relative_angle < -self.turn_angle / 2.0:
@@ -230,13 +229,16 @@ class DiscretePlanner:
         else:
             # Try to orient towards the goal object - or at least any point sampled from the goal
             # object.
+            print()
+            print("----------------------------")
             print(">>> orient towards the goal.")
-            if relative_angle_goal > self.turn_angle / 2.0:
+            if relative_angle_goal > 2 * self.turn_angle / 3.0:
                 action = DiscreteNavigationAction.TURN_RIGHT
-            elif relative_angle_goal < -self.turn_angle / 2.0:
+            elif relative_angle_goal < -2 * self.turn_angle / 3.0:
                 action = DiscreteNavigationAction.TURN_LEFT
             else:
                 action = DiscreteNavigationAction.STOP
+                print("!!! DONE !!!")
 
         self.last_action = action
         return action, closest_goal_map
