@@ -2,16 +2,21 @@
 This file contains versions of the helpers in point_cloud.py that use pytorch directly (rather than numpy),
 to allow operations to be done on the GPU for speed.
 """
+from typing import List, Optional, Union
+
 import cv2
 import numpy as np
 import torch
 from torch_geometric.nn.pool.voxel_grid import voxel_grid
+
 from home_robot.utils.image import Camera
 
 
-def depth_to_xyz(depth, camera: Camera):
+def depth_to_xyz(depth: torch.Tensor, camera: Camera):
     """get depth from numpy using simple pinhole camera model"""
-    indices = np.indices((camera.height, camera.width), dtype=np.float32).transpose(1, 2, 0)
+    indices = np.indices((camera.height, camera.width), dtype=np.float32).transpose(
+        1, 2, 0
+    )
     z = depth
 
     # pixel indices start at top-left corner. for these equations, it starts at bottom-left
@@ -24,11 +29,11 @@ def depth_to_xyz(depth, camera: Camera):
 
 
 def add_additive_noise_to_xyz(
-    xyz_img,
-    gp_rescale_factor_range=[12, 20],
-    gaussian_scale_range=[0.0, 0.003],
-    valid_mask=None,
-    inplace=False,
+    xyz_img: torch.Tensor,
+    gp_rescale_factor_range: Optional[List[int]] = [12, 20],
+    gaussian_scale_range: Optional[List[float]] = [0.0, 0.003],
+    valid_mask: Optional[torch.Tensor] = None,
+    inplace: Optional[bool] = False,
 ):
     """
     Add (approximate) Gaussian Process noise to ordered point cloud
@@ -61,7 +66,11 @@ def add_additive_noise_to_xyz(
 
 
 def dropout_random_ellipses(
-    depth_img, dropout_mean, gamma_shape=10000, gamma_scale=0.0001, inplace=False
+    depth_img: torch.Tensor,
+    dropout_mean: float,
+    gamma_shape: Optional[float] = 10000,
+    gamma_scale: Optional[float] = 0.0001,
+    inplace: Optional[bool] = False,
 ):
     """Randomly drop a few ellipses in the image for robustness.
     This is adapted from the DexNet 2.0 code.
@@ -75,7 +84,9 @@ def dropout_random_ellipses(
     num_ellipses_to_dropout = np.random.poisson(dropout_mean)
 
     # Sample ellipse centers
-    nonzero_pixel_indices = torch.stack(torch.where(depth_img > 0)).T  # Shape: [#nonzero_pixels x 2]
+    nonzero_pixel_indices = torch.stack(
+        torch.where(depth_img > 0)
+    ).T  # Shape: [#nonzero_pixels x 2]
     dropout_centers_indices = np.random.choice(
         nonzero_pixel_indices.shape[0], size=num_ellipses_to_dropout
     )
@@ -113,7 +124,12 @@ def dropout_random_ellipses(
     return depth_img
 
 
-def grid_pool_point_cloud(unbatched_xyz, unbatched_batch_ids, voxel_size, use_random_centers=True):
+def grid_pool_point_cloud(
+    unbatched_xyz: torch.Tensor,
+    unbatched_batch_ids: torch.Tensor,
+    voxel_size: Union[float, List[float], torch.Tensor],
+    use_random_centers: Optional[bool] = True,
+) -> torch.Tensor:
     """
     Overlays a grid, and selects one point in each grid cell (if one exists). If use_random_centers is True,
     the point selected is random within that cell. Otherwise it's whichever voxel_grid returns first.
@@ -123,20 +139,32 @@ def grid_pool_point_cloud(unbatched_xyz, unbatched_batch_ids, voxel_size, use_ra
 
     # We wish to take one of each grid identifier, to use as our point
     # Based on: https://stackoverflow.com/questions/72001505/how-to-get-unique-elements-and-their-firstly-appeared-indices-of-a-pytorch-tenso
-    grid_ids, xyz_to_grid_id, grid_cell_counts = torch.unique(xyz_grid_indices, sorted=True, return_inverse=True,
-                                                              return_counts=True)
+    grid_ids, xyz_to_grid_id, grid_cell_counts = torch.unique(
+        xyz_grid_indices, sorted=True, return_inverse=True, return_counts=True
+    )
 
     # The grid ids are sorted, and the counts match that sorting. So if we sort xyz_to_grid_id and get the mapping
     # from that operation, we can use the count maps as indices into the original xyzs, by doing cumsum
     _, xyz_to_grid_id_sort_mapping = torch.sort(xyz_to_grid_id, stable=True)
 
     if use_random_centers:
-        random_offsets = (torch.rand(grid_cell_counts.shape[0]).to(grid_cell_counts.device) * grid_cell_counts).int()
+        random_offsets = (
+            torch.rand(grid_cell_counts.shape[0]).to(grid_cell_counts.device)
+            * grid_cell_counts
+        ).int()
     else:
         random_offsets = 0
 
-    unique_grid_indices = torch.cat((torch.tensor([0]).to(grid_cell_counts.device), grid_cell_counts.cumsum(0)[:-1]),
-                                    axis=0) + random_offsets
+    unique_grid_indices = (
+        torch.cat(
+            (
+                torch.tensor([0]).to(grid_cell_counts.device),
+                grid_cell_counts.cumsum(0)[:-1],
+            ),
+            axis=0,
+        )
+        + random_offsets
+    )
     unique_grid_xyz_indices = xyz_to_grid_id_sort_mapping[unique_grid_indices]
 
     # We return the indices into the original data, for consistency with fps

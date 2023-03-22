@@ -3,6 +3,7 @@
 # This source code is licensed under the MIT license found in the
 # LICENSE file in the root directory of this source tree.
 import io
+from typing import Optional
 
 import cv2
 import h5py
@@ -56,25 +57,27 @@ def show_pcd(
 
 
 def create_visualization_geometries(
-    pcd=None,
-    xyz=None,
-    rgb=None,
-    orig=None,
-    R=None,
-    size=1.0,
-    arrow_pos=None,
-    arrow_size=1.0,
-    arrow_R=None,
-    arrow_color=None,
-    sphere_pos=None,
-    sphere_size=1.0,
-    sphere_color=None,
-    grasps=None,
+    pcd: Optional[o3d.geometry.PointCloud] = None,
+    xyz: Optional[np.ndarray] = None,
+    rgb: Optional[np.ndarray] = None,
+    orig: Optional[np.ndarray] = None,
+    R: Optional[np.ndarray] = None,
+    size: Optional[float] = 1.0,
+    arrow_pos: Optional[np.ndarray] = None,
+    arrow_size: Optional[float] = 1.0,
+    arrow_R: Optional[np.ndarray] = None,
+    arrow_color: Optional[np.ndarray] = None,
+    sphere_pos: Optional[np.ndarray] = None,
+    sphere_size: Optional[float] = 1.0,
+    sphere_color: Optional[np.ndarray] = None,
+    grasps: list = None,
 ):
+    """
+    Creates the open3d geometries for a point cloud (one of xyz or pcd must be specified), as well as, optionally, some
+    helpful indicators for points of interest -- an origin (orig), an arrow (including direction), a sphere, and grasp
+    indicators.
+    """
     assert (pcd is not None) != (xyz is not None), "One of pcd or xyz must be specified"
-
-    if xyz is not None:
-        xyz = xyz.reshape(-1, 3)
 
     if rgb is not None:
         rgb = rgb.reshape(-1, 3)
@@ -133,14 +136,14 @@ def create_visualization_geometries(
 
 
 def save_geometries_as_image(
-    geoms,
-    camera_extrinsic=None,
-    look_at_point=None,
-    output_path=None,
-    zoom=None,
-    point_size=None,
-    near_clipping=None,
-    far_clipping=None,
+    geoms: list,
+    camera_extrinsic: Optional[np.ndarray] = None,
+    look_at_point: Optional[np.ndarray] = None,
+    output_path: Optional[str] = None,
+    zoom: Optional[float] = None,
+    point_size: Optional[float] = None,
+    near_clipping: Optional[float] = None,
+    far_clipping: Optional[float] = None,
 ):
     """
     Helper function to allow manipulation of the camera to get a better image of the point cloud.
