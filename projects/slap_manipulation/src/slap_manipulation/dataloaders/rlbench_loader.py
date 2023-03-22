@@ -242,7 +242,9 @@ class RLBenchDataset(DatasetBase):
                 xyz = xyz[crop_idx, :]
         return xyz, rgb
 
-    def get_query(self, xyz, rgb, ref_ee_keyframe):
+    def voxelize_and_get_interaction_point(self, xyz, rgb, interaction_ee_keyframe):
+        """uniformly voxelizes the input point-cloud and returns the closest-point
+        in the point-cloud to the task's interaction ee-keyframe"""
         # downsample another time to get sampled version
         pcd_downsampled = numpy_to_pcd(xyz, rgb)
         pcd_downsampled2 = pcd_downsampled.voxel_down_sample(self._voxel_size_2)
@@ -256,7 +258,9 @@ class RLBenchDataset(DatasetBase):
         # Find closest points based on ref_ee_keyframe
         # This is used to supervise the location when we're detecting where the action
         # could have happened
-        [_, target_idx_1, _] = pcd_tree.search_knn_vector_3d(ref_ee_keyframe[:3, 3], 1)
+        [_, target_idx_1, _] = pcd_tree.search_knn_vector_3d(
+            interaction_ee_keyframe[:3, 3], 1
+        )
         target_idx_down_pcd = np.asarray(target_idx_1)[0]
         closest_pt_down_pcd = xyz2[target_idx_down_pcd]
 
@@ -264,7 +268,7 @@ class RLBenchDataset(DatasetBase):
         pcd_tree = o3d.geometry.KDTreeFlann(pcd_downsampled)
         [_, target_idx_2, _] = pcd_tree.search_knn_vector_3d(
             # ee_keyframe[:3, 3], 1
-            ref_ee_keyframe[:3, 3],
+            interaction_ee_keyframe[:3, 3],
             1,
         )
         target_idx_og_pcd = np.asarray(target_idx_2)[0]
@@ -275,16 +279,16 @@ class RLBenchDataset(DatasetBase):
             show_point_cloud_with_keypt_and_closest_pt(
                 xyz2,
                 rgb2,
-                ee_keyframe[:3, 3],
-                ee_keyframe[:3, :3],
+                interaction_ee_keyframe[:3, 3],
+                interaction_ee_keyframe[:3, :3],
                 xyz2[target_idx_down_pcd].reshape(3, 1),
             )
             print("Closest point in original pcd")
             show_point_cloud_with_keypt_and_closest_pt(
                 xyz,
                 rgb,
-                ee_keyframe[:3, 3],
-                ee_keyframe[:3, :3],
+                interaction_ee_keyframe[:3, 3],
+                interaction_ee_keyframe[:3, :3],
                 xyz[target_idx_og_pcd].reshape(3, 1),
             )
         return (
@@ -579,7 +583,7 @@ class RLBenchDataset(DatasetBase):
             closest_pt_down_pcd,
             target_idx_og_pcd,
             closest_pt_og_pcd,
-        ) = self.get_query(xyz, rgb, ref_ee_keyframe)
+        ) = self.voxelize_and_get_interaction_point(xyz, rgb, ref_ee_keyframe)
 
         # Get the local version of the problem
         (crop_location, crop_xyz, crop_rgb) = self.get_local_problem(
