@@ -184,6 +184,7 @@ class DiscretePlanner:
             action = DiscreteNavigationAction.STOP
             # TODO Calling the STOP action here will cause the agent to try grasping
             #   we need different STOP_SUCCESS and STOP_FAILURE actions
+            breakpoint()
             raise NotImplementedError
 
             # # Clean collision map

@@ -24,6 +24,10 @@ datasets/
 scene_datasets/
 datadump/
 
+# Archive files
+*.pkl
+*.zip
+
 # Git stuff
 *~HEAD
 

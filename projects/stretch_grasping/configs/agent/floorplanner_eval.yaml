@@ -21,7 +21,7 @@ ENVIRONMENT:
 AGENT:
   max_steps: 500          # maximum number of steps before stopping an episode
   panorama_start: 1       # 1: turn around 360 degrees when starting an episode, 0: don't
-  exploration_strategy: been_close_to_frontier  # exploration strategy ("seen_frontier", "been_close_to_frontier")
+  exploration_strategy: seen_frontier  # exploration strategy ("seen_frontier", "been_close_to_frontier")
 
   SEMANTIC_MAP:
     semantic_categories: mukul_indoor # map semantic channel categories ("coco_indoor", "longtail_indoor", "mukul_indoor")
@@ -35,6 +35,7 @@ AGENT:
     exp_pred_threshold: 1.0  # number of depth points to be in bin to consider it as explored
     map_pred_threshold: 1.0  # number of depth points to be in bin to consider it as obstacle
     been_close_to_radius: 100  # radius (in centimeters) of been close to region
+    explored_radius: 150       # radius (in centimeters) of visually explored region
 
   PLANNER:
     collision_threshold: 0.20       # forward move distance under which we consider there's a collision (in meters)

@@ -39,3 +39,7 @@ class RRTPlanner:
         """Solve the problem. Extract flattened map from sparse voxel map, then go on."""
         print(voxel_map)
         print("goal =", goal)
+
+    def reset(self):
+        """Clear out state information from the planner"""
+        pass
