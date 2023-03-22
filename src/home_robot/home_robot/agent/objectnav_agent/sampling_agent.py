@@ -12,17 +12,21 @@ from torch.nn import DataParallel
 import home_robot.utils.pose as pu
 from home_robot.core.abstract_agent import Agent
 from home_robot.core.interfaces import DiscreteNavigationAction, Observations
-from home_robot.mapping.semantic.categorical_2d_semantic_map_state import (
-    Categorical2DSemanticMapState,
-)
-from home_robot.navigation_planner.discrete_planner import DiscretePlanner
+from home_robot.mapping.voxel import SparseVoxelMap
+from home_robot.navigation_planner.rrt import RRTPlanner
 
 from .objectnav_agent_module import ObjectNavAgentModule
 
 
-class ObjectNavAgent(Agent):
+class SamplingBasedObjectNavAgent(Agent):
     """Simple object nav agent based on a 2D semantic map"""
 
     def __init__(self, config, device_id: int = 0):
         self.max_steps = config.AGENT.max_steps
         self.num_environments = config.NUM_ENVIRONMENTS
+        self.planner = RRTPlanner()
+        self.voxel_map = SparseVoxelMap()
+
+    def reset(self):
+        self.voxel_map.reset()
+        self.planner.reset()
