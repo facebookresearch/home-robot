@@ -79,6 +79,9 @@ def create_visualization_geometries(
     """
     assert (pcd is not None) != (xyz is not None), "One of pcd or xyz must be specified"
 
+    if xyz is not None:
+        xyz = xyz.reshape(-1, 3)
+
     if rgb is not None:
         rgb = rgb.reshape(-1, 3)
         if np.any(rgb > 1):
