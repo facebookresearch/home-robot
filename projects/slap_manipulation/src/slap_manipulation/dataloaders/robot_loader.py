@@ -132,8 +132,8 @@ class RobotDataset(RLBenchDataset):
         crop_radius_chance=0.75,
         crop_radius_shift=0.1,
         crop_radius_range=[0.3, 1.0],
-        visualize=False,
-        visualize_reg_targets=False,
+        visualize_interaction_point=False,
+        visualize_cropped_keyframes=False,
         yaml_file=None,  # "./assets/language_variations/v0.yml",
         dr_factor=1,
         robot="stretch",
@@ -225,8 +225,8 @@ class RobotDataset(RLBenchDataset):
         self.show_input_and_reference = show_raw_input_and_reference
         self.show_cropped = show_cropped
         self.use_first_frame_as_input = first_frame_as_input
-        self.visualize = visualize
-        self.visualize_reg_targets = visualize_reg_targets
+        self._visualize_interaction_pt = visualize_interaction_point
+        self._visualize_cropped_keyframes = visualize_cropped_keyframes
 
         # setup segmentation pipeline
         # self.segmentor = DeticPerception(
@@ -409,11 +409,7 @@ class RobotDataset(RLBenchDataset):
         """Get a single training example given the index."""
 
         cmds = trial["task_name"][()].decode("utf-8").split(",")
-        # TODO following is useless, esp after the annotation file being used. Remove this.
-        if self.random_cmd:
-            cmd = cmds[np.random.randint(len(cmds))]
-        else:
-            cmd = cmds[0]
+        cmd = cmds[0]
         if verbose:
             print(f"{cmd=}")
         self.task_name = cmd
@@ -533,9 +529,6 @@ class RobotDataset(RLBenchDataset):
             # Pull out gripper state from the sim data
             target_gripper_state = gripper_state[current_keypoint_idx]
 
-        # preserve the og pcd
-        # og_xyz = xyz.copy()
-        # og_rgb = rgb.copy()
         # voxelize at a granular voxel-size then choose X points
         xyz, rgb = self.remove_duplicate_points(xyz, rgb)
         xyz, rgb = self.dr_crop_radius(xyz, rgb, interaction_ee_keyframe)
@@ -574,6 +567,7 @@ class RobotDataset(RLBenchDataset):
             closest_pt_og_pcd,
         ) = self.voxelize_and_get_interaction_point(xyz, rgb, interaction_ee_keyframe)
         if xyz2 is None:
+            print("Couldn't find an interaction point")
             return {"data_ok_status": False}
 
         # Get the local version of the problem
@@ -595,28 +589,24 @@ class RobotDataset(RLBenchDataset):
             all_ee_keyframes,
         )
 
-        # Debug code
-        # TODO - remove this debug code
-        # pos1 = crop_ee_keyframe[:3, 3]
-        # pos2 = np.linalg.inv(crop_ee_keyframe)[:3, 3]
-        # print()
-        # print(cmd, pos1, pos2)
-
-        # Get the commands we care about here
-        # TODO - remove debug code
-        # print(crop_ee_keyframe[:3, 3])
         positions, orientations, angles = self.get_commands(
             crop_ee_keyframe, crop_keyframes
         )
         self._assert_positions_match_ee_keyframes(crop_ee_keyframe, positions)
 
-        if self.visualize:
+        if self._visualize_interaction_pt:
+            print(
+                "Showing current ee keyframe as the coordinate-frame and the interaction-ee-position as yellow sphere"
+            )
             show_point_cloud_with_keypt_and_closest_pt(
                 xyz2,
                 rgb2,
                 current_ee_keyframe[:3, 3],
                 current_ee_keyframe[:3, :3],
                 interaction_ee_keyframe[:3, 3],
+            )
+            print(
+                "Showing current ee keyframe as the coordinate-frame and the interaction-point in PCD as yellow sphere"
             )
             show_point_cloud_with_keypt_and_closest_pt(
                 xyz2,
@@ -625,13 +615,28 @@ class RobotDataset(RLBenchDataset):
                 current_ee_keyframe[:3, :3],
                 closest_pt_down_pcd,
             )
-            # show_point_cloud_with_keypt_and_closest_pt(
-            #     crop_xyz,
-            #     crop_rgb,
-            #     crop_ee_keyframe[:3, 3],
-            #     crop_ee_keyframe[:3, :3],
-            #     None,
-            # )
+
+        if self._visualize_cropped_keyframes:
+            print(
+                "Showing cropped PCD with original interaction-ee-position and current-ee-keyframe"
+            )
+            show_point_cloud_with_keypt_and_closest_pt(
+                crop_xyz,
+                crop_rgb,
+                crop_ee_keyframe[:3, 3],
+                crop_ee_keyframe[:3, :3],
+                crop_ref_ee_keyframe[:3, 3],
+            )
+            print(
+                "Showing cropped PCD with perturbed interaction-ee-position and current-ee-keyframe"
+            )
+            show_point_cloud_with_keypt_and_closest_pt(
+                crop_xyz,
+                crop_rgb,
+                crop_ee_keyframe[:3, 3],
+                crop_ee_keyframe[:3, :3],
+                np.array([0, 0, 0]),
+            )
 
         datum = {
             "trial_name": trial.name,
@@ -721,7 +726,7 @@ def show_all_keypoints(data_dir, split, template, robot):
         data_dir,
         template=template,
         num_pts=8000,
-        data_augmentation=False,
+        data_augmentation=True,
         crop_radius=True,
         ori_dr_range=np.pi / 8,
         cart_dr_range=0.0,
@@ -734,7 +739,8 @@ def show_all_keypoints(data_dir, split, template, robot):
         show_cropped=True,
         verbose=False,
         multi_step=False,
-        visualize=True,
+        visualize_interaction_point=False,
+        visualize_cropped_keyframes=False,
         robot=robot,
     )
     skip_names = ["30_11_2022_15_22_40"]

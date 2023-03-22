@@ -345,20 +345,20 @@ class RLBenchDataset(DatasetBase):
         return positions, orientations, angles
 
     def get_local_problem(
-        self, xyz, rgb, query_pt, num_find_crop_tries=10, min_num_points=50
+        self, xyz, rgb, interaction_pt, num_find_crop_tries=10, min_num_points=50
     ):
         """
-        Create local problem around a pt for regression training
+        Crop given PCD around a perturbed interaction_point as input to action prediction problem
             (crop_xyz, crop_rgb, crop_ref_ee_keyframe, crop_ee_keyframe,
                 crop_keyframes) = self.get_local_problem(xyz, rgb, ee_keyframe,
                                                         ref_ee_keyframe)
         """
         # crop_xyz, crop_rgb, crop_ref_ee_keyframe,
         # orig_crop_location = ref_ee_keyframe[:3, 3].copy()
-        orig_crop_location = query_pt
+        orig_crop_location = interaction_pt
         if self.data_augmentation:
             # Check to see if enough points are within the crop radius
-            for i in range(num_find_crop_tries):
+            for _ in range(num_find_crop_tries):
                 crop_location = orig_crop_location
                 # Crop randomly within a few centimeters
                 crop_location = orig_crop_location + (
