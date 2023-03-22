@@ -1,5 +1,5 @@
 import timeit
-from typing import Tuple
+from typing import Optional, Tuple
 
 import numpy as np
 import rospy
@@ -21,51 +21,80 @@ class GraspPlanner(object):
     """Simple grasp planner which integrates with a ROS service runnning e.g. contactgraspnet.
     Will choose and execute a grasp based on distance from base."""
 
-    def __init__(self, robot_client, visualize_planner=False):
+    def __init__(self, robot_client, env, visualize_planner=False):
         self.robot_client = robot_client
+        self.env = env
         self.robot_model = HelloStretchKinematics(visualize=visualize_planner)
         self.grasp_client = RosGraspClient()
 
     def go_to_manip_mode(self):
         """Move the arm and head into manip mode."""
+        """
         home_q = STRETCH_PREGRASP_Q
         home_q = self.robot_model.update_look_at_ee(home_q)
         self.robot_client.goto(home_q, move_base=False, wait=True)
+        """
+        self.robot_client.switch_to_manipulation_mode()
+        self.robot_client.head.look_at_ee(blocking=False)
+        self.robot_client.manip.goto_joint_positions(
+            self.robot_client.manip._extract_joint_pos(STRETCH_PREGRASP_Q)
+        )
+        self.robot_client.switch_to_navigation_mode()
 
     def go_to_nav_mode(self):
         """Move the arm and head into nav mode."""
+        """
         home_q = STRETCH_NAVIGATION_Q
         # TODO - should be looking down to make sure we can see the objects
         home_q = self.robot_model.update_look_front(home_q.copy())
         # NOTE: for now we have to do this though - until bugs are fixed in semantic map
         # home_q = self.robot_model.update_look_ahead(home_q.copy())
         self.robot_client.goto(home_q, move_base=False, wait=True)
+        """
+        self.robot_client.switch_to_manipulation_mode()
+        self.robot_client.head.look_front(blocking=False)
+        self.robot_client.manip.goto_joint_positions(
+            self.robot_client.manip._extract_joint_pos(STRETCH_NAVIGATION_Q)
+        )
+        self.robot_client.switch_to_navigation_mode()
 
-    def try_grasping(self, visualize: bool = False, dry_run: bool = False):
+    def try_grasping(
+        self, visualize: bool = False, dry_run: bool = False, max_tries: int = 1
+    ):
         """Detect grasps and try to pick up an object in front of the robot.
         Visualize - will show debug point clouds
         Dry run - does not actually move, just computes everything"""
+        """
         home_q = STRETCH_PREGRASP_Q
         home_q = self.robot_model.update_look_front(home_q.copy())
         home_q = self.robot_model.update_gripper(home_q, open=True)
         self.robot_client.goto(home_q, move_base=False, wait=True)
         home_q = self.robot_model.update_look_at_ee(home_q)
+        """
+        if not self.robot_client.in_manipulation_mode():
+            self.robot_client.switch_to_manipulation_mode()
+        self.robot_client.head.look_at_ee(blocking=False)
+        self.robot_client.manip.open_gripper()
+        visualize = True
 
         min_grasp_score = 0.0
-        max_tries = 10
         min_obj_pts = 100
         for attempt in range(max_tries):
-            print("look at ee")
-            self.robot_client.goto(home_q, move_base=False, wait=True)
+            self.robot_client.head.look_at_ee(blocking=False)
+            self.robot_client.manip.goto_joint_positions(
+                self.robot_client.manip._extract_joint_pos(STRETCH_PREGRASP_Q)
+            )
             rospy.sleep(1.0)
 
             # Get the observations - we need depth and xyz point clouds
             t0 = timeit.default_timer()
-            obs = self.robot_client.get_observation()
+            obs = self.env.get_observation()
             rgb, depth, xyz = obs.rgb, obs.depth, obs.xyz
-            camera_pose = self.robot_client.get_pose(
-                self.robot_client.rgb_cam.get_frame()
-            )
+            # TODO: verify this is correct
+            # In world coordinates
+            # camera_pose = self.robot_client.head.get_pose()
+            # In base coordinates
+            camera_pose = self.robot_client.head.get_pose_in_base_coords()
             print(
                 "getting images + cam pose took", timeit.default_timer() - t0, "seconds"
             )
@@ -80,12 +109,17 @@ class GraspPlanner(object):
             if num_object_pts < min_obj_pts:
                 continue
 
-            mask_valid = depth > self.robot_client.dpt_cam.near_val  # remove bad points
+            mask_valid = (
+                depth > self.robot_client._ros_client.dpt_cam.near_val
+            )  # remove bad points
             mask_scene = mask_valid  # initial mask has to be good
             mask_scene = mask_scene.reshape(-1)
 
             predicted_grasps = self.grasp_client.request(
-                xyz, rgb, object_mask, frame=self.robot_client.rgb_cam.get_frame()
+                xyz,
+                rgb,
+                object_mask,
+                frame=self.robot_client._ros_client.rgb_cam.get_frame(),
             )
             if 0 not in predicted_grasps:
                 print("no predicted grasps")
@@ -94,7 +128,9 @@ class GraspPlanner(object):
             print("got this many grasps:", len(predicted_grasps))
 
             grasps = []
-            for i, (score, grasp) in enumerate(zip(scores, predicted_grasps)):
+            for i, (score, grasp) in sorted(
+                enumerate(zip(scores, predicted_grasps)), key=lambda x: x[1]
+            ):
                 pose = grasp
                 pose = camera_pose @ pose
                 if score < min_grasp_score:
@@ -112,126 +148,105 @@ class GraspPlanner(object):
             # Correct for the length of the Stretch gripper and the gripper upon
             # which Graspnet was trained
             grasp_offset = np.eye(4)
-            grasp_offset[2, 3] = -0.09
+            grasp_offset[2, 3] = -0.10
             for i, grasp in enumerate(grasps):
                 grasps[i] = grasp @ grasp_offset
 
             for grasp in grasps:
-                print("Executing grasp")
+                print("Executing grasp:")
                 print(grasp)
                 theta_x, theta_y = divergence_from_vertical_grasp(grasp)
-                print("with xy =", theta_x, theta_y)
+                print(" - with theta x/y from vertical =", theta_x, theta_y)
                 if not dry_run:
                     grasp_completed = self.try_executing_grasp(grasp)
                 else:
                     grasp_completed = False
                 if grasp_completed:
                     break
+            break
 
-    def try_executing_grasp(self, grasp: np.ndarray) -> bool:
-        """Try executing a grasp. Takes in robot self.robot_model and a potential grasp; will execute
-        this grasp if possible. Grasp-client is just used to send a debugging TF frame for now.
+        self.robot_client.switch_to_navigation_mode()
 
-        Returns true if the grasp was possible and was executed; false if not."""
-        # Get our current joint states
-        q, _ = self.robot_client.update()
+    def plan_to_grasp(self, grasp: np.ndarray) -> Optional[np.ndarray]:
+        """Create offsets for the full trajectory plan to get to the object.
+        Then return that plan."""
+        grasp_pos, grasp_quat = to_pos_quat(grasp)
+        self.robot_client.switch_to_manipulation_mode()
+        self.robot_client.manip.open_gripper()
+
+        # Get pregrasp pose: current pose + maxed out lift
+        pos_pre, quat_pre = self.robot_client.manip.get_ee_pose()
+        joint_pos_pre = self.robot_client.manip.get_joint_positions()
+        # Save initial waypoint to return to
+        initial_pt = ("initial", joint_pos_pre, False)
+
+        # Create a pregrasp point at the top of the robot's arc
+        pregrasp_cfg = joint_pos_pre.copy()
+        pregrasp_cfg[1] = 0.95
+        pregrasp = ("pregrasp", pregrasp_cfg, False)
+
+        # Try grasp first - find an IK solution for this
+        grasp_cfg = self.robot_client.manip.solve_ik(grasp_pos, grasp_quat)
+        if grasp_cfg is not None:
+            grasp_pt = (
+                "grasp",
+                self.robot_client.manip._extract_joint_pos(grasp_cfg),
+                True,
+            )
+        else:
+            print("-> could not solve for grasp")
+            return None
+
+        # Standoff is 8cm over the grasp for now
+        standoff_pos = grasp_pos + np.array([0.0, 0.0, 0.08])
+        standoff_cfg = self.robot_client.manip.solve_ik(
+            standoff_pos,
+            grasp_quat,  # initial_cfg=grasp_cfg
+        )
+        if standoff_cfg is not None:
+            standoff = (
+                "standoff",
+                self.robot_client.manip._extract_joint_pos(standoff_cfg),
+                False,
+            )
+        else:
+            print("-> could not solve for standoff")
+            return None
+        back_cfg = self.robot_client.manip._extract_joint_pos(standoff_cfg)
+        back_cfg[2] = 0.01
+        back = ("back", back_cfg, False)
+
+        return [pregrasp, back, standoff, grasp_pt, standoff, back, initial_pt]
+
+    def try_executing_grasp(
+        self, grasp: np.ndarray, wait_for_input: bool = False
+    ) -> bool:
 
         # Convert grasp pose to pos/quaternion
-        grasp_pose = to_pos_quat(grasp)
-        print("grasp xyz =", grasp_pose[0])
+        # Visualize the grasp in RViz
+        t = TransformStamped()
+        t.header.stamp = rospy.Time.now()
+        t.child_frame_id = "predicted_grasp"
+        t.header.frame_id = "map"
+        t.transform = ros_pose_to_transform(matrix_to_pose_msg(grasp))
+        self.grasp_client.broadcaster.sendTransform(t)
 
-        # If can't plan to reach grasp, return
-        qi = self.robot_model.manip_ik(grasp_pose, q)
-        qi = self.robot_model.update_gripper(qi, open=True)
-        print("x motion =", qi[0])
-        if qi is not None:
-            self.robot_model.set_config(qi)
-        else:
-            print(" --> ik failed")
+        trajectory = self.plan_to_grasp(grasp)
+
+        if trajectory is None:
+            print("Planning failed")
             return False
-        # TODO: remove this when the base is moving again!!!
-        if np.abs(qi[0]) > 0.0025:
-            return False
-        input("press enter to move")
 
-        # Standoff 8 cm above grasp position
-        q_standoff = qi.copy()
-        # q_standoff[HelloStretchIdx.LIFT] += 0.08   # was 8cm, now more
-        q_standoff[HelloStretchIdx.LIFT] += 0.1
-
-        # Actual grasp position
-        q_grasp = qi.copy()
-
-        if q_standoff is not None:
-            # If standoff position invalid, return
-            if not self.robot_model.validate(q_standoff):
-                print("invalid standoff config:", q_standoff)
-                return False
-            print("found standoff")
-
-            # Visualize the grasp in RViz
-            t = TransformStamped()
-            t.header.stamp = rospy.Time.now()
-            t.child_frame_id = "predicted_grasp"
-            t.header.frame_id = "map"
-            t.transform = ros_pose_to_transform(matrix_to_pose_msg(grasp))
-            self.grasp_client.broadcaster.sendTransform(t)
-
-            # Go to the grasp and try it
-            # First we need to create and move to a decent pre-grasp pose
-            q[HelloStretchIdx.LIFT] = 0.99
-            self.robot_client.goto(
-                q, move_base=False, wait=True, verbose=False
-            )  # move arm to top
-            # input('--> go high')
-            q_pre = q.copy()
-            # NOTE: this gets the gripper in the right orientation before we start to move - nothing
-            # else should change except lift and arm!
-            q_pre[5:] = q_standoff[5:]  # TODO: Add constants for joint indices
-            q_pre = self.robot_model.update_gripper(q_pre, open=True)
-            # self.robot_client.move_base(theta=q_standoff[2])  # TODO Replace this
-            rospy.sleep(2.0)
-            self.robot_client.goto(q_pre, move_base=False, wait=False, verbose=False)
-
-            # Move to standoff pose
-            self.robot_model.set_config(q_standoff)
-            print("Q =", q_standoff)
-            print(q_grasp != q_standoff)
-            input("--> gripper ready; go to standoff")
-            q_standoff = self.robot_model.update_gripper(q_standoff, open=True)
-            self.robot_client.goto(
-                q_standoff, move_base=False, wait=True, verbose=False
-            )
-
-            # move down to grasp pose
-            self.robot_model.set_config(q_grasp)
-            print("Q =", q_grasp)
-            print(q_grasp != q_standoff)
-            input("--> go to grasp")
-            self.robot_client.goto(q_grasp, move_base=False, wait=True, verbose=True)
-
-            # move down to close gripper
-            q_grasp_closed = self.robot_model.update_gripper(q_grasp, open=False)
-            print("Q =", q_grasp_closed)
-            print(q_grasp != q_grasp_closed)
-            input("--> close the gripper")
-            self.robot_client.goto(
-                q_grasp_closed, move_base=False, wait=False, verbose=True
-            )
-            rospy.sleep(2.0)
-
-            # Move back to standoff pose
-            q_standoff = self.robot_model.update_gripper(q_standoff, open=False)
-            self.robot_client.goto(
-                q_standoff, move_base=False, wait=True, verbose=False
-            )
-
-            # Move back to original pose
-            q_pre = self.robot_model.update_gripper(q_pre, open=False)
-            self.robot_client.goto(q_pre, move_base=False, wait=True, verbose=False)
-
-            # We completed the grasp
-            return True
+        for i, (name, waypoint, should_grasp) in enumerate(trajectory):
+            self.robot_client.manip.goto_joint_positions(waypoint)
+            if should_grasp:
+                self.robot_client.manip.close_gripper()
+            if wait_for_input:
+                input(f"{i+1}) went to {name}")
+            else:
+                print(f"{i+1}) went to {name}")
+        print("!!! GRASP SUCCESS !!!")
+        return True
 
 
 def divergence_from_vertical_grasp(grasp: np.ndarray) -> Tuple[float, float]:

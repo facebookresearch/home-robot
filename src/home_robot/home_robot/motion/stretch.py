@@ -44,9 +44,12 @@ STRETCH_PREGRASP_Q = np.array(
         0.6,  # lift
         0.01,  # arm
         0.0,  # gripper rpy
-        3.12,  # wrist roll
+        # 3.12,  # wrist roll
+        # -1.51,  # wrist pitch
+        # -1.57,  # wrist yaw
+        0.0,  # wrist roll
         -1.51,  # wrist pitch
-        -1.57,  # wrist yaw
+        1.57,  # wrist yaw
         0.0,
         0.0,
     ]
@@ -166,6 +169,7 @@ class HelloStretchKinematics(Robot):
         "joint_wrist_pitch",
         "joint_wrist_roll",
     ]
+    manip_indices = [0, 3, 4, 5, 6, 7, 8, 9, 10]
     full_body_controlled_joints = [
         "base_x_joint",
         "base_y_joint",
@@ -180,23 +184,17 @@ class HelloStretchKinematics(Robot):
         "joint_wrist_roll",
     ]
 
-    def _create_ik_solvers(self, ik_type: str = "pybullet"):
-        """create ik solvers using pybullet"""
+    def _create_ik_solvers(self, ik_type: str = "pybullet", visualize: bool = False):
+        """Create ik solvers using pybullet or something else."""
         # You can set one of the visualize flags to true to debug IK issues
         # This is not exposed manually - only one though or it will fail
-        self.ik_solver = PybulletIKSolver(
-            self.full_body_urdf_path,
-            self.ee_link_name,
-            self.full_body_controlled_joints,
-            visualize=False,
-        )
-        # You can set one of the visualize flags to true to debug IK issues
         if ik_type == "pybullet":
             self.manip_ik_solver = PybulletIKSolver(
                 self.manip_mode_urdf_path,
                 self.ee_link_name,
                 self.manip_mode_controlled_joints,
                 visualize=False,
+                joint_range=self.range[self.manip_indices],
             )
         elif ik_type == "pinocchio":
             self.manip_ik_solver = PinocchioIKSolver(
@@ -214,8 +212,11 @@ class HelloStretchKinematics(Robot):
         visualize: bool = False,
         root: str = ".",
         ik_type: str = "pybullet",
+        joint_tolerance: float = 0.01,
     ):
         """Create the robot in bullet for things like kinematics; extract information"""
+
+        self.joint_tol = joint_tolerance
 
         # urdf
         if not urdf_path:
@@ -248,7 +249,7 @@ class HelloStretchKinematics(Robot):
         self.set_joint_position = self.ref.set_joint_position
 
         self._update_joints()
-        self._create_ik_solvers(ik_type=ik_type)
+        self._create_ik_solvers(ik_type=ik_type, visualize=visualize)
         self._ik_type = ik_type
 
     def set_head_config(self, q):
@@ -305,13 +306,21 @@ class HelloStretchKinematics(Robot):
         self.joint_idx = [-1] * self.dof
         # Get the joint info we need from this
         joint_lift = self.ref.get_joint_info_by_name("joint_lift")
+        self.range[:3, 0] = -float("Inf") * np.ones(3)
+        self.range[:3, 1] = float("Inf") * np.ones(3)
         self.range[HelloStretchIdx.LIFT] = np.array(
-            [joint_lift.lower_limit, joint_lift.upper_limit]
+            [
+                joint_lift.lower_limit + self.joint_tol,
+                joint_lift.upper_limit - self.joint_tol,
+            ]
         )
         self.joint_idx[HelloStretchIdx.LIFT] = joint_lift.index
         joint_head_pan = self.ref.get_joint_info_by_name("joint_head_pan")
         self.range[HelloStretchIdx.HEAD_PAN] = np.array(
-            [joint_head_pan.lower_limit, joint_head_pan.upper_limit]
+            [
+                joint_head_pan.lower_limit + self.joint_tol,
+                joint_head_pan.upper_limit - self.joint_tol,
+            ]
         )
         self.joint_idx[HelloStretchIdx.HEAD_PAN] = joint_head_pan.index
         joint_head_tilt = self.ref.get_joint_info_by_name("joint_head_tilt")
@@ -321,17 +330,26 @@ class HelloStretchKinematics(Robot):
         self.joint_idx[HelloStretchIdx.HEAD_TILT] = joint_head_tilt.index
         joint_wrist_yaw = self.ref.get_joint_info_by_name("joint_wrist_yaw")
         self.range[HelloStretchIdx.WRIST_YAW] = np.array(
-            [joint_wrist_yaw.lower_limit, joint_wrist_yaw.upper_limit]
+            [
+                joint_wrist_yaw.lower_limit + self.joint_tol,
+                joint_wrist_yaw.upper_limit - self.joint_tol,
+            ]
         )
         self.joint_idx[HelloStretchIdx.WRIST_YAW] = joint_wrist_yaw.index
         joint_wrist_roll = self.ref.get_joint_info_by_name("joint_wrist_roll")
         self.range[HelloStretchIdx.WRIST_ROLL] = np.array(
-            [joint_wrist_roll.lower_limit, joint_wrist_roll.upper_limit]
+            [
+                joint_wrist_roll.lower_limit + self.joint_tol,
+                joint_wrist_roll.upper_limit - self.joint_tol,
+            ]
         )
         self.joint_idx[HelloStretchIdx.WRIST_ROLL] = joint_wrist_roll.index
         joint_wrist_pitch = self.ref.get_joint_info_by_name("joint_wrist_pitch")
         self.range[HelloStretchIdx.WRIST_PITCH] = np.array(
-            [joint_wrist_pitch.lower_limit, joint_wrist_pitch.upper_limit]
+            [
+                joint_wrist_pitch.lower_limit + self.joint_tol,
+                joint_wrist_pitch.upper_limit - self.joint_tol,
+            ]
         )
         self.joint_idx[HelloStretchIdx.WRIST_PITCH] = joint_wrist_pitch.index
 
@@ -469,8 +487,8 @@ class HelloStretchKinematics(Robot):
     def manip_fk(self, q: np.ndarray = None) -> Tuple[np.ndarray, np.ndarray]:
         """manipulator specific forward kinematics; uses separate URDF than the full-body fk() method"""
         assert q.shape == (self.dof,)
-        pin_pose = self._ros_pose_to_pinocchio(q)
         if self._ik_type == "pinocchio":
+            pin_pose = self._ros_pose_to_pinocchio(q)
             ee_pos, ee_quat = self.manip_ik_solver.compute_fk(pin_pose)
         elif self._ik_type == "pybullet":
             ee_pos, ee_quat = self.fk(q)
@@ -613,7 +631,12 @@ class HelloStretchKinematics(Robot):
             return None
 
     def manip_ik(
-        self, pose_query, q0=None, relative: bool = True, update_pb: bool = True
+        self,
+        pose_query,
+        q0=None,
+        relative: bool = True,
+        update_pb: bool = True,
+        num_attempts: int = 1,
     ):
         """IK in manipulation mode. Takes in a 4x4 pose_query matrix in se(3) and initial
         configuration of the robot.
@@ -621,8 +644,12 @@ class HelloStretchKinematics(Robot):
         By default move relative. easier that way.
         """
 
-        if q0 is None:
-            q0 = STRETCH_HOME_Q
+        if q0 is not None:
+            self._to_manip_format(q0)
+            default_q = q0
+        else:
+            # q0 = STRETCH_HOME_Q
+            default_q = STRETCH_HOME_Q
         # Perform IK
         # These should be relative to the robot's base
         if relative:
@@ -632,10 +659,12 @@ class HelloStretchKinematics(Robot):
             # So how do we do that?
             # This logic currently in local hello robot client
             raise NotImplementedError()
-        _q = self.manip_ik_solver.compute_ik(pos, quat, self._to_manip_format(q0))
+        _q = self.manip_ik_solver.compute_ik(pos, quat, q0, num_attempts=num_attempts)
+        if _q is None:
+            return None
         if self._ik_type == "pinocchio":
             _q = _q[0]
-        q = self._from_manip_format(_q, q0)
+        q = self._from_manip_format(_q, default_q)
         self.set_config(q)
         return q
 

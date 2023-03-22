@@ -465,7 +465,7 @@ class InteractionPredictionModule(torch.nn.Module):
             self.device
         ), torch.FloatTensor(down_rgb).to(self.device)
 
-        classification_scores, xyz, rgb = self.forward(
+        classification_scores, xyz, output_feat = self.forward(
             t_rgb,
             t_down_rgb,
             t_xyz,
@@ -474,7 +474,12 @@ class InteractionPredictionModule(torch.nn.Module):
             t_proprio,
         )
         self.visualize_top_attention(t_down_xyz, t_down_rgb, classification_scores)
-        return (self.predict_closest_idx(classification_scores)[0], xyz, rgb)
+        return (
+            self.predict_closest_idx(classification_scores)[0].numpy(),
+            classification_scores,
+            output_feat,
+            (down_xyz, down_rgb),
+        )
 
     def predict_closest_idx(self, classification_probs) -> torch.Tensor:
         # predict the closest centroid

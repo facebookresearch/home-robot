@@ -24,20 +24,22 @@ AGENT:
 
   SEMANTIC_MAP:
     semantic_categories: mukul_indoor # map semantic channel categories ("coco_indoor", "longtail_indoor", "mukul_indoor")
-    num_sem_categories: 3             # number of map semantic channel categories (16, 257, 35)
+    num_sem_categories: 5             # number of map semantic channel categories (16, 257, 35)
     map_size_cm: 4800        # global map size (in centimeters)
     map_resolution: 5        # size of map bins (in centimeters)
     vision_range: 100        # diameter of local map region visible by the agent (in cells)
     global_downscaling: 2    # ratio of global over local map
     du_scale: 4              # frame downscaling before projecting to point cloud
-    cat_pred_threshold: 5.0  # number of depth points to be in bin to classify it as a certain semantic category
+    cat_pred_threshold: 1.0  # number of depth points to be in bin to classify it as a certain semantic category
     exp_pred_threshold: 1.0  # number of depth points to be in bin to consider it as explored
     map_pred_threshold: 1.0  # number of depth points to be in bin to consider it as obstacle
 
   PLANNER:
     collision_threshold: 0.20       # forward move distance under which we consider there's a collision (in meters)
-    obs_dilation_selem_radius: 3    # radius (in cells) of obstacle dilation structuring element
-    goal_dilation_selem_radius: 10  # radius (in cells) of goal dilation structuring element
+    # obs_dilation_selem_radius: 3    # radius (in cells) of obstacle dilation structuring element
+    # goal_dilation_selem_radius: 10  # radius (in cells) of goal dilation structuring element
+    obs_dilation_selem_radius: 4    # radius (in cells) of obstacle dilation structuring element
+    goal_dilation_selem_radius: 7  # radius (in cells) of goal dilation structuring element
     step_size: 5                    # maximum distance of the short-term goal selected by the planner
 
 EVAL_VECTORIZED:

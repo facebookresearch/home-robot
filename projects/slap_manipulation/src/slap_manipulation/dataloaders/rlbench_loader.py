@@ -381,7 +381,7 @@ class RLBenchDataset(DatasetBase):
                     xyz - crop_location[None].repeat(xyz.shape[0], axis=0), axis=-1
                 )
                 # Make sure this is near some geometry
-                if np.sum(dists < 0.1) > 50:
+                if np.sum(dists < 0.1) > min_num_points:
                     break
                 else:
                     crop_location = orig_crop_location

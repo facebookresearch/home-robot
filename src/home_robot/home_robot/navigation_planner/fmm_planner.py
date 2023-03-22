@@ -14,6 +14,7 @@ from numpy import ma
 class FMMPlanner:
     """
     Fast Marching Method Planner.
+    This is just the core FMM logic.
     """
 
     def __init__(

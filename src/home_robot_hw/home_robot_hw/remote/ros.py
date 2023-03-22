@@ -8,6 +8,7 @@ from typing import Dict, Optional
 
 import actionlib
 import numpy as np
+import ros_numpy
 import rospy
 import sophus as sp
 import tf2_ros
@@ -42,6 +43,9 @@ DEFAULT_DEPTH_TOPIC = "/camera/aligned_depth_to_color"
 
 class StretchRosInterface:
     """Interface object with ROS topics and services"""
+
+    # Base of the robot
+    base_link = "base_link"
 
     goal_time_tolerance = 1.0
     msg_delay_t = 0.25
@@ -82,7 +86,7 @@ class StretchRosInterface:
 
         self.last_odom_update_timestamp = rospy.Time(0)
         self.last_base_update_timestamp = rospy.Time(0)
-        self.goal_reset_t = rospy.Time(0)
+        self._goal_reset_t = rospy.Time(0)
 
         # Create visualizers for pose information
         self.goal_visualizer = Visualizer("command_pose", rgba=[1.0, 0.0, 0.0, 0.5])
@@ -110,7 +114,7 @@ class StretchRosInterface:
 
     def get_joint_state(self):
         with self._js_lock:
-            return self._ros_client.pos, self._ros_client.vel, self._ros_client.frc
+            return self.pos, self.vel, self.frc
 
     def send_trajectory_goals(self, joint_goals: Dict[str, float]):
         # Preprocess arm joints (arm joints are actually 4 joints in one)
@@ -332,3 +336,27 @@ class StretchRosInterface:
         trq[HelloStretchIdx.ARM] /= 4
         with self._js_lock:
             self.pos, self.vel, self.frc = pos, vel, trq
+
+    def get_frame_pose(self, frame, base_frame=None, lookup_time=None, timeout_s=None):
+        """look up a particular frame in base coords (or some other coordinate frame)."""
+        if lookup_time is None:
+            lookup_time = rospy.Time(0)  # return most recent transform
+        if timeout_s is None:
+            timeout_ros = rospy.Duration(0.1)
+        else:
+            timeout_ros = rospy.Duration(timeout_s)
+        if base_frame is None:
+            base_frame = self.base_link
+        try:
+            stamped_transform = self.tf2_buffer.lookup_transform(
+                base_frame, frame, lookup_time, timeout_ros
+            )
+            pose_mat = ros_numpy.numpify(stamped_transform.transform)
+        except (
+            tf2_ros.LookupException,
+            tf2_ros.ConnectivityException,
+            tf2_ros.ExtrapolationException,
+        ):
+            print("!!! Lookup failed from", base_frame, "to", frame, "!!!")
+            return None
+        return pose_mat
