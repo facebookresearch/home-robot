@@ -18,6 +18,7 @@ REAL_WORLD_CATEGORIES = [
     "chair",
     "cup",
     "table",
+    "bathtub",
     "other",
 ]
 

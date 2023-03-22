@@ -26,7 +26,7 @@ def main(test_pick=False):
     env = StretchPickandPlaceEnv(config=config, test_grasping=test_pick)
 
     agent.reset()
-    env.reset("table", "cup", "chair")
+    env.reset("bathtub", "cup", "chair")
 
     t = 0
     while not env.episode_over:

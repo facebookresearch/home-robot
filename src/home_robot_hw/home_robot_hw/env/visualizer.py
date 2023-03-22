@@ -43,7 +43,10 @@ map_color_palette = [
         0.0,  # category index 1
         0.0,
         0.0,
-        1.0,  # category index 1
+        1.0,  # category index 2
+        0.0,
+        1.0,
+        1.0,  # category index 3
     ]
 ]
 
