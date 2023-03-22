@@ -8,6 +8,7 @@ from typing import List
 import cv2
 import numpy as np
 import skfmm
+import skimage
 from numpy import ma
 
 
@@ -168,3 +169,24 @@ class FMMPlanner:
                         ** 0.5,
                     )
         return mask
+
+    def _find_nearest_goal(self, goal):
+        # TODO Adapt this function to multi-goal and use it to select the goal
+        traversible = (
+            skimage.morphology.binary_dilation(
+                np.zeros(self.traversible.shape), skimage.morphology.disk(2)
+            )
+            != 1
+        )
+        traversible = traversible * 1.0
+        planner = FMMPlanner(traversible)
+        planner.set_goal(goal)
+
+        mask = self.traversible
+
+        dist_map = planner.fmm_dist * mask
+        dist_map[dist_map == 0] = dist_map.max()
+
+        goal = np.unravel_index(dist_map.argmin(), dist_map.shape)
+
+        return goal
