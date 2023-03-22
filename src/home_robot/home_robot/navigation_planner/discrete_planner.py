@@ -173,20 +173,26 @@ class DiscretePlanner:
                 start - np.array(short_term_goal[:2])
             )
             print("Distance:", dist_to_short_term_goal)
+            print("Replan:", replan)
+            print()
         # t1 = time.time()
         # print(f"[Planning] get_short_term_goal() time: {t1 - t0}")
 
         # We were not able to find a path to the high-level goal
         if replan:
-            # Clean collision map
-            self.collision_map *= 0
+            print("Could not find a path to the high-level goal. Stopping.")
+            action = DiscreteNavigationAction.STOP
+            return action, closest_goal_map
 
-            # Reduce obstacle dilation
-            if self.curr_obs_dilation_selem_radius > 1:
-                self.curr_obs_dilation_selem_radius -= 1
-                self.obs_dilation_selem = skimage.morphology.disk(
-                    self.curr_obs_dilation_selem_radius
-                )
+            # # Clean collision map
+            # self.collision_map *= 0
+            #
+            # # Reduce obstacle dilation
+            # if self.curr_obs_dilation_selem_radius > 1:
+            #     self.curr_obs_dilation_selem_radius -= 1
+            #     self.obs_dilation_selem = skimage.morphology.disk(
+            #         self.curr_obs_dilation_selem_radius
+            #     )
 
         stg_x, stg_y = short_term_goal
         angle_st_goal = math.degrees(math.atan2(stg_x - start[0], stg_y - start[1]))
