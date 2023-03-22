@@ -214,7 +214,8 @@ class RobotDataset(RLBenchDataset):
             self._robot_max_grasp = temp.max_grasp
         elif robot == "stretch":
             # Offset from STRETCH_GRASP_FRAME to predicted grasp point
-            self._robot_ee_to_grasp_offset = STRETCH_TO_GRASP
+            self._robot_ee_to_grasp_offset = 0
+            self._robot_ee_to_grasp_offset = STRETCH_TO_GRASP.copy()
             self._robot_ee_to_grasp_offset[2, 3] -= self._grasp_offset_adjustment
             self._robot_max_grasp = 0.13  # STRETCH_GRIPPER_OPEN
         else:
@@ -595,16 +596,16 @@ class RobotDataset(RLBenchDataset):
         self._assert_positions_match_ee_keyframes(crop_ee_keyframe, positions)
 
         if self._visualize_interaction_pt:
-            print(
-                "Showing current ee keyframe as the coordinate-frame and the interaction-ee-position as yellow sphere"
-            )
-            show_point_cloud_with_keypt_and_closest_pt(
-                xyz2,
-                rgb2,
-                current_ee_keyframe[:3, 3],
-                current_ee_keyframe[:3, :3],
-                interaction_ee_keyframe[:3, 3],
-            )
+            # print(
+            #     "Showing current ee keyframe as the coordinate-frame and the interaction-ee-position as yellow sphere"
+            # )
+            # show_point_cloud_with_keypt_and_closest_pt(
+            #     xyz2,
+            #     rgb2,
+            #     current_ee_keyframe[:3, 3],
+            #     current_ee_keyframe[:3, :3],
+            #     interaction_ee_keyframe[:3, 3],
+            # )
             print(
                 "Showing current ee keyframe as the coordinate-frame and the interaction-point in PCD as yellow sphere"
             )
@@ -739,8 +740,8 @@ def show_all_keypoints(data_dir, split, template, robot):
         show_cropped=True,
         verbose=False,
         multi_step=False,
-        visualize_interaction_point=False,
-        visualize_cropped_keyframes=False,
+        visualize_interaction_point=True,
+        visualize_cropped_keyframes=True,
         robot=robot,
     )
     skip_names = ["30_11_2022_15_22_40"]
