@@ -16,6 +16,10 @@ pip install -e .
 # Install SLAM dependency on the robot
 sudo apt install ros-noetic-hector-slam 
 
+# Install pinocchio kinematics library on the robot -
+# this is easier than installing via pip since it needs to be in the base environment
+sudo apt install ros-noetic-pinocchio
+
 # Set up the python package for ROS
 ln -s $HOME_ROBOT_ROOT/src/home_robot_hw $HOME/catkin_ws/src/home_robot_hw
 

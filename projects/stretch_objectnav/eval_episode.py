@@ -7,7 +7,7 @@ from home_robot.utils.config import get_config
 from home_robot_hw.env.stretch_object_nav_env import StretchObjectNavEnv
 
 if __name__ == "__main__":
-    config_path = "configs/agent/floorplanner_eval.yaml"
+    config_path = "projects/stretch_objectnav/configs/agent/floorplanner_eval.yaml"
     config, config_str = get_config(config_path)
     config.defrost()
     config.NUM_ENVIRONMENTS = 1
@@ -18,7 +18,6 @@ if __name__ == "__main__":
     rospy.init_node("eval_episode_stretch_objectnav")
     agent = ObjectNavAgent(config=config)
     env = StretchObjectNavEnv(config=config)
-    env.goto(STRETCH_HOME_Q)
 
     agent.reset()
     env.reset()
@@ -26,9 +25,9 @@ if __name__ == "__main__":
     t = 0
     while not env.episode_over:
         t += 1
-        print("STEP =", t)
         obs = env.get_observation()
         action, info = agent.act(obs)
+        print("STEP =", t)
         env.apply_action(action, info=info)
 
     print(env.get_episode_metrics())

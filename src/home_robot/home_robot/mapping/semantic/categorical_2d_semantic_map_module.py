@@ -31,6 +31,10 @@ class Categorical2DSemanticMapModule(nn.Module):
     https://github.com/devendrachaplot/Object-Goal-Navigation
     """
 
+    # If true, display point cloud visualizations using Open3d
+    debug_mode = False
+    min_obs_height_cm = 10
+
     def __init__(
         self,
         frame_height: int,
@@ -46,6 +50,8 @@ class Categorical2DSemanticMapModule(nn.Module):
         cat_pred_threshold: float,
         exp_pred_threshold: float,
         map_pred_threshold: float,
+        min_depth: float = 0.5,
+        max_depth: float = 3.5,
     ):
         """
         Arguments:
@@ -91,10 +97,14 @@ class Categorical2DSemanticMapModule(nn.Module):
         self.exp_pred_threshold = exp_pred_threshold
         self.map_pred_threshold = map_pred_threshold
 
+        self.max_depth = max_depth * 100.0
+        self.min_depth = min_depth * 100.0
         self.agent_height = camera_height * 100.0
         self.max_voxel_height = int(360 / self.z_resolution)
         self.min_voxel_height = int(-40 / self.z_resolution)
-        self.min_mapped_height = int(25 / self.z_resolution - self.min_voxel_height)
+        self.min_mapped_height = int(
+            self.min_obs_height_cm / self.z_resolution - self.min_voxel_height
+        )
         self.max_mapped_height = int(
             (self.agent_height + 1) / self.z_resolution - self.min_voxel_height
         )
@@ -253,27 +263,66 @@ class Categorical2DSemanticMapModule(nn.Module):
         batch_size, obs_channels, h, w = obs.size()
         device, dtype = obs.device, obs.dtype
         if camera_pose is not None:
-            tilt = pt.matrix_to_euler_angles(camera_pose[:, :3, :3], convention="ZYX")[
-                :, 1
-            ]
+            # TODO: make consistent between sim and real
+            # hab_angles = pt.matrix_to_euler_angles(camera_pose[:, :3, :3], convention="YZX")
+            angles = pt.matrix_to_euler_angles(camera_pose[:, :3, :3], convention="ZYX")
+            # For habitat - pull x angle
+            # tilt = angles[:, -1]
+            # For real robot
+            tilt = angles[:, 1]
+
+            # Get the agent pose
+            # hab_agent_height = camera_pose[:, 1, 3] * 100
+            agent_pos = camera_pose[:, :3, 3] * 100
+            agent_height = agent_pos[:, 2]
         else:
-            tilt = 0
+            tilt = torch.zeros(batch_size)
+            agent_height = self.agent_height
+
         depth = obs[:, 3, :, :].float()
+        depth[depth > self.max_depth] = 0
         point_cloud_t = du.get_point_cloud_from_z_t(
             depth, self.camera_matrix, device, scale=self.du_scale
         )
-        if camera_pose is not None:
-            agent_height = camera_pose[:, 2, 3] * 100
-        else:
-            agent_height = self.agent_height
 
-        agent_view_t = du.transform_camera_view_t(
+        if self.debug_mode:
+            from home_robot.utils.point_cloud import show_point_cloud
+
+            rgb = obs[:, :3, :: self.du_scale, :: self.du_scale].permute(0, 2, 3, 1)
+            xyz = point_cloud_t[0].reshape(-1, 3)
+            rgb = rgb[0].reshape(-1, 3)
+            print("-> Showing point cloud in camera coords")
+            show_point_cloud(
+                (xyz / 100.0).numpy(), (rgb / 255.0).numpy(), orig=np.zeros(3)
+            )
+
+        point_cloud_base_coords = du.transform_camera_view_t(
             point_cloud_t, agent_height, torch.rad2deg(tilt).numpy(), device
         )
 
-        agent_view_centered_t = du.transform_pose_t(
-            agent_view_t, self.shift_loc, device
+        # Show the point cloud in base coordinates for debugging
+        if self.debug_mode:
+            print()
+            print("------------------------------")
+            print("agent angles =", angles)
+            print("agent tilt   =", tilt)
+            print("agent height =", agent_height, "preset =", self.agent_height)
+            xyz = point_cloud_base_coords[0].reshape(-1, 3)
+            print("-> Showing point cloud in base coords")
+            show_point_cloud(
+                (xyz / 100.0).numpy(), (rgb / 255.0).numpy(), orig=np.zeros(3)
+            )
+
+        point_cloud_map_coords = du.transform_pose_t(
+            point_cloud_base_coords, self.shift_loc, device
         )
+
+        if self.debug_mode:
+            xyz = point_cloud_base_coords[0].reshape(-1, 3)
+            print("-> Showing point cloud in map coords")
+            show_point_cloud(
+                (xyz / 100.0).numpy(), (rgb / 255.0).numpy(), orig=np.zeros(3)
+            )
 
         voxel_channels = 1 + self.num_sem_categories
 
@@ -297,7 +346,7 @@ class Categorical2DSemanticMapModule(nn.Module):
             batch_size, obs_channels - 4, h // self.du_scale * w // self.du_scale
         )
 
-        XYZ_cm_std = agent_view_centered_t.float()
+        XYZ_cm_std = point_cloud_map_coords.float()
         XYZ_cm_std[..., :2] = XYZ_cm_std[..., :2] / self.xy_resolution
         XYZ_cm_std[..., :2] = (
             (XYZ_cm_std[..., :2] - self.vision_range // 2.0) / self.vision_range * 2.0

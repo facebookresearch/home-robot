@@ -8,6 +8,7 @@ dependencies:
   - pybind11
   - pytorch
   - pytorch3d
+  - pytorch==1.13.*  # Compatibility with pytorch3d
   - torchvision
   - pinocchio
   - pip

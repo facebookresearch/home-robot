@@ -9,6 +9,7 @@ import rospy
 import trimesh.transformations as tra
 
 from home_robot.motion.robot import Robot
+from home_robot.motion.stretch import HelloStretchIdx
 
 from .abstract import AbstractControlModule
 
@@ -19,6 +20,7 @@ MAX_DEPTH_REPLACEMENT_VALUE = 10001
 class StretchHeadClient(AbstractControlModule):
     min_depth_val = 0.1
     max_depth_val = 4.0
+    camera_frame = "camera_color_optical_frame"
 
     def __init__(
         self,
@@ -41,6 +43,9 @@ class StretchHeadClient(AbstractControlModule):
         else:
             return mat
 
+    def get_pose_in_base_coords(self, rotated=False):
+        return self._ros_client.get_frame_pose(self.camera_frame)
+
     def get_pan_tilt(self) -> Tuple[float, float]:
         q, _, _ = self._ros_client.get_joint_state()
         return q[HelloStretchIdx.HEAD_PAN], q[HelloStretchIdx.HEAD_TILT]
@@ -49,7 +54,7 @@ class StretchHeadClient(AbstractControlModule):
         self,
         pan: Optional[float] = None,
         tilt: Optional[float] = None,
-        blocking: bool = False,
+        blocking: bool = True,
     ):
         joint_goals = {}
         if pan is not None:
@@ -63,15 +68,18 @@ class StretchHeadClient(AbstractControlModule):
         if blocking:
             self.wait()
 
-    def look_at_ee(self, blocking: bool = False):
+    def look_at_ee(self, blocking: bool = True):
+        """Point camera sideways towards the gripper"""
         pan, tilt = self._robot_model.look_at_ee
         self.set_pan_tilt(pan, tilt, blocking=blocking)
 
-    def look_front(self, blocking: bool = False):
+    def look_front(self, blocking: bool = True):
+        """Point camera forwards at a 45-degree downwards angle"""
         pan, tilt = self._robot_model.look_front
         self.set_pan_tilt(pan, tilt, blocking=blocking)
 
-    def look_ahead(self, blocking: bool = False):
+    def look_ahead(self, blocking: bool = True):
+        """Point camera forwards horizontally"""
         pan, tilt = self._robot_model.look_ahead
         self.set_pan_tilt(pan, tilt, blocking=blocking)
 

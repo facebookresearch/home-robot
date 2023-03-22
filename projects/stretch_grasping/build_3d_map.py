@@ -19,6 +19,7 @@ from home_robot.motion.stretch import STRETCH_NAVIGATION_Q, HelloStretchKinemati
 from home_robot.utils.point_cloud import numpy_to_pcd, pcd_to_numpy, show_point_cloud
 from home_robot.utils.pose import to_pos_quat
 from home_robot_hw.env.stretch_pick_and_place_env import StretchPickandPlaceEnv
+from home_robot_hw.remote import StretchClient
 
 
 class RosMapDataCollector(object):
@@ -33,8 +34,8 @@ class RosMapDataCollector(object):
     This is an example collecting the data; not necessarily the way you should do it.
     """
 
-    def __init__(self, env, visualize_planner=False):
-        self.env = env  # Get the connection to the ROS environment via agent
+    def __init__(self, robot, visualize_planner=False):
+        self.robot = robot  # Get the connection to the ROS environment via agent
         self.started = False
         self.robot_model = HelloStretchKinematics(visualize=visualize_planner)
         self.voxel_map = SparseVoxelMap(resolution=0.01)
@@ -42,9 +43,10 @@ class RosMapDataCollector(object):
     def step(self):
         """Step the collector. Get a single observation of the world. Remove bad points, such as
         those from too far or too near the camera."""
-        rgb, depth, xyz = self.env.get_images(compute_xyz=True, rotate_images=False)
-        q, dq = self.env.update()
-        camera_pose = self.env.get_camera_pose_matrix(rotated=False)
+        rgb, depth, xyz = self.robot.head.get_images(
+            compute_xyz=True, rotate_images=False
+        )
+        camera_pose = self.robot.head.get_pose(rotated=False)
         orig_rgb = rgb.copy()
         orig_depth = depth.copy()
 
@@ -63,7 +65,7 @@ class RosMapDataCollector(object):
             xyz,
             rgb,
             depth=depth,
-            K=self.env.rgb_cam.K,
+            K=self.robot.head._ros_client.rgb_cam.K,
             orig_rgb=orig_rgb,
             orig_depth=orig_depth,
         )
@@ -86,22 +88,23 @@ class RosMapDataCollector(object):
 @click.option("--pcd-filename", default="output.ply", type=str)
 @click.option("--pkl-filename", default="output.pkl", type=str)
 def main(rate, max_frames, visualize, manual_wait, pcd_filename, pkl_filename):
-    rospy.init_node("build_3d_map")
-    env = StretchPickandPlaceEnv(segmentation_method=None, ros_grasping=False)
-    collector = RosMapDataCollector(env, visualize)
+    robot = StretchClient()
+    collector = RosMapDataCollector(robot, visualize)
 
     # Tuck the arm away
     print("Sending arm to  home...")
-    env.goto(STRETCH_NAVIGATION_Q, wait=False)
+    robot.switch_to_manipulation_mode()
+    robot.head.look_front(blocking=False)
+    robot.manip.goto_joint_positions(
+        robot.manip._extract_joint_pos(STRETCH_NAVIGATION_Q)
+    )
     print("... done.")
 
     rate = rospy.Rate(rate)
 
     # Move the robot
     # TODO: replace env with client
-    if not env.in_navigation_mode():
-        print("Switch to navigation mode...")
-        env.switch_to_navigation_mode()
+    robot.switch_to_navigation_mode()
     # Sequence information if we are executing the trajectory
     step = 0
     # Number of frames collected
@@ -135,7 +138,8 @@ def main(rate, max_frames, visualize, manual_wait, pcd_filename, pkl_filename):
 
         ti = (rospy.Time.now() - t0).to_sec()
         print("t =", ti, trajectory[step])
-        env.navigate_to(trajectory[step], blocking=True)
+        # env.navigate_to(trajectory[step], blocking=True)
+        robot.nav.navigate_to(trajectory[step])
         print("... done navigating.")
         if manual_wait:
             input("... press enter ...")
@@ -151,7 +155,7 @@ def main(rate, max_frames, visualize, manual_wait, pcd_filename, pkl_filename):
         rate.sleep()
 
     print("Done collecting data.")
-    env.navigate_to((0, 0, 0))
+    robot.nav.navigate_to((0, 0, 0))
     pc_xyz, pc_rgb = collector.show()
 
     # Create pointcloud

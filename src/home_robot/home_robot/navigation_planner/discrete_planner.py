@@ -22,12 +22,15 @@ class DiscretePlanner:
     """
     This class translates planner inputs into a discrete low-level action
     using an FMM planner.
+
+    This is a wrapper used to navigate to a particular object/goal location.
     """
 
     def __init__(
         self,
         turn_angle: float,
         collision_threshold: float,
+        step_size: int,
         obs_dilation_selem_radius: int,
         goal_dilation_selem_radius: int,
         map_size_cm: int,
@@ -36,6 +39,7 @@ class DiscretePlanner:
         print_images: bool,
         dump_location: str,
         exp_name: str,
+        min_goal_distance_cm: float = 60.0,
     ):
         """
         Arguments:
@@ -64,6 +68,7 @@ class DiscretePlanner:
         )
         self.turn_angle = turn_angle
         self.collision_threshold = collision_threshold
+        self.step_size = step_size
         self.start_obs_dilation_selem_radius = obs_dilation_selem_radius
         self.goal_dilation_selem_radius = goal_dilation_selem_radius
 
@@ -77,6 +82,7 @@ class DiscretePlanner:
         self.timestep = None
         self.curr_obs_dilation_selem_radius = None
         self.obs_dilation_selem = None
+        self.min_goal_distance_cm = min_goal_distance_cm
 
     def reset(self):
         self.vis_dir = self.default_vis_dir
@@ -111,6 +117,7 @@ class DiscretePlanner:
         goal_map: np.ndarray,
         sensor_pose: np.ndarray,
         found_goal: bool,
+        debug: bool = True,
     ) -> Tuple[DiscreteNavigationAction, np.ndarray]:
         """Plan a low-level action.
 
@@ -138,6 +145,10 @@ class DiscretePlanner:
             int(start_x * 100.0 / self.map_resolution - gy1),
         ]
         start = pu.threshold_poses(start, obstacle_map.shape)
+        start = np.array(start)
+
+        if debug:
+            print("Goals found:", np.any(goal_map > 0))
 
         self.curr_pose = [start_x, start_y, start_o]
         self.visited_map[gx1:gx2, gy1:gy2][
@@ -149,9 +160,19 @@ class DiscretePlanner:
 
         # High-level goal -> short-term goal
         # t0 = time.time()
+        # Extracts a local waypoint
+        # Defined by the step size - should be relatively close to the robot
         short_term_goal, closest_goal_map, replan, stop = self._get_short_term_goal(
             obstacle_map, np.copy(goal_map), start, planning_window
         )
+        # Short term goal is in cm, start_x and start_y are in m
+        if debug:
+            print("Current pose:", start)
+            print("Short term goal:", short_term_goal)
+            dist_to_short_term_goal = np.linalg.norm(
+                start - np.array(short_term_goal[:2])
+            )
+            print("Distance:", dist_to_short_term_goal)
         # t1 = time.time()
         # print(f"[Planning] get_short_term_goal() time: {t1 - t0}")
 
@@ -172,15 +193,52 @@ class DiscretePlanner:
         angle_agent = pu.normalize_angle(start_o)
         relative_angle = pu.normalize_angle(angle_agent - angle_st_goal)
 
+        # Compute a goal we could be moving towards
+        # Sample a goal in the goal map
+        goal_x, goal_y = np.nonzero(closest_goal_map)
+        idx = np.random.randint(len(goal_x))
+        goal_x, goal_y = goal_x[idx], goal_y[idx]
+        distance_to_goal = np.linalg.norm(np.array([goal_x, goal_y]) - start)
+        # Actual metric distance to goal
+        distance_to_goal_cm = distance_to_goal * self.map_resolution
+        angle_goal = math.degrees(math.atan2(goal_x - start[0], goal_y - start[1]))
+        angle_goal = pu.normalize_angle(angle_goal)
+        # Angle needed to orient towards the goal
+        relative_angle_goal = pu.normalize_angle(angle_agent - angle_goal)
+
+        if debug:
+            print("Found goal:", found_goal)
+            print("Stop:", stop)
+            print("Angle to goal:", relative_angle_goal)
+            print("Distance to goal", distance_to_goal)
+            print(
+                "Distance in cm:",
+                distance_to_goal_cm,
+                ">",
+                self.min_goal_distance_cm,
+            )
+
         # Short-term goal -> deterministic local policy
-        if relative_angle > self.turn_angle / 2.0:
-            action = DiscreteNavigationAction.TURN_RIGHT
-        elif relative_angle < -self.turn_angle / 2.0:
-            action = DiscreteNavigationAction.TURN_LEFT
-        elif stop and found_goal:
-            action = DiscreteNavigationAction.STOP
+        if not (found_goal and stop):
+            if relative_angle > self.turn_angle / 2.0:
+                action = DiscreteNavigationAction.TURN_RIGHT
+            elif relative_angle < -self.turn_angle / 2.0:
+                action = DiscreteNavigationAction.TURN_LEFT
+            else:
+                action = DiscreteNavigationAction.MOVE_FORWARD
         else:
-            action = DiscreteNavigationAction.MOVE_FORWARD
+            # Try to orient towards the goal object - or at least any point sampled from the goal
+            # object.
+            print()
+            print("----------------------------")
+            print(">>> orient towards the goal.")
+            if relative_angle_goal > 2 * self.turn_angle / 3.0:
+                action = DiscreteNavigationAction.TURN_RIGHT
+            elif relative_angle_goal < -2 * self.turn_angle / 3.0:
+                action = DiscreteNavigationAction.TURN_LEFT
+            else:
+                action = DiscreteNavigationAction.STOP
+                print("!!! DONE !!!")
 
         self.last_action = action
         return action, closest_goal_map
@@ -241,6 +299,7 @@ class DiscretePlanner:
 
         planner = FMMPlanner(
             traversible,
+            step_size=self.step_size,
             vis_dir=self.vis_dir,
             visualize=self.visualize,
             print_images=self.print_images,
