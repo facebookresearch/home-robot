@@ -31,6 +31,10 @@ datadump/
 *.h5
 *.hdf5
 *.mp4
+*.glb
+# used by habitat for object info
+*.json
+*.png
 
 # Detic model files
 *.pth
