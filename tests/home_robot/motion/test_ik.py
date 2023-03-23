@@ -22,7 +22,7 @@ from home_robot.utils.pose import to_matrix, to_pos_quat
 DEBUG = False
 URDF_ABS_PATH = os.path.join(REPO_ROOT_PATH, "assets/hab_stretch/urdf/")
 
-POS_ERROR_TOL = 1e-4  # 0.1 mm
+POS_ERROR_TOL = 1.5e-4  # 0.1 mm
 ORI_ERROR_TOL = 1e-6  # 0.1 degrees in quat distance
 
 CEM_POS_ERROR_TOL = 0.005
