@@ -85,7 +85,8 @@ class PinocchioIKSolver:
         quat: np.ndarray,
         q_init=None,
         max_iterations=100,
-        num_attempts=1,
+        num_attempts: int = 1,
+        verbose: bool = False,
     ) -> Tuple[np.ndarray, bool]:
         """given end-effector position and quaternion, return joint values"""
         i = 0
@@ -106,6 +107,8 @@ class PinocchioIKSolver:
 
             dMi = desired_ee_pose.actInv(self.data.oMf[self.ee_frame_idx])
             err = pinocchio.log(dMi).vector
+            if verbose:
+                print(i, err)
             if np.linalg.norm(err) < self.EPS:
                 success = True
                 break
