@@ -249,6 +249,7 @@ class DiscretePlanner:
                 action = DiscreteNavigationAction.STOP
                 print("!!! DONE !!!")
 
+        breakpoint()
         self.last_action = action
         return action, closest_goal_map
 
