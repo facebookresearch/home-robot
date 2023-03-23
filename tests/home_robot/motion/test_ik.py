@@ -67,8 +67,9 @@ def ik_helper(robot, pos, quat, indicator_block=None, debug=DEBUG):
     print("GOAL:", pos, quat)
     if indicator_block is not None:
         indicator_block.set_pose(pos, quat)
-    res = robot.manip_ik((pos, quat), STRETCH_HOME_Q, relative=True)
-    robot.set_config(res)
+    res = robot.manip_ik((pos, quat), np.zeros(robot.dof), relative=True, verbose=True)
+    if res is not None:
+        robot.set_config(res)
     pos2, quat2 = robot.get_ee_pose()
     print("RESULT:", pos2, quat2)
     print("x motion:", res[0])
@@ -222,3 +223,12 @@ def test_ros_to_pin(pin_robot, test_joints):
     pin_pose = pin_robot._ros_pose_to_pinocchio(test_joints[0])
     assert len(pin_pose) == len(test_joints[1])
     assert pin_pose == pytest.approx(test_joints[1])
+
+
+if __name__ == "__main__":
+    robot = HelloStretchKinematics(
+        urdf_path=URDF_ABS_PATH,
+        visualize=DEBUG,
+        ik_type="pybullet",
+    )
+    test_ik_solvers(robot, TEST_DATA[0])

@@ -297,6 +297,8 @@ class DiscretePlanner:
         # Dilate obstacles
         dilated_obstacles = cv2.dilate(obstacles, self.obs_dilation_selem, iterations=1)
 
+        # Create inverse map of obstacles - this is territory we assume is traversible
+        # Traversible is now the map
         traversible = 1 - dilated_obstacles
         traversible[self.collision_map[gx1:gx2, gy1:gy2][x1:x2, y1:y2] == 1] = 0
         traversible[self.visited_map[gx1:gx2, gy1:gy2][x1:x2, y1:y2] == 1] = 1
@@ -320,10 +322,13 @@ class DiscretePlanner:
         dilated_goal_map = skimage.morphology.binary_dilation(goal_map, selem) != 1
         dilated_goal_map = 1 - dilated_goal_map * 1.0
 
+        # Set multi goal to the dilated goal map
+        # We will now try to find a path to any of these spaces
         planner.set_multi_goal(dilated_goal_map, self.timestep)
         self.timestep += 1
 
         state = [start[0] - x1 + 1, start[1] - y1 + 1]
+        # This is where we create the planner to get the trajectory to this state
         stg_x, stg_y, replan, stop = planner.get_short_term_goal(state)
         stg_x, stg_y = stg_x + x1 - 1, stg_y + y1 - 1
         short_term_goal = int(stg_x), int(stg_y)
