@@ -3,25 +3,27 @@
 # This source code is licensed under the MIT license found in the
 # LICENSE file in the root directory of this source tree.
 import threading
+from typing import Optional
 
 import numpy as np
+from omegaconf import DictConfig
 
+from home_robot.utils.config import get_control_config
 from home_robot.utils.geometry.nav import xyt_global_to_base
 
-V_MAX = 0.2  # base.params["motion"]["default"]["vel_m"]
-W_MAX = 0.45  # (vel_m_max - vel_m_default) / wheel_separation_m
-K_P = 0.5
-DAMP_RATIO = 1.0
-DECAY = 0.5
+DEFAULT_CFG_NAME = "traj_follower"
 
 
 class TrajFollower:
-    def __init__(self, is_open_loop=False):
-        self._is_open_loop = is_open_loop
+    def __init__(self, cfg: Optional["DictConfig"] = None):
+        if cfg is None:
+            cfg = get_control_config(DEFAULT_CFG_NAME)
+        else:
+            self.cfg = cfg
 
         # Compute gain
-        self.kp = K_P
-        self.ki = (DAMP_RATIO * self.kp) ** 2 / 4.0
+        self.kp = cfg.k_p
+        self.ki = (cfg.damp_ratio * self.kp) ** 2 / 4.0
 
         # Init
         self._traj_update_lock = threading.Lock()
@@ -69,7 +71,7 @@ class TrajFollower:
         # Compute reference input
         u_ref = np.array([np.linalg.norm(dxyt_des[:2]), dxyt_des[2]])
 
-        if self._is_open_loop:
+        if not self.cfg.enable_feedback:
             u_output = u_ref
 
         else:
@@ -77,7 +79,7 @@ class TrajFollower:
             e = xyt_global_to_base(xyt_des, xyt_curr)
 
             # Compute desired error derivative via PI control
-            self.e_int = DECAY * self.e_int + e * dt
+            self.e_int = self.cfg.decay * self.e_int + e * dt
             de_des = -self.kp * e - self.ki * self.e_int
 
             # Compute velocity feedback commands to achieve desired error derivative
