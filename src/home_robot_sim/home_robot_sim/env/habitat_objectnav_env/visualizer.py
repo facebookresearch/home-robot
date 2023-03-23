@@ -234,12 +234,12 @@ class Visualizer:
 
         # First-person semantic frame
         self.image_vis[50 : 50 + 480, 15 : 15 + 360] = cv2.resize(
-            semantic_frame, (360, 480)
+            semantic_frame[:, :, [2, 1, 0]], (360, 480)
         )
 
         if third_person_image is not None:
             self.image_vis[50:530, 1165 : 1165 + 480] = cv2.resize(
-                third_person_image, (480, 480)
+                third_person_image[:, :, [2, 1, 0]], (480, 480)
             )
 
         # Agent arrow
@@ -271,7 +271,7 @@ class Visualizer:
         color = (20, 20, 20)  # BGR
         thickness = 2
 
-        text = "Observations (Goal: {})".format(goal_name)
+        text = goal_name
         textsize = cv2.getTextSize(text, font, fontScale, thickness)[0]
         textX = (640 - textsize[0]) // 2 + 15
         textY = (50 + textsize[1]) // 2
