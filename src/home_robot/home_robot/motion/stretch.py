@@ -637,6 +637,7 @@ class HelloStretchKinematics(Robot):
         relative: bool = True,
         update_pb: bool = True,
         num_attempts: int = 1,
+        verbose: bool = False,
     ):
         """IK in manipulation mode. Takes in a 4x4 pose_query matrix in se(3) and initial
         configuration of the robot.
@@ -659,7 +660,9 @@ class HelloStretchKinematics(Robot):
             # So how do we do that?
             # This logic currently in local hello robot client
             raise NotImplementedError()
-        _q = self.manip_ik_solver.compute_ik(pos, quat, q0, num_attempts=num_attempts)
+        _q = self.manip_ik_solver.compute_ik(
+            pos, quat, q0, num_attempts=num_attempts, verbose=verbose
+        )
         if _q is None:
             return None
         if self._ik_type == "pinocchio":

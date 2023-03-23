@@ -1,4 +1,10 @@
 #!/usr/bin/env python
+# Copyright (c) Meta Platforms, Inc. and affiliates.
+#
+# This source code is licensed under the MIT license found in the
+# LICENSE file in the root directory of this source tree.
+
+
 import click
 import rospy
 
@@ -15,7 +21,13 @@ from home_robot_hw.env.stretch_object_nav_env import StretchObjectNavEnv
     default="discrete",
     type=click.Choice(["discrete", "sampling"], case_sensitive=False),
 )
-def main(agent):
+@click.option(
+    "--dry-run",
+    default=False,
+    is_flag=True,
+    help="do not execute any actions, just print them",
+)
+def main(agent, dry_run):
     config_path = "projects/stretch_objectnav/configs/agent/floorplanner_eval.yaml"
     config, config_str = get_config(config_path)
     config.defrost()
@@ -31,7 +43,7 @@ def main(agent):
         agent = SamplingBasedObjectNavAgent(config=config)
     else:
         raise NotImplementedError(f"agent {agent} not recognized")
-    env = StretchObjectNavEnv(config=config)
+    env = StretchObjectNavEnv(config=config, dry_run=dry_run)
 
     agent.reset()
     env.reset()

@@ -62,6 +62,8 @@ class FMMPlanner:
         """
         traversible_ma = ma.masked_values(self.traversible * 1, 0)
         traversible_ma[goal_map == 1] = 0
+        # This is where we actually call the FMM algorithm!!
+        # It will compute the distance from each traversible point to the goal.
         dd = skfmm.distance(traversible_ma, dx=1)
         dd = ma.filled(dd, np.max(dd) + 1)
         self.fmm_dist = dd
@@ -170,7 +172,10 @@ class FMMPlanner:
                     )
         return mask
 
-    def _find_nearest_goal(self, goal):
+    def _find_nearest_to_goal(self, goal):
+        """
+        Find the nearest point to a goal
+        """
         # TODO Adapt this function to multi-goal and use it to select the goal
         traversible = (
             skimage.morphology.binary_dilation(

@@ -108,6 +108,7 @@ class StretchEnv(home_robot.core.abstract_env.Env):
         depth_buffer_size=None,
         color_topic=None,
         depth_topic=None,
+        dry_run=False,
     ):
         """Create an interface into ROS execution here. This one needs to connect to:
             - joint_states to read current position
@@ -121,7 +122,7 @@ class StretchEnv(home_robot.core.abstract_env.Env):
         rospy.logwarn(
             "'StretchEnv' is being deprecated. Use 'home_robot_hw.StretchClient' to interact with the robot."
         )
-
+        self.dry_run = dry_run
         self._base_control_mode = ControlMode.IDLE
         self._depth_buffer_size = depth_buffer_size
         self._reset_messages()
