@@ -15,7 +15,13 @@ from home_robot_hw.env.stretch_object_nav_env import StretchObjectNavEnv
     default="discrete",
     type=click.Choice(["discrete", "sampling"], case_sensitive=False),
 )
-def main(agent):
+@click.option(
+    "--dry-run",
+    default=False,
+    is_flag=True,
+    help="do not execute any actions, just print them",
+)
+def main(agent, dry_run):
     config_path = "projects/stretch_objectnav/configs/agent/floorplanner_eval.yaml"
     config, config_str = get_config(config_path)
     config.defrost()
@@ -31,7 +37,7 @@ def main(agent):
         agent = SamplingBasedObjectNavAgent(config=config)
     else:
         raise NotImplementedError(f"agent {agent} not recognized")
-    env = StretchObjectNavEnv(config=config)
+    env = StretchObjectNavEnv(config=config, dry_run=dry_run)
 
     agent.reset()
     env.reset()
