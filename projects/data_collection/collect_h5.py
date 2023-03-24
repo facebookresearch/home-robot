@@ -54,16 +54,16 @@ class EpisodeManager(object):
 
     def toggle_episode(self):
         """toggles episode recording state
-        Note: This script automatically collects a keyframe at the end when
-        episode is terminated. It doesn't require the last frame to be explicitly marked as a keyframe
+        Note: This script automatically collects a keyframe at the beginning when
+        episode is started. Every frame to be considered for task should be explicitly marked as keyframe
         """
         if not self._is_recording:
             self._is_recording = True
             self._keyframe_recorder.start_recording(self.task_name)
+            self._keyframe_recorder.save_frame()
+            print("Start frame saved")
         else:
             self._is_recording = False
-            self._keyframe_recorder.save_frame()
-            print(f"Keyframe saved: {self._k_idx}")
             self._keyframe_recorder.finish_recording()
             self._k_idx = 0
 
@@ -78,9 +78,8 @@ class EpisodeManager(object):
 @click.option("--task-name", default="task", help="Name of the task to record")
 @click.option("--dir-path", default="./H5s/", help="Path of root data directory")
 def main(task_name, dir_path):
-    rospy.init_node("h5_demo_recorder")
-    rate = rospy.Rate(10)
     em = EpisodeManager(task_name, dir_path)
+    rate = rospy.Rate(10)
     while not rospy.is_shutdown():
         rospy.spin()
         rate.sleep()
