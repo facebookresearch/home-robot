@@ -10,6 +10,7 @@ import actionlib
 import numpy as np
 import rospy
 import sophus as sp
+import tf
 import tf2_ros
 from control_msgs.msg import FollowJointTrajectoryAction, FollowJointTrajectoryGoal
 from geometry_msgs.msg import Pose, PoseStamped, Twist
@@ -20,6 +21,7 @@ from std_srvs.srv import SetBool, SetBoolRequest, Trigger, TriggerRequest
 from trajectory_msgs.msg import JointTrajectoryPoint
 
 from home_robot.motion.stretch import HelloStretchIdx
+from home_robot.utils.pose import to_matrix
 from home_robot_hw.constants import (
     CONFIG_TO_ROS,
     ROS_ARM_JOINTS,
@@ -91,6 +93,7 @@ class StretchRosInterface:
         # Initialize ros communication
         self._create_pubs_subs()
         self._create_services()
+        self._tf_listener = tf.TransformListener()
 
         self._ros_joint_names = []
         for i in range(3, self.dof):
@@ -171,6 +174,28 @@ class StretchRosInterface:
         trajectory_goal.trajectory.points = [self._config_to_ros_msg(q)]
         trajectory_goal.trajectory.header.stamp = rospy.Time.now()
         return trajectory_goal
+
+    def get_frame_pose(self, frame, base_frame=None, lookup_time=None):
+        """look up a particular frame in base coords"""
+        if lookup_time is None:
+            lookup_time = rospy.Time(0)  # return most recent transform
+
+        if base_frame is None:
+            base_frame = "base_link"  # TODO configure base frame
+
+        pose_mat = None
+        transform_success = False
+        while not transform_success:
+            try:
+                transform = self._tf_listener.lookupTransform(
+                    base_frame, frame, lookup_time
+                )
+                pose_mat = to_matrix(*transform)
+                transform_success = True
+            except Exception:  # (tf2_ros.LookupException, tf2_ros.ConnectivityException, tf2_ros.ExtrapolationException) as e:
+                pass
+
+        return pose_mat
 
     # Helper functions
 

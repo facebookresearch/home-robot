@@ -87,7 +87,7 @@ class StretchLiveEnv(StretchDemoBaseEnv):
             self._client = StretchClient(
                 urdf_path=self._urdf_path,
                 init_node=self._initialize_ros,
-                ik_type="pinocchio",
+                ik_type="pinocchio_optimize",
             )
             self._client.switch_to_manipulation_mode()
         return self._client

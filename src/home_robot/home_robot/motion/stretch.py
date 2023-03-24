@@ -10,7 +10,7 @@ import pybullet as pb
 import trimesh.transformations as tra
 
 import home_robot.utils.bullet as hrb
-from home_robot.motion.pinocchio_ik_solver import PinocchioIKSolver
+from home_robot.motion.pinocchio_ik_solver import PinocchioIKSolver, PositionIKOptimizer
 from home_robot.motion.robot import Robot
 from home_robot.utils.bullet import PybulletIKSolver
 from home_robot.utils.pose import to_matrix
@@ -192,14 +192,14 @@ class HelloStretchKinematics(Robot):
             visualize=False,
         )
         # You can set one of the visualize flags to true to debug IK issues
-        if ik_type == "pybullet":
+        if "pybullet" in ik_type:
             self.manip_ik_solver = PybulletIKSolver(
                 self.manip_mode_urdf_path,
                 self.ee_link_name,
                 self.manip_mode_controlled_joints,
                 visualize=False,
             )
-        elif ik_type == "pinocchio":
+        elif "pinocchio" in ik_type:
             self.manip_ik_solver = PinocchioIKSolver(
                 self.manip_mode_urdf_path,
                 self.ee_link_name,
@@ -207,6 +207,13 @@ class HelloStretchKinematics(Robot):
             )
         else:
             raise ValueError(f"Unknown ik_type {ik_type}")
+
+        if "optimize" in ik_type:
+            self.manip_ik_solver = PositionIKOptimizer(
+                ik_solver=self.manip_ik_solver,
+                pos_error_tol=0.005,
+                ori_error_range=np.array([0.0, 0.0, 0.2]),
+            )
 
     def __init__(
         self,
@@ -471,7 +478,7 @@ class HelloStretchKinematics(Robot):
         """manipulator specific forward kinematics; uses separate URDF than the full-body fk() method"""
         assert q.shape == (self.dof,)
         pin_pose = self._ros_pose_to_pinocchio(q)
-        if self._ik_type == "pinocchio":
+        if "optimize" in self._ik_type or self._ik_type == "pinocchio":
             ee_pos, ee_quat = self.manip_ik_solver.compute_fk(pin_pose)
         elif self._ik_type == "pybullet":
             ee_pos, ee_quat = self.fk(q)
@@ -633,7 +640,9 @@ class HelloStretchKinematics(Robot):
             # So how do we do that?
             # This logic currently in local hello robot client
             raise NotImplementedError()
-        _q = self.manip_ik_solver.compute_ik(pos, quat, self._to_manip_format(q0))
+        _q, success = self.manip_ik_solver.compute_ik(
+            pos, quat, self._to_manip_format(q0)
+        )
         if self._ik_type == "pinocchio":
             _q = _q[0]
         q = self._from_manip_format(_q, q0)

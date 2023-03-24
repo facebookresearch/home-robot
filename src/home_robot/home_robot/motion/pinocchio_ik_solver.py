@@ -169,9 +169,15 @@ class PositionIKOptimizer:
             sigma0=self.ori_error_range / 2,
         )
 
-    def compute_ik_opt(self, pose_query: Tuple[np.ndarray, np.ndarray]):
+    def get_dof(self) -> int:
+        return self.ik_solver.get_dof()
+
+    def get_num_controllable_joints(self) -> int:
+        return self.ik_solver.get_num_controllable_joints()
+
+    def compute_ik(self, pos: np.ndarray, quat: np.ndarray, *args, **kwargs):
         """optimization-based IK solver using CEM"""
-        pos_desired, quat_desired = pose_query
+        pos_desired, quat_desired = pos, quat
 
         # Function to optimize: IK error given delta from original desired orientation
         def solve_ik(dr):
@@ -191,14 +197,20 @@ class PositionIKOptimizer:
             return cost, q
 
         # Optimize for IK and best orientation (x=0 -> use original desired orientation)
-        cost_opt, q_result, max_iter, opt_sigma = self.opt.optimize(
+        cost_opt, q_result, max_iter, opt_sigma, success = self.opt.optimize(
             solve_ik, x0=np.zeros(3)
         )
         pos_out, quat_out = self.ik_solver.compute_fk(q_result)
         print(
-            f"After ik optimization, cost: {cost_opt}, result: {pos_out, quat_out} vs desired: {pose_query}"
+            f"After ik optimization, cost: {cost_opt}, result: {pos_out, quat_out} vs desired: {pos_desired, quat_desired}"
         )
-        return q_result, cost_opt, max_iter, opt_sigma
+        return q_result, success
+        # return q_result, cost_opt, max_iter, opt_sigma
+
+    def compute_fk(self, q):
+        return self.ik_solver.compute_fk(
+            q
+        )  # TODO: pybullet version won't work with this -- uses fk()
 
 
 class CEM:
@@ -233,6 +245,7 @@ class CEM:
         i = 0
         mu = x0
         sigma = self.sigma0
+
         while True:
             # Sample x
             x_arr = mu + sigma * np.random.randn(self.num_samples, x0.shape[0])
@@ -249,15 +262,18 @@ class CEM:
 
             # Check termination
             i += 1
-            if (
-                i >= self.max_iterations
-                or cost_arr[i_best] <= self.cost_tol
-                or np.all(sigma <= self.cost_tol / 10)
-            ):  # TODO: sigma thresh?
+            if i >= self.max_iterations or np.all(sigma <= self.cost_tol / 10):
+                # If we have run out of iterations or if our sigma has converged before getting close enough, per our
+                # error tolerances, then the optimization failed
+                success = False
+                break
+
+            if cost_arr[i_best] <= self.cost_tol:
+                success = True
                 break
 
             # Update distribution
             mu = np.mean(x_arr[idx_sorted_arr[: self.num_top], :], axis=0)
             sigma = np.std(x_arr[idx_sorted_arr[: self.num_top], :], axis=0)
 
-        return cost_arr[i_best], aux_outputs[i_best], i, sigma
+        return cost_arr[i_best], aux_outputs[i_best], i, sigma, success

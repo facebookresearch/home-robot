@@ -39,7 +39,7 @@ class StretchOfflineDemoEnv(StretchDemoBaseEnv):
     def model(self):
         if self._model is None:
             self._model = HelloStretchKinematics(
-                urdf_path=self._urdf_path, ik_type="pinocchio"
+                urdf_path=self._urdf_path, ik_type="pinocchio_optimize"
             )
         return self._model
 

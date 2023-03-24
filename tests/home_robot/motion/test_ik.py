@@ -193,7 +193,7 @@ def test_pinocchio_ik_optimization(pin_robot, pin_ik_optimizer, test_pose):
     pos_err1 = np.linalg.norm(pos_out1 - pos_desired)
 
     # Solve with CEM
-    q_result, best_cost, last_iter, opt_sigma = pin_ik_optimizer.compute_ik_opt(
+    q_result, best_cost, last_iter, opt_sigma = pin_ik_optimizer.compute_ik(
         (pos_desired, quat_desired)
     )
     pos_out2, quat_out2 = pin_robot.manip_ik_solver.compute_fk(q_result)
