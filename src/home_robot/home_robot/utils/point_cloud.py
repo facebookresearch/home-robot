@@ -3,6 +3,7 @@
 # This source code is licensed under the MIT license found in the
 # LICENSE file in the root directory of this source tree.
 import io
+from typing import Optional
 
 import cv2
 import h5py
@@ -35,15 +36,8 @@ def pcd_to_numpy(pcd: o3d.geometry.PointCloud) -> (np.ndarray, np.ndarray):
 
 
 def show_point_cloud(
-    xyz: np.ndarray, rgb: np.ndarray = None, orig=None, R=None, save=None, grasps=[]
+    xyz: np.ndarray, rgb: np.ndarray = None, orig=None, R=None, save=None, grasps=None
 ):
-    # http://www.open3d.org/docs/0.9.0/tutorial/Basic/working_with_numpy.html
-    if rgb is not None:
-        rgb = rgb.reshape(-1, 3)
-        # if np.any(rgb > 1):
-        #    print("WARNING: rgb values too high! Normalizing...")
-        #    rgb = rgb / np.max(rgb)
-
     pcd = numpy_to_pcd(xyz, rgb)
     show_pcd(pcd, orig, R, save, grasps)
 
@@ -53,30 +47,155 @@ def show_pcd(
     orig: np.ndarray = None,
     R: np.ndarray = None,
     save: str = None,
-    grasps: list = [],
+    grasps: list = None,
 ):
+    geoms = create_visualization_geometries(pcd=pcd, orig=orig, R=R, grasps=grasps)
+    o3d.visualization.draw_geometries(geoms)
+
+    if save is not None:
+        save_geometries_as_image(geoms, output_path=save)
+
+
+def create_visualization_geometries(
+    pcd: Optional[o3d.geometry.PointCloud] = None,
+    xyz: Optional[np.ndarray] = None,
+    rgb: Optional[np.ndarray] = None,
+    orig: Optional[np.ndarray] = None,
+    R: Optional[np.ndarray] = None,
+    size: Optional[float] = 1.0,
+    arrow_pos: Optional[np.ndarray] = None,
+    arrow_size: Optional[float] = 1.0,
+    arrow_R: Optional[np.ndarray] = None,
+    arrow_color: Optional[np.ndarray] = None,
+    sphere_pos: Optional[np.ndarray] = None,
+    sphere_size: Optional[float] = 1.0,
+    sphere_color: Optional[np.ndarray] = None,
+    grasps: list = None,
+):
+    """
+    Creates the open3d geometries for a point cloud (one of xyz or pcd must be specified), as well as, optionally, some
+    helpful indicators for points of interest -- an origin (orig), an arrow (including direction), a sphere, and grasp
+    indicators.
+    """
+    assert (pcd is not None) != (xyz is not None), "One of pcd or xyz must be specified"
+
+    if xyz is not None:
+        xyz = xyz.reshape(-1, 3)
+
+    if rgb is not None:
+        rgb = rgb.reshape(-1, 3)
+        if np.any(rgb > 1):
+            print("WARNING: rgb values too high! Normalizing...")
+            rgb = rgb / np.max(rgb)
+
+    if pcd is None:
+        pcd = numpy_to_pcd(xyz, rgb)
+
     geoms = [pcd]
     if orig is not None:
         coords = o3d.geometry.TriangleMesh.create_coordinate_frame(
-            size=0.1, origin=orig
+            origin=orig, size=size
         )
         if R is not None:
-            coords = coords.rotate(R)
+            coords = coords.rotate(R, orig)
         geoms.append(coords)
-    for grasp in grasps:
-        coords = o3d.geometry.TriangleMesh.create_coordinate_frame(
-            size=0.05, origin=grasp[:3, 3]
+
+    if arrow_pos is not None:
+        arrow = o3d.geometry.TriangleMesh.create_arrow()
+        arrow = arrow.scale(
+            arrow_size,
+            center=np.zeros(
+                3,
+            ),
         )
-        coords = coords.rotate(grasp[:3, :3])
-        geoms.append(coords)
-    viz = o3d.visualization.Visualizer()
-    viz.create_window()
+
+        if arrow_color is not None:
+            arrow = arrow.paint_uniform_color(arrow_color)
+
+        if arrow_R is not None:
+            arrow = arrow.rotate(arrow_R, center=(0, 0, 0))
+
+        arrow = arrow.translate(arrow_pos)
+        geoms.append(arrow)
+
+    if sphere_pos is not None:
+        sphere = o3d.geometry.TriangleMesh.create_sphere(radius=sphere_size)
+
+        if sphere_color is not None:
+            sphere = sphere.paint_uniform_color(sphere_color)
+
+        sphere = sphere.translate(sphere_pos)
+        geoms.append(sphere)
+
+    if grasps is not None:
+        for grasp in grasps:
+            coords = o3d.geometry.TriangleMesh.create_coordinate_frame(
+                size=0.05, origin=grasp[:3, 3]
+            )
+            coords = coords.rotate(grasp[:3, :3])
+            geoms.append(coords)
+
+    return geoms
+
+
+def save_geometries_as_image(
+    geoms: list,
+    camera_extrinsic: Optional[np.ndarray] = None,
+    look_at_point: Optional[np.ndarray] = None,
+    output_path: Optional[str] = None,
+    zoom: Optional[float] = None,
+    point_size: Optional[float] = None,
+    near_clipping: Optional[float] = None,
+    far_clipping: Optional[float] = None,
+):
+    """
+    Helper function to allow manipulation of the camera to get a better image of the point cloud.
+    """
+    vis = o3d.visualization.Visualizer()
+    vis.create_window()
+
     for geom in geoms:
-        viz.add_geometry(geom)
-    viz.run()
-    if save is not None:
-        viz.capture_screen_image(save, True)
-    viz.destroy_window()
+        vis.add_geometry(geom)
+        vis.update_geometry(geom)
+
+    view_control = vis.get_view_control()
+    camera_params = view_control.convert_to_pinhole_camera_parameters()
+
+    if camera_extrinsic is not None:
+        # The extrinsic seems to have a different convention - switch from our camera to open3d's version
+        camera_extrinsic_o3d = camera_extrinsic.copy()
+        camera_extrinsic_o3d[:3, :3] = np.matmul(
+            camera_extrinsic_o3d[:3, :3], np.array([[0, 1, 0], [-1, 0, 0], [0, 0, 1]])
+        )
+        camera_extrinsic_o3d[:, 3] = np.matmul(
+            camera_extrinsic_o3d[:, 3],
+            np.array([[1, 0, 0, 0], [0, 0, -1, 0], [0, 1, 0, 0], [0, 0, 0, 1]]),
+        )
+
+        camera_params.extrinsic = camera_extrinsic_o3d
+        view_control.convert_from_pinhole_camera_parameters(camera_params)
+
+    if look_at_point is not None:
+        view_control.set_lookat(look_at_point)
+
+    if zoom is not None:
+        view_control.set_zoom(zoom)
+
+    if near_clipping is not None:
+        view_control.set_constant_z_near(near_clipping)
+
+    if far_clipping is not None:
+        view_control.set_constant_z_far(far_clipping)
+
+    render_options = vis.get_render_option()
+
+    if point_size is not None:
+        render_options.point_size = point_size
+
+    vis.poll_events()
+    vis.update_renderer()
+    vis.capture_screen_image(output_path, do_render=True)
+    vis.destroy_window()
 
 
 def fix_opengl_image(rgb, depth, camera_params=None):

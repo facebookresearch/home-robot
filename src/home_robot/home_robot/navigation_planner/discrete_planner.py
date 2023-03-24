@@ -155,6 +155,7 @@ class DiscretePlanner:
             start[0] - 0 : start[0] + 1, start[1] - 0 : start[1] + 1
         ] = 1
 
+        # Check collisions if we have just moved and are uncertain
         if self.last_action == DiscreteNavigationAction.MOVE_FORWARD:
             self._check_collision()
 
@@ -249,7 +250,6 @@ class DiscretePlanner:
                 action = DiscreteNavigationAction.STOP
                 print("!!! DONE !!!")
 
-        breakpoint()
         self.last_action = action
         return action, closest_goal_map
 
