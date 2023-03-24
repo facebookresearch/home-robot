@@ -172,9 +172,33 @@ class FMMPlanner:
                     )
         return mask
 
+    def _find_nearest_to_multi_goal(self, goal):
+        """
+        Find the nearest point to a goal which is traversible
+        """
+        # TODO Adapt this function to multi-goal and use it to select the goal
+        traversible = (
+            skimage.morphology.binary_dilation(
+                np.zeros(self.traversible.shape), skimage.morphology.disk(2)
+            )
+            != 1
+        )
+        traversible = traversible * 1.0
+        planner = FMMPlanner(traversible)
+        planner.set_multi_goal(goal)
+
+        mask = self.traversible
+
+        dist_map = planner.fmm_dist * mask
+        dist_map[dist_map == 0] = dist_map.max()
+
+        goal = np.unravel_index(dist_map.argmin(), dist_map.shape)
+
+        return goal
+
     def _find_nearest_to_goal(self, goal):
         """
-        Find the nearest point to a goal
+        Find the nearest point to a goal which is traversible
         """
         # TODO Adapt this function to multi-goal and use it to select the goal
         traversible = (
