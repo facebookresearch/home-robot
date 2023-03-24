@@ -78,7 +78,8 @@ class PickAndPlaceAgent(Agent):
             if self.skip_find_object:
                 print("-> Actually predicted:", action)
                 action = DiscreteNavigationAction.STOP
-            if action == DiscreteNavigationAction.STOP:
+                self.state = SimpleTaskState.PICK_OBJECT
+            elif action == DiscreteNavigationAction.STOP:
                 self.state = SimpleTaskState.ORIENT_OBJ
         # If we have found the object, then try to pick it up.
         if self.state == SimpleTaskState.ORIENT_OBJ:
