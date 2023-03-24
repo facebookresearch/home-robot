@@ -6,14 +6,15 @@ from pprint import pprint
 from time import time
 from typing import Any, Dict, List, Tuple
 
-import click
 import clip
+import hydra
 import numpy as np
 import open3d as o3d
 import torch
 import trimesh.transformations as tra
 import wandb
 import yaml
+from omegaconf import OmegaConf
 from slap_manipulation.dataloaders.rlbench_loader import RLBenchDataset
 from slap_manipulation.dataloaders.robot_loader import RobotDataset
 from slap_manipulation.optim.lamb import Lamb
@@ -96,47 +97,37 @@ class QueryRegressionHead(torch.nn.Module):
 class ActionPredictionModule(torch.nn.Module):
     def __init__(
         self,
-        lr=1e-4,
-        optim="lamb",
-        lambda_weight_l2: float = 0.000001,
-        name="ee_regression_model",
-        max_iter=1000,
-        # orientation_type="quaternion",
-        orientation_type="rpy",
-        num_heads=3,
-        multi_head=False,
-        validate=False,
-        dry_run=False,
+        cfg,
     ):
         super().__init__()
 
         # training and setup vars
-        self.ori_type = orientation_type
-        self._lr = lr
-        self._optimizer_type = optim
-        self._lambda_weight_l2 = lambda_weight_l2
+        self.ori_type = cfg.orientation_type
+        self._lr = cfg.learning_rate
+        self._optimizer_type = cfg.optim
+        self._lambda_weight_l2 = cfg.lambda_weight_l2
         self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
-        self.multi_head = multi_head
-        self.num_heads = 1 if not self.multi_head else num_heads
-        self._crop_size = 0.1
-        self._query_radius = 0.16
-        self._k = 3  # default from pyg example
-        self.proprio_in_dim = 3
-        self.image_in_dim = 3
-        self.proprio_out_dim = 254
+        self.multi_head = cfg.multi_head
+        self.num_heads = cfg.num_heads
+        self._crop_size = cfg.crop_size
+        self._query_radius = cfg.query_radius
+        self._k = cfg.k  # default from pyg example
+        self.proprio_in_dim = cfg.dims.proprio_in
+        self.image_in_dim = cfg.dims.image_in
+        self.proprio_out_dim = cfg.dims.proprio_out
 
-        self.pos_wt = 1.0
-        self.ori_wt = 1e-2
-        self.gripper_wt = 1e-4
+        self.pos_wt = cfg.weights.position
+        self.ori_wt = cfg.weights.orientation
+        self.gripper_wt = cfg.weights.gripper
 
         # encoding language
         # learnable positional encoding
         # Unlike eg in peract, this ONLY applies to the language
-        lang_emb_dim, lang_max_seq_len = 512, 77
+        lang_emb_dim, lang_max_seq_len = cfg.dims.lang_emb_out, cfg.lang_max_seq_len
         with torch.no_grad():
             self.clip_model, self.clip_preprocess = clip.load(
-                "ViT-B/32", device=self.device
+                cfg.clip_model, device=self.device
             )
 
         # proprio preprocessing encoder
@@ -152,7 +143,7 @@ class ActionPredictionModule(torch.nn.Module):
             0.5,  # fps sampling ratio
             0.5 * self._query_radius,
             MLP(
-                [self.image_in_dim + 3, 64, 64, 128],
+                OmegaConf.to_object(cfg.model.sa1_mlp),
                 batch_norm=False,
                 dropout=0.0,
             ),
@@ -161,31 +152,31 @@ class ActionPredictionModule(torch.nn.Module):
             0.25,  # this is apparently the FPS sampling ratio
             self._query_radius,
             MLP(
-                [128 + 3, 128, 128, 256],
+                OmegaConf.to_object(cfg.model.sa2_mlp),
                 batch_norm=False,
                 dropout=0.0,
             ),
         )
         self.sa3_module = GlobalSAModule(
             MLP(
-                [256 + 3, 256, 512, 1024],
+                OmegaConf.to_object(cfg.model.sa3_mlp),
                 batch_norm=False,
                 dropout=0.0,
             )
         )
         self.proprio_emb = MLP(
-            [self.proprio_in_dim, 256, 512],
+            OmegaConf.to_object(cfg.model.proprio_mlp),
             batch_norm=False,
             dropout=0.0,
         )
         self.lang_emb = MLP(
-            [lang_emb_dim, 512, 512],
+            OmegaConf.to_object(cfg.model.lang_mlp),
             batch_norm=False,
             dropout=0.0,
         )
 
         self.regression_heads = []
-        for i in range(self.num_heads):
+        for _ in range(self.num_heads):
             new_head = QueryRegressionHead(self.ori_type)
             self.regression_heads.append(new_head)
         self.pos_in_channels = new_head.pos_in_channels
@@ -194,8 +185,8 @@ class ActionPredictionModule(torch.nn.Module):
         # self.classify_loss = torch.nn.BCEWithLogitsLoss()
         # self.classify_loss = torch.nn.BinaryCrossEntropyLoss()
         self.classify_loss = torch.nn.BCELoss()
-        self.name = name
-        self.max_iter = max_iter
+        self.name = f"action_predictor_{cfg.name}"
+        self.max_iter = cfg.max_iter
 
         # for visualizations
         self.cam_view = {
@@ -204,9 +195,11 @@ class ActionPredictionModule(torch.nn.Module):
             "up": [0.43890929711345494, 0.024286597087151203, 0.89820308956788786],
             "zoom": 0.43999999999999972,
         }
-        if not validate and not dry_run:
-            self.setup_training()
-            self.start_time = 0.0
+        self.setup_training()
+        if not cfg.validate and not cfg.dry_run:
+            if not os.path.exists(self._save_dir):
+                os.mkdir(self._save_dir)
+        self.start_time = 0.0
 
     def setup_training(self):
         # get today's date
@@ -214,8 +207,6 @@ class ActionPredictionModule(torch.nn.Module):
         folder_name = self.name + "_" + date_time
         # append folder name to current working dir
         path = os.path.join(os.getcwd(), folder_name)
-        if not os.path.exists(path):
-            os.mkdir(path)
         self._save_dir = path
 
     def get_optimizer(self):
@@ -424,6 +415,7 @@ class ActionPredictionModule(torch.nn.Module):
             cmd = batch["cmd"]
             crop_xyz = batch["xyz_crop"][0]
             crop_rgb = batch["rgb_crop"][0]
+            perturbed_crop_location = batch["perturbed_crop_location"]
 
             # extract supervision terms
             target_ori = batch["ee_keyframe_ori_crop"]
@@ -450,8 +442,8 @@ class ActionPredictionModule(torch.nn.Module):
                 target_pos = batch["ee_keyframe_pos_crop"]
                 pred_ee_pos = positions.view(batch_size, 3)
             else:
-                target_pos = batch["ee_keyframe_pos"]
-                pred_ee_pos = query_pt + positions.view(batch_size, 3)
+                t_pos = batch["ee_keyframe_pos"]
+                pred_ee_pos = perturbed_crop_location + positions.view(batch_size, 3)
 
             # pred_ee_pos = positions.view(batch_size, 3)
             pos_loss = ((target_pos - pred_ee_pos) ** 2).sum()
@@ -632,6 +624,7 @@ class ActionPredictionModule(torch.nn.Module):
             crop_target_pos = batch["ee_keyframe_pos_crop"][0]
             crop_target_ori = batch["ee_keyframe_ori_crop"][0]
             target_angles = batch["target_ee_angles"]
+            crop_location = batch["perturbed_crop_location"]
 
             (delta_ee_pos, abs_ee_ori, gripper_state,) = self.forward(
                 crop_xyz,
@@ -681,7 +674,7 @@ class ActionPredictionModule(torch.nn.Module):
                 else:
                     pred_ori_R = pred_ori[:3, :3]
                     pred_ori_4x4 = np.copy(pred_ori)
-                    viz_target_pos = target_pos
+                    viz_target_pos = target_pos - crop_location
                     viz_target_ori = crop_target_ori
                 T1 = tra.quaternion_matrix(target_angles[i].detach().cpu().numpy())
                 T1_inv = tra.inverse_matrix(T1)
@@ -728,76 +721,23 @@ class ActionPredictionModule(torch.nn.Module):
             json.dump(metrics, f, indent=4)
 
 
-@click.command()
-@click.option("-v", "--validate", is_flag=False, flag_value=True, default=False)
-@click.option("--no-wandb", is_flag=False, flag_value=True, default=False)
-@click.option("--run-for", default=12000)
-@click.option("-t", "--task-name", default="pick_box")
-@click.option("-i", "--max-iter", "--iter", default=500)
-@click.option(
-    "-s",
-    "--source",
-    default="rlbench",
-    type=click.Choice(["rlbench", "robopen"]),
+@hydra.main(
+    version_base=None, config_path="./conf", config_name="action_predictor_training"
 )
-@click.option(
-    "-o",
-    "--orientation_type",
-    default="quaternion",
-    type=click.Choice(["rpy", "quaternion", "matrix"]),
-)
-@click.option(
-    "-F", "--first-keypoint-only", is_flag=True, flag_value=True, default=False
-)
-@click.option("-l", "--learning_rate", default=1e-4, type=float)
-@click.option("-d", "--data-dir")
-@click.option("-p", "--path", default=None)
-@click.option("-m", "--multi-head", default=False, is_flag=False, flag_value=True)
-@click.option("--split", help="path to train_test_split", default=None)
-@click.option("--epoch", help="for val only: validation pictures after X epochs")
-@click.option("-D", "--debug", default=False, is_flag=False, flag_value=True)
-@click.option("--template", default="*.h5")
-@click.option("--keypoint", default=1)
-def main(
-    validate,
-    no_wandb,
-    run_for,
-    task_name,
-    max_iter,
-    source,
-    first_keypoint_only,
-    learning_rate,
-    data_dir,
-    path,
-    orientation_type,
-    multi_head,
-    split,
-    epoch,
-    debug,
-    template,
-    keypoint,
-):
+def main(cfg):
     # Speed up training by configuring the number of workers
-    num_workers = 8 if not debug else 0
+    num_workers = 8 if not cfg.debug else 0
     B = 1
 
     # create model, load weights for classifier
-    model = ActionPredictionModule(
-        name=f"regress_{task_name}",
-        max_iter=max_iter,
-        lr=learning_rate,
-        orientation_type=orientation_type,
-        multi_head=multi_head,
-        num_heads=3,
-        validate=validate,
-    )
+    model = ActionPredictionModule(cfg)
     model.to(model.device)
     optimizer = model.get_optimizer()
 
-    if source == "robopen":
+    if cfg.source in ["franka", "stretch"]:
         # Update splits - only used here
-        if split is not None:
-            with open(split, "r") as f:
+        if cfg.split:
+            with open(cfg.split, "r") as f:
                 train_test_split = yaml.safe_load(f)
             print(train_test_split)
             train_list = train_test_split["train"]
@@ -816,38 +756,38 @@ def main(
         # valid_dir = robopen_data_dir
         Dataset = RobotDataset
         train_dataset = RobotDataset(
-            data_dir,
-            num_pts=8000,
-            data_augmentation=False,  # (not validate),
+            cfg.data_dir,
+            num_pts=cfg.num_pts,
+            data_augmentation=cfg.data_augmentation,  # (not validate),
             ori_dr_range=np.pi / 8,
-            first_frame_as_input=True,
-            keypoint_range=[keypoint],
+            # first_frame_as_input=True,
+            keypoint_range=[cfg.action_idx],
             # trial_list=train_list,
-            orientation_type=orientation_type,
-            multi_step=multi_head,
-            template=template,
+            orientation_type=cfg.orientation_type,
+            multi_step=cfg.multi_head,
+            template=cfg.template,
         )
         valid_dataset = RobotDataset(
-            data_dir,
-            num_pts=8000,
+            cfg.data_dir,
+            num_pts=cfg.num_pts,
             data_augmentation=False,
-            first_frame_as_input=True,
-            trial_list=valid_list,
-            keypoint_range=[keypoint],
-            orientation_type=orientation_type,
-            multi_step=multi_head,
-            template=template,
+            # first_frame_as_input=True,
+            # trial_list=valid_list,
+            keypoint_range=[cfg.action_idx],
+            orientation_type=cfg.orientation_type,
+            multi_step=cfg.multi_head,
+            template=cfg.template,
         )
         test_dataset = RobotDataset(
-            data_dir,
-            num_pts=8000,
+            cfg.data_dir,
+            num_pts=cfg.num_pts,
             data_augmentation=False,
-            first_frame_as_input=True,
-            trial_list=test_list,
-            keypoint_range=[keypoint],
-            orientation_type=orientation_type,
-            multi_step=multi_head,
-            template=template,
+            # first_frame_as_input=True,
+            # trial_list=test_list,
+            keypoint_range=[cfg.action_idx],
+            orientation_type=cfg.orientation_type,
+            multi_step=cfg.multi_head,
+            template=cfg.template,
         )
     else:
         train_dir = train_dataset_dir
@@ -857,22 +797,22 @@ def main(
         # load data
         train_dataset = Dataset(
             train_dir,
-            num_pts=8000,
-            data_augmentation=(not validate),
+            num_pts=cfg.num_pts,
+            data_augmentation=(not cfg.validate),
             ori_dr_range=np.pi / 8,
             verbose=True,
-            first_keypoint_only=(first_keypoint_only or multi_head),
-            orientation_type=orientation_type,
-            multi_step=multi_head,
+            # first_keypoint_only=(first_keypoint_only or multi_head),
+            orientation_type=cfg.orientation_type,
+            multi_step=cfg.multi_head,
         )
         valid_dataset = Dataset(
             valid_dir,
             data_augmentation=False,
-            num_pts=8000,
+            num_pts=cfg.num_pts,
             verbose=True,
-            first_keypoint_only=(first_keypoint_only or multi_head),
-            orientation_type=orientation_type,
-            multi_step=multi_head,
+            # first_keypoint_only=(first_keypoint_only or multi_head),
+            orientation_type=cfg.orientation_type,
+            multi_step=cfg.multi_head,
         )
         test_dataset = valid_dataset
 
@@ -887,18 +827,18 @@ def main(
         test_dataset, batch_size=B, num_workers=num_workers, shuffle=False
     )
 
-    if validate:
+    if cfg.validate:
         # we need to predict for validation data and show point-cloud
         # with regressed position and orientation for the ee
-        if not path:
+        if not cfg.load:
             model.load_weights(model.get_best_name())
         else:
-            model.load_weights(path)
-        model.show_validation(valid_data, viz=True, epoch=epoch, save=False)
+            model.load_weights(cfg.load)
+        model.show_validation(valid_data, viz=True)
     else:
-        if not no_wandb:
+        if cfg.wandb:
             date_time = datetime.datetime.now().strftime("%d/%m/%Y-%H:%M")
-            wandb.init(project=f"ptnet-regress-{task_name}", name=f"{date_time}")
+            wandb.init(project="action_predictor", name=f"{cfg.name}_{date_time}")
             wandb.config.query_radius = model._query_radius
             # wandb.config.voxelization_scheme = [
             #     test_dataset._voxel_size,
@@ -909,7 +849,7 @@ def main(
             wandb.config.gripper_wt = model.gripper_wt
         best_valid_loss = float("Inf")
         model.start_time = time()
-        for epoch in range(1, max_iter + 1):
+        for epoch in range(1, cfg.max_iter + 1):
             # model.curr_epoch = epoch
             (
                 tot_loss,
@@ -933,7 +873,7 @@ def main(
             print("valid_pos_loss:", pos_loss)
             print("valid_ori_loss:", ori_loss)
             print("valid_grp_loss::", g_valid_loss)
-            if not no_wandb:
+            if cfg.wandb:
                 wandb.log(
                     {
                         "train": train_loss,

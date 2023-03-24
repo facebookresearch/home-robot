@@ -666,6 +666,7 @@ class RobotDataset(RLBenchDataset):
             "xyz_crop": torch.FloatTensor(crop_xyz),
             "crop_ref_ee_keyframe_pos": torch.FloatTensor(crop_ref_ee_keyframe[:3, 3]),
             "crop_ref_ee_keyframe_ori": torch.FloatTensor(crop_ref_ee_keyframe[:3, :3]),
+            "perturbed_crop_location": torch.FloatTensor(crop_location),
             # Crop goals ------------------
             # Goals for regression go here
             "ee_keyframe_pos_crop": torch.FloatTensor(positions),
