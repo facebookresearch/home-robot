@@ -442,7 +442,7 @@ class ActionPredictionModule(torch.nn.Module):
                 target_pos = batch["ee_keyframe_pos_crop"]
                 pred_ee_pos = positions.view(batch_size, 3)
             else:
-                t_pos = batch["ee_keyframe_pos"]
+                target_pos = batch["ee_keyframe_pos"]
                 pred_ee_pos = perturbed_crop_location + positions.view(batch_size, 3)
 
             # pred_ee_pos = positions.view(batch_size, 3)
