@@ -53,9 +53,13 @@ class VectorizedEvaluator(PPOTrainer):
         super().__init__(config)
 
     def eval(self, num_episodes_per_env=10):
-        agent = OpenVocabManipAgent(config=self.config)
         self._init_envs(
             config=self.config, is_eval=True, make_env_fn=create_ovmm_env_fn
+        )
+        agent = OpenVocabManipAgent(
+            config=self.config,
+            obs_spaces=self.envs.observation_spaces,
+            action_spaces=self.envs.action_spaces,
         )
         self._eval(
             agent,
@@ -92,18 +96,23 @@ class VectorizedEvaluator(PPOTrainer):
         episode_idxs = [0] * envs.num_envs
         done_episode_keys = set()
 
-        obs = envs.call(["reset"] * envs.num_envs)
+        hab_obs, obs = zip(*envs.call(["reset"] * envs.num_envs))
         agent.reset_vectorized()
 
         while not stop():
             current_episodes_info = self.envs.current_episodes()
             # TODO: Currently agent can work with only 1 env, Parallelize act across envs
-            actions, infos = zip(*[agent.act(ob) for ob in obs])
+            actions, infos = zip(
+                *[agent.act(hab_ob, ob) for hab_ob, ob in zip(hab_obs, obs)]
+            )
             outputs = envs.call(
                 ["apply_action"] * envs.num_envs,
-                [{"action": a, "info": i} for a, i in zip(actions, infos)],
+                [
+                    {"action": a, "habitat_obs": h, "info": i}
+                    for a, h, i in zip(actions, hab_obs, infos)
+                ],
             )
-            obs, dones, hab_infos = [list(x) for x in zip(*outputs)]
+            hab_obs, obs, dones, hab_infos = [list(x) for x in zip(*outputs)]
 
             for e, (done, info, hab_info) in enumerate(zip(dones, infos, hab_infos)):
 
@@ -168,7 +177,7 @@ class VectorizedEvaluator(PPOTrainer):
                         )
 
                     agent.reset_vectorized_for_env(e)
-                    obs[e] = envs.call_at(e, "reset")
+                    hab_obs[e], obs[e] = envs.call_at(e, "reset")
 
         envs.close()
 

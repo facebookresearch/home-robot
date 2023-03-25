@@ -92,6 +92,9 @@ wget https://www.dropbox.com/s/n1g1s6uvowo4tbm/v0.2.0_receptacle_cat_indoor_only
 unzip datasets/episode_datasets/floorplanner/indoor_only/v0.2.0_receptacle_cat_indoor_only_val.zip -d datasets/episode_datasets/floorplanner/indoor_only/
 ```
 
+### Download CLIP embeddings
+Download from `https://drive.google.com/file/d/1sSDSKZgYeIPPk8OM4oWhLtAf4Z-zjAVy/view?usp=sharing` and place them under `HOME_ROBOT_ROOT/` directory.
+
 ## Create episode symlink
 
 For example:

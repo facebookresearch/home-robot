@@ -82,7 +82,7 @@ class HabitatOpenVocabManipEnv(HabitatEnv):
         self._last_obs = self._preprocess_obs(habitat_obs)
         self.visualizer.reset()
         self.set_vis_dir()
-        return self._last_obs
+        return habitat_obs, self._last_obs
 
     def update_hab_pose(self, hab_pose):
         hab_pose[[0, 1, 2]] = hab_pose[[2, 0, 1]]
@@ -194,17 +194,38 @@ class HabitatOpenVocabManipEnv(HabitatEnv):
             end_rec_goal_id = 3
         return obj_goal_id, start_rec_goal_id, end_rec_goal_id, goal_name
 
-    def _preprocess_action(self, action: home_robot.core.interfaces.Action) -> int:
-        # convert planner output to continupous Habitat actions
-        # First 8 are arm actions, next two are base waypoints, last is stop
-        action_map = {
-            DiscreteNavigationAction.TURN_RIGHT: [0] * 8 + [0, -1, -1],
-            DiscreteNavigationAction.MOVE_FORWARD: [0] * 8 + [1, 0, -1],
-            DiscreteNavigationAction.TURN_LEFT: [0] * 8 + [0, 1, -1],
-            DiscreteNavigationAction.STOP: [0] * 8 + [0, 0, 1],
-            DiscreteNavigationAction.EMPTY_ACTION: [0] * 8 + [0, 0, -1],
-        }
-        cont_action = action_map[action]
+    def _preprocess_action(
+        self, action: home_robot.core.interfaces.Action, habitat_obs
+    ) -> int:
+        # convert planner output to continuous Habitat actions
+        grip_action = -1
+        if (
+            habitat_obs["is_holding"][0] == 1
+            and action != DiscreteNavigationAction.DESNAP_OBJECT
+        ) or action == DiscreteNavigationAction.SNAP_OBJECT:
+            grip_action = 1
+
+        turn = 0
+        if action == DiscreteNavigationAction.TURN_RIGHT:
+            turn = -1
+        elif action == DiscreteNavigationAction.TURN_LEFT:
+            turn = 1
+
+        forward = float(action == DiscreteNavigationAction.MOVE_FORWARD)
+        face_arm = float(action == DiscreteNavigationAction.FACE_ARM) * 2 - 1
+        stop = float(action == DiscreteNavigationAction.STOP) * 2 - 1
+        reset_joints = float(action == DiscreteNavigationAction.RESET_JOINTS) * 2 - 1
+        extend_arm = float(action == DiscreteNavigationAction.EXTEND_ARM) * 2 - 1
+        arm_actions = [0] * 7
+        cont_action = arm_actions + [
+            grip_action,
+            forward,
+            turn,
+            extend_arm,
+            face_arm,
+            stop,
+            reset_joints,
+        ]
         return np.array(cont_action, dtype=np.float32)
 
     def _process_info(self, info: Dict[str, Any]) -> Any:
@@ -214,11 +235,12 @@ class HabitatOpenVocabManipEnv(HabitatEnv):
     def apply_action(
         self,
         action: home_robot.core.interfaces.Action,
+        habitat_obs,
         info: Optional[Dict[str, Any]] = None,
     ):
         if info is not None:
             self._process_info(info)
-        habitat_action = self._preprocess_action(action)
+        habitat_action = self._preprocess_action(action, habitat_obs)
         habitat_obs, _, dones, infos = self.habitat_env.step(habitat_action)
         self._last_obs = self._preprocess_obs(habitat_obs)
-        return self._last_obs, dones, infos
+        return habitat_obs, self._last_obs, dones, infos

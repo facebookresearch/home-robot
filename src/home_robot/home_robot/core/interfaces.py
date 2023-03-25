@@ -22,7 +22,12 @@ class DiscreteNavigationAction(Action, Enum):
     PLACE_OBJECT = 5
     NAVIGATION_MODE = 6
     MANIPULATION_MODE = 7
-    EMPTY_ACTION = 8
+    EXTEND_ARM = 8
+    EMPTY_ACTION = 9
+    SNAP_OBJECT = 10
+    DESNAP_OBJECT = 11
+    FACE_ARM = 12
+    RESET_JOINTS = 13
 
 
 @dataclass
