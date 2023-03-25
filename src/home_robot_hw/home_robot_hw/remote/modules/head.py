@@ -105,7 +105,7 @@ class StretchHeadClient(AbstractControlModule):
 
         if xyz is not None:
             xyz = imgs[-1]
-            H, W = rgb.shape[:2]
+            H, W = xyz.shape[:2]
             xyz = xyz.reshape(-1, 3)
 
             if rotate_images:

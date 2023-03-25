@@ -12,7 +12,7 @@ from home_robot.motion.stretch import (
     HelloStretchIdx,
     HelloStretchKinematics,
 )
-from home_robot.utils.pose import to_pos_quat
+from home_robot.utils.pose import to_matrix, to_pos_quat
 from home_robot_hw.ros.grasp_helper import GraspClient as RosGraspClient
 from home_robot_hw.ros.utils import matrix_to_pose_msg, ros_pose_to_transform
 
@@ -25,7 +25,7 @@ class GraspPlanner(object):
         self.robot_client = robot_client
         self.env = env
         self.robot_model = HelloStretchKinematics(visualize=visualize_planner)
-        self.grasp_client = RosGraspClient()
+        # self.grasp_client = RosGraspClient()
 
     def go_to_manip_mode(self):
         """Move the arm and head into manip mode."""
@@ -75,7 +75,6 @@ class GraspPlanner(object):
             self.robot_client.switch_to_manipulation_mode()
         self.robot_client.head.look_at_ee(blocking=False)
         self.robot_client.manip.open_gripper()
-        visualize = True
 
         min_grasp_score = 0.0
         min_obj_pts = 100
@@ -94,7 +93,8 @@ class GraspPlanner(object):
             # In world coordinates
             # camera_pose = self.robot_client.head.get_pose()
             # In base coordinates
-            camera_pose = self.robot_client.head.get_pose_in_base_coords()
+            # camera_pose = self.robot_client.head.get_pose_in_base_coords()
+            camera_pose = self.robot_client.head.get_pose(rotated=True)
             print(
                 "getting images + cam pose took", timeit.default_timer() - t0, "seconds"
             )
@@ -115,8 +115,9 @@ class GraspPlanner(object):
             mask_scene = mask_valid  # initial mask has to be good
             mask_scene = mask_scene.reshape(-1)
 
+            """
             predicted_grasps = self.grasp_client.request(
-                xyz,
+                xyz,[a
                 rgb,
                 object_mask,
                 frame=self.robot_client._ros_client.rgb_cam.get_frame(),
@@ -151,18 +152,30 @@ class GraspPlanner(object):
             grasp_offset[2, 3] = -0.10
             for i, grasp in enumerate(grasps):
                 grasps[i] = grasp @ grasp_offset
+            """
 
-            for grasp in grasps:
-                print("Executing grasp:")
-                print(grasp)
-                theta_x, theta_y = divergence_from_vertical_grasp(grasp)
-                print(" - with theta x/y from vertical =", theta_x, theta_y)
-                if not dry_run:
-                    grasp_completed = self.try_executing_grasp(grasp)
-                else:
-                    grasp_completed = False
-                if grasp_completed:
-                    break
+            pc_mask = object_mask * mask_valid
+            num_points_valid = np.sum(pc_mask)
+            mean_valid_pos = (
+                np.sum(pc_mask[:, :, None] * xyz, axis=(0, 1)) / num_points_valid
+            )
+
+            grasp_pos = (camera_pose @ np.array(mean_valid_pos.tolist() + [1.0]))[:3]
+            grasp_quat = [0.7085095, 0.70540047, 0.01530733, 0.01378829]
+            grasp = to_matrix(grasp_pos, grasp_quat)
+
+            # for grasp in grasps:
+            print("Executing grasp:")
+            print(grasp)
+            theta_x, theta_y = divergence_from_vertical_grasp(grasp)
+            print(" - with theta x/y from vertical =", theta_x, theta_y)
+            if not dry_run:
+                grasp_completed = self.try_executing_grasp(grasp)
+            else:
+                grasp_completed = False
+            if grasp_completed:
+                break
+
             break
 
         self.robot_client.switch_to_navigation_mode()
@@ -229,7 +242,7 @@ class GraspPlanner(object):
         t.child_frame_id = "predicted_grasp"
         t.header.frame_id = "map"
         t.transform = ros_pose_to_transform(matrix_to_pose_msg(grasp))
-        self.grasp_client.broadcaster.sendTransform(t)
+        # self.grasp_client.broadcaster.sendTransform(t)
 
         trajectory = self.plan_to_grasp(grasp)
 
