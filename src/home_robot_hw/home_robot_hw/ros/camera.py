@@ -78,6 +78,8 @@ class RosCamera(Camera):
         """capture the latest image and save it"""
         with self._lock:
             img = image_to_numpy(msg)
+
+            # Preprocess encoding
             if msg.encoding == "16UC1":
                 # depth support goes here
                 # Convert the image to metric (meters)
@@ -85,7 +87,11 @@ class RosCamera(Camera):
             elif msg.encoding == "rgb8":
                 # color support - do nothing
                 pass
-            self._img = img
+
+            # Image orientation
+            self._img = np.rot90(img, k=self.rotations)
+
+            # Add to buffer
             self._t = msg.header.stamp
             if self.buffer_size is not None:
                 self._add_to_buffer(img)

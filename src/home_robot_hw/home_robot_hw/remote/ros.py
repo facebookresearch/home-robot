@@ -38,6 +38,7 @@ from home_robot_hw.ros.visualizer import Visualizer
 
 DEFAULT_COLOR_TOPIC = "/camera/color"
 DEFAULT_DEPTH_TOPIC = "/camera/aligned_depth_to_color"
+HEAD_CAMERA_ROTATIONS = 3
 
 
 class StretchRosInterface:
@@ -252,8 +253,12 @@ class StretchRosInterface:
         if self.rgb_cam is not None or self.dpt_cam is not None:
             raise RuntimeError("Already created cameras")
         print("Creating cameras...")
-        self.rgb_cam = RosCamera(self._color_topic)
-        self.dpt_cam = RosCamera(self._depth_topic, buffer_size=self._depth_buffer_size)
+        self.rgb_cam = RosCamera(self._color_topic, rotations=HEAD_CAMERA_ROTATIONS)
+        self.dpt_cam = RosCamera(
+            self._depth_topic,
+            rotations=HEAD_CAMERA_ROTATIONS,
+            buffer_size=self._depth_buffer_size,
+        )
         self.filter_depth = self._depth_buffer_size is not None
 
     def _wait_for_cameras(self):
