@@ -66,13 +66,11 @@ export PYTHONPATH=$PYTHONPATH:/path/to/home-robot-dev/habitat-lab/
 
 ## Dataset Setup
 
-### Scene dataset setup (v0.2.0)
+### Scene dataset setup 
 
 ```
-wget --no-check-certificate https://aspis.cmpt.sfu.ca/projects/scenebuilder/fphab/v0.2.0/fphab-v0.2.0.zip -O datasets/scene_datasets/fphab-v0.2.0.zip
-unzip datasets/scene_datasets/fphab-v0.2.0.zip -d datasets/scene_datasets/
-mkdir -p datasets/scene_datasets/floorplanner
-mv datasets/scene_datasets/fphab-v0.2.0 datasets/scene_datasets/floorplanner/v0.2.0
+cd `HOME_ROBOT_ROOT/data/`
+git clone https://huggingface.co/datasets/osmm/fpss --branch osmm
 ```
 
 The google scanned objects and amazon berkeley objects will need to be in `data/objects/google_object_dataset` and `data/objects/amazon_berkeley` respectively.
@@ -85,32 +83,23 @@ Rough notes; some things were missing for configuring a new environment:
 
 
 ### Episode dataset setup
-
 ```
-mkdir -p datasets/episode_datasets/floorplanner/indoor_only/
-wget https://www.dropbox.com/s/n1g1s6uvowo4tbm/v0.2.0_receptacle_cat_indoor_only_val.zip -O datasets/episode_datasets/floorplanner/indoor_only/v0.2.0_receptacle_cat_indoor_only_val.zip
-unzip datasets/episode_datasets/floorplanner/indoor_only/v0.2.0_receptacle_cat_indoor_only_val.zip -d datasets/episode_datasets/floorplanner/indoor_only/
+
+cd `HOME_ROBOT_ROOT/data/`
+git clone https://huggingface.co/datasets/osmm/episodes
 ```
 
 ### Download CLIP embeddings
 Download from `https://drive.google.com/file/d/1sSDSKZgYeIPPk8OM4oWhLtAf4Z-zjAVy/view?usp=sharing` and place them under `HOME_ROBOT_ROOT/` directory.
 
-## Create episode symlink
-
-For example:
-```
-ln -s ~/src/habitat-lab/data/datasets/floorplanner/v0.2.0/ ~/src/home-robot/data/datasets/floorplanner/v0.2.0
-```
-
-
 ## Demo setup
 
 Run
 ```
-python eval_episode.py
+python projects/habitat_ovmm/eval_episode.py
 ```
 
-Results are saved to `datadump/images/debug`.
+Results are saved to `datadump/images/eval_floorplanner/`.
 
 ## Install Detic
 TODO Fix these instructions to start by downloading submodule
@@ -137,6 +126,6 @@ cd /path/to/home-robot
 export HABITAT_SIM_LOG=quiet
 python project/habitat_ovmm/eval_episode.py
 
-# Vectorized evaluation
-sbatch eval_vectorized.sh --config_path configs/agent/floorplanner_eval.yaml
+# Evaluation on complete episode dataset
+python project/habitat_ovmm/eval_vectorized.py
 ```
