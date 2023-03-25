@@ -77,7 +77,7 @@ class OpenVocabManipAgent(ObjectNavAgent):
             elif place_step <= num_turns + 3 + fall_steps:
                 # allow the object to come to rest
                 action = DiscreteNavigationAction.EMPTY_ACTION
-            elif place_step == num_turns + 14:
+            elif place_step == num_turns + fall_steps + 4:
                 action = DiscreteNavigationAction.STOP
         elif self.states[0] == Skill.PICK:
             pick_step = self.timesteps[0] - self.pick_start_step[0]
@@ -91,6 +91,7 @@ class OpenVocabManipAgent(ObjectNavAgent):
                 action = DiscreteNavigationAction.SNAP_OBJECT
             elif pick_step == num_turns + 3:
                 action = DiscreteNavigationAction.RESET_JOINTS
+                self.timesteps_before_goal_update[0] = 0
                 self.states[0] = Skill.NAV_TO_REC
         else:
             # unsnap to drop the object

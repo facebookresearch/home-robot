@@ -66,6 +66,7 @@ class HabitatOpenVocabManipEnv(HabitatEnv):
                 ),
                 sem_gpu_id=(-1 if config.NO_GPU else self.habitat_env.sim.gpu_device),
             )
+        self._last_habitat_obs = None
 
     def set_vis_dir(self):
         scene_id = (
@@ -76,13 +77,14 @@ class HabitatOpenVocabManipEnv(HabitatEnv):
 
     def reset(self):
         habitat_obs = self.habitat_env.reset()
+        self._last_habitat_obs = habitat_obs
         self.semantic_category_mapping.reset_instance_id_to_category_id(
             self.habitat_env
         )
         self._last_obs = self._preprocess_obs(habitat_obs)
         self.visualizer.reset()
         self.set_vis_dir()
-        return habitat_obs, self._last_obs
+        return self._last_obs
 
     def update_hab_pose(self, hab_pose):
         hab_pose[[0, 1, 2]] = hab_pose[[2, 0, 1]]
@@ -235,12 +237,12 @@ class HabitatOpenVocabManipEnv(HabitatEnv):
     def apply_action(
         self,
         action: home_robot.core.interfaces.Action,
-        habitat_obs,
         info: Optional[Dict[str, Any]] = None,
     ):
         if info is not None:
             self._process_info(info)
-        habitat_action = self._preprocess_action(action, habitat_obs)
+        habitat_action = self._preprocess_action(action, self._last_habitat_obs)
         habitat_obs, _, dones, infos = self.habitat_env.step(habitat_action)
+        self._last_habitat_obs = habitat_obs
         self._last_obs = self._preprocess_obs(habitat_obs)
-        return habitat_obs, self._last_obs, dones, infos
+        return self._last_obs, dones, infos

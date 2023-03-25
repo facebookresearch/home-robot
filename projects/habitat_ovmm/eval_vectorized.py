@@ -68,6 +68,34 @@ class VectorizedEvaluator(PPOTrainer):
             episode_keys=None,
         )
 
+    def write_results(self, episode_metrics):
+        aggregated_metrics = defaultdict(list)
+        metrics = set(
+            [k for k in list(episode_metrics.values())[0].keys() if k != "goal_name"]
+        )
+        for v in episode_metrics.values():
+            for k in metrics:
+                aggregated_metrics[f"{k}/total"].append(v[k])
+                aggregated_metrics[f"{k}/{v['goal_name']}"].append(v[k])
+
+        aggregated_metrics = dict(
+            sorted(
+                {
+                    k2: v2
+                    for k1, v1 in aggregated_metrics.items()
+                    for k2, v2 in {
+                        f"{k1}/mean": np.mean(v1),
+                        f"{k1}/min": np.min(v1),
+                        f"{k1}/max": np.max(v1),
+                    }.items()
+                }.items()
+            )
+        )
+        with open(f"{self.results_dir}/aggregated_results.json", "w") as f:
+            json.dump(aggregated_metrics, f, indent=4)
+        with open(f"{self.results_dir}/episode_results.json", "w") as f:
+            json.dump(episode_metrics, f, indent=4)
+
     def _eval(
         self,
         agent: OpenVocabManipAgent,
@@ -96,24 +124,27 @@ class VectorizedEvaluator(PPOTrainer):
         episode_idxs = [0] * envs.num_envs
         done_episode_keys = set()
 
-        hab_obs, obs = zip(*envs.call(["reset"] * envs.num_envs))
-        agent.reset_vectorized()
+        obs = envs.call(["reset"] * envs.num_envs)
+        # TODO: cleanup
+        hab_obs = [None] * envs.num_envs
 
+        agent.reset_vectorized()
         while not stop():
+
             current_episodes_info = self.envs.current_episodes()
             # TODO: Currently agent can work with only 1 env, Parallelize act across envs
             actions, infos = zip(
                 *[agent.act(hab_ob, ob) for hab_ob, ob in zip(hab_obs, obs)]
             )
+
             outputs = envs.call(
                 ["apply_action"] * envs.num_envs,
-                [
-                    {"action": a, "habitat_obs": h, "info": i}
-                    for a, h, i in zip(actions, hab_obs, infos)
-                ],
+                [{"action": a, "info": i} for a, i in zip(actions, infos)],
             )
-            hab_obs, obs, dones, hab_infos = [list(x) for x in zip(*outputs)]
 
+            obs, dones, hab_infos = [list(x) for x in zip(*outputs)]
+            # TODO: cleanup
+            hab_obs = [None] * envs.num_envs
             for e, (done, info, hab_info) in enumerate(zip(dones, infos, hab_infos)):
 
                 if done:
@@ -170,43 +201,18 @@ class VectorizedEvaluator(PPOTrainer):
                                     k2: v2
                                     for k1, v1 in aggregated_metrics.items()
                                     for k2, v2 in {
-                                        f"{k1[:15]}/mean": np.round(np.mean(v1), 2),
+                                        f"{k1}/mean": np.round(np.mean(v1), 2),
                                     }.items()
                                 }.items()
                             )
                         )
 
                     agent.reset_vectorized_for_env(e)
-                    hab_obs[e], obs[e] = envs.call_at(e, "reset")
-
+                    obs[e] = envs.call_at(e, "reset")
+                    if len(episode_metrics) % 5 == 0:
+                        self.write_results(episode_metrics)
         envs.close()
-
-        aggregated_metrics = defaultdict(list)
-        metrics = set(
-            [k for k in list(episode_metrics.values())[0].keys() if k != "goal_name"]
-        )
-        for v in episode_metrics.values():
-            for k in metrics:
-                aggregated_metrics[f"{k}/total"].append(v[k])
-                aggregated_metrics[f"{k}/{v['goal_name']}"].append(v[k])
-
-        aggregated_metrics = dict(
-            sorted(
-                {
-                    k2: v2
-                    for k1, v1 in aggregated_metrics.items()
-                    for k2, v2 in {
-                        f"{k1}/mean": np.mean(v1),
-                        f"{k1}/min": np.min(v1),
-                        f"{k1}/max": np.max(v1),
-                    }.items()
-                }.items()
-            )
-        )
-        with open(f"{self.results_dir}/aggregated_results.json", "w") as f:
-            json.dump(aggregated_metrics, f, indent=4)
-        with open(f"{self.results_dir}/episode_results.json", "w") as f:
-            json.dump(episode_metrics, f, indent=4)
+        self.write_results(episode_metrics)
 
 
 if __name__ == "__main__":
