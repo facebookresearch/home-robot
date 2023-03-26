@@ -48,4 +48,6 @@ class SamplingBasedObjectNavAgent(ObjectNavAgent):
             camera_pose,
         ) = self._preprocess_obs(obs)
 
+        raise NotImplementedError()
+
         return None, None

@@ -259,6 +259,7 @@ class DiscretePlanner:
         goal_map: np.ndarray,
         start: List[int],
         planning_window: List[int],
+        plan_to_dilated_goal=False,
     ) -> Tuple[Tuple[int, int], np.ndarray, bool, bool]:
         """Get short-term goal.
 
@@ -267,6 +268,7 @@ class DiscretePlanner:
             goal_map: (M, M) binary array denoting goal location
             start: start location (x, y)
             planning_window: local map boundaries (gx1, gx2, gy1, gy2)
+            plan_to_dilated_goal: for objectnav; plans to dialted goal points instead of explicitly checking reach.
 
         Returns:
             short_term_goal: short-term goal position (x, y) in map
@@ -317,14 +319,21 @@ class DiscretePlanner:
             print_images=self.print_images,
         )
 
-        # Dilate the goal
-        selem = skimage.morphology.disk(self.goal_dilation_selem_radius)
-        dilated_goal_map = skimage.morphology.binary_dilation(goal_map, selem) != 1
-        dilated_goal_map = 1 - dilated_goal_map * 1.0
+        if plan_to_dilated_goal:
+            # Dilate the goal
+            selem = skimage.morphology.disk(self.goal_dilation_selem_radius)
+            dilated_goal_map = skimage.morphology.binary_dilation(goal_map, selem) != 1
+            dilated_goal_map = 1 - dilated_goal_map * 1.0
 
-        # Set multi goal to the dilated goal map
-        # We will now try to find a path to any of these spaces
-        planner.set_multi_goal(dilated_goal_map, self.timestep)
+            # Set multi goal to the dilated goal map
+            # We will now try to find a path to any of these spaces
+            planner.set_multi_goal(dilated_goal_map, self.timestep)
+        else:
+            navigable_goal = planner._find_nearest_to_multi_goal(goal_map, traversible)
+            navigable_goal_map = np.zeros_like(goal_map)
+            navigable_goal_map[navigable_goal[0], navigable_goal[1]] = 1
+            planner.set_multi_goal(navigable_goal_map, self.timestep)
+
         self.timestep += 1
 
         state = [start[0] - x1 + 1, start[1] - y1 + 1]
@@ -337,7 +346,9 @@ class DiscretePlanner:
         # TODO How to do this without the overhead of creating another FMM planner?
         vis_planner = FMMPlanner(traversible)
         curr_loc_map = np.zeros_like(goal_map)
+        # Update our location for finding the closest goal
         curr_loc_map[start[0], start[1]] = 1
+        # curr_loc_map[short_term_goal[0], short_term_goal]1]] = 1
         vis_planner.set_multi_goal(curr_loc_map)
         fmm_dist_ = vis_planner.fmm_dist.copy()
         goal_map_ = goal_map.copy()
@@ -345,6 +356,22 @@ class DiscretePlanner:
         fmm_dist_[fmm_dist_ == 0] = 10000
         closest_goal_map = (goal_map_ * fmm_dist_) == (goal_map_ * fmm_dist_).min()
         closest_goal_map = remove_boundary(closest_goal_map)
+
+        # Compute distances
+        if not plan_to_dilated_goal:
+            closest_goal_pt = np.unravel_index(
+                closest_goal_map.argmax(), closest_goal_map.shape
+            )
+            print("closest goal pt =", closest_goal_pt)
+            print("navigable goal pt =", navigable_goal)
+            print("start pt =", start)
+            # For stop - compute the distance to the goal
+            # breakpoint()
+
+        # We cannot actually get to a goal point
+        # Instead we will try to find a path to the locaiton nearby
+        if replan:
+            short_term_goal = planner._find_nearest_to_multi_goal(goal_map)
 
         return short_term_goal, closest_goal_map, replan, stop
 

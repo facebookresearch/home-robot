@@ -16,9 +16,9 @@ class BaseState:
 
 
 class TreeNode:
-    """Placeholder for an RRT node state."""
+    """Node in an RRT sampling tree. Tracks its parent so that we can plan forwards to find a goal."""
 
-    pass
+    raise NotImplementedError()
 
 
 class TreeNode:
@@ -34,12 +34,14 @@ class RRTPlanner:
 
     def __init__(self):
         """Set up default params for interpolating states, sampling rates, etc."""
+        raise NotImplementedError()
 
     def solve(self, voxel_map: SparseVoxelMap, goal: BaseState):
         """Solve the problem. Extract flattened map from sparse voxel map, then go on."""
         print(voxel_map)
         print("goal =", goal)
+        raise NotImplementedError()
 
     def reset(self):
         """Clear out state information from the planner"""
-        pass
+        raise NotImplementedError()
