@@ -64,6 +64,8 @@ class RosCamera(Camera):
             self.K[0, 2], self.K[1, 2] = self.K[1, 2], self.K[0, 2]
             self.P[0, 0], self.P[1, 1] = self.P[1, 1], self.P[0, 0]
             self.P[0, 2], self.P[1, 2] = self.P[1, 2], self.P[0, 2]
+            self.height = cam_info.width
+            self.width = cam_info.height
 
         self.fx = self.K[0, 0]
         self.fy = self.K[1, 1]

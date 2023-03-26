@@ -33,9 +33,18 @@ class StretchHeadClient(AbstractControlModule):
 
     # Interface methods
 
-    def get_pose(self):
+    def get_pose(self, rotated=True):
         """get matrix version of the camera pose"""
         return self._ros_client.se3_camera_pose.matrix()
+
+    def get_pose_in_base_coords(self, rotated=True):
+        """Use /tf to get the pose from base to camera coordinates. Useful for computing grasps in particular."""
+        pose = self._ros_client.get_frame_pose(self.camera_frame)
+        if rotated:
+            R = tra.euler_matrix(0, 0, -np.pi / 2)
+            return pose @ R
+        else:
+            return pose
 
     def get_pan_tilt(self) -> Tuple[float, float]:
         q, _, _ = self._ros_client.get_joint_state()

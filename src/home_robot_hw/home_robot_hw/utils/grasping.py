@@ -21,10 +21,13 @@ class GraspPlanner(object):
     """Simple grasp planner which integrates with a ROS service runnning e.g. contactgraspnet.
     Will choose and execute a grasp based on distance from base."""
 
-    def __init__(self, robot_client, visualize_planner=False):
+    def __init__(self, robot_client, visualize_planner=False, debug_point_cloud=True):
         self.robot_client = robot_client
         self.robot_model = HelloStretchKinematics(visualize=visualize_planner)
         self.grasp_client = RosGraspClient()
+
+        # Add this flag to make sure that the point clouds are coming in correctly - will visualize what the points look like relative to a base coordinate frame with z = up, x = forward
+        self.debug_point_cloud = debug_point_cloud
 
     def go_to_manip_mode(self):
         """Move the arm and head into manip mode."""
@@ -63,9 +66,29 @@ class GraspPlanner(object):
             t0 = timeit.default_timer()
             obs = self.robot_client.get_observation()
             rgb, depth, xyz = obs.rgb, obs.depth, obs.xyz
-            camera_pose = self.robot_client.get_pose(
-                self.robot_client.rgb_cam.get_frame()
-            )
+
+            # TODO: verify this is correct
+            # In world coordinates
+            # camera_pose_world = self.robot_client.head.get_pose()
+            # In base coordinates
+            camera_pose_base = self.robot_client.head.get_pose_in_base_coords()
+            camera_pose = camera_pose_base
+
+            # TODO: remove debug code
+            if self.debug_point_cloud:
+                import trimesh
+
+                from home_robot.utils.point_cloud import show_point_cloud
+
+                show_point_cloud(xyz, rgb / 255.0, orig=np.zeros(3))
+                xyz2 = trimesh.transform_points(xyz.reshape(-1, 3), camera_pose)
+                show_point_cloud(xyz2, rgb / 255.0, orig=np.zeros(3))
+                camera_pose_world = self.robot_client.head.get_pose()
+                xyz3 = trimesh.transform_points(xyz.reshape(-1, 3), camera_pose_world)
+                show_point_cloud(xyz3, rgb / 255.0, orig=np.zeros(3))
+                breakpoint()
+
+            # TODO: remove debug code
             print(
                 "getting images + cam pose took", timeit.default_timer() - t0, "seconds"
             )
