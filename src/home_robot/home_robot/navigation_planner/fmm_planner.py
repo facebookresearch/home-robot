@@ -172,7 +172,7 @@ class FMMPlanner:
                     )
         return mask
 
-    def _find_nearest_to_multi_goal(self, goal, traversible):
+    def _find_nearest_to_multi_goal(self, goal, visualize=False):
         """
         Find the nearest point to a goal which is traversible
         """
@@ -189,38 +189,19 @@ class FMMPlanner:
         planner.set_multi_goal(goal)
 
         # Now mask out anything here based on distance to the goal mask
-        mask = traversible
-        dist_map = planner.fmm_dist * mask
-        dist_map[dist_map == 0] = dist_map.max()
-        import matplotlib.pyplot as plt
-
-        plt.imshow(dist_map)
-        plt.show()
-
-        min_dist_idx = dist_map.argmin()
-        goal = np.unravel_index(min_dist_idx, dist_map.shape)
-
-        return goal
-
-    def _find_nearest_to_goal(self, goal):
-        """
-        Find the nearest point to a goal which is traversible
-        """
-        # TODO Adapt this function to multi-goal and use it to select the goal
-        traversible = (
-            skimage.morphology.binary_dilation(
-                np.zeros(self.traversible.shape), skimage.morphology.disk(2)
-            )
-            != 1
-        )
-        traversible = traversible * 1.0
-        planner = FMMPlanner(traversible)
-        planner.set_goal(goal)
-
         mask = self.traversible
-
         dist_map = planner.fmm_dist * mask
         dist_map[dist_map == 0] = dist_map.max()
+
+        if visualize:
+            # Debugging code. Make sure we are properly finding the closest traversible goal.
+            import matplotlib.pyplot as plt
+
+            plt.subplot(121)
+            plt.imshow(self.traversible)
+            plt.subplot(122)
+            plt.imshow(dist_map)
+            plt.show()
 
         min_dist_idx = dist_map.argmin()
         goal = np.unravel_index(min_dist_idx, dist_map.shape)

@@ -329,7 +329,7 @@ class DiscretePlanner:
             # We will now try to find a path to any of these spaces
             planner.set_multi_goal(dilated_goal_map, self.timestep)
         else:
-            navigable_goal = planner._find_nearest_to_multi_goal(goal_map, traversible)
+            navigable_goal = planner._find_nearest_to_multi_goal(goal_map)
             navigable_goal_map = np.zeros_like(goal_map)
             navigable_goal_map[navigable_goal[0], navigable_goal[1]] = 1
             planner.set_multi_goal(navigable_goal_map, self.timestep)
@@ -365,8 +365,9 @@ class DiscretePlanner:
             print("closest goal pt =", closest_goal_pt)
             print("navigable goal pt =", navigable_goal)
             print("start pt =", start)
-            # For stop - compute the distance to the goal
+            # For stop2- compute the distance to the goal
             # breakpoint()
+            replan = False
 
         return short_term_goal, closest_goal_map, replan, stop
 
