@@ -1,5 +1,5 @@
 validate: False
-datadir: "/home/priparashar/h5_test/stretch_testing/pick_up_bottle/03-22/"
+datadir: False
 template: "*.h5"
 load: False
 resume: False
@@ -10,7 +10,8 @@ source: robopen
 run_for: -1
 wandb: False
 split: False
-data_augmentation: False
-color_jitter: False
+data_augmentation: True
+color_jitter: True
 loss_fn: "xent"
+max_iter: 15
 

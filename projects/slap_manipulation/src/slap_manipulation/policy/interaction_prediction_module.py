@@ -953,7 +953,11 @@ def parse_args():
     return args
 
 
-@hydra.main(version_base=None, config_path="./conf", config_name="ipm_training")
+@hydra.main(
+    version_base=None,
+    config_path="./conf",
+    config_name="interaction_predictor_training",
+)
 def main(cfg):
     # args = parse_args()
     if cfg.split:
@@ -1102,7 +1106,7 @@ def main(cfg):
             wandb.config.loading_best = True
 
         model.start_time = time()
-        for epoch in range(1, 10000):
+        for epoch in range(1, cfg.max_iter):
             res, avg_train_dist = model.do_epoch(train_data, optimizer, train=True)
             train_loss = res
             with torch.no_grad():
@@ -1133,6 +1137,8 @@ def main(cfg):
             if cfg.run_for > 0 and (time() - model.start_time) > cfg.run_for:
                 print(f" --> Stopping training after {cfg.run_for} seconds")
                 break
+
+    print(f" --> Stopping training after {cfg.max_iter} iterations")
 
 
 # For fast debug and development

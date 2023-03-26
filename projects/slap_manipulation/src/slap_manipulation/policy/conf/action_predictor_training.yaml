@@ -16,7 +16,7 @@ query_radius: 0.16
 k: 3
 lang_max_seq_len: 77
 clip_model: "ViT-B/32"
-max_iter: 1000
+max_iter: 10
 dry_run: False
 validate: False
 template: "*.h5"
