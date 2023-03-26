@@ -1,10 +1,12 @@
 from typing import Any, Dict, Optional
 
 import numpy as np
+import rospy
 import trimesh
 
 from home_robot.motion.stretch import (
     STRETCH_BASE_FRAME,
+    STRETCH_CAMERA_FRAME,
     STRETCH_GRASP_FRAME,
     HelloStretchIdx,
     HelloStretchKinematics,
@@ -32,14 +34,30 @@ class StretchManipulationEnv(StretchEnv):
                       (pos, quat)
         """
         # TODO: add gripper-action to StretchManipulationEnv.apply_action
-        if manip_action is None:
+        if manip_action is None or "pos" not in manip_action.keys():
             # TODO modify this to generate a dictionary using current pose
             current_pose = self.get_pose(STRETCH_GRASP_FRAME, STRETCH_BASE_FRAME)
-            manip_action = {"pos": current_pose[0], "ori": current_pose[1]}
+            manip_action = {
+                "pos": current_pose[0].reshape(-1),
+                "ori": current_pose[1].reshape(-1),
+                "gripper": manip_action["gripper"]
+                if "gripper" in manip_action.keys()
+                else 0,
+            }
         q0, _ = self.update()
         q = self.robot.manip_ik((manip_action["pos"], manip_action["ori"]), q0=q0)
         self.goto(q, wait=True, move_base=True)
+        self._move_gripper(manip_action["gripper"])
         print("Moved to predicted action")
+
+    def _move_gripper(self, gripper: int):
+        q, _ = self.update()
+        if gripper == 1:
+            close_q = self.robot.config_close_gripper(q)
+            self.goto(close_q, wait=True, move_base=True)
+        else:
+            open_q = self.robot.config_open_gripper(q)
+            self.goto(open_q, wait=True, move_base=True)
 
     def get_gripper_state(self, q: np.ndarray):
         """returns gripper state from full joint state"""
@@ -64,7 +82,8 @@ class StretchManipulationEnv(StretchEnv):
         8. end-effector pose
         """
         # record rgb and depth
-        camera_pose = self.get_camera_pose_matrix(rotated=False)
+        # camera_pose = self.get_camera_pose_matrix(rotated=False)
+        camera_pose = self.get_pose(STRETCH_CAMERA_FRAME, "base_link")
         rgb, depth, xyz = self.get_images(compute_xyz=True, rotate_images=False)
         q, dq = self.update()
         ee_pose_0 = self.robot.fk(q)
@@ -86,3 +105,9 @@ class StretchManipulationEnv(StretchEnv):
             "base_pose": base_pose,
         }
         return observations
+
+
+if __name__ == "__main__":
+    rospy.init_node("test_stretch_manipulation_env")
+    robot = StretchManipulationEnv()
+    robot._move_gripper(0)
