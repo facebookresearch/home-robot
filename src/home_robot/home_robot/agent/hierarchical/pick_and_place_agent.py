@@ -46,7 +46,7 @@ class PickAndPlaceAgent(Agent):
 
     def _preprocess_obs_for_find(self, obs: Observations) -> Observations:
         task_info = obs.task_observations
-        obs.task_observations["recep_goal"] = task_info["place_recep_id"]
+        obs.task_observations["recep_goal"] = task_info["start_recep_id"]
         obs.task_observations["object_goal"] = task_info["object_id"]
         obs.task_observations["goal_name"] = task_info["object_name"]
         return obs
@@ -78,7 +78,8 @@ class PickAndPlaceAgent(Agent):
             if self.skip_find_object:
                 print("-> Actually predicted:", action)
                 action = DiscreteNavigationAction.STOP
-            if action == DiscreteNavigationAction.STOP:
+                self.state = SimpleTaskState.PICK_OBJECT
+            elif action == DiscreteNavigationAction.STOP:
                 self.state = SimpleTaskState.ORIENT_OBJ
         # If we have found the object, then try to pick it up.
         if self.state == SimpleTaskState.ORIENT_OBJ:

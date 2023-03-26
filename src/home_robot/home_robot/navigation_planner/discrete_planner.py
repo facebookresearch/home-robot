@@ -155,6 +155,7 @@ class DiscretePlanner:
             start[0] - 0 : start[0] + 1, start[1] - 0 : start[1] + 1
         ] = 1
 
+        # Check collisions if we have just moved and are uncertain
         if self.last_action == DiscreteNavigationAction.MOVE_FORWARD:
             self._check_collision()
 
@@ -173,20 +174,29 @@ class DiscretePlanner:
                 start - np.array(short_term_goal[:2])
             )
             print("Distance:", dist_to_short_term_goal)
+            print("Replan:", replan)
+            print()
         # t1 = time.time()
         # print(f"[Planning] get_short_term_goal() time: {t1 - t0}")
 
         # We were not able to find a path to the high-level goal
         if replan:
-            # Clean collision map
-            self.collision_map *= 0
+            print("Could not find a path to the high-level goal. Stopping.")
+            action = DiscreteNavigationAction.STOP
+            # TODO Calling the STOP action here will cause the agent to try grasping
+            #   we need different STOP_SUCCESS and STOP_FAILURE actions
+            breakpoint()
+            raise NotImplementedError
 
-            # Reduce obstacle dilation
-            if self.curr_obs_dilation_selem_radius > 1:
-                self.curr_obs_dilation_selem_radius -= 1
-                self.obs_dilation_selem = skimage.morphology.disk(
-                    self.curr_obs_dilation_selem_radius
-                )
+            # # Clean collision map
+            # self.collision_map *= 0
+            #
+            # # Reduce obstacle dilation
+            # if self.curr_obs_dilation_selem_radius > 1:
+            #     self.curr_obs_dilation_selem_radius -= 1
+            #     self.obs_dilation_selem = skimage.morphology.disk(
+            #         self.curr_obs_dilation_selem_radius
+            #     )
 
         stg_x, stg_y = short_term_goal
         angle_st_goal = math.degrees(math.atan2(stg_x - start[0], stg_y - start[1]))
@@ -289,6 +299,8 @@ class DiscretePlanner:
         # Dilate obstacles
         dilated_obstacles = cv2.dilate(obstacles, self.obs_dilation_selem, iterations=1)
 
+        # Create inverse map of obstacles - this is territory we assume is traversible
+        # Traversible is now the map
         traversible = 1 - dilated_obstacles
         traversible[self.collision_map[gx1:gx2, gy1:gy2][x1:x2, y1:y2] == 1] = 0
         traversible[self.visited_map[gx1:gx2, gy1:gy2][x1:x2, y1:y2] == 1] = 1
@@ -312,10 +324,13 @@ class DiscretePlanner:
         dilated_goal_map = skimage.morphology.binary_dilation(goal_map, selem) != 1
         dilated_goal_map = 1 - dilated_goal_map * 1.0
 
+        # Set multi goal to the dilated goal map
+        # We will now try to find a path to any of these spaces
         planner.set_multi_goal(dilated_goal_map, self.timestep)
         self.timestep += 1
 
         state = [start[0] - x1 + 1, start[1] - y1 + 1]
+        # This is where we create the planner to get the trajectory to this state
         stg_x, stg_y, replan, stop = planner.get_short_term_goal(state)
         stg_x, stg_y = stg_x + x1 - 1, stg_y + y1 - 1
         short_term_goal = int(stg_x), int(stg_y)

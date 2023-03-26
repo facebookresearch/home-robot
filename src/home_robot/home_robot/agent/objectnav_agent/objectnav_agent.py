@@ -1,3 +1,8 @@
+# Copyright (c) Meta Platforms, Inc. and affiliates.
+#
+# This source code is licensed under the MIT license found in the
+# LICENSE file in the root directory of this source tree.
+
 from typing import Any, Dict, List, Tuple
 
 import numpy as np
@@ -328,6 +333,8 @@ class ObjectNavAgent(Agent):
                 obs.task_observations["end_recep_goal"]
             ).unsqueeze(0)
         goal_name = [obs.task_observations["goal_name"]]
+        print("object goal =", obs.task_observations["object_goal"])
+        print("recep goal =", obs.task_observations["recep_goal"])
 
         camera_pose = obs.camera_pose
         if camera_pose is not None:

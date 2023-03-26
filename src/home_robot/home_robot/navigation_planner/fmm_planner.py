@@ -8,6 +8,7 @@ from typing import List
 import cv2
 import numpy as np
 import skfmm
+import skimage
 from numpy import ma
 
 
@@ -61,6 +62,8 @@ class FMMPlanner:
         """
         traversible_ma = ma.masked_values(self.traversible * 1, 0)
         traversible_ma[goal_map == 1] = 0
+        # This is where we actually call the FMM algorithm!!
+        # It will compute the distance from each traversible point to the goal.
         dd = skfmm.distance(traversible_ma, dx=1)
         dd = ma.filled(dd, np.max(dd) + 1)
         self.fmm_dist = dd
@@ -168,3 +171,51 @@ class FMMPlanner:
                         ** 0.5,
                     )
         return mask
+
+    def _find_nearest_to_multi_goal(self, goal):
+        """
+        Find the nearest point to a goal which is traversible
+        """
+        # TODO Adapt this function to multi-goal and use it to select the goal
+        traversible = (
+            skimage.morphology.binary_dilation(
+                np.zeros(self.traversible.shape), skimage.morphology.disk(2)
+            )
+            != 1
+        )
+        traversible = traversible * 1.0
+        planner = FMMPlanner(traversible)
+        planner.set_multi_goal(goal)
+
+        mask = self.traversible
+
+        dist_map = planner.fmm_dist * mask
+        dist_map[dist_map == 0] = dist_map.max()
+
+        goal = np.unravel_index(dist_map.argmin(), dist_map.shape)
+
+        return goal
+
+    def _find_nearest_to_goal(self, goal):
+        """
+        Find the nearest point to a goal which is traversible
+        """
+        # TODO Adapt this function to multi-goal and use it to select the goal
+        traversible = (
+            skimage.morphology.binary_dilation(
+                np.zeros(self.traversible.shape), skimage.morphology.disk(2)
+            )
+            != 1
+        )
+        traversible = traversible * 1.0
+        planner = FMMPlanner(traversible)
+        planner.set_goal(goal)
+
+        mask = self.traversible
+
+        dist_map = planner.fmm_dist * mask
+        dist_map[dist_map == 0] = dist_map.max()
+
+        goal = np.unravel_index(dist_map.argmin(), dist_map.shape)
+
+        return goal

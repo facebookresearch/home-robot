@@ -20,8 +20,10 @@ class ObjectNavFrontierExplorationPolicy(nn.Module):
     unexplored region) otherwise.
     """
 
-    def __init__(self):
+    def __init__(self, exploration_strategy: str):
         super().__init__()
+        assert exploration_strategy in ["seen_frontier", "been_close_to_frontier"]
+        self.exploration_strategy = exploration_strategy
 
         self.dilate_explored_kernel = nn.Parameter(
             torch.from_numpy(skimage.morphology.disk(10))
@@ -200,7 +202,10 @@ class ObjectNavFrontierExplorationPolicy(nn.Module):
     def explore_otherwise(self, map_features, goal_map, found_goal):
         """Explore closest unexplored region otherwise."""
         # Select unexplored area
-        frontier_map = (map_features[:, [MC.EXPLORED_MAP], :, :] == 0).float()
+        if self.exploration_strategy == "seen_frontier":
+            frontier_map = (map_features[:, [MC.EXPLORED_MAP], :, :] == 0).float()
+        elif self.exploration_strategy == "been_close_to_frontier":
+            frontier_map = (map_features[:, [MC.BEEN_CLOSE_MAP], :, :] == 0).float()
 
         # Dilate explored area
         frontier_map = 1 - binary_dilation(

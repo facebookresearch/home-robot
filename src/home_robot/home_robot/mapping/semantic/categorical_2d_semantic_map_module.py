@@ -33,7 +33,7 @@ class Categorical2DSemanticMapModule(nn.Module):
 
     # If true, display point cloud visualizations using Open3d
     debug_mode = False
-    min_obs_height_cm = 10
+    min_obs_height_cm = 25
 
     def __init__(
         self,
@@ -45,6 +45,8 @@ class Categorical2DSemanticMapModule(nn.Module):
         map_size_cm: int,
         map_resolution: int,
         vision_range: int,
+        explored_radius: int,
+        been_close_to_radius: int,
         global_downscaling: int,
         du_scale: int,
         cat_pred_threshold: float,
@@ -65,6 +67,9 @@ class Categorical2DSemanticMapModule(nn.Module):
             vision_range: diameter of the circular region of the local map
              that is visible by the agent located in its center (unit is
              the number of local map cells)
+            explored_radius: radius (in centimeters) of region of the visual cone
+             that will be marked as explored
+            been_close_to_radius: radius (in centimeters) of been close to region
             global_downscaling: ratio of global over local map
             du_scale: frame downscaling before projecting to point cloud
             cat_pred_threshold: number of depth points to be in bin to
@@ -92,6 +97,8 @@ class Categorical2DSemanticMapModule(nn.Module):
         self.local_map_size = self.local_map_size_cm // self.resolution
         self.xy_resolution = self.z_resolution = map_resolution
         self.vision_range = vision_range
+        self.explored_radius = explored_radius
+        self.been_close_to_radius = been_close_to_radius
         self.du_scale = du_scale
         self.cat_pred_threshold = cat_pred_threshold
         self.exp_pred_threshold = exp_pred_threshold
@@ -422,6 +429,14 @@ class Categorical2DSemanticMapModule(nn.Module):
 
         # Clamp to [0, 1] after transform agent view to map coordinates
         translated = torch.clamp(translated, min=0.0, max=1.0)
+
+        # TODO Here we need to do an AND between a disk around the current location
+        #  and the explored channel of the map
+        #  Something like:
+        # radius = self.explored_radius // self.resolution
+        # explored_disk = torch.from_numpy(skimage.morphology.disk(radius))
+        # translated[:, MC.EXPLORED_MAP, :, :] = translated[:, MC.EXPLORED_MAP, :, :] * explored_disk
+
         maps = torch.cat((prev_map.unsqueeze(1), translated.unsqueeze(1)), 1)
         current_map, _ = torch.max(
             maps[:, :, : MC.NON_SEM_CHANNELS + self.num_sem_categories], 1
@@ -450,8 +465,8 @@ class Categorical2DSemanticMapModule(nn.Module):
                     y - radius : y + radius + 1,
                     x - radius : x + radius + 1,
                 ][explored_disk == 1] = 1
-                # Record the region the agent has been close to using a disc of 1m centered at the agent
-                radius = 100 // self.resolution
+                # Record the region the agent has been close to using a disc centered at the agent
+                radius = self.been_close_to_radius // self.resolution
                 been_close_disk = torch.from_numpy(skimage.morphology.disk(radius))
                 current_map[
                     e,
