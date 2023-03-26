@@ -7,6 +7,7 @@ import rospy
 import tf2_ros
 import torch
 import trimesh
+import yaml
 from geometry_msgs.msg import TransformStamped
 from scipy.spatial.transform import Rotation as R
 from slap_manipulation.policy.action_prediction_module import ActionPredictionModule
@@ -17,7 +18,9 @@ from slap_manipulation.utils.input_preprocessing import (
     get_local_action_prediction_problem,
 )
 
+from home_robot.motion.stretch import STRETCH_GRASP_OFFSET
 from home_robot.utils.point_cloud import show_point_cloud
+from home_robot.utils.pose import to_matrix, to_pos_quat
 from home_robot_hw.env.stretch_manipulation_env import StretchManipulationEnv
 
 # TODO: move this to a constants file
@@ -43,14 +46,13 @@ def get_proprio(raw_data, time=0.0):
 def create_action_prediction_input(
     cfg,
     raw_data: Dict[str, Any],
-    ipm_input_vector: Tuple,
+    feat: np.ndarray,
+    xyz: np.ndarray,
     p_i: np.ndarray,
     time: float = 0.0,
 ):
     """takes raw data from stretch_manipulation_env and converts it into input batch
     for Action Prediction Module by cropping around predicted p_i: interaction_point"""
-    feat = ipm_input_vector[0]
-    xyz = ipm_input_vector[1]
     cropped_feat, cropped_xyz, status = get_local_action_prediction_problem(
         cfg, feat, xyz, p_i
     )
@@ -94,6 +96,8 @@ def create_interaction_prediction_input(
         z_mask = xyz[:, 2] > 0.7
         rgb = rgb[z_mask, :]
         xyz = xyz[z_mask, :]
+    og_xyz = np.copy(xyz)
+    og_rgb = np.copy(rgb)
 
     # get 8k points for tractable learning
     downsample_mask = np.arange(rgb.shape[0])
@@ -106,6 +110,7 @@ def create_interaction_prediction_input(
     # mean-center the point cloud
     mean = xyz.mean(axis=0)
     xyz -= mean
+    og_xyz -= mean
 
     if np.any(rgb > 1.0):
         rgb = rgb / 255.0
@@ -113,7 +118,7 @@ def create_interaction_prediction_input(
         show_point_cloud(xyz, rgb, orig=np.zeros(3))
 
     input_vector = (rgb, xyz, proprio, lang, mean)
-    return input_vector
+    return input_vector, og_rgb, og_xyz
 
 
 def get_in_base_frame(robot, mean: np.ndarray) -> np.ndarray:
@@ -124,7 +129,7 @@ def get_in_base_frame(robot, mean: np.ndarray) -> np.ndarray:
     return new_mean[:-1]
 
 
-@hydra.main(version_base=None, config_path="./conf", config_name="test")
+@hydra.main(version_base=None, config_path="./conf", config_name="slap_inference")
 def main(cfg):
     rospy.init_node("slap_inference")
     # create the robot object
@@ -157,6 +162,7 @@ def main(cfg):
     ]
     experiment_running = True
     ros_pub = tf2_ros.TransformBroadcaster()
+    actions = []
     while experiment_running:
         for i, cmd in enumerate(cmds):
             print(f"{i+1}. {cmd}")
@@ -166,7 +172,7 @@ def main(cfg):
         # get from the robot: pcd=(xyz, rgb), gripper-state,
         # construct input vector from raw data
         raw_observations = robot.get_observation()
-        ipm_input_vector = create_interaction_prediction_input(
+        ipm_input_vector, og_rgb, og_xyz = create_interaction_prediction_input(
             raw_observations, input_cmd, filter_depth=True, debug=True
         )
         print(f"PCD Mean: {ipm_input_vector[-1]}")
@@ -189,7 +195,8 @@ def main(cfg):
                 apm_input_vector = create_action_prediction_input(
                     cfg,
                     raw_observations,
-                    ipm_input_vector,
+                    og_rgb,
+                    og_xyz,
                     interaction_point,
                     time=current_time[i],
                 )
@@ -201,14 +208,14 @@ def main(cfg):
                 )
                 predicted_action = action_predictors[i].predict(*apm_input_vector)
                 ori = R.from_matrix(predicted_action["predicted_ori"])
-                mean_base_frame = get_in_base_frame(
-                    robot, ipm_input_vector[-1]
-                ).reshape(-1)
+                # mean_base_frame = get_in_base_frame(
+                #     robot, ipm_input_vector[-1]
+                # ).reshape(-1)
                 action = {
                     "pos": predicted_action["predicted_pos"].reshape(-1)
-                    + mean_base_frame,
+                    + ipm_input_vector[-1].reshape(-1),
                     "ori": ori.as_quat(),
-                    "gripper": predicted_action["gripper_act"],
+                    "gripper": int(predicted_action["gripper_act"]),
                 }
                 # ask if ok to execute
                 pos = action["pos"]
@@ -228,11 +235,19 @@ def main(cfg):
                 pose_message.transform.rotation.w = rot[3]
 
                 ros_pub.sendTransform(pose_message)
-                input("Press enter to continue")
+                offset = STRETCH_GRASP_OFFSET.copy()
+                gripper_pose_mat = (
+                    to_matrix(action["pos"], action["ori"]) @ STRETCH_GRASP_OFFSET
+                )
+                action["pos"], _ = to_pos_quat(gripper_pose_mat)
+                actions.append(action)
+                # input("Press enter to continue")
                 # res = input("Execute the output? (y/n)")
                 # if res == "y":
                 #     robot.apply_action(action)
                 # pass
+    # dump the actions list into a YAML file
+    yaml.dump(actions, open("actions.yaml", "w"))
 
 
 if __name__ == "__main__":
