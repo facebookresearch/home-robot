@@ -2,9 +2,13 @@ from typing import Any, Dict, Tuple
 
 import hydra
 import numpy as np
+import ros_numpy
 import rospy
+import tf2_ros
 import torch
 import trimesh
+from geometry_msgs.msg import TransformStamped
+from scipy.spatial.transform import Rotation as R
 from slap_manipulation.policy.action_prediction_module import ActionPredictionModule
 from slap_manipulation.policy.interaction_prediction_module import (
     InteractionPredictionModule,
@@ -45,7 +49,7 @@ def create_action_prediction_input(
 ):
     """takes raw data from stretch_manipulation_env and converts it into input batch
     for Action Prediction Module by cropping around predicted p_i: interaction_point"""
-    feat = np.concatenate(ipm_input_vector[0], axis=-1)
+    feat = ipm_input_vector[0]
     xyz = ipm_input_vector[1]
     cropped_feat, cropped_xyz, status = get_local_action_prediction_problem(
         cfg, feat, xyz, p_i
@@ -55,6 +59,7 @@ def create_action_prediction_input(
             "Interaction Prediction Module predicted an interaction point with no tractable local problem around it"
         )
     proprio = get_proprio(raw_data, time=time)
+    show_point_cloud(cropped_xyz, cropped_feat)
     return (cropped_feat, cropped_xyz, proprio)
 
 
@@ -99,15 +104,24 @@ def create_interaction_prediction_input(
     xyz = xyz[downsample_mask]
 
     # mean-center the point cloud
-    xyz -= xyz.mean(axis=0)
+    mean = xyz.mean(axis=0)
+    xyz -= mean
 
     if np.any(rgb > 1.0):
         rgb = rgb / 255.0
     if debug:
         show_point_cloud(xyz, rgb, orig=np.zeros(3))
 
-    input_vector = (rgb, xyz, proprio, lang)
+    input_vector = (rgb, xyz, proprio, lang, mean)
     return input_vector
+
+
+def get_in_base_frame(robot, mean: np.ndarray) -> np.ndarray:
+    """get transform between base and map; use this to transform input into base_frame"""
+    map_to_base = robot.get_pose("base_link", "map")
+    mean_h = np.concatenate((mean, np.array([1])))
+    new_mean = map_to_base @ mean_h
+    return new_mean[:-1]
 
 
 @hydra.main(version_base=None, config_path="./conf", config_name="test")
@@ -118,13 +132,17 @@ def main(cfg):
     # create IPM object
     interaction_predictor = InteractionPredictionModule(dry_run=cfg.dry_run)
     interaction_predictor.to(interaction_predictor.device)
-    # create APM object
-    action_predictor = ActionPredictionModule(dry_run=cfg.dry_run)
+    # create APM objects
+    action_predictors = []
+    for _ in range(cfg.num_actions):
+        action_predictors.append(ActionPredictionModule(cfg))
     # load model-weights
     if cfg.interaction_weights:
         interaction_predictor.load_state_dict(torch.load(cfg.interaction_weights))
     if cfg.action_weights:
-        action_predictor.load_state_dict(cfg.action_weights)
+        for i in range(cfg.num_actions):
+            action_predictors[i].load_state_dict(torch.load(cfg.action_weights[i]))
+            action_predictors[i].to(action_predictors[i].device)
 
     print("Loaded models successfully")
     cmds = [
@@ -138,6 +156,7 @@ def main(cfg):
         "place in basket",
     ]
     experiment_running = True
+    ros_pub = tf2_ros.TransformBroadcaster()
     while experiment_running:
         for i, cmd in enumerate(cmds):
             print(f"{i+1}. {cmd}")
@@ -150,19 +169,21 @@ def main(cfg):
         ipm_input_vector = create_interaction_prediction_input(
             raw_observations, input_cmd, filter_depth=True, debug=True
         )
+        print(f"PCD Mean: {ipm_input_vector[-1]}")
         # run inference on sensor data for IPM
         (
-            interaction_point,
+            interaction_point_idx,
             interaction_scores,
             ipm_feat,
             input_down_pcd,
-        ) = interaction_predictor.predict(*ipm_input_vector)
+        ) = interaction_predictor.predict(*ipm_input_vector[:-1])
+        interaction_point = input_down_pcd[0][interaction_point_idx]
         print(f"Interaction point is {interaction_point}")
         experiment_running = False
         # ask if ok to run APM inference
         if cfg.execution.predict_action:
             current_time = [-1.0, 0.0, 1.0]
-            for i in range(cfg.num_keypoints):
+            for i in range(cfg.num_actions):
                 # run APM inference on sensor
                 raw_observations = robot.get_observation()
                 apm_input_vector = create_action_prediction_input(
@@ -172,13 +193,46 @@ def main(cfg):
                     interaction_point,
                     time=current_time[i],
                 )
-                apm_input_vector += (input_cmd,)
-                action = action_predictor.predict(*apm_input_vector)
+                apm_input_vector += (
+                    input_cmd,
+                    interaction_point,
+                    input_down_pcd[1],
+                    input_down_pcd[0],
+                )
+                predicted_action = action_predictors[i].predict(*apm_input_vector)
+                ori = R.from_matrix(predicted_action["predicted_ori"])
+                mean_base_frame = get_in_base_frame(
+                    robot, ipm_input_vector[-1]
+                ).reshape(-1)
+                action = {
+                    "pos": predicted_action["predicted_pos"].reshape(-1)
+                    + mean_base_frame,
+                    "ori": ori.as_quat(),
+                    "gripper": predicted_action["gripper_act"],
+                }
                 # ask if ok to execute
-                res = input("Execute the output? (y/n)")
-                if res == "y":
-                    robot.apply_action(action)
-                pass
+                pos = action["pos"]
+                rot = action["ori"]
+                pose_message = TransformStamped()
+                pose_message.header.stamp = rospy.Time.now()
+                pose_message.header.frame_id = "base_link"
+
+                pose_message.child_frame_id = f"prediction_{i}"
+                pose_message.transform.translation.x = pos[0]
+                pose_message.transform.translation.y = pos[1]
+                pose_message.transform.translation.z = pos[2]
+
+                pose_message.transform.rotation.x = rot[0]
+                pose_message.transform.rotation.y = rot[1]
+                pose_message.transform.rotation.z = rot[2]
+                pose_message.transform.rotation.w = rot[3]
+
+                ros_pub.sendTransform(pose_message)
+                input("Press enter to continue")
+                # res = input("Execute the output? (y/n)")
+                # if res == "y":
+                #     robot.apply_action(action)
+                # pass
 
 
 if __name__ == "__main__":
