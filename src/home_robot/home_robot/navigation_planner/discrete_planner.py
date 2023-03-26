@@ -264,7 +264,7 @@ class DiscretePlanner:
         goal_map: np.ndarray,
         start: List[int],
         planning_window: List[int],
-        plan_to_dilated_goal=False,
+        plan_to_dilated_goal=True,
     ) -> Tuple[Tuple[int, int], np.ndarray, bool, bool]:
         """Get short-term goal.
 
