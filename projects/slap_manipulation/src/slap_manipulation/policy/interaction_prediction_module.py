@@ -474,6 +474,11 @@ class InteractionPredictionModule(torch.nn.Module):
             t_proprio,
         )
         self.visualize_top_attention(t_down_xyz, t_down_rgb, classification_scores)
+        self.show_prediction_with_grnd_truth(
+            t_down_xyz,
+            t_down_rgb,
+            t_down_xyz[self.predict_closest_idx(classification_scores)],
+        )
         return (
             self.predict_closest_idx(classification_scores)[0].detach().cpu().numpy(),
             classification_scores,
@@ -500,6 +505,8 @@ class InteractionPredictionModule(torch.nn.Module):
         if torch.any(rgb) > 1:
             rgb = rgb / 255.0
         pcd = numpy_to_pcd(xyz.detach().cpu().numpy(), rgb.detach().cpu().numpy())
+        if torch.torch.is_tensor(pred_pos):
+            pred_pos = pred_pos.detach().cpu().numpy().reshape(3, 1)
         geoms = [pcd]
         closest_pt_sphere = o3d.geometry.TriangleMesh.create_sphere(radius=0.02)
         closest_pt_sphere.translate(pred_pos)

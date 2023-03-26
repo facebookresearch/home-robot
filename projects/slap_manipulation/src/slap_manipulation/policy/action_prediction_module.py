@@ -25,7 +25,7 @@ from tqdm import tqdm
 
 # Default debug dataset paths
 # from home_robot.policy.pt_query import train_dataset_dir, valid_dataset_dir
-from home_robot.utils.point_cloud import numpy_to_pcd
+from home_robot.utils.point_cloud import numpy_to_pcd, show_point_cloud
 
 np.random.seed(0)
 torch.manual_seed(0)
@@ -296,9 +296,9 @@ class ActionPredictionModule(torch.nn.Module):
             grnd_coords = grnd_coords.rotate(grnd_rot)
             grnd_coords.paint_uniform_color([1, 0, 0])
             geoms.append(grnd_coords)
-        o3d.visualization.draw(
-            geoms, lookat=self.cam_view["lookat"], up=self.cam_view["up"]
-        )
+        o3d.visualization.draw_geometries(geoms)
+        # , lookat=self.cam_view["lookat"], up=self.cam_view["up"]
+        # )
         # vis = o3d.visualization.Visualizer()
         # vis.create_window()
         # for geom in geoms:
@@ -325,13 +325,27 @@ class ActionPredictionModule(torch.nn.Module):
 
     def predict(
         self,
-        feat: np.ndarray,
-        xyz: np.ndarray,
+        # rgb: np.ndarray,
+        rgb_crop: np.ndarray,
+        # xyz: np.ndarray,
+        xyz_crop: np.ndarray,
         proprio: np.ndarray,
         lang: List[str],
+        p_i: np.ndarray,
+        rgb_down: np.ndarray,
+        xyz_down: np.ndarray,
     ) -> Dict[str, Any]:
-        raise NotImplementedError
-        # output = {}
+        data = {}
+        # data["rgb"] = rgb
+        # data["xyz"] = xyz
+        data["rgb_downsampled"] = rgb_down
+        data["xyz_downsampled"] = xyz_down
+        data["cmd"] = lang
+        data["proprio"] = torch.FloatTensor(proprio)
+        data["xyz_crop"] = torch.FloatTensor(xyz_crop)
+        data["rgb_crop"] = torch.FloatTensor(rgb_crop)
+        data["query_pt"] = torch.FloatTensor(p_i)
+        return self.show_validation_on_sensor(data)
         # return output
 
     def forward(self, xyz, rgb, proprio, cmd):
@@ -509,11 +523,22 @@ class ActionPredictionModule(torch.nn.Module):
         """
         self.eval()
         data = self.to_device(data)
-        rgb = data["rgb"]
-        xyz = data["xyz"]
+        # rgb = data["rgb"]
+        # xyz = data["xyz"]
         rgb2 = data["rgb_downsampled"]
         xyz2 = data["xyz_downsampled"]
         cmd = data["cmd"]
+        # self.show_pred_and_grnd_truth(
+        #     crop_xyz.detach().cpu().numpy(),
+        #     crop_rgb.detach().cpu().numpy(),
+        #     delta_ee_pos.detach().cpu().numpy().reshape(3, 1),
+        #     pred_ori,
+        #     query_pt.detach().cpu().numpy().reshape(3, 1),
+        #     None,
+        #     None,
+        #     viewpt=self.cam_view,
+        #     save=False,
+        # )
         proprio = data["proprio"]
         crop_xyz = data["xyz_crop"]
         crop_rgb = data["rgb_crop"]
@@ -552,8 +577,8 @@ class ActionPredictionModule(torch.nn.Module):
         print(f"{cmd}")
         print(f"Predicted gripper state: {gripper_state}")
         self.show_pred_and_grnd_truth(
-            xyz2.detach().cpu().numpy(),
-            rgb2.detach().cpu().numpy(),
+            xyz2,
+            rgb2,
             pred_pos.detach().cpu().numpy().reshape(3, 1),
             pred_ori,
             query_pt.detach().cpu().numpy().reshape(3, 1),
@@ -562,17 +587,17 @@ class ActionPredictionModule(torch.nn.Module):
             viewpt=self.cam_view,
             save=False,
         )
-        # self.show_pred_and_grnd_truth(
-        #     crop_xyz.detach().cpu().numpy(),
-        #     crop_rgb.detach().cpu().numpy(),
-        #     delta_ee_pos.detach().cpu().numpy().reshape(3, 1),
-        #     pred_ori,
-        #     query_pt.detach().cpu().numpy().reshape(3, 1),
-        #     None,
-        #     None,
-        #     viewpt=self.cam_view,
-        #     save=False,
-        # )
+        self.show_pred_and_grnd_truth(
+            crop_xyz.detach().cpu().numpy(),
+            crop_rgb.detach().cpu().numpy(),
+            delta_ee_pos.detach().cpu().numpy().reshape(3, 1),
+            pred_ori,
+            query_pt.detach().cpu().numpy().reshape(3, 1),
+            None,
+            None,
+            viewpt=self.cam_view,
+            save=False,
+        )
 
         return {
             "predicted_pos": pred_pos.detach().cpu().numpy()[0],
