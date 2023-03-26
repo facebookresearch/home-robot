@@ -58,30 +58,38 @@ class OpenVocabManipAgent(ObjectNavAgent):
     ) -> Tuple[DiscreteNavigationAction, Dict[str, Any]]:
         """State machine"""
         action, info = super().act(obs)
+        # TODO: from config
+        turn_angle = 10
         # snap the object
         # rotate 90 degrees so that arm faces the receptacle
         # extend camera
         if self.states[0] == Skill.PLACE:
             place_step = self.timesteps[0] - self.place_start_step[0]
-            num_turns = np.round(90 / 10)
+            forward_steps = 0
             fall_steps = 20
-            # first orient
-            if place_step <= num_turns:
+            num_turns = np.round(90 / turn_angle)
+            forward_and_turn_steps = forward_steps + num_turns
+            if place_step <= forward_steps:
+                # for experimentation (TODO: Remove. ideally nav should drop us close)
+                action = DiscreteNavigationAction.MOVE_FORWARD
+            elif place_step <= forward_and_turn_steps:
+                # first orient
                 action = DiscreteNavigationAction.TURN_LEFT
-            elif place_step == num_turns + 1:
+            elif place_step == forward_and_turn_steps + 1:
                 action = DiscreteNavigationAction.FACE_ARM
-            elif place_step == num_turns + 2:
+            elif place_step == forward_and_turn_steps + 2:
                 action = DiscreteNavigationAction.EXTEND_ARM
-            elif place_step == num_turns + 3:
+            elif place_step == forward_and_turn_steps + 3:
+                # desnap to drop the object
                 action = DiscreteNavigationAction.DESNAP_OBJECT
-            elif place_step <= num_turns + 3 + fall_steps:
+            elif place_step <= forward_and_turn_steps + 3 + fall_steps:
                 # allow the object to come to rest
                 action = DiscreteNavigationAction.EMPTY_ACTION
-            elif place_step == num_turns + fall_steps + 4:
+            elif place_step == forward_and_turn_steps + fall_steps + 4:
                 action = DiscreteNavigationAction.STOP
         elif self.states[0] == Skill.PICK:
             pick_step = self.timesteps[0] - self.pick_start_step[0]
-            num_turns = np.round(90 / 10)
+            num_turns = np.round(90 / turn_angle)
             # first orient
             if pick_step <= num_turns:
                 action = DiscreteNavigationAction.TURN_LEFT
@@ -94,7 +102,6 @@ class OpenVocabManipAgent(ObjectNavAgent):
                 self.timesteps_before_goal_update[0] = 0
                 self.states[0] = Skill.NAV_TO_REC
         else:
-            # unsnap to drop the object
             if action == DiscreteNavigationAction.STOP:
                 if self.states[0] == Skill.NAV_TO_OBJ:
                     action = DiscreteNavigationAction.RESET_JOINTS
