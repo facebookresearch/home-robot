@@ -97,6 +97,9 @@ STRETCH_TO_GRASP[:3, 3] = np.array([0, 0, STRETCH_STANDOFF_DISTANCE])
 STRETCH_GRIPPER_OPEN = 0.22
 STRETCH_GRIPPER_CLOSE = -0.2
 # STRETCH_GRIPPER_CLOSE = -0.5
+STRETCH_HEAD_CAMERA_ROTATIONS = (
+    3  # number of counterclockwise rotations for the head camera
+)
 
 
 class HelloStretchIdx:

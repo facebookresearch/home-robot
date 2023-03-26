@@ -12,6 +12,7 @@ import ros_numpy
 import rospy
 import sophus as sp
 import tf2_ros
+import trimesh.transformations as tra
 from control_msgs.msg import FollowJointTrajectoryAction, FollowJointTrajectoryGoal
 from geometry_msgs.msg import Pose, PoseStamped, Twist
 from nav_msgs.msg import Odometry
@@ -20,7 +21,7 @@ from std_msgs.msg import Bool, String
 from std_srvs.srv import SetBool, SetBoolRequest, Trigger, TriggerRequest
 from trajectory_msgs.msg import JointTrajectoryPoint
 
-from home_robot.motion.stretch import HelloStretchIdx
+from home_robot.motion.stretch import STRETCH_HEAD_CAMERA_ROTATIONS, HelloStretchIdx
 from home_robot_hw.constants import (
     CONFIG_TO_ROS,
     ROS_ARM_JOINTS,
@@ -256,8 +257,14 @@ class StretchRosInterface:
         if self.rgb_cam is not None or self.dpt_cam is not None:
             raise RuntimeError("Already created cameras")
         print("Creating cameras...")
-        self.rgb_cam = RosCamera(self._color_topic)
-        self.dpt_cam = RosCamera(self._depth_topic, buffer_size=self._depth_buffer_size)
+        self.rgb_cam = RosCamera(
+            self._color_topic, rotations=STRETCH_HEAD_CAMERA_ROTATIONS
+        )
+        self.dpt_cam = RosCamera(
+            self._depth_topic,
+            rotations=STRETCH_HEAD_CAMERA_ROTATIONS,
+            buffer_size=self._depth_buffer_size,
+        )
         self.filter_depth = self._depth_buffer_size is not None
 
     def _wait_for_cameras(self):
@@ -315,6 +322,7 @@ class StretchRosInterface:
         self.curr_visualizer(self.se3_base_filtered.matrix())
 
     def _camera_pose_callback(self, msg: PoseStamped):
+        """camera pose from CameraPosePublisher, which reads from tf"""
         self._last_camera_update_timestamp = msg.header.stamp
         self.se3_camera_pose = sp.SE3(matrix_from_pose_msg(msg.pose))
 
