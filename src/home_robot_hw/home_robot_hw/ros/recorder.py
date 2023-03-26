@@ -10,6 +10,7 @@ import numpy as np
 import rospy
 from tqdm import tqdm
 
+from home_robot.motion.stretch import STRETCH_CAMERA_FRAME
 from home_robot.utils.data_tools.image import img_from_bytes
 from home_robot.utils.data_tools.writer import DataWriter
 from home_robot.utils.pose import to_pos_quat
@@ -83,7 +84,7 @@ class Recorder(object):
         # elements in following are of type: Tuple(Tuple(x,y,theta), rospy.Time)
         # change to ndarray with 4 floats
         base_pose = self.robot.get_base_pose()
-        camera_pose = self.robot.get_camera_pose_matrix(rotated=False)
+        camera_pose = self.robot.get_pose(STRETCH_CAMERA_FRAME, "base_link")
         if is_keyframe:
             user_keyframe = np.array([1])
         else:
