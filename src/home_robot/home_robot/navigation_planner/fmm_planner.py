@@ -172,7 +172,9 @@ class FMMPlanner:
                     )
         return mask
 
-    def _find_nearest_to_multi_goal(self, goal, visualize=False):
+    def _find_nearest_to_multi_goal(
+        self, goal: np.ndarray, visualize=False
+    ) -> np.ndarray:
         """
         Find the nearest point to a goal which is traversible
         """

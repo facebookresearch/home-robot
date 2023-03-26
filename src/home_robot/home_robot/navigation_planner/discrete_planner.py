@@ -163,7 +163,13 @@ class DiscretePlanner:
         # t0 = time.time()
         # Extracts a local waypoint
         # Defined by the step size - should be relatively close to the robot
-        short_term_goal, closest_goal_map, replan, stop = self._get_short_term_goal(
+        (
+            short_term_goal,
+            closest_goal_map,
+            replan,
+            stop,
+            goal_pt,
+        ) = self._get_short_term_goal(
             obstacle_map, np.copy(goal_map), start, planning_window
         )
         # Short term goal is in cm, start_x and start_y are in m
@@ -180,14 +186,13 @@ class DiscretePlanner:
         # print(f"[Planning] get_short_term_goal() time: {t1 - t0}")
 
         # We were not able to find a path to the high-level goal
-        if replan:
+        if replan and not stop:
             print("Could not find a path to the high-level goal. Stopping.")
             action = DiscreteNavigationAction.STOP
             # TODO Calling the STOP action here will cause the agent to try grasping
             #   we need different STOP_SUCCESS and STOP_FAILURE actions
-            breakpoint()
-            raise NotImplementedError
 
+            # TODO re-enable this with a flag
             # # Clean collision map
             # self.collision_map *= 0
             #
@@ -356,20 +361,29 @@ class DiscretePlanner:
         fmm_dist_[fmm_dist_ == 0] = 10000
         closest_goal_map = (goal_map_ * fmm_dist_) == (goal_map_ * fmm_dist_).min()
         closest_goal_map = remove_boundary(closest_goal_map)
+        closest_goal_pt = np.unravel_index(
+            closest_goal_map.argmax(), closest_goal_map.shape
+        )
 
         # Compute distances
         if not plan_to_dilated_goal:
-            closest_goal_pt = np.unravel_index(
-                closest_goal_map.argmax(), closest_goal_map.shape
-            )
             print("closest goal pt =", closest_goal_pt)
             print("navigable goal pt =", navigable_goal)
             print("start pt =", start)
+            print("stop =", stop)
+            distance_to_goal = np.linalg.norm(
+                np.array(start) - np.array(closest_goal_pt)
+            )
+            distance_to_nav = np.linalg.norm(np.array(start) - np.array(navigable_goal))
+            distance_to_goal_cm = distance_to_goal * self.map_resolution
+            distance_to_nav_cm = distance_to_nav * self.map_resolution
+            print("distance to goal (cm):", distance_to_goal_cm)
+            print("distance to nav (cm):", distance_to_nav_cm)
+
             # For stop2- compute the distance to the goal
             # breakpoint()
-            replan = False
 
-        return short_term_goal, closest_goal_map, replan, stop
+        return short_term_goal, closest_goal_map, replan, stop, closest_goal_pt
 
     def _check_collision(self):
         """Check whether we had a collision and update the collision map."""
