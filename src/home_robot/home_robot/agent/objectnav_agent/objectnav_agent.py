@@ -58,6 +58,9 @@ class ObjectNavAgent(Agent):
             print_images=False,
             dump_location=config.DUMP_LOCATION,
             exp_name=config.EXP_NAME,
+            max_stopping_distance_cm=getattr(
+                config.AGENT.PLANNER, "max_stopping_distance_cm", 1000.0
+            ),
         )
         self.one_hot_encoding = torch.eye(
             config.AGENT.SEMANTIC_MAP.num_sem_categories, device=self.device

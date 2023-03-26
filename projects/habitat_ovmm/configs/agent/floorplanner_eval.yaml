@@ -16,7 +16,7 @@ ENVIRONMENT:
   max_depth: 10.0         # maximum depth for depth sensor (in metres)
 
 AGENT:
-  max_steps: 500         # maximum number of steps before stopping an episode
+  max_steps: 1000         # maximum number of steps before stopping an episode
   panorama_start: 1       # 1: turn around 360 degrees when starting an episode, 0: don't
 
   SEMANTIC_MAP:

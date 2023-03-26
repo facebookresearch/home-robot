@@ -144,7 +144,9 @@ class HabitatOpenVocabManipEnv(HabitatEnv):
             # TODO: update semantic_category_mapping
             obs.semantic = instance_id_to_category_id[semantic]
             # TODO Ground-truth semantic visualization
-            obs.task_observations["semantic_frame"] = obs.rgb
+            obs.task_observations["semantic_frame"] = np.concatenate(
+                [obs.rgb, obs.semantic[:, :, np.newaxis]], axis=2
+            ).astype(np.uint8)
         else:
             obs = self.segmentation.predict(obs, depth_threshold=0.5)
             if type(self.semantic_category_mapping) == RearrangeCategories:

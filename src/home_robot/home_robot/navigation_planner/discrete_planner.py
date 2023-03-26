@@ -39,7 +39,7 @@ class DiscretePlanner:
         print_images: bool,
         dump_location: str,
         exp_name: str,
-        min_goal_distance_cm: float = 60.0,
+        max_stopping_distance_cm: float = 1000.0,
     ):
         """
         Arguments:
@@ -82,7 +82,7 @@ class DiscretePlanner:
         self.timestep = None
         self.curr_obs_dilation_selem_radius = None
         self.obs_dilation_selem = None
-        self.min_goal_distance_cm = min_goal_distance_cm
+        self.max_stopping_distance_cm = max_stopping_distance_cm
 
     def reset(self):
         self.vis_dir = self.default_vis_dir
@@ -215,7 +215,7 @@ class DiscretePlanner:
                 "Distance in cm:",
                 distance_to_goal_cm,
                 ">",
-                self.min_goal_distance_cm,
+                self.max_stopping_distance_cm,
             )
 
         # Short-term goal -> deterministic local policy
@@ -232,7 +232,9 @@ class DiscretePlanner:
             print()
             print("----------------------------")
             print(">>> orient towards the goal.")
-            if relative_angle_goal > 2 * self.turn_angle / 3.0:
+            if distance_to_goal_cm > self.max_stopping_distance_cm:
+                action = DiscreteNavigationAction.MOVE_FORWARD
+            elif relative_angle_goal > 2 * self.turn_angle / 3.0:
                 action = DiscreteNavigationAction.TURN_RIGHT
             elif relative_angle_goal < -2 * self.turn_angle / 3.0:
                 action = DiscreteNavigationAction.TURN_LEFT
