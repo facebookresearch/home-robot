@@ -56,12 +56,20 @@ class RosCamera(Camera):
         self.distortion_model = cam_info.distortion_model
         self.D = np.array(cam_info.D)  # Distortion parameters
         self.K = np.array(cam_info.K).reshape(3, 3)
+        self.R = np.array(cam_info.R).reshape(3, 3)  # Rectification matrix
+        self.P = np.array(cam_info.P).reshape(3, 4)  # Projection/camera matrix
+
+        if self.rotations % 2 != 0:
+            self.K[0, 0], self.K[1, 1] = self.K[1, 1], self.K[0, 0]
+            self.K[0, 2], self.K[1, 2] = self.K[1, 2], self.K[0, 2]
+            self.P[0, 0], self.P[1, 1] = self.P[1, 1], self.P[0, 0]
+            self.P[0, 2], self.P[1, 2] = self.P[1, 2], self.P[0, 2]
+
         self.fx = self.K[0, 0]
         self.fy = self.K[1, 1]
         self.px = self.K[0, 2]
         self.py = self.K[1, 2]
-        self.R = np.array(cam_info.R).reshape(3, 3)  # Rectification matrix
-        self.P = np.array(cam_info.P).reshape(3, 4)  # Projection/camera matrix
+
         self.near_val = 0.1
         self.far_val = 5.0
         if verbose:
@@ -87,9 +95,6 @@ class RosCamera(Camera):
             elif msg.encoding == "rgb8":
                 # color support - do nothing
                 pass
-
-            # Image orientation
-            self._img = np.rot90(img, k=self.rotations)
 
             # Add to buffer
             self._t = msg.header.stamp
