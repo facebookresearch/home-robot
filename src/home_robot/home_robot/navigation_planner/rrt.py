@@ -18,7 +18,8 @@ class BaseState:
 class TreeNode:
     """Node in an RRT sampling tree. Tracks its parent so that we can plan forwards to find a goal."""
 
-    raise NotImplementedError()
+    def __init__(self):
+        raise RuntimeError("Tried to instantiate placeholder object.")
 
 
 class TreeNode:

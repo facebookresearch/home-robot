@@ -368,11 +368,6 @@ class DiscretePlanner:
             # For stop - compute the distance to the goal
             # breakpoint()
 
-        # We cannot actually get to a goal point
-        # Instead we will try to find a path to the locaiton nearby
-        if replan:
-            short_term_goal = planner._find_nearest_to_multi_goal(goal_map)
-
         return short_term_goal, closest_goal_map, replan, stop
 
     def _check_collision(self):
