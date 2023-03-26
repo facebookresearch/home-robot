@@ -39,7 +39,7 @@ class DiscretePlanner:
         print_images: bool,
         dump_location: str,
         exp_name: str,
-        min_goal_distance_cm: float = 60.0,
+        min_goal_distance_cm: float = 70.0,
     ):
         """
         Arguments:
@@ -379,6 +379,7 @@ class DiscretePlanner:
             distance_to_nav_cm = distance_to_nav * self.map_resolution
             print("distance to goal (cm):", distance_to_goal_cm)
             print("distance to nav (cm):", distance_to_nav_cm)
+            stop = stop and distance_to_goal_cm < self.min_goal_distance_cm
 
             # For stop2- compute the distance to the goal
             # breakpoint()
