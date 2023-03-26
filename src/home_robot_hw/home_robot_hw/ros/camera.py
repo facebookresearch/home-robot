@@ -96,6 +96,9 @@ class RosCamera(Camera):
                 # color support - do nothing
                 pass
 
+            # Image orientation
+            self._img = np.rot90(img, k=self.rotations)
+
             # Add to buffer
             self._t = msg.header.stamp
             if self.buffer_size is not None:
