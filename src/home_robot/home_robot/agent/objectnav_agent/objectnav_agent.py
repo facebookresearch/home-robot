@@ -23,6 +23,9 @@ from .objectnav_agent_module import ObjectNavAgentModule
 class ObjectNavAgent(Agent):
     """Simple object nav agent based on a 2D semantic map"""
 
+    # Flag for debugging data flow and task configuraiton
+    verbose = False
+
     def __init__(self, config, device_id: int = 0):
         self.max_steps = config.AGENT.max_steps
         self.num_environments = config.NUM_ENVIRONMENTS
@@ -295,6 +298,8 @@ class ObjectNavAgent(Agent):
             "object_goal" in obs.task_observations
             and obs.task_observations["object_goal"] is not None
         ):
+            if self.verbose:
+                print("object goal =", obs.task_observations["object_goal"])
             object_goal_category = torch.tensor(
                 obs.task_observations["object_goal"]
             ).unsqueeze(0)
@@ -303,12 +308,12 @@ class ObjectNavAgent(Agent):
             "recep_goal" in obs.task_observations
             and obs.task_observations["recep_goal"] is not None
         ):
+            if self.verbose:
+                print("recep goal =", obs.task_observations["recep_goal"])
             recep_goal_category = torch.tensor(
                 obs.task_observations["recep_goal"]
             ).unsqueeze(0)
         goal_name = [obs.task_observations["goal_name"]]
-        print("object goal =", obs.task_observations["object_goal"])
-        print("recep goal =", obs.task_observations["recep_goal"])
 
         camera_pose = obs.camera_pose
         if camera_pose is not None:
