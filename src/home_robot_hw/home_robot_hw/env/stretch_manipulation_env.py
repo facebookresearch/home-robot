@@ -35,9 +35,9 @@ class StretchManipulationEnv(StretchEnv):
         if manip_action is None:
             # TODO modify this to generate a dictionary using current pose
             current_pose = self.get_pose(STRETCH_GRASP_FRAME, STRETCH_BASE_FRAME)
-            manip_action = {"pos": current_pose[0], "rot": current_pose[1]}
+            manip_action = {"pos": current_pose[0], "ori": current_pose[1]}
         q0, _ = self.update()
-        q = self.robot.manip_ik((manip_action["pos"], manip_action["rot"]), q0=q0)
+        q = self.robot.manip_ik((manip_action["pos"], manip_action["ori"]), q0=q0)
         self.goto(q, wait=True, move_base=True)
         print("Moved to predicted action")
 
