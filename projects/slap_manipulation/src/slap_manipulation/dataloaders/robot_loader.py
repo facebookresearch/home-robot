@@ -185,7 +185,6 @@ class RobotDataset(RLBenchDataset):
         self._cr_max = crop_radius_range[1]
         self._cr_rng = self._cr_max - self._cr_min
         self._ambiguous_radius = ambiguous_radius
-        self._grasp_offset_adjustment = 0.13
 
         # super(RoboPenDataset, self).__init__(
         super(RLBenchDataset, self).__init__(
@@ -216,7 +215,6 @@ class RobotDataset(RLBenchDataset):
             # Offset from STRETCH_GRASP_FRAME to predicted grasp point
             self._robot_ee_to_grasp_offset = 0
             self._robot_ee_to_grasp_offset = STRETCH_TO_GRASP.copy()
-            self._robot_ee_to_grasp_offset[2, 3] -= self._grasp_offset_adjustment
             self._robot_max_grasp = 0.13  # STRETCH_GRIPPER_OPEN
         else:
             raise ValueError("robot must be franka or stretch")
