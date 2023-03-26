@@ -232,12 +232,12 @@ class DiscretePlanner:
             print()
             print("----------------------------")
             print(">>> orient towards the goal.")
-            if distance_to_goal_cm > self.max_stopping_distance_cm:
-                action = DiscreteNavigationAction.MOVE_FORWARD
-            elif relative_angle_goal > 2 * self.turn_angle / 3.0:
+            if relative_angle_goal > 2 * self.turn_angle / 3.0:
                 action = DiscreteNavigationAction.TURN_RIGHT
             elif relative_angle_goal < -2 * self.turn_angle / 3.0:
                 action = DiscreteNavigationAction.TURN_LEFT
+            elif distance_to_goal_cm > self.max_stopping_distance_cm:
+                action = DiscreteNavigationAction.MOVE_FORWARD
             else:
                 action = DiscreteNavigationAction.STOP
                 print("!!! DONE !!!")
