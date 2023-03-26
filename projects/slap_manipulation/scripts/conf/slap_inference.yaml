@@ -4,9 +4,9 @@ local_problem_size: 0.1
 num_pts: 8000
 interaction_weights: /home/priparashar/Development/slap_stretch/home-robot/projects/slap_manipulation/best_classify-over_fit_pick_up_bottle_fixed.pth
 action_weights:
-  0: /home/priparashar/Development/slap_stretch/home-robot/projects/slap_manipulation/action_predictor_pick_up_bottle_0_2023-03-24_12-10/best_action_predictor_pick_up_bottle_0.pth
-  1: /home/priparashar/Development/slap_stretch/home-robot/projects/slap_manipulation/action_predictor_pick_up_bottle_1_2023-03-24_12-12/best_action_predictor_pick_up_bottle_1.pth
-  2: /home/priparashar/Development/slap_stretch/home-robot/projects/slap_manipulation/action_predictor_pick_up_bottle_2_2023-03-24_12-13/best_action_predictor_pick_up_bottle_2.pth
+  0: /home/priparashar/Development/slap_stretch/home-robot/projects/slap_manipulation/action_predictor_pick_up_bottle_0_2023-03-26_16-22/best_action_predictor_pick_up_bottle_0.pth
+  1: /home/priparashar/Development/slap_stretch/home-robot/projects/slap_manipulation/action_predictor_pick_up_bottle_1_2023-03-26_16-24/best_action_predictor_pick_up_bottle_1.pth
+  2: /home/priparashar/Development/slap_stretch/home-robot/projects/slap_manipulation/action_predictor_pick_up_bottle_2_2023-03-26_16-26/best_action_predictor_pick_up_bottle_2.pth
 execution:
   predict_action: True
 name: False
