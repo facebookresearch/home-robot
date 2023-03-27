@@ -167,26 +167,20 @@ class DiscretePlanner:
                     self.curr_obs_dilation_selem_radius
                 )
 
+        stg_x, stg_y = short_term_goal
+        angle_st_goal = math.degrees(math.atan2(stg_x - start[0], stg_y - start[1]))
+        angle_agent = pu.normalize_angle(start_o)
+        relative_angle = pu.normalize_angle(angle_agent - angle_st_goal)
+
         # Short-term goal -> deterministic local policy
-        if stop and found_goal:
+        if relative_angle > self.turn_angle / 2.0:
+            action = DiscreteNavigationAction.TURN_RIGHT
+        elif relative_angle < -self.turn_angle / 2.0:
+            action = DiscreteNavigationAction.TURN_LEFT
+        elif stop and found_goal:
             action = DiscreteNavigationAction.STOP
         else:
-            stg_x, stg_y = short_term_goal
-            angle_st_goal = math.degrees(math.atan2(stg_x - start[0], stg_y - start[1]))
-            angle_agent = start_o % 360.0
-            if angle_agent > 180:
-                angle_agent -= 360
-
-            relative_angle = (angle_agent - angle_st_goal) % 360.0
-            if relative_angle > 180:
-                relative_angle -= 360
-
-            if relative_angle > self.turn_angle / 2.0:
-                action = DiscreteNavigationAction.TURN_RIGHT
-            elif relative_angle < -self.turn_angle / 2.0:
-                action = DiscreteNavigationAction.TURN_LEFT
-            else:
-                action = DiscreteNavigationAction.MOVE_FORWARD
+            action = DiscreteNavigationAction.MOVE_FORWARD
 
         self.last_action = action
         return action, closest_goal_map

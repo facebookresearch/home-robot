@@ -2,6 +2,8 @@
 #
 # This source code is licensed under the MIT license found in the
 # LICENSE file in the root directory of this source tree.
+from typing import Tuple
+
 import matplotlib.pyplot as plt
 import numpy as np
 
@@ -27,7 +29,11 @@ def show_image_with_mask(rgb, mask):
     plt.show()
 
 
-def get_contour_points(pos, origin, size=20):
+def get_contour_points(
+    pos: Tuple[float, float, float],
+    origin: Tuple[float, float],
+    size: int = 20,
+) -> np.ndarray:
     x, y, o = pos
     pt1 = (int(x) + origin[0], int(y) + origin[1])
     pt2 = (
@@ -43,7 +49,13 @@ def get_contour_points(pos, origin, size=20):
     return np.array([pt1, pt2, pt3, pt4])
 
 
-def draw_line(start, end, mat, steps=25, w=1):
+def draw_line(
+    start: Tuple[int, int],
+    end: Tuple[int, int],
+    mat: np.ndarray,
+    steps: int = 25,
+    w: int = 1,
+) -> np.ndarray:
     for i in range(steps + 1):
         x = int(np.rint(start[0] + (end[0] - start[0]) * i / steps))
         y = int(np.rint(start[1] + (end[1] - start[1]) * i / steps))

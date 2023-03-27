@@ -75,7 +75,12 @@ class ObjectNavAgent(Agent):
 
     @torch.no_grad()
     def prepare_planner_inputs(
-        self, obs: torch.Tensor, pose_delta: torch.Tensor, goal_category: torch.Tensor
+        self,
+        obs: torch.Tensor,
+        pose_delta: torch.Tensor,
+        object_goal_category: torch.Tensor = None,
+        recep_goal_category: torch.Tensor = None,
+        camera_pose: torch.Tensor = None,
     ) -> Tuple[List[dict], List[dict]]:
         """Prepare low-level planner inputs from an observation - this is
         the main inference function of the agent that lets it interact with
@@ -88,7 +93,9 @@ class ObjectNavAgent(Agent):
              (num_environments, 3 + 1 + num_sem_categories, frame_height, frame_width)
             pose_delta: sensor pose delta (dy, dx, dtheta) since last frame
              of shape (num_environments, 3)
-            goal_category: semantic goal category
+            object_goal_category: semantic category of small object goals
+            recep_goal_category: semantic category of receptacle goals
+            camera_pose: camera extrinsic pose of shape (num_environments, 4, 4)
 
         Returns:
             planner_inputs: list of num_environments planner inputs dicts containing
@@ -111,6 +118,11 @@ class ObjectNavAgent(Agent):
             ]
         )
 
+        if object_goal_category is not None:
+            object_goal_category = object_goal_category.unsqueeze(1)
+        if recep_goal_category is not None:
+            recep_goal_category = recep_goal_category.unsqueeze(1)
+
         (
             goal_map,
             found_goal,
@@ -123,15 +135,17 @@ class ObjectNavAgent(Agent):
         ) = self.module(
             obs.unsqueeze(1),
             pose_delta.unsqueeze(1),
-            goal_category.unsqueeze(1),
             dones.unsqueeze(1),
             update_global.unsqueeze(1),
+            camera_pose,
             self.semantic_map.local_map,
             self.semantic_map.global_map,
             self.semantic_map.local_pose,
             self.semantic_map.global_pose,
             self.semantic_map.lmb,
             self.semantic_map.origins,
+            seq_object_goal_category=object_goal_category,
+            seq_recep_goal_category=recep_goal_category,
         )
 
         self.semantic_map.local_pose = seq_local_pose[:, -1]
@@ -168,6 +182,7 @@ class ObjectNavAgent(Agent):
             {
                 "explored_map": self.semantic_map.get_explored_map(e),
                 "semantic_map": self.semantic_map.get_semantic_map(e),
+                "been_close_map": self.semantic_map.get_been_close_map(e),
                 "timestep": self.timesteps[e],
             }
             for e in range(self.num_environments)
@@ -205,16 +220,25 @@ class ObjectNavAgent(Agent):
         # t0 = time.time()
 
         # 1 - Obs preprocessing
-        (obs_preprocessed, pose_delta, goal_category, goal_name) = self._preprocess_obs(
-            obs
-        )
+        (
+            obs_preprocessed,
+            pose_delta,
+            object_goal_category,
+            recep_goal_category,
+            goal_name,
+            camera_pose,
+        ) = self._preprocess_obs(obs)
 
         # t1 = time.time()
         # print(f"[Agent] Obs preprocessing time: {t1 - t0:.2f}")
 
         # 2 - Semantic mapping + policy
         planner_inputs, vis_inputs = self.prepare_planner_inputs(
-            obs_preprocessed, pose_delta, goal_category
+            obs_preprocessed,
+            pose_delta,
+            object_goal_category=object_goal_category,
+            recep_goal_category=recep_goal_category,
+            camera_pose=camera_pose,
         )
 
         # t2 = time.time()
@@ -239,6 +263,7 @@ class ObjectNavAgent(Agent):
         vis_inputs[0]["semantic_frame"] = obs.task_observations["semantic_frame"]
         vis_inputs[0]["goal_name"] = obs.task_observations["goal_name"]
         vis_inputs[0]["closest_goal_map"] = closest_goal_map
+        vis_inputs[0]["third_person_image"] = obs.third_person_image
         info = {**planner_inputs[0], **vis_inputs[0]}
 
         return action, info
@@ -259,8 +284,26 @@ class ObjectNavAgent(Agent):
             pu.get_rel_pose_change(curr_pose, self.last_poses[0])
         ).unsqueeze(0)
         self.last_poses[0] = curr_pose
-
-        goal_category = torch.tensor(obs.task_observations["goal_id"]).unsqueeze(0)
+        object_goal_category = None
+        if obs.task_observations["object_goal"] is not None:
+            object_goal_category = torch.tensor(
+                obs.task_observations["object_goal"]
+            ).unsqueeze(0)
+        recep_goal_category = None
+        if obs.task_observations["recep_goal"] is not None:
+            recep_goal_category = torch.tensor(
+                obs.task_observations["recep_goal"]
+            ).unsqueeze(0)
         goal_name = [obs.task_observations["goal_name"]]
 
-        return (obs_preprocessed, pose_delta, goal_category, goal_name)
+        camera_pose = obs.camera_pose
+        if camera_pose is not None:
+            camera_pose = torch.tensor(np.asarray(camera_pose)).unsqueeze(0)
+        return (
+            obs_preprocessed,
+            pose_delta,
+            object_goal_category,
+            recep_goal_category,
+            goal_name,
+            camera_pose,
+        )

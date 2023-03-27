@@ -32,9 +32,9 @@ class DataWriter(object):
                 os.mkdir(dirname)
             except OSError as e:
                 pass
-            filename = os.path.join(self.dirname, self.filename)
+            self.filename = os.path.join(self.dirname, self.filename)
         else:
-            filename = self.filename
+            self.filename = self.filename
         self.num_trials = 0
         self.reset()
 

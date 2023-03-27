@@ -23,9 +23,11 @@ def main(h5_file, trial, replay):
     ros_pub = tf2_ros.TransformBroadcaster()
     file = h5py.File(h5_file, "r")
     view_keyframe_imgs(file, trial)
+    print(f"Key schema: {file[trial].keys()}")
     ee_pose = plot_ee_pose(file, trial, ros_pub)
     if replay:
         robot = StretchManipulationEnv(init_cameras=True)
+        # TODO: add gripper-action to StretchManipulationEnv.apply_action
         for pose in ee_pose:
             robot.apply_action({"pos": pose[0], "rot": pose[1]})
 

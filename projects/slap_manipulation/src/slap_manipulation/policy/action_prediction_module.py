@@ -4,6 +4,7 @@ import os
 import random
 from pprint import pprint
 from time import time
+from typing import Any, Dict, List, Tuple
 
 import click
 import clip
@@ -331,8 +332,16 @@ class ActionPredictionModule(torch.nn.Module):
         # if viewpt:
         #     del ctr
 
-    def eval(self, batch):
-        return None
+    def predict(
+        self,
+        feat: np.ndarray,
+        xyz: np.ndarray,
+        proprio: np.ndarray,
+        lang: List[str],
+    ) -> Dict[str, Any]:
+        raise NotImplementedError
+        # output = {}
+        # return output
 
     def forward(self, xyz, rgb, proprio, cmd):
         """

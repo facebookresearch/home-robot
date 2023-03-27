@@ -12,7 +12,7 @@ from std_srvs.srv import TriggerRequest
 from home_robot.core.state import ManipulatorBaseParams
 from home_robot.motion.robot import Robot
 from home_robot.motion.stretch import STRETCH_HOME_Q, HelloStretchIdx
-from home_robot.utils.geometry import posquat2sophus, xyt2sophus
+from home_robot.utils.geometry import posquat2sophus, sophus2posquat, xyt2sophus
 
 from .abstract import AbstractControlModule, enforce_enabled
 
@@ -40,9 +40,20 @@ class StretchManipulationClient(AbstractControlModule):
 
     # Interface methods
 
-    def get_ee_pose(self):
+    def get_ee_pose(self, world_frame=False):
         q, _, _ = self._ros_client.get_joint_state()
-        pos, quat = self._robot_model.fk(q, as_matrix=False)
+        pos_base, quat_base = self._robot_model.manip_fk(q)
+
+        if world_frame:
+            pose_base2ee = posquat2sophus(pos_base, quat_base)
+            pose_world2base = self._ros_client.se3_base_filtered
+            pose_world2ee = pose_world2base * pose_base2ee
+
+            pos, quat = sophus2posquat(pose_world2ee)
+
+        else:
+            pos, quat = pos_base, quat_base
+
         return pos, quat
 
     def get_joint_positions(self):
@@ -51,9 +62,9 @@ class StretchManipulationClient(AbstractControlModule):
             0.0,
             q[HelloStretchIdx.LIFT],
             q[HelloStretchIdx.ARM],
-            q[HelloStretchIdx.YAW],
-            q[HelloStretchIdx.PITCH],
-            q[HelloStretchIdx.ROLL],
+            q[HelloStretchIdx.WRIST_YAW],
+            q[HelloStretchIdx.WRIST_PITCH],
+            q[HelloStretchIdx.WRIST_ROLL],
         ]
 
     @enforce_enabled
@@ -140,25 +151,27 @@ class StretchManipulationClient(AbstractControlModule):
             world_frame: Infer poses in world frame instead of base frame
             blocking: Whether command blocks until completetion
         """
+        pos_ee_curr, quat_ee_curr = self.get_ee_pose(world_frame=world_frame)
+        if quat is None:
+            quat = [0, 0, 0, 1] if relative else quat_ee_curr
+
         # Compute IK goal: pose relative to base
         pose_input = posquat2sophus(np.array(pos), np.array(quat))
 
         if world_frame:
-            pose_base2ee = pose_input
-        else:
+            pose_world2ee = pose_input
             pose_world2base = self._ros_client.se3_base_filtered
-            pose_world2ee = posquat2sophus(pos, quat)
-            pose_base2ee = pose_world2base.inverse() * pose_world2ee
+            pose_desired = pose_world2base.inverse() * pose_world2ee
+        else:
+            pose_desired = pose_input
 
         if relative:
-            pos_ee_curr, quat_ee_curr = self.get_ee_pose()
             pose_base2ee_curr = posquat2sophus(pos_ee_curr, quat_ee_curr)
-            pose_ik_goal = pose_base2ee_curr * pose_base2ee
+            pose_base2ee_desired = pose_desired * pose_base2ee_curr
         else:
-            pose_ik_goal = pose_base2ee
+            pose_base2ee_desired = pose_desired
 
-        pos_ik_goal = pose_ik_goal.translation()
-        quat_ik_goal = R.from_matrix(pose_ik_goal.so3().matrix()).as_quat()
+        pos_ik_goal, quat_ik_goal = sophus2posquat(pose_base2ee_desired)
 
         # Perform IK
         q = self._robot_model.manip_ik((pos_ik_goal, quat_ik_goal))
@@ -200,7 +213,7 @@ class StretchManipulationClient(AbstractControlModule):
             q[HelloStretchIdx.BASE_X],
             q[HelloStretchIdx.LIFT],
             q[HelloStretchIdx.ARM],
+            q[HelloStretchIdx.WRIST_YAW],
             q[HelloStretchIdx.WRIST_PITCH],
             q[HelloStretchIdx.WRIST_ROLL],
-            q[HelloStretchIdx.WRIST_YAW],
         ]

@@ -6,8 +6,8 @@ import trimesh
 from home_robot.motion.stretch import (
     STRETCH_BASE_FRAME,
     STRETCH_GRASP_FRAME,
-    HelloStretch,
     HelloStretchIdx,
+    HelloStretchKinematics,
 )
 from home_robot.utils.point_cloud import show_point_cloud
 from home_robot_hw.env.stretch_abstract_env import StretchEnv
@@ -18,7 +18,7 @@ class StretchManipulationEnv(StretchEnv):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        self.robot = HelloStretch(ik_type="pinocchio")
+        self.robot = HelloStretchKinematics(ik_type="pinocchio")
 
     def reset(self) -> None:
         """Reset is called at the beginning of each episode where the
@@ -31,6 +31,7 @@ class StretchManipulationEnv(StretchEnv):
         manip_action: Manipulation action in cartesian space
                       (pos, quat)
         """
+        # TODO: add gripper-action to StretchManipulationEnv.apply_action
         if manip_action is None:
             # TODO modify this to generate a dictionary using current pose
             current_pose = self.get_pose(STRETCH_GRASP_FRAME, STRETCH_BASE_FRAME)
@@ -39,6 +40,10 @@ class StretchManipulationEnv(StretchEnv):
         q = self.robot.manip_ik((manip_action["pos"], manip_action["rot"]), q0=q0)
         self.goto(q, wait=True, move_base=True)
         print("Moved to predicted action")
+
+    def get_gripper_state(self, q: np.ndarray):
+        """returns gripper state from full joint state"""
+        return q[HelloStretchIdx.GRIPPER]
 
     # over-riding the following methods from the parent class
     def episode_over(self) -> None:

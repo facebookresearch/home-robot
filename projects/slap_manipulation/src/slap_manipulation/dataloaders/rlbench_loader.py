@@ -186,7 +186,7 @@ class RLBenchDataset(DatasetBase):
         mask = np.linalg.norm(xyz - voxel, axis=1) < crop_size
         return xyz[mask], rgb[mask]
 
-    def downsample_point_cloud(self, xyz, rgb):
+    def shuffle_and_downsample_point_cloud(self, xyz, rgb):
         # Downsample pt clouds
         downsample = np.arange(rgb.shape[0])
         np.random.shuffle(downsample)
@@ -208,21 +208,6 @@ class RLBenchDataset(DatasetBase):
             print("xyz", xyz.shape)
             print("rgb", rgb.shape)
             show_point_cloud(xyz, rgb)
-
-        # Get only a few points that we care about here
-        debug_og = False
-        if debug_og:
-            print(f"OG point-cloud has {xyz.shape} points")
-            rgb_ims = []
-            for view in ["overhead", "left", "right", "front"]:
-                view_name = view + "_rgb"
-                rgb_ims.append(trial[view_name][idx])
-            f, axarr = plt.subplots(2, 2)
-            axarr[0, 0].imshow(rgb_ims[0])
-            axarr[0, 1].imshow(rgb_ims[1])
-            axarr[1, 0].imshow(rgb_ims[2])
-            axarr[1, 1].imshow(rgb_ims[3])
-            plt.show()
 
         xyz, rgb = xyz.reshape(-1, 3), rgb.reshape(-1, 3)
         # voxelize at a granular voxel-size rather than random downsample
@@ -381,7 +366,7 @@ class RLBenchDataset(DatasetBase):
                     xyz - crop_location[None].repeat(xyz.shape[0], axis=0), axis=-1
                 )
                 # Make sure this is near some geometry
-                if np.sum(dists < 0.1) > 50:
+                if np.sum(dists < 0.1) > min_num_points:
                     break
                 else:
                     crop_location = orig_crop_location
@@ -565,7 +550,7 @@ class RLBenchDataset(DatasetBase):
         orig_xyz, orig_rgb = xyz, rgb
 
         # Get the point clouds and shuffle them around a bit
-        xyz, rgb, center = self.downsample_point_cloud(xyz, rgb)
+        xyz, rgb, center = self.shuffle_and_downsample_point_cloud(xyz, rgb)
 
         # adjust our keyframes
         orig_xyz -= center[None].repeat(orig_xyz.shape[0], axis=0)
