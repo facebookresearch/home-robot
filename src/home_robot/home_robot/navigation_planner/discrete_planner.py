@@ -18,6 +18,17 @@ from home_robot.core.interfaces import DiscreteNavigationAction
 from .fmm_planner import FMMPlanner
 
 
+def add_boundary(mat: np.ndarray, value=1) -> np.ndarray:
+    h, w = mat.shape
+    new_mat = np.zeros((h + 2, w + 2)) + value
+    new_mat[1 : h + 1, 1 : w + 1] = mat
+    return new_mat
+
+
+def remove_boundary(mat: np.ndarray, value=1) -> np.ndarray:
+    return mat[value:-value, value:-value]
+
+
 class DiscretePlanner:
     """
     This class translates planner inputs into a discrete low-level action
@@ -39,7 +50,7 @@ class DiscretePlanner:
         print_images: bool,
         dump_location: str,
         exp_name: str,
-        min_goal_distance_cm: float = 70.0,
+        min_goal_distance_cm: float = 60.0,
     ):
         """
         Arguments:
@@ -187,10 +198,24 @@ class DiscretePlanner:
 
         # We were not able to find a path to the high-level goal
         if replan and not stop:
-            print("Could not find a path to the high-level goal. Stopping.")
-            action = DiscreteNavigationAction.STOP
-            # TODO Calling the STOP action here will cause the agent to try grasping
-            #   we need different STOP_SUCCESS and STOP_FAILURE actions
+            print(
+                "Could not find a path to the high-level goal. Trying to explore more..."
+            )
+            (
+                short_term_goal,
+                closest_goal_map,
+                replan,
+                stop,
+                goal_pt,
+            ) = self._get_short_term_goal(
+                obstacle_map, np.zeros_like(goal_map), start, planning_window
+            )
+            # action = DiscreteNavigationAction.STOP
+            if replan:
+                print("Nowhere left to explore. Stopping.")
+                # TODO Calling the STOP action here will cause the agent to try grasping
+                #   we need different STOP_SUCCESS and STOP_FAILURE actions
+                return DiscreteNavigationAction.STOP, goal_map
 
             # TODO re-enable this with a flag
             # # Clean collision map
@@ -203,11 +228,13 @@ class DiscretePlanner:
             #         self.curr_obs_dilation_selem_radius
             #     )
 
+        # If we found a short term goal worth moving towards...
         stg_x, stg_y = short_term_goal
         angle_st_goal = math.degrees(math.atan2(stg_x - start[0], stg_y - start[1]))
         angle_agent = pu.normalize_angle(start_o)
         relative_angle = pu.normalize_angle(angle_agent - angle_st_goal)
 
+        # This will only be true if we have a goal at all
         # Compute a goal we could be moving towards
         # Sample a goal in the goal map
         goal_x, goal_y = np.nonzero(closest_goal_map)
@@ -264,7 +291,7 @@ class DiscretePlanner:
         goal_map: np.ndarray,
         start: List[int],
         planning_window: List[int],
-        plan_to_dilated_goal=True,
+        plan_to_dilated_goal=False,
     ) -> Tuple[Tuple[int, int], np.ndarray, bool, bool]:
         """Get short-term goal.
 
@@ -289,16 +316,6 @@ class DiscretePlanner:
             0,
         )
         x2, y2 = obstacle_map.shape
-
-        def add_boundary(mat, value=1):
-            h, w = mat.shape
-            new_mat = np.zeros((h + 2, w + 2)) + value
-            new_mat[1 : h + 1, 1 : w + 1] = mat
-            return new_mat
-
-        def remove_boundary(mat, value=1):
-            return mat[value:-value, value:-value]
-
         obstacles = obstacle_map[x1:x2, y1:y2]
 
         # Dilate obstacles
@@ -375,14 +392,32 @@ class DiscretePlanner:
                 np.array(start) - np.array(closest_goal_pt)
             )
             distance_to_nav = np.linalg.norm(np.array(start) - np.array(navigable_goal))
+            distance_nav_to_goal = np.linalg.norm(
+                np.array(start) - np.array(navigable_goal)
+            )
             distance_to_goal_cm = distance_to_goal * self.map_resolution
             distance_to_nav_cm = distance_to_nav * self.map_resolution
+            distance_nav_to_goal_cm = distance_nav_to_goal * self.map_resolution
             print("distance to goal (cm):", distance_to_goal_cm)
             print("distance to nav (cm):", distance_to_nav_cm)
-            stop = stop and distance_to_goal_cm < self.min_goal_distance_cm
-
-            # For stop2- compute the distance to the goal
-            # breakpoint()
+            print("distance nav to goal (cm):", distance_nav_to_goal_cm)
+            # Stop if we are within a reasonable reaching distance of the goal
+            stop = distance_to_goal_cm < self.min_goal_distance_cm
+            print(
+                "-> robot is within",
+                self.min_goal_distance_cm,
+                "of the goal! Stop =",
+                stop,
+            )
+            # Replan if no goal was found that we can reach
+            replan = distance_nav_to_goal_cm > self.min_goal_distance_cm
+            if replan:
+                print(
+                    "-> no grasping location found within",
+                    self.min_goal_distance_cm,
+                    "cm of the goal. Replan =",
+                    replan,
+                )
 
         return short_term_goal, closest_goal_map, replan, stop, closest_goal_pt
 
