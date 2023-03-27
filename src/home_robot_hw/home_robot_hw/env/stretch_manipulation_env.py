@@ -27,15 +27,11 @@ class StretchManipulationEnv(StretchEnv):
         # TODO: implement this
         raise NotImplementedError
 
-    def apply_action(
-        self, action: Action, info: Optional[Dict[str, Any]] = None
-    ) -> None:
+    def apply_action(self, manip_action: Optional[Dict[str, Any]] = None) -> None:
         """
         manip_action: Manipulation action in cartesian space
                       (pos, quat)
         """
-        manip_action = info  # Hack to make mypy happy. TODO: Fix incorrect interfacing
-
         # TODO: add gripper-action to StretchManipulationEnv.apply_action
         if manip_action is None:
             # TODO modify this to generate a dictionary using current pose
