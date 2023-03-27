@@ -108,7 +108,7 @@ class PinocchioIKSolver:
             dMi = desired_ee_pose.actInv(self.data.oMf[self.ee_frame_idx])
             err = pinocchio.log(dMi).vector
             if verbose:
-                print(i, err)
+                print(f"[pinocchio_ik_solver] iter={i}; error={err}")
             if np.linalg.norm(err) < self.EPS:
                 success = True
                 break
