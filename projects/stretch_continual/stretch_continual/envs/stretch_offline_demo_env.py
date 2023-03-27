@@ -64,8 +64,6 @@ class StretchOfflineDemoEnv(StretchDemoBaseEnv):
             depth_camera_info,
             camera_pose,
             camera_info_in_state=self._camera_info_in_state,
-            current_time=timestep,
-            max_time=len(trajectory["q"]),
             model=self.model,
             context_observation=context_observation,
         )
@@ -93,7 +91,6 @@ class StretchOfflineDemoEnv(StretchDemoBaseEnv):
         else:
             self._current_timestep = 0
 
-        # TODO: not caching camera here...
         if self._include_context:
             self._context_observation = self._get_observation_for_timestep(
                 self._current_trajectory, timestep=0, context_observation=None
@@ -119,21 +116,12 @@ class StretchOfflineDemoEnv(StretchDemoBaseEnv):
         )
 
         demo_pos, demo_rot = self.gripper_fk(self.model, next_demo_joints)
-
-        # Debugging - TODO spowers remove
-        # recomputed_joints = self.gripper_ik(self.model, demo_pos, demo_rot)  # TODO: q0 is not consistent (e.g. if we stepped more than once)
-        # print(f"Recomputed joints: {recomputed_joints} vs {next_demo_joints}")
-        # recomp_pos, recomp_rot = self.gripper_fk(self.model, recomputed_joints)
-        # print(f"Recomputed pos: {recomp_pos}, rot: {recomp_rot} vs original: {demo_pos}, {demo_rot}")
-
         gripper = next_demo_joints[HelloStretchIdx.GRIPPER]
         action_commanded = np.concatenate(
             (demo_pos, demo_rot, np.array([gripper])), axis=-1
         )
 
-        time_fraction = (self._current_timestep - 1) / (
-            max_timesteps - 2
-        )  # /10  # TODO: ...check this
+        time_fraction = (self._current_timestep - 1) / (max_timesteps - 2)
         action_commanded = np.concatenate(
             (action_commanded, np.array([time_fraction])), axis=-1
         )

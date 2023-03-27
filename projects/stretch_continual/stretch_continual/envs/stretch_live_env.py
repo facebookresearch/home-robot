@@ -1,12 +1,9 @@
-import datetime
 import select
 import sys
 import time
 import timeit
-import uuid
 
 import numpy as np
-import rospy
 import trimesh
 from stretch_continual.envs.stretch_demo_base_env import StretchDemoBaseEnv
 
@@ -25,17 +22,17 @@ class StretchLiveEnv(StretchDemoBaseEnv):
 
     exec_tol = np.array(
         [
-            1e-1,
-            1e-1,
-            0.01,  # x y theta
+            1e-1,  # x
+            1e-1,  # y
+            0.01,  # theta
             0.001,  # lift
-            0.01,  # arm* 0.01
-            0.01,  # gripper* - 0.05
-            0.015,
-            0.05,
-            0.015,  # wrist variables* 0.015 -- the wrist sometimes has trouble holding itself up...
-            0.01,
-            0.01,  # head  and tilt
+            0.01,  # arm
+            0.01,  # gripper
+            0.015,  # wrist roll
+            0.05,  # wrist pitch 0.015 -- the wrist sometimes has trouble holding itself up...
+            0.015,  # wrist yaw
+            0.01,  # head pan
+            0.01,  # head tilt
         ]
     )
 
@@ -59,19 +56,19 @@ class StretchLiveEnv(StretchDemoBaseEnv):
         self._cached_camera_data = None
         self._perturbation_limits = np.array(
             [
-                0,
-                0,
-                0,  # x, y, theta
+                0,  # x
+                0,  # y
+                0,  # theta
                 0.5,  # lift
                 0.1,  # arm
                 0,  # gripper
-                0,
-                0,
-                0,  # wrist roll, pitch, yaw
-                0.1,
-                0,
+                0,  # wrist roll
+                0,  # wrist pitch
+                0,  # wrist yaw
+                0.1,  # head pan
+                0,  # head tilt
             ]
-        )  # head pan and tilt
+        )
 
         self._client = None
 
@@ -99,34 +96,14 @@ class StretchLiveEnv(StretchDemoBaseEnv):
     def _get_robot_pose(self):
         return self.client.robot_joint_pos
 
-    def _get_observation_for_timestep(
-        self, trajectory, timestep, cache_camera, use_camera_cache, context_observation
-    ):
-        assert not (
-            cache_camera and use_camera_cache
-        ), "Can't both recreate and use the camera cache"
-
+    def _get_observation_for_timestep(self, context_observation):
         # TODO: de-dupe with offline
         if self._camera_info_in_state:
-            if use_camera_cache:
-                (
-                    color_camera_info,
-                    depth_camera_info,
-                    camera_pose,
-                ) = self._cached_camera_data
-            else:
-                (
-                    color_camera_info,
-                    depth_camera_info,
-                    camera_pose,
-                ) = self.construct_camera_data_from_robot(self.client)
-
-                if cache_camera:
-                    self._cached_camera_data = (
-                        color_camera_info,
-                        depth_camera_info,
-                        camera_pose,
-                    )
+            (
+                color_camera_info,
+                depth_camera_info,
+                camera_pose,
+            ) = self.construct_camera_data_from_robot(self.client)
 
         else:
             color_camera_info, depth_camera_info, camera_pose = None, None, None
@@ -151,8 +128,6 @@ class StretchLiveEnv(StretchDemoBaseEnv):
             depth_camera_info,
             camera_pose,
             camera_info_in_state=self._camera_info_in_state,
-            current_time=timestep,
-            max_time=len(trajectory["q"]),
             model=self.model,
             context_observation=context_observation,
         )
@@ -161,19 +136,10 @@ class StretchLiveEnv(StretchDemoBaseEnv):
     def _goto(self, pose):
         # We store the full joint angles, but the client expects [Base translation, lift, arm, yaw, pitch, roll],
         # so translate
-        reduced_pose = np.array(
-            [
-                pose[
-                    HelloStretchIdx.BASE_X
-                ],  # TODO: de-dupe with manip.py/_extract_joint_pos
-                pose[HelloStretchIdx.LIFT],
-                pose[HelloStretchIdx.ARM],
-                pose[HelloStretchIdx.WRIST_YAW],
-                pose[HelloStretchIdx.WRIST_PITCH],
-                pose[HelloStretchIdx.WRIST_ROLL],
-            ]
-        )
+
+        reduced_pose = self.client.manip._extract_joint_pos(pose)
         gripper = pose[HelloStretchIdx.GRIPPER]
+        pose[HelloStretchIdx.BASE_X] = 0  # Not supporting base motion
 
         self.client.manip.goto_joint_positions(reduced_pose)
         self.client.manip.move_gripper(gripper)
@@ -205,18 +171,10 @@ class StretchLiveEnv(StretchDemoBaseEnv):
         # TODO: not caching camera at all...
         if self._include_context:
             self._context_observation = self._get_observation_for_timestep(
-                self._current_trajectory,
-                timestep=0,
-                cache_camera=False,
-                use_camera_cache=False,
                 context_observation=None,
             )
 
         initial_observation = self._get_observation_for_timestep(
-            self._current_trajectory,
-            timestep=self._current_timestep,
-            cache_camera=False,
-            use_camera_cache=False,
             context_observation=self._context_observation,
         )
 
@@ -285,10 +243,7 @@ class StretchLiveEnv(StretchDemoBaseEnv):
             original_head_pan = self._get_robot_pose()[HelloStretchIdx.HEAD_PAN]
             original_head_tilt = self._get_robot_pose()[HelloStretchIdx.HEAD_TILT]
 
-            print(f"EE (before norm) pos {pos}, rot: {rot}")
             rot = trimesh.util.unitize(rot)
-            print(f"EE (after norm) pos {pos}, rot: {rot}")
-            print(f"q0 (robot pose): {self._get_robot_pose()}")
             action = self.gripper_ik(
                 self.model, pos, rot, current_joints=self._get_robot_pose()
             )
@@ -342,16 +297,10 @@ class StretchLiveEnv(StretchDemoBaseEnv):
                 )
             ):
                 last_q = next_q
-                next_q = self._interpolate_robot_to_in_joint_space(
-                    action
-                )  # , gripper, original_head_pan, original_head_tilt)
+                next_q = self._interpolate_robot_to_in_joint_space(action)
                 err = np.abs(next_q - action)
-                # next_q, err = self.robot.goto(action, max_wait_t=1.0)
                 end_episode, end_action = self._give_user_stop_option()
                 done = done or end_episode
-            time.sleep(
-                1
-            )  # TODO: temp for testing. The basic idea is that there is lag between motion and observation, so wait a bit before collecting the observation
 
         print(f"Commanding action (joints): {action} vs {true_action}")
 
@@ -369,15 +318,11 @@ class StretchLiveEnv(StretchDemoBaseEnv):
             done = (
                 done
                 or self._current_timestep + 1 > len(self._current_trajectory["q"]) * 2
-            )  # TODO: how to determine done? Same number of allotted timesteps is ...suboptimal. Learn a "terminate"?
+            )
 
         observation = self._get_observation_for_timestep(
-            self._current_trajectory,
-            timestep=self._current_timestep,
-            cache_camera=False,
-            use_camera_cache=False,
             context_observation=self._context_observation,
-        )  # TODO: align with the max time used in done? Currently will get ratios over 1
+        )
 
         if done:
             reward = None

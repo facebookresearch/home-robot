@@ -1,4 +1,5 @@
 import datetime
+import math
 import os
 import tempfile
 import time
@@ -6,7 +7,6 @@ import time
 import gym
 import h5py
 import numpy as np
-import rospy
 from data_tools.image import img_from_bytes
 
 from home_robot.motion.stretch import HelloStretchIdx
@@ -40,18 +40,6 @@ class StretchDemoBaseEnv(gym.Env):
         self._initialize_ros = initialize_ros  # TODO: remove?
         self._include_context = include_context
         self._trajectory_cache = {"linked_files": {}}
-
-        # if initialize_ros and not self.NODE_INITIALIZED:
-        #    self.initialize_ros_node()
-
-    """@classmethod
-    def initialize_ros_node(cls):
-        name = rospy.get_name()
-        if "unnamed" in name:
-            timestamp = datetime.datetime.now().timestamp()  # TODO: fractions make dupes less likely, but also are technically not-ROS-y and might die
-            rospy.get_master().getPid()
-            rospy.init_node(f"demo_env_{timestamp}".replace(".", "_"))
-        cls.NODE_INITIALIZED = True"""
 
     def _recursive_listdir(self, directory):
         # From: https://stackoverflow.com/questions/19309667/recursive-os-listdir
@@ -96,7 +84,7 @@ class StretchDemoBaseEnv(gym.Env):
                                 file_path = os.path.join(directory, filename)
                                 linked_files_group[f"file_{h5_id}"] = h5py.ExternalLink(
                                     filename=file_path, path=f"."
-                                )  # TODO: does this need to be a string. Doing it for consistency with DataWriter for now
+                                )
 
                                 if cache:
                                     with h5py.File(file_path, "r") as trajectory_file:
@@ -131,9 +119,7 @@ class StretchDemoBaseEnv(gym.Env):
                     with self.load_all_h5_from_dir(
                         directory, only_key_frames, temp_aggregation_file, cache=cache
                     ) as h5_file:
-                        aggregated_h5 = h5_file[
-                            "linked_files"
-                        ]  # TODO: load from the cache that's being created or no?
+                        aggregated_h5 = h5_file["linked_files"]
                         traj_counts = [
                             (file_key, len(item.keys()))
                             if item is not None
@@ -161,59 +147,14 @@ class StretchDemoBaseEnv(gym.Env):
 
         return traj
 
-    def convert_ros_pose_to_pinocchio(
-        self, joint_angles
-    ):  # TODO: the responsibility of robot.py, not this class
-        # TODO: if I keep this, do it as lookups
-        pin_compatible_joints = np.zeros(8)
-        """
-                "joint_lift",
-                "joint_arm_l0",
-                "joint_arm_l1",
-                "joint_arm_l2",
-                "joint_arm_l3",
-                "joint_wrist_yaw",
-                "joint_wrist_pitch",
-                "joint_wrist_roll"
-                """
-        pin_compatible_joints[0] = joint_angles[HelloStretchIdx.LIFT]
-        pin_compatible_joints[1] = pin_compatible_joints[2] = pin_compatible_joints[
-            3
-        ] = pin_compatible_joints[4] = (joint_angles[HelloStretchIdx.ARM] / 4)
-        pin_compatible_joints[5] = joint_angles[HelloStretchIdx.WRIST_YAW]
-        pin_compatible_joints[6] = joint_angles[HelloStretchIdx.WRIST_PITCH]
-        pin_compatible_joints[7] = joint_angles[HelloStretchIdx.WRIST_ROLL]
-        return pin_compatible_joints
-
-    def convert_pinocchio_pose_to_ros(self, pin):
-        joint_angles = np.zeros(11)
-        joint_angles[HelloStretchIdx.LIFT] = pin[0]
-        joint_angles[HelloStretchIdx.ARM] = pin[1] + pin[2] + pin[3] + pin[4]
-        joint_angles[HelloStretchIdx.WRIST_YAW] = pin[5]
-        joint_angles[HelloStretchIdx.WRIST_PITCH] = pin[6]
-        joint_angles[HelloStretchIdx.WRIST_ROLL] = pin[7]
-        return joint_angles
-
     def gripper_fk(self, model, pose):
-        # pin_pose = self.convert_ros_pose_to_pinocchio(pose)
-        pose = (
-            pose.copy()
-        )  # TODO: something is being changed in-place, this prevents that.  I think it's been fixed so...check and remove
         ee_pos, ee_rot = model.manip_fk(pose)
-        gripper_pos, gripper_rot = (
-            ee_pos.copy(),
-            ee_rot.copy(),
-        )  # TODO: something is being changed in-place, this prevents that
-        return gripper_pos, gripper_rot
+        return ee_pos, ee_rot
 
     def gripper_ik(self, model, pos, rot, current_joints):
-        shifted_pos, shifted_rot = pos, rot
-        ros_pose = model.manip_ik((shifted_pos, shifted_rot), q0=current_joints)
-        # ros_pose = self.convert_pinocchio_pose_to_ros(
-        #    pose.copy()
-        # )  # TODO: copying just to be safe...
+        ros_pose = model.manip_ik((pos, rot), q0=current_joints)
 
-        # Prevent full rotations of the wrist...TODO:??
+        # Prevent full rotations of the wrist...
         raw_roll = ros_pose[HelloStretchIdx.WRIST_ROLL]
         positive_roll = raw_roll % (2 * np.pi)
         negative_roll = positive_roll - (2 * np.pi)
@@ -235,26 +176,23 @@ class StretchDemoBaseEnv(gym.Env):
         depth_camera_info,
         camera_pose,
         camera_info_in_state,
-        current_time,
-        max_time,
         model,
         context_observation=None,
-    ):  # TODO: better place
+    ):
         """
         Expects {color, depth}_camera_info to be a dict of D (5,), K (3x3), R (3x3), P (3x4)
-        Expects camera_pose to be shape (1, 4, 4) -- TODO check
+        Expects camera_pose to be shape (1, 4, 4)
         """
-        time_fraction = 0  # current_time / max_time
-
         # The ee pose from fk doesn't include the offset to the gripper properly -- include it
         ee_pos, ee_rot = self.gripper_fk(model, pose)
 
         gripper_pose = pose[HelloStretchIdx.GRIPPER]
         adjusted_pose = np.concatenate(
-            (ee_pos, ee_rot, np.array([gripper_pose, time_fraction])), axis=-1
-        )  # TODO: trying to remove the base pose+theta (TODO: don't hardcode)
+            (ee_pos, ee_rot, np.array([gripper_pose])), axis=-1
+        )
+
+        # Just passing color camera info along for now, assuming depth is consistent
         if camera_info_in_state:
-            # TODO: depth and color current have the same intrinsics, so I'm just passing color along for now
             color_camera_state = np.concatenate(
                 (
                     color_camera_info["D"],
@@ -291,14 +229,15 @@ class StretchDemoBaseEnv(gym.Env):
 
     def get_stretch_obs_and_action_space(self, camera_info_in_state):
         channels = 4
-        state_size = 9
+        state_size = 8
         state_size += 51 if camera_info_in_state else 0
-        action_size = 9  # 3 pos, 4 quat, 1 gripper, 1 done
+        action_size = 9  # 3 pos, 4 quat, 1 gripper, 1 completion fraction
 
         if self._include_context:
             channels *= 2
             state_size *= 2
 
+        # Note, low and high for state_vector and action_space likely to be inaccurate...not currently used by USIP
         observation_space = gym.spaces.Dict(
             {
                 "image": gym.spaces.Box(
@@ -306,10 +245,8 @@ class StretchDemoBaseEnv(gym.Env):
                 ),
                 "state_vector": gym.spaces.Box(low=-1, high=1, shape=(state_size,)),
             }
-        )  # TODO: low/high? Esp for x, y (7 > 2pi)
-        action_space = gym.spaces.Box(
-            low=-50, high=50, shape=(action_size,)
-        )  # TODO: low and high - the high is based on brief observation - TODO: not currently used
+        )
+        action_space = gym.spaces.Box(low=-math.pi, high=math.pi, shape=(action_size,))
         return observation_space, action_space
 
     def construct_camera_data_from_robot(self, robot):
@@ -330,13 +267,13 @@ class StretchDemoBaseEnv(gym.Env):
 
     def get_images_from_robot(self, robot):
         rgb = robot.rgb_cam.get()
-        depth = robot.dpt_cam.get()  # TODO: filter depth?
-        robot.dpt_cam.far_val = CAMERA_FAR_PLANE  # TODO: ...may not be optimal to change this in-place like this
-        robot.dpt_cam.near_val = 0.0  # TODO
+        depth = robot.dpt_cam.get()
+        robot.dpt_cam.far_val = CAMERA_FAR_PLANE
+        robot.dpt_cam.near_val = 0.0
         depth = robot.dpt_cam.fix_depth(depth)
         depth = (depth * CAMERA_SCALE_CONST).astype(
             np.uint16
-        )  # TODO: consistent with recorder
+        )  # CAMERA_SCALE_CONST consistent with recorder
         return rgb, depth
 
     def get_numpy_image(self, h5_image):
