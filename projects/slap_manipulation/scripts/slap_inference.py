@@ -236,9 +236,7 @@ def main(cfg):
 
                 ros_pub.sendTransform(pose_message)
                 offset = STRETCH_GRASP_OFFSET.copy()
-                gripper_pose_mat = (
-                    to_matrix(action["pos"], action["ori"]) @ STRETCH_GRASP_OFFSET
-                )
+                gripper_pose_mat = to_matrix(action["pos"], action["ori"]) @ offset
                 action["pos"], _ = to_pos_quat(gripper_pose_mat)
                 actions.append(action)
                 # input("Press enter to continue")
