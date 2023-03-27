@@ -35,7 +35,7 @@ class StretchClient:
         self._ros_client = StretchRosInterface(**camera_overrides)
 
         # Robot model
-        self._robot_model = HelloStretchKinematics()
+        self._robot_model = HelloStretchKinematics(ik_type="pinocchio")
 
         # Interface modules
         self.nav = StretchNavigationClient(self._ros_client, self._robot_model)

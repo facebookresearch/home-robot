@@ -584,19 +584,30 @@ class HelloStretchKinematics(Robot):
         return q
 
     def _pinocchio_pose_to_ros(self, joint_angles):
-        raise NotImplementedError
+        q = np.zeros(11)
+        q[HelloStretchIdx.BASE_X] = joint_angles[0]
+        q[HelloStretchIdx.LIFT] = joint_angles[1]
+        q[HelloStretchIdx.ARM] = (
+            joint_angles[2] + joint_angles[3] + joint_angles[4] + joint_angles[5]
+        )
+        q[HelloStretchIdx.WRIST_YAW] = joint_angles[6]
+        q[HelloStretchIdx.WRIST_PITCH] = joint_angles[7]
+        q[HelloStretchIdx.WRIST_ROLL] = joint_angles[8]
+        return q
 
     def _ros_pose_to_pinocchio(self, joint_angles):
         """utility to convert Stretch joint angle output to pinocchio joint pose format"""
+        # TODO: following is hardcoded to follow new joint-state schema introduced in
+        #       StretchManipulationClient. Make this an official mapping and preserve somewhere
         pin_compatible_joints = np.zeros(9)
-        pin_compatible_joints[0] = joint_angles[HelloStretchIdx.BASE_X]
-        pin_compatible_joints[1] = joint_angles[HelloStretchIdx.LIFT]
+        pin_compatible_joints[0] = joint_angles[0]
+        pin_compatible_joints[1] = joint_angles[1]
         pin_compatible_joints[2] = pin_compatible_joints[3] = pin_compatible_joints[
             4
-        ] = pin_compatible_joints[5] = (joint_angles[HelloStretchIdx.ARM] / 4)
-        pin_compatible_joints[6] = joint_angles[HelloStretchIdx.WRIST_YAW]
-        pin_compatible_joints[7] = joint_angles[HelloStretchIdx.WRIST_PITCH]
-        pin_compatible_joints[8] = joint_angles[HelloStretchIdx.WRIST_ROLL]
+        ] = pin_compatible_joints[5] = (joint_angles[2] / 4)
+        pin_compatible_joints[6] = joint_angles[3]
+        pin_compatible_joints[7] = joint_angles[4]
+        pin_compatible_joints[8] = joint_angles[5]
         return pin_compatible_joints
 
     def ik(self, pose, q0):
@@ -632,10 +643,15 @@ class HelloStretchKinematics(Robot):
             # So how do we do that?
             # This logic currently in local hello robot client
             raise NotImplementedError()
-        _q = self.manip_ik_solver.compute_ik(pos, quat, self._to_manip_format(q0))
-        if self._ik_type == "pinocchio":
+        if self._ik_type == "pybullet":
+            _q = self.manip_ik_solver.compute_ik(pos, quat, self._to_manip_format(q0))
+            q = self._from_manip_format(_q, q0)
+        elif self._ik_type == "pinocchio":
+            _q = self.manip_ik_solver.compute_ik(
+                pos, quat, self._ros_pose_to_pinocchio(q0)
+            )
             _q = _q[0]
-        q = self._from_manip_format(_q, q0)
+            q = self._pinocchio_pose_to_ros(_q)
         self.set_config(q)
         return q
 

@@ -139,6 +139,7 @@ class StretchManipulationClient(AbstractControlModule):
         relative: bool = False,
         world_frame: bool = False,
         blocking: bool = True,
+        q0: Optional[np.ndarray] = None,
     ):
         """Command gripper to pose
         Does not rotate base.
@@ -157,6 +158,7 @@ class StretchManipulationClient(AbstractControlModule):
 
         # Compute IK goal: pose relative to base
         pose_input = posquat2sophus(np.array(pos), np.array(quat))
+        print(pose_input)
 
         if world_frame:
             pose_world2ee = pose_input
@@ -174,7 +176,7 @@ class StretchManipulationClient(AbstractControlModule):
         pos_ik_goal, quat_ik_goal = sophus2posquat(pose_base2ee_desired)
 
         # Perform IK
-        q = self._robot_model.manip_ik((pos_ik_goal, quat_ik_goal))
+        q = self._robot_model.manip_ik((pos_ik_goal, quat_ik_goal), q0=q0)
         joint_pos = self._extract_joint_pos(q)
 
         # Execute joint command
