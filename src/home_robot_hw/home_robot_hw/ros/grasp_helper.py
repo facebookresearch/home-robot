@@ -80,7 +80,7 @@ class GraspClient(object):
         # Convert rospy point cloud into a message that we care about
         with self.grasp_lock:
             self.grasp_id = msg.seq
-            self.poses = msg_to_poses(msg)
+            self.poses = self.msg_to_poses(msg)
 
     def msg_to_poses(self, msg, frame=None):
         grasps = []
@@ -104,19 +104,7 @@ class GraspClient(object):
     def _score_cb(self, msg):
         with self.score_lock:
             self.score_id = msg.header.seq
-            self.scores = np.array([pt.x for x in msg.polygon.points])
-
-    def segmented_point_cloud_to_msg(self, xyz, labels):
-        msg = PointCloud()
-        msg.header.stamp = self.req_id
-        self.req_id += 1
-        xyz = xyz.reshape(-1, 3)
-        for i in range(xyz.shape[0]):
-            msg.points.append(Point(xyz[i, 0], xyz[i, 1], xyz[i, 2]))
-        msg.channels = ChannelFloat32(
-            name="label", values=labels.astype(np.float32).tolist()
-        )
-        return msg
+            self.scores = np.array([pt.x for pt in msg.polygon.points])
 
     def segmented_point_cloud_to_msg(self, xyz, rgb, labels):
         pc = PointCloud()
@@ -148,7 +136,7 @@ class GraspClient(object):
         return objs
 
     def get_grasps(self, xyz, labels, timeout=10.0):
-        msg = segmented_point_cloud_to_msg(xyz, labels)
+        msg = self.segmented_point_cloud_to_msg(xyz, labels)
         print("Sending grasp request...")
         with self.lock:
             self.pub.publish(msg)
@@ -219,6 +207,3 @@ class GraspServer(object):
 
     def get(self):
         return self.queue.pop_left()
-
-    def send_response(self, poses):
-        self.pub.publish(poses_to_msg(poses))
