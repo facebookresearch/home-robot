@@ -436,13 +436,6 @@ class Categorical2DSemanticMapModule(nn.Module):
         # Clamp to [0, 1] after transform agent view to map coordinates
         translated = torch.clamp(translated, min=0.0, max=1.0)
 
-        # TODO Here we need to do an AND between a disk around the current location
-        #  and the explored channel of the map
-        #  Something like:
-        # radius = self.explored_radius // self.resolution
-        # explored_disk = torch.from_numpy(skimage.morphology.disk(radius))
-        # translated[:, MC.EXPLORED_MAP, :, :] = translated[:, MC.EXPLORED_MAP, :, :] * explored_disk
-
         maps = torch.cat((prev_map.unsqueeze(1), translated.unsqueeze(1)), 1)
         current_map, _ = torch.max(
             maps[:, :, : MC.NON_SEM_CHANNELS + self.num_sem_categories], 1

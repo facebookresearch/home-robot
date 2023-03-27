@@ -19,6 +19,9 @@ from home_robot.navigation_planner.discrete_planner import DiscretePlanner
 
 from .objectnav_agent_module import ObjectNavAgentModule
 
+# For visualizing exploration issues
+debug_frontier_map = False
+
 
 class ObjectNavAgent(Agent):
     """Simple object nav agent based on a 2D semantic map"""
@@ -167,7 +170,7 @@ class ObjectNavAgent(Agent):
         found_goal = found_goal.squeeze(1).cpu()
 
         for e in range(self.num_environments):
-            self.semantic_map.update_frontier_map(e, frontier_map[e])
+            self.semantic_map.update_frontier_map(e, frontier_map[e][0])
             if found_goal[e]:
                 self.semantic_map.update_global_goal_for_env(e, goal_map[e])
             elif self.timesteps_before_goal_update[e] == 0:
@@ -179,6 +182,18 @@ class ObjectNavAgent(Agent):
             self.timesteps_before_goal_update[e] - 1
             for e in range(self.num_environments)
         ]
+
+        if debug_frontier_map:
+            import matplotlib.pyplot as plt
+
+            plt.subplot(131)
+            plt.imshow(self.semantic_map.get_frontier_map(e))
+            plt.subplot(132)
+            plt.imshow(frontier_map[e][0])
+            plt.subplot(133)
+            plt.imshow(self.semantic_map.get_goal_map(e))
+            plt.show()
+            breakpoint()
 
         planner_inputs = [
             {

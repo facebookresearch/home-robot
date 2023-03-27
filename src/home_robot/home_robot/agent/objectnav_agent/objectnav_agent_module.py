@@ -147,13 +147,16 @@ class ObjectNavAgentModule(nn.Module):
 
         # Compute the frontier map here
         frontier_map = self.policy.get_frontier_map(map_features)
-        seq_frontier_map = goal_map.view(
+        seq_frontier_map = frontier_map.view(
             batch_size, sequence_length, *frontier_map.shape[-2:]
         )
         if debug_frontier_map:
             import matplotlib.pyplot as plt
 
-            plt.imshow(frontier_map[0, 0].numpy())
+            plt.subplot(121)
+            plt.imshow(seq_frontier_map[0, 0].numpy())
+            plt.subplot(122)
+            plt.imshow(goal_map[0].numpy())
             plt.show()
             breakpoint()
         # t2 = time.time()

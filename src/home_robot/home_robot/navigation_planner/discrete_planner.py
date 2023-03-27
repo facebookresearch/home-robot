@@ -230,6 +230,8 @@ class DiscretePlanner:
                 planning_window,
                 plan_to_dilated_goal=True,
             )
+            print("--- after replanning to frontier ---")
+            print("goal =", short_term_goal)
             found_goal = False
             # action = DiscreteNavigationAction.STOP
             if replan:
