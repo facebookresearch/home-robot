@@ -31,7 +31,7 @@ repos:
                 | src/home_robot/home_robot/experimental/
                 | examples/
                 | tests/
-                | src/home_robot/home_robot/utils/data_tools
-                | src/home_robot_hw/home_robot_hw/ros/
-                | src/home_robot_hw/home_robot_hw/teleop/
+                | src/home_robot/
+                | src/home_robot_sim/
+                | src/home_robot_hw/
             ) | setup.py$
