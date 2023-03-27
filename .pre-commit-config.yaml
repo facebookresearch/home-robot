@@ -17,7 +17,7 @@ repos:
         exclude: |
             (?x)^(
                 projects/
-                | src/home_robot_hw/ros/srv_prebuilt/
+                | src/home_robot_hw/home_robot_hw/ros/srv_prebuilt/
             )
 
   - repo: https://github.com/pre-commit/mirrors-mypy
@@ -28,7 +28,10 @@ repos:
         exclude: |
             (?x)^(
                 projects/
-                | examples/
                 | src/home_robot/home_robot/experimental/
-                | src/home_robot_hw/ros/srv_prebuilt/
+                | examples/
+                | tests/
+                | src/home_robot/home_robot/utils/data_tools
+                | src/home_robot_hw/home_robot_hw/ros/
+                | src/home_robot_hw/home_robot_hw/teleop/
             ) | setup.py$
