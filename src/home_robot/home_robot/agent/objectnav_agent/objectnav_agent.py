@@ -135,6 +135,7 @@ class ObjectNavAgent(Agent):
         (
             goal_map,
             found_goal,
+            frontier_map,
             self.semantic_map.local_map,
             self.semantic_map.global_map,
             seq_local_pose,
@@ -166,6 +167,7 @@ class ObjectNavAgent(Agent):
         found_goal = found_goal.squeeze(1).cpu()
 
         for e in range(self.num_environments):
+            self.semantic_map.update_frontier_map(e, frontier_map[e])
             if found_goal[e]:
                 self.semantic_map.update_global_goal_for_env(e, goal_map[e])
             elif self.timesteps_before_goal_update[e] == 0:
@@ -182,6 +184,7 @@ class ObjectNavAgent(Agent):
             {
                 "obstacle_map": self.semantic_map.get_obstacle_map(e),
                 "goal_map": self.semantic_map.get_goal_map(e),
+                "frontier_map": self.semantic_map.get_frontier_map(e),
                 "sensor_pose": self.semantic_map.get_planner_pose_inputs(e),
                 "found_goal": found_goal[e].item(),
             }

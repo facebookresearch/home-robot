@@ -9,6 +9,9 @@ from home_robot.navigation_policy.object_navigation.objectnav_frontier_explorati
     ObjectNavFrontierExplorationPolicy,
 )
 
+# Do we need to visualize the frontier as we explore?
+debug_frontier_map = False
+
 
 class ObjectNavAgentModule(nn.Module):
     def __init__(self, config):
@@ -142,12 +145,24 @@ class ObjectNavAgentModule(nn.Module):
         seq_goal_map = goal_map.view(batch_size, sequence_length, *goal_map.shape[-2:])
         seq_found_goal = found_goal.view(batch_size, sequence_length)
 
+        # Compute the frontier map here
+        frontier_map = self.policy.get_frontier_map(map_features)
+        seq_frontier_map = goal_map.view(
+            batch_size, sequence_length, *frontier_map.shape[-2:]
+        )
+        if debug_frontier_map:
+            import matplotlib.pyplot as plt
+
+            plt.imshow(frontier_map[0, 0].numpy())
+            plt.show()
+            breakpoint()
         # t2 = time.time()
         # print(f"[Policy] Total time: {t2 - t1:.2f}")
 
         return (
             seq_goal_map,
             seq_found_goal,
+            seq_frontier_map,
             final_local_map,
             final_global_map,
             seq_local_pose,

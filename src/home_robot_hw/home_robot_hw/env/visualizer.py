@@ -105,6 +105,7 @@ class Visualizer:
         self,
         obstacle_map: np.ndarray,
         goal_map: np.ndarray,
+        frontier_map: np.ndarray,
         closest_goal_map: Optional[np.ndarray],
         sensor_pose: np.ndarray,
         found_goal: bool,

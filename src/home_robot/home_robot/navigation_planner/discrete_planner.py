@@ -126,6 +126,7 @@ class DiscretePlanner:
         self,
         obstacle_map: np.ndarray,
         goal_map: np.ndarray,
+        frontier_map: np.ndarray,
         sensor_pose: np.ndarray,
         found_goal: bool,
         debug: bool = True,
@@ -181,7 +182,10 @@ class DiscretePlanner:
             stop,
             goal_pt,
         ) = self._get_short_term_goal(
-            obstacle_map, np.copy(goal_map), start, planning_window
+            obstacle_map,
+            np.copy(goal_map),
+            start,
+            planning_window,
         )
         # Short term goal is in cm, start_x and start_y are in m
         if debug:
@@ -201,24 +205,9 @@ class DiscretePlanner:
             print(
                 "Could not find a path to the high-level goal. Trying to explore more..."
             )
-            (
-                short_term_goal,
-                closest_goal_map,
-                replan,
-                stop,
-                goal_pt,
-            ) = self._get_short_term_goal(
-                obstacle_map, np.zeros_like(goal_map), start, planning_window
-            )
-            # action = DiscreteNavigationAction.STOP
-            if replan:
-                print("Nowhere left to explore. Stopping.")
-                # TODO Calling the STOP action here will cause the agent to try grasping
-                #   we need different STOP_SUCCESS and STOP_FAILURE actions
-                return DiscreteNavigationAction.STOP, goal_map
 
             # TODO re-enable this with a flag
-            # # Clean collision map
+            # Clean collision map
             # self.collision_map *= 0
             #
             # # Reduce obstacle dilation
@@ -227,6 +216,27 @@ class DiscretePlanner:
             #     self.obs_dilation_selem = skimage.morphology.disk(
             #         self.curr_obs_dilation_selem_radius
             #     )
+
+            (
+                short_term_goal,
+                closest_goal_map,
+                replan,
+                stop,
+                goal_pt,
+            ) = self._get_short_term_goal(
+                obstacle_map,
+                frontier_map,
+                start,
+                planning_window,
+                plan_to_dilated_goal=True,
+            )
+            found_goal = False
+            # action = DiscreteNavigationAction.STOP
+            if replan:
+                print("Nowhere left to explore. Stopping.")
+                # TODO Calling the STOP action here will cause the agent to try grasping
+                #   we need different STOP_SUCCESS and STOP_FAILURE actions
+                return DiscreteNavigationAction.STOP, goal_map
 
         # If we found a short term goal worth moving towards...
         stg_x, stg_y = short_term_goal
@@ -403,12 +413,13 @@ class DiscretePlanner:
             print("distance nav to goal (cm):", distance_nav_to_goal_cm)
             # Stop if we are within a reasonable reaching distance of the goal
             stop = distance_to_goal_cm < self.min_goal_distance_cm
-            print(
-                "-> robot is within",
-                self.min_goal_distance_cm,
-                "of the goal! Stop =",
-                stop,
-            )
+            if stop:
+                print(
+                    "-> robot is within",
+                    self.min_goal_distance_cm,
+                    "of the goal! Stop =",
+                    stop,
+                )
             # Replan if no goal was found that we can reach
             replan = distance_nav_to_goal_cm > self.min_goal_distance_cm
             if replan:

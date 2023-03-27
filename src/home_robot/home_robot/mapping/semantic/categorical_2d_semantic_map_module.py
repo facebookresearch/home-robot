@@ -18,6 +18,9 @@ import home_robot.utils.pose as pu
 import home_robot.utils.rotation as ru
 from home_robot.mapping.semantic.constants import MapConstants as MC
 
+# For debugging input and output maps - shows matplotlib visuals
+debug_maps = False
+
 
 class Categorical2DSemanticMapModule(nn.Module):
     """
@@ -54,6 +57,7 @@ class Categorical2DSemanticMapModule(nn.Module):
         map_pred_threshold: float,
         min_depth: float = 0.5,
         max_depth: float = 3.5,
+        must_explore_close: bool = True,
     ):
         """
         Arguments:
@@ -78,6 +82,7 @@ class Categorical2DSemanticMapModule(nn.Module):
              consider it as explored
             map_pred_threshold: number of depth points to be in bin to
              consider it as obstacle
+            must_explore_close: reduce the distance we need to get to things to make them work
         """
         super().__init__()
 
@@ -85,6 +90,7 @@ class Categorical2DSemanticMapModule(nn.Module):
         self.screen_w = frame_width
         self.camera_matrix = du.get_camera_matrix(self.screen_w, self.screen_h, hfov)
         self.num_sem_categories = num_sem_categories
+        self.must_explore_close = must_explore_close
 
         self.map_size_parameters = mu.MapSizeParameters(
             map_resolution, map_size_cm, global_downscaling
@@ -446,6 +452,7 @@ class Categorical2DSemanticMapModule(nn.Module):
         current_map[:, MC.CURRENT_LOCATION, :, :].fill_(0.0)
         curr_loc = current_pose[:, :2]
         curr_loc = (curr_loc * 100.0 / self.xy_resolution).int()
+
         for e in range(batch_size):
             x, y = curr_loc[e]
             current_map[
@@ -456,6 +463,7 @@ class Categorical2DSemanticMapModule(nn.Module):
             ].fill_(1.0)
 
             # Set a disk around the agent to explored
+            # This is around the current agent - we just sort of assume we know where we are
             try:
                 radius = 10
                 explored_disk = torch.from_numpy(skimage.morphology.disk(radius))
@@ -476,6 +484,33 @@ class Categorical2DSemanticMapModule(nn.Module):
                 ][been_close_disk == 1] = 1
             except IndexError:
                 pass
+
+        if debug_maps:
+            import matplotlib.pyplot as plt
+
+            explored = current_map[0, MC.EXPLORED_MAP].numpy()
+            been_close = current_map[0, MC.BEEN_CLOSE_MAP].numpy()
+            obs = current_map[0, MC.OBSTACLE_MAP].numpy()
+            plt.subplot(231)
+            plt.imshow(explored)
+            plt.subplot(232)
+            plt.imshow(been_close)
+            plt.subplot(233)
+            plt.imshow(been_close * explored)
+            plt.subplot(234)
+            plt.imshow(obs)
+            plt.subplot(236)
+            plt.imshow(been_close * obs)
+            plt.show()
+            breakpoint()
+
+        if self.must_explore_close:
+            current_map[:, MC.EXPLORED_MAP] = (
+                current_map[:, MC.EXPLORED_MAP] * current_map[:, MC.BEEN_CLOSE_MAP]
+            )
+            current_map[:, MC.OBSTACLE_MAP] = (
+                current_map[:, MC.OBSTACLE_MAP] * current_map[:, MC.BEEN_CLOSE_MAP]
+            )
 
         return current_map, current_pose
 

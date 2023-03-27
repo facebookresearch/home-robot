@@ -159,8 +159,7 @@ class ObjectNavFrontierExplorationPolicy(nn.Module):
                     found_goal_current[e] = True
         return goal_map, found_goal_current
 
-    def explore_otherwise(self, map_features, goal_map, found_goal):
-        """Explore closest unexplored region otherwise."""
+    def get_frontier_map(self, map_features):
         # Select unexplored area
         if self.exploration_strategy == "seen_frontier":
             frontier_map = (map_features[:, [MC.EXPLORED_MAP], :, :] == 0).float()
@@ -176,7 +175,11 @@ class ObjectNavFrontierExplorationPolicy(nn.Module):
         frontier_map = (
             binary_dilation(frontier_map, self.select_border_kernel) - frontier_map
         )
+        return frontier_map
 
+    def explore_otherwise(self, map_features, goal_map, found_goal):
+        """Explore closest unexplored region otherwise."""
+        frontier_map = self.get_frontier_map(map_features)
         batch_size = map_features.shape[0]
         for e in range(batch_size):
             if not found_goal[e]:
