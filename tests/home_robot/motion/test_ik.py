@@ -226,9 +226,9 @@ def test_ros_to_pin(pin_robot, test_joints):
 
 
 if __name__ == "__main__":
-    robot = HelloStretchKinematics(
+    robot_model = HelloStretchKinematics(
         urdf_path=URDF_ABS_PATH,
         visualize=DEBUG,
         ik_type="pybullet",
     )
-    test_ik_solvers(robot, TEST_DATA[0])
+    test_ik_solvers(robot_model, TEST_DATA[0])
