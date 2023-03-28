@@ -21,7 +21,7 @@ python setup.py install --headless --with-bullet
 # python setup.py build_ext --parallel 8 install --headless
 cd ..
 
-git clone --branch modular_nav_obj_on_rec https://github.com/facebookresearch/habitat-lab.git
+git clone --branch object_rearrange https://github.com/facebookresearch/habitat-lab.git
 cd habitat-lab
 python -m pip install -e ./habitat-baselines
 cd habitat-lab
@@ -46,7 +46,7 @@ pip install -r requirements.txt
 python setup.py install --with-bullet
 cd ..
 
-git clone --branch modular_nav_obj_on_rec https://github.com/facebookresearch/habitat-lab.git
+git clone --branch object_rearrange https://github.com/facebookresearch/habitat-lab.git
 cd habitat-lab
 pip install -e habitat-baselines
 cd habitat-lab
