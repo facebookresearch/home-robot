@@ -12,8 +12,9 @@ On an Ubuntu machine with GPU:
 conda env create -n home-robot --file=src/home_robot/environment.yml
 conda activate home-robot
 
-git clone https://github.com/3dlg-hcvc/habitat-sim --branch floorplanner
+git clone https://github.com/facebookresearch/habitat-sim
 cd habitat-sim
+git checkout 7b99db753272079d609b88e00f24ca0ad0ef23aa # latest main forces Python > 3.9
 python -m pip install -r requirements.txt
 python setup.py install --headless --with-bullet
 # (if the above commands runs out of memory) 
@@ -27,6 +28,8 @@ cd habitat-lab
 python -m pip install -r requirements.txt
 python -m pip install -e .
 cd ../..
+
+python -m pip install "git+https://github.com/facebookresearch/pytorch3d.git"
 ```
 
 On Mac:
@@ -34,10 +37,11 @@ On Mac:
 conda create -n home-robot python=3.10 cmake
 conda activate home-robot
 
-conda install pytorch torchvision torchaudio -c pytorch
+conda install -y pytorch torchvision -c pytorch
 
-git clone https://github.com/3dlg-hcvc/habitat-sim --branch floorplanner
+git clone https://github.com/facebookresearch/habitat-sim
 cd habitat-sim
+git checkout 7b99db753272079d609b88e00f24ca0ad0ef23aa # latest main forces Python > 3.9
 pip install -r requirements.txt
 python setup.py install --with-bullet
 cd ..
@@ -52,6 +56,7 @@ python setup.py develop
 cd ../..
 
 pip install natsort scikit-image scikit-fmm pandas trimesh scikit-learn
+conda install -c pytorch3d pytorch3d
 ```
 
 **[IMPORTANT]: Add habitat-lab path to PYTHONPATH**:
@@ -59,10 +64,6 @@ pip install natsort scikit-image scikit-fmm pandas trimesh scikit-learn
 ```
 export PYTHONPATH=$PYTHONPATH:/path/to/home-robot-dev/habitat-lab/
 ```
-
-[TEMPORARY]: Until we port to habitat v0.2.3.
-
-> Comment out L36 in habitat-lab/habitat/tasks/rearrange/rearrange_sim.py
 
 ## Dataset Setup
 
@@ -73,7 +74,7 @@ cd `HOME_ROBOT_ROOT/data/`
 git clone https://huggingface.co/datasets/osmm/fpss --branch osmm
 ```
 
-The google scanned objects and amazon berkeley objects will need to be in `data/objects/google_object_dataset` and `data/objects/amazon_berkeley` respectively.
+The google scanned objects and amazon berkeley objects will need to be in `data/objects/google_object_dataset` and `data/objects/amazon_berkeley` respectively. These datasets can be downloaded from [here](https://drive.google.com/drive/u/0/folders/1Qs99bMMC7ZpZwksZYDC_IkNqK_IB6ONU). They are also available on Skynet at: `/srv/flash1/aramacha35/habitat-lab/data/objects`.
 
 ### Other instructions
 

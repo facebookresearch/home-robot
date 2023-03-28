@@ -6,8 +6,6 @@ dependencies:
   - python==3.8.* # Habitat supports <3.9
   - cmake
   - pybind11
-  - pytorch
-  - pytorch3d
   - pytorch==1.13.*  # Compatibility with pytorch3d
   - torchvision
   - pinocchio
