@@ -110,7 +110,7 @@ class PbArticulatedObject(PbObject):
         static=False,
         client=None,
         *args,
-        **kwargs
+        **kwargs,
     ):
         super(PbArticulatedObject, self).__init__(
             name, filename, assets_path, start_pos, start_rot, static, client
@@ -366,6 +366,10 @@ class PbClient(object):
         if self.assets_path is not None:
             pb.setAdditionalSearchPath(assets_path)
         self.camera = None
+
+    def __del__(self):
+        print(f"Disconnecting client {self.id} from pybullet")
+        pb.disconnect(self.id)
 
     def add_object(self, name, urdf_filename, assets_path=None, static=False):
         obj = PbObject(name, urdf_filename, assets_path, static=static, client=self.id)
