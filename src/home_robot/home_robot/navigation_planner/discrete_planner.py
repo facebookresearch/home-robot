@@ -130,6 +130,7 @@ class DiscretePlanner:
         sensor_pose: np.ndarray,
         found_goal: bool,
         debug: bool = True,
+        stg_dilated: bool = False,
     ) -> Tuple[DiscreteNavigationAction, np.ndarray]:
         """Plan a low-level action.
 
@@ -186,6 +187,7 @@ class DiscretePlanner:
             np.copy(goal_map),
             start,
             planning_window,
+            plan_to_dilated_goal=stg_dilated,
         )
         # Short term goal is in cm, start_x and start_y are in m
         if debug:

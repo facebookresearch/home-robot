@@ -280,7 +280,9 @@ class ObjectNavAgent(Agent):
         elif self.timesteps[0] > self.max_steps:
             action = DiscreteNavigationAction.STOP
         else:
-            action, closest_goal_map = self.planner.plan(**planner_inputs[0])
+            action, closest_goal_map = self.planner.plan(
+                **planner_inputs[0], stg_dilated=True
+            )
 
         # t3 = time.time()
         # print(f"[Agent] Planning time: {t3 - t2:.2f}")
