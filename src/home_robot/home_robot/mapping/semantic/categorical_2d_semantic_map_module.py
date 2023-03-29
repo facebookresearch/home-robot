@@ -293,11 +293,11 @@ class Categorical2DSemanticMapModule(nn.Module):
             rgb = rgb[0].reshape(-1, 3)
             print("-> Showing point cloud in camera coords")
             show_point_cloud(
-                (xyz / 100.0).numpy(), (rgb / 255.0).numpy(), orig=np.zeros(3)
+                (xyz / 100.0).cpu().numpy(), (rgb / 255.0).cpu().numpy(), orig=np.zeros(3)
             )
 
         point_cloud_base_coords = du.transform_camera_view_t(
-            point_cloud_t, agent_height, torch.rad2deg(tilt).numpy(), device
+            point_cloud_t, agent_height, torch.rad2deg(tilt).cpu().numpy(), device
         )
 
         # Show the point cloud in base coordinates for debugging
@@ -310,7 +310,7 @@ class Categorical2DSemanticMapModule(nn.Module):
             xyz = point_cloud_base_coords[0].reshape(-1, 3)
             print("-> Showing point cloud in base coords")
             show_point_cloud(
-                (xyz / 100.0).numpy(), (rgb / 255.0).numpy(), orig=np.zeros(3)
+                (xyz / 100.0).cpu().numpy(), (rgb / 255.0).cpu().numpy(), orig=np.zeros(3)
             )
 
         point_cloud_map_coords = du.transform_pose_t(
@@ -321,7 +321,7 @@ class Categorical2DSemanticMapModule(nn.Module):
             xyz = point_cloud_base_coords[0].reshape(-1, 3)
             print("-> Showing point cloud in map coords")
             show_point_cloud(
-                (xyz / 100.0).numpy(), (rgb / 255.0).numpy(), orig=np.zeros(3)
+                (xyz / 100.0).cpu().numpy(), (rgb / 255.0).cpu().numpy(), orig=np.zeros(3)
             )
 
         voxel_channels = 1 + self.num_sem_categories
