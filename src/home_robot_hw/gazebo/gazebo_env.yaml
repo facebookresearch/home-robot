@@ -1,0 +1,18 @@
+channels:
+  - robostack
+  - robostack-staging
+  - conda-forge
+dependencies:
+  - python ==3.9
+  - libprotobuf ==3.19
+  - ros-noetic-gazebo-ros
+  - ros-distro-mutex
+  - ros-noetic-gazebo-ros-control
+  - ros-noetic-gazebo-plugins
+  - ros-noetic-controller-manager
+  - ros-noetic-realsense2-camera
+  - ros-noetic-realsense2-description
+  - ros-noetic-robot-state-publisher
+  - ros-noetic-ros-controllers
+  - ros-noetic-joint-state-controller
+  - ros-noetic-xacro
