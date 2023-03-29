@@ -49,6 +49,7 @@ class ObjectNavAgent(Agent):
             # Use DataParallel only as a wrapper to move model inputs to GPU
             self.module = DataParallel(self._module, device_ids=[self.device_id])
 
+        self.use_dilation_for_stg = config.AGENT.PLANNER.use_dilation_for_stg
         self.semantic_map = Categorical2DSemanticMapState(
             device=self.device,
             num_environments=self.num_environments,
@@ -281,7 +282,7 @@ class ObjectNavAgent(Agent):
             action = DiscreteNavigationAction.STOP
         else:
             action, closest_goal_map = self.planner.plan(
-                **planner_inputs[0], stg_dilated=True
+                **planner_inputs[0], use_dilation_for_stg=self.use_dilation_for_stg
             )
 
         # t3 = time.time()
