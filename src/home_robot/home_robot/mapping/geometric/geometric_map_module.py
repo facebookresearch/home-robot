@@ -22,7 +22,7 @@ from home_robot.mapping.semantic.constants import MapConstants as MC
 debug_maps = False
 
 
-class Categorical2DGeometricMapModule(nn.Module):
+class GeometricMapModule(nn.Module):
     """
     This class is responsible for updating a dense 2D geometric map with
     the local and global maps and poses, and generating map features — it is a stateless PyTorch module with no trainable parameters.
@@ -395,6 +395,8 @@ class Categorical2DGeometricMapModule(nn.Module):
         agent_view[:, MC.OBSTACLE_MAP : MC.OBSTACLE_MAP + 1, y1:y2, x1:x2] = fp_map_pred
         agent_view[:, MC.EXPLORED_MAP : MC.EXPLORED_MAP + 1, y1:y2, x1:x2] = fp_exp_pred
 
+        # TODO: Perform occupancy anticipation here
+        ## Get local_map from agent_view (trans)
         current_pose = pu.get_new_pose_batch(prev_pose.clone(), pose_delta)
         st_pose = current_pose.clone().detach()
 

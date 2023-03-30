@@ -2,9 +2,7 @@ import time
 
 import torch.nn as nn
 
-from home_robot.mapping.geometric.categorical_2d_geometric_map_module import (
-    Categorical2DGeometricMapModule,
-)
+from home_robot.mapping.geometric.geometric_map_module import GeometricMapModule
 from home_robot.navigation_policy.exploration.frontier_exploration_policy import (
     FrontierExplorationPolicy,
 )
@@ -17,7 +15,7 @@ class ExplorationAgentModule(nn.Module):
     def __init__(self, config):
         super().__init__()
 
-        self.geometric_map_module = Categorical2DGeometricMapModule(
+        self.geometric_map_module = GeometricMapModule(
             frame_height=config.ENVIRONMENT.frame_height,
             frame_width=config.ENVIRONMENT.frame_width,
             camera_height=config.ENVIRONMENT.camera_height,

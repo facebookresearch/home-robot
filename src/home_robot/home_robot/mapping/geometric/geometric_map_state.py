@@ -9,7 +9,7 @@ from home_robot.mapping.map_utils import MapSizeParameters, init_map_and_pose_fo
 from home_robot.mapping.semantic.constants import MapConstants as MC
 
 
-class Categorical2DGeometricMapState:
+class GeometricMapState:
     """
     This class holds a dense 2D geometric map with the global and local map and sensor pose,
     as well as the agent's current goal in the local map.

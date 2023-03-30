@@ -12,9 +12,7 @@ from torch.nn import DataParallel
 import home_robot.utils.pose as pu
 from home_robot.core.abstract_agent import Agent
 from home_robot.core.interfaces import DiscreteNavigationAction, Observations
-from home_robot.mapping.geometric.categorical_2d_geometric_map_state import (
-    Categorical2DGeometricMapState,
-)
+from home_robot.mapping.geometric.geometric_map_state import GeometricMapState
 from home_robot.navigation_planner.discrete_planner import DiscretePlanner
 
 from .exploration_agent_module import ExplorationAgentModule
@@ -50,7 +48,7 @@ class ExplorationAgent(Agent):
             self.module = DataParallel(self._module, device_ids=[self.device_id])
 
         self.use_dilation_for_stg = config.AGENT.PLANNER.use_dilation_for_stg
-        self.geometric_map = Categorical2DGeometricMapState(
+        self.geometric_map = GeometricMapState(
             device=self.device,
             num_environments=self.num_environments,
             map_resolution=config.AGENT.SEMANTIC_MAP.map_resolution,
