@@ -469,9 +469,9 @@ class PybulletIKSolver(IKSolverBase):
         pos_desired: np.ndarray,
         quat_desired: np.ndarray,
         q_init: Optional[np.ndarray] = None,
-        max_iterations: int = 100,
         num_attempts: int = 1,
         verbose: bool = False,
+        **kwargs,
     ) -> Tuple[np.ndarray, bool, dict]:
         q_out = None
         success = False

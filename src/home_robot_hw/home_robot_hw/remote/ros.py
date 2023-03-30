@@ -11,7 +11,6 @@ import numpy as np
 import ros_numpy
 import rospy
 import sophus as sp
-import tf
 import tf2_ros
 from control_msgs.msg import FollowJointTrajectoryAction, FollowJointTrajectoryGoal
 from geometry_msgs.msg import Pose, PoseStamped, Twist
@@ -97,7 +96,6 @@ class StretchRosInterface:
         # Initialize ros communication
         self._create_pubs_subs()
         self._create_services()
-        self._tf_listener = tf.TransformListener()
 
         self._ros_joint_names = []
         for i in range(3, self.dof):

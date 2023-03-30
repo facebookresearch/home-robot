@@ -98,7 +98,6 @@ class PinocchioIKSolver(IKSolverBase):
             max iterations: time budget in number of steps; included for compatibility with pb
         """
         i = 0
-        err = None
 
         if q_init is None:
             q = self.q_neutral.copy()

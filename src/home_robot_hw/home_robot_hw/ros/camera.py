@@ -153,6 +153,7 @@ class RosCamera(Camera):
                 img = self._img.copy()
 
         if device is not None:
+            # If a device is specified, assume we want to move to pytorch
             import torch
 
             img = torch.FloatTensor(img).to(device)
@@ -175,7 +176,7 @@ class RosCamera(Camera):
         img = avg.reshape(*dims)
 
         if device is not None:
-            # Convert to tensor
+            # If a device is specified, assume we want to move to pytorch
             import torch
 
             img = torch.FloatTensor(img).to(device)
