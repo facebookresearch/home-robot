@@ -107,7 +107,7 @@ class PinocchioIKSolver(IKSolverBase):
                 )
         else:
             q = self._qmap_control2model(q_init)
-            # Override the number of attempts -- TODO: not used?
+            # Override the number of attempts
             num_attempts = 1
 
         desired_ee_pose = pinocchio.SE3(

@@ -161,8 +161,6 @@ class HelloStretchKinematics(Robot):
     # For inverse kinematics mode
     default_ee_link_name = "link_straight_gripper"
 
-    # TODO: is there a particular reason the arm ls are inverted from PIN_CONTROLLED_JOINTS?
-    # If not, we could unify them...
     default_manip_mode_controlled_joints = [
         "base_x_joint",
         "joint_lift",
@@ -195,13 +193,6 @@ class HelloStretchKinematics(Robot):
         """Create ik solvers using pybullet or something else."""
         # You can set one of the visualize flags to true to debug IK issues
         # This is not exposed manually - only one though or it will fail
-        self.ik_solver = PybulletIKSolver(
-            self.full_body_urdf_path,
-            self._ee_link_name,
-            self.full_body_controlled_joints,
-            visualize=False,
-        )
-
         assert ik_type in [
             "pybullet",
             "pinocchio",

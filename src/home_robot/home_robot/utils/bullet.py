@@ -469,7 +469,7 @@ class PybulletIKSolver(IKSolverBase):
         pos_desired: np.ndarray,
         quat_desired: np.ndarray,
         q_init: Optional[np.ndarray] = None,
-        num_attempts: int = 1,
+        num_attempts: int = 5,
         verbose: bool = False,
         **kwargs,
     ) -> Tuple[np.ndarray, bool, dict]:
@@ -481,7 +481,6 @@ class PybulletIKSolver(IKSolverBase):
             self.set_joint_positions(q_init)
             num_attempts = 1
         elif self.controlled_joints is not None and self.range is not None:
-            # TODO: this q_init isn't used? Should this logic be before self.set_joint_positions?
             rng = self.range[:, 1] - self.range[:, 0]
             rng[np.isinf(rng)] = 0
             q_init = (np.random.random() * rng) + self.range[:, 0]
