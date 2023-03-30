@@ -42,7 +42,7 @@ def main(agent, dry_run):
         agent = ExplorationAgent(config=config)
     else:
         raise NotImplementedError(f"agent {agent} not recognized")
-    env = StretchExplorationEnv(config=config, dry_run=dry_run)
+    env = StretchExplorationEnv(config=config, visualize=True, dry_run=dry_run)
 
     agent.reset()
     env.reset()

@@ -6,6 +6,7 @@ import rospy
 import home_robot
 from home_robot.core.interfaces import Action, DiscreteNavigationAction, Observations
 from home_robot.motion.stretch import STRETCH_NAVIGATION_Q, HelloStretchKinematics
+from home_robot.utils.config import get_config
 from home_robot.utils.geometry import xyt2sophus, xyt_base_to_global
 from home_robot_hw.env.stretch_abstract_env import StretchEnv
 from home_robot_hw.env.visualizer import ExplorationVisualizer
@@ -15,17 +16,15 @@ from home_robot_hw.remote import StretchClient
 class StretchExplorationEnv(StretchEnv):
     """Create an exploration environment"""
 
-    def __init__(
-        self, config=None, forward_step=0.25, rotate_step=30.0, *args, **kwargs
-    ):
+    def __init__(self, config, visualize=False, *args, **kwargs):
         super().__init__(*args, **kwargs)
 
-        self.forward_step = forward_step  # in meters
-        self.rotate_step = np.radians(rotate_step)
+        self.forward_step = config.ENVIRONMENT.forward  # in meters
+        self.rotate_step = np.radians(config.ENVIRONMENT.turn_angle)
         self.max_steps = config.ENVIRONMENT.max_steps
         self.curr_step = None
 
-        if config is not None:
+        if visualize:
             self.visualizer = ExplorationVisualizer(config)
         else:
             self.visualizer = None
@@ -144,7 +143,11 @@ if __name__ == "__main__":
     print("Start example - hardware using ROS")
     rospy.init_node("hello_stretch_ros_test")
     print("Create ROS interface")
-    rob = StretchExplorationEnv(init_cameras=True)
+
+    config_path = "projects/stretch_exploration/configs/agent/floorplanner_eval.yaml"
+    config, config_str = get_config(config_path)
+
+    rob = StretchExplorationEnv(config, init_cameras=True)
     rob.robot.switch_to_navigation_mode()
 
     # Debug the observation space
@@ -164,53 +167,6 @@ if __name__ == "__main__":
         rob.apply_action(cmd)
 
         obs = rob.get_observation()
-        rgb, depth = obs.rgb, obs.depth
-        # xyt = obs2xyt(obs.base_pose)
-
-        # Add a visualiztion for debugging
-        depth[depth > 5] = 0
-        plt.subplot(121)
-        plt.imshow(rgb)
-        plt.subplot(122)
-        plt.imshow(depth)
-        # plt.subplot(133); plt.imshow(obs.semantic
-
-        print()
-        print("----------------")
-        print("values:")
-        print("RGB =", np.unique(rgb))
-        print("Depth =", np.unique(depth))
-        # print("XY =", xyt[:2])
-        # print("Yaw=", xyt[-1])
-        print("Compass =", obs.compass)
-        print("Gps =", obs.gps)
-        plt.show()
-
-
-if False:
-    observations = []
-    obs = rob.get_observation()
-    observations.append(obs)
-
-    xyt = np.zeros(3)
-    xyt[2] = obs.compass
-    xyt[:2] = obs.gps
-    # xyt = obs2xyt(obs.base_pose)
-    xyt[0] += 0.1
-    # rob.navigate_to(xyt)
-    rob.rotate(0.2)
-    rospy.sleep(10.0)
-    obs = rob.get_observation()
-    observations.append(obs)
-
-    xyt[0] = 0
-    # rob.navigate_to(xyt)
-    rob.rotate(-0.2)
-    rospy.sleep(10.0)
-    obs = rob.get_observation()
-    observations.append(obs)
-
-    for obs in observations:
         rgb, depth = obs.rgb, obs.depth
         # xyt = obs2xyt(obs.base_pose)
 
