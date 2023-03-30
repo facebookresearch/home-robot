@@ -3,7 +3,7 @@
 # This source code is licensed under the MIT license found in the
 # LICENSE file in the root directory of this source tree.
 from collections import namedtuple
-from typing import Tuple
+from typing import Optional, Tuple
 
 import matplotlib.pyplot as plt
 import numpy as np
@@ -11,6 +11,8 @@ import pybullet as pb
 import pybullet_data
 import trimesh
 import trimesh.transformations as tra
+
+from home_robot.motion.ik_solver_base import IKSolverBase
 
 # Helpers
 from home_robot.utils.image import (
@@ -403,7 +405,7 @@ class PbClient(object):
         self.plane_id = pb.loadURDF("plane.urdf")
 
 
-class PybulletIKSolver:
+class PybulletIKSolver(IKSolverBase):
     """Create a wrapper for solving inverse kinematics using PyBullet"""
 
     def __init__(
@@ -464,20 +466,25 @@ class PybulletIKSolver:
 
     def compute_ik(
         self,
-        pos_desired,
-        quat_desired,
-        q_init: np.ndarray = None,
-        num_attempts: int = 5,
+        pos_desired: np.ndarray,
+        quat_desired: np.ndarray,
+        q_init: Optional[np.ndarray] = None,
+        max_iterations: int = 100,
+        num_attempts: int = 1,
         verbose: bool = False,
-    ):
+    ) -> Tuple[np.ndarray, bool]:
+        q_out = None
+
         if q_init is not None:
             # This version assumes that q_init is NOT in the right format yet
             self.set_joint_positions(q_init)
             num_attempts = 1
         elif self.controlled_joints is not None and self.range is not None:
+            # TODO: this q_init isn't used? Should this logic be before self.set_joint_positions?
             rng = self.range[:, 1] - self.range[:, 0]
             rng[np.isinf(rng)] = 0
             q_init = (np.random.random() * rng) + self.range[:, 0]
+
         if self.visualize:
             self.debug_block.set_pose(pos_desired, quat_desired)
             input("--- Press enter to solve ---")
@@ -514,7 +521,9 @@ class PybulletIKSolver:
                         q_out = None
             else:
                 q_out = q_full
+
             if q_out is not None:
                 break
 
-        return q_out
+        success = q_out is not None
+        return q_out, success

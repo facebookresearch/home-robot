@@ -219,8 +219,6 @@ class HelloStretchKinematics(Robot):
                 self.ee_link_name,
                 self.manip_mode_controlled_joints,
             )
-        else:
-            raise ValueError(f"Unknown ik_type {ik_type}")
 
         if "optimize" in ik_type:
             self.manip_ik_solver = PositionIKOptimizer(
@@ -385,8 +383,6 @@ class HelloStretchKinematics(Robot):
         for i in range(4):
             joint = self.ref.get_joint_info_by_name("joint_arm_l%d" % i)
             self.arm_idx.append(joint.index)
-            # TODO remove debug statement
-            # print(i, joint.name, joint.lower_limit, joint.upper_limit)
             upper_limit += joint.upper_limit
 
         # TODO: gripper
@@ -512,17 +508,14 @@ class HelloStretchKinematics(Robot):
         """manipulator specific forward kinematics; uses separate URDF than the full-body fk() method"""
         assert q.shape == (self.dof,)
 
-        if "optimize" in self._ik_type or self._ik_type == "pinocchio":
-            pin_pose = self._ros_pose_to_pinocchio(q)
-            ee_pos, ee_quat = self.manip_ik_solver.compute_fk(pin_pose)
-        elif self._ik_type == "pybullet":
-            ee_pos, ee_quat = self.fk(q)
+        if "pinocchio" in self._ik_type:
+            q = self._ros_pose_to_pinocchio(q)
 
+        ee_pos, ee_quat = self.manip_ik_solver.compute_fk(q)
         return ee_pos.copy(), ee_quat.copy()
 
     def fk(self, q=None, as_matrix=False) -> Tuple[np.ndarray, np.ndarray]:
         """forward kinematics"""
-        pose = None
         pose = self.get_link_pose(self.ee_link_name, q)
         if as_matrix:
             return to_matrix(*pose)
@@ -692,8 +685,7 @@ class HelloStretchKinematics(Robot):
         )
         if _q is None:
             return None
-        if self._ik_type == "pinocchio":
-            _q = _q[0]
+
         q = self._from_manip_format(_q, default_q)
         self.set_config(q)
         return q

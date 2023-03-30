@@ -8,6 +8,7 @@ import numpy as np
 import pinocchio
 from scipy.spatial.transform import Rotation as R
 
+from home_robot.motion.ik_solver_base import IKSolverBase
 from home_robot.utils.bullet import PybulletIKSolver
 
 # --DEFAULTS--
@@ -21,7 +22,7 @@ CEM_NUM_SAMPLES = 50
 CEM_NUM_TOP = 10
 
 
-class PinocchioIKSolver:
+class PinocchioIKSolver(IKSolverBase):
     """IK solver using pinocchio which can handle end-effector constraints for optimized IK solutions"""
 
     EPS = 1e-4
@@ -81,8 +82,8 @@ class PinocchioIKSolver:
 
     def compute_ik(
         self,
-        pos: np.ndarray,
-        quat: np.ndarray,
+        pos_desired: np.ndarray,
+        quat_desired: np.ndarray,
         q_init=None,
         max_iterations=100,
         num_attempts: int = 1,
@@ -105,9 +106,12 @@ class PinocchioIKSolver:
                 )
         else:
             q = self._qmap_control2model(q_init)
-            # Override the number of attempts
+            # Override the number of attempts -- TODO: not used?
             num_attempts = 1
-        desired_ee_pose = pinocchio.SE3(R.from_quat(quat).as_matrix(), pos)
+
+        desired_ee_pose = pinocchio.SE3(
+            R.from_quat(quat_desired).as_matrix(), pos_desired
+        )
         while True:
             pinocchio.forwardKinematics(self.model, self.data, q)
             pinocchio.updateFramePlacement(self.model, self.data, self.ee_frame_idx)
@@ -138,9 +142,11 @@ class PinocchioIKSolver:
         return q_control, success
 
 
-class PositionIKOptimizer:
+class PositionIKOptimizer(IKSolverBase):
     """
-    Solver that jointly optimizes IK and best orientation to achieve desired position
+    Solver that jointly optimizes IK and best orientation to achieve desired position.
+    Can optimize any solver that implements IKSolverBase.
+    Additionally, it implements IKSolverBase so this optimizer-based version can be readily dropped-in.
     """
 
     max_iterations: int = 30  # Max num of iterations for CEM
@@ -196,9 +202,10 @@ class PositionIKOptimizer:
     def get_num_controllable_joints(self) -> int:
         return self.ik_solver.get_num_controllable_joints()
 
-    def compute_ik(self, pos: np.ndarray, quat: np.ndarray, *args, **kwargs):
+    def compute_ik(
+        self, pos_desired: np.ndarray, quat_desired: np.ndarray, *args, **kwargs
+    ):
         """optimization-based IK solver using CEM"""
-        pos_desired, quat_desired = pos, quat
 
         # Function to optimize: IK error given delta from original desired orientation
         def solve_ik(dr):
@@ -226,12 +233,9 @@ class PositionIKOptimizer:
             f"After ik optimization, cost: {cost_opt}, result: {pos_out, quat_out} vs desired: {pos_desired, quat_desired}"
         )
         return q_result, success
-        # return q_result, cost_opt, max_iter, opt_sigma
 
     def compute_fk(self, q):
-        return self.ik_solver.compute_fk(
-            q
-        )  # TODO: pybullet version won't work with this -- uses fk()
+        return self.ik_solver.compute_fk(q)
 
 
 class CEM:
