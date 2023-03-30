@@ -51,6 +51,7 @@ class DiscretePlanner:
         dump_location: str,
         exp_name: str,
         min_goal_distance_cm: float = 60.0,
+        agent_cell_radius: int = 1,
     ):
         """
         Arguments:
@@ -82,6 +83,7 @@ class DiscretePlanner:
         self.step_size = step_size
         self.start_obs_dilation_selem_radius = obs_dilation_selem_radius
         self.goal_dilation_selem_radius = goal_dilation_selem_radius
+        self.agent_cell_radius = agent_cell_radius
 
         self.vis_dir = None
         self.collision_map = None
@@ -340,9 +342,10 @@ class DiscretePlanner:
         traversible = 1 - dilated_obstacles
         traversible[self.collision_map[gx1:gx2, gy1:gy2][x1:x2, y1:y2] == 1] = 0
         traversible[self.visited_map[gx1:gx2, gy1:gy2][x1:x2, y1:y2] == 1] = 1
+        agent_rad = self.agent_cell_radius
         traversible[
-            int(start[0] - x1) - 1 : int(start[0] - x1) + 2,
-            int(start[1] - y1) - 1 : int(start[1] - y1) + 2,
+            int(start[0] - x1) - agent_rad : int(start[0] - x1) + agent_rad + 1,
+            int(start[1] - y1) - agent_rad : int(start[1] - y1) + agent_rad + 1,
         ] = 1
         traversible = add_boundary(traversible)
         goal_map = add_boundary(goal_map, value=0)
