@@ -22,6 +22,8 @@ class StretchExplorationEnv(StretchEnv):
 
         self.forward_step = forward_step  # in meters
         self.rotate_step = np.radians(rotate_step)
+        self.max_steps = config.ENVIRONMENT.max_steps
+        self.curr_step = None
 
         if config is not None:
             self.visualizer = ExplorationVisualizer(config)
@@ -35,6 +37,7 @@ class StretchExplorationEnv(StretchEnv):
 
     def reset(self):
         self._episode_start_pose = xyt2sophus(self.get_base_pose())
+        self.curr_step = 0
         if self.visualizer is not None:
             self.visualizer.reset()
 
@@ -52,6 +55,7 @@ class StretchExplorationEnv(StretchEnv):
     def apply_action(self, action: Action, info: Optional[Dict[str, Any]] = None):
         """Discrete action space. make predictions for where the robot should go, move by a fixed
         amount forward or rotationally."""
+        self.curr_step += 1
         if self.visualizer is not None:
             self.visualizer.visualize(**info)
         continuous_action = np.zeros(3)
@@ -109,7 +113,7 @@ class StretchExplorationEnv(StretchEnv):
 
     @property
     def episode_over(self) -> bool:
-        pass
+        return self.curr_step >= self.max_steps
 
     def get_episode_metrics(self) -> Dict:
         pass

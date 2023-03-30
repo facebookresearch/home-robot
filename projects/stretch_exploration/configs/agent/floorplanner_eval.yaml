@@ -17,6 +17,7 @@ ENVIRONMENT:
   hfov: 42.0              # horizontal field of view (in degrees)
   min_depth: 0.5          # minimum depth for depth sensor (in metres)
   max_depth: 3.5          # maximum depth for depth sensor (in metres)
+  max_steps: 500          # maximum number of steps before stopping an episode
 
 AGENT:
   max_steps: 500          # maximum number of steps before stopping an episode
