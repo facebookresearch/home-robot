@@ -3,6 +3,7 @@
 # This source code is licensed under the MIT license found in the
 # LICENSE file in the root directory of this source tree.
 from collections import namedtuple
+from typing import Tuple
 
 import matplotlib.pyplot as plt
 import numpy as np
@@ -352,10 +353,11 @@ class PbClient(object):
     Physics client; connects to backend.
     """
 
-    def __init__(self, visualize=True, is_simulation=True, assets_path=None):
+    def __init__(self, visualize=False, is_simulation=True, assets_path=None):
         self.is_simulation = is_simulation
         if visualize:
             self.id = pb.connect(pb.GUI)
+            raise RuntimeError()
         else:
             self.id = pb.connect(pb.DIRECT)
 
@@ -404,12 +406,20 @@ class PbClient(object):
 class PybulletIKSolver:
     """Create a wrapper for solving inverse kinematics using PyBullet"""
 
-    def __init__(self, urdf_path, ee_link_name, controlled_joints, visualize=False):
+    def __init__(
+        self,
+        urdf_path,
+        ee_link_name,
+        controlled_joints,
+        joint_range=None,
+        visualize=False,
+    ):
         self.env = PbClient(visualize=visualize, is_simulation=False)
         self.robot = self.env.add_articulated_object("robot", urdf_path)
         self.pc_id = self.env.id
         self.robot_id = self.robot.id
         self.visualize = visualize
+        self.range = joint_range
 
         # Debugging code, not very robust
         if visualize:
@@ -417,6 +427,7 @@ class PybulletIKSolver:
                 "red_block", "./assets/red_block.urdf", client=self.env.id
             )
 
+        self.ee_link_name = ee_link_name
         self.ee_idx = self.get_link_names().index(ee_link_name)
         self.controlled_joints = self.robot.controllable_joints_to_indices(
             controlled_joints
@@ -437,39 +448,73 @@ class PybulletIKSolver:
 
     def set_joint_positions(self, q_init):
         q_full = np.zeros(self.get_num_controllable_joints())
-        q_full[self.controlled_joints] = q_init
+        if q_init.shape[0] == len(self.controlled_joints):
+            q_full[self.controlled_joints] = q_init
+        else:
+            q_full[self.controlled_joints] = q_init[self.controlled_joints]
         self.robot.set_joint_positions(q_full)
 
     def get_dof(self):
         return len(self.controlled_joints)
 
-    def compute_ik(self, pos_desired, quat_desired, q_init=None):
+    def compute_fk(self, q: np.ndarray) -> Tuple[np.ndarray, np.ndarray]:
+        self.set_joint_positions(q)
+        pos, quat = self.robot.get_link_pose(self.ee_link_name)
+        return pos, quat
+
+    def compute_ik(
+        self,
+        pos_desired,
+        quat_desired,
+        q_init: np.ndarray = None,
+        num_attempts: int = 5,
+        verbose: bool = False,
+    ):
         if q_init is not None:
             # This version assumes that q_init is NOT in the right format yet
             self.set_joint_positions(q_init)
+            num_attempts = 1
+        elif self.controlled_joints is not None and self.range is not None:
+            rng = self.range[:, 1] - self.range[:, 0]
+            rng[np.isinf(rng)] = 0
+            q_init = (np.random.random() * rng) + self.range[:, 0]
         if self.visualize:
             self.debug_block.set_pose(pos_desired, quat_desired)
             input("--- Press enter to solve ---")
 
-        q_full = np.array(
-            pb.calculateInverseKinematics(
-                self.robot_id,
-                self.ee_idx,
-                pos_desired,
-                quat_desired,
-                # maxNumIterations=1000,
-                # residualThreshold=1e-6,
-                physicsClientId=self.pc_id,
+        for _ in range(num_attempts):
+            q_full = np.array(
+                pb.calculateInverseKinematics(
+                    self.robot_id,
+                    self.ee_idx,
+                    pos_desired,
+                    quat_desired,
+                    # maxNumIterations=1000,
+                    # residualThreshold=1e-6,
+                    physicsClientId=self.pc_id,
+                )
             )
-        )
-        # In the ik format - controllable joints only
-        self.robot.set_joint_positions(q_full)
-        if self.visualize:
-            input("--- Solved. Press enter to finish ---")
+            # In the ik format - controllable joints only
+            self.robot.set_joint_positions(q_full)
+            if self.visualize:
+                input("--- Solved. Press enter to finish ---")
 
-        if self.controlled_joints is not None:
-            q_out = q_full[self.controlled_joints]
-        else:
-            q_out = q_full
+            if self.controlled_joints is not None:
+                q_out = q_full[self.controlled_joints]
+                if self.range is not None:
+                    if not (
+                        np.all(q_out > self.range[:, 0])
+                        and np.all(q_out < self.range[:, 1])
+                    ):
+                        if verbose:
+                            print("------")
+                            print("IK failure:")
+                            print(q_out > self.range[:, 0])
+                            print(q_out < self.range[:, 1])
+                        q_out = None
+            else:
+                q_out = q_full
+            if q_out is not None:
+                break
 
         return q_out

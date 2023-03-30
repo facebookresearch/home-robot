@@ -2,8 +2,11 @@
 #
 # This source code is licensed under the MIT license found in the
 # LICENSE file in the root directory of this source tree.
+from typing import Tuple
+
 import numpy as np
 import torch
+from torch import Tensor
 from torch.nn import functional as F
 
 ANGLE_EPS = 0.001
@@ -65,12 +68,14 @@ def rotate_camera_to_point_at(up_from, lookat_from, up_to, lookat_to):
     return np.dot(r2, r1)
 
 
-def get_grid(pose, grid_size, precision):
+def get_grid(
+    pose: Tensor, grid_size: Tuple[int, int, int, int], precision: torch.dtype
+) -> Tuple[Tensor, Tensor]:
     """
     Input:
         `pose` FloatTensor(bs, 3)
         `grid_size` 4-tuple (bs, _, grid_h, grid_w)
-        `device` torch.device (cpu or gpu)
+        `precision` torch.dtype
 
     Output:
         `rot_grid` FloatTensor(bs, grid_h, grid_w, 2)
@@ -92,7 +97,11 @@ def get_grid(pose, grid_size, precision):
     theta22 = torch.stack([torch.zeros_like(x), torch.ones_like(x), y], 1)
     theta2 = torch.stack([theta21, theta22], 1)
 
-    rot_grid = F.affine_grid(theta1, torch.Size(grid_size)).to(precision)
-    trans_grid = F.affine_grid(theta2, torch.Size(grid_size)).to(precision)
+    rot_grid = F.affine_grid(theta1, torch.Size(grid_size), align_corners=False).to(
+        precision
+    )
+    trans_grid = F.affine_grid(theta2, torch.Size(grid_size), align_corners=False).to(
+        precision
+    )
 
     return rot_grid, trans_grid

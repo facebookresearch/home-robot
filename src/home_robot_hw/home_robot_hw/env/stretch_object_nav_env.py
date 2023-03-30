@@ -5,16 +5,18 @@ import rospy
 
 import home_robot
 from home_robot.core.interfaces import Action, DiscreteNavigationAction, Observations
+from home_robot.motion.stretch import STRETCH_NAVIGATION_Q, HelloStretchKinematics
 from home_robot.perception.detection.detic.detic_perception import DeticPerception
 from home_robot.utils.geometry import xyt2sophus, xyt_base_to_global
 from home_robot_hw.env.stretch_abstract_env import StretchEnv
 from home_robot_hw.env.visualizer import Visualizer
+from home_robot_hw.remote import StretchClient
 
 # REAL_WORLD_CATEGORIES = ["other", "chair", "mug", "other",]
 # REAL_WORLD_CATEGORIES = ["other", "backpack", "other",]
 REAL_WORLD_CATEGORIES = [
     "other",
-    "chair",
+    "cup",
     "other",
 ]
 
@@ -42,6 +44,10 @@ class StretchObjectNavEnv(StretchEnv):
             self.visualizer = Visualizer(config)
         else:
             self.visualizer = None
+
+        # Create a robot model, but we never need to visualize
+        self.robot = StretchClient(init_node=False)
+        self.robot_model = self.robot.robot_model
         self.reset()
 
     def reset(self):
@@ -49,6 +55,17 @@ class StretchObjectNavEnv(StretchEnv):
         self._episode_start_pose = xyt2sophus(self.get_base_pose())
         if self.visualizer is not None:
             self.visualizer.reset()
+
+        # Switch control mode on the robot to nav
+        self.robot.switch_to_navigation_mode()
+        # put the robot in the correct mode with head facing forward
+        home_q = STRETCH_NAVIGATION_Q
+        # TODO: get this right
+        # tilted
+        home_q = self.robot_model.update_look_front(home_q.copy())
+        # Flat
+        # home_q = self.robot_model.update_look_ahead(home_q.copy())
+        self.goto(home_q, move_base=False, wait=True)
 
     def apply_action(self, action: Action, info: Optional[Dict[str, Any]] = None):
         """Discrete action space. make predictions for where the robot should go, move by a fixed
@@ -74,9 +91,12 @@ class StretchObjectNavEnv(StretchEnv):
 
         if continuous_action is not None:
             if not self.in_navigation_mode():
-                self.switch_to_navigation_mode()
+                self.robot.switch_to_navigation_mode()
                 rospy.sleep(self.msg_delay_t)
-            self.navigate_to(continuous_action, relative=True, blocking=True)
+            if not self.dry_run:
+                self.robot.nav.navigate_to(
+                    continuous_action, relative=True, blocking=True
+                )
         rospy.sleep(0.5)
 
     def set_goal(self, goal):
@@ -119,8 +139,10 @@ class StretchObjectNavEnv(StretchEnv):
             task_observations={
                 "goal_id": self.current_goal_id,
                 "goal_name": self.current_goal_name,
+                "object_goal": self.current_goal_id,
+                "recep_goal": self.current_goal_id,
             },
-            # joint_positions=pos,
+            camera_pose=self.get_camera_pose_matrix(rotated=True),
         )
         # Run the segmentation model here
         obs = self.segmentation.predict(obs, depth_threshold=0.5)

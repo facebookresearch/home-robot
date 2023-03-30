@@ -13,6 +13,7 @@ class FrankaPanda(object):
         grasp_offset = np.eye(4)
         grasp_offset[2, 3] = 0.22
         self.grasp_offset = grasp_offset
+        self.max_grasp = 0.08
 
     def apply_grasp_offset(self, ee_pose):
         return ee_pose @ self.grasp_offset

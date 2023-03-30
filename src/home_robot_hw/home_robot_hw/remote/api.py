@@ -4,9 +4,7 @@
 # LICENSE file in the root directory of this source tree.
 from typing import Dict, Optional
 
-import ros_numpy
 import rospy
-import tf2_ros
 
 from home_robot.motion.robot import Robot
 from home_robot.motion.stretch import HelloStretchKinematics
@@ -27,6 +25,7 @@ class StretchClient:
         camera_overrides: Optional[Dict] = None,
         urdf_path: str = "",
         ik_type: str = "pybullet",
+        visualize_ik: bool = False,
     ):
         # Ros
         if init_node:
@@ -37,7 +36,9 @@ class StretchClient:
         self._ros_client = StretchRosInterface(**camera_overrides)
 
         # Robot model
-        self._robot_model = HelloStretchKinematics(urdf_path=urdf_path, ik_type=ik_type)
+        self._robot_model = HelloStretchKinematics(
+            urdf_path=urdf_path, ik_type=ik_type, visualize=visualize_ik
+        )
 
         # Interface modules
         self.nav = StretchNavigationClient(self._ros_client, self._robot_model)
