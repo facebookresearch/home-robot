@@ -32,7 +32,22 @@ class CacheContainer(object):
 
 
 class StretchDemoBaseEnv(gym.Env):
-    NODE_INITIALIZED = False
+    # The URDFs provided with stretch_control do not support base_x_joint motion, so ignore that during IK for now
+    MANIP_MODE_CONTROLLED_JOINTS = [
+        "ignore",  # Originally base_x_joint
+        "joint_lift",
+        "joint_arm_l3",
+        "joint_arm_l2",
+        "joint_arm_l1",
+        "joint_arm_l0",
+        "joint_wrist_yaw",
+        "joint_wrist_pitch",
+        "joint_wrist_roll",
+    ]
+
+    # This EE link does not require any offsets or conversions to use --
+    # it is located directly in the middle of the gripper
+    EE_LINK_NAME = "link_gripper_fingertip_center"
 
     def __init__(self, initialize_ros, include_context):
         super().__init__()
@@ -65,17 +80,17 @@ class StretchDemoBaseEnv(gym.Env):
         """
         h5_id = 0
         output_path = temp_aggregation_file.name
+        max_tries = 5
 
         if not cache or len(self._trajectory_cache["linked_files"]) == 0:
-            for _ in range(5):
+            for try_id in range(max_tries):
                 try:
                     with h5py.File(output_path, "w") as output_file:
                         linked_files_group = output_file.create_group("linked_files")
 
                         for filename in self._recursive_listdir(directory):
-                            file_allowed = only_key_frames == (
-                                "key_frames" in filename
-                            )  # If we expect it, it should be there. If we don't, it should not
+                            # If we expect it, it should be there. If we don't, it should not
+                            file_allowed = only_key_frames == ("key_frames" in filename)
                             if (
                                 os.path.splitext(filename)[-1].lower() == ".h5"
                                 and "aggregated" not in filename
@@ -98,10 +113,15 @@ class StretchDemoBaseEnv(gym.Env):
 
                     break
                 except (BlockingIOError, OSError) as e:
+                    if try_id == max_tries - 1:
+                        print(
+                            f"Failed to open or read {output_path} with error {e} after {max_tries} attempts."
+                        )
+                        raise e
+
                     print(
                         f"Failing to open or read {output_path} with error {e}. Retrying..."
                     )
-                    time.sleep(1)  # TODO: handle last try
 
         if cache:
             demo_data = CacheContainer(self._trajectory_cache)
@@ -111,7 +131,9 @@ class StretchDemoBaseEnv(gym.Env):
         return demo_data
 
     def randomly_select_traj_from_dir(self, directory, only_key_frames, cache):
-        for _ in range(25):
+        max_tries = 25
+
+        for try_id in range(max_tries):
             try:
                 with tempfile.NamedTemporaryFile(
                     dir=directory
@@ -142,8 +164,12 @@ class StretchDemoBaseEnv(gym.Env):
                             curr_id += count
 
                 break
-            except (BlockingIOError, OSError, KeyError):
-                time.sleep(1)  # If we run out of tries, traj will be None
+            except (BlockingIOError, OSError, KeyError) as e:
+                time.sleep(0.1)
+
+                if try_id == max_tries - 1:
+                    print(f"Ran out of re-attempts to load the h5.")
+                    raise e
 
         return traj
 
@@ -173,7 +199,7 @@ class StretchDemoBaseEnv(gym.Env):
         depth,
         pose,
         color_camera_info,
-        depth_camera_info,
+        depth_camera_info,  # Intentionally unused, to make it clearer how to pass this information if desired
         camera_pose,
         camera_info_in_state,
         model,
@@ -188,7 +214,7 @@ class StretchDemoBaseEnv(gym.Env):
 
         gripper_pose = pose[HelloStretchIdx.GRIPPER]
         adjusted_pose = np.concatenate(
-            (ee_pos, ee_rot, np.array([gripper_pose])), axis=-1
+            (ee_pos, ee_rot, np.array([gripper_pose, 0])), axis=-1  # TODO: remove the 0
         )
 
         # Just passing color camera info along for now, assuming depth is consistent
@@ -229,7 +255,7 @@ class StretchDemoBaseEnv(gym.Env):
 
     def get_stretch_obs_and_action_space(self, camera_info_in_state):
         channels = 4
-        state_size = 8
+        state_size = 9  # TODO: should be 8...keeping for now so I can keep using my trained model
         state_size += 51 if camera_info_in_state else 0
         action_size = 9  # 3 pos, 4 quat, 1 gripper, 1 completion fraction
 

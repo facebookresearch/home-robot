@@ -142,7 +142,7 @@ def save_geometries_as_image(
     point_size: Optional[float] = None,
     near_clipping: Optional[float] = None,
     far_clipping: Optional[float] = None,
-    live_visualization: Optional[bool] = False,
+    live_visualization: bool = False,
 ):
     """
     Helper function to allow manipulation of the camera to get a better image of the point cloud.

@@ -2,7 +2,7 @@
 #
 # This source code is licensed under the MIT license found in the
 # LICENSE file in the root directory of this source tree.
-from typing import Dict, Optional
+from typing import Dict, Optional, Sequence
 
 import rospy
 
@@ -26,6 +26,9 @@ class StretchClient:
         urdf_path: str = "",
         ik_type: str = "pybullet",
         visualize_ik: bool = False,
+        grasp_frame: Optional[str] = None,
+        ee_link_name: Optional[str] = None,
+        manip_mode_controlled_joints: Optional[Sequence[str]] = None,
     ):
         # Ros
         if init_node:
@@ -37,7 +40,12 @@ class StretchClient:
 
         # Robot model
         self._robot_model = HelloStretchKinematics(
-            urdf_path=urdf_path, ik_type=ik_type, visualize=visualize_ik
+            urdf_path=urdf_path,
+            ik_type=ik_type,
+            visualize=visualize_ik,
+            grasp_frame=grasp_frame,
+            ee_link_name=ee_link_name,
+            manip_mode_controlled_joints=manip_mode_controlled_joints,
         )
 
         # Interface modules

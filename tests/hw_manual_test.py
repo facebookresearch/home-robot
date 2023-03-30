@@ -15,7 +15,7 @@ YAW_TOL = 0.2
 
 if __name__ == "__main__":
     print("Initializing...")
-    robot = StretchClient(urdf_path=os.environ["STRETCH_URDF_DIR"])
+    robot = StretchClient(urdf_path=os.environ.get("STRETCH_URDF_DIR", ""))
 
     # Reset robot
     print("Resetting robot...")

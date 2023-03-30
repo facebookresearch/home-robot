@@ -372,7 +372,7 @@ class PbClient(object):
         self.camera = None
 
     def __del__(self):
-        print(f"Disconnecting client {self.id} from pybullet")
+        # Without an explicit disconnect, the server can stay around and consume resources (particularly RAM)
         pb.disconnect(self.id)
 
     def add_object(self, name, urdf_filename, assets_path=None, static=False):
@@ -472,8 +472,9 @@ class PybulletIKSolver(IKSolverBase):
         max_iterations: int = 100,
         num_attempts: int = 1,
         verbose: bool = False,
-    ) -> Tuple[np.ndarray, bool]:
+    ) -> Tuple[np.ndarray, bool, dict]:
         q_out = None
+        success = False
 
         if q_init is not None:
             # This version assumes that q_init is NOT in the right format yet
@@ -508,6 +509,8 @@ class PybulletIKSolver(IKSolverBase):
 
             if self.controlled_joints is not None:
                 q_out = q_full[self.controlled_joints]
+                success = True
+
                 if self.range is not None:
                     if not (
                         np.all(q_out > self.range[:, 0])
@@ -518,12 +521,15 @@ class PybulletIKSolver(IKSolverBase):
                             print("IK failure:")
                             print(q_out > self.range[:, 0])
                             print(q_out < self.range[:, 1])
-                        q_out = None
+                        success = False
             else:
                 q_out = q_full
 
-            if q_out is not None:
+            if success:
                 break
 
-        success = q_out is not None
-        return q_out, success
+        debug_info = {"best_q_out": q_out}
+        if not success:
+            q_out = None
+
+        return q_out, success, debug_info

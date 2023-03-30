@@ -85,6 +85,9 @@ class StretchLiveEnv(StretchDemoBaseEnv):
                 urdf_path=self._urdf_path,
                 init_node=self._initialize_ros,
                 ik_type="pinocchio_optimize",
+                grasp_frame=self.EE_LINK_NAME,
+                ee_link_name=self.EE_LINK_NAME,
+                manip_mode_controlled_joints=self.MANIP_MODE_CONTROLLED_JOINTS,
             )
             self._client.switch_to_manipulation_mode()
         return self._client

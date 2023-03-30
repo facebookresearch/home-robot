@@ -28,10 +28,12 @@ class IKSolverBase(object):
         max_iterations: int = 100,
         num_attempts: int = 1,
         verbose: int = False,
-    ) -> Tuple[np.ndarray, bool]:
+    ) -> Tuple[np.ndarray, bool, dict]:
         """
         Given an end-effector position and quaternion, return the joint states and a success flag.
         Some solvers (e.g. the PositionIKOptimizer solver) will return a result regardless; the success flag indicates
         if the solution is within the solver's expected error margins.
+        The output dictionary can contain any helpful debugging information for the solver, to analyze (in a more
+        method-specific way) how well a fit was found.
         """
         raise NotImplementedError()

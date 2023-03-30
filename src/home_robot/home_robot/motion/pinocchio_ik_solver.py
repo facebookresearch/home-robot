@@ -88,7 +88,7 @@ class PinocchioIKSolver(IKSolverBase):
         max_iterations=100,
         num_attempts: int = 1,
         verbose: bool = False,
-    ) -> Tuple[np.ndarray, bool]:
+    ) -> Tuple[np.ndarray, bool, dict]:
         """given end-effector position and quaternion, return joint values.
 
         Two parameters are currently unused and might be implemented in the future:
@@ -98,6 +98,8 @@ class PinocchioIKSolver(IKSolverBase):
             max iterations: time budget in number of steps; included for compatibility with pb
         """
         i = 0
+        err = None
+
         if q_init is None:
             q = self.q_neutral.copy()
             if num_attempts > 1:
@@ -138,8 +140,9 @@ class PinocchioIKSolver(IKSolverBase):
             i += 1
 
         q_control = self._qmap_model2control(q.flatten())
+        debug_info = {"iter": i, "final_error": err}
 
-        return q_control, success
+        return q_control, success, debug_info
 
 
 class PositionIKOptimizer(IKSolverBase):
@@ -203,8 +206,12 @@ class PositionIKOptimizer(IKSolverBase):
         return self.ik_solver.get_num_controllable_joints()
 
     def compute_ik(
-        self, pos_desired: np.ndarray, quat_desired: np.ndarray, *args, **kwargs
-    ):
+        self,
+        pos_desired: np.ndarray,
+        quat_desired: np.ndarray,
+        *args,
+        **kwargs,
+    ) -> Tuple[np.ndarray, bool, dict]:
         """optimization-based IK solver using CEM"""
 
         # Function to optimize: IK error given delta from original desired orientation
@@ -212,7 +219,7 @@ class PositionIKOptimizer(IKSolverBase):
             pos = pos_desired
             quat = (R.from_rotvec(dr) * R.from_quat(quat_desired)).as_quat()
 
-            q, _ = self.ik_solver.compute_ik(pos, quat)
+            q, _, subsolver_debug_info = self.ik_solver.compute_ik(pos, quat)
             pos_out, rot_out = self.ik_solver.compute_fk(q)
 
             cost_pos = np.linalg.norm(pos - pos_out)
@@ -232,7 +239,14 @@ class PositionIKOptimizer(IKSolverBase):
         print(
             f"After ik optimization, cost: {cost_opt}, result: {pos_out, quat_out} vs desired: {pos_desired, quat_desired}"
         )
-        return q_result, success
+
+        debug_info = {
+            "best_cost": cost_opt,
+            "last_iter": max_iter,
+            "opt_sigma": opt_sigma,
+        }
+
+        return q_result, success, debug_info
 
     def compute_fk(self, q):
         return self.ik_solver.compute_fk(q)

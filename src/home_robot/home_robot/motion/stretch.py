@@ -3,7 +3,7 @@
 # This source code is licensed under the MIT license found in the
 # LICENSE file in the root directory of this source tree.
 import os
-from typing import Tuple
+from typing import Optional, Sequence, Tuple
 
 import numpy as np
 import pybullet as pb
@@ -66,7 +66,7 @@ STRETCH_NAVIGATION_Q = np.array(
     ]
 )
 PIN_CONTROLLED_JOINTS = [
-    "ignore",  # "base_x_joint",
+    "base_x_joint",
     "joint_lift",
     "joint_arm_l0",
     "joint_arm_l1",
@@ -79,20 +79,23 @@ PIN_CONTROLLED_JOINTS = [
 
 
 # This is the gripper, and the distance in the gripper frame to where the fingers will roughly meet
-STRETCH_GRASP_FRAME = "link_gripper_fingertip_center"  # "link_straight_gripper"
+STRETCH_GRASP_FRAME = "link_straight_gripper"
 STRETCH_CAMERA_FRAME = "camera_color_optical_frame"
 STRETCH_BASE_FRAME = "base_link"
-# STRETCH_STANDOFF_DISTANCE = 0.235
-# STRETCH_STANDOFF_WITH_MARGIN = 0.25
+
+# Offsets required for "link_straight_gripper" grasp frame
+STRETCH_STANDOFF_DISTANCE = 0.235
+STRETCH_STANDOFF_WITH_MARGIN = 0.25
 # Offset from a predicted grasp point to STRETCH_GRASP_FRAME
-# STRETCH_GRASP_OFFSET = np.eye(4)
-# STRETCH_GRASP_OFFSET[:3, 3] = np.array([0, 0, -1 * STRETCH_STANDOFF_DISTANCE])
+STRETCH_GRASP_OFFSET = np.eye(4)
+STRETCH_GRASP_OFFSET[:3, 3] = np.array([0, 0, -1 * STRETCH_STANDOFF_DISTANCE])
 # Offset from STRETCH_GRASP_FRAME to predicted grasp point
-# STRETCH_TO_GRASP = np.eye(4)
-# STRETCH_TO_GRASP[:3, 3] = np.array([0, 0, STRETCH_STANDOFF_DISTANCE])
+STRETCH_TO_GRASP = np.eye(4)
+STRETCH_TO_GRASP[:3, 3] = np.array([0, 0, STRETCH_STANDOFF_DISTANCE])
+
+# Other stretch parameters
 STRETCH_GRIPPER_OPEN = 0.22
 STRETCH_GRIPPER_CLOSE = -0.2
-# STRETCH_GRIPPER_CLOSE = -0.5
 STRETCH_HEAD_CAMERA_ROTATIONS = (
     3  # number of counterclockwise rotations for the head camera
 )
@@ -156,10 +159,12 @@ class HelloStretchKinematics(Robot):
     look_ahead = np.array([0.0, 0.0])
 
     # For inverse kinematics mode
-    # ee_link_name = "link_straight_gripper"
-    ee_link_name = "link_gripper_fingertip_center"  # "link_straight_gripper"
-    manip_mode_controlled_joints = [
-        "ignore",  # "base_x_joint",  # TODO: temp...until I merge together my straight link with allowing base x motion
+    default_ee_link_name = "link_straight_gripper"
+
+    # TODO: is there a particular reason the arm ls are inverted from PIN_CONTROLLED_JOINTS?
+    # If not, we could unify them...
+    default_manip_mode_controlled_joints = [
+        "base_x_joint",
         "joint_lift",
         "joint_arm_l3",
         "joint_arm_l2",
@@ -186,13 +191,13 @@ class HelloStretchKinematics(Robot):
 
     def _create_ik_solvers(
         self, ik_type: str = "pybullet", visualize: bool = False
-    ):  # TODO: spowers unused flag
+    ):  # TODO: spowers unused visualize flag?
         """Create ik solvers using pybullet or something else."""
         # You can set one of the visualize flags to true to debug IK issues
         # This is not exposed manually - only one though or it will fail
         self.ik_solver = PybulletIKSolver(
             self.full_body_urdf_path,
-            self.ee_link_name,
+            self._ee_link_name,
             self.full_body_controlled_joints,
             visualize=False,
         )
@@ -208,16 +213,16 @@ class HelloStretchKinematics(Robot):
         if "pybullet" in ik_type:
             self.manip_ik_solver = PybulletIKSolver(
                 self.manip_mode_urdf_path,
-                self.ee_link_name,
-                self.manip_mode_controlled_joints,
+                self._ee_link_name,
+                self._manip_mode_controlled_joints,
                 visualize=False,
                 joint_range=self.range[self.manip_indices],
             )
         elif "pinocchio" in ik_type:
             self.manip_ik_solver = PinocchioIKSolver(
                 self.manip_mode_urdf_path,
-                self.ee_link_name,
-                self.manip_mode_controlled_joints,
+                self._ee_link_name,
+                self._manip_mode_controlled_joints,
             )
 
         if "optimize" in ik_type:
@@ -234,7 +239,10 @@ class HelloStretchKinematics(Robot):
         visualize: bool = False,
         root: str = ".",
         ik_type: str = "pybullet",
+        ee_link_name: Optional[str] = None,
+        grasp_frame: Optional[str] = None,
         joint_tolerance: float = 0.01,
+        manip_mode_controlled_joints: Optional[Sequence[str]] = None,
     ):
         """Create the robot in bullet for things like kinematics; extract information"""
 
@@ -271,8 +279,21 @@ class HelloStretchKinematics(Robot):
         self.set_joint_position = self.ref.set_joint_position
 
         self._update_joints()
-        self._create_ik_solvers(ik_type=ik_type, visualize=visualize)
+
         self._ik_type = ik_type
+        self._ee_link_name = (
+            ee_link_name if ee_link_name is not None else self.default_ee_link_name
+        )
+        self._grasp_frame = (
+            grasp_frame if grasp_frame is not None else STRETCH_GRASP_FRAME
+        )
+        self._manip_mode_controlled_joints = (
+            manip_mode_controlled_joints
+            if manip_mode_controlled_joints is not None
+            else self.default_manip_mode_controlled_joints
+        )
+
+        self._create_ik_solvers(ik_type=ik_type, visualize=visualize)
 
     def set_head_config(self, q):
         # WARNING: this sets all configs
@@ -643,8 +664,8 @@ class HelloStretchKinematics(Robot):
         pose[:3, :3] = np.array(se3).reshape(3, 3)
         x, y, z = pos
         pose[:3, 3] = np.array([x, y, z - self.base_height])
-        q = self.ik_solver.compute_ik(pose, self._to_ik_format(q0))
-        if q is not None:
+        q, success, debug_info = self.ik_solver.compute_ik(pose, self._to_ik_format(q0))
+        if q is not None and success:
             return self._to_plan_format(q)
         else:
             return None
@@ -680,10 +701,10 @@ class HelloStretchKinematics(Robot):
             # This logic currently in local hello robot client
             raise NotImplementedError()
 
-        _q, success = self.manip_ik_solver.compute_ik(
+        _q, success, debug_info = self.manip_ik_solver.compute_ik(
             pos, quat, q0, num_attempts=num_attempts, verbose=verbose
         )
-        if _q is None:
+        if _q is None or not success:
             return None
 
         q = self._from_manip_format(_q, default_q)
@@ -693,7 +714,7 @@ class HelloStretchKinematics(Robot):
     def get_ee_pose(self, q=None):
         if q is not None:
             self.set_config(q)
-        return self.ref.get_link_pose(STRETCH_GRASP_FRAME)
+        return self.ref.get_link_pose(self._grasp_frame)
 
     def update_look_front(self, q):
         """look in front so we can see the floor"""

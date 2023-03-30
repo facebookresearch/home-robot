@@ -1,5 +1,3 @@
-import uuid
-
 import numpy as np
 from stretch_continual.envs.stretch_demo_base_env import StretchDemoBaseEnv
 
@@ -22,7 +20,6 @@ class StretchOfflineDemoEnv(StretchDemoBaseEnv):
         self._current_trajectory = None
         self._camera_info_in_state = camera_info_in_state
         self._use_key_frames = use_key_frames
-        self._cached_camera_data = None
         self._single_step_trajectory = single_step_trajectory
         self._random_trajectory_start = True
         self._context_observation = None
@@ -37,9 +34,15 @@ class StretchOfflineDemoEnv(StretchDemoBaseEnv):
 
     @property
     def model(self):
+        # Note: should be consistent with StretchLiveEnv parameters. Not currently unified because StretchClient
+        # creates its own instance of Kinematics, but I don't want the OfflineEnv to have a full StretchClient
         if self._model is None:
             self._model = HelloStretchKinematics(
-                urdf_path=self._urdf_path, ik_type="pinocchio_optimize"
+                urdf_path=self._urdf_path,
+                ik_type="pinocchio_optimize",
+                grasp_frame=self.EE_LINK_NAME,
+                ee_link_name=self.EE_LINK_NAME,
+                manip_mode_controlled_joints=self.MANIP_MODE_CONTROLLED_JOINTS,
             )
         return self._model
 

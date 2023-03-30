@@ -189,14 +189,20 @@ def test_pinocchio_ik_optimization(pin_robot, pin_ik_optimizer, test_pose):
     quat_desired = np.array(test_pose[1])
 
     # Directly solve with IK
-    q, _ = pin_robot.manip_ik_solver.compute_ik(pos_desired, quat_desired)
+    q, success, pin_debug_info = pin_robot.manip_ik_solver.compute_ik(
+        pos_desired, quat_desired
+    )
     pos_out1, quat_out1 = pin_robot.manip_ik_solver.compute_fk(q)
     pos_err1 = np.linalg.norm(pos_out1 - pos_desired)
 
     # Solve with CEM
-    q_result, best_cost, last_iter, opt_sigma = pin_ik_optimizer.compute_ik(
-        (pos_desired, quat_desired)
+    q_result, success, pin_optimizer_debug_info = pin_ik_optimizer.compute_ik(
+        pos_desired, quat_desired
     )
+    best_cost = pin_optimizer_debug_info["best_cost"]
+    last_iter = pin_optimizer_debug_info["last_iter"]
+    opt_sigma = pin_optimizer_debug_info["opt_sigma"]
+
     pos_out2, quat_out2 = pin_robot.manip_ik_solver.compute_fk(q_result)
     pos_err2 = np.linalg.norm(pos_out2 - pos_desired)
 
@@ -217,6 +223,7 @@ def test_pinocchio_ik_optimization(pin_robot, pin_ik_optimizer, test_pose):
         or np.all(opt_sigma) <= pin_ik_optimizer.opt.cost_tol
         or last_iter >= pin_ik_optimizer.opt.max_iterations
     )
+    assert success
 
 
 def test_ros_to_pin(pin_robot, test_joints):
