@@ -2,18 +2,13 @@
 #
 # This source code is licensed under the MIT license found in the
 # LICENSE file in the root directory of this source tree.
-import io
 from typing import Optional
 
 import cv2
-import h5py
-import imageio
-import matplotlib.pyplot as plt
 import numpy as np
 import open3d as o3d
 import torch
 import trimesh.transformations as tra
-from tqdm import tqdm
 
 
 def numpy_to_pcd(xyz: np.ndarray, rgb: np.ndarray = None) -> o3d.geometry.PointCloud:
@@ -147,9 +142,11 @@ def save_geometries_as_image(
     point_size: Optional[float] = None,
     near_clipping: Optional[float] = None,
     far_clipping: Optional[float] = None,
+    live_visualization: bool = False,
 ):
     """
     Helper function to allow manipulation of the camera to get a better image of the point cloud.
+    The live_visualization flag can help debug issues, by also spawning an interactable window.
     """
     vis = o3d.visualization.Visualizer()
     vis.create_window()
@@ -191,6 +188,9 @@ def save_geometries_as_image(
 
     if point_size is not None:
         render_options.point_size = point_size
+
+    if live_visualization:
+        vis.run()
 
     vis.poll_events()
     vis.update_renderer()
