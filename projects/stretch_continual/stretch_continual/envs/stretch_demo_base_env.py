@@ -179,7 +179,9 @@ class StretchDemoBaseEnv(gym.Env):
         return ee_pos, ee_rot
 
     def gripper_ik(self, model, pos, rot, current_joints):
-        ros_pose = model.manip_ik((pos, rot), q0=current_joints)
+        ros_pose, ik_success, ik_debug_info = model.manip_ik(
+            (pos, rot), q0=current_joints
+        )
 
         # Prevent full rotations of the wrist...
         raw_roll = ros_pose[HelloStretchIdx.WRIST_ROLL]
@@ -289,7 +291,7 @@ class StretchDemoBaseEnv(gym.Env):
             "R": robot.dpt_cam.R,
             "P": robot.dpt_cam.P,
         }
-        camera_pose = robot.camera_pose.matrix()
+        camera_pose = robot.camera_pose
         return color_camera_info, depth_camera_info, camera_pose
 
     def get_images_from_robot(self, robot):

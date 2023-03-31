@@ -141,13 +141,14 @@ class StretchLiveEnv(StretchDemoBaseEnv):
         # so translate
 
         reduced_pose = self.client.manip._extract_joint_pos(pose)
-        gripper = pose[HelloStretchIdx.GRIPPER]
-        pose[HelloStretchIdx.BASE_X] = 0  # Not supporting base motion
+        gripper = reduced_pose[HelloStretchIdx.GRIPPER]
+        reduced_pose[HelloStretchIdx.BASE_X] = 0  # Not supporting base motion
 
-        self.client.manip.goto_joint_positions(reduced_pose)
+        self.client.manip.goto_joint_positions(reduced_pose, blocking=False)
         self.client.manip.move_gripper(gripper)
         self.client.head.set_pan_tilt(
-            pose[HelloStretchIdx.HEAD_PAN], pose[HelloStretchIdx.HEAD_TILT]
+            reduced_pose[HelloStretchIdx.HEAD_PAN],
+            reduced_pose[HelloStretchIdx.HEAD_TILT],
         )
 
     def reset(self, ensure_first=True):
