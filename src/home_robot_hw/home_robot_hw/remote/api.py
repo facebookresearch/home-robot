@@ -2,7 +2,7 @@
 #
 # This source code is licensed under the MIT license found in the
 # LICENSE file in the root directory of this source tree.
-from typing import Dict, Optional, Sequence
+from typing import Dict, List, Optional
 
 import rospy
 
@@ -28,7 +28,7 @@ class StretchClient:
         visualize_ik: bool = False,
         grasp_frame: Optional[str] = None,
         ee_link_name: Optional[str] = None,
-        manip_mode_controlled_joints: Optional[Sequence[str]] = None,
+        manip_mode_controlled_joints: Optional[List[str]] = None,
     ):
         # Ros
         if init_node:
@@ -125,7 +125,7 @@ class StretchClient:
 
     @property
     def camera_pose(self):
-        return self._ros_client.se3_camera_pose
+        return self.head.get_pose_in_base_coords(rotated=False)
 
     @property
     def rgb_cam(self):

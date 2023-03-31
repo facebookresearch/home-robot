@@ -69,7 +69,9 @@ def ik_helper(
     print("GOAL:", pos, quat)
     if indicator_block is not None:
         indicator_block.set_pose(pos, quat)
-    res = robot.manip_ik((pos, quat), np.zeros(robot.dof), relative=True, verbose=True)
+    res, success, ik_debug_info = robot.manip_ik(
+        (pos, quat), np.zeros(robot.dof), relative=True, verbose=True
+    )
     if res is not None:
         robot.set_config(res)
     pos2, quat2 = robot.get_ee_pose()
@@ -79,6 +81,7 @@ def ik_helper(
     print("error was:", err)
     assert err < POS_ERROR_TOL
     assert quaternion_distance(quat, quat2) < ori_error_tol
+    assert success
     if debug:
         input("press enter to continue")
     return pos2, quat2, res
