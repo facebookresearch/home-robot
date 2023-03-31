@@ -227,6 +227,7 @@ def test_pinocchio_against_pybullet(pin_robot, pb_robot, test_pose):
 def test_pinocchio_optimize_against_pybullet_optimize(
     pin_optimize_robot, pb_optimize_robot, test_pose
 ):
+    np.random.seed(0)
     pin_optimize_robot.set_config(STRETCH_HOME_Q)
     pb_optimize_robot.set_config(STRETCH_HOME_Q)
 
@@ -305,6 +306,7 @@ def test_pinocchio_ik_optimization(pin_robot, pin_ik_optimizer, test_pose):
 
 
 def test_pybullet_ik_optimization(pb_robot, pb_ik_optimizer, test_pose):
+    np.random.seed(0)
     pos_desired = np.array(test_pose[0])
     quat_desired = np.array(test_pose[1])
 
