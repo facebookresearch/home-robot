@@ -97,7 +97,6 @@ class StretchDemoBaseEnv(gym.Env):
                                 and file_allowed
                             ):
                                 file_path = os.path.join(directory, filename)
-                                relative_path = os.path.relpath(file_path, output_path)
                                 linked_files_group[f"file_{h5_id}"] = h5py.ExternalLink(
                                     filename=file_path, path="."
                                 )
@@ -140,7 +139,10 @@ class StretchDemoBaseEnv(gym.Env):
                     dir=directory
                 ) as temp_aggregation_file:
                     with self.load_all_h5_from_dir(
-                        directory, only_key_frames, temp_aggregation_file, cache=cache
+                        directory,
+                        only_key_frames,
+                        temp_aggregation_file,
+                        cache=cache,
                     ) as h5_file:
                         aggregated_h5 = h5_file["linked_files"]
                         traj_counts = [
