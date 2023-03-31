@@ -23,12 +23,14 @@ from home_robot_hw.teleop.stretch_xbox_controller_teleop import (
 class StretchXboxController(object):
     def __init__(
         self,
-        model,
+        stretch_client=None,
         on_first_joystick_input=None,
         start_button_callback=None,
         back_button_callback=None,
     ):
-        self._robot_client = StretchClient()
+        self._robot_client = (
+            StretchClient() if stretch_client is None else stretch_client
+        )
         self._robot_client.switch_to_manipulation_mode()
         self._robot = StretchRosInterface(init_cameras=False, depth_buffer_size=1)
         self._on_first_joystick_input = on_first_joystick_input
@@ -80,27 +82,6 @@ class StretchXboxController(object):
         }  # TODO: check axes
         # TODO: start_button_pressed not in original output
 
-        """state = {'middle_led_ring_button_pressed': self.middle_led_ring_button.pressed,
-                 'left_stick_x': self.left_stick.x,
-                 'left_stick_y': self.left_stick.y,
-                 'right_stick_x': self.right_stick.x,
-                 'right_stick_y': self.right_stick.y,
-                 'left_stick_button_pressed': self.left_stick_button.pressed,
-                 'right_stick_button_pressed': self.right_stick_button.pressed,
-                 'bottom_button_pressed': self.bottom_button.pressed,
-                 'top_button_pressed': self.top_button.pressed,
-                 'left_button_pressed': self.left_button.pressed,
-                 'right_button_pressed': self.right_button.pressed,
-                 'left_shoulder_button_pressed': self.left_shoulder_button.pressed,
-                 'right_shoulder_button_pressed': self.right_shoulder_button.pressed,
-                 'select_button_pressed': self.select_button.pressed,
-                 'start_button_pressed': self.start_button.pressed,
-                 'left_trigger_pulled': self.left_trigger.pulled,
-                 'right_trigger_pulled': self.right_trigger.pulled,
-                 'bottom_pad_pressed': self.bottom_pad.pressed,
-                 'top_pad_pressed': self.top_pad.pressed,
-                 'left_pad_pressed': self.left_pad.pressed,
-                 'right_pad_pressed': self.right_pad.pressed}"""
         return state
 
     def _set_mode(self) -> None:
@@ -110,7 +91,7 @@ class StretchXboxController(object):
             self._robot_client.switch_to_navigation_mode()
 
     def _create_arm_extension_loop(self, controller_state):
-        arm_scale = 1.0  # TODO: better config/less hacky
+        arm_scale = 0.25
 
         def callback(event):
             # Re-run the manager because it uses globals to accumulate speed
@@ -124,7 +105,7 @@ class StretchXboxController(object):
         return callback
 
     def _create_lift_arm_loop(self, controller_state):
-        lift_scale = 1.0  # TODO: better config/less hacky
+        lift_scale = 0.1
 
         def callback(event):
             # Re-run the manager because it uses globals to accumulate speed

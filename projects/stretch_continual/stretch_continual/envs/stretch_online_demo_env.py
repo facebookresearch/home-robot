@@ -1,18 +1,15 @@
 import datetime
 import os
-import uuid
 
 import geometry_msgs
 import rospy
 import tf2_ros
 from stretch_continual.envs.stretch_demo_base_env import StretchDemoBaseEnv
-from stretch_continual.envs.stretch_offline_demo_env import (  # TODO: rename
-    StretchOfflineDemoEnv,
-)
+from stretch_continual.envs.stretch_offline_demo_env import StretchOfflineDemoEnv
 
-# from home_robot_hw.teleop.stretch_xbox_controller import StretchXboxController
-# from home_robot_hw.ros.recorder import Recorder
 from home_robot_hw.remote.api import StretchClient
+from home_robot_hw.ros.recorder import Recorder
+from home_robot_hw.teleop.stretch_xbox_controller import StretchXboxController
 
 
 class StretchOnlineDemoEnv(StretchDemoBaseEnv):
@@ -21,9 +18,13 @@ class StretchOnlineDemoEnv(StretchDemoBaseEnv):
     that can be trained on on-line.
     """
 
+    # TODO: If we start using the Online env in the training loop, this class will need to be updated.
+    # For that purpose, this class is a bit of a stub, with exact usage to be determine when needed
+
     def __init__(
         self,
         output_file_dir,
+        task_name,
         camera_info_in_state=False,
         record_key_frames=False,
         record_all_frames=False,
@@ -32,12 +33,12 @@ class StretchOnlineDemoEnv(StretchDemoBaseEnv):
         super().__init__(initialize_ros=True, include_context=include_context)
         self._episode_in_progress = False
         self._camera_info_in_state = camera_info_in_state
+        self._task_name = task_name
+        self._client = None
 
-        # TODO: don't hardcode this path
-        self._robot = StretchClient()
         self._controller_handler = StretchXboxController(
-            self._model,
-            start_button_callback=self._start_button_callback,  # TODO: XboxController not using the correct API...
+            self.client,
+            start_button_callback=self._start_button_callback,
             back_button_callback=self._back_button_callback,
         )
 
@@ -45,19 +46,13 @@ class StretchOnlineDemoEnv(StretchDemoBaseEnv):
         os.makedirs(output_file_dir, exist_ok=True)
         timestamp = datetime.datetime.now().strftime("%b_%d_%Y_%H.%M.%S.%f")
         output_filename = os.path.join(output_file_dir, f"demo_{timestamp}.h5")
-        self._recorder = (
-            Recorder(output_filename, model=self._model, robot=self._robot)
-            if record_all_frames
-            else None
-        )
+        self._recorder = Recorder(output_filename) if record_all_frames else None
 
         key_frame_output_filename = os.path.join(
             output_file_dir, f"demo_{timestamp}_key_frames.h5"
         )
         self._key_frame_recorder = (
-            Recorder(key_frame_output_filename, model=self._model, robot=self._robot)
-            if record_key_frames
-            else None
+            Recorder(key_frame_output_filename) if record_key_frames else None
         )
 
         # Step-related parameters
@@ -75,6 +70,24 @@ class StretchOnlineDemoEnv(StretchDemoBaseEnv):
 
     def __del__(self):
         self.close()
+
+    @property
+    def client(self):
+        if self._client is None:
+            self._client = StretchClient(
+                urdf_path=self._urdf_path,
+                init_node=self._initialize_ros,
+                ik_type="pinocchio_optimize",
+                grasp_frame=self.EE_LINK_NAME,
+                ee_link_name=self.EE_LINK_NAME,
+                manip_mode_controlled_joints=self.MANIP_MODE_CONTROLLED_JOINTS,
+            )
+            self._client.switch_to_manipulation_mode()
+        return self._client
+
+    @property
+    def model(self):
+        return self.client.robot_model
 
     def close(self):
         print("Closing Online Demo Env")
@@ -105,10 +118,10 @@ class StretchOnlineDemoEnv(StretchDemoBaseEnv):
         # Episode is about to start
         if not self._episode_in_progress:
             if self._recorder is not None:
-                self._recorder.start_recording()
+                self._recorder.start_recording(self._task_name)
 
             if self._key_frame_recorder is not None:
-                self._key_frame_recorder.start_recording()
+                self._key_frame_recorder.start_recording(self._task_name)
 
         else:
             # Episode is about to finish
@@ -117,7 +130,7 @@ class StretchOnlineDemoEnv(StretchDemoBaseEnv):
             # Stop publishing key frames
             self._key_frame_poses = []
 
-        # Setting the toggle flag at the end as a quick-and-dirty "lock" for now (TODO)
+        # Setting the toggle flag at the end as a quick-and-dirty "lock"
         self._episode_in_progress = not self._episode_in_progress
         print(f"Episode changed status. In progress? {self._episode_in_progress}")
 
@@ -128,30 +141,34 @@ class StretchOnlineDemoEnv(StretchDemoBaseEnv):
                 print("Saving key frame")
                 rgb, depth, q, dq = self._key_frame_recorder.save_frame()
 
-                pose = self.gripper_fk(self._model, q)
+                pose = self.gripper_fk(self.model, q)
                 self._key_frame_poses.append(pose)
             else:
                 print(
                     "Attempted to save a keyframe before starting an episode. Please hit the start button first."
                 )
 
-    def reset(self):
-        rgb, depth = self.get_images_from_robot(self._robot)
+    def _get_current_observation(self):
+        rgb, depth = self.get_images_from_robot(self.client)
         (
             color_camera_info,
             depth_camera_info,
             camera_pose,
-        ) = self.construct_camera_data_from_robot(self._robot)
-        self._current_timestep = 0
+        ) = self.construct_camera_data_from_robot(self.client)
         observation = self.construct_observation(
             rgb,
             depth,
-            self._robot.pos,
+            self.client.robot_joint_pos,
             color_camera_info,
             camera_pose,
             camera_info_in_state=self._camera_info_in_state,
-            model=self._model,
-        )  # TODO: we don't know the max time yet... (though in this case it's 0 regardless)
+            model=self.model,
+        )
+        return observation
+
+    def reset(self):
+        self._current_timestep = 0
+        observation = self._get_current_observation()
         return observation
 
     def step(self, _):
@@ -165,29 +182,12 @@ class StretchOnlineDemoEnv(StretchDemoBaseEnv):
         observation = None
 
         if self._recorder is not None:
-            rgb, depth, absolute_pose, delta_pose = self._recorder.save_frame()
-            (
-                color_camera_info,
-                depth_camera_info,
-                camera_pose,
-            ) = self.construct_camera_data_from_robot(self._robot)
-
-            # TODO: how to do time? We don't know the max (currently unused downstream anyway...) This is currently always just ratio of 1
+            # Note (TODO): the observation returned directly may not be identical to the one recorded
+            self._recorder.save_frame()
+            observation = self._get_current_observation()
             self._current_timestep += 1
-            observation = self.construct_observation(
-                rgb,
-                depth,
-                self._robot.pos,
-                color_camera_info,
-                depth_camera_info,
-                camera_pose,
-                camera_info_in_state=self._camera_info_in_state,
-                model=self._model,
-            )
 
-        info = {
-            "demo_action": None
-        }  # If we start using the Online env in the training loop, this class will need to be updated to be consistent
+        info = {"demo_action": None}
         reward = 0
 
         if done:
@@ -212,30 +212,33 @@ if __name__ == "__main__":
     faulthandler.enable()
     from stretch_continual.envs.stretch_live_env import StretchLiveEnv
 
+    mode = "collect"  # ["collect", "replay", "offline"]
+
     base_dir = os.path.join(
         os.environ["DATASET_ROOT"], "demo_data/kitchen_test/offline_eval"
     )
     demo_dir = f"{base_dir}/bottle_to_sink/3"
+    task_name = "bottle_to_sink"
 
-    # base_dir = os.path.join(os.environ["DATASET_ROOT"], "demo_data/kitchen_test/v4")
-    # demo_dir = f"{base_dir}/bottle_to_sink/"
-    # demo_dir = f"{base_dir}/bottle_from_sink/1"
+    if mode == "collect":
+        # Stores an h5 containing key frames in the specified output directory
+        env = StretchOnlineDemoEnv(
+            output_file_dir=demo_dir,
+            camera_info_in_state=True,
+            record_key_frames=True,
+            task_name=task_name,
+        )
+    elif mode == "replay":
+        # Will replay demos collected and stored in the specified dir, chosen randomly
+        env = StretchLiveEnv(demo_dir=demo_dir, camera_info_in_state=True)
+    elif mode == "offline":
+        # Will select random trajectories; useful for debugging
+        env = StretchOfflineDemoEnv(
+            demo_dir=demo_dir, camera_info_in_state=True, use_key_frames=True
+        )
+    else:
+        raise Exception(f"Unknown mode: {mode}")
 
-    # demo_dir = f"{base_dir}/open_oven/0"
-    # demo_dir = f"{base_dir}/close_oven/1"
-
-    # demo_dir = f"{base_dir}/beans_into_oven/1"
-    # demo_dir = f"{base_dir}/beans_from_oven/1"
-
-    # demo_dir = f"{base_dir}/jello_onto_oven/1"
-    # demo_dir = f"{base_dir}/jello_from_oven_top/1"
-
-    # base_dir = os.path.join(os.environ["DATASET_ROOT"], "demo_data/kitchen_test/bottle_multi")
-    # demo_dir = f"{base_dir}/pose_2/0"
-
-    # env = StretchOfflineDemoEnv(demo_dir=demo_dir, camera_info_in_state=True, use_key_frames=True)
-    env = StretchLiveEnv(demo_dir=demo_dir, camera_info_in_state=True)
-    # env = StretchOnlineDemoEnv(output_file_dir=demo_dir, camera_info_in_state=True, record_key_frames=True)
     done = False
     env.reset()
 
