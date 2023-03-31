@@ -85,9 +85,17 @@ class PinocchioIKSolver:
         quat: np.ndarray,
         q_init=None,
         max_iterations=100,
-        num_attempts=1,
+        num_attempts: int = 1,
+        verbose: bool = False,
     ) -> Tuple[np.ndarray, bool]:
-        """given end-effector position and quaternion, return joint values"""
+        """given end-effector position and quaternion, return joint values.
+
+        Two parameters are currently unused and might be implemented in the future:
+            q_init: initial configuration for the optimization to start in; especially useful for
+                    arms with redundant degrees of freedom
+            num_attempts: start from multiple initial configs; included for compatibility with pb
+            max iterations: time budget in number of steps; included for compatibility with pb
+        """
         i = 0
         if q_init is None:
             q = self.q_neutral.copy()
@@ -106,6 +114,8 @@ class PinocchioIKSolver:
 
             dMi = desired_ee_pose.actInv(self.data.oMf[self.ee_frame_idx])
             err = pinocchio.log(dMi).vector
+            if verbose:
+                print(f"[pinocchio_ik_solver] iter={i}; error={err}")
             if np.linalg.norm(err) < self.EPS:
                 success = True
                 break

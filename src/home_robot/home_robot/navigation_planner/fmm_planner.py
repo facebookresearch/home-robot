@@ -8,6 +8,7 @@ from typing import List
 import cv2
 import numpy as np
 import skfmm
+import skimage
 from numpy import ma
 
 
@@ -61,6 +62,8 @@ class FMMPlanner:
         """
         traversible_ma = ma.masked_values(self.traversible * 1, 0)
         traversible_ma[goal_map == 1] = 0
+        # This is where we actually call the FMM algorithm!!
+        # It will compute the distance from each traversible point to the goal.
         dd = skfmm.distance(traversible_ma, dx=1)
         dd = ma.filled(dd, np.max(dd) + 1)
         self.fmm_dist = dd
@@ -168,3 +171,41 @@ class FMMPlanner:
                         ** 0.5,
                     )
         return mask
+
+    def _find_nearest_to_multi_goal(
+        self, goal: np.ndarray, visualize=False
+    ) -> np.ndarray:
+        """
+        Find the nearest point to a goal which is traversible
+        """
+        # TODO Adapt this function to multi-goal and use it to select the goal
+        traversible = (
+            skimage.morphology.binary_dilation(
+                np.zeros(self.traversible.shape), skimage.morphology.disk(2)
+            )
+            != 1
+        )
+        traversible = traversible * 1.0
+        planner = FMMPlanner(traversible)
+        # Plan to the goal mask
+        planner.set_multi_goal(goal)
+
+        # Now mask out anything here based on distance to the goal mask
+        mask = self.traversible
+        dist_map = planner.fmm_dist * mask
+        dist_map[dist_map == 0] = dist_map.max()
+
+        if visualize:
+            # Debugging code. Make sure we are properly finding the closest traversible goal.
+            import matplotlib.pyplot as plt
+
+            plt.subplot(121)
+            plt.imshow(self.traversible)
+            plt.subplot(122)
+            plt.imshow(dist_map)
+            plt.show()
+
+        min_dist_idx = dist_map.argmin()
+        goal = np.unravel_index(min_dist_idx, dist_map.shape)
+
+        return goal

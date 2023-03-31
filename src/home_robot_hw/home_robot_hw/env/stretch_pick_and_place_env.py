@@ -185,7 +185,7 @@ class StretchPickandPlaceEnv(StretchEnv):
     def get_observation(self) -> Observations:
         """Get Detic and rgb/xyz/theta from this"""
         rgb, depth, xyz = self.robot.head.get_images(
-            compute_xyz=True, rotate_images=True
+            compute_xyz=True,
         )
         current_pose = xyt2sophus(self.get_base_pose())
 

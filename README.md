@@ -7,7 +7,7 @@
 [![Python 3.8](https://img.shields.io/badge/python-3.7-blue.svg)](https://www.python.org/downloads/release/python-370/)
 [![pre-commit](https://img.shields.io/badge/pre--commit-enabled-brightgreen?logo=pre-commit&logoColor=white)](https://github.com/pre-commit/pre-commit)
 
-Mostly Hello Stretch infrastructure
+Your open-source robotic mobile manipulation stack
 
 ## Core Concepts
 

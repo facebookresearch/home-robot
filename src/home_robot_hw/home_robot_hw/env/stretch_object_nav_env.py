@@ -93,7 +93,10 @@ class StretchObjectNavEnv(StretchEnv):
             if not self.in_navigation_mode():
                 self.robot.switch_to_navigation_mode()
                 rospy.sleep(self.msg_delay_t)
-            self.robot.nav.navigate_to(continuous_action, relative=True, blocking=True)
+            if not self.dry_run:
+                self.robot.nav.navigate_to(
+                    continuous_action, relative=True, blocking=True
+                )
         rospy.sleep(0.5)
 
     def set_goal(self, goal):

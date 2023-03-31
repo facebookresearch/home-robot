@@ -44,9 +44,9 @@ class RosMapDataCollector(object):
         """Step the collector. Get a single observation of the world. Remove bad points, such as
         those from too far or too near the camera."""
         rgb, depth, xyz = self.robot.head.get_images(
-            compute_xyz=True, rotate_images=False
+            compute_xyz=True,
         )
-        camera_pose = self.robot.head.get_pose(rotated=False)
+        camera_pose = self.robot.head.get_pose()
         orig_rgb = rgb.copy()
         orig_depth = depth.copy()
 

@@ -9,6 +9,9 @@ from home_robot.navigation_policy.object_navigation.objectnav_frontier_explorati
     ObjectNavFrontierExplorationPolicy,
 )
 
+# Do we need to visualize the frontier as we explore?
+debug_frontier_map = False
+
 
 class ObjectNavAgentModule(nn.Module):
     def __init__(self, config):
@@ -23,13 +26,17 @@ class ObjectNavAgentModule(nn.Module):
             map_size_cm=config.AGENT.SEMANTIC_MAP.map_size_cm,
             map_resolution=config.AGENT.SEMANTIC_MAP.map_resolution,
             vision_range=config.AGENT.SEMANTIC_MAP.vision_range,
+            explored_radius=config.AGENT.SEMANTIC_MAP.explored_radius,
+            been_close_to_radius=config.AGENT.SEMANTIC_MAP.been_close_to_radius,
             global_downscaling=config.AGENT.SEMANTIC_MAP.global_downscaling,
             du_scale=config.AGENT.SEMANTIC_MAP.du_scale,
             cat_pred_threshold=config.AGENT.SEMANTIC_MAP.cat_pred_threshold,
             exp_pred_threshold=config.AGENT.SEMANTIC_MAP.exp_pred_threshold,
             map_pred_threshold=config.AGENT.SEMANTIC_MAP.map_pred_threshold,
         )
-        self.policy = ObjectNavFrontierExplorationPolicy()
+        self.policy = ObjectNavFrontierExplorationPolicy(
+            exploration_strategy=config.AGENT.exploration_strategy
+        )
 
     @property
     def goal_update_steps(self):
@@ -151,12 +158,27 @@ class ObjectNavAgentModule(nn.Module):
         seq_goal_map = goal_map.view(batch_size, sequence_length, *goal_map.shape[-2:])
         seq_found_goal = found_goal.view(batch_size, sequence_length)
 
+        # Compute the frontier map here
+        frontier_map = self.policy.get_frontier_map(map_features)
+        seq_frontier_map = frontier_map.view(
+            batch_size, sequence_length, *frontier_map.shape[-2:]
+        )
+        if debug_frontier_map:
+            import matplotlib.pyplot as plt
+
+            plt.subplot(121)
+            plt.imshow(seq_frontier_map[0, 0].numpy())
+            plt.subplot(122)
+            plt.imshow(goal_map[0].numpy())
+            plt.show()
+            breakpoint()
         # t2 = time.time()
         # print(f"[Policy] Total time: {t2 - t1:.2f}")
 
         return (
             seq_goal_map,
             seq_found_goal,
+            seq_frontier_map,
             final_local_map,
             final_global_map,
             seq_local_pose,

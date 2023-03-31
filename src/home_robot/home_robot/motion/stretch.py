@@ -44,9 +44,6 @@ STRETCH_PREGRASP_Q = np.array(
         0.6,  # lift
         0.01,  # arm
         0.0,  # gripper rpy
-        # 3.12,  # wrist roll
-        # -1.51,  # wrist pitch
-        # -1.57,  # wrist yaw
         0.0,  # wrist roll
         -1.51,  # wrist pitch
         1.57,  # wrist yaw
@@ -97,6 +94,9 @@ STRETCH_TO_GRASP[:3, 3] = np.array([0, 0, STRETCH_STANDOFF_DISTANCE])
 STRETCH_GRIPPER_OPEN = 0.22
 STRETCH_GRIPPER_CLOSE = -0.2
 # STRETCH_GRIPPER_CLOSE = -0.5
+STRETCH_HEAD_CAMERA_ROTATIONS = (
+    3  # number of counterclockwise rotations for the head camera
+)
 
 
 class HelloStretchIdx:
@@ -637,6 +637,7 @@ class HelloStretchKinematics(Robot):
         relative: bool = True,
         update_pb: bool = True,
         num_attempts: int = 1,
+        verbose: bool = False,
     ):
         """IK in manipulation mode. Takes in a 4x4 pose_query matrix in se(3) and initial
         configuration of the robot.
@@ -659,7 +660,9 @@ class HelloStretchKinematics(Robot):
             # So how do we do that?
             # This logic currently in local hello robot client
             raise NotImplementedError()
-        _q = self.manip_ik_solver.compute_ik(pos, quat, q0, num_attempts=num_attempts)
+        _q = self.manip_ik_solver.compute_ik(
+            pos, quat, q0, num_attempts=num_attempts, verbose=verbose
+        )
         if _q is None:
             return None
         if self._ik_type == "pinocchio":
