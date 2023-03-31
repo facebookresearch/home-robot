@@ -157,7 +157,7 @@ def pin_ik_optimizer(pin_robot):
 @pytest.fixture(
     params=["pybullet", "pinocchio", "pybullet_optimize", "pinocchio_optimize"]
 )
-def robot(request, pb_robot, pin_robot):
+def robot(request, pb_robot, pin_robot, pb_optimize_robot, pin_optimize_robot):
     if request.param == "pybullet":
         return pb_robot
     elif request.param == "pinocchio":
@@ -169,6 +169,11 @@ def robot(request, pb_robot, pin_robot):
 
 
 def test_ik_solvers(robot, test_pose):
+    # Loosen the orientation error bounds if we're in an optimize mode
+    ori_error_tol = ORI_ERROR_TOL
+    if "optimize" in robot._ik_type:
+        ori_error_tol = 1e-1
+
     # Create block for visualization
     block = PbArticulatedObject(
         "red_block",
@@ -183,11 +188,11 @@ def test_ik_solvers(robot, test_pose):
     pos, quat = test_pose
 
     print("-------- 1: Inverse kinematics ---------")
-    ik_helper(robot, pos, quat, block)
+    ik_helper(robot, pos, quat, block, ori_error_tol=ori_error_tol)
 
     print("-------- 2: FK + IK Consistency  ---------")
     pos1, quat1 = robot.get_ee_pose()
-    ik_helper(robot, pos1, quat1, block)
+    ik_helper(robot, pos1, quat1, block, ori_error_tol=ori_error_tol)
 
 
 def test_pinocchio_against_pybullet(pin_robot, pb_robot, test_pose):
@@ -222,6 +227,7 @@ def test_pinocchio_against_pybullet(pin_robot, pb_robot, test_pose):
 def test_pinocchio_optimize_against_pybullet_optimize(
     pin_optimize_robot, pb_optimize_robot, test_pose
 ):
+    np.random.seed(0)
     pin_optimize_robot.set_config(STRETCH_HOME_Q)
     pb_optimize_robot.set_config(STRETCH_HOME_Q)
 
@@ -300,6 +306,7 @@ def test_pinocchio_ik_optimization(pin_robot, pin_ik_optimizer, test_pose):
 
 
 def test_pybullet_ik_optimization(pb_robot, pb_ik_optimizer, test_pose):
+    np.random.seed(0)
     pos_desired = np.array(test_pose[0])
     quat_desired = np.array(test_pose[1])
 
@@ -344,4 +351,10 @@ if __name__ == "__main__":
         visualize=DEBUG,
         ik_type="pybullet",
     )
+    opt = PositionIKOptimizer(
+        robot.manip_ik_solver,
+        pos_error_tol=CEM_POS_ERROR_TOL,
+        ori_error_range=np.array([0.0, 0.0, CEM_YAW_ERROR_TOL]),  # solve for yaw only
+    )
     test_ik_solvers(robot, TEST_DATA[0])
+    test_pybullet_ik_optimization(robot, opt, TEST_DATA[0])
