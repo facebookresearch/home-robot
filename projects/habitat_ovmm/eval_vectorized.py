@@ -130,7 +130,6 @@ class VectorizedEvaluator(PPOTrainer):
 
         agent.reset_vectorized()
         while not stop():
-
             current_episodes_info = self.envs.current_episodes()
             # TODO: Currently agent can work with only 1 env, Parallelize act across envs
             actions, infos = zip(
@@ -146,7 +145,6 @@ class VectorizedEvaluator(PPOTrainer):
             # TODO: cleanup
             hab_obs = [None] * envs.num_envs
             for e, (done, info, hab_info) in enumerate(zip(dones, infos, hab_infos)):
-
                 if done:
                     episode_key = (
                         f"{current_episodes_info[e].scene_id.split('/')[-1].split('.')[0]}_"
@@ -245,7 +243,7 @@ if __name__ == "__main__":
     config, config_str = get_config(args.habitat_config_path, opts=args.opts)
     OmegaConf.set_readonly(config, True)
     baseline_config = OmegaConf.load(
-        "projects/habitat_ovmm/configs/agent/floorplanner_eval.yaml"
+        "projects/habitat_ovmm/configs/agent/floorplanner_detic_eval.yaml"
     )
     config = DictConfig({**config, **baseline_config})
     evaluator = VectorizedEvaluator(config, config_str)
