@@ -3,7 +3,7 @@
 # This source code is licensed under the MIT license found in the
 # LICENSE file in the root directory of this source tree.
 import os
-from typing import Optional, Sequence, Tuple
+from typing import List, Optional, Tuple
 
 import numpy as np
 import pybullet as pb
@@ -235,7 +235,7 @@ class HelloStretchKinematics(Robot):
         ee_link_name: Optional[str] = None,
         grasp_frame: Optional[str] = None,
         joint_tolerance: float = 0.01,
-        manip_mode_controlled_joints: Optional[Sequence[str]] = None,
+        manip_mode_controlled_joints: Optional[List[str]] = None,
     ):
         """Create the robot in bullet for things like kinematics; extract information"""
 
@@ -694,15 +694,15 @@ class HelloStretchKinematics(Robot):
             # This logic currently in local hello robot client
             raise NotImplementedError()
 
-        _q, success, debug_info = self.manip_ik_solver.compute_ik(
+        q, success, debug_info = self.manip_ik_solver.compute_ik(
             pos, quat, q0, num_attempts=num_attempts, verbose=verbose
         )
-        if _q is None or not success:
-            return None
 
-        q = self._from_manip_format(_q, default_q)
-        self.set_config(q)
-        return q
+        if q is not None:
+            q = self._from_manip_format(q, default_q)
+            self.set_config(q)
+
+        return q, success, debug_info
 
     def get_ee_pose(self, q=None):
         if q is not None:
