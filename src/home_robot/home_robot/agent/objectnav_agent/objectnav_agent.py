@@ -1,3 +1,8 @@
+# Copyright (c) Meta Platforms, Inc. and affiliates.
+#
+# This source code is licensed under the MIT license found in the
+# LICENSE file in the root directory of this source tree.
+
 from typing import Any, Dict, List, Tuple
 
 import numpy as np
@@ -14,9 +19,15 @@ from home_robot.navigation_planner.discrete_planner import DiscretePlanner
 
 from .objectnav_agent_module import ObjectNavAgentModule
 
+# For visualizing exploration issues
+debug_frontier_map = False
+
 
 class ObjectNavAgent(Agent):
     """Simple object nav agent based on a 2D semantic map"""
+
+    # Flag for debugging data flow and task configuraiton
+    verbose = False
 
     def __init__(self, config, device_id: int = 0):
         self.max_steps = config.AGENT.max_steps
@@ -38,6 +49,7 @@ class ObjectNavAgent(Agent):
             # Use DataParallel only as a wrapper to move model inputs to GPU
             self.module = DataParallel(self._module, device_ids=[self.device_id])
 
+        self.use_dilation_for_stg = config.AGENT.PLANNER.use_dilation_for_stg
         self.semantic_map = Categorical2DSemanticMapState(
             device=self.device,
             num_environments=self.num_environments,
@@ -46,9 +58,14 @@ class ObjectNavAgent(Agent):
             map_size_cm=config.AGENT.SEMANTIC_MAP.map_size_cm,
             global_downscaling=config.AGENT.SEMANTIC_MAP.global_downscaling,
         )
+        agent_radius_cm = config.AGENT.radius * 100.0
+        agent_cell_radius = int(
+            np.ceil(agent_radius_cm / config.AGENT.SEMANTIC_MAP.map_resolution)
+        )
         self.planner = DiscretePlanner(
             turn_angle=config.ENVIRONMENT.turn_angle,
             collision_threshold=config.AGENT.PLANNER.collision_threshold,
+            step_size=config.AGENT.PLANNER.step_size,
             obs_dilation_selem_radius=config.AGENT.PLANNER.obs_dilation_selem_radius,
             goal_dilation_selem_radius=config.AGENT.PLANNER.goal_dilation_selem_radius,
             map_size_cm=config.AGENT.SEMANTIC_MAP.map_size_cm,
@@ -57,6 +74,7 @@ class ObjectNavAgent(Agent):
             print_images=False,
             dump_location=config.DUMP_LOCATION,
             exp_name=config.EXP_NAME,
+            agent_cell_radius=agent_cell_radius,
         )
         self.one_hot_encoding = torch.eye(
             config.AGENT.SEMANTIC_MAP.num_sem_categories, device=self.device
@@ -126,6 +144,7 @@ class ObjectNavAgent(Agent):
         (
             goal_map,
             found_goal,
+            frontier_map,
             self.semantic_map.local_map,
             self.semantic_map.global_map,
             seq_local_pose,
@@ -157,6 +176,7 @@ class ObjectNavAgent(Agent):
         found_goal = found_goal.squeeze(1).cpu()
 
         for e in range(self.num_environments):
+            self.semantic_map.update_frontier_map(e, frontier_map[e][0])
             if found_goal[e]:
                 self.semantic_map.update_global_goal_for_env(e, goal_map[e])
             elif self.timesteps_before_goal_update[e] == 0:
@@ -169,10 +189,23 @@ class ObjectNavAgent(Agent):
             for e in range(self.num_environments)
         ]
 
+        if debug_frontier_map:
+            import matplotlib.pyplot as plt
+
+            plt.subplot(131)
+            plt.imshow(self.semantic_map.get_frontier_map(e))
+            plt.subplot(132)
+            plt.imshow(frontier_map[e][0])
+            plt.subplot(133)
+            plt.imshow(self.semantic_map.get_goal_map(e))
+            plt.show()
+            breakpoint()
+
         planner_inputs = [
             {
                 "obstacle_map": self.semantic_map.get_obstacle_map(e),
                 "goal_map": self.semantic_map.get_goal_map(e),
+                "frontier_map": self.semantic_map.get_frontier_map(e),
                 "sensor_pose": self.semantic_map.get_planner_pose_inputs(e),
                 "found_goal": found_goal[e].item(),
             }
@@ -253,7 +286,9 @@ class ObjectNavAgent(Agent):
         elif self.timesteps[0] > self.max_steps:
             action = DiscreteNavigationAction.STOP
         else:
-            action, closest_goal_map = self.planner.plan(**planner_inputs[0])
+            action, closest_goal_map = self.planner.plan(
+                **planner_inputs[0], use_dilation_for_stg=self.use_dilation_for_stg
+            )
 
         # t3 = time.time()
         # print(f"[Agent] Planning time: {t3 - t2:.2f}")
@@ -285,12 +320,22 @@ class ObjectNavAgent(Agent):
         ).unsqueeze(0)
         self.last_poses[0] = curr_pose
         object_goal_category = None
-        if obs.task_observations["object_goal"] is not None:
+        if (
+            "object_goal" in obs.task_observations
+            and obs.task_observations["object_goal"] is not None
+        ):
+            if self.verbose:
+                print("object goal =", obs.task_observations["object_goal"])
             object_goal_category = torch.tensor(
                 obs.task_observations["object_goal"]
             ).unsqueeze(0)
         recep_goal_category = None
-        if obs.task_observations["recep_goal"] is not None:
+        if (
+            "recep_goal" in obs.task_observations
+            and obs.task_observations["recep_goal"] is not None
+        ):
+            if self.verbose:
+                print("recep goal =", obs.task_observations["recep_goal"])
             recep_goal_category = torch.tensor(
                 obs.task_observations["recep_goal"]
             ).unsqueeze(0)

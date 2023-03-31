@@ -20,6 +20,7 @@ MAX_DEPTH_REPLACEMENT_VALUE = 10001
 class StretchHeadClient(AbstractControlModule):
     min_depth_val = 0.1
     max_depth_val = 4.0
+    camera_frame = "camera_color_optical_frame"
 
     def __init__(
         self,
@@ -33,14 +34,18 @@ class StretchHeadClient(AbstractControlModule):
 
     # Interface methods
 
-    def get_pose(self, rotated=False):
+    def get_pose(self, rotated=True):
         """get matrix version of the camera pose"""
-        mat = self._ros_client.se3_camera_pose.matrix()
+        return self._ros_client.se3_camera_pose.matrix()
+
+    def get_pose_in_base_coords(self, rotated=True):
+        """Use /tf to get the pose from base to camera coordinates. Useful for computing grasps in particular."""
+        pose = self._ros_client.get_frame_pose(self.camera_frame)
         if rotated:
-            # If we are using the rotated versions of the images
-            return mat @ tra.euler_matrix(0, 0, -np.pi / 2)
+            R = tra.euler_matrix(0, 0, -np.pi / 2)
+            return pose @ R
         else:
-            return mat
+            return pose
 
     def get_pan_tilt(self) -> Tuple[float, float]:
         q, _, _ = self._ros_client.get_joint_state()
@@ -79,13 +84,15 @@ class StretchHeadClient(AbstractControlModule):
         pan, tilt = self._robot_model.look_ahead
         self.set_pan_tilt(pan, tilt, blocking=blocking)
 
-    def get_images(self, compute_xyz=False, rotate_images=True):
+    def get_images(self, compute_xyz=False):
         """helper logic to get images from the robot's camera feed"""
         rgb = self._ros_client.rgb_cam.get()
         if self._ros_client.filter_depth:
             dpt = self._ros_client.dpt_cam.get_filtered()
         else:
             dpt = self._process_depth(self._ros_client.dpt_cam.get())
+
+        # Compute point cloud from depth image
         if compute_xyz:
             xyz = self._ros_client.dpt_cam.depth_to_xyz(
                 self._ros_client.dpt_cam.fix_depth(dpt)
@@ -94,22 +101,6 @@ class StretchHeadClient(AbstractControlModule):
         else:
             imgs = [rgb, dpt]
             xyz = None
-
-        if rotate_images:
-            # Get xyz in base coords for later
-            imgs = [np.rot90(np.fliplr(np.flipud(x))) for x in imgs]
-
-        if xyz is not None:
-            xyz = imgs[-1]
-            H, W = rgb.shape[:2]
-            xyz = xyz.reshape(-1, 3)
-
-            if rotate_images:
-                # Rotate the stretch camera so that top of image is "up"
-                R_stretch_camera = tra.euler_matrix(0, 0, -np.pi / 2)[:3, :3]
-                xyz = xyz @ R_stretch_camera
-                xyz = xyz.reshape(H, W, 3)
-                imgs[-1] = xyz
 
         return imgs
 
