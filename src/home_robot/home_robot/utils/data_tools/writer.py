@@ -30,8 +30,8 @@ class DataWriter(object):
         if dirname is not None:
             try:
                 os.mkdir(dirname)
-            except OSError:
-                pass
+            except OSError as e:
+                print(e)
             self.filename = os.path.join(self.dirname, self.filename)
         else:
             self.filename = self.filename
