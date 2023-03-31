@@ -9,10 +9,8 @@ import numpy as np
 import rospy
 from sensor_msgs.msg import JointState, Joy
 
-from home_robot.motion.stretch import HelloStretchKinematics
-from home_robot_hw.ros.path import get_package_path
-from home_robot_hw.ros.recorder import Recorder, pngs_to_mp4
-from home_robot_hw.ros.stretch_ros import HelloStretchROSInterface
+from home_robot_hw.remote import StretchClient
+from home_robot_hw.remote.ros import StretchRosInterface
 from home_robot_hw.teleop.stretch_xbox_controller_teleop import (
     manage_base,
     manage_end_of_arm,
@@ -25,14 +23,16 @@ from home_robot_hw.teleop.stretch_xbox_controller_teleop import (
 class StretchXboxController(object):
     def __init__(
         self,
-        model,
+        stretch_client=None,
         on_first_joystick_input=None,
         start_button_callback=None,
         back_button_callback=None,
     ):
-        self._robot = HelloStretchROSInterface(
-            init_cameras=False, model=model, depth_buffer_size=1
+        self._robot_client = (
+            StretchClient() if stretch_client is None else stretch_client
         )
+        self._robot_client.switch_to_manipulation_mode()
+        self._robot = StretchRosInterface(init_cameras=False, depth_buffer_size=1)
         self._on_first_joystick_input = on_first_joystick_input
         self._joystick_subscriber = rospy.Subscriber(
             "joy", Joy, self._joystick_callback, queue_size=1
@@ -82,58 +82,37 @@ class StretchXboxController(object):
         }  # TODO: check axes
         # TODO: start_button_pressed not in original output
 
-        """state = {'middle_led_ring_button_pressed': self.middle_led_ring_button.pressed,
-                 'left_stick_x': self.left_stick.x,
-                 'left_stick_y': self.left_stick.y,
-                 'right_stick_x': self.right_stick.x,
-                 'right_stick_y': self.right_stick.y,
-                 'left_stick_button_pressed': self.left_stick_button.pressed,
-                 'right_stick_button_pressed': self.right_stick_button.pressed,
-                 'bottom_button_pressed': self.bottom_button.pressed,
-                 'top_button_pressed': self.top_button.pressed,
-                 'left_button_pressed': self.left_button.pressed,
-                 'right_button_pressed': self.right_button.pressed,
-                 'left_shoulder_button_pressed': self.left_shoulder_button.pressed,
-                 'right_shoulder_button_pressed': self.right_shoulder_button.pressed,
-                 'select_button_pressed': self.select_button.pressed,
-                 'start_button_pressed': self.start_button.pressed,
-                 'left_trigger_pulled': self.left_trigger.pulled,
-                 'right_trigger_pulled': self.right_trigger.pulled,
-                 'bottom_pad_pressed': self.bottom_pad.pressed,
-                 'top_pad_pressed': self.top_pad.pressed,
-                 'left_pad_pressed': self.left_pad.pressed,
-                 'right_pad_pressed': self.right_pad.pressed}"""
         return state
 
     def _set_mode(self) -> None:
         """If the robot is not in position mode, make sure that it is."""
-        if not self._robot.in_position_mode():
-            print("--> Switching to position mode")
-            self._robot.switch_to_position()
+        if not self._robot_client.in_navigation_mode():
+            print("--> Switching to navigation mode")
+            self._robot_client.switch_to_navigation_mode()
 
     def _create_arm_extension_loop(self, controller_state):
-        arm_scale = 1.0  # TODO: better config/less hacky
+        arm_scale = 0.25
 
         def callback(event):
             # Re-run the manager because it uses globals to accumulate speed
             converted_lift_command, converted_arm_command = manage_lift_arm(
                 robot=None, controller_state=controller_state
             )
-            self._robot.goto_arm_position(
+            self._robot_client._ros_client.goto_arm_position(
                 arm_scale * converted_arm_command[0], wait=True
             )
 
         return callback
 
     def _create_lift_arm_loop(self, controller_state):
-        lift_scale = 1.0  # TODO: better config/less hacky
+        lift_scale = 0.1
 
         def callback(event):
             # Re-run the manager because it uses globals to accumulate speed
             converted_lift_command, converted_arm_command = manage_lift_arm(
                 robot=None, controller_state=controller_state
             )
-            self._robot.goto_lift_position(
+            self._robot_client._ros_client.goto_lift_position(
                 lift_scale * converted_lift_command[0], wait=True
             )
 
@@ -149,7 +128,9 @@ class StretchXboxController(object):
                 gripper_command,
             ) = manage_end_of_arm(robot=None, controller_state=controller_state)
             if wrist_yaw_command[0] != 0:
-                self._robot.goto_wrist_yaw_position(wrist_yaw_command[0], wait=True)
+                self._robot_client._ros_client.goto_wrist_yaw_position(
+                    wrist_yaw_command[0], wait=True
+                )
 
         return callback
 
@@ -163,7 +144,9 @@ class StretchXboxController(object):
                 gripper_command,
             ) = manage_end_of_arm(robot=None, controller_state=controller_state)
             if wrist_roll_command[0] != 0:
-                self._robot.goto_wrist_roll_position(wrist_roll_command[0], wait=True)
+                self._robot_client._ros_client.goto_wrist_roll_position(
+                    wrist_roll_command[0], wait=True
+                )
 
         return callback
 
@@ -177,7 +160,9 @@ class StretchXboxController(object):
                 gripper_command,
             ) = manage_end_of_arm(robot=None, controller_state=controller_state)
             if wrist_pitch_command[0] != 0:
-                self._robot.goto_wrist_pitch_position(wrist_pitch_command[0], wait=True)
+                self._robot_client._ros_client.goto_wrist_pitch_position(
+                    wrist_pitch_command[0], wait=True
+                )
 
         return callback
 
@@ -189,7 +174,9 @@ class StretchXboxController(object):
                 wrist_pitch_command,
                 gripper_command,
             ) = manage_end_of_arm(robot=None, controller_state=controller_state)
-            self._robot.goto_gripper_position(gripper_command[0], wait=True)
+            self._robot_client._ros_client.goto_gripper_position(
+                gripper_command[0], wait=True
+            )
 
         return callback
 
@@ -198,7 +185,9 @@ class StretchXboxController(object):
             head_pan_command, head_tilt_command = manage_head(
                 robot=None, controller_state=controller_state
             )
-            self._robot.goto_head_pan_position(head_pan_command[0], wait=True)
+            self._robot_client._ros_client.goto_head_pan_position(
+                head_pan_command[0], wait=True
+            )
 
         return callback
 
@@ -207,7 +196,9 @@ class StretchXboxController(object):
             head_pan_command, head_tilt_command = manage_head(
                 robot=None, controller_state=controller_state
             )
-            self._robot.goto_head_tilt_position(head_tilt_command[0], wait=True)
+            self._robot_client._ros_client.goto_head_tilt_position(
+                head_tilt_command[0], wait=True
+            )
 
         return callback
 
@@ -276,19 +267,18 @@ class StretchXboxController(object):
 
         # Execute the commands
         if translation_command is not None:
-            self._set_mode()
-            self._robot.goto_x(translation_command[0])
+            # self._set_mode()
+            self._robot_client._ros_client.goto_x(translation_command[0])
 
         if rotation_command is not None:
-            self._set_mode()
-            self._robot.goto_theta(rotation_command[0])
+            # self._set_mode()
+            self._robot_client._ros_client.goto_theta(rotation_command[0])
 
         # These are in loops because it feels more natural to hold the button in these cases rather than press it repeatedly
         # Since the callback only fires when there is a state change for these, we have to intentionally loop them
         # to achieve the desired effect.
 
         if converted_lift_command is not None:
-            # self._robot.goto_lift_position(converted_lift_command[0], wait=True)
             self._lift_arm_timer = rospy.Timer(
                 rospy.Duration(1 / callback_hz),
                 self._create_lift_arm_loop(controller_state),
@@ -331,12 +321,10 @@ class StretchXboxController(object):
             )
 
         if head_pan_command is not None:
-            self._robot.goto_head_pan_position(head_pan_command[0])
-            # self._head_pan_timer = rospy.Timer(rospy.Duration(1/callback_hz), self._create_head_pan_loop(controller_state), oneshot=False)  # TODO: these don't work...?
+            self._robot_client._ros_client.goto_head_pan_position(head_pan_command[0])
 
         if head_tilt_command is not None:
-            self._robot.goto_head_tilt_position(head_tilt_command[0])
-            # self._head_tilt_timer = rospy.Timer(rospy.Duration(1/callback_hz), self._create_head_tilt_loop(controller_state), oneshot=False)
+            self._robot_client._ros_client.goto_head_tilt_position(head_tilt_command[0])
 
         if (
             controller_state["start_button_pressed"]

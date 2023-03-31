@@ -2,11 +2,9 @@
 #
 # This source code is licensed under the MIT license found in the
 # LICENSE file in the root directory of this source tree.
-from typing import Dict, Optional
+from typing import Dict, Optional, Sequence
 
-import ros_numpy
 import rospy
-import tf2_ros
 
 from home_robot.motion.robot import Robot
 from home_robot.motion.stretch import HelloStretchKinematics
@@ -27,6 +25,10 @@ class StretchClient:
         camera_overrides: Optional[Dict] = None,
         urdf_path: str = "",
         ik_type: str = "pybullet",
+        visualize_ik: bool = False,
+        grasp_frame: Optional[str] = None,
+        ee_link_name: Optional[str] = None,
+        manip_mode_controlled_joints: Optional[Sequence[str]] = None,
     ):
         # Ros
         if init_node:
@@ -37,7 +39,14 @@ class StretchClient:
         self._ros_client = StretchRosInterface(**camera_overrides)
 
         # Robot model
-        self._robot_model = HelloStretchKinematics(urdf_path=urdf_path, ik_type=ik_type)
+        self._robot_model = HelloStretchKinematics(
+            urdf_path=urdf_path,
+            ik_type=ik_type,
+            visualize=visualize_ik,
+            grasp_frame=grasp_frame,
+            ee_link_name=ee_link_name,
+            manip_mode_controlled_joints=manip_mode_controlled_joints,
+        )
 
         # Interface modules
         self.nav = StretchNavigationClient(self._ros_client, self._robot_model)

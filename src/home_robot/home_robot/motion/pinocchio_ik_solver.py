@@ -8,6 +8,7 @@ import numpy as np
 import pinocchio
 from scipy.spatial.transform import Rotation as R
 
+from home_robot.motion.ik_solver_base import IKSolverBase
 from home_robot.utils.bullet import PybulletIKSolver
 
 # --DEFAULTS--
@@ -21,7 +22,7 @@ CEM_NUM_SAMPLES = 50
 CEM_NUM_TOP = 10
 
 
-class PinocchioIKSolver:
+class PinocchioIKSolver(IKSolverBase):
     """IK solver using pinocchio which can handle end-effector constraints for optimized IK solutions"""
 
     EPS = 1e-4
@@ -80,21 +81,46 @@ class PinocchioIKSolver:
         return pos.copy(), quat.copy()
 
     def compute_ik(
-        self, pos: np.ndarray, quat: np.ndarray, q_init=None, max_iterations=100
-    ) -> Tuple[np.ndarray, bool]:
-        """given end-effector position and quaternion, return joint values"""
+        self,
+        pos_desired: np.ndarray,
+        quat_desired: np.ndarray,
+        q_init=None,
+        max_iterations=100,
+        num_attempts: int = 1,
+        verbose: bool = False,
+    ) -> Tuple[np.ndarray, bool, dict]:
+        """given end-effector position and quaternion, return joint values.
+
+        Two parameters are currently unused and might be implemented in the future:
+            q_init: initial configuration for the optimization to start in; especially useful for
+                    arms with redundant degrees of freedom
+            num_attempts: start from multiple initial configs; included for compatibility with pb
+            max iterations: time budget in number of steps; included for compatibility with pb
+        """
         i = 0
+
         if q_init is None:
             q = self.q_neutral.copy()
+            if num_attempts > 1:
+                raise NotImplementedError(
+                    "Sampling multiple initial configs not yet supported by Pinocchio solver."
+                )
         else:
             q = self._qmap_control2model(q_init)
-        desired_ee_pose = pinocchio.SE3(R.from_quat(quat).as_matrix(), pos)
+            # Override the number of attempts
+            num_attempts = 1
+
+        desired_ee_pose = pinocchio.SE3(
+            R.from_quat(quat_desired).as_matrix(), pos_desired
+        )
         while True:
             pinocchio.forwardKinematics(self.model, self.data, q)
             pinocchio.updateFramePlacement(self.model, self.data, self.ee_frame_idx)
 
             dMi = desired_ee_pose.actInv(self.data.oMf[self.ee_frame_idx])
             err = pinocchio.log(dMi).vector
+            if verbose:
+                print(f"[pinocchio_ik_solver] iter={i}; error={err}")
             if np.linalg.norm(err) < self.EPS:
                 success = True
                 break
@@ -113,13 +139,16 @@ class PinocchioIKSolver:
             i += 1
 
         q_control = self._qmap_model2control(q.flatten())
+        debug_info = {"iter": i, "final_error": err}
 
-        return q_control, success
+        return q_control, success, debug_info
 
 
-class PositionIKOptimizer:
+class PositionIKOptimizer(IKSolverBase):
     """
-    Solver that jointly optimizes IK and best orientation to achieve desired position
+    Solver that jointly optimizes IK and best orientation to achieve desired position.
+    Can optimize any solver that implements IKSolverBase.
+    Additionally, it implements IKSolverBase so this optimizer-based version can be readily dropped-in.
     """
 
     max_iterations: int = 30  # Max num of iterations for CEM
@@ -175,16 +204,21 @@ class PositionIKOptimizer:
     def get_num_controllable_joints(self) -> int:
         return self.ik_solver.get_num_controllable_joints()
 
-    def compute_ik(self, pos: np.ndarray, quat: np.ndarray, *args, **kwargs):
+    def compute_ik(
+        self,
+        pos_desired: np.ndarray,
+        quat_desired: np.ndarray,
+        *args,
+        **kwargs,
+    ) -> Tuple[np.ndarray, bool, dict]:
         """optimization-based IK solver using CEM"""
-        pos_desired, quat_desired = pos, quat
 
         # Function to optimize: IK error given delta from original desired orientation
         def solve_ik(dr):
             pos = pos_desired
             quat = (R.from_rotvec(dr) * R.from_quat(quat_desired)).as_quat()
 
-            q, _ = self.ik_solver.compute_ik(pos, quat)
+            q, _, subsolver_debug_info = self.ik_solver.compute_ik(pos, quat)
             pos_out, rot_out = self.ik_solver.compute_fk(q)
 
             cost_pos = np.linalg.norm(pos - pos_out)
@@ -204,13 +238,17 @@ class PositionIKOptimizer:
         print(
             f"After ik optimization, cost: {cost_opt}, result: {pos_out, quat_out} vs desired: {pos_desired, quat_desired}"
         )
-        return q_result, success
-        # return q_result, cost_opt, max_iter, opt_sigma
+
+        debug_info = {
+            "best_cost": cost_opt,
+            "last_iter": max_iter,
+            "opt_sigma": opt_sigma,
+        }
+
+        return q_result, success, debug_info
 
     def compute_fk(self, q):
-        return self.ik_solver.compute_fk(
-            q
-        )  # TODO: pybullet version won't work with this -- uses fk()
+        return self.ik_solver.compute_fk(q)
 
 
 class CEM:

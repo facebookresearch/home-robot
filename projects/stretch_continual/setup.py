@@ -15,5 +15,5 @@ setup(
     author="Sam Powers",
     author_email="snpowers@cs.cmu.edu",
     version="0.0.0",
-    packages=find_packages()
+    packages=find_packages(),
 )

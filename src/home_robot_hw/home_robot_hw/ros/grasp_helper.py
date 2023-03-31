@@ -20,7 +20,11 @@ from home_robot_hw.ros.utils import (
     matrix_to_pose_msg,
     ros_pose_to_transform,
 )
-from home_robot_hw.srv import GraspRequest, GraspRequestResponse
+
+try:
+    from home_robot_hw.srv import GraspRequest, GraspRequestResponse
+except ModuleNotFoundError:
+    from home_robot_hw.ros.srv_prebuilt import GraspRequest, GraspRequestResponse
 
 
 def msg_to_segmented_point_cloud(msg):

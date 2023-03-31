@@ -1,14 +1,13 @@
-import datetime
 import math
 import os
 import tempfile
 import time
-from openai.embeddings_utils import get_embedding
 
 import gym
 import h5py
 import numpy as np
 from data_tools.image import img_from_bytes
+from openai.embeddings_utils import get_embedding
 
 from home_robot.motion.stretch import HelloStretchIdx
 
@@ -33,42 +32,82 @@ class CacheContainer(object):
 
 
 class StretchDemoBaseEnv(gym.Env):
-    NODE_INITIALIZED = False
+
+    # The URDFs provided with stretch_control do not support base_x_joint motion, so ignore that during IK for now
+    MANIP_MODE_CONTROLLED_JOINTS = [
+        "ignore",  # Originally base_x_joint
+        "joint_lift",
+        "joint_arm_l3",
+        "joint_arm_l2",
+        "joint_arm_l1",
+        "joint_arm_l0",
+        "joint_wrist_yaw",
+        "joint_wrist_pitch",
+        "joint_wrist_roll",
+    ]
+
+    # This EE link does not require any offsets or conversions to use --
+    # it is located directly in the middle of the gripper
+    EE_LINK_NAME = "link_gripper_fingertip_center"
     LANGUAGE_EMBEDDING_CACHE = {}
-    
-    def __init__(self, initialize_ros, include_context, language_commands=None, language_embedding_model=None):
+
+    def __init__(
+        self,
+        initialize_ros,
+        include_context,
+        language_commands=None,
+        language_embedding_model=None,
+    ):
         super().__init__()
         self._urdf_path = STRETCH_URDF_DIR  # os.path.join(STRETCH_URDF_DIR, "planner_calibrated_manipulation_mode.urdf")  # TODO: pass in urdf path
         self._initialize_ros = initialize_ros  # TODO: remove?
         self._include_context = include_context
         self._trajectory_cache = {"linked_files": {}}
 
-        self._language_embedding_model = language_embedding_model if language_embedding_model is not None else "text-embedding-ada-002" # TODO: clarify naming
+        self._language_embedding_model = (
+            language_embedding_model
+            if language_embedding_model is not None
+            else "text-embedding-ada-002"
+        )  # TODO: clarify naming
         self._language_model = None
-        self._language_tokenizer =  None
+        self._language_tokenizer = None
 
         if self._language_embedding_model == "clip":
             import clip
+
             self._language_model, _ = clip.load("ViT-B/32", device="cpu")
             self._language_tokenizer = clip.tokenize
 
         self._language_commands = None
         if language_commands is not None:
-            self._language_commands = self._initialize_commands(language_commands, self._language_embedding_model, self._language_model, self._language_tokenizer)
+            self._language_commands = self._initialize_commands(
+                language_commands,
+                self._language_embedding_model,
+                self._language_model,
+                self._language_tokenizer,
+            )
 
     def _initialize_commands(cls, language_commands, embedding_model, model, tokenizer):
         language_embeddings = []
         for command in language_commands:
             if command not in cls.LANGUAGE_EMBEDDING_CACHE:
                 if embedding_model == "clip":
-                    cls.LANGUAGE_EMBEDDING_CACHE[command] = model.encode_text(tokenizer(command)).squeeze(0).detach().cpu().numpy()
+                    cls.LANGUAGE_EMBEDDING_CACHE[command] = (
+                        model.encode_text(tokenizer(command))
+                        .squeeze(0)
+                        .detach()
+                        .cpu()
+                        .numpy()
+                    )
                 else:
-                    cls.LANGUAGE_EMBEDDING_CACHE[command] = get_embedding(command, embedding_model)
+                    cls.LANGUAGE_EMBEDDING_CACHE[command] = get_embedding(
+                        command, embedding_model
+                    )
 
             language_embeddings.append(cls.LANGUAGE_EMBEDDING_CACHE[command])
-        #self._language_commands = [get_embedding(phrase, self._embedding_model) for phrase in language_commands] if language_commands is not None else None
+        # self._language_commands = [get_embedding(phrase, self._embedding_model) for phrase in language_commands] if language_commands is not None else None
         return language_embeddings
-        
+
     def _recursive_listdir(self, directory):
         # From: https://stackoverflow.com/questions/19309667/recursive-os-listdir
         return [os.path.join(dp, f) for dp, dn, fn in os.walk(directory) for f in fn]
@@ -93,17 +132,17 @@ class StretchDemoBaseEnv(gym.Env):
         """
         h5_id = 0
         output_path = temp_aggregation_file.name
+        max_tries = 5
 
         if not cache or len(self._trajectory_cache["linked_files"]) == 0:
-            for _ in range(5):
+            for try_id in range(max_tries):
                 try:
                     with h5py.File(output_path, "w") as output_file:
                         linked_files_group = output_file.create_group("linked_files")
 
                         for filename in self._recursive_listdir(directory):
-                            file_allowed = only_key_frames == (
-                                "key_frames" in filename
-                            )  # If we expect it, it should be there. If we don't, it should not
+                            # If we expect it, it should be there. If we don't, it should not
+                            file_allowed = only_key_frames == ("key_frames" in filename)
                             if (
                                 os.path.splitext(filename)[-1].lower() == ".h5"
                                 and "aggregated" not in filename
@@ -111,7 +150,7 @@ class StretchDemoBaseEnv(gym.Env):
                             ):
                                 file_path = os.path.join(directory, filename)
                                 linked_files_group[f"file_{h5_id}"] = h5py.ExternalLink(
-                                    filename=file_path, path=f"."
+                                    filename=file_path, path=f""
                                 )
 
                                 if cache:
@@ -126,10 +165,15 @@ class StretchDemoBaseEnv(gym.Env):
 
                     break
                 except (BlockingIOError, OSError) as e:
+                    if try_id == max_tries - 1:
+                        print(
+                            f"Failed to open or read {output_path} with error {e} after {max_tries} attempts."
+                        )
+                        raise e
+
                     print(
                         f"Failing to open or read {output_path} with error {e}. Retrying..."
                     )
-                    time.sleep(1)  # TODO: handle last try
 
         if cache:
             demo_data = CacheContainer(self._trajectory_cache)
@@ -139,13 +183,18 @@ class StretchDemoBaseEnv(gym.Env):
         return demo_data
 
     def randomly_select_traj_from_dir(self, directory, only_key_frames, cache):
-        for _ in range(25):
+        max_tries = 25
+
+        for try_id in range(max_tries):
             try:
                 with tempfile.NamedTemporaryFile(
                     dir=directory
                 ) as temp_aggregation_file:
                     with self.load_all_h5_from_dir(
-                        directory, only_key_frames, temp_aggregation_file, cache=False  # TODO: testing why I'm running out of RAM
+                        directory,
+                        only_key_frames,
+                        temp_aggregation_file,
+                        cache=False,  # TODO: testing why I'm running out of RAM
                     ) as h5_file:
                         aggregated_h5 = h5_file["linked_files"]
                         traj_counts = [
@@ -170,8 +219,12 @@ class StretchDemoBaseEnv(gym.Env):
                             curr_id += count
 
                 break
-            except (BlockingIOError, OSError, KeyError):
-                time.sleep(1)  # If we run out of tries, traj will be None
+            except (BlockingIOError, OSError, KeyError) as e:
+                time.sleep(0.1)
+
+                if try_id == max_tries - 1:
+                    print(f"Ran out of re-attempts to load the h5.")
+                    raise e
 
         return traj
 
@@ -201,7 +254,7 @@ class StretchDemoBaseEnv(gym.Env):
         depth,
         pose,
         color_camera_info,
-        depth_camera_info,
+        depth_camera_info,  # Intentionally unused, to make it clearer how to pass this information if desired
         camera_pose,
         camera_info_in_state,
         model,
@@ -216,7 +269,7 @@ class StretchDemoBaseEnv(gym.Env):
 
         gripper_pose = pose[HelloStretchIdx.GRIPPER]
         adjusted_pose = np.concatenate(
-            (ee_pos, ee_rot, np.array([gripper_pose, 0])), axis=-1
+            (ee_pos, ee_rot, np.array([gripper_pose, 0])), axis=-1  # TODO: remove the 0
         )
 
         # Just passing color camera info along for now, assuming depth is consistent
@@ -235,9 +288,13 @@ class StretchDemoBaseEnv(gym.Env):
             )
 
         if self._language_commands is not None:
-            random_language_embedding = self._language_commands[np.random.randint(len(self._language_commands))]
-            adjusted_pose = np.concatenate((adjusted_pose, random_language_embedding), axis=-1)
-            
+            random_language_embedding = self._language_commands[
+                np.random.randint(len(self._language_commands))
+            ]
+            adjusted_pose = np.concatenate(
+                (adjusted_pose, random_language_embedding), axis=-1
+            )
+
         depth = np.clip(depth, a_min=None, a_max=CAMERA_FAR_PLANE * CAMERA_SCALE_CONST)
         depth_scale = 2**8 / (
             CAMERA_SCALE_CONST * CAMERA_FAR_PLANE
@@ -261,7 +318,7 @@ class StretchDemoBaseEnv(gym.Env):
 
     def get_stretch_obs_and_action_space(self, camera_info_in_state):
         channels = 4
-        state_size = 9
+        state_size = 9  # TODO: should be 8...keeping for now so I can keep using my trained model
         state_size += 51 if camera_info_in_state else 0
 
         if self._language_embedding_model is not None:

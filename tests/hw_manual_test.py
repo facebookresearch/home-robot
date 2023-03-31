@@ -2,8 +2,6 @@
 #
 # This source code is licensed under the MIT license found in the
 # LICENSE file in the root directory of this source tree.
-import os
-
 import numpy as np
 
 from home_robot_hw.remote import StretchClient
@@ -15,7 +13,7 @@ YAW_TOL = 0.2
 
 if __name__ == "__main__":
     print("Initializing...")
-    robot = StretchClient(urdf_path=os.environ["STRETCH_URDF_DIR"])
+    robot = StretchClient()
 
     # Reset robot
     print("Resetting robot...")

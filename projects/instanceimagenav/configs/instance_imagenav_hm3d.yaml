@@ -1,0 +1,86 @@
+# @package _global_
+
+defaults:
+  - /habitat: habitat_config_base
+  - /habitat/task: instance_imagenav
+  - /habitat/simulator/agents@habitat.simulator.agents.main_agent: rgbd_agent
+  - /habitat/dataset/instance_imagenav: hm3d_v2
+  - _self_
+
+# override existing config elements
+
+habitat:
+  dataset:
+    split: val
+    data_path: data/datasets/instance_imagenav/hm3d/v3/{split}/{split}.json.gz
+  environment:
+    max_episode_steps: 1000
+    iterator_options:
+      shuffle: False
+      max_scene_repeat_steps: -1
+  seed: 1
+  simulator:
+    habitat_sim_v0:
+      allow_sliding: True
+    forward_step_size: 0.25
+    turn_angle: 30
+    tilt_angle: 30
+    action_space_config: v1
+    agents:
+      main_agent:
+        sim_sensors:
+          depth_sensor:
+            min_depth: 0.5
+            max_depth: 5.0
+  task:
+    success_measure: success
+    measurements:
+      success:
+        success_distance: 0.1
+
+# establish new config elements
+
+semantic_map:
+  map_size_cm: 4800                 # global map size (in centimeters)
+  map_resolution: 5                 # size of map bins (in centimeters)
+  vision_range: 100                 # diameter of local map region visible by the agent (in cells)
+  global_downscaling: 2             # ratio of global over local map
+  du_scale: 4                       # frame downscaling before projecting to point cloud
+  cat_pred_threshold: 5.0           # number of depth points to be in bin to classify it as a certain semantic category
+  exp_pred_threshold: 1.0           # number of depth points to be in bin to consider it as explored
+  map_pred_threshold: 1.0           # number of depth points to be in bin to consider it as obstacle
+  num_sem_categories: 1
+planner:
+  collision_threshold: 0.20         # forward move distance under which we consider there's a collision (in meters)
+  obs_dilation_selem_radius: 3      # radius (in cells) of obstacle dilation structuring element
+  goal_dilation_selem_radius: 11    # radius (in cells) of goal dilation structuring element
+semantic_prediction:
+  depth_filtering: True
+  depth_filter_range_cm: 100        # 1m about the depth median (+/- 50cm)
+  goal_filtering: True              # filter out outlier points in the goal map w/ DBSCAN
+detic:
+  config_file: Detic/configs/Detic_LCOCOI21k_CLIP_SwinB_896b32_4x_ft4x_max-size.yaml
+  vocabulary: custom
+  custom_vocabulary: chair,sofa,bed,toilet,potted_plant,tv_monitor
+  confidence_threshold: 0.2
+  weights: Detic/models/Detic_LCOCOI21k_CLIP_SwinB_896b32_4x_ft4x_max-size.pth
+  augment_mask_with_box: True
+superglue:
+  max_keypoints: 1024
+  keypoint_threshold: 0.005
+  nms_radius: 4
+  superglue_model: indoor           # or outdoor
+  sinkhorn_iterations: 20
+  match_threshold: 0.2
+  score_function: confidence_sum    # or match_count
+  score_thresh: 24.5  # real-world experiments used 6.0
+  match_projection_threshold: 0.2   # confidence must be at least this high to project as goal point.
+exp_name: debug
+num_environments: 1
+simulator_gpu_id: 0
+dump_location: datadump
+generate_videos: True
+frame_width: 240
+frame_height: 320
+preprojection_kp_dilation: 4        # KP-based loc: how much to dilate keypoints prior to projection and aggregation
+stretch_goal_image_path: "image_goals/chair1.png"  # path to the goal image to be used in physical stretch operation

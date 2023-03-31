@@ -1,15 +1,15 @@
 [submodule "hab_stretch"]
 	path = assets/hab_stretch
 	url = git@github.com:cpaxton/hab_stretch.git
-[submodule "third_party/contact_graspnet"]
-	path = third_party/contact_graspnet
-	url = git@github.com:cpaxton/contact_graspnet.git
 [submodule "src/home_robot/home_robot/perception/detection/detic/Detic"]
 	path = src/home_robot/home_robot/perception/detection/detic/Detic
 	url = git@github.com:facebookresearch/Detic.git
 [submodule "src/third_party/habitat-lab"]
 	path = src/third_party/habitat-lab
 	url = https://github.com/facebookresearch/habitat-lab
+[submodule "src/home_robot/home_robot/agent/imagenav_agent/SuperGluePretrainedNetwork"]
+	path = src/home_robot/home_robot/agent/imagenav_agent/SuperGluePretrainedNetwork
+	url = git@github.com:magicleap/SuperGluePretrainedNetwork.git
 [submodule "src/third_party/detectron2"]
 	path = src/third_party/detectron2
 	url = git@github.com:facebookresearch/detectron2.git

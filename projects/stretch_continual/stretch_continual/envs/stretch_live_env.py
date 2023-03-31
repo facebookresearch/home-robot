@@ -44,9 +44,14 @@ class StretchLiveEnv(StretchDemoBaseEnv):
         perturb_start_state=False,
         include_context=False,
         language_commands=None,
-        language_embedding_model=None
+        language_embedding_model=None,
     ):
-        super().__init__(initialize_ros=True, include_context=include_context, language_commands=language_commands, language_embedding_model=language_embedding_model)
+        super().__init__(
+            initialize_ros=True,
+            include_context=include_context,
+            language_commands=language_commands,
+            language_embedding_model=language_embedding_model,
+        )
 
         self._demo_dir = demo_dir
         self._current_timestep = 0
@@ -87,6 +92,9 @@ class StretchLiveEnv(StretchDemoBaseEnv):
                 urdf_path=self._urdf_path,
                 init_node=self._initialize_ros,
                 ik_type="pinocchio_optimize",
+                grasp_frame=self.EE_LINK_NAME,
+                ee_link_name=self.EE_LINK_NAME,
+                manip_mode_controlled_joints=self.MANIP_MODE_CONTROLLED_JOINTS,
             )
             self._client.switch_to_manipulation_mode()
         return self._client
@@ -159,7 +167,7 @@ class StretchLiveEnv(StretchDemoBaseEnv):
         if self._perturb_start_state:
             perturbation = np.random.uniform(
                 -self._perturbation_limits, self._perturbation_limits
-            )  # TODO: what distribution?
+            )
             pose += perturbation
 
         go_to_pose = True
@@ -237,7 +245,7 @@ class StretchLiveEnv(StretchDemoBaseEnv):
             gripper = action[7:8]
             done = action[8] > (len(self._current_trajectory["q"]) - 0.9) / len(
                 self._current_trajectory["q"]
-            )  # 0.9 # / 10  # TODO: configure? What should this be?
+            )  # TODO: threshold a bit arbitrary
 
             if done:
                 print(f"Action predicted done, so finishing. Done: {action[8]}")
@@ -330,7 +338,7 @@ class StretchLiveEnv(StretchDemoBaseEnv):
             reward = None
             while reward is None:
                 try:
-                    reward = float(input("Did the robot succeed? (0 or 1)"))
+                    reward = float(input("Did the robot succeed? (r <= 1)"))
                     reward = (
                         reward if reward <= 1 else None
                     )  # Protection against typo'ing "9" or "2"
