@@ -97,8 +97,9 @@ class StretchDemoBaseEnv(gym.Env):
                                 and file_allowed
                             ):
                                 file_path = os.path.join(directory, filename)
+                                relative_path = os.path.relpath(file_path, output_path)
                                 linked_files_group[f"file_{h5_id}"] = h5py.ExternalLink(
-                                    filename=file_path, path=f""
+                                    filename=relative_path, path=output_path
                                 )
 
                                 if cache:
