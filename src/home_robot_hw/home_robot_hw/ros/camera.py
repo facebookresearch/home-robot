@@ -47,7 +47,7 @@ class RosCamera(Camera):
         self.buffer_size = buffer_size
         if self.buffer_size is not None:
             # create buffer
-            self._buffer: deque = deque()
+            self._buffer = deque()
         self.height = cam_info.height
         self.width = cam_info.width
         self.pos, self.orn, self.pose_matrix = None, None, None
