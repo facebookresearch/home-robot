@@ -43,8 +43,10 @@ class StretchLiveEnv(StretchDemoBaseEnv):
         use_true_action=False,
         perturb_start_state=False,
         include_context=False,
+        language_commands=None,
+        language_embedding_model=None
     ):
-        super().__init__(initialize_ros=True, include_context=include_context)
+        super().__init__(initialize_ros=True, include_context=include_context, language_commands=language_commands, language_embedding_model=language_embedding_model)
 
         self._demo_dir = demo_dir
         self._current_timestep = 0
@@ -136,7 +138,7 @@ class StretchLiveEnv(StretchDemoBaseEnv):
     def _goto(self, pose):
         # We store the full joint angles, but the client expects [Base translation, lift, arm, yaw, pitch, roll],
         # so translate
-
+        self.client.switch_to_manipulation_mode()  # TODO: shouldn't be necessary but somehow translation is becoming active?
         reduced_pose = self.client.manip._extract_joint_pos(pose)
         gripper = pose[HelloStretchIdx.GRIPPER]
         pose[HelloStretchIdx.BASE_X] = 0  # Not supporting base motion

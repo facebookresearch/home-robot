@@ -3,6 +3,7 @@ import math
 import os
 import tempfile
 import time
+from openai.embeddings_utils import get_embedding
 
 import gym
 import h5py
@@ -33,14 +34,41 @@ class CacheContainer(object):
 
 class StretchDemoBaseEnv(gym.Env):
     NODE_INITIALIZED = False
-
-    def __init__(self, initialize_ros, include_context):
+    LANGUAGE_EMBEDDING_CACHE = {}
+    
+    def __init__(self, initialize_ros, include_context, language_commands=None, language_embedding_model=None):
         super().__init__()
         self._urdf_path = STRETCH_URDF_DIR  # os.path.join(STRETCH_URDF_DIR, "planner_calibrated_manipulation_mode.urdf")  # TODO: pass in urdf path
         self._initialize_ros = initialize_ros  # TODO: remove?
         self._include_context = include_context
         self._trajectory_cache = {"linked_files": {}}
 
+        self._language_embedding_model = language_embedding_model if language_embedding_model is not None else "text-embedding-ada-002" # TODO: clarify naming
+        self._language_model = None
+        self._language_tokenizer =  None
+
+        if self._language_embedding_model == "clip":
+            import clip
+            self._language_model, _ = clip.load("ViT-B/32", device="cpu")
+            self._language_tokenizer = clip.tokenize
+
+        self._language_commands = None
+        if language_commands is not None:
+            self._language_commands = self._initialize_commands(language_commands, self._language_embedding_model, self._language_model, self._language_tokenizer)
+
+    def _initialize_commands(cls, language_commands, embedding_model, model, tokenizer):
+        language_embeddings = []
+        for command in language_commands:
+            if command not in cls.LANGUAGE_EMBEDDING_CACHE:
+                if embedding_model == "clip":
+                    cls.LANGUAGE_EMBEDDING_CACHE[command] = model.encode_text(tokenizer(command)).squeeze(0).detach().cpu().numpy()
+                else:
+                    cls.LANGUAGE_EMBEDDING_CACHE[command] = get_embedding(command, embedding_model)
+
+            language_embeddings.append(cls.LANGUAGE_EMBEDDING_CACHE[command])
+        #self._language_commands = [get_embedding(phrase, self._embedding_model) for phrase in language_commands] if language_commands is not None else None
+        return language_embeddings
+        
     def _recursive_listdir(self, directory):
         # From: https://stackoverflow.com/questions/19309667/recursive-os-listdir
         return [os.path.join(dp, f) for dp, dn, fn in os.walk(directory) for f in fn]
@@ -117,7 +145,7 @@ class StretchDemoBaseEnv(gym.Env):
                     dir=directory
                 ) as temp_aggregation_file:
                     with self.load_all_h5_from_dir(
-                        directory, only_key_frames, temp_aggregation_file, cache=cache
+                        directory, only_key_frames, temp_aggregation_file, cache=False  # TODO: testing why I'm running out of RAM
                     ) as h5_file:
                         aggregated_h5 = h5_file["linked_files"]
                         traj_counts = [
@@ -188,7 +216,7 @@ class StretchDemoBaseEnv(gym.Env):
 
         gripper_pose = pose[HelloStretchIdx.GRIPPER]
         adjusted_pose = np.concatenate(
-            (ee_pos, ee_rot, np.array([gripper_pose])), axis=-1
+            (ee_pos, ee_rot, np.array([gripper_pose, 0])), axis=-1
         )
 
         # Just passing color camera info along for now, assuming depth is consistent
@@ -206,6 +234,10 @@ class StretchDemoBaseEnv(gym.Env):
                 (adjusted_pose, color_camera_state, camera_pose)
             )
 
+        if self._language_commands is not None:
+            random_language_embedding = self._language_commands[np.random.randint(len(self._language_commands))]
+            adjusted_pose = np.concatenate((adjusted_pose, random_language_embedding), axis=-1)
+            
         depth = np.clip(depth, a_min=None, a_max=CAMERA_FAR_PLANE * CAMERA_SCALE_CONST)
         depth_scale = 2**8 / (
             CAMERA_SCALE_CONST * CAMERA_FAR_PLANE
@@ -229,8 +261,15 @@ class StretchDemoBaseEnv(gym.Env):
 
     def get_stretch_obs_and_action_space(self, camera_info_in_state):
         channels = 4
-        state_size = 8
+        state_size = 9
         state_size += 51 if camera_info_in_state else 0
+
+        if self._language_embedding_model is not None:
+            if self._language_embedding_model == "clip":
+                state_size += 512
+            else:
+                state_size += 1536
+
         action_size = 9  # 3 pos, 4 quat, 1 gripper, 1 completion fraction
 
         if self._include_context:

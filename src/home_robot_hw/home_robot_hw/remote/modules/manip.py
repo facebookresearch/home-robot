@@ -117,7 +117,7 @@ class StretchManipulationClient(AbstractControlModule):
 
         # Construct and send command
         joint_goals = {
-            self._ros_client.BASE_TRANSLATION_JOINT: joint_pos_goal[0],
+            #self._ros_client.BASE_TRANSLATION_JOINT: joint_pos_goal[0],
             self._ros_client.LIFT_JOINT: joint_pos_goal[1],
             self._ros_client.ARM_JOINT: joint_pos_goal[2],
             self._ros_client.WRIST_YAW: joint_pos_goal[3],

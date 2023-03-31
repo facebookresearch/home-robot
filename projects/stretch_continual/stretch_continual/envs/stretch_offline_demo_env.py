@@ -15,8 +15,11 @@ class StretchOfflineDemoEnv(StretchDemoBaseEnv):
         single_step_trajectory=True,
         eval_pos_only=False,
         use_key_frames=True,
+        language_commands=None,
+        language_embedding_model=None
     ):
-        super().__init__(initialize_ros=False, include_context=include_context)
+        super().__init__(initialize_ros=False, include_context=include_context, language_commands=language_commands,
+                         language_embedding_model=language_embedding_model)
         self._demo_dir = demo_dir
         self._current_timestep = 0
         self._current_trajectory = None
