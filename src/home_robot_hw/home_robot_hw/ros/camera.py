@@ -151,11 +151,13 @@ class RosCamera(Camera):
             else:
                 # We are using torch
                 img = self._img.copy()
+
         if device is not None:
-            # Convert to tensor and get the formatting right
+            # If a device is specified, assume we want to move to pytorch
             import torch
 
-            img = torch.FloatTensor(img).to(device).permute(2, 0, 1)
+            img = torch.FloatTensor(img).to(device)
+
         return img
 
     def get_filtered(self, std_threshold=0.005, device=None):
@@ -172,11 +174,13 @@ class RosCamera(Camera):
         avg = avg.reshape(-1)
         avg[std.reshape(-1) > std_threshold] = 0
         img = avg.reshape(*dims)
+
         if device is not None:
-            # Convert to tensor and get the formatting right
+            # If a device is specified, assume we want to move to pytorch
             import torch
 
-            img = torch.FloatTensor(img).to(device).permute(2, 0, 1)
+            img = torch.FloatTensor(img).to(device)
+
         return img
 
     def get_frame(self):

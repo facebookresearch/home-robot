@@ -49,6 +49,7 @@ class ObjectNavAgent(Agent):
             # Use DataParallel only as a wrapper to move model inputs to GPU
             self.module = DataParallel(self._module, device_ids=[self.device_id])
 
+        self.use_dilation_for_stg = config.AGENT.PLANNER.use_dilation_for_stg
         self.semantic_map = Categorical2DSemanticMapState(
             device=self.device,
             num_environments=self.num_environments,
@@ -56,6 +57,10 @@ class ObjectNavAgent(Agent):
             map_resolution=config.AGENT.SEMANTIC_MAP.map_resolution,
             map_size_cm=config.AGENT.SEMANTIC_MAP.map_size_cm,
             global_downscaling=config.AGENT.SEMANTIC_MAP.global_downscaling,
+        )
+        agent_radius_cm = config.AGENT.radius * 100.0
+        agent_cell_radius = int(
+            np.ceil(agent_radius_cm / config.AGENT.SEMANTIC_MAP.map_resolution)
         )
         self.planner = DiscretePlanner(
             turn_angle=config.ENVIRONMENT.turn_angle,
@@ -69,6 +74,7 @@ class ObjectNavAgent(Agent):
             print_images=False,
             dump_location=config.DUMP_LOCATION,
             exp_name=config.EXP_NAME,
+            agent_cell_radius=agent_cell_radius,
         )
         self.one_hot_encoding = torch.eye(
             config.AGENT.SEMANTIC_MAP.num_sem_categories, device=self.device
@@ -280,7 +286,9 @@ class ObjectNavAgent(Agent):
         elif self.timesteps[0] > self.max_steps:
             action = DiscreteNavigationAction.STOP
         else:
-            action, closest_goal_map = self.planner.plan(**planner_inputs[0])
+            action, closest_goal_map = self.planner.plan(
+                **planner_inputs[0], use_dilation_for_stg=self.use_dilation_for_stg
+            )
 
         # t3 = time.time()
         # print(f"[Agent] Planning time: {t3 - t2:.2f}")
