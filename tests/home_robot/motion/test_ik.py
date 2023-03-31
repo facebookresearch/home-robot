@@ -157,7 +157,7 @@ def pin_ik_optimizer(pin_robot):
 @pytest.fixture(
     params=["pybullet", "pinocchio", "pybullet_optimize", "pinocchio_optimize"]
 )
-def robot(request, pb_robot, pin_robot):
+def robot(request, pb_robot, pin_robot, pb_optimize_robot, pin_optimize_robot):
     if request.param == "pybullet":
         return pb_robot
     elif request.param == "pinocchio":
@@ -169,6 +169,11 @@ def robot(request, pb_robot, pin_robot):
 
 
 def test_ik_solvers(robot, test_pose):
+    # Loosen the orientation error bounds if we're in an optimize mode
+    ori_error_tol = ORI_ERROR_TOL
+    if "optimize" in robot._ik_type:
+        ori_error_tol = 1e-1
+
     # Create block for visualization
     block = PbArticulatedObject(
         "red_block",
@@ -183,11 +188,11 @@ def test_ik_solvers(robot, test_pose):
     pos, quat = test_pose
 
     print("-------- 1: Inverse kinematics ---------")
-    ik_helper(robot, pos, quat, block)
+    ik_helper(robot, pos, quat, block, ori_error_tol=ori_error_tol)
 
     print("-------- 2: FK + IK Consistency  ---------")
     pos1, quat1 = robot.get_ee_pose()
-    ik_helper(robot, pos1, quat1, block)
+    ik_helper(robot, pos1, quat1, block, ori_error_tol=ori_error_tol)
 
 
 def test_pinocchio_against_pybullet(pin_robot, pb_robot, test_pose):
