@@ -359,7 +359,6 @@ class PbClient(object):
         self.is_simulation = is_simulation
         if visualize:
             self.id = pb.connect(pb.GUI)
-            raise RuntimeError()
         else:
             self.id = pb.connect(pb.DIRECT)
 
@@ -478,18 +477,29 @@ class PybulletIKSolver(IKSolverBase):
 
         if q_init is not None:
             # This version assumes that q_init is NOT in the right format yet
-            self.set_joint_positions(q_init)
             num_attempts = 1
-        elif self.controlled_joints is not None and self.range is not None:
-            rng = self.range[:, 1] - self.range[:, 0]
-            rng[np.isinf(rng)] = 0
-            q_init = (np.random.random() * rng) + self.range[:, 0]
+
+            # Update initial configuration used in bullet for optimization
+            self.set_joint_positions(q_init)
+            random_initialization = False
+        else:
+            random_initialization = True
 
         if self.visualize:
             self.debug_block.set_pose(pos_desired, quat_desired)
             input("--- Press enter to solve ---")
 
         for _ in range(num_attempts):
+            # Randomly initialize before we attempt pybullet inverse kinematics
+            if random_initialization:
+                rng = self.range[:, 1] - self.range[:, 0]
+                min_range = np.copy(self.range[:, 0])
+                rng[np.isinf(rng)] = 0
+                min_range[np.isinf(min_range)] = 0
+                # Initialize in the middle 80% of joint ranges
+                q_init = (np.random.random() * rng) + min_range
+                self.set_joint_positions(q_init)
+
             q_full = np.array(
                 pb.calculateInverseKinematics(
                     self.robot_id,
@@ -518,6 +528,9 @@ class PybulletIKSolver(IKSolverBase):
                         if verbose:
                             print("------")
                             print("IK failure:")
+                            print(" min =", self.range[:, 0])
+                            print("pred =", q_out)
+                            print(" max =", self.range[:, 1])
                             print(q_out > self.range[:, 0])
                             print(q_out < self.range[:, 1])
                         success = False
@@ -526,6 +539,11 @@ class PybulletIKSolver(IKSolverBase):
 
             if success:
                 break
+
+        if verbose:
+            print("-------------------")
+            print("Success", success)
+            print("Result:", q_out)
 
         debug_info = {"best_q_out": q_out}
         if not success:

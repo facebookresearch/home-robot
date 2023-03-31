@@ -187,9 +187,7 @@ class HelloStretchKinematics(Robot):
         "joint_wrist_roll",
     ]
 
-    def _create_ik_solvers(
-        self, ik_type: str = "pybullet", visualize: bool = False
-    ):  # TODO: spowers unused visualize flag?
+    def _create_ik_solvers(self, ik_type: str = "pybullet", visualize: bool = False):
         """Create ik solvers using pybullet or something else."""
         # You can set one of the visualize flags to true to debug IK issues
         # This is not exposed manually - only one though or it will fail
@@ -201,13 +199,17 @@ class HelloStretchKinematics(Robot):
         ], f"Unknown ik type: {ik_type}"
 
         # You can set one of the visualize flags to true to debug IK issues
+        self._manip_dof = len(self._manip_mode_controlled_joints)
         if "pybullet" in ik_type:
+            ranges = np.zeros((self._manip_dof, 2))
+            ranges[:, 0] = self._to_manip_format(self.range[:, 0])
+            ranges[:, 1] = self._to_manip_format(self.range[:, 1])
             self.manip_ik_solver = PybulletIKSolver(
                 self.manip_mode_urdf_path,
                 self._ee_link_name,
                 self._manip_mode_controlled_joints,
-                visualize=False,
-                joint_range=self.range[self.manip_indices],
+                visualize=visualize,
+                joint_range=ranges,
             )
         elif "pinocchio" in ik_type:
             self.manip_ik_solver = PinocchioIKSolver(
@@ -389,7 +391,7 @@ class HelloStretchKinematics(Robot):
 
         # arm position
         # TODO: fix this so that it is not hard-coded any more
-        self.range[HelloStretchIdx.ARM] = np.array([0.0, 0.5])
+        self.range[HelloStretchIdx.ARM] = np.array([0.0, 0.75])
         self.arm_idx = []
         upper_limit = 0
         for i in range(4):
@@ -588,7 +590,7 @@ class HelloStretchKinematics(Robot):
         return qi
 
     def _to_manip_format(self, q):
-        qi = np.zeros(self.manip_ik_solver.get_dof())
+        qi = np.zeros(self._manip_dof)
         qi[0] = q[HelloStretchIdx.BASE_X]
         qi[1] = q[HelloStretchIdx.LIFT]
         # Next 4 are all arm joints

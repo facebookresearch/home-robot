@@ -349,4 +349,10 @@ if __name__ == "__main__":
         visualize=DEBUG,
         ik_type="pybullet",
     )
+    opt = PositionIKOptimizer(
+        robot.manip_ik_solver,
+        pos_error_tol=CEM_POS_ERROR_TOL,
+        ori_error_range=np.array([0.0, 0.0, CEM_YAW_ERROR_TOL]),  # solve for yaw only
+    )
     test_ik_solvers(robot, TEST_DATA[0])
+    test_pybullet_ik_optimization(robot, opt, TEST_DATA[0])
