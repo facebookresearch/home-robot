@@ -1,4 +1,5 @@
 from enum import Enum
+from typing import Dict, List, Union
 
 from home_robot.motion.stretch import HelloStretchIdx
 
@@ -13,7 +14,7 @@ ROS_WRIST_PITCH = "joint_wrist_pitch"
 ROS_WRIST_ROLL = "joint_wrist_roll"
 
 
-ROS_TO_CONFIG = {
+ROS_TO_CONFIG: Dict[str, HelloStretchIdx] = {
     ROS_LIFT_JOINT: HelloStretchIdx.LIFT,
     ROS_GRIPPER_FINGER: HelloStretchIdx.GRIPPER,
     # ROS_GRIPPER_FINGER2: HelloStretchIdx.GRIPPER,
@@ -24,7 +25,7 @@ ROS_TO_CONFIG = {
     ROS_HEAD_TILT: HelloStretchIdx.HEAD_TILT,
 }
 
-CONFIG_TO_ROS = {}
+CONFIG_TO_ROS: Dict[HelloStretchIdx, List[str]] = {}
 for k, v in ROS_TO_CONFIG.items():
     if v not in CONFIG_TO_ROS:
         CONFIG_TO_ROS[v] = []

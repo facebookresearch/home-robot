@@ -3,6 +3,7 @@ from typing import Any, Dict, Optional
 import numpy as np
 import trimesh
 
+from home_robot.core.interfaces import Action
 from home_robot.motion.stretch import (
     STRETCH_BASE_FRAME,
     STRETCH_GRASP_FRAME,
@@ -26,7 +27,7 @@ class StretchManipulationEnv(StretchEnv):
         # TODO: implement this
         raise NotImplementedError
 
-    def apply_action(self, manip_action: Optional[Dict[str, Any]]) -> None:
+    def apply_action(self, manip_action: Optional[Dict[str, Any]] = None) -> None:
         """
         manip_action: Manipulation action in cartesian space
                       (pos, quat)
