@@ -17,6 +17,7 @@ repos:
         exclude: |
             (?x)^(
                 projects/
+                | src/home_robot_hw/home_robot_hw/ros/srv_prebuilt/
             )
 
   - repo: https://github.com/pre-commit/mirrors-mypy

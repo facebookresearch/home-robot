@@ -27,6 +27,7 @@ USAGE:\n
     $ python examine_env.py --env_name door-v0 --policy my_policy.pickle --mode evaluation --episodes 10 \n
 """
 
+
 # Random policy
 class rand_policy:
     def __init__(self, env, seed):
@@ -121,7 +122,7 @@ def main(
     np.random.seed(seed)
     env = (
         gym.make(env_name)
-        if env_args == None
+        if env_args is None
         else gym.make(env_name, **(eval(env_args)))
     )
     env.seed(seed)
@@ -139,7 +140,7 @@ def main(
         output_name = "random_policy"
 
     # resolve directory
-    if (os.path.isdir(output_dir) == False) and (
+    if (not os.path.isdir(output_dir)) and (
         render == "offscreen" or save_paths or plot_paths is not None
     ):
         os.mkdir(output_dir)
@@ -187,7 +188,7 @@ def main(
     # plot paths
     if plot_paths:
         file_name = output_dir + "/" + output_name + "{}".format(time_stamp)
-        plotnsave_paths(paths, env=env, fileName_prefix=file_name)
+        plotnsave_paths(plot_paths, env=env, fileName_prefix=file_name)
 
 
 if __name__ == "__main__":
