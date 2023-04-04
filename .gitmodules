@@ -19,3 +19,6 @@
 [submodule "src/third_party/pytorch_6dof-graspnet"]
 	path = src/third_party/pytorch_6dof-graspnet
 	url = git@github.com:jsll/pytorch_6dof-graspnet.git
+[submodule "src/third_party/Pointnet2_PyTorch"]
+	path = src/third_party/Pointnet2_PyTorch
+	url = git@github.com:erikwijmans/Pointnet2_PyTorch.git
