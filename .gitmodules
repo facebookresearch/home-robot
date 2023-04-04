@@ -16,3 +16,6 @@
 [submodule "src/third_party/contact_graspnet"]
 	path = src/third_party/contact_graspnet
 	url = git@github.com:cpaxton/contact_graspnet.git
+[submodule "src/third_party/pytorch_6dof-graspnet"]
+	path = src/third_party/pytorch_6dof-graspnet
+	url = git@github.com:jsll/pytorch_6dof-graspnet.git
