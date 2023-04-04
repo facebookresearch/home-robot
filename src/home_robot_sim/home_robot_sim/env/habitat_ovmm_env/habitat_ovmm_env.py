@@ -68,11 +68,15 @@ class HabitatOpenVocabManipEnv(HabitatEnv):
             )
         self._last_habitat_obs = None
 
+    def get_current_episode(self):
+        if isinstance(self.habitat_env, GymHabitatEnv):
+            return self.habitat_env.current_episode()
+        else:
+            return self.habitat_env.current_episode
+
     def set_vis_dir(self):
-        scene_id = (
-            self.habitat_env.current_episode().scene_id.split("/")[-1].split(".")[0]
-        )
-        episode_id = self.habitat_env.current_episode().episode_id
+        scene_id = self.get_current_episode().scene_id.split("/")[-1].split(".")[0]
+        episode_id = self.get_current_episode().episode_id
         self.visualizer.set_vis_dir(scene_id=scene_id, episode_id=episode_id)
 
     def reset(self):

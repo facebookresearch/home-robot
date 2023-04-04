@@ -57,7 +57,7 @@ class Categorical2DSemanticMapModule(nn.Module):
         map_pred_threshold: float,
         min_depth: float = 0.5,
         max_depth: float = 3.5,
-        must_explore_close: bool = True,
+        must_explore_close: bool = False,
     ):
         """
         Arguments:

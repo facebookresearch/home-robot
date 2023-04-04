@@ -51,6 +51,7 @@ class DiscretePlanner:
         dump_location: str,
         exp_name: str,
         min_goal_distance_cm: float = 60.0,
+        min_obs_dilation_selem_radius: int = 1,
         agent_cell_radius: int = 1,
     ):
         """
@@ -83,6 +84,7 @@ class DiscretePlanner:
         self.step_size = step_size
         self.start_obs_dilation_selem_radius = obs_dilation_selem_radius
         self.goal_dilation_selem_radius = goal_dilation_selem_radius
+        self.min_obs_dilation_selem_radius = min_obs_dilation_selem_radius
         self.agent_cell_radius = agent_cell_radius
 
         self.vis_dir = None
@@ -206,43 +208,47 @@ class DiscretePlanner:
 
         # We were not able to find a path to the high-level goal
         if replan and not stop:
-            print(
-                "Could not find a path to the high-level goal. Trying to explore more..."
-            )
 
-            # TODO re-enable this with a flag
             # Clean collision map
-            # self.collision_map *= 0
-            #
-            # # Reduce obstacle dilation
-            # if self.curr_obs_dilation_selem_radius > 1:
-            #     self.curr_obs_dilation_selem_radius -= 1
-            #     self.obs_dilation_selem = skimage.morphology.disk(
-            #         self.curr_obs_dilation_selem_radius
-            #     )
+            self.collision_map *= 0
+            # Reduce obstacle dilation
+            if self.curr_obs_dilation_selem_radius > self.min_obs_dilation_selem_radius:
+                self.curr_obs_dilation_selem_radius -= 1
+                self.obs_dilation_selem = skimage.morphology.disk(
+                    self.curr_obs_dilation_selem_radius
+                )
+                if debug:
+                    print(
+                        f"reduced obs dilation to {self.curr_obs_dilation_selem_radius}"
+                    )
 
-            (
-                short_term_goal,
-                closest_goal_map,
-                replan,
-                stop,
-                goal_pt,
-            ) = self._get_short_term_goal(
-                obstacle_map,
-                frontier_map,
-                start,
-                planning_window,
-                plan_to_dilated_goal=True,
-            )
-            print("--- after replanning to frontier ---")
-            print("goal =", short_term_goal)
-            found_goal = False
-            # action = DiscreteNavigationAction.STOP
-            if replan:
-                print("Nowhere left to explore. Stopping.")
-                # TODO Calling the STOP action here will cause the agent to try grasping
-                #   we need different STOP_SUCCESS and STOP_FAILURE actions
-                return DiscreteNavigationAction.STOP, goal_map
+            if found_goal:
+                if debug:
+                    print(
+                        "Could not find a path to the high-level goal. Trying to explore more..."
+                    )
+                (
+                    short_term_goal,
+                    closest_goal_map,
+                    replan,
+                    stop,
+                    goal_pt,
+                ) = self._get_short_term_goal(
+                    obstacle_map,
+                    frontier_map,
+                    start,
+                    planning_window,
+                    plan_to_dilated_goal=True,
+                )
+                if debug:
+                    print("--- after replanning to frontier ---")
+                    print("goal =", short_term_goal)
+                found_goal = False
+                # if replan:
+                #     print("Nowhere left to explore. Stopping.")
+                #     # TODO Calling the STOP action here will cause the agent to try grasping
+                #     #   we need different STOP_SUCCESS and STOP_FAILURE actions
+                #     return DiscreteNavigationAction.STOP, goal_map
 
         # If we found a short term goal worth moving towards...
         stg_x, stg_y = short_term_goal

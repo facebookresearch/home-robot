@@ -21,7 +21,7 @@ python setup.py install --headless --with-bullet
 # python setup.py build_ext --parallel 8 install --headless
 cd ..
 
-git clone --branch object_rearrange https://github.com/facebookresearch/habitat-lab.git
+git clone --branch modular_nav_obj_on_rec https://github.com/facebookresearch/habitat-lab.git
 cd habitat-lab
 python -m pip install -e ./habitat-baselines
 cd habitat-lab
@@ -46,7 +46,7 @@ pip install -r requirements.txt
 python setup.py install --with-bullet
 cd ..
 
-git clone --branch object_rearrange https://github.com/facebookresearch/habitat-lab.git
+git clone --branch modular_nav_obj_on_rec https://github.com/facebookresearch/habitat-lab.git
 cd habitat-lab
 pip install -e habitat-baselines
 cd habitat-lab
@@ -97,7 +97,7 @@ Download from `https://drive.google.com/file/d/1sSDSKZgYeIPPk8OM4oWhLtAf4Z-zjAVy
 
 Run
 ```
-python projects/habitat_ovmm/eval_episode.py
+python projects/habitat_ovmm/eval_vectorized.py
 ```
 
 Results are saved to `datadump/images/eval_floorplanner/`.
@@ -123,9 +123,6 @@ python demo.py --config-file configs/Detic_LCOCOI21k_CLIP_SwinB_896b32_4x_ft4x_m
 ```
 cd /path/to/home-robot
 
-# Single episode to debug (ensuring)
-export HABITAT_SIM_LOG=quiet
-python project/habitat_ovmm/eval_episode.py
 
 # Evaluation on complete episode dataset
 python project/habitat_ovmm/eval_vectorized.py

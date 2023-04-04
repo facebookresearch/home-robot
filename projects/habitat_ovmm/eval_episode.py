@@ -10,8 +10,8 @@ sys.path.insert(
     0,
     str(Path(__file__).resolve().parent.parent.parent / "src/home_robot_sim"),
 )
-
 from config_utils import get_config
+from habitat import make_dataset
 from habitat.core.env import Env
 from omegaconf import DictConfig, OmegaConf
 
@@ -40,7 +40,9 @@ if __name__ == "__main__":
     config = DictConfig({**config, **baseline_config})
 
     agent = OpenVocabManipAgent(config=config)
-    env = HabitatOpenVocabManipEnv(Env(config=config.habitat), config=config)
+    base_env = Env(config=config.habitat)
+    dataset = make_dataset(config.habitat.dataset.type, config=config.habitat.dataset)
+    env = HabitatOpenVocabManipEnv(base_env, config=config, dataset=dataset)
 
     agent.reset()
     env.reset()
