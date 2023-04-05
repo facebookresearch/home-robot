@@ -14,6 +14,10 @@ For instructions on how to set up the hardware, see the official documentation h
 # Make sure ROS can find python properly
 sudo apt install python-is-python3 pybind11-dev
 
+# Clone the repository
+git clone https://github.com/facebookresearch/home-robot
+HOME_ROBOT_ROOT=$(realpath home-robot)
+
 # Install the core home_robot package
 cd $HOME_ROBOT_ROOT/src/home_robot
 pip install -e .
