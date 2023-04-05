@@ -336,6 +336,7 @@ class ObjectNavAgent(Agent):
         ).unsqueeze(0)
         self.last_poses[0] = curr_pose
         object_goal_category = None
+        end_recep_goal_category = None
         if (
             "object_goal" in obs.task_observations
             and obs.task_observations["object_goal"] is not None
