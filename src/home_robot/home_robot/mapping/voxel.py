@@ -101,3 +101,9 @@ class SparseVoxelMap(object):
                 pc_xyz = np.concatenate([self.xyz, world_xyz], axis=0)
         pcd = numpy_to_pcd(pc_xyz, pc_rgb).voxel_down_sample(voxel_size=self.resolution)
         self.xyz, self.feats = pcd_to_numpy(pcd)
+
+    def reset(self) -> None:
+        """Clear out the entire voxel map."""
+        self.xyz = None
+        self.feats = None
+        self.observations = []

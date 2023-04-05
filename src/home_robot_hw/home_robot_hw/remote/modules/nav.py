@@ -141,5 +141,5 @@ class StretchNavigationClient(AbstractControlModule):
                 rate.sleep()
         # TODO: this should be unnecessary
         # TODO: add this back in if we are having trouble building maps
-        # Make sure that depth and position are synchonized
+        # Make sure that depth and position are synchronized
         # rospy.sleep(self.msg_delay_t * 5)

@@ -2,11 +2,9 @@
 #
 # This source code is licensed under the MIT license found in the
 # LICENSE file in the root directory of this source tree.
-from typing import Dict, Optional
+from typing import Dict, List, Optional
 
-import ros_numpy
 import rospy
-import tf2_ros
 
 from home_robot.motion.robot import Robot
 from home_robot.motion.stretch import HelloStretchKinematics
@@ -25,6 +23,12 @@ class StretchClient:
         self,
         init_node: bool = True,
         camera_overrides: Optional[Dict] = None,
+        urdf_path: str = "",
+        ik_type: str = "pybullet",
+        visualize_ik: bool = False,
+        grasp_frame: Optional[str] = None,
+        ee_link_name: Optional[str] = None,
+        manip_mode_controlled_joints: Optional[List[str]] = None,
     ):
         # Ros
         if init_node:
@@ -35,7 +39,14 @@ class StretchClient:
         self._ros_client = StretchRosInterface(**camera_overrides)
 
         # Robot model
-        self._robot_model = HelloStretchKinematics()
+        self._robot_model = HelloStretchKinematics(
+            urdf_path=urdf_path,
+            ik_type=ik_type,
+            visualize=visualize_ik,
+            grasp_frame=grasp_frame,
+            ee_link_name=ee_link_name,
+            manip_mode_controlled_joints=manip_mode_controlled_joints,
+        )
 
         # Interface modules
         self.nav = StretchNavigationClient(self._ros_client, self._robot_model)
@@ -108,26 +119,22 @@ class StretchClient:
     def robot_model(self) -> Robot:
         return self._robot_model
 
-    def get_frame_pose(self, frame, base_frame=None, lookup_time=None, timeout_s=None):
+    @property
+    def robot_joint_pos(self):
+        return self._ros_client.pos
+
+    @property
+    def camera_pose(self):
+        return self.head.get_pose_in_base_coords(rotated=False)
+
+    @property
+    def rgb_cam(self):
+        return self._ros_client.rgb_cam
+
+    @property
+    def dpt_cam(self):
+        return self._ros_client.dpt_cam
+
+    def get_frame_pose(self, frame, base_frame=None, lookup_time=None):
         """look up a particular frame in base coords"""
-        if lookup_time is None:
-            lookup_time = rospy.Time(0)  # return most recent transform
-        if timeout_s is None:
-            timeout_ros = rospy.Duration(0.1)
-        else:
-            timeout_ros = rospy.Duration(timeout_s)
-        if base_frame is None:
-            base_frame = self.odom_link
-        try:
-            stamped_transform = self.tf2_buffer.lookup_transform(
-                base_frame, frame, lookup_time, timeout_ros
-            )
-            pose_mat = ros_numpy.numpify(stamped_transform.transform)
-        except (
-            tf2_ros.LookupException,
-            tf2_ros.ConnectivityException,
-            tf2_ros.ExtrapolationException,
-        ):
-            print("!!! Lookup failed from", self.base_link, "to", self.odom_link, "!!!")
-            return None
-        return pose_mat
+        return self._ros_client.get_frame_pose(frame, base_frame, lookup_time)

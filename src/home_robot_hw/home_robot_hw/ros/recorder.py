@@ -12,7 +12,8 @@ from tqdm import tqdm
 
 from home_robot.utils.data_tools.image import img_from_bytes
 from home_robot.utils.data_tools.writer import DataWriter
-from home_robot_hw.ros.stretch_ros import HelloStretchROSInterface
+from home_robot.utils.pose import to_pos_quat
+from home_robot_hw.env.stretch_manipulation_env import StretchManipulationEnv
 
 
 class Recorder(object):
@@ -21,11 +22,7 @@ class Recorder(object):
     def __init__(self, filename, start_recording=False, model=None, robot=None):
         """Collect information"""
         print("Connecting to robot environment...")
-        self.robot = (
-            HelloStretchROSInterface(visualize_planner=False, model=model)
-            if robot is None
-            else robot
-        )
+        self.robot = StretchManipulationEnv(init_cameras=True)
         print("... done connecting to robot environment")
         self.rgb_cam = self.robot.rgb_cam
         self.dpt_cam = self.robot.dpt_cam
@@ -76,30 +73,33 @@ class Recorder(object):
         rgb, depth, xyz = self.robot.get_images(compute_xyz=True)
         q, dq = self.robot.update()
         # TODO get the following from TF lookup
-        ee_pose = self.robot.model.manip_fk(q)
+        # ee_pose = self.robot.model.manip_fk(q)
+        ee_pose = self.robot.get_pose("link_straight_gripper", "base_link")
         # output of above is a tuple of two ndarrays
         # ee-pose should be 1 ndarray of 7 values
-        ee_pose = np.concatenate((ee_pose[0], ee_pose[1]), axis=0)
+        ee_pose = to_pos_quat(ee_pose)
+        ee_pose = np.concatenate(ee_pose)
+        gripper_state = np.array(self.robot.get_gripper_state(q))
         # elements in following are of type: Tuple(Tuple(x,y,theta), rospy.Time)
         # change to ndarray with 4 floats
         base_pose = self.robot.get_base_pose()
-        base_pose = np.array(
-            [base_pose[0][0], base_pose[0][1], base_pose[0][2], base_pose[1].to_sec()]
-        )
-        camera_pose = self.robot.get_camera_pose()
+        camera_pose = self.robot.get_camera_pose_matrix()
         if is_keyframe:
             user_keyframe = np.array([1])
         else:
             user_keyframe = np.array([0])
-        self.writer.add_img_frame(rgb=rgb, depth=(depth * 10000).astype(np.uint16))
+        self.writer.add_img_frame(
+            head_rgb=rgb, head_depth=(depth * 10000).astype(np.uint16)
+        )
         self.writer.add_frame(
             q=q,
             dq=dq,
             ee_pose=ee_pose,
+            gripper_state=gripper_state,
             base_pose=base_pose,
             camera_pose=camera_pose,
             user_keyframe=user_keyframe,
-            xyz=xyz,
+            head_xyz=xyz,
         )
 
         return rgb, depth, q, dq
@@ -124,7 +124,6 @@ def png_to_mp4(group: h5py.Group, key: str, name: str, fps=10):
     """
     Write key out as a gif
     """
-    gif = []
     print("Writing gif to file:", name)
     img_stream = group[key]
     writer = None

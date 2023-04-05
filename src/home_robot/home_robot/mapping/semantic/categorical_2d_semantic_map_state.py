@@ -94,6 +94,9 @@ class Categorical2DSemanticMapState:
         self.goal_map = np.zeros(
             (self.num_environments, self.local_map_size, self.local_map_size)
         )
+        self.frontier_map = np.zeros(
+            (self.num_environments, self.local_map_size, self.local_map_size)
+        )
 
     def init_map_and_pose(self):
         """Initialize global and local map and sensor pose variables."""
@@ -115,6 +118,13 @@ class Categorical2DSemanticMapState:
             self.map_size_parameters,
         )
         self.goal_map[e] *= 0.0
+
+    def update_frontier_map(self, e: int, frontier_map: np.ndarray):
+        """Update the current exploration frontier."""
+        self.frontier_map[e] = frontier_map
+
+    def get_frontier_map(self, e: int):
+        return self.frontier_map[e]
 
     def update_global_goal_for_env(self, e: int, goal_map: np.ndarray):
         """Update global goal for a specific environment with the goal action chosen

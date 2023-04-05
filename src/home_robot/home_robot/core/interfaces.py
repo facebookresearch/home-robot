@@ -20,6 +20,8 @@ class DiscreteNavigationAction(Action, Enum):
     TURN_RIGHT = 3
     PICK_OBJECT = 4
     PLACE_OBJECT = 5
+    NAVIGATION_MODE = 6
+    MANIPULATION_MODE = 7
 
 
 @dataclass

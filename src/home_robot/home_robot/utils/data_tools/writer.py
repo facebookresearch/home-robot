@@ -31,7 +31,7 @@ class DataWriter(object):
             try:
                 os.mkdir(dirname)
             except OSError as e:
-                pass
+                print(e)
             self.filename = os.path.join(self.dirname, self.filename)
         else:
             self.filename = self.filename
