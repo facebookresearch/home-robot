@@ -44,7 +44,7 @@ AGENT:
     # obs_dilation_selem_radius: 3    # radius (in cells) of obstacle dilation structuring element
     # goal_dilation_selem_radius: 10  # radius (in cells) of goal dilation structuring element
     min_obs_dilation_selem_radius: 3    # radius (in cells) of obstacle dilation structuring element
-    obs_dilation_selem_radius: 4    # radius (in cells) of obstacle dilation structuring element
+    obs_dilation_selem_radius: 5    # radius (in cells) of obstacle dilation structuring element
     goal_dilation_selem_radius: 7  # radius (in cells) of goal dilation structuring element
     step_size: 4                    # maximum distance of the short-term goal selected by the planner
     use_dilation_for_stg: False      # use dilated goals for estimating short-term goals - or just reaching
