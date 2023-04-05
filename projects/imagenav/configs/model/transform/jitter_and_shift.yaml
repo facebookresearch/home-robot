@@ -1,0 +1,12 @@
+_target_: eaif_models.transforms.transform_augment
+resize_size: 128
+output_size: 128
+jitter: true
+jitter_prob: 1.0
+jitter_brightness: 0.3
+jitter_contrast: 0.3
+jitter_saturation: 0.3
+jitter_hue: 0.3
+shift: true
+shift_pad: 4
+randomize_environments: False

@@ -1,0 +1,66 @@
+TASK_CONFIG:
+  ENVIRONMENT:
+    MAX_EPISODE_STEPS: 1000
+    ITERATOR_OPTIONS.MAX_SCENE_REPEAT_STEPS: 50000
+
+  SIMULATOR:
+    FORWARD_STEP_SIZE: 0.25
+    TURN_ANGLE: 30
+    RGB_SENSOR:
+      WIDTH: 128
+      HEIGHT: 128
+    AGENT_0:
+      SENSORS: ["RGB_SENSOR"]
+
+  TASK:
+    POSSIBLE_ACTIONS: ["STOP", "MOVE_FORWARD", "TURN_LEFT", "TURN_RIGHT"]
+
+    SIMPLE_REWARD:
+      TYPE: "SimpleReward"
+      SUCCESS_REWARD: 5.0
+      ANGLE_SUCCESS_REWARD: 5.0
+      USE_DTG_REWARD: True
+      USE_ATG_REWARD: True
+      ATG_REWARD_DISTANCE: 1.0
+      SLACK_PENALTY: -0.01
+      USE_ATG_FIX: True
+
+    ANGLE_TO_GOAL:
+      TYPE: "AngleToGoal"
+
+    ANGLE_SUCCESS:
+      TYPE: "AngleSuccess"
+      SUCCESS_ANGLE: 25.0
+      USE_TRAIN_SUCCESS: True
+
+    IMAGEGOAL_ROTATION_SENSOR:
+      TYPE: "ImageGoalRotationSensor"
+      SAMPLE_ANGLE: True
+
+    TYPE: "Nav-v0"
+    SUCCESS_DISTANCE: 1.0
+    SUCCESS:
+      SUCCESS_DISTANCE: 1.0
+
+    TRAIN_SUCCESS:
+      TYPE: "TrainSuccess"
+      SUCCESS_DISTANCE: 0.8
+
+    SENSORS: ["IMAGEGOAL_ROTATION_SENSOR"]
+
+    MEASUREMENTS: [
+      "DISTANCE_TO_GOAL",
+      "SUCCESS",
+      "TRAIN_SUCCESS",
+      "ANGLE_TO_GOAL",
+      "ANGLE_SUCCESS",
+      "SPL",
+      "SOFT_SPL",
+      "SIMPLE_REWARD",
+    ]
+
+  DATASET:
+    TYPE: PointNav-v1
+    SPLIT: train
+    SCENES_DIR: data/scene_datasets
+    DATA_PATH: data/datasets/imagenav/gibson/v1/{split}/{split}.json.gz

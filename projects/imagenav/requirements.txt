@@ -1,0 +1,5 @@
+natsort
+scikit-fmm==2022.8.15
+scikit-learn==0.22.2.post1
+scikit-image==0.15.0
+trimesh

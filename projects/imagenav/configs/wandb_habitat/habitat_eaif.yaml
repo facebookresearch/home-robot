@@ -1,0 +1,7 @@
+WANDB:
+  project : habitat_eaif
+  entity  : eai-foundations
+  resume  : allow
+  mode    : online
+  run_name: imagenav_run
+  name    : ${model.metadata.algo}_${model.metadata.model}_${model.metadata.data}_${WANDB.run_name}

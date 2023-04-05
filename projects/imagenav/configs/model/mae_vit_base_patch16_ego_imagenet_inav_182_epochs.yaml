@@ -1,0 +1,19 @@
+_target_: eaif_models.models.load_model
+model:
+  _target_: eaif_models.models.vit.vit.load_mae_encoder
+  checkpoint_path: /checkpoint/maksymets/eaif/models/scaling_hypothesis_mae/mae_vit_large_ego_imagenet_inav_182_epochs.pth
+  model:
+    _target_: eaif_models.models.vit.vit.vit_large_patch16
+    img_size: 224
+    use_cls: True
+    drop_path_rate: 0.0
+transform:
+  _target_: eaif_models.transforms.vit_transforms
+metadata:
+  algo: mae
+  model: vit_large_patch16
+  data:
+    - ego
+    - imagenet
+    - inav
+  comment: 182_epochs

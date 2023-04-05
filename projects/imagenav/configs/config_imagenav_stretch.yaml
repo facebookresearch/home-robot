@@ -1,0 +1,23 @@
+defaults:
+  - tasks@: imagenav
+  - experiments@: imagenav_rl
+  - model: mae_vit_base_patch16_ego_imagenet_inav_182_epochs
+  - model/transform: jitter_and_shift
+  - wandb_habitat@: habitat_eaif
+  - override hydra/output: path
+  - override hydra/launcher: slurm_eval
+  - _self_
+
+checkpoint_path: "/checkpoint/maksymets/eaif/results/run_habitat_eaif/karmeshyadav/mae_vit_base_patch16_['ego', 'imagenet', 'inav']_frozen_scaling_runs_182_epochs_stretch_robot/checkpoints/ckpt.99.pth"
+RUN_TYPE: eval
+NUM_ENVIRONMENTS: 14
+TASK_CONFIG:
+  SIMULATOR:
+    AGENT_0:
+      HEIGHT: 1.41
+      RADIUS: 0.17
+    RGB_SENSOR:
+      WIDTH: 128
+      HEIGHT: 128
+      HFOV: 42
+      POSITION: [0, 1.31, 0]
