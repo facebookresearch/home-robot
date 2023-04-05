@@ -56,6 +56,9 @@ class StretchClient:
         # Init control mode
         self._base_control_mode = ControlMode.IDLE
 
+        # Initially start in navigation mode all the time - in order to make sure we are initialized into a decent state. Otherwise we need to check the different components and safely figure out control mode, which can be inaccurate.
+        self.switch_to_navigation_mode()
+
     # Mode interfaces
 
     def switch_to_navigation_mode(self):
