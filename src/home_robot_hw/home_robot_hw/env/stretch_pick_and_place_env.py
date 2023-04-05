@@ -96,8 +96,9 @@ class StretchPickandPlaceEnv(StretchEnv):
 
         # Switch control mode on the robot to nav
         self.robot.switch_to_navigation_mode()
-        # Set the robot's head into "navigation" mode - facing forward
-        self.grasp_planner.go_to_nav_mode()
+        if self.grasp_planner is not None:
+            # Set the robot's head into "navigation" mode - facing forward
+            self.grasp_planner.go_to_nav_mode()
 
     def try_grasping(self, visualize_masks=False, dry_run=False):
         return self.grasp_planner.try_grasping(
