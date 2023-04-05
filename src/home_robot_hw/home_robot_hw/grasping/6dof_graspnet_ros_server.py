@@ -47,17 +47,11 @@ def inference(args):
     grasp_evaluator_args.continue_train = False
     estimator = GraspEstimator(grasp_sampler_args, grasp_evaluator_args, args)
 
-    # Create request function and initialze grasp server TODO
+    # Create request function and initialze grasp server
     def get_grasps(pc_full, pc_colors, segmap):
         pc_segmap = segmap.reshape(-1)
-        pc_segments = {}
-        for i in np.unique(pc_segmap):
-            if i == 0:
-                continue
-            else:
-                pc_segments[i] = pc_full[pc_segmap == i]
-
-        grasps, scores = estimator.generate_and_refine_grasps(pc_full)
+        pc_segment = pc_full[pc_segmap == 1]
+        grasps, scores = estimator.generate_and_refine_grasps(pc_segment)
 
         return grasps, scores
 
