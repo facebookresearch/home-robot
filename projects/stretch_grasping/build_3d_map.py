@@ -93,7 +93,6 @@ def main(rate, max_frames, visualize, manual_wait, pcd_filename, pkl_filename):
 
     # Tuck the arm away
     print("Sending arm to  home...")
-    robot.switch_to_navigation_mode()
     robot.switch_to_manipulation_mode()
 
     robot.head.look_front(blocking=False)
