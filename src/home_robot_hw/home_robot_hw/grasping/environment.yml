@@ -1,0 +1,35 @@
+channels:
+  - pytorch
+  - nvidia
+  - robostack
+  - conda-forge
+  - anaconda
+dependencies:
+  - python ==3.9
+  - freetype
+  - hdf5
+  - pytorch
+  - pytorch-cuda
+  - pip:
+    - opencv-python ==4.7.0.72
+    - numpy ==1.19.5
+    - msgpack-numpy
+    - lmdb
+    - h5py
+    - hydra-core==0.11.3
+    - pytorch-lightning==0.7.1
+    - tqdm==4.45.0
+    - mayavi
+    - trimesh==3.6.30
+    - pyrender==0.1.39
+    - matplotlib==3.1.1
+    - easydict==1.9
+    - PyYAML==5.4
+    - tensorboardX==2.0
+    - python-fcl
+    - rtree
+    - vtk
+    - ros-noetic-rospy
+    - ros-noetic-tf2-ros
+    - ros-noetic-sensor-msgs
+    - pointnet2_ops @ git+https://github.com/erikwijmans/Pointnet2_PyTorch.git@master#subdirectory=pointnet2_ops_lib
