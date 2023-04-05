@@ -125,5 +125,5 @@ cd /path/to/home-robot
 
 
 # Evaluation on complete episode dataset
-python project/habitat_ovmm/eval_vectorized.py
+python projects/habitat_ovmm/eval_vectorized.py
 ```

@@ -165,6 +165,8 @@ class DiscretePlanner:
         start = np.array(start)
 
         if debug:
+            print()
+            print("--- Planning ---")
             print("Goals found:", np.any(goal_map > 0))
 
         self.curr_pose = [start_x, start_y, start_o]
@@ -202,7 +204,6 @@ class DiscretePlanner:
             )
             print("Distance:", dist_to_short_term_goal)
             print("Replan:", replan)
-            print()
         # t1 = time.time()
         # print(f"[Planning] get_short_term_goal() time: {t1 - t0}")
 
