@@ -7,7 +7,7 @@ import pytest
 try:
     import habitat
 except ImportError:
-    print(f"Warning: habitat not installed, skipping habitat tests")
+    print("Warning: habitat not installed, skipping habitat tests")
     pytest.skip(allow_module_level=True)
 
 from habitat.config.default import Config
