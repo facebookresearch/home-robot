@@ -10,6 +10,7 @@ from home_robot.core.interfaces import DiscreteNavigationAction, Observations
 from home_robot.motion.stretch import STRETCH_HOME_Q
 from home_robot.utils.geometry import xyt2sophus, xyt_base_to_global
 from home_robot_hw.env.stretch_abstract_env import StretchEnv
+from home_robot_hw.remote import StretchClient
 
 
 class StretchImageNavEnv(StretchEnv):
@@ -29,6 +30,8 @@ class StretchImageNavEnv(StretchEnv):
             self.image_goal = None
         self.reset()
 
+        self.robot = StretchClient()
+
     def _load_image_goal(self, goal_img_path: str) -> np.ndarray:
         """Load the pre-computed image goal from disk."""
         goal_image = cv2.imread(goal_img_path)
@@ -40,7 +43,9 @@ class StretchImageNavEnv(StretchEnv):
 
     def reset(self) -> None:
         self._episode_start_pose = xyt2sophus(self.get_base_pose())
-        self.goto(STRETCH_HOME_Q)
+        self.robot.switch_to_manipulation_mode()
+        self.robot.manip.goto(STRETCH_HOME_Q)
+        self.robot.switch_to_navigation_mode()
 
     def apply_action(self, action: DiscreteNavigationAction) -> None:
         """Convert a DiscreteNavigationAction to a continuous action and perform it"""
@@ -59,19 +64,19 @@ class StretchImageNavEnv(StretchEnv):
         else:
             raise RuntimeError("Action type not supported: " + str(action))
 
-        if not self.in_navigation_mode():
-            self.switch_to_navigation_mode()
-        self.navigate_to(continuous_action, relative=True, blocking=True)
+        if not self.robot.in_navigation_mode():
+            self.robot.switch_to_navigation_mode()
+        self.robot.nav.navigate_to(continuous_action, relative=True, blocking=True)
 
     def get_observation(self) -> Observations:
         """Get rgbd/xyz/theta from this"""
         rgb, _ = self.get_images(compute_xyz=False, rotate_images=True)
-        current_pose = xyt2sophus(self.get_base_pose())
+        # current_pose = xyt2sophus(self.robot.nav.get_base_pose())
 
         # use sophus to get the relative translation
-        relative_pose = self._episode_start_pose.inverse() * current_pose
-        euler_angles = relative_pose.so3().log()
-        theta = euler_angles[-1]
+        # relative_pose = self._episode_start_pose.inverse() * current_pose
+        # euler_angles = relative_pose.so3().log()
+        # theta = euler_angles[-1]
 
         # Create the observation
         return home_robot.core.interfaces.Observations(
@@ -90,14 +95,16 @@ class StretchImageNavEnv(StretchEnv):
 
     def rotate(self, theta: float) -> None:
         """just rotate and keep trying"""
-        init_pose = self.get_base_pose()
+        init_pose = self.robot.nav.get_base_pose()
         xyt = [0, 0, theta]
         goal_pose = xyt_base_to_global(xyt, init_pose)
+        self.robot.nav.navigate_to(goal_pose, blocking=False)
+
         rate = rospy.Rate(5)
         err = float("Inf"), float("Inf")
         pos_tol, ori_tol = 0.1, 0.1
         while not rospy.is_shutdown():
-            curr_pose = self.get_base_pose()
+            curr_pose = self.robot.nav.get_base_pose()
             print("init =", init_pose)
             print("curr =", curr_pose)
             print("goal =", goal_pose)
