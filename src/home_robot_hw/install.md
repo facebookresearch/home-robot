@@ -3,7 +3,12 @@
 
 ## Installation for Hello Robot Stretch
 
-These assume a Hello Robot Stretch v2 on Ubuntu 20.04.
+The following instructions assume a functional Hello Stretch Robot that has already been set up. 
+This means that you should be able to run `stretch_robot_system_check.py` and that the results are all green.
+
+For instructions on how to set up the hardware, see the official documentation here: https://docs.hello-robot.com/0.2/
+
+### Installing the Home Robot stack on the robot
 
 ```
 # Make sure ROS can find python properly
