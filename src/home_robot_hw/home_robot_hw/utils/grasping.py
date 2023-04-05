@@ -105,6 +105,7 @@ class GraspPlanner(object):
             # TODO: verify this is correct
             # In world coordinates
             # camera_pose_world = self.robot_client.head.get_pose()
+            # camera_pose = camera_pose_world
             # In base coordinates
             camera_pose_base = self.robot_client.head.get_pose_in_base_coords()
             camera_pose = camera_pose_base
@@ -171,10 +172,13 @@ class GraspPlanner(object):
                 theta_x, theta_y = divergence_from_vertical_grasp(pose)
                 theta = max(theta_x, theta_y)
                 print(i, "score =", score, theta, "xy =", theta_x, theta_y)
+                self._send_predicted_grasp_to_tf(pose)
                 # Reject grasps that arent top down for now
                 if theta > 0.3:
                     continue
                 grasps.append(pose)
+
+            print("After filtering: # grasps =", len(grasps))
 
             # Correct for the length of the Stretch gripper and the gripper upon
             # which Graspnet was trained
@@ -249,18 +253,21 @@ class GraspPlanner(object):
 
         return [pregrasp, back, standoff, grasp_pt, standoff, back, initial_pt]
 
-    def try_executing_grasp(
-        self, grasp: np.ndarray, wait_for_input: bool = False
-    ) -> bool:
-
+    def _send_predicted_grasp_to_tf(self, grasp):
+        """Helper function for visualizing the predicted grasps."""
         # Convert grasp pose to pos/quaternion
         # Visualize the grasp in RViz
         t = TransformStamped()
         t.header.stamp = rospy.Time.now()
         t.child_frame_id = "predicted_grasp"
-        t.header.frame_id = "map"
+        t.header.frame_id = "base_link"
         t.transform = ros_pose_to_transform(matrix_to_pose_msg(grasp))
         self.grasp_client.broadcaster.sendTransform(t)
+
+    def try_executing_grasp(
+        self, grasp: np.ndarray, wait_for_input: bool = False
+    ) -> bool:
+        self._send_predicted_grasp_to_tf(grasp)
 
         trajectory = self.plan_to_grasp(grasp)
 
