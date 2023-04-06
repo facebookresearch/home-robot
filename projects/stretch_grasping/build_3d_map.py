@@ -94,6 +94,7 @@ def main(rate, max_frames, visualize, manual_wait, pcd_filename, pkl_filename):
     # Tuck the arm away
     print("Sending arm to  home...")
     robot.switch_to_manipulation_mode()
+
     robot.head.look_front(blocking=False)
     robot.manip.goto_joint_positions(
         robot.manip._extract_joint_pos(STRETCH_NAVIGATION_Q)
@@ -103,7 +104,6 @@ def main(rate, max_frames, visualize, manual_wait, pcd_filename, pkl_filename):
     rate = rospy.Rate(rate)
 
     # Move the robot
-    # TODO: replace env with client
     robot.switch_to_navigation_mode()
     # Sequence information if we are executing the trajectory
     step = 0
@@ -138,7 +138,6 @@ def main(rate, max_frames, visualize, manual_wait, pcd_filename, pkl_filename):
 
         ti = (rospy.Time.now() - t0).to_sec()
         print("t =", ti, trajectory[step])
-        # env.navigate_to(trajectory[step], blocking=True)
         robot.nav.navigate_to(trajectory[step])
         print("... done navigating.")
         if manual_wait:
