@@ -51,7 +51,10 @@ def inference(args):
     def get_grasps(pc_full, pc_colors, segmap):
         pc_segmap = segmap.reshape(-1)
         pc_segment = pc_full[pc_segmap == 1]
-        grasps, scores = estimator.generate_and_refine_grasps(pc_segment)
+        grasps_raw, scores = estimator.generate_and_refine_grasps(pc_segment)
+
+        # 6dof graspnet returns a list of grasps, our grasp server expects a dict
+        grasps = {i: grasp for i, grasp in enumerate(grasps_raw)}
 
         return grasps, scores
 
@@ -130,6 +133,6 @@ if __name__ == "__main__":
     parser = make_parser()
     args = parser.parse_args()
 
-    rospy.init_node("6dof_graspnet")
+    rospy.init_node("sixdof_graspnet")
 
     inference(args)
