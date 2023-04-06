@@ -33,6 +33,7 @@ from home_robot_sim.env.habitat_ovmm_env.habitat_ovmm_env import (
 
 
 def create_ovmm_env_fn(config):
+    """Create habitat environment using configsand wrap HabitatOpenVocabManipEnv around it. This function is used by VectorEnv for creating the individual environments"""
     habitat_config = config.habitat
     dataset = make_dataset(habitat_config.dataset.type, config=habitat_config.dataset)
     env_class_name = _get_env_name(config)
@@ -44,6 +45,8 @@ def create_ovmm_env_fn(config):
 
 
 class VectorizedEvaluator(PPOTrainer):
+    """Class for creating vectorized environments, evaluating OpenVocabManipAgent on an episode dataset and returning metrics"""
+
     def __init__(self, config, config_str: str):
         self.config = config
         self.results_dir = self.config.habitat_baselines.eval_ckpt_path_dir

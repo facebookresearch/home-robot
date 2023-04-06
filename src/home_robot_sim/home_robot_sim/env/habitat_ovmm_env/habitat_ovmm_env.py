@@ -90,7 +90,8 @@ class HabitatOpenVocabManipEnv(HabitatEnv):
         self.set_vis_dir()
         return self._last_obs
 
-    def update_hab_pose(self, hab_pose):
+    def convert_pose_to_real_world_axis(self, hab_pose):
+        """Update axis convention of habitat pose to match the real-world axis convention"""
         hab_pose[[0, 1, 2]] = hab_pose[[2, 0, 1]]
         hab_pose[:, [0, 1, 2]] = hab_pose[:, [2, 0, 1]]
         return hab_pose
@@ -118,7 +119,9 @@ class HabitatOpenVocabManipEnv(HabitatEnv):
                 "goal_name": goal_name,
             },
             third_person_image=habitat_obs["robot_third_rgb"],
-            camera_pose=self.update_hab_pose(np.asarray(habitat_obs["camera_pose"])),
+            camera_pose=self.convert_pose_to_real_world_axis(
+                np.asarray(habitat_obs["camera_pose"])
+            ),
         )
         obs = self._preprocess_semantic(obs, habitat_obs)
         return obs
@@ -176,11 +179,12 @@ class HabitatOpenVocabManipEnv(HabitatEnv):
             None,
             None,
         )
-
+        # Check if small object category is included in goal specification
         if goal_type in ["object", "object_on_recep", "ovmm"]:
             goal_name = self._obj_id_to_name_mapping[obs["object_category"][0]]
             obj_goal_id = 1  # semantic sensor returns binary mask for goal object
         if goal_type == "object_on_recep":
+            # navigating to object on start receptacle (before grasping)
             goal_name = (
                 self._obj_id_to_name_mapping[obs["object_category"][0]]
                 + " on "
@@ -188,6 +192,7 @@ class HabitatOpenVocabManipEnv(HabitatEnv):
             )
             start_rec_goal_id = 2
         elif goal_type == "ovmm":
+            # nav goal specification for ovmm task includes all three categories:
             goal_name = (
                 self._obj_id_to_name_mapping[obs["object_category"][0]]
                 + " "
@@ -198,6 +203,7 @@ class HabitatOpenVocabManipEnv(HabitatEnv):
             start_rec_goal_id = 2
             end_rec_goal_id = 3
         elif goal_type == "recep":
+            # navigating to end receptacle (before placing)
             goal_name = self._rec_id_to_name_mapping[obs["goal_receptacle"][0]]
             end_rec_goal_id = 3
         return obj_goal_id, start_rec_goal_id, end_rec_goal_id, goal_name
