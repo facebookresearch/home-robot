@@ -33,6 +33,7 @@ class ObjectNavAgentModule(nn.Module):
             cat_pred_threshold=config.AGENT.SEMANTIC_MAP.cat_pred_threshold,
             exp_pred_threshold=config.AGENT.SEMANTIC_MAP.exp_pred_threshold,
             map_pred_threshold=config.AGENT.SEMANTIC_MAP.map_pred_threshold,
+            must_explore_close=config.AGENT.SEMANTIC_MAP.must_explore_close,
         )
         self.policy = ObjectNavFrontierExplorationPolicy(
             exploration_strategy=config.AGENT.exploration_strategy
@@ -56,7 +57,9 @@ class ObjectNavAgentModule(nn.Module):
         init_lmb,
         init_origins,
         seq_object_goal_category=None,
-        seq_recep_goal_category=None,
+        seq_start_recep_goal_category=None,
+        seq_end_recep_goal_category=None,
+        seq_nav_to_recep=None,
     ):
         """Update maps and poses with a sequence of observations, and predict
         high-level goals from map features.
@@ -67,8 +70,6 @@ class ObjectNavAgentModule(nn.Module):
              frame_height, frame_width)
             seq_pose_delta: sequence of delta in pose since last frame of shape
              (batch_size, sequence_length, 3)
-            seq_goal_category: sequence of goal categories of shape
-             (batch_size, sequence_length, 1)
             seq_dones: sequence of (batch_size, sequence_length) done flags that
              indicate episode restarts
             seq_update_global: sequence of (batch_size, sequence_length) binary
@@ -84,7 +85,14 @@ class ObjectNavAgentModule(nn.Module):
              (batch_size, 3)
             init_lmb: initial local map boundaries of shape (batch_size, 4)
             init_origins: initial local map origins of shape (batch_size, 3)
-
+            seq_object_goal_category: sequence of object goal categories of shape
+             (batch_size, sequence_length, 1)
+            seq_start_recep_goal_category: sequence of start recep goal categories of shape
+             (batch_size, sequence_length, 1)
+            seq_end_recep_goal_category: sequence of end recep goal categories of shape
+             (batch_size, sequence_length, 1)
+            seq_nav_to_recep: sequence of binary digits indicating if navigation is to object or end receptacle of shape
+             (batch_size, 1)
         Returns:
             seq_goal_map: sequence of binary maps encoding goal(s) of shape
              (batch_size, sequence_length, M, M)
@@ -137,10 +145,16 @@ class ObjectNavAgentModule(nn.Module):
         map_features = seq_map_features.flatten(0, 1)
         if seq_object_goal_category is not None:
             seq_object_goal_category = seq_object_goal_category.flatten(0, 1)
-        if seq_recep_goal_category is not None:
-            seq_recep_goal_category = seq_recep_goal_category.flatten(0, 1)
+        if seq_start_recep_goal_category is not None:
+            seq_start_recep_goal_category = seq_start_recep_goal_category.flatten(0, 1)
+        if seq_end_recep_goal_category is not None:
+            seq_end_recep_goal_category = seq_end_recep_goal_category.flatten(0, 1)
         goal_map, found_goal = self.policy(
-            map_features, seq_object_goal_category, seq_recep_goal_category
+            map_features,
+            seq_object_goal_category,
+            seq_start_recep_goal_category,
+            seq_end_recep_goal_category,
+            seq_nav_to_recep,
         )
         seq_goal_map = goal_map.view(batch_size, sequence_length, *goal_map.shape[-2:])
         seq_found_goal = found_goal.view(batch_size, sequence_length)
