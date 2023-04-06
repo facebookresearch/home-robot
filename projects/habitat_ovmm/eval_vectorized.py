@@ -211,9 +211,12 @@ class VectorizedEvaluator(PPOTrainer):
                         )
 
                     agent.reset_vectorized_for_env(e)
-                    obs[e] = envs.call_at(e, "reset")
+
                     if len(episode_metrics) % 5 == 0:
                         self.write_results(episode_metrics)
+                    if not stop():
+                        obs[e] = envs.call_at(e, "reset")
+
         envs.close()
         self.write_results(episode_metrics)
 
