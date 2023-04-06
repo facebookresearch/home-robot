@@ -187,7 +187,10 @@ class StretchManipulationClient(AbstractControlModule):
         debug: bool = False,
     ) -> Optional[np.ndarray]:
         """Solve inverse kinematics appropriately (or at least try to) and get the joint position
-        that we will be moving to."""
+        that we will be moving to.
+
+        Note: When relative==True, the delta orientation is still defined in the world frame
+        """
 
         pos_ee_curr, quat_ee_curr = self.get_ee_pose(world_frame=world_frame)
         if quat is None:
@@ -205,7 +208,13 @@ class StretchManipulationClient(AbstractControlModule):
 
         if relative:
             pose_base2ee_curr = posquat2sophus(pos_ee_curr, quat_ee_curr)
-            pose_base2ee_desired = pose_desired * pose_base2ee_curr
+
+            pos_desired = pos_ee_curr + pose_input.translation()
+            so3_desired = pose_input.so3() * pose_base2ee_curr.so3()
+            quat_desired = R.from_matrix(so3_desired.matrix()).as_quat()
+
+            pose_base2ee_desired = posquat2sophus(pos_desired, quat_desired)
+
         else:
             pose_base2ee_desired = pose_desired
 
@@ -215,6 +224,7 @@ class StretchManipulationClient(AbstractControlModule):
         if debug:
             print("=== EE goto command ===")
             print(f"Initial EE pose: pos={pos_ee_curr}; quat={quat_ee_curr}")
+            print(f"Input EE pose: pos={np.array(pos)}; quat={np.array(quat)}")
             print(f"Desired EE pose: pos={pos_ik_goal}; quat={quat_ik_goal}")
 
         # Perform IK
