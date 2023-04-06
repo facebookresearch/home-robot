@@ -3,6 +3,7 @@ from typing import Any, Dict, Optional
 import numpy as np
 import trimesh
 
+from home_robot.core.interfaces import Action
 from home_robot.motion.stretch import (
     STRETCH_BASE_FRAME,
     STRETCH_GRASP_FRAME,
@@ -26,7 +27,7 @@ class StretchManipulationEnv(StretchEnv):
         # TODO: implement this
         raise NotImplementedError
 
-    def apply_action(self, manip_action: Optional[Dict[str, Any]]) -> None:
+    def apply_action(self, manip_action: Optional[Dict[str, Any]] = None) -> None:
         """
         manip_action: Manipulation action in cartesian space
                       (pos, quat)
@@ -37,7 +38,9 @@ class StretchManipulationEnv(StretchEnv):
             current_pose = self.get_pose(STRETCH_GRASP_FRAME, STRETCH_BASE_FRAME)
             manip_action = {"pos": current_pose[0], "rot": current_pose[1]}
         q0, _ = self.update()
-        q = self.robot.manip_ik((manip_action["pos"], manip_action["rot"]), q0=q0)
+        q, success, ik_debug_info = self.robot.manip_ik(
+            (manip_action["pos"], manip_action["rot"]), q0=q0
+        )
         self.goto(q, wait=True, move_base=True)
         print("Moved to predicted action")
 

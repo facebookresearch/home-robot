@@ -4,7 +4,12 @@
 # LICENSE file in the root directory of this source tree.
 from setuptools import find_packages, setup
 
-install_requires = ["numpy", "empy", "catkin_pkg", "rospkg"]
+install_requires = [
+    "numpy",
+    "empy",
+    "catkin_pkg",
+    "rospkg",
+]
 
 setup(
     name="home_robot_hw",

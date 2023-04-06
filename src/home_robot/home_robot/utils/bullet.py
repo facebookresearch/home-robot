@@ -3,7 +3,7 @@
 # This source code is licensed under the MIT license found in the
 # LICENSE file in the root directory of this source tree.
 from collections import namedtuple
-from typing import Tuple
+from typing import Optional, Tuple
 
 import matplotlib.pyplot as plt
 import numpy as np
@@ -11,6 +11,8 @@ import pybullet as pb
 import pybullet_data
 import trimesh
 import trimesh.transformations as tra
+
+from home_robot.motion.ik_solver_base import IKSolverBase
 
 # Helpers
 from home_robot.utils.image import (
@@ -111,7 +113,7 @@ class PbArticulatedObject(PbObject):
         static=False,
         client=None,
         *args,
-        **kwargs
+        **kwargs,
     ):
         super(PbArticulatedObject, self).__init__(
             name, filename, assets_path, start_pos, start_rot, static, client
@@ -357,7 +359,6 @@ class PbClient(object):
         self.is_simulation = is_simulation
         if visualize:
             self.id = pb.connect(pb.GUI)
-            raise RuntimeError()
         else:
             self.id = pb.connect(pb.DIRECT)
 
@@ -368,6 +369,10 @@ class PbClient(object):
         if self.assets_path is not None:
             pb.setAdditionalSearchPath(assets_path)
         self.camera = None
+
+    def __del__(self):
+        # Without an explicit disconnect, the server can stay around and consume resources (particularly RAM)
+        pb.disconnect(self.id)
 
     def add_object(self, name, urdf_filename, assets_path=None, static=False):
         obj = PbObject(name, urdf_filename, assets_path, static=static, client=self.id)
@@ -399,7 +404,7 @@ class PbClient(object):
         self.plane_id = pb.loadURDF("plane.urdf")
 
 
-class PybulletIKSolver:
+class PybulletIKSolver(IKSolverBase):
     """Create a wrapper for solving inverse kinematics using PyBullet"""
 
     def __init__(
@@ -460,25 +465,41 @@ class PybulletIKSolver:
 
     def compute_ik(
         self,
-        pos_desired,
-        quat_desired,
-        q_init: np.ndarray = None,
+        pos_desired: np.ndarray,
+        quat_desired: np.ndarray,
+        q_init: Optional[np.ndarray] = None,
         num_attempts: int = 5,
         verbose: bool = False,
-    ):
+        **kwargs,
+    ) -> Tuple[np.ndarray, bool, dict]:
+        q_out = None
+        success = False
+
         if q_init is not None:
             # This version assumes that q_init is NOT in the right format yet
-            self.set_joint_positions(q_init)
             num_attempts = 1
-        elif self.controlled_joints is not None and self.range is not None:
-            rng = self.range[:, 1] - self.range[:, 0]
-            rng[np.isinf(rng)] = 0
-            q_init = (np.random.random() * rng) + self.range[:, 0]
+
+            # Update initial configuration used in bullet for optimization
+            self.set_joint_positions(q_init)
+            random_initialization = False
+        else:
+            random_initialization = True
+
         if self.visualize:
             self.debug_block.set_pose(pos_desired, quat_desired)
             input("--- Press enter to solve ---")
 
         for _ in range(num_attempts):
+            # Randomly initialize before we attempt pybullet inverse kinematics
+            if random_initialization:
+                rng = self.range[:, 1] - self.range[:, 0]
+                min_range = np.copy(self.range[:, 0])
+                rng[np.isinf(rng)] = 0
+                min_range[np.isinf(min_range)] = 0
+                # Initialize in the middle 80% of joint ranges
+                q_init = (np.random.random() * rng) + min_range
+                self.set_joint_positions(q_init)
+
             q_full = np.array(
                 pb.calculateInverseKinematics(
                     self.robot_id,
@@ -497,6 +518,8 @@ class PybulletIKSolver:
 
             if self.controlled_joints is not None:
                 q_out = q_full[self.controlled_joints]
+                success = True
+
                 if self.range is not None:
                     if not (
                         np.all(q_out > self.range[:, 0])
@@ -505,12 +528,25 @@ class PybulletIKSolver:
                         if verbose:
                             print("------")
                             print("IK failure:")
+                            print(" min =", self.range[:, 0])
+                            print("pred =", q_out)
+                            print(" max =", self.range[:, 1])
                             print(q_out > self.range[:, 0])
                             print(q_out < self.range[:, 1])
-                        q_out = None
+                        success = False
             else:
                 q_out = q_full
-            if q_out is not None:
+
+            if success:
                 break
 
-        return q_out
+        if verbose:
+            print("-------------------")
+            print("Success", success)
+            print("Result:", q_out)
+
+        debug_info = {"best_q_out": q_out}
+        if not success:
+            q_out = None
+
+        return q_out, success, debug_info

@@ -2,8 +2,14 @@ import sys
 from pathlib import Path
 from subprocess import Popen
 
-import habitat
 import pytest
+
+try:
+    import habitat
+except ImportError:
+    print("Warning: habitat not installed, skipping habitat tests")
+    pytest.skip(allow_module_level=True)
+
 from habitat.config.default import Config
 
 from home_robot.core.abstract_agent import Agent

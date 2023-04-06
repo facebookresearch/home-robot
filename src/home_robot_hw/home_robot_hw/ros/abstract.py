@@ -165,7 +165,6 @@ class AbstractStretchInterface(abc.ABC):
                 # Grasp attempt failure
                 continue
             # Record the initial q value here and use it
-            theta0 = q[2]
             q1 = qi.copy()
             q1[HelloStretchIdx.LIFT] += 0.08
             # q1[HelloStretchIdx.LIFT] += 0.2

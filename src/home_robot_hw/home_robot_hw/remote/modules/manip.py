@@ -114,7 +114,7 @@ class StretchManipulationClient(AbstractControlModule):
         Args:
             joint_positions: List of length 6 containing desired joint positions
             relative_base: Whether the base joint moves relative to current base position
-            blocking: Whether command blocks until completetion
+            blocking: Whether command blocks until completion
         """
         assert len(joint_positions) == 6, "Joint position vector must be of length 6."
 
@@ -218,7 +218,7 @@ class StretchManipulationClient(AbstractControlModule):
             print(f"Desired EE pose: pos={pos_ik_goal}; quat={quat_ik_goal}")
 
         # Perform IK
-        full_body_cfg = self._robot_model.manip_ik(
+        full_body_cfg, ik_success, ik_debug_info = self._robot_model.manip_ik(
             (pos_ik_goal, quat_ik_goal), q0=initial_cfg
         )
         if full_body_cfg is None:
