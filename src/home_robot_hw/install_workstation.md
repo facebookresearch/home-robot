@@ -15,3 +15,25 @@ mamba env update -f src/home_robot_hw/environment.yml
 # Install home_robot_hw
 pip install -e src/home_robot_hw
 ```
+
+### Setting up ROS Network
+
+We recommend adding this to your `~/.bashrc` file on the Workstation:
+```sh
+# Whatever your workstation's IP address is
+export WORKSTATION_IP=10.0.0.2
+# Whatever your robot's IP address is
+export HELLO_ROBOT_IP=10.0.0.6
+
+export ROS_IP=$WORKSTATION_IP
+export ROS_MASTER_URI=http://$HELLO_ROBOT_IP:11311
+
+# Optionally - make it clear to avoid issues
+echo "Setting ROS_MASTER_URI to $ROS_MASTER_URI"
+echo "Setting ROS IP to $ROS_IP"
+
+# Helpful alias - connect to the robot
+alias ssh-robot="ssh hello-robot@$HELLO_ROBOT_IP"
+```
+
+Setting the IP addresses explicitly will help reduce some potential errors with ROS multi-node communication.
