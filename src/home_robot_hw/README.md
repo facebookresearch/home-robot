@@ -6,7 +6,7 @@ For best performance, your Workstation should be on the same wireless network as
 # Installation
 
 - [Setup instructions on Robot](./install_robot.md)
-- [Setup instructions on Workstation](./install_robot.md)
+- [Setup instructions on Workstation](./install_workstation.md)
 
 ## Usage
 
