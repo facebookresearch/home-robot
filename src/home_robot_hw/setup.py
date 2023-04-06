@@ -9,10 +9,6 @@ install_requires = [
     "empy",
     "catkin_pkg",
     "rospkg",
-    "pin==0.4.3",
-    "pybind11==2.10.3",
-    "sophuspy==0.0.8",
-    "trimesh==3.20.1",
 ]
 
 setup(
