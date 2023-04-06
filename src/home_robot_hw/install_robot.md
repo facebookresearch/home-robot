@@ -1,5 +1,8 @@
-
 # Home Robot ROS Package
+
+We use a multi-system setup for controlling the Hello Stretch, where low-level control runs on the "Robot" and large neural nets are evaluated on a "Workstation" -- which here refers to a local computer with a GPU. 
+
+On the Robot, we install `home_robot_hw` directly into the native environment (without conda) as a ROS package.
 
 ## Installation for Hello Robot Stretch
 
@@ -47,8 +50,6 @@ These will ensure you can run the ROS-side launch files easily, and focus develo
 
 
 ### Setting up ROS Network
-
-We use a multi-system setup for controlling the robots, where low-level control runs on the robot and large neural nets are evaluated on a "Workstation" -- which here refers to a local computer with a GPU. For best performance, your Workstation should be on the same wireless network as the robot, preferrably with an ethernet connection to the router for lowest latency.
 
 We recommend adding this to your `~/.bashrc` file on the Robot:
 ```sh
