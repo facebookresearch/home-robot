@@ -130,4 +130,7 @@ cd /path/to/home-robot
 
 # Evaluation on complete episode dataset
 python projects/habitat_ovmm/eval_vectorized.py
+
+# Evaluation on specific episodes
+python projects/habitat_ovmm/eval_vectorized.py habitat.dataset.episode_ids="[151,182]"
 ```
