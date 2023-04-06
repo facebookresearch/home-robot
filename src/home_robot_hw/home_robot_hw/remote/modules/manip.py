@@ -278,6 +278,16 @@ class StretchManipulationClient(AbstractControlModule):
         return True
 
     @enforce_enabled
+    def rotate_ee(self, axis: int, angle: float, **kwargs):
+        assert axis in [0, 1, 2], "'axis' must be 0, 1, or 2! (x, y, z)"
+
+        r = np.zeros(3)
+        r[axis] = angle
+        quat_desired = R.from_rotvec(r).as_quat().tolist()
+
+        return self.goto_ee_pose([0, 0, 0], quat_desired, relative=True, **kwargs)
+
+    @enforce_enabled
     def open_gripper(self, blocking: bool = True):
         gripper_target = self._robot_model.range[HelloStretchIdx.GRIPPER][1]
         self.move_gripper(gripper_target, blocking=blocking)
