@@ -74,8 +74,8 @@ class ObjectNavAgent(Agent):
             print_images=False,
             dump_location=config.DUMP_LOCATION,
             exp_name=config.EXP_NAME,
-            agent_cell_radius=agent_cell_radius,
-            min_obs_dilation_selem_radius=config.AGENT.PLANNER.min_obs_dilation_selem_radius,
+            # agent_cell_radius=agent_cell_radius,
+            # min_obs_dilation_selem_radius=config.AGENT.PLANNER.min_obs_dilation_selem_radius,
         )
         self.one_hot_encoding = torch.eye(
             config.AGENT.SEMANTIC_MAP.num_sem_categories, device=self.device
@@ -212,7 +212,7 @@ class ObjectNavAgent(Agent):
             {
                 "obstacle_map": self.semantic_map.get_obstacle_map(e),
                 "goal_map": self.semantic_map.get_goal_map(e),
-                "frontier_map": self.semantic_map.get_frontier_map(e),
+                # "frontier_map": self.semantic_map.get_frontier_map(e),
                 "sensor_pose": self.semantic_map.get_planner_pose_inputs(e),
                 "found_goal": found_goal[e].item(),
             }
@@ -303,7 +303,7 @@ class ObjectNavAgent(Agent):
             action = DiscreteNavigationAction.STOP
         else:
             action, closest_goal_map = self.planner.plan(
-                **planner_inputs[0], use_dilation_for_stg=self.use_dilation_for_stg
+                **planner_inputs[0], #use_dilation_for_stg=self.use_dilation_for_stg
             )
 
         # t3 = time.time()
