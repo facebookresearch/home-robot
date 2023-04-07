@@ -9,8 +9,13 @@ from rlbench_continual.utils.rlbench_dataset import RLBenchDataset
 
 class RLBenchOfflineEnv(gym.Env):
     def __init__(
-        self, dataset_dir, random_trajectory_start=True, single_step_trajectory=True
+        self,
+        dataset_dir,
+        random_trajectory_start=True,
+        single_step_trajectory=True,
+        views=None,
     ):
+        views = views if views is not None else ["front"]
         self._random_trajectory_start = random_trajectory_start
         self._single_step_trajectory = single_step_trajectory
 
@@ -20,10 +25,16 @@ class RLBenchOfflineEnv(gym.Env):
             first_keypoint_only=False,
             debug_closest_pt=False,
         )
-        self._camera_keys = [
-            "front_rgb",
-            "front_depth",
-            "front_xyz",
+        self._camera_keys = []
+        [
+            self._camera_keys.extend(
+                [
+                    f"{view}_rgb",
+                    f"{view}_depth",
+                    f"{view}_xyz",
+                ]
+            )
+            for view in views
         ]  # Concat'd together -- TODO: make available in observation?
         self._current_trial = None
         self._current_keypoint_indices = None  # Indexes into the trial timesteps
@@ -37,7 +48,9 @@ class RLBenchOfflineEnv(gym.Env):
         ) = self._get_stretch_obs_and_action_space()
 
     def _get_stretch_obs_and_action_space(self):
-        channels = 7  # TODO: calculate from keys?
+        channels = np.array(
+            [3 if "rgb" in key or "xyz" in key else 1 for key in self._camera_keys]
+        ).sum()
         state_size = 8  # TODO: should be 8...keeping for now so I can keep using my trained model
         action_size = 9  # 3 pos, 4 quat, 1 gripper, 1 completion fraction
 
@@ -87,7 +100,9 @@ class RLBenchOfflineEnv(gym.Env):
         trial_time_index = keypoint_indices[timestep]
         ee_state = self._get_combined_ee_state(trial, timestep, keypoint_indices)
         extracted_timestep_data = {
-            key: trial[key][trial_time_index] for key in trial.temporal_keys
+            key: trial[key][trial_time_index]
+            for key in trial.temporal_keys
+            if "waypoint" not in key
         }
         combined_image = self._construct_image_observation_from_dict(
             extracted_timestep_data

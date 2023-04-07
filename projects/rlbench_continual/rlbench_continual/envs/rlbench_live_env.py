@@ -11,6 +11,15 @@ from rlbench.environment import Environment
 from rlbench.observation_config import ObservationConfig
 from rlbench_continual.envs.rlbench_offline_env import RLBenchOfflineEnv
 from rlbench_continual.utils.collect_rlbench_dataset import front as extract_front_view
+from rlbench_continual.utils.collect_rlbench_dataset import (
+    left_side as extract_left_side_view,
+)
+from rlbench_continual.utils.collect_rlbench_dataset import (
+    overhead as extract_overhead_view,
+)
+from rlbench_continual.utils.collect_rlbench_dataset import (
+    right_side as extract_right_side_view,
+)
 from rlbench_continual.utils.collect_rlbench_dataset import tasks as task_specs
 
 
@@ -22,9 +31,12 @@ class RLBenchLiveEnv(RLBenchOfflineEnv):
     # TODO: basing it on OfflineEnv to initialize our live env based on the tasks given to the offline env
     # reconsider if it diverges too far/doesn't make sense
 
-    def __init__(self, dataset_dir, headless):
+    def __init__(self, dataset_dir, headless, views):
         super().__init__(
-            dataset_dir, random_trajectory_start=False, single_step_trajectory=False
+            dataset_dir,
+            random_trajectory_start=False,
+            single_step_trajectory=False,
+            views=views,
         )
 
         obs_config = ObservationConfig(gripper_joint_positions=True)
@@ -50,7 +62,12 @@ class RLBenchLiveEnv(RLBenchOfflineEnv):
 
         # Pull out the view information for each supported camera (in particular, this generates the xyz)
         extracted_data = {}
-        views = [("front", extract_front_view)]
+        views = [
+            ("front", extract_front_view),
+            ("overhead", extract_overhead_view),
+            ("left", extract_left_side_view),
+            ("right", extract_right_side_view),
+        ]
         for view_name, view_extractor in views:
             extracted_data.update(
                 dict(
