@@ -1,12 +1,8 @@
 import argparse
 from pathlib import Path
 
-import matplotlib.pyplot as plt
 import numpy as np
-import open3d
 import trimesh.transformations as tra
-from data_tools.writer import DataWriter
-from peract_colab.rlbench.backend.utils import extract_obs
 from rlbench.action_modes.action_mode import MoveArmThenGripper
 from rlbench.action_modes.arm_action_modes import JointVelocity
 from rlbench.action_modes.gripper_action_modes import Discrete
@@ -22,9 +18,10 @@ from rlbench.tasks import (
     ReachTarget,
     TakeLidOffSaucepan,
 )
+from rlbench_continual.utils import demo_loading_utils
 from tqdm import tqdm
 
-from home_robot.datasets import demo_loading_utils
+from home_robot.utils.data_tools.writer import DataWriter
 
 tasks = {
     "open_door": (OpenDoor, None),

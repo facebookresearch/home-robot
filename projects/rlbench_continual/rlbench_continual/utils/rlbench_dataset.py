@@ -4,20 +4,21 @@ import open3d as o3d
 import torch
 import torchvision.transforms as T
 import trimesh.transformations as tra
-from data_tools.loader import DatasetBase, Trial
-from data_tools.point_cloud import (
+from PIL import Image
+
+from home_robot.utils.data_tools.loader import DatasetBase, Trial
+from home_robot.utils.point_cloud import (
     add_additive_noise_to_xyz,
     dropout_random_ellipses,
-    get_pcd,
+    numpy_to_pcd,
     show_point_cloud,
 )
-from PIL import Image
 
 
 def show_point_cloud_with_keypt_and_closest_pt(
     xyz, rgb, keypt_orig, keypt_rot, closest_pt
 ):
-    pcd = get_pcd(xyz, rgb / 255)
+    pcd = numpy_to_pcd(xyz, rgb / 255)
     geoms = [pcd]
     coords = o3d.geometry.TriangleMesh.create_coordinate_frame(
         size=0.1, origin=keypt_orig
@@ -225,7 +226,7 @@ class RLBenchDataset(DatasetBase):
 
         xyz, rgb = xyz.reshape(-1, 3), rgb.reshape(-1, 3)
         # voxelize at a granular voxel-size rather than random downsample
-        pcd = get_pcd(xyz, rgb)
+        pcd = numpy_to_pcd(xyz, rgb)
         pcd_downsampled = pcd.voxel_down_sample(self._voxel_size)
         rgb = np.asarray(pcd_downsampled.colors)
         xyz = np.asarray(pcd_downsampled.points)
@@ -258,7 +259,7 @@ class RLBenchDataset(DatasetBase):
 
     def get_query(self, xyz, rgb, ref_ee_keyframe):
         # downsample another time to get sampled version
-        pcd_downsampled = get_pcd(xyz, rgb)
+        pcd_downsampled = numpy_to_pcd(xyz, rgb)
         pcd_downsampled2 = pcd_downsampled.voxel_down_sample(self._voxel_size_2)
         xyz2 = np.asarray(pcd_downsampled2.points)
         rgb2 = np.asarray(pcd_downsampled2.colors)
@@ -660,7 +661,8 @@ class RLBenchDataset(DatasetBase):
 
 def debug_get_datum():
     loader = RLBenchDataset(
-        "/home/priparashar/Development/icra/data/rlbench/reach_mt_train",
+        "/home/spowers/Git/home-robot/projects/rlbench_continual/rlbench_continual/utils/data/rlbench/train_roc_pan",
+        # "/home/priparashar/Development/icra/data/rlbench/reach_mt_train",
         data_augmentation=False,
         first_keypoint_only=True,
         debug_closest_pt=True,
