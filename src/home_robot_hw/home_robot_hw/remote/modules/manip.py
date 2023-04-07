@@ -278,7 +278,8 @@ class StretchManipulationClient(AbstractControlModule):
         return True
 
     @enforce_enabled
-    def rotate_ee(self, axis: int, angle: float, **kwargs):
+    def rotate_ee(self, axis: int, angle: float, **kwargs) -> bool:
+        """Rotates the gripper by one of 3 principal axes (X, Y, Z)"""
         assert axis in [0, 1, 2], "'axis' must be 0, 1, or 2! (x, y, z)"
 
         r = np.zeros(3)
