@@ -1,0 +1,22 @@
+type: "occant_depth"
+# entropy threshold to classify a cell as confident
+thresh_entropy: 0.4
+GP_ANTICIPATION:
+  # Model capacity factor for custom UNet
+  unet_nsf: 16
+  # Freeze image features?
+  freeze_features: False
+  nclasses: 2
+  resnet_type: "resnet18"
+  # OccAnt RGB specific hyperparameters
+  detach_depth_proj: False
+  pretrained_depth_proj_model: ""
+  freeze_depth_proj_model: False
+  # Normalization options for anticipation output
+  OUTPUT_NORMALIZATION:
+    channel_0: "sigmoid"
+    channel_1: "sigmoid"
+  # Map aggregation configs
+AGGREGATOR:
+  registration_type: "entropy_moving_average"
+  map_registration_momentum: 0.9
