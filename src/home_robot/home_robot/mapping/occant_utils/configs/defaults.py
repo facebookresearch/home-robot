@@ -9,6 +9,8 @@ _C.thresh_explored = 0.6
 # threshold to classify a cell as obstacle
 _C.thresh_obstacle = 0.6
 _C.input_hw = [128, 128]
+_C.image_mean = [0.485, 0.456, 0.406]
+_C.image_std = [0.229, 0.224, 0.225]
 #####################################################################
 # Anticipation model
 #####################################################################
@@ -27,6 +29,7 @@ _C.GP_ANTICIPATION.freeze_depth_proj_model = False
 _C.GP_ANTICIPATION.OUTPUT_NORMALIZATION = CN()
 _C.GP_ANTICIPATION.OUTPUT_NORMALIZATION.channel_0 = "sigmoid"
 _C.GP_ANTICIPATION.OUTPUT_NORMALIZATION.channel_1 = "sigmoid"
+
 #####################################################################
 # Map aggregation
 #####################################################################

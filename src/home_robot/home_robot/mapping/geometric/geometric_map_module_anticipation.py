@@ -6,11 +6,12 @@ import numpy as np
 import pytorch3d.transforms as pt
 import skimage.morphology
 import torch
-from einops import asnumpy
+from einops import asnumpy, rearrange
 from torch import Tensor
 from torch.nn import functional as F
 
 import home_robot.mapping.map_utils as mu
+import home_robot.mapping.occant_utils.common as ocu
 import home_robot.utils.depth as du
 import home_robot.utils.pose as pu
 import home_robot.utils.rotation as ru
@@ -219,7 +220,10 @@ class GeometricMapModuleWithAnticipation(GeometricMapModule):
         # fp_map_pred = self.dilate_tensor(fp_map_pred, 3, iterations=2)
         # Filter obstacles to minimize domain gap
         # fp_map_pred = kornia.filters.median_blur(fp_map_pred, (5, 5))
-        # OccAnt-specific ego_map
+        # -------------------------------------------------------
+        # ------- Create observations for OccAnt mapper --------
+        # -------------------------------------------------------
+        # ---------------------- ego_map -----------------------
         # - channel 0 is one if occupied
         # - channel 1 is one if
         ego_map = torch.cat([fp_map_pred, fp_exp_pred], dim=1)  # (B, 2, H, W)
@@ -232,8 +236,22 @@ class GeometricMapModuleWithAnticipation(GeometricMapModule):
         ego_map = torch.flip(ego_map, [2])
         ego_map_rgb = self.convert_map2rgb(ego_map[0])
         ego_map_rgb_2 = self.convert_map2rgb(ego_map[0], enhance_obstacles=True)
-        # Anticipation
-        ego_map_a = self.occant_model({"ego_map_gt": ego_map})["occ_estimate"]
+        # ------------------------ rgb --------------------------
+        rgb_obs = obs[:, :3, :, :]
+        rgb_obs = ocu.process_image(
+            rearrange(rgb_obs, "b c h w -> b h w c"),
+            self.occant_cfg.image_mean,
+            self.occant_cfg.image_std,
+        )  # (B, C, H, W)
+        rgb_obs = ocu.padded_resize(rgb_obs, self.occant_cfg.input_hw[0]).to(
+            self.model_device
+        )
+        # -------------------------------------------------------
+        # -------------------- Anticipation --------------------
+        # -------------------------------------------------------
+        ego_map_a = self.occant_model({"ego_map_gt": ego_map, "rgb": rgb_obs})[
+            "occ_estimate"
+        ]
         ego_map_a_rgb = self.convert_map2rgb(ego_map_a[0])
         # # Entropy-based filtering
         ego_map_a_ent = self.perform_entropy_filtering(ego_map_a)
