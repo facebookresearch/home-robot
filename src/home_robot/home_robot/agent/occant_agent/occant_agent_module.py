@@ -6,12 +6,16 @@ import torch.nn as nn
 from home_robot.mapping.geometric.geometric_map_module_anticipation import (
     GeometricMapModuleWithAnticipation,
 )
+from home_robot.mapping.occant_utils.configs.defaults import get_cfg
+from home_robot.mapping.semantic.constants import MapConstants as MC
 from home_robot.navigation_policy.exploration.frontier_exploration_policy import (
     FrontierExplorationPolicy,
 )
+from home_robot.navigation_policy.exploration.occant_policy import GlobalPolicy
 
 # Do we need to visualize the frontier as we explore?
 debug_frontier_map = False
+USE_FRONTIER_POLICY = False
 
 
 class OccAntAgentModule(nn.Module):
@@ -37,15 +41,29 @@ class OccAntAgentModule(nn.Module):
             occant_ckpt_path=config.AGENT.SEMANTIC_MAP.occant_ckpt_path,
             device=device,
         )
-        """
-        OccAnt TODO:
-        * Create OccAnt exploration policy from config
-        * Load pre-trained weights
-        * Set model to eval
-        * Set model to required device
-        """
-        self.policy = FrontierExplorationPolicy(
-            exploration_strategy=config.AGENT.exploration_strategy
+        self.device = device
+        self.occant_cfg = get_cfg(config.AGENT.SEMANTIC_MAP.occant_cfg_path)
+        if USE_FRONTIER_POLICY:
+            self.policy = FrontierExplorationPolicy(
+                exploration_strategy=config.AGENT.exploration_strategy
+            )
+        else:
+            self.policy = GlobalPolicy(self.occant_cfg.GLOBAL_POLICY)
+            self.load_policy_weights(config.AGENT.SEMANTIC_MAP.occant_ckpt_path)
+            self.policy.eval()
+            self.policy.to(self.device)
+
+    def load_policy_weights(self, path: str):
+        ckpt = torch.load(path, map_location="cpu")
+        state_dict = ckpt["global_state_dict"]
+        state_dict = {k.replace("actor_critic.", ""): v for k, v in state_dict.items()}
+        self.policy.load_state_dict(state_dict)
+        print(
+            "\n"
+            + "=" * 10
+            + " Successfully loaded OccAnt policy weights "
+            + "=" * 10
+            + "\n"
         )
 
     @property
@@ -138,12 +156,29 @@ class OccAntAgentModule(nn.Module):
 
         # Predict high-level goals from map features
         # batched across sequence length x num environments
-        map_features = seq_map_features.flatten(0, 1)
-        """
-        OccAnt TODO:
-        * Create a wrapper mapping from the above map_features to OccAnt policy inputs
-        """
-        goal_map = self.policy(map_features)
+        if USE_FRONTIER_POLICY:
+            map_features = seq_map_features.flatten(0, 1)
+            goal_map = self.policy(map_features)
+        else:
+            assert sequence_length == 1
+            global_policy_inputs = self._create_global_policy_inputs(
+                final_local_map, seq_local_pose.flatten(0, 1)
+            )
+            _, global_action, _, _ = self.policy.act(
+                global_policy_inputs, None, None, None
+            )
+            G = self.policy.G
+            global_action_map_x = torch.fmod(
+                global_action.squeeze(1), G
+            ).float()  # (bs, )
+            global_action_map_y = (global_action.squeeze(1) / G).float()  # (bs, )
+            # Convert to MxM local map coordinates
+            _, _, M, _ = final_local_map.shape
+            global_action_map_x = (global_action_map_x * M / G).long()
+            global_action_map_y = (global_action_map_y * M / G).long()
+            goal_map = torch.zeros_like(final_local_map[:, :1])
+            goal_map[:, :, global_action_map_y, global_action_map_x] = 1
+
         seq_goal_map = goal_map.view(batch_size, sequence_length, *goal_map.shape[-2:])
 
         # Compute the frontier map here
@@ -173,3 +208,25 @@ class OccAntAgentModule(nn.Module):
             seq_lmb,
             seq_origins,
         )
+
+    def _create_global_policy_inputs(self, global_map, global_pose):
+        """
+        global_map  - (bs, N, V, V) - global obstacles, explored area, current and past position
+        global_pose - (bs, 3) - (x, y, orientation) in real-world coordinates
+        """
+        obstacles = global_map[:, MC.OBSTACLE_MAP]
+        explored = global_map[:, MC.EXPLORED_MAP]
+        visited = global_map[:, MC.VISITED_MAP]
+        current = global_map[:, MC.CURRENT_LOCATION]
+        map_params = self.geometric_map_module.map_size_parameters
+        global_loc = (global_pose[:, :2] * 100.0 / map_params.resolution).int()
+        h_t = torch.stack(
+            [obstacles, explored, visited, current], dim=1
+        )  # (bs, 4, M, M)
+
+        global_policy_inputs = {
+            "pose_in_map_at_t": global_loc.to(self.device),
+            "map_at_t": h_t.to(self.device),
+        }
+
+        return global_policy_inputs

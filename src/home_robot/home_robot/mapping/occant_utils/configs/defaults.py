@@ -29,7 +29,13 @@ _C.GP_ANTICIPATION.freeze_depth_proj_model = False
 _C.GP_ANTICIPATION.OUTPUT_NORMALIZATION = CN()
 _C.GP_ANTICIPATION.OUTPUT_NORMALIZATION.channel_0 = "sigmoid"
 _C.GP_ANTICIPATION.OUTPUT_NORMALIZATION.channel_1 = "sigmoid"
-
+#####################################################################
+# Global policy
+#####################################################################
+_C.GLOBAL_POLICY = CN()
+_C.GLOBAL_POLICY.map_size = 240  # global policy input size G
+_C.GLOBAL_POLICY.use_data_parallel = False  # global policy input size G
+_C.GLOBAL_POLICY.gpu_ids = []  # global policy input size G
 #####################################################################
 # Map aggregation
 #####################################################################

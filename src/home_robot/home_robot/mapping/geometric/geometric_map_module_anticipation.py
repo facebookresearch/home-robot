@@ -56,7 +56,13 @@ class GeometricMapModuleWithAnticipation(GeometricMapModule):
             if k.startswith("mapper.projection_unit")
         }
         self.occant_model.load_state_dict(state_dict)
-        print("\n" + "=" * 50 + "Successfully loaded model weights" + "=" * 50 + "\n")
+        print(
+            "\n"
+            + "=" * 10
+            + " Successfully loaded OccAnt mapper weights "
+            + "=" * 10
+            + "\n"
+        )
 
     def _update_local_map_and_pose(
         self,
