@@ -166,7 +166,6 @@ class Visualizer:
         semantic_map: np.ndarray,
         been_close_map: np.ndarray,
         semantic_frame: np.ndarray,
-        frontier_map: np.ndarray,
         goal_name: str,
         timestep: int,
         visualize_goal: bool = True,
