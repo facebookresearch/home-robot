@@ -554,9 +554,6 @@ rearrange_detic_categories_indexes = {
     v: k for k, v in rearrange_detic_categories_indexes.items()
 }
 
-# rearrange_detic_categories_padded = (
-#     ["."] + [rearrange_detic_categories_indexes[i] for i in range(1, 60)] + ["other"]
-# )
 
 rearrange_detic_categories_legend_path = str(
     Path(__file__).resolve().parent / "rearrange_detic_categories_legend.png"
@@ -586,9 +583,6 @@ class RearrangeDETICCategories(SemanticCategoryMapping):
 
     @property
     def color_palette(self):
-        d3_40_colors_rgb_repeated = (
-            d3_40_colors_rgb[1 : self.num_sem_categories].flatten().tolist() * 10
-        )
         color_palette = [255, 255, 255] + d3_40_colors_rgb[
             1 : self.num_sem_categories
         ].flatten().tolist()
