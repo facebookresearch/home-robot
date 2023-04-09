@@ -115,6 +115,7 @@ class DiscretePlanner:
         self,
         obstacle_map: np.ndarray,
         goal_map: np.ndarray,
+        frontier_map: np.ndarray,
         sensor_pose: np.ndarray,
         found_goal: bool,
         debug: bool = True,
@@ -177,7 +178,7 @@ class DiscretePlanner:
         # print(f"[Planning] get_short_term_goal() time: {t1 - t0}")
 
         # We were not able to find a path to the high-level goal
-        if replan:
+        if replan and not stop:
             # Clean collision map
             self.collision_map *= 0
 
@@ -187,6 +188,23 @@ class DiscretePlanner:
                 self.obs_dilation_selem = skimage.morphology.disk(
                     self.curr_obs_dilation_selem_radius
                 )
+
+            if found_goal:
+                (
+                    short_term_goal,
+                    closest_goal_map,
+                    replan,
+                    stop,
+                ) = self._get_short_term_goal(
+                    obstacle_map,
+                    frontier_map,
+                    start,
+                    planning_window,
+                )
+                if debug:
+                    print("--- after replanning to frontier ---")
+                    print("goal =", short_term_goal)
+                found_goal = False
 
         stg_x, stg_y = short_term_goal
         angle_st_goal = math.degrees(math.atan2(stg_x - start[0], stg_y - start[1]))

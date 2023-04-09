@@ -36,7 +36,7 @@ class Categorical2DSemanticMapModule(nn.Module):
 
     # If true, display point cloud visualizations using Open3d
     debug_mode = False
-    min_obs_height_cm = 25
+    min_obs_height_cm = 10
 
     def __init__(
         self,

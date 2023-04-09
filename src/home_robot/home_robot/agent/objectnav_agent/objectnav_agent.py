@@ -58,10 +58,7 @@ class ObjectNavAgent(Agent):
             map_size_cm=config.AGENT.SEMANTIC_MAP.map_size_cm,
             global_downscaling=config.AGENT.SEMANTIC_MAP.global_downscaling,
         )
-        agent_radius_cm = config.AGENT.radius * 100.0
-        agent_cell_radius = int(
-            np.ceil(agent_radius_cm / config.AGENT.SEMANTIC_MAP.map_resolution)
-        )
+
         self.planner = DiscretePlanner(
             turn_angle=config.ENVIRONMENT.turn_angle,
             collision_threshold=config.AGENT.PLANNER.collision_threshold,
@@ -212,7 +209,7 @@ class ObjectNavAgent(Agent):
             {
                 "obstacle_map": self.semantic_map.get_obstacle_map(e),
                 "goal_map": self.semantic_map.get_goal_map(e),
-                # "frontier_map": self.semantic_map.get_frontier_map(e),
+                "frontier_map": self.semantic_map.get_frontier_map(e),
                 "sensor_pose": self.semantic_map.get_planner_pose_inputs(e),
                 "found_goal": found_goal[e].item(),
             }
@@ -303,7 +300,7 @@ class ObjectNavAgent(Agent):
             action = DiscreteNavigationAction.STOP
         else:
             action, closest_goal_map = self.planner.plan(
-                **planner_inputs[0], #use_dilation_for_stg=self.use_dilation_for_stg
+                **planner_inputs[0],  # use_dilation_for_stg=self.use_dilation_for_stg
             )
 
         # t3 = time.time()
