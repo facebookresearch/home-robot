@@ -29,7 +29,7 @@ from home_robot_hw.env.stretch_exploration_env import StretchExplorationEnv
     help="do not execute any actions, just print them",
 )
 def main(agent, dry_run):
-    config_path = "projects/stretch_occant/configs/agent/occant_depth_eval.yaml"
+    config_path = "projects/stretch_occant/configs/agent/occant_eval.yaml"
     config, config_str = get_config(config_path)
     config.defrost()
     config.NUM_ENVIRONMENTS = 1

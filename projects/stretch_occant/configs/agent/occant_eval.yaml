@@ -38,8 +38,8 @@ AGENT:
     map_pred_threshold: 1.0  # number of depth points to be in bin to consider it as obstacle
     been_close_to_radius: 200  # radius (in centimeters) of been close to region
     explored_radius: 150       # radius (in centimeters) of visually explored region
-    occant_cfg_path: "src/home_robot/home_robot/mapping/occant_utils/configs/occant_depth.yaml"
-    occant_ckpt_path: "data/occant_depth_ckpt_4.pth.stripped_stretch"
+    occant_cfg_path: "src/home_robot/home_robot/mapping/occant_utils/configs/occant_rgbd.yaml"
+    occant_ckpt_path: "data/gibson_models/occant_rgbd_ckpt_7.pth.stripped_stretch_large_area"
 
   PLANNER:
     collision_threshold: 0.20       # forward move distance under which we consider there's a collision (in meters)
