@@ -45,15 +45,8 @@ class RLBenchOfflineEnv(gym.Env):
         self._current_timestep = 0
         self._current_language_command = None
 
-        (
-            self.observation_space,
-            self.action_space,
-        ) = self._get_stretch_obs_and_action_space()
-
         self._language_embedding_model = (
-            language_embedding_model
-            if language_embedding_model is not None
-            else "text-embedding-ada-002"
+            "text-embedding-ada-002" if language_embedding_model == "gpt" else None
         )  # TODO: clarify naming
         self._language_model = None
         self._language_tokenizer = None
@@ -64,6 +57,12 @@ class RLBenchOfflineEnv(gym.Env):
             self._language_model, _ = clip.load("ViT-B/32", device="cpu")
             self._language_tokenizer = clip.tokenize
 
+        (
+            self.observation_space,
+            self.action_space,
+        ) = self._get_stretch_obs_and_action_space()
+
+    @classmethod
     def _initialize_command(cls, command, embedding_model, model, tokenizer):
         if command not in cls.LANGUAGE_EMBEDDING_CACHE:
             if embedding_model == "clip":
@@ -75,8 +74,8 @@ class RLBenchOfflineEnv(gym.Env):
                     .numpy()
                 )
             else:
-                cls.LANGUAGE_EMBEDDING_CACHE[command] = get_embedding(
-                    command, embedding_model
+                cls.LANGUAGE_EMBEDDING_CACHE[command] = np.array(
+                    get_embedding(command, embedding_model)
                 )
 
         return cls.LANGUAGE_EMBEDDING_CACHE[command]
@@ -141,7 +140,10 @@ class RLBenchOfflineEnv(gym.Env):
         self, trial, timestep, keypoint_indices, language_command
     ) -> ObsType:
         trial_time_index = keypoint_indices[timestep]
-        ee_state = self._get_combined_ee_state(trial, timestep, keypoint_indices)
+        state = self._get_combined_ee_state(trial, timestep, keypoint_indices)
+
+        if self._language_embedding_model is not None:
+            state = np.concatenate((state, language_command), axis=-1)
 
         extracted_timestep_data = {
             key: trial[key][trial_time_index]
@@ -152,7 +154,7 @@ class RLBenchOfflineEnv(gym.Env):
             extracted_timestep_data
         )
 
-        return {"image": combined_image, "state_vector": ee_state}
+        return {"image": combined_image, "state_vector": state}
 
     def _initialize_new_trial(self, options=None):
         trial_id = np.random.randint(len(self._loader.trials))
@@ -168,6 +170,19 @@ class RLBenchOfflineEnv(gym.Env):
             else np.random.randint(len(self._current_keypoint_indices) - 1)
         )
 
+        # Determine what command to associate with this run
+        if self._language_embedding_model is not None:
+            raw_language_commands = (
+                self._current_trial["descriptions"].asstr()[()].split(",")
+            )
+            selected_command = np.random.choice(raw_language_commands)
+            self._current_language_command = self._initialize_command(
+                selected_command,
+                self._language_embedding_model,
+                self._language_model,
+                self._language_tokenizer,
+            )
+
     def reset(
         self,
         *,
@@ -176,17 +191,6 @@ class RLBenchOfflineEnv(gym.Env):
         options: Optional[dict] = None,
     ) -> ObsType:
         self._initialize_new_trial(options)
-
-        raw_language_commands = (
-            self._current_trial["description"].asstr()[()].split(",")
-        )
-        selected_command = np.random.choice(raw_language_commands)
-        self._current_language_command = self._initialize_command(
-            selected_command,
-            self._language_embedding_model,
-            self._language_model,
-            self._language_tokenizer,
-        )
 
         return self._construct_observation(
             self._current_trial,

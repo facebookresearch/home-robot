@@ -31,12 +31,13 @@ class RLBenchLiveEnv(RLBenchOfflineEnv):
     # TODO: basing it on OfflineEnv to initialize our live env based on the tasks given to the offline env
     # reconsider if it diverges too far/doesn't make sense
 
-    def __init__(self, dataset_dir, headless, views):
+    def __init__(self, dataset_dir, headless, views, language_embedding_model=None):
         super().__init__(
             dataset_dir,
             random_trajectory_start=False,
             single_step_trajectory=False,
             views=views,
+            language_embedding_model=language_embedding_model,
         )
 
         obs_config = ObservationConfig(gripper_joint_positions=True)
@@ -55,10 +56,13 @@ class RLBenchLiveEnv(RLBenchOfflineEnv):
     def __del__(self):
         self._sim_env.shutdown()
 
-    def _convert_rlbench_observation_to_gym(self, rlbench_obs):
+    def _convert_rlbench_observation_to_gym(self, rlbench_obs, language_command):
         state = np.concatenate(
             (rlbench_obs.gripper_pose, np.array([rlbench_obs.gripper_open])), axis=-1
         )  # TODO: gripper just bool right now --
+
+        if self._language_embedding_model is not None:
+            state = np.concatenate((state, language_command), axis=-1)
 
         # Pull out the view information for each supported camera (in particular, this generates the xyz)
         extracted_data = {}
@@ -106,7 +110,9 @@ class RLBenchLiveEnv(RLBenchOfflineEnv):
 
         desc, rlbench_obs = self._current_task.reset()
 
-        observation = self._convert_rlbench_observation_to_gym(rlbench_obs)
+        observation = self._convert_rlbench_observation_to_gym(
+            rlbench_obs, self._current_language_command
+        )
         self._last_observation = observation
         return observation
 
@@ -122,7 +128,9 @@ class RLBenchLiveEnv(RLBenchOfflineEnv):
 
         try:
             rlbench_obs, reward, done = self._current_task.step(task_action)
-            obs = self._convert_rlbench_observation_to_gym(rlbench_obs)
+            obs = self._convert_rlbench_observation_to_gym(
+                rlbench_obs, self._current_language_command
+            )
             self._last_observation = obs
         except InvalidActionError:
             done = True
