@@ -36,7 +36,6 @@ class Categorical2DSemanticMapModule(nn.Module):
 
     # If true, display point cloud visualizations using Open3d
     debug_mode = False
-    min_obs_height_cm = 25
 
     def __init__(
         self,
@@ -58,6 +57,7 @@ class Categorical2DSemanticMapModule(nn.Module):
         min_depth: float = 0.5,
         max_depth: float = 3.5,
         must_explore_close: bool = False,
+        min_obs_height_cm: int = 25,
     ):
         """
         Arguments:
@@ -83,6 +83,7 @@ class Categorical2DSemanticMapModule(nn.Module):
             map_pred_threshold: number of depth points to be in bin to
              consider it as obstacle
             must_explore_close: reduce the distance we need to get to things to make them work
+            min_obs_height_cm: minimum height of obstacles (in centimetres)
         """
         super().__init__()
 
@@ -115,6 +116,7 @@ class Categorical2DSemanticMapModule(nn.Module):
         self.agent_height = camera_height * 100.0
         self.max_voxel_height = int(360 / self.z_resolution)
         self.min_voxel_height = int(-40 / self.z_resolution)
+        self.min_obs_height_cm = min_obs_height_cm
         self.min_mapped_height = int(
             self.min_obs_height_cm / self.z_resolution - self.min_voxel_height
         )
