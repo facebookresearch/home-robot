@@ -10,6 +10,9 @@ dependencies:
   - hdf5
   - pytorch
   - pytorch-cuda
+  - ros-noetic-rospy
+  - ros-noetic-tf2-ros
+  - ros-noetic-sensor-msgs
   - pip:
     - opencv-python ==4.7.0.72
     - numpy ==1.19.5
@@ -29,7 +32,4 @@ dependencies:
     - python-fcl
     - rtree
     - vtk
-    - ros-noetic-rospy
-    - ros-noetic-tf2-ros
-    - ros-noetic-sensor-msgs
     - pointnet2_ops @ git+https://github.com/erikwijmans/Pointnet2_PyTorch.git@master#subdirectory=pointnet2_ops_lib

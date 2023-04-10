@@ -10,7 +10,6 @@ import rospy
 import trimesh.transformations as tra
 
 import home_robot
-import home_robot_hw.ros
 from home_robot_hw.ros.grasp_helper import GraspServer
 
 GRASPNET_ROOT = os.path.abspath(
@@ -51,11 +50,15 @@ def inference(args):
     def get_grasps(pc_full, pc_colors, segmap):
         pc_segmap = segmap.reshape(-1)
         pc_segment = pc_full[pc_segmap == 1]
-        grasps_raw, scores = estimator.generate_and_refine_grasps(pc_segment)
 
-        # 6dof graspnet returns a list of grasps, our grasp server expects a dict
-        grasps = {i: grasp for i, grasp in enumerate(grasps_raw)}
+        grasps_raw, scores_raw = estimator.generate_and_refine_grasps(pc_segment)
 
+        # pc_list, _ = estimator.prepare_pc(pc_segment)
+        # grasps_raw, scores_raw, _ = estimator.generate_grasps(pc_list)
+
+        # 6dof graspnet only generates grasps for one object
+        grasps = {0: np.array(grasps_raw)}
+        scores = {0: scores_raw}
         return grasps, scores
 
     server = GraspServer(get_grasps)

@@ -178,7 +178,12 @@ class GraspServer(object):
         print("frame =", req.cloud.header.frame_id)
         # print(xyz)
         # print(seg)
+
+        # Get raw grasps from model
+        #   (grasps should be a dictionary, with each key representing an object in the
+        #   point cloud and each field be a Nx4x4 array representing grasps for the object)
         grasps, scores = self.handle_request_fn(xyz, rgb, seg)
+
         # print(grasps.keys())
         resp = GraspRequestResponse()
         all_grasps = PoseArray()

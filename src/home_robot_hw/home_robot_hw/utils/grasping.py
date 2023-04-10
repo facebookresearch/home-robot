@@ -116,13 +116,13 @@ class GraspPlanner(object):
 
                 from home_robot.utils.point_cloud import show_point_cloud
 
+                breakpoint()
                 show_point_cloud(xyz, rgb / 255.0, orig=np.zeros(3))
                 xyz2 = trimesh.transform_points(xyz.reshape(-1, 3), camera_pose)
                 show_point_cloud(xyz2, rgb / 255.0, orig=np.zeros(3))
                 camera_pose_world = self.robot_client.head.get_pose()
                 xyz3 = trimesh.transform_points(xyz.reshape(-1, 3), camera_pose_world)
                 show_point_cloud(xyz3, rgb / 255.0, orig=np.zeros(3))
-                breakpoint()
 
             if self.verbose:
                 print(
