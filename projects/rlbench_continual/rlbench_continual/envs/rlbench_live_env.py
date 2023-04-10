@@ -132,7 +132,7 @@ class RLBenchLiveEnv(RLBenchOfflineEnv):
         self._current_timestep += 1
 
         trial_length = len(self._current_keypoint_indices)
-        done_predicted = time_frac > (trial_length - 0.9) / trial_length
+        done_predicted = False  # time_frac > (trial_length - 0.9) / trial_length
         done_by_maxsteps_exceeded = self._current_timestep > trial_length * 3
         done = done or done_predicted or done_by_maxsteps_exceeded
 
