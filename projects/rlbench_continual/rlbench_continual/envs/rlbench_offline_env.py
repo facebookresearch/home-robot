@@ -4,16 +4,20 @@ from typing import Optional, Tuple
 import gym
 import numpy as np
 from gym.core import ActType, ObsType
+from openai.embeddings_utils import get_embedding
 from rlbench_continual.utils.rlbench_dataset import RLBenchDataset
 
 
 class RLBenchOfflineEnv(gym.Env):
+    LANGUAGE_EMBEDDING_CACHE = {}
+
     def __init__(
         self,
         dataset_dir,
         random_trajectory_start=True,
         single_step_trajectory=True,
         views=None,
+        language_embedding_model=None,
     ):
         views = views if views is not None else ["front"]
         self._random_trajectory_start = random_trajectory_start
@@ -39,19 +43,56 @@ class RLBenchOfflineEnv(gym.Env):
         self._current_trial = None
         self._current_keypoint_indices = None  # Indexes into the trial timesteps
         self._current_timestep = 0
-
-        # TODO: lang using: self._current_trial['description'].asstr()[()]
+        self._current_language_command = None
 
         (
             self.observation_space,
             self.action_space,
         ) = self._get_stretch_obs_and_action_space()
 
+        self._language_embedding_model = (
+            language_embedding_model
+            if language_embedding_model is not None
+            else "text-embedding-ada-002"
+        )  # TODO: clarify naming
+        self._language_model = None
+        self._language_tokenizer = None
+
+        if self._language_embedding_model == "clip":
+            import clip
+
+            self._language_model, _ = clip.load("ViT-B/32", device="cpu")
+            self._language_tokenizer = clip.tokenize
+
+    def _initialize_command(cls, command, embedding_model, model, tokenizer):
+        if command not in cls.LANGUAGE_EMBEDDING_CACHE:
+            if embedding_model == "clip":
+                cls.LANGUAGE_EMBEDDING_CACHE[command] = (
+                    model.encode_text(tokenizer(command))
+                    .squeeze(0)
+                    .detach()
+                    .cpu()
+                    .numpy()
+                )
+            else:
+                cls.LANGUAGE_EMBEDDING_CACHE[command] = get_embedding(
+                    command, embedding_model
+                )
+
+        return cls.LANGUAGE_EMBEDDING_CACHE[command]
+
     def _get_stretch_obs_and_action_space(self):
         channels = np.array(
             [3 if "rgb" in key or "xyz" in key else 1 for key in self._camera_keys]
         ).sum()
-        state_size = 8  # TODO: should be 8...keeping for now so I can keep using my trained model
+        state_size = 8
+
+        if self._language_embedding_model is not None:
+            if self._language_embedding_model == "clip":
+                state_size += 512
+            else:
+                state_size += 1536
+
         action_size = 9  # 3 pos, 4 quat, 1 gripper, 1 completion fraction
 
         # Note, low and high for state_vector and action_space likely to be inaccurate...not currently used by USIP
@@ -96,9 +137,12 @@ class RLBenchOfflineEnv(gym.Env):
         combined_image = np.concatenate(image_observation, axis=-1)
         return combined_image
 
-    def _construct_observation(self, trial, timestep, keypoint_indices) -> ObsType:
+    def _construct_observation(
+        self, trial, timestep, keypoint_indices, language_command
+    ) -> ObsType:
         trial_time_index = keypoint_indices[timestep]
         ee_state = self._get_combined_ee_state(trial, timestep, keypoint_indices)
+
         extracted_timestep_data = {
             key: trial[key][trial_time_index]
             for key in trial.temporal_keys
@@ -132,8 +176,23 @@ class RLBenchOfflineEnv(gym.Env):
         options: Optional[dict] = None,
     ) -> ObsType:
         self._initialize_new_trial(options)
+
+        raw_language_commands = (
+            self._current_trial["description"].asstr()[()].split(",")
+        )
+        selected_command = np.random.choice(raw_language_commands)
+        self._current_language_command = self._initialize_command(
+            selected_command,
+            self._language_embedding_model,
+            self._language_model,
+            self._language_tokenizer,
+        )
+
         return self._construct_observation(
-            self._current_trial, self._current_timestep, self._current_keypoint_indices
+            self._current_trial,
+            self._current_timestep,
+            self._current_keypoint_indices,
+            self._current_language_command,
         )
 
     def step(self, action: ActType) -> Tuple[ObsType, float, bool, dict]:
@@ -155,7 +214,10 @@ class RLBenchOfflineEnv(gym.Env):
         reward = 0
         info = {"demo_action": true_action}
         obs = self._construct_observation(
-            self._current_trial, next_timestep, self._current_keypoint_indices
+            self._current_trial,
+            next_timestep,
+            self._current_keypoint_indices,
+            self._current_language_command,
         )
 
         self._current_timestep = next_timestep

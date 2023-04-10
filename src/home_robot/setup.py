@@ -15,6 +15,11 @@ install_requires = [
     "numpy-quaternion",
     "pybind11-global",
     "sophuspy",
+    "trimesh",
+    "pytorch3d",
+    "torch_geometric",
+    "torch_cluster",
+    "torch_scatter",
 ]
 
 setup(
