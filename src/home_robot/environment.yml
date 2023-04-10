@@ -3,7 +3,7 @@ channels:
   - pytorch
   - pytorch3d
 dependencies:
-  - python==3.8.* # Habitat supports <3.9
+  - python
   - cmake
   - pybind11
   - pytorch==1.13.*  # Compatibility with pytorch3d

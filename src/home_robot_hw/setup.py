@@ -6,9 +6,11 @@ from setuptools import find_packages, setup
 
 install_requires = [
     "numpy",
+    "scipy",
+    "scikit-image",
+    "scikit-fmm",
     "empy",
-    "catkin_pkg",
-    "rospkg",
+    "click",
 ]
 
 setup(

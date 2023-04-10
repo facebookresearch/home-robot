@@ -1,11 +1,11 @@
 channels:
   - conda-forge
-  - robostack
   - robostack-staging
 dependencies:
   - python==3.9.*
   - ros-noetic-desktop
-  - ros-noetic-ros-numpy
-  - catkin_tools
+  - iopath::iopath
+  - pytorch3d::pytorch3d
   - pip:
+    - fvcore
     - pynput
