@@ -46,11 +46,25 @@ class RobotController:
         self._mode = ControlMode.MANIP
 
     def on_press(self, key):
+        # Terminate program
         if key == kb.Key.esc:
             self.alive = False
             return False  # returning False from a callback stops listener
+
+        # Toggle mode
         elif key == kb.Key.enter:
             self._switch_mode()
+
+        # Toggle gripper
+        elif key == kb.Key.space:
+            if self.gripper_state == 0:
+                self.robot.manip.close_gripper(blocking=False)
+                self.gripper_state = 1
+            elif self.gripper_state == 1:
+                self.robot.manip.open_gripper(blocking=False)
+                self.gripper_state = 0
+
+        # Record other key presses
         else:
             self.key_states[key] = 1
 
@@ -99,15 +113,6 @@ class RobotController:
                         relative=True,
                         blocking=False,
                     )
-
-                # Command gripper
-                if kb.Key.space in self.key_states:
-                    if self.gripper_state == 0 and self.key_states[kb.Key.space]:
-                        self.robot.manip.close_gripper(blocking=False)
-                        self.gripper_state = 1
-                    elif self.gripper_state == 1 and not self.key_states[kb.Key.space]:
-                        self.robot.manip.open_gripper(blocking=False)
-                        self.gripper_state = 0
 
             # Spin
             time.sleep(self.dt)
@@ -169,7 +174,7 @@ def run_teleop():
         "J:\t Rotate gripper counterclockwise\n"
         "K:\t Retract arm\n"
         "L:\t Rotate gripper clockwise\n"
-        "Space:\t Close gripper (when held)\n"
+        "Space:\t Open / close gripper \n"
         "-------------------------------------\n"
     )
 

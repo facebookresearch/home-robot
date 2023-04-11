@@ -187,8 +187,8 @@ class HelloStretchKinematics(Robot):
         "joint_wrist_roll",
     ]
 
-    def _create_ik_solvers(self, ik_type: str = "pybullet", visualize: bool = False):
-        """Create ik solvers using pybullet or something else."""
+    def _create_ik_solvers(self, ik_type: str = "pinocchio", visualize: bool = False):
+        """Create ik solvers using physics backends such as pybullet or pinocchio."""
         # You can set one of the visualize flags to true to debug IK issues
         # This is not exposed manually - only one though or it will fail
         assert ik_type in [
@@ -231,7 +231,7 @@ class HelloStretchKinematics(Robot):
         urdf_path: str = "",
         visualize: bool = False,
         root: str = ".",
-        ik_type: str = "pybullet",
+        ik_type: str = "pinocchio",
         ee_link_name: Optional[str] = None,
         grasp_frame: Optional[str] = None,
         joint_tolerance: float = 0.01,
