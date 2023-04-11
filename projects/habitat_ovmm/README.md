@@ -108,7 +108,7 @@ Results are saved to `datadump/images/eval_floorplanner/`.
 
 ## Install Detic
 
-```
+```sh
 git submodule update --init --recursive src/third_party/detectron2 src/home_robot/home_robot/perception/detection/detic/Detic
 cd src/third_party/detectron2
 pip install -r requirements.txt
