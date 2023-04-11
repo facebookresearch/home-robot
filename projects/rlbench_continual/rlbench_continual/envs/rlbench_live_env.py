@@ -21,6 +21,7 @@ from rlbench_continual.utils.collect_rlbench_dataset import (
     right_side as extract_right_side_view,
 )
 from rlbench_continual.utils.collect_rlbench_dataset import tasks as task_specs
+from rlbench_continual.utils.collect_rlbench_dataset import wrist as extract_wrist_view
 
 
 class RLBenchLiveEnv(RLBenchOfflineEnv):
@@ -71,6 +72,7 @@ class RLBenchLiveEnv(RLBenchOfflineEnv):
             ("overhead", extract_overhead_view),
             ("left", extract_left_side_view),
             ("right", extract_right_side_view),
+            ("wrist", extract_wrist_view),
         ]
         for view_name, view_extractor in views:
             extracted_data.update(
