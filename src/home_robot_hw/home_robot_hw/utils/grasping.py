@@ -183,7 +183,8 @@ class GraspPlanner(object):
             # Correct for the length of the Stretch gripper and the gripper upon
             # which Graspnet was trained
             grasp_offset = np.eye(4)
-            grasp_offset[2, 3] = -0.10
+            #grasp_offset[2, 3] = -0.10 # graspnet
+            grasp_offset[2, 3] = -0.25 # graspnet
             for i, grasp in enumerate(grasps):
                 grasps[i] = grasp @ grasp_offset
 
