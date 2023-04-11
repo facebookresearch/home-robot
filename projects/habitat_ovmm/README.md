@@ -123,7 +123,7 @@ wget https://dl.fbaipublicfiles.com/detic/Detic_LCOCOI21k_CLIP_SwinB_896b32_4x_f
 wget https://web.eecs.umich.edu/~fouhey/fun/desk/desk.jpg
 python demo.py --config-file configs/Detic_LCOCOI21k_CLIP_SwinB_896b32_4x_ft4x_max-size.yaml --input desk.jpg --output out.jpg --vocabulary lvis --opts MODEL.WEIGHTS models/Detic_LCOCOI21k_CLIP_SwinB_896b32_4x_ft4x_max-size.pth
 
-cd ../../../../../../..
+cd -
 ```
 
 ## Run
