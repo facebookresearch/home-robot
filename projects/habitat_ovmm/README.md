@@ -110,7 +110,6 @@ Results are saved to `datadump/images/eval_floorplanner/`.
 
 ```sh
 git submodule update --init --recursive src/third_party/detectron2 src/home_robot/home_robot/perception/detection/detic/Detic
-pip install src/third_party/detectron2/requirements.txt
 pip install -e src/third_party/detectron2
 
 cd src/home_robot/home_robot/perception/detection/detic/Detic
@@ -134,8 +133,11 @@ cd -
 cd /path/to/home-robot
 
 
-# Evaluation on complete episode dataset
+# Evaluation on complete episode dataset with GT semantics
 python projects/habitat_ovmm/eval_vectorized.py
+
+# Evaluation on complete episode dataset with DETIC
+python projects/habitat_ovmm/eval_vectorized.py  --baseline_config_path projects/habitat_ovmm/configs/agent/floorplanner_detic_eval.yaml
 
 # Evaluation on specific episodes
 python projects/habitat_ovmm/eval_vectorized.py habitat.dataset.episode_ids="[151,182]"
