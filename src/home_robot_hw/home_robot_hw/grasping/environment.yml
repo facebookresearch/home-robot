@@ -8,8 +8,10 @@ dependencies:
   - python ==3.9
   - freetype
   - hdf5
+  - cudatoolkit
   - pytorch
   - pytorch-cuda
+  - pyqt
   - ros-noetic-rospy
   - ros-noetic-tf2-ros
   - ros-noetic-sensor-msgs
