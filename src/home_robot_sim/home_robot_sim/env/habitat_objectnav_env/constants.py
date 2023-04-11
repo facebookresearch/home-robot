@@ -561,6 +561,9 @@ rearrange_detic_categories_legend_path = str(
 
 
 class RearrangeDETICCategories(SemanticCategoryMapping):
+    """Maintain category to id and category to color mappings for use in OVMM task.
+    Uses a default list of categories if no category list is passed."""
+
     def __init__(self, categories_indexes=None):
         super().__init__()
         if categories_indexes is None:
