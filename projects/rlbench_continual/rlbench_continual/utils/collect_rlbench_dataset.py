@@ -74,9 +74,18 @@ def right_side(obs):
     )
 
 
+def wrist(obs):
+    return (
+        "wrist",
+        obs.wrist_depth,
+        obs.wrist_point_cloud,
+        obs.wrist_rgb,
+    )
+
+
 def get_xyz_rgb(obs, num_pts=30000):
     xyzs, rgbs = [], []
-    for view in overhead, front, left_side, right_side:
+    for view in overhead, front, left_side, right_side, wrist:
         name, d, xyz, rgb = view(obs)
         H, W = d.shape
         d = d.reshape(-1)
@@ -241,7 +250,7 @@ def collect_data(args, task_names, headless):
 
                 # xyz, rgb = get_xyz_rgb(obs)
                 imgs = {}
-                for view in overhead, front, left_side, right_side:
+                for view in overhead, front, left_side, right_side, wrist:
                     name, depth, xyz, rgb = view(obs)
                     imgs[name + "_depth"] = depth
                     imgs[name + "_xyz"] = xyz
