@@ -8,7 +8,7 @@ from typing import Tuple
 import numpy as np
 import trimesh
 
-from home_robot.utils.point_cloud import numpy_to_pcd, pcd_to_numpy
+from home_robot.utils.point_cloud import numpy_to_pcd, pcd_to_numpy, show_point_cloud
 
 
 def combine_point_clouds(
@@ -107,3 +107,11 @@ class SparseVoxelMap(object):
         self.xyz = None
         self.feats = None
         self.observations = []
+
+    def show(self):
+        """Display the aggregated point cloud."""
+
+        # Create a combined point cloud
+        # Do the other stuff we need
+        pc_xyz, pc_rgb = self.voxel_map.get_data()
+        show_point_cloud(pc_xyz, pc_rgb / 255, orig=np.zeros(3))
