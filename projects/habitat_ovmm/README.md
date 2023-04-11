@@ -110,10 +110,8 @@ Results are saved to `datadump/images/eval_floorplanner/`.
 
 ```sh
 git submodule update --init --recursive src/third_party/detectron2 src/home_robot/home_robot/perception/detection/detic/Detic
-cd src/third_party/detectron2
-pip install -r requirements.txt
-pip install -e ./
-cd ../../..
+pip install src/third_party/detectron2/requirements.txt
+pip install -e src/third_party/detectron2
 
 cd src/home_robot/home_robot/perception/detection/detic/Detic
 pip install -r requirements.txt
