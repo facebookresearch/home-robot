@@ -160,10 +160,29 @@ class RLBenchOfflineEnv(gym.Env):
         trial_id = np.random.randint(len(self._loader.trials))
         self._current_trial = self._loader.trials[trial_id]
 
+        keypoint_indices = [0]
+        offset = 10
+        max_len = len(self._current_trial["q"])
+        for keypoint in self._current_trial["keypoints"]:
+            low_keypoint = keypoint - offset
+            high_keypoint = keypoint + offset
+
+            if low_keypoint >= 0:
+                keypoint_indices.append(low_keypoint)
+
+            if high_keypoint < max_len:
+                keypoint_indices.append(high_keypoint)
+
+        keypoint_indices = list(set(keypoint_indices))
+        keypoint_indices.sort()
+
         # Include the first frame in the keypoints
-        self._current_keypoint_indices = np.concatenate(
-            (np.array([0]), np.array(self._current_trial["keypoints"]))
-        )  # TODO: append last state too? More keypoints?
+        print(f"Running with indices: {keypoint_indices}")
+        self._current_keypoint_indices = np.array(keypoint_indices)
+        # np.concatenate(
+        #    (np.array([0]), np.array(self._current_trial["keypoints"]))
+        # )  # TODO: append last state too? More keypoints?
+
         self._current_timestep = (
             0
             if options is not None and options.get("ensure_first", False)
