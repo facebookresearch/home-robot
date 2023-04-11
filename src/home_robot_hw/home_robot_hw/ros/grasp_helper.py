@@ -120,11 +120,13 @@ class GraspClient(object):
         pc.channels = [label, r, g, b]
         return pc
 
-    def request(self, xyz, rgb, seg, frame=None):
+    def request(self, xyz, rgb, seg, camera_pose, frame=None):
         pc = self.segmented_point_cloud_to_msg(xyz, rgb, seg)
+        pose_msg = matrix_to_pose_msg(camera_pose)
+
         if frame is not None:
             pc.header.frame_id = frame
-        res = self.proxy(cloud=pc)
+        res = self.proxy(cloud=pc, camera_pose=pose_msg)
         objs = {}
         for obj_id, (grasps, scores) in enumerate(zip(res.grasps, res.scores)):
             # Get the grawps associated with a particular object ID
@@ -174,11 +176,12 @@ class GraspServer(object):
 
     def process(self, req):
         xyz, rgb, seg = msg_to_segmented_point_cloud(req.cloud)
+        camera_pose = matrix_from_pose_msg(req.camera_pose)
         print()
         print("frame =", req.cloud.header.frame_id)
         # print(xyz)
         # print(seg)
-        grasps, scores = self.handle_request_fn(xyz, rgb, seg)
+        grasps, scores = self.handle_request_fn(xyz, rgb, seg, camera_pose)
         # print(grasps.keys())
         resp = GraspRequestResponse()
         all_grasps = PoseArray()
