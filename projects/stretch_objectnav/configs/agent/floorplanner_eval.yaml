@@ -38,6 +38,7 @@ AGENT:
     been_close_to_radius: 200  # radius (in centimeters) of been close to region
     explored_radius: 150       # radius (in centimeters) of visually explored region
     must_explore_close: False
+    min_obs_height_cm: 25    # minimum height (in centimeters) of obstacle
 
   PLANNER:
     collision_threshold: 0.20       # forward move distance under which we consider there's a collision (in meters)
