@@ -166,6 +166,7 @@ class RLBenchOfflineEnv(gym.Env):
         if self._augmented_keypoint_offset is not None:
             keypoint_indices = [0]
             max_len = len(self._current_trial["q"])
+
             for keypoint in self._current_trial["keypoints"]:
                 low_keypoint = keypoint - self._augmented_keypoint_offset
                 high_keypoint = keypoint + self._augmented_keypoint_offset
@@ -173,18 +174,22 @@ class RLBenchOfflineEnv(gym.Env):
                 if low_keypoint >= 0:
                     keypoint_indices.append(low_keypoint)
 
+                keypoint_indices.append(keypoint)
+
                 if high_keypoint < max_len:
                     keypoint_indices.append(high_keypoint)
 
             keypoint_indices = list(set(keypoint_indices))
             keypoint_indices.sort()
 
-        # Include the first frame in the keypoints
-        print(f"Running with indices: {keypoint_indices}")
-        self._current_keypoint_indices = np.array(keypoint_indices)
-        # np.concatenate(
-        #    (np.array([0]), np.array(self._current_trial["keypoints"]))
-        # )  # TODO: append last state too? More keypoints?
+            self._current_keypoint_indices = np.array(keypoint_indices)
+        else:
+            # Include the first frame in the keypoints
+            self._current_keypoint_indices = np.concatenate(
+                (np.array([0]), np.array(self._current_trial["keypoints"]))
+            )
+
+        print(f"Running with indices: {self._current_keypoint_indices}")
 
         self._current_timestep = (
             0
