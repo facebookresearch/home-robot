@@ -3,6 +3,7 @@ import glob
 import os
 import sys
 import time
+from typing import Optional, Tuple
 
 import cv2
 import numpy as np
@@ -25,13 +26,30 @@ GRASP_THRESHOLD = 0.95
 MIN_INNER_POINTS = 12
 
 
-def _visualize_grasps(xyz, rgb, idcs, grasps):
+def _visualize_grasps(
+    xyz: np.ndarray,
+    rgb: np.ndarray,
+    idcs: Optional[np.ndarray] = None,
+    grasps: Optional[np.ndarray] = None,
+) -> None:
+    """Visualize grasps
+    idcs: highlighed point indices
+    grasps: list of poses (4x4 matrices)
+    """
     rgb_colored = rgb.copy() / 255.0
-    rgb_colored[idcs, :] = np.array([0.0, 0.0, 1.0])[None, :]
+    if idcs is not None:
+        rgb_colored[idcs, :] = np.array([0.0, 0.0, 1.0])[None, :]
     show_point_cloud(xyz, rgb_colored, orig=np.zeros(3), grasps=grasps)
 
 
-def _compute_grasp_scores(xy, occ_map):
+def _compute_grasp_scores(xy: Tuple, occ_map: np.ndarray) -> Tuple[float, float]:
+    """Computes grasp scores given an occupancy map and a center point
+
+    Computes two grasp scores, for grasps along the X and Y directions
+    Scores are determined by two factors:
+     - How populated the center region is
+     - How empty the surrounding regions are
+    """
     outer_area = 2 * (GRASP_OUTER_RAD - GRASP_INNER_RAD) ** 2
 
     xmax = occ_map.shape[0]
@@ -77,6 +95,7 @@ def _compute_grasp_scores(xy, occ_map):
 
 
 def _generate_grasp(xyz: np.ndarray, rz: float) -> np.ndarray:
+    """Generate a vertical grasp pose given grasp location and z orientation"""
     grasp = np.zeros([4, 4])
     grasp[:3, :3] = (
         R.from_quat(np.array(VERTICAL_GRIPPER_QUAT)) * R.from_rotvec([0, 0, rz])
@@ -104,7 +123,18 @@ def inference():
 
     in_base_frame = True  # produced grasps are in base frame
 
-    def get_grasps(pc_full, pc_colors, segmap, camera_pose):
+    def get_grasps(
+        pc_full: np.ndarray,
+        pc_colors: np.ndarray,
+        segmap: np.ndarray,
+        camera_pose: np.ndarray,
+    ):
+        """
+        pc_full: full point cloud xyz (Nx3 matrix)
+        pc_colors: full point cloud colors (Nx3 matrix)
+        segmap: segmentation map (1 for object, 0 for background) (array of length N)
+        camera_pose: 4x4 matrix
+        """
         pc_segmap = segmap.reshape(-1)
         seg_idcs = np.logical_and(pc_segmap == 1, pc_full[:, 2] != 0.0)
         pc_segment = pc_full[seg_idcs]
