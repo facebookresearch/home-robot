@@ -3,7 +3,7 @@ import glob
 import os
 import sys
 import time
-from typing import Optional, Tuple
+from typing import Iterable, Optional, Tuple
 
 import cv2
 import numpy as np
@@ -41,7 +41,9 @@ def _visualize_grasps(
     show_point_cloud(xyz, rgb_colored, orig=np.zeros(3), grasps=grasps)
 
 
-def _compute_grasp_scores(xy: Tuple, occ_map: np.ndarray) -> Tuple[float, float]:
+def _compute_grasp_scores(
+    xy: Iterable[float], occ_map: np.ndarray
+) -> Tuple[float, float]:
     """Computes grasp scores given an occupancy map and a center point
 
     Computes two grasp scores, for grasps along the X and Y directions
@@ -53,44 +55,26 @@ def _compute_grasp_scores(xy: Tuple, occ_map: np.ndarray) -> Tuple[float, float]
 
     xmax = occ_map.shape[0]
     ymax = occ_map.shape[1]
+    x_outer_lo = max(xy[0] - GRASP_OUTER_RAD, 0)
+    x_inner_lo = max(xy[0] - GRASP_INNER_RAD, 0)
+    x_inner_hi = min(xy[0] + GRASP_INNER_RAD + 1, xmax)
+    x_outer_hi = min(xy[0] + GRASP_OUTER_RAD + 1, xmax)
+    y_outer_lo = max(xy[1] - GRASP_OUTER_RAD, 0)
+    y_inner_lo = max(xy[1] - GRASP_INNER_RAD, 0)
+    y_inner_hi = min(xy[1] + GRASP_INNER_RAD + 1, ymax)
+    y_outer_hi = min(xy[1] + GRASP_OUTER_RAD + 1, ymax)
 
-    xy0 = np.sum(
-        occ_map[
-            max(xy[0] - GRASP_INNER_RAD, 0) : min(xy[0] + GRASP_INNER_RAD + 1, xmax),
-            max(xy[1] - GRASP_INNER_RAD, 0) : min(xy[1] + GRASP_INNER_RAD + 1, ymax),
-        ]
-    )
+    area_mid = np.sum(occ_map[x_inner_lo:x_inner_hi, y_inner_lo:y_inner_hi])
+    area_x_lo = np.sum(occ_map[x_outer_lo:x_inner_lo, y_inner_lo:y_inner_hi])
+    area_x_hi = np.sum(occ_map[x_inner_hi:x_outer_hi, y_inner_lo:y_inner_hi])
+    area_y_lo = np.sum(occ_map[x_inner_lo:x_inner_hi, y_outer_lo:y_inner_lo])
+    area_y_hi = np.sum(occ_map[x_inner_lo:x_inner_hi, y_inner_hi:y_outer_hi])
 
-    x1 = np.sum(
-        occ_map[
-            max(xy[0] - GRASP_OUTER_RAD, 0) : min(xy[0] - GRASP_INNER_RAD + 1, xmax),
-            max(xy[1] - GRASP_INNER_RAD, 0) : min(xy[1] + GRASP_INNER_RAD + 1, ymax),
-        ]
-    )
-    x2 = np.sum(
-        occ_map[
-            max(xy[0] + GRASP_INNER_RAD, 0) : min(xy[0] + GRASP_OUTER_RAD + 1, xmax),
-            max(xy[1] - GRASP_INNER_RAD, 0) : min(xy[1] + GRASP_INNER_RAD + 1, ymax),
-        ]
-    )
+    mid_pop_score = max(1.0, area_mid / MIN_INNER_POINTS)
+    x_grasp_score = mid_pop_score - (area_x_lo + area_x_hi) / outer_area
+    y_grasp_score = mid_pop_score - (area_y_lo + area_y_hi) / outer_area
 
-    y1 = np.sum(
-        occ_map[
-            max(xy[0] - GRASP_INNER_RAD, 0) : min(xy[0] + GRASP_INNER_RAD + 1, xmax),
-            max(xy[1] - GRASP_OUTER_RAD, 0) : min(xy[1] - GRASP_INNER_RAD + 1, ymax),
-        ]
-    )
-    y2 = np.sum(
-        occ_map[
-            max(xy[0] - GRASP_INNER_RAD, 0) : min(xy[0] + GRASP_INNER_RAD + 1, xmax),
-            max(xy[1] + GRASP_INNER_RAD, 0) : min(xy[1] + GRASP_OUTER_RAD + 1, ymax),
-        ]
-    )
-
-    x_score = max(1.0, xy0 / MIN_INNER_POINTS) - (x1 + x2) / outer_area
-    y_score = max(1.0, xy0 / MIN_INNER_POINTS) - (y1 + y2) / outer_area
-
-    return x_score, y_score
+    return x_grasp_score, y_grasp_score
 
 
 def _generate_grasp(xyz: np.ndarray, rz: float) -> np.ndarray:
