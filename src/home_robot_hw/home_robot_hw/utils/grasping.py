@@ -152,6 +152,7 @@ class GraspPlanner(object):
                 rgb,
                 object_mask,
                 frame=self.robot_client._ros_client.rgb_cam.get_frame(),
+                camera_pose=camera_pose,
             )
             if 0 not in predicted_grasps:
                 print("no predicted grasps")
@@ -161,10 +162,10 @@ class GraspPlanner(object):
 
             grasps = []
             for i, (score, grasp) in sorted(
-                enumerate(zip(scores, predicted_grasps)), key=lambda x: x[1]
+                enumerate(zip(scores, predicted_grasps)), key=lambda x: x[0]
             ):
                 pose = grasp
-                pose = camera_pose @ pose
+                #pose = camera_pose @ pose
                 if score < min_grasp_score:
                     continue
 
@@ -184,7 +185,7 @@ class GraspPlanner(object):
             # which Graspnet was trained
             grasp_offset = np.eye(4)
             #grasp_offset[2, 3] = -0.10 # graspnet
-            grasp_offset[2, 3] = -0.25 # graspnet
+            grasp_offset[2, 3] = -0.2 # hardcode grasps
             for i, grasp in enumerate(grasps):
                 grasps[i] = grasp @ grasp_offset
 
