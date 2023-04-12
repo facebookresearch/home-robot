@@ -18,6 +18,9 @@ from home_robot.core.interfaces import DiscreteNavigationAction, ContinuousNavig
 from .fmm_planner import FMMPlanner
 
 
+CM_TO_METERS = 0.01
+
+
 def add_boundary(mat: np.ndarray, value=1) -> np.ndarray:
     h, w = mat.shape
     new_mat = np.zeros((h + 2, w + 2)) + value
@@ -201,10 +204,11 @@ class DiscretePlanner:
         if debug:
             print("Current pose:", start)
             print("Short term goal:", short_term_goal)
+            print("  - delta =", short_term_goal[0] - start[0], short_term_goal[1] - start[1])
             dist_to_short_term_goal = np.linalg.norm(
                 start - np.array(short_term_goal[:2])
             )
-            print("Distance:", dist_to_short_term_goal)
+            print("Distance (m):", dist_to_short_term_goal * self.map_resolution * CM_TO_METERS)
             print("Replan:", replan)
         # t1 = time.time()
         # print(f"[Planning] get_short_term_goal() time: {t1 - t0}")
@@ -255,7 +259,8 @@ class DiscretePlanner:
 
         # If we found a short term goal worth moving towards...
         stg_x, stg_y = short_term_goal
-        angle_st_goal = math.degrees(math.atan2(stg_x - start[0], stg_y - start[1]))
+        relative_stg_x, relative_stg_y = stg_x - start[0], stg_y - start[1]
+        angle_st_goal = math.degrees(math.atan2(relative_stg_x, relative_stg_y))
         angle_agent = pu.normalize_angle(start_o)
         relative_angle = pu.normalize_angle(angle_agent - angle_st_goal)
 
@@ -266,14 +271,16 @@ class DiscretePlanner:
         idx = np.random.randint(len(goal_x))
         goal_x, goal_y = goal_x[idx], goal_y[idx]
         distance_to_goal = np.linalg.norm(np.array([goal_x, goal_y]) - start)
-        # Actual metric distance to goal
-        distance_to_goal_cm = distance_to_goal * self.map_resolution
         angle_goal = math.degrees(math.atan2(goal_x - start[0], goal_y - start[1]))
         angle_goal = pu.normalize_angle(angle_goal)
         # Angle needed to orient towards the goal
         relative_angle_goal = pu.normalize_angle(angle_agent - angle_goal)
 
         if debug:
+            # Actual metric distance to goal
+            distance_to_goal_cm = distance_to_goal * self.map_resolution
+            # Display information
+            print("-----------------")
             print("Found goal:", found_goal)
             print("Stop:", stop)
             print("Angle to goal:", relative_angle_goal)
@@ -284,6 +291,11 @@ class DiscretePlanner:
                 ">",
                 self.min_goal_distance_cm,
             )
+
+            m_relative_stg_x, m_relative_stg_y = [CM_TO_METERS * self.map_resolution * d for d in [relative_stg_x, relative_stg_y]]
+            print("using continuous actions for exploring")
+            print(m_relative_stg_x, m_relative_stg_y, relative_angle)
+            print("-----------------")
 
         # Short-term goal -> deterministic local policy
         if not (found_goal and stop):
@@ -296,9 +308,18 @@ class DiscretePlanner:
                     action = DiscreteNavigationAction.MOVE_FORWARD
             else:
                 # Use the short-term goal to set where we should be heading next
+                m_relative_stg_x, m_relative_stg_y = [CM_TO_METERS * self.map_resolution * d for d in [relative_stg_x, relative_stg_y]]
                 print("using continuous actions for exploring")
-                print(stg_x, stg_y, angle_st_goal)
-                action = ContinuousNavigationAction([stg_x, stg_y, angle_st_goal])
+                print(m_relative_stg_x, m_relative_stg_y, relative_angle, relative_angle_goal)
+                if np.abs(relative_angle) > self.turn_angle / 2.0:
+                    # Must return commands in radians and meters
+                    relative_angle = math.radians(relative_angle)
+                    action = ContinuousNavigationAction([0, 0, -relative_angle])
+                else:
+                    # Must return commands in radians and meters
+                    relative_angle = math.radians(relative_angle)
+                    # relative_angle_goal = math.radians(relative_angle_goal)
+                    action = ContinuousNavigationAction([m_relative_stg_y, m_relative_stg_x, -relative_angle])
         else:
             # Try to orient towards the goal object - or at least any point sampled from the goal
             # object.
@@ -323,6 +344,7 @@ class DiscretePlanner:
         start: List[int],
         planning_window: List[int],
         plan_to_dilated_goal=False,
+        visualize=True,
     ) -> Tuple[Tuple[int, int], np.ndarray, bool, bool]:
         """Get short-term goal.
 
@@ -383,18 +405,30 @@ class DiscretePlanner:
             # We will now try to find a path to any of these spaces
             planner.set_multi_goal(dilated_goal_map, self.timestep)
         else:
-            navigable_goal = planner._find_nearest_to_multi_goal(goal_map)
-            navigable_goal_map = np.zeros_like(goal_map)
-            navigable_goal_map[navigable_goal[0], navigable_goal[1]] = 1
+            navigable_goal_map = planner._find_within_distance_to_multi_goal(goal_map, self.min_goal_distance_cm / self.map_resolution)
             planner.set_multi_goal(navigable_goal_map, self.timestep)
 
         self.timestep += 1
 
         state = [start[0] - x1 + 1, start[1] - y1 + 1]
         # This is where we create the planner to get the trajectory to this state
-        stg_x, stg_y, replan, stop = planner.get_short_term_goal(state)
+        stg_x, stg_y, replan, stop = planner.get_short_term_goal(state, continuous=(not self.discrete_actions))
         stg_x, stg_y = stg_x + x1 - 1, stg_y + y1 - 1
         short_term_goal = int(stg_x), int(stg_y)
+
+        if visualize:
+            import matplotlib.pyplot as plt
+            print(start)
+            plt.subplot(131)
+            navigable_goal_map[int(stg_x),int(stg_y)] = 1
+            plt.imshow(np.flipud(navigable_goal_map))
+            plt.plot(stg_x, stg_y, 'bx')
+            plt.plot(start[0], start[1], 'rx')
+            plt.subplot(132)
+            plt.imshow(np.flipud(planner.fmm_dist))
+            plt.subplot(133)
+            plt.imshow(np.flipud(planner.traversible))
+            plt.show()
 
         # Select closest point on goal map for visualization
         # TODO How to do this without the overhead of creating another FMM planner?
@@ -417,22 +451,21 @@ class DiscretePlanner:
         # Compute distances
         if not plan_to_dilated_goal:
             print("closest goal pt =", closest_goal_pt)
-            print("navigable goal pt =", navigable_goal)
             print("start pt =", start)
             print("stop =", stop)
             distance_to_goal = np.linalg.norm(
                 np.array(start) - np.array(closest_goal_pt)
             )
-            distance_to_nav = np.linalg.norm(np.array(start) - np.array(navigable_goal))
-            distance_nav_to_goal = np.linalg.norm(
-                np.array(start) - np.array(navigable_goal)
-            )
+            # distance_to_nav = np.linalg.norm(np.array(start) - np.array(navigable_goal))
+            # distance_nav_to_goal = np.linalg.norm(
+            #     np.array(start) - np.array(navigable_goal)
+            # )
             distance_to_goal_cm = distance_to_goal * self.map_resolution
-            distance_to_nav_cm = distance_to_nav * self.map_resolution
-            distance_nav_to_goal_cm = distance_nav_to_goal * self.map_resolution
+            # distance_to_nav_cm = distance_to_nav * self.map_resolution
+            # distance_nav_to_goal_cm = distance_nav_to_goal * self.map_resolution
             print("distance to goal (cm):", distance_to_goal_cm)
-            print("distance to nav (cm):", distance_to_nav_cm)
-            print("distance nav to goal (cm):", distance_nav_to_goal_cm)
+            # print("distance to nav (cm):", distance_to_nav_cm)
+            # print("distance nav to goal (cm):", distance_nav_to_goal_cm)
             # Stop if we are within a reasonable reaching distance of the goal
             stop = distance_to_goal_cm < self.min_goal_distance_cm
             if stop:
@@ -442,16 +475,9 @@ class DiscretePlanner:
                     "of the goal! Stop =",
                     stop,
                 )
-            # Replan if no goal was found that we can reach
-            replan = distance_nav_to_goal_cm > self.min_goal_distance_cm
-            if replan:
-                print(
-                    "-> no grasping location found within",
-                    self.min_goal_distance_cm,
-                    "cm of the goal. Replan =",
-                    replan,
-                )
-
+            elif not np.any(navigable_goal_map):
+                breakpoint()
+                replan = True
         return short_term_goal, closest_goal_map, replan, stop, closest_goal_pt
 
     def _check_collision(self):
