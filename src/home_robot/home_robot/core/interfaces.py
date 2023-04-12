@@ -30,6 +30,9 @@ class DiscreteNavigationAction(Action, Enum):
     RESET_JOINTS = 13
 
 
+class HybridAction(Action):
+    pass
+
 @dataclass
 class Pose:
     position: np.ndarray

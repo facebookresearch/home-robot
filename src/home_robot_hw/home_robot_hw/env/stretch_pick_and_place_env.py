@@ -105,6 +105,10 @@ class StretchPickandPlaceEnv(StretchEnv):
             visualize=visualize_masks, dry_run=dry_run
         )
 
+    def get_robot(self):
+        """Return the robot interface."""
+        return self.robot
+
     def apply_action(self, action: Action, info: Optional[Dict[str, Any]] = None):
         # TODO Determine what form the grasp action should take and move
         #  grasping execution logic here

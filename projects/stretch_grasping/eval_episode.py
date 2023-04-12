@@ -9,8 +9,9 @@ from home_robot_hw.env.stretch_pick_and_place_env import StretchPickandPlaceEnv
 
 
 @click.command()
-@click.option("--test_pick", default=False, is_flag=True)
-def main(test_pick=False):
+@click.option("--test-pick", default=False, is_flag=True)
+@click.option("--reset-nav", default=False, is_flag=True)
+def main(test_pick=False, reset_nav=False):
     config_path = "projects/stretch_grasping/configs/agent/floorplanner_eval.yaml"
     config, config_str = get_config(config_path)
     config.defrost()
@@ -24,6 +25,11 @@ def main(test_pick=False):
         config=config, skip_find_object=test_pick, skip_place=test_pick
     )
     env = StretchPickandPlaceEnv(config=config, test_grasping=test_pick)
+
+    robot = env.get_robot()
+    if reset_nav:
+        # Send it back to origin position to make testing a bit easier
+        robot.nav.navigate_to([0, 0, 0])
 
     agent.reset()
     env.reset("table", "cup", "chair")
