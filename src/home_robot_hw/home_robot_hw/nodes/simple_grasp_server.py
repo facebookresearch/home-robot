@@ -19,9 +19,9 @@ VERTICAL_GRIPPER_QUAT = [0.70988   , 0.70406461, 0.0141615 , 0.01276155] # base 
 TOP_PERCENTAGE = 0.1
 VOXEL_RES = 0.01
 GRASP_OUTER_RAD = 5
-GRASP_INNER_RAD = 2
+GRASP_INNER_RAD = 1
 GRASP_THRESHOLD = 0.95
-MIN_INNER_POINTS = 8
+MIN_INNER_POINTS = 12
 
 
 def _visualize_grasps(xyz, rgb, idcs, grasps):
@@ -32,19 +32,31 @@ def _visualize_grasps(xyz, rgb, idcs, grasps):
 def _compute_grasp_scores(xy, occ_map):
     outer_area = 2 * (GRASP_OUTER_RAD - GRASP_INNER_RAD) ** 2
 
-    xmax = occ_map.shape[0] - 1
-    ymax = occ_map.shape[1] - 1
+    xmax = occ_map.shape[0]
+    ymax = occ_map.shape[1]
     
     xy0 = np.sum(occ_map[
-        max(xy[0] - GRASP_INNER_RAD, 0) : min(xy[0] + GRASP_INNER_RAD, xmax), 
-        max(xy[1] - GRASP_INNER_RAD, 0) : min(xy[1] + GRASP_INNER_RAD, ymax)
+        max(xy[0] - GRASP_INNER_RAD, 0) : min(xy[0] + GRASP_INNER_RAD + 1, xmax), 
+        max(xy[1] - GRASP_INNER_RAD, 0) : min(xy[1] + GRASP_INNER_RAD + 1, ymax)
     ])
 
-    x1 = np.sum(occ_map[max(xy[0] - GRASP_OUTER_RAD, 0) : min(xy[0] - GRASP_INNER_RAD, xmax), xy[1]])
-    x2 = np.sum(occ_map[max(xy[0] + GRASP_INNER_RAD, 0) : min(xy[0] + GRASP_OUTER_RAD, xmax), xy[1]])
+    x1 = np.sum(occ_map[
+        max(xy[0] - GRASP_OUTER_RAD, 0) : min(xy[0] - GRASP_INNER_RAD + 1, xmax),
+        max(xy[1] - GRASP_INNER_RAD, 0) : min(xy[1] + GRASP_INNER_RAD + 1, ymax)
+    ])
+    x2 = np.sum(occ_map[
+        max(xy[0] + GRASP_INNER_RAD, 0) : min(xy[0] + GRASP_OUTER_RAD + 1, xmax),
+        max(xy[1] - GRASP_INNER_RAD, 0) : min(xy[1] + GRASP_INNER_RAD + 1, ymax)
+    ])
 
-    y1 = np.sum(occ_map[xy[0], max(xy[1] - GRASP_OUTER_RAD, 0) : min(xy[1] - GRASP_INNER_RAD, ymax)])
-    y2 = np.sum(occ_map[xy[0], max(xy[1] + GRASP_INNER_RAD, 0) : min(xy[1] + GRASP_OUTER_RAD, ymax)])
+    y1 = np.sum(occ_map[
+        max(xy[0] - GRASP_INNER_RAD, 0) : min(xy[0] + GRASP_INNER_RAD + 1, xmax),
+        max(xy[1] - GRASP_OUTER_RAD, 0) : min(xy[1] - GRASP_INNER_RAD + 1, ymax)
+    ])
+    y2 = np.sum(occ_map[
+        max(xy[0] - GRASP_INNER_RAD, 0) : min(xy[0] + GRASP_INNER_RAD + 1, xmax),
+        max(xy[1] + GRASP_INNER_RAD, 0) : min(xy[1] + GRASP_OUTER_RAD + 1, ymax)
+    ])
 
     x_score = max(1.0, xy0 / MIN_INNER_POINTS) - (x1 + x2) / outer_area
     y_score = max(1.0, xy0 / MIN_INNER_POINTS) - (y1 + y2) / outer_area
@@ -77,11 +89,9 @@ def inference():
 
     def get_grasps(pc_full, pc_colors, segmap, camera_pose):
         pc_segmap = segmap.reshape(-1)
-        pc_segment = pc_full[pc_segmap == 1]
-        pc_color_segment = pc_colors[pc_segmap == 1]
-
-        if pc_segmap.shape[0] == 0:
-            return {}, {}
+        seg_idcs = np.logical_and(pc_segmap == 1, pc_full[:, 2] != 0.0)
+        pc_segment = pc_full[seg_idcs]
+        pc_color_segment = pc_colors[seg_idcs]
 
         # Build voxel map (in abs frame)
         voxel_map = SparseVoxelMap(resolution=VOXEL_RES, feature_dim=3)
@@ -89,10 +99,12 @@ def inference():
 
         # Extract highest points
         xyz, rgb = voxel_map.get_data()
+        if xyz.shape[0] < 1:
+            return {}, {}
 
         num_top = int(xyz.shape[0] * TOP_PERCENTAGE)
-        idcs = np.argpartition(xyz[:, 2], -num_top)[-num_top:]
-        xyz_top = xyz[idcs, :]
+        top_idcs = np.argpartition(xyz[:, 2], -num_top)[-num_top:]
+        xyz_top = xyz[top_idcs, :]
 
         # Flatten points into 2d occupancy map
         z_grasp = np.median(xyz_top[:, 2])
@@ -107,29 +119,30 @@ def inference():
         # Compute x-direction and y-direction grasps on the occupancy map
         scores_raw = []
         grasps_raw = []
-        for point in xyz_top:
-            coord = ((point[:2] - orig) / VOXEL_RES).astype(int)
-            x_score, y_score = _compute_grasp_scores(coord, occ_map)
+        for i in range(occ_map.shape[0]):
+            for j in range(occ_map.shape[1]):
+                if occ_map[i, j] == 0.0:
+                    continue
 
-            if x_score >= GRASP_THRESHOLD:
-                grasp = _generate_grasp(np.array([point[0], point[1], z_grasp]), 0.0)
-                grasps_raw.append(grasp)
-                scores_raw.append(x_score)
+                x_score, y_score = _compute_grasp_scores((i, j), occ_map)
+                x, y = np.array((i, j)) * VOXEL_RES + orig
 
-            if y_score >= GRASP_THRESHOLD:
-                grasp = _generate_grasp(np.array([point[0], point[1], z_grasp]), np.pi / 2)
-                grasps_raw.append(grasp)
-                scores_raw.append(y_score)
+                if x_score >= GRASP_THRESHOLD:
+                    grasp = _generate_grasp(np.array([x, y, z_grasp]), 0.0)
+                    grasps_raw.append(grasp)
+                    scores_raw.append(x_score)
 
+                if y_score >= GRASP_THRESHOLD:
+                    grasp = _generate_grasp(np.array([x, y, z_grasp]), np.pi / 2)
+                    grasps_raw.append(grasp)
+                    scores_raw.append(y_score)
 
-        _visualize_grasps(xyz, rgb, idcs, grasps_raw)
-
-        breakpoint()
+        #_visualize_grasps(xyz, rgb, top_idcs, grasps_raw)
 
         # Postprocess grasps into dictionaries
         # (6dof graspnet only generates grasps for one object)
         grasps = {0: np.array(grasps_raw)}
-        scores = {0: scores_raw}
+        scores = {0: np.array(scores_raw)}
         return grasps, scores
 
     # Initialize server

@@ -53,7 +53,7 @@ class GraspClient(object):
         topic="/grasping/request",
         offset=0.0,
         R=None,
-        flip_grasps=True,
+        flip_grasps=False, # need to duplicate scores too for this to work
         debug=True,
     ):
         print("Initializing connection to ROS grasping server from the client...")

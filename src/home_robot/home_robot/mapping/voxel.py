@@ -47,20 +47,15 @@ class SparseVoxelMap(object):
         self.observations.append((camera_pose, xyz, feats, info))
         world_xyz = trimesh.transform_points(xyz, camera_pose)
 
-        if self.xyz is None:
-            # Update current sparse voxel map.
-            self.xyz = world_xyz
-            self.feats = feats
-        else:
-            # Combine point clouds by adding in the current view to the previous ones and
-            # voxelizing.
-            self.xyz, self.feats = combine_point_clouds(
-                self.xyz,
-                self.feats,
-                world_xyz,
-                feats,
-                sparse_voxel_size=self.resolution,
-            )
+        # Combine point clouds by adding in the current view to the previous ones and
+        # voxelizing.
+        self.xyz, self.feats = combine_point_clouds(
+            self.xyz,
+            self.feats,
+            world_xyz,
+            feats,
+            sparse_voxel_size=self.resolution,
+        )
 
     def get_data(self, in_place: bool = True) -> Tuple[np.ndarray, np.ndarray]:
         """Return the current point cloud and features; optionally copying."""
