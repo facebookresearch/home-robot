@@ -24,6 +24,7 @@ class FMMPlanner:
         traversible: np.ndarray,
         scale: int = 1,
         step_size: int = 5,
+        goal_tolerance: int = 2,
         vis_dir: str = "data/images/planner",
         visualize=False,
         print_images=False,
@@ -43,6 +44,7 @@ class FMMPlanner:
 
         self.scale = scale
         self.step_size = step_size
+        self.goal_tolerance = goal_tolerance
         if scale != 1.0:
             self.traversible = cv2.resize(
                 traversible,
@@ -56,6 +58,20 @@ class FMMPlanner:
         self.du = int(self.step_size / (self.scale * 1.0))
         self.fmm_dist = None
         self.goal_map = None
+
+    def set_goal(self, goal, auto_improve=False):
+        traversible_ma = ma.masked_values(self.traversible * 1, 0)
+        goal_x, goal_y = int(goal[0] / (self.scale * 1.)), \
+            int(goal[1] / (self.scale * 1.))
+
+        if self.traversible[goal_x, goal_y] == 0. and auto_improve:
+            goal_x, goal_y = self._find_nearest_goal([goal_x, goal_y])
+
+        traversible_ma[goal_x, goal_y] = 0
+        dd = skfmm.distance(traversible_ma, dx=1)
+        dd = ma.filled(dd, np.max(dd) + 1)
+        self.fmm_dist = dd
+        return
 
     def set_multi_goal(self, goal_map: np.ndarray, timestep: int = None):
         """Set long-term goal(s) used to compute distance from a binary
@@ -129,7 +145,7 @@ class FMMPlanner:
             plt.subplot(235)
             plt.imshow(mask)
 
-        stop = subset[self.du, self.du] < self.step_size
+        stop = subset[self.du, self.du] < self.goal_tolerance
 
         subset -= subset[self.du, self.du]
         ratio1 = subset / dist_mask

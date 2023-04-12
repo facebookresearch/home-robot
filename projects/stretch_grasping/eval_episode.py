@@ -32,7 +32,7 @@ def main(test_pick=False, reset_nav=False):
         robot.nav.navigate_to([0, 0, 0])
 
     agent.reset()
-    env.reset("table", "cup", "chair")
+    env.reset("chair", "cup", "chair")
 
     t = 0
     while not env.episode_over:

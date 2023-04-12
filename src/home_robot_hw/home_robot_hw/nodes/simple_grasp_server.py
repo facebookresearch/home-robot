@@ -137,7 +137,7 @@ def inference():
                     grasps_raw.append(grasp)
                     scores_raw.append(y_score)
 
-        #_visualize_grasps(xyz, rgb, top_idcs, grasps_raw)
+        _visualize_grasps(xyz, rgb, top_idcs, grasps_raw)
 
         # Postprocess grasps into dictionaries
         # (6dof graspnet only generates grasps for one object)
