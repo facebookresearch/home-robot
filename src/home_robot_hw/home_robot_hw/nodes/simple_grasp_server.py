@@ -1,19 +1,20 @@
-import rospy
+import argparse
+import glob
 import os
 import sys
-import argparse
-import numpy as np
 import time
-import glob
-import cv2
 
-from home_robot.utils.point_cloud import numpy_to_pcd, pcd_to_numpy, show_point_cloud
-from home_robot_hw.ros.grasp_helper import GraspServer
-from home_robot.mapping.voxel import SparseVoxelMap
+import cv2
+import numpy as np
+import rospy
 from scipy.spatial.transform import Rotation as R
 
-#VERTICAL_GRIPPER_QUAT = [0.3794973, -0.15972253, -0.29782842, -0.86125998] # camera frame
-VERTICAL_GRIPPER_QUAT = [0.70988   , 0.70406461, 0.0141615 , 0.01276155] # base frame
+from home_robot.mapping.voxel import SparseVoxelMap
+from home_robot.utils.point_cloud import numpy_to_pcd, pcd_to_numpy, show_point_cloud
+from home_robot_hw.ros.grasp_helper import GraspServer
+
+# VERTICAL_GRIPPER_QUAT = [0.3794973, -0.15972253, -0.29782842, -0.86125998] # camera frame
+VERTICAL_GRIPPER_QUAT = [0.70988, 0.70406461, 0.0141615, 0.01276155]  # base frame
 
 # Grasp generation params
 TOP_PERCENTAGE = 0.1
@@ -25,47 +26,61 @@ MIN_INNER_POINTS = 12
 
 
 def _visualize_grasps(xyz, rgb, idcs, grasps):
-    rgb_colored = rgb.copy() / 255.
+    rgb_colored = rgb.copy() / 255.0
     rgb_colored[idcs, :] = np.array([0.0, 0.0, 1.0])[None, :]
     show_point_cloud(xyz, rgb_colored, orig=np.zeros(3), grasps=grasps)
+
 
 def _compute_grasp_scores(xy, occ_map):
     outer_area = 2 * (GRASP_OUTER_RAD - GRASP_INNER_RAD) ** 2
 
     xmax = occ_map.shape[0]
     ymax = occ_map.shape[1]
-    
-    xy0 = np.sum(occ_map[
-        max(xy[0] - GRASP_INNER_RAD, 0) : min(xy[0] + GRASP_INNER_RAD + 1, xmax), 
-        max(xy[1] - GRASP_INNER_RAD, 0) : min(xy[1] + GRASP_INNER_RAD + 1, ymax)
-    ])
 
-    x1 = np.sum(occ_map[
-        max(xy[0] - GRASP_OUTER_RAD, 0) : min(xy[0] - GRASP_INNER_RAD + 1, xmax),
-        max(xy[1] - GRASP_INNER_RAD, 0) : min(xy[1] + GRASP_INNER_RAD + 1, ymax)
-    ])
-    x2 = np.sum(occ_map[
-        max(xy[0] + GRASP_INNER_RAD, 0) : min(xy[0] + GRASP_OUTER_RAD + 1, xmax),
-        max(xy[1] - GRASP_INNER_RAD, 0) : min(xy[1] + GRASP_INNER_RAD + 1, ymax)
-    ])
+    xy0 = np.sum(
+        occ_map[
+            max(xy[0] - GRASP_INNER_RAD, 0) : min(xy[0] + GRASP_INNER_RAD + 1, xmax),
+            max(xy[1] - GRASP_INNER_RAD, 0) : min(xy[1] + GRASP_INNER_RAD + 1, ymax),
+        ]
+    )
 
-    y1 = np.sum(occ_map[
-        max(xy[0] - GRASP_INNER_RAD, 0) : min(xy[0] + GRASP_INNER_RAD + 1, xmax),
-        max(xy[1] - GRASP_OUTER_RAD, 0) : min(xy[1] - GRASP_INNER_RAD + 1, ymax)
-    ])
-    y2 = np.sum(occ_map[
-        max(xy[0] - GRASP_INNER_RAD, 0) : min(xy[0] + GRASP_INNER_RAD + 1, xmax),
-        max(xy[1] + GRASP_INNER_RAD, 0) : min(xy[1] + GRASP_OUTER_RAD + 1, ymax)
-    ])
+    x1 = np.sum(
+        occ_map[
+            max(xy[0] - GRASP_OUTER_RAD, 0) : min(xy[0] - GRASP_INNER_RAD + 1, xmax),
+            max(xy[1] - GRASP_INNER_RAD, 0) : min(xy[1] + GRASP_INNER_RAD + 1, ymax),
+        ]
+    )
+    x2 = np.sum(
+        occ_map[
+            max(xy[0] + GRASP_INNER_RAD, 0) : min(xy[0] + GRASP_OUTER_RAD + 1, xmax),
+            max(xy[1] - GRASP_INNER_RAD, 0) : min(xy[1] + GRASP_INNER_RAD + 1, ymax),
+        ]
+    )
+
+    y1 = np.sum(
+        occ_map[
+            max(xy[0] - GRASP_INNER_RAD, 0) : min(xy[0] + GRASP_INNER_RAD + 1, xmax),
+            max(xy[1] - GRASP_OUTER_RAD, 0) : min(xy[1] - GRASP_INNER_RAD + 1, ymax),
+        ]
+    )
+    y2 = np.sum(
+        occ_map[
+            max(xy[0] - GRASP_INNER_RAD, 0) : min(xy[0] + GRASP_INNER_RAD + 1, xmax),
+            max(xy[1] + GRASP_INNER_RAD, 0) : min(xy[1] + GRASP_OUTER_RAD + 1, ymax),
+        ]
+    )
 
     x_score = max(1.0, xy0 / MIN_INNER_POINTS) - (x1 + x2) / outer_area
     y_score = max(1.0, xy0 / MIN_INNER_POINTS) - (y1 + y2) / outer_area
 
     return x_score, y_score
 
+
 def _generate_grasp(xyz: np.ndarray, rz: float) -> np.ndarray:
     grasp = np.zeros([4, 4])
-    grasp[:3, :3] = (R.from_quat(np.array(VERTICAL_GRIPPER_QUAT)) * R.from_rotvec([0, 0, rz])).as_matrix()
+    grasp[:3, :3] = (
+        R.from_quat(np.array(VERTICAL_GRIPPER_QUAT)) * R.from_rotvec([0, 0, rz])
+    ).as_matrix()
     grasp[:3, 3] = xyz
 
     return grasp
@@ -74,18 +89,20 @@ def _generate_grasp(xyz: np.ndarray, rz: float) -> np.ndarray:
 def inference():
     """
     Predict 6-DoF grasp distribution for given model and input data
-    
+
     :param global_config: config.yaml from checkpoint directory
     :param checkpoint_dir: checkpoint directory
     :param input_paths: .png/.npz/.npy file paths that contain depth/pointcloud and optionally intrinsics/segmentation/rgb
     :param K: Camera Matrix with intrinsics to convert depth to point cloud
-    :param local_regions: Crop 3D local regions around given segments. 
+    :param local_regions: Crop 3D local regions around given segments.
     :param skip_border_objects: When extracting local_regions, ignore segments at depth map boundary.
     :param filter_grasps: Filter and assign grasp contacts according to segmap.
     :param segmap_id: only return grasps from specified segmap_id.
     :param z_range: crop point cloud at a minimum/maximum z distance from camera to filter out outlier points. Default: [0.2, 1.8] m
     :param forward_passes: Number of forward passes to run on each point cloud. Default: 1
     """
+
+    in_base_frame = True  # produced grasps are in base frame
 
     def get_grasps(pc_full, pc_colors, segmap, camera_pose):
         pc_segmap = segmap.reshape(-1)
@@ -137,16 +154,16 @@ def inference():
                     grasps_raw.append(grasp)
                     scores_raw.append(y_score)
 
-        #_visualize_grasps(xyz, rgb, top_idcs, grasps_raw)
+        # _visualize_grasps(xyz, rgb, top_idcs, grasps_raw)
 
         # Postprocess grasps into dictionaries
         # (6dof graspnet only generates grasps for one object)
         grasps = {0: np.array(grasps_raw)}
         scores = {0: np.array(scores_raw)}
-        return grasps, scores
+        return grasps, scores, in_base_frame
 
     # Initialize server
-    _server = GraspServer(get_grasps)
+    _ = GraspServer(get_grasps)
 
     # Spin
     rospy.spin()
@@ -157,7 +174,6 @@ def inference():
         continue
 
 
-        
 if __name__ == "__main__":
-    rospy.init_node('simple_grasp_server')
+    rospy.init_node("simple_grasp_server")
     inference()

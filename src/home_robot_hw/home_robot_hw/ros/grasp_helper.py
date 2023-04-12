@@ -53,7 +53,7 @@ class GraspClient(object):
         topic="/grasping/request",
         offset=0.0,
         R=None,
-        flip_grasps=False, # need to duplicate scores too for this to work
+        flip_grasps=False,  # need to duplicate scores too for this to work
         debug=True,
     ):
         print("Initializing connection to ROS grasping server from the client...")
@@ -135,7 +135,7 @@ class GraspClient(object):
             scores = np.array(scores.data)
             # Get information for the objects
             objs[obj_id] = (grasps, scores)
-        return objs
+        return objs, res.in_base_frame
 
     def get_grasps(self, xyz, labels, timeout=10.0):
         msg = self.segmented_point_cloud_to_msg(xyz, labels)
@@ -181,7 +181,9 @@ class GraspServer(object):
         print("frame =", req.cloud.header.frame_id)
         # print(xyz)
         # print(seg)
-        grasps, scores = self.handle_request_fn(xyz, rgb, seg, camera_pose)
+        grasps, scores, in_base_frame = self.handle_request_fn(
+            xyz, rgb, seg, camera_pose
+        )
         # print(grasps.keys())
         resp = GraspRequestResponse()
         all_grasps = PoseArray()
@@ -202,6 +204,9 @@ class GraspServer(object):
             resp.grasps.append(grasps_msg)
             resp.scores.append(Float32MultiArray(data=obj_scores))
         self.pub.publish(all_grasps)
+
+        resp.in_base_frame = in_base_frame
+
         return resp
 
     def _cb(self, msg):

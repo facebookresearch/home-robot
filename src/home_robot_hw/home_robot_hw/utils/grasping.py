@@ -147,7 +147,7 @@ class GraspPlanner(object):
             mask_scene = mask_valid  # initial mask has to be good
             mask_scene = mask_scene.reshape(-1)
 
-            predicted_grasps = self.grasp_client.request(
+            predicted_grasps, in_base_frame = self.grasp_client.request(
                 xyz,
                 rgb,
                 object_mask,
@@ -165,7 +165,8 @@ class GraspPlanner(object):
                 enumerate(zip(scores, predicted_grasps)), key=lambda x: x[0]
             ):
                 pose = grasp
-                #pose = camera_pose @ pose
+                if not in_base_frame:
+                    pose = camera_pose @ pose
                 if score < min_grasp_score:
                     continue
 
@@ -184,8 +185,8 @@ class GraspPlanner(object):
             # Correct for the length of the Stretch gripper and the gripper upon
             # which Graspnet was trained
             grasp_offset = np.eye(4)
-            #grasp_offset[2, 3] = -0.10 # graspnet
-            grasp_offset[2, 3] = -0.2 # hardcode grasps
+            # grasp_offset[2, 3] = -0.10 # graspnet
+            grasp_offset[2, 3] = -0.2  # hardcode grasps
             for i, grasp in enumerate(grasps):
                 grasps[i] = grasp @ grasp_offset
 
