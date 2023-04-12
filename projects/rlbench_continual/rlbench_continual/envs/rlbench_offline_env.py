@@ -15,13 +15,15 @@ class RLBenchOfflineEnv(gym.Env):
         self,
         dataset_dir,
         random_trajectory_start=True,
-        single_step_trajectory=True,
+        trajectory_length=1,  # How much of the trajectory to do at once before resetting
         views=None,
         language_embedding_model=None,
+        augmented_keypoint_offset=None,
     ):
         views = views if views is not None else ["front"]
         self._random_trajectory_start = random_trajectory_start
-        self._single_step_trajectory = single_step_trajectory
+        self._trajectory_length = trajectory_length
+        self._augmented_keypoint_offset = augmented_keypoint_offset
 
         self._loader = RLBenchDataset(
             dataset_dir,
@@ -43,6 +45,7 @@ class RLBenchOfflineEnv(gym.Env):
         self._current_trial = None
         self._current_keypoint_indices = None  # Indexes into the trial timesteps
         self._current_timestep = 0
+        self._max_timestep = None  # Letting reset initialize this
         self._current_language_command = None
 
         self._language_embedding_model = (
@@ -160,21 +163,21 @@ class RLBenchOfflineEnv(gym.Env):
         trial_id = np.random.randint(len(self._loader.trials))
         self._current_trial = self._loader.trials[trial_id]
 
-        keypoint_indices = [0]
-        offset = 10
-        max_len = len(self._current_trial["q"])
-        for keypoint in self._current_trial["keypoints"]:
-            low_keypoint = keypoint - offset
-            high_keypoint = keypoint + offset
+        if self._augmented_keypoint_offset is not None:
+            keypoint_indices = [0]
+            max_len = len(self._current_trial["q"])
+            for keypoint in self._current_trial["keypoints"]:
+                low_keypoint = keypoint - self._augmented_keypoint_offset
+                high_keypoint = keypoint + self._augmented_keypoint_offset
 
-            if low_keypoint >= 0:
-                keypoint_indices.append(low_keypoint)
+                if low_keypoint >= 0:
+                    keypoint_indices.append(low_keypoint)
 
-            if high_keypoint < max_len:
-                keypoint_indices.append(high_keypoint)
+                if high_keypoint < max_len:
+                    keypoint_indices.append(high_keypoint)
 
-        keypoint_indices = list(set(keypoint_indices))
-        keypoint_indices.sort()
+            keypoint_indices = list(set(keypoint_indices))
+            keypoint_indices.sort()
 
         # Include the first frame in the keypoints
         print(f"Running with indices: {keypoint_indices}")
@@ -187,6 +190,11 @@ class RLBenchOfflineEnv(gym.Env):
             0
             if options is not None and options.get("ensure_first", False)
             else np.random.randint(len(self._current_keypoint_indices) - 1)
+        )
+        self._max_timestep = (
+            self._current_timestep + self._trajectory_length
+            if self._trajectory_length is not None
+            else None
         )
 
         # Determine what command to associate with this run
@@ -219,8 +227,7 @@ class RLBenchOfflineEnv(gym.Env):
         )
 
     def step(self, action: ActType) -> Tuple[ObsType, float, bool, dict]:
-
-        max_timesteps = len(self._current_keypoint_indices)
+        true_max_timesteps = len(self._current_keypoint_indices)
         next_timestep = self._current_timestep + 1
         true_action = self._get_combined_ee_state(
             self._current_trial, next_timestep, self._current_keypoint_indices
@@ -229,11 +236,15 @@ class RLBenchOfflineEnv(gym.Env):
         # If we only have, effectively, 1 action (2 keypoints, but including the starting state), just say that one action is the final one
         # TODO: hmm...think more about the offsets here
         time_fraction = (
-            (next_timestep - 1) / (max_timesteps - 2) if max_timesteps > 2 else 1
+            (next_timestep - 1) / (true_max_timesteps - 2)
+            if true_max_timesteps > 2
+            else 1
         )  # TODO: check
         true_action = np.concatenate((true_action, np.array([time_fraction])), axis=-1)
 
-        done = self._single_step_trajectory or next_timestep == max_timesteps - 1
+        done = (
+            self._max_timestep is not None and next_timestep >= self._max_timestep
+        ) or next_timestep == true_max_timesteps - 1
         reward = 0
         info = {"demo_action": true_action}
         obs = self._construct_observation(

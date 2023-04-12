@@ -36,7 +36,7 @@ class RLBenchLiveEnv(RLBenchOfflineEnv):
         super().__init__(
             dataset_dir,
             random_trajectory_start=False,
-            single_step_trajectory=False,
+            trajectory_length=None,
             views=views,
             language_embedding_model=language_embedding_model,
         )
