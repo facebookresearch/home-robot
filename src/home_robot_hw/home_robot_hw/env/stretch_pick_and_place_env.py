@@ -4,7 +4,7 @@ import numpy as np
 import rospy
 
 import home_robot
-from home_robot.core.interfaces import Action, DiscreteNavigationAction, Observations
+from home_robot.core.interfaces import Action, HybridAction, DiscreteNavigationAction, Observations
 from home_robot.motion.stretch import STRETCH_HOME_Q, STRETCH_PREGRASP_Q
 from home_robot.perception.detection.detic.detic_perception import DeticPerception
 from home_robot.utils.geometry import xyt2sophus
@@ -110,45 +110,49 @@ class StretchPickandPlaceEnv(StretchEnv):
         return self.robot
 
     def apply_action(self, action: Action, info: Optional[Dict[str, Any]] = None):
-        # TODO Determine what form the grasp action should take and move
-        #  grasping execution logic here
+        """Handle all sorts of different actions we might be inputting into this class. We provide both a discrete and a continuous action handler."""
+        action = HybridAction(action)
         if self.visualizer is not None and info is not None:
             self.visualizer.visualize(**info)
-        continuous_action = np.zeros(3)
-        if action == DiscreteNavigationAction.MOVE_FORWARD:
-            print("FORWARD")
-            continuous_action[0] = self.forward_step
-        elif action == DiscreteNavigationAction.TURN_RIGHT:
-            print("TURN RIGHT")
-            continuous_action[2] = -self.rotate_step
-        elif action == DiscreteNavigationAction.TURN_LEFT:
-            print("TURN LEFT")
-            continuous_action[2] = self.rotate_step
-        elif action == DiscreteNavigationAction.STOP:
-            print("DONE!")
-            # Do nothing if "stop"
-            # continuous_action = None
-            # if not self.robot.in_manipulation_mode():
-            #     self.robot.switch_to_manipulation_mode()
-            pass
-        elif action == DiscreteNavigationAction.MANIPULATION_MODE:
-            print("PICK UP THE TARGET OBJECT")
-            print(" - Robot in navigation mode:", self.in_navigation_mode())
-            continuous_action = None
-            if self.in_navigation_mode():
-                self.switch_to_navigation_mode()
-                rospy.sleep(self.msg_delay_t)
-            self.robot.nav.navigate_to([0, 0, np.pi / 2], relative=True, blocking=True)
-            self.grasp_planner.go_to_manip_mode()
-        elif action == DiscreteNavigationAction.PICK_OBJECT:
-            continuous_action = None
-            while not rospy.is_shutdown():
-                ok = self.grasp_planner.try_grasping()
-                if ok:
-                    break
-        else:
-            print("Action not implemented in pick-and-place environment:", action)
-            continuous_action = None
+        if action.is_discrete():
+            action = action.get()
+            continuous_action = np.zeros(3)
+            if action == DiscreteNavigationAction.MOVE_FORWARD:
+                print("FORWARD")
+                continuous_action[0] = self.forward_step
+            elif action == DiscreteNavigationAction.TURN_RIGHT:
+                print("TURN RIGHT")
+                continuous_action[2] = -self.rotate_step
+            elif action == DiscreteNavigationAction.TURN_LEFT:
+                print("TURN LEFT")
+                continuous_action[2] = self.rotate_step
+            elif action == DiscreteNavigationAction.STOP:
+                print("DONE!")
+                # Do nothing if "stop"
+                continuous_action = None
+                # if not self.robot.in_manipulation_mode():
+                #     self.robot.switch_to_manipulation_mode()
+                pass
+            elif action == DiscreteNavigationAction.MANIPULATION_MODE:
+                print("PICK UP THE TARGET OBJECT")
+                print(" - Robot in navigation mode:", self.in_navigation_mode())
+                continuous_action = None
+                if self.in_navigation_mode():
+                    self.switch_to_navigation_mode()
+                    rospy.sleep(self.msg_delay_t)
+                self.robot.nav.navigate_to([0, 0, np.pi / 2], relative=True, blocking=True)
+                self.grasp_planner.go_to_manip_mode()
+            elif action == DiscreteNavigationAction.PICK_OBJECT:
+                continuous_action = None
+                while not rospy.is_shutdown():
+                    ok = self.grasp_planner.try_grasping()
+                    if ok:
+                        break
+            else:
+                print("Action not implemented in pick-and-place environment:", action)
+                continuous_action = None
+        elif action.is_navigation():
+            continuous_action = action.get()
 
         # Move, if we are not doing anything with the arm
         if continuous_action is not None and not self.test_grasping:

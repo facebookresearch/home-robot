@@ -76,6 +76,7 @@ class ObjectNavAgent(Agent):
             exp_name=config.EXP_NAME,
             agent_cell_radius=agent_cell_radius,
             min_obs_dilation_selem_radius=config.AGENT.PLANNER.min_obs_dilation_selem_radius,
+            discrete_actions=config.AGENT.PLANNER.discrete_actions,
         )
         self.one_hot_encoding = torch.eye(
             config.AGENT.SEMANTIC_MAP.num_sem_categories, device=self.device

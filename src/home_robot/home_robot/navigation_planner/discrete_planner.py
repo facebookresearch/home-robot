@@ -13,7 +13,7 @@ import numpy as np
 import skimage.morphology
 
 import home_robot.utils.pose as pu
-from home_robot.core.interfaces import DiscreteNavigationAction
+from home_robot.core.interfaces import DiscreteNavigationAction, ContinuousNavigationAction
 
 from .fmm_planner import FMMPlanner
 
@@ -53,6 +53,7 @@ class DiscretePlanner:
         min_goal_distance_cm: float = 60.0,
         min_obs_dilation_selem_radius: int = 1,
         agent_cell_radius: int = 1,
+        discrete_actions: bool = True,
     ):
         """
         Arguments:
@@ -68,6 +69,7 @@ class DiscretePlanner:
             visualize: if True, render planner internals for debugging
             print_images: if True, save visualization as images
         """
+        self.discrete_actions = discrete_actions
         self.visualize = visualize
         self.print_images = print_images
         self.default_vis_dir = f"{dump_location}/images/{exp_name}"
@@ -285,12 +287,18 @@ class DiscretePlanner:
 
         # Short-term goal -> deterministic local policy
         if not (found_goal and stop):
-            if relative_angle > self.turn_angle / 2.0:
-                action = DiscreteNavigationAction.TURN_RIGHT
-            elif relative_angle < -self.turn_angle / 2.0:
-                action = DiscreteNavigationAction.TURN_LEFT
+            if self.discrete_actions:
+                if relative_angle > self.turn_angle / 2.0:
+                    action = DiscreteNavigationAction.TURN_RIGHT
+                elif relative_angle < -self.turn_angle / 2.0:
+                    action = DiscreteNavigationAction.TURN_LEFT
+                else:
+                    action = DiscreteNavigationAction.MOVE_FORWARD
             else:
-                action = DiscreteNavigationAction.MOVE_FORWARD
+                # Use the short-term goal to set where we should be heading next
+                print("using continuous actions for exploring")
+                print(stg_x, stg_y, angle_st_goal)
+                action = ContinuousNavigationAction([stg_x, stg_y, angle_st_goal])
         else:
             # Try to orient towards the goal object - or at least any point sampled from the goal
             # object.
