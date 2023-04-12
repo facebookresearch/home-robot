@@ -14,6 +14,7 @@ import numpy as np
 import skimage.morphology
 
 import home_robot.utils.pose as pu
+from home_robot.utils.geometry import xyt_global_to_base
 from home_robot.core.interfaces import DiscreteNavigationAction, ContinuousNavigationAction
 
 from .fmm_planner import FMMPlanner
@@ -320,7 +321,11 @@ class DiscretePlanner:
                     # Must return commands in radians and meters
                     relative_angle = math.radians(relative_angle)
                     # relative_angle_goal = math.radians(relative_angle_goal)
-                    action = ContinuousNavigationAction([m_relative_stg_y, m_relative_stg_x, -relative_angle])
+                    #action = ContinuousNavigationAction([m_relative_stg_y, m_relative_stg_x, -relative_angle])
+                    xyt_global = [m_relative_stg_y, m_relative_stg_x, -relative_angle]
+                    xyt_local = xyt_global_to_base(xyt_global, [0, 0, math.radians(start_o)])
+                    breakpoint()
+                    action = ContinuousNavigationAction(xyt_local)
         else:
             # Try to orient towards the goal object - or at least any point sampled from the goal
             # object.
