@@ -9,6 +9,7 @@ import time
 from typing import List, Tuple
 
 import cv2
+import matplotlib.pyplot as plt
 import numpy as np
 import skimage.morphology
 
@@ -344,7 +345,7 @@ class DiscretePlanner:
         start: List[int],
         planning_window: List[int],
         plan_to_dilated_goal=False,
-        visualize=True,
+        visualize=False,
     ) -> Tuple[Tuple[int, int], np.ndarray, bool, bool]:
         """Get short-term goal.
 
@@ -417,11 +418,12 @@ class DiscretePlanner:
         short_term_goal = int(stg_x), int(stg_y)
 
         if visualize:
-            import matplotlib.pyplot as plt
-            print(start)
+            print("Start visualizing")
+            plt.figure(1)
             plt.subplot(131)
-            navigable_goal_map[int(stg_x),int(stg_y)] = 1
-            plt.imshow(np.flipud(navigable_goal_map))
+            _navigable_goal_map = navigable_goal_map.copy()
+            _navigable_goal_map[int(stg_x),int(stg_y)] = 1
+            plt.imshow(np.flipud(_navigable_goal_map))
             plt.plot(stg_x, stg_y, 'bx')
             plt.plot(start[0], start[1], 'rx')
             plt.subplot(132)
@@ -429,9 +431,10 @@ class DiscretePlanner:
             plt.subplot(133)
             plt.imshow(np.flipud(planner.traversible))
             plt.show()
+            print("Done visualizing.")
 
         # Select closest point on goal map for visualization
-        # TODO How to do this without the overhead of creating another FMM planner?
+        # TODO" How to do this without the overhead of creating another FMM planner?
         vis_planner = FMMPlanner(traversible)
         curr_loc_map = np.zeros_like(goal_map)
         # Update our location for finding the closest goal
@@ -447,6 +450,7 @@ class DiscretePlanner:
         closest_goal_pt = np.unravel_index(
             closest_goal_map.argmax(), closest_goal_map.shape
         )
+        print("closest goal pt", closest_goal_pt)
 
         # Compute distances
         if not plan_to_dilated_goal:
@@ -487,6 +491,8 @@ class DiscretePlanner:
         buf = 4
         length = 2
 
+        # You must move at least 5 cm when doing forward actions
+        # Otherwise we assume there has been a collision
         if abs(x1 - x2) < 0.05 and abs(y1 - y2) < 0.05:
             self.col_width += 2
             if self.col_width == 7:

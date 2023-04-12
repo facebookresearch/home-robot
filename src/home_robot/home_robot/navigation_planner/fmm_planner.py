@@ -6,6 +6,7 @@ import os
 from typing import List
 
 import cv2
+import matplotlib.pyplot as plt
 import numpy as np
 import skfmm
 import skimage
@@ -116,9 +117,6 @@ class FMMPlanner:
         visualize = False
         if visualize:
             # TODO
-            print("asdf")
-            print(subset)
-            import matplotlib.pyplot as plt
             plt.subplot(231)
             plt.imshow(subset)
 
@@ -173,7 +171,6 @@ class FMMPlanner:
                 ) > min_radius
                 if cond1 and cond2:
                     mask[i, j] = 1
-            print(i, j, )
         mask[size // 2, size // 2] = 1
         return mask
 
