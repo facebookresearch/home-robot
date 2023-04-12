@@ -55,7 +55,7 @@ class DiscretePlanner:
         print_images: bool,
         dump_location: str,
         exp_name: str,
-        min_goal_distance_cm: float = 60.0,
+        min_goal_distance_cm: float = 40.0,
         min_obs_dilation_selem_radius: int = 1,
         agent_cell_radius: int = 1,
         discrete_actions: bool = True,
@@ -292,8 +292,11 @@ class DiscretePlanner:
             )
 
             m_relative_stg_x, m_relative_stg_y = [CM_TO_METERS * self.map_resolution * d for d in [relative_stg_x, relative_stg_y]]
-            print("using continuous actions for exploring")
-            print(m_relative_stg_x, m_relative_stg_y, relative_angle)
+            print("continuous actions for exploring")
+            print("agent angle =", angle_agent)
+            print("angle stg goal =", angle_st_goal)
+            print("angle final goal =", relative_angle_goal)
+            print(m_relative_stg_x, m_relative_stg_y, "rel ang =", relative_angle)
             print("-----------------")
 
         # Short-term goal -> deterministic local policy
@@ -308,8 +311,6 @@ class DiscretePlanner:
             else:
                 # Use the short-term goal to set where we should be heading next
                 m_relative_stg_x, m_relative_stg_y = [CM_TO_METERS * self.map_resolution * d for d in [relative_stg_x, relative_stg_y]]
-                print("using continuous actions for exploring")
-                print(m_relative_stg_x, m_relative_stg_y, relative_angle)
                 if np.abs(relative_angle) > self.turn_angle / 2.0:
                     # Must return commands in radians and meters
                     relative_angle = math.radians(relative_angle)

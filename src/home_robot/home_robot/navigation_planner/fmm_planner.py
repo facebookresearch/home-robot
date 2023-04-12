@@ -145,6 +145,7 @@ class FMMPlanner:
             plt.subplot(235)
             plt.imshow(mask)
 
+        print("[FMM] Distance to fmm navigable goal pt =", subset[self.du, self.du] * 5)
         stop = subset[self.du, self.du] < self.goal_tolerance
 
         subset -= subset[self.du, self.du]
