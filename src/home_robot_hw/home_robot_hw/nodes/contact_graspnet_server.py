@@ -18,8 +18,11 @@ tf.disable_eager_execution()
 physical_devices = tf.config.experimental.list_physical_devices("GPU")
 tf.config.experimental.set_memory_growth(physical_devices[0], True)
 
-BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-sys.path.append(os.path.join(BASE_DIR))
+BASE_DIR = os.path.abspath(
+    os.path.join(home_robot.__path__[0], "../../third_party/contact_graspnet")
+)
+os.chdir(BASE_DIR)
+sys.path.append(BASE_DIR)
 import config_utils  # noqa: E402
 from contact_grasp_estimator import GraspEstimator  # noqa: E402
 from data import (  # noqa: E402
