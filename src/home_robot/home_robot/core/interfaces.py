@@ -43,6 +43,7 @@ class ActionType(Enum):
     CONTINUOUS_NAVIGATION = 1
     CONTINUOUS_MANIPULATION = 2
 
+
 class HybridAction(Action):
     """Convenience for supporting multiple action types - provides handling to make sure we have the right class at any particular time"""
 
