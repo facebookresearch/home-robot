@@ -32,11 +32,11 @@ def main(
     config.freeze()
 
     rospy.init_node("eval_episode_stretch_objectnav")
-    agent = PickAndPlaceAgent(
-        config=config, skip_find_object=test_pick, skip_place=test_pick
-    )
     env = StretchPickandPlaceEnv(
         config=config, test_grasping=test_pick, dry_run=dry_run
+    )
+    agent = PickAndPlaceAgent(
+        config=config, skip_find_object=test_pick, skip_place=test_pick
     )
 
     robot = env.get_robot()

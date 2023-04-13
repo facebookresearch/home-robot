@@ -197,7 +197,6 @@ class ObjectNavAgent(Agent):
             for e in range(self.num_environments)
         ]
 
-        debug_frontier_map = True
         if debug_frontier_map:
             import matplotlib.pyplot as plt
 

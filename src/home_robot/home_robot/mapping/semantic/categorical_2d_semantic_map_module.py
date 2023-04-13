@@ -4,6 +4,7 @@
 # LICENSE file in the root directory of this source tree.
 from typing import Tuple
 
+import matplotlib.pyplot as plt
 import numpy as np
 import pytorch3d.transforms as pt
 import skimage.morphology
@@ -486,8 +487,6 @@ class Categorical2DSemanticMapModule(nn.Module):
                 pass
 
         if debug_maps:
-            import matplotlib.pyplot as plt
-
             explored = current_map[0, MC.EXPLORED_MAP].numpy()
             been_close = current_map[0, MC.BEEN_CLOSE_MAP].numpy()
             obstacles = current_map[0, MC.OBSTACLE_MAP].numpy()
@@ -516,9 +515,6 @@ class Categorical2DSemanticMapModule(nn.Module):
 
             print("Non semantic channels =", MC.NON_SEM_CHANNELS)
             print("map shape =", current_map.shape)
-            # for i in range(MC.NON_SEM_CHANNELS, MC.NON_SEM_CHANNELS + self.num_sem_categories):
-            #    print(i, "/", current_map.shape[1]) #, np.unique(current_map[0, i]))
-            breakpoint()
 
         if self.must_explore_close:
             current_map[:, MC.EXPLORED_MAP] = (
@@ -594,16 +590,15 @@ class Categorical2DSemanticMapModule(nn.Module):
         map_features[:, 2 * MC.NON_SEM_CHANNELS :, :, :] = local_map[
             :, MC.NON_SEM_CHANNELS :, :, :
         ]
-        import matplotlib.pyplot as plt
 
-        plt.subplot(131)
-        plt.imshow(local_map[0, 7])  # second object = cup
-        plt.subplot(132)
-        plt.imshow(local_map[0, 6])  # first object = chair
-        # This is the channel in MAP FEATURES mode
-        plt.subplot(133)
-        plt.imshow(map_features[0, 12])
-        plt.show()
-        breakpoint()
+        if debug_maps:
+            plt.subplot(131)
+            plt.imshow(local_map[0, 7])  # second object = cup
+            plt.subplot(132)
+            plt.imshow(local_map[0, 6])  # first object = chair
+            # This is the channel in MAP FEATURES mode
+            plt.subplot(133)
+            plt.imshow(map_features[0, 12])
+            plt.show()
 
         return map_features.detach()
