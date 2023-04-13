@@ -36,6 +36,10 @@ AGENT:
     explored_radius: 150       # radius (in centimeters) of visually explored region
     must_explore_close: False
 
+  SKILLS:
+    GAZE:
+      CHECKPOINT_PATH: data/checkpoints/gaze.pth
+
   PLANNER:
     collision_threshold: 0.20       # forward move distance under which we consider there's a collision (in meters)
     obs_dilation_selem_radius: 7    # radius (in cells) of obstacle dilation structuring element

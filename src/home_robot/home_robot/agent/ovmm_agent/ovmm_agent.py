@@ -1,5 +1,4 @@
 # TODO: WIP
-# from home_robot.agent.ovmm_agent.ppo_agent import PPOAgent
 from enum import IntEnum
 from typing import Any, Dict, List, Tuple
 
@@ -10,6 +9,7 @@ from torch.nn import DataParallel
 import home_robot.utils.pose as pu
 from home_robot.agent.objectnav_agent.objectnav_agent import ObjectNavAgent
 from home_robot.agent.objectnav_agent.objectnav_agent_module import ObjectNavAgentModule
+from home_robot.agent.ovmm_agent.ppo_agent import PPOAgent
 from home_robot.core.abstract_agent import Agent
 from home_robot.core.interfaces import DiscreteNavigationAction, Observations
 from home_robot.mapping.semantic.categorical_2d_semantic_map_state import (
@@ -33,12 +33,18 @@ class OpenVocabManipAgent(ObjectNavAgent):
         self.states = None
         self.place_start_step = None
         self.pick_start_step = None
-        # self.ppo_agent = PPOAgent(config, obs_spaces=obs_spaces, action_spaces=action_spaces)
+        self.gaze_agent = PPOAgent(
+            config,
+            config.AGENT.SKILLS.GAZE,
+            device_id=device_id,
+            obs_spaces=obs_spaces,
+            action_spaces=action_spaces,
+        )
 
     def reset_vectorized(self):
         """Initialize agent state."""
         super().reset_vectorized()
-        # self.ppo_agent.reset_vectorized()
+        self.gaze_agent.reset_vectorized()
         self.states = torch.tensor([Skill.NAV_TO_OBJ] * self.num_environments)
         self.place_start_step = torch.tensor([0] * self.num_environments)
         self.pick_start_step = torch.tensor([0] * self.num_environments)
@@ -52,6 +58,7 @@ class OpenVocabManipAgent(ObjectNavAgent):
         self.place_start_step[e] = 0
         self.pick_start_step[e] = 0
         super().reset_vectorized_for_env(e)
+        self.gaze_agent.reset_vectorized_for_env(e)
 
     def act(
         self, habitat_obs, obs: Observations

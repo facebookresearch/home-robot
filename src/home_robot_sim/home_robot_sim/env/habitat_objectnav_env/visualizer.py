@@ -157,18 +157,18 @@ class Visualizer:
 
     def visualize(
         self,
-        obstacle_map: np.ndarray,
-        goal_map: np.ndarray,
-        closest_goal_map: Optional[np.ndarray],
-        sensor_pose: np.ndarray,
-        found_goal: bool,
-        explored_map: np.ndarray,
-        semantic_map: np.ndarray,
-        been_close_map: np.ndarray,
-        semantic_frame: np.ndarray,
-        frontier_map: np.ndarray,
-        goal_name: str,
         timestep: int,
+        semantic_frame: np.ndarray,
+        obstacle_map: np.ndarray = None,
+        goal_map: np.ndarray = None,
+        closest_goal_map: Optional[np.ndarray] = None,
+        sensor_pose: np.ndarray = None,
+        found_goal: bool = None,
+        explored_map: np.ndarray = None,
+        semantic_map: np.ndarray = None,
+        been_close_map: np.ndarray = None,
+        frontier_map: np.ndarray = None,
+        goal_name: str = None,
         visualize_goal: bool = True,
         third_person_image=None,
     ):
@@ -197,72 +197,92 @@ class Visualizer:
         if self.image_vis is None:
             self.image_vis = self._init_vis_image(goal_name)
 
-        curr_x, curr_y, curr_o, gy1, gy2, gx1, gx2 = sensor_pose
-        gy1, gy2, gx1, gx2 = int(gy1), int(gy2), int(gx1), int(gx2)
+        if obstacle_map is not None:
+            curr_x, curr_y, curr_o, gy1, gy2, gx1, gx2 = sensor_pose
+            gy1, gy2, gx1, gx2 = int(gy1), int(gy2), int(gx1), int(gx2)
 
-        # Update visited map with last visited area
-        if self.last_xy is not None:
-            last_x, last_y = self.last_xy
-            last_pose = [
-                int(last_y * 100.0 / self.map_resolution - gy1),
-                int(last_x * 100.0 / self.map_resolution - gx1),
-            ]
-            last_pose = pu.threshold_poses(last_pose, obstacle_map.shape)
-            curr_pose = [
-                int(curr_y * 100.0 / self.map_resolution - gy1),
-                int(curr_x * 100.0 / self.map_resolution - gx1),
-            ]
-            curr_pose = pu.threshold_poses(curr_pose, obstacle_map.shape)
-            self.visited_map_vis[gy1:gy2, gx1:gx2] = vu.draw_line(
-                last_pose, curr_pose, self.visited_map_vis[gy1:gy2, gx1:gx2]
-            )
-        self.last_xy = (curr_x, curr_y)
-
-        semantic_map += PI.SEM_START
-
-        # Obstacles, explored, and visited areas
-        no_category_mask = (
-            semantic_map == PI.SEM_START + self.num_sem_categories - 1
-        )  # Assumes the last category is "other"
-        obstacle_mask = np.rint(obstacle_map) == 1
-        explored_mask = np.rint(explored_map) == 1
-        visited_mask = self.visited_map_vis[gy1:gy2, gx1:gx2] == 1
-        semantic_map[no_category_mask] = PI.EMPTY_SPACE
-        semantic_map[np.logical_and(no_category_mask, explored_mask)] = PI.EXPLORED
-        semantic_map[np.logical_and(no_category_mask, obstacle_mask)] = PI.OBSTACLES
-        semantic_map[visited_mask] = PI.VISITED
-
-        # Goal
-        if visualize_goal:
-            selem = skimage.morphology.disk(4)
-            goal_mat = 1 - skimage.morphology.binary_dilation(goal_map, selem) != 1
-            goal_mask = goal_mat == 1
-            semantic_map[goal_mask] = PI.REST_OF_GOAL
-            if closest_goal_map is not None:
-                closest_goal_mat = (
-                    1 - skimage.morphology.binary_dilation(closest_goal_map, selem) != 1
+            # Update visited map with last visited area
+            if self.last_xy is not None:
+                last_x, last_y = self.last_xy
+                last_pose = [
+                    int(last_y * 100.0 / self.map_resolution - gy1),
+                    int(last_x * 100.0 / self.map_resolution - gx1),
+                ]
+                last_pose = pu.threshold_poses(last_pose, obstacle_map.shape)
+                curr_pose = [
+                    int(curr_y * 100.0 / self.map_resolution - gy1),
+                    int(curr_x * 100.0 / self.map_resolution - gx1),
+                ]
+                curr_pose = pu.threshold_poses(curr_pose, obstacle_map.shape)
+                self.visited_map_vis[gy1:gy2, gx1:gx2] = vu.draw_line(
+                    last_pose, curr_pose, self.visited_map_vis[gy1:gy2, gx1:gx2]
                 )
-                closest_goal_mask = closest_goal_mat == 1
-                semantic_map[closest_goal_mask] = PI.CLOSEST_GOAL
+            self.last_xy = (curr_x, curr_y)
 
-        # Semantic categories
-        semantic_map_vis = self.get_semantic_vis(semantic_map)
-        semantic_map_vis = np.flipud(semantic_map_vis)
+            semantic_map += PI.SEM_START
 
-        # overlay the regions the agent has been close to
-        been_close_map = np.flipud(np.rint(been_close_map) == 1)
-        color_index = PI.BEEN_CLOSE * 3
-        color = self.semantic_category_mapping.map_color_palette[
-            color_index : color_index + 3
-        ][::-1]
-        semantic_map_vis[been_close_map] = (
-            semantic_map_vis[been_close_map] + color
-        ) / 2
+            # Obstacles, explored, and visited areas
+            no_category_mask = (
+                semantic_map == PI.SEM_START + self.num_sem_categories - 1
+            )  # Assumes the last category is "other"
+            obstacle_mask = np.rint(obstacle_map) == 1
+            explored_mask = np.rint(explored_map) == 1
+            visited_mask = self.visited_map_vis[gy1:gy2, gx1:gx2] == 1
+            semantic_map[no_category_mask] = PI.EMPTY_SPACE
+            semantic_map[np.logical_and(no_category_mask, explored_mask)] = PI.EXPLORED
+            semantic_map[np.logical_and(no_category_mask, obstacle_mask)] = PI.OBSTACLES
+            semantic_map[visited_mask] = PI.VISITED
 
-        semantic_map_vis = cv2.resize(
-            semantic_map_vis, (V.TOP_DOWN_W, V.HEIGHT), interpolation=cv2.INTER_NEAREST
-        )
-        self.image_vis[V.Y1 : V.Y2, V.TOP_DOWN_X1 : V.TOP_DOWN_X2] = semantic_map_vis
+            # Goal
+            if visualize_goal:
+                selem = skimage.morphology.disk(4)
+                goal_mat = 1 - skimage.morphology.binary_dilation(goal_map, selem) != 1
+                goal_mask = goal_mat == 1
+                semantic_map[goal_mask] = PI.REST_OF_GOAL
+                if closest_goal_map is not None:
+                    closest_goal_mat = (
+                        1 - skimage.morphology.binary_dilation(closest_goal_map, selem)
+                        != 1
+                    )
+                    closest_goal_mask = closest_goal_mat == 1
+                    semantic_map[closest_goal_mask] = PI.CLOSEST_GOAL
+
+            # Semantic categories
+            semantic_map_vis = self.get_semantic_vis(semantic_map)
+            semantic_map_vis = np.flipud(semantic_map_vis)
+
+            # overlay the regions the agent has been close to
+            been_close_map = np.flipud(np.rint(been_close_map) == 1)
+            color_index = PI.BEEN_CLOSE * 3
+            color = self.semantic_category_mapping.map_color_palette[
+                color_index : color_index + 3
+            ][::-1]
+            semantic_map_vis[been_close_map] = (
+                semantic_map_vis[been_close_map] + color
+            ) / 2
+
+            semantic_map_vis = cv2.resize(
+                semantic_map_vis,
+                (V.TOP_DOWN_W, V.HEIGHT),
+                interpolation=cv2.INTER_NEAREST,
+            )
+            self.image_vis[
+                V.Y1 : V.Y2, V.TOP_DOWN_X1 : V.TOP_DOWN_X2
+            ] = semantic_map_vis
+
+            # Agent arrow
+            pos = (
+                (curr_x * 100.0 / self.map_resolution - gx1)
+                * 480
+                / obstacle_map.shape[0],
+                (obstacle_map.shape[1] - curr_y * 100.0 / self.map_resolution + gy1)
+                * 480
+                / obstacle_map.shape[1],
+                np.deg2rad(-curr_o),
+            )
+            agent_arrow = vu.get_contour_points(pos, origin=(V.TOP_DOWN_X1, V.Y1))
+            color = self.semantic_category_mapping.map_color_palette[9:12][::-1]
+            cv2.drawContours(self.image_vis, [agent_arrow], 0, color, -1)
 
         # First-person semantic frame
         self.image_vis[V.Y1 : V.Y2, V.FIRST_RGB_X1 : V.FIRST_RGB_X2] = cv2.resize(
@@ -286,18 +306,6 @@ class Visualizer:
                 third_person_image[:, :, [2, 1, 0]],
                 (V.THIRD_PERSON_W, V.HEIGHT),
             )
-
-        # Agent arrow
-        pos = (
-            (curr_x * 100.0 / self.map_resolution - gx1) * 480 / obstacle_map.shape[0],
-            (obstacle_map.shape[1] - curr_y * 100.0 / self.map_resolution + gy1)
-            * 480
-            / obstacle_map.shape[1],
-            np.deg2rad(-curr_o),
-        )
-        agent_arrow = vu.get_contour_points(pos, origin=(V.TOP_DOWN_X1, V.Y1))
-        color = self.semantic_category_mapping.map_color_palette[9:12][::-1]
-        cv2.drawContours(self.image_vis, [agent_arrow], 0, color, -1)
 
         if self.show_images:
             cv2.imshow("Visualization", self.image_vis)

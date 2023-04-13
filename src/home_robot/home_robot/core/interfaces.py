@@ -3,6 +3,7 @@ from enum import Enum
 from typing import Any, Dict, Optional
 
 import numpy as np
+from habitat.core.simulator import Observations
 
 
 class Action:
@@ -67,6 +68,7 @@ class Observations:
     ] = None  # (camera_height, camera_width) in [0, num_sem_categories - 1]
     third_person_image: Optional[np.array] = None
     camera_pose: Optional[np.array] = None
+    habitat_obs: Optional[Observations] = None
     # --------------------------------------------------------
     # Untyped task-specific observations
     # --------------------------------------------------------

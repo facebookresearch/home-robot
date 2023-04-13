@@ -62,7 +62,7 @@ class VectorizedEvaluator(PPOTrainer):
         agent = OpenVocabManipAgent(
             config=self.config,
             obs_spaces=self.envs.observation_spaces,
-            action_spaces=self.envs.action_spaces,
+            action_spaces=self.envs.orig_action_spaces,
         )
         self._eval(
             agent,
