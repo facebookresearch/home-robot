@@ -16,22 +16,23 @@ from home_robot_sim.env.habitat_objectnav_env.constants import (
     MAX_DEPTH_REPLACEMENT_VALUE,
     MIN_DEPTH_REPLACEMENT_VALUE,
     RearrangeCategories,
+    RearrangeDETICCategories,
 )
 from home_robot_sim.env.habitat_objectnav_env.visualizer import Visualizer
 
 
 class HabitatOpenVocabManipEnv(HabitatEnv):
-    semantic_category_mapping: Union[RearrangeCategories]
+    semantic_category_mapping: Union[RearrangeCategories, RearrangeDETICCategories]
 
     def __init__(self, habitat_env: habitat.core.env.Env, config, dataset):
         super().__init__(habitat_env)
         self.min_depth = config.ENVIRONMENT.min_depth
         self.max_depth = config.ENVIRONMENT.max_depth
         self.ground_truth_semantics = config.GROUND_TRUTH_SEMANTICS
-        self.visualizer = Visualizer(config)
+        self._dataset = dataset
+        self.visualizer = Visualizer(config, dataset)
         self.goal_type = config.habitat.task.goal_type
         self.episodes_data_path = config.habitat.dataset.data_path
-        self._dataset = dataset
         self.video_dir = config.habitat_baselines.video_dir
         assert (
             "floorplanner" in self.episodes_data_path
@@ -40,7 +41,6 @@ class HabitatOpenVocabManipEnv(HabitatEnv):
         )
 
         if "floorplanner" in self.episodes_data_path:
-            self.semantic_category_mapping = RearrangeCategories()
             self._obj_name_to_id_mapping = self._dataset.obj_category_to_obj_category_id
             self._rec_name_to_id_mapping = (
                 self._dataset.recep_category_to_recep_category_id
@@ -52,6 +52,24 @@ class HabitatOpenVocabManipEnv(HabitatEnv):
                 k: v for v, k in self._rec_name_to_id_mapping.items()
             }
 
+            # combining objs and recep IDs into one mapping
+            self.obj_rec_combined_mapping = {}
+            for i in range(
+                len(self._obj_id_to_name_mapping) + len(self._rec_id_to_name_mapping)
+            ):
+                if i < len(self._obj_id_to_name_mapping):
+                    self.obj_rec_combined_mapping[i + 1] = self._obj_id_to_name_mapping[
+                        i
+                    ]
+                else:
+                    self.obj_rec_combined_mapping[i + 1] = self._rec_id_to_name_mapping[
+                        i - len(self._obj_id_to_name_mapping)
+                    ]
+
+            self.semantic_category_mapping = RearrangeDETICCategories(
+                self.obj_rec_combined_mapping
+            )
+
         if not self.ground_truth_semantics:
             from home_robot.perception.detection.detic.detic_perception import (
                 DeticPerception,
@@ -61,10 +79,9 @@ class HabitatOpenVocabManipEnv(HabitatEnv):
             self.segmentation = DeticPerception(
                 vocabulary="custom",
                 custom_vocabulary=",".join(
-                    list(self._obj_name_to_id_mapping.keys())
-                    + list(self._rec_name_to_id_mapping.keys())
+                    ["."] + list(self.obj_rec_combined_mapping.values()) + ["other"]
                 ),
-                sem_gpu_id=(-1 if config.NO_GPU else self.habitat_env.sim.gpu_device),
+                sem_gpu_id=0,
             )
         self._last_habitat_obs = None
 
@@ -151,16 +168,16 @@ class HabitatOpenVocabManipEnv(HabitatEnv):
             # TODO: update semantic_category_mapping
             obs.semantic = instance_id_to_category_id[semantic]
             # TODO Ground-truth semantic visualization
-            obs.task_observations["semantic_frame"] = np.concatenate(
-                [obs.rgb, obs.semantic[:, :, np.newaxis]], axis=2
-            ).astype(np.uint8)
         else:
             obs = self.segmentation.predict(obs, depth_threshold=0.5)
-            if type(self.semantic_category_mapping) == RearrangeCategories:
+            if type(self.semantic_category_mapping) == RearrangeDETICCategories:
                 # First index is a dummy unused category
                 obs.semantic[obs.semantic == 0] = (
                     self.semantic_category_mapping.num_sem_categories - 1
                 )
+        obs.task_observations["semantic_frame"] = np.concatenate(
+            [obs.rgb, obs.semantic[:, :, np.newaxis]], axis=2
+        ).astype(np.uint8)
         return obs
 
     def _preprocess_depth(self, depth: np.array) -> np.array:
@@ -200,8 +217,25 @@ class HabitatOpenVocabManipEnv(HabitatEnv):
                 + " "
                 + self._rec_id_to_name_mapping[obs["goal_receptacle"][0]]
             )
-            start_rec_goal_id = 2
-            end_rec_goal_id = 3
+            if self.ground_truth_semantics:
+                start_rec_goal_id = 2
+                end_rec_goal_id = 3
+            else:
+                # habitat goal ids (from obs) -> combined mapping (also used for detic predictions)
+                obj_goal_id = (
+                    obs["object_category"][0] + 1
+                )  # detic predictions use mapping that starts from 1
+                start_rec_goal_id = (
+                    len(self._obj_id_to_name_mapping.keys())
+                    + obs["start_receptacle"]
+                    + 1
+                )
+                end_rec_goal_id = (
+                    len(self._obj_id_to_name_mapping.keys())
+                    + obs["goal_receptacle"]
+                    + 1
+                )
+
         elif goal_type == "recep":
             # navigating to end receptacle (before placing)
             goal_name = self._rec_id_to_name_mapping[obs["goal_receptacle"][0]]

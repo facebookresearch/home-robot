@@ -3,3 +3,4 @@ geometry_msgs/Pose camera_pose
 ---
 geometry_msgs/PoseArray[] grasps
 std_msgs/Float32MultiArray[] scores
+bool in_base_frame
