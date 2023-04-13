@@ -11,10 +11,10 @@ import sensor_msgs.msg
 import std_msgs.msg
 
 class GraspRequestRequest(genpy.Message):
-  _md5sum = "3bd966757b8962210f20a26817d37217"
-  _type = "home_robot_hw/GraspRequestRequest"
-  _has_header = False  # flag to mark the presence of a Header object
-  _full_text = """sensor_msgs/PointCloud cloud
+    _md5sum = "3bd966757b8962210f20a26817d37217"
+    _type = "home_robot_hw/GraspRequestRequest"
+    _has_header = False  # flag to mark the presence of a Header object
+    _full_text = """sensor_msgs/PointCloud cloud
 geometry_msgs/Pose camera_pose
 
 ================================================================================
@@ -112,8 +112,8 @@ float64 y
 float64 z
 float64 w
 """
-  __slots__ = ['cloud','camera_pose']
-  _slot_types = ['sensor_msgs/PointCloud','geometry_msgs/Pose']
+    __slots__ = ["cloud", "camera_pose"]
+    _slot_types = ["sensor_msgs/PointCloud", "geometry_msgs/Pose"]
 
   def __init__(self, *args, **kwds):
     """
@@ -122,174 +122,89 @@ float64 w
     use is keyword arguments as this is more robust to future message
     changes.  You cannot mix in-order arguments and keyword arguments.
 
-    The available fields are:
-       cloud,camera_pose
+        The available fields are:
+           cloud,camera_pose
 
-    :param args: complete set of field values, in .msg order
-    :param kwds: use keyword arguments corresponding to message field names
-    to set specific fields.
-    """
-    if args or kwds:
-      super(GraspRequestRequest, self).__init__(*args, **kwds)
-      # message fields cannot be None, assign default values for those that are
-      if self.cloud is None:
-        self.cloud = sensor_msgs.msg.PointCloud()
-      if self.camera_pose is None:
-        self.camera_pose = geometry_msgs.msg.Pose()
-    else:
-      self.cloud = sensor_msgs.msg.PointCloud()
-      self.camera_pose = geometry_msgs.msg.Pose()
-
-  def _get_types(self):
-    """
-    internal API method
-    """
-    return self._slot_types
-
-  def serialize(self, buff):
-    """
-    serialize message into buffer
-    :param buff: buffer, ``StringIO``
-    """
-    try:
-      _x = self
-      buff.write(_get_struct_3I().pack(_x.cloud.header.seq, _x.cloud.header.stamp.secs, _x.cloud.header.stamp.nsecs))
-      _x = self.cloud.header.frame_id
-      length = len(_x)
-      if python3 or type(_x) == unicode:
-        _x = _x.encode('utf-8')
-        length = len(_x)
-      buff.write(struct.Struct('<I%ss'%length).pack(length, _x))
-      length = len(self.cloud.points)
-      buff.write(_struct_I.pack(length))
-      for val1 in self.cloud.points:
-        _x = val1
-        buff.write(_get_struct_3f().pack(_x.x, _x.y, _x.z))
-      length = len(self.cloud.channels)
-      buff.write(_struct_I.pack(length))
-      for val1 in self.cloud.channels:
-        _x = val1.name
-        length = len(_x)
-        if python3 or type(_x) == unicode:
-          _x = _x.encode('utf-8')
-          length = len(_x)
-        buff.write(struct.Struct('<I%ss'%length).pack(length, _x))
-        length = len(val1.values)
-        buff.write(_struct_I.pack(length))
-        pattern = '<%sf'%length
-        buff.write(struct.Struct(pattern).pack(*val1.values))
-      _x = self
-      buff.write(_get_struct_7d().pack(_x.camera_pose.position.x, _x.camera_pose.position.y, _x.camera_pose.position.z, _x.camera_pose.orientation.x, _x.camera_pose.orientation.y, _x.camera_pose.orientation.z, _x.camera_pose.orientation.w))
-    except struct.error as se: self._check_types(struct.error("%s: '%s' when writing '%s'" % (type(se), str(se), str(locals().get('_x', self)))))
-    except TypeError as te: self._check_types(ValueError("%s: '%s' when writing '%s'" % (type(te), str(te), str(locals().get('_x', self)))))
-
-  def deserialize(self, str):
-    """
-    unpack serialized message in str into this message instance
-    :param str: byte array of serialized message, ``str``
-    """
-    if python3:
-      codecs.lookup_error("rosmsg").msg_type = self._type
-    try:
-      if self.cloud is None:
-        self.cloud = sensor_msgs.msg.PointCloud()
-      if self.camera_pose is None:
-        self.camera_pose = geometry_msgs.msg.Pose()
-      end = 0
-      _x = self
-      start = end
-      end += 12
-      (_x.cloud.header.seq, _x.cloud.header.stamp.secs, _x.cloud.header.stamp.nsecs,) = _get_struct_3I().unpack(str[start:end])
-      start = end
-      end += 4
-      (length,) = _struct_I.unpack(str[start:end])
-      start = end
-      end += length
-      if python3:
-        self.cloud.header.frame_id = str[start:end].decode('utf-8', 'rosmsg')
-      else:
-        self.cloud.header.frame_id = str[start:end]
-      start = end
-      end += 4
-      (length,) = _struct_I.unpack(str[start:end])
-      self.cloud.points = []
-      for i in range(0, length):
-        val1 = geometry_msgs.msg.Point32()
-        _x = val1
-        start = end
-        end += 12
-        (_x.x, _x.y, _x.z,) = _get_struct_3f().unpack(str[start:end])
-        self.cloud.points.append(val1)
-      start = end
-      end += 4
-      (length,) = _struct_I.unpack(str[start:end])
-      self.cloud.channels = []
-      for i in range(0, length):
-        val1 = sensor_msgs.msg.ChannelFloat32()
-        start = end
-        end += 4
-        (length,) = _struct_I.unpack(str[start:end])
-        start = end
-        end += length
-        if python3:
-          val1.name = str[start:end].decode('utf-8', 'rosmsg')
+        :param args: complete set of field values, in .msg order
+        :param kwds: use keyword arguments corresponding to message field names
+        to set specific fields.
+        """
+        if args or kwds:
+            super(GraspRequestRequest, self).__init__(*args, **kwds)
+            # message fields cannot be None, assign default values for those that are
+            if self.cloud is None:
+                self.cloud = sensor_msgs.msg.PointCloud()
+            if self.camera_pose is None:
+                self.camera_pose = geometry_msgs.msg.Pose()
         else:
-          val1.name = str[start:end]
-        start = end
-        end += 4
-        (length,) = _struct_I.unpack(str[start:end])
-        pattern = '<%sf'%length
-        start = end
-        s = struct.Struct(pattern)
-        end += s.size
-        val1.values = s.unpack(str[start:end])
-        self.cloud.channels.append(val1)
-      _x = self
-      start = end
-      end += 56
-      (_x.camera_pose.position.x, _x.camera_pose.position.y, _x.camera_pose.position.z, _x.camera_pose.orientation.x, _x.camera_pose.orientation.y, _x.camera_pose.orientation.z, _x.camera_pose.orientation.w,) = _get_struct_7d().unpack(str[start:end])
-      return self
-    except struct.error as e:
-      raise genpy.DeserializationError(e)  # most likely buffer underfill
+            self.cloud = sensor_msgs.msg.PointCloud()
+            self.camera_pose = geometry_msgs.msg.Pose()
 
 
-  def serialize_numpy(self, buff, numpy):
-    """
-    serialize message with numpy array types into buffer
-    :param buff: buffer, ``StringIO``
-    :param numpy: numpy python module
-    """
-    try:
-      _x = self
-      buff.write(_get_struct_3I().pack(_x.cloud.header.seq, _x.cloud.header.stamp.secs, _x.cloud.header.stamp.nsecs))
-      _x = self.cloud.header.frame_id
-      length = len(_x)
-      if python3 or type(_x) == unicode:
-        _x = _x.encode('utf-8')
-        length = len(_x)
-      buff.write(struct.Struct('<I%ss'%length).pack(length, _x))
-      length = len(self.cloud.points)
-      buff.write(_struct_I.pack(length))
-      for val1 in self.cloud.points:
-        _x = val1
-        buff.write(_get_struct_3f().pack(_x.x, _x.y, _x.z))
-      length = len(self.cloud.channels)
-      buff.write(_struct_I.pack(length))
-      for val1 in self.cloud.channels:
-        _x = val1.name
-        length = len(_x)
-        if python3 or type(_x) == unicode:
-          _x = _x.encode('utf-8')
-          length = len(_x)
-        buff.write(struct.Struct('<I%ss'%length).pack(length, _x))
-        length = len(val1.values)
-        buff.write(_struct_I.pack(length))
-        pattern = '<%sf'%length
-        buff.write(val1.values.tostring())
-      _x = self
-      buff.write(_get_struct_7d().pack(_x.camera_pose.position.x, _x.camera_pose.position.y, _x.camera_pose.position.z, _x.camera_pose.orientation.x, _x.camera_pose.orientation.y, _x.camera_pose.orientation.z, _x.camera_pose.orientation.w))
-    except struct.error as se: self._check_types(struct.error("%s: '%s' when writing '%s'" % (type(se), str(se), str(locals().get('_x', self)))))
-    except TypeError as te: self._check_types(ValueError("%s: '%s' when writing '%s'" % (type(te), str(te), str(locals().get('_x', self)))))
+    def serialize(self, buff):
+        """
+        serialize message into buffer
+        :param buff: buffer, ``StringIO``
+        """
+        try:
+            _x = self
+            buff.write(
+                _get_struct_3I().pack(
+                    _x.cloud.header.seq,
+                    _x.cloud.header.stamp.secs,
+                    _x.cloud.header.stamp.nsecs,
+                )
+            )
+            _x = self.cloud.header.frame_id
+            length = len(_x)
+            if python3 or type(_x) == unicode:
+                _x = _x.encode("utf-8")
+                length = len(_x)
+            buff.write(struct.Struct("<I%ss" % length).pack(length, _x))
+            length = len(self.cloud.points)
+            buff.write(_struct_I.pack(length))
+            for val1 in self.cloud.points:
+                _x = val1
+                buff.write(_get_struct_3f().pack(_x.x, _x.y, _x.z))
+            length = len(self.cloud.channels)
+            buff.write(_struct_I.pack(length))
+            for val1 in self.cloud.channels:
+                _x = val1.name
+                length = len(_x)
+                if python3 or type(_x) == unicode:
+                    _x = _x.encode("utf-8")
+                    length = len(_x)
+                buff.write(struct.Struct("<I%ss" % length).pack(length, _x))
+                length = len(val1.values)
+                buff.write(_struct_I.pack(length))
+                pattern = "<%sf" % length
+                buff.write(struct.Struct(pattern).pack(*val1.values))
+            _x = self
+            buff.write(
+                _get_struct_7d().pack(
+                    _x.camera_pose.position.x,
+                    _x.camera_pose.position.y,
+                    _x.camera_pose.position.z,
+                    _x.camera_pose.orientation.x,
+                    _x.camera_pose.orientation.y,
+                    _x.camera_pose.orientation.z,
+                    _x.camera_pose.orientation.w,
+                )
+            )
+        except struct.error as se:
+            self._check_types(
+                struct.error(
+                    "%s: '%s' when writing '%s'"
+                    % (type(se), str(se), str(locals().get("_x", self)))
+                )
+            )
+        except TypeError as te:
+            self._check_types(
+                ValueError(
+                    "%s: '%s' when writing '%s'"
+                    % (type(te), str(te), str(locals().get("_x", self)))
+                )
+            )
 
   def deserialize_numpy(self, str, numpy):
     """
@@ -341,25 +256,239 @@ float64 w
         start = end
         end += length
         if python3:
-          val1.name = str[start:end].decode('utf-8', 'rosmsg')
-        else:
-          val1.name = str[start:end]
-        start = end
-        end += 4
-        (length,) = _struct_I.unpack(str[start:end])
-        pattern = '<%sf'%length
-        start = end
-        s = struct.Struct(pattern)
-        end += s.size
-        val1.values = numpy.frombuffer(str[start:end], dtype=numpy.float32, count=length)
-        self.cloud.channels.append(val1)
-      _x = self
-      start = end
-      end += 56
-      (_x.camera_pose.position.x, _x.camera_pose.position.y, _x.camera_pose.position.z, _x.camera_pose.orientation.x, _x.camera_pose.orientation.y, _x.camera_pose.orientation.z, _x.camera_pose.orientation.w,) = _get_struct_7d().unpack(str[start:end])
-      return self
-    except struct.error as e:
-      raise genpy.DeserializationError(e)  # most likely buffer underfill
+            codecs.lookup_error("rosmsg").msg_type = self._type
+        try:
+            if self.cloud is None:
+                self.cloud = sensor_msgs.msg.PointCloud()
+            if self.camera_pose is None:
+                self.camera_pose = geometry_msgs.msg.Pose()
+            end = 0
+            _x = self
+            start = end
+            end += 12
+            (
+                _x.cloud.header.seq,
+                _x.cloud.header.stamp.secs,
+                _x.cloud.header.stamp.nsecs,
+            ) = _get_struct_3I().unpack(str[start:end])
+            start = end
+            end += 4
+            (length,) = _struct_I.unpack(str[start:end])
+            start = end
+            end += length
+            if python3:
+                self.cloud.header.frame_id = str[start:end].decode("utf-8", "rosmsg")
+            else:
+                self.cloud.header.frame_id = str[start:end]
+            start = end
+            end += 4
+            (length,) = _struct_I.unpack(str[start:end])
+            self.cloud.points = []
+            for i in range(0, length):
+                val1 = geometry_msgs.msg.Point32()
+                _x = val1
+                start = end
+                end += 12
+                (
+                    _x.x,
+                    _x.y,
+                    _x.z,
+                ) = _get_struct_3f().unpack(str[start:end])
+                self.cloud.points.append(val1)
+            start = end
+            end += 4
+            (length,) = _struct_I.unpack(str[start:end])
+            self.cloud.channels = []
+            for i in range(0, length):
+                val1 = sensor_msgs.msg.ChannelFloat32()
+                start = end
+                end += 4
+                (length,) = _struct_I.unpack(str[start:end])
+                start = end
+                end += length
+                if python3:
+                    val1.name = str[start:end].decode("utf-8", "rosmsg")
+                else:
+                    val1.name = str[start:end]
+                start = end
+                end += 4
+                (length,) = _struct_I.unpack(str[start:end])
+                pattern = "<%sf" % length
+                start = end
+                s = struct.Struct(pattern)
+                end += s.size
+                val1.values = s.unpack(str[start:end])
+                self.cloud.channels.append(val1)
+            _x = self
+            start = end
+            end += 56
+            (
+                _x.camera_pose.position.x,
+                _x.camera_pose.position.y,
+                _x.camera_pose.position.z,
+                _x.camera_pose.orientation.x,
+                _x.camera_pose.orientation.y,
+                _x.camera_pose.orientation.z,
+                _x.camera_pose.orientation.w,
+            ) = _get_struct_7d().unpack(str[start:end])
+            return self
+        except struct.error as e:
+            raise genpy.DeserializationError(e)  # most likely buffer underfill
+
+    def serialize_numpy(self, buff, numpy):
+        """
+        serialize message with numpy array types into buffer
+        :param buff: buffer, ``StringIO``
+        :param numpy: numpy python module
+        """
+        try:
+            _x = self
+            buff.write(
+                _get_struct_3I().pack(
+                    _x.cloud.header.seq,
+                    _x.cloud.header.stamp.secs,
+                    _x.cloud.header.stamp.nsecs,
+                )
+            )
+            _x = self.cloud.header.frame_id
+            length = len(_x)
+            if python3 or type(_x) == unicode:
+                _x = _x.encode("utf-8")
+                length = len(_x)
+            buff.write(struct.Struct("<I%ss" % length).pack(length, _x))
+            length = len(self.cloud.points)
+            buff.write(_struct_I.pack(length))
+            for val1 in self.cloud.points:
+                _x = val1
+                buff.write(_get_struct_3f().pack(_x.x, _x.y, _x.z))
+            length = len(self.cloud.channels)
+            buff.write(_struct_I.pack(length))
+            for val1 in self.cloud.channels:
+                _x = val1.name
+                length = len(_x)
+                if python3 or type(_x) == unicode:
+                    _x = _x.encode("utf-8")
+                    length = len(_x)
+                buff.write(struct.Struct("<I%ss" % length).pack(length, _x))
+                length = len(val1.values)
+                buff.write(_struct_I.pack(length))
+                pattern = "<%sf" % length
+                buff.write(val1.values.tostring())
+            _x = self
+            buff.write(
+                _get_struct_7d().pack(
+                    _x.camera_pose.position.x,
+                    _x.camera_pose.position.y,
+                    _x.camera_pose.position.z,
+                    _x.camera_pose.orientation.x,
+                    _x.camera_pose.orientation.y,
+                    _x.camera_pose.orientation.z,
+                    _x.camera_pose.orientation.w,
+                )
+            )
+        except struct.error as se:
+            self._check_types(
+                struct.error(
+                    "%s: '%s' when writing '%s'"
+                    % (type(se), str(se), str(locals().get("_x", self)))
+                )
+            )
+        except TypeError as te:
+            self._check_types(
+                ValueError(
+                    "%s: '%s' when writing '%s'"
+                    % (type(te), str(te), str(locals().get("_x", self)))
+                )
+            )
+
+    def deserialize_numpy(self, str, numpy):
+        """
+        unpack serialized message in str into this message instance using numpy for array types
+        :param str: byte array of serialized message, ``str``
+        :param numpy: numpy python module
+        """
+        if python3:
+            codecs.lookup_error("rosmsg").msg_type = self._type
+        try:
+            if self.cloud is None:
+                self.cloud = sensor_msgs.msg.PointCloud()
+            if self.camera_pose is None:
+                self.camera_pose = geometry_msgs.msg.Pose()
+            end = 0
+            _x = self
+            start = end
+            end += 12
+            (
+                _x.cloud.header.seq,
+                _x.cloud.header.stamp.secs,
+                _x.cloud.header.stamp.nsecs,
+            ) = _get_struct_3I().unpack(str[start:end])
+            start = end
+            end += 4
+            (length,) = _struct_I.unpack(str[start:end])
+            start = end
+            end += length
+            if python3:
+                self.cloud.header.frame_id = str[start:end].decode("utf-8", "rosmsg")
+            else:
+                self.cloud.header.frame_id = str[start:end]
+            start = end
+            end += 4
+            (length,) = _struct_I.unpack(str[start:end])
+            self.cloud.points = []
+            for i in range(0, length):
+                val1 = geometry_msgs.msg.Point32()
+                _x = val1
+                start = end
+                end += 12
+                (
+                    _x.x,
+                    _x.y,
+                    _x.z,
+                ) = _get_struct_3f().unpack(str[start:end])
+                self.cloud.points.append(val1)
+            start = end
+            end += 4
+            (length,) = _struct_I.unpack(str[start:end])
+            self.cloud.channels = []
+            for i in range(0, length):
+                val1 = sensor_msgs.msg.ChannelFloat32()
+                start = end
+                end += 4
+                (length,) = _struct_I.unpack(str[start:end])
+                start = end
+                end += length
+                if python3:
+                    val1.name = str[start:end].decode("utf-8", "rosmsg")
+                else:
+                    val1.name = str[start:end]
+                start = end
+                end += 4
+                (length,) = _struct_I.unpack(str[start:end])
+                pattern = "<%sf" % length
+                start = end
+                s = struct.Struct(pattern)
+                end += s.size
+                val1.values = numpy.frombuffer(
+                    str[start:end], dtype=numpy.float32, count=length
+                )
+                self.cloud.channels.append(val1)
+            _x = self
+            start = end
+            end += 56
+            (
+                _x.camera_pose.position.x,
+                _x.camera_pose.position.y,
+                _x.camera_pose.position.z,
+                _x.camera_pose.orientation.x,
+                _x.camera_pose.orientation.y,
+                _x.camera_pose.orientation.z,
+                _x.camera_pose.orientation.w,
+            ) = _get_struct_7d().unpack(str[start:end])
+            return self
+        except struct.error as e:
+            raise genpy.DeserializationError(e)  # most likely buffer underfill
+
 
 _struct_I = genpy.struct_I
 def _get_struct_I():
@@ -377,12 +506,18 @@ def _get_struct_3f():
     if _struct_3f is None:
         _struct_3f = struct.Struct("<3f")
     return _struct_3f
+
+
 _struct_7d = None
+
+
 def _get_struct_7d():
     global _struct_7d
     if _struct_7d is None:
         _struct_7d = struct.Struct("<7d")
     return _struct_7d
+
+
 # This Python file uses the following encoding: utf-8
 """autogenerated by genpy from home_robot_hw/GraspRequestResponse.msg. Do not edit."""
 import codecs
@@ -395,11 +530,12 @@ import geometry_msgs.msg
 import std_msgs.msg
 
 class GraspRequestResponse(genpy.Message):
-  _md5sum = "e5b4c458375bf86e7c547ba6b7ea73f3"
-  _type = "home_robot_hw/GraspRequestResponse"
-  _has_header = False  # flag to mark the presence of a Header object
-  _full_text = """geometry_msgs/PoseArray[] grasps
+    _md5sum = "8274a5a28fecb17d1da2b3dc1e906985"
+    _type = "home_robot_hw/GraspRequestResponse"
+    _has_header = False  # flag to mark the presence of a Header object
+    _full_text = """geometry_msgs/PoseArray[] grasps
 std_msgs/Float32MultiArray[] scores
+bool in_base_frame
 
 
 ================================================================================
@@ -491,8 +627,8 @@ MSG: std_msgs/MultiArrayDimension
 string label   # label of given dimension
 uint32 size    # size of given dimension (in type units)
 uint32 stride  # stride of given dimension"""
-  __slots__ = ['grasps','scores']
-  _slot_types = ['geometry_msgs/PoseArray[]','std_msgs/Float32MultiArray[]']
+    __slots__ = ["grasps", "scores", "in_base_frame"]
+    _slot_types = ["geometry_msgs/PoseArray[]", "std_msgs/Float32MultiArray[]", "bool"]
 
   def __init__(self, *args, **kwds):
     """
@@ -501,237 +637,95 @@ uint32 stride  # stride of given dimension"""
     use is keyword arguments as this is more robust to future message
     changes.  You cannot mix in-order arguments and keyword arguments.
 
-    The available fields are:
-       grasps,scores
+        The available fields are:
+           grasps,scores,in_base_frame
 
-    :param args: complete set of field values, in .msg order
-    :param kwds: use keyword arguments corresponding to message field names
-    to set specific fields.
-    """
-    if args or kwds:
-      super(GraspRequestResponse, self).__init__(*args, **kwds)
-      # message fields cannot be None, assign default values for those that are
-      if self.grasps is None:
-        self.grasps = []
-      if self.scores is None:
-        self.scores = []
-    else:
-      self.grasps = []
-      self.scores = []
-
-  def _get_types(self):
-    """
-    internal API method
-    """
-    return self._slot_types
-
-  def serialize(self, buff):
-    """
-    serialize message into buffer
-    :param buff: buffer, ``StringIO``
-    """
-    try:
-      length = len(self.grasps)
-      buff.write(_struct_I.pack(length))
-      for val1 in self.grasps:
-        _v1 = val1.header
-        _x = _v1.seq
-        buff.write(_get_struct_I().pack(_x))
-        _v2 = _v1.stamp
-        _x = _v2
-        buff.write(_get_struct_2I().pack(_x.secs, _x.nsecs))
-        _x = _v1.frame_id
-        length = len(_x)
-        if python3 or type(_x) == unicode:
-          _x = _x.encode('utf-8')
-          length = len(_x)
-        buff.write(struct.Struct('<I%ss'%length).pack(length, _x))
-        length = len(val1.poses)
-        buff.write(_struct_I.pack(length))
-        for val2 in val1.poses:
-          _v3 = val2.position
-          _x = _v3
-          buff.write(_get_struct_3d().pack(_x.x, _x.y, _x.z))
-          _v4 = val2.orientation
-          _x = _v4
-          buff.write(_get_struct_4d().pack(_x.x, _x.y, _x.z, _x.w))
-      length = len(self.scores)
-      buff.write(_struct_I.pack(length))
-      for val1 in self.scores:
-        _v5 = val1.layout
-        length = len(_v5.dim)
-        buff.write(_struct_I.pack(length))
-        for val3 in _v5.dim:
-          _x = val3.label
-          length = len(_x)
-          if python3 or type(_x) == unicode:
-            _x = _x.encode('utf-8')
-            length = len(_x)
-          buff.write(struct.Struct('<I%ss'%length).pack(length, _x))
-          _x = val3
-          buff.write(_get_struct_2I().pack(_x.size, _x.stride))
-        _x = _v5.data_offset
-        buff.write(_get_struct_I().pack(_x))
-        length = len(val1.data)
-        buff.write(_struct_I.pack(length))
-        pattern = '<%sf'%length
-        buff.write(struct.Struct(pattern).pack(*val1.data))
-    except struct.error as se: self._check_types(struct.error("%s: '%s' when writing '%s'" % (type(se), str(se), str(locals().get('_x', self)))))
-    except TypeError as te: self._check_types(ValueError("%s: '%s' when writing '%s'" % (type(te), str(te), str(locals().get('_x', self)))))
-
-  def deserialize(self, str):
-    """
-    unpack serialized message in str into this message instance
-    :param str: byte array of serialized message, ``str``
-    """
-    if python3:
-      codecs.lookup_error("rosmsg").msg_type = self._type
-    try:
-      if self.grasps is None:
-        self.grasps = None
-      if self.scores is None:
-        self.scores = None
-      end = 0
-      start = end
-      end += 4
-      (length,) = _struct_I.unpack(str[start:end])
-      self.grasps = []
-      for i in range(0, length):
-        val1 = geometry_msgs.msg.PoseArray()
-        _v6 = val1.header
-        start = end
-        end += 4
-        (_v6.seq,) = _get_struct_I().unpack(str[start:end])
-        _v7 = _v6.stamp
-        _x = _v7
-        start = end
-        end += 8
-        (_x.secs, _x.nsecs,) = _get_struct_2I().unpack(str[start:end])
-        start = end
-        end += 4
-        (length,) = _struct_I.unpack(str[start:end])
-        start = end
-        end += length
-        if python3:
-          _v6.frame_id = str[start:end].decode('utf-8', 'rosmsg')
+        :param args: complete set of field values, in .msg order
+        :param kwds: use keyword arguments corresponding to message field names
+        to set specific fields.
+        """
+        if args or kwds:
+            super(GraspRequestResponse, self).__init__(*args, **kwds)
+            # message fields cannot be None, assign default values for those that are
+            if self.grasps is None:
+                self.grasps = []
+            if self.scores is None:
+                self.scores = []
+            if self.in_base_frame is None:
+                self.in_base_frame = False
         else:
-          _v6.frame_id = str[start:end]
-        start = end
-        end += 4
-        (length,) = _struct_I.unpack(str[start:end])
-        val1.poses = []
-        for i in range(0, length):
-          val2 = geometry_msgs.msg.Pose()
-          _v8 = val2.position
-          _x = _v8
-          start = end
-          end += 24
-          (_x.x, _x.y, _x.z,) = _get_struct_3d().unpack(str[start:end])
-          _v9 = val2.orientation
-          _x = _v9
-          start = end
-          end += 32
-          (_x.x, _x.y, _x.z, _x.w,) = _get_struct_4d().unpack(str[start:end])
-          val1.poses.append(val2)
-        self.grasps.append(val1)
-      start = end
-      end += 4
-      (length,) = _struct_I.unpack(str[start:end])
-      self.scores = []
-      for i in range(0, length):
-        val1 = std_msgs.msg.Float32MultiArray()
-        _v10 = val1.layout
-        start = end
-        end += 4
-        (length,) = _struct_I.unpack(str[start:end])
-        _v10.dim = []
-        for i in range(0, length):
-          val3 = std_msgs.msg.MultiArrayDimension()
-          start = end
-          end += 4
-          (length,) = _struct_I.unpack(str[start:end])
-          start = end
-          end += length
-          if python3:
-            val3.label = str[start:end].decode('utf-8', 'rosmsg')
-          else:
-            val3.label = str[start:end]
-          _x = val3
-          start = end
-          end += 8
-          (_x.size, _x.stride,) = _get_struct_2I().unpack(str[start:end])
-          _v10.dim.append(val3)
-        start = end
-        end += 4
-        (_v10.data_offset,) = _get_struct_I().unpack(str[start:end])
-        start = end
-        end += 4
-        (length,) = _struct_I.unpack(str[start:end])
-        pattern = '<%sf'%length
-        start = end
-        s = struct.Struct(pattern)
-        end += s.size
-        val1.data = s.unpack(str[start:end])
-        self.scores.append(val1)
-      return self
-    except struct.error as e:
-      raise genpy.DeserializationError(e)  # most likely buffer underfill
+            self.grasps = []
+            self.scores = []
+            self.in_base_frame = False
 
 
-  def serialize_numpy(self, buff, numpy):
-    """
-    serialize message with numpy array types into buffer
-    :param buff: buffer, ``StringIO``
-    :param numpy: numpy python module
-    """
-    try:
-      length = len(self.grasps)
-      buff.write(_struct_I.pack(length))
-      for val1 in self.grasps:
-        _v11 = val1.header
-        _x = _v11.seq
-        buff.write(_get_struct_I().pack(_x))
-        _v12 = _v11.stamp
-        _x = _v12
-        buff.write(_get_struct_2I().pack(_x.secs, _x.nsecs))
-        _x = _v11.frame_id
-        length = len(_x)
-        if python3 or type(_x) == unicode:
-          _x = _x.encode('utf-8')
-          length = len(_x)
-        buff.write(struct.Struct('<I%ss'%length).pack(length, _x))
-        length = len(val1.poses)
-        buff.write(_struct_I.pack(length))
-        for val2 in val1.poses:
-          _v13 = val2.position
-          _x = _v13
-          buff.write(_get_struct_3d().pack(_x.x, _x.y, _x.z))
-          _v14 = val2.orientation
-          _x = _v14
-          buff.write(_get_struct_4d().pack(_x.x, _x.y, _x.z, _x.w))
-      length = len(self.scores)
-      buff.write(_struct_I.pack(length))
-      for val1 in self.scores:
-        _v15 = val1.layout
-        length = len(_v15.dim)
-        buff.write(_struct_I.pack(length))
-        for val3 in _v15.dim:
-          _x = val3.label
-          length = len(_x)
-          if python3 or type(_x) == unicode:
-            _x = _x.encode('utf-8')
-            length = len(_x)
-          buff.write(struct.Struct('<I%ss'%length).pack(length, _x))
-          _x = val3
-          buff.write(_get_struct_2I().pack(_x.size, _x.stride))
-        _x = _v15.data_offset
-        buff.write(_get_struct_I().pack(_x))
-        length = len(val1.data)
-        buff.write(_struct_I.pack(length))
-        pattern = '<%sf'%length
-        buff.write(val1.data.tostring())
-    except struct.error as se: self._check_types(struct.error("%s: '%s' when writing '%s'" % (type(se), str(se), str(locals().get('_x', self)))))
-    except TypeError as te: self._check_types(ValueError("%s: '%s' when writing '%s'" % (type(te), str(te), str(locals().get('_x', self)))))
+    def serialize(self, buff):
+        """
+        serialize message into buffer
+        :param buff: buffer, ``StringIO``
+        """
+        try:
+            length = len(self.grasps)
+            buff.write(_struct_I.pack(length))
+            for val1 in self.grasps:
+                _v1 = val1.header
+                _x = _v1.seq
+                buff.write(_get_struct_I().pack(_x))
+                _v2 = _v1.stamp
+                _x = _v2
+                buff.write(_get_struct_2I().pack(_x.secs, _x.nsecs))
+                _x = _v1.frame_id
+                length = len(_x)
+                if python3 or type(_x) == unicode:
+                    _x = _x.encode("utf-8")
+                    length = len(_x)
+                buff.write(struct.Struct("<I%ss" % length).pack(length, _x))
+                length = len(val1.poses)
+                buff.write(_struct_I.pack(length))
+                for val2 in val1.poses:
+                    _v3 = val2.position
+                    _x = _v3
+                    buff.write(_get_struct_3d().pack(_x.x, _x.y, _x.z))
+                    _v4 = val2.orientation
+                    _x = _v4
+                    buff.write(_get_struct_4d().pack(_x.x, _x.y, _x.z, _x.w))
+            length = len(self.scores)
+            buff.write(_struct_I.pack(length))
+            for val1 in self.scores:
+                _v5 = val1.layout
+                length = len(_v5.dim)
+                buff.write(_struct_I.pack(length))
+                for val3 in _v5.dim:
+                    _x = val3.label
+                    length = len(_x)
+                    if python3 or type(_x) == unicode:
+                        _x = _x.encode("utf-8")
+                        length = len(_x)
+                    buff.write(struct.Struct("<I%ss" % length).pack(length, _x))
+                    _x = val3
+                    buff.write(_get_struct_2I().pack(_x.size, _x.stride))
+                _x = _v5.data_offset
+                buff.write(_get_struct_I().pack(_x))
+                length = len(val1.data)
+                buff.write(_struct_I.pack(length))
+                pattern = "<%sf" % length
+                buff.write(struct.Struct(pattern).pack(*val1.data))
+            _x = self.in_base_frame
+            buff.write(_get_struct_B().pack(_x))
+        except struct.error as se:
+            self._check_types(
+                struct.error(
+                    "%s: '%s' when writing '%s'"
+                    % (type(se), str(se), str(locals().get("_x", self)))
+                )
+            )
+        except TypeError as te:
+            self._check_types(
+                ValueError(
+                    "%s: '%s' when writing '%s'"
+                    % (type(te), str(te), str(locals().get("_x", self)))
+                )
+            )
 
   def deserialize_numpy(self, str, numpy):
     """
@@ -768,69 +762,306 @@ uint32 stride  # stride of given dimension"""
         start = end
         end += length
         if python3:
-          _v16.frame_id = str[start:end].decode('utf-8', 'rosmsg')
-        else:
-          _v16.frame_id = str[start:end]
-        start = end
-        end += 4
-        (length,) = _struct_I.unpack(str[start:end])
-        val1.poses = []
-        for i in range(0, length):
-          val2 = geometry_msgs.msg.Pose()
-          _v18 = val2.position
-          _x = _v18
-          start = end
-          end += 24
-          (_x.x, _x.y, _x.z,) = _get_struct_3d().unpack(str[start:end])
-          _v19 = val2.orientation
-          _x = _v19
-          start = end
-          end += 32
-          (_x.x, _x.y, _x.z, _x.w,) = _get_struct_4d().unpack(str[start:end])
-          val1.poses.append(val2)
-        self.grasps.append(val1)
-      start = end
-      end += 4
-      (length,) = _struct_I.unpack(str[start:end])
-      self.scores = []
-      for i in range(0, length):
-        val1 = std_msgs.msg.Float32MultiArray()
-        _v20 = val1.layout
-        start = end
-        end += 4
-        (length,) = _struct_I.unpack(str[start:end])
-        _v20.dim = []
-        for i in range(0, length):
-          val3 = std_msgs.msg.MultiArrayDimension()
-          start = end
-          end += 4
-          (length,) = _struct_I.unpack(str[start:end])
-          start = end
-          end += length
-          if python3:
-            val3.label = str[start:end].decode('utf-8', 'rosmsg')
-          else:
-            val3.label = str[start:end]
-          _x = val3
-          start = end
-          end += 8
-          (_x.size, _x.stride,) = _get_struct_2I().unpack(str[start:end])
-          _v20.dim.append(val3)
-        start = end
-        end += 4
-        (_v20.data_offset,) = _get_struct_I().unpack(str[start:end])
-        start = end
-        end += 4
-        (length,) = _struct_I.unpack(str[start:end])
-        pattern = '<%sf'%length
-        start = end
-        s = struct.Struct(pattern)
-        end += s.size
-        val1.data = numpy.frombuffer(str[start:end], dtype=numpy.float32, count=length)
-        self.scores.append(val1)
-      return self
-    except struct.error as e:
-      raise genpy.DeserializationError(e)  # most likely buffer underfill
+            codecs.lookup_error("rosmsg").msg_type = self._type
+        try:
+            if self.grasps is None:
+                self.grasps = None
+            if self.scores is None:
+                self.scores = None
+            end = 0
+            start = end
+            end += 4
+            (length,) = _struct_I.unpack(str[start:end])
+            self.grasps = []
+            for i in range(0, length):
+                val1 = geometry_msgs.msg.PoseArray()
+                _v6 = val1.header
+                start = end
+                end += 4
+                (_v6.seq,) = _get_struct_I().unpack(str[start:end])
+                _v7 = _v6.stamp
+                _x = _v7
+                start = end
+                end += 8
+                (
+                    _x.secs,
+                    _x.nsecs,
+                ) = _get_struct_2I().unpack(str[start:end])
+                start = end
+                end += 4
+                (length,) = _struct_I.unpack(str[start:end])
+                start = end
+                end += length
+                if python3:
+                    _v6.frame_id = str[start:end].decode("utf-8", "rosmsg")
+                else:
+                    _v6.frame_id = str[start:end]
+                start = end
+                end += 4
+                (length,) = _struct_I.unpack(str[start:end])
+                val1.poses = []
+                for i in range(0, length):
+                    val2 = geometry_msgs.msg.Pose()
+                    _v8 = val2.position
+                    _x = _v8
+                    start = end
+                    end += 24
+                    (
+                        _x.x,
+                        _x.y,
+                        _x.z,
+                    ) = _get_struct_3d().unpack(str[start:end])
+                    _v9 = val2.orientation
+                    _x = _v9
+                    start = end
+                    end += 32
+                    (
+                        _x.x,
+                        _x.y,
+                        _x.z,
+                        _x.w,
+                    ) = _get_struct_4d().unpack(str[start:end])
+                    val1.poses.append(val2)
+                self.grasps.append(val1)
+            start = end
+            end += 4
+            (length,) = _struct_I.unpack(str[start:end])
+            self.scores = []
+            for i in range(0, length):
+                val1 = std_msgs.msg.Float32MultiArray()
+                _v10 = val1.layout
+                start = end
+                end += 4
+                (length,) = _struct_I.unpack(str[start:end])
+                _v10.dim = []
+                for i in range(0, length):
+                    val3 = std_msgs.msg.MultiArrayDimension()
+                    start = end
+                    end += 4
+                    (length,) = _struct_I.unpack(str[start:end])
+                    start = end
+                    end += length
+                    if python3:
+                        val3.label = str[start:end].decode("utf-8", "rosmsg")
+                    else:
+                        val3.label = str[start:end]
+                    _x = val3
+                    start = end
+                    end += 8
+                    (
+                        _x.size,
+                        _x.stride,
+                    ) = _get_struct_2I().unpack(str[start:end])
+                    _v10.dim.append(val3)
+                start = end
+                end += 4
+                (_v10.data_offset,) = _get_struct_I().unpack(str[start:end])
+                start = end
+                end += 4
+                (length,) = _struct_I.unpack(str[start:end])
+                pattern = "<%sf" % length
+                start = end
+                s = struct.Struct(pattern)
+                end += s.size
+                val1.data = s.unpack(str[start:end])
+                self.scores.append(val1)
+            start = end
+            end += 1
+            (self.in_base_frame,) = _get_struct_B().unpack(str[start:end])
+            self.in_base_frame = bool(self.in_base_frame)
+            return self
+        except struct.error as e:
+            raise genpy.DeserializationError(e)  # most likely buffer underfill
+
+    def serialize_numpy(self, buff, numpy):
+        """
+        serialize message with numpy array types into buffer
+        :param buff: buffer, ``StringIO``
+        :param numpy: numpy python module
+        """
+        try:
+            length = len(self.grasps)
+            buff.write(_struct_I.pack(length))
+            for val1 in self.grasps:
+                _v11 = val1.header
+                _x = _v11.seq
+                buff.write(_get_struct_I().pack(_x))
+                _v12 = _v11.stamp
+                _x = _v12
+                buff.write(_get_struct_2I().pack(_x.secs, _x.nsecs))
+                _x = _v11.frame_id
+                length = len(_x)
+                if python3 or type(_x) == unicode:
+                    _x = _x.encode("utf-8")
+                    length = len(_x)
+                buff.write(struct.Struct("<I%ss" % length).pack(length, _x))
+                length = len(val1.poses)
+                buff.write(_struct_I.pack(length))
+                for val2 in val1.poses:
+                    _v13 = val2.position
+                    _x = _v13
+                    buff.write(_get_struct_3d().pack(_x.x, _x.y, _x.z))
+                    _v14 = val2.orientation
+                    _x = _v14
+                    buff.write(_get_struct_4d().pack(_x.x, _x.y, _x.z, _x.w))
+            length = len(self.scores)
+            buff.write(_struct_I.pack(length))
+            for val1 in self.scores:
+                _v15 = val1.layout
+                length = len(_v15.dim)
+                buff.write(_struct_I.pack(length))
+                for val3 in _v15.dim:
+                    _x = val3.label
+                    length = len(_x)
+                    if python3 or type(_x) == unicode:
+                        _x = _x.encode("utf-8")
+                        length = len(_x)
+                    buff.write(struct.Struct("<I%ss" % length).pack(length, _x))
+                    _x = val3
+                    buff.write(_get_struct_2I().pack(_x.size, _x.stride))
+                _x = _v15.data_offset
+                buff.write(_get_struct_I().pack(_x))
+                length = len(val1.data)
+                buff.write(_struct_I.pack(length))
+                pattern = "<%sf" % length
+                buff.write(val1.data.tostring())
+            _x = self.in_base_frame
+            buff.write(_get_struct_B().pack(_x))
+        except struct.error as se:
+            self._check_types(
+                struct.error(
+                    "%s: '%s' when writing '%s'"
+                    % (type(se), str(se), str(locals().get("_x", self)))
+                )
+            )
+        except TypeError as te:
+            self._check_types(
+                ValueError(
+                    "%s: '%s' when writing '%s'"
+                    % (type(te), str(te), str(locals().get("_x", self)))
+                )
+            )
+
+    def deserialize_numpy(self, str, numpy):
+        """
+        unpack serialized message in str into this message instance using numpy for array types
+        :param str: byte array of serialized message, ``str``
+        :param numpy: numpy python module
+        """
+        if python3:
+            codecs.lookup_error("rosmsg").msg_type = self._type
+        try:
+            if self.grasps is None:
+                self.grasps = None
+            if self.scores is None:
+                self.scores = None
+            end = 0
+            start = end
+            end += 4
+            (length,) = _struct_I.unpack(str[start:end])
+            self.grasps = []
+            for i in range(0, length):
+                val1 = geometry_msgs.msg.PoseArray()
+                _v16 = val1.header
+                start = end
+                end += 4
+                (_v16.seq,) = _get_struct_I().unpack(str[start:end])
+                _v17 = _v16.stamp
+                _x = _v17
+                start = end
+                end += 8
+                (
+                    _x.secs,
+                    _x.nsecs,
+                ) = _get_struct_2I().unpack(str[start:end])
+                start = end
+                end += 4
+                (length,) = _struct_I.unpack(str[start:end])
+                start = end
+                end += length
+                if python3:
+                    _v16.frame_id = str[start:end].decode("utf-8", "rosmsg")
+                else:
+                    _v16.frame_id = str[start:end]
+                start = end
+                end += 4
+                (length,) = _struct_I.unpack(str[start:end])
+                val1.poses = []
+                for i in range(0, length):
+                    val2 = geometry_msgs.msg.Pose()
+                    _v18 = val2.position
+                    _x = _v18
+                    start = end
+                    end += 24
+                    (
+                        _x.x,
+                        _x.y,
+                        _x.z,
+                    ) = _get_struct_3d().unpack(str[start:end])
+                    _v19 = val2.orientation
+                    _x = _v19
+                    start = end
+                    end += 32
+                    (
+                        _x.x,
+                        _x.y,
+                        _x.z,
+                        _x.w,
+                    ) = _get_struct_4d().unpack(str[start:end])
+                    val1.poses.append(val2)
+                self.grasps.append(val1)
+            start = end
+            end += 4
+            (length,) = _struct_I.unpack(str[start:end])
+            self.scores = []
+            for i in range(0, length):
+                val1 = std_msgs.msg.Float32MultiArray()
+                _v20 = val1.layout
+                start = end
+                end += 4
+                (length,) = _struct_I.unpack(str[start:end])
+                _v20.dim = []
+                for i in range(0, length):
+                    val3 = std_msgs.msg.MultiArrayDimension()
+                    start = end
+                    end += 4
+                    (length,) = _struct_I.unpack(str[start:end])
+                    start = end
+                    end += length
+                    if python3:
+                        val3.label = str[start:end].decode("utf-8", "rosmsg")
+                    else:
+                        val3.label = str[start:end]
+                    _x = val3
+                    start = end
+                    end += 8
+                    (
+                        _x.size,
+                        _x.stride,
+                    ) = _get_struct_2I().unpack(str[start:end])
+                    _v20.dim.append(val3)
+                start = end
+                end += 4
+                (_v20.data_offset,) = _get_struct_I().unpack(str[start:end])
+                start = end
+                end += 4
+                (length,) = _struct_I.unpack(str[start:end])
+                pattern = "<%sf" % length
+                start = end
+                s = struct.Struct(pattern)
+                end += s.size
+                val1.data = numpy.frombuffer(
+                    str[start:end], dtype=numpy.float32, count=length
+                )
+                self.scores.append(val1)
+            start = end
+            end += 1
+            (self.in_base_frame,) = _get_struct_B().unpack(str[start:end])
+            self.in_base_frame = bool(self.in_base_frame)
+            return self
+        except struct.error as e:
+            raise genpy.DeserializationError(e)  # most likely buffer underfill
+
 
 _struct_I = genpy.struct_I
 def _get_struct_I():
@@ -854,8 +1085,20 @@ def _get_struct_4d():
     if _struct_4d is None:
         _struct_4d = struct.Struct("<4d")
     return _struct_4d
+
+
+_struct_B = None
+
+
+def _get_struct_B():
+    global _struct_B
+    if _struct_B is None:
+        _struct_B = struct.Struct("<B")
+    return _struct_B
+
+
 class GraspRequest(object):
-  _type          = 'home_robot_hw/GraspRequest'
-  _md5sum = 'ddd0123e5c581089467aa6d6a75146a7'
-  _request_class  = GraspRequestRequest
-  _response_class = GraspRequestResponse
+    _type = "home_robot_hw/GraspRequest"
+    _md5sum = "a2cc165ffb0bc8d1ab0217fd70f92a00"
+    _request_class = GraspRequestRequest
+    _response_class = GraspRequestResponse

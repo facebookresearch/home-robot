@@ -1,20 +1,20 @@
-import argparse
-import glob
-import os
-import sys
-import time
 from typing import Iterable, Optional, Tuple
 
-import cv2
+import click
 import numpy as np
 import rospy
 from scipy.spatial.transform import Rotation as R
 
 from home_robot.mapping.voxel import SparseVoxelMap
-from home_robot.utils.point_cloud import numpy_to_pcd, pcd_to_numpy, show_point_cloud
+from home_robot.utils.point_cloud import show_point_cloud
 from home_robot_hw.ros.grasp_helper import GraspServer
 
-VERTICAL_GRIPPER_QUAT = [0.70988, 0.70406461, 0.0141615, 0.01276155]  # base frame
+VERTICAL_GRIPPER_QUAT = [
+    0.70988,
+    0.70406461,
+    0.0141615,
+    0.01276155,
+]  # base frame, gripper closing along x axis
 
 # Grasp generation params
 TOP_PERCENTAGE = 0.1
@@ -88,7 +88,9 @@ def _generate_grasp(xyz: np.ndarray, rz: float) -> np.ndarray:
     return grasp
 
 
-def inference():
+@click.command()
+@click.option("--debug", default=False, is_flag=True)
+def inference(debug):
     """
     Predict 6-DoF grasp distribution for given point cloud with a heuristic
 
@@ -154,16 +156,18 @@ def inference():
                 x, y = np.array((i, j)) * VOXEL_RES + orig
 
                 if x_score >= GRASP_THRESHOLD:
-                    grasp = _generate_grasp(np.array([x, y, z_grasp]), 0.0)
+                    grasp = _generate_grasp(np.array([x, y, z_grasp]), np.pi / 2)
                     grasps_raw.append(grasp)
                     scores_raw.append(x_score)
 
                 if y_score >= GRASP_THRESHOLD:
-                    grasp = _generate_grasp(np.array([x, y, z_grasp]), np.pi / 2)
+                    grasp = _generate_grasp(np.array([x, y, z_grasp]), 0.0)
                     grasps_raw.append(grasp)
                     scores_raw.append(y_score)
 
-        # _visualize_grasps(xyz, rgb, top_idcs, grasps_raw)
+        if debug:
+            print(f"# grasps = {len(grasps_raw)}")
+            _visualize_grasps(xyz, rgb, top_idcs, grasps_raw)
 
         # Postprocess grasps into dictionaries
         # (6dof graspnet only generates grasps for one object)
