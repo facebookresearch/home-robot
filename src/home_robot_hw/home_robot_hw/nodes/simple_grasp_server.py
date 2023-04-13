@@ -14,7 +14,12 @@ from home_robot.mapping.voxel import SparseVoxelMap
 from home_robot.utils.point_cloud import numpy_to_pcd, pcd_to_numpy, show_point_cloud
 from home_robot_hw.ros.grasp_helper import GraspServer
 
-VERTICAL_GRIPPER_QUAT = [0.70988, 0.70406461, 0.0141615, 0.01276155]  # base frame, gripper closing along x axis
+VERTICAL_GRIPPER_QUAT = [
+    0.70988,
+    0.70406461,
+    0.0141615,
+    0.01276155,
+]  # base frame, gripper closing along x axis
 
 # Grasp generation params
 TOP_PERCENTAGE = 0.1
