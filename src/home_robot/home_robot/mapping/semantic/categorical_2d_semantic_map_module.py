@@ -281,7 +281,7 @@ class Categorical2DSemanticMapModule(nn.Module):
             # TODO: make consistent between sim and real
             # hab_angles = pt.matrix_to_euler_angles(camera_pose[:, :3, :3], convention="YZX")
             #angles = pt.matrix_to_euler_angles(camera_pose[:, :3, :3], convention="ZYX")
-            angles = np.array([R.from_matrix(p[:3, :3]) for p in camera_pose])
+            angles = torch.Tensor([R.from_matrix(p[:3, :3]).as_rotvec() for p in camera_pose])
             # For habitat - pull x angle
             # tilt = angles[:, -1]
             # For real robot
