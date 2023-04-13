@@ -227,7 +227,6 @@ class Categorical2DSemanticMapModule(nn.Module):
                 local_pose,
                 seq_camera_poses,
             )
-
             for e in range(batch_size):
                 if seq_update_global[e, t]:
                     self._update_global_map_and_pose_for_env(
@@ -491,18 +490,34 @@ class Categorical2DSemanticMapModule(nn.Module):
 
             explored = current_map[0, MC.EXPLORED_MAP].numpy()
             been_close = current_map[0, MC.BEEN_CLOSE_MAP].numpy()
-            obs = current_map[0, MC.OBSTACLE_MAP].numpy()
-            plt.subplot(231)
+            obstacles = current_map[0, MC.OBSTACLE_MAP].numpy()
+            plt.subplot(331)
             plt.imshow(explored)
-            plt.subplot(232)
+            plt.subplot(332)
             plt.imshow(been_close)
             plt.subplot(233)
             plt.imshow(been_close * explored)
-            plt.subplot(234)
-            plt.imshow(obs)
-            plt.subplot(236)
-            plt.imshow(been_close * obs)
+            plt.subplot(334)
+            plt.imshow(obstacles)
+            plt.subplot(336)
+            plt.imshow(been_close * obstacles)
+            plt.subplot(337)
+            rgb = obs[0, :3, :: self.du_scale, :: self.du_scale].permute(1, 2, 0)
+            plt.imshow(rgb)
+            plt.subplot(338)
+            plt.imshow(depth[0])
+            plt.subplot(339)
+            seg = np.zeros_like(depth[0])
+            for i in range(4, obs_channels):
+                seg += (i - 4) * obs[0, i].numpy()
+                print("class =", i, np.sum(obs[0, i].numpy()), "pts")
+            plt.imshow(seg)
             plt.show()
+
+            print("Non semantic channels =", MC.NON_SEM_CHANNELS)
+            print("map shape =", current_map.shape)
+            # for i in range(MC.NON_SEM_CHANNELS, MC.NON_SEM_CHANNELS + self.num_sem_categories):
+            #    print(i, "/", current_map.shape[1]) #, np.unique(current_map[0, i]))
             breakpoint()
 
         if self.must_explore_close:
@@ -579,5 +594,16 @@ class Categorical2DSemanticMapModule(nn.Module):
         map_features[:, 2 * MC.NON_SEM_CHANNELS :, :, :] = local_map[
             :, MC.NON_SEM_CHANNELS :, :, :
         ]
+        import matplotlib.pyplot as plt
+
+        plt.subplot(131)
+        plt.imshow(local_map[0, 7])  # second object = cup
+        plt.subplot(132)
+        plt.imshow(local_map[0, 6])  # first object = chair
+        # This is the channel in MAP FEATURES mode
+        plt.subplot(133)
+        plt.imshow(map_features[0, 12])
+        plt.show()
+        breakpoint()
 
         return map_features.detach()

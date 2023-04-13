@@ -11,6 +11,7 @@ from home_robot_hw.env.stretch_pick_and_place_env import StretchPickandPlaceEnv
 @click.command()
 @click.option("--test-pick", default=False, is_flag=True)
 @click.option("--reset-nav", default=False, is_flag=True)
+@click.option("--dry-run", default=False, is_flag=True)
 @click.option("--object", default="cup")
 @click.option("--start-recep", default="chair")
 @click.option("--goal-recep", default="table")
@@ -20,6 +21,7 @@ def main(
     object="cup",
     start_recep="chair",
     goal_recep="chair",
+    dry_run=False,
 ):
     config_path = "projects/stretch_grasping/configs/agent/floorplanner_eval.yaml"
     config, config_str = get_config(config_path)
@@ -30,9 +32,11 @@ def main(
     config.freeze()
 
     rospy.init_node("eval_episode_stretch_objectnav")
-    env = StretchPickandPlaceEnv(config=config, test_grasping=test_pick)
     agent = PickAndPlaceAgent(
         config=config, skip_find_object=test_pick, skip_place=test_pick
+    )
+    env = StretchPickandPlaceEnv(
+        config=config, test_grasping=test_pick, dry_run=dry_run
     )
 
     robot = env.get_robot()

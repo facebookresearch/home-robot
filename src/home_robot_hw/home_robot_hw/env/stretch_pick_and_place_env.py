@@ -58,6 +58,7 @@ class StretchPickandPlaceEnv(StretchEnv):
         visualize_planner=False,
         ros_grasping=True,
         test_grasping=False,
+        dry_run=False,
         *args,
         **kwargs,
     ):
@@ -73,6 +74,7 @@ class StretchPickandPlaceEnv(StretchEnv):
         self.forward_step = forward_step  # in meters
         self.rotate_step = np.radians(rotate_step)
         self.test_grasping = test_grasping
+        self.dry_run = dry_run
 
         self.robot = StretchClient(init_node=False)
 
@@ -165,13 +167,18 @@ class StretchPickandPlaceEnv(StretchEnv):
                 if self.in_navigation_mode():
                     self.switch_to_navigation_mode()
                     rospy.sleep(self.msg_delay_t)
-                self.robot.nav.navigate_to(
-                    [0, 0, np.pi / 2], relative=True, blocking=True
-                )
-                self.grasp_planner.go_to_manip_mode()
+                # Dummy out robot execution code for perception tests
+                if not self.dry_run:
+                    self.robot.nav.navigate_to(
+                        [0, 0, np.pi / 2], relative=True, blocking=True
+                    )
+                    self.grasp_planner.go_to_manip_mode()
             elif action == DiscreteNavigationAction.PICK_OBJECT:
                 continuous_action = None
                 while not rospy.is_shutdown():
+                    if self.dry_run:
+                        # Dummy out robot execution code for perception tests\
+                        break
                     ok = self.grasp_planner.try_grasping()
                     if ok:
                         break
@@ -187,7 +194,10 @@ class StretchPickandPlaceEnv(StretchEnv):
             if not self.robot.in_navigation_mode():
                 self.robot.switch_to_navigation_mode()
                 rospy.sleep(self.msg_delay_t)
-            self.robot.nav.navigate_to(continuous_action, relative=True, blocking=True)
+            if not self.dry_run:
+                self.robot.nav.navigate_to(
+                    continuous_action, relative=True, blocking=True
+                )
 
     def set_goal(self, goal_find: str, goal_obj: str, goal_place: str):
         """Set the goal class as a string. Goal should be an object class we want to pick up."""

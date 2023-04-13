@@ -150,6 +150,7 @@ class ObjectNavAgentModule(nn.Module):
             seq_start_recep_goal_category = seq_start_recep_goal_category.flatten(0, 1)
         if seq_end_recep_goal_category is not None:
             seq_end_recep_goal_category = seq_end_recep_goal_category.flatten(0, 1)
+        # Compute the goal map
         goal_map, found_goal = self.policy(
             map_features,
             seq_object_goal_category,

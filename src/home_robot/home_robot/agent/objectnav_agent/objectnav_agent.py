@@ -197,6 +197,7 @@ class ObjectNavAgent(Agent):
             for e in range(self.num_environments)
         ]
 
+        debug_frontier_map = True
         if debug_frontier_map:
             import matplotlib.pyplot as plt
 
@@ -207,7 +208,6 @@ class ObjectNavAgent(Agent):
             plt.subplot(133)
             plt.imshow(self.semantic_map.get_goal_map(e))
             plt.show()
-            breakpoint()
 
         planner_inputs = [
             {
