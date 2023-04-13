@@ -116,7 +116,7 @@ class RLBenchLiveEnv(RLBenchOfflineEnv):
         observation = self._convert_rlbench_observation_to_gym(
             rlbench_obs, self._current_language_command
         )
-        self._last_observation = observation
+        self._last_observation = copy.deepcopy(observation)
         return observation
 
     def step(self, action: ActType) -> Tuple[ObsType, float, bool, dict]:
