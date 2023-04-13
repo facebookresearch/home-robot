@@ -395,11 +395,12 @@ import geometry_msgs.msg
 import std_msgs.msg
 
 class GraspRequestResponse(genpy.Message):
-  _md5sum = "e5b4c458375bf86e7c547ba6b7ea73f3"
+  _md5sum = "8274a5a28fecb17d1da2b3dc1e906985"
   _type = "home_robot_hw/GraspRequestResponse"
   _has_header = False  # flag to mark the presence of a Header object
   _full_text = """geometry_msgs/PoseArray[] grasps
 std_msgs/Float32MultiArray[] scores
+bool in_base_frame
 
 
 ================================================================================
@@ -491,8 +492,8 @@ MSG: std_msgs/MultiArrayDimension
 string label   # label of given dimension
 uint32 size    # size of given dimension (in type units)
 uint32 stride  # stride of given dimension"""
-  __slots__ = ['grasps','scores']
-  _slot_types = ['geometry_msgs/PoseArray[]','std_msgs/Float32MultiArray[]']
+  __slots__ = ['grasps','scores','in_base_frame']
+  _slot_types = ['geometry_msgs/PoseArray[]','std_msgs/Float32MultiArray[]','bool']
 
   def __init__(self, *args, **kwds):
     """
@@ -502,7 +503,7 @@ uint32 stride  # stride of given dimension"""
     changes.  You cannot mix in-order arguments and keyword arguments.
 
     The available fields are:
-       grasps,scores
+       grasps,scores,in_base_frame
 
     :param args: complete set of field values, in .msg order
     :param kwds: use keyword arguments corresponding to message field names
@@ -515,9 +516,12 @@ uint32 stride  # stride of given dimension"""
         self.grasps = []
       if self.scores is None:
         self.scores = []
+      if self.in_base_frame is None:
+        self.in_base_frame = False
     else:
       self.grasps = []
       self.scores = []
+      self.in_base_frame = False
 
   def _get_types(self):
     """
@@ -576,6 +580,8 @@ uint32 stride  # stride of given dimension"""
         buff.write(_struct_I.pack(length))
         pattern = '<%sf'%length
         buff.write(struct.Struct(pattern).pack(*val1.data))
+      _x = self.in_base_frame
+      buff.write(_get_struct_B().pack(_x))
     except struct.error as se: self._check_types(struct.error("%s: '%s' when writing '%s'" % (type(se), str(se), str(locals().get('_x', self)))))
     except TypeError as te: self._check_types(ValueError("%s: '%s' when writing '%s'" % (type(te), str(te), str(locals().get('_x', self)))))
 
@@ -673,6 +679,10 @@ uint32 stride  # stride of given dimension"""
         end += s.size
         val1.data = s.unpack(str[start:end])
         self.scores.append(val1)
+      start = end
+      end += 1
+      (self.in_base_frame,) = _get_struct_B().unpack(str[start:end])
+      self.in_base_frame = bool(self.in_base_frame)
       return self
     except struct.error as e:
       raise genpy.DeserializationError(e)  # most likely buffer underfill
@@ -730,6 +740,8 @@ uint32 stride  # stride of given dimension"""
         buff.write(_struct_I.pack(length))
         pattern = '<%sf'%length
         buff.write(val1.data.tostring())
+      _x = self.in_base_frame
+      buff.write(_get_struct_B().pack(_x))
     except struct.error as se: self._check_types(struct.error("%s: '%s' when writing '%s'" % (type(se), str(se), str(locals().get('_x', self)))))
     except TypeError as te: self._check_types(ValueError("%s: '%s' when writing '%s'" % (type(te), str(te), str(locals().get('_x', self)))))
 
@@ -828,6 +840,10 @@ uint32 stride  # stride of given dimension"""
         end += s.size
         val1.data = numpy.frombuffer(str[start:end], dtype=numpy.float32, count=length)
         self.scores.append(val1)
+      start = end
+      end += 1
+      (self.in_base_frame,) = _get_struct_B().unpack(str[start:end])
+      self.in_base_frame = bool(self.in_base_frame)
       return self
     except struct.error as e:
       raise genpy.DeserializationError(e)  # most likely buffer underfill
@@ -854,8 +870,14 @@ def _get_struct_4d():
     if _struct_4d is None:
         _struct_4d = struct.Struct("<4d")
     return _struct_4d
+_struct_B = None
+def _get_struct_B():
+    global _struct_B
+    if _struct_B is None:
+        _struct_B = struct.Struct("<B")
+    return _struct_B
 class GraspRequest(object):
   _type          = 'home_robot_hw/GraspRequest'
-  _md5sum = 'ddd0123e5c581089467aa6d6a75146a7'
+  _md5sum = 'a2cc165ffb0bc8d1ab0217fd70f92a00'
   _request_class  = GraspRequestRequest
   _response_class = GraspRequestResponse
