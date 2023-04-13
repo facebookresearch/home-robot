@@ -4,7 +4,12 @@ import numpy as np
 import rospy
 
 import home_robot
-from home_robot.core.interfaces import Action, HybridAction, DiscreteNavigationAction, Observations
+from home_robot.core.interfaces import (
+    Action,
+    DiscreteNavigationAction,
+    HybridAction,
+    Observations,
+)
 from home_robot.motion.stretch import STRETCH_HOME_Q, STRETCH_PREGRASP_Q
 from home_robot.perception.detection.detic.detic_perception import DeticPerception
 from home_robot.utils.geometry import xyt2sophus
@@ -16,6 +21,10 @@ from home_robot_hw.utils.grasping import GraspPlanner
 REAL_WORLD_CATEGORIES = [
     "other",
     "chair",
+    "elephant",
+    "bucket",
+    "bowl",
+    "bin",
     "cup",
     "table",
     "other",
@@ -57,6 +66,9 @@ class StretchPickandPlaceEnv(StretchEnv):
         # Create a visualizer
         if config is not None:
             self.visualizer = Visualizer(config)
+            config.defrost()
+            config.AGENT.SEMANTIC_MAP.num_sem_categories = len(self.goal_options)
+            config.freeze()
         else:
             self.visualizer = None
 
@@ -140,7 +152,9 @@ class StretchPickandPlaceEnv(StretchEnv):
                 if self.in_navigation_mode():
                     self.switch_to_navigation_mode()
                     rospy.sleep(self.msg_delay_t)
-                self.robot.nav.navigate_to([0, 0, np.pi / 2], relative=True, blocking=True)
+                self.robot.nav.navigate_to(
+                    [0, 0, np.pi / 2], relative=True, blocking=True
+                )
                 self.grasp_planner.go_to_manip_mode()
             elif action == DiscreteNavigationAction.PICK_OBJECT:
                 continuous_action = None

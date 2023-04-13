@@ -21,10 +21,10 @@ def main(test_pick=False, reset_nav=False):
     config.freeze()
 
     rospy.init_node("eval_episode_stretch_objectnav")
+    env = StretchPickandPlaceEnv(config=config, test_grasping=test_pick)
     agent = PickAndPlaceAgent(
         config=config, skip_find_object=test_pick, skip_place=test_pick
     )
-    env = StretchPickandPlaceEnv(config=config, test_grasping=test_pick)
 
     robot = env.get_robot()
     if reset_nav:
