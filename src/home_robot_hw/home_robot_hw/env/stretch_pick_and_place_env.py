@@ -275,9 +275,6 @@ class StretchPickandPlaceEnv(StretchEnv):
             obs.task_observations["goal_mask"] = (
                 obs.task_observations["instance_map"] == chosen_instance_idx
             )
-            import matplotlib.pyplot as plt
-
-            breakpoint()
 
         return obs
 
