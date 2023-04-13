@@ -196,8 +196,19 @@ class StretchPickandPlaceEnv(StretchEnv):
                 rospy.sleep(self.msg_delay_t)
             if not self.dry_run:
                 self.robot.nav.navigate_to(
-                    continuous_action, relative=True, blocking=True
+                    continuous_action, relative=True, blocking=False
                 )
+
+                v_stop = 0.05
+                dt = 0.1
+                pose_current = self.robot.nav.get_base_pose()
+                while True:
+                    rospy.sleep(dt)
+                    pose_new = self.robot.nav.get_base_pose()
+                    v_avg = np.linalg.norm(pose_new - pose_current) / dt
+                    if v_avg < v_stop:
+                        break
+                    pose_current = pose_new
 
     def set_goal(self, goal_find: str, goal_obj: str, goal_place: str):
         """Set the goal class as a string. Goal should be an object class we want to pick up."""
@@ -271,15 +282,16 @@ class StretchPickandPlaceEnv(StretchEnv):
                 obs.task_observations["instance_classes"] == self.current_goal_id
             )
 
+            obs.task_observations["goal_mask"] = np.zeros_like(obs.semantic).astype(
+                bool
+            )
             if len(instance_scores):
-                chosen_instance_idx = np.argmax(instance_scores * class_mask)
-                obs.task_observations["goal_mask"] = (
-                    obs.task_observations["instance_map"] == chosen_instance_idx
-                )
-            else:
-                obs.task_observations["goal_mask"] = np.zeros_like(obs.semantic).astype(
-                    bool
-                )
+                masked_instance_scores = instance_scores * class_mask  # set all non-correct object scores to 0
+                if np.max(masked_instance_scores):
+                    chosen_instance_idx = np.argmax(masked_instance_scores)
+                    obs.task_observations["goal_mask"] = (
+                        obs.task_observations["instance_map"] == chosen_instance_idx
+                    )
 
         return obs
 
