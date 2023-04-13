@@ -11,7 +11,14 @@ from home_robot_hw.env.stretch_pick_and_place_env import StretchPickandPlaceEnv
 @click.command()
 @click.option("--test-pick", default=False, is_flag=True)
 @click.option("--reset-nav", default=False, is_flag=True)
-def main(test_pick=False, reset_nav=False):
+@click.option("--object", default="computer_mouse")
+def main(
+    test_pick=False,
+    reset_nav=False,
+    object="cup",
+    start_recep="chair",
+    goal_recep="table",
+):
     config_path = "projects/stretch_grasping/configs/agent/floorplanner_eval.yaml"
     config, config_str = get_config(config_path)
     config.defrost()
@@ -32,7 +39,7 @@ def main(test_pick=False, reset_nav=False):
         robot.nav.navigate_to([0, 0, 0])
 
     agent.reset()
-    env.reset("chair", "cup", "chair")
+    env.reset(start_recep, object, goal_recep)
 
     t = 0
     while not env.episode_over:

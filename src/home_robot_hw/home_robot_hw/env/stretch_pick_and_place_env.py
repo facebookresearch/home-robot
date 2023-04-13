@@ -20,12 +20,16 @@ from home_robot_hw.utils.grasping import GraspPlanner
 
 REAL_WORLD_CATEGORIES = [
     "other",
-    "chair",
+    # Objects
     "elephant",
     "bucket",
     "bowl",
     "bin",
     "cup",
+    "computer_mouse",
+    "car_keys",
+    # Receptacles
+    "chair",
     "table",
     "other",
 ]
@@ -179,7 +183,10 @@ class StretchPickandPlaceEnv(StretchEnv):
     def set_goal(self, goal_find: str, goal_obj: str, goal_place: str):
         """Set the goal class as a string. Goal should be an object class we want to pick up."""
         for goal in [goal_find, goal_obj, goal_place]:
-            assert goal in self.goal_options
+            if goal not in self.goal_options:
+                raise RuntimeError(
+                    f"Goal not supported: {goal} not in {str(self.goal_options)}"
+                )
         goal_obj_id = self.goal_options.index(goal_obj)
         goal_find_id = self.goal_options.index(goal_find)
         goal_place_id = self.goal_options.index(goal_place)
