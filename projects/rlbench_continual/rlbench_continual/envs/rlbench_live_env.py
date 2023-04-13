@@ -1,3 +1,4 @@
+import copy
 from typing import Optional, Tuple
 
 import numpy as np
@@ -139,7 +140,7 @@ class RLBenchLiveEnv(RLBenchOfflineEnv):
             obs = self._convert_rlbench_observation_to_gym(
                 rlbench_obs, self._current_language_command
             )
-            self._last_observation = obs
+            self._last_observation = copy.deepcopy(obs)
         except InvalidActionError:
             done = True
             reward = 0
