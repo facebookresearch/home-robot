@@ -217,7 +217,7 @@ class DeticPerception(PerceptionModule):
                 [filter_depth(mask, depth, depth_threshold) for mask in masks]
             )
 
-        semantic_map, instance_map = overlay_masks(masks, class_idcs, image.shape[:2])
+        semantic_map, instance_map = overlay_masks(masks, class_idcs, (height, width))
 
         obs.semantic = semantic_map.astype(int)
         obs.task_observations["instance_map"] = instance_map

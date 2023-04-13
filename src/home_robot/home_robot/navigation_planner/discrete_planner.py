@@ -57,7 +57,7 @@ class DiscretePlanner:
         print_images: bool,
         dump_location: str,
         exp_name: str,
-        min_goal_distance_cm: float = 40.0,
+        min_goal_distance_cm: float = 60.0,
         min_obs_dilation_selem_radius: int = 1,
         agent_cell_radius: int = 1,
         goal_tolerance: float = 0.01,
