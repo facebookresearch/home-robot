@@ -2,6 +2,9 @@ scikit-learn
 scikit-image
 scikit-fmm
 
+# Detectron2
+git+git://github.com/facebookresearch/detectron2
+
 # Detic deps
 click
 opencv-python
