@@ -201,7 +201,8 @@ class RLBenchOfflineEnv(gym.Env):
 
         self._current_timestep = (
             0
-            if options is not None and options.get("ensure_first", False)
+            if (options is not None and options.get("ensure_first", False))
+            or not self._random_trajectory_start
             else np.random.randint(len(self._current_keypoint_indices) - 1)
         )
         self._max_timestep = (
