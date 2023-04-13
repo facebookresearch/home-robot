@@ -34,6 +34,14 @@ REAL_WORLD_CATEGORIES = [
     "table",
     "other",
 ]
+REAL_WORLD_CATEGORIES = [
+    "other",
+    "chair",
+    "cup",
+    "table",
+    "other",
+]
+
 
 DETIC = "detic"
 
