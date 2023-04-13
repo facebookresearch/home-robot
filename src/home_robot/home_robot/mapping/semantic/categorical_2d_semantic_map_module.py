@@ -6,12 +6,12 @@ from typing import Tuple
 
 import matplotlib.pyplot as plt
 import numpy as np
-import pytorch3d.transforms as pt
 import skimage.morphology
 import torch
 import torch.nn as nn
 from torch import IntTensor, Tensor
 from torch.nn import functional as F
+import trimesh.transformations as tra
 
 import home_robot.mapping.map_utils as mu
 import home_robot.utils.depth as du
@@ -280,7 +280,8 @@ class Categorical2DSemanticMapModule(nn.Module):
         if camera_pose is not None:
             # TODO: make consistent between sim and real
             # hab_angles = pt.matrix_to_euler_angles(camera_pose[:, :3, :3], convention="YZX")
-            angles = pt.matrix_to_euler_angles(camera_pose[:, :3, :3], convention="ZYX")
+            #angles = pt.matrix_to_euler_angles(camera_pose[:, :3, :3], convention="ZYX")
+            angles = torch.Tensor([tra.euler_from_matrix(p[:3, :3], "rzyx") for p in camera_pose])
             # For habitat - pull x angle
             # tilt = angles[:, -1]
             # For real robot
