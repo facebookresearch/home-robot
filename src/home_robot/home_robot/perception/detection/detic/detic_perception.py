@@ -1,7 +1,7 @@
 import argparse
 import sys
 from pathlib import Path
-from typing import Optional
+from typing import Optional, Tuple
 
 import numpy as np
 import torch
@@ -55,15 +55,17 @@ def get_clip_embeddings(vocabulary, prompt="a "):
     return emb
 
 
-def overlay_masks(masks: np.ndarray, class_idcs: np.ndarray) -> np.ndarray:
+def overlay_masks(
+    masks: np.ndarray, class_idcs: np.ndarray, shape: Tuple
+) -> np.ndarray:
     """Overlays the masks of objects
     Determines the order of masks based on mask size
     """
     mask_sizes = [np.sum(mask) for mask in masks]
     sorted_mask_idcs = np.argsort(mask_sizes)
 
-    semantic_mask = np.zeros(masks[0].shape)
-    instance_mask = -np.ones(masks[0].shape)
+    semantic_mask = np.zeros(shape)
+    instance_mask = -np.ones(shape)
     for i_mask in sorted_mask_idcs[::-1]:  # largest to smallest
         semantic_mask[masks[i_mask].astype(bool)] = class_idcs[i_mask]
         instance_mask[masks[i_mask].astype(bool)] = i_mask
@@ -211,7 +213,7 @@ class DeticPerception(PerceptionModule):
 
         if depth_threshold is not None and depth is not None:
             masks = np.array([filter_depth(mask, depth) for mask in masks])
-        semantic_map, instance_map = overlay_masks(masks, class_idcs)
+        semantic_map, instance_map = overlay_masks(masks, class_idcs, (height, width))
 
         obs.semantic = semantic_map.astype(int)
         obs.task_observations["instance_map"] = instance_map

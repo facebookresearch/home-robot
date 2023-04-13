@@ -271,10 +271,15 @@ class StretchPickandPlaceEnv(StretchEnv):
                 obs.task_observations["instance_classes"] == self.current_goal_id
             )
 
-            chosen_instance_idx = np.argmax(instance_scores * class_mask)
-            obs.task_observations["goal_mask"] = (
-                obs.task_observations["instance_map"] == chosen_instance_idx
-            )
+            if len(instance_scores):
+                chosen_instance_idx = np.argmax(instance_scores * class_mask)
+                obs.task_observations["goal_mask"] = (
+                    obs.task_observations["instance_map"] == chosen_instance_idx
+                )
+            else:
+                obs.task_observations["goal_mask"] = np.zeros_like(obs.semantic).astype(
+                    bool
+                )
 
         return obs
 
