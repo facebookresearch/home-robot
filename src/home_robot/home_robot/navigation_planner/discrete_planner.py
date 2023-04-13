@@ -55,9 +55,10 @@ class DiscretePlanner:
         print_images: bool,
         dump_location: str,
         exp_name: str,
-        min_goal_distance_cm: float = 40.0,
+        min_goal_distance_cm: float = 50.0,
         min_obs_dilation_selem_radius: int = 1,
         agent_cell_radius: int = 1,
+        goal_tolerance: float = 0.01,
         discrete_actions: bool = True,
     ):
         """
@@ -93,7 +94,7 @@ class DiscretePlanner:
         self.goal_dilation_selem_radius = goal_dilation_selem_radius
         self.min_obs_dilation_selem_radius = min_obs_dilation_selem_radius
         self.agent_cell_radius = agent_cell_radius
-        self.goal_tolerance = 2
+        self.goal_tolerance = goal_tolerance
 
         self.vis_dir = None
         self.collision_map = None
@@ -419,11 +420,10 @@ class DiscretePlanner:
             planner.set_multi_goal(dilated_goal_map, self.timestep)
         else:
             navigable_goal_map = planner._find_within_distance_to_multi_goal(goal_map, self.min_goal_distance_cm / self.map_resolution)
-            planner.set_multi_goal(navigable_goal_map, self.timestep)
-
             if not np.any(navigable_goal_map):
-                breakpoint()
                 replan = True
+            else:
+                planner.set_multi_goal(navigable_goal_map, self.timestep)
 
         self.timestep += 1
 
