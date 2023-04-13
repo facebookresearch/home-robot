@@ -5,7 +5,7 @@
 from typing import Tuple
 
 import numpy as np
-import pytorch3d.transforms as pt
+from scipy.spatial.transform import Rotation as R
 import skimage.morphology
 import torch
 import torch.nn as nn
@@ -280,7 +280,8 @@ class Categorical2DSemanticMapModule(nn.Module):
         if camera_pose is not None:
             # TODO: make consistent between sim and real
             # hab_angles = pt.matrix_to_euler_angles(camera_pose[:, :3, :3], convention="YZX")
-            angles = pt.matrix_to_euler_angles(camera_pose[:, :3, :3], convention="ZYX")
+            #angles = pt.matrix_to_euler_angles(camera_pose[:, :3, :3], convention="ZYX")
+            angles = np.array([R.from_matrix(p[:3, :3]) for p in camera_pose])
             # For habitat - pull x angle
             # tilt = angles[:, -1]
             # For real robot
