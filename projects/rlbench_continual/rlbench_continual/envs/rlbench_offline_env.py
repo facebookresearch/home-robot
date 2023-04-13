@@ -19,11 +19,13 @@ class RLBenchOfflineEnv(gym.Env):
         views=None,
         language_embedding_model=None,
         augmented_keypoint_offset=None,
+        use_extra_gripper_change_keypoint=False,
     ):
         views = views if views is not None else ["front"]
         self._random_trajectory_start = random_trajectory_start
         self._trajectory_length = trajectory_length
         self._augmented_keypoint_offset = augmented_keypoint_offset
+        self._use_extra_gripper_change_keypoint = use_extra_gripper_change_keypoint
 
         self._loader = RLBenchDataset(
             dataset_dir,
@@ -163,32 +165,38 @@ class RLBenchOfflineEnv(gym.Env):
         trial_id = np.random.randint(len(self._loader.trials))
         self._current_trial = self._loader.trials[trial_id]
 
+        # Include the first frame in the keypoints
+        original_keypoints = [0] + np.array(self._current_trial["keypoints"]).tolist()
+        augmented_keypoints = []
+
+        # Capture the before and after for a gripper action, instead of just the after
+        if self._use_extra_gripper_change_keypoint:
+            gripper_states = self._current_trial["gripper"]
+            for keypoint in original_keypoints:
+                previous_step = keypoint - 1
+                if (
+                    previous_step >= 0
+                    and gripper_states[previous_step] != gripper_states[keypoint]
+                ):
+                    augmented_keypoints.append(previous_step)
+
         if self._augmented_keypoint_offset is not None:
-            keypoint_indices = [0]
             max_len = len(self._current_trial["q"])
 
-            for keypoint in self._current_trial["keypoints"]:
+            for keypoint in original_keypoints:
                 low_keypoint = keypoint - self._augmented_keypoint_offset
                 high_keypoint = keypoint + self._augmented_keypoint_offset
 
                 if low_keypoint >= 0:
-                    keypoint_indices.append(low_keypoint)
-
-                keypoint_indices.append(keypoint)
+                    augmented_keypoints.append(low_keypoint)
 
                 if high_keypoint < max_len:
-                    keypoint_indices.append(high_keypoint)
+                    augmented_keypoints.append(high_keypoint)
 
-            keypoint_indices = list(set(keypoint_indices))
-            keypoint_indices.sort()
+        keypoint_indices = list(set(original_keypoints + augmented_keypoints))
+        keypoint_indices.sort()
 
-            self._current_keypoint_indices = np.array(keypoint_indices)
-        else:
-            # Include the first frame in the keypoints
-            self._current_keypoint_indices = np.concatenate(
-                (np.array([0]), np.array(self._current_trial["keypoints"]))
-            )
-
+        self._current_keypoint_indices = np.array(keypoint_indices)
         print(f"Running with indices: {self._current_keypoint_indices}")
 
         self._current_timestep = (

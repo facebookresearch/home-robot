@@ -130,6 +130,12 @@ class RLBenchLiveEnv(RLBenchOfflineEnv):
 
         try:
             rlbench_obs, reward, done = self._current_task.step(task_action)
+
+            """for _ in range(300):
+                self._sim_env._pyrep.step_ui()
+                import time
+                time.sleep(0.1)"""
+
             obs = self._convert_rlbench_observation_to_gym(
                 rlbench_obs, self._current_language_command
             )
