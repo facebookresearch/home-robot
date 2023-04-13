@@ -14,7 +14,7 @@ from home_robot.mapping.voxel import SparseVoxelMap
 from home_robot.utils.point_cloud import numpy_to_pcd, pcd_to_numpy, show_point_cloud
 from home_robot_hw.ros.grasp_helper import GraspServer
 
-VERTICAL_GRIPPER_QUAT = [0.70988, 0.70406461, 0.0141615, 0.01276155]  # base frame
+VERTICAL_GRIPPER_QUAT = [0.70988, 0.70406461, 0.0141615, 0.01276155]  # base frame, gripper closing along x axis
 
 # Grasp generation params
 TOP_PERCENTAGE = 0.1
@@ -154,16 +154,16 @@ def inference():
                 x, y = np.array((i, j)) * VOXEL_RES + orig
 
                 if x_score >= GRASP_THRESHOLD:
-                    grasp = _generate_grasp(np.array([x, y, z_grasp]), 0.0)
+                    grasp = _generate_grasp(np.array([x, y, z_grasp]), np.pi / 2)
                     grasps_raw.append(grasp)
                     scores_raw.append(x_score)
 
                 if y_score >= GRASP_THRESHOLD:
-                    grasp = _generate_grasp(np.array([x, y, z_grasp]), np.pi / 2)
+                    grasp = _generate_grasp(np.array([x, y, z_grasp]), 0.0)
                     grasps_raw.append(grasp)
                     scores_raw.append(y_score)
 
-        # _visualize_grasps(xyz, rgb, top_idcs, grasps_raw)
+        _visualize_grasps(xyz, rgb, top_idcs, grasps_raw)
 
         # Postprocess grasps into dictionaries
         # (6dof graspnet only generates grasps for one object)
