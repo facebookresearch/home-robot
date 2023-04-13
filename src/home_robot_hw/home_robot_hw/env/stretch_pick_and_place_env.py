@@ -261,8 +261,24 @@ class StretchPickandPlaceEnv(StretchEnv):
         # Run the segmentation model here
         if self.segmentation_method == DETIC:
             obs = self.segmentation.predict(obs)
+
+            # Make sure we only have one "other" - for ??? some reason
             obs.semantic[obs.semantic == 0] = len(self.goal_options) - 1
-            obs.task_observations["goal_mask"] = obs.semantic == self.current_goal_id
+
+            # Choose instance mask with highest score for goal mask
+            instance_scores = obs.task_observations["instance_scores"].copy()
+            class_mask = (
+                obs.task_observations["instance_classes"] == self.current_goal_id
+            )
+
+            chosen_instance_idx = np.argmax(instance_scores * class_mask)
+            obs.task_observations["goal_mask"] = (
+                obs.task_observations["instance_map"] == chosen_instance_idx
+            )
+            import matplotlib.pyplot as plt
+
+            breakpoint()
+
         return obs
 
     @property
