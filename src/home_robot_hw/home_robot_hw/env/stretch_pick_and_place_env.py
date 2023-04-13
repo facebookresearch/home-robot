@@ -20,12 +20,13 @@ from home_robot_hw.utils.grasping import GraspPlanner
 
 REAL_WORLD_CATEGORIES = [
     "other",
-    # Objects
-    "elephant",
-    "bucket",
+    # Seen object categories
     "bowl",
-    "bin",
     "cup",
+    "bin",
+    # Unseen object categories
+    "bucket",
+    "elephant",
     "computer_mouse",
     "car_keys",
     # Receptacles
