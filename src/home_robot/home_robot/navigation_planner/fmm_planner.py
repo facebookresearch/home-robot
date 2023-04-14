@@ -61,10 +61,11 @@ class FMMPlanner:
 
     def set_goal(self, goal, auto_improve=False):
         traversible_ma = ma.masked_values(self.traversible * 1, 0)
-        goal_x, goal_y = int(goal[0] / (self.scale * 1.)), \
-            int(goal[1] / (self.scale * 1.))
+        goal_x, goal_y = int(goal[0] / (self.scale * 1.0)), int(
+            goal[1] / (self.scale * 1.0)
+        )
 
-        if self.traversible[goal_x, goal_y] == 0. and auto_improve:
+        if self.traversible[goal_x, goal_y] == 0.0 and auto_improve:
             goal_x, goal_y = self._find_nearest_goal([goal_x, goal_y])
 
         traversible_ma[goal_x, goal_y] = 0
@@ -112,7 +113,9 @@ class FMMPlanner:
         scale = self.scale * 1.0
         state = [x / scale for x in state]
         dx, dy = state[0] - int(state[0]), state[1] - int(state[1])
-        mask = FMMPlanner.get_mask(dx, dy, scale, self.step_size, min_radius=0 if continuous else None)
+        mask = FMMPlanner.get_mask(
+            dx, dy, scale, self.step_size, min_radius=0 if continuous else None
+        )
         dist_mask = FMMPlanner.get_dist(dx, dy, scale, self.step_size)
 
         state = [int(x) for x in state]
@@ -213,7 +216,11 @@ class FMMPlanner:
         return mask
 
     def _find_within_distance_to_multi_goal(
-        self, goal: np.ndarray, distance: float, min_distance_only=False, visualize=False
+        self,
+        goal: np.ndarray,
+        distance: float,
+        min_distance_only=False,
+        visualize=False,
     ) -> np.ndarray:
         """
         Find the nearest point to a goal which is traversible

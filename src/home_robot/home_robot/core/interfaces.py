@@ -35,8 +35,11 @@ class ContinuousNavigationAction:
 
     def __init__(self, xyt: np.ndarray):
         if not len(xyt) == 3:
-            raise RuntimeError("continuous navigation action space has 3 dimentions, x y and theta")
+            raise RuntimeError(
+                "continuous navigation action space has 3 dimentions, x y and theta"
+            )
         self.xyt = xyt
+
 
 class ActionType(Enum):
     DISCRETE = 0
@@ -61,7 +64,7 @@ class HybridAction(Action):
         else:
             raise RuntimeError(f"action type{type(action)} not supported")
         self.action = action
-    
+
     def is_discrete(self):
         """Let environment know if we need to handle a discrete action"""
         return self.action_type == ActionType.DISCRETE
@@ -80,6 +83,7 @@ class HybridAction(Action):
             return self.action.xyt
         else:
             return NotImplementedError("we need to support this action type")
+
 
 @dataclass
 class Pose:
