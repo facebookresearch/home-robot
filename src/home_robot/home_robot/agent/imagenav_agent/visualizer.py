@@ -6,7 +6,7 @@ from typing import Any, Dict, List, Optional
 import cv2
 import numpy as np
 import skimage.morphology
-from habitat.utils.render_wrapper import append_text_to_image
+from habitat.utils.visualizations.utils import append_text_to_image
 from habitat.utils.visualizations import maps
 from habitat.utils.visualizations.utils import draw_collision, images_to_video
 from natsort import natsorted

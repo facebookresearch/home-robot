@@ -20,17 +20,18 @@ class StretchImageNavEnv(StretchEnv):
         self, config: Optional[DictConfig] = None, *args: Any, **kwargs: Any
     ) -> None:
         super().__init__(*args, **kwargs)
+        print(config)
         if config:
-            self.forward_step = config.task.simulator.forward_step_size  # in meters
-            self.rotate_step = np.radians(config.task.simulator.turn_angle)
+            self.forward_step = config.TASK_CONFIG.SIMULATOR.FORWARD_STEP_SIZE  # in meters
+            self.rotate_step = np.radians(config.TASK_CONFIG.SIMULATOR.TURN_ANGLE)
             self.image_goal = self._load_image_goal(config.stretch_goal_image_path)
         else:
             self.forward_step = 0.25
             self.rotate_step = np.radians(30)
             self.image_goal = None
-        self.reset()
+        self.robot = StretchClient(init_node=False)
 
-        self.robot = StretchClient()
+        self.reset()
 
     def _load_image_goal(self, goal_img_path: str) -> np.ndarray:
         """Load the pre-computed image goal from disk."""
@@ -70,21 +71,26 @@ class StretchImageNavEnv(StretchEnv):
 
     def get_observation(self) -> Observations:
         """Get rgbd/xyz/theta from this"""
-        rgb, _ = self.get_images(compute_xyz=False, rotate_images=True)
-        # current_pose = xyt2sophus(self.robot.nav.get_base_pose())
+        rgb, depth = self.get_images(compute_xyz=False, rotate_images=True)
+        current_pose = xyt2sophus(self.robot.nav.get_base_pose())
 
         # use sophus to get the relative translation
-        # relative_pose = self._episode_start_pose.inverse() * current_pose
-        # euler_angles = relative_pose.so3().log()
-        # theta = euler_angles[-1]
+        relative_pose = self._episode_start_pose.inverse() * current_pose
+        euler_angles = relative_pose.so3().log()
+        theta = euler_angles[-1]
 
+        return {
+            "rgb": rgb.copy(),
+            "imagegoalrotation": self.image_goal.copy() if self.image_goal is not None else None
+        }
         # Create the observation
-        return home_robot.core.interfaces.Observations(
-            rgb=rgb.copy(),
-            # gps=relative_pose.translation()[:2],
-            # compass=np.array([theta]),
-            task_observations={"imagegoalrotation": self.image_goal},
-        )
+        # return home_robot.core.interfaces.Observations(
+        #     rgb=rgb.copy(),
+        #     depth=depth.copy(),
+        #     gps=relative_pose.translation()[:2],
+        #     compass=np.array([theta]),
+        #     task_observations={"imagegoalrotation": self.image_goal},
+        # )
 
     @property
     def episode_over(self) -> bool:
@@ -122,7 +128,7 @@ if __name__ == "__main__":
     rospy.init_node("hello_stretch_ros_test")
     print("Create ROS interface")
     rob = StretchImageNavEnv(init_cameras=True)
-    rob.switch_to_navigation_mode()
+    rob.robot.switch_to_navigation_mode()
 
     # Debug the observation space
     import matplotlib.pyplot as plt
@@ -140,14 +146,27 @@ if __name__ == "__main__":
                 break
         rob.apply_action(cmd)
 
+        import pdb; pdb.set_trace()
         obs = rob.get_observation()
-        rgb, depth = obs.rgb, obs.depth
+        rgb = obs['rgb']
+        
+        # save fig
+        from PIL import Image
+        rgb_image = Image.fromarray(rgb)
+        rgb_image.save('goal_image.png')
+
+        plt.subplot(121)
+        plt.imshow(rgb)
+        
+        #depth = obs.rgb, obs.depth
         # xyt = obs2xyt(obs.base_pose)
 
         # Add a visualiztion for debugging
         depth[depth > 5] = 0
         plt.subplot(121)
-        plt.imshow(rgb)
+        # plt.imshow(rgb)
+        plt.savefig('goal_image.png')
+
         plt.subplot(122)
         plt.imshow(depth)
         # plt.subplot(133); plt.imshow(obs.semantic
@@ -155,8 +174,6 @@ if __name__ == "__main__":
         print()
         print("----------------")
         print("values:")
-        print("RGB =", np.unique(rgb))
-        print("Depth =", np.unique(depth))
         # print("XY =", xyt[:2])
         # print("Yaw=", xyt[-1])
         print("Compass =", obs.compass)
@@ -164,48 +181,49 @@ if __name__ == "__main__":
         plt.show()
 
 
-if True:
-    observations = []
-    obs = rob.get_observation()
-    observations.append(obs)
+    if False:
+        observations = []
+        obs = rob.get_observation()
+        observations.append(obs)
 
-    xyt = np.zeros(3)
-    xyt[2] = obs.compass
-    xyt[:2] = obs.gps
-    # xyt = obs2xyt(obs.base_pose)
-    xyt[0] += 0.1
-    # rob.navigate_to(xyt)
-    rob.rotate(0.2)
-    rospy.sleep(10.0)
-    obs = rob.get_observation()
-    observations.append(obs)
-
-    xyt[0] = 0
-    # rob.navigate_to(xyt)
-    rob.rotate(-0.2)
-    rospy.sleep(10.0)
-    obs = rob.get_observation()
-    observations.append(obs)
-
-    for obs in observations:
-        rgb, depth = obs.rgb, obs.depth
+        xyt = np.zeros(3)
+        xyt[2] = obs.compass
+        xyt[:2] = obs.gps
         # xyt = obs2xyt(obs.base_pose)
+        xyt[0] += 0.1
+        # rob.navigate_to(xyt)
+        rob.rotate(0.2)
+        rospy.sleep(10.0)
+        obs = rob.get_observation()
+        observations.append(obs)
 
-        # Add a visualiztion for debugging
-        depth[depth > 5] = 0
-        plt.subplot(121)
-        plt.imshow(rgb)
-        plt.subplot(122)
-        plt.imshow(depth)
-        # plt.subplot(133); plt.imshow(obs.semantic
+        xyt[0] = 0
+        # rob.navigate_to(xyt)
+        rob.rotate(-0.2)
+        rospy.sleep(10.0)
+        obs = rob.get_observation()
+        observations.append(obs)
 
-        print()
-        print("----------------")
-        print("values:")
-        print("RGB =", np.unique(rgb))
-        print("Depth =", np.unique(depth))
-        # print("XY =", xyt[:2])
-        # print("Yaw=", xyt[-1])
-        print("Compass =", obs.compass)
-        print("Gps =", obs.gps)
-        plt.show()
+        for obs in observations:
+            rgb, depth = obs.rgb, obs.depth
+            # xyt = obs2xyt(obs.base_pose)
+
+            # Add a visualiztion for debugging
+            depth[depth > 5] = 0
+            plt.subplot(121)
+            # plt.imshow(rgb)
+            plt.savefig('goal_image.png')
+            plt.subplot(122)
+            plt.imshow(depth)
+            # plt.subplot(133); plt.imshow(obs.semantic
+
+            print()
+            print("----------------")
+            print("values:")
+            print("RGB =", np.unique(rgb))
+            print("Depth =", np.unique(depth))
+            # print("XY =", xyt[:2])
+            # print("Yaw=", xyt[-1])
+            print("Compass =", obs.compass)
+            print("Gps =", obs.gps)
+            plt.show()

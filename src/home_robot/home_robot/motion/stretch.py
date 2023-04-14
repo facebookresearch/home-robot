@@ -15,10 +15,10 @@ from home_robot.utils.bullet import PybulletIKSolver
 from home_robot.utils.pose import to_matrix
 
 # Stretch stuff
-DEFAULT_STRETCH_URDF = "assets/hab_stretch/urdf/stretch_dex_wrist_simplified.urdf"
+DEFAULT_STRETCH_URDF = "/home/cortex/home-robot/assets/hab_stretch/urdf/stretch_dex_wrist_simplified.urdf"
 # PLANNER_STRETCH_URDF =  'assets/hab_stretch/urdf/planner_stretch_dex_wrist_simplified.urdf'
-PLANNER_STRETCH_URDF = "assets/hab_stretch/urdf/planner_calibrated.urdf"
-MANIP_STRETCH_URDF = "assets/hab_stretch/urdf/planner_calibrated_manipulation_mode.urdf"
+PLANNER_STRETCH_URDF = "/home/cortex/home-robot/assets/hab_stretch/urdf/planner_calibrated.urdf"
+MANIP_STRETCH_URDF = "/home/cortex/home-robot/assets/hab_stretch/urdf/planner_calibrated_manipulation_mode.urdf"
 
 STRETCH_HOME_Q = np.array(
     [

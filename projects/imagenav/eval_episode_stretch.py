@@ -1,13 +1,35 @@
 #!/usr/bin/env python
+import os
+import time
+import numpy as np
+from PIL import Image
+
+from gym import spaces
+from gym.spaces import Dict as SpaceDict
 import rospy
-from config_utils import get_config
+import torch
 
-from home_robot.projects.imagenav.policy import CortexPolicy
-from home_robot.agent.imagenav_agent.visualizer import  
-from home_robot_hw.env.stretch_image_nav_env import StretchImageNavEnv
+from policy import CortexPolicy
 
-if __name__ == "__main__":
-    config, config_str = get_config("configs/instance_imagenav_hm3d.yaml")
+import hydra
+from omegaconf import OmegaConf
+
+from habitat.config.default import Config as CN
+from habitat_eaif.config import get_config
+
+from home_robot.agent.imagenav_agent.visualizer import record_video
+from home_robot.motion.stretch import STRETCH_NAVIGATION_Q
+from home_robot_hw.env.stretch_old_image_nav_env import StretchImageNavEnv
+
+@hydra.main(config_path="configs", config_name="config_imagenav_stretch")
+def main(cfg):
+    cfg = OmegaConf.to_container(cfg, resolve=True)
+    cfg = CN(cfg)
+
+    config = get_config()
+    config.merge_from_other_cfg(cfg)
+
+    print("Load Config")
 
     h, w = (
         640,
@@ -23,7 +45,7 @@ if __name__ == "__main__":
         ),
         "imagegoalrotation": spaces.Box(
             low=0,
-            high=255
+            high=255,
             shape=(h, w, 3),
             dtype=np.uint8,
         ),
@@ -33,33 +55,65 @@ if __name__ == "__main__":
 
     action_space = spaces.Discrete(4)
 
+    print("define action and obs space")
+
     rospy.init_node("eval_episode_stretch_objectnav")
+
+    print("init rospy")
+
+    checkpoint = torch.load(
+        config.checkpoint_path,
+        map_location="cpu"
+    )
+
     env = StretchImageNavEnv(config=config)
     agent = CortexPolicy(
-        config=config
-        checkpoint,
+        config=config,
+        checkpoint=checkpoint,
         observation_space=obs_space,
         action_space=action_space,
-        device="cpu",
+        device="cuda",
     )
 
     print()
     print("==============")
-    env.switch_to_navigation_mode()
+    env.robot.switch_to_manipulation_mode()
+    env.robot.manip.goto_joint_positions(
+        env.robot.manip._extract_joint_pos(STRETCH_NAVIGATION_Q)
+    )
+    env.robot.switch_to_navigation_mode()
+    env.robot.head.set_pan_tilt(tilt=-np.pi/12, blocking=True)
     print("==============")
 
     env.reset()
     agent.reset()
+    env.robot.head.set_pan_tilt(tilt=-np.pi/12, blocking=True)    
+
+    # create folders for saving images
+    folder_name = time.strftime("%d-%m-%Y_%H:%M:%S", time.localtime())
+    folder_name = f"videos/{folder_name}"
+    images_folder = f"{folder_name}/images"
+    if not os.path.exists(images_folder):
+        os.makedirs(images_folder)
 
     t = 0
-    while not env.episode_over:
-        t += 1
-        print("STEP =", t)
-        obs = env.get_observation()
-        action = agent.act(obs)
-        env.apply_action(action)
+    try:
+        while not env.episode_over or action == 0:
+            t += 1
+            print("STEP =", t)
+            obs = env.get_observation()
+            rgb_image = Image.fromarray(obs['rgb'])
+            rgb_image.save('{}/snapshot_{}.png'.format(images_folder, t))
+
+            action = agent.act(obs)
+            env.apply_action(action)
+    except:
+        print("Saving Video")
 
     record_video(
-        target_dir=f"{config.dump_location}/videos/{config.exp_name}",
-        image_dir=f"{config.dump_location}/images/{config.exp_name}",
+        target_dir=folder_name,
+        image_dir=images_folder,
     )
+
+if __name__ == "__main__":
+    main()

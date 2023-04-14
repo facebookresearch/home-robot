@@ -1,7 +1,7 @@
 # @package hydra
 run:
-  dir: /checkpoint/maksymets/eaif/results/${hydra.job.name}/${oc.env:USER}/${WANDB.name}
+  dir: eaif_results/${hydra.job.name}/${oc.env:USER}/${WANDB.name}
   subdir: ${hydra.job.num}_${now:%Y-%m-%d}_${now:%H-%M-%S}
 sweep:
-  dir: /checkpoint/maksymets/eaif/results/${hydra.job.name}/${oc.env:USER}/${WANDB.name}
+  dir: eaif_results/${hydra.job.name}/${oc.env:USER}/${WANDB.name}
   subdir: ${hydra.job.num}_${now:%Y-%m-%d}_${now:%H-%M-%S}

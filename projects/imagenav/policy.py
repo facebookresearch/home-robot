@@ -14,6 +14,7 @@ from habitat_baselines.utils.common import batch_obs
 from habitat_eaif.config import get_config
 from habitat_eaif.rl.policy import EAIPolicy
 
+from home_robot.core.interfaces import DiscreteNavigationAction
 
 # Turn numpy observations into torch tensors for consumption by policy
 def to_tensor(v):
@@ -90,7 +91,7 @@ class CortexPolicy:
         # GPU/CPU torch tensor -> numpy
         actions = actions.squeeze().cpu().numpy()
 
-        return actions
+        return DiscreteNavigationAction(actions)
 
 @hydra.main(config_path="configs", config_name="config_imagenav_stretch")
 def main(cfg):
