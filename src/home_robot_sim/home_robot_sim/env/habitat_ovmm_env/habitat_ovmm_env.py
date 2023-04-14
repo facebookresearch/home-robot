@@ -117,7 +117,11 @@ class HabitatOpenVocabManipEnv(HabitatEnv):
                 "start_recep_goal": start_recep_goal,
                 "end_recep_goal": end_recep_goal,
                 "goal_name": goal_name,
+                "object_embedding": habitat_obs["object_embedding"],
             },
+            joint=habitat_obs["joint"],
+            is_holding=habitat_obs["is_holding"],
+            relative_resting_position=habitat_obs["relative_resting_position"],
             third_person_image=habitat_obs["robot_third_rgb"],
             camera_pose=self.convert_pose_to_real_world_axis(
                 np.asarray(habitat_obs["camera_pose"])

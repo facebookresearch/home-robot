@@ -7,14 +7,14 @@
 
 import copy
 import random
-from typing import Dict
+from collections import OrderedDict
+from typing import Any, Dict
 
 import gym.spaces as spaces
 import numba
 import numpy as np
 import torch
 from habitat.core.agent import Agent
-from habitat.core.simulator import Observations
 from habitat.utils.gym_adapter import (
     continuous_vector_action_to_hab_dict,
     create_action_space,
@@ -25,6 +25,8 @@ from habitat_baselines.common.obs_transformers import (
     get_active_obs_transforms,
 )
 from habitat_baselines.utils.common import batch_obs, get_num_actions
+
+from home_robot.core.interfaces import Observations
 
 random_generator = np.random.RandomState()
 
@@ -173,12 +175,29 @@ class PPOAgent(Agent):
         # raise NotImplementedError
         return observations.habitat_obs["is_holding"]
 
+    def convert_to_habitat_obs_space(
+        self, obs: Observations
+    ) -> "OrderedDict[str, Any]":
+        # TODO: override for GazeAgent
+        return OrderedDict(
+            {
+                "robot_head_depth": obs.depth,
+                "object_embedding": obs.task_observations["object_embedding"],
+                "object_segmentation": obs.semantic
+                == obs.task_observations["object_goal"],
+                "joint": obs.joint,
+                "relative_resting_postion": obs.relative_resting_position,
+                "is_holding": obs.is_holding,
+            }
+        )
+
     def act(self, observations: Observations) -> Dict[str, int]:
         sample_random_seed()
         # TODO: Remove habitat_obs, map home-robot obs to habitat keys
-        batch = batch_obs([observations.habitat_obs], device=self.device)
+        habitat_obs = self.convert_to_habitat_obs_space(observations)
+        batch = batch_obs([habitat_obs], device=self.device)
         batch = apply_obs_transforms_batch(batch, self.obs_transforms)
-        batch = {k: batch[k] for k in self.skill_obs_keys}
+        batch = OrderedDict([(k, batch[k]) for k in self.skill_obs_keys])
         with torch.no_grad():
             action_data = self.actor_critic.act(
                 batch,
