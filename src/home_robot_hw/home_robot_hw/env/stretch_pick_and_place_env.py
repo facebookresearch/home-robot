@@ -20,27 +20,11 @@ from home_robot_hw.utils.grasping import GraspPlanner
 
 REAL_WORLD_CATEGORIES = [
     "other",
-    # Seen object categories
-    "bowl",
-    "cup",
-    "bin",
-    # Unseen object categories
-    "bucket",
-    "elephant",
-    "computer_mouse",
-    "car_keys",
-    # Receptacles
-    "chair",
-    "table",
-    "other",
-]
-REAL_WORLD_CATEGORIES = [
-    "other",
     "chair",
     "cup",
     "table",
     "other",
-]
+]  # TODO: Remove hardcoded indices in the visualizer so we can add more objects
 
 
 DETIC = "detic"
