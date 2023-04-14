@@ -126,7 +126,6 @@ class HabitatOpenVocabManipEnv(HabitatEnv):
             camera_pose=self.convert_pose_to_real_world_axis(
                 np.asarray(habitat_obs["camera_pose"])
             ),
-            habitat_obs=habitat_obs,
         )
         obs = self._preprocess_semantic(obs, habitat_obs)
         return obs

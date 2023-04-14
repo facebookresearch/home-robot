@@ -27,6 +27,10 @@ from habitat_baselines.common.obs_transformers import (
 from habitat_baselines.utils.common import batch_obs, get_num_actions
 
 from home_robot.core.interfaces import Observations
+from home_robot_sim.env.habitat_objectnav_env.constants import (
+    MAX_DEPTH_REPLACEMENT_VALUE,
+    MIN_DEPTH_REPLACEMENT_VALUE,
+)
 
 random_generator = np.random.RandomState()
 
@@ -70,6 +74,8 @@ class PPOAgent(Agent):
             if torch.cuda.is_available()
             else torch.device("cpu")
         )
+        self.config = config
+
         self.hidden_size = config.habitat_baselines.rl.ppo.hidden_size
         random_generator.seed(config.habitat.seed)
 
@@ -173,29 +179,41 @@ class PPOAgent(Agent):
     def does_want_terminate(self, observations, actions):
         # TODO: override in GazeAgent
         # raise NotImplementedError
-        return observations.habitat_obs["is_holding"]
+        h, w = observations.semantic.shape
+        return (
+            observations.semantic[h // 2, w // 2]
+            == observations.task_observations["object_goal"]
+        )
 
     def convert_to_habitat_obs_space(
         self, obs: Observations
     ) -> "OrderedDict[str, Any]":
-        # TODO: override for GazeAgent
+
+        # normalize depth
+        min_depth = self.config.ENVIRONMENT.min_depth
+        max_depth = self.config.ENVIRONMENT.max_depth
+        normalized_depth = obs.depth.copy()
+        normalized_depth[normalized_depth == MIN_DEPTH_REPLACEMENT_VALUE] = 0
+        normalized_depth[normalized_depth == MAX_DEPTH_REPLACEMENT_VALUE] = 1
+        normalized_depth = (normalized_depth - min_depth) / (max_depth - min_depth)
+        # TODO: override for GazeAgent or convert all observations to hab observation space here
         return OrderedDict(
             {
-                "robot_head_depth": obs.depth,
+                "robot_head_depth": np.expand_dims(normalized_depth, -1),
                 "object_embedding": obs.task_observations["object_embedding"],
-                "object_segmentation": obs.semantic
-                == obs.task_observations["object_goal"],
+                "object_segmentation": np.expand_dims(
+                    obs.semantic == obs.task_observations["object_goal"], -1
+                ).astype(np.uint8),
                 "joint": obs.joint,
-                "relative_resting_postion": obs.relative_resting_position,
+                "relative_resting_position": obs.relative_resting_position,
                 "is_holding": obs.is_holding,
             }
         )
 
     def act(self, observations: Observations) -> Dict[str, int]:
         sample_random_seed()
-        # TODO: Remove habitat_obs, map home-robot obs to habitat keys
-        habitat_obs = self.convert_to_habitat_obs_space(observations)
-        batch = batch_obs([habitat_obs], device=self.device)
+        obs = self.convert_to_habitat_obs_space(observations)
+        batch = batch_obs([obs], device=self.device)
         batch = apply_obs_transforms_batch(batch, self.obs_transforms)
         batch = OrderedDict([(k, batch[k]) for k in self.skill_obs_keys])
         with torch.no_grad():
