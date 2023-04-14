@@ -450,7 +450,7 @@ class FloorplannertoMukulIndoor(SemanticCategoryMapping):
         return 35
 
 
-class RearrangeCategories(SemanticCategoryMapping):
+class RearrangeBasicCategories(SemanticCategoryMapping):
     def __init__(self):
         super().__init__()
         self.goal_id_to_goal_name = rearrange_3categories_indexes

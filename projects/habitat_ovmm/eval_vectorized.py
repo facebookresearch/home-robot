@@ -248,9 +248,7 @@ if __name__ == "__main__":
     print("Configs:")
     config, config_str = get_config(args.habitat_config_path, opts=args.opts)
     OmegaConf.set_readonly(config, True)
-    baseline_config = OmegaConf.load(
-        "projects/habitat_ovmm/configs/agent/floorplanner_detic_eval.yaml"
-    )
+    baseline_config = OmegaConf.load(args.baseline_config_path)
     config = DictConfig({**config, **baseline_config})
     evaluator = VectorizedEvaluator(config, config_str)
     print(config_str)
