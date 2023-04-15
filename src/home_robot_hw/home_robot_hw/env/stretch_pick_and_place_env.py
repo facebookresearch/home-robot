@@ -198,6 +198,9 @@ class StretchPickandPlaceEnv(StretchEnv):
         # GPS in robot coordinates
         gps = relative_pose.translation()[:2]
 
+        # TODO:
+        # self.task_info['object_embedding']
+
         # Create the observation
         obs = home_robot.core.interfaces.Observations(
             rgb=rgb.copy(),
@@ -208,7 +211,12 @@ class StretchPickandPlaceEnv(StretchEnv):
             # base_pose=sophus2obs(relative_pose),
             task_observations=self.task_info,
             camera_pose=self.get_camera_pose_matrix(rotated=True),
-            # joint_positions=pos,
+            # TODO: get these from the agent, remove if no policy uses these
+            joint=np.array(
+                [0.0, 0.0, 0.0, 0.0, 0.775, 0.0, -1.57, 0.0, -1.7375, -0.7125]
+            ),
+            relative_resting_position=np.array([0.3878479, 0.12924957, 0.4224413]),
+            is_holding=np.array([0.0]),
         )
         # Run the segmentation model here
         if self.segmentation_method == DETIC:
