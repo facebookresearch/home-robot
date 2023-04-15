@@ -35,7 +35,10 @@ class DataWriter(object):
             self.filename = os.path.join(self.dirname, self.filename)
         else:
             self.filename = self.filename
-        self.num_trials = 0
+
+        with h5py.File(self.filename, "a") as h5_file:
+            self.num_trials = len(h5_file.keys())  # TODO: check...
+
         self.reset()
 
     def reset(self):

@@ -165,8 +165,10 @@ def collect_data(args, task_names, headless):
         if task_variant is not None:
             task.set_variation(task_variant)
 
+        current_demo_id = train_writer.num_trials + valid_writer.num_trials
+
         # Collect and write 1 at a time in case something goes wrong
-        for i in tqdm(range(num_demos), ncols=50):
+        for i in tqdm(range(current_demo_id, num_demos), ncols=50):
             if i < args.num_train_demos:
                 writer = train_writer
             else:
@@ -300,6 +302,8 @@ def collect_data(args, task_names, headless):
                     low_dim_state=low_dim_state,
                 )
             writer.write_trial(str(task_name) + str(i))
+
+    env.shutdown()
 
 
 def parse_args():
