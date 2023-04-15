@@ -1,4 +1,6 @@
 import argparse
+import copy
+import os
 from pathlib import Path
 
 import numpy as np
@@ -6,6 +8,7 @@ import trimesh.transformations as tra
 from rlbench.action_modes.action_mode import MoveArmThenGripper
 from rlbench.action_modes.arm_action_modes import JointVelocity
 from rlbench.action_modes.gripper_action_modes import Discrete
+from rlbench.const import colors
 from rlbench.environment import Environment
 from rlbench.observation_config import ObservationConfig
 
@@ -13,8 +16,14 @@ from rlbench.observation_config import ObservationConfig
 from rlbench.tasks import (
     BlockPyramid,
     CloseDrawer,
+    EmptyContainer,
+    InsertOntoSquarePeg,
     OpenDoor,
     OpenDrawer,
+    PickAndLift,
+    PourFromCupToCup,
+    PutPlateInColoredDishRack,
+    ReachAndDrag,
     ReachTarget,
     TakeLidOffSaucepan,
 )
@@ -42,6 +51,19 @@ tasks = {
     "make a pyramid out of blocks": (BlockPyramid, 0),
     "take_lid_off_saucepan": (TakeLidOffSaucepan, None),
 }
+
+color_tasks = {
+    "pick_and_lift": PickAndLift,
+    "reach_and_drag": ReachAndDrag,
+    "insert_onto_square_peg": InsertOntoSquarePeg,
+    "put_plate_in_colored_dish_rack": PutPlateInColoredDishRack,
+    "empty_container": EmptyContainer,
+    "pour_from_cup_to_cup": PourFromCupToCup,
+}
+
+for task_key, task_type in color_tasks.items():
+    for color_id in range(len(colors)):
+        tasks[f"{task_key}_{color_id}"] = (task_type, color_id)
 
 reach = ["reach_target_%d" % (i + 1) for i in range(5)]
 open_drawer = ["open_drawer_%s" % i for i in ["btm", "mid", "top"]]
@@ -297,6 +319,7 @@ def parse_args():
         action="store_true",
         help="visualize RL bench while collecting data",
     )
+    parser.add_argument("--separate", action="store_true")
     return parser.parse_args()
 
 
@@ -307,7 +330,22 @@ if __name__ == "__main__":
     # tasks_to_gen = ["reach_target_1"]
     # tasks_to_gen = reach + open_drawer + close_drawer
     # tasks_to_gen += ["take_lid_off_saucepan"]
-    tasks_to_gen = args.tasks.split(",")
+    if args.tasks == "colors":
+        tasks_to_gen = []
+        for task_key in color_tasks.keys():
+            # red, green, blue, yellow, orange, violet
+            for color_id in [0, 3, 4, 6, 11, 16]:
+                tasks_to_gen.append(f"{task_key}_{color_id}")
+    else:
+        tasks_to_gen = args.tasks.split(",")
     # tasks_to_gen = ["take_lid_off_saucepan"]
     # tasks_to_gen += reach + open_drawer + close_drawer
-    collect_data(args, tasks_to_gen, headless=(not args.visualize))
+
+    if args.separate:
+        for task_name in tasks_to_gen:
+            task_args = copy.deepcopy(args)
+            task_args.train_dir = os.path.join(task_args.train_dir, task_name)
+            task_args.valid_dir = os.path.join(task_args.valid_dir, task_name)
+            collect_data(args, [task_name], headless=(not args.visualize))
+    else:
+        collect_data(args, tasks_to_gen, headless=(not args.visualize))
