@@ -56,7 +56,7 @@ color_tasks = {
     "pick_and_lift": PickAndLift,
     "reach_and_drag": ReachAndDrag,
     "insert_onto_square_peg": InsertOntoSquarePeg,
-    "put_plate_in_colored_dish_rack": PutPlateInColoredDishRack,
+    # "put_plate_in_colored_dish_rack": PutPlateInColoredDishRack,
     "empty_container": EmptyContainer,
     "pour_from_cup_to_cup": PourFromCupToCup,
 }
