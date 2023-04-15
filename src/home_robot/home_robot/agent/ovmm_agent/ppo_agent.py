@@ -15,6 +15,7 @@ import numba
 import numpy as np
 import torch
 from habitat.core.agent import Agent
+from habitat.core.spaces import EmptySpace
 from habitat.utils.gym_adapter import (
     continuous_vector_action_to_hab_dict,
     create_action_space,
@@ -69,6 +70,47 @@ class PPOAgent(Agent):
         # Observation and action spaces for the full task
         self.obs_space = obs_spaces
         self.action_space = action_spaces
+        if obs_spaces is None:
+            self.obs_space = [
+                spaces.dict.Dict(
+                    {
+                        "is_holding": spaces.Box(0.0, 1.0, (1,), np.float32),
+                        "robot_head_depth": spaces.Box(
+                            0.0, 1.0, (256, 256, 1), np.float32
+                        ),
+                        "joint": spaces.Box(0.0, 1.0, (1,), np.float32),
+                        "object_embedding": spaces.Box(
+                            np.finfo(np.float32).min,
+                            np.finfo(np.float32).max,
+                            (512,),
+                            np.float32,
+                        ),
+                        "relative_resting_position:Box": spaces.Box(
+                            np.finfo(np.float32).min,
+                            np.finfo(np.float32).max,
+                            (3,),
+                            np.float32,
+                        ),
+                        "object_segmentation": spaces.Box(
+                            0.0, 1.0, (256, 256, 1), np.uint8
+                        ),
+                    }
+                )
+            ]
+        if action_spaces is None:
+            self.action_space = [
+                spaces.dict.Dict(
+                    {
+                        "arm_action": spaces.Box(-1.0, 1.0, (7,), np.float32),
+                        "grip_action": spaces.Box(-1.0, 1.0, (1), np.float32),
+                        "base_velocity": spaces.Box(-20.0, 20.0, (2,), np.float32),
+                        "extend_arm": EmptySpace(),
+                        "face_arm": EmptySpace(),
+                        "rearrange_stop": EmptySpace(),
+                        "reset_joints": EmptySpace(),
+                    }
+                )
+            ]
         self.device_id = device_id
         self.device = (
             torch.device(f"cuda:{self.device_id}")
@@ -216,7 +258,7 @@ class PPOAgent(Agent):
             }
         )
 
-    def act(self, observations: Observations) -> Dict[str, int]:
+    def act(self, observations: Observations):
         sample_random_seed()
         obs = self.convert_to_habitat_obs_space(observations)
         batch = batch_obs([obs], device=self.device)

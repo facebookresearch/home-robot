@@ -2,6 +2,7 @@ from enum import Enum
 from typing import Any, Dict, List, Tuple
 
 from home_robot.agent.objectnav_agent import ObjectNavAgent
+from home_robot.agent.ovmm_agent.ppo_agent import PPOAgent
 from home_robot.core.abstract_agent import Agent
 from home_robot.core.interfaces import Action, DiscreteNavigationAction, Observations
 
@@ -27,16 +28,29 @@ class PickAndPlaceAgent(Agent):
     # Force the robot to jump right to an attempt to pick objects
 
     def __init__(
-        self, config, device_id: int = 0, skip_find_object=False, skip_place=False
+        self,
+        config,
+        device_id: int = 0,
+        skip_find_object=False,
+        skip_place=False,
+        skip_orient=False,
     ):
         """Create the component object nav agent"""
 
         # Flags used for skipping through state machine when debugging
         self.skip_find_object = skip_find_object
         self.skip_place = skip_place
-
+        self.skip_orient = skip_orient
+        self.config = config
         # Agent for object nav
         self.object_nav_agent = ObjectNavAgent(config, device_id)
+        if hasattr(self.config.SKILLS, "gaze"):
+            self.gaze_agent = PPOAgent(
+                config,
+                config.AGENT.SKILLS.GAZE,
+                device_id=device_id,
+            )
+
         self.reset()
 
     def reset(self):
@@ -69,24 +83,28 @@ class PickAndPlaceAgent(Agent):
             action: home_robot action
             info: additional information (e.g., for debugging, visualization)
         """
+
         action = DiscreteNavigationAction.STOP
         action_info = None
         # Look for the goal object.
         if self.state == SimpleTaskState.FIND_OBJECT:
             obs = self._preprocess_obs_for_find(obs)
             action, action_info = self.object_nav_agent.act(obs)
-            if self.skip_find_object:
+            if self.skip_find_object or action == DiscreteNavigationAction.STOP:
                 print("-> Actually predicted:", action)
                 action = DiscreteNavigationAction.STOP
-                self.state = SimpleTaskState.PICK_OBJECT
-            elif action == DiscreteNavigationAction.STOP:
                 self.state = SimpleTaskState.ORIENT_OBJ
         # If we have found the object, then try to pick it up.
         if self.state == SimpleTaskState.ORIENT_OBJ:
-            # Try to grab the object.
-            # If we grasped the object, then we should increment our state again
-            self.state = SimpleTaskState.PICK_OBJECT
-            return DiscreteNavigationAction.MANIPULATION_MODE, action_info
+            if not self.skip_orient:
+                if not hasattr(self.config.SKILLS, "gaze"):
+                    # Try to grab the object.
+                    # If we grasped the object, then we should increment our state again
+                    self.state = SimpleTaskState.PICK_OBJECT
+                    return DiscreteNavigationAction.MANIPULATION_MODE, action_info
+                else:
+                    # TODO:
+                    return self.gaze_agent.act(obs)
         if self.state == SimpleTaskState.PICK_OBJECT:
             # Try to grab the object
             if not self.skip_place:
