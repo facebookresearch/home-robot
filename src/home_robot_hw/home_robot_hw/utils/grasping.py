@@ -16,6 +16,8 @@ from home_robot.utils.pose import to_pos_quat
 from home_robot_hw.ros.grasp_helper import GraspClient as RosGraspClient
 from home_robot_hw.ros.utils import matrix_to_pose_msg, ros_pose_to_transform
 
+STRETCH_GRIPPER_LENGTH = 0.2
+
 
 class GraspPlanner(object):
     """Simple grasp planner which integrates with a ROS service runnning e.g. contactgraspnet.
@@ -147,11 +149,12 @@ class GraspPlanner(object):
             mask_scene = mask_valid  # initial mask has to be good
             mask_scene = mask_scene.reshape(-1)
 
-            predicted_grasps = self.grasp_client.request(
+            predicted_grasps, in_base_frame = self.grasp_client.request(
                 xyz,
                 rgb,
                 object_mask,
                 frame=self.robot_client._ros_client.rgb_cam.get_frame(),
+                camera_pose=camera_pose,
             )
             if 0 not in predicted_grasps:
                 print("no predicted grasps")
@@ -161,10 +164,11 @@ class GraspPlanner(object):
 
             grasps = []
             for i, (score, grasp) in sorted(
-                enumerate(zip(scores, predicted_grasps)), key=lambda x: x[1]
+                enumerate(zip(scores, predicted_grasps)), key=lambda x: x[0]
             ):
                 pose = grasp
-                pose = camera_pose @ pose
+                if not in_base_frame:
+                    pose = camera_pose @ pose
                 if score < min_grasp_score:
                     continue
 
@@ -180,10 +184,11 @@ class GraspPlanner(object):
 
             print("After filtering: # grasps =", len(grasps))
 
-            # Correct for the length of the Stretch gripper and the gripper upon
-            # which Graspnet was trained
+            # Poses from the grasp server are pinch points
+            # retract by gripper length to get gripper pose
             grasp_offset = np.eye(4)
-            grasp_offset[2, 3] = -0.10
+            grasp_offset[2, 3] = -STRETCH_GRIPPER_LENGTH
+
             for i, grasp in enumerate(grasps):
                 grasps[i] = grasp @ grasp_offset
 

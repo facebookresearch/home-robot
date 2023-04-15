@@ -1,7 +1,7 @@
 import argparse
 import sys
 from pathlib import Path
-from typing import Optional
+from typing import Optional, Tuple
 
 import numpy as np
 import torch
@@ -53,6 +53,42 @@ def get_clip_embeddings(vocabulary, prompt="a "):
     texts = [prompt + x for x in vocabulary]
     emb = text_encoder(texts).detach().permute(1, 0).contiguous().cpu()
     return emb
+
+
+def overlay_masks(
+    masks: np.ndarray, class_idcs: np.ndarray, shape: Tuple[int, int]
+) -> np.ndarray:
+    """Overlays the masks of objects
+    Determines the order of masks based on mask size
+    """
+    mask_sizes = [np.sum(mask) for mask in masks]
+    sorted_mask_idcs = np.argsort(mask_sizes)
+
+    semantic_mask = np.zeros(shape)
+    instance_mask = -np.ones(shape)
+    for i_mask in sorted_mask_idcs[::-1]:  # largest to smallest
+        semantic_mask[masks[i_mask].astype(bool)] = class_idcs[i_mask]
+        instance_mask[masks[i_mask].astype(bool)] = i_mask
+
+    return semantic_mask, instance_mask
+
+
+def filter_depth(
+    mask: np.ndarray, depth: np.ndarray, depth_threshold: Optional[float] = None
+) -> np.ndarray:
+    md = np.median(depth[mask == 1])  # median depth
+    if md == 0:
+        # Remove mask if more than half of points has invalid depth
+        filter_mask = np.ones_like(mask, dtype=bool)
+    elif depth_threshold is not None:
+        # Restrict objects to 1m depth
+        filter_mask = (depth >= md + depth_threshold) | (depth <= md - depth_threshold)
+    else:
+        filter_mask = np.zeros_like(mask, dtype=bool)
+    mask_out = mask.copy()
+    mask_out[filter_mask] = 0.0
+
+    return mask_out
 
 
 class DeticPerception(PerceptionModule):
@@ -171,32 +207,24 @@ class DeticPerception(PerceptionModule):
             predictions=pred["instances"].to(self.cpu_device)
         ).get_image()
 
-        prediction = np.zeros((height, width))
-        for j, class_idx in enumerate(pred["instances"].pred_classes.cpu().numpy()):
-            if class_idx in self.categories_mapping:
-                idx = self.categories_mapping[class_idx]
-                obj_mask = pred["instances"].pred_masks[j] * 1.0
-                obj_mask = obj_mask.cpu().numpy()
+        # Sort instances by mask size
+        masks = pred["instances"].pred_masks.cpu().numpy()
+        class_idcs = pred["instances"].pred_classes.cpu().numpy()
+        scores = pred["instances"].scores.cpu().numpy()
 
-                if depth_threshold is not None and depth is not None:
-                    md = np.median(depth[obj_mask == 1])
-                    if md == 0:
-                        filter_mask = np.ones_like(obj_mask, dtype=bool)
-                    else:
-                        # Restrict objects to 1m depth
-                        filter_mask = (depth >= md + depth_threshold) | (
-                            depth <= md - depth_threshold
-                        )
-                    # print(
-                    #     f"Median object depth: {md.item()}, filtering out "
-                    #     f"{np.count_nonzero(filter_mask)} pixels"
-                    # )
-                    obj_mask[filter_mask] = 0.0
+        if depth_threshold is not None and depth is not None:
+            masks = np.array(
+                [filter_depth(mask, depth, depth_threshold) for mask in masks]
+            )
 
-                prediction[obj_mask.astype(bool)] = idx
+        semantic_map, instance_map = overlay_masks(masks, class_idcs, (height, width))
 
-        obs.semantic = prediction.astype(int)
+        obs.semantic = semantic_map.astype(int)
+        obs.task_observations["instance_map"] = instance_map
+        obs.task_observations["instance_classes"] = class_idcs
+        obs.task_observations["instance_scores"] = scores
         obs.task_observations["semantic_frame"] = visualization
+
         return obs
 
 
