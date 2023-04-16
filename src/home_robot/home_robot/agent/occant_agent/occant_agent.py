@@ -10,6 +10,9 @@ import torch
 from torch.nn import DataParallel
 
 import home_robot.utils.pose as pu
+from home_robot.agent.exploration_agent.exploration_agent_module import (
+    ExplorationAgentModule,
+)
 from home_robot.agent.occant_agent.occant_agent_module import OccAntAgentModule
 from home_robot.core.abstract_agent import Agent
 from home_robot.core.interfaces import DiscreteNavigationAction, Observations
@@ -35,19 +38,35 @@ class OccAntAgent(Agent):
             self.panorama_start_steps = 0
 
         self._module = OccAntAgentModule(config)
+        self._module_seen = ExplorationAgentModule(
+            config, set_local_explored=True, must_explore_close=True
+        )
 
         if config.NO_GPU:
             self.device = torch.device("cpu")
             self.module = self._module
+            self.module_seen = self._module_seen
         else:
             self.device_id = device_id
             self.device = torch.device(f"cuda:{self.device_id}")
             self._module = self._module.to(self.device)
+            self._module_seen = self._module_seen.to(self.device)
             # Use DataParallel only as a wrapper to move model inputs to GPU
             self.module = DataParallel(self._module, device_ids=[self.device_id])
+            self.module_seen = DataParallel(
+                self._module_seen, device_ids=[self.device_id]
+            )
 
         self.use_dilation_for_stg = config.AGENT.PLANNER.use_dilation_for_stg
         self.geometric_map = GeometricMapState(
+            device=self.device,
+            num_environments=self.num_environments,
+            map_resolution=config.AGENT.SEMANTIC_MAP.map_resolution,
+            map_size_cm=config.AGENT.SEMANTIC_MAP.map_size_cm,
+            global_downscaling=config.AGENT.SEMANTIC_MAP.global_downscaling,
+        )
+        # Build a map with only seen occupancy (not anticipated)
+        self.geometric_map_seen = GeometricMapState(
             device=self.device,
             num_environments=self.num_environments,
             map_resolution=config.AGENT.SEMANTIC_MAP.map_resolution,
@@ -124,6 +143,29 @@ class OccAntAgent(Agent):
         )
 
         (
+            _,
+            _,
+            self.geometric_map_seen.local_map,
+            self.geometric_map_seen.global_map,
+            _,
+            _,
+            _,
+            _,
+        ) = self.module_seen(
+            obs.unsqueeze(1),
+            pose_delta.unsqueeze(1),
+            dones.unsqueeze(1),
+            update_global.unsqueeze(1),
+            camera_pose,
+            self.geometric_map_seen.local_map,
+            self.geometric_map_seen.global_map,
+            self.geometric_map_seen.local_pose,
+            self.geometric_map_seen.global_pose,
+            self.geometric_map_seen.lmb,
+            self.geometric_map_seen.origins,
+        )
+
+        (
             goal_map,
             frontier_map,
             self.geometric_map.local_map,
@@ -139,6 +181,7 @@ class OccAntAgent(Agent):
             update_global.unsqueeze(1),
             camera_pose,
             self.geometric_map.local_map,
+            self.geometric_map_seen.local_map,
             self.geometric_map.global_map,
             self.geometric_map.local_pose,
             self.geometric_map.global_pose,
@@ -150,6 +193,13 @@ class OccAntAgent(Agent):
         self.geometric_map.global_pose = seq_global_pose[:, -1]
         self.geometric_map.lmb = seq_lmb[:, -1]
         self.geometric_map.origins = seq_origins[:, -1]
+
+        self.geometric_map_seen.local_pose = seq_local_pose[:, -1]
+        self.geometric_map_seen.global_pose = seq_global_pose[:, -1]
+        self.geometric_map_seen.lmb = seq_lmb[:, -1]
+        self.geometric_map_seen.origins = seq_origins[:, -1]
+
+        print("Finished one update")
 
         goal_map = goal_map.squeeze(1).cpu().numpy()
 
@@ -192,6 +242,7 @@ class OccAntAgent(Agent):
                 "explored_map": self.geometric_map.get_explored_map(e),
                 "been_close_map": self.geometric_map.get_been_close_map(e),
                 "timestep": self.timesteps[e],
+                "occupancy_vis": self._module.geometric_map_module._vis_rgb,
             }
             for e in range(self.num_environments)
         ]
@@ -204,6 +255,7 @@ class OccAntAgent(Agent):
         self.timesteps_before_goal_update = [0] * self.num_environments
         self.last_poses = [np.zeros(3)] * self.num_environments
         self.geometric_map.init_map_and_pose()
+        self.geometric_map_seen.init_map_and_pose()
 
     def reset_vectorized_for_env(self, e: int):
         """Initialize agent state for a specific environment."""
@@ -211,6 +263,7 @@ class OccAntAgent(Agent):
         self.timesteps_before_goal_update[e] = 0
         self.last_poses[e] = np.zeros(3)
         self.geometric_map.init_map_and_pose_for_env(e)
+        self.geometric_map_seen.init_map_and_pose_for_env(e)
 
     # ---------------------------------------------------------------------
     # Inference methods to interact with the robot or a single un-vectorized

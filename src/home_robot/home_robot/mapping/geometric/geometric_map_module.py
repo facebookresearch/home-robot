@@ -55,6 +55,7 @@ class GeometricMapModule(nn.Module):
         min_depth: float = 0.5,
         max_depth: float = 3.5,
         must_explore_close: bool = True,
+        set_local_explored: bool = True,
     ):
         """
         Arguments:
@@ -84,6 +85,7 @@ class GeometricMapModule(nn.Module):
         self.screen_w = frame_width
         self.camera_matrix = du.get_camera_matrix(self.screen_w, self.screen_h, hfov)
         self.must_explore_close = must_explore_close
+        self.set_local_explored = set_local_explored
 
         self.map_size_parameters = mu.MapSizeParameters(
             map_resolution, map_size_cm, global_downscaling
@@ -283,7 +285,10 @@ class GeometricMapModule(nn.Module):
             agent_height = self.agent_height
 
         depth = obs[:, 3, :, :].float()
+        # Filter depth values
         depth[depth > self.max_depth] = 0
+        depth[depth <= self.min_depth] = 0
+
         point_cloud_t = du.get_point_cloud_from_z_t(
             depth, self.camera_matrix, device, scale=self.du_scale
         )
@@ -345,6 +350,13 @@ class GeometricMapModule(nn.Module):
             device=device,
             dtype=torch.float32,
         )
+        # Filter out zeroed depth values
+        zero_mask = (
+            depth[:, :: self.du_scale, :: self.du_scale] == 0
+        )  # (batch_size, H, W)
+        zero_mask = zero_mask.unsqueeze(1).expand(-1, voxel_channels, -1, -1)
+        zero_mask = zero_mask.view(batch_size, voxel_channels, -1)
+        feat[zero_mask] = 0
 
         XYZ_cm_std = point_cloud_map_coords.float()
         XYZ_cm_std[..., :2] = XYZ_cm_std[..., :2] / self.xy_resolution
@@ -372,7 +384,8 @@ class GeometricMapModule(nn.Module):
         agent_height_proj = voxels[
             ..., self.min_mapped_height : self.max_mapped_height
         ].sum(4)
-        all_height_proj = voxels.sum(4)
+        # all_height_proj = voxels.sum(4)
+        all_height_proj = voxels[..., 0 : self.max_mapped_height].sum(4)
 
         fp_map_pred = agent_height_proj[:, 0:1, :, :]
         fp_exp_pred = all_height_proj[:, 0:1, :, :]
@@ -434,14 +447,15 @@ class GeometricMapModule(nn.Module):
             # Set a disk around the agent to explored
             # This is around the current agent - we just sort of assume we know where we are
             try:
-                radius = 10
-                explored_disk = torch.from_numpy(skimage.morphology.disk(radius))
-                current_map[
-                    e,
-                    MC.EXPLORED_MAP,
-                    y - radius : y + radius + 1,
-                    x - radius : x + radius + 1,
-                ][explored_disk == 1] = 1
+                if self.set_local_explored:
+                    radius = 10
+                    explored_disk = torch.from_numpy(skimage.morphology.disk(radius))
+                    current_map[
+                        e,
+                        MC.EXPLORED_MAP,
+                        y - radius : y + radius + 1,
+                        x - radius : x + radius + 1,
+                    ][explored_disk == 1] = 1
                 # Record the region the agent has been close to using a disc centered at the agent
                 radius = self.been_close_to_radius // self.resolution
                 been_close_disk = torch.from_numpy(skimage.morphology.disk(radius))

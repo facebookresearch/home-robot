@@ -223,7 +223,7 @@ class DiscretePlanner:
                         f"reduced obs dilation to {self.curr_obs_dilation_selem_radius}"
                     )
 
-            if found_goal:
+            if True:
                 if debug:
                     print(
                         "Could not find a path to the high-level goal. Trying to explore more..."
@@ -245,11 +245,11 @@ class DiscretePlanner:
                     print("--- after replanning to frontier ---")
                     print("goal =", short_term_goal)
                 found_goal = False
-                # if replan:
-                #     print("Nowhere left to explore. Stopping.")
-                #     # TODO Calling the STOP action here will cause the agent to try grasping
-                #     #   we need different STOP_SUCCESS and STOP_FAILURE actions
-                #     return DiscreteNavigationAction.STOP, goal_map
+                if replan:
+                    print("Nowhere left to explore. Stopping.")
+                    # TODO Calling the STOP action here will cause the agent to try grasping
+                    #   we need different STOP_SUCCESS and STOP_FAILURE actions
+                    return DiscreteNavigationAction.STOP, goal_map
 
         # If we found a short term goal worth moving towards...
         stg_x, stg_y = short_term_goal
@@ -274,6 +274,7 @@ class DiscretePlanner:
         if debug:
             print("Found goal:", found_goal)
             print("Stop:", stop)
+            print("Angle to short-term goal:", relative_angle)
             print("Angle to goal:", relative_angle_goal)
             print("Distance to goal", distance_to_goal)
             print(
@@ -285,9 +286,9 @@ class DiscretePlanner:
 
         # Short-term goal -> deterministic local policy
         if not (found_goal and stop):
-            if relative_angle > self.turn_angle / 2.0:
+            if relative_angle > 2 * self.turn_angle / 3.0:
                 action = DiscreteNavigationAction.TURN_RIGHT
-            elif relative_angle < -self.turn_angle / 2.0:
+            elif relative_angle < -2 * self.turn_angle / 3.0:
                 action = DiscreteNavigationAction.TURN_LEFT
             else:
                 action = DiscreteNavigationAction.MOVE_FORWARD
@@ -298,9 +299,11 @@ class DiscretePlanner:
             print("----------------------------")
             print(">>> orient towards the goal.")
             if relative_angle_goal > 2 * self.turn_angle / 3.0:
-                action = DiscreteNavigationAction.TURN_RIGHT
-            elif relative_angle_goal < -2 * self.turn_angle / 3.0:
+                # action = DiscreteNavigationAction.TURN_RIGHT
                 action = DiscreteNavigationAction.TURN_LEFT
+            elif relative_angle_goal < -2 * self.turn_angle / 3.0:
+                # action = DiscreteNavigationAction.TURN_LEFT
+                action = DiscreteNavigationAction.TURN_RIGHT
             else:
                 action = DiscreteNavigationAction.STOP
                 print("!!! DONE !!!")

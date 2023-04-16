@@ -329,6 +329,7 @@ class ExplorationVisualizer:
         explored_map: np.ndarray,
         image_frame: np.ndarray,
         timestep: int,
+        occupancy_vis: np.ndarray = None,
         visualize_goal: bool = True,
         been_close_map: Optional[np.ndarray] = None,
         third_person_image: Optional[np.ndarray] = None,
@@ -418,19 +419,25 @@ class ExplorationVisualizer:
             / obstacle_map.shape[1],
             np.deg2rad(-curr_o),
         )
-        # agent_arrow = vu.get_contour_points(pos, origin=(670, 50))
+        agent_arrow = vu.get_contour_points(pos, origin=(670, 50))
         color = map_color_palette[9:12][::-1]
-        # cv2.drawContours(self.image_vis, [agent_arrow], 0, color, -1)
-        cv2.circle(self.image_vis, (int(pos[0] + 670), int(pos[1] + 50)), 3, color, -1)
+        cv2.drawContours(self.image_vis, [agent_arrow], 0, color, -1)
+        # cv2.circle(self.image_vis, (int(pos[0] + 670), int(pos[1] + 50)), 3, color, -1)
 
+        image_vis = self.image_vis
+        if occupancy_vis is not None:
+            occupancy_vis = cv2.resize(
+                occupancy_vis, (image_vis.shape[0], image_vis.shape[0])
+            )
+            image_vis = np.concatenate([image_vis, occupancy_vis], axis=1)
         if self.show_images:
-            cv2.imshow("Visualization", self.image_vis)
+            cv2.imshow("Visualization", image_vis)
             cv2.waitKey(1)
 
         if self.print_images:
             cv2.imwrite(
                 os.path.join(self.vis_dir, "snapshot_{:03d}.png".format(timestep)),
-                self.image_vis,
+                image_vis,
             )
 
     def _init_vis_image(self, goal_name: str):

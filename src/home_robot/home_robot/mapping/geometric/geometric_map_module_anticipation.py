@@ -7,7 +7,7 @@ import pytorch3d.transforms as pt
 import skimage.morphology
 import torch
 from einops import asnumpy, rearrange
-from torch import Tensor
+from torch import IntTensor, Tensor
 from torch.nn import functional as F
 
 import home_robot.mapping.map_utils as mu
@@ -22,6 +22,7 @@ from home_robot.mapping.semantic.constants import MapConstants as MC
 
 # For debugging input and output maps - shows matplotlib visuals
 debug_maps = False
+USE_EGO_MAP_SEEN = False
 
 EPS_MAPPER = 1e-8
 
@@ -64,11 +65,143 @@ class GeometricMapModuleWithAnticipation(GeometricMapModule):
             + "\n"
         )
 
+    @torch.no_grad()
+    def forward(
+        self,
+        seq_obs: Tensor,
+        seq_pose_delta: Tensor,
+        seq_dones: Tensor,
+        seq_update_global: Tensor,
+        seq_camera_poses: Tensor,
+        init_local_map: Tensor,
+        init_local_map_seen: Tensor,
+        init_global_map: Tensor,
+        init_local_pose: Tensor,
+        init_global_pose: Tensor,
+        init_lmb: Tensor,
+        init_origins: Tensor,
+    ) -> Tuple[Tensor, Tensor, Tensor, Tensor, Tensor, IntTensor, Tensor]:
+        """Update maps and poses with a sequence of observations and generate map
+        features at each time step.
+
+        Arguments:
+            seq_obs: sequence of frames containing (RGB, depth)
+             of shape (batch_size, sequence_length, 3 + 1, frame_height, frame_width)
+            seq_pose_delta: sequence of delta in pose since last frame of shape
+             (batch_size, sequence_length, 3)
+            seq_dones: sequence of (batch_size, sequence_length) binary flags
+             that indicate episode restarts
+            seq_update_global: sequence of (batch_size, sequence_length) binary
+             flags that indicate whether to update the global map and pose
+            seq_camera_poses: sequence of (batch_size, 4, 4) extrinsic camera
+             matrices
+            init_local_map: initial local map before any updates of shape
+             (batch_size, MC.NON_SEM_CHANNELS, M, M)
+            init_local_map_seen: initial local map of seen obstacles before any updates of shape
+             (batch_size, MC.NON_SEM_CHANNELS, M, M)
+            init_global_map: initial global map before any updates of shape
+             (batch_size, MC.NON_SEM_CHANNELS, M * ds, M * ds)
+            init_global_map_seen: initial global map of seen obstacles before any updates of shape
+             (batch_size, MC.NON_SEM_CHANNELS, M * ds, M * ds)
+            init_local_pose: initial local pose before any updates of shape
+             (batch_size, 3)
+            init_global_pose: initial global pose before any updates of shape
+             (batch_size, 3)
+            init_lmb: initial local map boundaries of shape (batch_size, 4)
+            init_origins: initial local map origins of shape (batch_size, 3)
+
+        Returns:
+            seq_map_features: sequence of geometric map features of shape
+             (batch_size, sequence_length, 2 * MC.NON_SEM_CHANNELS, M, M)
+            final_local_map: final local map after all updates of shape
+             (batch_size, MC.NON_SEM_CHANNELS, M, M)
+            final_global_map: final global map after all updates of shape
+             (batch_size, MC.NON_SEM_CHANNELS, M * ds, M * ds)
+            seq_local_pose: sequence of local poses of shape
+             (batch_size, sequence_length, 3)
+            seq_global_pose: sequence of global poses of shape
+             (batch_size, sequence_length, 3)
+            seq_lmb: sequence of local map boundaries of shape
+             (batch_size, sequence_length, 4)
+            seq_origins: sequence of local map origins of shape
+             (batch_size, sequence_length, 3)
+        """
+        batch_size, sequence_length = seq_obs.shape[:2]
+        device, dtype = seq_obs.device, seq_obs.dtype
+
+        map_features_channels = 2 * MC.NON_SEM_CHANNELS
+        seq_map_features = torch.zeros(
+            batch_size,
+            sequence_length,
+            map_features_channels,
+            self.local_map_size,
+            self.local_map_size,
+            device=device,
+            dtype=dtype,
+        )
+        seq_local_pose = torch.zeros(batch_size, sequence_length, 3, device=device)
+        seq_global_pose = torch.zeros(batch_size, sequence_length, 3, device=device)
+        seq_lmb = torch.zeros(
+            batch_size, sequence_length, 4, device=device, dtype=torch.int32
+        )
+        seq_origins = torch.zeros(batch_size, sequence_length, 3, device=device)
+
+        local_map, local_pose = init_local_map.clone(), init_local_pose.clone()
+        local_map_seen = init_local_map_seen.clone()
+        global_map, global_pose = init_global_map.clone(), init_global_pose.clone()
+        lmb, origins = init_lmb.clone(), init_origins.clone()
+        for t in range(sequence_length):
+            # Reset map and pose for episodes done at time step t
+            for e in range(batch_size):
+                if seq_dones[e, t]:
+                    mu.init_map_and_pose_for_env(
+                        e,
+                        local_map,
+                        global_map,
+                        local_pose,
+                        global_pose,
+                        lmb,
+                        origins,
+                        self.map_size_parameters,
+                    )
+
+            local_map, local_pose = self._update_local_map_and_pose(
+                seq_obs[:, t],
+                seq_pose_delta[:, t],
+                local_map,
+                local_map_seen,
+                local_pose,
+                seq_camera_poses,
+            )
+
+            for e in range(batch_size):
+                if seq_update_global[e, t]:
+                    self._update_global_map_and_pose_for_env(
+                        e, local_map, global_map, local_pose, global_pose, lmb, origins
+                    )
+
+            seq_local_pose[:, t] = local_pose
+            seq_global_pose[:, t] = global_pose
+            seq_lmb[:, t] = lmb
+            seq_origins[:, t] = origins
+            seq_map_features[:, t] = self._get_map_features(local_map, global_map)
+
+        return (
+            seq_map_features,
+            local_map,
+            global_map,
+            seq_local_pose,
+            seq_global_pose,
+            seq_lmb,
+            seq_origins,
+        )
+
     def _update_local_map_and_pose(
         self,
         obs: Tensor,
         pose_delta: Tensor,
         prev_map: Tensor,
+        prev_map_seen: Tensor,
         prev_pose: Tensor,
         camera_pose: Tensor,
     ) -> Tuple[Tensor, Tensor]:
@@ -80,6 +213,7 @@ class GeometricMapModuleWithAnticipation(GeometricMapModule):
              (batch_size, 3 + 1, frame_height, frame_width)
             pose_delta: delta in pose since last frame of shape (batch_size, 3)
             prev_map: previous local map of shape (batch_size, MC.NON_SEM_CHANNELS, M, M)
+            prev_map_seen: previous local map of seen obstacles of shape (batch_size, MC.NON_SEM_CHANNELS, M, M)
             prev_pose: previous pose of shape (batch_size, 3)
             camera_pose: current camera poseof shape (batch_size, 4, 4)
 
@@ -111,6 +245,9 @@ class GeometricMapModuleWithAnticipation(GeometricMapModule):
         # Filter depth values
         depth[depth > self.max_depth] = 0
         depth[depth <= self.min_depth] = 0
+        # Apply median filtering
+        depth = kornia.filters.median_blur(depth.unsqueeze(1), (5, 5)).squeeze(1)
+        depth = kornia.filters.median_blur(depth.unsqueeze(1), (5, 5)).squeeze(1)
 
         point_cloud_t = du.get_point_cloud_from_z_t(
             depth, self.camera_matrix, device, scale=self.du_scale
@@ -219,6 +356,19 @@ class GeometricMapModuleWithAnticipation(GeometricMapModule):
             (fp_exp_pred / self.exp_pred_threshold) >= 1.0
         ).float()  # (B, 1, H, W)
 
+        # Update pose
+        current_pose = pu.get_new_pose_batch(prev_pose.clone(), pose_delta)
+        st_pose = current_pose.clone().detach()
+
+        st_pose[:, :2] = -(
+            (
+                st_pose[:, :2] * 100.0 / self.xy_resolution
+                - self.local_map_size_cm // (self.xy_resolution * 2)
+            )
+            / (self.local_map_size_cm // (self.xy_resolution * 2))
+        )
+        st_pose[:, 2] = 90.0 - (st_pose[:, 2])
+
         ########################################################
         # Perform occupancy anticipation
         ########################################################
@@ -226,6 +376,10 @@ class GeometricMapModuleWithAnticipation(GeometricMapModule):
         # fp_map_pred = self.dilate_tensor(fp_map_pred, 3, iterations=2)
         # Filter obstacles to minimize domain gap
         # fp_map_pred = kornia.filters.median_blur(fp_map_pred, (5, 5))
+        kernel = torch.ones(3, 3)
+        for _ in range(1):
+            fp_map_pred[:, 0:1] = kornia.morphology.opening(fp_map_pred[:, 0:1], kernel)
+            fp_map_pred[:, 1:2] = kornia.morphology.closing(fp_map_pred[:, 1:2], kernel)
         # -------------------------------------------------------
         # ------- Create observations for OccAnt mapper --------
         # -------------------------------------------------------
@@ -234,14 +388,35 @@ class GeometricMapModuleWithAnticipation(GeometricMapModule):
         # - channel 1 is one if
         ego_map = torch.cat([fp_map_pred, fp_exp_pred], dim=1)  # (B, 2, H, W)
         ego_map = ego_map.to(self.model_device)
+        # Get ego_map from all previously seen locations
+        all_map_seen = torch.stack(
+            [prev_map_seen[:, MC.OBSTACLE_MAP], prev_map_seen[:, MC.EXPLORED_MAP]],
+            dim=1,
+        )
+        ## Get rotation and translation matrices to invert transformation
+        inv_rot_mat, inv_trans_mat = ru.get_grid(-st_pose, all_map_seen.size(), dtype)
+        inv_translated = F.grid_sample(all_map_seen, inv_trans_mat, align_corners=True)
+        inv_rotated = F.grid_sample(inv_translated, inv_rot_mat, align_corners=True)
+        x1 = self.local_map_size_cm // (self.xy_resolution * 2) - self.vision_range // 2
+        x2 = x1 + self.vision_range
+        y1 = self.local_map_size_cm // (self.xy_resolution * 2)
+        y2 = y1 + self.vision_range
+        ego_map_seen = inv_rotated[:, :, y1:y2, x1:x2]
+        ## Clamp to [0, 1] after transform agent view to map coordinates
+        ego_map_seen = (
+            torch.clamp(ego_map_seen, min=0.0, max=1.0).float().to(self.model_device)
+        )
+
         # Resize ego_map to expected dimensions
-        ego_map = F.interpolate(ego_map, size=self.occant_cfg.input_hw, mode="bilinear")
+        ego_map = F.interpolate(ego_map, size=self.occant_cfg.input_hw)
+        ego_map_seen = F.interpolate(ego_map_seen, size=self.occant_cfg.input_hw)
         # Transform coordinate systems
         ## Originally, agent is at the center-top of map looking down.
         ## OccAnt expects the agent to be at center-bottom of map looking up.
         ego_map = torch.flip(ego_map, [2])
+        ego_map_seen = torch.flip(ego_map_seen, [2])
         ego_map_rgb = self.convert_map2rgb(ego_map[0])
-        ego_map_rgb_2 = self.convert_map2rgb(ego_map[0], enhance_obstacles=True)
+        ego_map_seen_rgb = self.convert_map2rgb(ego_map_seen[0])
         # ------------------------ rgb --------------------------
         rgb_obs = obs[:, :3, :, :]
         rgb_obs = ocu.process_image(
@@ -255,28 +430,45 @@ class GeometricMapModuleWithAnticipation(GeometricMapModule):
         # -------------------------------------------------------
         # -------------------- Anticipation --------------------
         # -------------------------------------------------------
-        ego_map_a = self.occant_model({"ego_map_gt": ego_map, "rgb": rgb_obs})[
-            "occ_estimate"
-        ]
+        if USE_EGO_MAP_SEEN:
+            ego_map_a = self.occant_model({"ego_map_gt": ego_map_seen, "rgb": rgb_obs})[
+                "occ_estimate"
+            ]
+            ego_map_rgb = ego_map_seen_rgb
+        else:
+            ego_map_a = self.occant_model({"ego_map_gt": ego_map, "rgb": rgb_obs})[
+                "occ_estimate"
+            ]
+        # Filter nearby parts of the map
+        start_idx = int(ego_map_a.shape[2] * 0.75)
+        end_idx = int(ego_map_a.shape[2])
+        ego_map_a[:, :, start_idx:end_idx] = 0
         ego_map_a_rgb = self.convert_map2rgb(ego_map_a[0])
-        # # Entropy-based filtering
+        # Entropy-based filtering (only for visualization)
         ego_map_a_ent = self.perform_entropy_filtering(ego_map_a)
         ego_map_a_ent_rgb = self.convert_map2rgb(ego_map_a_ent[0])
         # Resize ego_map back to original dimensions
         ego_map_a = F.interpolate(
             ego_map_a, size=fp_map_pred.shape[-2:], mode="bilinear"
-        )
+        )  # (B, C, H, W)
         # Transform coordinates
         ego_map_a = torch.flip(ego_map_a, [2])
         # Replace previous maps
         fp_map_pred = ego_map_a[:, 0:1, :, :].to(device)
         fp_exp_pred = ego_map_a[:, 1:2, :, :].to(device)
         # Visualize for debugging
-        vis_rgb = np.concatenate(
-            [ego_map_rgb, ego_map_rgb_2, ego_map_a_rgb, ego_map_a_ent_rgb], axis=1
-        )
-        cv2.imshow("Occant visualization", vis_rgb[..., ::-1])
-        cv2.waitKey(30)
+        depth_vis = (depth.cpu().float() / self.max_depth) * 255.0
+        depth_vis = ocu.padded_resize(
+            depth_vis.unsqueeze(1), ego_map_a_rgb.shape[0]
+        ).squeeze(1)
+        depth_vis = depth_vis[0].numpy().astype(np.uint8)
+        depth_vis = np.stack([depth_vis, depth_vis, depth_vis], axis=2)
+        vis_rgb_top = np.concatenate([depth_vis, ego_map_rgb], axis=1)
+        vis_rgb_bot = np.concatenate([ego_map_a_rgb, ego_map_a_ent_rgb], axis=1)
+        vis_rgb = np.concatenate([vis_rgb_top, vis_rgb_bot], axis=0)
+        self._vis_rgb = vis_rgb[..., ::-1]
+        # cv2.imshow("Occant visualization", vis_rgb[..., ::-1])
+        # cv2.waitKey(30)
         ########################################################
 
         agent_view = torch.zeros(
@@ -294,18 +486,6 @@ class GeometricMapModuleWithAnticipation(GeometricMapModule):
         y2 = y1 + self.vision_range
         agent_view[:, MC.OBSTACLE_MAP : MC.OBSTACLE_MAP + 1, y1:y2, x1:x2] = fp_map_pred
         agent_view[:, MC.EXPLORED_MAP : MC.EXPLORED_MAP + 1, y1:y2, x1:x2] = fp_exp_pred
-
-        current_pose = pu.get_new_pose_batch(prev_pose.clone(), pose_delta)
-        st_pose = current_pose.clone().detach()
-
-        st_pose[:, :2] = -(
-            (
-                st_pose[:, :2] * 100.0 / self.xy_resolution
-                - self.local_map_size_cm // (self.xy_resolution * 2)
-            )
-            / (self.local_map_size_cm // (self.xy_resolution * 2))
-        )
-        st_pose[:, 2] = 90.0 - (st_pose[:, 2])
 
         rot_mat, trans_mat = ru.get_grid(st_pose, agent_view.size(), dtype)
         rotated = F.grid_sample(agent_view, rot_mat, align_corners=True)
@@ -433,30 +613,6 @@ class GeometricMapModuleWithAnticipation(GeometricMapModule):
 
         return agg_map
 
-    # def _moving_average_aggregation(self, curr_map, prev_map, agg_map):
-    #     """
-    #     Arguments:
-    #         prev_map - (B, N, M, M)
-    #         curr_map - (B, N, M, M)
-    #         agg_map - (B, N, M, M)
-    #     """
-    #     explored_mask = (curr_map[:, MC.EXPLORED_MAP] > self.occant_cfg.thresh_explored).float()
-    #     unfilled_mask = (prev_map[:, MC.EXPLORED_MAP] == 0).float()
-    #     # Previously unfilled and explored right now
-    #     mask_0 = unfilled_mask * explored_mask
-    #     # Previously filled and explored now
-    #     mask_1 = (1 - unfilled_mask) * explored_mask
-    #     beta = self.occant_cfg.AGGREGATOR.map_registration_momentum
-    #     for i in [MC.OBSTACLE_MAP, MC.EXPLORED_MAP]:
-    #         # Initially fill agg_map with prev_map values
-    #         agg_map[:, i] = prev_map[:, i]
-    #         # For unfilled regions, write the new map as it is
-    #         agg_map[:, i] = agg_map[:, i] * (1 - mask_0) + curr_map[:, i] * mask_0
-    #         # For filled regions, do a moving average
-    #         ma_estimate_i = (curr_map[:, i] * (1 - beta) + prev_map[:, i] * beta) * mask_1
-    #         agg_map[:, i] = agg_map[:, i] * (1 - mask_1) + ma_estimate_i * mask_1
-    #     return agg_map
-
     def _moving_average_aggregation(self, curr_map, prev_map, agg_map):
         """
         Arguments:
@@ -521,4 +677,11 @@ class GeometricMapModuleWithAnticipation(GeometricMapModule):
             np.uint8
         )  # (H, W, 3)
 
+        occ_map_rgb = cv2.rectangle(
+            occ_map_rgb,
+            [0, 0],
+            [occ_map_rgb.shape[1], occ_map_rgb.shape[0]],
+            (0, 0, 0),
+            1,
+        )
         return occ_map_rgb

@@ -12,7 +12,7 @@ debug_frontier_map = False
 
 
 class ExplorationAgentModule(nn.Module):
-    def __init__(self, config):
+    def __init__(self, config, must_explore_close=True, set_local_explored=True):
         super().__init__()
 
         self.geometric_map_module = GeometricMapModule(
@@ -29,6 +29,8 @@ class ExplorationAgentModule(nn.Module):
             du_scale=config.AGENT.SEMANTIC_MAP.du_scale,
             exp_pred_threshold=config.AGENT.SEMANTIC_MAP.exp_pred_threshold,
             map_pred_threshold=config.AGENT.SEMANTIC_MAP.map_pred_threshold,
+            must_explore_close=must_explore_close,
+            set_local_explored=set_local_explored,
         )
         self.policy = FrontierExplorationPolicy(
             exploration_strategy=config.AGENT.exploration_strategy
