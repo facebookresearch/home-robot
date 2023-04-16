@@ -25,7 +25,9 @@ from habitat_baselines.common.obs_transformers import (
     apply_obs_transforms_batch,
     get_active_obs_transforms,
 )
+from habitat_baselines.config.default_structured_configs import RLConfig
 from habitat_baselines.utils.common import batch_obs, get_num_actions
+from omegaconf import OmegaConf
 
 from home_robot.core.interfaces import Observations
 from home_robot_sim.env.habitat_objectnav_env.constants import (
@@ -118,20 +120,22 @@ class PPOAgent(Agent):
         )
         self.config = config
 
-        self.hidden_size = config.habitat_baselines.rl.ppo.hidden_size
-        random_generator.seed(config.habitat.seed)
+        # Read in the RL config (in hydra format)
+        self.rl_config = OmegaConf.structured(RLConfig)
+        self.rl_config.merge_with(OmegaConf.load(skill_config.rl_config))
+
+        self.hidden_size = self.rl_config.ppo.hidden_size
+        random_generator.seed(config.seed)
 
         if torch.cuda.is_available():
             torch.backends.cudnn.deterministic = True  # type: ignore
 
-        # TODO: per-skill policy config (currently config parameters are same across skills so shouldn't matter)
-        policy = baseline_registry.get_policy(config.habitat_baselines.rl.policy.name)
+        policy = baseline_registry.get_policy(self.rl_config.policy.name)
 
         # whether the skill uses continuous and discrete actions
         self.continuous_actions = (
             True
-            if config.habitat_baselines.rl.policy.action_distribution_type
-            != "categorical"
+            if self.rl_config.policy.action_distribution_type != "categorical"
             else False
         )
 
@@ -144,45 +148,48 @@ class PPOAgent(Agent):
         # read transforms from config
         self.obs_transforms = get_active_obs_transforms(config)
 
-        # obs keys to be passed to the policy. TODO: Read from skill config
-        self.skill_obs_keys = [
-            "robot_head_depth",
-            "object_embedding",
-            "object_segmentation",
-            "joint",
-            "is_holding",
-            "relative_resting_position",
-        ]
+        # obs keys to be passed to the policy
+        self.skill_obs_keys = skill_config.gym_obs_keys
         skill_obs_spaces = spaces.Dict(
             {k: obs_spaces[0].spaces[k] for k in self.skill_obs_keys}
         )
 
-        # actions the skill takes. TODO: Read from skill config
-        self.skill_actions = ["arm_action", "base_velocity"]
+        # actions the skill takes
+        self.skill_actions = skill_config.allowed_actions
 
         # filter the action space, deepcopy is necessary because we override arm_action next
         self.filtered_action_space = spaces.Dict(
             {a: copy.deepcopy(self.action_space[0][a]) for a in self.skill_actions}
         )
-        # TODO: read a mask from config that specifies controllable joints
-        self.filtered_action_space["arm_action"]["arm_action"] = spaces.Box(
-            shape=[0], low=-1.0, high=1.0, dtype=np.float32
-        )
+
+        # The policy may not control all arm joints, read the mask that indicates the joints controlled by the policy
+        if (
+            "arm_action" in self.filtered_action_space.spaces
+            and "arm_action" in self.filtered_action_space["arm_action"].spaces
+        ):
+            self.arm_joint_mask = skill_config.arm_joint_mask
+            self.num_arm_joints_controlled = np.sum(skill_config.arm_joint_mask)
+            # TODO: read a mask from config that specifies controllable joints
+            self.filtered_action_space["arm_action"]["arm_action"] = spaces.Box(
+                shape=[self.num_arm_joints_controlled],
+                low=-1.0,
+                high=1.0,
+                dtype=np.float32,
+            )
 
         self.vector_action_space = create_action_space(self.filtered_action_space)
         self.num_actions = self.vector_action_space.shape[0]
 
-        # TODO: use skill specific policy config
+        # Initialize actor critic using the policy config
         self.actor_critic = policy.from_config(
             config,
             skill_obs_spaces,
             self.vector_action_space,
         )
-
         self.actor_critic.to(self.device)
 
         # load checkpoint
-        model_path = skill_config.CHECKPOINT_PATH
+        model_path = skill_config.checkpoint_path
         if model_path:
             ckpt = torch.load(model_path, map_location=self.device)
             #  Filter only actor_critic weights
@@ -221,6 +228,7 @@ class PPOAgent(Agent):
     def does_want_terminate(self, observations, actions):
         # TODO: override in GazeAgent
         # raise NotImplementedError
+        # For Gaze check if the center pixel corresponds to the object of interest
         h, w = observations.semantic.shape
         return (
             observations.semantic[h // 2, w // 2]
@@ -238,7 +246,7 @@ class PPOAgent(Agent):
         normalized_depth[normalized_depth == MIN_DEPTH_REPLACEMENT_VALUE] = 0
         normalized_depth[normalized_depth == MAX_DEPTH_REPLACEMENT_VALUE] = 1
         normalized_depth = (normalized_depth - min_depth) / (max_depth - min_depth)
-        # TODO: override for GazeAgent or convert all observations to hab observation space here
+        # TODO: convert all observations to hab observation space here
         return OrderedDict(
             {
                 "robot_head_depth": np.expand_dims(normalized_depth, -1),
@@ -258,6 +266,7 @@ class PPOAgent(Agent):
         batch = batch_obs([obs], device=self.device)
         batch = apply_obs_transforms_batch(batch, self.obs_transforms)
         batch = OrderedDict([(k, batch[k]) for k in self.skill_obs_keys])
+
         with torch.no_grad():
             action_data = self.actor_critic.act(
                 batch,
@@ -267,9 +276,9 @@ class PPOAgent(Agent):
                 deterministic=False,
             )
             (
-                values,
+                _,
                 actions,
-                actions_log_probs,
+                _,
                 self.test_recurrent_hidden_states,
             ) = action_data
 
@@ -291,13 +300,22 @@ class PPOAgent(Agent):
                 step_action = map_discrete_habitat_actions(
                     action_data.env_actions[0].item()
                 )
-        # TODO: Read a mask fro controllable arm joints from configs. Set the remaining to zero
-        step_action["action_args"]["arm_action"] = np.array([0.0] * 7)
+
+        # Map policy controlled arm_action to complete arm_action space
+        if "arm_action" in step_action["action_args"]:
+            complete_arm_action = np.array([0.0] * len(self.arm_joint_mask))
+            controlled_joint_indices = np.nonzero(self.arm_joint_mask)
+            complete_arm_action[controlled_joint_indices] = step_action["action_args"][
+                "arm_action"
+            ]
+            step_action["action_args"]["arm_action"] = complete_arm_action
+
         vis_inputs = {
             "semantic_frame": observations.task_observations["semantic_frame"],
             "goal_name": observations.task_observations["goal_name"],
             "third_person_image": observations.third_person_image,
         }
+
         return (
             step_action["action_args"],
             vis_inputs,
