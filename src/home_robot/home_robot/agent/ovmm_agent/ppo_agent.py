@@ -107,21 +107,14 @@ class PPOAgent(Agent):
         # read transforms from config
         self.obs_transforms = get_active_obs_transforms(config)
 
-        # obs keys to be passed to the policy. TODO: Read from skill config
-        self.skill_obs_keys = [
-            "robot_head_depth",
-            "object_embedding",
-            "object_segmentation",
-            "joint",
-            "is_holding",
-            "relative_resting_position",
-        ]
+        # obs keys to be passed to the policy
+        self.skill_obs_keys = skill_config.gym_obs_keys
         skill_obs_spaces = spaces.Dict(
             {k: obs_spaces[0].spaces[k] for k in self.skill_obs_keys}
         )
 
-        # actions the skill takes. TODO: Read from skill config
-        self.skill_actions = ["arm_action", "base_velocity"]
+        # actions the skill takess
+        self.skill_actions = skill_config.allowed_actions
 
         # filter the action space, deepcopy is necessary because we override arm_action next
         self.filtered_action_space = spaces.Dict(
@@ -135,13 +128,12 @@ class PPOAgent(Agent):
         self.vector_action_space = create_action_space(self.filtered_action_space)
         self.num_actions = self.vector_action_space.shape[0]
 
-        # TODO: use skill specific policy config
+        # Initialize actor critic using the policy config
         self.actor_critic = policy.from_config(
             config,
             skill_obs_spaces,
             self.vector_action_space,
         )
-
         self.actor_critic.to(self.device)
 
         # load checkpoint
@@ -184,6 +176,7 @@ class PPOAgent(Agent):
     def does_want_terminate(self, observations, actions):
         # TODO: override in GazeAgent
         # raise NotImplementedError
+        # For Gaze check if the center pixel corresponds to the object of interest
         h, w = observations.semantic.shape
         return (
             observations.semantic[h // 2, w // 2]
@@ -201,7 +194,7 @@ class PPOAgent(Agent):
         normalized_depth[normalized_depth == MIN_DEPTH_REPLACEMENT_VALUE] = 0
         normalized_depth[normalized_depth == MAX_DEPTH_REPLACEMENT_VALUE] = 1
         normalized_depth = (normalized_depth - min_depth) / (max_depth - min_depth)
-        # TODO: override for GazeAgent or convert all observations to hab observation space here
+        # TODO: convert all observations to hab observation space here
         return OrderedDict(
             {
                 "robot_head_depth": np.expand_dims(normalized_depth, -1),

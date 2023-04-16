@@ -41,6 +41,17 @@ AGENT:
     GAZE:
       checkpoint_path: data/checkpoints/gaze.pth
       rl_config: projects/habitat_ovmm/configs/agent/gaze_rl.yaml
+      gym_obs_keys:
+        - robot_head_depth
+        - object_embedding
+        - object_segmentation
+        - joint
+        - is_holding
+        - relative_resting_position
+      allowed_actions:
+        - arm_action
+        - base_velocity
+      arm_joint_mask: [0, 0, 0, 0, 0, 0, 0, 0, 0, 0] # the arm joints that the policy can control
 
   PLANNER:
     collision_threshold: 0.20       # forward move distance under which we consider there's a collision (in meters)
