@@ -51,7 +51,7 @@ AGENT:
       allowed_actions:
         - arm_action
         - base_velocity
-      arm_joint_mask: [0, 0, 0, 0, 0, 0, 0, 0, 0, 0] # the arm joints that the policy can control
+      arm_joint_mask: [0, 0, 0, 0, 0, 0, 0] # the arm joints that the policy can control
 
   PLANNER:
     collision_threshold: 0.20       # forward move distance under which we consider there's a collision (in meters)
