@@ -24,7 +24,9 @@ from habitat_baselines.common.obs_transformers import (
     apply_obs_transforms_batch,
     get_active_obs_transforms,
 )
+from habitat_baselines.config.default_structured_configs import RLConfig
 from habitat_baselines.utils.common import batch_obs, get_num_actions
+from omegaconf import OmegaConf
 
 from home_robot.core.interfaces import Observations
 from home_robot_sim.env.habitat_objectnav_env.constants import (
@@ -76,20 +78,23 @@ class PPOAgent(Agent):
         )
         self.config = config
 
-        self.hidden_size = config.habitat_baselines.rl.ppo.hidden_size
-        random_generator.seed(config.habitat.seed)
+        # Read in the RL config (in hydra format)
+        self.rl_config = OmegaConf.structured(RLConfig)
+        self.rl_config.merge_with(OmegaConf.load(skill_config.rl_config))
+
+        self.hidden_size = self.rl_config.ppo.hidden_size
+        random_generator.seed(config.seed)
 
         if torch.cuda.is_available():
             torch.backends.cudnn.deterministic = True  # type: ignore
 
         # TODO: per-skill policy config (currently config parameters are same across skills so shouldn't matter)
-        policy = baseline_registry.get_policy(config.habitat_baselines.rl.policy.name)
+        policy = baseline_registry.get_policy(self.rl_config.policy.name)
 
         # whether the skill uses continuous and discrete actions
         self.continuous_actions = (
             True
-            if config.habitat_baselines.rl.policy.action_distribution_type
-            != "categorical"
+            if self.rl_config.policy.action_distribution_type != "categorical"
             else False
         )
 
@@ -140,7 +145,7 @@ class PPOAgent(Agent):
         self.actor_critic.to(self.device)
 
         # load checkpoint
-        model_path = skill_config.CHECKPOINT_PATH
+        model_path = skill_config.checkpoint_path
         if model_path:
             ckpt = torch.load(model_path, map_location=self.device)
             #  Filter only actor_critic weights
