@@ -429,16 +429,15 @@ class DiscretePlanner:
             print_images=self.print_images,
             goal_tolerance=self.goal_tolerance,
         )
-        # Dilate the goal
-        selem = skimage.morphology.disk(self.goal_dilation_selem_radius)
-        dilated_goal_map = skimage.morphology.binary_dilation(goal_map, selem) != 1
-        dilated_goal_map = 1 - dilated_goal_map * 1.0
         if plan_to_dilated_goal:
+            # Dilatation mask for the goal
+            selem = skimage.morphology.disk(self.goal_dilation_selem_radius)
+            # Compute dilated goal map for use with simulation code - use this to compute closest goal
+            dilated_goal_map = skimage.morphology.binary_dilation(goal_map, selem) != 1
+            dilated_goal_map = 1 - dilated_goal_map * 1.0
             # Set multi goal to the dilated goal map
             # We will now try to find a path to any of these spaces
             planner.set_multi_goal(dilated_goal_map, self.timestep)
-            # Set dilated goal map for use with simulation code - use this to compute closest goal
-            goal_map = dilated_goal_map
             goal_distance_map, closest_goal_pt = self.get_closest_traversible_goal(
                 traversible, dilated_goal_map, start
             )
