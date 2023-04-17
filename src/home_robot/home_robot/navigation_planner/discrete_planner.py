@@ -481,7 +481,7 @@ class DiscretePlanner:
         return short_term_goal, goal_distance_map, replan, stop, closest_goal_pt
 
     def get_closest_traversible_goal(self, traversible, goal_map, start):
-        """Old version of the get_closest_goal function, which takes into account the distance along geometry to a goal object. This will tell us the closest point on the goal map, both for visualization and for orienting towards it to grasp."""
+        """Old version of the get_closest_goal function, which takes into account the distance along geometry to a goal object. This will tell us the closest point on the goal map, both for visualization and for orienting towards it to grasp. Uses traversible to sort this out."""
 
         # NOTE: this is the old version - before adding goal dilation
         # vis_planner = FMMPlanner(traversible)
@@ -506,7 +506,7 @@ class DiscretePlanner:
         return closest_goal_pt
 
     def get_closest_goal(self, goal_map, start):
-        """closest goal"""
+        """closest goal, avoiding any obstacles."""
         empty = np.ones_like(goal_map)
         empty_planner = FMMPlanner(empty)
         empty_planner.set_goal(start)
