@@ -93,6 +93,15 @@ class ObjectNavFrontierExplorationPolicy(nn.Module):
             found_goal: binary variables to denote whether we found the object
             goal category of shape (batch_size,)
         """
+        batch_size, _, height, width = map_features.shape
+        device = map_features.device
+        goal_map = torch.zeros((batch_size, height, width), device=device)
+        found_goal = torch.zeros(
+                batch_size, dtype=torch.bool, device=device
+        )
+        goal_map = self.explore_otherwise(map_features, goal_map, found_goal)
+        return goal_map, found_goal
+
         assert object_category is not None or end_recep_category is not None
 
         if object_category is not None and start_recep_category is not None:

@@ -222,6 +222,12 @@ class DiscretePlanner:
                     print(
                         f"reduced obs dilation to {self.curr_obs_dilation_selem_radius}"
                     )
+            else:
+                # not possible to reduce the radius further
+                print("Nowhere left to explore. Stopping.")
+                # TODO Calling the STOP action here will cause the agent to try grasping
+                #   we need different STOP_SUCCESS and STOP_FAILURE actions
+                return DiscreteNavigationAction.STOP, goal_map
 
             if found_goal:
                 if debug:
@@ -245,11 +251,6 @@ class DiscretePlanner:
                     print("--- after replanning to frontier ---")
                     print("goal =", short_term_goal)
                 found_goal = False
-                # if replan:
-                #     print("Nowhere left to explore. Stopping.")
-                #     # TODO Calling the STOP action here will cause the agent to try grasping
-                #     #   we need different STOP_SUCCESS and STOP_FAILURE actions
-                #     return DiscreteNavigationAction.STOP, goal_map
 
         # If we found a short term goal worth moving towards...
         stg_x, stg_y = short_term_goal
