@@ -24,9 +24,8 @@ from habitat_baselines.common.obs_transformers import (
     apply_obs_transforms_batch,
     get_active_obs_transforms,
 )
-from habitat_baselines.config.default_structured_configs import RLConfig
+from habitat_baselines.config.default import get_config as get_habitat_config
 from habitat_baselines.utils.common import batch_obs, get_num_actions
-from omegaconf import OmegaConf
 
 from home_robot.core.interfaces import Observations
 from home_robot_sim.env.habitat_objectnav_env.constants import (
@@ -77,23 +76,23 @@ class PPOAgent(Agent):
             else torch.device("cpu")
         )
         self.config = config
-
         # Read in the RL config (in hydra format)
-        self.rl_config = OmegaConf.structured(RLConfig)
-        self.rl_config.merge_with(OmegaConf.load(skill_config.rl_config))
-
-        self.hidden_size = self.rl_config.ppo.hidden_size
+        self.rl_config = get_habitat_config(skill_config.rl_config)
+        self.hidden_size = self.rl_config.habitat_baselines.rl.ppo.hidden_size
         random_generator.seed(config.seed)
 
         if torch.cuda.is_available():
             torch.backends.cudnn.deterministic = True  # type: ignore
 
-        policy = baseline_registry.get_policy(self.rl_config.policy.name)
+        policy = baseline_registry.get_policy(
+            self.rl_config.habitat_baselines.rl.policy.name
+        )
 
         # whether the skill uses continuous and discrete actions
         self.continuous_actions = (
             True
-            if self.rl_config.policy.action_distribution_type != "categorical"
+            if self.rl_config.habitat_baselines.rl.policy.action_distribution_type
+            != "categorical"
             else False
         )
 
@@ -104,7 +103,7 @@ class PPOAgent(Agent):
             self.env_action_space = spaces.Discrete(get_num_actions(self.action_space))
 
         # read transforms from config
-        self.obs_transforms = get_active_obs_transforms(config)
+        self.obs_transforms = get_active_obs_transforms(self.rl_config)
 
         # obs keys to be passed to the policy
         self.skill_obs_keys = skill_config.gym_obs_keys
@@ -127,7 +126,6 @@ class PPOAgent(Agent):
         ):
             self.arm_joint_mask = skill_config.arm_joint_mask
             self.num_arm_joints_controlled = np.sum(skill_config.arm_joint_mask)
-            # TODO: read a mask from config that specifies controllable joints
             self.filtered_action_space["arm_action"]["arm_action"] = spaces.Box(
                 shape=[self.num_arm_joints_controlled],
                 low=-1.0,
@@ -140,7 +138,7 @@ class PPOAgent(Agent):
 
         # Initialize actor critic using the policy config
         self.actor_critic = policy.from_config(
-            config,
+            self.rl_config,
             skill_obs_spaces,
             self.vector_action_space,
         )

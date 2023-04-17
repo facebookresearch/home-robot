@@ -7,7 +7,6 @@ from collections import defaultdict
 from pathlib import Path
 
 import numpy as np
-import torch
 from config_utils import get_config
 from omegaconf import DictConfig, OmegaConf
 
