@@ -429,16 +429,19 @@ class DiscretePlanner:
             print_images=self.print_images,
             goal_tolerance=self.goal_tolerance,
         )
-
+        # Dilate the goal
+        selem = skimage.morphology.disk(self.goal_dilation_selem_radius)
+        dilated_goal_map = skimage.morphology.binary_dilation(goal_map, selem) != 1
+        dilated_goal_map = 1 - dilated_goal_map * 1.0
         if plan_to_dilated_goal:
-            # Dilate the goal
-            selem = skimage.morphology.disk(self.goal_dilation_selem_radius)
-            dilated_goal_map = skimage.morphology.binary_dilation(goal_map, selem) != 1
-            dilated_goal_map = 1 - dilated_goal_map * 1.0
-
             # Set multi goal to the dilated goal map
             # We will now try to find a path to any of these spaces
             planner.set_multi_goal(dilated_goal_map, self.timestep)
+            # Set dilated goal map for use with simulation code - use this to compute closest goal
+            goal_map = dilated_goal_map
+            goal_distance_map, closest_goal_pt = self.get_closest_traversible_goal(
+                traversible, dilated_goal_map, start
+            )
         else:
             navigable_goal_map = planner._find_within_distance_to_multi_goal(
                 goal_map, self.min_goal_distance_cm / self.map_resolution
@@ -447,6 +450,7 @@ class DiscretePlanner:
                 replan = True
             else:
                 planner.set_multi_goal(navigable_goal_map, self.timestep)
+            goal_distance_map, closest_goal_pt = self.get_closest_goal(goal_map, start)
 
         self.timestep += 1
 
@@ -474,15 +478,17 @@ class DiscretePlanner:
             plt.show()
             print("Done visualizing.")
 
-        goal_distance_map, closest_goal_pt = self.get_closest_goal(goal_map, start)
-
         return short_term_goal, goal_distance_map, replan, stop, closest_goal_pt
 
-    def _get_closest_goal(self, traversible, goal_map, start):
-        # TODO delete this code
-        # Select closest point on goal map for visualization
-        # TODO" How to do this without the overhead of creating another FMM planner?
-        vis_planner = FMMPlanner(traversible)
+    def get_closest_traversible_goal(self, traversible, goal_map, start):
+        """Old version of the get_closest_goal function, which takes into account the distance along geometry to a goal object. This will tell us the closest point on the goal map, both for visualization and for orienting towards it to grasp."""
+
+        # NOTE: this is the old version - before adding goal dilation
+        # vis_planner = FMMPlanner(traversible)
+        # TODO How to do this without the overhead of creating another FMM planner?
+        traversible_ = traversible.copy()
+        traversible_[goal_map == 1] = 1
+        vis_planner = FMMPlanner(traversible_)
         curr_loc_map = np.zeros_like(goal_map)
         # Update our location for finding the closest goal
         curr_loc_map[start[0], start[1]] = 1

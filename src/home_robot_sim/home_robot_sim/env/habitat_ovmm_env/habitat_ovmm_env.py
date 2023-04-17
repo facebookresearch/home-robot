@@ -15,14 +15,14 @@ from home_robot_sim.env.habitat_abstract_env import HabitatEnv
 from home_robot_sim.env.habitat_objectnav_env.constants import (
     MAX_DEPTH_REPLACEMENT_VALUE,
     MIN_DEPTH_REPLACEMENT_VALUE,
-    RearrangeCategories,
+    RearrangeBasicCategories,
     RearrangeDETICCategories,
 )
 from home_robot_sim.env.habitat_objectnav_env.visualizer import Visualizer
 
 
 class HabitatOpenVocabManipEnv(HabitatEnv):
-    semantic_category_mapping: Union[RearrangeCategories, RearrangeDETICCategories]
+    semantic_category_mapping: Union[RearrangeBasicCategories, RearrangeDETICCategories]
 
     def __init__(self, habitat_env: habitat.core.env.Env, config, dataset):
         super().__init__(habitat_env)
@@ -52,23 +52,28 @@ class HabitatOpenVocabManipEnv(HabitatEnv):
                 k: v for v, k in self._rec_name_to_id_mapping.items()
             }
 
-            # combining objs and recep IDs into one mapping
-            self.obj_rec_combined_mapping = {}
-            for i in range(
-                len(self._obj_id_to_name_mapping) + len(self._rec_id_to_name_mapping)
-            ):
-                if i < len(self._obj_id_to_name_mapping):
-                    self.obj_rec_combined_mapping[i + 1] = self._obj_id_to_name_mapping[
-                        i
-                    ]
-                else:
-                    self.obj_rec_combined_mapping[i + 1] = self._rec_id_to_name_mapping[
-                        i - len(self._obj_id_to_name_mapping)
-                    ]
-
-            self.semantic_category_mapping = RearrangeDETICCategories(
-                self.obj_rec_combined_mapping
-            )
+            if self.ground_truth_semantics:
+                self.semantic_category_mapping = RearrangeBasicCategories()
+            else:
+                # combining objs and recep IDs into one mapping
+                self.obj_rec_combined_mapping = {}
+                for i in range(
+                    len(self._obj_id_to_name_mapping)
+                    + len(self._rec_id_to_name_mapping)
+                ):
+                    if i < len(self._obj_id_to_name_mapping):
+                        self.obj_rec_combined_mapping[
+                            i + 1
+                        ] = self._obj_id_to_name_mapping[i]
+                    else:
+                        self.obj_rec_combined_mapping[
+                            i + 1
+                        ] = self._rec_id_to_name_mapping[
+                            i - len(self._obj_id_to_name_mapping)
+                        ]
+                self.semantic_category_mapping = RearrangeDETICCategories(
+                    self.obj_rec_combined_mapping
+                )
 
         if not self.ground_truth_semantics:
             from home_robot.perception.detection.detic.detic_perception import (
