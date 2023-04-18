@@ -6,7 +6,9 @@ import time
 from collections import defaultdict
 from pathlib import Path
 
+import cv2
 import numpy as np
+import skimage.morphology
 import torch
 from config_utils import get_config
 from omegaconf import DictConfig, OmegaConf
@@ -149,6 +151,27 @@ class VectorizedEvaluator(PPOTrainer):
             hab_obs = [None] * envs.num_envs
             for e, (done, info, hab_info) in enumerate(zip(dones, infos, hab_infos)):
                 if done:
+                    fr = info["frontier_map"]
+                    contours, _ = cv2.findContours(
+                        fr.astype(np.uint8) * 255,
+                        mode=cv2.RETR_TREE,
+                        method=cv2.CHAIN_APPROX_SIMPLE,
+                    )
+                    max_area_c = max(contours, key=cv2.contourArea)
+                    total_frontier = np.zeros((480, 480))
+                    cv2.fillPoly(total_frontier, pts=[max_area_c], color=(1, 1, 1))
+                    obstacle_map = info["obstacle_map"]
+                    obs_dilation_selem = skimage.morphology.disk(3.0)
+                    dilated_obstacles = cv2.dilate(
+                        obstacle_map, obs_dilation_selem, iterations=1
+                    )
+                    obstacle_map = obstacle_map > 0.5
+                    dilated_obstacles = dilated_obstacles > 0.5
+                    free = (1 - obstacle_map) * total_frontier
+                    free_obs_dilated = (1 - dilated_obstacles) * total_frontier
+                    hab_info["free_region"] = np.sum(free)
+                    hab_info["free_region_obs_dilated_3"] = np.sum(free_obs_dilated)
+
                     episode_key = (
                         f"{current_episodes_info[e].scene_id.split('/')[-1].split('.')[0]}_"
                         f"{current_episodes_info[e].episode_id}"

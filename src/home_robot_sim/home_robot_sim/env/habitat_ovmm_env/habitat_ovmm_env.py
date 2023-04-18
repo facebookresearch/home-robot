@@ -258,13 +258,16 @@ class HabitatOpenVocabManipEnv(HabitatEnv):
         ) or action == DiscreteNavigationAction.SNAP_OBJECT:
             grip_action = 1
 
-        turn = 0
+        waypoint = 0
         if action == DiscreteNavigationAction.TURN_RIGHT:
-            turn = -1
-        elif action == DiscreteNavigationAction.TURN_LEFT:
-            turn = 1
+            waypoint = -1.0
+        elif action in [
+            DiscreteNavigationAction.TURN_LEFT,
+        ]:
+            waypoint = 1.0
+        elif action in [DiscreteNavigationAction.MOVE_FORWARD]:
+            waypoint = 0.4
 
-        forward = float(action == DiscreteNavigationAction.MOVE_FORWARD)
         face_arm = float(action == DiscreteNavigationAction.FACE_ARM) * 2 - 1
         stop = float(action == DiscreteNavigationAction.STOP) * 2 - 1
         reset_joints = float(action == DiscreteNavigationAction.RESET_JOINTS) * 2 - 1
@@ -272,8 +275,8 @@ class HabitatOpenVocabManipEnv(HabitatEnv):
         arm_actions = [0] * 7
         cont_action = arm_actions + [
             grip_action,
-            forward,
-            turn,
+            waypoint,
+            (action == DiscreteNavigationAction.MOVE_FORWARD) * 2 - 1,
             extend_arm,
             face_arm,
             stop,

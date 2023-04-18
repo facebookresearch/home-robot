@@ -116,6 +116,9 @@ class DiscretePlanner:
         self.obs_dilation_selem = skimage.morphology.disk(
             self.curr_obs_dilation_selem_radius
         )
+        self.goal_dilation_selem = skimage.morphology.disk(
+            self.goal_dilation_selem_radius
+        )
 
     def set_vis_dir(self, scene_id: str, episode_id: str):
         self.print_images = True
@@ -365,11 +368,10 @@ class DiscretePlanner:
             visualize=self.visualize,
             print_images=self.print_images,
         )
-        # Dilate the goal
-        selem = skimage.morphology.disk(self.goal_dilation_selem_radius)
-        dilated_goal_map = skimage.morphology.binary_dilation(goal_map, selem) != 1
-        dilated_goal_map = 1 - dilated_goal_map * 1.0
+
+        dilated_goal_map = cv2.dilate(goal_map, self.goal_dilation_selem, iterations=1)
         if plan_to_dilated_goal:
+            # Dilate the goal
             # Set multi goal to the dilated goal map
             # We will now try to find a path to any of these spaces
             planner.set_multi_goal(dilated_goal_map, self.timestep)
