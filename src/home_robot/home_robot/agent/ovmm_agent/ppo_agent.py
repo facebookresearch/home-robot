@@ -266,15 +266,8 @@ class PPOAgent(Agent):
             ]
             step_action["action_args"]["arm_action"] = complete_arm_action
 
-        vis_inputs = {
-            "semantic_frame": observations.task_observations["semantic_frame"],
-            "goal_name": observations.task_observations["goal_name"],
-            "third_person_image": observations.third_person_image,
-        }
-
         return (
             step_action["action_args"],
-            vis_inputs,
             self.does_want_terminate(observations, actions),
         )
 
