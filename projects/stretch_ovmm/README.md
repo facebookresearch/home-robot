@@ -1,48 +1,43 @@
 # Stand-alone grasping setup
 
-## Environment setup on server
+## Setup
 
-These are notes for setting up grasping and subject to change; you should follow the instructions in the appropriate readmes to set up your environment.
-```
-# Optionally install mamba in your base environment
-conda install -c conda-forge mamba
-# Create the home_robot conda environment for grasping
-conda create -n home_robot python=3.8 && conda activate home_robot
-# Install the home_robot repo
-cd $HOME_ROBOT_ROOT/src/home_robot
-pip install -e .
+1. Follow instructions in [home_robot_hw](../../src/home_robot_hw/README.md) to set up the Home Robot hardware stack on both your Workstation and Robot.
+2. Install additional dependencies for OVMM
+    ```sh
+    # Specific to stand-alone grasping script
+    pip install trimesh pybullet matplotlib open3d opencv-python rospkg numpy==1.21
+    mamba install pytorch==1.11.0 torchvision==0.12.0 torchaudio==0.11.0 cudatoolkit=11.3 -c pytorch
+    python -m pip install 'git+https://github.com/facebookresearch/detectron2.git'
+    ```
 
-# Specific to stand-alone grasping script
-pip install trimesh pybullet matplotlib open3d opencv-python rospkg numpy==1.21
-# Hint: using mamba instead of conda is strongly recommended for faster installation
-# mamba install pytorch==1.11.0 torchvision==0.12.0 torchaudio==0.11.0 cudatoolkit=11.3 -c pytorch
-conda install pytorch==1.11.0 torchvision==0.12.0 torchaudio==0.11.0 cudatoolkit=11.3 -c pytorch
-python -m pip install 'git+https://github.com/facebookresearch/detectron2.git'
-```
+## Usage
 
-## Launch on robot
-```
-# To make debugging easier
-roscore
-
-# Launch core components
+### Launch on robot
+```sh
 roslaunch home_robot startup_stretch_hector_slam.launch
 ```
 
-## Launch on server
+To make debugging easier, it is recommended to run
+```sh
+roscore
 ```
-# Launch GraspNet
-cd ~/src/contact_graspnet && conda activate contact_graspnet_env && python contact_graspnet/graspnet_ros_server.py --local_regions --filter_grasps
+in a separate terminal.
 
-# Launch rviz
+### Launch on server
+```sh
+# Launch grasping server
+python -m home_robot_hw.nodes.simple_grasp_server
+
+# Optional: Launch rviz
 roslaunch home_robot visualization.launch
 
 # Run stand-alone grasping script
-python pick_cup_real_robot.py
+python projects/stretch_ovmm/eval_episode.py
 ```
 
 ## Troubleshooting the robot
-```
+```sh
 # To control the robot to a starting position
 roslaunch home_robot controller.launch
 
