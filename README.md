@@ -11,7 +11,7 @@ Your open-source robotic mobile manipulation stack
 
 ## Core Concepts
 
-This package assumes you have a low-cost mobile robot with limited compute -- initially a [Hello Robot Stretch](hello-robot.com/) - and a "workstation" with more GPU compute. Both are assumed to be running on the same network.
+This package assumes you have a low-cost mobile robot with limited compute -- initially a [Hello Robot Stretch](hello-robot.com/) -- and a "workstation" with more GPU compute. Both are assumed to be running on the same network.
 
 In general this is the recommended workflow for hardware robots:
   - Turn on your robot; for the Stretch, run `stretch_robot_home.py` to get it ready to use.
@@ -32,47 +32,15 @@ This project contains numerous packages. See individual package docs for corresp
 | [home_robot_sim](src/home_robot_sim) | Simulation |
 | [home_robot_client](src/home_robot_client) | Minimal remote client |
 
-### Working with Stretch Environments
-Assuming `roslaunch home_robot_hw startup_stretch_hector_slam.launch` is running in a separate terminal, you could run the following scripts:
-
-Run simple navigation example (moves the robot forward by 0.25 m): 
-  ```sh
-  python src/home_robot_hw/home_robot_hw/env/simple_navigation_env.py
-  ```
-This file also serves as a simple example of how to setup your own environments implementing Stretch functionality. Every environment interfaces with the base Stretch controllers, models and environments to implement application-level requirements.
-
-### Collecting data on the real robot
-We provide scripts to collect data in H5 format using `Recorder` class. Follow the instructions for recording these files. If your application needs more/fewer data-sources, sub-class `Recorder` and over-ride the `save_frame` method
-Collect the data through teleoperation.
-  ```sh
-  python collect_h5.py --task_name TASK_NAME  --dir_path DIR_PATH
-  ```
-  This will save the teleoperation files at `DIR_PATH/TASK_NAME-{iteration}/{datetime}.h5`.
-
-  Turn on the controller and make sure it is connected to the robot (top two blue lights should be on). To give trajectory commands through the Xbox controller, open a separate terminal and:
-  ```sh
-  rosrun joy joy_node
-  ```
-Refer to [official hello robot keybindings](https://docs.hello-robot.com/0.2/stretch-tutorials/getting_started/images/xbox.png) to learn how to operate Stretch with the controller. We also provide a `Dataloaders` to load data into torch (WIP). 
-
-### Syncing code between Robot and Workstation
-
-Let `ROBOT_IP` store the robot's IP and let `WORKSTATION_IP` store the workstation's IP. If your local network doesn't have access to internet we recommend using `rsync` with `--update` flag to sync your code changes across the machines. Usage:
-```
-rsync -rvu /abs/path/to/local/home-robot $ROBOT_USER@$ROBOT_IP:/abs/path/to/remote/home-robot
-```
-
-The above command will do a *r*ecursive *u*pdating of changed files while echoing a *v*erbose output.
-
-
-## Troubleshooting 
-
-- `ImportError: cannot import name 'gcd' from 'fractions'`: Launch ros nodes from an env with Python 3.8 instead of 3.9
+Entry points:
+- To set up the hardware stack with a Hello Stretch Robot, see instructions in `home_robot_hw`.
+- To set up the simulation stack with Habitat, see instructions in `home_robot_sim`.
+- For the OVMM challenge, see [here](projects/stretch_ovmm/README.md).
 
 
 ## Code Contribution
 
-We enforce linters for our code. The `lint` test will not pass if your code does not conform.
+We use linters for enforcing good code style. The `lint` test will not pass if your code does not conform.
 
 Install the git [pre-commit](https://pre-commit.com/) hooks by running
 ```bash

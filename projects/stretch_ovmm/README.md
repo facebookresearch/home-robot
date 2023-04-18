@@ -26,18 +26,19 @@ in a separate terminal.
 # Launch grasping server
 python -m home_robot_hw.nodes.simple_grasp_server
 
-# Optional: Launch rviz
+# Optional 1: Launch rviz 
+rviz -d $HOME_ROBOT_ROOT/src/home_robot_hw/launch/mapping_demo.rviz
+# Optional 2: Launch rviz from a ROS environment with home_robot_hw installed
 roslaunch home_robot visualization.launch
 
-# Run stand-alone grasping script
+# Run stand-alone pick & place script
 python projects/stretch_ovmm/eval_episode.py
 ```
 
 ## Troubleshooting the robot
-```sh
-# To control the robot to a starting position
-roslaunch home_robot controller.launch
 
-# To reset everything after some component fails
-stretch_robot_home.py
-```
+Reset the robot hardware after some component fails:
+1. Kill all running ROS nodes
+2. `stretch_robot_home.py`
+
+Check if the robot hardware is functional: `stretch_robot_system_check.py`
