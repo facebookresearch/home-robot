@@ -94,10 +94,11 @@ class DiscretePlanner:
         self.last_pose = None
         self.curr_pose = None
         self.last_action = None
-        self.timestep = None
+        self.timestep = 0
         self.curr_obs_dilation_selem_radius = None
         self.obs_dilation_selem = None
         self.min_goal_distance_cm = min_goal_distance_cm
+        self.dd = None
 
     def reset(self):
         self.vis_dir = self.default_vis_dir
@@ -366,17 +367,20 @@ class DiscretePlanner:
         )
         # Dilate the goal
         selem = skimage.morphology.disk(self.goal_dilation_selem_radius)
-        dilated_goal_map = skimage.morphology.binary_dilation(goal_map, selem) != 1
-        dilated_goal_map = 1 - dilated_goal_map * 1.0
+        dilated_goal_map = cv2.dilate(goal_map, selem, iterations=1)
+
+        # dilated_goal_map = skimage.morphology.binary_dilation(goal_map, selem) != 1
+        # dilated_goal_map = 1 - dilated_goal_map * 1.0
+
         if plan_to_dilated_goal:
             # Set multi goal to the dilated goal map
             # We will now try to find a path to any of these spaces
-            planner.set_multi_goal(dilated_goal_map, self.timestep)
+            self.dd = planner.set_multi_goal(dilated_goal_map, self.timestep, self.dd)
         else:
             navigable_goal = planner._find_nearest_to_multi_goal(goal_map)
             navigable_goal_map = np.zeros_like(goal_map)
             navigable_goal_map[navigable_goal[0], navigable_goal[1]] = 1
-            planner.set_multi_goal(navigable_goal_map, self.timestep)
+            self.dd = planner.set_multi_goal(navigable_goal_map, self.timestep, self.dd)
 
         self.timestep += 1
 

@@ -54,36 +54,71 @@ class FMMPlanner:
 
         self.du = int(self.step_size / (self.scale * 1.0))
         self.fmm_dist = None
-        self.goal_map = None
+        # self.goal_map = None
 
-    def set_multi_goal(self, goal_map: np.ndarray, timestep: int = None):
+    def set_multi_goal(
+        self,
+        goal_map: np.ndarray,
+        timestep: int = 0,
+        dd: np.ndarray = None,
+        map_update_frequency: int = 1,
+        downsample_multiplier: float = 1.0,
+    ):
         """Set long-term goal(s) used to compute distance from a binary
         goal map.
+        dd: distance map for when we want to reuse previously computed ones (instead of updating at each step)
+        map_update_frequency: skfmm.distance call made every n steps
+        downsample_multiplier: 0.5 for halving both image dimensions, 1.0 for no downsampling.
         """
-        traversible_ma = ma.masked_values(self.traversible * 1, 0)
+        assert 0 < downsample_multiplier >= 1.0
+
+        traversible = self.traversible
+        if downsample_multiplier < 1.0:
+            l, w = self.traversible.shape
+            traversible = cv2.resize(
+                traversible,
+                dsize=(int(l * downsample_multiplier), int(w * downsample_multiplier)),
+            )
+            goal_map = cv2.resize(
+                goal_map,
+                dsize=(int(l * downsample_multiplier), int(w * downsample_multiplier)),
+            )
+
+        traversible_ma = ma.masked_values(traversible * 1, 0)
         traversible_ma[goal_map == 1] = 0
+
         # This is where we actually call the FMM algorithm!!
         # It will compute the distance from each traversible point to the goal.
-        dd = skfmm.distance(traversible_ma, dx=1)
-        dd = ma.filled(dd, np.max(dd) + 1)
+        if (timestep - 1) % map_update_frequency == 0 or dd is None:
+            dd = skfmm.distance(traversible_ma, dx=1 / downsample_multiplier)
+            dd = ma.filled(dd, np.max(dd) + 1)
+            print(f"Computing skfmm.distance (timestep: {timestep})")
+        else:
+            print(f"Reusing previous skfmm.distance value (timestep: {timestep})")
+
+        if downsample_multiplier < 1.0:
+            dd = cv2.resize(dd, (l, w))
+
         self.fmm_dist = dd
-        self.goal_map = goal_map
+        # self.goal_map = goal_map
 
-        r, c = self.traversible.shape
-        dist_vis = np.zeros((r, c * 3))
-        dist_vis[:, :c] = np.flipud(self.traversible)
-        dist_vis[:, c : 2 * c] = np.flipud(goal_map)
-        dist_vis[:, 2 * c :] = np.flipud(self.fmm_dist / self.fmm_dist.max())
+        if self.visualize or self.print_images and timestep != 0:
+            r, c = traversible.shape  # visualizing (downsampled) traversible map
+            dist_vis = np.zeros((r, c * 3))
+            dist_vis[:, :c] = np.flipud(traversible)
+            dist_vis[:, c : 2 * c] = np.flipud(goal_map)
+            dist_vis[:, 2 * c :] = np.flipud(self.fmm_dist / self.fmm_dist.max())
 
-        if self.visualize:
-            cv2.imshow("Planner Distance", dist_vis)
-            cv2.waitKey(1)
+            if self.visualize:
+                cv2.imshow("Planner Distance", dist_vis)
+                cv2.waitKey(1)
 
-        if self.print_images and timestep is not None:
-            cv2.imwrite(
-                os.path.join(self.vis_dir, f"planner_snapshot_{timestep}.png"),
-                (dist_vis * 255).astype(int),
-            )
+            if self.print_images and timestep is not None:
+                cv2.imwrite(
+                    os.path.join(self.vis_dir, f"planner_snapshot_{timestep}.png"),
+                    (dist_vis * 255).astype(int),
+                )
+        return dd
 
     def get_short_term_goal(self, state: List[float]):
         """Compute the short-term goal closest to the current state.
