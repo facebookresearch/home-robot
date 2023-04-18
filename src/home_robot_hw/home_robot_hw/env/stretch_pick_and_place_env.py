@@ -166,6 +166,10 @@ class StretchPickandPlaceEnv(StretchEnv):
                     ok = self.grasp_planner.try_grasping()
                     if ok:
                         break
+
+            elif action == DiscreteNavigationAction.PLACE_OBJECT:
+                pass  # TODO
+
             else:
                 print("Action not implemented in pick-and-place environment:", action)
                 continuous_action = None
