@@ -145,7 +145,10 @@ class DeticPerception(PerceptionModule):
         reset_cls_test(self.predictor.model, classifier, num_classes)
 
     def predict(
-        self, obs: Observations, depth_threshold: Optional[float] = None
+        self,
+        obs: Observations,
+        depth_threshold: Optional[float] = None,
+        draw_instance_predictions: bool = True,
     ) -> Observations:
         """
         Arguments:
@@ -164,12 +167,16 @@ class DeticPerception(PerceptionModule):
 
         pred = self.predictor(image)
 
-        visualizer = Visualizer(
-            image[:, :, ::-1], self.metadata, instance_mode=self.instance_mode
-        )
-        visualization = visualizer.draw_instance_predictions(
-            predictions=pred["instances"].to(self.cpu_device)
-        ).get_image()
+        if draw_instance_predictions:
+            visualizer = Visualizer(
+                image[:, :, ::-1], self.metadata, instance_mode=self.instance_mode
+            )
+            visualization = visualizer.draw_instance_predictions(
+                predictions=pred["instances"].to(self.cpu_device)
+            ).get_image()
+            obs.task_observations["semantic_frame"] = visualization
+        else:
+            obs.task_observations["semantic_frame"] = None
 
         prediction = np.zeros((height, width))
         for j, class_idx in enumerate(pred["instances"].pred_classes.cpu().numpy()):
@@ -196,7 +203,6 @@ class DeticPerception(PerceptionModule):
                 prediction[obj_mask.astype(bool)] = idx
 
         obs.semantic = prediction.astype(int)
-        obs.task_observations["semantic_frame"] = visualization
         return obs
 
 

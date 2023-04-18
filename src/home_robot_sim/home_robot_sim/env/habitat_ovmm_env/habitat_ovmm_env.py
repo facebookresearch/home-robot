@@ -34,6 +34,7 @@ class HabitatOpenVocabManipEnv(HabitatEnv):
         self.goal_type = config.habitat.task.goal_type
         self.episodes_data_path = config.habitat.dataset.data_path
         self.video_dir = config.habitat_baselines.video_dir
+        self.config = config
         assert (
             "floorplanner" in self.episodes_data_path
             or "hm3d" in self.episodes_data_path
@@ -81,12 +82,13 @@ class HabitatOpenVocabManipEnv(HabitatEnv):
             )
 
             # TODO Specify confidence threshold as a parameter
+            gpu_device_id = self.config.habitat.simulator.habitat_sim_v0.gpu_device_id
             self.segmentation = DeticPerception(
                 vocabulary="custom",
                 custom_vocabulary=",".join(
                     ["."] + list(self.obj_rec_combined_mapping.values()) + ["other"]
                 ),
-                sem_gpu_id=0,
+                sem_gpu_id=gpu_device_id,
             )
         self._last_habitat_obs = None
 
@@ -174,7 +176,9 @@ class HabitatOpenVocabManipEnv(HabitatEnv):
             obs.semantic = instance_id_to_category_id[semantic]
             # TODO Ground-truth semantic visualization
         else:
-            obs = self.segmentation.predict(obs, depth_threshold=0.5)
+            obs = self.segmentation.predict(
+                obs, depth_threshold=0.5, draw_instance_predictions=False
+            )
             if type(self.semantic_category_mapping) == RearrangeDETICCategories:
                 # First index is a dummy unused category
                 obs.semantic[obs.semantic == 0] = (
