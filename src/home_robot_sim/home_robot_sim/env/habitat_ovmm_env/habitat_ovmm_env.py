@@ -30,7 +30,9 @@ class HabitatOpenVocabManipEnv(HabitatEnv):
         self.max_depth = config.ENVIRONMENT.max_depth
         self.ground_truth_semantics = config.GROUND_TRUTH_SEMANTICS
         self._dataset = dataset
-        self.visualizer = Visualizer(config, dataset)
+        self.visualize = config.VISUALIZE
+        if self.visualize:
+            self.visualizer = Visualizer(config, dataset)
         self.goal_type = config.habitat.task.goal_type
         self.episodes_data_path = config.habitat.dataset.data_path
         self.video_dir = config.habitat_baselines.video_dir
@@ -110,8 +112,9 @@ class HabitatOpenVocabManipEnv(HabitatEnv):
             self.habitat_env
         )
         self._last_obs = self._preprocess_obs(habitat_obs)
-        self.visualizer.reset()
-        self.set_vis_dir()
+        if self.visualize:
+            self.visualizer.reset()
+            self.set_vis_dir()
         return self._last_obs
 
     def convert_pose_to_real_world_axis(self, hab_pose):
@@ -131,6 +134,11 @@ class HabitatOpenVocabManipEnv(HabitatEnv):
             goal_name,
         ) = self._preprocess_goal(habitat_obs, self.goal_type)
 
+        if self.visualize:
+            third_person_image = habitat_obs["robot_third_rgb"]
+        else:
+            third_person_image = None
+
         obs = home_robot.core.interfaces.Observations(
             rgb=habitat_obs["robot_head_rgb"],
             depth=depth,
@@ -142,7 +150,7 @@ class HabitatOpenVocabManipEnv(HabitatEnv):
                 "end_recep_goal": end_recep_goal,
                 "goal_name": goal_name,
             },
-            third_person_image=habitat_obs["robot_third_rgb"],
+            third_person_image=third_person_image,
             camera_pose=self.convert_pose_to_real_world_axis(
                 np.asarray(habitat_obs["camera_pose"])
             ),
@@ -286,7 +294,7 @@ class HabitatOpenVocabManipEnv(HabitatEnv):
         return np.array(cont_action, dtype=np.float32)
 
     def _process_info(self, info: Dict[str, Any]) -> Any:
-        if info:
+        if info and self.visualize:
             self.visualizer.visualize(**info)
 
     def apply_action(
