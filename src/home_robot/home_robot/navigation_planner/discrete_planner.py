@@ -129,6 +129,9 @@ class DiscretePlanner:
         self.obs_dilation_selem = skimage.morphology.disk(
             self.curr_obs_dilation_selem_radius
         )
+        self.goal_dilation_selem = skimage.morphology.disk(
+            self.goal_dilation_selem_radius
+        )
 
     def set_vis_dir(self, scene_id: str, episode_id: str):
         self.print_images = True
@@ -430,16 +433,15 @@ class DiscretePlanner:
             goal_tolerance=self.goal_tolerance,
         )
         if plan_to_dilated_goal:
-            # Dilatation mask for the goal
-            selem = skimage.morphology.disk(self.goal_dilation_selem_radius)
             # Compute dilated goal map for use with simulation code - use this to compute closest goal
-            dilated_goal_map = skimage.morphology.binary_dilation(goal_map, selem) != 1
-            dilated_goal_map = 1 - dilated_goal_map * 1.0
+            dilated_goal_map = cv2.dilate(
+                goal_map, self.goal_dilation_selem, iterations=1
+            )
             # Set multi goal to the dilated goal map
             # We will now try to find a path to any of these spaces
             planner.set_multi_goal(dilated_goal_map, self.timestep)
             goal_distance_map, closest_goal_pt = self.get_closest_traversible_goal(
-                traversible, dilated_goal_map, start
+                traversible, goal_map, start, dilated_goal_map=dilated_goal_map
             )
         else:
             navigable_goal_map = planner._find_within_distance_to_multi_goal(
@@ -479,14 +481,19 @@ class DiscretePlanner:
 
         return short_term_goal, goal_distance_map, replan, stop, closest_goal_pt
 
-    def get_closest_traversible_goal(self, traversible, goal_map, start):
+    def get_closest_traversible_goal(
+        self, traversible, goal_map, start, dilated_goal_map=None
+    ):
         """Old version of the get_closest_goal function, which takes into account the distance along geometry to a goal object. This will tell us the closest point on the goal map, both for visualization and for orienting towards it to grasp. Uses traversible to sort this out."""
 
         # NOTE: this is the old version - before adding goal dilation
         # vis_planner = FMMPlanner(traversible)
         # TODO How to do this without the overhead of creating another FMM planner?
         traversible_ = traversible.copy()
-        traversible_[goal_map == 1] = 1
+        if dilated_goal_map is None:
+            traversible_[goal_map == 1] = 1
+        else:
+            traversible_[dilated_goal_map == 1] = 1
         vis_planner = FMMPlanner(traversible_)
         curr_loc_map = np.zeros_like(goal_map)
         # Update our location for finding the closest goal
@@ -494,6 +501,7 @@ class DiscretePlanner:
         # curr_loc_map[short_term_goal[0], short_term_goal]1]] = 1
         vis_planner.set_multi_goal(curr_loc_map)
         fmm_dist_ = vis_planner.fmm_dist.copy()
+        # find closest point on non-dilated goal map
         goal_map_ = goal_map.copy()
         goal_map_[goal_map_ == 0] = 10000
         fmm_dist_[fmm_dist_ == 0] = 10000
