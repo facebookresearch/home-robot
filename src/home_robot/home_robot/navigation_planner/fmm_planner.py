@@ -70,7 +70,7 @@ class FMMPlanner:
         map_update_frequency: skfmm.distance call made every n steps
         downsample_multiplier: 0.5 for halving both image dimensions, 1.0 for no downsampling.
         """
-        assert 0 < downsample_multiplier >= 1.0
+        assert 0 < downsample_multiplier <= 1.0
 
         traversible = self.traversible
         if downsample_multiplier < 1.0:
@@ -82,6 +82,7 @@ class FMMPlanner:
             goal_map = cv2.resize(
                 goal_map,
                 dsize=(int(l * downsample_multiplier), int(w * downsample_multiplier)),
+                interpolation=cv2.INTER_NEAREST,
             )
 
         traversible_ma = ma.masked_values(traversible * 1, 0)
@@ -97,7 +98,7 @@ class FMMPlanner:
             print(f"Reusing previous skfmm.distance value (timestep: {timestep})")
 
         if downsample_multiplier < 1.0:
-            dd = cv2.resize(dd, (l, w))
+            dd = cv2.resize(dd, (l, w))  # upsampling
 
         self.fmm_dist = dd
         # self.goal_map = goal_map
