@@ -128,6 +128,10 @@ class Visualizer:
         self.image_vis = None
         self.visited_map_vis = None
         self.last_xy = None
+        self.font = cv2.FONT_HERSHEY_SIMPLEX
+        self.font_scale = 1
+        self.text_color = (20, 20, 20)  # BGR
+        self.text_thickness = 2
 
     def reset(self):
         self.vis_dir = self.default_vis_dir
@@ -170,7 +174,8 @@ class Visualizer:
         frontier_map: np.ndarray = None,
         goal_name: str = None,
         visualize_goal: bool = True,
-        third_person_image=None,
+        third_person_image: np.ndarray = None,
+        curr_skill: str = None,
     ):
         """Visualize frame input and semantic map.
 
@@ -188,6 +193,7 @@ class Visualizer:
             goal_name: semantic goal category
             timestep: time step within the episode
             visualize_goal: if True, visualize goal
+            curr_skill: the skill currently being executed
         """
         # Do nothing if visualization is off
         if not self.show_images and not self.print_images:
@@ -195,7 +201,7 @@ class Visualizer:
 
         # Initialize
         if self.image_vis is None:
-            self.image_vis = self._init_vis_image(goal_name)
+            self.image_vis = self._init_vis_image(goal_name, curr_skill)
 
         if obstacle_map is not None:
             curr_x, curr_y, curr_o, gy1, gy2, gx1, gx2 = sensor_pose
@@ -317,59 +323,63 @@ class Visualizer:
                 self.image_vis,
             )
 
-    def _init_vis_image(self, goal_name: str):
-        vis_image = np.ones((V.IMAGE_HEIGHT, V.IMAGE_WIDTH, 3)).astype(np.uint8) * 255
-        font = cv2.FONT_HERSHEY_SIMPLEX
-        fontScale = 1
-        color = (20, 20, 20)  # BGR
-        thickness = 2
-
-        text = goal_name
-        textsize = cv2.getTextSize(text, font, fontScale, thickness)[0]
-        textX = (
-            2 * V.FIRST_PERSON_W + V.LEFT_PADDING - textsize[0]
-        ) // 2 + V.LEFT_PADDING
-        textY = (V.TOP_PADDING + textsize[1]) // 2
-        vis_image = cv2.putText(
+    def _put_text_on_image(
+        self,
+        vis_image,
+        text: str,
+        bbox_x_start: int,
+        bbox_y_start: int,
+        bbox_x_len: int,
+        bbox_y_len: int,
+    ):
+        """
+        Place text at the center of the given bounding box.
+        """
+        textsize = cv2.getTextSize(
+            text, self.font, self.font_scale, self.text_thickness
+        )[0]
+        # The x coordinate at which the left edge of text needs to be placed
+        textX = (bbox_x_len - textsize[0]) // 2 + bbox_x_start
+        # The height at which base needs to be placed
+        textY = (bbox_y_len + textsize[1]) // 2 + bbox_y_start
+        return cv2.putText(
             vis_image,
             text,
             (textX, textY),
-            font,
-            fontScale,
-            color,
-            thickness,
+            self.font,
+            self.font_scale,
+            self.text_color,
+            self.text_thickness,
             cv2.LINE_AA,
+        )
+
+    def _init_vis_image(self, goal_name: str, curr_skill: Optional[str] = None):
+        vis_image = np.ones((V.IMAGE_HEIGHT, V.IMAGE_WIDTH, 3)).astype(np.uint8) * 255
+
+        vis_image = self._put_text_on_image(
+            vis_image, goal_name, V.LEFT_PADDING, 0, 2 * V.FIRST_PERSON_W, V.TOP_PADDING
         )
 
         text = "Predicted Semantic Map"
-        textsize = cv2.getTextSize(text, font, fontScale, thickness)[0]
-        textX = (V.TOP_DOWN_W - textsize[0]) // 2 + V.TOP_DOWN_X1
-        textY = (V.TOP_PADDING + textsize[1]) // 2
-        vis_image = cv2.putText(
-            vis_image,
-            text,
-            (textX, textY),
-            font,
-            fontScale,
-            color,
-            thickness,
-            cv2.LINE_AA,
+        vis_image = self._put_text_on_image(
+            vis_image, text, V.TOP_DOWN_X1, 0, V.TOP_DOWN_W, V.TOP_PADDING
         )
 
         text = "Third person image"
-        textsize = cv2.getTextSize(text, font, fontScale, thickness)[0]
-        textX = V.THIRD_PERSON_X1 + (V.THIRD_PERSON_W - textsize[0]) // 2
-        textY = (V.TOP_PADDING + textsize[1]) // 2
-        vis_image = cv2.putText(
-            vis_image,
-            text,
-            (textX, textY),
-            font,
-            fontScale,
-            color,
-            thickness,
-            cv2.LINE_AA,
+        vis_image = self._put_text_on_image(
+            vis_image, text, V.THIRD_PERSON_X1, 0, V.THIRD_PERSON_W, V.TOP_PADDING
         )
+
+        # if curr_skill is not None, place the skill name below the third person image
+        if curr_skill is not None:
+            vis_image = self._put_text_on_image(
+                vis_image,
+                curr_skill,
+                V.THIRD_PERSON_X1,
+                V.Y2,
+                V.THIRD_PERSON_W,
+                V.BOTTOM_PADDING,
+            )
 
         # Draw outlines
         color = (100, 100, 100)

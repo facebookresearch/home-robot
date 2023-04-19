@@ -25,7 +25,7 @@ class OpenVocabManipAgent(ObjectNavAgent):
         self.states = None
         self.place_start_step = None
         self.orient_start_step = None
-        self.pick_done = None
+        self.is_pick_done = None
         self.place_done = None
         self.gaze_agent = None
         if config.AGENT.SKILLS.PICK.type == "gaze":
@@ -50,6 +50,7 @@ class OpenVocabManipAgent(ObjectNavAgent):
             "goal_name": obs.task_observations["goal_name"],
             "third_person_image": obs.third_person_image,
             "timestep": self.timesteps[0],
+            "curr_skill": Skill(self.states[0].item()).name,
         }
 
     def reset_vectorized(self):
@@ -60,7 +61,7 @@ class OpenVocabManipAgent(ObjectNavAgent):
         self.states = torch.tensor([Skill.NAV_TO_OBJ] * self.num_environments)
         self.place_start_step = torch.tensor([0] * self.num_environments)
         self.orient_start_step = torch.tensor([0] * self.num_environments)
-        self.pick_done = torch.tensor([0] * self.num_environments)
+        self.is_pick_done = torch.tensor([0] * self.num_environments)
         self.place_done = torch.tensor([0] * self.num_environments)
 
     def get_nav_to_recep(self):
@@ -71,7 +72,7 @@ class OpenVocabManipAgent(ObjectNavAgent):
         self.states[e] = Skill.NAV_TO_OBJ
         self.place_start_step[e] = 0
         self.orient_start_step[e] = 0
-        self.pick_done[e] = 0
+        self.is_pick_done[e] = 0
         self.place_done[e] = 0
         super().reset_vectorized_for_env(e)
         if self.gaze_agent is not None:
@@ -86,12 +87,23 @@ class OpenVocabManipAgent(ObjectNavAgent):
         elif skill == Skill.ORIENT_OBJ:
             self.states[e] = Skill.PICK
         elif skill == Skill.PICK:
+            self.timesteps_before_goal_update[0] = 0
             self.states[e] = Skill.NAV_TO_REC
         elif skill == Skill.NAV_TO_REC:
             self.place_start_step[e] = self.timesteps[e]
             self.states[e] = Skill.PLACE
         elif skill == Skill.PLACE:
             self.place_done[0] = 1
+
+    def _modular_nav(self, obs: Observations) -> Tuple[DiscreteNavigationAction, Any]:
+        action, info = super().act(obs)
+        self.timesteps[0] -= 1  # objectnav agent increments timestep
+        info["timestep"] = self.timesteps[0]
+        info["curr_skill"] = Skill(self.states[0].item()).name
+        if action == DiscreteNavigationAction.STOP:
+            action = DiscreteNavigationAction.RESET_JOINTS
+            self._switch_to_next_skill(e=0)
+        return action, info
 
     def _hardcoded_place(self):
         place_step = self.timesteps[0] - self.place_start_step[0]
@@ -122,7 +134,6 @@ class OpenVocabManipAgent(ObjectNavAgent):
 
     def act(self, obs: Observations) -> Tuple[DiscreteNavigationAction, Dict[str, Any]]:
         """State machine"""
-        # TODO: from config
         vis_inputs = self._get_vis_inputs(obs)
         turn_angle = self.config.ENVIRONMENT.turn_angle
 
@@ -131,12 +142,7 @@ class OpenVocabManipAgent(ObjectNavAgent):
             if self.skip_nav_to_obj:
                 self._switch_to_next_skill(e=0)
             elif self.config.AGENT.SKILLS.NAV_TO_OBJ.type == "modular":
-                action, info = super().act(obs)
-                self.timesteps[0] -= 1  # objectnav agent increments timestep
-                if action == DiscreteNavigationAction.STOP:
-                    action = DiscreteNavigationAction.RESET_JOINTS
-                    self._switch_to_next_skill(e=0)
-                return action, info
+                return self._modular_nav(obs)
             else:
                 raise NotImplementedError
         if self.states[0] == Skill.ORIENT_OBJ:
@@ -152,20 +158,18 @@ class OpenVocabManipAgent(ObjectNavAgent):
         if self.states[0] == Skill.PICK:
             if self.skip_pick:
                 self._switch_to_next_skill(e=0)
-            elif self.pick_done[0]:
+            elif self.is_pick_done[0]:
                 self._switch_to_next_skill(e=0)
-                self.timesteps_before_goal_update[0] = 0
-                self.pick_done[0] = 0
+                self.is_pick_done[0] = 0
                 return DiscreteNavigationAction.RESET_JOINTS, vis_inputs
             elif self.config.AGENT.SKILLS.PICK.type == "gaze":
                 action, term = self.gaze_agent.act(obs)
                 if term:
-                    # the object is at the center of the frame, try to grasp the object
-                    action["grip_action"] = [1]
-                    self.pick_done[0] = 1
+                    action["grip_action"] = [1]  # grasp the object when gaze is done
+                    self.is_pick_done[0] = 1
                 return action, vis_inputs
             elif self.config.AGENT.SKILLS.PICK.type == "hardcoded":
-                self.pick_done[0] = 1
+                self.is_pick_done[0] = 1
                 return DiscreteNavigationAction.SNAP_OBJECT, vis_inputs
             else:
                 raise NotImplementedError
@@ -173,12 +177,7 @@ class OpenVocabManipAgent(ObjectNavAgent):
             if self.skip_nav_to_rec:
                 self._switch_to_next_skill(e=0)
             elif self.config.AGENT.SKILLS.NAV_TO_REC.type == "modular":
-                action, info = super().act(obs)
-                self.timesteps[0] -= 1  # objectnav agent increments timestep
-                if action == DiscreteNavigationAction.STOP:
-                    action = DiscreteNavigationAction.RESET_JOINTS
-                    self._switch_to_next_skill(e=0)
-                return action, info
+                return self._modular_nav(obs)
             else:
                 raise NotImplementedError
         if self.states[0] == Skill.PLACE:
