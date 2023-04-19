@@ -282,7 +282,7 @@ class Categorical2DSemanticMapModule(nn.Module):
             # hab_angles = pt.matrix_to_euler_angles(camera_pose[:, :3, :3], convention="YZX")
             # angles = pt.matrix_to_euler_angles(camera_pose[:, :3, :3], convention="ZYX")
             angles = torch.Tensor(
-                [tra.euler_from_matrix(p[:3, :3], "rzyx") for p in camera_pose]
+                [tra.euler_from_matrix(p[:3, :3].cpu(), "rzyx") for p in camera_pose]
             )
             # For habitat - pull x angle
             # tilt = angles[:, -1]

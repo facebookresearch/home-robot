@@ -502,7 +502,7 @@ class DiscretePlanner:
         closest_goal_pt = np.unravel_index(
             closest_goal_map.argmax(), closest_goal_map.shape
         )
-        return closest_goal_pt
+        return closest_goal_map, closest_goal_pt
 
     def get_closest_goal(self, goal_map, start):
         """closest goal, avoiding any obstacles."""
