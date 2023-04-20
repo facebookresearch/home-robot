@@ -297,7 +297,7 @@ class ExplorationVisualizer:
             map_size_cm // self.map_resolution,
             map_size_cm // self.map_resolution,
         )
-
+        self.agent_cell_radius = int(config.AGENT.radius * 100 / self.map_resolution)
         self.vis_dir = None
         self.image_vis = None
         self.visited_map_vis = None
@@ -419,10 +419,18 @@ class ExplorationVisualizer:
             / obstacle_map.shape[1],
             np.deg2rad(-curr_o),
         )
-        agent_arrow = vu.get_contour_points(pos, origin=(670, 50))
         color = map_color_palette[9:12][::-1]
-        cv2.drawContours(self.image_vis, [agent_arrow], 0, color, -1)
-        # cv2.circle(self.image_vis, (int(pos[0] + 670), int(pos[1] + 50)), 3, color, -1)
+        cv2.circle(
+            self.image_vis,
+            (int(pos[0] + 670), int(pos[1] + 50)),
+            self.agent_cell_radius,
+            color,
+            -1,
+        )
+        forward_arrow = vu.get_forward_contour_points(
+            pos, origin=(670, 50), size=self.agent_cell_radius + 10
+        )
+        cv2.drawContours(self.image_vis, [forward_arrow], 0, color, -1)
 
         image_vis = self.image_vis
         if occupancy_vis is not None:
