@@ -85,6 +85,17 @@ class FMMPlanner:
                 (dist_vis * 255).astype(int),
             )
 
+    def get_distance_to_state(self, state: List[float]):
+        """Compute the short-term goal closest to the current state.
+
+        Arguments:
+            state: current location
+        """
+        scale = self.scale * 1.0
+        state = [x / scale for x in state]
+        state = [int(x) for x in state]
+        return self.fmm_dist[state[0], state[1]]
+
     def get_short_term_goal(self, state: List[float]):
         """Compute the short-term goal closest to the current state.
 

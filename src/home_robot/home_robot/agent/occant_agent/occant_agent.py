@@ -17,7 +17,7 @@ from home_robot.agent.occant_agent.occant_agent_module import OccAntAgentModule
 from home_robot.core.abstract_agent import Agent
 from home_robot.core.interfaces import DiscreteNavigationAction, Observations
 from home_robot.mapping.geometric.geometric_map_state import GeometricMapState
-from home_robot.navigation_planner.discrete_planner import DiscretePlanner
+from home_robot.navigation_planner.safe_discrete_planner import SafeDiscretePlanner
 
 # For visualizing exploration issues
 debug_frontier_map = False
@@ -77,11 +77,16 @@ class OccAntAgent(Agent):
         agent_cell_radius = int(
             np.ceil(agent_radius_cm / config.AGENT.SEMANTIC_MAP.map_resolution)
         )
-        self.planner = DiscretePlanner(
+        safe_agent_cell_radius = int(
+            np.ceil((agent_radius_cm + 15) / config.AGENT.SEMANTIC_MAP.map_resolution)
+        )
+        self.planner = SafeDiscretePlanner(
             turn_angle=config.ENVIRONMENT.turn_angle,
             collision_threshold=config.AGENT.PLANNER.collision_threshold,
             step_size=config.AGENT.PLANNER.step_size,
-            obs_dilation_selem_radius=config.AGENT.PLANNER.obs_dilation_selem_radius,
+            obs_dilation_selem_radius=agent_cell_radius,
+            safe_obs_dilation_selem_radius=safe_agent_cell_radius,
+            safe_dist_thresh=10.0,
             goal_dilation_selem_radius=config.AGENT.PLANNER.goal_dilation_selem_radius,
             map_size_cm=config.AGENT.SEMANTIC_MAP.map_size_cm,
             map_resolution=config.AGENT.SEMANTIC_MAP.map_resolution,
