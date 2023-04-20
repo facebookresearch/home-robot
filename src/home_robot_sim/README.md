@@ -59,12 +59,6 @@ pip install natsort scikit-image scikit-fmm pandas trimesh scikit-learn
 conda install -c pytorch3d pytorch3d
 ```
 
-**[IMPORTANT]: Add habitat-lab path to PYTHONPATH**:
-
-```
-export PYTHONPATH=$PYTHONPATH:/path/to/home-robot-dev/habitat-lab/
-```
-
 ## Dataset Setup
 
 ### Scene dataset setup 
