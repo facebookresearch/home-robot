@@ -30,7 +30,6 @@ This project contains numerous packages. See individual package docs for corresp
 | [home_robot](src/home_robot) | Core package |
 | [home_robot_hw](src/home_robot_hw) | ROS package containing hardware drivers for the Hello Stretch Robot |
 | [home_robot_sim](src/home_robot_sim) | Simulation |
-| [home_robot_client](src/home_robot_client) | Minimal remote client |
 
 Entry points:
 - To set up the hardware stack with a Hello Stretch Robot, see instructions in `home_robot_hw`.
