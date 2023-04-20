@@ -310,6 +310,9 @@ class OccAntAgent(Agent):
             action, closest_goal_map = self.planner.plan(
                 **planner_inputs[0], use_dilation_for_stg=self.use_dilation_for_stg
             )
+            if self.planner._stop and self.planner._replan:
+                print("---> Updating goal since previous goal failed.")
+                self.timesteps_before_goal_update[0] = 0
 
         # t3 = time.time()
         # print(f"[Agent] Planning time: {t3 - t2:.2f}")

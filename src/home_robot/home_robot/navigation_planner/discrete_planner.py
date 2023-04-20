@@ -309,6 +309,11 @@ class DiscretePlanner:
                 print("!!! DONE !!!")
 
         self.last_action = action
+        self._replan = replan
+        self._stop = stop
+        if replan and stop:
+            print("---> Received replan and stop. Returning STOP.")
+            action = DiscreteNavigationAction.STOP
         return action, closest_goal_map
 
     def _get_short_term_goal(
