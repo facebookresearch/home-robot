@@ -633,7 +633,15 @@ class GeometricMapModuleWithAnticipation(GeometricMapModule):
             agg_map_i, _ = torch.max(maps, 1)
             agg_map[:, i] = agg_map_i
         # Perform moving-average aggregation for anticipated channels
-        agg_map = self._moving_average_aggregation(curr_map, prev_map, agg_map)
+        if self.occant_cfg.AGGREGATOR.registration_type == "entropy_moving_average":
+            agg_map = self._moving_average_aggregation(curr_map, prev_map, agg_map)
+        elif self.occant_cfg.AGGREGATOR.registration_type == "maxpooling":
+            for i in [MC.OBSTACLE_MAP, MC.EXPLORED_MAP]:
+                maps = torch.stack(
+                    (prev_map[:, i, :, :], curr_map[:, i, :, :]), dim=1
+                )  # (B, 2, M, M)
+                agg_map_i, _ = torch.max(maps, 1)
+                agg_map[:, i] = agg_map_i
 
         return agg_map
 
