@@ -44,7 +44,7 @@ class PickAndPlaceAgent(Agent):
         self.config = config
         # Agent for object nav
         self.object_nav_agent = ObjectNavAgent(config, device_id)
-        if hasattr(self.config.SKILLS, "gaze"):
+        if hasattr(self.config.AGENT.SKILLS, "GAZE"):
             self.gaze_agent = PPOAgent(
                 config,
                 config.AGENT.SKILLS.GAZE,
@@ -88,22 +88,24 @@ class PickAndPlaceAgent(Agent):
         action_info = None
         # Look for the goal object.
         if self.state == SimpleTaskState.FIND_OBJECT:
+            if self.skip_find_object:
+                action = DiscreteNavigationAction.STOP
+                self.state = SimpleTaskState.ORIENT_OBJ
             obs = self._preprocess_obs_for_find(obs)
             action, action_info = self.object_nav_agent.act(obs)
-            if self.skip_find_object or action == DiscreteNavigationAction.STOP:
+            if action == DiscreteNavigationAction.STOP:
                 print("-> Actually predicted:", action)
                 action = DiscreteNavigationAction.STOP
                 self.state = SimpleTaskState.ORIENT_OBJ
         # If we have found the object, then try to pick it up.
         if self.state == SimpleTaskState.ORIENT_OBJ:
             if not self.skip_orient:
-                if not hasattr(self.config.SKILLS, "gaze"):
+                if not hasattr(self.config.AGENT.SKILLS, "GAZE"):
                     # Try to grab the object.
                     # If we grasped the object, then we should increment our state again
                     self.state = SimpleTaskState.PICK_OBJECT
                     return DiscreteNavigationAction.MANIPULATION_MODE, action_info
                 else:
-                    # TODO:
                     return self.gaze_agent.act(obs)
         if self.state == SimpleTaskState.PICK_OBJECT:
             # Try to grab the object

@@ -247,6 +247,7 @@ class StretchPickandPlaceEnv(StretchEnv):
             joint=np.array(
                 [0.0, 0.0, 0.0, 0.0, 0.775, 0.0, -1.57, 0.0, -1.7375, -0.7125]
             ),
+            object_embedding=np.random.rand([512]),  # TODO
             relative_resting_position=np.array([0.3878479, 0.12924957, 0.4224413]),
             is_holding=np.array([0.0]),
         )

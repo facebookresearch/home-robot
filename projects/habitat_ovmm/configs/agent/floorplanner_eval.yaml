@@ -39,7 +39,7 @@ AGENT:
     min_obs_height_cm: 10    # minimum height (in centimeters) of obstacle
 
   SKILLS:
-    PICK:
+    GAZE:
       type: gaze #end_to_end #modular #hardcoded
       checkpoint_path: data/checkpoints/gaze.pth
       rl_config: projects/habitat_ovmm/configs/agent/gaze_rl.yaml # with continuous actions
