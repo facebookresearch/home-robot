@@ -1,4 +1,4 @@
-# Home Robot
+# HomeRobot
 
 [![GitHub license](https://img.shields.io/badge/license-MIT-blue.svg)](https://github.com/facebookresearch/home-robot/blob/main/LICENSE)
 [![Python 3.9](https://img.shields.io/badge/python-3.9-blue.svg)](https://www.python.org/downloads/release/python-370/)
@@ -37,13 +37,13 @@ There are two core classes in HomeRobot that you need to be concerned with:
 
 | Resource | Description |
 | -------- | ----------- |
-| [home_robot](src/home_robot) | Core package |
-| [home_robot_sim](src/home_robot_sim) | Simulation |
-| [home_robot_hw](src/home_robot_hw) | ROS package containing hardware drivers for the Hello Stretch Robot |
+| [home_robot](src/home_robot) | Core package containing agents and interfaces |
+| [home_robot_sim](src/home_robot_sim) | OVMM simulation environment based on [AI Habitat](https://aihabitat.org/) |
+| [home_robot_hw](src/home_robot_hw) | ROS package containing hardware interfaces for the Hello Robot Stretch |
 
 The [home_robot](src/home_robot) package contains embodiment-agnostic agent code, such as our [ObjectNav agent](https://github.com/facebookresearch/home-robot/blob/main/src/home_robot/home_robot/agent/objectnav_agent/objectnav_agent.py) (finds objects in scenes) and our [hierarchical OVMM agent](https://github.com/facebookresearch/home-robot/blob/main/src/home_robot/home_robot/agent/ovmm_agent/ovmm_agent.py). YThese agents can be extended or modified to implement your own solution.
 
-Importantly, agents use a fixed set of [interfaces](https://github.com/facebookresearch/home-robot/blob/main/src/home_robot/home_robot/core/interfaces.py)
+Importantly, agents use a fixed set of [interfaces](https://github.com/facebookresearch/home-robot/blob/main/src/home_robot/home_robot/core/interfaces.py) which are overridden to provide access to 
 
 The [home_robot_sim](src/home_robot_sim) package contains code for interface
 
@@ -61,7 +61,8 @@ Installation on a robot assumes Ubuntu 20.04 and [ROS Noetic](http://wiki.ros.or
 To set up the hardware stack on a Hello Robot  Stretch, see the [ROS installation instructions](src/home_robot_hw/install_robot.md) in `home_robot_hw`. Follow the [workstation setup instructions](src/home_robot_hw/install_workstation.md) to setup on your GPU-enabled workstation. Generally, to set up the software stack, you will install these packages:
 
 ```
-# Create a conda env
+# Create a conda env - use the version in home_robot_hw if you want to run on the robot
+# Otherwise, you can use the version in src/home_robot
 mamba env create -n home-robot -f src/home_robot_hw/environment.yml
 conda activate home-robot
 
@@ -72,26 +73,28 @@ pip install -e src/home_robot
 pip install -e src/home_robot_hw
 ```
 
-To set up the simulation stack with Habitat, see the [installation instructions]() in `home_robot_sim`. You need to install AI habitat:
-
+To set up the simulation stack with Habitat, see the [installation instructions](src/home_robot_sim/README.md) in `home_robot_sim`. You first need to install AI habitat and the simulation package:
 ```
 # Install habitat sim and update submodules
 mamba install -c conda-forge -c aihabitat habitat-sim withbullet
 git submodule update --init --recursive
 
 # Install habitat lab on the correct (object rearrange) branch
-pip install -e src/third_party/habitat-lab  # NOTE: Habitat-lab@v0.2.2 only works in editable mode
+pip install -e src/third_party/habitat-lab/habitat-lab  # NOTE: Habitat-lab@v0.2.2 only works in editable mode
+pip install -e src/third_party/habitat-lab/habitat-baselines
 
 # Install home robot sim interfaces
 pip install -e src/home_robot_sim
 ```
 
+And then download the assets as described in the [installation instructions](src/home_robot_sim/README.md).
+
 To test your installation, you can run:
 ```
-
+python projects/stretch_ovmm/eval_vectorized.py
 ```
 
-For more details on the OVMM challenge, see [here](projects/stretch_ovmm/README.md).
+For more details on the OVMM challenge, see the [Habitat OVMM readme](projects/stretch_ovmm/README.md).
 
 ### Network Setup
 

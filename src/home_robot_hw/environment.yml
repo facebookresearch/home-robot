@@ -2,10 +2,44 @@ channels:
   - conda-forge
   - robostack
   - robostack-staging
+  - pytorch
+  - pytorch3d
 dependencies:
   - python==3.9.*
   - ros-noetic-desktop
   - ros-noetic-ros-numpy
   - catkin_tools
+  - cmake
+  - pybind11
+  - pytorch==1.13.*  # Compatibility with pytorch3d
+  - torchvision
+  - pinocchio
+  - pip
   - pip:
+    - numpy <1.24 # certain deprecated operations were used in other deps
+    - scipy
+    - sophuspy
+    - opencv-python>=3.3.0
+    - pybullet
+    - trimesh
+    - pytest
+    - open3d
+    - scikit-image
+    - scikit-fmm
+    - scikit-learn
+    - numpy-quaternion
+    - natsort
+    # Neural networks
+    - openai-clip
+    - timm
+    - pandas
+    # visualizations and debugging
+    - matplotlib
+    # Command line tools
+    - click
+    # data tools
+    - yacs
+    - h5py
+    - imageio
+    - pygifsicle
     - pynput
