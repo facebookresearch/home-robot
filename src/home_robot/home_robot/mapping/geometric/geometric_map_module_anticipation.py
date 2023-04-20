@@ -387,9 +387,20 @@ class GeometricMapModuleWithAnticipation(GeometricMapModule):
         # Filter obstacles to minimize domain gap
         # fp_map_pred = kornia.filters.median_blur(fp_map_pred, (5, 5))
         kernel = torch.ones(3, 3)
+        fp_obs = fp_map_pred[:, 0:1]  # (bs, 1, H, W)
+        fp_exp = fp_map_pred[:, 1:2]  # (bs, 1, H, W)
         for _ in range(1):
-            fp_map_pred[:, 0:1] = kornia.morphology.opening(fp_map_pred[:, 0:1], kernel)
-            fp_map_pred[:, 1:2] = kornia.morphology.closing(fp_map_pred[:, 1:2], kernel)
+            fp_obs = kornia.morphology.opening(fp_obs, kernel)
+            fp_exp = kornia.morphology.closing(fp_exp, kernel)
+        # Use original values for nearby cells
+        ## Map convention: agent is a the top-center of the map looking downward
+        acc_depth_radius = 100
+        acc_depth_cells = int(acc_depth_radius / self.resolution)
+        fp_obs[:, :, 0:acc_depth_cells, :] = fp_map_pred[:, 0:1, 0:acc_depth_cells, :]
+        fp_exp[:, :, 0:acc_depth_cells, :] = fp_map_pred[:, 1:2, 0:acc_depth_cells, :]
+        # Copy filtered maps back to source
+        fp_map_pred[:, 0:1] = fp_obs
+        fp_map_pred[:, 1:2] = fp_exp
         # -------------------------------------------------------
         # ------- Create observations for OccAnt mapper --------
         # -------------------------------------------------------
