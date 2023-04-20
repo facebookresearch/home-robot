@@ -30,6 +30,61 @@ class DiscreteNavigationAction(Action, Enum):
     RESET_JOINTS = 13
 
 
+class ContinuousNavigationAction:
+    xyt: np.ndarray
+
+    def __init__(self, xyt: np.ndarray):
+        if not len(xyt) == 3:
+            raise RuntimeError(
+                "continuous navigation action space has 3 dimentions, x y and theta"
+            )
+        self.xyt = xyt
+
+
+class ActionType(Enum):
+    DISCRETE = 0
+    CONTINUOUS_NAVIGATION = 1
+    CONTINUOUS_MANIPULATION = 2
+
+
+class HybridAction(Action):
+    """Convenience for supporting multiple action types - provides handling to make sure we have the right class at any particular time"""
+
+    action_type: ActionType
+    action: Action
+
+    def __init__(self, action):
+        """Make sure that we were passed a useful generic action here. Process it into something useful."""
+        if type(action) == HybridAction:
+            self.action_type = action.action_type
+        if type(action) == DiscreteNavigationAction:
+            self.action_type = ActionType.DISCRETE
+        elif type(action) == ContinuousNavigationAction:
+            self.action_type = ActionType.CONTINUOUS_NAVIGATION
+        else:
+            raise RuntimeError(f"action type{type(action)} not supported")
+        self.action = action
+
+    def is_discrete(self):
+        """Let environment know if we need to handle a discrete action"""
+        return self.action_type == ActionType.DISCRETE
+
+    def is_navigation(self):
+        return self.action_type == ActionType.CONTINUOUS_NAVIGATION
+
+    def is_manipulation(self):
+        return self.action_type == ActionType.CONTINUOUS_MANIPULATION
+
+    def get(self):
+        """Extract continuous component of the command and return it."""
+        if self.action_type == ActionType.DISCRETE:
+            return self.action
+        elif self.action_type == ActionType.CONTINUOUS_NAVIGATION:
+            return self.action.xyt
+        else:
+            return NotImplementedError("we need to support this action type")
+
+
 @dataclass
 class Pose:
     position: np.ndarray

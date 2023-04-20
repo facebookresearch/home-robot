@@ -6,6 +6,7 @@ import os
 from typing import List
 
 import cv2
+import matplotlib.pyplot as plt
 import numpy as np
 import skfmm
 import skimage
@@ -23,6 +24,7 @@ class FMMPlanner:
         traversible: np.ndarray,
         scale: int = 1,
         step_size: int = 5,
+        goal_tolerance: float = 2.0,
         vis_dir: str = "data/images/planner",
         visualize=False,
         print_images=False,
@@ -42,6 +44,7 @@ class FMMPlanner:
 
         self.scale = scale
         self.step_size = step_size
+        self.goal_tolerance = goal_tolerance
         if scale != 1.0:
             self.traversible = cv2.resize(
                 traversible,
@@ -56,6 +59,21 @@ class FMMPlanner:
         self.fmm_dist = None
         self.goal_map = None
 
+    def set_goal(self, goal, auto_improve=False):
+        traversible_ma = ma.masked_values(self.traversible * 1, 0)
+        goal_x, goal_y = int(goal[0] / (self.scale * 1.0)), int(
+            goal[1] / (self.scale * 1.0)
+        )
+
+        if self.traversible[goal_x, goal_y] == 0.0 and auto_improve:
+            goal_x, goal_y = self._find_nearest_goal([goal_x, goal_y])
+
+        traversible_ma[goal_x, goal_y] = 0
+        dd = skfmm.distance(traversible_ma, dx=1)
+        dd = ma.filled(dd, np.max(dd) + 1)
+        self.fmm_dist = dd
+        return
+
     def set_multi_goal(self, goal_map: np.ndarray, timestep: int = None):
         """Set long-term goal(s) used to compute distance from a binary
         goal map.
@@ -69,23 +87,24 @@ class FMMPlanner:
         self.fmm_dist = dd
         self.goal_map = goal_map
 
-        r, c = self.traversible.shape
-        dist_vis = np.zeros((r, c * 3))
-        dist_vis[:, :c] = np.flipud(self.traversible)
-        dist_vis[:, c : 2 * c] = np.flipud(goal_map)
-        dist_vis[:, 2 * c :] = np.flipud(self.fmm_dist / self.fmm_dist.max())
+        if self.visualize or self.print_images:
+            r, c = self.traversible.shape
+            dist_vis = np.zeros((r, c * 3))
+            dist_vis[:, :c] = np.flipud(self.traversible)
+            dist_vis[:, c : 2 * c] = np.flipud(goal_map)
+            dist_vis[:, 2 * c :] = np.flipud(self.fmm_dist / self.fmm_dist.max())
 
-        if self.visualize:
-            cv2.imshow("Planner Distance", dist_vis)
-            cv2.waitKey(1)
+            if self.visualize:
+                cv2.imshow("Planner Distance", dist_vis)
+                cv2.waitKey(1)
 
-        if self.print_images and timestep is not None:
-            cv2.imwrite(
-                os.path.join(self.vis_dir, f"planner_snapshot_{timestep}.png"),
-                (dist_vis * 255).astype(int),
-            )
+            if self.print_images and timestep is not None:
+                cv2.imwrite(
+                    os.path.join(self.vis_dir, f"planner_snapshot_{timestep}.png"),
+                    (dist_vis * 255).astype(int),
+                )
 
-    def get_short_term_goal(self, state: List[float]):
+    def get_short_term_goal(self, state: List[float], continuous=True):
         """Compute the short-term goal closest to the current state.
 
         Arguments:
@@ -94,7 +113,9 @@ class FMMPlanner:
         scale = self.scale * 1.0
         state = [x / scale for x in state]
         dx, dy = state[0] - int(state[0]), state[1] - int(state[1])
-        mask = FMMPlanner.get_mask(dx, dy, scale, self.step_size)
+        mask = FMMPlanner.get_mask(
+            dx, dy, scale, self.step_size, min_radius=0 if continuous else None
+        )
         dist_mask = FMMPlanner.get_dist(dx, dy, scale, self.step_size)
 
         state = [int(x) for x in state]
@@ -113,17 +134,36 @@ class FMMPlanner:
             subset.shape[0] == 2 * self.du + 1 and subset.shape[1] == 2 * self.du + 1
         ), "Planning error: unexpected subset shape {}".format(subset.shape)
 
+        visualize = False
+        if visualize:
+            # TODO
+            plt.subplot(231)
+            plt.imshow(subset)
+
         subset *= mask
         subset += (1 - mask) * self.fmm_dist.shape[0] ** 2
 
-        stop = subset[self.du, self.du] < self.step_size
+        if visualize:
+            plt.subplot(232)
+            plt.imshow(subset)
+            plt.subplot(235)
+            plt.imshow(mask)
+
+        print("[FMM] Distance to fmm navigable goal pt =", subset[self.du, self.du] * 5)
+        stop = subset[self.du, self.du] < self.goal_tolerance
 
         subset -= subset[self.du, self.du]
         ratio1 = subset / dist_mask
         subset[ratio1 < -1.5] = 1
 
+        if visualize:
+            plt.subplot(233)
+            plt.imshow(subset)
+            plt.show()
+
         (stg_x, stg_y) = np.unravel_index(np.argmin(subset), subset.shape)
 
+        # Subset will contain negative distance to goal
         replan = subset[stg_x, stg_y] > -0.0001
 
         return (
@@ -134,7 +174,10 @@ class FMMPlanner:
         )
 
     @staticmethod
-    def get_mask(sx, sy, scale, step_size):
+    def get_mask(sx, sy, scale, step_size, min_radius=None):
+        """Set everything in a circle around the agent to 1; else set to zero"""
+        if min_radius is None:
+            min_radius = (step_size - 1) ** 2
         size = int(step_size // scale) * 2 + 1
         mask = np.zeros((size, size))
         for i in range(size):
@@ -146,7 +189,7 @@ class FMMPlanner:
                 cond2 = (
                     ((i + 0.5) - (size // 2 + sx)) ** 2
                     + ((j + 0.5) - (size // 2 + sy)) ** 2
-                ) > (step_size - 1) ** 2
+                ) > min_radius
                 if cond1 and cond2:
                     mask[i, j] = 1
         mask[size // 2, size // 2] = 1
@@ -172,21 +215,18 @@ class FMMPlanner:
                     )
         return mask
 
-    def _find_nearest_to_multi_goal(
-        self, goal: np.ndarray, visualize=False
+    def _find_within_distance_to_multi_goal(
+        self,
+        goal: np.ndarray,
+        distance: float,
+        min_distance_only=False,
+        visualize=False,
     ) -> np.ndarray:
         """
         Find the nearest point to a goal which is traversible
         """
-        # TODO Adapt this function to multi-goal and use it to select the goal
-        traversible = (
-            skimage.morphology.binary_dilation(
-                np.zeros(self.traversible.shape), skimage.morphology.disk(2)
-            )
-            != 1
-        )
-        traversible = traversible * 1.0
-        planner = FMMPlanner(traversible)
+
+        planner = FMMPlanner(np.ones_like(self.traversible))
         # Plan to the goal mask
         planner.set_multi_goal(goal)
 
@@ -195,17 +235,24 @@ class FMMPlanner:
         dist_map = planner.fmm_dist * mask
         dist_map[dist_map == 0] = dist_map.max()
 
+        if min_distance_only:
+            min_dist_idx = dist_map.argmin()
+            goal_pt = np.unravel_index(min_dist_idx, dist_map.shape)
+            navigable_goal_map = np.zeros_like(goal)
+            navigable_goal_map[goal_pt[0], goal_pt[1]] = 1
+        else:
+            navigable_goal_map = dist_map < distance
+
         if visualize:
             # Debugging code. Make sure we are properly finding the closest traversible goal.
-            import matplotlib.pyplot as plt
-
-            plt.subplot(121)
+            plt.subplot(221)
             plt.imshow(self.traversible)
-            plt.subplot(122)
+            plt.subplot(222)
             plt.imshow(dist_map)
+            plt.subplot(223)
+            plt.imshow(navigable_goal_map)
+            plt.subplot(224)
+            plt.imshow(goal)
             plt.show()
 
-        min_dist_idx = dist_map.argmin()
-        goal = np.unravel_index(min_dist_idx, dist_map.shape)
-
-        return goal
+        return navigable_goal_map

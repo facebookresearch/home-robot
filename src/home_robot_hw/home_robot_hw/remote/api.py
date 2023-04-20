@@ -24,7 +24,7 @@ class StretchClient:
         init_node: bool = True,
         camera_overrides: Optional[Dict] = None,
         urdf_path: str = "",
-        ik_type: str = "pybullet",
+        ik_type: str = "pinocchio",
         visualize_ik: bool = False,
         grasp_frame: Optional[str] = None,
         ee_link_name: Optional[str] = None,
