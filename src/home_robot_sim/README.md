@@ -71,12 +71,11 @@ export PYTHONPATH=$PYTHONPATH:/path/to/home-robot-dev/habitat-lab/
 
 ```
 cd `HOME_ROBOT_ROOT/data/`
+# Download the scenes
 git clone https://huggingface.co/datasets/osmm/fpss --branch osmm
+# Download the objects and metadata
+git clone https://huggingface.co/datasets/osmm/objects
 ```
-
-The google scanned objects and amazon berkeley objects will need to be in `data/objects/google_object_dataset` and `data/objects/amazon_berkeley` respectively. These datasets can be downloaded from [here](https://drive.google.com/drive/u/0/folders/1Qs99bMMC7ZpZwksZYDC_IkNqK_IB6ONU). They are also available on Skynet at: `/srv/flash1/aramacha35/habitat-lab/data/objects`.
-
-TODO: Download these using git clone https://huggingface.co/datasets/osmm/objects
 
 ### Other instructions
 
@@ -91,11 +90,6 @@ Rough notes; some things were missing for configuring a new environment:
 cd `HOME_ROBOT_ROOT/data/`
 git clone https://huggingface.co/datasets/osmm/episodes
 ```
-
-### Download CLIP embeddings
-Download from `https://drive.google.com/file/d/1sSDSKZgYeIPPk8OM4oWhLtAf4Z-zjAVy/view?usp=sharing` and place them under `HOME_ROBOT_ROOT/data/objects` directory.
-
-TODO: Remove this after we start downloading `objects` folder from huggingface.
 
 ## Demo setup
 
