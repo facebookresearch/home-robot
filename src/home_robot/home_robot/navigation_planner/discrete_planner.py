@@ -518,9 +518,13 @@ class DiscretePlanner:
         empty_planner = FMMPlanner(empty)
         empty_planner.set_goal(start)
         dist_map = empty_planner.fmm_dist * goal_map
-        closest_goal_pt = np.unravel_index(dist_map.argmax(), dist_map.shape)
-        dist_map = remove_boundary(dist_map)
-        return dist_map, closest_goal_pt
+        dist_map[dist_map == 0] = 10000
+        closest_goal_map = dist_map == dist_map.min()
+        closest_goal_map = remove_boundary(closest_goal_map)
+        closest_goal_pt = np.unravel_index(
+            closest_goal_map.argmax(), closest_goal_map.shape
+        )
+        return closest_goal_map, closest_goal_pt
 
     def _check_collision(self):
         """Check whether we had a collision and update the collision map."""
