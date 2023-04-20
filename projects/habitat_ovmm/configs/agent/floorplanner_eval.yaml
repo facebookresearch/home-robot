@@ -39,9 +39,10 @@ AGENT:
     min_obs_height_cm: 10    # minimum height (in centimeters) of obstacle
 
   SKILLS:
-    GAZE:
+    PICK:
+      type: gaze #end_to_end #modular #hardcoded
       checkpoint_path: data/checkpoints/gaze.pth
-      rl_config: projects/habitat_ovmm/configs/agent/gaze_rl.yaml
+      rl_config: projects/habitat_ovmm/configs/agent/gaze_rl.yaml # with continuous actions
       gym_obs_keys:
         - robot_head_depth
         - object_embedding
@@ -52,7 +53,22 @@ AGENT:
       allowed_actions:
         - arm_action
         - base_velocity
-      arm_joint_mask: [0, 0, 0, 0, 0, 0, 0] # the arm joints that the policy can control
+      arm_joint_mask: [0, 0, 0, 0, 0, 0, 1] # the arm joints that the policy can control
+
+    NAV_TO_OBJ:
+      type: modular
+
+    NAV_TO_REC:
+      type: modular
+
+    PLACE:
+      type: hardcoded
+
+  skip_nav_to_obj: False
+  skip_nav_to_rec: False
+  skip_pick: False
+  skip_place: False
+  skip_orient_obj: False
 
   PLANNER:
     collision_threshold: 0.20       # forward move distance under which we consider there's a collision (in meters)
