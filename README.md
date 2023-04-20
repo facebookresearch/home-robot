@@ -72,13 +72,26 @@ pip install -e src/home_robot
 pip install -e src/home_robot_hw
 ```
 
-To set up the simulation stack with Habitat, see instructions in `home_robot_sim` (WIP). You need to install AI habitat:
+To set up the simulation stack with Habitat, see the [installation instructions]() in `home_robot_sim`. You need to install AI habitat:
 
+```
+# Install habitat sim and update submodules
+mamba install -c conda-forge -c aihabitat habitat-sim withbullet
+git submodule update --init --recursive
+
+# Install habitat lab on the correct (object rearrange) branch
+pip install -e src/third_party/habitat-lab  # NOTE: Habitat-lab@v0.2.2 only works in editable mode
+
+# Install home robot sim interfaces
+pip install -e src/home_robot_sim
+```
+
+To test your installation, you can run:
 ```
 
 ```
 
-For the OVMM challenge, see [here](projects/stretch_ovmm/README.md).
+For more details on the OVMM challenge, see [here](projects/stretch_ovmm/README.md).
 
 ### Network Setup
 
