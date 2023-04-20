@@ -23,7 +23,7 @@ AGENT:
   max_steps: 500          # maximum number of steps before stopping an episode
   panorama_start: 0       # 1: turn around 360 degrees when starting an episode, 0: don't
   exploration_strategy: seen_frontier  # exploration strategy ("seen_frontier", "been_close_to_frontier")
-  radius: 0.05            # robot radius (in meters)
+  radius: 0.20            # robot radius (in meters)
 
   SEMANTIC_MAP:
     semantic_categories: mukul_indoor # map semantic channel categories ("coco_indoor", "longtail_indoor", "mukul_indoor")
@@ -36,15 +36,16 @@ AGENT:
     cat_pred_threshold: 5.0  # number of depth points to be in bin to classify it as a certain semantic category
     exp_pred_threshold: 1.0  # number of depth points to be in bin to consider it as explored
     map_pred_threshold: 1.0  # number of depth points to be in bin to consider it as obstacle
-    been_close_to_radius: 300  # radius (in centimeters) of been close to region
+    been_close_to_radius: 400  # radius (in centimeters) of been close to region
     explored_radius: 150       # radius (in centimeters) of visually explored region
-    occant_cfg_path: "src/home_robot/home_robot/mapping/occant_utils/configs/occant_rgbd.yaml"
-    occant_ckpt_path: "data/hm3d_models/occant_rgbd_wo_noise/ckpt.10.pth.stripped"
-    # occant_ckpt_path: "data/gibson_models/occant_depth_ckpt_10.pth.stripped_stretch_large_area"
+    occant_cfg_path: "src/home_robot/home_robot/mapping/occant_utils/configs/occant_depth.yaml"
+    occant_ckpt_path: "data/gibson_models/occant_depth_w_noise_mask_close_focal_large_area/ckpt.6.pth.stripped"
+    disable_anticipation: False
+    use_ego_map_seen: False
 
   PLANNER:
     collision_threshold: 0.20       # forward move distance under which we consider there's a collision (in meters)
-    obs_dilation_selem_radius: 5    # radius (in cells) of obstacle dilation structuring element
+    # obs_dilation_selem_radius: 5    # radius (in cells) of obstacle dilation structuring element
     goal_dilation_selem_radius: 5  # radius (in cells) of goal dilation structuring element
     step_size: 5                    # maximum distance of the short-term goal selected by the planner
     use_dilation_for_stg: True      # use dilated goals for estimating short-term goals

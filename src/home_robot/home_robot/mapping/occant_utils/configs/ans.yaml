@@ -1,6 +1,6 @@
-type: "occant_depth"
+type: "occant_rgbd"
 # entropy threshold to classify a cell as confident
-thresh_entropy: 0.60
+thresh_entropy: 0.5
 GP_ANTICIPATION:
   # Model capacity factor for custom UNet
   unet_nsf: 16
@@ -18,5 +18,5 @@ GP_ANTICIPATION:
     channel_1: "sigmoid"
   # Map aggregation configs
 AGGREGATOR:
-  registration_type: "entropy_moving_average"
+  registration_type: "maxpooling"
   map_registration_momentum: 0.9
