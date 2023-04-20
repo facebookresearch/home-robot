@@ -56,14 +56,18 @@ Installation on a workstation requires [conda](https://docs.conda.io/projects/co
 Installation on a robot assumes Ubuntu 20.04 and [ROS Noetic](http://wiki.ros.org/noetic).
 
 
-### Instructions
+### Instructions for Hardware stack on a Hello Robot Stretch
+See the [ROS installation instructions](src/home_robot_hw/install_robot.md) in `home_robot_hw`. 
 
-To set up the hardware stack on a Hello Robot  Stretch, see the [ROS installation instructions](src/home_robot_hw/install_robot.md) in `home_robot_hw`. Follow the [workstation setup instructions](src/home_robot_hw/install_workstation.md) to setup on your GPU-enabled workstation. Generally, to set up the software stack, you will install these packages:
+### Instructions for GPU-enabled workstation
 
 ```
 # Create a conda env
-mamba env create -n home-robot -f src/home_robot_hw/environment.yml
-conda activate home-robot
+mamba env create  -f ./src/home_robot_hw/environment.yml 
+conda activate home_robot_env
+
+# Install PyTorch depending on your workstation CUDA version 
+# See [here](https://pytorch.org/get-started/locally/)
 
 # Install the core home_robot package
 pip install -e src/home_robot
@@ -72,26 +76,48 @@ pip install -e src/home_robot
 pip install -e src/home_robot_hw
 ```
 
-To set up the simulation stack with Habitat, see the [installation instructions]() in `home_robot_sim`. You need to install AI habitat:
+Follow the [workstation setup instructions](src/home_robot_hw/install_workstation.md) to setup ROS Network on your GPU-enabled workstation. 
 
-```
-# Install habitat sim and update submodules
-mamba install -c conda-forge -c aihabitat habitat-sim withbullet
-git submodule update --init --recursive
+### Instructions for Simulation stack with Habitat
+1. Install torch version based on your system's CUDA version. Check CUDA version with `nvidia-smi`.
+1. Use need to be in `home-robot` folder to execute the following commands.
+    ```
+    # currently in home-robot dir and home_robot_env conda/mamba environment!
 
-# Install habitat lab on the correct (object rearrange) branch
-pip install -e src/third_party/habitat-lab  # NOTE: Habitat-lab@v0.2.2 only works in editable mode
+    # Install habitat sim and update submodules
+    mamba install -c conda-forge -c aihabitat habitat-sim withbullet
+    git submodule update --init --recursive
 
-# Install home robot sim interfaces
-pip install -e src/home_robot_sim
-```
+    # Install habitat lab on the correct (object rearrange) branch
+    pip install -e src/third_party/habitat-lab/habitat-lab  # NOTE: Habitat-lab@v0.2.2 only works in editable mode
 
-To test your installation, you can run:
-```
+    # Install home robot sim interfaces
+    pip install -e src/home_robot_sim
+    ```
+1. To test your installation, you can run:
+    ```
+    <!-- TODO -->
+    ```
+For general details, see the [installation instructions]() in `home_robot_sim`. 
 
-```
+### OVMM challenge
 
-For more details on the OVMM challenge, see [here](projects/stretch_ovmm/README.md).
+#### Object Nav
+1. Download Detic checkpoint as per the instructions [here](https://github.com/facebookresearch/Detic)
+    ```
+    cd $HOME-ROBOT-PATH/src/home_robot/perception/detection/detic/Detic/
+    mkdir models
+    wget https://dl.fbaipublicfiles.com/detic/Detic_LCOCOI21k_CLIP_SwinB_896b32_4x_ft4x_max-size.pth -O models/Detic_LCOCOI21k_CLIP_SwinB_896b32_4x_ft4x_max-size.pth --no-check-certificate
+    ```
+1. [ WIP ] Run the Object Nav test to make the robot navigate to a cup.  
+    ```
+    python projects/stretch_objectnav/eval_episode.py
+    ```
+    To change the objects detected, modify the `REAL_WORLD_CATEGORIES` list  in `src/home_robot_hw/home_robot_hw/env/stretch_object_nav_env.py`. 
+<!-- TODO: add main aspects like stretch_objectnav, stretch_ovmm (for grasping). -->
+
+#### Grasping
+See [here](projects/stretch_ovmm/README.md).
 
 ### Network Setup
 
@@ -128,6 +154,10 @@ pre-commit install
 ```
 
 To format manually, run: `pre-commit run --show-diff-on-failure --all-files`
+
+## Troubleshooting
+- Errors on installing Detectron2: check `nvcc --version` and make sure it matches the cuda drivers.
+- 
 
 ## License
 Home Robot is MIT licensed. See the [LICENSE](./LICENSE) for details.

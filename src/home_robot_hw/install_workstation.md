@@ -8,8 +8,8 @@ On the Workstation, we install `home_robot_hw` as a pip package containing a cli
 
 ```sh
 # Create a conda env
-mamba create -n <YOUR_ENV_NAME> -f src/home_robot_hw/environment.yml
-conda activate <YOUR_ENV_NAME>
+mamba env create  -f ./src/home_robot_hw/environment.yml  # this creates env named home_robot_env
+conda activate home_robot_env
 
 # Install the core home_robot package
 pip install -e src/home_robot

@@ -1,11 +1,11 @@
+name: home_robot_env
 channels:
   - conda-forge
   - robostack
   - robostack-staging
 dependencies:
-  - python==3.9.*
+  - pip
+  - python=3.9
   - ros-noetic-desktop
   - ros-noetic-ros-numpy
   - catkin_tools
-  - pip:
-    - pynput
