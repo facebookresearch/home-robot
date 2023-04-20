@@ -22,7 +22,6 @@ from home_robot.mapping.semantic.constants import MapConstants as MC
 
 # For debugging input and output maps - shows matplotlib visuals
 debug_maps = False
-USE_EGO_MAP_SEEN = False
 
 EPS_MAPPER = 1e-8
 
@@ -38,13 +37,24 @@ class GeometricMapModuleWithAnticipation(GeometricMapModule):
     https://github.com/facebookresearch/OccupancyAnticipation
     """
 
-    def __init__(self, *args, occant_cfg_path, occant_ckpt_path, device, **kwargs):
+    def __init__(
+        self,
+        *args,
+        occant_cfg_path="",
+        occant_ckpt_path="",
+        disable_anticipation=False,
+        use_ego_map_seen=False,
+        device=None,
+        **kwargs
+    ):
         super().__init__(*args, **kwargs)
         self.occant_cfg = get_cfg(occant_cfg_path)
         self.occant_model = OccupancyAnticipator(self.occant_cfg)
         self.load_model_weights(occant_ckpt_path)
         self.occant_model.eval()
         self.occant_model.to(device)
+        self.disable_anticipation = disable_anticipation
+        self.use_ego_map_seen = use_ego_map_seen
         self.model_device = device
 
     def load_model_weights(self, path: str):
@@ -430,19 +440,22 @@ class GeometricMapModuleWithAnticipation(GeometricMapModule):
         # -------------------------------------------------------
         # -------------------- Anticipation --------------------
         # -------------------------------------------------------
-        if USE_EGO_MAP_SEEN:
-            ego_map_a = self.occant_model({"ego_map_gt": ego_map_seen, "rgb": rgb_obs})[
-                "occ_estimate"
-            ]
-            ego_map_rgb = ego_map_seen_rgb
+        if self.disable_anticipation:
+            ego_map_a = ego_map
         else:
-            ego_map_a = self.occant_model({"ego_map_gt": ego_map, "rgb": rgb_obs})[
-                "occ_estimate"
-            ]
-        # Filter nearby parts of the map
-        start_idx = int(ego_map_a.shape[2] * 0.75)
-        end_idx = int(ego_map_a.shape[2])
-        ego_map_a[:, :, start_idx:end_idx] = 0
+            if self.use_ego_map_seen:
+                ego_map_a = self.occant_model(
+                    {"ego_map_gt": ego_map_seen, "rgb": rgb_obs}
+                )["occ_estimate"]
+                ego_map_rgb = ego_map_seen_rgb
+            else:
+                ego_map_a = self.occant_model({"ego_map_gt": ego_map, "rgb": rgb_obs})[
+                    "occ_estimate"
+                ]
+        # # Filter nearby parts of the map
+        # start_idx = int(ego_map_a.shape[2] * 0.75)
+        # end_idx = int(ego_map_a.shape[2])
+        # ego_map_a[:, :, start_idx:end_idx] = 0
         ego_map_a_rgb = self.convert_map2rgb(ego_map_a[0])
         # Entropy-based filtering (only for visualization)
         ego_map_a_ent = self.perform_entropy_filtering(ego_map_a)
