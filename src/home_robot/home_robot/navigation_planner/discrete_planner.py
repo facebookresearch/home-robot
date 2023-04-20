@@ -452,6 +452,10 @@ class DiscretePlanner:
                     replan,
                 )
 
+        # Handle edge case where all goal locations are obstacles
+        if not np.any((planner.goal_map > 0.5) & (planner.traversible > 0.5)):
+            print("All goals to the robot are obstacles. Replan.")
+            replan = True
         return short_term_goal, closest_goal_map, replan, stop, closest_goal_pt
 
     def _check_collision(self):
