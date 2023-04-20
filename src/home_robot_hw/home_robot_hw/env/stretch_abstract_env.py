@@ -96,6 +96,8 @@ class StretchEnv(home_robot.core.abstract_env.Env):
     dist_tol = 1e-4
     theta_tol = 1e-3
     wait_time_step = 1e-3
+    # This is an important value - used for determining if the robot has reached a goal position.
+    # TODO: drop this or reduce it to something very small, use velocity + timesteps instead.
     msg_delay_t = 0.25
     block_spin_rate = 10
 

@@ -16,7 +16,7 @@ import home_robot.utils.visualization as vu
 
 from .constants import FloorplannertoMukulIndoor, HM3DtoCOCOIndoor
 from .constants import PaletteIndices as PI
-from .constants import RearrangeCategories, RearrangeDETICCategories
+from .constants import RearrangeBasicCategories, RearrangeDETICCategories
 
 
 class VIS_LAYOUT:
@@ -110,23 +110,30 @@ class Visualizer:
             self._rec_id_to_name_mapping = {
                 k: v for v, k in self._rec_name_to_id_mapping.items()
             }
-            # combining objs and receps ids into one dictionary
-            self.obj_rec_combined_mapping = {}
-            for i in range(
-                len(self._obj_id_to_name_mapping) + len(self._rec_id_to_name_mapping)
-            ):
-                if i < len(self._obj_id_to_name_mapping):
-                    self.obj_rec_combined_mapping[i + 1] = self._obj_id_to_name_mapping[
-                        i
-                    ]
-                else:
-                    self.obj_rec_combined_mapping[i + 1] = self._rec_id_to_name_mapping[
-                        i - len(self._obj_id_to_name_mapping)
-                    ]
 
-            self.semantic_category_mapping = RearrangeDETICCategories(
-                self.obj_rec_combined_mapping
-            )
+            if config.GROUND_TRUTH_SEMANTICS:
+                self.semantic_category_mapping = RearrangeBasicCategories()
+            else:
+                # combining objs and receps ids into one dictionary
+                self.obj_rec_combined_mapping = {}
+                for i in range(
+                    len(self._obj_id_to_name_mapping)
+                    + len(self._rec_id_to_name_mapping)
+                ):
+                    if i < len(self._obj_id_to_name_mapping):
+                        self.obj_rec_combined_mapping[
+                            i + 1
+                        ] = self._obj_id_to_name_mapping[i]
+                    else:
+                        self.obj_rec_combined_mapping[
+                            i + 1
+                        ] = self._rec_id_to_name_mapping[
+                            i - len(self._obj_id_to_name_mapping)
+                        ]
+
+                self.semantic_category_mapping = RearrangeDETICCategories(
+                    self.obj_rec_combined_mapping
+                )
 
         elif "floorplanner" in self.episodes_data_path:
             if config.AGENT.SEMANTIC_MAP.semantic_categories == "mukul_indoor":
