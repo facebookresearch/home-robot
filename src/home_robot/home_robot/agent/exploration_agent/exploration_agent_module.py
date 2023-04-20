@@ -31,6 +31,8 @@ class ExplorationAgentModule(nn.Module):
             map_pred_threshold=config.AGENT.SEMANTIC_MAP.map_pred_threshold,
             must_explore_close=must_explore_close,
             set_local_explored=set_local_explored,
+            min_depth=config.ENVIRONMENT.min_depth,
+            max_depth=config.ENVIRONMENT.max_depth,
         )
         self.policy = FrontierExplorationPolicy(
             exploration_strategy=config.AGENT.exploration_strategy

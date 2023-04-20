@@ -39,6 +39,8 @@ class OccAntAgentModule(nn.Module):
             map_pred_threshold=config.AGENT.SEMANTIC_MAP.map_pred_threshold,
             occant_cfg_path=config.AGENT.SEMANTIC_MAP.occant_cfg_path,
             occant_ckpt_path=config.AGENT.SEMANTIC_MAP.occant_ckpt_path,
+            min_depth=config.ENVIRONMENT.min_depth,
+            max_depth=config.ENVIRONMENT.max_depth,
             device=device,
         )
         self.device = device
