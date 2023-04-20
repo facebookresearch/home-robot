@@ -49,12 +49,59 @@ The [home_robot_sim](src/home_robot_sim) package contains code for interface
 
 ## Installation
 
-To set up the hardware stack with a Hello Stretch Robot, see instructions in `home_robot_hw`.
+### Preliminary
 
-To set up the simulation stack with Habitat, see instructions in `home_robot_sim`.
+Installation on a workstation requires [conda](https://docs.conda.io/projects/conda/en/latest/user-guide/install/linux.html) and [mamba](https://mamba.readthedocs.io/en/latest/user_guide/mamba.html).
+
+Installation on a robot assumes Ubuntu 20.04 and [ROS Noetic](http://wiki.ros.org/noetic).
+
+
+### Instructions
+
+To set up the hardware stack on a Hello Robot  Stretch, see the [ROS installation instructions](src/home_robot_hw/install_robot.md) in `home_robot_hw`. Follow the [workstation setup instructions](src/home_robot_hw/install_workstation.md) to setup on your GPU-enabled workstation. Generally, to set up the software stack, you will install these packages:
+
+```
+# Create a conda env
+mamba env create -n home-robot -f src/home_robot_hw/environment.yml
+conda activate home-robot
+
+# Install the core home_robot package
+pip install -e src/home_robot
+
+# Install home_robot_hw
+pip install -e src/home_robot_hw
+```
+
+To set up the simulation stack with Habitat, see instructions in `home_robot_sim` (WIP). You need to install AI habitat:
+
+```
+
+```
 
 For the OVMM challenge, see [here](projects/stretch_ovmm/README.md).
 
+### Network Setup
+
+Proper network setup is crucial to getting good performance with HomeRobot. Low-cost mobile robots often do not have sufficient GPU to run state-of-the-art perception models. Instead, we rely on a client-server architecture, where ROS and low-level controllers run on the robot, and CPU- and GPU-intensive AI code runs on a workstation.
+
+After following the installation instructions, we recommend setting up your `~/.bashrc` on the robot workstation:
+
+```
+# Whatever your workstation's IP address is
+export WORKSTATION_IP=10.0.0.2
+# Whatever your robot's IP address is
+export HELLO_ROBOT_IP=10.0.0.6
+
+export ROS_IP=$WORKSTATION_IP
+export ROS_MASTER_URI=http://$HELLO_ROBOT_IP:11311
+
+# Optionally - make it clear to avoid issues
+echo "Setting ROS_MASTER_URI to $ROS_MASTER_URI"
+echo "Setting ROS IP to $ROS_IP"
+
+# Helpful alias - connect to the robot
+alias ssh-robot="ssh hello-robot@$HELLO_ROBOT_IP"
+```
 
 ## Code Contribution
 
