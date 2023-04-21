@@ -337,9 +337,13 @@ class PPOAgent(Agent):
 def convert_to_robot_action(cont_action):
     waypoint, sel = cont_action["base_vel"]
     if sel >= 0:
-        action = ContinuousNavigationAction([waypoint * 0.25, 0, 0])  # forward
+        action = ContinuousNavigationAction(
+            [np.clip(waypoint, -1, 1) * 0.25, 0, 0]
+        )  # forward
     else:
-        action = ContinuousNavigationAction([0, 0, waypoint * 0.1745])  # turn
+        action = ContinuousNavigationAction(
+            [0, 0, np.clip(waypoint, -1, 1) * 0.1745]
+        )  # turn
     return action
 
 
