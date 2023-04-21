@@ -27,26 +27,6 @@ This is the recommended workflow for hardware robots:
 
 We provide a couple connections for useful perception libraries like [Detic](https://github.com/facebookresearch/Detic) and [Contact Graspnet](https://github.com/NVlabs/contact_graspnet), which you can then use as a part of your methods.
 
-There are two core classes in HomeRobot that you need to be concerned with:
-  - *Environments* extend the [abstract Environment class](https://github.com/facebookresearch/home-robot/blob/main/src/home_robot/home_robot/core/abstract_env.py) and provide *observations* of the world, and a way to *apply actions*.
-  - *Agents* extend the [abstract Agent class](https://github.com/facebookresearch/home-robot/blob/main/src/home_robot/home_robot/core/abstract_agent.py), which takes in an [observation](https://github.com/facebookresearch/home-robot/blob/main/src/home_robot/home_robot/core/interfaces.py#L95) and produces an [action](https://github.com/facebookresearch/home-robot/blob/main/src/home_robot/home_robot/core/interfaces.py#L50).
-
-### Organization
-
-[HomeRobot](https://github.com/facebookresearch/home-robot/) is broken up into three different packages:
-
-| Resource | Description |
-| -------- | ----------- |
-| [home_robot](src/home_robot) | Core package containing agents and interfaces |
-| [home_robot_sim](src/home_robot_sim) | OVMM simulation environment based on [AI Habitat](https://aihabitat.org/) |
-| [home_robot_hw](src/home_robot_hw) | ROS package containing hardware interfaces for the Hello Robot Stretch |
-
-The [home_robot](src/home_robot) package contains embodiment-agnostic agent code, such as our [ObjectNav agent](https://github.com/facebookresearch/home-robot/blob/main/src/home_robot/home_robot/agent/objectnav_agent/objectnav_agent.py) (finds objects in scenes) and our [hierarchical OVMM agent](https://github.com/facebookresearch/home-robot/blob/main/src/home_robot/home_robot/agent/ovmm_agent/ovmm_agent.py). YThese agents can be extended or modified to implement your own solution.
-
-Importantly, agents use a fixed set of [interfaces](https://github.com/facebookresearch/home-robot/blob/main/src/home_robot/home_robot/core/interfaces.py) which are overridden to provide access to 
-
-The [home_robot_sim](src/home_robot_sim) package contains code for interface
-
 ## Installation
 
 ### Preliminary
@@ -191,9 +171,33 @@ python projects/stretch_ovmm/eval_vectorized.py
 For more details on the OVMM challenge, see the [Habitat OVMM readme](projects/stretch_ovmm/README.md).
 
 
-
-
 ## Code Contribution
+
+We welcome contributions to HomeRobot.
+
+There are two main classes in HomeRobot that you need to be concerned with:
+  - *Environments* extend the [abstract Environment class](https://github.com/facebookresearch/home-robot/blob/main/src/home_robot/home_robot/core/abstract_env.py) and provide *observations* of the world, and a way to *apply actions*.
+  - *Agents* extend the [abstract Agent class](https://github.com/facebookresearch/home-robot/blob/main/src/home_robot/home_robot/core/abstract_agent.py), which takes in an [observation](https://github.com/facebookresearch/home-robot/blob/main/src/home_robot/home_robot/core/interfaces.py#L95) and produces an [action](https://github.com/facebookresearch/home-robot/blob/main/src/home_robot/home_robot/core/interfaces.py#L50).
+
+Generally, new methods will be implemented as Agents.
+
+### Organization
+
+[HomeRobot](https://github.com/facebookresearch/home-robot/) is broken up into three different packages:
+
+| Resource | Description |
+| -------- | ----------- |
+| [home_robot](src/home_robot) | Core package containing agents and interfaces |
+| [home_robot_sim](src/home_robot_sim) | OVMM simulation environment based on [AI Habitat](https://aihabitat.org/) |
+| [home_robot_hw](src/home_robot_hw) | ROS package containing hardware interfaces for the Hello Robot Stretch |
+
+The [home_robot](src/home_robot) package contains embodiment-agnostic agent code, such as our [ObjectNav agent](https://github.com/facebookresearch/home-robot/blob/main/src/home_robot/home_robot/agent/objectnav_agent/objectnav_agent.py) (finds objects in scenes) and our [hierarchical OVMM agent](https://github.com/facebookresearch/home-robot/blob/main/src/home_robot/home_robot/agent/ovmm_agent/ovmm_agent.py). YThese agents can be extended or modified to implement your own solution.
+
+Importantly, agents use a fixed set of [interfaces](https://github.com/facebookresearch/home-robot/blob/main/src/home_robot/home_robot/core/interfaces.py) which are overridden to provide access to 
+
+The [home_robot_sim](src/home_robot_sim) package contains code for interface
+
+### Style
 
 We use linters for enforcing good code style. The `lint` test will not pass if your code does not conform.
 
@@ -205,6 +209,7 @@ pre-commit install
 ```
 
 To format manually, run: `pre-commit run --show-diff-on-failure --all-files`
+
 
 ## License
 Home Robot is MIT licensed. See the [LICENSE](./LICENSE) for details.
