@@ -156,8 +156,9 @@ python src/home_robot_hw/home_robot_hw/nodes/simple_grasp_server.py
 Then you can run the OVMM example script:
 ```
 cd $HOME_ROBOT_ROOT
-python projects/stretch_ovmm/eval_episode.py
+python projects/stretch_ovmm/eval_episode.py --object=<OBJECT_NAME>
 ```
+Here OBJECT_NAME can be anything in the room like `cup, book, mouse, keyboard, toy`. 
 
 #### 7. Simulation Setup
 
