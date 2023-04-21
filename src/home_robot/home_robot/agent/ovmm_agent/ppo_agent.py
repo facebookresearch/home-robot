@@ -309,7 +309,10 @@ class PPOAgent(Agent):
                 step_action = continuous_vector_action_to_hab_dict(
                     self.filtered_action_space, self.vector_action_space, act[0]
                 )
-                return convert_to_robot_action(step_action["action_args"])
+                return (
+                    convert_to_robot_action(step_action["action_args"]),
+                    self.does_want_terminate(observations, actions),
+                )
             else:
                 # TODO: to be tested (by Nav skill?)
                 step_action = map_discrete_habitat_actions(
