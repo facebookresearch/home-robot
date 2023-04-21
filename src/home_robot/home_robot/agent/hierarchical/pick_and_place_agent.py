@@ -65,7 +65,6 @@ class PickAndPlaceAgent(Agent):
             "semantic_frame": obs.task_observations["semantic_frame"],
             "goal_name": obs.task_observations["goal_name"],
             "third_person_image": obs.third_person_image,
-            "timestep": self.timesteps[0],
             "found_goal": False,
         }
 
@@ -104,7 +103,6 @@ class PickAndPlaceAgent(Agent):
 
         action = DiscreteNavigationAction.STOP
         action_info = None
-        vis_inputs = self._get_vis_inputs(obs)
         # Look for the goal object.
         if self.state == SimpleTaskState.FIND_OBJECT:
             if self.skip_find_object:
@@ -130,7 +128,7 @@ class PickAndPlaceAgent(Agent):
                 action, does_want_terminate = self.gaze_agent.act(obs)
                 if does_want_terminate:
                     self.state = SimpleTaskState.PICK_OBJECT
-                return action, vis_inputs
+                return action, None
         if self.state == SimpleTaskState.PICK_OBJECT:
             # Try to grab the object
             if not self.skip_place:
