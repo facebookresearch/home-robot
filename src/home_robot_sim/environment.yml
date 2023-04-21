@@ -2,7 +2,7 @@ channels:
   - conda-forge
   - aihabitat
 dependencies:
-  - habitat-sim ==0.2.2
+  - habitat-sim==0.2.4
   - withbullet
   - pip:
     - gym>=0.22.0,<0.23.1
