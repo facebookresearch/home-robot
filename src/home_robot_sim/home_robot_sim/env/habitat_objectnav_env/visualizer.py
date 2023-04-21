@@ -16,7 +16,33 @@ import home_robot.utils.visualization as vu
 
 from .constants import FloorplannertoMukulIndoor, HM3DtoCOCOIndoor
 from .constants import PaletteIndices as PI
-from .constants import RearrangeCategories
+from .constants import RearrangeBasicCategories, RearrangeDETICCategories
+
+
+class VIS_LAYOUT:
+    HEIGHT = 480
+    FIRST_PERSON_W = 360
+    TOP_DOWN_W = HEIGHT
+    THIRD_PERSON_W = HEIGHT
+    LEFT_PADDING = 15
+    TOP_PADDING = 50
+    LEGEND_TOP_PADDING = 5
+    BOTTOM_PADDING = 240  # 80
+    Y1 = TOP_PADDING
+    Y2 = TOP_PADDING + HEIGHT
+    FIRST_RGB_X1 = LEFT_PADDING
+    FIRST_RGB_X2 = LEFT_PADDING + FIRST_PERSON_W
+    FIRST_SEM_X1 = LEFT_PADDING + FIRST_RGB_X2
+    FIRST_SEM_X2 = FIRST_SEM_X1 + FIRST_PERSON_W
+    TOP_DOWN_X1 = FIRST_SEM_X2 + LEFT_PADDING
+    TOP_DOWN_X2 = TOP_DOWN_X1 + TOP_DOWN_W
+    THIRD_PERSON_X1 = TOP_DOWN_X2 + LEFT_PADDING
+    THIRD_PERSON_X2 = THIRD_PERSON_X1 + THIRD_PERSON_W
+    IMAGE_HEIGHT = Y2 + BOTTOM_PADDING
+    IMAGE_WIDTH = THIRD_PERSON_X2 + LEFT_PADDING
+
+
+V = VIS_LAYOUT
 
 
 class Visualizer:
@@ -24,10 +50,11 @@ class Visualizer:
     This class is intended to visualize a single object goal navigation task.
     """
 
-    def __init__(self, config):
+    def __init__(self, config, dataset=None):
         self.show_images = config.VISUALIZE
         self.print_images = config.PRINT_IMAGES
         self.default_vis_dir = f"{config.DUMP_LOCATION}/images/{config.EXP_NAME}"
+        self._dataset = dataset
         os.makedirs(self.default_vis_dir, exist_ok=True)
         if hasattr(config, "habitat"):  # hydra configs
             self.episodes_data_path = config.habitat.dataset.data_path
@@ -48,34 +75,66 @@ class Visualizer:
             and hasattr(config, "habitat")
             and "CatNavToObjTask" in config.habitat.task.type
         ):
-            self.semantic_category_mapping = RearrangeCategories()
-            self._obj_name_to_id_mapping = {
-                "action_figure": 0,
-                "cup": 1,
-                "dishtowel": 2,
-                "hat": 3,
-                "sponge": 4,
-                "stuffed_toy": 5,
-                "tape": 6,
-                "vase": 7,
-            }
-            self._rec_name_to_id_mapping = {
-                "armchair": 0,
-                "armoire": 1,
-                "bar_stool": 2,
-                "coffee_table": 3,
-                "desk": 4,
-                "dining_table": 5,
-                "kitchen_island": 6,
-                "sofa": 7,
-                "stool": 8,
-            }
+            if self._dataset is None:
+                self._obj_name_to_id_mapping = {
+                    "action_figure": 0,
+                    "cup": 1,
+                    "dishtowel": 2,
+                    "hat": 3,
+                    "sponge": 4,
+                    "stuffed_toy": 5,
+                    "tape": 6,
+                    "vase": 7,
+                }
+                self._rec_name_to_id_mapping = {
+                    "armchair": 0,
+                    "armoire": 1,
+                    "bar_stool": 2,
+                    "coffee_table": 3,
+                    "desk": 4,
+                    "dining_table": 5,
+                    "kitchen_island": 6,
+                    "sofa": 7,
+                    "stool": 8,
+                }
+            else:
+                self._obj_name_to_id_mapping = (
+                    self._dataset.obj_category_to_obj_category_id
+                )
+                self._rec_name_to_id_mapping = (
+                    self._dataset.recep_category_to_recep_category_id
+                )
             self._obj_id_to_name_mapping = {
                 k: v for v, k in self._obj_name_to_id_mapping.items()
             }
             self._rec_id_to_name_mapping = {
                 k: v for v, k in self._rec_name_to_id_mapping.items()
             }
+
+            if config.GROUND_TRUTH_SEMANTICS:
+                self.semantic_category_mapping = RearrangeBasicCategories()
+            else:
+                # combining objs and receps ids into one dictionary
+                self.obj_rec_combined_mapping = {}
+                for i in range(
+                    len(self._obj_id_to_name_mapping)
+                    + len(self._rec_id_to_name_mapping)
+                ):
+                    if i < len(self._obj_id_to_name_mapping):
+                        self.obj_rec_combined_mapping[
+                            i + 1
+                        ] = self._obj_id_to_name_mapping[i]
+                    else:
+                        self.obj_rec_combined_mapping[
+                            i + 1
+                        ] = self._rec_id_to_name_mapping[
+                            i - len(self._obj_id_to_name_mapping)
+                        ]
+
+                self.semantic_category_mapping = RearrangeDETICCategories(
+                    self.obj_rec_combined_mapping
+                )
+
         elif "floorplanner" in self.episodes_data_path:
             if config.AGENT.SEMANTIC_MAP.semantic_categories == "mukul_indoor":
                 self.semantic_category_mapping = FloorplannertoMukulIndoor()
@@ -119,6 +178,31 @@ class Visualizer:
     def disable_print_images(self):
         self.print_images = False
 
+    def get_semantic_vis(self, semantic_map, rgb_frame=None):
+        semantic_map_vis = Image.new(
+            "P", (semantic_map.shape[1], semantic_map.shape[0])
+        )
+        semantic_map_vis.putpalette(self.semantic_category_mapping.map_color_palette)
+        semantic_map_vis.putdata(semantic_map.flatten().astype(np.uint8))
+
+        if rgb_frame is not None:
+            # overlaying semantics on RGB frame
+            rgb_frame = rgb_frame[:, :, [2, 1, 0]]
+            mask = np.array(semantic_map_vis)
+            mask = (
+                mask == self.semantic_category_mapping.num_sem_categories - 1 + 7
+            ).astype(np.uint8) * 255
+            mask = Image.fromarray(mask)
+            rgb_pil = Image.fromarray(rgb_frame)
+            semantic_map_vis = semantic_map_vis.convert("RGB")
+            semantic_map_vis.paste(rgb_pil, mask=mask)
+        else:
+            semantic_map_vis = semantic_map_vis.convert("RGB")
+
+        semantic_map_vis = np.asarray(semantic_map_vis)[:, :, [2, 1, 0]]
+
+        return semantic_map_vis
+
     def visualize(
         self,
         obstacle_map: np.ndarray,
@@ -130,6 +214,7 @@ class Visualizer:
         semantic_map: np.ndarray,
         been_close_map: np.ndarray,
         semantic_frame: np.ndarray,
+        frontier_map: np.ndarray,
         goal_name: str,
         timestep: int,
         visualize_goal: bool = True,
@@ -209,14 +294,9 @@ class Visualizer:
                 semantic_map[closest_goal_mask] = PI.CLOSEST_GOAL
 
         # Semantic categories
-        semantic_map_vis = Image.new(
-            "P", (semantic_map.shape[1], semantic_map.shape[0])
-        )
-        semantic_map_vis.putpalette(self.semantic_category_mapping.map_color_palette)
-        semantic_map_vis.putdata(semantic_map.flatten().astype(np.uint8))
-        semantic_map_vis = semantic_map_vis.convert("RGB")
+        semantic_map_vis = self.get_semantic_vis(semantic_map)
         semantic_map_vis = np.flipud(semantic_map_vis)
-        semantic_map_vis = semantic_map_vis[:, :, [2, 1, 0]]
+
         # overlay the regions the agent has been close to
         been_close_map = np.flipud(np.rint(been_close_map) == 1)
         color_index = PI.BEEN_CLOSE * 3
@@ -228,18 +308,32 @@ class Visualizer:
         ) / 2
 
         semantic_map_vis = cv2.resize(
-            semantic_map_vis, (480, 480), interpolation=cv2.INTER_NEAREST
+            semantic_map_vis, (V.TOP_DOWN_W, V.HEIGHT), interpolation=cv2.INTER_NEAREST
         )
-        self.image_vis[50:530, 670:1150] = semantic_map_vis
+        self.image_vis[V.Y1 : V.Y2, V.TOP_DOWN_X1 : V.TOP_DOWN_X2] = semantic_map_vis
 
+        # First-person RGB frame
+        rgb_frame = semantic_frame[:, :, [2, 1, 0]]
+        self.image_vis[V.Y1 : V.Y2, V.FIRST_RGB_X1 : V.FIRST_RGB_X2] = cv2.resize(
+            rgb_frame, (V.FIRST_PERSON_W, V.HEIGHT)
+        )
+        # Semantic categories
+        first_person_semantic_map_vis = self.get_semantic_vis(
+            semantic_frame[:, :, 3] + PI.SEM_START, rgb_frame
+        )
         # First-person semantic frame
-        self.image_vis[50 : 50 + 480, 15 : 15 + 360] = cv2.resize(
-            semantic_frame, (360, 480)
+        self.image_vis[V.Y1 : V.Y2, V.FIRST_SEM_X1 : V.FIRST_SEM_X2] = cv2.resize(
+            first_person_semantic_map_vis,
+            (V.FIRST_PERSON_W, V.HEIGHT),
+            interpolation=cv2.INTER_NEAREST,
         )
 
         if third_person_image is not None:
-            self.image_vis[50:530, 1165 : 1165 + 480] = cv2.resize(
-                third_person_image, (480, 480)
+            self.image_vis[
+                V.Y1 : V.Y2, V.THIRD_PERSON_X1 : V.THIRD_PERSON_X2
+            ] = cv2.resize(
+                third_person_image[:, :, [2, 1, 0]],
+                (V.THIRD_PERSON_W, V.HEIGHT),
             )
 
         # Agent arrow
@@ -250,7 +344,7 @@ class Visualizer:
             / obstacle_map.shape[1],
             np.deg2rad(-curr_o),
         )
-        agent_arrow = vu.get_contour_points(pos, origin=(670, 50))
+        agent_arrow = vu.get_contour_points(pos, origin=(V.TOP_DOWN_X1, V.Y1))
         color = self.semantic_category_mapping.map_color_palette[9:12][::-1]
         cv2.drawContours(self.image_vis, [agent_arrow], 0, color, -1)
 
@@ -265,16 +359,18 @@ class Visualizer:
             )
 
     def _init_vis_image(self, goal_name: str):
-        vis_image = np.ones((655, 1820, 3)).astype(np.uint8) * 255
+        vis_image = np.ones((V.IMAGE_HEIGHT, V.IMAGE_WIDTH, 3)).astype(np.uint8) * 255
         font = cv2.FONT_HERSHEY_SIMPLEX
         fontScale = 1
         color = (20, 20, 20)  # BGR
         thickness = 2
 
-        text = "Observations (Goal: {})".format(goal_name)
+        text = goal_name
         textsize = cv2.getTextSize(text, font, fontScale, thickness)[0]
-        textX = (640 - textsize[0]) // 2 + 15
-        textY = (50 + textsize[1]) // 2
+        textX = (
+            2 * V.FIRST_PERSON_W + V.LEFT_PADDING - textsize[0]
+        ) // 2 + V.LEFT_PADDING
+        textY = (V.TOP_PADDING + textsize[1]) // 2
         vis_image = cv2.putText(
             vis_image,
             text,
@@ -288,8 +384,23 @@ class Visualizer:
 
         text = "Predicted Semantic Map"
         textsize = cv2.getTextSize(text, font, fontScale, thickness)[0]
-        textX = 640 + (480 - textsize[0]) // 2 + 30
-        textY = (50 + textsize[1]) // 2
+        textX = (V.TOP_DOWN_W - textsize[0]) // 2 + V.TOP_DOWN_X1
+        textY = (V.TOP_PADDING + textsize[1]) // 2
+        vis_image = cv2.putText(
+            vis_image,
+            text,
+            (textX, textY),
+            font,
+            fontScale,
+            color,
+            thickness,
+            cv2.LINE_AA,
+        )
+
+        text = "Third person image"
+        textsize = cv2.getTextSize(text, font, fontScale, thickness)[0]
+        textX = V.THIRD_PERSON_X1 + (V.THIRD_PERSON_W - textsize[0]) // 2
+        textY = (V.TOP_PADDING + textsize[1]) // 2
         vis_image = cv2.putText(
             vis_image,
             text,
@@ -303,17 +414,31 @@ class Visualizer:
 
         # Draw outlines
         color = (100, 100, 100)
-        vis_image[49, 15:655] = color
-        vis_image[49, 670:1150] = color
-        vis_image[50:530, 14] = color
-        vis_image[50:530, 655] = color
-        vis_image[50:530, 669] = color
-        vis_image[50:530, 1150] = color
-        vis_image[530, 15:655] = color
-        vis_image[530, 670:1150] = color
+        for y in [V.Y1 - 1, V.Y2]:
+            for x_start, x_len in [
+                (V.FIRST_RGB_X1, V.FIRST_PERSON_W),
+                (V.FIRST_SEM_X1, V.FIRST_PERSON_W),
+                (V.TOP_DOWN_X1, V.TOP_DOWN_W),
+                (V.THIRD_PERSON_X1, V.THIRD_PERSON_W),
+            ]:
+                vis_image[y, x_start - 1 : x_start + x_len] = color
+
+        for x in [
+            V.FIRST_RGB_X1 - 1,
+            V.FIRST_RGB_X2,
+            V.FIRST_SEM_X1 - 1,
+            V.FIRST_SEM_X2,
+            V.TOP_DOWN_X1 - 1,
+            V.TOP_DOWN_X2,
+            V.THIRD_PERSON_X1 - 1,
+            V.THIRD_PERSON_X2,
+        ]:
+            vis_image[V.Y1 - 1 : V.Y2, x] = color
 
         # Draw legend
         lx, ly, _ = self.legend.shape
-        vis_image[537 : 537 + lx, 155 : 155 + ly, :] = self.legend
+        vis_image[
+            V.Y2 + V.LEGEND_TOP_PADDING : V.Y2 + lx + V.LEGEND_TOP_PADDING, 0:ly, :
+        ] = self.legend
 
         return vis_image

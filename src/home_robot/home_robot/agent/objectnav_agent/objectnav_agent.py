@@ -75,6 +75,8 @@ class ObjectNavAgent(Agent):
             dump_location=config.DUMP_LOCATION,
             exp_name=config.EXP_NAME,
             agent_cell_radius=agent_cell_radius,
+            min_obs_dilation_selem_radius=config.AGENT.PLANNER.min_obs_dilation_selem_radius,
+            discrete_actions=config.AGENT.PLANNER.discrete_actions,
         )
         self.one_hot_encoding = torch.eye(
             config.AGENT.SEMANTIC_MAP.num_sem_categories, device=self.device
@@ -97,7 +99,9 @@ class ObjectNavAgent(Agent):
         obs: torch.Tensor,
         pose_delta: torch.Tensor,
         object_goal_category: torch.Tensor = None,
-        recep_goal_category: torch.Tensor = None,
+        start_recep_goal_category: torch.Tensor = None,
+        end_recep_goal_category: torch.Tensor = None,
+        nav_to_recep: torch.Tensor = None,
         camera_pose: torch.Tensor = None,
     ) -> Tuple[List[dict], List[dict]]:
         """Prepare low-level planner inputs from an observation - this is
@@ -112,7 +116,8 @@ class ObjectNavAgent(Agent):
             pose_delta: sensor pose delta (dy, dx, dtheta) since last frame
              of shape (num_environments, 3)
             object_goal_category: semantic category of small object goals
-            recep_goal_category: semantic category of receptacle goals
+            start_recep_goal_category: semantic category of start receptacle goals
+            end_recep_goal_category: semantic category of end receptacle goals
             camera_pose: camera extrinsic pose of shape (num_environments, 4, 4)
 
         Returns:
@@ -138,9 +143,10 @@ class ObjectNavAgent(Agent):
 
         if object_goal_category is not None:
             object_goal_category = object_goal_category.unsqueeze(1)
-        if recep_goal_category is not None:
-            recep_goal_category = recep_goal_category.unsqueeze(1)
-
+        if start_recep_goal_category is not None:
+            start_recep_goal_category = start_recep_goal_category.unsqueeze(1)
+        if end_recep_goal_category is not None:
+            end_recep_goal_category = end_recep_goal_category.unsqueeze(1)
         (
             goal_map,
             found_goal,
@@ -164,7 +170,9 @@ class ObjectNavAgent(Agent):
             self.semantic_map.lmb,
             self.semantic_map.origins,
             seq_object_goal_category=object_goal_category,
-            seq_recep_goal_category=recep_goal_category,
+            seq_start_recep_goal_category=start_recep_goal_category,
+            seq_end_recep_goal_category=end_recep_goal_category,
+            seq_nav_to_recep=nav_to_recep,
         )
 
         self.semantic_map.local_pose = seq_local_pose[:, -1]
@@ -176,7 +184,7 @@ class ObjectNavAgent(Agent):
         found_goal = found_goal.squeeze(1).cpu()
 
         for e in range(self.num_environments):
-            self.semantic_map.update_frontier_map(e, frontier_map[e][0])
+            self.semantic_map.update_frontier_map(e, frontier_map[e][0].cpu().numpy())
             if found_goal[e]:
                 self.semantic_map.update_global_goal_for_env(e, goal_map[e])
             elif self.timesteps_before_goal_update[e] == 0:
@@ -199,7 +207,6 @@ class ObjectNavAgent(Agent):
             plt.subplot(133)
             plt.imshow(self.semantic_map.get_goal_map(e))
             plt.show()
-            breakpoint()
 
         planner_inputs = [
             {
@@ -229,6 +236,8 @@ class ObjectNavAgent(Agent):
         self.timesteps_before_goal_update = [0] * self.num_environments
         self.last_poses = [np.zeros(3)] * self.num_environments
         self.semantic_map.init_map_and_pose()
+        self.episode_panorama_start_steps = self.panorama_start_steps
+        self.planner.reset()
 
     def reset_vectorized_for_env(self, e: int):
         """Initialize agent state for a specific environment."""
@@ -236,6 +245,8 @@ class ObjectNavAgent(Agent):
         self.timesteps_before_goal_update[e] = 0
         self.last_poses[e] = np.zeros(3)
         self.semantic_map.init_map_and_pose_for_env(e)
+        self.episode_panorama_start_steps = self.panorama_start_steps
+        self.planner.reset()
 
     # ---------------------------------------------------------------------
     # Inference methods to interact with the robot or a single un-vectorized
@@ -246,7 +257,9 @@ class ObjectNavAgent(Agent):
         """Initialize agent state."""
         self.reset_vectorized()
         self.planner.reset()
-        self.episode_panorama_start_steps = self.panorama_start_steps
+
+    def get_nav_to_recep(self):
+        return None
 
     def act(self, obs: Observations) -> Tuple[DiscreteNavigationAction, Dict[str, Any]]:
         """Act end-to-end."""
@@ -257,7 +270,8 @@ class ObjectNavAgent(Agent):
             obs_preprocessed,
             pose_delta,
             object_goal_category,
-            recep_goal_category,
+            start_recep_goal_category,
+            end_recep_goal_category,
             goal_name,
             camera_pose,
         ) = self._preprocess_obs(obs)
@@ -270,8 +284,10 @@ class ObjectNavAgent(Agent):
             obs_preprocessed,
             pose_delta,
             object_goal_category=object_goal_category,
-            recep_goal_category=recep_goal_category,
+            start_recep_goal_category=start_recep_goal_category,
+            end_recep_goal_category=end_recep_goal_category,
             camera_pose=camera_pose,
+            nav_to_recep=self.get_nav_to_recep(),
         )
 
         # t2 = time.time()
@@ -320,6 +336,7 @@ class ObjectNavAgent(Agent):
         ).unsqueeze(0)
         self.last_poses[0] = curr_pose
         object_goal_category = None
+        end_recep_goal_category = None
         if (
             "object_goal" in obs.task_observations
             and obs.task_observations["object_goal"] is not None
@@ -329,15 +346,24 @@ class ObjectNavAgent(Agent):
             object_goal_category = torch.tensor(
                 obs.task_observations["object_goal"]
             ).unsqueeze(0)
-        recep_goal_category = None
+        start_recep_goal_category = None
         if (
-            "recep_goal" in obs.task_observations
-            and obs.task_observations["recep_goal"] is not None
+            "start_recep_goal" in obs.task_observations
+            and obs.task_observations["start_recep_goal"] is not None
         ):
             if self.verbose:
-                print("recep goal =", obs.task_observations["recep_goal"])
-            recep_goal_category = torch.tensor(
-                obs.task_observations["recep_goal"]
+                print("start_recep goal =", obs.task_observations["start_recep_goal"])
+            start_recep_goal_category = torch.tensor(
+                obs.task_observations["start_recep_goal"]
+            ).unsqueeze(0)
+        if (
+            "end_recep_goal" in obs.task_observations
+            and obs.task_observations["end_recep_goal"] is not None
+        ):
+            if self.verbose:
+                print("end_recep goal =", obs.task_observations["end_recep_goal"])
+            end_recep_goal_category = torch.tensor(
+                obs.task_observations["end_recep_goal"]
             ).unsqueeze(0)
         goal_name = [obs.task_observations["goal_name"]]
 
@@ -348,7 +374,8 @@ class ObjectNavAgent(Agent):
             obs_preprocessed,
             pose_delta,
             object_goal_category,
-            recep_goal_category,
+            start_recep_goal_category,
+            end_recep_goal_category,
             goal_name,
             camera_pose,
         )

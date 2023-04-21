@@ -125,7 +125,6 @@ def png_to_mp4(group: h5py.Group, key: str, name: str, fps=10):
     """
     Write key out as a gif
     """
-    gif = []
     print("Writing gif to file:", name)
     img_stream = group[key]
     writer = None

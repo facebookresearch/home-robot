@@ -114,7 +114,7 @@ class StretchManipulationClient(AbstractControlModule):
         Args:
             joint_positions: List of length 6 containing desired joint positions
             relative_base: Whether the base joint moves relative to current base position
-            blocking: Whether command blocks until completetion
+            blocking: Whether command blocks until completion
         """
         assert len(joint_positions) == 6, "Joint position vector must be of length 6."
 
@@ -187,7 +187,10 @@ class StretchManipulationClient(AbstractControlModule):
         debug: bool = False,
     ) -> Optional[np.ndarray]:
         """Solve inverse kinematics appropriately (or at least try to) and get the joint position
-        that we will be moving to."""
+        that we will be moving to.
+
+        Note: When relative==True, the delta orientation is still defined in the world frame
+        """
 
         pos_ee_curr, quat_ee_curr = self.get_ee_pose(world_frame=world_frame)
         if quat is None:
@@ -206,7 +209,13 @@ class StretchManipulationClient(AbstractControlModule):
 
         if relative:
             pose_base2ee_curr = posquat2sophus(pos_ee_curr, quat_ee_curr)
-            pose_base2ee_desired = pose_desired * pose_base2ee_curr
+
+            pos_desired = pos_ee_curr + pose_input.translation()
+            so3_desired = pose_input.so3() * pose_base2ee_curr.so3()
+            quat_desired = R.from_matrix(so3_desired.matrix()).as_quat()
+
+            pose_base2ee_desired = posquat2sophus(pos_desired, quat_desired)
+
         else:
             pose_base2ee_desired = pose_desired
 
@@ -216,10 +225,11 @@ class StretchManipulationClient(AbstractControlModule):
         if debug:
             print("=== EE goto command ===")
             print(f"Initial EE pose: pos={pos_ee_curr}; quat={quat_ee_curr}")
+            print(f"Input EE pose: pos={np.array(pos)}; quat={np.array(quat)}")
             print(f"Desired EE pose: pos={pos_ik_goal}; quat={quat_ik_goal}")
 
         # Perform IK
-        full_body_cfg = self._robot_model.manip_ik(
+        full_body_cfg, ik_success, ik_debug_info = self._robot_model.manip_ik(
             (pos_ik_goal, quat_ik_goal), q0=initial_cfg
         )
         if full_body_cfg is None:
@@ -267,6 +277,17 @@ class StretchManipulationClient(AbstractControlModule):
             print("=======================")
 
         return True
+
+    @enforce_enabled
+    def rotate_ee(self, axis: int, angle: float, **kwargs) -> bool:
+        """Rotates the gripper by one of 3 principal axes (X, Y, Z)"""
+        assert axis in [0, 1, 2], "'axis' must be 0, 1, or 2! (x, y, z)"
+
+        r = np.zeros(3)
+        r[axis] = angle
+        quat_desired = R.from_rotvec(r).as_quat().tolist()
+
+        return self.goto_ee_pose([0, 0, 0], quat_desired, relative=True, **kwargs)
 
     @enforce_enabled
     def open_gripper(self, blocking: bool = True):

@@ -4,6 +4,7 @@
 # LICENSE file in the root directory of this source tree.
 import io
 
+import cv2
 import h5py
 import imageio
 import numpy as np
@@ -107,7 +108,6 @@ def png_to_mp4(group: h5py.Group, key: str, name: str, fps=10):
     """
     Write key out as a mpt
     """
-    gif = []
     print("Writing gif to file:", name)
     img_stream = group[key]
     writer = None

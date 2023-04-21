@@ -450,7 +450,7 @@ class FloorplannertoMukulIndoor(SemanticCategoryMapping):
         return 35
 
 
-class RearrangeCategories(SemanticCategoryMapping):
+class RearrangeBasicCategories(SemanticCategoryMapping):
     def __init__(self):
         super().__init__()
         self.goal_id_to_goal_name = rearrange_3categories_indexes
@@ -484,6 +484,161 @@ class RearrangeCategories(SemanticCategoryMapping):
     def num_sem_categories(self):
         # 0 is unused, 1 is object category, 2 is start receptacle category, 3 is goal receptacle category, 4 is "other/misc"
         return 5
+
+
+rearrange_detic_categories_indexes = {
+    # objects ->
+    "medicine_bottle": 1,
+    "stuffed_toy": 2,
+    "book": 3,
+    "candle_holder": 4,
+    "canister": 5,
+    "sponge": 6,
+    "mouse_pad": 7,
+    "cup": 8,
+    "vase": 9,
+    "soap_dish": 10,
+    "tape": 11,
+    "plate": 12,
+    "bowl": 13,
+    "hat": 14,
+    "dishtowel": 15,
+    "shoe": 16,
+    "action_figure": 17,
+    "pencil_case": 18,
+    "sushi_mat": 19,
+    "basket": 20,
+    "spatula": 21,
+    "scissors": 22,
+    "screwdriver": 23,
+    "can_opener": 24,
+    "can": 25,
+    # receptacles ->
+    "console_table": 26,
+    "sink_cabinet": 27,
+    "shoe_rack": 28,
+    "buffet": 29,
+    "footstool": 30,
+    "toilet": 31,
+    "tv_stand": 32,
+    "chest_of_drawers": 33,
+    "l-shaped_couch": 34,
+    "stool": 35,
+    "rocking_chair": 36,
+    "chair": 37,
+    "base_cabinet": 38,
+    "bar_stool": 39,
+    "cabinet": 40,
+    "bathtub": 41,
+    "sofa": 42,
+    "table": 43,
+    "armchair": 44,
+    "kitchen_island": 45,
+    "end_table": 46,
+    "washer": 47,
+    "swivel_chair": 48,
+    "kitchen_cabinet": 49,
+    "trunk": 50,
+    "nightstand": 51,
+    "serving_cart": 52,
+    "dining_table": 53,
+    "bench": 54,
+    "beanbag_chair": 55,
+    "coffee_table": 56,
+    "air_hockey_table": 57,
+    "desk": 58,
+    "storage_bench": 59,
+}
+
+rearrange_detic_categories_indexes = {
+    v: k for k, v in rearrange_detic_categories_indexes.items()
+}
+
+
+rearrange_detic_categories_legend_path = str(
+    Path(__file__).resolve().parent / "rearrange_detic_categories_legend.png"
+)
+
+
+class RearrangeDETICCategories(SemanticCategoryMapping):
+    """Maintain category to id and category to color mappings for use in OVMM task.
+    Uses a default list of categories if no category list is passed."""
+
+    def __init__(self, categories_indexes=None):
+        super().__init__()
+        if categories_indexes is None:
+            self.goal_id_to_goal_name = rearrange_detic_categories_indexes
+        else:
+            self.goal_id_to_goal_name = categories_indexes
+
+        self._instance_id_to_category_id = None
+
+    def map_goal_id(self, goal_id: int) -> Tuple[int, str]:
+        return (goal_id, self.goal_id_to_goal_name[goal_id])
+
+    def reset_instance_id_to_category_id(self, env: Env):
+        self._instance_id_to_category_id = np.arange(self.num_sem_categories)
+        self._instance_id_to_category_id[0] = self.num_sem_categories - 1
+
+    @property
+    def instance_id_to_category_id(self) -> np.ndarray:
+        return self._instance_id_to_category_id
+
+    @property
+    def color_palette(self):
+        color_palette = [255, 255, 255] + d3_40_colors_rgb[
+            1 : self.num_sem_categories
+        ].flatten().tolist()
+        return color_palette
+
+    @property
+    def map_color_palette(self):
+        map_color_palette = [
+            int(x * 255.0)
+            for x in [
+                1.0,
+                1.0,
+                1.0,  # empty space
+                0.6,
+                0.6,
+                0.6,  # obstacles
+                0.95,
+                0.95,
+                0.95,  # explored area
+                0.96,
+                0.36,
+                0.26,  # visited area
+                0.12,
+                0.46,
+                0.70,  # closest goal
+                0.63,
+                0.78,
+                0.95,  # rest of goal
+                0.6,
+                0.87,
+                0.54,  # been close map
+                *[x / 255.0 for x in self.color_palette],
+            ]
+        ]
+
+        return map_color_palette
+
+    @property
+    def frame_color_palette(self):
+        frame_color_palette = self.color_palette + [
+            255,
+            255,
+            255,
+        ]
+        return frame_color_palette
+
+    @property
+    def categories_legend_path(self):
+        return rearrange_detic_categories_legend_path
+
+    @property
+    def num_sem_categories(self):
+        return len(self.goal_id_to_goal_name.keys()) + 2
 
 
 # ----------------------------------------------------

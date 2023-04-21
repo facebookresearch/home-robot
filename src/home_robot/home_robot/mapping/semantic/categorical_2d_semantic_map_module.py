@@ -4,11 +4,12 @@
 # LICENSE file in the root directory of this source tree.
 from typing import Tuple
 
+import matplotlib.pyplot as plt
 import numpy as np
-import pytorch3d.transforms as pt
 import skimage.morphology
 import torch
 import torch.nn as nn
+import trimesh.transformations as tra
 from torch import IntTensor, Tensor
 from torch.nn import functional as F
 
@@ -36,7 +37,6 @@ class Categorical2DSemanticMapModule(nn.Module):
 
     # If true, display point cloud visualizations using Open3d
     debug_mode = False
-    min_obs_height_cm = 25
 
     def __init__(
         self,
@@ -57,7 +57,8 @@ class Categorical2DSemanticMapModule(nn.Module):
         map_pred_threshold: float,
         min_depth: float = 0.5,
         max_depth: float = 3.5,
-        must_explore_close: bool = True,
+        must_explore_close: bool = False,
+        min_obs_height_cm: int = 25,
     ):
         """
         Arguments:
@@ -83,6 +84,7 @@ class Categorical2DSemanticMapModule(nn.Module):
             map_pred_threshold: number of depth points to be in bin to
              consider it as obstacle
             must_explore_close: reduce the distance we need to get to things to make them work
+            min_obs_height_cm: minimum height of obstacles (in centimetres)
         """
         super().__init__()
 
@@ -115,6 +117,7 @@ class Categorical2DSemanticMapModule(nn.Module):
         self.agent_height = camera_height * 100.0
         self.max_voxel_height = int(360 / self.z_resolution)
         self.min_voxel_height = int(-40 / self.z_resolution)
+        self.min_obs_height_cm = min_obs_height_cm
         self.min_mapped_height = int(
             self.min_obs_height_cm / self.z_resolution - self.min_voxel_height
         )
@@ -225,7 +228,6 @@ class Categorical2DSemanticMapModule(nn.Module):
                 local_pose,
                 seq_camera_poses,
             )
-
             for e in range(batch_size):
                 if seq_update_global[e, t]:
                     self._update_global_map_and_pose_for_env(
@@ -278,7 +280,10 @@ class Categorical2DSemanticMapModule(nn.Module):
         if camera_pose is not None:
             # TODO: make consistent between sim and real
             # hab_angles = pt.matrix_to_euler_angles(camera_pose[:, :3, :3], convention="YZX")
-            angles = pt.matrix_to_euler_angles(camera_pose[:, :3, :3], convention="ZYX")
+            # angles = pt.matrix_to_euler_angles(camera_pose[:, :3, :3], convention="ZYX")
+            angles = torch.Tensor(
+                [tra.euler_from_matrix(p[:3, :3].cpu(), "rzyx") for p in camera_pose]
+            )
             # For habitat - pull x angle
             # tilt = angles[:, -1]
             # For real robot
@@ -306,11 +311,13 @@ class Categorical2DSemanticMapModule(nn.Module):
             rgb = rgb[0].reshape(-1, 3)
             print("-> Showing point cloud in camera coords")
             show_point_cloud(
-                (xyz / 100.0).numpy(), (rgb / 255.0).numpy(), orig=np.zeros(3)
+                (xyz / 100.0).cpu().numpy(),
+                (rgb / 255.0).cpu().numpy(),
+                orig=np.zeros(3),
             )
 
         point_cloud_base_coords = du.transform_camera_view_t(
-            point_cloud_t, agent_height, torch.rad2deg(tilt).numpy(), device
+            point_cloud_t, agent_height, torch.rad2deg(tilt).cpu().numpy(), device
         )
 
         # Show the point cloud in base coordinates for debugging
@@ -323,7 +330,9 @@ class Categorical2DSemanticMapModule(nn.Module):
             xyz = point_cloud_base_coords[0].reshape(-1, 3)
             print("-> Showing point cloud in base coords")
             show_point_cloud(
-                (xyz / 100.0).numpy(), (rgb / 255.0).numpy(), orig=np.zeros(3)
+                (xyz / 100.0).cpu().numpy(),
+                (rgb / 255.0).cpu().numpy(),
+                orig=np.zeros(3),
             )
 
         point_cloud_map_coords = du.transform_pose_t(
@@ -334,7 +343,9 @@ class Categorical2DSemanticMapModule(nn.Module):
             xyz = point_cloud_base_coords[0].reshape(-1, 3)
             print("-> Showing point cloud in map coords")
             show_point_cloud(
-                (xyz / 100.0).numpy(), (rgb / 255.0).numpy(), orig=np.zeros(3)
+                (xyz / 100.0).cpu().numpy(),
+                (rgb / 255.0).cpu().numpy(),
+                orig=np.zeros(3),
             )
 
         voxel_channels = 1 + self.num_sem_categories
@@ -479,23 +490,44 @@ class Categorical2DSemanticMapModule(nn.Module):
                 pass
 
         if debug_maps:
-            import matplotlib.pyplot as plt
-
             explored = current_map[0, MC.EXPLORED_MAP].numpy()
             been_close = current_map[0, MC.BEEN_CLOSE_MAP].numpy()
-            obs = current_map[0, MC.OBSTACLE_MAP].numpy()
-            plt.subplot(231)
+            obstacles = current_map[0, MC.OBSTACLE_MAP].numpy()
+            plt.subplot(331)
+            plt.axis("off")
+            plt.title("explored")
             plt.imshow(explored)
-            plt.subplot(232)
+            plt.subplot(332)
+            plt.axis("off")
+            plt.title("been close")
             plt.imshow(been_close)
             plt.subplot(233)
+            plt.axis("off")
             plt.imshow(been_close * explored)
-            plt.subplot(234)
-            plt.imshow(obs)
-            plt.subplot(236)
-            plt.imshow(been_close * obs)
+            plt.subplot(334)
+            plt.axis("off")
+            plt.imshow(obstacles)
+            plt.subplot(336)
+            plt.axis("off")
+            plt.imshow(been_close * obstacles)
+            plt.subplot(337)
+            plt.axis("off")
+            rgb = obs[0, :3, :: self.du_scale, :: self.du_scale].permute(1, 2, 0)
+            plt.imshow(rgb)
+            plt.subplot(338)
+            plt.imshow(depth[0])
+            plt.axis("off")
+            plt.subplot(339)
+            seg = np.zeros_like(depth[0])
+            for i in range(4, obs_channels):
+                seg += (i - 4) * obs[0, i].numpy()
+                print("class =", i, np.sum(obs[0, i].numpy()), "pts")
+            plt.imshow(seg)
+            plt.axis("off")
             plt.show()
-            breakpoint()
+
+            print("Non semantic channels =", MC.NON_SEM_CHANNELS)
+            print("map shape =", current_map.shape)
 
         if self.must_explore_close:
             current_map[:, MC.EXPLORED_MAP] = (
@@ -571,5 +603,15 @@ class Categorical2DSemanticMapModule(nn.Module):
         map_features[:, 2 * MC.NON_SEM_CHANNELS :, :, :] = local_map[
             :, MC.NON_SEM_CHANNELS :, :, :
         ]
+
+        if debug_maps:
+            plt.subplot(131)
+            plt.imshow(local_map[0, 7])  # second object = cup
+            plt.subplot(132)
+            plt.imshow(local_map[0, 6])  # first object = chair
+            # This is the channel in MAP FEATURES mode
+            plt.subplot(133)
+            plt.imshow(map_features[0, 12])
+            plt.show()
 
         return map_features.detach()

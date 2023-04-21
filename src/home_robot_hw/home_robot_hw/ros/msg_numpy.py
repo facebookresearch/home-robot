@@ -81,9 +81,10 @@ name_to_dtypes = {
     "64FC4": (np.float64, 4),
 }
 
+
 # @converts_to_numpy(Image)
 def image_to_numpy(msg):
-    if not msg.encoding in name_to_dtypes:
+    if msg.encoding not in name_to_dtypes:
         raise TypeError("Unrecognized encoding {}".format(msg.encoding))
 
     dtype_class, channels = name_to_dtypes[msg.encoding]
@@ -101,55 +102,13 @@ def image_to_numpy(msg):
 
 # @converts_from_numpy(Image)
 def numpy_to_image(arr, encoding):
-    if not encoding in name_to_dtypes:
+    if encoding not in name_to_dtypes:
         raise TypeError("Unrecognized encoding {}".format(encoding))
 
     im = Image(encoding=encoding)
 
     # extract width, height, and channels
     dtype_class, exp_channels = name_to_dtypes[encoding]
-    dtype = np.dtype(dtype_class)
-    if len(arr.shape) == 2:
-        im.height, im.width, channels = arr.shape + (1,)
-    elif len(arr.shape) == 3:
-        im.height, im.width, channels = arr.shape
-    else:
-        raise TypeError("Array must be two or three dimensional")
-
-    # check type and channels
-    if exp_channels != channels:
-        raise TypeError(
-            "Array has {} channels, {} requires {}".format(
-                channels, encoding, exp_channels
-            )
-        )
-    if dtype_class != arr.dtype.type:
-        raise TypeError(
-            "Array is {}, {} requires {}".format(arr.dtype.type, encoding, dtype_class)
-        )
-
-    # make the array contiguous in memory, as mostly required by the format
-    contig = np.ascontiguousarray(arr)
-    im.data = contig.tostring()
-    im.step = contig.strides[0]
-    im.is_bigendian = (
-        arr.dtype.byteorder == ">"
-        or arr.dtype.byteorder == "="
-        and sys.byteorder == "big"
-    )
-
-    return im
-
-
-def numpy_to_image(arr, encoding):
-    if not encoding in name_to_dtypes:
-        raise TypeError("Unrecognized encoding {}".format(encoding))
-
-    im = Image(encoding=encoding)
-
-    # extract width, height, and channels
-    dtype_class, exp_channels = name_to_dtypes[encoding]
-    dtype = np.dtype(dtype_class)
     if len(arr.shape) == 2:
         im.height, im.width, channels = arr.shape + (1,)
     elif len(arr.shape) == 3:
