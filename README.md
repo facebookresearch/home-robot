@@ -38,7 +38,14 @@ Installation on a robot assumes Ubuntu 20.04 and [ROS Noetic](http://wiki.ros.or
 
 ### Instructions
 
-To set up the hardware stack on a Hello Robot  Stretch, see the [ROS installation instructions](src/home_robot_hw/install_robot.md) in `home_robot_hw`. To set up your workstaion, follow these instructions:
+To set up the hardware stack on a Hello Robot  Stretch, see the [ROS installation instructions](src/home_robot_hw/install_robot.md) in `home_robot_hw`.
+
+On the robot side, start up the controllers with:
+```
+roslaunch home_robot_hw startup_stretch_hector_slam.launch
+```
+
+To set up your workstation, follow these instructions:
 
 #### 1. Create Your Environment
 ```
@@ -46,6 +53,36 @@ To set up the hardware stack on a Hello Robot  Stretch, see the [ROS installatio
 # Otherwise, you can use the version in src/home_robot
 mamba env create -n home-robot -f src/home_robot_hw/environment.yml
 conda activate home-robot
+```
+
+Proper network setup is crucial to getting good performance with HomeRobot. Low-cost mobile robots often do not have sufficient GPU to run state-of-the-art perception models. Instead, we rely on a client-server architecture, where ROS and low-level controllers run on the robot, and CPU- and GPU-intensive AI code runs on a workstation.
+
+After following the installation instructions, we recommend setting up your `~/.bashrc` on the robot workstation:
+
+```
+# Whatever your workstation's IP address is
+export WORKSTATION_IP=10.0.0.2
+# Whatever your robot's IP address is
+export HELLO_ROBOT_IP=10.0.0.6
+
+# Path to the codebase
+export HOME_ROBOT_ROOT=/path/to/home-robot
+
+export ROS_IP=$WORKSTATION_IP
+export ROS_MASTER_URI=http://$HELLO_ROBOT_IP:11311
+
+# Optionally - make it clear to avoid issues
+echo "Setting ROS_MASTER_URI to $ROS_MASTER_URI"
+echo "Setting ROS IP to $ROS_IP"
+
+# Helpful alias - connect to the robot
+alias ssh-robot="ssh hello-robot@$HELLO_ROBOT_IP"
+```
+
+_Testing Real Robot Setup:_ Now you can run a couple commands to test your connection. If the `roscore` and the robot controllers are running properly, you can run `rostopic list` and should see a list of topics - streams of information coming from the robot. You can then run RVIZ to visualize the robot sensor output:
+
+```
+rviz -d $HOME_ROBOT_ROOT/src/home_robot_hw/launch/mapping_demo.rviz
 ```
 
 #### 2. Install PyTorch and PyTorch3d
@@ -74,30 +111,7 @@ pip install -e src/home_robot
 pip install -e src/home_robot_hw
 ```
 
-#### 4. Network Setup
-
-Proper network setup is crucial to getting good performance with HomeRobot. Low-cost mobile robots often do not have sufficient GPU to run state-of-the-art perception models. Instead, we rely on a client-server architecture, where ROS and low-level controllers run on the robot, and CPU- and GPU-intensive AI code runs on a workstation.
-
-After following the installation instructions, we recommend setting up your `~/.bashrc` on the robot workstation:
-
-```
-# Whatever your workstation's IP address is
-export WORKSTATION_IP=10.0.0.2
-# Whatever your robot's IP address is
-export HELLO_ROBOT_IP=10.0.0.6
-
-export ROS_IP=$WORKSTATION_IP
-export ROS_MASTER_URI=http://$HELLO_ROBOT_IP:11311
-
-# Optionally - make it clear to avoid issues
-echo "Setting ROS_MASTER_URI to $ROS_MASTER_URI"
-echo "Setting ROS IP to $ROS_IP"
-
-# Helpful alias - connect to the robot
-alias ssh-robot="ssh hello-robot@$HELLO_ROBOT_IP"
-```
-
-#### 5. Hardware Testing
+#### 4. Hardware Testing
 
 Run the hardware manual test to make sure you can control the robot remotely. Ensure the robot has one meter of free space before running the script.
 
@@ -108,7 +122,7 @@ python tests/hw_manual_test.py
 Follow the on-screen instructions. The robot should move through a set of configurations.
 
 
-#### 6. Install Detic
+#### 5. Install Detic
 
 Download Detic checkpoint as per the instructions [on the Detic github page](https://github.com/facebookresearch/Detic)
 ```bash
@@ -122,7 +136,7 @@ You should be able to run the Detic demo script as per the Detic instructions to
 python demo.py --config-file configs/Detic_LCOCOI21k_CLIP_SwinB_896b32_4x_ft4x_max-size.yaml --input desk.jpg --output out2.jpg --vocabulary custom --custom_vocabulary headphone,webcam,paper,coffe --confidence-threshold 0.3 --opts MODEL.WEIGHTS models/Detic_LCOCOI21k_CLIP_SwinB_896b32_4x_ft4x_max-size.pth
 ```
 
-#### 7. Run Open Vocabulary Mobile Manipulation on Stretch
+#### 6. Run Open Vocabulary Mobile Manipulation on Stretch
 
 You should then be able to run the Stretch OVMM example.
 
@@ -145,7 +159,7 @@ cd $HOME_ROBOT_ROOT
 python projects/stretch_ovmm/eval_episode.py
 ```
 
-#### 6. Simulation Setup
+#### 7. Simulation Setup
 
 To set up the simulation stack with Habitat, see the [installation instructions](src/home_robot_sim/README.md) in `home_robot_sim`. You first need to install AI habitat and the simulation package:
 ```
