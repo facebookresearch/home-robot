@@ -5,7 +5,10 @@ import rospy
 from home_robot.agent.hierarchical.pick_and_place_agent import PickAndPlaceAgent
 from home_robot.motion.stretch import STRETCH_HOME_Q
 from home_robot.utils.config import get_config
-from home_robot_hw.env.stretch_pick_and_place_env import REAL_WORLD_CATEGORIES, StretchPickandPlaceEnv
+from home_robot_hw.env.stretch_pick_and_place_env import (
+    REAL_WORLD_CATEGORIES,
+    StretchPickandPlaceEnv,
+)
 
 
 @click.command()
@@ -23,14 +26,14 @@ def main(
     goal_recep="chair",
     dry_run=False,
 ):
-
     # REAL_WORLD_CATEGORIES = [
     #     "other",
     #     "chair",
     #     "cup",
     #     "table",
     #     "other",
-    # ]  # TODO: Remove hardcoded indices in the visualizer so we can add more objects
+    # ]  # TODO: Remove hardcoded indices in the visualizer
+    # so we can add more objects
 
     # rewrite the REAL_WORLD_CATEGORIES dict with object string
     REAL_WORLD_CATEGORIES[2] = object
@@ -45,8 +48,10 @@ def main(
 
     rospy.init_node("eval_episode_stretch_objectnav")
     env = StretchPickandPlaceEnv(
-        goal_options=REAL_WORLD_CATEGORIES, 
-        config=config, test_grasping=test_pick, dry_run=dry_run
+        goal_options=REAL_WORLD_CATEGORIES,
+        config=config,
+        test_grasping=test_pick,
+        dry_run=dry_run,
     )
     agent = PickAndPlaceAgent(
         config=config, skip_find_object=test_pick, skip_place=test_pick
