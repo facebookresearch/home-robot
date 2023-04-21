@@ -1,3 +1,4 @@
+import pickle
 from typing import Any, Dict, Optional
 
 import numpy as np
@@ -93,6 +94,10 @@ class StretchPickandPlaceEnv(StretchEnv):
                     "Param visualize_planner was set to True, but no planner is being created; cannot visualize!"
                 )
             self.grasp_planner = None
+
+        self.clip_embeddings = pickle.load(
+            open(config.AGENT.clip_embeddings_file, "rb")
+        )
 
     def reset(self, goal_find: str, goal_obj: str, goal_place: str):
         """Reset the robot and prepare to run a trial. Make sure we have images and up to date state info."""
@@ -204,6 +209,7 @@ class StretchPickandPlaceEnv(StretchEnv):
             # Consistency - add ids for the first task
             "object_goal": goal_obj_id,
             "recep_goal": goal_find_id,
+            "object_embedding": self.clip_embeddings[goal_obj],
         }
         self.current_goal_id = self.goal_options.index(goal_obj)
         self.current_goal_name = goal
@@ -230,9 +236,6 @@ class StretchPickandPlaceEnv(StretchEnv):
         # GPS in robot coordinates
         gps = relative_pose.translation()[:2]
 
-        # TODO:
-        # self.task_info['object_embedding']
-
         # Create the observation
         obs = home_robot.core.interfaces.Observations(
             rgb=rgb.copy(),
@@ -247,7 +250,6 @@ class StretchPickandPlaceEnv(StretchEnv):
             joint=np.array(
                 [0.0, 0.0, 0.0, 0.0, 0.775, 0.0, -1.57, 0.0, -1.7375, -0.7125]
             ),
-            object_embedding=np.random.rand([512]),  # TODO
             relative_resting_position=np.array([0.3878479, 0.12924957, 0.4224413]),
             is_holding=np.array([0.0]),
         )
