@@ -3,7 +3,7 @@ scikit-image
 scikit-fmm
 
 # Detectron2
-git+git://github.com/facebookresearch/detectron2
+git+https://github.com/facebookresearch/detectron2.git
 
 # Detic deps
 click

@@ -85,7 +85,7 @@ class PPOAgent(Agent):
                             (512,),
                             np.float32,
                         ),
-                        "relative_resting_position:Box": spaces.Box(
+                        "relative_resting_position": spaces.Box(
                             np.finfo(np.float32).min,
                             np.finfo(np.float32).max,
                             (3,),
@@ -101,9 +101,15 @@ class PPOAgent(Agent):
             self.action_space = [
                 spaces.dict.Dict(
                     {
-                        "arm_action": spaces.Box(-1.0, 1.0, (7,), np.float32),
-                        "grip_action": spaces.Box(-1.0, 1.0, (1), np.float32),
-                        "base_velocity": spaces.Box(-20.0, 20.0, (2,), np.float32),
+                        "arm_action": 
+                        spaces.dict.Dict({
+                            "arm_action": spaces.Box(-1.0, 1.0, (7,), np.float32),
+                            "grip_action": spaces.Box(-1.0, 1.0, (1,), np.float32),
+                        }),
+                        "base_velocity": 
+                        spaces.dict.Dict({
+                            "base_vel": spaces.Box(-20.0, 20.0, (2,), np.float32),
+                        }),
                         "extend_arm": EmptySpace(),
                         "face_arm": EmptySpace(),
                         "rearrange_stop": EmptySpace(),
@@ -150,7 +156,7 @@ class PPOAgent(Agent):
         # obs keys to be passed to the policy
         self.skill_obs_keys = skill_config.gym_obs_keys
         skill_obs_spaces = spaces.Dict(
-            {k: obs_spaces[0].spaces[k] for k in self.skill_obs_keys}
+            {k: self.obs_space[0].spaces[k] for k in self.skill_obs_keys}
         )
 
         # actions the skill takes
@@ -164,7 +170,7 @@ class PPOAgent(Agent):
         # The policy may not control all arm joints, read the mask that indicates the joints controlled by the policy
         if (
             "arm_action" in self.filtered_action_space.spaces
-            and "arm_action" in self.filtered_action_space["arm_action"].spaces
+            #and "arm_action" in self.filtered_action_space["arm_action"].spaces
         ):
             self.arm_joint_mask = skill_config.arm_joint_mask
             self.num_arm_joints_controlled = np.sum(skill_config.arm_joint_mask)
