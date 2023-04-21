@@ -4,11 +4,14 @@ import hydra
 import numpy as np
 import ros_numpy
 import rospy
+import tf
+
+# import tf2_geometry_msgs
 import tf2_ros
 import torch
 import trimesh
 import yaml
-from geometry_msgs.msg import TransformStamped
+from geometry_msgs.msg import PoseStamped, TransformStamped
 from scipy.spatial.transform import Rotation as R
 from slap_manipulation.policy.action_prediction_module import ActionPredictionModule
 from slap_manipulation.policy.interaction_prediction_module import (
@@ -50,18 +53,23 @@ def create_action_prediction_input(
     xyz: np.ndarray,
     p_i: np.ndarray,
     time: float = 0.0,
+    debug: bool = False,
 ):
     """takes raw data from stretch_manipulation_env and converts it into input batch
     for Action Prediction Module by cropping around predicted p_i: interaction_point"""
     cropped_feat, cropped_xyz, status = get_local_action_prediction_problem(
         cfg, feat, xyz, p_i
     )
+    if np.any(cropped_feat > 1.0):
+        cropped_feat = cropped_feat / 255.0
     if not status:
         raise RuntimeError(
             "Interaction Prediction Module predicted an interaction point with no tractable local problem around it"
         )
     proprio = get_proprio(raw_data, time=time)
-    show_point_cloud(cropped_xyz, cropped_feat)
+    if debug:
+        print("create_action_prediction_input")
+        show_point_cloud(cropped_xyz, cropped_feat)
     return (cropped_feat, cropped_xyz, proprio)
 
 
@@ -115,6 +123,7 @@ def create_interaction_prediction_input(
     if np.any(rgb > 1.0):
         rgb = rgb / 255.0
     if debug:
+        print("create_action_prediction_input")
         show_point_cloud(xyz, rgb, orig=np.zeros(3))
 
     input_vector = (rgb, xyz, proprio, lang, mean)
@@ -132,6 +141,11 @@ def get_in_base_frame(robot, mean: np.ndarray) -> np.ndarray:
 @hydra.main(version_base=None, config_path="./conf", config_name="slap_inference")
 def main(cfg):
     rospy.init_node("slap_inference")
+
+    # create tf2 buffer + listener
+    # tf_buffer = tf2_ros.Buffer(rospy.Duration(10))
+    # tf_listener = tf2_ros.TransformListener(tf_buffer)
+    # base2map = tf_buffer.lookup_transform("map", "base_link", rospy.Duration(5))
     # create the robot object
     robot = StretchManipulationEnv(init_cameras=True)
     # create IPM object
@@ -163,6 +177,7 @@ def main(cfg):
     experiment_running = True
     ros_pub = tf2_ros.TransformBroadcaster()
     actions = []
+    world_actions = []
     while experiment_running:
         for i, cmd in enumerate(cmds):
             print(f"{i+1}. {cmd}")
@@ -173,7 +188,7 @@ def main(cfg):
         # construct input vector from raw data
         raw_observations = robot.get_observation()
         ipm_input_vector, og_rgb, og_xyz = create_interaction_prediction_input(
-            raw_observations, input_cmd, filter_depth=True, debug=True
+            raw_observations, input_cmd, filter_depth=True, debug=False
         )
         print(f"PCD Mean: {ipm_input_vector[-1]}")
         # run inference on sensor data for IPM
@@ -185,8 +200,9 @@ def main(cfg):
         ) = interaction_predictor.predict(*ipm_input_vector[:-1])
         interaction_point = input_down_pcd[0][interaction_point_idx]
         print(f"Interaction point is {interaction_point}")
-        experiment_running = False
+        experiment_running = True
         # ask if ok to run APM inference
+        actions = []
         if cfg.execution.predict_action:
             current_time = [-1.0, 0.0, 1.0]
             for i in range(cfg.num_actions):
@@ -199,6 +215,7 @@ def main(cfg):
                     og_xyz,
                     interaction_point,
                     time=current_time[i],
+                    debug=False,
                 )
                 apm_input_vector += (
                     input_cmd,
@@ -221,20 +238,33 @@ def main(cfg):
                 pos = action["pos"]
                 rot = action["ori"]
                 pose_message = TransformStamped()
+                pose_stamped = PoseStamped()
                 pose_message.header.stamp = rospy.Time.now()
                 pose_message.header.frame_id = "base_link"
+                pose_stamped.header.stamp = rospy.Time.now()
+                pose_stamped.header.frame_id = "base_link"
 
                 pose_message.child_frame_id = f"prediction_{i}"
                 pose_message.transform.translation.x = pos[0]
                 pose_message.transform.translation.y = pos[1]
                 pose_message.transform.translation.z = pos[2]
+                pose_stamped.pose.position.x = pos[0]
+                pose_stamped.pose.position.y = pos[1]
+                pose_stamped.pose.position.z = pos[2]
 
                 pose_message.transform.rotation.x = rot[0]
                 pose_message.transform.rotation.y = rot[1]
                 pose_message.transform.rotation.z = rot[2]
                 pose_message.transform.rotation.w = rot[3]
+                pose_stamped.pose.orientation.x = rot[0]
+                pose_stamped.pose.orientation.y = rot[1]
+                pose_stamped.pose.orientation.z = rot[2]
+                pose_stamped.pose.orientation.w = rot[3]
 
                 ros_pub.sendTransform(pose_message)
+                # pose_stamped = tf2_geometry_msgs.do_transform_pose(
+                #     pose_stamped, base2map
+                # )
                 offset = STRETCH_GRASP_OFFSET.copy()
                 gripper_pose_mat = to_matrix(action["pos"], action["ori"]) @ offset
                 action["pos"], _ = to_pos_quat(gripper_pose_mat)
