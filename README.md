@@ -58,20 +58,98 @@ Installation on a robot assumes Ubuntu 20.04 and [ROS Noetic](http://wiki.ros.or
 
 ### Instructions
 
-To set up the hardware stack on a Hello Robot  Stretch, see the [ROS installation instructions](src/home_robot_hw/install_robot.md) in `home_robot_hw`. Follow the [workstation setup instructions](src/home_robot_hw/install_workstation.md) to setup on your GPU-enabled workstation. Generally, to set up the software stack, you will install these packages:
+To set up the hardware stack on a Hello Robot  Stretch, see the [ROS installation instructions](src/home_robot_hw/install_robot.md) in `home_robot_hw`. To set up your workstaion, follow these instructions:
 
+#### 1. Create Your Environment
 ```
 # Create a conda env - use the version in home_robot_hw if you want to run on the robot
 # Otherwise, you can use the version in src/home_robot
 mamba env create -n home-robot -f src/home_robot_hw/environment.yml
 conda activate home-robot
+```
 
+#### 2. Install PyTorch and PyTorch3d
+
+See [here](https://pytorch.org/get-started/locally/) to install PyTorch.
+
+For PyTorch3d, run:
+
+```
+conda install pytorch3d -c pytorch3d
+```
+
+If this causes trouble, building from source works reliably, but you must make sure you have the correct CUDA version on your workstation:
+```
+pip install "git+https://github.com/facebookresearch/pytorch3d.git"
+```
+
+See the [PyTorch3d installation page](https://github.com/facebookresearch/pytorch3d/blob/main/INSTALL.md) for more information.
+
+#### 3. Install Home Robot Packages
+```
 # Install the core home_robot package
 pip install -e src/home_robot
 
 # Install home_robot_hw
 pip install -e src/home_robot_hw
 ```
+
+#### 4. Network Setup
+
+Proper network setup is crucial to getting good performance with HomeRobot. Low-cost mobile robots often do not have sufficient GPU to run state-of-the-art perception models. Instead, we rely on a client-server architecture, where ROS and low-level controllers run on the robot, and CPU- and GPU-intensive AI code runs on a workstation.
+
+After following the installation instructions, we recommend setting up your `~/.bashrc` on the robot workstation:
+
+```
+# Whatever your workstation's IP address is
+export WORKSTATION_IP=10.0.0.2
+# Whatever your robot's IP address is
+export HELLO_ROBOT_IP=10.0.0.6
+
+export ROS_IP=$WORKSTATION_IP
+export ROS_MASTER_URI=http://$HELLO_ROBOT_IP:11311
+
+# Optionally - make it clear to avoid issues
+echo "Setting ROS_MASTER_URI to $ROS_MASTER_URI"
+echo "Setting ROS IP to $ROS_IP"
+
+# Helpful alias - connect to the robot
+alias ssh-robot="ssh hello-robot@$HELLO_ROBOT_IP"
+```
+
+#### 5. Hardware Testing
+
+Run the hardware manual test to make sure you can control the robot remotely. Ensure the robot has one meter of free space before running the script.
+
+```
+python tests/hw_manual_test.py
+```
+
+Follow the on-screen instructions. The robot should move through a set of configurations.
+
+
+You should then be able to run the Stretch OVMM example.
+
+Run a grasping server; either Contact Graspnet or our simple grasp server.
+```
+# For contact graspnet
+cd $HOME_ROBOT_ROOT/src/third_party/contact_graspnet
+conda activate contact_graspnet_env
+python contact_graspnet/graspnet_ros_server.py  --local_regions --filter_grasps
+
+# For simple grasping server
+cd $HOME_ROBOT_ROOT
+conda activate home-robot
+python src/home_robot_hw/home_robot_hw/nodes/simple_grasp_server.py
+```
+
+Then you can run the OVMM example script:
+```
+cd $HOME_ROBOT_ROOT
+python projects/stretch_ovmm/eval_episode.py
+```
+
+#### 6. Simulation Setup
 
 To set up the simulation stack with Habitat, see the [installation instructions](src/home_robot_sim/README.md) in `home_robot_sim`. You first need to install AI habitat and the simulation package:
 ```
@@ -96,28 +174,8 @@ python projects/stretch_ovmm/eval_vectorized.py
 
 For more details on the OVMM challenge, see the [Habitat OVMM readme](projects/stretch_ovmm/README.md).
 
-### Network Setup
 
-Proper network setup is crucial to getting good performance with HomeRobot. Low-cost mobile robots often do not have sufficient GPU to run state-of-the-art perception models. Instead, we rely on a client-server architecture, where ROS and low-level controllers run on the robot, and CPU- and GPU-intensive AI code runs on a workstation.
 
-After following the installation instructions, we recommend setting up your `~/.bashrc` on the robot workstation:
-
-```
-# Whatever your workstation's IP address is
-export WORKSTATION_IP=10.0.0.2
-# Whatever your robot's IP address is
-export HELLO_ROBOT_IP=10.0.0.6
-
-export ROS_IP=$WORKSTATION_IP
-export ROS_MASTER_URI=http://$HELLO_ROBOT_IP:11311
-
-# Optionally - make it clear to avoid issues
-echo "Setting ROS_MASTER_URI to $ROS_MASTER_URI"
-echo "Setting ROS IP to $ROS_IP"
-
-# Helpful alias - connect to the robot
-alias ssh-robot="ssh hello-robot@$HELLO_ROBOT_IP"
-```
 
 ## Code Contribution
 
