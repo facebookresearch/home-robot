@@ -28,7 +28,7 @@ from habitat_baselines.common.obs_transformers import (
 from habitat_baselines.config.default import get_config as get_habitat_config
 from habitat_baselines.utils.common import batch_obs, get_num_actions
 
-from home_robot.core.interfaces import Observations
+from home_robot.core.interfaces import ContinuousNavigationAction, Observations
 from home_robot_sim.env.habitat_objectnav_env.constants import (
     MAX_DEPTH_REPLACEMENT_VALUE,
     MIN_DEPTH_REPLACEMENT_VALUE,
@@ -261,7 +261,9 @@ class PPOAgent(Agent):
         # TODO: convert all observations to hab observation space here
         return OrderedDict(
             {
-                "robot_head_depth": np.expand_dims(normalized_depth, -1).astype(np.float32),
+                "robot_head_depth": np.expand_dims(normalized_depth, -1).astype(
+                    np.float32
+                ),
                 "object_embedding": obs.task_observations["object_embedding"],
                 "object_segmentation": np.expand_dims(
                     obs.semantic == obs.task_observations["object_goal"], -1
@@ -278,7 +280,7 @@ class PPOAgent(Agent):
         batch = batch_obs([obs], device=self.device)
         batch = apply_obs_transforms_batch(batch, self.obs_transforms)
         batch = OrderedDict([(k, batch[k]) for k in self.skill_obs_keys])
-        
+
         with torch.no_grad():
             action_data = self.actor_critic.act(
                 batch,
@@ -307,6 +309,7 @@ class PPOAgent(Agent):
                 step_action = continuous_vector_action_to_hab_dict(
                     self.filtered_action_space, self.vector_action_space, act[0]
                 )
+                return convert_to_robot_action(step_action["action_args"])
             else:
                 # TODO: to be tested (by Nav skill?)
                 step_action = map_discrete_habitat_actions(
@@ -326,6 +329,15 @@ class PPOAgent(Agent):
             step_action["action_args"],
             self.does_want_terminate(observations, actions),
         )
+
+
+def convert_to_robot_action(cont_action):
+    waypoint, sel = cont_action["base_vel"]
+    if sel >= 0:
+        action = ContinuousNavigationAction([waypoint * 0.25, 0, 0])  # forward
+    else:
+        action = ContinuousNavigationAction([0, 0, waypoint * 0.1745])  # turn
+    return action
 
 
 def map_discrete_habitat_actions(discrete_action):

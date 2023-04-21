@@ -21,7 +21,6 @@ AGENT:
   panorama_start: 1       # 1: turn around 360 degrees when starting an episode, 0: don't
   exploration_strategy: seen_frontier  # exploration strategy ("seen_frontier", "been_close_to_frontier")
   radius: 0.05            # robot radius (in meters)
-  clip_embeddings_file: data/objects/clip_embeddings.pickle
 
   SEMANTIC_MAP:
     semantic_categories: rearrange # map semantic channel categories ("coco_indoor", "longtail_indoor", "mukul_indoor")
@@ -40,7 +39,7 @@ AGENT:
     min_obs_height_cm: 10    # minimum height (in centimeters) of obstacle
 
   SKILLS:
-    GAZE:
+    PICK:
       type: gaze #end_to_end #modular #hardcoded
       checkpoint_path: data/checkpoints/gaze.pth
       rl_config: projects/habitat_ovmm/configs/agent/gaze_rl.yaml # with continuous actions
