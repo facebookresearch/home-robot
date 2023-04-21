@@ -299,11 +299,9 @@ class DiscretePlanner:
             print("----------------------------")
             print(">>> orient towards the goal.")
             if relative_angle_goal > 2 * self.turn_angle / 3.0:
-                # action = DiscreteNavigationAction.TURN_RIGHT
-                action = DiscreteNavigationAction.TURN_LEFT
-            elif relative_angle_goal < -2 * self.turn_angle / 3.0:
-                # action = DiscreteNavigationAction.TURN_LEFT
                 action = DiscreteNavigationAction.TURN_RIGHT
+            elif relative_angle_goal < -2 * self.turn_angle / 3.0:
+                action = DiscreteNavigationAction.TURN_LEFT
             else:
                 action = DiscreteNavigationAction.STOP
                 print("!!! DONE !!!")
