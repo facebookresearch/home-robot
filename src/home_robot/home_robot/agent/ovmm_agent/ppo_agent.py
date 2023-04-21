@@ -218,6 +218,7 @@ class PPOAgent(Agent):
             self.actor_critic.num_recurrent_layers,
             self.hidden_size,
             device=self.device,
+            dtype=torch.float32,
         )
         self.not_done_masks = torch.zeros(1, 1, device=self.device, dtype=torch.bool)
 
@@ -260,7 +261,7 @@ class PPOAgent(Agent):
         # TODO: convert all observations to hab observation space here
         return OrderedDict(
             {
-                "robot_head_depth": np.expand_dims(normalized_depth, -1),
+                "robot_head_depth": np.expand_dims(normalized_depth, -1).astype(np.float32),
                 "object_embedding": obs.task_observations["object_embedding"],
                 "object_segmentation": np.expand_dims(
                     obs.semantic == obs.task_observations["object_goal"], -1
@@ -277,7 +278,7 @@ class PPOAgent(Agent):
         batch = batch_obs([obs], device=self.device)
         batch = apply_obs_transforms_batch(batch, self.obs_transforms)
         batch = OrderedDict([(k, batch[k]) for k in self.skill_obs_keys])
-
+        
         with torch.no_grad():
             action_data = self.actor_critic.act(
                 batch,

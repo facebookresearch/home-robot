@@ -62,6 +62,8 @@ class PickAndPlaceAgent(Agent):
         """Clear internal task state and reset component agents."""
         self.state = SimpleTaskState.FIND_OBJECT
         self.object_nav_agent.reset()
+        if hasattr(self.config.AGENT.SKILLS, "GAZE"):
+            self.gaze_agent.reset()
 
     def _preprocess_obs_for_find(self, obs: Observations) -> Observations:
         task_info = obs.task_observations
@@ -116,7 +118,7 @@ class PickAndPlaceAgent(Agent):
                 action, does_want_terminate = self.gaze_agent.act(obs)
                 if does_want_terminate:
                     self.state = SimpleTaskState.PICK_OBJECT
-                return action
+                return action, {}
         if self.state == SimpleTaskState.PICK_OBJECT:
             # Try to grab the object
             if not self.skip_place:
