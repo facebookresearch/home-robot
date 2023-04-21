@@ -13,11 +13,12 @@ class SimpleTaskState(Enum):
     NOT_STARTED = 0
     FIND_OBJECT = 1
     ORIENT_OBJ = 2
-    PICK_OBJECT = 3
-    ORIENT_NAV = 4
-    FIND_GOAL = 5
-    ORIENT_PLACE = 6
-    PLACE_OBJECT = 7
+    GAZE_OBJECT = 3
+    PICK_OBJECT = 4
+    ORIENT_NAV = 5
+    FIND_GOAL = 6
+    ORIENT_PLACE = 7
+    PLACE_OBJECT = 8
 
 
 class PickAndPlaceAgent(Agent):
@@ -34,6 +35,8 @@ class PickAndPlaceAgent(Agent):
         skip_find_object=False,
         skip_place=False,
         skip_orient=False,
+        skip_pick=False,
+        skip_gaze=False,
     ):
         """Create the component object nav agent"""
 
@@ -41,6 +44,8 @@ class PickAndPlaceAgent(Agent):
         self.skip_find_object = skip_find_object
         self.skip_place = skip_place
         self.skip_orient = skip_orient
+        self.skip_gaze = skip_gaze
+        self.skip_pick = skip_pick
         self.config = config
         # Agent for object nav
         self.object_nav_agent = ObjectNavAgent(config, device_id)
@@ -99,20 +104,25 @@ class PickAndPlaceAgent(Agent):
                 self.state = SimpleTaskState.ORIENT_OBJ
         # If we have found the object, then try to pick it up.
         if self.state == SimpleTaskState.ORIENT_OBJ:
+            self.state = SimpleTaskState.GAZE_OBJECT
             if not self.skip_orient:
-                if not hasattr(self.config.AGENT.SKILLS, "GAZE"):
-                    # Try to grab the object.
-                    # If we grasped the object, then we should increment our state again
+                # Try to grab the object.
+                # If we grasped the object, then we should increment our state again
+                return DiscreteNavigationAction.MANIPULATION_MODE, action_info
+        if self.state == SimpleTaskState.GAZE_OBJECT:
+            if self.skip_gaze or not hasattr(self.config.AGENT.SKILLS, "GAZE"):
+                self.state = SimpleTaskState.PICK_OBJECT
+            else:
+                action, does_want_terminate = self.gaze_agent.act(obs)
+                if does_want_terminate:
                     self.state = SimpleTaskState.PICK_OBJECT
-                    return DiscreteNavigationAction.MANIPULATION_MODE, action_info
-                else:
-                    return self.gaze_agent.act(obs)
+                return action
         if self.state == SimpleTaskState.PICK_OBJECT:
             # Try to grab the object
             if not self.skip_place:
                 self.state = SimpleTaskState.ORIENT_NAV
             return DiscreteNavigationAction.PICK_OBJECT, action_info
-        elif self.state == SimpleTaskState.ORIENT_NAV:
+        if self.state == SimpleTaskState.ORIENT_NAV:
             return DiscreteNavigationAction.NAVIGATION_MODE, action_info
         elif self.state == SimpleTaskState.FIND_GOAL:
             # Find the goal location

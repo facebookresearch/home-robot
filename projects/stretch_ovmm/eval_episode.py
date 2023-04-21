@@ -12,6 +12,7 @@ from home_robot_hw.env.stretch_pick_and_place_env import StretchPickandPlaceEnv
 
 @click.command()
 @click.option("--test-pick", default=False, is_flag=True)
+@click.option("--test-gaze", default=False, is_flag=True)
 @click.option("--reset-nav", default=False, is_flag=True)
 @click.option("--dry-run", default=False, is_flag=True)
 @click.option("--object", default="cup")
@@ -19,6 +20,7 @@ from home_robot_hw.env.stretch_pick_and_place_env import StretchPickandPlaceEnv
 @click.option("--goal-recep", default="table")
 def main(
     test_pick=False,
+    test_gaze=False,
     reset_nav=False,
     object="cup",
     start_recep="chair",
@@ -37,8 +39,14 @@ def main(
     env = StretchPickandPlaceEnv(
         config=config, test_grasping=test_pick, dry_run=dry_run
     )
+    # TODO: May be a bit easier if we just read skip_{skill} from command line
     agent = PickAndPlaceAgent(
-        config=config, skip_find_object=test_pick, skip_place=test_pick
+        config=config,
+        skip_find_object=test_pick or test_gaze,
+        skip_orient=test_pick or test_gaze,
+        skip_gaze=test_pick,
+        skip_pick=test_gaze,
+        skip_place=test_pick or test_gaze,
     )
 
     robot = env.get_robot()
