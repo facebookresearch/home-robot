@@ -79,11 +79,25 @@ class FMMPlanner:
                 traversible,
                 dsize=(int(l * downsample_multiplier), int(w * downsample_multiplier)),
             )
+            goal_map_copy = goal_map.copy()
             goal_map = cv2.resize(
                 goal_map,
                 dsize=(int(l * downsample_multiplier), int(w * downsample_multiplier)),
                 interpolation=cv2.INTER_NEAREST,
             )
+
+            if goal_map.sum() == 0:
+                # dilating goal map so as to not lose pixels when resizing
+                kernel = np.ones((2, 2), np.uint8)
+                goal_map = cv2.dilate(goal_map_copy, kernel, iterations=1)
+                goal_map = cv2.resize(
+                    goal_map,
+                    dsize=(
+                        int(l * downsample_multiplier),
+                        int(w * downsample_multiplier),
+                    ),
+                    interpolation=cv2.INTER_NEAREST,
+                )
 
         traversible_ma = ma.masked_values(traversible * 1, 0)
         traversible_ma[goal_map == 1] = 0
