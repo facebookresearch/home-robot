@@ -326,7 +326,7 @@ class ObjectNavAgent(Agent):
         depth = (
             torch.from_numpy(obs.depth).unsqueeze(-1).to(self.device) * 100.0
         )  # m to cm
-        semantic = self.one_hot_encoding[torch.from_numpy(obs.semantic).to(self.device)]
+        semantic = torch.from_numpy(obs.semantic).to(self.device)
         obs_preprocessed = torch.cat([rgb, depth, semantic], dim=-1).unsqueeze(0)
         obs_preprocessed = obs_preprocessed.permute(0, 3, 1, 2)
 

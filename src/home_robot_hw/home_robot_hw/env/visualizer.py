@@ -37,16 +37,49 @@ map_color_palette = [
         0.95,  # rest of goal
         1.0,
         0.0,
-        0.0,  # category index 0
-        0.0,
-        1.0,
-        0.0,  # category index 1
-        0.0,
-        0.0,
-        1.0,  # category index 2
-        0.0,
-        1.0,
-        1.0,  # category index 3
+        0.66,  # goal categories
+        0.9400000000000001,
+        0.8868,
+        0.66,
+        0.8882000000000001,
+        0.9400000000000001,
+        0.66,
+        0.7832000000000001,
+        0.9400000000000001,
+        0.66,
+        0.6782000000000001,
+        0.9400000000000001,
+        0.66,
+        0.66,
+        0.9400000000000001,
+        0.7468000000000001,
+        0.66,
+        0.9400000000000001,
+        0.8518000000000001,
+        0.66,
+        0.9232,
+        0.9400000000000001,
+        0.66,
+        0.8182,
+        0.9400000000000001,
+        0.66,
+        0.7132,
+        0.9400000000000001,
+        0.7117999999999999,
+        0.66,
+        0.9400000000000001,
+        0.8168,
+        0.66,
+        0.9400000000000001,
+        0.9218,
+        0.66,
+        0.9400000000000001,
+        0.9400000000000001,
+        0.66,
+        0.8531999999999998,
+        0.9400000000000001,
+        0.66,
+        0.748199999999999,
     ]
 ]
 
@@ -80,11 +113,13 @@ class Visualizer:
             map_size_cm // self.map_resolution,
             map_size_cm // self.map_resolution,
         )
+        self.agent_cell_radius = int(config.AGENT.radius * 100 / self.map_resolution)
 
         self.vis_dir = None
         self.image_vis = None
         self.visited_map_vis = None
         self.last_xy = None
+        self.legend = cv2.imread("assets/legend.png")
 
     def reset(self):
         self.vis_dir = self.default_vis_dir
@@ -211,9 +246,18 @@ class Visualizer:
             / obstacle_map.shape[1],
             np.deg2rad(-curr_o),
         )
-        agent_arrow = vu.get_contour_points(pos, origin=(670, 50))
         color = map_color_palette[9:12][::-1]
-        cv2.drawContours(self.image_vis, [agent_arrow], 0, color, -1)
+        cv2.circle(
+            self.image_vis,
+            (int(pos[0] + 670), int(pos[1] + 50)),
+            self.agent_cell_radius,
+            color,
+            -1,
+        )
+        forward_arrow = vu.get_forward_contour_points(
+            pos, origin=(670, 50), size=self.agent_cell_radius + 10
+        )
+        cv2.drawContours(self.image_vis, [forward_arrow], 0, color, -1)
 
         if self.show_images:
             cv2.imshow("Visualization", self.image_vis)
@@ -274,8 +318,8 @@ class Visualizer:
         vis_image[530, 670:1150] = color
 
         # Draw legend
-        # lx, ly, _ = self.legend.shape
-        # vis_image[537 : 537 + lx, 155 : 155 + ly, :] = self.legend
+        lx, ly, _ = self.legend.shape
+        vis_image[537 : 537 + lx, 155 : 155 + ly, :] = self.legend
 
         return vis_image
 

@@ -145,7 +145,10 @@ class DeticPerception(PerceptionModule):
         reset_cls_test(self.predictor.model, classifier, num_classes)
 
     def predict(
-        self, obs: Observations, depth_threshold: Optional[float] = None
+        self,
+        obs: Observations,
+        depth_threshold: Optional[float] = None,
+        confidence_threshold: Optional[float] = None,
     ) -> Observations:
         """
         Arguments:
@@ -177,7 +180,9 @@ class DeticPerception(PerceptionModule):
                 idx = self.categories_mapping[class_idx]
                 obj_mask = pred["instances"].pred_masks[j] * 1.0
                 obj_mask = obj_mask.cpu().numpy()
-
+                if confidence_threshold is not None:
+                    if pred["instances"].scores[j].item() < confidence_threshold:
+                        continue
                 if depth_threshold is not None and depth is not None:
                     md = np.median(depth[obj_mask == 1])
                     if md == 0:

@@ -6,18 +6,22 @@ import rospy
 import home_robot
 from home_robot.core.interfaces import Action, DiscreteNavigationAction, Observations
 from home_robot.motion.stretch import STRETCH_NAVIGATION_Q, HelloStretchKinematics
-from home_robot.perception.detection.detic.detic_perception import DeticPerception
+
+# from home_robot.perception.detection.detic.detic_perception import DeticPerception
+# from home_robot.perception.detection.coco_maskrcnn.coco_maskrcnn import COCOMaskRCNN
+from home_robot.perception.detection.maskdino.coco_maskdino import COCOMaskDINO
 from home_robot.utils.geometry import xyt2sophus, xyt_base_to_global
 from home_robot_hw.env.stretch_abstract_env import StretchEnv
 from home_robot_hw.env.visualizer import Visualizer
 from home_robot_hw.remote import StretchClient
 
-# REAL_WORLD_CATEGORIES = ["other", "chair", "mug", "other",]
-# REAL_WORLD_CATEGORIES = ["other", "backpack", "other",]
 REAL_WORLD_CATEGORIES = [
-    "other",
-    "cup",
-    "other",
+    "chair",
+    "couch",
+    "plant",
+    "bed",
+    "toilet",
+    "tv",
 ]
 
 
@@ -35,9 +39,18 @@ class StretchObjectNavEnv(StretchEnv):
         self.rotate_step = np.radians(rotate_step)
 
         # TODO Specify confidence threshold as a parameter
-        self.segmentation = DeticPerception(
-            vocabulary="custom",
-            custom_vocabulary=",".join(self.goal_options),
+        # self.segmentation = DeticPerception(
+        #     vocabulary="custom",
+        #     custom_vocabulary=",".join(self.goal_options),
+        #     sem_gpu_id=0,
+        # )
+        # self.segmentation = COCOMaskRCNN(
+        #     vocabulary="coco-subset",
+        #     sem_pred_prob_thr=0.5,
+        #     sem_gpu_id=0,
+        # )
+        self.segmentation = COCOMaskDINO(
+            vocabulary="coco-subset",
             sem_gpu_id=0,
         )
         if config is not None:
@@ -110,7 +123,7 @@ class StretchObjectNavEnv(StretchEnv):
 
     def sample_goal(self):
         """set a random goal"""
-        # idx = np.random.randint(len(self.goal_options) - 2) + 1
+        # idx = np.random.randint(len(self.goal_options))
         idx = 1
         self.current_goal_id = idx
         self.current_goal_name = self.goal_options[idx]
@@ -145,8 +158,8 @@ class StretchObjectNavEnv(StretchEnv):
             camera_pose=self.get_camera_pose_matrix(rotated=True),
         )
         # Run the segmentation model here
-        obs = self.segmentation.predict(obs, depth_threshold=0.5)
-        obs.semantic[obs.semantic == 0] = len(self.goal_options) - 1
+        # obs = self.segmentation.predict(obs, depth_threshold=0.5, confidence_threshold=0.5)
+        obs = self.segmentation.predict(obs)
         return obs
 
     @property

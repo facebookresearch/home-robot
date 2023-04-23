@@ -21,23 +21,55 @@ from detectron2.modeling import build_model
 from detectron2.utils.logger import setup_logger
 from detectron2.utils.visualizer import ColorMode, VisImage, Visualizer
 
+from home_robot.core.interfaces import Observations
+
 from .coco_categories import coco_categories, coco_categories_mapping
 
 
 class COCOMaskRCNN:
-    def __init__(self, sem_pred_prob_thr: float, sem_gpu_id: int, visualize: bool):
+    def __init__(
+        self,
+        vocabulary: str = "coco",
+        sem_pred_prob_thr: float = 0.5,
+        sem_gpu_id: int = 0,
+    ):
         """
         Arguments:
+            vocabulary: currently one of "coco" for indoor coco categories or "coco-subset"
+             for 6 coco goal categories
             sem_pred_prob_thr: prediction threshold
             sem_gpu_id: prediction GPU id (-1 for CPU)
-            visualize: if True, visualize predictions
         """
         self.segmentation_model = ImageSegmentation(sem_pred_prob_thr, sem_gpu_id)
-        self.visualize = visualize
-        self.num_sem_categories = len(coco_categories)
+        self.visualize = True
+        if vocabulary == "coco":
+            self.vocabulary = coco_categories
+            self.vocabulary_mapping = coco_categories_mapping
+            self.inv_vocabulary = {v: k for k, v in self.vocabulary.items()}
+        elif vocabulary == "coco-subset":
+            self.vocabulary = {
+                "chair": 0,
+                "couch": 1,
+                "plant": 2,
+                "bed": 3,
+                "toilet": 4,
+                "tv": 5,
+            }
+            self.vocabulary_mapping = {
+                56: 0,  # chair
+                57: 1,  # couch
+                58: 2,  # plant
+                59: 3,  # bed
+                61: 4,  # toilet
+                62: 5,  # tv
+            }
+            self.inv_vocabulary = {v: k for k, v in self.vocabulary.items()}
+        else:
+            raise ValueError("Vocabulary {} does not exist".format(vocabulary))
+        self.num_sem_categories = len(self.vocabulary)
 
     def get_prediction(
-        self, images: np.ndarray, depths: Optional[np.ndarray] = None
+        self, images: np.ndarray, depths: Optional[np.ndarray] = None, conf_thresh=0.5
     ) -> Tuple[np.ndarray, np.ndarray]:
         """
         Arguments:
@@ -57,20 +89,20 @@ class COCOMaskRCNN:
             images, visualize=self.visualize
         )
         one_hot_predictions = np.zeros(
-            (batch_size, height, width, self.num_sem_categories)
+            (batch_size, height, width, self.num_sem_categories + 1)
         )
-
-        # t0 = time.time()
 
         for i in range(batch_size):
             for j, class_idx in enumerate(
                 predictions[i]["instances"].pred_classes.cpu().numpy()
             ):
-                if class_idx in list(coco_categories_mapping.keys()):
-                    idx = coco_categories_mapping[class_idx]
+                if class_idx in list(self.vocabulary_mapping.keys()):
+                    idx = self.vocabulary_mapping[class_idx]
                     obj_mask = predictions[i]["instances"].pred_masks[j] * 1.0
                     obj_mask = obj_mask.cpu().numpy()
-
+                    score = predictions[i]["instances"].scores[j].item()
+                    if score < conf_thresh:
+                        continue
                     if depths is not None:
                         depth = depths[i]
                         md = np.median(depth[obj_mask == 1])
@@ -79,16 +111,9 @@ class COCOMaskRCNN:
                         else:
                             # Restrict objects to 1m depth
                             filter_mask = (depth >= md + 50) | (depth <= md - 50)
-                        # print(
-                        #     f"Median object depth: {md.item()}, filtering out "
-                        #     f"{np.count_nonzero(filter_mask)} pixels"
-                        # )
                         obj_mask[filter_mask] = 0.0
 
                     one_hot_predictions[i, :, :, idx] += obj_mask
-
-        # t1 = time.time()
-        # print(f"[Obs preprocessing] Segmentation depth filtering time: {t1 - t0:.2f}")
 
         if self.visualize:
             visualizations = np.stack([vis.get_image() for vis in visualizations])
@@ -97,6 +122,31 @@ class COCOMaskRCNN:
             visualizations = images[:, :, :, ::-1]
 
         return one_hot_predictions, visualizations
+
+    def predict(
+        self,
+        obs: Observations,
+        confidence_threshold: Optional[float] = None,
+    ) -> Observations:
+        """
+        Arguments:
+            obs.rgb: image of shape (H, W, 3) (in BGR order)
+            obs.depth: depth frame of shape (H, W), used for depth filtering
+            depth_threshold: if specified, the depth threshold per instance
+
+        Returns:
+            obs.semantic: segmentation predictions of shape (H, W, N) with
+             indices in [0, num_sem_categories - 1]
+            obs.task_observations["semantic_frame"]: segmentation visualization
+             image of shape (H, W, 3)
+        """
+        images = obs.rgb[np.newaxis, :, :, :]
+        depths = obs.depth[np.newaxis, :, :]
+        pred, vis = self.get_prediction(images, depths, confidence_threshold)
+        pred, vis = pred[0], vis[0]
+        obs.semantic = pred
+        obs.task_observations["semantic_frame"] = vis
+        return obs
 
 
 class ImageSegmentation:

@@ -15,8 +15,8 @@ ENVIRONMENT:
   frame_width: 480        # first-person frame width (in pixels)
   camera_height: 1.31     # camera sensor height (in metres)
   hfov: 42.0              # horizontal field of view (in degrees)
-  min_depth: 0.5          # minimum depth for depth sensor (in metres)
-  max_depth: 3.5          # maximum depth for depth sensor (in metres)
+  min_depth: 0.0          # minimum depth for depth sensor (in metres)
+  max_depth: 10.0          # maximum depth for depth sensor (in metres)
 
 AGENT:
   max_steps: 500          # maximum number of steps before stopping an episode
@@ -26,7 +26,7 @@ AGENT:
 
   SEMANTIC_MAP:
     semantic_categories: mukul_indoor # map semantic channel categories ("coco_indoor", "longtail_indoor", "mukul_indoor")
-    num_sem_categories: 3             # number of map semantic channel categories (16, 257, 35)
+    num_sem_categories: 7             # number of map semantic channel categories (16, 257, 35)
     map_size_cm: 4800        # global map size (in centimeters)
     map_resolution: 5        # size of map bins (in centimeters)
     vision_range: 100        # diameter of local map region visible by the agent (in cells)
@@ -43,8 +43,8 @@ AGENT:
     collision_threshold: 0.20       # forward move distance under which we consider there's a collision (in meters)
     min_obs_dilation_selem_radius: 3    # radius (in cells) of obstacle dilation structuring element
     obs_dilation_selem_radius: 5    # radius (in cells) of obstacle dilation structuring element
-    goal_dilation_selem_radius: 5  # radius (in cells) of goal dilation structuring element
-    step_size: 10                    # maximum distance of the short-term goal selected by the planner
+    goal_dilation_selem_radius: 10  # radius (in cells) of goal dilation structuring element
+    step_size: 5                    # maximum distance of the short-term goal selected by the planner
     use_dilation_for_stg: True      # use dilated goals for estimating short-term goals
 
 EVAL_VECTORIZED:

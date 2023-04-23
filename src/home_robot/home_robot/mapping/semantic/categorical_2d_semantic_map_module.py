@@ -4,6 +4,7 @@
 # LICENSE file in the root directory of this source tree.
 from typing import Tuple
 
+import kornia
 import numpy as np
 import pytorch3d.transforms as pt
 import skimage.morphology
@@ -293,7 +294,13 @@ class Categorical2DSemanticMapModule(nn.Module):
             agent_height = self.agent_height
 
         depth = obs[:, 3, :, :].float()
+        # Filter depth values
         depth[depth > self.max_depth] = 0
+        depth[depth <= self.min_depth] = 0
+        # Apply median filtering
+        depth = kornia.filters.median_blur(depth.unsqueeze(1), (5, 5)).squeeze(1)
+        depth = kornia.filters.median_blur(depth.unsqueeze(1), (5, 5)).squeeze(1)
+
         point_cloud_t = du.get_point_cloud_from_z_t(
             depth, self.camera_matrix, device, scale=self.du_scale
         )
@@ -364,6 +371,13 @@ class Categorical2DSemanticMapModule(nn.Module):
         feat[:, 1:, :] = nn.AvgPool2d(self.du_scale)(obs[:, 4:, :, :]).view(
             batch_size, obs_channels - 4, h // self.du_scale * w // self.du_scale
         )
+        # Filter out zeroed depth values
+        zero_mask = (
+            depth[:, :: self.du_scale, :: self.du_scale] == 0
+        )  # (batch_size, H, W)
+        zero_mask = zero_mask.unsqueeze(1).expand(-1, voxel_channels, -1, -1)
+        zero_mask = zero_mask.view(batch_size, voxel_channels, -1)
+        feat[zero_mask] = 0
 
         XYZ_cm_std = point_cloud_map_coords.float()
         XYZ_cm_std[..., :2] = XYZ_cm_std[..., :2] / self.xy_resolution
@@ -395,8 +409,32 @@ class Categorical2DSemanticMapModule(nn.Module):
 
         fp_map_pred = agent_height_proj[:, 0:1, :, :]
         fp_exp_pred = all_height_proj[:, 0:1, :, :]
-        fp_map_pred = fp_map_pred / self.map_pred_threshold
-        fp_exp_pred = fp_exp_pred / self.exp_pred_threshold
+        fp_sem_pred = all_height_proj[:, 1 : 1 + self.num_sem_categories]
+        fp_map_pred = (fp_map_pred / self.map_pred_threshold >= 1.0).float()
+        fp_exp_pred = (fp_exp_pred / self.exp_pred_threshold >= 1.0).float()
+        fp_sem_pred = (fp_sem_pred / self.cat_pred_threshold >= 1.0).float()
+        ########################################################
+        # Clean errors in map
+        ########################################################
+        kernel = torch.ones(3, 3)
+        fp_obs = fp_map_pred[:, 0:1]  # (bs, 1, H, W)
+        fp_exp = fp_exp_pred[:, 0:1]  # (bs, 1, H, W)
+        fp_sem = fp_sem_pred[:, :]  # (bs, N, H, W)
+        for _ in range(1):
+            fp_obs = kornia.morphology.opening(fp_obs, kernel)
+            fp_exp = kornia.morphology.closing(fp_exp, kernel)
+            fp_sem = kornia.morphology.opening(fp_sem, kernel)
+        # Use original values for nearby cells
+        ## Map convention: agent is a the top-center of the map looking downward
+        acc_depth_radius = 100
+        acc_depth_cells = int(acc_depth_radius / self.resolution)
+        fp_obs[:, :, 0:acc_depth_cells, :] = fp_map_pred[:, 0:1, 0:acc_depth_cells, :]
+        fp_exp[:, :, 0:acc_depth_cells, :] = fp_exp_pred[:, 0:1, 0:acc_depth_cells, :]
+        fp_sem[:, :, 0:acc_depth_cells, :] = fp_sem_pred[:, :, 0:acc_depth_cells, :]
+        # Copy filtered maps back to source
+        fp_map_pred[:, 0:1] = fp_obs
+        fp_exp_pred[:, 0:1] = fp_exp
+        fp_sem_pred[:, :] = fp_sem
 
         agent_view = torch.zeros(
             batch_size,
@@ -418,10 +456,7 @@ class Categorical2DSemanticMapModule(nn.Module):
             MC.NON_SEM_CHANNELS : MC.NON_SEM_CHANNELS + self.num_sem_categories,
             y1:y2,
             x1:x2,
-        ] = (
-            all_height_proj[:, 1 : 1 + self.num_sem_categories]
-            / self.cat_pred_threshold
-        )
+        ] = fp_sem_pred
 
         current_pose = pu.get_new_pose_batch(prev_pose.clone(), pose_delta)
         st_pose = current_pose.clone().detach()
