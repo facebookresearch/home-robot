@@ -152,6 +152,7 @@ class Visualizer:
         visualize_goal: bool = True,
         been_close_map: Optional[np.ndarray] = None,
         third_person_image: Optional[np.ndarray] = None,
+        pfs_vis: Optional[np.ndarray] = None,
     ):
         """Visualize frame input and semantic map.
 
@@ -259,14 +260,25 @@ class Visualizer:
         )
         cv2.drawContours(self.image_vis, [forward_arrow], 0, color, -1)
 
+        image_vis = self.image_vis
+        if pfs_vis is not None:
+            reqd_H = int(pfs_vis.shape[0] * image_vis.shape[1] / pfs_vis.shape[1])
+            pfs_vis = cv2.resize(
+                pfs_vis,
+                (image_vis.shape[1], reqd_H),
+                interpolation=cv2.INTER_AREA,
+            )
+            pfs_vis = pfs_vis[..., ::-1]
+            image_vis = np.concatenate([image_vis, pfs_vis], axis=0)
+
         if self.show_images:
-            cv2.imshow("Visualization", self.image_vis)
+            cv2.imshow("Visualization", image_vis)
             cv2.waitKey(1)
 
         if self.print_images:
             cv2.imwrite(
                 os.path.join(self.vis_dir, "snapshot_{:03d}.png".format(timestep)),
-                self.image_vis,
+                image_vis,
             )
 
     def _init_vis_image(self, goal_name: str):

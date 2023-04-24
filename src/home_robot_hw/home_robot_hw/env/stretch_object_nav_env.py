@@ -50,7 +50,7 @@ class StretchObjectNavEnv(StretchEnv):
         #     sem_gpu_id=0,
         # )
         self.segmentation = COCOMaskDINO(
-            vocabulary="coco-subset",
+            vocabulary="coco",
             sem_gpu_id=0,
         )
         if config is not None:
