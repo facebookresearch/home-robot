@@ -274,7 +274,7 @@ class PPOAgent(Agent):
             }
         )
 
-    def act(self, observations: Observations):
+    def act(self, observations: Observations) -> Dict[str, int]:
         sample_random_seed()
         obs = self.convert_to_habitat_obs_space(observations)
         batch = batch_obs([obs], device=self.device)
@@ -310,7 +310,7 @@ class PPOAgent(Agent):
                     self.filtered_action_space, self.vector_action_space, act[0]
                 )
                 return (
-                    convert_to_robot_action(step_action["action_args"]),
+                    map_continuous_habitat_actions(step_action["action_args"]),
                     self.does_want_terminate(observations, actions),
                 )
             else:
@@ -334,7 +334,8 @@ class PPOAgent(Agent):
         )
 
 
-def convert_to_robot_action(cont_action):
+def map_continuous_habitat_actions(cont_action):
+    """Map habitat continuous actions to home-robot continuous actions"""
     waypoint, sel = cont_action["base_vel"]
     if sel >= 0:
         action = ContinuousNavigationAction(

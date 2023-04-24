@@ -43,7 +43,7 @@ def main(
     agent = PickAndPlaceAgent(
         config=config,
         skip_find_object=test_pick or test_gaze,
-        skip_orient=test_pick or test_gaze,
+        skip_orient=False,
         skip_gaze=test_pick,
         skip_pick=test_gaze,
         skip_place=test_pick or test_gaze,
