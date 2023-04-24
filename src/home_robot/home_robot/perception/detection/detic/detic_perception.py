@@ -216,7 +216,7 @@ class DeticPerception(PerceptionModule):
 
         # Sort instances by mask size
         masks = pred["instances"].pred_masks.cpu().numpy()
-        class_idcs = pred["instances"].pred_classes.cpu().numpy()ß
+        class_idcs = pred["instances"].pred_classes.cpu().numpy()
         scores = pred["instances"].scores.cpu().numpy()
 
         if depth_threshold is not None and depth is not None:
@@ -230,7 +230,6 @@ class DeticPerception(PerceptionModule):
         obs.task_observations["instance_map"] = instance_map
         obs.task_observations["instance_classes"] = class_idcs
         obs.task_observations["instance_scores"] = scores
-        obs.task_observations["semantic_frame"] = visualization
 
         return obs
 
