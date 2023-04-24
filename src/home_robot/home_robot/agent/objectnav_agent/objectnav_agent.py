@@ -79,6 +79,7 @@ class ObjectNavAgent(Agent):
             min_obs_dilation_selem_radius=config.AGENT.PLANNER.min_obs_dilation_selem_radius,
             map_downsample_factor=config.AGENT.PLANNER.map_downsample_factor,
             map_update_frequency=config.AGENT.PLANNER.map_update_frequency,
+            discrete_actions=config.AGENT.PLANNER.discrete_actions,
         )
         self.one_hot_encoding = torch.eye(
             config.AGENT.SEMANTIC_MAP.num_sem_categories, device=self.device
@@ -209,7 +210,6 @@ class ObjectNavAgent(Agent):
             plt.subplot(133)
             plt.imshow(self.semantic_map.get_goal_map(e))
             plt.show()
-            breakpoint()
 
         planner_inputs = [
             {

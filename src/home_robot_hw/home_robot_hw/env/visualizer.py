@@ -198,10 +198,10 @@ class Visualizer:
         semantic_map_vis = cv2.resize(
             semantic_map_vis, (480, 480), interpolation=cv2.INTER_NEAREST
         )
-        self.image_vis[50:530, 670:1150] = semantic_map_vis
+        self.image_vis[50:530, 390:870] = semantic_map_vis
 
         # First-person semantic frame
-        self.image_vis[50:530, 15:655] = cv2.resize(semantic_frame, (640, 480))
+        self.image_vis[50:530, 15:375] = cv2.resize(semantic_frame, (360, 480))
 
         # Agent arrow
         pos = (
@@ -226,15 +226,16 @@ class Visualizer:
             )
 
     def _init_vis_image(self, goal_name: str):
-        vis_image = np.ones((655, 1165, 3)).astype(np.uint8) * 255
+        # vis_image = np.ones((655, 1165, 3)).astype(np.uint8) * 255
+        vis_image = np.ones((655, 885, 3)).astype(np.uint8) * 255
         font = cv2.FONT_HERSHEY_SIMPLEX
-        fontScale = 1
+        fontScale = 0.8
         color = (20, 20, 20)  # BGR
         thickness = 2
 
         text = "Observations (Goal: {})".format(goal_name)
         textsize = cv2.getTextSize(text, font, fontScale, thickness)[0]
-        textX = (640 - textsize[0]) // 2 + 15
+        textX = (360 - textsize[0]) // 2 + 15
         textY = (50 + textsize[1]) // 2
         vis_image = cv2.putText(
             vis_image,
@@ -249,7 +250,7 @@ class Visualizer:
 
         text = "Predicted Semantic Map"
         textsize = cv2.getTextSize(text, font, fontScale, thickness)[0]
-        textX = 640 + (480 - textsize[0]) // 2 + 30
+        textX = 360 + (480 - textsize[0]) // 2 + 30
         textY = (50 + textsize[1]) // 2
         vis_image = cv2.putText(
             vis_image,
@@ -264,14 +265,14 @@ class Visualizer:
 
         # Draw outlines
         color = [100, 100, 100]
-        vis_image[49, 15:655] = color
-        vis_image[49, 670:1150] = color
+        vis_image[49, 15:375] = color
+        vis_image[49, 390:870] = color
         vis_image[50:530, 14] = color
-        vis_image[50:530, 655] = color
-        vis_image[50:530, 669] = color
-        vis_image[50:530, 1150] = color
-        vis_image[530, 15:655] = color
-        vis_image[530, 670:1150] = color
+        vis_image[50:530, 375] = color
+        vis_image[50:530, 389] = color
+        vis_image[50:530, 870] = color
+        vis_image[530, 15:375] = color
+        vis_image[530, 390:870] = color
 
         # Draw legend
         # lx, ly, _ = self.legend.shape

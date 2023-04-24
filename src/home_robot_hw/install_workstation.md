@@ -6,11 +6,13 @@ On the Workstation, we install `home_robot_hw` as a pip package containing a cli
 
 ## Installation
 
-After creating a conda env and [installing home_robot](../home_robot),
-
 ```sh
-# Install dependencies
-mamba env update -f src/home_robot_hw/environment.yml
+# Create a conda env
+mamba create -n <YOUR_ENV_NAME> -f src/home_robot_hw/environment.yml
+conda activate <YOUR_ENV_NAME>
+
+# Install the core home_robot package
+pip install -e src/home_robot
 
 # Install home_robot_hw
 pip install -e src/home_robot_hw
