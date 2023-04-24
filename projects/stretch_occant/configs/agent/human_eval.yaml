@@ -16,12 +16,12 @@ ENVIRONMENT:
   camera_height: 1.31     # camera sensor height (in metres)
   hfov: 42.0              # horizontal field of view (in degrees)
   min_depth: 0.0          # minimum depth for depth sensor (in metres)
-  max_depth: 10.0          # maximum depth for depth sensor (in metres)
-  max_steps: 500          # maximum number of steps before stopping an episode
-  use_human_actions: False # use actions from human agent
+  max_depth: 3.5          # maximum depth for depth sensor (in metres)
+  max_steps: 1000          # maximum number of steps before stopping an episode
+  use_human_actions: True # use actions from human agent
 
 AGENT:
-  max_steps: 500          # maximum number of steps before stopping an episode
+  max_steps: 1000          # maximum number of steps before stopping an episode
   panorama_start: 0       # 1: turn around 360 degrees when starting an episode, 0: don't
   exploration_strategy: seen_frontier  # exploration strategy ("seen_frontier", "been_close_to_frontier")
   radius: 0.20            # robot radius (in meters)
@@ -39,9 +39,9 @@ AGENT:
     map_pred_threshold: 1.0  # number of depth points to be in bin to consider it as obstacle
     been_close_to_radius: 400  # radius (in centimeters) of been close to region
     explored_radius: 150       # radius (in centimeters) of visually explored region
-    occant_cfg_path: "src/home_robot/home_robot/mapping/occant_utils/configs/occant_depth.yaml"
-    occant_ckpt_path: "data/gibson_models/occant_depth_w_noise_mask_close_focal_large_area/ckpt.6.pth.stripped"
-    disable_anticipation: False
+    occant_cfg_path: "src/home_robot/home_robot/mapping/occant_utils/configs/ans.yaml"
+    occant_ckpt_path: "data/hm3d_models/occant_rgbd_w_noise_mask_close_focal/ckpt.5.pth.stripped"
+    disable_anticipation: True
     use_ego_map_seen: False
 
   PLANNER:

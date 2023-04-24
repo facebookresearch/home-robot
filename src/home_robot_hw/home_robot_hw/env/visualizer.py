@@ -13,6 +13,7 @@ from PIL import Image
 
 import home_robot.utils.pose as pu
 import home_robot.utils.visualization as vu
+from home_robot.core.interfaces import DiscreteNavigationAction
 
 map_color_palette = [
     int(x * 255.0)
@@ -358,6 +359,7 @@ class ExplorationVisualizer:
         self.image_vis = None
         self.visited_map_vis = None
         self.last_xy = None
+        self.use_human_actions = config.ENVIRONMENT.use_human_actions
 
     def reset(self):
         self.vis_dir = self.default_vis_dir
@@ -494,15 +496,35 @@ class ExplorationVisualizer:
                 occupancy_vis, (image_vis.shape[0], image_vis.shape[0])
             )
             image_vis = np.concatenate([image_vis, occupancy_vis], axis=1)
+
+        human_action = None
         if self.show_images:
             cv2.imshow("Visualization", image_vis)
-            cv2.waitKey(1)
+            if self.use_human_actions:
+                while human_action is None:
+                    keypress = cv2.waitKey(0)
+                    if "w" == chr(keypress & 255):
+                        human_action = DiscreteNavigationAction.MOVE_FORWARD
+                    elif "a" == chr(keypress & 255):
+                        human_action = DiscreteNavigationAction.TURN_LEFT
+                    elif "d" == chr(keypress & 255):
+                        human_action = DiscreteNavigationAction.TURN_RIGHT
+                    else:
+                        print(
+                            ">>> Invalid key {}. Please enter one of w/a/d".format(
+                                keypress
+                            )
+                        )
+            else:
+                cv2.waitKey(1)
 
         if self.print_images:
             cv2.imwrite(
                 os.path.join(self.vis_dir, "snapshot_{:03d}.png".format(timestep)),
                 image_vis,
             )
+
+        return human_action
 
     def _init_vis_image(self, goal_name: str):
         vis_image = np.ones((655, 1165, 3)).astype(np.uint8) * 255

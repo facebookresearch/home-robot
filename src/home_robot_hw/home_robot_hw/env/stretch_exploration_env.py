@@ -56,7 +56,9 @@ class StretchExplorationEnv(StretchEnv):
         amount forward or rotationally."""
         self.curr_step += 1
         if self.visualizer is not None:
-            self.visualizer.visualize(**info)
+            human_action = self.visualizer.visualize(**info)
+            if human_action is not None:
+                action = human_action
         continuous_action = np.zeros(3)
         if action == DiscreteNavigationAction.MOVE_FORWARD:
             print("FORWARD")
