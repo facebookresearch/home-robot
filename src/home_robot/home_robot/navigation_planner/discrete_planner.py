@@ -53,6 +53,8 @@ class DiscretePlanner:
         min_goal_distance_cm: float = 60.0,
         min_obs_dilation_selem_radius: int = 1,
         agent_cell_radius: int = 1,
+        map_downsample_factor: float = 1.0,
+        map_update_frequency: int = 1,
     ):
         """
         Arguments:
@@ -99,6 +101,9 @@ class DiscretePlanner:
         self.obs_dilation_selem = None
         self.min_goal_distance_cm = min_goal_distance_cm
         self.dd = None
+
+        self.map_downsample_factor = map_downsample_factor
+        self.map_update_frequency = map_update_frequency
 
     def reset(self):
         self.vis_dir = self.default_vis_dir
@@ -375,12 +380,24 @@ class DiscretePlanner:
         if plan_to_dilated_goal:
             # Set multi goal to the dilated goal map
             # We will now try to find a path to any of these spaces
-            self.dd = planner.set_multi_goal(dilated_goal_map, self.timestep, self.dd)
+            self.dd = planner.set_multi_goal(
+                dilated_goal_map,
+                self.timestep,
+                self.dd,
+                self.map_downsample_factor,
+                self.map_update_frequency,
+            )
         else:
             navigable_goal = planner._find_nearest_to_multi_goal(goal_map)
             navigable_goal_map = np.zeros_like(goal_map)
             navigable_goal_map[navigable_goal[0], navigable_goal[1]] = 1
-            self.dd = planner.set_multi_goal(navigable_goal_map, self.timestep, self.dd)
+            self.dd = planner.set_multi_goal(
+                navigable_goal_map,
+                self.timestep,
+                self.dd,
+                self.map_downsample_factor,
+                self.map_update_frequency,
+            )
 
         self.timestep += 1
 

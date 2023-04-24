@@ -61,28 +61,28 @@ class FMMPlanner:
         goal_map: np.ndarray,
         timestep: int = 0,
         dd: np.ndarray = None,
+        map_downsample_factor: float = 1.0,
         map_update_frequency: int = 1,
-        downsample_multiplier: float = 1.0,
     ):
         """Set long-term goal(s) used to compute distance from a binary
         goal map.
         dd: distance map for when we want to reuse previously computed ones (instead of updating at each step)
         map_update_frequency: skfmm.distance call made every n steps
-        downsample_multiplier: 0.5 for halving both image dimensions, 1.0 for no downsampling.
+        map_downsample_factor: 1 for no downsampling, 2 for halving both image dimensions.
         """
-        assert 0 < downsample_multiplier <= 1.0
-
+        assert map_downsample_factor >= 1.0
         traversible = self.traversible
-        if downsample_multiplier < 1.0:
+        if map_downsample_factor > 1.0:
             l, w = self.traversible.shape
             traversible = cv2.resize(
                 traversible,
-                dsize=(int(l * downsample_multiplier), int(w * downsample_multiplier)),
+                dsize=(int(l / map_downsample_factor), int(w / map_downsample_factor)),
             )
+            print(f"Downsampling goal and traversible maps {map_downsample_factor}x.")
             goal_map_copy = goal_map.copy()
             goal_map = cv2.resize(
                 goal_map,
-                dsize=(int(l * downsample_multiplier), int(w * downsample_multiplier)),
+                dsize=(int(l / map_downsample_factor), int(w / map_downsample_factor)),
                 interpolation=cv2.INTER_NEAREST,
             )
 
@@ -93,8 +93,8 @@ class FMMPlanner:
                 goal_map = cv2.resize(
                     goal_map,
                     dsize=(
-                        int(l * downsample_multiplier),
-                        int(w * downsample_multiplier),
+                        int(l / map_downsample_factor),
+                        int(w / map_downsample_factor),
                     ),
                     interpolation=cv2.INTER_NEAREST,
                 )
@@ -105,13 +105,13 @@ class FMMPlanner:
         # This is where we actually call the FMM algorithm!!
         # It will compute the distance from each traversible point to the goal.
         if (timestep - 1) % map_update_frequency == 0 or dd is None:
-            dd = skfmm.distance(traversible_ma, dx=1 / downsample_multiplier)
+            dd = skfmm.distance(traversible_ma, dx=1 * map_downsample_factor)
             dd = ma.filled(dd, np.max(dd) + 1)
             print(f"Computing skfmm.distance (timestep: {timestep})")
         else:
             print(f"Reusing previous skfmm.distance value (timestep: {timestep})")
 
-        if downsample_multiplier < 1.0:
+        if map_downsample_factor > 1.0:
             dd = cv2.resize(dd, (l, w))  # upsampling
 
         self.fmm_dist = dd
