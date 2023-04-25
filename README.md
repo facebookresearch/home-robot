@@ -55,6 +55,36 @@ mamba env create -n home-robot -f src/home_robot_hw/environment.yml
 conda activate home-robot
 ```
 
+#### 2. Install PyTorch and PyTorch3d
+
+See [here](https://pytorch.org/get-started/locally/) to install PyTorch. Example command:
+
+```
+conda install pytorch torchvision torchaudio pytorch-cuda=11.7 -c pytorch -c nvidia
+```
+
+To install PyTorch3d, run:
+
+```
+conda install pytorch3d -c pytorch3d
+```
+
+If this causes trouble, building from source works reliably, but you must make sure you have the correct CUDA version on your workstation:
+```
+pip install "git+https://github.com/facebookresearch/pytorch3d.git"
+```
+
+See the [PyTorch3d installation page](https://github.com/facebookresearch/pytorch3d/blob/main/INSTALL.md) for more information.
+
+#### 3. Install Home Robot Packages
+```
+# Install the core home_robot package
+pip install -e src/home_robot
+
+# Install home_robot_hw
+pip install -e src/home_robot_hw
+```
+
 Proper network setup is crucial to getting good performance with HomeRobot. Low-cost mobile robots often do not have sufficient GPU to run state-of-the-art perception models. Instead, we rely on a client-server architecture, where ROS and low-level controllers run on the robot, and CPU- and GPU-intensive AI code runs on a workstation.
 
 After following the installation instructions, we recommend setting up your `~/.bashrc` on the robot workstation:
@@ -83,32 +113,6 @@ _Testing Real Robot Setup:_ Now you can run a couple commands to test your conne
 
 ```
 rviz -d $HOME_ROBOT_ROOT/src/home_robot_hw/launch/mapping_demo.rviz
-```
-
-#### 2. Install PyTorch and PyTorch3d
-
-See [here](https://pytorch.org/get-started/locally/) to install PyTorch.
-
-For PyTorch3d, run:
-
-```
-conda install pytorch3d -c pytorch3d
-```
-
-If this causes trouble, building from source works reliably, but you must make sure you have the correct CUDA version on your workstation:
-```
-pip install "git+https://github.com/facebookresearch/pytorch3d.git"
-```
-
-See the [PyTorch3d installation page](https://github.com/facebookresearch/pytorch3d/blob/main/INSTALL.md) for more information.
-
-#### 3. Install Home Robot Packages
-```
-# Install the core home_robot package
-pip install -e src/home_robot
-
-# Install home_robot_hw
-pip install -e src/home_robot_hw
 ```
 
 #### 4. Hardware Testing

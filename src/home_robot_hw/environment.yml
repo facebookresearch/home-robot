@@ -2,8 +2,9 @@ channels:
   - conda-forge
   - robostack
   - robostack-staging
-  #- pytorch
-  #- pytorch3d
+  - pytorch
+  - pytorch3d
+  - nvidia
 dependencies:
   - python==3.9.*
   - ros-noetic-desktop
@@ -12,14 +13,15 @@ dependencies:
   - cmake
   - pybind11
   - pinocchio
-  # - pytorch==1.13.*  # Compatibility with pytorch3d
-  # - pytorch3d
+  - pytorch==1.13.*  # Compatibility with pytorch3d
+  - pytorch-cuda=11.7
+  - pytorch3d
+  - opencv
   - pip
   - pip:
     - numpy <1.24 # certain deprecated operations were used in other deps
     - scipy
     - sophuspy
-    - opencv-python>=3.3.0
     - pybullet
     - trimesh
     - pytest
