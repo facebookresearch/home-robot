@@ -8,7 +8,7 @@ dependencies:
   - pybind11
   - pytorch==1.13.*  # Compatibility with pytorch3d
   - torchvision
-  - pinocchio
+  - pinocchio==2.6.17
   - pip
   - pip:
     - numpy <1.24 # certain deprecated operations were used in other deps
