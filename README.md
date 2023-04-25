@@ -35,29 +35,7 @@ Installation on a workstation requires [conda](https://docs.conda.io/projects/co
 
 Installation on a robot assumes Ubuntu 20.04 and [ROS Noetic](http://wiki.ros.org/noetic).
 
-
-### Instructions
-
 To set up the hardware stack on a Hello Robot  Stretch, see the [ROS installation instructions](src/home_robot_hw/install_robot.md) in `home_robot_hw`.
-
-On the robot side, start up the controllers with:
-```
-roslaunch home_robot_hw startup_stretch_hector_slam.launch
-```
-
-To set up your workstation, follow these instructions:
-
-#### 1. Create Your Environment
-```
-# Create a conda env - use the version in home_robot_hw if you want to run on the robot
-# Otherwise, you can use the version in src/home_robot
-mamba env create -n home-robot -f src/home_robot_hw/environment.yml
-conda activate home-robot
-```
-
-This should install pytorch; if you run into trouble, you may need to edit the installation to make sure you have the right CUDA version. See the [pytorch install notes](docs/install_pytorch.md) for more.
-
-##### Set Up Your Terminal
 
 Proper network setup is crucial to getting good performance with HomeRobot. Low-cost mobile robots often do not have sufficient GPU to run state-of-the-art perception models. Instead, we rely on a client-server architecture, where ROS and low-level controllers run on the robot, and CPU- and GPU-intensive AI code runs on a workstation.
 
@@ -82,6 +60,25 @@ echo "Setting ROS IP to $ROS_IP"
 # Helpful alias - connect to the robot
 alias ssh-robot="ssh hello-robot@$HELLO_ROBOT_IP"
 ```
+
+On the robot side, start up the controllers with:
+```
+roslaunch home_robot_hw startup_stretch_hector_slam.launch
+```
+
+### Workstation Instructions
+
+To set up your workstation, follow these instructions:
+
+#### 1. Create Your Environment
+```
+# Create a conda env - use the version in home_robot_hw if you want to run on the robot
+# Otherwise, you can use the version in src/home_robot
+mamba env create -n home-robot -f src/home_robot_hw/environment.yml
+conda activate home-robot
+```
+
+This should install pytorch; if you run into trouble, you may need to edit the installation to make sure you have the right CUDA version. See the [pytorch install notes](docs/install_pytorch.md) for more.
 
 #### 2. Install Home Robot Packages
 ```
