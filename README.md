@@ -154,11 +154,11 @@ python projects/stretch_ovmm/eval_episode.py
 To set up the simulation stack with Habitat, see the [installation instructions](src/home_robot_sim/README.md) in `home_robot_sim`. You first need to install AI habitat and the simulation package:
 ```
 # Install habitat sim and update submodules
-mamba install -c conda-forge -c aihabitat habitat-sim withbullet
-git submodule update --init --recursive
+mamba env update -f src/home_robot_sim/environment.yml
 
 # Install habitat lab on the correct (object rearrange) branch
-pip install -e src/third_party/habitat-lab/habitat-lab  # NOTE: Habitat-lab@v0.2.2 only works in editable mode
+git submodule update --init --recursive
+pip install -e src/third_party/habitat-lab/habitat-lab
 pip install -e src/third_party/habitat-lab/habitat-baselines
 
 # Install home robot sim interfaces
