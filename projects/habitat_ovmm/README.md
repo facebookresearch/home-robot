@@ -1,69 +1,4 @@
-## Table of contents
-   1. [Environment setup](#environment-setup)
-   2. [Dataset setup](#dataset-setup)
-   3. [Demo setup](#demo-setup)
-   4. [DETIC setup](#install-detic)
-   5. [Run!](#run)
-
-## Environment Setup
-
-On an Ubuntu machine with GPU:
-```
-conda env create -n home-robot --file=src/home_robot/environment.yml
-conda activate home-robot
-
-git clone https://github.com/facebookresearch/habitat-sim
-cd habitat-sim
-git checkout 7b99db753272079d609b88e00f24ca0ad0ef23aa # latest main forces Python > 3.9
-python -m pip install -r requirements.txt
-python setup.py install --headless --with-bullet
-# (if the above commands runs out of memory) 
-# python setup.py build_ext --parallel 8 install --headless
-cd ..
-
-git clone --branch modular_nav_obj_on_rec https://github.com/facebookresearch/habitat-lab.git
-cd habitat-lab
-python -m pip install -e ./habitat-baselines
-cd habitat-lab
-python -m pip install -r requirements.txt
-python -m pip install -e .
-cd ../..
-
-python -m pip install "git+https://github.com/facebookresearch/pytorch3d.git"
-```
-
-On Mac:
-```
-conda create -n home-robot python=3.10 cmake
-conda activate home-robot
-
-conda install -y pytorch torchvision -c pytorch
-
-git clone https://github.com/facebookresearch/habitat-sim
-cd habitat-sim
-git checkout 7b99db753272079d609b88e00f24ca0ad0ef23aa # latest main forces Python > 3.9
-pip install -r requirements.txt
-python setup.py install --with-bullet
-cd ..
-
-git clone --branch modular_nav_obj_on_rec https://github.com/facebookresearch/habitat-lab.git
-cd habitat-lab
-pip install -e habitat-baselines
-cd habitat-lab
-pip install -r requirements.txt
-# Not clear if this should have --all or just be a pip install .
-python setup.py develop
-cd ../..
-
-pip install natsort scikit-image scikit-fmm pandas trimesh scikit-learn
-conda install -c pytorch3d pytorch3d
-```
-
-**[IMPORTANT]: Add habitat-lab path to PYTHONPATH**:
-
-```
-export PYTHONPATH=$PYTHONPATH:/path/to/home-robot-dev/habitat-lab/
-```
+# Habitat OVMM
 
 ## Dataset Setup
 
@@ -71,12 +6,11 @@ export PYTHONPATH=$PYTHONPATH:/path/to/home-robot-dev/habitat-lab/
 
 ```
 cd `HOME_ROBOT_ROOT/data/`
+# Download the scenes
 git clone https://huggingface.co/datasets/osmm/fpss --branch osmm
+# Download the objects and metadata
+git clone https://huggingface.co/datasets/osmm/objects
 ```
-
-The google scanned objects and amazon berkeley objects will need to be in `data/objects/google_object_dataset` and `data/objects/amazon_berkeley` respectively. These datasets can be downloaded from [here](https://drive.google.com/drive/u/0/folders/1Qs99bMMC7ZpZwksZYDC_IkNqK_IB6ONU). They are also available on Skynet at: `/srv/flash1/aramacha35/habitat-lab/data/objects`.
-
-TODO: Download these using git clone https://huggingface.co/datasets/osmm/objects
 
 ### Other instructions
 
@@ -91,11 +25,6 @@ Rough notes; some things were missing for configuring a new environment:
 cd `HOME_ROBOT_ROOT/data/`
 git clone https://huggingface.co/datasets/osmm/episodes
 ```
-
-### Download CLIP embeddings
-Download from `https://drive.google.com/file/d/1sSDSKZgYeIPPk8OM4oWhLtAf4Z-zjAVy/view?usp=sharing` and place them under `HOME_ROBOT_ROOT/data/objects` directory.
-
-TODO: Remove this after we start downloading `objects` folder from huggingface.
 
 ## Demo setup
 

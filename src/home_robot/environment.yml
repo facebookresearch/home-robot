@@ -2,25 +2,28 @@ channels:
   - conda-forge
   - pytorch
   - pytorch3d
+  - nvidia
 dependencies:
-  - python==3.8.* # Habitat supports <3.9
+  - python==3.9.*
   - cmake
   - pybind11
+  - pinocchio
   - pytorch==1.13.*  # Compatibility with pytorch3d
-  - torchvision
-  - pinocchio==2.6.17
+  - pytorch-cuda=11.7
+  - pytorch3d
+  - opencv
   - pip
   - pip:
     - numpy <1.24 # certain deprecated operations were used in other deps
     - scipy
     - sophuspy
-    - opencv-python>=3.3.0
     - pybullet
     - trimesh
     - pytest
     - open3d
     - scikit-image
     - scikit-fmm
+    - scikit-learn
     - numpy-quaternion
     - natsort
     # Neural networks
@@ -36,3 +39,4 @@ dependencies:
     - h5py
     - imageio
     - pygifsicle
+    - pynput
