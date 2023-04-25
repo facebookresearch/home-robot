@@ -168,7 +168,7 @@ pip install -e src/third_party/habitat-lab/habitat-baselines
 pip install -e src/home_robot_sim
 ```
 
-And then download the assets as described in the [installation instructions](src/home_robot_sim/README.md).
+And then download the assets as described in the [installation instructions](src/home_robot_sim/README.md#Ddataset-setup).
 
 To test your installation, you can run:
 ```
