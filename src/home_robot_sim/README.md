@@ -71,17 +71,21 @@ git clone https://huggingface.co/datasets/osmm/fpss --branch osmm
 git clone https://huggingface.co/datasets/osmm/objects
 ```
 
-### Other instructions
+### Download the Robot Model
 
-Rough notes; some things were missing for configuring a new environment:
-  - Download the objects into `HOME_ROBOT_ROOT/data`
-  - Download the urdf into `HOME_ROBOT_ROOT/data/robots/hab_stretch` - robot should be at `data/robots/hab_stretch/urdf/` - robot from [the FAIR distribution here in zip format](http://dl.fbaipublicfiles.com/habitat/robots/hab_stretch_v1.0.zip)
-
-
-### Episode dataset setup
+Download and unzip the robot model:
+```
+mkdir -p $HOME_ROBOT_ROOT/data/robots/hab_stretch
+cd $HOME_ROBOT_ROOT/data/robots/hab_stretch
+wget http://dl.fbaipublicfiles.com/habitat/robots/hab_stretch_v1.0.zip
+unzip hab_stretch_v1.0.zip
 ```
 
-cd `HOME_ROBOT_ROOT/data/`
+### Download the Episodes
+
+These describe where objects are and where the robot starts:
+```
+cd $HOME_ROBOT_ROOT/data/
 git clone https://huggingface.co/datasets/osmm/episodes
 ```
 
