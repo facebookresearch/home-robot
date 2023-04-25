@@ -26,16 +26,18 @@ def main(
     goal_recep="chair",
     dry_run=False,
 ):
-    # REAL_WORLD_CATEGORIES = [
+    # Preview of REAL_WORLD_CATEGORIES for context
+    #  REAL_WORLD_CATEGORIES = [
     #     "other",
     #     "chair",
     #     "cup",
     #     "table",
     #     "other",
-    # ]  # TODO: Remove hardcoded indices in the visualizer
+    # ]  
+    # TODO: Remove hardcoded indices in the visualizer
     # so we can add more objects
 
-    # rewrite the REAL_WORLD_CATEGORIES dict with object string
+    # rewrite the`cup` in REAL_WORLD_CATEGORIES with object string
     REAL_WORLD_CATEGORIES[2] = object
 
     config_path = "projects/stretch_ovmm/configs/agent/floorplanner_eval.yaml"

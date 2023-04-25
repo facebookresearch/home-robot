@@ -1,89 +1,19 @@
-## Table of contents
-   1. [Environment setup](#environment-setup)
-   2. [Dataset setup](#dataset-setup)
-   3. [Demo setup](#demo-setup)
-   4. [DETIC setup](#install-detic)
-   5. [Run!](#run)
+# Simulation backend for the Hello Stretch
 
-## Environment Setup
+- WIP
+- Contains a minimal, dummy simulation for (debugging & automated testing), to be replaced with Habitat simulation
+- Habitat simulation: wrapper around [habitat-sim](https://github.com/facebookresearch/habitat-sim), not yet implemented
+- Same interface as home_robot_hw
 
-On an Ubuntu machine with GPU:
-```
-conda env create -n home-robot --file=src/home_robot/environment.yml
-conda activate home-robot
+## Installation
 
-git clone https://github.com/facebookresearch/habitat-sim
-cd habitat-sim
-git checkout 7b99db753272079d609b88e00f24ca0ad0ef23aa # latest main forces Python > 3.9
-python -m pip install -r requirements.txt
-python setup.py install --headless --with-bullet
-# (if the above commands runs out of memory) 
-# python setup.py build_ext --parallel 8 install --headless
-cd ..
+After installing [home_robot](../home_robot):
 
-git clone --branch modular_nav_obj_on_rec https://github.com/facebookresearch/habitat-lab.git
-cd habitat-lab
-python -m pip install -e ./habitat-baselines
-cd habitat-lab
-python -m pip install -r requirements.txt
-python -m pip install -e .
-cd ../..
-
-python -m pip install "git+https://github.com/facebookresearch/pytorch3d.git"
-```
-
-On Mac:
-```
-conda create -n home-robot python=3.10 cmake
-conda activate home-robot
-
-conda install -y pytorch torchvision -c pytorch
-
-git clone https://github.com/facebookresearch/habitat-sim
-cd habitat-sim
-git checkout 7b99db753272079d609b88e00f24ca0ad0ef23aa # latest main forces Python > 3.9
-pip install -r requirements.txt
-python setup.py install --with-bullet
-cd ..
-
-git clone --branch modular_nav_obj_on_rec https://github.com/facebookresearch/habitat-lab.git
-cd habitat-lab
-pip install -e habitat-baselines
-cd habitat-lab
-pip install -r requirements.txt
-# Not clear if this should have --all or just be a pip install .
-python setup.py develop
-cd ../..
-
-pip install natsort scikit-image scikit-fmm pandas trimesh scikit-learn
-conda install -c pytorch3d pytorch3d
-```
-
-## Dataset Setup
-
-### Scene dataset setup 
-
-```
-cd `HOME_ROBOT_ROOT/data/`
-# Download the scenes
-git clone https://huggingface.co/datasets/osmm/fpss --branch osmm
-# Download the objects and metadata
-git clone https://huggingface.co/datasets/osmm/objects
-```
-
-### Other instructions
-
-Rough notes; some things were missing for configuring a new environment:
-  - Download the objects into `HOME_ROBOT_ROOT/data`
-  - Download the urdf into `HOME_ROBOT_ROOT/data/robots/hab_stretch` - robot should be at `data/robots/hab_stretch/urdf/` - robot from [the FAIR distribution here in zip format](http://dl.fbaipublicfiles.com/habitat/robots/hab_stretch_v1.0.zip)
-
-
-### Episode dataset setup
-```
-
-cd `HOME_ROBOT_ROOT/data/`
-git clone https://huggingface.co/datasets/osmm/episodes
-```
+```sh
+# Install simulation deps
+mamba install -c conda-forge -c aihabitat habitat-sim withbullet
+git submodule update --init
+pip install -e src/third_party/habitat-lab  # NOTE: Habitat-lab@v0.2.2 only works in editable mode
 
 ## Demo setup
 

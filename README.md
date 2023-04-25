@@ -35,25 +35,7 @@ Installation on a workstation requires [conda](https://docs.conda.io/projects/co
 
 Installation on a robot assumes Ubuntu 20.04 and [ROS Noetic](http://wiki.ros.org/noetic).
 
-
-### Instructions
-
 To set up the hardware stack on a Hello Robot  Stretch, see the [ROS installation instructions](src/home_robot_hw/install_robot.md) in `home_robot_hw`.
-
-On the robot side, start up the controllers with:
-```
-roslaunch home_robot_hw startup_stretch_hector_slam.launch
-```
-
-To set up your workstation, follow these instructions:
-
-#### 1. Create Your Environment
-```
-# Create a conda env - use the version in home_robot_hw if you want to run on the robot
-# Otherwise, you can use the version in src/home_robot
-mamba env create -n home-robot -f src/home_robot_hw/environment.yml
-conda activate home-robot
-```
 
 Proper network setup is crucial to getting good performance with HomeRobot. Low-cost mobile robots often do not have sufficient GPU to run state-of-the-art perception models. Instead, we rely on a client-server architecture, where ROS and low-level controllers run on the robot, and CPU- and GPU-intensive AI code runs on a workstation.
 
@@ -79,30 +61,26 @@ echo "Setting ROS IP to $ROS_IP"
 alias ssh-robot="ssh hello-robot@$HELLO_ROBOT_IP"
 ```
 
-_Testing Real Robot Setup:_ Now you can run a couple commands to test your connection. If the `roscore` and the robot controllers are running properly, you can run `rostopic list` and should see a list of topics - streams of information coming from the robot. You can then run RVIZ to visualize the robot sensor output:
-
+On the robot side, start up the controllers with:
 ```
-rviz -d $HOME_ROBOT_ROOT/src/home_robot_hw/launch/mapping_demo.rviz
-```
-
-#### 2. Install PyTorch and PyTorch3d
-
-See [here](https://pytorch.org/get-started/locally/) to install PyTorch.
-
-For PyTorch3d, run:
-
-```
-conda install pytorch3d -c pytorch3d
+roslaunch home_robot_hw startup_stretch_hector_slam.launch
 ```
 
-If this causes trouble, building from source works reliably, but you must make sure you have the correct CUDA version on your workstation:
+### Workstation Instructions
+
+To set up your workstation, follow these instructions:
+
+#### 1. Create Your Environment
 ```
-pip install "git+https://github.com/facebookresearch/pytorch3d.git"
+# Create a conda env - use the version in home_robot_hw if you want to run on the robot
+# Otherwise, you can use the version in src/home_robot
+mamba env create -n home-robot -f src/home_robot_hw/environment.yml
+conda activate home-robot
 ```
 
-See the [PyTorch3d installation page](https://github.com/facebookresearch/pytorch3d/blob/main/INSTALL.md) for more information.
+This should install pytorch; if you run into trouble, you may need to edit the installation to make sure you have the right CUDA version. See the [pytorch install notes](docs/install_pytorch.md) for more.
 
-#### 3. Install Home Robot Packages
+#### 2. Install Home Robot Packages
 ```
 # Install the core home_robot package
 pip install -e src/home_robot
@@ -111,7 +89,13 @@ pip install -e src/home_robot
 pip install -e src/home_robot_hw
 ```
 
-#### 4. Hardware Testing
+_Testing Real Robot Setup:_ Now you can run a couple commands to test your connection. If the `roscore` and the robot controllers are running properly, you can run `rostopic list` and should see a list of topics - streams of information coming from the robot. You can then run RVIZ to visualize the robot sensor output:
+
+```
+rviz -d $HOME_ROBOT_ROOT/src/home_robot_hw/launch/mapping_demo.rviz
+```
+
+#### 3. Hardware Testing
 
 Run the hardware manual test to make sure you can control the robot remotely. Ensure the robot has one meter of free space before running the script.
 
@@ -122,9 +106,15 @@ python tests/hw_manual_test.py
 Follow the on-screen instructions. The robot should move through a set of configurations.
 
 
-#### 5. Install Detic
+#### 4. Install Detic
 
-Download Detic checkpoint as per the instructions [on the Detic github page](https://github.com/facebookresearch/Detic)
+Install [detectron2](https://detectron2.readthedocs.io/tutorials/install.html):
+```
+pip install -e src/third_party/detectron2
+pip install -r src/home_robot/home_robot/perception/detection/detic/Detic/requirements.txt
+```
+
+Download Detic checkpoint as per the instructions [on the Detic github page](https://github.com/facebookresearch/Detic):
 ```bash
 cd $HOME-ROBOT-PATH/src/home_robot/perception/detection/detic/Detic/
 mkdir models
@@ -136,7 +126,7 @@ You should be able to run the Detic demo script as per the Detic instructions to
 python demo.py --config-file configs/Detic_LCOCOI21k_CLIP_SwinB_896b32_4x_ft4x_max-size.yaml --input desk.jpg --output out2.jpg --vocabulary custom --custom_vocabulary headphone,webcam,paper,coffe --confidence-threshold 0.3 --opts MODEL.WEIGHTS models/Detic_LCOCOI21k_CLIP_SwinB_896b32_4x_ft4x_max-size.pth
 ```
 
-#### 6. Run Open Vocabulary Mobile Manipulation on Stretch
+#### 5. Run Open Vocabulary Mobile Manipulation on Stretch
 
 You should then be able to run the Stretch OVMM example.
 
@@ -156,27 +146,26 @@ python src/home_robot_hw/home_robot_hw/nodes/simple_grasp_server.py
 Then you can run the OVMM example script:
 ```
 cd $HOME_ROBOT_ROOT
-python projects/stretch_ovmm/eval_episode.py --object=<OBJECT_NAME>
+python projects/stretch_ovmm/eval_episode.py
 ```
-Here OBJECT_NAME can be anything in the room like `cup, book, mouse, keyboard, toy`. 
 
-#### 7. Simulation Setup
+#### 6. Simulation Setup
 
 To set up the simulation stack with Habitat, see the [installation instructions](src/home_robot_sim/README.md) in `home_robot_sim`. You first need to install AI habitat and the simulation package:
 ```
 # Install habitat sim and update submodules
-mamba install -c conda-forge -c aihabitat habitat-sim withbullet
-git submodule update --init --recursive
+mamba env update -f src/home_robot_sim/environment.yml
 
 # Install habitat lab on the correct (object rearrange) branch
-pip install -e src/third_party/habitat-lab/habitat-lab  # NOTE: Habitat-lab@v0.2.2 only works in editable mode
+git submodule update --init --recursive
+pip install -e src/third_party/habitat-lab/habitat-lab
 pip install -e src/third_party/habitat-lab/habitat-baselines
 
 # Install home robot sim interfaces
 pip install -e src/home_robot_sim
 ```
 
-And then download the assets as described in the [installation instructions](src/home_robot_sim/README.md).
+And then download the assets as described in the [installation instructions](src/home_robot_sim/README.md#Ddataset-setup).
 
 To test your installation, you can run:
 ```
