@@ -111,7 +111,13 @@ Follow the on-screen instructions. The robot should move through a set of config
 
 #### 4. Install Detic
 
-Download Detic checkpoint as per the instructions [on the Detic github page](https://github.com/facebookresearch/Detic)
+Install [detectron2](https://detectron2.readthedocs.io/tutorials/install.html):
+```
+pip install -e src/third_party/detectron2
+pip install -r src/home_robot/home_robot/perception/detection/detic/Detic/requirements.txt
+```
+
+Download Detic checkpoint as per the instructions [on the Detic github page](https://github.com/facebookresearch/Detic):
 ```bash
 cd $HOME-ROBOT-PATH/src/home_robot/perception/detection/detic/Detic/
 mkdir models
