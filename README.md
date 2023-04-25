@@ -55,35 +55,9 @@ mamba env create -n home-robot -f src/home_robot_hw/environment.yml
 conda activate home-robot
 ```
 
-#### 2. Install PyTorch and PyTorch3d
+This should install pytorch; if you run into trouble, you may need to edit the installation to make sure you have the right CUDA version. See the [pytorch install notes](docs/install_pytorch.md) for more.
 
-See [here](https://pytorch.org/get-started/locally/) to install PyTorch. Example command:
-
-```
-conda install pytorch torchvision torchaudio pytorch-cuda=11.7 -c pytorch -c nvidia
-```
-
-To install PyTorch3d, run:
-
-```
-conda install pytorch3d -c pytorch3d
-```
-
-If this causes trouble, building from source works reliably, but you must make sure you have the correct CUDA version on your workstation:
-```
-pip install "git+https://github.com/facebookresearch/pytorch3d.git"
-```
-
-See the [PyTorch3d installation page](https://github.com/facebookresearch/pytorch3d/blob/main/INSTALL.md) for more information.
-
-#### 3. Install Home Robot Packages
-```
-# Install the core home_robot package
-pip install -e src/home_robot
-
-# Install home_robot_hw
-pip install -e src/home_robot_hw
-```
+##### Set Up Your Terminal
 
 Proper network setup is crucial to getting good performance with HomeRobot. Low-cost mobile robots often do not have sufficient GPU to run state-of-the-art perception models. Instead, we rely on a client-server architecture, where ROS and low-level controllers run on the robot, and CPU- and GPU-intensive AI code runs on a workstation.
 
@@ -109,13 +83,22 @@ echo "Setting ROS IP to $ROS_IP"
 alias ssh-robot="ssh hello-robot@$HELLO_ROBOT_IP"
 ```
 
+#### 2. Install Home Robot Packages
+```
+# Install the core home_robot package
+pip install -e src/home_robot
+
+# Install home_robot_hw
+pip install -e src/home_robot_hw
+```
+
 _Testing Real Robot Setup:_ Now you can run a couple commands to test your connection. If the `roscore` and the robot controllers are running properly, you can run `rostopic list` and should see a list of topics - streams of information coming from the robot. You can then run RVIZ to visualize the robot sensor output:
 
 ```
 rviz -d $HOME_ROBOT_ROOT/src/home_robot_hw/launch/mapping_demo.rviz
 ```
 
-#### 4. Hardware Testing
+#### 3. Hardware Testing
 
 Run the hardware manual test to make sure you can control the robot remotely. Ensure the robot has one meter of free space before running the script.
 
@@ -126,7 +109,7 @@ python tests/hw_manual_test.py
 Follow the on-screen instructions. The robot should move through a set of configurations.
 
 
-#### 5. Install Detic
+#### 4. Install Detic
 
 Download Detic checkpoint as per the instructions [on the Detic github page](https://github.com/facebookresearch/Detic)
 ```bash
@@ -140,7 +123,7 @@ You should be able to run the Detic demo script as per the Detic instructions to
 python demo.py --config-file configs/Detic_LCOCOI21k_CLIP_SwinB_896b32_4x_ft4x_max-size.yaml --input desk.jpg --output out2.jpg --vocabulary custom --custom_vocabulary headphone,webcam,paper,coffe --confidence-threshold 0.3 --opts MODEL.WEIGHTS models/Detic_LCOCOI21k_CLIP_SwinB_896b32_4x_ft4x_max-size.pth
 ```
 
-#### 6. Run Open Vocabulary Mobile Manipulation on Stretch
+#### 5. Run Open Vocabulary Mobile Manipulation on Stretch
 
 You should then be able to run the Stretch OVMM example.
 
@@ -163,7 +146,7 @@ cd $HOME_ROBOT_ROOT
 python projects/stretch_ovmm/eval_episode.py
 ```
 
-#### 7. Simulation Setup
+#### 6. Simulation Setup
 
 To set up the simulation stack with Habitat, see the [installation instructions](src/home_robot_sim/README.md) in `home_robot_sim`. You first need to install AI habitat and the simulation package:
 ```
