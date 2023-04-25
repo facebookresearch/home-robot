@@ -1,12 +1,13 @@
 channels:
   - conda-forge
-  - pytorch
-  - pytorch3d
+  #- pytorch
+  #- pytorch3d
 dependencies:
-  - python==3.8.* # Habitat supports <3.9
+  - python==3.9.* # Habitat supports 3.9
   - cmake
   - pybind11
-  - pytorch==1.13.*  # Compatibility with pytorch3d
+  # - pytorch==1.13.*  # Compatibility with pytorch3d
+  # - pytorch3d
   - torchvision
   - pinocchio
   - pip
@@ -21,6 +22,7 @@ dependencies:
     - open3d
     - scikit-image
     - scikit-fmm
+    - scikit-learn
     - numpy-quaternion
     - natsort
     # Neural networks

@@ -35,6 +35,7 @@ class StretchPickandPlaceEnv(StretchEnv):
 
     def __init__(
         self,
+        goal_options,
         config=None,
         forward_step=0.25,
         rotate_step=30.0,
@@ -54,7 +55,7 @@ class StretchPickandPlaceEnv(StretchEnv):
         super().__init__(*args, **kwargs)
 
         # TODO: pass this in or load from cfg
-        self.goal_options = REAL_WORLD_CATEGORIES
+        self.goal_options = goal_options  # REAL_WORLD_CATEGORIES
         self.forward_step = forward_step  # in meters
         self.rotate_step = np.radians(rotate_step)
         self.test_grasping = test_grasping
