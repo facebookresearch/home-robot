@@ -348,9 +348,9 @@ class Visualizer:
         color = self.semantic_category_mapping.map_color_palette[9:12][::-1]
         cv2.drawContours(self.image_vis, [agent_arrow], 0, color, -1)
 
-        if self.show_images:
-            cv2.imshow("Visualization", self.image_vis)
-            cv2.waitKey(1)
+        # if self.show_images:
+        #     cv2.imshow("Visualization", self.image_vis)
+        #     cv2.waitKey(1)
 
         if self.print_images:
             cv2.imwrite(

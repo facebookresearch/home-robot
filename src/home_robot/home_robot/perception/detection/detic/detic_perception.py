@@ -181,7 +181,10 @@ class DeticPerception(PerceptionModule):
         reset_cls_test(self.predictor.model, classifier, num_classes)
 
     def predict(
-        self, obs: Observations, depth_threshold: Optional[float] = None
+        self,
+        obs: Observations,
+        depth_threshold: Optional[float] = None,
+        draw_instance_predictions: bool = True,
     ) -> Observations:
         """
         Arguments:
@@ -200,12 +203,16 @@ class DeticPerception(PerceptionModule):
 
         pred = self.predictor(image)
 
-        visualizer = Visualizer(
-            image[:, :, ::-1], self.metadata, instance_mode=self.instance_mode
-        )
-        visualization = visualizer.draw_instance_predictions(
-            predictions=pred["instances"].to(self.cpu_device)
-        ).get_image()
+        if draw_instance_predictions:
+            visualizer = Visualizer(
+                image[:, :, ::-1], self.metadata, instance_mode=self.instance_mode
+            )
+            visualization = visualizer.draw_instance_predictions(
+                predictions=pred["instances"].to(self.cpu_device)
+            ).get_image()
+            obs.task_observations["semantic_frame"] = visualization
+        else:
+            obs.task_observations["semantic_frame"] = None
 
         # Sort instances by mask size
         masks = pred["instances"].pred_masks.cpu().numpy()
@@ -223,7 +230,6 @@ class DeticPerception(PerceptionModule):
         obs.task_observations["instance_map"] = instance_map
         obs.task_observations["instance_classes"] = class_idcs
         obs.task_observations["instance_scores"] = scores
-        obs.task_observations["semantic_frame"] = visualization
 
         return obs
 
