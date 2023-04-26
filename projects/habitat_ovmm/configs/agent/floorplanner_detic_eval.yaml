@@ -52,7 +52,7 @@ AGENT:
   SKILLS:
     PICK:
       type: gaze #end_to_end #modular #hardcoded
-      checkpoint_path: data/checkpoints/gaze.pth
+      checkpoint_path: data/checkpoints/ovmm/gaze.pth
       rl_config: projects/habitat_ovmm/configs/agent/gaze_rl.yaml # with continuous actions
       gym_obs_keys:
         - robot_head_depth
