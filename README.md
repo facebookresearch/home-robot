@@ -35,7 +35,7 @@ Installation on a workstation requires [conda](https://docs.conda.io/projects/co
 
 Installation on a robot assumes Ubuntu 20.04 and [ROS Noetic](http://wiki.ros.org/noetic).
 
-To set up the hardware stack on a Hello Robot  Stretch, see the [ROS installation instructions](src/home_robot_hw/install_robot.md) in `home_robot_hw`.
+To set up the hardware stack on a Hello Robot  Stretch, see the [ROS installation instructions](docs/install_robot.md) in `home_robot_hw`.
 
 Proper network setup is crucial to getting good performance with HomeRobot. Low-cost mobile robots often do not have sufficient GPU to run state-of-the-art perception models. Instead, we rely on a client-server architecture, where ROS and low-level controllers run on the robot, and CPU- and GPU-intensive AI code runs on a workstation.
 
@@ -68,7 +68,7 @@ roslaunch home_robot_hw startup_stretch_hector_slam.launch
 
 ### Workstation Instructions
 
-To set up your workstation, follow these instructions:
+To set up your workstation, follow these instructions. We will assume that your system supports CUDA 11.8 or better for pytorch; earlier versions should be fine, but may require some changes to the conda environment.
 
 #### 1. Create Your Environment
 ```
