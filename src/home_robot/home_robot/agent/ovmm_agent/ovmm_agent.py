@@ -79,7 +79,7 @@ class OpenVocabManipAgent(ObjectNavAgent):
             self.gaze_agent.reset_vectorized_for_env(e)
 
     def _switch_to_next_skill(self, e: int):
-        """Switch to the next skill."""
+        """Switch to the next skill for environment e."""
         skill = self.states[e]
         if skill == Skill.NAV_TO_OBJ:
             self.states[e] = Skill.ORIENT_OBJ
@@ -101,11 +101,13 @@ class OpenVocabManipAgent(ObjectNavAgent):
         info["timestep"] = self.timesteps[0]
         info["curr_skill"] = Skill(self.states[0].item()).name
         if action == DiscreteNavigationAction.STOP:
-            action = DiscreteNavigationAction.RESET_JOINTS
+            action = DiscreteNavigationAction.NAVIGATION_MODE
             self._switch_to_next_skill(e=0)
         return action, info
 
     def _hardcoded_place(self):
+        """Hardcoded place skill execution
+        Orients the agent's arm and camera towards the recetacle, extends arm and releases the object"""
         place_step = self.timesteps[0] - self.place_start_step[0]
         turn_angle = self.config.ENVIRONMENT.turn_angle
         forward_steps = 0
@@ -119,7 +121,7 @@ class OpenVocabManipAgent(ObjectNavAgent):
             # first orient
             action = DiscreteNavigationAction.TURN_LEFT
         elif place_step == forward_and_turn_steps + 1:
-            action = DiscreteNavigationAction.FACE_ARM
+            action = DiscreteNavigationAction.MANIPULATION_MODE
         elif place_step == forward_and_turn_steps + 2:
             action = DiscreteNavigationAction.EXTEND_ARM
         elif place_step == forward_and_turn_steps + 3:
@@ -154,14 +156,14 @@ class OpenVocabManipAgent(ObjectNavAgent):
                 return DiscreteNavigationAction.TURN_LEFT, vis_inputs
             elif orient_step == num_turns + 1:
                 self._switch_to_next_skill(e=0)
-                return DiscreteNavigationAction.FACE_ARM, vis_inputs
+                return DiscreteNavigationAction.MANIPULATION_MODE, vis_inputs
         if self.states[0] == Skill.PICK:
             if self.skip_pick:
                 self._switch_to_next_skill(e=0)
             elif self.is_pick_done[0]:
                 self._switch_to_next_skill(e=0)
                 self.is_pick_done[0] = 0
-                return DiscreteNavigationAction.RESET_JOINTS, vis_inputs
+                return DiscreteNavigationAction.NAVIGATION_MODE, vis_inputs
             elif self.config.AGENT.SKILLS.PICK.type == "gaze":
                 action, term = self.gaze_agent.act(obs)
                 if term:

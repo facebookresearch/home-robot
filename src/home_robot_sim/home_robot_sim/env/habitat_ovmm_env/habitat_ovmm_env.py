@@ -288,10 +288,12 @@ class HabitatOpenVocabManipEnv(HabitatEnv):
             ]:
                 waypoint = 1
 
-            face_arm = float(action == DiscreteNavigationAction.FACE_ARM) * 2 - 1
+            face_arm = (
+                float(action == DiscreteNavigationAction.MANIPULATION_MODE) * 2 - 1
+            )
             stop = float(action == DiscreteNavigationAction.STOP) * 2 - 1
             reset_joints = (
-                float(action == DiscreteNavigationAction.RESET_JOINTS) * 2 - 1
+                float(action == DiscreteNavigationAction.NAVIGATION_MODE) * 2 - 1
             )
             extend_arm = float(action == DiscreteNavigationAction.EXTEND_ARM) * 2 - 1
             arm_actions = [0] * 7
