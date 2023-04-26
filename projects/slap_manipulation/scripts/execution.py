@@ -11,14 +11,11 @@ if __name__ == "__main__":
     actions = yaml.unsafe_load(open(os.path.expanduser("~/actions.yaml"), "r"))
     robot = StretchClient()
     model = HelloStretchKinematics(ik_type="pinocchio")
+    debug = False
 
     # Switch to manipulation mode
     robot.switch_to_manipulation_mode()
     assert robot.in_manipulation_mode()
-
-    # Home robot joints (moves to predefined home joint configuration)
-    # robot.manip.home()
-    # robot.manip.open_gripper(blocking=True)
 
     # Get gripper pose
     pos, quat = robot.manip.get_ee_pose()
@@ -29,8 +26,9 @@ if __name__ == "__main__":
     move_base_flag = True
     for i, action in enumerate(actions):
         base_pose = robot.nav.get_base_pose()
-        print(base_pose)
-        input("Press Enter")
+        if debug:
+            print(base_pose)
+            input("Press Enter")
         pos_desired = action["pos"]
         quat_desired = action["ori"]
         q0 = robot.manip.get_joint_positions()
@@ -51,7 +49,8 @@ if __name__ == "__main__":
             robot.manip.close_gripper(blocking=True)
         else:
             robot.manip.open_gripper(blocking=True)
-        input("Press enter to continue")
+        if debug:
+            input("Press enter to continue")
 
     # # Command the robot arm 3: Relative EE control
     # #   (note: orientation stays the same if not specified)
