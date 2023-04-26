@@ -545,7 +545,11 @@ class ActionPredictionModule(torch.nn.Module):
         query_pt = data["query_pt"]
         # query_pt = data["crop_ref_ee_keyframe_pos"]
         print("--- ", cmd, " ---")
-        (delta_ee_pos, abs_ee_ori, gripper_state,) = self.forward(
+        (
+            delta_ee_pos,
+            abs_ee_ori,
+            gripper_state,
+        ) = self.forward(
             crop_xyz,
             crop_rgb,
             proprio,
@@ -651,7 +655,11 @@ class ActionPredictionModule(torch.nn.Module):
             target_angles = batch["target_ee_angles"]
             crop_location = batch["perturbed_crop_location"]
 
-            (delta_ee_pos, abs_ee_ori, gripper_state,) = self.forward(
+            (
+                delta_ee_pos,
+                abs_ee_ori,
+                gripper_state,
+            ) = self.forward(
                 crop_xyz,
                 crop_rgb,
                 proprio,

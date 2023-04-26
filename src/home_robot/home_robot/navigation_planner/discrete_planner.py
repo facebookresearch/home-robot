@@ -233,7 +233,6 @@ class DiscretePlanner:
 
         # We were not able to find a path to the high-level goal
         if replan and not stop:
-
             # Clean collision map
             self.collision_map *= 0
             # Reduce obstacle dilation
@@ -401,7 +400,10 @@ class DiscretePlanner:
             stop: binary flag to indicate we've reached the goal
         """
         gx1, gx2, gy1, gy2 = planning_window
-        x1, y1, = (
+        (
+            x1,
+            y1,
+        ) = (
             0,
             0,
         )

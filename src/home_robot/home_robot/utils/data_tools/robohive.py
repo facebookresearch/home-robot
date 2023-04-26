@@ -117,7 +117,6 @@ def main(
     plot_paths,
     env_args,
 ):
-
     # seed and load environments
     np.random.seed(seed)
     env = (

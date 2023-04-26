@@ -140,7 +140,8 @@ class StretchLinearWithOffsetPlanner(Planner):
 
 class StretchLinearIKPlanner(Planner):
     """Plan to a stand-off position from which you can move straight to the goal grasp position
-    This version of the planner uses base rotation and IK to figure out an approach that we can follow"""
+    This version of the planner uses base rotation and IK to figure out an approach that we can follow
+    """
 
     def __init__(
         self,

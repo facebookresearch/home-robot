@@ -117,7 +117,6 @@ def png_to_mp4(group: h5py.Group, key: str, name: str, fps=10):
         sorted([(int(j), j) for j in img_stream.keys()], key=lambda pair: pair[0]),
         ncols=50,
     ):
-
         bindata = img_stream[k][()]
         _img = img_from_bytes(bindata)
         w, h = _img.shape[:2]

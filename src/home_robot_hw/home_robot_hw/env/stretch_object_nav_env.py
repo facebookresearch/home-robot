@@ -189,7 +189,6 @@ if __name__ == "__main__":
     import matplotlib.pyplot as plt
 
     while not rospy.is_shutdown():
-
         while not rospy.is_shutdown():
             cmd = None
             try:

@@ -339,8 +339,13 @@ class RobotDataset(RLBenchDataset):
                 ee_pose[:3, 3] = pos
                 xyz = trimesh.transform_points(xyz, ee_pose)
         elif self._robot == "stretch":
-            camera_matrix = trial["camera_pose"][idx]
-            xyz = trimesh.transform_points(xyz, camera_matrix)
+            if "camera_pose" in trial.temporal_keys:
+                camera_matrix = trial["camera_pose"][idx]
+                xyz = trimesh.transform_points(xyz, camera_matrix)
+            else:
+                raise RuntimeError(
+                    "Couldn't find camera information in your H5 file. The program will close now"
+                )
 
         # downsample point-cloud by distance (heuristic)
         rgb = rgb.reshape(-1, C)
