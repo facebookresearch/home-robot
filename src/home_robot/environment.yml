@@ -7,7 +7,7 @@ dependencies:
   - python==3.9.*
   - cmake
   - pybind11
-  - pinocchio
+  - pin==2.6.17
   - pytorch==1.13.*  # Compatibility with pytorch3d
   - pytorch-cuda=11.7
   - pytorch3d
