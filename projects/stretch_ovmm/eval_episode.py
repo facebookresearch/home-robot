@@ -23,7 +23,7 @@ def main(
     goal_recep="chair",
     dry_run=False,
 ):
-    config_path = "projects/stretch_grasping/configs/agent/floorplanner_eval.yaml"
+    config_path = "projects/stretch_ovmm/configs/agent/floorplanner_eval.yaml"
     config, config_str = get_config(config_path)
     config.defrost()
     config.NUM_ENVIRONMENTS = 1

@@ -60,6 +60,8 @@ class DiscretePlanner:
         min_goal_distance_cm: float = 60.0,
         min_obs_dilation_selem_radius: int = 1,
         agent_cell_radius: int = 1,
+        map_downsample_factor: float = 1.0,
+        map_update_frequency: int = 1,
         goal_tolerance: float = 0.01,
         discrete_actions: bool = True,
         continuous_angle_tolerance: float = 30.0,
@@ -107,10 +109,14 @@ class DiscretePlanner:
         self.last_pose = None
         self.curr_pose = None
         self.last_action = None
-        self.timestep = None
+        self.timestep = 0
         self.curr_obs_dilation_selem_radius = None
         self.obs_dilation_selem = None
         self.min_goal_distance_cm = min_goal_distance_cm
+        self.dd = None
+
+        self.map_downsample_factor = map_downsample_factor
+        self.map_update_frequency = map_update_frequency
 
     def reset(self):
         self.vis_dir = self.default_vis_dir
@@ -438,7 +444,13 @@ class DiscretePlanner:
             )
             # Set multi goal to the dilated goal map
             # We will now try to find a path to any of these spaces
-            planner.set_multi_goal(dilated_goal_map, self.timestep)
+            self.dd = planner.set_multi_goal(
+                dilated_goal_map,
+                self.timestep,
+                self.dd,
+                self.map_downsample_factor,
+                self.map_update_frequency,
+            )
             goal_distance_map, closest_goal_pt = self.get_closest_traversible_goal(
                 traversible, goal_map, start, dilated_goal_map=dilated_goal_map
             )
@@ -449,7 +461,13 @@ class DiscretePlanner:
             if not np.any(navigable_goal_map):
                 replan = True
             else:
-                planner.set_multi_goal(navigable_goal_map, self.timestep)
+                self.dd = planner.set_multi_goal(
+                    navigable_goal_map,
+                    self.timestep,
+                    self.dd,
+                    self.map_downsample_factor,
+                    self.map_update_frequency,
+                )
             goal_distance_map, closest_goal_pt = self.get_closest_goal(goal_map, start)
 
         self.timestep += 1

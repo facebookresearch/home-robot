@@ -44,6 +44,8 @@ AGENT:
     step_size: 5                    # maximum distance of the short-term goal selected by the planner
     use_dilation_for_stg: True
     min_obs_dilation_selem_radius: 1    # radius (in cells) of obstacle dilation structuring element
+    map_downsample_factor: 1            # optional downsampling of traversible and goal map before fmm distance call (1 for no downsampling, 2 for halving resolution)
+    map_update_frequency: 1             # compute fmm distance map every n steps 
     discrete_actions: True         # discrete motion planner output space or not
 
 EVAL_VECTORIZED:

@@ -48,8 +48,21 @@ class VectorizedEvaluator(PPOTrainer):
     """Class for creating vectorized environments, evaluating OpenVocabManipAgent on an episode dataset and returning metrics"""
 
     def __init__(self, config, config_str: str):
+        self.visualize = config.VISUALIZE
+
+        if not self.visualize:
+            # TODO: not seeing any speed improvements when removing these sensors
+            config.habitat.gym.obs_keys.remove("robot_third_rgb")
+            config.habitat.simulator.agents.main_agent.sim_sensors.pop(
+                "third_rgb_sensor", None
+            )
+
+        OmegaConf.set_readonly(config, True)
+
         self.config = config
-        self.results_dir = self.config.habitat_baselines.eval_ckpt_path_dir
+        self.results_dir = os.path.join(
+            self.config.DUMP_LOCATION, "results", self.config.EXP_NAME
+        )
         self.videos_dir = self.config.habitat_baselines.video_dir
         os.makedirs(self.results_dir, exist_ok=True)
         os.makedirs(self.videos_dir, exist_ok=True)
@@ -247,7 +260,6 @@ if __name__ == "__main__":
 
     print("Configs:")
     config, config_str = get_config(args.habitat_config_path, opts=args.opts)
-    OmegaConf.set_readonly(config, True)
     baseline_config = OmegaConf.load(args.baseline_config_path)
     config = DictConfig({**config, **baseline_config})
     evaluator = VectorizedEvaluator(config, config_str)
