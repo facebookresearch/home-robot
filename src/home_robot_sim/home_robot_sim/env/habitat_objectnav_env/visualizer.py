@@ -249,7 +249,20 @@ class Visualizer:
 
         # Initialize
         if self.image_vis is None:
-            self.image_vis = self._init_vis_image(goal_name, curr_skill)
+            self.image_vis = self._init_vis_image(goal_name)
+
+        image_vis = self.image_vis.copy()
+
+        # if curr_skill is not None, place the skill name below the third person image
+        if curr_skill is not None:
+            image_vis = self._put_text_on_image(
+                image_vis,
+                curr_skill,
+                V.THIRD_PERSON_X1,
+                V.Y2,
+                V.THIRD_PERSON_W,
+                V.BOTTOM_PADDING,
+            )
 
         if obstacle_map is not None:
             curr_x, curr_y, curr_o, gy1, gy2, gx1, gx2 = sensor_pose
@@ -320,9 +333,7 @@ class Visualizer:
                 (V.TOP_DOWN_W, V.HEIGHT),
                 interpolation=cv2.INTER_NEAREST,
             )
-            self.image_vis[
-                V.Y1 : V.Y2, V.TOP_DOWN_X1 : V.TOP_DOWN_X2
-            ] = semantic_map_vis
+            image_vis[V.Y1 : V.Y2, V.TOP_DOWN_X1 : V.TOP_DOWN_X2] = semantic_map_vis
 
             # Agent arrow
             pos = (
@@ -336,11 +347,11 @@ class Visualizer:
             )
             agent_arrow = vu.get_contour_points(pos, origin=(V.TOP_DOWN_X1, V.Y1))
             color = self.semantic_category_mapping.map_color_palette[9:12][::-1]
-            cv2.drawContours(self.image_vis, [agent_arrow], 0, color, -1)
+            cv2.drawContours(image_vis, [agent_arrow], 0, color, -1)
 
         # First-person RGB frame
         rgb_frame = semantic_frame[:, :, [2, 1, 0]]
-        self.image_vis[V.Y1 : V.Y2, V.FIRST_RGB_X1 : V.FIRST_RGB_X2] = cv2.resize(
+        image_vis[V.Y1 : V.Y2, V.FIRST_RGB_X1 : V.FIRST_RGB_X2] = cv2.resize(
             rgb_frame, (V.FIRST_PERSON_W, V.HEIGHT)
         )
         # Semantic categories
@@ -348,28 +359,26 @@ class Visualizer:
             semantic_frame[:, :, 3] + PI.SEM_START, rgb_frame
         )
         # First-person semantic frame
-        self.image_vis[V.Y1 : V.Y2, V.FIRST_SEM_X1 : V.FIRST_SEM_X2] = cv2.resize(
+        image_vis[V.Y1 : V.Y2, V.FIRST_SEM_X1 : V.FIRST_SEM_X2] = cv2.resize(
             first_person_semantic_map_vis,
             (V.FIRST_PERSON_W, V.HEIGHT),
             interpolation=cv2.INTER_NEAREST,
         )
 
         if third_person_image is not None:
-            self.image_vis[
-                V.Y1 : V.Y2, V.THIRD_PERSON_X1 : V.THIRD_PERSON_X2
-            ] = cv2.resize(
+            image_vis[V.Y1 : V.Y2, V.THIRD_PERSON_X1 : V.THIRD_PERSON_X2] = cv2.resize(
                 third_person_image[:, :, [2, 1, 0]],
                 (V.THIRD_PERSON_W, V.HEIGHT),
             )
 
         if self.show_images:
-            cv2.imshow("Visualization", self.image_vis)
+            cv2.imshow("Visualization", image_vis)
             cv2.waitKey(1)
 
         if self.print_images:
             cv2.imwrite(
                 os.path.join(self.vis_dir, "snapshot_{:03d}.png".format(timestep)),
-                self.image_vis,
+                image_vis,
             )
 
     def _put_text_on_image(
@@ -402,7 +411,7 @@ class Visualizer:
             cv2.LINE_AA,
         )
 
-    def _init_vis_image(self, goal_name: str, curr_skill: Optional[str] = None):
+    def _init_vis_image(self, goal_name: str):
         vis_image = np.ones((V.IMAGE_HEIGHT, V.IMAGE_WIDTH, 3)).astype(np.uint8) * 255
 
         vis_image = self._put_text_on_image(
@@ -418,17 +427,6 @@ class Visualizer:
         vis_image = self._put_text_on_image(
             vis_image, text, V.THIRD_PERSON_X1, 0, V.THIRD_PERSON_W, V.TOP_PADDING
         )
-
-        # if curr_skill is not None, place the skill name below the third person image
-        if curr_skill is not None:
-            vis_image = self._put_text_on_image(
-                vis_image,
-                curr_skill,
-                V.THIRD_PERSON_X1,
-                V.Y2,
-                V.THIRD_PERSON_W,
-                V.BOTTOM_PADDING,
-            )
 
         # Draw outlines
         color = (100, 100, 100)

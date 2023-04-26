@@ -30,10 +30,13 @@ class HabitatOpenVocabManipEnv(HabitatEnv):
         self.max_depth = config.ENVIRONMENT.max_depth
         self.ground_truth_semantics = config.GROUND_TRUTH_SEMANTICS
         self._dataset = dataset
-        self.visualizer = Visualizer(config, dataset)
+        self.visualize = config.VISUALIZE or config.PRINT_IMAGES
+        if self.visualize:
+            self.visualizer = Visualizer(config, dataset)
         self.goal_type = config.habitat.task.goal_type
         self.episodes_data_path = config.habitat.dataset.data_path
         self.video_dir = config.habitat_baselines.video_dir
+        self.config = config
         assert (
             "floorplanner" in self.episodes_data_path
             or "hm3d" in self.episodes_data_path
@@ -81,12 +84,13 @@ class HabitatOpenVocabManipEnv(HabitatEnv):
             )
 
             # TODO Specify confidence threshold as a parameter
+            gpu_device_id = self.config.habitat.simulator.habitat_sim_v0.gpu_device_id
             self.segmentation = DeticPerception(
                 vocabulary="custom",
                 custom_vocabulary=",".join(
                     ["."] + list(self.obj_rec_combined_mapping.values()) + ["other"]
                 ),
-                sem_gpu_id=0,
+                sem_gpu_id=gpu_device_id,
             )
         self._last_habitat_obs = None
 
@@ -108,8 +112,9 @@ class HabitatOpenVocabManipEnv(HabitatEnv):
             self.habitat_env
         )
         self._last_obs = self._preprocess_obs(habitat_obs)
-        self.visualizer.reset()
-        self.set_vis_dir()
+        if self.visualize:
+            self.visualizer.reset()
+            self.set_vis_dir()
         return self._last_obs
 
     def convert_pose_to_real_world_axis(self, hab_pose):
@@ -129,6 +134,11 @@ class HabitatOpenVocabManipEnv(HabitatEnv):
             goal_name,
         ) = self._preprocess_goal(habitat_obs, self.goal_type)
 
+        if self.visualize:
+            third_person_image = habitat_obs["robot_third_rgb"]
+        else:
+            third_person_image = None
+
         obs = home_robot.core.interfaces.Observations(
             rgb=habitat_obs["robot_head_rgb"],
             depth=depth,
@@ -144,7 +154,7 @@ class HabitatOpenVocabManipEnv(HabitatEnv):
             joint=habitat_obs["joint"],
             is_holding=habitat_obs["is_holding"],
             relative_resting_position=habitat_obs["relative_resting_position"],
-            third_person_image=habitat_obs["robot_third_rgb"],
+            third_person_image=third_person_image,
             camera_pose=self.convert_pose_to_real_world_axis(
                 np.asarray(habitat_obs["camera_pose"])
             ),
@@ -178,7 +188,9 @@ class HabitatOpenVocabManipEnv(HabitatEnv):
             obs.semantic = instance_id_to_category_id[semantic]
             # TODO Ground-truth semantic visualization
         else:
-            obs = self.segmentation.predict(obs, depth_threshold=0.5)
+            obs = self.segmentation.predict(
+                obs, depth_threshold=0.5, draw_instance_predictions=False
+            )
             if type(self.semantic_category_mapping) == RearrangeDETICCategories:
                 # First index is a dummy unused category
                 obs.semantic[obs.semantic == 0] = (
@@ -288,10 +300,12 @@ class HabitatOpenVocabManipEnv(HabitatEnv):
             ]:
                 waypoint = 1
 
-            face_arm = float(action == DiscreteNavigationAction.FACE_ARM) * 2 - 1
+            face_arm = (
+                float(action == DiscreteNavigationAction.MANIPULATION_MODE) * 2 - 1
+            )
             stop = float(action == DiscreteNavigationAction.STOP) * 2 - 1
             reset_joints = (
-                float(action == DiscreteNavigationAction.RESET_JOINTS) * 2 - 1
+                float(action == DiscreteNavigationAction.NAVIGATION_MODE) * 2 - 1
             )
             extend_arm = float(action == DiscreteNavigationAction.EXTEND_ARM) * 2 - 1
             arm_actions = [0] * 7
@@ -307,7 +321,7 @@ class HabitatOpenVocabManipEnv(HabitatEnv):
         return np.array(cont_action, dtype=np.float32)
 
     def _process_info(self, info: Dict[str, Any]) -> Any:
-        if info:
+        if info and self.visualize:
             self.visualizer.visualize(**info)
 
     def apply_action(
