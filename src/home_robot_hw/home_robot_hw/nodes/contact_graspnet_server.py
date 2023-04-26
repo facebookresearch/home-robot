@@ -21,6 +21,7 @@ tf.config.experimental.set_memory_growth(physical_devices[0], True)
 BASE_DIR = os.path.abspath(
     os.path.join(home_robot.__path__[0], "../../third_party/contact_graspnet")
 )
+
 os.chdir(BASE_DIR)
 sys.path.append(BASE_DIR)
 import config_utils  # noqa: E402
