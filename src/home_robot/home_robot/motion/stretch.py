@@ -689,11 +689,8 @@ class HelloStretchKinematics(Robot):
         By default move relative. easier that way.
         """
 
-        # TODO: the following does nothing as it is not an in-place change; the result needs to be stored
         if q0 is not None:
-            default_q = self._to_manip_format(
-                q0
-            )  # FIXME: this default_q will raise error when passed to PIN
+            default_q = self._to_manip_format(q0)
         else:
             # q0 = STRETCH_HOME_Q
             default_q = STRETCH_HOME_Q
