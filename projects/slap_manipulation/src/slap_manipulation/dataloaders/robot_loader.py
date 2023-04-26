@@ -137,6 +137,7 @@ class RobotDataset(RLBenchDataset):
         yaml_file=None,  # "./assets/language_variations/v0.yml",
         dr_factor=1,
         robot="stretch",
+        depth_factor=10000,
         *args,
         **kwargs,
     ):
@@ -185,6 +186,7 @@ class RobotDataset(RLBenchDataset):
         self._cr_max = crop_radius_range[1]
         self._cr_rng = self._cr_max - self._cr_min
         self._ambiguous_radius = ambiguous_radius
+        self.depth_factor = depth_factor
 
         # super(RoboPenDataset, self).__init__(
         super(RLBenchDataset, self).__init__(
@@ -276,7 +278,9 @@ class RobotDataset(RLBenchDataset):
             idx:        index of the image
         """
         rgb = trial.get_img(view_name + "_rgb", idx, rgb=True)
-        depth = trial.get_img(view_name + "_depth", idx, depth=True, depth_factor=10000)
+        depth = trial.get_img(
+            view_name + "_depth", idx, depth=True, depth_factor=self.depth_factor
+        )
         if self._robot == "stretch":
             xyz = trial[view_name + "_xyz"][idx]
         # rgb_img = rgb.copy()
