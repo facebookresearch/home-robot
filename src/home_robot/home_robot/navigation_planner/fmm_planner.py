@@ -57,7 +57,7 @@ class FMMPlanner:
 
         self.du = int(self.step_size / (self.scale * 1.0))
         self.fmm_dist = None
-        self.goal_map = None
+        # self.goal_map = None
 
     def set_goal(self, goal, auto_improve=False):
         traversible_ma = ma.masked_values(self.traversible * 1, 0)
@@ -74,23 +74,71 @@ class FMMPlanner:
         self.fmm_dist = dd
         return
 
-    def set_multi_goal(self, goal_map: np.ndarray, timestep: int = None):
+    def set_multi_goal(
+        self,
+        goal_map: np.ndarray,
+        timestep: int = 0,
+        dd: np.ndarray = None,
+        map_downsample_factor: float = 1.0,
+        map_update_frequency: int = 1,
+    ):
         """Set long-term goal(s) used to compute distance from a binary
         goal map.
+        dd: distance map for when we want to reuse previously computed ones (instead of updating at each step)
+        map_update_frequency: skfmm.distance call made every n steps
+        map_downsample_factor: 1 for no downsampling, 2 for halving both image dimensions.
         """
-        traversible_ma = ma.masked_values(self.traversible * 1, 0)
+        assert map_downsample_factor >= 1.0
+        traversible = self.traversible
+        if map_downsample_factor > 1.0:
+            l, w = self.traversible.shape
+            traversible = cv2.resize(
+                traversible,
+                dsize=(int(l / map_downsample_factor), int(w / map_downsample_factor)),
+            )
+            print(f"Downsampling goal and traversible maps {map_downsample_factor}x.")
+            goal_map_copy = goal_map.copy()
+            goal_map = cv2.resize(
+                goal_map,
+                dsize=(int(l / map_downsample_factor), int(w / map_downsample_factor)),
+                interpolation=cv2.INTER_NEAREST,
+            )
+
+            if goal_map.sum() == 0:
+                # dilating goal map so as to not lose pixels when resizing
+                kernel = np.ones((2, 2), np.uint8)
+                goal_map = cv2.dilate(goal_map_copy, kernel, iterations=1)
+                goal_map = cv2.resize(
+                    goal_map,
+                    dsize=(
+                        int(l / map_downsample_factor),
+                        int(w / map_downsample_factor),
+                    ),
+                    interpolation=cv2.INTER_NEAREST,
+                )
+
+        traversible_ma = ma.masked_values(traversible * 1, 0)
         traversible_ma[goal_map == 1] = 0
+
         # This is where we actually call the FMM algorithm!!
         # It will compute the distance from each traversible point to the goal.
-        dd = skfmm.distance(traversible_ma, dx=1)
-        dd = ma.filled(dd, np.max(dd) + 1)
-        self.fmm_dist = dd
-        self.goal_map = goal_map
+        if (timestep - 1) % map_update_frequency == 0 or dd is None:
+            dd = skfmm.distance(traversible_ma, dx=1 * map_downsample_factor)
+            dd = ma.filled(dd, np.max(dd) + 1)
+            print(f"Computing skfmm.distance (timestep: {timestep})")
+        else:
+            print(f"Reusing previous skfmm.distance value (timestep: {timestep})")
 
-        if self.visualize or self.print_images:
-            r, c = self.traversible.shape
+        if map_downsample_factor > 1.0:
+            dd = cv2.resize(dd, (l, w))  # upsampling
+
+        self.fmm_dist = dd
+        # self.goal_map = goal_map
+
+        if self.visualize or self.print_images and timestep != 0:
+            r, c = traversible.shape  # for visualizing (downsampled) traversible map
             dist_vis = np.zeros((r, c * 3))
-            dist_vis[:, :c] = np.flipud(self.traversible)
+            dist_vis[:, :c] = np.flipud(traversible)
             dist_vis[:, c : 2 * c] = np.flipud(goal_map)
             dist_vis[:, 2 * c :] = np.flipud(self.fmm_dist / self.fmm_dist.max())
 
@@ -103,6 +151,7 @@ class FMMPlanner:
                     os.path.join(self.vis_dir, f"planner_snapshot_{timestep}.png"),
                     (dist_vis * 255).astype(int),
                 )
+        return dd
 
     def get_short_term_goal(self, state: List[float], continuous=True):
         """Compute the short-term goal closest to the current state.
