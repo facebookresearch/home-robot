@@ -49,6 +49,7 @@ class ObjectNavAgent(Agent):
             # Use DataParallel only as a wrapper to move model inputs to GPU
             self.module = DataParallel(self._module, device_ids=[self.device_id])
 
+        self.visualize = config.VISUALIZE or config.PRINT_IMAGES
         self.use_dilation_for_stg = config.AGENT.PLANNER.use_dilation_for_stg
         self.semantic_map = Categorical2DSemanticMapState(
             device=self.device,
@@ -76,6 +77,8 @@ class ObjectNavAgent(Agent):
             exp_name=config.EXP_NAME,
             agent_cell_radius=agent_cell_radius,
             min_obs_dilation_selem_radius=config.AGENT.PLANNER.min_obs_dilation_selem_radius,
+            map_downsample_factor=config.AGENT.PLANNER.map_downsample_factor,
+            map_update_frequency=config.AGENT.PLANNER.map_update_frequency,
             discrete_actions=config.AGENT.PLANNER.discrete_actions,
         )
         self.one_hot_encoding = torch.eye(
@@ -218,15 +221,18 @@ class ObjectNavAgent(Agent):
             }
             for e in range(self.num_environments)
         ]
-        vis_inputs = [
-            {
-                "explored_map": self.semantic_map.get_explored_map(e),
-                "semantic_map": self.semantic_map.get_semantic_map(e),
-                "been_close_map": self.semantic_map.get_been_close_map(e),
-                "timestep": self.timesteps[e],
-            }
-            for e in range(self.num_environments)
-        ]
+        if self.visualize:
+            vis_inputs = [
+                {
+                    "explored_map": self.semantic_map.get_explored_map(e),
+                    "semantic_map": self.semantic_map.get_semantic_map(e),
+                    "been_close_map": self.semantic_map.get_been_close_map(e),
+                    "timestep": self.timesteps[e],
+                }
+                for e in range(self.num_environments)
+            ]
+        else:
+            vis_inputs = [{} for e in range(self.num_environments)]
 
         return planner_inputs, vis_inputs
 
@@ -311,10 +317,12 @@ class ObjectNavAgent(Agent):
         # print(f"[Agent] Total time: {t3 - t0:.2f}")
         # print()
 
-        vis_inputs[0]["semantic_frame"] = obs.task_observations["semantic_frame"]
         vis_inputs[0]["goal_name"] = obs.task_observations["goal_name"]
-        vis_inputs[0]["closest_goal_map"] = closest_goal_map
-        vis_inputs[0]["third_person_image"] = obs.third_person_image
+        if self.visualize:
+            vis_inputs[0]["semantic_frame"] = obs.task_observations["semantic_frame"]
+            vis_inputs[0]["closest_goal_map"] = closest_goal_map
+            vis_inputs[0]["third_person_image"] = obs.third_person_image
+
         info = {**planner_inputs[0], **vis_inputs[0]}
 
         return action, info
