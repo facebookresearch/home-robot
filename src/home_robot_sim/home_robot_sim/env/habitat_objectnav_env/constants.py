@@ -7,8 +7,10 @@ import pandas as pd
 from habitat.core.env import Env
 from habitat_sim.utils.common import d3_40_colors_rgb
 
-MIN_DEPTH_REPLACEMENT_VALUE = 10000
-MAX_DEPTH_REPLACEMENT_VALUE = 10001
+from home_robot.utils.simulation import (
+    MAX_DEPTH_REPLACEMENT_VALUE,
+    MIN_DEPTH_REPLACEMENT_VALUE,
+)
 
 hm3d_to_mp3d_path = Path(__file__).resolve().parent / "matterport_category_mappings.tsv"
 df = pd.read_csv(hm3d_to_mp3d_path, sep="    ", header=0)
