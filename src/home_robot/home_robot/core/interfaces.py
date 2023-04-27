@@ -26,8 +26,6 @@ class DiscreteNavigationAction(Action, Enum):
     EMPTY_ACTION = 9
     SNAP_OBJECT = 10
     DESNAP_OBJECT = 11
-    FACE_ARM = 12
-    RESET_JOINTS = 13
 
 
 class ContinuousNavigationAction:
@@ -122,6 +120,12 @@ class Observations:
     ] = None  # (camera_height, camera_width) in [0, num_sem_categories - 1]
     third_person_image: Optional[np.array] = None
     camera_pose: Optional[np.array] = None
+    # Proprioreception
+    joint: Optional[np.array] = None  # joint positions of the robot
+    relative_resting_position: Optional[
+        np.array
+    ] = None  # end-effector position relative to the desired resting position
+    is_holding: Optional[np.array] = None  # whether the agent is holding the object
     # --------------------------------------------------------
     # Untyped task-specific observations
     # --------------------------------------------------------

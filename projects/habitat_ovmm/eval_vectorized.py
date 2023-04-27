@@ -7,7 +7,6 @@ from collections import defaultdict
 from pathlib import Path
 
 import numpy as np
-import torch
 from config_utils import get_config
 from omegaconf import DictConfig, OmegaConf
 
@@ -48,7 +47,7 @@ class VectorizedEvaluator(PPOTrainer):
     """Class for creating vectorized environments, evaluating OpenVocabManipAgent on an episode dataset and returning metrics"""
 
     def __init__(self, config, config_str: str):
-        self.visualize = config.VISUALIZE
+        self.visualize = config.VISUALIZE or config.PRINT_IMAGES
 
         if not self.visualize:
             # TODO: not seeing any speed improvements when removing these sensors
@@ -75,7 +74,7 @@ class VectorizedEvaluator(PPOTrainer):
         agent = OpenVocabManipAgent(
             config=self.config,
             obs_spaces=self.envs.observation_spaces,
-            action_spaces=self.envs.action_spaces,
+            action_spaces=self.envs.orig_action_spaces,
         )
         self._eval(
             agent,
@@ -141,16 +140,12 @@ class VectorizedEvaluator(PPOTrainer):
         done_episode_keys = set()
 
         obs = envs.call(["reset"] * envs.num_envs)
-        # TODO: cleanup
-        hab_obs = [None] * envs.num_envs
 
         agent.reset_vectorized()
         while not stop():
             current_episodes_info = self.envs.current_episodes()
             # TODO: Currently agent can work with only 1 env, Parallelize act across envs
-            actions, infos = zip(
-                *[agent.act(hab_ob, ob) for hab_ob, ob in zip(hab_obs, obs)]
-            )
+            actions, infos = zip(*[agent.act(ob) for ob in obs])
 
             outputs = envs.call(
                 ["apply_action"] * envs.num_envs,
@@ -158,8 +153,6 @@ class VectorizedEvaluator(PPOTrainer):
             )
 
             obs, dones, hab_infos = [list(x) for x in zip(*outputs)]
-            # TODO: cleanup
-            hab_obs = [None] * envs.num_envs
             for e, (done, info, hab_info) in enumerate(zip(dones, infos, hab_infos)):
                 if done:
                     episode_key = (
