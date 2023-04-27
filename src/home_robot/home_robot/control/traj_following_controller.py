@@ -71,20 +71,16 @@ class TrajFollower:
         # Compute reference input
         u_ref = np.array([np.linalg.norm(dxyt_des[:2]), dxyt_des[2]])
 
-        if not self.cfg.enable_feedback:
-            u_output = u_ref
+        # Compute error in local frame
+        e = xyt_global_to_base(xyt_des, xyt_curr)
 
-        else:
-            # Compute error in local frame
-            e = xyt_global_to_base(xyt_des, xyt_curr)
+        # Compute desired error derivative via PI control
+        self.e_int = self.cfg.decay * self.e_int + e * dt
+        de_des = -self.kp * e - self.ki * self.e_int
 
-            # Compute desired error derivative via PI control
-            self.e_int = self.cfg.decay * self.e_int + e * dt
-            de_des = -self.kp * e - self.ki * self.e_int
-
-            # Compute velocity feedback commands to achieve desired error derivative
-            M_u2e = np.array([[-1, e[1]], [0, -e[0]], [0, -1]])
-            M_ur2e = np.array([[np.cos(e[2]), 0], [np.sin(e[2]), 0], [0, 1]])
-            u_output = np.linalg.pinv(M_u2e) @ (de_des - M_ur2e @ u_ref)
+        # Compute velocity feedback commands to achieve desired error derivative
+        M_u2e = np.array([[-1, e[1]], [0, -e[0]], [0, -1]])
+        M_ur2e = np.array([[np.cos(e[2]), 0], [np.sin(e[2]), 0], [0, 1]])
+        u_output = np.linalg.pinv(M_u2e) @ (de_des - M_ur2e @ u_ref)
 
         return u_output[0], u_output[1]
