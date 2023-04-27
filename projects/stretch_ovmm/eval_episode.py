@@ -1,4 +1,6 @@
 #!/usr/bin/env python
+from typing import Optional, Tuple
+
 import click
 import rospy
 
@@ -13,6 +15,8 @@ from home_robot_hw.env.stretch_pick_and_place_env import (
 
 @click.command()
 @click.option("--test-pick", default=False, is_flag=True)
+@click.option("--test-gaze", default=False, is_flag=True)
+@click.option("--skip-gaze", default=True, is_flag=True)
 @click.option("--reset-nav", default=False, is_flag=True)
 @click.option("--dry-run", default=False, is_flag=True)
 @click.option("--object", default="cup")
@@ -20,6 +24,8 @@ from home_robot_hw.env.stretch_pick_and_place_env import (
 @click.option("--goal-recep", default="table")
 def main(
     test_pick=False,
+    test_gaze=False,
+    skip_gaze=True,
     reset_nav=False,
     object="cup",
     start_recep="chair",
@@ -42,8 +48,14 @@ def main(
         test_grasping=test_pick,
         dry_run=dry_run,
     )
+    # TODO: May be a bit easier if we just read skip_{skill} from command line - similar to habitat_ovmm
     agent = PickAndPlaceAgent(
-        config=config, skip_find_object=test_pick, skip_place=test_pick
+        config=config,
+        skip_find_object=test_pick or test_gaze,
+        skip_orient=False,
+        skip_gaze=test_pick or skip_gaze,
+        skip_pick=test_gaze,
+        skip_place=test_pick or test_gaze,
     )
 
     robot = env.get_robot()

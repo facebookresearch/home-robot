@@ -7,6 +7,13 @@
     ```sh
     pip install -r projects/stretch_ovmm/requirements.txt
     ```
+3. Install habitat-lab dependencies
+    ```sh
+    git submodule update --init --recursive src/third_party/habitat-lab
+    pip install -e habitat-lab
+    pip install -e src/third_party/habitat-lab/habitat-lab
+    pip install -e src/third_party/habitat-lab/habitat-baselines
+    ```
 
 ## Usage
 
