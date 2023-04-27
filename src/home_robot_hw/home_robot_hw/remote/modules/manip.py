@@ -198,7 +198,6 @@ class StretchManipulationClient(AbstractControlModule):
 
         # Compute IK goal: pose relative to base
         pose_input = posquat2sophus(np.array(pos), np.array(quat))
-        print(pose_input)
 
         if world_frame:
             pose_world2ee = pose_input

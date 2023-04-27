@@ -96,6 +96,7 @@ class MyTopDownMap(Measure):
 
     def _draw_goals_positions(self, episode):
         if self._config.draw_goal_positions:
+
             for goal in episode.goals:
                 if self._is_on_same_floor(goal.position[1]):
                     try:
