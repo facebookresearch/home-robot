@@ -8,7 +8,7 @@ from typing import Tuple
 import numpy as np
 import trimesh
 
-from home_robot.utils.point_cloud import numpy_to_pcd, pcd_to_numpy
+from home_robot.utils.point_cloud import numpy_to_pcd, pcd_to_numpy, show_point_cloud
 
 
 def combine_point_clouds(
@@ -47,20 +47,15 @@ class SparseVoxelMap(object):
         self.observations.append((camera_pose, xyz, feats, info))
         world_xyz = trimesh.transform_points(xyz, camera_pose)
 
-        if self.xyz is None:
-            # Update current sparse voxel map.
-            self.xyz = world_xyz
-            self.feats = feats
-        else:
-            # Combine point clouds by adding in the current view to the previous ones and
-            # voxelizing.
-            self.xyz, self.feats = combine_point_clouds(
-                self.xyz,
-                self.feats,
-                world_xyz,
-                feats,
-                sparse_voxel_size=self.resolution,
-            )
+        # Combine point clouds by adding in the current view to the previous ones and
+        # voxelizing.
+        self.xyz, self.feats = combine_point_clouds(
+            self.xyz,
+            self.feats,
+            world_xyz,
+            feats,
+            sparse_voxel_size=self.resolution,
+        )
 
     def get_data(self, in_place: bool = True) -> Tuple[np.ndarray, np.ndarray]:
         """Return the current point cloud and features; optionally copying."""
@@ -101,3 +96,17 @@ class SparseVoxelMap(object):
                 pc_xyz = np.concatenate([self.xyz, world_xyz], axis=0)
         pcd = numpy_to_pcd(pc_xyz, pc_rgb).voxel_down_sample(voxel_size=self.resolution)
         self.xyz, self.feats = pcd_to_numpy(pcd)
+
+    def reset(self) -> None:
+        """Clear out the entire voxel map."""
+        self.xyz = None
+        self.feats = None
+        self.observations = []
+
+    def show(self):
+        """Display the aggregated point cloud."""
+
+        # Create a combined point cloud
+        # Do the other stuff we need
+        pc_xyz, pc_rgb = self.voxel_map.get_data()
+        show_point_cloud(pc_xyz, pc_rgb / 255, orig=np.zeros(3))

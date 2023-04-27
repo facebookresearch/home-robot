@@ -1,9 +1,9 @@
-BASE_TASK_CONFIG_PATH: projects/stretch_grasping/configs/task/hm3d_challenge2022_val.yaml
+BASE_TASK_CONFIG_PATH: configs/task/floorplanner_val_receptacle_categories.yaml
 
-NO_GPU: 1                 # 1: ignore IDs above and run on CPU, 0: run on GPUs with IDs above
-NUM_ENVIRONMENTS: 35      # number of environments (per agent process)
+NO_GPU: 0                 # 1: ignore IDs above and run on CPU, 0: run on GPUs with IDs above
+NUM_ENVIRONMENTS: 27      # number of environments (per agent process)
 DUMP_LOCATION: datadump   # path to dump models and log
-EXP_NAME: eval_hm3d       # experiment name
+EXP_NAME: eval_floorplanner_gt_receptacle_categories_indoor_only_with_clustering_fix       # experiment name
 VISUALIZE: 0              # 1: render observation and predicted semantic map, 0: no visualization
 PRINT_IMAGES: 1           # 1: save visualization as images, 0: no image saving
 GROUND_TRUTH_SEMANTICS: 1 # 1: use ground-truth semantics (for debugging / ablations)
@@ -22,8 +22,8 @@ AGENT:
   panorama_start: 1       # 1: turn around 360 degrees when starting an episode, 0: don't
 
   SEMANTIC_MAP:
-    semantic_categories: coco_indoor # map semantic channel categories ("coco_indoor", "longtail_indoor", "mukul_indoor")
-    num_sem_categories: 16           # number of map semantic channel categories (16, 257, 35)
+    semantic_categories: mukul_indoor # map semantic channel categories ("coco_indoor", "longtail_indoor", "mukul_indoor")
+    num_sem_categories: 35            # number of map semantic channel categories (16, 257, 35)
     map_size_cm: 4800        # global map size (in centimeters)
     map_resolution: 5        # size of map bins (in centimeters)
     vision_range: 100        # diameter of local map region visible by the agent (in cells)
@@ -37,6 +37,7 @@ AGENT:
     collision_threshold: 0.20       # forward move distance under which we consider there's a collision (in meters)
     obs_dilation_selem_radius: 3    # radius (in cells) of obstacle dilation structuring element
     goal_dilation_selem_radius: 10  # radius (in cells) of goal dilation structuring element
+    step_size: 5                    # maximum distance of the short-term goal selected by the planner
 
 EVAL_VECTORIZED:
   simulator_gpu_ids: [1, 2, 3, 4, 5, 6, 7] # IDs of GPUs to use for vectorized environments
@@ -44,5 +45,5 @@ EVAL_VECTORIZED:
   goal_on_same_floor: 0     # 1: restrict to episodes with a goal on the same floor as the starting position
   split: val                # eval split
   num_episodes_per_env: 100 # number of eval episodes per environment
-  record_videos: 0          # 1: record videos from printed images, 0: don't
+  record_videos: 1          # 1: record videos from printed images, 0: don't
   record_planner_videos: 0  # 1: record planner videos (if record videos), 0: don't

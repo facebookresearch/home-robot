@@ -41,17 +41,17 @@ class ImageServer(object):
         self.reference_frame = None
         self.sequence_id = 0
 
-        cb_color_cam_info = lambda msg: self.send_and_receive_camera_info(
-            msg, pub_color_cam_info
-        )
-        cb_depth_cam_info = lambda msg: self.send_and_receive_camera_info(
-            msg, pub_depth_cam_info
-        )
+        def cb_color_cam_info(msg):
+            return self.send_and_receive_camera_info(msg, pub_color_cam_info)
+
+        def cb_depth_cam_info(msg):
+            return self.send_and_receive_camera_info(msg, pub_depth_cam_info)
+
         self.sub_color_cam_info = rospy.Subscriber(
             "/camera/color/camera_info", CameraInfo, cb_color_cam_info
         )
         self.sub_depth_cam_info = rospy.Subscriber(
-            "/camera/aligned_depth_to_color/camera_info", CameraInfo, cb_color_cam_info
+            "/camera/aligned_depth_to_color/camera_info", CameraInfo, cb_depth_cam_info
         )
 
     def send_and_receive_camera_info(self, cam_info, publisher):

@@ -9,6 +9,9 @@ from home_robot.navigation_policy.object_navigation.objectnav_frontier_explorati
     ObjectNavFrontierExplorationPolicy,
 )
 
+# Do we need to visualize the frontier as we explore?
+debug_frontier_map = False
+
 
 class ObjectNavAgentModule(nn.Module):
     def __init__(self, config):
@@ -23,13 +26,19 @@ class ObjectNavAgentModule(nn.Module):
             map_size_cm=config.AGENT.SEMANTIC_MAP.map_size_cm,
             map_resolution=config.AGENT.SEMANTIC_MAP.map_resolution,
             vision_range=config.AGENT.SEMANTIC_MAP.vision_range,
+            explored_radius=config.AGENT.SEMANTIC_MAP.explored_radius,
+            been_close_to_radius=config.AGENT.SEMANTIC_MAP.been_close_to_radius,
             global_downscaling=config.AGENT.SEMANTIC_MAP.global_downscaling,
             du_scale=config.AGENT.SEMANTIC_MAP.du_scale,
             cat_pred_threshold=config.AGENT.SEMANTIC_MAP.cat_pred_threshold,
             exp_pred_threshold=config.AGENT.SEMANTIC_MAP.exp_pred_threshold,
             map_pred_threshold=config.AGENT.SEMANTIC_MAP.map_pred_threshold,
+            must_explore_close=config.AGENT.SEMANTIC_MAP.must_explore_close,
+            min_obs_height_cm=config.AGENT.SEMANTIC_MAP.min_obs_height_cm,
         )
-        self.policy = ObjectNavFrontierExplorationPolicy()
+        self.policy = ObjectNavFrontierExplorationPolicy(
+            exploration_strategy=config.AGENT.exploration_strategy
+        )
 
     @property
     def goal_update_steps(self):
@@ -49,7 +58,9 @@ class ObjectNavAgentModule(nn.Module):
         init_lmb,
         init_origins,
         seq_object_goal_category=None,
-        seq_recep_goal_category=None,
+        seq_start_recep_goal_category=None,
+        seq_end_recep_goal_category=None,
+        seq_nav_to_recep=None,
     ):
         """Update maps and poses with a sequence of observations, and predict
         high-level goals from map features.
@@ -60,8 +71,6 @@ class ObjectNavAgentModule(nn.Module):
              frame_height, frame_width)
             seq_pose_delta: sequence of delta in pose since last frame of shape
              (batch_size, sequence_length, 3)
-            seq_goal_category: sequence of goal categories of shape
-             (batch_size, sequence_length, 1)
             seq_dones: sequence of (batch_size, sequence_length) done flags that
              indicate episode restarts
             seq_update_global: sequence of (batch_size, sequence_length) binary
@@ -77,7 +86,14 @@ class ObjectNavAgentModule(nn.Module):
              (batch_size, 3)
             init_lmb: initial local map boundaries of shape (batch_size, 4)
             init_origins: initial local map origins of shape (batch_size, 3)
-
+            seq_object_goal_category: sequence of object goal categories of shape
+             (batch_size, sequence_length, 1)
+            seq_start_recep_goal_category: sequence of start recep goal categories of shape
+             (batch_size, sequence_length, 1)
+            seq_end_recep_goal_category: sequence of end recep goal categories of shape
+             (batch_size, sequence_length, 1)
+            seq_nav_to_recep: sequence of binary digits indicating if navigation is to object or end receptacle of shape
+             (batch_size, 1)
         Returns:
             seq_goal_map: sequence of binary maps encoding goal(s) of shape
              (batch_size, sequence_length, M, M)
@@ -130,20 +146,42 @@ class ObjectNavAgentModule(nn.Module):
         map_features = seq_map_features.flatten(0, 1)
         if seq_object_goal_category is not None:
             seq_object_goal_category = seq_object_goal_category.flatten(0, 1)
-        if seq_recep_goal_category is not None:
-            seq_recep_goal_category = seq_recep_goal_category.flatten(0, 1)
+        if seq_start_recep_goal_category is not None:
+            seq_start_recep_goal_category = seq_start_recep_goal_category.flatten(0, 1)
+        if seq_end_recep_goal_category is not None:
+            seq_end_recep_goal_category = seq_end_recep_goal_category.flatten(0, 1)
+        # Compute the goal map
         goal_map, found_goal = self.policy(
-            map_features, seq_object_goal_category, seq_recep_goal_category
+            map_features,
+            seq_object_goal_category,
+            seq_start_recep_goal_category,
+            seq_end_recep_goal_category,
+            seq_nav_to_recep,
         )
         seq_goal_map = goal_map.view(batch_size, sequence_length, *goal_map.shape[-2:])
         seq_found_goal = found_goal.view(batch_size, sequence_length)
 
+        # Compute the frontier map here
+        frontier_map = self.policy.get_frontier_map(map_features)
+        seq_frontier_map = frontier_map.view(
+            batch_size, sequence_length, *frontier_map.shape[-2:]
+        )
+        if debug_frontier_map:
+            import matplotlib.pyplot as plt
+
+            plt.subplot(121)
+            plt.imshow(seq_frontier_map[0, 0].numpy())
+            plt.subplot(122)
+            plt.imshow(goal_map[0].numpy())
+            plt.show()
+            breakpoint()
         # t2 = time.time()
         # print(f"[Policy] Total time: {t2 - t1:.2f}")
 
         return (
             seq_goal_map,
             seq_found_goal,
+            seq_frontier_map,
             final_local_map,
             final_global_map,
             seq_local_pose,

@@ -60,7 +60,11 @@ if __name__ == "__main__":
     pos_desired = np.array([-0.1, -0.1, -0.1])
     robot.manip.goto_ee_pose(pos_desired, relative=True)
 
-    # Command the robot arm 4: For backward compatibility
+    # Command the robot arm 4: Simple EE rotations
+    #   (rotates around Z axis by 0.5 radians)
+    robot.manip.rotate_ee(axis=2, angle=0.5)
+
+    # Command the robot arm 5: For backward compatibility
     robot.manip.goto(STRETCH_HOME_Q)
 
     # Gripper commands

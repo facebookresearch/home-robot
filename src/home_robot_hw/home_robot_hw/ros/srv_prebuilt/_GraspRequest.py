@@ -13,10 +13,11 @@ import std_msgs.msg
 
 
 class GraspRequestRequest(genpy.Message):
-    _md5sum = "4217b28a903e4ad7869a83b3653110ff"
+    _md5sum = "3bd966757b8962210f20a26817d37217"
     _type = "home_robot_hw/GraspRequestRequest"
     _has_header = False  # flag to mark the presence of a Header object
     _full_text = """sensor_msgs/PointCloud cloud
+geometry_msgs/Pose camera_pose
 
 ================================================================================
 MSG: sensor_msgs/PointCloud
@@ -90,9 +91,31 @@ string name
 # The values array should be 1-1 with the elements of the associated
 # PointCloud.
 float32[] values
+
+================================================================================
+MSG: geometry_msgs/Pose
+# A representation of pose in free space, composed of position and orientation. 
+Point position
+Quaternion orientation
+
+================================================================================
+MSG: geometry_msgs/Point
+# This contains the position of a point in free space
+float64 x
+float64 y
+float64 z
+
+================================================================================
+MSG: geometry_msgs/Quaternion
+# This represents an orientation in free space in quaternion form.
+
+float64 x
+float64 y
+float64 z
+float64 w
 """
-    __slots__ = ["cloud"]
-    _slot_types = ["sensor_msgs/PointCloud"]
+    __slots__ = ["cloud", "camera_pose"]
+    _slot_types = ["sensor_msgs/PointCloud", "geometry_msgs/Pose"]
 
     def __init__(self, *args, **kwds):
         """
@@ -102,7 +125,7 @@ float32[] values
         changes.  You cannot mix in-order arguments and keyword arguments.
 
         The available fields are:
-           cloud
+           cloud,camera_pose
 
         :param args: complete set of field values, in .msg order
         :param kwds: use keyword arguments corresponding to message field names
@@ -113,8 +136,11 @@ float32[] values
             # message fields cannot be None, assign default values for those that are
             if self.cloud is None:
                 self.cloud = sensor_msgs.msg.PointCloud()
+            if self.camera_pose is None:
+                self.camera_pose = geometry_msgs.msg.Pose()
         else:
             self.cloud = sensor_msgs.msg.PointCloud()
+            self.camera_pose = geometry_msgs.msg.Pose()
 
     def _get_types(self):
         """
@@ -160,6 +186,18 @@ float32[] values
                 buff.write(_struct_I.pack(length))
                 pattern = "<%sf" % length
                 buff.write(struct.Struct(pattern).pack(*val1.values))
+            _x = self
+            buff.write(
+                _get_struct_7d().pack(
+                    _x.camera_pose.position.x,
+                    _x.camera_pose.position.y,
+                    _x.camera_pose.position.z,
+                    _x.camera_pose.orientation.x,
+                    _x.camera_pose.orientation.y,
+                    _x.camera_pose.orientation.z,
+                    _x.camera_pose.orientation.w,
+                )
+            )
         except struct.error as se:
             self._check_types(
                 struct.error(
@@ -185,6 +223,8 @@ float32[] values
         try:
             if self.cloud is None:
                 self.cloud = sensor_msgs.msg.PointCloud()
+            if self.camera_pose is None:
+                self.camera_pose = geometry_msgs.msg.Pose()
             end = 0
             _x = self
             start = end
@@ -242,6 +282,18 @@ float32[] values
                 end += s.size
                 val1.values = s.unpack(str[start:end])
                 self.cloud.channels.append(val1)
+            _x = self
+            start = end
+            end += 56
+            (
+                _x.camera_pose.position.x,
+                _x.camera_pose.position.y,
+                _x.camera_pose.position.z,
+                _x.camera_pose.orientation.x,
+                _x.camera_pose.orientation.y,
+                _x.camera_pose.orientation.z,
+                _x.camera_pose.orientation.w,
+            ) = _get_struct_7d().unpack(str[start:end])
             return self
         except struct.error as e:
             raise genpy.DeserializationError(e)  # most likely buffer underfill
@@ -285,6 +337,18 @@ float32[] values
                 buff.write(_struct_I.pack(length))
                 pattern = "<%sf" % length
                 buff.write(val1.values.tostring())
+            _x = self
+            buff.write(
+                _get_struct_7d().pack(
+                    _x.camera_pose.position.x,
+                    _x.camera_pose.position.y,
+                    _x.camera_pose.position.z,
+                    _x.camera_pose.orientation.x,
+                    _x.camera_pose.orientation.y,
+                    _x.camera_pose.orientation.z,
+                    _x.camera_pose.orientation.w,
+                )
+            )
         except struct.error as se:
             self._check_types(
                 struct.error(
@@ -311,6 +375,8 @@ float32[] values
         try:
             if self.cloud is None:
                 self.cloud = sensor_msgs.msg.PointCloud()
+            if self.camera_pose is None:
+                self.camera_pose = geometry_msgs.msg.Pose()
             end = 0
             _x = self
             start = end
@@ -370,6 +436,18 @@ float32[] values
                     str[start:end], dtype=numpy.float32, count=length
                 )
                 self.cloud.channels.append(val1)
+            _x = self
+            start = end
+            end += 56
+            (
+                _x.camera_pose.position.x,
+                _x.camera_pose.position.y,
+                _x.camera_pose.position.z,
+                _x.camera_pose.orientation.x,
+                _x.camera_pose.orientation.y,
+                _x.camera_pose.orientation.z,
+                _x.camera_pose.orientation.w,
+            ) = _get_struct_7d().unpack(str[start:end])
             return self
         except struct.error as e:
             raise genpy.DeserializationError(e)  # most likely buffer underfill
@@ -403,6 +481,16 @@ def _get_struct_3f():
     return _struct_3f
 
 
+_struct_7d = None
+
+
+def _get_struct_7d():
+    global _struct_7d
+    if _struct_7d is None:
+        _struct_7d = struct.Struct("<7d")
+    return _struct_7d
+
+
 # This Python file uses the following encoding: utf-8
 """autogenerated by genpy from home_robot_hw/GraspRequestResponse.msg. Do not edit."""
 import codecs
@@ -417,11 +505,12 @@ import std_msgs.msg
 
 
 class GraspRequestResponse(genpy.Message):
-    _md5sum = "e5b4c458375bf86e7c547ba6b7ea73f3"
+    _md5sum = "8274a5a28fecb17d1da2b3dc1e906985"
     _type = "home_robot_hw/GraspRequestResponse"
     _has_header = False  # flag to mark the presence of a Header object
     _full_text = """geometry_msgs/PoseArray[] grasps
 std_msgs/Float32MultiArray[] scores
+bool in_base_frame
 
 
 ================================================================================
@@ -513,8 +602,8 @@ MSG: std_msgs/MultiArrayDimension
 string label   # label of given dimension
 uint32 size    # size of given dimension (in type units)
 uint32 stride  # stride of given dimension"""
-    __slots__ = ["grasps", "scores"]
-    _slot_types = ["geometry_msgs/PoseArray[]", "std_msgs/Float32MultiArray[]"]
+    __slots__ = ["grasps", "scores", "in_base_frame"]
+    _slot_types = ["geometry_msgs/PoseArray[]", "std_msgs/Float32MultiArray[]", "bool"]
 
     def __init__(self, *args, **kwds):
         """
@@ -524,7 +613,7 @@ uint32 stride  # stride of given dimension"""
         changes.  You cannot mix in-order arguments and keyword arguments.
 
         The available fields are:
-           grasps,scores
+           grasps,scores,in_base_frame
 
         :param args: complete set of field values, in .msg order
         :param kwds: use keyword arguments corresponding to message field names
@@ -537,9 +626,12 @@ uint32 stride  # stride of given dimension"""
                 self.grasps = []
             if self.scores is None:
                 self.scores = []
+            if self.in_base_frame is None:
+                self.in_base_frame = False
         else:
             self.grasps = []
             self.scores = []
+            self.in_base_frame = False
 
     def _get_types(self):
         """
@@ -598,6 +690,8 @@ uint32 stride  # stride of given dimension"""
                 buff.write(_struct_I.pack(length))
                 pattern = "<%sf" % length
                 buff.write(struct.Struct(pattern).pack(*val1.data))
+            _x = self.in_base_frame
+            buff.write(_get_struct_B().pack(_x))
         except struct.error as se:
             self._check_types(
                 struct.error(
@@ -722,6 +816,10 @@ uint32 stride  # stride of given dimension"""
                 end += s.size
                 val1.data = s.unpack(str[start:end])
                 self.scores.append(val1)
+            start = end
+            end += 1
+            (self.in_base_frame,) = _get_struct_B().unpack(str[start:end])
+            self.in_base_frame = bool(self.in_base_frame)
             return self
         except struct.error as e:
             raise genpy.DeserializationError(e)  # most likely buffer underfill
@@ -778,6 +876,8 @@ uint32 stride  # stride of given dimension"""
                 buff.write(_struct_I.pack(length))
                 pattern = "<%sf" % length
                 buff.write(val1.data.tostring())
+            _x = self.in_base_frame
+            buff.write(_get_struct_B().pack(_x))
         except struct.error as se:
             self._check_types(
                 struct.error(
@@ -905,6 +1005,10 @@ uint32 stride  # stride of given dimension"""
                     str[start:end], dtype=numpy.float32, count=length
                 )
                 self.scores.append(val1)
+            start = end
+            end += 1
+            (self.in_base_frame,) = _get_struct_B().unpack(str[start:end])
+            self.in_base_frame = bool(self.in_base_frame)
             return self
         except struct.error as e:
             raise genpy.DeserializationError(e)  # most likely buffer underfill
@@ -948,8 +1052,18 @@ def _get_struct_4d():
     return _struct_4d
 
 
+_struct_B = None
+
+
+def _get_struct_B():
+    global _struct_B
+    if _struct_B is None:
+        _struct_B = struct.Struct("<B")
+    return _struct_B
+
+
 class GraspRequest(object):
     _type = "home_robot_hw/GraspRequest"
-    _md5sum = "af7b6acb2d4c474a615bf1bf495eca70"
+    _md5sum = "a2cc165ffb0bc8d1ab0217fd70f92a00"
     _request_class = GraspRequestRequest
     _response_class = GraspRequestResponse

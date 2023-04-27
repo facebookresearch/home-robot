@@ -8,6 +8,7 @@ from typing import Dict, Optional
 
 import actionlib
 import numpy as np
+import ros_numpy
 import rospy
 import sophus as sp
 import tf2_ros
@@ -19,7 +20,8 @@ from std_msgs.msg import Bool, String
 from std_srvs.srv import SetBool, SetBoolRequest, Trigger, TriggerRequest
 from trajectory_msgs.msg import JointTrajectoryPoint
 
-from home_robot.motion.stretch import HelloStretchIdx
+from home_robot.motion.stretch import STRETCH_HEAD_CAMERA_ROTATIONS, HelloStretchIdx
+from home_robot.utils.pose import to_matrix
 from home_robot_hw.constants import (
     CONFIG_TO_ROS,
     ROS_ARM_JOINTS,
@@ -42,6 +44,9 @@ DEFAULT_DEPTH_TOPIC = "/camera/aligned_depth_to_color"
 
 class StretchRosInterface:
     """Interface object with ROS topics and services"""
+
+    # Base of the robot
+    base_link = "base_link"
 
     goal_time_tolerance = 1.0
     msg_delay_t = 0.25
@@ -82,7 +87,7 @@ class StretchRosInterface:
 
         self.last_odom_update_timestamp = rospy.Time(0)
         self.last_base_update_timestamp = rospy.Time(0)
-        self.goal_reset_t = rospy.Time(0)
+        self._goal_reset_t = rospy.Time(0)
 
         # Create visualizers for pose information
         self.goal_visualizer = Visualizer("command_pose", rgba=[1.0, 0.0, 0.0, 0.5])
@@ -252,8 +257,14 @@ class StretchRosInterface:
         if self.rgb_cam is not None or self.dpt_cam is not None:
             raise RuntimeError("Already created cameras")
         print("Creating cameras...")
-        self.rgb_cam = RosCamera(self._color_topic)
-        self.dpt_cam = RosCamera(self._depth_topic, buffer_size=self._depth_buffer_size)
+        self.rgb_cam = RosCamera(
+            self._color_topic, rotations=STRETCH_HEAD_CAMERA_ROTATIONS
+        )
+        self.dpt_cam = RosCamera(
+            self._depth_topic,
+            rotations=STRETCH_HEAD_CAMERA_ROTATIONS,
+            buffer_size=self._depth_buffer_size,
+        )
         self.filter_depth = self._depth_buffer_size is not None
 
     def _wait_for_cameras(self):
@@ -311,6 +322,7 @@ class StretchRosInterface:
         self.curr_visualizer(self.se3_base_filtered.matrix())
 
     def _camera_pose_callback(self, msg: PoseStamped):
+        """camera pose from CameraPosePublisher, which reads from tf"""
         self._last_camera_update_timestamp = msg.header.stamp
         self.se3_camera_pose = sp.SE3(matrix_from_pose_msg(msg.pose))
 
@@ -332,6 +344,30 @@ class StretchRosInterface:
         trq[HelloStretchIdx.ARM] /= 4
         with self._js_lock:
             self.pos, self.vel, self.frc = pos, vel, trq
+
+    def get_frame_pose(self, frame, base_frame=None, lookup_time=None, timeout_s=None):
+        """look up a particular frame in base coords (or some other coordinate frame)."""
+        if lookup_time is None:
+            lookup_time = rospy.Time(0)  # return most recent transform
+        if timeout_s is None:
+            timeout_ros = rospy.Duration(0.1)
+        else:
+            timeout_ros = rospy.Duration(timeout_s)
+        if base_frame is None:
+            base_frame = self.base_link
+        try:
+            stamped_transform = self.tf2_buffer.lookup_transform(
+                base_frame, frame, lookup_time, timeout_ros
+            )
+            pose_mat = ros_numpy.numpify(stamped_transform.transform)
+        except (
+            tf2_ros.LookupException,
+            tf2_ros.ConnectivityException,
+            tf2_ros.ExtrapolationException,
+        ):
+            print("!!! Lookup failed from", base_frame, "to", frame, "!!!")
+            return None
+        return pose_mat
 
     def _construct_single_joint_ros_goal(
         self, joint_name, position, goal_time_tolerance=1

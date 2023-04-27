@@ -1,4 +1,5 @@
 #!/usr/bin/env python
+import numpy as np
 import rospy
 
 from home_robot.agent.hierarchical.pick_and_place_agent import PickAndPlaceAgent
@@ -18,17 +19,8 @@ if __name__ == "__main__":
     rospy.init_node("eval_episode_stretch_objectnav")
     agent = PickAndPlaceAgent(config=config)
     env = StretchPickandPlaceEnv(config=config)
-    env.goto(STRETCH_HOME_Q)
 
     agent.reset()
     env.reset("cup")
 
-    t = 0
-    while not env.episode_over:
-        t += 1
-        print("STEP =", t)
-        obs = env.get_observation()
-        action, info = agent.act(obs)
-        env.apply_action(action, info=info)
-
-    print(env.get_episode_metrics())
+    env.navigate_to([0, 0, -np.pi / 2], relative=True, blocking=True)

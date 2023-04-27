@@ -2,8 +2,6 @@
 #
 # This source code is licensed under the MIT license found in the
 # LICENSE file in the root directory of this source tree.
-import time
-
 import numpy as np
 
 from home_robot_hw.remote import StretchClient
@@ -26,7 +24,7 @@ if __name__ == "__main__":
     robot.head.look_at_ee()
     robot.head.look_front()
 
-    print(f"Confirm that the robot head has moved accordingly.")
+    print("Confirm that the robot head has moved accordingly.")
     input("(press enter to continue)")
 
     # Navigation
@@ -55,4 +53,4 @@ if __name__ == "__main__":
     )
     input("(press enter to continue)")
 
-    print(f"Test complete!")
+    print("Test complete!")
