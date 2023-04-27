@@ -6,10 +6,11 @@ from habitat.sims.habitat_simulator.actions import HabitatSimActions
 from omegaconf import DictConfig
 
 import home_robot
+from home_robot.utils.constants import (
+    MAX_DEPTH_REPLACEMENT_VALUE,
+    MIN_DEPTH_REPLACEMENT_VALUE,
+)
 from home_robot_sim.env.habitat_abstract_env import HabitatEnv
-
-MIN_DEPTH_REPLACEMENT_VALUE = 10000
-MAX_DEPTH_REPLACEMENT_VALUE = 10001
 
 
 class HabitatImageNavEnv(HabitatEnv):
