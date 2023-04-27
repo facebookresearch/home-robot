@@ -106,26 +106,25 @@ class PickAndPlaceAgent(Agent):
         # Look for the goal object.
         if self.state == SimpleTaskState.FIND_OBJECT:
             if self.skip_find_object:
+                # transition to the next state
                 action = DiscreteNavigationAction.STOP
                 self.state = SimpleTaskState.ORIENT_OBJ
             else:
                 obs = self._preprocess_obs_for_find(obs)
                 action, action_info = self.object_nav_agent.act(obs)
                 if action == DiscreteNavigationAction.STOP:
-                    print("-> Actually predicted:", action)
-                    action = DiscreteNavigationAction.STOP
                     self.state = SimpleTaskState.ORIENT_OBJ
         # If we have found the object, then try to pick it up.
         if self.state == SimpleTaskState.ORIENT_OBJ:
             self.state = SimpleTaskState.GAZE_OBJECT
             if not self.skip_orient:
-                # Try to grab the object.
-                # If we grasped the object, then we should increment our state again
+                # orient to face the object
                 return DiscreteNavigationAction.MANIPULATION_MODE, action_info
         if self.state == SimpleTaskState.GAZE_OBJECT:
-            if self.skip_gaze or not hasattr(self.config.AGENT.SKILLS, "GAZE"):
+            if self.skip_gaze or self.gaze_agent is None:
                 self.state = SimpleTaskState.PICK_OBJECT
             else:
+                # act using the policy predictions until termination condition is hit
                 action, does_want_terminate = self.gaze_agent.act(obs)
                 if does_want_terminate:
                     self.state = SimpleTaskState.PICK_OBJECT
@@ -136,6 +135,7 @@ class PickAndPlaceAgent(Agent):
                 self.state = SimpleTaskState.ORIENT_NAV
             return DiscreteNavigationAction.PICK_OBJECT, action_info
         if self.state == SimpleTaskState.ORIENT_NAV:
+            self.state = SimpleTaskState.FIND_GOAL
             return DiscreteNavigationAction.NAVIGATION_MODE, action_info
         elif self.state == SimpleTaskState.FIND_GOAL:
             # Find the goal location
