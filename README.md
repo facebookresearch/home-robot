@@ -126,7 +126,15 @@ You should be able to run the Detic demo script as per the Detic instructions to
 python demo.py --config-file configs/Detic_LCOCOI21k_CLIP_SwinB_896b32_4x_ft4x_max-size.yaml --input desk.jpg --output out2.jpg --vocabulary custom --custom_vocabulary headphone,webcam,paper,coffe --confidence-threshold 0.3 --opts MODEL.WEIGHTS models/Detic_LCOCOI21k_CLIP_SwinB_896b32_4x_ft4x_max-size.pth
 ```
 
-#### 5. Run Open Vocabulary Mobile Manipulation on Stretch
+
+#### 5. Download pretrained skills
+```
+mkdir -p $HOME_ROBOT_ROOT/data/
+cd $HOME_ROBOT_ROOT/data/
+git clone https://huggingface.co/datasets/osmm/checkpoints
+```
+
+#### 6. Run Open Vocabulary Mobile Manipulation on Stretch
 
 You should then be able to run the Stretch OVMM example.
 
@@ -149,7 +157,7 @@ cd $HOME_ROBOT_ROOT
 python projects/stretch_ovmm/eval_episode.py
 ```
 
-#### 6. Simulation Setup
+#### 7. Simulation Setup
 
 To set up the simulation stack with Habitat, see the [installation instructions](src/home_robot_sim/README.md) in `home_robot_sim`. You first need to install AI habitat and the simulation package:
 ```
