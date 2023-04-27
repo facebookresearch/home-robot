@@ -170,7 +170,7 @@ class OpenVocabManipAgent(ObjectNavAgent):
                     action["grip_action"] = [1]  # grasp the object when gaze is done
                     self.is_pick_done[0] = 1
                 return action, vis_inputs
-            elif self.config.AGENT.SKILLS.PICK.type == "hardcoded":
+            elif self.config.AGENT.SKILLS.PICK.type == "oracle":
                 self.is_pick_done[0] = 1
                 return DiscreteNavigationAction.SNAP_OBJECT, vis_inputs
             else:

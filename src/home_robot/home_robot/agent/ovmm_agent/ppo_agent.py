@@ -15,6 +15,7 @@ import numba
 import numpy as np
 import torch
 from habitat.core.agent import Agent
+from habitat.core.spaces import EmptySpace
 from habitat.utils.gym_adapter import (
     continuous_vector_action_to_hab_dict,
     create_action_space,
@@ -27,7 +28,7 @@ from habitat_baselines.common.obs_transformers import (
 from habitat_baselines.config.default import get_config as get_habitat_config
 from habitat_baselines.utils.common import batch_obs, get_num_actions
 
-from home_robot.core.interfaces import Observations
+from home_robot.core.interfaces import ContinuousNavigationAction, Observations
 from home_robot_sim.env.habitat_objectnav_env.constants import (
     MAX_DEPTH_REPLACEMENT_VALUE,
     MIN_DEPTH_REPLACEMENT_VALUE,
@@ -69,6 +70,60 @@ class PPOAgent(Agent):
         # Observation and action spaces for the full task
         self.obs_space = obs_spaces
         self.action_space = action_spaces
+        if obs_spaces is None:
+            self.obs_space = [
+                spaces.dict.Dict(
+                    {
+                        "is_holding": spaces.Box(0.0, 1.0, (1,), np.float32),
+                        "robot_head_depth": spaces.Box(
+                            0.0, 1.0, (256, 256, 1), np.float32
+                        ),
+                        "joint": spaces.Box(
+                            np.finfo(np.float32).min,
+                            np.finfo(np.float32).max,
+                            (10,),
+                            np.float32,
+                        ),
+                        "object_embedding": spaces.Box(
+                            np.finfo(np.float32).min,
+                            np.finfo(np.float32).max,
+                            (512,),
+                            np.float32,
+                        ),
+                        "relative_resting_position": spaces.Box(
+                            np.finfo(np.float32).min,
+                            np.finfo(np.float32).max,
+                            (3,),
+                            np.float32,
+                        ),
+                        "object_segmentation": spaces.Box(
+                            0.0, 1.0, (256, 256, 1), np.uint8
+                        ),
+                    }
+                )
+            ]
+        if action_spaces is None:
+            self.action_space = [
+                spaces.dict.Dict(
+                    {
+                        "arm_action": spaces.dict.Dict(
+                            {
+                                "arm_action": spaces.Box(-1.0, 1.0, (7,), np.float32),
+                                "grip_action": spaces.Box(-1.0, 1.0, (1,), np.float32),
+                            }
+                        ),
+                        "base_velocity": spaces.dict.Dict(
+                            {
+                                "base_vel": spaces.Box(-20.0, 20.0, (2,), np.float32),
+                            }
+                        ),
+                        "extend_arm": EmptySpace(),
+                        "face_arm": EmptySpace(),
+                        "rearrange_stop": EmptySpace(),
+                        "reset_joints": EmptySpace(),
+                    }
+                )
+            ]
         self.device_id = device_id
         self.device = (
             torch.device(f"cuda:{self.device_id}")
@@ -108,7 +163,7 @@ class PPOAgent(Agent):
         # obs keys to be passed to the policy
         self.skill_obs_keys = skill_config.gym_obs_keys
         skill_obs_spaces = spaces.Dict(
-            {k: obs_spaces[0].spaces[k] for k in self.skill_obs_keys}
+            {k: self.obs_space[0].spaces[k] for k in self.skill_obs_keys}
         )
 
         # actions the skill takes
@@ -163,6 +218,7 @@ class PPOAgent(Agent):
             self.actor_critic.num_recurrent_layers,
             self.hidden_size,
             device=self.device,
+            dtype=torch.float32,
         )
         self.not_done_masks = torch.zeros(1, 1, device=self.device, dtype=torch.bool)
 
@@ -205,7 +261,9 @@ class PPOAgent(Agent):
         # TODO: convert all observations to hab observation space here
         return OrderedDict(
             {
-                "robot_head_depth": np.expand_dims(normalized_depth, -1),
+                "robot_head_depth": np.expand_dims(normalized_depth, -1).astype(
+                    np.float32
+                ),
                 "object_embedding": obs.task_observations["object_embedding"],
                 "object_segmentation": np.expand_dims(
                     obs.semantic == obs.task_observations["object_goal"], -1
@@ -251,6 +309,10 @@ class PPOAgent(Agent):
                 step_action = continuous_vector_action_to_hab_dict(
                     self.filtered_action_space, self.vector_action_space, act[0]
                 )
+                return (
+                    map_continuous_habitat_actions(step_action["action_args"]),
+                    self.does_want_terminate(observations, actions),
+                )
             else:
                 # TODO: to be tested (by Nav skill?)
                 step_action = map_discrete_habitat_actions(
@@ -270,6 +332,20 @@ class PPOAgent(Agent):
             step_action["action_args"],
             self.does_want_terminate(observations, actions),
         )
+
+
+def map_continuous_habitat_actions(cont_action):
+    """Map habitat continuous actions to home-robot continuous actions"""
+    waypoint, sel = cont_action["base_vel"]
+    if sel >= 0:
+        action = ContinuousNavigationAction(
+            [np.clip(waypoint, -1, 1) * 0.25, 0, 0]
+        )  # forward
+    else:
+        action = ContinuousNavigationAction(
+            [0, 0, np.clip(waypoint, -1, 1) * 0.1745]
+        )  # turn
+    return action
 
 
 def map_discrete_habitat_actions(discrete_action):
