@@ -1,3 +1,5 @@
+name:
+  slap_base
 channels:
   - conda-forge
   - default
