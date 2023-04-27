@@ -10,6 +10,7 @@ import numpy as np
 from omegaconf import DictConfig
 
 from home_robot.utils.config import get_control_config
+from home_robot.utils.geometry import normalize_ang_error
 
 from .feedback.velocity_controllers import DDVelocityControlNoplan
 
@@ -83,6 +84,7 @@ class GotoVelocityController:
     ):
         if cfg is None:
             cfg = get_control_config(DEFAULT_CFG_NAME)
+        self.cfg = cfg
 
         # Control module
         self.control = DDVelocityControlNoplan(cfg)
@@ -115,10 +117,13 @@ class GotoVelocityController:
         Updates error based on robot localization
         """
         xyt_err = xyt_global_to_base(self.xyt_goal, self.xyt_loc)
+
+        # Normalize angular error to between -pi and pi
+        xyt_err[2] = normalize_ang_error(xyt_err[2])
+
+        # Set angular error to 0 if not tracking target yaw
         if not self.track_yaw:
             xyt_err[2] = 0.0
-        else:
-            xyt_err[2] = (xyt_err[2] + np.pi) % (2 * np.pi) - np.pi
 
         return xyt_err
 
@@ -130,8 +135,13 @@ class GotoVelocityController:
         # Get state estimation
         xyt_err = self._compute_error_pose()
 
+        # Move backwards if conditions are met
+        allow_reverse = False
+        if np.linalg.norm(xyt_err[:2]) < self.cfg.max_rev_dist:
+            allow_reverse = True
+
         # Compute control
-        v_cmd, w_cmd, done = self.control(xyt_err)
+        v_cmd, w_cmd, done = self.control(xyt_err, allow_reverse=allow_reverse)
         self._is_done = done
 
         return v_cmd, w_cmd

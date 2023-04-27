@@ -8,6 +8,8 @@ from typing import Tuple
 import numpy as np
 from omegaconf import DictConfig
 
+from home_robot.utils.geometry import normalize_ang_error
+
 
 class DiffDriveVelocityController(abc.ABC):
     """
@@ -64,8 +66,11 @@ class DDVelocityControlNoplan(DiffDriveVelocityController):
                 / (np.sin(heading_diff) + heading_diff * np.cos(heading_diff) + 1e-5)
             )
 
-    def __call__(self, xyt_err: np.ndarray) -> Tuple[float, float, bool]:
+    def __call__(
+        self, xyt_err: np.ndarray, allow_reverse=False
+    ) -> Tuple[float, float, bool]:
         v_cmd = w_cmd = 0
+        in_reverse = False
         done = True
 
         # Compute errors
@@ -73,7 +78,11 @@ class DDVelocityControlNoplan(DiffDriveVelocityController):
         ang_err = xyt_err[2]
 
         heading_err = np.arctan2(xyt_err[1], xyt_err[0])
-        heading_err_abs = abs(heading_err)
+
+        # Check if reverse is required
+        if allow_reverse and abs(heading_err) > np.pi / 2.0:
+            in_reverse = True
+            heading_err = normalize_ang_error(heading_err + np.pi)
 
         # Go to goal XY position if not there yet
         if lin_err_abs > self.cfg.lin_error_tol:
@@ -83,7 +92,7 @@ class DDVelocityControlNoplan(DiffDriveVelocityController):
             )
             v_limit = self._turn_rate_limit(
                 lin_err_abs,
-                heading_err_abs,
+                abs(heading_err),
                 self.cfg.w_max / 2.0,
             )
             v_cmd = np.clip(v_raw, 0.0, v_limit)
@@ -101,5 +110,8 @@ class DDVelocityControlNoplan(DiffDriveVelocityController):
                 ang_err, self.cfg.acc_ang, self.cfg.w_max
             )
             done = False
+
+        if in_reverse:
+            v_cmd = -v_cmd
 
         return v_cmd, w_cmd, done

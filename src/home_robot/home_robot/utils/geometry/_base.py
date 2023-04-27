@@ -11,6 +11,10 @@ from scipy.spatial.transform import Rotation
 from home_robot.core.interfaces import Pose
 
 
+def normalize_ang_error(ang):
+    return (ang + np.pi) % (2 * np.pi) - np.pi
+
+
 def xyt_global_to_base(XYT, current_pose):
     """
     Transforms the point cloud into geocentric frame to account for
