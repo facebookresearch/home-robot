@@ -57,6 +57,8 @@ class PickAndPlaceAgent(Agent):
                 config.AGENT.SKILLS.GAZE,
                 device_id=device_id,
             )
+        else:
+            self.gaze_agent = None
 
         self.reset()
 

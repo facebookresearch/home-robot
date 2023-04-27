@@ -11,10 +11,12 @@ from torch import Tensor
 
 import home_robot
 from home_robot.core.interfaces import DiscreteNavigationAction
-from home_robot_sim.env.habitat_abstract_env import HabitatEnv
-from home_robot_sim.env.habitat_objectnav_env.constants import (
+from home_robot.utils.constants import (
     MAX_DEPTH_REPLACEMENT_VALUE,
     MIN_DEPTH_REPLACEMENT_VALUE,
+)
+from home_robot_sim.env.habitat_abstract_env import HabitatEnv
+from home_robot_sim.env.habitat_objectnav_env.constants import (
     RearrangeBasicCategories,
     RearrangeDETICCategories,
 )
