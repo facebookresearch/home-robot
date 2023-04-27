@@ -1,16 +1,23 @@
 import os
 
+import click
 import numpy as np
 import yaml
 
 from home_robot.motion.stretch import STRETCH_HOME_Q, HelloStretchKinematics
 from home_robot_hw.remote import StretchClient
 
-if __name__ == "__main__":
+
+@click.command()
+@click.option(
+    "--path",
+    default="projects/slap_manipulation/actions.yaml",
+    help="Path to action file",
+)
+def main(path):
     # load action dict from "~/actions.yaml"
-    actions = yaml.unsafe_load(open(os.path.expanduser("~/actions.yaml"), "r"))
+    actions = yaml.unsafe_load(open(path, "r"))
     robot = StretchClient()
-    model = HelloStretchKinematics(ik_type="pinocchio")
     debug = False
 
     # Switch to manipulation mode
@@ -52,10 +59,9 @@ if __name__ == "__main__":
         if debug:
             input("Press enter to continue")
 
-    # # Command the robot arm 3: Relative EE control
-    # #   (note: orientation stays the same if not specified)
-    # pos_desired = np.array([-0.1, -0.1, -0.1])
-    # robot.manip.goto_ee_pose(pos_desired, relative=True)
-
     # Stop all robot motion
     robot.stop()
+
+
+if __name__ == "__main__":
+    main()
