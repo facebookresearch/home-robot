@@ -51,7 +51,7 @@ class PickAndPlaceAgent(Agent):
         self.config = config
         # Agent for object nav
         self.object_nav_agent = ObjectNavAgent(config, device_id)
-        if hasattr(self.config.AGENT.SKILLS, "GAZE"):
+        if not self.skip_gaze and hasattr(self.config.AGENT.SKILLS, "GAZE"):
             self.gaze_agent = PPOAgent(
                 config,
                 config.AGENT.SKILLS.GAZE,
@@ -72,7 +72,7 @@ class PickAndPlaceAgent(Agent):
         """Clear internal task state and reset component agents."""
         self.state = SimpleTaskState.FIND_OBJECT
         self.object_nav_agent.reset()
-        if hasattr(self.config.AGENT.SKILLS, "GAZE"):
+        if self.gaze_agent is not None:
             self.gaze_agent.reset()
 
     def _preprocess_obs_for_find(self, obs: Observations) -> Observations:
