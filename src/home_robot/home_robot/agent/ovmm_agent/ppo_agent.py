@@ -29,7 +29,7 @@ from habitat_baselines.config.default import get_config as get_habitat_config
 from habitat_baselines.utils.common import batch_obs, get_num_actions
 
 from home_robot.core.interfaces import ContinuousNavigationAction, Observations
-from home_robot.utils.simulation import (
+from home_robot.utils.constants import (
     MAX_DEPTH_REPLACEMENT_VALUE,
     MIN_DEPTH_REPLACEMENT_VALUE,
 )

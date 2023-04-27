@@ -5,11 +5,13 @@ import numpy as np
 from habitat.sims.habitat_simulator.actions import HabitatSimActions
 
 import home_robot
+from home_robot.utils.constants import (
+    MAX_DEPTH_REPLACEMENT_VALUE,
+    MIN_DEPTH_REPLACEMENT_VALUE,
+)
 from home_robot_sim.env.habitat_abstract_env import HabitatEnv
 
 from .constants import (
-    MAX_DEPTH_REPLACEMENT_VALUE,
-    MIN_DEPTH_REPLACEMENT_VALUE,
     FloorplannertoMukulIndoor,
     HM3DtoCOCOIndoor,
     mukul_33categories_padded,
