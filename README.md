@@ -37,7 +37,7 @@ To set up the hardware stack on a Hello Robot  Stretch, see the [ROS installatio
 
 #### Network Setup
 
-Follow the [network setup guide](docs/network.md) to set up your robot to use the network. On the robot side, start up the controllers with:
+Follow the [network setup guide](docs/network.md) to set up your robot to use the network, and make sure that it can communicate between workstation and robot via ROS. On the robot side, start up the controllers with:
 ```
 roslaunch home_robot_hw startup_stretch_hector_slam.launch
 ```
