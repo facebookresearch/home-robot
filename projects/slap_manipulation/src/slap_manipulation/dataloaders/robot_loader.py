@@ -132,7 +132,7 @@ class RobotDataset(RLBenchDataset):
         crop_radius_chance=0.75,
         crop_radius_shift=0.1,
         crop_radius_range=[0.3, 1.0],
-        visualize_interaction_point=False,
+        visualize_interaction_estimates=False,
         visualize_cropped_keyframes=False,
         yaml_file=None,  # "./assets/language_variations/v0.yml",
         dr_factor=1,
@@ -217,7 +217,7 @@ class RobotDataset(RLBenchDataset):
             # Offset from STRETCH_GRASP_FRAME to predicted grasp point
             self._robot_ee_to_grasp_offset = 0
             self._robot_ee_to_grasp_offset = STRETCH_TO_GRASP.copy()
-            self._robot_max_grasp = 0.13  # STRETCH_GRIPPER_OPEN
+            self._robot_max_grasp = 0  # 0.13, empirically found
         else:
             raise ValueError("robot must be franka or stretch")
         self._robot = robot
@@ -226,7 +226,7 @@ class RobotDataset(RLBenchDataset):
         self.show_input_and_reference = show_raw_input_and_reference
         self.show_cropped = show_cropped
         self.use_first_frame_as_input = first_frame_as_input
-        self._visualize_interaction_pt = visualize_interaction_point
+        self._visualize_interaction_estimates = visualize_interaction_estimates
         self._visualize_cropped_keyframes = visualize_cropped_keyframes
 
         # setup segmentation pipeline
@@ -413,6 +413,59 @@ class RobotDataset(RLBenchDataset):
             time_step,
         )  # actual keypoint index in the episode
 
+    def show_cropped_keyframes(
+        self, crop_xyz, crop_rgb, crop_ee_keyframe, crop_ref_ee_keyframe
+    ):
+        print(
+            "Showing cropped PCD with original interaction-ee-position and current-ee-keyframe"
+        )
+        show_point_cloud_with_keypt_and_closest_pt(
+            crop_xyz,
+            crop_rgb,
+            crop_ee_keyframe[:3, 3],
+            crop_ee_keyframe[:3, :3],
+            crop_ref_ee_keyframe[:3, 3],
+        )
+        print(
+            "Showing cropped PCD with perturbed interaction-ee-position and current-ee-keyframe"
+        )
+        show_point_cloud_with_keypt_and_closest_pt(
+            crop_xyz,
+            crop_rgb,
+            crop_ee_keyframe[:3, 3],
+            crop_ee_keyframe[:3, :3],
+            np.array([0, 0, 0]),
+        )
+
+    def show_interaction_pt_and_keyframe(
+        self,
+        xyz2,
+        rgb2,
+        current_ee_keyframe,
+        closest_pt_down_pcd,
+        interaction_ee_keyframe,
+    ):
+        print(
+            "Showing current ee keyframe as the coordinate-frame and the interaction-point in PCD as yellow sphere"
+        )
+        show_point_cloud_with_keypt_and_closest_pt(
+            xyz2,
+            rgb2,
+            current_ee_keyframe[:3, 3],
+            current_ee_keyframe[:3, :3],
+            closest_pt_down_pcd,
+        )
+        print(
+            "Showing current ee keyframe as the coordinate-frame and the interaction-ee-position as yellow sphere"
+        )
+        show_point_cloud_with_keypt_and_closest_pt(
+            xyz2,
+            rgb2,
+            current_ee_keyframe[:3, 3],
+            current_ee_keyframe[:3, :3],
+            interaction_ee_keyframe[:3, 3],
+        )
+
     def get_datum(self, trial, keypoint_idx, verbose=False):
         """Get a single training example given the index."""
 
@@ -438,16 +491,8 @@ class RobotDataset(RLBenchDataset):
         if len(gripper_width_array.shape) == 1:
             num_samples = gripper_width_array.shape[0]
             gripper_width_array = gripper_width_array.reshape(num_samples, 1)
-        # min_gripper = 0.95 * self._robot_max_grasp  # 95% of max_width
-        min_gripper = 0
-        gripper_state = (gripper_width_array <= min_gripper).astype(int)
+        gripper_state = (gripper_width_array <= self._robot_max_grasp).astype(int)
         interaction_pt = -1
-        # hoping I won't need the following anymore
-        # TODO: verify and remove the following
-        # if "place" in cmd or "put" in cmd or "add" in cmd:
-        #     # TODO move to configs; or get better data
-        #     interaction_pt = keypoints[1]
-        # else:
         for i, other_keypoint in enumerate(keypoints):
             interaction_pt = other_keypoint
             if i == 0:
@@ -602,17 +647,14 @@ class RobotDataset(RLBenchDataset):
         )
         self._assert_positions_match_ee_keyframes(crop_ee_keyframe, positions)
 
-        if self._visualize_interaction_pt:
-            # print(
-            #     "Showing current ee keyframe as the coordinate-frame and the interaction-ee-position as yellow sphere"
-            # )
-            # show_point_cloud_with_keypt_and_closest_pt(
-            #     xyz2,
-            #     rgb2,
-            #     current_ee_keyframe[:3, 3],
-            #     current_ee_keyframe[:3, :3],
-            #     interaction_ee_keyframe[:3, 3],
-            # )
+        if self._visualize_interaction_estimates:
+            self.show_interaction_pt_and_keyframe(
+                xyz2,
+                rgb2,
+                current_ee_keyframe,
+                closest_pt_down_pcd,
+                interaction_ee_keyframe,
+            )
             print(
                 "Showing current ee keyframe as the coordinate-frame and the interaction-point in PCD as yellow sphere"
             )
@@ -623,27 +665,20 @@ class RobotDataset(RLBenchDataset):
                 current_ee_keyframe[:3, :3],
                 closest_pt_down_pcd,
             )
+            print(
+                "Showing current ee keyframe as the coordinate-frame and the interaction-ee-position as yellow sphere"
+            )
+            show_point_cloud_with_keypt_and_closest_pt(
+                xyz2,
+                rgb2,
+                current_ee_keyframe[:3, 3],
+                current_ee_keyframe[:3, :3],
+                interaction_ee_keyframe[:3, 3],
+            )
 
         if self._visualize_cropped_keyframes:
-            print(
-                "Showing cropped PCD with original interaction-ee-position and current-ee-keyframe"
-            )
-            show_point_cloud_with_keypt_and_closest_pt(
-                crop_xyz,
-                crop_rgb,
-                crop_ee_keyframe[:3, 3],
-                crop_ee_keyframe[:3, :3],
-                crop_ref_ee_keyframe[:3, 3],
-            )
-            print(
-                "Showing cropped PCD with perturbed interaction-ee-position and current-ee-keyframe"
-            )
-            show_point_cloud_with_keypt_and_closest_pt(
-                crop_xyz,
-                crop_rgb,
-                crop_ee_keyframe[:3, 3],
-                crop_ee_keyframe[:3, :3],
-                np.array([0, 0, 0]),
+            self.show_cropped_keyframe(
+                crop_xyz, crop_rgb, crop_ee_keyframe, crop_ref_ee_keyframe
             )
 
         datum = {
@@ -748,7 +783,7 @@ def show_all_keypoints(data_dir, split, template, robot):
         show_cropped=True,
         verbose=False,
         multi_step=False,
-        visualize_interaction_point=True,
+        visualize_interaction_estimates=True,
         visualize_cropped_keyframes=True,
         robot=robot,
     )
