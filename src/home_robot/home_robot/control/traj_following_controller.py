@@ -9,7 +9,7 @@ import numpy as np
 from omegaconf import DictConfig
 
 from home_robot.utils.config import get_control_config
-from home_robot.utils.geometry.nav import xyt_global_to_base
+from home_robot.utils.geometry import xyt_global_to_base
 
 DEFAULT_CFG_NAME = "traj_follower"
 
