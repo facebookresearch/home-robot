@@ -30,7 +30,7 @@ class HabitatOpenVocabManipEnv(HabitatEnv):
         self.max_depth = config.ENVIRONMENT.max_depth
         self.ground_truth_semantics = config.GROUND_TRUTH_SEMANTICS
         self._dataset = dataset
-        self.visualize = config.VISUALIZE
+        self.visualize = config.VISUALIZE or config.PRINT_IMAGES
         if self.visualize:
             self.visualizer = Visualizer(config, dataset)
         self.goal_type = config.habitat.task.goal_type
@@ -149,7 +149,11 @@ class HabitatOpenVocabManipEnv(HabitatEnv):
                 "start_recep_goal": start_recep_goal,
                 "end_recep_goal": end_recep_goal,
                 "goal_name": goal_name,
+                "object_embedding": habitat_obs["object_embedding"],
             },
+            joint=habitat_obs["joint"],
+            is_holding=habitat_obs["is_holding"],
+            relative_resting_position=habitat_obs["relative_resting_position"],
             third_person_image=third_person_image,
             camera_pose=self.convert_pose_to_real_world_axis(
                 np.asarray(habitat_obs["camera_pose"])
@@ -260,37 +264,60 @@ class HabitatOpenVocabManipEnv(HabitatEnv):
         return obj_goal_id, start_rec_goal_id, end_rec_goal_id, goal_name
 
     def _preprocess_action(
-        self, action: home_robot.core.interfaces.Action, habitat_obs
+        self, action: Union[home_robot.core.interfaces.Action, Dict], habitat_obs
     ) -> int:
         # convert planner output to continuous Habitat actions
-        grip_action = -1
-        if (
-            habitat_obs["is_holding"][0] == 1
-            and action != DiscreteNavigationAction.DESNAP_OBJECT
-        ) or action == DiscreteNavigationAction.SNAP_OBJECT:
-            grip_action = 1
+        if isinstance(action, dict):
+            grip_action = [-1]
+            if "grip_action" in action:
+                grip_action = action["grip_action"]
+            base_vel = [0, 0]
+            if "base_vel" in action:
+                base_vel = action["base_vel"]
+            arm_action = [0] * 7
+            if "arm_action" in action:
+                arm_action = action["arm_action"]
+            rearrange_stop = [-1]
+            if "rearrange_stop" in action:
+                rearrange_stop = action["rearrange_stop"]
+            cont_action = np.concatenate(
+                [arm_action, grip_action, base_vel, [-1, -1, rearrange_stop[0], -1]]
+            )
+        else:
+            grip_action = -1
+            if (
+                habitat_obs["is_holding"][0] == 1
+                and action != DiscreteNavigationAction.DESNAP_OBJECT
+            ) or action == DiscreteNavigationAction.SNAP_OBJECT:
+                grip_action = 1
 
-        turn = 0
-        if action == DiscreteNavigationAction.TURN_RIGHT:
-            turn = -1
-        elif action == DiscreteNavigationAction.TURN_LEFT:
-            turn = 1
+            waypoint = 0
+            if action == DiscreteNavigationAction.TURN_RIGHT:
+                waypoint = -1
+            elif action in [
+                DiscreteNavigationAction.TURN_LEFT,
+                DiscreteNavigationAction.MOVE_FORWARD,
+            ]:
+                waypoint = 1
 
-        forward = float(action == DiscreteNavigationAction.MOVE_FORWARD)
-        face_arm = float(action == DiscreteNavigationAction.FACE_ARM) * 2 - 1
-        stop = float(action == DiscreteNavigationAction.STOP) * 2 - 1
-        reset_joints = float(action == DiscreteNavigationAction.RESET_JOINTS) * 2 - 1
-        extend_arm = float(action == DiscreteNavigationAction.EXTEND_ARM) * 2 - 1
-        arm_actions = [0] * 7
-        cont_action = arm_actions + [
-            grip_action,
-            forward,
-            turn,
-            extend_arm,
-            face_arm,
-            stop,
-            reset_joints,
-        ]
+            face_arm = (
+                float(action == DiscreteNavigationAction.MANIPULATION_MODE) * 2 - 1
+            )
+            stop = float(action == DiscreteNavigationAction.STOP) * 2 - 1
+            reset_joints = (
+                float(action == DiscreteNavigationAction.NAVIGATION_MODE) * 2 - 1
+            )
+            extend_arm = float(action == DiscreteNavigationAction.EXTEND_ARM) * 2 - 1
+            arm_actions = [0] * 7
+            cont_action = arm_actions + [
+                grip_action,
+                waypoint,
+                (action == DiscreteNavigationAction.MOVE_FORWARD) * 2 - 1,
+                extend_arm,
+                face_arm,
+                stop,
+                reset_joints,
+            ]
         return np.array(cont_action, dtype=np.float32)
 
     def _process_info(self, info: Dict[str, Any]) -> Any:
