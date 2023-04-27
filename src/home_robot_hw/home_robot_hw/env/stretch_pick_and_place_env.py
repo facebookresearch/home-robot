@@ -1,3 +1,4 @@
+import os
 import pickle
 from typing import Any, Dict, Optional
 
@@ -98,9 +99,11 @@ class StretchPickandPlaceEnv(StretchEnv):
                 )
             self.grasp_planner = None
 
-        self.clip_embeddings = pickle.load(
-            open(config.AGENT.clip_embeddings_file, "rb")
-        )
+        self.clip_embeddings = None
+        if os.path.exists(config.AGENT.clip_embeddings_file):
+            self.clip_embeddings = pickle.load(
+                open(config.AGENT.clip_embeddings_file, "rb")
+            )
 
     def reset(self, goal_find: str, goal_obj: str, goal_place: str):
         """Reset the robot and prepare to run a trial. Make sure we have images and up to date state info."""
@@ -212,8 +215,11 @@ class StretchPickandPlaceEnv(StretchEnv):
             # Consistency - add ids for the first task
             "object_goal": goal_obj_id,
             "recep_goal": goal_find_id,
-            "object_embedding": self.clip_embeddings[goal_obj],
         }
+        if self.clip_embeddings is not None:
+            # TODO: generate on fly if not available
+            self.task_info["object_embedding"] = self.clip_embeddings[goal_obj]
+
         self.current_goal_id = self.goal_options.index(goal_obj)
         self.current_goal_name = goal
 
