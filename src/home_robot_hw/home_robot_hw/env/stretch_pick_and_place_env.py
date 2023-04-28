@@ -1,10 +1,17 @@
+import os
+import pickle
 from typing import Any, Dict, Optional
 
 import numpy as np
 import rospy
 
 import home_robot
-from home_robot.core.interfaces import Action, DiscreteNavigationAction, Observations
+from home_robot.core.interfaces import (
+    Action,
+    DiscreteNavigationAction,
+    HybridAction,
+    Observations,
+)
 from home_robot.motion.stretch import STRETCH_HOME_Q, STRETCH_PREGRASP_Q
 from home_robot.perception.detection.detic.detic_perception import DeticPerception
 from home_robot.utils.geometry import xyt2sophus
@@ -19,7 +26,8 @@ REAL_WORLD_CATEGORIES = [
     "cup",
     "table",
     "other",
-]
+]  # TODO: Remove hardcoded indices in the visualizer so we can add more objects
+
 
 DETIC = "detic"
 
@@ -29,6 +37,7 @@ class StretchPickandPlaceEnv(StretchEnv):
 
     def __init__(
         self,
+        goal_options=None,
         config=None,
         forward_step=0.25,
         rotate_step=30.0,
@@ -36,6 +45,7 @@ class StretchPickandPlaceEnv(StretchEnv):
         visualize_planner=False,
         ros_grasping=True,
         test_grasping=False,
+        dry_run=False,
         *args,
         **kwargs,
     ):
@@ -47,16 +57,22 @@ class StretchPickandPlaceEnv(StretchEnv):
         super().__init__(*args, **kwargs)
 
         # TODO: pass this in or load from cfg
-        self.goal_options = REAL_WORLD_CATEGORIES
+        if goal_options is None:
+            goal_options = REAL_WORLD_CATEGORIES
+        self.goal_options = goal_options
         self.forward_step = forward_step  # in meters
         self.rotate_step = np.radians(rotate_step)
         self.test_grasping = test_grasping
+        self.dry_run = dry_run
 
         self.robot = StretchClient(init_node=False)
 
         # Create a visualizer
         if config is not None:
             self.visualizer = Visualizer(config)
+            config.defrost()
+            config.AGENT.SEMANTIC_MAP.num_sem_categories = len(self.goal_options)
+            config.freeze()
         else:
             self.visualizer = None
 
@@ -83,6 +99,12 @@ class StretchPickandPlaceEnv(StretchEnv):
                 )
             self.grasp_planner = None
 
+        self.clip_embeddings = None
+        if os.path.exists(config.AGENT.clip_embeddings_file):
+            self.clip_embeddings = pickle.load(
+                open(config.AGENT.clip_embeddings_file, "rb")
+            )
+
     def reset(self, goal_find: str, goal_obj: str, goal_place: str):
         """Reset the robot and prepare to run a trial. Make sure we have images and up to date state info."""
         self.set_goal(goal_find, goal_obj, goal_place)
@@ -105,46 +127,61 @@ class StretchPickandPlaceEnv(StretchEnv):
             visualize=visualize_masks, dry_run=dry_run
         )
 
+    def get_robot(self):
+        """Return the robot interface."""
+        return self.robot
+
     def apply_action(self, action: Action, info: Optional[Dict[str, Any]] = None):
-        # TODO Determine what form the grasp action should take and move
-        #  grasping execution logic here
+        """Handle all sorts of different actions we might be inputting into this class. We provide both a discrete and a continuous action handler."""
+        action = HybridAction(action)
         if self.visualizer is not None and info is not None:
             self.visualizer.visualize(**info)
-        continuous_action = np.zeros(3)
-        if action == DiscreteNavigationAction.MOVE_FORWARD:
-            print("FORWARD")
-            continuous_action[0] = self.forward_step
-        elif action == DiscreteNavigationAction.TURN_RIGHT:
-            print("TURN RIGHT")
-            continuous_action[2] = -self.rotate_step
-        elif action == DiscreteNavigationAction.TURN_LEFT:
-            print("TURN LEFT")
-            continuous_action[2] = self.rotate_step
-        elif action == DiscreteNavigationAction.STOP:
-            print("DONE!")
-            # Do nothing if "stop"
-            # continuous_action = None
-            # if not self.robot.in_manipulation_mode():
-            #     self.robot.switch_to_manipulation_mode()
-            pass
-        elif action == DiscreteNavigationAction.MANIPULATION_MODE:
-            print("PICK UP THE TARGET OBJECT")
-            print(" - Robot in navigation mode:", self.in_navigation_mode())
-            continuous_action = None
-            if self.in_navigation_mode():
-                self.switch_to_navigation_mode()
-                rospy.sleep(self.msg_delay_t)
-            self.robot.nav.navigate_to([0, 0, np.pi / 2], relative=True, blocking=True)
-            self.grasp_planner.go_to_manip_mode()
-        elif action == DiscreteNavigationAction.PICK_OBJECT:
-            continuous_action = None
-            while not rospy.is_shutdown():
-                ok = self.grasp_planner.try_grasping()
-                if ok:
-                    break
-        else:
-            print("Action not implemented in pick-and-place environment:", action)
-            continuous_action = None
+        if action.is_discrete():
+            action = action.get()
+            continuous_action = np.zeros(3)
+            if action == DiscreteNavigationAction.MOVE_FORWARD:
+                print("FORWARD")
+                continuous_action[0] = self.forward_step
+            elif action == DiscreteNavigationAction.TURN_RIGHT:
+                print("TURN RIGHT")
+                continuous_action[2] = -self.rotate_step
+            elif action == DiscreteNavigationAction.TURN_LEFT:
+                print("TURN LEFT")
+                continuous_action[2] = self.rotate_step
+            elif action == DiscreteNavigationAction.STOP:
+                print("DONE!")
+                # Do nothing if "stop"
+                continuous_action = None
+                # if not self.robot.in_manipulation_mode():
+                #     self.robot.switch_to_manipulation_mode()
+                pass
+            elif action == DiscreteNavigationAction.MANIPULATION_MODE:
+                print("PICK UP THE TARGET OBJECT")
+                print(" - Robot in navigation mode:", self.in_navigation_mode())
+                continuous_action = None
+                if self.in_navigation_mode():
+                    self.switch_to_navigation_mode()
+                    rospy.sleep(self.msg_delay_t)
+                # Dummy out robot execution code for perception tests
+                if not self.dry_run:
+                    self.robot.nav.navigate_to(
+                        [0, 0, np.pi / 2], relative=True, blocking=True
+                    )
+                    self.grasp_planner.go_to_manip_mode()
+            elif action == DiscreteNavigationAction.PICK_OBJECT:
+                continuous_action = None
+                while not rospy.is_shutdown():
+                    if self.dry_run:
+                        # Dummy out robot execution code for perception tests\
+                        break
+                    ok = self.grasp_planner.try_grasping()
+                    if ok:
+                        break
+            else:
+                print("Action not implemented in pick-and-place environment:", action)
+                continuous_action = None
+        elif action.is_navigation():
+            continuous_action = action.get()
 
         # Move, if we are not doing anything with the arm
         if continuous_action is not None and not self.test_grasping:
@@ -152,12 +189,18 @@ class StretchPickandPlaceEnv(StretchEnv):
             if not self.robot.in_navigation_mode():
                 self.robot.switch_to_navigation_mode()
                 rospy.sleep(self.msg_delay_t)
-            self.robot.nav.navigate_to(continuous_action, relative=True, blocking=True)
+            if not self.dry_run:
+                self.robot.nav.navigate_to(
+                    continuous_action, relative=True, blocking=True
+                )
 
     def set_goal(self, goal_find: str, goal_obj: str, goal_place: str):
         """Set the goal class as a string. Goal should be an object class we want to pick up."""
         for goal in [goal_find, goal_obj, goal_place]:
-            assert goal in self.goal_options
+            if goal not in self.goal_options:
+                raise RuntimeError(
+                    f"Goal not supported: {goal} not in {str(self.goal_options)}"
+                )
         goal_obj_id = self.goal_options.index(goal_obj)
         goal_find_id = self.goal_options.index(goal_find)
         goal_place_id = self.goal_options.index(goal_place)
@@ -173,6 +216,10 @@ class StretchPickandPlaceEnv(StretchEnv):
             "object_goal": goal_obj_id,
             "recep_goal": goal_find_id,
         }
+        if self.clip_embeddings is not None:
+            # TODO: generate on fly if not available
+            self.task_info["object_embedding"] = self.clip_embeddings[goal_obj]
+
         self.current_goal_id = self.goal_options.index(goal_obj)
         self.current_goal_name = goal
 
@@ -208,13 +255,36 @@ class StretchPickandPlaceEnv(StretchEnv):
             # base_pose=sophus2obs(relative_pose),
             task_observations=self.task_info,
             camera_pose=self.get_camera_pose_matrix(rotated=True),
-            # joint_positions=pos,
+            # TODO: get these from the agent, remove if no policy uses these
+            joint=np.array(
+                [0.0, 0.0, 0.0, 0.0, 0.775, 0.0, -1.57, 0.0, -1.7375, -0.7125]
+            ),
+            relative_resting_position=np.array([0.3878479, 0.12924957, 0.4224413]),
+            is_holding=np.array([0.0]),
         )
         # Run the segmentation model here
         if self.segmentation_method == DETIC:
             obs = self.segmentation.predict(obs)
+
+            # Make sure we only have one "other" - for ??? some reason
             obs.semantic[obs.semantic == 0] = len(self.goal_options) - 1
-            obs.task_observations["goal_mask"] = obs.semantic == self.current_goal_id
+
+            # Choose instance mask with highest score for goal mask
+            instance_scores = obs.task_observations["instance_scores"].copy()
+            class_mask = (
+                obs.task_observations["instance_classes"] == self.current_goal_id
+            )
+
+            if len(instance_scores):
+                chosen_instance_idx = np.argmax(instance_scores * class_mask)
+                obs.task_observations["goal_mask"] = (
+                    obs.task_observations["instance_map"] == chosen_instance_idx
+                )
+            else:
+                obs.task_observations["goal_mask"] = np.zeros_like(obs.semantic).astype(
+                    bool
+                )
+
         return obs
 
     @property

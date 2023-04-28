@@ -1,0 +1,20 @@
+scikit-learn
+scikit-image
+scikit-fmm
+
+# Detectron2
+git+https://github.com/facebookresearch/detectron2.git
+
+# Detic deps
+click
+opencv-python
+mss
+timm
+dataclasses
+ftfy
+regex
+fasttext
+scikit-learn
+lvis
+nltk
+git+https://github.com/openai/CLIP.git

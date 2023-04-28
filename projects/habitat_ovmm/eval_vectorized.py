@@ -9,7 +9,6 @@ from pathlib import Path
 import cv2
 import numpy as np
 import skimage.morphology
-import torch
 from config_utils import get_config
 from omegaconf import DictConfig, OmegaConf
 
@@ -50,8 +49,21 @@ class VectorizedEvaluator(PPOTrainer):
     """Class for creating vectorized environments, evaluating OpenVocabManipAgent on an episode dataset and returning metrics"""
 
     def __init__(self, config, config_str: str):
+        self.visualize = config.VISUALIZE or config.PRINT_IMAGES
+
+        if not self.visualize:
+            # TODO: not seeing any speed improvements when removing these sensors
+            config.habitat.gym.obs_keys.remove("robot_third_rgb")
+            config.habitat.simulator.agents.main_agent.sim_sensors.pop(
+                "third_rgb_sensor", None
+            )
+
+        OmegaConf.set_readonly(config, True)
+
         self.config = config
-        self.results_dir = self.config.habitat_baselines.eval_ckpt_path_dir
+        self.results_dir = os.path.join(
+            self.config.DUMP_LOCATION, "results", self.config.EXP_NAME
+        )
         self.videos_dir = self.config.habitat_baselines.video_dir
         os.makedirs(self.results_dir, exist_ok=True)
         os.makedirs(self.videos_dir, exist_ok=True)
@@ -64,7 +76,7 @@ class VectorizedEvaluator(PPOTrainer):
         agent = OpenVocabManipAgent(
             config=self.config,
             obs_spaces=self.envs.observation_spaces,
-            action_spaces=self.envs.action_spaces,
+            action_spaces=self.envs.orig_action_spaces,
         )
         self._eval(
             agent,
@@ -130,16 +142,12 @@ class VectorizedEvaluator(PPOTrainer):
         done_episode_keys = set()
 
         obs = envs.call(["reset"] * envs.num_envs)
-        # TODO: cleanup
-        hab_obs = [None] * envs.num_envs
 
         agent.reset_vectorized()
         while not stop():
             current_episodes_info = self.envs.current_episodes()
             # TODO: Currently agent can work with only 1 env, Parallelize act across envs
-            actions, infos = zip(
-                *[agent.act(hab_ob, ob) for hab_ob, ob in zip(hab_obs, obs)]
-            )
+            actions, infos = zip(*[agent.act(ob) for ob in obs])
 
             outputs = envs.call(
                 ["apply_action"] * envs.num_envs,
@@ -147,8 +155,6 @@ class VectorizedEvaluator(PPOTrainer):
             )
 
             obs, dones, hab_infos = [list(x) for x in zip(*outputs)]
-            # TODO: cleanup
-            hab_obs = [None] * envs.num_envs
             for e, (done, info, hab_info) in enumerate(zip(dones, infos, hab_infos)):
                 if done:
                     fr = info["frontier_map"]
@@ -270,7 +276,6 @@ if __name__ == "__main__":
 
     print("Configs:")
     config, config_str = get_config(args.habitat_config_path, opts=args.opts)
-    OmegaConf.set_readonly(config, True)
     baseline_config = OmegaConf.load(args.baseline_config_path)
     config = DictConfig({**config, **baseline_config})
     evaluator = VectorizedEvaluator(config, config_str)

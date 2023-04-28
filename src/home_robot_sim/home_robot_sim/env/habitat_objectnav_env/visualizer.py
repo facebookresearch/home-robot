@@ -162,6 +162,10 @@ class Visualizer:
         self.image_vis = None
         self.visited_map_vis = None
         self.last_xy = None
+        self.font = cv2.FONT_HERSHEY_SIMPLEX
+        self.font_scale = 1
+        self.text_color = (20, 20, 20)  # BGR
+        self.text_thickness = 2
 
     def reset(self):
         self.vis_dir = self.default_vis_dir
@@ -205,20 +209,21 @@ class Visualizer:
 
     def visualize(
         self,
-        obstacle_map: np.ndarray,
-        goal_map: np.ndarray,
-        closest_goal_map: Optional[np.ndarray],
-        sensor_pose: np.ndarray,
-        found_goal: bool,
-        explored_map: np.ndarray,
-        semantic_map: np.ndarray,
-        been_close_map: np.ndarray,
-        semantic_frame: np.ndarray,
-        frontier_map: np.ndarray,
-        goal_name: str,
         timestep: int,
+        semantic_frame: np.ndarray,
+        obstacle_map: np.ndarray = None,
+        goal_map: np.ndarray = None,
+        closest_goal_map: Optional[np.ndarray] = None,
+        sensor_pose: np.ndarray = None,
+        found_goal: bool = None,
+        explored_map: np.ndarray = None,
+        semantic_map: np.ndarray = None,
+        been_close_map: np.ndarray = None,
+        frontier_map: np.ndarray = None,
+        goal_name: str = None,
         visualize_goal: bool = True,
-        third_person_image=None,
+        third_person_image: np.ndarray = None,
+        curr_skill: str = None,
     ):
         """Visualize frame input and semantic map.
 
@@ -236,6 +241,7 @@ class Visualizer:
             goal_name: semantic goal category
             timestep: time step within the episode
             visualize_goal: if True, visualize goal
+            curr_skill: the skill currently being executed
         """
         # Do nothing if visualization is off
         if not self.show_images and not self.print_images:
@@ -245,76 +251,107 @@ class Visualizer:
         if self.image_vis is None:
             self.image_vis = self._init_vis_image(goal_name)
 
-        curr_x, curr_y, curr_o, gy1, gy2, gx1, gx2 = sensor_pose
-        gy1, gy2, gx1, gx2 = int(gy1), int(gy2), int(gx1), int(gx2)
+        image_vis = self.image_vis.copy()
 
-        # Update visited map with last visited area
-        if self.last_xy is not None:
-            last_x, last_y = self.last_xy
-            last_pose = [
-                int(last_y * 100.0 / self.map_resolution - gy1),
-                int(last_x * 100.0 / self.map_resolution - gx1),
-            ]
-            last_pose = pu.threshold_poses(last_pose, obstacle_map.shape)
-            curr_pose = [
-                int(curr_y * 100.0 / self.map_resolution - gy1),
-                int(curr_x * 100.0 / self.map_resolution - gx1),
-            ]
-            curr_pose = pu.threshold_poses(curr_pose, obstacle_map.shape)
-            self.visited_map_vis[gy1:gy2, gx1:gx2] = vu.draw_line(
-                last_pose, curr_pose, self.visited_map_vis[gy1:gy2, gx1:gx2]
+        # if curr_skill is not None, place the skill name below the third person image
+        if curr_skill is not None:
+            image_vis = self._put_text_on_image(
+                image_vis,
+                curr_skill,
+                V.THIRD_PERSON_X1,
+                V.Y2,
+                V.THIRD_PERSON_W,
+                V.BOTTOM_PADDING,
             )
-        self.last_xy = (curr_x, curr_y)
 
-        semantic_map += PI.SEM_START
+        if obstacle_map is not None:
+            curr_x, curr_y, curr_o, gy1, gy2, gx1, gx2 = sensor_pose
+            gy1, gy2, gx1, gx2 = int(gy1), int(gy2), int(gx1), int(gx2)
 
-        # Obstacles, explored, and visited areas
-        no_category_mask = (
-            semantic_map == PI.SEM_START + self.num_sem_categories - 1
-        )  # Assumes the last category is "other"
-        obstacle_mask = np.rint(obstacle_map) == 1
-        explored_mask = np.rint(explored_map) == 1
-        visited_mask = self.visited_map_vis[gy1:gy2, gx1:gx2] == 1
-        semantic_map[no_category_mask] = PI.EMPTY_SPACE
-        semantic_map[np.logical_and(no_category_mask, explored_mask)] = PI.EXPLORED
-        semantic_map[np.logical_and(no_category_mask, obstacle_mask)] = PI.OBSTACLES
-        semantic_map[visited_mask] = PI.VISITED
-
-        # Goal
-        if visualize_goal:
-            selem = skimage.morphology.disk(4)
-            goal_mat = 1 - skimage.morphology.binary_dilation(goal_map, selem) != 1
-            goal_mask = goal_mat == 1
-            semantic_map[goal_mask] = PI.REST_OF_GOAL
-            if closest_goal_map is not None:
-                closest_goal_mat = (
-                    1 - skimage.morphology.binary_dilation(closest_goal_map, selem) != 1
+            # Update visited map with last visited area
+            if self.last_xy is not None:
+                last_x, last_y = self.last_xy
+                last_pose = [
+                    int(last_y * 100.0 / self.map_resolution - gy1),
+                    int(last_x * 100.0 / self.map_resolution - gx1),
+                ]
+                last_pose = pu.threshold_poses(last_pose, obstacle_map.shape)
+                curr_pose = [
+                    int(curr_y * 100.0 / self.map_resolution - gy1),
+                    int(curr_x * 100.0 / self.map_resolution - gx1),
+                ]
+                curr_pose = pu.threshold_poses(curr_pose, obstacle_map.shape)
+                self.visited_map_vis[gy1:gy2, gx1:gx2] = vu.draw_line(
+                    last_pose, curr_pose, self.visited_map_vis[gy1:gy2, gx1:gx2]
                 )
-                closest_goal_mask = closest_goal_mat == 1
-                semantic_map[closest_goal_mask] = PI.CLOSEST_GOAL
+            self.last_xy = (curr_x, curr_y)
 
-        # Semantic categories
-        semantic_map_vis = self.get_semantic_vis(semantic_map)
-        semantic_map_vis = np.flipud(semantic_map_vis)
+            semantic_map += PI.SEM_START
 
-        # overlay the regions the agent has been close to
-        been_close_map = np.flipud(np.rint(been_close_map) == 1)
-        color_index = PI.BEEN_CLOSE * 3
-        color = self.semantic_category_mapping.map_color_palette[
-            color_index : color_index + 3
-        ][::-1]
-        semantic_map_vis[been_close_map] = (
-            semantic_map_vis[been_close_map] + color
-        ) / 2
+            # Obstacles, explored, and visited areas
+            no_category_mask = (
+                semantic_map == PI.SEM_START + self.num_sem_categories - 1
+            )  # Assumes the last category is "other"
+            obstacle_mask = np.rint(obstacle_map) == 1
+            explored_mask = np.rint(explored_map) == 1
+            visited_mask = self.visited_map_vis[gy1:gy2, gx1:gx2] == 1
+            semantic_map[no_category_mask] = PI.EMPTY_SPACE
+            semantic_map[np.logical_and(no_category_mask, explored_mask)] = PI.EXPLORED
+            semantic_map[np.logical_and(no_category_mask, obstacle_mask)] = PI.OBSTACLES
+            semantic_map[visited_mask] = PI.VISITED
 
-        semantic_map_vis = cv2.resize(
-            semantic_map_vis, (V.TOP_DOWN_W, V.HEIGHT), interpolation=cv2.INTER_NEAREST
-        )
-        self.image_vis[V.Y1 : V.Y2, V.TOP_DOWN_X1 : V.TOP_DOWN_X2] = semantic_map_vis
+            # Goal
+            if visualize_goal:
+                selem = skimage.morphology.disk(4)
+                goal_mat = 1 - skimage.morphology.binary_dilation(goal_map, selem) != 1
+                goal_mask = goal_mat == 1
+                semantic_map[goal_mask] = PI.REST_OF_GOAL
+                if closest_goal_map is not None:
+                    closest_goal_mat = (
+                        1 - skimage.morphology.binary_dilation(closest_goal_map, selem)
+                        != 1
+                    )
+                    closest_goal_mask = closest_goal_mat == 1
+                    semantic_map[closest_goal_mask] = PI.CLOSEST_GOAL
+
+            # Semantic categories
+            semantic_map_vis = self.get_semantic_vis(semantic_map)
+            semantic_map_vis = np.flipud(semantic_map_vis)
+
+            # overlay the regions the agent has been close to
+            been_close_map = np.flipud(np.rint(been_close_map) == 1)
+            color_index = PI.BEEN_CLOSE * 3
+            color = self.semantic_category_mapping.map_color_palette[
+                color_index : color_index + 3
+            ][::-1]
+            semantic_map_vis[been_close_map] = (
+                semantic_map_vis[been_close_map] + color
+            ) / 2
+
+            semantic_map_vis = cv2.resize(
+                semantic_map_vis,
+                (V.TOP_DOWN_W, V.HEIGHT),
+                interpolation=cv2.INTER_NEAREST,
+            )
+            image_vis[V.Y1 : V.Y2, V.TOP_DOWN_X1 : V.TOP_DOWN_X2] = semantic_map_vis
+
+            # Agent arrow
+            pos = (
+                (curr_x * 100.0 / self.map_resolution - gx1)
+                * 480
+                / obstacle_map.shape[0],
+                (obstacle_map.shape[1] - curr_y * 100.0 / self.map_resolution + gy1)
+                * 480
+                / obstacle_map.shape[1],
+                np.deg2rad(-curr_o),
+            )
+            agent_arrow = vu.get_contour_points(pos, origin=(V.TOP_DOWN_X1, V.Y1))
+            color = self.semantic_category_mapping.map_color_palette[9:12][::-1]
+            cv2.drawContours(image_vis, [agent_arrow], 0, color, -1)
 
         # First-person RGB frame
         rgb_frame = semantic_frame[:, :, [2, 1, 0]]
-        self.image_vis[V.Y1 : V.Y2, V.FIRST_RGB_X1 : V.FIRST_RGB_X2] = cv2.resize(
+        image_vis[V.Y1 : V.Y2, V.FIRST_RGB_X1 : V.FIRST_RGB_X2] = cv2.resize(
             rgb_frame, (V.FIRST_PERSON_W, V.HEIGHT)
         )
         # Semantic categories
@@ -322,94 +359,73 @@ class Visualizer:
             semantic_frame[:, :, 3] + PI.SEM_START, rgb_frame
         )
         # First-person semantic frame
-        self.image_vis[V.Y1 : V.Y2, V.FIRST_SEM_X1 : V.FIRST_SEM_X2] = cv2.resize(
+        image_vis[V.Y1 : V.Y2, V.FIRST_SEM_X1 : V.FIRST_SEM_X2] = cv2.resize(
             first_person_semantic_map_vis,
             (V.FIRST_PERSON_W, V.HEIGHT),
             interpolation=cv2.INTER_NEAREST,
         )
 
         if third_person_image is not None:
-            self.image_vis[
-                V.Y1 : V.Y2, V.THIRD_PERSON_X1 : V.THIRD_PERSON_X2
-            ] = cv2.resize(
+            image_vis[V.Y1 : V.Y2, V.THIRD_PERSON_X1 : V.THIRD_PERSON_X2] = cv2.resize(
                 third_person_image[:, :, [2, 1, 0]],
                 (V.THIRD_PERSON_W, V.HEIGHT),
             )
 
-        # Agent arrow
-        pos = (
-            (curr_x * 100.0 / self.map_resolution - gx1) * 480 / obstacle_map.shape[0],
-            (obstacle_map.shape[1] - curr_y * 100.0 / self.map_resolution + gy1)
-            * 480
-            / obstacle_map.shape[1],
-            np.deg2rad(-curr_o),
-        )
-        agent_arrow = vu.get_contour_points(pos, origin=(V.TOP_DOWN_X1, V.Y1))
-        color = self.semantic_category_mapping.map_color_palette[9:12][::-1]
-        cv2.drawContours(self.image_vis, [agent_arrow], 0, color, -1)
-
         if self.show_images:
-            cv2.imshow("Visualization", self.image_vis)
+            cv2.imshow("Visualization", image_vis)
             cv2.waitKey(1)
 
         if self.print_images:
             cv2.imwrite(
                 os.path.join(self.vis_dir, "snapshot_{:03d}.png".format(timestep)),
-                self.image_vis,
+                image_vis,
             )
+
+    def _put_text_on_image(
+        self,
+        vis_image,
+        text: str,
+        bbox_x_start: int,
+        bbox_y_start: int,
+        bbox_x_len: int,
+        bbox_y_len: int,
+    ):
+        """
+        Place text at the center of the given bounding box.
+        """
+        textsize = cv2.getTextSize(
+            text, self.font, self.font_scale, self.text_thickness
+        )[0]
+        # The x coordinate at which the left edge of text needs to be placed
+        textX = (bbox_x_len - textsize[0]) // 2 + bbox_x_start
+        # The height at which base needs to be placed
+        textY = (bbox_y_len + textsize[1]) // 2 + bbox_y_start
+        return cv2.putText(
+            vis_image,
+            text,
+            (textX, textY),
+            self.font,
+            self.font_scale,
+            self.text_color,
+            self.text_thickness,
+            cv2.LINE_AA,
+        )
 
     def _init_vis_image(self, goal_name: str):
         vis_image = np.ones((V.IMAGE_HEIGHT, V.IMAGE_WIDTH, 3)).astype(np.uint8) * 255
-        font = cv2.FONT_HERSHEY_SIMPLEX
-        fontScale = 1
-        color = (20, 20, 20)  # BGR
-        thickness = 2
 
-        text = goal_name
-        textsize = cv2.getTextSize(text, font, fontScale, thickness)[0]
-        textX = (
-            2 * V.FIRST_PERSON_W + V.LEFT_PADDING - textsize[0]
-        ) // 2 + V.LEFT_PADDING
-        textY = (V.TOP_PADDING + textsize[1]) // 2
-        vis_image = cv2.putText(
-            vis_image,
-            text,
-            (textX, textY),
-            font,
-            fontScale,
-            color,
-            thickness,
-            cv2.LINE_AA,
+        vis_image = self._put_text_on_image(
+            vis_image, goal_name, V.LEFT_PADDING, 0, 2 * V.FIRST_PERSON_W, V.TOP_PADDING
         )
 
         text = "Predicted Semantic Map"
-        textsize = cv2.getTextSize(text, font, fontScale, thickness)[0]
-        textX = (V.TOP_DOWN_W - textsize[0]) // 2 + V.TOP_DOWN_X1
-        textY = (V.TOP_PADDING + textsize[1]) // 2
-        vis_image = cv2.putText(
-            vis_image,
-            text,
-            (textX, textY),
-            font,
-            fontScale,
-            color,
-            thickness,
-            cv2.LINE_AA,
+        vis_image = self._put_text_on_image(
+            vis_image, text, V.TOP_DOWN_X1, 0, V.TOP_DOWN_W, V.TOP_PADDING
         )
 
         text = "Third person image"
-        textsize = cv2.getTextSize(text, font, fontScale, thickness)[0]
-        textX = V.THIRD_PERSON_X1 + (V.THIRD_PERSON_W - textsize[0]) // 2
-        textY = (V.TOP_PADDING + textsize[1]) // 2
-        vis_image = cv2.putText(
-            vis_image,
-            text,
-            (textX, textY),
-            font,
-            fontScale,
-            color,
-            thickness,
-            cv2.LINE_AA,
+        vis_image = self._put_text_on_image(
+            vis_image, text, V.THIRD_PERSON_X1, 0, V.THIRD_PERSON_W, V.TOP_PADDING
         )
 
         # Draw outlines

@@ -5,9 +5,10 @@ EXP_NAME: ovmm_0417/teleport_old_obs_dilation_5_reduced_steps_10_10       # expe
 VISUALIZE: 0              # 1: render observation and predicted semantic map, 0: no visualization
 PRINT_IMAGES: 1           # 1: save visualization as images, 0: no image saving
 GROUND_TRUTH_SEMANTICS: 1 # 1: use ground-truth semantics (for debugging / ablations)
+seed: 0                   # seed
 
 ENVIRONMENT:
-  turn_angle: 5.0        # agent turn angle (in degrees)
+  turn_angle: 10.0        # agent turn angle (in degrees)
   frame_height: 640       # first-person frame height (in pixels)
   frame_width: 480        # first-person frame width (in pixels)
   camera_height: 1.25     # camera sensor height (in metres)
@@ -37,13 +38,48 @@ AGENT:
     must_explore_close: False
     min_obs_height_cm: 10    # minimum height (in centimeters) of obstacle
 
+  SKILLS:
+    PICK:
+      type: oracle #gaze #end_to_end #modular #hardcoded
+      checkpoint_path: data/checkpoints/ovmm/gaze.pth
+      rl_config: projects/habitat_ovmm/configs/agent/gaze_rl.yaml # with continuous actions
+      gym_obs_keys:
+        - robot_head_depth
+        - object_embedding
+        - object_segmentation
+        - joint
+        - is_holding
+        - relative_resting_position
+      allowed_actions:
+        - arm_action
+        - base_velocity
+      arm_joint_mask: [0, 0, 0, 0, 0, 0, 1] # the arm joints that the policy can control
+
+    NAV_TO_OBJ:
+      type: modular
+
+    NAV_TO_REC:
+      type: modular
+
+    PLACE:
+      type: hardcoded
+
+  skip_nav_to_obj: False
+  skip_nav_to_rec: False
+  skip_pick: False
+  skip_place: False
+  skip_orient_obj: False
+
   PLANNER:
     collision_threshold: 0.20       # forward move distance under which we consider there's a collision (in meters)
     obs_dilation_selem_radius: 5    # radius (in cells) of obstacle dilation structuring element
     goal_dilation_selem_radius: 10  # radius (in cells) of goal dilation structuring element
     step_size: 5                    # maximum distance of the short-term goal selected by the planner
-    use_dilation_for_stg: True
+    use_dilation_for_stg: False
     min_obs_dilation_selem_radius: 1    # radius (in cells) of obstacle dilation structuring element
+    map_downsample_factor: 1            # optional downsampling of traversible and goal map before fmm distance call (1 for no downsampling, 2 for halving resolution)
+    map_update_frequency: 1             # compute fmm distance map every n steps 
+    discrete_actions: True         # discrete motion planner output space or not
 
 EVAL_VECTORIZED:
   simulator_gpu_ids: [1, 2, 3, 4, 5, 6, 7] # IDs of GPUs to use for vectorized environments
