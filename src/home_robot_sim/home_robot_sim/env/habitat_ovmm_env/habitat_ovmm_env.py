@@ -332,6 +332,7 @@ class HabitatOpenVocabManipEnv(HabitatEnv):
         info: Optional[Dict[str, Any]] = None,
     ):
         if info is not None:
+            info["curr_action"] = DiscreteNavigationAction(action).name
             self._process_info(info)
         habitat_action = self._preprocess_action(action, self._last_habitat_obs)
         habitat_obs, _, dones, infos = self.habitat_env.step(habitat_action)

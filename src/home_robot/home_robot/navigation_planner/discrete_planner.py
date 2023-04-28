@@ -378,7 +378,8 @@ class DiscretePlanner:
                 print("!!! DONE !!!")
 
         self.last_action = action
-        return action, closest_goal_map
+        print(f"!!!!Action: {action} !!!!!!")
+        return action, closest_goal_map, short_term_goal, dilated_obstacles
 
     def _get_short_term_goal(
         self,
