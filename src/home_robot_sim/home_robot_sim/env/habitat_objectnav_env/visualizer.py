@@ -224,6 +224,9 @@ class Visualizer:
         visualize_goal: bool = True,
         third_person_image: np.ndarray = None,
         curr_skill: str = None,
+        curr_action: str = None,
+        short_term_goal: np.ndarray = None,
+        dilated_obstacle_map: np.ndarray = None,
     ):
         """Visualize frame input and semantic map.
 
@@ -257,12 +260,15 @@ class Visualizer:
         if curr_skill is not None:
             image_vis = self._put_text_on_image(
                 image_vis,
-                curr_skill,
+                curr_skill + "\n" + curr_action,
                 V.THIRD_PERSON_X1,
                 V.Y2,
                 V.THIRD_PERSON_W,
                 V.BOTTOM_PADDING,
             )
+
+        if dilated_obstacle_map is not None:
+            obstacle_map = dilated_obstacle_map
 
         if obstacle_map is not None:
             curr_x, curr_y, curr_o, gy1, gy2, gx1, gx2 = sensor_pose
@@ -302,7 +308,7 @@ class Visualizer:
 
             # Goal
             if visualize_goal:
-                selem = skimage.morphology.disk(4)
+                selem = skimage.morphology.disk(3)
                 goal_mat = 1 - skimage.morphology.binary_dilation(goal_map, selem) != 1
                 goal_mask = goal_mat == 1
                 semantic_map[goal_mask] = PI.REST_OF_GOAL
@@ -313,21 +319,34 @@ class Visualizer:
                     )
                     closest_goal_mask = closest_goal_mat == 1
                     semantic_map[closest_goal_mask] = PI.CLOSEST_GOAL
+                if short_term_goal is not None:
+                    short_term_goal_mask = np.zeros(goal_mask.shape)
+                    short_term_goal_mask[short_term_goal[0], short_term_goal[1]] = 1
+                    short_term_goal_mask = (
+                        1
+                        - skimage.morphology.binary_dilation(
+                            short_term_goal_mask, selem
+                        )
+                        != 1
+                    )
+                    short_term_goal_mask = short_term_goal_mask == 1
+                    semantic_map[short_term_goal_mask] = PI.SHORT_TERM_GOAL
 
             # Semantic categories
             semantic_map_vis = self.get_semantic_vis(semantic_map)
             semantic_map_vis = np.flipud(semantic_map_vis)
 
-            # overlay the regions the agent has been close to
-            been_close_map = np.flipud(np.rint(been_close_map) == 1)
-            color_index = PI.BEEN_CLOSE * 3
-            color = self.semantic_category_mapping.map_color_palette[
-                color_index : color_index + 3
-            ][::-1]
-            semantic_map_vis[been_close_map] = (
-                semantic_map_vis[been_close_map] + color
-            ) / 2
-
+            # # overlay the regions the agent has been close to
+            # been_close_map = np.flipud(np.rint(been_close_map) == 1)
+            # color_index = PI.BEEN_CLOSE * 3
+            # color = self.semantic_category_mapping.map_color_palette[
+            #     color_index : color_index + 3
+            # ][::-1]
+            # semantic_map_vis[been_close_map] = (
+            #     semantic_map_vis[been_close_map] + color
+            # ) / 2
+            # if short_term_goal is not None:
+            #     breakpoint()
             semantic_map_vis = cv2.resize(
                 semantic_map_vis,
                 (V.TOP_DOWN_W, V.HEIGHT),
@@ -336,18 +355,18 @@ class Visualizer:
             image_vis[V.Y1 : V.Y2, V.TOP_DOWN_X1 : V.TOP_DOWN_X2] = semantic_map_vis
 
             # Agent arrow
-            pos = (
-                (curr_x * 100.0 / self.map_resolution - gx1)
-                * 480
-                / obstacle_map.shape[0],
-                (obstacle_map.shape[1] - curr_y * 100.0 / self.map_resolution + gy1)
-                * 480
-                / obstacle_map.shape[1],
-                np.deg2rad(-curr_o),
-            )
-            agent_arrow = vu.get_contour_points(pos, origin=(V.TOP_DOWN_X1, V.Y1))
-            color = self.semantic_category_mapping.map_color_palette[9:12][::-1]
-            cv2.drawContours(image_vis, [agent_arrow], 0, color, -1)
+            # pos = (
+            #     (curr_x * 100.0 / self.map_resolution - gx1)
+            #     * 480
+            #     / obstacle_map.shape[0],
+            #     (obstacle_map.shape[1] - curr_y * 100.0 / self.map_resolution + gy1)
+            #     * 480
+            #     / obstacle_map.shape[1],
+            #     np.deg2rad(-curr_o),
+            # )
+            # agent_arrow = vu.get_contour_points(pos, origin=(V.TOP_DOWN_X1, V.Y1))
+            # color = self.semantic_category_mapping.map_color_palette[9:12][::-1]
+            # cv2.drawContours(image_vis, [agent_arrow], 0, color, -1)
 
         # First-person RGB frame
         rgb_frame = semantic_frame[:, :, [2, 1, 0]]
