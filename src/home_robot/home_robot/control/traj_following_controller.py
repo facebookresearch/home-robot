@@ -3,7 +3,7 @@
 # This source code is licensed under the MIT license found in the
 # LICENSE file in the root directory of this source tree.
 import threading
-from typing import Optional
+from typing import Callable, Optional, Tuple
 
 import numpy as np
 from omegaconf import DictConfig
@@ -35,14 +35,16 @@ class TrajFollower:
         self.e_int = np.zeros(3)
         self._t_prev = 0
 
-    def update_trajectory(self, traj):
+    def update_trajectory(
+        self, traj: Callable[[float], Tuple[np.ndarray, np.ndarray, bool]]
+    ):
         with self._traj_update_lock:
             self.traj_buffer = traj
 
-    def is_done(self):
+    def is_done(self) -> bool:
         return self._is_done
 
-    def forward(self, xyt, t):
+    def forward(self, xyt: np.ndarray, t: float) -> Tuple[float, float]:
         """Returns velocity control command (v, w)"""
         # Check for trajectory updates
         if self.traj_buffer is not None:
@@ -67,7 +69,9 @@ class TrajFollower:
 
         return v, w
 
-    def _feedback_controller(self, xyt_des, dxyt_des, xyt_curr, dt):
+    def _feedback_controller(
+        self, xyt_des: np.ndarray, dxyt_des: np.ndarray, xyt_curr: np.ndarray, dt: float
+    ) -> Tuple[float, float]:
         # Compute reference input
         u_ref = np.array([np.linalg.norm(dxyt_des[:2]), dxyt_des[2]])
 
