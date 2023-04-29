@@ -4,6 +4,7 @@
 # LICENSE file in the root directory of this source tree.
 from typing import Tuple
 
+import kornia
 import numpy as np
 import pytorch3d.transforms as pt
 import skimage.morphology
@@ -288,6 +289,9 @@ class GeometricMapModule(nn.Module):
         # Filter depth values
         depth[depth > self.max_depth] = 0
         depth[depth <= self.min_depth] = 0
+        # Apply median filtering
+        depth = kornia.filters.median_blur(depth.unsqueeze(1), (5, 5)).squeeze(1)
+        depth = kornia.filters.median_blur(depth.unsqueeze(1), (5, 5)).squeeze(1)
 
         point_cloud_t = du.get_point_cloud_from_z_t(
             depth, self.camera_matrix, device, scale=self.du_scale
@@ -389,8 +393,30 @@ class GeometricMapModule(nn.Module):
 
         fp_map_pred = agent_height_proj[:, 0:1, :, :]
         fp_exp_pred = all_height_proj[:, 0:1, :, :]
-        fp_map_pred = fp_map_pred / self.map_pred_threshold
-        fp_exp_pred = fp_exp_pred / self.exp_pred_threshold
+        fp_map_pred = (
+            (fp_map_pred / self.map_pred_threshold) >= 1.0
+        ).float()  # (B, 1, H, W)
+        fp_exp_pred = (
+            (fp_exp_pred / self.exp_pred_threshold) >= 1.0
+        ).float()  # (B, 1, H, W)
+        ########################################################
+        # Clean errors in map
+        ########################################################
+        kernel = torch.ones(3, 3)
+        fp_obs = fp_map_pred[:, 0:1]  # (bs, 1, H, W)
+        fp_exp = fp_exp_pred[:, 0:1]  # (bs, 1, H, W)
+        for _ in range(1):
+            fp_obs = kornia.morphology.opening(fp_obs, kernel)
+            fp_exp = kornia.morphology.closing(fp_exp, kernel)
+        # Use original values for nearby cells
+        ## Map convention: agent is a the top-center of the map looking downward
+        acc_depth_radius = 100
+        acc_depth_cells = int(acc_depth_radius / self.resolution)
+        fp_obs[:, :, 0:acc_depth_cells, :] = fp_map_pred[:, 0:1, 0:acc_depth_cells, :]
+        fp_exp[:, :, 0:acc_depth_cells, :] = fp_exp_pred[:, 0:1, 0:acc_depth_cells, :]
+        # Copy filtered maps back to source
+        fp_map_pred[:, 0:1] = fp_obs
+        fp_exp_pred[:, 0:1] = fp_exp
 
         agent_view = torch.zeros(
             batch_size,

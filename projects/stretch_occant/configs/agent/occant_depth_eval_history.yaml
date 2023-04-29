@@ -16,7 +16,7 @@ ENVIRONMENT:
   camera_height: 1.31     # camera sensor height (in metres)
   hfov: 42.0              # horizontal field of view (in degrees)
   min_depth: 0.0          # minimum depth for depth sensor (in metres)
-  max_depth: 10.0          # maximum depth for depth sensor (in metres)
+  max_depth: 3.0          # maximum depth for depth sensor (in metres)
   max_steps: 500          # maximum number of steps before stopping an episode
   use_human_actions: False # use actions from human agent
 
@@ -31,7 +31,7 @@ AGENT:
     num_sem_categories: 3             # number of map semantic channel categories (16, 257, 35)
     map_size_cm: 4800        # global map size (in centimeters)
     map_resolution: 5        # size of map bins (in centimeters)
-    vision_range: 65         # diameter of local map region visible by the agent (in cells)
+    vision_range: 101        # diameter of local map region visible by the agent (in cells)
     global_downscaling: 2    # ratio of global over local map
     du_scale: 4              # frame downscaling before projecting to point cloud
     cat_pred_threshold: 5.0  # number of depth points to be in bin to classify it as a certain semantic category
@@ -40,12 +40,12 @@ AGENT:
     been_close_to_radius: 400  # radius (in centimeters) of been close to region
     explored_radius: 150       # radius (in centimeters) of visually explored region
     occant_cfg_path: "src/home_robot/home_robot/mapping/occant_utils/configs/occant_depth.yaml"
-    occant_ckpt_path: "data/gibson_models/occant_depth_w_noise_mask_close_focal_large_area/ckpt.6.pth.stripped"
+    occant_ckpt_path: "data/gibson_models/occant_depth_w_noise_mask_close_focal_large_area_101x101_history/ckpt.6.pth.stripped"
     disable_anticipation: False
-    use_ego_map_seen: False
+    use_ego_map_seen: True
 
   PLANNER:
-    collision_threshold: 0.10       # forward move distance under which we consider there's a collision (in meters)
+    collision_threshold: 0.20       # forward move distance under which we consider there's a collision (in meters)
     # obs_dilation_selem_radius: 5    # radius (in cells) of obstacle dilation structuring element
     goal_dilation_selem_radius: 5  # radius (in cells) of goal dilation structuring element
     step_size: 5                    # maximum distance of the short-term goal selected by the planner
