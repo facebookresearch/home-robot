@@ -2,6 +2,7 @@
 #
 # This source code is licensed under the MIT license found in the
 # LICENSE file in the root directory of this source tree.
+import time
 from typing import Iterable
 
 import rospy
@@ -18,6 +19,7 @@ from .abstract import AbstractControlModule, enforce_enabled
 
 class StretchNavigationClient(AbstractControlModule):
     block_spin_rate = 10
+    wait_limit = 10.0  # seconds
 
     def __init__(self, ros_client, robot_model: Robot):
         super().__init__()
@@ -131,6 +133,7 @@ class StretchNavigationClient(AbstractControlModule):
         """Wait until goal is reached"""
         rospy.sleep(self._ros_client.msg_delay_t)
         rate = rospy.Rate(self.block_spin_rate)
+        start_time = time.time()
         while not rospy.is_shutdown():
             # Verify that we are at goal and perception is synchronized with pose
             if self.at_goal() and self._ros_client.recent_depth_image(
@@ -139,6 +142,10 @@ class StretchNavigationClient(AbstractControlModule):
                 break
             else:
                 rate.sleep()
+            time_taken = time.time() - start_time
+            if time_taken > self.wait_limit:
+                print("\n******* Action timed out *********\n")
+                break
         # TODO: this should be unnecessary
         # TODO: add this back in if we are having trouble building maps
         # Make sure that depth and position are synchronized

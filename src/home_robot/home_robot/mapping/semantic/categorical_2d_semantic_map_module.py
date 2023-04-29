@@ -219,7 +219,7 @@ class Categorical2DSemanticMapModule(nn.Module):
                         self.map_size_parameters,
                     )
 
-            local_map, local_pose = self._update_local_map_and_pose(
+            local_map, local_pose, local_map_loc = self._update_local_map_and_pose(
                 seq_obs[:, t],
                 seq_pose_delta[:, t],
                 local_map,
@@ -230,7 +230,14 @@ class Categorical2DSemanticMapModule(nn.Module):
             for e in range(batch_size):
                 if seq_update_global[e, t]:
                     self._update_global_map_and_pose_for_env(
-                        e, local_map, global_map, local_pose, global_pose, lmb, origins
+                        e,
+                        local_map,
+                        global_map,
+                        local_pose,
+                        local_map_loc,
+                        global_pose,
+                        lmb,
+                        origins,
                     )
 
             seq_local_pose[:, t] = local_pose
@@ -546,7 +553,7 @@ class Categorical2DSemanticMapModule(nn.Module):
                 current_map[:, MC.OBSTACLE_MAP] * current_map[:, MC.BEEN_CLOSE_MAP]
             )
 
-        return current_map, current_pose
+        return current_map, current_pose, curr_loc
 
     def _update_global_map_and_pose_for_env(
         self,
@@ -554,6 +561,7 @@ class Categorical2DSemanticMapModule(nn.Module):
         local_map: Tensor,
         global_map: Tensor,
         local_pose: Tensor,
+        local_map_loc: Tensor,
         global_pose: Tensor,
         lmb: Tensor,
         origins: Tensor,
@@ -563,16 +571,20 @@ class Categorical2DSemanticMapModule(nn.Module):
         """
         global_map[e, :, lmb[e, 0] : lmb[e, 1], lmb[e, 2] : lmb[e, 3]] = local_map[e]
         global_pose[e] = local_pose[e] + origins[e]
-        mu.recenter_local_map_and_pose_for_env(
-            e,
-            local_map,
-            global_map,
-            local_pose,
-            global_pose,
-            lmb,
-            origins,
-            self.map_size_parameters,
-        )
+        _, _, H, W = local_map.shape
+        x, y = local_map_loc[e]
+        if x < W * 0.1 or x > W * 0.9 or y < H * 0.1 or y > H * 0.9:
+            print("***** Recentering local map ******")
+            mu.recenter_local_map_and_pose_for_env(
+                e,
+                local_map,
+                global_map,
+                local_pose,
+                global_pose,
+                lmb,
+                origins,
+                self.map_size_parameters,
+            )
 
     def _get_map_features(self, local_map: Tensor, global_map: Tensor) -> Tensor:
         """Get global and local map features.

@@ -160,7 +160,7 @@ class RosCamera(Camera):
 
         return img
 
-    def get_filtered(self, std_threshold=0.005, device=None):
+    def get_filtered(self, std_threshold=0.1, device=None):
         """get image from buffer; do some smoothing"""
         if self.buffer_size is None:
             raise RuntimeError("no buffer")

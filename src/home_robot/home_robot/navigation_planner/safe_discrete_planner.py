@@ -340,11 +340,9 @@ class SafeDiscretePlanner:
             print("----------------------------")
             print(">>> orient towards the goal.")
             if relative_angle_goal > 2 * self.turn_angle / 3.0:
-                # action = DiscreteNavigationAction.TURN_RIGHT
-                action = DiscreteNavigationAction.TURN_LEFT
-            elif relative_angle_goal < -2 * self.turn_angle / 3.0:
-                # action = DiscreteNavigationAction.TURN_LEFT
                 action = DiscreteNavigationAction.TURN_RIGHT
+            elif relative_angle_goal < -2 * self.turn_angle / 3.0:
+                action = DiscreteNavigationAction.TURN_LEFT
             else:
                 action = DiscreteNavigationAction.STOP
                 print("!!! DONE !!!")
@@ -406,7 +404,7 @@ class SafeDiscretePlanner:
         traversible = 1 - dilated_obstacles
         traversible[self.collision_map[gx1:gx2, gy1:gy2][x1:x2, y1:y2] == 1] = 0
         traversible[self.visited_map[gx1:gx2, gy1:gy2][x1:x2, y1:y2] == 1] = 1
-        agent_rad = self.agent_cell_radius
+        agent_rad = 2  # self.agent_cell_radius
         traversible[
             int(start[0] - x1) - agent_rad : int(start[0] - x1) + agent_rad + 1,
             int(start[1] - y1) - agent_rad : int(start[1] - y1) + agent_rad + 1,

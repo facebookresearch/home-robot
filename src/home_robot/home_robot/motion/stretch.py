@@ -62,7 +62,7 @@ STRETCH_NAVIGATION_Q = np.array(
         0.0,  # wrist pitch
         3.0,  # wrist yaw
         0.0,
-        -np.pi / 4,
+        -np.pi / 12,  # -np.pi / 4,
     ]
 )
 PIN_CONTROLLED_JOINTS = [
@@ -155,7 +155,7 @@ class HelloStretchKinematics(Robot):
     )
     # look_at_ee = np.array([-np.pi/2, -np.pi/8])
     look_at_ee = np.array([-np.pi / 2, -np.pi / 4])
-    look_front = np.array([0.0, -np.pi / 4])
+    look_front = np.array([0.0, -np.pi / 12])  # -np.pi / 4])
     look_ahead = np.array([0.0, 0.0])
 
     # For inverse kinematics mode

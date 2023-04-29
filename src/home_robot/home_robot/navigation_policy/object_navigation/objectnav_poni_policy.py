@@ -2,6 +2,7 @@
 #
 # This source code is licensed under the MIT license found in the
 # LICENSE file in the root directory of this source tree.
+import kornia
 import torch
 import torch.nn as nn
 from einops import asnumpy
@@ -101,6 +102,7 @@ class ObjectNavPONIPolicy(nn.Module):
             pfs,
             goal_cat_id,
             umap=1.0 - map_features[:, MC.EXPLORED_MAP],
+            omap=map_features[:, MC.OBSTACLE_MAP],
             agent_locs=map_features[:, MC.CURRENT_LOCATION],
         )
         pred_maps = {
@@ -147,7 +149,7 @@ class ObjectNavPONIPolicy(nn.Module):
         outputs = torch.cat([free_map, obstacle_map, semantic_map], dim=1)
         return outputs
 
-    def get_action(self, pfs, goal_cat_id, umap, agent_locs):
+    def get_action(self, pfs, goal_cat_id, umap, omap, agent_locs):
         """
         Computes distance from (agent -> location) + (location -> goal)
         based on PF predictions. It then selects goal as location with
@@ -166,6 +168,18 @@ class ObjectNavPONIPolicy(nn.Module):
             goal_pfs.append(goal_pf)
         goal_pfs = torch.stack(goal_pfs, dim=0)
         if self.pf_masking_opt == "unexplored":
+            # # Erode unexplored map
+            # kernel = torch.ones(7, 7).to(umap.device)
+            # for _ in range(2):
+            #     umap = kornia.morphology.erosion(umap.unsqueeze(1), kernel).squeeze(1)
+            # Remove unexplored locations close to obstacles
+            omap_e = omap
+            kernel = torch.ones(11, 11).to(umap.device)
+            for _ in range(2):
+                omap_e = kornia.morphology.dilation(
+                    omap_e.unsqueeze(1), kernel
+                ).squeeze(1)
+            umap[omap_e == 1] = 0
             # Filter out explored locations
             goal_pfs = goal_pfs * umap
         # Filter out locations very close to the agent

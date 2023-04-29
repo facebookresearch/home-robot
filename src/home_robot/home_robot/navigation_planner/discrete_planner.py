@@ -211,6 +211,7 @@ class DiscretePlanner:
         if replan and not stop:
 
             # Clean collision map
+            print("Cleaning collision map....")
             self.collision_map *= 0
             # Reduce obstacle dilation
             if self.curr_obs_dilation_selem_radius > self.min_obs_dilation_selem_radius:
@@ -355,7 +356,7 @@ class DiscretePlanner:
         traversible = 1 - dilated_obstacles
         traversible[self.collision_map[gx1:gx2, gy1:gy2][x1:x2, y1:y2] == 1] = 0
         traversible[self.visited_map[gx1:gx2, gy1:gy2][x1:x2, y1:y2] == 1] = 1
-        agent_rad = self.agent_cell_radius
+        agent_rad = 3  # self.agent_cell_radius
         traversible[
             int(start[0] - x1) - agent_rad : int(start[0] - x1) + agent_rad + 1,
             int(start[1] - y1) - agent_rad : int(start[1] - y1) + agent_rad + 1,
@@ -495,3 +496,4 @@ class DiscretePlanner:
                     )
                     [r, c] = pu.threshold_poses([r, c], self.collision_map.shape)
                     self.collision_map[r, c] = 1
+            print("The robot collided...")

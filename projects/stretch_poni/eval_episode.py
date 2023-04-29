@@ -40,7 +40,7 @@ def main(agent, dry_run):
         agent = PONIAgent(config=config)
     else:
         raise NotImplementedError(f"agent {agent} not recognized")
-    env = StretchObjectNavEnv(config=config, dry_run=dry_run)
+    env = StretchObjectNavEnv(config=config, dry_run=dry_run, depth_buffer_size=5)
 
     agent.reset()
     env.reset()
