@@ -1,4 +1,5 @@
 import os
+import random
 from typing import Any, Dict, List, Optional, Tuple, Union, cast
 
 import habitat
@@ -108,6 +109,8 @@ class HabitatOpenVocabManipEnv(HabitatEnv):
         self.visualizer.set_vis_dir(scene_id=scene_id, episode_id=episode_id)
 
     def reset(self):
+        np.random.seed(int(self.get_current_episode().episode_id))
+        random.seed(int(self.get_current_episode().episode_id))
         habitat_obs = self.habitat_env.reset()
         self._last_habitat_obs = habitat_obs
         self.semantic_category_mapping.reset_instance_id_to_category_id(

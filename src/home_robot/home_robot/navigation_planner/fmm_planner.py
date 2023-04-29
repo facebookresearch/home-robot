@@ -134,7 +134,6 @@ class FMMPlanner:
 
         self.fmm_dist = dd
         # self.goal_map = goal_map
-
         if self.visualize or self.print_images and timestep != 0:
             r, c = traversible.shape  # for visualizing (downsampled) traversible map
             dist_vis = np.zeros((r, c * 3))
@@ -270,12 +269,19 @@ class FMMPlanner:
         distance: float,
         min_distance_only=False,
         visualize=False,
+        vis_dir=None,
     ) -> np.ndarray:
         """
         Find the nearest point to a goal which is traversible
         """
 
-        planner = FMMPlanner(np.ones_like(self.traversible))
+        if vis_dir is not None:
+            self.vis_dir = vis_dir
+        planner = FMMPlanner(
+            np.ones_like(self.traversible),
+            print_images=self.print_images,
+            vis_dir=self.vis_dir,
+        )
         # Plan to the goal mask
         planner.set_multi_goal(goal)
 
@@ -303,5 +309,4 @@ class FMMPlanner:
             plt.subplot(224)
             plt.imshow(goal)
             plt.show()
-
         return navigable_goal_map

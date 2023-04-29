@@ -210,12 +210,14 @@ class DiscretePlanner:
             replan,
             stop,
             closest_goal_pt,
+            dilated_obstacles,
         ) = self._get_short_term_goal(
             obstacle_map,
             np.copy(goal_map),
             start,
             planning_window,
             plan_to_dilated_goal=use_dilation_for_stg,
+            frontier_map=frontier_map,
         )
         # Short term goal is in cm, start_x and start_y are in m
         if debug:
@@ -388,6 +390,7 @@ class DiscretePlanner:
         start: List[int],
         planning_window: List[int],
         plan_to_dilated_goal=False,
+        frontier_map=None,
         visualize=False,
     ) -> Tuple[Tuple[int, int], np.ndarray, bool, bool]:
         """Get short-term goal.
@@ -430,7 +433,6 @@ class DiscretePlanner:
         ] = 1
         traversible = add_boundary(traversible)
         goal_map = add_boundary(goal_map, value=0)
-
         planner = FMMPlanner(
             traversible,
             step_size=self.step_size,
@@ -458,18 +460,19 @@ class DiscretePlanner:
             )
         else:
             navigable_goal_map = planner._find_within_distance_to_multi_goal(
-                goal_map, self.min_goal_distance_cm / self.map_resolution
+                goal_map,
+                self.min_goal_distance_cm / self.map_resolution,
+                vis_dir=self.vis_dir,
             )
             if not np.any(navigable_goal_map):
-                replan = True
-            else:
-                self.dd = planner.set_multi_goal(
-                    navigable_goal_map,
-                    self.timestep,
-                    self.dd,
-                    self.map_downsample_factor,
-                    self.map_update_frequency,
-                )
+                navigable_goal_map = frontier_map
+            self.dd = planner.set_multi_goal(
+                navigable_goal_map,
+                self.timestep,
+                self.dd,
+                self.map_downsample_factor,
+                self.map_update_frequency,
+            )
             goal_distance_map, closest_goal_pt = self.get_closest_goal(goal_map, start)
 
         self.timestep += 1
@@ -498,7 +501,14 @@ class DiscretePlanner:
             plt.show()
             print("Done visualizing.")
 
-        return short_term_goal, goal_distance_map, replan, stop, closest_goal_pt
+        return (
+            short_term_goal,
+            goal_distance_map,
+            replan,
+            stop,
+            closest_goal_pt,
+            dilated_obstacles,
+        )
 
     def get_closest_traversible_goal(
         self, traversible, goal_map, start, dilated_goal_map=None
