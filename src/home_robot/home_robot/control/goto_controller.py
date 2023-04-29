@@ -4,7 +4,7 @@
 # This source code is licensed under the MIT license found in the
 # LICENSE file in the root directory of this source tree.
 import logging
-from typing import Optional
+from typing import Optional, Tuple
 
 import numpy as np
 from omegaconf import DictConfig
@@ -112,7 +112,7 @@ class GotoVelocityController:
         self._is_done = False
         self.track_yaw = value
 
-    def _compute_error_pose(self):
+    def _compute_error_pose(self) -> np.ndarray:
         """
         Updates error based on robot localization
         """
@@ -131,7 +131,7 @@ class GotoVelocityController:
         """Tell us if this is done and has reached its goal."""
         return self._is_done
 
-    def compute_control(self):
+    def compute_control(self) -> Tuple[float, float]:
         # Get state estimation
         xyt_err = self._compute_error_pose()
 

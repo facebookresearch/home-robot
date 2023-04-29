@@ -67,7 +67,7 @@ class DDVelocityControlNoplan(DiffDriveVelocityController):
             )
 
     def __call__(
-        self, xyt_err: np.ndarray, allow_reverse=False
+        self, xyt_err: np.ndarray, allow_reverse: bool = False
     ) -> Tuple[float, float, bool]:
         v_cmd = w_cmd = 0
         in_reverse = False
