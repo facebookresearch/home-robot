@@ -53,9 +53,12 @@ class OpenVocabManipAgent(ObjectNavAgent):
             "curr_skill": Skill(self.states[0].item()).name,
         }
 
-    def reset_vectorized(self):
+    def reset_vectorized(self, episodes):
         """Initialize agent state."""
         super().reset_vectorized()
+        self.planner.set_vis_dir(
+            episodes[0].scene_id.split("/")[-1].split(".")[0], episodes[0].episode_id
+        )
         if self.gaze_agent is not None:
             self.gaze_agent.reset_vectorized()
         self.states = torch.tensor([Skill.NAV_TO_OBJ] * self.num_environments)
@@ -67,7 +70,7 @@ class OpenVocabManipAgent(ObjectNavAgent):
     def get_nav_to_recep(self):
         return (self.states == Skill.NAV_TO_REC).float().to(device=self.device)
 
-    def reset_vectorized_for_env(self, e: int):
+    def reset_vectorized_for_env(self, e: int, episode):
         """Initialize agent state for a specific environment."""
         self.states[e] = Skill.NAV_TO_OBJ
         self.place_start_step[e] = 0
@@ -75,6 +78,9 @@ class OpenVocabManipAgent(ObjectNavAgent):
         self.is_pick_done[e] = 0
         self.place_done[e] = 0
         super().reset_vectorized_for_env(e)
+        self.planner.set_vis_dir(
+            episode.scene_id.split("/")[-1].split(".")[0], episode.episode_id
+        )
         if self.gaze_agent is not None:
             self.gaze_agent.reset_vectorized_for_env(e)
 
@@ -167,6 +173,9 @@ class OpenVocabManipAgent(ObjectNavAgent):
             elif self.config.AGENT.SKILLS.PICK.type == "gaze":
                 action, term = self.gaze_agent.act(obs)
                 if term:
+                    action = (
+                        {}
+                    )  # TODO: update after simultaneous gripping/motion is supported
                     action["grip_action"] = [1]  # grasp the object when gaze is done
                     self.is_pick_done[0] = 1
                 return action, vis_inputs

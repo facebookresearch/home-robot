@@ -269,6 +269,7 @@ class FMMPlanner:
         distance: float,
         min_distance_only=False,
         visualize=False,
+        timestep=0,
         vis_dir=None,
     ) -> np.ndarray:
         """
@@ -283,7 +284,7 @@ class FMMPlanner:
             vis_dir=self.vis_dir,
         )
         # Plan to the goal mask
-        planner.set_multi_goal(goal)
+        planner.set_multi_goal(goal, timestep=timestep)
 
         # Now mask out anything here based on distance to the goal mask
         mask = self.traversible

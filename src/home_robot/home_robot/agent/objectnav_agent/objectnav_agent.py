@@ -316,7 +316,9 @@ class ObjectNavAgent(Agent):
                 short_term_goal,
                 dilated_obstacle_map,
             ) = self.planner.plan(
-                **planner_inputs[0], use_dilation_for_stg=self.use_dilation_for_stg
+                **planner_inputs[0],
+                use_dilation_for_stg=self.use_dilation_for_stg,
+                timestep=self.timesteps[0],
             )
 
         # t3 = time.time()

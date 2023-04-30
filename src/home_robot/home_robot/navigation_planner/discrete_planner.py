@@ -157,6 +157,7 @@ class DiscretePlanner:
         found_goal: bool,
         debug: bool = True,
         use_dilation_for_stg: bool = False,
+        timestep: int = None,
     ) -> Tuple[DiscreteNavigationAction, np.ndarray]:
         """Plan a low-level action.
 
@@ -172,6 +173,10 @@ class DiscretePlanner:
             closest_goal_map: (M, M) binary array denoting closest goal
              location in the goal map in geodesic distance
         """
+        # Reset timestep using argument; useful when there are timesteps where the discrete planner is not invoked
+        if timestep is not None:
+            self.timestep = timestep
+
         self.last_pose = self.curr_pose
         obstacle_map = np.rint(obstacle_map)
 
@@ -266,6 +271,7 @@ class DiscretePlanner:
                     replan,
                     stop,
                     closest_goal_pt,
+                    dilated_obstacles,
                 ) = self._get_short_term_goal(
                     obstacle_map,
                     frontier_map,
@@ -462,6 +468,7 @@ class DiscretePlanner:
             navigable_goal_map = planner._find_within_distance_to_multi_goal(
                 goal_map,
                 self.min_goal_distance_cm / self.map_resolution,
+                timestep=self.timestep,
                 vis_dir=self.vis_dir,
             )
             if not np.any(navigable_goal_map):
