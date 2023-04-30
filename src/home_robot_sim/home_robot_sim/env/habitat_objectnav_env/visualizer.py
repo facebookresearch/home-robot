@@ -308,7 +308,7 @@ class Visualizer:
 
             # Goal
             if visualize_goal:
-                selem = skimage.morphology.disk(3)
+                selem = skimage.morphology.disk(4)
                 goal_mat = 1 - skimage.morphology.binary_dilation(goal_map, selem) != 1
                 goal_mask = goal_mat == 1
                 semantic_map[goal_mask] = PI.REST_OF_GOAL
