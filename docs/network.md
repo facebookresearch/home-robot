@@ -13,7 +13,7 @@ rviz -d $HOME_ROBOT_ROOT/src/home_robot_hw/launch/mapping_demo.rviz
 
 Note that ROS will be installed in following steps as a part of our conda environment.
 
-*Network access and code development.* Internet access is crucial to software development. We expect that either this router will have internet access, or that (on a corporate or academic network), the workstation will have two network connections, and you will use the [hardware code sync instructions](docs/hardware.md) to push code changes to the robot if necessary. In general, though, you should not need to make changes to code on the stretch. If on a corporate or academic network you may find it useful to buy a USB ethernet adapter to allow your workstation to have two network connections (for example, [this adapter](https://www.amazon.com/USB-Ethernet-Adapter-Gigabit-Switch/dp/B09GRL3VCN/) on amazon).
+*Network access and code development.* Internet access is crucial to software development. We expect that either this router will have internet access, or that (on a corporate or academic network), the workstation will have two network connections, and you will use the [hardware development instructions](docs/hardware_development.md) to push code changes to the robot if necessary. In general, though, you should not need to make changes to code on the stretch. If on a corporate or academic network you may find it useful to buy a USB ethernet adapter to allow your workstation to have two network connections (for example, [this adapter](https://www.amazon.com/USB-Ethernet-Adapter-Gigabit-Switch/dp/B09GRL3VCN/) on amazon).
 
 ### Terminal Setup
 

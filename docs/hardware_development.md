@@ -1,9 +1,9 @@
-# Hardware backend for the Hello Stretch
+# Developing on the Hello Robot Stretch
 
 We use a multi-system setup for controlling the Hello Stretch, where low-level control runs on the "Robot" and large neural nets are evaluated on a "Workstation" -- which here refers to a local computer with a GPU. 
 For best performance, your Workstation should be on the same wireless network as the Robot, preferrably with an ethernet connection to the router for lowest latency.
 
-# Installation
+## Installation
 
 - [Setup instructions on Robot](./install_robot.md)
 - [Setup instructions on Workstation](./install_workstation.md)
