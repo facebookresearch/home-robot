@@ -31,44 +31,20 @@ We provide a couple connections for useful perception libraries like [Detic](htt
 
 ### Preliminary
 
-Installation on a workstation requires [conda](https://docs.conda.io/projects/conda/en/latest/user-guide/install/linux.html) and [mamba](https://mamba.readthedocs.io/en/latest/user_guide/mamba.html).
+HomeRobot requires Python 3.9. Installation on a workstation requires [conda](https://docs.conda.io/projects/conda/en/latest/user-guide/install/linux.html) and [mamba](https://mamba.readthedocs.io/en/latest/user_guide/mamba.html). Installation on a robot assumes Ubuntu 20.04 and [ROS Noetic](http://wiki.ros.org/noetic).
 
-Installation on a robot assumes Ubuntu 20.04 and [ROS Noetic](http://wiki.ros.org/noetic).
+To set up the hardware stack on a Hello Robot  Stretch, see the [ROS installation instructions](docs/install_robot.md) in `home_robot_hw`.
 
-To set up the hardware stack on a Hello Robot  Stretch, see the [ROS installation instructions](src/home_robot_hw/install_robot.md) in `home_robot_hw`.
+#### Network Setup
 
-Proper network setup is crucial to getting good performance with HomeRobot. Low-cost mobile robots often do not have sufficient GPU to run state-of-the-art perception models. Instead, we rely on a client-server architecture, where ROS and low-level controllers run on the robot, and CPU- and GPU-intensive AI code runs on a workstation.
-
-After following the installation instructions, we recommend setting up your `~/.bashrc` on the robot workstation:
-
-```
-# Whatever your workstation's IP address is
-export WORKSTATION_IP=10.0.0.2
-# Whatever your robot's IP address is
-export HELLO_ROBOT_IP=10.0.0.6
-
-# Path to the codebase
-export HOME_ROBOT_ROOT=/path/to/home-robot
-
-export ROS_IP=$WORKSTATION_IP
-export ROS_MASTER_URI=http://$HELLO_ROBOT_IP:11311
-
-# Optionally - make it clear to avoid issues
-echo "Setting ROS_MASTER_URI to $ROS_MASTER_URI"
-echo "Setting ROS IP to $ROS_IP"
-
-# Helpful alias - connect to the robot
-alias ssh-robot="ssh hello-robot@$HELLO_ROBOT_IP"
-```
-
-On the robot side, start up the controllers with:
+Follow the [network setup guide](docs/network.md) to set up your robot to use the network, and make sure that it can communicate between workstation and robot via ROS. On the robot side, start up the controllers with:
 ```
 roslaunch home_robot_hw startup_stretch_hector_slam.launch
 ```
 
 ### Workstation Instructions
 
-To set up your workstation, follow these instructions:
+To set up your workstation, follow these instructions. We will assume that your system supports CUDA 11.8 or better for pytorch; earlier versions should be fine, but may require some changes to the conda environment.
 
 #### 1. Create Your Environment
 ```
@@ -192,6 +168,10 @@ There are two main classes in HomeRobot that you need to be concerned with:
   - *Agents* extend the [abstract Agent class](https://github.com/facebookresearch/home-robot/blob/main/src/home_robot/home_robot/core/abstract_agent.py), which takes in an [observation](https://github.com/facebookresearch/home-robot/blob/main/src/home_robot/home_robot/core/interfaces.py#L95) and produces an [action](https://github.com/facebookresearch/home-robot/blob/main/src/home_robot/home_robot/core/interfaces.py#L50).
 
 Generally, new methods will be implemented as Agents.
+
+### Developing on Hardware
+
+See the robot [hardware development guide](docs/hardware_development.md) for some advice that may make developing code on the Stretch easier.
 
 ### Organization
 
