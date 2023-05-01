@@ -269,7 +269,7 @@ class RobotDataset(RLBenchDataset):
 
     def process_images_from_view(
         self, trial: Trial, view_name: str, idx: int
-    ) -> Tuple[np.ndarray, np.ndarray]:
+    ) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
         """process rgb and depth image from a given camera into a structured PCD
         Args:
             trial:      Trial object
@@ -283,7 +283,7 @@ class RobotDataset(RLBenchDataset):
         )
         if self._robot == "stretch":
             xyz = trial[view_name + "_xyz"][idx]
-        # rgb_img = rgb.copy()
+        rgb_img = rgb.copy()
         # depth_img = depth.copy()
 
         # get camera details
@@ -355,9 +355,9 @@ class RobotDataset(RLBenchDataset):
         rgb = rgb.reshape(-1, C)
         depth = depth.reshape(-1)
         xyz = xyz.reshape(-1, C)
-        mask = np.bitwise_and(depth < 1.5, depth > 0.3)
-        rgb = rgb[mask]
-        xyz = xyz[mask]
+        # mask = np.bitwise_and(depth < 1.5, depth > 0.3)
+        # rgb = rgb[mask]
+        # xyz = xyz[mask]
         #
         # TODO: get mask from mdetr
         # from matplotlib import pyplot as plt
@@ -385,7 +385,7 @@ class RobotDataset(RLBenchDataset):
         #     obs = self.segmentor.predict(obs)
         #     plt.imshow(obs.task_observations["semantic_frame"])
         #     plt.show()
-        return rgb, xyz
+        return rgb, xyz, rgb_img
 
     def extract_manual_keyframes(self, user_keyframe_array):
         """returns indices of all user-tagged keyframes"""
@@ -507,17 +507,19 @@ class RobotDataset(RLBenchDataset):
 
         # choose an input frame-idx, in our case this is the 1st frame
         # associated with current keypoint
-        # input_keyframes = self.extract_manual_keyframes(trial["input_keyframe"][()])
-
-        # this array has more values when we are combining a trail of views leading up to the interaction
-        num_input_frames = 1
-        input_keyframes = []
-        for i in range(num_input_frames):
-            input_keyframes.append(keypoints[0] - i - 1)
-        if self.use_first_frame_as_input:
-            raise RuntimeError(
-                "use_first_frame_as_input was used but it doesn't do anything right now"
-            )
+        if self._robot == "franka":
+            input_keyframes = self.extract_manual_keyframes(trial["input_keyframe"][()])
+        else:
+            # this array has more values when we are combining a trail of views leading up to the interaction
+            # FIXME: this is a hacky way to get this to work for now; move num_input_frames to arg
+            num_input_frames = 1
+            input_keyframes = []
+            for i in range(num_input_frames):
+                input_keyframes.append(keypoints[0] - i - 1)
+            if self.use_first_frame_as_input:
+                raise RuntimeError(
+                    "use_first_frame_as_input was used but it doesn't do anything right now"
+                )
         #     image_index = keypoint_idx % 1
         #     # use one of the 1st two frames
         #     # TODO replace this with bursts of images around each keyframe which we can sample from
@@ -541,16 +543,30 @@ class RobotDataset(RLBenchDataset):
             print(f"Proprio: {proprio}")
 
         # get point-cloud in base-frame from the cameras
-        rgbs, xyzs = [], []
+        rgbs, xyzs, imgs = [], [], []
         for view in ["head"]:  # TODO: make keys consistent with stretch H5 schema
             for image_index in input_keyframes:
-                v_rgb, v_xyz = self.process_images_from_view(
+                v_rgb, v_xyz, v_img = self.process_images_from_view(
                     trial,
                     view,
                     image_index if image_index is not None else input_idx,
                 )
                 rgbs.append(v_rgb)
                 xyzs.append(v_xyz)
+                imgs.append(v_img)
+        # get EE keyframe
+        current_ee_keyframe = self.get_gripper_pose(trial, int(current_keypoint_idx))
+        interaction_ee_keyframe = self.get_gripper_pose(trial, int(interaction_pt))
+
+        datum = {
+            "rgb_points": rgbs,
+            "xyz_points": xyzs,
+            "rgb_images": imgs,
+            "proprio": proprio,
+            "interaction_pt_index": interaction_pt,
+            "current_ee_keyframe": current_ee_keyframe,  # we can also just send all ee keyframes here
+            "interaction_ee_keyframe": interaction_ee_keyframe,
+        }
 
         drop_frames = False  # TODO: get this from cfg
         if drop_frames:
@@ -568,9 +584,6 @@ class RobotDataset(RLBenchDataset):
         xyz = xyz[x_mask]
         xyz, rgb = xyz.reshape(-1, 3), rgb.reshape(-1, 3)
 
-        # get EE keyframe
-        current_ee_keyframe = self.get_gripper_pose(trial, int(current_keypoint_idx))
-        interaction_ee_keyframe = self.get_gripper_pose(trial, int(interaction_pt))
         all_ee_keyframes = []
         if self.multi_step:
             target_gripper_state = np.zeros(len(keypoints))
