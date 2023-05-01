@@ -7,6 +7,8 @@ from typing import List, Tuple
 
 import numpy as np
 
+from home_robot.utils.point_cloud import show_point_cloud
+
 
 def crop_around_voxel(
     feat: np.ndarray, xyz: np.ndarray, crop_location: np.ndarray, crop_size: float
@@ -27,7 +29,7 @@ def get_local_action_prediction_problem(
     interaction point (p_i)
     """
     # crop from og pcd and mean-center it
-    crop_xyz, crop_rgb = crop_around_voxel(xyz, feat, p_i, cfg.local_problem_size)
+    crop_xyz, crop_rgb = crop_around_voxel(feat, xyz, p_i, cfg.local_problem_size)
     crop_xyz = crop_xyz - p_i[None].repeat(crop_xyz.shape[0], axis=0)
     # show_point_cloud(crop_xyz, crop_rgb, orig=np.zeros(3))
     if crop_rgb.shape[0] > cfg.num_pts:
@@ -41,4 +43,4 @@ def get_local_action_prediction_problem(
     status = True
     if crop_xyz.shape[0] < 10:
         status = False
-    return crop_xyz, crop_rgb, status
+    return crop_rgb, crop_xyz, status

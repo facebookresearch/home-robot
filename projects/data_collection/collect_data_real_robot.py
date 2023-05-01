@@ -56,7 +56,6 @@ if __name__ == "__main__":
 
     # Main loop. collect waypoints and move the robot.
     while not done and not rospy.is_shutdown():
-
         valid_inp = False
         while not valid_inp and not rospy.is_shutdown():
             inp = input("Collect keypoint data? y/n:")
