@@ -1,14 +1,21 @@
 import json
 import math
+from time import time
 from typing import List, Optional, Sequence, Tuple, TypeVar, Union
 
 import click
+import clip
+import cv2
 import numpy as np
 import open3d as o3d
 import torch
+import torchvision.transforms as transforms
 import trimesh
 import trimesh.transformations as tra
 import yaml
+from matplotlib import pyplot as plt
+from PIL import Image
+from segment_anything import SamAutomaticMaskGenerator, sam_model_registry
 from slap_manipulation.dataloaders.annotations import load_annotations_dict
 from slap_manipulation.dataloaders.rlbench_loader import RLBenchDataset
 
@@ -17,7 +24,6 @@ from home_robot.core.interfaces import Observations
 # TODO Replace with Stretch embodiment
 from home_robot.motion.franka import FrankaPanda
 from home_robot.motion.stretch import STRETCH_TO_GRASP
-from home_robot.perception.detection.detic.detic_perception import DeticPerception
 from home_robot.utils.data_tools.camera import Camera
 from home_robot.utils.data_tools.loader import Trial
 from home_robot.utils.image import rotate_image
@@ -230,11 +236,22 @@ class RobotDataset(RLBenchDataset):
         self._visualize_cropped_keyframes = visualize_cropped_keyframes
 
         # setup segmentation pipeline
-        # self.segmentor = DeticPerception(
-        #     vocabulary="custom",
-        #     custom_vocabulary=",".join(REAL_WORLD_CATEGORIES),
-        #     sem_gpu_id=0,
-        # )
+        sam_checkpoint = "sam_vit_h_4b8939.pth"
+        model_type = "vit_h"
+        device = "cuda"
+        self.sam = sam_model_registry[model_type](checkpoint=sam_checkpoint)
+        self.sam.to(device=device)
+        self.segmentor = SamAutomaticMaskGenerator(
+            self.sam, pred_iou_thresh=0.98, min_mask_region_area=500, box_nms_thresh=0.5
+        )
+        # setup clip
+        with torch.no_grad():
+            self.clip_model = clip.load("ViT-B/32", device=device)[0]
+        self.clip_image_size = (224, 224)
+        self._clip_emb_dim = 512
+        self.preprocess = transforms.Compose(
+            [transforms.ToTensor(), transforms.Resize((224, 224))]
+        )
 
     def get_gripper_pose(self, trial, idx):
         """add grasp offset to ee pose and return gripper pose"""
@@ -268,8 +285,12 @@ class RobotDataset(RLBenchDataset):
         return cam_intrinsic_dict, cam_extrinsic_dict
 
     def process_images_from_view(
-        self, trial: Trial, view_name: str, idx: int
-    ) -> Tuple[np.ndarray, np.ndarray]:
+        self,
+        trial: Trial,
+        view_name: str,
+        idx: int,
+        verbose=False,
+    ) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
         """process rgb and depth image from a given camera into a structured PCD
         Args:
             trial:      Trial object
@@ -283,8 +304,11 @@ class RobotDataset(RLBenchDataset):
         )
         if self._robot == "stretch":
             xyz = trial[view_name + "_xyz"][idx]
-        # rgb_img = rgb.copy()
-        # depth_img = depth.copy()
+        raw_rgb = rgb.copy()
+        IMGH, IMGW, IMGC = raw_rgb.shape
+        self._image_height = IMGH
+        self._image_width = IMGW
+        self._image_channels = IMGC
 
         # get camera details
         if self._robot == "franka":
@@ -350,42 +374,100 @@ class RobotDataset(RLBenchDataset):
                 raise RuntimeError(
                     "Couldn't find camera information in your H5 file. The program will close now"
                 )
+        raw_rgb = rotate_image([raw_rgb])[0]
+        s = time()
+        masks = self.segmentor.generate(raw_rgb)
+        # iou_weights = torch.tensor([mask["predicted_iou"] for mask in masks]).reshape(
+        #     -1
+        # )
+        print(f"Segmentation time: {time() - s}")
+        # TODO: each mask has segmentation + confidence score of that mask/crop
+        # TODO: also save this score per point/per feature
+        # TODO: while adding all features weigh the image-feature by this mask-confidence rather than depth as in CLIP-fields
+        # count_features = torch.tensor(
+        #     np.zeros((raw_rgb.shape[0], raw_rgb.shape[1], 1))
+        # ).cuda()
+        dense_image_features = torch.tensor(
+            np.zeros((raw_rgb.shape[0], raw_rgb.shape[1], self._clip_emb_dim)),
+            dtype=torch.float16,
+        ).cuda()
+
+        if verbose:
+            plt.imshow(raw_rgb)
+            H, W, C = raw_rgb.shape
+            self.show_anns(masks)
+            plt.axis("off")
+            plt.show()
+            print(f"Number of masks: {len(masks)}")
+            for i, ann in enumerate(masks):
+                print(
+                    f"Showing mask #: {i}, iou: {ann['predicted_iou']}, stability: {ann['stability_score']}"
+                )
+                mask = np.ones((H, W)) * ann["segmentation"]
+                plt.imshow(mask)
+                plt.show()
+
+        with torch.no_grad():
+            for i, ann in enumerate(masks):
+                masked_img = (raw_rgb * np.expand_dims(ann["segmentation"], -1))[
+                    ann["bbox"][1] : ann["bbox"][1] + ann["bbox"][3],
+                    ann["bbox"][0] : ann["bbox"][0] + ann["bbox"][2],
+                ].copy()
+                resized_masked_img = self.preprocess(masked_img).unsqueeze(0).cuda()
+                masked_img_emb = self.clip_model.encode_image(resized_masked_img)
+                # TODO: add img_emb to img * mask areas only
+                dense_image_features[ann["segmentation"]] = torch.add(
+                    dense_image_features[ann["segmentation"]],
+                    masked_img_emb,
+                    alpha=ann["predicted_iou"],
+                )
+                # count_features[ann["segmentation"]].add(1)
+            # resized_full_image = self.preprocess(raw_rgb.copy()).unsqueeze(0).cuda()
+            # full_image_features = self.clip_model.encode_image(resized_full_image)
+            H, W, C = dense_image_features.shape
+            # plt.imshow(dense_image_features.detach().cpu().numpy().sum(axis=-1))
+            # plt.show()
+            eps = 1e-6
+            dense_image_features = dense_image_features.reshape(-1, C)
+            dense_image_features /= eps + dense_image_features.norm(
+                dim=-1, keepdim=True
+            )
+            print("Testing CLIP image features for inference")
+            text = [
+                "computer screen",
+                "water bottle",
+                "lemon",
+                "basket",
+                "table",
+                "wall",
+            ]
+            plt.figure()
+            for t in text:
+                text_tokens = clip.tokenize(t).cuda()
+                text_features = self.clip_model.encode_text(text_tokens)
+                text_features /= text_features.norm(dim=-1, keepdim=True)
+                similarity = (
+                    (dense_image_features @ text_features.T).detach().cpu().numpy()
+                )
+                similarity /= similarity.max()
+                similarity[similarity < 0.95] = 0
+                similarity = similarity.reshape(H, W, 1)
+                plt.subplot(3, 3, text.index(t) + 1)
+                plt.imshow(similarity)
+                plt.title(t)
+            plt.tight_layout()
+            plt.show()
 
         # downsample point-cloud by distance (heuristic)
         rgb = rgb.reshape(-1, C)
         depth = depth.reshape(-1)
         xyz = xyz.reshape(-1, C)
-        mask = np.bitwise_and(depth < 1.5, depth > 0.3)
-        rgb = rgb[mask]
-        xyz = xyz[mask]
-        #
-        # TODO: get mask from mdetr
-        # from matplotlib import pyplot as plt
-        #
-        # plt.imshow(rgb_img)
-        # plt.show()
-        # breakpoint()
-        # res = input("Run detic on this?")
-        # if res == "y":
-        #     res1 = input("Rotate? ")
-        #     if res1 == 'y':
-        #         rgb_img, depth_img = rotate_image([rgb_img, depth_img])
-        #
-        #     # test DeticPerception
-        #     # Create the observation
-        #     obs = Observations(
-        #         rgb=rgb_img.copy(),
-        #         depth=depth_img.copy(),
-        #         xyz=xyz.copy(),
-        #         gps=np.zeros(2),  # TODO Replace
-        #         compass=np.zeros(1),  # TODO Replace
-        #         task_observations={},
-        #     )
-        #     # Run the segmentation model here
-        #     obs = self.segmentor.predict(obs)
-        #     plt.imshow(obs.task_observations["semantic_frame"])
-        #     plt.show()
-        return rgb, xyz
+        # mask = np.bitwise_and(depth < 1.5, depth > 0.3)
+        # rgb = rgb[mask]
+        # xyz = xyz[mask]
+        rgb = rgb.astype(np.float64) / 255.0
+
+        return rgb, xyz, depth, raw_rgb
 
     def extract_manual_keyframes(self, user_keyframe_array):
         """returns indices of all user-tagged keyframes"""
@@ -466,6 +548,22 @@ class RobotDataset(RLBenchDataset):
             interaction_ee_keyframe[:3, 3],
         )
 
+    def show_anns(self, anns):
+        if len(anns) == 0:
+            return
+        sorted_anns = sorted(anns, key=(lambda x: x["area"]), reverse=True)
+        ax = plt.gca()
+        ax.set_autoscale_on(False)
+        polygons = []
+        color = []
+        for ann in sorted_anns:
+            m = ann["segmentation"]
+            img = np.ones((m.shape[0], m.shape[1], 3))
+            color_mask = np.random.random((1, 3)).tolist()[0]
+            for i in range(3):
+                img[:, :, i] = color_mask[i]
+            ax.imshow(np.dstack((img, m * 0.35)))
+
     def get_datum(self, trial, keypoint_idx, verbose=False):
         """Get a single training example given the index."""
 
@@ -502,7 +600,7 @@ class RobotDataset(RLBenchDataset):
 
         if verbose:
             print(
-                f"reference_pt: {interaction_pt}, min_gripper: {min_gripper}, gripper-state-array: {gripper_state}"
+                f"reference_pt: {interaction_pt}, min_gripper: {self._robot_max_grasp}, gripper-state-array: {gripper_state}"
             )
 
         # choose an input frame-idx, in our case this is the 1st frame
@@ -515,7 +613,7 @@ class RobotDataset(RLBenchDataset):
         for i in range(num_input_frames):
             input_keyframes.append(keypoints[0] - i - 1)
         if self.use_first_frame_as_input:
-            raise RuntimeError(
+            raise RuntimeWarning(
                 "use_first_frame_as_input was used but it doesn't do anything right now"
             )
         #     image_index = keypoint_idx % 1
@@ -541,26 +639,27 @@ class RobotDataset(RLBenchDataset):
             print(f"Proprio: {proprio}")
 
         # get point-cloud in base-frame from the cameras
-        rgbs, xyzs = [], []
+        rgbs, xyzs, depths, imgs = [], [], [], []
         for view in ["head"]:  # TODO: make keys consistent with stretch H5 schema
             for image_index in input_keyframes:
-                v_rgb, v_xyz = self.process_images_from_view(
+                v_rgb, v_xyz, v_depth, raw_rgb = self.process_images_from_view(
                     trial,
                     view,
                     image_index if image_index is not None else input_idx,
+                    verbose=verbose,
                 )
                 rgbs.append(v_rgb)
                 xyzs.append(v_xyz)
-
+                depths.append(v_depth)
+                imgs.append(raw_rgb)
         drop_frames = False  # TODO: get this from cfg
         if drop_frames:
             # randomly dropout 1/3rd of the point-clouds
             # TODO: update this to dropout each frame with 0.33 probability
-            idx_dropout = np.random.choice(
-                [False, True], size=len(rgbs), p=[0.33, 0.67]
-            )
-            rgbs = [rgbs[i] for i in idx_dropout]
-            xyzs = [xyzs[i] for i in idx_dropout]
+            idx_select = np.random.choice([False, True], size=len(rgbs), p=[0.33, 0.67])
+            rgbs = [rgbs[i] for i in idx_select]
+            xyzs = [xyzs[i] for i in idx_select]
+            imgs = [imgs[i] for i in idx_select]
         rgb = np.concatenate(rgbs, axis=0)
         xyz = np.concatenate(xyzs, axis=0)
         x_mask = xyz[:, 0] < 0.9
@@ -677,7 +776,7 @@ class RobotDataset(RLBenchDataset):
             )
 
         if self._visualize_cropped_keyframes:
-            self.show_cropped_keyframe(
+            self.show_cropped_keyframes(
                 crop_xyz, crop_rgb, crop_ee_keyframe, crop_ref_ee_keyframe
             )
 
@@ -691,7 +790,9 @@ class RobotDataset(RLBenchDataset):
             "target_gripper_state": torch.FloatTensor(target_gripper_state),
             "xyz": torch.FloatTensor(xyz),
             "rgb": torch.FloatTensor(rgb),
+            "raw_rgb": torch.FloatTensor(raw_rgb),
             "cmd": cmd,
+            "image_size": (self._image_height, self._image_width, self._image_channels),
             "keypoint_idx": keypoint_idx,
             # engineered features ----------------
             "closest_pos": torch.FloatTensor(closest_pt_og_pcd),
@@ -716,6 +817,16 @@ class RobotDataset(RLBenchDataset):
             "target_ee_angles": torch.FloatTensor(angles),
         }
         return datum
+
+        # datum = {
+        #     "rgb": rgbs,
+        #     "xyz": xyzs,
+        #     "images": imgs,
+        #     "proprio": proprio,
+        #     "interaction_pt_idx": interaction_pt,
+        #     "keypoint_idx": current_keypoint_idx,
+        # }
+        # return datum
 
 
 @click.command()
@@ -797,7 +908,7 @@ def show_all_keypoints(data_dir, split, template, robot):
             num_keypt = trial.num_keypoints
             for i in range(num_keypt):
                 print("Keypoint requested: ", i)
-                loader.get_datum(trial, i, verbose=True)
+                data = loader.get_datum(trial, i, verbose=False)
             # data = loader.get_datum(trial, 1, verbose=False)
 
 

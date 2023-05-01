@@ -64,14 +64,19 @@ class Trial(object):
             conf[k] = group[k][()]
         return conf
 
-    def get_img(self, key, idx, depth=False, rgb=False, depth_factor=10000):
+    def get_img(
+        self, key, idx, depth=False, rgb=False, depth_factor=10000, normalize=False
+    ):
         assert key in self.image_keys
         group = self[key]
         arr = image.img_from_bytes(group[str(idx)][()])
         if depth:
             return arr / depth_factor
         elif rgb:
-            return arr / 255.0
+            if normalize:
+                return arr / 255.0
+            else:
+                return arr
         else:
             return arr
 
