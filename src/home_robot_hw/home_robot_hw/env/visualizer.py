@@ -118,6 +118,8 @@ class Visualizer:
         been_close_map: Optional[np.ndarray] = None,
         third_person_image: Optional[np.ndarray] = None,
         short_term_goal: Optional[np.ndarray] = None,
+        dilated_obstacle_map: Optional[np.ndarray] = None,
+        short_term_goal_map: Optional[np.ndarray] = None,
     ):
         """Visualize frame input and semantic map.
 
