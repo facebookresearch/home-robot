@@ -1,16 +1,19 @@
 import os
-from typing import Any, Dict, List, Optional, Tuple, Union, cast
+import random
+from typing import Any, Dict, List, Optional, Tuple, Union
 
 import habitat
 import numpy as np
 import torch
 from habitat.core.environments import GymHabitatEnv
 from habitat.core.simulator import Observations
-from skimage import color
 from torch import Tensor
 
 import home_robot
-from home_robot.core.interfaces import DiscreteNavigationAction
+from home_robot.core.interfaces import (
+    ContinuousNavigationAction,
+    DiscreteNavigationAction,
+)
 from home_robot.utils.constants import (
     MAX_DEPTH_REPLACEMENT_VALUE,
     MIN_DEPTH_REPLACEMENT_VALUE,
@@ -38,6 +41,8 @@ class HabitatOpenVocabManipEnv(HabitatEnv):
         self.goal_type = config.habitat.task.goal_type
         self.episodes_data_path = config.habitat.dataset.data_path
         self.video_dir = config.habitat_baselines.video_dir
+        self.max_forward = config.habitat.task.actions.base_velocity.lin_speed
+        self.max_turn = config.habitat.task.actions.base_velocity.ang_speed
         self.config = config
         assert (
             "floorplanner" in self.episodes_data_path
@@ -108,6 +113,7 @@ class HabitatOpenVocabManipEnv(HabitatEnv):
         self.visualizer.set_vis_dir(scene_id=scene_id, episode_id=episode_id)
 
     def reset(self):
+
         habitat_obs = self.habitat_env.reset()
         self._last_habitat_obs = habitat_obs
         self.semantic_category_mapping.reset_instance_id_to_category_id(
@@ -285,6 +291,18 @@ class HabitatOpenVocabManipEnv(HabitatEnv):
             cont_action = np.concatenate(
                 [arm_action, grip_action, base_vel, [-1, -1, rearrange_stop[0], -1]]
             )
+        elif type(action) == ContinuousNavigationAction:
+            # Continuous action in simulation can only take agent forward
+            waypoint, move_forward = 0, 0
+            if action.xyt[0] != 0:
+                waypoint = action.xyt[0] / self.max_forward
+                move_forward = 1
+            elif action.xyt[2] != 0:
+                waypoint = action.xyt[2] / self.max_turn
+                move_forward = -1
+            cont_action = np.concatenate(
+                [[0] * 7 + [-1] + [waypoint, move_forward] + [-1] * 4]
+            )
         else:
             grip_action = -1
             if (
@@ -332,6 +350,10 @@ class HabitatOpenVocabManipEnv(HabitatEnv):
         info: Optional[Dict[str, Any]] = None,
     ):
         if info is not None:
+            if type(action) == ContinuousNavigationAction:
+                info["curr_action"] = str([round(a, 3) for a in action.xyt])
+            if type(action) == DiscreteNavigationAction:
+                info["curr_action"] = DiscreteNavigationAction(action).name
             self._process_info(info)
         habitat_action = self._preprocess_action(action, self._last_habitat_obs)
         habitat_obs, _, dones, infos = self.habitat_env.step(habitat_action)

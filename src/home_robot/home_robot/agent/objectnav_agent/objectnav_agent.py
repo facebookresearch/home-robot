@@ -71,8 +71,8 @@ class ObjectNavAgent(Agent):
             goal_dilation_selem_radius=config.AGENT.PLANNER.goal_dilation_selem_radius,
             map_size_cm=config.AGENT.SEMANTIC_MAP.map_size_cm,
             map_resolution=config.AGENT.SEMANTIC_MAP.map_resolution,
-            visualize=False,
-            print_images=False,
+            visualize=config.VISUALIZE,
+            print_images=config.PRINT_IMAGES,
             dump_location=config.DUMP_LOCATION,
             exp_name=config.EXP_NAME,
             agent_cell_radius=agent_cell_radius,
@@ -301,6 +301,8 @@ class ObjectNavAgent(Agent):
 
         # 3 - Planning
         closest_goal_map = None
+        short_term_goal = None
+        dilated_obstacle_map = None
         if planner_inputs[0]["found_goal"]:
             self.episode_panorama_start_steps = 0
         if self.timesteps[0] < self.episode_panorama_start_steps:
@@ -308,8 +310,15 @@ class ObjectNavAgent(Agent):
         elif self.timesteps[0] > self.max_steps:
             action = DiscreteNavigationAction.STOP
         else:
-            action, closest_goal_map = self.planner.plan(
-                **planner_inputs[0], use_dilation_for_stg=self.use_dilation_for_stg
+            (
+                action,
+                closest_goal_map,
+                short_term_goal,
+                dilated_obstacle_map,
+            ) = self.planner.plan(
+                **planner_inputs[0],
+                use_dilation_for_stg=self.use_dilation_for_stg,
+                timestep=self.timesteps[0],
             )
 
         # t3 = time.time()
@@ -322,7 +331,8 @@ class ObjectNavAgent(Agent):
             vis_inputs[0]["semantic_frame"] = obs.task_observations["semantic_frame"]
             vis_inputs[0]["closest_goal_map"] = closest_goal_map
             vis_inputs[0]["third_person_image"] = obs.third_person_image
-
+            vis_inputs[0]["short_term_goal"] = short_term_goal
+            vis_inputs[0]["dilated_obstacle_map"] = dilated_obstacle_map
         info = {**planner_inputs[0], **vis_inputs[0]}
 
         return action, info

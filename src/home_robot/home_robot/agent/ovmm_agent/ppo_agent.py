@@ -211,6 +211,8 @@ class PPOAgent(Agent):
                     if "actor_critic" in k
                 }
             )
+        self.max_forward = skill_config.max_forward
+        self.max_turn = skill_config.max_turn
 
     def reset(self) -> None:
         self.test_recurrent_hidden_states = torch.zeros(
@@ -310,12 +312,12 @@ class PPOAgent(Agent):
                     self.filtered_action_space, self.vector_action_space, act[0]
                 )
                 return (
-                    map_continuous_habitat_actions(step_action["action_args"]),
+                    self._map_continuous_habitat_actions(step_action["action_args"]),
                     self.does_want_terminate(observations, actions),
                 )
             else:
                 # TODO: to be tested (by Nav skill?)
-                step_action = map_discrete_habitat_actions(
+                step_action = self._map_discrete_habitat_actions(
                     action_data.env_actions[0].item()
                 )
 
@@ -333,21 +335,20 @@ class PPOAgent(Agent):
             self.does_want_terminate(observations, actions),
         )
 
+    def _map_continuous_habitat_actions(self, cont_action):
+        """Map habitat continuous actions to home-robot continuous actions"""
+        # TODO: support simultaneous manipulation
+        waypoint, sel = cont_action["base_vel"]
+        if sel >= 0:
+            action = ContinuousNavigationAction(
+                [np.clip(waypoint, -1, 1) * self.max_forward, 0, 0]
+            )  # forward
+        else:
+            action = ContinuousNavigationAction(
+                [0, 0, np.clip(waypoint, -1, 1) * self.max_turn]
+            )  # turn
+        return action
 
-def map_continuous_habitat_actions(cont_action):
-    """Map habitat continuous actions to home-robot continuous actions"""
-    waypoint, sel = cont_action["base_vel"]
-    if sel >= 0:
-        action = ContinuousNavigationAction(
-            [np.clip(waypoint, -1, 1) * 0.25, 0, 0]
-        )  # forward
-    else:
-        action = ContinuousNavigationAction(
-            [0, 0, np.clip(waypoint, -1, 1) * 0.1745]
-        )  # turn
-    return action
-
-
-def map_discrete_habitat_actions(discrete_action):
-    # TODO map habitat actions to home-robot actions
-    raise NotImplementedError
+    def _map_discrete_habitat_actions(self, discrete_action):
+        # TODO map habitat actions to home-robot actions
+        raise NotImplementedError

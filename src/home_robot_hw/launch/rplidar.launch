@@ -1,0 +1,33 @@
+<launch>
+
+  <!-- RPLIDAR A1 -->
+  <node name="lidar_node" pkg="rplidar_ros" type="rplidarNode" output="screen" required="true">
+    <param name="serial_port"         type="string" value="/dev/hello-lrf"/>
+    <param name="serial_baudrate"     type="int"    value="115200"/> 
+    <param name="frame_id"            type="string" value="laser"/>
+    <param name="inverted"            type="bool"   value="false"/>
+    <param name="angle_compensate"    type="bool"   value="true"/>
+    <param name="scan_mode"           type="string" value="Boost"/>
+  </node>
+
+  <node pkg="laser_filters" type="scan_to_scan_filter_chain"
+      name="laser_filter" required="true">
+    <rosparam ns="scan_filter_chain">
+        - name: shadows
+          type: laser_filters/ScanShadowsFilter
+          params:
+            min_angle: 10
+            max_angle: 170
+            neighbors: 20
+            window: 1
+    </rosparam>
+  </node>
+  <!-- -->
+
+  <!--
+      "lidar supported modes
+      Standard: max_distance: 12.0 m, Point number: 2.0K
+      Express: max_distance: 12.0 m, Point number: 4.0K
+      Boost: max_distance: 12.0 m, Point number: 8.0K"
+  -->
+</launch>
