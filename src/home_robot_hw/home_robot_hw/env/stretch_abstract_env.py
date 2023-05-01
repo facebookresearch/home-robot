@@ -436,7 +436,7 @@ class StretchEnv(home_robot.core.abstract_env.Env):
         depth[depth > self.max_depth_val] = MAX_DEPTH_REPLACEMENT_VALUE
         return depth
 
-    def get_images(self, compute_xyz=False, rotate_images=False):
+    def get_images(self, compute_xyz=False, rotate_images=True):
         """helper logic to get images from the robot's camera feed"""
         rgb = self.rgb_cam.get()
         if self.filter_depth:
