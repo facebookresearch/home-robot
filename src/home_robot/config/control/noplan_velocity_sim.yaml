@@ -10,3 +10,6 @@ ang_error_tol: 0.025
 
 # Maximum angle error at which the controller would still exert linear motion
 max_heading_ang: 0.7854  # 45 degrees
+
+# Maximum distance to goal at which the controller will opt for moving backwards over turning around
+max_rev_dist: 0.5
