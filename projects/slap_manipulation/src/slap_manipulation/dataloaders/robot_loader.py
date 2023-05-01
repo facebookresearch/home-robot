@@ -10,6 +10,7 @@ import trimesh
 import trimesh.transformations as tra
 import yaml
 from slap_manipulation.dataloaders.annotations import load_annotations_dict
+from slap_manipulation.dataloaders.data_processing import compute_detic_mask
 from slap_manipulation.dataloaders.rlbench_loader import RLBenchDataset
 
 from home_robot.core.interfaces import Observations
@@ -229,13 +230,6 @@ class RobotDataset(RLBenchDataset):
         self._visualize_interaction_estimates = visualize_interaction_estimates
         self._visualize_cropped_keyframes = visualize_cropped_keyframes
 
-        # setup segmentation pipeline
-        # self.segmentor = DeticPerception(
-        #     vocabulary="custom",
-        #     custom_vocabulary=",".join(REAL_WORLD_CATEGORIES),
-        #     sem_gpu_id=0,
-        # )
-
     def get_gripper_pose(self, trial, idx):
         """add grasp offset to ee pose and return gripper pose"""
         ee_pose = trial["ee_pose"][idx]
@@ -269,7 +263,7 @@ class RobotDataset(RLBenchDataset):
 
     def process_images_from_view(
         self, trial: Trial, view_name: str, idx: int
-    ) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
+    ) -> Tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
         """process rgb and depth image from a given camera into a structured PCD
         Args:
             trial:      Trial object
@@ -277,16 +271,19 @@ class RobotDataset(RLBenchDataset):
                         expect images to be <view_name>_rgb, <view_name>_depth
             idx:        index of the image
         """
-        rgb = trial.get_img(view_name + "_rgb", idx, rgb=True)
+        rgb = trial.get_img(view_name + "_rgb", idx, rgb=True, normalized=False)
         depth = trial.get_img(
             view_name + "_depth", idx, depth=True, depth_factor=self.depth_factor
         )
         if self._robot == "stretch":
             xyz = trial[view_name + "_xyz"][idx]
         rgb_img = rgb.copy()
-        # depth_img = depth.copy()
+        depth_img = depth.copy()
+        if self.data_augmentation:
+            depth = dropout_random_ellipses(depth, dropout_mean=10)
+            # TODO: this would not work as expected esp when we combine multiple PCDs
 
-        # get camera details
+        # get camera details and convert rgb, depth to rgbd point-cloud
         if self._robot == "franka":
             camera_intrinsics = self.cam_intrinsics[view_name]
             if view_name != "wrist":
@@ -300,13 +297,6 @@ class RobotDataset(RLBenchDataset):
             camera_matrix = np.concatenate(
                 (padded_rot, padded_trans.reshape(-1, 1)), axis=1
             )
-
-        if self.data_augmentation:
-            depth = dropout_random_ellipses(depth, dropout_mean=10)
-            # TODO: this would not work as expected esp when we combine multiple PCDs
-
-        # convert rgb, depth to rgbd point-cloud
-        if self._robot == "franka":
             camera = Camera(
                 pos=camera_position,
                 orn=camera_rot,
@@ -318,6 +308,7 @@ class RobotDataset(RLBenchDataset):
                 py=camera_intrinsics["ppy"],
             )
             xyz = depth_to_xyz(depth, camera)
+
         if self.data_augmentation:
             xyz = add_additive_noise_to_xyz(
                 xyz,
@@ -351,13 +342,10 @@ class RobotDataset(RLBenchDataset):
                     "Couldn't find camera information in your H5 file. The program will close now"
                 )
 
-        # downsample point-cloud by distance (heuristic)
         rgb = rgb.reshape(-1, C)
         depth = depth.reshape(-1)
         xyz = xyz.reshape(-1, C)
-        # mask = np.bitwise_and(depth < 1.5, depth > 0.3)
-        # rgb = rgb[mask]
-        # xyz = xyz[mask]
+        rgb = rgb / 255.0
         #
         # TODO: get mask from mdetr
         # from matplotlib import pyplot as plt
@@ -385,7 +373,7 @@ class RobotDataset(RLBenchDataset):
         #     obs = self.segmentor.predict(obs)
         #     plt.imshow(obs.task_observations["semantic_frame"])
         #     plt.show()
-        return rgb, xyz, rgb_img
+        return rgb, xyz, rgb_img, depth_img
 
     def extract_manual_keyframes(self, user_keyframe_array):
         """returns indices of all user-tagged keyframes"""
@@ -466,7 +454,7 @@ class RobotDataset(RLBenchDataset):
             interaction_ee_keyframe[:3, 3],
         )
 
-    def get_datum(self, trial, keypoint_idx, verbose=False):
+    def get_datum(self, trial, keypoint_idx, verbose=False, new_loader=True):
         """Get a single training example given the index."""
 
         cmds = trial["task_name"][()].decode("utf-8").split(",")
@@ -502,7 +490,7 @@ class RobotDataset(RLBenchDataset):
 
         if verbose:
             print(
-                f"reference_pt: {interaction_pt}, min_gripper: {min_gripper}, gripper-state-array: {gripper_state}"
+                f"reference_pt: {interaction_pt}, min_gripper: {self._robot_max_grasp}, gripper-state-array: {gripper_state}"
             )
 
         # choose an input frame-idx, in our case this is the 1st frame
@@ -543,10 +531,10 @@ class RobotDataset(RLBenchDataset):
             print(f"Proprio: {proprio}")
 
         # get point-cloud in base-frame from the cameras
-        rgbs, xyzs, imgs = [], [], []
+        rgbs, xyzs, imgs, dimgs = [], [], [], []
         for view in ["head"]:  # TODO: make keys consistent with stretch H5 schema
             for image_index in input_keyframes:
-                v_rgb, v_xyz, v_img = self.process_images_from_view(
+                v_rgb, v_xyz, v_img, v_dimg = self.process_images_from_view(
                     trial,
                     view,
                     image_index if image_index is not None else input_idx,
@@ -554,19 +542,24 @@ class RobotDataset(RLBenchDataset):
                 rgbs.append(v_rgb)
                 xyzs.append(v_xyz)
                 imgs.append(v_img)
+                dimgs.append(v_dimg)
         # get EE keyframe
         current_ee_keyframe = self.get_gripper_pose(trial, int(current_keypoint_idx))
         interaction_ee_keyframe = self.get_gripper_pose(trial, int(interaction_pt))
 
-        datum = {
-            "rgb_points": rgbs,
-            "xyz_points": xyzs,
-            "rgb_images": imgs,
-            "proprio": proprio,
-            "interaction_pt_index": interaction_pt,
-            "current_ee_keyframe": current_ee_keyframe,  # we can also just send all ee keyframes here
-            "interaction_ee_keyframe": interaction_ee_keyframe,
-        }
+        if new_loader:
+            datum = {
+                "rgb_points": rgbs,
+                "xyz_points": xyzs,
+                "rgb_images": imgs,
+                "depth_images": dimgs,
+                "proprio": proprio,
+                "interaction_pt_index": interaction_pt,
+                "current_ee_keyframe": current_ee_keyframe,  # we can also just send all ee keyframes here
+                "interaction_ee_keyframe": interaction_ee_keyframe,
+                "task-name": cmd,
+            }
+            return datum
 
         drop_frames = False  # TODO: get this from cfg
         if drop_frames:
@@ -800,6 +793,12 @@ def show_all_keypoints(data_dir, split, template, robot):
         visualize_cropped_keyframes=True,
         robot=robot,
     )
+    # setup segmentation pipeline
+    segmentor = DeticPerception(
+        vocabulary="custom",
+        custom_vocabulary=",".join(REAL_WORLD_CATEGORIES),
+        sem_gpu_id=0,
+    )
     skip_names = ["30_11_2022_15_22_40"]
     for trial in loader.trials:
         print(f"Trial: {trial.name}")
@@ -810,7 +809,8 @@ def show_all_keypoints(data_dir, split, template, robot):
             num_keypt = trial.num_keypoints
             for i in range(num_keypt):
                 print("Keypoint requested: ", i)
-                loader.get_datum(trial, i, verbose=True)
+                data = loader.get_datum(trial, i, verbose=True)
+                compute_detic_mask(data["rgb_images"], data["depth_images"], segmentor)
             # data = loader.get_datum(trial, 1, verbose=False)
 
 

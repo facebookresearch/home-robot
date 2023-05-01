@@ -1,14 +1,61 @@
 from typing import List, Tuple
 
+import matplotlib.pyplot as plt
 import numpy as np
 import open3d as o3d
 import trimesh.transformations as tra
-
-from home_robot.utils.point_cloud import (
-    numpy_to_pcd,
-    show_point_cloud,
+from slap_manipulation.utils.data_visualizers import (
     show_point_cloud_with_keypt_and_closest_pt,
 )
+
+from home_robot.core.interfaces import Observations
+from home_robot.utils.image import rotate_image
+from home_robot.utils.point_cloud import numpy_to_pcd, show_point_cloud
+
+
+def unrotate_image(images: List[np.ndarray]) -> List[np.ndarray]:
+    new_images = [np.fliplr(np.flipud(np.rot90(x, 3))) for x in images]
+    return new_images
+
+
+def crop_around_voxel(
+    xyz: np.ndarray,
+    rgb: np.ndarray,
+    feat: np.ndarray,
+    crop_location: np.ndarray,
+    crop_size: float,
+) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
+    """Crop a point cloud around given voxel"""
+    mask = np.linalg.norm(xyz - crop_location, axis=1) < crop_size
+    return xyz[mask, :], rgb[mask, :], feat[mask, :]
+
+
+def get_local_action_prediction_problem(
+    cfg,
+    feat: np.ndarray,
+    xyz: np.ndarray,
+    p_i: np.ndarray,
+) -> Tuple[np.ndarray, np.ndarray, bool]:
+    """
+    Returns a cropped version of the input point-cloud mean-centered around the predicted
+    interaction point (p_i)
+    """
+    # crop from og pcd and mean-center it
+    crop_xyz, crop_rgb = crop_around_voxel(feat, xyz, p_i, cfg.local_problem_size)
+    crop_xyz = crop_xyz - p_i[None].repeat(crop_xyz.shape[0], axis=0)
+    # show_point_cloud(crop_xyz, crop_rgb, orig=np.zeros(3))
+    if crop_rgb.shape[0] > cfg.num_pts:
+        # Downsample pt clouds
+        downsample = np.arange(crop_rgb.shape[0])
+        np.random.shuffle(downsample)
+        if cfg.num_pts != -1:
+            downsample = downsample[: cfg.num_pts]
+        crop_rgb = crop_rgb[downsample]
+        crop_xyz = crop_xyz[downsample]
+    status = True
+    if crop_xyz.shape[0] < 10:
+        status = False
+    return crop_rgb, crop_xyz, status
 
 
 def drop_frames_from_input(xyzs, rgbs, imgs, probability_dropout=0.33):
@@ -32,7 +79,11 @@ def average_feats(feats, downsampled_index_trace):
     return averaged_feats
 
 
-def remove_duplicate_points(xyz, rgb, feats, voxel_size=0.001):
+def remove_duplicate_points(xyz, rgb, feats, depth, voxel_size=0.001):
+    # heuristic based trimming
+    mask = np.bitwise_and(depth < 1.5, depth > 0.3)
+    rgb = rgb[mask]
+    xyz = xyz[mask]
     debug_views = False
     if debug_views:
         print("xyz", xyz.shape)
@@ -55,10 +106,6 @@ def remove_duplicate_points(xyz, rgb, feats, voxel_size=0.001):
         show_point_cloud(xyz, rgb)
 
     return xyz, rgb, feats
-
-
-def compute_detic_mask(imgs: List[np.ndarray]) -> List[np.ndarray]:
-    pass
 
 
 def dr_crop_radius_around_interaction_point(
@@ -224,3 +271,145 @@ def voxelize_and_get_interaction_point(
         target_idx_og_pcd,
         closest_pt_og_pcd,
     )
+
+
+def get_local_problem(
+    xyz,
+    rgb,
+    feat,
+    interaction_pt,
+    num_find_crop_tries=10,
+    min_num_points=50,
+    data_augmentation=False,
+    multiplier=0.05,
+    offset=-0.025,
+    local_problem_size=0.1,
+    num_pts=8000,
+):
+    """
+    Crop given PCD around a perturbed interaction_point as input to action prediction problem
+    """
+    orig_crop_location = interaction_pt
+    if data_augmentation:
+        # Check to see if enough points are within the crop radius
+        for _ in range(num_find_crop_tries):
+            crop_location = orig_crop_location
+            # Crop randomly within a few centimeters
+            crop_location = orig_crop_location + (
+                (np.random.random(3) * multiplier) + offset
+            )
+            # Make sure at least min_num_points are within this radius
+            # get number of points in this area
+            dists = np.linalg.norm(
+                xyz - crop_location[None].repeat(xyz.shape[0], axis=0), axis=-1
+            )
+            # Make sure this is near some geometry
+            if np.sum(dists < 0.1) > min_num_points:
+                break
+            else:
+                crop_location = orig_crop_location
+    else:
+        crop_location = orig_crop_location
+
+    # TODO: remove debug code
+    # This should be at a totally reasonable location
+    # show_point_cloud(xyz, rgb, orig=crop_location)
+
+    # crop from og pcd and mean-center it
+    crop_xyz, crop_rgb, crop_feat = crop_around_voxel(
+        xyz, rgb, feat, crop_location, local_problem_size
+    )
+    crop_xyz = crop_xyz - crop_location[None].repeat(crop_xyz.shape[0], axis=0)
+    # show_point_cloud(crop_xyz, crop_rgb, orig=np.zeros(3))
+    if crop_rgb.shape[0] > num_pts:
+        # Downsample pt clouds
+        downsample = np.arange(crop_rgb.shape[0])
+        np.random.shuffle(downsample)
+        if num_pts != -1:
+            downsample = downsample[:num_pts]
+        crop_rgb = crop_rgb[downsample]
+        crop_xyz = crop_xyz[downsample]
+    status = True
+    if crop_xyz.shape[0] < 10:
+        status = False
+    return crop_location, crop_xyz, crop_rgb, status
+
+
+def get_local_commands(crop_location, ee_keyframe, ref_ee_keyframe, keyframes):
+    """adjust keyframes in the pcd-center reference frame to be wrt crop-location instead"""
+    # NOTE: copying the keyframes is EXTREMELY important
+    crop_ee_keyframe = ee_keyframe.copy()
+    crop_ee_keyframe[:3, 3] -= crop_location
+    crop_ref_ee_keyframe = ref_ee_keyframe.copy()
+    crop_ref_ee_keyframe[:3, 3] -= crop_location
+    crop_keyframes = []
+    for keyframe in keyframes:
+        _keyframe = keyframe.copy()
+        _keyframe[:3, 3] -= crop_location
+        crop_keyframes.append(_keyframe)
+    return crop_ref_ee_keyframe, crop_ee_keyframe, crop_keyframes
+
+
+def format_commands(
+    crop_ee_keyframe, keyframes, multi_step=False, ori_type="quaternion"
+):
+    """process keyframes and convert into the learnable format"""
+    if multi_step:
+        num_frames = len(keyframes)
+        assert num_frames > 0
+        positions = np.zeros((num_frames, 3))
+        orientations = np.zeros((num_frames, 3, 3))
+        # Set things up with the right shape
+        if ori_type == "rpy":
+            angles = np.zeros((num_frames, 3))
+        elif ori_type == "quaternion":
+            angles = np.zeros((num_frames, 4))
+        else:
+            raise RuntimeError("unsupported orientation type: " + str(ori_type))
+        # Loop over the whole list of keyframes
+        # Create a set of trajectory data so we can train all three waypoints at once
+        for j, keyframe in enumerate(keyframes):
+            orientations[j, :, :] = keyframe[:3, :3]
+            positions[j, :] = keyframe[:3, 3]
+            if ori_type == "rpy":
+                angles[j, :] = tra.euler_from_matrix(keyframe[:3, :3])
+            elif ori_type == "quaternion":
+                angles[j, :] = tra.quaternion_from_matrix(keyframe[:3, :3])
+    else:
+        # Just one
+        positions = crop_ee_keyframe[:3, 3]
+        orientations = crop_ee_keyframe[:3, :3]
+        if ori_type == "rpy":
+            angles = tra.euler_from_matrix(crop_ee_keyframe[:3, :3])
+        elif ori_type == "quaternion":
+            angles = tra.quaternion_from_matrix(crop_ee_keyframe[:3, :3])
+    return positions, orientations, angles
+
+
+def compute_detic_mask(rgb_images, depth_images, segmentor):
+    union_mask = []
+    for i, img in enumerate(rgb_images):
+        img, dimg = rotate_image([img, depth_images[i]])
+        H, W, _ = img.shape
+
+        # test DeticPerception
+        # Create the observation
+        obs = Observations(
+            rgb=img.copy(),
+            depth=dimg.copy(),
+            xyz=None,
+            gps=np.zeros(2),  # TODO Replace
+            compass=np.zeros(1),  # TODO Replace
+            task_observations={},
+        )
+        # Run the segmentation model here
+        obs = segmentor.predict(obs, depth_threshold=0.5)
+        breakpoint()
+        plt.imshow(obs.task_observations["instance_map"])
+        plt.show()
+        mask = obs.task_observations["semantic_frame"] != 0
+        # unrotate mask
+        mask = unrotate_image([mask])
+        union_mask.append(mask)
+    union_mask = np.stack(union_mask, axis=0)
+    return union_mask
