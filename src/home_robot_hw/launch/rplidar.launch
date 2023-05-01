@@ -1,7 +1,7 @@
 <launch>
 
   <!-- RPLIDAR A1 -->
-  <node name="lidar_node" pkg="rplidar_ros" type="rplidarNode" output="screen">
+  <node name="lidar_node" pkg="rplidar_ros" type="rplidarNode" output="screen" required="true">
     <param name="serial_port"         type="string" value="/dev/hello-lrf"/>
     <param name="serial_baudrate"     type="int"    value="115200"/> 
     <param name="frame_id"            type="string" value="laser"/>
@@ -11,7 +11,7 @@
   </node>
 
   <node pkg="laser_filters" type="scan_to_scan_filter_chain"
-      name="laser_filter">
+      name="laser_filter" required="true">
     <rosparam ns="scan_filter_chain">
         - name: shadows
           type: laser_filters/ScanShadowsFilter
