@@ -297,7 +297,8 @@ class PaletteIndices:
     CLOSEST_GOAL = 4
     REST_OF_GOAL = 5
     BEEN_CLOSE = 6
-    SEM_START = 7
+    SHORT_TERM_GOAL = 7
+    SEM_START = 8
 
 
 rearrange_3categories_map_color_palette = [
@@ -324,6 +325,9 @@ rearrange_3categories_map_color_palette = [
         0.6,
         0.87,
         0.54,  # been close map
+        0.0,
+        1.0,
+        0.0,  # short term goal
         *[x / 255.0 for x in rearrange_3categories_color_palette],
     ]
 ]

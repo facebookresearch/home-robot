@@ -224,6 +224,9 @@ class Visualizer:
         visualize_goal: bool = True,
         third_person_image: np.ndarray = None,
         curr_skill: str = None,
+        curr_action: str = None,
+        short_term_goal: np.ndarray = None,
+        dilated_obstacle_map: np.ndarray = None,
     ):
         """Visualize frame input and semantic map.
 
@@ -254,15 +257,18 @@ class Visualizer:
         image_vis = self.image_vis.copy()
 
         # if curr_skill is not None, place the skill name below the third person image
-        if curr_skill is not None:
+        if curr_skill is not None and curr_action is not None:
             image_vis = self._put_text_on_image(
                 image_vis,
-                curr_skill,
+                curr_skill + "\n" + curr_action,
                 V.THIRD_PERSON_X1,
                 V.Y2,
                 V.THIRD_PERSON_W,
                 V.BOTTOM_PADDING,
             )
+
+        if dilated_obstacle_map is not None:
+            obstacle_map = dilated_obstacle_map
 
         if obstacle_map is not None:
             curr_x, curr_y, curr_o, gy1, gy2, gx1, gx2 = sensor_pose
@@ -313,6 +319,18 @@ class Visualizer:
                     )
                     closest_goal_mask = closest_goal_mat == 1
                     semantic_map[closest_goal_mask] = PI.CLOSEST_GOAL
+                if short_term_goal is not None:
+                    short_term_goal_mask = np.zeros(goal_mask.shape)
+                    short_term_goal_mask[short_term_goal[0], short_term_goal[1]] = 1
+                    short_term_goal_mask = (
+                        1
+                        - skimage.morphology.binary_dilation(
+                            short_term_goal_mask, selem
+                        )
+                        != 1
+                    )
+                    short_term_goal_mask = short_term_goal_mask == 1
+                    semantic_map[short_term_goal_mask] = PI.SHORT_TERM_GOAL
 
             # Semantic categories
             semantic_map_vis = self.get_semantic_vis(semantic_map)
@@ -374,7 +392,6 @@ class Visualizer:
         if self.show_images:
             cv2.imshow("Visualization", image_vis)
             cv2.waitKey(1)
-
         if self.print_images:
             cv2.imwrite(
                 os.path.join(self.vis_dir, "snapshot_{:03d}.png".format(timestep)),
