@@ -22,10 +22,15 @@ class DiscreteNavigationAction(Action, Enum):
     PLACE_OBJECT = 5
     NAVIGATION_MODE = 6
     MANIPULATION_MODE = 7
+    # Arm extension to a fixed position and height
     EXTEND_ARM = 8
     EMPTY_ACTION = 9
+    # Simulation only actions
     SNAP_OBJECT = 10
     DESNAP_OBJECT = 11
+    # Discrete gripper commands
+    OPEN_GRIPPER = 12
+    CLOSE_GRIPPER = 13
 
 
 class ContinuousNavigationAction:

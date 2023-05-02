@@ -48,6 +48,9 @@ def load_config(visualize=False, print_images=True, **kwargs):
 class StretchPickandPlaceEnv(StretchEnv):
     """Create a Detic-based pick and place environment"""
 
+    # Number of degrees of freedom in our robot joints action space
+    joints_dof = 10
+
     def __init__(
         self,
         goal_options=None,
@@ -142,11 +145,27 @@ class StretchPickandPlaceEnv(StretchEnv):
         """Return the robot interface."""
         return self.robot
 
+    def execute_joints_action(self, action: np.ndarray):
+        """
+        Original Arm Action Space: We define the action space that jointly controls (1) arm extension (horizontal), (2) arm height (vertical), (3) gripper wrist’s roll, pitch, and yaw, and (4) the camera’s yaw and pitch. The resulting size of the action space is 10.
+        - Arm extension (size: 4): It consists of 4 motors that extend the arm: joint_arm_l0 (index 28 in robot interface), joint_arm_l1 (27), joint_arm_l2 (26), joint_arm_l3 (25)
+        - Arm height (size: 1): It consists of 1 motor that moves the arm vertically: joint_lift (23)
+        - Gripper wrist (size: 3): It consists of 3 motors that control the roll, pitch, and yaw of the gripper wrist: joint_wrist_yaw (31),  joint_wrist_pitch (39),  joint_wrist_roll (40)
+        - Camera (size 2): It consists of 2 motors that control the yaw and pitch of the camera: joint_head_pan (7), joint_head_tilt (8)
+
+        As a result, the original action space is the order of [joint_arm_l0, joint_arm_l1, joint_arm_l2, joint_arm_l3, joint_lift, joint_wrist_yaw, joint_wrist_pitch, joint_wrist_roll, joint_head_pan, joint_head_tilt] defined in habitat/robots/stretch_robot.py
+        """
+        assert len(action) == self.joints_dof
+        raise NotImplementedError()
+
     def apply_action(self, action: Action, info: Optional[Dict[str, Any]] = None):
         """Handle all sorts of different actions we might be inputting into this class. We provide both a discrete and a continuous action handler."""
         action = HybridAction(action)
         if self.visualizer is not None and info is not None:
             self.visualizer.visualize(**info)
+        # By default - no arm control
+        joints_action = None
+        # Handle discrete actions first
         if action.is_discrete():
             action = action.get()
             continuous_action = np.zeros(3)
@@ -197,17 +216,23 @@ class StretchPickandPlaceEnv(StretchEnv):
                 continuous_action = None
         elif action.is_navigation():
             continuous_action = action.get()
+        elif action.is_manipulation():
+            joints_action, continuous_action = action.get()
 
         # Move, if we are not doing anything with the arm
         if continuous_action is not None and not self.test_grasping:
             print("Execute navigation action:", continuous_action)
             if not self.robot.in_navigation_mode():
                 self.robot.switch_to_navigation_mode()
-                rospy.sleep(self.msg_delay_t)
+                # rospy.sleep(self.msg_delay_t)
             if not self.dry_run:
                 self.robot.nav.navigate_to(
                     continuous_action, relative=True, blocking=True
                 )
+        if joints_action is not None:
+            if not self.robot.in_manipulation_mode():
+                self.robot.switch_to_manipulation_mode()
+                # rospy.sleep(self.msg_delay_t)
 
     def set_goal(self, goal_find: str, goal_obj: str, goal_place: str):
         """Set the goal class as a string. Goal should be an object class we want to pick up."""

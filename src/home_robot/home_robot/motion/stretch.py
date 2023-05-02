@@ -9,6 +9,7 @@ import numpy as np
 import pybullet as pb
 
 import home_robot.utils.bullet as hrb
+from home_robot.core.interfaces import ContinuousFullBodyAction
 from home_robot.motion.pinocchio_ik_solver import PinocchioIKSolver, PositionIKOptimizer
 from home_robot.motion.robot import Robot
 from home_robot.utils.bullet import PybulletIKSolver
@@ -262,6 +263,7 @@ class HelloStretchKinematics(Robot):
         #      3 for base x/y/theta
         #      2 for head
         self.dof = 3 + 2 + 4 + 2
+        self.joints_dof = 10  # from habitat spec
         self.base_height = self.DEFAULT_BASE_HEIGHT
 
         # ranges for joints
@@ -819,6 +821,44 @@ class HelloStretchKinematics(Robot):
                     print("colliding with", name)
                 return False
         return True
+
+    def create_action_from_config(self, q):
+        """Create a default interface action from this"""
+        xyt = np.zeros(3)
+        xyt[0] = q[HelloStretchIdx.BASE_X]
+        xyt[1] = q[HelloStretchIdx.BASE_Y]
+        xyt[2] = q[HelloStretchIdx.BASE_THETA]
+        return self.create_action(
+            lift=q[HelloStretchIdx.LIFT],
+            arm=q[HelloStretchIdx.ARM],
+            pitch=q[HelloStretchIdx.WRIST_PITCH],
+            roll=q[HelloStretchIdx.WRIST_ROLL],
+            yaw=q[HelloStretchIdx.WRIST_YAW],
+            xyt=xyt,
+        )
+
+    def create_action(
+        self, lift=0, arm=0, roll=0, pitch=0, yaw=0, pan=0, tilt=0, xyt=None
+    ):
+        """
+        Original Arm Action Space: We define the action space that jointly controls (1) arm extension (horizontal), (2) arm height (vertical), (3) gripper wrist’s roll, pitch, and yaw, and (4) the camera’s yaw and pitch. The resulting size of the action space is 10.
+        - Arm extension (size: 4): It consists of 4 motors that extend the arm: joint_arm_l0 (index 28 in robot interface), joint_arm_l1 (27), joint_arm_l2 (26), joint_arm_l3 (25)
+        - Arm height (size: 1): It consists of 1 motor that moves the arm vertically: joint_lift (23)
+        - Gripper wrist (size: 3): It consists of 3 motors that control the roll, pitch, and yaw of the gripper wrist: joint_wrist_yaw (31),  joint_wrist_pitch (39),  joint_wrist_roll (40)
+        - Camera (size 2): It consists of 2 motors that control the yaw and pitch of the camera: joint_head_pan (7), joint_head_tilt (8)
+
+        As a result, the original action space is the order of [joint_arm_l0, joint_arm_l1, joint_arm_l2, joint_arm_l3, joint_lift, joint_wrist_yaw, joint_wrist_pitch, joint_wrist_roll, joint_head_pan, joint_head_tilt] defined in habitat/robots/stretch_robot.py
+        """
+        assert self.joints_dof == 10
+        joints = np.zeros(self.joints_dof)
+        joints[:4] = np.ones(4) * (arm / 4.0)
+        joints[4] = lift
+        joints[5] = roll
+        joints[6] = pitch
+        joints[7] = yaw
+        joints[8] = pan
+        joints[9] = pan
+        return ContinuousFullBodyAction(joints=joints, xyt=xyt)
 
 
 if __name__ == "__main__":
