@@ -109,10 +109,8 @@ class StretchPickandPlaceEnv(StretchEnv):
         """Reset the robot and prepare to run a trial. Make sure we have images and up to date state info."""
         self.set_goal(goal_find, goal_obj, goal_place)
         rospy.sleep(0.5)  # Make sure we have time to get ROS messages
-        self.update()
-        self.rgb_cam.wait_for_image()
-        self.dpt_cam.wait_for_image()
-        self._episode_start_pose = xyt2sophus(self.get_base_pose())
+        self.robot.wait()
+        self._episode_start_pose = xyt2sophus(self.robot.nav.get_base_pose())
         if self.visualizer is not None:
             self.visualizer.reset()
 
@@ -162,8 +160,8 @@ class StretchPickandPlaceEnv(StretchEnv):
                 print("PICK UP THE TARGET OBJECT")
                 print(" - Robot in navigation mode:", self.in_navigation_mode())
                 continuous_action = None
-                if self.in_navigation_mode():
-                    self.switch_to_navigation_mode()
+                if self.robot.in_navigation_mode():
+                    self.robot.switch_to_navigation_mode()
                     rospy.sleep(self.msg_delay_t)
                 # Dummy out robot execution code for perception tests
                 if not self.dry_run:
@@ -238,7 +236,7 @@ class StretchPickandPlaceEnv(StretchEnv):
         rgb, depth, xyz = self.robot.head.get_images(
             compute_xyz=True,
         )
-        current_pose = xyt2sophus(self.get_base_pose())
+        current_pose = xyt2sophus(self.robot.nav.get_base_pose())
 
         # use sophus to get the relative translation
         relative_pose = self._episode_start_pose.inverse() * current_pose
@@ -257,7 +255,8 @@ class StretchPickandPlaceEnv(StretchEnv):
             compass=np.array([theta]),
             # base_pose=sophus2obs(relative_pose),
             task_observations=self.task_info,
-            camera_pose=self.get_camera_pose_matrix(rotated=True),
+            # camera_pose=self.get_camera_pose_matrix(rotated=True),
+            camera_pose=self.robot.head.get_pose(rotated=True),
             # TODO: get these from the agent, remove if no policy uses these
             joint=np.array(
                 [0.0, 0.0, 0.0, 0.0, 0.775, 0.0, -1.57, 0.0, -1.7375, -0.7125]
