@@ -9,6 +9,7 @@ from slap_manipulation.utils.data_visualizers import (
 )
 
 from home_robot.core.interfaces import Observations
+from home_robot.perception.detection.detic.detic_perception import DeticPerception
 from home_robot.utils.image import rotate_image
 from home_robot.utils.point_cloud import numpy_to_pcd, show_point_cloud
 
@@ -58,52 +59,65 @@ def get_local_action_prediction_problem(
     return crop_rgb, crop_xyz, status
 
 
-def drop_frames_from_input(xyzs, rgbs, imgs, probability_dropout=0.33):
+def drop_frames_from_input(xyzs, rgb_imgs, depth_imgs, probability_dropout=0.33):
     probability_keep = 1.0 - probability_dropout
     idx_dropout = np.random.choice(
-        [False, True], size=len(rgbs), p=[probability_dropout, probability_keep]
+        [False, True], size=len(rgb_imgs), p=[probability_dropout, probability_keep]
     )
-    rgbs = [rgbs[i] for i in idx_dropout]
+    rgb_imgs = [rgb_imgs[i] for i in idx_dropout]
     xyzs = [xyzs[i] for i in idx_dropout]
-    imgs = [imgs[i] for i in idx_dropout]
-    return xyzs, rgbs, imgs
+    depth_imgs = [depth_imgs[i] for i in idx_dropout]
+    return xyzs, rgb_imgs, depth_imgs
 
 
-def average_feats(feats, downsampled_index_trace):
+def aggregate_feats(feats, downsampled_index_trace):
     # downsampled_index_trace is a list of list of index
     # average feats over each list of index
-    averaged_feats = []
+    avg_feats = []
     for idx in downsampled_index_trace:
-        average_feats.append(np.mean(feats[idx, :], axis=0))
-    averaged_feats = np.stack(averaged_feats, axis=0)
-    return averaged_feats
+        sum_feats = np.sum(feats[idx, :], axis=0)
+        avg_feats.append(np.mean(feats[idx, :], axis=0))
+    avg_feats = np.stack(avg_feats, axis=0)
+    return avg_feats
 
 
-def remove_duplicate_points(xyz, rgb, feats, depth, voxel_size=0.001):
+def remove_duplicate_points(xyz, rgb, feats, depth, voxel_size=0.01):
     # heuristic based trimming
     mask = np.bitwise_and(depth < 1.5, depth > 0.3)
     rgb = rgb[mask]
     xyz = xyz[mask]
+    feats = feats[mask]
+    if np.any(rgb > 1.0):
+        rgb = rgb / 255.0
     debug_views = False
     if debug_views:
         print("xyz", xyz.shape)
         print("rgb", rgb.shape)
         show_point_cloud(xyz, rgb)
 
-    xyz, feats = xyz.reshape(-1, 3), feats.reshape(-1, 3)
     # voxelize at a granular voxel-size rather than random downsample
     pcd = numpy_to_pcd(xyz, rgb)
-    pcd_downsampled, downsampled_index_trace = pcd.voxel_down_sample_and_trace(
-        voxel_size
+    (
+        pcd_downsampled,
+        _,
+        downsampled_index_trace_vectors,
+    ) = pcd.voxel_down_sample_and_trace(
+        voxel_size, pcd.get_min_bound(), pcd.get_max_bound()
     )
+    downsampled_index_trace = []
+    for intvec in downsampled_index_trace_vectors:
+        downsampled_index_trace.append(np.asarray(intvec))
     rgb = np.asarray(pcd_downsampled.colors)
     xyz = np.asarray(pcd_downsampled.points)
-    feats = average_feats(feats, downsampled_index_trace)
+    feats = aggregate_feats(feats, downsampled_index_trace)
 
-    debug_voxelization = False
+    debug_voxelization = True
     if debug_voxelization:
         # print(f"Number of points in this PCD: {len(pcd_downsampled2.points)}")
-        show_point_cloud(xyz, rgb)
+        semantic_rgb = np.zeros_like(rgb)
+        breakpoint()
+        semantic_rgb[feats.reshape(-1) == 2, 1] = 1.0
+        show_point_cloud(xyz, semantic_rgb)
 
     return xyz, rgb, feats
 
@@ -219,7 +233,7 @@ def voxelize_and_get_interaction_point(
     )
     downsampled_xyz = np.asarray(downsampled_pcd.points)
     downsampled_rgb = np.asarray(downsampled_pcd.colors)
-    downsampled_feats = average_feats(feats, downsampled_index_trace)
+    downsampled_feats = aggregate_feats(feats, downsampled_index_trace)
 
     # for the voxelized pcd
     if downsampled_xyz.shape[0] < 10:
@@ -386,8 +400,18 @@ def format_commands(
     return positions, orientations, angles
 
 
-def compute_detic_mask(rgb_images, depth_images, segmentor):
-    union_mask = []
+def compute_detic_features(
+    rgb_images: List[np.ndarray],
+    depth_images: List[np.ndarray],
+    segmentor: DeticPerception,
+    rotate_images=True,
+) -> np.ndarray:
+    """
+    Given unrotated images from Stretch (W,H,C) this method rotates them (H,W,C) and
+    processes using Detic segmentation to produce a list of semantic masks. These masks
+    are unrotated again to match the initial size (W,H,F).
+    """
+    per_img_features = []
     for i, img in enumerate(rgb_images):
         img, dimg = rotate_image([img, depth_images[i]])
         H, W, _ = img.shape
@@ -404,12 +428,25 @@ def compute_detic_mask(rgb_images, depth_images, segmentor):
         )
         # Run the segmentation model here
         obs = segmentor.predict(obs, depth_threshold=0.5)
-        breakpoint()
-        plt.imshow(obs.task_observations["instance_map"])
-        plt.show()
-        mask = obs.task_observations["semantic_frame"] != 0
         # unrotate mask
-        mask = unrotate_image([mask])
-        union_mask.append(mask)
-    union_mask = np.stack(union_mask, axis=0)
-    return union_mask
+        feature = obs.semantic
+        feature = unrotate_image([feature])[0]
+        per_img_features.append(feature)
+        plt.imshow(feature)
+        plt.show()
+    per_img_features = np.stack(per_img_features, axis=0)
+    return per_img_features
+
+
+def combine_multiple_views(xyzs, rgbs, depths, feats, feat_dim=1):
+    """combining multiple image-frames into one point-cloud"""
+    xyzs = np.concatenate(xyzs, axis=0)
+    rgbs = np.concatenate(rgbs, axis=0)
+    depths = np.concatenate(depths, axis=0)
+    feats = np.concatenate(feats, axis=0)
+    xyzs = xyzs.reshape(-1, 3)
+    rgbs = rgbs.reshape(-1, 3)
+    depths = depths.reshape(-1)
+    feats = feats.reshape(-1, feat_dim)
+
+    xyzs, rgbs, feats = remove_duplicate_points(xyzs, rgbs, feats, depths)

@@ -10,7 +10,7 @@ import trimesh
 import trimesh.transformations as tra
 import yaml
 from slap_manipulation.dataloaders.annotations import load_annotations_dict
-from slap_manipulation.dataloaders.data_processing import compute_detic_mask
+from slap_manipulation.dataloaders.data_processing import compute_detic_features
 from slap_manipulation.dataloaders.rlbench_loader import RLBenchDataset
 
 from home_robot.core.interfaces import Observations
@@ -549,8 +549,8 @@ class RobotDataset(RLBenchDataset):
 
         if new_loader:
             datum = {
-                "rgb_points": rgbs,
-                "xyz_points": xyzs,
+                # "rgb_points": rgbs,
+                "computed_xyzs": xyzs,
                 "rgb_images": imgs,
                 "depth_images": dimgs,
                 "proprio": proprio,
@@ -810,7 +810,9 @@ def show_all_keypoints(data_dir, split, template, robot):
             for i in range(num_keypt):
                 print("Keypoint requested: ", i)
                 data = loader.get_datum(trial, i, verbose=True)
-                compute_detic_mask(data["rgb_images"], data["depth_images"], segmentor)
+                compute_detic_features(
+                    data["rgb_images"], data["depth_images"], segmentor
+                )
             # data = loader.get_datum(trial, 1, verbose=False)
 
 
