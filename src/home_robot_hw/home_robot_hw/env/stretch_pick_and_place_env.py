@@ -120,6 +120,8 @@ class StretchPickandPlaceEnv(StretchEnv):
             self.clip_embeddings = pickle.load(
                 open(config.AGENT.clip_embeddings_file, "rb")
             )
+        # Wait for the robot
+        self.robot.wait()
 
     def reset(self, goal_find: str, goal_obj: str, goal_place: str):
         """Reset the robot and prepare to run a trial. Make sure we have images and up to date state info."""
@@ -229,12 +231,14 @@ class StretchPickandPlaceEnv(StretchEnv):
                 self.robot.switch_to_navigation_mode()
                 # rospy.sleep(self.msg_delay_t)
             if not self.dry_run:
+                print("GOTO", continuous_action)
                 self.robot.nav.navigate_to(
                     continuous_action, relative=True, blocking=True
                 )
         if joints_action is not None:
             if not self.robot.in_manipulation_mode():
                 self.robot.switch_to_manipulation_mode()
+                print("JOINTS", joints_action)
                 # rospy.sleep(self.msg_delay_t)
 
     def set_goal(self, goal_find: str, goal_obj: str, goal_place: str):
