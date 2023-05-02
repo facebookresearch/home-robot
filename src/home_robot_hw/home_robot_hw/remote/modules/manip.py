@@ -101,6 +101,7 @@ class StretchManipulationClient(AbstractControlModule):
         relative: bool = False,
         blocking: bool = True,
         debug: bool = False,
+        move_base: bool = True,
     ):
         """
         list of robot arm joint positions:
@@ -127,13 +128,16 @@ class StretchManipulationClient(AbstractControlModule):
         # Construct command
         #   (note: base translation joint command is relative)
         joint_goals = {
-            self._ros_client.BASE_TRANSLATION_JOINT: joint_pos_goal[0] - self.base_x,
             self._ros_client.LIFT_JOINT: joint_pos_goal[1],
             self._ros_client.ARM_JOINT: joint_pos_goal[2],
             self._ros_client.WRIST_YAW: joint_pos_goal[3],
             self._ros_client.WRIST_PITCH: joint_pos_goal[4],
             self._ros_client.WRIST_ROLL: joint_pos_goal[5],
         }
+        if move_base:
+            joint_goals[self._ros_client.BASE_TRANSLATION_JOINT] = (
+                joint_pos_goal[0] - self.base_x
+            )
         self.base_x = joint_pos_goal[0]
 
         # Send command to trajectory server

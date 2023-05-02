@@ -239,7 +239,12 @@ class StretchPickandPlaceEnv(StretchEnv):
             if not self.robot.in_manipulation_mode():
                 self.robot.switch_to_manipulation_mode()
                 print("JOINTS", joints_action)
-                # rospy.sleep(self.msg_delay_t)
+                positions, pan, tilt = self.robot.model.hab_to_position_command(
+                    joints_action
+                )
+                print(positions, pan, tilt)
+                self.robot.head.set_pan_tilt(pan, tilt)
+                self.robot.manip.goto_joint_positions(positions, move_base=False)
 
     def set_goal(self, goal_find: str, goal_obj: str, goal_place: str):
         """Set the goal class as a string. Goal should be an object class we want to pick up."""

@@ -873,6 +873,47 @@ class HelloStretchKinematics(Robot):
         joints[9] = tilt
         return ContinuousFullBodyAction(joints=joints, xyt=xyt)
 
+    def delta_hab_to_position_command(self, cmd, pan, tilt, deltas) -> List:
+        """Compute deltas"""
+        assert len(deltas) == 10
+        arm = deltas[0] + deltas[1] + deltas[2] + deltas[3]
+        lift = deltas[4]
+        roll = deltas[5]
+        pitch = deltas[6]
+        yaw = deltas[7]
+        pan, tilt = self.head.get_pan_tilt()
+        positions = [
+            0,
+            cmd[1] + lift,
+            cmd[2] + arm,
+            cmd[3] + yaw,
+            cmd[4] + pitch,
+            cmd[5] + roll,
+        ]
+        pan = pan + deltas[8]
+        tilt = tilt + deltas[9]
+        return positions, pan, tilt
+
+    def hab_to_position_command(self, hab_positions) -> List:
+        """Compute hab_positions"""
+        assert len(hab_positions) == 10
+        arm = hab_positions[0] + hab_positions[1] + hab_positions[2] + hab_positions[3]
+        lift = hab_positions[4]
+        roll = hab_positions[5]
+        pitch = hab_positions[6]
+        yaw = hab_positions[7]
+        positions = [
+            0,
+            lift,
+            arm,
+            yaw,
+            pitch,
+            roll,
+        ]
+        pan = hab_positions[8]
+        tilt = hab_positions[9]
+        return positions, pan, tilt
+
 
 if __name__ == "__main__":
     robot = HelloStretchKinematics()
