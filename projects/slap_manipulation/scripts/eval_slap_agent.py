@@ -4,114 +4,7 @@ import click
 import numpy as np
 import torch
 import yaml
-
-from home_robot.datasets.robopen_loader import (  # TODO change to robotloader in this proj
-    RoboPenDataset,
-)
-from home_robot.policy.pt_query import QueryPointnet  # TODO this becomes IPM
-from home_robot.policy.pt_regression_model import (  # TODO this becomes APM
-    QueryRegressionModel,
-)
-
-
-class SLAP(object):
-    def __init__(self, version):
-        self.ipm = QueryPointnet(use_proprio=True, name="test-ipm-robopen")
-        self.apm = []
-        self.keypoints = 3
-        for k in range(self.keypoints):
-            self.apm.append(
-                QueryRegressionModel(
-                    name=f"test-apm-robopen-{k}",
-                    multi_head=False,
-                    num_heads=3,
-                    orientation_type="quaternion",
-                    use_cropped_pcd=True if version == "slap" else False,
-                )
-            )
-        self.device = "cuda"
-        self.version = version
-
-    def load(self, ipm_path, apm_paths):
-        self.ipm.load_state_dict(torch.load(ipm_path))
-        for k, apm_path in enumerate(apm_paths):
-            self.apm[k].load_state_dict(torch.load(apm_path))
-
-    def model_to_device(self):
-        self.ipm.to(self.device)
-        for model in self.apm:
-            model.to(self.device)
-
-    def crop_around_voxel(self, xyz, rgb, p_i, radius=0.1):
-        mask = np.linalg.norm(xyz - p_i, axis=1) < radius
-        return xyz[mask], rgb[mask]
-
-    def predict(self, batch):
-        batch = self.to_device(batch)
-        rgb = batch["rgb"][0]  # N x 3
-        xyz = batch["xyz"][0]  # N x 3
-        down_xyz = batch["xyz_downsampled"][0]
-        down_rgb = batch["rgb_downsampled"][0]
-        lang = batch["cmd"]  # list of 1
-        target_idx = batch["closest_voxel_idx"][0]
-        if self.ipm.use_proprio:
-            proprio = batch["proprio"][0]
-        else:
-            proprio = None
-        classification_probs, _, _ = self.ipm.forward(
-            rgb,
-            down_rgb,
-            xyz,
-            down_xyz,
-            lang,
-            proprio,
-        )
-        predicted_idx = torch.argmax(classification_probs, dim=-1)
-        p_i = down_xyz[predicted_idx].detach().cpu().numpy()
-        ipm_dist = np.linalg.norm(down_xyz[target_idx].detach().cpu().numpy() - p_i)
-        k = batch["keypoint_idx"][0]
-        if self.version == "slap" or self.version == "mixed-slap":
-            crop_xyz, crop_rgb = self.crop_around_voxel(
-                xyz.detach().cpu().numpy(),
-                rgb.detach().cpu().numpy(),
-                p_i,
-            )
-            positions, _, _ = self.apm[k].forward(
-                torch.FloatTensor(crop_xyz).to(self.device),
-                torch.FloatTensor(crop_rgb).to(self.device),
-                proprio,
-                lang,
-            )
-        else:
-            positions, _, _ = self.apm[k].forward(
-                xyz,
-                rgb,
-                proprio,
-                lang,
-            )
-        target_pos = batch["ee_keyframe_pos"].detach().cpu().numpy()
-        pred_ee_pos = p_i + positions.detach().cpu().numpy().reshape(1, 3)
-
-        apm_dist = ((target_pos - pred_ee_pos) ** 2).sum()
-        return ipm_dist, apm_dist
-
-    def to_device(self, batch):
-        new_batch = {}
-        for k, v in batch.items():
-            if not isinstance(v, torch.Tensor):
-                new_batch[k] = v
-            else:
-                new_batch[k] = v.to(self.device)
-        return new_batch
-
-    def to_torch(self, batch):
-        new_batch = {}
-        for k, v in batch.items():
-            if isinstance(v, np.ndarray):
-                new_batch[k] = torch.FloatTensor(v)
-            else:
-                new_batch[k] = v
-        return new_batch
+from slap_manipulation.agents.slap_agent import SLAPAgent
 
 
 @click.command()
@@ -166,7 +59,7 @@ def main(version):
         )
 
     # load SLAP model
-    slap_model = SLAP(version)
+    slap_model = SLAPAgent(version)
     if version == "slap":
         ipm_path = IPM_PATH_SLAP
         apm_paths = APM_PATH_SLAP
