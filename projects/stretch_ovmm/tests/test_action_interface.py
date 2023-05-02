@@ -14,13 +14,24 @@ import rospy
 
 from home_robot.agent.hierarchical.pick_and_place_agent import PickAndPlaceAgent
 from home_robot.motion.stretch import STRETCH_HOME_Q
-from home_robot.utils.config import get_config
 from home_robot.utils.pose import to_pos_quat
-from home_robot_hw.env.stretch_pick_and_place_env import StretchPickandPlaceEnv
+from home_robot_hw.env.stretch_pick_and_place_env import (
+    StretchPickandPlaceEnv,
+    load_config,
+)
 
 
-def main():
-    pass
+def main(**kwargs):
+    config = load_config(visualize=False, **kwargs)
+    rospy.init_node("eval_episode_stretch_objectnav")
+    env = StretchPickandPlaceEnv(config=config)
+    obs = env.reset("table", "cup", "chair")
+    robot = env.get_robot()
+
+    action = robot.create_action_from_config(STRETCH_HOME_Q)
+    print(action)
+
+    action = robot.create_action(lift=0.5)
 
 
 if __name__ == "__main__":

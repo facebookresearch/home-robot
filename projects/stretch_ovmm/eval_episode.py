@@ -36,7 +36,6 @@ def main(
     **kwargs,
 ):
     REAL_WORLD_CATEGORIES[2] = object
-
     config = load_config(visualize=visualize_maps, **kwargs)
 
     rospy.init_node("eval_episode_stretch_objectnav")
