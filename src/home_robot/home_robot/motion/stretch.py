@@ -698,7 +698,7 @@ class HelloStretchKinematics(Robot):
             pos, quat, q0, num_attempts=num_attempts, verbose=verbose
         )
 
-        if q is not None:
+        if q is not None and success:
             q = self._from_manip_format(q, default_q)
             self.set_config(q)
 

@@ -190,6 +190,8 @@ class StretchManipulationClient(AbstractControlModule):
         that we will be moving to.
 
         Note: When relative==True, the delta orientation is still defined in the world frame
+
+        Returns None if no solution is found, else returns an executable solution
         """
 
         pos_ee_curr, quat_ee_curr = self.get_ee_pose(world_frame=world_frame)
@@ -231,9 +233,11 @@ class StretchManipulationClient(AbstractControlModule):
         full_body_cfg, ik_success, ik_debug_info = self._robot_model.manip_ik(
             (pos_ik_goal, quat_ik_goal), q0=initial_cfg
         )
-        if full_body_cfg is None:
-            return None
 
+        # Expected to return None if we did not get a solution
+        if not ik_success or full_body_cfg is None:
+            return None
+        # Return a valid solution to the IK problem here
         return full_body_cfg
 
     @enforce_enabled
