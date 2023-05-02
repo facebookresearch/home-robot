@@ -870,7 +870,7 @@ class HelloStretchKinematics(Robot):
         joints[6] = pitch
         joints[7] = yaw
         joints[8] = pan
-        joints[9] = pan
+        joints[9] = tilt
         return ContinuousFullBodyAction(joints=joints, xyt=xyt)
 
 
