@@ -822,7 +822,7 @@ class HelloStretchKinematics(Robot):
                 return False
         return True
 
-    def create_action_from_config(self, q):
+    def create_action_from_config(self, q: np.ndarray) -> ContinuousFullBodyAction:
         """Create a default interface action from this"""
         xyt = np.zeros(3)
         xyt[0] = q[HelloStretchIdx.BASE_X]
@@ -838,8 +838,17 @@ class HelloStretchKinematics(Robot):
         )
 
     def create_action(
-        self, lift=0, arm=0, roll=0, pitch=0, yaw=0, pan=0, tilt=0, xyt=None
-    ):
+        self,
+        lift=0,
+        arm=0,
+        roll=0,
+        pitch=0,
+        yaw=0,
+        pan=0,
+        tilt=0,
+        xyt=None,
+        defaults: np.ndarray = None,
+    ) -> ContinuousFullBodyAction:
         """
         Original Arm Action Space: We define the action space that jointly controls (1) arm extension (horizontal), (2) arm height (vertical), (3) gripper wrist’s roll, pitch, and yaw, and (4) the camera’s yaw and pitch. The resulting size of the action space is 10.
         - Arm extension (size: 4): It consists of 4 motors that extend the arm: joint_arm_l0 (index 28 in robot interface), joint_arm_l1 (27), joint_arm_l2 (26), joint_arm_l3 (25)
@@ -850,7 +859,11 @@ class HelloStretchKinematics(Robot):
         As a result, the original action space is the order of [joint_arm_l0, joint_arm_l1, joint_arm_l2, joint_arm_l3, joint_lift, joint_wrist_yaw, joint_wrist_pitch, joint_wrist_roll, joint_head_pan, joint_head_tilt] defined in habitat/robots/stretch_robot.py
         """
         assert self.joints_dof == 10
-        joints = np.zeros(self.joints_dof)
+        if defaults is None:
+            joints = np.zeros(self.joints_dof)
+        else:
+            assert len(defaults) == self.joints_dof
+            joints = defaults.copy()
         joints[:4] = np.ones(4) * (arm / 4.0)
         joints[4] = lift
         joints[5] = roll

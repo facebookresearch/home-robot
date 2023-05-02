@@ -71,16 +71,27 @@ class HybridAction(Action):
     action_type: ActionType
     action: Action
 
-    def __init__(self, action):
+    def __init__(self, action=None, xyt: np.ndarray = None, joints: np.ndarray = None):
         """Make sure that we were passed a useful generic action here. Process it into something useful."""
-        if type(action) == HybridAction:
-            self.action_type = action.action_type
-        if type(action) == DiscreteNavigationAction:
-            self.action_type = ActionType.DISCRETE
-        elif type(action) == ContinuousNavigationAction:
+        if action is not None:
+            if type(action) == HybridAction:
+                self.action_type = action.action_type
+            if type(action) == DiscreteNavigationAction:
+                self.action_type = ActionType.DISCRETE
+            elif type(action) == ContinuousNavigationAction:
+                self.action_type = ActionType.CONTINUOUS_NAVIGATION
+            else:
+                self.action_type = ActionType.CONTINUOUS_MANIPULATION
+        elif joints is not None:
+            self.action_type = ActionType.CONTINUOUS_MANIPULATION
+            action = ContinuousFullBodyAction(joints, xyt)
+        elif xyt is not None:
             self.action_type = ActionType.CONTINUOUS_NAVIGATION
+            action = ContinuousNavigationAction(xyt)
         else:
-            raise RuntimeError(f"action type{type(action)} not supported")
+            raise RuntimeError("Cannot create HybridAction without any action!")
+        if isinstance(action, HybridAction):
+            breakpoint()
         self.action = action
 
     def is_discrete(self):

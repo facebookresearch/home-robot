@@ -13,12 +13,28 @@ import numpy as np
 import rospy
 
 from home_robot.agent.hierarchical.pick_and_place_agent import PickAndPlaceAgent
+from home_robot.core.interfaces import HybridAction
 from home_robot.motion.stretch import STRETCH_HOME_Q
 from home_robot.utils.pose import to_pos_quat
 from home_robot_hw.env.stretch_pick_and_place_env import (
     StretchPickandPlaceEnv,
     load_config,
 )
+
+
+def print_action(name, action):
+    print(f"--- {name} ---")
+    print("is manipulation?", action.is_manipulation())
+    print("is navigation?", action.is_navigation())
+    if action.is_manipulation():
+        joints, xyt = action.get()
+        print("action xyt =", xyt)
+        print("action cfg =", joints)
+    elif action.is_navigation():
+        xyt = action.get()
+        print("action xyt =", xyt)
+    else:
+        print("action sym =", action.get())
 
 
 def main(**kwargs):
@@ -28,10 +44,21 @@ def main(**kwargs):
     obs = env.reset("table", "cup", "chair")
     robot = env.get_robot()
 
-    action = robot.model.create_action_from_config(STRETCH_HOME_Q)
-    print(action)
+    action = HybridAction(robot.model.create_action_from_config(STRETCH_HOME_Q))
+    print_action("HOME CONFIG", action)
+    env.apply_action(action)
+    input("Press enter to continue...")
 
-    action = robot.create_action(lift=0.5)
+    # Try a movement only action
+    action = HybridAction(xyt=np.array([0, 0, 0]))
+    print_action("goto(0,0,0)", action)
+    env.apply_action(action)
+    input("Press enter to continue...")
+
+    # Try another test
+    action = robot.model.create_action(
+        lift=0.5, defaults=robot.model.create_action_from_config(STRETCH_HOME_Q).joints
+    )
 
 
 if __name__ == "__main__":

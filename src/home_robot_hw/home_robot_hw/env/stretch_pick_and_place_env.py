@@ -160,7 +160,10 @@ class StretchPickandPlaceEnv(StretchEnv):
 
     def apply_action(self, action: Action, info: Optional[Dict[str, Any]] = None):
         """Handle all sorts of different actions we might be inputting into this class. We provide both a discrete and a continuous action handler."""
-        action = HybridAction(action)
+        # Process the action so we know what to do with it
+        if not isinstance(action, HybridAction):
+            action = HybridAction(action)
+        # Update the visualizer
         if self.visualizer is not None and info is not None:
             self.visualizer.visualize(**info)
         # By default - no arm control
