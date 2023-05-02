@@ -143,7 +143,7 @@ class VectorizedEvaluator(PPOTrainer):
 
         obs = envs.call(["reset"] * envs.num_envs)
 
-        agent.reset_vectorized()
+        agent.reset_vectorized(self.envs.current_episodes())
         while not stop():
             current_episodes_info = self.envs.current_episodes()
             # TODO: Currently agent can work with only 1 env, Parallelize act across envs
@@ -237,12 +237,13 @@ class VectorizedEvaluator(PPOTrainer):
                             )
                         )
 
-                    agent.reset_vectorized_for_env(e)
-
                     if len(episode_metrics) % 5 == 0:
                         self.write_results(episode_metrics)
                     if not stop():
                         obs[e] = envs.call_at(e, "reset")
+                        agent.reset_vectorized_for_env(
+                            e, self.envs.current_episodes()[e]
+                        )
 
         envs.close()
         self.write_results(episode_metrics)
@@ -253,7 +254,7 @@ if __name__ == "__main__":
     parser.add_argument(
         "--habitat_config_path",
         type=str,
-        default="rearrange/modular_nav.yaml",
+        default="rearrange/ovmm.yaml",
         help="Path to config yaml",
     )
     parser.add_argument(

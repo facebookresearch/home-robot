@@ -54,6 +54,8 @@ AGENT:
         - arm_action
         - base_velocity
       arm_joint_mask: [0, 0, 0, 0, 0, 0, 1] # the arm joints that the policy can control
+      max_forward: 0.25
+      max_turn: 0.1745
 
     NAV_TO_OBJ:
       type: modular

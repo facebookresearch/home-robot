@@ -34,7 +34,7 @@
 	</include-->
 
 	<!-- LASER RANGE FINDER -->
-	<include file="$(find stretch_core)/launch/rplidar.launch" />
+	<include file="$(find home_robot_hw)/launch/rplidar.launch" />
 	<!-- -->
 
 	<!-- LASER SCAN MATCHER FOR ODOMETRY -->

@@ -23,7 +23,7 @@ from std_srvs.srv import (
 
 from home_robot.control.goto_controller import GotoVelocityController
 from home_robot.utils.config import get_control_config
-from home_robot.utils.geometry import sophus2xyt, xyt2sophus, xyt_global_to_base
+from home_robot.utils.geometry import sophus2xyt, xyt2sophus
 from home_robot_hw.ros.utils import matrix_from_pose_msg
 from home_robot_hw.ros.visualizer import Visualizer
 

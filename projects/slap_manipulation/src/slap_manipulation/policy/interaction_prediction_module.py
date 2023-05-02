@@ -444,7 +444,7 @@ class InteractionPredictionModule(torch.nn.Module):
 
     def predict(
         self,
-        feat: Tuple[np.ndarray],
+        feat: np.ndarray,
         xyz: np.ndarray,
         proprio: np.ndarray,
         lang: List[str],
@@ -457,10 +457,10 @@ class InteractionPredictionModule(torch.nn.Module):
         lang: language annotation which is encoded
         proprio: proprioception, an np.ndarray (gripper-action, gripper-width, time)
         """
-        t_rgb = torch.FloatTensor(feat[0]).to(self.device)
+        t_rgb = torch.FloatTensor(feat).to(self.device)
         t_xyz = torch.FloatTensor(xyz).to(self.device)
         t_proprio = torch.FloatTensor(proprio).to(self.device)
-        down_xyz, down_rgb = self._preprocess_input(xyz, feat[0])
+        down_xyz, down_rgb = self._preprocess_input(xyz, feat)
         t_down_xyz, t_down_rgb = torch.FloatTensor(down_xyz).to(
             self.device
         ), torch.FloatTensor(down_rgb).to(self.device)
@@ -474,8 +474,13 @@ class InteractionPredictionModule(torch.nn.Module):
             t_proprio,
         )
         self.visualize_top_attention(t_down_xyz, t_down_rgb, classification_scores)
+        self.show_prediction_with_grnd_truth(
+            t_down_xyz,
+            t_down_rgb,
+            t_down_xyz[self.predict_closest_idx(classification_scores)],
+        )
         return (
-            self.predict_closest_idx(classification_scores)[0].numpy(),
+            self.predict_closest_idx(classification_scores)[0].detach().cpu().numpy(),
             classification_scores,
             output_feat,
             (down_xyz, down_rgb),
@@ -500,16 +505,20 @@ class InteractionPredictionModule(torch.nn.Module):
         if torch.any(rgb) > 1:
             rgb = rgb / 255.0
         pcd = numpy_to_pcd(xyz.detach().cpu().numpy(), rgb.detach().cpu().numpy())
+        if torch.torch.is_tensor(pred_pos):
+            pred_pos = pred_pos.detach().cpu().numpy().reshape(3, 1)
         geoms = [pcd]
         closest_pt_sphere = o3d.geometry.TriangleMesh.create_sphere(radius=0.02)
         closest_pt_sphere.translate(pred_pos)
         closest_pt_sphere.paint_uniform_color([1, 0.706, 0])
         geoms.append(closest_pt_sphere)
+        print("Showing predicted interaction point with yellow color")
         if grnd_truth_pos is not None:
             grnd_truth = o3d.geometry.TriangleMesh.create_sphere(radius=0.02)
             grnd_truth.translate(grnd_truth_pos.reshape(3, 1))
             grnd_truth.paint_uniform_color([1, 0, 1])
             geoms.append(grnd_truth)
+            print("Showing ground-truth with pink color")
         else:
             print("No ground truth available")
         o3d.visualization.draw_geometries(geoms)
@@ -638,8 +647,10 @@ class InteractionPredictionModule(torch.nn.Module):
                 mask = mask[0, :ten_percent].detach().cpu().numpy()
                 new_rgb = rgb2.detach().cpu().numpy().copy()
                 new_rgb[mask.reshape(-1)] = np.array([1, 0, 0]).reshape(1, 3)
-                show_point_cloud(xyz2, rgb2, viewpt=self.cam_view)
-                show_point_cloud(xyz2, new_rgb, viewpt=self.cam_view)
+                show_point_cloud(
+                    xyz2.detach().cpu().numpy(), rgb2.detach().cpu().numpy()
+                )
+                show_point_cloud(xyz2.detach().cpu().numpy(), new_rgb)
 
             predicted_idx = self.predict_closest_idx(classification_probs)
             predict_pos = xyz2[predicted_idx.detach().cpu().numpy()]
@@ -942,10 +953,14 @@ def parse_args():
     return args
 
 
-@hydra.main(version_base=None, config_path="./conf", config_name="ipm_training")
+@hydra.main(
+    version_base=None,
+    config_path="./conf",
+    config_name="interaction_predictor_training",
+)
 def main(cfg):
-    args = parse_args()
-    if cfg.split is not None:
+    # args = parse_args()
+    if cfg.split:
         with open(cfg.split, "r") as f:
             train_test_split = yaml.safe_load(f)
         print(train_test_split)
@@ -954,7 +969,7 @@ def main(cfg):
         train_list = train_test_split["train"]
     else:
         train_test_split = None
-        valid_list, test_list = None, None
+        train_list, valid_list, test_list = None, None, None
     # Set up data augmentation
     # This is a warning for you - if things are not going well
     if cfg.data_augmentation:
@@ -975,7 +990,6 @@ def main(cfg):
             keypoint_range=[0, 1, 2],
             color_jitter=cfg.color_jitter,
             template=cfg.template,
-            # template="**/*.h5",
             dr_factor=5,
         )
         valid_dataset = RobotDataset(
@@ -992,7 +1006,7 @@ def main(cfg):
             cfg.datadir,
             num_pts=8000,
             data_augmentation=False,
-            trial_list=valid_list,
+            trial_list=test_list,
             keypoint_range=[0, 1, 2],
             color_jitter=False,
             template=cfg.template,
@@ -1062,22 +1076,22 @@ def main(cfg):
     # scheduler = torch.optim.lr_scheduler.StepLR(optimizer, step_size=20, gamma=0.5)
     if cfg.resume:
         print(f"Resuming by loading the best model: {model.get_best_name()}")
-        args.load = model.get_best_name()
+        cfg.load = model.get_best_name()
     if cfg.load:
         # load the model now
-        model.load_state_dict(torch.load(args.load))
+        model.load_state_dict(torch.load(cfg.load))
         print("--> loaded last best <--")
     if cfg.validate:
         # Make sure we load something
-        if len(args.load) == 0:
-            args.load = "best_%s.pth" % model.name
+        if not cfg.load:
+            cfg.load = "best_%s.pth" % model.name
             print(
-                f" --> No model name provided to validate. Using default...{args.load}"
+                f" --> No model name provided to validate. Using default...{cfg.load}"
             )
 
-        if len(args.load) > 0:
+        if cfg.load:
             # load the model now
-            model.load_state_dict(torch.load(args.load))
+            model.load_state_dict(torch.load(cfg.load))
 
         with torch.no_grad():
             model.show_validation(train_data, viz=True, viz_mask=True)
@@ -1088,11 +1102,11 @@ def main(cfg):
             wandb.init(project="classification-v1", name=f"{model.name}")
             # wandb.config.data_voxel_1 = test_dataset._voxel_size
             # wandb.config.data_voxel_2 = test_dataset._voxel_size_2
-            wandb.config.loss_fn = args.loss_fn
+            wandb.config.loss_fn = cfg.loss_fn
             wandb.config.loading_best = True
 
         model.start_time = time()
-        for epoch in range(1, 10000):
+        for epoch in range(1, cfg.max_iter):
             res, avg_train_dist = model.do_epoch(train_data, optimizer, train=True)
             train_loss = res
             with torch.no_grad():
@@ -1123,6 +1137,8 @@ def main(cfg):
             if cfg.run_for > 0 and (time() - model.start_time) > cfg.run_for:
                 print(f" --> Stopping training after {cfg.run_for} seconds")
                 break
+
+    print(f" --> Stopping training after {cfg.max_iter} iterations")
 
 
 # For fast debug and development

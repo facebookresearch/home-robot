@@ -71,8 +71,8 @@ class ObjectNavAgent(Agent):
             goal_dilation_selem_radius=config.AGENT.PLANNER.goal_dilation_selem_radius,
             map_size_cm=config.AGENT.SEMANTIC_MAP.map_size_cm,
             map_resolution=config.AGENT.SEMANTIC_MAP.map_resolution,
-            visualize=False,
-            print_images=False,
+            visualize=config.VISUALIZE,
+            print_images=config.PRINT_IMAGES,
             dump_location=config.DUMP_LOCATION,
             exp_name=config.EXP_NAME,
             agent_cell_radius=agent_cell_radius,
@@ -316,7 +316,9 @@ class ObjectNavAgent(Agent):
                 short_term_goal,
                 dilated_obstacle_map,
             ) = self.planner.plan(
-                **planner_inputs[0], use_dilation_for_stg=self.use_dilation_for_stg
+                **planner_inputs[0],
+                use_dilation_for_stg=self.use_dilation_for_stg,
+                timestep=self.timesteps[0],
             )
 
         # t3 = time.time()

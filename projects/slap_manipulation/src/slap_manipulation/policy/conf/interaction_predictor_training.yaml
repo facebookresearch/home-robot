@@ -1,0 +1,17 @@
+validate: False
+datadir: False
+template: "*.h5"
+load: False
+resume: False
+debug: False
+learning_rate: 1e-3
+task_name: over_fit_pick_up_bottle_fixed
+source: robopen
+run_for: -1
+wandb: False
+split: False
+data_augmentation: True
+color_jitter: True
+loss_fn: "xent"
+max_iter: 15
+

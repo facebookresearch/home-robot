@@ -16,7 +16,7 @@ from home_robot.core.interfaces import Observations
 
 # TODO Replace with Stretch embodiment
 from home_robot.motion.franka import FrankaPanda
-from home_robot.motion.stretch import STRETCH_GRASP_OFFSET, STRETCH_GRIPPER_OPEN
+from home_robot.motion.stretch import STRETCH_TO_GRASP
 from home_robot.perception.detection.detic.detic_perception import DeticPerception
 from home_robot.utils.data_tools.camera import Camera
 from home_robot.utils.data_tools.loader import Trial
@@ -26,6 +26,7 @@ from home_robot.utils.point_cloud import (
     depth_to_xyz,
     dropout_random_ellipses,
     numpy_to_pcd,
+    show_point_cloud,
 )
 
 REAL_WORLD_CATEGORIES = [
@@ -56,7 +57,7 @@ def show_point_cloud_with_keypt_and_closest_pt(
         closest_pt: (3x1 vector) labeled interaction point
     """
     if np.any(rgb) > 1:
-        rgb = rgb / 255.0
+        rgb = rgb / np.max(rgb)
     pcd = numpy_to_pcd(xyz, rgb)
     geoms = [pcd]
     if keyframe_orig is not None:
@@ -131,11 +132,12 @@ class RobotDataset(RLBenchDataset):
         crop_radius_chance=0.75,
         crop_radius_shift=0.1,
         crop_radius_range=[0.3, 1.0],
-        visualize=False,
-        visualize_reg_targets=False,
+        visualize_interaction_estimates=False,
+        visualize_cropped_keyframes=False,
         yaml_file=None,  # "./assets/language_variations/v0.yml",
         dr_factor=1,
         robot="stretch",
+        depth_factor=10000,
         *args,
         **kwargs,
     ):
@@ -184,6 +186,7 @@ class RobotDataset(RLBenchDataset):
         self._cr_max = crop_radius_range[1]
         self._cr_rng = self._cr_max - self._cr_min
         self._ambiguous_radius = ambiguous_radius
+        self.depth_factor = depth_factor
 
         # super(RoboPenDataset, self).__init__(
         super(RLBenchDataset, self).__init__(
@@ -208,11 +211,13 @@ class RobotDataset(RLBenchDataset):
         self.debug_closest_pt = False
         if robot == "franka":
             temp = FrankaPanda()
-            self._robot_grasp_offset = temp.grasp_offset
+            self._robot_ee_to_grasp_offset = temp.grasp_offset
             self._robot_max_grasp = temp.max_grasp
         elif robot == "stretch":
-            self._robot_grasp_offset = STRETCH_GRASP_OFFSET
-            self._robot_max_grasp = STRETCH_GRIPPER_OPEN
+            # Offset from STRETCH_GRASP_FRAME to predicted grasp point
+            self._robot_ee_to_grasp_offset = 0
+            self._robot_ee_to_grasp_offset = STRETCH_TO_GRASP.copy()
+            self._robot_max_grasp = 0  # 0.13, empirically found
         else:
             raise ValueError("robot must be franka or stretch")
         self._robot = robot
@@ -221,8 +226,8 @@ class RobotDataset(RLBenchDataset):
         self.show_input_and_reference = show_raw_input_and_reference
         self.show_cropped = show_cropped
         self.use_first_frame_as_input = first_frame_as_input
-        self.visualize = visualize
-        self.visualize_reg_targets = visualize_reg_targets
+        self._visualize_interaction_estimates = visualize_interaction_estimates
+        self._visualize_cropped_keyframes = visualize_cropped_keyframes
 
         # setup segmentation pipeline
         # self.segmentor = DeticPerception(
@@ -238,7 +243,7 @@ class RobotDataset(RLBenchDataset):
         x, y, z, w = ee_pose[3:]
         ee_pose = tra.quaternion_matrix([w, x, y, z])
         ee_pose[:3, 3] = pos
-        ee_pose = ee_pose @ self._robot_grasp_offset
+        ee_pose = ee_pose @ self._robot_ee_to_grasp_offset
         return ee_pose
 
     def read_cam_config(self):
@@ -273,10 +278,11 @@ class RobotDataset(RLBenchDataset):
             idx:        index of the image
         """
         rgb = trial.get_img(view_name + "_rgb", idx, rgb=True)
-        depth = trial.get_img(view_name + "_depth", idx, depth=True, depth_factor=1000)
+        depth = trial.get_img(
+            view_name + "_depth", idx, depth=True, depth_factor=self.depth_factor
+        )
         if self._robot == "stretch":
-            breakpoint()
-            xyz = trial[idx][view_name + "_xyz"][()]
+            xyz = trial[view_name + "_xyz"][idx]
         # rgb_img = rgb.copy()
         # depth_img = depth.copy()
 
@@ -319,11 +325,11 @@ class RobotDataset(RLBenchDataset):
                 gp_rescale_factor_range=[12, 20],
                 gaussian_scale_range=[0.0, 0.001],
             )
+        H, W, C = xyz.shape
+        xyz = xyz.reshape(-1, C)
 
         if self._robot == "franka":
             # transform the resultant x,y,z to robot-frame
-            H, W, C = xyz.shape
-            xyz = xyz.reshape(-1, C)
             # Now it is in world frame
             xyz = trimesh.transform_points(xyz, camera_matrix)
             # xyz = xyz.reshape(H, W, C)
@@ -336,10 +342,19 @@ class RobotDataset(RLBenchDataset):
                 ee_pose = tra.quaternion_matrix([w, x, y, z])
                 ee_pose[:3, 3] = pos
                 xyz = trimesh.transform_points(xyz, ee_pose)
+        elif self._robot == "stretch":
+            if "camera_pose" in trial.temporal_keys:
+                camera_matrix = trial["camera_pose"][idx]
+                xyz = trimesh.transform_points(xyz, camera_matrix)
+            else:
+                raise RuntimeError(
+                    "Couldn't find camera information in your H5 file. The program will close now"
+                )
 
         # downsample point-cloud by distance (heuristic)
         rgb = rgb.reshape(-1, C)
         depth = depth.reshape(-1)
+        xyz = xyz.reshape(-1, C)
         mask = np.bitwise_and(depth < 1.5, depth > 0.3)
         rgb = rgb[mask]
         xyz = xyz[mask]
@@ -398,15 +413,64 @@ class RobotDataset(RLBenchDataset):
             time_step,
         )  # actual keypoint index in the episode
 
+    def show_cropped_keyframes(
+        self, crop_xyz, crop_rgb, crop_ee_keyframe, crop_ref_ee_keyframe
+    ):
+        print(
+            "Showing cropped PCD with original interaction-ee-position and current-ee-keyframe"
+        )
+        show_point_cloud_with_keypt_and_closest_pt(
+            crop_xyz,
+            crop_rgb,
+            crop_ee_keyframe[:3, 3],
+            crop_ee_keyframe[:3, :3],
+            crop_ref_ee_keyframe[:3, 3],
+        )
+        print(
+            "Showing cropped PCD with perturbed interaction-ee-position and current-ee-keyframe"
+        )
+        show_point_cloud_with_keypt_and_closest_pt(
+            crop_xyz,
+            crop_rgb,
+            crop_ee_keyframe[:3, 3],
+            crop_ee_keyframe[:3, :3],
+            np.array([0, 0, 0]),
+        )
+
+    def show_interaction_pt_and_keyframe(
+        self,
+        xyz2,
+        rgb2,
+        current_ee_keyframe,
+        closest_pt_down_pcd,
+        interaction_ee_keyframe,
+    ):
+        print(
+            "Showing current ee keyframe as the coordinate-frame and the interaction-point in PCD as yellow sphere"
+        )
+        show_point_cloud_with_keypt_and_closest_pt(
+            xyz2,
+            rgb2,
+            current_ee_keyframe[:3, 3],
+            current_ee_keyframe[:3, :3],
+            closest_pt_down_pcd,
+        )
+        print(
+            "Showing current ee keyframe as the coordinate-frame and the interaction-ee-position as yellow sphere"
+        )
+        show_point_cloud_with_keypt_and_closest_pt(
+            xyz2,
+            rgb2,
+            current_ee_keyframe[:3, 3],
+            current_ee_keyframe[:3, :3],
+            interaction_ee_keyframe[:3, 3],
+        )
+
     def get_datum(self, trial, keypoint_idx, verbose=False):
         """Get a single training example given the index."""
 
         cmds = trial["task_name"][()].decode("utf-8").split(",")
-        # TODO following is useless, esp after the annotation file being used. Remove this.
-        if self.random_cmd:
-            cmd = cmds[np.random.randint(len(cmds))]
-        else:
-            cmd = cmds[0]
+        cmd = cmds[0]
         if verbose:
             print(f"{cmd=}")
         self.task_name = cmd
@@ -427,15 +491,8 @@ class RobotDataset(RLBenchDataset):
         if len(gripper_width_array.shape) == 1:
             num_samples = gripper_width_array.shape[0]
             gripper_width_array = gripper_width_array.reshape(num_samples, 1)
-        min_gripper = 0.95 * self._robot_max_grasp  # 95% of max_width
-        gripper_state = (gripper_width_array <= min_gripper).astype(int)
+        gripper_state = (gripper_width_array <= self._robot_max_grasp).astype(int)
         interaction_pt = -1
-        # hoping I won't need the following anymore
-        # TODO: verify and remove the following
-        # if "place" in cmd or "put" in cmd or "add" in cmd:
-        #     # TODO move to configs; or get better data
-        #     interaction_pt = keypoints[1]
-        # else:
         for i, other_keypoint in enumerate(keypoints):
             interaction_pt = other_keypoint
             if i == 0:
@@ -495,41 +552,39 @@ class RobotDataset(RLBenchDataset):
                 rgbs.append(v_rgb)
                 xyzs.append(v_xyz)
 
-        # randomly dropout 1/3rd of the point-clouds
-        # TODO: update this to dropout each frame with 0.33 probability
-        idx_dropout = np.random.choice([False, True], size=len(rgbs), p=[0.33, 0.67])
-        rgbs = [rgbs[i] for i in idx_dropout]
-        xyzs = [xyzs[i] for i in idx_dropout]
+        drop_frames = False  # TODO: get this from cfg
+        if drop_frames:
+            # randomly dropout 1/3rd of the point-clouds
+            # TODO: update this to dropout each frame with 0.33 probability
+            idx_dropout = np.random.choice(
+                [False, True], size=len(rgbs), p=[0.33, 0.67]
+            )
+            rgbs = [rgbs[i] for i in idx_dropout]
+            xyzs = [xyzs[i] for i in idx_dropout]
         rgb = np.concatenate(rgbs, axis=0)
         xyz = np.concatenate(xyzs, axis=0)
-        z_mask = xyz[:, 2] > 0.0
-        rgb = rgb[z_mask]
-        xyz = xyz[z_mask]
         x_mask = xyz[:, 0] < 0.9
         rgb = rgb[x_mask]
         xyz = xyz[x_mask]
         xyz, rgb = xyz.reshape(-1, 3), rgb.reshape(-1, 3)
 
         # get EE keyframe
-        ee_keyframe = self.get_gripper_pose(trial, int(current_keypoint_idx))
-        ref_ee_keyframe = self.get_gripper_pose(trial, int(interaction_pt))
-        keyframes = []
+        current_ee_keyframe = self.get_gripper_pose(trial, int(current_keypoint_idx))
+        interaction_ee_keyframe = self.get_gripper_pose(trial, int(interaction_pt))
+        all_ee_keyframes = []
         if self.multi_step:
             target_gripper_state = np.zeros(len(keypoints))
             # Add all keypoints to this list
             for j, keypoint in enumerate(keypoints):
-                keyframes.append(self.get_gripper_pose(trial, int(keypoint)))
+                all_ee_keyframes.append(self.get_gripper_pose(trial, int(keypoint)))
                 target_gripper_state[j] = gripper_state[keypoint]
         else:
             # Pull out gripper state from the sim data
             target_gripper_state = gripper_state[current_keypoint_idx]
 
-        # preserve the og pcd
-        # og_xyz = xyz.copy()
-        # og_rgb = rgb.copy()
         # voxelize at a granular voxel-size then choose X points
         xyz, rgb = self.remove_duplicate_points(xyz, rgb)
-        xyz, rgb = self.dr_crop_radius(xyz, rgb, ref_ee_keyframe)
+        xyz, rgb = self.dr_crop_radius(xyz, rgb, interaction_ee_keyframe)
         orig_xyz, orig_rgb = xyz, rgb
 
         # Get the point clouds and shuffle them around a bit
@@ -537,19 +592,23 @@ class RobotDataset(RLBenchDataset):
 
         # mean-center the keyframes wrt classifier-input pcd
         orig_xyz -= center[None].repeat(orig_xyz.shape[0], axis=0)
-        ee_keyframe[:3, 3] -= center
-        ref_ee_keyframe[:3, 3] -= center
-        for keyframe in keyframes:
+        current_ee_keyframe[:3, 3] -= center
+        interaction_ee_keyframe[:3, 3] -= center
+        for keyframe in all_ee_keyframes:
             keyframe[:3, 3] -= center
 
         (
             orig_xyz,
             xyz,
-            ee_keyframe,
-            ref_ee_keyframe,
-            keyframes,
+            current_ee_keyframe,
+            interaction_ee_keyframe,
+            all_ee_keyframes,
         ) = self.dr_rotation_translation(
-            orig_xyz, xyz, ee_keyframe, ref_ee_keyframe, keyframes
+            orig_xyz,
+            xyz,
+            current_ee_keyframe,
+            interaction_ee_keyframe,
+            all_ee_keyframes,
         )
 
         (
@@ -559,8 +618,9 @@ class RobotDataset(RLBenchDataset):
             closest_pt_down_pcd,
             target_idx_og_pcd,
             closest_pt_og_pcd,
-        ) = self.get_query(xyz, rgb, ref_ee_keyframe)
+        ) = self.voxelize_and_get_interaction_point(xyz, rgb, interaction_ee_keyframe)
         if xyz2 is None:
+            print("Couldn't find an interaction point")
             return {"data_ok_status": False}
 
         # Get the local version of the problem
@@ -576,53 +636,57 @@ class RobotDataset(RLBenchDataset):
             crop_ee_keyframe,
             crop_keyframes,
         ) = self.get_local_commands(
-            crop_location, ee_keyframe, ref_ee_keyframe, keyframes
+            crop_location,
+            current_ee_keyframe,
+            interaction_ee_keyframe,
+            all_ee_keyframes,
         )
 
-        # Debug code
-        # TODO - remove this debug code
-        # pos1 = crop_ee_keyframe[:3, 3]
-        # pos2 = np.linalg.inv(crop_ee_keyframe)[:3, 3]
-        # print()
-        # print(cmd, pos1, pos2)
-
-        # Get the commands we care about here
-        # TODO - remove debug code
-        # print(crop_ee_keyframe[:3, 3])
         positions, orientations, angles = self.get_commands(
             crop_ee_keyframe, crop_keyframes
         )
         self._assert_positions_match_ee_keyframes(crop_ee_keyframe, positions)
 
-        if self.visualize:
-            show_point_cloud_with_keypt_and_closest_pt(
-                xyz,
-                rgb,
-                ee_keyframe[:3, 3],
-                ee_keyframe[:3, :3],
-                ref_ee_keyframe[:3, 3],
+        if self._visualize_interaction_estimates:
+            self.show_interaction_pt_and_keyframe(
+                xyz2,
+                rgb2,
+                current_ee_keyframe,
+                closest_pt_down_pcd,
+                interaction_ee_keyframe,
+            )
+            print(
+                "Showing current ee keyframe as the coordinate-frame and the interaction-point in PCD as yellow sphere"
             )
             show_point_cloud_with_keypt_and_closest_pt(
                 xyz2,
                 rgb2,
-                ee_keyframe[:3, 3],
-                ee_keyframe[:3, :3],
-                ref_ee_keyframe[:3, 3],
+                current_ee_keyframe[:3, 3],
+                current_ee_keyframe[:3, :3],
+                closest_pt_down_pcd,
             )
-            # show_point_cloud_with_keypt_and_closest_pt(
-            #     crop_xyz,
-            #     crop_rgb,
-            #     crop_ee_keyframe[:3, 3],
-            #     crop_ee_keyframe[:3, :3],
-            #     None,
-            # )
+            print(
+                "Showing current ee keyframe as the coordinate-frame and the interaction-ee-position as yellow sphere"
+            )
+            show_point_cloud_with_keypt_and_closest_pt(
+                xyz2,
+                rgb2,
+                current_ee_keyframe[:3, 3],
+                current_ee_keyframe[:3, :3],
+                interaction_ee_keyframe[:3, 3],
+            )
+
+        if self._visualize_cropped_keyframes:
+            self.show_cropped_keyframe(
+                crop_xyz, crop_rgb, crop_ee_keyframe, crop_ref_ee_keyframe
+            )
 
         datum = {
             "trial_name": trial.name,
             "data_ok_status": data_status,
             # ----------
-            "ee_keyframe_pos": torch.FloatTensor(ee_keyframe[:3, 3]),
-            "ee_keyframe_ori": torch.FloatTensor(ee_keyframe[:3, :3]),
+            "ee_keyframe_pos": torch.FloatTensor(current_ee_keyframe[:3, 3]),
+            "ee_keyframe_ori": torch.FloatTensor(current_ee_keyframe[:3, :3]),
             "proprio": torch.FloatTensor(proprio),
             "target_gripper_state": torch.FloatTensor(target_gripper_state),
             "xyz": torch.FloatTensor(xyz),
@@ -644,6 +708,7 @@ class RobotDataset(RLBenchDataset):
             "xyz_crop": torch.FloatTensor(crop_xyz),
             "crop_ref_ee_keyframe_pos": torch.FloatTensor(crop_ref_ee_keyframe[:3, 3]),
             "crop_ref_ee_keyframe_ori": torch.FloatTensor(crop_ref_ee_keyframe[:3, :3]),
+            "perturbed_crop_location": torch.FloatTensor(crop_location),
             # Crop goals ------------------
             # Goals for regression go here
             "ee_keyframe_pos_crop": torch.FloatTensor(positions),
@@ -705,7 +770,7 @@ def show_all_keypoints(data_dir, split, template, robot):
         data_dir,
         template=template,
         num_pts=8000,
-        data_augmentation=False,
+        data_augmentation=True,
         crop_radius=True,
         ori_dr_range=np.pi / 8,
         cart_dr_range=0.0,
@@ -718,7 +783,8 @@ def show_all_keypoints(data_dir, split, template, robot):
         show_cropped=True,
         verbose=False,
         multi_step=False,
-        visualize=True,
+        visualize_interaction_estimates=True,
+        visualize_cropped_keyframes=True,
         robot=robot,
     )
     skip_names = ["30_11_2022_15_22_40"]
@@ -731,7 +797,7 @@ def show_all_keypoints(data_dir, split, template, robot):
             num_keypt = trial.num_keypoints
             for i in range(num_keypt):
                 print("Keypoint requested: ", i)
-                data = loader.get_datum(trial, i, verbose=False)
+                loader.get_datum(trial, i, verbose=True)
             # data = loader.get_datum(trial, 1, verbose=False)
 
 

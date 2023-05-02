@@ -257,7 +257,7 @@ class Visualizer:
         image_vis = self.image_vis.copy()
 
         # if curr_skill is not None, place the skill name below the third person image
-        if curr_skill is not None:
+        if curr_skill is not None and curr_action is not None:
             image_vis = self._put_text_on_image(
                 image_vis,
                 curr_skill + "\n" + curr_action,
@@ -393,7 +393,6 @@ class Visualizer:
         if self.show_images:
             cv2.imshow("Visualization", image_vis)
             cv2.waitKey(1)
-
         if self.print_images:
             cv2.imwrite(
                 os.path.join(self.vis_dir, "snapshot_{:03d}.png".format(timestep)),
