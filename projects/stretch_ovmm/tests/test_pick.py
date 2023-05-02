@@ -16,19 +16,14 @@ from home_robot.agent.hierarchical.pick_and_place_agent import PickAndPlaceAgent
 from home_robot.motion.stretch import STRETCH_HOME_Q
 from home_robot.utils.config import get_config
 from home_robot.utils.pose import to_pos_quat
-from home_robot_hw.env.stretch_pick_and_place_env import StretchPickandPlaceEnv
+from home_robot_hw.env.stretch_pick_and_place_env import (
+    StretchPickandPlaceEnv,
+    load_config,
+)
 
 
 def run_experiment():
-
-    config_path = "projects/stretch_ovmm/configs/agent/floorplanner_eval.yaml"
-    config, config_str = get_config(config_path)
-    config.defrost()
-    config.NUM_ENVIRONMENTS = 1
-    config.PRINT_IMAGES = 1
-    config.EXP_NAME = "debug"
-    config.freeze()
-
+    config = load_config(visualize=visualize_maps, **kwargs)
     rospy.init_node("eval_episode_stretch_objectnav")
     env = StretchPickandPlaceEnv(config=config)
     env.reset("table", "cup", "chair")
