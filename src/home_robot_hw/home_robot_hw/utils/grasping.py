@@ -282,6 +282,11 @@ class GraspPlanner(object):
 
         for i, (name, waypoint, should_grasp) in enumerate(trajectory):
             self.robot_client.manip.goto_joint_positions(waypoint)
+            input("---- " + str(i) + " ----")
+            self.robot_client.manip.goto_joint_positions(waypoint)
+            input("---- " + str(i) + " ----")
+            self.robot_client.manip.goto_joint_positions(waypoint)
+            input("---- " + str(i) + " ----")
             if should_grasp:
                 self.robot_client.manip.close_gripper()
             if wait_for_input:

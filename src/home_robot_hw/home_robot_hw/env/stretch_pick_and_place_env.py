@@ -160,11 +160,12 @@ class StretchPickandPlaceEnv(StretchEnv):
                 print("PICK UP THE TARGET OBJECT")
                 print(" - Robot in navigation mode:", self.in_navigation_mode())
                 continuous_action = None
-                if self.robot.in_navigation_mode():
+                if not self.robot.in_navigation_mode():
                     self.robot.switch_to_navigation_mode()
                     rospy.sleep(self.msg_delay_t)
                 # Dummy out robot execution code for perception tests
-                if not self.dry_run:
+                # Also do not rotate if you are just doing grasp testing
+                if not self.dry_run and not self.test_grasping:
                     self.robot.nav.navigate_to(
                         [0, 0, np.pi / 2], relative=True, blocking=True
                     )
