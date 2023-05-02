@@ -39,6 +39,21 @@ class ContinuousNavigationAction:
         self.xyt = xyt
 
 
+class ContinuousFullBodyAction:
+    xyt: np.ndarray
+    joints: np.ndarray
+
+    def __init__(self, joints: np.ndarray, xyt: np.ndarray = None):
+        """Create full-body continuous action"""
+        if xyt is not None and not len(xyt) == 3:
+            raise RuntimeError(
+                "continuous navigation action space has 3 dimentions, x y and theta"
+            )
+        self.xyt = xyt
+        # Joint states in robot action format
+        self.joints = joints
+
+
 class ActionType(Enum):
     DISCRETE = 0
     CONTINUOUS_NAVIGATION = 1
@@ -80,7 +95,8 @@ class HybridAction(Action):
         elif self.action_type == ActionType.CONTINUOUS_NAVIGATION:
             return self.action.xyt
         else:
-            return NotImplementedError("we need to support this action type")
+            # Extract both the joints and the waypoint target
+            return self.action.joints, self.action.xyt
 
 
 @dataclass
