@@ -1,0 +1,5 @@
+v_max: 0.2      # base.params["motion"]["default"]["vel_m"]
+w_max: 0.45     # (vel_m_max - vel_m_default) / wheel_separation_m
+k_p: 0.5        # P gain
+damp_ratio: 1.0 # Damping ratio between P and I gains
+decay: 0.5      # Exponential decay for I (integration) term
