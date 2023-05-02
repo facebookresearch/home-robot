@@ -59,6 +59,10 @@ class StretchClient:
         # Initially start in navigation mode all the time - in order to make sure we are initialized into a decent state. Otherwise we need to check the different components and safely figure out control mode, which can be inaccurate.
         self.switch_to_navigation_mode()
 
+    @property
+    def model(self):
+        return self._robot_model
+
     # Mode interfaces
 
     def switch_to_navigation_mode(self):

@@ -28,7 +28,7 @@ def main(**kwargs):
     obs = env.reset("table", "cup", "chair")
     robot = env.get_robot()
 
-    action = robot.create_action_from_config(STRETCH_HOME_Q)
+    action = robot.model.create_action_from_config(STRETCH_HOME_Q)
     print(action)
 
     action = robot.create_action(lift=0.5)
