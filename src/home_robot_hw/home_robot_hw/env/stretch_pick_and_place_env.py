@@ -195,7 +195,7 @@ class StretchPickandPlaceEnv(StretchEnv):
                 pass
             elif action == DiscreteNavigationAction.MANIPULATION_MODE:
                 print("PICK UP THE TARGET OBJECT")
-                print(" - Robot in navigation mode:", self.in_navigation_mode())
+                print(" - Robot in navigation mode:", self.robot.in_navigation_mode())
                 continuous_action = None
                 if not self.robot.in_navigation_mode():
                     self.robot.switch_to_navigation_mode()
