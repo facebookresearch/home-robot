@@ -104,9 +104,10 @@ def main(reset_nav=False, **kwargs):
     print_action("turn left", action)
     env.apply_action(action)
 
-    action = HybridAction(DiscreteNavigationAction.EXTEND_ARM)
-    print_action("extend arm", action)
-    env.apply_action(action)
+    # TODO: uncomment this to test; it's commented out because it takes a lot of space right now
+    # action = HybridAction(DiscreteNavigationAction.EXTEND_ARM)
+    # print_action("extend arm", action)
+    # env.apply_action(action)
 
     action = HybridAction(DiscreteNavigationAction.MANIPULATION_MODE)
     print_action("manip mode", action)
