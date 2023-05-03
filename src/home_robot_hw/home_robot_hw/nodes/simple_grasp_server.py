@@ -77,18 +77,20 @@ def _compute_grasp_scores(
     return x_grasp_score, y_grasp_score
 
 
-def _filter_grasps(score_map: np.ndarray, filter_direction: int) -> np.ndarray:
+def _filter_grasps(score_map: np.ndarray, grasp_direction: int) -> np.ndarray:
     """Filter an grid of grasps scores"""
     # Filter by neighboring grasps (multiply score of current score map with shifted versions of the map)
     mask1 = np.zeros_like(score_map)
     mask2 = np.zeros_like(score_map)
 
-    if filter_direction == 0:
-        mask1[:-1, :] = score_map[1:, :]
-        mask2[1:, :] = score_map[:-1, :]
-    elif filter_direction == 1:
+    if grasp_direction == 0:
+        # Gripper closes along X: filter across Y
         mask1[:, :-1] = score_map[:, 1:]
         mask2[:, 1:] = score_map[:, :-1]
+    elif grasp_direction == 1:
+        # Gripper closes along Y: filter across X
+        mask1[:-1, :] = score_map[1:, :]
+        mask2[1:, :] = score_map[:-1, :]
 
     score_map = score_map * mask1 * mask2
 
@@ -180,8 +182,8 @@ def inference(debug):
                 y_score_map[i, j] = y_score
 
         # Filter grasps
-        x_score_map_filtered = _filter_grasps(x_score_map, filter_direction=1)
-        y_score_map_filtered = _filter_grasps(y_score_map, filter_direction=0)
+        x_score_map_filtered = _filter_grasps(x_score_map, grasp_direction=0)
+        y_score_map_filtered = _filter_grasps(y_score_map, grasp_direction=1)
 
         scores_raw = []
         grasps_raw = []
