@@ -1,4 +1,4 @@
-from typing import List, Tuple
+from typing import List, Optional, Tuple
 
 import matplotlib.pyplot as plt
 import numpy as np
@@ -73,15 +73,16 @@ def drop_frames_from_input(xyzs, rgb_imgs, depth_imgs, probability_dropout=0.33)
 def aggregate_feats(feats, downsampled_index_trace):
     # downsampled_index_trace is a list of list of index
     # average feats over each list of index
-    avg_feats = []
+    agg_feats = []
+    _, feat_dim = feats.shape
     for idx in downsampled_index_trace:
-        sum_feats = np.sum(feats[idx, :], axis=0)
-        avg_feats.append(np.mean(feats[idx, :], axis=0))
-    avg_feats = np.stack(avg_feats, axis=0)
-    return avg_feats
+        most_freq_feat = np.bincount(feats[idx, :].reshape(-1)).argmax()
+        agg_feats.append(most_freq_feat)
+    agg_feats = np.stack(agg_feats, axis=0).reshape(-1, feat_dim)
+    return agg_feats
 
 
-def remove_duplicate_points(xyz, rgb, feats, depth, voxel_size=0.01):
+def filter_and_remove_duplicate_points(xyz, rgb, feats, depth, voxel_size=0.001):
     # heuristic based trimming
     mask = np.bitwise_and(depth < 1.5, depth > 0.3)
     rgb = rgb[mask]
@@ -98,26 +99,28 @@ def remove_duplicate_points(xyz, rgb, feats, depth, voxel_size=0.01):
     # voxelize at a granular voxel-size rather than random downsample
     pcd = numpy_to_pcd(xyz, rgb)
     (
-        pcd_downsampled,
+        pcd_voxelized,
         _,
-        downsampled_index_trace_vectors,
+        voxelized_index_trace_vectors,
     ) = pcd.voxel_down_sample_and_trace(
         voxel_size, pcd.get_min_bound(), pcd.get_max_bound()
     )
-    downsampled_index_trace = []
-    for intvec in downsampled_index_trace_vectors:
-        downsampled_index_trace.append(np.asarray(intvec))
-    rgb = np.asarray(pcd_downsampled.colors)
-    xyz = np.asarray(pcd_downsampled.points)
-    feats = aggregate_feats(feats, downsampled_index_trace)
+    voxelized_index_trace = []
+    for intvec in voxelized_index_trace_vectors:
+        voxelized_index_trace.append(np.asarray(intvec))
+    rgb = np.asarray(pcd_voxelized.colors)
+    xyz = np.asarray(pcd_voxelized.points)
+    feats = aggregate_feats(feats, voxelized_index_trace)
 
-    debug_voxelization = True
+    debug_voxelization = False
     if debug_voxelization:
-        # print(f"Number of points in this PCD: {len(pcd_downsampled2.points)}")
+        # print(f"Number of points in this PCD: {len(pcd_voxelized2.points)}")
         semantic_rgb = np.zeros_like(rgb)
-        breakpoint()
-        semantic_rgb[feats.reshape(-1) == 2, 1] = 1.0
+        semantic_rgb[feats.reshape(-1) == 3, 1] = 1.0
         show_point_cloud(xyz, semantic_rgb)
+        print(
+            "Confirm that you can see points in green for object belonging to class-id 3"
+        )
 
     return xyz, rgb, feats
 
@@ -152,7 +155,7 @@ def dr_crop_radius_around_interaction_point(
     return xyz, rgb, feats
 
 
-def shuffle_and_downsample_point_cloud(xyz, rgb, feats, num_points=8000):
+def shuffle_meancenter_and_downsample_point_cloud(xyz, rgb, feats, num_points=8000):
     """shuffle the xyz points to get a different input order, and downsample to num_points"""
     # Downsample pt clouds
     downsample = np.arange(rgb.shape[0])
@@ -223,30 +226,53 @@ def dr_rotation_translation(
 
 def voxelize_and_get_interaction_point(
     xyz, rgb, feats, interaction_ee_keyframe, voxel_size=0.01, debug=False
-):
+) -> Tuple[
+    Optional[np.ndarray],
+    Optional[np.ndarray],
+    Optional[np.ndarray],
+    Optional[np.ndarray],
+    Optional[np.ndarray],
+    Optional[np.ndarray],
+    Optional[np.ndarray],
+]:
     """uniformly voxelizes the input point-cloud and returns the closest-point
     in the point-cloud to the task's interaction ee-keyframe"""
-    # downsample another time to get sampled version
+    # voxelize another time to get sampled version
     input_pcd = numpy_to_pcd(xyz, rgb)
-    downsampled_pcd, downsampled_index_trace = input_pcd.voxel_down_sample_and_trace(
-        voxel_size
+    (
+        voxelized_pcd,
+        _,
+        voxelized_index_trace_vectors,
+    ) = input_pcd.voxel_down_sample_and_trace(
+        voxel_size, input_pcd.get_min_bound(), input_pcd.get_max_bound()
     )
-    downsampled_xyz = np.asarray(downsampled_pcd.points)
-    downsampled_rgb = np.asarray(downsampled_pcd.colors)
-    downsampled_feats = aggregate_feats(feats, downsampled_index_trace)
+    voxelized_index_trace = []
+    for intvec in voxelized_index_trace_vectors:
+        voxelized_index_trace.append(np.asarray(intvec))
+    voxelized_xyz = np.asarray(voxelized_pcd.points)
+    voxelized_rgb = np.asarray(voxelized_pcd.colors)
+    voxelized_feats = aggregate_feats(feats, voxelized_index_trace)
+
+    if debug:
+        semantic_rgb = np.zeros_like(voxelized_rgb)
+        semantic_rgb[voxelized_feats.reshape(-1) == 3, 1] = 1.0
+        show_point_cloud(voxelized_xyz, semantic_rgb)
+        print(
+            "Confirm that you can see voxelized points in green for object belonging to class-id 3"
+        )
 
     # for the voxelized pcd
-    if downsampled_xyz.shape[0] < 10:
+    if voxelized_xyz.shape[0] < 10:
         return (None, None, None, None, None, None)
-    downsampled_pcd_tree = o3d.geometry.KDTreeFlann(downsampled_pcd)
+    voxelized_pcd_tree = o3d.geometry.KDTreeFlann(voxelized_pcd)
     # Find closest points based on ref_ee_keyframe
     # This is used to supervise the location when we're detecting where the action
     # could have happened
-    [_, target_idx_1, _] = downsampled_pcd_tree.search_knn_vector_3d(
+    [_, target_idx_1, _] = voxelized_pcd_tree.search_knn_vector_3d(
         interaction_ee_keyframe[:3, 3], 1
     )
     target_idx_down_pcd = np.asarray(target_idx_1)[0]
-    closest_pt_down_pcd = downsampled_xyz[target_idx_down_pcd]
+    closest_pt_down_pcd = voxelized_xyz[target_idx_down_pcd]
 
     # this is for exact point
     # @Priyam I do not think the following is really needed
@@ -260,13 +286,13 @@ def voxelize_and_get_interaction_point(
     closest_pt_og_pcd = xyz[target_idx_og_pcd]
 
     if debug:
-        print("Closest point in downsampled pcd")
+        print("Closest point in voxelized pcd")
         show_point_cloud_with_keypt_and_closest_pt(
-            downsampled_xyz,
-            downsampled_rgb,
+            voxelized_xyz,
+            voxelized_rgb,
             interaction_ee_keyframe[:3, 3],
             interaction_ee_keyframe[:3, :3],
-            downsampled_xyz[target_idx_down_pcd].reshape(3, 1),
+            voxelized_xyz[target_idx_down_pcd].reshape(3, 1),
         )
         print("Closest point in original pcd")
         show_point_cloud_with_keypt_and_closest_pt(
@@ -277,9 +303,9 @@ def voxelize_and_get_interaction_point(
             xyz[target_idx_og_pcd].reshape(3, 1),
         )
     return (
-        downsampled_xyz,
-        downsampled_rgb,
-        downsampled_feats,
+        voxelized_xyz,
+        voxelized_rgb,
+        voxelized_feats,
         target_idx_down_pcd,
         closest_pt_down_pcd,
         target_idx_og_pcd,
@@ -343,6 +369,7 @@ def get_local_problem(
             downsample = downsample[:num_pts]
         crop_rgb = crop_rgb[downsample]
         crop_xyz = crop_xyz[downsample]
+        crop_feat = crop_feat[downsample]
     status = True
     if crop_xyz.shape[0] < 10:
         status = False
@@ -405,7 +432,8 @@ def compute_detic_features(
     depth_images: List[np.ndarray],
     segmentor: DeticPerception,
     rotate_images=True,
-) -> np.ndarray:
+    debug=False,
+) -> List[np.ndarray]:
     """
     Given unrotated images from Stretch (W,H,C) this method rotates them (H,W,C) and
     processes using Detic segmentation to produce a list of semantic masks. These masks
@@ -413,14 +441,16 @@ def compute_detic_features(
     """
     per_img_features = []
     for i, img in enumerate(rgb_images):
-        img, dimg = rotate_image([img, depth_images[i]])
-        H, W, _ = img.shape
+        B, H, W, C = img.shape
+        img = img.reshape(H, W, C)
+        dimg = depth_images[i].reshape(H, W, C)
+        img, dimg = rotate_image([img, dimg])
 
         # test DeticPerception
         # Create the observation
         obs = Observations(
-            rgb=img.copy(),
-            depth=dimg.copy(),
+            rgb=img.numpy().copy(),
+            depth=dimg.numpy().copy(),
             xyz=None,
             gps=np.zeros(2),  # TODO Replace
             compass=np.zeros(1),  # TODO Replace
@@ -431,14 +461,15 @@ def compute_detic_features(
         # unrotate mask
         feature = obs.semantic
         feature = unrotate_image([feature])[0]
+        feature = feature.reshape(B, H, W, 1)
         per_img_features.append(feature)
-        plt.imshow(feature)
-        plt.show()
-    per_img_features = np.stack(per_img_features, axis=0)
+        if debug:
+            plt.imshow(feature)
+            plt.show()
     return per_img_features
 
 
-def combine_multiple_views(xyzs, rgbs, depths, feats, feat_dim=1):
+def combine_and_dedepuplicate_multiple_views(xyzs, rgbs, depths, feats, feat_dim=1):
     """combining multiple image-frames into one point-cloud"""
     xyzs = np.concatenate(xyzs, axis=0)
     rgbs = np.concatenate(rgbs, axis=0)
@@ -449,4 +480,13 @@ def combine_multiple_views(xyzs, rgbs, depths, feats, feat_dim=1):
     depths = depths.reshape(-1)
     feats = feats.reshape(-1, feat_dim)
 
-    xyzs, rgbs, feats = remove_duplicate_points(xyzs, rgbs, feats, depths)
+    xyzs, rgbs, feats = filter_and_remove_duplicate_points(xyzs, rgbs, feats, depths)
+    return xyzs, rgbs, feats
+
+
+def encode_as_one_hot(feat, vocab):
+    """expected feature of size Nx1 with channel consisting of detected
+    class index based on semantic vocab"""
+    feat_one_hot = np.zeros((feat.shape[0], len(vocab)))
+    feat_one_hot[np.arange(feat.shape[0]), feat.reshape(-1)] = 1
+    return feat_one_hot

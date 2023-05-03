@@ -19,7 +19,7 @@ from torch.nn import Linear as Lin
 from torch.nn import ReLU
 from torch.nn import Sequential as Seq
 from torch_cluster import fps
-from torch_geometric.nn import PointConv, global_max_pool, radius
+from torch_geometric.nn import PointNetConv, global_max_pool, radius
 from torch_geometric.nn.conv import PointTransformerConv
 from torch_geometric.nn.pool import knn
 from torch_geometric.nn.unpool import knn_interpolate
@@ -167,7 +167,7 @@ class SAModule(torch.nn.Module):
         super().__init__()
         self._query_radius = r
         self._max_neighbors = maxn
-        self.conv = PointConv(nn, add_self_loops=False)
+        self.conv = PointNetConv(nn, add_self_loops=False)
         self.device = device
 
     def some_function(self, batch):
@@ -187,7 +187,7 @@ class SAModule(torch.nn.Module):
         if y2x_edge_index.shape[1] < 2:
             breakpoint()
 
-        # reverse edge_index because that is what PointConv expects
+        # reverse edge_index because that is what PointNetConv expects
         idx = torch.LongTensor([1, 0])
         x2y_edge_index = y2x_edge_index[idx]
 
@@ -197,7 +197,7 @@ class SAModule(torch.nn.Module):
         # feat = torch.column_stack((feat, feat_real))
         # sampled_feat = torch.column_stack((sampled_feat, feat_query))
 
-        # NOTE: does PointConv need all points in the same object for message passing?
+        # NOTE: does PointNetConv need all points in the same object for message passing?
         # as seen in https://github.com/pyg-team/pytorch_geometric/blob/master/examples/pointnet2_classification.py
         # combine the real points with query points
         # pos = torch.cat((pos, sampled_pos))
@@ -223,7 +223,7 @@ class PtnetSAModule(torch.nn.Module):
         super().__init__()
         self.ratio = ratio
         self.r = r
-        self.conv = PointConv(nn, add_self_loops=False)
+        self.conv = PointNetConv(nn, add_self_loops=False)
 
     def forward(self, x, pos, batch):
         idx = fps(pos, batch, ratio=self.ratio)

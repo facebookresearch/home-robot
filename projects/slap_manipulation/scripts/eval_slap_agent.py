@@ -4,7 +4,7 @@ import click
 import numpy as np
 import torch
 import yaml
-from slap_manipulation.agents.slap_agent import SLAPAgent
+from slap_manipulation.agents.slap_agent import SLAPBaseAgent
 
 
 @click.command()
@@ -59,7 +59,7 @@ def main(version):
         )
 
     # load SLAP model
-    slap_model = SLAPAgent(version)
+    slap_model = SLAPBaseAgent(version)
     if version == "slap":
         ipm_path = IPM_PATH_SLAP
         apm_paths = APM_PATH_SLAP

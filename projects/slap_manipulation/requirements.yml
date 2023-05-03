@@ -6,10 +6,6 @@ channels:
   - pytorch
 dependencies:
   - python=3.9
-  - pytorch=1.12.1
-  - torchaudio=0.12.1
-  - cudatoolkit=11.6
-  - torchvision=0.13.1
   - trimesh
   - h5py
   - imageio
@@ -43,4 +39,17 @@ dependencies:
     - yacs
     - pygifsicle
     - perceiver-pytorch
+    - wandb
+    - hydra-core
+    - --extra-index-url https://download.pytorch.org/whl/cu116
+    - torch==1.12.1+cu116
+    - torchaudio==0.12.1
+    - torchvision==0.13.1+cu116
+    - --file https://data.pyg.org/whl/torch-1.12.1+cu116.html
+    - pyg_lib
+    - torch_scatter 
+    - torch_sparse
+    - torch_cluster
+    - torch_spline_conv 
+    - torch_geometric
 

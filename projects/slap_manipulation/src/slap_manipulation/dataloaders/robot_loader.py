@@ -454,7 +454,7 @@ class RobotDataset(RLBenchDataset):
             interaction_ee_keyframe[:3, 3],
         )
 
-    def get_datum(self, trial, keypoint_idx, verbose=False, new_loader=True):
+    def get_datum(self, trial, action_idx, verbose=False, new_loader=True):
         """Get a single training example given the index."""
 
         cmds = trial["task_name"][()].decode("utf-8").split(",")
@@ -470,7 +470,7 @@ class RobotDataset(RLBenchDataset):
         keypoints = self.extract_manual_keyframes(
             trial["user_keyframe"][()]
         )  # list of index of keypts
-        current_keypoint_idx, time_step = self.choose_keypoint(keypoints, keypoint_idx)
+        current_keypoint_idx, time_step = self.choose_keypoint(keypoints, action_idx)
         # this index is of the actual episode step this keypoint belongs to; i.e. trial/current_keypoint_idx/<ee-pose, images, etc>
         if verbose:
             print(f"Key-point index chosen: abs={current_keypoint_idx}")
@@ -546,6 +546,16 @@ class RobotDataset(RLBenchDataset):
         # get EE keyframe
         current_ee_keyframe = self.get_gripper_pose(trial, int(current_keypoint_idx))
         interaction_ee_keyframe = self.get_gripper_pose(trial, int(interaction_pt))
+        all_ee_keyframes = []
+        # if self.multi_step:
+        all_gripper_states = np.zeros(len(keypoints))
+        # Add all keypoints to this list
+        for j, keypoint in enumerate(keypoints):
+            all_ee_keyframes.append(self.get_gripper_pose(trial, int(keypoint)))
+            all_gripper_states[j] = gripper_state[keypoint]
+        # else:
+        #     # Pull out gripper state from the sim data
+        #     all_gripper_states = gripper_state[current_keypoint_idx]
 
         if new_loader:
             datum = {
@@ -556,6 +566,8 @@ class RobotDataset(RLBenchDataset):
                 "proprio": proprio,
                 "interaction_pt_index": interaction_pt,
                 "current_ee_keyframe": current_ee_keyframe,  # we can also just send all ee keyframes here
+                "all_ee_keyframes": all_ee_keyframes,
+                "dataloader_idx": action_idx,
                 "interaction_ee_keyframe": interaction_ee_keyframe,
                 "task-name": cmd,
             }
@@ -576,17 +588,6 @@ class RobotDataset(RLBenchDataset):
         rgb = rgb[x_mask]
         xyz = xyz[x_mask]
         xyz, rgb = xyz.reshape(-1, 3), rgb.reshape(-1, 3)
-
-        all_ee_keyframes = []
-        if self.multi_step:
-            target_gripper_state = np.zeros(len(keypoints))
-            # Add all keypoints to this list
-            for j, keypoint in enumerate(keypoints):
-                all_ee_keyframes.append(self.get_gripper_pose(trial, int(keypoint)))
-                target_gripper_state[j] = gripper_state[keypoint]
-        else:
-            # Pull out gripper state from the sim data
-            target_gripper_state = gripper_state[current_keypoint_idx]
 
         # voxelize at a granular voxel-size then choose X points
         xyz, rgb = self.remove_duplicate_points(xyz, rgb)
@@ -694,11 +695,11 @@ class RobotDataset(RLBenchDataset):
             "ee_keyframe_pos": torch.FloatTensor(current_ee_keyframe[:3, 3]),
             "ee_keyframe_ori": torch.FloatTensor(current_ee_keyframe[:3, :3]),
             "proprio": torch.FloatTensor(proprio),
-            "target_gripper_state": torch.FloatTensor(target_gripper_state),
+            "target_gripper_state": torch.FloatTensor(all_gripper_states),
             "xyz": torch.FloatTensor(xyz),
             "rgb": torch.FloatTensor(rgb),
             "cmd": cmd,
-            "keypoint_idx": keypoint_idx,
+            "keypoint_idx": action_idx,
             # engineered features ----------------
             "closest_pos": torch.FloatTensor(closest_pt_og_pcd),
             "closest_pos_idx": torch.LongTensor([target_idx_og_pcd]),

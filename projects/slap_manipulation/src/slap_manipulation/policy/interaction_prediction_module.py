@@ -21,6 +21,7 @@ from perceiver_pytorch.perceiver_io import (
     default,
     exists,
 )
+from slap_manipulation.agents.slap_agent import SLAPBaseAgent
 from slap_manipulation.dataloaders.rlbench_loader import RLBenchDataset
 from slap_manipulation.dataloaders.robot_loader import (
     VOXEL_SIZE_1,
@@ -40,7 +41,7 @@ from slap_manipulation.policy.components import (
     PositionalEncoding,
     SAModule,
 )
-from torch_geometric.nn import MLP, Linear, PointConv, radius
+from torch_geometric.nn import MLP, Linear, PointNetConv, radius
 from tqdm import tqdm
 
 from home_robot.utils.point_cloud import numpy_to_pcd, show_pcd, show_point_cloud
@@ -156,7 +157,7 @@ class SupervisedLocalityLoss(torch.nn.Module):
         return loss
 
 
-class InteractionPredictionModule(torch.nn.Module):
+class InteractionPredictionModule(SLAPBaseAgent):
     """
     Query evaluator.
     This is modified based on our previous version of the code.
@@ -207,7 +208,7 @@ class InteractionPredictionModule(torch.nn.Module):
         locality_loss_spread=0.25,
         dry_run=False,
     ):
-        super().__init__()
+        super().__init__(drop_frames=False)
         self.name = name
         self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
@@ -232,7 +233,7 @@ class InteractionPredictionModule(torch.nn.Module):
         self._query_radius = 0.2
         self._max_neighbor = 64  # default from pointnet2 code
         # for mixing proprio and images
-        self.proprio_dim_size = 3
+        self.proprio_dim_size = 2
         self.im_channels = 64
         self.use_proprio = use_proprio
 
@@ -725,44 +726,45 @@ class InteractionPredictionModule(torch.nn.Module):
 
         for _, batch in enumerate(tqdm(loader, ncols=50)):
             # get the inputs
-            if not batch["data_ok_status"]:
-                continue
-            batch = self.to_device(batch)
+            # if not batch["data_ok_status"]:
+            # continue
+            new_batch = self.preprocessing(batch)
+            new_batch = self.to_device(new_batch)
             optimizer.zero_grad()
-            rgb = batch["rgb"][0]  # N x 3
-            xyz = batch["xyz"][0]  # N x 3
-            down_xyz = batch["xyz_downsampled"][0]
-            down_rgb = batch["rgb_downsampled"][0]
-            lang = batch["cmd"]  # list of 1
+            feat = new_batch["feat"][0]  # N x 3
+            xyz = new_batch["xyz"][0]  # N x 3
+            down_xyz = new_batch["xyz_voxel"][0]
+            down_feat = new_batch["feat_voxel"][0]
+            lang = new_batch["cmd"]  # list of 1
             if self.use_proprio:
-                proprio = batch["proprio"][0]
+                proprio = new_batch["proprio"][0]
             else:
                 proprio = None
 
             # extract supervision terms
-            target_idx = batch["closest_voxel_idx"][0]
-            target_pos = batch["closest_voxel"]
-            ee_keyframe = batch["ee_keyframe_pos"][0]
-            ee_keyframe_rot = batch["ee_keyframe_ori"][0]
-
-            # Visualize
-            # show_point_cloud(
-            #        down_xyz.detach().cpu().numpy(),
-            #        down_rgb.detach().cpu().numpy(),
-            #        orig=np.zeros(3))
-            if debug:
-                show_point_cloud_with_keypt_and_closest_pt(
-                    down_xyz.detach().cpu().numpy(),
-                    down_rgb.detach().cpu().numpy(),
-                    ee_keyframe.detach().cpu().numpy().reshape(3, 1),
-                    ee_keyframe_rot.detach().cpu().numpy().reshape(3, 3),
-                    target_pos.detach().cpu().numpy().reshape(3, 1),
-                )
+            target_idx = new_batch["closest_voxel_idx"][0]
+            # target_pos = new_batch["closest_voxel"]
+            # ee_keyframe = new_batch["ee_keyframe_pos"][0]
+            # ee_keyframe_rot = new_batch["ee_keyframe_ori"][0]
+            #
+            # # Visualize
+            # # show_point_cloud(
+            # #        down_xyz.detach().cpu().numpy(),
+            # #        down_rgb.detach().cpu().numpy(),
+            # #        orig=np.zeros(3))
+            # if debug:
+            #     show_point_cloud_with_keypt_and_closest_pt(
+            #         down_xyz.detach().cpu().numpy(),
+            #         down_rgb.detach().cpu().numpy(),
+            #         ee_keyframe.detach().cpu().numpy().reshape(3, 1),
+            #         ee_keyframe_rot.detach().cpu().numpy().reshape(3, 3),
+            #         target_pos.detach().cpu().numpy().reshape(3, 1),
+            #     )
 
             # predict the closest centroid
             classification_probs, _, _ = self.forward(
-                rgb,
-                down_rgb,
+                feat,
+                down_feat,
                 xyz,
                 down_xyz,
                 lang,
@@ -793,7 +795,7 @@ class InteractionPredictionModule(torch.nn.Module):
             # Do some masking
             # Basically - we want to remove probs and targets that arent what we expect here
             if self._skip_ambiguous_pts:
-                voxel_mask = batch["xyz_mask"][0].bool().cpu().numpy()
+                voxel_mask = new_batch["xyz_mask"][0].bool().cpu().numpy()
                 classification_probs = classification_probs[:, voxel_mask]
                 if self.xent_loss:
                     target_idx = target[0].item()
@@ -820,7 +822,7 @@ class InteractionPredictionModule(torch.nn.Module):
 
         print()
         print("---", "train" if train else "valid", "example ---")
-        print("skill was:", batch["cmd"])
+        print("skill was:", new_batch["cmd"])
         print(f"Target idx: {down_xyz[target_idx]}")
         print(f"Predicted idx: {down_xyz[predicted_idx]}")
         print(f"Distance b/w: {dist}")
