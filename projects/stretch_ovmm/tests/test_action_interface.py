@@ -13,7 +13,7 @@ import numpy as np
 import rospy
 
 from home_robot.agent.hierarchical.pick_and_place_agent import PickAndPlaceAgent
-from home_robot.core.interfaces import HybridAction
+from home_robot.core.interfaces import DiscreteNavigationAction, HybridAction
 from home_robot.motion.stretch import STRETCH_HOME_Q, STRETCH_PREGRASP_Q
 from home_robot.utils.pose import to_pos_quat
 from home_robot_hw.env.stretch_pick_and_place_env import (
@@ -44,16 +44,19 @@ def main(**kwargs):
     obs = env.reset("table", "cup", "chair")
     robot = env.get_robot()
 
+    print()
+    print("=" * 40)
+    print("Testing continuous arm control")
+    print()
+
     action = HybridAction(robot.model.create_action_from_config(STRETCH_HOME_Q))
     print_action("HOME CONFIG", action)
     env.apply_action(action)
-    input("Press enter to continue...")
 
     # Try a movement only action
     action = HybridAction(xyt=np.array([0, 0, 0]))
     print_action("goto(0,0,0)", action)
     env.apply_action(action)
-    input("Press enter to continue...")
 
     # Try another test
     action = HybridAction(
@@ -65,7 +68,6 @@ def main(**kwargs):
     )
     print_action("lift arm", action)
     env.apply_action(action)
-    input("Press enter to continue...")
 
     pregrasp_q = robot.model.update_look_at_ee(STRETCH_PREGRASP_Q.copy())
     pregrasp_cfg = robot.model.create_action_from_config(pregrasp_q).joints
@@ -73,12 +75,28 @@ def main(**kwargs):
         robot.model.create_action(
             lift=0.4,
             arm=0.1,
-            pan=0.5,
+            pan=-0.5,
             defaults=pregrasp_cfg,
         )
     )
     print_action("down and in", action)
     env.apply_action(action)
+    input("Press enter to continue...")
+
+    print()
+    print("=" * 40)
+    print("Testing discrete actions")
+    print()
+
+    # Test discrete actions
+    action = HybridAction(DiscreteNavigationAction.TURN_RIGHT)
+    print_action("turn right", action)
+    env.apply_action(action)
+
+    action = HybridAction(DiscreteNavigationAction.TURN_LEFT)
+    print_action("turn left", action)
+    env.apply_action(action)
+
     input("Press enter to continue...")
 
 
