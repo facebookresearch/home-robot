@@ -1,5 +1,9 @@
 ## Calibrated URDF for manipulation planning
 
+By default we load from [assets/hab_stretch/urdf/planner_calibrated_manipulation_mode.urdf](assets/hab_stretch/urdf/planner_calibrated_manipulation_mode.urdf) for manipulation.
+
+This adds a couple dummy joints to make 6dof planning easier, but isn't going to be calibrated for your specific robot. If you follow the calibration instructions from Hello, you can copy your `stretch.urdf` to your desktop though, and modify it to add these dummy joints.
+
 Manip mode urdf changes like so:
 ```
   <joint name="base_y_joint" type="fixed">
