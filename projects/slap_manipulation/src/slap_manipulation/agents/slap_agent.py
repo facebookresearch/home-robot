@@ -26,7 +26,7 @@ VOXEL_SIZE_2 = 0.01
 
 
 class SLAPAgent(object):
-    def __init__(self, version, drop_frames=False):
+    def __init__(self, version, drop_frames=False, cfg=None):
         # self.ipm = InteractionPredictionModule(
         #     use_proprio=True, name="test-ipm-robopen"
         # )
