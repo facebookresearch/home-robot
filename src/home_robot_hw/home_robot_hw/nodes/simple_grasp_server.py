@@ -77,6 +77,16 @@ def _compute_grasp_scores(
     return x_grasp_score, y_grasp_score
 
 
+def _filter_grasps(
+    grasps: List[Tuple[np.ndarray, float]], scores: List[float]
+) -> List[int]:
+    # TODO: Cluster grasps
+
+    # TODO: Extract grasps close to centers of each cluster
+
+    return list(range(len(grasps)))
+
+
 def _generate_grasp(xyz: np.ndarray, rz: float) -> np.ndarray:
     """Generate a vertical grasp pose given grasp location and z orientation"""
     grasp = np.zeros([4, 4])
@@ -164,6 +174,11 @@ def inference(debug):
                     grasp_tup = (np.array([x, y, z_grasp]), 0.0)
                     grasps_raw.append(grasp_tup)
                     scores_raw.append(y_score)
+
+        # Filter grasps
+        idcs = _filter_grasps(grasps_raw, scores_raw)
+        grasps_raw = [grasps_raw[i] for i in idcs]
+        scores_raw = [scores_raw[i] for i in idcs]
 
         # Postprocess grasps into dictionaries
         # (this grasp generator only generates grasps for one object)
