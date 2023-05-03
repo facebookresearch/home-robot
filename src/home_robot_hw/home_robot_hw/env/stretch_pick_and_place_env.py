@@ -160,6 +160,28 @@ class StretchPickandPlaceEnv(StretchEnv):
         assert len(action) == self.joints_dof
         raise NotImplementedError()
 
+    def _switch_to_nav_mode(self):
+        if not self.robot.in_navigation_mode():
+            self.robot.switch_to_navigation_mode()
+            rospy.sleep(self.msg_delay_t)
+        # Dummy out robot execution code for perception tests
+        # Also do not rotate if you are just doing grasp testing
+        if not self.dry_run and not self.test_grasping:
+            self.robot.nav.navigate_to([0, 0, -np.pi / 2], relative=True, blocking=True)
+            self.grasp_planner.go_to_nav_mode()
+
+    def _switch_to_manip_mode(self):
+        print("PICK UP THE TARGET OBJECT")
+        print(" - Robot in navigation mode:", self.robot.in_navigation_mode())
+        if not self.robot.in_navigation_mode():
+            self.robot.switch_to_navigation_mode()
+            rospy.sleep(self.msg_delay_t)
+        # Dummy out robot execution code for perception tests
+        # Also do not rotate if you are just doing grasp testing
+        if not self.dry_run and not self.test_grasping:
+            self.robot.nav.navigate_to([0, 0, np.pi / 2], relative=True, blocking=True)
+            self.grasp_planner.go_to_manip_mode()
+
     def apply_action(self, action: Action, info: Optional[Dict[str, Any]] = None):
         """Handle all sorts of different actions we might be inputting into this class. We provide both a discrete and a continuous action handler."""
         # Process the action so we know what to do with it
@@ -192,21 +214,16 @@ class StretchPickandPlaceEnv(StretchEnv):
                 pass
             elif action == DiscreteNavigationAction.EXTEND_ARM:
                 """Extend the robot arm"""
-                pass
-            elif action == DiscreteNavigationAction.MANIPULATION_MODE:
-                print("PICK UP THE TARGET OBJECT")
-                print(" - Robot in navigation mode:", self.robot.in_navigation_mode())
+                print("EXTENDING ARM")
+                joints_action = self.robot.model.create_action(lift=0.8, arm=0.8).joints
                 continuous_action = None
-                if not self.robot.in_navigation_mode():
-                    self.robot.switch_to_navigation_mode()
-                    rospy.sleep(self.msg_delay_t)
-                # Dummy out robot execution code for perception tests
-                # Also do not rotate if you are just doing grasp testing
-                if not self.dry_run and not self.test_grasping:
-                    self.robot.nav.navigate_to(
-                        [0, 0, np.pi / 2], relative=True, blocking=True
-                    )
-                    self.grasp_planner.go_to_manip_mode()
+            elif action == DiscreteNavigationAction.MANIPULATION_MODE:
+                self._switch_to_manip_mode()
+                continuous_action = None
+            elif action == DiscreteNavigationAction.NAVIGATION_MODE:
+                continuous_action = None
+                self._switch_to_nav_mode()
+                continuous_action = None
             elif action == DiscreteNavigationAction.PICK_OBJECT:
                 continuous_action = None
                 while not rospy.is_shutdown():
