@@ -4,6 +4,13 @@ By default we load from [assets/hab_stretch/urdf/planner_calibrated_manipulation
 
 This adds a couple dummy joints to make 6dof planning easier, but isn't going to be calibrated for your specific robot. If you follow the calibration instructions from Hello, you can copy your `stretch.urdf` to your desktop though, and modify it to add these dummy joints.
 
+### Explanation of Dummy Joints
+
+Specifically, we add dummy joints for base x, y, and theta. These are useful for base motion planning; in particular, the addition of a prismatic x joint allows us to model motion in the direction of the robot's heading as an extra degree of freedom, bringing the Stretch with Dex Wrist up to 6dof, allowing for very flexible manipulation. We add two fixed joints, which are used when the robot is not in "manipulation mode" for full-body planning, but are currently unused in this example.
+
+
+### Specific Changes
+
 Manip mode urdf changes like so:
 ```
   <joint name="base_y_joint" type="fixed">
