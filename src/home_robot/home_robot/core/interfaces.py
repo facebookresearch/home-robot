@@ -91,7 +91,13 @@ class HybridAction(Action):
         else:
             raise RuntimeError("Cannot create HybridAction without any action!")
         if isinstance(action, HybridAction):
-            breakpoint()
+            # TODO: should we copy like this?
+            self.action_type = action.action_type
+            action = action.action
+            # But more likely this was a mistake so let's actually throw an error
+            raise RuntimeError(
+                "Do not pass a HybridAction when creating another HybridAction!"
+            )
         self.action = action
 
     def is_discrete(self):
