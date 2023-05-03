@@ -161,6 +161,7 @@ class StretchPickandPlaceEnv(StretchEnv):
         raise NotImplementedError()
 
     def _switch_to_nav_mode(self):
+        """Rotate the robot back to face forward"""
         if not self.robot.in_navigation_mode():
             self.robot.switch_to_navigation_mode()
             rospy.sleep(self.msg_delay_t)
@@ -171,6 +172,7 @@ class StretchPickandPlaceEnv(StretchEnv):
             self.grasp_planner.go_to_nav_mode()
 
     def _switch_to_manip_mode(self):
+        """Rotate the robot and put it in the right configuration for grasping"""
         print("PICK UP THE TARGET OBJECT")
         print(" - Robot in navigation mode:", self.robot.in_navigation_mode())
         if not self.robot.in_navigation_mode():
