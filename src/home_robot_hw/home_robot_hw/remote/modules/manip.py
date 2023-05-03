@@ -51,7 +51,6 @@ class StretchManipulationClient(AbstractControlModule):
     def get_ee_pose(self, world_frame=False, matrix=False):
         q, _, _ = self._ros_client.get_joint_state()
         pos_base, quat_base = self._robot_model.manip_fk(q)
-        print("MANIP BASE X", self.base_x)
         pos_base[0] += self.base_x
 
         if world_frame:
