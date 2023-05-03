@@ -192,15 +192,15 @@ def inference(debug):
                     grasps_raw.append(grasp)
                     scores_raw.append(y_score)
 
+        # Debug and visualization
+        if debug:
+            print(f"# grasps = {len(grasps_raw)}")
+            _visualize_grasps(xyz, rgb, top_idcs, grasps_raw)
+
         # Postprocess grasps into dictionaries
         # (this grasp generator only generates grasps for one object)
         grasps = {0: np.array(grasps_raw)}
         scores = {0: np.array(scores_raw)}
-
-        # Debug and visualization
-        if debug:
-            print(f"# grasps = {len(grasps[0])}")
-            _visualize_grasps(xyz, rgb, top_idcs, grasps[0])
 
         return grasps, scores, in_base_frame
 
