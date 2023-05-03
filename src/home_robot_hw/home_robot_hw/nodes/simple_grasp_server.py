@@ -1,4 +1,4 @@
-from typing import Iterable, Optional, Tuple
+from typing import Iterable, List, Optional, Tuple
 
 import click
 import numpy as np
@@ -156,23 +156,25 @@ def inference(debug):
                 x, y = np.array((i, j)) * VOXEL_RES + orig
 
                 if x_score >= GRASP_THRESHOLD:
-                    grasp = _generate_grasp(np.array([x, y, z_grasp]), np.pi / 2)
-                    grasps_raw.append(grasp)
+                    grasp_tup = (np.array([x, y, z_grasp]), np.pi / 2)
+                    grasps_raw.append(grasp_tup)
                     scores_raw.append(x_score)
 
                 if y_score >= GRASP_THRESHOLD:
-                    grasp = _generate_grasp(np.array([x, y, z_grasp]), 0.0)
-                    grasps_raw.append(grasp)
+                    grasp_tup = (np.array([x, y, z_grasp]), 0.0)
+                    grasps_raw.append(grasp_tup)
                     scores_raw.append(y_score)
 
-        if debug:
-            print(f"# grasps = {len(grasps_raw)}")
-            _visualize_grasps(xyz, rgb, top_idcs, grasps_raw)
-
         # Postprocess grasps into dictionaries
-        # (6dof graspnet only generates grasps for one object)
-        grasps = {0: np.array(grasps_raw)}
+        # (this grasp generator only generates grasps for one object)
+        grasps = {0: np.array([_generate_grasp(g) for g in grasps_raw])}
         scores = {0: np.array(scores_raw)}
+
+        # Debug and visualization
+        if debug:
+            print(f"# grasps = {len(grasps[0])}")
+            _visualize_grasps(xyz, rgb, top_idcs, grasps[0])
+
         return grasps, scores, in_base_frame
 
     # Initialize server
