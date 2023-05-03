@@ -73,6 +73,7 @@ def main(**kwargs):
         robot.model.create_action(
             lift=0.4,
             arm=0.1,
+            pan=0.5,
             defaults=pregrasp_cfg,
         )
     )

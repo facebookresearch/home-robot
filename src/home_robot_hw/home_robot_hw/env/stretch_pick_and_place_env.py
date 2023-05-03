@@ -235,6 +235,7 @@ class StretchPickandPlaceEnv(StretchEnv):
                 self.robot.nav.navigate_to(
                     continuous_action, relative=True, blocking=True
                 )
+        # Handle the joints action
         if joints_action is not None:
             if not self.robot.in_manipulation_mode():
                 self.robot.switch_to_manipulation_mode()
@@ -242,7 +243,7 @@ class StretchPickandPlaceEnv(StretchEnv):
                 positions, pan, tilt = self.robot.model.hab_to_position_command(
                     joints_action
                 )
-                print(positions, pan, tilt)
+                print("SENDING POS", positions, "PAN", pan, "TILT", tilt)
                 self.robot.head.set_pan_tilt(pan, tilt)
                 self.robot.manip.goto_joint_positions(positions, move_base=False)
 
