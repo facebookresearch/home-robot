@@ -48,9 +48,10 @@ class StretchManipulationClient(AbstractControlModule):
 
     # Interface methods
 
-    def get_ee_pose(self, world_frame=False):
+    def get_ee_pose(self, world_frame=False, matrix=False):
         q, _, _ = self._ros_client.get_joint_state()
         pos_base, quat_base = self._robot_model.manip_fk(q)
+        print("MANIP BASE X", self.base_x)
         pos_base[0] += self.base_x
 
         if world_frame:
@@ -62,8 +63,11 @@ class StretchManipulationClient(AbstractControlModule):
 
         else:
             pos, quat = pos_base, quat_base
-
-        return pos, quat
+        if matrix:
+            pose = posquat2sophus(pos, quat)
+            return pose.matrix()
+        else:
+            return pos, quat
 
     def get_joint_positions(self):
         q, _, _ = self._ros_client.get_joint_state()

@@ -12,27 +12,88 @@ This file is a test for inverse kinematics on the stretch robot. It makes sure w
 import click
 import numpy as np
 import rospy
+from geometry_msgs.msg import TransformStamped
 
 from home_robot.agent.hierarchical.pick_and_place_agent import PickAndPlaceAgent
 from home_robot.motion.stretch import STRETCH_HOME_Q
 from home_robot.utils.config import get_config
+from home_robot.utils.geometry import posquat2sophus, sophus2posquat, xyt2sophus
 from home_robot.utils.pose import to_pos_quat
 from home_robot_hw.env.stretch_pick_and_place_env import (
     StretchPickandPlaceEnv,
     load_config,
 )
+from home_robot_hw.ros.utils import matrix_to_pose_msg, ros_pose_to_transform
+
+
+def _send_predicted_grasp_to_tf(grasp_planner, frame_name, grasp_matrix):
+    """Helper function for visualizing the predicted grasps."""
+    # Convert grasp pose to pos/quaternion
+    # Visualize the grasp in RViz
+    t = TransformStamped()
+    t.header.stamp = rospy.Time.now()
+    t.child_frame_id = frame_name
+    t.header.frame_id = "base_link"
+    t.transform = ros_pose_to_transform(matrix_to_pose_msg(grasp_matrix))
+    grasp_planner.grasp_client.broadcaster.sendTransform(t)
+
+
+def test_cfg(env, robot):
+    print("Test grasping in current position.")
+    pose = robot.manip.get_ee_pose(matrix=True)
+    pos, quat = robot.manip.get_ee_pose(matrix=False)
+    cfg = robot.manip.solve_ik(pos, quat)
+    fk_pos, fk_quat = robot.manip.solve_fk(cfg)
+    fk_pose = posquat2sophus(fk_pos, fk_quat)
+    _send_predicted_grasp_to_tf(env.grasp_planner, "current_ee_pose", pose)
+
+    minimal_error = np.all(np.abs(fk_pose.matrix() - pose) < 1e-4)
+    print("Minimal error between pose and fk pose:", minimal_error)
+    print("Config =", cfg)
+    cfg_manip = (robot.manip._extract_joint_pos(cfg),)
+    print("Manip cfg =", cfg_manip)
+    return pose
 
 
 @click.command()
 @click.option("--visualize-maps", default=False, is_flag=True)
-@click.option("--test-id", default=1, type=int)
-def run_experiment(visualize_maps=False, test_id=0, **kwargs):
+@click.option("--reset-nav", default=False, is_flag=True)
+@click.option("--test-id", default=0, type=int)
+def run_experiment(visualize_maps=False, test_id=0, reset_nav=False, **kwargs):
     config = load_config(visualize=visualize_maps, **kwargs)
     rospy.init_node("eval_episode_stretch_objectnav")
     env = StretchPickandPlaceEnv(config=config)
     env.reset("table", "cup", "chair")
+    robot = env.get_robot()
 
+    if reset_nav:
+        # Send it back to origin position to make testing a bit easier
+        robot.nav.navigate_to([0, 0, 0])
+
+    # Put it into initial posture
+    env.grasp_planner.go_to_manip_mode()
+
+    # do some tests
     if test_id == 0:
+
+        test_cfg(env, robot)
+        input("---")
+
+        # Test discrete actions
+        action = HybridAction(DiscreteNavigationAction.TURN_RIGHT)
+        print_action("turn right", action)
+        env.apply_action(action)
+        test_cfg(env, robot)
+        input("---")
+
+        action = HybridAction(DiscreteNavigationAction.TURN_LEFT)
+        print_action("turn left", action)
+        env.apply_action(action)
+        test_cfg(env, robot)
+
+        breakpoint()
+
+    elif test_id == 1:
         pose = np.array(
             [
                 [0.23301425, -0.97144842, -0.04463536, -0.00326367],
@@ -46,7 +107,8 @@ def run_experiment(visualize_maps=False, test_id=0, **kwargs):
                 ],
             ]
         )
-    elif test_id == 1:
+    elif test_id == 2:
+        # Most recent failing position
         pose = np.array(
             [
                 [0.63598766, 0.75559136, 0.15684828, -0.12786708],
@@ -58,7 +120,6 @@ def run_experiment(visualize_maps=False, test_id=0, **kwargs):
     else:
         raise RuntimeError("Test ID not recognized: " + str(test_id))
     # - with theta x/y from vertical = 0.16429382745460722 0.2910
-    pos, quat = to_pos_quat(pose)
 
     # Debugging
     pose1 = env.robot.head.get_pose()
@@ -68,9 +129,9 @@ def run_experiment(visualize_maps=False, test_id=0, **kwargs):
     print("head pose in base coords:")
     print(pose2)
 
-    env.grasp_planner.go_to_manip_mode()
     env.grasp_planner.try_executing_grasp(pose, wait_for_input=True)
-    env.grasp_planner.go_to_nav_mode()
+    # TODO - remove debug code
+    # env.grasp_planner.go_to_nav_mode()
 
 
 if __name__ == "__main__":
