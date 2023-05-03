@@ -839,13 +839,13 @@ class HelloStretchKinematics(Robot):
 
     def create_action(
         self,
-        lift=0,
-        arm=0,
-        roll=0,
-        pitch=0,
-        yaw=0,
-        pan=0,
-        tilt=0,
+        lift=None,
+        arm=None,
+        roll=None,
+        pitch=None,
+        yaw=None,
+        pan=None,
+        tilt=None,
         xyt=None,
         defaults: np.ndarray = None,
     ) -> ContinuousFullBodyAction:
@@ -864,13 +864,20 @@ class HelloStretchKinematics(Robot):
         else:
             assert len(defaults) == self.joints_dof
             joints = defaults.copy()
-        joints[:4] = np.ones(4) * (arm / 4.0)
-        joints[4] = lift
-        joints[5] = roll
-        joints[6] = pitch
-        joints[7] = yaw
-        joints[8] = pan
-        joints[9] = tilt
+        if arm is not None:
+            joints[:4] = np.ones(4) * (arm / 4.0)
+        if lift is not None:
+            joints[4] = lift
+        if roll is not None:
+            joints[5] = roll
+        if pitch is not None:
+            joints[6] = pitch
+        if yaw is not None:
+            joints[7] = yaw
+        if pan is not None:
+            joints[8] = pan
+        if tilt is not None:
+            joints[9] = tilt
         return ContinuousFullBodyAction(joints=joints, xyt=xyt)
 
     def delta_hab_to_position_command(self, cmd, pan, tilt, deltas) -> List:
@@ -883,7 +890,7 @@ class HelloStretchKinematics(Robot):
         yaw = deltas[7]
         pan, tilt = self.head.get_pan_tilt()
         positions = [
-            0,
+            0,  # This is the robot's base x axis - not currently used
             cmd[1] + lift,
             cmd[2] + arm,
             cmd[3] + yaw,
@@ -903,7 +910,7 @@ class HelloStretchKinematics(Robot):
         pitch = hab_positions[6]
         yaw = hab_positions[7]
         positions = [
-            0,
+            0,  # This is the robot's base x axis - not currently used
             lift,
             arm,
             yaw,
