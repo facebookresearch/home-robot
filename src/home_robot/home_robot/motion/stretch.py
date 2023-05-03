@@ -9,6 +9,7 @@ import numpy as np
 import pybullet as pb
 
 import home_robot.utils.bullet as hrb
+from home_robot.core.interfaces import ContinuousFullBodyAction
 from home_robot.motion.pinocchio_ik_solver import PinocchioIKSolver, PositionIKOptimizer
 from home_robot.motion.robot import Robot
 from home_robot.utils.bullet import PybulletIKSolver
@@ -262,6 +263,7 @@ class HelloStretchKinematics(Robot):
         #      3 for base x/y/theta
         #      2 for head
         self.dof = 3 + 2 + 4 + 2
+        self.joints_dof = 10  # from habitat spec
         self.base_height = self.DEFAULT_BASE_HEIGHT
 
         # ranges for joints
@@ -698,7 +700,7 @@ class HelloStretchKinematics(Robot):
             pos, quat, q0, num_attempts=num_attempts, verbose=verbose
         )
 
-        if q is not None:
+        if q is not None and success:
             q = self._from_manip_format(q, default_q)
             self.set_config(q)
 
@@ -819,6 +821,105 @@ class HelloStretchKinematics(Robot):
                     print("colliding with", name)
                 return False
         return True
+
+    def create_action_from_config(self, q: np.ndarray) -> ContinuousFullBodyAction:
+        """Create a default interface action from this"""
+        xyt = np.zeros(3)
+        xyt[0] = q[HelloStretchIdx.BASE_X]
+        xyt[1] = q[HelloStretchIdx.BASE_Y]
+        xyt[2] = q[HelloStretchIdx.BASE_THETA]
+        return self.create_action(
+            lift=q[HelloStretchIdx.LIFT],
+            arm=q[HelloStretchIdx.ARM],
+            pitch=q[HelloStretchIdx.WRIST_PITCH],
+            roll=q[HelloStretchIdx.WRIST_ROLL],
+            yaw=q[HelloStretchIdx.WRIST_YAW],
+            xyt=xyt,
+        )
+
+    def create_action(
+        self,
+        lift=None,
+        arm=None,
+        roll=None,
+        pitch=None,
+        yaw=None,
+        pan=None,
+        tilt=None,
+        xyt=None,
+        defaults: np.ndarray = None,
+    ) -> ContinuousFullBodyAction:
+        """
+        Original Arm Action Space: We define the action space that jointly controls (1) arm extension (horizontal), (2) arm height (vertical), (3) gripper wrist’s roll, pitch, and yaw, and (4) the camera’s yaw and pitch. The resulting size of the action space is 10.
+        - Arm extension (size: 4): It consists of 4 motors that extend the arm: joint_arm_l0 (index 28 in robot interface), joint_arm_l1 (27), joint_arm_l2 (26), joint_arm_l3 (25)
+        - Arm height (size: 1): It consists of 1 motor that moves the arm vertically: joint_lift (23)
+        - Gripper wrist (size: 3): It consists of 3 motors that control the roll, pitch, and yaw of the gripper wrist: joint_wrist_yaw (31),  joint_wrist_pitch (39),  joint_wrist_roll (40)
+        - Camera (size 2): It consists of 2 motors that control the yaw and pitch of the camera: joint_head_pan (7), joint_head_tilt (8)
+
+        As a result, the original action space is the order of [joint_arm_l0, joint_arm_l1, joint_arm_l2, joint_arm_l3, joint_lift, joint_wrist_yaw, joint_wrist_pitch, joint_wrist_roll, joint_head_pan, joint_head_tilt] defined in habitat/robots/stretch_robot.py
+        """
+        assert self.joints_dof == 10
+        if defaults is None:
+            joints = np.zeros(self.joints_dof)
+        else:
+            assert len(defaults) == self.joints_dof
+            joints = defaults.copy()
+        if arm is not None:
+            joints[:4] = np.ones(4) * (arm / 4.0)
+        if lift is not None:
+            joints[4] = lift
+        if roll is not None:
+            joints[5] = roll
+        if pitch is not None:
+            joints[6] = pitch
+        if yaw is not None:
+            joints[7] = yaw
+        if pan is not None:
+            joints[8] = pan
+        if tilt is not None:
+            joints[9] = tilt
+        return ContinuousFullBodyAction(joints=joints, xyt=xyt)
+
+    def delta_hab_to_position_command(self, cmd, pan, tilt, deltas) -> List:
+        """Compute deltas"""
+        assert len(deltas) == 10
+        arm = deltas[0] + deltas[1] + deltas[2] + deltas[3]
+        lift = deltas[4]
+        roll = deltas[5]
+        pitch = deltas[6]
+        yaw = deltas[7]
+        pan, tilt = self.head.get_pan_tilt()
+        positions = [
+            0,  # This is the robot's base x axis - not currently used
+            cmd[1] + lift,
+            cmd[2] + arm,
+            cmd[3] + yaw,
+            cmd[4] + pitch,
+            cmd[5] + roll,
+        ]
+        pan = pan + deltas[8]
+        tilt = tilt + deltas[9]
+        return positions, pan, tilt
+
+    def hab_to_position_command(self, hab_positions) -> List:
+        """Compute hab_positions"""
+        assert len(hab_positions) == 10
+        arm = hab_positions[0] + hab_positions[1] + hab_positions[2] + hab_positions[3]
+        lift = hab_positions[4]
+        roll = hab_positions[5]
+        pitch = hab_positions[6]
+        yaw = hab_positions[7]
+        positions = [
+            0,  # This is the robot's base x axis - not currently used
+            lift,
+            arm,
+            yaw,
+            pitch,
+            roll,
+        ]
+        pan = hab_positions[8]
+        tilt = hab_positions[9]
+        return positions, pan, tilt
 
 
 if __name__ == "__main__":

@@ -101,6 +101,7 @@ class StretchManipulationClient(AbstractControlModule):
         relative: bool = False,
         blocking: bool = True,
         debug: bool = False,
+        move_base: bool = True,
     ):
         """
         list of robot arm joint positions:
@@ -127,13 +128,16 @@ class StretchManipulationClient(AbstractControlModule):
         # Construct command
         #   (note: base translation joint command is relative)
         joint_goals = {
-            self._ros_client.BASE_TRANSLATION_JOINT: joint_pos_goal[0] - self.base_x,
             self._ros_client.LIFT_JOINT: joint_pos_goal[1],
             self._ros_client.ARM_JOINT: joint_pos_goal[2],
             self._ros_client.WRIST_YAW: joint_pos_goal[3],
             self._ros_client.WRIST_PITCH: joint_pos_goal[4],
             self._ros_client.WRIST_ROLL: joint_pos_goal[5],
         }
+        if move_base:
+            joint_goals[self._ros_client.BASE_TRANSLATION_JOINT] = (
+                joint_pos_goal[0] - self.base_x
+            )
         self.base_x = joint_pos_goal[0]
 
         # Send command to trajectory server
@@ -190,6 +194,8 @@ class StretchManipulationClient(AbstractControlModule):
         that we will be moving to.
 
         Note: When relative==True, the delta orientation is still defined in the world frame
+
+        Returns None if no solution is found, else returns an executable solution
         """
 
         pos_ee_curr, quat_ee_curr = self.get_ee_pose(world_frame=world_frame)
@@ -231,9 +237,11 @@ class StretchManipulationClient(AbstractControlModule):
         full_body_cfg, ik_success, ik_debug_info = self._robot_model.manip_ik(
             (pos_ik_goal, quat_ik_goal), q0=initial_cfg
         )
-        if full_body_cfg is None:
-            return None
 
+        # Expected to return None if we did not get a solution
+        if not ik_success or full_body_cfg is None:
+            return None
+        # Return a valid solution to the IK problem here
         return full_body_cfg
 
     @enforce_enabled

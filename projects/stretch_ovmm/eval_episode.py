@@ -6,10 +6,10 @@ import rospy
 
 from home_robot.agent.hierarchical.pick_and_place_agent import PickAndPlaceAgent
 from home_robot.motion.stretch import STRETCH_HOME_Q
-from home_robot.utils.config import get_config
 from home_robot_hw.env.stretch_pick_and_place_env import (
     REAL_WORLD_CATEGORIES,
     StretchPickandPlaceEnv,
+    load_config,
 )
 
 
@@ -22,6 +22,7 @@ from home_robot_hw.env.stretch_pick_and_place_env import (
 @click.option("--object", default="cup")
 @click.option("--start-recep", default="chair")
 @click.option("--goal-recep", default="table")
+@click.option("--visualize-maps", default=False, is_flag=True)
 def main(
     test_pick=False,
     test_gaze=False,
@@ -31,15 +32,11 @@ def main(
     start_recep="chair",
     goal_recep="chair",
     dry_run=False,
+    visualize_maps=False,
+    **kwargs,
 ):
     REAL_WORLD_CATEGORIES[2] = object
-    config_path = "projects/stretch_ovmm/configs/agent/floorplanner_eval.yaml"
-    config, config_str = get_config(config_path)
-    config.defrost()
-    config.NUM_ENVIRONMENTS = 1
-    config.PRINT_IMAGES = 1
-    config.EXP_NAME = "debug"
-    config.freeze()
+    config = load_config(visualize=visualize_maps, **kwargs)
 
     rospy.init_node("eval_episode_stretch_objectnav")
     env = StretchPickandPlaceEnv(

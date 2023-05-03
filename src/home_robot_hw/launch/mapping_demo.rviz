@@ -515,7 +515,7 @@ Visualization Manager:
       Marker Topic: /goto_controller/goal_abs
       Name: Marker
       Namespaces:
-        {}
+        "": true
       Queue Size: 100
       Value: true
     - Class: rviz/Marker
@@ -552,6 +552,15 @@ Visualization Manager:
       Reference Frame: predicted_grasp
       Show Trail: false
       Value: true
+    - Alpha: 1
+      Class: rviz/Axes
+      Enabled: true
+      Length: 0.10000000149011612
+      Name: FK EE Pose
+      Radius: 0.009999999776482582
+      Reference Frame: current_ee_pose
+      Show Trail: false
+      Value: true
   Enabled: true
   Global Options:
     Background Color: 48; 48; 48
@@ -580,7 +589,7 @@ Visualization Manager:
   Views:
     Current:
       Class: rviz/XYOrbit
-      Distance: 4.260813236236572
+      Distance: 3.2503538131713867
       Enable Stereo Rendering:
         Stereo Eye Separation: 0.05999999865889549
         Stereo Focal Distance: 1
@@ -588,17 +597,17 @@ Visualization Manager:
         Value: false
       Field of View: 0.7853981852531433
       Focal Point:
-        X: 0.11107504367828369
-        Y: 0.14806216955184937
+        X: 0.7401963472366333
+        Y: -0.3148393929004669
         Z: 1.4156953511701431e-06
       Focal Shape Fixed Size: true
       Focal Shape Size: 0.05000000074505806
       Invert Z Axis: false
       Name: Current View
       Near Clip Distance: 0.009999999776482582
-      Pitch: 0.21979662775993347
+      Pitch: 0.5397989749908447
       Target Frame: <Fixed Frame>
-      Yaw: 0.35392969846725464
+      Yaw: 2.76393461227417
     Saved: ~
 Window Geometry:
   Depth (aligned):

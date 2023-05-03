@@ -14,6 +14,7 @@ from home_robot.core.interfaces import (
 )
 from home_robot.motion.stretch import STRETCH_HOME_Q, STRETCH_PREGRASP_Q
 from home_robot.perception.detection.detic.detic_perception import DeticPerception
+from home_robot.utils.config import get_config
 from home_robot.utils.geometry import xyt2sophus
 from home_robot_hw.env.stretch_abstract_env import StretchEnv
 from home_robot_hw.env.visualizer import Visualizer
@@ -32,8 +33,23 @@ REAL_WORLD_CATEGORIES = [
 DETIC = "detic"
 
 
+def load_config(visualize=False, print_images=True, **kwargs):
+    config_path = "projects/stretch_ovmm/configs/agent/floorplanner_eval.yaml"
+    config, config_str = get_config(config_path)
+    config.defrost()
+    config.NUM_ENVIRONMENTS = 1
+    config.VISUALIZE = int(visualize)
+    config.PRINT_IMAGES = int(print_images)
+    config.EXP_NAME = "debug"
+    config.freeze()
+    return config
+
+
 class StretchPickandPlaceEnv(StretchEnv):
     """Create a Detic-based pick and place environment"""
+
+    # Number of degrees of freedom in our robot joints action space
+    joints_dof = 10
 
     def __init__(
         self,
@@ -104,15 +120,15 @@ class StretchPickandPlaceEnv(StretchEnv):
             self.clip_embeddings = pickle.load(
                 open(config.AGENT.clip_embeddings_file, "rb")
             )
+        # Wait for the robot
+        self.robot.wait()
 
     def reset(self, goal_find: str, goal_obj: str, goal_place: str):
         """Reset the robot and prepare to run a trial. Make sure we have images and up to date state info."""
         self.set_goal(goal_find, goal_obj, goal_place)
         rospy.sleep(0.5)  # Make sure we have time to get ROS messages
-        self.update()
-        self.rgb_cam.wait_for_image()
-        self.dpt_cam.wait_for_image()
-        self._episode_start_pose = xyt2sophus(self.get_base_pose())
+        self.robot.wait()
+        self._episode_start_pose = xyt2sophus(self.robot.nav.get_base_pose())
         if self.visualizer is not None:
             self.visualizer.reset()
 
@@ -131,11 +147,54 @@ class StretchPickandPlaceEnv(StretchEnv):
         """Return the robot interface."""
         return self.robot
 
+    def execute_joints_action(self, action: np.ndarray):
+        """
+        Original Arm Action Space: We define the action space that jointly controls (1) arm extension (horizontal), (2) arm height (vertical), (3) gripper wrist’s roll, pitch, and yaw, and (4) the camera’s yaw and pitch. The resulting size of the action space is 10.
+        - Arm extension (size: 4): It consists of 4 motors that extend the arm: joint_arm_l0 (index 28 in robot interface), joint_arm_l1 (27), joint_arm_l2 (26), joint_arm_l3 (25)
+        - Arm height (size: 1): It consists of 1 motor that moves the arm vertically: joint_lift (23)
+        - Gripper wrist (size: 3): It consists of 3 motors that control the roll, pitch, and yaw of the gripper wrist: joint_wrist_yaw (31),  joint_wrist_pitch (39),  joint_wrist_roll (40)
+        - Camera (size 2): It consists of 2 motors that control the yaw and pitch of the camera: joint_head_pan (7), joint_head_tilt (8)
+
+        As a result, the original action space is the order of [joint_arm_l0, joint_arm_l1, joint_arm_l2, joint_arm_l3, joint_lift, joint_wrist_yaw, joint_wrist_pitch, joint_wrist_roll, joint_head_pan, joint_head_tilt] defined in habitat/robots/stretch_robot.py
+        """
+        assert len(action) == self.joints_dof
+        raise NotImplementedError()
+
+    def _switch_to_nav_mode(self):
+        """Rotate the robot back to face forward"""
+        if not self.robot.in_navigation_mode():
+            self.robot.switch_to_navigation_mode()
+            rospy.sleep(self.msg_delay_t)
+        # Dummy out robot execution code for perception tests
+        # Also do not rotate if you are just doing grasp testing
+        if not self.dry_run and not self.test_grasping:
+            self.robot.nav.navigate_to([0, 0, -np.pi / 2], relative=True, blocking=True)
+            self.grasp_planner.go_to_nav_mode()
+
+    def _switch_to_manip_mode(self):
+        """Rotate the robot and put it in the right configuration for grasping"""
+        print("PICK UP THE TARGET OBJECT")
+        print(" - Robot in navigation mode:", self.robot.in_navigation_mode())
+        if not self.robot.in_navigation_mode():
+            self.robot.switch_to_navigation_mode()
+            rospy.sleep(self.msg_delay_t)
+        # Dummy out robot execution code for perception tests
+        # Also do not rotate if you are just doing grasp testing
+        if not self.dry_run and not self.test_grasping:
+            self.robot.nav.navigate_to([0, 0, np.pi / 2], relative=True, blocking=True)
+            self.grasp_planner.go_to_manip_mode()
+
     def apply_action(self, action: Action, info: Optional[Dict[str, Any]] = None):
         """Handle all sorts of different actions we might be inputting into this class. We provide both a discrete and a continuous action handler."""
-        action = HybridAction(action)
+        # Process the action so we know what to do with it
+        if not isinstance(action, HybridAction):
+            action = HybridAction(action)
+        # Update the visualizer
         if self.visualizer is not None and info is not None:
             self.visualizer.visualize(**info)
+        # By default - no arm control
+        joints_action = None
+        # Handle discrete actions first
         if action.is_discrete():
             action = action.get()
             continuous_action = np.zeros(3)
@@ -155,19 +214,18 @@ class StretchPickandPlaceEnv(StretchEnv):
                 # if not self.robot.in_manipulation_mode():
                 #     self.robot.switch_to_manipulation_mode()
                 pass
-            elif action == DiscreteNavigationAction.MANIPULATION_MODE:
-                print("PICK UP THE TARGET OBJECT")
-                print(" - Robot in navigation mode:", self.in_navigation_mode())
+            elif action == DiscreteNavigationAction.EXTEND_ARM:
+                """Extend the robot arm"""
+                print("EXTENDING ARM")
+                joints_action = self.robot.model.create_action(lift=0.8, arm=0.8).joints
                 continuous_action = None
-                if self.in_navigation_mode():
-                    self.switch_to_navigation_mode()
-                    rospy.sleep(self.msg_delay_t)
-                # Dummy out robot execution code for perception tests
-                if not self.dry_run:
-                    self.robot.nav.navigate_to(
-                        [0, 0, np.pi / 2], relative=True, blocking=True
-                    )
-                    self.grasp_planner.go_to_manip_mode()
+            elif action == DiscreteNavigationAction.MANIPULATION_MODE:
+                self._switch_to_manip_mode()
+                continuous_action = None
+            elif action == DiscreteNavigationAction.NAVIGATION_MODE:
+                continuous_action = None
+                self._switch_to_nav_mode()
+                continuous_action = None
             elif action == DiscreteNavigationAction.PICK_OBJECT:
                 continuous_action = None
                 while not rospy.is_shutdown():
@@ -182,17 +240,32 @@ class StretchPickandPlaceEnv(StretchEnv):
                 continuous_action = None
         elif action.is_navigation():
             continuous_action = action.get()
+        elif action.is_manipulation():
+            joints_action, continuous_action = action.get()
 
         # Move, if we are not doing anything with the arm
         if continuous_action is not None and not self.test_grasping:
             print("Execute navigation action:", continuous_action)
             if not self.robot.in_navigation_mode():
                 self.robot.switch_to_navigation_mode()
-                rospy.sleep(self.msg_delay_t)
+                # rospy.sleep(self.msg_delay_t)
             if not self.dry_run:
+                print("GOTO", continuous_action)
                 self.robot.nav.navigate_to(
                     continuous_action, relative=True, blocking=True
                 )
+        # Handle the joints action
+        if joints_action is not None:
+            # Check to make sure arm control is enabled
+            if not self.robot.in_manipulation_mode():
+                self.robot.switch_to_manipulation_mode()
+            # Now actually move the arm
+            positions, pan, tilt = self.robot.model.hab_to_position_command(
+                joints_action
+            )
+            print("SENDING JOINT POS", positions, "PAN", pan, "TILT", tilt)
+            self.robot.head.set_pan_tilt(pan, tilt)
+            self.robot.manip.goto_joint_positions(positions, move_base=False)
 
     def set_goal(self, goal_find: str, goal_obj: str, goal_place: str):
         """Set the goal class as a string. Goal should be an object class we want to pick up."""
@@ -235,7 +308,7 @@ class StretchPickandPlaceEnv(StretchEnv):
         rgb, depth, xyz = self.robot.head.get_images(
             compute_xyz=True,
         )
-        current_pose = xyt2sophus(self.get_base_pose())
+        current_pose = xyt2sophus(self.robot.nav.get_base_pose())
 
         # use sophus to get the relative translation
         relative_pose = self._episode_start_pose.inverse() * current_pose
@@ -254,7 +327,8 @@ class StretchPickandPlaceEnv(StretchEnv):
             compass=np.array([theta]),
             # base_pose=sophus2obs(relative_pose),
             task_observations=self.task_info,
-            camera_pose=self.get_camera_pose_matrix(rotated=True),
+            # camera_pose=self.get_camera_pose_matrix(rotated=True),
+            camera_pose=self.robot.head.get_pose(rotated=True),
             # TODO: get these from the agent, remove if no policy uses these
             joint=np.array(
                 [0.0, 0.0, 0.0, 0.0, 0.775, 0.0, -1.57, 0.0, -1.7375, -0.7125]

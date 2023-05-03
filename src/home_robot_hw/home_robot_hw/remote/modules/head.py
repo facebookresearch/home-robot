@@ -36,7 +36,12 @@ class StretchHeadClient(AbstractControlModule):
 
     def get_pose(self, rotated=True):
         """get matrix version of the camera pose"""
-        return self._ros_client.se3_camera_pose.matrix()
+        mat = self._ros_client.se3_camera_pose.matrix()
+        if rotated:
+            # If we are using the rotated versions of the images
+            return mat @ tra.euler_matrix(0, np.pi / 2, 0)
+        else:
+            return mat
 
     def get_pose_in_base_coords(self, rotated=True):
         """Use /tf to get the pose from base to camera coordinates. Useful for computing grasps in particular."""

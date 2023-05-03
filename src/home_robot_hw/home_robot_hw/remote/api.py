@@ -30,6 +30,14 @@ class StretchClient:
         ee_link_name: Optional[str] = None,
         manip_mode_controlled_joints: Optional[List[str]] = None,
     ):
+        """Create an interface into ROS execution here. This one needs to connect to:
+            - joint_states to read current position
+            - tf for SLAM
+            - FollowJointTrajectory for arm motions
+
+        Based on this code:
+        https://github.com/hello-robot/stretch_ros/blob/master/hello_helpers/src/hello_helpers/hello_misc.py
+        """
         # Ros
         if init_node:
             rospy.init_node("stretch_user_client")
@@ -58,6 +66,10 @@ class StretchClient:
 
         # Initially start in navigation mode all the time - in order to make sure we are initialized into a decent state. Otherwise we need to check the different components and safely figure out control mode, which can be inaccurate.
         self.switch_to_navigation_mode()
+
+    @property
+    def model(self):
+        return self._robot_model
 
     # Mode interfaces
 

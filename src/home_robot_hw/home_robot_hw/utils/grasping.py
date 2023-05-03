@@ -269,6 +269,22 @@ class GraspPlanner(object):
         t.transform = ros_pose_to_transform(matrix_to_pose_msg(grasp))
         self.grasp_client.broadcaster.sendTransform(t)
 
+    def _publish_current_ee_pose(self):
+        """Helper function for debugging EE pose issues on the robot"""
+        pos, quat = self.robot_client.manip.get_ee_pose(world_frame=False)
+        t = TransformStamped()
+        t.header.stamp = rospy.Time.now()
+        t.child_frame_id = "current_ee_pose"
+        t.header.frame_id = "base_link"
+        t.transform.translation.x = pos[0]
+        t.transform.translation.y = pos[1]
+        t.transform.translation.z = pos[2]
+        t.transform.rotation.x = quat[0]
+        t.transform.rotation.y = quat[1]
+        t.transform.rotation.z = quat[2]
+        t.transform.rotation.w = quat[3]
+        self.grasp_client.broadcaster.sendTransform(t)
+
     def try_executing_grasp(
         self, grasp: np.ndarray, wait_for_input: bool = False
     ) -> bool:
@@ -282,6 +298,14 @@ class GraspPlanner(object):
 
         for i, (name, waypoint, should_grasp) in enumerate(trajectory):
             self.robot_client.manip.goto_joint_positions(waypoint)
+            self._publish_current_ee_pose()
+            input("---- " + str(i) + " ----")
+            self.robot_client.manip.goto_joint_positions(waypoint)
+            self._publish_current_ee_pose()
+            input("---- " + str(i) + " ----")
+            self.robot_client.manip.goto_joint_positions(waypoint)
+            self._publish_current_ee_pose()
+            input("---- " + str(i) + " ----")
             if should_grasp:
                 self.robot_client.manip.close_gripper()
             if wait_for_input:

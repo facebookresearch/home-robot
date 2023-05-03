@@ -22,10 +22,15 @@ class DiscreteNavigationAction(Action, Enum):
     PLACE_OBJECT = 5
     NAVIGATION_MODE = 6
     MANIPULATION_MODE = 7
+    # Arm extension to a fixed position and height
     EXTEND_ARM = 8
     EMPTY_ACTION = 9
+    # Simulation only actions
     SNAP_OBJECT = 10
     DESNAP_OBJECT = 11
+    # Discrete gripper commands
+    OPEN_GRIPPER = 12
+    CLOSE_GRIPPER = 13
 
 
 class ContinuousNavigationAction:
@@ -37,6 +42,21 @@ class ContinuousNavigationAction:
                 "continuous navigation action space has 3 dimentions, x y and theta"
             )
         self.xyt = xyt
+
+
+class ContinuousFullBodyAction:
+    xyt: np.ndarray
+    joints: np.ndarray
+
+    def __init__(self, joints: np.ndarray, xyt: np.ndarray = None):
+        """Create full-body continuous action"""
+        if xyt is not None and not len(xyt) == 3:
+            raise RuntimeError(
+                "continuous navigation action space has 3 dimentions, x y and theta"
+            )
+        self.xyt = xyt
+        # Joint states in robot action format
+        self.joints = joints
 
 
 class ActionType(Enum):
@@ -51,16 +71,33 @@ class HybridAction(Action):
     action_type: ActionType
     action: Action
 
-    def __init__(self, action):
+    def __init__(self, action=None, xyt: np.ndarray = None, joints: np.ndarray = None):
         """Make sure that we were passed a useful generic action here. Process it into something useful."""
-        if type(action) == HybridAction:
-            self.action_type = action.action_type
-        if type(action) == DiscreteNavigationAction:
-            self.action_type = ActionType.DISCRETE
-        elif type(action) == ContinuousNavigationAction:
+        if action is not None:
+            if type(action) == HybridAction:
+                self.action_type = action.action_type
+            if type(action) == DiscreteNavigationAction:
+                self.action_type = ActionType.DISCRETE
+            elif type(action) == ContinuousNavigationAction:
+                self.action_type = ActionType.CONTINUOUS_NAVIGATION
+            else:
+                self.action_type = ActionType.CONTINUOUS_MANIPULATION
+        elif joints is not None:
+            self.action_type = ActionType.CONTINUOUS_MANIPULATION
+            action = ContinuousFullBodyAction(joints, xyt)
+        elif xyt is not None:
             self.action_type = ActionType.CONTINUOUS_NAVIGATION
+            action = ContinuousNavigationAction(xyt)
         else:
-            raise RuntimeError(f"action type{type(action)} not supported")
+            raise RuntimeError("Cannot create HybridAction without any action!")
+        if isinstance(action, HybridAction):
+            # TODO: should we copy like this?
+            self.action_type = action.action_type
+            action = action.action
+            # But more likely this was a mistake so let's actually throw an error
+            raise RuntimeError(
+                "Do not pass a HybridAction when creating another HybridAction!"
+            )
         self.action = action
 
     def is_discrete(self):
@@ -80,7 +117,8 @@ class HybridAction(Action):
         elif self.action_type == ActionType.CONTINUOUS_NAVIGATION:
             return self.action.xyt
         else:
-            return NotImplementedError("we need to support this action type")
+            # Extract both the joints and the waypoint target
+            return self.action.joints, self.action.xyt
 
 
 @dataclass

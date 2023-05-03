@@ -46,7 +46,9 @@ class RosMapDataCollector(object):
         rgb, depth, xyz = self.robot.head.get_images(
             compute_xyz=True,
         )
-        camera_pose = self.robot.head.get_pose()
+        # Get the camera pose and make sure this works properly
+        camera_pose = self.robot.head.get_pose(rotated=False)
+        # Get RGB and depth as necessary
         orig_rgb = rgb.copy()
         orig_depth = depth.copy()
 
