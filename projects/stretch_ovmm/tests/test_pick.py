@@ -127,9 +127,8 @@ def run_experiment(visualize_maps=False, test_id=0, reset_nav=False, **kwargs):
     print("head pose in base coords:")
     print(pose2)
 
+    # Move to each step in the grasp plan
     env.grasp_planner.try_executing_grasp(pose, wait_for_input=True)
-    # TODO - remove debug code
-    # env.grasp_planner.go_to_nav_mode()
 
 
 if __name__ == "__main__":
