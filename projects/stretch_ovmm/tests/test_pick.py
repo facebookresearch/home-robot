@@ -39,11 +39,12 @@ def _send_predicted_grasp_to_tf(grasp_planner, frame_name, grasp_matrix):
     grasp_planner.grasp_client.broadcaster.sendTransform(t)
 
 
-def test_cfg(env, robot):
+def test_current_cfg(env, robot):
     print("Test grasping in current position.")
     pose = robot.manip.get_ee_pose(matrix=True)
     pos, quat = robot.manip.get_ee_pose(matrix=False)
     cfg = robot.manip.solve_ik(pos, quat)
+    print("Solve IK for current pose:", cfg)
     fk_pos, fk_quat = robot.manip.solve_fk(cfg)
     fk_pose = posquat2sophus(fk_pos, fk_quat)
     _send_predicted_grasp_to_tf(env.grasp_planner, "current_ee_pose", pose)
@@ -77,20 +78,18 @@ def run_experiment(visualize_maps=False, test_id=0, reset_nav=False, **kwargs):
     # do some tests
     if test_id == 0:
 
-        test_cfg(env, robot)
+        test_current_cfg(env, robot)
         input("---")
 
         # Test discrete actions
         action = DiscreteNavigationAction.TURN_RIGHT
         env.apply_action(action)
-        test_cfg(env, robot)
+        test_current_cfg(env, robot)
         input("---")
 
         action = DiscreteNavigationAction.TURN_LEFT
         env.apply_action(action)
-        test_cfg(env, robot)
-
-        breakpoint()
+        pose = test_current_cfg(env, robot)
 
     elif test_id == 1:
         pose = np.array(
