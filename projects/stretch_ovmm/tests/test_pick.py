@@ -15,6 +15,7 @@ import rospy
 from geometry_msgs.msg import TransformStamped
 
 from home_robot.agent.hierarchical.pick_and_place_agent import PickAndPlaceAgent
+from home_robot.core.interfaces import DiscreteNavigationAction
 from home_robot.motion.stretch import STRETCH_HOME_Q
 from home_robot.utils.config import get_config
 from home_robot.utils.geometry import posquat2sophus, sophus2posquat, xyt2sophus
@@ -80,14 +81,12 @@ def run_experiment(visualize_maps=False, test_id=0, reset_nav=False, **kwargs):
         input("---")
 
         # Test discrete actions
-        action = HybridAction(DiscreteNavigationAction.TURN_RIGHT)
-        print_action("turn right", action)
+        action = DiscreteNavigationAction.TURN_RIGHT
         env.apply_action(action)
         test_cfg(env, robot)
         input("---")
 
-        action = HybridAction(DiscreteNavigationAction.TURN_LEFT)
-        print_action("turn left", action)
+        action = DiscreteNavigationAction.TURN_LEFT
         env.apply_action(action)
         test_cfg(env, robot)
 
