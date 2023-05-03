@@ -21,7 +21,7 @@ TOP_PERCENTAGE = 0.1
 VOXEL_RES = 0.01
 GRASP_OUTER_RAD = 5
 GRASP_INNER_RAD = 1
-GRASP_THRESHOLD = 0.95
+GRASP_THRESHOLD = 0.9
 MIN_INNER_POINTS = 12
 
 
@@ -77,14 +77,26 @@ def _compute_grasp_scores(
     return x_grasp_score, y_grasp_score
 
 
-def _filter_grasps(score_map: np.ndarray) -> np.ndarray:
+def _filter_grasps(score_map: np.ndarray, filter_direction: int) -> np.ndarray:
+    """Filter an grid of grasps scores"""
+    # Filter by neighboring grasps (multiply score of current score map with shifted versions of the map)
+    mask1 = np.zeros_like(score_map)
+    mask2 = np.zeros_like(score_map)
+
+    if filter_direction == 0:
+        mask1[:-1, :] = score_map[1:, :]
+        mask2[1:, :] = score_map[:-1, :]
+    elif filter_direction == 1:
+        mask1[:, :-1] = score_map[:, 1:]
+        mask2[:, 1:] = score_map[:, :-1]
+
+    score_map = score_map * mask1 * mask2
+
+    # Filter by thresholding
     thres_mask = score_map >= GRASP_THRESHOLD
+    score_map = score_map * thres_mask
 
-    # TODO: Cluster grasps
-
-    # TODO: Extract grasps close to centers of each cluster
-
-    return score_map * thres_mask
+    return score_map
 
 
 def _generate_grasp(xyz: np.ndarray, rz: float) -> np.ndarray:
@@ -168,8 +180,8 @@ def inference(debug):
                 y_score_map[i, j] = y_score
 
         # Filter grasps
-        x_score_map_filtered = _filter_grasps(x_score_map)
-        y_score_map_filtered = _filter_grasps(y_score_map)
+        x_score_map_filtered = _filter_grasps(x_score_map, filter_direction=1)
+        y_score_map_filtered = _filter_grasps(y_score_map, filter_direction=0)
 
         scores_raw = []
         grasps_raw = []
