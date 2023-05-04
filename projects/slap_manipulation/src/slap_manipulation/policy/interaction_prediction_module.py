@@ -728,7 +728,7 @@ class InteractionPredictionModule(SLAPBaseAgent):
             # get the inputs
             # if not batch["data_ok_status"]:
             # continue
-            new_batch = self.preprocessing(batch)
+            new_batch = self.postprocessing(batch)
             new_batch = self.to_device(new_batch)
             optimizer.zero_grad()
             feat = new_batch["feat"][0]  # N x 3
