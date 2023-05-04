@@ -543,6 +543,14 @@ class RobotDataset(RLBenchDataset):
                 xyzs.append(v_xyz)
                 imgs.append(v_img)
                 dimgs.append(v_dimg)
+                rgbs.append(v_rgb)
+                xyzs.append(v_xyz)
+                imgs.append(v_img)
+                dimgs.append(v_dimg)
+        rgbs = np.stack(rgbs, axis=0)
+        xyzs = np.stack(xyzs, axis=0)
+        imgs = np.stack(imgs, axis=0)
+        dimgs = np.stack(dimgs, axis=0)
         # get EE keyframe
         current_ee_keyframe = self.get_gripper_pose(trial, int(current_keypoint_idx))
         interaction_ee_keyframe = self.get_gripper_pose(trial, int(interaction_pt))
@@ -553,23 +561,26 @@ class RobotDataset(RLBenchDataset):
         for j, keypoint in enumerate(keypoints):
             all_ee_keyframes.append(self.get_gripper_pose(trial, int(keypoint)))
             all_gripper_states[j] = gripper_state[keypoint]
+        all_ee_keyframes = np.stack(all_ee_keyframes, axis=0)
         # else:
         #     # Pull out gripper state from the sim data
         #     all_gripper_states = gripper_state[current_keypoint_idx]
 
         if new_loader:
             datum = {
-                # "rgb_points": rgbs,
-                "computed_xyzs": xyzs,
-                "rgb_images": imgs,
-                "depth_images": dimgs,
-                "proprio": proprio,
-                "interaction_pt_index": interaction_pt,
-                "current_ee_keyframe": current_ee_keyframe,  # we can also just send all ee keyframes here
-                "all_ee_keyframes": all_ee_keyframes,
-                "dataloader_idx": action_idx,
-                "interaction_ee_keyframe": interaction_ee_keyframe,
-                "task-name": cmd,
+                # "rgb_points": rgbs,  # B x num_frames x H x W
+                "computed_xyzs": torch.FloatTensor(xyzs),  # B x num_frames x H x W
+                "rgb_images": torch.FloatTensor(imgs),  # B x num_frames x H x W
+                "depth_images": torch.FloatTensor(dimgs),  # B x num_frames x H x W
+                "proprio": torch.FloatTensor(proprio),
+                "interaction_pt_index": torch.FloatTensor(interaction_pt),  # B x 1 x 3
+                "current_ee_keyframe": torch.FloatTensor(
+                    current_ee_keyframe
+                ),  # we can also just send all ee keyframes here
+                "all_ee_keyframes": torch.FloatTensor(all_ee_keyframes),
+                "dataloader_idx": [action_idx],
+                "interaction_ee_keyframe": torch.FloatTensor(interaction_ee_keyframe),
+                "task-name": [cmd],
             }
             return datum
 
