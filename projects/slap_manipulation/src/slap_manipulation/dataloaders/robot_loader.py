@@ -138,6 +138,7 @@ class RobotDataset(RLBenchDataset):
         dr_factor=1,
         robot="stretch",
         depth_factor=10000,
+        autoregressive=False,
         *args,
         **kwargs,
     ):
@@ -167,6 +168,7 @@ class RobotDataset(RLBenchDataset):
         else:
             self.annotations = None
         self.random_cmd = random_cmd
+        self.autoregressive = autoregressive
         # TODO: deprecate this and use only keypoint_range to constrain index of sampled keyframe
         self.first_keypoint_only = first_keypoint_only
         self.keypoint_to_use = None
@@ -215,8 +217,8 @@ class RobotDataset(RLBenchDataset):
             self._robot_max_grasp = temp.max_grasp
         elif robot == "stretch":
             # Offset from STRETCH_GRASP_FRAME to predicted grasp point
-            self._robot_ee_to_grasp_offset = 0
             self._robot_ee_to_grasp_offset = STRETCH_TO_GRASP.copy()
+            self._robot_ee_to_grasp_offset[2, 3] -= 0.10
             self._robot_max_grasp = 0  # 0.13, empirically found
         else:
             raise ValueError("robot must be franka or stretch")
@@ -397,7 +399,7 @@ class RobotDataset(RLBenchDataset):
 
     def choose_keypoint(
         self, keypoints: np.ndarray, keypoint_idx: int
-    ) -> Tuple[int, np.ndarray]:
+    ) -> Tuple[int, np.ndarray, int]:
         """return a randomly chosen keypoint from the list of keypoints;
         or return the one explicitly asked"""
         if self.keypoint_range is not None:
@@ -407,10 +409,11 @@ class RobotDataset(RLBenchDataset):
             chosen_idx = self.keypoint_range[chosen_idx]
         else:
             chosen_idx = keypoint_idx % len(keypoints)
-        time_step = np.array([(chosen_idx / len(keypoints) - 0.5) * 2])
+        time_step = np.array([(chosen_idx / (len(keypoints) - 1) - 0.5) * 2])
         return (
             keypoints[chosen_idx],
             time_step,
+            chosen_idx,
         )  # actual keypoint index in the episode
 
     def show_cropped_keyframes(
@@ -482,7 +485,9 @@ class RobotDataset(RLBenchDataset):
         keypoints = self.extract_manual_keyframes(
             trial["user_keyframe"][()]
         )  # list of index of keypts
-        current_keypoint_idx, time_step = self.choose_keypoint(keypoints, keypoint_idx)
+        current_keypoint_idx, time_step, keypoint_relative_idx = self.choose_keypoint(
+            keypoints, keypoint_idx
+        )
         # this index is of the actual episode step this keypoint belongs to; i.e. trial/current_keypoint_idx/<ee-pose, images, etc>
         if verbose:
             print(f"Key-point index chosen: abs={current_keypoint_idx}")
@@ -502,7 +507,7 @@ class RobotDataset(RLBenchDataset):
 
         if verbose:
             print(
-                f"reference_pt: {interaction_pt}, min_gripper: {min_gripper}, gripper-state-array: {gripper_state}"
+                f"reference_pt: {interaction_pt}, min_gripper: {self._robot_max_grasp}, gripper-state-array: {gripper_state}"
             )
 
         # choose an input frame-idx, in our case this is the 1st frame
@@ -533,10 +538,40 @@ class RobotDataset(RLBenchDataset):
         if verbose:
             print(f"Index from where to query input state: {input_idx}")
 
+        # get EE keyframe
+        current_ee_keyframe = self.get_gripper_pose(trial, int(current_keypoint_idx))
+        interaction_ee_keyframe = self.get_gripper_pose(trial, int(interaction_pt))
+        all_ee_keyframes = []
+        if self.multi_step:
+            target_gripper_state = np.zeros(len(keypoints))
+            # Add all keypoints to this list
+            for j, keypoint in enumerate(keypoints):
+                all_ee_keyframes.append(self.get_gripper_pose(trial, int(keypoint)))
+                target_gripper_state[j] = gripper_state[keypoint]
+        else:
+            # Pull out gripper state from the sim data
+            target_gripper_state = gripper_state[current_keypoint_idx]
+
         # create proprio vector
-        proprio = np.concatenate(
-            (gripper_state[input_idx], gripper_width_array[input_idx], time_step)
-        )
+        if not self.autoregressive:
+            proprio = np.concatenate(
+                (gripper_state[input_idx], gripper_width_array[input_idx], time_step)
+            )
+        else:
+            # proprio is (past_pos, past_quat, past_g, current_g, time)
+            if keypoint_relative_idx == 0:
+                past_pos = np.zeros(3)
+                past_quat = np.zeros(4)
+                past_g = np.array([-1])
+            else:
+                past_pose_mat = self.get_gripper_pose(
+                    trial, int(current_keypoint_idx - 1)
+                )
+                past_pos = past_pose_mat[:3, 3]
+                past_quat = tra.quaternion_from_matrix(past_pose_mat[:3, :3])
+                past_g = gripper_state[current_keypoint_idx - 1]
+            proprio = np.concatenate((past_pos, past_quat, past_g, time_step))
+
         if verbose:
             print(f"Proprio: {proprio}")
 
@@ -567,20 +602,6 @@ class RobotDataset(RLBenchDataset):
         rgb = rgb[x_mask]
         xyz = xyz[x_mask]
         xyz, rgb = xyz.reshape(-1, 3), rgb.reshape(-1, 3)
-
-        # get EE keyframe
-        current_ee_keyframe = self.get_gripper_pose(trial, int(current_keypoint_idx))
-        interaction_ee_keyframe = self.get_gripper_pose(trial, int(interaction_pt))
-        all_ee_keyframes = []
-        if self.multi_step:
-            target_gripper_state = np.zeros(len(keypoints))
-            # Add all keypoints to this list
-            for j, keypoint in enumerate(keypoints):
-                all_ee_keyframes.append(self.get_gripper_pose(trial, int(keypoint)))
-                target_gripper_state[j] = gripper_state[keypoint]
-        else:
-            # Pull out gripper state from the sim data
-            target_gripper_state = gripper_state[current_keypoint_idx]
 
         # voxelize at a granular voxel-size then choose X points
         xyz, rgb = self.remove_duplicate_points(xyz, rgb)
@@ -676,10 +697,10 @@ class RobotDataset(RLBenchDataset):
                 interaction_ee_keyframe[:3, 3],
             )
 
-        if self._visualize_cropped_keyframes:
-            self.show_cropped_keyframe(
-                crop_xyz, crop_rgb, crop_ee_keyframe, crop_ref_ee_keyframe
-            )
+        # if self._visualize_cropped_keyframes:
+        #     self.show_cropped_keyframe(
+        #         crop_xyz, crop_rgb, crop_ee_keyframe, crop_ref_ee_keyframe
+        #     )
 
         datum = {
             "trial_name": trial.name,
@@ -770,7 +791,7 @@ def show_all_keypoints(data_dir, split, template, robot):
         data_dir,
         template=template,
         num_pts=8000,
-        data_augmentation=True,
+        data_augmentation=False,
         crop_radius=True,
         ori_dr_range=np.pi / 8,
         cart_dr_range=0.0,
@@ -786,6 +807,7 @@ def show_all_keypoints(data_dir, split, template, robot):
         visualize_interaction_estimates=True,
         visualize_cropped_keyframes=True,
         robot=robot,
+        autoregressive=True,
     )
     skip_names = ["30_11_2022_15_22_40"]
     for trial in loader.trials:

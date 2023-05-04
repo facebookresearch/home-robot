@@ -459,7 +459,6 @@ class ActionPredictionModule(torch.nn.Module):
                 target_pos = batch["ee_keyframe_pos"]
                 pred_ee_pos = perturbed_crop_location + positions.view(batch_size, 3)
 
-            # pred_ee_pos = positions.view(batch_size, 3)
             pos_loss = ((target_pos - pred_ee_pos) ** 2).sum()
 
             if self.ori_type == "rpy":
@@ -786,8 +785,9 @@ def main(cfg):
             data_augmentation=cfg.data_augmentation,  # (not validate),
             ori_dr_range=np.pi / 8,
             # first_frame_as_input=True,
-            keypoint_range=[cfg.action_idx],
-            # trial_list=train_list,
+            # keypoint_range=[cfg.action_idx],
+            keypoint_range=[0, 1, 2],
+            trial_list=train_list,
             orientation_type=cfg.orientation_type,
             multi_step=cfg.multi_head,
             template=cfg.template,
@@ -797,8 +797,9 @@ def main(cfg):
             num_pts=cfg.num_pts,
             data_augmentation=False,
             # first_frame_as_input=True,
-            # trial_list=valid_list,
-            keypoint_range=[cfg.action_idx],
+            trial_list=valid_list,
+            # keypoint_range=[cfg.action_idx],
+            keypoint_range=[0, 1, 2],
             orientation_type=cfg.orientation_type,
             multi_step=cfg.multi_head,
             template=cfg.template,
@@ -808,8 +809,9 @@ def main(cfg):
             num_pts=cfg.num_pts,
             data_augmentation=False,
             # first_frame_as_input=True,
-            # trial_list=test_list,
-            keypoint_range=[cfg.action_idx],
+            trial_list=test_list,
+            # keypoint_range=[cfg.action_idx],
+            keypoint_range=[0, 1, 2],
             orientation_type=cfg.orientation_type,
             multi_step=cfg.multi_head,
             template=cfg.template,

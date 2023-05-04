@@ -16,17 +16,17 @@ query_radius: 0.16
 k: 3
 lang_max_seq_len: 77
 clip_model: "ViT-B/32"
-max_iter: 10
+max_iter: 50
 dry_run: False
 validate: False
 template: "*.h5"
-data_augmentation: True
+data_augmentation: False
 source: "stretch"
 wandb: False
 debug: False
 
 dims:
-  proprio_in: 3
+  proprio_in: 9
   image_in: 3
   proprio_out: 254
   lang_emb_out: 512
