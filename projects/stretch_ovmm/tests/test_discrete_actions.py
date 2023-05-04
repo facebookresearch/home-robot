@@ -50,6 +50,9 @@ def main(reset_nav=False, **kwargs):
     env.apply_action(action)
     input("Press enter to continue")
 
+    robot.nav.navigate_to([0, 0.05, 0])
+    input("Press enter to continue")
+
     robot.nav.navigate_to([0, 0, 0])
 
 
