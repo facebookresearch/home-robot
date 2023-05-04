@@ -3,6 +3,7 @@ from typing import List, Optional, Tuple
 import matplotlib.pyplot as plt
 import numpy as np
 import open3d as o3d
+import torch
 import trimesh.transformations as tra
 from slap_manipulation.utils.data_visualizers import (
     show_point_cloud_with_keypt_and_closest_pt,
@@ -469,6 +470,55 @@ def compute_detic_features(
     return per_img_features
 
 
+def compute_detic_features_from_torch(
+    rgb_images: torch.Tensor,
+    depth_images: torch.Tensor,
+    segmentor: DeticPerception,
+    rotate_images=True,
+    debug=False,
+) -> torch.Tensor:
+    """
+    Given unrotated images from Stretch (W,H,C) this method rotates them (H,W,C) and
+    processes using Detic segmentation to produce a list of semantic masks. These masks
+    are unrotated again to match the initial size (W,H,F).
+    """
+    per_batch_features = []
+    for j, batch in enumerate(rgb_images):
+        per_img_features = []
+        for i, img in enumerate(batch):
+            H, W, C = img.shape
+            dimg = depth_images[j, i]
+            img, dimg = rotate_image([img.numpy(), dimg.numpy()])
+
+            # test DeticPerception
+            # Create the observation
+            obs = Observations(
+                rgb=img.copy(),
+                depth=dimg.copy(),
+                xyz=None,
+                gps=np.zeros(2),  # TODO Replace
+                compass=np.zeros(1),  # TODO Replace
+                task_observations={},
+            )
+            # Run the segmentation model here
+            obs = segmentor.predict(obs, depth_threshold=0.5)
+            # unrotate mask
+            feature = obs.semantic
+            if debug:
+                plt.subplot(1, 2, 1)
+                plt.imshow(obs.rgb / 255.0)
+                plt.subplot(1, 2, 2)
+                plt.imshow(feature)
+                plt.show()
+            feature = unrotate_image([feature])[0]
+            feature = feature.reshape(H, W, 1)
+            per_img_features.append(feature)
+        per_img_features = np.array(per_img_features)
+        per_batch_features.append(per_img_features)
+    per_batch_features = np.array(per_batch_features)
+    return torch.FloatTensor(per_batch_features)
+
+
 def combine_and_dedepuplicate_multiple_views(xyzs, rgbs, depths, feats, feat_dim=1):
     """combining multiple image-frames into one point-cloud"""
     xyzs = np.concatenate(xyzs, axis=0)
@@ -481,6 +531,30 @@ def combine_and_dedepuplicate_multiple_views(xyzs, rgbs, depths, feats, feat_dim
     feats = feats.reshape(-1, feat_dim)
 
     xyzs, rgbs, feats = filter_and_remove_duplicate_points(xyzs, rgbs, feats, depths)
+    return xyzs, rgbs, feats
+
+
+def combine_and_dedepuplicate_multiple_views_from_torch(
+    xyzs, rgbs, depths, feats, feat_dim=1
+):
+    """combining multiple image-frames into one point-cloud"""
+    breakpoint()
+    B, F, H, W, C = rgbs.shape
+    tot_pts = F * H * W
+    xyzs = xyzs.reshape(B, tot_pts, 3)
+    rgbs = rgbs.reshape(B, tot_pts, 3)
+    depths = depths.reshape(B, tot_pts)
+    feats = feats.reshape(B, tot_pts, feat_dim)
+
+    batch_xyzs, batch_rgbs, batch_feats = [], [], []
+    for batch in zip(xyzs, rgbs, feats, depths):
+        xyz_dash, rgb_dash, feat_dash = filter_and_remove_duplicate_points(
+            batch[0].numpy(), batch[1].numpy(), batch[2].numpy(), batch[3].numpy()
+        )
+        batch_xyzs.append(xyz_dash)
+        batch_rgbs.append(rgb_dash)
+        batch_feats.append(feat_dash)
+    # TODO: merge batched xyzs, rgbs, feats into 1 numpy array
     return xyzs, rgbs, feats
 
 
