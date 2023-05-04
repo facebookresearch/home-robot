@@ -2,7 +2,9 @@ import numpy as np
 import torch
 from slap_manipulation.dataloaders.data_processing import (
     combine_and_dedepuplicate_multiple_views,
+    combine_and_dedepuplicate_multiple_views_from_torch,
     compute_detic_features,
+    compute_detic_features_from_torch,
     drop_frames_from_input,
     encode_as_one_hot,
     shuffle_meancenter_and_downsample_point_cloud,
@@ -75,7 +77,7 @@ class SLAPBaseAgent(torch.nn.Module):
 
     def preprocessing(self, data):
         """
-        agent-specific routine for preprocessing input data
+        agent-specific routine for preprocessing input data BEFORE dataloader
 
         input:
             data is a dict containing:
@@ -85,7 +87,72 @@ class SLAPBaseAgent(torch.nn.Module):
                 interaction_ee_keyframe
                 action_ee_keyframes (1 or many depending upon training; start with 1)
         """
-        # Data comes in as tensors with dim BxHxWxC
+        input_rgb_images = data["rgb_images"]
+        input_xyz = data["computed_xyzs"]
+        input_depth_images = data["depth_images"]
+        interaction_ee_keyframe = data["interaction_ee_keyframe"]
+        breakpoint()
+        # input_features = data["detic_features"]
+        if self.drop_frames:
+            input_xyz, input_rgb_images, input_depth_images = drop_frames_from_input(
+                input_xyz, input_rgb_images, input_depth_images
+            )
+        # get dense detic features
+        input_features = compute_detic_features(
+            input_rgb_images, input_depth_images, self.segmentor
+        )
+        xyz, rgb, feat = combine_and_dedepuplicate_multiple_views(
+            input_xyz, input_rgb_images, input_depth_images, input_features
+        )
+        # TODO: if DA is on do a bunch of augmentations here
+        xyz, rgb, feat, center = shuffle_meancenter_and_downsample_point_cloud(
+            xyz, rgb, feat
+        )
+        interaction_ee_keyframe[:3, 3] -= center
+        (
+            voxelized_xyz,
+            voxelized_rgb,
+            voxelized_feat,
+            target_idx_down_pcd,
+            closest_pt_down_pcd,
+            target_idx_og_pcd,
+            closest_pt_og_pcd,
+        ) = voxelize_and_get_interaction_point(xyz, rgb, feat, interaction_ee_keyframe)
+        # implement uncropped APM first
+        pred_action = data["current_ee_keyframe"]
+        pred_action[:3, 3] -= center
+        feat = encode_as_one_hot(feat, REAL_WORLD_CATEGORIES)
+        voxelized_feat = encode_as_one_hot(voxelized_feat, REAL_WORLD_CATEGORIES)
+
+        feat = np.concatenate((rgb, feat), axis=-1)
+        voxelized_feat = np.concatenate((voxelized_rgb, voxelized_feat), axis=-1)
+
+        batch = {
+            "xyz": torch.FloatTensor(xyz),
+            "feat": torch.FloatTensor(feat),
+            "xyz_voxel": torch.FloatTensor(voxelized_xyz),
+            "feat_voxel": torch.FloatTensor(voxelized_feat),
+            "interaction_pt": torch.FloatTensor(interaction_ee_keyframe[:3, 3]),
+            "pred_action_pos": torch.FloatTensor(pred_action[:3, 3]),
+            "pred_action_ori": torch.FloatTensor(pred_action[:3, :3]),
+            "closest_voxel_idx": torch.LongTensor([target_idx_down_pcd]),
+            "proprio": torch.FloatTensor(data["proprio"]),
+        }
+        return batch
+
+    def postprocessing(self, data):
+        """
+        agent-specific routine for postprocessing input data AFTER dataloader
+
+        input:
+            data is a dict containing:
+                rgb_images
+                depth_images
+                computed_xyz
+                interaction_ee_keyframe
+                action_ee_keyframes (1 or many depending upon training; start with 1)
+        """
+        # Input is Tensors and maybe Batched
         input_rgb_images = data["rgb_images"]
         input_xyz = data["computed_xyzs"]
         input_depth_images = data["depth_images"]
@@ -95,11 +162,11 @@ class SLAPBaseAgent(torch.nn.Module):
                 input_xyz, input_rgb_images, input_depth_images
             )
         # get dense detic features
-        features = compute_detic_features(
-            input_rgb_images, input_depth_images, self.segmentor
+        input_features = compute_detic_features_from_torch(
+            input_rgb_images, input_depth_images, self.segmentor, debug=True
         )
-        xyz, rgb, feat = combine_and_dedepuplicate_multiple_views(
-            input_xyz, input_rgb_images, input_depth_images, features
+        xyz, rgb, feat = combine_and_dedepuplicate_multiple_views_from_torch(
+            input_xyz, input_rgb_images, input_depth_images, input_features
         )
         # TODO: if DA is on do a bunch of augmentations here
         xyz, rgb, feat, center = shuffle_meancenter_and_downsample_point_cloud(
