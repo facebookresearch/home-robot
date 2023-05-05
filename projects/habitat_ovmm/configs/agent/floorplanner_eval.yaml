@@ -64,7 +64,7 @@ AGENT:
       type: modular
 
     PLACE:
-      type: hardcoded
+      type: modular_debug # or "hardcoded"
 
   skip_nav_to_obj: False
   skip_nav_to_rec: False
