@@ -53,10 +53,8 @@ class StretchPickandPlaceEnv(StretchEnv):
 
     def __init__(
         self,
+        config,
         goal_options=None,
-        config=None,
-        forward_step=0.25,
-        rotate_step=30.0,
         segmentation_method=DETIC,
         visualize_planner=False,
         ros_grasping=True,
@@ -76,8 +74,8 @@ class StretchPickandPlaceEnv(StretchEnv):
         if goal_options is None:
             goal_options = REAL_WORLD_CATEGORIES
         self.goal_options = goal_options
-        self.forward_step = forward_step  # in meters
-        self.rotate_step = np.radians(rotate_step)
+        self.forward_step = config.ENVIRONMENT.forward
+        self.rotate_step = np.radians(config.ENVIRONMENT.turn_angle)
         self.test_grasping = test_grasping
         self.dry_run = dry_run
 
