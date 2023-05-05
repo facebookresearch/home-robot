@@ -348,7 +348,8 @@ class OpenVocabManipAgent(ObjectNavAgent):
                 "arm_action": [delta_arm_ext]
                 + [delta_arm_lift]
                 + [delta_gripper_yaw]
-                + [0] * 4
+                + [0] * 4,
+                "grip_action": [1],
             }
         elif place_step == self.total_turn_and_forward_steps + 2:
             # desnap to drop the object
