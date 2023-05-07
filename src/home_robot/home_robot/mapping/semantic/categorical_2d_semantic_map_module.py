@@ -301,6 +301,10 @@ class Categorical2DSemanticMapModule(nn.Module):
             agent_height = self.agent_height
 
         depth = obs[:, 3, :, :].float()
+        # depth_rgb = np.repeat(depth[0].cpu().numpy()[:, :, None], 3, 2)
+        # depth_rgb = ((depth_rgb / self.max_depth) * 255).astype(np.uint8)
+        # import cv2
+        # cv2.imshow("Depth map", depth_rgb); cv2.waitKey(0)
         # Filter depth values
         depth[depth > self.max_depth] = 0
         depth[depth <= self.min_depth] = 0

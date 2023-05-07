@@ -127,7 +127,7 @@ class StretchObjectNavEnv(StretchEnv):
     def sample_goal(self):
         """set a random goal"""
         # idx = np.random.randint(len(self.goal_options))
-        idx = REAL_WORLD_CATEGORIES.index("sink")
+        idx = REAL_WORLD_CATEGORIES.index("oven")
         self.current_goal_id = idx
         self.current_goal_name = self.goal_options[idx]
 
