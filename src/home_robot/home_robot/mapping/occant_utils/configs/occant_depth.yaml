@@ -19,4 +19,4 @@ GP_ANTICIPATION:
   # Map aggregation configs
 AGGREGATOR:
   registration_type: "entropy_moving_average"
-  map_registration_momentum: 0.9
+  map_registration_momentum: 0.8
