@@ -41,8 +41,15 @@ class HabitatOpenVocabManipEnv(HabitatEnv):
         self.goal_type = config.habitat.task.goal_type
         self.episodes_data_path = config.habitat.dataset.data_path
         self.video_dir = config.habitat_baselines.video_dir
-        self.max_forward = config.habitat.task.actions.base_velocity.lin_speed
-        self.max_turn = config.habitat.task.actions.base_velocity.ang_speed
+        self.max_forward = (
+            config.habitat.task.actions.base_velocity.max_displacement_along_axis
+        )
+        self.max_turn_degrees = (
+            config.habitat.task.actions.base_velocity.max_turn_degrees
+        )
+        self.max_turn = self.max_turn_degrees / 180 * np.pi
+        self.discrete_forward = config.ENVIRONMENT.forward
+        self.discrete_turn_degrees = config.ENVIRONMENT.turn_angle
         self.config = config
         assert (
             "floorplanner" in self.episodes_data_path
@@ -311,14 +318,13 @@ class HabitatOpenVocabManipEnv(HabitatEnv):
             ) or action == DiscreteNavigationAction.SNAP_OBJECT:
                 grip_action = 1
 
-            waypoint = 0
+            turn = 0
             if action == DiscreteNavigationAction.TURN_RIGHT:
-                waypoint = -1
+                turn = -1
             elif action in [
                 DiscreteNavigationAction.TURN_LEFT,
-                DiscreteNavigationAction.MOVE_FORWARD,
             ]:
-                waypoint = 1
+                turn = 1
 
             face_arm = (
                 float(action == DiscreteNavigationAction.MANIPULATION_MODE) * 2 - 1
@@ -331,8 +337,11 @@ class HabitatOpenVocabManipEnv(HabitatEnv):
             arm_actions = [0] * 7
             cont_action = arm_actions + [
                 grip_action,
-                waypoint,
-                (action == DiscreteNavigationAction.MOVE_FORWARD) * 2 - 1,
+                (action == DiscreteNavigationAction.MOVE_FORWARD)
+                * self.discrete_forward
+                / self.max_forward,
+                0.0,
+                turn * self.discrete_turn_degrees / self.max_turn_degrees,
                 extend_arm,
                 face_arm,
                 stop,

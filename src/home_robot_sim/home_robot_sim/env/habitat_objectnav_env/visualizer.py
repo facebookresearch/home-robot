@@ -227,6 +227,7 @@ class Visualizer:
         curr_action: str = None,
         short_term_goal: np.ndarray = None,
         dilated_obstacle_map: np.ndarray = None,
+        **kwargs,
     ):
         """Visualize frame input and semantic map.
 

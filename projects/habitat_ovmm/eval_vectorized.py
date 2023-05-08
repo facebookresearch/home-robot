@@ -86,12 +86,18 @@ class VectorizedEvaluator(PPOTrainer):
     def write_results(self, episode_metrics):
         aggregated_metrics = defaultdict(list)
         metrics = set(
-            [k for k in list(episode_metrics.values())[0].keys() if k != "goal_name"]
+            [
+                k
+                for metrics_per_episode in episode_metrics.values()
+                for k in metrics_per_episode
+                if k != "goal_name"
+            ]
         )
         for v in episode_metrics.values():
             for k in metrics:
-                aggregated_metrics[f"{k}/total"].append(v[k])
-                aggregated_metrics[f"{k}/{v['goal_name']}"].append(v[k])
+                if k in v:
+                    aggregated_metrics[f"{k}/total"].append(v[k])
+                    aggregated_metrics[f"{k}/{v['goal_name']}"].append(v[k])
 
         aggregated_metrics = dict(
             sorted(
@@ -154,21 +160,38 @@ class VectorizedEvaluator(PPOTrainer):
 
             obs, dones, hab_infos = [list(x) for x in zip(*outputs)]
             for e, (done, info, hab_info) in enumerate(zip(dones, infos, hab_infos)):
+                episode_key = (
+                    f"{current_episodes_info[e].scene_id.split('/')[-1].split('.')[0]}_"
+                    f"{current_episodes_info[e].episode_id}"
+                )
+                if episode_key not in episode_metrics:
+                    episode_metrics[episode_key] = {}
+                if info["skill_done"] != "":
+                    metrics = self._extract_scalars_from_info(hab_info)
+                    metrics_at_skill_end = {
+                        f"{info['skill_done']}." + k: v for k, v in metrics.items()
+                    }
+                    episode_metrics[episode_key] = {
+                        **metrics_at_skill_end,
+                        **episode_metrics[episode_key],
+                    }
                 if done:
-                    episode_key = (
-                        f"{current_episodes_info[e].scene_id.split('/')[-1].split('.')[0]}_"
-                        f"{current_episodes_info[e].episode_id}"
-                    )
                     metrics = self._extract_scalars_from_info(hab_info)
                     # If the episode keys we care about are specified,
                     #  ignore all other episodes
                     if episode_keys is not None:
                         if episode_key in episode_keys:
                             done_episode_keys.add(episode_key)
-                            episode_metrics[episode_key] = {
-                                **metrics,
-                                "goal_name": info["goal_name"],
+                            metrics_at_episode_end = {
+                                f"END." + k: v for k, v in metrics.items()
                             }
+                            episode_metrics[episode_key] = {
+                                **metrics_at_episode_end,
+                                **episode_metrics[episode_key],
+                            }
+                            episode_metrics[episode_key]["goal_name"] = info[
+                                "goal_name"
+                            ]
                             print(
                                 f"Finished episode {episode_key} after "
                                 f"{round(time.time() - start_time, 2)} seconds"
@@ -176,45 +199,23 @@ class VectorizedEvaluator(PPOTrainer):
 
                     elif num_episodes_per_env is not None:
                         if episode_idxs[e] < num_episodes_per_env:
-                            episode_metrics[episode_key] = {
-                                **metrics,
-                                "goal_name": info["goal_name"],
+                            metrics_at_episode_end = {
+                                f"END." + k: v for k, v in metrics.items()
                             }
+                            episode_metrics[episode_key] = {
+                                **metrics_at_episode_end,
+                                **episode_metrics[episode_key],
+                            }
+                            episode_metrics[episode_key]["goal_name"] = info[
+                                "goal_name"
+                            ]
                         episode_idxs[e] += 1
                         print(
                             f"Episode indexes {episode_idxs} / {num_episodes_per_env} "
                             f"after {round(time.time() - start_time, 2)} seconds"
                         )
 
-                        # [temporary] to print running metrics
-                        aggregated_metrics = defaultdict(list)
-                        metrics = set(
-                            [
-                                k
-                                for k in list(episode_metrics.values())[0].keys()
-                                if k != "goal_name"
-                            ]
-                        )
-                        for v in episode_metrics.values():
-                            k = "nav_to_obj_success"
-                            aggregated_metrics[f"{k[:3]}/total"].append(v[k])
-                            aggregated_metrics[f"{k[:3]}/{v['goal_name'][:16]}"].append(
-                                v[k]
-                            )
-
-                        aggregated_metrics = dict(
-                            sorted(
-                                {
-                                    k2: v2
-                                    for k1, v1 in aggregated_metrics.items()
-                                    for k2, v2 in {
-                                        f"{k1}/mean": np.round(np.mean(v1), 2),
-                                    }.items()
-                                }.items()
-                            )
-                        )
-
-                    if len(episode_metrics) % 5 == 0:
+                    if len(episode_metrics) % 1 == 0:
                         self.write_results(episode_metrics)
                     if not stop():
                         obs[e] = envs.call_at(e, "reset")
