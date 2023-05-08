@@ -72,7 +72,11 @@ class GraspPlanner(object):
         self.robot_client.switch_to_navigation_mode()
 
     def try_grasping(
-        self, visualize: bool = False, dry_run: bool = False, max_tries: int = 10
+        self,
+        visualize: bool = False,
+        dry_run: bool = False,
+        max_tries: int = 10,
+        wait_for_input: bool = False,
     ):
         """Detect grasps and try to pick up an object in front of the robot.
         Visualize - will show debug point clouds
@@ -198,7 +202,9 @@ class GraspPlanner(object):
                 theta_x, theta_y = divergence_from_vertical_grasp(grasp)
                 print(" - with theta x/y from vertical =", theta_x, theta_y)
                 if not dry_run:
-                    grasp_completed = self.try_executing_grasp(grasp)
+                    grasp_completed = self.try_executing_grasp(
+                        grasp, wait_for_input=wait_for_input
+                    )
                 else:
                     grasp_completed = False
                 if grasp_completed:
@@ -206,6 +212,7 @@ class GraspPlanner(object):
             break
 
         self.robot_client.switch_to_navigation_mode()
+        return grasp_completed
 
     def plan_to_grasp(self, grasp: np.ndarray) -> Optional[np.ndarray]:
         """Create offsets for the full trajectory plan to get to the object.
@@ -291,7 +298,6 @@ class GraspPlanner(object):
         """Execute a predefined grasp trajectory to the given pose. Grasp should be an se(3) pose, expressed as a 4x4 numpy matrix."""
         assert grasp.shape == (4, 4)
         self._send_predicted_grasp_to_tf(grasp)
-        wait_for_input = True
 
         # Generate a plan
         trajectory = self.plan_to_grasp(grasp)

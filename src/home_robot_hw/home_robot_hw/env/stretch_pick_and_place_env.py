@@ -1,6 +1,6 @@
 import os
 import pickle
-from typing import Any, Dict, Optional
+from typing import Any, Dict, List, Optional
 
 import numpy as np
 import rospy
@@ -54,12 +54,13 @@ class StretchPickandPlaceEnv(StretchEnv):
     def __init__(
         self,
         config,
-        goal_options=None,
-        segmentation_method=DETIC,
-        visualize_planner=False,
-        ros_grasping=True,
-        test_grasping=False,
-        dry_run=False,
+        goal_options: List[str] = None,
+        segmentation_method: str = DETIC,
+        visualize_planner: bool = False,
+        ros_grasping: bool = True,
+        test_grasping: bool = False,
+        dry_run: bool = False,
+        debug: bool = False,
         *args,
         **kwargs,
     ):
@@ -67,6 +68,7 @@ class StretchPickandPlaceEnv(StretchEnv):
         Defines discrete planning environment.
 
         ros_grasping: create ROS grasp planner
+        debug: pause between motions; slows down execution to debug specific behavior
         """
         super().__init__(*args, **kwargs)
 
@@ -78,6 +80,7 @@ class StretchPickandPlaceEnv(StretchEnv):
         self.rotate_step = np.radians(config.ENVIRONMENT.turn_angle)
         self.test_grasping = test_grasping
         self.dry_run = dry_run
+        self.debug = debug
 
         self.robot = StretchClient(init_node=False)
 
@@ -226,11 +229,12 @@ class StretchPickandPlaceEnv(StretchEnv):
                 continuous_action = None
             elif action == DiscreteNavigationAction.PICK_OBJECT:
                 continuous_action = None
+                # Run in a while loop until we have succeeded
                 while not rospy.is_shutdown():
                     if self.dry_run:
-                        # Dummy out robot execution code for perception tests\
+                        # Dummy out robot execution code for perception tests
                         break
-                    ok = self.grasp_planner.try_grasping()
+                    ok = self.grasp_planner.try_grasping(wait_for_input=self.debug)
                     if ok:
                         break
             else:
