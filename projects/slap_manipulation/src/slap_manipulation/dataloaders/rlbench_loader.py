@@ -300,9 +300,9 @@ class RLBenchDataset(DatasetBase):
             closest_pt_og_pcd,
         )
 
-    def get_commands(self, crop_ee_keyframe, keyframes):
+    def get_commands(self, crop_ee_keyframe, keyframes, return_all=False):
         """process and get the commands"""
-        if self.multi_step:
+        if self.multi_step or return_all:
             num_frames = len(keyframes)
             assert num_frames > 0
             positions = np.zeros((num_frames, 3))
@@ -332,15 +332,6 @@ class RLBenchDataset(DatasetBase):
             if self.ori_type == "rpy":
                 angles = tra.euler_from_matrix(crop_ee_keyframe[:3, :3])
             elif self.ori_type == "quaternion":
-                # print(f"The matrix:\n {crop_ee_keyframe[:3,:3]}")
-                # euler = np.rad2deg((
-                #     np.array(tra.euler_from_matrix(crop_ee_keyframe[:3, :3]))
-                #     + np.pi
-                # ))
-                # print(f'Euler b/w 0 to 360 from matrix: {euler}')
-                # # This is w x y z - trimesh
-                # quat = tra.quaternion_from_euler(*euler)
-                # print(f"Quat from euler b/w 0 to 360: {quat}")
                 angles = tra.quaternion_from_matrix(crop_ee_keyframe[:3, :3])
         return positions, orientations, angles
 

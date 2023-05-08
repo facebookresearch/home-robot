@@ -9,18 +9,18 @@ orientation_type: "quaternion"  # change orientation_dim when you change this
 learning_rate: 1e-4
 lambda_weight_l2: 0.000001
 optim: lamb
-multi_head: False
+multi_step: False
 num_heads: 1
 crop_size: 0.1
 query_radius: 0.16
 k: 3
 lang_max_seq_len: 77
 clip_model: "ViT-B/32"
-max_iter: 50
+max_iter: 500
 dry_run: False
 validate: False
 template: "*.h5"
-data_augmentation: False
+data_augmentation: True
 source: "stretch"
 wandb: False
 debug: False
@@ -37,7 +37,7 @@ dims:
 weights:
   position: 1.0
   orientation: 1e-2
-  gripper: 1e-4
+  gripper: 0.0
 
 run:
   validate: False
@@ -46,5 +46,5 @@ model:
   sa1_mlp: [6, 64, 64, 128]
   sa2_mlp: [131, 128, 128, 256]
   sa3_mlp: [259, 256, 512, 1024]
-  proprio_mlp: [3, 256, 512]
+  proprio_mlp: [9, 256, 512]
   lang_mlp: [512, 512, 512]

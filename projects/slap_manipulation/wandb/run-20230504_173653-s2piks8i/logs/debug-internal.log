@@ -1,0 +1,560 @@
+2023-05-04 17:36:53,162 INFO    StreamThr :502197 [internal.py:wandb_internal():86] W&B internal server running at pid: 502197, started at: 2023-05-04 17:36:53.162578
+2023-05-04 17:36:53,164 DEBUG   HandlerThread:502197 [handler.py:handle_request():144] handle_request: status
+2023-05-04 17:36:53,165 INFO    WriterThread:502197 [datastore.py:open_for_write():85] open: /home/priparashar/Development/slap_stretch/home-robot/projects/slap_manipulation/wandb/run-20230504_173653-s2piks8i/run-s2piks8i.wandb
+2023-05-04 17:36:53,165 DEBUG   SenderThread:502197 [sender.py:send():375] send: header
+2023-05-04 17:36:53,201 DEBUG   SenderThread:502197 [sender.py:send():375] send: run
+2023-05-04 17:36:53,560 INFO    SenderThread:502197 [dir_watcher.py:__init__():219] watching files in: /home/priparashar/Development/slap_stretch/home-robot/projects/slap_manipulation/wandb/run-20230504_173653-s2piks8i/files
+2023-05-04 17:36:53,560 INFO    SenderThread:502197 [sender.py:_start_run_threads():1124] run started: s2piks8i with start time 1683236213.161772
+2023-05-04 17:36:53,560 DEBUG   SenderThread:502197 [sender.py:send_request():402] send_request: summary_record
+2023-05-04 17:36:53,560 INFO    SenderThread:502197 [sender.py:_save_file():1378] saving file wandb-summary.json with policy end
+2023-05-04 17:36:53,561 DEBUG   HandlerThread:502197 [handler.py:handle_request():144] handle_request: check_version
+2023-05-04 17:36:53,562 DEBUG   SenderThread:502197 [sender.py:send_request():402] send_request: check_version
+2023-05-04 17:36:53,689 DEBUG   HandlerThread:502197 [handler.py:handle_request():144] handle_request: run_start
+2023-05-04 17:36:53,694 DEBUG   HandlerThread:502197 [system_info.py:__init__():31] System info init
+2023-05-04 17:36:53,694 DEBUG   HandlerThread:502197 [system_info.py:__init__():46] System info init done
+2023-05-04 17:36:53,694 INFO    HandlerThread:502197 [system_monitor.py:start():181] Starting system monitor
+2023-05-04 17:36:53,694 INFO    SystemMonitor:502197 [system_monitor.py:_start():145] Starting system asset monitoring threads
+2023-05-04 17:36:53,694 INFO    HandlerThread:502197 [system_monitor.py:probe():201] Collecting system info
+2023-05-04 17:36:53,694 INFO    SystemMonitor:502197 [interfaces.py:start():190] Started cpu monitoring
+2023-05-04 17:36:53,695 INFO    SystemMonitor:502197 [interfaces.py:start():190] Started disk monitoring
+2023-05-04 17:36:53,696 INFO    SystemMonitor:502197 [interfaces.py:start():190] Started gpu monitoring
+2023-05-04 17:36:53,696 INFO    SystemMonitor:502197 [interfaces.py:start():190] Started memory monitoring
+2023-05-04 17:36:53,697 INFO    SystemMonitor:502197 [interfaces.py:start():190] Started network monitoring
+2023-05-04 17:36:53,735 DEBUG   HandlerThread:502197 [system_info.py:probe():195] Probing system
+2023-05-04 17:36:53,741 DEBUG   HandlerThread:502197 [system_info.py:_probe_git():180] Probing git
+2023-05-04 17:36:53,755 DEBUG   HandlerThread:502197 [system_info.py:_probe_git():188] Probing git done
+2023-05-04 17:36:53,755 DEBUG   HandlerThread:502197 [system_info.py:probe():240] Probing system done
+2023-05-04 17:36:53,755 DEBUG   HandlerThread:502197 [system_monitor.py:probe():210] {'os': 'Linux-5.14.0-1059-oem-x86_64-with-glibc2.31', 'python': '3.9.16', 'heartbeatAt': '2023-05-04T21:36:53.735933', 'startedAt': '2023-05-04T21:36:53.158250', 'docker': None, 'cuda': None, 'args': ('name=pick_up_bottle_autoregressive_0', 'data_dir=/home/priparashar/h5_test/pick_up_bottle/03-26', 'split=./overfit_split.yaml', 'action_idx=0', 'wandb=True'), 'state': 'running', 'program': '/home/priparashar/Development/slap_stretch/home-robot/projects/slap_manipulation/src/slap_manipulation/policy/action_prediction_module.py', 'codePath': 'projects/slap_manipulation/src/slap_manipulation/policy/action_prediction_module.py', 'git': {'remote': 'git@github.com:facebookresearch/home-robot.git', 'commit': '5834908fd09001b434d868f2d8b24a9427336af4'}, 'email': 'priyam8parashar@gmail.com', 'root': '/home/priparashar/Development/slap_stretch/home-robot', 'host': 'rtwodtwo', 'username': 'priparashar', 'executable': '/home/priparashar/mambaforge/envs/slap_base/bin/python', 'cpu_count': 32, 'cpu_count_logical': 64, 'cpu_freq': {'current': 2461.0251093750003, 'min': 2200.0, 'max': 3500.0}, 'cpu_freq_per_core': [{'current': 2200.0, 'min': 2200.0, 'max': 3500.0}, {'current': 2200.0, 'min': 2200.0, 'max': 3500.0}, {'current': 2200.0, 'min': 2200.0, 'max': 3500.0}, {'current': 2200.0, 'min': 2200.0, 'max': 3500.0}, {'current': 2200.0, 'min': 2200.0, 'max': 3500.0}, {'current': 3500.0, 'min': 2200.0, 'max': 3500.0}, {'current': 2200.0, 'min': 2200.0, 'max': 3500.0}, {'current': 2200.0, 'min': 2200.0, 'max': 3500.0}, {'current': 3500.0, 'min': 2200.0, 'max': 3500.0}, {'current': 2200.0, 'min': 2200.0, 'max': 3500.0}, {'current': 2200.0, 'min': 2200.0, 'max': 3500.0}, {'current': 2200.0, 'min': 2200.0, 'max': 3500.0}, {'current': 2200.0, 'min': 2200.0, 'max': 3500.0}, {'current': 2200.0, 'min': 2200.0, 'max': 3500.0}, {'current': 3500.0, 'min': 2200.0, 'max': 3500.0}, {'current': 2200.0, 'min': 2200.0, 'max': 3500.0}, {'current': 2400.0, 'min': 2200.0, 'max': 3500.0}, {'current': 2200.0, 'min': 2200.0, 'max': 3500.0}, {'current': 2200.0, 'min': 2200.0, 'max': 3500.0}, {'current': 2200.0, 'min': 2200.0, 'max': 3500.0}, {'current': 2200.0, 'min': 2200.0, 'max': 3500.0}, {'current': 2200.0, 'min': 2200.0, 'max': 3500.0}, {'current': 2200.0, 'min': 2200.0, 'max': 3500.0}, {'current': 2200.0, 'min': 2200.0, 'max': 3500.0}, {'current': 2200.0, 'min': 2200.0, 'max': 3500.0}, {'current': 2200.0, 'min': 2200.0, 'max': 3500.0}, {'current': 2200.0, 'min': 2200.0, 'max': 3500.0}, {'current': 2200.0, 'min': 2200.0, 'max': 3500.0}, {'current': 2200.0, 'min': 2200.0, 'max': 3500.0}, {'current': 2200.0, 'min': 2200.0, 'max': 3500.0}, {'current': 3500.0, 'min': 2200.0, 'max': 3500.0}, {'current': 3500.0, 'min': 2200.0, 'max': 3500.0}, {'current': 2200.0, 'min': 2200.0, 'max': 3500.0}, {'current': 2200.0, 'min': 2200.0, 'max': 3500.0}, {'current': 2200.0, 'min': 2200.0, 'max': 3500.0}, {'current': 2200.0, 'min': 2200.0, 'max': 3500.0}, {'current': 3500.0, 'min': 2200.0, 'max': 3500.0}, {'current': 2200.0, 'min': 2200.0, 'max': 3500.0}, {'current': 2200.0, 'min': 2200.0, 'max': 3500.0}, {'current': 2200.0, 'min': 2200.0, 'max': 3500.0}, {'current': 3500.0, 'min': 2200.0, 'max': 3500.0}, {'current': 2200.0, 'min': 2200.0, 'max': 3500.0}, {'current': 2200.0, 'min': 2200.0, 'max': 3500.0}, {'current': 3500.0, 'min': 2200.0, 'max': 3500.0}, {'current': 2200.0, 'min': 2200.0, 'max': 3500.0}, {'current': 3500.0, 'min': 2200.0, 'max': 3500.0}, {'current': 2200.0, 'min': 2200.0, 'max': 3500.0}, {'current': 2200.0, 'min': 2200.0, 'max': 3500.0}, {'current': 2200.0, 'min': 2200.0, 'max': 3500.0}, {'current': 2200.0, 'min': 2200.0, 'max': 3500.0}, {'current': 1917.253, 'min': 2200.0, 'max': 3500.0}, {'current': 2200.0, 'min': 2200.0, 'max': 3500.0}, {'current': 2200.0, 'min': 2200.0, 'max': 3500.0}, {'current': 2200.0, 'min': 2200.0, 'max': 3500.0}, {'current': 2200.0, 'min': 2200.0, 'max': 3500.0}, {'current': 2200.0, 'min': 2200.0, 'max': 3500.0}, {'current': 2200.0, 'min': 2200.0, 'max': 3500.0}, {'current': 2200.0, 'min': 2200.0, 'max': 3500.0}, {'current': 2200.0, 'min': 2200.0, 'max': 3500.0}, {'current': 2200.0, 'min': 2200.0, 'max': 3500.0}, {'current': 2200.0, 'min': 2200.0, 'max': 3500.0}, {'current': 2200.0, 'min': 2200.0, 'max': 3500.0}, {'current': 2200.0, 'min': 2200.0, 'max': 3500.0}, {'current': 2200.0, 'min': 2200.0, 'max': 3500.0}], 'disk': {'total': 1831.3967514038086, 'used': 945.8543891906738}, 'gpu': 'NVIDIA GeForce RTX 3080', 'gpu_count': 1, 'gpu_devices': [{'name': 'NVIDIA GeForce RTX 3080', 'memory_total': 10737418240}], 'memory': {'total': 125.62853622436523}}
+2023-05-04 17:36:53,755 INFO    HandlerThread:502197 [system_monitor.py:probe():211] Finished collecting system info
+2023-05-04 17:36:53,755 INFO    HandlerThread:502197 [system_monitor.py:probe():214] Publishing system info
+2023-05-04 17:36:53,755 DEBUG   HandlerThread:502197 [system_info.py:_save_pip():51] Saving list of pip packages installed into the current environment
+2023-05-04 17:36:53,756 DEBUG   HandlerThread:502197 [system_info.py:_save_pip():67] Saving pip packages done
+2023-05-04 17:36:53,756 DEBUG   HandlerThread:502197 [system_info.py:_save_conda():74] Saving list of conda packages installed into the current environment
+2023-05-04 17:36:54,563 INFO    Thread-12 :502197 [dir_watcher.py:_on_file_created():278] file/dir created: /home/priparashar/Development/slap_stretch/home-robot/projects/slap_manipulation/wandb/run-20230504_173653-s2piks8i/files/requirements.txt
+2023-05-04 17:36:54,563 INFO    Thread-12 :502197 [dir_watcher.py:_on_file_created():278] file/dir created: /home/priparashar/Development/slap_stretch/home-robot/projects/slap_manipulation/wandb/run-20230504_173653-s2piks8i/files/conda-environment.yaml
+2023-05-04 17:36:54,563 INFO    Thread-12 :502197 [dir_watcher.py:_on_file_created():278] file/dir created: /home/priparashar/Development/slap_stretch/home-robot/projects/slap_manipulation/wandb/run-20230504_173653-s2piks8i/files/wandb-summary.json
+2023-05-04 17:37:00,097 DEBUG   HandlerThread:502197 [system_info.py:_save_conda():86] Saving conda packages done
+2023-05-04 17:37:00,098 INFO    HandlerThread:502197 [system_monitor.py:probe():216] Finished publishing system info
+2023-05-04 17:37:00,100 DEBUG   HandlerThread:502197 [handler.py:handle_request():144] handle_request: status_report
+2023-05-04 17:37:00,100 DEBUG   HandlerThread:502197 [handler.py:handle_request():144] handle_request: keepalive
+2023-05-04 17:37:00,101 DEBUG   SenderThread:502197 [sender.py:send():375] send: files
+2023-05-04 17:37:00,101 INFO    SenderThread:502197 [sender.py:_save_file():1378] saving file wandb-metadata.json with policy now
+2023-05-04 17:37:00,106 DEBUG   HandlerThread:502197 [handler.py:handle_request():144] handle_request: stop_status
+2023-05-04 17:37:00,107 DEBUG   SenderThread:502197 [sender.py:send_request():402] send_request: stop_status
+2023-05-04 17:37:00,234 DEBUG   SenderThread:502197 [sender.py:send():375] send: telemetry
+2023-05-04 17:37:00,234 DEBUG   SenderThread:502197 [sender.py:send():375] send: telemetry
+2023-05-04 17:37:00,234 DEBUG   SenderThread:502197 [sender.py:send():375] send: config
+2023-05-04 17:37:00,234 DEBUG   SenderThread:502197 [sender.py:send():375] send: config
+2023-05-04 17:37:00,234 DEBUG   SenderThread:502197 [sender.py:send():375] send: config
+2023-05-04 17:37:00,234 DEBUG   SenderThread:502197 [sender.py:send():375] send: config
+2023-05-04 17:37:00,564 INFO    Thread-12 :502197 [dir_watcher.py:_on_file_modified():295] file/dir modified: /home/priparashar/Development/slap_stretch/home-robot/projects/slap_manipulation/wandb/run-20230504_173653-s2piks8i/files/conda-environment.yaml
+2023-05-04 17:37:00,564 INFO    Thread-12 :502197 [dir_watcher.py:_on_file_created():278] file/dir created: /home/priparashar/Development/slap_stretch/home-robot/projects/slap_manipulation/wandb/run-20230504_173653-s2piks8i/files/output.log
+2023-05-04 17:37:00,564 INFO    Thread-12 :502197 [dir_watcher.py:_on_file_created():278] file/dir created: /home/priparashar/Development/slap_stretch/home-robot/projects/slap_manipulation/wandb/run-20230504_173653-s2piks8i/files/wandb-metadata.json
+2023-05-04 17:37:00,621 INFO    wandb-upload_0:502197 [upload_job.py:push():137] Uploaded file /tmp/tmp8hl_0leewandb/la8m1um2-wandb-metadata.json
+2023-05-04 17:37:01,976 DEBUG   HandlerThread:502197 [handler.py:handle_request():144] handle_request: partial_history
+2023-05-04 17:37:01,977 DEBUG   SenderThread:502197 [sender.py:send():375] send: history
+2023-05-04 17:37:01,977 DEBUG   SenderThread:502197 [sender.py:send_request():402] send_request: summary_record
+2023-05-04 17:37:01,979 INFO    SenderThread:502197 [sender.py:_save_file():1378] saving file wandb-summary.json with policy end
+2023-05-04 17:37:02,565 INFO    Thread-12 :502197 [dir_watcher.py:_on_file_modified():295] file/dir modified: /home/priparashar/Development/slap_stretch/home-robot/projects/slap_manipulation/wandb/run-20230504_173653-s2piks8i/files/output.log
+2023-05-04 17:37:02,565 INFO    Thread-12 :502197 [dir_watcher.py:_on_file_modified():295] file/dir modified: /home/priparashar/Development/slap_stretch/home-robot/projects/slap_manipulation/wandb/run-20230504_173653-s2piks8i/files/wandb-summary.json
+2023-05-04 17:37:03,565 INFO    Thread-12 :502197 [dir_watcher.py:_on_file_modified():295] file/dir modified: /home/priparashar/Development/slap_stretch/home-robot/projects/slap_manipulation/wandb/run-20230504_173653-s2piks8i/files/output.log
+2023-05-04 17:37:03,698 DEBUG   HandlerThread:502197 [handler.py:handle_request():144] handle_request: status_report
+2023-05-04 17:37:03,860 DEBUG   HandlerThread:502197 [handler.py:handle_request():144] handle_request: partial_history
+2023-05-04 17:37:03,861 DEBUG   SenderThread:502197 [sender.py:send():375] send: history
+2023-05-04 17:37:03,861 DEBUG   SenderThread:502197 [sender.py:send_request():402] send_request: summary_record
+2023-05-04 17:37:03,862 INFO    SenderThread:502197 [sender.py:_save_file():1378] saving file wandb-summary.json with policy end
+2023-05-04 17:37:04,566 INFO    Thread-12 :502197 [dir_watcher.py:_on_file_modified():295] file/dir modified: /home/priparashar/Development/slap_stretch/home-robot/projects/slap_manipulation/wandb/run-20230504_173653-s2piks8i/files/output.log
+2023-05-04 17:37:04,566 INFO    Thread-12 :502197 [dir_watcher.py:_on_file_modified():295] file/dir modified: /home/priparashar/Development/slap_stretch/home-robot/projects/slap_manipulation/wandb/run-20230504_173653-s2piks8i/files/wandb-summary.json
+2023-05-04 17:37:05,566 INFO    Thread-12 :502197 [dir_watcher.py:_on_file_modified():295] file/dir modified: /home/priparashar/Development/slap_stretch/home-robot/projects/slap_manipulation/wandb/run-20230504_173653-s2piks8i/files/output.log
+2023-05-04 17:37:05,877 DEBUG   HandlerThread:502197 [handler.py:handle_request():144] handle_request: partial_history
+2023-05-04 17:37:05,878 DEBUG   SenderThread:502197 [sender.py:send():375] send: history
+2023-05-04 17:37:05,878 DEBUG   SenderThread:502197 [sender.py:send_request():402] send_request: summary_record
+2023-05-04 17:37:05,878 INFO    SenderThread:502197 [sender.py:_save_file():1378] saving file wandb-summary.json with policy end
+2023-05-04 17:37:06,567 INFO    Thread-12 :502197 [dir_watcher.py:_on_file_modified():295] file/dir modified: /home/priparashar/Development/slap_stretch/home-robot/projects/slap_manipulation/wandb/run-20230504_173653-s2piks8i/files/output.log
+2023-05-04 17:37:06,567 INFO    Thread-12 :502197 [dir_watcher.py:_on_file_modified():295] file/dir modified: /home/priparashar/Development/slap_stretch/home-robot/projects/slap_manipulation/wandb/run-20230504_173653-s2piks8i/files/wandb-summary.json
+2023-05-04 17:37:07,567 INFO    Thread-12 :502197 [dir_watcher.py:_on_file_modified():295] file/dir modified: /home/priparashar/Development/slap_stretch/home-robot/projects/slap_manipulation/wandb/run-20230504_173653-s2piks8i/files/output.log
+2023-05-04 17:37:07,855 DEBUG   HandlerThread:502197 [handler.py:handle_request():144] handle_request: partial_history
+2023-05-04 17:37:07,855 DEBUG   SenderThread:502197 [sender.py:send():375] send: history
+2023-05-04 17:37:07,856 DEBUG   SenderThread:502197 [sender.py:send_request():402] send_request: summary_record
+2023-05-04 17:37:07,856 INFO    SenderThread:502197 [sender.py:_save_file():1378] saving file wandb-summary.json with policy end
+2023-05-04 17:37:08,567 INFO    Thread-12 :502197 [dir_watcher.py:_on_file_modified():295] file/dir modified: /home/priparashar/Development/slap_stretch/home-robot/projects/slap_manipulation/wandb/run-20230504_173653-s2piks8i/files/output.log
+2023-05-04 17:37:08,567 INFO    Thread-12 :502197 [dir_watcher.py:_on_file_modified():295] file/dir modified: /home/priparashar/Development/slap_stretch/home-robot/projects/slap_manipulation/wandb/run-20230504_173653-s2piks8i/files/wandb-summary.json
+2023-05-04 17:37:09,062 DEBUG   HandlerThread:502197 [handler.py:handle_request():144] handle_request: status_report
+2023-05-04 17:37:09,567 INFO    Thread-12 :502197 [dir_watcher.py:_on_file_modified():295] file/dir modified: /home/priparashar/Development/slap_stretch/home-robot/projects/slap_manipulation/wandb/run-20230504_173653-s2piks8i/files/output.log
+2023-05-04 17:37:09,828 DEBUG   HandlerThread:502197 [handler.py:handle_request():144] handle_request: partial_history
+2023-05-04 17:37:09,828 DEBUG   SenderThread:502197 [sender.py:send():375] send: history
+2023-05-04 17:37:09,829 DEBUG   SenderThread:502197 [sender.py:send_request():402] send_request: summary_record
+2023-05-04 17:37:09,829 INFO    SenderThread:502197 [sender.py:_save_file():1378] saving file wandb-summary.json with policy end
+2023-05-04 17:37:10,568 INFO    Thread-12 :502197 [dir_watcher.py:_on_file_modified():295] file/dir modified: /home/priparashar/Development/slap_stretch/home-robot/projects/slap_manipulation/wandb/run-20230504_173653-s2piks8i/files/output.log
+2023-05-04 17:37:10,568 INFO    Thread-12 :502197 [dir_watcher.py:_on_file_modified():295] file/dir modified: /home/priparashar/Development/slap_stretch/home-robot/projects/slap_manipulation/wandb/run-20230504_173653-s2piks8i/files/wandb-summary.json
+2023-05-04 17:37:11,568 INFO    Thread-12 :502197 [dir_watcher.py:_on_file_modified():295] file/dir modified: /home/priparashar/Development/slap_stretch/home-robot/projects/slap_manipulation/wandb/run-20230504_173653-s2piks8i/files/output.log
+2023-05-04 17:37:11,804 DEBUG   HandlerThread:502197 [handler.py:handle_request():144] handle_request: partial_history
+2023-05-04 17:37:11,806 DEBUG   SenderThread:502197 [sender.py:send():375] send: history
+2023-05-04 17:37:11,806 DEBUG   SenderThread:502197 [sender.py:send_request():402] send_request: summary_record
+2023-05-04 17:37:11,807 INFO    SenderThread:502197 [sender.py:_save_file():1378] saving file wandb-summary.json with policy end
+2023-05-04 17:37:12,568 INFO    Thread-12 :502197 [dir_watcher.py:_on_file_modified():295] file/dir modified: /home/priparashar/Development/slap_stretch/home-robot/projects/slap_manipulation/wandb/run-20230504_173653-s2piks8i/files/output.log
+2023-05-04 17:37:12,569 INFO    Thread-12 :502197 [dir_watcher.py:_on_file_modified():295] file/dir modified: /home/priparashar/Development/slap_stretch/home-robot/projects/slap_manipulation/wandb/run-20230504_173653-s2piks8i/files/wandb-summary.json
+2023-05-04 17:37:13,569 INFO    Thread-12 :502197 [dir_watcher.py:_on_file_modified():295] file/dir modified: /home/priparashar/Development/slap_stretch/home-robot/projects/slap_manipulation/wandb/run-20230504_173653-s2piks8i/files/output.log
+2023-05-04 17:37:13,829 DEBUG   HandlerThread:502197 [handler.py:handle_request():144] handle_request: partial_history
+2023-05-04 17:37:13,830 DEBUG   SenderThread:502197 [sender.py:send():375] send: history
+2023-05-04 17:37:13,830 DEBUG   SenderThread:502197 [sender.py:send_request():402] send_request: summary_record
+2023-05-04 17:37:13,830 INFO    SenderThread:502197 [sender.py:_save_file():1378] saving file wandb-summary.json with policy end
+2023-05-04 17:37:14,569 INFO    Thread-12 :502197 [dir_watcher.py:_on_file_modified():295] file/dir modified: /home/priparashar/Development/slap_stretch/home-robot/projects/slap_manipulation/wandb/run-20230504_173653-s2piks8i/files/output.log
+2023-05-04 17:37:14,569 INFO    Thread-12 :502197 [dir_watcher.py:_on_file_modified():295] file/dir modified: /home/priparashar/Development/slap_stretch/home-robot/projects/slap_manipulation/wandb/run-20230504_173653-s2piks8i/files/wandb-summary.json
+2023-05-04 17:37:14,614 DEBUG   HandlerThread:502197 [handler.py:handle_request():144] handle_request: status_report
+2023-05-04 17:37:15,104 DEBUG   HandlerThread:502197 [handler.py:handle_request():144] handle_request: stop_status
+2023-05-04 17:37:15,105 DEBUG   SenderThread:502197 [sender.py:send_request():402] send_request: stop_status
+2023-05-04 17:37:15,569 INFO    Thread-12 :502197 [dir_watcher.py:_on_file_modified():295] file/dir modified: /home/priparashar/Development/slap_stretch/home-robot/projects/slap_manipulation/wandb/run-20230504_173653-s2piks8i/files/output.log
+2023-05-04 17:37:15,837 DEBUG   HandlerThread:502197 [handler.py:handle_request():144] handle_request: partial_history
+2023-05-04 17:37:15,838 DEBUG   SenderThread:502197 [sender.py:send():375] send: history
+2023-05-04 17:37:15,838 DEBUG   SenderThread:502197 [sender.py:send_request():402] send_request: summary_record
+2023-05-04 17:37:15,839 INFO    SenderThread:502197 [sender.py:_save_file():1378] saving file wandb-summary.json with policy end
+2023-05-04 17:37:16,569 INFO    Thread-12 :502197 [dir_watcher.py:_on_file_modified():295] file/dir modified: /home/priparashar/Development/slap_stretch/home-robot/projects/slap_manipulation/wandb/run-20230504_173653-s2piks8i/files/output.log
+2023-05-04 17:37:16,570 INFO    Thread-12 :502197 [dir_watcher.py:_on_file_modified():295] file/dir modified: /home/priparashar/Development/slap_stretch/home-robot/projects/slap_manipulation/wandb/run-20230504_173653-s2piks8i/files/wandb-summary.json
+2023-05-04 17:37:17,570 INFO    Thread-12 :502197 [dir_watcher.py:_on_file_modified():295] file/dir modified: /home/priparashar/Development/slap_stretch/home-robot/projects/slap_manipulation/wandb/run-20230504_173653-s2piks8i/files/output.log
+2023-05-04 17:37:17,806 DEBUG   HandlerThread:502197 [handler.py:handle_request():144] handle_request: partial_history
+2023-05-04 17:37:17,807 DEBUG   SenderThread:502197 [sender.py:send():375] send: history
+2023-05-04 17:37:17,807 DEBUG   SenderThread:502197 [sender.py:send_request():402] send_request: summary_record
+2023-05-04 17:37:17,808 INFO    SenderThread:502197 [sender.py:_save_file():1378] saving file wandb-summary.json with policy end
+2023-05-04 17:37:18,570 INFO    Thread-12 :502197 [dir_watcher.py:_on_file_modified():295] file/dir modified: /home/priparashar/Development/slap_stretch/home-robot/projects/slap_manipulation/wandb/run-20230504_173653-s2piks8i/files/output.log
+2023-05-04 17:37:18,570 INFO    Thread-12 :502197 [dir_watcher.py:_on_file_modified():295] file/dir modified: /home/priparashar/Development/slap_stretch/home-robot/projects/slap_manipulation/wandb/run-20230504_173653-s2piks8i/files/wandb-summary.json
+2023-05-04 17:37:19,570 INFO    Thread-12 :502197 [dir_watcher.py:_on_file_modified():295] file/dir modified: /home/priparashar/Development/slap_stretch/home-robot/projects/slap_manipulation/wandb/run-20230504_173653-s2piks8i/files/output.log
+2023-05-04 17:37:19,719 DEBUG   HandlerThread:502197 [handler.py:handle_request():144] handle_request: status_report
+2023-05-04 17:37:19,773 DEBUG   HandlerThread:502197 [handler.py:handle_request():144] handle_request: partial_history
+2023-05-04 17:37:19,775 DEBUG   SenderThread:502197 [sender.py:send():375] send: history
+2023-05-04 17:37:19,775 DEBUG   SenderThread:502197 [sender.py:send_request():402] send_request: summary_record
+2023-05-04 17:37:19,775 INFO    SenderThread:502197 [sender.py:_save_file():1378] saving file wandb-summary.json with policy end
+2023-05-04 17:37:20,571 INFO    Thread-12 :502197 [dir_watcher.py:_on_file_modified():295] file/dir modified: /home/priparashar/Development/slap_stretch/home-robot/projects/slap_manipulation/wandb/run-20230504_173653-s2piks8i/files/output.log
+2023-05-04 17:37:20,571 INFO    Thread-12 :502197 [dir_watcher.py:_on_file_modified():295] file/dir modified: /home/priparashar/Development/slap_stretch/home-robot/projects/slap_manipulation/wandb/run-20230504_173653-s2piks8i/files/wandb-summary.json
+2023-05-04 17:37:21,571 INFO    Thread-12 :502197 [dir_watcher.py:_on_file_modified():295] file/dir modified: /home/priparashar/Development/slap_stretch/home-robot/projects/slap_manipulation/wandb/run-20230504_173653-s2piks8i/files/output.log
+2023-05-04 17:37:21,707 DEBUG   HandlerThread:502197 [handler.py:handle_request():144] handle_request: partial_history
+2023-05-04 17:37:21,709 DEBUG   SenderThread:502197 [sender.py:send():375] send: history
+2023-05-04 17:37:21,710 DEBUG   SenderThread:502197 [sender.py:send_request():402] send_request: summary_record
+2023-05-04 17:37:21,710 INFO    SenderThread:502197 [sender.py:_save_file():1378] saving file wandb-summary.json with policy end
+2023-05-04 17:37:22,571 INFO    Thread-12 :502197 [dir_watcher.py:_on_file_modified():295] file/dir modified: /home/priparashar/Development/slap_stretch/home-robot/projects/slap_manipulation/wandb/run-20230504_173653-s2piks8i/files/output.log
+2023-05-04 17:37:22,571 INFO    Thread-12 :502197 [dir_watcher.py:_on_file_modified():295] file/dir modified: /home/priparashar/Development/slap_stretch/home-robot/projects/slap_manipulation/wandb/run-20230504_173653-s2piks8i/files/wandb-summary.json
+2023-05-04 17:37:23,572 INFO    Thread-12 :502197 [dir_watcher.py:_on_file_modified():295] file/dir modified: /home/priparashar/Development/slap_stretch/home-robot/projects/slap_manipulation/wandb/run-20230504_173653-s2piks8i/files/output.log
+2023-05-04 17:37:23,697 DEBUG   HandlerThread:502197 [handler.py:handle_request():144] handle_request: partial_history
+2023-05-04 17:37:23,698 DEBUG   SenderThread:502197 [sender.py:send():375] send: history
+2023-05-04 17:37:23,699 DEBUG   SenderThread:502197 [sender.py:send_request():402] send_request: summary_record
+2023-05-04 17:37:23,699 INFO    SenderThread:502197 [sender.py:_save_file():1378] saving file wandb-summary.json with policy end
+2023-05-04 17:37:24,572 INFO    Thread-12 :502197 [dir_watcher.py:_on_file_modified():295] file/dir modified: /home/priparashar/Development/slap_stretch/home-robot/projects/slap_manipulation/wandb/run-20230504_173653-s2piks8i/files/output.log
+2023-05-04 17:37:24,572 INFO    Thread-12 :502197 [dir_watcher.py:_on_file_modified():295] file/dir modified: /home/priparashar/Development/slap_stretch/home-robot/projects/slap_manipulation/wandb/run-20230504_173653-s2piks8i/files/wandb-summary.json
+2023-05-04 17:37:24,915 DEBUG   HandlerThread:502197 [handler.py:handle_request():144] handle_request: status_report
+2023-05-04 17:37:25,572 INFO    Thread-12 :502197 [dir_watcher.py:_on_file_modified():295] file/dir modified: /home/priparashar/Development/slap_stretch/home-robot/projects/slap_manipulation/wandb/run-20230504_173653-s2piks8i/files/config.yaml
+2023-05-04 17:37:25,572 INFO    Thread-12 :502197 [dir_watcher.py:_on_file_modified():295] file/dir modified: /home/priparashar/Development/slap_stretch/home-robot/projects/slap_manipulation/wandb/run-20230504_173653-s2piks8i/files/output.log
+2023-05-04 17:37:25,691 DEBUG   HandlerThread:502197 [handler.py:handle_request():144] handle_request: partial_history
+2023-05-04 17:37:25,701 DEBUG   SenderThread:502197 [sender.py:send():375] send: history
+2023-05-04 17:37:25,701 DEBUG   SenderThread:502197 [sender.py:send_request():402] send_request: summary_record
+2023-05-04 17:37:25,702 INFO    SenderThread:502197 [sender.py:_save_file():1378] saving file wandb-summary.json with policy end
+2023-05-04 17:37:26,572 INFO    Thread-12 :502197 [dir_watcher.py:_on_file_modified():295] file/dir modified: /home/priparashar/Development/slap_stretch/home-robot/projects/slap_manipulation/wandb/run-20230504_173653-s2piks8i/files/output.log
+2023-05-04 17:37:26,573 INFO    Thread-12 :502197 [dir_watcher.py:_on_file_modified():295] file/dir modified: /home/priparashar/Development/slap_stretch/home-robot/projects/slap_manipulation/wandb/run-20230504_173653-s2piks8i/files/wandb-summary.json
+2023-05-04 17:37:27,573 INFO    Thread-12 :502197 [dir_watcher.py:_on_file_modified():295] file/dir modified: /home/priparashar/Development/slap_stretch/home-robot/projects/slap_manipulation/wandb/run-20230504_173653-s2piks8i/files/output.log
+2023-05-04 17:37:27,711 DEBUG   HandlerThread:502197 [handler.py:handle_request():144] handle_request: partial_history
+2023-05-04 17:37:27,712 DEBUG   SenderThread:502197 [sender.py:send():375] send: history
+2023-05-04 17:37:27,712 DEBUG   SenderThread:502197 [sender.py:send_request():402] send_request: summary_record
+2023-05-04 17:37:27,712 INFO    SenderThread:502197 [sender.py:_save_file():1378] saving file wandb-summary.json with policy end
+2023-05-04 17:37:28,573 INFO    Thread-12 :502197 [dir_watcher.py:_on_file_modified():295] file/dir modified: /home/priparashar/Development/slap_stretch/home-robot/projects/slap_manipulation/wandb/run-20230504_173653-s2piks8i/files/output.log
+2023-05-04 17:37:28,573 INFO    Thread-12 :502197 [dir_watcher.py:_on_file_modified():295] file/dir modified: /home/priparashar/Development/slap_stretch/home-robot/projects/slap_manipulation/wandb/run-20230504_173653-s2piks8i/files/wandb-summary.json
+2023-05-04 17:37:29,573 INFO    Thread-12 :502197 [dir_watcher.py:_on_file_modified():295] file/dir modified: /home/priparashar/Development/slap_stretch/home-robot/projects/slap_manipulation/wandb/run-20230504_173653-s2piks8i/files/output.log
+2023-05-04 17:37:29,694 DEBUG   HandlerThread:502197 [handler.py:handle_request():144] handle_request: partial_history
+2023-05-04 17:37:29,695 DEBUG   SenderThread:502197 [sender.py:send():375] send: history
+2023-05-04 17:37:29,695 DEBUG   SenderThread:502197 [sender.py:send_request():402] send_request: summary_record
+2023-05-04 17:37:29,695 INFO    SenderThread:502197 [sender.py:_save_file():1378] saving file wandb-summary.json with policy end
+2023-05-04 17:37:30,104 DEBUG   HandlerThread:502197 [handler.py:handle_request():144] handle_request: stop_status
+2023-05-04 17:37:30,104 DEBUG   SenderThread:502197 [sender.py:send_request():402] send_request: stop_status
+2023-05-04 17:37:30,495 DEBUG   HandlerThread:502197 [handler.py:handle_request():144] handle_request: status_report
+2023-05-04 17:37:30,574 INFO    Thread-12 :502197 [dir_watcher.py:_on_file_modified():295] file/dir modified: /home/priparashar/Development/slap_stretch/home-robot/projects/slap_manipulation/wandb/run-20230504_173653-s2piks8i/files/output.log
+2023-05-04 17:37:30,574 INFO    Thread-12 :502197 [dir_watcher.py:_on_file_modified():295] file/dir modified: /home/priparashar/Development/slap_stretch/home-robot/projects/slap_manipulation/wandb/run-20230504_173653-s2piks8i/files/wandb-summary.json
+2023-05-04 17:37:31,574 INFO    Thread-12 :502197 [dir_watcher.py:_on_file_modified():295] file/dir modified: /home/priparashar/Development/slap_stretch/home-robot/projects/slap_manipulation/wandb/run-20230504_173653-s2piks8i/files/output.log
+2023-05-04 17:37:31,694 DEBUG   HandlerThread:502197 [handler.py:handle_request():144] handle_request: partial_history
+2023-05-04 17:37:31,707 DEBUG   SenderThread:502197 [sender.py:send():375] send: history
+2023-05-04 17:37:31,708 DEBUG   SenderThread:502197 [sender.py:send_request():402] send_request: summary_record
+2023-05-04 17:37:31,708 INFO    SenderThread:502197 [sender.py:_save_file():1378] saving file wandb-summary.json with policy end
+2023-05-04 17:37:32,574 INFO    Thread-12 :502197 [dir_watcher.py:_on_file_modified():295] file/dir modified: /home/priparashar/Development/slap_stretch/home-robot/projects/slap_manipulation/wandb/run-20230504_173653-s2piks8i/files/output.log
+2023-05-04 17:37:32,574 INFO    Thread-12 :502197 [dir_watcher.py:_on_file_modified():295] file/dir modified: /home/priparashar/Development/slap_stretch/home-robot/projects/slap_manipulation/wandb/run-20230504_173653-s2piks8i/files/wandb-summary.json
+2023-05-04 17:37:33,574 INFO    Thread-12 :502197 [dir_watcher.py:_on_file_modified():295] file/dir modified: /home/priparashar/Development/slap_stretch/home-robot/projects/slap_manipulation/wandb/run-20230504_173653-s2piks8i/files/output.log
+2023-05-04 17:37:33,675 DEBUG   HandlerThread:502197 [handler.py:handle_request():144] handle_request: partial_history
+2023-05-04 17:37:33,676 DEBUG   SenderThread:502197 [sender.py:send():375] send: history
+2023-05-04 17:37:33,676 DEBUG   SenderThread:502197 [sender.py:send_request():402] send_request: summary_record
+2023-05-04 17:37:33,676 INFO    SenderThread:502197 [sender.py:_save_file():1378] saving file wandb-summary.json with policy end
+2023-05-04 17:37:34,575 INFO    Thread-12 :502197 [dir_watcher.py:_on_file_modified():295] file/dir modified: /home/priparashar/Development/slap_stretch/home-robot/projects/slap_manipulation/wandb/run-20230504_173653-s2piks8i/files/output.log
+2023-05-04 17:37:34,575 INFO    Thread-12 :502197 [dir_watcher.py:_on_file_modified():295] file/dir modified: /home/priparashar/Development/slap_stretch/home-robot/projects/slap_manipulation/wandb/run-20230504_173653-s2piks8i/files/wandb-summary.json
+2023-05-04 17:37:35,129 DEBUG   HandlerThread:502197 [handler.py:handle_request():144] handle_request: partial_history
+2023-05-04 17:37:35,130 DEBUG   SenderThread:502197 [sender.py:send():375] send: history
+2023-05-04 17:37:35,130 DEBUG   SenderThread:502197 [sender.py:send_request():402] send_request: summary_record
+2023-05-04 17:37:35,131 INFO    SenderThread:502197 [sender.py:_save_file():1378] saving file wandb-summary.json with policy end
+2023-05-04 17:37:35,575 INFO    Thread-12 :502197 [dir_watcher.py:_on_file_modified():295] file/dir modified: /home/priparashar/Development/slap_stretch/home-robot/projects/slap_manipulation/wandb/run-20230504_173653-s2piks8i/files/output.log
+2023-05-04 17:37:35,575 INFO    Thread-12 :502197 [dir_watcher.py:_on_file_modified():295] file/dir modified: /home/priparashar/Development/slap_stretch/home-robot/projects/slap_manipulation/wandb/run-20230504_173653-s2piks8i/files/wandb-summary.json
+2023-05-04 17:37:35,924 DEBUG   HandlerThread:502197 [handler.py:handle_request():144] handle_request: status_report
+2023-05-04 17:37:36,575 INFO    Thread-12 :502197 [dir_watcher.py:_on_file_modified():295] file/dir modified: /home/priparashar/Development/slap_stretch/home-robot/projects/slap_manipulation/wandb/run-20230504_173653-s2piks8i/files/output.log
+2023-05-04 17:37:37,137 DEBUG   HandlerThread:502197 [handler.py:handle_request():144] handle_request: partial_history
+2023-05-04 17:37:37,140 DEBUG   SenderThread:502197 [sender.py:send():375] send: history
+2023-05-04 17:37:37,140 DEBUG   SenderThread:502197 [sender.py:send_request():402] send_request: summary_record
+2023-05-04 17:37:37,140 INFO    SenderThread:502197 [sender.py:_save_file():1378] saving file wandb-summary.json with policy end
+2023-05-04 17:37:37,576 INFO    Thread-12 :502197 [dir_watcher.py:_on_file_modified():295] file/dir modified: /home/priparashar/Development/slap_stretch/home-robot/projects/slap_manipulation/wandb/run-20230504_173653-s2piks8i/files/output.log
+2023-05-04 17:37:37,576 INFO    Thread-12 :502197 [dir_watcher.py:_on_file_modified():295] file/dir modified: /home/priparashar/Development/slap_stretch/home-robot/projects/slap_manipulation/wandb/run-20230504_173653-s2piks8i/files/wandb-summary.json
+2023-05-04 17:37:38,532 DEBUG   HandlerThread:502197 [handler.py:handle_request():144] handle_request: partial_history
+2023-05-04 17:37:38,535 DEBUG   SenderThread:502197 [sender.py:send():375] send: history
+2023-05-04 17:37:38,535 DEBUG   SenderThread:502197 [sender.py:send_request():402] send_request: summary_record
+2023-05-04 17:37:38,536 INFO    SenderThread:502197 [sender.py:_save_file():1378] saving file wandb-summary.json with policy end
+2023-05-04 17:37:38,576 INFO    Thread-12 :502197 [dir_watcher.py:_on_file_modified():295] file/dir modified: /home/priparashar/Development/slap_stretch/home-robot/projects/slap_manipulation/wandb/run-20230504_173653-s2piks8i/files/output.log
+2023-05-04 17:37:38,576 INFO    Thread-12 :502197 [dir_watcher.py:_on_file_modified():295] file/dir modified: /home/priparashar/Development/slap_stretch/home-robot/projects/slap_manipulation/wandb/run-20230504_173653-s2piks8i/files/wandb-summary.json
+2023-05-04 17:37:39,576 INFO    Thread-12 :502197 [dir_watcher.py:_on_file_modified():295] file/dir modified: /home/priparashar/Development/slap_stretch/home-robot/projects/slap_manipulation/wandb/run-20230504_173653-s2piks8i/files/output.log
+2023-05-04 17:37:39,963 DEBUG   HandlerThread:502197 [handler.py:handle_request():144] handle_request: partial_history
+2023-05-04 17:37:39,964 DEBUG   SenderThread:502197 [sender.py:send():375] send: history
+2023-05-04 17:37:39,964 DEBUG   SenderThread:502197 [sender.py:send_request():402] send_request: summary_record
+2023-05-04 17:37:39,965 INFO    SenderThread:502197 [sender.py:_save_file():1378] saving file wandb-summary.json with policy end
+2023-05-04 17:37:40,577 INFO    Thread-12 :502197 [dir_watcher.py:_on_file_modified():295] file/dir modified: /home/priparashar/Development/slap_stretch/home-robot/projects/slap_manipulation/wandb/run-20230504_173653-s2piks8i/files/output.log
+2023-05-04 17:37:40,577 INFO    Thread-12 :502197 [dir_watcher.py:_on_file_modified():295] file/dir modified: /home/priparashar/Development/slap_stretch/home-robot/projects/slap_manipulation/wandb/run-20230504_173653-s2piks8i/files/wandb-summary.json
+2023-05-04 17:37:41,190 DEBUG   HandlerThread:502197 [handler.py:handle_request():144] handle_request: status_report
+2023-05-04 17:37:41,577 INFO    Thread-12 :502197 [dir_watcher.py:_on_file_modified():295] file/dir modified: /home/priparashar/Development/slap_stretch/home-robot/projects/slap_manipulation/wandb/run-20230504_173653-s2piks8i/files/output.log
+2023-05-04 17:37:41,988 DEBUG   HandlerThread:502197 [handler.py:handle_request():144] handle_request: partial_history
+2023-05-04 17:37:42,005 DEBUG   SenderThread:502197 [sender.py:send():375] send: history
+2023-05-04 17:37:42,005 DEBUG   SenderThread:502197 [sender.py:send_request():402] send_request: summary_record
+2023-05-04 17:37:42,005 INFO    SenderThread:502197 [sender.py:_save_file():1378] saving file wandb-summary.json with policy end
+2023-05-04 17:37:42,577 INFO    Thread-12 :502197 [dir_watcher.py:_on_file_modified():295] file/dir modified: /home/priparashar/Development/slap_stretch/home-robot/projects/slap_manipulation/wandb/run-20230504_173653-s2piks8i/files/output.log
+2023-05-04 17:37:42,577 INFO    Thread-12 :502197 [dir_watcher.py:_on_file_modified():295] file/dir modified: /home/priparashar/Development/slap_stretch/home-robot/projects/slap_manipulation/wandb/run-20230504_173653-s2piks8i/files/wandb-summary.json
+2023-05-04 17:37:43,398 DEBUG   HandlerThread:502197 [handler.py:handle_request():144] handle_request: partial_history
+2023-05-04 17:37:43,401 DEBUG   SenderThread:502197 [sender.py:send():375] send: history
+2023-05-04 17:37:43,401 DEBUG   SenderThread:502197 [sender.py:send_request():402] send_request: summary_record
+2023-05-04 17:37:43,401 INFO    SenderThread:502197 [sender.py:_save_file():1378] saving file wandb-summary.json with policy end
+2023-05-04 17:37:43,578 INFO    Thread-12 :502197 [dir_watcher.py:_on_file_modified():295] file/dir modified: /home/priparashar/Development/slap_stretch/home-robot/projects/slap_manipulation/wandb/run-20230504_173653-s2piks8i/files/output.log
+2023-05-04 17:37:43,578 INFO    Thread-12 :502197 [dir_watcher.py:_on_file_modified():295] file/dir modified: /home/priparashar/Development/slap_stretch/home-robot/projects/slap_manipulation/wandb/run-20230504_173653-s2piks8i/files/wandb-summary.json
+2023-05-04 17:37:44,578 INFO    Thread-12 :502197 [dir_watcher.py:_on_file_modified():295] file/dir modified: /home/priparashar/Development/slap_stretch/home-robot/projects/slap_manipulation/wandb/run-20230504_173653-s2piks8i/files/output.log
+2023-05-04 17:37:44,859 DEBUG   HandlerThread:502197 [handler.py:handle_request():144] handle_request: partial_history
+2023-05-04 17:37:44,860 DEBUG   SenderThread:502197 [sender.py:send():375] send: history
+2023-05-04 17:37:44,860 DEBUG   SenderThread:502197 [sender.py:send_request():402] send_request: summary_record
+2023-05-04 17:37:44,861 INFO    SenderThread:502197 [sender.py:_save_file():1378] saving file wandb-summary.json with policy end
+2023-05-04 17:37:45,109 DEBUG   HandlerThread:502197 [handler.py:handle_request():144] handle_request: stop_status
+2023-05-04 17:37:45,110 DEBUG   SenderThread:502197 [sender.py:send_request():402] send_request: stop_status
+2023-05-04 17:37:45,578 INFO    Thread-12 :502197 [dir_watcher.py:_on_file_modified():295] file/dir modified: /home/priparashar/Development/slap_stretch/home-robot/projects/slap_manipulation/wandb/run-20230504_173653-s2piks8i/files/output.log
+2023-05-04 17:37:45,579 INFO    Thread-12 :502197 [dir_watcher.py:_on_file_modified():295] file/dir modified: /home/priparashar/Development/slap_stretch/home-robot/projects/slap_manipulation/wandb/run-20230504_173653-s2piks8i/files/wandb-summary.json
+2023-05-04 17:37:46,227 DEBUG   HandlerThread:502197 [handler.py:handle_request():144] handle_request: status_report
+2023-05-04 17:37:46,579 INFO    Thread-12 :502197 [dir_watcher.py:_on_file_modified():295] file/dir modified: /home/priparashar/Development/slap_stretch/home-robot/projects/slap_manipulation/wandb/run-20230504_173653-s2piks8i/files/output.log
+2023-05-04 17:37:46,856 DEBUG   HandlerThread:502197 [handler.py:handle_request():144] handle_request: partial_history
+2023-05-04 17:37:46,868 DEBUG   SenderThread:502197 [sender.py:send():375] send: history
+2023-05-04 17:37:46,869 DEBUG   SenderThread:502197 [sender.py:send_request():402] send_request: summary_record
+2023-05-04 17:37:46,869 INFO    SenderThread:502197 [sender.py:_save_file():1378] saving file wandb-summary.json with policy end
+2023-05-04 17:37:47,579 INFO    Thread-12 :502197 [dir_watcher.py:_on_file_modified():295] file/dir modified: /home/priparashar/Development/slap_stretch/home-robot/projects/slap_manipulation/wandb/run-20230504_173653-s2piks8i/files/output.log
+2023-05-04 17:37:47,579 INFO    Thread-12 :502197 [dir_watcher.py:_on_file_modified():295] file/dir modified: /home/priparashar/Development/slap_stretch/home-robot/projects/slap_manipulation/wandb/run-20230504_173653-s2piks8i/files/wandb-summary.json
+2023-05-04 17:37:48,579 INFO    Thread-12 :502197 [dir_watcher.py:_on_file_modified():295] file/dir modified: /home/priparashar/Development/slap_stretch/home-robot/projects/slap_manipulation/wandb/run-20230504_173653-s2piks8i/files/output.log
+2023-05-04 17:37:48,809 DEBUG   HandlerThread:502197 [handler.py:handle_request():144] handle_request: partial_history
+2023-05-04 17:37:48,810 DEBUG   SenderThread:502197 [sender.py:send():375] send: history
+2023-05-04 17:37:48,810 DEBUG   SenderThread:502197 [sender.py:send_request():402] send_request: summary_record
+2023-05-04 17:37:48,810 INFO    SenderThread:502197 [sender.py:_save_file():1378] saving file wandb-summary.json with policy end
+2023-05-04 17:37:49,580 INFO    Thread-12 :502197 [dir_watcher.py:_on_file_modified():295] file/dir modified: /home/priparashar/Development/slap_stretch/home-robot/projects/slap_manipulation/wandb/run-20230504_173653-s2piks8i/files/output.log
+2023-05-04 17:37:49,580 INFO    Thread-12 :502197 [dir_watcher.py:_on_file_modified():295] file/dir modified: /home/priparashar/Development/slap_stretch/home-robot/projects/slap_manipulation/wandb/run-20230504_173653-s2piks8i/files/wandb-summary.json
+2023-05-04 17:37:50,580 INFO    Thread-12 :502197 [dir_watcher.py:_on_file_modified():295] file/dir modified: /home/priparashar/Development/slap_stretch/home-robot/projects/slap_manipulation/wandb/run-20230504_173653-s2piks8i/files/output.log
+2023-05-04 17:37:50,815 DEBUG   HandlerThread:502197 [handler.py:handle_request():144] handle_request: partial_history
+2023-05-04 17:37:50,815 DEBUG   SenderThread:502197 [sender.py:send():375] send: history
+2023-05-04 17:37:50,815 DEBUG   SenderThread:502197 [sender.py:send_request():402] send_request: summary_record
+2023-05-04 17:37:50,816 INFO    SenderThread:502197 [sender.py:_save_file():1378] saving file wandb-summary.json with policy end
+2023-05-04 17:37:51,418 DEBUG   HandlerThread:502197 [handler.py:handle_request():144] handle_request: status_report
+2023-05-04 17:37:51,580 INFO    Thread-12 :502197 [dir_watcher.py:_on_file_modified():295] file/dir modified: /home/priparashar/Development/slap_stretch/home-robot/projects/slap_manipulation/wandb/run-20230504_173653-s2piks8i/files/output.log
+2023-05-04 17:37:51,580 INFO    Thread-12 :502197 [dir_watcher.py:_on_file_modified():295] file/dir modified: /home/priparashar/Development/slap_stretch/home-robot/projects/slap_manipulation/wandb/run-20230504_173653-s2piks8i/files/wandb-summary.json
+2023-05-04 17:37:52,188 DEBUG   HandlerThread:502197 [handler.py:handle_request():144] handle_request: partial_history
+2023-05-04 17:37:52,204 DEBUG   SenderThread:502197 [sender.py:send():375] send: history
+2023-05-04 17:37:52,204 DEBUG   SenderThread:502197 [sender.py:send_request():402] send_request: summary_record
+2023-05-04 17:37:52,205 INFO    SenderThread:502197 [sender.py:_save_file():1378] saving file wandb-summary.json with policy end
+2023-05-04 17:37:52,580 INFO    Thread-12 :502197 [dir_watcher.py:_on_file_modified():295] file/dir modified: /home/priparashar/Development/slap_stretch/home-robot/projects/slap_manipulation/wandb/run-20230504_173653-s2piks8i/files/output.log
+2023-05-04 17:37:52,581 INFO    Thread-12 :502197 [dir_watcher.py:_on_file_modified():295] file/dir modified: /home/priparashar/Development/slap_stretch/home-robot/projects/slap_manipulation/wandb/run-20230504_173653-s2piks8i/files/wandb-summary.json
+2023-05-04 17:37:53,581 INFO    Thread-12 :502197 [dir_watcher.py:_on_file_modified():295] file/dir modified: /home/priparashar/Development/slap_stretch/home-robot/projects/slap_manipulation/wandb/run-20230504_173653-s2piks8i/files/output.log
+2023-05-04 17:37:53,697 DEBUG   SystemMonitor:502197 [system_monitor.py:_start():159] Starting system metrics aggregation loop
+2023-05-04 17:37:53,698 DEBUG   SenderThread:502197 [sender.py:send():375] send: stats
+2023-05-04 17:37:54,138 DEBUG   HandlerThread:502197 [handler.py:handle_request():144] handle_request: partial_history
+2023-05-04 17:37:54,139 DEBUG   SenderThread:502197 [sender.py:send():375] send: history
+2023-05-04 17:37:54,139 DEBUG   SenderThread:502197 [sender.py:send_request():402] send_request: summary_record
+2023-05-04 17:37:54,140 INFO    SenderThread:502197 [sender.py:_save_file():1378] saving file wandb-summary.json with policy end
+2023-05-04 17:37:54,581 INFO    Thread-12 :502197 [dir_watcher.py:_on_file_modified():295] file/dir modified: /home/priparashar/Development/slap_stretch/home-robot/projects/slap_manipulation/wandb/run-20230504_173653-s2piks8i/files/output.log
+2023-05-04 17:37:54,581 INFO    Thread-12 :502197 [dir_watcher.py:_on_file_modified():295] file/dir modified: /home/priparashar/Development/slap_stretch/home-robot/projects/slap_manipulation/wandb/run-20230504_173653-s2piks8i/files/wandb-summary.json
+2023-05-04 17:37:55,581 INFO    Thread-12 :502197 [dir_watcher.py:_on_file_modified():295] file/dir modified: /home/priparashar/Development/slap_stretch/home-robot/projects/slap_manipulation/wandb/run-20230504_173653-s2piks8i/files/output.log
+2023-05-04 17:37:56,127 DEBUG   HandlerThread:502197 [handler.py:handle_request():144] handle_request: partial_history
+2023-05-04 17:37:56,127 DEBUG   SenderThread:502197 [sender.py:send():375] send: history
+2023-05-04 17:37:56,127 DEBUG   SenderThread:502197 [sender.py:send_request():402] send_request: summary_record
+2023-05-04 17:37:56,128 INFO    SenderThread:502197 [sender.py:_save_file():1378] saving file wandb-summary.json with policy end
+2023-05-04 17:37:56,582 INFO    Thread-12 :502197 [dir_watcher.py:_on_file_modified():295] file/dir modified: /home/priparashar/Development/slap_stretch/home-robot/projects/slap_manipulation/wandb/run-20230504_173653-s2piks8i/files/output.log
+2023-05-04 17:37:56,582 INFO    Thread-12 :502197 [dir_watcher.py:_on_file_modified():295] file/dir modified: /home/priparashar/Development/slap_stretch/home-robot/projects/slap_manipulation/wandb/run-20230504_173653-s2piks8i/files/wandb-summary.json
+2023-05-04 17:37:56,881 DEBUG   HandlerThread:502197 [handler.py:handle_request():144] handle_request: status_report
+2023-05-04 17:37:57,582 INFO    Thread-12 :502197 [dir_watcher.py:_on_file_modified():295] file/dir modified: /home/priparashar/Development/slap_stretch/home-robot/projects/slap_manipulation/wandb/run-20230504_173653-s2piks8i/files/output.log
+2023-05-04 17:37:58,128 DEBUG   HandlerThread:502197 [handler.py:handle_request():144] handle_request: partial_history
+2023-05-04 17:37:58,128 DEBUG   SenderThread:502197 [sender.py:send():375] send: history
+2023-05-04 17:37:58,129 DEBUG   SenderThread:502197 [sender.py:send_request():402] send_request: summary_record
+2023-05-04 17:37:58,129 INFO    SenderThread:502197 [sender.py:_save_file():1378] saving file wandb-summary.json with policy end
+2023-05-04 17:37:58,582 INFO    Thread-12 :502197 [dir_watcher.py:_on_file_modified():295] file/dir modified: /home/priparashar/Development/slap_stretch/home-robot/projects/slap_manipulation/wandb/run-20230504_173653-s2piks8i/files/output.log
+2023-05-04 17:37:58,582 INFO    Thread-12 :502197 [dir_watcher.py:_on_file_modified():295] file/dir modified: /home/priparashar/Development/slap_stretch/home-robot/projects/slap_manipulation/wandb/run-20230504_173653-s2piks8i/files/wandb-summary.json
+2023-05-04 17:37:59,583 INFO    Thread-12 :502197 [dir_watcher.py:_on_file_modified():295] file/dir modified: /home/priparashar/Development/slap_stretch/home-robot/projects/slap_manipulation/wandb/run-20230504_173653-s2piks8i/files/output.log
+2023-05-04 17:38:00,110 DEBUG   HandlerThread:502197 [handler.py:handle_request():144] handle_request: stop_status
+2023-05-04 17:38:00,111 DEBUG   SenderThread:502197 [sender.py:send_request():402] send_request: stop_status
+2023-05-04 17:38:00,228 DEBUG   HandlerThread:502197 [handler.py:handle_request():144] handle_request: partial_history
+2023-05-04 17:38:00,229 DEBUG   SenderThread:502197 [sender.py:send():375] send: history
+2023-05-04 17:38:00,229 DEBUG   SenderThread:502197 [sender.py:send_request():402] send_request: summary_record
+2023-05-04 17:38:00,229 INFO    SenderThread:502197 [sender.py:_save_file():1378] saving file wandb-summary.json with policy end
+2023-05-04 17:38:00,583 INFO    Thread-12 :502197 [dir_watcher.py:_on_file_modified():295] file/dir modified: /home/priparashar/Development/slap_stretch/home-robot/projects/slap_manipulation/wandb/run-20230504_173653-s2piks8i/files/output.log
+2023-05-04 17:38:00,583 INFO    Thread-12 :502197 [dir_watcher.py:_on_file_modified():295] file/dir modified: /home/priparashar/Development/slap_stretch/home-robot/projects/slap_manipulation/wandb/run-20230504_173653-s2piks8i/files/wandb-summary.json
+2023-05-04 17:38:01,564 DEBUG   HandlerThread:502197 [handler.py:handle_request():144] handle_request: partial_history
+2023-05-04 17:38:01,568 DEBUG   SenderThread:502197 [sender.py:send():375] send: history
+2023-05-04 17:38:01,568 DEBUG   SenderThread:502197 [sender.py:send_request():402] send_request: summary_record
+2023-05-04 17:38:01,568 INFO    SenderThread:502197 [sender.py:_save_file():1378] saving file wandb-summary.json with policy end
+2023-05-04 17:38:01,583 INFO    Thread-12 :502197 [dir_watcher.py:_on_file_modified():295] file/dir modified: /home/priparashar/Development/slap_stretch/home-robot/projects/slap_manipulation/wandb/run-20230504_173653-s2piks8i/files/output.log
+2023-05-04 17:38:01,583 INFO    Thread-12 :502197 [dir_watcher.py:_on_file_modified():295] file/dir modified: /home/priparashar/Development/slap_stretch/home-robot/projects/slap_manipulation/wandb/run-20230504_173653-s2piks8i/files/wandb-summary.json
+2023-05-04 17:38:02,404 DEBUG   HandlerThread:502197 [handler.py:handle_request():144] handle_request: status_report
+2023-05-04 17:38:02,583 INFO    Thread-12 :502197 [dir_watcher.py:_on_file_modified():295] file/dir modified: /home/priparashar/Development/slap_stretch/home-robot/projects/slap_manipulation/wandb/run-20230504_173653-s2piks8i/files/output.log
+2023-05-04 17:38:03,225 DEBUG   HandlerThread:502197 [handler.py:handle_request():144] handle_request: partial_history
+2023-05-04 17:38:03,241 DEBUG   SenderThread:502197 [sender.py:send():375] send: history
+2023-05-04 17:38:03,241 DEBUG   SenderThread:502197 [sender.py:send_request():402] send_request: summary_record
+2023-05-04 17:38:03,241 INFO    SenderThread:502197 [sender.py:_save_file():1378] saving file wandb-summary.json with policy end
+2023-05-04 17:38:03,584 INFO    Thread-12 :502197 [dir_watcher.py:_on_file_modified():295] file/dir modified: /home/priparashar/Development/slap_stretch/home-robot/projects/slap_manipulation/wandb/run-20230504_173653-s2piks8i/files/output.log
+2023-05-04 17:38:03,584 INFO    Thread-12 :502197 [dir_watcher.py:_on_file_modified():295] file/dir modified: /home/priparashar/Development/slap_stretch/home-robot/projects/slap_manipulation/wandb/run-20230504_173653-s2piks8i/files/wandb-summary.json
+2023-05-04 17:38:04,584 INFO    Thread-12 :502197 [dir_watcher.py:_on_file_modified():295] file/dir modified: /home/priparashar/Development/slap_stretch/home-robot/projects/slap_manipulation/wandb/run-20230504_173653-s2piks8i/files/output.log
+2023-05-04 17:38:05,273 DEBUG   HandlerThread:502197 [handler.py:handle_request():144] handle_request: partial_history
+2023-05-04 17:38:05,274 DEBUG   SenderThread:502197 [sender.py:send():375] send: history
+2023-05-04 17:38:05,274 DEBUG   SenderThread:502197 [sender.py:send_request():402] send_request: summary_record
+2023-05-04 17:38:05,275 INFO    SenderThread:502197 [sender.py:_save_file():1378] saving file wandb-summary.json with policy end
+2023-05-04 17:38:05,584 INFO    Thread-12 :502197 [dir_watcher.py:_on_file_modified():295] file/dir modified: /home/priparashar/Development/slap_stretch/home-robot/projects/slap_manipulation/wandb/run-20230504_173653-s2piks8i/files/output.log
+2023-05-04 17:38:05,585 INFO    Thread-12 :502197 [dir_watcher.py:_on_file_modified():295] file/dir modified: /home/priparashar/Development/slap_stretch/home-robot/projects/slap_manipulation/wandb/run-20230504_173653-s2piks8i/files/wandb-summary.json
+2023-05-04 17:38:06,585 INFO    Thread-12 :502197 [dir_watcher.py:_on_file_modified():295] file/dir modified: /home/priparashar/Development/slap_stretch/home-robot/projects/slap_manipulation/wandb/run-20230504_173653-s2piks8i/files/output.log
+2023-05-04 17:38:07,285 DEBUG   HandlerThread:502197 [handler.py:handle_request():144] handle_request: partial_history
+2023-05-04 17:38:07,287 DEBUG   SenderThread:502197 [sender.py:send():375] send: history
+2023-05-04 17:38:07,287 DEBUG   SenderThread:502197 [sender.py:send_request():402] send_request: summary_record
+2023-05-04 17:38:07,287 INFO    SenderThread:502197 [sender.py:_save_file():1378] saving file wandb-summary.json with policy end
+2023-05-04 17:38:07,426 DEBUG   HandlerThread:502197 [handler.py:handle_request():144] handle_request: status_report
+2023-05-04 17:38:07,585 INFO    Thread-12 :502197 [dir_watcher.py:_on_file_modified():295] file/dir modified: /home/priparashar/Development/slap_stretch/home-robot/projects/slap_manipulation/wandb/run-20230504_173653-s2piks8i/files/output.log
+2023-05-04 17:38:07,585 INFO    Thread-12 :502197 [dir_watcher.py:_on_file_modified():295] file/dir modified: /home/priparashar/Development/slap_stretch/home-robot/projects/slap_manipulation/wandb/run-20230504_173653-s2piks8i/files/wandb-summary.json
+2023-05-04 17:38:08,585 INFO    Thread-12 :502197 [dir_watcher.py:_on_file_modified():295] file/dir modified: /home/priparashar/Development/slap_stretch/home-robot/projects/slap_manipulation/wandb/run-20230504_173653-s2piks8i/files/output.log
+2023-05-04 17:38:08,639 DEBUG   HandlerThread:502197 [handler.py:handle_request():144] handle_request: partial_history
+2023-05-04 17:38:08,654 DEBUG   SenderThread:502197 [sender.py:send():375] send: history
+2023-05-04 17:38:08,654 DEBUG   SenderThread:502197 [sender.py:send_request():402] send_request: summary_record
+2023-05-04 17:38:08,654 INFO    SenderThread:502197 [sender.py:_save_file():1378] saving file wandb-summary.json with policy end
+2023-05-04 17:38:09,586 INFO    Thread-12 :502197 [dir_watcher.py:_on_file_modified():295] file/dir modified: /home/priparashar/Development/slap_stretch/home-robot/projects/slap_manipulation/wandb/run-20230504_173653-s2piks8i/files/output.log
+2023-05-04 17:38:09,586 INFO    Thread-12 :502197 [dir_watcher.py:_on_file_modified():295] file/dir modified: /home/priparashar/Development/slap_stretch/home-robot/projects/slap_manipulation/wandb/run-20230504_173653-s2piks8i/files/wandb-summary.json
+2023-05-04 17:38:10,586 INFO    Thread-12 :502197 [dir_watcher.py:_on_file_modified():295] file/dir modified: /home/priparashar/Development/slap_stretch/home-robot/projects/slap_manipulation/wandb/run-20230504_173653-s2piks8i/files/output.log
+2023-05-04 17:38:10,661 DEBUG   HandlerThread:502197 [handler.py:handle_request():144] handle_request: partial_history
+2023-05-04 17:38:10,661 DEBUG   SenderThread:502197 [sender.py:send():375] send: history
+2023-05-04 17:38:10,662 DEBUG   SenderThread:502197 [sender.py:send_request():402] send_request: summary_record
+2023-05-04 17:38:10,662 INFO    SenderThread:502197 [sender.py:_save_file():1378] saving file wandb-summary.json with policy end
+2023-05-04 17:38:11,586 INFO    Thread-12 :502197 [dir_watcher.py:_on_file_modified():295] file/dir modified: /home/priparashar/Development/slap_stretch/home-robot/projects/slap_manipulation/wandb/run-20230504_173653-s2piks8i/files/output.log
+2023-05-04 17:38:11,587 INFO    Thread-12 :502197 [dir_watcher.py:_on_file_modified():295] file/dir modified: /home/priparashar/Development/slap_stretch/home-robot/projects/slap_manipulation/wandb/run-20230504_173653-s2piks8i/files/wandb-summary.json
+2023-05-04 17:38:12,472 DEBUG   HandlerThread:502197 [handler.py:handle_request():144] handle_request: status_report
+2023-05-04 17:38:12,587 INFO    Thread-12 :502197 [dir_watcher.py:_on_file_modified():295] file/dir modified: /home/priparashar/Development/slap_stretch/home-robot/projects/slap_manipulation/wandb/run-20230504_173653-s2piks8i/files/output.log
+2023-05-04 17:38:12,659 DEBUG   HandlerThread:502197 [handler.py:handle_request():144] handle_request: partial_history
+2023-05-04 17:38:12,661 DEBUG   SenderThread:502197 [sender.py:send():375] send: history
+2023-05-04 17:38:12,661 DEBUG   SenderThread:502197 [sender.py:send_request():402] send_request: summary_record
+2023-05-04 17:38:12,662 INFO    SenderThread:502197 [sender.py:_save_file():1378] saving file wandb-summary.json with policy end
+2023-05-04 17:38:13,587 INFO    Thread-12 :502197 [dir_watcher.py:_on_file_modified():295] file/dir modified: /home/priparashar/Development/slap_stretch/home-robot/projects/slap_manipulation/wandb/run-20230504_173653-s2piks8i/files/output.log
+2023-05-04 17:38:13,587 INFO    Thread-12 :502197 [dir_watcher.py:_on_file_modified():295] file/dir modified: /home/priparashar/Development/slap_stretch/home-robot/projects/slap_manipulation/wandb/run-20230504_173653-s2piks8i/files/wandb-summary.json
+2023-05-04 17:38:14,587 INFO    Thread-12 :502197 [dir_watcher.py:_on_file_modified():295] file/dir modified: /home/priparashar/Development/slap_stretch/home-robot/projects/slap_manipulation/wandb/run-20230504_173653-s2piks8i/files/output.log
+2023-05-04 17:38:14,617 DEBUG   HandlerThread:502197 [handler.py:handle_request():144] handle_request: partial_history
+2023-05-04 17:38:14,622 DEBUG   SenderThread:502197 [sender.py:send():375] send: history
+2023-05-04 17:38:14,622 DEBUG   SenderThread:502197 [sender.py:send_request():402] send_request: summary_record
+2023-05-04 17:38:14,622 INFO    SenderThread:502197 [sender.py:_save_file():1378] saving file wandb-summary.json with policy end
+2023-05-04 17:38:15,110 DEBUG   HandlerThread:502197 [handler.py:handle_request():144] handle_request: stop_status
+2023-05-04 17:38:15,110 DEBUG   SenderThread:502197 [sender.py:send_request():402] send_request: stop_status
+2023-05-04 17:38:15,588 INFO    Thread-12 :502197 [dir_watcher.py:_on_file_modified():295] file/dir modified: /home/priparashar/Development/slap_stretch/home-robot/projects/slap_manipulation/wandb/run-20230504_173653-s2piks8i/files/output.log
+2023-05-04 17:38:15,588 INFO    Thread-12 :502197 [dir_watcher.py:_on_file_modified():295] file/dir modified: /home/priparashar/Development/slap_stretch/home-robot/projects/slap_manipulation/wandb/run-20230504_173653-s2piks8i/files/wandb-summary.json
+2023-05-04 17:38:16,025 DEBUG   HandlerThread:502197 [handler.py:handle_request():144] handle_request: partial_history
+2023-05-04 17:38:16,026 DEBUG   SenderThread:502197 [sender.py:send():375] send: history
+2023-05-04 17:38:16,026 DEBUG   SenderThread:502197 [sender.py:send_request():402] send_request: summary_record
+2023-05-04 17:38:16,027 INFO    SenderThread:502197 [sender.py:_save_file():1378] saving file wandb-summary.json with policy end
+2023-05-04 17:38:16,588 INFO    Thread-12 :502197 [dir_watcher.py:_on_file_modified():295] file/dir modified: /home/priparashar/Development/slap_stretch/home-robot/projects/slap_manipulation/wandb/run-20230504_173653-s2piks8i/files/output.log
+2023-05-04 17:38:16,588 INFO    Thread-12 :502197 [dir_watcher.py:_on_file_modified():295] file/dir modified: /home/priparashar/Development/slap_stretch/home-robot/projects/slap_manipulation/wandb/run-20230504_173653-s2piks8i/files/wandb-summary.json
+2023-05-04 17:38:17,474 DEBUG   HandlerThread:502197 [handler.py:handle_request():144] handle_request: status_report
+2023-05-04 17:38:17,588 INFO    Thread-12 :502197 [dir_watcher.py:_on_file_modified():295] file/dir modified: /home/priparashar/Development/slap_stretch/home-robot/projects/slap_manipulation/wandb/run-20230504_173653-s2piks8i/files/output.log
+2023-05-04 17:38:18,064 DEBUG   HandlerThread:502197 [handler.py:handle_request():144] handle_request: partial_history
+2023-05-04 17:38:18,064 DEBUG   SenderThread:502197 [sender.py:send():375] send: history
+2023-05-04 17:38:18,065 DEBUG   SenderThread:502197 [sender.py:send_request():402] send_request: summary_record
+2023-05-04 17:38:18,065 INFO    SenderThread:502197 [sender.py:_save_file():1378] saving file wandb-summary.json with policy end
+2023-05-04 17:38:18,588 INFO    Thread-12 :502197 [dir_watcher.py:_on_file_modified():295] file/dir modified: /home/priparashar/Development/slap_stretch/home-robot/projects/slap_manipulation/wandb/run-20230504_173653-s2piks8i/files/output.log
+2023-05-04 17:38:18,589 INFO    Thread-12 :502197 [dir_watcher.py:_on_file_modified():295] file/dir modified: /home/priparashar/Development/slap_stretch/home-robot/projects/slap_manipulation/wandb/run-20230504_173653-s2piks8i/files/wandb-summary.json
+2023-05-04 17:38:19,432 DEBUG   HandlerThread:502197 [handler.py:handle_request():144] handle_request: partial_history
+2023-05-04 17:38:19,435 DEBUG   SenderThread:502197 [sender.py:send():375] send: history
+2023-05-04 17:38:19,435 DEBUG   SenderThread:502197 [sender.py:send_request():402] send_request: summary_record
+2023-05-04 17:38:19,435 INFO    SenderThread:502197 [sender.py:_save_file():1378] saving file wandb-summary.json with policy end
+2023-05-04 17:38:19,589 INFO    Thread-12 :502197 [dir_watcher.py:_on_file_modified():295] file/dir modified: /home/priparashar/Development/slap_stretch/home-robot/projects/slap_manipulation/wandb/run-20230504_173653-s2piks8i/files/output.log
+2023-05-04 17:38:19,589 INFO    Thread-12 :502197 [dir_watcher.py:_on_file_modified():295] file/dir modified: /home/priparashar/Development/slap_stretch/home-robot/projects/slap_manipulation/wandb/run-20230504_173653-s2piks8i/files/wandb-summary.json
+2023-05-04 17:38:20,589 INFO    Thread-12 :502197 [dir_watcher.py:_on_file_modified():295] file/dir modified: /home/priparashar/Development/slap_stretch/home-robot/projects/slap_manipulation/wandb/run-20230504_173653-s2piks8i/files/output.log
+2023-05-04 17:38:20,809 DEBUG   HandlerThread:502197 [handler.py:handle_request():144] handle_request: partial_history
+2023-05-04 17:38:20,809 DEBUG   SenderThread:502197 [sender.py:send():375] send: history
+2023-05-04 17:38:20,809 DEBUG   SenderThread:502197 [sender.py:send_request():402] send_request: summary_record
+2023-05-04 17:38:20,810 INFO    SenderThread:502197 [sender.py:_save_file():1378] saving file wandb-summary.json with policy end
+2023-05-04 17:38:21,589 INFO    Thread-12 :502197 [dir_watcher.py:_on_file_modified():295] file/dir modified: /home/priparashar/Development/slap_stretch/home-robot/projects/slap_manipulation/wandb/run-20230504_173653-s2piks8i/files/output.log
+2023-05-04 17:38:21,589 INFO    Thread-12 :502197 [dir_watcher.py:_on_file_modified():295] file/dir modified: /home/priparashar/Development/slap_stretch/home-robot/projects/slap_manipulation/wandb/run-20230504_173653-s2piks8i/files/wandb-summary.json
+2023-05-04 17:38:22,590 INFO    Thread-12 :502197 [dir_watcher.py:_on_file_modified():295] file/dir modified: /home/priparashar/Development/slap_stretch/home-robot/projects/slap_manipulation/wandb/run-20230504_173653-s2piks8i/files/output.log
+2023-05-04 17:38:22,616 DEBUG   HandlerThread:502197 [handler.py:handle_request():144] handle_request: status_report
+2023-05-04 17:38:22,806 DEBUG   HandlerThread:502197 [handler.py:handle_request():144] handle_request: partial_history
+2023-05-04 17:38:22,806 DEBUG   SenderThread:502197 [sender.py:send():375] send: history
+2023-05-04 17:38:22,806 DEBUG   SenderThread:502197 [sender.py:send_request():402] send_request: summary_record
+2023-05-04 17:38:22,807 INFO    SenderThread:502197 [sender.py:_save_file():1378] saving file wandb-summary.json with policy end
+2023-05-04 17:38:23,590 INFO    Thread-12 :502197 [dir_watcher.py:_on_file_modified():295] file/dir modified: /home/priparashar/Development/slap_stretch/home-robot/projects/slap_manipulation/wandb/run-20230504_173653-s2piks8i/files/output.log
+2023-05-04 17:38:23,590 INFO    Thread-12 :502197 [dir_watcher.py:_on_file_modified():295] file/dir modified: /home/priparashar/Development/slap_stretch/home-robot/projects/slap_manipulation/wandb/run-20230504_173653-s2piks8i/files/wandb-summary.json
+2023-05-04 17:38:23,699 DEBUG   SenderThread:502197 [sender.py:send():375] send: stats
+2023-05-04 17:38:24,590 INFO    Thread-12 :502197 [dir_watcher.py:_on_file_modified():295] file/dir modified: /home/priparashar/Development/slap_stretch/home-robot/projects/slap_manipulation/wandb/run-20230504_173653-s2piks8i/files/output.log
+2023-05-04 17:38:24,782 DEBUG   HandlerThread:502197 [handler.py:handle_request():144] handle_request: partial_history
+2023-05-04 17:38:24,800 DEBUG   SenderThread:502197 [sender.py:send():375] send: history
+2023-05-04 17:38:24,800 DEBUG   SenderThread:502197 [sender.py:send_request():402] send_request: summary_record
+2023-05-04 17:38:24,800 INFO    SenderThread:502197 [sender.py:_save_file():1378] saving file wandb-summary.json with policy end
+2023-05-04 17:38:25,590 INFO    Thread-12 :502197 [dir_watcher.py:_on_file_modified():295] file/dir modified: /home/priparashar/Development/slap_stretch/home-robot/projects/slap_manipulation/wandb/run-20230504_173653-s2piks8i/files/output.log
+2023-05-04 17:38:25,591 INFO    Thread-12 :502197 [dir_watcher.py:_on_file_modified():295] file/dir modified: /home/priparashar/Development/slap_stretch/home-robot/projects/slap_manipulation/wandb/run-20230504_173653-s2piks8i/files/wandb-summary.json
+2023-05-04 17:38:26,149 DEBUG   HandlerThread:502197 [handler.py:handle_request():144] handle_request: partial_history
+2023-05-04 17:38:26,152 DEBUG   SenderThread:502197 [sender.py:send():375] send: history
+2023-05-04 17:38:26,152 DEBUG   SenderThread:502197 [sender.py:send_request():402] send_request: summary_record
+2023-05-04 17:38:26,152 INFO    SenderThread:502197 [sender.py:_save_file():1378] saving file wandb-summary.json with policy end
+2023-05-04 17:38:26,591 INFO    Thread-12 :502197 [dir_watcher.py:_on_file_modified():295] file/dir modified: /home/priparashar/Development/slap_stretch/home-robot/projects/slap_manipulation/wandb/run-20230504_173653-s2piks8i/files/output.log
+2023-05-04 17:38:26,591 INFO    Thread-12 :502197 [dir_watcher.py:_on_file_modified():295] file/dir modified: /home/priparashar/Development/slap_stretch/home-robot/projects/slap_manipulation/wandb/run-20230504_173653-s2piks8i/files/wandb-summary.json
+2023-05-04 17:38:27,591 INFO    Thread-12 :502197 [dir_watcher.py:_on_file_modified():295] file/dir modified: /home/priparashar/Development/slap_stretch/home-robot/projects/slap_manipulation/wandb/run-20230504_173653-s2piks8i/files/output.log
+2023-05-04 17:38:27,952 DEBUG   HandlerThread:502197 [handler.py:handle_request():144] handle_request: status_report
+2023-05-04 17:38:28,205 DEBUG   HandlerThread:502197 [handler.py:handle_request():144] handle_request: partial_history
+2023-05-04 17:38:28,206 DEBUG   SenderThread:502197 [sender.py:send():375] send: history
+2023-05-04 17:38:28,206 DEBUG   SenderThread:502197 [sender.py:send_request():402] send_request: summary_record
+2023-05-04 17:38:28,206 INFO    SenderThread:502197 [sender.py:_save_file():1378] saving file wandb-summary.json with policy end
+2023-05-04 17:38:28,591 INFO    Thread-12 :502197 [dir_watcher.py:_on_file_modified():295] file/dir modified: /home/priparashar/Development/slap_stretch/home-robot/projects/slap_manipulation/wandb/run-20230504_173653-s2piks8i/files/output.log
+2023-05-04 17:38:28,591 INFO    Thread-12 :502197 [dir_watcher.py:_on_file_modified():295] file/dir modified: /home/priparashar/Development/slap_stretch/home-robot/projects/slap_manipulation/wandb/run-20230504_173653-s2piks8i/files/wandb-summary.json
+2023-05-04 17:38:29,561 DEBUG   HandlerThread:502197 [handler.py:handle_request():144] handle_request: partial_history
+2023-05-04 17:38:29,576 DEBUG   SenderThread:502197 [sender.py:send():375] send: history
+2023-05-04 17:38:29,576 DEBUG   SenderThread:502197 [sender.py:send_request():402] send_request: summary_record
+2023-05-04 17:38:29,577 INFO    SenderThread:502197 [sender.py:_save_file():1378] saving file wandb-summary.json with policy end
+2023-05-04 17:38:29,591 INFO    Thread-12 :502197 [dir_watcher.py:_on_file_modified():295] file/dir modified: /home/priparashar/Development/slap_stretch/home-robot/projects/slap_manipulation/wandb/run-20230504_173653-s2piks8i/files/output.log
+2023-05-04 17:38:29,592 INFO    Thread-12 :502197 [dir_watcher.py:_on_file_modified():295] file/dir modified: /home/priparashar/Development/slap_stretch/home-robot/projects/slap_manipulation/wandb/run-20230504_173653-s2piks8i/files/wandb-summary.json
+2023-05-04 17:38:30,110 DEBUG   HandlerThread:502197 [handler.py:handle_request():144] handle_request: stop_status
+2023-05-04 17:38:30,111 DEBUG   SenderThread:502197 [sender.py:send_request():402] send_request: stop_status
+2023-05-04 17:38:30,592 INFO    Thread-12 :502197 [dir_watcher.py:_on_file_modified():295] file/dir modified: /home/priparashar/Development/slap_stretch/home-robot/projects/slap_manipulation/wandb/run-20230504_173653-s2piks8i/files/output.log
+2023-05-04 17:38:30,961 DEBUG   HandlerThread:502197 [handler.py:handle_request():144] handle_request: partial_history
+2023-05-04 17:38:30,962 DEBUG   SenderThread:502197 [sender.py:send():375] send: history
+2023-05-04 17:38:30,962 DEBUG   SenderThread:502197 [sender.py:send_request():402] send_request: summary_record
+2023-05-04 17:38:30,962 INFO    SenderThread:502197 [sender.py:_save_file():1378] saving file wandb-summary.json with policy end
+2023-05-04 17:38:31,592 INFO    Thread-12 :502197 [dir_watcher.py:_on_file_modified():295] file/dir modified: /home/priparashar/Development/slap_stretch/home-robot/projects/slap_manipulation/wandb/run-20230504_173653-s2piks8i/files/output.log
+2023-05-04 17:38:31,592 INFO    Thread-12 :502197 [dir_watcher.py:_on_file_modified():295] file/dir modified: /home/priparashar/Development/slap_stretch/home-robot/projects/slap_manipulation/wandb/run-20230504_173653-s2piks8i/files/wandb-summary.json
+2023-05-04 17:38:31,768 DEBUG   SenderThread:502197 [sender.py:send():375] send: exit
+2023-05-04 17:38:31,768 INFO    SenderThread:502197 [sender.py:send_exit():598] handling exit code: 0
+2023-05-04 17:38:31,768 INFO    SenderThread:502197 [sender.py:send_exit():600] handling runtime: 98
+2023-05-04 17:38:31,769 INFO    SenderThread:502197 [sender.py:_save_file():1378] saving file wandb-summary.json with policy end
+2023-05-04 17:38:31,769 INFO    SenderThread:502197 [sender.py:send_exit():606] send defer
+2023-05-04 17:38:31,769 DEBUG   HandlerThread:502197 [handler.py:handle_request():144] handle_request: defer
+2023-05-04 17:38:31,769 INFO    HandlerThread:502197 [handler.py:handle_request_defer():170] handle defer: 0
+2023-05-04 17:38:31,769 DEBUG   SenderThread:502197 [sender.py:send_request():402] send_request: defer
+2023-05-04 17:38:31,769 INFO    SenderThread:502197 [sender.py:send_request_defer():622] handle sender defer: 0
+2023-05-04 17:38:31,769 INFO    SenderThread:502197 [sender.py:transition_state():626] send defer: 1
+2023-05-04 17:38:31,769 DEBUG   HandlerThread:502197 [handler.py:handle_request():144] handle_request: defer
+2023-05-04 17:38:31,769 INFO    HandlerThread:502197 [handler.py:handle_request_defer():170] handle defer: 1
+2023-05-04 17:38:31,769 DEBUG   SenderThread:502197 [sender.py:send_request():402] send_request: defer
+2023-05-04 17:38:31,769 INFO    SenderThread:502197 [sender.py:send_request_defer():622] handle sender defer: 1
+2023-05-04 17:38:31,769 INFO    SenderThread:502197 [sender.py:transition_state():626] send defer: 2
+2023-05-04 17:38:31,769 DEBUG   HandlerThread:502197 [handler.py:handle_request():144] handle_request: defer
+2023-05-04 17:38:31,769 INFO    HandlerThread:502197 [handler.py:handle_request_defer():170] handle defer: 2
+2023-05-04 17:38:31,769 INFO    HandlerThread:502197 [system_monitor.py:finish():190] Stopping system monitor
+2023-05-04 17:38:31,770 DEBUG   SystemMonitor:502197 [system_monitor.py:_start():166] Finished system metrics aggregation loop
+2023-05-04 17:38:31,770 DEBUG   SystemMonitor:502197 [system_monitor.py:_start():170] Publishing last batch of metrics
+2023-05-04 17:38:31,771 INFO    HandlerThread:502197 [interfaces.py:finish():202] Joined cpu monitor
+2023-05-04 17:38:31,772 INFO    HandlerThread:502197 [interfaces.py:finish():202] Joined disk monitor
+2023-05-04 17:38:31,830 INFO    HandlerThread:502197 [interfaces.py:finish():202] Joined gpu monitor
+2023-05-04 17:38:31,830 INFO    HandlerThread:502197 [interfaces.py:finish():202] Joined memory monitor
+2023-05-04 17:38:31,831 INFO    HandlerThread:502197 [interfaces.py:finish():202] Joined network monitor
+2023-05-04 17:38:31,831 DEBUG   SenderThread:502197 [sender.py:send_request():402] send_request: defer
+2023-05-04 17:38:31,831 INFO    SenderThread:502197 [sender.py:send_request_defer():622] handle sender defer: 2
+2023-05-04 17:38:31,831 INFO    SenderThread:502197 [sender.py:transition_state():626] send defer: 3
+2023-05-04 17:38:31,831 DEBUG   SenderThread:502197 [sender.py:send():375] send: stats
+2023-05-04 17:38:31,832 DEBUG   HandlerThread:502197 [handler.py:handle_request():144] handle_request: defer
+2023-05-04 17:38:31,832 INFO    HandlerThread:502197 [handler.py:handle_request_defer():170] handle defer: 3
+2023-05-04 17:38:31,832 DEBUG   SenderThread:502197 [sender.py:send_request():402] send_request: defer
+2023-05-04 17:38:31,832 INFO    SenderThread:502197 [sender.py:send_request_defer():622] handle sender defer: 3
+2023-05-04 17:38:31,832 INFO    SenderThread:502197 [sender.py:transition_state():626] send defer: 4
+2023-05-04 17:38:31,832 DEBUG   HandlerThread:502197 [handler.py:handle_request():144] handle_request: defer
+2023-05-04 17:38:31,832 INFO    HandlerThread:502197 [handler.py:handle_request_defer():170] handle defer: 4
+2023-05-04 17:38:31,832 DEBUG   SenderThread:502197 [sender.py:send_request():402] send_request: defer
+2023-05-04 17:38:31,832 INFO    SenderThread:502197 [sender.py:send_request_defer():622] handle sender defer: 4
+2023-05-04 17:38:31,832 INFO    SenderThread:502197 [sender.py:transition_state():626] send defer: 5
+2023-05-04 17:38:31,832 DEBUG   HandlerThread:502197 [handler.py:handle_request():144] handle_request: defer
+2023-05-04 17:38:31,832 INFO    HandlerThread:502197 [handler.py:handle_request_defer():170] handle defer: 5
+2023-05-04 17:38:31,832 DEBUG   SenderThread:502197 [sender.py:send():375] send: summary
+2023-05-04 17:38:31,833 INFO    SenderThread:502197 [sender.py:_save_file():1378] saving file wandb-summary.json with policy end
+2023-05-04 17:38:31,833 DEBUG   SenderThread:502197 [sender.py:send_request():402] send_request: defer
+2023-05-04 17:38:31,833 INFO    SenderThread:502197 [sender.py:send_request_defer():622] handle sender defer: 5
+2023-05-04 17:38:31,833 INFO    SenderThread:502197 [sender.py:transition_state():626] send defer: 6
+2023-05-04 17:38:31,833 DEBUG   HandlerThread:502197 [handler.py:handle_request():144] handle_request: defer
+2023-05-04 17:38:31,833 INFO    HandlerThread:502197 [handler.py:handle_request_defer():170] handle defer: 6
+2023-05-04 17:38:31,833 DEBUG   SenderThread:502197 [sender.py:send_request():402] send_request: defer
+2023-05-04 17:38:31,833 INFO    SenderThread:502197 [sender.py:send_request_defer():622] handle sender defer: 6
+2023-05-04 17:38:31,833 INFO    SenderThread:502197 [sender.py:transition_state():626] send defer: 7
+2023-05-04 17:38:31,833 DEBUG   HandlerThread:502197 [handler.py:handle_request():144] handle_request: status_report
+2023-05-04 17:38:31,833 DEBUG   HandlerThread:502197 [handler.py:handle_request():144] handle_request: defer
+2023-05-04 17:38:31,833 INFO    HandlerThread:502197 [handler.py:handle_request_defer():170] handle defer: 7
+2023-05-04 17:38:31,833 DEBUG   SenderThread:502197 [sender.py:send_request():402] send_request: defer
+2023-05-04 17:38:31,833 INFO    SenderThread:502197 [sender.py:send_request_defer():622] handle sender defer: 7
+2023-05-04 17:38:32,592 INFO    Thread-12 :502197 [dir_watcher.py:_on_file_modified():295] file/dir modified: /home/priparashar/Development/slap_stretch/home-robot/projects/slap_manipulation/wandb/run-20230504_173653-s2piks8i/files/output.log
+2023-05-04 17:38:32,593 INFO    Thread-12 :502197 [dir_watcher.py:_on_file_modified():295] file/dir modified: /home/priparashar/Development/slap_stretch/home-robot/projects/slap_manipulation/wandb/run-20230504_173653-s2piks8i/files/wandb-summary.json
+2023-05-04 17:38:32,768 DEBUG   HandlerThread:502197 [handler.py:handle_request():144] handle_request: poll_exit
+2023-05-04 17:38:33,590 INFO    SenderThread:502197 [sender.py:transition_state():626] send defer: 8
+2023-05-04 17:38:33,590 DEBUG   SenderThread:502197 [sender.py:send_request():402] send_request: poll_exit
+2023-05-04 17:38:33,591 DEBUG   HandlerThread:502197 [handler.py:handle_request():144] handle_request: defer
+2023-05-04 17:38:33,591 INFO    HandlerThread:502197 [handler.py:handle_request_defer():170] handle defer: 8
+2023-05-04 17:38:33,591 DEBUG   SenderThread:502197 [sender.py:send_request():402] send_request: defer
+2023-05-04 17:38:33,591 INFO    SenderThread:502197 [sender.py:send_request_defer():622] handle sender defer: 8
+2023-05-04 17:38:33,593 INFO    Thread-12 :502197 [dir_watcher.py:_on_file_modified():295] file/dir modified: /home/priparashar/Development/slap_stretch/home-robot/projects/slap_manipulation/wandb/run-20230504_173653-s2piks8i/files/output.log
+2023-05-04 17:38:33,610 INFO    SenderThread:502197 [sender.py:transition_state():626] send defer: 9
+2023-05-04 17:38:33,611 DEBUG   HandlerThread:502197 [handler.py:handle_request():144] handle_request: defer
+2023-05-04 17:38:33,611 INFO    HandlerThread:502197 [handler.py:handle_request_defer():170] handle defer: 9
+2023-05-04 17:38:33,611 DEBUG   SenderThread:502197 [sender.py:send():375] send: artifact
+2023-05-04 17:38:33,768 DEBUG   HandlerThread:502197 [handler.py:handle_request():144] handle_request: poll_exit
+2023-05-04 17:38:34,466 INFO    wandb-upload_0:502197 [upload_job.py:push():95] Uploaded file /home/priparashar/.local/share/wandb/artifacts/staging/tmpge6xcnq_
+2023-05-04 17:38:34,466 INFO    wandb-upload_1:502197 [upload_job.py:push():95] Uploaded file /home/priparashar/.local/share/wandb/artifacts/staging/tmpmglawwic
+2023-05-04 17:38:35,274 INFO    SenderThread:502197 [sender.py:send_artifact():1474] sent artifact job-git_github.com_facebookresearch_home-robot.git_projects_sla..lation_src_slap_manipulation_policy_action_prediction_module.py - {'id': 'QXJ0aWZhY3Q6NDQyNDAxNTEz', 'digest': 'd7af6f3e61f24598be260e3457c7bce0', 'state': 'PENDING', 'aliases': [], 'artifactSequence': {'id': 'QXJ0aWZhY3RDb2xsZWN0aW9uOjY2Njc1ODc4', 'latestArtifact': None}, 'version': 'latest'}
+2023-05-04 17:38:35,274 DEBUG   SenderThread:502197 [sender.py:send_request():402] send_request: defer
+2023-05-04 17:38:35,274 INFO    SenderThread:502197 [sender.py:send_request_defer():622] handle sender defer: 9
+2023-05-04 17:38:35,274 INFO    SenderThread:502197 [dir_watcher.py:finish():365] shutting down directory watcher
+2023-05-04 17:38:35,594 INFO    SenderThread:502197 [dir_watcher.py:finish():395] scan: /home/priparashar/Development/slap_stretch/home-robot/projects/slap_manipulation/wandb/run-20230504_173653-s2piks8i/files
+2023-05-04 17:38:35,594 INFO    SenderThread:502197 [dir_watcher.py:finish():409] scan save: /home/priparashar/Development/slap_stretch/home-robot/projects/slap_manipulation/wandb/run-20230504_173653-s2piks8i/files/requirements.txt requirements.txt
+2023-05-04 17:38:35,594 INFO    SenderThread:502197 [dir_watcher.py:finish():409] scan save: /home/priparashar/Development/slap_stretch/home-robot/projects/slap_manipulation/wandb/run-20230504_173653-s2piks8i/files/wandb-summary.json wandb-summary.json
+2023-05-04 17:38:35,594 INFO    SenderThread:502197 [dir_watcher.py:finish():409] scan save: /home/priparashar/Development/slap_stretch/home-robot/projects/slap_manipulation/wandb/run-20230504_173653-s2piks8i/files/wandb-metadata.json wandb-metadata.json
+2023-05-04 17:38:35,594 INFO    SenderThread:502197 [dir_watcher.py:finish():409] scan save: /home/priparashar/Development/slap_stretch/home-robot/projects/slap_manipulation/wandb/run-20230504_173653-s2piks8i/files/conda-environment.yaml conda-environment.yaml
+2023-05-04 17:38:35,594 INFO    SenderThread:502197 [dir_watcher.py:finish():409] scan save: /home/priparashar/Development/slap_stretch/home-robot/projects/slap_manipulation/wandb/run-20230504_173653-s2piks8i/files/config.yaml config.yaml
+2023-05-04 17:38:35,595 INFO    SenderThread:502197 [dir_watcher.py:finish():409] scan save: /home/priparashar/Development/slap_stretch/home-robot/projects/slap_manipulation/wandb/run-20230504_173653-s2piks8i/files/output.log output.log
+2023-05-04 17:38:35,604 INFO    SenderThread:502197 [sender.py:transition_state():626] send defer: 10
+2023-05-04 17:38:35,604 DEBUG   SenderThread:502197 [sender.py:send_request():402] send_request: poll_exit
+2023-05-04 17:38:35,604 DEBUG   HandlerThread:502197 [handler.py:handle_request():144] handle_request: defer
+2023-05-04 17:38:35,604 INFO    HandlerThread:502197 [handler.py:handle_request_defer():170] handle defer: 10
+2023-05-04 17:38:35,607 DEBUG   SenderThread:502197 [sender.py:send_request():402] send_request: defer
+2023-05-04 17:38:35,607 INFO    SenderThread:502197 [sender.py:send_request_defer():622] handle sender defer: 10
+2023-05-04 17:38:35,607 INFO    SenderThread:502197 [file_pusher.py:finish():167] shutting down file pusher
+2023-05-04 17:38:35,896 INFO    wandb-upload_0:502197 [upload_job.py:push():137] Uploaded file /home/priparashar/Development/slap_stretch/home-robot/projects/slap_manipulation/wandb/run-20230504_173653-s2piks8i/files/requirements.txt
+2023-05-04 17:38:36,001 INFO    wandb-upload_1:502197 [upload_job.py:push():137] Uploaded file /home/priparashar/Development/slap_stretch/home-robot/projects/slap_manipulation/wandb/run-20230504_173653-s2piks8i/files/conda-environment.yaml
+2023-05-04 17:38:36,074 INFO    wandb-upload_3:502197 [upload_job.py:push():137] Uploaded file /home/priparashar/Development/slap_stretch/home-robot/projects/slap_manipulation/wandb/run-20230504_173653-s2piks8i/files/config.yaml
+2023-05-04 17:38:36,102 INFO    wandb-upload_2:502197 [upload_job.py:push():137] Uploaded file /home/priparashar/Development/slap_stretch/home-robot/projects/slap_manipulation/wandb/run-20230504_173653-s2piks8i/files/wandb-summary.json
+2023-05-04 17:38:36,112 INFO    wandb-upload_4:502197 [upload_job.py:push():137] Uploaded file /home/priparashar/Development/slap_stretch/home-robot/projects/slap_manipulation/wandb/run-20230504_173653-s2piks8i/files/output.log
+2023-05-04 17:38:36,313 INFO    Thread-11 :502197 [sender.py:transition_state():626] send defer: 11
+2023-05-04 17:38:36,313 DEBUG   HandlerThread:502197 [handler.py:handle_request():144] handle_request: defer
+2023-05-04 17:38:36,313 INFO    HandlerThread:502197 [handler.py:handle_request_defer():170] handle defer: 11
+2023-05-04 17:38:36,313 DEBUG   SenderThread:502197 [sender.py:send_request():402] send_request: defer
+2023-05-04 17:38:36,313 INFO    SenderThread:502197 [sender.py:send_request_defer():622] handle sender defer: 11
+2023-05-04 17:38:36,313 INFO    SenderThread:502197 [file_pusher.py:join():172] waiting for file pusher
+2023-05-04 17:38:36,313 INFO    SenderThread:502197 [sender.py:transition_state():626] send defer: 12
+2023-05-04 17:38:36,314 DEBUG   HandlerThread:502197 [handler.py:handle_request():144] handle_request: defer
+2023-05-04 17:38:36,314 INFO    HandlerThread:502197 [handler.py:handle_request_defer():170] handle defer: 12
+2023-05-04 17:38:36,314 DEBUG   SenderThread:502197 [sender.py:send_request():402] send_request: defer
+2023-05-04 17:38:36,314 INFO    SenderThread:502197 [sender.py:send_request_defer():622] handle sender defer: 12
+2023-05-04 17:38:36,430 INFO    SenderThread:502197 [sender.py:transition_state():626] send defer: 13
+2023-05-04 17:38:36,430 DEBUG   HandlerThread:502197 [handler.py:handle_request():144] handle_request: defer
+2023-05-04 17:38:36,430 INFO    HandlerThread:502197 [handler.py:handle_request_defer():170] handle defer: 13
+2023-05-04 17:38:36,430 DEBUG   SenderThread:502197 [sender.py:send_request():402] send_request: defer
+2023-05-04 17:38:36,430 INFO    SenderThread:502197 [sender.py:send_request_defer():622] handle sender defer: 13
+2023-05-04 17:38:36,430 INFO    SenderThread:502197 [sender.py:transition_state():626] send defer: 14
+2023-05-04 17:38:36,430 DEBUG   HandlerThread:502197 [handler.py:handle_request():144] handle_request: defer
+2023-05-04 17:38:36,431 INFO    HandlerThread:502197 [handler.py:handle_request_defer():170] handle defer: 14
+2023-05-04 17:38:36,431 DEBUG   SenderThread:502197 [sender.py:send():375] send: final
+2023-05-04 17:38:36,431 DEBUG   SenderThread:502197 [sender.py:send():375] send: footer
+2023-05-04 17:38:36,431 DEBUG   SenderThread:502197 [sender.py:send_request():402] send_request: defer
+2023-05-04 17:38:36,431 INFO    SenderThread:502197 [sender.py:send_request_defer():622] handle sender defer: 14
+2023-05-04 17:38:36,432 DEBUG   HandlerThread:502197 [handler.py:handle_request():144] handle_request: poll_exit
+2023-05-04 17:38:36,432 DEBUG   SenderThread:502197 [sender.py:send_request():402] send_request: poll_exit
+2023-05-04 17:38:36,432 DEBUG   HandlerThread:502197 [handler.py:handle_request():144] handle_request: server_info
+2023-05-04 17:38:36,432 DEBUG   SenderThread:502197 [sender.py:send_request():402] send_request: server_info
+2023-05-04 17:38:36,435 DEBUG   HandlerThread:502197 [handler.py:handle_request():144] handle_request: get_summary
+2023-05-04 17:38:36,435 DEBUG   HandlerThread:502197 [handler.py:handle_request():144] handle_request: sampled_history
+2023-05-04 17:38:36,493 INFO    MainThread:502197 [wandb_run.py:_footer_history_summary_info():3469] rendering history
+2023-05-04 17:38:36,494 INFO    MainThread:502197 [wandb_run.py:_footer_history_summary_info():3501] rendering summary
+2023-05-04 17:38:36,494 INFO    MainThread:502197 [wandb_run.py:_footer_sync_info():3428] logging synced files
+2023-05-04 17:38:36,494 DEBUG   HandlerThread:502197 [handler.py:handle_request():144] handle_request: shutdown
+2023-05-04 17:38:36,494 INFO    HandlerThread:502197 [handler.py:finish():845] shutting down handler
+2023-05-04 17:38:37,433 INFO    WriterThread:502197 [datastore.py:close():298] close: /home/priparashar/Development/slap_stretch/home-robot/projects/slap_manipulation/wandb/run-20230504_173653-s2piks8i/run-s2piks8i.wandb
+2023-05-04 17:38:37,493 INFO    SenderThread:502197 [sender.py:finish():1550] shutting down sender
+2023-05-04 17:38:37,493 INFO    SenderThread:502197 [file_pusher.py:finish():167] shutting down file pusher
+2023-05-04 17:38:37,493 INFO    SenderThread:502197 [file_pusher.py:join():172] waiting for file pusher

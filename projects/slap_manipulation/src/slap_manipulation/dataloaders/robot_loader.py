@@ -117,7 +117,7 @@ class RobotDataset(RLBenchDataset):
         data_augmentation=True,
         random_cmd=True,
         first_keypoint_only=False,
-        keypoint_range: list = [0, 1, 2],
+        keypoint_range: Optional[List] = None,
         show_voxelized_input_and_reference=False,
         show_raw_input_and_reference=False,
         show_cropped=False,
@@ -550,30 +550,9 @@ class RobotDataset(RLBenchDataset):
                 target_gripper_state[j] = gripper_state[keypoint]
         else:
             # Pull out gripper state from the sim data
+            for j, keypoint in enumerate(keypoints):
+                all_ee_keyframes.append(self.get_gripper_pose(trial, int(keypoint)))
             target_gripper_state = gripper_state[current_keypoint_idx]
-
-        # create proprio vector
-        if not self.autoregressive:
-            proprio = np.concatenate(
-                (gripper_state[input_idx], gripper_width_array[input_idx], time_step)
-            )
-        else:
-            # proprio is (past_pos, past_quat, past_g, current_g, time)
-            if keypoint_relative_idx == 0:
-                past_pos = np.zeros(3)
-                past_quat = np.zeros(4)
-                past_g = np.array([-1])
-            else:
-                past_pose_mat = self.get_gripper_pose(
-                    trial, int(current_keypoint_idx - 1)
-                )
-                past_pos = past_pose_mat[:3, 3]
-                past_quat = tra.quaternion_from_matrix(past_pose_mat[:3, :3])
-                past_g = gripper_state[current_keypoint_idx - 1]
-            proprio = np.concatenate((past_pos, past_quat, past_g, time_step))
-
-        if verbose:
-            print(f"Proprio: {proprio}")
 
         # get point-cloud in base-frame from the cameras
         rgbs, xyzs = [], []
@@ -666,7 +645,38 @@ class RobotDataset(RLBenchDataset):
         positions, orientations, angles = self.get_commands(
             crop_ee_keyframe, crop_keyframes
         )
+        all_positions, all_orientation, all_angles = self.get_commands(
+            crop_ee_keyframe, crop_keyframes, return_all=True
+        )
         self._assert_positions_match_ee_keyframes(crop_ee_keyframe, positions)
+
+        # create proprio vector
+        if not self.autoregressive:
+            proprio = np.concatenate(
+                (gripper_state[input_idx], gripper_width_array[input_idx], time_step)
+            )
+        else:
+            # proprio is (past_pos, past_quat, past_g, current_g, time)
+            if keypoint_relative_idx == 0:
+                past_pos = 2 * np.ones(3)
+                past_quat = 2 * np.ones(4)
+                past_g = np.array([-1])
+            else:
+                past_pos = all_positions[keypoint_relative_idx - 1]
+                past_quat = all_angles[keypoint_relative_idx - 1]
+                past_g = gripper_state[keypoint_relative_idx - 1]
+            if verbose:
+                print("Showing past-pos and quat")
+                show_point_cloud(
+                    crop_xyz,
+                    crop_rgb,
+                    orig=past_pos.reshape(3, 1),
+                    R=tra.quaternion_matrix(past_quat)[:3, :3],
+                )
+            proprio = np.concatenate((past_pos, past_quat, past_g, time_step))
+
+        if verbose:
+            print(f"Proprio: {proprio}")
 
         if self._visualize_interaction_estimates:
             self.show_interaction_pt_and_keyframe(
@@ -697,10 +707,10 @@ class RobotDataset(RLBenchDataset):
                 interaction_ee_keyframe[:3, 3],
             )
 
-        # if self._visualize_cropped_keyframes:
-        #     self.show_cropped_keyframe(
-        #         crop_xyz, crop_rgb, crop_ee_keyframe, crop_ref_ee_keyframe
-        #     )
+        if self._visualize_cropped_keyframes:
+            self.show_cropped_keyframes(
+                crop_xyz, crop_rgb, crop_ee_keyframe, crop_ref_ee_keyframe
+            )
 
         datum = {
             "trial_name": trial.name,
@@ -713,7 +723,7 @@ class RobotDataset(RLBenchDataset):
             "xyz": torch.FloatTensor(xyz),
             "rgb": torch.FloatTensor(rgb),
             "cmd": cmd,
-            "keypoint_idx": keypoint_idx,
+            "keypoint_idx": keypoint_relative_idx,
             # engineered features ----------------
             "closest_pos": torch.FloatTensor(closest_pt_og_pcd),
             "closest_pos_idx": torch.LongTensor([target_idx_og_pcd]),
@@ -747,28 +757,36 @@ class RobotDataset(RLBenchDataset):
 )
 @click.option("--split", help="json file with train-test-val split")
 @click.option("-ki", "--k-index", default=0)
-def debug_get_datum(data_dir, k_index, split):
-    with open(split, "r") as f:
-        train_test_split = json.load(f)
-    # debug_list = ["26_11_2022_18_40_48", "26_11_2022_18_43_08"]
+@click.option("-r", "--robot", default="stretch")
+def debug_get_datum(data_dir, k_index, split, robot):
+    if split:
+        with open(split, "r") as f:
+            train_test_split = yaml.safe_load(f)
     loader = RobotDataset(
         data_dir,
+        template="*.h5",
         num_pts=8000,
         data_augmentation=True,
+        crop_radius=True,
         ori_dr_range=np.pi / 8,
-        first_frame_as_input=True,
+        cart_dr_range=0.0,
+        first_frame_as_input=False,
         # first_keypoint_only=True,
-        keypoint_range=[k_index],
-        trial_list=train_test_split["test"],
+        # keypoint_range=[0],
+        trial_list=train_test_split["train"] if split else [],
         orientation_type="quaternion",
         show_voxelized_input_and_reference=True,
         show_cropped=True,
-        verbose=True,
+        verbose=False,
+        multi_step=True,
+        visualize_interaction_estimates=True,
+        visualize_cropped_keyframes=True,
+        robot=robot,
+        autoregressive=True,
     )
     for trial in loader.trials:
-        if "bottom" in trial.h5_filename:
-            print(f"Trial name: {trial.name}")
-            data = loader.get_datum(trial, k_index)
+        print(f"Trial name: {trial.name}")
+        data = loader.get_datum(trial, k_index)
 
 
 @click.command()
@@ -791,13 +809,13 @@ def show_all_keypoints(data_dir, split, template, robot):
         data_dir,
         template=template,
         num_pts=8000,
-        data_augmentation=False,
+        data_augmentation=True,
         crop_radius=True,
         ori_dr_range=np.pi / 8,
         cart_dr_range=0.0,
         first_frame_as_input=False,
         # first_keypoint_only=True,
-        keypoint_range=[0, 1, 2],
+        # keypoint_range=[0],
         trial_list=train_test_split["train"] if split else [],
         orientation_type="quaternion",
         show_voxelized_input_and_reference=True,
@@ -819,10 +837,10 @@ def show_all_keypoints(data_dir, split, template, robot):
             num_keypt = trial.num_keypoints
             for i in range(num_keypt):
                 print("Keypoint requested: ", i)
-                loader.get_datum(trial, i, verbose=True)
+                data = loader.get_datum(trial, i, verbose=True)
             # data = loader.get_datum(trial, 1, verbose=False)
 
 
 if __name__ == "__main__":
-    show_all_keypoints()
+    debug_get_datum()
     pass

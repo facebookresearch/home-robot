@@ -108,7 +108,7 @@ class ActionPredictionModule(torch.nn.Module):
         self._lambda_weight_l2 = cfg.lambda_weight_l2
         self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
-        self.multi_head = cfg.multi_head
+        self.multi_head = cfg.multi_step
         self.num_heads = cfg.num_heads
         self._crop_size = cfg.crop_size
         self._query_radius = cfg.query_radius
@@ -421,6 +421,7 @@ class ActionPredictionModule(torch.nn.Module):
         for _, batch in enumerate(tqdm(data_iter, ncols=50)):
             if not batch["data_ok_status"]:
                 continue
+            # breakpoint()
             batch = self.to_device(batch)
             batch_size = 1
             xyz = batch["xyz"][0]
@@ -458,9 +459,6 @@ class ActionPredictionModule(torch.nn.Module):
             else:
                 target_pos = batch["ee_keyframe_pos"]
                 pred_ee_pos = perturbed_crop_location + positions.view(batch_size, 3)
-
-            pos_loss = ((target_pos - pred_ee_pos) ** 2).sum()
-
             if self.ori_type == "rpy":
                 pred_ee_ori = orientations.view(batch_size, 3)
                 ori_loss = ((pred_ee_ori - target_ee_angles) ** 2).sum()
@@ -468,6 +466,8 @@ class ActionPredictionModule(torch.nn.Module):
                 pred_ee_ori = orientations.view(batch_size, 4)
                 target_ee_angles = target_ee_angles.view(batch_size, 4)
                 ori_loss = quaternion_distance(pred_ee_ori, target_ee_angles).sum()
+
+            pos_loss = ((target_pos - pred_ee_pos) ** 2).sum()
 
             # classification loss applied to the gripper targets
             gripper_loss = self.classify_loss(
@@ -706,10 +706,16 @@ class ActionPredictionModule(torch.nn.Module):
                 angles = tra.euler_from_matrix(T01)
                 ori_error = np.sum(angles) / 3
                 print("Error in relative angles = ", angles)
-                pos_error = np.linalg.norm(
-                    crop_target_pos[i].detach().cpu().numpy()
-                    - pred_pos[i].detach().cpu().numpy()
-                )
+                if self.multi_head:
+                    pos_error = np.linalg.norm(
+                        crop_target_pos[i].detach().cpu().numpy()
+                        - pred_pos[i].detach().cpu().numpy()
+                    )
+                else:
+                    pos_error = np.linalg.norm(
+                        viz_target_pos.detach().cpu().numpy()
+                        - pred_pos[i].detach().cpu().numpy()
+                    )
                 print(f"Error in meters: {pos_error}")
 
                 gripper_state = gripper_state > 0.5
@@ -778,19 +784,19 @@ def main(cfg):
         # Create datasets
         # train_dir = robopen_data_dir
         # valid_dir = robopen_data_dir
-        Dataset = RobotDataset
+        # Dataset = RobotDataset
         train_dataset = RobotDataset(
             cfg.data_dir,
             num_pts=cfg.num_pts,
             data_augmentation=cfg.data_augmentation,  # (not validate),
             ori_dr_range=np.pi / 8,
             # first_frame_as_input=True,
-            # keypoint_range=[cfg.action_idx],
-            keypoint_range=[0, 1, 2],
+            keypoint_range=[cfg.action_idx] if cfg.action_idx > -1 else [0, 1, 2],
             trial_list=train_list,
             orientation_type=cfg.orientation_type,
-            multi_step=cfg.multi_head,
+            multi_step=cfg.multi_step,
             template=cfg.template,
+            autoregressive=True,
         )
         valid_dataset = RobotDataset(
             cfg.data_dir,
@@ -798,23 +804,23 @@ def main(cfg):
             data_augmentation=False,
             # first_frame_as_input=True,
             trial_list=valid_list,
-            # keypoint_range=[cfg.action_idx],
-            keypoint_range=[0, 1, 2],
+            keypoint_range=[cfg.action_idx] if cfg.action_idx > -1 else [0, 1, 2],
             orientation_type=cfg.orientation_type,
-            multi_step=cfg.multi_head,
+            multi_step=cfg.multi_step,
             template=cfg.template,
+            autoregressive=True,
         )
         test_dataset = RobotDataset(
             cfg.data_dir,
             num_pts=cfg.num_pts,
             data_augmentation=False,
             # first_frame_as_input=True,
+            keypoint_range=[cfg.action_idx] if cfg.action_idx > -1 else [0, 1, 2],
             trial_list=test_list,
-            # keypoint_range=[cfg.action_idx],
-            keypoint_range=[0, 1, 2],
             orientation_type=cfg.orientation_type,
-            multi_step=cfg.multi_head,
+            multi_step=cfg.multi_step,
             template=cfg.template,
+            autoregressive=True,
         )
     else:
         train_dir = train_dataset_dir
@@ -830,7 +836,7 @@ def main(cfg):
             verbose=True,
             # first_keypoint_only=(first_keypoint_only or multi_head),
             orientation_type=cfg.orientation_type,
-            multi_step=cfg.multi_head,
+            multi_step=cfg.multi_step,
         )
         valid_dataset = Dataset(
             valid_dir,
@@ -839,7 +845,7 @@ def main(cfg):
             verbose=True,
             # first_keypoint_only=(first_keypoint_only or multi_head),
             orientation_type=cfg.orientation_type,
-            multi_step=cfg.multi_head,
+            multi_step=cfg.multi_step,
         )
         test_dataset = valid_dataset
 
