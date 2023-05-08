@@ -26,7 +26,7 @@ wandb: False
 debug: False
 
 dims:
-  proprio_in: 9
+  proprio_in: 14
   image_in: 3
   proprio_out: 254
   lang_emb_out: 512
@@ -46,5 +46,7 @@ model:
   sa1_mlp: [6, 64, 64, 128]
   sa2_mlp: [131, 128, 128, 256]
   sa3_mlp: [259, 256, 512, 1024]
-  proprio_mlp: [9, 256, 512]
+  proprio_mlp: [14, 256, 512]
   lang_mlp: [512, 512, 512]
+
+per_action_cmd: False

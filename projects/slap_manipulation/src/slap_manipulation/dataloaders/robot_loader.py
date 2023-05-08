@@ -139,6 +139,9 @@ class RobotDataset(RLBenchDataset):
         robot="stretch",
         depth_factor=10000,
         autoregressive=False,
+        max_keypoints=6,
+        time_as_one_hot=False,
+        per_action_cmd=False,
         *args,
         **kwargs,
     ):
@@ -167,6 +170,9 @@ class RobotDataset(RLBenchDataset):
             self.annotations = load_annotations_dict(yaml_file)
         else:
             self.annotations = None
+        self.max_keypoints = max_keypoints
+        self.time_as_one_hot = time_as_one_hot
+        self.per_action_cmd = per_action_cmd
         self.random_cmd = random_cmd
         self.autoregressive = autoregressive
         # TODO: deprecate this and use only keypoint_range to constrain index of sampled keyframe
@@ -399,7 +405,7 @@ class RobotDataset(RLBenchDataset):
 
     def choose_keypoint(
         self, keypoints: np.ndarray, keypoint_idx: int
-    ) -> Tuple[int, np.ndarray, int]:
+    ) -> Tuple[int, int]:
         """return a randomly chosen keypoint from the list of keypoints;
         or return the one explicitly asked"""
         if self.keypoint_range is not None:
@@ -409,10 +415,8 @@ class RobotDataset(RLBenchDataset):
             chosen_idx = self.keypoint_range[chosen_idx]
         else:
             chosen_idx = keypoint_idx % len(keypoints)
-        time_step = np.array([(chosen_idx / (len(keypoints) - 1) - 0.5) * 2])
         return (
             keypoints[chosen_idx],
-            time_step,
             chosen_idx,
         )  # actual keypoint index in the episode
 
@@ -481,13 +485,36 @@ class RobotDataset(RLBenchDataset):
         if self.annotations is not None:
             cmd_opts = self.annotations[cmd]
             cmd = cmd_opts[np.random.randint(len(cmd_opts))]
+        if self.per_action_cmd:
+            # hard-coded for pick_up_bottle right now
+            cmd = [
+                "approach-pose-action bottle",
+                "grasp-action bottle",
+                "lift-action bottle",
+            ]
 
         keypoints = self.extract_manual_keyframes(
             trial["user_keyframe"][()]
         )  # list of index of keypts
-        current_keypoint_idx, time_step, keypoint_relative_idx = self.choose_keypoint(
+        current_keypoint_idx, keypoint_relative_idx = self.choose_keypoint(
             keypoints, keypoint_idx
         )
+        if self.per_action_cmd:
+            cmd = cmd[keypoint_relative_idx]
+        # create time-step
+        if self.time_as_one_hot:
+            # create time as a one-hot vector
+            time_step = (
+                torch.nn.functional.one_hot(
+                    torch.LongTensor([keypoint_relative_idx]), self.max_keypoints
+                )
+                .numpy()
+                .squeeze()
+            )
+        else:
+            time_step = np.array(
+                [(keypoint_relative_idx / (self.max_keypoints - 1) - 0.5) * 2]
+            )
         # this index is of the actual episode step this keypoint belongs to; i.e. trial/current_keypoint_idx/<ee-pose, images, etc>
         if verbose:
             print(f"Key-point index chosen: abs={current_keypoint_idx}")
@@ -719,6 +746,9 @@ class RobotDataset(RLBenchDataset):
             "ee_keyframe_pos": torch.FloatTensor(current_ee_keyframe[:3, 3]),
             "ee_keyframe_ori": torch.FloatTensor(current_ee_keyframe[:3, :3]),
             "proprio": torch.FloatTensor(proprio),
+            "time-step": torch.LongTensor(time_step)
+            if self.time_as_one_hot
+            else torch.FloatTensor(time_step),
             "target_gripper_state": torch.FloatTensor(target_gripper_state),
             "xyz": torch.FloatTensor(xyz),
             "rgb": torch.FloatTensor(rgb),
@@ -783,10 +813,13 @@ def debug_get_datum(data_dir, k_index, split, robot):
         visualize_cropped_keyframes=True,
         robot=robot,
         autoregressive=True,
+        time_as_one_hot=True,
+        per_action_cmd=False,
     )
     for trial in loader.trials:
         print(f"Trial name: {trial.name}")
         data = loader.get_datum(trial, k_index)
+        breakpoint()
 
 
 @click.command()
@@ -826,6 +859,7 @@ def show_all_keypoints(data_dir, split, template, robot):
         visualize_cropped_keyframes=True,
         robot=robot,
         autoregressive=True,
+        time_as_one_hot=True,
     )
     skip_names = ["30_11_2022_15_22_40"]
     for trial in loader.trials:

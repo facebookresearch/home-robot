@@ -797,6 +797,8 @@ def main(cfg):
             multi_step=cfg.multi_step,
             template=cfg.template,
             autoregressive=True,
+            time_as_one_hot=True,
+            per_action_cmd=cfg.per_action_cmd,
         )
         valid_dataset = RobotDataset(
             cfg.data_dir,
@@ -809,6 +811,8 @@ def main(cfg):
             multi_step=cfg.multi_step,
             template=cfg.template,
             autoregressive=True,
+            time_as_one_hot=True,
+            per_action_cmd=cfg.per_action_cmd,
         )
         test_dataset = RobotDataset(
             cfg.data_dir,
@@ -821,6 +825,8 @@ def main(cfg):
             multi_step=cfg.multi_step,
             template=cfg.template,
             autoregressive=True,
+            time_as_one_hot=True,
+            per_action_cmd=cfg.per_action_cmd,
         )
     else:
         train_dir = train_dataset_dir
