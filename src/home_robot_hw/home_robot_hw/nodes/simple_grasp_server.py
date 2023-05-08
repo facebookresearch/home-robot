@@ -1,4 +1,4 @@
-from typing import Iterable, Optional, Tuple
+from typing import Iterable, List, Optional, Tuple
 
 import click
 import numpy as np
@@ -21,7 +21,7 @@ TOP_PERCENTAGE = 0.1
 VOXEL_RES = 0.01
 GRASP_OUTER_RAD = 5
 GRASP_INNER_RAD = 1
-GRASP_THRESHOLD = 0.95
+GRASP_THRESHOLD = 0.9
 MIN_INNER_POINTS = 12
 
 
@@ -75,6 +75,30 @@ def _compute_grasp_scores(
     y_grasp_score = mid_pop_score - (area_y_lo + area_y_hi) / outer_area
 
     return x_grasp_score, y_grasp_score
+
+
+def _filter_grasps(score_map: np.ndarray, grasp_direction: int) -> np.ndarray:
+    """Filter an grid of grasps scores"""
+    # Filter by neighboring grasps (multiply score of current score map with shifted versions of the map)
+    mask1 = np.zeros_like(score_map)
+    mask2 = np.zeros_like(score_map)
+
+    if grasp_direction == 0:
+        # Gripper closes along X: filter across Y
+        mask1[:, :-1] = score_map[:, 1:]
+        mask2[:, 1:] = score_map[:, :-1]
+    elif grasp_direction == 1:
+        # Gripper closes along Y: filter across X
+        mask1[:-1, :] = score_map[1:, :]
+        mask2[1:, :] = score_map[:-1, :]
+
+    score_map = score_map * mask1 * mask2
+
+    # Filter by thresholding
+    thres_mask = score_map >= GRASP_THRESHOLD
+    score_map = score_map * thres_mask
+
+    return score_map
 
 
 def _generate_grasp(xyz: np.ndarray, rz: float) -> np.ndarray:
@@ -145,34 +169,53 @@ def inference(debug):
             occ_map[i, j] = 1
 
         # Compute x-direction and y-direction grasps on the occupancy map
-        scores_raw = []
-        grasps_raw = []
+        x_score_map = np.zeros_like(occ_map)
+        y_score_map = np.zeros_like(occ_map)
+
         for i in range(occ_map.shape[0]):
             for j in range(occ_map.shape[1]):
                 if occ_map[i, j] == 0.0:
                     continue
 
                 x_score, y_score = _compute_grasp_scores((i, j), occ_map)
-                x, y = np.array((i, j)) * VOXEL_RES + orig
+                x_score_map[i, j] = x_score
+                y_score_map[i, j] = y_score
 
-                if x_score >= GRASP_THRESHOLD:
-                    grasp = _generate_grasp(np.array([x, y, z_grasp]), np.pi / 2)
+        # Filter grasps
+        x_score_map_filtered = _filter_grasps(x_score_map, grasp_direction=0)
+        y_score_map_filtered = _filter_grasps(y_score_map, grasp_direction=1)
+
+        scores_raw = []
+        grasps_raw = []
+
+        # Extract grasps
+        for i in range(occ_map.shape[0]):
+            for j in range(occ_map.shape[1]):
+                x, y = np.array((i, j)) * VOXEL_RES + orig
+                grasp_pos = np.array([x, y, z_grasp])
+
+                x_score = x_score_map_filtered[i, j]
+                if x_score > 0.0:
+                    grasp = _generate_grasp(grasp_pos, np.pi / 2)
                     grasps_raw.append(grasp)
                     scores_raw.append(x_score)
 
-                if y_score >= GRASP_THRESHOLD:
-                    grasp = _generate_grasp(np.array([x, y, z_grasp]), 0.0)
+                y_score = y_score_map_filtered[i, j]
+                if y_score > 0.0:
+                    grasp = _generate_grasp(grasp_pos, 0.0)
                     grasps_raw.append(grasp)
                     scores_raw.append(y_score)
 
+        # Debug and visualization
         if debug:
             print(f"# grasps = {len(grasps_raw)}")
             _visualize_grasps(xyz, rgb, top_idcs, grasps_raw)
 
         # Postprocess grasps into dictionaries
-        # (6dof graspnet only generates grasps for one object)
+        # (this grasp generator only generates grasps for one object)
         grasps = {0: np.array(grasps_raw)}
         scores = {0: np.array(scores_raw)}
+
         return grasps, scores, in_base_frame
 
     # Initialize server
