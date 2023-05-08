@@ -288,8 +288,12 @@ class GraspPlanner(object):
     def try_executing_grasp(
         self, grasp: np.ndarray, wait_for_input: bool = False
     ) -> bool:
+        """Execute a predefined grasp trajectory to the given pose. Grasp should be an se(3) pose, expressed as a 4x4 numpy matrix."""
+        assert grasp.shape == (4, 4)
         self._send_predicted_grasp_to_tf(grasp)
+        wait_for_input = True
 
+        # Generate a plan
         trajectory = self.plan_to_grasp(grasp)
 
         if trajectory is None:
@@ -299,13 +303,8 @@ class GraspPlanner(object):
         for i, (name, waypoint, should_grasp) in enumerate(trajectory):
             self.robot_client.manip.goto_joint_positions(waypoint)
             self._publish_current_ee_pose()
-            input("---- " + str(i) + " ----")
-            self.robot_client.manip.goto_joint_positions(waypoint)
-            self._publish_current_ee_pose()
-            input("---- " + str(i) + " ----")
-            self.robot_client.manip.goto_joint_positions(waypoint)
-            self._publish_current_ee_pose()
-            input("---- " + str(i) + " ----")
+            # TODO: remove this delay - it's to make sure we don't start moving again too early
+            rospy.sleep(0.1)
             if should_grasp:
                 self.robot_client.manip.close_gripper()
             if wait_for_input:

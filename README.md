@@ -35,6 +35,8 @@ HomeRobot requires Python 3.9. Installation on a workstation requires [conda](ht
 
 To set up the hardware stack on a Hello Robot  Stretch, see the [ROS installation instructions](docs/install_robot.md) in `home_robot_hw`.
 
+You may need a calibrated URDF for our inverse kinematics code to work well; see [calibration notes](docs/calibration.md).
+
 #### Network Setup
 
 Follow the [network setup guide](docs/network.md) to set up your robot to use the network, and make sure that it can communicate between workstation and robot via ROS. On the robot side, start up the controllers with:
