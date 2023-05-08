@@ -700,7 +700,7 @@ class RobotDataset(RLBenchDataset):
                     orig=past_pos.reshape(3, 1),
                     R=tra.quaternion_matrix(past_quat)[:3, :3],
                 )
-            proprio = np.concatenate((past_pos, past_quat, past_g, time_step))
+            proprio = np.concatenate((past_pos, past_quat, past_g))
 
         if verbose:
             print(f"Proprio: {proprio}")
@@ -746,7 +746,7 @@ class RobotDataset(RLBenchDataset):
             "ee_keyframe_pos": torch.FloatTensor(current_ee_keyframe[:3, 3]),
             "ee_keyframe_ori": torch.FloatTensor(current_ee_keyframe[:3, :3]),
             "proprio": torch.FloatTensor(proprio),
-            "time-step": torch.LongTensor(time_step)
+            "time_step": torch.FloatTensor(time_step)
             if self.time_as_one_hot
             else torch.FloatTensor(time_step),
             "target_gripper_state": torch.FloatTensor(target_gripper_state),

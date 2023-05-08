@@ -46,7 +46,8 @@ model:
   sa1_mlp: [6, 64, 64, 128]
   sa2_mlp: [131, 128, 128, 256]
   sa3_mlp: [259, 256, 512, 1024]
-  proprio_mlp: [14, 256, 512]
+  proprio_mlp: [8, 256, 512]
   lang_mlp: [512, 512, 512]
+  time_mlp: [6, 256, 512]
 
 per_action_cmd: False

@@ -60,7 +60,7 @@ class QueryRegressionHead(torch.nn.Module):
         self.final_dim = 256
         self.pos_mlp = MLP(
             [
-                512 + 512 + 1024,
+                512 + 512 + 512 + 1024,
                 512,
                 self.final_dim,
             ],
@@ -69,7 +69,7 @@ class QueryRegressionHead(torch.nn.Module):
         )
         self.ori_mlp = MLP(
             [
-                512 + 512 + 1024,
+                512 + 512 + 512 + 1024,
                 512,
                 self.final_dim,
             ],
@@ -78,7 +78,7 @@ class QueryRegressionHead(torch.nn.Module):
         )
         self.pos_linear = Linear(self.final_dim, self.pos_in_channels)
         self.ori_linear = Linear(self.final_dim, self.ori_in_channels)
-        self.gripper_linear = Linear(1024, 1)  # proprio_emb dim = 512
+        self.gripper_linear = Linear(512 + 512 + 512, 1)  # proprio_emb dim = 512
         self.to_activation = torch.nn.Sigmoid()
 
     def forward(self, x, proprio_task_emb):
@@ -171,6 +171,11 @@ class ActionPredictionModule(torch.nn.Module):
         )
         self.lang_emb = MLP(
             OmegaConf.to_object(cfg.model.lang_mlp),
+            batch_norm=False,
+            dropout=0.0,
+        )
+        self.time_emb = MLP(
+            OmegaConf.to_object(cfg.model.time_mlp),
             batch_norm=False,
             dropout=0.0,
         )
@@ -348,7 +353,7 @@ class ActionPredictionModule(torch.nn.Module):
         return self.show_validation_on_sensor(data)
         # return output
 
-    def forward(self, xyz, rgb, proprio, cmd):
+    def forward(self, xyz, rgb, proprio, time_step, cmd):
         """
         Classifies the most relevant voxel and uses embedding from that voxel to
         regress residuals on position and orientation of the end-effector.
@@ -367,8 +372,9 @@ class ActionPredictionModule(torch.nn.Module):
 
         # condense rgb into a single point embedding
         proprio_emb = self.proprio_emb(proprio[None])
+        time_emb = self.time_emb(time_step[None])
         proprio = proprio[None].repeat(rgb.shape[0], 1)
-        in_feat = torch.cat(
+        in_feat = torch.cat(  #  not used
             [rgb, proprio],
             dim=1,
         )
@@ -382,8 +388,8 @@ class ActionPredictionModule(torch.nn.Module):
         sa3_out = self.sa3_module(*sa2_out)
         x, pos, batch = sa3_out
 
-        x = torch.cat([x, lang_emb, proprio_emb], dim=-1)
-        proprio_task_emb = torch.cat([lang_emb, proprio_emb], dim=-1)
+        x = torch.cat([x, lang_emb, proprio_emb, time_emb], dim=-1)
+        proprio_task_emb = torch.cat([lang_emb, proprio_emb, time_emb], dim=-1)
         batch_size = x.shape[0]
 
         positions = torch.zeros(
@@ -431,6 +437,7 @@ class ActionPredictionModule(torch.nn.Module):
             crop_xyz = batch["xyz_crop"][0]
             crop_rgb = batch["rgb_crop"][0]
             perturbed_crop_location = batch["perturbed_crop_location"]
+            time_step = batch["time_step"][0]
 
             # extract supervision terms
             target_ori = batch["ee_keyframe_ori_crop"]
@@ -445,6 +452,7 @@ class ActionPredictionModule(torch.nn.Module):
                 crop_xyz,
                 crop_rgb,
                 proprio,
+                time_step,
                 cmd,
             )
 
