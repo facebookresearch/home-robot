@@ -19,7 +19,8 @@ from home_robot.utils.pose import to_matrix
 DEFAULT_STRETCH_URDF = "assets/hab_stretch/urdf/stretch_dex_wrist_simplified.urdf"
 # PLANNER_STRETCH_URDF =  'assets/hab_stretch/urdf/planner_stretch_dex_wrist_simplified.urdf'
 PLANNER_STRETCH_URDF = "assets/hab_stretch/urdf/planner_calibrated.urdf"
-MANIP_STRETCH_URDF = "assets/hab_stretch/urdf/planner_calibrated_manipulation_mode.urdf"
+# MANIP_STRETCH_URDF = "assets/hab_stretch/urdf/planner_calibrated_manipulation_mode.urdf"
+MANIP_STRETCH_URDF = "assets/hab_stretch/urdf/stretch_manip_mode.urdf"
 
 STRETCH_HOME_Q = np.array(
     [
