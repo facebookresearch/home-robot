@@ -79,6 +79,7 @@ class OpenVocabManipAgent(ObjectNavAgent):
         self.orient_start_step[e] = 0
         self.is_pick_done[e] = 0
         self.place_done[e] = 0
+        self.place_policy = HeuristicPlacePolicy(self.config, self.device)
         super().reset_vectorized_for_env(e)
         self.planner.set_vis_dir(
             episode.scene_id.split("/")[-1].split(".")[0], episode.episode_id
