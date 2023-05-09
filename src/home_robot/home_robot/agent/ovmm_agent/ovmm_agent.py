@@ -79,7 +79,6 @@ class OpenVocabManipAgent(ObjectNavAgent):
         arm_reachability_check: bool = False,
         visualize: bool = True,
     ):
-        MAX_ARM_LENGTH = 0.13 * 4 + STRETCH_STANDOFF_DISTANCE + STRETCH_GRIPPER_OPEN
         HEIGHT_OFFSET = 0.02
 
         goal_rec_mask = (obs.semantic == 3).astype(int)
@@ -118,8 +117,7 @@ class OpenVocabManipAgent(ObjectNavAgent):
             )
 
             if arm_reachability_check:
-                # filtering out unreachable points by calculating distance from camera
-                distances = torch.linalg.norm(pcd_camera_coords, axis=-1)
+                # filtering out unreachable points based on Y and Z coordinates of voxels
                 height_reachable_mask = (pcd_base_coords[0, :, :, 2] < agent_height).to(
                     int
                 )
