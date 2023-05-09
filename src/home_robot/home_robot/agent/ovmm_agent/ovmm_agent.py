@@ -7,6 +7,7 @@ import torch
 from home_robot.agent.objectnav_agent.objectnav_agent import ObjectNavAgent
 from home_robot.agent.ovmm_agent.ppo_agent import PPOAgent
 from home_robot.core.interfaces import DiscreteNavigationAction, Observations
+from home_robot.place_policy.heuristic_place_policy import HeuristicPlacePolicy
 
 
 class Skill(IntEnum):
@@ -28,6 +29,7 @@ class OpenVocabManipAgent(ObjectNavAgent):
         self.is_pick_done = None
         self.place_done = None
         self.gaze_agent = None
+        self.place_policy = HeuristicPlacePolicy(config, self.device)
         if config.AGENT.SKILLS.PICK.type == "gaze":
             self.gaze_agent = PPOAgent(
                 config,
@@ -77,6 +79,7 @@ class OpenVocabManipAgent(ObjectNavAgent):
         self.orient_start_step[e] = 0
         self.is_pick_done[e] = 0
         self.place_done[e] = 0
+        self.place_policy = HeuristicPlacePolicy(self.config, self.device)
         super().reset_vectorized_for_env(e)
         self.planner.set_vis_dir(
             episode.scene_id.split("/")[-1].split(".")[0], episode.episode_id
@@ -196,6 +199,9 @@ class OpenVocabManipAgent(ObjectNavAgent):
                 return DiscreteNavigationAction.STOP, vis_inputs
             elif self.config.AGENT.SKILLS.PLACE.type == "hardcoded":
                 action = self._hardcoded_place()
+                return action, vis_inputs
+            elif self.config.AGENT.SKILLS.PLACE.type == "heuristic_debug":
+                action, vis_inputs = self.place_policy(obs, vis_inputs)
                 return action, vis_inputs
             else:
                 raise NotImplementedError
