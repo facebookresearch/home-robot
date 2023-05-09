@@ -5,13 +5,13 @@ import cv2
 import numpy as np
 import torch
 import trimesh.transformations as tra
-from habitat.tasks.rearrange.utils import get_angle_to_pos
 
 import home_robot.utils.depth as du
 from home_robot.agent.objectnav_agent.objectnav_agent import ObjectNavAgent
 from home_robot.agent.ovmm_agent.ppo_agent import PPOAgent
 from home_robot.core.interfaces import DiscreteNavigationAction, Observations
 from home_robot.motion.stretch import STRETCH_GRIPPER_OPEN, STRETCH_STANDOFF_DISTANCE
+from home_robot.utils.rotation import get_angle_to_pos
 
 
 class Skill(IntEnum):

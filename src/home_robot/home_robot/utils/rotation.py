@@ -105,3 +105,37 @@ def get_grid(
     )
 
     return rot_grid, trans_grid
+
+
+def get_angle(x, y):
+    """
+    Gets the angle between two vectors in radians.
+    """
+    if np.linalg.norm(x) != 0:
+        x_norm = normalize(x)
+    else:
+        x_norm = x
+
+    if np.linalg.norm(y) != 0:
+        y_norm = normalize(y)
+    else:
+        y_norm = y
+    return np.arccos(np.clip(np.dot(x_norm, y_norm), -1, 1))
+
+
+def get_angle_to_pos(rel_pos: np.ndarray) -> float:
+    """
+    :param rel_pos: Relative 3D positive from the robot to the target like: `target_pos - robot_pos`.
+    :returns: Angle in radians.
+    """
+
+    forward = np.array([1.0, 0, 0])
+    rel_pos = np.array(rel_pos)
+    forward = forward[[0, 2]]
+    rel_pos = rel_pos[[0, 2]]
+
+    heading_angle = get_angle(forward, rel_pos)
+    c = np.cross(forward, rel_pos) < 0
+    if not c:
+        heading_angle = -1.0 * heading_angle
+    return heading_angle
