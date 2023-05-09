@@ -10,7 +10,11 @@ from habitat.tasks.rearrange.utils import get_angle_to_pos
 import home_robot.utils.depth as du
 from home_robot.agent.objectnav_agent.objectnav_agent import ObjectNavAgent
 from home_robot.agent.ovmm_agent.ppo_agent import PPOAgent
-from home_robot.core.interfaces import DiscreteNavigationAction, Observations
+from home_robot.core.interfaces import (
+    DiscreteNavigationAction,
+    Observations,
+)
+from home_robot.motion.stretch import STRETCH_GRIPPER_OPEN, STRETCH_STANDOFF_DISTANCE
 
 
 class Skill(IntEnum):
@@ -74,8 +78,9 @@ class OpenVocabManipAgent(ObjectNavAgent):
     def get_receptacle_placement_point(
         self,
         obs: Observations,
+        vis_inputs: None,
         arm_reachability_check: bool = False,
-        visualize: bool = False,
+        visualize: bool = True,
     ):
         MAX_ARM_LENGTH = 1.5
         HEIGHT_DIFF_THRESHOLD = 0.02
@@ -86,7 +91,7 @@ class OpenVocabManipAgent(ObjectNavAgent):
 
         if not goal_rec_mask.any():
             print("End receptacle not visible.")
-            return False
+            return False, vis_inputs
         else:
             rgb_vis = obs.rgb
             goal_rec_depth = torch.tensor(
@@ -193,7 +198,10 @@ class OpenVocabManipAgent(ObjectNavAgent):
                     rgb_vis[..., ::-1],
                 )
 
-            return center_voxel.cpu().numpy()[0], (center_x, center_y)
+            if vis_inputs is not None:
+                vis_inputs["semantic_frame"][..., :3] = rgb_vis
+
+            return center_voxel.cpu().numpy()[0], (center_x, center_y), vis_inputs
 
     def get_nav_to_recep(self):
         return (self.states == Skill.NAV_TO_REC).float().to(device=self.device)
@@ -239,7 +247,7 @@ class OpenVocabManipAgent(ObjectNavAgent):
             self._switch_to_next_skill(e=0)
         return action, info
 
-    def _heuristic_place(self, obs: Observations):
+    def _heuristic_place(self, obs: Observations, vis_inputs):
         """
         1. Get estimate of point on receptacle to place object on.
         2. Orient towards it.
@@ -249,8 +257,9 @@ class OpenVocabManipAgent(ObjectNavAgent):
         6. With camera, arm, and object (hopefully) aligned, set arm lift and
         extension based on point estimate from 4.
         """
-        RETRACTED_ARM_LENGTH = 0.2
-        GRIPPER_LENGTH = 0.12
+
+        HARDCODED_EXTENSION_OFFSET = 0.15
+        HARDCODED_YAW_OFFSET = 0.15
 
         place_step = self.timesteps[0] - self.place_start_step[0]
         turn_angle = self.config.ENVIRONMENT.turn_angle
@@ -261,10 +270,10 @@ class OpenVocabManipAgent(ObjectNavAgent):
         if place_step == 0:
             self.du_scale = 1  # TODO: working with full resolution for now
             self.end_receptacle = obs.task_observations["goal_name"].split(" ")[-1]
-            found = self.get_receptacle_placement_point(obs)
+            found = self.get_receptacle_placement_point(obs, vis_inputs)
 
             if found is not False:
-                center_voxel, (center_x, center_y) = found
+                center_voxel, (center_x, center_y), vis_inputs = found
             else:
                 print("Receptacle not visible. Abort.")
                 action = DiscreteNavigationAction.STOP
@@ -279,8 +288,12 @@ class OpenVocabManipAgent(ObjectNavAgent):
             self.initial_orient_num_turns = abs(delta_heading) // turn_angle
             self.orient_turn_direction = np.sign(delta_heading)
 
-            fwd_dist = center_voxel[1] - RETRACTED_ARM_LENGTH - GRIPPER_LENGTH
-
+            fwd_dist = (
+                center_voxel[1]
+                - STRETCH_STANDOFF_DISTANCE
+                - STRETCH_GRIPPER_OPEN
+                + HARDCODED_EXTENSION_OFFSET
+            )
             self.forward_steps = fwd_dist // fwd_step_size
             self.cam_arm_alignment_num_turns = np.round(90 / turn_angle)
             self.total_turn_and_forward_steps = (
@@ -317,10 +330,10 @@ class OpenVocabManipAgent(ObjectNavAgent):
             print("Aligning camera to arm")
         elif place_step == self.total_turn_and_forward_steps + 1:
             found = self.get_receptacle_placement_point(
-                obs, arm_reachability_check=True
+                obs, vis_inputs, arm_reachability_check=True
             )
             if found is not False:
-                center_voxel, (center_x, center_y) = found
+                center_voxel, (center_x, center_y), vis_inputs = found
             else:
                 print("Receptacle not visible. Abort.")
                 action = DiscreteNavigationAction.STOP
@@ -331,15 +344,20 @@ class OpenVocabManipAgent(ObjectNavAgent):
             current_arm_lift = obs.joint[4]
             delta_arm_lift = placement_height - current_arm_lift
 
-            current_arm_ext = obs.joint[:4].sum() / (0.13 * 4)
+            current_arm_ext = obs.joint[:4].sum()
             delta_arm_ext = (
                 placement_extension
-                - RETRACTED_ARM_LENGTH
-                - GRIPPER_LENGTH
+                - STRETCH_STANDOFF_DISTANCE
+                - STRETCH_GRIPPER_OPEN
                 - current_arm_ext
+                + HARDCODED_EXTENSION_OFFSET
             )
+            center_voxel_trans = np.array(
+                [center_voxel[1], center_voxel[2], center_voxel[0]]
+            )
+            delta_heading = np.rad2deg(get_angle_to_pos(center_voxel_trans))
 
-            delta_gripper_yaw = 0
+            delta_gripper_yaw = delta_heading / 90 - HARDCODED_YAW_OFFSET
 
             print("Delta arm extension:", delta_arm_ext)
             print("Delta arm lift:", delta_arm_lift)
@@ -361,7 +379,7 @@ class OpenVocabManipAgent(ObjectNavAgent):
         else:
             print("Stopping")
             action = DiscreteNavigationAction.STOP
-        return action
+        return action, vis_inputs
 
     def _hardcoded_place(self):
         """Hardcoded place skill execution
@@ -450,7 +468,7 @@ class OpenVocabManipAgent(ObjectNavAgent):
                 action = self._hardcoded_place()
                 return action, vis_inputs
             elif self.config.AGENT.SKILLS.PLACE.type == "heuristic_debug":
-                action = self._heuristic_place(obs)
+                action, vis_inputs = self._heuristic_place(obs, vis_inputs)
                 return action, vis_inputs
             else:
                 raise NotImplementedError
