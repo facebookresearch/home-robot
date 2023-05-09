@@ -10,10 +10,7 @@ from habitat.tasks.rearrange.utils import get_angle_to_pos
 import home_robot.utils.depth as du
 from home_robot.agent.objectnav_agent.objectnav_agent import ObjectNavAgent
 from home_robot.agent.ovmm_agent.ppo_agent import PPOAgent
-from home_robot.core.interfaces import (
-    DiscreteNavigationAction,
-    Observations,
-)
+from home_robot.core.interfaces import DiscreteNavigationAction, Observations
 from home_robot.motion.stretch import STRETCH_GRIPPER_OPEN, STRETCH_STANDOFF_DISTANCE
 
 
@@ -82,8 +79,8 @@ class OpenVocabManipAgent(ObjectNavAgent):
         arm_reachability_check: bool = False,
         visualize: bool = True,
     ):
-        MAX_ARM_LENGTH = 1.5
-        HEIGHT_DIFF_THRESHOLD = 0.02
+        MAX_ARM_LENGTH = 0.13 * 4 + STRETCH_STANDOFF_DISTANCE + STRETCH_GRIPPER_OPEN
+        HEIGHT_OFFSET = 0.02
 
         goal_rec_mask = (obs.semantic == 3).astype(int)
         if visualize:
@@ -123,9 +120,21 @@ class OpenVocabManipAgent(ObjectNavAgent):
             if arm_reachability_check:
                 # filtering out unreachable points by calculating distance from camera
                 distances = torch.linalg.norm(pcd_camera_coords, axis=-1)
-                reachable_mask = (distances < MAX_ARM_LENGTH).to(int)
-                reachable_mask = torch.stack([reachable_mask] * 3, axis=-1)
-                pcd_base_coords = pcd_base_coords * reachable_mask
+                height_reachable_mask = (pcd_base_coords[0, :, :, 2] < agent_height).to(
+                    int
+                )
+                height_reachable_mask = torch.stack(
+                    [height_reachable_mask] * 3, axis=-1
+                )
+                pcd_base_coords = pcd_base_coords * height_reachable_mask
+
+                length_reachable_mask = (pcd_base_coords[0, :, :, 1] < agent_height).to(
+                    int
+                )
+                length_reachable_mask = torch.stack(
+                    [length_reachable_mask] * 3, axis=-1
+                )
+                pcd_base_coords = pcd_base_coords * length_reachable_mask
 
             non_zero_mask = torch.stack(
                 [torch.from_numpy(goal_rec_mask).to(self.device)] * 3, axis=-1
@@ -138,7 +147,7 @@ class OpenVocabManipAgent(ObjectNavAgent):
 
             # extracting topmost voxels
             highest_points_mask = torch.bitwise_and(
-                (y_values >= non_zero_y_values.max() - HEIGHT_DIFF_THRESHOLD),
+                (y_values >= non_zero_y_values.max() - HEIGHT_OFFSET),
                 (y_values <= non_zero_y_values.max()),
             ).to(torch.uint8)
 
