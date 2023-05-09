@@ -7,7 +7,6 @@ from geometry_msgs.msg import TransformStamped
 
 import home_robot.utils.visualization as viz
 from home_robot.motion.stretch import (
-    STRETCH_NAVIGATION_Q,
     STRETCH_PREGRASP_Q,
     HelloStretchIdx,
     HelloStretchKinematics,
@@ -39,37 +38,6 @@ class GraspPlanner(object):
 
         # Add this flag to make sure that the point clouds are coming in correctly - will visualize what the points look like relative to a base coordinate frame with z = up, x = forward
         self.debug_point_cloud = debug_point_cloud
-
-    def go_to_manip_mode(self):
-        """Move the arm and head into manip mode."""
-        """
-        home_q = STRETCH_PREGRASP_Q
-        home_q = self.robot_model.update_look_at_ee(home_q)
-        self.robot_client.goto(home_q, move_base=False, wait=True)
-        """
-        self.robot_client.switch_to_manipulation_mode()
-        self.robot_client.head.look_at_ee(blocking=False)
-        self.robot_client.manip.goto_joint_positions(
-            self.robot_client.manip._extract_joint_pos(STRETCH_PREGRASP_Q)
-        )
-        self.robot_client.switch_to_navigation_mode()
-
-    def go_to_nav_mode(self):
-        """Move the arm and head into nav mode."""
-        """
-        home_q = STRETCH_NAVIGATION_Q
-        # TODO - should be looking down to make sure we can see the objects
-        home_q = self.robot_model.update_look_front(home_q.copy())
-        # NOTE: for now we have to do this though - until bugs are fixed in semantic map
-        # home_q = self.robot_model.update_look_ahead(home_q.copy())
-        self.robot_client.goto(home_q, move_base=False, wait=True)
-        """
-        self.robot_client.switch_to_manipulation_mode()
-        self.robot_client.head.look_front(blocking=False)
-        self.robot_client.manip.goto_joint_positions(
-            self.robot_client.manip._extract_joint_pos(STRETCH_NAVIGATION_Q)
-        )
-        self.robot_client.switch_to_navigation_mode()
 
     def try_grasping(
         self,

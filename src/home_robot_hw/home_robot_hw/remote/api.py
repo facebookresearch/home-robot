@@ -7,7 +7,11 @@ from typing import Dict, List, Optional
 import rospy
 
 from home_robot.motion.robot import Robot
-from home_robot.motion.stretch import HelloStretchKinematics
+from home_robot.motion.stretch import (
+    STRETCH_NAVIGATION_Q,
+    STRETCH_PREGRASP_Q,
+    HelloStretchKinematics,
+)
 from home_robot_hw.constants import ControlMode
 
 from .modules.head import StretchHeadClient
@@ -153,3 +157,34 @@ class StretchClient:
     def get_frame_pose(self, frame, base_frame=None, lookup_time=None):
         """look up a particular frame in base coords"""
         return self._ros_client.get_frame_pose(frame, base_frame, lookup_time)
+
+    def go_to_manip_mode(self):
+        """Move the arm and head into manip mode."""
+        """
+        home_q = STRETCH_PREGRASP_Q
+        home_q = self.robot_model.update_look_at_ee(home_q)
+        self.goto(home_q, move_base=False, wait=True)
+        """
+        self.switch_to_manipulation_mode()
+        self.head.look_at_ee(blocking=False)
+        self.manip.goto_joint_positions(
+            self.manip._extract_joint_pos(STRETCH_PREGRASP_Q)
+        )
+        self.switch_to_navigation_mode()
+
+    def go_to_nav_mode(self):
+        """Move the arm and head into nav mode."""
+        """
+        home_q = STRETCH_NAVIGATION_Q
+        # TODO - should be looking down to make sure we can see the objects
+        home_q = self.robot_model.update_look_front(home_q.copy())
+        # NOTE: for now we have to do this though - until bugs are fixed in semantic map
+        # home_q = self.robot_model.update_look_ahead(home_q.copy())
+        self.goto(home_q, move_base=False, wait=True)
+        """
+        self.switch_to_manipulation_mode()
+        self.head.look_front(blocking=False)
+        self.manip.goto_joint_positions(
+            self.manip._extract_joint_pos(STRETCH_NAVIGATION_Q)
+        )
+        self.switch_to_navigation_mode()

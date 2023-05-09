@@ -134,10 +134,8 @@ class StretchPickandPlaceEnv(StretchEnv):
             self.visualizer.reset()
 
         # Switch control mode on the robot to nav
-        self.robot.switch_to_navigation_mode()
-        if self.grasp_planner is not None:
-            # Set the robot's head into "navigation" mode - facing forward
-            self.grasp_planner.go_to_nav_mode()
+        # Also set the robot's head into "navigation" mode - facing forward
+        self.robot.go_to_nav_mode()
 
     def try_grasping(self, visualize_masks=False, dry_run=False):
         return self.grasp_planner.try_grasping(
@@ -183,7 +181,7 @@ class StretchPickandPlaceEnv(StretchEnv):
         # Also do not rotate if you are just doing grasp testing
         if not self.dry_run and not self.test_grasping:
             self.robot.nav.navigate_to([0, 0, np.pi / 2], relative=True, blocking=True)
-            self.grasp_planner.go_to_manip_mode()
+            self.robot.go_to_manip_mode()
 
     def apply_action(self, action: Action, info: Optional[Dict[str, Any]] = None):
         """Handle all sorts of different actions we might be inputting into this class. We provide both a discrete and a continuous action handler."""
