@@ -29,6 +29,7 @@ class OpenVocabManipAgent(ObjectNavAgent):
         self.is_pick_done = None
         self.place_done = None
         self.gaze_agent = None
+        self.place_policy = HeuristicPlacePolicy(config, self.device)
         if config.AGENT.SKILLS.PICK.type == "gaze":
             self.gaze_agent = PPOAgent(
                 config,
