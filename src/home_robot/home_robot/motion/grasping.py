@@ -2,8 +2,12 @@ from typing import List, Optional, Tuple
 
 import numpy as np
 
+from home_robot.motion.stretch import HelloStretchIdx
+
 
 class SimpleGraspMotionPlanner(object):
+    """Simple top-down grasp motion planner for the Stretch."""
+
     def __init__(self, robot):
         """
         Solve IK
@@ -14,7 +18,9 @@ class SimpleGraspMotionPlanner(object):
         self, grasp_pose: Tuple[np.ndarray], initial_cfg: np.ndarray
     ) -> Optional[List[np.ndarray]]:
         """Create offsets for the full trajectory plan to get to the object.
-        Then return that plan."""
+        Then return that plan.
+
+        This assumes that the grasp pose is expressed in BASE COORDINATES."""
 
         # Make sure we can pull out the position and quaternion
         assert len(grasp_pose) == 2
@@ -29,7 +35,7 @@ class SimpleGraspMotionPlanner(object):
         pregrasp = ("pregrasp", pregrasp_cfg, False)
 
         # Try grasp first - find an IK solution for this
-        grasp_cfg, success, _ = self.robot.manip_ik(grasp_pos, grasp_quat)
+        grasp_cfg, success, _ = self.robot.manip_ik((grasp_pos, grasp_quat), q0=None)
         if success and grasp_cfg is not None:
             grasp_pt = (
                 "grasp",
@@ -42,9 +48,8 @@ class SimpleGraspMotionPlanner(object):
 
         # Standoff is 8cm over the grasp for now
         standoff_pos = grasp_pos + np.array([0.0, 0.0, 0.08])
-        success, standoff_cfg = self.robot.manip_ik(
-            standoff_pos,
-            grasp_quat,  # initial_cfg=grasp_cfg
+        standoff_cfg, success, _ = self.robot.manip_ik(
+            (standoff_pos, grasp_quat), q0=None
         )
         if success and standoff_cfg is not None:
             standoff = (
@@ -55,8 +60,10 @@ class SimpleGraspMotionPlanner(object):
         else:
             print("-> could not solve for standoff")
             return None
+        back_cfg = standoff_cfg.copy()
+        back_cfg[HelloStretchIdx.ARM] = 0.01
         back_cfg = self.robot.config_to_manip_command(standoff_cfg)
-        back_cfg[2] = 0.01
         back = ("back", back_cfg, False)
 
+        # Return the full motion plan
         return [pregrasp, back, standoff, grasp_pt, standoff, back, initial_pt]
