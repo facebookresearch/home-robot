@@ -239,7 +239,7 @@ class OpenVocabManipAgent(ObjectNavAgent):
             self._switch_to_next_skill(e=0)
         return action, info
 
-    def _modular_place(self, obs: Observations):
+    def _heuristic_place(self, obs: Observations):
         """
         1. Get estimate of point on receptacle to place object on.
         2. Orient towards it.
@@ -363,35 +363,6 @@ class OpenVocabManipAgent(ObjectNavAgent):
             action = DiscreteNavigationAction.STOP
         return action
 
-    def _hardcoded_place(self):
-        """Hardcoded place skill execution
-        Orients the agent's arm and camera towards the recetacle, extends arm and releases the object"""
-        place_step = self.timesteps[0] - self.place_start_step[0]
-        turn_angle = self.config.ENVIRONMENT.turn_angle
-        forward_steps = 0
-        fall_steps = 20
-        num_turns = np.round(90 / turn_angle)
-        forward_and_turn_steps = forward_steps + num_turns
-        if place_step <= forward_steps:
-            # for experimentation (TODO: Remove. ideally nav should drop us close)
-            action = DiscreteNavigationAction.MOVE_FORWARD
-        elif place_step <= forward_and_turn_steps:
-            # first orient
-            action = DiscreteNavigationAction.TURN_LEFT
-        elif place_step == forward_and_turn_steps + 1:
-            action = DiscreteNavigationAction.MANIPULATION_MODE
-        elif place_step == forward_and_turn_steps + 2:
-            action = DiscreteNavigationAction.EXTEND_ARM
-        elif place_step == forward_and_turn_steps + 3:
-            # desnap to drop the object
-            action = DiscreteNavigationAction.DESNAP_OBJECT
-        elif place_step <= forward_and_turn_steps + 3 + fall_steps:
-            # allow the object to come to rest
-            action = DiscreteNavigationAction.EMPTY_ACTION
-        elif place_step == forward_and_turn_steps + fall_steps + 4:
-            action = DiscreteNavigationAction.STOP
-        return action
-
     def act(self, obs: Observations) -> Tuple[DiscreteNavigationAction, Dict[str, Any]]:
         """State machine"""
         vis_inputs = self._get_vis_inputs(obs)
@@ -449,8 +420,8 @@ class OpenVocabManipAgent(ObjectNavAgent):
             elif self.config.AGENT.SKILLS.PLACE.type == "hardcoded":
                 action = self._hardcoded_place()
                 return action, vis_inputs
-            elif self.config.AGENT.SKILLS.PLACE.type == "modular_debug":
-                action = self._modular_place(obs)
+            elif self.config.AGENT.SKILLS.PLACE.type == "heuristic_debug":
+                action = self._heuristic_place(obs)
                 return action, vis_inputs
             else:
                 raise NotImplementedError
