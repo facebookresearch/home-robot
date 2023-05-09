@@ -60,7 +60,8 @@ class QueryRegressionHead(torch.nn.Module):
         self.final_dim = 256
         self.pos_mlp = MLP(
             [
-                512 + 512 + 512 + 1024,
+                # 512 + 512 + 512 + 1024,
+                2048,
                 512,
                 self.final_dim,
             ],
@@ -69,7 +70,8 @@ class QueryRegressionHead(torch.nn.Module):
         )
         self.ori_mlp = MLP(
             [
-                512 + 512 + 512 + 1024,
+                # 512 + 512 + 512 + 1024,
+                2048,
                 512,
                 self.final_dim,
             ],
@@ -116,6 +118,7 @@ class ActionPredictionModule(torch.nn.Module):
         self.proprio_in_dim = cfg.dims.proprio_in
         self.image_in_dim = cfg.dims.image_in
         self.proprio_out_dim = cfg.dims.proprio_out
+        self.hidden_dim = cfg.hidden_dim
 
         self.pos_wt = cfg.weights.position
         self.ori_wt = cfg.weights.orientation
@@ -179,6 +182,7 @@ class ActionPredictionModule(torch.nn.Module):
             batch_norm=False,
             dropout=0.0,
         )
+        self.x_gru = torch.nn.GRU(512 + 512 + 512 + 1024, self.hidden_dim, 1)
 
         self.regression_heads = []
         for _ in range(self.num_heads):
@@ -353,7 +357,7 @@ class ActionPredictionModule(torch.nn.Module):
         return self.show_validation_on_sensor(data)
         # return output
 
-    def forward(self, xyz, rgb, proprio, time_step, cmd):
+    def forward(self, xyz, rgb, proprio, time_step, cmd, hidden):
         """
         Classifies the most relevant voxel and uses embedding from that voxel to
         regress residuals on position and orientation of the end-effector.
@@ -392,6 +396,9 @@ class ActionPredictionModule(torch.nn.Module):
         proprio_task_emb = torch.cat([lang_emb, proprio_emb, time_emb], dim=-1)
         batch_size = x.shape[0]
 
+        # insert a GRU unit here
+        x, hidden = self.x_gru(x, hidden)
+
         positions = torch.zeros(
             batch_size, len(self.regression_heads), self.pos_in_channels
         ).to(self.device)
@@ -410,7 +417,21 @@ class ActionPredictionModule(torch.nn.Module):
             orientations[:, i] = abs_ee_ori
             grippers[:, i] = gripper
 
-        return positions, orientations, grippers
+        return positions, orientations, grippers, hidden
+
+    def get_keypoint(self, batch, i):
+        """return input for predicting ith keypoint from batch"""
+        proprio = batch["all_proprio"][0][i]
+        time_step = batch["all_time_step"][0][i]
+        cmd = [batch["all_cmd"][i][0]]
+        return proprio, time_step, cmd
+
+    def get_targets(self, batch, i):
+        """return targets for ith keypoint"""
+        pos = batch["target_ee_keyframe_pos_crop"][0][i]
+        ori = batch["target_ee_angles"][0][i]
+        g = batch["target_gripper_state"][0][i]
+        return pos, ori, g
 
     def do_epoch(self, data_iter, optimizer, train):
         if train:
@@ -427,60 +448,75 @@ class ActionPredictionModule(torch.nn.Module):
         for _, batch in enumerate(tqdm(data_iter, ncols=50)):
             if not batch["data_ok_status"]:
                 continue
-            # breakpoint()
+            optimizer.zero_grad()
             batch = self.to_device(batch)
             batch_size = 1
-            xyz = batch["xyz"][0]
-            rgb = batch["rgb"][0]
-            proprio = batch["proprio"][0]
-            cmd = batch["cmd"]
+            # xyz = batch["xyz"][0]
+            # rgb = batch["rgb"][0]
+            # proprio = batch["proprio"][0]
+            # cmd = batch["cmd"]
             crop_xyz = batch["xyz_crop"][0]
             crop_rgb = batch["rgb_crop"][0]
             perturbed_crop_location = batch["perturbed_crop_location"]
-            time_step = batch["time_step"][0]
+            num_keypoints = batch["num_keypoints"][0]
+            # time_step = batch["time_step"][0]
 
             # extract supervision terms
-            target_ori = batch["ee_keyframe_ori_crop"]
-            query_idx = batch["closest_pos_idx"][0]
-            query_pt = batch["closest_pos"][0]
+            # target_ori = batch["ee_keyframe_ori_crop"]
+            # query_idx = batch["closest_pos_idx"][0]
+            # query_pt = batch["closest_pos"][0]
 
-            target_gripper_state = batch["target_gripper_state"][0]
-            target_ee_angles = batch["target_ee_angles"][0]
+            # target_gripper_state = batch["target_gripper_state"][0]
+            # target_ee_angles = batch["target_ee_angles"][0]
 
-            # Run the predictor - get positions and orientations for the model
-            positions, orientations, grippers = self.forward(
-                crop_xyz,
-                crop_rgb,
-                proprio,
-                time_step,
-                cmd,
-            )
+            pos_loss = 0
+            ori_loss = 0
+            gripper_loss = 0
+            for t in range(num_keypoints):
+                if t == 0:
+                    hidden = torch.zeros(1, self.hidden_dim).to(self.device)
 
-            batch_size = batch_size * self.num_heads
-            pred_gripper_act = grippers.view(batch_size)
+                proprio, time_step, cmd = self.get_keypoint(batch, t)
+                target_pos, target_ori, target_g = self.get_targets(batch, t)
+
+                # Run the predictor - get positions and orientations for the model
+                position, orientation, gripper, hidden = self.forward(
+                    crop_xyz, crop_rgb, proprio, time_step, cmd, hidden
+                )
+                position = position.view(1, 3)
+                orientation = orientation.view(1, 4)
+                target_pos = target_pos.view(1, 3)
+                target_ori = target_ori.view(1, 4)
+
+                pos_loss += ((position - target_pos) ** 2).sum()
+                ori_loss += quaternion_distance(orientation, target_ori).sum()
+                gripper_loss += self.classify_loss(gripper.view(-1), target_g.view(-1))
 
             # Compute the position error
             # TODO: what should it be?
-            if self.multi_head:
-                target_pos = batch["ee_keyframe_pos_crop"]
-                pred_ee_pos = positions.view(batch_size, 3)
-            else:
-                target_pos = batch["ee_keyframe_pos"]
-                pred_ee_pos = perturbed_crop_location + positions.view(batch_size, 3)
-            if self.ori_type == "rpy":
-                pred_ee_ori = orientations.view(batch_size, 3)
-                ori_loss = ((pred_ee_ori - target_ee_angles) ** 2).sum()
-            elif self.ori_type == "quaternion":
-                pred_ee_ori = orientations.view(batch_size, 4)
-                target_ee_angles = target_ee_angles.view(batch_size, 4)
-                ori_loss = quaternion_distance(pred_ee_ori, target_ee_angles).sum()
+            # if self.multi_head:
+            #     target_pos = batch["ee_keyframe_pos_crop"]
+            #     pred_ee_pos = positions.view(batch_size, 3)
+            # else:
+            #     target_pos = batch["ee_keyframe_pos"]
+            #     pred_ee_pos = perturbed_crop_location + positions.view(batch_size, 3)
+            # if self.ori_type == "rpy":
+            #     pred_ee_ori = orientations.view(batch_size, 3)
+            #     ori_loss = ((pred_ee_ori - target_ee_angles) ** 2).sum()
+            # elif self.ori_type == "quaternion":
+            # pred_ee_ori = orientations.view(batch_size, 4)
+            # target_ee_angles = target_ee_angles.view(batch_size, 4)
+            # ori_loss = quaternion_distance(pred_ee_ori, target_ee_angles).sum()
 
-            pos_loss = ((target_pos - pred_ee_pos) ** 2).sum()
+            # pos_loss = ((target_pos - pred_ee_pos) ** 2).sum()
 
             # classification loss applied to the gripper targets
-            gripper_loss = self.classify_loss(
-                pred_gripper_act.view(-1), target_gripper_state.view(-1)
-            )
+            # gripper_loss = self.classify_loss(
+            # pred_gripper_act.view(-1), target_gripper_state.view(-1)
+            # )
+            pos_loss /= 3
+            ori_loss /= 3
+            gripper_loss /= 3
 
             # add up all the losses
             loss = (
@@ -500,23 +536,23 @@ class ActionPredictionModule(torch.nn.Module):
 
         # breakpoint()
         # print()
-        print("------ Orientation debug info ------")
-        print("Trial was:", batch["trial_name"][0])
-        print("Cmd =", cmd)
-        if self.ori_type == "quaternion":
-            import trimesh.transformations as tra
-
-            T0 = tra.quaternion_matrix(pred_ee_ori[0].detach().cpu().numpy())
-            T1 = tra.quaternion_matrix(target_ee_angles[0].detach().cpu().numpy())
-            T1_inv = tra.inverse_matrix(T1)
-            T01 = T0 @ T1_inv
-            angles = tra.euler_from_matrix(T01)
-            print("relative angles =", angles)
-        print("pred ori =", pred_ee_ori[0].detach().cpu().numpy())
-        print("trgt ori =", target_ee_angles[0].detach().cpu().numpy())
-        print()
-        print("pred pos =", pred_ee_pos[0].detach().cpu().numpy())
-        print("trgt pos =", target_pos[0].detach().cpu().numpy())
+        # print("------ Orientation debug info ------")
+        # print("Trial was:", batch["trial_name"][0])
+        # print("Cmd =", cmd)
+        # if self.ori_type == "quaternion":
+        #     import trimesh.transformations as tra
+        #
+        #     T0 = tra.quaternion_matrix(pred_ee_ori[0].detach().cpu().numpy())
+        #     T1 = tra.quaternion_matrix(target_ee_angles[0].detach().cpu().numpy())
+        #     T1_inv = tra.inverse_matrix(T1)
+        #     T01 = T0 @ T1_inv
+        #     angles = tra.euler_from_matrix(T01)
+        #     print("relative angles =", angles)
+        # print("pred ori =", pred_ee_ori[0].detach().cpu().numpy())
+        # print("trgt ori =", target_ee_angles[0].detach().cpu().numpy())
+        # print()
+        # print("pred pos =", pred_ee_pos[0].detach().cpu().numpy())
+        # print("trgt pos =", target_pos[0].detach().cpu().numpy())
         return (
             total_loss / steps,
             tot_pos_loss / steps,

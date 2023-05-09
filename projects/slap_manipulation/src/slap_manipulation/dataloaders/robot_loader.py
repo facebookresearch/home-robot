@@ -195,6 +195,7 @@ class RobotDataset(RLBenchDataset):
         self._cr_rng = self._cr_max - self._cr_min
         self._ambiguous_radius = ambiguous_radius
         self.depth_factor = depth_factor
+        self.proprio_dim = 3 + 4 + 1
 
         # super(RoboPenDataset, self).__init__(
         super(RLBenchDataset, self).__init__(
@@ -492,6 +493,12 @@ class RobotDataset(RLBenchDataset):
                 "grasp-action bottle",
                 "lift-action bottle",
             ]
+        # TODO: remove this and read from a yaml file instead
+        all_cmd = [
+            "approach-pose-action bottle",
+            "grasp-action bottle",
+            "lift-action bottle",
+        ]
 
         keypoints = self.extract_manual_keyframes(
             trial["user_keyframe"][()]
@@ -515,6 +522,25 @@ class RobotDataset(RLBenchDataset):
             time_step = np.array(
                 [(keypoint_relative_idx / (self.max_keypoints - 1) - 0.5) * 2]
             )
+
+        if self.multi_step:
+            num_keyframes = len(keypoints)
+        else:
+            num_keyframes = 1
+        all_time_step = np.zeros((num_keyframes, self.max_keypoints))
+        for idx in range(num_keyframes):
+            if self.time_as_one_hot:
+                all_time_step[idx] = (
+                    torch.nn.functional.one_hot(
+                        torch.LongTensor([idx]), self.max_keypoints
+                    )
+                    .numpy()
+                    .squeeze()
+                )
+            else:
+                all_time_step[idx] = np.array(
+                    [(idx / (self.max_keypoints - 1) - 0.5) * 2]
+                )
         # this index is of the actual episode step this keypoint belongs to; i.e. trial/current_keypoint_idx/<ee-pose, images, etc>
         if verbose:
             print(f"Key-point index chosen: abs={current_keypoint_idx}")
@@ -678,6 +704,28 @@ class RobotDataset(RLBenchDataset):
         self._assert_positions_match_ee_keyframes(crop_ee_keyframe, positions)
 
         # create proprio vector
+        if self.multi_step:
+            all_proprio = np.zeros((len(keypoints), self.proprio_dim))
+            for idx, key_idx in enumerate(keypoints):
+                # all_proprio is (past_pos, past_quat, past_g, current_g, time)
+                if idx == 0:
+                    past_pos = 2 * np.ones(3)
+                    past_quat = 2 * np.ones(4)
+                    past_g = np.array([-1])
+                else:
+                    past_pos = all_positions[idx - 1]
+                    past_quat = all_angles[idx - 1]
+                    past_g = gripper_state[key_idx - 1]
+                if verbose:
+                    print("Showing past-pos and quat")
+                    show_point_cloud(
+                        crop_xyz,
+                        crop_rgb,
+                        orig=past_pos.reshape(3, 1),
+                        R=tra.quaternion_matrix(past_quat)[:3, :3],
+                    )
+                all_proprio[idx] = np.concatenate((past_pos, past_quat, past_g))
+
         if not self.autoregressive:
             proprio = np.concatenate(
                 (gripper_state[input_idx], gripper_width_array[input_idx], time_step)
@@ -742,17 +790,19 @@ class RobotDataset(RLBenchDataset):
         datum = {
             "trial_name": trial.name,
             "data_ok_status": data_status,
+            "num_keypoints": len(keypoints),
             # ----------
             "ee_keyframe_pos": torch.FloatTensor(current_ee_keyframe[:3, 3]),
             "ee_keyframe_ori": torch.FloatTensor(current_ee_keyframe[:3, :3]),
             "proprio": torch.FloatTensor(proprio),
-            "time_step": torch.FloatTensor(time_step)
-            if self.time_as_one_hot
-            else torch.FloatTensor(time_step),
+            "all_proprio": torch.FloatTensor(all_proprio),
+            "time_step": torch.FloatTensor(time_step),
+            "all_time_step": torch.FloatTensor(all_time_step),
             "target_gripper_state": torch.FloatTensor(target_gripper_state),
             "xyz": torch.FloatTensor(xyz),
             "rgb": torch.FloatTensor(rgb),
             "cmd": cmd,
+            "all_cmd": all_cmd,
             "keypoint_idx": keypoint_relative_idx,
             # engineered features ----------------
             "closest_pos": torch.FloatTensor(closest_pt_og_pcd),
@@ -763,7 +813,9 @@ class RobotDataset(RLBenchDataset):
             "rgb_downsampled": torch.FloatTensor(rgb2),
             # used in pt_query.py; make sure this is being used with xyz_downsampled
             # TODO rename xyz_mask --> xyz_downsampled_mask to remove confusion
-            "xyz_mask": torch.LongTensor(self.mask_voxels(xyz2, target_idx_down_pcd)),
+            "xyz_mask": torch.LongTensor(
+                self.mask_voxels(xyz2, target_idx_down_pcd)
+            ),  # @Priyam: I have no idea what this is
             # Crop inputs -----------------
             "rgb_crop": torch.FloatTensor(crop_rgb),
             "xyz_crop": torch.FloatTensor(crop_xyz),
@@ -772,8 +824,8 @@ class RobotDataset(RLBenchDataset):
             "perturbed_crop_location": torch.FloatTensor(crop_location),
             # Crop goals ------------------
             # Goals for regression go here
-            "ee_keyframe_pos_crop": torch.FloatTensor(positions),
-            "ee_keyframe_ori_crop": torch.FloatTensor(orientations),
+            "target_ee_keyframe_pos_crop": torch.FloatTensor(positions),
+            "target_ee_keyframe_ori_crop": torch.FloatTensor(orientations),
             "target_ee_angles": torch.FloatTensor(angles),
         }
         return datum

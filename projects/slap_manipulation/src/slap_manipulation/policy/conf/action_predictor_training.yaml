@@ -9,7 +9,7 @@ orientation_type: "quaternion"  # change orientation_dim when you change this
 learning_rate: 1e-4
 lambda_weight_l2: 0.000001
 optim: lamb
-multi_step: False
+multi_step: True
 num_heads: 1
 crop_size: 0.1
 query_radius: 0.16
@@ -37,7 +37,7 @@ dims:
 weights:
   position: 1.0
   orientation: 1e-2
-  gripper: 0.0
+  gripper: 1e-7
 
 run:
   validate: False
@@ -51,3 +51,4 @@ model:
   time_mlp: [6, 256, 512]
 
 per_action_cmd: False
+hidden_dim: 2048
