@@ -20,6 +20,7 @@ from slap_manipulation.dataloaders.robot_loader import RobotDataset
 from slap_manipulation.optim.lamb import Lamb
 from slap_manipulation.policy.components import DenseBlock, GlobalSAModule
 from slap_manipulation.policy.components import PtnetSAModule as SAModule
+from torch.optim.lr_scheduler import ReduceLROnPlateau
 from torch_geometric.nn import MLP, Linear
 from tqdm import tqdm
 
@@ -42,12 +43,11 @@ def quaternion_distance(q1, q2):
 class QueryRegressionHead(torch.nn.Module):
     def __init__(
         self,
-        orientation_type="quaternion",
+        cfg,
     ):
         super().__init__()
-        self.ori_type = orientation_type
-        self.pos_in_channels = 3
-        self.ori_type = orientation_type
+        self.ori_type = cfg.orientation_type
+        self.pos_in_channels = cfg.regression_head.pos_in_channels
         if self.ori_type == "rpy":
             self.ori_in_channels = 3
         elif self.ori_type == "quaternion":
@@ -57,24 +57,14 @@ class QueryRegressionHead(torch.nn.Module):
                 "ori type = " + str(self.ori_type) + " not supported"
             )
 
-        self.final_dim = 256
+        self.final_dim = cfg.regression_head.final_dim
         self.pos_mlp = MLP(
-            [
-                # 512 + 512 + 512 + 1024,
-                2048,
-                512,
-                self.final_dim,
-            ],
+            OmegaConf.to_object(cfg.regression_head.pos_mlp),
             dropout=0.0,
             batch_norm=False,
         )
         self.ori_mlp = MLP(
-            [
-                # 512 + 512 + 512 + 1024,
-                2048,
-                512,
-                self.final_dim,
-            ],
+            OmegaConf.to_object(cfg.regression_head.ori_mlp),
             dropout=0.0,
             batch_norm=False,
         )
@@ -182,14 +172,22 @@ class ActionPredictionModule(torch.nn.Module):
             batch_norm=False,
             dropout=0.0,
         )
-        self.x_gru = torch.nn.GRU(512 + 512 + 512 + 1024, self.hidden_dim, 1)
+        self.x_gru = torch.nn.GRU(2048, self.hidden_dim, 1)
+        self.post_process = MLP(
+            OmegaConf.to_object(cfg.model.post_process_mlp),
+            batch_norm=False,
+            dropout=0.0,
+            # activation_layer=torch.nn.LeakyReLU()
+        )
 
         self.regression_heads = []
         for _ in range(self.num_heads):
-            new_head = QueryRegressionHead(self.ori_type)
+            new_head = QueryRegressionHead(cfg)
             self.regression_heads.append(new_head)
-        self.pos_in_channels = new_head.pos_in_channels
-        self.ori_in_channels = new_head.ori_in_channels
+        self.pos_in_channels = cfg.regression_head.pos_in_channels
+        self.ori_in_channels = (
+            3 if self.ori_type == "rpy" else 4 if self.ori_type == "quaternion" else -1
+        )
         self._regression_heads = torch.nn.Sequential(*self.regression_heads)
         # self.classify_loss = torch.nn.BCEWithLogitsLoss()
         # self.classify_loss = torch.nn.BinaryCrossEntropyLoss()
@@ -375,13 +373,14 @@ class ActionPredictionModule(torch.nn.Module):
         lang_emb = self.lang_emb(lang.float())
 
         # condense rgb into a single point embedding
-        proprio_emb = self.proprio_emb(proprio[None])
+        proprio = self.proprio_preprocess(proprio[None])
+        proprio_emb = self.proprio_emb(proprio)
         time_emb = self.time_emb(time_step[None])
-        proprio = proprio[None].repeat(rgb.shape[0], 1)
-        in_feat = torch.cat(  #  not used
-            [rgb, proprio],
-            dim=1,
-        )
+        # proprio = proprio[None].repeat(rgb.shape[0], 1)
+        # in_feat = torch.cat(  #  not used
+        #     [rgb, proprio],
+        #     dim=1,
+        # )
         sa0_out = (
             rgb,
             xyz,
@@ -398,6 +397,7 @@ class ActionPredictionModule(torch.nn.Module):
 
         # insert a GRU unit here
         x, hidden = self.x_gru(x, hidden)
+        x = self.post_process(x)
 
         positions = torch.zeros(
             batch_size, len(self.regression_heads), self.pos_in_channels
@@ -433,7 +433,7 @@ class ActionPredictionModule(torch.nn.Module):
         g = batch["target_gripper_state"][0][i]
         return pos, ori, g
 
-    def do_epoch(self, data_iter, optimizer, train):
+    def do_epoch(self, data_iter, optimizer, train, unbatched=True):
         if train:
             self.train()
         else:
@@ -472,25 +472,55 @@ class ActionPredictionModule(torch.nn.Module):
             pos_loss = 0
             ori_loss = 0
             gripper_loss = 0
-            for t in range(num_keypoints):
-                if t == 0:
-                    hidden = torch.zeros(1, self.hidden_dim).to(self.device)
+            if unbatched:
+                for t in range(num_keypoints):
+                    if t == 0:
+                        hidden = torch.zeros(1, self.hidden_dim).to(self.device)
 
-                proprio, time_step, cmd = self.get_keypoint(batch, t)
-                target_pos, target_ori, target_g = self.get_targets(batch, t)
+                    proprio, time_step, cmd = self.get_keypoint(batch, t)
+                    target_pos, target_ori, target_g = self.get_targets(batch, t)
+                    # target_ori_R = tra.quaternion_matrix(target_ori.detach().cpu().numpy())[:3, :3]
+                    # show_point_cloud(crop_xyz.detach().cpu().numpy(), crop_rgb.detach().cpu().numpy(), target_pos.detach().cpu().numpy().reshape(3,1), target_ori_R)
 
-                # Run the predictor - get positions and orientations for the model
+                    # Run the predictor - get positions and orientations for the model
+                    position, orientation, gripper, hidden = self.forward(
+                        crop_xyz, crop_rgb, proprio, time_step, cmd, hidden
+                    )
+                    position = position.view(1, 3)
+                    orientation = orientation.view(1, 4)
+                    target_pos = target_pos.view(1, 3)
+                    target_ori = target_ori.view(1, 4)
+
+                    pos_loss += ((position - target_pos) ** 2).sum()
+                    ori_loss += quaternion_distance(orientation, target_ori).sum()
+                    gripper_loss += self.classify_loss(
+                        gripper.view(-1), target_g.view(-1)
+                    )
+            else:
+                hidden = torch.zeros(1, self.hidden_dim).to(self.device)
+                # get batched input and targets
+                proprio = batch["all_proprio"]
+                time_step = batch["all_time_step"]
+                cmd = batch["all_cmd"]
+                print(proprio)
+                print(f"proprio.shape: {proprio.shape}")
+                print(time_step)
+                print(f"time_step.shape: {time_step.shape}")
+                print(cmd)
+                print(f"cmd.shape: {cmd.shape}")
+                breakpoint()
+
+                # reshape targets
+
+                # process batched sampled
                 position, orientation, gripper, hidden = self.forward(
                     crop_xyz, crop_rgb, proprio, time_step, cmd, hidden
                 )
-                position = position.view(1, 3)
-                orientation = orientation.view(1, 4)
-                target_pos = target_pos.view(1, 3)
-                target_ori = target_ori.view(1, 4)
 
-                pos_loss += ((position - target_pos) ** 2).sum()
-                ori_loss += quaternion_distance(orientation, target_ori).sum()
-                gripper_loss += self.classify_loss(gripper.view(-1), target_g.view(-1))
+                # reshape output
+                position = position.view(self.batch_size, 3)
+                orientation = orientation.view(self.batch_size, 4)
+                gripper = gripper.view(self.batch_size, 1)
 
             # Compute the position error
             # TODO: what should it be?
@@ -665,134 +695,192 @@ class ActionPredictionModule(torch.nn.Module):
         metrics = {"cmd": [], "pos": [], "ori": []}
         for i, batch in enumerate(valid_data):
             batch = self.to_device(batch)
-
-            # get input data
-            xyz = batch["xyz"][0]
-            rgb = batch["rgb"][0]
-            xyz_dash = batch["xyz_downsampled"][0]
-            rgb_dash = batch["rgb_downsampled"][0]
+            batch_size = 1
             crop_xyz = batch["xyz_crop"][0]
             crop_rgb = batch["rgb_crop"][0]
-            proprio = batch["proprio"][0]
-            cmd = batch["cmd"]
+            perturbed_crop_location = batch["perturbed_crop_location"]
+            num_keypoints = batch["num_keypoints"][0]
 
-            # extract supervision terms
-            target_pos = batch["ee_keyframe_pos"]
-            target_ori = batch["ee_keyframe_ori"]
-            query_idx = batch["closest_pos_idx"][0]
-            query_pt = batch["closest_pos"][0]
-            # angles = tra.euler_from_matrix(crop_ee_keyframe[:3, :3])
+            pos_loss = 0
+            ori_loss = 0
+            gripper_loss = 0
+            pos_error = 0
 
-            print()
-            print("-" * 8, i, "-" * 8)
-            print("Trial was:", batch["trial_name"][0])
-            print("Cmd was:  ", cmd)
-            print(f"Gripper-state, gripper-width, timestep: {proprio}")
+            for t in range(num_keypoints):
+                if t == 0:
+                    hidden = torch.zeros(1, self.hidden_dim).to(self.device)
 
-            crop_target_pos = batch["ee_keyframe_pos_crop"][0]
-            crop_target_ori = batch["ee_keyframe_ori_crop"][0]
-            target_angles = batch["target_ee_angles"]
-            crop_location = batch["perturbed_crop_location"]
+                proprio, time_step, cmd = self.get_keypoint(batch, t)
+                target_pos, target_ori, target_g = self.get_targets(batch, t)
 
-            (delta_ee_pos, abs_ee_ori, gripper_state,) = self.forward(
-                crop_xyz,
-                crop_rgb,
-                proprio,
-                cmd,
-            )
-            if debug_regression_training:
-                # Added to make sure regression targets actually make sense and are being
-                # trained right
-                delta_ee_pos = crop_target_pos
-                abs_ee_ori = target_ee_angles[None]
-
-            # format pos and ori the right way
-            pred_pos = delta_ee_pos
-            # Create the orientation and convert it from whatever its native form is
-            if self.ori_type == "rpy":
-                # Roll pitch yaw setup - might need to skip
-                abs_ee_ori_np = abs_ee_ori.detach().cpu().numpy()
-                abs_ee_ori_np[0, 0] += np.pi
-                pred_ori = tra.euler_matrix(
-                    abs_ee_ori_np[0, 0], abs_ee_ori_np[0, 1], abs_ee_ori_np[0, 2]
+                # Run the predictor - get positions and orientations for the model
+                position, orientation, gripper, hidden = self.forward(
+                    crop_xyz, crop_rgb, proprio, time_step, cmd, hidden
                 )
-                if debug_regression_training:
-                    raise NotImplementedError()
-                raise NotImplementedError("we only support quaternions right now")
-            else:
-                # Convert the quaternion setup into a pose matrix that we can use
-                # w, x, y, z = abs_ee_ori_np
-                pred_ori = tra.quaternion_matrix(abs_ee_ori[0].detach().cpu().numpy())
+                position = position.view(1, 3)
+                orientation = orientation.view(1, 4)
+                target_pos = target_pos.view(1, 3)
+                target_ori = target_ori.view(1, 4)
 
-            if self.multi_head:
-                iterations = 3
-                pred_pos = pred_pos[0]
-                target_angles = batch["target_ee_angles"][0]
-            else:
-                iterations = 1
+                pos_loss += ((position - target_pos) ** 2).sum()
+                ori_loss += quaternion_distance(orientation, target_ori).sum()
+                gripper_loss += self.classify_loss(gripper.view(-1), target_g.view(-1))
 
-            i = 0
-            while i < iterations:
-                # Create copies for debugging and visualization
-                if self.multi_head:
-                    pred_ori_R = pred_ori[i, :3, :3]
-                    pred_ori_4x4 = np.copy(pred_ori[i])
-                    viz_target_pos = crop_target_pos[i]
-                    viz_target_ori = crop_target_ori[i]
-                else:
-                    pred_ori_R = pred_ori[:3, :3]
-                    pred_ori_4x4 = np.copy(pred_ori)
-                    viz_target_pos = target_pos - crop_location
-                    viz_target_ori = crop_target_ori
-                T1 = tra.quaternion_matrix(target_angles[i].detach().cpu().numpy())
-                T1_inv = tra.inverse_matrix(T1)
-                T01 = pred_ori_4x4 @ T1_inv
-                angles = tra.euler_from_matrix(T01)
-                ori_error = np.sum(angles) / 3
-                print("Error in relative angles = ", angles)
-                if self.multi_head:
-                    pos_error = np.linalg.norm(
-                        crop_target_pos[i].detach().cpu().numpy()
-                        - pred_pos[i].detach().cpu().numpy()
-                    )
-                else:
-                    pos_error = np.linalg.norm(
-                        viz_target_pos.detach().cpu().numpy()
-                        - pred_pos[i].detach().cpu().numpy()
-                    )
-                print(f"Error in meters: {pos_error}")
+                pos_error += np.linalg.norm(
+                    target_pos.detach().cpu().numpy()
+                    - position.detach().cpu().numpy()
+                    - position.detach().cpu().numpy()
+                ).sum()
 
-                gripper_state = gripper_state > 0.5
-
+                # create viz variables
+                viz_position = (position).detach().cpu().numpy()
+                pred_ori_R = tra.quaternion_matrix(orientation.detach().cpu().numpy())[
+                    :3, :3
+                ]
+                viz_target_pos = target_pos.detach().cpu().numpy()
+                viz_target_ori = tra.quaternion_matrix(
+                    target_ori.detach().cpu().numpy()
+                )[:3, :3]
                 # show point-cloud with coordinate frame where ee should be
                 print(f"{cmd}")
-                print(f"Predicted gripper state: {gripper_state}")
+                print(f"Predicted gripper state: {gripper}")
                 self.show_pred_and_grnd_truth(
                     crop_xyz.detach().cpu().numpy(),
                     crop_rgb.detach().cpu().numpy(),
-                    pred_pos[i].detach().cpu().numpy().reshape(3, 1),
+                    viz_position.reshape(3, 1),
                     pred_ori_R,
-                    query_pt.detach().cpu().numpy().reshape(3, 1),
-                    viz_target_pos.detach().cpu().numpy().reshape(3, 1),
-                    viz_target_ori.detach().cpu().numpy().reshape(3, 3),
+                    perturbed_crop_location.detach().cpu().numpy().reshape(3, 1),
+                    viz_target_pos.reshape(3, 1),
+                    viz_target_ori.reshape(3, 3),
                     save=save,
                     i=i,
-                    epoch=epoch,
                 )
-                i += 1
+            print("------")
+            print(f"pos_error: {pos_error / 3}")
+            print(f"pos_loss: {pos_loss / 3}")
 
-            metrics["cmd"].append(cmd)
-            metrics["pos"].append(float(pos_error))
-            metrics["ori"].append(float(ori_error))
-        pprint(metrics)
-        todaydate = datetime.date.today()
-        time = datetime.datetime.now().strftime("%H_%M")
-        output_dir = f"./outputs/{todaydate}/{self.name}/"
-        output_file = f"output_{time}.json"
-        if not os.path.exists(output_dir):
-            os.makedirs(output_dir)
-        with open(os.path.join(output_dir, output_file), "w") as f:
-            json.dump(metrics, f, indent=4)
+            # get input data
+        #     xyz = batch["xyz"][0]
+        #     rgb = batch["rgb"][0]
+        #     xyz_dash = batch["xyz_downsampled"][0]
+        #     rgb_dash = batch["rgb_downsampled"][0]
+        #     crop_xyz = batch["xyz_crop"][0]
+        #     crop_rgb = batch["rgb_crop"][0]
+        #     proprio = batch["proprio"][0]
+        #     cmd = batch["cmd"]
+        #
+        #     # extract supervision terms
+        #     target_pos = batch["ee_keyframe_pos"]
+        #     target_ori = batch["ee_keyframe_ori"]
+        #     query_idx = batch["closest_pos_idx"][0]
+        #     query_pt = batch["closest_pos"][0]
+        #     # angles = tra.euler_from_matrix(crop_ee_keyframe[:3, :3])
+        #
+        #     print()
+        #     print("-" * 8, i, "-" * 8)
+        #     print("Trial was:", batch["trial_name"][0])
+        #     print("Cmd was:  ", cmd)
+        #     print(f"Gripper-state, gripper-width, timestep: {proprio}")
+        #
+        #     crop_target_pos = batch["ee_keyframe_pos_crop"][0]
+        #     crop_target_ori = batch["ee_keyframe_ori_crop"][0]
+        #     target_angles = batch["target_ee_angles"]
+        #     crop_location = batch["perturbed_crop_location"]
+        #
+        #     (delta_ee_pos, abs_ee_ori, gripper_state,) = self.forward(
+        #         crop_xyz,
+        #         crop_rgb,
+        #         proprio,
+        #         cmd,
+        #     )
+        #
+        #     # format pos and ori the right way
+        #     pred_pos = delta_ee_pos
+        #     # Create the orientation and convert it from whatever its native form is
+        #     if self.ori_type == "rpy":
+        #         # Roll pitch yaw setup - might need to skip
+        #         abs_ee_ori_np = abs_ee_ori.detach().cpu().numpy()
+        #         abs_ee_ori_np[0, 0] += np.pi
+        #         pred_ori = tra.euler_matrix(
+        #             abs_ee_ori_np[0, 0], abs_ee_ori_np[0, 1], abs_ee_ori_np[0, 2]
+        #         )
+        #         if debug_regression_training:
+        #             raise NotImplementedError()
+        #         raise NotImplementedError("we only support quaternions right now")
+        #     else:
+        #         # Convert the quaternion setup into a pose matrix that we can use
+        #         # w, x, y, z = abs_ee_ori_np
+        #         pred_ori = tra.quaternion_matrix(abs_ee_ori[0].detach().cpu().numpy())
+        #
+        #     if self.multi_head:
+        #         iterations = 3
+        #         pred_pos = pred_pos[0]
+        #         target_angles = batch["target_ee_angles"][0]
+        #     else:
+        #         iterations = 1
+        #
+        #     i = 0
+        #     while i < iterations:
+        #         # Create copies for debugging and visualization
+        #         if self.multi_head:
+        #             pred_ori_R = pred_ori[i, :3, :3]
+        #             pred_ori_4x4 = np.copy(pred_ori[i])
+        #             viz_target_pos = crop_target_pos[i]
+        #             viz_target_ori = crop_target_ori[i]
+        #         else:
+        #             pred_ori_R = pred_ori[:3, :3]
+        #             pred_ori_4x4 = np.copy(pred_ori)
+        #             viz_target_pos = target_pos - crop_location
+        #             viz_target_ori = crop_target_ori
+        #         T1 = tra.quaternion_matrix(target_angles[i].detach().cpu().numpy())
+        #         T1_inv = tra.inverse_matrix(T1)
+        #         T01 = pred_ori_4x4 @ T1_inv
+        #         angles = tra.euler_from_matrix(T01)
+        #         ori_error = np.sum(angles) / 3
+        #         print("Error in relative angles = ", angles)
+        #         if self.multi_head:
+        #             pos_error = np.linalg.norm(
+        #                 crop_target_pos[i].detach().cpu().numpy()
+        #                 - pred_pos[i].detach().cpu().numpy()
+        #             )
+        #         else:
+        #             pos_error = np.linalg.norm(
+        #                 viz_target_pos.detach().cpu().numpy()
+        #                 - pred_pos[i].detach().cpu().numpy()
+        #             )
+        #         print(f"Error in meters: {pos_error}")
+        #
+        #         gripper_state = gripper_state > 0.5
+        #
+        #         # show point-cloud with coordinate frame where ee should be
+        #         print(f"{cmd}")
+        #         print(f"Predicted gripper state: {gripper_state}")
+        #         self.show_pred_and_grnd_truth(
+        #             crop_xyz.detach().cpu().numpy(),
+        #             crop_rgb.detach().cpu().numpy(),
+        #             pred_pos[i].detach().cpu().numpy().reshape(3, 1),
+        #             pred_ori_R,
+        #             query_pt.detach().cpu().numpy().reshape(3, 1),
+        #             viz_target_pos.detach().cpu().numpy().reshape(3, 1),
+        #             viz_target_ori.detach().cpu().numpy().reshape(3, 3),
+        #             save=save,
+        #             i=i,
+        #             epoch=epoch,
+        #         )
+        #         i += 1
+        #
+        #     metrics["cmd"].append(cmd)
+        #     metrics["pos"].append(float(pos_error))
+        #     metrics["ori"].append(float(ori_error))
+        # pprint(metrics)
+        # todaydate = datetime.date.today()
+        # time = datetime.datetime.now().strftime("%H_%M")
+        # output_dir = f"./outputs/{todaydate}/{self.name}/"
+        # output_file = f"output_{time}.json"
+        # if not os.path.exists(output_dir):
+        #     os.makedirs(output_dir)
+        # with open(os.path.join(output_dir, output_file), "w") as f:
+        #     json.dump(metrics, f, indent=4)
 
 
 @hydra.main(
@@ -807,6 +895,7 @@ def main(cfg):
     model = ActionPredictionModule(cfg)
     model.to(model.device)
     optimizer = model.get_optimizer()
+    scheduler = ReduceLROnPlateau(optimizer, patience=3)
 
     if cfg.source in ["franka", "stretch"]:
         # Update splits - only used here
@@ -973,7 +1062,7 @@ def main(cfg):
             print(
                 f"Epoch: {epoch:03d}, Train loss: {train_loss:.4f}, Valid loss: {valid_loss:.4f}"
             )
-            # scheduler.step()
+            scheduler.step(valid_loss)
             best_valid_loss, updated = model.smart_save(
                 epoch, valid_loss, best_valid_loss
             )

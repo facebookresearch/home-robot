@@ -93,7 +93,7 @@ class RPHighLevelTrial(Trial):
         idx = idx[keypoint_array == 1]
         keypoint_len = len(idx)
         # extra samples for metrics - used to coer for randomness in ptnet ops?
-        self.factor = 1
+        self.factor = 5
         # extra training time spent on dr examples
         self.dr_factor = 5
         self.length = (
