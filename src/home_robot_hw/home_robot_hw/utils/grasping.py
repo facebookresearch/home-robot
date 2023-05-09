@@ -6,7 +6,7 @@ import rospy
 from geometry_msgs.msg import TransformStamped
 
 import home_robot.utils.visualization as viz
-from home_robot.motion.grasping import SimpleGraspMotionPlanner
+from home_robot.manipulation.grasping import SimpleGraspMotionPlanner
 from home_robot.motion.stretch import (
     STRETCH_PREGRASP_Q,
     HelloStretchIdx,
