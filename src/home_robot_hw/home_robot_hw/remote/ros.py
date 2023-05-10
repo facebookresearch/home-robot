@@ -168,7 +168,9 @@ class StretchRosInterface:
         else:
             return False
 
-    def config_to_ros_trajectory_goal(self, q: np.ndarray, dq: np.ndarray=None) -> FollowJointTrajectoryGoal:
+    def config_to_ros_trajectory_goal(
+        self, q: np.ndarray, dq: np.ndarray = None
+    ) -> FollowJointTrajectoryGoal:
         """Create a joint trajectory goal to move the arm."""
         trajectory_goal = FollowJointTrajectoryGoal()
         trajectory_goal.goal_time_tolerance = rospy.Time(self.goal_time_tolerance)

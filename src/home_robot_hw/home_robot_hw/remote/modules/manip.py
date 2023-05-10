@@ -80,7 +80,15 @@ class StretchManipulationClient(AbstractControlModule):
         ]
 
     @enforce_enabled
-    def goto(self, q, dq:List=None, move_base=False, wait=True, max_wait_t=10.0, verbose=False):
+    def goto(
+        self,
+        q,
+        dq: List = None,
+        move_base=False,
+        wait=True,
+        max_wait_t=10.0,
+        verbose=False,
+    ):
         """Directly command the robot using generalized coordinates
         some of these params are unsupported
         """

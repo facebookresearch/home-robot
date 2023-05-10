@@ -30,7 +30,7 @@ from home_robot_hw.ros.utils import matrix_to_pose_msg, ros_pose_to_transform
 def test_motion(env, robot, joint_poses, wait=True):
     """
     Test motion to a pose with custom velocity per joint.
-    """ 
+    """
     STRETCH_HOME_dQ = np.array(
         [
             0.1,  # x
@@ -39,16 +39,16 @@ def test_motion(env, robot, joint_poses, wait=True):
             0.05,  # lift
             0.05,  # arm
             0.2,  # gripper roll py
-            0.2,    # pitch
-            0.2,    # yaw
+            0.2,  # pitch
+            0.2,  # yaw
             0.2,  # gripper open/close,
-            0.2,   # head pan
-            0.2,    # head tilt
+            0.2,  # head pan
+            0.2,  # head tilt
         ]
     )
     env.robot.manip.goto(joint_poses, dq=STRETCH_HOME_dQ, wait=wait)
     return True
-    
+
 
 @click.command()
 @click.option("--visualize-maps", default=False, is_flag=True)
@@ -72,7 +72,7 @@ def run_experiment(visualize_maps=False, test_id=0, reset_nav=False, **kwargs):
     dof = len(STRETCH_HOME_Q)
     result = test_motion(env, robot, STRETCH_HOME_Q)
     assert result, "Failed to move to home position with custom velocity."
-    
-    
+
+
 if __name__ == "__main__":
     run_experiment()
