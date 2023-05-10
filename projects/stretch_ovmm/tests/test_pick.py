@@ -1,4 +1,5 @@
-#!/usr/birobot# Copyright (c) Meta Platforms, Inc. and affiliates.
+#!/usr/bin/env python
+# Copyright (c) Meta Platforms, Inc. and affiliates.
 #
 # This source code is licensed under the MIT license found in the
 # LICENSE file in the root directory of this source tree.
@@ -72,7 +73,7 @@ def run_experiment(visualize_maps=False, test_id=0, reset_nav=False, **kwargs):
         robot.nav.navigate_to([0, 0, 0])
 
     # Put it into initial posture
-    env.robot.go_to_manip_mode()
+    env.robot.move_to_manip_posture()
 
     # do some tests
     if test_id == 0:

@@ -903,7 +903,7 @@ class HelloStretchKinematics(Robot):
         return positions, pan, tilt
 
     def config_to_manip_command(self, q):
-        """convert from general representation into arm manip config"""
+        """convert from general representation into arm manip command. This extracts just the information used for end-effector control: base x motion, arm lift, and wrist variables."""
         return [
             q[HelloStretchIdx.BASE_X],
             q[HelloStretchIdx.LIFT],

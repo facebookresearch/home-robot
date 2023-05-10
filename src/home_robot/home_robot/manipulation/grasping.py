@@ -2,13 +2,13 @@ from typing import List, Optional, Tuple
 
 import numpy as np
 
-from home_robot.motion.stretch import HelloStretchIdx
+from home_robot.motion.stretch import HelloStretchIdx, HelloStretchKinematics
 
 
 class SimpleGraspMotionPlanner(object):
     """Simple top-down grasp motion planner for the Stretch."""
 
-    def __init__(self, robot):
+    def __init__(self, robot: HelloStretchKinematics):
         """
         Solve IK
         """

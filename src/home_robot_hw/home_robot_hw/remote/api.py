@@ -158,8 +158,8 @@ class StretchClient:
         """look up a particular frame in base coords"""
         return self._ros_client.get_frame_pose(frame, base_frame, lookup_time)
 
-    def go_to_manip_mode(self):
-        """Move the arm and head into manip mode."""
+    def move_to_manip_posture(self):
+        """Move the arm and head into manip mode posture: gripper down, head facing the gripper."""
         """
         home_q = STRETCH_PREGRASP_Q
         home_q = self.robot_model.update_look_at_ee(home_q)
@@ -170,18 +170,11 @@ class StretchClient:
         self.manip.goto_joint_positions(
             self.manip._extract_joint_pos(STRETCH_PREGRASP_Q)
         )
-        self.switch_to_navigation_mode()
 
-    def go_to_nav_mode(self):
-        """Move the arm and head into nav mode."""
-        """
-        home_q = STRETCH_NAVIGATION_Q
-        # TODO - should be looking down to make sure we can see the objects
-        home_q = self.robot_model.update_look_front(home_q.copy())
-        # NOTE: for now we have to do this though - until bugs are fixed in semantic map
-        # home_q = self.robot_model.update_look_ahead(home_q.copy())
-        self.goto(home_q, move_base=False, wait=True)
-        """
+    def move_to_nav_posture(self):
+        """Move the arm and head into nav mode. The head will be looking front."""
+
+        # First retract the robot's joints
         self.switch_to_manipulation_mode()
         self.head.look_front(blocking=False)
         self.manip.goto_joint_positions(
