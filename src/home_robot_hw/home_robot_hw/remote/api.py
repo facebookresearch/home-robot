@@ -160,11 +160,6 @@ class StretchClient:
 
     def move_to_manip_posture(self):
         """Move the arm and head into manip mode posture: gripper down, head facing the gripper."""
-        """
-        home_q = STRETCH_PREGRASP_Q
-        home_q = self.robot_model.update_look_at_ee(home_q)
-        self.goto(home_q, move_base=False, wait=True)
-        """
         self.switch_to_manipulation_mode()
         self.head.look_at_ee(blocking=False)
         self.manip.goto_joint_positions(
