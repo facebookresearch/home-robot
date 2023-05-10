@@ -20,6 +20,7 @@ from slap_manipulation.dataloaders.robot_loader import RobotDataset
 from slap_manipulation.optim.lamb import Lamb
 from slap_manipulation.policy.components import DenseBlock, GlobalSAModule
 from slap_manipulation.policy.components import PtnetSAModule as SAModule
+from slap_manipulation.policy.mdn import MDN, mdn_loss, sample
 from torch.optim.lr_scheduler import ReduceLROnPlateau
 from torch_geometric.nn import MLP, Linear
 from tqdm import tqdm
@@ -68,22 +69,35 @@ class QueryRegressionHead(torch.nn.Module):
             dropout=0.0,
             batch_norm=False,
         )
+        self.gripper_mlp = MLP(
+            OmegaConf.to_object(cfg.regression_head.gripper_mlp),
+            dropout=0.0,
+            batch_norm=False,
+        )
+        self.pos_mdn = MDN(self.final_dim, self.pos_in_channels, 1)
         self.pos_linear = Linear(self.final_dim, self.pos_in_channels)
         self.ori_linear = Linear(self.final_dim, self.ori_in_channels)
-        self.gripper_linear = Linear(512 + 512 + 512, 1)  # proprio_emb dim = 512
+        self.gripper_linear = Linear(self.final_dim, 1)  # proprio_emb dim = 512
         self.to_activation = torch.nn.Sigmoid()
+        self.use_mdn = cfg.use_mdn
 
     def forward(self, x, proprio_task_emb):
         """return a single regression head"""
-        pos_emb = torch.relu(self.pos_mlp(x))
-        delta_ee_pos = self.pos_linear(pos_emb)
-        gripper = self.gripper_linear(proprio_task_emb)
+        # pos_emb = torch.relu(self.pos_mlp(x))
+        if self.use_mdn:
+            pos_sigma, pos_mu = self.pos_mdn(x)
+        else:
+            delta_ee_pos = self.pos_linear(x)
+        gripper = self.gripper_linear(torch.relu(self.gripper_mlp(proprio_task_emb)))
 
-        abs_ee_ori = self.ori_linear(torch.relu(self.ori_mlp(x)))
+        abs_ee_ori = self.ori_linear(x)
         if self.ori_type == "quaternion":
             abs_ee_ori = abs_ee_ori / abs_ee_ori.norm(dim=-1)
 
-        return delta_ee_pos, abs_ee_ori, self.to_activation(gripper)
+        if self.use_mdn:
+            return pos_sigma, pos_mu, abs_ee_ori, self.to_activation(gripper)
+        else:
+            return delta_ee_pos, abs_ee_ori, self.to_activation(gripper)
 
 
 class ActionPredictionModule(torch.nn.Module):
@@ -109,6 +123,7 @@ class ActionPredictionModule(torch.nn.Module):
         self.image_in_dim = cfg.dims.image_in
         self.proprio_out_dim = cfg.dims.proprio_out
         self.hidden_dim = cfg.hidden_dim
+        self.use_mdn = cfg.use_mdn
 
         self.pos_wt = cfg.weights.position
         self.ori_wt = cfg.weights.orientation
@@ -172,23 +187,26 @@ class ActionPredictionModule(torch.nn.Module):
             batch_norm=False,
             dropout=0.0,
         )
-        self.x_gru = torch.nn.GRU(2048, self.hidden_dim, 1)
+        self.x_gru = torch.nn.GRU(1024, self.hidden_dim, 1)
         self.post_process = MLP(
             OmegaConf.to_object(cfg.model.post_process_mlp),
             batch_norm=False,
             dropout=0.0,
             # activation_layer=torch.nn.LeakyReLU()
         )
+        self.pre_process = MLP(
+            OmegaConf.to_object(cfg.model.pre_process_mlp),
+            batch_norm=False,
+            dropout=0.0,
+            # activation_layer=torch.nn.LeakyReLU()
+        )
 
-        self.regression_heads = []
-        for _ in range(self.num_heads):
-            new_head = QueryRegressionHead(cfg)
-            self.regression_heads.append(new_head)
+        self.regression_head = QueryRegressionHead(cfg)
         self.pos_in_channels = cfg.regression_head.pos_in_channels
         self.ori_in_channels = (
             3 if self.ori_type == "rpy" else 4 if self.ori_type == "quaternion" else -1
         )
-        self._regression_heads = torch.nn.Sequential(*self.regression_heads)
+        # self._regression_heads = torch.nn.Sequential(*self.regression_heads)
         # self.classify_loss = torch.nn.BCEWithLogitsLoss()
         # self.classify_loss = torch.nn.BinaryCrossEntropyLoss()
         self.classify_loss = torch.nn.BCELoss()
@@ -396,28 +414,32 @@ class ActionPredictionModule(torch.nn.Module):
         batch_size = x.shape[0]
 
         # insert a GRU unit here
+        x = torch.relu(self.pre_process(x))
         x, hidden = self.x_gru(x, hidden)
-        x = self.post_process(x)
+        x = torch.relu(self.post_process(x))
 
-        positions = torch.zeros(
-            batch_size, len(self.regression_heads), self.pos_in_channels
-        ).to(self.device)
-        orientations = torch.zeros(
-            batch_size, len(self.regression_heads), self.ori_in_channels
-        ).to(self.device)
-        grippers = torch.zeros(batch_size, len(self.regression_heads), 1).to(
-            self.device
-        )
+        if not self.use_mdn:
+            positions = torch.zeros(batch_size, 1, self.pos_in_channels).to(self.device)
+        orientations = torch.zeros(batch_size, 1, self.ori_in_channels).to(self.device)
+        grippers = torch.zeros(batch_size, 1, 1).to(self.device)
 
         # Get the full set of outputs
-        for i, head in enumerate(self.regression_heads):
-            delta_ee_pos, abs_ee_ori, gripper = head(x, proprio_task_emb)
-            # delta_ee_pos, abs_ee_ori, gripper = head(x, proprio_emb)
-            positions[:, i] = delta_ee_pos
-            orientations[:, i] = abs_ee_ori
-            grippers[:, i] = gripper
+        if self.use_mdn:
+            pos_sigma, pos_mu, abs_ee_ori, gripper = self.regression_head(
+                x, proprio_task_emb
+            )
+        else:
+            delta_ee_pos, abs_ee_ori, gripper = self.regression_head(
+                x, proprio_task_emb
+            )
+            positions[:, 0] = delta_ee_pos
+        orientations[:, 0] = abs_ee_ori
+        grippers[:, 0] = gripper
 
-        return positions, orientations, grippers, hidden
+        if self.use_mdn:
+            return pos_sigma, pos_mu, orientations, grippers, hidden
+        else:
+            return positions, orientations, grippers, hidden
 
     def get_keypoint(self, batch, i):
         """return input for predicting ith keypoint from batch"""
@@ -441,6 +463,7 @@ class ActionPredictionModule(torch.nn.Module):
 
         steps = 0
         total_loss = 0
+        num_samples = 1
 
         tot_pos_loss = 0
         tot_ori_loss = 0
@@ -483,15 +506,28 @@ class ActionPredictionModule(torch.nn.Module):
                     # show_point_cloud(crop_xyz.detach().cpu().numpy(), crop_rgb.detach().cpu().numpy(), target_pos.detach().cpu().numpy().reshape(3,1), target_ori_R)
 
                     # Run the predictor - get positions and orientations for the model
-                    position, orientation, gripper, hidden = self.forward(
-                        crop_xyz, crop_rgb, proprio, time_step, cmd, hidden
-                    )
-                    position = position.view(1, 3)
+                    if self.use_mdn:
+                        (
+                            pos_sigma,
+                            pos_mu,
+                            orientation,
+                            gripper,
+                            hidden,
+                        ) = self.forward(
+                            crop_xyz, crop_rgb, proprio, time_step, cmd, hidden
+                        )
+                        target_pos = target_pos.view(num_samples, 3)
+                        pos_loss += mdn_loss(pos_sigma, pos_mu, target_pos)
+                    else:
+                        position, orientation, gripper, hidden = self.forward(
+                            crop_xyz, crop_rgb, proprio, time_step, cmd, hidden
+                        )
+                        position = position.view(1, 3)
+                        target_pos = target_pos.view(1, 3)
+                        pos_loss += ((position - target_pos) ** 2).sum()
                     orientation = orientation.view(1, 4)
-                    target_pos = target_pos.view(1, 3)
                     target_ori = target_ori.view(1, 4)
 
-                    pos_loss += ((position - target_pos) ** 2).sum()
                     ori_loss += quaternion_distance(orientation, target_ori).sum()
                     gripper_loss += self.classify_loss(
                         gripper.view(-1), target_g.view(-1)
@@ -544,16 +580,16 @@ class ActionPredictionModule(torch.nn.Module):
             # gripper_loss = self.classify_loss(
             # pred_gripper_act.view(-1), target_gripper_state.view(-1)
             # )
-            pos_loss /= 3
-            ori_loss /= 3
-            gripper_loss /= 3
-
             # add up all the losses
             loss = (
                 self.pos_wt * pos_loss
                 + self.ori_wt * ori_loss
                 + self.gripper_wt * gripper_loss
             )
+            pos_loss /= 3
+            ori_loss /= 3
+            gripper_loss /= 3
+
             tot_pos_loss = tot_pos_loss + pos_loss.item()
             tot_ori_loss = tot_ori_loss + ori_loss.item()
             tot_gripper_loss += gripper_loss.item()
@@ -705,6 +741,7 @@ class ActionPredictionModule(torch.nn.Module):
             ori_loss = 0
             gripper_loss = 0
             pos_error = 0
+            num_samples = 1
 
             for t in range(num_keypoints):
                 if t == 0:
@@ -712,26 +749,39 @@ class ActionPredictionModule(torch.nn.Module):
 
                 proprio, time_step, cmd = self.get_keypoint(batch, t)
                 target_pos, target_ori, target_g = self.get_targets(batch, t)
+                print(proprio, time_step, cmd)
 
                 # Run the predictor - get positions and orientations for the model
-                position, orientation, gripper, hidden = self.forward(
-                    crop_xyz, crop_rgb, proprio, time_step, cmd, hidden
-                )
-                position = position.view(1, 3)
+                if self.use_mdn:
+                    (pos_sigma, pos_mu, orientation, gripper, hidden,) = self.forward(
+                        crop_xyz, crop_rgb, proprio, time_step, cmd, hidden
+                    )
+                    target_pos = target_pos.view(num_samples, 3)
+                    pos_loss += mdn_loss(pos_sigma, pos_mu, target_pos)
+                else:
+                    position, orientation, gripper, hidden = self.forward(
+                        crop_xyz, crop_rgb, proprio, time_step, cmd, hidden
+                    )
+                    position = position.view(1, 3)
+                    target_pos = target_pos.view(1, 3)
+                    pos_loss += ((position - target_pos) ** 2).sum()
                 orientation = orientation.view(1, 4)
-                target_pos = target_pos.view(1, 3)
                 target_ori = target_ori.view(1, 4)
 
-                pos_loss += ((position - target_pos) ** 2).sum()
                 ori_loss += quaternion_distance(orientation, target_ori).sum()
                 gripper_loss += self.classify_loss(gripper.view(-1), target_g.view(-1))
+
+                if self.use_mdn:
+                    # get positions out of mdn mixture
+                    print(pos_sigma, pos_mu)
+                    position = sample(pos_sigma, pos_mu, self.device)
+                    position = pos_mu.view(3, 1)
 
                 pos_error += np.linalg.norm(
                     target_pos.detach().cpu().numpy()
                     - position.detach().cpu().numpy()
                     - position.detach().cpu().numpy()
                 ).sum()
-
                 # create viz variables
                 viz_position = (position).detach().cpu().numpy()
                 pred_ori_R = tra.quaternion_matrix(orientation.detach().cpu().numpy())[
