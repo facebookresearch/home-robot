@@ -168,12 +168,12 @@ class StretchRosInterface:
         else:
             return False
 
-    def config_to_ros_trajectory_goal(self, q: np.ndarray) -> FollowJointTrajectoryGoal:
+    def config_to_ros_trajectory_goal(self, q: np.ndarray, dq: np.ndarray=None) -> FollowJointTrajectoryGoal:
         """Create a joint trajectory goal to move the arm."""
         trajectory_goal = FollowJointTrajectoryGoal()
         trajectory_goal.goal_time_tolerance = rospy.Time(self.goal_time_tolerance)
         trajectory_goal.trajectory.joint_names = self.ros_joint_names
-        trajectory_goal.trajectory.points = [self._config_to_ros_msg(q)]
+        trajectory_goal.trajectory.points = [self._config_to_ros_msg(q, dq)]
         trajectory_goal.trajectory.header.stamp = rospy.Time.now()
         return trajectory_goal
 
@@ -280,10 +280,12 @@ class StretchRosInterface:
         if self.rgb_cam.get_frame() != self.dpt_cam.get_frame():
             raise RuntimeError("issue with camera setup; depth and rgb not aligned")
 
-    def _config_to_ros_msg(self, q):
+    def _config_to_ros_msg(self, q, dq=None):
         """convert into a joint state message"""
         msg = JointTrajectoryPoint()
         msg.positions = [0.0] * len(self._ros_joint_names)
+        if dq is not None:
+            msg.velocities = [0.0] * len(self._ros_joint_names)
         idx = 0
         for i in range(3, self.dof):
             names = CONFIG_TO_ROS[i]
@@ -293,6 +295,8 @@ class StretchRosInterface:
                     msg.positions[idx] = q[i] / len(names)
                 else:
                     msg.positions[idx] = q[i]
+                if dq is not None:
+                    msg.velocities[idx] = dq[i]
                 idx += 1
         return msg
 
