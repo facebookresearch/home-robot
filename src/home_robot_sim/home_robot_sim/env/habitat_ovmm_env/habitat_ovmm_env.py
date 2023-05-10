@@ -305,6 +305,7 @@ class HabitatOpenVocabManipEnv(HabitatEnv):
             if habitat_obs["is_holding"][0] == 1:
                 grip_action = 1
             waypoint_x, waypoint_y, turn = 0, 0, 0
+            # Set waypoint correctly, if base waypoint is passed with the action
             if action.xyt is not None:
                 if action.xyt[0] != 0:
                     waypoint_x = np.clip(action.xyt[0] / self.max_forward, -1, 1)
@@ -313,8 +314,9 @@ class HabitatOpenVocabManipEnv(HabitatEnv):
                 elif action.xyt[2] != 0:
                     turn = np.clip(action.xyt[2] / self.max_turn, -1, 1)
             arm_action = np.array([0] * 7)
+            # If action is of type ContinuousFullBodyAction, it would include waypoints for the joints
             if type(action) == ContinuousFullBodyAction:
-                # Currently sim uses a restrictive action space. https://docs.google.com/document/d/1PEWR0PINAXit0slGyjL_N6x60x9eybLlz79LWPP3a6U/edit
+                # We specify only one arm extension that rolls over to all the arm joints
                 arm_action = np.concatenate([action.joints[0:1], action.joints[4:]])
             cont_action = np.concatenate(
                 [arm_action, [grip_action] + [waypoint_x, waypoint_y, turn] + [-1] * 4]
