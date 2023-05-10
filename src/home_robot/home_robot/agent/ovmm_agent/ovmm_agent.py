@@ -44,6 +44,14 @@ class OpenVocabManipAgent(ObjectNavAgent):
                 obs_spaces=obs_spaces,
                 action_spaces=action_spaces,
             )
+        if config.AGENT.SKILLS.NAV_TO_OBJ.type == "rl":
+            self.nav_to_obj_agent = PPOAgent(
+                config,
+                config.AGENT.SKILLS.NAV_TO_OBJ,
+                device_id=device_id,
+                obs_spaces=obs_spaces,
+                action_spaces=action_spaces,
+            )
         self.skip_nav_to_obj = config.AGENT.skip_nav_to_obj
         self.skip_nav_to_rec = config.AGENT.skip_nav_to_rec
         self.skip_place = config.AGENT.skip_place
@@ -73,6 +81,8 @@ class OpenVocabManipAgent(ObjectNavAgent):
         )
         if self.gaze_agent is not None:
             self.gaze_agent.reset_vectorized()
+        if self.nav_to_obj_agent is not None:
+            self.nav_to_obj_agent.reset_vectorized()
         self.states = torch.tensor([Skill.NAV_TO_OBJ] * self.num_environments)
         self.place_start_step = torch.tensor([0] * self.num_environments)
         self.orient_start_step = torch.tensor([0] * self.num_environments)
@@ -96,6 +106,8 @@ class OpenVocabManipAgent(ObjectNavAgent):
         )
         if self.gaze_agent is not None:
             self.gaze_agent.reset_vectorized_for_env(e)
+        if self.nav_to_obj_agent is not None:
+            self.nav_to_obj_agent.reset_vectorized_for_env(e)
 
     def _switch_to_next_skill(
         self, e: int, info: Dict[str, Any], start_in_same_step: bool = False
@@ -136,6 +148,14 @@ class OpenVocabManipAgent(ObjectNavAgent):
         if action == DiscreteNavigationAction.STOP:
             action = DiscreteNavigationAction.NAVIGATION_MODE
             info = self._switch_to_next_skill(e=0, info=info)
+        return action, info
+
+    def _rl_nav(self, obs: Observations, info: Dict[str, Any]) -> Tuple[DiscreteNavigationAction, Any]:
+        action, term = self.nav_to_obj_agent.act(obs)
+        if term:
+            action = DiscreteNavigationAction.NAVIGATION_MODE
+            self._switch_to_next_skill(e=0, info=info)
+        info["action"] = action
         return action, info
 
     def _hardcoded_place(self):
@@ -181,8 +201,10 @@ class OpenVocabManipAgent(ObjectNavAgent):
                 )
             elif self.config.AGENT.SKILLS.NAV_TO_OBJ.type == "modular":
                 return self._modular_nav(obs, info)
+            elif self.config.AGENT.SKILLS.NAV_TO_OBJ.type == "rl":
+                return self._rl_nav(obs, info)
             else:
-                raise NotImplementedError
+                raise ValueError
         if self.states[0] == Skill.ORIENT_OBJ:
             num_turns = np.round(90 / turn_angle)
             orient_step = self.timesteps[0] - self.orient_start_step[0]

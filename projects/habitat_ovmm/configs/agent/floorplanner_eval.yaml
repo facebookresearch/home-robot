@@ -59,7 +59,29 @@ AGENT:
       max_turn_degrees: 180
 
     NAV_TO_OBJ:
-      type: modular
+      type: rl #modular
+      checkpoint_path: data/checkpoints/ovmm/nav_to_obj.pth
+      rl_config: projects/habitat_ovmm/configs/agent/nav_to_obj_rl.yaml
+      gym_obs_keys:
+        - robot_head_depth
+        - object_embedding
+        - cat_nav_goal_segmentation
+        - receptacle_segmentation
+        - start_receptacle
+        - robot_start_gps
+        - robot_start_compass
+        - joint
+      allowed_actions:
+        # - base_velocity
+        # - rearrange_stop
+        - move_forward
+        - turn_left
+        - turn_right
+        - stop
+      arm_joint_mask: [0, 0, 0, 0, 0, 0, 0] # the arm joints that the policy can control
+      max_forward: 1.0
+      max_turn: 0.1745
+      max_turn_degrees: 180
 
     NAV_TO_REC:
       type: modular
