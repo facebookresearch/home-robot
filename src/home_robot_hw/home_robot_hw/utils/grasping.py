@@ -302,16 +302,16 @@ class GraspPlanner(object):
 
         for i, (name, waypoint, should_grasp) in enumerate(trajectory):
             self.robot_client.manip.goto_joint_positions(waypoint)
-            self._publish_current_ee_pose()
             # TODO: remove this delay - it's to make sure we don't start moving again too early
             rospy.sleep(0.1)
+            self._publish_current_ee_pose()
             if should_grasp:
                 self.robot_client.manip.close_gripper()
             if wait_for_input:
                 input(f"{i+1}) went to {name}")
             else:
                 print(f"{i+1}) went to {name}")
-        print("!!! GRASP SUCCESS !!!")
+        print("!!! GRASP ATTEMPT COMPLETE !!!")
         return True
 
 
