@@ -1,4 +1,4 @@
-from typing import Iterable, List, Optional, Tuple
+from typing import Dict, Iterable, List, Optional, Tuple
 
 import click
 import numpy as np
@@ -31,10 +31,27 @@ def _visualize_grasps(
     idcs: Optional[np.ndarray] = None,
     grasps: Optional[np.ndarray] = None,
 ) -> None:
-    """Visualize grasps
-    idcs: highlighed point indices
-    grasps: list of poses (4x4 matrices)
+    """Visualize grasps on a 3D point cloud
+
+    Args:
+        xyz: The (N,3) numpy array of 3D point positions
+        rgb: The (N,3) numpy array of colors for each point
+        idcs: (Optional) The (M,) numpy array of indices of the highlighted points.
+        grasps: (Optional) The (K,4,4) numpy array of 4x4 transformation matrices
+            representing grasp poses in the point cloud coordinate frame.
+
+    Returns:
+        None
+
+    Raises:
+        ValueError: If xyz and rgb have different number of points
+
+    The function visualizes the 3D point cloud with optional highlighted points and
+    grasps. The highlighted points are marked with blue color while grasps are
+    visualized as a set of arrows pointing towards the direction of the gripper finger.
     """
+    if len(xyz) != len(rgb):
+        raise ValueError("The number of points in xyz and rgb should be equal.")
     rgb_colored = rgb.copy() / 255.0
     if idcs is not None:
         rgb_colored[idcs, :] = np.array([0.0, 0.0, 1.0])[None, :]
@@ -44,12 +61,20 @@ def _visualize_grasps(
 def _compute_grasp_scores(
     xy: Iterable[float], occ_map: np.ndarray
 ) -> Tuple[float, float]:
-    """Computes grasp scores given an occupancy map and a center point
+    """Computes grasp scores given an occupancy map and a center point.
 
-    Computes two grasp scores, for grasps along the X and Y directions
+    Args:
+        xy (Tuple[float, float]): The center point coordinates as a tuple of two float values.
+        occ_map (np.ndarray): The occupancy map as a 2D NumPy array.
+
+    Returns:
+        Tuple[float, float]: A tuple of two float values representing the grasp scores for
+        the X and Y directions, respectively.
+
+    Computes two grasp scores, for grasps along the X and Y directions.
     Scores are determined by two factors:
-     - How populated the center region is
-     - How empty the surrounding regions are
+     - How populated the center region is.
+     - How empty the surrounding regions are.
     """
     outer_area = 2 * (GRASP_OUTER_RAD - GRASP_INNER_RAD) ** 2
 
@@ -78,7 +103,16 @@ def _compute_grasp_scores(
 
 
 def _filter_grasps(score_map: np.ndarray, grasp_direction: int) -> np.ndarray:
-    """Filter an grid of grasps scores"""
+    """Filters a grid of grasp scores and returns the filtered grid. Filters only along one dimension (x or y; we currently do not support z axis and are only doing top-down grasps.
+
+    Args:
+        score_map: A 2D NumPy array of grasp scores
+        grasp_direction: An integer representing the direction of the gripper (x or y axis)
+
+    Returns:
+        A 2D NumPy array of filtered grasp scores
+    """
+
     # Filter by neighboring grasps (multiply score of current score map with shifted versions of the map)
     mask1 = np.zeros_like(score_map)
     mask2 = np.zeros_like(score_map)
@@ -91,6 +125,12 @@ def _filter_grasps(score_map: np.ndarray, grasp_direction: int) -> np.ndarray:
         # Gripper closes along Y: filter across X
         mask1[:-1, :] = score_map[1:, :]
         mask2[1:, :] = score_map[:-1, :]
+    else:
+        raise RuntimeError(
+            "Invalid grasp direction "
+            + str(grasp_direction)
+            + ": must be 0 or 1 for x or y axis."
+        )
 
     score_map = score_map * mask1 * mask2
 
@@ -102,7 +142,20 @@ def _filter_grasps(score_map: np.ndarray, grasp_direction: int) -> np.ndarray:
 
 
 def _generate_grasp(xyz: np.ndarray, rz: float) -> np.ndarray:
-    """Generate a vertical grasp pose given grasp location and z orientation"""
+    """Generate a vertical grasp pose given grasp location and z orientation.
+
+    Args:
+        xyz (numpy.ndarray): A 3D numpy array representing the (x, y, z) position of the grasp location.
+        rz (float): A float representing the z orientation of the grasp.
+
+    Returns:
+        numpy.ndarray: A 4x4 numpy array representing the vertical grasp pose.
+
+    Description:
+    Given the grasp location and the z orientation, this function generates a vertical grasp pose by calculating the
+    rotation matrix based on the z orientation and then setting the translation vector as the grasp location. The
+    function returns the 4x4 homogeneous transformation matrix representing the vertical grasp pose.
+    """
     grasp = np.zeros([4, 4])
     grasp[:3, :3] = (
         R.from_quat(np.array(VERTICAL_GRIPPER_QUAT)) * R.from_rotvec([0, 0, rz])
@@ -113,7 +166,17 @@ def _generate_grasp(xyz: np.ndarray, rz: float) -> np.ndarray:
 
 
 class VoxelGraspGenerator(object):
-    """Create grasps based on simple voxel rules."""
+    """
+    Generates grasps based on simple voxel rules.
+
+    Args:
+        in_base_frame (bool): Flag indicating whether the output grasps are in the base frame.
+        debug (bool): Flag indicating whether to enable debug mode.
+
+    Attributes:
+        in_base_frame (bool): Flag indicating whether the output grasps are in the base frame.
+        debug (bool): Flag indicating whether to enable debug mode.
+    """
 
     def __init__(self, in_base_frame=True, debug=False):
         self.in_base_frame = in_base_frame
@@ -125,13 +188,38 @@ class VoxelGraspGenerator(object):
         pc_colors: np.ndarray,
         segmap: np.ndarray,
         camera_pose: np.ndarray,
-    ):
+    ) -> Tuple[Dict[int, np.ndarray], Dict[int, np.ndarray], bool]:
         """
-        pc_full: full point cloud xyz (Nx3 matrix)
-        pc_colors: full point cloud colors (Nx3 matrix)
-        segmap: segmentation map (1 for object, 0 for background) (array of length N)
-        camera_pose: 4x4 matrix
+        Generates grasps based on simple voxel rules.
+
+        Args:
+            pc_full (np.ndarray): Full point cloud xyz (Nx3 matrix).
+            pc_colors (np.ndarray): Full point cloud colors (Nx3 matrix).
+            segmap (np.ndarray): Segmentation map (1 for object, 0 for background) (array of length N).
+            camera_pose (np.ndarray): 4x4 matrix.
+
+        Returns:
+            Tuple containing the following:
+            - grasps (dict[int, np.ndarray]): A dictionary of grasps, where the keys are object IDs and the values are
+            the corresponding grasp poses (Nx4x4 matrices).
+            - scores (dict[int, np.ndarray]): A dictionary of scores for each grasp, where the keys are object IDs and
+            the values are the corresponding scores (Nx1 arrays).
+            - in_base_frame (bool): Flag indicating whether the output grasps are in the base frame.
         """
+
+        if len(pc_full) != len(pc_colors):
+            raise ValueError(
+                "The number of points in the point cloud and colors should be equal."
+            )
+        elif len(pc_full) != len(segmap):
+            raise ValueError(
+                "The number of points in the pointcloud and the segmentation map should be equal."
+            )
+        elif camera_pose.shape != (4, 4):
+            raise ValueError(
+                "Invalid camera pose matrix with shape: " + str(camera_pose.shape)
+            )
+
         pc_segmap = segmap.reshape(-1)
         seg_idcs = np.logical_and(pc_segmap == 1, pc_full[:, 2] != 0.0)
         pc_segment = pc_full[seg_idcs]
@@ -144,7 +232,7 @@ class VoxelGraspGenerator(object):
         # Extract highest points
         xyz, rgb = voxel_map.get_data()
         if xyz.shape[0] < 1:
-            return {}, {}
+            return {}, {}, self.in_base_frame
 
         num_top = int(xyz.shape[0] * TOP_PERCENTAGE)
         top_idcs = np.argpartition(xyz[:, 2], -num_top)[-num_top:]
