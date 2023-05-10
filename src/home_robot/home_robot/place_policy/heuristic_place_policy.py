@@ -9,7 +9,11 @@ import torch.nn as nn
 import trimesh.transformations as tra
 
 import home_robot.utils.depth as du
-from home_robot.core.interfaces import DiscreteNavigationAction, Observations
+from home_robot.core.interfaces import (
+    ContinuousFullBodyAction,
+    DiscreteNavigationAction,
+    Observations,
+)
 from home_robot.motion.stretch import STRETCH_GRIPPER_OPEN, STRETCH_STANDOFF_DISTANCE
 from home_robot.utils.rotation import get_angle_to_pos
 
@@ -280,14 +284,14 @@ class HeuristicPlacePolicy(nn.Module):
 
             print("Delta arm extension:", delta_arm_ext)
             print("Delta arm lift:", delta_arm_lift)
-
-            action = {
-                "arm_action": [delta_arm_ext]
+            joints = (
+                [delta_arm_ext]
+                + [0] * 3
                 + [delta_arm_lift]
                 + [delta_gripper_yaw]
-                + [0] * 4,
-                "grip_action": [1],
-            }
+                + [0] * 4
+            )
+            action = ContinuousFullBodyAction(joints)
         elif self.timestep == self.total_turn_and_forward_steps + 2:
             # desnap to drop the object
             print("Desnapping object")
