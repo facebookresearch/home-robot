@@ -77,18 +77,10 @@ class GraspPlanner(object):
         """Detect grasps and try to pick up an object in front of the robot.
         Visualize - will show debug point clouds
         Dry run - does not actually move, just computes everything"""
-        """
-        home_q = STRETCH_PREGRASP_Q
-        home_q = self.robot_model.update_look_front(home_q.copy())
-        home_q = self.robot_model.update_gripper(home_q, open=True)
-        self.robot_client.goto(home_q, move_base=False, wait=True)
-        home_q = self.robot_model.update_look_at_ee(home_q)
-        """
         if not self.robot_client.in_manipulation_mode():
             self.robot_client.switch_to_manipulation_mode()
         self.robot_client.head.look_at_ee(blocking=False)
         self.robot_client.manip.open_gripper()
-        visualize = True
 
         min_grasp_score = 0.0
         min_obj_pts = 100
