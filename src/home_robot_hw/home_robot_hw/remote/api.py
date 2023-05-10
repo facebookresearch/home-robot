@@ -7,7 +7,11 @@ from typing import Dict, List, Optional
 import rospy
 
 from home_robot.motion.robot import Robot
-from home_robot.motion.stretch import HelloStretchKinematics
+from home_robot.motion.stretch import (
+    STRETCH_NAVIGATION_Q,
+    STRETCH_PREGRASP_Q,
+    HelloStretchKinematics,
+)
 from home_robot_hw.constants import ControlMode
 
 from .modules.head import StretchHeadClient
@@ -153,3 +157,22 @@ class StretchClient:
     def get_frame_pose(self, frame, base_frame=None, lookup_time=None):
         """look up a particular frame in base coords"""
         return self._ros_client.get_frame_pose(frame, base_frame, lookup_time)
+
+    def move_to_manip_posture(self):
+        """Move the arm and head into manip mode posture: gripper down, head facing the gripper."""
+        self.switch_to_manipulation_mode()
+        self.head.look_at_ee(blocking=False)
+        self.manip.goto_joint_positions(
+            self.manip._extract_joint_pos(STRETCH_PREGRASP_Q)
+        )
+
+    def move_to_nav_posture(self):
+        """Move the arm and head into nav mode. The head will be looking front."""
+
+        # First retract the robot's joints
+        self.switch_to_manipulation_mode()
+        self.head.look_front(blocking=False)
+        self.manip.goto_joint_positions(
+            self.manip._extract_joint_pos(STRETCH_NAVIGATION_Q)
+        )
+        self.switch_to_navigation_mode()

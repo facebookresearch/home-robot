@@ -23,6 +23,12 @@ from home_robot_hw.env.stretch_pick_and_place_env import (
 @click.option("--start-recep", default="chair")
 @click.option("--goal-recep", default="table")
 @click.option("--visualize-maps", default=False, is_flag=True)
+@click.option(
+    "--debug",
+    default=False,
+    is_flag=True,
+    help="Add pauses for debugging manipulation behavior.",
+)
 def main(
     test_pick=False,
     test_gaze=False,

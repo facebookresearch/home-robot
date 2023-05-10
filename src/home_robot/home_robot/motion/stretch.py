@@ -902,6 +902,17 @@ class HelloStretchKinematics(Robot):
         tilt = tilt + deltas[9]
         return positions, pan, tilt
 
+    def config_to_manip_command(self, q):
+        """convert from general representation into arm manip command. This extracts just the information used for end-effector control: base x motion, arm lift, and wrist variables."""
+        return [
+            q[HelloStretchIdx.BASE_X],
+            q[HelloStretchIdx.LIFT],
+            q[HelloStretchIdx.ARM],
+            q[HelloStretchIdx.WRIST_YAW],
+            q[HelloStretchIdx.WRIST_PITCH],
+            q[HelloStretchIdx.WRIST_ROLL],
+        ]
+
     def hab_to_position_command(self, hab_positions) -> List:
         """Compute hab_positions"""
         assert len(hab_positions) == 10
