@@ -286,7 +286,7 @@ class HabitatOpenVocabManipEnv(HabitatEnv):
             grip_action = [-1]
             if "grip_action" in action:
                 grip_action = action["grip_action"]
-            base_vel = [0, 0]
+            base_vel = [0, 0, 0]
             if "base_vel" in action:
                 base_vel = action["base_vel"]
             arm_action = [0] * 7
@@ -300,15 +300,15 @@ class HabitatOpenVocabManipEnv(HabitatEnv):
             )
         elif type(action) == ContinuousNavigationAction:
             # Continuous action in simulation can only take agent forward
-            waypoint, move_forward = 0, 0
+            waypoint_x, waypoint_y, turn = 0, 0, 0
             if action.xyt[0] != 0:
-                waypoint = action.xyt[0] / self.max_forward
-                move_forward = 1
+                waypoint_x = np.clip(action.xyt[0] / self.max_forward, -1, 1)
+            elif action.xyt[1] != 0:
+                waypoint_y = np.clip(action.xyt[1] / self.max_forward, -1, 1)
             elif action.xyt[2] != 0:
-                waypoint = action.xyt[2] / self.max_turn
-                move_forward = -1
+                turn = np.clip(action.xyt[2] / self.max_turn, -1, 1)
             cont_action = np.concatenate(
-                [[0] * 7 + [-1] + [waypoint, move_forward] + [-1] * 4]
+                [[0] * 7 + [-1] + [waypoint_x, waypoint_y, turn] + [-1] * 4]
             )
         else:
             grip_action = -1

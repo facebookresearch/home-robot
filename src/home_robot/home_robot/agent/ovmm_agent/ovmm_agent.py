@@ -97,21 +97,31 @@ class OpenVocabManipAgent(ObjectNavAgent):
         if self.gaze_agent is not None:
             self.gaze_agent.reset_vectorized_for_env(e)
 
-    def _switch_to_next_skill(self, e: int, info: Dict[str, Any]):
-        """Switch to the next skill for environment e."""
+    def _switch_to_next_skill(
+        self, e: int, info: Dict[str, Any], start_in_same_step: bool = False
+    ):
+        """Switch to the next skill for environment `e`.
+
+        This function transitions to the next skill for the specified environment `e`.
+        `start_in_same_step` indicates whether the next skill is started in the same timestep (eg. when the previous skill was skipped).
+        """
         skill = self.states[e]
         info["skill_done"] = Skill(skill.item()).name
         if skill == Skill.NAV_TO_OBJ:
             self.states[e] = Skill.ORIENT_OBJ
-            self.orient_start_step[e] = self.timesteps[e]
+            self.orient_start_step[e] = self.timesteps[e] + 1
+            if start_in_same_step:
+                self.orient_start_step[e] -= 1
         elif skill == Skill.ORIENT_OBJ:
             self.states[e] = Skill.PICK
         elif skill == Skill.PICK:
             self.timesteps_before_goal_update[0] = 0
             self.states[e] = Skill.NAV_TO_REC
         elif skill == Skill.NAV_TO_REC:
-            self.place_start_step[e] = self.timesteps[e]
+            self.place_start_step[e] = self.timesteps[e] + 1
             self.states[e] = Skill.PLACE
+            if start_in_same_step:
+                self.place_start_step[e] -= 1
         elif skill == Skill.PLACE:
             self.place_done[0] = 1
         return info
@@ -137,23 +147,23 @@ class OpenVocabManipAgent(ObjectNavAgent):
         fall_steps = 20
         num_turns = np.round(90 / turn_angle)
         forward_and_turn_steps = forward_steps + num_turns
-        if place_step <= forward_steps:
+        if place_step < forward_steps:
             # for experimentation (TODO: Remove. ideally nav should drop us close)
             action = DiscreteNavigationAction.MOVE_FORWARD
-        elif place_step <= forward_and_turn_steps:
+        elif place_step < forward_and_turn_steps:
             # first orient
             action = DiscreteNavigationAction.TURN_LEFT
-        elif place_step == forward_and_turn_steps + 1:
+        elif place_step == forward_and_turn_steps:
             action = DiscreteNavigationAction.MANIPULATION_MODE
-        elif place_step == forward_and_turn_steps + 2:
+        elif place_step == forward_and_turn_steps + 1:
             action = DiscreteNavigationAction.EXTEND_ARM
-        elif place_step == forward_and_turn_steps + 3:
+        elif place_step == forward_and_turn_steps + 2:
             # desnap to drop the object
             action = DiscreteNavigationAction.DESNAP_OBJECT
-        elif place_step <= forward_and_turn_steps + 3 + fall_steps:
+        elif place_step <= forward_and_turn_steps + 2 + fall_steps:
             # allow the object to come to rest
             action = DiscreteNavigationAction.EMPTY_ACTION
-        elif place_step == forward_and_turn_steps + fall_steps + 4:
+        elif place_step == forward_and_turn_steps + fall_steps + 3:
             action = DiscreteNavigationAction.STOP
         return action
 
@@ -163,9 +173,12 @@ class OpenVocabManipAgent(ObjectNavAgent):
         turn_angle = self.config.ENVIRONMENT.turn_angle
 
         self.timesteps[0] += 1
+
         if self.states[0] == Skill.NAV_TO_OBJ:
             if self.skip_nav_to_obj:
-                info = self._switch_to_next_skill(e=0, info=info)
+                info = self._switch_to_next_skill(
+                    e=0, info=info, start_in_same_step=True
+                )
             elif self.config.AGENT.SKILLS.NAV_TO_OBJ.type == "modular":
                 return self._modular_nav(obs, info)
             else:
@@ -174,15 +187,19 @@ class OpenVocabManipAgent(ObjectNavAgent):
             num_turns = np.round(90 / turn_angle)
             orient_step = self.timesteps[0] - self.orient_start_step[0]
             if self.skip_orient_obj:
-                info = self._switch_to_next_skill(e=0, info=info)
-            elif orient_step <= num_turns:
+                info = self._switch_to_next_skill(
+                    e=0, info=info, start_in_same_step=True
+                )
+            elif orient_step < num_turns:
                 return DiscreteNavigationAction.TURN_LEFT, info
-            elif orient_step == num_turns + 1:
+            elif orient_step == num_turns:
                 info = self._switch_to_next_skill(e=0, info=info)
                 return DiscreteNavigationAction.MANIPULATION_MODE, info
         if self.states[0] == Skill.PICK:
             if self.skip_pick:
-                info = self._switch_to_next_skill(e=0, info=info)
+                info = self._switch_to_next_skill(
+                    e=0, info=info, start_in_same_step=True
+                )
             elif self.is_pick_done[0]:
                 info = self._switch_to_next_skill(e=0, info=info)
                 self.is_pick_done[0] = 0
@@ -203,7 +220,9 @@ class OpenVocabManipAgent(ObjectNavAgent):
                 raise NotImplementedError
         if self.states[0] == Skill.NAV_TO_REC:
             if self.skip_nav_to_rec:
-                info = self._switch_to_next_skill(e=0, info=info)
+                info = self._switch_to_next_skill(
+                    e=0, info=info, start_in_same_step=True
+                )
             elif self.config.AGENT.SKILLS.NAV_TO_REC.type == "modular":
                 return self._modular_nav(obs, info)
             else:
