@@ -215,7 +215,11 @@ class VectorizedEvaluator(PPOTrainer):
                             f"after {round(time.time() - start_time, 2)} seconds"
                         )
 
-                    if len(episode_metrics) % 1 == 0:
+                    if (
+                        len(episode_metrics)
+                        % self.config.EVAL_VECTORIZED.metrics_save_freq
+                        == 0
+                    ):
                         self.write_results(episode_metrics)
                     if not stop():
                         obs[e] = envs.call_at(e, "reset")
