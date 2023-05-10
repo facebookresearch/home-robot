@@ -331,11 +331,5 @@ class StretchManipulationClient(AbstractControlModule):
         return (l0_pose.inverse() * l1_pose).translation()[0]
 
     def _extract_joint_pos(self, q):
-        return [
-            q[HelloStretchIdx.BASE_X],
-            q[HelloStretchIdx.LIFT],
-            q[HelloStretchIdx.ARM],
-            q[HelloStretchIdx.WRIST_YAW],
-            q[HelloStretchIdx.WRIST_PITCH],
-            q[HelloStretchIdx.WRIST_ROLL],
-        ]
+        """Helper to convert from the general-purpose config including full robot state, into the command space used in just the manip controller. Extracts just lift/arm/wrist information."""
+        return self._robot_model.config_to_manip_command(q)

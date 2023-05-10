@@ -73,7 +73,7 @@ def run_experiment(visualize_maps=False, test_id=0, reset_nav=False, **kwargs):
         robot.nav.navigate_to([0, 0, 0])
 
     # Put it into initial posture
-    env.grasp_planner.go_to_manip_mode()
+    env.robot.move_to_manip_posture()
 
     # do some tests
     if test_id == 0:
