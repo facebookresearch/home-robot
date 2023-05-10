@@ -227,7 +227,9 @@ class StretchPickandPlaceEnv(StretchEnv):
                     if self.dry_run:
                         # Dummy out robot execution code for perception tests
                         break
-                    ok = self.grasp_planner.try_grasping(wait_for_input=self.debug)
+                    ok = self.grasp_planner.try_grasping(
+                        wait_for_input=self.debug, visualize=self.test_grasping
+                    )
                     if ok:
                         break
             else:
@@ -299,7 +301,10 @@ class StretchPickandPlaceEnv(StretchEnv):
         self.current_goal_name = goal_obj
 
     def get_observation(self) -> Observations:
-        """Get Detic and rgb/xyz/theta from this"""
+        """Get Detic and rgb/xyz/theta from the robot. Read RGB + depth + point cloud from the robot's cameras, get current pose, and use all of this to compute the observations
+
+        Returns:
+            obs: observations containing everything the robot policy will be using to make decisions, other than its own internal state."""
         rgb, depth, xyz = self.robot.head.get_images(
             compute_xyz=True,
         )
@@ -320,7 +325,6 @@ class StretchPickandPlaceEnv(StretchEnv):
             xyz=xyz.copy(),
             gps=gps,
             compass=np.array([theta]),
-            # base_pose=sophus2obs(relative_pose),
             task_observations=self.task_info,
             # camera_pose=self.get_camera_pose_matrix(rotated=True),
             camera_pose=self.robot.head.get_pose(rotated=True),
@@ -344,7 +348,8 @@ class StretchPickandPlaceEnv(StretchEnv):
                 obs.task_observations["instance_classes"] == self.current_goal_id
             )
 
-            if len(instance_scores):
+            # If we detected anything... check to see if our target object was found, and if so pass in the mask.
+            if len(instance_scores) and np.any(class_mask):
                 chosen_instance_idx = np.argmax(instance_scores * class_mask)
                 obs.task_observations["goal_mask"] = (
                     obs.task_observations["instance_map"] == chosen_instance_idx
