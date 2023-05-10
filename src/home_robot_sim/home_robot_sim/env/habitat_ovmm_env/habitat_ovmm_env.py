@@ -41,8 +41,15 @@ class HabitatOpenVocabManipEnv(HabitatEnv):
         self.goal_type = config.habitat.task.goal_type
         self.episodes_data_path = config.habitat.dataset.data_path
         self.video_dir = config.habitat_baselines.video_dir
-        self.max_forward = config.habitat.task.actions.base_velocity.lin_speed
-        self.max_turn = config.habitat.task.actions.base_velocity.ang_speed
+        self.max_forward = (
+            config.habitat.task.actions.base_velocity.max_displacement_along_axis
+        )
+        self.max_turn_degrees = (
+            config.habitat.task.actions.base_velocity.max_turn_degrees
+        )
+        self.max_turn = self.max_turn_degrees / 180 * np.pi
+        self.discrete_forward = config.ENVIRONMENT.forward
+        self.discrete_turn_degrees = config.ENVIRONMENT.turn_angle
         self.config = config
         assert (
             "floorplanner" in self.episodes_data_path
@@ -279,7 +286,7 @@ class HabitatOpenVocabManipEnv(HabitatEnv):
             grip_action = [-1]
             if "grip_action" in action:
                 grip_action = action["grip_action"]
-            base_vel = [0, 0]
+            base_vel = [0, 0, 0]
             if "base_vel" in action:
                 base_vel = action["base_vel"]
             arm_action = [0] * 7
@@ -292,16 +299,19 @@ class HabitatOpenVocabManipEnv(HabitatEnv):
                 [arm_action, grip_action, base_vel, [-1, -1, rearrange_stop[0], -1]]
             )
         elif type(action) == ContinuousNavigationAction:
-            # Continuous action in simulation can only take agent forward
-            waypoint, move_forward = 0, 0
+            grip_action = -1
+            # Keep holding in case holding an object
+            if habitat_obs["is_holding"][0] == 1:
+                grip_action = 1
+            waypoint_x, waypoint_y, turn = 0, 0, 0
             if action.xyt[0] != 0:
-                waypoint = action.xyt[0] / self.max_forward
-                move_forward = 1
+                waypoint_x = np.clip(action.xyt[0] / self.max_forward, -1, 1)
+            elif action.xyt[1] != 0:
+                waypoint_y = np.clip(action.xyt[1] / self.max_forward, -1, 1)
             elif action.xyt[2] != 0:
-                waypoint = action.xyt[2] / self.max_turn
-                move_forward = -1
+                turn = np.clip(action.xyt[2] / self.max_turn, -1, 1)
             cont_action = np.concatenate(
-                [[0] * 7 + [-1] + [waypoint, move_forward] + [-1] * 4]
+                [[0] * 7 + [grip_action] + [waypoint_x, waypoint_y, turn] + [-1] * 4]
             )
         else:
             grip_action = -1
@@ -311,14 +321,13 @@ class HabitatOpenVocabManipEnv(HabitatEnv):
             ) or action == DiscreteNavigationAction.SNAP_OBJECT:
                 grip_action = 1
 
-            waypoint = 0
+            turn = 0
             if action == DiscreteNavigationAction.TURN_RIGHT:
-                waypoint = -1
+                turn = -1
             elif action in [
                 DiscreteNavigationAction.TURN_LEFT,
-                DiscreteNavigationAction.MOVE_FORWARD,
             ]:
-                waypoint = 1
+                turn = 1
 
             face_arm = (
                 float(action == DiscreteNavigationAction.MANIPULATION_MODE) * 2 - 1
@@ -331,8 +340,11 @@ class HabitatOpenVocabManipEnv(HabitatEnv):
             arm_actions = [0] * 7
             cont_action = arm_actions + [
                 grip_action,
-                waypoint,
-                (action == DiscreteNavigationAction.MOVE_FORWARD) * 2 - 1,
+                (action == DiscreteNavigationAction.MOVE_FORWARD)
+                * self.discrete_forward
+                / self.max_forward,
+                0.0,
+                turn * self.discrete_turn_degrees / self.max_turn_degrees,
                 extend_arm,
                 face_arm,
                 stop,

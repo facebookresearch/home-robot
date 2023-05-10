@@ -140,7 +140,6 @@ class DiscretePlanner:
         )
 
     def set_vis_dir(self, scene_id: str, episode_id: str):
-        self.print_images = True
         self.vis_dir = os.path.join(self.default_vis_dir, f"{scene_id}_{episode_id}")
         shutil.rmtree(self.vis_dir, ignore_errors=True)
         os.makedirs(self.vis_dir, exist_ok=True)
@@ -287,7 +286,7 @@ class DiscretePlanner:
                 #     print("Nowhere left to explore. Stopping.")
                 #     # TODO Calling the STOP action here will cause the agent to try grasping
                 #     #   we need different STOP_SUCCESS and STOP_FAILURE actions
-                #     return DiscreteNavigationAction.STOP, goal_map
+                #     return DiscreteNavigationAction.STOP, goal_map, short_term_goal, dilated_obstacles
 
         # Normalize agent angle
         angle_agent = pu.normalize_angle(start_o)
@@ -471,6 +470,7 @@ class DiscretePlanner:
                 vis_dir=self.vis_dir,
             )
             if not np.any(navigable_goal_map):
+                frontier_map = add_boundary(frontier_map, value=0)
                 navigable_goal_map = frontier_map
             self.dd = planner.set_multi_goal(
                 navigable_goal_map,
