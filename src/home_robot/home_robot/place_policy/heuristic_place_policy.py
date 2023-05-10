@@ -9,7 +9,11 @@ import torch.nn as nn
 import trimesh.transformations as tra
 
 import home_robot.utils.depth as du
-from home_robot.core.interfaces import DiscreteNavigationAction, Observations
+from home_robot.core.interfaces import (
+    ContinuousFullBodyAction,
+    DiscreteNavigationAction,
+    Observations,
+)
 from home_robot.motion.stretch import STRETCH_GRIPPER_OPEN, STRETCH_STANDOFF_DISTANCE
 from home_robot.utils.rotation import get_angle_to_pos
 
@@ -40,7 +44,7 @@ class HeuristicPlacePolicy(nn.Module):
 
         if not goal_rec_mask.any():
             print("End receptacle not visible.")
-            return False, vis_inputs
+            return False
         else:
             rgb_vis = obs.rgb
             goal_rec_depth = torch.tensor(
@@ -95,6 +99,9 @@ class HeuristicPlacePolicy(nn.Module):
             y_values = pcd_base_coords[0, :, :, 2]
 
             non_zero_y_values = y_values[y_values != 0]
+
+            if non_zero_y_values.numel() == 0:
+                return False
 
             # extracting topmost voxels
             highest_points_mask = torch.bitwise_and(
@@ -188,12 +195,12 @@ class HeuristicPlacePolicy(nn.Module):
             self.end_receptacle = obs.task_observations["goal_name"].split(" ")[-1]
             found = self.get_receptacle_placement_point(obs, vis_inputs)
 
-            if found is not False:
+            if found:
                 center_voxel, (center_x, center_y), vis_inputs = found
             else:
                 print("Receptacle not visible. Abort.")
                 action = DiscreteNavigationAction.STOP
-                return action
+                return action, vis_inputs
 
             center_voxel_trans = np.array(
                 [center_voxel[1], center_voxel[2], center_voxel[0]]
@@ -253,7 +260,7 @@ class HeuristicPlacePolicy(nn.Module):
             else:
                 print("Receptacle not visible. Abort.")
                 action = DiscreteNavigationAction.STOP
-                return action
+                return action, vis_inputs
 
             placement_height, placement_extension = center_voxel[2], center_voxel[1]
 
@@ -277,14 +284,14 @@ class HeuristicPlacePolicy(nn.Module):
 
             print("Delta arm extension:", delta_arm_ext)
             print("Delta arm lift:", delta_arm_lift)
-
-            action = {
-                "arm_action": [delta_arm_ext]
+            joints = (
+                [delta_arm_ext]
+                + [0] * 3
                 + [delta_arm_lift]
                 + [delta_gripper_yaw]
-                + [0] * 4,
-                "grip_action": [1],
-            }
+                + [0] * 4
+            )
+            action = ContinuousFullBodyAction(joints)
         elif self.timestep == self.total_turn_and_forward_steps + 2:
             # desnap to drop the object
             print("Desnapping object")

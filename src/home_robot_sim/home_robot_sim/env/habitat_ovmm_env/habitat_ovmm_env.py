@@ -11,6 +11,7 @@ from torch import Tensor
 
 import home_robot
 from home_robot.core.interfaces import (
+    ContinuousFullBodyAction,
     ContinuousNavigationAction,
     DiscreteNavigationAction,
 )
@@ -298,20 +299,27 @@ class HabitatOpenVocabManipEnv(HabitatEnv):
             cont_action = np.concatenate(
                 [arm_action, grip_action, base_vel, [-1, -1, rearrange_stop[0], -1]]
             )
-        elif type(action) == ContinuousNavigationAction:
+        elif type(action) in [ContinuousFullBodyAction, ContinuousNavigationAction]:
             grip_action = -1
             # Keep holding in case holding an object
             if habitat_obs["is_holding"][0] == 1:
                 grip_action = 1
             waypoint_x, waypoint_y, turn = 0, 0, 0
-            if action.xyt[0] != 0:
-                waypoint_x = np.clip(action.xyt[0] / self.max_forward, -1, 1)
-            elif action.xyt[1] != 0:
-                waypoint_y = np.clip(action.xyt[1] / self.max_forward, -1, 1)
-            elif action.xyt[2] != 0:
-                turn = np.clip(action.xyt[2] / self.max_turn, -1, 1)
+            # Set waypoint correctly, if base waypoint is passed with the action
+            if action.xyt is not None:
+                if action.xyt[0] != 0:
+                    waypoint_x = np.clip(action.xyt[0] / self.max_forward, -1, 1)
+                elif action.xyt[1] != 0:
+                    waypoint_y = np.clip(action.xyt[1] / self.max_forward, -1, 1)
+                elif action.xyt[2] != 0:
+                    turn = np.clip(action.xyt[2] / self.max_turn, -1, 1)
+            arm_action = np.array([0] * 7)
+            # If action is of type ContinuousFullBodyAction, it would include waypoints for the joints
+            if type(action) == ContinuousFullBodyAction:
+                # We specify only one arm extension that rolls over to all the arm joints
+                arm_action = np.concatenate([action.joints[0:1], action.joints[4:]])
             cont_action = np.concatenate(
-                [[0] * 7 + [grip_action] + [waypoint_x, waypoint_y, turn] + [-1] * 4]
+                [arm_action, [grip_action] + [waypoint_x, waypoint_y, turn] + [-1] * 4]
             )
         else:
             grip_action = -1
