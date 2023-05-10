@@ -40,7 +40,17 @@ class PickAndPlaceAgent(Agent):
         skip_pick=False,
         skip_gaze=False,
     ):
-        """Create the component object nav agent"""
+        """Create the component object nav agent as a PickAndPlaceAgent object.
+
+        Args:
+            config: A configuration object containing various parameters.
+            device_id (int, optional): The ID of the device to use. Defaults to 0.
+            skip_find_object (bool, optional): Whether to skip the exploration and navigation step. Useful for debugging. Defaults to False.
+            skip_place (bool, optional): Whether to skip the object-placement step. Useful for debugging. Defaults to False.
+            skip_orient (bool, optional): Whether to skip orientating towards the objects. Useful for debugging. Defaults to False.
+            skip_pick (bool, optional): Whether to skip the object-pickup step. Useful for debugging. Defaults to False.
+            skip_gaze (bool, optional): Whether to skip the gaze step. Useful for debugging. Defaults to False.
+        """
 
         # Flags used for skipping through state machine when debugging
         self.skip_find_object = skip_find_object
@@ -96,7 +106,7 @@ class PickAndPlaceAgent(Agent):
         Act end-to-end. Checks the current internal task state; will call the appropriate agent.
 
         Arguments:
-            obs: home_robot observation
+            obs: home_robot observation object containing sensor measurements.
 
         Returns:
             action: home_robot action
