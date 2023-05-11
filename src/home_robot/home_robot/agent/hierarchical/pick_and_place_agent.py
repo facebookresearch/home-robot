@@ -181,7 +181,6 @@ class PickAndPlaceAgent(Agent):
             action, action_info = self.place_policy.forward(obs)
             if action == DiscreteNavigationAction.STOP:
                 self.state = SimpleTaskState.DONE
-            breakpoint()
         elif self.state == SimpleTaskState.DONE:
             # We're done - just stop execution entirely.
             action = DiscreteNavigationAction.STOP
