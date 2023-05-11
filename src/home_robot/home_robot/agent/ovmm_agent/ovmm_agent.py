@@ -150,12 +150,16 @@ class OpenVocabManipAgent(ObjectNavAgent):
             info = self._switch_to_next_skill(e=0, info=info)
         return action, info
 
-    def _rl_nav(self, obs: Observations, info: Dict[str, Any]) -> Tuple[DiscreteNavigationAction, Any]:
+    def _rl_nav_to_obj(
+            self, obs: Observations, info: Dict[str, Any]
+    ) -> Tuple[DiscreteNavigationAction, Any]:
+        """
+        Gets the next action to execute from the RL-based nav-to-object policy
+        """
         action, term = self.nav_to_obj_agent.act(obs)
         if term:
             action = DiscreteNavigationAction.NAVIGATION_MODE
             self._switch_to_next_skill(e=0, info=info)
-        info["action"] = action
         return action, info
 
     def _hardcoded_place(self):
@@ -195,16 +199,19 @@ class OpenVocabManipAgent(ObjectNavAgent):
         self.timesteps[0] += 1
 
         if self.states[0] == Skill.NAV_TO_OBJ:
+            nav_to_obj_type = self.config.AGENT.SKILLS.NAV_TO_OBJ.type
             if self.skip_nav_to_obj:
                 info = self._switch_to_next_skill(
                     e=0, info=info, start_in_same_step=True
                 )
-            elif self.config.AGENT.SKILLS.NAV_TO_OBJ.type == "modular":
+            elif nav_to_obj_type == "modular":
                 return self._modular_nav(obs, info)
-            elif self.config.AGENT.SKILLS.NAV_TO_OBJ.type == "rl":
-                return self._rl_nav(obs, info)
+            elif nav_to_obj_type == "rl":
+                return self._rl_nav_to_obj(obs, info)
             else:
-                raise ValueError
+                raise ValueError(
+                    f"Got unexpected value for NAV_TO_OBJ.type: {nav_to_obj_type}"
+                )
         if self.states[0] == Skill.ORIENT_OBJ:
             num_turns = np.round(90 / turn_angle)
             orient_step = self.timesteps[0] - self.orient_start_step[0]
