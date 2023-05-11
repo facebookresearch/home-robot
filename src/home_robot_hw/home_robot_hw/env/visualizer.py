@@ -120,6 +120,8 @@ class Visualizer:
         short_term_goal: Optional[np.ndarray] = None,
         dilated_obstacle_map: Optional[np.ndarray] = None,
         short_term_goal_map: Optional[np.ndarray] = None,
+        curr_skill: str = None,
+        **kwargs,
     ):
         """Visualize frame input and semantic map.
 
@@ -137,6 +139,7 @@ class Visualizer:
             goal_name: semantic goal category
             timestep: time step within the episode
             visualize_goal: if True, visualize goal
+            curr_skill: name of the current skill being executed
         """
         if self.image_vis is None:
             self.image_vis = self._init_vis_image(goal_name)

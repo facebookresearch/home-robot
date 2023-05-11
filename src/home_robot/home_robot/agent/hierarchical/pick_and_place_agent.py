@@ -112,7 +112,10 @@ class PickAndPlaceAgent(Agent):
         obs.task_observations["goal_name"] = task_info["object_name"]
         return obs
 
-    def _preprocess_obs_for_place(self, obs: Observations) -> Observations:
+    def _preprocess_obs_for_place(
+        self, obs: Observations, info: Dict
+    ) -> Tuple[Observations, Dict]:
+        """Process information we need for the place skills."""
         task_info = obs.task_observations
         # Receptacle goal used for placement
         obs.task_observations["end_recep_goal"] = task_info["place_recep_id"]
@@ -121,6 +124,7 @@ class PickAndPlaceAgent(Agent):
         # Object goal unused - we already presumably have it in our hands
         obs.task_observations["object_goal"] = None
         obs.task_observations["goal_name"] = task_info["place_recep_name"]
+        info["goal_name"] = obs.task_observations["goal_name"]
         return obs
 
     def _get_info(self, obs: Observations) -> Dict:
@@ -128,7 +132,7 @@ class PickAndPlaceAgent(Agent):
         info = {
             "semantic_frame": obs.task_observations["semantic_frame"],
             "goal_name": obs.task_observations["goal_name"],
-            "curr_skill": self.state,
+            "curr_skill": str(self.state),
             "skill_done": "",  # Set if skill gets done
             "timestep": self.timestep,
         }
@@ -185,13 +189,13 @@ class PickAndPlaceAgent(Agent):
             return DiscreteNavigationAction.NAVIGATION_MODE, action_info
         elif self.state == SimpleTaskState.FIND_GOAL:
             # Find the goal location
-            obs = self._preprocess_obs_for_place(obs)
+            obs, info = self._preprocess_obs_for_place(obs, info)
             action, action_info = self.object_nav_agent.act(obs)
             if action == DiscreteNavigationAction.STOP:
                 self.state = SimpleTaskState.PLACE_OBJECT
         elif self.state == SimpleTaskState.PLACE_OBJECT:
             # place the object somewhere - hopefully in front of the agent.
-            obs = self._preprocess_obs_for_place(obs)
+            obs, info = self._preprocess_obs_for_place(obs, info)
             # action, action_info = self.place_agent.act(obs)
             action, action_info = self.place_policy.forward(obs, info)
             if action == DiscreteNavigationAction.STOP:
