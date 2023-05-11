@@ -95,6 +95,7 @@ class PickAndPlaceAgent(Agent):
         """Clear internal task state and reset component agents."""
         self.state = SimpleTaskState.FIND_OBJECT
         if self.test_place:
+            # If we want to find the goal first...
             self.state = SimpleTaskState.FIND_GOAL
         self.object_nav_agent.reset()
         if self.gaze_agent is not None:
@@ -120,6 +121,16 @@ class PickAndPlaceAgent(Agent):
         obs.task_observations["goal_name"] = task_info["place_recep_name"]
         return obs
 
+    def _get_info(self, obs: Observations) -> Dict:
+        """Get inputs for visual skill."""
+        info = {
+            "semantic_frame": obs.task_observations["semantic_frame"],
+            "goal_name": obs.task_observations["goal_name"],
+            "curr_skill": self.state,
+            "skill_done": "",  # Set if skill gets done
+        }
+        return info
+
     def act(self, obs: Observations) -> Tuple[Action, Dict[str, Any]]:
         """
         Act end-to-end. Checks the current internal task state; will call the appropriate agent.
@@ -131,7 +142,7 @@ class PickAndPlaceAgent(Agent):
             action: home_robot action
             info: additional information (e.g., for debugging, visualization)
         """
-
+        info = self._get_info(obs)
         action = DiscreteNavigationAction.STOP
         action_info = None
         # Look for the goal object.
@@ -178,7 +189,7 @@ class PickAndPlaceAgent(Agent):
             # place the object somewhere - hopefully in front of the agent.
             obs = self._preprocess_obs_for_place(obs)
             # action, action_info = self.place_agent.act(obs)
-            action, action_info = self.place_policy.forward(obs)
+            action, action_info = self.place_policy.forward(obs, info)
             if action == DiscreteNavigationAction.STOP:
                 self.state = SimpleTaskState.DONE
         elif self.state == SimpleTaskState.DONE:

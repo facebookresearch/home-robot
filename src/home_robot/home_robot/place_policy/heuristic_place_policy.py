@@ -170,7 +170,7 @@ class HeuristicPlacePolicy(nn.Module):
 
             return center_voxel.cpu().numpy()[0], (center_x, center_y), vis_inputs
 
-    def forward(self, obs: Observations, vis_inputs):
+    def forward(self, obs: Observations, vis_inputs=None):
         """
         1. Get estimate of point on receptacle to place object on.
         2. Orient towards it.
