@@ -1,0 +1,168 @@
+arm:
+  default:
+    accel: 0.14
+    vel: 0.14
+  fast:
+    accel: 0.3
+    vel: 0.3
+  max:
+    accel: 0.4
+    vel: 0.4
+  slow:
+    accel: 0.05
+    vel: 0.05
+  very_slow:
+    accel: 0.02
+    vel: 0.02
+base:
+  default:
+    accel: 0.12
+    vel: 0.12
+  fast:
+    accel: 0.25
+    vel: 0.25
+  max:
+    accel: 0.3
+    vel: 0.3
+  slow:
+    accel: 0.06
+    vel: 0.04
+  very_slow:
+    accel: 0.02
+    vel: 0.02
+head_pan:
+  default:
+    accel: 8.0
+    vel: 3.0
+  fast:
+    accel: 10.0
+    vel: 5.0
+  max:
+    accel: 14.0
+    vel: 7.0
+  slow:
+    accel: 4.0
+    vel: 1.0
+  very_slow:
+    accel: 2.0
+    vel: 0.5
+  trajectory_veltrl: 1
+  trajectory_veltrl_kP: 1.5
+head_tilt:
+  default:
+    accel: 8.0
+    vel: 3.0
+  fast:
+    accel: 10.0
+    vel: 5.0
+  max:
+    accel: 14.0
+    vel: 7.0
+  slow:
+    accel: 4.0
+    vel: 1.0
+  very_slow:
+    accel: 2.0
+    vel: 0.5
+  trajectory_veltrl: 1
+  trajectory_veltrl_kP: 1.5
+hello-motor-arm:
+  accel: 15
+  vel: 25
+hello-motor-left-wheel:
+  accel: 15
+  vel: 25
+hello-motor-lift:
+  accel: 15
+  vel: 12
+hello-motor-right-wheel:
+  accel: 15
+  vel: 25
+lift:
+  default:
+    accel: 0.2
+    vel: 0.11
+  fast:
+    accel: 0.25
+    vel: 0.13
+  max:
+    accel: 0.3
+    vel: 0.15
+  slow:
+    accel: 0.05
+    vel: 0.05
+  very_slow:
+    accel: 0.02
+    vel: 0.02
+stretch_gripper:
+  default:
+    accel: 10.0
+    vel: 4.0
+  fast:
+    accel: 10.0
+    vel: 6.0
+  max:
+    accel: 12
+    vel: 8
+  slow:
+    accel: 4.0
+    vel: 2.0
+  very_slow:
+    accel: 2.0
+    vel: 1.0
+  trajectory_veltrl: 1
+  trajectory_veltrl_kP: 1.5
+wrist_pitch:
+  default:
+    accel: 6.0
+    vel: 2.0
+  fast:
+    accel: 8.0
+    vel: 4.0
+  max:
+    accel: 10.0
+    vel: 5.0
+  slow:
+    accel: 4.0
+    vel: 1.0
+  very_slow:
+    accel: 2.0
+    vel: 0.5
+  trajectory_veltrl: 1
+  trajectory_veltrl_kP: 1.5
+wrist_roll:
+  default:
+    accel: 8.0
+    vel: 3.0
+  fast:
+    accel: 10.0
+    vel: 5.0
+  max:
+    accel: 12
+    vel: 8
+  slow:
+    accel: 4.0
+    vel: 1.0
+  very_slow:
+    accel: 2.0
+    vel: 0.5
+  trajectory_veltrl: 1
+  trajectory_veltrl_kP: 1.5
+wrist_yaw:
+  default:
+    accel: 3.0
+    vel: 2.0
+  fast:
+    accel: 5.0
+    vel: 2.5
+  max:
+    accel: 10
+    vel: 6.0
+  slow:
+    accel: 1.5
+    vel: 0.75
+  very_slow:
+    accel: 0.5
+    vel: 0.25
+  trajectory_veltrl: 1
+  trajectory_veltrl_kP: 1.5
