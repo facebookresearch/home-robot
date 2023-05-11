@@ -139,7 +139,7 @@ class OpenVocabManipAgent(ObjectNavAgent):
             self.place_done[0] = 1
         return info
 
-    def _modular_nav(
+    def _heuristic_nav(
         self, obs: Observations, info: Dict[str, Any]
     ) -> Tuple[DiscreteNavigationAction, Any]:
         action, planner_info = super().act(obs)
@@ -199,7 +199,7 @@ class OpenVocabManipAgent(ObjectNavAgent):
 
         self.timesteps[0] += 1
 
-        # Since modular nav is not properly vectorized, this agent currently only supports 1 env
+        # Since heuristic nav is not properly vectorized, this agent currently only supports 1 env
         # _switch_to_next_skill is thus always invoked with e=0
         if self.states[0] == Skill.NAV_TO_OBJ:
             nav_to_obj_type = self.config.AGENT.SKILLS.NAV_TO_OBJ.type
@@ -207,8 +207,8 @@ class OpenVocabManipAgent(ObjectNavAgent):
                 info = self._switch_to_next_skill(
                     e=0, info=info, start_in_same_step=True
                 )
-            elif nav_to_obj_type == "modular":
-                return self._modular_nav(obs, info)
+            elif nav_to_obj_type == "heuristic":
+                return self._heuristic_nav(obs, info)
             elif nav_to_obj_type == "rl":
                 return self._rl_nav_to_obj(obs, info)
             else:
