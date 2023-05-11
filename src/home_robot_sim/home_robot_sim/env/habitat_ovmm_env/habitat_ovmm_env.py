@@ -52,46 +52,35 @@ class HabitatOpenVocabManipEnv(HabitatEnv):
         self.discrete_forward = config.ENVIRONMENT.forward
         self.discrete_turn_degrees = config.ENVIRONMENT.turn_angle
         self.config = config
-        assert (
-            "floorplanner" in self.episodes_data_path
-            or "hm3d" in self.episodes_data_path
-            or "mp3d" in self.episodes_data_path
-        )
 
-        if "floorplanner" in self.episodes_data_path:
-            self._obj_name_to_id_mapping = self._dataset.obj_category_to_obj_category_id
-            self._rec_name_to_id_mapping = (
-                self._dataset.recep_category_to_recep_category_id
+        self._obj_name_to_id_mapping = self._dataset.obj_category_to_obj_category_id
+        self._rec_name_to_id_mapping = self._dataset.recep_category_to_recep_category_id
+        self._obj_id_to_name_mapping = {
+            k: v for v, k in self._obj_name_to_id_mapping.items()
+        }
+        self._rec_id_to_name_mapping = {
+            k: v for v, k in self._rec_name_to_id_mapping.items()
+        }
+
+        if self.ground_truth_semantics:
+            self.semantic_category_mapping = RearrangeBasicCategories()
+        else:
+            # combining objs and recep IDs into one mapping
+            self.obj_rec_combined_mapping = {}
+            for i in range(
+                len(self._obj_id_to_name_mapping) + len(self._rec_id_to_name_mapping)
+            ):
+                if i < len(self._obj_id_to_name_mapping):
+                    self.obj_rec_combined_mapping[i + 1] = self._obj_id_to_name_mapping[
+                        i
+                    ]
+                else:
+                    self.obj_rec_combined_mapping[i + 1] = self._rec_id_to_name_mapping[
+                        i - len(self._obj_id_to_name_mapping)
+                    ]
+            self.semantic_category_mapping = RearrangeDETICCategories(
+                self.obj_rec_combined_mapping
             )
-            self._obj_id_to_name_mapping = {
-                k: v for v, k in self._obj_name_to_id_mapping.items()
-            }
-            self._rec_id_to_name_mapping = {
-                k: v for v, k in self._rec_name_to_id_mapping.items()
-            }
-
-            if self.ground_truth_semantics:
-                self.semantic_category_mapping = RearrangeBasicCategories()
-            else:
-                # combining objs and recep IDs into one mapping
-                self.obj_rec_combined_mapping = {}
-                for i in range(
-                    len(self._obj_id_to_name_mapping)
-                    + len(self._rec_id_to_name_mapping)
-                ):
-                    if i < len(self._obj_id_to_name_mapping):
-                        self.obj_rec_combined_mapping[
-                            i + 1
-                        ] = self._obj_id_to_name_mapping[i]
-                    else:
-                        self.obj_rec_combined_mapping[
-                            i + 1
-                        ] = self._rec_id_to_name_mapping[
-                            i - len(self._obj_id_to_name_mapping)
-                        ]
-                self.semantic_category_mapping = RearrangeDETICCategories(
-                    self.obj_rec_combined_mapping
-                )
 
         if not self.ground_truth_semantics:
             from home_robot.perception.detection.detic.detic_perception import (

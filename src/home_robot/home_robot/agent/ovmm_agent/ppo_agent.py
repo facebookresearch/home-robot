@@ -28,7 +28,11 @@ from habitat_baselines.common.obs_transformers import (
 from habitat_baselines.config.default import get_config as get_habitat_config
 from habitat_baselines.utils.common import batch_obs
 
-from home_robot.core.interfaces import ContinuousNavigationAction, Observations, DiscreteNavigationAction
+from home_robot.core.interfaces import (
+    ContinuousNavigationAction,
+    DiscreteNavigationAction,
+    Observations,
+)
 from home_robot.utils.constants import (
     MAX_DEPTH_REPLACEMENT_VALUE,
     MIN_DEPTH_REPLACEMENT_VALUE,
@@ -145,7 +149,8 @@ class PPOAgent(Agent):
 
         # whether the skill uses continuous and discrete actions
         self.continuous_actions = (
-            self.rl_config.habitat_baselines.rl.policy.action_distribution_type != "categorical"
+            self.rl_config.habitat_baselines.rl.policy.action_distribution_type
+            != "categorical"
         )
 
         # read transforms from config
@@ -278,9 +283,13 @@ class PPOAgent(Agent):
                 "relative_resting_position": obs.relative_resting_position,
                 "is_holding": obs.is_holding,
                 "robot_start_gps": np.array((obs.gps[0], -1 * obs.gps[1])),
-                "robot_start_compass": obs.compass + np.pi/2,
-                "receptacle_segmentation": obs.task_observations["receptacle_segmentation"],
-                "cat_nav_goal_segmentation": obs.task_observations["cat_nav_goal_segmentation"],
+                "robot_start_compass": obs.compass + np.pi / 2,
+                "receptacle_segmentation": obs.task_observations[
+                    "receptacle_segmentation"
+                ],
+                "cat_nav_goal_segmentation": obs.task_observations[
+                    "cat_nav_goal_segmentation"
+                ],
                 "start_receptacle": obs.task_observations["start_receptacle"],
             }
         )
@@ -334,9 +343,9 @@ class PPOAgent(Agent):
             if "arm_action" in step_action["action_args"]:
                 complete_arm_action = np.array([0.0] * len(self.arm_joint_mask))
                 controlled_joint_indices = np.nonzero(self.arm_joint_mask)
-                complete_arm_action[controlled_joint_indices] = step_action["action_args"][
-                    "arm_action"
-                ]
+                complete_arm_action[controlled_joint_indices] = step_action[
+                    "action_args"
+                ]["arm_action"]
                 step_action["action_args"]["arm_action"] = complete_arm_action
 
             return (
