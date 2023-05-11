@@ -11,9 +11,9 @@ arm:
   slow:
     accel: 0.05
     vel: 0.05
-  trajectory_max:
-    accel: 0.4
-    vel: 0.4
+  very_slow:
+    accel: 0.02
+    vel: 0.02
 base:
   default:
     accel: 0.12
@@ -27,9 +27,9 @@ base:
   slow:
     accel: 0.06
     vel: 0.04
-  trajectory_max:
-    accel: 30.0
-    vel: 50.0
+  very_slow:
+    accel: 0.02
+    vel: 0.02
 head_pan:
   default:
     accel: 8.0
@@ -43,9 +43,9 @@ head_pan:
   slow:
     accel: 4.0
     vel: 1.0
-  trajectory_max:
-    accel: 16.0
-    vel: 8.0
+  very_slow:
+    accel: 2.0
+    vel: 0.5
   trajectory_veltrl: 1
   trajectory_veltrl_kP: 1.5
 head_tilt:
@@ -61,9 +61,9 @@ head_tilt:
   slow:
     accel: 4.0
     vel: 1.0
-  trajectory_max:
-    accel: 16.0
-    vel: 8.0
+  very_slow:
+    accel: 2.0
+    vel: 0.5
   trajectory_veltrl: 1
   trajectory_veltrl_kP: 1.5
 hello-motor-arm:
@@ -91,9 +91,9 @@ lift:
   slow:
     accel: 0.05
     vel: 0.05
-  trajectory_max:
-    accel: 0.3
-    vel: 0.15
+  very_slow:
+    accel: 0.02
+    vel: 0.02
 stretch_gripper:
   default:
     accel: 10.0
@@ -107,9 +107,9 @@ stretch_gripper:
   slow:
     accel: 4.0
     vel: 2.0
-  trajectory_max:
-    accel: 100.0
-    vel: 50.0
+  very_slow:
+    accel: 2.0
+    vel: 1.0
   trajectory_veltrl: 1
   trajectory_veltrl_kP: 1.5
 wrist_pitch:
@@ -125,9 +125,9 @@ wrist_pitch:
   slow:
     accel: 4.0
     vel: 1.0
-  trajectory_max:
-    accel: 16.0
-    vel: 8.0
+  very_slow:
+    accel: 2.0
+    vel: 0.5
   trajectory_veltrl: 1
   trajectory_veltrl_kP: 1.5
 wrist_roll:
@@ -143,9 +143,9 @@ wrist_roll:
   slow:
     accel: 4.0
     vel: 1.0
-  trajectory_max:
-    accel: 16.0
-    vel: 8.0
+  very_slow:
+    accel: 2.0
+    vel: 0.5
   trajectory_veltrl: 1
   trajectory_veltrl_kP: 1.5
 wrist_yaw:
@@ -161,8 +161,8 @@ wrist_yaw:
   slow:
     accel: 1.5
     vel: 0.75
-  trajectory_max:
-    accel: 3.0
-    vel: 3.0
+  very_slow:
+    accel: 0.5
+    vel: 0.25
   trajectory_veltrl: 1
   trajectory_veltrl_kP: 1.5
