@@ -56,7 +56,6 @@ class GraspPlanner(object):
             self.robot_client.switch_to_manipulation_mode()
         self.robot_client.head.look_at_ee(blocking=False)
         self.robot_client.manip.open_gripper()
-        visualize = True
 
         min_grasp_score = 0.0
         min_obj_pts = 100
@@ -92,7 +91,6 @@ class GraspPlanner(object):
                 camera_pose_world = self.robot_client.head.get_pose()
                 xyz3 = trimesh.transform_points(xyz.reshape(-1, 3), camera_pose_world)
                 show_point_cloud(xyz3, rgb / 255.0, orig=np.zeros(3))
-                breakpoint()
 
             if self.verbose:
                 print(

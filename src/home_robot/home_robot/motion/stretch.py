@@ -37,6 +37,8 @@ STRETCH_HOME_Q = np.array(
         0.0,
     ]
 )
+
+# Gripper pointed down, for a top-down grasp
 STRETCH_PREGRASP_Q = np.array(
     [
         0,  # x
@@ -52,6 +54,8 @@ STRETCH_PREGRASP_Q = np.array(
         0.0,
     ]
 )
+
+# Navigation should not be fully folded up against the arm - in case its holding something
 STRETCH_NAVIGATION_Q = np.array(
     [
         0,  # x
@@ -61,12 +65,13 @@ STRETCH_NAVIGATION_Q = np.array(
         0.01,  # arm
         0.0,  # gripper rpy
         0.0,  # wrist roll
-        0.0,  # wrist pitch
+        -0.7,  # wrist pitch
         3.0,  # wrist yaw
         0.0,
         -np.pi / 4,
     ]
 )
+
 PIN_CONTROLLED_JOINTS = [
     "base_x_joint",
     "joint_lift",

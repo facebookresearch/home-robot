@@ -137,11 +137,6 @@ class StretchPickandPlaceEnv(StretchEnv):
         # Also set the robot's head into "navigation" mode - facing forward
         self.robot.move_to_nav_posture()
 
-    def try_grasping(self, visualize_masks=False, dry_run=False):
-        return self.grasp_planner.try_grasping(
-            visualize=visualize_masks, dry_run=dry_run
-        )
-
     def get_robot(self):
         """Return the robot interface."""
         return self.robot
@@ -168,7 +163,7 @@ class StretchPickandPlaceEnv(StretchEnv):
         # Also do not rotate if you are just doing grasp testing
         if not self.dry_run and not self.test_grasping:
             self.robot.nav.navigate_to([0, 0, -np.pi / 2], relative=True, blocking=True)
-            self.grasp_planner.go_to_nav_mode()
+            self.robot.move_to_nav_posture()
 
     def _switch_to_manip_mode(self):
         """Rotate the robot and put it in the right configuration for grasping"""
@@ -232,7 +227,9 @@ class StretchPickandPlaceEnv(StretchEnv):
                     if self.dry_run:
                         # Dummy out robot execution code for perception tests
                         break
-                    ok = self.grasp_planner.try_grasping(wait_for_input=self.debug)
+                    ok = self.grasp_planner.try_grasping(
+                        wait_for_input=self.debug, visualize=self.test_grasping
+                    )
                     if ok:
                         break
             else:
@@ -304,7 +301,10 @@ class StretchPickandPlaceEnv(StretchEnv):
         self.current_goal_name = goal_obj
 
     def get_observation(self) -> Observations:
-        """Get Detic and rgb/xyz/theta from this"""
+        """Get Detic and rgb/xyz/theta from the robot. Read RGB + depth + point cloud from the robot's cameras, get current pose, and use all of this to compute the observations
+
+        Returns:
+            obs: observations containing everything the robot policy will be using to make decisions, other than its own internal state."""
         rgb, depth, xyz = self.robot.head.get_images(
             compute_xyz=True,
         )
@@ -325,7 +325,6 @@ class StretchPickandPlaceEnv(StretchEnv):
             xyz=xyz.copy(),
             gps=gps,
             compass=np.array([theta]),
-            # base_pose=sophus2obs(relative_pose),
             task_observations=self.task_info,
             # camera_pose=self.get_camera_pose_matrix(rotated=True),
             camera_pose=self.robot.head.get_pose(rotated=True),
@@ -349,7 +348,8 @@ class StretchPickandPlaceEnv(StretchEnv):
                 obs.task_observations["instance_classes"] == self.current_goal_id
             )
 
-            if len(instance_scores):
+            # If we detected anything... check to see if our target object was found, and if so pass in the mask.
+            if len(instance_scores) and np.any(class_mask):
                 chosen_instance_idx = np.argmax(instance_scores * class_mask)
                 obs.task_observations["goal_mask"] = (
                     obs.task_observations["instance_map"] == chosen_instance_idx

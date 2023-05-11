@@ -62,7 +62,7 @@ class SimpleGraspMotionPlanner(object):
             return None
         back_cfg = standoff_cfg.copy()
         back_cfg[HelloStretchIdx.ARM] = 0.01
-        back_cfg = self.robot.config_to_manip_command(standoff_cfg)
+        back_cfg = self.robot.config_to_manip_command(back_cfg)
         back = ("back", back_cfg, False)
 
         # Return the full motion plan
