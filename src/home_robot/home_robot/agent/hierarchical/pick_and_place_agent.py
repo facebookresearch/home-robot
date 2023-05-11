@@ -21,6 +21,7 @@ class SimpleTaskState(Enum):
     FIND_GOAL = 6
     ORIENT_PLACE = 7
     PLACE_OBJECT = 8
+    DONE = 9
 
 
 class PickAndPlaceAgent(Agent):
@@ -59,6 +60,7 @@ class PickAndPlaceAgent(Agent):
         self.skip_gaze = skip_gaze
         self.skip_pick = skip_pick
         self.config = config
+
         # Agent for object nav
         self.object_nav_agent = ObjectNavAgent(config, device_id)
         if not self.skip_gaze and hasattr(self.config.AGENT.SKILLS, "GAZE"):
@@ -159,5 +161,16 @@ class PickAndPlaceAgent(Agent):
             # Find the goal location
             obs = self._preprocess_obs_for_place(obs)
             action, action_info = self.object_nav_agent.act(obs)
+        elif self.state == SimpleTaskState.PLACE_OBJECT:
+            # place the object somewhere - hopefully in front of the agent.
+            obs = self._preprocess_obs_for_place(obs)
+            action, action_info = self.place_agent.act(obs)
+            if action == DiscreteNavigationAction.STOP:
+                self.state = SimpleTaskState.DONE
+        elif self.state == SimpleTaskState.DONE:
+            # We're done - just stop execution entirely.
+            action = DiscreteNavigationAction.STOP
+            action_info = {}
+
         # If we did not find anything else to do, just stop
         return action, action_info
