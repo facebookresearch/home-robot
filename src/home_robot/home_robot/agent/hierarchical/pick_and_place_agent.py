@@ -198,12 +198,13 @@ class PickAndPlaceAgent(Agent):
             obs, info = self._preprocess_obs_for_place(obs, info)
             # action, action_info = self.place_agent.act(obs)
             action, action_info = self.place_policy.forward(obs, info)
+            print("PLACING!!!", action)
             if action == DiscreteNavigationAction.STOP:
                 self.state = SimpleTaskState.DONE
         elif self.state == SimpleTaskState.DONE:
             # We're done - just stop execution entirely.
             action = DiscreteNavigationAction.STOP
-            action_info = {}
+            action_info = info
 
         # If we did not find anything else to do, just stop
         return action, action_info
