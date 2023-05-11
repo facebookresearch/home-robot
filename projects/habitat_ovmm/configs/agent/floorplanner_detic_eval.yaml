@@ -52,7 +52,7 @@ AGENT:
 
   SKILLS:
     PICK:
-      type: oracle #gaze #end_to_end #modular #hardcoded
+      type: oracle #gaze #end_to_end #heuristic #hardcoded
       checkpoint_path: data/checkpoints/ovmm/gaze.pth
       rl_config: projects/habitat_ovmm/configs/agent/gaze_rl.yaml # with continuous actions
       gym_obs_keys:
@@ -70,10 +70,10 @@ AGENT:
       max_turn_degrees: 180
 
     NAV_TO_OBJ:
-      type: modular
+      type: heuristic
 
     NAV_TO_REC:
-      type: modular
+      type: heuristic
 
     PLACE:
       type: heuristic_debug #hardcoded
@@ -83,6 +83,7 @@ AGENT:
   skip_pick: False
   skip_place: False
   skip_orient_obj: False
+
 EVAL_VECTORIZED:
   simulator_gpu_ids: [1, 2, 3, 4, 5, 6, 7] # IDs of GPUs to use for vectorized environments
   specific_episodes: 0      # 1: eval on specific episodes (for debugging), 0: eval on split normally
