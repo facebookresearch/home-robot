@@ -80,11 +80,20 @@ class StretchManipulationClient(AbstractControlModule):
         ]
 
     @enforce_enabled
-    def goto(self, q, move_base=False, wait=True, max_wait_t=10.0, verbose=False):
+    def goto(
+        self,
+        q,
+        dq: List = None,
+        ddq: List = None,
+        move_base=False,
+        wait=True,
+        max_wait_t=10.0,
+        verbose=False,
+    ):
         """Directly command the robot using generalized coordinates
         some of these params are unsupported
         """
-        goal = self._ros_client.config_to_ros_trajectory_goal(q)
+        goal = self._ros_client.config_to_ros_trajectory_goal(q, dq, ddq)
         self._ros_client.trajectory_client.send_goal(goal)
 
         self._register_wait(self._ros_client.wait_for_trajectory_action)
