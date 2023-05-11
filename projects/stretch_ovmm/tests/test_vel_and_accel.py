@@ -31,7 +31,7 @@ from home_robot_hw.env.stretch_pick_and_place_env import (
 )
 from home_robot_hw.ros.utils import matrix_to_pose_msg, ros_pose_to_transform
 
-motion_choices = ["default", "slow", "fast"]
+motion_choices = ["default", "slow", "fast", "very_slow"]
 
 
 def read_yaml(yaml_file):
@@ -46,7 +46,7 @@ def read_yaml(yaml_file):
 def get_velocities(motion_profiles_dict, joint_names, speed: str = "default"):
     assert (
         speed in motion_choices
-    ), "Speed must be 'default', 'slow', 'fast', or 'trajectory_max'"
+    ), "Speed must be 'default', 'slow', 'fast', or 'very_slow'"
     joint_velocities = []
     for joint in joint_names:
         joint_velocities.append(motion_profiles_dict[joint][speed]["vel"])
@@ -56,7 +56,7 @@ def get_velocities(motion_profiles_dict, joint_names, speed: str = "default"):
 def get_accelerations(motion_profiles_dict, joint_names, speed: str = "default"):
     assert (
         speed in motion_choices
-    ), "Speed must be 'default', 'slow', 'fast', or 'trajectory_max'"
+    ), "Speed must be 'default', 'slow', 'fast', or 'very_slow'"
     joint_accelerations = []
     for joint in joint_names:
         joint_accelerations.append(motion_profiles_dict[joint][speed]["accel"])
@@ -101,16 +101,16 @@ def run_experiment(visualize_maps=False, test_id=0, reset_nav=False, **kwargs):
 
     # Put it into initial posture
     env.robot.move_to_manip_posture()
-    # Go to stow position with default motion profile
-    env.robot.manip.goto(STRETCH_HOME_Q, dq=None, ddq=None, wait=True)
+    # # Go to stow position with default motion profile
+    # env.robot.manip.goto(STRETCH_HOME_Q, dq=None, ddq=None, wait=True)
 
     # Get motion profiles
     root = "src/home_robot/config/control/"
     motion_profiles_dict = read_yaml(root + "motion_profiles.yaml")
 
     # Define test pose and motion profile
-    test_motion = "fast"
-    pose = STRETCH_PREGRASP_Q
+    test_motion = "very_slow"
+    pose = STRETCH_HOME_Q
     joints_for_mp = [
         "base",
         "base",
