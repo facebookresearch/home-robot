@@ -63,7 +63,7 @@ class PickAndPlaceAgent(Agent):
         self.skip_orient = skip_orient
         self.skip_gaze = skip_gaze
         self.skip_pick = skip_pick
-        self.test_palce = test_place
+        self.test_place = test_place
         self.config = config
 
         # Create place policy
