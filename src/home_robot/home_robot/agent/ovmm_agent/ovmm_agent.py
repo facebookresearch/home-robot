@@ -255,8 +255,8 @@ class OpenVocabManipAgent(ObjectNavAgent):
                 info = self._switch_to_next_skill(
                     e=0, info=info, start_in_same_step=True
                 )
-            elif self.config.AGENT.SKILLS.NAV_TO_REC.type == "modular":
-                return self._modular_nav(obs, info)
+            elif self.config.AGENT.SKILLS.NAV_TO_REC.type == "heuristic":
+                return self._heuristic_nav(obs, info)
             else:
                 raise NotImplementedError
         if self.states[0] == Skill.PLACE:
