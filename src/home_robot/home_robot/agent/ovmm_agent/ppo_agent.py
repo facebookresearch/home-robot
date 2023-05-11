@@ -187,10 +187,10 @@ class PPOAgent(Agent):
         self.vector_action_space = create_action_space(self.filtered_action_space)
         if self.continuous_actions:
             self.num_actions = self.vector_action_space.shape[0]
-            self.action_shape = self.num_actions
+            self.actions_dim = self.num_actions
         else:
             self.num_actions = self.vector_action_space.n
-            self.action_shape = 1
+            self.actions_dim = 1
 
         # Initialize actor critic using the policy config
         self.actor_critic = policy.from_config(
@@ -228,7 +228,7 @@ class PPOAgent(Agent):
 
         self.prev_actions = torch.zeros(
             1,
-            self.action_shape,
+            self.actions_dim,
             dtype=torch.float32 if self.continuous_actions else torch.long,
             device=self.device,
         )
