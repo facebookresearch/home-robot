@@ -65,6 +65,7 @@ class PickAndPlaceAgent(Agent):
         self.skip_pick = skip_pick
         self.test_place = test_place
         self.config = config
+        self.timestep = 0
 
         # Create place policy
         if not self.skip_place:
@@ -100,6 +101,7 @@ class PickAndPlaceAgent(Agent):
         self.object_nav_agent.reset()
         if self.gaze_agent is not None:
             self.gaze_agent.reset()
+        self.timestep = 0
 
     def _preprocess_obs_for_find(self, obs: Observations) -> Observations:
         task_info = obs.task_observations
@@ -128,6 +130,7 @@ class PickAndPlaceAgent(Agent):
             "goal_name": obs.task_observations["goal_name"],
             "curr_skill": self.state,
             "skill_done": "",  # Set if skill gets done
+            "timestep": self.timestep,
         }
         return info
 
@@ -143,6 +146,7 @@ class PickAndPlaceAgent(Agent):
             info: additional information (e.g., for debugging, visualization)
         """
         info = self._get_info(obs)
+        self.timestep += 1  # Update step counter for visualizations
         action = DiscreteNavigationAction.STOP
         action_info = None
         # Look for the goal object.

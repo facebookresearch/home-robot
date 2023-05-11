@@ -186,9 +186,7 @@ class HeuristicPlacePolicy(nn.Module):
 
         self.timestep = self.timestep
         turn_angle = self.config.ENVIRONMENT.turn_angle
-        fwd_step_size = (
-            self.config.habitat.simulator.forward_step_size
-        )  # or self.config.AGENT.SKILLS.PICK.max_forward
+        fwd_step_size = self.config.ENVIRONMENT.forward
 
         if self.timestep == 0:
             self.du_scale = 1  # TODO: working with full resolution for now
