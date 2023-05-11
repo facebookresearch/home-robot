@@ -125,7 +125,7 @@ class PickAndPlaceAgent(Agent):
         obs.task_observations["object_goal"] = None
         obs.task_observations["goal_name"] = task_info["place_recep_name"]
         info["goal_name"] = obs.task_observations["goal_name"]
-        return obs
+        return obs, info
 
     def _get_info(self, obs: Observations) -> Dict:
         """Get inputs for visual skill."""
