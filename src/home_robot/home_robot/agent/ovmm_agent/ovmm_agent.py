@@ -198,6 +198,8 @@ class OpenVocabManipAgent(ObjectNavAgent):
 
         self.timesteps[0] += 1
 
+        # Since modular nav is not properly vectorized, this agent currently only supports 1 env
+        # _switch_to_next_skill is thus always invoked with e=0
         if self.states[0] == Skill.NAV_TO_OBJ:
             nav_to_obj_type = self.config.AGENT.SKILLS.NAV_TO_OBJ.type
             if self.skip_nav_to_obj:
