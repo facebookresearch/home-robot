@@ -7,6 +7,7 @@ from home_robot.agent.objectnav_agent import ObjectNavAgent
 from home_robot.agent.ovmm_agent.ppo_agent import PPOAgent
 from home_robot.core.abstract_agent import Agent
 from home_robot.core.interfaces import Action, DiscreteNavigationAction, Observations
+from home_robot.place_policy import HeuristicPlacePolicy
 
 
 class SimpleTaskState(Enum):
@@ -54,12 +55,17 @@ class PickAndPlaceAgent(Agent):
         """
 
         # Flags used for skipping through state machine when debugging
+        self.device = device_id
         self.skip_find_object = skip_find_object
         self.skip_place = skip_place
         self.skip_orient = skip_orient
         self.skip_gaze = skip_gaze
         self.skip_pick = skip_pick
         self.config = config
+
+        # Create place policy
+        if not self.skip_place:
+            self.place_policy = HeuristicPlacePolicy(self.config, self.device)
 
         # Agent for object nav
         self.object_nav_agent = ObjectNavAgent(config, device_id)
@@ -164,7 +170,8 @@ class PickAndPlaceAgent(Agent):
         elif self.state == SimpleTaskState.PLACE_OBJECT:
             # place the object somewhere - hopefully in front of the agent.
             obs = self._preprocess_obs_for_place(obs)
-            action, action_info = self.place_agent.act(obs)
+            # action, action_info = self.place_agent.act(obs)
+            action, action_info = self.place_policy.forward(obs)
             if action == DiscreteNavigationAction.STOP:
                 self.state = SimpleTaskState.DONE
         elif self.state == SimpleTaskState.DONE:
