@@ -35,6 +35,7 @@ class OpenVocabManipAgent(ObjectNavAgent):
         self.is_pick_done = None
         self.place_done = None
         self.gaze_agent = None
+        self.nav_to_obj_agent = None
         self.place_policy = HeuristicPlacePolicy(config, self.device)
         if config.AGENT.SKILLS.PICK.type == "gaze":
             self.gaze_agent = PPOAgent(
@@ -151,7 +152,7 @@ class OpenVocabManipAgent(ObjectNavAgent):
         return action, info
 
     def _rl_nav_to_obj(
-            self, obs: Observations, info: Dict[str, Any]
+        self, obs: Observations, info: Dict[str, Any]
     ) -> Tuple[DiscreteNavigationAction, Any]:
         """
         Gets the next action to execute from the RL-based nav-to-object policy

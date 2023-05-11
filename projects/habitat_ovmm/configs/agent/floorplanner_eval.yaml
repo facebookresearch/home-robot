@@ -59,7 +59,7 @@ AGENT:
       max_turn_degrees: 180
 
     NAV_TO_OBJ:
-      type: rl #modular
+      type: modular # modular (default) or rl
       checkpoint_path: data/checkpoints/ovmm/nav_to_obj.pth
       rl_config: projects/habitat_ovmm/configs/agent/nav_to_obj_rl.yaml
       gym_obs_keys:
