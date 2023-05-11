@@ -172,14 +172,13 @@ class PickAndPlaceAgent(Agent):
             # Find the goal location
             obs = self._preprocess_obs_for_place(obs)
             action, action_info = self.object_nav_agent.act(obs)
+            if action == DiscreteNavigationAction.STOP:
+                self.state = SimpleTaskState.PLACE_OBJECT
         elif self.state == SimpleTaskState.PLACE_OBJECT:
             # place the object somewhere - hopefully in front of the agent.
             obs = self._preprocess_obs_for_place(obs)
             # action, action_info = self.place_agent.act(obs)
             action, action_info = self.place_policy.forward(obs)
-            print()
-            print("=====================")
-            print(action)
             if action == DiscreteNavigationAction.STOP:
                 self.state = SimpleTaskState.DONE
             breakpoint()
