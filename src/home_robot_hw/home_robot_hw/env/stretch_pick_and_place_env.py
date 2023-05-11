@@ -163,7 +163,7 @@ class StretchPickandPlaceEnv(StretchEnv):
         # Also do not rotate if you are just doing grasp testing
         if not self.dry_run and not self.test_grasping:
             self.robot.nav.navigate_to([0, 0, -np.pi / 2], relative=True, blocking=True)
-            self.grasp_planner.go_to_nav_mode()
+            self.grasp_planner.move_to_nav_posture()
 
     def _switch_to_manip_mode(self):
         """Rotate the robot and put it in the right configuration for grasping"""

@@ -20,8 +20,8 @@ from home_robot_hw.env.stretch_pick_and_place_env import (
 @click.option("--reset-nav", default=False, is_flag=True)
 @click.option("--dry-run", default=False, is_flag=True)
 @click.option("--object", default="cup")
-@click.option("--start-recep", default="chair")
-@click.option("--goal-recep", default="table")
+@click.option("--start-recep", default="table")
+@click.option("--goal-recep", default="chair")
 @click.option("--visualize-maps", default=False, is_flag=True)
 @click.option(
     "--debug",
@@ -35,7 +35,7 @@ def main(
     skip_gaze=True,
     reset_nav=False,
     object="cup",
-    start_recep="chair",
+    start_recep="table",
     goal_recep="chair",
     dry_run=False,
     visualize_maps=False,
