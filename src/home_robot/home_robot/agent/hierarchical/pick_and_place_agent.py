@@ -41,6 +41,7 @@ class PickAndPlaceAgent(Agent):
         skip_orient=False,
         skip_pick=False,
         skip_gaze=False,
+        test_place=False,
     ):
         """Create the component object nav agent as a PickAndPlaceAgent object.
 
@@ -52,6 +53,7 @@ class PickAndPlaceAgent(Agent):
             skip_orient (bool, optional): Whether to skip orientating towards the objects. Useful for debugging. Defaults to False.
             skip_pick (bool, optional): Whether to skip the object-pickup step. Useful for debugging. Defaults to False.
             skip_gaze (bool, optional): Whether to skip the gaze step. Useful for debugging. Defaults to False.
+            test_place (bool, optional): go directly to finding and placing
         """
 
         # Flags used for skipping through state machine when debugging
@@ -61,6 +63,7 @@ class PickAndPlaceAgent(Agent):
         self.skip_orient = skip_orient
         self.skip_gaze = skip_gaze
         self.skip_pick = skip_pick
+        self.test_palce = test_place
         self.config = config
 
         # Create place policy
@@ -91,6 +94,8 @@ class PickAndPlaceAgent(Agent):
     def reset(self):
         """Clear internal task state and reset component agents."""
         self.state = SimpleTaskState.FIND_OBJECT
+        if self.test_place:
+            self.state = SimpleTaskState.FIND_GOAL
         self.object_nav_agent.reset()
         if self.gaze_agent is not None:
             self.gaze_agent.reset()
@@ -172,8 +177,12 @@ class PickAndPlaceAgent(Agent):
             obs = self._preprocess_obs_for_place(obs)
             # action, action_info = self.place_agent.act(obs)
             action, action_info = self.place_policy.forward(obs)
+            print()
+            print("=====================")
+            print(action)
             if action == DiscreteNavigationAction.STOP:
                 self.state = SimpleTaskState.DONE
+            breakpoint()
         elif self.state == SimpleTaskState.DONE:
             # We're done - just stop execution entirely.
             action = DiscreteNavigationAction.STOP
