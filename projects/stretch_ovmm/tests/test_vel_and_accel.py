@@ -31,7 +31,7 @@ from home_robot_hw.env.stretch_pick_and_place_env import (
 )
 from home_robot_hw.ros.utils import matrix_to_pose_msg, ros_pose_to_transform
 
-motion_choices = ["default", "slow", "fast", "trajectory_max"]
+motion_choices = ["default", "slow", "fast"]
 
 
 def read_yaml(yaml_file):
