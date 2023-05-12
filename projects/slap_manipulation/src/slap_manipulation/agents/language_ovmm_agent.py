@@ -60,7 +60,9 @@ class LangAgent(PickAndPlaceAgent):
         # and info["action_list"] = List[(xyz, quat, g)]
         return action, info
 
-    def get_ovmm_action_for_current_step(self, obs: Observations):
+    def get_ovmm_action_for_current_step(
+        self, obs: Observations
+    ) -> Tuple[Action, Dict[str, Any]]:
         action = []
         info = {}
         if "locate" in self.current_step:
