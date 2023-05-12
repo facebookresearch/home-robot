@@ -9,13 +9,14 @@ import torch
 from habitat.core.environments import GymHabitatEnv
 from habitat.core.simulator import Observations
 from torch import Tensor
-from home_robot.motion.stretch import STRETCH_ARM_EXTENSION, STRETCH_ARM_LIFT
+
 import home_robot
 from home_robot.core.interfaces import (
     ContinuousFullBodyAction,
     ContinuousNavigationAction,
     DiscreteNavigationAction,
 )
+from home_robot.motion.stretch import STRETCH_ARM_EXTENSION, STRETCH_ARM_LIFT
 from home_robot.utils.constants import (
     MAX_DEPTH_REPLACEMENT_VALUE,
     MIN_DEPTH_REPLACEMENT_VALUE,
@@ -371,6 +372,7 @@ class HabitatOpenVocabManipEnv(HabitatEnv):
                 arm_action = target_joint_pos - curr_joint_pos
                 # TODO: robot config tries to go to state: STRETCH_PREGRASP_Q
                 # np.array([-np.pi / 2, -np.pi / 4])
+                # These serve as initial states of trained RL policies
                 # current sim:  [0.0, 0.775, 0.0, 0.0, 0.0, -1.7375, -0.7125]
                 # current real:  [0.01, 0.6, 1.57, -1.51, 0.0, -1.57, -0.785]
                 # [lift, arm, gripper rpy, wrist yaw, wrist pitch, wrist roll, cam pan, cam tilt]
@@ -378,15 +380,14 @@ class HabitatOpenVocabManipEnv(HabitatEnv):
                 # TODO: harcoded to maintain current behavior: use NAVIGATION_Q
                 target_joint_pos = np.array([0, 0.775, 0, -1.57000005, 0, 0.0, -0.7125])
                 arm_action = target_joint_pos - curr_joint_pos
+                # The trained RL nav found -0.5235 tilt to work the best. Does this work in real world? will this work for sim planner
                 # current real: [0.01, 0.5, 3.0, -0.7, 0.0, 0.0, -0.785]
                 # current sim: [0,0, 0.775, 0, -1.57, 0.0, 0.0, -0.7125]
             elif action == DiscreteNavigationAction.EXTEND_ARM:
                 # TODO: remove hardcoded values from stretch_pick_and_place_env.py and use those constants
                 target_joint_pos = curr_joint_pos.copy()
                 target_joint_pos[JointActionIndex.ARM] = STRETCH_ARM_EXTENSION
-                target_joint_pos[
-                    JointActionIndex.LIFT
-                ] = STRETCH_ARM_LIFT
+                target_joint_pos[JointActionIndex.LIFT] = STRETCH_ARM_LIFT
                 arm_action = target_joint_pos - curr_joint_pos
 
             stop = float(action == DiscreteNavigationAction.STOP) * 2 - 1
