@@ -20,7 +20,7 @@ class Skill(IntEnum):
 
 def get_skill_as_one_hot_dict(curr_skill: Skill):
     skill_dict = {skill.name: 0 for skill in Skill}
-    skill_dict[Skill(curr_skill).name] = 1
+    skill_dict[f"is_curr_skill_{Skill(curr_skill).name}"] = 1
     return skill_dict
 
 
@@ -119,6 +119,7 @@ class OpenVocabManipAgent(ObjectNavAgent):
         `start_in_same_step` indicates whether the next skill is started in the same timestep (eg. when the previous skill was skipped).
         """
         skill = self.states[e]
+        print(f"Skipping {skill} in timestep {self.timesteps[e]}")
         info["skill_done"] = Skill(skill.item()).name
         if skill == Skill.NAV_TO_OBJ:
             self.states[e] = Skill.ORIENT_OBJ
@@ -190,6 +191,10 @@ class OpenVocabManipAgent(ObjectNavAgent):
             action = DiscreteNavigationAction.EMPTY_ACTION
         elif place_step == forward_and_turn_steps + fall_steps + 3:
             action = DiscreteNavigationAction.STOP
+        else:
+            raise ValueError(
+                f"Something is wrong. Episode should have ended. Place step: {place_step}, Timestep: {self.timesteps[0]}"
+            )
         return action
 
     def act(self, obs: Observations) -> Tuple[DiscreteNavigationAction, Dict[str, Any]]:
@@ -261,6 +266,7 @@ class OpenVocabManipAgent(ObjectNavAgent):
                 raise NotImplementedError
         if self.states[0] == Skill.PLACE:
             if self.skip_place:
+                info["skill_done"] = "PLACE"
                 return DiscreteNavigationAction.STOP, info
             elif self.config.AGENT.SKILLS.PLACE.type == "hardcoded":
                 action = self._hardcoded_place()

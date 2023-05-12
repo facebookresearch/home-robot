@@ -1,5 +1,6 @@
 import os
 import random
+from enum import IntEnum
 from typing import Any, Dict, List, Optional, Tuple, Union
 
 import habitat
@@ -27,8 +28,24 @@ from home_robot_sim.env.habitat_objectnav_env.constants import (
 from home_robot_sim.env.habitat_objectnav_env.visualizer import Visualizer
 
 
+class JointActionIndex(IntEnum):
+    """
+    Enum representing the indices of different joints in the action space.
+    """
+
+    # TODO: This needs to be common between sim and real as they share the same API for actions
+    ARM = 0  # A single value is used to control the extension
+    LIFT = 1
+    WRIST_YAW = 2
+    WRIST_PITCH = 3
+    WRIST_ROLL = 4
+    HEAD_PAN = 5
+    HEAD_TILT = 6
+
+
 class HabitatOpenVocabManipEnv(HabitatEnv):
     semantic_category_mapping: Union[RearrangeBasicCategories, RearrangeDETICCategories]
+    joints_dof = 7
 
     def __init__(self, habitat_env: habitat.core.env.Env, config, dataset):
         super().__init__(habitat_env)
@@ -48,9 +65,21 @@ class HabitatOpenVocabManipEnv(HabitatEnv):
         self.max_turn_degrees = (
             config.habitat.task.actions.base_velocity.max_turn_degrees
         )
-        self.max_turn = self.max_turn_degrees / 180 * np.pi
-        self.discrete_forward = config.ENVIRONMENT.forward
-        self.discrete_turn_degrees = config.ENVIRONMENT.turn_angle
+        self.max_joints_delta = (
+            config.habitat.task.actions.arm_action.delta_pos_limit
+        )  # for normalizing arm delta
+        self.max_turn = (
+            self.max_turn_degrees / 180 * np.pi
+        )  # for normalizing turn angle
+        self.discrete_forward = (
+            config.ENVIRONMENT.forward
+        )  # amount the agent can move in a discrete step
+        self.discrete_turn_degrees = (
+            config.ENVIRONMENT.turn_angle
+        )  # amount the agent turns in a discrete turn
+        self.joints_mask = np.array(
+            config.habitat.task.actions.arm_action.arm_joint_mask
+        )  # mask specifying which arm joints are to be set
         self.config = config
 
         self._obj_name_to_id_mapping = self._dataset.obj_category_to_obj_category_id
@@ -271,27 +300,24 @@ class HabitatOpenVocabManipEnv(HabitatEnv):
             end_rec_goal_id = 3
         return obj_goal_id, start_rec_goal_id, end_rec_goal_id, goal_name
 
+    def get_current_joint_pos(self, habitat_obs: Dict[str, Any]) -> np.array:
+        """Returns the current absolute positions from habitat observations for the joints controlled by the action space"""
+        complete_joint_pos = habitat_obs["joint"]
+        curr_joint_pos = complete_joint_pos[
+            self.joints_mask == 1
+        ]  # The action space will have the same size as curr_joint_pos
+        # If action controls the arm extension, get the final extension by summing over individiual joint positions
+        if self.joints_mask[0] == 1:
+            curr_joint_pos[JointActionIndex.ARM] = np.sum(
+                complete_joint_pos[:4]
+            )  # The first 4 values in sensor add up to give the complete extension
+        return curr_joint_pos
+
     def _preprocess_action(
         self, action: Union[home_robot.core.interfaces.Action, Dict], habitat_obs
     ) -> int:
-        # convert planner output to continuous Habitat actions
-        if isinstance(action, dict):
-            grip_action = [-1]
-            if "grip_action" in action:
-                grip_action = action["grip_action"]
-            base_vel = [0, 0, 0]
-            if "base_vel" in action:
-                base_vel = action["base_vel"]
-            arm_action = [0] * 7
-            if "arm_action" in action:
-                arm_action = action["arm_action"]
-            rearrange_stop = [-1]
-            if "rearrange_stop" in action:
-                rearrange_stop = action["rearrange_stop"]
-            cont_action = np.concatenate(
-                [arm_action, grip_action, base_vel, [-1, -1, rearrange_stop[0], -1]]
-            )
-        elif type(action) in [ContinuousFullBodyAction, ContinuousNavigationAction]:
+        """convert the ovmm agent's action outputs to continuous Habitat actions"""
+        if type(action) in [ContinuousFullBodyAction, ContinuousNavigationAction]:
             grip_action = -1
             # Keep holding in case holding an object
             if habitat_obs["is_holding"][0] == 1:
@@ -305,15 +331,18 @@ class HabitatOpenVocabManipEnv(HabitatEnv):
                     waypoint_y = np.clip(action.xyt[1] / self.max_forward, -1, 1)
                 elif action.xyt[2] != 0:
                     turn = np.clip(action.xyt[2] / self.max_turn, -1, 1)
-            arm_action = np.array([0] * 7)
+            arm_action = np.array([0] * self.joints_dof)
             # If action is of type ContinuousFullBodyAction, it would include waypoints for the joints
             if type(action) == ContinuousFullBodyAction:
                 # We specify only one arm extension that rolls over to all the arm joints
                 arm_action = np.concatenate([action.joints[0:1], action.joints[4:]])
             cont_action = np.concatenate(
-                [arm_action, [grip_action] + [waypoint_x, waypoint_y, turn] + [-1] * 4]
+                [
+                    arm_action / self.max_joints_delta,
+                    [grip_action] + [waypoint_x, waypoint_y, turn, -1],
+                ]
             )
-        else:
+        elif type(action) == DiscreteNavigationAction:
             grip_action = -1
             if (
                 habitat_obs["is_holding"][0] == 1
@@ -322,34 +351,59 @@ class HabitatOpenVocabManipEnv(HabitatEnv):
                 grip_action = 1
 
             turn = 0
+            forward = 0
             if action == DiscreteNavigationAction.TURN_RIGHT:
-                turn = -1
-            elif action in [
-                DiscreteNavigationAction.TURN_LEFT,
-            ]:
-                turn = 1
+                turn = -self.discrete_turn_degrees
+            elif action == DiscreteNavigationAction.TURN_LEFT:
+                turn = self.discrete_turn_degrees
+            elif action == DiscreteNavigationAction.MOVE_FORWARD:
+                forward = self.discrete_forward
 
-            face_arm = (
-                float(action == DiscreteNavigationAction.MANIPULATION_MODE) * 2 - 1
-            )
+            arm_action = np.zeros(self.joints_dof)
+            curr_joint_pos = self.get_current_joint_pos(habitat_obs)
+            target_joint_pos = curr_joint_pos
+            if action == DiscreteNavigationAction.MANIPULATION_MODE:
+                # turn left by 90 degrees, positive for turn left
+                # turn = 90 # TODO: Add this and remove multiple discrete turns
+                # TODO: replicating current behavior first, will remove hardcoded constants
+                target_joint_pos = curr_joint_pos.copy()
+                target_joint_pos[JointActionIndex.HEAD_PAN] = -1.7375  # look at ee
+                arm_action = target_joint_pos - curr_joint_pos
+                # TODO: robot config tries to go to state: STRETCH_PREGRASP_Q
+                # our current state:
+            elif action == DiscreteNavigationAction.NAVIGATION_MODE:
+                target_joint_pos = np.array([0, 0.775, 0, -1.57000005, 0, 0.0, -0.7125])
+                arm_action = target_joint_pos - curr_joint_pos
+
+                # compared to navigation q: [0.01, 0.5, 3.0, 0.0, 0.0, 0.0, -0.785]
+                # differ in lift, wrist  yaw (0.3 vs 0.0) and wrist pitch (-1.57 vs 0.0)
+            elif action == DiscreteNavigationAction.EXTEND_ARM:
+                # TODO: remove hardcoded values from stretch_pick_and_place_env.py and use those constants
+                target_joint_pos = curr_joint_pos.copy()
+                target_joint_pos[JointActionIndex.ARM] = 0.8  # habitat had 1.0
+                target_joint_pos[
+                    JointActionIndex.LIFT
+                ] = 1.0  # lift, real world has had 0.8
+                arm_action = target_joint_pos - curr_joint_pos
+            print(action, curr_joint_pos, target_joint_pos, arm_action)
+
             stop = float(action == DiscreteNavigationAction.STOP) * 2 - 1
-            reset_joints = (
-                float(action == DiscreteNavigationAction.NAVIGATION_MODE) * 2 - 1
+            cont_action = np.concatenate(
+                [
+                    arm_action / self.max_joints_delta,
+                    [
+                        grip_action,
+                        forward / self.max_forward,
+                        0.0,
+                        turn / self.max_turn_degrees,
+                        stop,
+                    ],
+                ]
             )
-            extend_arm = float(action == DiscreteNavigationAction.EXTEND_ARM) * 2 - 1
-            arm_actions = [0] * 7
-            cont_action = arm_actions + [
-                grip_action,
-                (action == DiscreteNavigationAction.MOVE_FORWARD)
-                * self.discrete_forward
-                / self.max_forward,
-                0.0,
-                turn * self.discrete_turn_degrees / self.max_turn_degrees,
-                extend_arm,
-                face_arm,
-                stop,
-                reset_joints,
-            ]
+        else:
+            raise ValueError(
+                "Action needs to be of one of the following types: DiscreteNavigationAction, ContinuousNavigationAction or ContinuousFullBodyAction"
+            )
         return np.array(cont_action, dtype=np.float32)
 
     def _process_info(self, info: Dict[str, Any]) -> Any:
@@ -369,6 +423,7 @@ class HabitatOpenVocabManipEnv(HabitatEnv):
             self._process_info(info)
         habitat_action = self._preprocess_action(action, self._last_habitat_obs)
         habitat_obs, _, dones, infos = self.habitat_env.step(habitat_action)
+
         self._last_habitat_obs = habitat_obs
         self._last_obs = self._preprocess_obs(habitat_obs)
         return self._last_obs, dones, infos
