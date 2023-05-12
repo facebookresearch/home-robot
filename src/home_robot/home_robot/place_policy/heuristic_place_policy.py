@@ -38,7 +38,7 @@ class HeuristicPlacePolicy(nn.Module):
     ):
         HEIGHT_OFFSET = 0.02
 
-        goal_rec_mask = obs.task_observations["end_recep_goal"].astype(int)
+        goal_rec_mask = obs.task_observations["end_recep_goal"]
         if visualize:
             cv2.imwrite(f"{self.end_receptacle}_semantic.png", goal_rec_mask * 255)
 

@@ -192,7 +192,12 @@ class PickAndPlaceAgent(Agent):
             obs, info = self._preprocess_obs_for_place(obs, info)
             action, action_info = self.object_nav_agent.act(obs)
             if action == DiscreteNavigationAction.STOP:
-                self.state = SimpleTaskState.PLACE_OBJECT
+                self.state = SimpleTaskState.ORIENT_PLACE
+        elif self.state == SimpleTaskState.ORIENT_PLACE:
+            self.state = SimpleTaskState.PLACE_OBJECT
+            if not self.skip_orient:
+                # orient to face the object
+                return DiscreteNavigationAction.MANIPULATION_MODE, action_info
         elif self.state == SimpleTaskState.PLACE_OBJECT:
             # place the object somewhere - hopefully in front of the agent.
             obs, info = self._preprocess_obs_for_place(obs, info)
