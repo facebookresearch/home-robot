@@ -13,7 +13,7 @@ def main():
     robot = env.get_robot()
 
     agent.reset()
-    env.reset()
+    obs = env.reset()
 
     t = 0
     while not env.episode_over:
@@ -22,7 +22,9 @@ def main():
         obs = env.get_observation()
         steps = agent.get_steps(TASK)
         for step in steps:
-            action, info = agent.act(obs, TASK)
-            env.apply_action(action, info=info)
-
-    print(env.get_episode_metrics())
+            action, info = agent.act(obs, step)
+            obs = env.apply_action(action, info=info)
+            if "complex_action" in info and info["complex_action"]:
+                while agent.is_busy():
+                    action, info = agent.act(obs, step)
+                    obs = env.apply_action(action, info=info)
