@@ -42,7 +42,9 @@ class HeuristicPlacePolicy(nn.Module):
         if visualize:
             cv2.imwrite(f"{self.end_receptacle}_semantic.png", goal_rec_mask * 255)
 
-        if not goal_rec_mask.any():
+        # TODO: support for changing data types
+        # if not goal_rec_mask.any():
+        if not np.any(goal_rec_mask):
             print("End receptacle not visible.")
             return False
         else:

@@ -97,7 +97,7 @@ class PickAndPlaceAgent(Agent):
         self.state = SimpleTaskState.FIND_OBJECT
         if self.test_place:
             # If we want to find the goal first...
-            self.state = SimpleTaskState.FIND_GOAL
+            self.state = SimpleTaskState.PLACE_OBJECT
         self.object_nav_agent.reset()
         if self.gaze_agent is not None:
             self.gaze_agent.reset()
