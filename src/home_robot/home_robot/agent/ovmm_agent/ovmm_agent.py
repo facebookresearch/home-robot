@@ -8,7 +8,6 @@ import torch
 from home_robot.agent.objectnav_agent.objectnav_agent import ObjectNavAgent
 from home_robot.agent.ovmm_agent.ppo_agent import PPOAgent
 from home_robot.core.interfaces import DiscreteNavigationAction, Observations
-from home_robot.pick_policy.heuristic_pick_policy import HeuristicPickPolicy
 from home_robot.place_policy.heuristic_place_policy import HeuristicPlacePolicy
 
 
@@ -43,8 +42,6 @@ class OpenVocabManipAgent(ObjectNavAgent):
         self.place_policy = None
         if config.AGENT.SKILLS.PLACE.type == "heuristic":
             self.place_policy = HeuristicPlacePolicy(config, self.device)
-        # if config.AGENT.SKILLS.PICK_OBJ.type == "heuristic":
-        #     self.pick_policy = HeuristicPickPolicy(config, self.device)
         if config.AGENT.SKILLS.GAZE_OBJ.type == "gaze":
             self.gaze_agent = PPOAgent(
                 config,
@@ -163,6 +160,8 @@ class OpenVocabManipAgent(ObjectNavAgent):
     def _heuristic_pick(
         self, obs: Observations, info: Dict[str, Any]
     ) -> Tuple[DiscreteNavigationAction, Any]:
+        """Heuristic pick skill execution"""
+        raise NotImplementedError  # WIP
         action, info = self.pick_policy(obs, info)
         if action == DiscreteNavigationAction.STOP:
             action = DiscreteNavigationAction.NAVIGATION_MODE

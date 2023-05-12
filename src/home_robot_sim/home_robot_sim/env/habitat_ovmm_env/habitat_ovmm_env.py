@@ -375,7 +375,7 @@ class HabitatOpenVocabManipEnv(HabitatEnv):
                 # These serve as initial states of trained RL policies
                 # current sim:  [0.0, 0.775, 0.0, 0.0, 0.0, -1.7375, -0.7125]
                 # current real:  [0.01, 0.6, 1.57, -1.51, 0.0, -1.57, -0.785]
-                # [lift, arm, gripper rpy, wrist yaw, wrist pitch, wrist roll, cam pan, cam tilt]
+                # [lift, arm, wrist yaw, wrist pitch, wrist roll, cam pan, cam tilt]
             elif action == DiscreteNavigationAction.NAVIGATION_MODE:
                 # TODO: harcoded to maintain current behavior: use NAVIGATION_Q
                 target_joint_pos = np.array([0, 0.775, 0, -1.57000005, 0, 0.0, -0.7125])
