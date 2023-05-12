@@ -38,13 +38,13 @@ class HeuristicPlacePolicy(nn.Module):
     ):
         HEIGHT_OFFSET = 0.02
 
-        goal_rec_mask = obs.task_observations["end_recep_goal"]
+        goal_rec_mask = (
+            obs.semantic == obs.task_observations["end_recep_goal"]
+        ).astype(int)
         if visualize:
             cv2.imwrite(f"{self.end_receptacle}_semantic.png", goal_rec_mask * 255)
 
-        # TODO: support for changing data types
-        # if not goal_rec_mask.any():
-        if not np.any(goal_rec_mask):
+        if not goal_rec_mask.any():
             print("End receptacle not visible.")
             return False
         else:

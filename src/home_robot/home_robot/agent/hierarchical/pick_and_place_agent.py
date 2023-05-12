@@ -42,6 +42,7 @@ class PickAndPlaceAgent(Agent):
         skip_pick=False,
         skip_gaze=False,
         test_place=False,
+        skip_orient_place=True,
     ):
         """Create the component object nav agent as a PickAndPlaceAgent object.
 
@@ -54,6 +55,7 @@ class PickAndPlaceAgent(Agent):
             skip_pick (bool, optional): Whether to skip the object-pickup step. Useful for debugging. Defaults to False.
             skip_gaze (bool, optional): Whether to skip the gaze step. Useful for debugging. Defaults to False.
             test_place (bool, optional): go directly to finding and placing
+            skip_orent_place (bool, optional): skip orienting in manipulation mode before placing
         """
 
         # Flags used for skipping through state machine when debugging
@@ -64,6 +66,7 @@ class PickAndPlaceAgent(Agent):
         self.skip_gaze = skip_gaze
         self.skip_pick = skip_pick
         self.test_place = test_place
+        self.skip_orient_place = skip_orient_place
         self.config = config
         self.timestep = 0
 
@@ -97,7 +100,7 @@ class PickAndPlaceAgent(Agent):
         self.state = SimpleTaskState.FIND_OBJECT
         if self.test_place:
             # If we want to find the goal first...
-            self.state = SimpleTaskState.PLACE_OBJECT
+            self.state = SimpleTaskState.FIND_GOAL
         self.object_nav_agent.reset()
         if self.gaze_agent is not None:
             self.gaze_agent.reset()
@@ -195,7 +198,7 @@ class PickAndPlaceAgent(Agent):
                 self.state = SimpleTaskState.ORIENT_PLACE
         elif self.state == SimpleTaskState.ORIENT_PLACE:
             self.state = SimpleTaskState.PLACE_OBJECT
-            if not self.skip_orient:
+            if not self.skip_orient_place:
                 # orient to face the object
                 return DiscreteNavigationAction.MANIPULATION_MODE, action_info
         elif self.state == SimpleTaskState.PLACE_OBJECT:
