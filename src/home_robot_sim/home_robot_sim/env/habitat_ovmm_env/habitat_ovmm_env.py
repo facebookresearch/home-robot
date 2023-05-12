@@ -185,7 +185,7 @@ class HabitatOpenVocabManipEnv(HabitatEnv):
                 "goal_name": goal_name,
                 "object_embedding": habitat_obs["object_embedding"],
                 "receptacle_segmentation": habitat_obs["receptacle_segmentation"],
-                "cat_nav_goal_segmentation": habitat_obs["cat_nav_goal_segmentation"],
+                "ovmm_nav_goal_segmentation": habitat_obs["ovmm_nav_goal_segmentation"],
                 "start_receptacle": habitat_obs["start_receptacle"],
             },
             joint=habitat_obs["joint"],

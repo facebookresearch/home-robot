@@ -27,10 +27,10 @@ habitat_baselines:
             trans_keys:
               - robot_head_rgb
               - robot_head_depth
-              - cat_nav_goal_segmentation
+              - ovmm_nav_goal_segmentation
               - receptacle_segmentation
             semantic_keys:
-              - cat_nav_goal_segmentation
+              - ovmm_nav_goal_segmentation
               - receptacle_segmentation
           center_cropper:
             type: CenterCropper
@@ -40,7 +40,7 @@ habitat_baselines:
             trans_keys:
               - robot_head_rgb
               - robot_head_depth
-              - cat_nav_goal_segmentation
+              - ovmm_nav_goal_segmentation
               - receptacle_segmentation
 
 
