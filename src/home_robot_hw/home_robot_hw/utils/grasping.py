@@ -6,8 +6,8 @@ import rospy
 from geometry_msgs.msg import TransformStamped
 
 import home_robot.utils.visualization as viz
+from home_robot.manipulation.grasping import SimpleGraspMotionPlanner
 from home_robot.motion.stretch import (
-    STRETCH_NAVIGATION_Q,
     STRETCH_PREGRASP_Q,
     HelloStretchIdx,
     HelloStretchKinematics,
@@ -33,62 +33,29 @@ class GraspPlanner(object):
     ):
         self.robot_client = robot_client
         self.env = env
-        self.robot_model = HelloStretchKinematics(visualize=visualize_planner)
         self.grasp_client = RosGraspClient()
         self.verbose = verbose
+        self.planner = SimpleGraspMotionPlanner(self.robot_client.model)
 
         # Add this flag to make sure that the point clouds are coming in correctly - will visualize what the points look like relative to a base coordinate frame with z = up, x = forward
         self.debug_point_cloud = debug_point_cloud
 
-    def go_to_manip_mode(self):
-        """Move the arm and head into manip mode."""
-        """
-        home_q = STRETCH_PREGRASP_Q
-        home_q = self.robot_model.update_look_at_ee(home_q)
-        self.robot_client.goto(home_q, move_base=False, wait=True)
-        """
-        self.robot_client.switch_to_manipulation_mode()
-        self.robot_client.head.look_at_ee(blocking=False)
-        self.robot_client.manip.goto_joint_positions(
-            self.robot_client.manip._extract_joint_pos(STRETCH_PREGRASP_Q)
-        )
-        self.robot_client.switch_to_navigation_mode()
-
-    def go_to_nav_mode(self):
-        """Move the arm and head into nav mode."""
-        """
-        home_q = STRETCH_NAVIGATION_Q
-        # TODO - should be looking down to make sure we can see the objects
-        home_q = self.robot_model.update_look_front(home_q.copy())
-        # NOTE: for now we have to do this though - until bugs are fixed in semantic map
-        # home_q = self.robot_model.update_look_ahead(home_q.copy())
-        self.robot_client.goto(home_q, move_base=False, wait=True)
-        """
-        self.robot_client.switch_to_manipulation_mode()
-        self.robot_client.head.look_front(blocking=False)
-        self.robot_client.manip.goto_joint_positions(
-            self.robot_client.manip._extract_joint_pos(STRETCH_NAVIGATION_Q)
-        )
-        self.robot_client.switch_to_navigation_mode()
-
     def try_grasping(
-        self, visualize: bool = False, dry_run: bool = False, max_tries: int = 10
+        self,
+        visualize: bool = False,
+        dry_run: bool = False,
+        max_tries: int = 10,
+        wait_for_input: bool = False,
     ):
         """Detect grasps and try to pick up an object in front of the robot.
         Visualize - will show debug point clouds
         Dry run - does not actually move, just computes everything"""
-        """
-        home_q = STRETCH_PREGRASP_Q
-        home_q = self.robot_model.update_look_front(home_q.copy())
-        home_q = self.robot_model.update_gripper(home_q, open=True)
-        self.robot_client.goto(home_q, move_base=False, wait=True)
-        home_q = self.robot_model.update_look_at_ee(home_q)
-        """
+
+        # Make sure we are in the manipulation mode
         if not self.robot_client.in_manipulation_mode():
             self.robot_client.switch_to_manipulation_mode()
         self.robot_client.head.look_at_ee(blocking=False)
         self.robot_client.manip.open_gripper()
-        visualize = True
 
         min_grasp_score = 0.0
         min_obj_pts = 100
@@ -124,7 +91,6 @@ class GraspPlanner(object):
                 camera_pose_world = self.robot_client.head.get_pose()
                 xyz3 = trimesh.transform_points(xyz.reshape(-1, 3), camera_pose_world)
                 show_point_cloud(xyz3, rgb / 255.0, orig=np.zeros(3))
-                breakpoint()
 
             if self.verbose:
                 print(
@@ -198,7 +164,9 @@ class GraspPlanner(object):
                 theta_x, theta_y = divergence_from_vertical_grasp(grasp)
                 print(" - with theta x/y from vertical =", theta_x, theta_y)
                 if not dry_run:
-                    grasp_completed = self.try_executing_grasp(grasp)
+                    grasp_completed = self.try_executing_grasp(
+                        grasp, wait_for_input=wait_for_input
+                    )
                 else:
                     grasp_completed = False
                 if grasp_completed:
@@ -206,6 +174,7 @@ class GraspPlanner(object):
             break
 
         self.robot_client.switch_to_navigation_mode()
+        return grasp_completed
 
     def plan_to_grasp(self, grasp: np.ndarray) -> Optional[np.ndarray]:
         """Create offsets for the full trajectory plan to get to the object.
@@ -215,48 +184,10 @@ class GraspPlanner(object):
         self.robot_client.manip.open_gripper()
 
         # Get pregrasp pose: current pose + maxed out lift
-        pos_pre, quat_pre = self.robot_client.manip.get_ee_pose()
         joint_pos_pre = self.robot_client.manip.get_joint_positions()
-        # Save initial waypoint to return to
-        initial_pt = ("initial", joint_pos_pre, False)
-
-        # Create a pregrasp point at the top of the robot's arc
-        pregrasp_cfg = joint_pos_pre.copy()
-        pregrasp_cfg[1] = 0.95
-        pregrasp = ("pregrasp", pregrasp_cfg, False)
-
-        # Try grasp first - find an IK solution for this
-        grasp_cfg = self.robot_client.manip.solve_ik(grasp_pos, grasp_quat)
-        if grasp_cfg is not None:
-            grasp_pt = (
-                "grasp",
-                self.robot_client.manip._extract_joint_pos(grasp_cfg),
-                True,
-            )
-        else:
-            print("-> could not solve for grasp")
-            return None
-
-        # Standoff is 8cm over the grasp for now
-        standoff_pos = grasp_pos + np.array([0.0, 0.0, 0.08])
-        standoff_cfg = self.robot_client.manip.solve_ik(
-            standoff_pos,
-            grasp_quat,  # initial_cfg=grasp_cfg
+        return self.planner.plan_to_grasp(
+            (grasp_pos, grasp_quat), initial_cfg=joint_pos_pre
         )
-        if standoff_cfg is not None:
-            standoff = (
-                "standoff",
-                self.robot_client.manip._extract_joint_pos(standoff_cfg),
-                False,
-            )
-        else:
-            print("-> could not solve for standoff")
-            return None
-        back_cfg = self.robot_client.manip._extract_joint_pos(standoff_cfg)
-        back_cfg[2] = 0.01
-        back = ("back", back_cfg, False)
-
-        return [pregrasp, back, standoff, grasp_pt, standoff, back, initial_pt]
 
     def _send_predicted_grasp_to_tf(self, grasp):
         """Helper function for visualizing the predicted grasps."""
@@ -288,8 +219,11 @@ class GraspPlanner(object):
     def try_executing_grasp(
         self, grasp: np.ndarray, wait_for_input: bool = False
     ) -> bool:
+        """Execute a predefined grasp trajectory to the given pose. Grasp should be an se(3) pose, expressed as a 4x4 numpy matrix."""
+        assert grasp.shape == (4, 4)
         self._send_predicted_grasp_to_tf(grasp)
 
+        # Generate a plan
         trajectory = self.plan_to_grasp(grasp)
 
         if trajectory is None:
@@ -298,21 +232,16 @@ class GraspPlanner(object):
 
         for i, (name, waypoint, should_grasp) in enumerate(trajectory):
             self.robot_client.manip.goto_joint_positions(waypoint)
+            # TODO: remove this delay - it's to make sure we don't start moving again too early
+            rospy.sleep(0.1)
             self._publish_current_ee_pose()
-            input("---- " + str(i) + " ----")
-            self.robot_client.manip.goto_joint_positions(waypoint)
-            self._publish_current_ee_pose()
-            input("---- " + str(i) + " ----")
-            self.robot_client.manip.goto_joint_positions(waypoint)
-            self._publish_current_ee_pose()
-            input("---- " + str(i) + " ----")
             if should_grasp:
                 self.robot_client.manip.close_gripper()
             if wait_for_input:
                 input(f"{i+1}) went to {name}")
             else:
                 print(f"{i+1}) went to {name}")
-        print("!!! GRASP SUCCESS !!!")
+        print("!!! GRASP ATTEMPT COMPLETE !!!")
         return True
 
 

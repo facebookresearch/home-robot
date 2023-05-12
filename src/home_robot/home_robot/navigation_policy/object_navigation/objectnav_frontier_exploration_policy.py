@@ -97,7 +97,7 @@ class ObjectNavFrontierExplorationPolicy(nn.Module):
 
         if object_category is not None and start_recep_category is not None:
             if nav_to_recep is None or end_recep_category is None:
-                nav_to_recep = torch.tensor([0] ** map_features.shape[0])
+                nav_to_recep = torch.tensor([0] * map_features.shape[0])
 
             # there is at least one instance in the batch where the goal is object
             if nav_to_recep.sum() < map_features.shape[0]:

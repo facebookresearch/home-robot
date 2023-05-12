@@ -19,7 +19,8 @@ from home_robot.utils.pose import to_matrix
 DEFAULT_STRETCH_URDF = "assets/hab_stretch/urdf/stretch_dex_wrist_simplified.urdf"
 # PLANNER_STRETCH_URDF =  'assets/hab_stretch/urdf/planner_stretch_dex_wrist_simplified.urdf'
 PLANNER_STRETCH_URDF = "assets/hab_stretch/urdf/planner_calibrated.urdf"
-MANIP_STRETCH_URDF = "assets/hab_stretch/urdf/planner_calibrated_manipulation_mode.urdf"
+# MANIP_STRETCH_URDF = "assets/hab_stretch/urdf/planner_calibrated_manipulation_mode.urdf"
+MANIP_STRETCH_URDF = "assets/hab_stretch/urdf/stretch_manip_mode.urdf"
 
 STRETCH_HOME_Q = np.array(
     [
@@ -36,6 +37,8 @@ STRETCH_HOME_Q = np.array(
         0.0,
     ]
 )
+
+# Gripper pointed down, for a top-down grasp
 STRETCH_PREGRASP_Q = np.array(
     [
         0,  # x
@@ -51,6 +54,8 @@ STRETCH_PREGRASP_Q = np.array(
         0.0,
     ]
 )
+
+# Navigation should not be fully folded up against the arm - in case its holding something
 STRETCH_NAVIGATION_Q = np.array(
     [
         0,  # x
@@ -60,12 +65,13 @@ STRETCH_NAVIGATION_Q = np.array(
         0.01,  # arm
         0.0,  # gripper rpy
         0.0,  # wrist roll
-        0.0,  # wrist pitch
+        -0.7,  # wrist pitch
         3.0,  # wrist yaw
         0.0,
         -np.pi / 4,
     ]
 )
+
 PIN_CONTROLLED_JOINTS = [
     "base_x_joint",
     "joint_lift",
@@ -900,6 +906,17 @@ class HelloStretchKinematics(Robot):
         pan = pan + deltas[8]
         tilt = tilt + deltas[9]
         return positions, pan, tilt
+
+    def config_to_manip_command(self, q):
+        """convert from general representation into arm manip command. This extracts just the information used for end-effector control: base x motion, arm lift, and wrist variables."""
+        return [
+            q[HelloStretchIdx.BASE_X],
+            q[HelloStretchIdx.LIFT],
+            q[HelloStretchIdx.ARM],
+            q[HelloStretchIdx.WRIST_YAW],
+            q[HelloStretchIdx.WRIST_PITCH],
+            q[HelloStretchIdx.WRIST_ROLL],
+        ]
 
     def hab_to_position_command(self, hab_positions) -> List:
         """Compute hab_positions"""

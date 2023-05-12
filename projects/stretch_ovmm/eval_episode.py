@@ -16,23 +16,31 @@ from home_robot_hw.env.stretch_pick_and_place_env import (
 @click.command()
 @click.option("--test-pick", default=False, is_flag=True)
 @click.option("--test-gaze", default=False, is_flag=True)
+@click.option("--test-place", default=False, is_flag=True)
 @click.option("--skip-gaze", default=True, is_flag=True)
 @click.option("--reset-nav", default=False, is_flag=True)
 @click.option("--dry-run", default=False, is_flag=True)
 @click.option("--object", default="cup")
-@click.option("--start-recep", default="chair")
-@click.option("--goal-recep", default="table")
+@click.option("--start-recep", default="table")
+@click.option("--goal-recep", default="chair")
 @click.option("--visualize-maps", default=False, is_flag=True)
+@click.option(
+    "--debug",
+    default=False,
+    is_flag=True,
+    help="Add pauses for debugging manipulation behavior.",
+)
 def main(
     test_pick=False,
     test_gaze=False,
     skip_gaze=True,
     reset_nav=False,
     object="cup",
-    start_recep="chair",
+    start_recep="table",
     goal_recep="chair",
     dry_run=False,
     visualize_maps=False,
+    test_place=False,
     **kwargs,
 ):
     REAL_WORLD_CATEGORIES[2] = object
@@ -53,6 +61,7 @@ def main(
         skip_gaze=test_pick or skip_gaze,
         skip_pick=test_gaze,
         skip_place=test_pick or test_gaze,
+        test_place=test_place,
     )
 
     robot = env.get_robot()
