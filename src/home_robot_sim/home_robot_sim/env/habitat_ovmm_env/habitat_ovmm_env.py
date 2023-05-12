@@ -364,7 +364,7 @@ class HabitatOpenVocabManipEnv(HabitatEnv):
             target_joint_pos = curr_joint_pos
             if action == DiscreteNavigationAction.MANIPULATION_MODE:
                 # turn left by 90 degrees, positive for turn left
-                # turn = 90 # TODO: Add this and remove multiple discrete turns
+                turn = 90
                 # TODO: replicating current behavior first, will remove hardcoded constants
                 target_joint_pos = curr_joint_pos.copy()
                 target_joint_pos[JointActionIndex.HEAD_PAN] = -1.7375  # look at ee
@@ -385,7 +385,6 @@ class HabitatOpenVocabManipEnv(HabitatEnv):
                     JointActionIndex.LIFT
                 ] = 1.0  # lift, real world has had 0.8
                 arm_action = target_joint_pos - curr_joint_pos
-            print(action, curr_joint_pos, target_joint_pos, arm_action)
 
             stop = float(action == DiscreteNavigationAction.STOP) * 2 - 1
             cont_action = np.concatenate(

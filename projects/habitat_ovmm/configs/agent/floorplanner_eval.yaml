@@ -40,7 +40,7 @@ AGENT:
     min_obs_height_cm: 10    # minimum height (in centimeters) of obstacle
 
   SKILLS:
-    PICK:
+    GAZE_OBJ:
       type: oracle #gaze #end_to_end #heuristic #hardcoded
       checkpoint_path: data/checkpoints/ovmm/gaze.pth
       rl_config: projects/habitat_ovmm/configs/agent/gaze_rl.yaml # with continuous actions
@@ -57,6 +57,9 @@ AGENT:
       arm_joint_mask: [0, 0, 0, 0, 0, 0, 1] # the arm joints that the policy can control
       max_forward: 1.0
       max_turn_degrees: 180
+
+    PICK_OBJ:
+      type: heuristic
 
     NAV_TO_OBJ:
       type: heuristic # heuristic (default) or rl
@@ -91,8 +94,9 @@ AGENT:
 
   skip_nav_to_obj: False
   skip_nav_to_rec: False
-  skip_pick: False
+  skip_pick: True
   skip_place: False
+  skip_gaze: False
   skip_orient_obj: False
 
   PLANNER:
