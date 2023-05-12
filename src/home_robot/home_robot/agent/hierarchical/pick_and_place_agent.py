@@ -99,8 +99,11 @@ class PickAndPlaceAgent(Agent):
         """Clear internal task state and reset component agents."""
         self.state = SimpleTaskState.FIND_OBJECT
         if self.test_place:
+            # TODO: remove debugging code
             # If we want to find the goal first...
-            self.state = SimpleTaskState.FIND_GOAL
+            # self.state = SimpleTaskState.FIND_GOAL
+            # If we just want to place...
+            self.state = SimpleTaskState.PLACE_OBJECT
         self.object_nav_agent.reset()
         if self.gaze_agent is not None:
             self.gaze_agent.reset()

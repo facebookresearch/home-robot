@@ -15,7 +15,11 @@ from home_robot.core.interfaces import (
     Observations,
 )
 from home_robot.motion.stretch import STRETCH_GRIPPER_OPEN, STRETCH_STANDOFF_DISTANCE
+from home_robot.utils.point_cloud import show_point_cloud
 from home_robot.utils.rotation import get_angle_to_pos
+
+HARDCODED_EXTENSION_OFFSET = 0.15
+HARDCODED_YAW_OFFSET = 0.15
 
 
 class HeuristicPlacePolicy(nn.Module):
@@ -28,6 +32,7 @@ class HeuristicPlacePolicy(nn.Module):
         self.timestep = 0
         self.config = config
         self.device = device
+        self.visualize_point_clouds = False
 
     def get_receptacle_placement_point(
         self,
@@ -58,23 +63,30 @@ class HeuristicPlacePolicy(nn.Module):
                 self.config.ENVIRONMENT.frame_height,
                 self.config.ENVIRONMENT.hfov,
             )
+            # Get object point cloud in camera coordinates
             pcd_camera_coords = du.get_point_cloud_from_z_t(
                 goal_rec_depth, camera_matrix, self.device, scale=self.du_scale
             )
+
+            if self.visualize_point_clouds:
+                show_point_cloud(obs.xyz, obs.rgb / 255.0)
 
             # get point cloud in base coordinates
             camera_pose = np.expand_dims(obs.camera_pose, 0)
             angles = [tra.euler_from_matrix(p[:3, :3], "rzyx") for p in camera_pose]
             tilt = angles[0][1]  # [0][1]
 
+            # Agent height comes from the environment config
             agent_height = torch.tensor(
                 self.config.ENVIRONMENT.camera_height, device=self.device
             )
 
+            # Object point cloud in base coordinates
             pcd_base_coords = du.transform_camera_view_t(
                 pcd_camera_coords, agent_height, np.rad2deg(tilt), self.device
             )
 
+            # Whether or not I can extend the robot's arm in order to reach each point
             if arm_reachability_check:
                 # filtering out unreachable points based on Y and Z coordinates of voxels
                 height_reachable_mask = (pcd_base_coords[0, :, :, 2] < agent_height).to(
@@ -183,9 +195,6 @@ class HeuristicPlacePolicy(nn.Module):
         extension based on point estimate from 4.
         """
 
-        HARDCODED_EXTENSION_OFFSET = 0.15
-        HARDCODED_YAW_OFFSET = 0.15
-
         self.timestep = self.timestep
         turn_angle = self.config.ENVIRONMENT.turn_angle
         fwd_step_size = self.config.ENVIRONMENT.forward
@@ -211,12 +220,12 @@ class HeuristicPlacePolicy(nn.Module):
             self.initial_orient_num_turns = abs(delta_heading) // turn_angle
             self.orient_turn_direction = np.sign(delta_heading)
 
+            # This gets the Y-coordiante of the center voxel
+            # Base link to retracted arm - this is about 15 cm
             fwd_dist = (
-                center_voxel[1]
-                - STRETCH_STANDOFF_DISTANCE
-                - STRETCH_GRIPPER_OPEN
-                + HARDCODED_EXTENSION_OFFSET
+                center_voxel[1] - STRETCH_STANDOFF_DISTANCE - HARDCODED_EXTENSION_OFFSET
             )
+            # breakpoint()
             self.forward_steps = fwd_dist // fwd_step_size
             self.cam_arm_alignment_num_turns = np.round(90 / turn_angle)
             self.total_turn_and_forward_steps = (
@@ -225,6 +234,7 @@ class HeuristicPlacePolicy(nn.Module):
                 + self.cam_arm_alignment_num_turns
             )
             self.fall_wait_steps = 20
+            breakpoint()
 
             print("-" * 20)
             print(f"Turn to orient for {self.initial_orient_num_turns} steps.")
