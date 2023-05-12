@@ -373,8 +373,10 @@ class HabitatOpenVocabManipEnv(HabitatEnv):
                 # TODO: robot config tries to go to state: STRETCH_PREGRASP_Q
                 # np.array([-np.pi / 2, -np.pi / 4])
                 # These serve as initial states of trained RL policies
-                # current sim:  [0.0, 0.775, 0.0, 0.0, 0.0, -1.7375, -0.7125]
-                # current real:  [0.01, 0.6, 1.57, -1.51, 0.0, -1.57, -0.785]
+                # current sim:  [0.0, 0.775, 0.0, -1.57, 0.0, -1.7375, -0.7125]
+                # current real: [0.01, 0.6, 1.57, -1.51, 0.0, -1.57, -0.785] # STRETCH_PREGRASP_Q
+                # proposed    : [0.0, 0.775, 0.0, -1.57, 0.0, -1.57, -0.7125]  # STRETCH_PREGRASP_Q (new)
+                # [check best tilt for manip, check pan -1.57 vs pan -1.7375]
                 # [lift, arm, wrist yaw, wrist pitch, wrist roll, cam pan, cam tilt]
             elif action == DiscreteNavigationAction.NAVIGATION_MODE:
                 # TODO: harcoded to maintain current behavior: use NAVIGATION_Q
@@ -382,7 +384,8 @@ class HabitatOpenVocabManipEnv(HabitatEnv):
                 arm_action = target_joint_pos - curr_joint_pos
                 # The trained RL nav found -0.5235 tilt to work the best. Does this work in real world? will this work for sim planner
                 # current real: [0.01, 0.5, 3.0, -0.7, 0.0, 0.0, -0.785]
-                # current sim: [0,0, 0.775, 0, -1.57, 0.0, 0.0, -0.7125]
+                # current sim: [0.0, 0.775, 0, -1.57, 0.0, 0.0, -0.7125]
+                # proposed    : [0.0, 0.775, 0.0, -1.57, 0.0, 0.0, -0.5235]
             elif action == DiscreteNavigationAction.EXTEND_ARM:
                 # TODO: remove hardcoded values from stretch_pick_and_place_env.py and use those constants
                 target_joint_pos = curr_joint_pos.copy()
