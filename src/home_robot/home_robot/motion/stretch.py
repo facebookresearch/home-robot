@@ -107,6 +107,9 @@ STRETCH_HEAD_CAMERA_ROTATIONS = (
     3  # number of counterclockwise rotations for the head camera
 )
 
+# For EXTEND_ARM action
+STRETCH_ARM_EXTENSION = 0.8
+STRETCH_ARM_LIFT = 0.8
 
 class HelloStretchIdx:
     BASE_X = 0

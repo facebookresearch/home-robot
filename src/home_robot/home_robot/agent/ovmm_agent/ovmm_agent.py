@@ -43,8 +43,8 @@ class OpenVocabManipAgent(ObjectNavAgent):
         self.place_policy = None
         if config.AGENT.SKILLS.PLACE.type == "heuristic":
             self.place_policy = HeuristicPlacePolicy(config, self.device)
-        if config.AGENT.SKILLS.PICK_OBJ.type == "heuristic":
-            self.pick_policy = HeuristicPickPolicy(config, self.device)
+        # if config.AGENT.SKILLS.PICK_OBJ.type == "heuristic":
+        #     self.pick_policy = HeuristicPickPolicy(config, self.device)
         if config.AGENT.SKILLS.GAZE_OBJ.type == "gaze":
             self.gaze_agent = PPOAgent(
                 config,
@@ -263,7 +263,8 @@ class OpenVocabManipAgent(ObjectNavAgent):
             if self.config.AGENT.SKILLS.PICK_OBJ.type == "oracle":
                 return DiscreteNavigationAction.SNAP_OBJECT, info
             elif self.config.AGENT.SKILLS.PICK_OBJ.type == "heuristic":
-                return self._heuristic_pick(obs, info)
+                raise NotImplementedError
+            #     return self._heuristic_pick(obs, info)
             else:
                 raise NotImplementedError
         if self.states[0] == Skill.NAV_TO_REC:

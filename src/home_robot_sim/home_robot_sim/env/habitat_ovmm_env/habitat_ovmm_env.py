@@ -9,7 +9,7 @@ import torch
 from habitat.core.environments import GymHabitatEnv
 from habitat.core.simulator import Observations
 from torch import Tensor
-
+from home_robot.motion.stretch import STRETCH_ARM_EXTENSION, STRETCH_ARM_LIFT
 import home_robot
 from home_robot.core.interfaces import (
     ContinuousFullBodyAction,
@@ -365,25 +365,28 @@ class HabitatOpenVocabManipEnv(HabitatEnv):
             if action == DiscreteNavigationAction.MANIPULATION_MODE:
                 # turn left by 90 degrees, positive for turn left
                 turn = 90
-                # TODO: replicating current behavior first, will remove hardcoded constants
                 target_joint_pos = curr_joint_pos.copy()
+                # current behavior
                 target_joint_pos[JointActionIndex.HEAD_PAN] = -1.7375  # look at ee
                 arm_action = target_joint_pos - curr_joint_pos
                 # TODO: robot config tries to go to state: STRETCH_PREGRASP_Q
-                # our current state:
+                # np.array([-np.pi / 2, -np.pi / 4])
+                # current sim:  [0.0, 0.775, 0.0, 0.0, 0.0, -1.7375, -0.7125]
+                # current real:  [0.01, 0.6, 1.57, -1.51, 0.0, -1.57, -0.785]
+                # [lift, arm, gripper rpy, wrist yaw, wrist pitch, wrist roll, cam pan, cam tilt]
             elif action == DiscreteNavigationAction.NAVIGATION_MODE:
+                # TODO: harcoded to maintain current behavior: use NAVIGATION_Q
                 target_joint_pos = np.array([0, 0.775, 0, -1.57000005, 0, 0.0, -0.7125])
                 arm_action = target_joint_pos - curr_joint_pos
-
-                # compared to navigation q: [0.01, 0.5, 3.0, 0.0, 0.0, 0.0, -0.785]
-                # differ in lift, wrist  yaw (0.3 vs 0.0) and wrist pitch (-1.57 vs 0.0)
+                # current real: [0.01, 0.5, 3.0, -0.7, 0.0, 0.0, -0.785]
+                # current sim: [0,0, 0.775, 0, -1.57, 0.0, 0.0, -0.7125]
             elif action == DiscreteNavigationAction.EXTEND_ARM:
                 # TODO: remove hardcoded values from stretch_pick_and_place_env.py and use those constants
                 target_joint_pos = curr_joint_pos.copy()
-                target_joint_pos[JointActionIndex.ARM] = 0.8  # habitat had 1.0
+                target_joint_pos[JointActionIndex.ARM] = STRETCH_ARM_EXTENSION
                 target_joint_pos[
                     JointActionIndex.LIFT
-                ] = 1.0  # lift, real world has had 0.8
+                ] = STRETCH_ARM_LIFT
                 arm_action = target_joint_pos - curr_joint_pos
 
             stop = float(action == DiscreteNavigationAction.STOP) * 2 - 1
