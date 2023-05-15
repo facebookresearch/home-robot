@@ -37,7 +37,6 @@ class HeuristicPlacePolicy(nn.Module):
         self.config = config
         self.device = device
         self.visualize_point_clouds = False
-        self.ctr = 0
 
     def get_receptacle_placement_point(
         self,
@@ -46,10 +45,10 @@ class HeuristicPlacePolicy(nn.Module):
         arm_reachability_check: bool = False,
         visualize: bool = True,
     ):
-        SLAB_PADDING = 0.2
-        ALPHA_VIS = 0.5
         NUM_POINTS_TO_SAMPLE = 50  # number of points to sample from receptacle point cloud to find best placement point
+        SLAB_PADDING = 0.2  # x/y padding around randomly selected points
         SLAB_HEIGHT_THRESHOLD = 0.01  # 1cm above and below, i.e. 2cm overall
+        ALPHA_VIS = 0.5
 
         goal_rec_mask = (
             obs.semantic == obs.task_observations["end_recep_goal"]
@@ -175,7 +174,7 @@ class HeuristicPlacePolicy(nn.Module):
                 ).to(torch.uint8)
 
                 # ALTERNATIVE: choose slab with maximum (area x height) product
-                
+
                 # slab_points_mask_stacked = torch.stack(
                 #     [
                 #         slab_points_mask * 255,
@@ -213,21 +212,10 @@ class HeuristicPlacePolicy(nn.Module):
                 thickness=2,
             )
 
-            # z_values = pcd_base_coords[0, :, :, 2]
-            # z_values_in_vertical_col = z_values * slab_points_mask
-
-            # # extracting topmost voxels
-            # highest_points_mask = torch.bitwise_and(
-            #     (z_values >= z_values_in_vertical_col.max() - HEIGHT_OFFSET),
-            #     (z_values <= z_values_in_vertical_col),
-            # ).to(torch.uint8)
-
-            # highest_points_mask = slab_points_mask
-
             if vis_inputs is not None:
                 vis_inputs["semantic_frame"][..., :3] = rgb_vis_tmp
 
-            return best_voxel.cpu().numpy(), (None, None), vis_inputs
+            return best_voxel.cpu().numpy(), vis_inputs
 
     def forward(self, obs: Observations, vis_inputs=None):
         """
@@ -250,7 +238,7 @@ class HeuristicPlacePolicy(nn.Module):
             found = self.get_receptacle_placement_point(obs, vis_inputs)
 
             if found:
-                center_voxel, (center_x, center_y), vis_inputs = found
+                center_voxel, vis_inputs = found
             else:
                 print("Receptacle not visible. Abort.")
                 action = DiscreteNavigationAction.STOP
@@ -281,7 +269,6 @@ class HeuristicPlacePolicy(nn.Module):
                 + self.cam_arm_alignment_num_turns
             )
             self.fall_wait_steps = 20
-            # breakpoint()
 
             print("-" * 20)
             print(f"Turn to orient for {self.initial_orient_num_turns} steps.")
@@ -302,25 +289,30 @@ class HeuristicPlacePolicy(nn.Module):
         elif self.timestep < self.initial_orient_num_turns + self.forward_steps:
             print("Moving forward")
             action = DiscreteNavigationAction.MOVE_FORWARD
-        elif self.timestep < self.total_turn_and_forward_steps:
-            action = DiscreteNavigationAction.TURN_LEFT
-            self.ctr += 1
-            print("Turning left to align camera and arm", self.ctr)
-        elif self.timestep == self.total_turn_and_forward_steps:
-            action = DiscreteNavigationAction.MANIPULATION_MODE
-            print("Aligning camera to arm")
-        elif self.timestep == self.total_turn_and_forward_steps + 1:
+        elif self.timestep == self.initial_orient_num_turns + self.forward_steps:
+            print("Finding placement point")
             found = self.get_receptacle_placement_point(
                 obs, vis_inputs, arm_reachability_check=True
             )
             if found is not False:
-                center_voxel, (center_x, center_y), vis_inputs = found
+                self.placement_voxel, vis_inputs = found
+                action = DiscreteNavigationAction.TURN_LEFT
+                print("Turning left to align camera and arm")
             else:
                 print("Receptacle not visible. Abort.")
                 action = DiscreteNavigationAction.STOP
                 return action, vis_inputs
-
-            placement_height, placement_extension = center_voxel[2], center_voxel[1]
+        elif self.timestep < self.total_turn_and_forward_steps:
+            action = DiscreteNavigationAction.TURN_LEFT
+            print("Turning left to align camera and arm")
+        elif self.timestep == self.total_turn_and_forward_steps:
+            action = DiscreteNavigationAction.MANIPULATION_MODE
+            print("Aligning camera to arm")
+        elif self.timestep == self.total_turn_and_forward_steps + 1:
+            placement_height, placement_extension = (
+                self.placement_voxel[2],
+                self.placement_voxel[1],
+            )
 
             current_arm_lift = obs.joint[4]
             delta_arm_lift = placement_height - current_arm_lift
@@ -334,7 +326,11 @@ class HeuristicPlacePolicy(nn.Module):
                 + HARDCODED_ARM_EXTENSION_OFFSET
             )
             center_voxel_trans = np.array(
-                [center_voxel[1], center_voxel[2], center_voxel[0]]
+                [
+                    self.placement_voxel[1],
+                    self.placement_voxel[2],
+                    self.placement_voxel[0],
+                ]
             )
             delta_heading = np.rad2deg(get_angle_to_pos(center_voxel_trans))
 
@@ -363,10 +359,6 @@ class HeuristicPlacePolicy(nn.Module):
         else:
             print("Stopping")
             action = DiscreteNavigationAction.STOP
-
-        print(
-            self.timestep, self.total_turn_and_forward_steps + 2 + self.fall_wait_steps
-        )
 
         self.timestep += 1
         return action, vis_inputs
