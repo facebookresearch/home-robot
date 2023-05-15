@@ -285,7 +285,6 @@ class StretchXboxController(object):
             )
 
         # Execute the commands
-        print(translation_command)
         if translation_command is not None:
             self._set_mode()
             self._robot_client.nav.set_velocity(translation_command[1], 0)
