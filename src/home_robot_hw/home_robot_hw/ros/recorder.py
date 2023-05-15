@@ -74,7 +74,7 @@ class Recorder(object):
         # elements in following are of type: Tuple(Tuple(x,y,theta), rospy.Time)
         # change to ndarray with 4 floats
         base_pose = self.robot.nav.get_base_pose()
-        camera_pose = self.robot.head.get_pose_in_base_coords(False)
+        camera_pose = self.robot.head.get_pose_in_base_coords(True)
         if is_keyframe:
             user_keyframe = np.array([1])
         else:
