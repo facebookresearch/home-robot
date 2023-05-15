@@ -55,7 +55,7 @@ class PickAndPlaceAgent(Agent):
             skip_pick (bool, optional): Whether to skip the object-pickup step. Useful for debugging. Defaults to False.
             skip_gaze (bool, optional): Whether to skip the gaze step. Useful for debugging. Defaults to False.
             test_place (bool, optional): go directly to finding and placing
-            skip_orent_place (bool, optional): skip orienting in manipulation mode before placing
+            skip_orient_place (bool, optional): skip orienting in manipulation mode before placing
         """
 
         # Flags used for skipping through state machine when debugging
