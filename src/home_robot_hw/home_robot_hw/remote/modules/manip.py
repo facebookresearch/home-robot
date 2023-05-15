@@ -78,6 +78,9 @@ class StretchManipulationClient(AbstractControlModule):
             q[HelloStretchIdx.WRIST_PITCH],
             q[HelloStretchIdx.WRIST_ROLL],
         ]
+    def get_gripper_position(self):
+        q, _, _ = self._ros_client.get_joint_state()
+        return q[HelloStretchIdx.GRIPPER]
 
     @enforce_enabled
     def goto(
