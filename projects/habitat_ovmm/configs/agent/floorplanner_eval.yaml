@@ -59,7 +59,7 @@ AGENT:
       max_turn_degrees: 180
 
     PICK_OBJ:
-      type: heuristic
+      type: oracle
 
     NAV_TO_OBJ:
       type: heuristic # heuristic (default) or rl
@@ -94,9 +94,9 @@ AGENT:
 
   skip_nav_to_obj: False
   skip_nav_to_rec: False
-  skip_pick: True
+  skip_pick_obj: False
   skip_place: False
-  skip_gaze: False
+  skip_gaze_obj: True
   skip_orient_obj: False
 
   PLANNER:

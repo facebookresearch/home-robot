@@ -40,7 +40,7 @@ class OpenVocabManipAgent(ObjectNavAgent):
         self.nav_to_obj_agent = None
         self.pick_policy = None
         self.place_policy = None
-        if config.AGENT.SKILLS.PLACE.type == "heuristic":
+        if config.AGENT.SKILLS.PLACE.type == "heuristic_debug":
             self.place_policy = HeuristicPlacePolicy(config, self.device)
         if config.AGENT.SKILLS.GAZE_OBJ.type == "gaze":
             self.gaze_agent = PPOAgent(
@@ -61,9 +61,9 @@ class OpenVocabManipAgent(ObjectNavAgent):
         self.skip_nav_to_obj = config.AGENT.skip_nav_to_obj
         self.skip_nav_to_rec = config.AGENT.skip_nav_to_rec
         self.skip_place = config.AGENT.skip_place
-        self.skip_pick = config.AGENT.skip_pick
+        self.skip_pick_obj = config.AGENT.skip_pick_obj
         self.skip_orient_obj = config.AGENT.skip_orient_obj
-        self.skip_gaze = config.AGENT.skip_gaze
+        self.skip_gaze_obj = config.AGENT.skip_gaze_obj
         self.config = config
 
     def _get_info(self, obs: Observations) -> Dict[str, torch.Tensor]:
@@ -236,7 +236,7 @@ class OpenVocabManipAgent(ObjectNavAgent):
                     f"Got unexpected value for NAV_TO_OBJ.type: {nav_to_obj_type}"
                 )
         if self.states[0] == Skill.GAZE_OBJ:
-            if self.skip_gaze:
+            if self.skip_gaze_obj:
                 info = self._switch_to_next_skill(
                     e=0, info=info, start_in_same_step=True
                 )
@@ -256,10 +256,15 @@ class OpenVocabManipAgent(ObjectNavAgent):
             else:
                 raise NotImplementedError
         if self.states[0] == Skill.ORIENT_OBJ:
-            info = self._switch_to_next_skill(e=0, info=info)
-            return DiscreteNavigationAction.MANIPULATION_MODE, info
+            info = self._switch_to_next_skill(e=0, info=info, start_in_same_step=self.skip_orient_obj)
+            if not self.skip_orient_obj:
+                return DiscreteNavigationAction.MANIPULATION_MODE, info
         if self.states[0] == Skill.PICK_OBJ:
-            if self.config.AGENT.SKILLS.PICK_OBJ.type == "oracle":
+            if self.skip_pick_obj:
+                info = self._switch_to_next_skill(
+                    e=0, info=info, start_in_same_step=True
+                )
+            elif self.config.AGENT.SKILLS.PICK_OBJ.type == "oracle":
                 return DiscreteNavigationAction.SNAP_OBJECT, info
             elif self.config.AGENT.SKILLS.PICK_OBJ.type == "heuristic":
                 raise NotImplementedError
