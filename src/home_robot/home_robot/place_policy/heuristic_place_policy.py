@@ -47,7 +47,7 @@ class HeuristicPlacePolicy(nn.Module):
     ):
         NUM_POINTS_TO_SAMPLE = 50  # number of points to sample from receptacle point cloud to find best placement point
         SLAB_PADDING = 0.2  # x/y padding around randomly selected points
-        SLAB_HEIGHT_THRESHOLD = 0.01  # 1cm above and below, i.e. 2cm overall
+        SLAB_HEIGHT_THRESHOLD = 0.15  # 1cm above and below, i.e. 2cm overall
         ALPHA_VIS = 0.5
 
         goal_rec_mask = (
