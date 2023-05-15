@@ -15,7 +15,7 @@ from home_robot.core.interfaces import (
     Observations,
 )
 from home_robot.motion.stretch import STRETCH_GRIPPER_OPEN, STRETCH_STANDOFF_DISTANCE
-from home_robot.utils.point_cloud import show_point_cloud
+# from home_robot.utils.point_cloud import show_point_cloud
 from home_robot.utils.rotation import get_angle_to_pos
 
 HARDCODED_EXTENSION_OFFSET = 0.15
@@ -33,6 +33,7 @@ class HeuristicPlacePolicy(nn.Module):
         self.config = config
         self.device = device
         self.visualize_point_clouds = False
+        self.ctr = 0
 
     def get_receptacle_placement_point(
         self,
@@ -41,7 +42,8 @@ class HeuristicPlacePolicy(nn.Module):
         arm_reachability_check: bool = False,
         visualize: bool = True,
     ):
-        HEIGHT_OFFSET = 0.02
+        HEIGHT_OFFSET = 0.1
+        SLAB_OFFSET = 0.2
 
         goal_rec_mask = (
             obs.semantic == obs.task_observations["end_recep_goal"]
@@ -68,8 +70,8 @@ class HeuristicPlacePolicy(nn.Module):
                 goal_rec_depth, camera_matrix, self.device, scale=self.du_scale
             )
 
-            if self.visualize_point_clouds:
-                show_point_cloud(obs.xyz, obs.rgb / 255.0)
+            # if self.visualize_point_clouds:
+            #     show_point_cloud(obs.xyz, obs.rgb / 255.0)
 
             # get point cloud in base coordinates
             camera_pose = np.expand_dims(obs.camera_pose, 0)
@@ -85,6 +87,7 @@ class HeuristicPlacePolicy(nn.Module):
             pcd_base_coords = du.transform_camera_view_t(
                 pcd_camera_coords, agent_height, np.rad2deg(tilt), self.device
             )
+
 
             # Whether or not I can extend the robot's arm in order to reach each point
             if arm_reachability_check:
@@ -110,18 +113,40 @@ class HeuristicPlacePolicy(nn.Module):
             )
             pcd_base_coords = pcd_base_coords * non_zero_mask
 
-            y_values = pcd_base_coords[0, :, :, 2]
+            y_values = pcd_base_coords[0, ..., 1] # y is forward, z is up
+            y_values_non_zero = y_values[y_values != 0]
+            y_min = y_values_non_zero.min()
+            
+            nearest_point = torch.where(y_values == y_min)
+            nearest_x, nearest_y = nearest_point[0], nearest_point[1]
+            nearest_voxel = pcd_base_coords[:, nearest_x, nearest_y, :][0]
 
-            non_zero_y_values = y_values[y_values != 0]
+            nearest_voxel_height = nearest_voxel[0][2]
+            nearest_voxel_x, nearest_voxel_y = nearest_voxel[0][0], nearest_voxel[0][1]
 
-            if non_zero_y_values.numel() == 0:
-                return False
+            x_values = pcd_base_coords[0, :, :, 0]
+
+            slab_points_mask_x = torch.bitwise_and((x_values >= nearest_voxel_x - SLAB_OFFSET),(x_values <= nearest_voxel_x + SLAB_OFFSET))
+            slab_points_mask_y = torch.bitwise_and((y_values >= nearest_voxel_y - SLAB_OFFSET),(y_values <= nearest_voxel_y + SLAB_OFFSET))
+            slab_points_mask = torch.bitwise_and(slab_points_mask_x, slab_points_mask_y).to(torch.uint8)
+
+            z_values = pcd_base_coords[0, :, :, 2]
+            z_values_in_vertical_col = z_values * slab_points_mask 
+
+            # y_values = pcd_base_coords[0, :, :, 2]
+
+            # non_zero_y_values = y_values[y_values != 0]
+
+            # if non_zero_y_values.numel() == 0:
+            #     return False
 
             # extracting topmost voxels
             highest_points_mask = torch.bitwise_and(
-                (y_values >= non_zero_y_values.max() - HEIGHT_OFFSET),
-                (y_values <= non_zero_y_values.max()),
+                (z_values >= z_values_in_vertical_col.max() - HEIGHT_OFFSET),
+                (z_values <= z_values_in_vertical_col),
             ).to(torch.uint8)
+
+            highest_points_mask = slab_points_mask
 
             if visualize:
                 highest_points_mask_vis = torch.stack(
@@ -137,15 +162,15 @@ class HeuristicPlacePolicy(nn.Module):
                     rgb_vis, alpha, highest_points_mask_vis.cpu().numpy(), 1 - alpha, 0
                 )
                 cv2.imwrite(
-                    f"{self.end_receptacle}_heights_vis.png", rgb_vis[:, :, ::-1]
+                    f"{self.end_receptacle}_slab_vis.png", rgb_vis[:, :, ::-1]
                 )
-
-            highest_points_mask = torch.stack(
+            # import pdb;pdb.set_trace()
+            slab_points_mask = torch.stack(
                 [highest_points_mask, highest_points_mask, highest_points_mask],
                 axis=-1,
             ).unsqueeze(0)
 
-            pcd_base_coords_filtered = pcd_base_coords * highest_points_mask
+            pcd_base_coords_filtered = pcd_base_coords * slab_points_mask
 
             x_values = pcd_base_coords_filtered[..., 0]
             x_values = x_values[x_values != 0]
@@ -219,13 +244,14 @@ class HeuristicPlacePolicy(nn.Module):
 
             self.initial_orient_num_turns = abs(delta_heading) // turn_angle
             self.orient_turn_direction = np.sign(delta_heading)
-
+            import pdb;pdb.set_trace()
             # This gets the Y-coordiante of the center voxel
             # Base link to retracted arm - this is about 15 cm
             fwd_dist = (
                 center_voxel[1] - STRETCH_STANDOFF_DISTANCE - HARDCODED_EXTENSION_OFFSET
             )
-            # breakpoint()
+            
+            fwd_dist = np.clip(fwd_dist, 0, np.inf) # to avoid negative fwd_dist
             self.forward_steps = fwd_dist // fwd_step_size
             self.cam_arm_alignment_num_turns = np.round(90 / turn_angle)
             self.total_turn_and_forward_steps = (
@@ -234,7 +260,7 @@ class HeuristicPlacePolicy(nn.Module):
                 + self.cam_arm_alignment_num_turns
             )
             self.fall_wait_steps = 20
-            breakpoint()
+            # breakpoint()
 
             print("-" * 20)
             print(f"Turn to orient for {self.initial_orient_num_turns} steps.")
@@ -257,7 +283,8 @@ class HeuristicPlacePolicy(nn.Module):
             action = DiscreteNavigationAction.MOVE_FORWARD
         elif self.timestep < self.total_turn_and_forward_steps:
             action = DiscreteNavigationAction.TURN_LEFT
-            print("Turning left to align camera and arm")
+            self.ctr += 1
+            print("Turning left to align camera and arm", self.ctr)
         elif self.timestep == self.total_turn_and_forward_steps:
             action = DiscreteNavigationAction.MANIPULATION_MODE
             print("Aligning camera to arm")
