@@ -2,6 +2,8 @@
 #
 # This source code is licensed under the MIT license found in the
 # LICENSE file in the root directory of this source tree.
+import random
+
 import cv2
 import numpy as np
 import torch
@@ -15,11 +17,13 @@ from home_robot.core.interfaces import (
     Observations,
 )
 from home_robot.motion.stretch import STRETCH_GRIPPER_OPEN, STRETCH_STANDOFF_DISTANCE
+
 # from home_robot.utils.point_cloud import show_point_cloud
 from home_robot.utils.rotation import get_angle_to_pos
 
-HARDCODED_EXTENSION_OFFSET = 0.15
-HARDCODED_YAW_OFFSET = 0.15
+RETRACTED_ARM_APPROX_LENGTH = 0.15
+HARDCODED_ARM_EXTENSION_OFFSET = 0.15
+HARDCODED_YAW_OFFSET = 0.25
 
 
 class HeuristicPlacePolicy(nn.Module):
@@ -42,8 +46,10 @@ class HeuristicPlacePolicy(nn.Module):
         arm_reachability_check: bool = False,
         visualize: bool = True,
     ):
-        HEIGHT_OFFSET = 0.1
-        SLAB_OFFSET = 0.2
+        SLAB_PADDING = 0.2
+        ALPHA_VIS = 0.5
+        NUM_POINTS_TO_SAMPLE = 50  # number of points to sample from receptacle point cloud to find best placement point
+        SLAB_HEIGHT_THRESHOLD = 0.01  # 1cm above and below, i.e. 2cm overall
 
         goal_rec_mask = (
             obs.semantic == obs.task_observations["end_recep_goal"]
@@ -70,9 +76,6 @@ class HeuristicPlacePolicy(nn.Module):
                 goal_rec_depth, camera_matrix, self.device, scale=self.du_scale
             )
 
-            # if self.visualize_point_clouds:
-            #     show_point_cloud(obs.xyz, obs.rgb / 255.0)
-
             # get point cloud in base coordinates
             camera_pose = np.expand_dims(obs.camera_pose, 0)
             angles = [tra.euler_from_matrix(p[:3, :3], "rzyx") for p in camera_pose]
@@ -88,10 +91,9 @@ class HeuristicPlacePolicy(nn.Module):
                 pcd_camera_coords, agent_height, np.rad2deg(tilt), self.device
             )
 
-
             # Whether or not I can extend the robot's arm in order to reach each point
             if arm_reachability_check:
-                # filtering out unreachable points based on Y and Z coordinates of voxels
+                # filtering out unreachable points based on Y and Z coordinates of voxels (Z is up)
                 height_reachable_mask = (pcd_base_coords[0, :, :, 2] < agent_height).to(
                     int
                 )
@@ -113,101 +115,119 @@ class HeuristicPlacePolicy(nn.Module):
             )
             pcd_base_coords = pcd_base_coords * non_zero_mask
 
-            y_values = pcd_base_coords[0, ..., 1] # y is forward, z is up
-            y_values_non_zero = y_values[y_values != 0]
-            y_min = y_values_non_zero.min()
-            
-            nearest_point = torch.where(y_values == y_min)
-            nearest_x, nearest_y = nearest_point[0], nearest_point[1]
-            nearest_voxel = pcd_base_coords[:, nearest_x, nearest_y, :][0]
+            ## randomly sampling NUM_POINTS_TO_SAMPLE of receptacle point cloud – to choose for placement
 
-            nearest_voxel_height = nearest_voxel[0][2]
-            nearest_voxel_x, nearest_voxel_y = nearest_voxel[0][0], nearest_voxel[0][1]
+            reachable_point_cloud = pcd_base_coords[0].cpu().numpy()
+            flat_array = reachable_point_cloud.reshape(-1, 3)
+
+            # find the indices of the non-zero elements in the first two dimensions of the matrix
+            nonzero_indices = np.nonzero(flat_array[:, :2].any(axis=1))[0]
+            # create a list of tuples containing the non-zero indices in the first two dimensions
+            nonzero_tuples = [
+                (
+                    index // reachable_point_cloud.shape[-2],
+                    index % reachable_point_cloud.shape[-2],
+                )
+                for index in nonzero_indices
+            ]
+            # select a random subset of the non-zero indices
+            random_indices = random.sample(
+                nonzero_tuples, min(NUM_POINTS_TO_SAMPLE, len(nonzero_tuples))
+            )
 
             x_values = pcd_base_coords[0, :, :, 0]
-
-            slab_points_mask_x = torch.bitwise_and((x_values >= nearest_voxel_x - SLAB_OFFSET),(x_values <= nearest_voxel_x + SLAB_OFFSET))
-            slab_points_mask_y = torch.bitwise_and((y_values >= nearest_voxel_y - SLAB_OFFSET),(y_values <= nearest_voxel_y + SLAB_OFFSET))
-            slab_points_mask = torch.bitwise_and(slab_points_mask_x, slab_points_mask_y).to(torch.uint8)
-
+            y_values = pcd_base_coords[0, :, :, 1]
             z_values = pcd_base_coords[0, :, :, 2]
-            z_values_in_vertical_col = z_values * slab_points_mask 
 
-            # y_values = pcd_base_coords[0, :, :, 2]
+            max_surface_points = 0
+            # max_height = 0
+            max_surface_mask, best_voxel_ind, best_voxel = None, None, None
 
-            # non_zero_y_values = y_values[y_values != 0]
+            ## iterating through all randomly selected voxels and choosing one with most XY neighboring surface area within some height threshold
 
-            # if non_zero_y_values.numel() == 0:
-            #     return False
-
-            # extracting topmost voxels
-            highest_points_mask = torch.bitwise_and(
-                (z_values >= z_values_in_vertical_col.max() - HEIGHT_OFFSET),
-                (z_values <= z_values_in_vertical_col),
-            ).to(torch.uint8)
-
-            highest_points_mask = slab_points_mask
-
-            if visualize:
-                highest_points_mask_vis = torch.stack(
-                    [
-                        highest_points_mask * 255,
-                        highest_points_mask,
-                        highest_points_mask,
-                    ],
-                    axis=-1,
-                )  # for visualization
-                alpha = 0.5
-                rgb_vis = cv2.addWeighted(
-                    rgb_vis, alpha, highest_points_mask_vis.cpu().numpy(), 1 - alpha, 0
+            for ind in random_indices:
+                sampled_voxel = pcd_base_coords[0, ind[0], ind[1]]
+                sampled_voxel_x, sampled_voxel_y, sampled_voxel_z = (
+                    sampled_voxel[0],
+                    sampled_voxel[1],
+                    sampled_voxel[2],
                 )
-                cv2.imwrite(
-                    f"{self.end_receptacle}_slab_vis.png", rgb_vis[:, :, ::-1]
+
+                # sampling plane of pcd voxels around randomly selected voxel (with height tolerance)
+                slab_points_mask_x = torch.bitwise_and(
+                    (x_values >= sampled_voxel_x - SLAB_PADDING),
+                    (x_values <= sampled_voxel_x + SLAB_PADDING),
                 )
-            # import pdb;pdb.set_trace()
-            slab_points_mask = torch.stack(
-                [highest_points_mask, highest_points_mask, highest_points_mask],
+                slab_points_mask_y = torch.bitwise_and(
+                    (y_values >= sampled_voxel_y - SLAB_PADDING),
+                    (y_values <= sampled_voxel_y + SLAB_PADDING),
+                )
+                slab_points_mask_z = torch.bitwise_and(
+                    (z_values >= sampled_voxel_z - SLAB_HEIGHT_THRESHOLD),
+                    (z_values <= sampled_voxel_z + SLAB_HEIGHT_THRESHOLD),
+                )
+
+                slab_points_mask = torch.bitwise_and(
+                    slab_points_mask_x, slab_points_mask_y
+                ).to(torch.uint8)
+                slab_points_mask = torch.bitwise_and(
+                    slab_points_mask, slab_points_mask_z
+                ).to(torch.uint8)
+
+                # ALTERNATIVE: choose slab with maximum (area x height) product
+                
+                # slab_points_mask_stacked = torch.stack(
+                #     [
+                #         slab_points_mask * 255,
+                #         slab_points_mask,
+                #         slab_points_mask,
+                #     ],
+                #     axis=-1,
+                # )
+                # height = (slab_points_mask_stacked * pcd_base_coords)[..., 2].max()
+                # if slab_points_mask.sum() * height >= max_surface_points * max_height:
+                if slab_points_mask.sum() >= max_surface_points:
+                    max_surface_points = slab_points_mask.sum()
+                    max_surface_mask = slab_points_mask
+                    # max_height = height
+                    best_voxel_ind = ind
+                    best_voxel = sampled_voxel
+
+            slab_points_mask_vis = torch.stack(
+                [
+                    max_surface_mask * 255,
+                    max_surface_mask,
+                    max_surface_mask,
+                ],
                 axis=-1,
-            ).unsqueeze(0)
+            )  # for visualization
+            rgb_vis_tmp = cv2.addWeighted(
+                rgb_vis, ALPHA_VIS, slab_points_mask_vis.cpu().numpy(), 1 - ALPHA_VIS, 0
+            )
 
-            pcd_base_coords_filtered = pcd_base_coords * slab_points_mask
+            rgb_vis_tmp = cv2.circle(
+                rgb_vis_tmp,
+                (best_voxel_ind[1], best_voxel_ind[0]),
+                4,
+                (0, 255, 0),
+                thickness=2,
+            )
 
-            x_values = pcd_base_coords_filtered[..., 0]
-            x_values = x_values[x_values != 0]
-            x_min, x_max = x_values.min(), x_values.max()
-            x_mean = (x_min + x_max) / 2
+            # z_values = pcd_base_coords[0, :, :, 2]
+            # z_values_in_vertical_col = z_values * slab_points_mask
 
-            z_values = pcd_base_coords_filtered[..., 1]
-            z_values = z_values[z_values != 0]
-            z_min, z_max = z_values.min(), z_values.max()
-            z_mean = (z_min + z_max) / 2
+            # # extracting topmost voxels
+            # highest_points_mask = torch.bitwise_and(
+            #     (z_values >= z_values_in_vertical_col.max() - HEIGHT_OFFSET),
+            #     (z_values <= z_values_in_vertical_col),
+            # ).to(torch.uint8)
 
-            pcd_xz = pcd_base_coords_filtered[0, ..., 0:2]
-            xz_mean = torch.tensor([x_mean, z_mean], device=self.device)
-            xz_distances = torch.linalg.norm(pcd_xz - xz_mean, axis=-1)
-
-            center_point = torch.where(xz_distances == xz_distances.min())
-            center_x, center_y = center_point[0][0], center_point[1][0]
-            center_voxel = pcd_base_coords_filtered[:, center_x, center_y, :]
-
-            if visualize:
-                rgb_vis = cv2.circle(
-                    rgb_vis,
-                    (center_y.item(), center_x.item()),
-                    4,
-                    (0, 255, 0),
-                    thickness=2,
-                )
-
-                cv2.imwrite(
-                    f'{obs.task_observations["goal_name"].split(" ")[-1]}.png',
-                    rgb_vis[..., ::-1],
-                )
+            # highest_points_mask = slab_points_mask
 
             if vis_inputs is not None:
-                vis_inputs["semantic_frame"][..., :3] = rgb_vis
+                vis_inputs["semantic_frame"][..., :3] = rgb_vis_tmp
 
-            return center_voxel.cpu().numpy()[0], (center_x, center_y), vis_inputs
+            return best_voxel.cpu().numpy(), (None, None), vis_inputs
 
     def forward(self, obs: Observations, vis_inputs=None):
         """
@@ -244,14 +264,15 @@ class HeuristicPlacePolicy(nn.Module):
 
             self.initial_orient_num_turns = abs(delta_heading) // turn_angle
             self.orient_turn_direction = np.sign(delta_heading)
-            import pdb;pdb.set_trace()
             # This gets the Y-coordiante of the center voxel
             # Base link to retracted arm - this is about 15 cm
             fwd_dist = (
-                center_voxel[1] - STRETCH_STANDOFF_DISTANCE - HARDCODED_EXTENSION_OFFSET
+                center_voxel[1]
+                - STRETCH_STANDOFF_DISTANCE
+                - RETRACTED_ARM_APPROX_LENGTH
             )
-            
-            fwd_dist = np.clip(fwd_dist, 0, np.inf) # to avoid negative fwd_dist
+
+            fwd_dist = np.clip(fwd_dist, 0, np.inf)  # to avoid negative fwd_dist
             self.forward_steps = fwd_dist // fwd_step_size
             self.cam_arm_alignment_num_turns = np.round(90 / turn_angle)
             self.total_turn_and_forward_steps = (
@@ -308,9 +329,9 @@ class HeuristicPlacePolicy(nn.Module):
             delta_arm_ext = (
                 placement_extension
                 - STRETCH_STANDOFF_DISTANCE
-                - STRETCH_GRIPPER_OPEN
+                - RETRACTED_ARM_APPROX_LENGTH
                 - current_arm_ext
-                + HARDCODED_EXTENSION_OFFSET
+                + HARDCODED_ARM_EXTENSION_OFFSET
             )
             center_voxel_trans = np.array(
                 [center_voxel[1], center_voxel[2], center_voxel[0]]
@@ -342,6 +363,10 @@ class HeuristicPlacePolicy(nn.Module):
         else:
             print("Stopping")
             action = DiscreteNavigationAction.STOP
+
+        print(
+            self.timestep, self.total_turn_and_forward_steps + 2 + self.fall_wait_steps
+        )
 
         self.timestep += 1
         return action, vis_inputs
