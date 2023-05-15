@@ -286,11 +286,11 @@ class StretchXboxController(object):
 
         # Execute the commands
         if translation_command is not None:
-            # self._set_mode()
+            self._set_mode()
             self._robot_client._ros_client.goto_x(translation_command[0])
 
         if rotation_command is not None:
-            # self._set_mode()
+            self._set_mode()
             self._robot_client._ros_client.goto_theta(rotation_command[0])
 
         # These are in loops because it feels more natural to hold the button in these cases rather than press it repeatedly
