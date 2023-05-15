@@ -35,6 +35,7 @@ class Recorder(object):
 
     def start_recording(self, task_name):
         self._recording_started = True
+        self.writer.add_config(task_name=task_name)
         print(f"Ready to record demonstration to file: {self._filename}")
 
     def finish_recording(self):
