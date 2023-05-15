@@ -10,8 +10,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 import rospy
 
-from home_robot.motion.robot import STRETCH_PREGRASP_Q, HelloStretchIdx
-from home_robot.perception.constants import coco_categories
+from home_robot.motion.stretch import STRETCH_PREGRASP_Q, HelloStretchIdx
 from home_robot.utils.pose import to_pos_quat
 from home_robot_hw.ros.stretch_ros import HelloStretchROSInterface
 
