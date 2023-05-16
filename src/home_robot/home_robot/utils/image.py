@@ -136,18 +136,27 @@ def depth_to_xyz(depth, camera: Camera):
 
 
 def smooth_mask(mask, kernel=None):
+    """Dilate and then erode.
+
+    Arguments:
+        mask: the mask to clean up
+
+    Returns:
+        mask: the dilated mask
+        mask2: dilated, then eroded mask
+    """
     if kernel is None:
         kernel = np.ones((5, 5))
     mask = mask.astype(np.uint8)
     # h, w = mask.shape[:2]
-    mask = cv2.dilate(mask, kernel, iterations=3)
+    mask1 = cv2.dilate(mask, kernel, iterations=3)
     # mask = cv2.erode(mask, kernel, iterations=1)
     # second step
     mask2 = mask
     mask2 = cv2.erode(mask2, kernel, iterations=3)
     # mask2 = cv2.dilate(mask2, kernel, iterations=1)
     mask2 = np.bitwise_and(mask, mask2)
-    return mask, mask2
+    return mask1, mask2
 
 
 def rotate_image(imgs: List[np.ndarray]) -> List[np.ndarray]:

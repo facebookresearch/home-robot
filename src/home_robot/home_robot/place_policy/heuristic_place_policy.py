@@ -17,6 +17,7 @@ from home_robot.core.interfaces import (
     Observations,
 )
 from home_robot.motion.stretch import STRETCH_GRIPPER_OPEN, STRETCH_STANDOFF_DISTANCE
+from home_robot.utils.image import smooth_mask
 from home_robot.utils.point_cloud import valid_depth_mask
 
 # from home_robot.utils.point_cloud import show_point_cloud
@@ -32,12 +33,13 @@ class HeuristicPlacePolicy(nn.Module):
     Policy to place object on end receptacle using depth and point-cloud-based heuristics.
     """
 
-    def __init__(self, config, device, debug_visualize_xyz: bool = False):
+    def __init__(self, config, device, debug_visualize_xyz: bool = True):
         super().__init__()
         self.timestep = 0
         self.config = config
         self.device = device
         self.debug_visualize_xyz = debug_visualize_xyz
+        self.erosion_kernel = np.ones((5, 5), np.uint8)
 
     def get_receptacle_placement_point(
         self,
@@ -46,6 +48,13 @@ class HeuristicPlacePolicy(nn.Module):
         arm_reachability_check: bool = False,
         visualize: bool = True,
     ):
+        """
+        Compute placement point in 3d space.
+
+        Parameters:
+            obs: Observation object; describes what we've seen.
+            vis_inputs: optional dict; data used for visualizing outputs
+        """
         NUM_POINTS_TO_SAMPLE = 50  # number of points to sample from receptacle point cloud to find best placement point
         SLAB_PADDING = 0.2  # x/y padding around randomly selected points
         SLAB_HEIGHT_THRESHOLD = 0.015  # 1cm above and below, i.e. 2cm overall
@@ -54,7 +63,12 @@ class HeuristicPlacePolicy(nn.Module):
         goal_rec_mask = (
             obs.semantic
             == obs.task_observations["end_recep_goal"] * valid_depth_mask(obs.depth)
-        ).astype(bool)
+        ).astype(np.uint8)
+        # Get dilated, then eroded mask (for cleanliness)
+        goal_rec_mask = smooth_mask(goal_rec_mask, self.erosion_kernel)[1]
+        # Convert to booleans
+        goal_rec_mask = goal_rec_mask.astype(bool)
+
         if visualize:
             cv2.imwrite(f"{self.end_receptacle}_semantic.png", goal_rec_mask * 255)
 
@@ -350,6 +364,7 @@ class HeuristicPlacePolicy(nn.Module):
                 + [delta_gripper_yaw]
                 + [0] * 4
             )
+            breakpoint()
             action = ContinuousFullBodyAction(joints)
         elif self.timestep == self.total_turn_and_forward_steps + 2:
             # desnap to drop the object
