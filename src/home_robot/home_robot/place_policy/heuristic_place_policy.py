@@ -37,7 +37,7 @@ class HeuristicPlacePolicy(nn.Module):
         self,
         config,
         device,
-        placement_drop_distance: float = 0.1,
+        placement_drop_distance: float = 0.25,
         debug_visualize_xyz: bool = True,
     ):
         """
