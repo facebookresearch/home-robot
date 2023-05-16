@@ -11,23 +11,19 @@ On an Ubuntu machine with GPU:
 ```
 conda env create -n home-robot --file=src/home_robot/environment.yml
 conda activate home-robot
-
-git clone https://github.com/facebookresearch/habitat-sim
+# TODO: once this branch is merged, use commit on facebookresearch/habitat_sim
+git clone https://github.com/yvsriram/habitat-sim --branch ovmm_merge_main_add_deps
 cd habitat-sim
-git checkout 7b99db753272079d609b88e00f24ca0ad0ef23aa # latest main forces Python > 3.9
+git checkout 25454206fba330a6e662a9080b07447c5d56553d # latest main forces Python > 3.9
 python -m pip install -r requirements.txt
 python setup.py install --headless --with-bullet
 # (if the above commands runs out of memory) 
 # python setup.py build_ext --parallel 8 install --headless
 cd ..
 
-git clone --branch modular_nav_obj_on_rec https://github.com/facebookresearch/habitat-lab.git
-cd habitat-lab
-python -m pip install -e ./habitat-baselines
-cd habitat-lab
-python -m pip install -r requirements.txt
-python -m pip install -e .
-cd ../..
+git submodule update --init --recursive
+pip install -e src/third_party/habitat-lab/habitat-lab
+pip install -e src/third_party/habitat-lab/habitat-baselines
 
 python -m pip install "git+https://github.com/facebookresearch/pytorch3d.git"
 ```
@@ -46,14 +42,9 @@ pip install -r requirements.txt
 python setup.py install --with-bullet
 cd ..
 
-git clone --branch modular_nav_obj_on_rec https://github.com/facebookresearch/habitat-lab.git
-cd habitat-lab
-pip install -e habitat-baselines
-cd habitat-lab
-pip install -r requirements.txt
-# Not clear if this should have --all or just be a pip install .
-python setup.py develop
-cd ../..
+git submodule update --init --recursive
+pip install -e src/third_party/habitat-lab/habitat-lab
+pip install -e src/third_party/habitat-lab/habitat-baselines
 
 pip install natsort scikit-image scikit-fmm pandas trimesh scikit-learn
 conda install -c pytorch3d pytorch3d
@@ -66,7 +57,7 @@ conda install -c pytorch3d pytorch3d
 ```
 cd `HOME_ROBOT_ROOT/data/`
 # Download the scenes
-git clone https://huggingface.co/datasets/osmm/fpss --branch osmm
+git clone https://huggingface.co/datasets/fpss/fphab
 # Download the objects and metadata
 git clone https://huggingface.co/datasets/osmm/objects
 ```
