@@ -41,7 +41,7 @@ AGENT:
 
   SKILLS:
     GAZE_OBJ:
-      type: oracle #gaze #end_to_end #heuristic #hardcoded
+      type: rl #end_to_end #heuristic #hardcoded
       checkpoint_path: data/checkpoints/ovmm/gaze.pth
       rl_config: projects/habitat_ovmm/configs/agent/gaze_rl.yaml # with continuous actions
       gym_obs_keys:
@@ -92,12 +92,13 @@ AGENT:
     PLACE:
       type: heuristic_debug # or "hardcoded"
 
-  skip_nav_to_obj: False
-  skip_nav_to_rec: False
-  skip_pick_obj: False
-  skip_place: False
-  skip_gaze_obj: True
-  skip_orient_obj: False
+  skip_skills:
+    nav_to_obj: False
+    nav_to_rec: False
+    gaze_at_obj: True
+    gaze_at_rec: True
+    pick: False
+    place: False
 
   PLANNER:
     collision_threshold: 0.20       # forward move distance under which we consider there's a collision (in meters)
