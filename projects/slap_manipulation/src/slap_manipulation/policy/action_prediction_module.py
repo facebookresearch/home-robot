@@ -85,7 +85,7 @@ class QueryRegressionHead(torch.nn.Module):
         """return a single regression head"""
         # pos_emb = torch.relu(self.pos_mlp(x))
         if self.use_mdn:
-            pos_sigma, pos_mu = self.pos_mdn(x)
+            pos_sigma, pos_mu, _ = self.pos_mdn(x)
         else:
             delta_ee_pos = self.pos_linear(x)
         gripper = self.gripper_linear(torch.relu(self.gripper_mlp(proprio_task_emb)))

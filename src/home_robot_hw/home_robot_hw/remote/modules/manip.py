@@ -79,7 +79,8 @@ class StretchManipulationClient(AbstractControlModule):
             q[HelloStretchIdx.WRIST_ROLL],
         ]
 
-    def get_gripper_position(self):
+    def get_gripper_position(self) -> float:
+        """get current gripper position as a float"""
         q, _, _ = self._ros_client.get_joint_state()
         return q[HelloStretchIdx.GRIPPER]
 
