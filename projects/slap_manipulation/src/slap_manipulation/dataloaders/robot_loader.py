@@ -166,6 +166,7 @@ class RobotDataset(RLBenchDataset):
         multi_step:             whether to return output signals for multi-step regression training
         crop_radius:            whether to crop the input point cloud to a sphere of radius crop_radius_range
         robot:                  name of robot (stretch/franka)
+        per_action_cmd:         use different language per waypoint
         """
         if yaml_file is not None:
             self.annotations = load_annotations_dict(yaml_file)
