@@ -38,6 +38,7 @@ REAL_WORLD_CATEGORIES = [
 ]
 VOXEL_SIZE_1 = 0.001
 VOXEL_SIZE_2 = 0.01
+DATA_FACTOR = 1
 
 
 def show_point_cloud_with_keypt_and_closest_pt(
@@ -83,7 +84,7 @@ def show_point_cloud_with_keypt_and_closest_pt(
 class RPHighLevelTrial(Trial):
     """handle a domain-randomized trial"""
 
-    def __init__(self, name, h5_filename, dataset, group):
+    def __init__(self, name, h5_filename, dataset, group, factor=DATA_FACTOR):
         """
         Use group for initialization
         """
@@ -93,7 +94,7 @@ class RPHighLevelTrial(Trial):
         idx = idx[keypoint_array == 1]
         keypoint_len = len(idx)
         # extra samples for metrics - used to coer for randomness in ptnet ops?
-        self.factor = 1
+        self.factor = factor
         # extra training time spent on dr examples
         self.dr_factor = 5
         self.length = (
@@ -117,7 +118,7 @@ class RobotDataset(RLBenchDataset):
         data_augmentation=True,
         random_cmd=True,
         first_keypoint_only=False,
-        keypoint_range: list = [0, 1, 2],
+        keypoint_range: Optional[List] = None,
         show_voxelized_input_and_reference=False,
         show_raw_input_and_reference=False,
         show_cropped=False,
@@ -135,9 +136,13 @@ class RobotDataset(RLBenchDataset):
         visualize_interaction_estimates=False,
         visualize_cropped_keyframes=False,
         yaml_file=None,  # "./assets/language_variations/v0.yml",
-        dr_factor=1,
         robot="stretch",
         depth_factor=10000,
+        autoregressive=False,
+        max_keypoints=6,
+        time_as_one_hot=False,
+        per_action_cmd=False,
+        skill_to_action_file=None,
         *args,
         **kwargs,
     ):
@@ -161,12 +166,23 @@ class RobotDataset(RLBenchDataset):
         multi_step:             whether to return output signals for multi-step regression training
         crop_radius:            whether to crop the input point cloud to a sphere of radius crop_radius_range
         robot:                  name of robot (stretch/franka)
+        per_action_cmd:         use different language per waypoint
         """
         if yaml_file is not None:
             self.annotations = load_annotations_dict(yaml_file)
         else:
             self.annotations = None
+        if skill_to_action_file is not None:
+            self.skill_to_action = yaml.load(
+                open(skill_to_action_file, "r"), Loader=yaml.FullLoader
+            )
+        else:
+            self.skill_to_action = None
+        self.max_keypoints = max_keypoints
+        self.time_as_one_hot = time_as_one_hot
+        self.per_action_cmd = per_action_cmd
         self.random_cmd = random_cmd
+        self.autoregressive = autoregressive
         # TODO: deprecate this and use only keypoint_range to constrain index of sampled keyframe
         self.first_keypoint_only = first_keypoint_only
         self.keypoint_to_use = None
@@ -187,6 +203,7 @@ class RobotDataset(RLBenchDataset):
         self._cr_rng = self._cr_max - self._cr_min
         self._ambiguous_radius = ambiguous_radius
         self.depth_factor = depth_factor
+        self.proprio_dim = 3 + 4 + 1
 
         # super(RoboPenDataset, self).__init__(
         super(RLBenchDataset, self).__init__(
@@ -215,7 +232,6 @@ class RobotDataset(RLBenchDataset):
             self._robot_max_grasp = temp.max_grasp
         elif robot == "stretch":
             # Offset from STRETCH_GRASP_FRAME to predicted grasp point
-            self._robot_ee_to_grasp_offset = 0
             self._robot_ee_to_grasp_offset = STRETCH_TO_GRASP.copy()
             self._robot_max_grasp = 0  # 0.13, empirically found
         else:
@@ -358,33 +374,6 @@ class RobotDataset(RLBenchDataset):
         mask = np.bitwise_and(depth < 1.5, depth > 0.3)
         rgb = rgb[mask]
         xyz = xyz[mask]
-        #
-        # TODO: get mask from mdetr
-        # from matplotlib import pyplot as plt
-        #
-        # plt.imshow(rgb_img)
-        # plt.show()
-        # breakpoint()
-        # res = input("Run detic on this?")
-        # if res == "y":
-        #     res1 = input("Rotate? ")
-        #     if res1 == 'y':
-        #         rgb_img, depth_img = rotate_image([rgb_img, depth_img])
-        #
-        #     # test DeticPerception
-        #     # Create the observation
-        #     obs = Observations(
-        #         rgb=rgb_img.copy(),
-        #         depth=depth_img.copy(),
-        #         xyz=xyz.copy(),
-        #         gps=np.zeros(2),  # TODO Replace
-        #         compass=np.zeros(1),  # TODO Replace
-        #         task_observations={},
-        #     )
-        #     # Run the segmentation model here
-        #     obs = self.segmentor.predict(obs)
-        #     plt.imshow(obs.task_observations["semantic_frame"])
-        #     plt.show()
         return rgb, xyz
 
     def extract_manual_keyframes(self, user_keyframe_array):
@@ -397,7 +386,7 @@ class RobotDataset(RLBenchDataset):
 
     def choose_keypoint(
         self, keypoints: np.ndarray, keypoint_idx: int
-    ) -> Tuple[int, np.ndarray]:
+    ) -> Tuple[int, int]:
         """return a randomly chosen keypoint from the list of keypoints;
         or return the one explicitly asked"""
         if self.keypoint_range is not None:
@@ -407,10 +396,9 @@ class RobotDataset(RLBenchDataset):
             chosen_idx = self.keypoint_range[chosen_idx]
         else:
             chosen_idx = keypoint_idx % len(keypoints)
-        time_step = np.array([(chosen_idx / len(keypoints) - 0.5) * 2])
         return (
             keypoints[chosen_idx],
-            time_step,
+            chosen_idx,
         )  # actual keypoint index in the episode
 
     def show_cropped_keyframes(
@@ -479,10 +467,57 @@ class RobotDataset(RLBenchDataset):
             cmd_opts = self.annotations[cmd]
             cmd = cmd_opts[np.random.randint(len(cmd_opts))]
 
+        if self.skill_to_action is not None:
+            all_cmd = self.skill_to_action[cmd]
+
+        if self.skill_to_action is not None and self.per_action_cmd:
+            """return different language per waypoint"""
+            cmd = all_cmd
+
+        if verbose:
+            print(f"{cmd=}")
+
         keypoints = self.extract_manual_keyframes(
             trial["user_keyframe"][()]
         )  # list of index of keypts
-        current_keypoint_idx, time_step = self.choose_keypoint(keypoints, keypoint_idx)
+        current_keypoint_idx, keypoint_relative_idx = self.choose_keypoint(
+            keypoints, keypoint_idx
+        )
+        if self.per_action_cmd:
+            cmd = cmd[keypoint_relative_idx]
+        # create time-step
+        if self.time_as_one_hot:
+            # create time as a one-hot vector
+            time_step = (
+                torch.nn.functional.one_hot(
+                    torch.LongTensor([keypoint_relative_idx]), self.max_keypoints
+                )
+                .numpy()
+                .squeeze()
+            )
+        else:
+            time_step = np.array(
+                [(keypoint_relative_idx / (self.max_keypoints - 1) - 0.5) * 2]
+            )
+
+        if self.multi_step:
+            num_keyframes = len(keypoints)
+        else:
+            num_keyframes = 1
+        all_time_step = np.zeros((num_keyframes, self.max_keypoints))
+        for idx in range(num_keyframes):
+            if self.time_as_one_hot:
+                all_time_step[idx] = (
+                    torch.nn.functional.one_hot(
+                        torch.LongTensor([idx]), self.max_keypoints
+                    )
+                    .numpy()
+                    .squeeze()
+                )
+            else:
+                all_time_step[idx] = np.array(
+                    [(idx / (self.max_keypoints - 1) - 0.5) * 2]
+                )
         # this index is of the actual episode step this keypoint belongs to; i.e. trial/current_keypoint_idx/<ee-pose, images, etc>
         if verbose:
             print(f"Key-point index chosen: abs={current_keypoint_idx}")
@@ -502,7 +537,7 @@ class RobotDataset(RLBenchDataset):
 
         if verbose:
             print(
-                f"reference_pt: {interaction_pt}, min_gripper: {min_gripper}, gripper-state-array: {gripper_state}"
+                f"reference_pt: {interaction_pt}, min_gripper: {self._robot_max_grasp}, gripper-state-array: {gripper_state}"
             )
 
         # choose an input frame-idx, in our case this is the 1st frame
@@ -533,12 +568,21 @@ class RobotDataset(RLBenchDataset):
         if verbose:
             print(f"Index from where to query input state: {input_idx}")
 
-        # create proprio vector
-        proprio = np.concatenate(
-            (gripper_state[input_idx], gripper_width_array[input_idx], time_step)
-        )
-        if verbose:
-            print(f"Proprio: {proprio}")
+        # get EE keyframe
+        current_ee_keyframe = self.get_gripper_pose(trial, int(current_keypoint_idx))
+        interaction_ee_keyframe = self.get_gripper_pose(trial, int(interaction_pt))
+        all_ee_keyframes = []
+        if self.multi_step:
+            target_gripper_state = np.zeros(len(keypoints))
+            # Add all keypoints to this list
+            for j, keypoint in enumerate(keypoints):
+                all_ee_keyframes.append(self.get_gripper_pose(trial, int(keypoint)))
+                target_gripper_state[j] = gripper_state[keypoint]
+        else:
+            # Pull out gripper state from the sim data
+            for j, keypoint in enumerate(keypoints):
+                all_ee_keyframes.append(self.get_gripper_pose(trial, int(keypoint)))
+            target_gripper_state = gripper_state[current_keypoint_idx]
 
         # get point-cloud in base-frame from the cameras
         rgbs, xyzs = [], []
@@ -567,20 +611,6 @@ class RobotDataset(RLBenchDataset):
         rgb = rgb[x_mask]
         xyz = xyz[x_mask]
         xyz, rgb = xyz.reshape(-1, 3), rgb.reshape(-1, 3)
-
-        # get EE keyframe
-        current_ee_keyframe = self.get_gripper_pose(trial, int(current_keypoint_idx))
-        interaction_ee_keyframe = self.get_gripper_pose(trial, int(interaction_pt))
-        all_ee_keyframes = []
-        if self.multi_step:
-            target_gripper_state = np.zeros(len(keypoints))
-            # Add all keypoints to this list
-            for j, keypoint in enumerate(keypoints):
-                all_ee_keyframes.append(self.get_gripper_pose(trial, int(keypoint)))
-                target_gripper_state[j] = gripper_state[keypoint]
-        else:
-            # Pull out gripper state from the sim data
-            target_gripper_state = gripper_state[current_keypoint_idx]
 
         # voxelize at a granular voxel-size then choose X points
         xyz, rgb = self.remove_duplicate_points(xyz, rgb)
@@ -645,7 +675,60 @@ class RobotDataset(RLBenchDataset):
         positions, orientations, angles = self.get_commands(
             crop_ee_keyframe, crop_keyframes
         )
+        all_positions, all_orientation, all_angles = self.get_commands(
+            crop_ee_keyframe, crop_keyframes, return_all=True
+        )
         self._assert_positions_match_ee_keyframes(crop_ee_keyframe, positions)
+
+        # create proprio vector
+        if self.multi_step:
+            all_proprio = np.zeros((len(keypoints), self.proprio_dim))
+            for idx, key_idx in enumerate(keypoints):
+                # all_proprio is (past_pos, past_quat, past_g, current_g, time)
+                if idx == 0:
+                    past_pos = 2 * np.ones(3)
+                    past_quat = 2 * np.ones(4)
+                    past_g = np.array([-1])
+                else:
+                    past_pos = all_positions[idx - 1]
+                    past_quat = all_angles[idx - 1]
+                    past_g = gripper_state[key_idx - 1]
+                if verbose:
+                    print("Showing past-pos and quat")
+                    show_point_cloud(
+                        crop_xyz,
+                        crop_rgb,
+                        orig=past_pos.reshape(3, 1),
+                        R=tra.quaternion_matrix(past_quat)[:3, :3],
+                    )
+                all_proprio[idx] = np.concatenate((past_pos, past_quat, past_g))
+
+        if not self.autoregressive:
+            proprio = np.concatenate(
+                (gripper_state[input_idx], gripper_width_array[input_idx], time_step)
+            )
+        else:
+            # proprio is (past_pos, past_quat, past_g, current_g, time)
+            if keypoint_relative_idx == 0:
+                past_pos = 2 * np.ones(3)
+                past_quat = 2 * np.ones(4)
+                past_g = np.array([-1])
+            else:
+                past_pos = all_positions[keypoint_relative_idx - 1]
+                past_quat = all_angles[keypoint_relative_idx - 1]
+                past_g = gripper_state[keypoint_relative_idx - 1]
+            if verbose:
+                print("Showing past-pos and quat")
+                show_point_cloud(
+                    crop_xyz,
+                    crop_rgb,
+                    orig=past_pos.reshape(3, 1),
+                    R=tra.quaternion_matrix(past_quat)[:3, :3],
+                )
+            proprio = np.concatenate((past_pos, past_quat, past_g))
+
+        if verbose:
+            print(f"Proprio: {proprio}")
 
         if self._visualize_interaction_estimates:
             self.show_interaction_pt_and_keyframe(
@@ -677,22 +760,27 @@ class RobotDataset(RLBenchDataset):
             )
 
         if self._visualize_cropped_keyframes:
-            self.show_cropped_keyframe(
+            self.show_cropped_keyframes(
                 crop_xyz, crop_rgb, crop_ee_keyframe, crop_ref_ee_keyframe
             )
 
         datum = {
             "trial_name": trial.name,
             "data_ok_status": data_status,
+            "num_keypoints": len(keypoints),
             # ----------
             "ee_keyframe_pos": torch.FloatTensor(current_ee_keyframe[:3, 3]),
             "ee_keyframe_ori": torch.FloatTensor(current_ee_keyframe[:3, :3]),
             "proprio": torch.FloatTensor(proprio),
+            "all_proprio": torch.FloatTensor(all_proprio),
+            "time_step": torch.FloatTensor(time_step),
+            "all_time_step": torch.FloatTensor(all_time_step),
             "target_gripper_state": torch.FloatTensor(target_gripper_state),
             "xyz": torch.FloatTensor(xyz),
             "rgb": torch.FloatTensor(rgb),
             "cmd": cmd,
-            "keypoint_idx": keypoint_idx,
+            "all_cmd": all_cmd,
+            "keypoint_idx": keypoint_relative_idx,
             # engineered features ----------------
             "closest_pos": torch.FloatTensor(closest_pt_og_pcd),
             "closest_pos_idx": torch.LongTensor([target_idx_og_pcd]),
@@ -702,7 +790,9 @@ class RobotDataset(RLBenchDataset):
             "rgb_downsampled": torch.FloatTensor(rgb2),
             # used in pt_query.py; make sure this is being used with xyz_downsampled
             # TODO rename xyz_mask --> xyz_downsampled_mask to remove confusion
-            "xyz_mask": torch.LongTensor(self.mask_voxels(xyz2, target_idx_down_pcd)),
+            "xyz_mask": torch.LongTensor(
+                self.mask_voxels(xyz2, target_idx_down_pcd)
+            ),  # @Priyam: I have no idea what this is
             # Crop inputs -----------------
             "rgb_crop": torch.FloatTensor(crop_rgb),
             "xyz_crop": torch.FloatTensor(crop_xyz),
@@ -711,8 +801,8 @@ class RobotDataset(RLBenchDataset):
             "perturbed_crop_location": torch.FloatTensor(crop_location),
             # Crop goals ------------------
             # Goals for regression go here
-            "ee_keyframe_pos_crop": torch.FloatTensor(positions),
-            "ee_keyframe_ori_crop": torch.FloatTensor(orientations),
+            "target_ee_keyframe_pos_crop": torch.FloatTensor(positions),
+            "target_ee_keyframe_ori_crop": torch.FloatTensor(orientations),
             "target_ee_angles": torch.FloatTensor(angles),
         }
         return datum
@@ -725,29 +815,44 @@ class RobotDataset(RLBenchDataset):
     default="/home/priparashar/Development/icra/home_robot/data/robopen/mst/",
 )
 @click.option("--split", help="json file with train-test-val split")
+@click.option(
+    "--waypoint-language", help="yaml for skill-to-action lang breakdown", default=""
+)
 @click.option("-ki", "--k-index", default=0)
-def debug_get_datum(data_dir, k_index, split):
-    with open(split, "r") as f:
-        train_test_split = json.load(f)
-    # debug_list = ["26_11_2022_18_40_48", "26_11_2022_18_43_08"]
+@click.option("-r", "--robot", default="stretch")
+def debug_get_datum(data_dir, k_index, split, robot, waypoint_language):
+    if split:
+        with open(split, "r") as f:
+            train_test_split = yaml.safe_load(f)
+
     loader = RobotDataset(
         data_dir,
+        template="*.h5",
         num_pts=8000,
         data_augmentation=True,
+        crop_radius=True,
         ori_dr_range=np.pi / 8,
-        first_frame_as_input=True,
+        cart_dr_range=0.0,
+        first_frame_as_input=False,
         # first_keypoint_only=True,
-        keypoint_range=[k_index],
-        trial_list=train_test_split["test"],
+        # keypoint_range=[0],
+        trial_list=train_test_split["train"] if split else [],
         orientation_type="quaternion",
         show_voxelized_input_and_reference=True,
         show_cropped=True,
-        verbose=True,
+        verbose=False,
+        multi_step=True,
+        visualize_interaction_estimates=True,
+        visualize_cropped_keyframes=True,
+        robot=robot,
+        autoregressive=True,
+        time_as_one_hot=True,
+        per_action_cmd=True,
+        skill_to_action_file=None if waypoint_language == "" else waypoint_language,
     )
     for trial in loader.trials:
-        if "bottom" in trial.h5_filename:
-            print(f"Trial name: {trial.name}")
-            data = loader.get_datum(trial, k_index)
+        print(f"Trial name: {trial.name}")
+        data = loader.get_datum(trial, k_index, verbose=True)
 
 
 @click.command()
@@ -776,7 +881,7 @@ def show_all_keypoints(data_dir, split, template, robot):
         cart_dr_range=0.0,
         first_frame_as_input=False,
         # first_keypoint_only=True,
-        keypoint_range=[0, 1, 2],
+        # keypoint_range=[0],
         trial_list=train_test_split["train"] if split else [],
         orientation_type="quaternion",
         show_voxelized_input_and_reference=True,
@@ -786,6 +891,8 @@ def show_all_keypoints(data_dir, split, template, robot):
         visualize_interaction_estimates=True,
         visualize_cropped_keyframes=True,
         robot=robot,
+        autoregressive=True,
+        time_as_one_hot=True,
     )
     skip_names = ["30_11_2022_15_22_40"]
     for trial in loader.trials:
@@ -797,10 +904,10 @@ def show_all_keypoints(data_dir, split, template, robot):
             num_keypt = trial.num_keypoints
             for i in range(num_keypt):
                 print("Keypoint requested: ", i)
-                loader.get_datum(trial, i, verbose=True)
+                data = loader.get_datum(trial, i, verbose=True)
             # data = loader.get_datum(trial, 1, verbose=False)
 
 
 if __name__ == "__main__":
-    show_all_keypoints()
+    debug_get_datum()
     pass

@@ -7,28 +7,28 @@ load: False
 num_pts: 8000
 orientation_type: "quaternion"  # change orientation_dim when you change this
 learning_rate: 1e-4
-lambda_weight_l2: 0.000001
-optim: lamb
-multi_head: False
+lambda_weight_l2: 0.00001
+optim: adam
+multi_step: True
 num_heads: 1
 crop_size: 0.1
 query_radius: 0.16
 k: 3
 lang_max_seq_len: 77
 clip_model: "ViT-B/32"
-max_iter: 10
+max_iter: 50
 dry_run: False
 validate: False
 template: "*.h5"
-data_augmentation: True
+data_augmentation: False
 source: "stretch"
 wandb: False
 debug: False
 
 dims:
-  proprio_in: 3
+  proprio_in: 8
+  proprio_out: 64
   image_in: 3
-  proprio_out: 254
   lang_emb_out: 512
   position: 3
   orientation: 4
@@ -36,15 +36,29 @@ dims:
 
 weights:
   position: 1.0
-  orientation: 1e-2
-  gripper: 1e-4
+  orientation: 0.0
+  gripper: 0.0
 
 run:
   validate: False
 
 model:
-  sa1_mlp: [6, 64, 64, 128]
-  sa2_mlp: [131, 128, 128, 256]
-  sa3_mlp: [259, 256, 512, 1024]
-  proprio_mlp: [3, 256, 512]
+  sa1_mlp: [6, 64, 128]
+  sa2_mlp: [131, 128, 256]
+  sa3_mlp: [259, 256,512]
+  proprio_mlp: [64, 256, 512]
   lang_mlp: [512, 512, 512]
+  time_mlp: [6, 256, 512]
+  pre_process_mlp: [2048, 2048, 1024, 1024]
+  post_process_mlp: [1024, 512, 512, 256, 256, 128, 64]
+
+regression_head:
+  final_dim: 64
+  pos_mlp: [256, 128, 64]
+  ori_mlp: [256, 128, 64]
+  gripper_mlp: [1536, 512, 64]
+  pos_in_channels: 3
+
+per_action_cmd: False
+hidden_dim: 1024
+use_mdn: False
