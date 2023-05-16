@@ -17,6 +17,7 @@ from home_robot.core.interfaces import (
     Observations,
 )
 from home_robot.motion.stretch import STRETCH_GRIPPER_OPEN, STRETCH_STANDOFF_DISTANCE
+from home_robot.utils.point_cloud import valid_depth_mask
 
 # from home_robot.utils.point_cloud import show_point_cloud
 from home_robot.utils.rotation import get_angle_to_pos
@@ -51,8 +52,9 @@ class HeuristicPlacePolicy(nn.Module):
         ALPHA_VIS = 0.5
 
         goal_rec_mask = (
-            obs.semantic == obs.task_observations["end_recep_goal"]
-        ).astype(int)
+            obs.semantic
+            == obs.task_observations["end_recep_goal"] * valid_depth_mask(obs.depth)
+        ).astype(bool)
         if visualize:
             cv2.imwrite(f"{self.end_receptacle}_semantic.png", goal_rec_mask * 255)
 
@@ -62,7 +64,7 @@ class HeuristicPlacePolicy(nn.Module):
         else:
             rgb_vis = obs.rgb
             goal_rec_depth = torch.tensor(
-                obs.depth * goal_rec_mask, device=self.device, dtype=torch.float32
+                obs.depth, device=self.device, dtype=torch.float32
             ).unsqueeze(0)
 
             camera_matrix = du.get_camera_matrix(
@@ -90,6 +92,17 @@ class HeuristicPlacePolicy(nn.Module):
                 pcd_camera_coords, agent_height, np.rad2deg(tilt), self.device
             )
 
+            # Remove invalid points from the mask
+            xyz = (
+                pcd_base_coords[0]
+                .cpu()
+                .numpy()
+                .reshape(-1, 3)[goal_rec_mask.reshape(-1), :]
+            )
+            from home_robot.utils.point_cloud import show_point_cloud
+
+            show_point_cloud(xyz, rgb=obs.rgb / 255.0, orig=np.zeros(3))
+
             # Whether or not I can extend the robot's arm in order to reach each point
             if arm_reachability_check:
                 # filtering out unreachable points based on Y and Z coordinates of voxels (Z is up)
@@ -113,6 +126,10 @@ class HeuristicPlacePolicy(nn.Module):
                 [torch.from_numpy(goal_rec_mask).to(self.device)] * 3, axis=-1
             )
             pcd_base_coords = pcd_base_coords * non_zero_mask
+
+            show_point_cloud(
+                pcd_base_coords[0].cpu().numpy(), rgb=obs.rgb / 255.0, orig=np.zeros(3)
+            )
 
             ## randomly sampling NUM_POINTS_TO_SAMPLE of receptacle point cloud – to choose for placement
 
