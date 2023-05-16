@@ -12,14 +12,53 @@ class LangAgent(PickAndPlaceAgent):
         super().__init__(cfg)
         self.steps = []
         self.state = SimpleTaskState.NOT_STARTED
+        self.mode = "navigation"  # TODO: turn into an enum
         self.current_step = ""
 
-    def is_busy(self) -> bool:
-        return self.state != SimpleTaskState.IDLE
+    def skill_is_done(self) -> bool:
+        return self.state == SimpleTaskState.IDLE
 
     def get_steps(self, task: str) -> List[str]:
         """takes in a task string and returns a list of steps to complete the task"""
         raise NotImplementedError
+
+    def locate(self, object_name, obs):
+        info = {}
+        if self.skip_find_object:
+            # transition to the next state
+            action = DiscreteNavigationAction.STOP
+            self.state = SimpleTaskState.IDLE
+        else:
+            if self.mode != "navigation":
+                print(f"Changing from {self.mode=} to ")
+                self.mode = "navigation"
+                print(f"{self.mode=}")
+                return DiscreteNavigationAction.NAVIGATION_MODE, {}
+            else:
+                obs = self._preprocess_obs_for_find(obs)
+                action, info = self.object_nav_agent.act(obs)
+                if action == DiscreteNavigationAction.STOP:
+                    self.state = SimpleTaskState.IDLE
+        return action, info
+
+    def pick_up(self, object_name, obs):
+        # return following if agent currently not in manip mode
+        if self.mode == "navigation":
+            print("Change the mode of the robot to manipulation mode")
+            self.mode = "manipulation"
+            return DiscreteNavigationAction.MANIPULATION_MODE, {}
+        else:
+            print("DRYRUN: Run SLAP on: pick-up", object_name, obs)
+            return DiscreteNavigationAction.PICK_OBJECT, {}
+
+    def place(self, object_name, obs):
+        if self.mode == "navigation":
+            print("Change the mode of the robot to manipulation mode")
+            self.mode = "manipulation"
+            return DiscreteNavigationAction.MANIPULATION_MODE, {}
+        else:
+            print("DRYRUN: Run SLAP on: place-on", object_name, obs)
+            return DiscreteNavigationAction.PLACE_OBJECT, {}
 
     def get_actions(self, obs: Observations) -> Tuple[Action, Dict[str, Any]]:
         """takes in current step in natural language and returns list of actions required to complete it"""
@@ -80,7 +119,7 @@ class LangAgent(PickAndPlaceAgent):
         # for SLAP version this will be where we infer using SLAP open-loop
         return action, info
 
-    def is_done(self):
+    def task_is_done(self):
         if len(self.steps) == 0 and self.state != SimpleTaskState.NOT_STARTED:
             return True
         else:
@@ -89,6 +128,7 @@ class LangAgent(PickAndPlaceAgent):
     def act(self, obs: Observations, task: str) -> Tuple[Action, Dict[str, Any]]:
         if self.state == SimpleTaskState.NOT_STARTED and len(self.steps) == 0:
             self.steps = self.get_steps(task)
+        # in the following I need the skill-name but also the arguments!
         self.current_step = self.steps.pop(0)
-        action, info = self.get_ovmm_action_for_current_step(obs)
+        action, info = eval(self.current_step)
         return action, info
