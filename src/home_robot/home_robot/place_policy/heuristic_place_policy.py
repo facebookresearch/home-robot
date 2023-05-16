@@ -301,18 +301,19 @@ class HeuristicPlacePolicy(nn.Module):
         print("Timestep", self.timestep)
         if self.timestep < self.initial_orient_num_turns:
             if self.orient_turn_direction == -1:
-                print("Turning right to orient towards object")
+                print("[Placement] Turning right to orient towards object")
                 action = DiscreteNavigationAction.TURN_RIGHT
             if self.orient_turn_direction == +1:
-                print("Turning left to orient towards object")
+                print("[Placement] Turning left to orient towards object")
                 action = DiscreteNavigationAction.TURN_LEFT
         elif self.timestep < self.total_turn_and_forward_steps:
-            print("Moving forward")
+            print("[Placement] Moving forward")
             action = DiscreteNavigationAction.MOVE_FORWARD
         elif self.timestep == self.total_turn_and_forward_steps:
             action = DiscreteNavigationAction.MANIPULATION_MODE
-            print("Aligning camera to arm")
+            print("[Placement] Aligning camera to arm")
         elif self.timestep == self.total_turn_and_forward_steps + 1:
+            print("[Placement] Move arm into position")
             placement_height, placement_extension = (
                 self.placement_voxel[2],
                 self.placement_voxel[1],
@@ -340,8 +341,8 @@ class HeuristicPlacePolicy(nn.Module):
 
             delta_gripper_yaw = delta_heading / 90 - HARDCODED_YAW_OFFSET
 
-            print("Delta arm extension:", delta_arm_ext)
-            print("Delta arm lift:", delta_arm_lift)
+            print("[Placement] Delta arm extension:", delta_arm_ext)
+            print("[Placement] Delta arm lift:", delta_arm_lift)
             joints = (
                 [delta_arm_ext]
                 + [0] * 3
@@ -352,16 +353,16 @@ class HeuristicPlacePolicy(nn.Module):
             action = ContinuousFullBodyAction(joints)
         elif self.timestep == self.total_turn_and_forward_steps + 2:
             # desnap to drop the object
-            print("Desnapping object")
+            print("[Placement] Desnapping object")
             action = DiscreteNavigationAction.DESNAP_OBJECT
         elif (
             self.timestep
             <= self.total_turn_and_forward_steps + 2 + self.fall_wait_steps
         ):
-            print("Empty action")  # allow the object to come to rest
+            print("[Placement] Empty action")  # allow the object to come to rest
             action = DiscreteNavigationAction.EMPTY_ACTION
         else:
-            print("Stopping")
+            print("[Placement] Stopping")
             action = DiscreteNavigationAction.STOP
 
         self.timestep += 1
