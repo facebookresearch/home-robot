@@ -264,9 +264,16 @@ class StretchPickandPlaceEnv(StretchEnv):
             if not self.robot.in_manipulation_mode():
                 self.robot.switch_to_manipulation_mode()
             # Now actually move the arm
-            positions, pan, tilt = self.robot.model.hab_to_position_command(
-                joints_action
+            # Get current joint positions in habitat coordinates
+            current_joint_positions = self.robot.model.config_to_hab(
+                self.robot.get_joint_state()[0]
             )
+            # Compute position goal from deltas
+            joints_goal = joints_action + current_joint_positions
+            breakpoint()
+            # Convert into a position command
+            positions, pan, tilt = self.robot.model.hab_to_position_command(joints_goal)
+            # Now we can send it to the robot
             print("SENDING JOINT POS", positions, "PAN", pan, "TILT", tilt)
             self.robot.head.set_pan_tilt(pan, tilt)
             self.robot.manip.goto_joint_positions(positions, move_base=False)
@@ -311,7 +318,8 @@ class StretchPickandPlaceEnv(StretchEnv):
         """Get Detic and rgb/xyz/theta from the robot. Read RGB + depth + point cloud from the robot's cameras, get current pose, and use all of this to compute the observations
 
         Returns:
-            obs: observations containing everything the robot policy will be using to make decisions, other than its own internal state."""
+            obs: observations containing everything the robot policy will be using to make decisions, other than its own internal state.
+        """
         rgb, depth, xyz = self.robot.head.get_images(
             compute_xyz=True,
         )
@@ -325,6 +333,9 @@ class StretchPickandPlaceEnv(StretchEnv):
         # GPS in robot coordinates
         gps = relative_pose.translation()[:2]
 
+        # Get joint state information
+        joint_positions, _, _ = self.robot.get_joint_state()
+
         # Create the observation
         obs = home_robot.core.interfaces.Observations(
             rgb=rgb.copy(),
@@ -335,10 +346,7 @@ class StretchPickandPlaceEnv(StretchEnv):
             task_observations=self.task_info,
             # camera_pose=self.get_camera_pose_matrix(rotated=True),
             camera_pose=self.robot.head.get_pose(rotated=True),
-            # TODO: get these from the agent, remove if no policy uses these
-            joint=np.array(
-                [0.0, 0.0, 0.0, 0.0, 0.775, 0.0, -1.57, 0.0, -1.7375, -0.7125]
-            ),
+            joint=self.robot.model.config_to_hab(joint_positions),
             relative_resting_position=np.array([0.3878479, 0.12924957, 0.4224413]),
             is_holding=np.array([0.0]),
         )

@@ -65,7 +65,9 @@ class HeuristicPlacePolicy(nn.Module):
             == obs.task_observations["end_recep_goal"] * valid_depth_mask(obs.depth)
         ).astype(np.uint8)
         # Get dilated, then eroded mask (for cleanliness)
-        goal_rec_mask = smooth_mask(goal_rec_mask, self.erosion_kernel)[1]
+        goal_rec_mask = smooth_mask(
+            goal_rec_mask, self.erosion_kernel, num_iterations=5
+        )[1]
         # Convert to booleans
         goal_rec_mask = goal_rec_mask.astype(bool)
 
@@ -305,7 +307,10 @@ class HeuristicPlacePolicy(nn.Module):
             self.total_turn_and_forward_steps = (
                 self.forward_steps + self.initial_orient_num_turns
             )
-            self.fall_wait_steps = 20
+            self.fall_wait_steps = 5
+            self.t_done_waiting = (
+                self.total_turn_and_forward_steps + 2 + self.fall_wait_steps
+            )
 
             print("-" * 20)
             print(f"Turn to orient for {self.initial_orient_num_turns} steps.")
@@ -357,7 +362,7 @@ class HeuristicPlacePolicy(nn.Module):
 
             print("[Placement] Delta arm extension:", delta_arm_ext)
             print("[Placement] Delta arm lift:", delta_arm_lift)
-            joints = (
+            joints = np.array(
                 [delta_arm_ext]
                 + [0] * 3
                 + [delta_arm_lift]
@@ -370,12 +375,12 @@ class HeuristicPlacePolicy(nn.Module):
             # desnap to drop the object
             print("[Placement] Desnapping object")
             action = DiscreteNavigationAction.DESNAP_OBJECT
-        elif (
-            self.timestep
-            <= self.total_turn_and_forward_steps + 2 + self.fall_wait_steps
-        ):
+        elif self.timestep <= self.t_done_waiting:
             print("[Placement] Empty action")  # allow the object to come to rest
             action = DiscreteNavigationAction.EMPTY_ACTION
+        elif self.timestep == self.t_done_waiting + 1:
+            print("[Placement] Go back to nav")
+            action = DiscreteNavigationAction.NAVIGATION_MODE
         else:
             print("[Placement] Stopping")
             action = DiscreteNavigationAction.STOP
