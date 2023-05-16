@@ -32,7 +32,7 @@ class HeuristicPlacePolicy(nn.Module):
     Policy to place object on end receptacle using depth and point-cloud-based heuristics.
     """
 
-    def __init__(self, config, device, debug_visualize_xyz: bool = True):
+    def __init__(self, config, device, debug_visualize_xyz: bool = False):
         super().__init__()
         self.timestep = 0
         self.config = config
