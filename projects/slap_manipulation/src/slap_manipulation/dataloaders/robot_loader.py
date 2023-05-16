@@ -175,6 +175,8 @@ class RobotDataset(RLBenchDataset):
             self.skill_to_action = yaml.load(
                 open(skill_to_action_file, "r"), Loader=yaml.FullLoader
             )
+        else:
+            self.skill_to_action = None
         self.max_keypoints = max_keypoints
         self.time_as_one_hot = time_as_one_hot
         self.per_action_cmd = per_action_cmd
@@ -467,9 +469,12 @@ class RobotDataset(RLBenchDataset):
         if self.skill_to_action is not None:
             all_cmd = self.skill_to_action[cmd]
 
-        if self.per_action_cmd:
+        if self.skill_to_action is not None and self.per_action_cmd:
             """return different language per waypoint"""
             cmd = all_cmd
+
+        if verbose:
+            print(f"{cmd=}")
 
         keypoints = self.extract_manual_keyframes(
             trial["user_keyframe"][()]
@@ -809,12 +814,16 @@ class RobotDataset(RLBenchDataset):
     default="/home/priparashar/Development/icra/home_robot/data/robopen/mst/",
 )
 @click.option("--split", help="json file with train-test-val split")
+@click.option(
+    "--waypoint-language", help="yaml for skill-to-action lang breakdown", default=""
+)
 @click.option("-ki", "--k-index", default=0)
 @click.option("-r", "--robot", default="stretch")
-def debug_get_datum(data_dir, k_index, split, robot):
+def debug_get_datum(data_dir, k_index, split, robot, waypoint_language):
     if split:
         with open(split, "r") as f:
             train_test_split = yaml.safe_load(f)
+
     loader = RobotDataset(
         data_dir,
         template="*.h5",
@@ -837,11 +846,12 @@ def debug_get_datum(data_dir, k_index, split, robot):
         robot=robot,
         autoregressive=True,
         time_as_one_hot=True,
-        per_action_cmd=False,
+        per_action_cmd=True,
+        skill_to_action_file=None if waypoint_language == "" else waypoint_language,
     )
     for trial in loader.trials:
         print(f"Trial name: {trial.name}")
-        data = loader.get_datum(trial, k_index)
+        data = loader.get_datum(trial, k_index, verbose=True)
 
 
 @click.command()
