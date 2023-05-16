@@ -33,13 +33,26 @@ class HeuristicPlacePolicy(nn.Module):
     Policy to place object on end receptacle using depth and point-cloud-based heuristics.
     """
 
-    def __init__(self, config, device, debug_visualize_xyz: bool = True):
+    def __init__(
+        self,
+        config,
+        device,
+        placement_drop_distance: float = 0.1,
+        debug_visualize_xyz: bool = True,
+    ):
+        """
+        Parameters:
+            config
+            device
+            placement_drop_distance: distance from placement point that we add as a margin
+        """
         super().__init__()
         self.timestep = 0
         self.config = config
         self.device = device
         self.debug_visualize_xyz = debug_visualize_xyz
         self.erosion_kernel = np.ones((5, 5), np.uint8)
+        self.placement_drop_distance = placement_drop_distance
 
     def get_receptacle_placement_point(
         self,
@@ -99,9 +112,7 @@ class HeuristicPlacePolicy(nn.Module):
             tilt = angles[0][1]  # [0][1]
 
             # Agent height comes from the environment config
-            agent_height = torch.tensor(
-                self.config.ENVIRONMENT.camera_height, device=self.device
-            )
+            agent_height = torch.tensor(camera_pose[0, 2, 3], device=self.device)
 
             # Object point cloud in base coordinates
             pcd_base_coords = du.transform_camera_view_t(
@@ -245,6 +256,9 @@ class HeuristicPlacePolicy(nn.Module):
 
             if vis_inputs is not None:
                 vis_inputs["semantic_frame"][..., :3] = rgb_vis_tmp
+
+            # Add placement margin to the best voxel that we chose
+            best_voxel[2] += self.placement_drop_distance
 
             if self.debug_visualize_xyz:
                 show_point_cloud(
