@@ -46,6 +46,7 @@ class StretchXboxController(object):
         self._gripper_timer = None
         self._head_pan_timer = None
         self._head_tilt_timer = None
+        self._move_base_timer = None
 
         self._dpad_controls_camera = False  # #True
         set_use_dex_wrist_mapping(
