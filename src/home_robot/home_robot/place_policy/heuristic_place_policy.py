@@ -218,20 +218,14 @@ class HeuristicPlacePolicy(nn.Module):
                 + HARDCODED_EXTENSION_OFFSET
             )
             self.forward_steps = fwd_dist // fwd_step_size
-            self.cam_arm_alignment_num_turns = np.round(90 / turn_angle)
             self.total_turn_and_forward_steps = (
-                self.forward_steps
-                + self.initial_orient_num_turns
-                + self.cam_arm_alignment_num_turns
+                self.forward_steps + self.initial_orient_num_turns
             )
             self.fall_wait_steps = 20
 
             print("-" * 20)
             print(f"Turn to orient for {self.initial_orient_num_turns} steps.")
             print(f"Move forward for {self.forward_steps} steps.")
-            print(
-                f"Turn left to align camera and arm for {self.cam_arm_alignment_num_turns} steps."
-            )
 
         print("-" * 20)
         print("Timestep", self.timestep)
@@ -242,12 +236,9 @@ class HeuristicPlacePolicy(nn.Module):
             if self.orient_turn_direction == +1:
                 print("Turning left to orient towards object")
                 action = DiscreteNavigationAction.TURN_LEFT
-        elif self.timestep < self.initial_orient_num_turns + self.forward_steps:
+        elif self.timestep < self.total_turn_and_forward_steps:
             print("Moving forward")
             action = DiscreteNavigationAction.MOVE_FORWARD
-        elif self.timestep < self.total_turn_and_forward_steps:
-            action = DiscreteNavigationAction.TURN_LEFT
-            print("Turning left to align camera and arm")
         elif self.timestep == self.total_turn_and_forward_steps:
             action = DiscreteNavigationAction.MANIPULATION_MODE
             print("Aligning camera to arm")

@@ -13,8 +13,8 @@ from home_robot.place_policy.heuristic_place_policy import HeuristicPlacePolicy
 
 class Skill(IntEnum):
     NAV_TO_OBJ = 0
-    ORIENT_OBJ = 1
-    GAZE_OBJ = 2
+    GAZE_OBJ = 1
+    ORIENT_OBJ = 2
     PICK_OBJ = 3
     NAV_TO_REC = 4
     PLACE = 5
@@ -33,7 +33,7 @@ class OpenVocabManipAgent(ObjectNavAgent):
         super().__init__(config, device_id=device_id)
         self.states = None
         self.place_start_step = None
-        self.orient_start_step = None
+        self.pick_start_step = None
         self.is_gaze_done = None
         self.place_done = None
         self.gaze_agent = None
@@ -91,8 +91,8 @@ class OpenVocabManipAgent(ObjectNavAgent):
         if self.nav_to_obj_agent is not None:
             self.nav_to_obj_agent.reset_vectorized()
         self.states = torch.tensor([Skill.NAV_TO_OBJ] * self.num_environments)
+        self.pick_start_step = torch.tensor([0] * self.num_environments)
         self.place_start_step = torch.tensor([0] * self.num_environments)
-        self.orient_start_step = torch.tensor([0] * self.num_environments)
         self.is_gaze_done = torch.tensor([0] * self.num_environments)
         self.place_done = torch.tensor([0] * self.num_environments)
 
@@ -103,7 +103,7 @@ class OpenVocabManipAgent(ObjectNavAgent):
         """Initialize agent state for a specific environment."""
         self.states[e] = Skill.NAV_TO_OBJ
         self.place_start_step[e] = 0
-        self.orient_start_step[e] = 0
+        self.pick_start_step[e] = 0
         self.is_gaze_done[e] = 0
         self.place_done[e] = 0
         self.place_policy = HeuristicPlacePolicy(self.config, self.device)
@@ -125,7 +125,6 @@ class OpenVocabManipAgent(ObjectNavAgent):
         `start_in_same_step` indicates whether the next skill is started in the same timestep (eg. when the previous skill was skipped).
         """
         skill = self.states[e]
-        print(f"Skipping {skill} in timestep {self.timesteps[e]}")
         info["skill_done"] = Skill(skill.item()).name
         if skill == Skill.NAV_TO_OBJ:
             self.states[e] = Skill.GAZE_OBJ
@@ -133,6 +132,9 @@ class OpenVocabManipAgent(ObjectNavAgent):
             self.states[e] = Skill.ORIENT_OBJ
         elif skill == Skill.ORIENT_OBJ:
             self.states[e] = Skill.PICK_OBJ
+            self.pick_start_step[e] = self.timesteps[e] + 1
+            if start_in_same_step:
+                self.pick_start_step[e] -= 1
         elif skill == Skill.PICK_OBJ:
             self.timesteps_before_goal_update[0] = 0
             self.states[e] = Skill.NAV_TO_REC
@@ -180,32 +182,45 @@ class OpenVocabManipAgent(ObjectNavAgent):
             self._switch_to_next_skill(e=0, info=info)
         return action, info
 
+    def _oracle_pick(
+        self, obs: Observations, info: Dict[str, Any]
+    ) -> [DiscreteNavigationAction, Any]:
+        """
+        snap object magically in first step and then transition to next step;
+        only works in sim when arm_action.oracle_snap is set to True
+        """
+        pick_step = self.timesteps[0] - self.pick_start_step[0]
+        if pick_step == 0:
+            action = DiscreteNavigationAction.SNAP_OBJECT
+        elif pick_step == 1:
+            info = self._switch_to_next_skill(e=0, info=info, start_in_same_step=True)
+            action = DiscreteNavigationAction.NAVIGATION_MODE
+        else:
+            raise ValueError(
+                "Something is wrong. Still in oracle pick. Should've transitioned to next skill."
+            )
+        return action, info
+
     def _hardcoded_place(self):
         """Hardcoded place skill execution
         Orients the agent's arm and camera towards the recetacle, extends arm and releases the object"""
         place_step = self.timesteps[0] - self.place_start_step[0]
-        turn_angle = self.config.ENVIRONMENT.turn_angle
         forward_steps = 0
         fall_steps = 20
-        num_turns = np.round(90 / turn_angle)
-        forward_and_turn_steps = forward_steps + num_turns
         if place_step < forward_steps:
             # for experimentation (TODO: Remove. ideally nav should drop us close)
             action = DiscreteNavigationAction.MOVE_FORWARD
-        elif place_step < forward_and_turn_steps:
-            # first orient
-            action = DiscreteNavigationAction.TURN_LEFT
-        elif place_step == forward_and_turn_steps:
+        elif place_step == forward_steps:
             action = DiscreteNavigationAction.MANIPULATION_MODE
-        elif place_step == forward_and_turn_steps + 1:
+        elif place_step == forward_steps + 1:
             action = DiscreteNavigationAction.EXTEND_ARM
-        elif place_step == forward_and_turn_steps + 2:
+        elif place_step == forward_steps + 2:
             # desnap to drop the object
             action = DiscreteNavigationAction.DESNAP_OBJECT
-        elif place_step <= forward_and_turn_steps + 2 + fall_steps:
+        elif place_step <= forward_steps + 2 + fall_steps:
             # allow the object to come to rest
             action = DiscreteNavigationAction.EMPTY_ACTION
-        elif place_step == forward_and_turn_steps + fall_steps + 3:
+        elif place_step == forward_steps + fall_steps + 3:
             action = DiscreteNavigationAction.STOP
         else:
             raise ValueError(
@@ -266,11 +281,10 @@ class OpenVocabManipAgent(ObjectNavAgent):
                 info = self._switch_to_next_skill(
                     e=0, info=info, start_in_same_step=True
                 )
-            elif self.config.AGENT.SKILLS.PICK_OBJ.type == "oracle":
-                return DiscreteNavigationAction.SNAP_OBJECT, info
+            if self.config.AGENT.SKILLS.PICK_OBJ.type == "oracle":
+                return self._oracle_pick(obs, info)
             elif self.config.AGENT.SKILLS.PICK_OBJ.type == "heuristic":
                 raise NotImplementedError
-            #     return self._heuristic_pick(obs, info)
             else:
                 raise NotImplementedError
         if self.states[0] == Skill.NAV_TO_REC:
