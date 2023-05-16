@@ -32,12 +32,12 @@ class HeuristicPlacePolicy(nn.Module):
     Policy to place object on end receptacle using depth and point-cloud-based heuristics.
     """
 
-    def __init__(self, config, device):
+    def __init__(self, config, device, debug_visualize_xyz: bool = True):
         super().__init__()
         self.timestep = 0
         self.config = config
         self.device = device
-        self.visualize_point_clouds = False
+        self.debug_visualize_xyz = debug_visualize_xyz
 
     def get_receptacle_placement_point(
         self,
@@ -92,16 +92,18 @@ class HeuristicPlacePolicy(nn.Module):
                 pcd_camera_coords, agent_height, np.rad2deg(tilt), self.device
             )
 
-            # Remove invalid points from the mask
-            xyz = (
-                pcd_base_coords[0]
-                .cpu()
-                .numpy()
-                .reshape(-1, 3)[goal_rec_mask.reshape(-1), :]
-            )
-            from home_robot.utils.point_cloud import show_point_cloud
+            if self.debug_visualize_xyz:
+                # Remove invalid points from the mask
+                xyz = (
+                    pcd_base_coords[0]
+                    .cpu()
+                    .numpy()
+                    .reshape(-1, 3)[goal_rec_mask.reshape(-1), :]
+                )
+                from home_robot.utils.point_cloud import show_point_cloud
 
-            show_point_cloud(xyz, rgb=obs.rgb / 255.0, orig=np.zeros(3))
+                rgb = (obs.rgb).reshape(-1, 3) / 255.0
+                show_point_cloud(xyz, rgb, orig=np.zeros(3))
 
             # Whether or not I can extend the robot's arm in order to reach each point
             if arm_reachability_check:
@@ -126,10 +128,6 @@ class HeuristicPlacePolicy(nn.Module):
                 [torch.from_numpy(goal_rec_mask).to(self.device)] * 3, axis=-1
             )
             pcd_base_coords = pcd_base_coords * non_zero_mask
-
-            show_point_cloud(
-                pcd_base_coords[0].cpu().numpy(), rgb=obs.rgb / 255.0, orig=np.zeros(3)
-            )
 
             ## randomly sampling NUM_POINTS_TO_SAMPLE of receptacle point cloud – to choose for placement
 
@@ -231,6 +229,13 @@ class HeuristicPlacePolicy(nn.Module):
 
             if vis_inputs is not None:
                 vis_inputs["semantic_frame"][..., :3] = rgb_vis_tmp
+
+            if self.debug_visualize_xyz:
+                show_point_cloud(
+                    pcd_base_coords[0].cpu().numpy(),
+                    rgb=obs.rgb / 255.0,
+                    orig=best_voxel.cpu().numpy(),
+                )
 
             return best_voxel.cpu().numpy(), vis_inputs
 
