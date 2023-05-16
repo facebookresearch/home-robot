@@ -35,10 +35,12 @@ conda activate home-robot
 
 conda install -y pytorch torchvision -c pytorch
 
-git clone https://github.com/facebookresearch/habitat-sim
+conda activate home-robot
+# TODO: once this branch is merged, use commit on facebookresearch/habitat_sim
+git clone https://github.com/yvsriram/habitat-sim --branch ovmm_merge_main_add_deps
 cd habitat-sim
-git checkout 7b99db753272079d609b88e00f24ca0ad0ef23aa # latest main forces Python > 3.9
-pip install -r requirements.txt
+git checkout 25454206fba330a6e662a9080b07447c5d56553d # latest main forces Python > 3.9
+python -m pip install -r requirements.txt
 python setup.py install --with-bullet
 cd ..
 
