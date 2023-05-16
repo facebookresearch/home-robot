@@ -256,7 +256,9 @@ class OpenVocabManipAgent(ObjectNavAgent):
             else:
                 raise NotImplementedError
         if self.states[0] == Skill.ORIENT_OBJ:
-            info = self._switch_to_next_skill(e=0, info=info, start_in_same_step=self.skip_orient_obj)
+            info = self._switch_to_next_skill(
+                e=0, info=info, start_in_same_step=self.skip_orient_obj
+            )
             if not self.skip_orient_obj:
                 return DiscreteNavigationAction.MANIPULATION_MODE, info
         if self.states[0] == Skill.PICK_OBJ:
