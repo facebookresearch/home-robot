@@ -80,7 +80,10 @@ class PPOAgent(Agent):
                     {
                         "is_holding": spaces.Box(0.0, 1.0, (1,), np.float32),
                         "robot_head_depth": spaces.Box(
-                            0.0, 1.0, (256, 256, 1), np.float32
+                            0.0,
+                            1.0,
+                            (skill_config.sensor_height, skill_config.sensor_width, 1),
+                            np.float32,
                         ),
                         "joint": spaces.Box(
                             np.finfo(np.float32).min,
@@ -101,7 +104,50 @@ class PPOAgent(Agent):
                             np.float32,
                         ),
                         "object_segmentation": spaces.Box(
-                            0.0, 1.0, (256, 256, 1), np.uint8
+                            0.0,
+                            1.0,
+                            (skill_config.sensor_height, skill_config.sensor_width, 1),
+                            np.uint8,
+                        ),
+                        "ovmm_nav_goal_segmentation": spaces.Box(
+                            0.0,
+                            1.0,
+                            (
+                                skill_config.sensor_height,
+                                skill_config.sensor_width,
+                                skill_config.nav_goal_seg_channels,
+                            ),
+                            np.uint8,
+                        ),
+                        "receptacle_segmentation": spaces.Box(
+                            0.0,
+                            1.0,
+                            (skill_config.sensor_height, skill_config.sensor_width, 1),
+                            np.uint8,
+                        ),
+                        "robot_start_gps": spaces.Box(
+                            np.finfo(np.float32).min,
+                            np.finfo(np.float32).max,
+                            (2,),
+                            np.float32,
+                        ),
+                        "robot_start_compass": spaces.Box(
+                            np.finfo(np.float32).min,
+                            np.finfo(np.float32).max,
+                            (1,),
+                            np.float32,
+                        ),
+                        "start_receptacle": spaces.Box(
+                            np.finfo(np.float32).min,
+                            np.finfo(np.float32).max,
+                            (1,),
+                            np.float32,
+                        ),
+                        "goal_receptacle": spaces.Box(
+                            0,
+                            skill_config.num_receptacles,
+                            (1,),
+                            np.float32,
                         ),
                     }
                 )
@@ -118,7 +164,7 @@ class PPOAgent(Agent):
                         ),
                         "base_velocity": spaces.dict.Dict(
                             {
-                                "base_vel": spaces.Box(-20.0, 20.0, (2,), np.float32),
+                                "base_vel": spaces.Box(-20.0, 20.0, (3,), np.float32),
                             }
                         ),
                         "extend_arm": EmptySpace(),
@@ -287,8 +333,8 @@ class PPOAgent(Agent):
                 "receptacle_segmentation": obs.task_observations[
                     "receptacle_segmentation"
                 ],
-                "cat_nav_goal_segmentation": obs.task_observations[
-                    "cat_nav_goal_segmentation"
+                "ovmm_nav_goal_segmentation": obs.task_observations[
+                    "ovmm_nav_goal_segmentation"
                 ],
                 "start_receptacle": obs.task_observations["start_receptacle"],
             }

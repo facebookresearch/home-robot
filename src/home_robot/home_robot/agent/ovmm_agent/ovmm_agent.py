@@ -42,6 +42,14 @@ class OpenVocabManipAgent(ObjectNavAgent):
         self.place_policy = None
         if config.AGENT.SKILLS.PLACE.type == "heuristic_debug":
             self.place_policy = HeuristicPlacePolicy(config, self.device)
+        elif config.AGENT.SKILLS.PLACE.type == "rl":
+            self.place_policy = PPOAgent(
+                config,
+                config.AGENT.SKILLS.PLACE,
+                device_id=device_id,
+                obs_spaces=None,
+                action_spaces=None,
+            )
         if config.AGENT.SKILLS.GAZE_OBJ.type == "gaze":
             self.gaze_agent = PPOAgent(
                 config,
@@ -182,6 +190,21 @@ class OpenVocabManipAgent(ObjectNavAgent):
             self._switch_to_next_skill(e=0, info=info)
         return action, info
 
+    def _rl_place(
+        self, obs: Observations, info: Dict[str, Any]
+    ) -> Tuple[DiscreteNavigationAction, Any]:
+        """
+        Gets the next action to execute from the RL-based nav-to-object policy
+        """
+        place_step = self.timesteps[0] - self.place_start_step[0]
+        if place_step == 0:
+            action = DiscreteNavigationAction.MANIPULATION_MODE
+        elif place_step == 1:
+            action, term = self.place_policy(obs, info)
+            if term:
+                action = DiscreteNavigationAction.STOP
+        return action, info
+
     def _oracle_pick(
         self, obs: Observations, info: Dict[str, Any]
     ) -> [DiscreteNavigationAction, Any]:
@@ -306,6 +329,8 @@ class OpenVocabManipAgent(ObjectNavAgent):
             elif self.config.AGENT.SKILLS.PLACE.type == "heuristic_debug":
                 action, info = self.place_policy(obs, info)
                 return action, info
+            elif self.config.AGENT.SKILLS.PLACE.type == "rl":
+                return self._rl_place(obs, info)
             else:
                 raise NotImplementedError
         return DiscreteNavigationAction.STOP, info

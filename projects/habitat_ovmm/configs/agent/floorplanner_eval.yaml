@@ -85,12 +85,35 @@ AGENT:
       max_forward: 1.0
       max_turn: 0.1745
       max_turn_degrees: 180
+      sensor_height: 256
+      sensor_width: 256
+      nav_goal_seg_channels: 2
+      num_receptacles: 76
 
     NAV_TO_REC:
       type: heuristic
 
     PLACE:
-      type: heuristic_debug # or "hardcoded"
+      type: rl # "rl" or "heuristic_debug" or "hardcoded"
+      checkpoint_path: data/checkpoints/ovmm/place_may15_76%_SR.pth
+      rl_config: projects/habitat_ovmm/configs/agent/manip_rl.yaml # with continuous actions
+      gym_obs_keys:
+        - robot_head_depth
+        - goal_receptacle
+        - joint
+        - ovmm_nav_goal_segmentation
+        - is_holding
+        - relative_resting_position
+      allowed_actions:
+        - arm_action
+        - base_velocity
+      arm_joint_mask: [1, 1, 1, 1, 1, 0, 0] # the arm joints that the policy can control
+      max_forward: 0.25
+      max_turn_degrees: 30.0
+      sensor_height: 160
+      sensor_width: 120
+      nav_goal_seg_channels: 1
+      num_receptacles: 76
 
   skip_nav_to_obj: False
   skip_nav_to_rec: False
