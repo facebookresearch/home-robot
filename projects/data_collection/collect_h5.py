@@ -79,7 +79,7 @@ class EpisodeManager(object):
 @click.option("--dir-path", default="./H5s/", help="Path of root data directory")
 def main(task_name, dir_path):
     em = EpisodeManager(task_name, dir_path)
-    rate = rospy.Rate(10)
+    rate = rospy.Rate(20)
     while not rospy.is_shutdown():
         rospy.spin()
         rate.sleep()
