@@ -192,6 +192,14 @@ class OpenVocabManipAgent(ObjectNavAgent):
             )
         return action
 
+    """
+    The following methods each correspond to a skill/state this agent can execute.
+    They take sensor observations as input and return the action to take and
+    the state to transition to. Either the action has a value and the new state doesn't,
+    or the action has no value and the new state does. The latter case indicates
+    a state transition.
+    """
+
     def _nav_to_obj(
         self, obs: Observations, info: Dict[str, Any]
     ) -> Tuple[DiscreteNavigationAction, Any, Optional[Skill]]:
