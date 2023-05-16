@@ -864,14 +864,13 @@ def debug_get_datum(data_dir, k_index, split, robot):
         visualize_interaction_estimates=True,
         visualize_cropped_keyframes=True,
         robot=robot,
-        autoregressive=True,
+        autoregressive=False,
         time_as_one_hot=True,
         per_action_cmd=False,
     )
     for trial in loader.trials:
         print(f"Trial name: {trial.name}")
         data = loader.get_datum(trial, k_index)
-        breakpoint()
 
 
 @click.command()

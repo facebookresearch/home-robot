@@ -1,3 +1,5 @@
+from typing import List, Tuple
+
 import matplotlib.pyplot as plt
 import numpy as np
 import open3d as o3d
@@ -300,7 +302,12 @@ class RLBenchDataset(DatasetBase):
             closest_pt_og_pcd,
         )
 
-    def get_commands(self, crop_ee_keyframe, keyframes, return_all=False):
+    def get_commands(
+        self,
+        crop_ee_keyframe: np.ndarray,
+        keyframes: List[np.ndarray],
+        return_all=False,
+    ) -> Tuple[List[np.ndarray], List[np.ndarray], List[np.ndarray]]:
         """process and get the commands"""
         if self.multi_step or return_all:
             num_frames = len(keyframes)
@@ -327,12 +334,12 @@ class RLBenchDataset(DatasetBase):
                     angles[j, :] = tra.quaternion_from_matrix(keyframe[:3, :3])
         else:
             # Just one
-            positions = crop_ee_keyframe[:3, 3]
-            orientations = crop_ee_keyframe[:3, :3]
+            positions = [crop_ee_keyframe[:3, 3]]
+            orientations = [crop_ee_keyframe[:3, :3]]
             if self.ori_type == "rpy":
-                angles = tra.euler_from_matrix(crop_ee_keyframe[:3, :3])
+                angles = [tra.euler_from_matrix(crop_ee_keyframe[:3, :3])]
             elif self.ori_type == "quaternion":
-                angles = tra.quaternion_from_matrix(crop_ee_keyframe[:3, :3])
+                angles = [tra.quaternion_from_matrix(crop_ee_keyframe[:3, :3])]
         return positions, orientations, angles
 
     def get_local_problem(
@@ -411,8 +418,6 @@ class RLBenchDataset(DatasetBase):
     ):
         """sanity check to make sure our data pipeline is consistent with multi head vs
         single channel data"""
-        if len(positions.shape) == 1:
-            positions = positions.reshape(1, 3)
         for pos in positions:
             err = np.linalg.norm(crop_ee_keyframe[:3, 3] - pos)
             if err < tol:
