@@ -308,7 +308,18 @@ class RLBenchDataset(DatasetBase):
         keyframes: List[np.ndarray],
         return_all=False,
     ) -> Tuple[List[np.ndarray], List[np.ndarray], List[np.ndarray]]:
-        """process and get the commands"""
+        """Given the ee-keyframe in cropped frame-of-reference returns pos, rot_mat and quat ori
+        associated with it
+        Args:
+            crop_ee_keyframe: np.ndarray of the keyframe as a 4D matrix
+            keyframes: list of 4d homogeneous matrix
+            return_all: overrides OFF state of `autoregressive` setting,
+                expects keyframes to have all the keyframes as input
+        Return:
+            positions: List of positions of keyframes/crop_ee_keyframe
+            orientations: List of rotation_matrix associated with keyframes/crop_ee_keyframe
+            angles: quaternion/rpy associated with keyframes/crop_ee_keyframe
+        """
         if self.multi_step or return_all:
             num_frames = len(keyframes)
             assert num_frames > 0
@@ -374,10 +385,6 @@ class RLBenchDataset(DatasetBase):
                     crop_location = orig_crop_location
         else:
             crop_location = orig_crop_location
-
-        # TODO: remove debug code
-        # This should be at a totally reasonable location
-        # show_point_cloud(xyz, rgb, orig=crop_location)
 
         # crop from og pcd and mean-center it
         crop_xyz, crop_rgb = self.crop_around_voxel(
