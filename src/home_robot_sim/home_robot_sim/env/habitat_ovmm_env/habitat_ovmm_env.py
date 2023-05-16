@@ -16,7 +16,7 @@ from home_robot.core.interfaces import (
     ContinuousNavigationAction,
     DiscreteNavigationAction,
 )
-from home_robot.motion.stretch import STRETCH_ARM_EXTENSION, STRETCH_ARM_LIFT
+from home_robot.motion.stretch import STRETCH_ARM_EXTENSION, STRETCH_ARM_LIFT, STRETCH_PREGRASP_Q, STRETCH_NAVIGATION_Q, map_joint_q_state_to_action_space
 from home_robot.utils.constants import (
     MAX_DEPTH_REPLACEMENT_VALUE,
     MIN_DEPTH_REPLACEMENT_VALUE,
@@ -28,8 +28,7 @@ from home_robot_sim.env.habitat_objectnav_env.constants import (
 )
 from home_robot_sim.env.habitat_objectnav_env.visualizer import Visualizer
 
-
-class JointActionIndex(IntEnum):
+class SimJointActionIndex(IntEnum):
     """
     Enum representing the indices of different joints in the action space.
     """
@@ -309,7 +308,7 @@ class HabitatOpenVocabManipEnv(HabitatEnv):
         ]  # The action space will have the same size as curr_joint_pos
         # If action controls the arm extension, get the final extension by summing over individiual joint positions
         if self.joints_mask[0] == 1:
-            curr_joint_pos[JointActionIndex.ARM] = np.sum(
+            curr_joint_pos[SimJointActionIndex.ARM] = np.sum(
                 complete_joint_pos[:4]
             )  # The first 4 values in sensor add up to give the complete extension
         return curr_joint_pos
@@ -366,31 +365,15 @@ class HabitatOpenVocabManipEnv(HabitatEnv):
             if action == DiscreteNavigationAction.MANIPULATION_MODE:
                 # turn left by 90 degrees, positive for turn left
                 turn = 90
-                target_joint_pos = curr_joint_pos.copy()
-                # current behavior
-                target_joint_pos[JointActionIndex.HEAD_PAN] = -1.7375  # look at ee
+                target_joint_pos = map_joint_q_state_to_action_space(STRETCH_PREGRASP_Q)
                 arm_action = target_joint_pos - curr_joint_pos
-                # TODO: robot config tries to go to state: STRETCH_PREGRASP_Q
-                # np.array([-np.pi / 2, -np.pi / 4])
-                # These serve as initial states of trained RL policies
-                # current sim:  [0.0, 0.775, 0.0, -1.57, 0.0, -1.7375, -0.7125]
-                # current real: [0.01, 0.6, 1.57, -1.51, 0.0, -1.57, -0.785] # STRETCH_PREGRASP_Q
-                # proposed    : [0.0, 0.775, 0.0, -1.57, 0.0, -1.57, -0.7125]  # STRETCH_PREGRASP_Q (new)
-                # [check best tilt for manip, check pan -1.57 vs pan -1.7375]
-                # [lift, arm, wrist yaw, wrist pitch, wrist roll, cam pan, cam tilt]
             elif action == DiscreteNavigationAction.NAVIGATION_MODE:
-                # TODO: harcoded to maintain current behavior: use NAVIGATION_Q
-                target_joint_pos = np.array([0, 0.775, 0, -1.57000005, 0, 0.0, -0.7125])
+                target_joint_pos = map_joint_q_state_to_action_space(STRETCH_NAVIGATION_Q)
                 arm_action = target_joint_pos - curr_joint_pos
-                # The trained RL nav found -0.5235 tilt to work the best. Does this work in real world? will this work for sim planner
-                # current real: [0.01, 0.5, 3.0, -0.7, 0.0, 0.0, -0.785]
-                # current sim: [0.0, 0.775, 0, -1.57, 0.0, 0.0, -0.7125]
-                # proposed    : [0.0, 0.775, 0.0, -1.57, 0.0, 0.0, -0.5235]
             elif action == DiscreteNavigationAction.EXTEND_ARM:
-                # TODO: remove hardcoded values from stretch_pick_and_place_env.py and use those constants
                 target_joint_pos = curr_joint_pos.copy()
-                target_joint_pos[JointActionIndex.ARM] = STRETCH_ARM_EXTENSION
-                target_joint_pos[JointActionIndex.LIFT] = STRETCH_ARM_LIFT
+                target_joint_pos[SimJointActionIndex.ARM] = STRETCH_ARM_EXTENSION
+                target_joint_pos[SimJointActionIndex.LIFT] = STRETCH_ARM_LIFT
                 arm_action = target_joint_pos - curr_joint_pos
 
             stop = float(action == DiscreteNavigationAction.STOP) * 2 - 1
