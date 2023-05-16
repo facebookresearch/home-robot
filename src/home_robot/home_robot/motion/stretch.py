@@ -50,7 +50,7 @@ STRETCH_PREGRASP_Q = np.array(
         0.0,  # wrist roll
         -np.pi / 2,  # wrist pitch
         0.0,  # wrist yaw
-        -np.pi / 2, # head pan, camera to face the arm
+        -np.pi / 2,  # head pan, camera to face the arm
         -np.pi / 4,
     ]
 )
@@ -84,16 +84,21 @@ PIN_CONTROLLED_JOINTS = [
     "joint_wrist_roll",
 ]
 
+
 # used for mapping joint states in STRETCH_*_Q to match the sim/real joint action space
 def map_joint_q_state_to_action_space(q):
-    return np.array([q[4], # arm_0
-    q[3], # lift
-    q[8], # yaw
-    q[7], # pitch
-    q[6], # roll
-    q[9], # head pan
-    q[10] # head tilt
-    ])
+    return np.array(
+        [
+            q[4],  # arm_0
+            q[3],  # lift
+            q[8],  # yaw
+            q[7],  # pitch
+            q[6],  # roll
+            q[9],  # head pan
+            q[10],  # head tilt
+        ]
+    )
+
 
 # This is the gripper, and the distance in the gripper frame to where the fingers will roughly meet
 STRETCH_GRASP_FRAME = "link_straight_gripper"

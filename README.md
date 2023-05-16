@@ -88,13 +88,14 @@ Follow the on-screen instructions. The robot should move through a set of config
 
 Install [detectron2](https://detectron2.readthedocs.io/tutorials/install.html):
 ```
+git submodule update --init --recursive
 pip install -e src/third_party/detectron2
 pip install -r src/home_robot/home_robot/perception/detection/detic/Detic/requirements.txt
 ```
 
 Download Detic checkpoint as per the instructions [on the Detic github page](https://github.com/facebookresearch/Detic):
 ```bash
-cd $HOME-ROBOT-PATH/src/home_robot/perception/detection/detic/Detic/
+cd $HOME_ROBOT_ROOT/src/home_robot/home_robot/perception/detection/detic/Detic/
 mkdir models
 wget https://dl.fbaipublicfiles.com/detic/Detic_LCOCOI21k_CLIP_SwinB_896b32_4x_ft4x_max-size.pth -O models/Detic_LCOCOI21k_CLIP_SwinB_896b32_4x_ft4x_max-size.pth --no-check-certificate
 ```

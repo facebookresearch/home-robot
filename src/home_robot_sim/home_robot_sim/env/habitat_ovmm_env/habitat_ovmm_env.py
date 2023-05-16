@@ -16,7 +16,13 @@ from home_robot.core.interfaces import (
     ContinuousNavigationAction,
     DiscreteNavigationAction,
 )
-from home_robot.motion.stretch import STRETCH_ARM_EXTENSION, STRETCH_ARM_LIFT, STRETCH_PREGRASP_Q, STRETCH_NAVIGATION_Q, map_joint_q_state_to_action_space
+from home_robot.motion.stretch import (
+    STRETCH_ARM_EXTENSION,
+    STRETCH_ARM_LIFT,
+    STRETCH_NAVIGATION_Q,
+    STRETCH_PREGRASP_Q,
+    map_joint_q_state_to_action_space,
+)
 from home_robot.utils.constants import (
     MAX_DEPTH_REPLACEMENT_VALUE,
     MIN_DEPTH_REPLACEMENT_VALUE,
@@ -27,6 +33,7 @@ from home_robot_sim.env.habitat_objectnav_env.constants import (
     RearrangeDETICCategories,
 )
 from home_robot_sim.env.habitat_objectnav_env.visualizer import Visualizer
+
 
 class SimJointActionIndex(IntEnum):
     """
@@ -368,7 +375,9 @@ class HabitatOpenVocabManipEnv(HabitatEnv):
                 target_joint_pos = map_joint_q_state_to_action_space(STRETCH_PREGRASP_Q)
                 arm_action = target_joint_pos - curr_joint_pos
             elif action == DiscreteNavigationAction.NAVIGATION_MODE:
-                target_joint_pos = map_joint_q_state_to_action_space(STRETCH_NAVIGATION_Q)
+                target_joint_pos = map_joint_q_state_to_action_space(
+                    STRETCH_NAVIGATION_Q
+                )
                 arm_action = target_joint_pos - curr_joint_pos
             elif action == DiscreteNavigationAction.EXTEND_ARM:
                 target_joint_pos = curr_joint_pos.copy()
