@@ -12,7 +12,12 @@ from home_robot.core.interfaces import (
     HybridAction,
     Observations,
 )
-from home_robot.motion.stretch import STRETCH_HOME_Q, STRETCH_PREGRASP_Q
+from home_robot.motion.stretch import (
+    STRETCH_ARM_EXTENSION,
+    STRETCH_ARM_LIFT,
+    STRETCH_HOME_Q,
+    STRETCH_PREGRASP_Q,
+)
 from home_robot.perception.detection.detic.detic_perception import DeticPerception
 from home_robot.utils.config import get_config
 from home_robot.utils.geometry import xyt2sophus
@@ -211,7 +216,9 @@ class StretchPickandPlaceEnv(StretchEnv):
             elif action == DiscreteNavigationAction.EXTEND_ARM:
                 """Extend the robot arm"""
                 print("EXTENDING ARM")
-                joints_action = self.robot.model.create_action(lift=0.8, arm=0.8).joints
+                joints_action = self.robot.model.create_action(
+                    lift=STRETCH_ARM_LIFT, arm=STRETCH_ARM_EXTENSION
+                ).joints
                 continuous_action = None
             elif action == DiscreteNavigationAction.MANIPULATION_MODE:
                 self._switch_to_manip_mode()
