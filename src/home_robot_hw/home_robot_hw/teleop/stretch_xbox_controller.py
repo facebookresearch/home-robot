@@ -273,6 +273,9 @@ class StretchXboxController(object):
         if self._head_tilt_timer is not None:
             self._head_tilt_timer.shutdown()
 
+        if self._move_base_timer is not None:
+            self._move_base_timer.shutdown()
+
         # Get the new relevant commands
         controller_state = self._convert_joy_msg_to_xbox_state(msg)
 
