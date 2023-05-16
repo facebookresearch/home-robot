@@ -57,7 +57,7 @@ conda install -c pytorch3d pytorch3d
 ```
 cd `HOME_ROBOT_ROOT/data/`
 # Download the scenes
-git clone https://huggingface.co/datasets/fpss/fphab
+git clone https://huggingface.co/datasets/fpss/fphab --branch ovmm
 # Download the objects and metadata
 git clone https://huggingface.co/datasets/osmm/objects
 ```
