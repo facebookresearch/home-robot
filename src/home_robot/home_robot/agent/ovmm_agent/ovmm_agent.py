@@ -1,3 +1,4 @@
+import os
 from enum import IntEnum
 from typing import Any, Dict, Tuple
 
@@ -12,15 +13,16 @@ from home_robot.place_policy.heuristic_place_policy import HeuristicPlacePolicy
 
 class Skill(IntEnum):
     NAV_TO_OBJ = 0
-    ORIENT_OBJ = 1
-    PICK = 2
-    NAV_TO_REC = 3
-    PLACE = 4
+    GAZE_OBJ = 1
+    ORIENT_OBJ = 2
+    PICK_OBJ = 3
+    NAV_TO_REC = 4
+    PLACE = 5
 
 
 def get_skill_as_one_hot_dict(curr_skill: Skill):
     skill_dict = {skill.name: 0 for skill in Skill}
-    skill_dict[Skill(curr_skill).name] = 1
+    skill_dict[f"is_curr_skill_{Skill(curr_skill).name}"] = 1
     return skill_dict
 
 
@@ -31,16 +33,19 @@ class OpenVocabManipAgent(ObjectNavAgent):
         super().__init__(config, device_id=device_id)
         self.states = None
         self.place_start_step = None
-        self.orient_start_step = None
-        self.is_pick_done = None
+        self.pick_start_step = None
+        self.is_gaze_done = None
         self.place_done = None
         self.gaze_agent = None
         self.nav_to_obj_agent = None
-        self.place_policy = HeuristicPlacePolicy(config, self.device)
-        if config.AGENT.SKILLS.PICK.type == "gaze":
+        self.pick_policy = None
+        self.place_policy = None
+        if config.AGENT.SKILLS.PLACE.type == "heuristic_debug":
+            self.place_policy = HeuristicPlacePolicy(config, self.device)
+        if config.AGENT.SKILLS.GAZE_OBJ.type == "gaze":
             self.gaze_agent = PPOAgent(
                 config,
-                config.AGENT.SKILLS.PICK,
+                config.AGENT.SKILLS.GAZE_OBJ,
                 device_id=device_id,
                 obs_spaces=obs_spaces,
                 action_spaces=action_spaces,
@@ -56,8 +61,9 @@ class OpenVocabManipAgent(ObjectNavAgent):
         self.skip_nav_to_obj = config.AGENT.skip_nav_to_obj
         self.skip_nav_to_rec = config.AGENT.skip_nav_to_rec
         self.skip_place = config.AGENT.skip_place
-        self.skip_pick = config.AGENT.skip_pick
+        self.skip_pick_obj = config.AGENT.skip_pick_obj
         self.skip_orient_obj = config.AGENT.skip_orient_obj
+        self.skip_gaze_obj = config.AGENT.skip_gaze_obj
         self.config = config
 
     def _get_info(self, obs: Observations) -> Dict[str, torch.Tensor]:
@@ -85,9 +91,9 @@ class OpenVocabManipAgent(ObjectNavAgent):
         if self.nav_to_obj_agent is not None:
             self.nav_to_obj_agent.reset_vectorized()
         self.states = torch.tensor([Skill.NAV_TO_OBJ] * self.num_environments)
+        self.pick_start_step = torch.tensor([0] * self.num_environments)
         self.place_start_step = torch.tensor([0] * self.num_environments)
-        self.orient_start_step = torch.tensor([0] * self.num_environments)
-        self.is_pick_done = torch.tensor([0] * self.num_environments)
+        self.is_gaze_done = torch.tensor([0] * self.num_environments)
         self.place_done = torch.tensor([0] * self.num_environments)
 
     def get_nav_to_recep(self):
@@ -97,8 +103,8 @@ class OpenVocabManipAgent(ObjectNavAgent):
         """Initialize agent state for a specific environment."""
         self.states[e] = Skill.NAV_TO_OBJ
         self.place_start_step[e] = 0
-        self.orient_start_step[e] = 0
-        self.is_pick_done[e] = 0
+        self.pick_start_step[e] = 0
+        self.is_gaze_done[e] = 0
         self.place_done[e] = 0
         self.place_policy = HeuristicPlacePolicy(self.config, self.device)
         super().reset_vectorized_for_env(e)
@@ -121,13 +127,15 @@ class OpenVocabManipAgent(ObjectNavAgent):
         skill = self.states[e]
         info["skill_done"] = Skill(skill.item()).name
         if skill == Skill.NAV_TO_OBJ:
+            self.states[e] = Skill.GAZE_OBJ
+        elif skill == Skill.GAZE_OBJ:
             self.states[e] = Skill.ORIENT_OBJ
-            self.orient_start_step[e] = self.timesteps[e] + 1
-            if start_in_same_step:
-                self.orient_start_step[e] -= 1
         elif skill == Skill.ORIENT_OBJ:
-            self.states[e] = Skill.PICK
-        elif skill == Skill.PICK:
+            self.states[e] = Skill.PICK_OBJ
+            self.pick_start_step[e] = self.timesteps[e] + 1
+            if start_in_same_step:
+                self.pick_start_step[e] -= 1
+        elif skill == Skill.PICK_OBJ:
             self.timesteps_before_goal_update[0] = 0
             self.states[e] = Skill.NAV_TO_REC
         elif skill == Skill.NAV_TO_REC:
@@ -151,6 +159,17 @@ class OpenVocabManipAgent(ObjectNavAgent):
             info = self._switch_to_next_skill(e=0, info=info)
         return action, info
 
+    def _heuristic_pick(
+        self, obs: Observations, info: Dict[str, Any]
+    ) -> Tuple[DiscreteNavigationAction, Any]:
+        """Heuristic pick skill execution"""
+        raise NotImplementedError  # WIP
+        action, info = self.pick_policy(obs, info)
+        if action == DiscreteNavigationAction.STOP:
+            action = DiscreteNavigationAction.NAVIGATION_MODE
+            info = self._switch_to_next_skill(e=0, info=info)
+        return action, info
+
     def _rl_nav_to_obj(
         self, obs: Observations, info: Dict[str, Any]
     ) -> Tuple[DiscreteNavigationAction, Any]:
@@ -163,42 +182,58 @@ class OpenVocabManipAgent(ObjectNavAgent):
             self._switch_to_next_skill(e=0, info=info)
         return action, info
 
+    def _oracle_pick(
+        self, obs: Observations, info: Dict[str, Any]
+    ) -> [DiscreteNavigationAction, Any]:
+        """
+        snap object magically in first step and then transition to next step;
+        only works in sim when arm_action.oracle_snap is set to True
+        """
+        pick_step = self.timesteps[0] - self.pick_start_step[0]
+        if pick_step == 0:
+            action = DiscreteNavigationAction.SNAP_OBJECT
+        elif pick_step == 1:
+            info = self._switch_to_next_skill(e=0, info=info, start_in_same_step=True)
+            action = DiscreteNavigationAction.NAVIGATION_MODE
+        else:
+            raise ValueError(
+                "Something is wrong. Still in oracle pick. Should've transitioned to next skill."
+            )
+        return action, info
+
     def _hardcoded_place(self):
         """Hardcoded place skill execution
         Orients the agent's arm and camera towards the recetacle, extends arm and releases the object"""
         place_step = self.timesteps[0] - self.place_start_step[0]
-        turn_angle = self.config.ENVIRONMENT.turn_angle
         forward_steps = 0
         fall_steps = 20
-        num_turns = np.round(90 / turn_angle)
-        forward_and_turn_steps = forward_steps + num_turns
         if place_step < forward_steps:
             # for experimentation (TODO: Remove. ideally nav should drop us close)
             action = DiscreteNavigationAction.MOVE_FORWARD
-        elif place_step < forward_and_turn_steps:
-            # first orient
-            action = DiscreteNavigationAction.TURN_LEFT
-        elif place_step == forward_and_turn_steps:
+        elif place_step == forward_steps:
             action = DiscreteNavigationAction.MANIPULATION_MODE
-        elif place_step == forward_and_turn_steps + 1:
+        elif place_step == forward_steps + 1:
             action = DiscreteNavigationAction.EXTEND_ARM
-        elif place_step == forward_and_turn_steps + 2:
+        elif place_step == forward_steps + 2:
             # desnap to drop the object
             action = DiscreteNavigationAction.DESNAP_OBJECT
-        elif place_step <= forward_and_turn_steps + 2 + fall_steps:
+        elif place_step <= forward_steps + 2 + fall_steps:
             # allow the object to come to rest
             action = DiscreteNavigationAction.EMPTY_ACTION
-        elif place_step == forward_and_turn_steps + fall_steps + 3:
+        elif place_step == forward_steps + fall_steps + 3:
             action = DiscreteNavigationAction.STOP
+        else:
+            raise ValueError(
+                f"Something is wrong. Episode should have ended. Place step: {place_step}, Timestep: {self.timesteps[0]}"
+            )
         return action
 
     def act(self, obs: Observations) -> Tuple[DiscreteNavigationAction, Dict[str, Any]]:
         """State machine"""
         info = self._get_info(obs)
-        turn_angle = self.config.ENVIRONMENT.turn_angle
 
         self.timesteps[0] += 1
-
+        print(f'Executing skill {info["curr_skill"]} at timestep {self.timesteps[0]}')
         # Since heuristic nav is not properly vectorized, this agent currently only supports 1 env
         # _switch_to_next_skill is thus always invoked with e=0
         if self.states[0] == Skill.NAV_TO_OBJ:
@@ -215,39 +250,41 @@ class OpenVocabManipAgent(ObjectNavAgent):
                 raise ValueError(
                     f"Got unexpected value for NAV_TO_OBJ.type: {nav_to_obj_type}"
                 )
-        if self.states[0] == Skill.ORIENT_OBJ:
-            num_turns = np.round(90 / turn_angle)
-            orient_step = self.timesteps[0] - self.orient_start_step[0]
-            if self.skip_orient_obj:
+        if self.states[0] == Skill.GAZE_OBJ:
+            if self.skip_gaze_obj:
                 info = self._switch_to_next_skill(
                     e=0, info=info, start_in_same_step=True
                 )
-            elif orient_step < num_turns:
-                return DiscreteNavigationAction.TURN_LEFT, info
-            elif orient_step == num_turns:
+            elif self.is_gaze_done[0]:
                 info = self._switch_to_next_skill(e=0, info=info)
-                return DiscreteNavigationAction.MANIPULATION_MODE, info
-        if self.states[0] == Skill.PICK:
-            if self.skip_pick:
-                info = self._switch_to_next_skill(
-                    e=0, info=info, start_in_same_step=True
-                )
-            elif self.is_pick_done[0]:
-                info = self._switch_to_next_skill(e=0, info=info)
-                self.is_pick_done[0] = 0
+                self.is_gaze_done[0] = 0
                 return DiscreteNavigationAction.NAVIGATION_MODE, info
-            elif self.config.AGENT.SKILLS.PICK.type == "gaze":
+            elif self.config.AGENT.SKILLS.GAZE_OBJ.type == "rl":
                 action, term = self.gaze_agent.act(obs)
                 if term:
                     action = (
                         {}
                     )  # TODO: update after simultaneous gripping/motion is supported
                     action["grip_action"] = [1]  # grasp the object when gaze is done
-                    self.is_pick_done[0] = 1
+                    self.is_gaze_done[0] = 1
                 return action, info
-            elif self.config.AGENT.SKILLS.PICK.type == "oracle":
-                self.is_pick_done[0] = 1
-                return DiscreteNavigationAction.SNAP_OBJECT, info
+            else:
+                raise NotImplementedError
+        if self.states[0] == Skill.ORIENT_OBJ:
+            info = self._switch_to_next_skill(
+                e=0, info=info, start_in_same_step=self.skip_orient_obj
+            )
+            if not self.skip_orient_obj:
+                return DiscreteNavigationAction.MANIPULATION_MODE, info
+        if self.states[0] == Skill.PICK_OBJ:
+            if self.skip_pick_obj:
+                info = self._switch_to_next_skill(
+                    e=0, info=info, start_in_same_step=True
+                )
+            if self.config.AGENT.SKILLS.PICK_OBJ.type == "oracle":
+                return self._oracle_pick(obs, info)
+            elif self.config.AGENT.SKILLS.PICK_OBJ.type == "heuristic":
+                raise NotImplementedError
             else:
                 raise NotImplementedError
         if self.states[0] == Skill.NAV_TO_REC:
@@ -261,6 +298,7 @@ class OpenVocabManipAgent(ObjectNavAgent):
                 raise NotImplementedError
         if self.states[0] == Skill.PLACE:
             if self.skip_place:
+                info["skill_done"] = "PLACE"
                 return DiscreteNavigationAction.STOP, info
             elif self.config.AGENT.SKILLS.PLACE.type == "hardcoded":
                 action = self._hardcoded_place()

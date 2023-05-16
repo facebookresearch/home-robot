@@ -58,7 +58,7 @@ class HeuristicPlacePolicy(nn.Module):
 
         if not goal_rec_mask.any():
             print("End receptacle not visible.")
-            return False
+            return None
         else:
             rgb_vis = obs.rgb
             goal_rec_depth = torch.tensor(
@@ -237,15 +237,19 @@ class HeuristicPlacePolicy(nn.Module):
             self.end_receptacle = obs.task_observations["goal_name"].split(" ")[-1]
             found = self.get_receptacle_placement_point(obs, vis_inputs)
 
-            if found:
-                center_voxel, vis_inputs = found
+            if found is not None:
+                self.placement_voxel, vis_inputs = found
             else:
                 print("Receptacle not visible. Abort.")
                 action = DiscreteNavigationAction.STOP
                 return action, vis_inputs
 
             center_voxel_trans = np.array(
-                [center_voxel[1], center_voxel[2], center_voxel[0]]
+                [
+                    self.placement_voxel[1],
+                    self.placement_voxel[2],
+                    self.placement_voxel[0],
+                ]
             )
 
             delta_heading = np.rad2deg(get_angle_to_pos(center_voxel_trans))
@@ -255,27 +259,21 @@ class HeuristicPlacePolicy(nn.Module):
             # This gets the Y-coordiante of the center voxel
             # Base link to retracted arm - this is about 15 cm
             fwd_dist = (
-                center_voxel[1]
+                self.placement_voxel[1]
                 - STRETCH_STANDOFF_DISTANCE
                 - RETRACTED_ARM_APPROX_LENGTH
             )
 
             fwd_dist = np.clip(fwd_dist, 0, np.inf)  # to avoid negative fwd_dist
             self.forward_steps = fwd_dist // fwd_step_size
-            self.cam_arm_alignment_num_turns = np.round(90 / turn_angle)
             self.total_turn_and_forward_steps = (
-                self.forward_steps
-                + self.initial_orient_num_turns
-                + self.cam_arm_alignment_num_turns
+                self.forward_steps + self.initial_orient_num_turns
             )
             self.fall_wait_steps = 20
 
             print("-" * 20)
             print(f"Turn to orient for {self.initial_orient_num_turns} steps.")
             print(f"Move forward for {self.forward_steps} steps.")
-            print(
-                f"Turn left to align camera and arm for {self.cam_arm_alignment_num_turns} steps."
-            )
 
         print("-" * 20)
         print("Timestep", self.timestep)
@@ -286,25 +284,9 @@ class HeuristicPlacePolicy(nn.Module):
             if self.orient_turn_direction == +1:
                 print("Turning left to orient towards object")
                 action = DiscreteNavigationAction.TURN_LEFT
-        elif self.timestep < self.initial_orient_num_turns + self.forward_steps:
+        elif self.timestep < self.total_turn_and_forward_steps:
             print("Moving forward")
             action = DiscreteNavigationAction.MOVE_FORWARD
-        elif self.timestep == self.initial_orient_num_turns + self.forward_steps:
-            print("Finding placement point")
-            found = self.get_receptacle_placement_point(
-                obs, vis_inputs, arm_reachability_check=True
-            )
-            if found is not False:
-                self.placement_voxel, vis_inputs = found
-                action = DiscreteNavigationAction.TURN_LEFT
-                print("Turning left to align camera and arm")
-            else:
-                print("Receptacle not visible. Abort.")
-                action = DiscreteNavigationAction.STOP
-                return action, vis_inputs
-        elif self.timestep < self.total_turn_and_forward_steps:
-            action = DiscreteNavigationAction.TURN_LEFT
-            print("Turning left to align camera and arm")
         elif self.timestep == self.total_turn_and_forward_steps:
             action = DiscreteNavigationAction.MANIPULATION_MODE
             print("Aligning camera to arm")
