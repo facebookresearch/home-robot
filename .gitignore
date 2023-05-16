@@ -43,3 +43,6 @@ datadump/
 # Detic model files
 *.pth
 *.ply
+
+# Training stuff
+projects/**/wandb
