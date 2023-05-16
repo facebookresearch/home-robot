@@ -38,6 +38,7 @@ REAL_WORLD_CATEGORIES = [
 ]
 VOXEL_SIZE_1 = 0.001
 VOXEL_SIZE_2 = 0.01
+DATA_FACTOR = 1
 
 
 def show_point_cloud_with_keypt_and_closest_pt(
@@ -83,7 +84,7 @@ def show_point_cloud_with_keypt_and_closest_pt(
 class RPHighLevelTrial(Trial):
     """handle a domain-randomized trial"""
 
-    def __init__(self, name, h5_filename, dataset, group):
+    def __init__(self, name, h5_filename, dataset, group, factor=DATA_FACTOR):
         """
         Use group for initialization
         """
@@ -93,7 +94,7 @@ class RPHighLevelTrial(Trial):
         idx = idx[keypoint_array == 1]
         keypoint_len = len(idx)
         # extra samples for metrics - used to coer for randomness in ptnet ops?
-        self.factor = 5
+        self.factor = factor
         # extra training time spent on dr examples
         self.dr_factor = 5
         self.length = (
@@ -135,7 +136,6 @@ class RobotDataset(RLBenchDataset):
         visualize_interaction_estimates=False,
         visualize_cropped_keyframes=False,
         yaml_file=None,  # "./assets/language_variations/v0.yml",
-        dr_factor=1,
         robot="stretch",
         depth_factor=10000,
         autoregressive=False,
@@ -225,7 +225,6 @@ class RobotDataset(RLBenchDataset):
         elif robot == "stretch":
             # Offset from STRETCH_GRASP_FRAME to predicted grasp point
             self._robot_ee_to_grasp_offset = STRETCH_TO_GRASP.copy()
-            self._robot_ee_to_grasp_offset[2, 3] -= 0.10
             self._robot_max_grasp = 0  # 0.13, empirically found
         else:
             raise ValueError("robot must be franka or stretch")
@@ -367,33 +366,6 @@ class RobotDataset(RLBenchDataset):
         mask = np.bitwise_and(depth < 1.5, depth > 0.3)
         rgb = rgb[mask]
         xyz = xyz[mask]
-        #
-        # TODO: get mask from mdetr
-        # from matplotlib import pyplot as plt
-        #
-        # plt.imshow(rgb_img)
-        # plt.show()
-        # breakpoint()
-        # res = input("Run detic on this?")
-        # if res == "y":
-        #     res1 = input("Rotate? ")
-        #     if res1 == 'y':
-        #         rgb_img, depth_img = rotate_image([rgb_img, depth_img])
-        #
-        #     # test DeticPerception
-        #     # Create the observation
-        #     obs = Observations(
-        #         rgb=rgb_img.copy(),
-        #         depth=depth_img.copy(),
-        #         xyz=xyz.copy(),
-        #         gps=np.zeros(2),  # TODO Replace
-        #         compass=np.zeros(1),  # TODO Replace
-        #         task_observations={},
-        #     )
-        #     # Run the segmentation model here
-        #     obs = self.segmentor.predict(obs)
-        #     plt.imshow(obs.task_observations["semantic_frame"])
-        #     plt.show()
         return rgb, xyz
 
     def extract_manual_keyframes(self, user_keyframe_array):
@@ -864,7 +836,7 @@ def debug_get_datum(data_dir, k_index, split, robot):
         visualize_interaction_estimates=True,
         visualize_cropped_keyframes=True,
         robot=robot,
-        autoregressive=False,
+        autoregressive=True,
         time_as_one_hot=True,
         per_action_cmd=False,
     )
