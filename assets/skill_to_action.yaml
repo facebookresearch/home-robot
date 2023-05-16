@@ -1,0 +1,8 @@
+- 'pick-up-bottle'
+  - 'align-with-bottle'
+  - 'grasp-the-bottle'
+  - 'lift-the-bottle'
+- 'open-the-toaster'
+  - 'align-with-toaster-handle'
+  - 'grasp-the-toaster-handle'
+  - 'swing-down-the-toaster-door'

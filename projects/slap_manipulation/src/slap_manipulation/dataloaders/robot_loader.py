@@ -142,6 +142,7 @@ class RobotDataset(RLBenchDataset):
         max_keypoints=6,
         time_as_one_hot=False,
         per_action_cmd=False,
+        skill_to_action_file=None,
         *args,
         **kwargs,
     ):
@@ -170,6 +171,10 @@ class RobotDataset(RLBenchDataset):
             self.annotations = load_annotations_dict(yaml_file)
         else:
             self.annotations = None
+        if skill_to_action_file is not None:
+            self.skill_to_action = yaml.load(
+                open(skill_to_action_file, "r"), Loader=yaml.FullLoader
+            )
         self.max_keypoints = max_keypoints
         self.time_as_one_hot = time_as_one_hot
         self.per_action_cmd = per_action_cmd
@@ -458,19 +463,13 @@ class RobotDataset(RLBenchDataset):
         if self.annotations is not None:
             cmd_opts = self.annotations[cmd]
             cmd = cmd_opts[np.random.randint(len(cmd_opts))]
+
+        if self.skill_to_action is not None:
+            all_cmd = self.skill_to_action[cmd]
+
         if self.per_action_cmd:
-            # hard-coded for pick_up_bottle right now
-            cmd = [
-                "approach-pose-action bottle",
-                "grasp-action bottle",
-                "lift-action bottle",
-            ]
-        # TODO: remove this and read from a yaml file instead
-        all_cmd = [
-            "approach-pose-action bottle",
-            "grasp-action bottle",
-            "lift-action bottle",
-        ]
+            """return different language per waypoint"""
+            cmd = all_cmd
 
         keypoints = self.extract_manual_keyframes(
             trial["user_keyframe"][()]
