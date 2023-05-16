@@ -139,7 +139,8 @@ class StretchXboxController(object):
         return callback
 
     def _create_move_base_loop(self, controller_state):
-        base_scale = 0.25
+        rot_scale = 0.25
+        trans_scale = 0.4
 
         def callback(event):
             # Re-run the manager because it uses globals to accumulate speed
@@ -150,12 +151,12 @@ class StretchXboxController(object):
             if translation_command is not None:
                 self._set_mode()
                 self._robot_client.nav.set_velocity(
-                    base_scale * translation_command[1], 0
+                    trans_scale * translation_command[1], 0
                 )
 
             if rotation_command is not None:
                 self._set_mode()
-                self._robot_client.nav.set_velocity(0, base_scale * rotation_command[1])
+                self._robot_client.nav.set_velocity(0, rot_scale * rotation_command[1])
 
         return callback
 
