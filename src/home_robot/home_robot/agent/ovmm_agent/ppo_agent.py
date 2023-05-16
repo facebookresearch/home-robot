@@ -26,9 +26,13 @@ from habitat_baselines.common.obs_transformers import (
     get_active_obs_transforms,
 )
 from habitat_baselines.config.default import get_config as get_habitat_config
-from habitat_baselines.utils.common import batch_obs, get_num_actions
+from habitat_baselines.utils.common import batch_obs
 
-from home_robot.core.interfaces import ContinuousNavigationAction, Observations
+from home_robot.core.interfaces import (
+    ContinuousNavigationAction,
+    DiscreteNavigationAction,
+    Observations,
+)
 from home_robot.utils.constants import (
     MAX_DEPTH_REPLACEMENT_VALUE,
     MIN_DEPTH_REPLACEMENT_VALUE,
@@ -145,17 +149,9 @@ class PPOAgent(Agent):
 
         # whether the skill uses continuous and discrete actions
         self.continuous_actions = (
-            True
-            if self.rl_config.habitat_baselines.rl.policy.action_distribution_type
+            self.rl_config.habitat_baselines.rl.policy.action_distribution_type
             != "categorical"
-            else False
         )
-
-        # the complete action space
-        if self.continuous_actions:
-            self.env_action_space = self.action_space
-        else:
-            self.env_action_space = spaces.Discrete(get_num_actions(self.action_space))
 
         # read transforms from config
         self.obs_transforms = get_active_obs_transforms(self.rl_config)
@@ -169,10 +165,15 @@ class PPOAgent(Agent):
         # actions the skill takes
         self.skill_actions = skill_config.allowed_actions
 
-        # filter the action space, deepcopy is necessary because we override arm_action next
-        self.filtered_action_space = spaces.Dict(
-            {a: copy.deepcopy(self.action_space[0][a]) for a in self.skill_actions}
-        )
+        if self.continuous_actions:
+            # filter the action space, deepcopy is necessary because we override arm_action next
+            self.filtered_action_space = spaces.Dict(
+                {a: copy.deepcopy(self.action_space[0][a]) for a in self.skill_actions}
+            )
+        else:
+            self.filtered_action_space = spaces.Dict(
+                {a: EmptySpace() for a in self.skill_actions}
+            )
 
         # The policy may not control all arm joints, read the mask that indicates the joints controlled by the policy
         if (
@@ -189,7 +190,12 @@ class PPOAgent(Agent):
             )
 
         self.vector_action_space = create_action_space(self.filtered_action_space)
-        self.num_actions = self.vector_action_space.shape[0]
+        if self.continuous_actions:
+            self.num_actions = self.vector_action_space.shape[0]
+            self.actions_dim = self.num_actions
+        else:
+            self.num_actions = self.vector_action_space.n
+            self.actions_dim = 1
 
         # Initialize actor critic using the policy config
         self.actor_critic = policy.from_config(
@@ -211,6 +217,7 @@ class PPOAgent(Agent):
                     if "actor_critic" in k
                 }
             )
+        self.actor_critic.eval()
         self.max_forward = skill_config.max_forward
         self.max_turn = skill_config.max_turn
 
@@ -226,7 +233,7 @@ class PPOAgent(Agent):
 
         self.prev_actions = torch.zeros(
             1,
-            self.num_actions,
+            self.actions_dim,
             dtype=torch.float32 if self.continuous_actions else torch.long,
             device=self.device,
         )
@@ -243,6 +250,8 @@ class PPOAgent(Agent):
         # TODO: override in GazeAgent
         # raise NotImplementedError
         # For Gaze check if the center pixel corresponds to the object of interest
+        if not self.continuous_actions:
+            return actions == DiscreteNavigationAction.STOP
         h, w = observations.semantic.shape
         return (
             observations.semantic[h // 2, w // 2]
@@ -273,6 +282,15 @@ class PPOAgent(Agent):
                 "joint": obs.joint,
                 "relative_resting_position": obs.relative_resting_position,
                 "is_holding": obs.is_holding,
+                "robot_start_gps": np.array((obs.gps[0], -1 * obs.gps[1])),
+                "robot_start_compass": obs.compass + np.pi / 2,
+                "receptacle_segmentation": obs.task_observations[
+                    "receptacle_segmentation"
+                ],
+                "cat_nav_goal_segmentation": obs.task_observations[
+                    "cat_nav_goal_segmentation"
+                ],
+                "start_receptacle": obs.task_observations["start_receptacle"],
             }
         )
 
@@ -316,24 +334,29 @@ class PPOAgent(Agent):
                     self.does_want_terminate(observations, actions),
                 )
             else:
-                # TODO: to be tested (by Nav skill?)
                 step_action = self._map_discrete_habitat_actions(
-                    action_data.env_actions[0].item()
+                    actions.item(), self.skill_actions
                 )
 
-        # Map policy controlled arm_action to complete arm_action space
-        if "arm_action" in step_action["action_args"]:
-            complete_arm_action = np.array([0.0] * len(self.arm_joint_mask))
-            controlled_joint_indices = np.nonzero(self.arm_joint_mask)
-            complete_arm_action[controlled_joint_indices] = step_action["action_args"][
-                "arm_action"
-            ]
-            step_action["action_args"]["arm_action"] = complete_arm_action
+        if self.continuous_actions:
+            # Map policy controlled arm_action to complete arm_action space
+            if "arm_action" in step_action["action_args"]:
+                complete_arm_action = np.array([0.0] * len(self.arm_joint_mask))
+                controlled_joint_indices = np.nonzero(self.arm_joint_mask)
+                complete_arm_action[controlled_joint_indices] = step_action[
+                    "action_args"
+                ]["arm_action"]
+                step_action["action_args"]["arm_action"] = complete_arm_action
 
-        return (
-            step_action["action_args"],
-            self.does_want_terminate(observations, actions),
-        )
+            return (
+                step_action["action_args"],
+                self.does_want_terminate(observations, step_action),
+            )
+        else:
+            return (
+                step_action,
+                self.does_want_terminate(observations, step_action),
+            )
 
     def _map_continuous_habitat_actions(self, cont_action):
         """Map habitat continuous actions to home-robot continuous actions"""
@@ -349,6 +372,15 @@ class PPOAgent(Agent):
             )  # turn
         return action
 
-    def _map_discrete_habitat_actions(self, discrete_action):
-        # TODO map habitat actions to home-robot actions
-        raise NotImplementedError
+    def _map_discrete_habitat_actions(self, discrete_action, skill_actions):
+        discrete_action = skill_actions[discrete_action]
+        if discrete_action == "move_forward":
+            return DiscreteNavigationAction.MOVE_FORWARD
+        elif discrete_action == "turn_left":
+            return DiscreteNavigationAction.TURN_LEFT
+        elif discrete_action == "turn_right":
+            return DiscreteNavigationAction.TURN_RIGHT
+        elif discrete_action == "stop":
+            return DiscreteNavigationAction.STOP
+        else:
+            raise ValueError

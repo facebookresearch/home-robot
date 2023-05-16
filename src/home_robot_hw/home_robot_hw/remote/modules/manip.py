@@ -48,7 +48,7 @@ class StretchManipulationClient(AbstractControlModule):
 
     # Interface methods
 
-    def get_ee_pose(self, world_frame=False):
+    def get_ee_pose(self, world_frame=False, matrix=False):
         q, _, _ = self._ros_client.get_joint_state()
         pos_base, quat_base = self._robot_model.manip_fk(q)
         pos_base[0] += self.base_x
@@ -62,8 +62,11 @@ class StretchManipulationClient(AbstractControlModule):
 
         else:
             pos, quat = pos_base, quat_base
-
-        return pos, quat
+        if matrix:
+            pose = posquat2sophus(pos, quat)
+            return pose.matrix()
+        else:
+            return pos, quat
 
     def get_joint_positions(self):
         q, _, _ = self._ros_client.get_joint_state()
@@ -76,12 +79,26 @@ class StretchManipulationClient(AbstractControlModule):
             q[HelloStretchIdx.WRIST_ROLL],
         ]
 
+    def get_gripper_position(self) -> float:
+        """get current gripper position as a float"""
+        q, _, _ = self._ros_client.get_joint_state()
+        return q[HelloStretchIdx.GRIPPER]
+
     @enforce_enabled
-    def goto(self, q, move_base=False, wait=True, max_wait_t=10.0, verbose=False):
+    def goto(
+        self,
+        q,
+        dq: List = None,
+        ddq: List = None,
+        move_base=False,
+        wait=True,
+        max_wait_t=10.0,
+        verbose=False,
+    ):
         """Directly command the robot using generalized coordinates
         some of these params are unsupported
         """
-        goal = self._ros_client.config_to_ros_trajectory_goal(q)
+        goal = self._ros_client.config_to_ros_trajectory_goal(q, dq, ddq)
         self._ros_client.trajectory_client.send_goal(goal)
 
         self._register_wait(self._ros_client.wait_for_trajectory_action)
@@ -328,11 +345,5 @@ class StretchManipulationClient(AbstractControlModule):
         return (l0_pose.inverse() * l1_pose).translation()[0]
 
     def _extract_joint_pos(self, q):
-        return [
-            q[HelloStretchIdx.BASE_X],
-            q[HelloStretchIdx.LIFT],
-            q[HelloStretchIdx.ARM],
-            q[HelloStretchIdx.WRIST_YAW],
-            q[HelloStretchIdx.WRIST_PITCH],
-            q[HelloStretchIdx.WRIST_ROLL],
-        ]
+        """Helper to convert from the general-purpose config including full robot state, into the command space used in just the manip controller. Extracts just lift/arm/wrist information."""
+        return self._robot_model.config_to_manip_command(q)

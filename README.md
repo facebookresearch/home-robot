@@ -35,6 +35,8 @@ HomeRobot requires Python 3.9. Installation on a workstation requires [conda](ht
 
 To set up the hardware stack on a Hello Robot  Stretch, see the [ROS installation instructions](docs/install_robot.md) in `home_robot_hw`.
 
+You may need a calibrated URDF for our inverse kinematics code to work well; see [calibration notes](docs/calibration.md).
+
 #### Network Setup
 
 Follow the [network setup guide](docs/network.md) to set up your robot to use the network, and make sure that it can communicate between workstation and robot via ROS. On the robot side, start up the controllers with:
@@ -86,13 +88,14 @@ Follow the on-screen instructions. The robot should move through a set of config
 
 Install [detectron2](https://detectron2.readthedocs.io/tutorials/install.html):
 ```
+git submodule update --init --recursive
 pip install -e src/third_party/detectron2
 pip install -r src/home_robot/home_robot/perception/detection/detic/Detic/requirements.txt
 ```
 
 Download Detic checkpoint as per the instructions [on the Detic github page](https://github.com/facebookresearch/Detic):
 ```bash
-cd $HOME-ROBOT-PATH/src/home_robot/perception/detection/detic/Detic/
+cd $HOME_ROBOT_ROOT/src/home_robot/home_robot/perception/detection/detic/Detic/
 mkdir models
 wget https://dl.fbaipublicfiles.com/detic/Detic_LCOCOI21k_CLIP_SwinB_896b32_4x_ft4x_max-size.pth -O models/Detic_LCOCOI21k_CLIP_SwinB_896b32_4x_ft4x_max-size.pth --no-check-certificate
 ```

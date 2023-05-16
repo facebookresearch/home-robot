@@ -8,6 +8,7 @@ GROUND_TRUTH_SEMANTICS: 1 # 1: use ground-truth semantics (for debugging / ablat
 seed: 0                   # seed
 
 ENVIRONMENT:
+  forward: 0.25           # forward motion (in meters)
   turn_angle: 10.0        # agent turn angle (in degrees)
   frame_height: 640       # first-person frame height (in pixels)
   frame_width: 480        # first-person frame width (in pixels)
@@ -39,8 +40,8 @@ AGENT:
     min_obs_height_cm: 10    # minimum height (in centimeters) of obstacle
 
   SKILLS:
-    PICK:
-      type: oracle #gaze #end_to_end #modular #hardcoded
+    GAZE_OBJ:
+      type: oracle #gaze #end_to_end #heuristic #hardcoded
       checkpoint_path: data/checkpoints/ovmm/gaze.pth
       rl_config: projects/habitat_ovmm/configs/agent/gaze_rl.yaml # with continuous actions
       gym_obs_keys:
@@ -54,22 +55,48 @@ AGENT:
         - arm_action
         - base_velocity
       arm_joint_mask: [0, 0, 0, 0, 0, 0, 1] # the arm joints that the policy can control
-      max_forward: 0.25
-      max_turn: 0.1745
+      max_forward: 1.0
+      max_turn_degrees: 180
+
+    PICK_OBJ:
+      type: oracle
 
     NAV_TO_OBJ:
-      type: modular
+      type: heuristic # heuristic (default) or rl
+      checkpoint_path: data/checkpoints/ovmm/nav_to_obj.pth
+      rl_config: projects/habitat_ovmm/configs/agent/nav_to_obj_rl.yaml
+      gym_obs_keys:
+        - robot_head_depth
+        - object_embedding
+        - ovmm_nav_goal_segmentation
+        - receptacle_segmentation
+        - start_receptacle
+        - robot_start_gps
+        - robot_start_compass
+        - joint
+      allowed_actions:
+        # - base_velocity
+        # - rearrange_stop
+        - move_forward
+        - turn_left
+        - turn_right
+        - stop
+      arm_joint_mask: [0, 0, 0, 0, 0, 0, 0] # the arm joints that the policy can control
+      max_forward: 1.0
+      max_turn: 0.1745
+      max_turn_degrees: 180
 
     NAV_TO_REC:
-      type: modular
+      type: heuristic
 
     PLACE:
-      type: hardcoded
+      type: heuristic_debug # or "hardcoded"
 
   skip_nav_to_obj: False
   skip_nav_to_rec: False
-  skip_pick: False
+  skip_pick_obj: False
   skip_place: False
+  skip_gaze_obj: True
   skip_orient_obj: False
 
   PLANNER:
@@ -91,3 +118,4 @@ EVAL_VECTORIZED:
   num_episodes_per_env: 100 # number of eval episodes per environment
   record_videos: 0          # 1: record videos from printed images, 0: don't
   record_planner_videos: 0  # 1: record planner videos (if record videos), 0: don't
+  metrics_save_freq: 5      # save metrics after every n episodes

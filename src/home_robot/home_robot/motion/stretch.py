@@ -19,7 +19,8 @@ from home_robot.utils.pose import to_matrix
 DEFAULT_STRETCH_URDF = "assets/hab_stretch/urdf/stretch_dex_wrist_simplified.urdf"
 # PLANNER_STRETCH_URDF =  'assets/hab_stretch/urdf/planner_stretch_dex_wrist_simplified.urdf'
 PLANNER_STRETCH_URDF = "assets/hab_stretch/urdf/planner_calibrated.urdf"
-MANIP_STRETCH_URDF = "assets/hab_stretch/urdf/planner_calibrated_manipulation_mode.urdf"
+# MANIP_STRETCH_URDF = "assets/hab_stretch/urdf/planner_calibrated_manipulation_mode.urdf"
+MANIP_STRETCH_URDF = "assets/hab_stretch/urdf/stretch_manip_mode.urdf"
 
 STRETCH_HOME_Q = np.array(
     [
@@ -36,36 +37,41 @@ STRETCH_HOME_Q = np.array(
         0.0,
     ]
 )
+
+# Gripper pointed down, for a top-down grasp
 STRETCH_PREGRASP_Q = np.array(
     [
         0,  # x
         0,  # y
         0,  # theta
-        0.6,  # lift
+        0.78,  # lift
         0.01,  # arm
         0.0,  # gripper rpy
         0.0,  # wrist roll
-        -1.51,  # wrist pitch
-        1.57,  # wrist yaw
-        0.0,
-        0.0,
+        -np.pi / 2,  # wrist pitch
+        0.0,  # wrist yaw
+        -np.pi / 2,  # head pan, camera to face the arm
+        -np.pi / 4,
     ]
 )
+
+# Navigation should not be fully folded up against the arm - in case its holding something
 STRETCH_NAVIGATION_Q = np.array(
     [
         0,  # x
         0,  # y
         0,  # theta
-        0.5,  # lift
+        0.78,  # lift
         0.01,  # arm
         0.0,  # gripper rpy
         0.0,  # wrist roll
-        0.0,  # wrist pitch
-        3.0,  # wrist yaw
+        -np.pi / 2,  # wrist pitch
+        0.0,  # wrist yaw
         0.0,
-        -np.pi / 4,
+        -np.pi / 6,
     ]
 )
+
 PIN_CONTROLLED_JOINTS = [
     "base_x_joint",
     "joint_lift",
@@ -77,6 +83,21 @@ PIN_CONTROLLED_JOINTS = [
     "joint_wrist_pitch",
     "joint_wrist_roll",
 ]
+
+
+# used for mapping joint states in STRETCH_*_Q to match the sim/real joint action space
+def map_joint_q_state_to_action_space(q):
+    return np.array(
+        [
+            q[4],  # arm_0
+            q[3],  # lift
+            q[8],  # yaw
+            q[7],  # pitch
+            q[6],  # roll
+            q[9],  # head pan
+            q[10],  # head tilt
+        ]
+    )
 
 
 # This is the gripper, and the distance in the gripper frame to where the fingers will roughly meet
@@ -100,6 +121,10 @@ STRETCH_GRIPPER_CLOSE = -0.2
 STRETCH_HEAD_CAMERA_ROTATIONS = (
     3  # number of counterclockwise rotations for the head camera
 )
+
+# For EXTEND_ARM action
+STRETCH_ARM_EXTENSION = 0.8
+STRETCH_ARM_LIFT = 0.8
 
 
 class HelloStretchIdx:
@@ -900,6 +925,17 @@ class HelloStretchKinematics(Robot):
         pan = pan + deltas[8]
         tilt = tilt + deltas[9]
         return positions, pan, tilt
+
+    def config_to_manip_command(self, q):
+        """convert from general representation into arm manip command. This extracts just the information used for end-effector control: base x motion, arm lift, and wrist variables."""
+        return [
+            q[HelloStretchIdx.BASE_X],
+            q[HelloStretchIdx.LIFT],
+            q[HelloStretchIdx.ARM],
+            q[HelloStretchIdx.WRIST_YAW],
+            q[HelloStretchIdx.WRIST_PITCH],
+            q[HelloStretchIdx.WRIST_ROLL],
+        ]
 
     def hab_to_position_command(self, hab_positions) -> List:
         """Compute hab_positions"""

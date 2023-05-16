@@ -1,6 +1,6 @@
 import os
 import pickle
-from typing import Any, Dict, Optional
+from typing import Any, Dict, List, Optional
 
 import numpy as np
 import rospy
@@ -12,7 +12,12 @@ from home_robot.core.interfaces import (
     HybridAction,
     Observations,
 )
-from home_robot.motion.stretch import STRETCH_HOME_Q, STRETCH_PREGRASP_Q
+from home_robot.motion.stretch import (
+    STRETCH_ARM_EXTENSION,
+    STRETCH_ARM_LIFT,
+    STRETCH_HOME_Q,
+    STRETCH_PREGRASP_Q,
+)
 from home_robot.perception.detection.detic.detic_perception import DeticPerception
 from home_robot.utils.config import get_config
 from home_robot.utils.geometry import xyt2sophus
@@ -53,15 +58,14 @@ class StretchPickandPlaceEnv(StretchEnv):
 
     def __init__(
         self,
-        goal_options=None,
-        config=None,
-        forward_step=0.25,
-        rotate_step=30.0,
-        segmentation_method=DETIC,
-        visualize_planner=False,
-        ros_grasping=True,
-        test_grasping=False,
-        dry_run=False,
+        config,
+        goal_options: List[str] = None,
+        segmentation_method: str = DETIC,
+        visualize_planner: bool = False,
+        ros_grasping: bool = True,
+        test_grasping: bool = False,
+        dry_run: bool = False,
+        debug: bool = False,
         *args,
         **kwargs,
     ):
@@ -69,6 +73,7 @@ class StretchPickandPlaceEnv(StretchEnv):
         Defines discrete planning environment.
 
         ros_grasping: create ROS grasp planner
+        debug: pause between motions; slows down execution to debug specific behavior
         """
         super().__init__(*args, **kwargs)
 
@@ -76,10 +81,11 @@ class StretchPickandPlaceEnv(StretchEnv):
         if goal_options is None:
             goal_options = REAL_WORLD_CATEGORIES
         self.goal_options = goal_options
-        self.forward_step = forward_step  # in meters
-        self.rotate_step = np.radians(rotate_step)
+        self.forward_step = config.ENVIRONMENT.forward
+        self.rotate_step = np.radians(config.ENVIRONMENT.turn_angle)
         self.test_grasping = test_grasping
         self.dry_run = dry_run
+        self.debug = debug
 
         self.robot = StretchClient(init_node=False)
 
@@ -133,15 +139,8 @@ class StretchPickandPlaceEnv(StretchEnv):
             self.visualizer.reset()
 
         # Switch control mode on the robot to nav
-        self.robot.switch_to_navigation_mode()
-        if self.grasp_planner is not None:
-            # Set the robot's head into "navigation" mode - facing forward
-            self.grasp_planner.go_to_nav_mode()
-
-    def try_grasping(self, visualize_masks=False, dry_run=False):
-        return self.grasp_planner.try_grasping(
-            visualize=visualize_masks, dry_run=dry_run
-        )
+        # Also set the robot's head into "navigation" mode - facing forward
+        self.robot.move_to_nav_posture()
 
     def get_robot(self):
         """Return the robot interface."""
@@ -169,7 +168,7 @@ class StretchPickandPlaceEnv(StretchEnv):
         # Also do not rotate if you are just doing grasp testing
         if not self.dry_run and not self.test_grasping:
             self.robot.nav.navigate_to([0, 0, -np.pi / 2], relative=True, blocking=True)
-            self.grasp_planner.go_to_nav_mode()
+            self.robot.move_to_nav_posture()
 
     def _switch_to_manip_mode(self):
         """Rotate the robot and put it in the right configuration for grasping"""
@@ -182,7 +181,7 @@ class StretchPickandPlaceEnv(StretchEnv):
         # Also do not rotate if you are just doing grasp testing
         if not self.dry_run and not self.test_grasping:
             self.robot.nav.navigate_to([0, 0, np.pi / 2], relative=True, blocking=True)
-            self.grasp_planner.go_to_manip_mode()
+            self.robot.move_to_manip_posture()
 
     def apply_action(self, action: Action, info: Optional[Dict[str, Any]] = None):
         """Handle all sorts of different actions we might be inputting into this class. We provide both a discrete and a continuous action handler."""
@@ -217,7 +216,9 @@ class StretchPickandPlaceEnv(StretchEnv):
             elif action == DiscreteNavigationAction.EXTEND_ARM:
                 """Extend the robot arm"""
                 print("EXTENDING ARM")
-                joints_action = self.robot.model.create_action(lift=0.8, arm=0.8).joints
+                joints_action = self.robot.model.create_action(
+                    lift=STRETCH_ARM_LIFT, arm=STRETCH_ARM_EXTENSION
+                ).joints
                 continuous_action = None
             elif action == DiscreteNavigationAction.MANIPULATION_MODE:
                 self._switch_to_manip_mode()
@@ -228,11 +229,14 @@ class StretchPickandPlaceEnv(StretchEnv):
                 continuous_action = None
             elif action == DiscreteNavigationAction.PICK_OBJECT:
                 continuous_action = None
+                # Run in a while loop until we have succeeded
                 while not rospy.is_shutdown():
                     if self.dry_run:
-                        # Dummy out robot execution code for perception tests\
+                        # Dummy out robot execution code for perception tests
                         break
-                    ok = self.grasp_planner.try_grasping()
+                    ok = self.grasp_planner.try_grasping(
+                        wait_for_input=self.debug, visualize=self.test_grasping
+                    )
                     if ok:
                         break
             else:
@@ -304,7 +308,10 @@ class StretchPickandPlaceEnv(StretchEnv):
         self.current_goal_name = goal_obj
 
     def get_observation(self) -> Observations:
-        """Get Detic and rgb/xyz/theta from this"""
+        """Get Detic and rgb/xyz/theta from the robot. Read RGB + depth + point cloud from the robot's cameras, get current pose, and use all of this to compute the observations
+
+        Returns:
+            obs: observations containing everything the robot policy will be using to make decisions, other than its own internal state."""
         rgb, depth, xyz = self.robot.head.get_images(
             compute_xyz=True,
         )
@@ -325,7 +332,6 @@ class StretchPickandPlaceEnv(StretchEnv):
             xyz=xyz.copy(),
             gps=gps,
             compass=np.array([theta]),
-            # base_pose=sophus2obs(relative_pose),
             task_observations=self.task_info,
             # camera_pose=self.get_camera_pose_matrix(rotated=True),
             camera_pose=self.robot.head.get_pose(rotated=True),
@@ -349,7 +355,8 @@ class StretchPickandPlaceEnv(StretchEnv):
                 obs.task_observations["instance_classes"] == self.current_goal_id
             )
 
-            if len(instance_scores):
+            # If we detected anything... check to see if our target object was found, and if so pass in the mask.
+            if len(instance_scores) and np.any(class_mask):
                 chosen_instance_idx = np.argmax(instance_scores * class_mask)
                 obs.task_observations["goal_mask"] = (
                     obs.task_observations["instance_map"] == chosen_instance_idx

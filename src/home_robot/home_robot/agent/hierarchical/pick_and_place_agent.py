@@ -7,6 +7,7 @@ from home_robot.agent.objectnav_agent import ObjectNavAgent
 from home_robot.agent.ovmm_agent.ppo_agent import PPOAgent
 from home_robot.core.abstract_agent import Agent
 from home_robot.core.interfaces import Action, DiscreteNavigationAction, Observations
+from home_robot.place_policy import HeuristicPlacePolicy
 
 
 class SimpleTaskState(Enum):
@@ -21,6 +22,7 @@ class SimpleTaskState(Enum):
     FIND_GOAL = 6
     ORIENT_PLACE = 7
     PLACE_OBJECT = 8
+    DONE = 9
 
 
 class PickAndPlaceAgent(Agent):
@@ -39,16 +41,35 @@ class PickAndPlaceAgent(Agent):
         skip_orient=False,
         skip_pick=False,
         skip_gaze=False,
+        test_place=False,
     ):
-        """Create the component object nav agent"""
+        """Create the component object nav agent as a PickAndPlaceAgent object.
+
+        Args:
+            config: A configuration object containing various parameters.
+            device_id (int, optional): The ID of the device to use. Defaults to 0.
+            skip_find_object (bool, optional): Whether to skip the exploration and navigation step. Useful for debugging. Defaults to False.
+            skip_place (bool, optional): Whether to skip the object-placement step. Useful for debugging. Defaults to False.
+            skip_orient (bool, optional): Whether to skip orientating towards the objects. Useful for debugging. Defaults to False.
+            skip_pick (bool, optional): Whether to skip the object-pickup step. Useful for debugging. Defaults to False.
+            skip_gaze (bool, optional): Whether to skip the gaze step. Useful for debugging. Defaults to False.
+            test_place (bool, optional): go directly to finding and placing
+        """
 
         # Flags used for skipping through state machine when debugging
+        self.device = device_id
         self.skip_find_object = skip_find_object
         self.skip_place = skip_place
         self.skip_orient = skip_orient
         self.skip_gaze = skip_gaze
         self.skip_pick = skip_pick
+        self.test_place = test_place
         self.config = config
+
+        # Create place policy
+        if not self.skip_place:
+            self.place_policy = HeuristicPlacePolicy(self.config, self.device)
+
         # Agent for object nav
         self.object_nav_agent = ObjectNavAgent(config, device_id)
         if not self.skip_gaze and hasattr(self.config.AGENT.SKILLS, "GAZE"):
@@ -73,20 +94,28 @@ class PickAndPlaceAgent(Agent):
     def reset(self):
         """Clear internal task state and reset component agents."""
         self.state = SimpleTaskState.FIND_OBJECT
+        if self.test_place:
+            self.state = SimpleTaskState.FIND_GOAL
         self.object_nav_agent.reset()
         if self.gaze_agent is not None:
             self.gaze_agent.reset()
 
     def _preprocess_obs_for_find(self, obs: Observations) -> Observations:
         task_info = obs.task_observations
-        obs.task_observations["recep_goal"] = task_info["start_recep_id"]
+        # Recep goal is unused by our object nav policies
+        obs.task_observations["recep_goal"] = None
+        obs.task_observations["start_recep_goal"] = task_info["start_recep_id"]
         obs.task_observations["object_goal"] = task_info["object_id"]
         obs.task_observations["goal_name"] = task_info["object_name"]
         return obs
 
     def _preprocess_obs_for_place(self, obs: Observations) -> Observations:
         task_info = obs.task_observations
-        obs.task_observations["recep_goal"] = task_info["place_recep_id"]
+        # Receptacle goal used for placement
+        obs.task_observations["end_recep_goal"] = task_info["place_recep_id"]
+        # Start receptacle goal unused
+        obs.task_observations["start_recep_goal"] = None
+        # Object goal unused - we already presumably have it in our hands
         obs.task_observations["object_goal"] = None
         obs.task_observations["goal_name"] = task_info["place_recep_name"]
         return obs
@@ -96,7 +125,7 @@ class PickAndPlaceAgent(Agent):
         Act end-to-end. Checks the current internal task state; will call the appropriate agent.
 
         Arguments:
-            obs: home_robot observation
+            obs: home_robot observation object containing sensor measurements.
 
         Returns:
             action: home_robot action
@@ -143,5 +172,20 @@ class PickAndPlaceAgent(Agent):
             # Find the goal location
             obs = self._preprocess_obs_for_place(obs)
             action, action_info = self.object_nav_agent.act(obs)
+            if action == DiscreteNavigationAction.STOP:
+                self.state = SimpleTaskState.PLACE_OBJECT
+        elif self.state == SimpleTaskState.PLACE_OBJECT:
+            # place the object somewhere - hopefully in front of the agent.
+            obs = self._preprocess_obs_for_place(obs)
+            # action, action_info = self.place_agent.act(obs)
+            action, action_info = self.place_policy.forward(obs)
+            if action == DiscreteNavigationAction.STOP:
+                self.state = SimpleTaskState.DONE
+            breakpoint()
+        elif self.state == SimpleTaskState.DONE:
+            # We're done - just stop execution entirely.
+            action = DiscreteNavigationAction.STOP
+            action_info = {}
+
         # If we did not find anything else to do, just stop
         return action, action_info

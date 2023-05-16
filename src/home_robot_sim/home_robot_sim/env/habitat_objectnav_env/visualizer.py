@@ -61,7 +61,7 @@ class Visualizer:
         else:
             self.episodes_data_path = config.TASK_CONFIG.DATASET.DATA_PATH
         assert (
-            "floorplanner" in self.episodes_data_path
+            "rearrange" in self.episodes_data_path
             or "hm3d" in self.episodes_data_path
             or "mp3d" in self.episodes_data_path
         )
@@ -71,7 +71,7 @@ class Visualizer:
             else:
                 raise NotImplementedError
         elif (
-            "floorplanner" in self.episodes_data_path
+            "rearrange" in self.episodes_data_path
             and hasattr(config, "habitat")
             and "CatNavToObjTask" in config.habitat.task.type
         ):
@@ -227,6 +227,7 @@ class Visualizer:
         curr_action: str = None,
         short_term_goal: np.ndarray = None,
         dilated_obstacle_map: np.ndarray = None,
+        **kwargs,
     ):
         """Visualize frame input and semantic map.
 
