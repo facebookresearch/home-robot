@@ -423,11 +423,12 @@ class StretchPickandPlaceEnv(StretchEnv):
             "end_recep_goal": goal_place_id,
             "goal_name": f"{goal_obj} from {goal_find} to {goal_place}",
             "recep_idx": RECEP_START_IDX,
+            "semantic_max_val": len(self.goal_options) - 1,
+            "start_receptacle": recep_name_map[goal_find],
+            "goal_receptacle": recep_name_map[goal_place],
             # Consistency - add ids for the first task
             "object_goal": goal_obj_id,
             "recep_goal": goal_find_id,
-            "start_receptacle": recep_name_map[goal_find],
-            "goal_receptacle": recep_name_map[goal_place],
         }
         if self.clip_embeddings is not None:
             # TODO: generate on fly if not available
