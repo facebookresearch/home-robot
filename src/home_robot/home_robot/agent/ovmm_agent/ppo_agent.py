@@ -189,7 +189,7 @@ class PPOAgent(Agent):
             )
         self.actor_critic.eval()
         self.max_forward = skill_config.max_forward
-        self.max_turn = skill_config.max_turn
+        self.max_turn = skill_config.max_turn_degrees
 
     def reset(self) -> None:
         self.test_recurrent_hidden_states = torch.zeros(

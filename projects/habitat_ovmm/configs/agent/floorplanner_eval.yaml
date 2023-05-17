@@ -110,7 +110,7 @@ AGENT:
         - arm_action
         - base_velocity
       arm_joint_mask: [1, 1, 1, 1, 1, 0, 0] # the arm joints that the policy can control
-      max_forward: 0.25
+      max_forward: 0.25                     # used when training the policy
       max_turn_degrees: 30.0
       sensor_height: 160
       sensor_width: 120
