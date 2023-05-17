@@ -17,7 +17,7 @@ class SimpleGraspMotionPlanner(object):
                 "The SimpleGraspMotionPlanner was designed only for Stretch."
             )
         self.robot = robot
-        self.pregrasp_height
+        self.pregrasp_height = pregrasp_height
 
     def plan_to_grasp(
         self, grasp_pose: Tuple[np.ndarray], initial_cfg: np.ndarray
