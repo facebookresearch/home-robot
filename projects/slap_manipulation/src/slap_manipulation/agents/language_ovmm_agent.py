@@ -1,12 +1,34 @@
 from typing import Any, Dict, List, Tuple
-
+from glob import glob
+import pandas as pd
 from home_robot.agent.hierarchical.pick_and_place_agent import (
     PickAndPlaceAgent,
     SimpleTaskState,
 )
 from home_robot.core.interfaces import Action, DiscreteNavigationAction, Observations
 
-
+def get_task_plans_from_gt(index, datafile='../datasets/BringXFromYSurfaceToHuman.json', root='../datasets/'):
+    """Reads the dataset files and return a list of task plans"""
+    if datafile == 'all':
+        files = glob(root+'*.json')
+        dflist = []
+        for file in files:
+            dflist.append(pd.read_json(file))    
+        df = pd.concat(dflist)
+    else:
+        df = pd.read_json(datafile)
+    assert index < len(df), f"Index {index} is out of range"
+    steps_list = df.iloc[index]['steps']
+    # steps_df = pd.DataFrame.from_records(steps_list)
+    code  = get_codelist(steps_list)
+    return code
+    
+def get_codelist(steps_list):
+    codelist = []
+    for step in steps_list:
+        codelist += [f"self.{step['verb']}('{step['noun']}', motion_profile={step['adverb']}, obs=obs)"]
+    return codelist
+    
 class LangAgent(PickAndPlaceAgent):
     def __init__(self, cfg, debug=True, **kwargs):
         super().__init__(cfg, **kwargs)
@@ -18,28 +40,29 @@ class LangAgent(PickAndPlaceAgent):
         self.testing = True
         self.debug = debug
         self.dry_run = False
-        self.task_defs = {
-            0: "place the apple on the table",
-            1: "place the banana on the table",
-            2: "find my bottle",
-        }
-        self.task_plans = {
-            0: [
-                "locate('apple')",
-                "pick_up('apple')",
-                "place('table')",
-            ],
-            1: [
-                "locate('banana')",
-                "pick_up('banana')",
-                "place('table')",
-            ],
-            2: ["self.locate('bottle', obs)"],
-            3: [
-                "self.locate('bottle', obs)",
-                "self.locate('can', obs)",
-            ],
-        }
+        self.task_plans = get_task_plans_from_gt() 
+        # self.task_defs = {
+        #     0: "place the apple on the table",
+        #     1: "place the banana on the table",
+        #     2: "find my bottle",
+        # }
+        # {
+        #     0: [
+        #         "locate('apple')",
+        #         "pick_up('apple')",
+        #         "place('table')",
+        #     ],
+        #     1: [
+        #         "locate('banana')",
+        #         "pick_up('banana')",
+        #         "place('table')",
+        #     ],
+        #     2: ["self.locate('bottle', obs)"],
+        #     3: [
+        #         "self.locate('bottle', obs)",
+        #         "self.locate('can', obs)",
+        #     ],
+        # }
 
     # ---override methods---
     def reset(self):
