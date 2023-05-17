@@ -38,8 +38,9 @@ REAL_WORLD_CATEGORIES = [
 DETIC = "detic"
 
 
-def load_config(visualize=False, print_images=True, **kwargs):
-    config_path = "projects/stretch_ovmm/configs/agent/floorplanner_eval.yaml"
+def load_config(visualize=False, print_images=True, config_path=None, **kwargs):
+    if config_path is None:
+        config_path = "projects/stretch_ovmm/configs/agent/floorplanner_eval.yaml"
     config, config_str = get_config(config_path)
     config.defrost()
     config.NUM_ENVIRONMENTS = 1
@@ -311,7 +312,8 @@ class StretchPickandPlaceEnv(StretchEnv):
         """Get Detic and rgb/xyz/theta from the robot. Read RGB + depth + point cloud from the robot's cameras, get current pose, and use all of this to compute the observations
 
         Returns:
-            obs: observations containing everything the robot policy will be using to make decisions, other than its own internal state."""
+            obs: observations containing everything the robot policy will be using to make decisions, other than its own internal state.
+        """
         rgb, depth, xyz = self.robot.head.get_images(
             compute_xyz=True,
         )
