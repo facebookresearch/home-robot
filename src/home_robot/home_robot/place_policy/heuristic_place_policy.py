@@ -356,7 +356,7 @@ class HeuristicPlacePolicy(nn.Module):
             # We take the lift position = 1
             current_arm_lift = obs.joint[4]
             # Target lift is 0.99
-            lift_delta = 0.99 - current_arm_lift
+            lift_delta = 1.2 - current_arm_lift
             # Arm should be fully retracted
             arm_delta = -1 * np.sum(obs.joint[:4])
             joints[0] = arm_delta

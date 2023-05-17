@@ -78,7 +78,9 @@ def main(
         print("STEP =", t)
         obs = env.get_observation()
         action, info = agent.act(obs)
-        env.apply_action(action, info=info)
+        done = env.apply_action(action, info=info)
+        if done:
+            break
 
     print(env.get_episode_metrics())
 

@@ -204,24 +204,21 @@ class StretchPickandPlaceEnv(StretchEnv):
             action = action.get()
             continuous_action = np.zeros(3)
             if action == DiscreteNavigationAction.MOVE_FORWARD:
-                print("FORWARD")
+                print("[ENV] Move forward")
                 continuous_action[0] = self.forward_step
             elif action == DiscreteNavigationAction.TURN_RIGHT:
-                print("TURN RIGHT")
+                print("[ENV] TURN RIGHT")
                 continuous_action[2] = -self.rotate_step
             elif action == DiscreteNavigationAction.TURN_LEFT:
-                print("TURN LEFT")
+                print("[ENV] Turn left")
                 continuous_action[2] = self.rotate_step
             elif action == DiscreteNavigationAction.STOP:
-                print("DONE!")
                 # Do nothing if "stop"
                 continuous_action = None
-                # if not self.robot.in_manipulation_mode():
-                #     self.robot.switch_to_manipulation_mode()
-                pass
+                return True
             elif action == DiscreteNavigationAction.EXTEND_ARM:
                 """Extend the robot arm"""
-                print("EXTENDING ARM")
+                print("[ENV] Extending arm")
                 joints_action = self.robot.model.create_action(
                     lift=STRETCH_ARM_LIFT, arm=STRETCH_ARM_EXTENSION
                 ).joints
@@ -234,6 +231,7 @@ class StretchPickandPlaceEnv(StretchEnv):
                 self._switch_to_nav_mode()
                 continuous_action = None
             elif action == DiscreteNavigationAction.PICK_OBJECT:
+                print("[ENV] Discrete pick policy")
                 continuous_action = None
                 # Run in a while loop until we have succeeded
                 while not rospy.is_shutdown():
@@ -252,7 +250,10 @@ class StretchPickandPlaceEnv(StretchEnv):
                 # Open the gripper
                 gripper_action = -1
             else:
-                print("Action not implemented in pick-and-place environment:", action)
+                print(
+                    "[Env] Action not implemented in pick-and-place environment:",
+                    action,
+                )
                 continuous_action = None
         elif action.is_navigation():
             continuous_action = action.get()
@@ -272,6 +273,7 @@ class StretchPickandPlaceEnv(StretchEnv):
                 )
         self._handle_joints_action(joints_action)
         self._handle_gripper_action(gripper_action)
+        return False
 
     def _handle_joints_action(self, joints_action: Optional[np.ndarray]):
         """Will convert joints action into the right format and execute it, if it exists."""
