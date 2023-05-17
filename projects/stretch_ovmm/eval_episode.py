@@ -2,6 +2,7 @@
 from typing import Optional, Tuple
 
 import click
+from home_robot.agent.ovmm_agent.ovmm_agent import OpenVocabManipAgent
 import rospy
 
 from home_robot.agent.hierarchical.pick_and_place_agent import PickAndPlaceAgent
@@ -23,6 +24,7 @@ from home_robot_hw.env.stretch_pick_and_place_env import (
 @click.option("--object", default="cup")
 @click.option("--start-recep", default="table")
 @click.option("--goal-recep", default="chair")
+@click.option("--cat-map-file")
 @click.option("--visualize-maps", default=False, is_flag=True)
 @click.option(
     "--debug",
@@ -41,6 +43,7 @@ def main(
     dry_run=False,
     visualize_maps=False,
     test_place=False,
+    cat_map_file=None,
     **kwargs,
 ):
     REAL_WORLD_CATEGORIES[2] = object
@@ -52,17 +55,19 @@ def main(
         config=config,
         test_grasping=test_pick,
         dry_run=dry_run,
+        cat_map_file=cat_map_file,
     )
     # TODO: May be a bit easier if we just read skip_{skill} from command line - similar to habitat_ovmm
-    agent = PickAndPlaceAgent(
-        config=config,
-        skip_find_object=test_pick or test_gaze,
-        skip_orient=False,
-        skip_gaze=test_pick or skip_gaze,
-        skip_pick=test_gaze,
-        skip_place=test_pick or test_gaze,
-        test_place=test_place,
-    )
+    # agent = PickAndPlaceAgent(
+    #     config=config,
+    #     skip_find_object=test_pick or test_gaze,
+    #     skip_orient=False,
+    #     skip_gaze=test_pick or skip_gaze,
+    #     skip_pick=test_gaze,
+    #     skip_place=test_pick or test_gaze,
+    #     test_place=test_place,
+    # )
+    agent = OpenVocabManipAgent(config=config)
 
     robot = env.get_robot()
     if reset_nav:

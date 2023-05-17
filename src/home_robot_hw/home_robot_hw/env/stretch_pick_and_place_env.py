@@ -1,5 +1,6 @@
 import os
 import pickle
+import json
 from typing import Any, Dict, List, Optional
 
 import numpy as np
@@ -26,11 +27,93 @@ from home_robot_hw.env.visualizer import Visualizer
 from home_robot_hw.remote import StretchClient
 from home_robot_hw.utils.grasping import GraspPlanner
 
+RECEP_START_IDX = 4
 REAL_WORLD_CATEGORIES = [
     "other",
+    # objects
     "chair",
     "cup",
     "table",
+    # receptacles
+    "coffee_table",
+    "sofa",
+    "dining_table",
+    "swivel_chair",
+    "table",
+    "tv_stand",
+    "toilet",
+    "balcony",
+    "bookcase",
+    "armchair",
+    "swing_chair",
+    "armoire",
+    "kitchen_cabinet",
+    "ottoman",
+    "desk",
+    "end_table",
+    "nightstand",
+    "chest_of_drawers",
+    "storage_bench",
+    "stool",
+    "shower_stall",
+    "chair",
+    "console_table",
+    "dining_area",
+    "beanbag_chair",
+    "easy_chair",
+    "buffet",
+    "l-shaped_couch",
+    "sink_cabinet",
+    "wall_shelf",
+    "footstool",
+    "washer",
+    "cabinet",
+    "bathtub",
+    "rocking_chair",
+    "hanging_cabinet",
+    "flat_bench",
+    "bar_stool",
+    "shelving",
+    "china_cabinet",
+    "dressing_table",
+    "hot_tub",
+    "kitchen_island",
+    "bar",
+    "straight_chair",
+    "bench",
+    "air_hockey_table",
+    "chaise_longue",
+    "ladder_bookcase",
+    "highchair",
+    "wardrobe",
+    "credenza",
+    "swing_bench",
+    "car",
+    "gazebo",
+    "serving_cart",
+    "trunk",
+    "shoe_rack,cabinet",
+    "file",
+    "medicine_chest",
+    "washbasin",
+    "daybed",
+    "table-tennis_table",
+    "sink_stand",
+    "base_cabinet",
+    "magazine_rack",
+    "lectern",
+    "shoe_rack",
+    "foosball_table",
+    "handcart",
+    "conference_table",
+    "step_stool",
+    "mantel",
+    "pool_table",
+    "workbench",
+    "plant_stand",
+    "picnic_table",
+    "dryer",
+    "bathtub,shower_stall",
     "other",
 ]  # TODO: Remove hardcoded indices in the visualizer so we can add more objects
 
@@ -59,6 +142,7 @@ class StretchPickandPlaceEnv(StretchEnv):
     def __init__(
         self,
         config,
+        cat_map_file: str,
         goal_options: List[str] = None,
         segmentation_method: str = DETIC,
         visualize_planner: bool = False,
@@ -86,6 +170,9 @@ class StretchPickandPlaceEnv(StretchEnv):
         self.test_grasping = test_grasping
         self.dry_run = dry_run
         self.debug = debug
+
+        with open(cat_map_file) as f:
+            self.category_map = json.load(f)
 
         self.robot = StretchClient(init_node=False)
 
@@ -281,17 +368,21 @@ class StretchPickandPlaceEnv(StretchEnv):
         goal_obj_id = self.goal_options.index(goal_obj)
         goal_find_id = self.goal_options.index(goal_find)
         goal_place_id = self.goal_options.index(goal_place)
+        recep_name_map = self.category_map["recep_category_to_recep_category_id"]
         self.task_info = {
             "object_name": goal_obj,
             "start_recep_name": goal_find,
             "place_recep_name": goal_place,
-            "object_id": goal_obj_id,
-            "start_recep_id": goal_find_id,
-            "place_recep_id": goal_place_id,
+            # "object_goal": goal_obj_id,
+            "start_recep_goal": goal_find_id,
+            "end_recep_goal": goal_place_id,
             "goal_name": f"{goal_obj} from {goal_find} to {goal_place}",
+            "recep_idx": RECEP_START_IDX,
             # Consistency - add ids for the first task
             "object_goal": goal_obj_id,
             "recep_goal": goal_find_id,
+            "start_receptacle": recep_name_map[goal_find],
+            "goal_receptacle": recep_name_map[goal_place],
         }
         if self.clip_embeddings is not None:
             # TODO: generate on fly if not available
