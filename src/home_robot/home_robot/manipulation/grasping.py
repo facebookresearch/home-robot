@@ -8,11 +8,16 @@ from home_robot.motion.stretch import HelloStretchIdx, HelloStretchKinematics
 class SimpleGraspMotionPlanner(object):
     """Simple top-down grasp motion planner for the Stretch."""
 
-    def __init__(self, robot: HelloStretchKinematics):
+    def __init__(self, robot: HelloStretchKinematics, pregrasp_height=1.2):
         """
         Solve IK
         """
+        if not isinstance(robot, HelloStretchKinematics):
+            raise RuntimeError(
+                "The SimpleGraspMotionPlanner was designed only for Stretch."
+            )
         self.robot = robot
+        self.pregrasp_height
 
     def plan_to_grasp(
         self, grasp_pose: Tuple[np.ndarray], initial_cfg: np.ndarray
@@ -31,7 +36,7 @@ class SimpleGraspMotionPlanner(object):
 
         # Create a pregrasp point at the top of the robot's arc
         pregrasp_cfg = initial_cfg.copy()
-        pregrasp_cfg[1] = 0.95
+        pregrasp_cfg[1] = self.pregrasp_height
         pregrasp = ("pregrasp", pregrasp_cfg, False)
 
         # Try grasp first - find an IK solution for this
