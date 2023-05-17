@@ -55,6 +55,7 @@ def main(
         dry_run=True,
         ros_grasping=False,
     )
+
     env.reset(objects[1], objects[2], objects[3])
 
     robot = env.get_robot()
@@ -75,4 +76,8 @@ def main(
 
 
 if __name__ == "__main__":
+    """Example usage: 
+    python projects/stretch_ovmm/tests/test_detic.py \
+            --objects rubber_duck,cup,chair,table,can,mouse,clamp,bowl
+    """
     main()
