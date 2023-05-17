@@ -58,7 +58,7 @@ AGENT:
       max_forward: 1.0
       max_turn_degrees: 180
 
-    PICK_OBJ:
+    PICK:
       type: oracle
 
     NAV_TO_OBJ:
