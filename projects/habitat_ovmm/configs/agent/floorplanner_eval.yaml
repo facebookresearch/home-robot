@@ -89,6 +89,7 @@ AGENT:
       max_turn_degrees: 10.0
       sensor_height: 256
       sensor_width: 256
+      terminate_condition: discrete_stop
       nav_goal_seg_channels: 2
 
     NAV_TO_REC:
@@ -109,13 +110,14 @@ AGENT:
         - arm_action
         - base_velocity
       arm_joint_mask: [1, 1, 1, 1, 1, 0, 0] # the arm joints that the policy can control
-      max_forward: 0.25                     # used when training the policy
+      max_displacement: 0.25                     # used when training the policy
       max_turn_degrees: 30.0
       sensor_height: 160
       sensor_width: 120
       nav_goal_seg_channels: 1
       terminate_condition: ungrip
       grip_threshold: -0.8
+      max_joint_delta: 0.0125
 
   skip_skills:
     nav_to_obj: False

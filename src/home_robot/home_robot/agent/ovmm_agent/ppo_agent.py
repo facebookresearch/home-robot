@@ -30,7 +30,7 @@ from habitat_baselines.utils.common import batch_obs
 
 from home_robot.agent.ovmm_agent.complete_obs_space import get_complete_obs_space
 from home_robot.core.interfaces import (
-    ContinuousNavigationAction,
+    ContinuousFullBodyAction,
     DiscreteNavigationAction,
     Observations,
 )
@@ -190,6 +190,12 @@ class PPOAgent(Agent):
         self.actor_critic.eval()
         self.max_displacement = skill_config.max_displacement
         self.max_turn = skill_config.max_turn_degrees
+        self.nav_goal_seg_channels = skill_config.nav_goal_seg_channels
+        self.max_joint_delta = None
+        if "arm_action" in skill_config.allowed_actions:
+            self.max_joint_delta = skill_config.max_joint_delta
+            self.grip_threshold = skill_config.grip_threshold
+        self.terminate_condition = skill_config.terminate_condition
 
     def reset(self) -> None:
         self.test_recurrent_hidden_states = torch.zeros(
@@ -216,31 +222,31 @@ class PPOAgent(Agent):
         """Initialize agent state."""
         self.reset()
 
-    def does_want_terminate(self, observations, actions):
-        if not self.continuous_actions:
-            return actions == DiscreteNavigationAction.STOP
-        if self.config.terminate_condition == "grip":
-            return actions["action_args"]["grip_action"] >= self.config.grip_threshold
-        elif self.config.terminate_condition == "ungrip":
-            return actions["action_args"]["grip_action"] < self.config.grip_threshold
-        elif self.config.terminate_condition == "obj_goal_at_center":
+    def does_want_terminate(self, observations, action) -> bool:
+        if not self.continuous_actions and self.terminate_condition == "discrete_stop":
+            return action == DiscreteNavigationAction.STOP
+        elif self.terminate_condition == "grip":
+            return action["grip_action"][0] >= self.grip_threshold
+        elif self.terminate_condition == "ungrip":
+            return action["grip_action"][0] < self.grip_threshold
+        elif self.terminate_condition == "obj_goal_at_center":
             # check if the center pixel corresponds to the object of interest
             h, w = observations.semantic.shape
             return (
                 observations.semantic[h // 2, w // 2]
                 == observations.task_observations["object_goal"]
             )
-        elif "rearrange_stop" in actions["action_args"]:
-            return actions["action_args"]["rearrange_stop"] > 0
+        elif "rearrange_stop" in action:
+            return action["rearrange_stop"][0] > 0
         else:
             raise ValueError("Invalid terminate condition")
 
     def _get_goal_segmentation(self, obs: Observations) -> np.ndarray:
-        if self.skill_config.nav_goal_seg_channels == 1:
+        if self.nav_goal_seg_channels == 1:
             return np.expand_dims(
                 obs.semantic == obs.task_observations["end_recep_goal"], -1
             ).astype(np.uint8)
-        elif self.skill_config.nav_goal_seg_channels == 2:
+        elif self.nav_goal_seg_channels == 2:
             object_goal = np.expand_dims(
                 obs.semantic == obs.task_observations["object_goal"], -1
             ).astype(np.uint8)
@@ -280,6 +286,9 @@ class PPOAgent(Agent):
                 ],
                 "ovmm_nav_goal_segmentation": self._get_goal_segmentation(obs),
                 "start_receptacle": obs.task_observations["start_receptacle"],
+                "goal_receptacle": obs.task_observations[
+                    "goal_receptacle"
+                ],  # Todo: remove after mapping is fixed
             }
         )
 
@@ -326,9 +335,15 @@ class PPOAgent(Agent):
                         "action_args"
                     ]["arm_action"]
                     step_action["action_args"]["arm_action"] = complete_arm_action
+                robot_action = self._map_continuous_habitat_actions(
+                    step_action["action_args"]
+                )
+                does_want_terminate = self.does_want_terminate(
+                    observations, step_action["action_args"]
+                )
                 return (
-                    self._map_continuous_habitat_actions(step_action["action_args"]),
-                    self.does_want_terminate(observations, actions),
+                    robot_action,
+                    does_want_terminate,
                 )
             else:
                 step_action = self._map_discrete_habitat_actions(
@@ -341,17 +356,23 @@ class PPOAgent(Agent):
 
     def _map_continuous_habitat_actions(self, cont_action):
         """Map habitat continuous actions to home-robot continuous actions"""
-        # TODO: support simultaneous manipulation
-        waypoint, sel = cont_action["base_vel"]
+        # TODO: add home-robot support for simultaneous gripping
+        waypoint, turn, sel = cont_action[
+            "base_vel"
+        ]  # Teleport action after disabling simultaneous turn and lateral movement
+        xyt = [0, 0, 0]
         if sel >= 0:
-            action = ContinuousNavigationAction(
+            xyt = np.array(
                 [np.clip(waypoint, -1, 1) * self.max_displacement, 0, 0]
             )  # forward
         else:
-            action = ContinuousNavigationAction(
-                [0, 0, np.clip(waypoint, -1, 1) * self.max_turn]
-            )  # turn
-        return action
+            xyt = np.array([0, 0, np.clip(turn, -1, 1) * self.max_turn])  # turn
+        joints = None
+        if "arm_action" in cont_action:
+            arm_action = cont_action["arm_action"]
+            if arm_action[0] > 0:
+                joints = arm_action * self.max_joint_delta
+        return ContinuousFullBodyAction(xyt, joints)
 
     def _map_discrete_habitat_actions(self, discrete_action, skill_actions):
         discrete_action = skill_actions[discrete_action]

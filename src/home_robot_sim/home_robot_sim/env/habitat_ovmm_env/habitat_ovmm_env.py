@@ -194,6 +194,7 @@ class HabitatOpenVocabManipEnv(HabitatEnv):
                 "receptacle_segmentation": habitat_obs["receptacle_segmentation"],
                 "ovmm_nav_goal_segmentation": habitat_obs["ovmm_nav_goal_segmentation"],
                 "start_receptacle": habitat_obs["start_receptacle"],
+                "goal_receptacle": habitat_obs["goal_receptacle"],
             },
             joint=habitat_obs["joint"],
             is_holding=habitat_obs["is_holding"],

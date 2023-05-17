@@ -40,7 +40,7 @@ class OpenVocabManipAgent(ObjectNavAgent):
         self.place_agent = None
         self.skip_skills = config.AGENT.skip_skills
         if config.AGENT.SKILLS.PLACE.type == "heuristic_debug":
-            self.place_agent = HeuristicPlacePolicy(config, self.device)
+            self.place_policy = HeuristicPlacePolicy(config, self.device)
         elif config.AGENT.SKILLS.PLACE.type == "rl":
             self.place_agent = PPOAgent(
                 config,
@@ -92,6 +92,8 @@ class OpenVocabManipAgent(ObjectNavAgent):
             self.gaze_agent.reset_vectorized()
         if self.nav_to_obj_agent is not None:
             self.nav_to_obj_agent.reset_vectorized()
+        if self.place_agent is not None:
+            self.place_agent.reset_vectorized()
         self.states = torch.tensor([Skill.NAV_TO_OBJ] * self.num_environments)
         self.pick_start_step = torch.tensor([0] * self.num_environments)
         self.place_start_step = torch.tensor([0] * self.num_environments)
@@ -108,7 +110,8 @@ class OpenVocabManipAgent(ObjectNavAgent):
         self.pick_start_step[e] = 0
         self.is_gaze_done[e] = 0
         self.place_done[e] = 0
-        self.place_agent = HeuristicPlacePolicy(self.config, self.device)
+        if self.config.AGENT.SKILLS.PLACE.type == "heuristic_debug":
+            self.place_policy = HeuristicPlacePolicy(self.config, self.device)
         super().reset_vectorized_for_env(e)
         self.planner.set_vis_dir(
             episode.scene_id.split("/")[-1].split(".")[0], episode.episode_id
@@ -117,6 +120,8 @@ class OpenVocabManipAgent(ObjectNavAgent):
             self.gaze_agent.reset_vectorized_for_env(e)
         if self.nav_to_obj_agent is not None:
             self.nav_to_obj_agent.reset_vectorized_for_env(e)
+        if self.place_agent is not None:
+            self.place_agent.reset_vectorized_for_env(e)
 
     def _switch_to_next_skill(
         self, e: int, next_skill: Skill, info: Dict[str, Any]
@@ -305,7 +310,7 @@ class OpenVocabManipAgent(ObjectNavAgent):
         elif place_type == "hardcoded":
             action = self._hardcoded_place()
         elif place_type == "heuristic_debug":
-            action, info = self.place_agent(obs, info)
+            action, info = self.place_policy(obs, info)
         elif place_type == "rl":
             action, term = self.place_agent.act(obs)
             if term:
