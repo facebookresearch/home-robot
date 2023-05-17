@@ -1,7 +1,7 @@
 import argparse
 import sys
 from pathlib import Path
-from typing import Optional, Tuple
+from typing import List, Optional, Tuple
 
 import numpy as np
 import torch
@@ -179,6 +179,10 @@ class DeticPerception(PerceptionModule):
         self.instance_mode = ColorMode.IMAGE
         self.predictor = DefaultPredictor(cfg)
         reset_cls_test(self.predictor.model, classifier, num_classes)
+
+    def replace_custom_vocabulary(self, new_vocab: List[str]):
+        # TODO: fill this out
+        pass
 
     def predict(
         self,

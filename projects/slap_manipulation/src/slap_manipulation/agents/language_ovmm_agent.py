@@ -41,6 +41,7 @@ class LangAgent(PickAndPlaceAgent):
             ],
         }
 
+    # ---override methods---
     def reset(self):
         """Clear internal task state and reset component agents."""
         self.state = SimpleTaskState.NOT_STARTED
@@ -50,6 +51,27 @@ class LangAgent(PickAndPlaceAgent):
         if self.gaze_agent is not None:
             self.gaze_agent.reset()
 
+    def _preprocess_obs_for_find(self, obs: Observations) -> Observations:
+        task_info = obs.task_observations
+        # Recep goal is unused by our object nav policies
+        obs.task_observations["recep_goal"] = None
+        obs.task_observations["start_recep_goal"] = task_info["start_recep_id"]
+        obs.task_observations["object_goal"] = task_info["object_id"]
+        obs.task_observations["goal_name"] = task_info["object_name"]
+        return obs
+
+    def _preprocess_obs_for_place(self, obs: Observations) -> Observations:
+        task_info = obs.task_observations
+        # Receptacle goal used for placement
+        obs.task_observations["end_recep_goal"] = task_info["place_recep_id"]
+        # Start receptacle goal unused
+        obs.task_observations["start_recep_goal"] = None
+        # Object goal unused - we already presumably have it in our hands
+        obs.task_observations["object_goal"] = None
+        obs.task_observations["goal_name"] = task_info["place_recep_name"]
+        return obs
+
+    # --unique methods--
     def skill_is_done(self) -> bool:
         return self.state == SimpleTaskState.IDLE
 
@@ -81,7 +103,9 @@ class LangAgent(PickAndPlaceAgent):
             else:
                 print("Already in Nav Mode")
                 self.state = SimpleTaskState.FIND_GOAL
+                # obs.task_observations["goal_name"] = object_name
                 obs = self._preprocess_obs_for_find(obs)
+                breakpoint()
                 action, info = self.object_nav_agent.act(obs)
                 if action == DiscreteNavigationAction.STOP or self.dry_run:
                     self.state = SimpleTaskState.IDLE

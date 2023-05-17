@@ -1,10 +1,10 @@
 import click
 import rospy
 from slap_manipulation.agents.language_ovmm_agent import LangAgent
+from slap_manipulation.env.language_planner_env import LanguagePlannerEnv
 
 from home_robot_hw.env.stretch_pick_and_place_env import (
     REAL_WORLD_CATEGORIES,
-    StretchPickandPlaceEnv,
     load_config,
 )
 
@@ -37,7 +37,7 @@ def main(
         **kwargs
     )
 
-    env = StretchPickandPlaceEnv(
+    env = LanguagePlannerEnv(
         config=config,
         test_grasping=test_pick,
         dry_run=dry_run,
@@ -46,7 +46,7 @@ def main(
     # robot = env.get_robot()
 
     agent.reset()
-    env.reset(start_recep, object, goal_recep)
+    env.reset()
 
     t = 0
     while not agent.task_is_done():
