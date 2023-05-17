@@ -65,16 +65,16 @@ def get_complete_obs_space(skill_config, baseline_config):
                 np.float32,
             ),
             "start_receptacle": spaces.Box(
-                np.finfo(np.float32).min,
-                np.finfo(np.float32).max,
+                0,
+                baseline_config.ENVIRONMENT.num_receptacles,
                 (1,),
-                np.float32,
+                np.int64,
             ),
             "goal_receptacle": spaces.Box(
                 0,
                 baseline_config.ENVIRONMENT.num_receptacles,
                 (1,),
-                np.float32,
+                np.int64,
             ),
         }
     )
