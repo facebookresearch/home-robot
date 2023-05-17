@@ -36,6 +36,7 @@ class OpenVocabManipAgent(ObjectNavAgent):
         self.place_done = None
         self.gaze_agent = None
         self.nav_to_obj_agent = None
+        self.nav_to_rec_agent = None
         self.pick_agent = None
         self.place_agent = None
         self.skip_skills = config.AGENT.skip_skills
@@ -62,6 +63,14 @@ class OpenVocabManipAgent(ObjectNavAgent):
             self.nav_to_obj_agent = PPOAgent(
                 config,
                 config.AGENT.SKILLS.NAV_TO_OBJ,
+                device_id=device_id,
+                obs_spaces=None,
+                action_spaces=None,
+            )
+        if config.AGENT.SKILLS.NAV_TO_REC.type == "rl":
+            self.nav_to_rec_agent = PPOAgent(
+                config,
+                config.AGENT.SKILLS.NAV_TO_REC,
                 device_id=device_id,
                 obs_spaces=None,
                 action_spaces=None,
@@ -122,6 +131,8 @@ class OpenVocabManipAgent(ObjectNavAgent):
             self.nav_to_obj_agent.reset_vectorized_for_env(e)
         if self.place_agent is not None:
             self.place_agent.reset_vectorized_for_env(e)
+        if self.nav_to_rec_agent is not None:
+            self.nav_to_rec_agent.reset_vectorized_for_env(e)
 
     def _switch_to_next_skill(
         self, e: int, next_skill: Skill, info: Dict[str, Any]
@@ -277,7 +288,7 @@ class OpenVocabManipAgent(ObjectNavAgent):
         elif nav_to_rec_type == "heuristic":
             action, info = self._heuristic_nav(obs, info)
         elif nav_to_rec_type == "rl":
-            raise NotImplementedError
+            action, term = self.nav_to_obj_agent.act(obs)
         else:
             raise ValueError(
                 f"Got unexpected value for NAV_TO_REC.type: {nav_to_rec_type}"
