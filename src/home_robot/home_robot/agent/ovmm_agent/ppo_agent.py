@@ -31,6 +31,7 @@ from habitat_baselines.utils.common import batch_obs
 from home_robot.agent.ovmm_agent.complete_obs_space import get_complete_obs_space
 from home_robot.core.interfaces import (
     ContinuousFullBodyAction,
+    ContinuousNavigationAction,
     DiscreteNavigationAction,
     Observations,
 )
@@ -327,14 +328,7 @@ class PPOAgent(Agent):
                 step_action = continuous_vector_action_to_hab_dict(
                     self.filtered_action_space, self.vector_action_space, act[0]
                 )
-                # Map policy controlled arm_action to complete arm_action space
-                if "arm_action" in step_action["action_args"]:
-                    complete_arm_action = np.array([0.0] * len(self.arm_joint_mask))
-                    controlled_joint_indices = np.nonzero(self.arm_joint_mask)
-                    complete_arm_action[controlled_joint_indices] = step_action[
-                        "action_args"
-                    ]["arm_action"]
-                    step_action["action_args"]["arm_action"] = complete_arm_action
+
                 robot_action = self._map_continuous_habitat_actions(
                     step_action["action_args"]
                 )
@@ -368,11 +362,20 @@ class PPOAgent(Agent):
         else:
             xyt = np.array([0, 0, np.clip(turn, -1, 1) * self.max_turn])  # turn
         joints = None
+        # Map policy controlled arm_action to complete arm_action space
         if "arm_action" in cont_action:
-            arm_action = cont_action["arm_action"]
-            if arm_action[0] > 0:
-                joints = arm_action * self.max_joint_delta
-        return ContinuousFullBodyAction(xyt, joints)
+            complete_arm_action = np.array([0.0] * len(self.arm_joint_mask))
+            controlled_joint_indices = np.nonzero(self.arm_joint_mask)
+            # map the policy controlled joints to "controllable" action space
+            complete_arm_action[controlled_joint_indices] = cont_action["arm_action"]
+            # add zeros for arm_1, arm_2, arm_3 extensions
+            complete_arm_action = np.concatenate(
+                [complete_arm_action[:1], [0] * 3, complete_arm_action[1:]]
+            )
+            joints = np.clip(complete_arm_action, -1, 1) * self.max_joint_delta
+            return ContinuousFullBodyAction(joints, xyt=xyt)
+        else:
+            return ContinuousNavigationAction(xyt)
 
     def _map_discrete_habitat_actions(self, discrete_action, skill_actions):
         discrete_action = skill_actions[discrete_action]
