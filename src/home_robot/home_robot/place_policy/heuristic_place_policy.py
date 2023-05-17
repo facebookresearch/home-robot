@@ -348,6 +348,8 @@ class HeuristicPlacePolicy(nn.Module):
         elif self.timestep == self.total_turn_and_forward_steps:
             action = DiscreteNavigationAction.MANIPULATION_MODE
             print("[Placement] Aligning camera to arm")
+        elif self.timestep == self.t_go_to_top:
+            print("[Placement] Raising the arm before placement.")
         elif self.timestep == self.t_go_to_place:
             print("[Placement] Move arm into position")
             placement_height, placement_extension = (
