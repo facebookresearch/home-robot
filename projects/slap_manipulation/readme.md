@@ -23,3 +23,9 @@
 - [ ] --> Collect new data from stretch
 - [ ] Edit ported dataloaders to visualize and train using collected H5s
 
+## Natural Language Commands to Steps
+```
+cd scripts
+python get_cmd_to_steps_data.py
+```
+This will connect to wandb and download the data from the artifact `bring_x_from_y:latest`, containing 6 json files.
