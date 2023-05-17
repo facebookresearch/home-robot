@@ -13,9 +13,9 @@ This file is a test for inverse kinematics on the stretch robot. It makes sure w
 from typing import Optional, Tuple
 
 import click
+import matplotlib.pyplot as plt
 import numpy as np
 import rospy
-from geometry_msgs.msg import TransformStamped
 
 from home_robot.agent.ovmm_agent.pick_and_place_agent import PickAndPlaceAgent
 from home_robot.core.interfaces import DiscreteNavigationAction
@@ -50,7 +50,7 @@ def main(
     **kwargs,
 ):
     REAL_WORLD_CATEGORIES[2] = object
-    config = load_config(visualize=visualize_maps, **kwargs)
+    config = load_config(**kwargs)
 
     rospy.init_node("eval_episode_stretch_objectnav")
     env = StretchPickandPlaceEnv(
@@ -71,9 +71,12 @@ def main(
         obs = env.get_observation()
         obs = env.segmentation.predict(obs, draw_instance_predictions=True)
         vis = obs.task_observations["semantic_frame"]
-        breakpoint()
 
-    print(env.get_episode_metrics())
+        # Visualize what we can see
+        plt.figure(1)
+        plt.imshow(vis)
+        plt.axis("off")
+        plt.show()
 
 
 if __name__ == "__main__":
