@@ -43,16 +43,10 @@ from home_robot_hw.ros.utils import matrix_to_pose_msg, ros_pose_to_transform
     help="Add pauses for debugging manipulation behavior.",
 )
 def main(
-    test_pick=False,
-    test_gaze=False,
-    skip_gaze=True,
     reset_nav=False,
     object="cup",
     start_recep="table",
     goal_recep="chair",
-    dry_run=False,
-    visualize_maps=False,
-    test_place=False,
     **kwargs,
 ):
     REAL_WORLD_CATEGORIES[2] = object
@@ -62,8 +56,8 @@ def main(
     env = StretchPickandPlaceEnv(
         goal_options=REAL_WORLD_CATEGORIES,
         config=config,
-        test_grasping=test_pick,
-        dry_run=dry_run,
+        dry_run=True,
+        ros_grasping=False,
     )
 
     robot = env.get_robot()
@@ -74,7 +68,6 @@ def main(
     env.reset(start_recep, object, goal_recep)
 
     while not rospy.is_shutdown():
-        print("STEP =", t)
         obs = env.get_observation()
         obs = env.segmentation.predict(obs, draw_instance_predictions=True)
         vis = obs.task_observations["semantic_frame"]
