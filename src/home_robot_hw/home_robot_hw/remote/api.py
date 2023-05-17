@@ -154,6 +154,9 @@ class StretchClient:
     def dpt_cam(self):
         return self._ros_client.dpt_cam
 
+    def get_joint_state(self):
+        return self._ros_client.get_joint_state()
+
     def get_frame_pose(self, frame, base_frame=None, lookup_time=None):
         """look up a particular frame in base coords"""
         return self._ros_client.get_frame_pose(frame, base_frame, lookup_time)
