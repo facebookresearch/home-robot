@@ -170,21 +170,6 @@ class OpenVocabManipAgent(ObjectNavAgent):
             info = self._switch_to_next_skill(e=0, info=info)
         return action, info
 
-    def _rl_place(
-        self, obs: Observations, info: Dict[str, Any]
-    ) -> Tuple[DiscreteNavigationAction, Any]:
-        """
-        Gets the next action to execute from the RL-based nav-to-object policy
-        """
-        place_step = self.timesteps[0] - self.place_start_step[0]
-        if place_step == 0:
-            action = DiscreteNavigationAction.MANIPULATION_MODE
-        elif place_step == 1:
-            action, term = self.place_agent(obs, info)
-            if term:
-                action = DiscreteNavigationAction.STOP
-        return action, info
-
     def _hardcoded_place(self):
         """Hardcoded place skill execution
         Orients the agent's arm and camera towards the recetacle, extends arm and releases the object"""
