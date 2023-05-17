@@ -287,8 +287,8 @@ class PPOAgent(Agent):
                 "receptacle_segmentation": obs.task_observations[
                     "receptacle_segmentation"
                 ],
-                "cat_nav_goal_segmentation": obs.task_observations[
-                    "cat_nav_goal_segmentation"
+                "ovmm_nav_goal_segmentation": obs.task_observations[
+                    "ovmm_nav_goal_segmentation"
                 ],
                 "start_receptacle": obs.task_observations["start_receptacle"],
             }
