@@ -193,26 +193,26 @@ class PickAndPlaceAgent(Agent):
         if self.state == SimpleTaskState.ORIENT_NAV:
             self.state = SimpleTaskState.FIND_GOAL
             return DiscreteNavigationAction.NAVIGATION_MODE, action_info
-        elif self.state == SimpleTaskState.FIND_GOAL:
+        if self.state == SimpleTaskState.FIND_GOAL:
             # Find the goal location
             obs, info = self._preprocess_obs_for_place(obs, info)
             action, action_info = self.object_nav_agent.act(obs)
             if action == DiscreteNavigationAction.STOP:
-                self.state = SimpleTaskState.ORIENT_PLACE
-        elif self.state == SimpleTaskState.ORIENT_PLACE:
+                self.state = SimpleTaskState.PLACE_OBJECT
+        if self.state == SimpleTaskState.ORIENT_PLACE:
+            # TODO: this is not currently used
             self.state = SimpleTaskState.PLACE_OBJECT
             if not self.skip_orient_place:
                 # orient to face the object
                 return DiscreteNavigationAction.MANIPULATION_MODE, action_info
-        elif self.state == SimpleTaskState.PLACE_OBJECT:
+        if self.state == SimpleTaskState.PLACE_OBJECT:
             # place the object somewhere - hopefully in front of the agent.
             obs, info = self._preprocess_obs_for_place(obs, info)
             # action, action_info = self.place_agent.act(obs)
             action, action_info = self.place_policy.forward(obs, info)
-            print("PLACING!!!", action)
             if action == DiscreteNavigationAction.STOP:
                 self.state = SimpleTaskState.DONE
-        elif self.state == SimpleTaskState.DONE:
+        if self.state == SimpleTaskState.DONE:
             # We're done - just stop execution entirely.
             action = DiscreteNavigationAction.STOP
             action_info = info
