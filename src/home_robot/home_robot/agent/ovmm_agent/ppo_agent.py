@@ -256,6 +256,19 @@ class PPOAgent(Agent):
             ).astype(np.uint8)
             return np.concatenate([object_goal, start_recep_goal], axis=-1)
 
+    def _get_receptacle_segmentation(self, obs: Observations) -> np.ndarray:
+        rec_seg = obs.semantic
+        recep_idx_start = obs.task_observations["recep_idx"]
+        max_val = obs.task_observations["semantic_max_val"]
+        seg_map = np.zeros(max_val + 1, dtype=np.int32)
+        for obj_idx in range(recep_idx_start):
+            seg_map[obj_idx] = 0
+        for i, obj_idx in enumerate(range(recep_idx_start, max_val)):
+            seg_map[obj_idx] = i
+        seg_map[max_val] = 0
+        rec_seg = seg_map[rec_seg]
+        return rec_seg[..., np.newaxis].astype(np.int32)
+
     def convert_to_habitat_obs_space(
         self, obs: Observations
     ) -> "OrderedDict[str, Any]":
@@ -268,7 +281,7 @@ class PPOAgent(Agent):
         normalized_depth[normalized_depth == MAX_DEPTH_REPLACEMENT_VALUE] = 1
         normalized_depth = (normalized_depth - min_depth) / (max_depth - min_depth)
         # TODO: convert all observations to hab observation space here
-        return OrderedDict(
+        hab_obs = OrderedDict(
             {
                 "robot_head_depth": np.expand_dims(normalized_depth, -1).astype(
                     np.float32
@@ -282,16 +295,19 @@ class PPOAgent(Agent):
                 "is_holding": obs.is_holding,
                 "robot_start_gps": np.array((obs.gps[0], -1 * obs.gps[1])),
                 "robot_start_compass": obs.compass + np.pi / 2,
-                "receptacle_segmentation": obs.task_observations[
-                    "receptacle_segmentation"
-                ],
-                "ovmm_nav_goal_segmentation": self._get_goal_segmentation(obs),
                 "start_receptacle": obs.task_observations["start_receptacle"],
                 "goal_receptacle": obs.task_observations[
                     "goal_receptacle"
                 ],  # Todo: remove after mapping is fixed
             }
         )
+
+        if "ovmm_nav_goal_segmentation" in self.skill_obs_keys:
+            hab_obs["ovmm_nav_goal_segmentation"] = self._get_goal_segmentation(obs)
+        if "receptacle_segmentation" in self.skill_obs_keys:
+            hab_obs["receptacle_segmentation"] = self._get_receptacle_segmentation(obs)
+
+        return hab_obs
 
     def act(self, observations: Observations) -> Dict[str, int]:
         sample_random_seed()

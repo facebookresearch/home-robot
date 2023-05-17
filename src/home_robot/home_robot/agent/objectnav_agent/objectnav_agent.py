@@ -344,7 +344,11 @@ class ObjectNavAgent(Agent):
         depth = (
             torch.from_numpy(obs.depth).unsqueeze(-1).to(self.device) * 100.0
         )  # m to cm
-        semantic = self.one_hot_encoding[torch.from_numpy(obs.semantic).to(self.device)]
+        semantic = np.full_like(obs.semantic, 4)
+        semantic[obs.semantic == obs.task_observations["object_goal"]] = 1
+        semantic[obs.semantic == obs.task_observations["start_recep_goal"]] = 2
+        semantic[obs.semantic == obs.task_observations["end_recep_goal"]] = 3
+        semantic = self.one_hot_encoding[torch.from_numpy(semantic).to(self.device)]
         obs_preprocessed = torch.cat([rgb, depth, semantic], dim=-1).unsqueeze(0)
         obs_preprocessed = obs_preprocessed.permute(0, 3, 1, 2)
 
@@ -362,7 +366,8 @@ class ObjectNavAgent(Agent):
             if self.verbose:
                 print("object goal =", obs.task_observations["object_goal"])
             object_goal_category = torch.tensor(
-                obs.task_observations["object_goal"]
+                # obs.task_observations["object_goal"]
+                1
             ).unsqueeze(0)
         start_recep_goal_category = None
         if (
@@ -372,7 +377,8 @@ class ObjectNavAgent(Agent):
             if self.verbose:
                 print("start_recep goal =", obs.task_observations["start_recep_goal"])
             start_recep_goal_category = torch.tensor(
-                obs.task_observations["start_recep_goal"]
+                # obs.task_observations["start_recep_goal"]
+                2
             ).unsqueeze(0)
         if (
             "end_recep_goal" in obs.task_observations
@@ -381,7 +387,8 @@ class ObjectNavAgent(Agent):
             if self.verbose:
                 print("end_recep goal =", obs.task_observations["end_recep_goal"])
             end_recep_goal_category = torch.tensor(
-                obs.task_observations["end_recep_goal"]
+                # obs.task_observations["end_recep_goal"]
+                3
             ).unsqueeze(0)
         goal_name = [obs.task_observations["goal_name"]]
 

@@ -1,6 +1,7 @@
 import os
 import random
 from enum import IntEnum
+import json
 from typing import Any, Dict, List, Optional, Tuple, Union
 
 import habitat
@@ -100,6 +101,8 @@ class HabitatOpenVocabManipEnv(HabitatEnv):
 
         if self.ground_truth_semantics:
             self.semantic_category_mapping = RearrangeBasicCategories()
+            with open(config.ENVIRONMENT.receptacle_sensor_id_file) as f:
+                self._receptacle_sensor_name_to_id = json.load(f)
         else:
             # combining objs and recep IDs into one mapping
             self.obj_rec_combined_mapping = {}
@@ -191,8 +194,6 @@ class HabitatOpenVocabManipEnv(HabitatEnv):
                 "end_recep_goal": end_recep_goal,
                 "goal_name": goal_name,
                 "object_embedding": habitat_obs["object_embedding"],
-                "receptacle_segmentation": habitat_obs["receptacle_segmentation"],
-                "ovmm_nav_goal_segmentation": habitat_obs["ovmm_nav_goal_segmentation"],
                 "start_receptacle": habitat_obs["start_receptacle"],
                 "goal_receptacle": habitat_obs["goal_receptacle"],
             },
@@ -211,26 +212,19 @@ class HabitatOpenVocabManipEnv(HabitatEnv):
         self, obs: home_robot.core.interfaces.Observations, habitat_obs
     ) -> home_robot.core.interfaces.Observations:
         if self.ground_truth_semantics:
-            instance_id_to_category_id = (
-                self.semantic_category_mapping.instance_id_to_category_id
-            )
             semantic = torch.from_numpy(
                 habitat_obs["object_segmentation"].squeeze(-1).astype(np.int64)
             )
-            start_recep_seg = torch.from_numpy(
-                habitat_obs["start_recep_segmentation"].squeeze(-1).astype(np.int64)
+            recep_seg = torch.from_numpy(
+                habitat_obs["receptacle_segmentation"].squeeze(-1).astype(np.int64)
             )
-            goal_recep_seg = torch.from_numpy(
-                habitat_obs["goal_recep_segmentation"].squeeze(-1).astype(np.int64)
-            )
-            instance_id_to_category_id = (
-                self.semantic_category_mapping.instance_id_to_category_id
-            )
-            # Assign semantic id of 1 for object_category, 2 for start_receptacle, 3 for goal_receptacle
-            semantic = semantic + start_recep_seg * 2 + goal_recep_seg * 3
-            semantic = torch.clip(semantic, 0, 3)
-            # TODO: update semantic_category_mapping
-            obs.semantic = instance_id_to_category_id[semantic]
+
+            recep_seg[recep_seg != 0] += 1
+            semantic = semantic + recep_seg
+            semantic[semantic == 0] = len(self._receptacle_sensor_name_to_id) + 1
+            obs.semantic = semantic.numpy()
+            obs.task_observations["recep_idx"] = 1
+            obs.task_observations["semantic_max_val"] = len(self._receptacle_sensor_name_to_id) + 1
             # TODO Ground-truth semantic visualization
         else:
             obs = self.segmentation.predict(
@@ -241,6 +235,8 @@ class HabitatOpenVocabManipEnv(HabitatEnv):
                 obs.semantic[obs.semantic == 0] = (
                     self.semantic_category_mapping.num_sem_categories - 1
                 )
+                obs.task_observations["recep_idx"] = self.semantic_category_mapping.num_sem_obj_categories + 1
+                obs.task_observations["semantic_max_val"] = self.semantic_category_mapping.num_sem_categories - 1
         obs.task_observations["semantic_frame"] = np.concatenate(
             [obs.rgb, obs.semantic[:, :, np.newaxis]], axis=2
         ).astype(np.uint8)
@@ -276,16 +272,18 @@ class HabitatOpenVocabManipEnv(HabitatEnv):
             start_rec_goal_id = 2
         elif goal_type == "ovmm":
             # nav goal specification for ovmm task includes all three categories:
+            start_receptacle = self._rec_id_to_name_mapping[obs["start_receptacle"][0]]
+            goal_receptacle = self._rec_id_to_name_mapping[obs["goal_receptacle"][0]]
             goal_name = (
                 self._obj_id_to_name_mapping[obs["object_category"][0]]
                 + " "
-                + self._rec_id_to_name_mapping[obs["start_receptacle"][0]]
+                + start_receptacle
                 + " "
-                + self._rec_id_to_name_mapping[obs["goal_receptacle"][0]]
+                + goal_receptacle
             )
             if self.ground_truth_semantics:
-                start_rec_goal_id = 2
-                end_rec_goal_id = 3
+                start_rec_goal_id = self._receptacle_sensor_name_to_id[start_receptacle] + 1
+                end_rec_goal_id = self._receptacle_sensor_name_to_id[goal_receptacle] + 1
             else:
                 # habitat goal ids (from obs) -> combined mapping (also used for detic predictions)
                 obj_goal_id = (
