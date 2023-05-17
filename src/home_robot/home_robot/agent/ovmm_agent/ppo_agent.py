@@ -28,6 +28,7 @@ from habitat_baselines.common.obs_transformers import (
 from habitat_baselines.config.default import get_config as get_habitat_config
 from habitat_baselines.utils.common import batch_obs
 
+from home_robot.agent.ovmm_agent.complete_obs_space import get_complete_obs_space
 from home_robot.core.interfaces import (
     ContinuousNavigationAction,
     DiscreteNavigationAction,
@@ -76,81 +77,7 @@ class PPOAgent(Agent):
         self.action_space = action_spaces
         if obs_spaces is None:
             self.obs_space = [
-                spaces.dict.Dict(
-                    {
-                        "is_holding": spaces.Box(0.0, 1.0, (1,), np.float32),
-                        "robot_head_depth": spaces.Box(
-                            0.0,
-                            1.0,
-                            (skill_config.sensor_height, skill_config.sensor_width, 1),
-                            np.float32,
-                        ),
-                        "joint": spaces.Box(
-                            np.finfo(np.float32).min,
-                            np.finfo(np.float32).max,
-                            (10,),
-                            np.float32,
-                        ),
-                        "object_embedding": spaces.Box(
-                            np.finfo(np.float32).min,
-                            np.finfo(np.float32).max,
-                            (512,),
-                            np.float32,
-                        ),
-                        "relative_resting_position": spaces.Box(
-                            np.finfo(np.float32).min,
-                            np.finfo(np.float32).max,
-                            (3,),
-                            np.float32,
-                        ),
-                        "object_segmentation": spaces.Box(
-                            0.0,
-                            1.0,
-                            (skill_config.sensor_height, skill_config.sensor_width, 1),
-                            np.uint8,
-                        ),
-                        "ovmm_nav_goal_segmentation": spaces.Box(
-                            0.0,
-                            1.0,
-                            (
-                                skill_config.sensor_height,
-                                skill_config.sensor_width,
-                                skill_config.nav_goal_seg_channels,
-                            ),
-                            np.uint8,
-                        ),
-                        "receptacle_segmentation": spaces.Box(
-                            0.0,
-                            1.0,
-                            (skill_config.sensor_height, skill_config.sensor_width, 1),
-                            np.uint8,
-                        ),
-                        "robot_start_gps": spaces.Box(
-                            np.finfo(np.float32).min,
-                            np.finfo(np.float32).max,
-                            (2,),
-                            np.float32,
-                        ),
-                        "robot_start_compass": spaces.Box(
-                            np.finfo(np.float32).min,
-                            np.finfo(np.float32).max,
-                            (1,),
-                            np.float32,
-                        ),
-                        "start_receptacle": spaces.Box(
-                            np.finfo(np.float32).min,
-                            np.finfo(np.float32).max,
-                            (1,),
-                            np.float32,
-                        ),
-                        "goal_receptacle": spaces.Box(
-                            0,
-                            skill_config.num_receptacles,
-                            (1,),
-                            np.float32,
-                        ),
-                    }
-                )
+                get_complete_obs_space(skill_config, config),
             ]
         if action_spaces is None:
             self.action_space = [
@@ -167,10 +94,7 @@ class PPOAgent(Agent):
                                 "base_vel": spaces.Box(-20.0, 20.0, (3,), np.float32),
                             }
                         ),
-                        "extend_arm": EmptySpace(),
-                        "face_arm": EmptySpace(),
                         "rearrange_stop": EmptySpace(),
-                        "reset_joints": EmptySpace(),
                     }
                 )
             ]
@@ -293,16 +217,37 @@ class PPOAgent(Agent):
         self.reset()
 
     def does_want_terminate(self, observations, actions):
-        # TODO: override in GazeAgent
-        # raise NotImplementedError
-        # For Gaze check if the center pixel corresponds to the object of interest
         if not self.continuous_actions:
             return actions == DiscreteNavigationAction.STOP
-        h, w = observations.semantic.shape
-        return (
-            observations.semantic[h // 2, w // 2]
-            == observations.task_observations["object_goal"]
-        )
+        if self.config.terminate_condition == "grip":
+            return actions["action_args"]["grip_action"] >= self.config.grip_threshold
+        elif self.config.terminate_condition == "ungrip":
+            return actions["action_args"]["grip_action"] < self.config.grip_threshold
+        elif self.config.terminate_condition == "obj_goal_at_center":
+            # check if the center pixel corresponds to the object of interest
+            h, w = observations.semantic.shape
+            return (
+                observations.semantic[h // 2, w // 2]
+                == observations.task_observations["object_goal"]
+            )
+        elif "rearrange_stop" in actions["action_args"]:
+            return actions["action_args"]["rearrange_stop"] > 0
+        else:
+            raise ValueError("Invalid terminate condition")
+
+    def _get_goal_segmentation(self, obs: Observations) -> np.ndarray:
+        if self.config.nav_goal_seg_channels == 1:
+            return np.expand_dims(
+                obs.semantic == obs.task_observations["end_recep_goal"], -1
+            ).astype(np.uint8)
+        elif self.config.nav_goal_seg_channels == 2:
+            object_goal = np.expand_dims(
+                obs.semantic == obs.task_observations["object_goal"], -1
+            ).astype(np.uint8)
+            start_recep_goal = np.expand_dims(
+                obs.semantic == obs.task_observations["start_recep_goal"], -1
+            ).astype(np.uint8)
+            return np.concatenate([object_goal, start_recep_goal], axis=-1)
 
     def convert_to_habitat_obs_space(
         self, obs: Observations
@@ -333,9 +278,7 @@ class PPOAgent(Agent):
                 "receptacle_segmentation": obs.task_observations[
                     "receptacle_segmentation"
                 ],
-                "ovmm_nav_goal_segmentation": obs.task_observations[
-                    "ovmm_nav_goal_segmentation"
-                ],
+                "ovmm_nav_goal_segmentation": self._get_goal_segmentation(obs),
                 "start_receptacle": obs.task_observations["start_receptacle"],
             }
         )
@@ -375,6 +318,14 @@ class PPOAgent(Agent):
                 step_action = continuous_vector_action_to_hab_dict(
                     self.filtered_action_space, self.vector_action_space, act[0]
                 )
+                # Map policy controlled arm_action to complete arm_action space
+                if "arm_action" in step_action["action_args"]:
+                    complete_arm_action = np.array([0.0] * len(self.arm_joint_mask))
+                    controlled_joint_indices = np.nonzero(self.arm_joint_mask)
+                    complete_arm_action[controlled_joint_indices] = step_action[
+                        "action_args"
+                    ]["arm_action"]
+                    step_action["action_args"]["arm_action"] = complete_arm_action
                 return (
                     self._map_continuous_habitat_actions(step_action["action_args"]),
                     self.does_want_terminate(observations, actions),
@@ -383,26 +334,10 @@ class PPOAgent(Agent):
                 step_action = self._map_discrete_habitat_actions(
                     actions.item(), self.skill_actions
                 )
-
-        if self.continuous_actions:
-            # Map policy controlled arm_action to complete arm_action space
-            if "arm_action" in step_action["action_args"]:
-                complete_arm_action = np.array([0.0] * len(self.arm_joint_mask))
-                controlled_joint_indices = np.nonzero(self.arm_joint_mask)
-                complete_arm_action[controlled_joint_indices] = step_action[
-                    "action_args"
-                ]["arm_action"]
-                step_action["action_args"]["arm_action"] = complete_arm_action
-
-            return (
-                step_action["action_args"],
-                self.does_want_terminate(observations, step_action),
-            )
-        else:
-            return (
-                step_action,
-                self.does_want_terminate(observations, step_action),
-            )
+                return (
+                    step_action,
+                    self.does_want_terminate(observations, step_action),
+                )
 
     def _map_continuous_habitat_actions(self, cont_action):
         """Map habitat continuous actions to home-robot continuous actions"""

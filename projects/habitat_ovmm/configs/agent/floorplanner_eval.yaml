@@ -16,6 +16,7 @@ ENVIRONMENT:
   hfov: 42.0              # horizontal field of view (in degrees)
   min_depth: 0.0          # minimum depth for depth sensor (in metres)
   max_depth: 10.0         # maximum depth for depth sensor (in metres)
+  num_receptacles: 76
 
 AGENT:
   max_steps: 10000         # maximum number of steps before stopping an episode; a lower value set for habitat episode termination 
@@ -41,7 +42,7 @@ AGENT:
 
   SKILLS:
     GAZE_OBJ:
-      type: oracle #gaze #end_to_end #heuristic #hardcoded
+      type: rl #end_to_end #heuristic #hardcoded
       checkpoint_path: data/checkpoints/ovmm/gaze.pth
       rl_config: projects/habitat_ovmm/configs/agent/gaze_rl.yaml # with continuous actions
       gym_obs_keys:
@@ -57,8 +58,10 @@ AGENT:
       arm_joint_mask: [0, 0, 0, 0, 0, 0, 1] # the arm joints that the policy can control
       max_forward: 1.0
       max_turn_degrees: 180
+      terminate_condition: grip
+      grip_threshold: 0.8
 
-    PICK_OBJ:
+    PICK:
       type: oracle
 
     NAV_TO_OBJ:
@@ -88,7 +91,6 @@ AGENT:
       sensor_height: 256
       sensor_width: 256
       nav_goal_seg_channels: 2
-      num_receptacles: 76
 
     NAV_TO_REC:
       type: heuristic
@@ -113,14 +115,16 @@ AGENT:
       sensor_height: 160
       sensor_width: 120
       nav_goal_seg_channels: 1
-      num_receptacles: 76
+      terminate_condition: ungrip
+      grip_threshold: -0.8
 
-  skip_nav_to_obj: False
-  skip_nav_to_rec: False
-  skip_pick_obj: False
-  skip_place: False
-  skip_gaze_obj: True
-  skip_orient_obj: False
+  skip_skills:
+    nav_to_obj: False
+    nav_to_rec: False
+    gaze_at_obj: True
+    gaze_at_rec: True
+    pick: False
+    place: False
 
   PLANNER:
     collision_threshold: 0.20       # forward move distance under which we consider there's a collision (in meters)
