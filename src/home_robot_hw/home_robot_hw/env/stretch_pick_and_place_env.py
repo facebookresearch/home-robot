@@ -165,23 +165,25 @@ class StretchPickandPlaceEnv(StretchEnv):
         raise NotImplementedError()
 
     def _switch_to_nav_mode(self):
-        """Rotate the robot back to face forward"""
-        if not self.robot.in_navigation_mode():
-            self.robot.switch_to_navigation_mode()
-            rospy.sleep(self.msg_delay_t)
+        """Navigation mode switch"""
+
         # Dummy out robot execution code for perception tests
         # Also do not rotate if you are just doing grasp testing
         if not self.dry_run and not self.test_grasping:
-            self.robot.nav.navigate_to([0, 0, -np.pi / 2], relative=True, blocking=True)
             self.robot.move_to_nav_posture()
+            self.robot.nav.navigate_to([0, 0, -np.pi / 2], relative=True, blocking=True)
+
+        """Rotate the robot back to face forward"""
+        if not self.robot.in_navigation_mode():
+            self.robot.switch_to_navigation_mode()
 
     def _switch_to_manip_mode(self):
         """Rotate the robot and put it in the right configuration for grasping"""
-        print("PICK UP THE TARGET OBJECT")
-        print(" - Robot in navigation mode:", self.robot.in_navigation_mode())
-        if not self.robot.in_navigation_mode():
+
+        # We switch to navigation mode in order to rotate by 90 degrees
+        if not self.robot.in_navigation_mode() and not self.dry_run:
             self.robot.switch_to_navigation_mode()
-            rospy.sleep(self.msg_delay_t)
+
         # Dummy out robot execution code for perception tests
         # Also do not rotate if you are just doing grasp testing
         if not self.dry_run and not self.test_grasping:
