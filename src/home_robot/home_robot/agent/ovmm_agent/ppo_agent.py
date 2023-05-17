@@ -188,7 +188,7 @@ class PPOAgent(Agent):
                 }
             )
         self.actor_critic.eval()
-        self.max_forward = skill_config.max_forward
+        self.max_displacement = skill_config.max_displacement
         self.max_turn = skill_config.max_turn_degrees
 
     def reset(self) -> None:
@@ -236,11 +236,11 @@ class PPOAgent(Agent):
             raise ValueError("Invalid terminate condition")
 
     def _get_goal_segmentation(self, obs: Observations) -> np.ndarray:
-        if self.config.nav_goal_seg_channels == 1:
+        if self.skill_config.nav_goal_seg_channels == 1:
             return np.expand_dims(
                 obs.semantic == obs.task_observations["end_recep_goal"], -1
             ).astype(np.uint8)
-        elif self.config.nav_goal_seg_channels == 2:
+        elif self.skill_config.nav_goal_seg_channels == 2:
             object_goal = np.expand_dims(
                 obs.semantic == obs.task_observations["object_goal"], -1
             ).astype(np.uint8)
@@ -345,7 +345,7 @@ class PPOAgent(Agent):
         waypoint, sel = cont_action["base_vel"]
         if sel >= 0:
             action = ContinuousNavigationAction(
-                [np.clip(waypoint, -1, 1) * self.max_forward, 0, 0]
+                [np.clip(waypoint, -1, 1) * self.max_displacement, 0, 0]
             )  # forward
         else:
             action = ContinuousNavigationAction(

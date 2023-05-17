@@ -307,7 +307,7 @@ class OpenVocabManipAgent(ObjectNavAgent):
         elif place_type == "heuristic_debug":
             action, info = self.place_agent(obs, info)
         elif place_type == "rl":
-            action, term = self.place_agent(obs, info)
+            action, term = self.place_agent.act(obs)
             if term:
                 action = DiscreteNavigationAction.STOP
         else:

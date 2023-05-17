@@ -44,7 +44,7 @@ def get_complete_obs_space(skill_config, baseline_config):
                     skill_config.sensor_width,
                     skill_config.nav_goal_seg_channels,
                 ),
-                np.uint8,
+                np.int32,
             ),
             "receptacle_segmentation": spaces.Box(
                 0.0,

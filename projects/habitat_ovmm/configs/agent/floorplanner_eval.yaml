@@ -56,8 +56,8 @@ AGENT:
         - arm_action
         - base_velocity
       arm_joint_mask: [0, 0, 0, 0, 0, 0, 1] # the arm joints that the policy can control
-      max_forward: 1.0
-      max_turn_degrees: 180
+      max_displacement: 1.0
+      max_turn_degrees: 30.0
       terminate_condition: grip
       grip_threshold: 0.8
 
@@ -85,9 +85,8 @@ AGENT:
         - turn_right
         - stop
       arm_joint_mask: [0, 0, 0, 0, 0, 0, 0] # the arm joints that the policy can control
-      max_forward: 1.0
-      max_turn: 0.1745
-      max_turn_degrees: 180
+      max_displacement: 0.25
+      max_turn_degrees: 10.0
       sensor_height: 256
       sensor_width: 256
       nav_goal_seg_channels: 2
