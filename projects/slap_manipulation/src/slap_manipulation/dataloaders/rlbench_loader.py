@@ -1,3 +1,5 @@
+from typing import List, Tuple
+
 import matplotlib.pyplot as plt
 import numpy as np
 import open3d as o3d
@@ -300,9 +302,25 @@ class RLBenchDataset(DatasetBase):
             closest_pt_og_pcd,
         )
 
-    def get_commands(self, crop_ee_keyframe, keyframes):
-        """process and get the commands"""
-        if self.multi_step:
+    def get_commands(
+        self,
+        crop_ee_keyframe: np.ndarray,
+        keyframes: List[np.ndarray],
+        return_all=False,
+    ) -> Tuple[List[np.ndarray], List[np.ndarray], List[np.ndarray]]:
+        """Given the ee-keyframe in cropped frame-of-reference returns pos, rot_mat and quat ori
+        associated with it
+        Args:
+            crop_ee_keyframe: np.ndarray of the keyframe as a 4D matrix
+            keyframes: list of 4d homogeneous matrix
+            return_all: overrides OFF state of `autoregressive` setting,
+                expects keyframes to have all the keyframes as input
+        Return:
+            positions: List of positions of keyframes/crop_ee_keyframe
+            orientations: List of rotation_matrix associated with keyframes/crop_ee_keyframe
+            angles: quaternion/rpy associated with keyframes/crop_ee_keyframe
+        """
+        if self.multi_step or return_all:
             num_frames = len(keyframes)
             assert num_frames > 0
             positions = np.zeros((num_frames, 3))
@@ -327,21 +345,12 @@ class RLBenchDataset(DatasetBase):
                     angles[j, :] = tra.quaternion_from_matrix(keyframe[:3, :3])
         else:
             # Just one
-            positions = crop_ee_keyframe[:3, 3]
-            orientations = crop_ee_keyframe[:3, :3]
+            positions = [crop_ee_keyframe[:3, 3]]
+            orientations = [crop_ee_keyframe[:3, :3]]
             if self.ori_type == "rpy":
-                angles = tra.euler_from_matrix(crop_ee_keyframe[:3, :3])
+                angles = [tra.euler_from_matrix(crop_ee_keyframe[:3, :3])]
             elif self.ori_type == "quaternion":
-                # print(f"The matrix:\n {crop_ee_keyframe[:3,:3]}")
-                # euler = np.rad2deg((
-                #     np.array(tra.euler_from_matrix(crop_ee_keyframe[:3, :3]))
-                #     + np.pi
-                # ))
-                # print(f'Euler b/w 0 to 360 from matrix: {euler}')
-                # # This is w x y z - trimesh
-                # quat = tra.quaternion_from_euler(*euler)
-                # print(f"Quat from euler b/w 0 to 360: {quat}")
-                angles = tra.quaternion_from_matrix(crop_ee_keyframe[:3, :3])
+                angles = [tra.quaternion_from_matrix(crop_ee_keyframe[:3, :3])]
         return positions, orientations, angles
 
     def get_local_problem(
@@ -376,10 +385,6 @@ class RLBenchDataset(DatasetBase):
                     crop_location = orig_crop_location
         else:
             crop_location = orig_crop_location
-
-        # TODO: remove debug code
-        # This should be at a totally reasonable location
-        # show_point_cloud(xyz, rgb, orig=crop_location)
 
         # crop from og pcd and mean-center it
         crop_xyz, crop_rgb = self.crop_around_voxel(
@@ -420,8 +425,6 @@ class RLBenchDataset(DatasetBase):
     ):
         """sanity check to make sure our data pipeline is consistent with multi head vs
         single channel data"""
-        if len(positions.shape) == 1:
-            positions = positions.reshape(1, 3)
         for pos in positions:
             err = np.linalg.norm(crop_ee_keyframe[:3, 3] - pos)
             if err < tol:
