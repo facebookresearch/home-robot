@@ -43,7 +43,7 @@ AGENT:
   SKILLS:
     GAZE_OBJ:
       type: rl #end_to_end #heuristic #hardcoded
-      checkpoint_path: data/checkpoints/ovmm/gaze.pth
+      checkpoint_path: data/checkpoints/ovmm/gaze_may16_80%_SR.pth
       rl_config: projects/habitat_ovmm/configs/agent/gaze_rl.yaml # with continuous actions
       gym_obs_keys:
         - robot_head_depth
@@ -56,10 +56,14 @@ AGENT:
         - arm_action
         - base_velocity
       arm_joint_mask: [0, 0, 0, 0, 0, 0, 1] # the arm joints that the policy can control
-      max_displacement: 1.0
+      max_displacement: 0.25                     # used when training the policy
       max_turn_degrees: 30.0
+      sensor_height: 256
+      sensor_width: 256
+      nav_goal_seg_channels: 1
       terminate_condition: grip
       grip_threshold: 0.8
+      max_joint_delta: 0.0125
 
     PICK:
       type: oracle
@@ -98,7 +102,7 @@ AGENT:
     PLACE:
       type: rl # "rl" or "heuristic_debug" or "hardcoded"
       checkpoint_path: data/checkpoints/ovmm/place_may15_76%_SR.pth
-      rl_config: projects/habitat_ovmm/configs/agent/manip_rl.yaml # with continuous actions
+      rl_config: projects/habitat_ovmm/configs/agent/place_rl.yaml # with continuous actions
       gym_obs_keys:
         - robot_head_depth
         - goal_receptacle
