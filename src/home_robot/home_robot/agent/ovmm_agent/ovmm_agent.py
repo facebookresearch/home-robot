@@ -6,7 +6,7 @@ import torch
 from home_robot.agent.objectnav_agent.objectnav_agent import ObjectNavAgent
 from home_robot.agent.ovmm_agent.ppo_agent import PPOAgent
 from home_robot.core.interfaces import DiscreteNavigationAction, Observations
-from home_robot.place_policy.heuristic_place_policy import HeuristicPlacePolicy
+from home_robot.manipulation import HeuristicPlacePolicy
 
 
 class Skill(IntEnum):
@@ -25,7 +25,7 @@ def get_skill_as_one_hot_dict(curr_skill: Skill):
 
 
 class OpenVocabManipAgent(ObjectNavAgent):
-    """Simple object nav agent based on a 2D semantic map"""
+    """Simple object nav agent based on a 2D semantic map."""
 
     def __init__(self, config, device_id: int = 0, obs_spaces=None, action_spaces=None):
         super().__init__(config, device_id=device_id)

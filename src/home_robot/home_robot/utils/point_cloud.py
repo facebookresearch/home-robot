@@ -10,6 +10,11 @@ import open3d as o3d
 import torch
 import trimesh.transformations as tra
 
+from home_robot.utils.constants import (
+    MAX_DEPTH_REPLACEMENT_VALUE,
+    MIN_DEPTH_REPLACEMENT_VALUE,
+)
+
 
 def numpy_to_pcd(xyz: np.ndarray, rgb: np.ndarray = None) -> o3d.geometry.PointCloud:
     """Create an open3d pointcloud from a single xyz/rgb pair"""
@@ -28,6 +33,23 @@ def pcd_to_numpy(pcd: o3d.geometry.PointCloud) -> (np.ndarray, np.ndarray):
     xyz = np.asarray(pcd.points)
     rgb = np.asarray(pcd.colors)
     return xyz, rgb
+
+
+def filter_depth(depth: np.ndarray, min_val: float, max_val: float) -> np.ndarray:
+    """
+    Remove bad values from depth and set them to
+    """
+    depth = depth.reshape(-1)
+    depth[depth < min_val] = MIN_DEPTH_REPLACEMENT_VALUE
+    depth[depth > max_val] = MAX_DEPTH_REPLACEMENT_VALUE
+    return depth
+
+
+def valid_depth_mask(depth: np.ndarray) -> np.ndarray:
+    """Return a mask of all valid depth pixels."""
+    return np.bitwise_and(
+        depth != MIN_DEPTH_REPLACEMENT_VALUE, depth != MAX_DEPTH_REPLACEMENT_VALUE
+    )
 
 
 def show_point_cloud(

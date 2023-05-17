@@ -86,11 +86,7 @@ Follow the on-screen instructions. The robot should move through a set of config
 
 #### 4. Install Detic
 
-Install [detectron2](https://detectron2.readthedocs.io/tutorials/install.html):
-```
-git submodule update --init --recursive
-pip install -e src/third_party/detectron2
-pip install -r src/home_robot/home_robot/perception/detection/detic/Detic/requirements.txt
+Install [detectron2](https://detectron2.readthedocs.io/tutorials/install.html). If you installed our default environment above, you may need to [download CUDA11.7](https://developer.nvidia.com/cuda-11-7-0-download-archive).
 ```
 
 Download Detic checkpoint as per the instructions [on the Detic github page](https://github.com/facebookresearch/Detic):
