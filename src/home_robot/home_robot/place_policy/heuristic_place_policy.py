@@ -349,7 +349,19 @@ class HeuristicPlacePolicy(nn.Module):
             action = DiscreteNavigationAction.MANIPULATION_MODE
             print("[Placement] Aligning camera to arm")
         elif self.timestep == self.t_go_to_top:
+            # We should move the arm back and retract it to make sure it does not hit anything as it moves towards the target position
             print("[Placement] Raising the arm before placement.")
+            # Hab sim dimensionality for arm == 10
+            joints = np.zeros(10)
+            # We take the lift position = 1
+            current_arm_lift = obs.joint[4]
+            # Target lift is 0.99
+            lift_delta = 0.99 - current_arm_lift
+            # Arm should be fully retracted
+            arm_delta = -1 * np.sum(obs.joint[:4])
+            joints[0] = arm_delta
+            joints[4] = lift_delta
+            action = ContinuousFullBodyAction(joints)
         elif self.timestep == self.t_go_to_place:
             print("[Placement] Move arm into position")
             placement_height, placement_extension = (
