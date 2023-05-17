@@ -196,7 +196,6 @@ class StretchPickandPlaceEnv(StretchEnv):
         # Update the visualizer
         if self.visualizer is not None and info is not None:
             self.visualizer.visualize(**info)
-            breakpoint()
         # By default - no arm control
         joints_action = None
         gripper_action = 0
