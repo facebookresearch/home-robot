@@ -3,6 +3,7 @@ import sys
 from pathlib import Path
 from typing import Optional, Tuple
 
+import cv2
 import numpy as np
 import torch
 from detectron2.config import get_cfg
@@ -198,7 +199,8 @@ class DeticPerception(PerceptionModule):
             obs.task_observations["semantic_frame"]: segmentation visualization
              image of shape (H, W, 3)
         """
-        image, depth = obs.rgb, obs.depth
+        image = cv2.cvtColor(obs.rgb, cv2.COLOR_RGB2BGR)
+        depth = obs.depth
         height, width, _ = image.shape
 
         pred = self.predictor(image)
@@ -248,6 +250,7 @@ def setup_cfg(args):
     cfg.MODEL.PANOPTIC_FPN.COMBINE.INSTANCES_CONFIDENCE_THRESH = (
         args.confidence_threshold
     )
+    print("[DETIC] Confidence threshold =", args.confidence_threshold)
     cfg.MODEL.ROI_BOX_HEAD.ZEROSHOT_WEIGHT_PATH = "rand"  # load later
     if not args.pred_all_class:
         cfg.MODEL.ROI_HEADS.ONE_CLASS_PER_PROPOSAL = True
@@ -296,7 +299,7 @@ def get_parser():
     parser.add_argument(
         "--confidence-threshold",
         type=float,
-        default=0.5,
+        default=0.4,
         help="Minimum score for instance predictions to be shown",
     )
     parser.add_argument(

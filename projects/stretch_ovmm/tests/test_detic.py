@@ -69,7 +69,7 @@ def main(
 
     while not rospy.is_shutdown():
         obs = env.get_observation()
-        obs = env.segmentation.predict(obs, draw_instance_predictions=True)
+        # obs = env.segmentation.predict(obs, draw_instance_predictions=True)
         vis = obs.task_observations["semantic_frame"]
 
         # Visualize what we can see
