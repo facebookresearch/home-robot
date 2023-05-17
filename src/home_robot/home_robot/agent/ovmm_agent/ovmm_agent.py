@@ -6,7 +6,7 @@ import torch
 from home_robot.agent.objectnav_agent.objectnav_agent import ObjectNavAgent
 from home_robot.agent.ovmm_agent.ppo_agent import PPOAgent
 from home_robot.core.interfaces import DiscreteNavigationAction, Observations
-from home_robot.place_policy.heuristic_place_policy import HeuristicPlacePolicy
+from home_robot.manipulation import HeuristicPlacePolicy
 
 
 class Skill(IntEnum):

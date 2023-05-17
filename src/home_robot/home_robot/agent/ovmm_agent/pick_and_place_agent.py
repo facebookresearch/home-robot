@@ -7,7 +7,7 @@ from home_robot.agent.objectnav_agent import ObjectNavAgent
 from home_robot.agent.ovmm_agent.ppo_agent import PPOAgent
 from home_robot.core.abstract_agent import Agent
 from home_robot.core.interfaces import Action, DiscreteNavigationAction, Observations
-from home_robot.place_policy import HeuristicPlacePolicy
+from home_robot.manipulation import HeuristicPlacePolicy
 
 
 class SimpleTaskState(Enum):
