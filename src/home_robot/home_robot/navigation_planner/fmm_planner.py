@@ -28,6 +28,7 @@ class FMMPlanner:
         vis_dir: str = "data/images/planner",
         visualize=False,
         print_images=False,
+        debug=False,
     ):
         """
         Arguments:
@@ -57,6 +58,7 @@ class FMMPlanner:
 
         self.du = int(self.step_size / (self.scale * 1.0))
         self.fmm_dist = None
+        self.debug = debug
         # self.goal_map = None
 
     def set_goal(self, goal, auto_improve=False):
@@ -125,9 +127,11 @@ class FMMPlanner:
         if (timestep - 1) % map_update_frequency == 0 or dd is None:
             dd = skfmm.distance(traversible_ma, dx=1 * map_downsample_factor)
             dd = ma.filled(dd, np.max(dd) + 1)
-            print(f"Computing skfmm.distance (timestep: {timestep})")
+            if self.debug:
+                print(f"Computing skfmm.distance (timestep: {timestep})")
         else:
-            print(f"Reusing previous skfmm.distance value (timestep: {timestep})")
+            if self.debug:
+                print(f"Reusing previous skfmm.distance value (timestep: {timestep})")
 
         if map_downsample_factor > 1.0:
             dd = cv2.resize(dd, (l, w))  # upsampling
@@ -197,7 +201,8 @@ class FMMPlanner:
             plt.subplot(235)
             plt.imshow(mask)
 
-        print("[FMM] Distance to fmm navigable goal pt =", subset[self.du, self.du] * 5)
+        if self.debug:
+            print("[FMM] Distance to fmm navigable goal pt =", subset[self.du, self.du] * 5)
         stop = subset[self.du, self.du] < self.goal_tolerance
 
         subset -= subset[self.du, self.du]

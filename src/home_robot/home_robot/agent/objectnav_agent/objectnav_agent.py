@@ -319,6 +319,7 @@ class ObjectNavAgent(Agent):
                 **planner_inputs[0],
                 use_dilation_for_stg=self.use_dilation_for_stg,
                 timestep=self.timesteps[0],
+                debug=self.verbose
             )
 
         # t3 = time.time()
