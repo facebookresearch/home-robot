@@ -43,7 +43,9 @@ def main(
     test_place=False,
     **kwargs,
 ):
+    REAL_WORLD_CATEGORIES[1] = start_recep
     REAL_WORLD_CATEGORIES[2] = object
+    REAL_WORLD_CATEGORIES[3] = goal_recep
     config = load_config(visualize=visualize_maps, **kwargs)
 
     rospy.init_node("eval_episode_stretch_objectnav")
