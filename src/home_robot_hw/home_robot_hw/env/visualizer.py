@@ -228,7 +228,13 @@ class Visualizer:
         self.image_vis[50:530, 15:375] = cv2.resize(semantic_frame, (360, 480))
 
         if self.show_images:
-            cv2.imshow("Visualization", self.image_vis)
+            # import matplotlib.plot as plt
+            # plt.imshow(self.image_vis)
+            # plt.title("Visualization")
+            # plt.axis("off")
+            # plt.show()
+            img = cv2.cvtColor(self.image_vis, cv2.COLOR_BGR2RGB)
+            cv2.imshow("Visualization", img)
             cv2.waitKey(1)
 
         if self.print_images:

@@ -43,19 +43,25 @@ def main(
     test_place=False,
     **kwargs,
 ):
+    print("- Starting ROS node")
+    rospy.init_node("eval_episode_stretch_objectnav")
+
     REAL_WORLD_CATEGORIES[1] = start_recep
     REAL_WORLD_CATEGORIES[2] = object
     REAL_WORLD_CATEGORIES[3] = goal_recep
+    print("- Loading configuration")
     config = load_config(visualize=visualize_maps, **kwargs)
 
-    rospy.init_node("eval_episode_stretch_objectnav")
+    print("- Creating environment")
     env = StretchPickandPlaceEnv(
         goal_options=REAL_WORLD_CATEGORIES,
         config=config,
         test_grasping=test_pick,
         dry_run=dry_run,
     )
+
     # TODO: May be a bit easier if we just read skip_{skill} from command line - similar to habitat_ovmm
+    print("- Creating agent")
     agent = PickAndPlaceAgent(
         config=config,
         skip_find_object=test_pick or test_gaze,
@@ -68,6 +74,7 @@ def main(
 
     robot = env.get_robot()
     if reset_nav:
+        print("- Sending the robot to [0, 0, 0]")
         # Send it back to origin position to make testing a bit easier
         robot.nav.navigate_to([0, 0, 0])
 
@@ -88,4 +95,5 @@ def main(
 
 
 if __name__ == "__main__":
+    print("---- Starting real-world evaluation ----")
     main()

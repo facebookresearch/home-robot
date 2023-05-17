@@ -2,6 +2,7 @@
 #
 # This source code is licensed under the MIT license found in the
 # LICENSE file in the root directory of this source tree.
+import math
 import os
 from typing import List, Optional, Tuple
 
@@ -68,7 +69,7 @@ STRETCH_NAVIGATION_Q = np.array(
         -np.pi / 2,  # wrist pitch
         0.0,  # wrist yaw
         0.0,
-        -np.pi / 6,
+        math.radians(-30),
     ]
 )
 
@@ -181,7 +182,7 @@ class HelloStretchKinematics(Robot):
     )
     # look_at_ee = np.array([-np.pi/2, -np.pi/8])
     look_at_ee = np.array([-np.pi / 2, -np.pi / 4])
-    look_front = np.array([0.0, -np.pi / 4])
+    look_front = np.array([0.0, math.radians(-30)])
     look_ahead = np.array([0.0, 0.0])
 
     # For inverse kinematics mode

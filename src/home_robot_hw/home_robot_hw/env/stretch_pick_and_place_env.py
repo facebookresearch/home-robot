@@ -196,6 +196,7 @@ class StretchPickandPlaceEnv(StretchEnv):
         # Update the visualizer
         if self.visualizer is not None and info is not None:
             self.visualizer.visualize(**info)
+            breakpoint()
         # By default - no arm control
         joints_action = None
         gripper_action = 0
@@ -410,6 +411,17 @@ class StretchPickandPlaceEnv(StretchEnv):
                     bool
                 )
 
+        # TODO: remove debug code
+        debug_rgb_bgr = False
+        if debug_rgb_bgr:
+            import matplotlib.pyplot as plt
+
+            plt.figure()
+            plt.subplot(121)
+            plt.imshow(obs.rgb)
+            plt.subplot(122)
+            plt.imshow(obs.task_observations["semantic_frame"])
+            plt.show()
         return obs
 
     @property
