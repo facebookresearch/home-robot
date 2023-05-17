@@ -138,6 +138,11 @@ class StretchPickandPlaceEnv(StretchEnv):
         if self.visualizer is not None:
             self.visualizer.reset()
 
+        # Make sure the gripper is open and ready
+        if not self.robot.in_manipulation_mode():
+            self.robot.switch_to_manipulation_mode()
+        self.robot.manip.open_gripper()
+
         # Switch control mode on the robot to nav
         # Also set the robot's head into "navigation" mode - facing forward
         self.robot.move_to_nav_posture()
@@ -193,6 +198,7 @@ class StretchPickandPlaceEnv(StretchEnv):
             self.visualizer.visualize(**info)
         # By default - no arm control
         joints_action = None
+        gripper_action = 0
         # Handle discrete actions first
         if action.is_discrete():
             action = action.get()
@@ -239,6 +245,12 @@ class StretchPickandPlaceEnv(StretchEnv):
                     )
                     if ok:
                         break
+            elif action == DiscreteNavigationAction.SNAP_OBJECT:
+                # Close the gripper
+                gripper_action = 1
+            elif action == DiscreteNavigationAction.DESNAP_OBJECT:
+                # Open the gripper
+                gripper_action = -1
             else:
                 print("Action not implemented in pick-and-place environment:", action)
                 continuous_action = None
@@ -258,7 +270,11 @@ class StretchPickandPlaceEnv(StretchEnv):
                 self.robot.nav.navigate_to(
                     continuous_action, relative=True, blocking=True
                 )
-        # Handle the joints action
+        self._handle_joints_action(joints_action)
+        self._handle_gripper_action(gripper_action)
+
+    def _handle_joints_action(self, joints_action: Optional[np.ndarray]):
+        """Will convert joints action into the right format and execute it, if it exists."""
         if joints_action is not None:
             # Check to make sure arm control is enabled
             if not self.robot.in_manipulation_mode():
@@ -270,13 +286,31 @@ class StretchPickandPlaceEnv(StretchEnv):
             )
             # Compute position goal from deltas
             joints_goal = joints_action + current_joint_positions
-            breakpoint()
             # Convert into a position command
             positions, pan, tilt = self.robot.model.hab_to_position_command(joints_goal)
             # Now we can send it to the robot
-            print("SENDING JOINT POS", positions, "PAN", pan, "TILT", tilt)
+            print("[ENV] SENDING JOINT POS", positions, "PAN", pan, "TILT", tilt)
             self.robot.head.set_pan_tilt(pan, tilt)
             self.robot.manip.goto_joint_positions(positions, move_base=False)
+        else:
+            # No action to handle
+            pass
+
+    def _handle_gripper_action(self, gripper_action: int):
+        """Handle any gripper action. Positive = close; negative = open; 0 = do nothing."""
+        if gripper_action > 0:
+            # Close the gripper
+            if not self.robot.in_manipulation_mode():
+                self.robot.switch_to_manipulation_mode()
+            self.robot.manip.close_gripper()
+        elif gripper_action < 0:
+            # Open the gripper
+            if not self.robot.in_manipulation_mode():
+                self.robot.switch_to_manipulation_mode()
+            self.robot.manip.open_gripper()
+        else:
+            # If the gripper action was zero, do nothing!
+            pass
 
     def set_goal(self, goal_find: str, goal_obj: str, goal_place: str):
         """Set the goal class as a string. Goal should be an object class we want to pick up."""

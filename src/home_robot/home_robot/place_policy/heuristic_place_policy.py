@@ -322,8 +322,11 @@ class HeuristicPlacePolicy(nn.Module):
                 self.forward_steps + self.initial_orient_num_turns
             )
             self.fall_wait_steps = 5
+            self.t_go_to_top = self.total_turn_and_forward_steps + 1
+            self.t_go_to_place = self.total_turn_and_forward_steps + 2
+            self.t_release_object = self.total_turn_and_forward_steps + 3
             self.t_done_waiting = (
-                self.total_turn_and_forward_steps + 2 + self.fall_wait_steps
+                self.total_turn_and_forward_steps + 3 + self.fall_wait_steps
             )
 
             print("-" * 20)
@@ -345,7 +348,7 @@ class HeuristicPlacePolicy(nn.Module):
         elif self.timestep == self.total_turn_and_forward_steps:
             action = DiscreteNavigationAction.MANIPULATION_MODE
             print("[Placement] Aligning camera to arm")
-        elif self.timestep == self.total_turn_and_forward_steps + 1:
+        elif self.timestep == self.t_go_to_place:
             print("[Placement] Move arm into position")
             placement_height, placement_extension = (
                 self.placement_voxel[2],
@@ -383,9 +386,8 @@ class HeuristicPlacePolicy(nn.Module):
                 + [delta_gripper_yaw]
                 + [0] * 4
             )
-            breakpoint()
             action = ContinuousFullBodyAction(joints)
-        elif self.timestep == self.total_turn_and_forward_steps + 2:
+        elif self.timestep == self.t_release_object:
             # desnap to drop the object
             print("[Placement] Desnapping object")
             action = DiscreteNavigationAction.DESNAP_OBJECT
