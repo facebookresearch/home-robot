@@ -33,9 +33,7 @@ from home_robot_hw.ros.utils import matrix_to_pose_msg, ros_pose_to_transform
 
 @click.command()
 @click.option("--reset-nav", default=False, is_flag=True)
-@click.option("--object", default="cup")
-@click.option("--start-recep", default="table")
-@click.option("--goal-recep", default="chair")
+@click.option("--objects", default="cup,table,chair")
 @click.option(
     "--debug",
     default=False,
@@ -44,28 +42,25 @@ from home_robot_hw.ros.utils import matrix_to_pose_msg, ros_pose_to_transform
 )
 def main(
     reset_nav=False,
-    object="cup",
-    start_recep="table",
-    goal_recep="chair",
+    objects="cup,table,chair",
     **kwargs,
 ):
-    REAL_WORLD_CATEGORIES[2] = object
+    objects = ["other"] + objects.split(",") + ["other"]
     config = load_config(**kwargs)
 
     rospy.init_node("eval_episode_stretch_objectnav")
     env = StretchPickandPlaceEnv(
-        goal_options=REAL_WORLD_CATEGORIES,
+        goal_options=objects,
         config=config,
         dry_run=True,
         ros_grasping=False,
     )
+    env.reset(objects[1], objects[2], objects[3])
 
     robot = env.get_robot()
     if reset_nav:
         # Send it back to origin position to make testing a bit easier
         robot.nav.navigate_to([0, 0, 0])
-
-    env.reset(start_recep, object, goal_recep)
 
     while not rospy.is_shutdown():
         obs = env.get_observation()
