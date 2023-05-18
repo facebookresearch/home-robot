@@ -1,5 +1,5 @@
-from enum import IntEnum, auto
 from datetime import datetime
+from enum import IntEnum, auto
 from typing import Any, Dict, Optional, Tuple
 
 import torch
@@ -102,9 +102,7 @@ class OpenVocabManipAgent(ObjectNavAgent):
 
         now = datetime.now()
 
-        self.planner.set_vis_dir(
-            "real_world", now.strftime("%Y%m%d_%H%M%S")
-        )
+        self.planner.set_vis_dir("real_world", now.strftime("%Y%m%d_%H%M%S"))
         if self.gaze_agent is not None:
             self.gaze_agent.reset_vectorized()
         if self.nav_to_obj_agent is not None:
@@ -354,7 +352,6 @@ class OpenVocabManipAgent(ObjectNavAgent):
         info = self._get_info(obs)
 
         self.timesteps[0] += 1
-        print(f'Executing skill {info["curr_skill"]} at timestep {self.timesteps[0]}')
 
         action = None
         while action is None:
@@ -381,4 +378,5 @@ class OpenVocabManipAgent(ObjectNavAgent):
                 ), f"action must be None when switching states, found {action} instead"
                 action = self._switch_to_next_skill(0, new_state, info)
 
+        print(f'Executing skill {info["curr_skill"]} at timestep {self.timesteps[0]}')
         return action, info
