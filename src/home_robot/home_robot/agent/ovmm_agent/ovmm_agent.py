@@ -237,8 +237,8 @@ class OpenVocabManipAgent(ObjectNavAgent):
         elif self.place_done[0] == 1:
             action = DiscreteNavigationAction.STOP
         else:
-            action, term = self.place_agent.act(obs)
-            if term:
+            action, terminate = self.place_agent.act(obs)
+            if terminate:
                 action = DiscreteNavigationAction.DESNAP_OBJECT
                 self.place_done[0] = 1
         return action, info
@@ -260,7 +260,7 @@ class OpenVocabManipAgent(ObjectNavAgent):
         elif nav_to_obj_type == "heuristic":
             action, info = self._heuristic_nav(obs, info)
         elif nav_to_obj_type == "rl":
-            action, term = self.nav_to_obj_agent.act(obs)
+            action, terminate = self.nav_to_obj_agent.act(obs)
         else:
             raise ValueError(
                 f"Got unexpected value for NAV_TO_OBJ.type: {nav_to_obj_type}"
@@ -275,11 +275,11 @@ class OpenVocabManipAgent(ObjectNavAgent):
         self, obs: Observations, info: Dict[str, Any]
     ) -> Tuple[DiscreteNavigationAction, Any, Optional[Skill]]:
         if self.skip_skills.gaze_at_obj:
-            term = True
+            terminate = True
         else:
-            action, term = self.gaze_agent.act(obs)
+            action, terminate = self.gaze_agent.act(obs)
         new_state = None
-        if term:
+        if terminate:
             # action = (
             #     {}
             # )  # TODO: update after simultaneous gripping/motion is supported
@@ -318,7 +318,7 @@ class OpenVocabManipAgent(ObjectNavAgent):
         elif nav_to_rec_type == "heuristic":
             action, info = self._heuristic_nav(obs, info)
         elif nav_to_rec_type == "rl":
-            action, term = self.nav_to_obj_agent.act(obs)
+            action, terminate = self.nav_to_obj_agent.act(obs)
         else:
             raise ValueError(
                 f"Got unexpected value for NAV_TO_REC.type: {nav_to_rec_type}"
@@ -333,11 +333,11 @@ class OpenVocabManipAgent(ObjectNavAgent):
         self, obs: Observations, info: Dict[str, Any]
     ) -> Tuple[DiscreteNavigationAction, Any, Optional[Skill]]:
         if self.skip_skills.gaze_at_rec:
-            term = True
+            terminate = True
         else:
-            action, term = self.gaze_agent.act(obs)
+            action, terminate = self.gaze_agent.act(obs)
         new_state = None
-        if term:
+        if terminate:
             action = None
             new_state = Skill.PLACE
         return action, info, new_state
