@@ -103,7 +103,6 @@ AGENT:
       rl_config: projects/habitat_ovmm/configs/agent/nav_to_rec_rl.yaml
       gym_obs_keys:
         - robot_head_depth
-        - object_embedding
         - ovmm_nav_goal_segmentation
         - receptacle_segmentation
         - start_receptacle
@@ -123,7 +122,7 @@ AGENT:
       sensor_height: 256
       sensor_width: 256
       terminate_condition: discrete_stop
-      nav_goal_seg_channels: 2
+      nav_goal_seg_channels: 1
 
     PLACE:
       type: heuristic_debug # "rl" or "heuristic_debug" or "hardcoded"

@@ -98,7 +98,31 @@ AGENT:
       nav_goal_seg_channels: 2
 
     NAV_TO_REC:
-      type: heuristic
+      type: heuristic # heuristic (default) or rl
+      checkpoint_path: data/checkpoints/ovmm/nav_to_rec_may17_60%.pth
+      rl_config: projects/habitat_ovmm/configs/agent/nav_to_rec_rl.yaml
+      gym_obs_keys:
+        - robot_head_depth
+        - ovmm_nav_goal_segmentation
+        - receptacle_segmentation
+        - start_receptacle
+        - robot_start_gps
+        - robot_start_compass
+        - joint
+      allowed_actions:
+        - base_velocity
+        - rearrange_stop
+        # - move_forward
+        # - turn_left
+        # - turn_right
+        # - stop
+      arm_joint_mask: [0, 0, 0, 0, 0, 0, 0] # the arm joints that the policy can control
+      max_displacement: 0.25
+      max_turn_degrees: 30.0
+      sensor_height: 256
+      sensor_width: 256
+      terminate_condition: discrete_stop
+      nav_goal_seg_channels: 1
 
     PLACE:
       type: rl # "rl" or "heuristic_debug" or "hardcoded"
