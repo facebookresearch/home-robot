@@ -217,6 +217,19 @@ class OpenVocabManipAgent(ObjectNavAgent):
             )
         return action
 
+    def _rl_place(self, obs: Observations, info: Dict[str, Any]):
+        place_step = self.timesteps[0] - self.place_start_step[0]
+        if place_step == 0:
+            action = DiscreteNavigationAction.MANIPULATION_MODE
+        elif self.place_done[0] == 1:
+            action = DiscreteNavigationAction.STOP
+        else:
+            action, term = self.place_agent.act(obs)
+            if term:
+                action = DiscreteNavigationAction.DESNAP_OBJECT
+                self.place_done[0] = 1
+        return action, info
+
     """
     The following methods each correspond to a skill/state this agent can execute.
     They take sensor observations as input and return the action to take and
@@ -327,23 +340,10 @@ class OpenVocabManipAgent(ObjectNavAgent):
         elif place_type == "heuristic_debug":
             action, info = self.place_policy(obs, info)
         elif place_type == "rl":
-            action, term = self._rl_place(obs, info)
+            action, info = self._rl_place(obs, info)
         else:
             raise ValueError(f"Got unexpected value for PLACE.type: {place_type}")
         return action, info, None
-
-    def _rl_place(self, obs: Observations, info: Dict[str, Any]):
-        place_step = self.timesteps[0] - self.place_start_step[0]
-        if place_step == 0:
-            action = DiscreteNavigationAction.MANIPULATION_MODE
-        elif self.place_done[0] == 1:
-            action = DiscreteNavigationAction.STOP
-        else:
-            action, term = self.place_agent.act(obs)
-            if term:
-                action = DiscreteNavigationAction.DESNAP_OBJECT
-                self.place_done[0] = 1
-        return action, info
 
     def act(self, obs: Observations) -> Tuple[DiscreteNavigationAction, Dict[str, Any]]:
         """State machine"""
