@@ -120,6 +120,8 @@ class Visualizer:
         short_term_goal: Optional[np.ndarray] = None,
         dilated_obstacle_map: Optional[np.ndarray] = None,
         short_term_goal_map: Optional[np.ndarray] = None,
+        curr_skill: str = None,
+        **kwargs,
     ):
         """Visualize frame input and semantic map.
 
@@ -137,6 +139,7 @@ class Visualizer:
             goal_name: semantic goal category
             timestep: time step within the episode
             visualize_goal: if True, visualize goal
+            curr_skill: name of the current skill being executed
         """
         if self.image_vis is None:
             self.image_vis = self._init_vis_image(goal_name)
@@ -222,6 +225,7 @@ class Visualizer:
             cv2.drawContours(self.image_vis, [agent_arrow], 0, color, -1)
 
         # First-person semantic frame
+        semantic_frame = cv2.cvtColor(semantic_frame, cv2.COLOR_BGR2RGB)
         self.image_vis[50:530, 15:375] = cv2.resize(semantic_frame, (360, 480))
 
         if self.show_images:

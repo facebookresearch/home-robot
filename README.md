@@ -86,11 +86,7 @@ Follow the on-screen instructions. The robot should move through a set of config
 
 #### 4. Install Detic
 
-Install [detectron2](https://detectron2.readthedocs.io/tutorials/install.html):
-```
-git submodule update --init --recursive
-pip install -e src/third_party/detectron2
-pip install -r src/home_robot/home_robot/perception/detection/detic/Detic/requirements.txt
+Install [detectron2](https://detectron2.readthedocs.io/tutorials/install.html). If you installed our default environment above, you may need to [download CUDA11.7](https://developer.nvidia.com/cuda-11-7-0-download-archive).
 ```
 
 Download Detic checkpoint as per the instructions [on the Detic github page](https://github.com/facebookresearch/Detic):
@@ -140,11 +136,18 @@ python projects/stretch_ovmm/eval_episode.py
 
 To set up the simulation stack with Habitat, see the [installation instructions](src/home_robot_sim/README.md) in `home_robot_sim`. You first need to install AI habitat and the simulation package:
 ```
-# Install habitat sim and update submodules
+# Install requirements
 mamba env update -f src/home_robot_sim/environment.yml
 
-# Install habitat lab on the correct (object rearrange) branch
+# Download habitat-sim and habitat-lab packages
 git submodule update --init --recursive
+
+# Build habitat-sim from source
+cd src/third_party/habitat-sim
+# Please follow the instructions [here](https://github.com/facebookresearch/habitat-sim/blob/main/BUILD_FROM_SOURCE.md) to build habitat-sim from source.
+cd -
+
+# Install habitat lab on the correct (object rearrange) branch
 pip install -e src/third_party/habitat-lab/habitat-lab
 pip install -e src/third_party/habitat-lab/habitat-baselines
 

@@ -7,7 +7,7 @@ from home_robot.agent.objectnav_agent import ObjectNavAgent
 from home_robot.agent.ovmm_agent.ppo_agent import PPOAgent
 from home_robot.core.abstract_agent import Agent
 from home_robot.core.interfaces import Action, DiscreteNavigationAction, Observations
-from home_robot.place_policy import HeuristicPlacePolicy
+from home_robot.manipulation import HeuristicPlacePolicy
 
 
 class SimpleTaskState(Enum):
@@ -44,6 +44,7 @@ class PickAndPlaceAgent(Agent):
         skip_pick=False,
         skip_gaze=False,
         test_place=False,
+        skip_orient_place=True,
     ):
         """Create the component object nav agent as a PickAndPlaceAgent object.
 
@@ -56,6 +57,7 @@ class PickAndPlaceAgent(Agent):
             skip_pick (bool, optional): Whether to skip the object-pickup step. Useful for debugging. Defaults to False.
             skip_gaze (bool, optional): Whether to skip the gaze step. Useful for debugging. Defaults to False.
             test_place (bool, optional): go directly to finding and placing
+            skip_orient_place (bool, optional): skip orienting in manipulation mode before placing
         """
 
         # Flags used for skipping through state machine when debugging
@@ -66,7 +68,9 @@ class PickAndPlaceAgent(Agent):
         self.skip_gaze = skip_gaze
         self.skip_pick = skip_pick
         self.test_place = test_place
+        self.skip_orient_place = skip_orient_place
         self.config = config
+        self.timestep = 0
 
         # Create place policy
         if not self.skip_place:
@@ -97,10 +101,15 @@ class PickAndPlaceAgent(Agent):
         """Clear internal task state and reset component agents."""
         self.state = SimpleTaskState.FIND_OBJECT
         if self.test_place:
-            self.state = SimpleTaskState.FIND_GOAL
+            # TODO: remove debugging code
+            # If we want to find the goal first...
+            # self.state = SimpleTaskState.FIND_GOAL
+            # If we just want to place...
+            self.state = SimpleTaskState.PLACE_OBJECT
         self.object_nav_agent.reset()
         if self.gaze_agent is not None:
             self.gaze_agent.reset()
+        self.timestep = 0
 
     def _preprocess_obs_for_find(self, obs: Observations) -> Observations:
         task_info = obs.task_observations
@@ -111,7 +120,10 @@ class PickAndPlaceAgent(Agent):
         obs.task_observations["goal_name"] = task_info["object_name"]
         return obs
 
-    def _preprocess_obs_for_place(self, obs: Observations) -> Observations:
+    def _preprocess_obs_for_place(
+        self, obs: Observations, info: Dict
+    ) -> Tuple[Observations, Dict]:
+        """Process information we need for the place skills."""
         task_info = obs.task_observations
         # Receptacle goal used for placement
         obs.task_observations["end_recep_goal"] = task_info["place_recep_id"]
@@ -120,7 +132,19 @@ class PickAndPlaceAgent(Agent):
         # Object goal unused - we already presumably have it in our hands
         obs.task_observations["object_goal"] = None
         obs.task_observations["goal_name"] = task_info["place_recep_name"]
-        return obs
+        info["goal_name"] = obs.task_observations["goal_name"]
+        return obs, info
+
+    def _get_info(self, obs: Observations) -> Dict:
+        """Get inputs for visual skill."""
+        info = {
+            "semantic_frame": obs.task_observations["semantic_frame"],
+            "goal_name": obs.task_observations["goal_name"],
+            "curr_skill": str(self.state),
+            "skill_done": "",  # Set if skill gets done
+            "timestep": self.timestep,
+        }
+        return info
 
     def act(self, obs: Observations) -> Tuple[Action, Dict[str, Any]]:
         """
@@ -133,7 +157,8 @@ class PickAndPlaceAgent(Agent):
             action: home_robot action
             info: additional information (e.g., for debugging, visualization)
         """
-
+        info = self._get_info(obs)
+        self.timestep += 1  # Update step counter for visualizations
         action = DiscreteNavigationAction.STOP
         action_info = None
         # Look for the goal object.
@@ -170,24 +195,29 @@ class PickAndPlaceAgent(Agent):
         if self.state == SimpleTaskState.ORIENT_NAV:
             self.state = SimpleTaskState.FIND_GOAL
             return DiscreteNavigationAction.NAVIGATION_MODE, action_info
-        elif self.state == SimpleTaskState.FIND_GOAL:
+        if self.state == SimpleTaskState.FIND_GOAL:
             # Find the goal location
-            obs = self._preprocess_obs_for_place(obs)
+            obs, info = self._preprocess_obs_for_place(obs, info)
             action, action_info = self.object_nav_agent.act(obs)
             if action == DiscreteNavigationAction.STOP:
                 self.state = SimpleTaskState.PLACE_OBJECT
-        elif self.state == SimpleTaskState.PLACE_OBJECT:
+        if self.state == SimpleTaskState.ORIENT_PLACE:
+            # TODO: this is not currently used
+            self.state = SimpleTaskState.PLACE_OBJECT
+            if not self.skip_orient_place:
+                # orient to face the object
+                return DiscreteNavigationAction.MANIPULATION_MODE, action_info
+        if self.state == SimpleTaskState.PLACE_OBJECT:
             # place the object somewhere - hopefully in front of the agent.
-            obs = self._preprocess_obs_for_place(obs)
+            obs, info = self._preprocess_obs_for_place(obs, info)
             # action, action_info = self.place_agent.act(obs)
-            action, action_info = self.place_policy.forward(obs)
+            action, action_info = self.place_policy.forward(obs, info)
             if action == DiscreteNavigationAction.STOP:
                 self.state = SimpleTaskState.DONE
-            breakpoint()
-        elif self.state == SimpleTaskState.DONE:
+        if self.state == SimpleTaskState.DONE:
             # We're done - just stop execution entirely.
             action = DiscreteNavigationAction.STOP
-            action_info = {}
+            action_info = info
 
         # If we did not find anything else to do, just stop
         return action, action_info

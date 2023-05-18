@@ -16,3 +16,6 @@
 [submodule "src/third_party/contact_graspnet"]
 	path = src/third_party/contact_graspnet
 	url = git@github.com:cpaxton/contact_graspnet.git
+[submodule "src/third_party/habitat-sim"]
+	path = src/third_party/habitat-sim
+	url = git@github.com:facebookresearch/habitat-sim.git
