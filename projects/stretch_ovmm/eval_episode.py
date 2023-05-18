@@ -61,6 +61,7 @@ def main(
     )
 
     # TODO: May be a bit easier if we just read skip_{skill} from command line - similar to habitat_ovmm
+    # Create test agent
     print("- Creating agent")
     agent = PickAndPlaceAgent(
         config=config,
@@ -91,9 +92,8 @@ def main(
         if done:
             break
 
-    print(env.get_episode_metrics())
-
 
 if __name__ == "__main__":
     print("---- Starting real-world evaluation ----")
     main()
+    print("----- Done real-world evaluation ----")

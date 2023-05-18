@@ -178,9 +178,10 @@ class VoxelGraspGenerator(object):
         debug (bool): Flag indicating whether to enable debug mode.
     """
 
-    def __init__(self, in_base_frame=True, debug=False):
+    def __init__(self, in_base_frame=True, debug=False, verbose=True):
         self.in_base_frame = in_base_frame
         self.debug = debug
+        self._verbose = verbose
 
     def get_grasps(
         self,
@@ -238,6 +239,9 @@ class VoxelGraspGenerator(object):
         top_idcs = np.argpartition(xyz[:, 2], -num_top)[-num_top:]
         xyz_top = xyz[top_idcs, :]
 
+        if self._verbose:
+            print("[VOXEL GRASPS] Num top pts =", num_top)
+
         # Flatten points into 2d occupancy map
         z_grasp = np.median(xyz_top[:, 2])
 
@@ -260,6 +264,8 @@ class VoxelGraspGenerator(object):
                 x_score, y_score = _compute_grasp_scores((i, j), occ_map)
                 x_score_map[i, j] = x_score
                 y_score_map[i, j] = y_score
+                if self._verbose:
+                    print("[VOXEL GRASPS]", i, j, x_score, y_score)
 
         # Filter grasps
         x_score_map_filtered = _filter_grasps(x_score_map, grasp_direction=0)
