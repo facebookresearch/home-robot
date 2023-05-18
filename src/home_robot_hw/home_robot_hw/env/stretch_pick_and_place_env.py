@@ -1,6 +1,6 @@
+import json
 import os
 import pickle
-import json
 from typing import Any, Dict, List, Optional
 
 import clip
@@ -448,7 +448,7 @@ class StretchPickandPlaceEnv(StretchEnv):
             # Get CLIP embeddings
             with torch.no_grad():
                 text_features = model.encode_text(text_inputs)
-            self.task_info["object_embedding"] = text_features.cpu().numpy()
+            self.task_info["object_embedding"] = text_features[0].cpu().numpy()
         self.current_goal_id = self.goal_options.index(goal_obj)
         self.current_goal_name = goal
 
