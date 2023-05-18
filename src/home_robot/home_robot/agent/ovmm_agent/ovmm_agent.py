@@ -47,7 +47,7 @@ class OpenVocabManipAgent(ObjectNavAgent):
         self.skip_skills = config.AGENT.skip_skills
         if config.AGENT.SKILLS.PLACE.type == "heuristic_debug":
             self.place_policy = HeuristicPlacePolicy(config, self.device)
-        elif config.AGENT.SKILLS.PLACE.type == "rl":
+        elif config.AGENT.SKILLS.PLACE.type == "rl" and not self.skip_skills.place:
             self.place_agent = PPOAgent(
                 config,
                 config.AGENT.SKILLS.PLACE,
@@ -64,7 +64,10 @@ class OpenVocabManipAgent(ObjectNavAgent):
                 obs_spaces=obs_spaces,
                 action_spaces=action_spaces,
             )
-        if config.AGENT.SKILLS.NAV_TO_OBJ.type == "rl":
+        if (
+            config.AGENT.SKILLS.NAV_TO_OBJ.type == "rl"
+            and not self.skip_skills.nav_to_obj
+        ):
             self.nav_to_obj_agent = PPOAgent(
                 config,
                 config.AGENT.SKILLS.NAV_TO_OBJ,
@@ -72,7 +75,10 @@ class OpenVocabManipAgent(ObjectNavAgent):
                 obs_spaces=None,
                 action_spaces=None,
             )
-        if config.AGENT.SKILLS.NAV_TO_REC.type == "rl":
+        if (
+            config.AGENT.SKILLS.NAV_TO_REC.type == "rl"
+            and not self.skip_skills.nav_to_rec
+        ):
             self.nav_to_rec_agent = PPOAgent(
                 config,
                 config.AGENT.SKILLS.NAV_TO_REC,
