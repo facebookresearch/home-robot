@@ -140,6 +140,11 @@ class StretchPickandPlaceEnv(StretchEnv):
         if self.visualizer is not None:
             self.visualizer.reset()
 
+        # Make sure the gripper is open and ready
+        if not self.robot.in_manipulation_mode():
+            self.robot.switch_to_manipulation_mode()
+        self.robot.manip.open_gripper()
+
         # Switch control mode on the robot to nav
         # Also set the robot's head into "navigation" mode - facing forward
         self.robot.move_to_nav_posture()
@@ -162,23 +167,25 @@ class StretchPickandPlaceEnv(StretchEnv):
         raise NotImplementedError()
 
     def _switch_to_nav_mode(self):
-        """Rotate the robot back to face forward"""
-        if not self.robot.in_navigation_mode():
-            self.robot.switch_to_navigation_mode()
-            rospy.sleep(self.msg_delay_t)
+        """Navigation mode switch"""
+
         # Dummy out robot execution code for perception tests
         # Also do not rotate if you are just doing grasp testing
         if not self.dry_run and not self.test_grasping:
-            self.robot.nav.navigate_to([0, 0, -np.pi / 2], relative=True, blocking=True)
             self.robot.move_to_nav_posture()
+            self.robot.nav.navigate_to([0, 0, -np.pi / 2], relative=True, blocking=True)
+
+        """Rotate the robot back to face forward"""
+        if not self.robot.in_navigation_mode():
+            self.robot.switch_to_navigation_mode()
 
     def _switch_to_manip_mode(self):
         """Rotate the robot and put it in the right configuration for grasping"""
-        print("PICK UP THE TARGET OBJECT")
-        print(" - Robot in navigation mode:", self.robot.in_navigation_mode())
-        if not self.robot.in_navigation_mode():
+
+        # We switch to navigation mode in order to rotate by 90 degrees
+        if not self.robot.in_navigation_mode() and not self.dry_run:
             self.robot.switch_to_navigation_mode()
-            rospy.sleep(self.msg_delay_t)
+
         # Dummy out robot execution code for perception tests
         # Also do not rotate if you are just doing grasp testing
         if not self.dry_run and not self.test_grasping:
@@ -195,29 +202,27 @@ class StretchPickandPlaceEnv(StretchEnv):
             self.visualizer.visualize(**info)
         # By default - no arm control
         joints_action = None
+        gripper_action = 0
         # Handle discrete actions first
         if action.is_discrete():
             action = action.get()
             continuous_action = np.zeros(3)
             if action == DiscreteNavigationAction.MOVE_FORWARD:
-                print("FORWARD")
+                print("[ENV] Move forward")
                 continuous_action[0] = self.forward_step
             elif action == DiscreteNavigationAction.TURN_RIGHT:
-                print("TURN RIGHT")
+                print("[ENV] TURN RIGHT")
                 continuous_action[2] = -self.rotate_step
             elif action == DiscreteNavigationAction.TURN_LEFT:
-                print("TURN LEFT")
+                print("[ENV] Turn left")
                 continuous_action[2] = self.rotate_step
             elif action == DiscreteNavigationAction.STOP:
-                print("DONE!")
                 # Do nothing if "stop"
                 continuous_action = None
-                # if not self.robot.in_manipulation_mode():
-                #     self.robot.switch_to_manipulation_mode()
-                pass
+                return True
             elif action == DiscreteNavigationAction.EXTEND_ARM:
                 """Extend the robot arm"""
-                print("EXTENDING ARM")
+                print("[ENV] Extending arm")
                 joints_action = self.robot.model.create_action(
                     lift=STRETCH_ARM_LIFT, arm=STRETCH_ARM_EXTENSION
                 ).joints
@@ -230,6 +235,7 @@ class StretchPickandPlaceEnv(StretchEnv):
                 self._switch_to_nav_mode()
                 continuous_action = None
             elif action == DiscreteNavigationAction.PICK_OBJECT:
+                print("[ENV] Discrete pick policy")
                 continuous_action = None
                 # Run in a while loop until we have succeeded
                 while not rospy.is_shutdown():
@@ -241,8 +247,17 @@ class StretchPickandPlaceEnv(StretchEnv):
                     )
                     if ok:
                         break
+            elif action == DiscreteNavigationAction.SNAP_OBJECT:
+                # Close the gripper
+                gripper_action = 1
+            elif action == DiscreteNavigationAction.DESNAP_OBJECT:
+                # Open the gripper
+                gripper_action = -1
             else:
-                print("Action not implemented in pick-and-place environment:", action)
+                print(
+                    "[Env] Action not implemented in pick-and-place environment:",
+                    action,
+                )
                 continuous_action = None
         elif action.is_navigation():
             continuous_action = action.get()
@@ -260,18 +275,48 @@ class StretchPickandPlaceEnv(StretchEnv):
                 self.robot.nav.navigate_to(
                     continuous_action, relative=True, blocking=True
                 )
-        # Handle the joints action
+        self._handle_joints_action(joints_action)
+        self._handle_gripper_action(gripper_action)
+        return False
+
+    def _handle_joints_action(self, joints_action: Optional[np.ndarray]):
+        """Will convert joints action into the right format and execute it, if it exists."""
         if joints_action is not None:
             # Check to make sure arm control is enabled
             if not self.robot.in_manipulation_mode():
                 self.robot.switch_to_manipulation_mode()
             # Now actually move the arm
-            positions, pan, tilt = self.robot.model.hab_to_position_command(
-                joints_action
+            # Get current joint positions in habitat coordinates
+            current_joint_positions = self.robot.model.config_to_hab(
+                self.robot.get_joint_state()[0]
             )
-            print("SENDING JOINT POS", positions, "PAN", pan, "TILT", tilt)
+            # Compute position goal from deltas
+            joints_goal = joints_action + current_joint_positions
+            # Convert into a position command
+            positions, pan, tilt = self.robot.model.hab_to_position_command(joints_goal)
+            # Now we can send it to the robot
+            print("[ENV] SENDING JOINT POS", positions, "PAN", pan, "TILT", tilt)
             self.robot.head.set_pan_tilt(pan, tilt)
             self.robot.manip.goto_joint_positions(positions, move_base=False)
+        else:
+            # No action to handle
+            pass
+
+    def _handle_gripper_action(self, gripper_action: int):
+        """Handle any gripper action. Positive = close; negative = open; 0 = do nothing."""
+        if gripper_action > 0:
+            # Close the gripper
+            if not self.robot.in_manipulation_mode():
+                self.robot.switch_to_manipulation_mode()
+            self.robot.manip.close_gripper()
+        elif gripper_action < 0:
+            # Open the gripper
+            if not self.robot.in_manipulation_mode():
+                self.robot.switch_to_manipulation_mode()
+            self.robot.manip.open_gripper()
+        else:
+            # If the gripper action was zero, do nothing!
+            pass
 
     def set_goal(self, goal_find: str, goal_obj: str, goal_place: str):
         """Set the goal class as a string. Goal should be an object class we want to pick up."""
@@ -326,7 +371,8 @@ class StretchPickandPlaceEnv(StretchEnv):
         """Get Detic and rgb/xyz/theta from the robot. Read RGB + depth + point cloud from the robot's cameras, get current pose, and use all of this to compute the observations
 
         Returns:
-            obs: observations containing everything the robot policy will be using to make decisions, other than its own internal state."""
+            obs: observations containing everything the robot policy will be using to make decisions, other than its own internal state.
+        """
         rgb, depth, xyz = self.robot.head.get_images(
             compute_xyz=True,
         )
@@ -340,6 +386,9 @@ class StretchPickandPlaceEnv(StretchEnv):
         # GPS in robot coordinates
         gps = relative_pose.translation()[:2]
 
+        # Get joint state information
+        joint_positions, _, _ = self.robot.get_joint_state()
+
         # Create the observation
         obs = home_robot.core.interfaces.Observations(
             rgb=rgb.copy(),
@@ -350,10 +399,7 @@ class StretchPickandPlaceEnv(StretchEnv):
             task_observations=self.task_info,
             # camera_pose=self.get_camera_pose_matrix(rotated=True),
             camera_pose=self.robot.head.get_pose(rotated=True),
-            # TODO: get these from the agent, remove if no policy uses these
-            joint=np.array(
-                [0.0, 0.0, 0.0, 0.0, 0.775, 0.0, -1.57, 0.0, -1.7375, -0.7125]
-            ),
+            joint=self.robot.model.config_to_hab(joint_positions),
             relative_resting_position=np.array([0.3878479, 0.12924957, 0.4224413]),
             is_holding=np.array([0.0]),
         )
@@ -381,6 +427,17 @@ class StretchPickandPlaceEnv(StretchEnv):
                     bool
                 )
 
+        # TODO: remove debug code
+        debug_rgb_bgr = False
+        if debug_rgb_bgr:
+            import matplotlib.pyplot as plt
+
+            plt.figure()
+            plt.subplot(121)
+            plt.imshow(obs.rgb)
+            plt.subplot(122)
+            plt.imshow(obs.task_observations["semantic_frame"])
+            plt.show()
         return obs
 
     @property

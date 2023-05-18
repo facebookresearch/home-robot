@@ -57,6 +57,7 @@ class GraspPlanner(object):
         self.robot_client.head.look_at_ee(blocking=False)
         self.robot_client.manip.open_gripper()
 
+        grasp_completed = False
         min_grasp_score = 0.0
         min_obj_pts = 100
         for attempt in range(max_tries):
