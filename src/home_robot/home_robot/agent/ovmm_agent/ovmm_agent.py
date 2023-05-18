@@ -205,7 +205,8 @@ class OpenVocabManipAgent(ObjectNavAgent):
 
     def _hardcoded_place(self):
         """Hardcoded place skill execution
-        Orients the agent's arm and camera towards the recetacle, extends arm and releases the object"""
+        Orients the agent's arm and camera towards the recetacle, extends arm and releases the object
+        """
         place_step = self.timesteps[0] - self.place_start_step[0]
         forward_steps = 0
         fall_steps = 20
@@ -258,6 +259,7 @@ class OpenVocabManipAgent(ObjectNavAgent):
         if self.skip_skills.nav_to_obj:
             action = DiscreteNavigationAction.STOP
         elif nav_to_obj_type == "heuristic":
+            print("[OVMM AGENT] step heuristic nav policy")
             action, info = self._heuristic_nav(obs, info)
         elif nav_to_obj_type == "rl":
             action, terminate = self.nav_to_obj_agent.act(obs)
