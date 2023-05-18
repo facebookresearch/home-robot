@@ -90,6 +90,7 @@ class ObjectNavAgent(Agent):
         self.timesteps_before_goal_update = None
         self.episode_panorama_start_steps = None
         self.last_poses = None
+        self.verbose = config.AGENT.PLANNER.verbose
 
     # ------------------------------------------------------------------
     # Inference methods to interact with vectorized simulation
@@ -319,7 +320,7 @@ class ObjectNavAgent(Agent):
                 **planner_inputs[0],
                 use_dilation_for_stg=self.use_dilation_for_stg,
                 timestep=self.timesteps[0],
-                debug=self.verbose
+                debug=self.verbose,
             )
 
         # t3 = time.time()

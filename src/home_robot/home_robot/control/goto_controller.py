@@ -104,12 +104,42 @@ class GotoVelocityController:
         self.xyt_loc = xyt_current
         self._is_done = False
 
+    def compute_current_error(self) -> np.ndarray:
+        """Compute xyt error from location to goal"""
+        xyt_err = xyt_global_to_base(self.xyt_goal, self.xyt_loc)
+
+        # Normalize angular error to between -pi and pi
+        xyt_err[2] = normalize_ang_error(xyt_err[2])
+        return xyt_err
+
     def update_goal(self, xyt_goal: np.ndarray, relative: bool = False):
         self._is_done = False
         if relative:
             self.xyt_goal = xyt_base_to_global(xyt_goal, self.xyt_loc)
         else:
             self.xyt_goal = xyt_goal
+
+        # Compute error in order to get dynamic target thresholds for low-level controller
+        print("...... updated goal")
+        xyt_err = self.compute_current_error()
+        lin_err = np.linalg.norm(xyt_err[:2])
+        if lin_err > self.cfg.lin_error_tol or abs(xyt_err[2]) > self.cfg.ang_error_tol:
+            self.control.set_linear_error_tolerance(self.cfg.lin_error_tol)
+            self.control.set_angular_error_tolerance(self.cfg.ang_error_tol)
+        else:
+            print(
+                f"WARNING: sent a goal with lower distance than target error tolerance! Linear err = {lin_err}, Angular error = {xyt_err[2]}"
+            )
+            new_lin_tol = max(
+                self.cfg.min_lin_error_tol, self.cfg.lin_error_ratio * lin_err
+            )
+            print(f" -> setting linear tolerance to {new_lin_tol}")
+            self.control.set_linear_error_tolerance(new_lin_tol)
+            new_ang_tol = max(
+                self.cfg.min_ang_error_tol, self.cfg.ang_error_ratio * xyt_err[2]
+            )
+            print(f" -> setting angular tolerance to {new_ang_tol}")
+            self.control.set_angular_error_tolerance(new_ang_tol)
 
     def set_yaw_tracking(self, value: bool):
         self._is_done = False
@@ -119,10 +149,7 @@ class GotoVelocityController:
         """
         Updates error based on robot localization
         """
-        xyt_err = xyt_global_to_base(self.xyt_goal, self.xyt_loc)
-
-        # Normalize angular error to between -pi and pi
-        xyt_err[2] = normalize_ang_error(xyt_err[2])
+        xyt_err = self.compute_current_error()
 
         # Set angular error to 0 if not tracking target yaw
         if not self.track_yaw:

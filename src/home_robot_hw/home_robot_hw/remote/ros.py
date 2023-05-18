@@ -49,7 +49,7 @@ class StretchRosInterface:
     base_link = "base_link"
 
     goal_time_tolerance = 1.0
-    msg_delay_t = 0.25
+    msg_delay_t = 0.1
 
     # 3 for base position + rotation, 2 for lift + extension, 3 for rpy, 1 for gripper, 2 for head
     dof = 3 + 2 + 3 + 1 + 2
@@ -156,10 +156,19 @@ class StretchRosInterface:
     def wait_for_trajectory_action(self):
         self.trajectory_client.wait_for_result()
 
-    def recent_depth_image(self, seconds):
+    def recent_depth_image(self, seconds, print_delay_timers: bool = False):
         """Return true if we have up to date depth."""
         # Make sure we have a goal and our poses and depths are synced up - we need to have
         # received depth after we stopped moving
+        if print_delay_timers:
+            print(
+                " - 1",
+                (rospy.Time.now() - self._goal_reset_t).to_sec(),
+                self.msg_delay_t,
+            )
+            print(
+                " - 2", (self.dpt_cam.get_time() - self._goal_reset_t).to_sec(), seconds
+            )
         if (
             self._goal_reset_t is not None
             and (rospy.Time.now() - self._goal_reset_t).to_sec() > self.msg_delay_t
