@@ -91,9 +91,7 @@ def main(
         if done:
             break
 
-    print(env.get_episode_metrics())
-
-
 if __name__ == "__main__":
     print("---- Starting real-world evaluation ----")
     main()
+    print("----- Done real-world evaluation ----")
