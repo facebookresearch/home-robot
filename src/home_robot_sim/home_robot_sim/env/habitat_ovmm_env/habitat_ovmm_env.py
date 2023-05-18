@@ -1,7 +1,7 @@
+import json
 import os
 import random
 from enum import IntEnum
-import json
 from typing import Any, Dict, List, Optional, Tuple, Union
 
 import habitat
@@ -118,7 +118,8 @@ class HabitatOpenVocabManipEnv(HabitatEnv):
                         i - len(self._obj_id_to_name_mapping)
                     ]
             self.semantic_category_mapping = RearrangeDETICCategories(
-                self.obj_rec_combined_mapping
+                # TODO (Arun): add this back when we move to v3 dataset
+                # self.obj_rec_combined_mapping
             )
 
         if not self.ground_truth_semantics:
@@ -224,7 +225,9 @@ class HabitatOpenVocabManipEnv(HabitatEnv):
             semantic[semantic == 0] = len(self._receptacle_sensor_name_to_id) + 1
             obs.semantic = semantic.numpy()
             obs.task_observations["recep_idx"] = 1
-            obs.task_observations["semantic_max_val"] = len(self._receptacle_sensor_name_to_id) + 1
+            obs.task_observations["semantic_max_val"] = (
+                len(self._receptacle_sensor_name_to_id) + 1
+            )
             # TODO Ground-truth semantic visualization
         else:
             obs = self.segmentation.predict(
@@ -235,8 +238,12 @@ class HabitatOpenVocabManipEnv(HabitatEnv):
                 obs.semantic[obs.semantic == 0] = (
                     self.semantic_category_mapping.num_sem_categories - 1
                 )
-                obs.task_observations["recep_idx"] = self.semantic_category_mapping.num_sem_obj_categories + 1
-                obs.task_observations["semantic_max_val"] = self.semantic_category_mapping.num_sem_categories - 1
+                obs.task_observations["recep_idx"] = (
+                    self.semantic_category_mapping.num_sem_obj_categories + 1
+                )
+                obs.task_observations["semantic_max_val"] = (
+                    self.semantic_category_mapping.num_sem_categories - 1
+                )
         obs.task_observations["semantic_frame"] = np.concatenate(
             [obs.rgb, obs.semantic[:, :, np.newaxis]], axis=2
         ).astype(np.uint8)
@@ -259,13 +266,14 @@ class HabitatOpenVocabManipEnv(HabitatEnv):
             None,
         )
         # Check if small object category is included in goal specification
+        obj_name = self._obj_id_to_name_mapping[obs["object_category"][0]]
         if goal_type in ["object", "object_on_recep", "ovmm"]:
-            goal_name = self._obj_id_to_name_mapping[obs["object_category"][0]]
+            goal_name = obj_name
             obj_goal_id = 1  # semantic sensor returns binary mask for goal object
         if goal_type == "object_on_recep":
             # navigating to object on start receptacle (before grasping)
             goal_name = (
-                self._obj_id_to_name_mapping[obs["object_category"][0]]
+                obj_name
                 + " on "
                 + self._rec_id_to_name_mapping[obs["start_receptacle"][0]]
             )
@@ -274,31 +282,22 @@ class HabitatOpenVocabManipEnv(HabitatEnv):
             # nav goal specification for ovmm task includes all three categories:
             start_receptacle = self._rec_id_to_name_mapping[obs["start_receptacle"][0]]
             goal_receptacle = self._rec_id_to_name_mapping[obs["goal_receptacle"][0]]
-            goal_name = (
-                self._obj_id_to_name_mapping[obs["object_category"][0]]
-                + " "
-                + start_receptacle
-                + " "
-                + goal_receptacle
-            )
+            goal_name = obj_name + " " + start_receptacle + " " + goal_receptacle
             if self.ground_truth_semantics:
-                start_rec_goal_id = self._receptacle_sensor_name_to_id[start_receptacle] + 1
-                end_rec_goal_id = self._receptacle_sensor_name_to_id[goal_receptacle] + 1
-            else:
-                # habitat goal ids (from obs) -> combined mapping (also used for detic predictions)
-                obj_goal_id = (
-                    obs["object_category"][0] + 1
-                )  # detic predictions use mapping that starts from 1
                 start_rec_goal_id = (
-                    len(self._obj_id_to_name_mapping.keys())
-                    + obs["start_receptacle"]
-                    + 1
+                    self._receptacle_sensor_name_to_id[start_receptacle] + 1
                 )
                 end_rec_goal_id = (
-                    len(self._obj_id_to_name_mapping.keys())
-                    + obs["goal_receptacle"]
-                    + 1
+                    self._receptacle_sensor_name_to_id[goal_receptacle] + 1
                 )
+            else:
+                # habitat goal ids (from obs) -> combined mapping (also used for detic predictions)
+                name_to_id_mapping = {
+                    v: k for k, v in self.obj_rec_combined_mapping.items()
+                }
+                obj_goal_id = name_to_id_mapping[obj_name]
+                start_rec_goal_id = name_to_id_mapping[start_receptacle]
+                end_rec_goal_id = name_to_id_mapping[goal_receptacle]
 
         elif goal_type == "recep":
             # navigating to end receptacle (before placing)
