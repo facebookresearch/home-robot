@@ -1,4 +1,5 @@
 from enum import IntEnum, auto
+from datetime import datetime
 from typing import Any, Dict, Optional, Tuple
 
 import torch
@@ -95,11 +96,14 @@ class OpenVocabManipAgent(ObjectNavAgent):
         info = {**info, **get_skill_as_one_hot_dict(self.states[0].item())}
         return info
 
-    def reset_vectorized(self, episodes):
+    def reset_vectorized(self):
         """Initialize agent state."""
         super().reset_vectorized()
+
+        now = datetime.now()
+
         self.planner.set_vis_dir(
-            episodes[0].scene_id.split("/")[-1].split(".")[0], episodes[0].episode_id
+            "real_world", now.strftime("%Y%m%d_%H%M%S")
         )
         if self.gaze_agent is not None:
             self.gaze_agent.reset_vectorized()

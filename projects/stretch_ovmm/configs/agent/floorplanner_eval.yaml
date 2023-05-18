@@ -23,6 +23,7 @@ AGENT:
   panorama_start: 1       # 1: turn around 360 degrees when starting an episode, 0: don't
   exploration_strategy: seen_frontier  # exploration strategy ("seen_frontier", "been_close_to_frontier")
   radius: 0.05            # robot radius (in meters)
+  clip_embeddings_file: projects/stretch_ovmm/clip_embeddings.pickle
 
   SEMANTIC_MAP:
     semantic_categories: rearrange # map semantic channel categories ("coco_indoor", "longtail_indoor", "mukul_indoor")
@@ -42,7 +43,7 @@ AGENT:
 
   SKILLS:
     GAZE_OBJ:
-      type: rl #end_to_end #heuristic #hardcoded
+      type: heuristic #end_to_end #heuristic #hardcoded
       checkpoint_path: data/checkpoints/ovmm/gaze_may16_80%_SR.pth
       rl_config: projects/habitat_ovmm/configs/agent/gaze_rl.yaml # with continuous actions
       gym_obs_keys:
@@ -97,10 +98,35 @@ AGENT:
       nav_goal_seg_channels: 2
 
     NAV_TO_REC:
-      type: heuristic
+      type: heuristic # heuristic (default) or rl
+      checkpoint_path: data/checkpoints/ovmm/nav_to_rec_may17_60%.pth
+      rl_config: projects/habitat_ovmm/configs/agent/nav_to_rec_rl.yaml
+      gym_obs_keys:
+        - robot_head_depth
+        - object_embedding
+        - ovmm_nav_goal_segmentation
+        - receptacle_segmentation
+        - start_receptacle
+        - robot_start_gps
+        - robot_start_compass
+        - joint
+      allowed_actions:
+        - base_velocity
+        - rearrange_stop
+        # - move_forward
+        # - turn_left
+        # - turn_right
+        # - stop
+      arm_joint_mask: [0, 0, 0, 0, 0, 0, 0] # the arm joints that the policy can control
+      max_displacement: 0.25
+      max_turn_degrees: 30.0
+      sensor_height: 256
+      sensor_width: 256
+      terminate_condition: discrete_stop
+      nav_goal_seg_channels: 2
 
     PLACE:
-      type: rl # "rl" or "heuristic_debug" or "hardcoded"
+      type: heuristic_debug # "rl" or "heuristic_debug" or "hardcoded"
       checkpoint_path: data/checkpoints/ovmm/place_may15_76%_SR.pth
       rl_config: projects/habitat_ovmm/configs/agent/place_rl.yaml # with continuous actions
       gym_obs_keys:
@@ -124,11 +150,11 @@ AGENT:
       max_joint_delta: 0.0125
 
   skip_skills:
-    nav_to_obj: False
-    nav_to_rec: False
+    nav_to_obj: True
+    nav_to_rec: True
     gaze_at_obj: True
     gaze_at_rec: True
-    pick: False
+    pick: True
     place: False
 
   PLANNER:

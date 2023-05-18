@@ -21,7 +21,7 @@ from home_robot_hw.env.stretch_pick_and_place_env import (
 @click.option("--skip-gaze", default=True, is_flag=True)
 @click.option("--reset-nav", default=False, is_flag=True)
 @click.option("--dry-run", default=False, is_flag=True)
-@click.option("--object", default="cup")
+@click.option("--pick-object", default="cup")
 @click.option("--start-recep", default="table")
 @click.option("--goal-recep", default="chair")
 @click.option("--cat-map-file")
@@ -37,7 +37,7 @@ def main(
     test_gaze=False,
     skip_gaze=True,
     reset_nav=False,
-    object="cup",
+    pick_object="cup",
     start_recep="table",
     goal_recep="chair",
     dry_run=False,
@@ -50,7 +50,7 @@ def main(
     rospy.init_node("eval_episode_stretch_objectnav")
 
     REAL_WORLD_CATEGORIES[1] = start_recep
-    REAL_WORLD_CATEGORIES[2] = object
+    REAL_WORLD_CATEGORIES[2] = pick_object
     REAL_WORLD_CATEGORIES[3] = goal_recep
     print("- Loading configuration")
     config = load_config(visualize=visualize_maps, **kwargs)
@@ -84,7 +84,7 @@ def main(
         robot.nav.navigate_to([0, 0, 0])
 
     agent.reset()
-    env.reset(start_recep, object, goal_recep)
+    env.reset(start_recep, pick_object, goal_recep)
 
     t = 0
     while not env.episode_over and not rospy.is_shutdown():
@@ -94,11 +94,14 @@ def main(
         action, info = agent.act(obs)
         done = env.apply_action(action, info=info)
         if done:
+            print("Done.")
             break
 
-    print(env.get_episode_metrics())
+    print("Metrics:", env.get_episode_metrics())
 
 
 if __name__ == "__main__":
     print("---- Starting real-world evaluation ----")
     main()
+    print("==================================")
+    print("Done real world evaluation.")
