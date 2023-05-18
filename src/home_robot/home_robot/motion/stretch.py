@@ -49,7 +49,7 @@ STRETCH_PREGRASP_Q = np.array(
         0.01,  # arm
         0.0,  # gripper rpy
         0.0,  # wrist roll
-        -np.pi / 2,  # wrist pitch
+        -1.5,  # wrist pitch
         0.0,  # wrist yaw
         -np.pi / 2,  # head pan, camera to face the arm
         -np.pi / 4,
@@ -66,7 +66,7 @@ STRETCH_NAVIGATION_Q = np.array(
         0.01,  # arm
         0.0,  # gripper rpy
         0.0,  # wrist roll
-        -np.pi / 2,  # wrist pitch
+        -1.5,  # wrist pitch
         0.0,  # wrist yaw
         0.0,
         math.radians(-30),
