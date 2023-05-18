@@ -190,7 +190,7 @@ class PPOAgent(Agent):
             )
         self.actor_critic.eval()
         self.max_displacement = skill_config.max_displacement
-        self.max_turn = skill_config.max_turn_degrees
+        self.max_turn = skill_config.max_turn_degrees * np.pi / 180
         self.nav_goal_seg_channels = skill_config.nav_goal_seg_channels
         self.max_joint_delta = None
         if "arm_action" in skill_config.allowed_actions:

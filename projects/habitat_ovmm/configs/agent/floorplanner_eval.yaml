@@ -17,6 +17,7 @@ ENVIRONMENT:
   min_depth: 0.0          # minimum depth for depth sensor (in metres)
   max_depth: 10.0         # maximum depth for depth sensor (in metres)
   num_receptacles: 76
+  receptacle_sensor_id_file: /srv/flash1/aramacha35/home-robot/data/fpss/fphab/semantics/receptacle_semantic_ids.json
 
 AGENT:
   max_steps: 10000         # maximum number of steps before stopping an episode; a lower value set for habitat episode termination 

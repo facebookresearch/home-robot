@@ -5,7 +5,11 @@ import torch
 
 from home_robot.agent.objectnav_agent.objectnav_agent import ObjectNavAgent
 from home_robot.agent.ovmm_agent.ppo_agent import PPOAgent
-from home_robot.core.interfaces import DiscreteNavigationAction, Observations
+from home_robot.core.interfaces import (
+    ContinuousNavigationAction,
+    DiscreteNavigationAction,
+    Observations,
+)
 from home_robot.manipulation import HeuristicPlacePolicy
 
 
@@ -323,12 +327,23 @@ class OpenVocabManipAgent(ObjectNavAgent):
         elif place_type == "heuristic_debug":
             action, info = self.place_policy(obs, info)
         elif place_type == "rl":
-            action, term = self.place_agent.act(obs)
-            if term:
-                action = DiscreteNavigationAction.STOP
+            action, term = self._rl_place(obs, info)
         else:
             raise ValueError(f"Got unexpected value for PLACE.type: {place_type}")
         return action, info, None
+
+    def _rl_place(self, obs: Observations, info: Dict[str, Any]):
+        place_step = self.timesteps[0] - self.place_start_step[0]
+        if place_step == 0:
+            action = DiscreteNavigationAction.MANIPULATION_MODE
+        elif self.place_done[0] == 1:
+            action = DiscreteNavigationAction.STOP
+        else:
+            action, term = self.place_agent.act(obs)
+            if term:
+                action = DiscreteNavigationAction.DESNAP_OBJECT
+                self.place_done[0] = 1
+        return action, info
 
     def act(self, obs: Observations) -> Tuple[DiscreteNavigationAction, Dict[str, Any]]:
         """State machine"""
