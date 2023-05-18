@@ -229,14 +229,11 @@ class Visualizer:
                 / obstacle_map.shape[1],
                 np.deg2rad(-curr_o),
             )
-            print(pos)
             agent_arrow = vu.get_contour_points(
                 pos, origin=(SEMANTIC_MAP_ORIG_Y, SEMANTIC_MAP_ORIG_X), size=10
             )
             color = map_color_palette[9:12][::-1]
             cv2.drawContours(self.image_vis, [agent_arrow], 0, color, -1)
-
-            breakpoint()
 
         # First-person semantic frame
         semantic_frame = cv2.cvtColor(semantic_frame, cv2.COLOR_BGR2RGB)
