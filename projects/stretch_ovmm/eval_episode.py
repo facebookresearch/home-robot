@@ -61,6 +61,7 @@ def main(
         dry_run=dry_run,
         cat_map_file=cat_map_file,
     )
+
     print("- Creating agent")
     agent = OpenVocabManipAgent(config=config)
 
@@ -90,4 +91,5 @@ def main(
 if __name__ == "__main__":
     print("---- Starting real-world evaluation ----")
     main()
-    print("----- Done real-world evaluation ----")
+    print("==================================")
+    print("Done real world evaluation.")
