@@ -81,6 +81,7 @@ class GotoVelocityController:
     def __init__(
         self,
         cfg: Optional["DictConfig"] = None,
+        verbose=False,
     ):
         if cfg is None:
             cfg = get_control_config(DEFAULT_CFG_NAME)
@@ -96,6 +97,8 @@ class GotoVelocityController:
         self.active = False
         self.track_yaw = True
         self._is_done = False
+
+        self.verbose = verbose
 
     def update_pose_feedback(self, xyt_current: np.ndarray):
         self.xyt_loc = xyt_current
@@ -144,8 +147,10 @@ class GotoVelocityController:
         # Compute control
         v_cmd, w_cmd, done = self.control(xyt_err, allow_reverse=allow_reverse)
         self._is_done = done
-        
-        # TODO: disable debug print statement
-        print(" - err =", lin_err, xyt_err[2], "done =", done, "cmd =", v_cmd, w_cmd)
+
+        if self.verbose:
+            print(
+                " - err =", lin_err, xyt_err[2], "done =", done, "cmd =", v_cmd, w_cmd
+            )
 
         return v_cmd, w_cmd
