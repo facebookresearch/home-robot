@@ -16,6 +16,12 @@ class DiffDriveVelocityController(abc.ABC):
     Abstract class for differential drive robot velocity controllers.
     """
 
+    def set_linear_error_tolerance(self, error_tol: float):
+        self.lin_error_tol = error_tol
+
+    def set_angular_error_tolerance(self, error_tol: float):
+        self.ang_error_tol = error_tol
+
     @abc.abstractmethod
     def __call__(self, xyt_err: np.ndarray) -> Tuple[float, float, bool]:
         """Contain execution logic, predict velocities for the left and right wheels. Expected to
@@ -32,6 +38,12 @@ class DDVelocityControlNoplan(DiffDriveVelocityController):
 
     def __init__(self, cfg: DictConfig):
         self.cfg = cfg
+        self.reset_error_tolerances()
+
+    def reset_error_tolerances(self):
+        """Reset error tolerances to default values"""
+        self.lin_error_tol = self.cfg.lin_error_tol
+        self.ang_error_tol = self.cfg.ang_error_tol
 
     @staticmethod
     def _velocity_feedback_control(x_err, a, v_max):
@@ -85,7 +97,7 @@ class DDVelocityControlNoplan(DiffDriveVelocityController):
             heading_err = normalize_ang_error(heading_err + np.pi)
 
         # Go to goal XY position if not there yet
-        if lin_err_abs > self.cfg.lin_error_tol:
+        if lin_err_abs > self.lin_error_tol:
             # Compute linear velocity -- move towards goal XY
             v_raw = self._velocity_feedback_control(
                 lin_err_abs, self.cfg.acc_lin, self.cfg.v_max
@@ -104,7 +116,7 @@ class DDVelocityControlNoplan(DiffDriveVelocityController):
             done = False
 
         # Rotate to correct yaw if XY position is at goal
-        elif abs(ang_err) > self.cfg.ang_error_tol:
+        elif abs(ang_err) > self.ang_error_tol:
             # Compute angular velocity -- turn to goal orientation
             w_cmd = self._velocity_feedback_control(
                 ang_err, self.cfg.acc_ang, self.cfg.w_max
