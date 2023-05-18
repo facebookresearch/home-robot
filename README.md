@@ -159,7 +159,7 @@ And then download the assets as described in the [installation instructions](src
 
 To test your installation, you can run:
 ```
-python projects/stretch_ovmm/eval_vectorized.py
+python projects/habitat_ovmm/eval_vectorized.py
 ```
 
 For more details on the OVMM challenge, see the [Habitat OVMM readme](projects/stretch_ovmm/README.md).
