@@ -6,7 +6,7 @@ import torch
 from home_robot.agent.objectnav_agent.objectnav_agent import ObjectNavAgent
 from home_robot.agent.ovmm_agent.ppo_agent import PPOAgent
 from home_robot.core.interfaces import DiscreteNavigationAction, Observations
-from home_robot.place_policy.heuristic_place_policy import HeuristicPlacePolicy
+from home_robot.manipulation import HeuristicPlacePolicy
 
 
 class Skill(IntEnum):
@@ -25,7 +25,7 @@ def get_skill_as_one_hot_dict(curr_skill: Skill):
 
 
 class OpenVocabManipAgent(ObjectNavAgent):
-    """Simple object nav agent based on a 2D semantic map"""
+    """Simple object nav agent based on a 2D semantic map."""
 
     def __init__(self, config, device_id: int = 0, obs_spaces=None, action_spaces=None):
         super().__init__(config, device_id=device_id)
@@ -42,10 +42,7 @@ class OpenVocabManipAgent(ObjectNavAgent):
         if config.AGENT.SKILLS.PLACE.type == "heuristic_debug":
             self.place_policy = HeuristicPlacePolicy(config, self.device)
         skip_both_gaze = self.skip_skills.gaze_at_obj and self.skip_skills.gaze_at_rec
-        if (
-            config.AGENT.SKILLS.GAZE_OBJ.type == "rl" and
-            not skip_both_gaze
-        ):
+        if config.AGENT.SKILLS.GAZE_OBJ.type == "rl" and not skip_both_gaze:
             self.gaze_agent = PPOAgent(
                 config,
                 config.AGENT.SKILLS.GAZE_OBJ,
@@ -114,7 +111,7 @@ class OpenVocabManipAgent(ObjectNavAgent):
             self.nav_to_obj_agent.reset_vectorized_for_env(e)
 
     def _switch_to_next_skill(
-            self, e: int, next_skill: Skill, info: Dict[str, Any]
+        self, e: int, next_skill: Skill, info: Dict[str, Any]
     ) -> DiscreteNavigationAction:
         """Switch to the next skill for environment `e`.
 
@@ -302,9 +299,7 @@ class OpenVocabManipAgent(ObjectNavAgent):
         elif place_type == "heuristic_debug":
             action, info = self.place_policy(obs, info)
         else:
-            raise ValueError(
-                f"Got unexpected value for PLACE.type: {place_type}"
-            )
+            raise ValueError(f"Got unexpected value for PLACE.type: {place_type}")
         return action, info, None
 
     def act(self, obs: Observations) -> Tuple[DiscreteNavigationAction, Dict[str, Any]]:
@@ -334,7 +329,9 @@ class OpenVocabManipAgent(ObjectNavAgent):
             # Since heuristic nav is not properly vectorized, this agent currently only supports 1 env
             # _switch_to_next_skill is thus invoked with e=0
             if new_state:
-                assert action is None, f"action must be None when switching states, found {action} instead"
+                assert (
+                    action is None
+                ), f"action must be None when switching states, found {action} instead"
                 action = self._switch_to_next_skill(0, new_state, info)
 
         return action, info
