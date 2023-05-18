@@ -14,8 +14,8 @@ ENVIRONMENT:
   frame_width: 480        # first-person frame width (in pixels)
   camera_height: 1.25     # camera sensor height (in metres)
   hfov: 42.0              # horizontal field of view (in degrees)
-  min_depth: 0.0          # minimum depth for depth sensor (in metres)
-  max_depth: 10.0         # maximum depth for depth sensor (in metres)
+  min_depth: 0.5          # minimum depth for depth sensor (in metres)
+  max_depth: 5.0         # maximum depth for depth sensor (in metres)
   num_receptacles: 76
 
 AGENT:
@@ -168,6 +168,7 @@ AGENT:
     map_downsample_factor: 1            # optional downsampling of traversible and goal map before fmm distance call (1 for no downsampling, 2 for halving resolution)
     map_update_frequency: 1             # compute fmm distance map every n steps 
     discrete_actions: False          # discrete motion planner output space or not
+    verbose: True                    # display debug information during planning
 
 EVAL_VECTORIZED:
   simulator_gpu_ids: [1, 2, 3, 4, 5, 6, 7] # IDs of GPUs to use for vectorized environments
