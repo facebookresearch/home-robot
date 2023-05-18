@@ -23,7 +23,9 @@ from home_robot_hw.env.stretch_pick_and_place_env import (
 @click.option("--pick-object", default="cup")
 @click.option("--start-recep", default="table")
 @click.option("--goal-recep", default="chair")
-@click.option("--cat-map-file")
+@click.option(
+    "--cat-map-file", default="projects/stretch_ovmm/config/example_cat_map.json"
+)
 @click.option("--visualize-maps", default=False, is_flag=True)
 @click.option(
     "--debug",
@@ -59,7 +61,6 @@ def main(
         dry_run=dry_run,
         cat_map_file=cat_map_file,
     )
-
     print("- Creating agent")
     agent = OpenVocabManipAgent(config=config)
 
@@ -89,5 +90,4 @@ def main(
 if __name__ == "__main__":
     print("---- Starting real-world evaluation ----")
     main()
-    print("==================================")
-    print("Done real world evaluation.")
+    print("----- Done real-world evaluation ----")

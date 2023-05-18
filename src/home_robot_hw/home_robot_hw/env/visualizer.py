@@ -224,6 +224,8 @@ class Visualizer:
             color = map_color_palette[9:12][::-1]
             cv2.drawContours(self.image_vis, [agent_arrow], 0, color, -1)
 
+            breakpoint()
+
         # First-person semantic frame
         semantic_frame = cv2.cvtColor(semantic_frame, cv2.COLOR_BGR2RGB)
         self.image_vis[50:530, 15:375] = cv2.resize(semantic_frame, (360, 480))
