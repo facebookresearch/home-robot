@@ -134,6 +134,7 @@ class GotoVelocityController:
     def compute_control(self) -> Tuple[float, float]:
         # Get state estimation
         xyt_err = self._compute_error_pose()
+        lin_err = np.linalg.norm(xyt_err[:2])
 
         # Move backwards if conditions are met
         allow_reverse = False
@@ -143,5 +144,8 @@ class GotoVelocityController:
         # Compute control
         v_cmd, w_cmd, done = self.control(xyt_err, allow_reverse=allow_reverse)
         self._is_done = done
+        
+        # TODO: disable debug print statement
+        print(" - err =", lin_err, xyt_err[2], "done =", done, "cmd =", v_cmd, w_cmd)
 
         return v_cmd, w_cmd
