@@ -143,14 +143,15 @@ To set up the simulation stack with Habitat, see the [installation instructions]
 # Install requirements
 mamba env update -f src/home_robot_sim/environment.yml
 
+# Download habitat-sim and habitat-lab packages
+git submodule update --init --recursive
+
 # Build habitat-sim from source
-git clone https://github.com/yvsriram/habitat-sim --branch ovmm_merge_main_add_deps
-cd habitat-sim
-python setup.py install --headless --with-bullet
-cd ..
+cd src/third_party/habitat-sim
+# Please follow the instructions [here](https://github.com/facebookresearch/habitat-sim/blob/main/BUILD_FROM_SOURCE.md) to build habitat-sim from source.
+cd -
 
 # Install habitat lab on the correct (object rearrange) branch
-git submodule update --init --recursive
 pip install -e src/third_party/habitat-lab/habitat-lab
 pip install -e src/third_party/habitat-lab/habitat-baselines
 
