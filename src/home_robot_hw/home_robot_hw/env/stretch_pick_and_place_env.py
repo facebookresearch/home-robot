@@ -3,8 +3,10 @@ import pickle
 import json
 from typing import Any, Dict, List, Optional
 
+import clip
 import numpy as np
 import rospy
+import torch
 
 import home_robot
 from home_robot.core.interfaces import (
@@ -430,10 +432,23 @@ class StretchPickandPlaceEnv(StretchEnv):
             "object_goal": goal_obj_id,
             "recep_goal": goal_find_id,
         }
-        if self.clip_embeddings is not None:
-            # TODO: generate on fly if not available
-            self.task_info["object_embedding"] = self.clip_embeddings[goal_obj]
 
+        if self.clip_embeddings is not None and goal_obj in self.clip_embeddings:
+            self.task_info["object_embedding"] = self.clip_embeddings[goal_obj]
+        else:
+            # generate clip embeddings by loading clip model
+            device = "cuda" if torch.cuda.is_available() else "cpu"
+            model, _ = clip.load("ViT-B/32", device)
+
+            # Prepare the inputs
+            text_inputs = torch.cat([clip.tokenize(f"a photo of a {goal_obj}")]).to(
+                device
+            )
+
+            # Get CLIP embeddings
+            with torch.no_grad():
+                text_features = model.encode_text(text_inputs)
+            self.task_info["object_embedding"] = text_features.cpu().numpy()
         self.current_goal_id = self.goal_options.index(goal_obj)
         self.current_goal_name = goal
 
