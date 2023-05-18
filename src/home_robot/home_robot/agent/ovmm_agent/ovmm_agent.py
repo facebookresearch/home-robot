@@ -294,6 +294,7 @@ class OpenVocabManipAgent(ObjectNavAgent):
     def _pick(
         self, obs: Observations, info: Dict[str, Any]
     ) -> Tuple[DiscreteNavigationAction, Any, Optional[Skill]]:
+        """Handle picking policies, either in sim or on the real robot."""
         if self.skip_skills.pick:
             action = None
         elif self.config.AGENT.SKILLS.PICK.type == "oracle":
@@ -305,6 +306,21 @@ class OpenVocabManipAgent(ObjectNavAgent):
             else:
                 raise ValueError(
                     "Still in oracle pick. Should've transitioned to next skill."
+                )
+        elif self.config.AGENT.SKILLS.PICK.type == "hw":
+            # use the hardware pick skill
+            pick_step = self.timesteps[0] - self.pick_start_step[0]
+            if pick_step == 0:
+                action = DiscreteNavigationAction.MANIPULATION_MODE
+            elif pick_step == 1:
+                action = DiscreteNavigationAction.PICK_OBJECT
+            elif pick_step == 2:
+                action = DiscreteNavigationAction.NAVIGATION_MODE
+            elif pick_step == 3:
+                action = None
+            else:
+                raise ValueError(
+                    "Still in hardware-mode hard-coded pick. Should have transitioned to the next skill."
                 )
         new_state = None
         if action is None:
