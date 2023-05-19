@@ -133,6 +133,7 @@ class Categorical2DSemanticMapModule(nn.Module):
         # For cleaning up maps
         self.dilate_obstacles = dilate_obstacles
         self.dilate_kernel = np.ones((dilate_size, dilate_size))
+        self.dilate_size = dilate_size
         self.dilate_iter = dilate_iter
 
     @torch.no_grad()
@@ -430,7 +431,7 @@ class Categorical2DSemanticMapModule(nn.Module):
                 #     env_map, self.dilate_kernel, self.dilate_iter
                 # )
                 # filt = cv2.filter2D(env_map, -1, self.dilate_kernel)
-                median_filtered = cv2.medianBlur(env_map, self.dilate_kernel[0])
+                median_filtered = cv2.medianBlur(env_map, self.dilate_size)
 
                 # TODO: remove debug code
                 # plt.subplot(121); plt.imshow(env_map)

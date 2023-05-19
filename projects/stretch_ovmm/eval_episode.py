@@ -24,7 +24,7 @@ from home_robot_hw.env.stretch_pick_and_place_env import (
 @click.option("--start-recep", default="table")
 @click.option("--goal-recep", default="chair")
 @click.option(
-    "--cat-map-file", default="projects/stretch_ovmm/config/example_cat_map.json"
+    "--cat-map-file", default="projects/stretch_ovmm/configs/example_cat_map.json"
 )
 @click.option("--visualize-maps", default=False, is_flag=True)
 @click.option(
