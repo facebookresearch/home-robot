@@ -40,6 +40,10 @@ AGENT:
     explored_radius: 150       # radius (in centimeters) of visually explored region
     must_explore_close: False
     min_obs_height_cm: 10    # minimum height (in centimeters) of obstacle
+    # erosion and filtering to reduce the number of spurious artifacts
+    dilate_obstacles: False
+    dilate_size: 3
+    dilate_iter: 1
 
   SKILLS:
     GAZE_OBJ:
