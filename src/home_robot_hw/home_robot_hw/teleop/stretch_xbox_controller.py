@@ -140,7 +140,7 @@ class StretchXboxController(object):
 
     def _create_move_base_loop(self, controller_state):
         rot_scale = 0.25
-        trans_scale = 0.4
+        trans_scale = 0.6
 
         def callback(event):
             # Re-run the manager because it uses globals to accumulate speed
