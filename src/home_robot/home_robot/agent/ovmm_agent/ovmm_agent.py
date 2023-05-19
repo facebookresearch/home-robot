@@ -61,8 +61,8 @@ class OpenVocabManipAgent(ObjectNavAgent):
                 config,
                 config.AGENT.SKILLS.GAZE_OBJ,
                 device_id=device_id,
-                obs_spaces=obs_spaces,
-                action_spaces=action_spaces,
+                obs_spaces=None,
+                action_spaces=None,
             )
         if (
             config.AGENT.SKILLS.NAV_TO_OBJ.type == "rl"

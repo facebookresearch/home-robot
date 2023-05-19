@@ -44,7 +44,7 @@ AGENT:
   SKILLS:
     GAZE_OBJ:
       type: rl #end_to_end #heuristic #hardcoded
-      checkpoint_path: data/checkpoints/ovmm/gaze_may16_80%_SR.pth
+      checkpoint_path: data/checkpoints/ovmm/gaze_may18_small_img_80%.pth
       rl_config: projects/habitat_ovmm/configs/agent/gaze_rl.yaml # with continuous actions
       gym_obs_keys:
         - robot_head_depth
@@ -59,8 +59,10 @@ AGENT:
       arm_joint_mask: [0, 0, 0, 0, 0, 0, 1] # the arm joints that the policy can control
       max_displacement: 0.25                     # used when training the policy
       max_turn_degrees: 30.0
-      sensor_height: 256
-      sensor_width: 256
+      min_turn_degrees: 5.0
+      min_displacement: 0.1
+      sensor_height: 160
+      sensor_width: 120
       nav_goal_seg_channels: 1
       terminate_condition: grip
       grip_threshold: 0.8
@@ -70,7 +72,7 @@ AGENT:
       type: oracle
 
     NAV_TO_OBJ:
-      type: heuristic # heuristic (default) or rl
+      type: rl #heuristic # heuristic (default) or rl
       checkpoint_path: data/checkpoints/ovmm/nav_to_obj.pth
       rl_config: projects/habitat_ovmm/configs/agent/nav_to_obj_rl.yaml
       gym_obs_keys:
@@ -90,8 +92,10 @@ AGENT:
         - turn_right
         - stop
       arm_joint_mask: [0, 0, 0, 0, 0, 0, 0] # the arm joints that the policy can control
-      max_displacement: 0.25
+      max_displacement: 0.25                # used when training the policy; could be different from the eval values
       max_turn_degrees: 10.0
+      min_turn_degrees: 5.0
+      min_displacement: 0.1
       sensor_height: 256
       sensor_width: 256
       terminate_condition: discrete_stop
@@ -141,6 +145,8 @@ AGENT:
       arm_joint_mask: [1, 1, 1, 1, 1, 0, 0] # the arm joints that the policy can control
       max_displacement: 0.25                     # used when training the policy
       max_turn_degrees: 30.0
+      min_turn_degrees: 5.0
+      min_displacement: 0.1
       sensor_height: 160
       sensor_width: 120
       nav_goal_seg_channels: 1
