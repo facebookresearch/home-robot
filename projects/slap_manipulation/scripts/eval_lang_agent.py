@@ -18,10 +18,8 @@ from home_robot_hw.env.stretch_pick_and_place_env import (
 @click.option("--goal-recep", default="chair")
 @click.option("--task-id", default=0)
 def main(task_id, test_pick=False, dry_run=False, testing=False, **kwargs):
-    if testing:
-        TASK = task_id
-    else:
-        TASK = "bring me a cup from the table"
+    TASK = task_id
+    # TODO: add logic here to read task_id automatically for experiments
     rospy.init_node("eval_episode_lang_ovmm")
 
     config = load_config(

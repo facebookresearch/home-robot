@@ -56,25 +56,25 @@ class LanguagePlannerEnv(StretchPickandPlaceEnv):
         self.robot.move_to_nav_posture()
 
     def set_goal(self, info: Dict):
-        vocab = ["other"] + [info["object_name"]] + ["other"]
+        vocab = ["other"] + info["object_list"] + ["other"]
         self.segmentation.reset_vocab(vocab)
-        if self.clip_embeddings is not None:
-            # TODO: generate on fly if not available
-            self.task_info["object_embedding"] = self.clip_embeddings[
-                info["object_name"]
-            ]
 
-        self.current_goal_id = 1
-        self.current_goal_name = info["object_name"]
+        if len(info["object_list"]) > 1:
+            self.current_goal_id = 2
+            self.current_goal_name = info["object_list"][1]
+        else:
+            self.current_goal_id = 1
+            self.current_goal_name = info["object_list"][0]
 
     def apply_action(self, action: Action, info: Optional[Dict[str, Any]] = None):
-        """Handle all sorts of different actions we might be inputting into this class. We provide both a discrete and a continuous action handler."""
+        """Handle all sorts of different actions we might be inputting into this class.
+        We provide both a discrete and a continuous action handler."""
         # Process the action so we know what to do with it
         if not isinstance(action, HybridAction):
             action = HybridAction(action)
         # Update the visualizer
-        if self.visualizer is not None and info is not None and "not_viz" not in info:
-            self.visualizer.visualize(**info)
+        if self.visualizer is not None and info is not None and "viz" in info:
+            self.visualizer.visualize(**info["viz"])
         # By default - no arm control
         joints_action = None
         gripper_action = 0

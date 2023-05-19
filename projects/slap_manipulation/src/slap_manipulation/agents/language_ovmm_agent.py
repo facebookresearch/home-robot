@@ -69,20 +69,19 @@ class LangAgent(PickAndPlaceAgent):
             }
             self.task_plans = {
                 0: [
-                    "self.locate('mug', obs)",
-                    "self.pick_up('mug', obs)",
-                    "self.locate('table', obs)",
-                    "self.place('table', obs)",
+                    "self.goto(['chair', bottle'], obs=obs)",
+                    "self.pick_up([bottle'], obs=obs)",
+                    "self.place(['table'], obs=obs)",
                 ],
                 1: [
-                    "locate('banana')",
+                    "goto('banana')",
                     "pick_up('banana')",
                     "place('table')",
                 ],
-                2: ["self.locate('bottle', obs)"],
+                2: ["self.goto('bottle', obs)"],
                 3: [
-                    "self.locate('bottle', obs)",
-                    "self.locate('can', obs)",
+                    "self.goto('bottle', obs)",
+                    "self.goto('can', obs)",
                 ],
             }
 
@@ -94,14 +93,21 @@ class LangAgent(PickAndPlaceAgent):
         if self.gaze_agent is not None:
             self.gaze_agent.reset()
 
-    def _preprocess_obs(self, obs: Observations, object_name: str) -> Observations:
+    def _preprocess_obs(
+        self, obs: Observations, object_list: List[str]
+    ) -> Observations:
         # we do not differentiate b/w obejcts or receptacles
         # everything is a semantic goal to be found
         # start_recep_goal and "end_recep_goal" are always None
         obs.task_observations["end_recep_goal"] = None
-        obs.task_observations["start_recep_goal"] = None
-        obs.task_observations["object_goal"] = 1
-        obs.task_observations["goal_name"] = object_name
+        if len(object_list) > 1:
+            obs.task_observations["start_recep_goal"] = 1
+            obs.task_observations["object_goal"] = 2
+            obs.task_observations["start_recep_name"] = object_list[0]
+            obs.task_observations["goal_name"] = object_list[1]
+        else:
+            obs.task_observations["object_goal"] = 1
+            obs.task_observations["goal_name"] = object_list[0]
         return obs
 
     # --unique methods--
@@ -130,7 +136,7 @@ class LangAgent(PickAndPlaceAgent):
                 "Getting plans outside of test tasks is not implemented yet"
             )
 
-    def locate(self, object_name, obs):
+    def goto(self, object_list, obs=None):
         if self.debug:
             print("[LangAgent]: In locate skill")
         info = {}
@@ -145,12 +151,12 @@ class LangAgent(PickAndPlaceAgent):
                 print(f"[LangAgent]: {self.mode=}")
                 self.state = GeneralTaskState.PREPPING
                 info["not_viz"] = True
-                info["object_name"] = object_name
+                info["object_list"] = object_list
                 return DiscreteNavigationAction.NAVIGATION_MODE, info
             else:
                 self.state = GeneralTaskState.DOING_TASK
-                obs = self._preprocess_obs(obs, object_name)
-                action, info = self.object_nav_agent.act(obs)
+                obs = self._preprocess_obs(obs, object_list)
+                action, info["viz"] = self.object_nav_agent.act(obs)
                 if action == DiscreteNavigationAction.STOP or self.dry_run:
                     self.state = GeneralTaskState.IDLE
         return action, info
@@ -170,22 +176,25 @@ class LangAgent(PickAndPlaceAgent):
             self.mode = "manipulation"
             # TODO: can check if new obejct_name is same as last; if yes, then don't change
             info["not_viz"] = True
-            info["object_name"] = object_name
+            info["object_list"] = object_list
             return DiscreteNavigationAction.MANIPULATION_MODE, info
         else:
             print("[LangAgent]: DRYRUN: Run SLAP on: pick-up", object_name, obs)
             return DiscreteNavigationAction.PICK_OBJECT, None
 
     def place(self, object_name, obs):
+        info = {}
         if self.debug:
             print("[LangAgent]: In place skill")
         if self.mode == "navigation":
-            print("[LangAgent]: Change the mode of the robot to manipulation mode")
             self.mode = "manipulation"
-            return DiscreteNavigationAction.MANIPULATION_MODE, {}
+            # TODO: can check if new obejct_name is same as last; if yes, then don't change
+            info["not_viz"] = True
+            info["object_list"] = object_list
+            return DiscreteNavigationAction.MANIPULATION_MODE, info
         else:
             print("[LangAgent]: DRYRUN: Run SLAP on: place-on", object_name, obs)
-            return DiscreteNavigationAction.PLACE_OBJECT, {}
+            return DiscreteNavigationAction.PLACE_OBJECT, None
 
     def act(self, obs: Observations, task: str) -> Tuple[Action, Dict[str, Any]]:
         if self.state == GeneralTaskState.NOT_STARTED and len(self.steps) == 0:
