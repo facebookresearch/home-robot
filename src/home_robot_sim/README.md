@@ -7,7 +7,7 @@
 
 ## Environment Setup
 
-On an Ubuntu machine with GPU:
+### On an Ubuntu machine with GPU:
 ```
 conda env create -n home-robot --file=src/home_robot/environment.yml
 conda activate home-robot
@@ -16,7 +16,9 @@ conda activate home-robot
 git submodule update --init --recursive
 
 cd src/third_party/habitat-sim
-# Follow the instructions [here](https://github.com/facebookresearch/habitat-sim/blob/main/BUILD_FROM_SOURCE.md) to build habitat-sim from source.
+```
+Follow the instructions [here](https://github.com/facebookresearch/habitat-sim/blob/main/BUILD_FROM_SOURCE.md) to build habitat-sim from source.
+```
 cd -
 
 pip install -e src/third_party/habitat-lab/habitat-lab
@@ -25,7 +27,7 @@ pip install -e src/third_party/habitat-lab/habitat-baselines
 python -m pip install "git+https://github.com/facebookresearch/pytorch3d.git"
 ```
 
-On Mac:
+### On Mac:
 ```
 conda create -n home-robot python=3.10 cmake
 conda activate home-robot
@@ -38,7 +40,9 @@ conda activate home-robot
 git submodule update --init --recursive
 
 cd src/third_party/habitat-sim
-# Follow the instructions [here](https://github.com/facebookresearch/habitat-sim/blob/main/BUILD_FROM_SOURCE.md) to build habitat-sim from source.
+```
+Follow the instructions [here](https://github.com/facebookresearch/habitat-sim/blob/main/BUILD_FROM_SOURCE.md) to build habitat-sim from source.
+```
 cd -
 
 pip install -e src/third_party/habitat-lab/habitat-lab
