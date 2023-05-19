@@ -35,15 +35,12 @@ from home_robot_hw.env.stretch_pick_and_place_env import (
 )
 def main(
     test_pick=False,
-    test_gaze=False,
-    skip_gaze=True,
     reset_nav=False,
     pick_object="cup",
     start_recep="table",
     goal_recep="chair",
     dry_run=False,
     visualize_maps=False,
-    test_place=False,
     cat_map_file=None,
     **kwargs,
 ):
@@ -53,6 +50,7 @@ def main(
     print("- Loading configuration")
     config = load_config(visualize=visualize_maps, **kwargs)
 
+    REAL_WORLD_CATEGORIES[2] = pick_object
     print("- Creating environment")
     env = StretchPickandPlaceEnv(
         goal_options=REAL_WORLD_CATEGORIES,

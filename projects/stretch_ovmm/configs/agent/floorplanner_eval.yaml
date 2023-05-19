@@ -59,8 +59,8 @@ AGENT:
       arm_joint_mask: [0, 0, 0, 0, 0, 0, 1] # the arm joints that the policy can control
       max_displacement: 0.25                     # used when training the policy
       max_turn_degrees: 30.0
-      min_turn_degrees: 5.0
-      min_displacement: 0.1
+      min_turn_degrees: 0.0
+      min_displacement: 0.0
       sensor_height: 160
       sensor_width: 120
       nav_goal_seg_channels: 1
@@ -74,7 +74,7 @@ AGENT:
       type: hw  # oracle or hw
 
     NAV_TO_OBJ:
-      type: heuristic # heuristic (default) or rl
+      type: rl # heuristic (default) or rl
       checkpoint_path: data/checkpoints/ovmm/nav_to_obj.pth
       rl_config: projects/habitat_ovmm/configs/agent/nav_to_obj_rl.yaml
       gym_obs_keys:
@@ -95,7 +95,9 @@ AGENT:
         - stop
       arm_joint_mask: [0, 0, 0, 0, 0, 0, 0] # the arm joints that the policy can control
       max_displacement: 0.25
-      max_turn_degrees: 10.0
+      max_turn_degrees: 30.0
+      min_turn_degrees: 5.0
+      min_displacement: 0.1
       sensor_height: 256
       sensor_width: 256
       terminate_condition: discrete_stop
@@ -145,6 +147,8 @@ AGENT:
       arm_joint_mask: [1, 1, 1, 1, 1, 0, 0] # the arm joints that the policy can control
       max_displacement: 0.25                     # used when training the policy
       max_turn_degrees: 30.0
+      min_turn_degrees: 0.0
+      min_displacement: 0.0
       sensor_height: 160
       sensor_width: 120
       nav_goal_seg_channels: 1
@@ -154,10 +158,10 @@ AGENT:
 
   skip_skills:
     nav_to_obj: False
-    pick: False
     nav_to_rec: False
-    gaze_at_obj: True
+    gaze_at_obj: False
     gaze_at_rec: True
+    pick: False
     place: False
 
   PLANNER:
