@@ -1,3 +1,4 @@
+# %%
 from typing import Any, Dict, List, Tuple
 from glob import glob
 import pandas as pd
@@ -6,8 +7,8 @@ from home_robot.agent.hierarchical.pick_and_place_agent import (
     SimpleTaskState,
 )
 from home_robot.core.interfaces import Action, DiscreteNavigationAction, Observations
-
-def get_task_plans_from_gt(index, datafile='../datasets/BringXFromYSurfaceToHuman.json', root='../datasets/'):
+# %%
+def get_task_plans_from_gt(index, datafile='../../../datasets/BringXFromYSurfaceToHuman.json', root='../datasets/'):
     """Reads the dataset files and return a list of task plans"""
     if datafile == 'all':
         files = glob(root+'*.json')
@@ -26,12 +27,18 @@ def get_task_plans_from_gt(index, datafile='../datasets/BringXFromYSurfaceToHuma
 def get_codelist(steps_list):
     codelist = []
     for step in steps_list:
+        if step['verb'] =='goto':
+            pass
         codelist += [f"self.{step['verb']}('{step['noun']}', motion_profile={step['adverb']}, obs=obs)"]
     return codelist
-    
+# %%    
 class LangAgent(PickAndPlaceAgent):
     def __init__(self, cfg, debug=True, **kwargs):
         super().__init__(cfg, **kwargs)
+        # read the yaml 
+        # get velocities 
+        # get accelerations
+        
         self.steps = []
         self.state = SimpleTaskState.NOT_STARTED
         self.mode = "navigation"  # TODO: turn into an enum
@@ -108,7 +115,7 @@ class LangAgent(PickAndPlaceAgent):
                 "Getting plans outside of test tasks is not implemented yet"
             )
 
-    def locate(self, object_name, obs):
+    def goto(self, object_name, obs):
         if self.debug:
             print("In locate skill")
         info = {}
