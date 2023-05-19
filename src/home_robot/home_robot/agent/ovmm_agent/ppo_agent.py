@@ -191,6 +191,8 @@ class PPOAgent(Agent):
         self.actor_critic.eval()
         self.max_displacement = skill_config.max_displacement
         self.max_turn = skill_config.max_turn_degrees * np.pi / 180
+        self.min_displacement = skill_config.min_displacement
+        self.min_turn = skill_config.min_turn_degrees * np.pi / 180
         self.nav_goal_seg_channels = skill_config.nav_goal_seg_channels
         self.max_joint_delta = None
         if "arm_action" in skill_config.allowed_actions:
@@ -372,11 +374,15 @@ class PPOAgent(Agent):
         ]  # Teleport action after disabling simultaneous turn and lateral movement
         xyt = [0, 0, 0]
         if sel >= 0:
-            xyt = np.array(
-                [np.clip(waypoint, -1, 1) * self.max_displacement, 0, 0]
-            )  # forward
+            absolute_forward_dist = np.clip(waypoint, -1, 1) * self.max_displacement
+            if np.abs(absolute_forward_dist) < self.min_displacement:
+                absolute_forward_dist = 0
+            xyt = np.array([absolute_forward_dist, 0, 0])  # forward
         else:
-            xyt = np.array([0, 0, np.clip(turn, -1, 1) * self.max_turn])  # turn
+            absolute_turn = np.clip(turn, -1, 1) * self.max_turn
+            if np.abs(absolute_turn) < self.min_turn:
+                absolute_turn = 0
+            xyt = np.array([0, 0, absolute_turn])  # turn
         joints = None
         # Map policy controlled arm_action to complete arm_action space
         if "arm_action" in cont_action:
