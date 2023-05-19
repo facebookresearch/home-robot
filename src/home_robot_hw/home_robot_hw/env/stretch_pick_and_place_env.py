@@ -87,6 +87,7 @@ class StretchPickandPlaceEnv(StretchEnv):
         self.test_grasping = test_grasping
         self.dry_run = dry_run
         self.debug = debug
+        self.task_info = {}
 
         self.robot = StretchClient(init_node=False)
 

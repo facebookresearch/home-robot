@@ -181,9 +181,24 @@ class DeticPerception(PerceptionModule):
         self.predictor = DefaultPredictor(cfg)
         reset_cls_test(self.predictor.model, classifier, num_classes)
 
-    def replace_custom_vocabulary(self, new_vocab: List[str]):
-        # TODO: fill this out
-        pass
+    def reset_vocab(self, new_vocab: List[str], vocab_type="custom"):
+        print(f"Resetting vocabulary to {new_vocab}")
+        MetadataCatalog.remove("__unused")
+        if vocab_type == "custom":
+            self.metadata = MetadataCatalog.get("__unused")
+            self.metadata.thing_classes = new_vocab
+            classifier = get_clip_embeddings(self.metadata.thing_classes)
+            self.categories_mapping = {
+                i: i for i in range(len(self.metadata.thing_classes))
+            }
+        else:
+            raise NotImplementedError(
+                "Detic does not have support for resetting from custom to coco vocab"
+            )
+        self.num_sem_categories = len(self.categories_mapping)
+
+        num_classes = len(self.metadata.thing_classes)
+        reset_cls_test(self.predictor.model, classifier, num_classes)
 
     def predict(
         self,
