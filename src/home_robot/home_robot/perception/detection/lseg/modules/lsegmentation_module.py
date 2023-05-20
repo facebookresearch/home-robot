@@ -11,13 +11,14 @@ import torch
 
 # add mixed precision
 import torch.cuda.amp as amp
-from data import get_available_datasets, get_dataset
 from encoding.nn import SegmentationLosses
 from encoding.utils import (
     SegmentationMetric,
     batch_intersection_union,
     batch_pix_accuracy,
 )
+
+from data import get_available_datasets, get_dataset
 
 
 class LSegmentationModule(pl.LightningModule):
