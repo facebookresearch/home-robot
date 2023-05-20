@@ -340,9 +340,9 @@ class StretchPickandPlaceEnv(StretchEnv):
             "object_goal": goal_obj_id,
             "recep_goal": goal_find_id,
         }
-        # if self.clip_embeddings is not None:
-        #     # TODO: generate on fly if not available
-        #     self.task_info["object_embedding"] = self.clip_embeddings[goal_obj]
+        if self.clip_embeddings is not None:
+            # TODO: generate on fly if not available
+            self.task_info["object_embedding"] = self.clip_embeddings[goal_obj]
 
         self.current_goal_id = self.goal_options.index(goal_obj)
         self.current_goal_name = goal

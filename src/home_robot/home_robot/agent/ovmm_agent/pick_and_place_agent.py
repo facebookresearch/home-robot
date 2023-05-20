@@ -23,8 +23,6 @@ class SimpleTaskState(Enum):
     ORIENT_PLACE = 7
     PLACE_OBJECT = 8
     DONE = 9
-    # Add MANIPULATE_OBJECT to replace specific object commands
-    IDLE = 10
 
 
 class PickAndPlaceAgent(Agent):
