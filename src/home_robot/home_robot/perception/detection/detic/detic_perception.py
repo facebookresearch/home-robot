@@ -3,6 +3,7 @@ import sys
 from pathlib import Path
 from typing import List, Optional, Tuple
 
+import cv2
 import numpy as np
 import torch
 from detectron2.config import get_cfg
@@ -180,9 +181,24 @@ class DeticPerception(PerceptionModule):
         self.predictor = DefaultPredictor(cfg)
         reset_cls_test(self.predictor.model, classifier, num_classes)
 
-    def replace_custom_vocabulary(self, new_vocab: List[str]):
-        # TODO: fill this out
-        pass
+    def reset_vocab(self, new_vocab: List[str], vocab_type="custom"):
+        print(f"Resetting vocabulary to {new_vocab}")
+        MetadataCatalog.remove("__unused")
+        if vocab_type == "custom":
+            self.metadata = MetadataCatalog.get("__unused")
+            self.metadata.thing_classes = new_vocab
+            classifier = get_clip_embeddings(self.metadata.thing_classes)
+            self.categories_mapping = {
+                i: i for i in range(len(self.metadata.thing_classes))
+            }
+        else:
+            raise NotImplementedError(
+                "Detic does not have support for resetting from custom to coco vocab"
+            )
+        self.num_sem_categories = len(self.categories_mapping)
+
+        num_classes = len(self.metadata.thing_classes)
+        reset_cls_test(self.predictor.model, classifier, num_classes)
 
     def predict(
         self,
@@ -192,7 +208,7 @@ class DeticPerception(PerceptionModule):
     ) -> Observations:
         """
         Arguments:
-            obs.rgb: image of shape (H, W, 3) (in BGR order)
+            obs.rgb: image of shape (H, W, 3) (in RGB order - Detic expects BGR)
             obs.depth: depth frame of shape (H, W), used for depth filtering
             depth_threshold: if specified, the depth threshold per instance
 
@@ -202,7 +218,8 @@ class DeticPerception(PerceptionModule):
             obs.task_observations["semantic_frame"]: segmentation visualization
              image of shape (H, W, 3)
         """
-        image, depth = obs.rgb, obs.depth
+        image = cv2.cvtColor(obs.rgb, cv2.COLOR_RGB2BGR)
+        depth = obs.depth
         height, width, _ = image.shape
 
         pred = self.predictor(image)
@@ -252,6 +269,7 @@ def setup_cfg(args):
     cfg.MODEL.PANOPTIC_FPN.COMBINE.INSTANCES_CONFIDENCE_THRESH = (
         args.confidence_threshold
     )
+    print("[DETIC] Confidence threshold =", args.confidence_threshold)
     cfg.MODEL.ROI_BOX_HEAD.ZEROSHOT_WEIGHT_PATH = "rand"  # load later
     if not args.pred_all_class:
         cfg.MODEL.ROI_HEADS.ONE_CLASS_PER_PROPOSAL = True
@@ -300,7 +318,7 @@ def get_parser():
     parser.add_argument(
         "--confidence-threshold",
         type=float,
-        default=0.5,
+        default=0.45,
         help="Minimum score for instance predictions to be shown",
     )
     parser.add_argument(

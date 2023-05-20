@@ -16,17 +16,10 @@ from home_robot_hw.env.stretch_pick_and_place_env import (
 @click.option("--object", default="cup")
 @click.option("--start-recep", default="table")
 @click.option("--goal-recep", default="chair")
-def main(
-    test_pick=False,
-    dry_run=False,
-    testing=False,
-    object="cup",
-    start_recep="table",
-    goal_recep="chair",
-    **kwargs
-):
+@click.option("--task-id", default=0)
+def main(task_id, test_pick=False, dry_run=False, testing=False, **kwargs):
     if testing:
-        TASK = "3"
+        TASK = task_id
     else:
         TASK = "bring me a cup from the table"
     rospy.init_node("eval_episode_lang_ovmm")
@@ -41,6 +34,7 @@ def main(
         config=config,
         test_grasping=test_pick,
         dry_run=dry_run,
+        segmentation_method="detic",
     )
     agent = LangAgent(cfg=config, debug=True, skip_gaze=True)
     # robot = env.get_robot()
@@ -52,11 +46,10 @@ def main(
     while not agent.task_is_done():
         t += 1
         print("TIMESTEP = ", t)
-        while not agent.task_is_done():
-            obs = env.get_observation()
-            action, info = agent.act(obs, TASK)
-            print("ACTION = ", action)
-            env.apply_action(action, info=info)
+        obs = env.get_observation()
+        action, info = agent.act(obs, TASK)
+        print("ACTION = ", action)
+        env.apply_action(action, info=info)
 
 
 if __name__ == "__main__":

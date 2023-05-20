@@ -2,6 +2,7 @@
 #
 # This source code is licensed under the MIT license found in the
 # LICENSE file in the root directory of this source tree.
+import math
 import os
 from typing import List, Optional, Tuple
 
@@ -48,7 +49,7 @@ STRETCH_PREGRASP_Q = np.array(
         0.01,  # arm
         0.0,  # gripper rpy
         0.0,  # wrist roll
-        -np.pi / 2,  # wrist pitch
+        -1.5,  # wrist pitch
         0.0,  # wrist yaw
         -np.pi / 2,  # head pan, camera to face the arm
         -np.pi / 4,
@@ -65,10 +66,10 @@ STRETCH_NAVIGATION_Q = np.array(
         0.01,  # arm
         0.0,  # gripper rpy
         0.0,  # wrist roll
-        -np.pi / 2,  # wrist pitch
+        -1.5,  # wrist pitch
         0.0,  # wrist yaw
         0.0,
-        -np.pi / 6,
+        math.radians(-30),
     ]
 )
 
@@ -181,7 +182,7 @@ class HelloStretchKinematics(Robot):
     )
     # look_at_ee = np.array([-np.pi/2, -np.pi/8])
     look_at_ee = np.array([-np.pi / 2, -np.pi / 4])
-    look_front = np.array([0.0, -np.pi / 4])
+    look_front = np.array([0.0, math.radians(-30)])
     look_ahead = np.array([0.0, 0.0])
 
     # For inverse kinematics mode
@@ -936,6 +937,18 @@ class HelloStretchKinematics(Robot):
             q[HelloStretchIdx.WRIST_PITCH],
             q[HelloStretchIdx.WRIST_ROLL],
         ]
+
+    def config_to_hab(self, q: np.ndarray) -> np.ndarray:
+        """Convert default configuration into habitat commands. This is a slightly different format that strips out x, y, and theta."""
+        hab = np.zeros(10)
+        hab[0] = q[HelloStretchIdx.ARM]
+        hab[4] = q[HelloStretchIdx.LIFT]
+        hab[5] = q[HelloStretchIdx.WRIST_ROLL]
+        hab[6] = q[HelloStretchIdx.WRIST_PITCH]
+        hab[7] = q[HelloStretchIdx.WRIST_YAW]
+        hab[8] = q[HelloStretchIdx.HEAD_PAN]
+        hab[9] = q[HelloStretchIdx.HEAD_TILT]
+        return hab
 
     def hab_to_position_command(self, hab_positions) -> List:
         """Compute hab_positions"""

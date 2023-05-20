@@ -7,53 +7,46 @@
 
 ## Environment Setup
 
-On an Ubuntu machine with GPU:
+### On an Ubuntu machine with GPU:
 ```
 conda env create -n home-robot --file=src/home_robot/environment.yml
 conda activate home-robot
 
-git clone https://github.com/facebookresearch/habitat-sim
-cd habitat-sim
-git checkout 7b99db753272079d609b88e00f24ca0ad0ef23aa # latest main forces Python > 3.9
-python -m pip install -r requirements.txt
-python setup.py install --headless --with-bullet
-# (if the above commands runs out of memory) 
-# python setup.py build_ext --parallel 8 install --headless
-cd ..
+# Download third-party packages
+git submodule update --init --recursive
 
-git clone --branch modular_nav_obj_on_rec https://github.com/facebookresearch/habitat-lab.git
-cd habitat-lab
-python -m pip install -e ./habitat-baselines
-cd habitat-lab
-python -m pip install -r requirements.txt
-python -m pip install -e .
-cd ../..
+cd src/third_party/habitat-sim
+```
+Follow the instructions [here](https://github.com/facebookresearch/habitat-sim/blob/main/BUILD_FROM_SOURCE.md) to build habitat-sim from source.
+```
+cd -
+
+pip install -e src/third_party/habitat-lab/habitat-lab
+pip install -e src/third_party/habitat-lab/habitat-baselines
 
 python -m pip install "git+https://github.com/facebookresearch/pytorch3d.git"
 ```
 
-On Mac:
+### On Mac:
 ```
 conda create -n home-robot python=3.10 cmake
 conda activate home-robot
 
 conda install -y pytorch torchvision -c pytorch
 
-git clone https://github.com/facebookresearch/habitat-sim
-cd habitat-sim
-git checkout 7b99db753272079d609b88e00f24ca0ad0ef23aa # latest main forces Python > 3.9
-pip install -r requirements.txt
-python setup.py install --with-bullet
-cd ..
+conda activate home-robot
 
-git clone --branch modular_nav_obj_on_rec https://github.com/facebookresearch/habitat-lab.git
-cd habitat-lab
-pip install -e habitat-baselines
-cd habitat-lab
-pip install -r requirements.txt
-# Not clear if this should have --all or just be a pip install .
-python setup.py develop
-cd ../..
+# Download third-party packages
+git submodule update --init --recursive
+
+cd src/third_party/habitat-sim
+```
+Follow the instructions [here](https://github.com/facebookresearch/habitat-sim/blob/main/BUILD_FROM_SOURCE.md) to build habitat-sim from source.
+```
+cd -
+
+pip install -e src/third_party/habitat-lab/habitat-lab
+pip install -e src/third_party/habitat-lab/habitat-baselines
 
 pip install natsort scikit-image scikit-fmm pandas trimesh scikit-learn
 conda install -c pytorch3d pytorch3d
@@ -66,7 +59,7 @@ conda install -c pytorch3d pytorch3d
 ```
 cd `HOME_ROBOT_ROOT/data/`
 # Download the scenes
-git clone https://huggingface.co/datasets/osmm/fpss --branch osmm
+git clone https://huggingface.co/datasets/fpss/fphab --branch ovmm
 # Download the objects and metadata
 git clone https://huggingface.co/datasets/osmm/objects
 ```

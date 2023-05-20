@@ -18,8 +18,8 @@
   - [x] Edit to respect new simple API
 - [x] APM
   - [x] Finish data-pipeline
-  - [ ] Load pre-trained weights and run initial tests (need new weights for these; queued for after trainig)
-  - [ ] Edit to respect new simple API
+  - [x] Load pre-trained weights and run initial tests (need new weights for these; queued for after trainig)
+  - [x] Edit to respect new simple API
 - [ ] --> Collect new data from stretch
 - [ ] Edit ported dataloaders to visualize and train using collected H5s
 
