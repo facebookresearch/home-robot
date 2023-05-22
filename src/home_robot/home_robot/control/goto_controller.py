@@ -89,6 +89,9 @@ class GotoVelocityController:
 
         # Control module
         self.control = DDVelocityControlNoplan(cfg)
+        self.update_velocity_profile(
+            self.cfg.v_max, self.cfg.w_max, self.cfg.acc_lin, self.cfg.acc_ang
+        )
 
         # Initialize
         self.xyt_loc = np.zeros(3)
@@ -99,6 +102,12 @@ class GotoVelocityController:
         self._is_done = False
 
         self.verbose = verbose
+
+    def update_velocity_profile(
+        self, v_max: float, w_max: float, acc_lin: float, acc_ang: float
+    ):
+        """Call controller and update velocity profile"""
+        self.control.update_velocity_profile(v_max, w_max, acc_lin, acc_ang)
 
     def update_pose_feedback(self, xyt_current: np.ndarray):
         self.xyt_loc = xyt_current
