@@ -25,12 +25,13 @@ os.chdir(BASE_DIR)
 sys.path.append(BASE_DIR)
 import config_utils  # noqa: E402
 from contact_grasp_estimator import GraspEstimator  # noqa: E402
+from visualization_utils import show_image, visualize_grasps  # noqa: E402
+
 from data import (  # noqa: E402
     depth2pc,
     load_available_input_data,
     regularize_pc_point_count,
 )
-from visualization_utils import show_image, visualize_grasps  # noqa: E402
 
 GRIPPER_LENGTH = 0.1
 
