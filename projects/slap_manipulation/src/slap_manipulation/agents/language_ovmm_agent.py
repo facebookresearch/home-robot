@@ -133,7 +133,7 @@ class LangAgent(PickAndPlaceAgent):
                 "Getting plans outside of test tasks is not implemented yet"
             )
 
-    def goto(self, object_name, obs):
+    def goto(self, object_name: str, speed: str, obs: Observations) -> Tuple[Action, Dict]:
         if self.debug:
             print("[LangAgent]: In locate skill")
         info = {}
@@ -149,16 +149,19 @@ class LangAgent(PickAndPlaceAgent):
                 self.state = GeneralTaskState.PREPPING
                 info["not_viz"] = True
                 info["object_name"] = object_name
+                info["speed"] = speed
                 return DiscreteNavigationAction.NAVIGATION_MODE, info
             else:
                 self.state = GeneralTaskState.DOING_TASK
                 obs = self._preprocess_obs(obs, object_name)
+                info["speed"] = speed
+                # TODO: Implement speed in object_nav_agent.act
                 action, info = self.object_nav_agent.act(obs)
                 if action == DiscreteNavigationAction.STOP or self.dry_run:
                     self.state = GeneralTaskState.IDLE
         return action, info
 
-    def pick_up(self, object_name, obs):
+    def pick_up(self, object_name: str, speed: str, obs: Observations) -> Tuple[Action, Dict]:
         info = {}
         if self.debug:
             print("[LangAgent]: In pick_up skill")
@@ -174,21 +177,22 @@ class LangAgent(PickAndPlaceAgent):
             # TODO: can check if new obejct_name is same as last; if yes, then don't change
             info["not_viz"] = True
             info["object_name"] = object_name
+            info["speed"] = speed
             return DiscreteNavigationAction.MANIPULATION_MODE, info
         else:
             print("[LangAgent]: DRYRUN: Run SLAP on: pick-up", object_name, obs)
             return DiscreteNavigationAction.PICK_OBJECT, None
 
-    def place(self, object_name, obs):
+    def place(self, object_name: str, speed: str, obs: Observations) -> Tuple[Action, Dict]:
         if self.debug:
             print("[LangAgent]: In place skill")
         if self.mode == "navigation":
             print("[LangAgent]: Change the mode of the robot to manipulation mode")
             self.mode = "manipulation"
-            return DiscreteNavigationAction.MANIPULATION_MODE, {}
+            return DiscreteNavigationAction.MANIPULATION_MODE, {"speed": speed}
         else:
             print("[LangAgent]: DRYRUN: Run SLAP on: place-on", object_name, obs)
-            return DiscreteNavigationAction.PLACE_OBJECT, {}
+            return DiscreteNavigationAction.PLACE_OBJECT, {"speed": speed}
 
     def act(self, obs: Observations, task: str) -> Tuple[Action, Dict[str, Any]]:
         if self.state == GeneralTaskState.NOT_STARTED and len(self.steps) == 0:
