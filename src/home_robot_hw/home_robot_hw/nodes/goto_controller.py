@@ -12,7 +12,7 @@ import rospy
 import sophus as sp
 from geometry_msgs.msg import Pose, PoseStamped, Twist
 from nav_msgs.msg import Odometry
-from std_msgs.msg import Bool
+from std_msgs.msg import Bool, Float32
 from std_srvs.srv import (
     SetBool,
     SetBoolResponse,
@@ -55,6 +55,13 @@ class GotoVelocityControllerNode:
         # Control module
         controller_cfg = get_control_config(config_name)
         self.controller = GotoVelocityController(controller_cfg)
+        # Update the velocity and acceleration configs from the file
+        self.controller.update_velocity_profile(
+            self.controller_cfg.v_max,
+            self.controller_cfg.w_max,
+            self.controller_cfg.acc_lin,
+            self.controller_cfg.acc_ang,
+        )
 
         # Initialize
         self.vel_odom: Optional[np.ndarray] = None
@@ -69,6 +76,18 @@ class GotoVelocityControllerNode:
 
         # Visualizations
         self.goal_visualizer = Visualizer("goto_controller/goal_abs")
+
+    def _set_v_max(self, msg):
+        self.controller.update_velocity_profile(v_max=msg.data)
+
+    def _set_w_max(self, msg):
+        self.controller.update_velocity_profile(w_max=msg.data)
+
+    def _set_acc_lin(self, msg):
+        self.controller.update_velocity_profile(acc_lin=msg.data)
+
+    def _set_acc_ang(self, msg):
+        self.controller.update_velocity_profile(acc_ang=msg.data)
 
     def _pose_update_callback(self, msg: PoseStamped):
         pose_sp = sp.SE3(matrix_from_pose_msg(msg.pose))
@@ -205,6 +224,12 @@ class GotoVelocityControllerNode:
         rospy.Subscriber(
             "goto_controller/goal", Pose, self._goal_update_callback, queue_size=1
         )
+
+        # Create individual subscribers
+        rospy.Subscriber("goto_controller/v_max", Float32, self._set_v_max)
+        rospy.Subscriber("goto_controller/w_max", Float32, self._set_w_max)
+        rospy.Subscriber("goto_controller/acc_lin", Float32, self._set_acc_lin)
+        rospy.Subscriber("goto_controller/acc_ang", Float32, self._set_acc_ang)
 
         rospy.Service("goto_controller/enable", Trigger, self._enable_service)
         rospy.Service("goto_controller/disable", Trigger, self._disable_service)

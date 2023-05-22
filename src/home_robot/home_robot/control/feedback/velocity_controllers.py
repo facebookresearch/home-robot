@@ -3,7 +3,7 @@
 # This source code is licensed under the MIT license found in the
 # LICENSE file in the root directory of this source tree.
 import abc
-from typing import Tuple
+from typing import Optional, Tuple
 
 import numpy as np
 from omegaconf import DictConfig
@@ -48,7 +48,11 @@ class DDVelocityControlNoplan(DiffDriveVelocityController):
         )
 
     def update_velocity_profile(
-        self, v_max: float, w_max: float, acc_lin: float, acc_ang: float
+        self,
+        v_max: Optional[float] = None,
+        w_max: Optional[float] = None,
+        acc_lin: Optional[float] = None,
+        acc_ang: Optional[float] = None,
     ):
         """Call controller and update velocity profile.
 
@@ -57,10 +61,14 @@ class DDVelocityControlNoplan(DiffDriveVelocityController):
             w_max: max rotational velocity
             acc_lin: forward acceleration
             acc_ang: rotational acceleration"""
-        self.v_max = v_max
-        self.w_max = w_max
-        self.acc_lin = acc_lin
-        self.acc_ang = acc_ang
+        if v_max is not None:
+            self.v_max = v_max
+        if w_max is not None:
+            self.w_max = w_max
+        if acc_lin is not None:
+            self.acc_lin = acc_lin
+        if acc_ang is not None:
+            self.acc_ang = acc_ang
 
     def reset_error_tolerances(self):
         """Reset error tolerances to default values"""

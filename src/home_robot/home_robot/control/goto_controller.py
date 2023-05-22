@@ -104,7 +104,11 @@ class GotoVelocityController:
         self.verbose = verbose
 
     def update_velocity_profile(
-        self, v_max: float, w_max: float, acc_lin: float, acc_ang: float
+        self,
+        v_max: Optional[float] = None,
+        w_max: Optional[float] = None,
+        acc_lin: Optional[float] = None,
+        acc_ang: Optional[float] = None,
     ):
         """Call controller and update velocity profile"""
         self.control.update_velocity_profile(v_max, w_max, acc_lin, acc_ang)
