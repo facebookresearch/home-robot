@@ -41,7 +41,7 @@ class DDVelocityControlNoplan(DiffDriveVelocityController):
         self.reset_error_tolerances()
         self.reset_velocity_profile()
 
-    def reset_velocity_prifle(self):
+    def reset_velocity_profile(self):
         """Read velocity configuration info from the config"""
         self.update_velocity_profile(
             self.cfg.v_max, self.cfg.w_max, self.cfg.acc_lin, self.cfg.acc_ang
