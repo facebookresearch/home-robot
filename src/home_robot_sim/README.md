@@ -8,6 +8,16 @@
 ## Environment Setup
 
 ### On an Ubuntu machine with GPU:
+
+1. Clone this github repository.
+
+```
+git clone git@github.com:facebookresearch/home-robot.git
+cd home-robot
+```
+
+2. Setup virtual environment.
+
 ```
 conda env create -n home-robot --file=src/home_robot/environment.yml
 conda activate home-robot
@@ -17,14 +27,36 @@ git submodule update --init --recursive
 
 cd src/third_party/habitat-sim
 ```
-Follow the instructions [here](https://github.com/facebookresearch/habitat-sim/blob/main/BUILD_FROM_SOURCE.md) to build habitat-sim from source.
+
+3. Build habitat-sim from source.
+
+```
+# Build habitat with bullet physics
+python setup.py install --bullet
+```
+
+4. Install dependencies.
 ```
 cd -
-
 pip install -e src/third_party/habitat-lab/habitat-lab
 pip install -e src/third_party/habitat-lab/habitat-baselines
-
 python -m pip install "git+https://github.com/facebookresearch/pytorch3d.git"
+
+conda install -c pytorch torchvision
+conda install -c anaconda scikit-image
+conda install pybind11 -c conda-forge
+pip install sophuspy
+pip install scikit-fmm
+pip install -U scikit-learn
+
+# Install the core home_robot package
+pip install -e src/home_robot
+
+# Install home_robot_hw
+pip install -e src/home_robot_hw
+
+# Install home robot sim interfaces
+pip install -e src/home_robot_sim
 ```
 
 ### On Mac:
@@ -57,29 +89,31 @@ conda install -c pytorch3d pytorch3d
 ### Scene dataset setup 
 
 ```
-cd `HOME_ROBOT_ROOT/data/`
+mkdir data && cd data
+
 # Download the scenes
 git clone https://huggingface.co/datasets/fpss/fphab --branch ovmm
+
 # Download the objects and metadata
 git clone https://huggingface.co/datasets/osmm/objects
-```
-
-### Download the Robot Model
-
-Download and unzip the robot model:
-```
-mkdir -p $HOME_ROBOT_ROOT/data/robots/hab_stretch
-cd $HOME_ROBOT_ROOT/data/robots/hab_stretch
-wget http://dl.fbaipublicfiles.com/habitat/robots/hab_stretch_v1.0.zip
-unzip hab_stretch_v1.0.zip
 ```
 
 ### Download the Episodes
 
 These describe where objects are and where the robot starts:
 ```
-cd $HOME_ROBOT_ROOT/data/
 git clone https://huggingface.co/datasets/osmm/episodes
+```
+
+### Download the Robot Model
+
+Download and unzip the robot model:
+```
+mkdir -p robots/hab_stretch
+cd robots/hab_stretch
+
+wget http://dl.fbaipublicfiles.com/habitat/robots/hab_stretch_v1.0.zip
+unzip hab_stretch_v1.0.zip
 ```
 
 ## Demo setup
