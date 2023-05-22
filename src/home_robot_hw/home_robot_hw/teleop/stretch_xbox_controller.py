@@ -111,7 +111,7 @@ class StretchXboxController(object):
             self._robot_client.switch_to_navigation_mode()
 
     def _create_arm_extension_loop(self, controller_state):
-        arm_scale = 1.0  # TODO: better config/less hacky
+        arm_scale = 0.2  # TODO: better config/less hacky
 
         def callback(event):
             # Re-run the manager because it uses globals to accumulate speed
@@ -125,7 +125,7 @@ class StretchXboxController(object):
         return callback
 
     def _create_lift_arm_loop(self, controller_state):
-        lift_scale = 1.0  # TODO: better config/less hacky
+        lift_scale = 0.2  # TODO: better config/less hacky
 
         def callback(event):
             # Re-run the manager because it uses globals to accumulate speed
@@ -139,8 +139,8 @@ class StretchXboxController(object):
         return callback
 
     def _create_move_base_loop(self, controller_state):
-        rot_scale = 0.15
-        trans_scale = 0.75
+        rot_scale = 0.10
+        trans_scale = 0.5
 
         def callback(event):
             # Re-run the manager because it uses globals to accumulate speed
