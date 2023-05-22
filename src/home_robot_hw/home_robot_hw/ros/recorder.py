@@ -40,6 +40,8 @@ class Recorder(object):
 
     def finish_recording(self):
         print(f"... done recording trial named: {self.idx}.")
+        demo_status = input("Was this trial a success (s) or a failure (f)?")
+        self.writer.add_config(demo_status=demo_status)
         self.writer.write_trial(self.idx)
         self.idx += 1
 
