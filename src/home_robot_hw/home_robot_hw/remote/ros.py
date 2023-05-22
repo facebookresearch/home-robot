@@ -117,7 +117,7 @@ class StretchRosInterface:
         with self._js_lock:
             return self.pos, self.vel, self.frc
 
-    def send_trajectory_goals(self, joint_goals: Dict[str, float]):
+    def send_trajectory_goals(self, joint_goals: Dict[str, float], joint_velocities: Dict[str, float]=None, joint_accelerations: Dict[str, float]=None):
         # Preprocess arm joints (arm joints are actually 4 joints in one)
         if self.ARM_JOINT in joint_goals:
             arm_joint_goal = joint_goals.pop(self.ARM_JOINT)
@@ -138,20 +138,18 @@ class StretchRosInterface:
         for name, val in joint_goals.items():
             joint_names.append(name)
             joint_values.append(val)
-
-        # Construct goal positions
-        point_msg = JointTrajectoryPoint()
-        point_msg.positions = joint_values
-
-        # Construct goal msg
-        goal_msg = FollowJointTrajectoryGoal()
-        goal_msg.goal_time_tolerance = rospy.Time(self.goal_time_tolerance)
-        goal_msg.trajectory.joint_names = joint_names
-        goal_msg.trajectory.points = [point_msg]
-        goal_msg.trajectory.header.stamp = rospy.Time.now()
-
+        if joint_velocities is None:
+            joint_velocities = [0.0] * len(joint_names)
+        else:
+            joint_velocities = [joint_velocities[name] for name in joint_names]
+        if joint_accelerations is None:
+            joint_accelerations = [0.0] * len(joint_names)
+        else:
+            joint_accelerations = [joint_accelerations[name] for name in joint_names]
+            
+        trajectory_goal = self.config_to_ros_trajectory_goal(joint_values, joint_velocities, joint_accelerations)
         # Send goal
-        self.trajectory_client.send_goal(goal_msg)
+        self.trajectory_client.send_goal(trajectory_goal)
 
     def wait_for_trajectory_action(self):
         self.trajectory_client.wait_for_result()
