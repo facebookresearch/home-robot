@@ -26,14 +26,16 @@ class Recorder(object):
         print("Connecting to robot environment...")
         # self.robot = StretchManipulationEnv(init_cameras=True)
         self.robot = StretchClient()
+        self.robot.switch_to_manipulation_mode()
         print("... done connecting to robot environment")
-        self.robot.head.look_at_ee()
         self.writer = DataWriter(filename)
         self.idx = 0
         self._recording_started = start_recording
         self._filename = filename
 
     def start_recording(self, task_name):
+        print("Wait as the robot resets to manip-position")
+        self.robot.switch_to_manipulation_mode()
         self._recording_started = True
         self.writer.add_config(task_name=task_name)
         print(f"Ready to record demonstration to file: {self._filename}")
