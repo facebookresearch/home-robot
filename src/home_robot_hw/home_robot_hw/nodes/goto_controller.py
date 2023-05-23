@@ -41,7 +41,7 @@ class GotoVelocityControllerNode:
     """
 
     # How long should the controller report done before we're actually confident that we're done?
-    done_t = rospy.Duration(1.0)
+    done_t = rospy.Duration(0.1)
 
     def __init__(
         self,
@@ -173,10 +173,21 @@ class GotoVelocityControllerNode:
                     else:
                         self.controller_finished = False
                         self.done_since = rospy.Time(0)
+                    print(
+                        done,
+                        self.vel_odom,
+                        self.controller_finished,
+                        "is done =",
+                        self.is_done,
+                    )
 
                 # Command robot
                 self._set_velocity(v_cmd, w_cmd)
                 self.at_goal_pub.publish(self.is_done)
+
+                if self.is_done:
+                    self.active = False
+                    self.xyt_goal = None
 
             # Spin
             rate.sleep()
