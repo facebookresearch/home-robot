@@ -16,11 +16,8 @@ from home_robot.core.interfaces import (
     DiscreteNavigationAction,
     Observations,
 )
-from home_robot.motion.stretch import STRETCH_GRIPPER_OPEN, STRETCH_STANDOFF_DISTANCE
+from home_robot.motion.stretch import STRETCH_STANDOFF_DISTANCE
 from home_robot.utils.image import smooth_mask
-from home_robot.utils.point_cloud import valid_depth_mask
-
-# from home_robot.utils.point_cloud import show_point_cloud
 from home_robot.utils.rotation import get_angle_to_pos
 
 RETRACTED_ARM_APPROX_LENGTH = 0.15
@@ -75,7 +72,7 @@ class HeuristicPlacePolicy(nn.Module):
 
         goal_rec_mask = (
             obs.semantic
-            == obs.task_observations["end_recep_goal"] * valid_depth_mask(obs.depth)
+            == obs.task_observations["end_recep_goal"] * du.valid_depth_mask(obs.depth)
         ).astype(np.uint8)
         # Get dilated, then eroded mask (for cleanliness)
         goal_rec_mask = smooth_mask(
