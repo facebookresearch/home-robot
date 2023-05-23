@@ -36,7 +36,7 @@ class Recorder(object):
     def start_recording(self, task_name):
         print("Wait as the robot resets to manip-position")
         self.robot.switch_to_manipulation_mode()
-        self.robot.move_to_manip_posture()
+        self.robot.move_to_pre_demo_posture()
         self._recording_started = True
         self.writer.add_config(task_name=task_name)
         print(f"Ready to record demonstration to file: {self._filename}")
