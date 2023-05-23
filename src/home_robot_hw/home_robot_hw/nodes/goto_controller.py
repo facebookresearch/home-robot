@@ -57,10 +57,10 @@ class GotoVelocityControllerNode:
         self.controller = GotoVelocityController(controller_cfg)
         # Update the velocity and acceleration configs from the file
         self.controller.update_velocity_profile(
-            self.controller_cfg.v_max,
-            self.controller_cfg.w_max,
-            self.controller_cfg.acc_lin,
-            self.controller_cfg.acc_ang,
+            controller_cfg.v_max,
+            controller_cfg.w_max,
+            controller_cfg.acc_lin,
+            controller_cfg.acc_ang,
         )
 
         # Initialize
