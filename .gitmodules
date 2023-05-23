@@ -19,3 +19,6 @@
 [submodule "src/third_party/habitat-sim"]
 	path = src/third_party/habitat-sim
 	url = git@github.com:facebookresearch/habitat-sim.git
+[submodule "src/home_robot/home_robot/perception/detection/glip/GLIP"]
+	path = src/home_robot/home_robot/perception/detection/glip/GLIP
+	url = https://github.com/microsoft/GLIP.git
