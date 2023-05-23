@@ -496,6 +496,7 @@ class RobotDataset(RLBenchDataset):
             ]
 
         if self.skill_to_action is not None:
+            breakpoint()
             all_cmd = self.skill_to_action[cmd]
 
         if self.skill_to_action is not None and self.per_action_cmd:

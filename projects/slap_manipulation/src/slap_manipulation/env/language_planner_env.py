@@ -66,6 +66,22 @@ class LanguagePlannerEnv(StretchPickandPlaceEnv):
             self.current_goal_id = 1
             self.current_goal_name = info["object_list"][0]
 
+    def _switch_to_manip_mode(self, grasp_only=False):
+        """Rotate the robot and put it in the right configuration for grasping"""
+
+        # We switch to navigation mode in order to rotate by 90 degrees
+        if not self.robot.in_navigation_mode() and not self.dry_run:
+            self.robot.switch_to_navigation_mode()
+
+        # Dummy out robot execution code for perception tests
+        # Also do not rotate if you are just doing grasp testing
+        if grasp_only:
+            self.robot.move_to_manip_posture()
+            return
+        if not self.dry_run and not self.test_grasping:
+            self.robot.nav.navigate_to([0, 0, np.pi / 2], relative=True, blocking=True)
+            self.robot.move_to_manip_posture()
+
     def apply_action(self, action: Action, info: Optional[Dict[str, Any]] = None):
         """Handle all sorts of different actions we might be inputting into this class.
         We provide both a discrete and a continuous action handler."""
@@ -105,7 +121,8 @@ class LanguagePlannerEnv(StretchPickandPlaceEnv):
             elif action == DiscreteNavigationAction.MANIPULATION_MODE:
                 # set goal based on info dict here
                 self.set_goal(info)
-                self._switch_to_manip_mode()
+                if not self.robot.in_manipulation_mode():
+                    self._switch_to_manip_mode()
                 continuous_action = None
             elif action == DiscreteNavigationAction.NAVIGATION_MODE:
                 # set goal based on info dict here

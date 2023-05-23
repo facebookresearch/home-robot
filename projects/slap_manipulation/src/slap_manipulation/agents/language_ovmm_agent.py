@@ -84,6 +84,7 @@ class LangAgent(PickAndPlaceAgent):
                     "self.goto('bottle', obs)",
                     "self.goto('can', obs)",
                 ],
+                4: ["self.pick_up(['bowl'], obs)"],
             }
 
     # ---override methods---
@@ -198,7 +199,7 @@ class LangAgent(PickAndPlaceAgent):
             self.state = GeneralTaskState.PREPPING
             return DiscreteNavigationAction.MANIPULATION_MODE, info
         else:
-            print("[LangAgent]: DRYRUN: Run SLAP on: pick-up", object_list, obs)
+            print("[LangAgent]: Picking up with heuristic", object_list, obs)
             self.state = GeneralTaskState.IDLE
             return DiscreteNavigationAction.PICK_OBJECT, None
 
