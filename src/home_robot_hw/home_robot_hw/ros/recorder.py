@@ -39,14 +39,17 @@ class Recorder(object):
         self.robot.move_to_pre_demo_posture()
         self._recording_started = True
         self.writer.add_config(task_name=task_name)
-        print(f"Ready to record demonstration to file: {self._filename}")
+        print(
+            f"Ready to record demonstration to file: {self._filename}. Press BACK to tag a keyframe"
+        )
 
     def finish_recording(self):
-        print(f"... done recording trial named: {self.idx}.")
         demo_status = int(input("Was this trial a success (1) or a failure (0)?"))
         self.writer.add_config(demo_status=demo_status)
         self.writer.write_trial(self.idx)
         self.idx += 1
+        print(f"... done recording trial named: {self.idx}.")
+        print("Ready for next episode...Press START to begin ")
 
     def _construct_camera_info(self, camera):
         return {
