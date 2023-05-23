@@ -41,10 +41,13 @@ def run_experiment(visualize_maps=False, test_id=0, reset_nav=False, **kwargs):
     i = 0
     while not rospy.is_shutdown():
         # Send it back to origin position to make testing a bit easier
+        print(i)
         if i % 2 == 0:
             robot.nav.navigate_to([0, 0, 0])
         else:
-            robot.nav.navigate_to([0.5, 0, 0])
+
+            robot.nav.navigate_to([0.2, 0, 0])
+        i += 1
 
         # Done
         input("--- Press enter to continue ---")
