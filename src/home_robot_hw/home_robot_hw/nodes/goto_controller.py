@@ -32,6 +32,7 @@ log = logging.getLogger(__name__)
 CONTROL_HZ = 20
 VEL_THRESHOlD = 0.001
 RVEL_THRESHOLD = 0.005
+DEBUG_CONTROL_LOOP = False
 
 
 class GotoVelocityControllerNode:
@@ -173,13 +174,18 @@ class GotoVelocityControllerNode:
                     else:
                         self.controller_finished = False
                         self.done_since = rospy.Time(0)
-                    print(
-                        done,
-                        self.vel_odom,
-                        self.controller_finished,
-                        "is done =",
-                        self.is_done,
-                    )
+
+                    if DEBUG_CONTROL_LOOP:
+                        print(
+                            "done =",
+                            done,
+                            "vel =",
+                            self.vel_odom,
+                            "controller done =",
+                            self.controller_finished,
+                            "is done =",
+                            self.is_done,
+                        )
 
                 # Command robot
                 self._set_velocity(v_cmd, w_cmd)
