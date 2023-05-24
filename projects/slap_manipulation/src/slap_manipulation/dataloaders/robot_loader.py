@@ -11,6 +11,7 @@ import trimesh.transformations as tra
 import yaml
 from slap_manipulation.dataloaders.annotations import load_annotations_dict
 from slap_manipulation.dataloaders.rlbench_loader import RLBenchDataset
+from slap_manipulation.utils.pointcloud_preprocessing import find_closest_point_to_line
 
 from home_robot.core.interfaces import Observations
 
@@ -266,14 +267,6 @@ class RobotDataset(RLBenchDataset):
     def get_gripper_axis(self, rot_mat):
         return rot_mat[:3, 2]
 
-    def find_closest_point_to_line(self, xyz, gripper_position, action_axis):
-        line_to_points = xyz - gripper_position
-        projections_on_line = line_to_points * action_axis
-        closest_points_on_line = gripper_position + projections_on_line * line_to_points
-        distances_to_line = np.linalg.norm(closest_points_on_line - xyz, axis=-1)
-        closest_indices = np.argmin(distances_to_line)
-        return closest_indices, xyz[closest_indices]
-
     def read_cam_config(self):
         """read camera intrinsics and extrinsics from json files"""
         with open(self.cam_mapping_json_path, "r") as f:
@@ -487,14 +480,11 @@ class RobotDataset(RLBenchDataset):
                 "lift-action bottle",
             ]
         # TODO: remove this and read from a yaml file instead
-        if "knob" in cmd:
-            all_cmd = ["first", "second", "third", "fourth"]
-        else:
-            all_cmd = [
-                "approach-pose-action bottle",
-                "grasp-action bottle",
-                "lift-action bottle",
-            ]
+        all_cmd = [
+            "approach-pose-action bottle",
+            "grasp-action bottle",
+            "lift-action bottle",
+        ]
 
         if self.skill_to_action is not None:
             breakpoint()
@@ -646,7 +636,7 @@ class RobotDataset(RLBenchDataset):
         gripper_pose = self.get_gripper_pose(trial, interaction_pt_idx)
         action_axis = self.get_gripper_axis(gripper_pose)
         gripper_position = gripper_pose[:3, 3]
-        index, interaction_point = self.find_closest_point_to_line(
+        index, interaction_point = find_closest_point_to_line(
             xyz, gripper_position, action_axis
         )
         interaction_ee_keyframe[:3, 3] = interaction_point

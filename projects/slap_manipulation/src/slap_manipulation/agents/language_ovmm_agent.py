@@ -14,7 +14,7 @@ from home_robot.core.interfaces import (
 )
 
 
-def get_task_plans_from_gt(
+def get_task_plans_from_oracle(
     index, datafile="./datasets/BringXFromYSurfaceToHuman.json", root="./datasets/"
 ):
     """Reads the dataset files and return a list of task plans"""
@@ -54,7 +54,7 @@ class LangAgent(PickAndPlaceAgent):
         self.debug = debug
         self.dry_run = False
         if not self.debug:
-            self.task_plans = get_task_plans_from_gt
+            self.task_plans = get_task_plans_from_oracle
         else:
             self.task_defs = {
                 0: "place the apple on the table",
