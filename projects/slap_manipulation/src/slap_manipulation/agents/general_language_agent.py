@@ -4,29 +4,17 @@ from glob import glob
 from typing import Any, Dict, List, Tuple
 
 import pandas as pd
-from slap_manipulation.agents.slap_agent import SlapAgent
 
-from home_robot.agent.ovmm_agent.pick_and_place_agent import (
-    PickAndPlaceAgent,
-    SimpleTaskState,
-)
+from home_robot.agent.ovmm_agent.pick_and_place_agent import PickAndPlaceAgent
 from home_robot.core.interfaces import (
     Action,
-    ContinuousEndEffectorAction,
     DiscreteNavigationAction,
+    GeneralTaskState,
     Observations,
 )
 
 
-class GeneralTaskState(Enum):
-    NOT_STARTED = 0
-    PREPPING = 1
-    DOING_TASK = 2
-    IDLE = 3
-    STOP = 4
-
-
-def get_task_plans_from_gt(
+def get_task_plans_from_oracle(
     index, datafile="./datasets/BringXFromYSurfaceToHuman.json", root="./datasets/"
 ):
     """Reads the dataset files and return a list of task plans"""
@@ -67,7 +55,7 @@ class GeneralLanguageAgent(PickAndPlaceAgent):
         self.dry_run = False
         self.slap_model = SlapAgent(cfg)
         if not self.debug:
-            self.task_plans = get_task_plans_from_gt
+            self.task_plans = get_task_plans_from_oracle
         else:
             self.task_defs = {
                 0: "place the apple on the table",
