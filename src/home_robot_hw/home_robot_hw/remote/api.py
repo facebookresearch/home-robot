@@ -171,7 +171,7 @@ class StretchClient:
         )
 
     def move_to_pre_demo_posture(self):
-        """Move the arm and head into manip mode posture: gripper down, head facing the gripper."""
+        """Move the arm and head into pre-demo posture: gripper straight, arm way down, head facing the gripper."""
         self.switch_to_manipulation_mode()
         self.head.look_at_ee(blocking=False)
         self.manip.goto_joint_positions(
