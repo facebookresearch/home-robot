@@ -31,6 +31,14 @@ cd src/third_party/habitat-sim
 3. Build habitat-sim from source.
 
 ```
+pip install -r requirements.txt
+
+sudo apt-get update || true
+# These are fairly ubiquitous packages and your system likely has them already,
+# but if not, let's get the essentials for EGL support:
+sudo apt-get install -y --no-install-recommends \
+     libjpeg-dev libglm-dev libgl1-mesa-glx libegl1-mesa-dev mesa-utils xorg-dev freeglut3-dev
+
 # Build habitat with bullet physics
 python setup.py install --bullet
 ```
@@ -41,13 +49,6 @@ cd -
 pip install -e src/third_party/habitat-lab/habitat-lab
 pip install -e src/third_party/habitat-lab/habitat-baselines
 python -m pip install "git+https://github.com/facebookresearch/pytorch3d.git"
-
-conda install -c pytorch torchvision
-conda install -c anaconda scikit-image
-conda install pybind11 -c conda-forge
-pip install sophuspy
-pip install scikit-fmm
-pip install -U scikit-learn
 
 # Install the core home_robot package
 pip install -e src/home_robot
