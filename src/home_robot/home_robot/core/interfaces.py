@@ -59,6 +59,29 @@ class ContinuousFullBodyAction:
         self.joints = joints
 
 
+class ContinuousEndEffectorAction:
+    xyz: np.ndarray
+    quat: np.ndarray
+    g: float
+
+    def __init__(
+        self, xyz: np.ndarray = None, quat: np.ndarray = None, g: float = None
+    ):
+        """Create end-effector continuous action; moves to 6D pose and activates gripper"""
+        if (
+            xyz is not None
+            and quat is not None
+            and g is not None
+            and not (len(xyz) + len(quat) + 1) == 8
+        ):
+            raise RuntimeError(
+                "continuous end-effector action space has 8 dimentions: xyz=3, quat=4, gripper=1"
+            )
+        self.xyz = xyz
+        self.quat = quat
+        self.g = g
+
+
 class ActionType(Enum):
     DISCRETE = 0
     CONTINUOUS_NAVIGATION = 1

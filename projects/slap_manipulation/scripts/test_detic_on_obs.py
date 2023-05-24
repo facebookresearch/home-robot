@@ -2,33 +2,32 @@ import numpy as np
 import rospy
 from matplotlib import pyplot as plt
 from PIL import Image
+from slap_manipulation.env.language_planner_env import GeneralLanguageEnv
 
-from home_robot.core.interfaces import Observations
-from home_robot.perception.detection.detic.detic_perception import DeticPerception
-from home_robot_hw.env.stretch_manipulation_env import StretchManipulationEnv
+from home_robot_hw.env.stretch_pick_and_place_env import load_config
 
-REAL_WORLD_CATEGORIES = ["cup", "bottle", "drawer", "basket", "bowl", "computer", "mug"]
+MY_CATEGORIES = ["cup", "bottle", "drawer", "mug"]
 
 if __name__ == "__main__":
     rospy.init_node("test_detic")
-    robot = StretchManipulationEnv(init_cameras=True)
-    segmentation = DeticPerception(
-        vocabulary="custom",
-        custom_vocabulary=",".join(REAL_WORLD_CATEGORIES),
-        sem_gpu_id=0,
+    config = load_config(
+        visualize=True,
+        config_path="projects/slap_manipulation/configs/language_agent.yaml",
     )
+    env = GeneralLanguageEnv(
+        config=config,
+        test_grasping=False,
+        dry_run=True,
+        segmentation_method="detic",
+    )
+    env.reset()
+    info = {
+        "object_list": MY_CATEGORIES,
+    }
+    env.set_goal(info)
+    env.robot.move_to_manip_posture()
     # image = Image.open("./desk.jpg")
     # image_np = np.array(image)
-    obs = robot.get_observation()
-    breakpoint()
-    detic_obs = Observations(
-        rgb=obs["rgb"],
-        depth=obs["depth"],
-        xyz=obs["xyz"],
-        gps=np.zeros(2),  # TODO Replace
-        compass=np.zeros(1),  # TODO Replace
-        task_observations={},
-    )
-    result = segmentation.predict(detic_obs)
-    plt.imshow(result.task_observations["semantic_frame"])
+    obs = env.get_observation()
+    plt.imshow(obs.task_observations["semantic_frame"])
     plt.show()

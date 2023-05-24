@@ -4,12 +4,18 @@ from glob import glob
 from typing import Any, Dict, List, Tuple
 
 import pandas as pd
+from slap_manipulation.agents.slap_agent import SlapAgent
 
 from home_robot.agent.ovmm_agent.pick_and_place_agent import (
     PickAndPlaceAgent,
     SimpleTaskState,
 )
-from home_robot.core.interfaces import Action, DiscreteNavigationAction, Observations
+from home_robot.core.interfaces import (
+    Action,
+    ContinuousEndEffectorAction,
+    DiscreteNavigationAction,
+    Observations,
+)
 
 
 class GeneralTaskState(Enum):
@@ -48,7 +54,7 @@ def get_codelist(steps_list):
     return codelist
 
 
-class LangAgent(PickAndPlaceAgent):
+class GeneralLanguageAgent(PickAndPlaceAgent):
     def __init__(self, cfg, debug=True, **kwargs):
         super().__init__(cfg, **kwargs)
         self.steps = []
@@ -59,6 +65,7 @@ class LangAgent(PickAndPlaceAgent):
         self.testing = True
         self.debug = debug
         self.dry_run = False
+        self.slap_model = SlapAgent(cfg)
         if not self.debug:
             self.task_plans = get_task_plans_from_gt
         else:
@@ -84,7 +91,7 @@ class LangAgent(PickAndPlaceAgent):
                     "self.goto('bottle', obs)",
                     "self.goto('can', obs)",
                 ],
-                4: ["self.pick_up(['bowl'], obs)"],
+                4: ["self.pick_up(['mug'], obs)"],
             }
 
     # ---override methods---
@@ -222,6 +229,38 @@ class LangAgent(PickAndPlaceAgent):
             if action == DiscreteNavigationAction.STOP:
                 self.state = GeneralTaskState.IDLE
             return action, action_info
+
+    def open(self, object_list: List[str], obs: Observations):
+        info = {}
+        action = None
+        if not self.is_busy():
+            print("[LangAgent]: Changing mode, setting goals")
+            info["not_viz"] = True
+            info["object_list"] = object_list
+            self.state = GeneralTaskState.PREPPING
+            return DiscreteNavigationAction.MANIPULATION_MODE, info
+        else:
+            if self.interaction_point is not None:
+                print("[LangAgent] Call APM given p_i")
+                info["slap_action"] = self.slap_model.predict_next_action()
+                self.num_actions_done += 1
+                if self.num_actions_done == num_actions:
+                    self.state = GeneralTaskState.IDLE
+                    return DiscreteNavigationAction.STOP, info
+                # create a new action type which can handle end-effector goals
+                self.state = GeneralTaskState.DOING_TASK
+                return action, info
+            else:
+                print("[LangAgent] Call IPM to generate p_i")
+                # maybe obs can take care of interaction_point too?
+                self.interaction_point = self.slap_model.predict_interaction_point()
+                action = ContinuousEndEffectorAction(
+                    self.interaction_point[:3],
+                    self.interaction_point[3:7],
+                    self.interaction_point[-1],
+                )
+                self.state = GeneralTaskState.DOING_TASK
+                return action, info
 
     def act(self, obs: Observations, task: str) -> Tuple[Action, Dict[str, Any]]:
         if self.state == GeneralTaskState.NOT_STARTED and len(self.steps) == 0:

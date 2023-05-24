@@ -14,7 +14,7 @@ from home_robot.utils.geometry import xyt2sophus
 from home_robot_hw.env.stretch_pick_and_place_env import DETIC, StretchPickandPlaceEnv
 
 
-class LanguagePlannerEnv(StretchPickandPlaceEnv):
+class GeneralLanguageEnv(StretchPickandPlaceEnv):
     def __init__(
         self,
         config,
@@ -66,7 +66,7 @@ class LanguagePlannerEnv(StretchPickandPlaceEnv):
             self.current_goal_id = 1
             self.current_goal_name = info["object_list"][0]
 
-    def _switch_to_manip_mode(self, grasp_only=False):
+    def _switch_to_manip_mode(self, grasp_only=True):
         """Rotate the robot and put it in the right configuration for grasping"""
 
         # We switch to navigation mode in order to rotate by 90 degrees
