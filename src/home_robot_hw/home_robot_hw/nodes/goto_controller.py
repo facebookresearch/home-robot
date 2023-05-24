@@ -32,6 +32,7 @@ log = logging.getLogger(__name__)
 CONTROL_HZ = 20
 VEL_THRESHOlD = 0.001
 RVEL_THRESHOLD = 0.005
+DEBUG_CONTROL_LOOP = False
 
 
 class GotoVelocityControllerNode:
@@ -41,7 +42,7 @@ class GotoVelocityControllerNode:
     """
 
     # How long should the controller report done before we're actually confident that we're done?
-    done_t = rospy.Duration(1.0)
+    done_t = rospy.Duration(0.1)
 
     def __init__(
         self,
@@ -193,9 +194,25 @@ class GotoVelocityControllerNode:
                         self.controller_finished = False
                         self.done_since = rospy.Time(0)
 
+                    if DEBUG_CONTROL_LOOP:
+                        print(
+                            "done =",
+                            done,
+                            "vel =",
+                            self.vel_odom,
+                            "controller done =",
+                            self.controller_finished,
+                            "is done =",
+                            self.is_done,
+                        )
+
                 # Command robot
                 self._set_velocity(v_cmd, w_cmd)
                 self.at_goal_pub.publish(self.is_done)
+
+                if self.is_done:
+                    self.active = False
+                    self.xyt_goal = None
 
             # Spin
             rate.sleep()
