@@ -5,19 +5,13 @@ from typing import Any, Dict, List, Tuple
 
 import pandas as pd
 
-from home_robot.agent.ovmm_agent.pick_and_place_agent import (
-    PickAndPlaceAgent,
-    SimpleTaskState,
+from home_robot.agent.ovmm_agent.pick_and_place_agent import PickAndPlaceAgent
+from home_robot.core.interfaces import (
+    Action,
+    DiscreteNavigationAction,
+    GeneralTaskState,
+    Observations,
 )
-from home_robot.core.interfaces import Action, DiscreteNavigationAction, Observations
-
-
-class GeneralTaskState(Enum):
-    NOT_STARTED = 0
-    PREPPING = 1
-    DOING_TASK = 2
-    IDLE = 3
-    STOP = 4
 
 
 def get_task_plans_from_gt(
