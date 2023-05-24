@@ -44,3 +44,12 @@ def get_local_action_prediction_problem(
     if crop_xyz.shape[0] < 10:
         status = False
     return crop_rgb, crop_xyz, status
+
+
+def find_closest_point_to_line(xyz, gripper_position, action_axis):
+    line_to_points = xyz - gripper_position
+    projections_on_line = line_to_points * action_axis
+    closest_points_on_line = gripper_position + projections_on_line * line_to_points
+    distances_to_line = np.linalg.norm(closest_points_on_line - xyz, axis=-1)
+    closest_indices = np.argmin(distances_to_line)
+    return closest_indices, xyz[closest_indices]

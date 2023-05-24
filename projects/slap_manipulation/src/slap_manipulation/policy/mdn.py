@@ -78,6 +78,8 @@ class MDN(nn.Module):
     def forward(self, minibatch):
         if self.pi:
             pi = self.pi(minibatch)
+        else:
+            pi = None
         sigma = torch.exp(self.sigma(minibatch))
         sigma = sigma.view(-1, self.num_gaussians, self.out_features)
         mu = self.mu(minibatch)

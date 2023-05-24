@@ -46,6 +46,7 @@ class StretchXboxController(object):
         self._gripper_timer = None
         self._head_pan_timer = None
         self._head_tilt_timer = None
+        self._move_base_timer = None
 
         self._dpad_controls_camera = False  # #True
         set_use_dex_wrist_mapping(
@@ -110,7 +111,7 @@ class StretchXboxController(object):
             self._robot_client.switch_to_navigation_mode()
 
     def _create_arm_extension_loop(self, controller_state):
-        arm_scale = 1.0  # TODO: better config/less hacky
+        arm_scale = 0.2  # TODO: better config/less hacky
 
         def callback(event):
             # Re-run the manager because it uses globals to accumulate speed
@@ -124,7 +125,7 @@ class StretchXboxController(object):
         return callback
 
     def _create_lift_arm_loop(self, controller_state):
-        lift_scale = 1.0  # TODO: better config/less hacky
+        lift_scale = 0.2  # TODO: better config/less hacky
 
         def callback(event):
             # Re-run the manager because it uses globals to accumulate speed
@@ -134,6 +135,28 @@ class StretchXboxController(object):
             self._robot_client._ros_client.goto_lift_position(
                 lift_scale * converted_lift_command[0], wait=True
             )
+
+        return callback
+
+    def _create_move_base_loop(self, controller_state):
+        rot_scale = 0.10
+        trans_scale = 0.5
+
+        def callback(event):
+            # Re-run the manager because it uses globals to accumulate speed
+            translation_command, rotation_command = manage_base(
+                robot=None, controller_state=controller_state
+            )
+            # Execute the commands
+            if translation_command is not None:
+                self._set_mode()
+                self._robot_client.nav.set_velocity(
+                    trans_scale * translation_command[1], 0
+                )
+
+            if rotation_command is not None:
+                self._set_mode()
+                self._robot_client.nav.set_velocity(0, rot_scale * rotation_command[1])
 
         return callback
 
@@ -221,7 +244,7 @@ class StretchXboxController(object):
 
         return callback
 
-    def _joystick_callback(self, msg):
+    def _joystick_callback(self, msg):  # noqa
         callback_hz = 30
 
         if self._on_first_joystick_input is not None:
@@ -251,6 +274,9 @@ class StretchXboxController(object):
 
         if self._head_tilt_timer is not None:
             self._head_tilt_timer.shutdown()
+
+        if self._move_base_timer is not None:
+            self._move_base_timer.shutdown()
 
         # Get the new relevant commands
         controller_state = self._convert_joy_msg_to_xbox_state(msg)
@@ -286,17 +312,23 @@ class StretchXboxController(object):
 
         # Execute the commands
         if translation_command is not None:
-            # self._set_mode()
-            self._robot_client._ros_client.goto_x(translation_command[0])
+            self._set_mode()
+            self._robot_client.nav.set_velocity(translation_command[1], 0)
 
         if rotation_command is not None:
-            # self._set_mode()
-            self._robot_client._ros_client.goto_theta(rotation_command[0])
+            self._set_mode()
+            self._robot_client.nav.set_velocity(0, rotation_command[1])
 
         # These are in loops because it feels more natural to hold the button in these cases rather than press it repeatedly
         # Since the callback only fires when there is a state change for these, we have to intentionally loop them
         # to achieve the desired effect.
 
+        if translation_command or rotation_command is not None:
+            self._move_base_timer = rospy.Timer(
+                rospy.Duration(1 / callback_hz),
+                self._create_move_base_loop(controller_state),
+                oneshot=False,
+            )
         if converted_lift_command is not None:
             self._lift_arm_timer = rospy.Timer(
                 rospy.Duration(1 / callback_hz),

@@ -38,8 +38,9 @@ REAL_WORLD_CATEGORIES = [
 DETIC = "detic"
 
 
-def load_config(visualize=False, print_images=True, **kwargs):
-    config_path = "projects/stretch_ovmm/configs/agent/floorplanner_eval.yaml"
+def load_config(visualize=False, print_images=True, config_path=None, **kwargs):
+    if config_path is None:
+        config_path = "projects/stretch_ovmm/configs/agent/floorplanner_eval.yaml"
     config, config_str = get_config(config_path)
     config.defrost()
     config.NUM_ENVIRONMENTS = 1
@@ -86,6 +87,7 @@ class StretchPickandPlaceEnv(StretchEnv):
         self.test_grasping = test_grasping
         self.dry_run = dry_run
         self.debug = debug
+        self.task_info = {}
 
         self.robot = StretchClient(init_node=False)
 

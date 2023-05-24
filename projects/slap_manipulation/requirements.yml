@@ -43,4 +43,4 @@ dependencies:
     - yacs
     - pygifsicle
     - perceiver-pytorch
-
+    - wandb
