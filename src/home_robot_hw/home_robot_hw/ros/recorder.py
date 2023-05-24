@@ -44,7 +44,7 @@ class Recorder(object):
             f"Ready to record demonstration to file: {self._filename}. Press BACK to tag a keyframe"
         )
 
-    def finish_recording(self)->int:
+    def finish_recording(self) -> int:
         demo_status = int(input("Was this trial a success (1) or a failure (0)?"))
         self.writer.add_config(demo_status=demo_status)
         date_time = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
