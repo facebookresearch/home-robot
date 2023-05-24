@@ -5,6 +5,14 @@ from typing import Any, Dict, Optional
 import numpy as np
 
 
+class GeneralTaskState(Enum):
+    NOT_STARTED = 0
+    PREPPING = 1
+    DOING_TASK = 2
+    IDLE = 3
+    STOP = 4
+
+
 class Action:
     """Controls."""
 

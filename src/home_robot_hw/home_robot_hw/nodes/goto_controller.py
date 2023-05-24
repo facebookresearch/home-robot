@@ -12,7 +12,7 @@ import rospy
 import sophus as sp
 from geometry_msgs.msg import Pose, PoseStamped, Twist
 from nav_msgs.msg import Odometry
-from std_msgs.msg import Bool
+from std_msgs.msg import Bool, Float32
 from std_srvs.srv import (
     SetBool,
     SetBoolResponse,
@@ -32,6 +32,7 @@ log = logging.getLogger(__name__)
 CONTROL_HZ = 20
 VEL_THRESHOlD = 0.001
 RVEL_THRESHOLD = 0.005
+DEBUG_CONTROL_LOOP = False
 
 
 class GotoVelocityControllerNode:
@@ -41,7 +42,7 @@ class GotoVelocityControllerNode:
     """
 
     # How long should the controller report done before we're actually confident that we're done?
-    done_t = rospy.Duration(1.0)
+    done_t = rospy.Duration(0.1)
 
     def __init__(
         self,
@@ -55,6 +56,13 @@ class GotoVelocityControllerNode:
         # Control module
         controller_cfg = get_control_config(config_name)
         self.controller = GotoVelocityController(controller_cfg)
+        # Update the velocity and acceleration configs from the file
+        self.controller.update_velocity_profile(
+            controller_cfg.v_max,
+            controller_cfg.w_max,
+            controller_cfg.acc_lin,
+            controller_cfg.acc_ang,
+        )
 
         # Initialize
         self.vel_odom: Optional[np.ndarray] = None
@@ -69,6 +77,18 @@ class GotoVelocityControllerNode:
 
         # Visualizations
         self.goal_visualizer = Visualizer("goto_controller/goal_abs")
+
+    def _set_v_max(self, msg):
+        self.controller.update_velocity_profile(v_max=msg.data)
+
+    def _set_w_max(self, msg):
+        self.controller.update_velocity_profile(w_max=msg.data)
+
+    def _set_acc_lin(self, msg):
+        self.controller.update_velocity_profile(acc_lin=msg.data)
+
+    def _set_acc_ang(self, msg):
+        self.controller.update_velocity_profile(acc_ang=msg.data)
 
     def _pose_update_callback(self, msg: PoseStamped):
         pose_sp = sp.SE3(matrix_from_pose_msg(msg.pose))
@@ -174,9 +194,25 @@ class GotoVelocityControllerNode:
                         self.controller_finished = False
                         self.done_since = rospy.Time(0)
 
+                    if DEBUG_CONTROL_LOOP:
+                        print(
+                            "done =",
+                            done,
+                            "vel =",
+                            self.vel_odom,
+                            "controller done =",
+                            self.controller_finished,
+                            "is done =",
+                            self.is_done,
+                        )
+
                 # Command robot
                 self._set_velocity(v_cmd, w_cmd)
                 self.at_goal_pub.publish(self.is_done)
+
+                if self.is_done:
+                    self.active = False
+                    self.xyt_goal = None
 
             # Spin
             rate.sleep()
@@ -205,6 +241,12 @@ class GotoVelocityControllerNode:
         rospy.Subscriber(
             "goto_controller/goal", Pose, self._goal_update_callback, queue_size=1
         )
+
+        # Create individual subscribers
+        rospy.Subscriber("goto_controller/v_max", Float32, self._set_v_max)
+        rospy.Subscriber("goto_controller/w_max", Float32, self._set_w_max)
+        rospy.Subscriber("goto_controller/acc_lin", Float32, self._set_acc_lin)
+        rospy.Subscriber("goto_controller/acc_ang", Float32, self._set_acc_ang)
 
         rospy.Service("goto_controller/enable", Trigger, self._enable_service)
         rospy.Service("goto_controller/disable", Trigger, self._disable_service)

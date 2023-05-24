@@ -11,6 +11,7 @@ import trimesh.transformations as tra
 import yaml
 from slap_manipulation.dataloaders.annotations import load_annotations_dict
 from slap_manipulation.dataloaders.rlbench_loader import RLBenchDataset
+from slap_manipulation.utils.pointcloud_preprocessing import find_closest_point_to_line
 
 from home_robot.core.interfaces import Observations
 
@@ -266,14 +267,6 @@ class RobotDataset(RLBenchDataset):
     def get_gripper_axis(self, rot_mat):
         return rot_mat[:3, 2]
 
-    def find_closest_point_to_line(self, xyz, gripper_position, action_axis):
-        line_to_points = xyz - gripper_position
-        projections_on_line = line_to_points * action_axis
-        closest_points_on_line = gripper_position + projections_on_line * line_to_points
-        distances_to_line = np.linalg.norm(closest_points_on_line - xyz, axis=-1)
-        closest_indices = np.argmin(distances_to_line)
-        return closest_indices, xyz[closest_indices]
-
     def read_cam_config(self):
         """read camera intrinsics and extrinsics from json files"""
         with open(self.cam_mapping_json_path, "r") as f:
@@ -468,6 +461,7 @@ class RobotDataset(RLBenchDataset):
 
     def get_datum(self, trial, keypoint_idx, verbose=False):
         """Get a single training example given the index."""
+        debug = False
 
         cmds = trial["task_name"][()].decode("utf-8").split(",")
         cmd = cmds[0]
@@ -486,14 +480,11 @@ class RobotDataset(RLBenchDataset):
                 "lift-action bottle",
             ]
         # TODO: remove this and read from a yaml file instead
-        if "knob" in cmd:
-            all_cmd = ["first", "second", "third", "fourth"]
-        else:
-            all_cmd = [
-                "approach-pose-action bottle",
-                "grasp-action bottle",
-                "lift-action bottle",
-            ]
+        all_cmd = [
+            "approach-pose-action bottle",
+            "grasp-action bottle",
+            "lift-action bottle",
+        ]
 
         if self.skill_to_action is not None:
             breakpoint()
@@ -645,7 +636,7 @@ class RobotDataset(RLBenchDataset):
         gripper_pose = self.get_gripper_pose(trial, interaction_pt_idx)
         action_axis = self.get_gripper_axis(gripper_pose)
         gripper_position = gripper_pose[:3, 3]
-        index, interaction_point = self.find_closest_point_to_line(
+        index, interaction_point = find_closest_point_to_line(
             xyz, gripper_position, action_axis
         )
         interaction_ee_keyframe[:3, 3] = interaction_point
@@ -731,7 +722,7 @@ class RobotDataset(RLBenchDataset):
                     past_pos = all_positions[idx - 1]
                     past_quat = all_angles[idx - 1]
                     past_g = gripper_state[key_idx - 1]
-                if verbose:
+                if verbose and debug:
                     print("Showing past-pos and quat")
                     show_point_cloud(
                         crop_xyz,
@@ -755,7 +746,7 @@ class RobotDataset(RLBenchDataset):
                 past_pos = all_positions[keypoint_relative_idx - 1]
                 past_quat = all_angles[keypoint_relative_idx - 1]
                 past_g = gripper_state[keypoint_relative_idx - 1]
-            if verbose:
+            if verbose and debug:
                 print("Showing past-pos and quat")
                 show_point_cloud(
                     crop_xyz,
@@ -856,7 +847,7 @@ class RobotDataset(RLBenchDataset):
 @click.option(
     "--waypoint-language", help="yaml for skill-to-action lang breakdown", default=""
 )
-@click.option("-ki", "--k-index", default=0)
+@click.option("-ki", "--k-index", default=[0], multiple=True)
 @click.option("-r", "--robot", default="stretch")
 def debug_get_datum(data_dir, k_index, split, robot, waypoint_language):
     if split:
@@ -889,7 +880,8 @@ def debug_get_datum(data_dir, k_index, split, robot, waypoint_language):
     )
     for trial in loader.trials:
         print(f"Trial name: {trial.name}")
-        data = loader.get_datum(trial, k_index, verbose=True)
+        for k_i in k_index:
+            data = loader.get_datum(trial, k_i, verbose=True)
 
 
 @click.command()

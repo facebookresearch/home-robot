@@ -294,6 +294,7 @@ class PPOAgent(Agent):
             }
         )
 
+    # FIXME: the return values do not match the signature
     def act(self, observations: Observations) -> Dict[str, int]:
         sample_random_seed()
         obs = self.convert_to_habitat_obs_space(observations)

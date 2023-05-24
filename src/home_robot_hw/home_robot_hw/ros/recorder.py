@@ -3,6 +3,7 @@
 # This source code is licensed under the MIT license found in the
 # LICENSE file in the root directory of this source tree.
 import argparse
+from datetime import datetime
 
 import cv2
 import h5py
@@ -43,13 +44,16 @@ class Recorder(object):
             f"Ready to record demonstration to file: {self._filename}. Press BACK to tag a keyframe"
         )
 
-    def finish_recording(self):
+    def finish_recording(self) -> int:
         demo_status = int(input("Was this trial a success (1) or a failure (0)?"))
         self.writer.add_config(demo_status=demo_status)
-        self.writer.write_trial(self.idx)
+        date_time = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
+        filename = f"{date_time}_index{self.idx}"
+        self.writer.write_trial(filename)
+        print(f"... done recording trial named: {filename}.")
         self.idx += 1
-        print(f"... done recording trial named: {self.idx}.")
         print("Ready for next episode...Press START to begin ")
+        return demo_status
 
     def _construct_camera_info(self, camera):
         return {
