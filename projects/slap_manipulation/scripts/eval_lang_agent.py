@@ -3,10 +3,7 @@ import rospy
 from slap_manipulation.agents.language_ovmm_agent import LangAgent
 from slap_manipulation.env.language_planner_env import LanguagePlannerEnv
 
-from home_robot_hw.env.stretch_pick_and_place_env import (
-    REAL_WORLD_CATEGORIES,
-    load_config,
-)
+from home_robot_hw.env.stretch_pick_and_place_env import load_config
 
 
 @click.command()
