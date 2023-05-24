@@ -468,6 +468,7 @@ class RobotDataset(RLBenchDataset):
 
     def get_datum(self, trial, keypoint_idx, verbose=False):
         """Get a single training example given the index."""
+        debug = False
 
         cmds = trial["task_name"][()].decode("utf-8").split(",")
         cmd = cmds[0]
@@ -731,7 +732,7 @@ class RobotDataset(RLBenchDataset):
                     past_pos = all_positions[idx - 1]
                     past_quat = all_angles[idx - 1]
                     past_g = gripper_state[key_idx - 1]
-                if verbose:
+                if verbose and debug:
                     print("Showing past-pos and quat")
                     show_point_cloud(
                         crop_xyz,
@@ -755,7 +756,7 @@ class RobotDataset(RLBenchDataset):
                 past_pos = all_positions[keypoint_relative_idx - 1]
                 past_quat = all_angles[keypoint_relative_idx - 1]
                 past_g = gripper_state[keypoint_relative_idx - 1]
-            if verbose:
+            if verbose and debug:
                 print("Showing past-pos and quat")
                 show_point_cloud(
                     crop_xyz,
@@ -856,7 +857,7 @@ class RobotDataset(RLBenchDataset):
 @click.option(
     "--waypoint-language", help="yaml for skill-to-action lang breakdown", default=""
 )
-@click.option("-ki", "--k-index", default=0)
+@click.option("-ki", "--k-index", default=[0], multiple=True)
 @click.option("-r", "--robot", default="stretch")
 def debug_get_datum(data_dir, k_index, split, robot, waypoint_language):
     if split:
@@ -889,7 +890,8 @@ def debug_get_datum(data_dir, k_index, split, robot, waypoint_language):
     )
     for trial in loader.trials:
         print(f"Trial name: {trial.name}")
-        data = loader.get_datum(trial, k_index, verbose=True)
+        for k_i in k_index:
+            data = loader.get_datum(trial, k_i, verbose=True)
 
 
 @click.command()
