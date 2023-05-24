@@ -74,6 +74,9 @@ class EpisodeManager(object):
             else:
                 self._failed_count += 1
             self._k_idx = 0
+            print(
+                f"Total trials: {self._episode_count}, Failed: {self._failed_count}, Succeeded: {self._success_count}"
+            )
 
     def record_keyframe(self):
         """add a keyframe to the current episode"""
