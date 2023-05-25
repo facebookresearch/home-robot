@@ -49,6 +49,10 @@ def get_codelist(steps_list):
 class GeneralLanguageAgent(PickAndPlaceAgent):
     def __init__(self, cfg, debug=True, **kwargs):
         super().__init__(cfg, **kwargs)
+        # read the yaml 
+        # get velocities 
+        # get accelerations
+        
         self.steps = []
         self.state = GeneralTaskState.NOT_STARTED
         self.mode = "navigation"  # TODO: turn into an enum
@@ -169,7 +173,7 @@ class GeneralLanguageAgent(PickAndPlaceAgent):
                 "Getting plans outside of test tasks is not implemented yet"
             )
 
-    def goto(self, object_list, obs: Observations):
+    def goto(self, object_list: List[str], speed: str, obs: Observations) -> Tuple[Action, Dict]:
         if self.debug:
             print("[LangAgent]: In locate skill")
         info = {}
@@ -185,16 +189,18 @@ class GeneralLanguageAgent(PickAndPlaceAgent):
                 self.state = GeneralTaskState.PREPPING
                 info["not_viz"] = True
                 info["object_list"] = object_list
+                info["speed"] = speed
                 return DiscreteNavigationAction.NAVIGATION_MODE, info
             else:
                 self.state = GeneralTaskState.DOING_TASK
                 obs = self._preprocess_obs(obs, object_list)
+                info["speed"] = speed
                 action, info["viz"] = self.object_nav_agent.act(obs)
                 if action == DiscreteNavigationAction.STOP or self.dry_run:
                     self.state = GeneralTaskState.IDLE
         return action, info
 
-    def pick_up(self, object_list, obs):
+    def pick_up(self, object_list: List[str], speed: str, obs: Observations) -> Tuple[Action, Dict]:
         info = {}
         if self.debug:
             print("[LangAgent]: In pick_up skill")
@@ -210,6 +216,7 @@ class GeneralLanguageAgent(PickAndPlaceAgent):
             # TODO: can check if new obejct_name is same as last; if yes, then don't change
             info["not_viz"] = True
             info["object_list"] = object_list
+            info["speed"] = speed
             self.state = GeneralTaskState.PREPPING
             return DiscreteNavigationAction.MANIPULATION_MODE, info
         else:
@@ -217,7 +224,7 @@ class GeneralLanguageAgent(PickAndPlaceAgent):
             self.state = GeneralTaskState.IDLE
             return DiscreteNavigationAction.PICK_OBJECT, None
 
-    def place(self, object_list, obs):
+    def place(self, object_list: List[str], speed: str, obs: Observations) -> Tuple[Action, Dict]:
         info = {}
         if self.debug:
             print("[LangAgent]: In place skill")
@@ -225,6 +232,7 @@ class GeneralLanguageAgent(PickAndPlaceAgent):
             self.mode = "manipulation"
             info["not_viz"] = True
             info["object_list"] = object_list
+            info["speed"] = speed
             self.state = GeneralTaskState.PREPPING
             return DiscreteNavigationAction.MANIPULATION_MODE, info
         else:
@@ -232,6 +240,7 @@ class GeneralLanguageAgent(PickAndPlaceAgent):
             self.state = GeneralTaskState.DOING_TASK
             # place the object somewhere - hopefully in front of the agent.
             obs = self._preprocess_obs_for_place(obs, object_list)
+            info["speed"] = speed
             action, action_info = self.place_policy.forward(obs, info)
             if action == DiscreteNavigationAction.STOP:
                 self.state = GeneralTaskState.IDLE
