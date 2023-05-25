@@ -25,6 +25,9 @@ AGENT:
   exploration_strategy: seen_frontier  # exploration strategy ("seen_frontier", "been_close_to_frontier")
   radius: 0.17            # robot radius (in meters)
   clip_embeddings_file: data/objects/clip_embeddings.pickle
+  task_information_file: projects/slap_manipulation/assets/task_information.yaml
+  language_file: projects/slap_manipulation/assets/language.yaml
+  dry_run: True
 
   SEMANTIC_MAP:
     semantic_categories: mukul_indoor # map semantic channel categories ("coco_indoor", "longtail_indoor", "mukul_indoor")
@@ -81,4 +84,7 @@ EVAL_VECTORIZED:
   num_episodes_per_env: 100 # number of eval episodes per environment
   record_videos: 0          # 1: record videos from printed images, 0: don't
   record_planner_videos: 0  # 1: record planner videos (if record videos), 0: don't
+
+SLAP:
+  dry_run: True
 

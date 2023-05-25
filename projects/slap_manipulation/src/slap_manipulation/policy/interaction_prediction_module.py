@@ -40,7 +40,7 @@ from slap_manipulation.policy.components import (
     PositionalEncoding,
     SAModule,
 )
-from torch_geometric.nn import MLP, Linear, PointConv, radius
+from torch_geometric.nn import MLP, Linear, PointNetConv, radius
 from tqdm import tqdm
 
 from home_robot.utils.point_cloud import numpy_to_pcd, show_pcd, show_point_cloud

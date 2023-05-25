@@ -3,11 +3,15 @@ from enum import Enum
 from glob import glob
 from typing import Any, Dict, List, Tuple
 
+import numpy as np
 import pandas as pd
+import yaml
+from slap_manipulation.agents.slap_agent import SLAPAgent
 
 from home_robot.agent.ovmm_agent.pick_and_place_agent import PickAndPlaceAgent
 from home_robot.core.interfaces import (
     Action,
+    ContinuousEndEffectorAction,
     DiscreteNavigationAction,
     GeneralTaskState,
     Observations,
@@ -49,11 +53,19 @@ class GeneralLanguageAgent(PickAndPlaceAgent):
         self.state = GeneralTaskState.NOT_STARTED
         self.mode = "navigation"  # TODO: turn into an enum
         self.current_step = ""
+        self.cfg = cfg
         # for testing
         self.testing = True
         self.debug = debug
-        self.dry_run = False
-        self.slap_model = SlapAgent(cfg)
+        self.dry_run = self.cfg.AGENT.dry_run
+        self.slap_model = SLAPAgent(cfg)
+        self.num_actions_done = 0
+        self._language = yaml.load(
+            open(self.cfg.AGENT.language_file, "r"), Loader=yaml.FullLoader
+        )
+        self._task_information = yaml.load(
+            open(self.cfg.AGENT.task_information_file, "r"), Loader=yaml.FullLoader
+        )  # read from a YAML
         if not self.debug:
             self.task_plans = get_task_plans_from_oracle
         else:
@@ -79,7 +91,7 @@ class GeneralLanguageAgent(PickAndPlaceAgent):
                     "self.goto('bottle', obs)",
                     "self.goto('can', obs)",
                 ],
-                4: ["self.pick_up(['mug'], obs)"],
+                4: ["self.open(['drawer'], obs)"],
             }
 
     # ---override methods---
@@ -89,6 +101,9 @@ class GeneralLanguageAgent(PickAndPlaceAgent):
         self.object_nav_agent.reset()
         if self.gaze_agent is not None:
             self.gaze_agent.reset()
+
+    def soft_reset(self):
+        self.num_actions_done = 0
 
     def _preprocess_obs(
         self, obs: Observations, object_list: List[str]
@@ -221,6 +236,8 @@ class GeneralLanguageAgent(PickAndPlaceAgent):
     def open(self, object_list: List[str], obs: Observations):
         info = {}
         action = None
+        language = self._language["open"][object_list[0]]
+        num_actions = self._task_information[language]
         if not self.is_busy():
             print("[LangAgent]: Changing mode, setting goals")
             info["not_viz"] = True
@@ -228,20 +245,16 @@ class GeneralLanguageAgent(PickAndPlaceAgent):
             self.state = GeneralTaskState.PREPPING
             return DiscreteNavigationAction.MANIPULATION_MODE, info
         else:
-            if self.interaction_point is not None:
+            if self.dry_run:
                 print("[LangAgent] Call APM given p_i")
-                info["slap_action"] = self.slap_model.predict_next_action()
-                self.num_actions_done += 1
-                if self.num_actions_done == num_actions:
-                    self.state = GeneralTaskState.IDLE
-                    return DiscreteNavigationAction.STOP, info
-                # create a new action type which can handle end-effector goals
-                self.state = GeneralTaskState.DOING_TASK
-                return action, info
-            else:
                 print("[LangAgent] Call IPM to generate p_i")
                 # maybe obs can take care of interaction_point too?
-                self.interaction_point = self.slap_model.predict_interaction_point()
+                action = ContinuousEndEffectorAction(
+                    pos=np.random.rand(3), ori=np.random.rand(4), g=1.0
+                )
+                return action, None
+            else:
+                self.interaction_point = self.slap_model.predict(obs)
                 action = ContinuousEndEffectorAction(
                     self.interaction_point[:3],
                     self.interaction_point[3:7],

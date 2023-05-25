@@ -6,6 +6,7 @@ import rospy
 import home_robot
 from home_robot.core.interfaces import (
     Action,
+    ContinuousFullBodyAction,
     DiscreteNavigationAction,
     HybridAction,
     Observations,
@@ -158,7 +159,13 @@ class GeneralLanguageEnv(StretchPickandPlaceEnv):
         elif action.is_navigation():
             continuous_action = action.get()
         elif action.is_manipulation():
-            joints_action, continuous_action = action.get()
+            if isinstance(action, ContinuousFullBodyAction):
+                joints_action, continuous_action = action.get()
+            else:
+                pos, ori, gripper = action.get()
+                continuous_action = None
+                print("[ENV] Receiving a ContinuousEndEffectorAction")
+                # convert pos, ori into a ContinuousFullBodyAction here and execute that
 
         # Move, if we are not doing anything with the arm
         if continuous_action is not None and not self.test_grasping:
