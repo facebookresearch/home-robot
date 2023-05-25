@@ -131,7 +131,15 @@ class StretchNavigationClient(AbstractControlModule):
         """Wait until goal is reached"""
         rospy.sleep(self._ros_client.msg_delay_t)
         rate = rospy.Rate(self.block_spin_rate)
+        t0 = rospy.Time.now()
         while not rospy.is_shutdown():
+            t1 = rospy.Time.now()
+            print(
+                "...waited for controller",
+                (t1 - t0).to_sec(),
+                "is at goal =",
+                self.at_goal(),
+            )
             # Verify that we are at goal and perception is synchronized with pose
             if self.at_goal() and self._ros_client.recent_depth_image(
                 self._ros_client.msg_delay_t

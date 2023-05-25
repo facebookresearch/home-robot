@@ -1,3 +1,4 @@
+"""A script to create a new h5 file consisting of only the 1st episode from a list of h5 files"""
 import glob
 import os
 
@@ -18,7 +19,6 @@ def main(new_file_name):
     # For each h5 file in the list
     for i, h5_file in enumerate(h5_files):
         print(f"{h5_file=}")
-        breakpoint()
         new_h5_file[f"/0_{i}"] = h5py.ExternalLink(h5_file, "/0")
 
     # Close the new h5 file

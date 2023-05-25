@@ -51,6 +51,9 @@ class EpisodeManager(object):
         filename = os.path.join(self.file_path, date_time_string + ".h5")
         self._keyframe_recorder = Recorder(filename)
         self._k_idx = 0
+        self._episode_count = 0
+        self._success_count = 0
+        self._failed_count = 0
 
     def toggle_episode(self):
         """toggles episode recording state
@@ -64,8 +67,16 @@ class EpisodeManager(object):
             print("Start frame saved")
         else:
             self._is_recording = False
-            self._keyframe_recorder.finish_recording()
+            status = self._keyframe_recorder.finish_recording()
+            self._episode_count += 1
+            if status == 1:
+                self._success_count += 1
+            else:
+                self._failed_count += 1
             self._k_idx = 0
+            print(
+                f"Total trials: {self._episode_count}, Failed: {self._failed_count}, Succeeded: {self._success_count}"
+            )
 
     def record_keyframe(self):
         """add a keyframe to the current episode"""

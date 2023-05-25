@@ -182,6 +182,12 @@ class DeticPerception(PerceptionModule):
         reset_cls_test(self.predictor.model, classifier, num_classes)
 
     def reset_vocab(self, new_vocab: List[str], vocab_type="custom"):
+        """Resets the vocabulary of Detic model allowing you to change detection on
+        the fly. Note that previous vocabulary is not preserved.
+        Args:
+            new_vocab: list of strings representing the new vocabulary
+            vocab_type: one of "custom" or "coco"; only "custom" supported right now
+        """
         print(f"Resetting vocabulary to {new_vocab}")
         MetadataCatalog.remove("__unused")
         if vocab_type == "custom":

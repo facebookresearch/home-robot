@@ -40,7 +40,7 @@ from slap_manipulation.policy.components import (
     PositionalEncoding,
     SAModule,
 )
-from torch_geometric.nn import MLP, Linear, PointConv, radius
+from torch_geometric.nn import MLP, Linear, PointNetConv, radius
 from tqdm import tqdm
 
 from home_robot.utils.point_cloud import numpy_to_pcd, show_pcd, show_point_cloud
@@ -232,7 +232,7 @@ class InteractionPredictionModule(torch.nn.Module):
         self._query_radius = 0.2
         self._max_neighbor = 64  # default from pointnet2 code
         # for mixing proprio and images
-        self.proprio_dim_size = 3
+        self.proprio_dim_size = 8
         self.im_channels = 64
         self.use_proprio = use_proprio
 
@@ -249,7 +249,7 @@ class InteractionPredictionModule(torch.nn.Module):
             0.5 * self._query_radius,
             128,
             self.device,
-            MLP([6, 64, 128], batch_norm=False),
+            MLP([7, 64, 128], batch_norm=False),
         )
         self.sa2_module = SAModule(
             # 0.1, 64, self.device, MLP([128 + 3, 128, 256, 512])
@@ -620,12 +620,17 @@ class InteractionPredictionModule(torch.nn.Module):
             batch = self.to_device(batch)
             rgb = batch["rgb"][0]
             xyz = batch["xyz"][0]
+            feat = batch["feat"][0]
             rgb2 = batch["rgb_downsampled"][0]
             xyz2 = batch["xyz_downsampled"][0]
+            feat2 = batch["feat_downsampled"][0]
             cmd = batch["cmd"]
             proprio = batch["proprio"][0]
             target_pos = batch["closest_voxel"][0]
             metrics["cmd"].append(cmd)
+
+            rgb = torch.cat([rgb, feat], dim=-1)
+            rgb2 = torch.cat([rgb2, feat2], dim=-1)
 
             print()
             print("---", i, "---")
@@ -645,10 +650,10 @@ class InteractionPredictionModule(torch.nn.Module):
                 _, mask = torch.sort(classification_probs, descending=True)
                 ten_percent = int(int(classification_probs.shape[1]) * 0.05)
                 mask = mask[0, :ten_percent].detach().cpu().numpy()
-                new_rgb = rgb2.detach().cpu().numpy().copy()
+                new_rgb = rgb2[:, :-1].detach().cpu().numpy().copy()
                 new_rgb[mask.reshape(-1)] = np.array([1, 0, 0]).reshape(1, 3)
                 show_point_cloud(
-                    xyz2.detach().cpu().numpy(), rgb2.detach().cpu().numpy()
+                    xyz2.detach().cpu().numpy(), rgb2[:, :-1].detach().cpu().numpy()
                 )
                 show_point_cloud(xyz2.detach().cpu().numpy(), new_rgb)
 
@@ -666,22 +671,22 @@ class InteractionPredictionModule(torch.nn.Module):
             if viz:
                 self.show_prediction_with_grnd_truth(
                     xyz,
-                    rgb,
+                    rgb[:, :-1],
                     xyz2[predicted_idx[0]].detach().cpu().numpy(),
                     target_pos.detach().cpu().numpy(),
                     i=i,
                     save=save,
                 )
         pprint(metrics)
-        todaydate = datetime.date.today()
-        time = datetime.datetime.now().strftime("%H_%M")
-        output_dir = f"./outputs/{todaydate}/{self.name}/"
-        output_file = f"output_{time}.json"
-        if not os.path.exists(output_dir):
-            os.makedirs(output_dir)
-        with open(os.path.join(output_dir, output_file), "w") as f:
-            # FIXME: replace with yaml
-            json.dump(metrics, f, indent=4)
+        # todaydate = datetime.date.today()
+        # time = datetime.datetime.now().strftime("%H_%M")
+        # output_dir = f"./outputs/{todaydate}/{self.name}/"
+        # output_file = f"output_{time}.json"
+        # if not os.path.exists(output_dir):
+        #     os.makedirs(output_dir)
+        # with open(os.path.join(output_dir, output_file), "w") as f:
+        #     # FIXME: replace with yaml
+        #     json.dump(metrics, f, indent=4)
 
     def clip_encode_text(self, text):
         """encode text as a sequence"""
@@ -731,8 +736,10 @@ class InteractionPredictionModule(torch.nn.Module):
             optimizer.zero_grad()
             rgb = batch["rgb"][0]  # N x 3
             xyz = batch["xyz"][0]  # N x 3
+            feat = batch["feat"][0]
             down_xyz = batch["xyz_downsampled"][0]
             down_rgb = batch["rgb_downsampled"][0]
+            down_feat = batch["feat_downsampled"][0]
             lang = batch["cmd"]  # list of 1
             if self.use_proprio:
                 proprio = batch["proprio"][0]
@@ -745,11 +752,6 @@ class InteractionPredictionModule(torch.nn.Module):
             ee_keyframe = batch["ee_keyframe_pos"][0]
             ee_keyframe_rot = batch["ee_keyframe_ori"][0]
 
-            # Visualize
-            # show_point_cloud(
-            #        down_xyz.detach().cpu().numpy(),
-            #        down_rgb.detach().cpu().numpy(),
-            #        orig=np.zeros(3))
             if debug:
                 show_point_cloud_with_keypt_and_closest_pt(
                     down_xyz.detach().cpu().numpy(),
@@ -758,6 +760,10 @@ class InteractionPredictionModule(torch.nn.Module):
                     ee_keyframe_rot.detach().cpu().numpy().reshape(3, 3),
                     target_pos.detach().cpu().numpy().reshape(3, 1),
                 )
+
+            # combine rgb and feats
+            rgb = torch.cat([rgb, feat], dim=-1)
+            down_rgb = torch.cat([down_rgb, down_feat], dim=-1)
 
             # predict the closest centroid
             classification_probs, _, _ = self.forward(
@@ -969,7 +975,7 @@ def main(cfg):
         train_list = train_test_split["train"]
     else:
         train_test_split = None
-        train_list, valid_list, test_list = None, None, None
+        train_list, valid_list, test_list = [], [], []
     # Set up data augmentation
     # This is a warning for you - if things are not going well
     if cfg.data_augmentation:
@@ -977,7 +983,7 @@ def main(cfg):
     else:
         print("-> NOT using data augmentation.")
     # Set up data loaders
-    if cfg.source == "robopen":
+    if cfg.source in ["robopen", "stretch"]:
         # Get the robopebn dataset
         Dataset = RobotDataset
         train_dataset = RobotDataset(
@@ -991,6 +997,8 @@ def main(cfg):
             color_jitter=cfg.color_jitter,
             template=cfg.template,
             dr_factor=5,
+            autoregressive=True,
+            multi_step=True,
         )
         valid_dataset = RobotDataset(
             cfg.datadir,
@@ -1000,7 +1008,8 @@ def main(cfg):
             keypoint_range=[0, 1, 2],
             color_jitter=False,
             template=cfg.template,
-            # template="**/*.h5",
+            autoregressive=True,
+            multi_step=True,
         )
         test_dataset = RobotDataset(
             cfg.datadir,
@@ -1010,7 +1019,8 @@ def main(cfg):
             keypoint_range=[0, 1, 2],
             color_jitter=False,
             template=cfg.template,
-            # template="**/*.h5",
+            autoregressive=True,
+            multi_step=True,
         )
     else:
         # get rlbench dataset

@@ -122,7 +122,8 @@ class ActionPredictionModule(torch.nn.Module):
         self.proprio_in_dim = cfg.dims.proprio_in
         self.image_in_dim = cfg.dims.image_in
         self.proprio_out_dim = cfg.dims.proprio_out
-        self.hidden_dim = cfg.hidden_dim
+        self.hidden_dim = cfg.gru_hidden_dim
+        self.hidden_layers = cfg.gru_hidden_layers
         self.use_mdn = cfg.use_mdn
 
         self.pos_wt = cfg.weights.position
@@ -187,7 +188,9 @@ class ActionPredictionModule(torch.nn.Module):
             batch_norm=False,
             dropout=0.0,
         )
-        self.x_gru = torch.nn.GRU(1024, self.hidden_dim, 1)
+        self.x_gru = torch.nn.GRU(
+            cfg.model.gru_dim, self.hidden_dim, self.hidden_layers
+        )
         self.post_process = MLP(
             OmegaConf.to_object(cfg.model.post_process_mlp),
             batch_norm=False,
@@ -480,6 +483,8 @@ class ActionPredictionModule(torch.nn.Module):
             # cmd = batch["cmd"]
             crop_xyz = batch["xyz_crop"][0]
             crop_rgb = batch["rgb_crop"][0]
+            crop_feat = batch["feat_crop"][0]
+
             perturbed_crop_location = batch["perturbed_crop_location"]
             num_keypoints = batch["num_keypoints"][0]
             # time_step = batch["time_step"][0]
@@ -491,6 +496,7 @@ class ActionPredictionModule(torch.nn.Module):
 
             # target_gripper_state = batch["target_gripper_state"][0]
             # target_ee_angles = batch["target_ee_angles"][0]
+            crop_rgb = torch.cat([crop_rgb, crop_feat], dim=-1)
 
             pos_loss = 0
             ori_loss = 0
@@ -498,7 +504,9 @@ class ActionPredictionModule(torch.nn.Module):
             if unbatched:
                 for t in range(num_keypoints):
                     if t == 0:
-                        hidden = torch.zeros(1, self.hidden_dim).to(self.device)
+                        hidden = torch.zeros(self.hidden_layers, self.hidden_dim).to(
+                            self.device
+                        )
 
                     proprio, time_step, cmd = self.get_keypoint(batch, t)
                     target_pos, target_ori, target_g = self.get_targets(batch, t)
@@ -533,7 +541,9 @@ class ActionPredictionModule(torch.nn.Module):
                         gripper.view(-1), target_g.view(-1)
                     )
             else:
-                hidden = torch.zeros(1, self.hidden_dim).to(self.device)
+                hidden = torch.zeros(self.hidden_layers, self.hidden_dim).to(
+                    self.device
+                )
                 # get batched input and targets
                 proprio = batch["all_proprio"]
                 time_step = batch["all_time_step"]
@@ -734,6 +744,8 @@ class ActionPredictionModule(torch.nn.Module):
             batch_size = 1
             crop_xyz = batch["xyz_crop"][0]
             crop_rgb = batch["rgb_crop"][0]
+            crop_feat = batch["feat_crop"][0]
+            crop_rgb = torch.cat((crop_rgb, crop_feat), dim=-1)
             perturbed_crop_location = batch["perturbed_crop_location"]
             num_keypoints = batch["num_keypoints"][0]
 
@@ -745,7 +757,9 @@ class ActionPredictionModule(torch.nn.Module):
 
             for t in range(num_keypoints):
                 if t == 0:
-                    hidden = torch.zeros(1, self.hidden_dim).to(self.device)
+                    hidden = torch.zeros(self.hidden_layers, self.hidden_dim).to(
+                        self.device
+                    )
 
                 proprio, time_step, cmd = self.get_keypoint(batch, t)
                 target_pos, target_ori, target_g = self.get_targets(batch, t)
@@ -796,7 +810,7 @@ class ActionPredictionModule(torch.nn.Module):
                 print(f"Predicted gripper state: {gripper}")
                 self.show_pred_and_grnd_truth(
                     crop_xyz.detach().cpu().numpy(),
-                    crop_rgb.detach().cpu().numpy(),
+                    crop_rgb[:, :-1].detach().cpu().numpy(),
                     viz_position.reshape(3, 1),
                     pred_ori_R,
                     perturbed_crop_location.detach().cpu().numpy().reshape(3, 1),
@@ -969,7 +983,7 @@ def main(cfg):
         # valid_dir = robopen_data_dir
         # Dataset = RobotDataset
         train_dataset = RobotDataset(
-            cfg.data_dir,
+            cfg.datadir,
             num_pts=cfg.num_pts,
             data_augmentation=cfg.data_augmentation,  # (not validate),
             ori_dr_range=np.pi / 8,
@@ -984,7 +998,7 @@ def main(cfg):
             per_action_cmd=cfg.per_action_cmd,
         )
         valid_dataset = RobotDataset(
-            cfg.data_dir,
+            cfg.datadir,
             num_pts=cfg.num_pts,
             data_augmentation=False,
             # first_frame_as_input=True,
@@ -998,7 +1012,7 @@ def main(cfg):
             per_action_cmd=cfg.per_action_cmd,
         )
         test_dataset = RobotDataset(
-            cfg.data_dir,
+            cfg.datadir,
             num_pts=cfg.num_pts,
             data_augmentation=False,
             # first_frame_as_input=True,
@@ -1056,7 +1070,7 @@ def main(cfg):
             model.load_weights(model.get_best_name())
         else:
             model.load_weights(cfg.load)
-        model.show_validation(valid_data, viz=True)
+        model.show_validation(test_data, viz=True)
     else:
         if cfg.wandb:
             date_time = datetime.datetime.now().strftime("%d/%m/%Y-%H:%M")

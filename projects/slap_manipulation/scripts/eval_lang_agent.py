@@ -1,12 +1,9 @@
 import click
 import rospy
-from slap_manipulation.agents.language_ovmm_agent import LangAgent
-from slap_manipulation.env.language_planner_env import LanguagePlannerEnv
+from slap_manipulation.agents.general_language_agent import GeneralLanguageAgent
+from slap_manipulation.env.general_language_env import GeneralLanguageEnv
 
-from home_robot_hw.env.stretch_pick_and_place_env import (
-    REAL_WORLD_CATEGORIES,
-    load_config,
-)
+from home_robot_hw.env.stretch_pick_and_place_env import load_config
 
 
 @click.command()
@@ -14,8 +11,6 @@ from home_robot_hw.env.stretch_pick_and_place_env import (
 @click.option("--dry-run", default=False, is_flag=True)
 @click.option("--testing", default=False, is_flag=True)
 @click.option("--object", default="cup")
-@click.option("--start-recep", default="table")
-@click.option("--goal-recep", default="chair")
 @click.option("--task-id", default=0)
 def main(task_id, test_pick=False, dry_run=False, testing=False, **kwargs):
     TASK = task_id
@@ -28,13 +23,13 @@ def main(task_id, test_pick=False, dry_run=False, testing=False, **kwargs):
         **kwargs
     )
 
-    env = LanguagePlannerEnv(
+    env = GeneralLanguageEnv(
         config=config,
         test_grasping=test_pick,
         dry_run=dry_run,
         segmentation_method="detic",
     )
-    agent = LangAgent(cfg=config, debug=True, skip_gaze=True)
+    agent = GeneralLanguageAgent(cfg=config, debug=True, skip_gaze=True)
     # robot = env.get_robot()
 
     agent.reset()

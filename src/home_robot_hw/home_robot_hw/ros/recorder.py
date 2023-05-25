@@ -3,6 +3,7 @@
 # This source code is licensed under the MIT license found in the
 # LICENSE file in the root directory of this source tree.
 import argparse
+from datetime import datetime
 
 import cv2
 import h5py
@@ -26,22 +27,33 @@ class Recorder(object):
         print("Connecting to robot environment...")
         # self.robot = StretchManipulationEnv(init_cameras=True)
         self.robot = StretchClient()
+        self.robot.switch_to_manipulation_mode()
         print("... done connecting to robot environment")
-        self.robot.head.look_at_ee()
         self.writer = DataWriter(filename)
         self.idx = 0
         self._recording_started = start_recording
         self._filename = filename
 
     def start_recording(self, task_name):
+        print("Wait as the robot resets to manip-position")
+        self.robot.switch_to_manipulation_mode()
+        self.robot.move_to_pre_demo_posture()
         self._recording_started = True
         self.writer.add_config(task_name=task_name)
-        print(f"Ready to record demonstration to file: {self._filename}")
+        print(
+            f"Ready to record demonstration to file: {self._filename}. Press BACK to tag a keyframe"
+        )
 
-    def finish_recording(self):
-        print(f"... done recording trial named: {self.idx}.")
-        self.writer.write_trial(self.idx)
+    def finish_recording(self) -> int:
+        demo_status = int(input("Was this trial a success (1) or a failure (0)?"))
+        self.writer.add_config(demo_status=demo_status)
+        date_time = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
+        filename = f"{date_time}_index{self.idx}"
+        self.writer.write_trial(filename)
+        print(f"... done recording trial named: {filename}.")
         self.idx += 1
+        print("Ready for next episode...Press START to begin ")
+        return demo_status
 
     def _construct_camera_info(self, camera):
         return {

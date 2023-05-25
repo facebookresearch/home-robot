@@ -6,6 +6,7 @@ import rospy
 import home_robot
 from home_robot.core.interfaces import (
     Action,
+    ContinuousFullBodyAction,
     DiscreteNavigationAction,
     HybridAction,
     Observations,
@@ -14,7 +15,7 @@ from home_robot.utils.geometry import xyt2sophus
 from home_robot_hw.env.stretch_pick_and_place_env import DETIC, StretchPickandPlaceEnv
 
 
-class LanguagePlannerEnv(StretchPickandPlaceEnv):
+class GeneralLanguageEnv(StretchPickandPlaceEnv):
     def __init__(
         self,
         config,
@@ -66,7 +67,7 @@ class LanguagePlannerEnv(StretchPickandPlaceEnv):
             self.current_goal_id = 1
             self.current_goal_name = info["object_list"][0]
 
-    def _switch_to_manip_mode(self, grasp_only=False):
+    def _switch_to_manip_mode(self, grasp_only=True):
         """Rotate the robot and put it in the right configuration for grasping"""
 
         # We switch to navigation mode in order to rotate by 90 degrees
@@ -158,7 +159,13 @@ class LanguagePlannerEnv(StretchPickandPlaceEnv):
         elif action.is_navigation():
             continuous_action = action.get()
         elif action.is_manipulation():
-            joints_action, continuous_action = action.get()
+            if isinstance(action, ContinuousFullBodyAction):
+                joints_action, continuous_action = action.get()
+            else:
+                pos, ori, gripper = action.get()
+                continuous_action = None
+                print("[ENV] Receiving a ContinuousEndEffectorAction")
+                # convert pos, ori into a ContinuousFullBodyAction here and execute that
 
         # Move, if we are not doing anything with the arm
         if continuous_action is not None and not self.test_grasping:

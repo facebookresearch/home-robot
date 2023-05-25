@@ -5,13 +5,13 @@ load: False
 resume: False
 debug: False
 learning_rate: 1e-3
-task_name: over_fit_pick_up_bottle_fixed
-source: robopen
+task_name: open_drawer
+source: stretch
 run_for: -1
 wandb: False
 split: False
 data_augmentation: True
-color_jitter: True
+color_jitter: False
 loss_fn: "xent"
-max_iter: 15
+max_iter: 30
 

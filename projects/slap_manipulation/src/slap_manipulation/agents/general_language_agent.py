@@ -3,24 +3,22 @@ from enum import Enum
 from glob import glob
 from typing import Any, Dict, List, Tuple
 
+import numpy as np
 import pandas as pd
+import yaml
+from slap_manipulation.agents.slap_agent import SLAPAgent
 
-from home_robot.agent.ovmm_agent.pick_and_place_agent import (
-    PickAndPlaceAgent,
-    SimpleTaskState,
+from home_robot.agent.ovmm_agent.pick_and_place_agent import PickAndPlaceAgent
+from home_robot.core.interfaces import (
+    Action,
+    ContinuousEndEffectorAction,
+    DiscreteNavigationAction,
+    GeneralTaskState,
+    Observations,
 )
-from home_robot.core.interfaces import Action, DiscreteNavigationAction, Observations
 
 
-class GeneralTaskState(Enum):
-    NOT_STARTED = 0
-    PREPPING = 1
-    DOING_TASK = 2
-    IDLE = 3
-    STOP = 4
-
-
-def get_task_plans_from_gt(
+def get_task_plans_from_oracle(
     index, datafile="./datasets/BringXFromYSurfaceToHuman.json", root="./datasets/"
 ):
     """Reads the dataset files and return a list of task plans"""
@@ -46,8 +44,9 @@ def get_codelist(steps_list):
             pass
         codelist += [f"self.{step['verb']}('{step['noun']}', speed={step['adverb']}, obs=obs)"]
     return codelist
-# %%    
-class LangAgent(PickAndPlaceAgent):
+
+
+class GeneralLanguageAgent(PickAndPlaceAgent):
     def __init__(self, cfg, debug=True, **kwargs):
         super().__init__(cfg, **kwargs)
         # read the yaml 
@@ -58,12 +57,21 @@ class LangAgent(PickAndPlaceAgent):
         self.state = GeneralTaskState.NOT_STARTED
         self.mode = "navigation"  # TODO: turn into an enum
         self.current_step = ""
+        self.cfg = cfg
         # for testing
         self.testing = True
         self.debug = debug
-        self.dry_run = False
+        self.dry_run = self.cfg.AGENT.dry_run
+        self.slap_model = SLAPAgent(cfg)
+        self.num_actions_done = 0
+        self._language = yaml.load(
+            open(self.cfg.AGENT.language_file, "r"), Loader=yaml.FullLoader
+        )
+        self._task_information = yaml.load(
+            open(self.cfg.AGENT.task_information_file, "r"), Loader=yaml.FullLoader
+        )  # read from a YAML
         if not self.debug:
-            self.task_plans = get_task_plans_from_gt
+            self.task_plans = get_task_plans_from_oracle
         else:
             self.task_defs = {
                 0: "place the apple on the table",
@@ -87,6 +95,10 @@ class LangAgent(PickAndPlaceAgent):
                     "self.goto('bottle', obs)",
                     "self.goto('can', obs)",
                 ],
+                4: [
+                    "self.open_object(['drawer'], obs)",
+                    "self.open_object(['cabinet'], obs)",
+                ],
             }
 
     # ---override methods---
@@ -96,6 +108,10 @@ class LangAgent(PickAndPlaceAgent):
         self.object_nav_agent.reset()
         if self.gaze_agent is not None:
             self.gaze_agent.reset()
+
+    def soft_reset(self):
+        self.state = GeneralTaskState.IDLE
+        self.num_actions_done = 0
 
     def _preprocess_obs(
         self, obs: Observations, object_list: List[str]
@@ -204,7 +220,7 @@ class LangAgent(PickAndPlaceAgent):
             self.state = GeneralTaskState.PREPPING
             return DiscreteNavigationAction.MANIPULATION_MODE, info
         else:
-            print("[LangAgent]: DRYRUN: Run SLAP on: pick-up", object_list, obs)
+            print("[LangAgent]: Picking up with heuristic", object_list, obs)
             self.state = GeneralTaskState.IDLE
             return DiscreteNavigationAction.PICK_OBJECT, None
 
@@ -229,6 +245,35 @@ class LangAgent(PickAndPlaceAgent):
             if action == DiscreteNavigationAction.STOP:
                 self.state = GeneralTaskState.IDLE
             return action, action_info
+
+    def open_object(self, object_list: List[str], obs: Observations):
+        info = {}
+        action = None
+        language = self._language["open"][object_list[0]]
+        num_actions = self._task_information[language]
+        if not self.is_busy():
+            print("[LangAgent]: Changing mode, setting goals")
+            info["not_viz"] = True
+            info["object_list"] = object_list
+            self.state = GeneralTaskState.PREPPING
+            return DiscreteNavigationAction.MANIPULATION_MODE, info
+        else:
+            if self.num_actions_done >= num_actions:
+                self.soft_reset()
+                self.slap_model.reset()
+                return DiscreteNavigationAction.STOP, None
+            result, info = self.slap_model.predict(obs)
+            if result is not None:
+                action = ContinuousEndEffectorAction(
+                    result["predicted_pos"],
+                    result["predicted_ori"],
+                    result["gripper_act"],
+                )
+            else:
+                action = DiscreteNavigationAction.STOP
+            self.num_actions_done += 1
+            self.state = GeneralTaskState.DOING_TASK
+            return action, info
 
     def act(self, obs: Observations, task: str) -> Tuple[Action, Dict[str, Any]]:
         if self.state == GeneralTaskState.NOT_STARTED and len(self.steps) == 0:
