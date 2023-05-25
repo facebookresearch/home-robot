@@ -11,6 +11,7 @@ import trimesh.transformations as tra
 import yaml
 from slap_manipulation.dataloaders.annotations import load_annotations_dict
 from slap_manipulation.dataloaders.rlbench_loader import RLBenchDataset
+from slap_manipulation.utils.pointcloud_preprocessing import find_closest_point_to_line
 
 from home_robot.core.interfaces import Observations
 
@@ -233,6 +234,7 @@ class RobotDataset(RLBenchDataset):
         elif robot == "stretch":
             # Offset from STRETCH_GRASP_FRAME to predicted grasp point
             self._robot_ee_to_grasp_offset = STRETCH_TO_GRASP.copy()
+            self._robot_ee_to_grasp_offset[2, 3] -= 0.10
             self._robot_max_grasp = 0  # 0.13, empirically found
         else:
             raise ValueError("robot must be franka or stretch")
@@ -261,6 +263,9 @@ class RobotDataset(RLBenchDataset):
         ee_pose[:3, 3] = pos
         ee_pose = ee_pose @ self._robot_ee_to_grasp_offset
         return ee_pose
+
+    def get_gripper_axis(self, rot_mat):
+        return rot_mat[:3, 2]
 
     def read_cam_config(self):
         """read camera intrinsics and extrinsics from json files"""
@@ -425,7 +430,7 @@ class RobotDataset(RLBenchDataset):
             np.array([0, 0, 0]),
         )
 
-    def show_interaction_pt_and_keyframe(
+    def show_interaction_point_and_keyframe(
         self,
         xyz2,
         rgb2,
@@ -456,6 +461,7 @@ class RobotDataset(RLBenchDataset):
 
     def get_datum(self, trial, keypoint_idx, verbose=False):
         """Get a single training example given the index."""
+        debug = False
 
         cmds = trial["task_name"][()].decode("utf-8").split(",")
         cmd = cmds[0]
@@ -466,8 +472,22 @@ class RobotDataset(RLBenchDataset):
         if self.annotations is not None:
             cmd_opts = self.annotations[cmd]
             cmd = cmd_opts[np.random.randint(len(cmd_opts))]
+        if self.per_action_cmd:
+            # hard-coded for pick_up_bottle right now
+            cmd = [
+                "approach-pose-action bottle",
+                "grasp-action bottle",
+                "lift-action bottle",
+            ]
+        # TODO: remove this and read from a yaml file instead
+        all_cmd = [
+            "approach-pose-action bottle",
+            "grasp-action bottle",
+            "lift-action bottle",
+        ]
 
         if self.skill_to_action is not None:
+            breakpoint()
             all_cmd = self.skill_to_action[cmd]
 
         if self.skill_to_action is not None and self.per_action_cmd:
@@ -527,9 +547,9 @@ class RobotDataset(RLBenchDataset):
             num_samples = gripper_width_array.shape[0]
             gripper_width_array = gripper_width_array.reshape(num_samples, 1)
         gripper_state = (gripper_width_array <= self._robot_max_grasp).astype(int)
-        interaction_pt = -1
+        interaction_pt_idx = -1
         for i, other_keypoint in enumerate(keypoints):
-            interaction_pt = other_keypoint
+            interaction_pt_idx = other_keypoint
             if i == 0:
                 continue
             if gripper_state[other_keypoint] != gripper_state[i - 1]:
@@ -537,7 +557,7 @@ class RobotDataset(RLBenchDataset):
 
         if verbose:
             print(
-                f"reference_pt: {interaction_pt}, min_gripper: {self._robot_max_grasp}, gripper-state-array: {gripper_state}"
+                f"reference_pt: {interaction_pt_idx}, min_gripper: {self._robot_max_grasp}, gripper-state-array: {gripper_state}"
             )
 
         # choose an input frame-idx, in our case this is the 1st frame
@@ -570,7 +590,7 @@ class RobotDataset(RLBenchDataset):
 
         # get EE keyframe
         current_ee_keyframe = self.get_gripper_pose(trial, int(current_keypoint_idx))
-        interaction_ee_keyframe = self.get_gripper_pose(trial, int(interaction_pt))
+        interaction_ee_keyframe = self.get_gripper_pose(trial, int(interaction_pt_idx))
         all_ee_keyframes = []
         if self.multi_step:
             target_gripper_state = np.zeros(len(keypoints))
@@ -611,6 +631,15 @@ class RobotDataset(RLBenchDataset):
         rgb = rgb[x_mask]
         xyz = xyz[x_mask]
         xyz, rgb = xyz.reshape(-1, 3), rgb.reshape(-1, 3)
+
+        # using ee-keyframe at index interaction_pt_idx now compute point in PCD intersecting with action axis of the gripper
+        gripper_pose = self.get_gripper_pose(trial, interaction_pt_idx)
+        action_axis = self.get_gripper_axis(gripper_pose)
+        gripper_position = gripper_pose[:3, 3]
+        index, interaction_point = find_closest_point_to_line(
+            xyz, gripper_position, action_axis
+        )
+        interaction_ee_keyframe[:3, 3] = interaction_point
 
         # voxelize at a granular voxel-size then choose X points
         xyz, rgb = self.remove_duplicate_points(xyz, rgb)
@@ -693,7 +722,7 @@ class RobotDataset(RLBenchDataset):
                     past_pos = all_positions[idx - 1]
                     past_quat = all_angles[idx - 1]
                     past_g = gripper_state[key_idx - 1]
-                if verbose:
+                if verbose and debug:
                     print("Showing past-pos and quat")
                     show_point_cloud(
                         crop_xyz,
@@ -717,7 +746,7 @@ class RobotDataset(RLBenchDataset):
                 past_pos = all_positions[keypoint_relative_idx - 1]
                 past_quat = all_angles[keypoint_relative_idx - 1]
                 past_g = gripper_state[keypoint_relative_idx - 1]
-            if verbose:
+            if verbose and debug:
                 print("Showing past-pos and quat")
                 show_point_cloud(
                     crop_xyz,
@@ -731,7 +760,7 @@ class RobotDataset(RLBenchDataset):
             print(f"Proprio: {proprio}")
 
         if self._visualize_interaction_estimates:
-            self.show_interaction_pt_and_keyframe(
+            self.show_interaction_point_and_keyframe(
                 xyz2,
                 rgb2,
                 current_ee_keyframe,
@@ -818,13 +847,12 @@ class RobotDataset(RLBenchDataset):
 @click.option(
     "--waypoint-language", help="yaml for skill-to-action lang breakdown", default=""
 )
-@click.option("-ki", "--k-index", default=0)
+@click.option("-ki", "--k-index", default=[0], multiple=True)
 @click.option("-r", "--robot", default="stretch")
 def debug_get_datum(data_dir, k_index, split, robot, waypoint_language):
     if split:
         with open(split, "r") as f:
             train_test_split = yaml.safe_load(f)
-
     loader = RobotDataset(
         data_dir,
         template="*.h5",
@@ -852,7 +880,8 @@ def debug_get_datum(data_dir, k_index, split, robot, waypoint_language):
     )
     for trial in loader.trials:
         print(f"Trial name: {trial.name}")
-        data = loader.get_datum(trial, k_index, verbose=True)
+        for k_i in k_index:
+            data = loader.get_datum(trial, k_i, verbose=True)
 
 
 @click.command()

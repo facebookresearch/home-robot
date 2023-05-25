@@ -14,7 +14,7 @@ import numpy as np
 import rospy
 from geometry_msgs.msg import TransformStamped
 
-from home_robot.agent.hierarchical.pick_and_place_agent import PickAndPlaceAgent
+from home_robot.agent.ovmm_agent.pick_and_place_agent import PickAndPlaceAgent
 from home_robot.core.interfaces import DiscreteNavigationAction
 from home_robot.motion.stretch import STRETCH_HOME_Q
 from home_robot.utils.config import get_config

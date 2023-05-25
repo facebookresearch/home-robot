@@ -144,7 +144,9 @@ git submodule update --init --recursive
 
 # Build habitat-sim from source
 cd src/third_party/habitat-sim
-# Please follow the instructions [here](https://github.com/facebookresearch/habitat-sim/blob/main/BUILD_FROM_SOURCE.md) to build habitat-sim from source.
+```
+Please follow the instructions [here](https://github.com/facebookresearch/habitat-sim/blob/main/BUILD_FROM_SOURCE.md) to build habitat-sim from source.
+```
 cd -
 
 # Install habitat lab on the correct (object rearrange) branch
@@ -159,7 +161,7 @@ And then download the assets as described in the [installation instructions](src
 
 To test your installation, you can run:
 ```
-python projects/stretch_ovmm/eval_vectorized.py
+python projects/habitat_ovmm/eval_vectorized.py
 ```
 
 For more details on the OVMM challenge, see the [Habitat OVMM readme](projects/stretch_ovmm/README.md).
