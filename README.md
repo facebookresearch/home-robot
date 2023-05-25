@@ -1,3 +1,5 @@
+![](docs/HomeRobot_Logo_Horiz_color.png)
+
 # HomeRobot
 
 [![GitHub license](https://img.shields.io/badge/license-MIT-blue.svg)](https://github.com/facebookresearch/home-robot/blob/main/LICENSE)
