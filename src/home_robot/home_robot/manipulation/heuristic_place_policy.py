@@ -16,11 +16,8 @@ from home_robot.core.interfaces import (
     DiscreteNavigationAction,
     Observations,
 )
-from home_robot.motion.stretch import STRETCH_GRIPPER_OPEN, STRETCH_STANDOFF_DISTANCE
+from home_robot.motion.stretch import STRETCH_STANDOFF_DISTANCE
 from home_robot.utils.image import smooth_mask
-from home_robot.utils.point_cloud import valid_depth_mask
-
-# from home_robot.utils.point_cloud import show_point_cloud
 from home_robot.utils.rotation import get_angle_to_pos
 
 RETRACTED_ARM_APPROX_LENGTH = 0.15
@@ -75,7 +72,7 @@ class HeuristicPlacePolicy(nn.Module):
 
         goal_rec_mask = (
             obs.semantic
-            == obs.task_observations["end_recep_goal"] * valid_depth_mask(obs.depth)
+            == obs.task_observations["end_recep_goal"] * du.valid_depth_mask(obs.depth)
         ).astype(np.uint8)
         # Get dilated, then eroded mask (for cleanliness)
         goal_rec_mask = smooth_mask(
@@ -289,51 +286,59 @@ class HeuristicPlacePolicy(nn.Module):
             self.end_receptacle = obs.task_observations["goal_name"].split(" ")[-1]
             found = self.get_receptacle_placement_point(obs, vis_inputs)
 
-            if found is not None:
-                self.placement_voxel, vis_inputs = found
+            if found is None:
+                print("Receptacle not visible. Execute hardcoded place.")
+                self.total_turn_and_forward_steps = 0
+                self.initial_orient_num_turns = -1
+                self.fall_wait_steps = 5
+                self.t_extend_arm = 1
+                self.t_release_object = 2
+                self.t_retract_arm = 3
+                self.t_go_to_top = -1
+                self.t_go_to_place = -1
+                self.t_done_waiting = 3 + self.fall_wait_steps
             else:
-                print("Receptacle not visible. Abort.")
-                action = DiscreteNavigationAction.STOP
-                return action, vis_inputs
+                self.placement_voxel, vis_inputs = found
 
-            center_voxel_trans = np.array(
-                [
-                    self.placement_voxel[1],
-                    self.placement_voxel[2],
-                    self.placement_voxel[0],
-                ]
-            )
+                center_voxel_trans = np.array(
+                    [
+                        self.placement_voxel[1],
+                        self.placement_voxel[2],
+                        self.placement_voxel[0],
+                    ]
+                )
 
-            delta_heading = np.rad2deg(get_angle_to_pos(center_voxel_trans))
+                delta_heading = np.rad2deg(get_angle_to_pos(center_voxel_trans))
 
-            self.initial_orient_num_turns = abs(delta_heading) // turn_angle
-            self.orient_turn_direction = np.sign(delta_heading)
-            # This gets the Y-coordiante of the center voxel
-            # Base link to retracted arm - this is about 15 cm
-            fwd_dist = (
-                self.placement_voxel[1]
-                - STRETCH_STANDOFF_DISTANCE
-                - RETRACTED_ARM_APPROX_LENGTH
-            )
+                self.initial_orient_num_turns = abs(delta_heading) // turn_angle
+                self.orient_turn_direction = np.sign(delta_heading)
+                # This gets the Y-coordiante of the center voxel
+                # Base link to retracted arm - this is about 15 cm
+                fwd_dist = (
+                    self.placement_voxel[1]
+                    - STRETCH_STANDOFF_DISTANCE
+                    - RETRACTED_ARM_APPROX_LENGTH
+                )
 
-            fwd_dist = np.clip(fwd_dist, 0, np.inf)  # to avoid negative fwd_dist
-            self.forward_steps = fwd_dist // fwd_step_size
-            self.total_turn_and_forward_steps = (
-                self.forward_steps + self.initial_orient_num_turns
-            )
-            self.fall_wait_steps = 5
-            self.t_go_to_top = self.total_turn_and_forward_steps + 1
-            self.t_go_to_place = self.total_turn_and_forward_steps + 2
-            self.t_release_object = self.total_turn_and_forward_steps + 3
-            self.t_lift_arm = self.total_turn_and_forward_steps + 4
-            self.t_retract_arm = self.total_turn_and_forward_steps + 5
-            self.t_done_waiting = (
-                self.total_turn_and_forward_steps + 3 + self.fall_wait_steps
-            )
+                fwd_dist = np.clip(fwd_dist, 0, np.inf)  # to avoid negative fwd_dist
+                self.forward_steps = fwd_dist // fwd_step_size
+                self.total_turn_and_forward_steps = (
+                    self.forward_steps + self.initial_orient_num_turns
+                )
+                self.fall_wait_steps = 5
+                self.t_go_to_top = self.total_turn_and_forward_steps + 1
+                self.t_go_to_place = self.total_turn_and_forward_steps + 2
+                self.t_release_object = self.total_turn_and_forward_steps + 3
+                self.t_lift_arm = self.total_turn_and_forward_steps + 4
+                self.t_retract_arm = self.total_turn_and_forward_steps + 5
+                self.t_extend_arm = -1
+                self.t_done_waiting = (
+                    self.total_turn_and_forward_steps + 3 + self.fall_wait_steps
+                )
 
-            print("-" * 20)
-            print(f"Turn to orient for {self.initial_orient_num_turns} steps.")
-            print(f"Move forward for {self.forward_steps} steps.")
+                print("-" * 20)
+                print(f"Turn to orient for {self.initial_orient_num_turns} steps.")
+                print(f"Move forward for {self.forward_steps} steps.")
 
         print("-" * 20)
         print("Timestep", self.timestep)
@@ -403,6 +408,9 @@ class HeuristicPlacePolicy(nn.Module):
         elif self.timestep == self.t_retract_arm:
             print("[Placement] Retracting the arm after placement.")
             action = self._retract(obs)
+        elif self.timestep == self.t_extend_arm:
+            print("[Placement] Extending the arm out for placing.")
+            action = DiscreteNavigationAction.EXTEND_ARM
         elif self.timestep <= self.t_done_waiting:
             print("[Placement] Empty action")  # allow the object to come to rest
             action = DiscreteNavigationAction.EMPTY_ACTION

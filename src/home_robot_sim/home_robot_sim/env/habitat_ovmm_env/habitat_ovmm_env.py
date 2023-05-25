@@ -1,6 +1,3 @@
-import json
-import os
-import random
 from enum import IntEnum
 from typing import Any, Dict, List, Optional, Tuple, Union
 
@@ -64,7 +61,7 @@ class HabitatOpenVocabManipEnv(HabitatEnv):
         self.visualize = config.VISUALIZE or config.PRINT_IMAGES
         if self.visualize:
             self.visualizer = Visualizer(config, dataset)
-        self.goal_type = config.habitat.task.goal_type
+        self.goal_type = config.ENVIRONMENT.goal_type
         self.episodes_data_path = config.habitat.dataset.data_path
         self.video_dir = config.habitat_baselines.video_dir
         self.max_forward = (
@@ -74,7 +71,7 @@ class HabitatOpenVocabManipEnv(HabitatEnv):
             config.habitat.task.actions.base_velocity.max_turn_degrees
         )
         self.max_joints_delta = (
-            config.habitat.task.actions.arm_action.delta_pos_limit
+            config.habitat.task.actions.arm_action.max_delta_pos
         )  # for normalizing arm delta
         self.max_turn = (
             self.max_turn_degrees / 180 * np.pi
@@ -101,8 +98,6 @@ class HabitatOpenVocabManipEnv(HabitatEnv):
 
         if self.ground_truth_semantics:
             self.semantic_category_mapping = RearrangeBasicCategories()
-            with open(config.ENVIRONMENT.receptacle_sensor_id_file) as f:
-                self._receptacle_sensor_name_to_id = json.load(f)
         else:
             # combining objs and recep IDs into one mapping
             self.obj_rec_combined_mapping = {}
@@ -118,8 +113,7 @@ class HabitatOpenVocabManipEnv(HabitatEnv):
                         i - len(self._obj_id_to_name_mapping)
                     ]
             self.semantic_category_mapping = RearrangeDETICCategories(
-                # TODO (Arun): add this back when we move to v3 dataset
-                # self.obj_rec_combined_mapping
+                self.obj_rec_combined_mapping, len(self._obj_id_to_name_mapping)
             )
 
         if not self.ground_truth_semantics:
@@ -222,11 +216,11 @@ class HabitatOpenVocabManipEnv(HabitatEnv):
 
             recep_seg[recep_seg != 0] += 1
             semantic = semantic + recep_seg
-            semantic[semantic == 0] = len(self._receptacle_sensor_name_to_id) + 1
+            semantic[semantic == 0] = len(self._rec_id_to_name_mapping) + 2
             obs.semantic = semantic.numpy()
             obs.task_observations["recep_idx"] = 1
             obs.task_observations["semantic_max_val"] = (
-                len(self._receptacle_sensor_name_to_id) + 1
+                len(self._rec_id_to_name_mapping) + 2
             )
             # TODO Ground-truth semantic visualization
         else:
@@ -284,12 +278,8 @@ class HabitatOpenVocabManipEnv(HabitatEnv):
             goal_receptacle = self._rec_id_to_name_mapping[obs["goal_receptacle"][0]]
             goal_name = obj_name + " " + start_receptacle + " " + goal_receptacle
             if self.ground_truth_semantics:
-                start_rec_goal_id = (
-                    self._receptacle_sensor_name_to_id[start_receptacle] + 1
-                )
-                end_rec_goal_id = (
-                    self._receptacle_sensor_name_to_id[goal_receptacle] + 1
-                )
+                start_rec_goal_id = self._rec_name_to_id_mapping[start_receptacle] + 2
+                end_rec_goal_id = self._rec_name_to_id_mapping[goal_receptacle] + 2
             else:
                 # habitat goal ids (from obs) -> combined mapping (also used for detic predictions)
                 name_to_id_mapping = {

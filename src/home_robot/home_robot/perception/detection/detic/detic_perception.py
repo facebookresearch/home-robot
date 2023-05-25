@@ -1,7 +1,7 @@
 import argparse
 import sys
 from pathlib import Path
-from typing import Optional, Tuple
+from typing import List, Optional, Tuple
 
 import cv2
 import numpy as np
@@ -179,6 +179,31 @@ class DeticPerception(PerceptionModule):
         self.cpu_device = torch.device("cpu")
         self.instance_mode = ColorMode.IMAGE
         self.predictor = DefaultPredictor(cfg)
+        reset_cls_test(self.predictor.model, classifier, num_classes)
+
+    def reset_vocab(self, new_vocab: List[str], vocab_type="custom"):
+        """Resets the vocabulary of Detic model allowing you to change detection on
+        the fly. Note that previous vocabulary is not preserved.
+        Args:
+            new_vocab: list of strings representing the new vocabulary
+            vocab_type: one of "custom" or "coco"; only "custom" supported right now
+        """
+        print(f"Resetting vocabulary to {new_vocab}")
+        MetadataCatalog.remove("__unused")
+        if vocab_type == "custom":
+            self.metadata = MetadataCatalog.get("__unused")
+            self.metadata.thing_classes = new_vocab
+            classifier = get_clip_embeddings(self.metadata.thing_classes)
+            self.categories_mapping = {
+                i: i for i in range(len(self.metadata.thing_classes))
+            }
+        else:
+            raise NotImplementedError(
+                "Detic does not have support for resetting from custom to coco vocab"
+            )
+        self.num_sem_categories = len(self.categories_mapping)
+
+        num_classes = len(self.metadata.thing_classes)
         reset_cls_test(self.predictor.model, classifier, num_classes)
 
     def predict(

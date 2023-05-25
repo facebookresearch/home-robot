@@ -13,7 +13,7 @@ habitat_baselines:
   rl:
     policy:
         name: "PointNavResNetPolicy"
-        action_distribution_type: "categorical"
+        action_distribution_type: "gaussian"
         action_dist:
             use_log_std: True
             clamp_std: True
@@ -22,7 +22,7 @@ habitat_baselines:
         obs_transforms:
           resize_shortest_edge:
             type: ResizeShortestEdge
-            size: 256
+            size: 120
             channels_last: True
             trans_keys:
               - robot_head_rgb
@@ -34,8 +34,8 @@ habitat_baselines:
               - receptacle_segmentation
           center_cropper:
             type: CenterCropper
-            height: 256
-            width: 256
+            height: 160
+            width: 120
             channels_last: True
             trans_keys:
               - robot_head_rgb

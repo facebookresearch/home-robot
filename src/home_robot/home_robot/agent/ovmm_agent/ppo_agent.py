@@ -239,7 +239,9 @@ class PPOAgent(Agent):
                 observations.semantic[h // 2, w // 2]
                 == observations.task_observations["object_goal"]
             )
-        elif "rearrange_stop" in action:
+        elif (
+            "rearrange_stop" in action and self.terminate_condition == "continuous_stop"
+        ):
             return action["rearrange_stop"][0] > 0
         else:
             raise ValueError("Invalid terminate condition")
@@ -266,7 +268,7 @@ class PPOAgent(Agent):
         for obj_idx in range(recep_idx_start):
             seg_map[obj_idx] = 0
         for i, obj_idx in enumerate(range(recep_idx_start, max_val)):
-            seg_map[obj_idx] = i
+            seg_map[obj_idx] = i + 1
         seg_map[max_val] = 0
         rec_seg = seg_map[rec_seg]
         return rec_seg[..., np.newaxis].astype(np.int32)
@@ -282,7 +284,6 @@ class PPOAgent(Agent):
         normalized_depth[normalized_depth == MIN_DEPTH_REPLACEMENT_VALUE] = 0
         normalized_depth[normalized_depth == MAX_DEPTH_REPLACEMENT_VALUE] = 1
         normalized_depth = (normalized_depth - min_depth) / (max_depth - min_depth)
-        # TODO: convert all observations to hab observation space here
         hab_obs = OrderedDict(
             {
                 "robot_head_depth": np.expand_dims(normalized_depth, -1).astype(
@@ -311,6 +312,7 @@ class PPOAgent(Agent):
 
         return hab_obs
 
+    # FIXME: the return values do not match the signature
     def act(self, observations: Observations) -> Dict[str, int]:
         sample_random_seed()
         obs = self.convert_to_habitat_obs_space(observations)
