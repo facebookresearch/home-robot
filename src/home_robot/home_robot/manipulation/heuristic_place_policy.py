@@ -318,7 +318,7 @@ class HeuristicPlacePolicy(nn.Module):
             self.total_turn_and_forward_steps = (
                 self.forward_steps + self.initial_orient_num_turns
             )
-            self.fall_wait_steps = 5
+            self.fall_wait_steps = 20
             self.t_go_to_top = self.total_turn_and_forward_steps + 1
             self.t_go_to_place = self.total_turn_and_forward_steps + 2
             self.t_release_object = self.total_turn_and_forward_steps + 3

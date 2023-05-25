@@ -150,7 +150,6 @@ class HabitatOpenVocabManipEnv(HabitatEnv):
         self.visualizer.set_vis_dir(scene_id=scene_id, episode_id=episode_id)
 
     def reset(self):
-
         habitat_obs = self.habitat_env.reset()
         self._last_habitat_obs = habitat_obs
         self.semantic_category_mapping.reset_instance_id_to_category_id(
@@ -419,7 +418,10 @@ class HabitatOpenVocabManipEnv(HabitatEnv):
             self._process_info(info)
         habitat_action = self._preprocess_action(action, self._last_habitat_obs)
         habitat_obs, _, dones, infos = self.habitat_env.step(habitat_action)
-
+        # copy the keys in info starting with the prefix "is_curr_skill" into infos
+        for key in info:
+            if key.startswith("is_curr_skill"):
+                infos[key] = info[key]
         self._last_habitat_obs = habitat_obs
         self._last_obs = self._preprocess_obs(habitat_obs)
         return self._last_obs, dones, infos
