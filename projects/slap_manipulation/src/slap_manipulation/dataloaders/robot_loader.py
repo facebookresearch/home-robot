@@ -15,7 +15,6 @@ from slap_manipulation.dataloaders.data_processing import (
     voxelize_and_get_interaction_point,
 )
 from slap_manipulation.dataloaders.rlbench_loader import RLBenchDataset
-from slap_manipulation.utils.data_visualizers import show_semantic_mask
 from slap_manipulation.utils.pointcloud_preprocessing import find_closest_point_to_line
 
 from home_robot.core.interfaces import Observations
@@ -648,6 +647,15 @@ class RobotDataset(RLBenchDataset):
         xyz = xyz[x_mask]
         feat = feat[x_mask]
         xyz, rgb, feat = xyz.reshape(-1, 3), rgb.reshape(-1, 3), feat.reshape(-1, 1)
+
+        # using ee-keyframe at index interaction_pt_idx now compute point in PCD intersecting with action axis of the gripper
+        gripper_pose = self.get_gripper_pose(trial, interaction_pt_idx)
+        action_axis = self.get_gripper_axis(gripper_pose)
+        gripper_position = gripper_pose[:3, 3]
+        index, interaction_point = find_closest_point_to_line(
+            xyz, gripper_position, action_axis
+        )
+        interaction_ee_keyframe[:3, 3] = interaction_point
 
         # using ee-keyframe at index interaction_pt_idx now compute point in PCD intersecting with action axis of the gripper
         gripper_pose = self.get_gripper_pose(trial, interaction_pt_idx)

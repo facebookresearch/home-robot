@@ -125,18 +125,14 @@ class DatasetBase(torch.utils.data.Dataset):
                     if not self.trial_list or (
                         self.trial_list and key in self.trial_list
                     ):
-                        if (
-                            "demo_status" in h5_trial.keys()
-                            and h5_trial["demo_status"][()] == 1
-                        ) or "demo_status" not in h5_trial.keys():
-                            # Open the trial and extract metadata
-                            trial = self.Trial(key, filename, self, h5_trial)
-                            # get trial config, look for "demo_status" key and check if it is s/f
-                            if self.verbose:
-                                print("trial =", key, trial.length)
-                            lens.append(trial.length)
-                            # Bookkeeping for all the trials
-                            self.trials.append(trial)
+                        # Open the trial and extract metadata
+                        trial = self.Trial(key, filename, self, h5_trial)
+                        # get trial config, look for "demo_status" key and check if it is s/f
+                        if self.verbose:
+                            print("trial =", key, trial.length)
+                        lens.append(trial.length)
+                        # Bookkeeping for all the trials
+                        self.trials.append(trial)
 
         self.trial_lengths = np.cumsum(lens)
         self.max_idx = self.trial_lengths[-1]
