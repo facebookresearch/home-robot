@@ -1,4 +1,4 @@
-![](docs/HomeRobot_Logo_Horiz_color.png)
+![](docs/HomeRobot_Logo_Horiz_Color.png)
 
 # HomeRobot
 
