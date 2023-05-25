@@ -40,9 +40,9 @@ def get_task_plans_from_oracle(
 def get_codelist(steps_list):
     codelist = []
     for step in steps_list:
-        if step['verb'] =='goto':
-            pass
-        codelist += [f"self.{step['verb']}('{step['noun']}', speed={step['adverb']}, obs=obs)"]
+        codelist += [
+            f"self.{step['verb']}('{step['noun']}', motion_profile={step['adverb']}, obs=obs)"
+        ]
     return codelist
 
 
