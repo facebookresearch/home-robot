@@ -620,12 +620,17 @@ class InteractionPredictionModule(torch.nn.Module):
             batch = self.to_device(batch)
             rgb = batch["rgb"][0]
             xyz = batch["xyz"][0]
+            feat = batch["feat"][0]
             rgb2 = batch["rgb_downsampled"][0]
             xyz2 = batch["xyz_downsampled"][0]
+            feat2 = batch["feat_downsampled"][0]
             cmd = batch["cmd"]
             proprio = batch["proprio"][0]
             target_pos = batch["closest_voxel"][0]
             metrics["cmd"].append(cmd)
+
+            rgb = torch.cat([rgb, feat], dim=-1)
+            rgb2 = torch.cat([rgb2, feat2], dim=-1)
 
             print()
             print("---", i, "---")
@@ -645,10 +650,10 @@ class InteractionPredictionModule(torch.nn.Module):
                 _, mask = torch.sort(classification_probs, descending=True)
                 ten_percent = int(int(classification_probs.shape[1]) * 0.05)
                 mask = mask[0, :ten_percent].detach().cpu().numpy()
-                new_rgb = rgb2.detach().cpu().numpy().copy()
+                new_rgb = rgb2[:, :-1].detach().cpu().numpy().copy()
                 new_rgb[mask.reshape(-1)] = np.array([1, 0, 0]).reshape(1, 3)
                 show_point_cloud(
-                    xyz2.detach().cpu().numpy(), rgb2.detach().cpu().numpy()
+                    xyz2.detach().cpu().numpy(), rgb2[:, :-1].detach().cpu().numpy()
                 )
                 show_point_cloud(xyz2.detach().cpu().numpy(), new_rgb)
 
@@ -666,22 +671,22 @@ class InteractionPredictionModule(torch.nn.Module):
             if viz:
                 self.show_prediction_with_grnd_truth(
                     xyz,
-                    rgb,
+                    rgb[:, :-1],
                     xyz2[predicted_idx[0]].detach().cpu().numpy(),
                     target_pos.detach().cpu().numpy(),
                     i=i,
                     save=save,
                 )
         pprint(metrics)
-        todaydate = datetime.date.today()
-        time = datetime.datetime.now().strftime("%H_%M")
-        output_dir = f"./outputs/{todaydate}/{self.name}/"
-        output_file = f"output_{time}.json"
-        if not os.path.exists(output_dir):
-            os.makedirs(output_dir)
-        with open(os.path.join(output_dir, output_file), "w") as f:
-            # FIXME: replace with yaml
-            json.dump(metrics, f, indent=4)
+        # todaydate = datetime.date.today()
+        # time = datetime.datetime.now().strftime("%H_%M")
+        # output_dir = f"./outputs/{todaydate}/{self.name}/"
+        # output_file = f"output_{time}.json"
+        # if not os.path.exists(output_dir):
+        #     os.makedirs(output_dir)
+        # with open(os.path.join(output_dir, output_file), "w") as f:
+        #     # FIXME: replace with yaml
+        #     json.dump(metrics, f, indent=4)
 
     def clip_encode_text(self, text):
         """encode text as a sequence"""

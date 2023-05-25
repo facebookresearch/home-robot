@@ -1,6 +1,6 @@
 name: test
 action_idx: -1
-data_dir: False
+datadir: False
 split: False
 load: False
 
@@ -13,7 +13,7 @@ multi_step: True
 num_heads: 1
 crop_size: 0.1
 query_radius: 0.16
-k: 3
+k: 3  # will change per task, read from task_information.yaml
 lang_max_seq_len: 77
 clip_model: "ViT-B/32"
 max_iter: 50
@@ -28,29 +28,30 @@ debug: False
 dims:
   proprio_in: 8
   proprio_out: 64
-  image_in: 3
+  image_in: 4
   lang_emb_out: 512
   position: 3
   orientation: 4
   # rgb_out:
 
 weights:
-  position: 1.0
-  orientation: 0.0
-  gripper: 0.0
+  position: 10.0
+  orientation: 1e-2
+  gripper: 1e-3
 
 run:
   validate: False
 
 model:
-  sa1_mlp: [6, 64, 128]
+  sa1_mlp: [7, 64, 128]
   sa2_mlp: [131, 128, 256]
   sa3_mlp: [259, 256,512]
   proprio_mlp: [64, 256, 512]
   lang_mlp: [512, 512, 512]
   time_mlp: [6, 256, 512]
-  pre_process_mlp: [2048, 2048, 1024, 1024]
-  post_process_mlp: [1024, 512, 512, 256, 256, 128, 64]
+  pre_process_mlp: [2048, 1024, 1024, 512, 512]
+  post_process_mlp: [512, 512, 256, 256, 128, 64]
+  gru_dim: 512
 
 regression_head:
   final_dim: 64
@@ -60,5 +61,6 @@ regression_head:
   pos_in_channels: 3
 
 per_action_cmd: False
-hidden_dim: 1024
+gru_hidden_dim: 512
+gru_hidden_layers: 2
 use_mdn: False
