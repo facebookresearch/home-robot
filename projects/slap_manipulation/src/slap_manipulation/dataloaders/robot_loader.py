@@ -15,6 +15,7 @@ from slap_manipulation.dataloaders.data_processing import (
     voxelize_and_get_interaction_point,
 )
 from slap_manipulation.dataloaders.rlbench_loader import RLBenchDataset
+from slap_manipulation.utils.data_visualizers import show_semantic_mask
 from slap_manipulation.utils.pointcloud_preprocessing import find_closest_point_to_line
 
 from home_robot.core.interfaces import Observations
@@ -390,7 +391,7 @@ class RobotDataset(RLBenchDataset):
         rgb = rgb[mask]
         xyz = xyz[mask]
         semantic_feat = semantic_feat[mask]
-        rgb = np.concatenate((rgb, semantic_feat), axis=-1)
+        # rgb = np.concatenate((rgb, semantic_feat), axis=-1)
         return rgb, xyz, semantic_feat
 
     def extract_manual_keyframes(self, user_keyframe_array):
@@ -659,7 +660,7 @@ class RobotDataset(RLBenchDataset):
 
         # voxelize at a granular voxel-size then choose X points
         xyz, rgb, feat = filter_and_remove_duplicate_points(
-            xyz, rgb, feat, voxel_size=VOXEL_SIZE_1
+            xyz, rgb, feat, voxel_size=VOXEL_SIZE_1, semantic_id=1
         )
         # xyz, rgb, feat = self.remove_duplicate_points(xyz, rgb, feat)
         xyz, rgb, feat = self.dr_crop_radius(xyz, rgb, feat, interaction_ee_keyframe)
@@ -698,18 +699,30 @@ class RobotDataset(RLBenchDataset):
             target_idx_og_pcd,
             closest_pt_og_pcd,
         ) = voxelize_and_get_interaction_point(
-            xyz, rgb, feat, interaction_ee_keyframe, voxel_size=VOXEL_SIZE_2
+            xyz,
+            rgb,
+            feat,
+            interaction_ee_keyframe,
+            voxel_size=VOXEL_SIZE_2,
+            debug=False,
+            semantic_id=1,
         )
         if xyz2 is None:
             print("Couldn't find an interaction point")
             return {"data_ok_status": False}
 
         # Get the local version of the problem
-        (crop_location, crop_xyz, crop_rgb, data_status) = self.get_local_problem(
-            orig_xyz, orig_rgb, closest_pt_down_pcd
-        )
+        (
+            crop_location,
+            crop_xyz,
+            crop_rgb,
+            crop_feat,
+            data_status,
+        ) = self.get_local_problem(orig_xyz, orig_rgb, orig_feat, closest_pt_down_pcd)
         if verbose:
             print(f"Size of cropped xyz: {crop_xyz.shape}")
+            show_semantic_mask(crop_xyz, crop_rgb, crop_feat, semantic_id=1)
+
         # Get data for the regression training
         # This needs to happen before centering i guess
         (
@@ -829,6 +842,7 @@ class RobotDataset(RLBenchDataset):
             "target_gripper_state": torch.FloatTensor(target_gripper_state),
             "xyz": torch.FloatTensor(xyz),
             "rgb": torch.FloatTensor(rgb),
+            "feat": torch.FloatTensor(feat),
             "cmd": cmd,
             "all_cmd": all_cmd,
             "keypoint_idx": keypoint_relative_idx,
@@ -839,6 +853,7 @@ class RobotDataset(RLBenchDataset):
             "closest_voxel_idx": torch.LongTensor([target_idx_down_pcd]),
             "xyz_downsampled": torch.FloatTensor(xyz2),
             "rgb_downsampled": torch.FloatTensor(rgb2),
+            "feat_downsampled": torch.FloatTensor(feat2),
             # used in pt_query.py; make sure this is being used with xyz_downsampled
             # TODO rename xyz_mask --> xyz_downsampled_mask to remove confusion
             "xyz_mask": torch.LongTensor(
@@ -847,6 +862,7 @@ class RobotDataset(RLBenchDataset):
             # Crop inputs -----------------
             "rgb_crop": torch.FloatTensor(crop_rgb),
             "xyz_crop": torch.FloatTensor(crop_xyz),
+            "feat_crop": torch.FloatTensor(crop_feat),
             "crop_ref_ee_keyframe_pos": torch.FloatTensor(crop_ref_ee_keyframe[:3, 3]),
             "crop_ref_ee_keyframe_ori": torch.FloatTensor(crop_ref_ee_keyframe[:3, :3]),
             "perturbed_crop_location": torch.FloatTensor(crop_location),
@@ -956,6 +972,7 @@ def show_all_keypoints(data_dir, split, template, robot):
             for i in range(num_keypt):
                 print("Keypoint requested: ", i)
                 data = loader.get_datum(trial, i, verbose=True)
+                breakpoint()
             # data = loader.get_datum(trial, 1, verbose=False)
 
 

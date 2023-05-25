@@ -183,10 +183,10 @@ class RLBenchDataset(DatasetBase):
 
         return rgb_pts, xyz_pts
 
-    def crop_around_voxel(self, xyz, rgb, voxel, crop_size):
+    def crop_around_voxel(self, xyz, rgb, feat, voxel, crop_size):
         """Crop a point cloud around given voxel"""
         mask = np.linalg.norm(xyz - voxel, axis=1) < crop_size
-        return xyz[mask], rgb[mask]
+        return xyz[mask], rgb[mask], feat[mask]
 
     def shuffle_and_downsample_point_cloud(self, xyz, rgb, feat):
         # Downsample pt clouds
@@ -366,7 +366,7 @@ class RLBenchDataset(DatasetBase):
         return positions, orientations, angles
 
     def get_local_problem(
-        self, xyz, rgb, interaction_pt, num_find_crop_tries=10, min_num_points=50
+        self, xyz, rgb, feat, interaction_pt, num_find_crop_tries=10, min_num_points=50
     ):
         """
         Crop given PCD around a perturbed interaction_point as input to action prediction problem
@@ -399,8 +399,8 @@ class RLBenchDataset(DatasetBase):
             crop_location = orig_crop_location
 
         # crop from og pcd and mean-center it
-        crop_xyz, crop_rgb = self.crop_around_voxel(
-            xyz, rgb, crop_location, self._local_problem_size
+        crop_xyz, crop_rgb, crop_feat = self.crop_around_voxel(
+            xyz, rgb, feat, crop_location, self._local_problem_size
         )
         crop_xyz = crop_xyz - crop_location[None].repeat(crop_xyz.shape[0], axis=0)
         # show_point_cloud(crop_xyz, crop_rgb, orig=np.zeros(3))
@@ -412,10 +412,11 @@ class RLBenchDataset(DatasetBase):
                 downsample = downsample[: self.num_pts]
             crop_rgb = crop_rgb[downsample]
             crop_xyz = crop_xyz[downsample]
+            crop_feat = crop_feat[downsample]
         status = True
         if crop_xyz.shape[0] < 10:
             status = False
-        return crop_location, crop_xyz, crop_rgb, status
+        return crop_location, crop_xyz, crop_rgb, crop_feat, status
 
     def get_local_commands(
         self, crop_location, ee_keyframe, ref_ee_keyframe, keyframes

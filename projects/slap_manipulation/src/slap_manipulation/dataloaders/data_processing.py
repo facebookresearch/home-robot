@@ -7,6 +7,7 @@ import torch
 import trimesh.transformations as tra
 from slap_manipulation.utils.data_visualizers import (
     show_point_cloud_with_keypt_and_closest_pt,
+    show_semantic_mask,
 )
 
 from home_robot.core.interfaces import Observations
@@ -84,12 +85,21 @@ def aggregate_feats(feats, downsampled_index_trace):
     return agg_feats
 
 
-def filter_and_remove_duplicate_points(xyz, rgb, feats, depth, voxel_size=0.001):
+def filter_and_remove_duplicate_points(
+    xyz,
+    rgb,
+    feats,
+    depth=None,
+    voxel_size=0.001,
+    semantic_id=0,
+    debug_voxelization=False,
+):
     # heuristic based trimming
-    mask = np.bitwise_and(depth < 1.5, depth > 0.3)
-    rgb = rgb[mask]
-    xyz = xyz[mask]
-    feats = feats[mask]
+    if depth is not None:
+        mask = np.bitwise_and(depth < 1.5, depth > 0.3)
+        rgb = rgb[mask]
+        xyz = xyz[mask]
+        feats = feats[mask]
     if np.any(rgb > 1.0):
         rgb = rgb / 255.0
     debug_views = False
@@ -114,15 +124,8 @@ def filter_and_remove_duplicate_points(xyz, rgb, feats, depth, voxel_size=0.001)
     xyz = np.asarray(pcd_voxelized.points)
     feats = aggregate_feats(feats, voxelized_index_trace)
 
-    debug_voxelization = False
     if debug_voxelization:
-        # print(f"Number of points in this PCD: {len(pcd_voxelized2.points)}")
-        semantic_rgb = np.zeros_like(rgb)
-        semantic_rgb[feats.reshape(-1) == 3, 1] = 1.0
-        show_point_cloud(xyz, semantic_rgb)
-        print(
-            "Confirm that you can see points in green for object belonging to class-id 3"
-        )
+        show_semantic_mask(xyz, rgb, feats)
 
     return xyz, rgb, feats
 
@@ -227,7 +230,13 @@ def dr_rotation_translation(
 
 
 def voxelize_and_get_interaction_point(
-    xyz, rgb, feats, interaction_ee_keyframe, voxel_size=0.01, debug=False
+    xyz,
+    rgb,
+    feats,
+    interaction_ee_keyframe,
+    voxel_size=0.01,
+    debug=False,
+    semantic_id=1,
 ) -> Tuple[
     Optional[np.ndarray],
     Optional[np.ndarray],
@@ -256,12 +265,7 @@ def voxelize_and_get_interaction_point(
     voxelized_feats = aggregate_feats(feats, voxelized_index_trace)
 
     if debug:
-        semantic_rgb = np.zeros_like(voxelized_rgb)
-        semantic_rgb[voxelized_feats.reshape(-1) == 3, 1] = 1.0
-        show_point_cloud(voxelized_xyz, semantic_rgb)
-        print(
-            "Confirm that you can see voxelized points in green for object belonging to class-id 3"
-        )
+        show_semantic_mask(voxelized_xyz, voxelized_rgb, voxelized_feats, semantic_id)
 
     # for the voxelized pcd
     if voxelized_xyz.shape[0] < 10:
