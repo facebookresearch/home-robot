@@ -188,7 +188,7 @@ class RLBenchDataset(DatasetBase):
         mask = np.linalg.norm(xyz - voxel, axis=1) < crop_size
         return xyz[mask], rgb[mask]
 
-    def shuffle_and_downsample_point_cloud(self, xyz, rgb):
+    def shuffle_and_downsample_point_cloud(self, xyz, rgb, feat):
         # Downsample pt clouds
         downsample = np.arange(rgb.shape[0])
         np.random.shuffle(downsample)
@@ -196,25 +196,31 @@ class RLBenchDataset(DatasetBase):
             downsample = downsample[: self.num_pts]
         rgb = rgb[downsample]
         xyz = xyz[downsample]
+        feat = feat[downsample]
 
         # mean center xyz
         center = np.mean(xyz, axis=0)
         # center = np.zeros(3)
         center[-1] = 0
         xyz = xyz - center[None].repeat(xyz.shape[0], axis=0)
-        return xyz, rgb, center
+        return xyz, rgb, feat, center
 
-    def remove_duplicate_points(self, xyz, rgb):
+    def remove_duplicate_points(self, xyz, rgb, feat, feat_dim=1):
         debug_views = False
         if debug_views:
             print("xyz", xyz.shape)
             print("rgb", rgb.shape)
             show_point_cloud(xyz, rgb)
 
-        xyz, rgb = xyz.reshape(-1, 3), rgb.reshape(-1, 3)
+        xyz, rgb, feat = (
+            xyz.reshape(-1, 3),
+            rgb.reshape(-1, 3),
+            feat.reshape(-1, feat_dim),
+        )
         # voxelize at a granular voxel-size rather than random downsample
         pcd = numpy_to_pcd(xyz, rgb)
         pcd_downsampled = pcd.voxel_down_sample(self._voxel_size)
+        # TODO: bring back code from stale branch to avg feats based on voxelization
         rgb = np.asarray(pcd_downsampled.colors)
         xyz = np.asarray(pcd_downsampled.points)
 
@@ -223,9 +229,9 @@ class RLBenchDataset(DatasetBase):
             # print(f"Number of points in this PCD: {len(pcd_downsampled2.points)}")
             show_point_cloud(xyz, rgb)
 
-        return xyz, rgb
+        return xyz, rgb, feat
 
-    def dr_crop_radius(self, xyz, rgb, ref_ee_keyframe):
+    def dr_crop_radius(self, xyz, rgb, feat, ref_ee_keyframe):
         """do radius crop"""
         if self.data_augmentation and self.crop_radius:
             # crop out random points outside a certain distance from the gripper
@@ -242,9 +248,12 @@ class RLBenchDataset(DatasetBase):
                 crop_idx = crop_dist < radius
                 rgb = rgb[crop_idx, :]
                 xyz = xyz[crop_idx, :]
-        return xyz, rgb
+                feat = feat[crop_idx, :]
+        return xyz, rgb, feat
 
-    def voxelize_and_get_interaction_point(self, xyz, rgb, interaction_ee_keyframe):
+    def voxelize_and_get_interaction_point(
+        self, xyz, rgb, feat, interaction_ee_keyframe
+    ):
         """uniformly voxelizes the input point-cloud and returns the closest-point
         in the point-cloud to the task's interaction ee-keyframe"""
         # downsample another time to get sampled version
@@ -252,6 +261,8 @@ class RLBenchDataset(DatasetBase):
         pcd_downsampled2 = pcd_downsampled.voxel_down_sample(self._voxel_size_2)
         xyz2 = np.asarray(pcd_downsampled2.points)
         rgb2 = np.asarray(pcd_downsampled2.colors)
+        # TODO: bring back code from stale branch to avg feats based on voxelization
+        feat2 = feat
 
         # for the voxelized pcd
         if xyz2.shape[0] < 10:
@@ -296,6 +307,7 @@ class RLBenchDataset(DatasetBase):
         return (
             xyz2,
             rgb2,
+            feat2,
             target_idx_down_pcd,
             closest_pt_down_pcd,
             target_idx_og_pcd,

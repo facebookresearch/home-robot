@@ -290,7 +290,7 @@ class RobotDataset(RLBenchDataset):
 
     def process_images_from_view(
         self, trial: Trial, view_name: str, idx: int
-    ) -> Tuple[np.ndarray, np.ndarray]:
+    ) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
         """process rgb and depth image from a given camera into a structured PCD
         Args:
             trial:      Trial object
@@ -302,6 +302,11 @@ class RobotDataset(RLBenchDataset):
         depth = trial.get_img(
             view_name + "_depth", idx, depth=True, depth_factor=self.depth_factor
         )
+        if view_name + "_semantic_mask" in trial.group.keys():
+            semantic_feat = trial[view_name + "_semantic_mask"][()]
+        else:
+            semantic_feat = None
+
         if self._robot == "stretch":
             xyz = trial[view_name + "_xyz"][idx]
         # rgb_img = rgb.copy()
@@ -376,10 +381,13 @@ class RobotDataset(RLBenchDataset):
         rgb = rgb.reshape(-1, C)
         depth = depth.reshape(-1)
         xyz = xyz.reshape(-1, C)
+        semantic_feat = semantic_feat.reshape(-1, 1)
         mask = np.bitwise_and(depth < 1.5, depth > 0.3)
         rgb = rgb[mask]
         xyz = xyz[mask]
-        return rgb, xyz
+        semantic_feat = semantic_feat[mask]
+        rgb = np.concatenate((rgb, semantic_feat), axis=-1)
+        return rgb, xyz, semantic_feat
 
     def extract_manual_keyframes(self, user_keyframe_array):
         """returns indices of all user-tagged keyframes"""
@@ -605,16 +613,17 @@ class RobotDataset(RLBenchDataset):
             target_gripper_state = gripper_state[current_keypoint_idx]
 
         # get point-cloud in base-frame from the cameras
-        rgbs, xyzs = [], []
+        rgbs, xyzs, feats = [], [], []
         for view in ["head"]:  # TODO: make keys consistent with stretch H5 schema
             for image_index in input_keyframes:
-                v_rgb, v_xyz = self.process_images_from_view(
+                v_rgb, v_xyz, v_feat = self.process_images_from_view(
                     trial,
                     view,
                     image_index if image_index is not None else input_idx,
                 )
                 rgbs.append(v_rgb)
                 xyzs.append(v_xyz)
+                feats.append(v_feat)
 
         drop_frames = False  # TODO: get this from cfg
         if drop_frames:
@@ -625,12 +634,15 @@ class RobotDataset(RLBenchDataset):
             )
             rgbs = [rgbs[i] for i in idx_dropout]
             xyzs = [xyzs[i] for i in idx_dropout]
+            feats = [feats[i] for i in idx_dropout]
         rgb = np.concatenate(rgbs, axis=0)
         xyz = np.concatenate(xyzs, axis=0)
+        feat = np.concatenate(feats, axis=0)
         x_mask = xyz[:, 0] < 0.9
         rgb = rgb[x_mask]
         xyz = xyz[x_mask]
-        xyz, rgb = xyz.reshape(-1, 3), rgb.reshape(-1, 3)
+        feat = feat[x_mask]
+        xyz, rgb, feat = xyz.reshape(-1, 3), rgb.reshape(-1, 3), feat.reshape(-1, 1)
 
         # using ee-keyframe at index interaction_pt_idx now compute point in PCD intersecting with action axis of the gripper
         gripper_pose = self.get_gripper_pose(trial, interaction_pt_idx)
@@ -642,12 +654,12 @@ class RobotDataset(RLBenchDataset):
         interaction_ee_keyframe[:3, 3] = interaction_point
 
         # voxelize at a granular voxel-size then choose X points
-        xyz, rgb = self.remove_duplicate_points(xyz, rgb)
-        xyz, rgb = self.dr_crop_radius(xyz, rgb, interaction_ee_keyframe)
-        orig_xyz, orig_rgb = xyz, rgb
+        xyz, rgb, feat = self.remove_duplicate_points(xyz, rgb, feat)
+        xyz, rgb, feat = self.dr_crop_radius(xyz, rgb, feat, interaction_ee_keyframe)
+        orig_xyz, orig_rgb, orig_feat = xyz, rgb, feat
 
         # Get the point clouds and shuffle them around a bit
-        xyz, rgb, center = self.shuffle_and_downsample_point_cloud(xyz, rgb)
+        xyz, rgb, feat, center = self.shuffle_and_downsample_point_cloud(xyz, rgb, feat)
 
         # mean-center the keyframes wrt classifier-input pcd
         orig_xyz -= center[None].repeat(orig_xyz.shape[0], axis=0)
