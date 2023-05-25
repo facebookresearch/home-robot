@@ -91,7 +91,10 @@ class GeneralLanguageAgent(PickAndPlaceAgent):
                     "self.goto('bottle', obs)",
                     "self.goto('can', obs)",
                 ],
-                4: ["self.open(['drawer'], obs)"],
+                4: [
+                    "self.open_object(['drawer'], obs)",
+                    "self.open_object(['cabinet'], obs)",
+                ],
             }
 
     # ---override methods---
@@ -103,6 +106,7 @@ class GeneralLanguageAgent(PickAndPlaceAgent):
             self.gaze_agent.reset()
 
     def soft_reset(self):
+        self.state = GeneralTaskState.IDLE
         self.num_actions_done = 0
 
     def _preprocess_obs(
@@ -233,7 +237,7 @@ class GeneralLanguageAgent(PickAndPlaceAgent):
                 self.state = GeneralTaskState.IDLE
             return action, action_info
 
-    def open(self, object_list: List[str], obs: Observations):
+    def open_object(self, object_list: List[str], obs: Observations):
         info = {}
         action = None
         language = self._language["open"][object_list[0]]
@@ -245,23 +249,22 @@ class GeneralLanguageAgent(PickAndPlaceAgent):
             self.state = GeneralTaskState.PREPPING
             return DiscreteNavigationAction.MANIPULATION_MODE, info
         else:
-            if self.dry_run:
-                print("[LangAgent] Call APM given p_i")
-                print("[LangAgent] Call IPM to generate p_i")
-                # maybe obs can take care of interaction_point too?
+            if self.num_actions_done >= num_actions:
+                self.soft_reset()
+                self.slap_model.reset()
+                return DiscreteNavigationAction.STOP, None
+            result, info = self.slap_model.predict(obs)
+            if result is not None:
                 action = ContinuousEndEffectorAction(
-                    pos=np.random.rand(3), ori=np.random.rand(4), g=1.0
+                    result["predicted_pos"],
+                    result["predicted_ori"],
+                    result["gripper_act"],
                 )
-                return action, None
             else:
-                self.interaction_point = self.slap_model.predict(obs)
-                action = ContinuousEndEffectorAction(
-                    self.interaction_point[:3],
-                    self.interaction_point[3:7],
-                    self.interaction_point[-1],
-                )
-                self.state = GeneralTaskState.DOING_TASK
-                return action, info
+                action = DiscreteNavigationAction.STOP
+            self.num_actions_done += 1
+            self.state = GeneralTaskState.DOING_TASK
+            return action, info
 
     def act(self, obs: Observations, task: str) -> Tuple[Action, Dict[str, Any]]:
         if self.state == GeneralTaskState.NOT_STARTED and len(self.steps) == 0:
