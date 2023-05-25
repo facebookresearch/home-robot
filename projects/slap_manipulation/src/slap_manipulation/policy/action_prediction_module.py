@@ -581,14 +581,14 @@ class ActionPredictionModule(torch.nn.Module):
             # pred_gripper_act.view(-1), target_gripper_state.view(-1)
             # )
             # add up all the losses
+            pos_loss /= 3
+            ori_loss /= 3
+            gripper_loss /= 3
             loss = (
                 self.pos_wt * pos_loss
                 + self.ori_wt * ori_loss
                 + self.gripper_wt * gripper_loss
             )
-            pos_loss /= 3
-            ori_loss /= 3
-            gripper_loss /= 3
 
             tot_pos_loss = tot_pos_loss + pos_loss.item()
             tot_ori_loss = tot_ori_loss + ori_loss.item()
