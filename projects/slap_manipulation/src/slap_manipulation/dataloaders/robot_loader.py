@@ -10,6 +10,10 @@ import trimesh
 import trimesh.transformations as tra
 import yaml
 from slap_manipulation.dataloaders.annotations import load_annotations_dict
+from slap_manipulation.dataloaders.data_processing import (
+    filter_and_remove_duplicate_points,
+    voxelize_and_get_interaction_point,
+)
 from slap_manipulation.dataloaders.rlbench_loader import RLBenchDataset
 from slap_manipulation.utils.pointcloud_preprocessing import find_closest_point_to_line
 
@@ -654,7 +658,10 @@ class RobotDataset(RLBenchDataset):
         interaction_ee_keyframe[:3, 3] = interaction_point
 
         # voxelize at a granular voxel-size then choose X points
-        xyz, rgb, feat = self.remove_duplicate_points(xyz, rgb, feat)
+        xyz, rgb, feat = filter_and_remove_duplicate_points(
+            xyz, rgb, feat, voxel_size=VOXEL_SIZE_1
+        )
+        # xyz, rgb, feat = self.remove_duplicate_points(xyz, rgb, feat)
         xyz, rgb, feat = self.dr_crop_radius(xyz, rgb, feat, interaction_ee_keyframe)
         orig_xyz, orig_rgb, orig_feat = xyz, rgb, feat
 
@@ -685,11 +692,14 @@ class RobotDataset(RLBenchDataset):
         (
             xyz2,
             rgb2,
+            feat2,
             target_idx_down_pcd,
             closest_pt_down_pcd,
             target_idx_og_pcd,
             closest_pt_og_pcd,
-        ) = self.voxelize_and_get_interaction_point(xyz, rgb, interaction_ee_keyframe)
+        ) = voxelize_and_get_interaction_point(
+            xyz, rgb, feat, interaction_ee_keyframe, voxel_size=VOXEL_SIZE_2
+        )
         if xyz2 is None:
             print("Couldn't find an interaction point")
             return {"data_ok_status": False}
