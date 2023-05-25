@@ -165,7 +165,7 @@ class GeneralLanguageEnv(StretchPickandPlaceEnv):
                 pos, ori, gripper = action.get()
                 continuous_action = None
                 print("[ENV] Receiving a ContinuousEndEffectorAction")
-                # convert pos, ori into a ContinuousFullBodyAction here and execute that
+                # TODO: convert pos, ori into a ContinuousFullBodyAction here and execute that
 
         # Move, if we are not doing anything with the arm
         if continuous_action is not None and not self.test_grasping:
