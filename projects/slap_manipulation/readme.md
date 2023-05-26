@@ -1,5 +1,15 @@
 # Spatial-Language Attention Policies for Efficient Robot Learning
 
+## Installation Instructions
+
+1. Use conda to `conda create env -f requirements.yaml` 
+  - IMPORTANT NOTE: If using mamba double check the pytorch, cudatoolkit, torchaudio and torchvision versions; it has trouble finding a solution for this combination.
+2. Install prerequisite `torch-geometric` library and dependencies by running:
+```bash
+python -m pip install --no-index pyg_lib torch_scatter torch_sparse torch_cluster torch_spline_conv -f https://data.pyg.org/whl/torch-1.12.1+cu116.html
+python -m pip install torch_geometric
+```
+
 ## Configuration Parameters
 
 `num_keypoints`: (int) Number of keypoints; currently corresponds to total number of action prediction modules trained for your task
@@ -9,8 +19,6 @@
 
 ## Task list
 
-- [ ] Proper documentation
-- [ ] Upload data and add data download instructions for users to tinker with
 - [x] Create a local environment consistent w/slap + home_robot
 - [x] Port over IPM, APM, Components they depend upon
 - [x] Code StretchManipulationEnv
@@ -20,14 +28,8 @@
   - [x] Edit to respect new simple API
 - [x] APM
   - [x] Finish data-pipeline
-  - [x] Load pre-trained weights and run initial tests (need new weights for these; queued for after trainig)
-  - [x] Edit to respect new simple API
-- [x] Collect new data from stretch
-- [x] Edit ported dataloaders to visualize and train using collected H5s
+  - [ ] Load pre-trained weights and run initial tests (need new weights for these; queued for after trainig)
+  - [ ] Edit to respect new simple API
+- [ ] --> Collect new data from stretch
+- [ ] Edit ported dataloaders to visualize and train using collected H5s
 
-## Natural Language Commands to Steps
-```
-cd scripts
-python get_cmd_to_steps_data.py
-```
-This will connect to wandb and download the data from the artifact `bring_x_from_y:latest`, containing 6 json files.
