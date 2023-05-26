@@ -35,9 +35,9 @@ dims:
   # rgb_out:
 
 weights:
-  position: 10.0
-  orientation: 1e-2
-  gripper: 1e-3
+  position: 1.0
+  orientation: 1e-3
+  gripper: 1e-4
 
 run:
   validate: False
