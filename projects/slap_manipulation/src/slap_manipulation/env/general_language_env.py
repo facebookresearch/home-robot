@@ -1,7 +1,8 @@
 from typing import Any, Dict, List, Optional
-
+from std_msgs.msg import Float64
 import numpy as np
 import rospy
+import yaml
 
 import home_robot
 from home_robot.core.interfaces import (
@@ -13,6 +14,38 @@ from home_robot.core.interfaces import (
 )
 from home_robot.utils.geometry import xyt2sophus
 from home_robot_hw.env.stretch_pick_and_place_env import DETIC, StretchPickandPlaceEnv
+
+
+motion_choices = ["default", "slow", "fast", "very_slow"]
+
+
+def read_yaml(yaml_file):
+    with open(yaml_file, "r") as stream:
+        try:
+            yaml_data = yaml.safe_load(stream)
+        except yaml.YAMLError as exc:
+            print(exc)
+    return yaml_data
+
+
+def get_velocities(motion_profiles_dict, joint_names, speed: str = "default"):
+    assert (
+        speed in motion_choices
+    ), "Speed must be 'default', 'slow', 'fast', or 'very_slow'"
+    joint_velocities = []
+    for joint in joint_names:
+        joint_velocities.append(motion_profiles_dict[joint][speed]["vel"])
+    return joint_velocities
+
+
+def get_accelerations(motion_profiles_dict, joint_names, speed: str = "default"):
+    assert (
+        speed in motion_choices
+    ), "Speed must be 'default', 'slow', 'fast', or 'very_slow'"
+    joint_accelerations = []
+    for joint in joint_names:
+        joint_accelerations.append(motion_profiles_dict[joint][speed]["accel"])
+    return joint_accelerations
 
 
 class GeneralLanguageEnv(StretchPickandPlaceEnv):
@@ -43,6 +76,10 @@ class GeneralLanguageEnv(StretchPickandPlaceEnv):
         )
         self.current_goal_id = None
         self.current_goal_name = None
+        self.lin_vel_publisher = rospy.Publisher('goto_controller/v_max', Float64, queue_size=10) 
+        self.ang_vel_publisher = rospy.Publisher('goto_controller/w_max', Float64, queue_size=10) 
+        self.lin_acc_publisher = rospy.Publisher('goto_controller/acc_lin', Float64, queue_size=10) 
+        self.ang_acc_publisher = rospy.Publisher('goto_controller/acc_ang', Float64, queue_size=10) 
 
     def reset(self):
         # TODO (@priyam): clean goal info if in obs
@@ -66,7 +103,8 @@ class GeneralLanguageEnv(StretchPickandPlaceEnv):
         else:
             self.current_goal_id = 1
             self.current_goal_name = info["object_list"][0]
-
+        self.motion_profile = info['speed']
+            
     def _switch_to_manip_mode(self, grasp_only=True):
         """Rotate the robot and put it in the right configuration for grasping"""
 
@@ -82,6 +120,14 @@ class GeneralLanguageEnv(StretchPickandPlaceEnv):
         if not self.dry_run and not self.test_grasping:
             self.robot.nav.navigate_to([0, 0, np.pi / 2], relative=True, blocking=True)
             self.robot.move_to_manip_posture()
+
+    def publish_to_motion_profile_controller(self):
+        self.speed = self.motion_profile.lower()
+        self.lin_vel_publisher.publish(self.motion_profile['x'][self.speed]["vel"])
+        self.lin_acc_publisher.publish(self.motion_profile['x'][self.speed]["accel"])
+        self.ang_vel_publisher.publish(self.motion_profile['theta'][self.speed]["vel"])
+        self.ang_acc_publisher.publish(self.motion_profile['theta'][self.speed]["accel"])
+        return
 
     def apply_action(self, action: Action, info: Optional[Dict[str, Any]] = None):
         """Handle all sorts of different actions we might be inputting into this class.
@@ -175,6 +221,7 @@ class GeneralLanguageEnv(StretchPickandPlaceEnv):
                 # rospy.sleep(self.msg_delay_t)
             if not self.dry_run:
                 print("GOTO", continuous_action)
+                self.publish_to_motion_profile_controller()
                 self.robot.nav.navigate_to(
                     continuous_action, relative=True, blocking=True
                 )
