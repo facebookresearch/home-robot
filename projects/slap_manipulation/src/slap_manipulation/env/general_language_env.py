@@ -15,7 +15,11 @@ from home_robot.core.interfaces import (
 from home_robot.utils.geometry import xyt2sophus
 from home_robot_hw.env.stretch_pick_and_place_env import DETIC, StretchPickandPlaceEnv
 
-
+from home_robot.motion.stretch import (
+    STRETCH_HOME_Q,
+    STRETCH_NAVIGATION_Q,
+    STRETCH_PREGRASP_Q,
+)
 motion_choices = ["default", "slow", "fast", "very_slow"]
 
 
@@ -80,7 +84,24 @@ class GeneralLanguageEnv(StretchPickandPlaceEnv):
         self.ang_vel_publisher = rospy.Publisher('goto_controller/w_max', Float64, queue_size=10) 
         self.lin_acc_publisher = rospy.Publisher('goto_controller/acc_lin', Float64, queue_size=10) 
         self.ang_acc_publisher = rospy.Publisher('goto_controller/acc_ang', Float64, queue_size=10) 
+        
+        root = "src/home_robot/config/control/"
+        self.motion_profiles_dict = read_yaml(root + "motion_profiles.yaml")
 
+        self.joints_for_mp = [
+            "base",
+            "base",
+            "base",
+            "lift",
+            "arm",
+            "wrist_roll",
+            "wrist_pitch",
+            "wrist_yaw",
+            "stretch_gripper",
+            "head_pan",
+            "head_tilt",
+        ]
+        
     def reset(self):
         # TODO (@priyam): clean goal info if in obs
         rospy.sleep(0.5)  # Make sure we have time to get ROS messages
@@ -103,7 +124,8 @@ class GeneralLanguageEnv(StretchPickandPlaceEnv):
         else:
             self.current_goal_id = 1
             self.current_goal_name = info["object_list"][0]
-        self.motion_profile = info['speed']
+        self.speed = info['speed'].lower()
+        assert self.speed in motion_choices, "Speed must be 'default', 'slow', 'fast', or 'very_slow'"
             
     def _switch_to_manip_mode(self, grasp_only=True):
         """Rotate the robot and put it in the right configuration for grasping"""
@@ -122,13 +144,17 @@ class GeneralLanguageEnv(StretchPickandPlaceEnv):
             self.robot.move_to_manip_posture()
 
     def publish_to_motion_profile_controller(self):
-        self.speed = self.motion_profile.lower()
-        self.lin_vel_publisher.publish(self.motion_profile['x'][self.speed]["vel"])
-        self.lin_acc_publisher.publish(self.motion_profile['x'][self.speed]["accel"])
-        self.ang_vel_publisher.publish(self.motion_profile['theta'][self.speed]["vel"])
-        self.ang_acc_publisher.publish(self.motion_profile['theta'][self.speed]["accel"])
+        self.lin_vel_publisher.publish(self.motion_profiles_dict['base'][self.speed]["vel"])
+        self.lin_acc_publisher.publish(self.motion_profiles_dict['base'][self.speed]["accel"])
+        self.ang_vel_publisher.publish(self.motion_profiles_dict['base'][self.speed]["vel"])
+        self.ang_acc_publisher.publish(self.motion_profiles_dict['base'][self.speed]["accel"])
         return
 
+    def set_motion_profile(self):
+        joint_velocities = get_velocities(self.motion_profiles_dict, self.joints_for_mp, self.speed)
+        
+        
+        
     def apply_action(self, action: Action, info: Optional[Dict[str, Any]] = None):
         """Handle all sorts of different actions we might be inputting into this class.
         We provide both a discrete and a continuous action handler."""
@@ -185,6 +211,8 @@ class GeneralLanguageEnv(StretchPickandPlaceEnv):
                     if self.dry_run:
                         # Dummy out robot execution code for perception tests
                         break
+                    # set velocity for lift, arm and gripper
+                    self.set_motion_profile()
                     ok = self.grasp_planner.try_grasping(
                         wait_for_input=self.debug, visualize=self.test_grasping
                     )
