@@ -58,7 +58,7 @@ class SLAPAgent(object):
     def to_device(self, input_dict: Dict[str, Any]) -> Dict[str, Any]:
         raise NotImplementedError("Implement to_device function in SLAP please")
 
-    def create_interaction_prediction_input(
+    def create_interaction_prediction_input_from_obs(
         self, obs, filter_depth=False, num_pts=8000, debug=False
     ) -> Dict[str, Any]:
         """method to convert obs into input expected by IPM
@@ -74,6 +74,7 @@ class SLAPAgent(object):
         rgb = obs.rgb.astype(np.float64)
         xyz = obs.xyz.astype(np.float64)
         gripper = obs.joint[GRIPPER_IDX]
+        breakpoint()
 
         # proprio looks different now
         # time depends on how many keyframes are there in the task
@@ -123,7 +124,7 @@ class SLAPAgent(object):
         }
         return input_data
 
-    def create_action_prediction_input(
+    def create_action_prediction_input_from_obs(
         self,
         raw_data: Dict[str, Any],
         feat: np.ndarray,
@@ -161,7 +162,7 @@ class SLAPAgent(object):
         action = None
         if self.interaction_point is None:
             if not self._dry_run:
-                self.ipm_input = self.create_interaction_prediction_input(
+                self.ipm_input = self.create_interaction_prediction_input_from_obs(
                     obs, filter_depth=True
                 )
                 result = self.interaction_prediction_module.predict(**self.ipm_input)
@@ -169,11 +170,17 @@ class SLAPAgent(object):
             else:
                 print("[SLAP] Predicting interaction point")
                 self.interaction_point = np.random.rand(3)
+                # FIXME: following is just for debugging, remove me before you MERGE!
+                self.ipm_input = self.create_interaction_prediction_input_from_obs(
+                    obs, filter_depth=True
+                )
             self._curr_keyframe = 0
         if self._dry_run:
             print(f"[SLAP] Predicting keyframe # {self._curr_keyframe}")
         else:
-            apm_input = self.create_action_prediction_input(obs, **self.ipm_input)
+            apm_input = self.create_action_prediction_input_from_obs(
+                obs, **self.ipm_input
+            )
             action = self.action_prediction_module.predict(**apm_input)
         self._curr_keyframe += 1
         return action, info

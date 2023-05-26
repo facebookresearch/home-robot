@@ -95,6 +95,9 @@ class GeneralLanguageAgent(PickAndPlaceAgent):
                     "self.open_object(['drawer'], obs)",
                     "self.open_object(['cabinet'], obs)",
                 ],
+                5: [
+                    "self.open_object(['bottle'], obs)",
+                ],
             }
 
     # ---override methods---
