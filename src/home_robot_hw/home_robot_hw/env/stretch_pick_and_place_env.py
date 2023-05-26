@@ -22,29 +22,16 @@ from home_robot.motion.stretch import (
     STRETCH_PREGRASP_Q,
 )
 from home_robot.perception.detection.detic.detic_perception import DeticPerception
-from home_robot.utils.config import get_config
 from home_robot.utils.geometry import xyt2sophus
 from home_robot_hw.constants import REAL_WORLD_CATEGORIES
 from home_robot_hw.env.stretch_abstract_env import StretchEnv
 from home_robot_hw.env.visualizer import Visualizer
 from home_robot_hw.remote import StretchClient
+from home_robot_hw.utils.config import load_config
 from home_robot_hw.utils.grasping import GraspPlanner
 
 RECEP_START_IDX = 4
 DETIC = "detic"
-
-
-def load_config(visualize=False, print_images=True, config_path=None, **kwargs):
-    if config_path is None:
-        config_path = "projects/stretch_ovmm/configs/agent/floorplanner_eval.yaml"
-    config, config_str = get_config(config_path)
-    config.defrost()
-    config.NUM_ENVIRONMENTS = 1
-    config.VISUALIZE = int(visualize)
-    config.PRINT_IMAGES = int(print_images)
-    config.EXP_NAME = "debug"
-    config.freeze()
-    return config
 
 
 class StretchPickandPlaceEnv(StretchEnv):
