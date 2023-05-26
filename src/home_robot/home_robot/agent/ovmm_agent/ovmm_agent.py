@@ -189,7 +189,11 @@ class OpenVocabManipAgent(ObjectNavAgent):
         info = {**planner_info, **info}
         self.timesteps[0] -= 1  # objectnav agent increments timestep
         info["timestep"] = self.timesteps[0]
-        return action, info
+        if action == DiscreteNavigationAction.STOP:
+            terminate = True
+        else:
+            terminate = False
+        return action, info, terminate
 
     def _heuristic_pick(
         self, obs: Observations, info: Dict[str, Any]
@@ -256,10 +260,10 @@ class OpenVocabManipAgent(ObjectNavAgent):
     ) -> Tuple[DiscreteNavigationAction, Any, Optional[Skill]]:
         nav_to_obj_type = self.config.AGENT.SKILLS.NAV_TO_OBJ.type
         if self.skip_skills.nav_to_obj:
-            action = DiscreteNavigationAction.STOP
+            terminate = True
         elif nav_to_obj_type == "heuristic":
             print("[OVMM AGENT] step heuristic nav policy")
-            action, info = self._heuristic_nav(obs, info)
+            action, info, terminate = self._heuristic_nav(obs, info)
         elif nav_to_obj_type == "rl":
             action, terminate = self.nav_to_obj_agent.act(obs)
         else:
@@ -267,7 +271,7 @@ class OpenVocabManipAgent(ObjectNavAgent):
                 f"Got unexpected value for NAV_TO_OBJ.type: {nav_to_obj_type}"
             )
         new_state = None
-        if action == DiscreteNavigationAction.STOP:
+        if terminate:
             action = None
             new_state = Skill.GAZE_AT_OBJ
         return action, info, new_state
@@ -331,9 +335,9 @@ class OpenVocabManipAgent(ObjectNavAgent):
     ) -> Tuple[DiscreteNavigationAction, Any, Optional[Skill]]:
         nav_to_rec_type = self.config.AGENT.SKILLS.NAV_TO_REC.type
         if self.skip_skills.nav_to_rec:
-            action = DiscreteNavigationAction.STOP
+            terminate = True
         elif nav_to_rec_type == "heuristic":
-            action, info = self._heuristic_nav(obs, info)
+            action, info, terminate = self._heuristic_nav(obs, info)
         elif nav_to_rec_type == "rl":
             action, terminate = self.nav_to_obj_agent.act(obs)
         else:
@@ -341,7 +345,7 @@ class OpenVocabManipAgent(ObjectNavAgent):
                 f"Got unexpected value for NAV_TO_REC.type: {nav_to_rec_type}"
             )
         new_state = None
-        if action == DiscreteNavigationAction.STOP:
+        if terminate:
             action = None
             new_state = Skill.GAZE_AT_REC
         return action, info, new_state

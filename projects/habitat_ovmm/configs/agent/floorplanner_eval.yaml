@@ -16,8 +16,8 @@ ENVIRONMENT:
   hfov: 42.0              # horizontal field of view (in degrees)
   min_depth: 0.0          # minimum depth for depth sensor (in metres)
   max_depth: 10.0         # maximum depth for depth sensor (in metres)
-  num_receptacles: 76
-  receptacle_sensor_id_file: /srv/flash1/aramacha35/home-robot/data/fpss/fphab/semantics/receptacle_semantic_ids.json
+  num_receptacles: 21
+  goal_type: ovmm
 
 AGENT:
   max_steps: 10000         # maximum number of steps before stopping an episode; a lower value set for habitat episode termination 
@@ -89,20 +89,20 @@ AGENT:
         - robot_start_compass
         - joint
       allowed_actions:
-        # - base_velocity
-        # - rearrange_stop
-        - move_forward
-        - turn_left
-        - turn_right
-        - stop
+        - base_velocity
+        - rearrange_stop
+        # - move_forward
+        # - turn_left
+        # - turn_right
+        # - stop
       arm_joint_mask: [0, 0, 0, 0, 0, 0, 0] # the arm joints that the policy can control
       max_displacement: 0.25                # used when training the policy; could be different from the eval values
-      max_turn_degrees: 10.0
+      max_turn_degrees: 30.0
       min_turn_degrees: 5.0
       min_displacement: 0.1
-      sensor_height: 256
-      sensor_width: 256
-      terminate_condition: discrete_stop
+      sensor_height: 160
+      sensor_width: 120
+      terminate_condition: continuous_stop
       nav_goal_seg_channels: 2
 
     NAV_TO_REC:
@@ -129,7 +129,7 @@ AGENT:
       max_turn_degrees: 30.0
       sensor_height: 256
       sensor_width: 256
-      terminate_condition: discrete_stop
+      terminate_condition: continuous_stop
       nav_goal_seg_channels: 1
 
     PLACE:

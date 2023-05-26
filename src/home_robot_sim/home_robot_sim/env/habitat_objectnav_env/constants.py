@@ -653,12 +653,14 @@ class RearrangeDETICCategories(SemanticCategoryMapping):
     """Maintain category to id and category to color mappings for use in OVMM task.
     Uses a default list of categories if no category list is passed."""
 
-    def __init__(self, categories_indexes=None):
+    def __init__(self, categories_indexes=None, num_sem_objects=None):
         super().__init__()
         if categories_indexes is None:
             self.goal_id_to_goal_name = rearrange_detic_categories_indexes
+            self._num_sem_obj_categories = len(rearrange_detic_categories_indexes)
         else:
             self.goal_id_to_goal_name = categories_indexes
+            self._num_sem_obj_categories = num_sem_objects
 
         self._instance_id_to_category_id = None
 
@@ -731,7 +733,7 @@ class RearrangeDETICCategories(SemanticCategoryMapping):
 
     @property
     def num_sem_obj_categories(self):
-        return 25
+        return self._num_sem_obj_categories
 
 
 # ----------------------------------------------------
