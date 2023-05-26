@@ -140,6 +140,7 @@ class GeneralLanguageEnv(StretchPickandPlaceEnv):
             self.robot.move_to_manip_posture()
             return
         if not self.dry_run and not self.test_grasping:
+            self.publish_to_motion_profile_controller()
             self.robot.nav.navigate_to([0, 0, np.pi / 2], relative=True, blocking=True)
             self.robot.move_to_manip_posture()
 
@@ -188,7 +189,7 @@ class GeneralLanguageEnv(StretchPickandPlaceEnv):
             elif action == DiscreteNavigationAction.EXTEND_ARM:
                 """Extend the robot arm"""
                 print("[ENV] Extending arm")
-                joints_action = self.robot.model.create_action(
+                joints_action = self.robot.model. (
                     lift=STRETCH_ARM_LIFT, arm=STRETCH_ARM_EXTENSION
                 ).joints
                 continuous_action = None
