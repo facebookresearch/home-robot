@@ -95,9 +95,9 @@ class QueryRegressionHead(torch.nn.Module):
             abs_ee_ori = abs_ee_ori / abs_ee_ori.norm(dim=-1)
 
         if self.use_mdn:
-            return pos_sigma, pos_mu, abs_ee_ori, self.to_activation(gripper)
+            return pos_sigma, pos_mu, abs_ee_ori, gripper
         else:
-            return delta_ee_pos, abs_ee_ori, self.to_activation(gripper)
+            return delta_ee_pos, abs_ee_ori, gripper
 
 
 class ActionPredictionModule(torch.nn.Module):
@@ -212,7 +212,7 @@ class ActionPredictionModule(torch.nn.Module):
         # self._regression_heads = torch.nn.Sequential(*self.regression_heads)
         # self.classify_loss = torch.nn.BCEWithLogitsLoss()
         # self.classify_loss = torch.nn.BinaryCrossEntropyLoss()
-        self.classify_loss = torch.nn.BCELoss()
+        self.classify_loss = torch.nn.BCEWithLogitsLoss()
         self.name = f"action_predictor_{cfg.name}"
         self.max_iter = cfg.max_iter
 
@@ -760,8 +760,9 @@ class ActionPredictionModule(torch.nn.Module):
                     hidden = torch.zeros(self.hidden_layers, self.hidden_dim).to(
                         self.device
                     )
+                    proprio, time_step, cmd = self.get_keypoint(batch, t)
 
-                proprio, time_step, cmd = self.get_keypoint(batch, t)
+                _, time_step, cmd = self.get_keypoint(batch, t)
                 target_pos, target_ori, target_g = self.get_targets(batch, t)
                 print(proprio, time_step, cmd)
 
@@ -779,6 +780,14 @@ class ActionPredictionModule(torch.nn.Module):
                     position = position.view(1, 3)
                     target_pos = target_pos.view(1, 3)
                     pos_loss += ((position - target_pos) ** 2).sum()
+                    proprio = torch.cat(
+                        (
+                            position.view(-1),
+                            orientation.view(-1),
+                            (torch.nn.Sigmoid()(gripper) > 0.5).view(-1),
+                        ),
+                        dim=-1,
+                    )
                 orientation = orientation.view(1, 4)
                 target_ori = target_ori.view(1, 4)
 
@@ -807,7 +816,7 @@ class ActionPredictionModule(torch.nn.Module):
                 )[:3, :3]
                 # show point-cloud with coordinate frame where ee should be
                 print(f"{cmd}")
-                print(f"Predicted gripper state: {gripper}")
+                print(f"Predicted gripper state: {torch.nn.Sigmoid()(gripper)}")
                 self.show_pred_and_grnd_truth(
                     crop_xyz.detach().cpu().numpy(),
                     crop_rgb[:, :-1].detach().cpu().numpy(),
