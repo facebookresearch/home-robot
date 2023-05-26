@@ -52,7 +52,11 @@ class GraspPlanner(object):
         """Detect grasps and try to pick up an object in front of the robot.
         Visualize - will show debug point clouds
         Dry run - does not actually move, just computes everything"""
-
+        
+        # Assign velocities and accelerations in joint positions for manip
+        dq = self.robot_client.manip._extract_joint_pos(velocities)
+        ddq = self.robot_client.manip._extract_joint_pos(accelerations)
+            
         # Make sure we are in the manipulation mode
         if not self.robot_client.in_manipulation_mode():
             self.robot_client.switch_to_manipulation_mode()
@@ -66,8 +70,7 @@ class GraspPlanner(object):
             self.robot_client.head.look_at_ee(blocking=False)
             self.robot_client.manip.goto_joint_positions(
                 self.robot_client.manip._extract_joint_pos(STRETCH_PREGRASP_Q),
-                dq=self.robot_client.manip._extract_joint_pos(velocities),
-                ddq=self.robot_client.manip._extract_joint_pos(accelerations),
+                dq=dq, ddq=ddq,
             )
             rospy.sleep(1.0)
 
@@ -170,7 +173,8 @@ class GraspPlanner(object):
                 print(" - with theta x/y from vertical =", theta_x, theta_y)
                 if not dry_run:
                     grasp_completed = self.try_executing_grasp(
-                        grasp, wait_for_input=wait_for_input
+                        grasp, wait_for_input=wait_for_input,
+                        velocities=dq, accelerations=ddq,
                     )
                 else:
                     grasp_completed = False
@@ -236,9 +240,15 @@ class GraspPlanner(object):
             return False
 
         for i, (name, waypoint, should_grasp) in enumerate(trajectory):
-            assert len(waypoint) == len(velocities), f"Waypoint {i} has {len(waypoint)} joints but {len(velocities)} velocities"
-            assert len(waypoint) == len(accelerations), f"Waypoint {i} has {len(waypoint)} joints but {len(accelerations)} accelerations"
-            self.robot_client.manip.goto_joint_positions(waypoint, dq=velocities, ddq=accelerations)
+            assert len(waypoint) == len(velocities), f"Waypoint {i} has {len(waypoint)} joints " \
+                "but {len(velocities)} velocities"
+            assert len(waypoint) == len(accelerations), f"Waypoint {i} has {len(waypoint)} joints " \
+                "but {len(accelerations)} accelerations"
+            self.robot_client.manip.goto_joint_positions(
+                waypoint, 
+                dq=velocities, 
+                ddq=accelerations
+            )
             # TODO: remove this delay - it's to make sure we don't start moving again too early
             rospy.sleep(0.1)
             self._publish_current_ee_pose()
