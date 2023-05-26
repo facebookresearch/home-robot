@@ -150,9 +150,10 @@ class GeneralLanguageEnv(StretchPickandPlaceEnv):
         self.ang_acc_publisher.publish(self.motion_profiles_dict['base'][self.speed]["accel"])
         return
 
-    def set_motion_profile(self):
+    def get_velacc_for_motion_profile(self):
         joint_velocities = get_velocities(self.motion_profiles_dict, self.joints_for_mp, self.speed)
-        
+        joint_accelerations = get_accelerations(self.motion_profiles_dict, self.joints_for_mp, self.speed)
+        return joint_velocities, joint_accelerations
         
         
     def apply_action(self, action: Action, info: Optional[Dict[str, Any]] = None):
@@ -212,8 +213,9 @@ class GeneralLanguageEnv(StretchPickandPlaceEnv):
                         # Dummy out robot execution code for perception tests
                         break
                     # set velocity for lift, arm and gripper
-                    self.set_motion_profile()
+                    velocities, accelerations = self.get_velacc_for_motion_profile()
                     ok = self.grasp_planner.try_grasping(
+                        velocities=velocities, accelerations=accelerations, 
                         wait_for_input=self.debug, visualize=self.test_grasping
                     )
                     if ok:
