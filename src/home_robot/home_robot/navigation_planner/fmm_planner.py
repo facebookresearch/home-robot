@@ -61,7 +61,8 @@ class FMMPlanner:
         self.debug = debug
         # self.goal_map = None
 
-    def set_goal(self, goal, auto_improve=False):
+    def set_goal(self, goal, auto_improve: bool = False):
+        """Set planner goal. Goal should be of size 2, containing x and y positions."""
         traversible_ma = ma.masked_values(self.traversible * 1, 0)
         goal_x, goal_y = int(goal[0] / (self.scale * 1.0)), int(
             goal[1] / (self.scale * 1.0)
@@ -202,7 +203,10 @@ class FMMPlanner:
             plt.imshow(mask)
 
         if self.debug:
-            print("[FMM] Distance to fmm navigable goal pt =", subset[self.du, self.du] * 5)
+            print(
+                "[FMM] Distance to fmm navigable goal pt =",
+                subset[self.du, self.du] * 5,
+            )
         stop = subset[self.du, self.du] < self.goal_tolerance
 
         subset -= subset[self.du, self.du]
