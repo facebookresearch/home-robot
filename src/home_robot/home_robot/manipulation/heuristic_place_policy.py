@@ -293,7 +293,8 @@ class HeuristicPlacePolicy(nn.Module):
                 self.fall_wait_steps = 5
                 self.t_extend_arm = 1
                 self.t_release_object = 2
-                self.t_retract_arm = 3
+                self.t_lift_arm = 3
+                self.t_retract_arm = 4
                 self.t_go_to_top = -1
                 self.t_go_to_place = -1
                 self.t_done_waiting = 3 + self.fall_wait_steps
