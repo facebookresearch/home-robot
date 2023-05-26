@@ -115,6 +115,8 @@ class StretchManipulationClient(AbstractControlModule):
     def goto_joint_positions(
         self,
         joint_positions: List[float],
+        dq: List = None,
+        ddq: List = None,
         relative: bool = False,
         blocking: bool = True,
         debug: bool = False,
@@ -158,7 +160,7 @@ class StretchManipulationClient(AbstractControlModule):
         self.base_x = joint_pos_goal[0]
 
         # Send command to trajectory server
-        self._ros_client.send_trajectory_goals(joint_goals)
+        self._ros_client.send_trajectory_goals(joint_goals, dq, ddq)
 
         # Wait logic
         def joint_move_wait():

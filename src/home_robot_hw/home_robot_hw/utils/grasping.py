@@ -46,6 +46,8 @@ class GraspPlanner(object):
         dry_run: bool = False,
         max_tries: int = 10,
         wait_for_input: bool = False,
+        velocities: list = None,
+        accelerations: list = None,
     ):
         """Detect grasps and try to pick up an object in front of the robot.
         Visualize - will show debug point clouds
@@ -63,7 +65,9 @@ class GraspPlanner(object):
         for attempt in range(max_tries):
             self.robot_client.head.look_at_ee(blocking=False)
             self.robot_client.manip.goto_joint_positions(
-                self.robot_client.manip._extract_joint_pos(STRETCH_PREGRASP_Q)
+                self.robot_client.manip._extract_joint_pos(STRETCH_PREGRASP_Q),
+                dq=self.robot_client.manip._extract_joint_pos(velocities),
+                ddq=self.robot_client.manip._extract_joint_pos(accelerations),
             )
             rospy.sleep(1.0)
 
@@ -218,7 +222,7 @@ class GraspPlanner(object):
         self.grasp_client.broadcaster.sendTransform(t)
 
     def try_executing_grasp(
-        self, grasp: np.ndarray, wait_for_input: bool = False
+        self, grasp: np.ndarray, velocities: list=None, accelerations: list=None, wait_for_input: bool = False
     ) -> bool:
         """Execute a predefined grasp trajectory to the given pose. Grasp should be an se(3) pose, expressed as a 4x4 numpy matrix."""
         assert grasp.shape == (4, 4)
@@ -232,7 +236,9 @@ class GraspPlanner(object):
             return False
 
         for i, (name, waypoint, should_grasp) in enumerate(trajectory):
-            self.robot_client.manip.goto_joint_positions(waypoint)
+            assert len(waypoint) == len(velocities), f"Waypoint {i} has {len(waypoint)} joints but {len(velocities)} velocities"
+            assert len(waypoint) == len(accelerations), f"Waypoint {i} has {len(waypoint)} joints but {len(accelerations)} accelerations"
+            self.robot_client.manip.goto_joint_positions(waypoint, dq=velocities, ddq=accelerations)
             # TODO: remove this delay - it's to make sure we don't start moving again too early
             rospy.sleep(0.1)
             self._publish_current_ee_pose()
