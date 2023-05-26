@@ -291,13 +291,13 @@ class HeuristicPlacePolicy(nn.Module):
                 self.total_turn_and_forward_steps = 0
                 self.initial_orient_num_turns = -1
                 self.fall_wait_steps = 5
-                self.t_extend_arm = 1
-                self.t_release_object = 2
-                self.t_lift_arm = 3
-                self.t_retract_arm = 4
-                self.t_go_to_top = -1
+                self.t_go_to_top = 1
+                self.t_extend_arm = 2
+                self.t_release_object = 3
+                self.t_lift_arm = 4
+                self.t_retract_arm = 5
                 self.t_go_to_place = -1
-                self.t_done_waiting = 3 + self.fall_wait_steps
+                self.t_done_waiting = 5 + self.fall_wait_steps
             else:
                 self.placement_voxel, vis_inputs = found
 
@@ -334,7 +334,7 @@ class HeuristicPlacePolicy(nn.Module):
                 self.t_retract_arm = self.total_turn_and_forward_steps + 5
                 self.t_extend_arm = -1
                 self.t_done_waiting = (
-                    self.total_turn_and_forward_steps + 3 + self.fall_wait_steps
+                    self.total_turn_and_forward_steps + 5 + self.fall_wait_steps
                 )
 
                 print("-" * 20)
