@@ -57,6 +57,7 @@ LATENT_DIM = 512
 # LATENT_DIM = 256
 
 
+# CLEANUP: I do not think the following is used anywhere
 def process_data(
     xyz,
     rgb,
@@ -100,8 +101,8 @@ def process_data(
     processed_data = {
         "xyz": torch.FloatTensor(uncentered_xyz),
         "rgb": torch.FloatTensor(uncentered_rgb),
-        "xyz_downsampled": torch.FloatTensor(xyz_voxel_size_2),
-        "rgb_downsampled": torch.FloatTensor(rgb_voxel_size_2),
+        "xyz_voxelized": torch.FloatTensor(xyz_voxel_size_2),
+        "rgb_voxelized": torch.FloatTensor(rgb_voxel_size_2),
         "center": center,
         "centered_xyz": torch.FloatTensor(centered_xyz),
         "centered_rgb": torch.FloatTensor(centered_rgb),
@@ -565,8 +566,8 @@ class InteractionPredictionModule(torch.nn.Module):
         data = self.to_device(data)
         rgb = data["rgb"]
         xyz = data["xyz"]
-        rgb2 = data["rgb_downsampled"]
-        xyz2 = data["xyz_downsampled"]
+        rgb2 = data["rgb_voxelized"]
+        xyz2 = data["xyz_voxelized"]
         cmd = data["cmd"]
         proprio = data["proprio"]
         print("--- ", cmd, " ---")
@@ -621,9 +622,9 @@ class InteractionPredictionModule(torch.nn.Module):
             rgb = batch["rgb"][0]
             xyz = batch["xyz"][0]
             feat = batch["feat"][0]
-            rgb2 = batch["rgb_downsampled"][0]
-            xyz2 = batch["xyz_downsampled"][0]
-            feat2 = batch["feat_downsampled"][0]
+            rgb2 = batch["rgb_voxelized"][0]
+            xyz2 = batch["xyz_voxelized"][0]
+            feat2 = batch["feat_voxelized"][0]
             cmd = batch["cmd"]
             proprio = batch["proprio"][0]
             target_pos = batch["closest_voxel"][0]
@@ -737,9 +738,9 @@ class InteractionPredictionModule(torch.nn.Module):
             rgb = batch["rgb"][0]  # N x 3
             xyz = batch["xyz"][0]  # N x 3
             feat = batch["feat"][0]
-            down_xyz = batch["xyz_downsampled"][0]
-            down_rgb = batch["rgb_downsampled"][0]
-            down_feat = batch["feat_downsampled"][0]
+            down_xyz = batch["xyz_voxelized"][0]
+            down_rgb = batch["rgb_voxelized"][0]
+            down_feat = batch["feat_voxelized"][0]
             lang = batch["cmd"]  # list of 1
             if self.use_proprio:
                 proprio = batch["proprio"][0]

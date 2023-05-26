@@ -130,6 +130,32 @@ def filter_and_remove_duplicate_points(
     return xyz, rgb, feats
 
 
+def voxelize_point_cloud(
+    xyz, rgb, feat=None, debug_voxelization=False, voxel_size=0.01
+):
+    # voxelize at a granular voxel-size rather than random downsample
+    pcd = numpy_to_pcd(xyz, rgb)
+    (
+        pcd_voxelized,
+        _,
+        voxelized_index_trace_vectors,
+    ) = pcd.voxel_down_sample_and_trace(
+        voxel_size, pcd.get_min_bound(), pcd.get_max_bound()
+    )
+    voxelized_index_trace = []
+    for intvec in voxelized_index_trace_vectors:
+        voxelized_index_trace.append(np.asarray(intvec))
+    rgb = np.asarray(pcd_voxelized.colors)
+    xyz = np.asarray(pcd_voxelized.points)
+    if feat is not None:
+        feats = aggregate_feats(feat, voxelized_index_trace)
+
+    if debug_voxelization:
+        show_semantic_mask(xyz, rgb, feats=feats)
+
+    return xyz, rgb, feats
+
+
 def dr_crop_radius_around_interaction_point(
     xyz,
     rgb,

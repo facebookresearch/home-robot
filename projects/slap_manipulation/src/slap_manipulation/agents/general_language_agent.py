@@ -59,6 +59,7 @@ class GeneralLanguageAgent(PickAndPlaceAgent):
         self.debug = debug
         self.dry_run = self.cfg.AGENT.dry_run
         self.slap_model = SLAPAgent(cfg)
+        self.slap_model.load_models()
         self.num_actions_done = 0
         self._language = yaml.load(
             open(self.cfg.AGENT.language_file, "r"), Loader=yaml.FullLoader

@@ -242,6 +242,9 @@ class GeneralLanguageEnv(StretchPickandPlaceEnv):
                     obs.task_observations["goal_mask"] = np.zeros_like(
                         obs.semantic
                     ).astype(bool)
+        obs.task_observations[
+            "base_camera_pose"
+        ] = self.robot.head.get_pose_in_base_coords(rotated=True)
 
         # TODO: remove debug code
         debug_rgb_bgr = False

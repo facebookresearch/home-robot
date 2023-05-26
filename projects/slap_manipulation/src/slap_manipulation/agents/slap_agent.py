@@ -1,9 +1,14 @@
 from typing import Any, Dict
 
 import numpy as np
+import trimesh
 from slap_manipulation.policy.action_prediction_module import ActionPredictionModule
 from slap_manipulation.policy.interaction_prediction_module import (
     InteractionPredictionModule,
+)
+from slap_manipulation.utils.data_processing import (
+    filter_and_remove_duplicate_points,
+    voxelize_point_cloud,
 )
 from slap_manipulation.utils.pointcloud_preprocessing import (
     get_local_action_prediction_problem,
@@ -26,28 +31,36 @@ class SLAPAgent(object):
         self.device = device
         self._curr_keyframe = -1
         self._last_action = None
+        self._min_depth = self.cfg.SLAP.min_depth
+        self._max_depth = self.cfg.SLAP.max_depth
+        self._feat_dim = 1
+        self._x_max = self.cfg.SLAP.x_max
+        self._voxel_size_1 = self.cfg.SLAP.voxel_size_1
+        self._voxel_size_2 = self.cfg.SLAP.voxel_size_2
         if not self._dry_run:
             # pass cfg parameters to IPM and APM
             self.interaction_prediction_module = InteractionPredictionModule()
-            self.action_prediction_module = ActionPredictionModule(cfg)
+            self.action_prediction_module = ActionPredictionModule(cfg.SLAP.APM)
 
     def load_models(self):
-        self.interaction_prediction_module.load_state_dict(self.cfg.SLAP.ipm_path)
+        self.interaction_prediction_module.load_state_dict(self.cfg.SLAP.IPM.path)
         self.interaction_prediction_module.to(self.device)
-        self.action_prediction_module.load_state_dict(self.cfg.SLAP.apm_path)
+        self.action_prediction_module.load_state_dict(self.cfg.SLAP.APM.path)
         self.action_prediction_module.to(self.device)
 
-    def get_proprio(self, time):
+    def get_proprio(self):
         if self._last_action is None:
             return np.array([2, 2, 2, 2, 2, 2, 2, -1])
         else:
-            return np.concatenate((self._last_action, np.array([time])), axis=-1)
+            return np.concatenate((self._last_action), axis=-1)
 
-    def get_time(self, obs):
-        norm_time = (
-            2 * (self._curr_keyframe - 0) / obs.task_observations["num-keyframes"] - 1
-        )
-        return norm_time
+    def get_time(self, time_as_float=False):
+        if time_as_float:
+            norm_time = 2 * (self._curr_keyframe - 0) / 5  # assuming max 6 waypoints
+            return norm_time
+        time_vector = np.zeros((1, 6))
+        time_vector[0, self._curr_keyframe] = 1
+        return time_vector
 
     def to_torch(self, input_dict: Dict[str, Any]) -> Dict[str, Any]:
         raise NotImplementedError("Implement to_torch function in SLAP please")
@@ -71,28 +84,43 @@ class SLAPAgent(object):
             obs_vector[3]: language command; list of 1 string # should this be a list? only 1 string.
         """
         depth = obs.depth
-        rgb = obs.rgb.astype(np.float64)
+        rgb = obs.rgb.astype(np.float64) / 255.0
         xyz = obs.xyz.astype(np.float64)
         gripper = obs.joint[GRIPPER_IDX]
-        breakpoint()
+        camera_pose = obs.task_observations["base_camera_pose"]
+        xyz = trimesh.transform_points(xyz.reshape(-1, 3), camera_pose)
+        feat = obs.semantic
 
         # proprio looks different now
-        # time depends on how many keyframes are there in the task
-        time = self.get_time(obs)
-        proprio = self.get_proprio(time)
+        proprio = self.get_proprio()
 
         depth = depth.reshape(-1)
         rgb = rgb.reshape(-1, 3)
+        feat = feat.reshape(-1, self._feat_dim)
+
         # apply depth and z-filter for comparative distribution to training data
         if filter_depth:
-            valid_depth = np.bitwise_and(depth > 0.1, depth < 1.0)
+            valid_depth = np.bitwise_and(
+                depth > self._min_depth, depth < self._max_depth
+            )
             rgb = rgb[valid_depth, :]
             xyz = xyz[valid_depth, :]
-            z_mask = xyz[:, 2] > 0.7
-            rgb = rgb[z_mask, :]
-            xyz = xyz[z_mask, :]
+            feat = feat[valid_depth, :]
+            x_mask = xyz[:, 0] < self._x_max
+            rgb = rgb[x_mask]
+            xyz = xyz[x_mask]
+            feat = feat[x_mask]
+            xyz, rgb, feat = xyz.reshape(-1, 3), rgb.reshape(-1, 3), feat.reshape(-1, 1)
+
+        # voxelize at a granular voxel-size then choose X points
+        xyz, rgb, feat = filter_and_remove_duplicate_points(
+            xyz, rgb, feat, voxel_size=self._voxel_size_1, semantic_id=1
+        )
+
         og_xyz = np.copy(xyz)
         og_rgb = np.copy(rgb)
+        og_feat = np.copy(feat)
+
         # get 8k points for tractable learning
         downsample_mask = np.arange(rgb.shape[0])
         np.random.shuffle(downsample_mask)
@@ -100,6 +128,7 @@ class SLAPAgent(object):
             downsample_mask = downsample_mask[:num_pts]
         rgb = rgb[downsample_mask]
         xyz = xyz[downsample_mask]
+        feat = feat[downsample_mask]
 
         # mean-center the point cloud
         mean = xyz.mean(axis=0)
@@ -112,15 +141,25 @@ class SLAPAgent(object):
             print("create_action_prediction_input")
             show_point_cloud(xyz, rgb, orig=np.zeros(3))
 
+        # voxelize rgb, xyz, and feat
+        voxelized_xyz, voxelized_rgb, voxelized_feat = voxelize_point_cloud(
+            xyz, rgb, feat=feat, voxel_size=self._voxel_size_2
+        )
+
         # input_vector = (rgb, xyz, proprio, lang, mean)
         input_data = {
             "rgb": rgb,
             "xyz,": xyz,
+            "feat": feat,
+            "voxelized_rgb": voxelized_rgb,
+            "voxelized_xyz": voxelized_xyz,
+            "voxelized_feat": voxelized_feat,
             "proprio": proprio,
-            "lang": lang,
+            "lang": obs.task_observations["task-name"],
             "mean": mean,
             "og_xyz": og_xyz,
             "og_rgb": og_rgb,
+            "og_feat": og_feat,
         }
         return input_data
 
@@ -170,10 +209,6 @@ class SLAPAgent(object):
             else:
                 print("[SLAP] Predicting interaction point")
                 self.interaction_point = np.random.rand(3)
-                # FIXME: following is just for debugging, remove me before you MERGE!
-                self.ipm_input = self.create_interaction_prediction_input_from_obs(
-                    obs, filter_depth=True
-                )
             self._curr_keyframe = 0
         if self._dry_run:
             print(f"[SLAP] Predicting keyframe # {self._curr_keyframe}")
