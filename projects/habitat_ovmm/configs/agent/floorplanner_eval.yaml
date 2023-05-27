@@ -77,7 +77,7 @@ AGENT:
       type: oracle
 
     NAV_TO_OBJ:
-      type: rl # heuristic (default) or rl
+      type: heuristic # heuristic (default) or rl
       checkpoint_path: data/checkpoints/ovmm/nav_to_obj_may26_teleport_65%.pth
       rl_config: projects/habitat_ovmm/configs/agent/nav_to_obj_rl.yaml
       gym_obs_keys:
@@ -107,7 +107,7 @@ AGENT:
       nav_goal_seg_channels: 2
 
     NAV_TO_REC:
-      type: rl # heuristic (default) or rl
+      type: heuristic # heuristic (default) or rl
       checkpoint_path: data/checkpoints/ovmm/nav_to_rec_may26_teleport_dist_0_1_77%.pth
       rl_config: projects/habitat_ovmm/configs/agent/nav_to_obj_rl.yaml
       gym_obs_keys:
@@ -137,7 +137,7 @@ AGENT:
 
 
     PLACE:
-      type: rl # "rl" or "heuristic" or "hardcoded"
+      type: heuristic # "rl" or "heuristic" or "hardcoded"
       checkpoint_path: data/checkpoints/ovmm/place_with_manip_action_may25.pth
       rl_config: projects/habitat_ovmm/configs/agent/place_rl.yaml # with continuous actions
       gym_obs_keys:
