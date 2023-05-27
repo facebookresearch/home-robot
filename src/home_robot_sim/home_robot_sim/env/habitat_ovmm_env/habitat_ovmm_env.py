@@ -217,7 +217,7 @@ class HabitatOpenVocabManipEnv(HabitatEnv):
             semantic = semantic + recep_seg
             semantic[semantic == 0] = len(self._rec_id_to_name_mapping) + 2
             obs.semantic = semantic.numpy()
-            obs.task_observations["recep_idx"] = 1
+            obs.task_observations["recep_idx"] = 2
             obs.task_observations["semantic_max_val"] = (
                 len(self._rec_id_to_name_mapping) + 2
             )
@@ -332,7 +332,7 @@ class HabitatOpenVocabManipEnv(HabitatEnv):
                 arm_action = np.concatenate([action.joints[0:1], action.joints[4:]])
             cont_action = np.concatenate(
                 [
-                    arm_action / self.max_joints_delta,
+                    np.clip(arm_action / self.max_joints_delta, -1, 1),
                     [grip_action] + [waypoint_x, waypoint_y, turn, -1],
                 ]
             )

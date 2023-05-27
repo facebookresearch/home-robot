@@ -45,7 +45,7 @@ class OpenVocabManipAgent(ObjectNavAgent):
         self.pick_agent = None
         self.place_agent = None
         self.skip_skills = config.AGENT.skip_skills
-        if config.AGENT.SKILLS.PLACE.type == "heuristic_debug":
+        if config.AGENT.SKILLS.PLACE.type == "heuristic":
             self.place_policy = HeuristicPlacePolicy(config, self.device)
         elif config.AGENT.SKILLS.PLACE.type == "rl" and not self.skip_skills.place:
             self.place_agent = PPOAgent(
@@ -120,6 +120,8 @@ class OpenVocabManipAgent(ObjectNavAgent):
             self.nav_to_obj_agent.reset_vectorized()
         if self.place_agent is not None:
             self.place_agent.reset_vectorized()
+        if self.nav_to_rec_agent is not None:
+            self.nav_to_rec_agent.reset_vectorized()
         self.states = torch.tensor([Skill.NAV_TO_OBJ] * self.num_environments)
         self.pick_start_step = torch.tensor([0] * self.num_environments)
         self.place_start_step = torch.tensor([0] * self.num_environments)
@@ -136,7 +138,7 @@ class OpenVocabManipAgent(ObjectNavAgent):
         self.pick_start_step[e] = 0
         self.is_gaze_done[e] = 0
         self.place_done[e] = 0
-        if self.config.AGENT.SKILLS.PLACE.type == "heuristic_debug":
+        if self.config.AGENT.SKILLS.PLACE.type == "heuristic":
             self.place_policy = HeuristicPlacePolicy(self.config, self.device)
         super().reset_vectorized_for_env(e)
         self.planner.set_vis_dir(
@@ -339,7 +341,7 @@ class OpenVocabManipAgent(ObjectNavAgent):
         elif nav_to_rec_type == "heuristic":
             action, info, terminate = self._heuristic_nav(obs, info)
         elif nav_to_rec_type == "rl":
-            action, terminate = self.nav_to_obj_agent.act(obs)
+            action, terminate = self.nav_to_rec_agent.act(obs)
         else:
             raise ValueError(
                 f"Got unexpected value for NAV_TO_REC.type: {nav_to_rec_type}"
@@ -371,7 +373,7 @@ class OpenVocabManipAgent(ObjectNavAgent):
             action = DiscreteNavigationAction.STOP
         elif place_type == "hardcoded":
             action = self._hardcoded_place()
-        elif place_type == "heuristic_debug":
+        elif place_type == "heuristic":
             action, info = self.place_policy(obs, info)
         elif place_type == "rl":
             action, info = self._rl_place(obs, info)

@@ -133,7 +133,7 @@ AGENT:
       nav_goal_seg_channels: 1
 
     PLACE:
-      type: heuristic_debug # "rl" or "heuristic_debug" or "hardcoded"
+      type: heuristic # "rl" or "heuristic" or "hardcoded"
       checkpoint_path: data/checkpoints/ovmm/place_may15_76%_SR.pth
       rl_config: projects/habitat_ovmm/configs/agent/place_rl.yaml # with continuous actions
       gym_obs_keys:
