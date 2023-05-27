@@ -144,7 +144,6 @@ class HabitatOpenVocabManipEnv(HabitatEnv):
         self.visualizer.set_vis_dir(scene_id=scene_id, episode_id=episode_id)
 
     def reset(self):
-
         habitat_obs = self.habitat_env.reset()
         self._last_habitat_obs = habitat_obs
         self.semantic_category_mapping.reset_instance_id_to_category_id(
@@ -218,7 +217,7 @@ class HabitatOpenVocabManipEnv(HabitatEnv):
             semantic = semantic + recep_seg
             semantic[semantic == 0] = len(self._rec_id_to_name_mapping) + 2
             obs.semantic = semantic.numpy()
-            obs.task_observations["recep_idx"] = 1
+            obs.task_observations["recep_idx"] = 2
             obs.task_observations["semantic_max_val"] = (
                 len(self._rec_id_to_name_mapping) + 2
             )
@@ -333,7 +332,7 @@ class HabitatOpenVocabManipEnv(HabitatEnv):
                 arm_action = np.concatenate([action.joints[0:1], action.joints[4:]])
             cont_action = np.concatenate(
                 [
-                    arm_action / self.max_joints_delta,
+                    np.clip(arm_action / self.max_joints_delta, -1, 1),
                     [grip_action] + [waypoint_x, waypoint_y, turn, -1],
                 ]
             )

@@ -36,6 +36,12 @@ def get_complete_obs_space(skill_config, baseline_config):
                 (skill_config.sensor_height, skill_config.sensor_width, 1),
                 np.uint8,
             ),
+            "goal_recep_segmentation": spaces.Box(
+                0.0,
+                1.0,
+                (skill_config.sensor_height, skill_config.sensor_width, 1),
+                np.uint8,
+            ),
             "ovmm_nav_goal_segmentation": spaces.Box(
                 0.0,
                 1.0,

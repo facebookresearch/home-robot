@@ -71,13 +71,14 @@ AGENT:
       terminate_condition: grip
       grip_threshold: 0.8
       max_joint_delta: 0.0125
+      min_joint_delta: 0.0
 
     PICK:
       type: oracle
 
     NAV_TO_OBJ:
-      type: rl #heuristic # heuristic (default) or rl
-      checkpoint_path: data/checkpoints/ovmm/nav_to_obj.pth
+      type: rl # heuristic (default) or rl
+      checkpoint_path: data/checkpoints/ovmm/nav_to_obj_may26_teleport_65%.pth
       rl_config: projects/habitat_ovmm/configs/agent/nav_to_obj_rl.yaml
       gym_obs_keys:
         - robot_head_depth
@@ -106,14 +107,14 @@ AGENT:
       nav_goal_seg_channels: 2
 
     NAV_TO_REC:
-      type: heuristic # heuristic (default) or rl
-      checkpoint_path: data/checkpoints/ovmm/nav_to_rec_may17_60%.pth
-      rl_config: projects/habitat_ovmm/configs/agent/nav_to_rec_rl.yaml
+      type: rl # heuristic (default) or rl
+      checkpoint_path: data/checkpoints/ovmm/nav_to_rec_may26_teleport_dist_0_1_77%.pth
+      rl_config: projects/habitat_ovmm/configs/agent/nav_to_obj_rl.yaml
       gym_obs_keys:
         - robot_head_depth
         - ovmm_nav_goal_segmentation
         - receptacle_segmentation
-        - start_receptacle
+        - goal_receptacle
         - robot_start_gps
         - robot_start_compass
         - joint
@@ -125,16 +126,19 @@ AGENT:
         # - turn_right
         # - stop
       arm_joint_mask: [0, 0, 0, 0, 0, 0, 0] # the arm joints that the policy can control
-      max_displacement: 0.25
+      max_displacement: 0.25                # used when training the policy; could be different from the eval values
       max_turn_degrees: 30.0
-      sensor_height: 256
-      sensor_width: 256
+      min_turn_degrees: 5.0
+      min_displacement: 0.1
+      sensor_height: 160
+      sensor_width: 120
       terminate_condition: continuous_stop
       nav_goal_seg_channels: 1
 
+
     PLACE:
-      type: rl # "rl" or "heuristic_debug" or "hardcoded"
-      checkpoint_path: data/checkpoints/ovmm/place_may15_76%_SR.pth
+      type: rl # "rl" or "heuristic" or "hardcoded"
+      checkpoint_path: data/checkpoints/ovmm/place_with_manip_action_may25.pth
       rl_config: projects/habitat_ovmm/configs/agent/place_rl.yaml # with continuous actions
       gym_obs_keys:
         - robot_head_depth
@@ -142,10 +146,11 @@ AGENT:
         - joint
         - ovmm_nav_goal_segmentation
         - is_holding
-        - relative_resting_position
+        - object_embedding
       allowed_actions:
         - arm_action
         - base_velocity
+        - manipulation_mode
       arm_joint_mask: [1, 1, 1, 1, 1, 0, 0] # the arm joints that the policy can control
       max_displacement: 0.25                     # used when training the policy
       max_turn_degrees: 30.0
@@ -156,7 +161,9 @@ AGENT:
       nav_goal_seg_channels: 1
       terminate_condition: ungrip
       grip_threshold: -0.8
-      max_joint_delta: 0.0125
+      manip_mode_threshold: 0.8
+      max_joint_delta: 0.1
+      min_joint_delta: 0.02
 
   skip_skills:
     nav_to_obj: False

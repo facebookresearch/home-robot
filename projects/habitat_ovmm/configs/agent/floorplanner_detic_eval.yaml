@@ -76,7 +76,7 @@ AGENT:
       type: heuristic
 
     PLACE:
-      type: heuristic_debug #hardcoded
+      type: heuristic #hardcoded
 
   skip_nav_to_obj: False
   skip_nav_to_rec: False

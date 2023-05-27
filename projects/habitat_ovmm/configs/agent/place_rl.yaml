@@ -13,14 +13,14 @@ habitat_baselines:
   rl:
     policy:
         name: "PointNavResNetPolicy"
-        no_downscaling: True
+        no_downscaling: False
         action_distribution_type: "gaussian"
         action_dist:
             use_log_std: True
             clamp_std: True
             std_init: -1.0
             max_std: 1
-            use_std_param: False
+            use_std_param: True
         obs_transforms:
           resize_shortest_edge:
             type: ResizeShortestEdge
