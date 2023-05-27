@@ -18,8 +18,14 @@
   - [x] Edit to respect new simple API
 - [x] APM
   - [x] Finish data-pipeline
-  - [ ] Load pre-trained weights and run initial tests (need new weights for these; queued for after trainig)
-  - [ ] Edit to respect new simple API
+  - [x] Load pre-trained weights and run initial tests (need new weights for these; queued for after trainig)
+  - [x] Edit to respect new simple API
 - [ ] --> Collect new data from stretch
 - [ ] Edit ported dataloaders to visualize and train using collected H5s
 
+## Natural Language Commands to Steps
+```
+cd scripts
+python get_cmd_to_steps_data.py
+```
+This will connect to wandb and download the data from the artifact `bring_x_from_y:latest`, containing 6 json files.

@@ -23,6 +23,7 @@ viz/
 datasets/
 scene_datasets/
 datadump/
+*/datasets/
 
 # Archive files
 *.pkl

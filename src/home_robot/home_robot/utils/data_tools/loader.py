@@ -127,6 +127,7 @@ class DatasetBase(torch.utils.data.Dataset):
                     ):
                         # Open the trial and extract metadata
                         trial = self.Trial(key, filename, self, h5_trial)
+                        # get trial config, look for "demo_status" key and check if it is s/f
                         if self.verbose:
                             print("trial =", key, trial.length)
                         lens.append(trial.length)
