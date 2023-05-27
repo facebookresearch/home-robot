@@ -22,118 +22,16 @@ from home_robot.motion.stretch import (
     STRETCH_PREGRASP_Q,
 )
 from home_robot.perception.detection.detic.detic_perception import DeticPerception
-from home_robot.utils.config import get_config
 from home_robot.utils.geometry import xyt2sophus
+from home_robot_hw.constants import REAL_WORLD_CATEGORIES
 from home_robot_hw.env.stretch_abstract_env import StretchEnv
 from home_robot_hw.env.visualizer import Visualizer
 from home_robot_hw.remote import StretchClient
+from home_robot_hw.utils.config import load_config
 from home_robot_hw.utils.grasping import GraspPlanner
 
 RECEP_START_IDX = 4
-REAL_WORLD_CATEGORIES = [
-    "other",
-    # objects
-    "chair",
-    "cup",
-    "table",
-    # receptacles
-    "coffee_table",
-    "sofa",
-    "dining_table",
-    "swivel_chair",
-    "table",
-    "tv_stand",
-    "toilet",
-    "balcony",
-    "bookcase",
-    "armchair",
-    "swing_chair",
-    "armoire",
-    "kitchen_cabinet",
-    "ottoman",
-    "desk",
-    "end_table",
-    "nightstand",
-    "chest_of_drawers",
-    "storage_bench",
-    "stool",
-    "shower_stall",
-    "chair",
-    "console_table",
-    "dining_area",
-    "beanbag_chair",
-    "easy_chair",
-    "buffet",
-    "l-shaped_couch",
-    "sink_cabinet",
-    "wall_shelf",
-    "footstool",
-    "washer",
-    "cabinet",
-    "bathtub",
-    "rocking_chair",
-    "hanging_cabinet",
-    "flat_bench",
-    "bar_stool",
-    "shelving",
-    "china_cabinet",
-    "dressing_table",
-    "hot_tub",
-    "kitchen_island",
-    "bar",
-    "straight_chair",
-    "bench",
-    "air_hockey_table",
-    "chaise_longue",
-    "ladder_bookcase",
-    "highchair",
-    "wardrobe",
-    "credenza",
-    "swing_bench",
-    "car",
-    "gazebo",
-    "serving_cart",
-    "trunk",
-    "shoe_rack,cabinet",
-    "file",
-    "medicine_chest",
-    "washbasin",
-    "daybed",
-    "table-tennis_table",
-    "sink_stand",
-    "base_cabinet",
-    "magazine_rack",
-    "lectern",
-    "shoe_rack",
-    "foosball_table",
-    "handcart",
-    "conference_table",
-    "step_stool",
-    "mantel",
-    "pool_table",
-    "workbench",
-    "plant_stand",
-    "picnic_table",
-    "dryer",
-    "bathtub,shower_stall",
-    "other",
-]  # TODO: Remove hardcoded indices in the visualizer so we can add more objects
-
-
 DETIC = "detic"
-
-
-def load_config(visualize=False, print_images=True, config_path=None, **kwargs):
-    if config_path is None:
-        config_path = "projects/stretch_ovmm/configs/agent/floorplanner_eval.yaml"
-    config, config_str = get_config(config_path)
-    config.defrost()
-    config.NUM_ENVIRONMENTS = 1
-    config.VISUALIZE = int(visualize)
-    config.PRINT_IMAGES = int(print_images)
-    config.EXP_NAME = "debug"
-    config.freeze()
-    return config
 
 
 class StretchPickandPlaceEnv(StretchEnv):

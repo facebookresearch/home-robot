@@ -3,6 +3,7 @@
 # This source code is licensed under the MIT license found in the
 # LICENSE file in the root directory of this source tree.
 import random
+from typing import Dict, Optional
 
 import cv2
 import numpy as np
@@ -54,7 +55,7 @@ class HeuristicPlacePolicy(nn.Module):
     def get_receptacle_placement_point(
         self,
         obs: Observations,
-        vis_inputs: None,
+        vis_inputs: Optional[Dict] = None,
         arm_reachability_check: bool = False,
         visualize: bool = True,
     ):
@@ -179,10 +180,10 @@ class HeuristicPlacePolicy(nn.Module):
 
             max_surface_points = 0
             # max_height = 0
+
             max_surface_mask, best_voxel_ind, best_voxel = None, None, None
 
             ## iterating through all randomly selected voxels and choosing one with most XY neighboring surface area within some height threshold
-
             for ind in random_indices:
                 sampled_voxel = pcd_base_coords[0, ind[0], ind[1]]
                 sampled_voxel_x, sampled_voxel_y, sampled_voxel_z = (
@@ -213,7 +214,7 @@ class HeuristicPlacePolicy(nn.Module):
                 ).to(torch.uint8)
 
                 # ALTERNATIVE: choose slab with maximum (area x height) product
-
+                # TODO: remove dead code
                 # slab_points_mask_stacked = torch.stack(
                 #     [
                 #         slab_points_mask * 255,
@@ -266,7 +267,7 @@ class HeuristicPlacePolicy(nn.Module):
 
             return best_voxel.cpu().numpy(), vis_inputs
 
-    def forward(self, obs: Observations, vis_inputs=None):
+    def forward(self, obs: Observations, vis_inputs: Optional[Dict] = None):
         """
         1. Get estimate of point on receptacle to place object on.
         2. Orient towards it.
@@ -275,6 +276,10 @@ class HeuristicPlacePolicy(nn.Module):
         5. (again) Get estimate of point on receptacle to place object on.
         6. With camera, arm, and object (hopefully) aligned, set arm lift and
         extension based on point estimate from 4.
+
+        Returns:
+            action: what the robot will do - a hybrid action, discrete or continuous
+            vis_inputs: dictionary containing extra info for visualizations
         """
 
         self.timestep = self.timestep
