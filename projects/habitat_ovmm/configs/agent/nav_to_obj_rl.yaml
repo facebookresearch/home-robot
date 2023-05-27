@@ -14,6 +14,7 @@ habitat_baselines:
     policy:
         name: "PointNavResNetPolicy"
         action_distribution_type: "gaussian"
+        no_downscaling: True
         action_dist:
             use_log_std: True
             clamp_std: True
