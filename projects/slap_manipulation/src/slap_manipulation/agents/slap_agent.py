@@ -1,6 +1,7 @@
 from typing import Any, Dict
 
 import numpy as np
+import torch
 import trimesh
 from slap_manipulation.policy.action_prediction_module import ActionPredictionModule
 from slap_manipulation.policy.interaction_prediction_module import (
@@ -40,12 +41,12 @@ class SLAPAgent(object):
         if not self._dry_run:
             # pass cfg parameters to IPM and APM
             self.interaction_prediction_module = InteractionPredictionModule()
-            self.action_prediction_module = ActionPredictionModule(cfg.SLAP.APM)
+            self.action_prediction_module = ActionPredictionModule(cfg)
 
     def load_models(self):
-        self.interaction_prediction_module.load_state_dict(self.cfg.SLAP.IPM.path)
+        self.interaction_prediction_module.load_weights(self.cfg.SLAP.IPM.path)
         self.interaction_prediction_module.to(self.device)
-        self.action_prediction_module.load_state_dict(self.cfg.SLAP.APM.path)
+        self.action_prediction_module.load_weights(self.cfg.SLAP.APM.path)
         self.action_prediction_module.to(self.device)
 
     def get_proprio(self):
@@ -63,16 +64,24 @@ class SLAPAgent(object):
         return time_vector
 
     def to_torch(self, input_dict: Dict[str, Any]) -> Dict[str, Any]:
-        raise NotImplementedError("Implement to_torch function in SLAP please")
+        for k, v in input_dict.items():
+            if isinstance(v, np.ndarray):
+                input_dict[k] = torch.from_numpy(v).float().to(self.device)
+        return input_dict
 
     def to_numpy(self, input_dict: Dict[str, Any]) -> Dict[str, Any]:
         raise NotImplementedError("Implement to_numpy function in SLAP please")
 
-    def to_device(self, input_dict: Dict[str, Any]) -> Dict[str, Any]:
-        raise NotImplementedError("Implement to_device function in SLAP please")
+    def to_device(
+        self, input_dict: Dict[str, Any], device: str = "cuda"
+    ) -> Dict[str, Any]:
+        for k, v in input_dict.items():
+            if isinstance(v, torch.Tensor):
+                input_dict[k] = v.to(device)
+        return input_dict
 
     def create_interaction_prediction_input_from_obs(
-        self, obs, filter_depth=False, num_pts=8000, debug=False
+        self, obs, filter_depth=False, num_pts=8000, debug=False, semantic_id=1
     ) -> Dict[str, Any]:
         """method to convert obs into input expected by IPM
         takes raw data from stretch_manipulation_env, and language command from user.
@@ -90,6 +99,8 @@ class SLAPAgent(object):
         camera_pose = obs.task_observations["base_camera_pose"]
         xyz = trimesh.transform_points(xyz.reshape(-1, 3), camera_pose)
         feat = obs.semantic
+        # only keep feat which is == semantic_id
+        feat[feat != semantic_id] = 0
 
         # proprio looks different now
         proprio = self.get_proprio()
@@ -140,6 +151,7 @@ class SLAPAgent(object):
         if debug:
             print("create_action_prediction_input")
             show_point_cloud(xyz, rgb, orig=np.zeros(3))
+            breakpoint()
 
         # voxelize rgb, xyz, and feat
         voxelized_xyz, voxelized_rgb, voxelized_feat = voxelize_point_cloud(
@@ -149,11 +161,11 @@ class SLAPAgent(object):
         # input_vector = (rgb, xyz, proprio, lang, mean)
         input_data = {
             "rgb": rgb,
-            "xyz,": xyz,
+            "xyz": xyz,
             "feat": feat,
-            "voxelized_rgb": voxelized_rgb,
-            "voxelized_xyz": voxelized_xyz,
-            "voxelized_feat": voxelized_feat,
+            "rgb_voxelized": voxelized_rgb,
+            "xyz_voxelized": voxelized_xyz,
+            "feat_voxelized": voxelized_feat,
             "proprio": proprio,
             "lang": obs.task_observations["task-name"],
             "mean": mean,
@@ -161,22 +173,26 @@ class SLAPAgent(object):
             "og_rgb": og_rgb,
             "og_feat": og_feat,
         }
-        return input_data
+        return self.to_torch(input_data)
 
     def create_action_prediction_input_from_obs(
         self,
-        raw_data: Dict[str, Any],
-        feat: np.ndarray,
-        xyz: np.ndarray,
-        p_i: np.ndarray,
-        time: float = 0.0,
-        debug: bool = False,
+        obs,
+        ipm_data: Dict[str, Any],
+        debug=False,
     ) -> Dict[str, Any]:
-        """takes p_i prediction, current gripper-state and open-loop input state
-        converting into input batch for Action Prediction Module by cropping
-        around predicted p_i: interaction_point"""
+        """takes p_i prediction and open-loop input state converting into input
+        batch for Action Prediction Module by cropping around predicted p_i:
+        interaction_point"""
+        xyz = ipm_data["og_xyz"]
+        rgb = ipm_data["og_rgb"]
+        feat = ipm_data["og_feat"]
+        combined_feat = torch.cat([rgb, feat], dim=-1)
         cropped_feat, cropped_xyz, status = get_local_action_prediction_problem(
-            self.cfg, feat, xyz, self.interaction_point
+            self.cfg.SLAP.APM,
+            combined_feat.detach().cpu().numpy(),
+            xyz.detach().cpu().numpy(),
+            self.interaction_point.detach().cpu().numpy(),
         )
         if np.any(cropped_feat > 1.0):
             cropped_feat = cropped_feat / 255.0
@@ -184,17 +200,19 @@ class SLAPAgent(object):
             raise RuntimeError(
                 "Interaction Prediction Module predicted an interaction point with no tractable local problem around it"
             )
-        proprio = self.get_proprio(raw_data, time=time)
         if debug:
             print("create_action_prediction_input")
             show_point_cloud(cropped_xyz, cropped_feat)
-        input_data = {
-            "cropped_feat": cropped_feat,
-            "cropped_xyz": cropped_xyz,
-            "proprio": proprio,
-        }
-        return input_data
-        # return (cropped_feat, cropped_xyz, proprio)
+        input_data = self.to_torch(
+            {
+                "feat_crop": cropped_feat,
+                "xyz_crop": cropped_xyz,
+                "rgb_crop": None,
+                "num-actions": obs.task_observations["num-actions"],
+            }
+        )
+        ipm_data.update(input_data)
+        return ipm_data
 
     def predict(self, obs):
         info = {}
@@ -202,22 +220,24 @@ class SLAPAgent(object):
         if self.interaction_point is None:
             if not self._dry_run:
                 self.ipm_input = self.create_interaction_prediction_input_from_obs(
-                    obs, filter_depth=True
+                    obs, filter_depth=True, debug=False
                 )
-                result = self.interaction_prediction_module.predict(**self.ipm_input)
+                result = self.interaction_prediction_module.predict(
+                    self.ipm_input, True
+                )
                 self.interaction_point = result[0]
             else:
                 print("[SLAP] Predicting interaction point")
                 self.interaction_point = np.random.rand(3)
-            self._curr_keyframe = 0
         if self._dry_run:
             print(f"[SLAP] Predicting keyframe # {self._curr_keyframe}")
         else:
             apm_input = self.create_action_prediction_input_from_obs(
-                obs, **self.ipm_input
+                obs, self.ipm_input
             )
-            action = self.action_prediction_module.predict(**apm_input)
-        self._curr_keyframe += 1
+            action = self.action_prediction_module.predict(apm_input)
+            for i, act in enumerate(action):
+                action[i] = act.detach().cpu().numpy()
         return action, info
 
     def reset(self):

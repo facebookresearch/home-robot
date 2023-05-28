@@ -59,7 +59,8 @@ class GeneralLanguageAgent(PickAndPlaceAgent):
         self.debug = debug
         self.dry_run = self.cfg.AGENT.dry_run
         self.slap_model = SLAPAgent(cfg)
-        self.slap_model.load_models()
+        if not self.cfg.SLAP.dry_run:
+            self.slap_model.load_models()
         self.num_actions_done = 0
         self._language = yaml.load(
             open(self.cfg.AGENT.language_file, "r"), Loader=yaml.FullLoader
@@ -97,7 +98,7 @@ class GeneralLanguageAgent(PickAndPlaceAgent):
                     "self.open_object(['cabinet'], obs)",
                 ],
                 5: [
-                    "self.open_object(['bottle'], obs)",
+                    "self.open_object(['drawer'], obs)",
                 ],
             }
 
@@ -242,10 +243,13 @@ class GeneralLanguageAgent(PickAndPlaceAgent):
             return action, action_info
 
     def open_object(self, object_list: List[str], obs: Observations):
+        language = self._language["open_object"][object_list[0]]
+        num_actions = self._task_information[language]
+        return self.call_slap(language, num_actions, obs, object_list)
+
+    def call_slap(self, language: str, num_actions: int, obs, object_list: List[str]):
         info = {}
         action = None
-        language = self._language["open"][object_list[0]]
-        num_actions = self._task_information[language]
         if not self.is_busy():
             print("[LangAgent]: Changing mode, setting goals")
             info["not_viz"] = True
@@ -253,21 +257,20 @@ class GeneralLanguageAgent(PickAndPlaceAgent):
             self.state = GeneralTaskState.PREPPING
             return DiscreteNavigationAction.MANIPULATION_MODE, info
         else:
-            if self.num_actions_done >= num_actions:
-                self.soft_reset()
-                self.slap_model.reset()
-                return DiscreteNavigationAction.STOP, None
+            obs.task_observations["task-name"] = language
+            obs.task_observations["num-actions"] = num_actions
             result, info = self.slap_model.predict(obs)
             if result is not None:
                 action = ContinuousEndEffectorAction(
-                    result["predicted_pos"],
-                    result["predicted_ori"],
-                    result["gripper_act"],
+                    result[:, :3], result[:, 3:7], result[:, 7]
                 )
             else:
-                action = DiscreteNavigationAction.STOP
-            self.num_actions_done += 1
-            self.state = GeneralTaskState.DOING_TASK
+                action = ContinuousEndEffectorAction(
+                    np.random.rand(1, 3), np.random.rand(1, 4), np.random.rand(1, 1)
+                )
+            self.soft_reset()
+            self.slap_model.reset()
+            self.state = GeneralTaskState.IDLE
             return action, info
 
     def act(self, obs: Observations, task: str) -> Tuple[Action, Dict[str, Any]]:
