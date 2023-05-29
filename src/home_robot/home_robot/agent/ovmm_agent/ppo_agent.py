@@ -8,7 +8,7 @@
 import copy
 import random
 from collections import OrderedDict
-from typing import Any, Dict
+from typing import Any, Tuple, Union
 
 import gym.spaces as spaces
 import numba
@@ -319,8 +319,16 @@ class PPOAgent(Agent):
 
         return hab_obs
 
-    # FIXME: the return values do not match the signature
-    def act(self, observations: Observations) -> Dict[str, int]:
+    def act(
+        self, observations: Observations
+    ) -> Tuple[
+        Union[
+            ContinuousFullBodyAction,
+            ContinuousNavigationAction,
+            DiscreteNavigationAction,
+        ],
+        bool,
+    ]:
         sample_random_seed()
         obs = self.convert_to_habitat_obs_space(observations)
         batch = batch_obs([obs], device=self.device)
