@@ -487,7 +487,6 @@ class ActionPredictionModule(torch.nn.Module):
                         dim=-1,
                     )
                     output.append(torch.clone(input_data["proprio"]))
-        # TODO: add visualization to see the entire trajectory
         viz_output = []
         for pose in output:
             viz_output.append(

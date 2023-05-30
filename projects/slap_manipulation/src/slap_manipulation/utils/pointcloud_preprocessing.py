@@ -29,7 +29,6 @@ def get_local_action_prediction_problem(
     interaction point (p_i)
     """
     # crop from og pcd and mean-center it
-    breakpoint()
     crop_xyz, crop_feat = crop_around_voxel(feat, xyz, p_i, cfg.query_radius)
     crop_xyz = crop_xyz - p_i[None].repeat(crop_xyz.shape[0], axis=0)
     # show_point_cloud(crop_xyz, crop_feat, orig=np.zeros(3))
