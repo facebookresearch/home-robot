@@ -185,6 +185,12 @@ coco_map_color_palette = [
         0.63,
         0.78,
         0.95,  # rest of goal
+        0.6,
+        0.87,
+        0.54,  # been close map
+        0.0,
+        1.0,
+        0.0,  # short term goal
         *coco_categories_color_palette,
     ]
 ]
@@ -234,7 +240,7 @@ class HM3DtoCOCOIndoor(SemanticCategoryMapping):
         )
 
     def reset_instance_id_to_category_id(self, env: Env):
-        self._instance_id_to_category_id = np.ndarray(
+        self._instance_id_to_category_id = np.array(
             [
                 mp3d_to_coco.get(
                     hm3d_to_mp3d.get(obj.category.name().lower().strip()),
@@ -409,6 +415,12 @@ mukul_33categories_map_color_palette = [
         0.63,
         0.78,
         0.95,  # rest of goal
+        0.6,
+        0.87,
+        0.54,  # been close map
+        0.0,
+        1.0,
+        0.0,  # short term goal
         *[x / 255.0 for x in mukul_33categories_color_palette],
     ]
 ]

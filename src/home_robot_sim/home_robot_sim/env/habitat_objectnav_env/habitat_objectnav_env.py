@@ -30,7 +30,7 @@ class HabitatObjectNavEnv(HabitatEnv):
         self.ground_truth_semantics = config.GROUND_TRUTH_SEMANTICS
         self.visualizer = Visualizer(config)
 
-        self.episodes_data_path = config.TASK_CONFIG.DATASET.DATA_PATH
+        self.episodes_data_path = config.habitat.dataset.data_path
         assert (
             "floorplanner" in self.episodes_data_path
             or "hm3d" in self.episodes_data_path
@@ -83,7 +83,7 @@ class HabitatObjectNavEnv(HabitatEnv):
             rgb=habitat_obs["rgb"],
             depth=depth,
             compass=habitat_obs["compass"],
-            gps=habitat_obs["gps"],
+            gps=self._preprocess_xy(habitat_obs["gps"]),
             task_observations={
                 "object_goal": goal_id,
                 "goal_name": goal_name,
@@ -112,6 +112,9 @@ class HabitatObjectNavEnv(HabitatEnv):
                 obs.semantic[obs.semantic == 0] = (
                     self.semantic_category_mapping.num_sem_categories - 1
                 )
+        obs.task_observations["semantic_frame"] = np.concatenate(
+            [obs.rgb, obs.semantic[:, :, np.newaxis]], axis=2
+        ).astype(np.uint8)
         return obs
 
     def _preprocess_depth(self, depth: np.array) -> np.array:
@@ -127,7 +130,7 @@ class HabitatObjectNavEnv(HabitatEnv):
         discrete_action = cast(
             home_robot.core.interfaces.DiscreteNavigationAction, action
         )
-        return HabitatSimActions[discrete_action.name]
+        return HabitatSimActions[discrete_action.name.lower()]
 
     def _process_info(self, info: Dict[str, Any]) -> Any:
         if info:

@@ -1,3 +1,5 @@
+import argparse
+import json
 import sys
 from pathlib import Path
 
@@ -20,17 +22,39 @@ from home_robot_sim.env.habitat_objectnav_env.habitat_objectnav_env import (
 )
 
 if __name__ == "__main__":
-    config_path = "configs/agent/floorplanner_eval.yaml"
-    config, config_str = get_config(config_path)
-    config.defrost()
+    parser = argparse.ArgumentParser()
+    parser.add_argument(
+        "--habitat_config_path",
+        type=str,
+        default="src/third_party/habitat-lab/habitat-lab/habitat/config/benchmark/nav/objectnav/objectnav_hm3d_rgbd_with_semantic.yaml",
+        help="Path to config yaml",
+    )
+    parser.add_argument(
+        "--baseline_config_path",
+        type=str,
+        default="projects/habitat_objectnav/configs/agent/hm3d_eval.yaml",
+        help="Path to config yaml",
+    )
+    parser.add_argument(
+        "opts",
+        default=None,
+        nargs=argparse.REMAINDER,
+        help="Modify config options from command line",
+    )
+    print("Arguments:")
+    args = parser.parse_args()
+    print(json.dumps(vars(args), indent=4))
+    print("-" * 100)
+
+    config = get_config(args.habitat_config_path, args.baseline_config_path)
+
     config.NUM_ENVIRONMENTS = 1
     config.PRINT_IMAGES = 1
-    config.TASK_CONFIG.DATASET.SPLIT = "val"
+    config.habitat.dataset.split = "val"
     config.EXP_NAME = "debug"
-    config.freeze()
 
     agent = ObjectNavAgent(config=config)
-    env = HabitatObjectNavEnv(Env(config=config.TASK_CONFIG), config=config)
+    env = HabitatObjectNavEnv(Env(config=config), config=config)
 
     agent.reset()
     env.reset()
