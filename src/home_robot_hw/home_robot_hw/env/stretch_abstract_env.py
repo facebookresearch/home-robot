@@ -119,7 +119,12 @@ class StretchEnv(home_robot.core.abstract_env.Env):
         pass
 
     @abstractmethod
-    def apply_action(self, action: Action, info: Optional[Dict[str, Any]] = None):
+    def apply_action(
+        self,
+        action: Action,
+        info: Optional[Dict[str, Any]] = None,
+        prev_obs: Optional[Observations] = None,
+    ):
         pass
 
     @abstractmethod

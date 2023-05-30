@@ -230,8 +230,8 @@ class OpenVocabManipAgent(ObjectNavAgent):
             0: obs.task_observations["object_name"],
         }
         simple_rec_id_to_name = {
-            0: obs.task_observations["start_receptacle_name"],
-            1: obs.task_observations["goal_receptacle_name"],
+            0: obs.task_observations["start_recep_name"],
+            1: obs.task_observations["place_recep_name"],
         }
 
         # Simple vocabulary contains only object and necessary receptacles
@@ -450,7 +450,9 @@ class OpenVocabManipAgent(ObjectNavAgent):
             raise ValueError(f"Got unexpected value for PLACE.type: {place_type}")
         return action, info, None
 
-    def act(self, obs: Observations) -> Tuple[DiscreteNavigationAction, Dict[str, Any]]:
+    def act(
+        self, obs: Observations
+    ) -> Tuple[DiscreteNavigationAction, Dict[str, Any], Observations]:
         """State machine"""
         if self.timesteps[0] == 0:
             self._init_episode(obs)
@@ -487,4 +489,4 @@ class OpenVocabManipAgent(ObjectNavAgent):
                 action = self._switch_to_next_skill(0, new_state, info)
 
         print(f'Executing skill {info["curr_skill"]} at timestep {self.timesteps[0]}')
-        return action, info
+        return action, info, obs

@@ -205,8 +205,8 @@ class HabitatOpenVocabManipEnv(HabitatEnv):
 
         obs.task_observations["goal_name"] = goal_name
         obs.task_observations["object_name"] = obj_name
-        obs.task_observations["start_receptacle_name"] = start_receptacle
-        obs.task_observations["goal_receptacle_name"] = goal_receptacle
+        obs.task_observations["start_recep_name"] = start_receptacle
+        obs.task_observations["place_recep_name"] = goal_receptacle
 
         obs.task_observations["object_goal"] = obj_goal_id
         obs.task_observations["start_recep_goal"] = start_rec_goal_id

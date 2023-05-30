@@ -69,7 +69,7 @@ class GraspPlanner(object):
 
             # Get the observations - we need depth and xyz point clouds
             t0 = timeit.default_timer()
-            obs = self.env.get_observation()
+            obs = self.env.prev_obs
             rgb, depth, xyz = obs.rgb, obs.depth, obs.xyz
 
             # TODO: verify this is correct
@@ -100,7 +100,21 @@ class GraspPlanner(object):
                     "seconds",
                 )
 
-            object_mask = obs.task_observations["goal_mask"]
+            # Choose instance mask with highest score for goal mask
+            instance_scores = obs.task_observations["instance_scores"].copy()
+            class_mask = (
+                obs.task_observations["instance_classes"]
+                == obs.task_observations["object_goal"]
+            )
+
+            # If we detected anything... check to see if our target object was found, and if so pass in the mask.
+            if len(instance_scores) and np.any(class_mask):
+                chosen_instance_idx = np.argmax(instance_scores * class_mask)
+                object_mask = (
+                    obs.task_observations["instance_map"] == chosen_instance_idx
+                )
+            else:
+                object_mask = np.zeros_like(obs.semantic).astype(bool)
 
             if visualize:
                 viz.show_image_with_mask(rgb, object_mask)

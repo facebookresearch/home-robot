@@ -105,10 +105,10 @@ class OvmmPerception:
             self._current_vocabulary.num_sem_categories - 1
         )
         obs.task_observations["start_recep_goal"] = self.vocabulary_name_to_id[
-            obs.task_observations["start_receptacle_name"]
+            obs.task_observations["start_recep_name"]
         ]
         obs.task_observations["end_recep_goal"] = self.vocabulary_name_to_id[
-            obs.task_observations["goal_receptacle_name"]
+            obs.task_observations["place_recep_name"]
         ]
         obs.task_observations["object_goal"] = self.vocabulary_name_to_id[
             obs.task_observations["object_name"]
