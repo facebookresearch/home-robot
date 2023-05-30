@@ -136,35 +136,7 @@ python projects/stretch_ovmm/eval_episode.py
 
 #### 7. Simulation Setup
 
-To set up the simulation stack with Habitat, see the [installation instructions](src/home_robot_sim/README.md) in `home_robot_sim`. You first need to install AI habitat and the simulation package:
-```
-# Install requirements
-mamba env update -f src/home_robot_sim/environment.yml
-
-# Download habitat-sim and habitat-lab packages
-git submodule update --init --recursive
-
-# Build habitat-sim from source
-cd src/third_party/habitat-sim
-```
-Please follow the instructions [here](https://github.com/facebookresearch/habitat-sim/blob/main/BUILD_FROM_SOURCE.md) to build habitat-sim from source.
-```
-cd -
-
-# Install habitat lab on the correct (object rearrange) branch
-pip install -e src/third_party/habitat-lab/habitat-lab
-pip install -e src/third_party/habitat-lab/habitat-baselines
-
-# Install home robot sim interfaces
-pip install -e src/home_robot_sim
-```
-
-And then download the assets as described in the [installation instructions](src/home_robot_sim/README.md#Ddataset-setup).
-
-To test your installation, you can run:
-```
-python projects/habitat_ovmm/eval_vectorized.py
-```
+To set up the simulation stack with Habitat, see the [installation instructions](src/home_robot_sim/README.md) in `home_robot_sim`. 
 
 For more details on the OVMM challenge, see the [Habitat OVMM readme](projects/stretch_ovmm/README.md).
 
