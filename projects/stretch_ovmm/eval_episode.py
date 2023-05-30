@@ -78,8 +78,8 @@ def main(
         t += 1
         print("STEP =", t)
         obs = env.get_observation()
-        action, info = agent.act(obs)
-        done = env.apply_action(action, info=info)
+        action, info, obs = agent.act(obs)
+        done = env.apply_action(action, info=info, prev_obs=obs)
         if done:
             print("Done.")
             break
