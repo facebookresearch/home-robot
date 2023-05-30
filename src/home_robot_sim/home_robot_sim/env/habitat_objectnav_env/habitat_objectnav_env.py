@@ -14,6 +14,7 @@ from home_robot_sim.env.habitat_abstract_env import HabitatEnv
 from .constants import (
     FloorplannertoMukulIndoor,
     HM3DtoCOCOIndoor,
+    coco_categories_mapping,
     mukul_33categories_padded,
 )
 from .visualizer import Visualizer
@@ -38,6 +39,7 @@ class HabitatObjectNavEnv(HabitatEnv):
         )
         if "hm3d" in self.episodes_data_path:
             if config.AGENT.SEMANTIC_MAP.semantic_categories == "coco_indoor":
+                self.vocabulary = "coco"
                 self.semantic_category_mapping = HM3DtoCOCOIndoor()
             else:
                 raise NotImplementedError
@@ -61,8 +63,7 @@ class HabitatObjectNavEnv(HabitatEnv):
 
             # TODO Specify confidence threshold as a parameter
             self.segmentation = DeticPerception(
-                vocabulary="custom",
-                custom_vocabulary=",".join(mukul_33categories_padded),
+                vocabulary=self.vocabulary,
                 sem_gpu_id=(-1 if config.NO_GPU else self.habitat_env.sim.gpu_device),
             )
 
@@ -107,6 +108,12 @@ class HabitatObjectNavEnv(HabitatEnv):
             obs.task_observations["semantic_frame"] = obs.rgb
         else:
             obs = self.segmentation.predict(obs, depth_threshold=0.5)
+            if self.vocabulary == "coco":
+                obs.semantic = np.vectorize(coco_categories_mapping.get)(obs.semantic)
+                obs.semantic[obs.semantic == None] = (  # noqa: E711
+                    self.semantic_category_mapping.num_sem_categories - 1
+                )
+                obs.semantic = obs.semantic.astype(int)
             if type(self.semantic_category_mapping) == FloorplannertoMukulIndoor:
                 # First index is a dummy unused category
                 obs.semantic[obs.semantic == 0] = (
