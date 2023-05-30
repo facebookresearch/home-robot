@@ -2,6 +2,7 @@ from typing import Any, Dict, List, Optional
 
 import numpy as np
 import rospy
+from slap_manipulation.utils.slap_planner import CombinedSLAPPlanner
 
 import home_robot
 from home_robot.core.interfaces import (
@@ -11,6 +12,7 @@ from home_robot.core.interfaces import (
     HybridAction,
     Observations,
 )
+from home_robot.motion.stretch import STRETCH_TO_GRASP
 from home_robot.utils.geometry import xyt2sophus
 from home_robot_hw.env.stretch_pick_and_place_env import DETIC, StretchPickandPlaceEnv
 
@@ -43,6 +45,7 @@ class GeneralLanguageEnv(StretchPickandPlaceEnv):
         )
         self.current_goal_id = None
         self.current_goal_name = None
+        self.skill_planner = CombinedSLAPPlanner(self.robot, {})
 
     def reset(self):
         # TODO (@priyam): clean goal info if in obs
@@ -78,8 +81,10 @@ class GeneralLanguageEnv(StretchPickandPlaceEnv):
         # Also do not rotate if you are just doing grasp testing
         if grasp_only:
             self.robot.move_to_manip_posture()
+            rospy.sleep(5.0)
             return
         if not self.dry_run and not self.test_grasping:
+            print("[ENV] Rotating robot")
             self.robot.nav.navigate_to([0, 0, np.pi / 2], relative=True, blocking=True)
             self.robot.move_to_manip_posture()
 
@@ -125,6 +130,7 @@ class GeneralLanguageEnv(StretchPickandPlaceEnv):
                 if not self.robot.in_manipulation_mode():
                     self._switch_to_manip_mode()
                 continuous_action = None
+                # sleeping here so observation comes from view after turning head
             elif action == DiscreteNavigationAction.NAVIGATION_MODE:
                 # set goal based on info dict here
                 self.set_goal(info)
@@ -165,6 +171,18 @@ class GeneralLanguageEnv(StretchPickandPlaceEnv):
                 pos, ori, gripper = action.get()
                 continuous_action = None
                 print("[ENV] Receiving a ContinuousEndEffectorAction")
+                debug = False
+                if debug:
+                    curr_pos, curr_quat = self.robot.manip.get_ee_pose()
+                    gripper = 1
+                    new_pos = curr_pos + np.array([0, 0, 0.1])
+                    ok = self.skill_planner.try_executing_skill(
+                        [(new_pos, curr_quat, gripper)], self.robot.get_joint_state()
+                    )
+                combined_action = np.concatenate((pos, ori, gripper), axis=-1)
+                ok = self.skill_planner.try_executing_skill(
+                    combined_action, self.robot.get_joint_state()
+                )
                 # TODO: convert pos, ori into a ContinuousFullBodyAction here and execute that
 
         # Move, if we are not doing anything with the arm
@@ -188,6 +206,7 @@ class GeneralLanguageEnv(StretchPickandPlaceEnv):
         Returns:
             obs: observations containing everything the robot policy will be using to make decisions, other than its own internal state.
         """
+        breakpoint()
         rgb, depth, xyz = self.robot.head.get_images(
             compute_xyz=True,
         )

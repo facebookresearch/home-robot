@@ -262,7 +262,7 @@ class GeneralLanguageAgent(PickAndPlaceAgent):
             result, info = self.slap_model.predict(obs)
             if result is not None:
                 action = ContinuousEndEffectorAction(
-                    result[:, :3], result[:, 3:7], result[:, 7]
+                    result[:, :3], result[:, 3:7], np.expand_dims(result[:, 7], -1)
                 )
             else:
                 action = ContinuousEndEffectorAction(

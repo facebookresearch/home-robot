@@ -122,6 +122,7 @@ class SLAPAgent(object):
             xyz = xyz[x_mask]
             feat = feat[x_mask]
             xyz, rgb, feat = xyz.reshape(-1, 3), rgb.reshape(-1, 3), feat.reshape(-1, 1)
+            show_point_cloud(xyz, rgb)
 
         # voxelize at a granular voxel-size then choose X points
         xyz, rgb, feat = filter_and_remove_duplicate_points(
@@ -151,7 +152,6 @@ class SLAPAgent(object):
         if debug:
             print("create_action_prediction_input")
             show_point_cloud(xyz, rgb, orig=np.zeros(3))
-            breakpoint()
 
         # voxelize rgb, xyz, and feat
         voxelized_xyz, voxelized_rgb, voxelized_feat = voxelize_point_cloud(
@@ -238,6 +238,11 @@ class SLAPAgent(object):
             action = self.action_prediction_module.predict(apm_input)
             for i, act in enumerate(action):
                 action[i] = act.detach().cpu().numpy()
+            action = np.array(action)
+            print(f"[SLAP] Predicted action: {action}")
+            action[:, :3] += self.interaction_point.detach().cpu().numpy().reshape(
+                1, 3
+            ) + apm_input["mean"].detach().cpu().numpy().reshape(1, 3)
         return action, info
 
     def reset(self):
