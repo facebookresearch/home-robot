@@ -1,4 +1,4 @@
-![](docs/HomeRobot_Logo_Horiz_Color.png)
+![](docs/HomeRobot_Logo_Horiz_Color_white_bg.png)
 
 [![GitHub license](https://img.shields.io/badge/license-MIT-blue.svg)](https://github.com/facebookresearch/home-robot/blob/main/LICENSE)
 [![Python 3.9](https://img.shields.io/badge/python-3.9-blue.svg)](https://www.python.org/downloads/release/python-370/)
@@ -9,7 +9,9 @@
 
 Your open-source robotic mobile manipulation stack!
 
-*CURRENTLY UNDER ACTIVE DEVELOPMENT! PLEASE CONTACT US IF YOU ARE INTERESTED IN USING THIS LIBRARY!*
+_CURRENTLY UNDER ACTIVE DEVELOPMENT! PLEASE CONTACT US IF YOU ARE INTERESTED IN USING THIS LIBRARY!_
+
+_FULL RELEASE WILL HAPPEN MID-JUNE!_
 
 HomeRobot lets you get started running a range of robotics tasks on a low-cost mobile manipulator, starting with _Open Vocabulary Mobile Manipulation_, or OVMM. OVMM is a challenging task which means that, in an unknown environment, a robot must:
   - Explore its environment
