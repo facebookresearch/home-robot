@@ -2,8 +2,8 @@ import json
 from typing import Dict, Tuple
 
 from home_robot.core.interfaces import Observations
+from home_robot.perception.constants import RearrangeDETICCategories
 from home_robot.perception.detection.detic.detic_perception import DeticPerception
-from home_robot_sim.env.habitat_objectnav_env.constants import RearrangeDETICCategories
 
 
 def read_category_map_file(
