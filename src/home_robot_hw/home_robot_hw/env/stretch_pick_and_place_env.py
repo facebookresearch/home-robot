@@ -1,7 +1,7 @@
 import json
 import os
 import pickle
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, Optional
 
 import clip
 import numpy as np
@@ -21,16 +21,11 @@ from home_robot.motion.stretch import (
     STRETCH_HOME_Q,
     STRETCH_PREGRASP_Q,
 )
-from home_robot.perception.detection.detic.detic_perception import DeticPerception
 from home_robot.utils.geometry import xyt2sophus
 from home_robot_hw.env.stretch_abstract_env import StretchEnv
 from home_robot_hw.env.visualizer import Visualizer
 from home_robot_hw.remote import StretchClient
-from home_robot_hw.utils.config import load_config
 from home_robot_hw.utils.grasping import GraspPlanner
-
-# RECEP_START_IDX = 4
-# DETIC = "detic"
 
 
 class StretchPickandPlaceEnv(StretchEnv):
@@ -43,8 +38,6 @@ class StretchPickandPlaceEnv(StretchEnv):
         self,
         config,
         cat_map_file: str,
-        # goal_options: List[str] = None,
-        # segmentation_method: str = DETIC,
         visualize_planner: bool = False,
         ros_grasping: bool = True,
         test_grasping: bool = False,
@@ -61,10 +54,6 @@ class StretchPickandPlaceEnv(StretchEnv):
         """
         super().__init__(*args, **kwargs)
 
-        # TODO: pass this in or load from cfg
-        # if goal_options is None:
-        #     goal_options = REAL_WORLD_CATEGORIES
-        # self.goal_options = goal_options
         self.forward_step = config.ENVIRONMENT.forward
         self.rotate_step = np.radians(config.ENVIRONMENT.turn_angle)
         self.test_grasping = test_grasping
@@ -81,21 +70,8 @@ class StretchPickandPlaceEnv(StretchEnv):
         # Create a visualizer
         if config is not None:
             self.visualizer = Visualizer(config)
-            # config.defrost()
-            # config.AGENT.SEMANTIC_MAP.num_sem_categories = len(self.goal_options)
-            # config.freeze()
         else:
             self.visualizer = None
-
-        # Set up the segmenter
-        # self.segmentation_method = segmentation_method
-        # if self.segmentation_method == DETIC:
-        #     # TODO Specify confidence threshold as a parameter
-        #     self.segmentation = DeticPerception(
-        #         vocabulary="custom",
-        #         custom_vocabulary=",".join(self.goal_options),
-        #         sem_gpu_id=0,
-        #     )
 
         if ros_grasping:
             # Create a simple grasp planner object, which will let us pick stuff up.
@@ -319,9 +295,6 @@ class StretchPickandPlaceEnv(StretchEnv):
                 raise RuntimeError(
                     f"Receptacle goal not supported: {goal} not in {str(list(recep_name_map.keys()))}"
                 )
-        # goal_obj_id = self.goal_options.index(goal_obj)
-        # goal_find_id = self.goal_options.index(goal_find)
-        # goal_place_id = self.goal_options.index(goal_place)
         self.task_info = {
             "object_name": goal_obj,
             "start_recep_name": goal_find,
@@ -329,7 +302,6 @@ class StretchPickandPlaceEnv(StretchEnv):
             "goal_name": f"{goal_obj} from {goal_find} to {goal_place}",
             "start_receptacle": recep_name_map[goal_find],
             "goal_receptacle": recep_name_map[goal_place],
-            # "recep_goal": goal_find_id,
             # # To be populated by the agent
             "recep_idx": -1,
             "semantic_max_val": -1,
@@ -354,15 +326,6 @@ class StretchPickandPlaceEnv(StretchEnv):
             with torch.no_grad():
                 text_features = model.encode_text(text_inputs)
             self.task_info["object_embedding"] = text_features[0].cpu().numpy()
-        # self.current_goal_id = self.goal_options.index(goal_obj)
-        # self.current_goal_name = goal
-
-    # def sample_goal(self):
-    #     """set a random goal"""
-    #     goal_obj_idx = np.random.randint(len(self.goal_options))
-    #     goal_obj = self.goal_options[goal_obj_idx]
-    #     self.current_goal_id = self.goal_options.index(goal_obj_idx)
-    #     self.current_goal_name = goal_obj
 
     def get_observation(self) -> Observations:
         """Get Detic and rgb/xyz/theta from the robot. Read RGB + depth + point cloud from the robot's cameras, get current pose, and use all of this to compute the observations
@@ -400,41 +363,18 @@ class StretchPickandPlaceEnv(StretchEnv):
             relative_resting_position=np.array([0.3878479, 0.12924957, 0.4224413]),
             is_holding=np.array([0.0]),
         )
-        # Run the segmentation model here
-        # if self.segmentation_method == DETIC:
-        #     obs = self.segmentation.predict(obs)
-
-        #     # Make sure we only have one "other" - for ??? some reason
-        #     obs.semantic[obs.semantic == 0] = len(self.goal_options) - 1
-
-        #     # Choose instance mask with highest score for goal mask
-        #     instance_scores = obs.task_observations["instance_scores"].copy()
-        #     class_mask = (
-        #         obs.task_observations["instance_classes"] == self.current_goal_id
-        #     )
-
-        #     # If we detected anything... check to see if our target object was found, and if so pass in the mask.
-        #     if len(instance_scores) and np.any(class_mask):
-        #         chosen_instance_idx = np.argmax(instance_scores * class_mask)
-        #         obs.task_observations["goal_mask"] = (
-        #             obs.task_observations["instance_map"] == chosen_instance_idx
-        #         )
-        #     else:
-        #         obs.task_observations["goal_mask"] = np.zeros_like(obs.semantic).astype(
-        #             bool
-        #         )
 
         # TODO: remove debug code
-        debug_rgb_bgr = False
-        if debug_rgb_bgr:
-            import matplotlib.pyplot as plt
+        # debug_rgb_bgr = False
+        # if debug_rgb_bgr:
+        #     import matplotlib.pyplot as plt
 
-            plt.figure()
-            plt.subplot(121)
-            plt.imshow(obs.rgb)
-            plt.subplot(122)
-            plt.imshow(obs.task_observations["semantic_frame"])
-            plt.show()
+        #     plt.figure()
+        #     plt.subplot(121)
+        #     plt.imshow(obs.rgb)
+        #     plt.subplot(122)
+        #     plt.imshow(obs.task_observations["semantic_frame"])
+        #     plt.show()
         self.prev_obs = obs
         return obs
 
