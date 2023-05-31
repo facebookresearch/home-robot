@@ -70,7 +70,7 @@ class GeneralLanguageEnv(StretchPickandPlaceEnv):
             self.current_goal_id = 1
             self.current_goal_name = info["object_list"][0]
 
-    def _switch_to_manip_mode(self, grasp_only=True):
+    def _switch_to_manip_mode(self, grasp_only=False):
         """Rotate the robot and put it in the right configuration for grasping"""
 
         # We switch to navigation mode in order to rotate by 90 degrees
@@ -81,13 +81,11 @@ class GeneralLanguageEnv(StretchPickandPlaceEnv):
         # Also do not rotate if you are just doing grasp testing
         if grasp_only:
             self.robot.move_to_manip_posture()
-            rospy.sleep(5.0)
             return
         if not self.dry_run and not self.test_grasping:
             print("[ENV] Rotating robot")
             self.robot.nav.navigate_to([0, 0, np.pi / 2], relative=True, blocking=True)
             self.robot.move_to_manip_posture()
-            rospy.sleep(5.0)
 
     def apply_action(self, action: Action, info: Optional[Dict[str, Any]] = None):
         """Handle all sorts of different actions we might be inputting into this class.
@@ -95,9 +93,6 @@ class GeneralLanguageEnv(StretchPickandPlaceEnv):
         # Process the action so we know what to do with it
         if not isinstance(action, HybridAction):
             action = HybridAction(action)
-        # Update the visualizer
-        if self.visualizer is not None and info is not None and "viz" in info:
-            self.visualizer.visualize(**info["viz"])
         # By default - no arm control
         joints_action = None
         gripper_action = 0
@@ -199,6 +194,10 @@ class GeneralLanguageEnv(StretchPickandPlaceEnv):
                 )
         self._handle_joints_action(joints_action)
         self._handle_gripper_action(gripper_action)
+        # Update the visualizer
+        if self.visualizer is not None and info is not None and "viz" in info.keys():
+            print("[ENV] visualizing")
+            self.visualizer.visualize(**info["viz"])
         return False
 
     def get_observation(self) -> Observations:

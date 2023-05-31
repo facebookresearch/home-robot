@@ -99,6 +99,10 @@ class SLAPAgent(object):
         camera_pose = obs.task_observations["base_camera_pose"]
         xyz = trimesh.transform_points(xyz.reshape(-1, 3), camera_pose)
         feat = obs.semantic
+        import matplotlib.pyplot as plt
+
+        plt.imshow(obs.task_observations["semantic_frame"])
+        plt.show()
         # only keep feat which is == semantic_id
         feat[feat != semantic_id] = 0
 

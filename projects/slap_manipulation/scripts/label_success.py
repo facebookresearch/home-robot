@@ -1,0 +1,54 @@
+import glob
+import os
+from typing import List
+
+import click
+import h5py
+import numpy as np
+import open3d as o3d
+from matplotlib import pyplot as plt
+
+import home_robot.utils.data_tools.image as image
+from home_robot.utils.point_cloud import numpy_to_pcd, show_point_cloud
+
+
+@click.command()
+@click.option("--data-dir", type=str, default="~/data/dataset.h5")
+@click.option("--template", type=str, default="*/*.h5")
+@click.option(
+    "--mode",
+    type=click.Choice(["read", "test", "write", "visualize"], case_sensitive=True),
+    default="read",
+)
+def main(data_dir, template, mode):
+    # depth_factor = 10000
+    files = glob.glob(os.path.join(data_dir, template))
+    if mode == "read":
+        print("Nothing will be written to H5s, this is to show labeled points")
+    for file in files:
+        # get object category to look for given task
+        if mode == "read":
+            h5file = h5py.File(file, "r")
+        else:
+            h5file = h5py.File(file, "a")
+        for g_name in h5file.keys():
+            rgb = image.img_from_bytes(h5file[g_name]["head_rgb/0"][()])
+            xyz = h5file[g_name]["head_xyz"][()][0]
+            # depth = (
+            #     image.img_from_bytes(h5file[g_name]["head_depth/0"][()])
+            #     / depth_factor
+            # )
+            print("Showing initial point-cloud...")
+            show_point_cloud(xyz, rgb / 255.0)
+            print(f"Number of keyframes: {h5file[g_name]['head_xyz'][()].shape[0]}")
+            print(f"Current demo-status: {h5file[g_name]['demo_status'][()]}")
+            override_status = input("Enter y if you want to override demo-status")
+            if override_status == "y":
+                new_status = int(
+                    input("Enter the new status. 0 for fail, 1 for success: ")
+                )
+                h5file[g_name]["demo_status"] = new_status
+
+
+if __name__ == "__main__":
+    main()

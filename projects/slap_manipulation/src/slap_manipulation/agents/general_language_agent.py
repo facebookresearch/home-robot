@@ -121,18 +121,21 @@ class GeneralLanguageAgent(PickAndPlaceAgent):
         # we do not differentiate b/w obejcts or receptacles
         # everything is a semantic goal to be found
         # start_recep_goal and "end_recep_goal" are always None
-        obs.task_observations["end_recep_goal"] = None
-        obs.task_observations["end_recep_name"] = None
+        breakpoint()
         if len(object_list) > 1:
             obs.task_observations["start_recep_goal"] = 1
             obs.task_observations["object_goal"] = 2
             obs.task_observations["start_recep_name"] = object_list[0]
             obs.task_observations["goal_name"] = object_list[1]
+            obs.task_observations["end_recep_goal"] = None
+            obs.task_observations["end_recep_name"] = None
         else:
-            obs.task_observations["object_goal"] = 1
-            obs.task_observations["goal_name"] = object_list[0]
+            obs.task_observations["end_recep_goal"] = 1
+            obs.task_observations["end_recep_name"] = object_list[0]
             obs.task_observations["start_recep_goal"] = None
             obs.task_observations["start_recep_name"] = None
+            obs.task_observations["object_goal"] = None
+            obs.task_observations["goal_name"] = None
         return obs
 
     def _preprocess_obs_for_place(
@@ -196,6 +199,7 @@ class GeneralLanguageAgent(PickAndPlaceAgent):
                 self.state = GeneralTaskState.DOING_TASK
                 obs = self._preprocess_obs(obs, object_list)
                 action, info["viz"] = self.object_nav_agent.act(obs)
+                breakpoint()
                 if action == DiscreteNavigationAction.STOP or self.dry_run:
                     self.state = GeneralTaskState.IDLE
         return action, info

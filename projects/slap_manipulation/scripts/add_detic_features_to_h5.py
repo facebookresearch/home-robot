@@ -18,9 +18,13 @@ TASK_TO_OBJECT_MAP = {
     "pour_mug": ["bowl"],
     "pour-mug": ["bowl"],
     "pour_sink": ["sink"],
-    "handover": ["hand"],
-    "pick-bottle": ["bottle", "mug", "cup"],
+    "handover-bottle": ["hand", "human", "human hand", "person"],
+    "pick-bottle": ["bottle"],
     "sweep-the-table:": ["sponge", "squeegee", "brush"],
+    "pick-bottle-from-cabinet": ["bottle"],
+    "pick-bottle-from-cabinet-new": ["bottle"],
+    "pick-bottle-from-table": ["bottle"],
+    "sweep_edge_of_table": ["sponge", "squeegee", "brush"],
 }
 
 
