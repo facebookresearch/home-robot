@@ -6,10 +6,9 @@ import rospy
 
 from home_robot.agent.ovmm_agent.ovmm_agent import OpenVocabManipAgent
 from home_robot.motion.stretch import STRETCH_HOME_Q
-from home_robot_hw.env.stretch_pick_and_place_env import (
-    StretchPickandPlaceEnv,
-    load_config,
-)
+from home_robot_hw.env.stretch_pick_and_place_env import StretchPickandPlaceEnv
+from home_robot_hw.utils.config import load_config
+
 
 
 @click.command()
@@ -26,6 +25,7 @@ from home_robot_hw.env.stretch_pick_and_place_env import (
     "--cat-map-file", default="projects/stretch_ovmm/configs/example_cat_map.json"
 )
 @click.option("--visualize-maps", default=False, is_flag=True)
+@click.option("--visualize-grasping", default=False, is_flag=True)
 @click.option(
     "--debug",
     default=False,
@@ -41,6 +41,8 @@ def main(
     dry_run=False,
     visualize_maps=False,
     cat_map_file=None,
+    visualize_grasping=False,
+    test_place=False,
     **kwargs,
 ):
     print("- Starting ROS node")
@@ -49,16 +51,13 @@ def main(
     print("- Loading configuration")
     config = load_config(visualize=visualize_maps, **kwargs)
 
-    REAL_WORLD_CATEGORIES[1] = pick_object
-    REAL_WORLD_CATEGORIES[2] = start_recep
-    REAL_WORLD_CATEGORIES[3] = goal_recep
-
     print("- Creating environment")
     env = StretchPickandPlaceEnv(
         config=config,
         test_grasping=test_pick,
         dry_run=dry_run,
         cat_map_file=cat_map_file,
+        visualize_grasping=visualize_grasping,
     )
 
     print("- Creating agent")
