@@ -98,6 +98,7 @@ class GeneralLanguageAgent(PickAndPlaceAgent):
                     "self.open_object(['cabinet'], obs)",
                 ],
                 5: [
+                    "self.goto(['drawer'], obs)",
                     "self.open_object(['drawer'], obs)",
                 ],
             }
@@ -174,7 +175,7 @@ class GeneralLanguageAgent(PickAndPlaceAgent):
                 "Getting plans outside of test tasks is not implemented yet"
             )
 
-    def goto(self, object_list, obs: Observations):
+    def goto(self, object_list: List[str], obs: Observations):
         if self.debug:
             print("[LangAgent]: In locate skill")
         info = {}

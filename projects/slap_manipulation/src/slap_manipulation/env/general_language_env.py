@@ -87,6 +87,7 @@ class GeneralLanguageEnv(StretchPickandPlaceEnv):
             print("[ENV] Rotating robot")
             self.robot.nav.navigate_to([0, 0, np.pi / 2], relative=True, blocking=True)
             self.robot.move_to_manip_posture()
+            rospy.sleep(5.0)
 
     def apply_action(self, action: Action, info: Optional[Dict[str, Any]] = None):
         """Handle all sorts of different actions we might be inputting into this class.
@@ -206,7 +207,6 @@ class GeneralLanguageEnv(StretchPickandPlaceEnv):
         Returns:
             obs: observations containing everything the robot policy will be using to make decisions, other than its own internal state.
         """
-        breakpoint()
         rgb, depth, xyz = self.robot.head.get_images(
             compute_xyz=True,
         )
