@@ -4,6 +4,12 @@ from typing import Any, Dict, List, Tuple
 import torch
 
 from home_robot.agent.objectnav_agent import ObjectNavAgent
+from home_robot.agent.ovmm_agent.ovmm_agent import OpenVocabManipAgent, SemanticVocab
+from home_robot.agent.ovmm_agent.ovmm_perception import (
+    OvmmPerception,
+    build_vocab_from_category_map,
+    read_category_map_file,
+)
 from home_robot.agent.ovmm_agent.ppo_agent import PPOAgent
 from home_robot.core.abstract_agent import Agent
 from home_robot.core.interfaces import Action, DiscreteNavigationAction, Observations
@@ -25,7 +31,7 @@ class SimpleTaskState(Enum):
     DONE = 9
 
 
-class PickAndPlaceAgent(Agent):
+class PickAndPlaceAgent(OpenVocabManipAgent):
     """Create a simple version of a pick and place agent which uses a 2D semantic map to find
     objects and try to grasp them."""
 
@@ -69,6 +75,10 @@ class PickAndPlaceAgent(Agent):
         self.skip_orient_place = skip_orient_place
         self.config = config
         self.timestep = 0
+        self.semantic_sensor = OvmmPerception(config, device_id)
+        self.obj_name_to_id, self.rec_name_to_id = read_category_map_file(
+            config.ENVIRONMENT.category_map_file
+        )
 
         # Create place policy
         if not self.skip_place:
@@ -155,6 +165,11 @@ class PickAndPlaceAgent(Agent):
             action: home_robot action
             info: additional information (e.g., for debugging, visualization)
         """
+        obs = self.semantic_sensor(obs)
+        if self.timestep == 0:
+            self._update_semantic_vocabs(obs)
+            self._set_semantic_vocab(SemanticVocab.SIMPLE, force_set=True)
+
         info = self._get_info(obs)
         self.timestep += 1  # Update step counter for visualizations
         action = DiscreteNavigationAction.STOP
