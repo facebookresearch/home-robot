@@ -160,12 +160,6 @@ class GraspPlanner(object):
 
             # Get the observation from the environment if it exists
             obs = self.env.prev_obs
-            print("BDBDBDBD")
-            import matplotlib.pyplot as plt
-
-            plt.imshow(obs.rgb)
-            plt.show()
-            # Apply semantic sensor to this observation
 
             if obs is None:
                 print("[Grasping] No observation available in environment!")
@@ -200,10 +194,12 @@ class GraspPlanner(object):
                     "seconds",
                 )
 
-            if True:
+            if visualize:
                 import matplotlib.pyplot as plt
 
                 plt.imshow(obs.task_observations["semantic_frame"])
+                plt.axis("off")
+                plt.title("Predicted Semantic Frame")
                 plt.show()
 
             _, all_object_masks = self.get_object_class_masks(obs)

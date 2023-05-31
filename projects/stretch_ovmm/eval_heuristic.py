@@ -21,6 +21,7 @@ from home_robot_hw.utils.config import load_config
 @click.option("--start-recep", default="table")
 @click.option("--goal-recep", default="chair")
 @click.option("--visualize-maps", default=False, is_flag=True)
+@click.option("--show-observations", default=False, is_flag=True)
 @click.option(
     "--cat-map-file", default="projects/stretch_ovmm/configs/example_cat_map.json"
 )
@@ -36,6 +37,7 @@ def main(
     visualize_maps=False,
     test_place=False,
     cat_map_file=None,
+    show_observations=False,
     **kwargs
 ):
     print("- Starting ROS node")
@@ -81,10 +83,12 @@ def main(
         obs = env.get_observation()
         import matplotlib.pyplot as plt
 
-        plt.imshow(obs.rgb)
-        plt.axis("off")
-        plt.title("observation")
-        plt.show()
+        if show_observations:
+            plt.imshow(obs.rgb)
+            plt.axis("off")
+            plt.title("Observation")
+            plt.show()
+
         action, info, obs = agent.act(obs)
         done = env.apply_action(action, info=info, prev_obs=obs)
         if done:
