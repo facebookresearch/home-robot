@@ -178,10 +178,13 @@ class VoxelGraspGenerator(object):
         debug (bool): Flag indicating whether to enable debug mode.
     """
 
-    def __init__(self, in_base_frame=True, debug=False, verbose=True):
+    def __init__(
+        self, in_base_frame=True, debug=False, verbose=True, always_generate_grasp=True
+    ):
         self.in_base_frame = in_base_frame
         self.debug = debug
         self._verbose = verbose
+        self._always_grasp = always_generate_grasp
 
     def get_grasps(
         self,
@@ -291,6 +294,18 @@ class VoxelGraspGenerator(object):
                     grasp = _generate_grasp(grasp_pos, 0.0)
                     grasps_raw.append(grasp)
                     scores_raw.append(y_score)
+
+        # Add an emergency grasp generator - just try to grab the top or something
+        # This will work best on squishy objects
+        if len(scores_raw) == 0 and self._always_grasp:
+            # we need to add an emergency grasp location
+            # TODO: mean or median?
+            # avg_top_xyz = np.mean(xyz_top, axis=0)
+            avg_top_xyz = np.median(xyz_top, axis=0)
+            grasp0 = _generate_grasp(avg_top_xyz, np.pi / 2)
+            grasp1 = _generate_grasp(avg_top_xyz, 0)
+            grasps_raw = [grasp0, grasp1]
+            scores_raw = [0.5, 0.5]
 
         # Debug and visualization
         if self.debug:

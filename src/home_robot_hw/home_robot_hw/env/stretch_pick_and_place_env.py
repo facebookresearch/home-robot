@@ -1,7 +1,7 @@
 import json
 import os
 import pickle
-from typing import Any, Dict, Optional
+from typing import Any, Dict, List, Optional
 
 import clip
 import numpy as np
@@ -43,6 +43,8 @@ class StretchPickandPlaceEnv(StretchEnv):
         test_grasping: bool = False,
         dry_run: bool = False,
         debug: bool = False,
+        visualize_grasping: bool = False,
+        goal_options: List[str] = None,
         *args,
         **kwargs,
     ):
@@ -59,11 +61,17 @@ class StretchPickandPlaceEnv(StretchEnv):
         self.test_grasping = test_grasping
         self.dry_run = dry_run
         self.debug = debug
+        self.visualize_grasping = visualize_grasping
         self.task_info = {}
         self.prev_obs = None
 
-        with open(cat_map_file) as f:
-            self.category_map = json.load(f)
+        if goal_options is not None:
+            self.category_map = {}
+            for i, opt in enumerate(goal_options):
+                self.category_map[opt] = i
+        else:
+            with open(cat_map_file) as f:
+                self.category_map = json.load(f)
 
         self.robot = StretchClient(init_node=False)
 
@@ -212,7 +220,8 @@ class StretchPickandPlaceEnv(StretchEnv):
                         # Dummy out robot execution code for perception tests
                         break
                     ok = self.grasp_planner.try_grasping(
-                        wait_for_input=self.debug, visualize=self.test_grasping
+                        wait_for_input=self.debug,
+                        visualize=(self.test_grasping or self.visualize_grasping),
                     )
                     if ok:
                         break

@@ -13,7 +13,7 @@ from home_robot.utils.constants import (
 )
 
 hm3d_to_mp3d_path = Path(__file__).resolve().parent / "matterport_category_mappings.tsv"
-df = pd.read_csv(hm3d_to_mp3d_path, sep="    ", header=0)
+df = pd.read_csv(hm3d_to_mp3d_path, sep="    ", header=0, engine="python")
 hm3d_to_mp3d = {row["category"]: row["mpcat40index"] for _, row in df.iterrows()}
 
 
