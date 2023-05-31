@@ -24,6 +24,7 @@ from home_robot_hw.env.stretch_pick_and_place_env import (
 @click.option("--start-recep", default="table")
 @click.option("--goal-recep", default="chair")
 @click.option("--visualize-maps", default=False, is_flag=True)
+@click.option("--visualize-grasping", default=False, is_flag=True)
 @click.option(
     "--debug",
     default=False,
@@ -40,6 +41,7 @@ def main(
     goal_recep="chair",
     dry_run=False,
     visualize_maps=False,
+    visualize_grasping=False,
     test_place=False,
     **kwargs,
 ):
@@ -58,6 +60,7 @@ def main(
         config=config,
         test_grasping=test_pick,
         dry_run=dry_run,
+        visualize_grasping=visualize_grasping,
     )
 
     # TODO: May be a bit easier if we just read skip_{skill} from command line - similar to habitat_ovmm
