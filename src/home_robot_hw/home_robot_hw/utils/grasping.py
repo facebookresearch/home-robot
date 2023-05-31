@@ -33,6 +33,7 @@ class GraspPlanner(object):
         verbose=True,
         min_obj_pts: int = 100,
         min_detection_threshold: float = 0.5,
+        max_distance_m: float = 1.5,
     ):
         self.robot_client = robot_client
         self.env = env
@@ -41,6 +42,7 @@ class GraspPlanner(object):
         self.planner = SimpleGraspMotionPlanner(self.robot_client.model)
         self.min_obj_pts = min_obj_pts
         self.min_detection_threshold = min_detection_threshold
+        self.max_distance_m = max_distance_m
 
         # Add this flag to make sure that the point clouds are coming in correctly - will visualize what the points look like relative to a base coordinate frame with z = up, x = forward
         self.debug_point_cloud = debug_point_cloud
@@ -78,6 +80,9 @@ class GraspPlanner(object):
             mean_pt = np.mean(obj_pts, axis=0)
             dist = np.linalg.norm(mean_pt)
             print(" -", obj_id, "with", num_obj_pts, "points; dist to cam =", dist, "m")
+            if dist > self.max_distance_m:
+                print(" --> too far away from camera, not reachable")
+                continue
             if dist < min_dist:
                 min_dist = dist
                 best_mask = mask
@@ -128,7 +133,7 @@ class GraspPlanner(object):
         self,
         visualize: bool = False,
         dry_run: bool = False,
-        max_tries: int = 10,
+        max_tries: int = 1,
         wait_for_input: bool = False,
     ):
         """Detect grasps and try to pick up an object in front of the robot.
@@ -154,7 +159,6 @@ class GraspPlanner(object):
             t0 = timeit.default_timer()
 
             # Get the observation from the environment if it exists
-            # obs = self.env.get_observation()
             obs = self.env.prev_obs
             print("BDBDBDBD")
             import matplotlib.pyplot as plt
@@ -216,7 +220,7 @@ class GraspPlanner(object):
             # Break the loop if we are not seeing anything
             if object_mask is None:
                 print("[Grasping] --> could not find object mask with enough points")
-                continue
+                return False
 
             if visualize:
                 viz.show_image_with_mask(rgb, object_mask)
@@ -224,7 +228,7 @@ class GraspPlanner(object):
             num_object_pts = np.sum(object_mask)
             print("[Grasping] found this many object points:", num_object_pts)
             if num_object_pts < self.min_obj_pts:
-                continue
+                return False
 
             mask_valid = (
                 depth > self.robot_client._ros_client.dpt_cam.near_val
@@ -241,7 +245,8 @@ class GraspPlanner(object):
             )
             if 0 not in predicted_grasps:
                 print("no predicted grasps")
-                continue
+                return False
+
             predicted_grasps, scores = predicted_grasps[0]
             print("got this many grasps:", len(predicted_grasps))
 

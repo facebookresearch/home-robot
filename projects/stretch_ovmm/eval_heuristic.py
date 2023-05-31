@@ -79,6 +79,12 @@ def main(
         t += 1
         print("STEP =", t)
         obs = env.get_observation()
+        import matplotlib.pyplot as plt
+
+        plt.imshow(obs.rgb)
+        plt.axis("off")
+        plt.title("observation")
+        plt.show()
         action, info, obs = agent.act(obs)
         done = env.apply_action(action, info=info, prev_obs=obs)
         if done:

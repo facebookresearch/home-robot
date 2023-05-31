@@ -190,7 +190,7 @@ class PickAndPlaceAgent(OpenVocabManipAgent):
             self.state = SimpleTaskState.GAZE_OBJECT
             if not self.skip_orient:
                 # orient to face the object
-                return DiscreteNavigationAction.MANIPULATION_MODE, action_info
+                return DiscreteNavigationAction.MANIPULATION_MODE, action_info, obs
         if self.state == SimpleTaskState.GAZE_OBJECT:
             if self.skip_gaze or self.gaze_agent is None:
                 self.state = SimpleTaskState.PICK_OBJECT
@@ -204,10 +204,10 @@ class PickAndPlaceAgent(OpenVocabManipAgent):
             # Try to grab the object
             if obs.task_observations["prev_grasp_success"] and not self.skip_place:
                 self.state = SimpleTaskState.ORIENT_NAV
-            return DiscreteNavigationAction.PICK_OBJECT, action_info
+            return DiscreteNavigationAction.PICK_OBJECT, action_info, obs
         if self.state == SimpleTaskState.ORIENT_NAV:
             self.state = SimpleTaskState.FIND_GOAL
-            return DiscreteNavigationAction.NAVIGATION_MODE, action_info
+            return DiscreteNavigationAction.NAVIGATION_MODE, action_info, obs
         if self.state == SimpleTaskState.FIND_GOAL:
             # Find the goal location
             obs, info = self._preprocess_obs_for_place(obs, info)
