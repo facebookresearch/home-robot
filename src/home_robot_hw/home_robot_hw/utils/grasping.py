@@ -151,7 +151,12 @@ class GraspPlanner(object):
 
             # Get the observations - we need depth and xyz point clouds
             t0 = timeit.default_timer()
+
+            # Get the observation from the environment if it exists
             obs = self.env.prev_obs
+            if obs is None:
+                print("[Grasping] No observation available in environment!")
+                return False
             rgb, depth, xyz = obs.rgb, obs.depth, obs.xyz
 
             # TODO: verify this is correct
