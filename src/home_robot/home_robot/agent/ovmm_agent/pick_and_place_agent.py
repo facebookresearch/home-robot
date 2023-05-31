@@ -165,10 +165,10 @@ class PickAndPlaceAgent(OpenVocabManipAgent):
             action: home_robot action
             info: additional information (e.g., for debugging, visualization)
         """
-        obs = self.semantic_sensor(obs)
         if self.timestep == 0:
             self._update_semantic_vocabs(obs)
             self._set_semantic_vocab(SemanticVocab.SIMPLE, force_set=True)
+        obs = self.semantic_sensor(obs)
 
         info = self._get_info(obs)
         self.timestep += 1  # Update step counter for visualizations
