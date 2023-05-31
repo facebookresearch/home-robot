@@ -202,8 +202,12 @@ class PickAndPlaceAgent(OpenVocabManipAgent):
                 return action, None, obs
         if self.state == SimpleTaskState.PICK_OBJECT:
             # Try to grab the object
-            if obs.task_observations["prev_grasp_success"] and not self.skip_place:
-                self.state = SimpleTaskState.ORIENT_NAV
+            if obs.task_observations["prev_grasp_success"]:
+                print("[Agent] Attempted a grasp. Moving on...")
+                if not self.skip_place:
+                    self.state = SimpleTaskState.ORIENT_NAV
+                else:
+                    print("[Agent] staying in grasp state to continue testing.")
             return DiscreteNavigationAction.PICK_OBJECT, action_info, obs
         if self.state == SimpleTaskState.ORIENT_NAV:
             self.state = SimpleTaskState.FIND_GOAL
