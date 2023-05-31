@@ -47,6 +47,7 @@ def load_config(visualize=False, print_images=True, config_path=None, **kwargs):
     config.VISUALIZE = int(visualize)
     config.PRINT_IMAGES = int(print_images)
     config.EXP_NAME = "debug"
+    config.AGENT.dry_run = False
     config.freeze()
     return config
 

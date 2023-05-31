@@ -125,6 +125,7 @@ class GeneralLanguageEnv(StretchPickandPlaceEnv):
                 self.set_goal(info)
                 if not self.robot.in_manipulation_mode():
                     self._switch_to_manip_mode()
+                    rospy.sleep(5.0)
                 continuous_action = None
                 # sleeping here so observation comes from view after turning head
             elif action == DiscreteNavigationAction.NAVIGATION_MODE:
