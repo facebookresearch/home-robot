@@ -201,14 +201,14 @@ class GraspPlanner(object):
 
             # Break the loop if we are not seeing anything
             if object_mask is None:
-                print("--> could not find object mask with enough points")
+                print("[Grasping] --> could not find object mask with enough points")
                 continue
 
             if visualize:
                 viz.show_image_with_mask(rgb, object_mask)
 
             num_object_pts = np.sum(object_mask)
-            print("found this many object points:", num_object_pts)
+            print("[Grasping] found this many object points:", num_object_pts)
             if num_object_pts < self.min_obj_pts:
                 continue
 
