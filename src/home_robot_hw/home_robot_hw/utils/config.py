@@ -14,5 +14,7 @@ def load_config(
     config.VISUALIZE = int(visualize)
     config.PRINT_IMAGES = int(print_images)
     config.EXP_NAME = "debug"
+    if config.GROUND_TRUTH_SEMANTICS != 0:
+        raise RuntimeError("No ground truth semantics in the real world!")
     config.freeze()
     return config

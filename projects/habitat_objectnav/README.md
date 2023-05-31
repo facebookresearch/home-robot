@@ -59,7 +59,7 @@ mv datasets/scene_datasets/fphab-v0.2.0 datasets/scene_datasets/floorplanner/v0.
 
 ```
 mkdir -p datasets/episode_datasets/floorplanner/indoor_only/
-wget https://www.dropbox.com/s/n1g1s6uvowo4tbm/v0.2.0_receptacle_cat_indoor_only_val.zip -O datasets/episode_datasets/floorplanner/indoor_only/v0.2.0_receptacle_cat_indoor_only_val.zip
+wget https://www.dropbox.com/s/eex8v8un6r6ru3z/v0.2.0_receptacle_cat_indoor_only_val.zip -O datasets/episode_datasets/floorplanner/indoor_only/v0.2.0_receptacle_cat_indoor_only_val.zip
 unzip datasets/episode_datasets/floorplanner/indoor_only/v0.2.0_receptacle_cat_indoor_only_val.zip -d datasets/episode_datasets/floorplanner/indoor_only/
 ```
 

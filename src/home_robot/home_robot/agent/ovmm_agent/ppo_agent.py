@@ -8,7 +8,7 @@
 import copy
 import random
 from collections import OrderedDict
-from typing import Any, Dict
+from typing import Any, Tuple, Union
 
 import gym.spaces as spaces
 import numba
@@ -96,6 +96,7 @@ class PPOAgent(Agent):
                             }
                         ),
                         "rearrange_stop": EmptySpace(),
+                        "manipulation_mode": EmptySpace(),
                     }
                 )
             ]
@@ -195,10 +196,15 @@ class PPOAgent(Agent):
         self.min_turn = skill_config.min_turn_degrees * np.pi / 180
         self.nav_goal_seg_channels = skill_config.nav_goal_seg_channels
         self.max_joint_delta = None
+        self.min_joint_delta = None
         if "arm_action" in skill_config.allowed_actions:
             self.max_joint_delta = skill_config.max_joint_delta
             self.grip_threshold = skill_config.grip_threshold
+            self.min_joint_delta = skill_config.min_joint_delta
+        if "manipulation_mode" in skill_config.allowed_actions:
+            self.manip_mode_threshold = skill_config.manip_mode_threshold
         self.terminate_condition = skill_config.terminate_condition
+        self.manip_mode_called = False
 
     def reset(self) -> None:
         self.test_recurrent_hidden_states = torch.zeros(
@@ -216,6 +222,7 @@ class PPOAgent(Agent):
             dtype=torch.float32 if self.continuous_actions else torch.long,
             device=self.device,
         )
+        self.manip_mode_called = False
 
     def reset_vectorized(self):
         """Initialize agent state."""
@@ -276,7 +283,6 @@ class PPOAgent(Agent):
     def convert_to_habitat_obs_space(
         self, obs: Observations
     ) -> "OrderedDict[str, Any]":
-
         # normalize depth
         min_depth = self.config.ENVIRONMENT.min_depth
         max_depth = self.config.ENVIRONMENT.max_depth
@@ -293,15 +299,16 @@ class PPOAgent(Agent):
                 "object_segmentation": np.expand_dims(
                     obs.semantic == obs.task_observations["object_goal"], -1
                 ).astype(np.uint8),
+                "goal_recep_segmentation": np.expand_dims(
+                    obs.semantic == obs.task_observations["end_recep_goal"], -1
+                ).astype(np.uint8),
                 "joint": obs.joint,
                 "relative_resting_position": obs.relative_resting_position,
                 "is_holding": obs.is_holding,
                 "robot_start_gps": np.array((obs.gps[0], -1 * obs.gps[1])),
                 "robot_start_compass": obs.compass + np.pi / 2,
                 "start_receptacle": obs.task_observations["start_receptacle"],
-                "goal_receptacle": obs.task_observations[
-                    "goal_receptacle"
-                ],  # Todo: remove after mapping is fixed
+                "goal_receptacle": obs.task_observations["goal_receptacle"],
             }
         )
 
@@ -312,8 +319,16 @@ class PPOAgent(Agent):
 
         return hab_obs
 
-    # FIXME: the return values do not match the signature
-    def act(self, observations: Observations) -> Dict[str, int]:
+    def act(
+        self, observations: Observations
+    ) -> Tuple[
+        Union[
+            ContinuousFullBodyAction,
+            ContinuousNavigationAction,
+            DiscreteNavigationAction,
+        ],
+        bool,
+    ]:
         sample_random_seed()
         obs = self.convert_to_habitat_obs_space(observations)
         batch = batch_obs([obs], device=self.device)
@@ -371,6 +386,14 @@ class PPOAgent(Agent):
     def _map_continuous_habitat_actions(self, cont_action):
         """Map habitat continuous actions to home-robot continuous actions"""
         # TODO: add home-robot support for simultaneous gripping
+        if (
+            not self.manip_mode_called
+            and "manipulation_mode" in cont_action
+            and cont_action["manipulation_mode"] >= self.manip_mode_threshold
+        ):
+            self.manip_mode_called = True
+            # Todo, look at the order in which hab-lab updates actions
+            return DiscreteNavigationAction.MANIPULATION_MODE
         waypoint, turn, sel = cont_action[
             "base_vel"
         ]  # Teleport action after disabling simultaneous turn and lateral movement
@@ -397,6 +420,8 @@ class PPOAgent(Agent):
                 [complete_arm_action[:1], [0] * 3, complete_arm_action[1:]]
             )
             joints = np.clip(complete_arm_action, -1, 1) * self.max_joint_delta
+            # remove small joint movements
+            joints[np.abs(joints) < self.min_joint_delta] = 0
             return ContinuousFullBodyAction(joints, xyt=xyt)
         else:
             return ContinuousNavigationAction(xyt)
