@@ -9,12 +9,6 @@ from home_robot.motion.stretch import STRETCH_HOME_Q
 from home_robot_hw.env.stretch_pick_and_place_env import StretchPickandPlaceEnv
 from home_robot_hw.utils.config import load_config
 
-REAL_WORLD_CATEGORIES = [
-    "chair",
-    "cup",
-    "table",
-]
-
 
 @click.command()
 @click.option("--test-pick", default=False, is_flag=True)
@@ -27,12 +21,8 @@ REAL_WORLD_CATEGORIES = [
 @click.option("--start-recep", default="table")
 @click.option("--goal-recep", default="chair")
 @click.option("--visualize-maps", default=False, is_flag=True)
-@click.option("--cat-map-file", default=None)
 @click.option(
-    "--debug",
-    default=False,
-    is_flag=True,
-    help="Add pauses for debugging manipulation behavior.",
+    "--cat-map-file", default="projects/stretch_ovmm/configs/example_cat_map.json"
 )
 def main(
     test_pick=False,
@@ -46,19 +36,16 @@ def main(
     visualize_maps=False,
     test_place=False,
     cat_map_file=None,
+    **kwargs
 ):
     print("- Starting ROS node")
     rospy.init_node("eval_episode_stretch_objectnav")
 
-    REAL_WORLD_CATEGORIES[0] = start_recep
-    REAL_WORLD_CATEGORIES[1] = pick_object
-    REAL_WORLD_CATEGORIES[2] = goal_recep
     print("- Loading configuration")
     config = load_config(visualize=visualize_maps, **kwargs)
 
     print("- Creating environment")
     env = StretchPickandPlaceEnv(
-        goal_options=REAL_WORLD_CATEGORIES,
         config=config,
         test_grasping=test_pick,
         dry_run=dry_run,
@@ -85,7 +72,7 @@ def main(
         robot.nav.navigate_to([0, 0, 0])
 
     agent.reset()
-    env.reset(start_recep, object, goal_recep)
+    env.reset(start_recep, pick_object, goal_recep)
 
     t = 0
     while not env.episode_over and not rospy.is_shutdown():
