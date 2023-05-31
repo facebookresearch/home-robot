@@ -372,6 +372,10 @@ class StretchPickandPlaceEnv(StretchEnv):
             is_holding=np.array([0.0]),
         )
         obs.task_observations["prev_grasp_success"] = self.prev_grasp_success
+        obs.task_observations[
+            "in_manipulation_mode"
+        ] = self.robot.in_manipulation_mode()
+        obs.task_observations["in_navigation_mode"] = self.robot.in_navigation_mode()
 
         # TODO: remove debug code
         # debug_rgb_bgr = False

@@ -57,6 +57,7 @@ class OpenVocabManipAgent(ObjectNavAgent):
         self.place_agent = None
         self.semantic_sensor = None
         self.skip_skills = config.AGENT.skip_skills
+        self.max_pick_attempts = 10
         if config.GROUND_TRUTH_SEMANTICS == 0:
             self.semantic_sensor = OvmmPerception(config, device_id)
             self.obj_name_to_id, self.rec_name_to_id = read_category_map_file(
@@ -386,16 +387,28 @@ class OpenVocabManipAgent(ObjectNavAgent):
             pick_step = self.timesteps[0] - self.pick_start_step[0]
             if pick_step == 0:
                 action = DiscreteNavigationAction.MANIPULATION_MODE
-            elif pick_step == 1:
-                action = DiscreteNavigationAction.PICK_OBJECT
-            elif pick_step == 2:
-                action = DiscreteNavigationAction.NAVIGATION_MODE
-            elif pick_step == 3:
-                action = None
+            elif pick_step < self.max_pick_attempts:
+                # If we have not seen an object mask to try to grasp...
+                if not obs.task_observations["prev_grasp_success"]:
+                    action = DiscreteNavigationAction.PICK_OBJECT
+                elif not obs.task_observations["in_navigation_mode"]:
+                    action = DiscreteNavigationAction.NAVIGATION_MODE
+                else:
+                    action = None
             else:
-                raise ValueError(
-                    "Still in hardware-mode hard-coded pick. Should have transitioned to the next skill."
-                )
+                # We have tried too many times and we're going to quit
+                if not obs.task_observations["in_navigation_mode"]:
+                    action = DiscreteNavigationAction.NAVIGATION_MODE
+                else:
+                    action = None
+            # else:
+            #     raise ValueError(
+            #         "Still in hardware-mode hard-coded pick. Should have transitioned to the next skill."
+            #     )
+        else:
+            raise NotImplementedError(
+                f"pick type not supported: {self.config.AGENT.SKILLS.PICK.type}"
+            )
         new_state = None
         if action is None:
             new_state = Skill.NAV_TO_REC
