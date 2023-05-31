@@ -67,6 +67,8 @@ class StretchPickandPlaceEnv(StretchEnv):
         test_grasping: bool = False,
         dry_run: bool = False,
         debug: bool = False,
+        visualize_grasping: bool = False,
+        min_detection_threshold: float = 0.5,
         *args,
         **kwargs,
     ):
@@ -87,7 +89,9 @@ class StretchPickandPlaceEnv(StretchEnv):
         self.test_grasping = test_grasping
         self.dry_run = dry_run
         self.debug = debug
+        self.visualize_grasping = visualize_grasping
         self.task_info = {}
+        self.min_detection_threshold = min_detection_threshold
 
         self.robot = StretchClient(init_node=False)
 
@@ -243,7 +247,8 @@ class StretchPickandPlaceEnv(StretchEnv):
                         # Dummy out robot execution code for perception tests
                         break
                     ok = self.grasp_planner.try_grasping(
-                        wait_for_input=self.debug, visualize=self.test_grasping
+                        wait_for_input=self.debug,
+                        visualize=(self.test_grasping or self.visualize_grasping),
                     )
                     if ok:
                         break
@@ -402,9 +407,25 @@ class StretchPickandPlaceEnv(StretchEnv):
             class_mask = (
                 obs.task_observations["instance_classes"] == self.current_goal_id
             )
+            valid_instances = (
+                instance_scores * class_mask
+            ) > self.min_detection_threshold
+            class_map = np.zeros_like(obs.task_observations["instance_map"]).astype(
+                bool
+            )
 
             # If we detected anything... check to see if our target object was found, and if so pass in the mask.
             if len(instance_scores) and np.any(class_mask):
+                # Compute mask of all detected objects fitting the description
+                print(valid_instances)
+                for i, valid in enumerate(valid_instances):
+                    if not valid:
+                        continue
+                    class_map = np.bitwise_or(
+                        class_map, obs.task_observations["instance_map"] == i
+                    )
+
+                # Mask of the most likely candidate is "goal"
                 chosen_instance_idx = np.argmax(instance_scores * class_mask)
                 obs.task_observations["goal_mask"] = (
                     obs.task_observations["instance_map"] == chosen_instance_idx
@@ -413,6 +434,8 @@ class StretchPickandPlaceEnv(StretchEnv):
                 obs.task_observations["goal_mask"] = np.zeros_like(obs.semantic).astype(
                     bool
                 )
+
+            obs.task_observations["goal_class_mask"] = class_map.astype(bool)
 
         # TODO: remove debug code
         debug_rgb_bgr = False
