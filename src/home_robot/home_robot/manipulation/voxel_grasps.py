@@ -295,7 +295,8 @@ class VoxelGraspGenerator(object):
                     grasps_raw.append(grasp)
                     scores_raw.append(y_score)
 
-        scores_raw = []
+        # Add an emergency grasp generator - just try to grab the top or something
+        # This will work best on squishy objects
         if len(scores_raw) == 0 and self._always_grasp:
             # we need to add an emergency grasp location
             # TODO: mean or median?
