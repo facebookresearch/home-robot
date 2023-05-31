@@ -170,12 +170,12 @@ AGENT:
       min_joint_delta: 0.02
 
   skip_skills:
-    nav_to_obj: False
+    nav_to_obj: True
     pick: False
-    nav_to_rec: False
+    nav_to_rec: True
     gaze_at_obj: True
     gaze_at_rec: True
-    place: False
+    place: True
 
   PLANNER:
     collision_threshold: 0.20       # forward move distance under which we consider there's a collision (in meters)
