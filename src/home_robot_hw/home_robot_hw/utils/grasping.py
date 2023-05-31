@@ -71,14 +71,15 @@ class GraspPlanner(object):
             num_obj_pts = np.sum(mask)
             if num_obj_pts < self.min_obj_pts:
                 continue
-            print(" -", obj_id, "with", num_obj_pts, "points")
             obj_pts = pts[mask.reshape(-1), :]
             mean_pt = np.mean(obj_pts, axis=-1)
             dist = np.linalg.norm(mean_pt)
+            print(" -", obj_id, "with", num_obj_pts, "points; dist to cam =", dist, "m")
             if dist < min_dist:
-                dist = min_dist
+                min_dist = dist
                 best_mask = mask
                 min_id = obj_id
+            breakpoint()
 
         if min_id < 0:
             return None
