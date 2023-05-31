@@ -93,12 +93,13 @@ class GraspPlanner(object):
     ) -> Tuple[np.ndarray, np.ndarray]:
         """Get object and class information from the perception system"""
 
-        # Make sure we only have one "other" - for ??? some reason
-        obs.semantic[obs.semantic == 0] = len(self.goal_options) - 1
-
         # Choose instance mask with highest score for goal mask
         instance_scores = obs.task_observations["instance_scores"].copy()
-        class_mask = obs.task_observations["instance_classes"] == self.current_goal_id
+        # "object_goal" is the object id in the semantic mask
+        class_mask = (
+            obs.task_observations["instance_classes"]
+            == obs.task_observations["object_goal"]
+        )
         valid_instances = (instance_scores * class_mask) > self.min_detection_threshold
         class_map = np.zeros_like(obs.task_observations["instance_map"]).astype(bool)
 
@@ -153,7 +154,15 @@ class GraspPlanner(object):
             t0 = timeit.default_timer()
 
             # Get the observation from the environment if it exists
+            # obs = self.env.get_observation()
             obs = self.env.prev_obs
+            print("BDBDBDBD")
+            import matplotlib.pyplot as plt
+
+            plt.imshow(obs.rgb)
+            plt.show()
+            # Apply semantic sensor to this observation
+
             if obs is None:
                 print("[Grasping] No observation available in environment!")
                 return False
@@ -187,7 +196,12 @@ class GraspPlanner(object):
                     "seconds",
                 )
 
-            breakpoint()
+            if True:
+                import matplotlib.pyplot as plt
+
+                plt.imshow(obs.task_observations["semantic_frame"])
+                plt.show()
+
             _, all_object_masks = self.get_object_class_masks(obs)
             # TODO: return to this if we want to take goal mask as an argument in the future
             # For now though we will choose the closest one
@@ -195,7 +209,7 @@ class GraspPlanner(object):
             # TODO: in the future, we will make this a flag.
             object_mask = self.get_closest_goal(
                 xyz,
-                obs.task_observations["goal_class_mask"],
+                all_object_masks,
                 obs.task_observations["instance_map"],
             )
 

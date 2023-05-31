@@ -202,7 +202,7 @@ class PickAndPlaceAgent(OpenVocabManipAgent):
                 return action, None
         if self.state == SimpleTaskState.PICK_OBJECT:
             # Try to grab the object
-            if not self.skip_place:
+            if obs.task_observations["prev_grasp_success"] and not self.skip_place:
                 self.state = SimpleTaskState.ORIENT_NAV
             return DiscreteNavigationAction.PICK_OBJECT, action_info
         if self.state == SimpleTaskState.ORIENT_NAV:
