@@ -296,9 +296,15 @@ class VoxelGraspGenerator(object):
                     scores_raw.append(y_score)
 
         scores_raw = []
-        if len(scores_raw) < 1 and self._always_grasp:
+        if len(scores_raw) == 0 and self._always_grasp:
             # we need to add an emergency grasp location
-            breakpoint()
+            # TODO: mean or median?
+            # avg_top_xyz = np.mean(xyz_top, axis=0)
+            avg_top_xyz = np.median(xyz_top, axis=0)
+            grasp0 = _generate_grasp(avg_top_xyz, np.pi / 2)
+            grasp1 = _generate_grasp(avg_top_xyz, 0)
+            grasps_raw = [grasp0, grasp1]
+            scores_raw = [0.5, 0.5]
 
         # Debug and visualization
         if self.debug:

@@ -72,14 +72,13 @@ class GraspPlanner(object):
             if num_obj_pts < self.min_obj_pts:
                 continue
             obj_pts = pts[mask.reshape(-1), :]
-            mean_pt = np.mean(obj_pts, axis=-1)
+            mean_pt = np.mean(obj_pts, axis=0)
             dist = np.linalg.norm(mean_pt)
             print(" -", obj_id, "with", num_obj_pts, "points; dist to cam =", dist, "m")
             if dist < min_dist:
                 min_dist = dist
                 best_mask = mask
                 min_id = obj_id
-            breakpoint()
 
         if min_id < 0:
             return None
@@ -154,7 +153,6 @@ class GraspPlanner(object):
                 obs.task_observations["goal_class_mask"],
                 obs.task_observations["instance_map"],
             )
-            breakpoint()
 
             # Break the loop if we are not seeing anything
             if object_mask is None:
