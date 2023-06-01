@@ -2,6 +2,7 @@
 #
 # This source code is licensed under the MIT license found in the
 # LICENSE file in the root directory of this source tree.
+import json
 import os
 import shutil
 from typing import Optional
@@ -15,10 +16,7 @@ import home_robot.utils.pose as pu
 import home_robot.utils.visualization as vu
 from home_robot.perception.constants import FloorplannertoMukulIndoor, HM3DtoCOCOIndoor
 from home_robot.perception.constants import PaletteIndices as PI
-from home_robot.perception.constants import (
-    RearrangeBasicCategories,
-    RearrangeDETICCategories,
-)
+from home_robot.perception.constants import RearrangeDETICCategories
 
 
 class VIS_LAYOUT:
@@ -78,27 +76,14 @@ class Visualizer:
             and "CatNavToObjTask" in config.habitat.task.type
         ):
             if self._dataset is None:
-                self._obj_name_to_id_mapping = {
-                    "action_figure": 0,
-                    "cup": 1,
-                    "dishtowel": 2,
-                    "hat": 3,
-                    "sponge": 4,
-                    "stuffed_toy": 5,
-                    "tape": 6,
-                    "vase": 7,
-                }
-                self._rec_name_to_id_mapping = {
-                    "armchair": 0,
-                    "armoire": 1,
-                    "bar_stool": 2,
-                    "coffee_table": 3,
-                    "desk": 4,
-                    "dining_table": 5,
-                    "kitchen_island": 6,
-                    "sofa": 7,
-                    "stool": 8,
-                }
+                with open(config.ENVIRONMENT.category_map_file) as f:
+                    category_map = json.load(f)
+                self._obj_name_to_id_mapping = category_map[
+                    "obj_category_to_obj_category_id"
+                ]
+                self._rec_name_to_id_mapping = category_map[
+                    "recep_category_to_recep_category_id"
+                ]
             else:
                 self._obj_name_to_id_mapping = (
                     self._dataset.obj_category_to_obj_category_id
@@ -114,28 +99,26 @@ class Visualizer:
             }
 
             if config.GROUND_TRUTH_SEMANTICS:
-                self.semantic_category_mapping = RearrangeBasicCategories()
-            else:
                 # combining objs and receps ids into one dictionary
                 self.obj_rec_combined_mapping = {}
+                obj_id_to_name_mapping = {0: "goal_object"}
                 for i in range(
-                    len(self._obj_id_to_name_mapping)
-                    + len(self._rec_id_to_name_mapping)
+                    len(obj_id_to_name_mapping) + len(self._rec_id_to_name_mapping)
                 ):
-                    if i < len(self._obj_id_to_name_mapping):
-                        self.obj_rec_combined_mapping[
-                            i + 1
-                        ] = self._obj_id_to_name_mapping[i]
+                    if i < len(obj_id_to_name_mapping):
+                        self.obj_rec_combined_mapping[i + 1] = obj_id_to_name_mapping[i]
                     else:
                         self.obj_rec_combined_mapping[
                             i + 1
                         ] = self._rec_id_to_name_mapping[
-                            i - len(self._obj_id_to_name_mapping)
+                            i - len(obj_id_to_name_mapping)
                         ]
 
                 self.semantic_category_mapping = RearrangeDETICCategories(
                     self.obj_rec_combined_mapping
                 )
+            else:
+                self.semantic_category_mapping = None
 
         elif "floorplanner" in self.episodes_data_path:
             if config.AGENT.SEMANTIC_MAP.semantic_categories == "mukul_indoor":
@@ -149,8 +132,6 @@ class Visualizer:
                 self.semantic_category_mapping = FloorplannertoMukulIndoor()
             else:
                 raise NotImplementedError
-
-        self.legend = cv2.imread(self.semantic_category_mapping.categories_legend_path)
 
         self.num_sem_categories = config.AGENT.SEMANTIC_MAP.num_sem_categories
         self.map_resolution = config.AGENT.SEMANTIC_MAP.map_resolution
@@ -196,7 +177,8 @@ class Visualizer:
             rgb_frame = rgb_frame[:, :, [2, 1, 0]]
             mask = np.array(semantic_map_vis)
             mask = (
-                mask == self.semantic_category_mapping.num_sem_categories - 1 + 7
+                mask
+                == self.semantic_category_mapping.num_sem_categories - 1 + PI.SEM_START
             ).astype(np.uint8) * 255
             mask = Image.fromarray(mask)
             rgb_pil = Image.fromarray(rgb_frame)
@@ -229,6 +211,7 @@ class Visualizer:
         curr_action: str = None,
         short_term_goal: np.ndarray = None,
         dilated_obstacle_map: np.ndarray = None,
+        semantic_category_mapping: Optional[RearrangeDETICCategories] = None,
         **kwargs,
     ):
         """Visualize frame input and semantic map.
@@ -252,6 +235,9 @@ class Visualizer:
         # Do nothing if visualization is off
         if not self.show_images and not self.print_images:
             return
+
+        if semantic_category_mapping is not None:
+            self.semantic_category_mapping = semantic_category_mapping
 
         # Initialize
         if self.image_vis is None:
@@ -472,9 +458,11 @@ class Visualizer:
             vis_image[V.Y1 - 1 : V.Y2, x] = color
 
         # Draw legend
-        lx, ly, _ = self.legend.shape
-        vis_image[
-            V.Y2 + V.LEGEND_TOP_PADDING : V.Y2 + lx + V.LEGEND_TOP_PADDING, 0:ly, :
-        ] = self.legend
+        if os.path.exists(self.semantic_category_mapping.categories_legend_path):
+            legend = cv2.imread(self.semantic_category_mapping.categories_legend_path)
+            lx, ly, _ = legend.shape
+            vis_image[
+                V.Y2 + V.LEGEND_TOP_PADDING : V.Y2 + lx + V.LEGEND_TOP_PADDING, 0:ly, :
+            ] = legend
 
         return vis_image

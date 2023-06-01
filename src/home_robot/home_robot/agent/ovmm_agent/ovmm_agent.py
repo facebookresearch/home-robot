@@ -18,6 +18,7 @@ from home_robot.core.interfaces import (
     Observations,
 )
 from home_robot.manipulation import HeuristicPlacePolicy
+from home_robot.perception.constants import RearrangeBasicCategories
 
 
 class Skill(IntEnum):
@@ -107,11 +108,18 @@ class OpenVocabManipAgent(ObjectNavAgent):
         self.config = config
 
     def _get_info(self, obs: Observations) -> Dict[str, torch.Tensor]:
+        if self.config.GROUND_TRUTH_SEMANTICS == 1:
+            semantic_category_mapping = None  # Visualizer handles mapping
+        elif self.semantic_sensor.current_vocabulary_id == SemanticVocab.SIMPLE:
+            semantic_category_mapping = RearrangeBasicCategories()
+        else:
+            semantic_category_mapping = self.semantic_sensor.current_vocabulary
         """Get inputs for visual skill."""
         info = {
             "semantic_frame": np.concatenate(
                 [obs.rgb, obs.semantic[:, :, np.newaxis]], axis=2
             ).astype(np.uint8),
+            "semantic_category_mapping": semantic_category_mapping,
             "goal_name": obs.task_observations["goal_name"],
             "third_person_image": obs.third_person_image,
             "timestep": self.timesteps[0],
@@ -258,6 +266,7 @@ class OpenVocabManipAgent(ObjectNavAgent):
         self, obs: Observations, info: Dict[str, Any]
     ) -> Tuple[DiscreteNavigationAction, Any]:
         action, planner_info = super().act(obs)
+        # info overwrites planner_info entries for keys with same name
         info = {**planner_info, **info}
         self.timesteps[0] -= 1  # objectnav agent increments timestep
         info["timestep"] = self.timesteps[0]
@@ -472,6 +481,8 @@ class OpenVocabManipAgent(ObjectNavAgent):
 
         if self.config.GROUND_TRUTH_SEMANTICS == 0:
             obs = self.semantic_sensor(obs)
+        else:
+            obs.task_observations["semantic_frame"] = None
         info = self._get_info(obs)
 
         self.timesteps[0] += 1

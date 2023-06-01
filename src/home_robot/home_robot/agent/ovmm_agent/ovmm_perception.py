@@ -32,7 +32,6 @@ def build_vocab_from_category_map(
     Build vocabulary from category maps that can be used for semantic sensor and visualizations.
     """
     obj_rec_combined_mapping = {}
-    # TODO: Ensure the final categories start from 1 not 0
     for i in range(len(obj_id_to_name_mapping) + len(rec_id_to_name_mapping)):
         if i < len(obj_id_to_name_mapping):
             obj_rec_combined_mapping[i + 1] = obj_id_to_name_mapping[i]
@@ -68,6 +67,10 @@ class OvmmPerception:
     @property
     def current_vocabulary_id(self) -> int:
         return self._current_vocabulary_id
+
+    @property
+    def current_vocabulary(self) -> RearrangeDETICCategories:
+        return self._current_vocabulary
 
     def update_vocubulary_list(
         self, vocabulary: RearrangeDETICCategories, vocabulary_id: int
