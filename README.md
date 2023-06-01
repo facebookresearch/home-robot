@@ -9,6 +9,8 @@
 
 Your open-source robotic mobile manipulation stack!
 
+Check out the [Neurips 2023 HomeRobot Open-Vocabulary Mobile Manipulation Challenge!](https://aihabitat.org/challenge/2023_homerobot_ovmm/)
+
 _CURRENTLY UNDER ACTIVE DEVELOPMENT! PLEASE CONTACT US IF YOU ARE INTERESTED IN USING THIS LIBRARY!_
 
 _FULL RELEASE WILL HAPPEN MID-JUNE!_

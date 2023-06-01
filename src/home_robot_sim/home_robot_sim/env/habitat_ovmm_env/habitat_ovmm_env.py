@@ -169,7 +169,6 @@ class HabitatOpenVocabManipEnv(HabitatEnv):
             obs.task_observations["semantic_max_val"] = (
                 len(self._rec_id_to_name_mapping) + 2
             )
-            # TODO Ground-truth semantic visualization
         return obs
 
     def _preprocess_depth(self, depth: np.array) -> np.array:
