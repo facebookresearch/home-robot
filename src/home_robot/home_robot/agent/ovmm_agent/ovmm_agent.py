@@ -400,16 +400,11 @@ class OpenVocabManipAgent(ObjectNavAgent):
                 # If we have not seen an object mask to try to grasp...
                 if not obs.task_observations["prev_grasp_success"]:
                     action = DiscreteNavigationAction.PICK_OBJECT
-                elif not obs.task_observations["in_navigation_mode"]:
-                    action = DiscreteNavigationAction.NAVIGATION_MODE
                 else:
                     action = None
             else:
                 # We have tried too many times and we're going to quit
-                if not obs.task_observations["in_navigation_mode"]:
-                    action = DiscreteNavigationAction.NAVIGATION_MODE
-                else:
-                    action = None
+                action = None
             # else:
             #     raise ValueError(
             #         "Still in hardware-mode hard-coded pick. Should have transitioned to the next skill."
