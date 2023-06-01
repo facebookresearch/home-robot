@@ -218,10 +218,10 @@ class StretchPickandPlaceEnv(StretchEnv):
                 continuous_action = None
                 # Dummy out robot execution code for perception tests
                 if not self.dry_run:
-                    rospy.sleep(1.0)
                     ok = self.grasp_planner.try_grasping(
                         wait_for_input=self.debug,
                         visualize=(self.test_grasping or self.visualize_grasping),
+                        max_tries=1,
                     )
                     self.prev_grasp_success = ok
             elif action == DiscreteNavigationAction.SNAP_OBJECT:
