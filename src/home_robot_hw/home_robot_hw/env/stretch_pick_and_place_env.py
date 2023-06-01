@@ -43,6 +43,7 @@ class StretchPickandPlaceEnv(StretchEnv):
         test_grasping: bool = False,
         dry_run: bool = False,
         debug: bool = False,
+        visualize_grasping: bool = False,
         *args,
         **kwargs,
     ):
@@ -59,8 +60,10 @@ class StretchPickandPlaceEnv(StretchEnv):
         self.test_grasping = test_grasping
         self.dry_run = dry_run
         self.debug = debug
+        self.visualize_grasping = visualize_grasping
         self.task_info = {}
         self.prev_obs = None
+        self.prev_grasp_success = False
 
         with open(cat_map_file) as f:
             self.category_map = json.load(f)
@@ -111,6 +114,7 @@ class StretchPickandPlaceEnv(StretchEnv):
         # Switch control mode on the robot to nav
         # Also set the robot's head into "navigation" mode - facing forward
         self.robot.move_to_nav_posture()
+        self.prev_grasp_success = False
 
     def get_robot(self):
         """Return the robot interface."""
@@ -206,16 +210,14 @@ class StretchPickandPlaceEnv(StretchEnv):
             elif action == DiscreteNavigationAction.PICK_OBJECT:
                 print("[ENV] Discrete pick policy")
                 continuous_action = None
-                # Run in a while loop until we have succeeded
-                while not rospy.is_shutdown():
-                    if self.dry_run:
-                        # Dummy out robot execution code for perception tests
-                        break
+                # Dummy out robot execution code for perception tests
+                if not self.dry_run:
                     ok = self.grasp_planner.try_grasping(
-                        wait_for_input=self.debug, visualize=self.test_grasping
+                        wait_for_input=self.debug,
+                        visualize=(self.test_grasping or self.visualize_grasping),
+                        max_tries=1,
                     )
-                    if ok:
-                        break
+                    self.prev_grasp_success = ok
             elif action == DiscreteNavigationAction.SNAP_OBJECT:
                 # Close the gripper
                 gripper_action = 1
@@ -363,6 +365,11 @@ class StretchPickandPlaceEnv(StretchEnv):
             relative_resting_position=np.array([0.3878479, 0.12924957, 0.4224413]),
             is_holding=np.array([0.0]),
         )
+        obs.task_observations["prev_grasp_success"] = self.prev_grasp_success
+        obs.task_observations[
+            "in_manipulation_mode"
+        ] = self.robot.in_manipulation_mode()
+        obs.task_observations["in_navigation_mode"] = self.robot.in_navigation_mode()
 
         # TODO: remove debug code
         # debug_rgb_bgr = False
