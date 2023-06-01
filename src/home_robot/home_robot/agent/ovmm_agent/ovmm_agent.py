@@ -107,17 +107,25 @@ class OpenVocabManipAgent(ObjectNavAgent):
         self.config = config
 
     def _get_info(self, obs: Observations) -> Dict[str, torch.Tensor]:
-        if self.config.GROUND_TRUTH_SEMANTICS == 1:
+        """Get inputs for visual skill."""
+        use_detic_viz = self.config.ENVIRONMENT.use_detic_viz
+
+        if self.config.GROUND_TRUTH_SEMANTICS == 1 or use_detic_viz:
             semantic_category_mapping = None  # Visualizer handles mapping
         elif self.semantic_sensor.current_vocabulary_id == SemanticVocab.SIMPLE:
             semantic_category_mapping = RearrangeBasicCategories()
         else:
             semantic_category_mapping = self.semantic_sensor.current_vocabulary
-        """Get inputs for visual skill."""
-        info = {
-            "semantic_frame": np.concatenate(
+
+        if use_detic_viz:
+            semantic_frame = obs.task_observations["semantic_frame"]
+        else:
+            semantic_frame = np.concatenate(
                 [obs.rgb, obs.semantic[:, :, np.newaxis]], axis=2
-            ).astype(np.uint8),
+            ).astype(np.uint8)
+
+        info = {
+            "semantic_frame": semantic_frame,
             "semantic_category_mapping": semantic_category_mapping,
             "goal_name": obs.task_observations["goal_name"],
             "third_person_image": obs.third_person_image,

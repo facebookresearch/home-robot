@@ -54,6 +54,7 @@ class OvmmPerception:
 
     def __init__(self, config, gpu_device_id: int = 0):
         self.config = config
+        self._use_detic_viz = config.ENVIRONMENT.use_detic_viz
         self._vocabularies: Dict[int, RearrangeDETICCategories] = {}
         self._current_vocabulary: RearrangeDETICCategories = None
         self._current_vocabulary_id: int = None
@@ -125,7 +126,7 @@ class OvmmPerception:
         Run segmentation model and preprocess observations for OVMM skills
         """
         obs = self._segmentation.predict(
-            obs, depth_threshold=0.5, draw_instance_predictions=False
+            obs, depth_threshold=0.5, draw_instance_predictions=self._use_detic_viz
         )
         self._process_obs(obs)
         return obs
