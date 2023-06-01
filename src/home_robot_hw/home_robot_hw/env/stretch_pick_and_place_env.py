@@ -1,7 +1,7 @@
 import json
 import os
 import pickle
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, Optional
 
 import clip
 import numpy as np
@@ -44,7 +44,6 @@ class StretchPickandPlaceEnv(StretchEnv):
         dry_run: bool = False,
         debug: bool = False,
         visualize_grasping: bool = False,
-        goal_options: List[str] = None,
         *args,
         **kwargs,
     ):
@@ -66,13 +65,8 @@ class StretchPickandPlaceEnv(StretchEnv):
         self.prev_obs = None
         self.prev_grasp_success = False
 
-        if goal_options is not None:
-            self.category_map = {}
-            for i, opt in enumerate(goal_options):
-                self.category_map[opt] = i
-        else:
-            with open(cat_map_file) as f:
-                self.category_map = json.load(f)
+        with open(cat_map_file) as f:
+            self.category_map = json.load(f)
 
         self.robot = StretchClient(init_node=False)
 
