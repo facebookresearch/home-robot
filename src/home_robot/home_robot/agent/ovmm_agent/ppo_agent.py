@@ -8,7 +8,7 @@
 import copy
 import random
 from collections import OrderedDict
-from typing import Any, Dict
+from typing import Any, Tuple, Union
 
 import gym.spaces as spaces
 import numba
@@ -324,8 +324,16 @@ class PPOAgent(Agent):
 
         return hab_obs
 
-    # FIXME: the return values do not match the signature
-    def act(self, observations: Observations) -> Dict[str, int]:
+    def act(
+        self, observations: Observations
+    ) -> Tuple[
+        Union[
+            ContinuousFullBodyAction,
+            ContinuousNavigationAction,
+            DiscreteNavigationAction,
+        ],
+        bool,
+    ]:
         sample_random_seed()
         if self.skill_start_gps is None:
             self.skill_start_gps = np.array(

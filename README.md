@@ -1,4 +1,4 @@
-# HomeRobot
+![](docs/HomeRobot_Logo_Horiz_Color_white_bg.png)
 
 [![GitHub license](https://img.shields.io/badge/license-MIT-blue.svg)](https://github.com/facebookresearch/home-robot/blob/main/LICENSE)
 [![Python 3.9](https://img.shields.io/badge/python-3.9-blue.svg)](https://www.python.org/downloads/release/python-370/)
@@ -8,6 +8,10 @@
 [![Imports: isort](https://img.shields.io/badge/%20imports-isort-%231674b1?style=flat)](https://timothycrosley.github.io/isort/)
 
 Your open-source robotic mobile manipulation stack!
+
+_CURRENTLY UNDER ACTIVE DEVELOPMENT! PLEASE CONTACT US IF YOU ARE INTERESTED IN USING THIS LIBRARY!_
+
+_FULL RELEASE WILL HAPPEN MID-JUNE!_
 
 HomeRobot lets you get started running a range of robotics tasks on a low-cost mobile manipulator, starting with _Open Vocabulary Mobile Manipulation_, or OVMM. OVMM is a challenging task which means that, in an unknown environment, a robot must:
   - Explore its environment
@@ -135,35 +139,7 @@ python projects/stretch_ovmm/eval_episode.py
 
 #### 7. Simulation Setup
 
-To set up the simulation stack with Habitat, see the [installation instructions](src/home_robot_sim/README.md) in `home_robot_sim`. You first need to install AI habitat and the simulation package:
-```
-# Install requirements
-mamba env update -f src/home_robot_sim/environment.yml
-
-# Download habitat-sim and habitat-lab packages
-git submodule update --init --recursive
-
-# Build habitat-sim from source
-cd src/third_party/habitat-sim
-```
-Please follow the instructions [here](https://github.com/facebookresearch/habitat-sim/blob/main/BUILD_FROM_SOURCE.md) to build habitat-sim from source.
-```
-cd -
-
-# Install habitat lab on the correct (object rearrange) branch
-pip install -e src/third_party/habitat-lab/habitat-lab
-pip install -e src/third_party/habitat-lab/habitat-baselines
-
-# Install home robot sim interfaces
-pip install -e src/home_robot_sim
-```
-
-And then download the assets as described in the [installation instructions](src/home_robot_sim/README.md#Ddataset-setup).
-
-To test your installation, you can run:
-```
-python projects/habitat_ovmm/eval_vectorized.py
-```
+To set up the simulation stack with Habitat, see the [installation instructions](src/home_robot_sim/README.md) in `home_robot_sim`. 
 
 For more details on the OVMM challenge, see the [Habitat OVMM readme](projects/stretch_ovmm/README.md).
 

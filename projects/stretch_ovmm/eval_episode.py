@@ -6,11 +6,8 @@ import rospy
 
 from home_robot.agent.ovmm_agent.ovmm_agent import OpenVocabManipAgent
 from home_robot.motion.stretch import STRETCH_HOME_Q
-from home_robot_hw.env.stretch_pick_and_place_env import (
-    REAL_WORLD_CATEGORIES,
-    StretchPickandPlaceEnv,
-    load_config,
-)
+from home_robot_hw.env.stretch_pick_and_place_env import StretchPickandPlaceEnv
+from home_robot_hw.utils.config import load_config
 
 
 @click.command()
@@ -55,7 +52,6 @@ def main(
 
     print("- Creating environment")
     env = StretchPickandPlaceEnv(
-        goal_options=REAL_WORLD_CATEGORIES,
         config=config,
         test_grasping=test_pick,
         dry_run=dry_run,
@@ -79,8 +75,8 @@ def main(
         t += 1
         print("STEP =", t)
         obs = env.get_observation()
-        action, info = agent.act(obs)
-        done = env.apply_action(action, info=info)
+        action, info, obs = agent.act(obs)
+        done = env.apply_action(action, info=info, prev_obs=obs)
         if done:
             print("Done.")
             break
