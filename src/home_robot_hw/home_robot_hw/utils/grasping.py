@@ -194,14 +194,6 @@ class GraspPlanner(object):
                     "seconds",
                 )
 
-            if visualize:
-                import matplotlib.pyplot as plt
-
-                plt.imshow(obs.task_observations["semantic_frame"])
-                plt.axis("off")
-                plt.title("Predicted Semantic Frame")
-                plt.show()
-
             _, all_object_masks = self.get_object_class_masks(obs)
             # TODO: return to this if we want to take goal mask as an argument in the future
             # For now though we will choose the closest one
@@ -211,6 +203,7 @@ class GraspPlanner(object):
                 xyz,
                 all_object_masks,
                 obs.task_observations["instance_map"],
+                debug=False,
             )
 
             # Break the loop if we are not seeing anything
