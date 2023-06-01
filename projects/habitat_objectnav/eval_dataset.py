@@ -52,22 +52,19 @@ if __name__ == "__main__":
     config.PRINT_IMAGES = 1
     config.habitat.dataset.split = "val"
     config.EXP_NAME = "debug"
-
     agent = ObjectNavAgent(config=config)
     env = HabitatObjectNavEnv(Env(config=config), config=config)
 
-    agent.reset()
-    env.reset()
+    for i in range(len(env.habitat_env.episodes)):
+        agent.reset()
+        env.reset()
 
-    t = 0
-    import pdb
-
-    pdb.set_trace()
-    while not env.episode_over:
-        t += 1
-        print(t)
-        obs = env.get_observation()
-        action, info = agent.act(obs)
-        env.apply_action(action, info=info)
-
-    print(env.get_episode_metrics())
+        t = 0
+        while not env.episode_over:
+            t += 1
+            print(t)
+            obs = env.get_observation()
+            action, info = agent.act(obs)
+            env.apply_action(action, info=info)
+        
+        print(env.get_episode_metrics())

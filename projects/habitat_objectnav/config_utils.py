@@ -3,12 +3,16 @@ from typing import Optional, Tuple
 
 import habitat.config.default
 import yaml
+from habitat_baselines.config.default import _BASELINES_CFG_DIR
 from habitat_baselines.config.default import get_config as get_habitat_config
 from omegaconf import DictConfig, OmegaConf
 
 
 def get_config(
-    habitat_config_path: str, baseline_config_path: str, opts: Optional[list] = None
+    habitat_config_path: str,
+    baseline_config_path: str,
+    opts: Optional[list] = None,
+    configs_dir: str = _BASELINES_CFG_DIR,
 ) -> Tuple[DictConfig, str]:
     """Get configuration and ensure consistency between configurations
     inherited from the task and defaults and our code's configuration.
@@ -17,7 +21,9 @@ def get_config(
         path: path to our code's config
         opts: command line arguments overriding the config
     """
-    habitat_config = get_habitat_config(habitat_config_path, overrides=opts)
+    habitat_config = get_habitat_config(
+        habitat_config_path, overrides=opts, configs_dir=configs_dir
+    )
     baseline_config = OmegaConf.load(baseline_config_path)
     config = DictConfig({**habitat_config, **baseline_config})
 

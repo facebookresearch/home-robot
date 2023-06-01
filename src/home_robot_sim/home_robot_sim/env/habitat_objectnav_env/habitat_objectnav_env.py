@@ -74,6 +74,12 @@ class HabitatObjectNavEnv(HabitatEnv):
         )
         self._last_obs = self._preprocess_obs(habitat_obs)
         self.visualizer.reset()
+        scene_id = self.habitat_env.current_episode.scene_id.split("/")[-1].split(".")[
+            0
+        ]
+        self.visualizer.set_vis_dir(
+            scene_id, self.habitat_env.current_episode.episode_id
+        )
 
     def _preprocess_obs(
         self, habitat_obs: habitat.core.simulator.Observations
