@@ -44,10 +44,13 @@ def show_point_cloud_with_keypt_and_closest_pt(
     o3d.visualization.draw_geometries(geoms)
 
 
-def show_semantic_mask(voxelized_xyz, voxelized_rgb, voxelized_feats, semantic_id=1):
-    semantic_rgb = np.zeros_like(voxelized_rgb)
-    semantic_rgb[voxelized_feats.reshape(-1) == semantic_id, 1] = 1.0
-    print(
-        "Confirm that you can see voxelized points in green for object belonging to class-id 3"
-    )
-    show_point_cloud(voxelized_xyz, semantic_rgb)
+def show_semantic_mask(xyz, rgb, feats=None, semantic_id=1):
+    if feats is not None:
+        semantic_rgb = np.copy(rgb)
+        semantic_rgb[feats.reshape(-1) == semantic_id, 1] = 1.0
+        print(
+            "Confirm that you can see voxelized points in green for object belonging to class-id 3"
+        )
+        show_point_cloud(xyz, semantic_rgb)
+    else:
+        show_point_cloud(xyz, rgb, np.zeros((3, 1)))

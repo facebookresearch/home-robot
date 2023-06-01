@@ -2,6 +2,7 @@ from typing import Any, Dict, List, Optional
 
 import numpy as np
 import rospy
+from slap_manipulation.utils.slap_planner import CombinedSLAPPlanner
 
 import home_robot
 from home_robot.core.interfaces import (
@@ -11,6 +12,7 @@ from home_robot.core.interfaces import (
     HybridAction,
     Observations,
 )
+from home_robot.motion.stretch import STRETCH_TO_GRASP
 from home_robot.utils.geometry import xyt2sophus
 from home_robot_hw.env.stretch_pick_and_place_env import DETIC, StretchPickandPlaceEnv
 
@@ -43,6 +45,7 @@ class GeneralLanguageEnv(StretchPickandPlaceEnv):
         )
         self.current_goal_id = None
         self.current_goal_name = None
+        self.skill_planner = CombinedSLAPPlanner(self.robot, {})
 
     def reset(self):
         # TODO (@priyam): clean goal info if in obs
@@ -67,7 +70,7 @@ class GeneralLanguageEnv(StretchPickandPlaceEnv):
             self.current_goal_id = 1
             self.current_goal_name = info["object_list"][0]
 
-    def _switch_to_manip_mode(self, grasp_only=True):
+    def _switch_to_manip_mode(self, grasp_only=False):
         """Rotate the robot and put it in the right configuration for grasping"""
 
         # We switch to navigation mode in order to rotate by 90 degrees
@@ -80,6 +83,7 @@ class GeneralLanguageEnv(StretchPickandPlaceEnv):
             self.robot.move_to_manip_posture()
             return
         if not self.dry_run and not self.test_grasping:
+            print("[ENV] Rotating robot")
             self.robot.nav.navigate_to([0, 0, np.pi / 2], relative=True, blocking=True)
             self.robot.move_to_manip_posture()
 
@@ -89,9 +93,6 @@ class GeneralLanguageEnv(StretchPickandPlaceEnv):
         # Process the action so we know what to do with it
         if not isinstance(action, HybridAction):
             action = HybridAction(action)
-        # Update the visualizer
-        if self.visualizer is not None and info is not None and "viz" in info:
-            self.visualizer.visualize(**info["viz"])
         # By default - no arm control
         joints_action = None
         gripper_action = 0
@@ -124,7 +125,9 @@ class GeneralLanguageEnv(StretchPickandPlaceEnv):
                 self.set_goal(info)
                 if not self.robot.in_manipulation_mode():
                     self._switch_to_manip_mode()
+                    rospy.sleep(5.0)
                 continuous_action = None
+                # sleeping here so observation comes from view after turning head
             elif action == DiscreteNavigationAction.NAVIGATION_MODE:
                 # set goal based on info dict here
                 self.set_goal(info)
@@ -165,7 +168,19 @@ class GeneralLanguageEnv(StretchPickandPlaceEnv):
                 pos, ori, gripper = action.get()
                 continuous_action = None
                 print("[ENV] Receiving a ContinuousEndEffectorAction")
-                # convert pos, ori into a ContinuousFullBodyAction here and execute that
+                debug = False
+                if debug:
+                    curr_pos, curr_quat = self.robot.manip.get_ee_pose()
+                    gripper = 1
+                    new_pos = curr_pos + np.array([0, 0, 0.1])
+                    ok = self.skill_planner.try_executing_skill(
+                        [(new_pos, curr_quat, gripper)], self.robot.get_joint_state()
+                    )
+                combined_action = np.concatenate((pos, ori, gripper), axis=-1)
+                ok = self.skill_planner.try_executing_skill(
+                    combined_action, self.robot.get_joint_state()
+                )
+                # TODO: convert pos, ori into a ContinuousFullBodyAction here and execute that
 
         # Move, if we are not doing anything with the arm
         if continuous_action is not None and not self.test_grasping:
@@ -180,6 +195,10 @@ class GeneralLanguageEnv(StretchPickandPlaceEnv):
                 )
         self._handle_joints_action(joints_action)
         self._handle_gripper_action(gripper_action)
+        # Update the visualizer
+        if self.visualizer is not None and info is not None and "viz" in info.keys():
+            print("[ENV] visualizing")
+            self.visualizer.visualize(**info["viz"])
         return False
 
     def get_observation(self) -> Observations:
@@ -242,6 +261,9 @@ class GeneralLanguageEnv(StretchPickandPlaceEnv):
                     obs.task_observations["goal_mask"] = np.zeros_like(
                         obs.semantic
                     ).astype(bool)
+        obs.task_observations[
+            "base_camera_pose"
+        ] = self.robot.head.get_pose_in_base_coords(rotated=True)
 
         # TODO: remove debug code
         debug_rgb_bgr = False

@@ -24,6 +24,7 @@ datasets/
 scene_datasets/
 datadump/
 */datasets/
+data/*
 
 # Archive files
 *.pkl

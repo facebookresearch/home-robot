@@ -1,6 +1,6 @@
 from dataclasses import dataclass
 from enum import Enum
-from typing import Any, Dict, Optional
+from typing import Any, Dict, List, Optional
 
 import numpy as np
 
@@ -70,15 +70,18 @@ class ContinuousFullBodyAction:
 class ContinuousEndEffectorAction:
     pos: np.ndarray
     ori: np.ndarray
-    g: float
+    g: np.ndarray
+    num_actions: int
 
-    def __init__(self, pos: np.ndarray = None, ori: np.ndarray = None, g: float = None):
+    def __init__(
+        self, pos: np.ndarray = None, ori: np.ndarray = None, g: np.ndarray = None
+    ):
         """Create end-effector continuous action; moves to 6D pose and activates gripper"""
         if (
             pos is not None
             and ori is not None
             and g is not None
-            and not (len(pos) + len(ori) + 1) == 8
+            and not (pos.shape[1] + ori.shape[1] + g.shape[1]) == 8
         ):
             raise RuntimeError(
                 "continuous end-effector action space has 8 dimentions: pos=3, ori=4, gripper=1"
@@ -86,6 +89,7 @@ class ContinuousEndEffectorAction:
         self.pos = pos
         self.ori = ori
         self.g = g
+        self.num_actions = pos.shape[0]
 
 
 class ActionType(Enum):
@@ -108,7 +112,7 @@ class HybridAction(Action):
         joints: np.ndarray = None,
         pos: np.ndarray = None,
         ori: np.ndarray = None,
-        gripper: float = None,
+        gripper: np.ndarray = None,
     ):
         """Make sure that we were passed a useful generic action here. Process it into something useful."""
         if action is not None:
@@ -163,7 +167,7 @@ class HybridAction(Action):
         elif self.action_type == ActionType.CONTINUOUS_NAVIGATION:
             return self.action.xyt
         elif self.action_type == ActionType.CONTINUOUS_EE_MANIPULATION:
-            return (self.action.pos, self.action.ori, self.action.g)
+            return self.action.pos, self.action.ori, self.action.g
         else:
             # Extract both the joints and the waypoint target
             return self.action.joints, self.action.xyt

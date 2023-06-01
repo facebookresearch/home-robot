@@ -10,11 +10,11 @@ import trimesh
 import trimesh.transformations as tra
 import yaml
 from slap_manipulation.dataloaders.annotations import load_annotations_dict
-from slap_manipulation.dataloaders.data_processing import (
+from slap_manipulation.dataloaders.rlbench_loader import RLBenchDataset
+from slap_manipulation.utils.data_processing import (
     filter_and_remove_duplicate_points,
     voxelize_and_get_interaction_point,
 )
-from slap_manipulation.dataloaders.rlbench_loader import RLBenchDataset
 from slap_manipulation.utils.data_visualizers import show_semantic_mask
 from slap_manipulation.utils.pointcloud_preprocessing import find_closest_point_to_line
 
@@ -851,9 +851,9 @@ class RobotDataset(RLBenchDataset):
             "closest_pos_idx": torch.LongTensor([target_idx_og_pcd]),
             "closest_voxel": torch.FloatTensor(closest_pt_down_pcd),
             "closest_voxel_idx": torch.LongTensor([target_idx_down_pcd]),
-            "xyz_downsampled": torch.FloatTensor(xyz2),
-            "rgb_downsampled": torch.FloatTensor(rgb2),
-            "feat_downsampled": torch.FloatTensor(feat2),
+            "xyz_voxelized": torch.FloatTensor(xyz2),
+            "rgb_voxelized": torch.FloatTensor(rgb2),
+            "feat_voxelized": torch.FloatTensor(feat2),
             # used in pt_query.py; make sure this is being used with xyz_downsampled
             # TODO rename xyz_mask --> xyz_downsampled_mask to remove confusion
             "xyz_mask": torch.LongTensor(

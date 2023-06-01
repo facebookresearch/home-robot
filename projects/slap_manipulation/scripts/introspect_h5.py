@@ -13,7 +13,9 @@ from home_robot_hw.env.stretch_manipulation_env import StretchManipulationEnv
     default="",
     help="Absolute or relative path to h5 file to be introspected",
 )
-@click.option("--trial", default="", help="Trial name as a string which to introspect")
+@click.option(
+    "--trial", default=0, type=int, help="Trial name as a string which to introspect"
+)
 @click.option("--replay", default=False, help="To replay the episode on Stretch")
 def main(h5_file, trial, replay):
     if not h5_file:
@@ -22,6 +24,7 @@ def main(h5_file, trial, replay):
     rospy.init_node("h5_introspection")
     ros_pub = tf2_ros.TransformBroadcaster()
     file = h5py.File(h5_file, "r")
+    trial = list(file.keys())[trial]
     view_keyframe_imgs(file, trial)
     print(f"Key schema: {file[trial].keys()}")
     ee_pose = plot_ee_pose(file, trial, ros_pub)

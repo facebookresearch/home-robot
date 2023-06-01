@@ -57,6 +57,7 @@ LATENT_DIM = 512
 # LATENT_DIM = 256
 
 
+# CLEANUP: I do not think the following is used anywhere
 def process_data(
     xyz,
     rgb,
@@ -100,8 +101,8 @@ def process_data(
     processed_data = {
         "xyz": torch.FloatTensor(uncentered_xyz),
         "rgb": torch.FloatTensor(uncentered_rgb),
-        "xyz_downsampled": torch.FloatTensor(xyz_voxel_size_2),
-        "rgb_downsampled": torch.FloatTensor(rgb_voxel_size_2),
+        "xyz_voxelized": torch.FloatTensor(xyz_voxel_size_2),
+        "rgb_voxelized": torch.FloatTensor(rgb_voxel_size_2),
         "center": center,
         "centered_xyz": torch.FloatTensor(centered_xyz),
         "centered_rgb": torch.FloatTensor(centered_rgb),
@@ -391,6 +392,9 @@ class InteractionPredictionModule(torch.nn.Module):
     #         os.mkdir(path)
     #     self._save_dir = path
 
+    def load_weights(self, path: str):
+        self.load_state_dict(torch.load(path))
+
     def get_optimizer(self):
         """optimizer config"""
         if self._optimizer_type == "lamb":
@@ -442,13 +446,19 @@ class InteractionPredictionModule(torch.nn.Module):
         down_rgb = np.asarray(downpcd.colors)
         return down_xyz, down_rgb
 
-    def predict(
-        self,
-        feat: np.ndarray,
-        xyz: np.ndarray,
-        proprio: np.ndarray,
-        lang: List[str],
-    ):
+    def read_batch(self, batch):
+        return (
+            batch["xyz"],
+            batch["rgb"],
+            batch["feat"],
+            batch["xyz_voxelized"],
+            batch["rgb_voxelized"],
+            batch["feat_voxelized"],
+            batch["proprio"],
+            [batch["lang"]],
+        )
+
+    def predict(self, batch, debug=False):
         """
         helper function for predicting index of closest voxel and encoded spatial features
 
@@ -457,33 +467,42 @@ class InteractionPredictionModule(torch.nn.Module):
         lang: language annotation which is encoded
         proprio: proprioception, an np.ndarray (gripper-action, gripper-width, time)
         """
-        t_rgb = torch.FloatTensor(feat).to(self.device)
-        t_xyz = torch.FloatTensor(xyz).to(self.device)
-        t_proprio = torch.FloatTensor(proprio).to(self.device)
-        down_xyz, down_rgb = self._preprocess_input(xyz, feat)
-        t_down_xyz, t_down_rgb = torch.FloatTensor(down_xyz).to(
-            self.device
-        ), torch.FloatTensor(down_rgb).to(self.device)
+        self.eval()
+        xyz, rgb, feat, v_xyz, v_rgb, v_feat, proprio, lang = self.read_batch(batch)
+        if debug:
+            show_point_cloud(
+                v_xyz.detach().cpu().numpy(),
+                v_rgb.detach().cpu().numpy(),
+            )
+            show_point_cloud(
+                xyz.detach().cpu().numpy(),
+                rgb.detach().cpu().numpy(),
+            )
+
+        # combine rgb and feat
+        rgb = torch.cat([rgb, feat], dim=-1)
+        v_rgb = torch.cat([v_rgb, v_feat], dim=-1)
 
         classification_scores, xyz, output_feat = self.forward(
-            t_rgb,
-            t_down_rgb,
-            t_xyz,
-            t_down_xyz,
+            rgb,
+            v_rgb,
+            xyz,
+            v_xyz,
             lang,
-            t_proprio,
+            proprio,
         )
-        self.visualize_top_attention(t_down_xyz, t_down_rgb, classification_scores)
+        self.visualize_top_attention(v_xyz, v_rgb[:, :3], classification_scores)
         self.show_prediction_with_grnd_truth(
-            t_down_xyz,
-            t_down_rgb,
-            t_down_xyz[self.predict_closest_idx(classification_scores)],
+            v_xyz,
+            v_rgb[:, :3],
+            v_xyz[self.predict_closest_idx(classification_scores)],
         )
+        predicted_idx = self.predict_closest_idx(classification_scores)[0]
         return (
-            self.predict_closest_idx(classification_scores)[0].detach().cpu().numpy(),
+            v_xyz[predicted_idx],
+            predicted_idx,
             classification_scores,
             output_feat,
-            (down_xyz, down_rgb),
         )
 
     def predict_closest_idx(self, classification_probs) -> torch.Tensor:
@@ -565,8 +584,8 @@ class InteractionPredictionModule(torch.nn.Module):
         data = self.to_device(data)
         rgb = data["rgb"]
         xyz = data["xyz"]
-        rgb2 = data["rgb_downsampled"]
-        xyz2 = data["xyz_downsampled"]
+        rgb2 = data["rgb_voxelized"]
+        xyz2 = data["xyz_voxelized"]
         cmd = data["cmd"]
         proprio = data["proprio"]
         print("--- ", cmd, " ---")
@@ -621,9 +640,9 @@ class InteractionPredictionModule(torch.nn.Module):
             rgb = batch["rgb"][0]
             xyz = batch["xyz"][0]
             feat = batch["feat"][0]
-            rgb2 = batch["rgb_downsampled"][0]
-            xyz2 = batch["xyz_downsampled"][0]
-            feat2 = batch["feat_downsampled"][0]
+            rgb2 = batch["rgb_voxelized"][0]
+            xyz2 = batch["xyz_voxelized"][0]
+            feat2 = batch["feat_voxelized"][0]
             cmd = batch["cmd"]
             proprio = batch["proprio"][0]
             target_pos = batch["closest_voxel"][0]
@@ -737,9 +756,9 @@ class InteractionPredictionModule(torch.nn.Module):
             rgb = batch["rgb"][0]  # N x 3
             xyz = batch["xyz"][0]  # N x 3
             feat = batch["feat"][0]
-            down_xyz = batch["xyz_downsampled"][0]
-            down_rgb = batch["rgb_downsampled"][0]
-            down_feat = batch["feat_downsampled"][0]
+            down_xyz = batch["xyz_voxelized"][0]
+            down_rgb = batch["rgb_voxelized"][0]
+            down_feat = batch["feat_voxelized"][0]
             lang = batch["cmd"]  # list of 1
             if self.use_proprio:
                 proprio = batch["proprio"][0]

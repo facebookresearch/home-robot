@@ -122,6 +122,8 @@ class GeneralLanguageAgent(PickAndPlaceAgent):
         self.debug = debug
         self.dry_run = self.cfg.AGENT.dry_run
         self.slap_model = SLAPAgent(cfg)
+        if not self.cfg.SLAP.dry_run:
+            self.slap_model.load_models()
         self.num_actions_done = 0
         self._language = yaml.load(
             open(self.cfg.AGENT.language_file, "r"), Loader=yaml.FullLoader
@@ -158,6 +160,10 @@ class GeneralLanguageAgent(PickAndPlaceAgent):
                     "self.open_object(['drawer'], obs)",
                     "self.open_object(['cabinet'], obs)",
                 ],
+                5: [
+                    "self.goto(['drawer', 'drawer handle'], obs)",
+                    "self.open_object(['drawer'], obs)",
+                ],
             }
 
     # ---override methods---
@@ -178,18 +184,20 @@ class GeneralLanguageAgent(PickAndPlaceAgent):
         # we do not differentiate b/w obejcts or receptacles
         # everything is a semantic goal to be found
         # start_recep_goal and "end_recep_goal" are always None
-        obs.task_observations["end_recep_goal"] = None
-        obs.task_observations["end_recep_name"] = None
         if len(object_list) > 1:
             obs.task_observations["start_recep_goal"] = 1
             obs.task_observations["object_goal"] = 2
             obs.task_observations["start_recep_name"] = object_list[0]
             obs.task_observations["goal_name"] = object_list[1]
+            obs.task_observations["end_recep_goal"] = None
+            obs.task_observations["end_recep_name"] = None
         else:
-            obs.task_observations["object_goal"] = 1
-            obs.task_observations["goal_name"] = object_list[0]
+            obs.task_observations["end_recep_goal"] = 1
+            obs.task_observations["end_recep_name"] = object_list[0]
             obs.task_observations["start_recep_goal"] = None
             obs.task_observations["start_recep_name"] = None
+            obs.task_observations["object_goal"] = None
+            obs.task_observations["goal_name"] = None
         return obs
 
     def _preprocess_obs_for_place(
@@ -232,7 +240,7 @@ class GeneralLanguageAgent(PickAndPlaceAgent):
                 "Getting plans outside of test tasks is not implemented yet"
             )
 
-    def goto(self, object_list, obs: Observations):
+    def goto(self, object_list: List[str], obs: Observations):
         if self.debug:
             print("[LangAgent]: In locate skill")
         info = {}
@@ -301,10 +309,13 @@ class GeneralLanguageAgent(PickAndPlaceAgent):
             return action, action_info
 
     def open_object(self, object_list: List[str], obs: Observations):
+        language = self._language["open_object"][object_list[0]]
+        num_actions = self._task_information[language]
+        return self.call_slap(language, num_actions, obs, object_list)
+
+    def call_slap(self, language: str, num_actions: int, obs, object_list: List[str]):
         info = {}
         action = None
-        language = self._language["open"][object_list[0]]
-        num_actions = self._task_information[language]
         if not self.is_busy():
             print("[LangAgent]: Changing mode, setting goals")
             info["not_viz"] = True
@@ -312,21 +323,20 @@ class GeneralLanguageAgent(PickAndPlaceAgent):
             self.state = GeneralTaskState.PREPPING
             return DiscreteNavigationAction.MANIPULATION_MODE, info
         else:
-            if self.num_actions_done >= num_actions:
-                self.soft_reset()
-                self.slap_model.reset()
-                return DiscreteNavigationAction.STOP, None
+            obs.task_observations["task-name"] = language
+            obs.task_observations["num-actions"] = num_actions
             result, info = self.slap_model.predict(obs)
             if result is not None:
                 action = ContinuousEndEffectorAction(
-                    result["predicted_pos"],
-                    result["predicted_ori"],
-                    result["gripper_act"],
+                    result[:, :3], result[:, 3:7], np.expand_dims(result[:, 7], -1)
                 )
             else:
-                action = DiscreteNavigationAction.STOP
-            self.num_actions_done += 1
-            self.state = GeneralTaskState.DOING_TASK
+                action = ContinuousEndEffectorAction(
+                    np.random.rand(1, 3), np.random.rand(1, 4), np.random.rand(1, 1)
+                )
+            self.soft_reset()
+            self.slap_model.reset()
+            self.state = GeneralTaskState.IDLE
             return action, info
 
     def act(self, obs: Observations, task: str) -> Tuple[Action, Dict[str, Any]]:

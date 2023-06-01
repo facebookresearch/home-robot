@@ -86,6 +86,7 @@ class GotoVelocityController:
         if cfg is None:
             cfg = get_control_config(DEFAULT_CFG_NAME)
         self.cfg = cfg
+        self._timeout = self.cfg.timeout
 
         # Control module
         self.control = DDVelocityControlNoplan(cfg)
@@ -173,6 +174,10 @@ class GotoVelocityController:
     def is_done(self) -> bool:
         """Tell us if this is done and has reached its goal."""
         return self._is_done
+
+    def timeout(self, time_taken: float) -> bool:
+        """Returns true if it's taken too long."""
+        return time_taken > self._timeout
 
     def compute_control(self) -> Tuple[float, float]:
         # Get state estimation

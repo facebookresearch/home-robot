@@ -42,6 +42,7 @@ def main(task_id, test_pick=False, dry_run=False, testing=False, **kwargs):
         obs = env.get_observation()
         action, info = agent.act(obs, TASK)
         print("ACTION = ", action)
+        # input("Press enter to apply this action")
         env.apply_action(action, info=info)
 
 
