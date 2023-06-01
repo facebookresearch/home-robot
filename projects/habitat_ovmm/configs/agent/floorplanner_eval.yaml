@@ -48,7 +48,7 @@ AGENT:
   SKILLS:
     GAZE_OBJ:
       type: rl #end_to_end #heuristic #hardcoded
-      checkpoint_path: data/checkpoints/ovmm/gaze_may18_small_img_80%.pth
+      checkpoint_path: data/checkpoints/ovmm/May31/cat_gaze_recep_sensor_200m_may31.pth
       rl_config: projects/habitat_ovmm/configs/agent/gaze_rl.yaml # with continuous actions
       gym_obs_keys:
         - robot_head_depth
@@ -78,7 +78,7 @@ AGENT:
 
     NAV_TO_OBJ:
       type: heuristic # heuristic (default) or rl
-      checkpoint_path: data/checkpoints/ovmm/nav_to_obj_may26_teleport_65%.pth
+      checkpoint_path: data/checkpoints/ovmm/May31/nav_to_obj_100m_may31_gps_fix.pth
       rl_config: projects/habitat_ovmm/configs/agent/nav_to_obj_rl.yaml
       gym_obs_keys:
         - robot_head_depth
@@ -108,7 +108,7 @@ AGENT:
 
     NAV_TO_REC:
       type: heuristic # heuristic (default) or rl
-      checkpoint_path: data/checkpoints/ovmm/nav_to_rec_may26_teleport_dist_0_1_77%.pth
+      checkpoint_path: data/checkpoints/ovmm/May31/nav_to_rec_100m_may31_gps_fix.pth
       rl_config: projects/habitat_ovmm/configs/agent/nav_to_obj_rl.yaml
       gym_obs_keys:
         - robot_head_depth
@@ -138,7 +138,7 @@ AGENT:
 
     PLACE:
       type: heuristic # "rl" or "heuristic" or "hardcoded"
-      checkpoint_path: data/checkpoints/ovmm/place_with_manip_action_may25.pth
+      checkpoint_path: data/checkpoints/ovmm/May31/cat_place_kill__before_20_785_tilt_200m_may31.pth
       rl_config: projects/habitat_ovmm/configs/agent/place_rl.yaml # with continuous actions
       gym_obs_keys:
         - robot_head_depth

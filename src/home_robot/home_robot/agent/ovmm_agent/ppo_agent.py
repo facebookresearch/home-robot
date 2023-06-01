@@ -205,6 +205,8 @@ class PPOAgent(Agent):
             self.manip_mode_threshold = skill_config.manip_mode_threshold
         self.terminate_condition = skill_config.terminate_condition
         self.manip_mode_called = False
+        self.skill_start_gps = None
+        self.skill_start_compass = None
 
     def reset(self) -> None:
         self.test_recurrent_hidden_states = torch.zeros(
@@ -223,6 +225,8 @@ class PPOAgent(Agent):
             device=self.device,
         )
         self.manip_mode_called = False
+        self.skill_start_gps = None
+        self.skill_start_compass = None
 
     def reset_vectorized(self):
         """Initialize agent state."""
@@ -305,8 +309,9 @@ class PPOAgent(Agent):
                 "joint": obs.joint,
                 "relative_resting_position": obs.relative_resting_position,
                 "is_holding": obs.is_holding,
-                "robot_start_gps": np.array((obs.gps[0], -1 * obs.gps[1])),
-                "robot_start_compass": obs.compass + np.pi / 2,
+                "robot_start_gps": np.array((obs.gps[0], -1 * obs.gps[1]))
+                - self.skill_start_gps,
+                "robot_start_compass": obs.compass - self.skill_start_compass,
                 "start_receptacle": obs.task_observations["start_receptacle"],
                 "goal_receptacle": obs.task_observations["goal_receptacle"],
             }
@@ -322,6 +327,12 @@ class PPOAgent(Agent):
     # FIXME: the return values do not match the signature
     def act(self, observations: Observations) -> Dict[str, int]:
         sample_random_seed()
+        if self.skill_start_gps is None:
+            self.skill_start_gps = np.array(
+                (observations.gps[0], -1 * observations.gps[1])
+            )
+        if self.skill_start_compass is None:
+            self.skill_start_compass = observations.compass
         obs = self.convert_to_habitat_obs_space(observations)
         batch = batch_obs([obs], device=self.device)
         batch = apply_obs_transforms_batch(batch, self.obs_transforms)
