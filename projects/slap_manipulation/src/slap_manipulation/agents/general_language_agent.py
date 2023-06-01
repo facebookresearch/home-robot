@@ -1,11 +1,14 @@
+# %%
 import logging
 from enum import Enum
 from glob import glob
 from typing import Any, Dict, List, Tuple
-
+import re
+import json
 import numpy as np
 import pandas as pd
 import yaml
+# %%
 from slap_manipulation.agents.slap_agent import SLAPAgent
 
 from home_robot.agent.ovmm_agent.pick_and_place_agent import PickAndPlaceAgent
@@ -17,6 +20,66 @@ from home_robot.core.interfaces import (
     Observations,
 )
 
+# %%
+def evaluate_expression(expression, dummy_value) -> List[str]:
+    # if expression.startswith('[') and expression.endswith(']'):            
+    if type(expression) == list:
+        return expression
+    try:
+        result = eval(expression)
+    except SyntaxError:
+        print(f"SyntaxError: {expression}")
+        result = dummy_value
+    return result
+
+def separate_into_codelist(string: str) -> List[str]:
+    # Remove leading/trailing whitespace and split the string by ') '
+    function_calls = string.split(')')
+    # Remove the ')' character from each function call
+    new_function_calls = []
+    for call in function_calls:
+        call += ')' # add back the ')'
+        call = call.strip(' \n\t!;')
+        call = call.replace('\n\t', '')
+        call = call.replace("!", '')
+        new_function_calls.append(call)
+    return new_function_calls
+
+def get_taskplan_for_robot(steps: List[str]) -> List[dict]:
+    """
+    Test this function whenever prompt is changed.
+    """
+    # Define the pattern using regex
+    pattern = r"(\w+)\((.*?)?(,\s*([\w']+)=\'([^\)]+)\')?\)"
+    steps_table = []
+    for step in steps:
+        # Match the pattern and extract values
+        matches = re.match(pattern, step)
+        if matches is None:
+            continue
+        # Extract verb, object, and speed values
+        verb = matches.group(1)
+        noun = evaluate_expression(matches.group(2), ['dummy'])
+        # speed_key = matches.group(4)
+        adverb = matches.group(5)
+        if adverb is not None:
+            adverb = adverb.upper()
+        # print(verb, noun, adverb)
+        steps_table.append({'verb': verb, 'noun': noun, 'adverb': adverb})
+    return steps_table
+    
+def get_task_plans_from_llm(
+    index, json_path='./eval/icl_llama-7b.json', input_string='prediction'
+):
+    """Reads the dataset files and return a list of task plans"""
+    with open(json_path, 'r') as f:
+        data_dict = json.load(f)
+        df = pd.json_normalize(data_dict['data'])
+    steps_string = df.iloc[index][input_string]
+    code_list = separate_into_codelist(steps_string)
+    steps_list = get_taskplan_for_robot(code_list)
+    code = get_codelist(steps_list)
+    return code
 
 def get_task_plans_from_oracle(
     index, datafile="./datasets/BringXFromYSurfaceToHuman.json", root="./datasets/"
@@ -41,11 +104,11 @@ def get_codelist(steps_list):
     codelist = []
     for step in steps_list:
         codelist += [
-            f"self.{step['verb']}('{step['noun']}', motion_profile={step['adverb']}, obs=obs)"
+            f"self.{step['verb']}({step['noun']}, obs=obs)"
         ]
     return codelist
 
-
+# %%
 class GeneralLanguageAgent(PickAndPlaceAgent):
     def __init__(self, cfg, debug=True, **kwargs):
         super().__init__(cfg, **kwargs)
@@ -275,3 +338,5 @@ class GeneralLanguageAgent(PickAndPlaceAgent):
         print(f"[LangAgent]: evaling: {self.current_step=}")
         action, info = eval(self.current_step)
         return action, info
+
+# %%
