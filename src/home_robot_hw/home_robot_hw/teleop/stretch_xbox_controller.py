@@ -324,6 +324,7 @@ class StretchXboxController(object):
         # to achieve the desired effect.
 
         if translation_command or rotation_command is not None:
+            self._set_mode()
             self._move_base_timer = rospy.Timer(
                 rospy.Duration(1 / callback_hz),
                 self._create_move_base_loop(controller_state),
