@@ -65,8 +65,8 @@ AGENT:
       arm_joint_mask: [0, 0, 0, 0, 0, 0, 1] # the arm joints that the policy can control
       max_displacement: 0.25                     # used when training the policy
       max_turn_degrees: 30.0
-      min_turn_degrees: 0.0
-      min_displacement: 0.0
+      min_turn_degrees: 5.0
+      min_displacement: 0.1
       sensor_height: 160
       sensor_width: 120
       nav_goal_seg_channels: 1
