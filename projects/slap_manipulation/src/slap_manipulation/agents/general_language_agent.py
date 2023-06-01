@@ -1,4 +1,3 @@
-# %%
 import logging
 from enum import Enum
 from glob import glob
@@ -8,7 +7,7 @@ import json
 import numpy as np
 import pandas as pd
 import yaml
-# %%
+
 from slap_manipulation.agents.slap_agent import SLAPAgent
 
 from home_robot.agent.ovmm_agent.pick_and_place_agent import PickAndPlaceAgent
@@ -20,7 +19,7 @@ from home_robot.core.interfaces import (
     Observations,
 )
 
-# %%
+
 def evaluate_expression(expression, dummy_value) -> List[str]:
     # if expression.startswith('[') and expression.endswith(']'):            
     if type(expression) == list:
@@ -108,7 +107,7 @@ def get_codelist(steps_list):
         ]
     return codelist
 
-# %%
+
 class GeneralLanguageAgent(PickAndPlaceAgent):
     def __init__(self, cfg, debug=True, **kwargs):
         super().__init__(cfg, **kwargs)
@@ -349,4 +348,4 @@ class GeneralLanguageAgent(PickAndPlaceAgent):
         action, info = eval(self.current_step)
         return action, info
 
-# %%
+
