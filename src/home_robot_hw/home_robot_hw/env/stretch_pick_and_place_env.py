@@ -259,9 +259,6 @@ class StretchPickandPlaceEnv(StretchEnv):
             current_joint_positions = self.robot.model.config_to_hab(
                 self.robot.get_joint_state()[0]
             )
-            old_tilt = joints_action[-1]
-            joints_action[-1] *= 5
-            print(f"[ENV] WARNING: hard-coded upscaling of tilt commands! FIX THIS! From {old_tilt} to {joints_action[-1]}")
             # Compute position goal from deltas
             joints_goal = joints_action + current_joint_positions
             # Convert into a position command
