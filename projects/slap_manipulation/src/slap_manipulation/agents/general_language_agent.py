@@ -69,7 +69,7 @@ def get_taskplan_for_robot(steps: List[str]) -> List[dict]:
     return steps_table
     
 def get_task_plans_from_llm(
-    index, json_path='./eval/icl_llama-7b.json', input_string='prediction'
+    index, json_path='./llm_eval/icl_llama-7b.json', input_string='prediction'
 ):
     """Reads the dataset files and return a list of task plans"""
     with open(json_path, 'r') as f:
@@ -132,7 +132,7 @@ class GeneralLanguageAgent(PickAndPlaceAgent):
             open(self.cfg.AGENT.task_information_file, "r"), Loader=yaml.FullLoader
         )  # read from a YAML
         if not self.debug:
-            self.task_plans = get_task_plans_from_oracle
+            self.task_plans = get_task_plans_from_llm  # get_task_plans_from_oracle
         else:
             self.task_defs = {
                 0: "place the apple on the table",
