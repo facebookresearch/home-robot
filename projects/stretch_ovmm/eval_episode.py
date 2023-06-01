@@ -33,8 +33,6 @@ from home_robot_hw.utils.config import load_config
 )
 def main(
     test_pick=False,
-    test_gaze=False,
-    skip_gaze=True,
     reset_nav=False,
     pick_object="cup",
     start_recep="table",
