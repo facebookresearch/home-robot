@@ -49,10 +49,6 @@ def main(
     print("- Loading configuration")
     config = load_config(visualize=visualize_maps, **kwargs)
 
-    REAL_WORLD_CATEGORIES[1] = pick_object
-    REAL_WORLD_CATEGORIES[2] = start_recep
-    REAL_WORLD_CATEGORIES[3] = goal_recep
-
     print("- Creating environment")
     env = StretchPickandPlaceEnv(
         config=config,
