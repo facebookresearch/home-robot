@@ -19,6 +19,7 @@ ENVIRONMENT:
   num_receptacles: 21
   # category_map_file: data/datasets/floorplanner/rearrange/v3/val/cat_map.json
   category_map_file: projects/stretch_ovmm/configs/example_cat_map.json
+  use_detic_viz: True
 
 AGENT:
   max_steps: 10000         # maximum number of steps before stopping an episode; a lower value set for habitat episode termination 
