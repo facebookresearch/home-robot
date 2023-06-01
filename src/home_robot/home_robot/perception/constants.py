@@ -708,6 +708,9 @@ class RearrangeDETICCategories(SemanticCategoryMapping):
                 0.6,
                 0.87,
                 0.54,  # been close map
+                0.0,
+                1.0,
+                0.0,  # short term goal
                 *[x / 255.0 for x in self.color_palette],
             ]
         ]
