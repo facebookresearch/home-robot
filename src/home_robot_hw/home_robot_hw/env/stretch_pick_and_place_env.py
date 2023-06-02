@@ -20,6 +20,7 @@ from home_robot.motion.stretch import (
     STRETCH_ARM_LIFT,
     STRETCH_HOME_Q,
     STRETCH_PREGRASP_Q,
+    STRETCH_POSTNAV_Q,
 )
 from home_robot.utils.geometry import xyt2sophus
 from home_robot_hw.env.stretch_abstract_env import StretchEnv
@@ -206,6 +207,11 @@ class StretchPickandPlaceEnv(StretchEnv):
             elif action == DiscreteNavigationAction.NAVIGATION_MODE:
                 continuous_action = None
                 self._switch_to_nav_mode()
+                continuous_action = None
+            elif action == DiscreteNavigationAction.POST_NAV_MODE:
+                self.robot_client.manip.goto_joint_positions(
+                    self.robot_client.manip._extract_joint_pos(STRETCH_POSTNAV_Q)
+                )
                 continuous_action = None
             elif action == DiscreteNavigationAction.PICK_OBJECT:
                 print("[ENV] Discrete pick policy")
