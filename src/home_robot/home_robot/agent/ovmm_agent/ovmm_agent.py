@@ -335,7 +335,7 @@ class OpenVocabManipAgent(ObjectNavAgent):
             action = DiscreteNavigationAction.STOP
             self.place_done[0] = 0
         else:
-            action, terminate = self.place_agent.act(obs)
+            action, info, terminate = self.place_agent.act(obs, info)
             if terminate:
                 action = DiscreteNavigationAction.DESNAP_OBJECT
                 self.place_done[0] = 1
@@ -359,7 +359,7 @@ class OpenVocabManipAgent(ObjectNavAgent):
             print("[OVMM AGENT] step heuristic nav policy")
             action, info, terminate = self._heuristic_nav(obs, info)
         elif nav_to_obj_type == "rl":
-            action, terminate = self.nav_to_obj_agent.act(obs)
+            action, info, terminate = self.nav_to_obj_agent.act(obs, info)
         else:
             raise ValueError(
                 f"Got unexpected value for NAV_TO_OBJ.type: {nav_to_obj_type}"
@@ -379,7 +379,7 @@ class OpenVocabManipAgent(ObjectNavAgent):
         elif gaze_step == 0:
             return DiscreteNavigationAction.POST_NAV_MODE, info, None
         else:
-            action, terminate = self.gaze_agent.act(obs)
+            action, info, terminate = self.gaze_agent.act(obs, info)
         new_state = None
         if terminate:
             # action = (
@@ -443,7 +443,7 @@ class OpenVocabManipAgent(ObjectNavAgent):
         elif nav_to_rec_type == "heuristic":
             action, info, terminate = self._heuristic_nav(obs, info)
         elif nav_to_rec_type == "rl":
-            action, terminate = self.nav_to_rec_agent.act(obs)
+            action, info, terminate = self.nav_to_rec_agent.act(obs, info)
         else:
             raise ValueError(
                 f"Got unexpected value for NAV_TO_REC.type: {nav_to_rec_type}"
@@ -460,7 +460,7 @@ class OpenVocabManipAgent(ObjectNavAgent):
         if self.skip_skills.gaze_at_rec:
             terminate = True
         else:
-            action, terminate = self.gaze_agent.act(obs)
+            action, info, terminate = self.gaze_agent.act(obs, info)
         new_state = None
         if terminate:
             action = None

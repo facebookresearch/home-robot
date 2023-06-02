@@ -39,11 +39,9 @@ class VIS_LAYOUT:
     THIRD_PERSON_X1 = TOP_DOWN_X2 + LEFT_PADDING
     THIRD_PERSON_X2 = THIRD_PERSON_X1 + THIRD_PERSON_W
     IMAGE_HEIGHT = Y2 + BOTTOM_PADDING
-    IMAGE_WIDTH = THIRD_PERSON_X2 + LEFT_PADDING
-
+    IMAGE_WIDTH = THIRD_PERSON_X2 + LEFT_PADDING + 1000
 
 V = VIS_LAYOUT
-
 
 class Visualizer:
     """
@@ -212,6 +210,7 @@ class Visualizer:
         short_term_goal: np.ndarray = None,
         dilated_obstacle_map: np.ndarray = None,
         semantic_category_mapping: Optional[RearrangeDETICCategories] = None,
+        rl_obs_frame: Optional[np.ndarray] = None,
         **kwargs,
     ):
         """Visualize frame input and semantic map.
@@ -244,6 +243,7 @@ class Visualizer:
             self.image_vis = self._init_vis_image(goal_name)
 
         image_vis = self.image_vis.copy()
+
 
         # if curr_skill is not None, place the skill name below the third person image
         if curr_skill is not None and curr_action is not None:
@@ -356,6 +356,24 @@ class Visualizer:
             color = self.semantic_category_mapping.map_color_palette[9:12][::-1]
             cv2.drawContours(image_vis, [agent_arrow], 0, color, -1)
 
+        if rl_obs_frame is not None:
+            # Reshape the height while maintaining aspect ratio to V.HEIGHT
+            rl_obs_frame = rl_obs_frame[:, :, [2, 1, 0]]
+            # find the width of the frame such that height is V.HEIGHT
+            width = int(rl_obs_frame.shape[1] * V.HEIGHT / rl_obs_frame.shape[0])
+            rl_obs_frame = cv2.resize(
+                rl_obs_frame,
+                (width, V.HEIGHT),
+                interpolation=cv2.INTER_NEAREST,
+            )
+            image_vis[V.Y1:V.Y2, V.TOP_DOWN_X1:V.TOP_DOWN_X1 + width] = rl_obs_frame
+
+        elif third_person_image is not None:
+            image_vis[V.Y1 : V.Y2, V.THIRD_PERSON_X1 : V.THIRD_PERSON_X2] = cv2.resize(
+                third_person_image[:, :, [2, 1, 0]],
+                (V.THIRD_PERSON_W, V.HEIGHT),
+            )
+
         # First-person RGB frame
         rgb_frame = semantic_frame[:, :, [2, 1, 0]]
         image_vis[V.Y1 : V.Y2, V.FIRST_RGB_X1 : V.FIRST_RGB_X2] = cv2.resize(
@@ -372,11 +390,7 @@ class Visualizer:
             interpolation=cv2.INTER_NEAREST,
         )
 
-        if third_person_image is not None:
-            image_vis[V.Y1 : V.Y2, V.THIRD_PERSON_X1 : V.THIRD_PERSON_X2] = cv2.resize(
-                third_person_image[:, :, [2, 1, 0]],
-                (V.THIRD_PERSON_W, V.HEIGHT),
-            )
+
 
         if self.show_images:
             cv2.imshow("Visualization", image_vis)
