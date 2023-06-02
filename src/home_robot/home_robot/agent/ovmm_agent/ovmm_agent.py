@@ -49,6 +49,7 @@ class OpenVocabManipAgent(ObjectNavAgent):
         self.states = None
         self.place_start_step = None
         self.pick_start_step = None
+        self.gaze_at_obj_start_step = None
         self.is_gaze_done = None
         self.place_done = None
         self.gaze_agent = None
@@ -160,6 +161,7 @@ class OpenVocabManipAgent(ObjectNavAgent):
             self.nav_to_rec_agent.reset_vectorized()
         self.states = torch.tensor([Skill.NAV_TO_OBJ] * self.num_environments)
         self.pick_start_step = torch.tensor([0] * self.num_environments)
+        self.gaze_at_obj_start_step = torch.tensor([0] * self.num_environments)
         self.place_start_step = torch.tensor([0] * self.num_environments)
         self.is_gaze_done = torch.tensor([0] * self.num_environments)
         self.place_done = torch.tensor([0] * self.num_environments)
@@ -172,6 +174,7 @@ class OpenVocabManipAgent(ObjectNavAgent):
         self.states[e] = Skill.NAV_TO_OBJ
         self.place_start_step[e] = 0
         self.pick_start_step[e] = 0
+        self.gaze_at_obj_start_step[e] = 0
         self.is_gaze_done[e] = 0
         self.place_done[e] = 0
         if self.config.AGENT.SKILLS.PLACE.type == "heuristic":
@@ -221,6 +224,7 @@ class OpenVocabManipAgent(ObjectNavAgent):
             pass
         elif next_skill == Skill.GAZE_AT_OBJ:
             self._set_semantic_vocab(SemanticVocab.SIMPLE, force_set=False)
+            self.gaze_at_obj_start_step[e] = self.timesteps[e]
         elif next_skill == Skill.PICK:
             self.pick_start_step[e] = self.timesteps[e]
         elif next_skill == Skill.NAV_TO_REC:
@@ -369,6 +373,9 @@ class OpenVocabManipAgent(ObjectNavAgent):
     def _gaze_at_obj(
         self, obs: Observations, info: Dict[str, Any]
     ) -> Tuple[DiscreteNavigationAction, Any, Optional[Skill]]:
+        gaze_step = self.timesteps[0] - self.gaze_at_obj_start_step[0]
+        if gaze_step == 0:
+            return DiscreteNavigationAction.NAVIGATION_MODE, info, None
         if self.skip_skills.gaze_at_obj:
             terminate = True
         else:
