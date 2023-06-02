@@ -14,8 +14,8 @@ ENVIRONMENT:
   frame_width: 480        # first-person frame width (in pixels)
   camera_height: 1.31     # camera sensor height (in metres)
   hfov: 42.0              # horizontal field of view (in degrees)
-  min_depth: 0.5          # minimum depth for depth sensor (in metres)
-  max_depth: 5.0         # maximum depth for depth sensor (in metres)
+  min_depth: 0.0          # minimum depth for depth sensor (in metres)
+  max_depth: 10.0         # maximum depth for depth sensor (in metres)
   num_receptacles: 21
   # category_map_file: data/datasets/floorplanner/rearrange/v3/val/cat_map.json
   category_map_file: projects/stretch_ovmm/configs/example_cat_map.json
@@ -51,7 +51,7 @@ AGENT:
   SKILLS:
     GAZE_OBJ:
       type: rl #end_to_end #heuristic #hardcoded
-      checkpoint_path: data/checkpoints/ovmm/gaze_may18_small_img_80%.pth
+      checkpoint_path: data/checkpoints/ovmm/May31/cat_gaze_recep_sensor_200m_may31.pth
       rl_config: projects/habitat_ovmm/configs/agent/gaze_rl.yaml # with continuous actions
       gym_obs_keys:
         - robot_head_depth
@@ -82,8 +82,8 @@ AGENT:
       type: hw  # oracle or hw
 
     NAV_TO_OBJ:
-      type: heuristic # heuristic (default) or rl
-      checkpoint_path: data/checkpoints/ovmm/nav_to_obj_may26_teleport_65%.pth
+      type: rl # heuristic (default) or rl
+      checkpoint_path: data/checkpoints/ovmm/May31/nav_to_obj_100m_may31_gps_fix.pth
       rl_config: projects/habitat_ovmm/configs/agent/nav_to_obj_rl.yaml
       gym_obs_keys:
         - robot_head_depth
@@ -112,8 +112,8 @@ AGENT:
       nav_goal_seg_channels: 2
 
     NAV_TO_REC:
-      type: heuristic # heuristic (default) or rl
-      checkpoint_path: data/checkpoints/ovmm/nav_to_rec_may26_teleport_dist_0_1_77%.pth
+      type: rl # heuristic (default) or rl
+      checkpoint_path: data/checkpoints/ovmm/May31/nav_to_rec_100m_may31_gps_fix.pth 
       rl_config: projects/habitat_ovmm/configs/agent/nav_to_obj_rl.yaml
       gym_obs_keys:
         - robot_head_depth
@@ -142,14 +142,14 @@ AGENT:
 
 
     PLACE:
-      type: heuristic # "rl" or "heuristic" or "hardcoded"
-      checkpoint_path: data/checkpoints/ovmm/place_with_manip_action_may25.pth
+      type: rl # "rl" or "heuristic" or "hardcoded"
+      checkpoint_path: data/checkpoints/ovmm/May31/cat_place_kill__before_20_785_tilt_200m_may31.pth 
       rl_config: projects/habitat_ovmm/configs/agent/place_rl.yaml # with continuous actions
       gym_obs_keys:
         - robot_head_depth
-        - goal_receptacle
         - joint
-        - ovmm_nav_goal_segmentation
+        - goal_receptacle
+        - goal_recep_segmentation
         - is_holding
         - object_embedding
       allowed_actions:
@@ -171,12 +171,12 @@ AGENT:
       min_joint_delta: 0.02
 
   skip_skills:
-    nav_to_obj: False
+    nav_to_obj: True
     nav_to_rec: False
     gaze_at_obj: True
     gaze_at_rec: True
-    pick: False
-    place: False
+    pick: True
+    place: True
 
   PLANNER:
     collision_threshold: 0.20       # forward move distance under which we consider there's a collision (in meters)
