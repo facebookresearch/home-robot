@@ -291,8 +291,9 @@ class PPOAgent(Agent):
         min_depth = self.config.ENVIRONMENT.min_depth
         max_depth = self.config.ENVIRONMENT.max_depth
         normalized_depth = obs.depth.copy()
-        normalized_depth[normalized_depth == MIN_DEPTH_REPLACEMENT_VALUE] = 0
-        normalized_depth[normalized_depth == MAX_DEPTH_REPLACEMENT_VALUE] = 1
+        normalized_depth[normalized_depth == MIN_DEPTH_REPLACEMENT_VALUE] = min_depth
+        normalized_depth[normalized_depth == MAX_DEPTH_REPLACEMENT_VALUE] = max_depth
+        normalized_depth = np.clip(normalized_depth, min_depth, max_depth)
         normalized_depth = (normalized_depth - min_depth) / (max_depth - min_depth)
         hab_obs = OrderedDict(
             {
