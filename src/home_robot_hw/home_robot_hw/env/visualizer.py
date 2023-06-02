@@ -269,7 +269,7 @@ class Visualizer:
 
     def _init_vis_image(self, goal_name: str):
         # vis_image = np.ones((655, 1165, 3)).astype(np.uint8) * 255
-        vis_image = np.ones((655, 1885, 3)).astype(np.uint8) * 255
+        vis_image = np.ones((655, 1125, 3)).astype(np.uint8) * 255
         font = cv2.FONT_HERSHEY_SIMPLEX
         fontScale = 0.6
         color = (20, 20, 20)  # BGR
