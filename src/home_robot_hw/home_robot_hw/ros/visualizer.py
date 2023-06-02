@@ -1,5 +1,5 @@
 import rospy
-from visualization_msgs.msg import Marker
+from visualization_msgs.msg import Marker, MarkerArray
 
 from home_robot_hw.ros.utils import matrix_to_pose_msg
 
@@ -13,9 +13,9 @@ class Visualizer(object):
             rgba = [1, 0, 0, 0.75]
         self.rgba = rgba
 
-    def __call__(self, pose_matrix):
+    def __call__(self, pose_matrix, frame_id="map"):
         marker = Marker()
-        marker.header.frame_id = "map"
+        marker.header.frame_id = frame_id
         marker.type = Marker.ARROW
         marker.pose = matrix_to_pose_msg(pose_matrix)
         marker.color.r = self.rgba[0]
@@ -26,3 +26,64 @@ class Visualizer(object):
         marker.scale.y = 0.05
         marker.scale.z = 0.05
         self.pub.publish(marker)
+
+    def publish_2d(self, pose_matrix, frame_id="map"):
+        marker = Marker()
+        marker.header.frame_id = frame_id
+        marker.type = Marker.SPHERE
+        marker.pose = matrix_to_pose_msg(pose_matrix)
+        marker.color.r = self.rgba[0]
+        marker.color.g = self.rgba[1]
+        marker.color.b = self.rgba[2]
+        marker.color.a = self.rgba[3]
+        marker.scale.x = 0.05
+        marker.scale.y = 0.05
+        marker.scale.z = 0.05
+        self.pub.publish(marker)
+
+    def publish_pose_array(self, pose_matrix_array, frame_id="map"):
+        markers = MarkerArray()
+        for pose_matrix in pose_matrix_array:
+            marker = Marker()
+            marker.header.frame_id = frame_id
+            marker.type = Marker.ARROW
+            marker.pose = matrix_to_pose_msg(pose_matrix)
+            marker.color.r = self.rgba[0]
+            marker.color.g = self.rgba[1]
+            marker.color.b = self.rgba[2]
+            marker.color.a = self.rgba[3]
+            marker.scale.x = 0.2
+            marker.scale.y = 0.05
+            marker.scale.z = 0.05
+            markers.markers.append(marker)
+        self.array_pub.publish(markers)
+
+
+class ArrayVisualizer(object):
+    """Simple visualizer to send an array of marker message"""
+
+    def __init__(self, topic_name, rgba=None):
+        self.array_pub = rospy.Publisher(topic_name, MarkerArray, queue_size=1)
+        if rgba is None:
+            rgba = [1, 0, 0, 0.75]
+        self.rgba = rgba
+
+    def __call__(self, pose_matrix_array, frame_id="map"):
+        markers = MarkerArray()
+        i = 0
+        for pose_matrix in pose_matrix_array:
+            marker = Marker()
+            marker.header.frame_id = frame_id
+            marker.id = i
+            i += 1
+            marker.type = Marker.ARROW
+            marker.pose = matrix_to_pose_msg(pose_matrix)
+            marker.color.r = self.rgba[0]
+            marker.color.g = self.rgba[1]
+            marker.color.b = self.rgba[2]
+            marker.color.a = self.rgba[3]
+            marker.scale.x = 0.2
+            marker.scale.y = 0.05
+            marker.scale.z = 0.05
+            markers.markers.append(marker)
+        self.array_pub.publish(markers)
