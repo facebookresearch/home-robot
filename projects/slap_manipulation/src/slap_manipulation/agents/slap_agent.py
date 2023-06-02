@@ -36,6 +36,7 @@ class SLAPAgent(object):
         self._max_depth = self.cfg.SLAP.max_depth
         self._feat_dim = 1
         self._x_max = self.cfg.SLAP.x_max
+        self._z_min = self.cfg.SLAP.z_min
         self._voxel_size_1 = self.cfg.SLAP.voxel_size_1
         self._voxel_size_2 = self.cfg.SLAP.voxel_size_2
         if not self._dry_run:
@@ -127,6 +128,10 @@ class SLAPAgent(object):
             rgb = rgb[x_mask]
             xyz = xyz[x_mask]
             feat = feat[x_mask]
+            z_mask = xyz[:, 2] > self._z_min
+            rgb = rgb[z_mask]
+            xyz = xyz[z_mask]
+            feat = feat[z_mask]
             xyz, rgb, feat = xyz.reshape(-1, 3), rgb.reshape(-1, 3), feat.reshape(-1, 1)
             # show_point_cloud(xyz, rgb, np.zeros((3,1)))
 

@@ -8,7 +8,7 @@ from home_robot.core.interfaces import Observations
 from home_robot.perception.detection.detic.detic_perception import DeticPerception
 from home_robot.utils.data_tools.loader import DatasetBase
 from home_robot.utils.data_tools.writer import DataWriter
-from home_robot_hw.env.stretch_manipulation_env import StretchManipulationEnv
+from home_robot_hw.remote.api import StretchClient
 
 MY_CATEGORIES = ["cup", "bottle", "drawer", "basket", "bowl", "computer", "mug"]
 
@@ -16,8 +16,7 @@ MY_CATEGORIES = ["cup", "bottle", "drawer", "basket", "bowl", "computer", "mug"]
 @click.command()
 @click.option("--category", multiple=True, default=MY_CATEGORIES)
 def main(category):
-    rospy.init_node("test_detic")
-    robot = StretchManipulationEnv(init_cameras=True)
+    robot = StretchClient()
     segmentation = DeticPerception(
         vocabulary="custom",
         custom_vocabulary=",".join(category),
@@ -25,12 +24,13 @@ def main(category):
     )
     # image = Image.open("./desk.jpg")
     # image_np = np.array(image)
-    obs = robot.get_observation()
-    breakpoint()
+    rgb, depth, xyz = robot.head.get_images(
+        compute_xyz=True,
+    )
     detic_obs = Observations(
-        rgb=obs["rgb"],
-        depth=obs["depth"],
-        xyz=obs["xyz"],
+        rgb=rgb,
+        depth=depth,
+        xyz=xyz,
         gps=np.zeros(2),  # TODO Replace
         compass=np.zeros(1),  # TODO Replace
         task_observations={},

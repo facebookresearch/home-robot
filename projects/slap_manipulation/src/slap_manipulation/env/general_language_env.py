@@ -204,7 +204,7 @@ class GeneralLanguageEnv(StretchPickandPlaceEnv):
                 self.action_visualizer(pose_matrix_array, frame_id="base_link")
                 combined_action = np.concatenate((pos, ori, gripper), axis=-1)
                 ok = self.skill_planner.try_executing_skill(
-                    combined_action, self.robot.get_joint_state()
+                    combined_action, debug=False
                 )
 
         # Move, if we are not doing anything with the arm

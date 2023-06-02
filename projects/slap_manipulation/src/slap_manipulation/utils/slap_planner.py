@@ -66,6 +66,12 @@ class CombinedSLAPPlanner(object):
         # TODO: add skill-specific standoffs from 0th action
         joint_pos_pre = self.robot.manip.get_joint_positions()
 
+        # smoothen trajectory via linear interpolation
+        action_gripper = np.repeat(action_gripper, num_pts_per_segment)
+        actions_pose_mat = self.linear_interpolation(
+            actions_pose_mat, num_points_per_segment=num_pts_per_segment
+        )
+
         # 1st bring the ee up to the height of 1st action
         begin_pose = self.robot.manip.get_ee_pose()
         begin_pose = to_matrix(*begin_pose)
@@ -84,10 +90,6 @@ class CombinedSLAPPlanner(object):
         )
         action_gripper = np.concatenate(
             (gripper, action_gripper.reshape(-1), gripper), axis=-1
-        )
-        action_gripper = np.repeat(action_gripper, num_pts_per_segment)
-        actions_pose_mat = self.linear_interpolation(
-            actions_pose_mat, num_points_per_segment=num_pts_per_segment
         )
         initial_pt = ("initial", joint_pos_pre, gripper)
         trajectory.append(initial_pt)
