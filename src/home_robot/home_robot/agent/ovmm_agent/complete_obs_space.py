@@ -3,6 +3,11 @@ import numpy as np
 
 
 def get_complete_obs_space(skill_config, baseline_config):
+    """
+    Get superset of observation space needed for any policy.
+    This avoids needing to use the habitat configs to import the observation space on hardware.
+    TODO: Find way to import observation space from regular YAML configs to avoid this hardcoding.
+    """
     return spaces.dict.Dict(
         {
             "is_holding": spaces.Box(0.0, 1.0, (1,), np.float32),
