@@ -5,10 +5,12 @@
 	<arg name="teleop_keyboard" default="false"/>
 	<arg name="start_rs_ros" default="true"/>
 	<arg name="start_joy_node" default="false"/>
+	<arg name="publish_master_clock" default="true"/>
 
 	<!-- bring up rviz? -->
-	<param name="/use_sim_time" value="false"/>
+	<!--param name="/use_sim_time" value="true"/-->
 	<arg name="rviz" default="false" doc="whether to show Rviz" />
+	<include file="$(find home_robot_hw)/launch/master_clock.launch" if="$(arg publish_master_clock)"/>
 
 	<!-- STRETCH DRIVER -->
 	<param name="/stretch_driver/broadcast_odom_tf" type="bool" value="false"/>

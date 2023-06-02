@@ -80,9 +80,11 @@ class GraspPlanner(object):
             mean_pt = np.mean(obj_pts, axis=0)
             dist = np.linalg.norm(mean_pt)
             print(" -", obj_id, "with", num_obj_pts, "points; dist to cam =", dist, "m")
+            
             if dist > self.max_distance_m:
                 print(" --> too far away from camera, not reachable")
                 continue
+                
             if dist < min_dist:
                 min_dist = dist
                 best_mask = mask
@@ -194,7 +196,9 @@ class GraspPlanner(object):
                     "seconds",
                 )
 
+
             _, all_object_masks = self.get_object_class_masks(obs)
+
             # TODO: return to this if we want to take goal mask as an argument in the future
             # For now though we will choose the closest one
             # object_mask = obs.task_observations["goal_mask"]
