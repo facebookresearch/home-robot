@@ -69,7 +69,7 @@ AGENT:
     # goal_dilation_selem_radius: 10  # radius (in cells) of goal dilation structuring element
     min_obs_dilation_selem_radius: 3    # radius (in cells) of obstacle dilation structuring element
     obs_dilation_selem_radius: 5    # radius (in cells) of obstacle dilation structuring element
-    goal_dilation_selem_radius: 15  # radius (in cells) of goal dilation structuring element
+    goal_dilation_selem_radius: 25  # radius (in cells) of goal dilation structuring element
     step_size: 10                    # maximum distance of the short-term goal selected by the planner
     use_dilation_for_stg: False      # use dilated goals for estimating short-term goals - or just reaching
     map_downsample_factor: 1            # optional downsampling of traversible and goal map before fmm distance call (1 for no downsampling, 2 for halving resolution)

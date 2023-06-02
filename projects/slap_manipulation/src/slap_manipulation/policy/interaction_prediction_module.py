@@ -496,6 +496,11 @@ class InteractionPredictionModule(torch.nn.Module):
             v_xyz, v_rgb[:, :3], classification_scores, visualize=False
         )
         if debug:
+            feat_rgb = v_rgb[:, :3].detach().cpu().numpy().reshape(-1, 3)
+            feat_rgb[v_feat.detach().cpu().numpy().reshape(-1) == 1, 1] = 1.0
+            print("Semantic features being passed")
+            show_point_cloud(v_xyz.detach().cpu().numpy(), feat_rgb)
+            print("Predicted interaction point")
             self.show_prediction_with_grnd_truth(
                 v_xyz,
                 v_rgb[:, :3],

@@ -36,6 +36,23 @@ class CombinedSLAPPlanner(object):
         self._robot_ee_to_grasp_offset[2, 3] += 0.10
         self._robot_max_grasp = 0  # 0.13, empirically found
 
+    def linear_interpolation(self, waypoints, num_points_per_segment=5):
+        num_waypoints = len(waypoints)
+        num_segments = num_waypoints - 1
+
+        interpolated_trajectory = []
+
+        for i in range(num_segments):
+            start_pose = waypoints[i]
+            end_pose = waypoints[i + 1]
+
+            for t in np.linspace(0, 1, num_points_per_segment):
+                interpolated_pose = (1 - t) * start_pose + t * end_pose
+                interpolated_trajectory.append(interpolated_pose)
+        interpolated_trajectory = np.array(interpolated_trajectory)
+
+        return interpolated_trajectory
+
     def plan_for_skill(
         self, actions_pose_mat: np.ndarray, action_gripper: np.ndarray
     ) -> Optional[List[Tuple]]:
@@ -44,6 +61,7 @@ class CombinedSLAPPlanner(object):
         # grasp_pos, grasp_quat = to_pos_quat(grasp)
         self.robot.switch_to_manipulation_mode()
         trajectory = []
+        num_pts_per_segment = 5
 
         # TODO: add skill-specific standoffs from 0th action
         joint_pos_pre = self.robot.manip.get_joint_positions()
@@ -51,8 +69,9 @@ class CombinedSLAPPlanner(object):
         # 1st bring the ee up to the height of 1st action
         begin_pose = self.robot.manip.get_ee_pose()
         begin_pose = to_matrix(*begin_pose)
-        # TODO: also rotate the gripper as per 1st action
         begin_pose[2, 3] = actions_pose_mat[0, 2, 3]
+        # TODO: also rotate the gripper as per 1st action
+        begin_pose[:3, :3] = actions_pose_mat[0, :3, :3]
         # get current gripper reading, keep gripper as is during this motion
         gripper = np.array([int(self.robot.manip.get_gripper_position() > -0.005)])
         actions_pose_mat = np.concatenate(
@@ -65,6 +84,10 @@ class CombinedSLAPPlanner(object):
         )
         action_gripper = np.concatenate(
             (gripper, action_gripper.reshape(-1), gripper), axis=-1
+        )
+        action_gripper = np.repeat(action_gripper, num_pts_per_segment)
+        actions_pose_mat = self.linear_interpolation(
+            actions_pose_mat, num_points_per_segment=num_pts_per_segment
         )
         initial_pt = ("initial", joint_pos_pre, gripper)
         trajectory.append(initial_pt)
