@@ -369,7 +369,7 @@ class StretchPickandPlaceEnv(StretchEnv):
             camera_pose=self.robot.head.get_pose(rotated=True),
             joint=self.robot.model.config_to_hab(joint_positions),
             relative_resting_position=np.array([0.3878479, 0.12924957, 0.4224413]),
-            is_holding=np.array([0.0]),
+            is_holding=np.array([1.0]), # TODO: hardcoded for testing nav_to_recep
         )
         obs.task_observations["prev_grasp_success"] = self.prev_grasp_success
         obs.task_observations[
