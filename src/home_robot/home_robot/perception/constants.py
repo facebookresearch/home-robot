@@ -13,7 +13,7 @@ from home_robot.utils.constants import (
 )
 
 hm3d_to_mp3d_path = Path(__file__).resolve().parent / "matterport_category_mappings.tsv"
-df = pd.read_csv(hm3d_to_mp3d_path, sep="    ", header=0)
+df = pd.read_csv(hm3d_to_mp3d_path, sep="    ", header=0, engine="python")
 hm3d_to_mp3d = {row["category"]: row["mpcat40index"] for _, row in df.iterrows()}
 
 
@@ -59,6 +59,10 @@ class SemanticCategoryMapping(ABC):
     @abstractmethod
     def num_sem_categories(self):
         pass
+
+    @property
+    def num_sem_obj_categories(self):
+        return self.num_sem_categories()
 
 
 # ----------------------------------------------------
@@ -492,75 +496,6 @@ class RearrangeBasicCategories(SemanticCategoryMapping):
         return 5
 
 
-rearrange_detic_categories_indexes = {
-    # objects ->
-    "medicine_bottle": 1,
-    "stuffed_toy": 2,
-    "book": 3,
-    "candle_holder": 4,
-    "canister": 5,
-    "sponge": 6,
-    "mouse_pad": 7,
-    "cup": 8,
-    "vase": 9,
-    "soap_dish": 10,
-    "tape": 11,
-    "plate": 12,
-    "bowl": 13,
-    "hat": 14,
-    "dishtowel": 15,
-    "shoe": 16,
-    "action_figure": 17,
-    "pencil_case": 18,
-    "sushi_mat": 19,
-    "basket": 20,
-    "spatula": 21,
-    "scissors": 22,
-    "screwdriver": 23,
-    "can_opener": 24,
-    "can": 25,
-    # receptacles ->
-    "console_table": 26,
-    "sink_cabinet": 27,
-    "shoe_rack": 28,
-    "buffet": 29,
-    "footstool": 30,
-    "toilet": 31,
-    "tv_stand": 32,
-    "chest_of_drawers": 33,
-    "l-shaped_couch": 34,
-    "stool": 35,
-    "rocking_chair": 36,
-    "chair": 37,
-    "base_cabinet": 38,
-    "bar_stool": 39,
-    "cabinet": 40,
-    "bathtub": 41,
-    "sofa": 42,
-    "table": 43,
-    "armchair": 44,
-    "kitchen_island": 45,
-    "end_table": 46,
-    "washer": 47,
-    "swivel_chair": 48,
-    "kitchen_cabinet": 49,
-    "trunk": 50,
-    "nightstand": 51,
-    "serving_cart": 52,
-    "dining_table": 53,
-    "bench": 54,
-    "beanbag_chair": 55,
-    "coffee_table": 56,
-    "air_hockey_table": 57,
-    "desk": 58,
-    "storage_bench": 59,
-}
-
-rearrange_detic_categories_indexes = {
-    v: k for k, v in rearrange_detic_categories_indexes.items()
-}
-
-
 rearrange_detic_categories_legend_path = str(
     Path(__file__).resolve().parent / "rearrange_detic_categories_legend.png"
 )
@@ -570,13 +505,10 @@ class RearrangeDETICCategories(SemanticCategoryMapping):
     """Maintain category to id and category to color mappings for use in OVMM task.
     Uses a default list of categories if no category list is passed."""
 
-    def __init__(self, categories_indexes=None):
+    def __init__(self, categories_indexes, num_sem_objects=None):
         super().__init__()
-        if categories_indexes is None:
-            self.goal_id_to_goal_name = rearrange_detic_categories_indexes
-        else:
-            self.goal_id_to_goal_name = categories_indexes
-
+        self.goal_id_to_goal_name = categories_indexes
+        self._num_sem_obj_categories = num_sem_objects
         self._instance_id_to_category_id = None
 
     def map_goal_id(self, goal_id: int) -> Tuple[int, str]:
@@ -623,6 +555,9 @@ class RearrangeDETICCategories(SemanticCategoryMapping):
                 0.6,
                 0.87,
                 0.54,  # been close map
+                0.0,
+                1.0,
+                0.0,  # short term goal
                 *[x / 255.0 for x in self.color_palette],
             ]
         ]
@@ -645,6 +580,10 @@ class RearrangeDETICCategories(SemanticCategoryMapping):
     @property
     def num_sem_categories(self):
         return len(self.goal_id_to_goal_name.keys()) + 2
+
+    @property
+    def num_sem_obj_categories(self):
+        return self._num_sem_obj_categories
 
 
 # ----------------------------------------------------

@@ -4,6 +4,12 @@ from typing import Any, Dict, List, Tuple
 import torch
 
 from home_robot.agent.objectnav_agent import ObjectNavAgent
+from home_robot.agent.ovmm_agent.ovmm_agent import OpenVocabManipAgent, SemanticVocab
+from home_robot.agent.ovmm_agent.ovmm_perception import (
+    OvmmPerception,
+    build_vocab_from_category_map,
+    read_category_map_file,
+)
 from home_robot.agent.ovmm_agent.ppo_agent import PPOAgent
 from home_robot.core.abstract_agent import Agent
 from home_robot.core.interfaces import Action, DiscreteNavigationAction, Observations
@@ -25,7 +31,7 @@ class SimpleTaskState(Enum):
     DONE = 9
 
 
-class PickAndPlaceAgent(Agent):
+class PickAndPlaceAgent(OpenVocabManipAgent):
     """Create a simple version of a pick and place agent which uses a 2D semantic map to find
     objects and try to grasp them."""
 
@@ -69,6 +75,10 @@ class PickAndPlaceAgent(Agent):
         self.skip_orient_place = skip_orient_place
         self.config = config
         self.timestep = 0
+        self.semantic_sensor = OvmmPerception(config, device_id)
+        self.obj_name_to_id, self.rec_name_to_id = read_category_map_file(
+            config.ENVIRONMENT.category_map_file
+        )
 
         # Create place policy
         if not self.skip_place:
@@ -155,6 +165,11 @@ class PickAndPlaceAgent(Agent):
             action: home_robot action
             info: additional information (e.g., for debugging, visualization)
         """
+        if self.timestep == 0:
+            self._update_semantic_vocabs(obs)
+            self._set_semantic_vocab(SemanticVocab.SIMPLE, force_set=True)
+        obs = self.semantic_sensor(obs)
+
         info = self._get_info(obs)
         self.timestep += 1  # Update step counter for visualizations
         action = DiscreteNavigationAction.STOP
@@ -175,7 +190,7 @@ class PickAndPlaceAgent(Agent):
             self.state = SimpleTaskState.GAZE_OBJECT
             if not self.skip_orient:
                 # orient to face the object
-                return DiscreteNavigationAction.MANIPULATION_MODE, action_info
+                return DiscreteNavigationAction.MANIPULATION_MODE, action_info, obs
         if self.state == SimpleTaskState.GAZE_OBJECT:
             if self.skip_gaze or self.gaze_agent is None:
                 self.state = SimpleTaskState.PICK_OBJECT
@@ -184,15 +199,19 @@ class PickAndPlaceAgent(Agent):
                 action, does_want_terminate = self.gaze_agent.act(obs)
                 if does_want_terminate:
                     self.state = SimpleTaskState.PICK_OBJECT
-                return action, None
+                return action, None, obs
         if self.state == SimpleTaskState.PICK_OBJECT:
             # Try to grab the object
-            if not self.skip_place:
-                self.state = SimpleTaskState.ORIENT_NAV
-            return DiscreteNavigationAction.PICK_OBJECT, action_info
+            if obs.task_observations["prev_grasp_success"]:
+                print("[Agent] Attempted a grasp. Moving on...")
+                if not self.skip_place:
+                    self.state = SimpleTaskState.ORIENT_NAV
+                else:
+                    print("[Agent] staying in grasp state to continue testing.")
+            return DiscreteNavigationAction.PICK_OBJECT, action_info, obs
         if self.state == SimpleTaskState.ORIENT_NAV:
             self.state = SimpleTaskState.FIND_GOAL
-            return DiscreteNavigationAction.NAVIGATION_MODE, action_info
+            return DiscreteNavigationAction.NAVIGATION_MODE, action_info, obs
         if self.state == SimpleTaskState.FIND_GOAL:
             # Find the goal location
             obs, info = self._preprocess_obs_for_place(obs, info)
@@ -204,7 +223,7 @@ class PickAndPlaceAgent(Agent):
             self.state = SimpleTaskState.PLACE_OBJECT
             if not self.skip_orient_place:
                 # orient to face the object
-                return DiscreteNavigationAction.MANIPULATION_MODE, action_info
+                return DiscreteNavigationAction.MANIPULATION_MODE, action_info, obs
         if self.state == SimpleTaskState.PLACE_OBJECT:
             # place the object somewhere - hopefully in front of the agent.
             obs, info = self._preprocess_obs_for_place(obs, info)
@@ -218,4 +237,4 @@ class PickAndPlaceAgent(Agent):
             action_info = info
 
         # If we did not find anything else to do, just stop
-        return action, action_info
+        return action, action_info, obs

@@ -151,7 +151,7 @@ class VectorizedEvaluator(PPOTrainer):
         while not stop():
             current_episodes_info = self.envs.current_episodes()
             # TODO: Currently agent can work with only 1 env, Parallelize act across envs
-            actions, infos = zip(*[agent.act(ob) for ob in obs])
+            actions, infos, _ = zip(*[agent.act(ob) for ob in obs])
 
             outputs = envs.call(
                 ["apply_action"] * envs.num_envs,
