@@ -141,7 +141,6 @@ class StretchPickandPlaceEnv(StretchEnv):
         # Also do not rotate if you are just doing grasp testing
         if not self.dry_run and not self.test_grasping:
             self.robot.move_to_nav_posture()
-            self.robot.nav.navigate_to([0, 0, -np.pi / 2], relative=True, blocking=True)
 
         """Rotate the robot back to face forward"""
         if not self.robot.in_navigation_mode():
