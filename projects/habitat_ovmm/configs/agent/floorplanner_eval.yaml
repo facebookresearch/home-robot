@@ -145,7 +145,7 @@ AGENT:
         - robot_head_depth
         - goal_receptacle
         - joint
-        - ovmm_nav_goal_segmentation
+        - goal_recep_segmentation
         - is_holding
         - object_embedding
       allowed_actions:
