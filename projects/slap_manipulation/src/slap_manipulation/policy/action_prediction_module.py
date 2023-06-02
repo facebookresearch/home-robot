@@ -494,11 +494,12 @@ class ActionPredictionModule(torch.nn.Module):
                     pose[:3].detach().cpu().numpy(), pose[3:7].detach().cpu().numpy()
                 )
             )
-        show_point_cloud(
-            cropped_xyz.detach().cpu().numpy(),
-            cropped_feat[:, :3].detach().cpu().numpy(),
-            grasps=viz_output,
-        )
+        if debug:
+            show_point_cloud(
+                cropped_xyz.detach().cpu().numpy(),
+                cropped_feat[:, :3].detach().cpu().numpy(),
+                grasps=viz_output,
+            )
         return output
 
     def forward(self, xyz, rgb, proprio, time_step, cmd, hidden):

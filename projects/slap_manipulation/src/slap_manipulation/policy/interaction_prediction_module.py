@@ -10,6 +10,7 @@ import clip
 import hydra
 import numpy as np
 import open3d as o3d
+import open3d.visualization.gui as gui
 import torch
 import torch.nn as nn
 import wandb
@@ -491,12 +492,15 @@ class InteractionPredictionModule(torch.nn.Module):
             lang,
             proprio,
         )
-        self.visualize_top_attention(v_xyz, v_rgb[:, :3], classification_scores)
-        self.show_prediction_with_grnd_truth(
-            v_xyz,
-            v_rgb[:, :3],
-            v_xyz[self.predict_closest_idx(classification_scores)],
+        self.get_top_attention(
+            v_xyz, v_rgb[:, :3], classification_scores, visualize=False
         )
+        if debug:
+            self.show_prediction_with_grnd_truth(
+                v_xyz,
+                v_rgb[:, :3],
+                v_xyz[self.predict_closest_idx(classification_scores)],
+            )
         predicted_idx = self.predict_closest_idx(classification_scores)[0]
         return (
             v_xyz[predicted_idx],
@@ -541,6 +545,13 @@ class InteractionPredictionModule(torch.nn.Module):
         else:
             print("No ground truth available")
         o3d.visualization.draw_geometries(geoms)
+        # app = gui.Application.instance
+        # app.initialize()
+        # vis = o3d.visualization.O3DVisualizer()
+        # for i, geom in enumerate(geoms):
+        #     vis.add_geometry(f"geom_{i}", geom)
+        # app.add_window(vis)
+        # app.run()
         # vis = o3d.visualization.Visualizer()
         # vis.create_window()
         # for geom in geoms:
@@ -564,16 +575,19 @@ class InteractionPredictionModule(torch.nn.Module):
         # if viewpt:
         #     del ctr
 
-    def visualize_top_attention(self, xyz, rgb, classification_scores):
+    def get_top_attention(
+        self, xyz, rgb, classification_scores, threshold=0.05, visualize=True
+    ):
         xyz = xyz.detach().cpu().numpy()
         new_rgb = rgb.detach().cpu().numpy().copy()
-        show_point_cloud(xyz, new_rgb)
         _, mask = torch.sort(classification_scores, descending=True)
-        top_05 = int(classification_scores.shape[1] * 0.05)
-        mask = mask.squeeze()[:top_05].detach().cpu().numpy()
+        top_pts = int(classification_scores.shape[1] * threshold)
+        mask = mask.squeeze()[:top_pts].detach().cpu().numpy()
         # mask = (classification_probs > thresh).detach().cpu().numpy()
         new_rgb[mask] = np.array([1, 0, 0]).reshape(1, 3)
-        show_point_cloud(xyz, new_rgb)
+        if visualize:
+            show_point_cloud(xyz, new_rgb)
+        return xyz[mask], rgb[mask]
 
     def show_validation_on_sensor(self, data, viz=False):
         """

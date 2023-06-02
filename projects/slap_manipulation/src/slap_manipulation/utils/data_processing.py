@@ -102,7 +102,7 @@ def filter_and_remove_duplicate_points(
         feats = feats[mask]
     if np.any(rgb > 1.0):
         rgb = rgb / 255.0
-    debug_views = True
+    debug_views = False
     if debug_views:
         print("xyz", xyz.shape)
         print("rgb", rgb.shape)

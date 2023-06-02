@@ -48,6 +48,7 @@ class SLAPAgent(object):
         self.interaction_prediction_module.to(self.device)
         self.action_prediction_module.load_weights(self.cfg.SLAP.APM.path)
         self.action_prediction_module.to(self.device)
+        print("Loaded SLAP weights")
 
     def get_proprio(self):
         if self._last_action is None:
@@ -104,7 +105,8 @@ class SLAPAgent(object):
         plt.imshow(obs.task_observations["semantic_frame"])
         plt.show()
         # only keep feat which is == semantic_id
-        feat[feat != semantic_id] = 0
+        feat[feat >= (len(obs.task_observations["object_list"]) + 2)] = 0
+        feat[feat != 0] = 1
 
         # proprio looks different now
         proprio = self.get_proprio()
@@ -126,7 +128,7 @@ class SLAPAgent(object):
             xyz = xyz[x_mask]
             feat = feat[x_mask]
             xyz, rgb, feat = xyz.reshape(-1, 3), rgb.reshape(-1, 3), feat.reshape(-1, 1)
-            show_point_cloud(xyz, rgb)
+            # show_point_cloud(xyz, rgb, np.zeros((3,1)))
 
         # voxelize at a granular voxel-size then choose X points
         xyz, rgb, feat = filter_and_remove_duplicate_points(
@@ -154,12 +156,12 @@ class SLAPAgent(object):
         if np.any(rgb > 1.0):
             rgb = rgb / 255.0
         if debug:
-            print("create_action_prediction_input")
+            print("create_interaction_prediction_input")
             show_point_cloud(xyz, rgb, orig=np.zeros(3))
 
         # voxelize rgb, xyz, and feat
         voxelized_xyz, voxelized_rgb, voxelized_feat = voxelize_point_cloud(
-            xyz, rgb, feat=feat, voxel_size=self._voxel_size_2
+            xyz, rgb, feat=feat, voxel_size=self._voxel_size_2, debug_voxelization=debug
         )
 
         # input_vector = (rgb, xyz, proprio, lang, mean)
@@ -218,7 +220,7 @@ class SLAPAgent(object):
         ipm_data.update(input_data)
         return ipm_data
 
-    def predict(self, obs):
+    def predict(self, obs, ipm_only=False):
         info = {}
         action = None
         if self.interaction_point is None:
@@ -227,26 +229,53 @@ class SLAPAgent(object):
                     obs, filter_depth=True, debug=False
                 )
                 result = self.interaction_prediction_module.predict(
-                    self.ipm_input, True
+                    self.ipm_input, debug=False
                 )
                 self.interaction_point = result[0]
+                info["interaction_point"] = (
+                    (self.interaction_point + self.ipm_input["mean"])
+                    .detach()
+                    .cpu()
+                    .numpy()
+                )
+                scores = result[2]
+
+                # get top 5% points from PCD
+                (
+                    top_xyz,
+                    top_rgb,
+                ) = self.interaction_prediction_module.get_top_attention(
+                    self.ipm_input["xyz_voxelized"],
+                    self.ipm_input["rgb_voxelized"],
+                    scores,
+                    threshold=10,
+                    visualize=False,
+                )
+                info["top_xyz"] = (
+                    top_xyz + self.ipm_input["mean"].detach().cpu().numpy()
+                )
+                info["top_rgb"] = top_rgb.detach().cpu().numpy()
             else:
                 print("[SLAP] Predicting interaction point")
                 self.interaction_point = np.random.rand(3)
         if self._dry_run:
             print(f"[SLAP] Predicting keyframe # {self._curr_keyframe}")
-        else:
+        elif not ipm_only:
             apm_input = self.create_action_prediction_input_from_obs(
                 obs, self.ipm_input
             )
-            action = self.action_prediction_module.predict(apm_input)
+            action = self.action_prediction_module.predict(apm_input, debug=False)
             for i, act in enumerate(action):
                 action[i] = act.detach().cpu().numpy()
             action = np.array(action)
+            action[:, :3] += (
+                (self.interaction_point + self.ipm_input["mean"])
+                .detach()
+                .cpu()
+                .numpy()
+                .reshape(1, 3)
+            )
             print(f"[SLAP] Predicted action: {action}")
-            action[:, :3] += self.interaction_point.detach().cpu().numpy().reshape(
-                1, 3
-            ) + apm_input["mean"].detach().cpu().numpy().reshape(1, 3)
         return action, info
 
     def reset(self):

@@ -1,4 +1,3 @@
-import logging
 from enum import Enum
 from glob import glob
 from typing import Any, Dict, List, Tuple
@@ -12,10 +11,19 @@ from home_robot.agent.ovmm_agent.pick_and_place_agent import PickAndPlaceAgent
 from home_robot.core.interfaces import (
     Action,
     ContinuousEndEffectorAction,
+    ContinuousNavigationAction,
     DiscreteNavigationAction,
     GeneralTaskState,
     Observations,
 )
+from home_robot.utils.geometry import (
+    sophus2xyt,
+    xyt2sophus,
+    xyt_base_to_global,
+    xyt_global_to_base,
+)
+from home_robot.utils.point_cloud import show_point_cloud
+from home_robot_hw.ros.utils import matrix_to_pose_msg
 
 
 def get_task_plans_from_oracle(
@@ -49,6 +57,7 @@ def get_codelist(steps_list):
 class GeneralLanguageAgent(PickAndPlaceAgent):
     def __init__(self, cfg, debug=True, **kwargs):
         super().__init__(cfg, **kwargs)
+        # Visualizations
         self.steps = []
         self.state = GeneralTaskState.NOT_STARTED
         self.mode = "navigation"  # TODO: turn into an enum
@@ -99,7 +108,10 @@ class GeneralLanguageAgent(PickAndPlaceAgent):
                 ],
                 5: [
                     "self.goto(['drawer', 'drawer handle'], obs)",
-                    "self.open_object(['drawer'], obs)",
+                    "self.open_object(['drawer handle',], obs)",
+                ],
+                6: [
+                    "self.open_object(['drawer', 'drawer handle'], obs)",
                 ],
             }
 
@@ -114,6 +126,7 @@ class GeneralLanguageAgent(PickAndPlaceAgent):
     def soft_reset(self):
         self.state = GeneralTaskState.IDLE
         self.num_actions_done = 0
+        self.slap_model.reset()
 
     def _preprocess_obs(
         self, obs: Observations, object_list: List[str]
@@ -215,7 +228,8 @@ class GeneralLanguageAgent(PickAndPlaceAgent):
                 "[LangAgent]: Change the mode of the robot to manipulation mode; set goals"
             )
             self.mode = "manipulation"
-            # TODO: can check if new obejct_name is same as last; if yes, then don't change
+            # TODO: can check if new obejct_name is same as last;
+            # if yes, then don't change (saves a lot of time!!)
             info["not_viz"] = True
             info["object_list"] = object_list
             self.state = GeneralTaskState.PREPPING
@@ -253,15 +267,58 @@ class GeneralLanguageAgent(PickAndPlaceAgent):
     def call_slap(self, language: str, num_actions: int, obs, object_list: List[str]):
         info = {}
         action = None
-        if not self.is_busy():
+        obs.task_observations["task-name"] = language
+        obs.task_observations["num-actions"] = num_actions
+        obs.task_observations["object_list"] = object_list
+        if not self.is_busy() or self.state == GeneralTaskState.PREPPING:
+            if self.state == GeneralTaskState.PREPPING:
+                self.state = GeneralTaskState.DOING_TASK
+                info["object_list"] = object_list
+                print(f"[AGENT] {object_list=}")
+                return DiscreteNavigationAction.MANIPULATION_MODE, info
             print("[LangAgent]: Changing mode, setting goals")
-            info["not_viz"] = True
-            info["object_list"] = object_list
             self.state = GeneralTaskState.PREPPING
-            return DiscreteNavigationAction.MANIPULATION_MODE, info
+            result, info = self.slap_model.predict(obs)
+            # top_xyz = info["top_xyz"]
+            # top_rgb = info["top_rgb"]
+            # from numpy.linalg import eig
+            #
+            # # Step 1: Compute the centroid
+            # centroid = np.mean(top_xyz, axis=0)
+            # # Step 2: project points to xy
+            # xy_points = top_xyz[:, :2]
+            # # Step 3: Compute the covariance matrix of the projected points
+            # differences = xy_points - centroid[:2]
+            # covariance_matrix = np.dot(differences.T, differences) / len(xy_points)
+            # # Step 4: Compute eigenvalues and eigenvectors of the projected points
+            # eigenvalues, eigenvectors = eig(covariance_matrix)
+            # # Step 5: find the z-axis, perpendicular to PCD's axis
+            # perpendicular_orientation = np.arctan2(
+            #     eigenvectors[1, 0], eigenvectors[0, 0]
+            # )
+            # # Step 6: Project a point along the perpendicular to the z-axis
+            # # this depends on the task
+            # distance = 0.75  # Distance in meters (50 cm)
+            # projection_vector = np.array(
+            #     [
+            #         np.cos(perpendicular_orientation),
+            #         np.sin(perpendicular_orientation),
+            #         0,
+            #     ]
+            # )
+            # projected_point = info["interaction_point"] + distance * projection_vector
+            # projected_point[2] = perpendicular_orientation + np.deg2rad(180)
+            if "drawer" in object_list or "drawer handle" in object_list:
+                info["global_offset_vector"] = np.array([0, 1, 0])
+                info["global_orientation"] = np.deg2rad(-90)
+                info["offset_distance"] = 0.8
+            projected_point = np.copy(info["interaction_point"])
+            projected_point[2] = 0
+            info["SLAP"] = True
+            action = ContinuousNavigationAction(projected_point)
+            self.slap_model.reset()
+            return action, info
         else:
-            obs.task_observations["task-name"] = language
-            obs.task_observations["num-actions"] = num_actions
             result, info = self.slap_model.predict(obs)
             if result is not None:
                 action = ContinuousEndEffectorAction(
@@ -272,7 +329,6 @@ class GeneralLanguageAgent(PickAndPlaceAgent):
                     np.random.rand(1, 3), np.random.rand(1, 4), np.random.rand(1, 1)
                 )
             self.soft_reset()
-            self.slap_model.reset()
             self.state = GeneralTaskState.IDLE
             return action, info
 
