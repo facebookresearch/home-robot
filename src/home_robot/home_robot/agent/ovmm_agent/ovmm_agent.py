@@ -518,6 +518,7 @@ class OpenVocabManipAgent(ObjectNavAgent):
             # Since heuristic nav is not properly vectorized, this agent currently only supports 1 env
             # _switch_to_next_skill is thus invoked with e=0
             if new_state:
+                info["curr_skill"] = Skill(new_state).name
                 assert (
                     action is None
                 ), f"action must be None when switching states, found {action} instead"
