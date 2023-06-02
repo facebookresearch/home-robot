@@ -374,10 +374,10 @@ class OpenVocabManipAgent(ObjectNavAgent):
         self, obs: Observations, info: Dict[str, Any]
     ) -> Tuple[DiscreteNavigationAction, Any, Optional[Skill]]:
         gaze_step = self.timesteps[0] - self.gaze_at_obj_start_step[0]
-        if gaze_step == 0:
-            return DiscreteNavigationAction.POST_NAV_MODE, info, None
         if self.skip_skills.gaze_at_obj:
             terminate = True
+        elif gaze_step == 0:
+            return DiscreteNavigationAction.POST_NAV_MODE, info, None
         else:
             action, terminate = self.gaze_agent.act(obs)
         new_state = None
