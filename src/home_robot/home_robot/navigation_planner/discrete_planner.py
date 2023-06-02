@@ -382,7 +382,6 @@ class DiscretePlanner:
                 action = ContinuousNavigationAction([0, 0, -relative_angle_goal])
             else:
                 action = DiscreteNavigationAction.STOP
-                input("Look at RViz, verify current scene has all goals in it. Press enter to continue")
                 print("!!! DONE !!!")
 
         self.last_action = action
