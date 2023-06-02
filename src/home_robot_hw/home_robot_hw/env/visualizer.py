@@ -250,6 +250,8 @@ class Visualizer:
                 SEMANTIC_MAP_ORIG_X:SEMANTIC_MAP_ORIG_X + 480,
                 SEMANTIC_MAP_ORIG_Y : SEMANTIC_MAP_ORIG_Y + width,
             ] = rl_obs_frame
+            print(self.image_vis.shape, SEMANTIC_MAP_ORIG_X, SEMANTIC_MAP_ORIG_Y, width)
+
 
         # First-person semantic frame
         semantic_frame = cv2.cvtColor(semantic_frame, cv2.COLOR_BGR2RGB)
@@ -476,7 +478,7 @@ class ExplorationVisualizer:
             )
 
     def _init_vis_image(self, goal_name: str):
-        vis_image = np.ones((655, 2165, 3)).astype(np.uint8) * 255
+        vis_image = np.ones((655, 2665, 3)).astype(np.uint8) * 255
         font = cv2.FONT_HERSHEY_SIMPLEX
         fontScale = 1
         color = (20, 20, 20)  # BGR
