@@ -205,8 +205,8 @@ class StretchPickandPlaceEnv(StretchEnv):
                 self._switch_to_nav_mode()
                 continuous_action = None
             elif action == DiscreteNavigationAction.POST_NAV_MODE:
-                self.robot_client.manip.goto_joint_positions(
-                    self.robot_client.manip._extract_joint_pos(STRETCH_POSTNAV_Q)
+                self.robot.manip.goto_joint_positions(
+                    self.robot.manip._extract_joint_pos(STRETCH_POSTNAV_Q)
                 )
                 continuous_action = None
             elif action == DiscreteNavigationAction.PICK_OBJECT:
