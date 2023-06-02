@@ -19,8 +19,8 @@ from home_robot.motion.stretch import (
     STRETCH_ARM_EXTENSION,
     STRETCH_ARM_LIFT,
     STRETCH_HOME_Q,
-    STRETCH_PREGRASP_Q,
     STRETCH_POSTNAV_Q,
+    STRETCH_PREGRASP_Q,
 )
 from home_robot.utils.geometry import xyt2sophus
 from home_robot_hw.env.stretch_abstract_env import StretchEnv
@@ -209,9 +209,7 @@ class StretchPickandPlaceEnv(StretchEnv):
                 self._switch_to_nav_mode()
                 continuous_action = None
             elif action == DiscreteNavigationAction.POST_NAV_MODE:
-                self.robot.manip.goto_joint_positions(
-                    self.robot.manip._extract_joint_pos(STRETCH_POSTNAV_Q)
-                )
+                self.robot.move_to_post_nav_posture()
                 continuous_action = None
             elif action == DiscreteNavigationAction.PICK_OBJECT:
                 print("[ENV] Discrete pick policy")
@@ -369,7 +367,7 @@ class StretchPickandPlaceEnv(StretchEnv):
             camera_pose=self.robot.head.get_pose(rotated=True),
             joint=self.robot.model.config_to_hab(joint_positions),
             relative_resting_position=np.array([0.3878479, 0.12924957, 0.4224413]),
-            is_holding=np.array([1.0]), # TODO: hardcoded for testing nav_to_recep
+            is_holding=np.array([1.0]),  # TODO: hardcoded for testing nav_to_recep
         )
         obs.task_observations["prev_grasp_success"] = self.prev_grasp_success
         obs.task_observations[
