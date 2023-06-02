@@ -20,6 +20,7 @@ from habitat.utils.gym_adapter import (
     continuous_vector_action_to_hab_dict,
     create_action_space,
 )
+from habitat.utils.visualizations.utils import observations_to_image
 from habitat_baselines.common.baseline_registry import baseline_registry
 from habitat_baselines.common.obs_transformers import (
     apply_obs_transforms_batch,
@@ -326,7 +327,7 @@ class PPOAgent(Agent):
         return hab_obs
 
     def act(
-        self, observations: Observations
+        self, observations: Observations, info
     ) -> Tuple[
         Union[
             ContinuousFullBodyAction,
@@ -343,10 +344,11 @@ class PPOAgent(Agent):
         if self.skill_start_compass is None:
             self.skill_start_compass = observations.compass
         obs = self.convert_to_habitat_obs_space(observations)
+        frame = observations_to_image(obs, info={})
         batch = batch_obs([obs], device=self.device)
         batch = apply_obs_transforms_batch(batch, self.obs_transforms)
         batch = OrderedDict([(k, batch[k]) for k in self.skill_obs_keys])
-
+        info['rl_obs_frame'] = frame
         with torch.no_grad():
             action_data = self.actor_critic.act(
                 batch,
@@ -383,7 +385,7 @@ class PPOAgent(Agent):
                     observations, step_action["action_args"]
                 )
                 return (
-                    robot_action,
+                    robot_action, info, 
                     does_want_terminate,
                 )
             else:
@@ -391,7 +393,7 @@ class PPOAgent(Agent):
                     actions.item(), self.skill_actions
                 )
                 return (
-                    step_action,
+                    step_action, info, 
                     self.does_want_terminate(observations, step_action),
                 )
 

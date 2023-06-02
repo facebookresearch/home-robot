@@ -127,6 +127,7 @@ class Visualizer:
         dilated_obstacle_map: Optional[np.ndarray] = None,
         short_term_goal_map: Optional[np.ndarray] = None,
         curr_skill: str = None,
+        rl_obs_frame: Optional[np.ndarray] = None,
         **kwargs,
     ):
         """Visualize frame input and semantic map.
@@ -234,6 +235,21 @@ class Visualizer:
             )
             color = map_color_palette[9:12][::-1]
             cv2.drawContours(self.image_vis, [agent_arrow], 0, color, -1)
+
+        elif rl_obs_frame is not None:
+            # Reshape the height while maintaining aspect ratio to V.HEIGHT
+            rl_obs_frame = rl_obs_frame[:, :, [2, 1, 0]]
+            # find the width of the frame such that height is V.HEIGHT
+            width = int(rl_obs_frame.shape[1] * 480 / rl_obs_frame.shape[0])
+            rl_obs_frame = cv2.resize(
+                rl_obs_frame,
+                (width, 480),
+                interpolation=cv2.INTER_NEAREST,
+            )
+            self.image_vis[
+                SEMANTIC_MAP_ORIG_X:SEMANTIC_MAP_ORIG_X + 480,
+                SEMANTIC_MAP_ORIG_Y : SEMANTIC_MAP_ORIG_Y + width,
+            ] = rl_obs_frame
 
         # First-person semantic frame
         semantic_frame = cv2.cvtColor(semantic_frame, cv2.COLOR_BGR2RGB)
@@ -460,7 +476,7 @@ class ExplorationVisualizer:
             )
 
     def _init_vis_image(self, goal_name: str):
-        vis_image = np.ones((655, 1165, 3)).astype(np.uint8) * 255
+        vis_image = np.ones((655, 2165, 3)).astype(np.uint8) * 255
         font = cv2.FONT_HERSHEY_SIMPLEX
         fontScale = 1
         color = (20, 20, 20)  # BGR
