@@ -1,4 +1,5 @@
 import argparse
+import pathlib
 import sys
 from pathlib import Path
 from typing import List, Optional, Tuple
@@ -179,7 +180,10 @@ class DeticPerception(PerceptionModule):
         self.cpu_device = torch.device("cpu")
         self.instance_mode = ColorMode.IMAGE
         self.predictor = DefaultPredictor(cfg)
-        reset_cls_test(self.predictor.model, str(classifier), num_classes)
+
+        if type(classifier) == pathlib.PosixPath:
+            classifier = str(classifier)
+        reset_cls_test(self.predictor.model, classifier, num_classes)
 
     def reset_vocab(self, new_vocab: List[str], vocab_type="custom"):
         """Resets the vocabulary of Detic model allowing you to change detection on

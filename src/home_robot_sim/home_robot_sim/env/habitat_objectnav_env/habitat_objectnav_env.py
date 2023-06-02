@@ -14,7 +14,9 @@ from home_robot_sim.env.habitat_abstract_env import HabitatEnv
 from .constants import (
     FloorplannertoMukulIndoor,
     HM3DtoCOCOIndoor,
+    HM3DtoHSSD28Indoor,
     coco_categories_mapping,
+    hssd_28categories_padded,
     mukul_33categories_padded,
 )
 from .visualizer import Visualizer
@@ -41,6 +43,10 @@ class HabitatObjectNavEnv(HabitatEnv):
             if config.AGENT.SEMANTIC_MAP.semantic_categories == "coco_indoor":
                 self.vocabulary = "coco"
                 self.semantic_category_mapping = HM3DtoCOCOIndoor()
+            elif config.AGENT.SEMANTIC_MAP.semantic_categories == "hssd_28_cat":
+                self.semantic_category_mapping = HM3DtoHSSD28Indoor()
+                self.vocabulary = "custom"
+                self.custom_vocabulary = hssd_28categories_padded
             else:
                 raise NotImplementedError
         elif "floorplanner" in self.episodes_data_path:
@@ -62,10 +68,22 @@ class HabitatObjectNavEnv(HabitatEnv):
             )
 
             # TODO Specify confidence threshold as a parameter
-            self.segmentation = DeticPerception(
-                vocabulary=self.vocabulary,
-                sem_gpu_id=(-1 if config.NO_GPU else self.habitat_env.sim.gpu_device),
-            )
+            if self.vocabulary == "custom":
+                self.segmentation = DeticPerception(
+                    vocabulary=self.vocabulary,
+                    custom_vocabulary=",".join(self.custom_vocabulary),
+                    sem_gpu_id=(
+                        -1 if config.NO_GPU else self.habitat_env.sim.gpu_device
+                    ),
+                )
+            else:
+                self.segmentation = DeticPerception(
+                    vocabulary=self.vocabulary,
+                    sem_gpu_id=(
+                        -1 if config.NO_GPU else self.habitat_env.sim.gpu_device
+                    ),
+                )
+        self.config = config
 
     def reset(self):
         habitat_obs = self.habitat_env.reset()
@@ -106,6 +124,8 @@ class HabitatObjectNavEnv(HabitatEnv):
         self, obs: home_robot.core.interfaces.Observations, habitat_semantic: np.ndarray
     ) -> home_robot.core.interfaces.Observations:
         if self.ground_truth_semantics:
+            if self.config.AGENT.SEMANTIC_MAP.semantic_categories == "hssd_28_cat":
+                raise NotImplementedError
             instance_id_to_category_id = (
                 self.semantic_category_mapping.instance_id_to_category_id
             )

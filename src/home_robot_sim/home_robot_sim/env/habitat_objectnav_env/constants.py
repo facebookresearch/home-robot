@@ -468,6 +468,126 @@ class FloorplannertoMukulIndoor(SemanticCategoryMapping):
         return 35
 
 
+# ----------------------------------------------------
+# HSSD 28 Indoor Categories
+# ----------------------------------------------------
+
+hssd_28categories_indexes = {
+    1: "alarm_clock",
+    2: "bed",
+    3: "book",
+    4: "bottle",
+    5: "bowl",
+    6: "chair",
+    7: "chest_of_drawers",
+    8: "couch",
+    9: "cushion",
+    10: "drinkware",
+    11: "fridge",
+    12: "laptop",
+    13: "microwave",
+    14: "picture",
+    15: "plate",
+    16: "potted_plant",
+    17: "shelves",
+    18: "shoes",
+    19: "sink",
+    20: "stool",
+    21: "table",
+    22: "table_lamp",
+    23: "toaster",
+    24: "toilet",
+    25: "trashcan",
+    26: "tv",
+    27: "vase",
+    28: "washer_dryer",
+}
+
+hssd_28categories_padded = (
+    ["."] + [hssd_28categories_indexes[i] for i in range(1, 29)] + ["other"]
+)
+
+hssd_28categories_legend_path = str(
+    Path(__file__).resolve().parent / "hssd_28_cat_legend.png"
+)
+
+hssd_28categories_color_palette = [255, 255, 255] + list(
+    d3_40_colors_rgb[1:34].flatten()
+)
+hssd_28categories_frame_color_palette = hssd_28categories_color_palette + [
+    255,
+    255,
+    255,
+]
+
+hssd_28categories_map_color_palette = [
+    int(x * 255.0)
+    for x in [
+        1.0,
+        1.0,
+        1.0,  # empty space
+        0.6,
+        0.6,
+        0.6,  # obstacles
+        0.95,
+        0.95,
+        0.95,  # explored area
+        0.96,
+        0.36,
+        0.26,  # visited area
+        0.12,
+        0.46,
+        0.70,  # closest goal
+        0.63,
+        0.78,
+        0.95,  # rest of goal
+        0.6,
+        0.87,
+        0.54,  # been close map
+        0.0,
+        1.0,
+        0.0,  # short term goal
+        *[x / 255.0 for x in hssd_28categories_color_palette],
+    ]
+]
+
+
+class HM3DtoHSSD28Indoor(SemanticCategoryMapping):
+    """ """
+
+    def __init__(self):
+        super().__init__()
+        self.floorplanner_goal_id_to_goal_name = hssd_28categories_indexes
+        self._instance_id_to_category_id = None
+
+    def map_goal_id(self, goal_id: int) -> Tuple[int, str]:
+        return (goal_id, self.floorplanner_goal_id_to_goal_name[goal_id])
+
+    def reset_instance_id_to_category_id(self, env: Env):
+        pass
+
+    @property
+    def instance_id_to_category_id(self) -> np.ndarray:
+        return self._instance_id_to_category_id
+
+    @property
+    def map_color_palette(self):
+        return hssd_28categories_map_color_palette
+
+    @property
+    def frame_color_palette(self):
+        return hssd_28categories_frame_color_palette
+
+    @property
+    def categories_legend_path(self):
+        return hssd_28categories_legend_path
+
+    @property
+    def num_sem_categories(self):
+        # 0 is unused, 1 to 28 are semantic categories, 29 is "other/misc"
+        return 30
+
+
 class RearrangeBasicCategories(SemanticCategoryMapping):
     def __init__(self):
         super().__init__()

@@ -60,9 +60,7 @@ if __name__ == "__main__":
     env.reset()
 
     t = 0
-    import pdb
 
-    pdb.set_trace()
     while not env.episode_over:
         t += 1
         print(t)
