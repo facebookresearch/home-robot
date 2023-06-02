@@ -372,8 +372,6 @@ class StretchPickandPlaceEnv(StretchEnv):
         ] = self.robot.in_manipulation_mode()
         obs.task_observations["in_navigation_mode"] = self.robot.in_navigation_mode()
 
-            obs.task_observations["goal_class_mask"] = class_map.astype(bool)
-
         # TODO: remove debug code
         # debug_rgb_bgr = False
         # if debug_rgb_bgr:
