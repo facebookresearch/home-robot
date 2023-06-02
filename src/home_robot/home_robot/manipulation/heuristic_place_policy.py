@@ -28,7 +28,7 @@ HARDCODED_YAW_OFFSET = 0.25
 
 class HeuristicPlacePolicy(nn.Module):
     """
-    Policy to place object on end receptacle using depth and point-cloud-based heuristics.
+    Policy to place object on end receptacle using depth and point-cloud-based heuristics. Objects will be placed nearby, on top of the surface, based on point cloud data. Requires segmentation to work properly.
     """
 
     def __init__(
@@ -429,7 +429,6 @@ class HeuristicPlacePolicy(nn.Module):
 
         self.timestep += 1
         return action, vis_inputs
-    
 
     def _lift(self, obs: Observations) -> ContinuousFullBodyAction:
         """Compute a high-up lift position to avoid collisions when releasing"""
