@@ -366,7 +366,7 @@ class Visualizer:
                 (width, V.HEIGHT),
                 interpolation=cv2.INTER_NEAREST,
             )
-            image_vis[V.Y1:V.Y2, V.TOP_DOWN_X1:V.TOP_DOWN_X1 + width] = rl_obs_frame
+            image_vis[V.Y1 : V.Y2, V.TOP_DOWN_X1 : V.TOP_DOWN_X1 + width] = rl_obs_frame
 
         elif third_person_image is not None:
             image_vis[V.Y1 : V.Y2, V.THIRD_PERSON_X1 : V.THIRD_PERSON_X2] = cv2.resize(
@@ -389,8 +389,6 @@ class Visualizer:
             (V.FIRST_PERSON_W, V.HEIGHT),
             interpolation=cv2.INTER_NEAREST,
         )
-
-
 
         if self.show_images:
             cv2.imshow("Visualization", image_vis)

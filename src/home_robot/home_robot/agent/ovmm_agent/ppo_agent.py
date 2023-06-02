@@ -314,8 +314,8 @@ class PPOAgent(Agent):
                 "robot_start_gps": np.array((obs.gps[0], -1 * obs.gps[1]))
                 - self.skill_start_gps,
                 "robot_start_compass": obs.compass - self.skill_start_compass,
-                "start_receptacle": obs.task_observations["start_receptacle"],
-                "goal_receptacle": obs.task_observations["goal_receptacle"],
+                "start_receptacle": np.array(obs.task_observations["start_receptacle"]),
+                "goal_receptacle": np.array(obs.task_observations["goal_receptacle"]),
             }
         )
 
@@ -344,11 +344,11 @@ class PPOAgent(Agent):
         if self.skill_start_compass is None:
             self.skill_start_compass = observations.compass
         obs = self.convert_to_habitat_obs_space(observations)
-        frame = observations_to_image(obs, info={})
+        frame = observations_to_image({k: obs[k] for k in self.skill_obs_keys}, info={})
         batch = batch_obs([obs], device=self.device)
         batch = apply_obs_transforms_batch(batch, self.obs_transforms)
         batch = OrderedDict([(k, batch[k]) for k in self.skill_obs_keys])
-        info['rl_obs_frame'] = frame
+        info["rl_obs_frame"] = frame
         with torch.no_grad():
             action_data = self.actor_critic.act(
                 batch,
@@ -385,7 +385,8 @@ class PPOAgent(Agent):
                     observations, step_action["action_args"]
                 )
                 return (
-                    robot_action, info, 
+                    robot_action,
+                    info,
                     does_want_terminate,
                 )
             else:
@@ -393,7 +394,8 @@ class PPOAgent(Agent):
                     actions.item(), self.skill_actions
                 )
                 return (
-                    step_action, info, 
+                    step_action,
+                    info,
                     self.does_want_terminate(observations, step_action),
                 )
 
