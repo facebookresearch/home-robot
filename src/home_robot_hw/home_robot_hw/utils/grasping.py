@@ -6,6 +6,7 @@ import rospy
 from geometry_msgs.msg import TransformStamped
 
 import home_robot.utils.visualization as viz
+from home_robot.core.interfaces import Observations
 from home_robot.manipulation.grasping import SimpleGraspMotionPlanner
 from home_robot.motion.stretch import (
     STRETCH_PREGRASP_Q,
@@ -30,21 +31,109 @@ class GraspPlanner(object):
         visualize_planner=False,
         debug_point_cloud=False,
         verbose=True,
+        min_obj_pts: int = 100,
+        min_detection_threshold: float = 0.5,
+        max_distance_m: float = 1.5,
     ):
         self.robot_client = robot_client
         self.env = env
         self.grasp_client = RosGraspClient()
         self.verbose = verbose
         self.planner = SimpleGraspMotionPlanner(self.robot_client.model)
+        self.min_obj_pts = min_obj_pts
+        self.min_detection_threshold = min_detection_threshold
+        self.max_distance_m = max_distance_m
 
         # Add this flag to make sure that the point clouds are coming in correctly - will visualize what the points look like relative to a base coordinate frame with z = up, x = forward
         self.debug_point_cloud = debug_point_cloud
+
+    def get_closest_goal(
+        self,
+        xyz: np.ndarray,
+        class_mask: np.ndarray,
+        instances: np.ndarray,
+        debug: bool = False,
+    ) -> np.ndarray:
+        """Return the closest object mask to the camera"""
+        W, H = class_mask.shape
+        # Compute list of unique ids -- (-1) is background
+        unique_ids = np.unique((instances + 1) * class_mask) - 1
+        pts = xyz.reshape(-1, 3)
+        min_dist = float("Inf")
+        min_id = -1
+        best_mask = None
+        print("Choosing a mask to grasp:")
+        for obj_id in unique_ids:
+            # Skip background points
+            if obj_id < 0:
+                continue
+            mask = instances == obj_id
+            if debug:
+                import matplotlib.pyplot as plt
+
+                plt.imshow(mask)
+                plt.show()
+            num_obj_pts = np.sum(mask)
+            if num_obj_pts < self.min_obj_pts:
+                continue
+            obj_pts = pts[mask.reshape(-1), :]
+            mean_pt = np.mean(obj_pts, axis=0)
+            dist = np.linalg.norm(mean_pt)
+            print(" -", obj_id, "with", num_obj_pts, "points; dist to cam =", dist, "m")
+            if dist > self.max_distance_m:
+                print(" --> too far away from camera, not reachable")
+                continue
+            if dist < min_dist:
+                min_dist = dist
+                best_mask = mask
+                min_id = obj_id
+
+        if min_id < 0:
+            return None
+        else:
+            return best_mask
+
+    def get_object_class_masks(
+        self, obs: Observations
+    ) -> Tuple[np.ndarray, np.ndarray]:
+        """Get object and class information from the perception system"""
+
+        # Choose instance mask with highest score for goal mask
+        instance_scores = obs.task_observations["instance_scores"].copy()
+        # "object_goal" is the object id in the semantic mask
+        class_mask = (
+            obs.task_observations["instance_classes"]
+            == obs.task_observations["object_goal"]
+        )
+        valid_instances = (instance_scores * class_mask) > self.min_detection_threshold
+        class_map = np.zeros_like(obs.task_observations["instance_map"]).astype(bool)
+
+        # If we detected anything... check to see if our target object was found, and if so pass in the mask.
+        if len(instance_scores) and np.any(class_mask):
+            # Compute mask of all detected objects fitting the description
+            print(valid_instances)
+            for i, valid in enumerate(valid_instances):
+                if not valid:
+                    continue
+                class_map = np.bitwise_or(
+                    class_map, obs.task_observations["instance_map"] == i
+                )
+
+            # Mask of the most likely candidate is "goal"
+            chosen_instance_idx = np.argmax(instance_scores * class_mask)
+            best_goal_mask = (
+                obs.task_observations["instance_map"] == chosen_instance_idx
+            )
+        else:
+            best_goal_mask = np.zeros_like(obs.semantic).astype(bool)
+
+        return best_goal_mask, class_map
 
     def try_grasping(
         self,
         visualize: bool = False,
         dry_run: bool = False,
-        max_tries: int = 10,
+        max_tries: int = 1,
         wait_for_input: bool = False,
     ):
         """Detect grasps and try to pick up an object in front of the robot.
@@ -59,7 +148,6 @@ class GraspPlanner(object):
 
         grasp_completed = False
         min_grasp_score = 0.0
-        min_obj_pts = 100
         for attempt in range(max_tries):
             self.robot_client.head.look_at_ee(blocking=False)
             self.robot_client.manip.goto_joint_positions(
@@ -69,7 +157,13 @@ class GraspPlanner(object):
 
             # Get the observations - we need depth and xyz point clouds
             t0 = timeit.default_timer()
+
+            # Get the observation from the environment if it exists
             obs = self.env.prev_obs
+
+            if obs is None:
+                print("[Grasping] No observation available in environment!")
+                return False
             rgb, depth, xyz = obs.rgb, obs.depth, obs.xyz
 
             # TODO: verify this is correct
@@ -100,29 +194,30 @@ class GraspPlanner(object):
                     "seconds",
                 )
 
-            # Choose instance mask with highest score for goal mask
-            instance_scores = obs.task_observations["instance_scores"].copy()
-            class_mask = (
-                obs.task_observations["instance_classes"]
-                == obs.task_observations["object_goal"]
+            _, all_object_masks = self.get_object_class_masks(obs)
+            # TODO: return to this if we want to take goal mask as an argument in the future
+            # For now though we will choose the closest one
+            # object_mask = obs.task_observations["goal_mask"]
+            # TODO: in the future, we will make this a flag.
+            object_mask = self.get_closest_goal(
+                xyz,
+                all_object_masks,
+                obs.task_observations["instance_map"],
+                debug=False,
             )
 
-            # If we detected anything... check to see if our target object was found, and if so pass in the mask.
-            if len(instance_scores) and np.any(class_mask):
-                chosen_instance_idx = np.argmax(instance_scores * class_mask)
-                object_mask = (
-                    obs.task_observations["instance_map"] == chosen_instance_idx
-                )
-            else:
-                object_mask = np.zeros_like(obs.semantic).astype(bool)
+            # Break the loop if we are not seeing anything
+            if object_mask is None:
+                print("[Grasping] --> could not find object mask with enough points")
+                return False
 
             if visualize:
                 viz.show_image_with_mask(rgb, object_mask)
 
             num_object_pts = np.sum(object_mask)
-            print("found this many object points:", num_object_pts)
-            if num_object_pts < min_obj_pts:
-                continue
+            print("[Grasping] found this many object points:", num_object_pts)
+            if num_object_pts < self.min_obj_pts:
+                return False
 
             mask_valid = (
                 depth > self.robot_client._ros_client.dpt_cam.near_val
@@ -139,7 +234,8 @@ class GraspPlanner(object):
             )
             if 0 not in predicted_grasps:
                 print("no predicted grasps")
-                continue
+                return False
+
             predicted_grasps, scores = predicted_grasps[0]
             print("got this many grasps:", len(predicted_grasps))
 

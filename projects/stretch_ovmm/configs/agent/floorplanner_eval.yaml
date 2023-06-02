@@ -19,6 +19,7 @@ ENVIRONMENT:
   num_receptacles: 21
   # category_map_file: data/datasets/floorplanner/rearrange/v3/val/cat_map.json
   category_map_file: projects/stretch_ovmm/configs/example_cat_map.json
+  use_detic_viz: True
 
 AGENT:
   max_steps: 10000         # maximum number of steps before stopping an episode; a lower value set for habitat episode termination 
@@ -37,7 +38,7 @@ AGENT:
     du_scale: 4              # frame downscaling before projecting to point cloud
     cat_pred_threshold: 1.0  # number of depth points to be in bin to classify it as a certain semantic category
     exp_pred_threshold: 1.0  # number of depth points to be in bin to consider it as explored
-    map_pred_threshold: 1.0  # number of depth points to be in bin to consider it as obstacle
+    map_pred_threshold: 100.0  # number of depth points to be in bin to consider it as obstacle
     been_close_to_radius: 100  # radius (in centimeters) of been close to region
     explored_radius: 150       # radius (in centimeters) of visually explored region
     must_explore_close: False
@@ -171,19 +172,19 @@ AGENT:
 
   skip_skills:
     nav_to_obj: False
-    pick: False
     nav_to_rec: False
     gaze_at_obj: True
     gaze_at_rec: True
+    pick: False
     place: False
 
   PLANNER:
     collision_threshold: 0.20       # forward move distance under which we consider there's a collision (in meters)
-    obs_dilation_selem_radius: 3    # radius (in cells) of obstacle dilation structuring element
+    obs_dilation_selem_radius: 5    # radius (in cells) of obstacle dilation structuring element
     goal_dilation_selem_radius: 10  # radius (in cells) of goal dilation structuring element
     step_size: 5                    # maximum distance of the short-term goal selected by the planner
     use_dilation_for_stg: False
-    min_obs_dilation_selem_radius: 1    # radius (in cells) of obstacle dilation structuring element
+    min_obs_dilation_selem_radius: 3    # radius (in cells) of obstacle dilation structuring element
     map_downsample_factor: 1            # optional downsampling of traversible and goal map before fmm distance call (1 for no downsampling, 2 for halving resolution)
     map_update_frequency: 1             # compute fmm distance map every n steps 
     discrete_actions: False          # discrete motion planner output space or not

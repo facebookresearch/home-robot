@@ -59,6 +59,7 @@ class OpenVocabManipAgent(ObjectNavAgent):
         self.place_agent = None
         self.semantic_sensor = None
         self.skip_skills = config.AGENT.skip_skills
+        self.max_pick_attempts = 10
         if config.GROUND_TRUTH_SEMANTICS == 0:
             self.semantic_sensor = OvmmPerception(config, device_id)
             self.obj_name_to_id, self.rec_name_to_id = read_category_map_file(
@@ -108,17 +109,25 @@ class OpenVocabManipAgent(ObjectNavAgent):
         self.config = config
 
     def _get_info(self, obs: Observations) -> Dict[str, torch.Tensor]:
-        if self.config.GROUND_TRUTH_SEMANTICS == 1:
+        """Get inputs for visual skill."""
+        use_detic_viz = self.config.ENVIRONMENT.use_detic_viz
+
+        if self.config.GROUND_TRUTH_SEMANTICS == 1 or use_detic_viz:
             semantic_category_mapping = None  # Visualizer handles mapping
         elif self.semantic_sensor.current_vocabulary_id == SemanticVocab.SIMPLE:
             semantic_category_mapping = RearrangeBasicCategories()
         else:
             semantic_category_mapping = self.semantic_sensor.current_vocabulary
-        """Get inputs for visual skill."""
-        info = {
-            "semantic_frame": np.concatenate(
+
+        if use_detic_viz:
+            semantic_frame = obs.task_observations["semantic_frame"]
+        else:
+            semantic_frame = np.concatenate(
                 [obs.rgb, obs.semantic[:, :, np.newaxis]], axis=2
-            ).astype(np.uint8),
+            ).astype(np.uint8)
+
+        info = {
+            "semantic_frame": semantic_frame,
             "semantic_category_mapping": semantic_category_mapping,
             "goal_name": obs.task_observations["goal_name"],
             "third_person_image": obs.third_person_image,
@@ -403,16 +412,23 @@ class OpenVocabManipAgent(ObjectNavAgent):
             pick_step = self.timesteps[0] - self.pick_start_step[0]
             if pick_step == 0:
                 action = DiscreteNavigationAction.MANIPULATION_MODE
-            elif pick_step == 1:
-                action = DiscreteNavigationAction.PICK_OBJECT
-            elif pick_step == 2:
-                action = DiscreteNavigationAction.NAVIGATION_MODE
-            elif pick_step == 3:
-                action = None
+            elif pick_step < self.max_pick_attempts:
+                # If we have not seen an object mask to try to grasp...
+                if not obs.task_observations["prev_grasp_success"]:
+                    action = DiscreteNavigationAction.PICK_OBJECT
+                else:
+                    action = None
             else:
-                raise ValueError(
-                    "Still in hardware-mode hard-coded pick. Should have transitioned to the next skill."
-                )
+                # We have tried too many times and we're going to quit
+                action = None
+            # else:
+            #     raise ValueError(
+            #         "Still in hardware-mode hard-coded pick. Should have transitioned to the next skill."
+            #     )
+        else:
+            raise NotImplementedError(
+                f"pick type not supported: {self.config.AGENT.SKILLS.PICK.type}"
+            )
         new_state = None
         if action is None:
             new_state = Skill.NAV_TO_REC
