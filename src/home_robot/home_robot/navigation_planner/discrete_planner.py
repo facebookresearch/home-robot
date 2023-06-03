@@ -205,24 +205,32 @@ class DiscretePlanner:
         if self.last_action == DiscreteNavigationAction.MOVE_FORWARD:
             self._check_collision()
 
-        # High-level goal -> short-term goal
-        # Extracts a local waypoint
-        # Defined by the step size - should be relatively close to the robot
-        (
-            short_term_goal,
-            closest_goal_map,
-            replan,
-            stop,
-            closest_goal_pt,
-            dilated_obstacles,
-        ) = self._get_short_term_goal(
-            obstacle_map,
-            np.copy(goal_map),
-            start,
-            planning_window,
-            plan_to_dilated_goal=use_dilation_for_stg,
-            frontier_map=frontier_map,
-        )
+        try:
+            # High-level goal -> short-term goal
+            # Extracts a local waypoint
+            # Defined by the step size - should be relatively close to the robot
+            (
+                short_term_goal,
+                closest_goal_map,
+                replan,
+                stop,
+                closest_goal_pt,
+                dilated_obstacles,
+            ) = self._get_short_term_goal(
+                obstacle_map,
+                np.copy(goal_map),
+                start,
+                planning_window,
+                plan_to_dilated_goal=use_dilation_for_stg,
+                frontier_map=frontier_map,
+            )
+        except Exception:
+            return (
+                DiscreteNavigationAction.STOP,
+                np.zeros(goal_map.shape),
+                (0, 0),
+                np.zeros(goal_map.shape),
+            )
         # Short term goal is in cm, start_x and start_y are in m
         if debug:
             print("Current pose:", start)
@@ -245,7 +253,6 @@ class DiscretePlanner:
 
         # We were not able to find a path to the high-level goal
         if replan and not stop:
-
             # Clean collision map
             self.collision_map *= 0
             # Reduce obstacle dilation
@@ -418,7 +425,10 @@ class DiscretePlanner:
             stop: binary flag to indicate we've reached the goal
         """
         gx1, gx2, gy1, gy2 = planning_window
-        x1, y1, = (
+        (
+            x1,
+            y1,
+        ) = (
             0,
             0,
         )

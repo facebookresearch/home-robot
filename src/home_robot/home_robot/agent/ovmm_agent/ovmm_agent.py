@@ -36,7 +36,7 @@ class SemanticVocab(IntEnum):
 
 
 def get_skill_as_one_hot_dict(curr_skill: Skill):
-    skill_dict = {skill.name: 0 for skill in Skill}
+    skill_dict = {f"is_curr_skill_{skill.name}": 0 for skill in Skill}
     skill_dict[f"is_curr_skill_{Skill(curr_skill).name}"] = 1
     return skill_dict
 
@@ -214,7 +214,6 @@ class OpenVocabManipAgent(ObjectNavAgent):
         action to take when starting (meant to switch between navigation and manipulation modes)
         """
 
-        info["skill_done"] = Skill(self.states[e].item()).name
         action = None
         if next_skill == Skill.NAV_TO_OBJ:
             # action = DiscreteNavigationAction.NAVIGATION_MODE
@@ -507,6 +506,7 @@ class OpenVocabManipAgent(ObjectNavAgent):
             # Since heuristic nav is not properly vectorized, this agent currently only supports 1 env
             # _switch_to_next_skill is thus invoked with e=0
             if new_state:
+                info["skill_done"] = info["curr_skill"]
                 assert (
                     action is None
                 ), f"action must be None when switching states, found {action} instead"
