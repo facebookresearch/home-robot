@@ -13,7 +13,7 @@ from home_robot.utils.constants import (
 )
 
 hm3d_to_mp3d_path = Path(__file__).resolve().parent / "matterport_category_mappings.tsv"
-df = pd.read_csv(hm3d_to_mp3d_path, sep="    ", header=0)
+df = pd.read_csv(hm3d_to_mp3d_path, sep="    ", header=0, engine="python")
 hm3d_to_mp3d = {row["category"]: row["mpcat40index"] for _, row in df.iterrows()}
 
 
@@ -496,154 +496,6 @@ class RearrangeBasicCategories(SemanticCategoryMapping):
         return 5
 
 
-rearrange_detic_categories_indexes = {
-    # objects ->
-    "medicine_bottle": 1,
-    "stuffed_toy": 2,
-    "book": 3,
-    "candle_holder": 4,
-    "canister": 5,
-    "sponge": 6,
-    "mouse_pad": 7,
-    "cup": 8,
-    "vase": 9,
-    "soap_dish": 10,
-    "tape": 11,
-    "plate": 12,
-    "bowl": 13,
-    "hat": 14,
-    "dishtowel": 15,
-    "shoe": 16,
-    "action_figure": 17,
-    "pencil_case": 18,
-    "sushi_mat": 19,
-    "basket": 20,
-    "spatula": 21,
-    "scissors": 22,
-    "screwdriver": 23,
-    "can_opener": 24,
-    "can": 25,
-    # receptacles ->
-    # "console_table": 26,
-    # "sink_cabinet": 27,
-    # "shoe_rack": 28,
-    # "buffet": 29,
-    # "footstool": 30,
-    # "toilet": 31,
-    # "tv_stand": 32,
-    # "chest_of_drawers": 33,
-    # "l-shaped_couch": 34,
-    # "stool": 35,
-    # "rocking_chair": 36,
-    # "chair": 37,
-    # "base_cabinet": 38,
-    # "bar_stool": 39,
-    # "cabinet": 40,
-    # "bathtub": 41,
-    # "sofa": 42,
-    # "table": 43,
-    # "armchair": 44,
-    # "kitchen_island": 45,
-    # "end_table": 46,
-    # "washer": 47,
-    # "swivel_chair": 48,
-    # "kitchen_cabinet": 49,
-    # "trunk": 50,
-    # "nightstand": 51,
-    # "serving_cart": 52,
-    # "dining_table": 53,
-    # "bench": 54,
-    # "beanbag_chair": 55,
-    # "coffee_table": 56,
-    # "air_hockey_table": 57,
-    # "desk": 58,
-    # "storage_bench": 59,
-    "coffee_table": 26,
-    "sofa": 27,
-    "dining_table": 28,
-    "swivel_chair": 29,
-    "table": 30,
-    "tv_stand": 31,
-    "toilet": 32,
-    "balcony": 33,
-    "bookcase": 34,
-    "armchair": 35,
-    "swing_chair": 36,
-    "armoire": 37,
-    "kitchen_cabinet": 38,
-    "ottoman": 39,
-    "desk": 40,
-    "end_table": 41,
-    "nightstand": 42,
-    "chest_of_drawers": 43,
-    "storage_bench": 44,
-    "stool": 45,
-    "shower_stall": 46,
-    "chair": 47,
-    "console_table": 48,
-    "dining_area": 49,
-    "beanbag_chair": 50,
-    "easy_chair": 51,
-    "buffet": 52,
-    "l-shaped_couch": 53,
-    "sink_cabinet": 54,
-    "wall_shelf": 55,
-    "footstool": 56,
-    "washer": 57,
-    "cabinet": 58,
-    "bathtub": 59,
-    "rocking_chair": 60,
-    "hanging_cabinet": 61,
-    "flat_bench": 62,
-    "bar_stool": 63,
-    "shelving": 64,
-    "china_cabinet": 65,
-    "dressing_table": 66,
-    "hot_tub": 67,
-    "kitchen_island": 68,
-    "bar": 69,
-    "straight_chair": 70,
-    "bench": 71,
-    "air_hockey_table": 72,
-    "chaise_longue": 73,
-    "ladder_bookcase": 74,
-    "highchair": 75,
-    "wardrobe": 76,
-    "credenza": 77,
-    "swing_bench": 78,
-    "car": 79,
-    "gazebo": 80,
-    "serving_cart": 81,
-    "trunk": 82,
-    "shoe_rack,cabinet": 83,
-    "file": 84,
-    "medicine_chest": 85,
-    "washbasin": 86,
-    "daybed": 87,
-    "table-tennis_table": 88,
-    "sink_stand": 89,
-    "base_cabinet": 90,
-    "magazine_rack": 91,
-    "lectern": 92,
-    "shoe_rack": 93,
-    "foosball_table": 94,
-    "handcart": 95,
-    "conference_table": 96,
-    "step_stool": 97,
-    "mantel": 98,
-    "pool_table": 99,
-    "workbench": 100,
-    "plant_stand": 101,
-    "picnic_table": 102,
-    "dryer": 103,
-    "bathtub,shower_stall": 104,
-}
-
-rearrange_detic_categories_indexes = {
-    v: k for k, v in rearrange_detic_categories_indexes.items()
-}
-
-
 rearrange_detic_categories_legend_path = str(
     Path(__file__).resolve().parent / "rearrange_detic_categories_legend.png"
 )
@@ -653,15 +505,10 @@ class RearrangeDETICCategories(SemanticCategoryMapping):
     """Maintain category to id and category to color mappings for use in OVMM task.
     Uses a default list of categories if no category list is passed."""
 
-    def __init__(self, categories_indexes=None, num_sem_objects=None):
+    def __init__(self, categories_indexes, num_sem_objects=None):
         super().__init__()
-        if categories_indexes is None:
-            self.goal_id_to_goal_name = rearrange_detic_categories_indexes
-            self._num_sem_obj_categories = len(rearrange_detic_categories_indexes)
-        else:
-            self.goal_id_to_goal_name = categories_indexes
-            self._num_sem_obj_categories = num_sem_objects
-
+        self.goal_id_to_goal_name = categories_indexes
+        self._num_sem_obj_categories = num_sem_objects
         self._instance_id_to_category_id = None
 
     def map_goal_id(self, goal_id: int) -> Tuple[int, str]:
@@ -708,6 +555,9 @@ class RearrangeDETICCategories(SemanticCategoryMapping):
                 0.6,
                 0.87,
                 0.54,  # been close map
+                0.0,
+                1.0,
+                0.0,  # short term goal
                 *[x / 255.0 for x in self.color_palette],
             ]
         ]

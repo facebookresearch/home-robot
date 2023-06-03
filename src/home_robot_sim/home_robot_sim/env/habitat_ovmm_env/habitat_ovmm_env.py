@@ -1,14 +1,14 @@
 from enum import IntEnum
-from typing import Any, Dict, List, Optional, Tuple, Union
+from typing import Any, Dict, Optional, Union
 
 import habitat
 import numpy as np
 import torch
 from habitat.core.environments import GymHabitatEnv
 from habitat.core.simulator import Observations
-from torch import Tensor
 
 import home_robot
+import home_robot.core.interfaces
 from home_robot.core.interfaces import (
     ContinuousFullBodyAction,
     ContinuousNavigationAction,
@@ -26,10 +26,6 @@ from home_robot.utils.constants import (
     MIN_DEPTH_REPLACEMENT_VALUE,
 )
 from home_robot_sim.env.habitat_abstract_env import HabitatEnv
-from home_robot_sim.env.habitat_objectnav_env.constants import (
-    RearrangeBasicCategories,
-    RearrangeDETICCategories,
-)
 from home_robot_sim.env.habitat_objectnav_env.visualizer import Visualizer
 
 
@@ -49,7 +45,6 @@ class SimJointActionIndex(IntEnum):
 
 
 class HabitatOpenVocabManipEnv(HabitatEnv):
-    semantic_category_mapping: Union[RearrangeBasicCategories, RearrangeDETICCategories]
     joints_dof = 7
 
     def __init__(self, habitat_env: habitat.core.env.Env, config, dataset):
@@ -61,7 +56,6 @@ class HabitatOpenVocabManipEnv(HabitatEnv):
         self.visualize = config.VISUALIZE or config.PRINT_IMAGES
         if self.visualize:
             self.visualizer = Visualizer(config, dataset)
-        self.goal_type = config.ENVIRONMENT.goal_type
         self.episodes_data_path = config.habitat.dataset.data_path
         self.video_dir = config.habitat_baselines.video_dir
         self.max_forward = (
@@ -96,40 +90,6 @@ class HabitatOpenVocabManipEnv(HabitatEnv):
             k: v for v, k in self._rec_name_to_id_mapping.items()
         }
 
-        if self.ground_truth_semantics:
-            self.semantic_category_mapping = RearrangeBasicCategories()
-        else:
-            # combining objs and recep IDs into one mapping
-            self.obj_rec_combined_mapping = {}
-            for i in range(
-                len(self._obj_id_to_name_mapping) + len(self._rec_id_to_name_mapping)
-            ):
-                if i < len(self._obj_id_to_name_mapping):
-                    self.obj_rec_combined_mapping[i + 1] = self._obj_id_to_name_mapping[
-                        i
-                    ]
-                else:
-                    self.obj_rec_combined_mapping[i + 1] = self._rec_id_to_name_mapping[
-                        i - len(self._obj_id_to_name_mapping)
-                    ]
-            self.semantic_category_mapping = RearrangeDETICCategories(
-                self.obj_rec_combined_mapping, len(self._obj_id_to_name_mapping)
-            )
-
-        if not self.ground_truth_semantics:
-            from home_robot.perception.detection.detic.detic_perception import (
-                DeticPerception,
-            )
-
-            # TODO Specify confidence threshold as a parameter
-            gpu_device_id = self.config.habitat.simulator.habitat_sim_v0.gpu_device_id
-            self.segmentation = DeticPerception(
-                vocabulary="custom",
-                custom_vocabulary=",".join(
-                    ["."] + list(self.obj_rec_combined_mapping.values()) + ["other"]
-                ),
-                sem_gpu_id=gpu_device_id,
-            )
         self._last_habitat_obs = None
 
     def get_current_episode(self):
@@ -146,9 +106,6 @@ class HabitatOpenVocabManipEnv(HabitatEnv):
     def reset(self):
         habitat_obs = self.habitat_env.reset()
         self._last_habitat_obs = habitat_obs
-        self.semantic_category_mapping.reset_instance_id_to_category_id(
-            self.habitat_env
-        )
         self._last_obs = self._preprocess_obs(habitat_obs)
         if self.visualize:
             self.visualizer.reset()
@@ -165,12 +122,6 @@ class HabitatOpenVocabManipEnv(HabitatEnv):
         self, habitat_obs: habitat.core.simulator.Observations
     ) -> home_robot.core.interfaces.Observations:
         depth = self._preprocess_depth(habitat_obs["robot_head_depth"])
-        (
-            object_goal,
-            start_recep_goal,
-            end_recep_goal,
-            goal_name,
-        ) = self._preprocess_goal(habitat_obs, self.goal_type)
 
         if self.visualize:
             third_person_image = habitat_obs["robot_third_rgb"]
@@ -183,10 +134,6 @@ class HabitatOpenVocabManipEnv(HabitatEnv):
             compass=habitat_obs["robot_start_compass"] - (np.pi / 2),
             gps=self._preprocess_xy(habitat_obs["robot_start_gps"]),
             task_observations={
-                "object_goal": object_goal,
-                "start_recep_goal": start_recep_goal,
-                "end_recep_goal": end_recep_goal,
-                "goal_name": goal_name,
                 "object_embedding": habitat_obs["object_embedding"],
                 "start_receptacle": habitat_obs["start_receptacle"],
                 "goal_receptacle": habitat_obs["goal_receptacle"],
@@ -199,6 +146,7 @@ class HabitatOpenVocabManipEnv(HabitatEnv):
                 np.asarray(habitat_obs["camera_pose"])
             ),
         )
+        obs = self._preprocess_goal(obs, habitat_obs)
         obs = self._preprocess_semantic(obs, habitat_obs)
         return obs
 
@@ -221,25 +169,6 @@ class HabitatOpenVocabManipEnv(HabitatEnv):
             obs.task_observations["semantic_max_val"] = (
                 len(self._rec_id_to_name_mapping) + 2
             )
-            # TODO Ground-truth semantic visualization
-        else:
-            obs = self.segmentation.predict(
-                obs, depth_threshold=0.5, draw_instance_predictions=False
-            )
-            if type(self.semantic_category_mapping) == RearrangeDETICCategories:
-                # First index is a dummy unused category
-                obs.semantic[obs.semantic == 0] = (
-                    self.semantic_category_mapping.num_sem_categories - 1
-                )
-                obs.task_observations["recep_idx"] = (
-                    self.semantic_category_mapping.num_sem_obj_categories + 1
-                )
-                obs.task_observations["semantic_max_val"] = (
-                    self.semantic_category_mapping.num_sem_categories - 1
-                )
-        obs.task_observations["semantic_frame"] = np.concatenate(
-            [obs.rgb, obs.semantic[:, :, np.newaxis]], axis=2
-        ).astype(np.uint8)
         return obs
 
     def _preprocess_depth(self, depth: np.array) -> np.array:
@@ -249,50 +178,40 @@ class HabitatOpenVocabManipEnv(HabitatEnv):
         return rescaled_depth[:, :, -1]
 
     def _preprocess_goal(
-        self, obs: List[Observations], goal_type
-    ) -> Tuple[Tensor, List[str]]:
-        assert "object_category" in obs
-        obj_goal_id, start_rec_goal_id, end_rec_goal_id, goal_name = (
-            None,
-            None,
-            None,
-            None,
-        )
-        # Check if small object category is included in goal specification
-        obj_name = self._obj_id_to_name_mapping[obs["object_category"][0]]
-        if goal_type in ["object", "object_on_recep", "ovmm"]:
-            goal_name = obj_name
-            obj_goal_id = 1  # semantic sensor returns binary mask for goal object
-        if goal_type == "object_on_recep":
-            # navigating to object on start receptacle (before grasping)
-            goal_name = (
-                obj_name
-                + " on "
-                + self._rec_id_to_name_mapping[obs["start_receptacle"][0]]
-            )
-            start_rec_goal_id = 2
-        elif goal_type == "ovmm":
-            # nav goal specification for ovmm task includes all three categories:
-            start_receptacle = self._rec_id_to_name_mapping[obs["start_receptacle"][0]]
-            goal_receptacle = self._rec_id_to_name_mapping[obs["goal_receptacle"][0]]
-            goal_name = obj_name + " " + start_receptacle + " " + goal_receptacle
-            if self.ground_truth_semantics:
-                start_rec_goal_id = self._rec_name_to_id_mapping[start_receptacle] + 2
-                end_rec_goal_id = self._rec_name_to_id_mapping[goal_receptacle] + 2
-            else:
-                # habitat goal ids (from obs) -> combined mapping (also used for detic predictions)
-                name_to_id_mapping = {
-                    v: k for k, v in self.obj_rec_combined_mapping.items()
-                }
-                obj_goal_id = name_to_id_mapping[obj_name]
-                start_rec_goal_id = name_to_id_mapping[start_receptacle]
-                end_rec_goal_id = name_to_id_mapping[goal_receptacle]
+        self, obs: home_robot.core.interfaces.Observations, habitat_obs: Observations
+    ) -> home_robot.core.interfaces.Observations:
+        assert "object_category" in habitat_obs
+        assert "start_receptacle" in habitat_obs
+        assert "goal_receptacle" in habitat_obs
 
-        elif goal_type == "recep":
-            # navigating to end receptacle (before placing)
-            goal_name = self._rec_id_to_name_mapping[obs["goal_receptacle"][0]]
-            end_rec_goal_id = 3
-        return obj_goal_id, start_rec_goal_id, end_rec_goal_id, goal_name
+        obj_name = self._obj_id_to_name_mapping[habitat_obs["object_category"][0]]
+        start_receptacle = self._rec_id_to_name_mapping[
+            habitat_obs["start_receptacle"][0]
+        ]
+        goal_receptacle = self._rec_id_to_name_mapping[
+            habitat_obs["goal_receptacle"][0]
+        ]
+        goal_name = obj_name + " " + start_receptacle + " " + goal_receptacle
+
+        obj_goal_id = 1  # semantic sensor returns binary mask for goal object
+        if self.ground_truth_semantics:
+            start_rec_goal_id = self._rec_name_to_id_mapping[start_receptacle] + 2
+            end_rec_goal_id = self._rec_name_to_id_mapping[goal_receptacle] + 2
+        else:
+            # To be populated by the agent
+            start_rec_goal_id = -1
+            end_rec_goal_id = -1
+
+        obs.task_observations["goal_name"] = goal_name
+        obs.task_observations["object_name"] = obj_name
+        obs.task_observations["start_recep_name"] = start_receptacle
+        obs.task_observations["place_recep_name"] = goal_receptacle
+
+        obs.task_observations["object_goal"] = obj_goal_id
+        obs.task_observations["start_recep_goal"] = start_rec_goal_id
+        obs.task_observations["end_recep_goal"] = end_rec_goal_id
+
+        return obs
 
     def get_current_joint_pos(self, habitat_obs: Dict[str, Any]) -> np.array:
         """Returns the current absolute positions from habitat observations for the joints controlled by the action space"""

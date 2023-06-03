@@ -24,6 +24,7 @@ datasets/
 scene_datasets/
 datadump/
 */datasets/
+data/
 
 # Archive files
 *.pkl
@@ -37,9 +38,6 @@ datadump/
 *.hdf5
 *.mp4
 *.glb
-# used by habitat for object info
-*.json
-*.png
 
 # Detic model files
 *.pth

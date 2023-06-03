@@ -28,7 +28,7 @@ HARDCODED_YAW_OFFSET = 0.25
 
 class HeuristicPlacePolicy(nn.Module):
     """
-    Policy to place object on end receptacle using depth and point-cloud-based heuristics.
+    Policy to place object on end receptacle using depth and point-cloud-based heuristics. Objects will be placed nearby, on top of the surface, based on point cloud data. Requires segmentation to work properly.
     """
 
     def __init__(
@@ -299,9 +299,10 @@ class HeuristicPlacePolicy(nn.Module):
                 self.t_go_to_top = 1
                 self.t_extend_arm = 2
                 self.t_release_object = 3
-                self.t_retract_arm = 4
+                self.t_lift_arm = 4
+                self.t_retract_arm = 5
                 self.t_go_to_place = -1
-                self.t_done_waiting = 4 + self.fall_wait_steps
+                self.t_done_waiting = 5 + self.fall_wait_steps
             else:
                 self.placement_voxel, vis_inputs = found
 
@@ -334,10 +335,11 @@ class HeuristicPlacePolicy(nn.Module):
                 self.t_go_to_top = self.total_turn_and_forward_steps + 1
                 self.t_go_to_place = self.total_turn_and_forward_steps + 2
                 self.t_release_object = self.total_turn_and_forward_steps + 3
-                self.t_retract_arm = self.total_turn_and_forward_steps + 4
+                self.t_lift_arm = self.total_turn_and_forward_steps + 4
+                self.t_retract_arm = self.total_turn_and_forward_steps + 5
                 self.t_extend_arm = -1
                 self.t_done_waiting = (
-                    self.total_turn_and_forward_steps + 3 + self.fall_wait_steps
+                    self.total_turn_and_forward_steps + 5 + self.fall_wait_steps
                 )
 
                 print("-" * 20)
@@ -406,8 +408,11 @@ class HeuristicPlacePolicy(nn.Module):
             # desnap to drop the object
             print("[Placement] Desnapping object")
             action = DiscreteNavigationAction.DESNAP_OBJECT
+        elif self.timestep == self.t_lift_arm:
+            print("[Placement] Lifting the arm after placement.")
+            action = self._lift(obs)
         elif self.timestep == self.t_retract_arm:
-            print("[Placement] Raising the arm after placement.")
+            print("[Placement] Retracting the arm after placement.")
             action = self._retract(obs)
         elif self.timestep == self.t_extend_arm:
             print("[Placement] Extending the arm out for placing.")
@@ -424,6 +429,18 @@ class HeuristicPlacePolicy(nn.Module):
 
         self.timestep += 1
         return action, vis_inputs
+
+    def _lift(self, obs: Observations) -> ContinuousFullBodyAction:
+        """Compute a high-up lift position to avoid collisions when releasing"""
+        # Hab sim dimensionality for arm == 10
+        joints = np.zeros(10)
+        # We take the lift position = 1
+        current_arm_lift = obs.joint[4]
+        # Target lift is 0.99
+        lift_delta = 1.2 - current_arm_lift
+        joints[4] = lift_delta
+        action = ContinuousFullBodyAction(joints)
+        return action
 
     def _retract(self, obs: Observations) -> ContinuousFullBodyAction:
         """Compute a high-up retracted position to avoid collisions"""
