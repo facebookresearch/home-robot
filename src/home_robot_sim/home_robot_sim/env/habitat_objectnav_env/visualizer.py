@@ -41,7 +41,9 @@ class VIS_LAYOUT:
     IMAGE_HEIGHT = Y2 + BOTTOM_PADDING
     IMAGE_WIDTH = THIRD_PERSON_X2 + LEFT_PADDING + 1000
 
+
 V = VIS_LAYOUT
+
 
 class Visualizer:
     """
@@ -243,7 +245,6 @@ class Visualizer:
             self.image_vis = self._init_vis_image(goal_name)
 
         image_vis = self.image_vis.copy()
-
 
         # if curr_skill is not None, place the skill name below the third person image
         if curr_skill is not None and curr_action is not None:

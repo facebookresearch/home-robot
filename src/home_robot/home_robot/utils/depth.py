@@ -21,8 +21,8 @@ def filter_depth(depth: np.ndarray, min_val: float, max_val: float) -> np.ndarra
     Remove bad values from depth and set them to
     """
     depth = depth.reshape(-1)
-    #depth[depth < min_val] = MIN_DEPTH_REPLACEMENT_VALUE
-    #depth[depth > max_val] = MAX_DEPTH_REPLACEMENT_VALUE
+    # depth[depth < min_val] = MIN_DEPTH_REPLACEMENT_VALUE
+    # depth[depth > max_val] = MAX_DEPTH_REPLACEMENT_VALUE
     return depth
 
 

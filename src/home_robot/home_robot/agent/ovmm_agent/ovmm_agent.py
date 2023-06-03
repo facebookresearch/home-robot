@@ -12,11 +12,7 @@ from home_robot.agent.ovmm_agent.ovmm_perception import (
     read_category_map_file,
 )
 from home_robot.agent.ovmm_agent.ppo_agent import PPOAgent
-from home_robot.core.interfaces import (
-    ContinuousNavigationAction,
-    DiscreteNavigationAction,
-    Observations,
-)
+from home_robot.core.interfaces import DiscreteNavigationAction, Observations
 from home_robot.manipulation import HeuristicPlacePolicy
 from home_robot.perception.constants import RearrangeBasicCategories
 
@@ -421,10 +417,6 @@ class OpenVocabManipAgent(ObjectNavAgent):
             else:
                 # We have tried too many times and we're going to quit
                 action = None
-            # else:
-            #     raise ValueError(
-            #         "Still in hardware-mode hard-coded pick. Should have transitioned to the next skill."
-            #     )
         else:
             raise NotImplementedError(
                 f"pick type not supported: {self.config.AGENT.SKILLS.PICK.type}"

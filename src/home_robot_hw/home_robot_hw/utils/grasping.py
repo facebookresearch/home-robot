@@ -80,9 +80,11 @@ class GraspPlanner(object):
             mean_pt = np.mean(obj_pts, axis=0)
             dist = np.linalg.norm(mean_pt)
             print(" -", obj_id, "with", num_obj_pts, "points; dist to cam =", dist, "m")
+
             if dist > self.max_distance_m:
                 print(" --> too far away from camera, not reachable")
                 continue
+
             if dist < min_dist:
                 min_dist = dist
                 best_mask = mask
@@ -166,7 +168,6 @@ class GraspPlanner(object):
                 return False
             rgb, depth, xyz = obs.rgb, obs.depth, obs.xyz
 
-            # TODO: verify this is correct
             # In world coordinates
             # camera_pose_world = self.robot_client.head.get_pose()
             # camera_pose = camera_pose_world
