@@ -41,7 +41,7 @@ STRETCH_HOME_Q = np.array(
 
 # look down in navigation mode for doing manipulation post-navigation
 STRETCH_POSTNAV_Q = np.array(
-   [
+    [
         0,  # x
         0,  # y
         0,  # theta

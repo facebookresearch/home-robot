@@ -247,11 +247,10 @@ class Visualizer:
                 interpolation=cv2.INTER_NEAREST,
             )
             self.image_vis[
-                SEMANTIC_MAP_ORIG_X:SEMANTIC_MAP_ORIG_X + 480,
+                SEMANTIC_MAP_ORIG_X : SEMANTIC_MAP_ORIG_X + 480,
                 SEMANTIC_MAP_ORIG_Y : SEMANTIC_MAP_ORIG_Y + width,
             ] = rl_obs_frame
             print(self.image_vis.shape, SEMANTIC_MAP_ORIG_X, SEMANTIC_MAP_ORIG_Y, width)
-
 
         # First-person semantic frame
         semantic_frame = cv2.cvtColor(semantic_frame, cv2.COLOR_BGR2RGB)
