@@ -18,9 +18,7 @@ from home_robot.utils.pose import to_matrix
 
 # Stretch stuff
 DEFAULT_STRETCH_URDF = "assets/hab_stretch/urdf/stretch_dex_wrist_simplified.urdf"
-# PLANNER_STRETCH_URDF =  'assets/hab_stretch/urdf/planner_stretch_dex_wrist_simplified.urdf'
 PLANNER_STRETCH_URDF = "assets/hab_stretch/urdf/planner_calibrated.urdf"
-# MANIP_STRETCH_URDF = "assets/hab_stretch/urdf/planner_calibrated_manipulation_mode.urdf"
 MANIP_STRETCH_URDF = "assets/hab_stretch/urdf/stretch_manip_mode.urdf"
 
 STRETCH_HOME_Q = np.array(
@@ -289,10 +287,8 @@ class HelloStretchKinematics(Robot):
             full_body_urdf = PLANNER_STRETCH_URDF
             manip_urdf = MANIP_STRETCH_URDF
         else:
-            full_body_urdf = os.path.join(urdf_path, "planner_calibrated.urdf")
-            manip_urdf = os.path.join(
-                urdf_path, "planner_calibrated_manipulation_mode.urdf"
-            )
+            full_body_urdf = os.path.join(urdf_path, "stretch_whole_body.urdf")
+            manip_urdf = os.path.join(urdf_path, "stretch_manip_mode.urdf")
         self.full_body_urdf_path = os.path.join(root, full_body_urdf)
         self.manip_mode_urdf_path = os.path.join(root, manip_urdf)
         super(HelloStretchKinematics, self).__init__(

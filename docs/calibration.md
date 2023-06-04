@@ -1,5 +1,14 @@
 ## Calibrated URDF for manipulation planning
 
+Calibration is crucial for good performance. 
+
+  1. Copy the DexWrist URDF and xacro onto your robot from the [Stretch tool share](https://github.com/hello-robot/stretch_tool_share/tree/master/tool_share/stretch_dex_wrist).
+  1. Follow the [calibration instructions](https://github.com/hello-robot/stretch_ros/tree/master/stretch_calibration) provided by Hello Robot.
+  1. Copy your `stretch.urdf` from the robot and update it as below *if necessary*. This is an advanced tutorial; you should be able to get everything working without it, but might see some errors.
+
+
+## Loading the URDF in HomeRobot
+
 By default we load an URDF from `assets/hab_stretch/urdf/stretch_manip_mode.urdf` for manipulation. You need to replace this with the appropriate URDF for your robot.
 
 This adds a couple dummy joints to make 6dof planning easier, but isn't going to be calibrated for your specific robot. If you follow the calibration instructions from Hello, you can copy your `stretch.urdf` to your desktop though, and modify it to add these dummy joints.
@@ -49,4 +58,17 @@ Manip mode urdf changes like so:
     </collision>
   </link>
   <link name="world"/>
+```
+
+### Search and Replace
+
+We don't assume ROS on the server side, so there's one other piece of cleanup.
+
+To use locally you also need to replace this:
+```
+package://stretch_description
+```
+with
+```
+..
 ```
