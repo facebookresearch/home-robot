@@ -475,9 +475,11 @@ class InteractionPredictionModule(torch.nn.Module):
                 v_xyz.detach().cpu().numpy(),
                 v_rgb.detach().cpu().numpy(),
             )
+            v_semantic = torch.clone(v_rgb)
+            v_semantic[v_feat.detach().cpu().numpy().reshape(-1) == 1, 1] = 1.0
             show_point_cloud(
-                xyz.detach().cpu().numpy(),
-                rgb.detach().cpu().numpy(),
+                v_xyz.detach().cpu().numpy(),
+                v_semantic.detach().cpu().numpy(),
             )
 
         # combine rgb and feat

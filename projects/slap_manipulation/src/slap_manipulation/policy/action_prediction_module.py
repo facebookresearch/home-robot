@@ -406,6 +406,10 @@ class ActionPredictionModule(torch.nn.Module):
             grnd_coords = grnd_coords.rotate(grnd_rot)
             grnd_coords.paint_uniform_color([1, 0, 0])
             geoms.append(grnd_coords)
+        origin = o3d.geometry.TriangleMesh.create_coordinate_frame(
+            size=0.1, origin=np.zeros((3, 1))
+        )
+        geoms.append(origin)
         o3d.visualization.draw_geometries(geoms)
         # , lookat=self.cam_view["lookat"], up=self.cam_view["up"]
         # )
@@ -450,11 +454,11 @@ class ActionPredictionModule(torch.nn.Module):
         self.eval()
         cropped_xyz, cropped_feat, proprio, lang = self.read_batch(input_data)
         num_actions = input_data["num-actions"]
-        if debug:
-            show_point_cloud(
-                cropped_xyz.detach().cpu().numpy(),
-                cropped_feat[:, :3].detach().cpu().numpy(),
-            )
+        # if debug:
+        #     show_point_cloud(
+        #         cropped_xyz.detach().cpu().numpy(),
+        #         cropped_feat[:, :3].detach().cpu().numpy(),
+        #     )
         output = []
         if unbatched:
             for t in range(num_actions):
@@ -498,6 +502,7 @@ class ActionPredictionModule(torch.nn.Module):
             show_point_cloud(
                 cropped_xyz.detach().cpu().numpy(),
                 cropped_feat[:, :3].detach().cpu().numpy(),
+                orig=np.zeros((3, 1)),
                 grasps=viz_output,
             )
         return output
@@ -582,7 +587,7 @@ class ActionPredictionModule(torch.nn.Module):
             proprio = batch["proprio"]
             time_step = torch.zeros(self._max_actions).to(self.device)
             time_step[i] = 1
-            cmd = [batch["lang"]]
+            cmd = [batch["all_cmd"][i]]
         return proprio, time_step, cmd
 
     def get_targets(self, batch, i):
@@ -1139,6 +1144,7 @@ def main(cfg):
             autoregressive=True,
             time_as_one_hot=True,
             per_action_cmd=cfg.per_action_cmd,
+            skill_to_action_file=cfg.skill_to_action_file,
         )
         valid_dataset = RobotDataset(
             cfg.datadir,
@@ -1153,6 +1159,7 @@ def main(cfg):
             autoregressive=True,
             time_as_one_hot=True,
             per_action_cmd=cfg.per_action_cmd,
+            skill_to_action_file=cfg.skill_to_action_file,
         )
         test_dataset = RobotDataset(
             cfg.datadir,
@@ -1167,6 +1174,7 @@ def main(cfg):
             autoregressive=True,
             time_as_one_hot=True,
             per_action_cmd=cfg.per_action_cmd,
+            skill_to_action_file=cfg.skill_to_action_file,
         )
     else:
         train_dir = train_dataset_dir

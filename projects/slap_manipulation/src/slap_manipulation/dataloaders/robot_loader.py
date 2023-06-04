@@ -149,6 +149,7 @@ class RobotDataset(RLBenchDataset):
         time_as_one_hot=False,
         per_action_cmd=False,
         skill_to_action_file=None,
+        query_radius: float = 0.1,
         *args,
         **kwargs,
     ):
@@ -184,6 +185,7 @@ class RobotDataset(RLBenchDataset):
             )
         else:
             self.skill_to_action = None
+        self.query_radius = query_radius
         self.max_keypoints = max_keypoints
         self.time_as_one_hot = time_as_one_hot
         self.per_action_cmd = per_action_cmd
@@ -492,16 +494,17 @@ class RobotDataset(RLBenchDataset):
                 "grasp-action bottle",
                 "lift-action bottle",
             ]
-        # TODO: remove this and read from a yaml file instead
-        all_cmd = [
-            "approach-pose-action bottle",
-            "grasp-action bottle",
-            "lift-action bottle",
-        ]
+            # TODO: remove this and read from a yaml file instead
+            all_cmd = [
+                "approach-pose-action bottle",
+                "grasp-action bottle",
+                "lift-action bottle",
+            ]
 
         if self.skill_to_action is not None:
-            breakpoint()
             all_cmd = self.skill_to_action[cmd]
+        else:
+            all_cmd = None
 
         if self.skill_to_action is not None and self.per_action_cmd:
             """return different language per waypoint"""
@@ -724,7 +727,13 @@ class RobotDataset(RLBenchDataset):
             crop_rgb,
             crop_feat,
             data_status,
-        ) = self.get_local_problem(orig_xyz, orig_rgb, orig_feat, closest_pt_down_pcd)
+        ) = self.get_local_problem(
+            orig_xyz,
+            orig_rgb,
+            orig_feat,
+            closest_pt_down_pcd,
+            query_radius=self.query_radius,
+        )
         if verbose:
             print(f"Size of cropped xyz: {crop_xyz.shape}")
             show_semantic_mask(crop_xyz, crop_rgb, crop_feat, semantic_id=1)
@@ -850,7 +859,9 @@ class RobotDataset(RLBenchDataset):
             "rgb": torch.FloatTensor(rgb),
             "feat": torch.FloatTensor(feat),
             "cmd": cmd,
-            "all_cmd": all_cmd,
+            "all_cmd": all_cmd
+            if all_cmd is not None
+            else torch.FloatTensor(np.zeros(1)),
             "keypoint_idx": keypoint_relative_idx,
             # engineered features ----------------
             "closest_pos": torch.FloatTensor(closest_pt_og_pcd),

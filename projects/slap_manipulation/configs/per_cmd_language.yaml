@@ -1,0 +1,9 @@
+"handover-to-person":
+  - "approach-person"
+  - "align-with-hand"
+  - "release-object"
+
+"open-top-drawer":
+  - "align-with-handle"
+  - "grasp-handle"
+  - "pull-out-handle"

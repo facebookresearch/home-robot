@@ -3,6 +3,7 @@ from typing import Any, Dict
 import numpy as np
 import torch
 import trimesh
+import yaml
 from slap_manipulation.policy.action_prediction_module import ActionPredictionModule
 from slap_manipulation.policy.interaction_prediction_module import (
     InteractionPredictionModule,
@@ -39,6 +40,12 @@ class SLAPAgent(object):
         self._z_min = self.cfg.SLAP.z_min
         self._voxel_size_1 = self.cfg.SLAP.voxel_size_1
         self._voxel_size_2 = self.cfg.SLAP.voxel_size_2
+        if cfg.SLAP.APM.skill_to_action_file is not None:
+            self.skill_to_action = yaml.load(
+                open(cfg.SLAP.APM.skill_to_action_file, "r"), Loader=yaml.FullLoader
+            )
+        else:
+            self.skill_to_action = None
         if not self._dry_run:
             # pass cfg parameters to IPM and APM
             self.interaction_prediction_module = InteractionPredictionModule()
@@ -214,12 +221,14 @@ class SLAPAgent(object):
         if debug:
             print("create_action_prediction_input")
             show_point_cloud(cropped_xyz, cropped_feat)
+        all_cmd = self.skill_to_action[ipm_data["lang"]]
         input_data = self.to_torch(
             {
                 "feat_crop": cropped_feat,
                 "xyz_crop": cropped_xyz,
                 "rgb_crop": None,
                 "num-actions": obs.task_observations["num-actions"],
+                "all_cmd": all_cmd,
             }
         )
         ipm_data.update(input_data)
@@ -234,7 +243,7 @@ class SLAPAgent(object):
                     obs, filter_depth=True, debug=False
                 )
                 result = self.interaction_prediction_module.predict(
-                    self.ipm_input, debug=False
+                    self.ipm_input, debug=True
                 )
                 self.interaction_point = result[0]
                 info["interaction_point"] = (

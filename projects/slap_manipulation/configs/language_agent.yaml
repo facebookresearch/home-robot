@@ -69,8 +69,8 @@ AGENT:
     # goal_dilation_selem_radius: 10  # radius (in cells) of goal dilation structuring element
     min_obs_dilation_selem_radius: 3    # radius (in cells) of obstacle dilation structuring element
     obs_dilation_selem_radius: 5    # radius (in cells) of obstacle dilation structuring element
-    goal_dilation_selem_radius: 15  # radius (in cells) of goal dilation structuring element
-    step_size: 10                    # maximum distance of the short-term goal selected by the planner
+    goal_dilation_selem_radius: 25  # radius (in cells) of goal dilation structuring element
+    step_size: 8                    # maximum distance of the short-term goal selected by the planner
     use_dilation_for_stg: False      # use dilated goals for estimating short-term goals - or just reaching
     map_downsample_factor: 1            # optional downsampling of traversible and goal map before fmm distance call (1 for no downsampling, 2 for halving resolution)
     map_update_frequency: 1             # compute fmm distance map every n steps 
@@ -118,8 +118,9 @@ SLAP:
     datadir: False
     split: False
     load: False
-    path: data/checkpoints/june_2nd_videos/apm_handover_0_2.pth
+    path: data/checkpoints/june_2nd_videos/apm_open_drawer.pth
     max_actions: 6
+    skill_to_action_file: projects/slap_manipulation/configs/per_cmd_language.yaml
 
     num_pts: 8000
     orientation_type: "quaternion"  # change orientation_dim when you change this

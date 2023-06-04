@@ -36,7 +36,7 @@ class CombinedSLAPPlanner(object):
         self._robot_ee_to_grasp_offset[2, 3] += 0.10
         self._robot_max_grasp = 0  # 0.13, empirically found
 
-    def linear_interpolation(self, waypoints, num_points_per_segment=5):
+    def linear_interpolation(self, waypoints, num_points_per_segment=3):
         num_waypoints = len(waypoints)
         num_segments = num_waypoints - 1
 
@@ -46,9 +46,14 @@ class CombinedSLAPPlanner(object):
             start_pose = waypoints[i]
             end_pose = waypoints[i + 1]
 
-            for t in np.linspace(0, 1, num_points_per_segment):
-                interpolated_pose = (1 - t) * start_pose + t * end_pose
-                interpolated_trajectory.append(interpolated_pose)
+            # only interpolate between two poses if dist > 10cm
+            if np.linalg.norm(start_pose - end_pose) > 0.1:
+                for t in np.linspace(0, 1, num_points_per_segment):
+                    interpolated_pose = (1 - t) * start_pose + t * end_pose
+                    interpolated_trajectory.append(interpolated_pose)
+            else:
+                interpolated_trajectory.append(start_pose)
+                interpolated_trajectory.append(end_pose)
         interpolated_trajectory = np.array(interpolated_trajectory)
 
         return interpolated_trajectory
@@ -84,11 +89,14 @@ class CombinedSLAPPlanner(object):
             (
                 np.expand_dims(begin_pose, 0),
                 actions_pose_mat,
-                # np.expand_dims(begin_pose, 0),
+                np.expand_dims(begin_pose, 0),
             ),
             axis=0,
         )
-        action_gripper = np.concatenate((gripper, action_gripper.reshape(-1)), axis=-1)
+        self._send_action_to_tf(actions_pose_mat)
+        action_gripper = np.concatenate(
+            (gripper, action_gripper.reshape(-1), gripper), axis=-1
+        )
         initial_pt = ("initial", joint_pos_pre, gripper)
         trajectory.append(initial_pt)
 
@@ -110,7 +118,7 @@ class CombinedSLAPPlanner(object):
             else:
                 print(f"-> could not solve for skill; action_{i} unreachable")
                 return None
-        trajectory.append(trajectory[0])
+        # trajectory.append(trajectory[0])
         # go back to initial pt with the gripper state same as last predicted action
         end_pt = ("end", joint_pos_pre, bool(action_gripper[-1]))
         trajectory.append(end_pt)
@@ -139,7 +147,7 @@ class CombinedSLAPPlanner(object):
             action_as_mat.append(to_matrix(act[:3], act[3:7]))
         action_as_mat = np.array(action_as_mat)
         action_as_mat = np.matmul(action_as_mat, self._robot_ee_to_grasp_offset)
-        self._send_action_to_tf(action_as_mat)
+        # self._send_action_to_tf(action_as_mat)
 
         # Generate a plan
         trajectory = self.plan_for_skill(action_as_mat, combined_action[:, -1])
@@ -155,6 +163,7 @@ class CombinedSLAPPlanner(object):
             # self._publish_current_ee_pose()
             if should_grasp:
                 self.robot.manip.close_gripper()
+                rospy.sleep(3.0)
             else:
                 self.robot.manip.open_gripper()
             if wait_for_input:

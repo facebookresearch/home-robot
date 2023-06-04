@@ -193,6 +193,16 @@ class GeneralLanguageAgent(PickAndPlaceAgent):
                     "self.goto(['person'], obs)",
                     "self.handover(['person'], obs)",
                 ],
+                10: [
+                    "self.goto(['drawer', 'drawer handle'], obs)",
+                    "self.open_object(['drawer handle',], obs)",
+                    "self.goto(['lemon'], obs)",
+                    "self.pick_up(['lemon'], obs)",
+                ],
+                11: [
+                    "self.goto(['lemon'], obs)",
+                    "self.pick_up(['lemon'], obs)",
+                ],
             }
 
     # ---override methods---
@@ -404,11 +414,11 @@ class GeneralLanguageAgent(PickAndPlaceAgent):
             if "drawer" in object_list or "drawer handle" in object_list:
                 info["global_offset_vector"] = np.array([0, 1, 0])
                 info["global_orientation"] = np.deg2rad(-90)
-                info["offset_distance"] = 0.8
+                info["offset_distance"] = 0.75
             if "handover" in language:
                 info["global_offset_vector"] = np.array([-1, 0, 0])
                 info["global_orientation"] = np.deg2rad(0)
-                info["offset_distance"] = 0.85
+                info["offset_distance"] = 0.95
             projected_point = np.copy(info["interaction_point"])
             projected_point[2] = 0
             info["SLAP"] = True

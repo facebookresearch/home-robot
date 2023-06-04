@@ -366,7 +366,14 @@ class RLBenchDataset(DatasetBase):
         return positions, orientations, angles
 
     def get_local_problem(
-        self, xyz, rgb, feat, interaction_pt, num_find_crop_tries=10, min_num_points=50
+        self,
+        xyz,
+        rgb,
+        feat,
+        interaction_pt,
+        query_radius=0.1,
+        num_find_crop_tries=10,
+        min_num_points=50,
     ):
         """
         Crop given PCD around a perturbed interaction_point as input to action prediction problem
@@ -391,7 +398,7 @@ class RLBenchDataset(DatasetBase):
                     xyz - crop_location[None].repeat(xyz.shape[0], axis=0), axis=-1
                 )
                 # Make sure this is near some geometry
-                if np.sum(dists < 0.2) > min_num_points:
+                if np.sum(dists < query_radius) > min_num_points:
                     break
                 else:
                     crop_location = orig_crop_location

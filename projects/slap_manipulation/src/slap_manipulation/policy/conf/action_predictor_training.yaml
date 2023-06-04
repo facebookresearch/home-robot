@@ -65,3 +65,4 @@ per_action_cmd: False
 gru_hidden_dim: 512
 gru_hidden_layers: 2
 use_mdn: False
+skill_to_action_file: configs/per_cmd_language.yaml
