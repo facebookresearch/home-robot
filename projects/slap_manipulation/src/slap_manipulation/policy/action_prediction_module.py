@@ -14,7 +14,7 @@ import torch
 import trimesh.transformations as tra
 import wandb
 import yaml
-from omegaconf import OmegaConf
+from omegaconf import OmegaConf, dictconfig
 from slap_manipulation.dataloaders.rlbench_loader import RLBenchDataset
 from slap_manipulation.dataloaders.robot_loader import RobotDataset
 from slap_manipulation.optim.lamb import Lamb
@@ -60,7 +60,7 @@ class QueryRegressionHead(torch.nn.Module):
             )
 
         self.final_dim = cfg.regression_head.final_dim
-        if isinstance(cfg, OmegaConf):
+        if isinstance(cfg, dictconfig.DictConfig):
             self.pos_mlp = MLP(
                 OmegaConf.to_object(cfg.regression_head.pos_mlp),
                 dropout=0.0,
@@ -126,39 +126,39 @@ class ActionPredictionModule(torch.nn.Module):
         super().__init__()
 
         # training and setup vars
-        self.ori_type = cfg.SLAP.APM.orientation_type
-        self._lr = cfg.SLAP.APM.learning_rate
-        self._optimizer_type = cfg.SLAP.APM.optim
-        self._lambda_weight_l2 = cfg.SLAP.APM.lambda_weight_l2
+        self.ori_type = cfg.orientation_type
+        self._lr = cfg.learning_rate
+        self._optimizer_type = cfg.optim
+        self._lambda_weight_l2 = cfg.lambda_weight_l2
         self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
-        self.multi_head = cfg.SLAP.APM.multi_step
-        self.num_heads = cfg.SLAP.APM.num_heads
-        self._max_actions = cfg.SLAP.APM.max_actions
-        self._crop_size = cfg.SLAP.APM.crop_size
-        self._query_radius = cfg.SLAP.APM.query_radius
-        self._k = cfg.SLAP.APM.k  # default from pyg example
-        self.proprio_in_dim = cfg.SLAP.APM.dims.proprio_in
-        self.image_in_dim = cfg.SLAP.APM.dims.image_in
-        self.proprio_out_dim = cfg.SLAP.APM.dims.proprio_out
-        self.hidden_dim = cfg.SLAP.APM.gru_hidden_dim
-        self.hidden_layers = cfg.SLAP.APM.gru_hidden_layers
-        self.use_mdn = cfg.SLAP.APM.use_mdn
+        self.multi_head = cfg.multi_step
+        self.num_heads = cfg.num_heads
+        self._max_actions = cfg.max_actions
+        self._crop_size = cfg.crop_size
+        self._query_radius = cfg.query_radius
+        self._k = cfg.k  # default from pyg example
+        self.proprio_in_dim = cfg.dims.proprio_in
+        self.image_in_dim = cfg.dims.image_in
+        self.proprio_out_dim = cfg.dims.proprio_out
+        self.hidden_dim = cfg.gru_hidden_dim
+        self.hidden_layers = cfg.gru_hidden_layers
+        self.use_mdn = cfg.use_mdn
 
-        self.pos_wt = cfg.SLAP.APM.weights.position
-        self.ori_wt = cfg.SLAP.APM.weights.orientation
-        self.gripper_wt = cfg.SLAP.APM.weights.gripper
+        self.pos_wt = cfg.weights.position
+        self.ori_wt = cfg.weights.orientation
+        self.gripper_wt = cfg.weights.gripper
 
         # encoding language
         # learnable positional encoding
         # Unlike eg in peract, this ONLY applies to the language
         lang_emb_dim, lang_max_seq_len = (
-            cfg.SLAP.APM.dims.lang_emb_out,
-            cfg.SLAP.APM.lang_max_seq_len,
+            cfg.dims.lang_emb_out,
+            cfg.lang_max_seq_len,
         )
         with torch.no_grad():
             self.clip_model, self.clip_preprocess = clip.load(
-                cfg.SLAP.APM.clip_model, device=self.device
+                cfg.clip_model, device=self.device
             )
 
         # proprio preprocessing encoder
@@ -170,12 +170,12 @@ class ActionPredictionModule(torch.nn.Module):
         )
 
         # Input channels account for both `pos` and node features.
-        if isinstance(cfg.SLAP.APM.model.sa1_mlp, OmegaConf):
+        if isinstance(cfg, dictconfig.DictConfig):
             self.sa1_module = SAModule(
                 0.5,  # fps sampling ratio
                 0.5 * self._query_radius,
                 MLP(
-                    OmegaConf.to_object(cfg.SLAP.APM.model.sa1_mlp),
+                    OmegaConf.to_object(cfg.model.sa1_mlp),
                     batch_norm=False,
                     dropout=0.0,
                 ),
@@ -184,44 +184,44 @@ class ActionPredictionModule(torch.nn.Module):
                 0.25,  # this is apparently the FPS sampling ratio
                 self._query_radius,
                 MLP(
-                    OmegaConf.to_object(cfg.SLAP.APM.model.sa2_mlp),
+                    OmegaConf.to_object(cfg.model.sa2_mlp),
                     batch_norm=False,
                     dropout=0.0,
                 ),
             )
             self.sa3_module = GlobalSAModule(
                 MLP(
-                    OmegaConf.to_object(cfg.SLAP.APM.model.sa3_mlp),
+                    OmegaConf.to_object(cfg.model.sa3_mlp),
                     batch_norm=False,
                     dropout=0.0,
                 )
             )
             self.proprio_emb = MLP(
-                OmegaConf.to_object(cfg.SLAP.APM.model.proprio_mlp),
+                OmegaConf.to_object(cfg.model.proprio_mlp),
                 batch_norm=False,
                 dropout=0.0,
             )
             self.lang_emb = MLP(
-                OmegaConf.to_object(cfg.SLAP.APM.model.lang_mlp),
+                OmegaConf.to_object(cfg.model.lang_mlp),
                 batch_norm=False,
                 dropout=0.0,
             )
             self.time_emb = MLP(
-                OmegaConf.to_object(cfg.SLAP.APM.model.time_mlp),
+                OmegaConf.to_object(cfg.model.time_mlp),
                 batch_norm=False,
                 dropout=0.0,
             )
             self.x_gru = torch.nn.GRU(
-                cfg.SLAP.APM.model.gru_dim, self.hidden_dim, self.hidden_layers
+                cfg.model.gru_dim, self.hidden_dim, self.hidden_layers
             )
             self.post_process = MLP(
-                OmegaConf.to_object(cfg.SLAP.APM.model.post_process_mlp),
+                OmegaConf.to_object(cfg.model.post_process_mlp),
                 batch_norm=False,
                 dropout=0.0,
                 # activation_layer=torch.nn.LeakyReLU()
             )
             self.pre_process = MLP(
-                OmegaConf.to_object(cfg.SLAP.APM.model.pre_process_mlp),
+                OmegaConf.to_object(cfg.model.pre_process_mlp),
                 batch_norm=False,
                 dropout=0.0,
                 # activation_layer=torch.nn.LeakyReLU()
@@ -231,7 +231,7 @@ class ActionPredictionModule(torch.nn.Module):
                 0.5,  # fps sampling ratio
                 0.5 * self._query_radius,
                 MLP(
-                    cfg.SLAP.APM.model.sa1_mlp,
+                    cfg.model.sa1_mlp,
                     batch_norm=False,
                     dropout=0.0,
                 ),
@@ -240,51 +240,51 @@ class ActionPredictionModule(torch.nn.Module):
                 0.25,  # this is apparently the FPS sampling ratio
                 self._query_radius,
                 MLP(
-                    cfg.SLAP.APM.model.sa2_mlp,
+                    cfg.model.sa2_mlp,
                     batch_norm=False,
                     dropout=0.0,
                 ),
             )
             self.sa3_module = GlobalSAModule(
                 MLP(
-                    cfg.SLAP.APM.model.sa3_mlp,
+                    cfg.model.sa3_mlp,
                     batch_norm=False,
                     dropout=0.0,
                 )
             )
             self.proprio_emb = MLP(
-                cfg.SLAP.APM.model.proprio_mlp,
+                cfg.model.proprio_mlp,
                 batch_norm=False,
                 dropout=0.0,
             )
             self.lang_emb = MLP(
-                cfg.SLAP.APM.model.lang_mlp,
+                cfg.model.lang_mlp,
                 batch_norm=False,
                 dropout=0.0,
             )
             self.time_emb = MLP(
-                cfg.SLAP.APM.model.time_mlp,
+                cfg.model.time_mlp,
                 batch_norm=False,
                 dropout=0.0,
             )
             self.x_gru = torch.nn.GRU(
-                cfg.SLAP.APM.model.gru_dim, self.hidden_dim, self.hidden_layers
+                cfg.model.gru_dim, self.hidden_dim, self.hidden_layers
             )
             self.post_process = MLP(
-                cfg.SLAP.APM.model.post_process_mlp,
+                cfg.model.post_process_mlp,
                 batch_norm=False,
                 dropout=0.0,
                 # activation_layer=torch.nn.LeakyReLU()
             )
             self.pre_process = MLP(
-                cfg.SLAP.APM.model.pre_process_mlp,
+                cfg.model.pre_process_mlp,
                 batch_norm=False,
                 dropout=0.0,
                 # activation_layer=torch.nn.LeakyReLU()
             )
 
-        self.regression_head = QueryRegressionHead(cfg.SLAP.APM)
-        self.pos_in_channels = cfg.SLAP.APM.regression_head.pos_in_channels
+        self.regression_head = QueryRegressionHead(cfg)
+        self.pos_in_channels = cfg.regression_head.pos_in_channels
         self.ori_in_channels = (
             3 if self.ori_type == "rpy" else 4 if self.ori_type == "quaternion" else -1
         )
@@ -292,8 +292,8 @@ class ActionPredictionModule(torch.nn.Module):
         # self.classify_loss = torch.nn.BCEWithLogitsLoss()
         # self.classify_loss = torch.nn.BinaryCrossEntropyLoss()
         self.classify_loss = torch.nn.BCEWithLogitsLoss()
-        self.name = f"action_predictor_{cfg.SLAP.APM.name}"
-        self.max_iter = cfg.SLAP.APM.max_iter
+        self.name = f"action_predictor_{cfg.name}"
+        self.max_iter = cfg.max_iter
 
         # for visualizations
         self.cam_view = {
@@ -303,7 +303,7 @@ class ActionPredictionModule(torch.nn.Module):
             "zoom": 0.43999999999999972,
         }
         self.setup_training()
-        if not cfg.SLAP.APM.validate and not cfg.SLAP.APM.dry_run:
+        if not cfg.validate and not cfg.dry_run:
             if not os.path.exists(self._save_dir):
                 os.mkdir(self._save_dir)
         self.start_time = 0.0

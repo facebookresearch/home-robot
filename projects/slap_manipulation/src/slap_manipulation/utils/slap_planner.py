@@ -61,7 +61,7 @@ class CombinedSLAPPlanner(object):
         # grasp_pos, grasp_quat = to_pos_quat(grasp)
         self.robot.switch_to_manipulation_mode()
         trajectory = []
-        num_pts_per_segment = 5
+        num_pts_per_segment = 2
 
         # TODO: add skill-specific standoffs from 0th action
         joint_pos_pre = self.robot.manip.get_joint_positions()
@@ -84,13 +84,11 @@ class CombinedSLAPPlanner(object):
             (
                 np.expand_dims(begin_pose, 0),
                 actions_pose_mat,
-                np.expand_dims(begin_pose, 0),
+                # np.expand_dims(begin_pose, 0),
             ),
             axis=0,
         )
-        action_gripper = np.concatenate(
-            (gripper, action_gripper.reshape(-1), gripper), axis=-1
-        )
+        action_gripper = np.concatenate((gripper, action_gripper.reshape(-1)), axis=-1)
         initial_pt = ("initial", joint_pos_pre, gripper)
         trajectory.append(initial_pt)
 
@@ -112,6 +110,7 @@ class CombinedSLAPPlanner(object):
             else:
                 print(f"-> could not solve for skill; action_{i} unreachable")
                 return None
+        trajectory.append(trajectory[0])
         # go back to initial pt with the gripper state same as last predicted action
         end_pt = ("end", joint_pos_pre, bool(action_gripper[-1]))
         trajectory.append(end_pt)

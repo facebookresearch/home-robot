@@ -18,7 +18,7 @@ TASK_TO_OBJECT_MAP = {
     "pour_mug": ["bowl"],
     "pour-mug": ["bowl"],
     "pour_sink": ["sink"],
-    "handover-bottle": ["hand", "human", "human hand", "person"],
+    "handover-to-person": ["person"],
     "pick-bottle": ["bottle"],
     "sweep-the-table:": ["sponge", "squeegee", "brush"],
     "pick-bottle-from-cabinet": ["bottle"],
@@ -33,7 +33,7 @@ def sandwich(obj_list: List[str]):
 
 
 @click.command()
-@click.option("--data-dir", type=str, default="~/data/dataset.h5")
+@click.option("--data-dir", type=str, default="~/data/")
 @click.option("--template", type=str, default="*/*.h5")
 @click.option(
     "--mode",
@@ -90,7 +90,10 @@ def main(data_dir, template, mode, dry_run):
                 )
                 plt.show()
             elif mode == "visualize" and "head_semantic_frame" in h5file[g_name].keys():
-                plt.imshow(h5file[g_name]["head_semantic_frame"][()])
+                plt.imsave(
+                    f"outputs/debug/visualize/{task_name}_{g_name}.png",
+                    h5file[g_name]["head_semantic_frame"][()],
+                )
                 plt.show()
             elif mode == "write":
                 if "head_semantic_frame" not in h5file[g_name].keys():

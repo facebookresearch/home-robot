@@ -203,9 +203,7 @@ class GeneralLanguageEnv(StretchPickandPlaceEnv):
                     pose_matrix_array.append(pose_matrix)
                 self.action_visualizer(pose_matrix_array, frame_id="base_link")
                 combined_action = np.concatenate((pos, ori, gripper), axis=-1)
-                ok = self.skill_planner.try_executing_skill(
-                    combined_action, debug=False
-                )
+                ok = self.skill_planner.try_executing_skill(combined_action, False)
 
         # Move, if we are not doing anything with the arm
         if continuous_action is not None and not self.test_grasping:
@@ -296,30 +294,70 @@ class GeneralLanguageEnv(StretchPickandPlaceEnv):
             relative_resting_position=np.array([0.3878479, 0.12924957, 0.4224413]),
             is_holding=np.array([0.0]),
         )
-        # Run the segmentation model here
-        if self.current_goal_id is not None:
-            if self.segmentation_method == DETIC:
-                obs = self.segmentation.predict(obs)
+        if self.segmentation_method == DETIC:
+            obs = self.segmentation.predict(obs)
 
-                # Make sure we only have one "other" - for ??? some reason
-                obs.semantic[obs.semantic == 0] = len(self.goal_options) - 1
+            # Make sure we only have one "other" - for ??? some reason
+            obs.semantic[obs.semantic == 0] = len(self.goal_options) - 1
 
-                # Choose instance mask with highest score for goal mask
-                instance_scores = obs.task_observations["instance_scores"].copy()
-                class_mask = (
-                    obs.task_observations["instance_classes"] == self.current_goal_id
+            # Choose instance mask with highest score for goal mask
+            instance_scores = obs.task_observations["instance_scores"].copy()
+            class_mask = (
+                obs.task_observations["instance_classes"] == self.current_goal_id
+            )
+            valid_instances = (
+                instance_scores * class_mask
+            ) > self.min_detection_threshold
+            class_map = np.zeros_like(obs.task_observations["instance_map"]).astype(
+                bool
+            )
+
+            # If we detected anything... check to see if our target object was found, and if so pass in the mask.
+            if len(instance_scores) and np.any(class_mask):
+                # Compute mask of all detected objects fitting the description
+                print(valid_instances)
+                for i, valid in enumerate(valid_instances):
+                    if not valid:
+                        continue
+                    class_map = np.bitwise_or(
+                        class_map, obs.task_observations["instance_map"] == i
+                    )
+
+                # Mask of the most likely candidate is "goal"
+                chosen_instance_idx = np.argmax(instance_scores * class_mask)
+                obs.task_observations["goal_mask"] = (
+                    obs.task_observations["instance_map"] == chosen_instance_idx
+                )
+            else:
+                obs.task_observations["goal_mask"] = np.zeros_like(obs.semantic).astype(
+                    bool
                 )
 
-                # If we detected anything... check to see if our target object was found, and if so pass in the mask.
-                if len(instance_scores) and np.any(class_mask):
-                    chosen_instance_idx = np.argmax(instance_scores * class_mask)
-                    obs.task_observations["goal_mask"] = (
-                        obs.task_observations["instance_map"] == chosen_instance_idx
-                    )
-                else:
-                    obs.task_observations["goal_mask"] = np.zeros_like(
-                        obs.semantic
-                    ).astype(bool)
+            obs.task_observations["goal_class_mask"] = class_map.astype(bool)
+        # # Run the segmentation model here
+        # if self.current_goal_id is not None:
+        #     if self.segmentation_method == DETIC:
+        #         obs = self.segmentation.predict(obs)
+        #
+        #         # Make sure we only have one "other" - for ??? some reason
+        #         obs.semantic[obs.semantic == 0] = len(self.goal_options) - 1
+        #
+        #         # Choose instance mask with highest score for goal mask
+        #         instance_scores = obs.task_observations["instance_scores"].copy()
+        #         class_mask = (
+        #             obs.task_observations["instance_classes"] == self.current_goal_id
+        #         )
+        #
+        #         # If we detected anything... check to see if our target object was found, and if so pass in the mask.
+        #         if len(instance_scores) and np.any(class_mask):
+        #             chosen_instance_idx = np.argmax(instance_scores * class_mask)
+        #             obs.task_observations["goal_mask"] = (
+        #                 obs.task_observations["instance_map"] == chosen_instance_idx
+        #             )
+        #         else:
+        #             obs.task_observations["goal_mask"] = np.zeros_like(
+        #                 obs.semantic
+        #             ).astype(bool)
         obs.task_observations[
             "base_camera_pose"
         ] = self.robot.head.get_pose_in_base_coords(rotated=True)

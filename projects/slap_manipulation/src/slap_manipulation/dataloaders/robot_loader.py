@@ -647,6 +647,10 @@ class RobotDataset(RLBenchDataset):
         rgb = rgb[x_mask]
         xyz = xyz[x_mask]
         feat = feat[x_mask]
+        z_mask = xyz[:, 2] > 0.15
+        rgb = rgb[z_mask]
+        xyz = xyz[z_mask]
+        feat = feat[z_mask]
         xyz, rgb, feat = xyz.reshape(-1, 3), rgb.reshape(-1, 3), feat.reshape(-1, 1)
 
         # using ee-keyframe at index interaction_pt_idx now compute point in PCD intersecting with action axis of the gripper
@@ -667,7 +671,9 @@ class RobotDataset(RLBenchDataset):
         orig_xyz, orig_rgb, orig_feat = xyz, rgb, feat
 
         # Get the point clouds and shuffle them around a bit
-        xyz, rgb, feat, center = self.shuffle_and_downsample_point_cloud(xyz, rgb, feat)
+        xyz, rgb, feat, center = self.mean_center_shuffle_and_downsample_point_cloud(
+            xyz, rgb, feat
+        )
 
         # mean-center the keyframes wrt classifier-input pcd
         orig_xyz -= center[None].repeat(orig_xyz.shape[0], axis=0)

@@ -264,6 +264,7 @@ class ObjectNavAgent(Agent):
         """Initialize agent state."""
         self.reset_vectorized()
         self.planner.reset()
+        print("ObjectNavAgent reset")
 
     def get_nav_to_recep(self):
         return None

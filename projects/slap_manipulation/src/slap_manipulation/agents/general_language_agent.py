@@ -1,12 +1,12 @@
+import json
+import re
 from enum import Enum
 from glob import glob
 from typing import Any, Dict, List, Tuple
-import re
-import json
+
 import numpy as np
 import pandas as pd
 import yaml
-
 from slap_manipulation.agents.slap_agent import SLAPAgent
 
 from home_robot.agent.ovmm_agent.pick_and_place_agent import PickAndPlaceAgent
@@ -29,7 +29,7 @@ from home_robot_hw.ros.utils import matrix_to_pose_msg
 
 
 def evaluate_expression(expression, dummy_value) -> List[str]:
-    # if expression.startswith('[') and expression.endswith(']'):            
+    # if expression.startswith('[') and expression.endswith(']'):
     if type(expression) == list:
         return expression
     try:
@@ -39,18 +39,20 @@ def evaluate_expression(expression, dummy_value) -> List[str]:
         result = dummy_value
     return result
 
+
 def separate_into_codelist(string: str) -> List[str]:
     # Remove leading/trailing whitespace and split the string by ') '
-    function_calls = string.split(')')
+    function_calls = string.split(")")
     # Remove the ')' character from each function call
     new_function_calls = []
     for call in function_calls:
-        call += ')' # add back the ')'
-        call = call.strip(' \n\t!;')
-        call = call.replace('\n\t', '')
-        call = call.replace("!", '')
+        call += ")"  # add back the ')'
+        call = call.strip(" \n\t!;")
+        call = call.replace("\n\t", "")
+        call = call.replace("!", "")
         new_function_calls.append(call)
     return new_function_calls
+
 
 def get_taskplan_for_robot(steps: List[str]) -> List[dict]:
     """
@@ -66,27 +68,29 @@ def get_taskplan_for_robot(steps: List[str]) -> List[dict]:
             continue
         # Extract verb, object, and speed values
         verb = matches.group(1)
-        noun = evaluate_expression(matches.group(2), ['dummy'])
+        noun = evaluate_expression(matches.group(2), ["dummy"])
         # speed_key = matches.group(4)
         adverb = matches.group(5)
         if adverb is not None:
             adverb = adverb.upper()
         # print(verb, noun, adverb)
-        steps_table.append({'verb': verb, 'noun': noun, 'adverb': adverb})
+        steps_table.append({"verb": verb, "noun": noun, "adverb": adverb})
     return steps_table
-    
+
+
 def get_task_plans_from_llm(
-    index, json_path='./llm_eval/icl_llama-7b.json', input_string='prediction'
+    index, json_path="./llm_eval/icl_llama-7b.json", input_string="prediction"
 ):
     """Reads the dataset files and return a list of task plans"""
-    with open(json_path, 'r') as f:
+    with open(json_path, "r") as f:
         data_dict = json.load(f)
-        df = pd.json_normalize(data_dict['data'])
+        df = pd.json_normalize(data_dict["data"])
     steps_string = df.iloc[index][input_string]
     code_list = separate_into_codelist(steps_string)
     steps_list = get_taskplan_for_robot(code_list)
     code = get_codelist(steps_list)
     return code
+
 
 def get_task_plans_from_oracle(
     index, datafile="./datasets/BringXFromYSurfaceToHuman.json", root="./datasets/"
@@ -110,9 +114,7 @@ def get_task_plans_from_oracle(
 def get_codelist(steps_list):
     codelist = []
     for step in steps_list:
-        codelist += [
-            f"self.{step['verb']}({step['noun']}, obs=obs)"
-        ]
+        codelist += [f"self.{step['verb']}({step['noun']}, obs=obs)"]
     return codelist
 
 
@@ -175,6 +177,22 @@ class GeneralLanguageAgent(PickAndPlaceAgent):
                 6: [
                     "self.open_object(['drawer', 'drawer handle'], obs)",
                 ],
+                7: [
+                    "self.goto(['table', 'cup'], obs)",
+                    "self.pick_up(['cup'], obs)",
+                    "self.goto(['person'], obs)",
+                    "self.handover(['person'], obs)",
+                ],
+                8: [
+                    "self.goto(['table', 'cup'], obs)",
+                    "self.pick_up(['cup'], obs)",
+                    "self.goto(['counter'], obs)",
+                    "self.handover(['counter'], obs)",
+                ],
+                9: [
+                    "self.goto(['person'], obs)",
+                    "self.handover(['person'], obs)",
+                ],
             }
 
     # ---override methods---
@@ -189,6 +207,7 @@ class GeneralLanguageAgent(PickAndPlaceAgent):
         self.state = GeneralTaskState.IDLE
         self.num_actions_done = 0
         self.slap_model.reset()
+        self.object_nav_agent.reset()
 
     def _preprocess_obs(
         self, obs: Observations, object_list: List[str]
@@ -272,8 +291,15 @@ class GeneralLanguageAgent(PickAndPlaceAgent):
             else:
                 self.state = GeneralTaskState.DOING_TASK
                 obs = self._preprocess_obs(obs, object_list)
+                if "cup" in object_list:
+                    self.object_nav_agent.planner.min_goal_distance_cm = 50
+                    self.object_nav_agent.planner.goal_dilation_selem_radius = 7
+                else:
+                    self.object_nav_agent.planner.min_goal_distance_cm = 80
+                    self.object_nav_agent.planner.goal_dilation_selem_radius = 25
                 action, info["viz"] = self.object_nav_agent.act(obs)
                 if action == DiscreteNavigationAction.STOP or self.dry_run:
+                    self.soft_reset()
                     self.state = GeneralTaskState.IDLE
         return action, info
 
@@ -326,6 +352,11 @@ class GeneralLanguageAgent(PickAndPlaceAgent):
         num_actions = self._task_information[language]
         return self.call_slap(language, num_actions, obs, object_list)
 
+    def handover(self, object_list: List[str], obs: Observations):
+        language = self._language["handover"][object_list[0]]
+        num_actions = self._task_information[language]
+        return self.call_slap(language, num_actions, obs, object_list)
+
     def call_slap(self, language: str, num_actions: int, obs, object_list: List[str]):
         info = {}
         action = None
@@ -374,6 +405,10 @@ class GeneralLanguageAgent(PickAndPlaceAgent):
                 info["global_offset_vector"] = np.array([0, 1, 0])
                 info["global_orientation"] = np.deg2rad(-90)
                 info["offset_distance"] = 0.8
+            if "handover" in language:
+                info["global_offset_vector"] = np.array([-1, 0, 0])
+                info["global_orientation"] = np.deg2rad(0)
+                info["offset_distance"] = 0.85
             projected_point = np.copy(info["interaction_point"])
             projected_point[2] = 0
             info["SLAP"] = True
@@ -403,5 +438,3 @@ class GeneralLanguageAgent(PickAndPlaceAgent):
         print(f"[LangAgent]: evaling: {self.current_step=}")
         action, info = eval(self.current_step)
         return action, info
-
-

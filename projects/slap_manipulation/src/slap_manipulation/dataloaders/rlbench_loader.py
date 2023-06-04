@@ -188,7 +188,7 @@ class RLBenchDataset(DatasetBase):
         mask = np.linalg.norm(xyz - voxel, axis=1) < crop_size
         return xyz[mask], rgb[mask], feat[mask]
 
-    def shuffle_and_downsample_point_cloud(self, xyz, rgb, feat):
+    def mean_center_shuffle_and_downsample_point_cloud(self, xyz, rgb, feat):
         # Downsample pt clouds
         downsample = np.arange(rgb.shape[0])
         np.random.shuffle(downsample)
@@ -201,7 +201,7 @@ class RLBenchDataset(DatasetBase):
         # mean center xyz
         center = np.mean(xyz, axis=0)
         # center = np.zeros(3)
-        center[-1] = 0
+        # center[-1] = 0
         xyz = xyz - center[None].repeat(xyz.shape[0], axis=0)
         return xyz, rgb, feat, center
 
@@ -391,7 +391,7 @@ class RLBenchDataset(DatasetBase):
                     xyz - crop_location[None].repeat(xyz.shape[0], axis=0), axis=-1
                 )
                 # Make sure this is near some geometry
-                if np.sum(dists < 0.1) > min_num_points:
+                if np.sum(dists < 0.2) > min_num_points:
                     break
                 else:
                     crop_location = orig_crop_location
@@ -570,7 +570,7 @@ class RLBenchDataset(DatasetBase):
         orig_xyz, orig_rgb = xyz, rgb
 
         # Get the point clouds and shuffle them around a bit
-        xyz, rgb, center = self.shuffle_and_downsample_point_cloud(xyz, rgb)
+        xyz, rgb, center = self.mean_center_shuffle_and_downsample_point_cloud(xyz, rgb)
 
         # adjust our keyframes
         orig_xyz -= center[None].repeat(orig_xyz.shape[0], axis=0)

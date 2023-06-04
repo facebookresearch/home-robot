@@ -3,6 +3,7 @@ action_idx: -1
 datadir: False
 split: False
 load: False
+max_actions: 6
 
 num_pts: 8000
 orientation_type: "quaternion"  # change orientation_dim when you change this
@@ -20,7 +21,7 @@ max_iter: 50
 dry_run: False
 validate: False
 template: "*.h5"
-data_augmentation: False
+data_augmentation: True
 source: "stretch"
 wandb: False
 debug: False
@@ -35,8 +36,8 @@ dims:
   # rgb_out:
 
 weights:
-  position: 1.0
-  orientation: 1e-3
+  position: 1e-1
+  orientation: 1e-1
   gripper: 1e-4
 
 run:

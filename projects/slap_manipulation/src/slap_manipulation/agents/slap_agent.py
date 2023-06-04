@@ -42,7 +42,7 @@ class SLAPAgent(object):
         if not self._dry_run:
             # pass cfg parameters to IPM and APM
             self.interaction_prediction_module = InteractionPredictionModule()
-            self.action_prediction_module = ActionPredictionModule(cfg)
+            self.action_prediction_module = ActionPredictionModule(cfg.SLAP.APM)
 
     def load_models(self):
         self.interaction_prediction_module.load_weights(self.cfg.SLAP.IPM.path)
@@ -103,8 +103,8 @@ class SLAPAgent(object):
         feat = obs.semantic
         import matplotlib.pyplot as plt
 
-        plt.imshow(obs.task_observations["semantic_frame"])
-        plt.show()
+        # plt.imshow(obs.task_observations["semantic_frame"])
+        # plt.show()
         # only keep feat which is == semantic_id
         feat[feat >= (len(obs.task_observations["object_list"]) + 2)] = 0
         feat[feat != 0] = 1
@@ -269,7 +269,7 @@ class SLAPAgent(object):
             apm_input = self.create_action_prediction_input_from_obs(
                 obs, self.ipm_input
             )
-            action = self.action_prediction_module.predict(apm_input, debug=False)
+            action = self.action_prediction_module.predict(apm_input, debug=True)
             for i, act in enumerate(action):
                 action[i] = act.detach().cpu().numpy()
             action = np.array(action)

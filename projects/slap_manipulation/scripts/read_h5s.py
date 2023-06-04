@@ -20,9 +20,11 @@ def main(data_dir, template):
     files = glob.glob(os.path.join(data_dir, template))
     for file in files:
         filename = file.split("/")[-1][:-3]
+        dir_name = file.split("/")[-2]
         h5 = h5py.File(file, "r")
         for g_name in h5:
-            print(f"{filename},{g_name}")
+            print(f"\n{dir_name=}, {filename=}, {g_name=}")
+            print(f"task-name = {h5[g_name]['task_name'][()].decode('utf-8')}")
             rgb = image.img_from_bytes(h5[g_name]["head_rgb/0"][()])
             print(h5[g_name]["demo_status"][()])
             plt.imshow(rgb)
