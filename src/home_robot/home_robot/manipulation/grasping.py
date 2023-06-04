@@ -67,7 +67,7 @@ class SimpleGraspMotionPlanner(object):
             return None
 
         top_cfg = standoff_cfg.copy()
-        top_cfg[HelloStretchIdx.ARM] = 0.01
+        top_cfg[HelloStretchIdx.ARM] = 0.1
         top_cfg[HelloStretchIdx.LIFT] = 1.1
         top_cfg = self.robot.config_to_manip_command(top_cfg)
         back_top = ("back_top", top_cfg, False)
