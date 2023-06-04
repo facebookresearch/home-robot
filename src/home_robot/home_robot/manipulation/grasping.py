@@ -65,10 +65,29 @@ class SimpleGraspMotionPlanner(object):
         else:
             print("-> could not solve for standoff")
             return None
+
+        top_cfg = standoff_cfg.copy()
+        top_cfg[HelloStretchIdx.ARM] = 0.01
+        top_cfg[HelloStretchIdx.LIFT] = 1.1
+        top_cfg = self.robot.config_to_manip_command(top_cfg)
+        back_top = ("back_top", top_cfg, False)
+
         back_cfg = standoff_cfg.copy()
         back_cfg[HelloStretchIdx.ARM] = 0.01
         back_cfg = self.robot.config_to_manip_command(back_cfg)
         back = ("back", back_cfg, False)
 
+        initial_cfg[HelloStretchIdx.BASE_X] = back_cfg[HelloStretchIdx.BASE_X]
+        initial_pt = ("initial", initial_cfg, False)
+
         # Return the full motion plan
-        return [pregrasp, back, standoff, grasp_pt, standoff, back, initial_pt]
+        return [
+            pregrasp,
+            back,
+            standoff,
+            grasp_pt,
+            standoff,
+            back_top,
+            back,
+            initial_pt,
+        ]
