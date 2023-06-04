@@ -53,7 +53,9 @@ class SimpleGraspMotionPlanner(object):
             return None
 
         # Standoff is 8cm over the grasp for now
-        standoff_pos = grasp_pos + np.array([0.0, 0.0, 0.08])
+        # Overwrite standoff pos.z with a really high value so it comes in from above
+        standoff_pos = grasp_pos + np.array([0.0, 0.0, 0.4])
+        standoff_pos[2] = np.min([1.1, standoff_pos[2]])
         standoff_cfg, success, _ = self.robot.manip_ik(
             (standoff_pos, grasp_quat), q0=None
         )
