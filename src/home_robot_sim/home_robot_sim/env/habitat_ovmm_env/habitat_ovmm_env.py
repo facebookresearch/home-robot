@@ -137,9 +137,9 @@ class HabitatOpenVocabManipEnv(HabitatEnv):
                 "object_embedding": habitat_obs["object_embedding"],
                 "start_receptacle": habitat_obs["start_receptacle"],
                 "goal_receptacle": habitat_obs["goal_receptacle"],
+                "prev_grasp_success": habitat_obs["is_holding"],
             },
             joint=habitat_obs["joint"],
-            is_holding=habitat_obs["is_holding"],
             relative_resting_position=habitat_obs["relative_resting_position"],
             third_person_image=third_person_image,
             camera_pose=self.convert_pose_to_real_world_axis(
