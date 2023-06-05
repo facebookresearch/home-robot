@@ -309,7 +309,7 @@ class PPOAgent(Agent):
                 ).astype(np.uint8),
                 "joint": obs.joint,
                 "relative_resting_position": obs.relative_resting_position,
-                "is_holding": obs.is_holding,
+                "is_holding": obs.task_observations["prev_grasp_success"],
                 "robot_start_gps": np.array((obs.gps[0], -1 * obs.gps[1]))
                 - self.skill_start_gps,
                 "robot_start_compass": obs.compass - self.skill_start_compass,
