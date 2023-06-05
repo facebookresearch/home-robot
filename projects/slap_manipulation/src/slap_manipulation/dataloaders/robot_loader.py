@@ -668,7 +668,6 @@ class RobotDataset(RLBenchDataset):
         xyz, rgb, feat = xyz.reshape(-1, 3), rgb.reshape(-1, 3), feat.reshape(-1, 1)
         if not labeled:
             gripper_pose = self.get_gripper_pose(trial, interaction_pt_idx)
-            breakpoint()
             action_axis = self.get_gripper_axis(gripper_pose)
             gripper_position = gripper_pose[:3, 3]
             index, interaction_point = find_closest_point_to_line(
