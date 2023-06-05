@@ -268,8 +268,8 @@ class RobotDataset(RLBenchDataset):
         x, y, z, w = ee_pose[3:]
         ee_pose = tra.quaternion_matrix([w, x, y, z])
         ee_pose[:3, 3] = pos
-        ee_pose = ee_pose @ self._robot_ee_to_grasp_offset
-        return ee_pose
+        transformed_ee_pose = ee_pose @ self._robot_ee_to_grasp_offset
+        return transformed_ee_pose
 
     def get_gripper_axis(self, rot_mat):
         return rot_mat[:3, 2]
@@ -389,12 +389,8 @@ class RobotDataset(RLBenchDataset):
         depth = depth.reshape(-1)
         xyz = xyz.reshape(-1, C)
         semantic_feat = semantic_feat.reshape(-1, 1)
-        mask = np.bitwise_and(depth < 1.5, depth > 0.3)
-        rgb = rgb[mask]
-        xyz = xyz[mask]
-        semantic_feat = semantic_feat[mask]
         # rgb = np.concatenate((rgb, semantic_feat), axis=-1)
-        return rgb, xyz, semantic_feat
+        return rgb, xyz, semantic_feat, depth
 
     def extract_manual_keyframes(self, user_keyframe_array):
         """returns indices of all user-tagged keyframes"""
@@ -621,10 +617,10 @@ class RobotDataset(RLBenchDataset):
             target_gripper_state = gripper_state[current_keypoint_idx]
 
         # get point-cloud in base-frame from the cameras
-        rgbs, xyzs, feats = [], [], []
+        rgbs, xyzs, feats, depths = [], [], [], []
         for view in ["head"]:  # TODO: make keys consistent with stretch H5 schema
             for image_index in input_keyframes:
-                v_rgb, v_xyz, v_feat = self.process_images_from_view(
+                v_rgb, v_xyz, v_feat, v_depth = self.process_images_from_view(
                     trial,
                     view,
                     image_index if image_index is not None else input_idx,
@@ -632,6 +628,7 @@ class RobotDataset(RLBenchDataset):
                 rgbs.append(v_rgb)
                 xyzs.append(v_xyz)
                 feats.append(v_feat)
+                depths.append(v_depth)
 
         drop_frames = False  # TODO: get this from cfg
         if drop_frames:
@@ -643,9 +640,23 @@ class RobotDataset(RLBenchDataset):
             rgbs = [rgbs[i] for i in idx_dropout]
             xyzs = [xyzs[i] for i in idx_dropout]
             feats = [feats[i] for i in idx_dropout]
+            depths = [depths[i] for i in idx_dropout]
         rgb = np.concatenate(rgbs, axis=0)
         xyz = np.concatenate(xyzs, axis=0)
         feat = np.concatenate(feats, axis=0)
+        depth = np.concatenate(depths, axis=0)
+
+        # find interaction point based on OG xyz
+        labeled = False
+        if "interaction_point_index" in trial.group.keys():
+            index = trial.group["interaction_point_index"][()]
+            interaction_point = xyz[index]
+            labeled = True
+
+        mask = np.bitwise_and(depth < 1.5, depth > 0.3)
+        rgb = rgb[mask]
+        xyz = xyz[mask]
+        feat = feat[mask]
         x_mask = xyz[:, 0] < 0.9
         rgb = rgb[x_mask]
         xyz = xyz[x_mask]
@@ -655,14 +666,16 @@ class RobotDataset(RLBenchDataset):
         xyz = xyz[z_mask]
         feat = feat[z_mask]
         xyz, rgb, feat = xyz.reshape(-1, 3), rgb.reshape(-1, 3), feat.reshape(-1, 1)
+        if not labeled:
+            gripper_pose = self.get_gripper_pose(trial, interaction_pt_idx)
+            breakpoint()
+            action_axis = self.get_gripper_axis(gripper_pose)
+            gripper_position = gripper_pose[:3, 3]
+            index, interaction_point = find_closest_point_to_line(
+                xyz, gripper_position, action_axis
+            )
 
         # using ee-keyframe at index interaction_pt_idx now compute point in PCD intersecting with action axis of the gripper
-        gripper_pose = self.get_gripper_pose(trial, interaction_pt_idx)
-        action_axis = self.get_gripper_axis(gripper_pose)
-        gripper_position = gripper_pose[:3, 3]
-        index, interaction_point = find_closest_point_to_line(
-            xyz, gripper_position, action_axis
-        )
         interaction_ee_keyframe[:3, 3] = interaction_point
 
         # voxelize at a granular voxel-size then choose X points
@@ -930,7 +943,7 @@ def debug_get_datum(data_dir, k_index, split, robot, waypoint_language):
         robot=robot,
         autoregressive=True,
         time_as_one_hot=True,
-        per_action_cmd=True,
+        per_action_cmd=False,
         skill_to_action_file=None if waypoint_language == "" else waypoint_language,
     )
     for trial in loader.trials:
