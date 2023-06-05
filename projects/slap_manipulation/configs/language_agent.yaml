@@ -111,16 +111,15 @@ SLAP:
     color_jitter: False
     loss_fn: "xent"
     max_iter: 30
-    path: data/checkpoints/june_2nd_videos/ipm.pth
+    path: data/checkpoints/corl_experiment/ipm.pth
   APM:
-    name: test
+    task_name: test
     action_idx: -1
     datadir: False
     split: False
     load: False
-    path: data/checkpoints/june_2nd_videos/apm_open_drawer.pth
     max_actions: 6
-    skill_to_action_file: projects/slap_manipulation/configs/per_cmd_language.yaml
+    path: data/checkpoints/corl_experiment/apm.pth
 
     num_pts: 8000
     orientation_type: "quaternion"  # change orientation_dim when you change this
@@ -130,7 +129,7 @@ SLAP:
     multi_step: True
     num_heads: 1
     crop_size: 0.1
-    query_radius: 0.2
+    query_radius: 0.16
     k: 3  # will change per task, read from task_information.yaml
     lang_max_seq_len: 77
     clip_model: "ViT-B/32"
@@ -138,7 +137,7 @@ SLAP:
     dry_run: False
     validate: False
     template: "*.h5"
-    data_augmentation: False
+    data_augmentation: True
     source: "stretch"
     wandb: False
     debug: False
@@ -152,13 +151,15 @@ SLAP:
       orientation: 4
       # rgb_out:
 
+    handover_weights:
+      position: 1e-1
+      orientation: 1e-1
+      gripper: 1e-4
+
     weights:
       position: 1.0
       orientation: 1e-3
       gripper: 1e-4
-
-    run:
-      validate: False
 
     model:
       sa1_mlp: [7, 64, 128]
@@ -182,6 +183,75 @@ SLAP:
     gru_hidden_dim: 512
     gru_hidden_layers: 2
     use_mdn: False
+    skill_to_action_file: projects/slap_manipulation/configs/per_cmd_language.yaml
+    # name: test
+    # action_idx: -1
+    # datadir: False
+    # split: False
+    # load: False
+    # max_actions: 6
+    # skill_to_action_file: projects/slap_manipulation/configs/per_cmd_language.yaml
+    #
+    # num_pts: 8000
+    # orientation_type: "quaternion"  # change orientation_dim when you change this
+    # learning_rate: 1e-4
+    # lambda_weight_l2: 0.00001
+    # optim: adam
+    # multi_step: True
+    # num_heads: 1
+    # crop_size: 0.1
+    # query_radius: 0.2
+    # k: 3  # will change per task, read from task_information.yaml
+    # lang_max_seq_len: 77
+    # clip_model: "ViT-B/32"
+    # max_iter: 50
+    # dry_run: False
+    # validate: False
+    # template: "*.h5"
+    # data_augmentation: False
+    # source: "stretch"
+    # wandb: False
+    # debug: False
+    #
+    # dims:
+    #   proprio_in: 8
+    #   proprio_out: 64
+    #   image_in: 4
+    #   lang_emb_out: 512
+    #   position: 3
+    #   orientation: 4
+    #   # rgb_out:
+    #
+    # weights:
+    #   position: 1.0
+    #   orientation: 1e-3
+    #   gripper: 1e-4
+    #
+    # run:
+    #   validate: False
+    #
+    # model:
+    #   sa1_mlp: [7, 64, 128]
+    #   sa2_mlp: [131, 128, 256]
+    #   sa3_mlp: [259, 256,512]
+    #   proprio_mlp: [64, 256, 512]
+    #   lang_mlp: [512, 512, 512]
+    #   time_mlp: [6, 256, 512]
+    #   pre_process_mlp: [2048, 1024, 1024, 512, 512]
+    #   post_process_mlp: [512, 512, 256, 256, 128, 64]
+    #   gru_dim: 512
+    #
+    # regression_head:
+    #   final_dim: 64
+    #   pos_mlp: [256, 128, 64]
+    #   ori_mlp: [256, 128, 64]
+    #   gripper_mlp: [1536, 512, 64]
+    #   pos_in_channels: 3
+    #
+    # per_action_cmd: False
+    # gru_hidden_dim: 512
+    # gru_hidden_layers: 2
+    # use_mdn: False
 
 TASKS:
   std_names:

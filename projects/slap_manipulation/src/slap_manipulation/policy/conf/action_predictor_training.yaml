@@ -1,4 +1,4 @@
-name: test
+task_name: test
 action_idx: -1
 datadir: False
 split: False
@@ -35,13 +35,15 @@ dims:
   orientation: 4
   # rgb_out:
 
-weights:
+handover_weights:
   position: 1e-1
   orientation: 1e-1
   gripper: 1e-4
 
-run:
-  validate: False
+weights:
+  position: 1.0
+  orientation: 1e-3
+  gripper: 1e-4
 
 model:
   sa1_mlp: [7, 64, 128]

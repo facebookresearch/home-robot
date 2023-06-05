@@ -84,7 +84,7 @@ class CombinedSLAPPlanner(object):
         # TODO: also rotate the gripper as per 1st action
         begin_pose[:3, :3] = actions_pose_mat[0, :3, :3]
         # get current gripper reading, keep gripper as is during this motion
-        gripper = np.array([int(self.robot.manip.get_gripper_position() > -0.005)])
+        gripper = np.array([int(self.robot.manip.get_gripper_position() < -0.005)])
         actions_pose_mat = np.concatenate(
             (
                 np.expand_dims(begin_pose, 0),

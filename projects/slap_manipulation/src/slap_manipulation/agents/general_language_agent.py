@@ -203,6 +203,14 @@ class GeneralLanguageAgent(PickAndPlaceAgent):
                     "self.goto(['lemon'], obs)",
                     "self.pick_up(['lemon'], obs)",
                 ],
+                12: [
+                    "self.goto(['cabinet', 'bottle'], obs)",
+                    "self.take_bottle(['bottle'], obs)",
+                ],
+                13: [
+                    "self.goto(['table', 'bowl'], obs)",
+                    "self.pour_into_bowl(['bowl'], obs)",
+                ],
             }
 
     # ---override methods---
@@ -358,12 +366,27 @@ class GeneralLanguageAgent(PickAndPlaceAgent):
             return action, action_info
 
     def open_object(self, object_list: List[str], obs: Observations):
-        language = self._language["open_object"][object_list[0]]
+        language = "open-object-drawer"
+        num_actions = self._task_information[language]
+        return self.call_slap(language, num_actions, obs, object_list)
+
+    def close_object(self, object_list: List[str], obs: Observations):
+        language = "close-object-drawer"
         num_actions = self._task_information[language]
         return self.call_slap(language, num_actions, obs, object_list)
 
     def handover(self, object_list: List[str], obs: Observations):
-        language = self._language["handover"][object_list[0]]
+        language = "handover-to-person"
+        num_actions = self._task_information[language]
+        return self.call_slap(language, num_actions, obs, object_list)
+
+    def take_bottle(self, object_list: List[str], obs: Observations):
+        language = "take-bottle"
+        num_actions = self._task_information[language]
+        return self.call_slap(language, num_actions, obs, object_list)
+
+    def pour_into_bowl(self, object_list: List[str], obs: Observations):
+        language = "pour-into-bowl"
         num_actions = self._task_information[language]
         return self.call_slap(language, num_actions, obs, object_list)
 
@@ -419,6 +442,14 @@ class GeneralLanguageAgent(PickAndPlaceAgent):
                 info["global_offset_vector"] = np.array([-1, 0, 0])
                 info["global_orientation"] = np.deg2rad(0)
                 info["offset_distance"] = 0.95
+            if "take-bottle" == language:
+                info["global_offset_vector"] = np.array([0, 1, 0])
+                info["global_orientation"] = np.deg2rad(-90)
+                info["offset_distance"] = 0.5
+            if "pour-into-bowl" == language:
+                info["global_offset_vector"] = np.array([0, -1, 0])
+                info["global_orientation"] = np.deg2rad(90)
+                info["offset_distance"] = 0.5
             projected_point = np.copy(info["interaction_point"])
             projected_point[2] = 0
             info["SLAP"] = True

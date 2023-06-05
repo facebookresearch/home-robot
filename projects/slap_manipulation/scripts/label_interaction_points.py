@@ -52,9 +52,9 @@ def main(data_dir, template, mode):
             #     image.img_from_bytes(h5file[g_name]["head_depth/0"][()])
             #     / depth_factor
             # )
-            pcd = numpy_to_pcd(xyz, rgb / 255.0)
-            points = pick_points(pcd)
-            print(f"Picked point is: {points}")
+            # pcd = numpy_to_pcd(xyz, rgb / 255.0)
+            # points = pick_points(pcd)
+            # print(f"Picked point is: {points}")
             if mode == "write":
                 h5file[g_name]["interaction_point_index"] = points
             input("Press enter to continue...")

@@ -3,7 +3,25 @@
   - "align-with-hand"
   - "release-object"
 
-"open-top-drawer":
+"open-object-drawer":
   - "align-with-handle"
   - "grasp-handle"
   - "pull-out-handle"
+
+"close-object-drawer":
+  - "align-with-handle"
+  - "grasp-handle"
+  - "push-in-handle"
+
+"pour-into-bowl":
+  - "align-with-bowl"
+  - "tilt-into-bowl"
+  - "tilt-further"
+  - "empty-out"
+
+"take-bottle":
+  - "align-with-bottle"
+  - "grasp-bottle"
+  - "lift-bottle"
+  - "retract-arm"
+

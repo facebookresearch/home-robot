@@ -149,6 +149,10 @@ class ActionPredictionModule(torch.nn.Module):
         self.ori_wt = cfg.weights.orientation
         self.gripper_wt = cfg.weights.gripper
 
+        self.handover_pos_wt = cfg.handover_weights.position
+        self.handover_ori_wt = cfg.handover_weights.orientation
+        self.handover_gripper_wt = cfg.handover_weights.gripper
+
         # encoding language
         # learnable positional encoding
         # Unlike eg in peract, this ONLY applies to the language
@@ -292,7 +296,7 @@ class ActionPredictionModule(torch.nn.Module):
         # self.classify_loss = torch.nn.BCEWithLogitsLoss()
         # self.classify_loss = torch.nn.BinaryCrossEntropyLoss()
         self.classify_loss = torch.nn.BCEWithLogitsLoss()
-        self.name = f"action_predictor_{cfg.name}"
+        self.name = f"action_predictor_{cfg.task_name}"
         self.max_iter = cfg.max_iter
 
         # for visualizations
@@ -733,11 +737,19 @@ class ActionPredictionModule(torch.nn.Module):
             pos_loss /= 3
             ori_loss /= 3
             gripper_loss /= 3
-            loss = (
-                self.pos_wt * pos_loss
-                + self.ori_wt * ori_loss
-                + self.gripper_wt * gripper_loss
-            )
+            task_name = batch["cmd"][0]
+            if "handover" in task_name:
+                loss = (
+                    self.handover_pos_wt * pos_loss
+                    + self.handover_ori_wt * ori_loss
+                    + self.handover_gripper_wt * gripper_loss
+                )
+            else:
+                loss = (
+                    self.pos_wt * pos_loss
+                    + self.ori_wt * ori_loss
+                    + self.gripper_wt * gripper_loss
+                )
 
             tot_pos_loss = tot_pos_loss + pos_loss.item()
             tot_ori_loss = tot_ori_loss + ori_loss.item()
@@ -1100,7 +1112,7 @@ class ActionPredictionModule(torch.nn.Module):
 )
 def main(cfg):
     # Speed up training by configuring the number of workers
-    num_workers = 8 if not cfg.debug else 0
+    num_workers = 16 if not cfg.debug else 0
     B = 1
 
     # create model, load weights for classifier
@@ -1225,7 +1237,7 @@ def main(cfg):
     else:
         if cfg.wandb:
             date_time = datetime.datetime.now().strftime("%d/%m/%Y-%H:%M")
-            wandb.init(project="action_predictor", name=f"{cfg.name}_{date_time}")
+            wandb.init(project="action_predictor", name=f"{cfg.task_name}_{date_time}")
             wandb.config.query_radius = model._query_radius
             # wandb.config.voxelization_scheme = [
             #     test_dataset._voxel_size,
