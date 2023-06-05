@@ -203,6 +203,14 @@ class GeneralLanguageAgent(PickAndPlaceAgent):
                     "self.goto(['lemon'], obs)",
                     "self.pick_up(['lemon'], obs)",
                 ],
+                12: [
+                    "self.goto(['cabinet', 'bottle'], obs)",
+                    "self.take_bottle(['bottle'], obs)",
+                ],
+                13: [
+                    "self.goto(['table', 'bowl'], obs)",
+                    "self.pour_into_bowl(['bowl'], obs)",
+                ],
             }
 
     # ---override methods---
@@ -434,6 +442,14 @@ class GeneralLanguageAgent(PickAndPlaceAgent):
                 info["global_offset_vector"] = np.array([-1, 0, 0])
                 info["global_orientation"] = np.deg2rad(0)
                 info["offset_distance"] = 0.95
+            if "take-bottle" == language:
+                info["global_offset_vector"] = np.array([0, 1, 0])
+                info["global_orientation"] = np.deg2rad(-90)
+                info["offset_distance"] = 0.5
+            if "pour-into-bowl" == language:
+                info["global_offset_vector"] = np.array([0, -1, 0])
+                info["global_orientation"] = np.deg2rad(90)
+                info["offset_distance"] = 0.5
             projected_point = np.copy(info["interaction_point"])
             projected_point[2] = 0
             info["SLAP"] = True

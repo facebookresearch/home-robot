@@ -111,7 +111,7 @@ SLAP:
     color_jitter: False
     loss_fn: "xent"
     max_iter: 30
-    path: data/checkpoints/june_2nd_videos/ipm.pth
+    path: data/checkpoints/corl_experiment/ipm.pth
   APM:
     task_name: test
     action_idx: -1
@@ -119,6 +119,7 @@ SLAP:
     split: False
     load: False
     max_actions: 6
+    path: data/checkpoints/corl_experiment/apm.pth
 
     num_pts: 8000
     orientation_type: "quaternion"  # change orientation_dim when you change this
@@ -182,13 +183,12 @@ SLAP:
     gru_hidden_dim: 512
     gru_hidden_layers: 2
     use_mdn: False
-    skill_to_action_file: configs/per_cmd_language.yaml
+    skill_to_action_file: projects/slap_manipulation/configs/per_cmd_language.yaml
     # name: test
     # action_idx: -1
     # datadir: False
     # split: False
     # load: False
-    # path: data/checkpoints/june_2nd_videos/apm_open_drawer.pth
     # max_actions: 6
     # skill_to_action_file: projects/slap_manipulation/configs/per_cmd_language.yaml
     #
