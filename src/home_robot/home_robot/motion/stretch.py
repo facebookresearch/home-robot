@@ -287,7 +287,7 @@ class HelloStretchKinematics(Robot):
             full_body_urdf = PLANNER_STRETCH_URDF
             manip_urdf = MANIP_STRETCH_URDF
         else:
-            full_body_urdf = os.path.join(urdf_path, "stretch_whole_body.urdf")
+            full_body_urdf = os.path.join(urdf_path, "planner_calibrated.urdf")
             manip_urdf = os.path.join(urdf_path, "stretch_manip_mode.urdf")
         self.full_body_urdf_path = os.path.join(root, full_body_urdf)
         self.manip_mode_urdf_path = os.path.join(root, manip_urdf)
