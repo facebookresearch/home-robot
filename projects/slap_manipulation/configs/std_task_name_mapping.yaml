@@ -9,3 +9,4 @@ pour-mug: pour-into-bowl
 pour_mug: pour-into-bowl
 pour_sink: pour-into-sink
 sweep_edge_of_table: sweep-table-with-brush
+sweep_table: sweep-table-with-brush

@@ -13,18 +13,13 @@ from home_robot.perception.detection.detic.detic_perception import DeticPercepti
 
 MY_CATEGORIES = ["cup", "bottle", "drawer", "basket", "bowl", "computer", "mug"]
 TASK_TO_OBJECT_MAP = {
-    "open-top-drawer": ["drawer handle", "drawer"],
-    "close-top-drawer": ["drawer handle", "drawer"],
-    "pour_mug": ["bowl"],
-    "pour-mug": ["bowl"],
-    "pour_sink": ["sink"],
+    "open-object-drawer": ["drawer handle", "drawer"],
+    "close-object-drawer": ["drawer handle", "drawer"],
+    "pour-into-bowl": ["bowl"],
+    "pour-into-sink": ["sink"],
     "handover-to-person": ["person"],
-    "pick-bottle": ["bottle"],
-    "sweep-the-table:": ["sponge", "squeegee", "brush"],
-    "pick-bottle-from-cabinet": ["bottle"],
-    "pick-bottle-from-cabinet-new": ["bottle"],
-    "pick-bottle-from-table": ["bottle"],
-    "sweep_edge_of_table": ["sponge", "squeegee", "brush"],
+    "take-bottle": ["bottle"],
+    "sweep-table-with-brush": ["sponge", "squeegee", "brush"],
 }
 
 
@@ -49,12 +44,13 @@ def main(data_dir, template, mode, dry_run):
     )
     depth_factor = 10000
     files = glob.glob(os.path.join(data_dir, template))
-    prev_object_for_task = None
+    # prev_object_for_task = None
     if dry_run:
         print("Nothing will be written to H5s, this is to show Detic masks")
+    print("Add detic features")
     for file in files:
         # get object category to look for given task
-        if mode == "read":
+        if mode in ["read", "test"]:
             h5file = h5py.File(file, "r")
         else:
             h5file = h5py.File(file, "a")
@@ -62,12 +58,12 @@ def main(data_dir, template, mode, dry_run):
         print(f"Processing {task_name} in {file}")
         if mode in ["test", "write"]:
             object_for_task = TASK_TO_OBJECT_MAP[task_name]
-            if prev_object_for_task is None or (
-                prev_object_for_task is not None
-                and prev_object_for_task != object_for_task
-            ):
-                segmentation.reset_vocab(sandwich(object_for_task))
-                prev_object_for_task = object_for_task
+            # if prev_object_for_task is None or (
+            #     prev_object_for_task is not None
+            #     and prev_object_for_task != object_for_task
+            # ):
+            segmentation.reset_vocab(sandwich(object_for_task))
+            # prev_object_for_task = object_for_task
         for g_name in h5file.keys():
             if mode == "test":
                 rgb = image.img_from_bytes(h5file[g_name]["head_rgb/0"][()])

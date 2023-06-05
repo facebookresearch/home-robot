@@ -47,7 +47,7 @@ def main(data_dir, template, mode):
                 new_status = int(
                     input("Enter the new status. 0 for fail, 1 for success: ")
                 )
-                h5file[g_name]["demo_status"] = new_status
+                h5file[g_name]["demo_status"][...] = new_status
 
 
 if __name__ == "__main__":
