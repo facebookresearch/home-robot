@@ -495,7 +495,7 @@ class InteractionPredictionModule(torch.nn.Module):
             proprio,
         )
         self.get_top_attention(
-            v_xyz, v_rgb[:, :3], classification_scores, visualize=False
+            v_xyz, v_rgb[:, :3], classification_scores, visualize=True
         )
         if debug:
             feat_rgb = v_rgb[:, :3].detach().cpu().numpy().reshape(-1, 3)

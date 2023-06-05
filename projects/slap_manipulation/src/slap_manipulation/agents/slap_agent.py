@@ -59,10 +59,10 @@ class SLAPAgent(object):
         print("Loaded SLAP weights")
 
     def get_proprio(self):
-        if self._last_action is None:
-            return np.array([2, 2, 2, 2, 2, 2, 2, -1])
-        else:
-            return np.concatenate((self._last_action), axis=-1)
+        # if self._last_action is None:
+        return np.array([2, 2, 2, 2, 2, 2, 2, -1])
+        # else:
+        # return np.concatenate((self._last_action), axis=-1)
 
     def get_time(self, time_as_float=False):
         if time_as_float:
