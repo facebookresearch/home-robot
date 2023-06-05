@@ -6,9 +6,12 @@
   - IMPORTANT NOTE: If using mamba double check the pytorch, cudatoolkit, torchaudio and torchvision versions; it has trouble finding a solution for this combination.
 2. Install prerequisite `torch-geometric` library and dependencies by running:
 ```bash
+python -m pip install torch==1.12.1+cu116 torchvision==0.13.1+cu116 torchaudio==0.12.1 --extra-index-url https://download.pytorch.org/whl/cu116
 python -m pip install --no-index pyg_lib torch_scatter torch_sparse torch_cluster torch_spline_conv -f https://data.pyg.org/whl/torch-1.12.1+cu116.html
 python -m pip install torch_geometric
 ```
+
+Note above installation will uninstall torch and torch-deps installed as part of OVMM. This is okay and intended behavior for running SLAP.
 
 ## Configuration Parameters
 
