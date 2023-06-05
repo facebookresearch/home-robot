@@ -32,7 +32,8 @@ class SimpleGraspMotionPlanner(object):
         grasp_pos, grasp_quat = grasp_pose
 
         # Save initial waypoint to return to
-        initial_pt = ("initial", initial_cfg, False)
+        # TODO: remove this if we decide we do not need it
+        # initial_pt = ("initial", initial_cfg, False)
 
         # Create a pregrasp point at the top of the robot's arc
         pregrasp_cfg = initial_cfg.copy()
@@ -52,7 +53,9 @@ class SimpleGraspMotionPlanner(object):
             return None
 
         # Standoff is 8cm over the grasp for now
-        standoff_pos = grasp_pos + np.array([0.0, 0.0, 0.08])
+        # Overwrite standoff pos.z with a really high value so it comes in from above
+        standoff_pos = grasp_pos + np.array([0.0, 0.0, 0.4])
+        standoff_pos[2] = np.min([1.1, standoff_pos[2]])
         standoff_cfg, success, _ = self.robot.manip_ik(
             (standoff_pos, grasp_quat), q0=None
         )
@@ -65,10 +68,24 @@ class SimpleGraspMotionPlanner(object):
         else:
             print("-> could not solve for standoff")
             return None
+
+        # Go back to the top
+        back_top_cfg = pregrasp_cfg.copy()
+        back_top_cfg[0] = standoff_cfg[0]
+        back_top = ("back_top", back_top_cfg, False)
+
         back_cfg = standoff_cfg.copy()
         back_cfg[HelloStretchIdx.ARM] = 0.01
         back_cfg = self.robot.config_to_manip_command(back_cfg)
         back = ("back", back_cfg, False)
 
         # Return the full motion plan
-        return [pregrasp, back, standoff, grasp_pt, standoff, back, initial_pt]
+        return [
+            pregrasp,
+            back,
+            standoff,
+            grasp_pt,
+            standoff,
+            back_top,
+            back,
+        ]
