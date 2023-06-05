@@ -28,7 +28,7 @@ from habitat_baselines.common.obs_transformers import (
 )
 from habitat_baselines.config.default import get_config as get_habitat_config
 from habitat_baselines.utils.common import batch_obs
-
+import home_robot.utils.pose as pu
 from home_robot.agent.ovmm_agent.complete_obs_space import get_complete_obs_space
 from home_robot.core.interfaces import (
     ContinuousFullBodyAction,
@@ -313,7 +313,7 @@ class PPOAgent(Agent):
                 "is_holding": obs.is_holding,
                 "robot_start_gps": np.array((obs.gps[0], -1 * obs.gps[1]))
                 - self.skill_start_gps,
-                "robot_start_compass": obs.compass - self.skill_start_compass,
+                "robot_start_compass": pu.normalize_angle(obs.compass - self.skill_start_compass),
                 "start_receptacle": np.array(obs.task_observations["start_receptacle"]),
                 "goal_receptacle": np.array(obs.task_observations["goal_receptacle"]),
             }
