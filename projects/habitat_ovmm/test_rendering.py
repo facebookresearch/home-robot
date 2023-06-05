@@ -82,5 +82,3 @@ with habitat.Env(config=config) as env:
 
             observations = env.step(ac)
             save_image(observations["robot_third_rgb"][:, :, [2, 1, 0]], step)
-
-        env.reset()
