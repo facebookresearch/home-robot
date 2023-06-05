@@ -1,4 +1,4 @@
-name: test
+task_name: test
 action_idx: -1
 datadir: False
 split: False

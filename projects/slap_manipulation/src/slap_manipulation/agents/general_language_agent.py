@@ -358,12 +358,27 @@ class GeneralLanguageAgent(PickAndPlaceAgent):
             return action, action_info
 
     def open_object(self, object_list: List[str], obs: Observations):
-        language = self._language["open_object"][object_list[0]]
+        language = "open-object-drawer"
+        num_actions = self._task_information[language]
+        return self.call_slap(language, num_actions, obs, object_list)
+
+    def close_object(self, object_list: List[str], obs: Observations):
+        language = "close-object-drawer"
         num_actions = self._task_information[language]
         return self.call_slap(language, num_actions, obs, object_list)
 
     def handover(self, object_list: List[str], obs: Observations):
-        language = self._language["handover"][object_list[0]]
+        language = "handover-to-person"
+        num_actions = self._task_information[language]
+        return self.call_slap(language, num_actions, obs, object_list)
+
+    def take_bottle(self, object_list: List[str], obs: Observations):
+        language = "take-bottle"
+        num_actions = self._task_information[language]
+        return self.call_slap(language, num_actions, obs, object_list)
+
+    def pour_into_bowl(self, object_list: List[str], obs: Observations):
+        language = "pour-into-bowl"
         num_actions = self._task_information[language]
         return self.call_slap(language, num_actions, obs, object_list)
 

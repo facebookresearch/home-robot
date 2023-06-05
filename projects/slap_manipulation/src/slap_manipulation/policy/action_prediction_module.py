@@ -296,7 +296,7 @@ class ActionPredictionModule(torch.nn.Module):
         # self.classify_loss = torch.nn.BCEWithLogitsLoss()
         # self.classify_loss = torch.nn.BinaryCrossEntropyLoss()
         self.classify_loss = torch.nn.BCEWithLogitsLoss()
-        self.name = f"action_predictor_{cfg.name}"
+        self.name = f"action_predictor_{cfg.task_name}"
         self.max_iter = cfg.max_iter
 
         # for visualizations
@@ -737,7 +737,7 @@ class ActionPredictionModule(torch.nn.Module):
             pos_loss /= 3
             ori_loss /= 3
             gripper_loss /= 3
-            task_name = batch["cmd"]
+            task_name = batch["cmd"][0]
             if "handover" in task_name:
                 loss = (
                     self.handover_pos_wt * pos_loss
@@ -1112,7 +1112,7 @@ class ActionPredictionModule(torch.nn.Module):
 )
 def main(cfg):
     # Speed up training by configuring the number of workers
-    num_workers = 8 if not cfg.debug else 0
+    num_workers = 16 if not cfg.debug else 0
     B = 1
 
     # create model, load weights for classifier
@@ -1237,7 +1237,7 @@ def main(cfg):
     else:
         if cfg.wandb:
             date_time = datetime.datetime.now().strftime("%d/%m/%Y-%H:%M")
-            wandb.init(project="action_predictor", name=f"{cfg.name}_{date_time}")
+            wandb.init(project="action_predictor", name=f"{cfg.task_name}_{date_time}")
             wandb.config.query_radius = model._query_radius
             # wandb.config.voxelization_scheme = [
             #     test_dataset._voxel_size,
