@@ -5,7 +5,7 @@ action_idx: -1
 load: False
 max_actions: 6
 split: assets/corl_experiments/combined_split.yaml
-datadir: /private/home/priparashar/corl_experiment/
+datadir: ../../datasets/corl_experiment/
 template: "*/*.h5"
 
 num_pts: 8000
@@ -20,7 +20,7 @@ query_radius: 0.16
 k: 3  # will change per task, read from task_information.yaml
 lang_max_seq_len: 77
 clip_model: "ViT-B/32"
-max_iter: 25
+max_iter: 20
 dry_run: False
 validate: False
 # template: "*.h5"
