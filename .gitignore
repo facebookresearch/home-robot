@@ -48,3 +48,5 @@ data/*
 
 # Training stuff
 projects/**/wandb
+core
+projects/**/multirun/**/**
