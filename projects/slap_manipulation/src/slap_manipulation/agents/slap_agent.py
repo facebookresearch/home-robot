@@ -36,7 +36,7 @@ class SLAPAgent(object):
         self._min_depth = self.cfg.SLAP.min_depth
         self._max_depth = self.cfg.SLAP.max_depth
         self._feat_dim = 1
-        self._x_max = self.cfg.SLAP.x_max
+        # self._x_max = self.cfg.SLAP.y_max
         self._z_min = self.cfg.SLAP.z_min
         self._voxel_size_1 = self.cfg.SLAP.voxel_size_1
         self._voxel_size_2 = self.cfg.SLAP.voxel_size_2
@@ -105,8 +105,8 @@ class SLAPAgent(object):
         rgb = obs.rgb.astype(np.float64) / 255.0
         xyz = obs.xyz.astype(np.float64)
         gripper = obs.joint[GRIPPER_IDX]
-        camera_pose = obs.task_observations["base_camera_pose"]
-        xyz = trimesh.transform_points(xyz.reshape(-1, 3), camera_pose)
+        # camera_pose = obs.task_observations["base_camera_pose"]
+        # xyz = trimesh.transform_points(xyz.reshape(-1, 3), camera_pose)
         feat = obs.semantic
         import matplotlib.pyplot as plt
 
@@ -131,10 +131,10 @@ class SLAPAgent(object):
             rgb = rgb[valid_depth, :]
             xyz = xyz[valid_depth, :]
             feat = feat[valid_depth, :]
-            x_mask = xyz[:, 0] < self._x_max
-            rgb = rgb[x_mask]
-            xyz = xyz[x_mask]
-            feat = feat[x_mask]
+            # y_mask = xyz[:, 1] < self._y_max
+            # rgb = rgb[y_mask]
+            # xyz = xyz[y_mask]
+            # feat = feat[y_mask]
             z_mask = xyz[:, 2] > self._z_min
             rgb = rgb[z_mask]
             xyz = xyz[z_mask]

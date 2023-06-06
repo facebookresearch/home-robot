@@ -565,7 +565,7 @@ class RobotDataset(RLBenchDataset):
             interaction_pt_idx = other_keypoint
             if i == 0:
                 continue
-            if gripper_state[other_keypoint] != gripper_state[i - 1]:
+            if gripper_state[other_keypoint] != gripper_state[other_keypoint - 1]:
                 break
 
         if verbose:
@@ -600,6 +600,7 @@ class RobotDataset(RLBenchDataset):
         input_idx = input_keyframes[-1]  # query from the last frame
         if verbose:
             print(f"Index from where to query input state: {input_idx}")
+            print(f"Demo status as recorded: {trial.group['demo_status'][()]}")
 
         # get EE keyframe
         current_ee_keyframe = self.get_gripper_pose(trial, int(current_keypoint_idx))
@@ -647,9 +648,16 @@ class RobotDataset(RLBenchDataset):
         feat = np.concatenate(feats, axis=0)
         depth = np.concatenate(depths, axis=0)
 
+        if verbose:
+            print("Showing actual action keyframe and interaction keyframe")
+            show_point_cloud(
+                xyz, rgb, grasps=[current_ee_keyframe, interaction_ee_keyframe]
+            )
         # find interaction point based on OG xyz
         labeled = False
         if "interaction_point_index" in trial.group.keys():
+            if verbose:
+                print("Found manually labeled p_i")
             index = trial.group["interaction_point_index"][()]
             interaction_point = xyz[index]
             labeled = True
@@ -658,10 +666,10 @@ class RobotDataset(RLBenchDataset):
         rgb = rgb[mask]
         xyz = xyz[mask]
         feat = feat[mask]
-        x_mask = xyz[:, 0] < 0.9
-        rgb = rgb[x_mask]
-        xyz = xyz[x_mask]
-        feat = feat[x_mask]
+        # y_mask = xyz[:, 0] < -0.9
+        # rgb = rgb[y_mask]
+        # xyz = xyz[y_mask]
+        # feat = feat[y_mask]
         z_mask = xyz[:, 2] > 0.15
         rgb = rgb[z_mask]
         xyz = xyz[z_mask]
