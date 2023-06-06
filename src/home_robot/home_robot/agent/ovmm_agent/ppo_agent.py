@@ -296,6 +296,7 @@ class PPOAgent(Agent):
         normalized_depth[normalized_depth == MAX_DEPTH_REPLACEMENT_VALUE] = max_depth
         normalized_depth = np.clip(normalized_depth, min_depth, max_depth)
         normalized_depth = (normalized_depth - min_depth) / (max_depth - min_depth)
+        rel_pos = pu.get_rel_pose_change([obs.gps[0], obs.gps[1], obs.compass], [self.skill_start_gps[0], self.skill_start_gps[1], self.skill_start_compass])
         hab_obs = OrderedDict(
             {
                 "robot_head_depth": np.expand_dims(normalized_depth, -1).astype(
@@ -311,9 +312,8 @@ class PPOAgent(Agent):
                 "joint": obs.joint,
                 "relative_resting_position": obs.relative_resting_position,
                 "is_holding": obs.task_observations["prev_grasp_success"],
-                "robot_start_gps": np.array((obs.gps[1], obs.gps[0]))
-                - self.skill_start_gps,
-                "robot_start_compass": pu.normalize_angle(obs.compass - self.skill_start_compass),
+                "robot_start_gps": np.array((rel_pos[1].item(), rel_pos[0].item())),
+                "robot_start_compass": pu.normalize_angle(rel_pos[2]),
                 "start_receptacle": np.array(obs.task_observations["start_receptacle"]),
                 "goal_receptacle": np.array(obs.task_observations["goal_receptacle"]),
             }
