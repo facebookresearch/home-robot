@@ -204,12 +204,16 @@ class GeneralLanguageAgent(PickAndPlaceAgent):
                     "self.pick_up(['lemon'], obs)",
                 ],
                 12: [
-                    "self.goto(['cabinet', 'bottle'], obs)",
+                    "self.goto(['bottle'], obs)",
                     "self.take_bottle(['bottle'], obs)",
                 ],
                 13: [
                     "self.goto(['table', 'bowl'], obs)",
                     "self.pour_into_bowl(['bowl'], obs)",
+                ],
+                14: [
+                    "self.goto(['drawer', 'drawer handles'], obs)",
+                    "self.close_object_drawer(['drawer'], obs)",
                 ],
             }
 

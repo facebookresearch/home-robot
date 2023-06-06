@@ -144,7 +144,7 @@ class CombinedSLAPPlanner(object):
         # assert grasp.shape == (4, 4)
         action_as_mat = []
         for act in combined_action:
-            action_as_mat.append(to_matrix(act[:3], act[3:7]))
+            action_as_mat.append(to_matrix(act[:3], act[3:7], trimesh_format=True))
         action_as_mat = np.array(action_as_mat)
         action_as_mat = np.matmul(action_as_mat, self._robot_ee_to_grasp_offset)
         # self._send_action_to_tf(action_as_mat)

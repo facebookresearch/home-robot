@@ -199,7 +199,7 @@ class GeneralLanguageEnv(StretchPickandPlaceEnv):
                 # TODO: visualize actions so we can introspect
                 pose_matrix_array = []
                 for i in range(len(pos)):
-                    pose_matrix = to_matrix(pos[i], ori[i])
+                    pose_matrix = to_matrix(pos[i], ori[i], trimesh_format=True)
                     pose_matrix_array.append(pose_matrix)
                 self.action_visualizer(pose_matrix_array, frame_id="base_link")
                 combined_action = np.concatenate((pos, ori, gripper), axis=-1)
