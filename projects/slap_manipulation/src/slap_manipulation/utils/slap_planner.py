@@ -33,7 +33,7 @@ class CombinedSLAPPlanner(object):
         # or something rather than hardcoding here
         # Offset from STRETCH_GRASP_FRAME to predicted grasp point
         self._robot_ee_to_grasp_offset = STRETCH_GRASP_OFFSET.copy()
-        self._robot_ee_to_grasp_offset[2, 3] += 0.10
+        self._robot_ee_to_grasp_offset[2, 3] += 0.15
         self._robot_max_grasp = 0  # 0.13, empirically found
 
     def linear_interpolation(self, waypoints, num_points_per_segment=3):
