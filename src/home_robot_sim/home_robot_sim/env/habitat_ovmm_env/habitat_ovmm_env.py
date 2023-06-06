@@ -118,6 +118,10 @@ class HabitatOpenVocabManipEnv(HabitatEnv):
         hab_pose[:, [0, 1, 2]] = hab_pose[:, [2, 0, 1]]
         return hab_pose
 
+    def _preprocess_xy(self, xy: np.array) -> np.array:
+        """Translate Habitat navigation (x, y) (i.e., GPS sensor) into robot (x, y)."""
+        return np.array([xy[1], xy[0]])
+
     def _preprocess_obs(
         self, habitat_obs: habitat.core.simulator.Observations
     ) -> home_robot.core.interfaces.Observations:
@@ -131,7 +135,7 @@ class HabitatOpenVocabManipEnv(HabitatEnv):
         obs = home_robot.core.interfaces.Observations(
             rgb=habitat_obs["robot_head_rgb"],
             depth=depth,
-            compass=habitat_obs["robot_start_compass"] - (np.pi / 2),
+            compass=habitat_obs["robot_start_compass"],
             gps=self._preprocess_xy(habitat_obs["robot_start_gps"]),
             task_observations={
                 "object_embedding": habitat_obs["object_embedding"],
