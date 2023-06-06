@@ -38,6 +38,7 @@ def main(data_dir, template, mode):
             #     image.img_from_bytes(h5file[g_name]["head_depth/0"][()])
             #     / depth_factor
             # )
+            print(file, g_name)
             print("Showing initial point-cloud...")
             show_point_cloud(xyz, rgb / 255.0)
             print(f"Number of keyframes: {h5file[g_name]['head_xyz'][()].shape[0]}")

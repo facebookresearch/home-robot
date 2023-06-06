@@ -92,7 +92,7 @@ SLAP:
   min_depth: 0.3
   max_depth: 1.5
   x_max: 0.9  # do not care about objects beyond a meter-ish 
-  z_min: 0.015  # 15cm
+  z_min: 0.15  # 15cm
   voxel_size_1: 0.001
   voxel_size_2: 0.01
   IPM:
@@ -112,7 +112,7 @@ SLAP:
     color_jitter: False
     loss_fn: "xent"
     max_iter: 30
-    path: data/checkpoints/corl_weights_june_6th/ipm_second_best.pth
+    path: data/checkpoints/corl_weights_june_6th/ipm_penultimate.pth
   APM:
     task_name: test
     action_idx: -1
