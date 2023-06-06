@@ -420,9 +420,6 @@ class HeuristicPlacePolicy(nn.Module):
         elif self.timestep <= self.t_done_waiting:
             print("[Placement] Empty action")  # allow the object to come to rest
             action = DiscreteNavigationAction.EMPTY_ACTION
-        elif self.timestep == self.t_done_waiting + 1:
-            print("[Placement] Go back to nav")
-            action = DiscreteNavigationAction.NAVIGATION_MODE
         else:
             print("[Placement] Stopping")
             action = DiscreteNavigationAction.STOP
