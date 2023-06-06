@@ -81,6 +81,7 @@ class ObjectNavAgent(Agent):
             map_update_frequency=config.AGENT.PLANNER.map_update_frequency,
             discrete_actions=config.AGENT.PLANNER.discrete_actions,
             min_goal_distance_cm=config.AGENT.PLANNER.min_goal_distance_cm,
+            continuous_angle_tolerance=config.AGENT.PLANNER.continuous_angle_tolerance,
         )
         self.one_hot_encoding = torch.eye(
             config.AGENT.SEMANTIC_MAP.num_sem_categories, device=self.device

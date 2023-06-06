@@ -481,6 +481,7 @@ class ActionPredictionModule(torch.nn.Module):
                         "MDN based inference is not implemented for sensor data yet"
                     )
                 else:
+                    print(f"{t=},{cmd=},{proprio=}")
                     position, orientation, gripper, hidden = self.forward(
                         cropped_xyz, cropped_feat, proprio, time_step, cmd, hidden
                     )
@@ -499,7 +500,9 @@ class ActionPredictionModule(torch.nn.Module):
         for pose in output:
             viz_output.append(
                 to_matrix(
-                    pose[:3].detach().cpu().numpy(), pose[3:7].detach().cpu().numpy()
+                    pose[:3].detach().cpu().numpy(),
+                    pose[3:7].detach().cpu().numpy(),
+                    trimesh_format=True,
                 )
             )
         if debug:
@@ -670,6 +673,7 @@ class ActionPredictionModule(torch.nn.Module):
                         target_pos = target_pos.view(num_samples, 3)
                         pos_loss += mdn_loss(pos_sigma, pos_mu, target_pos)
                     else:
+                        print(f"{t=},{cmd=},{proprio=}")
                         position, orientation, gripper, hidden = self.forward(
                             crop_xyz, crop_rgb, proprio, time_step, cmd, hidden
                         )
