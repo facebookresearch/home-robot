@@ -1,5 +1,5 @@
 validate: False
-datadir: /private/home/priparashar/corl_experiment/
+datadir: ../../datasets/corl_experiment/
 template: "*/*.h5"
 load: False
 resume: False
