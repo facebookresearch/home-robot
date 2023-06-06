@@ -9,7 +9,7 @@ import open3d as o3d
 from matplotlib import pyplot as plt
 
 import home_robot.utils.data_tools.image as image
-from home_robot.utils.point_cloud import numpy_to_pcd
+from home_robot.utils.point_cloud import numpy_to_pcd, show_pcd
 
 
 def pick_points(pcd):
@@ -52,12 +52,15 @@ def main(data_dir, template, mode):
             #     image.img_from_bytes(h5file[g_name]["head_depth/0"][()])
             #     / depth_factor
             # )
-            # pcd = numpy_to_pcd(xyz, rgb / 255.0)
-            # points = pick_points(pcd)
-            # print(f"Picked point is: {points}")
-            if mode == "write":
-                h5file[g_name]["interaction_point_index"] = points
-            input("Press enter to continue...")
+            print(f"Showing {g_name=} from {file=}...")
+            res = input("Do you wish to label this trial? (y/n): ")
+            if res == "y" or res == "Y":
+                pcd = numpy_to_pcd(xyz, rgb / 255.0)
+                points = pick_points(pcd)
+                print(f"Picked point is: {points}")
+                if mode == "write":
+                    h5file[g_name]["interaction_point_index"] = points
+                input("Press enter to continue...")
 
 
 if __name__ == "__main__":
