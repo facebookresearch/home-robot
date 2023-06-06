@@ -22,7 +22,7 @@ from home_robot.core.interfaces import Observations
 
 # TODO Replace with Stretch embodiment
 from home_robot.motion.franka import FrankaPanda
-from home_robot.motion.stretch import STRETCH_TO_GRASP
+from home_robot.motion.stretch import STRETCH_TO_GRASP, to_matrix
 from home_robot.perception.detection.detic.detic_perception import DeticPerception
 from home_robot.utils.data_tools.camera import Camera
 from home_robot.utils.data_tools.loader import Trial
@@ -34,6 +34,7 @@ from home_robot.utils.point_cloud import (
     numpy_to_pcd,
     show_point_cloud,
 )
+from home_robot.utils.pose import to_matrix
 
 REAL_WORLD_CATEGORIES = [
     "cup",
@@ -793,6 +794,18 @@ class RobotDataset(RLBenchDataset):
                         R=tra.quaternion_matrix(past_quat)[:3, :3],
                     )
                 all_proprio[idx] = np.concatenate((past_pos, past_quat, past_g))
+            global_proprio = np.copy(all_proprio[1:, :])
+            last_keypoint = np.concatenate(
+                (all_positions[-1], all_angles[-1], gripper_state[-1])
+            )
+            global_proprio = np.concatenate(
+                (global_proprio, last_keypoint.reshape(1, -1)), axis=0
+            )
+            global_proprio[:, :3] = global_proprio[:, :3] + crop_location
+            # viz_output = []
+            # for entry in global_proprio:
+            #     viz_output.append(to_matrix(entry[:3], entry[3:7], trimesh_format=True))
+            # show_point_cloud(xyz2, rgb2, grasps=viz_output)
 
         if not self.autoregressive:
             proprio = np.concatenate(
@@ -864,9 +877,11 @@ class RobotDataset(RLBenchDataset):
             "ee_keyframe_ori": torch.FloatTensor(current_ee_keyframe[:3, :3]),
             "proprio": torch.FloatTensor(proprio),
             "all_proprio": torch.FloatTensor(all_proprio),
+            "global_proprio": torch.FloatTensor(global_proprio),
             "time_step": torch.FloatTensor(time_step),
             "all_time_step": torch.FloatTensor(all_time_step),
             "target_gripper_state": torch.FloatTensor(target_gripper_state),
+            "gripper_width_array": torch.FloatTensor(gripper_width_array[1:]),
             "xyz": torch.FloatTensor(xyz),
             "rgb": torch.FloatTensor(rgb),
             "feat": torch.FloatTensor(feat),
