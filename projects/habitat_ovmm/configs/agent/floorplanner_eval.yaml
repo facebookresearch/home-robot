@@ -78,7 +78,7 @@ AGENT:
       type: oracle
 
     NAV_TO_OBJ:
-      type: heuristic # heuristic (default) or rl
+      type: rl # heuristic (default) or rl
       checkpoint_path: data/checkpoints/ovmm/May31/nav_to_obj_100m_may31_gps_fix.pth
       rl_config: projects/habitat_ovmm/configs/agent/nav_to_obj_rl.yaml
       gym_obs_keys:
@@ -91,12 +91,12 @@ AGENT:
         - robot_start_compass
         - joint
       allowed_actions:
-        - base_velocity
-        - rearrange_stop
-        # - move_forward
-        # - turn_left
-        # - turn_right
-        # - stop
+        # - base_velocity
+        # - rearrange_stop
+        - stop
+        - move_forward
+        - turn_left
+        - turn_right
       arm_joint_mask: [0, 0, 0, 0, 0, 0, 0] # the arm joints that the policy can control
       max_displacement: 0.25                # used when training the policy; could be different from the eval values
       max_turn_degrees: 30.0
@@ -104,11 +104,11 @@ AGENT:
       min_displacement: 0.1
       sensor_height: 160
       sensor_width: 120
-      terminate_condition: continuous_stop
+      terminate_condition: discrete_stop
       nav_goal_seg_channels: 2
 
     NAV_TO_REC:
-      type: heuristic # heuristic (default) or rl
+      type: rl # heuristic (default) or rl
       checkpoint_path: data/checkpoints/ovmm/May31/nav_to_rec_100m_may31_gps_fix.pth
       rl_config: projects/habitat_ovmm/configs/agent/nav_to_obj_rl.yaml
       gym_obs_keys:
@@ -120,12 +120,12 @@ AGENT:
         - robot_start_compass
         - joint
       allowed_actions:
-        - base_velocity
-        - rearrange_stop
-        # - move_forward
-        # - turn_left
-        # - turn_right
-        # - stop
+        # - base_velocity
+        # - rearrange_stop
+        - stop
+        - move_forward
+        - turn_left
+        - turn_right
       arm_joint_mask: [0, 0, 0, 0, 0, 0, 0] # the arm joints that the policy can control
       max_displacement: 0.25                # used when training the policy; could be different from the eval values
       max_turn_degrees: 30.0
@@ -133,7 +133,7 @@ AGENT:
       min_displacement: 0.1
       sensor_height: 160
       sensor_width: 120
-      terminate_condition: continuous_stop
+      terminate_condition: discrete_stop
       nav_goal_seg_channels: 1
 
 
