@@ -296,7 +296,14 @@ class PPOAgent(Agent):
         normalized_depth[normalized_depth == MAX_DEPTH_REPLACEMENT_VALUE] = max_depth
         normalized_depth = np.clip(normalized_depth, min_depth, max_depth)
         normalized_depth = (normalized_depth - min_depth) / (max_depth - min_depth)
-        rel_pos = pu.get_rel_pose_change([obs.gps[0], obs.gps[1], obs.compass], [self.skill_start_gps[0], self.skill_start_gps[1], self.skill_start_compass])
+        rel_pos = pu.get_rel_pose_change(
+            [obs.gps[0], obs.gps[1], obs.compass],
+            [
+                self.skill_start_gps[0],
+                self.skill_start_gps[1],
+                self.skill_start_compass,
+            ],
+        )
         hab_obs = OrderedDict(
             {
                 "robot_head_depth": np.expand_dims(normalized_depth, -1).astype(
@@ -338,15 +345,17 @@ class PPOAgent(Agent):
     ]:
         sample_random_seed()
         if self.skill_start_gps is None:
-            self.skill_start_gps = np.array(
-                (observations.gps[1], observations.gps[0])
-            )
+            self.skill_start_gps = observations.gps
         if self.skill_start_compass is None:
             self.skill_start_compass = observations.compass
         obs = self.convert_to_habitat_obs_space(observations)
-        frame = observations_to_image({k: obs[k] for k in self.skill_obs_keys}, info={})
+        viz_obs = {k: obs[k] for k in self.skill_obs_keys}
         batch = batch_obs([obs], device=self.device)
         batch = apply_obs_transforms_batch(batch, self.obs_transforms)
+        for k in self.skill_obs_keys:
+            viz_obs[k + "_resized"] = batch[k][0].cpu().numpy()
+        frame = observations_to_image(viz_obs, info={})
+
         batch = OrderedDict([(k, batch[k]) for k in self.skill_obs_keys])
         info["rl_obs_frame"] = frame
         with torch.no_grad():
