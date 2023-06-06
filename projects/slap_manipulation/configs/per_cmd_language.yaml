@@ -9,9 +9,9 @@
   - "pull-out-handle"
 
 "close-object-drawer":
-  - "align-with-handle"
-  - "grasp-handle"
-  - "push-in-handle"
+  - "align-with-surface"
+  - "close-gripper"
+  - "push-in"
 
 "pour-into-bowl":
   - "align-with-bowl"

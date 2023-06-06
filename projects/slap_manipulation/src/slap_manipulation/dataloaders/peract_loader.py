@@ -1,23 +1,21 @@
 import json
 import unittest
+from typing import Optional
 
 import click
 import clip
 import matplotlib.pyplot as plt
 import numpy as np
-import peract_colab.arm.utils as utils
+import slap_manipulation.policy.peract_utils as utils
+
+# import peract_colab.arm.utils as utils
 import torch
-from arm.c2farm.voxel_grid import VoxelGrid
-from peract_colab.arm.utils import (
-    discrete_euler_to_quaternion,
-    get_gripper_render_pose,
-    visualise_voxel,
-)
-
-from home_robot.datasets.robopen_loader import RoboPenDataset
+import yaml
+from slap_manipulation.dataloaders.robot_loader import RobotDataset
+from slap_manipulation.policy.voxel_grid import VoxelGrid
 
 
-class PerActRobotDataset(RoboPenDataset):
+class PerActRobotDataset(RobotDataset):
     """
     dataloader wrapping default dataloader for SLAP
     """
@@ -31,7 +29,7 @@ class PerActRobotDataset(RoboPenDataset):
         data_augmentation=True,
         random_cmd=True,
         first_keypoint_only=False,
-        keypoint_range: Optional[List] = None,
+        keypoint_range: Optional[list] = None,
         show_voxelized_input_and_reference=False,
         show_raw_input_and_reference=False,
         show_cropped=False,
@@ -68,6 +66,31 @@ class PerActRobotDataset(RoboPenDataset):
             random_cmd=random_cmd,
             first_keypoint_only=first_keypoint_only,
             keypoint_range=keypoint_range,
+            show_voxelized_input_and_reference=show_voxelized_input_and_reference,
+            show_raw_input_and_reference=show_raw_input_and_reference,
+            show_cropped=show_cropped,
+            ori_dr_range=ori_dr_range,
+            cart_dr_range=cart_dr_range,
+            first_frame_as_input=first_frame_as_input,
+            trial_list=trial_list,
+            orientation_type=orientation_type,
+            multi_step=multi_step,
+            crop_radius=crop_radius,
+            ambiguous_radius=ambiguous_radius,
+            crop_radius_chance=crop_radius_chance,
+            crop_radius_shift=crop_radius_shift,
+            crop_radius_range=crop_radius_range,
+            visualize_interaction_estimates=visualize_interaction_estimates,
+            visualize_cropped_keyframes=visualize_cropped_keyframes,
+            yaml_file=yaml_file,  # "./assets/language_variations/v0.yml",
+            robot=robot,
+            depth_factor=depth_factor,
+            autoregressive=autoregressive,
+            max_keypoints=max_keypoints,
+            time_as_one_hot=time_as_one_hot,
+            per_action_cmd=per_action_cmd,
+            skill_to_action_file=skill_to_action_file,
+            query_radius=query_radius,
         )
 
         # add a default device
@@ -116,13 +139,16 @@ class PerActRobotDataset(RoboPenDataset):
         # add new signals needed
         # NOTE loader returns trimesh quat, i.e. w,x,y,z
         # peract expects scipy quat x,y,z,w
-        new_data["ee_keyframe_ori_quat"] = torch.roll(data["target_ee_angles"], 1, -1)
-        new_data["ee_keyframe_pos"] = data["ee_keyframe_pos"]
-        new_data["proprio"] = data["proprio"]
+        all_keypoints = data["global_proprio"]
+        new_data["ee_keyframe_ori_quat"] = torch.roll(all_keypoints[:, 3:7], 1, -1)
+        new_data["ee_keyframe_pos"] = all_keypoints[:, :3]
+        new_data["proprio"] = data["all_proprio"]
 
         # add language signals
         new_data["cmd"] = data["cmd"]
         description = data["cmd"]
+        new_data["gripper_width_array"] = data["gripper_width_array"]
+        new_data["all_proprio"] = data["all_proprio"]
         # tokens = clip.tokenize([description]).numpy()
         # token_tensor = torch.from_numpy(tokens).to(self.device)
         # lang, lang_emb = self._clip_encode_text(token_tensor)
@@ -133,21 +159,37 @@ class PerActRobotDataset(RoboPenDataset):
         (
             trans_action_indices,
             grip_rot_action_indices,
-            ignore_coll,
-            gripper_state,
+            ignore_colls,
+            gripper_states,
             attention_coords,
-        ) = self._get_action(data, 5)
+        ) = ([], [], [], [], [])
+        for idx in range(len(data["global_proprio"])):
+            (
+                trans_action_index,
+                grip_rot_action_index,
+                ignore_coll,
+                gripper_state,
+                attention_coord,
+            ) = self._get_action(new_data, 5, idx, len(data["global_proprio"]))
+            trans_action_indices.append(trans_action_index)
+            grip_rot_action_indices.append(grip_rot_action_index)
+            ignore_colls.append(ignore_coll)
+            gripper_states.append(gripper_state)
+            attention_coords.append(attention_coord)
+        trans_action_indices = torch.cat(trans_action_indices)
+        grip_rot_action_indices = torch.cat(grip_rot_action_indices)
+        ignore_colls = torch.cat(ignore_colls)
+        gripper_states = torch.cat(gripper_states)
+        attention_coords = torch.cat(attention_coords)
 
-        # add discretized signal to dictionary
-        # concatenate gripper ori and pos
-        gripper_pose = torch.cat(
-            (data["ee_keyframe_pos"], data["target_ee_angles"]), dim=-1
-        ).unsqueeze(0)
+        # # add discretized signal to dictionary
+        # # concatenate gripper ori and pos
+        gripper_pose = torch.FloatTensor(data["global_proprio"][:, :-1])
         new_data.update(
             {
                 "trans_action_indices": trans_action_indices,
                 "rot_grip_action_indices": grip_rot_action_indices,
-                "ignore_collisions": ignore_coll,
+                "ignore_collisions": ignore_colls,
                 "gripper_pose": gripper_pose,
                 "attention_coords": attention_coords,
             }
@@ -158,7 +200,7 @@ class PerActRobotDataset(RoboPenDataset):
         rgb, pcd = self._preprocess_inputs(data)
         new_data["rgb"] = rgb
         new_data["xyz"] = pcd
-        new_data["action"] = gripper_state
+        new_data["action"] = gripper_states
 
         return new_data
 
@@ -194,37 +236,51 @@ class PerActRobotDataset(RoboPenDataset):
         self,
         sample: dict,
         rotation_resolution: int,
+        idx: int = -1,
+        max_keypoints=6,
     ):
-        quat = utils.normalize_quaternion(sample["target_ee_angles"])
+        if idx == -1:
+            quat = sample["ee_keyframe_ori_quat"]
+            attention_coordinate = sample["ee_keyframe_pos"]
+            grip = float(sample["proprio"][-1])
+            D = len(self.voxel_sizes)
+            gripper_width = sample["gripper_width_array"]
+        else:
+            quat = sample["ee_keyframe_ori_quat"][idx]
+            attention_coordinate = sample["ee_keyframe_pos"][idx]
+            grip = float(sample["all_proprio"][idx, -1])
+            # gripper_state = sample["target_gripper_state"][idx]
+            # grip = float(sample["proprio"][idx][-1])
+            gripper_width = sample["gripper_width_array"][idx]
+            time_index = float((2.0 * idx) / max_keypoints)
+        quat = utils.normalize_quaternion(quat)
         if quat[-1] < 0:
             quat = -quat
         disc_rot = utils.quaternion_to_discrete_euler(quat, rotation_resolution)
-        attention_coordinate = sample["ee_keyframe_pos"]
         trans_indices, attention_coordinates = [], []
         bounds = np.array(self.scene_bounds)
-        ignore_collisions = [int(0.0)]  # hard-code
         for depth, vox_size in enumerate(
             self.voxel_sizes
         ):  # only single voxelization-level is used in PerAct
             # all of the following args should be numpy
             index = utils.point_to_voxel_index(
-                sample["ee_keyframe_pos"].numpy(), vox_size, bounds
+                attention_coordinate.numpy(), vox_size, bounds
             )
             trans_indices.extend(index.tolist())
             res = (bounds[3:] - bounds[:3]) / vox_size
             attention_coordinate = bounds[:3] + res * index
             attention_coordinates.append(attention_coordinate)
-
         rot_and_grip_indices = disc_rot.tolist()
-        grip = float(sample["proprio"][1])
-        rot_and_grip_indices.extend([int(sample["target_gripper_state"])])
-        D = len(self.voxel_sizes)
+        rot_and_grip_indices.extend([grip])
+        ignore_collisions = [int(0.0)]  # hard-code
         return (
             torch.Tensor([trans_indices]),
             torch.Tensor([rot_and_grip_indices]),
             torch.Tensor([ignore_collisions]),
             torch.Tensor(
-                np.concatenate([sample["target_gripper_state"], np.array([grip])])
+                np.concatenate(
+                    [gripper_width, np.array([grip], np.array([time_index]))]
+                )
             ),
             torch.Tensor(attention_coordinate).unsqueeze(0),
         )
@@ -311,28 +367,29 @@ class PerActRobotDataset(RoboPenDataset):
         vis_voxel_grid = voxel_grid.permute(0, 4, 1, 2, 3).detach().cpu().numpy()
 
         # expert action voxel indicies
-        vis_gt_coord = (
-            batch["trans_action_indices"][:, -1, :3].int().detach().cpu().numpy()
-        )
-
-        # render voxel grid with expert action (blue)
-        # Show voxel grid and expert action (blue)
-        rotation_amount = 00
-        rendered_img = visualise_voxel(
-            vis_voxel_grid[0],
-            None,
-            None,
-            vis_gt_coord[0],
-            voxel_size=0.045,
-            rotation_amount=np.deg2rad(rotation_amount),
-        )
-
-        fig = plt.figure(figsize=(15, 15))
-        plt.imshow(rendered_img)
-        plt.axis("off")
-        plt.pause(2)
-
         print(f"Lang goal: {lang_goal}")
+        vis_gt_coord = None
+        for idx in range(batch["trans_action_indices"].shape[1]):
+            vis_gt_coord = (
+                batch["trans_action_indices"][:, idx, :3].int().detach().cpu().numpy()
+            )
+
+            # render voxel grid with expert action (blue)
+            # Show voxel grid and expert action (blue)
+            rotation_amount = 45
+            rendered_img = utils.visualise_voxel(
+                vis_voxel_grid[0],
+                None,
+                None,
+                vis_gt_coord[0],
+                voxel_size=0.045,
+                rotation_amount=np.deg2rad(rotation_amount),
+            )
+
+            fig = plt.figure(figsize=(15, 15))
+            plt.imshow(rendered_img)
+            plt.axis("off")
+            plt.pause(2)
 
 
 class TestPerActDataloader(unittest.TestCase):
@@ -376,14 +433,91 @@ class TestPerActDataloader(unittest.TestCase):
         self.assertTrue(ds.is_action_valid(fake_data))
 
 
-def main():
-    # TODO convert split file from json to YAML
-    data_dir = "/home/priparashar/robopen_h5s/larp/unit_test_pick_bottle"
-    split_file = "/home/priparashar/Development/icra/home_robot/assets/train_test_val_split_9tasks_2022-12-01.json"
-    with open(split_file, "r") as f:
-        train_test_split = json.load(f)
+@click.command()
+@click.option(
+    "-d",
+    "--data_dir",
+    default="/home/priparashar/Development/icra/home_robot/data/robopen/mst/",
+)
+@click.option("--split", help="json file with train-test-val split")
+@click.option(
+    "--waypoint-language", help="yaml for skill-to-action lang breakdown", default=""
+)
+@click.option("-ki", "--k-index", default=[0], multiple=True)
+@click.option("-r", "--robot", default="stretch")
+def debug_get_datum(data_dir, k_index, split, robot, waypoint_language):
+    if split:
+        with open(split, "r") as f:
+            train_test_split = yaml.safe_load(f)
+    loader = PerActRobotDataset(
+        data_dir,
+        template="*.h5",
+        num_pts=8000,
+        data_augmentation=False,
+        crop_radius=True,
+        ori_dr_range=np.pi / 8,
+        cart_dr_range=0.0,
+        first_frame_as_input=False,
+        # first_keypoint_only=True,
+        # keypoint_range=[0],
+        trial_list=train_test_split["train"] if split else [],
+        orientation_type="quaternion",
+        show_voxelized_input_and_reference=True,
+        show_cropped=True,
+        verbose=False,
+        multi_step=True,
+        visualize_interaction_estimates=True,
+        visualize_cropped_keyframes=True,
+        robot=robot,
+        autoregressive=True,
+        time_as_one_hot=True,
+        per_action_cmd=False,
+        skill_to_action_file=None if waypoint_language == "" else waypoint_language,
+    )
+    for trial in loader.trials:
+        print(f"Trial name: {trial.name}")
+        for k_i in k_index:
+            data = loader.get_datum(trial, k_i, verbose=True)
+
+
+@click.command()
+@click.option(
+    "-d",
+    "--data_dir",
+    default="/home/priparashar/robopen_h5s/larp/9tasks_woutclutter",
+)
+@click.option("--split", help="json file with train-test-val split")
+@click.option("--template", default="*.h5")
+@click.option("--robot", default="stretch")
+def show_all_keypoints(data_dir, split, template, robot):
+    """function which visualizes keypoints overlaid on initial frame, then
+    visualizes the input frame for each keypoint with labeled interaction
+    point overlaid"""
+    if split:
+        with open(split, "r") as f:
+            train_test_split = yaml.safe_load(f)
     ds = PerActRobotDataset(
-        data_dir, trial_list=train_test_split["train"], num_pts=8000
+        data_dir,
+        template=template,
+        num_pts=8000,
+        data_augmentation=False,
+        crop_radius=True,
+        ori_dr_range=np.pi / 8,
+        cart_dr_range=0.0,
+        first_frame_as_input=False,
+        # first_keypoint_only=True,
+        # keypoint_range=[0],
+        trial_list=train_test_split["train"] if split else [],
+        orientation_type="quaternion",
+        show_voxelized_input_and_reference=False,
+        show_cropped=False,
+        verbose=False,
+        multi_step=True,
+        visualize_interaction_estimates=False,
+        visualize_cropped_keyframes=False,
+        robot=robot,
+        autoregressive=True,
+        time_as_one_hot=True,
     )
     # Create data loaders
     num_workers = 0
@@ -397,7 +531,46 @@ def main():
     )
     for batch in data_loader:
         ds.visualize_data(batch)
+    # skip_names = ["30_11_2022_15_22_40"]
+    # for trial in loader.trials:
+    #     print(f"Trial: {trial.name}")
+    #     print(f"Task name: {trial.h5_filename}")
+    #     if trial.name in skip_names:
+    #         print("skipping as known bad trajectory")
+    #     else:
+    #         num_keypt = trial.num_keypoints
+    #         for i in range(num_keypt):
+    #             print("Keypoint requested: ", i)
+    #             data = loader.get_datum(trial, i, verbose=True)
+    #             breakpoint()
+    #         # data = loader.get_datum(trial, 1, verbose=False)
 
 
 if __name__ == "__main__":
-    main()
+    show_all_keypoints()
+    pass
+# def main():
+#     # TODO convert split file from json to YAML
+#     data_dir = "/home/priparashar/robopen_h5s/larp/unit_test_pick_bottle"
+#     split_file = "/home/priparashar/Development/icra/home_robot/assets/train_test_val_split_9tasks_2022-12-01.json"
+#     with open(split_file, "r") as f:
+#         train_test_split = json.load(f)
+#     ds = PerActRobotDataset(
+#         data_dir, trial_list=train_test_split["train"], num_pts=8000
+#     )
+#     # Create data loaders
+#     num_workers = 0
+#     B = 1
+#     data_loader = torch.utils.data.DataLoader(
+#         ds,
+#         batch_size=B,
+#         num_workers=num_workers,
+#         shuffle=True,
+#         drop_last=True,
+#     )
+#     for batch in data_loader:
+#         ds.visualize_data(batch)
+#
+#
+# if __name__ == "__main__":
+#     main()

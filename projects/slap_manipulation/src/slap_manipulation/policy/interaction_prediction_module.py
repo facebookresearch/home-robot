@@ -1,12 +1,12 @@
 import argparse
 import datetime
+import logging
 import os
 import random
+import uuid
 from pprint import pprint
 from time import time
 from typing import List, Tuple
-import logging
-import uuid
 
 import clip
 import hydra
@@ -438,7 +438,10 @@ class InteractionPredictionModule(torch.nn.Module):
     def smart_save(self, epoch, val_loss, best_val_loss):
         if val_loss < best_val_loss:
             time_elapsed = int((time() - self.start_time) / 60)
-            filename = self.name + "_%04d" % (epoch) + "_%06d" % (time_elapsed) + ".pth"
+            filename = os.path.join(
+                self.working_dir,
+                self.name + "_%04d" % (epoch) + "_%06d" % (time_elapsed) + ".pth",
+            )
             torch.save(self.state_dict(), filename)
             filename = self.get_best_name()
             torch.save(self.state_dict(), filename)
@@ -475,21 +478,25 @@ class InteractionPredictionModule(torch.nn.Module):
         """
         self.eval()
         xyz, rgb, feat, v_xyz, v_rgb, v_feat, proprio, lang = self.read_batch(batch)
+        print(f"[IPM] {lang=}")
         if debug:
             show_point_cloud(
                 v_xyz.detach().cpu().numpy(),
                 v_rgb.detach().cpu().numpy(),
+                np.zeros((3, 1)),
             )
-            v_semantic = torch.clone(v_rgb)
-            v_semantic[v_feat.detach().cpu().numpy().reshape(-1) == 1, 1] = 1.0
-            show_point_cloud(
-                v_xyz.detach().cpu().numpy(),
-                v_semantic.detach().cpu().numpy(),
-            )
-
         # combine rgb and feat
         rgb = torch.cat([rgb, feat], dim=-1)
         v_rgb = torch.cat([v_rgb, v_feat], dim=-1)
+        if debug:
+            print("[IPM] Semantic feats")
+            v_semantic = torch.clone(v_rgb[:, :3])
+            v_semantic[v_rgb[:, -1].detach().cpu().numpy().reshape(-1) == 1, 1] = 1.0
+            show_point_cloud(
+                v_xyz.detach().cpu().numpy(),
+                v_semantic.detach().cpu().numpy(),
+                np.zeros((3, 1)),
+            )
 
         classification_scores, xyz, output_feat = self.forward(
             rgb,
@@ -1013,7 +1020,7 @@ def parse_args():
 )
 def main(cfg):
     hydra_cfg = hydra.core.hydra_config.HydraConfig.get()
-    hydra_output_dir = hydra_cfg['runtime']['output_dir']
+    hydra_output_dir = hydra_cfg["runtime"]["output_dir"]
     # args = parse_args()
     if cfg.split:
         with open(cfg.split, "r") as f:

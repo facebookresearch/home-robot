@@ -12,7 +12,7 @@ split: assets/corl_experiments/combined_split.yaml
 data_augmentation: True
 color_jitter: False
 loss_fn: "xent"
-max_iter: 30
+max_iter: 20
 
 learning_rate: 1e-3
 locality_loss_wt: 1.0

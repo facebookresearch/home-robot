@@ -6,6 +6,7 @@ from typing import Any, Dict, List, Tuple
 
 import numpy as np
 import pandas as pd
+import trimesh.transformations as tra
 import yaml
 from slap_manipulation.agents.slap_agent import SLAPAgent
 
@@ -171,7 +172,7 @@ class GeneralLanguageAgent(PickAndPlaceAgent):
                     "self.open_object(['cabinet'], obs)",
                 ],
                 5: [
-                    "self.goto(['drawer', 'drawer handle'], obs)",
+                    "self.goto(['drawer handle'], obs)",
                     "self.open_object(['drawer handle',], obs)",
                 ],
                 6: [
@@ -408,7 +409,23 @@ class GeneralLanguageAgent(PickAndPlaceAgent):
                 return DiscreteNavigationAction.MANIPULATION_MODE, info
             print("[LangAgent]: Changing mode, setting goals")
             self.state = GeneralTaskState.PREPPING
+            # rotate the obs before sending it in
+            camera_pose = obs.task_observations["base_camera_pose"]
+            xyz = tra.transform_points(obs.xyz.reshape(-1, 3), camera_pose)
+
+            # PCD comes from nav mode, where robot base rot is diff
+            # from that we trained on, so add another rotation
+            rot_matrix = tra.euler_matrix(0, 0, -np.pi / 2)
+            obs.xyz = tra.transform_points(xyz, rot_matrix)
+
             result, info = self.slap_model.predict(obs)
+
+            # rotate back the predicted point
+            rot_matrix = tra.euler_matrix(0, 0, np.pi / 2)
+            info["interaction_point"] = tra.transform_points(
+                info["interaction_point"].reshape(-1, 3), rot_matrix
+            ).reshape(-1)
+
             # top_xyz = info["top_xyz"]
             # top_rgb = info["top_rgb"]
             # from numpy.linalg import eig
@@ -438,7 +455,7 @@ class GeneralLanguageAgent(PickAndPlaceAgent):
             # )
             # projected_point = info["interaction_point"] + distance * projection_vector
             # projected_point[2] = perpendicular_orientation + np.deg2rad(180)
-            if "drawer" in object_list or "drawer handle" in object_list:
+            if "open-object" in language:
                 info["global_offset_vector"] = np.array([0, 1, 0])
                 info["global_orientation"] = np.deg2rad(-90)
                 info["offset_distance"] = 0.75
@@ -449,7 +466,7 @@ class GeneralLanguageAgent(PickAndPlaceAgent):
             if "take-bottle" == language:
                 info["global_offset_vector"] = np.array([0, 1, 0])
                 info["global_orientation"] = np.deg2rad(-90)
-                info["offset_distance"] = 0.5
+                info["offset_distance"] = 0.65
             if "pour-into-bowl" == language:
                 info["global_offset_vector"] = np.array([0, -1, 0])
                 info["global_orientation"] = np.deg2rad(90)
@@ -461,6 +478,9 @@ class GeneralLanguageAgent(PickAndPlaceAgent):
             self.slap_model.reset()
             return action, info
         else:
+            # rotate the obs before sending it in
+            camera_pose = obs.task_observations["base_camera_pose"]
+            obs.xyz = tra.transform_points(obs.xyz.reshape(-1, 3), camera_pose)
             result, info = self.slap_model.predict(obs)
             if result is not None:
                 action = ContinuousEndEffectorAction(
