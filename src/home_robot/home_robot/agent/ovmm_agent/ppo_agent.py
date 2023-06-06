@@ -345,7 +345,7 @@ class PPOAgent(Agent):
     ]:
         sample_random_seed()
         if self.skill_start_gps is None:
-            self.skill_start_gps = np.array((observations.gps[1], observations.gps[0]))
+            self.skill_start_gps = observations.gps
         if self.skill_start_compass is None:
             self.skill_start_compass = observations.compass
         obs = self.convert_to_habitat_obs_space(observations)
