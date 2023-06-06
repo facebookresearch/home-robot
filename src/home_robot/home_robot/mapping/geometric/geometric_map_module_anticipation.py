@@ -6,7 +6,7 @@ import numpy as np
 import pytorch3d.transforms as pt
 import skimage.morphology
 import torch
-from einops import asnumpy, rearrange
+from einops import asnumpy, rearrange, repeat
 from torch import IntTensor, Tensor
 from torch.nn import functional as F
 
@@ -56,6 +56,7 @@ class GeometricMapModuleWithAnticipation(GeometricMapModule):
         self.disable_anticipation = disable_anticipation
         self.use_ego_map_seen = use_ego_map_seen
         self.model_device = device
+        self.depth_hfov = 58
 
     def load_model_weights(self, path: str):
         ckpt = torch.load(path, map_location="cpu")
@@ -422,8 +423,31 @@ class GeometricMapModuleWithAnticipation(GeometricMapModule):
         ## Clamp to [0, 1] after transform agent view to map coordinates
         ego_map_seen = (
             torch.clamp(ego_map_seen, min=0.0, max=1.0).float().to(self.model_device)
-        )
-
+        )  # (B, 2, H, W)
+        ## Remove cells outside the field-of-view
+        B, _, H, W = ego_map_seen.shape
+        # fov_map = np.zeros((H, W), dtype=np.uint8)
+        # contour = [(W // 2, 0)]
+        # fov_rad = np.deg2rad(self.depth_hfov)
+        # assert fov_rad <= np.pi / 2 # The calculations only work if this is true right now
+        # half_w = int(H * np.tan(fov_rad / 2))
+        # contour.append((W // 2 - half_w, H - 1))
+        # contour.append((W // 2 + half_w, H - 1))
+        # contour = np.array(contour)
+        # fov_map = cv2.drawContours(fov_map, [contour], 0, (1,), -1)  # (H, W)
+        # fov_map = torch.from_numpy(fov_map.astype(np.float32))
+        # fov_map = repeat(fov_map, "h w -> b c h w", b=B, c=2)
+        fov_map = torch.any(ego_map == 1, dim=1)  # (B, H, W)
+        fov_map = repeat(fov_map, "b h w -> b c h w", c=2).float()
+        kernel = torch.from_numpy(skimage.morphology.disk(5)).float().to(fov_map.device)
+        fov_map = kornia.morphology.dilation(fov_map, kernel)
+        fov_map[
+            :,
+            :,
+            int(0.20 * H) : int(0.50 * H),
+            (W // 2 - int(0.15 * W)) : (W // 2 + int(0.15 * W)),
+        ] = 1
+        ego_map_seen[fov_map == 0] = 0
         # Resize ego_map to expected dimensions
         ego_map = F.interpolate(ego_map, size=self.occant_cfg.input_hw)
         ego_map_seen = F.interpolate(ego_map_seen, size=self.occant_cfg.input_hw)
