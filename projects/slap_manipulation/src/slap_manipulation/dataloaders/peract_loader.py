@@ -170,7 +170,7 @@ class PerActRobotDataset(RobotDataset):
                 ignore_coll,
                 gripper_state,
                 attention_coord,
-            ) = self._get_action(new_data, 5, idx)
+            ) = self._get_action(new_data, 5, idx, len(data["global_proprio"]))
             trans_action_indices.append(trans_action_index)
             grip_rot_action_indices.append(grip_rot_action_index)
             ignore_colls.append(ignore_coll)
@@ -237,6 +237,7 @@ class PerActRobotDataset(RobotDataset):
         sample: dict,
         rotation_resolution: int,
         idx: int = -1,
+        max_keypoints=6,
     ):
         if idx == -1:
             quat = sample["ee_keyframe_ori_quat"]
@@ -251,6 +252,7 @@ class PerActRobotDataset(RobotDataset):
             # gripper_state = sample["target_gripper_state"][idx]
             # grip = float(sample["proprio"][idx][-1])
             gripper_width = sample["gripper_width_array"][idx]
+            time_index = float((2.0 * idx) / max_keypoints)
         quat = utils.normalize_quaternion(quat)
         if quat[-1] < 0:
             quat = -quat
@@ -275,7 +277,11 @@ class PerActRobotDataset(RobotDataset):
             torch.Tensor([trans_indices]),
             torch.Tensor([rot_and_grip_indices]),
             torch.Tensor([ignore_collisions]),
-            torch.Tensor(np.concatenate([gripper_width, np.array([grip])])),
+            torch.Tensor(
+                np.concatenate(
+                    [gripper_width, np.array([grip], np.array([time_index]))]
+                )
+            ),
             torch.Tensor(attention_coordinate).unsqueeze(0),
         )
 

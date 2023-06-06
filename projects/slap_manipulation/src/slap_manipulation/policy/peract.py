@@ -1,17 +1,11 @@
 import copy
-import os
 import glob
+import os
 
 # import pickle
 # import shutil
 # import sys
 import time
-
-# from functools import reduce as funtool_reduce
-# from functools import wraps
-# from math import log, pi
-# from operator import mul
-# from typing import List
 
 import click
 import clip
@@ -19,45 +13,43 @@ import clip
 # import matplotlib
 import matplotlib.pyplot as plt
 import numpy as np
-import peract_colab.arm.utils as utils
+import open3d as o3d
+import slap_manipulation.policy.peract_utils as utils
 import torch
 import torch.nn.functional as F
+import trimesh.transformations as tra
 import yaml
-from slap_manipulation.policy.voxel_grid import VoxelGrid
+from einops import rearrange, repeat  # , reduce
+from einops.layers.torch import Reduce
+from perceiver_pytorch.perceiver_io import PreNorm  # exists,
+from perceiver_pytorch.perceiver_io import FeedForward, cache_fn, default
+from slap_manipulation.dataloaders.peract_loader import PerActRobotDataset
+from slap_manipulation.optim.lamb import Lamb
+from slap_manipulation.policy.components import Attention
 
 # from arm.demo_loading_utils import keypoint_discovery
-from slap_manipulation.policy.peract_components import (
+from slap_manipulation.policy.peract_components import (  # Conv3DInceptionBlock,; Conv3DInceptionBlockUpsampleBlock,
     Conv3DBlock,
-    # Conv3DInceptionBlock,
-    # Conv3DInceptionBlockUpsampleBlock,
     Conv3DUpsampleBlock,
     DenseBlock,
     SpatialSoftmax3D,
 )
-from einops import rearrange, repeat  # , reduce
-from einops.layers.torch import Reduce
-from slap_manipulation.optim.lamb import Lamb
-from slap_manipulation.policy.peract_utils import (
+from slap_manipulation.policy.peract_utils import (  # get_gripper_render_pose,
     discrete_euler_to_quaternion,
-    get_gripper_render_pose,
     visualise_voxel,
 )
-
-from perceiver_pytorch.perceiver_io import (
-    FeedForward,
-    PreNorm,
-    cache_fn,
-    default,
-    # exists,
-)
+from slap_manipulation.policy.voxel_grid import VoxelGrid
 from torch import nn
 from tqdm import tqdm
 
-from slap_manipulation.datasets.peract_loader import PerActRobotDataset
-from slap_manipulation.policy.components import Attention
-import open3d as o3d
-from data_tools.point_cloud import get_pcd
-import trimesh.transformations as tra
+from home_robot.utils.point_cloud import numpy_to_pcd
+
+# from functools import reduce as funtool_reduce
+# from functools import wraps
+# from math import log, pi
+# from operator import mul
+# from typing import List
+
 
 # constants
 CAMERAS = ["front", "left_shoulder", "right_shoulder", "wrist"]
@@ -313,7 +305,6 @@ class PerceiverIO(nn.Module):
         bounds,
         mask=None,
     ):
-
         # preprocess
         # [B,10,100,100,100] -> [B,64,100,100,100]
         d0 = self.input_preprocess(ins)
@@ -515,7 +506,6 @@ class PerceiverActorAgent:
         optimizer_type: str = "lamb",
         num_pts=8000,
     ):
-
         self._coordinate_bounds = coordinate_bounds
         self._perceiver_encoder = perceiver_encoder
         self._camera_names = camera_names
@@ -754,7 +744,7 @@ class PerceiverActorAgent:
     ):
         if np.any(rgb) > 1:
             rgb = rgb / 255.0
-        pcd = get_pcd(xyz, rgb)
+        pcd = numpy_to_pcd(xyz, rgb)
         geoms = [pcd]
         coords = o3d.geometry.TriangleMesh.create_coordinate_frame(
             size=0.1, origin=pred_keypt_orig
@@ -837,7 +827,9 @@ class PerceiverActorAgent:
         print(action_dict)
         return action_dict, update_dict
 
-    def update(self, step: int, replay_sample: dict, backprop: bool = True, val = False) -> dict:
+    def update(
+        self, step: int, replay_sample: dict, backprop: bool = True, val=False
+    ) -> dict:
         """
         This is what we run to train the model
         Also for inference
@@ -853,13 +845,11 @@ class PerceiverActorAgent:
         action_trans = None
         if val or backprop:
             # This gives us our action translation indices - location in the voxel cube
-            action_trans = replay_sample["trans_action_indices"][:, -1, :3].int()
+            action_trans = replay_sample["trans_action_indices"][:, :, :3].int()
             # Rotation index
-            action_rot_grip = replay_sample["rot_grip_action_indices"][:, -1].int()
+            action_rot_grip = replay_sample["rot_grip_action_indices"][:, :, -1].int()
             # Do we take some action to ignore collisions or not
             action_ignore_collisions = replay_sample["ignore_collisions"][:, -1].int()
-            # Gripper occupancy
-            # action_gripper_pose = replay_sample["gripper_pose"][:, -1]
 
         # Get language goal embedding
         lang_goal = replay_sample["cmd"]
@@ -873,7 +863,8 @@ class PerceiverActorAgent:
 
         # inputs
         # 4 dimensions - proprioception: {gripper_open, left_finger_joint, right_finger_joint, timestep}
-        proprio = replay_sample["proprio"]
+        # TODO: edit such that update happens 1x per action
+        proprio = replay_sample["gripper_pose"]
 
         # NOTE: PerAct data augmentation is replaced by ours alongwith a check to
         # make sure that action is valid
@@ -886,73 +877,84 @@ class PerceiverActorAgent:
         #  72 bins per x,y,z
         # collision_q is a "binary" (2 values)
         # This is purely supervised and comes from oracle data
-        q_trans, rot_grip_q, collision_q, voxel_grid = self._q(
-            obs, proprio, pcd, lang_goal_embs, bounds
-        )
-
-        # one-hot expert actions
-        bs = self._batch_size
-        if val or backprop:
-            # Convert expert x, y, z into 1 hot vectors
-            (
-                action_trans_one_hot,
-                action_rot_x_one_hot,
-                action_rot_y_one_hot,
-                action_rot_z_one_hot,
-                action_grip_one_hot,
-                action_collision_one_hot,
-            ) = self._get_one_hot_expert_actions(
-                bs,
-                action_trans,
-                action_rot_grip,
-                action_ignore_collisions,
-                device=self._device,
-            )
         total_loss = 0.0
-        if val or backprop:
-            # cross-entropy loss
-            trans_loss = self._cross_entropy_loss(
-                q_trans.view(bs, -1), action_trans_one_hot.argmax(-1)
+        num_iters = 0
+        for idx in range(len(replay_sample["ee_keyframe_pos"])):
+            proprio_instance = proprio[idx, :]
+            action_trans_instance = action_trans[idx]
+            action_rot_grip_instance = action_rot_grip[idx]
+            action_ignore_collission_instance = action_ignore_collisions[idx]
+            breakpoint()
+            q_trans, rot_grip_q, collision_q, voxel_grid = self._q(
+                obs, proprio, pcd, lang_goal_embs, bounds
             )
 
-            rot_grip_loss = 0.0
-            rot_grip_loss += self._cross_entropy_loss(
-                rot_grip_q[
-                    :, 0 * self._num_rotation_classes : 1 * self._num_rotation_classes
-                ],
-                action_rot_x_one_hot.argmax(-1),
-            )
-            rot_grip_loss += self._cross_entropy_loss(
-                rot_grip_q[
-                    :, 1 * self._num_rotation_classes : 2 * self._num_rotation_classes
-                ],
-                action_rot_y_one_hot.argmax(-1),
-            )
-            rot_grip_loss += self._cross_entropy_loss(
-                rot_grip_q[
-                    :, 2 * self._num_rotation_classes : 3 * self._num_rotation_classes
-                ],
-                action_rot_z_one_hot.argmax(-1),
-            )
-            rot_grip_loss += self._cross_entropy_loss(
-                rot_grip_q[:, 3 * self._num_rotation_classes :],
-                action_grip_one_hot.argmax(-1),
-            )
+            # one-hot expert actions
+            bs = self._batch_size
+            if val or backprop:
+                # Convert expert x, y, z into 1 hot vectors
+                (
+                    action_trans_one_hot,
+                    action_rot_x_one_hot,
+                    action_rot_y_one_hot,
+                    action_rot_z_one_hot,
+                    action_grip_one_hot,
+                    action_collision_one_hot,
+                ) = self._get_one_hot_expert_actions(
+                    bs,
+                    action_trans,
+                    action_rot_grip,
+                    action_ignore_collisions,
+                    device=self._device,
+                )
+            if val or backprop:
+                # cross-entropy loss
+                trans_loss = self._cross_entropy_loss(
+                    q_trans.view(bs, -1), action_trans_one_hot.argmax(-1)
+                )
 
-            collision_loss = self._cross_entropy_loss(
-                collision_q, action_collision_one_hot.argmax(-1)
-            )
+                rot_grip_loss = 0.0
+                rot_grip_loss += self._cross_entropy_loss(
+                    rot_grip_q[
+                        :,
+                        0 * self._num_rotation_classes : 1 * self._num_rotation_classes,
+                    ],
+                    action_rot_x_one_hot.argmax(-1),
+                )
+                rot_grip_loss += self._cross_entropy_loss(
+                    rot_grip_q[
+                        :,
+                        1 * self._num_rotation_classes : 2 * self._num_rotation_classes,
+                    ],
+                    action_rot_y_one_hot.argmax(-1),
+                )
+                rot_grip_loss += self._cross_entropy_loss(
+                    rot_grip_q[
+                        :,
+                        2 * self._num_rotation_classes : 3 * self._num_rotation_classes,
+                    ],
+                    action_rot_z_one_hot.argmax(-1),
+                )
+                rot_grip_loss += self._cross_entropy_loss(
+                    rot_grip_q[:, 3 * self._num_rotation_classes :],
+                    action_grip_one_hot.argmax(-1),
+                )
 
-            total_loss = trans_loss + rot_grip_loss + collision_loss
-            total_loss = total_loss.mean()
+                collision_loss = self._cross_entropy_loss(
+                    collision_q, action_collision_one_hot.argmax(-1)
+                )
 
-            # backprop
-            if backprop:
-                self._optimizer.zero_grad()
-                total_loss.backward()
-                self._optimizer.step()
+                total_loss += trans_loss + rot_grip_loss + collision_loss
+                num_iters += 1
+        total_loss = (total_loss / num_iters).mean()
 
-            total_loss = total_loss.item()
+        # backprop
+        if backprop:
+            self._optimizer.zero_grad()
+            total_loss.backward()
+            self._optimizer.step()
+
+        total_loss = total_loss.item()
 
         # choose best action through argmax
         (
@@ -979,24 +981,43 @@ class PerceiverActorAgent:
         }
 
 
-def train(path=None):
+def train(path, split_path, wt_path):
+    # hydra_cfg = hydra.core.hydra_config.HydraConfig.get()
+    # hydra_output_dir = hydra_cfg["runtime"]["output_dir"]
+    hydra_output_dir = os.getcwd()
     device = "cuda" if torch.cuda.is_available() else "cpu"
 
     # enter our own dataloader
-    data_dir = (
-        "/home/priparashar/robopen_h5s/larp/kinesthetic_dataset/all_tasks/kin_data"
-    )
+    # data_dir = (
+    #     "/home/priparashar/robopen_h5s/larp/kinesthetic_dataset/all_tasks/kin_data"
+    # )
     # data_dir = "/home/cpaxton/data/kinesthetic_dataset"
-    split_file = "./assets/task_splits/main_split.yaml"
-    with open(split_file, "r") as f:
+    # split_file = "./assets/task_splits/main_split.yaml"
+    with open(split_path, "r") as f:
         train_test_split = yaml.safe_load(f)
     ds = PerActRobotDataset(
-        data_dir,
+        path,
         template="**/*.h5",
-        trial_list=train_test_split["train"],
-        verbose=True,
+        # verbose=True,
         num_pts=8000,
         data_augmentation=True,
+        crop_radius=False,
+        ori_dr_range=np.pi / 8,
+        cart_dr_range=0.0,
+        first_frame_as_input=False,
+        # first_keypoint_only=True,
+        # keypoint_range=[0],
+        trial_list=train_test_split["train"] if split_path else [],
+        orientation_type="quaternion",
+        show_voxelized_input_and_reference=False,
+        show_cropped=False,
+        verbose=False,
+        multi_step=True,
+        visualize_interaction_estimates=False,
+        visualize_cropped_keyframes=False,
+        robot="stretch",
+        autoregressive=True,
+        time_as_one_hot=True,
     )
     # Create data loaders
     num_workers = 8
@@ -1065,9 +1086,9 @@ def train(path=None):
     LOG_FREQ = 1
     TRAINING_ITERATIONS = 100
 
-    if path:
-        peract_agent.load_weights(path)
-        print(f"---> loaded last best {path} <---")
+    if wt_path:
+        peract_agent.load_weights(wt_path)
+        print(f"---> loaded last best {wt_path} <---")
 
     start_time = time.time()
     iter = 0
@@ -1094,13 +1115,18 @@ def train(path=None):
                 "Iteration %d | Total Loss: %f | Elapsed Time: %f mins | Elapsed time per iter: %f mins"
                 % (iter, update_dict["total_loss"], elapsed_time, per_iter_time)
             )
-            filename = filename_prefix + f"_{iter}_{int(elapsed_time)}.pth"
+            filename = os.path.join(
+                hydra_output_dir, filename_prefix + f"_{iter}_{int(elapsed_time)}.pth"
+            )
             peract_agent.save_weights(filename)
-            filename = filename_prefix + "_best.pth"
+            print(f"Written to {filename}")
+            filename = os.path.join(hydra_output_dir, filename_prefix + "_best.pth")
             peract_agent.save_weights(filename)
+            print(f"Written best to {filename}")
         iter += 1
-    filename = filename_prefix + ".pth"
+    filename = os.path.join(hydra_output_dir, filename_prefix + ".pth")
     peract_agent.save_weights(filename)
+    print(f"Written last to {filename}")
 
 
 def eval(path, visualize):
@@ -1248,12 +1274,13 @@ def eval(path, visualize):
                     # gripper visualization pose
                     voxel_size = 0.045
                     voxel_scale = voxel_size * 100
-                    gripper_pose_mat = get_gripper_render_pose(
-                        voxel_scale,
-                        ds.scene_bounds[:3],
-                        continuous_trans,
-                        continuous_quat,
-                    )
+                    # gripper_pose_mat = get_gripper_render_pose(
+                    #     voxel_scale,
+                    #     ds.scene_bounds[:3],
+                    #     continuous_trans,
+                    #     continuous_quat,
+                    # )
+                    gripper_open = None
 
                     # @markdown #### Show Q-Prediction and Best Action
                     show_expert_action = True  # @param {type:"boolean"}
@@ -1292,10 +1319,12 @@ def eval(path, visualize):
 @click.command()
 @click.option("-f", "--flag")
 @click.option("-p", "--path", type=str, default=None)
+@click.option("-sp", "--split-path", type=str, default=None)
+@click.option("-wp", "--weight-path", type=str, default=None)
 @click.option("--viz/--no-viz", default=False)
-def main(flag, path, viz):
+def main(flag, path, viz, split_path, weight_path):
     if flag == "t":
-        train(path)
+        train(path, split_path, weight_path)
     elif flag == "e":
         eval(path, viz)
 
