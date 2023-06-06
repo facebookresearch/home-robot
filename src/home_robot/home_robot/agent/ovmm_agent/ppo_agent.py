@@ -310,7 +310,8 @@ class PPOAgent(Agent):
                 "joint": obs.joint,
                 "relative_resting_position": obs.relative_resting_position,
                 "is_holding": obs.task_observations["prev_grasp_success"],
-                "robot_start_gps": np.array((obs.gps[0], -1 * obs.gps[1]))
+                "robot_start_gps": np.array((obs.gps[1], obs.gps[0]))
+                - self.skill_start_gps,
                 - self.skill_start_gps,
                 "robot_start_compass": obs.compass - self.skill_start_compass,
                 "start_receptacle": obs.task_observations["start_receptacle"],
@@ -338,7 +339,7 @@ class PPOAgent(Agent):
         sample_random_seed()
         if self.skill_start_gps is None:
             self.skill_start_gps = np.array(
-                (observations.gps[0], -1 * observations.gps[1])
+                (observations.gps[1], observations.gps[0])
             )
         if self.skill_start_compass is None:
             self.skill_start_compass = observations.compass
