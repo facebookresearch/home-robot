@@ -313,7 +313,6 @@ class PPOAgent(Agent):
                 "is_holding": obs.task_observations["prev_grasp_success"],
                 "robot_start_gps": np.array((obs.gps[1], obs.gps[0]))
                 - self.skill_start_gps,
-                - self.skill_start_gps,
                 "robot_start_compass": pu.normalize_angle(obs.compass - self.skill_start_compass),
                 "start_receptacle": np.array(obs.task_observations["start_receptacle"]),
                 "goal_receptacle": np.array(obs.task_observations["goal_receptacle"]),
