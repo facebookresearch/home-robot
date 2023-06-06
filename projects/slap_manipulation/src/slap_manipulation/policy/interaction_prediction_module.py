@@ -5,6 +5,8 @@ import random
 from pprint import pprint
 from time import time
 from typing import List, Tuple
+import logging
+import uuid
 
 import clip
 import hydra
@@ -383,6 +385,9 @@ class InteractionPredictionModule(torch.nn.Module):
             # self.setup_training()
             self.start_time = 0.0
 
+    def set_working_dir(self, path):
+        self.working_dir = path
+
     # def setup_training(self):
     #     # get today's date
     #     date_time = datetime.datetime.now().strftime("%Y-%m-%d_%H-%M")
@@ -427,7 +432,7 @@ class InteractionPredictionModule(torch.nn.Module):
         return new_batch
 
     def get_best_name(self):
-        filename = "best_" + self.name + ".pth"
+        filename = os.path.join(self.working_dir, "best_" + self.name + ".pth")
         return filename
 
     def smart_save(self, epoch, val_loss, best_val_loss):
@@ -849,6 +854,8 @@ class InteractionPredictionModule(torch.nn.Module):
                     target = target[:, classification_probs]
 
             loss = self.loss_fn(classification_probs, target) + locality_loss
+            if torch.isnan(loss):
+                breakpoint()
             # print(float(loss), float(locality_loss))
 
             # TODO: remove this unused code
@@ -1005,6 +1012,8 @@ def parse_args():
     config_name="interaction_predictor_training",
 )
 def main(cfg):
+    hydra_cfg = hydra.core.hydra_config.HydraConfig.get()
+    hydra_output_dir = hydra_cfg['runtime']['output_dir']
     # args = parse_args()
     if cfg.split:
         with open(cfg.split, "r") as f:
@@ -1118,9 +1127,15 @@ def main(cfg):
     model = InteractionPredictionModule(
         xent_loss=cfg.loss_fn == "xent",
         use_proprio=True,
-        name=f"classify-{cfg.task_name}",
+        name=f"ipm-{cfg.task_name}",
+        locality_loss_wt=cfg.locality_loss_wt,
+        lr=cfg.learning_rate,
+        num_latents=cfg.latent_num,
+        latent_dim=cfg.latent_dim,
+        skip_ambiguous_pts=True,
     )
     model.to(model.device)
+    model.set_working_dir(hydra_output_dir)
 
     optimizer = model.get_optimizer()
     # scheduler = torch.optim.lr_scheduler.StepLR(optimizer, step_size=20, gamma=0.5)
@@ -1149,7 +1164,7 @@ def main(cfg):
         best_valid_loss = float("Inf")
         print("Starting training")
         if cfg.wandb:
-            wandb.init(project="classification-v1", name=f"{model.name}")
+            wandb.init(project="CoRL-2023", name=f"{model.name}_{uuid.uuid4()}")
             # wandb.config.data_voxel_1 = test_dataset._voxel_size
             # wandb.config.data_voxel_2 = test_dataset._voxel_size_2
             wandb.config.loss_fn = cfg.loss_fn

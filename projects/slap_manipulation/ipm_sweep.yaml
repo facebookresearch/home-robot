@@ -1,0 +1,21 @@
+program: src/slap_manipulation/policy/interaction_prediction_module.py
+method: random
+metric:
+  goal: minimize
+  name: valid_loss
+parameters:
+  learning_rate:
+    values: [1.0, 0.1, 0.01, 0.001, 0.0001]
+  locality_loss_wt:
+    values: [1.0, 0.1, 0.01, 0.001]
+  latent_num:
+    values: [128, 256, 512]
+  latent_dim:
+    values: [256, 512]
+
+
+command:
+  - ${env}
+  - python
+  - ${program}
+  - ${args_no_hyphens}

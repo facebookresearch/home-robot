@@ -306,14 +306,17 @@ class ActionPredictionModule(torch.nn.Module):
             "up": [0.43890929711345494, 0.024286597087151203, 0.89820308956788786],
             "zoom": 0.43999999999999972,
         }
-        self.setup_training()
-        if not cfg.validate and not cfg.dry_run:
-            if not os.path.exists(self._save_dir):
-                os.mkdir(self._save_dir)
+        # self.setup_training()
+        # if not cfg.validate and not cfg.dry_run:
+        #     if not os.path.exists(self._save_dir):
+        #         os.mkdir(self._save_dir)
         self.start_time = 0.0
 
     def load_weights(self, path: str):
         self.load_state_dict(torch.load(path))
+
+    def set_working_dir(self, path):
+        self._save_dir = path
 
     def setup_training(self):
         # get today's date
@@ -481,7 +484,7 @@ class ActionPredictionModule(torch.nn.Module):
                         "MDN based inference is not implemented for sensor data yet"
                     )
                 else:
-                    print(f"{t=},{cmd=},{proprio=}")
+                    # print(f"{t=},{cmd=},{proprio=}")
                     position, orientation, gripper, hidden = self.forward(
                         cropped_xyz, cropped_feat, proprio, time_step, cmd, hidden
                     )
@@ -673,7 +676,7 @@ class ActionPredictionModule(torch.nn.Module):
                         target_pos = target_pos.view(num_samples, 3)
                         pos_loss += mdn_loss(pos_sigma, pos_mu, target_pos)
                     else:
-                        print(f"{t=},{cmd=},{proprio=}")
+                        # print(f"{t=},{cmd=},{proprio=}")
                         position, orientation, gripper, hidden = self.forward(
                             crop_xyz, crop_rgb, proprio, time_step, cmd, hidden
                         )
@@ -1115,13 +1118,16 @@ class ActionPredictionModule(torch.nn.Module):
     version_base=None, config_path="./conf", config_name="action_predictor_training"
 )
 def main(cfg):
+    hydra_cfg = hydra.core.hydra_config.HydraConfig.get()
+    hydra_output_dir = hydra_cfg['runtime']['output_dir']
     # Speed up training by configuring the number of workers
-    num_workers = 16 if not cfg.debug else 0
+    num_workers = 8 if not cfg.debug else 0
     B = 1
 
     # create model, load weights for classifier
     model = ActionPredictionModule(cfg)
     model.to(model.device)
+    model.set_working_dir(hydra_output_dir)
     optimizer = model.get_optimizer()
     scheduler = ReduceLROnPlateau(optimizer, patience=3)
 

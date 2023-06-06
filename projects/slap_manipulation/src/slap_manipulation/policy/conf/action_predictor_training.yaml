@@ -1,9 +1,12 @@
-task_name: test
+task_name: corl_experiment
 action_idx: -1
-datadir: False
-split: False
+# datadir: False
+# split: False
 load: False
 max_actions: 6
+split: assets/corl_experiments/combined_split.yaml
+datadir: /private/home/priparashar/corl_experiment/
+template: "*/*.h5"
 
 num_pts: 8000
 orientation_type: "quaternion"  # change orientation_dim when you change this
@@ -17,10 +20,10 @@ query_radius: 0.16
 k: 3  # will change per task, read from task_information.yaml
 lang_max_seq_len: 77
 clip_model: "ViT-B/32"
-max_iter: 50
+max_iter: 25
 dry_run: False
 validate: False
-template: "*.h5"
+# template: "*.h5"
 data_augmentation: True
 source: "stretch"
 wandb: False
