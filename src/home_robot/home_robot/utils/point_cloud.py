@@ -66,7 +66,9 @@ def show_pcd(
     save: str = None,
     grasps: list = None,
 ):
-    geoms = create_visualization_geometries(pcd=pcd, orig=orig, R=R, grasps=grasps)
+    geoms = create_visualization_geometries(
+        pcd=pcd, orig=orig, R=R, grasps=grasps, size=0.1
+    )
     o3d.visualization.draw_geometries(geoms)
 
     if save is not None:

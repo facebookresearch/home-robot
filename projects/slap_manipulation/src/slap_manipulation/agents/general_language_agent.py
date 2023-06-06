@@ -171,7 +171,7 @@ class GeneralLanguageAgent(PickAndPlaceAgent):
                     "self.open_object(['cabinet'], obs)",
                 ],
                 5: [
-                    "self.goto(['drawer', 'drawer handle'], obs)",
+                    "self.goto(['drawer handle'], obs)",
                     "self.open_object(['drawer handle',], obs)",
                 ],
                 6: [
@@ -449,7 +449,7 @@ class GeneralLanguageAgent(PickAndPlaceAgent):
             if "take-bottle" == language:
                 info["global_offset_vector"] = np.array([0, 1, 0])
                 info["global_orientation"] = np.deg2rad(-90)
-                info["offset_distance"] = 0.5
+                info["offset_distance"] = 0.65
             if "pour-into-bowl" == language:
                 info["global_offset_vector"] = np.array([0, -1, 0])
                 info["global_orientation"] = np.deg2rad(90)

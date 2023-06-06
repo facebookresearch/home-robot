@@ -1,12 +1,12 @@
 import argparse
 import datetime
+import logging
 import os
 import random
+import uuid
 from pprint import pprint
 from time import time
 from typing import List, Tuple
-import logging
-import uuid
 
 import clip
 import hydra
@@ -475,6 +475,7 @@ class InteractionPredictionModule(torch.nn.Module):
         """
         self.eval()
         xyz, rgb, feat, v_xyz, v_rgb, v_feat, proprio, lang = self.read_batch(batch)
+        print(f"[IPM] {lang=}")
         if debug:
             show_point_cloud(
                 v_xyz.detach().cpu().numpy(),
@@ -1013,7 +1014,7 @@ def parse_args():
 )
 def main(cfg):
     hydra_cfg = hydra.core.hydra_config.HydraConfig.get()
-    hydra_output_dir = hydra_cfg['runtime']['output_dir']
+    hydra_output_dir = hydra_cfg["runtime"]["output_dir"]
     # args = parse_args()
     if cfg.split:
         with open(cfg.split, "r") as f:
