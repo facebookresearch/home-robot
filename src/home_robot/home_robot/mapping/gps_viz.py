@@ -16,8 +16,8 @@ class GpsVizualizer:
         self._map = np.full(
             (self._resolution, self._resolution, 3), 255, dtype=np.uint8
         )
-        self._poses = []
-        self._gt_poses = []
+        self._poses = [(0, 0)]
+        self._gt_poses = [(0, 0)]
 
     def _get_cur_gt_pose(self, prev_gt_pose, action):
         """
@@ -53,9 +53,8 @@ class GpsVizualizer:
         Origin is at the center of the map
         """
         # Current in red, previous in black
+        self._render_point(self._poses[-1], (0, 0, 0))
         self._render_point(gps, (0, 0, 255))
-        if len(self._poses) > 0:
-            self._render_point(self._poses[-1], (0, 0, 0))
         self._poses.append(gps)
 
         # Ground truth in green, previous in yellow

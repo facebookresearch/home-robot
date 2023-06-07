@@ -15,6 +15,7 @@ from home_robot.core.interfaces import (
     HybridAction,
     Observations,
 )
+from home_robot.mapping.gps_viz import GpsVizualizer
 from home_robot.motion.stretch import (
     STRETCH_ARM_EXTENSION,
     STRETCH_ARM_LIFT,
@@ -55,6 +56,9 @@ class StretchPickandPlaceEnv(StretchEnv):
         debug: pause between motions; slows down execution to debug specific behavior
         """
         super().__init__(*args, **kwargs)
+
+        self.gps_visualizer = GpsVizualizer((256, 256), 10)
+        self._prev_action = None
 
         self.forward_step = config.ENVIRONMENT.forward
         self.rotate_step = np.radians(config.ENVIRONMENT.turn_angle)
@@ -116,6 +120,7 @@ class StretchPickandPlaceEnv(StretchEnv):
         # Also set the robot's head into "navigation" mode - facing forward
         self.robot.move_to_nav_posture()
         self.prev_grasp_success = False
+        self.gps_visualizer.reset()
 
     def get_robot(self):
         """Return the robot interface."""
@@ -249,6 +254,7 @@ class StretchPickandPlaceEnv(StretchEnv):
                 self.robot.nav.navigate_to(
                     continuous_action, relative=True, blocking=True
                 )
+            self._prev_action = continuous_action
         self._handle_joints_action(joints_action)
         self._handle_gripper_action(gripper_action)
         return False
@@ -372,6 +378,9 @@ class StretchPickandPlaceEnv(StretchEnv):
             "in_manipulation_mode"
         ] = self.robot.in_manipulation_mode()
         obs.task_observations["in_navigation_mode"] = self.robot.in_navigation_mode()
+
+        if self.robot.in_navigation_mode():
+            self.gps_visualizer.visualize(gps, self._prev_action)
 
         # TODO: remove debug code
         # debug_rgb_bgr = False
