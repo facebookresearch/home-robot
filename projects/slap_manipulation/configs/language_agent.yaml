@@ -19,6 +19,9 @@ ENVIRONMENT:
   min_depth: 0.5          # minimum depth for depth sensor (in metres)
   max_depth: 5.0          # maximum depth for depth sensor (in metres)
 
+CORLAGENT:
+  gt_run: True
+
 AGENT:
   max_steps: 500          # maximum number of steps before stopping an episode
   panorama_start: 1       # 1: turn around 360 degrees when starting an episode, 0: don't
@@ -112,7 +115,7 @@ SLAP:
     color_jitter: False
     loss_fn: "xent"
     max_iter: 30
-    path: data/checkpoints/corl_weights_june_6th/ipm_penultimate.pth
+    path: data/checkpoints/corl/ipm.pth
   APM:
     task_name: test
     action_idx: -1
@@ -120,7 +123,8 @@ SLAP:
     split: False
     load: False
     max_actions: 6
-    path: data/checkpoints/corl_weights_june_6th/apm.pth
+    # path: data/checkpoints/corl/apm.pth
+    path: projects/slap_manipulation/outputs/2023-06-06/17-31-38/best_action_predictor_corl_experiment.pth
 
     num_pts: 8000
     orientation_type: "quaternion"  # change orientation_dim when you change this

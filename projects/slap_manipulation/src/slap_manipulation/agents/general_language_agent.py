@@ -120,19 +120,22 @@ def get_codelist(steps_list):
 
 
 class GeneralLanguageAgent(PickAndPlaceAgent):
-    def __init__(self, cfg, debug=True, **kwargs):
+    def __init__(self, cfg, debug=True, task_id: int = -1, **kwargs):
         super().__init__(cfg, **kwargs)
         # Visualizations
+        self.task_id = task_id
+        print(f"[GeneralLanguageAgent]: {self.task_id=}")
         self.steps = []
         self.state = GeneralTaskState.NOT_STARTED
         self.mode = "navigation"  # TODO: turn into an enum
         self.current_step = ""
         self.cfg = cfg
         # for testing
-        self.testing = True
+        self.testing = False
+        self.gt_run = cfg.CORLAGENT.gt_run
         self.debug = debug
         self.dry_run = self.cfg.AGENT.dry_run
-        self.slap_model = SLAPAgent(cfg)
+        self.slap_model = SLAPAgent(cfg, task_id=self.task_id)
         if not self.cfg.SLAP.dry_run:
             self.slap_model.load_models()
         self.num_actions_done = 0
@@ -142,8 +145,54 @@ class GeneralLanguageAgent(PickAndPlaceAgent):
         self._task_information = yaml.load(
             open(self.cfg.AGENT.task_information_file, "r"), Loader=yaml.FullLoader
         )  # read from a YAML
-        if not self.debug:
+        if not self.debug and not self.gt_run:
             self.task_plans = get_task_plans_from_llm  # get_task_plans_from_oracle
+        elif self.gt_run:
+            self.task_plans = {
+                0: [
+                    "self.goto(['bottle'], obs)",
+                    "self.take_bottle(['bottle'], obs)",
+                    "self.goto(['person'], obs)",
+                    "self.handover(['person'], obs)",
+                ],
+                1: [
+                    "self.pick_up(['bottle'], obs)",
+                    "self.goto(['counter'], obs)",
+                    "self.place(['counter'], obs)",
+                    "self.goto(['drawer', 'drawer handle'], obs)",
+                    "self.open_object(['drawer handle'], obs)",
+                    "self.goto(['bottle'], obs)",
+                    "self.take_bottle(['bottle'], obs)",
+                    "self.goto(['drawer handle'], obs)",
+                    "self.place(['drawer handle'], obs)",
+                    "self.goto(['drawer handle'], obs)",
+                    "self.close_object(['drawer handle'], obs)",
+                ],
+                2: [
+                    "self.goto(['drawer', 'drawer handle'], obs)",
+                    "self.open_object(['drawer handle',], obs)",
+                    "self.goto(['drawer', 'lemon'], obs)",
+                    "self.pick_up(['lemon'], obs)",
+                    "self.goto(['table'], obs)",
+                    "self.place(['table'], obs)",
+                ],
+                3: [
+                    "self.goto(['drawer', 'drawer handle'], obs)",
+                    "self.open_object(['drawer handle',], obs)",
+                    "self.goto(['drawer', 'cup'], obs)",
+                    "self.pick_up(['cup'], obs)",
+                    "self.goto(['person'], obs)",
+                    "self.handover(['person'], obs)",
+                ],
+                4: [
+                    "self.goto(['cup'], obs)",
+                    "self.pick_up(['cup'], obs)",
+                    "self.goto(['bowl'], obs)",
+                    "self.pour_into_bowl(['bowl'], obs)",
+                    "self.goto(['table'], obs)",
+                    "self.place(['table'], obs)",
+                ],
+            }
         else:
             self.task_defs = {
                 0: "place the apple on the table",
@@ -209,12 +258,12 @@ class GeneralLanguageAgent(PickAndPlaceAgent):
                     "self.take_bottle(['bottle'], obs)",
                 ],
                 13: [
-                    "self.goto(['table', 'bowl'], obs)",
+                    "self.goto(['bowl'], obs)",
                     "self.pour_into_bowl(['bowl'], obs)",
                 ],
                 14: [
-                    "self.goto(['drawer', 'drawer handles'], obs)",
-                    "self.close_object_drawer(['drawer'], obs)",
+                    "self.goto(['drawer handles'], obs)",
+                    "self.close_object(['drawer'], obs)",
                 ],
             }
 
@@ -227,6 +276,7 @@ class GeneralLanguageAgent(PickAndPlaceAgent):
             self.gaze_agent.reset()
 
     def soft_reset(self):
+        print("[GeneralLanguageAgent] ObjectNav reset")
         self.state = GeneralTaskState.IDLE
         self.num_actions_done = 0
         self.slap_model.reset()
@@ -237,7 +287,6 @@ class GeneralLanguageAgent(PickAndPlaceAgent):
     ) -> Observations:
         # we do not differentiate b/w obejcts or receptacles
         # everything is a semantic goal to be found
-        # start_recep_goal and "end_recep_goal" are always None
         if len(object_list) > 1:
             obs.task_observations["start_recep_goal"] = 1
             obs.task_observations["object_goal"] = 2
@@ -251,7 +300,7 @@ class GeneralLanguageAgent(PickAndPlaceAgent):
             obs.task_observations["start_recep_goal"] = None
             obs.task_observations["start_recep_name"] = None
             obs.task_observations["object_goal"] = None
-            obs.task_observations["goal_name"] = None
+            obs.task_observations["goal_name"] = object_list[0]
         return obs
 
     def _preprocess_obs_for_place(
@@ -283,12 +332,8 @@ class GeneralLanguageAgent(PickAndPlaceAgent):
 
     def get_steps(self, task: str):
         """takes in a task string and returns a list of steps to complete the task"""
-        if self.testing:
-            # task is expected to be an int as a str
-            if self.debug:
-                self.steps = self.task_plans[int(task)]
-            else:
-                self.steps = self.task_plans(int(task))
+        if self.testing or self.debug or self.gt_run:
+            self.steps = self.task_plans[int(task)]
         else:
             raise NotImplementedError(
                 "Getting plans outside of test tasks is not implemented yet"
@@ -314,10 +359,16 @@ class GeneralLanguageAgent(PickAndPlaceAgent):
             else:
                 self.state = GeneralTaskState.DOING_TASK
                 obs = self._preprocess_obs(obs, object_list)
-                if "cup" in object_list:
+                if "place" in self.steps[0] or "pick_up" in self.steps[0]:
+                    print(
+                        f"[GeneralLanguageAgent] Preparing for next task: {self.steps[0]} by decreasing rad + min_dist"
+                    )
                     self.object_nav_agent.planner.min_goal_distance_cm = 50
                     self.object_nav_agent.planner.goal_dilation_selem_radius = 7
                 else:
+                    print(
+                        f"[GeneralLanguageAgent] Preparing for next task: {self.steps[0]} by increasing rad + min_dist"
+                    )
                     self.object_nav_agent.planner.min_goal_distance_cm = 80
                     self.object_nav_agent.planner.goal_dilation_selem_radius = 25
                 action, info["viz"] = self.object_nav_agent.act(obs)
@@ -458,7 +509,11 @@ class GeneralLanguageAgent(PickAndPlaceAgent):
             if "open-object" in language:
                 info["global_offset_vector"] = np.array([0, 1, 0])
                 info["global_orientation"] = np.deg2rad(-90)
-                info["offset_distance"] = 0.75
+                info["offset_distance"] = 0.83
+            if "close-object" in language:
+                info["global_offset_vector"] = np.array([0, 1, 0])
+                info["global_orientation"] = np.deg2rad(-90)
+                info["offset_distance"] = 0.5
             if "handover" in language:
                 info["global_offset_vector"] = np.array([-1, 0, 0])
                 info["global_orientation"] = np.deg2rad(0)
@@ -468,9 +523,9 @@ class GeneralLanguageAgent(PickAndPlaceAgent):
                 info["global_orientation"] = np.deg2rad(-90)
                 info["offset_distance"] = 0.65
             if "pour-into-bowl" == language:
-                info["global_offset_vector"] = np.array([0, -1, 0])
-                info["global_orientation"] = np.deg2rad(90)
-                info["offset_distance"] = 0.5
+                info["global_offset_vector"] = np.array([0, 1, 0])
+                info["global_orientation"] = np.deg2rad(-90)
+                info["offset_distance"] = 0.65
             projected_point = np.copy(info["interaction_point"])
             projected_point[2] = 0
             info["SLAP"] = True
@@ -495,6 +550,8 @@ class GeneralLanguageAgent(PickAndPlaceAgent):
             return action, info
 
     def act(self, obs: Observations, task: str) -> Tuple[Action, Dict[str, Any]]:
+        # while True:
+        #     breakpoint()
         if self.state == GeneralTaskState.NOT_STARTED and len(self.steps) == 0:
             self.get_steps(task)
         if not self.is_busy():

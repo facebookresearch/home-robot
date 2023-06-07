@@ -1,27 +1,27 @@
 "handover-to-person":
-  - "approach-person"
-  - "align-with-hand"
-  - "release-object"
+  - "handover-to-person-approach-person"
+  - "handover-to-person-align-with-hand"
+  - "handover-to-person-release-object"
 
 "open-object-drawer":
-  - "align-with-handle"
-  - "grasp-handle"
-  - "pull-out-handle"
+  - "open-object-in-front-of-handle"
+  - "open-object-grasp-handle"
+  - "open-object-pull-out-handle"
 
 "close-object-drawer":
-  - "align-with-surface"
-  - "close-gripper"
-  - "push-in"
+  - "close-object-drawer-align-with-surface"
+  - "close-object-drawer-close-gripper"
+  - "close-object-drawer-push-in"
 
 "pour-into-bowl":
-  - "align-with-bowl"
-  - "tilt-into-bowl"
-  - "tilt-further"
-  - "empty-out"
+  - "pour-into-bowl-align-with-bowl"
+  - "pour-into-bowl-tilt-into-bowl"
+  - "pour-into-bowl-tilt-further"
+  - "pour-into-bowl-empty-out"
 
 "take-bottle":
-  - "align-with-bottle"
-  - "grasp-bottle"
-  - "lift-bottle"
-  - "retract-arm"
+  - "take-bottle-align-with-bottle"
+  - "take-bottle-grasp-bottle"
+  - "take-bottle-lift-bottle"
+  - "take-bottle-retract-arm"
 

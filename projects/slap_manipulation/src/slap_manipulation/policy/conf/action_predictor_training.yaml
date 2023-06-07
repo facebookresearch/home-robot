@@ -40,13 +40,13 @@ dims:
 
 handover_weights:
   position: 1e-1
-  orientation: 1e-1
-  gripper: 1e-4
+  orientation: 1e-2
+  gripper: 1e-3
 
 weights:
   position: 1.0
   orientation: 1e-3
-  gripper: 1e-4
+  gripper: 1e-3
 
 model:
   sa1_mlp: [7, 64, 128]
