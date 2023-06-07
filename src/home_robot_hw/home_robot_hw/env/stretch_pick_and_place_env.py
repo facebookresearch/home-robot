@@ -379,7 +379,7 @@ class StretchPickandPlaceEnv(StretchEnv):
         ] = self.robot.in_manipulation_mode()
         obs.task_observations["in_navigation_mode"] = self.robot.in_navigation_mode()
 
-        if self.robot.in_navigation_mode():
+        if self.robot.in_navigation_mode() and self._prev_action is not None:
             self.gps_visualizer.visualize(gps, self._prev_action)
 
         # TODO: remove debug code
