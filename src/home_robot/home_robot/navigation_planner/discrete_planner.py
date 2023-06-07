@@ -154,7 +154,7 @@ class DiscretePlanner:
         frontier_map: np.ndarray,
         sensor_pose: np.ndarray,
         found_goal: bool,
-        debug: bool = True,
+        debug: bool = False,
         use_dilation_for_stg: bool = False,
         timestep: int = None,
     ) -> Tuple[DiscreteNavigationAction, np.ndarray]:
