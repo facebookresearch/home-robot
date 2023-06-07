@@ -169,9 +169,9 @@ class GeneralLanguageAgent(PickAndPlaceAgent):
                     "self.close_object(['drawer handle'], obs)",
                 ],
                 2: [
-                    "self.goto(['drawer', 'drawer handle'], obs)",
-                    "self.open_object(['drawer handle',], obs)",
-                    "self.goto(['drawer', 'lemon'], obs)",
+                    # "self.goto(['drawer', 'drawer handle'], obs)",
+                    # "self.open_object(['drawer handle',], obs)",
+                    "self.goto(['drawer handle', 'lemon'], obs)",
                     "self.pick_up(['lemon'], obs)",
                     "self.goto(['table'], obs)",
                     "self.place(['table'], obs)",

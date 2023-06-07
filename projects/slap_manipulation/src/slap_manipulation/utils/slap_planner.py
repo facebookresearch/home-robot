@@ -49,8 +49,11 @@ class CombinedSLAPPlanner(object):
             end_pose = waypoints[i + 1]
             end_pose_added = False
 
-            # only interpolate between two poses if dist > 10cm
-            if np.linalg.norm(start_pose - end_pose) > 0.1:
+            # only interpolate between two poses if dist > 2cm
+            dist = np.linalg.norm(start_pose - end_pose)
+            if dist > 0.02:
+                # adaptive number of segments, take floor of dist / 2.5cm
+                num_points_per_segment = int(np.floor(dist / 0.025))
                 for t in np.linspace(0, 1, num_points_per_segment):
                     interpolated_pose = (1 - t) * start_pose + t * end_pose
                     interpolated_trajectory.append(interpolated_pose)
@@ -75,7 +78,7 @@ class CombinedSLAPPlanner(object):
         # grasp_pos, grasp_quat = to_pos_quat(grasp)
         self.robot.switch_to_manipulation_mode()
         trajectory = []
-        num_pts_per_segment = 2
+        num_pts_per_segment = 8
 
         # TODO: add skill-specific standoffs from 0th action
         joint_pos_pre = self.robot.manip.get_joint_positions()
@@ -95,7 +98,7 @@ class CombinedSLAPPlanner(object):
         # TODO: also rotate the gripper as per 1st action
         begin_pose[:3, :3] = actions_pose_mat[0, :3, :3]
         # get current gripper reading, keep gripper as is during this motion
-        gripper = np.array([int(self.robot.manip.get_gripper_position() < -0.005)])
+        gripper = np.array([int(self.robot.manip.get_gripper_position() < -0.01)])
         actions_pose_mat = np.concatenate(
             (
                 np.expand_dims(begin_pose, 0),

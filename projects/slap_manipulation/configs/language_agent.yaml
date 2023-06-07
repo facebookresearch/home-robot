@@ -72,14 +72,14 @@ AGENT:
     # goal_dilation_selem_radius: 10  # radius (in cells) of goal dilation structuring element
     min_obs_dilation_selem_radius: 3    # radius (in cells) of obstacle dilation structuring element
     obs_dilation_selem_radius: 10    # radius (in cells) of obstacle dilation structuring element
-    goal_dilation_selem_radius: 30  # radius (in cells) of goal dilation structuring element
+    goal_dilation_selem_radius: 7  # radius (in cells) of goal dilation structuring element
     step_size: 10                    # maximum distance of the short-term goal selected by the planner
     use_dilation_for_stg: False      # use dilated goals for estimating short-term goals - or just reaching
     map_downsample_factor: 1            # optional downsampling of traversible and goal map before fmm distance call (1 for no downsampling, 2 for halving resolution)
     map_update_frequency: 1             # compute fmm distance map every n steps 
     discrete_actions: False         # discrete motion planner output space or not
-    min_goal_distance_cm: 65
-    continuous_angle_tolerance: 20
+    min_goal_distance_cm: 50
+    continuous_angle_tolerance: 25
 
 EVAL_VECTORIZED:
   simulator_gpu_ids: [1, 2, 3, 4, 5, 6, 7] # IDs of GPUs to use for vectorized environments
