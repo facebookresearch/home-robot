@@ -847,9 +847,9 @@ class PerceiverActorAgent:
             # This gives us our action translation indices - location in the voxel cube
             action_trans = replay_sample["trans_action_indices"][:, :, :3].int()
             # Rotation index
-            action_rot_grip = replay_sample["rot_grip_action_indices"][:, :, -1].int()
+            action_rot_grip = replay_sample["rot_grip_action_indices"][0, :].int()
             # Do we take some action to ignore collisions or not
-            action_ignore_collisions = replay_sample["ignore_collisions"][:, -1].int()
+            action_ignore_collisions = replay_sample["ignore_collisions"][:, :, -1].int()
 
         # Get language goal embedding
         lang_goal = replay_sample["cmd"]
@@ -864,7 +864,7 @@ class PerceiverActorAgent:
         # inputs
         # 4 dimensions - proprioception: {gripper_open, left_finger_joint, right_finger_joint, timestep}
         # TODO: edit such that update happens 1x per action
-        proprio = replay_sample["gripper_pose"]
+        proprio = replay_sample["gripper_states"]
 
         # NOTE: PerAct data augmentation is replaced by ours alongwith a check to
         # make sure that action is valid
@@ -879,14 +879,16 @@ class PerceiverActorAgent:
         # This is purely supervised and comes from oracle data
         total_loss = 0.0
         num_iters = 0
+        continuous_trans_vector = []
+        translation_vector = []
+        rot_and_grip_vector = []
         for idx in range(len(replay_sample["ee_keyframe_pos"])):
-            proprio_instance = proprio[idx, :]
-            action_trans_instance = action_trans[idx]
-            action_rot_grip_instance = action_rot_grip[idx]
-            action_ignore_collission_instance = action_ignore_collisions[idx]
-            breakpoint()
+            proprio_instance = proprio[:, idx]
+            action_trans_instance = action_trans[:, idx]
+            action_rot_grip_instance = action_rot_grip[idx].unsqueeze(0)
+            action_ignore_collissions_instance = action_ignore_collisions[idx].unsqueeze(0)
             q_trans, rot_grip_q, collision_q, voxel_grid = self._q(
-                obs, proprio, pcd, lang_goal_embs, bounds
+                obs, proprio_instance, pcd, lang_goal_embs, bounds
             )
 
             # one-hot expert actions
@@ -902,9 +904,9 @@ class PerceiverActorAgent:
                     action_collision_one_hot,
                 ) = self._get_one_hot_expert_actions(
                     bs,
-                    action_trans,
-                    action_rot_grip,
-                    action_ignore_collisions,
+                    action_trans_instance,
+                    action_rot_grip_instance,
+                    action_ignore_collissions_instance,
                     device=self._device,
                 )
             if val or backprop:
@@ -944,8 +946,23 @@ class PerceiverActorAgent:
                     collision_q, action_collision_one_hot.argmax(-1)
                 )
 
-                total_loss += trans_loss + rot_grip_loss + collision_loss
+                total_loss += trans_loss + rot_grip_loss + 0*collision_loss
                 num_iters += 1
+                # choose best action through argmax
+                (
+                    coords_indicies,
+                    rot_and_grip_indicies,
+                    ignore_collision_indicies,
+                ) = self._q.choose_highest_action(q_trans, rot_grip_q, collision_q)
+
+                # discrete to continuous translation action
+                res = (bounds[:, 3:] - bounds[:, :3]) / self._voxel_size
+                continuous_trans = bounds[:, :3] + res * coords_indicies.int() + res / 2
+
+                continuous_trans_vector.append(continuous_trans)
+                translation_vector.append(coords_indicies)
+                rot_and_grip_vector.append(rot_and_grip_indicies)
+
         total_loss = (total_loss / num_iters).mean()
 
         # backprop
@@ -956,26 +973,15 @@ class PerceiverActorAgent:
 
         total_loss = total_loss.item()
 
-        # choose best action through argmax
-        (
-            coords_indicies,
-            rot_and_grip_indicies,
-            ignore_collision_indicies,
-        ) = self._q.choose_highest_action(q_trans, rot_grip_q, collision_q)
-
-        # discrete to continuous translation action
-        res = (bounds[:, 3:] - bounds[:, :3]) / self._voxel_size
-        continuous_trans = bounds[:, :3] + res * coords_indicies.int() + res / 2
-
         return {
             "total_loss": total_loss,
             "voxel_grid": voxel_grid,
             "q_trans": self._softmax_q(q_trans),
             "pred_action": {
-                "trans": coords_indicies,
-                "continuous_trans": continuous_trans,
-                "rot_and_grip": rot_and_grip_indicies,
-                "collision": ignore_collision_indicies,
+                "trans": translation_vector,
+                "continuous_trans": continuous_trans_vector,
+                "rot_and_grip": rot_and_grip_vector,
+                # "collision": ignore_collision_indicies,
             },
             "expert_action": {"action_trans": action_trans},
         }
@@ -1020,7 +1026,7 @@ def train(path, split_path, wt_path):
         time_as_one_hot=True,
     )
     # Create data loaders
-    num_workers = 8
+    num_workers = 10
     B = 1
     data_loader = torch.utils.data.DataLoader(
         ds,
@@ -1076,12 +1082,12 @@ def train(path, split_path, wt_path):
     peract_agent.build(training=True, device=device)
 
     # basic test before training
-    for batch in data_loader:
-        ds.visualize_data(batch, peract_agent._vox_grid)
-        res = input("Press enter if looks ok; n to exit")
-        if res == "n":
-            return
-        break
+    # for batch in data_loader:
+    #     ds.visualize_data(batch, peract_agent._vox_grid)
+    #     res = input("Press enter if looks ok; n to exit")
+    #     if res == "n":
+    #         return
+    #     break
 
     LOG_FREQ = 1
     TRAINING_ITERATIONS = 100
@@ -1264,12 +1270,12 @@ def eval(path, visualize):
                         .cpu()
                         .numpy()
                     )
-                    ignore_collision = bool(
-                        update_dict["pred_action"]["collision"][0][0]
-                        .detach()
-                        .cpu()
-                        .numpy()
-                    )
+                    # ignore_collision = bool(
+                    #     update_dict["pred_action"]["collision"][0][0]
+                    #     .detach()
+                    #     .cpu()
+                    #     .numpy()
+                    # )
 
                     # gripper visualization pose
                     voxel_size = 0.045
