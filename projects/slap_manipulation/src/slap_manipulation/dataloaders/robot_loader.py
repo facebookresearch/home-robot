@@ -559,7 +559,11 @@ class RobotDataset(RLBenchDataset):
         if len(gripper_width_array.shape) == 1:
             num_samples = gripper_width_array.shape[0]
             gripper_width_array = gripper_width_array.reshape(num_samples, 1)
-        gripper_state = (gripper_width_array <= self._robot_max_grasp).astype(int)
+        if "grasp_threshold" in trial.group.keys():
+            variable_threshold = trial["grasp_threshold"][()]
+            gripper_state = (gripper_width_array <= variable_threshold).astype(int)
+        else:
+            gripper_state = (gripper_width_array <= self._robot_max_grasp).astype(int)
         interaction_pt_idx = -1
         for i, other_keypoint in enumerate(keypoints):
             interaction_pt_idx = other_keypoint
@@ -570,7 +574,7 @@ class RobotDataset(RLBenchDataset):
 
         if verbose:
             print(
-                f"reference_pt: {interaction_pt_idx}, min_gripper: {self._robot_max_grasp}, gripper-state-array: {gripper_state}"
+                f"reference_pt: {interaction_pt_idx}, min_gripper: {self._robot_max_grasp}, gripper-state-array: {gripper_state}, {gripper_width_array=}"
             )
 
         # choose an input frame-idx, in our case this is the 1st frame
@@ -960,8 +964,8 @@ def debug_get_datum(data_dir, k_index, split, robot, waypoint_language):
         show_cropped=True,
         verbose=False,
         multi_step=True,
-        visualize_interaction_estimates=True,
-        visualize_cropped_keyframes=True,
+        visualize_interaction_estimates=False,
+        visualize_cropped_keyframes=False,
         robot=robot,
         autoregressive=True,
         time_as_one_hot=True,
@@ -971,7 +975,7 @@ def debug_get_datum(data_dir, k_index, split, robot, waypoint_language):
     for trial in loader.trials:
         print(f"Trial name: {trial.name}")
         for k_i in k_index:
-            data = loader.get_datum(trial, k_i, verbose=True)
+            data = loader.get_datum(trial, k_i, verbose=False)
 
 
 @click.command()
