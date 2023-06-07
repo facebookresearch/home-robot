@@ -1,4 +1,5 @@
 import click
+import numpy as np
 import rospy
 from slap_manipulation.agents.general_language_agent import GeneralLanguageAgent
 from slap_manipulation.env.general_language_env import GeneralLanguageEnv
@@ -37,7 +38,15 @@ def main(task_id, test_pick=False, dry_run=False, testing=False, **kwargs):
     agent.reset()
     env.reset()
 
+    center = input("Press Y to send robot back to 0,0,0")
+    if center == "y" or center == "Y":
+        env.robot.nav.navigate_to(np.zeros(3), relative=False, blocking=True)
     t = 0
+    grip = input("Y to close gripper")
+    if grip == "y" or grip == "Y":
+        env.robot.switch_to_manipulation_mode()
+        env.robot.manip.close_gripper()
+        env.robot.switch_to_navigation_mode()
     while not agent.task_is_done():
         t += 1
         print("TIMESTEP = ", t)

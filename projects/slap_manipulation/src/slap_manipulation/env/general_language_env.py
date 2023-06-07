@@ -140,6 +140,10 @@ class GeneralLanguageEnv(StretchPickandPlaceEnv):
                 continuous_action = None
                 if not self.robot.in_navigation_mode():
                     self._switch_to_nav_mode()
+                    print("[GeneralLanguageEnv] Sending robot to 0,0,0")
+                    self.robot.nav.navigate_to(
+                        np.zeros(3), relative=False, blocking=True
+                    )
                 continuous_action = None
             elif action == DiscreteNavigationAction.PICK_OBJECT:
                 print("[ENV] Discrete pick policy")

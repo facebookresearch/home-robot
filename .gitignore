@@ -41,6 +41,7 @@ data/*
 # used by habitat for object info
 *.json
 *.png
+*.npz
 
 # Detic model files
 *.pth
