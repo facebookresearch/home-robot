@@ -176,6 +176,22 @@ class GeneralLanguageAgent(PickAndPlaceAgent):
                     "self.goto(['table'], obs)",
                     "self.place(['table'], obs)",
                 ],
+                3: [
+                    "self.goto(['drawer', 'drawer handle'], obs)",
+                    "self.open_object(['drawer handle',], obs)",
+                    "self.goto(['drawer', 'cup'], obs)",
+                    "self.pick_up(['cup'], obs)",
+                    "self.goto(['person'], obs)",
+                    "self.handover(['person'], obs)",
+                ],
+                4: [
+                    "self.goto(['cup'], obs)",
+                    "self.pick_up(['cup'], obs)",
+                    "self.goto(['bowl'], obs)",
+                    "self.pour_into_bowl(['bowl'], obs)",
+                    "self.goto(['table'], obs)",
+                    "self.place(['table'], obs)",
+                ],
             }
         else:
             self.task_defs = {
