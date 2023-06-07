@@ -204,6 +204,7 @@ class PPOAgent(Agent):
             self.min_joint_delta = skill_config.min_joint_delta
         if "manipulation_mode" in skill_config.allowed_actions:
             self.manip_mode_threshold = skill_config.manip_mode_threshold
+            self.constraint_base_in_manip_mode = skill_config.constraint_base_in_manip_mode
         self.terminate_condition = skill_config.terminate_condition
         self.manip_mode_called = False
         self.skill_start_gps = None
@@ -433,6 +434,10 @@ class PPOAgent(Agent):
             if np.abs(absolute_turn) < self.min_turn:
                 absolute_turn = 0
             xyt = np.array([0, 0, absolute_turn])  # turn
+
+        if self.manip_mode_called and self.constraint_base_in_manip_mode:
+            xyt = np.array([0, 0, 0])
+
         joints = None
         # Map policy controlled arm_action to complete arm_action space
         if "arm_action" in cont_action:

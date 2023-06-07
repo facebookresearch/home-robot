@@ -143,12 +143,12 @@ AGENT:
 
     PLACE:
       type: rl # "rl" or "heuristic" or "hardcoded"
-      checkpoint_path: data/checkpoints/ovmm/May31/cat_place_kill__before_20_785_tilt_200m_may31.pth 
+      checkpoint_path: data/checkpoints/ovmm/May31/cat_place_kill__before_20_785_tilt_200m_may31.pth
       rl_config: projects/habitat_ovmm/configs/agent/place_rl.yaml # with continuous actions
       gym_obs_keys:
         - robot_head_depth
-        - joint
         - goal_receptacle
+        - joint
         - goal_recep_segmentation
         - is_holding
         - object_embedding
@@ -167,6 +167,7 @@ AGENT:
       terminate_condition: ungrip
       grip_threshold: -0.8
       manip_mode_threshold: 0.8
+      constraint_base_in_manip_mode: True
       max_joint_delta: 0.1
       min_joint_delta: 0.02
 
