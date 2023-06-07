@@ -326,7 +326,7 @@ class OpenVocabManipAgent(ObjectNavAgent):
     def _rl_place(self, obs: Observations, info: Dict[str, Any]):
         place_step = self.timesteps[0] - self.place_start_step[0]
         if place_step == 0:
-            action = DiscreteNavigationAction.NAVIGATION_MODE
+            action = DiscreteNavigationAction.POST_NAV_MODE
         elif self.place_done[0] == 1:
             action = DiscreteNavigationAction.STOP
             self.place_done[0] = 0
