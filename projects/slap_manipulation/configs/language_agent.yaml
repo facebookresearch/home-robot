@@ -268,3 +268,9 @@ TASKS:
   - pour-into-sink
   - sweep-table-with-brush
 
+
+EVAL:
+  task-name: take-bottle
+  object-list:
+    - bottle
+  num-keypoints: 4

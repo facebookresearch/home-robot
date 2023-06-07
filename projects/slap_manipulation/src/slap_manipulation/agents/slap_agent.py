@@ -55,6 +55,13 @@ class SLAPAgent(object):
             self.interaction_prediction_module = InteractionPredictionModule()
             self.action_prediction_module = ActionPredictionModule(cfg.SLAP.APM)
 
+    def get_goal_info(self):
+        info = {}
+        info["task-name"] = self.cfg.EVAL.task_name
+        info["object_list"] = self.cfg.EVAL.object_list
+        info["num-actions"] = self.cfg.EVAL.num_keypoints
+        return info
+
     def load_models(self):
         self.interaction_prediction_module.load_weights(self.cfg.SLAP.IPM.path)
         self.interaction_prediction_module.to(self.device)
