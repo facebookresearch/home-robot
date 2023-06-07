@@ -43,8 +43,8 @@ class GpsVizualizer:
         """
         Render a point on the map
         """
-        x = int(point[0] * self._scaling_factor + self._resolution / 2)
-        y = int(-point[1] * self._scaling_factor + self._resolution / 2)
+        x = int(point[0] * self._scaling_factor + self._resolution[0] / 2)
+        y = int(-point[1] * self._scaling_factor + self._resolution[1] / 2)
         cv2.circle(self._map, (x, y), 3, color, -1)
 
     def visualize(self, gps, action):
