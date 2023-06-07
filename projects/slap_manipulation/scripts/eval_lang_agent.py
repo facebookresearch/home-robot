@@ -29,7 +29,9 @@ def main(task_id, test_pick=False, dry_run=False, testing=False, **kwargs):
         dry_run=dry_run,
         segmentation_method="detic",
     )
-    agent = GeneralLanguageAgent(cfg=config, debug=True, skip_gaze=True)
+    agent = GeneralLanguageAgent(
+        cfg=config, debug=True, task_id=task_id, skip_gaze=True
+    )
     # robot = env.get_robot()
 
     agent.reset()

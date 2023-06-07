@@ -318,13 +318,13 @@ class ActionPredictionModule(torch.nn.Module):
     def set_working_dir(self, path):
         self._save_dir = path
 
-    def setup_training(self):
-        # get today's date
-        date_time = datetime.datetime.now().strftime("%Y-%m-%d_%H-%M")
-        folder_name = self.name + "_" + date_time
-        # append folder name to current working dir
-        path = os.path.join(os.getcwd(), folder_name)
-        self._save_dir = path
+    # def setup_training(self):
+    #     # get today's date
+    #     date_time = datetime.datetime.now().strftime("%Y-%m-%d_%H-%M")
+    #     folder_name = self.name + "_" + date_time
+    #     # append folder name to current working dir
+    #     path = os.path.join(os.getcwd(), folder_name)
+    #     self._save_dir = path
 
     def get_optimizer(self):
         """optimizer config"""
@@ -745,7 +745,7 @@ class ActionPredictionModule(torch.nn.Module):
             ori_loss /= 3
             gripper_loss /= 3
             task_name = batch["cmd"][0]
-            if "handover" in task_name:
+            if "handover" in task_name or "pour" in task_name or "open-object":
                 loss = (
                     self.handover_pos_wt * pos_loss
                     + self.handover_ori_wt * ori_loss
@@ -1119,7 +1119,7 @@ class ActionPredictionModule(torch.nn.Module):
 )
 def main(cfg):
     hydra_cfg = hydra.core.hydra_config.HydraConfig.get()
-    hydra_output_dir = hydra_cfg['runtime']['output_dir']
+    hydra_output_dir = hydra_cfg["runtime"]["output_dir"]
     # Speed up training by configuring the number of workers
     num_workers = 8 if not cfg.debug else 0
     B = 1

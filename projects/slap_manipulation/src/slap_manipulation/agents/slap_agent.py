@@ -1,3 +1,5 @@
+import datetime
+import os
 from typing import Any, Dict
 
 import numpy as np
@@ -26,7 +28,9 @@ class SLAPAgent(object):
     to predict actions given a language instruction
     """
 
-    def __init__(self, cfg, device="cuda"):
+    def __init__(self, cfg, device="cuda", task_id: int = -1):
+        self.task_id = task_id
+        print("[SLAPAgent]: task_id = ", task_id)
         self._dry_run = cfg.SLAP.dry_run
         self.interaction_point = None
         self.cfg = cfg
@@ -237,6 +241,7 @@ class SLAPAgent(object):
     def predict(self, obs, ipm_only=False):
         info = {}
         action = None
+        dt = datetime.datetime.now().strftime("%d_%m_%H:%M:%S")
         if self.interaction_point is None:
             if not self._dry_run:
                 self.ipm_input = self.create_interaction_prediction_input_from_obs(
@@ -269,6 +274,21 @@ class SLAPAgent(object):
                     top_xyz + self.ipm_input["mean"].detach().cpu().numpy()
                 )
                 info["top_rgb"] = top_rgb.detach().cpu().numpy()
+                semantic_mask = obs.task_observations["semantic_frame"]
+                filename = os.path.join(
+                    os.getcwd(),
+                    str(self.task_id)
+                    + f"_ipm_{dt}_"
+                    + obs.task_observations["task-name"]
+                    + "_".join(obs.task_observations["object_list"])
+                    + ".npz",
+                )
+                np.savez(
+                    filename,
+                    top_xyz=info["top_xyz"],
+                    top_rgb=info["top_rgb"],
+                    semantic_mask=semantic_mask,
+                )
             else:
                 print("[SLAP] Predicting interaction point")
                 self.interaction_point = np.random.rand(3)
@@ -289,6 +309,15 @@ class SLAPAgent(object):
                 .numpy()
                 .reshape(1, 3)
             )
+            filename = os.path.join(
+                os.getcwd(),
+                str(self.task_id)
+                + f"_apm_{dt}_"
+                + obs.task_observations["task-name"]
+                + "_".join(obs.task_observations["object_list"])
+                + ".npz",
+            )
+            np.savez(filename, pred_action=action)
             print(f"[SLAP] Predicted action: {action}")
         return action, info
 
