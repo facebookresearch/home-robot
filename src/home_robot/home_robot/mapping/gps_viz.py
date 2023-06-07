@@ -17,7 +17,7 @@ class GpsVizualizer:
             (self._resolution[0], self._resolution[1], 3), 255, dtype=np.uint8
         )
         self._poses = [(0, 0)]
-        self._gt_poses = [(0, 0)]
+        self._gt_poses = [(0, 0, 0)]
 
     def _get_cur_gt_pose(self, prev_gt_pose, action):
         """
