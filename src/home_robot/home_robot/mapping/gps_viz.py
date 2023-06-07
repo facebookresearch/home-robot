@@ -62,3 +62,6 @@ class GpsVizualizer:
         self._render_point(self._gt_poses[-1][:2], (0, 255, 255))
         self._gt_poses.append(gt_pose)
         self._render_point(gt_pose[:2], (0, 255, 0))
+
+        cv2.imshow("GPS drift", self._map)
+        cv2.waitKey(1)
