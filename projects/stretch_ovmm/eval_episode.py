@@ -23,6 +23,7 @@ from home_robot_hw.utils.config import load_config
 @click.option(
     "--cat-map-file", default="projects/stretch_ovmm/configs/example_cat_map.json"
 )
+@click.option("--max-num-steps", default=200)
 @click.option("--visualize-maps", default=False, is_flag=True)
 @click.option("--visualize-grasping", default=False, is_flag=True)
 @click.option(
@@ -42,6 +43,7 @@ def main(
     visualize_grasping=False,
     test_place=False,
     cat_map_file=None,
+    max_num_steps=200,
     **kwargs,
 ):
     print("- Starting ROS node")
@@ -80,6 +82,9 @@ def main(
         done = env.apply_action(action, info=info, prev_obs=obs)
         if done:
             print("Done.")
+            break
+        elif t >= max_num_steps:
+            print("Reached maximum step limit.")
             break
 
     print("Metrics:", env.get_episode_metrics())
