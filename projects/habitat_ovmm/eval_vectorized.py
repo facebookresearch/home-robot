@@ -25,11 +25,11 @@ from habitat.core.vector_env import VectorEnv
 from habitat.utils.gym_definitions import _get_env_name
 from habitat_baselines.rl.ppo.ppo_trainer import PPOTrainer
 
+from home_robot.agent.ovmm_agent.llm_agent import LLMAgent
 from home_robot.agent.ovmm_agent.ovmm_agent import OpenVocabManipAgent
 from home_robot_sim.env.habitat_ovmm_env.habitat_ovmm_env import (
     HabitatOpenVocabManipEnv,
 )
-from home_robot.agent.ovmm_agent.llm_agent import LLMAgent
 
 
 def create_ovmm_env_fn(config):
