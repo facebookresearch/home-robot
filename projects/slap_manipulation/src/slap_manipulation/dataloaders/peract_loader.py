@@ -174,12 +174,12 @@ class PerActRobotDataset(RobotDataset):
             trans_action_indices.append(trans_action_index)
             grip_rot_action_indices.append(grip_rot_action_index)
             ignore_colls.append(ignore_coll)
-            gripper_states.append(gripper_state)
+            gripper_states.append(gripper_state.unsqueeze(0))
             attention_coords.append(attention_coord)
         trans_action_indices = torch.cat(trans_action_indices)
         grip_rot_action_indices = torch.cat(grip_rot_action_indices)
         ignore_colls = torch.cat(ignore_colls)
-        gripper_states = torch.cat(gripper_states)
+        gripper_states = torch.cat(gripper_states, dim=0)
         attention_coords = torch.cat(attention_coords)
 
         # # add discretized signal to dictionary
@@ -191,6 +191,7 @@ class PerActRobotDataset(RobotDataset):
                 "rot_grip_action_indices": grip_rot_action_indices,
                 "ignore_collisions": ignore_colls,
                 "gripper_pose": gripper_pose,
+                "gripper_states": gripper_states,
                 "attention_coords": attention_coords,
             }
         )
@@ -277,10 +278,8 @@ class PerActRobotDataset(RobotDataset):
             torch.Tensor([trans_indices]),
             torch.Tensor([rot_and_grip_indices]),
             torch.Tensor([ignore_collisions]),
-            torch.Tensor(
-                np.concatenate(
-                    [gripper_width, np.array([grip], np.array([time_index]))]
-                )
+            torch.cat(
+                    (gripper_width, torch.FloatTensor([grip, time_index]))
             ),
             torch.Tensor(attention_coordinate).unsqueeze(0),
         )
