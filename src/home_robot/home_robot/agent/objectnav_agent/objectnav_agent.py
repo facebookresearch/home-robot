@@ -387,6 +387,7 @@ class ObjectNavAgent(Agent):
                 obs.task_observations["end_recep_goal"]
             ).unsqueeze(0)
         goal_name = [obs.task_observations["goal_name"]]
+        print("[ObjectNav] Goal name: ", goal_name)
 
         camera_pose = obs.camera_pose
         if camera_pose is not None:
