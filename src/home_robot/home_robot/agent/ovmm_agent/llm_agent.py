@@ -56,7 +56,7 @@ class LLMAgent(OpenVocabManipAgent):
     def show_image(self, rgb):
         """Simple helper function to save images"""
         im = Image.fromarray(rgb)
-        im.save("test.png")
+        im.save("datadump/test.png")
 
     def _update_memory(self, obs):
         text = clip.tokenize(self.object_names).to(self.device)
@@ -163,6 +163,6 @@ class LLMAgent(OpenVocabManipAgent):
         if any(ele in obs.semantic for ele in self.object_of_interest):
             print(f'Update robot memory at timestep {self.timesteps[0]}')
             self._update_memory(obs)
-            with open("memory_data.json", 'w') as json_file:
+            with open("datadump/memory_data.json", 'w') as json_file:
                 json.dump(self.memory, json_file)
         return super().act(obs)
