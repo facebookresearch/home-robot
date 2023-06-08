@@ -25,7 +25,6 @@ from habitat.core.vector_env import VectorEnv
 from habitat.utils.gym_definitions import _get_env_name
 from habitat_baselines.rl.ppo.ppo_trainer import PPOTrainer
 
-from home_robot.agent.ovmm_agent.llm_agent import LLMAgent
 from home_robot.agent.ovmm_agent.ovmm_agent import OpenVocabManipAgent
 from home_robot_sim.env.habitat_ovmm_env.habitat_ovmm_env import (
     HabitatOpenVocabManipEnv,
@@ -72,8 +71,7 @@ class VectorizedEvaluator(PPOTrainer):
         self._init_envs(
             config=self.config, is_eval=True, make_env_fn=create_ovmm_env_fn
         )
-        # agent = OpenVocabManipAgent(
-        agent = LLMAgent(
+        agent = OpenVocabManipAgent(
             config=self.config,
             obs_spaces=self.envs.observation_spaces,
             action_spaces=self.envs.orig_action_spaces,
