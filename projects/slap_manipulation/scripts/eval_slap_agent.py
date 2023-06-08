@@ -1,6 +1,7 @@
 import click
 import numpy as np
 import rospy
+import trimesh.transformations as tra
 from slap_manipulation.agents.slap_agent import SLAPAgent
 from slap_manipulation.env.general_language_env import GeneralLanguageEnv
 
@@ -16,9 +17,9 @@ def main(task_id, **kwargs):
         config_path="projects/slap_manipulation/configs/language_agent.yaml",
         **kwargs
     )
-    if config.model_type == "slap":
-        rospy.init_node("eval_slap")
-        agent = SLAPAgent(config, task_id)
+    rospy.init_node("eval_slap")
+    agent = SLAPAgent(config, task_id=task_id)
+    agent.load_models()
 
     env = GeneralLanguageEnv(
         config=config,
@@ -30,8 +31,17 @@ def main(task_id, **kwargs):
 
     goal_info = agent.get_goal_info()
     env.set_goal(goal_info)
+    if not env.robot.in_manipulation_mode():
+        env._switch_to_manip_mode(grasp_only=True, pre_demo_pose=True)
+        env.robot.manip.open_gripper()
+    res = input("Press Y/y to close the gripper")
+    if res == "y" or res == "Y":
+        env.robot.manip.close_gripper()
+        rospy.sleep(7.0)
     obs = env.get_observation()
     obs.task_observations.update(goal_info)
+    camera_pose = obs.task_observations["base_camera_pose"]
+    obs.xyz = tra.transform_points(obs.xyz.reshape(-1, 3), camera_pose)
     result, info = agent.predict(obs)
     if result is not None:
         action = ContinuousEndEffectorAction(
@@ -42,3 +52,7 @@ def main(task_id, **kwargs):
             np.random.rand(1, 3), np.random.rand(1, 4), np.random.rand(1, 1)
         )
     env.apply_action(action, info=info)
+
+
+if __name__ == "__main__":
+    main()

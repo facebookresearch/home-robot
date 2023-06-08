@@ -50,10 +50,6 @@ class SLAPAgent(object):
             )
         else:
             self.skill_to_action = None
-        if not self._dry_run:
-            # pass cfg parameters to IPM and APM
-            self.interaction_prediction_module = InteractionPredictionModule()
-            self.action_prediction_module = ActionPredictionModule(cfg.SLAP.APM)
 
     def get_goal_info(self):
         info = {}
@@ -63,6 +59,8 @@ class SLAPAgent(object):
         return info
 
     def load_models(self):
+        self.interaction_prediction_module = InteractionPredictionModule()
+        self.action_prediction_module = ActionPredictionModule(self.cfg.SLAP.APM)
         self.interaction_prediction_module.load_weights(self.cfg.SLAP.IPM.path)
         self.interaction_prediction_module.to(self.device)
         self.action_prediction_module.load_weights(self.cfg.SLAP.APM.path)

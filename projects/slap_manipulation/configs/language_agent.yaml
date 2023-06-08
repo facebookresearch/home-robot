@@ -22,6 +22,15 @@ ENVIRONMENT:
 CORLAGENT:
   gt_run: True
 
+PERACT:
+  scene_bounds:
+    - -0.5
+    - -0.5
+    - -0.5
+    - 0.5
+    - 0.5
+    - 0.5
+
 AGENT:
   max_steps: 500          # maximum number of steps before stopping an episode
   panorama_start: 1       # 1: turn around 360 degrees when starting an episode, 0: don't
@@ -124,7 +133,8 @@ SLAP:
     load: False
     max_actions: 6
     # path: data/checkpoints/corl/apm.pth
-    path: projects/slap_manipulation/outputs/2023-06-06/17-31-38/best_action_predictor_corl_experiment.pth
+    # path: projects/slap_manipulation/outputs/2023-06-06/17-31-38/best_action_predictor_corl_experiment.pth
+    path: data/checkpoints/corl/apm_w_fixed_pour.pth
 
     num_pts: 8000
     orientation_type: "quaternion"  # change orientation_dim when you change this
@@ -270,7 +280,7 @@ TASKS:
 
 
 EVAL:
-  task-name: take-bottle
-  object-list:
-    - bottle
-  num-keypoints: 4
+  task_name: pour-into-bowl
+  object_list:
+    - bowl
+  num_keypoints: 4

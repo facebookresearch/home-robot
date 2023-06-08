@@ -37,38 +37,78 @@ class CombinedSLAPPlanner(object):
         self._robot_max_grasp = 0  # 0.13, empirically found
         self.mode = "open"
 
-    def linear_interpolation(self, waypoints, gripper_action, num_points_per_segment=3):
+    def linear_interpolation(self, waypoints, grippers, num_points_per_segment=3):
         num_waypoints = len(waypoints)
         num_segments = num_waypoints - 1
 
         interpolated_trajectory = []
-        interpolated_gripper_action = []
+        interpolated_gripper = []
+        end_pose_added = False
 
         for i in range(num_segments):
             start_pose = waypoints[i]
             end_pose = waypoints[i + 1]
             end_pose_added = False
 
-            # only interpolate between two poses if dist > 2cm
-            dist = np.linalg.norm(start_pose - end_pose)
-            if dist > 0.02:
-                # adaptive number of segments, take floor of dist / 2.5cm
-                num_points_per_segment = int(np.floor(dist / 0.025))
-                for t in np.linspace(0, 1, num_points_per_segment):
-                    interpolated_pose = (1 - t) * start_pose + t * end_pose
-                    interpolated_trajectory.append(interpolated_pose)
-                    interpolated_gripper_action.append(gripper_action[i])
-                end_pose_added = True
-            else:
-                interpolated_trajectory.append(start_pose)
-                interpolated_gripper_action.append(gripper_action[i])
-        if not end_pose_added:
-            interpolated_trajectory.append(end_pose)
-            interpolated_gripper_action.append(gripper_action[-1])
+            spaced_idx = np.linspace(0, 1, num_points_per_segment)
+            for t in spaced_idx:
+                interpolated_pose = start_pose
+                # interpolated_pose[:3, 3] = (1 - t) * start_pose[:3, 3] + t * end_pose[
+                #     :3, 3
+                # ]
+                interpolated_pose = (1 - t) * start_pose + t * end_pose
+                interpolated_trajectory.append(interpolated_pose)
+                if t == 1:
+                    interpolated_gripper.append(grippers[i + 1])
+                else:
+                    interpolated_gripper.append(grippers[i])
         interpolated_trajectory = np.array(interpolated_trajectory)
-        interpolated_gripper_action = np.array(interpolated_gripper_action)
+        interpolated_gripper = np.array(interpolated_gripper)
 
-        return interpolated_trajectory, interpolated_gripper_action
+        return interpolated_trajectory, interpolated_gripper
+
+    # def linear_interpolation(self, waypoints, gripper_action, num_points_per_segment=3):
+    #     num_waypoints = len(waypoints)
+    #     num_segments = num_waypoints - 1
+    #
+    #     interpolated_trajectory = []
+    #     end_pose_added = False
+    #     # interpolated_gripper_action = []
+    #
+    #     for i in range(num_segments):
+    #         start_pose = waypoints[i]
+    #         end_pose = waypoints[i + 1]
+    #         end_pose_added = False
+    #
+    #         # only interpolate between two poses if dist > 2cm
+    #         # dist = np.linalg.norm(start_pose - end_pose)
+    #         # if dist > 0.02:
+    #         # adaptive number of segments, take floor of dist / 2.5cm
+    #         # sub_segments = int(np.floor(dist/0.025)) - 2
+    #         # num_points_per_segment = int(np.floor(dist / 0.025)) - 2
+    #         spaced_idx = np.linspace(0, 1, num_points_per_segment)
+    #         for t in spaced_idx:
+    #             interpolated_pose = start_pose
+    #             interpolated_pose[:3, 3] = (1 - t) * start_pose[:3, 3] + t * end_pose[:3, 3]
+    #             interpolated_trajectory.append(interpolated_pose)
+    #             if t == 1:
+    #                 end_pose_added = True
+    #     #         if t < spaced_idx[-1]:
+    #     #             interpolated_gripper_action.append(gripper_action[i])
+    #     #         else:
+    #     #             interpolated_gripper_action.append(gripper_action[i + 1])
+    #     #             end_pose_added = True
+    #     # else:
+    #     #     interpolated_trajectory.append(start_pose)
+    #     #     interpolated_gripper_action.append(gripper_action[i])
+    #     # # if not end_pose_added:
+    #     if not end_pose_added:
+    #         interpolated_trajectory.append(end_pose)
+    #     # #     interpolated_gripper_action.append(gripper_action[-1])
+    #     interpolated_trajectory = np.array(interpolated_trajectory)
+    #     # interpolated_gripper_action = np.array(interpolated_gripper_action)
+    #
+    #     return interpolated_trajectory  # , interpolated_gripper_action
 
     def plan_for_skill(
         self, actions_pose_mat: np.ndarray, action_gripper: np.ndarray
@@ -78,18 +118,18 @@ class CombinedSLAPPlanner(object):
         # grasp_pos, grasp_quat = to_pos_quat(grasp)
         self.robot.switch_to_manipulation_mode()
         trajectory = []
-        num_pts_per_segment = 8
+        num_pts_per_segment = 4
 
         # TODO: add skill-specific standoffs from 0th action
         joint_pos_pre = self.robot.manip.get_joint_positions()
 
         # smoothen trajectory via linear interpolation
-        # action_gripper = np.repeat(action_gripper, num_pts_per_segment)
         actions_pose_mat, action_gripper = self.linear_interpolation(
             actions_pose_mat,
             action_gripper,
             num_points_per_segment=num_pts_per_segment,
         )
+        assert len(actions_pose_mat) == len(action_gripper)
 
         # 1st bring the ee up to the height of 1st action
         begin_pose = self.robot.manip.get_ee_pose()

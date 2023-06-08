@@ -75,7 +75,7 @@ class GeneralLanguageEnv(StretchPickandPlaceEnv):
             self.current_goal_id = 1
             self.current_goal_name = info["object_list"][0]
 
-    def _switch_to_manip_mode(self, grasp_only=False):
+    def _switch_to_manip_mode(self, grasp_only=False, pre_demo_pose=False):
         """Rotate the robot and put it in the right configuration for grasping"""
 
         # We switch to navigation mode in order to rotate by 90 degrees
@@ -85,7 +85,10 @@ class GeneralLanguageEnv(StretchPickandPlaceEnv):
         # Dummy out robot execution code for perception tests
         # Also do not rotate if you are just doing grasp testing
         if grasp_only:
-            self.robot.move_to_manip_posture()
+            if pre_demo_pose:
+                self.robot.move_to_pre_demo_posture()
+            else:
+                self.robot.move_to_manip_posture()
             return
         if not self.dry_run and not self.test_grasping:
             print("[ENV] Rotating robot")
