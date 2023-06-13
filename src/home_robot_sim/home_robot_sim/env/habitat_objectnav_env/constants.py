@@ -61,6 +61,18 @@ class SemanticCategoryMapping(ABC):
         pass
 
 
+class PaletteIndices:
+    EMPTY_SPACE = 0
+    OBSTACLES = 1
+    EXPLORED = 2
+    VISITED = 3
+    CLOSEST_GOAL = 4
+    REST_OF_GOAL = 5
+    BEEN_CLOSE = 6
+    SHORT_TERM_GOAL = 7
+    SEM_START = 8
+
+
 # ----------------------------------------------------
 # COCO Indoor Categories
 # ----------------------------------------------------
@@ -271,6 +283,96 @@ class HM3DtoCOCOIndoor(SemanticCategoryMapping):
         return 16
 
 
+languagenav_2categories_indexes = {
+    1: "target",
+    2: "landmark",
+}
+
+languagenav_2categories_padded = (
+    ["."] + [languagenav_2categories_indexes[i] for i in range(1, 3)] + ["other"]
+)
+
+languagenav_2categories_legend_path = str(
+    Path(__file__).resolve().parent / "rearrange_3categories_legend.png"
+)
+
+languagenav_2categories_color_palette = [255, 255, 255] + list(
+    d3_40_colors_rgb[1:3].flatten()
+)
+languagenav_2categories_frame_color_palette = languagenav_2categories_color_palette + [
+    255,
+    255,
+    255,
+]
+
+languagenav_2categories_map_color_palette = [
+    int(x * 255.0)
+    for x in [
+        1.0,
+        1.0,
+        1.0,  # empty space
+        0.6,
+        0.6,
+        0.6,  # obstacles
+        0.95,
+        0.95,
+        0.95,  # explored area
+        0.96,
+        0.36,
+        0.26,  # visited area
+        0.12,
+        0.46,
+        0.70,  # closest goal
+        0.63,
+        0.78,
+        0.95,  # rest of goal
+        0.6,
+        0.87,
+        0.54,  # been close map
+        0.0,
+        1.0,
+        0.0,  # short term goal
+        *[x / 255.0 for x in languagenav_2categories_color_palette],
+    ]
+]
+
+
+class LanguageNavCategories(SemanticCategoryMapping):
+    def __init__(self):
+        super().__init__()
+        self.goal_id_to_goal_name = languagenav_2categories_indexes
+        self._instance_id_to_category_id = None
+
+    def map_goal_id(self, goal_id: int) -> Tuple[int, str]:
+        return (goal_id, self.goal_id_to_goal_name[goal_id])
+
+    def reset_instance_id_to_category_id(self, env: Env):
+        # Identity everywhere except index 0 mapped to 4
+        self._instance_id_to_category_id = np.arange(self.num_sem_categories)
+        self._instance_id_to_category_id[0] = self.num_sem_categories - 1
+
+    @property
+    def instance_id_to_category_id(self) -> np.ndarray:
+        return self._instance_id_to_category_id
+
+    @property
+    def map_color_palette(self):
+        return languagenav_2categories_map_color_palette
+
+    @property
+    def frame_color_palette(self):
+        return languagenav_2categories_frame_color_palette
+
+    @property
+    def categories_legend_path(self):
+        return languagenav_2categories_legend_path
+
+    @property
+    def num_sem_categories(self):
+        # 0 is unused, 1 is object category, 2 is start receptacle category, 3 is goal receptacle category, 4 is "other/misc"
+        return 4
+
+
 rearrange_3categories_indexes = {
     1: "object",
     2: "start_receptacle",
@@ -293,18 +395,6 @@ rearrange_3categories_frame_color_palette = rearrange_3categories_color_palette 
     255,
     255,
 ]
-
-
-class PaletteIndices:
-    EMPTY_SPACE = 0
-    OBSTACLES = 1
-    EXPLORED = 2
-    VISITED = 3
-    CLOSEST_GOAL = 4
-    REST_OF_GOAL = 5
-    BEEN_CLOSE = 6
-    SHORT_TERM_GOAL = 7
-    SEM_START = 8
 
 
 rearrange_3categories_map_color_palette = [
