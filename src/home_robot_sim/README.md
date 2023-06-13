@@ -165,7 +165,8 @@ export HABITAT_SIM_LOG=quiet
 set -x
 python -u -m habitat_baselines.run \
    --exp-config habitat-baselines/habitat_baselines/config/rearrange/rl_skill.yaml \
-   --run-type train benchmark/rearrange=<skill_name>
+   --run-type train benchmark/rearrange=<skill_name> \
+   habitat_baselines.checkpoint_folder=data/new_checkpoints/ovmm/<skill_name>
 ```
 Here `<skill_name>` should be one of `cat_gaze`, `cat_place`, `cat_nav_to_obj` or `cat_nav_to_rec`.
 
@@ -190,7 +191,8 @@ export HABITAT_SIM_LOG=quiet
 set -x
 python -u -m habitat_baselines.run \
    --exp-config habitat-baselines/habitat_baselines/config/rearrange/rl_skill.yaml \
-   --run-type train benchmark/rearrange=<skill_name>
+   --run-type train benchmark/rearrange=<skill_name> \
+   habitat_baselines.checkpoint_folder=data/new_checkpoints/ovmm/<skill_name>
 ```
 
 
