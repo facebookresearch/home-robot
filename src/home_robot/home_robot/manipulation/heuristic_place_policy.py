@@ -57,7 +57,7 @@ class HeuristicPlacePolicy(nn.Module):
         obs: Observations,
         vis_inputs: Optional[Dict] = None,
         arm_reachability_check: bool = False,
-        visualize: bool = True,
+        visualize: bool = False,
     ):
         """
         Compute placement point in 3d space.
