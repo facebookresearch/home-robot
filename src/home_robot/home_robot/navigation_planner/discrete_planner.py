@@ -245,7 +245,6 @@ class DiscretePlanner:
 
         # We were not able to find a path to the high-level goal
         if replan and not stop:
-
             # Clean collision map
             self.collision_map *= 0
             # Reduce obstacle dilation
@@ -286,7 +285,12 @@ class DiscretePlanner:
                     print("Nowhere left to explore. Stopping.")
                     # Calling the STOP action here will cause the agent to try grasping
                     #  TODO separate out STOP_SUCCESS and STOP_FAILURE actions
-                    return DiscreteNavigationAction.STOP, closest_goal_map, short_term_goal, dilated_obstacles
+                    return (
+                        DiscreteNavigationAction.STOP,
+                        closest_goal_map,
+                        short_term_goal,
+                        dilated_obstacles,
+                    )
 
         # Normalize agent angle
         angle_agent = pu.normalize_angle(start_o)
