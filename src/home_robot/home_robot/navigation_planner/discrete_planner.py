@@ -282,11 +282,11 @@ class DiscretePlanner:
                     print("--- after replanning to frontier ---")
                     print("goal =", short_term_goal)
                 found_goal = False
-                # if replan:
-                #     print("Nowhere left to explore. Stopping.")
-                #     # TODO Calling the STOP action here will cause the agent to try grasping
-                #     #   we need different STOP_SUCCESS and STOP_FAILURE actions
-                #     return DiscreteNavigationAction.STOP, goal_map, short_term_goal, dilated_obstacles
+                if replan:
+                    print("Nowhere left to explore. Stopping.")
+                    # Calling the STOP action here will cause the agent to try grasping
+                    #  TODO separate out STOP_SUCCESS and STOP_FAILURE actions
+                    return DiscreteNavigationAction.STOP, closest_goal_map, short_term_goal, dilated_obstacles
 
         # Normalize agent angle
         angle_agent = pu.normalize_angle(start_o)
