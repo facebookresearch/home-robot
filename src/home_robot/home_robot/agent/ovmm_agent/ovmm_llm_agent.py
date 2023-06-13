@@ -2,6 +2,7 @@
 # -*- coding: utf-8 -*-
 
 import json
+import warnings
 from enum import IntEnum, auto
 from typing import Any, Dict, Optional, Tuple
 
@@ -33,10 +34,13 @@ def get_skill_as_one_hot_dict(curr_skill: Skill):
     return skill_dict
 
 
-class LLMAgent(OpenVocabManipAgent):
+class OvmmLLMAgent(OpenVocabManipAgent):
     """Simple object nav agent based on a 2D semantic map."""
 
     def __init__(self, config, device_id: int = 0, obs_spaces=None, action_spaces=None):
+        warnings.warn(
+            "ovmm-llm agent is currently under development and not fully supported yet."
+        )
         super().__init__(config, device_id=device_id)
 
         self.device = "cuda" if torch.cuda.is_available() else "cpu"
@@ -50,10 +54,10 @@ class LLMAgent(OpenVocabManipAgent):
 
         self.memory = {}
 
-    def _save_image(self, rgb):
+    def _save_image(self, rgb, filename):
         """Simple helper function to save images for debug"""
         im = Image.fromarray(rgb)
-        im.save("datadump/test.png")
+        im.save("datadump/" + filename)
 
     def _update_memory(self, obs):
         text = clip.tokenize(self.object_names).to(self.device)
@@ -86,7 +90,7 @@ class LLMAgent(OpenVocabManipAgent):
                 print(probs)
                 if np.max(probs) > self.clip_threshold:
                     # if True:
-                    self._save_image(image_arr)
+                    self._save_image(image_arr, "detected_object.png")
                     print(self.object_names[np.argmax(probs)])
                     print("Label probs:", probs)
 
@@ -94,15 +98,14 @@ class LLMAgent(OpenVocabManipAgent):
                         image_features.squeeze(0).tolist()
                     )
 
-            # self.memory.append(image_features.squeeze(0))
-
     def _segment_goal(self, obs, object_id):
+        """Return a segmented object image from specified by the object category based on GT semantics."""
         segmented_rgb = np.zeros(obs.rgb.shape, dtype=np.uint8)
-        min_h = obs.rgb.shape[0]
-        min_w = obs.rgb.shape[1]
-        max_h = 0
-        max_w = 0
 
+        min_h, min_w = obs.rgb.shape[:2]
+        max_h = max_w = 0
+
+        # crop the segmented object out from the obs frame by identifying the edges
         for i, ele in np.ndenumerate(obs.semantic):
             if ele == object_id:
                 segmented_rgb[i] = obs.rgb[i]
@@ -114,7 +117,6 @@ class LLMAgent(OpenVocabManipAgent):
                     max_h = i[0]
                 if i[1] > max_w:
                     max_w = i[1]
-
         cropped = np.zeros(
             (max_h - min_h, max_w - min_w, obs.rgb.shape[2]), dtype=np.uint8
         )
@@ -123,29 +125,15 @@ class LLMAgent(OpenVocabManipAgent):
                 cropped[h, w] = segmented_rgb[h + min_h, w + min_w]
         return cropped
 
-    #      def _is_object_perceived(self, obs):
-    #      # now using GT segments
-    #      # object_id = obs.task_observations['object_goal']
-    #      for object_id in self.object_of_interest:
-    #          if object_id not in self.goal_obs: self.goal_obs[object_id] = None
-    #          if object_id in obs.semantic:
-    #              num_goal_pixels = self._get_num_goal_pixels(obs, object_id)
-    #              if num_goal_pixels > self._get_num_goal_pixels(
-    #                      self.goal_obs[object_id], object_id):
-    #                  self.goal_obs[object_id] = obs
-    #          elif self.goal_obs[object_id]:
-    #              return True
-    #      return False
-    #
-
     def _get_num_goal_pixels(self, obs, object_id):
-        count = 0
+        """Get the number of visible pixels of the object in the current frame"""
+        count_pixels = 0
         if not obs:
-            return count
-        for i, ele in np.ndenumerate(obs.semantic):
-            if ele == object_id:
-                count += 1
-        return count
+            return count_pixels
+        for i, category in np.ndenumerate(obs.semantic):
+            if category == object_id:
+                count_pixels += 1
+        return count_pixels
 
     def act(self, obs: Observations) -> Tuple[DiscreteNavigationAction, Dict[str, Any]]:
         """State machine"""
@@ -160,7 +148,6 @@ class LLMAgent(OpenVocabManipAgent):
         if self.object_names is None:
             self.object_names = obs.task_observations["goal_name"].split(" ")
 
-        # if self._is_object_perceived(obs):
         self.memory[self.timesteps[0]] = {"clip_features": [], "is_found": False}
         if any(ele in obs.semantic for ele in self.object_of_interest):
             print(f"Update robot memory at timestep {self.timesteps[0]}")

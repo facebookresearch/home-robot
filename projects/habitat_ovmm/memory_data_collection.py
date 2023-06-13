@@ -26,8 +26,8 @@ from habitat.core.vector_env import VectorEnv
 from habitat.utils.gym_definitions import _get_env_name
 from habitat_baselines.rl.ppo.ppo_trainer import PPOTrainer
 
-from home_robot.agent.ovmm_agent.llm_agent import LLMAgent
 from home_robot.agent.ovmm_agent.ovmm_agent import OpenVocabManipAgent
+from home_robot.agent.ovmm_agent.ovmm_llm_agent import OvmmLLMAgent
 from home_robot_sim.env.habitat_ovmm_env.habitat_ovmm_env import (
     HabitatOpenVocabManipEnv,
 )
@@ -51,11 +51,12 @@ class MemoryCollector(VectorizedEvaluator):
     def __init__(self, config, config_str: str):
         super().__init__(config, config_str)
 
-    def run(self, num_episodes_per_env=10):
+    def collect(self, num_episodes_per_env=1):
+        """Return a dict mapping each timestep to the clip features of detected objects in the current frame"""
         self._init_envs(
             config=self.config, is_eval=True, make_env_fn=create_ovmm_env_fn
         )
-        agent = LLMAgent(
+        agent = OvmmLLMAgent(
             config=self.config,
             obs_spaces=self.envs.observation_spaces,
             action_spaces=self.envs.orig_action_spaces,
@@ -66,8 +67,7 @@ class MemoryCollector(VectorizedEvaluator):
             num_episodes_per_env=num_episodes_per_env,
             episode_keys=None,
         )
-        with open("datadump/memory_data.json", "w") as json_file:
-            json.dump(agent.memory, json_file)
+        return agent.memory
 
 
 if __name__ == "__main__":
@@ -103,6 +103,8 @@ if __name__ == "__main__":
     collector = MemoryCollector(config, config_str)
     print(config_str)
     print("-" * 100)
-    collector.run(
+    result = collector.collect(
         num_episodes_per_env=config.EVAL_VECTORIZED.num_episodes_per_env,
     )
+    with open("datadump/memory_data.json", "w") as json_file:
+        json.dump(result, json_file)
