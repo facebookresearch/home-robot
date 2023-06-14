@@ -23,13 +23,11 @@ CORLAGENT:
   gt_run: True
 
 PERACT:
-  scene_bounds:
-    - -0.5
-    - -0.5
-    - -0.5
-    - 0.5
-    - 0.5
-    - 0.5
+  scene_bounds: [ -0.5 , -0.5 , -0.5 , 0.5 , 0.5 , 0.5]
+  cameras: ["head"]
+  voxel_sizes: [100]
+  num_latents: 256
+  model_path: data/checkpoints/corl_peract/multi-task_19_328.pth
 
 AGENT:
   max_steps: 500          # maximum number of steps before stopping an episode
