@@ -586,6 +586,7 @@ class DiscretePlanner:
 
         dist = pu.get_l2_distance(x1, x2, y1, y2)
         print("Distance moved forward", dist)
+        print(abs(x1 - x2) < 0.05 and abs(y1 - y2) < 0.05)
         print(self.collision_threshold)
 
         if dist < self.collision_threshold:
@@ -608,4 +609,5 @@ class DiscretePlanner:
                         c * 100 / self.map_resolution
                     )
                     [r, c] = pu.threshold_poses([r, c], self.collision_map.shape)
+                    print("r, c", r, c)
                     self.collision_map[r, c] = 1
