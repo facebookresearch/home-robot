@@ -610,4 +610,5 @@ class DiscretePlanner:
                     )
                     [r, c] = pu.threshold_poses([r, c], self.collision_map.shape)
                     print("r, c", r, c)
+                    print(self.collision_map.shape)
                     self.collision_map[r, c] = 1
