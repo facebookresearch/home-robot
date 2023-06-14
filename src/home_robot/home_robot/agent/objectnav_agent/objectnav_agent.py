@@ -4,7 +4,7 @@
 # LICENSE file in the root directory of this source tree.
 
 from typing import Any, Dict, List, Tuple
-
+import time
 import numpy as np
 import torch
 from torch.nn import DataParallel
@@ -269,7 +269,7 @@ class ObjectNavAgent(Agent):
 
     def act(self, obs: Observations) -> Tuple[DiscreteNavigationAction, Dict[str, Any]]:
         """Act end-to-end."""
-        # t0 = time.time()
+        t0 = time.time()
 
         # 1 - Obs preprocessing
         (
@@ -282,8 +282,8 @@ class ObjectNavAgent(Agent):
             camera_pose,
         ) = self._preprocess_obs(obs)
 
-        # t1 = time.time()
-        # print(f"[Agent] Obs preprocessing time: {t1 - t0:.2f}")
+        t1 = time.time()
+        print(f"[Agent] Obs preprocessing time: {t1 - t0:.2f}")
 
         # 2 - Semantic mapping + policy
         planner_inputs, vis_inputs = self.prepare_planner_inputs(
@@ -296,8 +296,8 @@ class ObjectNavAgent(Agent):
             nav_to_recep=self.get_nav_to_recep(),
         )
 
-        # t2 = time.time()
-        # print(f"[Agent] Semantic mapping and policy time: {t2 - t1:.2f}")
+        t2 = time.time()
+        print(f"[Agent] Semantic mapping and policy time: {t2 - t1:.2f}")
 
         # 3 - Planning
         closest_goal_map = None
@@ -321,10 +321,10 @@ class ObjectNavAgent(Agent):
                 timestep=self.timesteps[0],
             )
 
-        # t3 = time.time()
-        # print(f"[Agent] Planning time: {t3 - t2:.2f}")
-        # print(f"[Agent] Total time: {t3 - t0:.2f}")
-        # print()
+        t3 = time.time()
+        print(f"[Agent] Planning time: {t3 - t2:.2f}")
+        print(f"[Agent] Total time: {t3 - t0:.2f}")
+        print()
 
         vis_inputs[0]["goal_name"] = obs.task_observations["goal_name"]
         if self.visualize:
