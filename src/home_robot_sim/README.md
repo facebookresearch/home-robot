@@ -145,7 +145,58 @@ python demo.py --config-file configs/Detic_LCOCOI21k_CLIP_SwinB_896b32_4x_ft4x_m
 cd -
 ```
 
-## Run
+## Training DD-PPO skills
+
+First setup data directory
+```
+cd /path/to/home-robot/src/third_party/habitat-lab/
+
+# create soft link to data/ directory
+ln -s /path/to/home-robot/data data
+```
+
+To train on a single machine use the following script:
+```
+#/bin/bash
+
+export MAGNUM_LOG=quiet
+export HABITAT_SIM_LOG=quiet
+
+set -x
+python -u -m habitat_baselines.run \
+   --exp-config habitat-baselines/habitat_baselines/config/rearrange/rl_skill.yaml \
+   --run-type train benchmark/rearrange=<skill_name> \
+   habitat_baselines.checkpoint_folder=data/new_checkpoints/ovmm/<skill_name>
+```
+Here `<skill_name>` should be one of `cat_gaze`, `cat_place`, `cat_nav_to_obj` or `cat_nav_to_rec`.
+
+To run on a cluster with SLURM using distributed training run the following script. While this is not necessary, if you have access to a cluster, it can significantly speed up training. To run on multiple machines in a SLURM cluster run the following script: change `#SBATCH --nodes $NUM_OF_MACHINES` to the number of machines and `#SBATCH --ntasks-per-node $NUM_OF_GPUS` and `$SBATCH --gres $NUM_OF_GPUS` to specify the number of GPUS to use per requested machine.
+
+```
+#!/bin/bash
+#SBATCH --job-name=ddppo
+#SBATCH --output=logs.ddppo.out
+#SBATCH --error=logs.ddppo.err
+#SBATCH --gres gpu:1
+#SBATCH --nodes 1
+#SBATCH --cpus-per-task 10
+#SBATCH --ntasks-per-node 1
+#SBATCH --mem=60GB
+#SBATCH --time=12:00
+#SBATCH --signal=USR1@600
+#SBATCH --partition=dev
+
+export MAGNUM_LOG=quiet
+export HABITAT_SIM_LOG=quiet
+set -x
+python -u -m habitat_baselines.run \
+   --exp-config habitat-baselines/habitat_baselines/config/rearrange/rl_skill.yaml \
+   --run-type train benchmark/rearrange=<skill_name> \
+   habitat_baselines.checkpoint_folder=data/new_checkpoints/ovmm/<skill_name>
+```
+
+
+## Run evaluation
 
 > Note: Ensure `GROUND_TRUTH_SEMANTICS:0` in `configs/agent/floorplanner_eval.yaml` to test DETIC perception.
 
