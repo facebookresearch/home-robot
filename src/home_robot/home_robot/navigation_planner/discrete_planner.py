@@ -490,8 +490,6 @@ class DiscretePlanner:
         stg_x, stg_y = stg_x + x1 - 1, stg_y + y1 - 1
         short_term_goal = int(stg_x), int(stg_y)
 
-        breakpoint()
-
         if visualize:
             print("Start visualizing")
             plt.figure(1)
