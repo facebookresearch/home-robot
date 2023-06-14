@@ -208,8 +208,7 @@ class DiscretePlanner:
         # High-level goal -> short-term goal
         # Extracts a local waypoint
         # Defined by the step size - should be relatively close to the robot
-        t0 = time.time()
-        
+        # t0 = time.time()
         (
             short_term_goal,
             closest_goal_map,
@@ -243,8 +242,8 @@ class DiscretePlanner:
             )
             print("Replan:", replan)
 
-        t1 = time.time()
-        print(f"[Planning] get_short_term_goal() time: {t1 - t0}")
+        # t1 = time.time()
+        # print(f"[Planning] get_short_term_goal() time: {t1 - t0}")
 
         # We were not able to find a path to the high-level goal
         if replan and not stop:
@@ -291,8 +290,8 @@ class DiscretePlanner:
                 #     #   we need different STOP_SUCCESS and STOP_FAILURE actions
                 #     return DiscreteNavigationAction.STOP, goal_map, short_term_goal, dilated_obstacles
 
-        t2 = time.time()
-        print(f"[Planning] Re-planning time: {t2 - t1}")
+        # t2 = time.time()
+        # print(f"[Planning] Re-planning time: {t2 - t1}")
 
         # Normalize agent angle
         angle_agent = pu.normalize_angle(start_o)
@@ -454,6 +453,7 @@ class DiscretePlanner:
             print_images=self.print_images,
             goal_tolerance=self.goal_tolerance,
         )
+        print("plan_to_dilated_goal", plan_to_dilated_goal)
         if plan_to_dilated_goal:
             # Compute dilated goal map for use with simulation code - use this to compute closest goal
             dilated_goal_map = cv2.dilate(
