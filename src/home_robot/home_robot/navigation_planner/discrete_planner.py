@@ -366,9 +366,10 @@ class DiscretePlanner:
         else:
             # Try to orient towards the goal object - or at least any point sampled from the goal
             # object.
-            print()
-            print("----------------------------")
-            print(">>> orient towards the goal:", relative_angle_goal)
+            if debug:
+                print()
+                print("----------------------------")
+                print(">>> orient towards the goal:", relative_angle_goal)
             if self.discrete_actions:
                 if relative_angle_goal > 2 * self.turn_angle / 3.0:
                     action = DiscreteNavigationAction.TURN_RIGHT
@@ -377,12 +378,14 @@ class DiscretePlanner:
                 else:
                     action = DiscreteNavigationAction.STOP
             elif np.abs(relative_angle_goal) > self.continuous_angle_tolerance:
-                print("Continuous rotation towards goal point")
+                if debug:
+                    print("Continuous rotation towards goal point")
                 relative_angle_goal = math.radians(relative_angle_goal)
                 action = ContinuousNavigationAction([0, 0, -relative_angle_goal])
             else:
                 action = DiscreteNavigationAction.STOP
-                print("!!! DONE !!!")
+                if debug:
+                    print("!!! DONE !!!")
 
         self.last_action = action
         return action, closest_goal_map, short_term_goal, dilated_obstacles

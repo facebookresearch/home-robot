@@ -33,6 +33,7 @@ class HabitatEnv(home_robot.core.abstract_env.Env):
         self,
         action: home_robot.core.interfaces.Action,
         info: Optional[Dict[str, Any]] = None,
+        prev_obs: Optional[home_robot.core.interfaces.Observations] = None,
     ):
         if info is not None:
             self._process_info(info)

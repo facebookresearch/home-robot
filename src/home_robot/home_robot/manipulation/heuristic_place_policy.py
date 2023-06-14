@@ -3,6 +3,7 @@
 # This source code is licensed under the MIT license found in the
 # LICENSE file in the root directory of this source tree.
 import random
+from typing import Dict, Optional
 
 import cv2
 import numpy as np
@@ -16,11 +17,8 @@ from home_robot.core.interfaces import (
     DiscreteNavigationAction,
     Observations,
 )
-from home_robot.motion.stretch import STRETCH_GRIPPER_OPEN, STRETCH_STANDOFF_DISTANCE
+from home_robot.motion.stretch import STRETCH_STANDOFF_DISTANCE
 from home_robot.utils.image import smooth_mask
-from home_robot.utils.point_cloud import valid_depth_mask
-
-# from home_robot.utils.point_cloud import show_point_cloud
 from home_robot.utils.rotation import get_angle_to_pos
 
 RETRACTED_ARM_APPROX_LENGTH = 0.15
@@ -30,7 +28,7 @@ HARDCODED_YAW_OFFSET = 0.25
 
 class HeuristicPlacePolicy(nn.Module):
     """
-    Policy to place object on end receptacle using depth and point-cloud-based heuristics.
+    Policy to place object on end receptacle using depth and point-cloud-based heuristics. Objects will be placed nearby, on top of the surface, based on point cloud data. Requires segmentation to work properly.
     """
 
     def __init__(
@@ -57,9 +55,9 @@ class HeuristicPlacePolicy(nn.Module):
     def get_receptacle_placement_point(
         self,
         obs: Observations,
-        vis_inputs: None,
+        vis_inputs: Optional[Dict] = None,
         arm_reachability_check: bool = False,
-        visualize: bool = True,
+        visualize: bool = False,
     ):
         """
         Compute placement point in 3d space.
@@ -75,7 +73,7 @@ class HeuristicPlacePolicy(nn.Module):
 
         goal_rec_mask = (
             obs.semantic
-            == obs.task_observations["end_recep_goal"] * valid_depth_mask(obs.depth)
+            == obs.task_observations["end_recep_goal"] * du.valid_depth_mask(obs.depth)
         ).astype(np.uint8)
         # Get dilated, then eroded mask (for cleanliness)
         goal_rec_mask = smooth_mask(
@@ -182,10 +180,10 @@ class HeuristicPlacePolicy(nn.Module):
 
             max_surface_points = 0
             # max_height = 0
+
             max_surface_mask, best_voxel_ind, best_voxel = None, None, None
 
             ## iterating through all randomly selected voxels and choosing one with most XY neighboring surface area within some height threshold
-
             for ind in random_indices:
                 sampled_voxel = pcd_base_coords[0, ind[0], ind[1]]
                 sampled_voxel_x, sampled_voxel_y, sampled_voxel_z = (
@@ -216,7 +214,7 @@ class HeuristicPlacePolicy(nn.Module):
                 ).to(torch.uint8)
 
                 # ALTERNATIVE: choose slab with maximum (area x height) product
-
+                # TODO: remove dead code
                 # slab_points_mask_stacked = torch.stack(
                 #     [
                 #         slab_points_mask * 255,
@@ -269,7 +267,7 @@ class HeuristicPlacePolicy(nn.Module):
 
             return best_voxel.cpu().numpy(), vis_inputs
 
-    def forward(self, obs: Observations, vis_inputs=None):
+    def forward(self, obs: Observations, vis_inputs: Optional[Dict] = None):
         """
         1. Get estimate of point on receptacle to place object on.
         2. Orient towards it.
@@ -278,6 +276,10 @@ class HeuristicPlacePolicy(nn.Module):
         5. (again) Get estimate of point on receptacle to place object on.
         6. With camera, arm, and object (hopefully) aligned, set arm lift and
         extension based on point estimate from 4.
+
+        Returns:
+            action: what the robot will do - a hybrid action, discrete or continuous
+            vis_inputs: dictionary containing extra info for visualizations
         """
 
         self.timestep = self.timestep
@@ -289,50 +291,60 @@ class HeuristicPlacePolicy(nn.Module):
             self.end_receptacle = obs.task_observations["goal_name"].split(" ")[-1]
             found = self.get_receptacle_placement_point(obs, vis_inputs)
 
-            if found is not None:
-                self.placement_voxel, vis_inputs = found
+            if found is None:
+                print("Receptacle not visible. Execute hardcoded place.")
+                self.total_turn_and_forward_steps = 0
+                self.initial_orient_num_turns = -1
+                self.fall_wait_steps = 5
+                self.t_go_to_top = 1
+                self.t_extend_arm = 2
+                self.t_release_object = 3
+                self.t_lift_arm = 4
+                self.t_retract_arm = 5
+                self.t_go_to_place = -1
+                self.t_done_waiting = 5 + self.fall_wait_steps
             else:
-                print("Receptacle not visible. Abort.")
-                action = DiscreteNavigationAction.STOP
-                return action, vis_inputs
+                self.placement_voxel, vis_inputs = found
 
-            center_voxel_trans = np.array(
-                [
-                    self.placement_voxel[1],
-                    self.placement_voxel[2],
-                    self.placement_voxel[0],
-                ]
-            )
+                center_voxel_trans = np.array(
+                    [
+                        self.placement_voxel[1],
+                        self.placement_voxel[2],
+                        self.placement_voxel[0],
+                    ]
+                )
 
-            delta_heading = np.rad2deg(get_angle_to_pos(center_voxel_trans))
+                delta_heading = np.rad2deg(get_angle_to_pos(center_voxel_trans))
 
-            self.initial_orient_num_turns = abs(delta_heading) // turn_angle
-            self.orient_turn_direction = np.sign(delta_heading)
-            # This gets the Y-coordiante of the center voxel
-            # Base link to retracted arm - this is about 15 cm
-            fwd_dist = (
-                self.placement_voxel[1]
-                - STRETCH_STANDOFF_DISTANCE
-                - RETRACTED_ARM_APPROX_LENGTH
-            )
+                self.initial_orient_num_turns = abs(delta_heading) // turn_angle
+                self.orient_turn_direction = np.sign(delta_heading)
+                # This gets the Y-coordiante of the center voxel
+                # Base link to retracted arm - this is about 15 cm
+                fwd_dist = (
+                    self.placement_voxel[1]
+                    - STRETCH_STANDOFF_DISTANCE
+                    - RETRACTED_ARM_APPROX_LENGTH
+                )
 
-            fwd_dist = np.clip(fwd_dist, 0, np.inf)  # to avoid negative fwd_dist
-            self.forward_steps = fwd_dist // fwd_step_size
-            self.total_turn_and_forward_steps = (
-                self.forward_steps + self.initial_orient_num_turns
-            )
-            self.fall_wait_steps = 5
-            self.t_go_to_top = self.total_turn_and_forward_steps + 1
-            self.t_go_to_place = self.total_turn_and_forward_steps + 2
-            self.t_release_object = self.total_turn_and_forward_steps + 3
-            self.t_retract_arm = self.total_turn_and_forward_steps + 4
-            self.t_done_waiting = (
-                self.total_turn_and_forward_steps + 3 + self.fall_wait_steps
-            )
+                fwd_dist = np.clip(fwd_dist, 0, np.inf)  # to avoid negative fwd_dist
+                self.forward_steps = fwd_dist // fwd_step_size
+                self.total_turn_and_forward_steps = (
+                    self.forward_steps + self.initial_orient_num_turns
+                )
+                self.fall_wait_steps = 5
+                self.t_go_to_top = self.total_turn_and_forward_steps + 1
+                self.t_go_to_place = self.total_turn_and_forward_steps + 2
+                self.t_release_object = self.total_turn_and_forward_steps + 3
+                self.t_lift_arm = self.total_turn_and_forward_steps + 4
+                self.t_retract_arm = self.total_turn_and_forward_steps + 5
+                self.t_extend_arm = -1
+                self.t_done_waiting = (
+                    self.total_turn_and_forward_steps + 5 + self.fall_wait_steps
+                )
 
-            print("-" * 20)
-            print(f"Turn to orient for {self.initial_orient_num_turns} steps.")
-            print(f"Move forward for {self.forward_steps} steps.")
+                print("-" * 20)
+                print(f"Turn to orient for {self.initial_orient_num_turns} steps.")
+                print(f"Move forward for {self.forward_steps} steps.")
 
         print("-" * 20)
         print("Timestep", self.timestep)
@@ -396,21 +408,36 @@ class HeuristicPlacePolicy(nn.Module):
             # desnap to drop the object
             print("[Placement] Desnapping object")
             action = DiscreteNavigationAction.DESNAP_OBJECT
+        elif self.timestep == self.t_lift_arm:
+            print("[Placement] Lifting the arm after placement.")
+            action = self._lift(obs)
         elif self.timestep == self.t_retract_arm:
-            print("[Placement] Raising the arm after placement.")
+            print("[Placement] Retracting the arm after placement.")
             action = self._retract(obs)
+        elif self.timestep == self.t_extend_arm:
+            print("[Placement] Extending the arm out for placing.")
+            action = DiscreteNavigationAction.EXTEND_ARM
         elif self.timestep <= self.t_done_waiting:
             print("[Placement] Empty action")  # allow the object to come to rest
             action = DiscreteNavigationAction.EMPTY_ACTION
-        elif self.timestep == self.t_done_waiting + 1:
-            print("[Placement] Go back to nav")
-            action = DiscreteNavigationAction.NAVIGATION_MODE
         else:
             print("[Placement] Stopping")
             action = DiscreteNavigationAction.STOP
 
         self.timestep += 1
         return action, vis_inputs
+
+    def _lift(self, obs: Observations) -> ContinuousFullBodyAction:
+        """Compute a high-up lift position to avoid collisions when releasing"""
+        # Hab sim dimensionality for arm == 10
+        joints = np.zeros(10)
+        # We take the lift position = 1
+        current_arm_lift = obs.joint[4]
+        # Target lift is 0.99
+        lift_delta = 1.2 - current_arm_lift
+        joints[4] = lift_delta
+        action = ContinuousFullBodyAction(joints)
+        return action
 
     def _retract(self, obs: Observations) -> ContinuousFullBodyAction:
         """Compute a high-up retracted position to avoid collisions"""

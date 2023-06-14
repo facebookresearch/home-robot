@@ -19,7 +19,7 @@ habitat_baselines:
             use_log_std: True
             clamp_std: True
             std_init: -1.0
-            max_std: 2
+            max_std: 1
             use_std_param: True
         obs_transforms:
           resize_shortest_edge:

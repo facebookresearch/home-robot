@@ -21,7 +21,7 @@ class SimpleGraspMotionPlanner(object):
 
     def plan_to_grasp(
         self, grasp_pose: Tuple[np.ndarray], initial_cfg: np.ndarray
-    ) -> Optional[List[np.ndarray]]:
+    ) -> Optional[List[Tuple]]:
         """Create offsets for the full trajectory plan to get to the object.
         Then return that plan.
 
@@ -32,6 +32,7 @@ class SimpleGraspMotionPlanner(object):
         grasp_pos, grasp_quat = grasp_pose
 
         # Save initial waypoint to return to
+        # TODO: remove this if we decide we do not need it
         # initial_pt = ("initial", initial_cfg, False)
 
         # Create a pregrasp point at the top of the robot's arc
@@ -56,7 +57,9 @@ class SimpleGraspMotionPlanner(object):
         standoff_pos[2] = np.min([1.2, standoff_pos[2]])
         print(f"EE should go to: {standoff_pos=}, given {grasp_pos=}")
         # Standoff is 8cm over the grasp for now
-        # standoff_pos = grasp_pos + np.array([0.0, 0.0, 0.08])
+        # Overwrite standoff pos.z with a really high value so it comes in from above
+        standoff_pos = grasp_pos + np.array([0.0, 0.0, 0.4])
+        standoff_pos[2] = np.min([1.1, standoff_pos[2]])
         standoff_cfg, success, _ = self.robot.manip_ik(
             (standoff_pos, grasp_quat), q0=None
         )
@@ -83,6 +86,7 @@ class SimpleGraspMotionPlanner(object):
         # Return the full motion plan
         return [
             pregrasp,
+            back,
             standoff,
             grasp_pt,
             standoff,

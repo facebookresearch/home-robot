@@ -62,6 +62,12 @@ class PI:
     SEM_START = 7
 
 
+SEMANTIC_MAP_ORIG_Y = 390
+SEMANTIC_MAP_ORIG_X = 50
+SEMANTIC_MAP_MAX_X = 530
+SEMANTIC_MAP_MAX_Y = 870
+
+
 class Visualizer:
     """
     This class is intended to visualize a single object goal navigation task.
@@ -208,9 +214,12 @@ class Visualizer:
             semantic_map_vis = cv2.resize(
                 semantic_map_vis, (480, 480), interpolation=cv2.INTER_NEAREST
             )
-            self.image_vis[50:530, 390:870] = semantic_map_vis
+            self.image_vis[
+                SEMANTIC_MAP_ORIG_X:SEMANTIC_MAP_MAX_X,
+                SEMANTIC_MAP_ORIG_Y:SEMANTIC_MAP_MAX_Y,
+            ] = semantic_map_vis
 
-            # Agent arrow
+            # Agent arrow - display where the agent is located in the world
             pos = (
                 (curr_x * 100.0 / self.map_resolution - gx1)
                 * 480
@@ -220,7 +229,9 @@ class Visualizer:
                 / obstacle_map.shape[1],
                 np.deg2rad(-curr_o),
             )
-            agent_arrow = vu.get_contour_points(pos, origin=(670, 50))
+            agent_arrow = vu.get_contour_points(
+                pos, origin=(SEMANTIC_MAP_ORIG_Y, SEMANTIC_MAP_ORIG_X), size=10
+            )
             color = map_color_palette[9:12][::-1]
             cv2.drawContours(self.image_vis, [agent_arrow], 0, color, -1)
 
@@ -242,7 +253,7 @@ class Visualizer:
         # vis_image = np.ones((655, 1165, 3)).astype(np.uint8) * 255
         vis_image = np.ones((655, 885, 3)).astype(np.uint8) * 255
         font = cv2.FONT_HERSHEY_SIMPLEX
-        fontScale = 0.8
+        fontScale = 0.6
         color = (20, 20, 20)  # BGR
         thickness = 2
 
