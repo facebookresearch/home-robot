@@ -198,6 +198,7 @@ class SLAPAgent(object):
             "mean": mean,
             "og_xyz": og_xyz,
             "og_rgb": og_rgb,
+            "gripper": gripper,
             "og_feat": og_feat,
         }
         return self.to_torch(input_data)
