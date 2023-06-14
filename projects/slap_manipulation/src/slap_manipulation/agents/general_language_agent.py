@@ -156,9 +156,9 @@ class GeneralLanguageAgent(PickAndPlaceAgent):
                     "self.handover(['person'], obs)",
                 ],
                 1: [
-                    "self.pick_up(['bottle'], obs)",
-                    "self.goto(['counter'], obs)",
-                    "self.place(['counter'], obs)",
+                    # "self.pick_up(['bottle'], obs)",
+                    # "self.goto(['counter'], obs)",
+                    # "self.place(['counter'], obs)",
                     "self.goto(['drawer', 'drawer handle'], obs)",
                     "self.open_object(['drawer handle'], obs)",
                     "self.goto(['bottle'], obs)",
