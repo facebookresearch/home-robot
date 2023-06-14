@@ -11,6 +11,7 @@ import numpy as np
 import skfmm
 import skimage
 from numpy import ma
+import time
 
 
 class FMMPlanner:
@@ -89,6 +90,7 @@ class FMMPlanner:
         map_update_frequency: skfmm.distance call made every n steps
         map_downsample_factor: 1 for no downsampling, 2 for halving both image dimensions.
         """
+        t0 = time.time()
         assert map_downsample_factor >= 1.0
         traversible = self.traversible
         if map_downsample_factor > 1.0:
@@ -120,6 +122,8 @@ class FMMPlanner:
 
         traversible_ma = ma.masked_values(traversible * 1, 0)
         traversible_ma[goal_map == 1] = 0
+        t1 = time.time()
+        print("t1 - t0", t1 - t0)
 
         # This is where we actually call the FMM algorithm!!
         # It will compute the distance from each traversible point to the goal.
@@ -132,6 +136,9 @@ class FMMPlanner:
 
         if map_downsample_factor > 1.0:
             dd = cv2.resize(dd, (l, w))  # upsampling
+
+        t2 = time.time()
+        print("t2 - t1", t2 - t1)
 
         self.fmm_dist = dd
         # self.goal_map = goal_map
@@ -151,6 +158,8 @@ class FMMPlanner:
                     os.path.join(self.vis_dir, f"planner_snapshot_{timestep}.png"),
                     (dist_vis * 255).astype(int),
                 )
+        t3 = time.time()
+        print("t3 - t2", t3 - t2)
         return dd
 
     def get_short_term_goal(self, state: List[float], continuous=True):
