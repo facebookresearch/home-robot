@@ -19,6 +19,7 @@ python setup.py install --headless --bullet
 
 
 cd ../habitat-lab
+git checkout home-robot_objectnav_support
 pip install -e habitat-lab
 pip install -e habitat-baselines
 cd ../../..
