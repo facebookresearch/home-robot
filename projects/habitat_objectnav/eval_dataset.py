@@ -52,7 +52,7 @@ if __name__ == "__main__":
     config.PRINT_IMAGES = 1
     config.habitat.dataset.split = "val"
     config.EXP_NAME = "debug"
-    agent = ObjectNavAgent(config=config)
+    agent = ObjectNavAgent(config=config, device_id=0)
     env = HabitatObjectNavEnv(Env(config=config), config=config)
 
     for i in range(len(env.habitat_env.episodes)):
