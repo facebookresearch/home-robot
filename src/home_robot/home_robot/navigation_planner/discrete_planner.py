@@ -202,6 +202,7 @@ class DiscretePlanner:
         ] = 1
 
         # Check collisions if we have just moved and are uncertain
+        print("self.last_action", self.last_action)
         if self.last_action == DiscreteNavigationAction.MOVE_FORWARD:
             self._check_collision()
 
