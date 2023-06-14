@@ -340,6 +340,7 @@ class DiscretePlanner:
                     action = DiscreteNavigationAction.TURN_LEFT
                 else:
                     action = DiscreteNavigationAction.MOVE_FORWARD
+                # DEBUG
                 print(action)
             else:
                 # Use the short-term goal to set where we should be heading next
@@ -583,6 +584,8 @@ class DiscretePlanner:
             self.col_width = 1
 
         dist = pu.get_l2_distance(x1, x2, y1, y2)
+        print("Distance moved forward", dist)
+        print(self.collision_threshold)
 
         if dist < self.collision_threshold:
             # We have a collision
