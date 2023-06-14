@@ -57,7 +57,7 @@ class HeuristicPlacePolicy(nn.Module):
         obs: Observations,
         vis_inputs: Optional[Dict] = None,
         arm_reachability_check: bool = False,
-        visualize: bool = True,
+        visualize: bool = False,
     ):
         """
         Compute placement point in 3d space.
@@ -420,9 +420,6 @@ class HeuristicPlacePolicy(nn.Module):
         elif self.timestep <= self.t_done_waiting:
             print("[Placement] Empty action")  # allow the object to come to rest
             action = DiscreteNavigationAction.EMPTY_ACTION
-        elif self.timestep == self.t_done_waiting + 1:
-            print("[Placement] Go back to nav")
-            action = DiscreteNavigationAction.NAVIGATION_MODE
         else:
             print("[Placement] Stopping")
             action = DiscreteNavigationAction.STOP
