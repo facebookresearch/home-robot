@@ -506,6 +506,8 @@ class DiscretePlanner:
             plt.show()
             print("Done visualizing.")
 
+        print(short_term_goal, replan, stop)
+
         return (
             short_term_goal,
             goal_distance_map,
