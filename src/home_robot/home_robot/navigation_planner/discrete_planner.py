@@ -328,6 +328,9 @@ class DiscretePlanner:
             print(m_relative_stg_x, m_relative_stg_y, "rel ang =", relative_angle)
             print("-----------------")
 
+        # DEBUG
+        print(short_term_goal, found_goal, stop)
+
         # Short-term goal -> deterministic local policy
         if not (found_goal and stop):
             if self.discrete_actions:
@@ -337,6 +340,7 @@ class DiscretePlanner:
                     action = DiscreteNavigationAction.TURN_LEFT
                 else:
                     action = DiscreteNavigationAction.MOVE_FORWARD
+                print(action)
             else:
                 # Use the short-term goal to set where we should be heading next
                 m_relative_stg_x, m_relative_stg_y = [
@@ -505,8 +509,6 @@ class DiscretePlanner:
             plt.imshow(np.flipud(planner.traversible))
             plt.show()
             print("Done visualizing.")
-
-        print(short_term_goal, replan, stop)
 
         return (
             short_term_goal,
