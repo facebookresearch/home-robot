@@ -81,6 +81,7 @@ class FMMPlanner:
         dd: np.ndarray = None,
         map_downsample_factor: float = 1.0,
         map_update_frequency: int = 1,
+
     ):
         """Set long-term goal(s) used to compute distance from a binary
         goal map.
@@ -125,7 +126,7 @@ class FMMPlanner:
         if (timestep - 1) % map_update_frequency == 0 or dd is None:
             dd = skfmm.distance(traversible_ma, dx=1 * map_downsample_factor)
             dd = ma.filled(dd, np.max(dd) + 1)
-            print(f"Computing skfmm.distance (timestep: {timestep})")
+            # print(f"Computing skfmm.distance (timestep: {timestep})")
         else:
             print(f"Reusing previous skfmm.distance value (timestep: {timestep})")
 
@@ -197,7 +198,7 @@ class FMMPlanner:
             plt.subplot(235)
             plt.imshow(mask)
 
-        print("[FMM] Distance to fmm navigable goal pt =", subset[self.du, self.du] * 5)
+        # print("[FMM] Distance to fmm navigable goal pt =", subset[self.du, self.du] * 5)
         stop = subset[self.du, self.du] < self.goal_tolerance
 
         subset -= subset[self.du, self.du]
