@@ -105,12 +105,13 @@ class PerActRobotDataset(RobotDataset):
         # scene bounds used to voxelize a part of the scene
         self.scene_bounds = [
             -0.5,
-            -0.5,
+            -0.2,
             -0.5,
             0.5,
-            0.5,
+            0.8,
             0.5,
         ]
+        self._retries = 10
         # [x_min,y_min,z_min,x_max,y_max,z_max] - metric volume to be voxelized
         self.image_width = 640
         self.image_height = 480
@@ -129,79 +130,87 @@ class PerActRobotDataset(RobotDataset):
         )
 
     def get_datum(self, trial, keypoint_idx, verbose=False):
-        new_data = {}
-        data = super().get_datum(trial, keypoint_idx, verbose=verbose)
-        if not data["data_ok_status"]:
-            return data
-        else:
-            new_data["data_ok_status"] = True
+        tries = 0
+        while tries < self._retries:
+            new_data = {}
+            data = super().get_datum(trial, keypoint_idx, verbose=verbose)
+            if not data["data_ok_status"]:
+                tries += 1
+                continue
+            else:
+                new_data["data_ok_status"] = True
 
-        # add new signals needed
-        # NOTE loader returns trimesh quat, i.e. w,x,y,z
-        # peract expects scipy quat x,y,z,w
-        all_keypoints = data["global_proprio"]
-        new_data["ee_keyframe_ori_quat"] = torch.roll(all_keypoints[:, 3:7], 1, -1)
-        new_data["ee_keyframe_pos"] = all_keypoints[:, :3]
-        new_data["proprio"] = data["all_proprio"]
+            # add new signals needed
+            # NOTE loader returns trimesh quat, i.e. w,x,y,z
+            # peract expects scipy quat x,y,z,w
+            all_keypoints = data["global_proprio"]
+            new_data["ee_keyframe_ori_quat"] = torch.roll(all_keypoints[:, 3:7], 1, -1)
+            new_data["ee_keyframe_pos"] = all_keypoints[:, :3]
+            new_data["proprio"] = data["all_proprio"]
 
-        # add language signals
-        new_data["cmd"] = data["cmd"]
-        description = data["cmd"]
-        new_data["gripper_width_array"] = data["gripper_width_array"]
-        new_data["all_proprio"] = data["all_proprio"]
-        # tokens = clip.tokenize([description]).numpy()
-        # token_tensor = torch.from_numpy(tokens).to(self.device)
-        # lang, lang_emb = self._clip_encode_text(token_tensor)
-        # lang = self.clip_encode_text(description)
-        # new_data["cmd_embs"] = lang
+            # add language signals
+            new_data["cmd"] = data["cmd"]
+            description = data["cmd"]
+            new_data["gripper_width_array"] = data["gripper_width_array"]
+            new_data["all_proprio"] = data["all_proprio"]
+            # tokens = clip.tokenize([description]).numpy()
+            # token_tensor = torch.from_numpy(tokens).to(self.device)
+            # lang, lang_emb = self._clip_encode_text(token_tensor)
+            # lang = self.clip_encode_text(description)
+            # new_data["cmd_embs"] = lang
 
-        # discretize supervision signals
-        (
-            trans_action_indices,
-            grip_rot_action_indices,
-            ignore_colls,
-            gripper_states,
-            attention_coords,
-        ) = ([], [], [], [], [])
-        for idx in range(len(data["global_proprio"])):
+            # discretize supervision signals
             (
-                trans_action_index,
-                grip_rot_action_index,
-                ignore_coll,
-                gripper_state,
-                attention_coord,
-            ) = self._get_action(new_data, 5, idx, len(data["global_proprio"]))
-            trans_action_indices.append(trans_action_index)
-            grip_rot_action_indices.append(grip_rot_action_index)
-            ignore_colls.append(ignore_coll)
-            gripper_states.append(gripper_state.unsqueeze(0))
-            attention_coords.append(attention_coord)
-        trans_action_indices = torch.cat(trans_action_indices)
-        grip_rot_action_indices = torch.cat(grip_rot_action_indices)
-        ignore_colls = torch.cat(ignore_colls)
-        gripper_states = torch.cat(gripper_states, dim=0)
-        attention_coords = torch.cat(attention_coords)
+                trans_action_indices,
+                grip_rot_action_indices,
+                ignore_colls,
+                gripper_states,
+                attention_coords,
+            ) = ([], [], [], [], [])
+            for idx in range(len(data["global_proprio"])):
+                (
+                    trans_action_index,
+                    grip_rot_action_index,
+                    ignore_coll,
+                    gripper_state,
+                    attention_coord,
+                ) = self._get_action(new_data, 5, idx, len(data["global_proprio"]))
+                trans_action_indices.append(trans_action_index)
+                grip_rot_action_indices.append(grip_rot_action_index)
+                ignore_colls.append(ignore_coll)
+                gripper_states.append(gripper_state.unsqueeze(0))
+                attention_coords.append(attention_coord)
+            trans_action_indices = torch.cat(trans_action_indices)
+            grip_rot_action_indices = torch.cat(grip_rot_action_indices)
+            ignore_colls = torch.cat(ignore_colls)
+            gripper_states = torch.cat(gripper_states, dim=0)
+            attention_coords = torch.cat(attention_coords)
 
-        # # add discretized signal to dictionary
-        # # concatenate gripper ori and pos
-        gripper_pose = torch.FloatTensor(data["global_proprio"][:, :-1])
-        new_data.update(
-            {
-                "trans_action_indices": trans_action_indices,
-                "rot_grip_action_indices": grip_rot_action_indices,
-                "ignore_collisions": ignore_colls,
-                "gripper_pose": gripper_pose,
-                "gripper_states": gripper_states,
-                "attention_coords": attention_coords,
-            }
-        )
+            # # add discretized signal to dictionary
+            # # concatenate gripper ori and pos
+            gripper_pose = torch.FloatTensor(data["global_proprio"][:, :-1])
+            new_data.update(
+                {
+                    "trans_action_indices": trans_action_indices,
+                    "rot_grip_action_indices": grip_rot_action_indices,
+                    "ignore_collisions": ignore_colls,
+                    "gripper_pose": gripper_pose,
+                    "gripper_states": gripper_states,
+                    "attention_coords": attention_coords,
+                }
+            )
 
-        # TODO make sure you update the keys used in peract_model.update() method
-        # preprocess and normalize obs
-        rgb, pcd = self._preprocess_inputs(data)
-        new_data["rgb"] = rgb
-        new_data["xyz"] = pcd
-        new_data["action"] = gripper_states
+            # TODO make sure you update the keys used in peract_model.update() method
+            # preprocess and normalize obs
+            rgb, pcd = self._preprocess_inputs(data)
+            new_data["rgb"] = rgb
+            new_data["xyz"] = pcd
+            new_data["action"] = gripper_states
+
+            if self.is_action_valid(new_data):
+                return new_data
+            else:
+                tries += 1
 
         return new_data
 
@@ -278,9 +287,7 @@ class PerActRobotDataset(RobotDataset):
             torch.Tensor([trans_indices]),
             torch.Tensor([rot_and_grip_indices]),
             torch.Tensor([ignore_collisions]),
-            torch.cat(
-                    (gripper_width, torch.FloatTensor([grip, time_index]))
-            ),
+            torch.cat((gripper_width, torch.FloatTensor([grip, time_index]))),
             torch.Tensor(attention_coordinate).unsqueeze(0),
         )
 
