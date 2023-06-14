@@ -775,57 +775,79 @@ class PerceiverActorAgent:
         #     del ctr
 
     def update_for_rollout(self, batch: dict, center) -> dict:
-        lang = batch["cmd"]
-        rgb = np.copy(batch["rgb"].numpy())
-        xyz = np.copy(batch["xyz"].numpy())
-        batch = {
-            k: v.to(self._device) for k, v in batch.items() if type(v) == torch.Tensor
-        }
-        batch["cmd"] = lang
-        n, rgb_dim = batch["centered_rgb"].shape
-        batch["centered_rgb"] = batch["centered_rgb"].view(1, n, rgb_dim)
-        batch["centered_rgb"] = (batch["centered_rgb"].float() / 1.0) * 2.0 - 1.0
-        _, xyz_dim = batch["centered_xyz"].shape
-        batch["centered_xyz"] = batch["centered_xyz"].view(1, n, xyz_dim)
-        batch["xyz"] = batch["centered_xyz"]
-        batch["rgb"] = batch["centered_rgb"]
-        update_dict = self.update(0, batch, backprop=False)
-        # discrete to continuous
-        continuous_trans = (
-            update_dict["pred_action"]["continuous_trans"][0].detach().cpu().numpy()
+        rgb = np.copy(batch["rgb"].detach().cpu().numpy())
+        xyz = np.copy(batch["xyz"].detach().cpu().numpy())
+        # batch = {
+        #     k: v.to(self._device) for k, v in batch.items() if type(v) == torch.Tensor
+        # }
+        # batch["cmd"] = lang
+        # n, rgb_dim = batch["centered_rgb"].shape
+        # batch["centered_rgb"] = batch["centered_rgb"].view(1, n, rgb_dim)
+        # batch["centered_rgb"] = (batch["centered_rgb"].float() / 1.0) * 2.0 - 1.0
+        # _, xyz_dim = batch["centered_xyz"].shape
+        # batch["centered_xyz"] = batch["centered_xyz"].view(1, n, xyz_dim)
+        # batch["xyz"] = batch["centered_xyz"]
+        # batch["rgb"] = batch["centered_rgb"]
+        # breakpoint()
+        # Get language goal embedding
+        lang_goal = batch["cmd"]
+        lang_goal_embs = self.clip_encode_text(lang_goal)
+
+        obs = batch["rgb"].unsqueeze(0)
+        pcd = batch["xyz"].unsqueeze(0)
+
+        # metric scene bounds
+        bounds = self._coordinate_bounds
+        proprio = batch["gripper_states"].unsqueeze(0)
+
+        q_trans, rot_grip_q, collision_q, voxel_grid = self._q(
+            obs, proprio, pcd, lang_goal_embs, bounds
         )
+        # choose best action through argmax
+        (
+            coords_indicies,
+            rot_and_grip_indicies,
+            ignore_collision_indicies,
+        ) = self._q.choose_highest_action(q_trans, rot_grip_q, collision_q)
+
+        # discrete to continuous translation action
+        res = (bounds[:, 3:] - bounds[:, :3]) / self._voxel_size
+        continuous_trans = (
+            (bounds[:, :3] + res * coords_indicies.int() + res / 2)
+            .detach()
+            .cpu()
+            .numpy()
+        )
+        # update_dict = self.update(0, batch, backprop=False)
+        # discrete to continuous
         continuous_quat = discrete_euler_to_quaternion(
-            update_dict["pred_action"]["rot_and_grip"][0][:3].detach().cpu().numpy(),
+            rot_and_grip_indicies[0][:3].detach().cpu().numpy(),
             resolution=self._rotation_resolution,
         )
-        gripper_open = bool(
-            update_dict["pred_action"]["rot_and_grip"][0][-1].detach().cpu().numpy()
-        )
+        gripper_close = bool(rot_and_grip_indicies[0][-1].detach().cpu().numpy())
         # breakpoint()
         x, y, z, w = continuous_quat
         pred_ori = tra.quaternion_matrix([w, x, y, z])[:3, :3]
         pred_pos = center + continuous_trans
-        # TODO can add a visualization here to only roll out reasonable outputs
-        # rgb = batch["rgb"][0].detach().cpu().numpy()
-        # xyz = batch["xyz"][0].detach().cpu().numpy()
-        print(f"{lang}")
-        print(f"Predicted gripper state: {gripper_open}")
         self.show_prediction(
             xyz,
             rgb,
-            pred_pos,
+            continuous_trans.reshape((3, 1)),
             pred_ori,
-            viewpt=self.cam_view,
+            # viewpt=self.cam_view,
             save=False,
         )
+        # TODO can add a visualization here to only roll out reasonable outputs
+        # rgb = batch["rgb"][0].detach().cpu().numpy()
+        # xyz = batch["xyz"][0].detach().cpu().numpy()
 
         action_dict = {
             "predicted_pos": pred_pos,
             "predicted_ori": pred_ori[:3, :3],
-            "gripper_act": gripper_open,
+            "gripper_act": gripper_close,
         }
         print(action_dict)
-        return action_dict, update_dict
+        return action_dict
 
     def update(
         self, step: int, replay_sample: dict, backprop: bool = True, val=False
@@ -849,7 +871,9 @@ class PerceiverActorAgent:
             # Rotation index
             action_rot_grip = replay_sample["rot_grip_action_indices"][0, :].int()
             # Do we take some action to ignore collisions or not
-            action_ignore_collisions = replay_sample["ignore_collisions"][:, :, -1].int()
+            action_ignore_collisions = replay_sample["ignore_collisions"][
+                :, :, -1
+            ].int()
 
         # Get language goal embedding
         lang_goal = replay_sample["cmd"]
@@ -886,7 +910,9 @@ class PerceiverActorAgent:
             proprio_instance = proprio[:, idx]
             action_trans_instance = action_trans[:, idx]
             action_rot_grip_instance = action_rot_grip[idx].unsqueeze(0)
-            action_ignore_collissions_instance = action_ignore_collisions[idx].unsqueeze(0)
+            action_ignore_collissions_instance = action_ignore_collisions[
+                idx
+            ].unsqueeze(0)
             q_trans, rot_grip_q, collision_q, voxel_grid = self._q(
                 obs, proprio_instance, pcd, lang_goal_embs, bounds
             )
@@ -946,7 +972,7 @@ class PerceiverActorAgent:
                     collision_q, action_collision_one_hot.argmax(-1)
                 )
 
-                total_loss += trans_loss + rot_grip_loss + 0*collision_loss
+                total_loss += trans_loss + rot_grip_loss + 0 * collision_loss
                 num_iters += 1
                 # choose best action through argmax
                 (
