@@ -432,6 +432,8 @@ class DiscretePlanner:
         # Create inverse map of obstacles - this is territory we assume is traversible
         # Traversible is now the map
         traversible = 1 - dilated_obstacles
+        if self.collision_map.sum() > 0:
+            breakpoint()
         traversible[self.collision_map[gx1:gx2, gy1:gy2][x1:x2, y1:y2] == 1] = 0
         traversible[self.visited_map[gx1:gx2, gy1:gy2][x1:x2, y1:y2] == 1] = 1
         agent_rad = self.agent_cell_radius
@@ -609,6 +611,6 @@ class DiscretePlanner:
                         c * 100 / self.map_resolution
                     )
                     [r, c] = pu.threshold_poses([r, c], self.collision_map.shape)
-                    print("r, c", r, c)
-                    print(self.collision_map.shape)
+                    # print("r, c", r, c)
+                    # print(self.collision_map.shape)
                     self.collision_map[r, c] = 1
