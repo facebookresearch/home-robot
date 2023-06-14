@@ -208,7 +208,6 @@ class DiscretePlanner:
         # High-level goal -> short-term goal
         # Extracts a local waypoint
         # Defined by the step size - should be relatively close to the robot
-        # t0 = time.time()
         (
             short_term_goal,
             closest_goal_map,
@@ -241,9 +240,6 @@ class DiscretePlanner:
                 dist_to_short_term_goal * self.map_resolution * CM_TO_METERS,
             )
             print("Replan:", replan)
-
-        # t1 = time.time()
-        # print(f"[Planning] get_short_term_goal() time: {t1 - t0}")
 
         # We were not able to find a path to the high-level goal
         if replan and not stop:
@@ -289,9 +285,6 @@ class DiscretePlanner:
                 #     # TODO Calling the STOP action here will cause the agent to try grasping
                 #     #   we need different STOP_SUCCESS and STOP_FAILURE actions
                 #     return DiscreteNavigationAction.STOP, goal_map, short_term_goal, dilated_obstacles
-
-        # t2 = time.time()
-        # print(f"[Planning] Re-planning time: {t2 - t1}")
 
         # Normalize agent angle
         angle_agent = pu.normalize_angle(start_o)
@@ -389,9 +382,6 @@ class DiscretePlanner:
                 action = DiscreteNavigationAction.STOP
                 print("!!! DONE !!!")
 
-        # t3 = time.time()
-        # print(f"[Planning] Deterministic local policy time: {t3 - t2}")
-
         self.last_action = action
         return action, closest_goal_map, short_term_goal, dilated_obstacles
 
@@ -422,8 +412,6 @@ class DiscretePlanner:
              the goal
             stop: binary flag to indicate we've reached the goal
         """
-        t0 = time.time()
-
         gx1, gx2, gy1, gy2 = planning_window
         x1, y1, = (
             0,
@@ -455,10 +443,6 @@ class DiscretePlanner:
             print_images=self.print_images,
             goal_tolerance=self.goal_tolerance,
         )
-        print("plan_to_dilated_goal", plan_to_dilated_goal)
-
-        t1 = time.time()
-        print(f"[Planning] setup time: {t1 - t0}")
 
         if plan_to_dilated_goal:
             # Compute dilated goal map for use with simulation code - use this to compute closest goal
@@ -498,9 +482,6 @@ class DiscretePlanner:
 
         self.timestep += 1
 
-        t2 = time.time()
-        print(f"[Planning] set_multi_goal() time: {t2 - t1}")
-
         state = [start[0] - x1 + 1, start[1] - y1 + 1]
         # This is where we create the planner to get the trajectory to this state
         stg_x, stg_y, replan, stop = planner.get_short_term_goal(
@@ -508,6 +489,8 @@ class DiscretePlanner:
         )
         stg_x, stg_y = stg_x + x1 - 1, stg_y + y1 - 1
         short_term_goal = int(stg_x), int(stg_y)
+
+        breakpoint()
 
         if visualize:
             print("Start visualizing")
@@ -524,9 +507,6 @@ class DiscretePlanner:
             plt.imshow(np.flipud(planner.traversible))
             plt.show()
             print("Done visualizing.")
-
-        t3 = time.time()
-        print(f"[Planning] get_short_term_goal() time: {t3 - t2}")
 
         return (
             short_term_goal,
