@@ -28,6 +28,7 @@ from habitat_baselines.common.obs_transformers import (
 )
 from habitat_baselines.config.default import get_config as get_habitat_config
 from habitat_baselines.utils.common import batch_obs
+
 import home_robot.utils.pose as pu
 from home_robot.agent.ovmm_agent.complete_obs_space import get_complete_obs_space
 from home_robot.core.interfaces import (
@@ -204,7 +205,9 @@ class PPOAgent(Agent):
             self.min_joint_delta = skill_config.min_joint_delta
         if "manipulation_mode" in skill_config.allowed_actions:
             self.manip_mode_threshold = skill_config.manip_mode_threshold
-            self.constraint_base_in_manip_mode = skill_config.constraint_base_in_manip_mode
+            self.constraint_base_in_manip_mode = (
+                skill_config.constraint_base_in_manip_mode
+            )
         self.terminate_condition = skill_config.terminate_condition
         self.manip_mode_called = False
         self.skill_start_gps = None
