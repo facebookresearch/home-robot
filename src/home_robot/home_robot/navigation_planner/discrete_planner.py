@@ -208,6 +208,8 @@ class DiscretePlanner:
         # High-level goal -> short-term goal
         # Extracts a local waypoint
         # Defined by the step size - should be relatively close to the robot
+        t0 = time.time()
+        
         (
             short_term_goal,
             closest_goal_map,
@@ -240,8 +242,9 @@ class DiscretePlanner:
                 dist_to_short_term_goal * self.map_resolution * CM_TO_METERS,
             )
             print("Replan:", replan)
-        # t1 = time.time()
-        # print(f"[Planning] get_short_term_goal() time: {t1 - t0}")
+
+        t1 = time.time()
+        print(f"[Planning] get_short_term_goal() time: {t1 - t0}")
 
         # We were not able to find a path to the high-level goal
         if replan and not stop:
@@ -287,6 +290,9 @@ class DiscretePlanner:
                 #     # TODO Calling the STOP action here will cause the agent to try grasping
                 #     #   we need different STOP_SUCCESS and STOP_FAILURE actions
                 #     return DiscreteNavigationAction.STOP, goal_map, short_term_goal, dilated_obstacles
+
+        t2 = time.time()
+        print(f"[Planning] Re-planning time: {t2 - t1}")
 
         # Normalize agent angle
         angle_agent = pu.normalize_angle(start_o)
@@ -383,6 +389,9 @@ class DiscretePlanner:
             else:
                 action = DiscreteNavigationAction.STOP
                 print("!!! DONE !!!")
+
+        t3 = time.time()
+        print(f"[Planning] Deterministic local policy time: {t3 - t2}")
 
         self.last_action = action
         return action, closest_goal_map, short_term_goal, dilated_obstacles
