@@ -389,8 +389,8 @@ class DiscretePlanner:
                 action = DiscreteNavigationAction.STOP
                 print("!!! DONE !!!")
 
-        t3 = time.time()
-        print(f"[Planning] Deterministic local policy time: {t3 - t2}")
+        # t3 = time.time()
+        # print(f"[Planning] Deterministic local policy time: {t3 - t2}")
 
         self.last_action = action
         return action, closest_goal_map, short_term_goal, dilated_obstacles
