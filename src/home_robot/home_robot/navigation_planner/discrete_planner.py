@@ -422,6 +422,8 @@ class DiscretePlanner:
              the goal
             stop: binary flag to indicate we've reached the goal
         """
+        t0 = time.time()
+
         gx1, gx2, gy1, gy2 = planning_window
         x1, y1, = (
             0,
@@ -454,6 +456,10 @@ class DiscretePlanner:
             goal_tolerance=self.goal_tolerance,
         )
         print("plan_to_dilated_goal", plan_to_dilated_goal)
+
+        t1 = time.time()
+        print(f"[Planning] setup time: {t1 - t0}")
+
         if plan_to_dilated_goal:
             # Compute dilated goal map for use with simulation code - use this to compute closest goal
             dilated_goal_map = cv2.dilate(
@@ -492,6 +498,9 @@ class DiscretePlanner:
 
         self.timestep += 1
 
+        t2 = time.time()
+        print(f"[Planning] set_multi_goal() time: {t2 - t1}")
+
         state = [start[0] - x1 + 1, start[1] - y1 + 1]
         # This is where we create the planner to get the trajectory to this state
         stg_x, stg_y, replan, stop = planner.get_short_term_goal(
@@ -515,6 +524,9 @@ class DiscretePlanner:
             plt.imshow(np.flipud(planner.traversible))
             plt.show()
             print("Done visualizing.")
+
+        t3 = time.time()
+        print(f"[Planning] get_short_term_goal() time: {t3 - t2}")
 
         return (
             short_term_goal,
