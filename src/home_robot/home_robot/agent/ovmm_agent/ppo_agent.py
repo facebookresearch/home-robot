@@ -209,6 +209,7 @@ class PPOAgent(Agent):
                 skill_config.constraint_base_in_manip_mode
             )
         self.terminate_condition = skill_config.terminate_condition
+        self.show_rl_obs = config.SHOW_RL_OBS
         self.manip_mode_called = False
         self.skill_start_gps = None
         self.skill_start_compass = None
@@ -358,10 +359,12 @@ class PPOAgent(Agent):
         batch = apply_obs_transforms_batch(batch, self.obs_transforms)
         for k in self.skill_obs_keys:
             viz_obs[k + "_resized"] = batch[k][0].cpu().numpy()
-        frame = observations_to_image(viz_obs, info={})
-
         batch = OrderedDict([(k, batch[k]) for k in self.skill_obs_keys])
-        info["rl_obs_frame"] = frame
+
+        if self.show_rl_obs:
+            frame = observations_to_image(viz_obs, info={})
+            info["rl_obs_frame"] = frame
+
         with torch.no_grad():
             action_data = self.actor_critic.act(
                 batch,

@@ -6,6 +6,7 @@ VISUALIZE: 0              # 1: render observation and predicted semantic map, 0:
 PRINT_IMAGES: 1           # 1: save visualization as images, 0: no image saving
 GROUND_TRUTH_SEMANTICS: 1 # 1: use ground-truth semantics (for debugging / ablations)
 seed: 0                   # seed
+SHOW_RL_OBS: True         # whether to show the observations passed to RL policices, for debugging
 
 ENVIRONMENT:
   forward: 0.25           # forward motion (in meters)
@@ -71,15 +72,15 @@ AGENT:
       nav_goal_seg_channels: 1
       terminate_condition: grip
       grip_threshold: 0.8
-      max_joint_delta: 0.0125
-      min_joint_delta: 0.0
+      max_joint_delta: 0.1
+      min_joint_delta: 0.02
 
     PICK:
       type: oracle
 
     NAV_TO_OBJ:
       type: rl # heuristic (default) or rl
-      checkpoint_path: data/checkpoints/ovmm/May31/nav_to_obj_100m_may31_gps_fix.pth
+      checkpoint_path: data/checkpoints/ovmm/Jun5/nav_to_obj_col_pen_0_3_drop_0_5_warmstart_200m.pth
       rl_config: projects/habitat_ovmm/configs/agent/nav_to_obj_rl.yaml
       gym_obs_keys:
         - robot_head_depth
@@ -109,7 +110,7 @@ AGENT:
 
     NAV_TO_REC:
       type: rl # heuristic (default) or rl
-      checkpoint_path: data/checkpoints/ovmm/May31/nav_to_rec_100m_may31_gps_fix.pth
+      checkpoint_path: data/checkpoints/ovmm/Jun5/nav_to_rec_col_pen_0_3_drop_0_5_180m.pth
       rl_config: projects/habitat_ovmm/configs/agent/nav_to_obj_rl.yaml
       gym_obs_keys:
         - robot_head_depth
@@ -169,7 +170,7 @@ AGENT:
   skip_skills:
     nav_to_obj: False
     nav_to_rec: False
-    gaze_at_obj: True
+    gaze_at_obj: False
     gaze_at_rec: True
     pick: False
     place: False
