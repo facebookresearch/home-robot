@@ -16,7 +16,7 @@ You should see the file listed. Running the installation guide, you should also 
 
 *urdf*: Unified Robot Description Format. Basically, an XML file that describes a robot's geometry. Check out the [ROS documentation](https://docs.ros.org/en/foxy/Tutorials/Intermediate/URDF/URDF-Main.html) for some details if you are curious.
 
-*Calibration*: your robot's geometry may vary slightly from ours; while we provide a calibrated URDF together with [our habitat models](https://github.com/cpaxton/hab_stretch), it may not work for you.
+*Calibration*: your robot's geometry may vary slightly from ours; while we provide a calibrated URDF together with [our habitat models](https://github.com/cpaxton/hab_stretch), it may not work for you. Calibration will come up with a new URDF, which uniquely represents your robot. See the [Hello Robot instructions](https://github.com/hello-robot/stretch_ros/tree/master/stretch_calibration) for some examples of good and bad calibrations.
 
 *DexWrist*: The particular wrist for stretch we use in HomeRobot; it adds two extra degrees of freedom.
 
@@ -92,4 +92,7 @@ with
 ..
 ```
 
-Then you should be able to run an example!
+Then you should be able to run an example! For example, set the robot up in front of a cup (arm facing the object) and run this:
+```
+python projects/stretch_ovmm/eval_episode.py --test-pick --pick-object cup
+```
