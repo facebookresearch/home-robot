@@ -202,27 +202,38 @@ class DiscretePlanner:
         ] = 1
 
         # Check collisions if we have just moved and are uncertain
-        if self.last_action == DiscreteNavigationAction.MOVE_FORWARD:
+        if self.last_action == DiscreteNavigationAction.MOVE_FORWARD or (
+            type(self.last_action) == ContinuousNavigationAction
+            and np.linalg.norm(self.last_action.xyt[:2]) > 0
+        ):
             self._check_collision()
 
-        # High-level goal -> short-term goal
-        # Extracts a local waypoint
-        # Defined by the step size - should be relatively close to the robot
-        (
-            short_term_goal,
-            closest_goal_map,
-            replan,
-            stop,
-            closest_goal_pt,
-            dilated_obstacles,
-        ) = self._get_short_term_goal(
-            obstacle_map,
-            np.copy(goal_map),
-            start,
-            planning_window,
-            plan_to_dilated_goal=use_dilation_for_stg,
-            frontier_map=frontier_map,
-        )
+        try:
+            # High-level goal -> short-term goal
+            # Extracts a local waypoint
+            # Defined by the step size - should be relatively close to the robot
+            (
+                short_term_goal,
+                closest_goal_map,
+                replan,
+                stop,
+                closest_goal_pt,
+                dilated_obstacles,
+            ) = self._get_short_term_goal(
+                obstacle_map,
+                np.copy(goal_map),
+                start,
+                planning_window,
+                plan_to_dilated_goal=use_dilation_for_stg,
+                frontier_map=frontier_map,
+            )
+        except Exception:
+            return (
+                DiscreteNavigationAction.STOP,
+                np.zeros(goal_map.shape),
+                (0, 0),
+                np.zeros(goal_map.shape),
+            )
         # Short term goal is in cm, start_x and start_y are in m
         if debug:
             print("Current pose:", start)
@@ -299,12 +310,12 @@ class DiscretePlanner:
         stg_x, stg_y = short_term_goal
         relative_stg_x, relative_stg_y = stg_x - start[0], stg_y - start[1]
         angle_st_goal = math.degrees(math.atan2(relative_stg_x, relative_stg_y))
-        relative_angle = pu.normalize_angle(angle_agent - angle_st_goal)
+        relative_angle_to_stg = pu.normalize_angle(angle_agent - angle_st_goal)
 
         # Compute angle to the final goal
         goal_x, goal_y = closest_goal_pt
         angle_goal = math.degrees(math.atan2(goal_x - start[0], goal_y - start[1]))
-        relative_angle_goal = pu.normalize_angle(angle_agent - angle_goal)
+        relative_angle_to_closest_goal = pu.normalize_angle(angle_agent - angle_goal)
 
         if debug:
             # Actual metric distance to goal
@@ -314,7 +325,7 @@ class DiscretePlanner:
             print("-----------------")
             print("Found reachable goal:", found_goal)
             print("Stop:", stop)
-            print("Angle to goal:", relative_angle_goal)
+            print("Angle to goal:", relative_angle_to_closest_goal)
             print("Distance to goal", distance_to_goal)
             print(
                 "Distance in cm:",
@@ -330,16 +341,46 @@ class DiscretePlanner:
             print("continuous actions for exploring")
             print("agent angle =", angle_agent)
             print("angle stg goal =", angle_st_goal)
-            print("angle final goal =", relative_angle_goal)
-            print(m_relative_stg_x, m_relative_stg_y, "rel ang =", relative_angle)
+            print("angle final goal =", relative_angle_to_closest_goal)
+            print(
+                m_relative_stg_x, m_relative_stg_y, "rel ang =", relative_angle_to_stg
+            )
             print("-----------------")
 
+        action = self.get_action(
+            relative_stg_x,
+            relative_stg_y,
+            relative_angle_to_stg,
+            relative_angle_to_closest_goal,
+            start_o,
+            found_goal,
+            stop,
+            debug,
+        )
+
+        self.last_action = action
+        return action, closest_goal_map, short_term_goal, dilated_obstacles
+
+    def get_action(
+        self,
+        relative_stg_x: float,
+        relative_stg_y: float,
+        relative_angle_to_stg: float,
+        relative_angle_to_closest_goal: float,
+        start_compass: float,
+        found_goal: bool,
+        stop: bool,
+        debug: bool,
+    ):
+        """
+        Gets discrete/continuous action given short-term goal. Agent orients to closest goal if found_goal=True and stop=True
+        """
         # Short-term goal -> deterministic local policy
         if not (found_goal and stop):
             if self.discrete_actions:
-                if relative_angle > self.turn_angle / 2.0:
+                if relative_angle_to_stg > self.turn_angle / 2.0:
                     action = DiscreteNavigationAction.TURN_RIGHT
-                elif relative_angle < -self.turn_angle / 2.0:
+                elif relative_angle_to_stg < -self.turn_angle / 2.0:
                     action = DiscreteNavigationAction.TURN_LEFT
                 else:
                     action = DiscreteNavigationAction.MOVE_FORWARD
@@ -349,23 +390,27 @@ class DiscretePlanner:
                     CM_TO_METERS * self.map_resolution * d
                     for d in [relative_stg_x, relative_stg_y]
                 ]
-                if np.abs(relative_angle) > self.turn_angle / 2.0:
+                if np.abs(relative_angle_to_stg) > self.turn_angle / 2.0:
                     # Must return commands in radians and meters
-                    relative_angle = math.radians(relative_angle)
-                    action = ContinuousNavigationAction([0, 0, -relative_angle])
+                    relative_angle_to_stg = math.radians(relative_angle_to_stg)
+                    action = ContinuousNavigationAction([0, 0, -relative_angle_to_stg])
                 else:
                     # Must return commands in radians and meters
-                    relative_angle = math.radians(relative_angle)
-                    # relative_angle_goal = math.radians(relative_angle_goal)
-                    # action = ContinuousNavigationAction([m_relative_stg_y, m_relative_stg_x, -relative_angle])
-                    xyt_global = [m_relative_stg_y, m_relative_stg_x, -relative_angle]
+                    relative_angle_to_stg = math.radians(relative_angle_to_stg)
+                    xyt_global = [
+                        m_relative_stg_y,
+                        m_relative_stg_x,
+                        -relative_angle_to_stg,
+                    ]
 
                     xyt_local = xyt_global_to_base(
-                        xyt_global, [0, 0, math.radians(start_o)]
+                        xyt_global, [0, 0, math.radians(start_compass)]
                     )
                     xyt_local[
                         2
-                    ] = -relative_angle  # the original angle was already in base frame
+                    ] = (
+                        -relative_angle_to_stg
+                    )  # the original angle was already in base frame
                     action = ContinuousNavigationAction(xyt_local)
         else:
             # Try to orient towards the goal object - or at least any point sampled from the goal
@@ -373,26 +418,31 @@ class DiscretePlanner:
             if debug:
                 print()
                 print("----------------------------")
-                print(">>> orient towards the goal:", relative_angle_goal)
+                print(">>> orient towards the goal:", relative_angle_to_closest_goal)
             if self.discrete_actions:
-                if relative_angle_goal > 2 * self.turn_angle / 3.0:
+                if relative_angle_to_closest_goal > 2 * self.turn_angle / 3.0:
                     action = DiscreteNavigationAction.TURN_RIGHT
-                elif relative_angle_goal < -2 * self.turn_angle / 3.0:
+                elif relative_angle_to_closest_goal < -2 * self.turn_angle / 3.0:
                     action = DiscreteNavigationAction.TURN_LEFT
                 else:
                     action = DiscreteNavigationAction.STOP
-            elif np.abs(relative_angle_goal) > self.continuous_angle_tolerance:
+            elif (
+                np.abs(relative_angle_to_closest_goal) > self.continuous_angle_tolerance
+            ):
                 if debug:
                     print("Continuous rotation towards goal point")
-                relative_angle_goal = math.radians(relative_angle_goal)
-                action = ContinuousNavigationAction([0, 0, -relative_angle_goal])
+                relative_angle_to_closest_goal = math.radians(
+                    relative_angle_to_closest_goal
+                )
+                action = ContinuousNavigationAction(
+                    [0, 0, -relative_angle_to_closest_goal]
+                )
             else:
                 action = DiscreteNavigationAction.STOP
                 if debug:
                     print("!!! DONE !!!")
 
-        self.last_action = action
-        return action, closest_goal_map, short_term_goal, dilated_obstacles
+        return action
 
     def _get_short_term_goal(
         self,
@@ -422,7 +472,10 @@ class DiscretePlanner:
             stop: binary flag to indicate we've reached the goal
         """
         gx1, gx2, gy1, gy2 = planning_window
-        x1, y1, = (
+        (
+            x1,
+            y1,
+        ) = (
             0,
             0,
         )

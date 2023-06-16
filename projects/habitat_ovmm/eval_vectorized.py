@@ -51,11 +51,20 @@ class VectorizedEvaluator(PPOTrainer):
 
         if not self.visualize:
             # TODO: not seeing any speed improvements when removing these sensors
-            config.habitat.gym.obs_keys.remove("robot_third_rgb")
-            config.habitat.simulator.agents.main_agent.sim_sensors.pop(
-                "third_rgb_sensor", None
-            )
+            if "robot_third_rgb" in config.habitat.gym.obs_keys:
+                config.habitat.gym.obs_keys.remove("robot_third_rgb")
+            if (
+                "third_rgb_sensor"
+                in config.habitat.simulator.agents.main_agent.sim_sensors
+            ):
+                config.habitat.simulator.agents.main_agent.sim_sensors.pop(
+                    "third_rgb_sensor", None
+                )
 
+        episode_ids_range = config.habitat.dataset.episode_indices_range
+        config.EXP_NAME = os.path.join(
+            config.EXP_NAME, f"{episode_ids_range[0]}_{episode_ids_range[1]}"
+        )
         OmegaConf.set_readonly(config, True)
 
         self.config = config
@@ -97,7 +106,6 @@ class VectorizedEvaluator(PPOTrainer):
             for k in metrics:
                 if k in v:
                     aggregated_metrics[f"{k}/total"].append(v[k])
-                    aggregated_metrics[f"{k}/{v['goal_name']}"].append(v[k])
 
         aggregated_metrics = dict(
             sorted(
@@ -126,25 +134,29 @@ class VectorizedEvaluator(PPOTrainer):
     ):
         # The stopping condition is either specified through
         # num_episodes_per_env (stop after each environment
-        # finishes a certain number of episodes) or episode_keys
-        # (stop after we iterate through a list of specific episodes)
-        assert (num_episodes_per_env is not None and episode_keys is None) or (
-            num_episodes_per_env is None and episode_keys is not None
-        )
+        # finishes a certain number of episodes)
+        print(envs.number_of_episodes)
+
+        if num_episodes_per_env is None:
+            num_episodes_per_env = envs.number_of_episodes
+        else:
+            num_episodes_per_env = [num_episodes_per_env] * envs.num_envs
+
+        episode_metrics = {}
 
         def stop():
-            if num_episodes_per_env is not None:
-                return all([i >= num_episodes_per_env for i in episode_idxs]) or len(
-                    episode_metrics
-                ) == sum(self.envs.number_of_episodes)
-            elif episode_keys is not None:
-                return done_episode_keys == episode_keys
+            print(episode_idxs[0], num_episodes_per_env[0])
+            return all(
+                [
+                    episode_idxs[i] >= num_episodes_per_env[i]
+                    for i in range(envs.num_envs)
+                ]
+            )
 
         start_time = time.time()
-        episode_metrics = {}
         episode_idxs = [0] * envs.num_envs
         done_episode_keys = set()
-
+        steps_since_stop = [-1] * envs.num_envs
         obs = envs.call(["reset"] * envs.num_envs)
 
         agent.reset_vectorized(self.envs.current_episodes())
@@ -175,46 +187,23 @@ class VectorizedEvaluator(PPOTrainer):
                         **metrics_at_skill_end,
                         **episode_metrics[episode_key],
                     }
-                if done:
+                    episode_metrics[episode_key]["goal_name"] = info["goal_name"]
+                if done:  # environment times out
                     metrics = self._extract_scalars_from_info(hab_info)
-                    # If the episode keys we care about are specified,
-                    #  ignore all other episodes
-                    if episode_keys is not None:
-                        if episode_key in episode_keys:
-                            done_episode_keys.add(episode_key)
-                            metrics_at_episode_end = {
-                                f"END." + k: v for k, v in metrics.items()
-                            }
-                            episode_metrics[episode_key] = {
-                                **metrics_at_episode_end,
-                                **episode_metrics[episode_key],
-                            }
-                            episode_metrics[episode_key]["goal_name"] = info[
-                                "goal_name"
-                            ]
-                            print(
-                                f"Finished episode {episode_key} after "
-                                f"{round(time.time() - start_time, 2)} seconds"
-                            )
-
-                    elif num_episodes_per_env is not None:
-                        if episode_idxs[e] < num_episodes_per_env:
-                            metrics_at_episode_end = {
-                                f"END." + k: v for k, v in metrics.items()
-                            }
-                            episode_metrics[episode_key] = {
-                                **metrics_at_episode_end,
-                                **episode_metrics[episode_key],
-                            }
-                            episode_metrics[episode_key]["goal_name"] = info[
-                                "goal_name"
-                            ]
+                    if episode_idxs[e] < num_episodes_per_env[e]:
+                        metrics_at_episode_end = {
+                            f"END." + k: v for k, v in metrics.items()
+                        }
+                        episode_metrics[episode_key] = {
+                            **metrics_at_episode_end,
+                            **episode_metrics[episode_key],
+                        }
+                        episode_metrics[episode_key]["goal_name"] = info["goal_name"]
                         episode_idxs[e] += 1
                         print(
-                            f"Episode indexes {episode_idxs} / {num_episodes_per_env} "
+                            f"Episode indexes {episode_idxs[e]} / {num_episodes_per_env[e]} "
                             f"after {round(time.time() - start_time, 2)} seconds"
                         )
-
                     if (
                         len(episode_metrics)
                         % self.config.EVAL_VECTORIZED.metrics_save_freq

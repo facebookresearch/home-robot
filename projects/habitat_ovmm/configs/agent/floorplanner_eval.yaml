@@ -18,7 +18,7 @@ ENVIRONMENT:
   min_depth: 0.0          # minimum depth for depth sensor (in metres)
   max_depth: 10.0         # maximum depth for depth sensor (in metres)
   num_receptacles: 21
-  category_map_file: data/datasets/floorplanner/rearrange/v3/val/cat_map.json
+  category_map_file: projects/stretch_ovmm/configs/example_cat_map.json
   use_detic_viz: False
 
 AGENT:
@@ -26,7 +26,7 @@ AGENT:
   panorama_start: 1       # 1: turn around 360 degrees when starting an episode, 0: don't
   exploration_strategy: seen_frontier  # exploration strategy ("seen_frontier", "been_close_to_frontier")
   radius: 0.05            # robot radius (in meters)
-
+  fall_wait_steps: 200    # number of steps to wait after the object has been dropped
   SEMANTIC_MAP:
     semantic_categories: rearrange # map semantic channel categories ("coco_indoor", "longtail_indoor", "mukul_indoor", "rearrange")
     num_sem_categories: 5    # Following 5 categories: ["misc", "object_category", "start_receptacle", "goal_receptacle", "others"]
@@ -43,7 +43,7 @@ AGENT:
     must_explore_close: False
     min_obs_height_cm: 10    # minimum height (in centimeters) of obstacle
     # erosion and filtering to reduce the number of spurious artifacts
-    dilate_obstacles: False
+    dilate_obstacles: True
     dilate_size: 3
     dilate_iter: 1
 
@@ -164,6 +164,7 @@ AGENT:
       terminate_condition: ungrip
       grip_threshold: -0.8
       manip_mode_threshold: 0.8
+      constraint_base_in_manip_mode: True
       max_joint_delta: 0.1
       min_joint_delta: 0.02
 
@@ -184,15 +185,13 @@ AGENT:
     min_obs_dilation_selem_radius: 1    # radius (in cells) of obstacle dilation structuring element
     map_downsample_factor: 1            # optional downsampling of traversible and goal map before fmm distance call (1 for no downsampling, 2 for halving resolution)
     map_update_frequency: 1             # compute fmm distance map every n steps 
-    discrete_actions: True         # discrete motion planner output space or not
+    discrete_actions: False         # discrete motion planner output space or not
     verbose: False                 # display debug information during planning
 
 EVAL_VECTORIZED:
   simulator_gpu_ids: [1, 2, 3, 4, 5, 6, 7] # IDs of GPUs to use for vectorized environments
-  specific_episodes: 0      # 1: eval on specific episodes (for debugging), 0: eval on split normally
-  goal_on_same_floor: 0     # 1: restrict to episodes with a goal on the same floor as the starting position
   split: val                # eval split
-  num_episodes_per_env: 100 # number of eval episodes per environment
+  num_episodes_per_env: null # number of eval episodes per environment
   record_videos: 0          # 1: record videos from printed images, 0: don't
   record_planner_videos: 0  # 1: record planner videos (if record videos), 0: don't
   metrics_save_freq: 5      # save metrics after every n episodes

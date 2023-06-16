@@ -24,19 +24,20 @@ class VIS_LAYOUT:
     FIRST_PERSON_W = 360
     TOP_DOWN_W = HEIGHT
     THIRD_PERSON_W = HEIGHT
-    LEFT_PADDING = 15
+    LEFT_PADDING = 40
+    MIDDLE_PADDING = 15
     TOP_PADDING = 50
     LEGEND_TOP_PADDING = 5
-    BOTTOM_PADDING = 240  # 80
+    BOTTOM_PADDING = 120
     Y1 = TOP_PADDING
     Y2 = TOP_PADDING + HEIGHT
     FIRST_RGB_X1 = LEFT_PADDING
     FIRST_RGB_X2 = LEFT_PADDING + FIRST_PERSON_W
-    FIRST_SEM_X1 = LEFT_PADDING + FIRST_RGB_X2
+    FIRST_SEM_X1 = MIDDLE_PADDING + FIRST_RGB_X2
     FIRST_SEM_X2 = FIRST_SEM_X1 + FIRST_PERSON_W
-    TOP_DOWN_X1 = FIRST_SEM_X2 + LEFT_PADDING
+    TOP_DOWN_X1 = FIRST_SEM_X2 + MIDDLE_PADDING
     TOP_DOWN_X2 = TOP_DOWN_X1 + TOP_DOWN_W
-    THIRD_PERSON_X1 = TOP_DOWN_X2 + LEFT_PADDING
+    THIRD_PERSON_X1 = TOP_DOWN_X2 + MIDDLE_PADDING
     THIRD_PERSON_X2 = THIRD_PERSON_X1 + THIRD_PERSON_W
     IMAGE_HEIGHT = Y2 + BOTTOM_PADDING
     IMAGE_WIDTH = THIRD_PERSON_X2 + LEFT_PADDING
@@ -253,10 +254,15 @@ class Visualizer:
         image_vis = self.image_vis.copy()
 
         # if curr_skill is not None, place the skill name below the third person image
+        text = None
         if curr_skill is not None and curr_action is not None:
+            text = curr_skill + ": " + curr_action
+        elif curr_skill is not None:
+            text = curr_skill
+        if text is not None:
             image_vis = self._put_text_on_image(
                 image_vis,
-                curr_skill + "\n" + curr_action,
+                text,
                 V.THIRD_PERSON_X1,
                 V.Y2,
                 V.THIRD_PERSON_W,
@@ -315,6 +321,7 @@ class Visualizer:
                     )
                     closest_goal_mask = closest_goal_mat == 1
                     semantic_map[closest_goal_mask] = PI.CLOSEST_GOAL
+
                 if short_term_goal is not None:
                     short_term_goal_mask = np.zeros(goal_mask.shape)
                     short_term_goal_mask[short_term_goal[0], short_term_goal[1]] = 1
