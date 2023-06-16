@@ -64,4 +64,5 @@ for viz in ["viz", "no_viz"]:
                     config_path = config_path.replace(".yaml", f"_{viz}.yaml")
 
                 with open(config_path, "w") as f:
+                    f.write("###### AUTOMATICALLY GENERATED. DO NOT EDIT. ######\n")
                     yaml.dump(config, f)
