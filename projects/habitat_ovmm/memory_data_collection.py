@@ -8,7 +8,7 @@ from pathlib import Path
 
 import numpy as np
 from config_utils import get_config
-from eval_vectorized import VectorizedEvaluator
+from eval_dataset import VectorizedEvaluator
 from omegaconf import DictConfig, OmegaConf
 
 sys.path.insert(

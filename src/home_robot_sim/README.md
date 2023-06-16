@@ -121,7 +121,7 @@ unzip hab_stretch_v1.0.zip
 
 Run
 ```
-python projects/habitat_ovmm/eval_vectorized.py
+python projects/habitat_ovmm/eval_dataset.py
 ```
 
 Results are saved to `datadump/images/eval_floorplanner/`.
@@ -198,18 +198,16 @@ python -u -m habitat_baselines.run \
 
 ## Run evaluation
 
-> Note: Ensure `GROUND_TRUTH_SEMANTICS:0` in `configs/agent/floorplanner_eval.yaml` to test DETIC perception.
-
 ```
 cd /path/to/home-robot
 
 
 # Evaluation on complete episode dataset with GT semantics
-python projects/habitat_ovmm/eval_vectorized.py
+python projects/habitat_ovmm/eval_dataset.py
 
 # Evaluation on complete episode dataset with DETIC
-python projects/habitat_ovmm/eval_vectorized.py  --baseline_config_path projects/habitat_ovmm/configs/agent/floorplanner_detic_eval.yaml
+Ensure `GROUND_TRUTH_SEMANTICS:0` in `configs/agent/hssd_eval.yaml` before running the above command
 
 # Evaluation on specific episodes
-python projects/habitat_ovmm/eval_vectorized.py habitat.dataset.episode_ids="[151,182]"
+python projects/habitat_ovmm/eval_dataset.py habitat.dataset.episode_ids="[151,182]"
 ```
