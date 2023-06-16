@@ -367,7 +367,9 @@ class StretchPickandPlaceEnv(StretchEnv):
             joint=self.robot.model.config_to_hab(joint_positions),
             relative_resting_position=np.array([0.3878479, 0.12924957, 0.4224413]),
         )
-        obs.task_observations["prev_grasp_success"] = self.prev_grasp_success
+        obs.task_observations["prev_grasp_success"] = np.array(
+            [self.prev_grasp_success], np.float32
+        )
         obs.task_observations[
             "in_manipulation_mode"
         ] = self.robot.in_manipulation_mode()

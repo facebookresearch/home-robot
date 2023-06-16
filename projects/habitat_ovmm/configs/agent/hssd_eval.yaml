@@ -171,7 +171,7 @@ AGENT:
   skip_skills:
     nav_to_obj: False
     nav_to_rec: False
-    gaze_at_obj: True
+    gaze_at_obj: False
     gaze_at_rec: True
     pick: False
     place: False
