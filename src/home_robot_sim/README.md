@@ -210,4 +210,13 @@ Ensure `GROUND_TRUTH_SEMANTICS:0` in `configs/agent/hssd_eval.yaml` before runni
 
 # Evaluation on specific episodes
 python projects/habitat_ovmm/eval_dataset.py habitat.dataset.episode_ids="[151,182]"
+
+# Evaluating all baseline variants
+# 1. First generate all possible configs using the base config `configs/agent/hssd_eval.yaml`. Configs will be saved under `projects/habitat_ovmm/configs/agent/generated`
+python projects/habitat_ovmm/scripts/gen_configs.py
+
+# 2. Run evaluation using the generated config files
+python projects/habitat_ovmm/eval_dataset.py --baseline_config_path projects/habitat_ovmm/configs/agent/generated/<dir_name>/<manip>_m_<nav>_n_<perception><viz?>.yaml
+Here <manip>/<nav> are to be set to 'h' or 'r' for heuristic and RL skills respectively. <perception> is one of 'gt'/'detic'. Append <viz?>='_viz' for saving images.
+
 ```
