@@ -16,16 +16,6 @@ from home_robot.utils.constants import (
 from . import rotation as ru
 
 
-def filter_depth(depth: np.ndarray, min_val: float, max_val: float) -> np.ndarray:
-    """
-    Remove bad values from depth and set them to
-    """
-    depth = depth.reshape(-1)
-    depth[depth < min_val] = MIN_DEPTH_REPLACEMENT_VALUE
-    depth[depth > max_val] = MAX_DEPTH_REPLACEMENT_VALUE
-    return depth
-
-
 def valid_depth_mask(depth: np.ndarray) -> np.ndarray:
     """Return a mask of all valid depth pixels."""
     return np.bitwise_and(

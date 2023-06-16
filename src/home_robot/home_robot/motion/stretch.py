@@ -37,6 +37,23 @@ STRETCH_HOME_Q = np.array(
     ]
 )
 
+# look down in navigation mode for doing manipulation post-navigation
+STRETCH_POSTNAV_Q = np.array(
+    [
+        0,  # x
+        0,  # y
+        0,  # theta
+        0.78,  # lift
+        0.01,  # arm
+        0.0,  # gripper rpy
+        0.0,  # wrist roll
+        -1.5,  # wrist pitch
+        0.0,  # wrist yaw
+        0.0,
+        math.radians(-45),
+    ]
+)
+
 # Gripper pointed down, for a top-down grasp
 STRETCH_PREGRASP_Q = np.array(
     [

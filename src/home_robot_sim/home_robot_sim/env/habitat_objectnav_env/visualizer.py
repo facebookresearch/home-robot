@@ -149,6 +149,7 @@ class Visualizer:
         self.font_scale = 1
         self.text_color = (20, 20, 20)  # BGR
         self.text_thickness = 2
+        self.show_rl_obs = config.SHOW_RL_OBS
 
     def reset(self):
         self.vis_dir = self.default_vis_dir
@@ -212,6 +213,7 @@ class Visualizer:
         short_term_goal: np.ndarray = None,
         dilated_obstacle_map: np.ndarray = None,
         semantic_category_mapping: Optional[RearrangeDETICCategories] = None,
+        rl_obs_frame: Optional[np.ndarray] = None,
         **kwargs,
     ):
         """Visualize frame input and semantic map.
@@ -231,6 +233,11 @@ class Visualizer:
             timestep: time step within the episode
             visualize_goal: if True, visualize goal
             curr_skill: the skill currently being executed
+            curr_action: the action that will be executed in current step
+            short_term_goal: (M, M) map showing the short term goal
+            dilated_obstacle_map: (M, M) obstacle map after dilation
+            semantic_category_mapping: contains category id to category mapping and color palette
+            rl_obs_frame: variable sized image containing all observations passed to RL (useful for debugging)
         """
         # Do nothing if visualization is off
         if not self.show_images and not self.print_images:
@@ -240,8 +247,8 @@ class Visualizer:
             self.semantic_category_mapping = semantic_category_mapping
 
         # Initialize
-        if self.image_vis is None:
-            self.image_vis = self._init_vis_image(goal_name)
+        if self.image_vis is None or self.show_rl_obs:
+            self.image_vis = self._init_vis_image(goal_name, rl_obs_frame)
 
         image_vis = self.image_vis.copy()
 
@@ -356,6 +363,25 @@ class Visualizer:
             color = self.semantic_category_mapping.map_color_palette[9:12][::-1]
             cv2.drawContours(image_vis, [agent_arrow], 0, color, -1)
 
+        # overlay RL observation frame
+        if self.show_rl_obs and rl_obs_frame is not None:
+            # Reshape the height while maintaining aspect ratio to V.HEIGHT
+            rl_obs_frame = rl_obs_frame[:, :, [2, 1, 0]]
+            # find the width of the frame such that height is V.HEIGHT
+            width = int(rl_obs_frame.shape[1] * V.HEIGHT / rl_obs_frame.shape[0])
+            rl_obs_frame = cv2.resize(
+                rl_obs_frame,
+                (width, V.HEIGHT),
+                interpolation=cv2.INTER_NEAREST,
+            )
+            image_vis[V.Y1 : V.Y2, V.TOP_DOWN_X1 : V.TOP_DOWN_X1 + width] = rl_obs_frame
+
+        elif third_person_image is not None:
+            image_vis[V.Y1 : V.Y2, V.THIRD_PERSON_X1 : V.THIRD_PERSON_X2] = cv2.resize(
+                third_person_image[:, :, [2, 1, 0]],
+                (V.THIRD_PERSON_W, V.HEIGHT),
+            )
+
         # First-person RGB frame
         rgb_frame = semantic_frame[:, :, [2, 1, 0]]
         image_vis[V.Y1 : V.Y2, V.FIRST_RGB_X1 : V.FIRST_RGB_X2] = cv2.resize(
@@ -371,12 +397,6 @@ class Visualizer:
             (V.FIRST_PERSON_W, V.HEIGHT),
             interpolation=cv2.INTER_NEAREST,
         )
-
-        if third_person_image is not None:
-            image_vis[V.Y1 : V.Y2, V.THIRD_PERSON_X1 : V.THIRD_PERSON_X2] = cv2.resize(
-                third_person_image[:, :, [2, 1, 0]],
-                (V.THIRD_PERSON_W, V.HEIGHT),
-            )
 
         if self.show_images:
             cv2.imshow("Visualization", image_vis)
@@ -417,45 +437,56 @@ class Visualizer:
             cv2.LINE_AA,
         )
 
-    def _init_vis_image(self, goal_name: str):
-        vis_image = np.ones((V.IMAGE_HEIGHT, V.IMAGE_WIDTH, 3)).astype(np.uint8) * 255
+    def _init_vis_image(self, goal_name: str, rl_obs_frame: None):
+        width = V.IMAGE_WIDTH
+
+        # if rl_obs_frame is passed, update width
+        if self.show_rl_obs and rl_obs_frame is not None:
+            # find the width of the frame such that height is V.HEIGHT
+            rl_obs_frame_width = int(
+                rl_obs_frame.shape[1] * V.HEIGHT / rl_obs_frame.shape[0]
+            )
+            width = width - V.TOP_DOWN_W - V.THIRD_PERSON_W + rl_obs_frame_width
+        vis_image = np.ones((V.IMAGE_HEIGHT, width, 3)).astype(np.uint8) * 255
 
         vis_image = self._put_text_on_image(
             vis_image, goal_name, V.LEFT_PADDING, 0, 2 * V.FIRST_PERSON_W, V.TOP_PADDING
         )
 
-        text = "Predicted Semantic Map"
-        vis_image = self._put_text_on_image(
-            vis_image, text, V.TOP_DOWN_X1, 0, V.TOP_DOWN_W, V.TOP_PADDING
-        )
+        # the outlines are set for the standard layout (with debug RL frame)
+        if rl_obs_frame is None:
+            text = "Predicted Semantic Map"
+            vis_image = self._put_text_on_image(
+                vis_image, text, V.TOP_DOWN_X1, 0, V.TOP_DOWN_W, V.TOP_PADDING
+            )
 
-        text = "Third person image"
-        vis_image = self._put_text_on_image(
-            vis_image, text, V.THIRD_PERSON_X1, 0, V.THIRD_PERSON_W, V.TOP_PADDING
-        )
+            text = "Third person image"
+            vis_image = self._put_text_on_image(
+                vis_image, text, V.THIRD_PERSON_X1, 0, V.THIRD_PERSON_W, V.TOP_PADDING
+            )
 
-        # Draw outlines
-        color = (100, 100, 100)
-        for y in [V.Y1 - 1, V.Y2]:
-            for x_start, x_len in [
-                (V.FIRST_RGB_X1, V.FIRST_PERSON_W),
-                (V.FIRST_SEM_X1, V.FIRST_PERSON_W),
-                (V.TOP_DOWN_X1, V.TOP_DOWN_W),
-                (V.THIRD_PERSON_X1, V.THIRD_PERSON_W),
+            # Draw outlines
+            color = (100, 100, 100)
+            for y in [V.Y1 - 1, V.Y2]:
+                for x_start, x_len in [
+                    (V.FIRST_RGB_X1, V.FIRST_PERSON_W),
+                    (V.FIRST_SEM_X1, V.FIRST_PERSON_W),
+                    (V.TOP_DOWN_X1, V.TOP_DOWN_W),
+                    (V.THIRD_PERSON_X1, V.THIRD_PERSON_W),
+                ]:
+                    vis_image[y, x_start - 1 : x_start + x_len] = color
+
+            for x in [
+                V.FIRST_RGB_X1 - 1,
+                V.FIRST_RGB_X2,
+                V.FIRST_SEM_X1 - 1,
+                V.FIRST_SEM_X2,
+                V.TOP_DOWN_X1 - 1,
+                V.TOP_DOWN_X2,
+                V.THIRD_PERSON_X1 - 1,
+                V.THIRD_PERSON_X2,
             ]:
-                vis_image[y, x_start - 1 : x_start + x_len] = color
-
-        for x in [
-            V.FIRST_RGB_X1 - 1,
-            V.FIRST_RGB_X2,
-            V.FIRST_SEM_X1 - 1,
-            V.FIRST_SEM_X2,
-            V.TOP_DOWN_X1 - 1,
-            V.TOP_DOWN_X2,
-            V.THIRD_PERSON_X1 - 1,
-            V.THIRD_PERSON_X2,
-        ]:
-            vis_image[V.Y1 - 1 : V.Y2, x] = color
+                vis_image[V.Y1 - 1 : V.Y2, x] = color
 
         # Draw legend
         if os.path.exists(self.semantic_category_mapping.categories_legend_path):

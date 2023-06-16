@@ -9,6 +9,7 @@ import rospy
 from home_robot.motion.robot import Robot
 from home_robot.motion.stretch import (
     STRETCH_NAVIGATION_Q,
+    STRETCH_POSTNAV_Q,
     STRETCH_PREDEMO_Q,
     STRETCH_PREGRASP_Q,
     HelloStretchKinematics,
@@ -186,5 +187,14 @@ class StretchClient:
         self.head.look_front(blocking=False)
         self.manip.goto_joint_positions(
             self.manip._extract_joint_pos(STRETCH_NAVIGATION_Q)
+        )
+        self.switch_to_navigation_mode()
+
+    def move_to_post_nav_posture(self):
+        """Move the arm to nav mode, head to nav mode with PREGRASP's tilt. The head will be looking front."""
+        self.switch_to_manipulation_mode()
+        self.head.look_front(blocking=False)
+        self.manip.goto_joint_positions(
+            self.manip._extract_joint_pos(STRETCH_POSTNAV_Q)
         )
         self.switch_to_navigation_mode()
