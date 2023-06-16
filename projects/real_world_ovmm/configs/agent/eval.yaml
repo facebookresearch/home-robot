@@ -19,7 +19,7 @@ ENVIRONMENT:
   max_depth: 10.0         # maximum depth for depth sensor (in metres)
   num_receptacles: 21
   # category_map_file: data/datasets/floorplanner/rearrange/v3/val/cat_map.json
-  category_map_file: projects/stretch_ovmm/configs/example_cat_map.json
+  category_map_file: projects/real_world_ovmm/configs/example_cat_map.json
   use_detic_viz: True
 
 AGENT:
@@ -28,7 +28,7 @@ AGENT:
   exploration_strategy: seen_frontier  # exploration strategy ("seen_frontier", "been_close_to_frontier")
   radius: 0.05            # robot radius (in meters)
   fall_wait_steps: 0      # number of steps to wait after the object has been dropped
-  clip_embeddings_file: projects/stretch_ovmm/clip_embeddings.pickle
+  clip_embeddings_file: data/objects/clip_embeddings.pickle
 
   SEMANTIC_MAP:
     semantic_categories: rearrange # map semantic channel categories ("coco_indoor", "longtail_indoor", "mukul_indoor", "rearrange")

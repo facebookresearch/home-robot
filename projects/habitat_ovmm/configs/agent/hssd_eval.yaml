@@ -18,7 +18,7 @@ ENVIRONMENT:
   min_depth: 0.0          # minimum depth for depth sensor (in metres)
   max_depth: 10.0         # maximum depth for depth sensor (in metres)
   num_receptacles: 21
-  category_map_file: projects/stretch_ovmm/configs/example_cat_map.json
+  category_map_file: projects/real_world_ovmm/configs/example_cat_map.json
   use_detic_viz: False
 
 AGENT:
