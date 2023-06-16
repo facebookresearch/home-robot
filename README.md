@@ -143,7 +143,7 @@ python projects/real_world_ovmm/eval_episode.py
 
 To set up the simulation stack with Habitat, train DDPPO skills and run evaluations: see the [installation instructions](src/home_robot_sim/README.md) in `home_robot_sim`.
 
-For more details on the OVMM challenge, see the [Habitat OVMM readme](projects/real_world_ovmm/README.md).
+For more details on the OVMM challenge, see the [Habitat OVMM readme](projects/habitat_ovmm/README.md).
 
 
 ## Code Contribution
