@@ -202,7 +202,10 @@ class DiscretePlanner:
         ] = 1
 
         # Check collisions if we have just moved and are uncertain
-        if self.last_action == DiscreteNavigationAction.MOVE_FORWARD:
+        if self.last_action == DiscreteNavigationAction.MOVE_FORWARD or (
+            type(self.last_action) == ContinuousNavigationAction
+            and np.linalg.norm(self.last_action.xyt[:2]) > 0
+        ):
             self._check_collision()
 
         try:
@@ -337,6 +340,31 @@ class DiscretePlanner:
             print(m_relative_stg_x, m_relative_stg_y, "rel ang =", relative_angle)
             print("-----------------")
 
+        action = self.get_action(
+            relative_stg_x,
+            relative_stg_y,
+            relative_angle,
+            relative_angle_goal,
+            start_o,
+            found_goal,
+            stop,
+            debug,
+        )
+
+        self.last_action = action
+        return action, closest_goal_map, short_term_goal, dilated_obstacles
+
+    def get_action(
+        self,
+        relative_stg_x: float,
+        relative_stg_y: float,
+        relative_angle: float,
+        relative_angle_goal: float,
+        start_o: float,
+        found_goal: bool,
+        stop: bool,
+        debug: bool,
+    ):
         # Short-term goal -> deterministic local policy
         if not (found_goal and stop):
             if self.discrete_actions:
@@ -359,8 +387,6 @@ class DiscretePlanner:
                 else:
                     # Must return commands in radians and meters
                     relative_angle = math.radians(relative_angle)
-                    # relative_angle_goal = math.radians(relative_angle_goal)
-                    # action = ContinuousNavigationAction([m_relative_stg_y, m_relative_stg_x, -relative_angle])
                     xyt_global = [m_relative_stg_y, m_relative_stg_x, -relative_angle]
 
                     xyt_local = xyt_global_to_base(
@@ -394,8 +420,7 @@ class DiscretePlanner:
                 if debug:
                     print("!!! DONE !!!")
 
-        self.last_action = action
-        return action, closest_goal_map, short_term_goal, dilated_obstacles
+        return action
 
     def _get_short_term_goal(
         self,
