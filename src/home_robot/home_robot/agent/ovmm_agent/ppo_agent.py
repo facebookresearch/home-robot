@@ -323,7 +323,7 @@ class PPOAgent(Agent):
                 "relative_resting_position": obs.relative_resting_position,
                 "is_holding": obs.task_observations["prev_grasp_success"],
                 "robot_start_gps": np.array((rel_pos[1].item(), rel_pos[0].item())),
-                "robot_start_compass": pu.normalize_angle(rel_pos[2]),
+                "robot_start_compass": pu.normalize_radians(rel_pos[2]),
                 "start_receptacle": np.array(obs.task_observations["start_receptacle"]),
                 "goal_receptacle": np.array(obs.task_observations["goal_receptacle"]),
             }
@@ -333,7 +333,6 @@ class PPOAgent(Agent):
             hab_obs["ovmm_nav_goal_segmentation"] = self._get_goal_segmentation(obs)
         if "receptacle_segmentation" in self.skill_obs_keys:
             hab_obs["receptacle_segmentation"] = self._get_receptacle_segmentation(obs)
-
         return hab_obs
 
     def act(

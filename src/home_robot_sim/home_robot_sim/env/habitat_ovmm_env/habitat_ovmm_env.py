@@ -127,7 +127,7 @@ class HabitatOpenVocabManipEnv(HabitatEnv):
     ) -> home_robot.core.interfaces.Observations:
         depth = self._preprocess_depth(habitat_obs["robot_head_depth"])
 
-        if self.visualize:
+        if self.visualize and "robot_third_rgb" in habitat_obs:
             third_person_image = habitat_obs["robot_third_rgb"]
         else:
             third_person_image = None
@@ -195,7 +195,9 @@ class HabitatOpenVocabManipEnv(HabitatEnv):
         goal_receptacle = self._rec_id_to_name_mapping[
             habitat_obs["goal_receptacle"][0]
         ]
-        goal_name = obj_name + " " + start_receptacle + " " + goal_receptacle
+        goal_name = (
+            "Move " + obj_name + " from " + start_receptacle + " to " + goal_receptacle
+        )
 
         obj_goal_id = 1  # semantic sensor returns binary mask for goal object
         if self.ground_truth_semantics:
@@ -244,9 +246,9 @@ class HabitatOpenVocabManipEnv(HabitatEnv):
             if action.xyt is not None:
                 if action.xyt[0] != 0:
                     waypoint_x = np.clip(action.xyt[0] / self.max_forward, -1, 1)
-                elif action.xyt[1] != 0:
+                if action.xyt[1] != 0:
                     waypoint_y = np.clip(action.xyt[1] / self.max_forward, -1, 1)
-                elif action.xyt[2] != 0:
+                if action.xyt[2] != 0:
                     turn = np.clip(action.xyt[2] / self.max_turn, -1, 1)
             arm_action = np.array([0] * self.joints_dof)
             # If action is of type ContinuousFullBodyAction, it would include waypoints for the joints

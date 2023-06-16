@@ -26,6 +26,7 @@ AGENT:
   panorama_start: 1       # 1: turn around 360 degrees when starting an episode, 0: don't
   exploration_strategy: seen_frontier  # exploration strategy ("seen_frontier", "been_close_to_frontier")
   radius: 0.05            # robot radius (in meters)
+  fall_wait_steps: 0      # number of steps to wait after the object has been dropped
   clip_embeddings_file: projects/stretch_ovmm/clip_embeddings.pickle
 
   SEMANTIC_MAP:
