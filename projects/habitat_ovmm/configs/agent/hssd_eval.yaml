@@ -79,7 +79,7 @@ AGENT:
       type: oracle
 
     NAV_TO_OBJ:
-      type: rl # heuristic (default) or rl
+      type: heuristic # heuristic (default) or rl
       checkpoint_path: data/checkpoints/ovmm/Jun5/nav_to_obj_col_pen_0_3_drop_0_5_warmstart_200m.pth
       rl_config: projects/habitat_ovmm/configs/agent/nav_to_obj_rl.yaml
       gym_obs_keys:
@@ -109,7 +109,7 @@ AGENT:
       nav_goal_seg_channels: 2
 
     NAV_TO_REC:
-      type: rl # heuristic (default) or rl
+      type: heuristic # heuristic (default) or rl
       checkpoint_path: data/checkpoints/ovmm/Jun5/nav_to_rec_col_pen_0_3_drop_0_5_180m.pth
       rl_config: projects/habitat_ovmm/configs/agent/nav_to_obj_rl.yaml
       gym_obs_keys:
@@ -171,7 +171,7 @@ AGENT:
   skip_skills:
     nav_to_obj: False
     nav_to_rec: False
-    gaze_at_obj: False
+    gaze_at_obj: True
     gaze_at_rec: True
     pick: False
     place: False
@@ -185,7 +185,7 @@ AGENT:
     min_obs_dilation_selem_radius: 1    # radius (in cells) of obstacle dilation structuring element
     map_downsample_factor: 1            # optional downsampling of traversible and goal map before fmm distance call (1 for no downsampling, 2 for halving resolution)
     map_update_frequency: 1             # compute fmm distance map every n steps 
-    discrete_actions: False         # discrete motion planner output space or not
+    discrete_actions: True         # discrete motion planner output space or not
     verbose: False                 # display debug information during planning
 
 EVAL_VECTORIZED:
