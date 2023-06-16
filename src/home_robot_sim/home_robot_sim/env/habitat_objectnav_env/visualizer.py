@@ -74,7 +74,7 @@ class Visualizer:
         elif (
             "rearrange" in self.episodes_data_path
             and hasattr(config, "habitat")
-            and "CatNavToObjTask" in config.habitat.task.type
+            and "OVMM" in config.habitat.task.type
         ):
             if self._dataset is None:
                 with open(config.ENVIRONMENT.category_map_file) as f:

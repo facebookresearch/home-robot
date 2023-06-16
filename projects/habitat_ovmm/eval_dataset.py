@@ -225,7 +225,7 @@ if __name__ == "__main__":
     parser.add_argument(
         "--habitat_config_path",
         type=str,
-        default="rearrange/ovmm.yaml",
+        default="ovmm/ovmm_eval.yaml",
         help="Path to config yaml",
     )
     parser.add_argument(
