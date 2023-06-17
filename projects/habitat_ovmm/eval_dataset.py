@@ -135,7 +135,7 @@ class VectorizedEvaluator(PPOTrainer):
         # The stopping condition is either specified through
         # num_episodes_per_env (stop after each environment
         # finishes a certain number of episodes)
-        print(envs.number_of_episodes)
+        print(f"Running eval on {envs.number_of_episodes} episodes")
 
         if num_episodes_per_env is None:
             num_episodes_per_env = envs.number_of_episodes
@@ -145,7 +145,6 @@ class VectorizedEvaluator(PPOTrainer):
         episode_metrics = {}
 
         def stop():
-            print(episode_idxs[0], num_episodes_per_env[0])
             return all(
                 [
                     episode_idxs[i] >= num_episodes_per_env[i]
@@ -156,7 +155,6 @@ class VectorizedEvaluator(PPOTrainer):
         start_time = time.time()
         episode_idxs = [0] * envs.num_envs
         done_episode_keys = set()
-        steps_since_stop = [-1] * envs.num_envs
         obs = envs.call(["reset"] * envs.num_envs)
 
         agent.reset_vectorized(self.envs.current_episodes())
