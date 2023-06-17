@@ -94,5 +94,5 @@ with
 
 Then you should be able to run an example! For example, set the robot up in front of a cup (arm facing the object) and run this:
 ```
-python projects/stretch_ovmm/eval_episode.py --test-pick --pick-object cup
+python projects/real_world_ovmm/eval_episode.py --test-pick --pick-object cup
 ```

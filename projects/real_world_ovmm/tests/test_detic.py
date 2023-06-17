@@ -77,7 +77,7 @@ def main(
 
 if __name__ == "__main__":
     """Example usage: 
-    python projects/stretch_ovmm/tests/test_detic.py \
+    python projects/real_world_ovmm/tests/test_detic.py \
             --objects rubber_duck,cup,chair,table,can,mouse,clamp,bowl
     """
     main()

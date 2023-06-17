@@ -23,7 +23,7 @@ from home_robot_hw.utils.config import load_config
 @click.option("--visualize-maps", default=False, is_flag=True)
 @click.option("--show-observations", default=False, is_flag=True)
 @click.option(
-    "--cat-map-file", default="projects/stretch_ovmm/configs/example_cat_map.json"
+    "--cat-map-file", default="projects/real_world_ovmm/configs/example_cat_map.json"
 )
 def main(
     test_pick=False,

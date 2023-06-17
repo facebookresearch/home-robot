@@ -333,7 +333,7 @@ class ObjectNavAgent(Agent):
             vis_inputs[0]["semantic_frame"] = obs.task_observations["semantic_frame"]
             vis_inputs[0]["closest_goal_map"] = closest_goal_map
             vis_inputs[0]["third_person_image"] = obs.third_person_image
-            vis_inputs[0]["short_term_goal"] = short_term_goal
+            vis_inputs[0]["short_term_goal"] = None
             vis_inputs[0]["dilated_obstacle_map"] = dilated_obstacle_map
         info = {**planner_inputs[0], **vis_inputs[0]}
 

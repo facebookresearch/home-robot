@@ -45,3 +45,6 @@ data/
 
 # Training stuff
 projects/**/wandb
+
+# configs
+projects/habitat_ovmm/configs/agent/generated/*

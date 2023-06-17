@@ -1,1 +1,2 @@
+from .heuristic_pick_policy import HeuristicPickPolicy
 from .heuristic_place_policy import HeuristicPlacePolicy
