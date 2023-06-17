@@ -23,6 +23,11 @@ ANGLE_ADJUSTMENT = -0.01
 
 
 class HeuristicPickPolicy(HeuristicPlacePolicy):
+    """
+    Heuristic policy for picking objects.
+    First determines the pick point, then turns to orient towards the object, then moves the arm to the pick point and snaps the object.
+    """
+
     def __init__(
         self,
         config,
@@ -149,7 +154,7 @@ class HeuristicPickPolicy(HeuristicPlacePolicy):
         """Get the action to execute at the current timestep using the plan generated in generate_plan.
         Before actual picking starts (i.e. before t_start_pick), the agent turns and moves to orient towards the pick point.
         Recalibrates the pick point after switching to manipulation mode.
-        After t_start_pick, the agent moves the arm to the pick point, snaps the object, and raises the arm.
+        After t_start_pick, the agent moves the arm to the pick point and snaps the object.
         """
         action = None
         if self.timestep == self.t_turn_to_orient:
