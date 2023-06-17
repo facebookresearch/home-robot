@@ -1,4 +1,4 @@
-from typing import Any, Dict, Optional
+from typing import Any, Dict, Optional, Tuple, Union
 
 import cv2
 import numpy as np
@@ -79,7 +79,9 @@ class HeuristicPickPolicy(HeuristicPlacePolicy):
                 vis_inputs["semantic_frame"][..., :3] = rgb_vis_tmp
             return best_voxel, vis_inputs
 
-    def generate_plan(self, obs: Observations, vis_inputs: Optional[Dict] = None):
+    def generate_plan(
+        self, obs: Observations, vis_inputs: Optional[Dict] = None
+    ) -> None:
         """Hardcode the following plan:
         1. Find a grasp point.
         2. Turn to orient towards the object.
@@ -134,7 +136,21 @@ class HeuristicPickPolicy(HeuristicPlacePolicy):
             self.t_start_pick = np.inf
             print("-" * 20)
 
-    def get_action(self, obs: Observations, vis_inputs: Optional[Dict] = None):
+    def get_action(
+        self, obs: Observations, vis_inputs: Optional[Dict] = None
+    ) -> Tuple[
+        Union[
+            ContinuousFullBodyAction,
+            ContinuousNavigationAction,
+            DiscreteNavigationAction,
+        ],
+        Dict,
+    ]:
+        """Get the action to execute at the current timestep using the plan generated in generate_plan.
+        Before actual picking starts (i.e. before t_start_pick), the agent turns and moves to orient towards the pick point.
+        Recalibrates the pick point after switching to manipulation mode.
+        After t_start_pick, the agent moves the arm to the pick point, snaps the object, and raises the arm.
+        """
         action = None
         if self.timestep == self.t_turn_to_orient:
             # at first turn to face the object and move forward
