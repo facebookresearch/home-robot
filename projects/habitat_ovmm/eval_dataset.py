@@ -154,7 +154,6 @@ class VectorizedEvaluator(PPOTrainer):
 
         start_time = time.time()
         episode_idxs = [0] * envs.num_envs
-        done_episode_keys = set()
         obs = envs.call(["reset"] * envs.num_envs)
 
         agent.reset_vectorized(self.envs.current_episodes())
