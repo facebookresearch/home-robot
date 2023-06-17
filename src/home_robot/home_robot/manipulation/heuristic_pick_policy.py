@@ -25,7 +25,8 @@ ANGLE_ADJUSTMENT = -0.01
 class HeuristicPickPolicy(HeuristicPlacePolicy):
     """
     Heuristic policy for picking objects.
-    First determines the pick point, then turns to orient towards the object, then moves the arm to the pick point and snaps the object.
+    Mainly used for visualizing the agent's arm reaching the object.
+    First determines the pick point using object point cloud, then turns to orient towards the object, then moves the arm to the pick point and snaps the object.
     """
 
     def __init__(
