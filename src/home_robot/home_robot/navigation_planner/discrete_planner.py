@@ -473,10 +473,7 @@ class DiscretePlanner:
             stop: binary flag to indicate we've reached the goal
         """
         gx1, gx2, gy1, gy2 = planning_window
-        (
-            x1,
-            y1,
-        ) = (
+        (x1, y1,) = (
             0,
             0,
         )
