@@ -2,8 +2,7 @@
    1. [Environment setup](#environment-setup)
    2. [Dataset setup](#dataset-setup)
    3. [Demo setup](#demo-setup)
-   4. [DETIC setup](#install-detic)
-   5. [Run!](#run)
+   4. [Run!](#run)
 
 ## Environment Setup
 
@@ -125,7 +124,7 @@ python -u -m habitat_baselines.run \
 ```
 
 
-## Run evaluation
+## Run
 
 ```
 cd /path/to/home-robot
