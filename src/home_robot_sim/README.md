@@ -14,7 +14,6 @@ These setup instructions are meant to be followed after reaching step 7 in the m
 
 ```
 mamba env update -f src/home_robot_sim/environment.yml
-pip install "git+https://github.com/facebookresearch/habitat-sim.git@ovmm_challenge_2023"
 ```
 
 2. Install dependencies.

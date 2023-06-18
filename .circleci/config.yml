@@ -116,7 +116,6 @@ jobs:
           command: |
             conda activate ~/env_home_robot
             mamba env update -f src/home_robot_sim/environment.yml
-            pip install "git+https://github.com/facebookresearch/habitat-sim.git@ovmm_challenge_2023"
             pip install -e src/third_party/habitat-lab
             python -m habitat_sim.utils.datasets_download --uids mp3d_example_scene --data-path data/
             mkdir -p tests/home_robot_sim/data/scene_datasets/mp3d_example/mp3d
