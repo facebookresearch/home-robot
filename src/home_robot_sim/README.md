@@ -7,83 +7,30 @@
 
 ## Environment Setup
 
+These setup instructions are meant to be followed after reaching step 7 in the main [README.md](../../README.md) file. If you haven't completed those instructions yet, please refer to the main [README.md](../../README.md) and complete the steps mentioned there before continuing.
+
 ### On an Ubuntu machine with GPU:
 
-1. Clone this github repository.
+1. Install `habitat_sim` and other dependencies
 
 ```
-git clone git@github.com:facebookresearch/home-robot.git
-cd home-robot
+mamba env update -f src/home_robot_sim/environment.yml
+pip install "git+https://github.com/facebookresearch/habitat-sim.git@ovmm_challenge_2023"
 ```
 
-2. Setup virtual environment.
-
+2. Install dependencies.
 ```
-conda env create -n home-robot --file=src/home_robot/environment.yml
-conda activate home-robot
-
-# Download third-party packages
-git submodule update --init --recursive
-
-cd src/third_party/habitat-sim
-```
-
-3. Build habitat-sim from source.
-
-```
-pip install -r requirements.txt
-
-sudo apt-get update || true
-# These are fairly ubiquitous packages and your system likely has them already,
-# but if not, let's get the essentials for EGL support:
-sudo apt-get install -y --no-install-recommends \
-     libjpeg-dev libglm-dev libgl1-mesa-glx libegl1-mesa-dev mesa-utils xorg-dev freeglut3-dev
-
-# Build habitat with bullet physics
-python setup.py install --bullet
-```
-
-4. Install dependencies.
-```
-cd -
 pip install -e src/third_party/habitat-lab/habitat-lab
 pip install -e src/third_party/habitat-lab/habitat-baselines
 python -m pip install "git+https://github.com/facebookresearch/pytorch3d.git"
+```
 
-# Install the core home_robot package
-pip install -e src/home_robot
-
-# Install home_robot_hw
-pip install -e src/home_robot_hw
-
+3. Install home_robot_sim library
+```
 # Install home robot sim interfaces
 pip install -e src/home_robot_sim
 ```
 
-### On Mac:
-```
-conda create -n home-robot python=3.10 cmake
-conda activate home-robot
-
-conda install -y pytorch torchvision -c pytorch
-
-conda activate home-robot
-
-# Download third-party packages
-git submodule update --init --recursive
-
-cd src/third_party/habitat-sim
-```
-Follow the instructions [here](https://github.com/facebookresearch/habitat-sim/blob/main/BUILD_FROM_SOURCE.md) to build habitat-sim from source.
-```
-cd -
-
-pip install -e src/third_party/habitat-lab/habitat-lab
-pip install -e src/third_party/habitat-lab/habitat-baselines
-
-pip install natsort scikit-image scikit-fmm pandas trimesh scikit-learn
-conda install -c pytorch3d pytorch3d
-```
 
 ## Dataset Setup
 
@@ -93,17 +40,17 @@ conda install -c pytorch3d pytorch3d
 mkdir data && cd data
 
 # Download the scenes
-git clone https://huggingface.co/datasets/fpss/fphab --branch ovmm
+git clone https://huggingface.co/datasets/fpss/fphab --branch ovmm-old-scenes
 
 # Download the objects and metadata
-git clone https://huggingface.co/datasets/osmm/objects
+git clone https://huggingface.co/datasets/osmm/objects --branch release
 ```
 
 ### Download the Episodes
 
 These describe where objects are and where the robot starts:
 ```
-git clone https://huggingface.co/datasets/osmm/episodes
+git clone https://huggingface.co/datasets/osmm/episodes --branch release
 ```
 
 ### Download the Robot Model

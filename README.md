@@ -68,6 +68,8 @@ This should install pytorch; if you run into trouble, you may need to edit the i
 # Install the core home_robot package
 pip install -e src/home_robot
 
+Skip to step 4 if you do not have a real robot setup or if you only want to use our simulation stack.
+
 # Install home_robot_hw
 pip install -e src/home_robot_hw
 ```
@@ -88,8 +90,12 @@ python tests/hw_manual_test.py
 
 Follow the on-screen instructions. The robot should move through a set of configurations.
 
+#### 4. Download third-party packages
+```
+git submodule update --init --recursive
+```
 
-#### 4. Install Detic
+#### 5. Install Detic
 
 Install [detectron2](https://detectron2.readthedocs.io/tutorials/install.html). If you installed our default environment above, you may need to [download CUDA11.7](https://developer.nvidia.com/cuda-11-7-0-download-archive).
 ```
@@ -107,15 +113,21 @@ wget https://web.eecs.umich.edu/~fouhey/fun/desk/desk.jpg
 python demo.py --config-file configs/Detic_LCOCOI21k_CLIP_SwinB_896b32_4x_ft4x_max-size.yaml --input desk.jpg --output out2.jpg --vocabulary custom --custom_vocabulary headphone,webcam,paper,coffe --confidence-threshold 0.3 --opts MODEL.WEIGHTS models/Detic_LCOCOI21k_CLIP_SwinB_896b32_4x_ft4x_max-size.pth
 ```
 
-
-#### 5. Download pretrained skills
+#### 6. Download pretrained skills
 ```
 mkdir -p $HOME_ROBOT_ROOT/data/
 cd $HOME_ROBOT_ROOT/data/
 git clone https://huggingface.co/datasets/osmm/checkpoints
 ```
 
-#### 6. Run Open Vocabulary Mobile Manipulation on Stretch
+#### 7. Simulation Setup
+
+To set up the simulation stack with Habitat, train DDPPO skills and run evaluations: see the [installation instructions](src/home_robot_sim/README.md) in `home_robot_sim`.
+
+For more details on the OVMM challenge, see the [Habitat OVMM readme](projects/habitat_ovmm/README.md).
+
+
+#### 8. Run Open Vocabulary Mobile Manipulation on Stretch
 
 You should then be able to run the Stretch OVMM example.
 
@@ -137,13 +149,6 @@ Then you can run the OVMM example script:
 cd $HOME_ROBOT_ROOT
 python projects/real_world_ovmm/eval_episode.py
 ```
-
-#### 7. Simulation Setup
-
-To set up the simulation stack with Habitat, train DDPPO skills and run evaluations: see the [installation instructions](src/home_robot_sim/README.md) in `home_robot_sim`.
-
-For more details on the OVMM challenge, see the [Habitat OVMM readme](projects/habitat_ovmm/README.md).
-
 
 ## Code Contribution
 
