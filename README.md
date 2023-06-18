@@ -11,10 +11,6 @@ Your open-source robotic mobile manipulation stack!
 
 Check out the [Neurips 2023 HomeRobot Open-Vocabulary Mobile Manipulation Challenge!](https://aihabitat.org/challenge/2023_homerobot_ovmm/)
 
-_CURRENTLY UNDER ACTIVE DEVELOPMENT! PLEASE CONTACT US IF YOU ARE INTERESTED IN USING THIS LIBRARY!_
-
-_FULL RELEASE WILL HAPPEN MID-JUNE!_
-
 HomeRobot lets you get started running a range of robotics tasks on a low-cost mobile manipulator, starting with _Open Vocabulary Mobile Manipulation_, or OVMM. OVMM is a challenging task which means that, in an unknown environment, a robot must:
   - Explore its environment
   - Find an object
@@ -57,8 +53,11 @@ To set up your workstation, follow these instructions. We will assume that your 
 #### 1. Create Your Environment
 ```
 # Create a conda env - use the version in home_robot_hw if you want to run on the robot
-# Otherwise, you can use the version in src/home_robot
 mamba env create -n home-robot -f src/home_robot_hw/environment.yml
+
+# Otherwise, use the version in src/home_robot
+mamba env create -n home-robot -f src/home_robot/environment.yml
+
 conda activate home-robot
 ```
 
