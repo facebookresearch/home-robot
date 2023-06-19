@@ -25,3 +25,4 @@
 - imageio
 - pygifsicle
 - pynput
+- pinocchio

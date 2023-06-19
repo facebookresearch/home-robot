@@ -17,6 +17,7 @@ install_requires = [
     "sophuspy",
     "trimesh",
     "pin==2.6.17",
+    "pinocchio"
 ]
 
 setup(
