@@ -115,7 +115,6 @@ python demo.py --config-file configs/Detic_LCOCOI21k_CLIP_SwinB_896b32_4x_ft4x_m
 
 #### 6. Download pretrained skills
 ```
-mkdir -p $HOME_ROBOT_ROOT/data/
 cd $HOME_ROBOT_ROOT/data/
 git clone https://huggingface.co/datasets/osmm/checkpoints
 ```

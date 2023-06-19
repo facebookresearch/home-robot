@@ -62,7 +62,7 @@ class Visualizer:
         else:
             self.episodes_data_path = config.TASK_CONFIG.DATASET.DATA_PATH
         assert (
-            "rearrange" in self.episodes_data_path
+            "ovmm" in self.episodes_data_path
             or "hm3d" in self.episodes_data_path
             or "mp3d" in self.episodes_data_path
         )
@@ -72,9 +72,7 @@ class Visualizer:
             else:
                 raise NotImplementedError
         elif (
-            "rearrange" in self.episodes_data_path
-            and hasattr(config, "habitat")
-            and "OVMM" in config.habitat.task.type
+            "ovmm" in self.episodes_data_path
         ):
             if self._dataset is None:
                 with open(config.ENVIRONMENT.category_map_file) as f:
