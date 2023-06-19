@@ -71,9 +71,7 @@ class Visualizer:
                 self.semantic_category_mapping = HM3DtoCOCOIndoor()
             else:
                 raise NotImplementedError
-        elif (
-            "ovmm" in self.episodes_data_path
-        ):
+        elif "ovmm" in self.episodes_data_path:
             if self._dataset is None:
                 with open(config.ENVIRONMENT.category_map_file) as f:
                     category_map = json.load(f)
