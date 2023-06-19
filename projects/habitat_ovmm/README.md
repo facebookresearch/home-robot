@@ -15,17 +15,17 @@
 mkdir data && cd data
 
 # Download the scenes
-git clone https://huggingface.co/datasets/fpss/fphab --branch ovmm-old-scenes
+git clone https://huggingface.co/datasets/fpss/fphab --branch ovmm-old-scenes-cleaned
 
 # Download the objects and metadata
-git clone https://huggingface.co/datasets/osmm/objects --branch release
+git clone https://huggingface.co/datasets/ai-habitat/OVMM_objects
 ```
 
 ### Download the Episodes
 
 These describe where objects are and where the robot starts:
 ```
-git clone https://huggingface.co/datasets/osmm/episodes --branch release
+git clone https://huggingface.co/datasets/ai-habitat/OVMM_dataset
 ```
 
 ### Download the Robot Model
