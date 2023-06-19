@@ -12,8 +12,6 @@
 ### Scene dataset setup 
 
 ```
-mkdir data && cd data
-
 # Download the scenes
 git submodule update --init data/hssd-hab
 
