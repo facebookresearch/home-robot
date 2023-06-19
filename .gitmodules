@@ -16,3 +16,6 @@
 [submodule "src/third_party/contact_graspnet"]
 	path = src/third_party/contact_graspnet
 	url = git@github.com:cpaxton/contact_graspnet.git
+[submodule "data/datasets/ovmm"]
+	path = data/datasets/ovmm
+	url = https://huggingface.co/datasets/ai-habitat/OVMM_dataset
