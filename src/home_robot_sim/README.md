@@ -10,20 +10,27 @@ These setup instructions are meant to be followed after reaching step 7 in the m
 
 ### On an Ubuntu machine with GPU:
 
+
 1. Install `habitat_sim` and other dependencies
 
 ```
 mamba env update -f src/home_robot_sim/environment.yml
 ```
 
-2. Install dependencies.
+2. Fetch submodules
+```
+git submodule update --init --recursive src/third_party/habitat-lab
+```
+
+
+3. Install `habitat-lab`, `habitat-baselines` and `pytorch3d`.
 ```
 pip install -e src/third_party/habitat-lab/habitat-lab
 pip install -e src/third_party/habitat-lab/habitat-baselines
 python -m pip install "git+https://github.com/facebookresearch/pytorch3d.git"
 ```
 
-3. Install home_robot_sim library
+4. Install home_robot_sim library
 ```
 # Install home robot sim interfaces
 pip install -e src/home_robot_sim
