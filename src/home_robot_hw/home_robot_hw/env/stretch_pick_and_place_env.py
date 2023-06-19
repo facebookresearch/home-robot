@@ -77,6 +77,7 @@ class StretchPickandPlaceEnv(StretchEnv):
         else:
             self.visualizer = None
 
+        # Connect to grasp planner via ROS
         if ros_grasping:
             # Create a simple grasp planner object, which will let us pick stuff up.
             # This takes in a reference to the robot client - will replace "self" with "self.client"
