@@ -68,9 +68,6 @@ jobs:
                 vim \
                 ca-certificates \
                 unzip || true
-      - run:
-          name: Sync submodules
-          command: git submodule sync && git submodule update --init
       - conda_env_setup
       - run:
           name: Install libraries and run tests
@@ -109,7 +106,7 @@ jobs:
                 unzip || true
       - run:
           name: Sync submodules
-          command: git submodule sync && git submodule update --init
+          command: git submodule sync && git submodule update --init src/third_party/habitat-lab
       - conda_env_setup
       - run:
           name: Install home-robot-sim dependencies & download data

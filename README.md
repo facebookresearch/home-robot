@@ -92,7 +92,7 @@ Follow the on-screen instructions. The robot should move through a set of config
 
 #### 4. Download third-party packages
 ```
-git submodule update --init --recursive
+git submodule update --init --recursive assets/hab_stretch src/home_robot/home_robot/perception/detection/detic/Detic src/third_party/detectron2 src/third_party/contact_graspnet
 ```
 
 #### 5. Install Detic
