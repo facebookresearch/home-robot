@@ -30,8 +30,8 @@ git submodule update --init data/datasets/ovmm
 
 Download and unzip the robot model:
 ```
-mkdir -p robots/hab_stretch
-cd robots/hab_stretch
+mkdir -p data/robots/hab_stretch
+cd data/robots/hab_stretch
 
 wget http://dl.fbaipublicfiles.com/habitat/robots/hab_stretch_v1.0.zip
 unzip hab_stretch_v1.0.zip
