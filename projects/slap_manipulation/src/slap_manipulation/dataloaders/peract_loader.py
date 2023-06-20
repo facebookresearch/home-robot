@@ -206,12 +206,52 @@ class PerActRobotDataset(RobotDataset):
             new_data["rgb"] = rgb
             new_data["xyz"] = pcd
             new_data["action"] = gripper_states
+            new_data["peract_input"] = data["peract_input"]
 
             if self.is_action_valid(new_data):
                 return new_data
             else:
                 tries += 1
 
+        return new_data
+
+    def get_per_waypoint_batch(self, batch, idx):
+        new_data = {"batch": batch, "idx": idx}
+
+        # This gives us our action translation indices - location in the voxel cube
+        action_trans = batch["trans_action_indices"][:, :, :3].int()
+        # Rotation index
+        action_rot_grip = batch["rot_grip_action_indices"][0, :].int()
+        # Do we take some action to ignore collisions or not
+        action_ignore_collisions = batch["ignore_collisions"][:, :, -1].int()
+
+        # Get language goal embedding
+        lang_goal = batch["cmd"]
+
+        obs = batch["rgb"]
+        pcd = batch["xyz"]
+
+        # inputs
+        # 3 dimensions - proprioception: {gripper_open, gripper_width, timestep}
+        # FIXME: use peract_input dictionary to create new proprio
+        proprio = batch["gripper_states"]
+        proprio_instance = proprio[:, idx]
+        action_trans_instance = action_trans[:, idx]
+        action_rot_grip_instance = action_rot_grip[idx].unsqueeze(0)
+        action_ignore_collisions_instance = action_ignore_collisions[:, idx].unsqueeze(
+            0
+        )
+
+        # FIXME: use peract_input dictionary to create new proprio
+        new_data["proprio"] = proprio_instance
+
+        # TODO: unify dictionary keys b/w here and peract's update method
+        new_data["action_trans"] = action_trans_instance
+        new_data["action_rot_grip"] = action_rot_grip_instance
+        new_data["action_ignore_collisions"] = action_ignore_collisions_instance
+        new_data["cmd"] = lang_goal
+        new_data["rgb"] = obs
+        new_data["xyz"] = pcd
         return new_data
 
     def _norm_rgb(self, x):
@@ -264,7 +304,7 @@ class PerActRobotDataset(RobotDataset):
             gripper_width = sample["gripper_width_array"][idx]
             time_index = float((2.0 * idx) / max_keypoints)
         quat = utils.normalize_quaternion(quat)
-        if quat[-1] < 0:
+        if quat[0] < 0:
             quat = -quat
         disc_rot = utils.quaternion_to_discrete_euler(quat, rotation_resolution)
         trans_indices, attention_coordinates = [], []

@@ -44,7 +44,8 @@ from slap_manipulation.policy.voxel_grid import VoxelGrid
 from torch import nn
 from tqdm import tqdm
 
-from home_robot.utils.point_cloud import numpy_to_pcd
+from home_robot.utils.point_cloud import numpy_to_pcd, show_point_cloud
+from home_robot.utils.pose import to_matrix
 
 # from functools import reduce as funtool_reduce
 # from functools import wraps
@@ -863,8 +864,12 @@ class PerceiverActorAgent:
         replay_sample: a single observation
         backprop: true if training, false if inference
         """
+
+        # If val==False and backprop==False, this means it is a roll-out call
+        # do the update as usual without backpropping anything or looking for expert_actions
         # sample
         action_trans = None
+        # FIXME: read all targets and inputs from PER_WAYPOINT_BATCH
         if val or backprop:
             # This gives us our action translation indices - location in the voxel cube
             action_trans = replay_sample["trans_action_indices"][:, :, :3].int()
@@ -907,119 +912,121 @@ class PerceiverActorAgent:
         translation_vector = []
         rot_and_grip_vector = []
         action_trans_vector = []
-        for idx in range(len(replay_sample["ee_keyframe_pos"][0])):
-            proprio_instance = proprio[:, idx]
-            action_trans_instance = action_trans[:, idx]
-            action_rot_grip_instance = action_rot_grip[idx].unsqueeze(0)
-            action_ignore_collissions_instance = action_ignore_collisions[
-                :, idx
-            ].unsqueeze(0)
-            q_trans, rot_grip_q, collision_q, voxel_grid = self._q(
-                obs, proprio_instance, pcd, lang_goal_embs, bounds
+        # for idx in range(len(replay_sample["ee_keyframe_pos"][0])):
+        #     proprio_instance = proprio[:, idx]
+        #     action_trans_instance = action_trans[:, idx]
+        #     action_rot_grip_instance = action_rot_grip[idx].unsqueeze(0)
+        #     action_ignore_collissions_instance = action_ignore_collisions[
+        #         :, idx
+        #     ].unsqueeze(0)
+        q_trans, rot_grip_q, collision_q, voxel_grid = self._q(
+            obs, proprio_instance, pcd, lang_goal_embs, bounds
+        )
+
+        # one-hot expert actions
+        bs = self._batch_size
+        if val or backprop:
+            # Convert expert x, y, z into 1 hot vectors
+            (
+                action_trans_one_hot,
+                action_rot_x_one_hot,
+                action_rot_y_one_hot,
+                action_rot_z_one_hot,
+                action_grip_one_hot,
+                action_collision_one_hot,
+            ) = self._get_one_hot_expert_actions(
+                bs,
+                action_trans_instance,
+                action_rot_grip_instance,
+                action_ignore_collissions_instance,
+                device=self._device,
+            )
+        if val or backprop:
+            # cross-entropy loss
+            trans_loss = self._cross_entropy_loss(
+                q_trans.view(bs, -1), action_trans_one_hot.argmax(-1)
             )
 
-            # one-hot expert actions
-            bs = self._batch_size
-            if val or backprop:
-                # Convert expert x, y, z into 1 hot vectors
-                (
-                    action_trans_one_hot,
-                    action_rot_x_one_hot,
-                    action_rot_y_one_hot,
-                    action_rot_z_one_hot,
-                    action_grip_one_hot,
-                    action_collision_one_hot,
-                ) = self._get_one_hot_expert_actions(
-                    bs,
-                    action_trans_instance,
-                    action_rot_grip_instance,
-                    action_ignore_collissions_instance,
-                    device=self._device,
-                )
-            if val or backprop:
-                # cross-entropy loss
-                trans_loss = self._cross_entropy_loss(
-                    q_trans.view(bs, -1), action_trans_one_hot.argmax(-1)
-                )
+            rot_grip_loss = 0.0
+            rot_grip_loss += self._cross_entropy_loss(
+                rot_grip_q[
+                    :,
+                    0 * self._num_rotation_classes : 1 * self._num_rotation_classes,
+                ],
+                action_rot_x_one_hot.argmax(-1),
+            )
+            rot_grip_loss += self._cross_entropy_loss(
+                rot_grip_q[
+                    :,
+                    1 * self._num_rotation_classes : 2 * self._num_rotation_classes,
+                ],
+                action_rot_y_one_hot.argmax(-1),
+            )
+            rot_grip_loss += self._cross_entropy_loss(
+                rot_grip_q[
+                    :,
+                    2 * self._num_rotation_classes : 3 * self._num_rotation_classes,
+                ],
+                action_rot_z_one_hot.argmax(-1),
+            )
+            rot_grip_loss += self._cross_entropy_loss(
+                rot_grip_q[:, 3 * self._num_rotation_classes :],
+                action_grip_one_hot.argmax(-1),
+            )
 
-                rot_grip_loss = 0.0
-                rot_grip_loss += self._cross_entropy_loss(
-                    rot_grip_q[
-                        :,
-                        0 * self._num_rotation_classes : 1 * self._num_rotation_classes,
-                    ],
-                    action_rot_x_one_hot.argmax(-1),
-                )
-                rot_grip_loss += self._cross_entropy_loss(
-                    rot_grip_q[
-                        :,
-                        1 * self._num_rotation_classes : 2 * self._num_rotation_classes,
-                    ],
-                    action_rot_y_one_hot.argmax(-1),
-                )
-                rot_grip_loss += self._cross_entropy_loss(
-                    rot_grip_q[
-                        :,
-                        2 * self._num_rotation_classes : 3 * self._num_rotation_classes,
-                    ],
-                    action_rot_z_one_hot.argmax(-1),
-                )
-                rot_grip_loss += self._cross_entropy_loss(
-                    rot_grip_q[:, 3 * self._num_rotation_classes :],
-                    action_grip_one_hot.argmax(-1),
-                )
+            collision_loss = self._cross_entropy_loss(
+                collision_q, action_collision_one_hot.argmax(-1)
+            )
 
-                collision_loss = self._cross_entropy_loss(
-                    collision_q, action_collision_one_hot.argmax(-1)
-                )
+            loss = trans_loss + rot_grip_loss + 0 * collision_loss
+            total_loss += loss.float()
+            num_iters += 1
 
-                loss = trans_loss + rot_grip_loss + 0 * collision_loss
-                total_loss += loss.float()
-                num_iters += 1
+            # backprop
+            if backprop:
+                self._optimizer.zero_grad()
+                loss.backward()
+                self._optimizer.step()
 
-                # backprop
-                if backprop:
-                    self._optimizer.zero_grad()
-                    loss.backward()
-                    self._optimizer.step()
+            # choose best action through argmax
+            (
+                coords_indicies,
+                rot_and_grip_indicies,
+                ignore_collision_indicies,
+            ) = self._q.choose_highest_action(q_trans, rot_grip_q, collision_q)
 
-                # choose best action through argmax
-                (
-                    coords_indicies,
-                    rot_and_grip_indicies,
-                    ignore_collision_indicies,
-                ) = self._q.choose_highest_action(q_trans, rot_grip_q, collision_q)
+            # discrete to continuous translation action
+            res = (bounds[:, 3:] - bounds[:, :3]) / self._voxel_size
+            continuous_trans = bounds[:, :3] + res * coords_indicies.int() + res / 2
 
-                # discrete to continuous translation action
-                res = (bounds[:, 3:] - bounds[:, :3]) / self._voxel_size
-                continuous_trans = bounds[:, :3] + res * coords_indicies.int() + res / 2
+            continuous_trans_vector = continuous_trans
+            translation_vector = coords_indicies
+            rot_and_grip_vector = rot_and_grip_indicies
 
-                continuous_trans_vector.append(continuous_trans)
-                translation_vector.append(coords_indicies)
-                rot_and_grip_vector.append(rot_and_grip_indicies)
-                action_trans_vector.append(action_trans_instance)
-
-        total_loss = total_loss / num_iters
+            total_loss = total_loss / num_iters
 
         return {
             "total_loss": total_loss,
             "voxel_grid": voxel_grid,
             "q_trans": self._softmax_q(q_trans),
             "pred_action": {
-                "trans": translation_vector,
-                "continuous_trans": continuous_trans_vector,
-                "rot_and_grip": rot_and_grip_vector,
+                "trans": coords_indicies,
+                "continuous_trans": continuous_trans,
+                "rot_and_grip": rot_and_grip_indicies,
                 # "collision": ignore_collision_indicies,
             },
-            "expert_action": {"action_trans": action_trans_vector},
+            "expert_action": {"action_trans": action_trans},
         }
 
 
-def train(path, template, split_path, wt_path):
+def train(path, template, split_path, wt_path, debug=False):
     # hydra_cfg = hydra.core.hydra_config.HydraConfig.get()
     # hydra_output_dir = hydra_cfg["runtime"]["output_dir"]
     dt = datetime.datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
-    hydra_output_dir = os.path.join(os.getcwd(), f"peract_{dt}")
+    if debug:
+        hydra_output_dir = os.path.join(os.getcwd(), f"peract_debug_{dt}")
+    else:
+        hydra_output_dir = os.path.join(os.getcwd(), f"peract_{dt}")
     Path(hydra_output_dir).mkdir(parents=True, exist_ok=True)
     device = "cuda" if torch.cuda.is_available() else "cpu"
 
@@ -1057,7 +1064,7 @@ def train(path, template, split_path, wt_path):
         time_as_one_hot=True,
     )
     # Create data loaders
-    num_workers = 10
+    num_workers = 0 if debug else 10
     B = 1
     data_loader = torch.utils.data.DataLoader(
         ds,
@@ -1135,12 +1142,24 @@ def train(path, template, split_path, wt_path):
             if not batch["data_ok_status"] or not ds.is_action_valid(batch):
                 print(f"Skipping {iter} as action is not valid")
                 continue
-            desc = batch["cmd"]
-            batch = {
-                k: v.to(device) for k, v in batch.items() if type(v) == torch.Tensor
-            }
-            batch["cmd"] = desc
-            update_dict = peract_agent.update(iter, batch)
+            for idx in range(len((batch["ee_keyframe_pos"][0]))):
+                per_action_batch = ds.get_per_waypoint_batch(batch, idx)
+                desc = per_action_batch["cmd"]
+                peract_input = per_action_batch["peract_input"]
+                per_action_batch = {
+                    k: v.to(device)
+                    for k, v in per_action_batch.items()
+                    if type(v) == torch.Tensor
+                }
+                peract_input = {
+                    k: v.to(device)
+                    for k, v in peract_input.items()
+                    if type(v) == torch.Tensor
+                }
+                per_action_batch["cmd"] = desc
+                per_action_batch["peract_input"] = peract_input
+                breakpoint()
+                update_dict = peract_agent.update(iter, per_action_batch)
 
         if iter % LOG_FREQ == 0:
             elapsed_time = (time.time() - start_time) / 60.0
@@ -1199,7 +1218,7 @@ def eval(path, template, split_path, weight_path, visualize, partition="test"):
         time_as_one_hot=True,
     )
     # Create data loaders
-    num_workers = 12
+    num_workers = 0
     B = 1
     data_loader = torch.utils.data.DataLoader(
         ds,
@@ -1272,6 +1291,10 @@ def eval(path, template, split_path, weight_path, visualize, partition="test"):
             if "total_loss" in update_dict.keys():
                 loss += update_dict["total_loss"]
             if visualize:
+                xyz = batch["xyz"].detach().cpu().numpy()
+                rgb = batch["rgb"].detach().cpu().numpy()
+                continuous_trans = []
+                continuous_quats = []
                 print(f"Lang Goal: {lang_goal}")
                 for idx in range(len(batch["ee_keyframe_pos"][0])):
                     # things to visualize
@@ -1290,18 +1313,20 @@ def eval(path, template, split_path, weight_path, visualize, partition="test"):
                         .numpy()
                     )
                     # discrete to continuous
-                    continuous_trans = (
-                        update_dict["pred_action"]["continuous_trans"][idx]
+                    continuous_trans.append(
+                        update_dict["pred_action"]["continuous_trans"][idx][0]
                         .detach()
                         .cpu()
                         .numpy()
                     )
-                    continuous_quat = discrete_euler_to_quaternion(
-                        update_dict["pred_action"]["rot_and_grip"][idx][0][:3]
-                        .detach()
-                        .cpu()
-                        .numpy(),
-                        resolution=peract_agent._rotation_resolution,
+                    continuous_quats.append(
+                        discrete_euler_to_quaternion(
+                            update_dict["pred_action"]["rot_and_grip"][idx][0][:3]
+                            .detach()
+                            .cpu()
+                            .numpy(),
+                            resolution=peract_agent._rotation_resolution,
+                        )
                     )
                     gripper_open = bool(
                         update_dict["pred_action"]["rot_and_grip"][idx][0][-1]
@@ -1349,12 +1374,18 @@ def eval(path, template, split_path, weight_path, visualize, partition="test"):
                     )
 
                     # visualize voxel-grid to confirm PerAct saw the right thing
-                    fig = plt.figure(figsize=(15, 15))
-                    plt.imshow(rendered_img)
-                    plt.axis("off")
-                    plt.show()
-
+                    # fig = plt.figure(figsize=(15, 15))
+                    # plt.imshow(rendered_img)
+                    # plt.axis("off")
+                    # plt.show()
                 # TODO: also show the open3d visualization with orientation
+                breakpoint()
+                continuous_quats = np.stack(continuous_quats)
+                continuous_trans = np.stack(continuous_trans)
+                actions = np.concatenate((continuous_trans, continuous_quats), axis=-1)
+                grasps = [to_matrix(action[:3], action[3:]) for action in actions]
+                show_point_cloud(xyz, rgb, grasps=grasps)
+
         print("Loss: ", loss)
 
 
@@ -1373,11 +1404,15 @@ def eval(path, template, split_path, weight_path, visualize, partition="test"):
 @click.option("-sp", "--split-path", type=str, default=None)
 @click.option("-wp", "--weight-path", type=str, default=None)
 @click.option("--viz/--no-viz", default=False)
-def main(flag, path, viz, split_path, weight_path, template):
+@click.option(
+    "--partition", type=click.Choice(["test", "val", "train"]), default="test"
+)
+@click.option("--debug/--no-debug", default=False)
+def main(flag, path, viz, split_path, weight_path, template, partition, debug):
     if flag == "t":
-        train(path, template, split_path, weight_path)
+        train(path, template, split_path, weight_path, debug=debug)
     elif flag == "e":
-        eval(path, template, split_path, weight_path, viz)
+        eval(path, template, split_path, weight_path, viz, partition=partition)
 
 
 if __name__ == "__main__":

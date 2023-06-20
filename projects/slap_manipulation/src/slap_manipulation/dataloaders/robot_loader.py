@@ -556,6 +556,7 @@ class RobotDataset(RLBenchDataset):
             print(f"Key-point index chosen: abs={current_keypoint_idx}")
 
         gripper_width_array = trial["gripper_state"][()]
+        peract_input_gripper_state = np.copy(gripper_width_array)
         if len(gripper_width_array.shape) == 1:
             num_samples = gripper_width_array.shape[0]
             gripper_width_array = gripper_width_array.reshape(num_samples, 1)
@@ -564,6 +565,7 @@ class RobotDataset(RLBenchDataset):
             gripper_state = (gripper_width_array <= variable_threshold).astype(int)
         else:
             gripper_state = (gripper_width_array <= self._robot_max_grasp).astype(int)
+        peract_input_gripper_action = np.copy(gripper_state)
         interaction_pt_idx = -1
         for i, other_keypoint in enumerate(keypoints):
             interaction_pt_idx = other_keypoint
@@ -927,6 +929,11 @@ class RobotDataset(RLBenchDataset):
             "target_ee_keyframe_pos_crop": torch.FloatTensor(positions),
             "target_ee_keyframe_ori_crop": torch.FloatTensor(orientations),
             "target_ee_angles": torch.FloatTensor(angles),
+            # Baseline information --------
+            "peract_input": {
+                "gripper_width": torch.FloatTensor(peract_input_gripper_state),
+                "gripper_action": torch.FloatTensor(peract_input_gripper_action),
+            },
         }
         return datum
 
