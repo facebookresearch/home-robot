@@ -41,6 +41,10 @@ sudo apt-get install -y --no-install-recommends \
 
 # Build habitat with bullet physics
 python setup.py install --bullet
+
+# The above command may crash the system due to Out of Memory if run in parallel mode
+# To run in serial mode, run the following - 
+python setup.py build_ext --bullet --parallel 1 install
 ```
 
 4. Install dependencies.
