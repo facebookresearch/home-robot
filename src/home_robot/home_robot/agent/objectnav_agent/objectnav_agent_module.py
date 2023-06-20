@@ -35,6 +35,9 @@ class ObjectNavAgentModule(nn.Module):
             map_pred_threshold=config.AGENT.SEMANTIC_MAP.map_pred_threshold,
             must_explore_close=config.AGENT.SEMANTIC_MAP.must_explore_close,
             min_obs_height_cm=config.AGENT.SEMANTIC_MAP.min_obs_height_cm,
+            dilate_obstacles=config.AGENT.SEMANTIC_MAP.dilate_obstacles,
+            dilate_size=config.AGENT.SEMANTIC_MAP.dilate_size,
+            dilate_iter=config.AGENT.SEMANTIC_MAP.dilate_iter,
         )
         self.policy = ObjectNavFrontierExplorationPolicy(
             exploration_strategy=config.AGENT.exploration_strategy

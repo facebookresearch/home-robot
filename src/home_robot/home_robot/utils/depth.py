@@ -8,7 +8,19 @@ from argparse import Namespace
 import numpy as np
 import torch
 
+from home_robot.utils.constants import (
+    MAX_DEPTH_REPLACEMENT_VALUE,
+    MIN_DEPTH_REPLACEMENT_VALUE,
+)
+
 from . import rotation as ru
+
+
+def valid_depth_mask(depth: np.ndarray) -> np.ndarray:
+    """Return a mask of all valid depth pixels."""
+    return np.bitwise_and(
+        depth != MIN_DEPTH_REPLACEMENT_VALUE, depth != MAX_DEPTH_REPLACEMENT_VALUE
+    )
 
 
 def get_camera_matrix(width, height, fov):

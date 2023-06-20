@@ -112,8 +112,8 @@ class StretchHeadClient(AbstractControlModule):
     # Helper methods
 
     def _process_depth(self, depth):
-        depth[depth < self.min_depth_val] = MIN_DEPTH_REPLACEMENT_VALUE
-        depth[depth > self.max_depth_val] = MAX_DEPTH_REPLACEMENT_VALUE
+        # depth[depth < self.min_depth_val] = MIN_DEPTH_REPLACEMENT_VALUE
+        # depth[depth > self.max_depth_val] = MAX_DEPTH_REPLACEMENT_VALUE
         return depth
 
     def _enable_hook(self) -> bool:

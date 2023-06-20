@@ -4,6 +4,7 @@
 # LICENSE file in the root directory of this source tree.
 from typing import Tuple
 
+import cv2
 import matplotlib.pyplot as plt
 import numpy as np
 import skimage.morphology
@@ -59,6 +60,9 @@ class Categorical2DSemanticMapModule(nn.Module):
         max_depth: float = 3.5,
         must_explore_close: bool = False,
         min_obs_height_cm: int = 25,
+        dilate_obstacles: bool = True,
+        dilate_iter: int = 1,
+        dilate_size: int = 3,
     ):
         """
         Arguments:
@@ -125,6 +129,12 @@ class Categorical2DSemanticMapModule(nn.Module):
             (self.agent_height + 1) / self.z_resolution - self.min_voxel_height
         )
         self.shift_loc = [self.vision_range * self.xy_resolution // 2, 0, np.pi / 2.0]
+
+        # For cleaning up maps
+        self.dilate_obstacles = dilate_obstacles
+        self.dilate_kernel = np.ones((dilate_size, dilate_size))
+        self.dilate_size = dilate_size
+        self.dilate_iter = dilate_iter
 
     @torch.no_grad()
     def forward(
@@ -412,6 +422,25 @@ class Categorical2DSemanticMapModule(nn.Module):
             dtype=dtype,
         )
 
+        # Update agent view from the fp_map_pred
+        if self.dilate_obstacles:
+            for i in range(fp_map_pred.shape[0]):
+                env_map = fp_map_pred[i, 0].cpu().numpy()
+                # TODO: remove if not used
+                # env_map_eroded = cv2.erode(
+                #     env_map, self.dilate_kernel, self.dilate_iter
+                # )
+                # filt = cv2.filter2D(env_map, -1, self.dilate_kernel)
+                median_filtered = cv2.medianBlur(env_map, self.dilate_size)
+
+                # TODO: remove debug code
+                # plt.subplot(121); plt.imshow(env_map)
+                # plt.subplot(122); plt.imshow(env_map_eroded)
+                # plt.show()
+                # breakpoint()
+                # fp_map_pred[i, 0] = torch.tensor(env_map_eroded)
+                fp_map_pred[i, 0] = torch.tensor(median_filtered)
+
         x1 = self.local_map_size_cm // (self.xy_resolution * 2) - self.vision_range // 2
         x2 = x1 + self.vision_range
         y1 = self.local_map_size_cm // (self.xy_resolution * 2)
@@ -490,6 +519,7 @@ class Categorical2DSemanticMapModule(nn.Module):
                 pass
 
         if debug_maps:
+            current_map = current_map.cpu()
             explored = current_map[0, MC.EXPLORED_MAP].numpy()
             been_close = current_map[0, MC.BEEN_CLOSE_MAP].numpy()
             obstacles = current_map[0, MC.OBSTACLE_MAP].numpy()
@@ -506,28 +536,36 @@ class Categorical2DSemanticMapModule(nn.Module):
             plt.imshow(been_close * explored)
             plt.subplot(334)
             plt.axis("off")
+            plt.title("obstacles")
             plt.imshow(obstacles)
+            plt.subplot(335)
+            plt.axis("off")
+            plt.title("obstacles_eroded")
+
+            obs_eroded = cv2.erode(obstacles, np.ones((5, 5)), iterations=5)
+            plt.imshow(obs_eroded)
             plt.subplot(336)
             plt.axis("off")
             plt.imshow(been_close * obstacles)
             plt.subplot(337)
             plt.axis("off")
             rgb = obs[0, :3, :: self.du_scale, :: self.du_scale].permute(1, 2, 0)
-            plt.imshow(rgb)
+            plt.imshow(rgb.cpu().numpy())
             plt.subplot(338)
-            plt.imshow(depth[0])
+            plt.imshow(depth[0].cpu().numpy())
             plt.axis("off")
             plt.subplot(339)
-            seg = np.zeros_like(depth[0])
+            seg = np.zeros_like(depth[0].cpu().numpy())
             for i in range(4, obs_channels):
-                seg += (i - 4) * obs[0, i].numpy()
-                print("class =", i, np.sum(obs[0, i].numpy()), "pts")
+                seg += (i - 4) * obs[0, i].cpu().numpy()
+                print("class =", i, np.sum(obs[0, i].cpu().numpy()), "pts")
             plt.imshow(seg)
             plt.axis("off")
             plt.show()
 
             print("Non semantic channels =", MC.NON_SEM_CHANNELS)
             print("map shape =", current_map.shape)
+            breakpoint()
 
         if self.must_explore_close:
             current_map[:, MC.EXPLORED_MAP] = (

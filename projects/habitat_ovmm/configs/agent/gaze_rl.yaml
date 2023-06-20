@@ -13,41 +13,46 @@ habitat_baselines:
   rl:
     policy:
         name: "PointNavResNetPolicy"
+        no_downscaling: True
         action_distribution_type: "gaussian"
         action_dist:
             use_log_std: True
             clamp_std: True
             std_init: -1.0
+            max_std: 2
             use_std_param: True
         obs_transforms:
           resize_shortest_edge:
             type: ResizeShortestEdge
-            size: 256
+            size: 120
             channels_last: True
             trans_keys:
               - robot_head_rgb
               - robot_head_depth
               - object_segmentation
-              - start_receptacle_segmentation
+              - start_recep_segmentation
               - robot_head_panoptic
-              - goal_receptacle_segmentation
+              - goal_recep_segmentation
+              - ovmm_nav_goal_segmentation
             semantic_keys:
               - robot_head_panoptic
               - object_segmentation
-              - start_receptacle_segmentation
-              - goal_receptacle_segmentation
+              - start_recep_segmentation
+              - goal_recep_segmentation
+              - ovmm_nav_goal_segmentation
           center_cropper:
             type: CenterCropper
-            height: 256
-            width: 256
+            height: 160
+            width: 120
             channels_last: True
             trans_keys:
               - robot_head_rgb
               - robot_head_depth
               - object_segmentation
-              - start_receptacle_segmentation
+              - start_recep_segmentation
               - robot_head_panoptic
-              - goal_receptacle_segmentation
+              - goal_recep_segmentation
+              - ovmm_nav_goal_segmentation
 
 
     ppo:

@@ -1,4 +1,4 @@
-![](docs/HomeRobot_Logo_Horiz_Color.png)
+![](docs/HomeRobot_Logo_Horiz_Color_white_bg.png)
 
 [![GitHub license](https://img.shields.io/badge/license-MIT-blue.svg)](https://github.com/facebookresearch/home-robot/blob/main/LICENSE)
 [![Python 3.9](https://img.shields.io/badge/python-3.9-blue.svg)](https://www.python.org/downloads/release/python-370/)
@@ -9,7 +9,7 @@
 
 Your open-source robotic mobile manipulation stack!
 
-*CURRENTLY UNDER ACTIVE DEVELOPMENT! PLEASE CONTACT US IF YOU ARE INTERESTED IN USING THIS LIBRARY!*
+Check out the [Neurips 2023 HomeRobot Open-Vocabulary Mobile Manipulation Challenge!](https://aihabitat.org/challenge/2023_homerobot_ovmm/)
 
 HomeRobot lets you get started running a range of robotics tasks on a low-cost mobile manipulator, starting with _Open Vocabulary Mobile Manipulation_, or OVMM. OVMM is a challenging task which means that, in an unknown environment, a robot must:
   - Explore its environment
@@ -19,7 +19,7 @@ HomeRobot lets you get started running a range of robotics tasks on a low-cost m
 
 ## Core Concepts
 
-This package assumes you have a low-cost mobile robot with limited compute -- initially a [Hello Robot Stretch](hello-robot.com/) -- and a "workstation" with more GPU compute. Both are assumed to be running on the same network.
+This package assumes you have a low-cost mobile robot with limited compute -- initially a [Hello Robot Stretch](https://hello-robot.com/stretch-2) -- and a "workstation" with more GPU compute. Both are assumed to be running on the same network.
 
 This is the recommended workflow for hardware robots:
   - Turn on your robot; for the Stretch, run `stretch_robot_home.py` to get it ready to use.
@@ -53,8 +53,11 @@ To set up your workstation, follow these instructions. We will assume that your 
 #### 1. Create Your Environment
 ```
 # Create a conda env - use the version in home_robot_hw if you want to run on the robot
-# Otherwise, you can use the version in src/home_robot
 mamba env create -n home-robot -f src/home_robot_hw/environment.yml
+
+# Otherwise, use the version in src/home_robot
+mamba env create -n home-robot -f src/home_robot/environment.yml
+
 conda activate home-robot
 ```
 
@@ -64,6 +67,8 @@ This should install pytorch; if you run into trouble, you may need to edit the i
 ```
 # Install the core home_robot package
 pip install -e src/home_robot
+
+Skip to step 4 if you do not have a real robot setup or if you only want to use our simulation stack.
 
 # Install home_robot_hw
 pip install -e src/home_robot_hw
@@ -85,8 +90,12 @@ python tests/hw_manual_test.py
 
 Follow the on-screen instructions. The robot should move through a set of configurations.
 
+#### 4. Download third-party packages
+```
+git submodule update --init --recursive assets/hab_stretch src/home_robot/home_robot/perception/detection/detic/Detic src/third_party/detectron2 src/third_party/contact_graspnet
+```
 
-#### 4. Install Detic
+#### 5. Install Detic
 
 Install [detectron2](https://detectron2.readthedocs.io/tutorials/install.html). If you installed our default environment above, you may need to [download CUDA11.7](https://developer.nvidia.com/cuda-11-7-0-download-archive).
 ```
@@ -100,18 +109,24 @@ wget https://dl.fbaipublicfiles.com/detic/Detic_LCOCOI21k_CLIP_SwinB_896b32_4x_f
 
 You should be able to run the Detic demo script as per the Detic instructions to verify your installation was correct:
 ```bash
+wget https://web.eecs.umich.edu/~fouhey/fun/desk/desk.jpg
 python demo.py --config-file configs/Detic_LCOCOI21k_CLIP_SwinB_896b32_4x_ft4x_max-size.yaml --input desk.jpg --output out2.jpg --vocabulary custom --custom_vocabulary headphone,webcam,paper,coffe --confidence-threshold 0.3 --opts MODEL.WEIGHTS models/Detic_LCOCOI21k_CLIP_SwinB_896b32_4x_ft4x_max-size.pth
 ```
 
-
-#### 5. Download pretrained skills
+#### 6. Download pretrained skills
 ```
-mkdir -p $HOME_ROBOT_ROOT/data/
 cd $HOME_ROBOT_ROOT/data/
 git clone https://huggingface.co/datasets/osmm/checkpoints
 ```
 
-#### 6. Run Open Vocabulary Mobile Manipulation on Stretch
+#### 7. Simulation Setup
+
+To set up the simulation stack with Habitat, train DDPPO skills and run evaluations: see the [installation instructions](src/home_robot_sim/README.md) in `home_robot_sim`.
+
+For more details on the OVMM challenge, see the [Habitat OVMM readme](projects/habitat_ovmm/README.md).
+
+
+#### 8. Run Open Vocabulary Mobile Manipulation on Stretch
 
 You should then be able to run the Stretch OVMM example.
 
@@ -131,43 +146,8 @@ python src/home_robot_hw/home_robot_hw/nodes/simple_grasp_server.py
 Then you can run the OVMM example script:
 ```
 cd $HOME_ROBOT_ROOT
-python projects/stretch_ovmm/eval_episode.py
+python projects/real_world_ovmm/eval_episode.py
 ```
-
-#### 7. Simulation Setup
-
-To set up the simulation stack with Habitat, see the [installation instructions](src/home_robot_sim/README.md) in `home_robot_sim`. You first need to install AI habitat and the simulation package:
-```
-# Install requirements
-mamba env update -f src/home_robot_sim/environment.yml
-
-# Download habitat-sim and habitat-lab packages
-git submodule update --init --recursive
-
-# Build habitat-sim from source
-cd src/third_party/habitat-sim
-```
-Please follow the instructions [here](https://github.com/facebookresearch/habitat-sim/blob/main/BUILD_FROM_SOURCE.md) to build habitat-sim from source.
-```
-cd -
-
-# Install habitat lab on the correct (object rearrange) branch
-pip install -e src/third_party/habitat-lab/habitat-lab
-pip install -e src/third_party/habitat-lab/habitat-baselines
-
-# Install home robot sim interfaces
-pip install -e src/home_robot_sim
-```
-
-And then download the assets as described in the [installation instructions](src/home_robot_sim/README.md#Ddataset-setup).
-
-To test your installation, you can run:
-```
-python projects/habitat_ovmm/eval_vectorized.py
-```
-
-For more details on the OVMM challenge, see the [Habitat OVMM readme](projects/stretch_ovmm/README.md).
-
 
 ## Code Contribution
 
@@ -193,7 +173,7 @@ See the robot [hardware development guide](docs/hardware_development.md) for som
 | [home_robot_sim](src/home_robot_sim) | OVMM simulation environment based on [AI Habitat](https://aihabitat.org/) |
 | [home_robot_hw](src/home_robot_hw) | ROS package containing hardware interfaces for the Hello Robot Stretch |
 
-The [home_robot](src/home_robot) package contains embodiment-agnostic agent code, such as our [ObjectNav agent](https://github.com/facebookresearch/home-robot/blob/main/src/home_robot/home_robot/agent/objectnav_agent/objectnav_agent.py) (finds objects in scenes) and our [hierarchical OVMM agent](https://github.com/facebookresearch/home-robot/blob/main/src/home_robot/home_robot/agent/ovmm_agent/ovmm_agent.py). YThese agents can be extended or modified to implement your own solution.
+The [home_robot](src/home_robot) package contains embodiment-agnostic agent code, such as our [ObjectNav agent](https://github.com/facebookresearch/home-robot/blob/main/src/home_robot/home_robot/agent/objectnav_agent/objectnav_agent.py) (finds objects in scenes) and our [hierarchical OVMM agent](https://github.com/facebookresearch/home-robot/blob/main/src/home_robot/home_robot/agent/ovmm_agent/ovmm_agent.py). These agents can be extended or modified to implement your own solution.
 
 Importantly, agents use a fixed set of [interfaces](https://github.com/facebookresearch/home-robot/blob/main/src/home_robot/home_robot/core/interfaces.py) which are overridden to provide access to 
 

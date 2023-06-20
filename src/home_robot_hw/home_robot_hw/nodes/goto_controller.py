@@ -74,6 +74,7 @@ class GotoVelocityControllerNode:
         self.controller_finished = True
         self.done_since = rospy.Time(0)
         self.track_yaw = True
+        self.goal_set_t = rospy.Time(0)
 
         # Visualizations
         self.goal_visualizer = Visualizer("goto_controller/goal_abs")
@@ -122,6 +123,7 @@ class GotoVelocityControllerNode:
             self.xyt_goal = self.controller.xyt_goal
 
             self.is_done = False
+            self.goal_set_t = rospy.Time.now()
             self.controller_finished = False
 
             # Visualize
@@ -175,6 +177,12 @@ class GotoVelocityControllerNode:
                 self.is_done = False
                 v_cmd, w_cmd = self.controller.compute_control()
                 done = self.controller.is_done()
+
+                # Compute timeout
+                time_since_goal_set = (rospy.Time.now() - self.goal_set_t).to_sec()
+                if self.controller.timeout(time_since_goal_set):
+                    done = True
+                    v_cmd, w_cmd = 0, 0
 
                 # Check if actually done (velocity = 0)
                 if done and self.vel_odom is not None:

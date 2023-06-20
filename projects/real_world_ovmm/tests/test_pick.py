@@ -77,7 +77,6 @@ def run_experiment(visualize_maps=False, test_id=0, reset_nav=False, **kwargs):
 
     # do some tests
     if test_id == 0:
-
         test_current_cfg(env, robot)
         input("---")
 
