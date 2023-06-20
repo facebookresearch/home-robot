@@ -44,7 +44,7 @@ AGENT:
     been_close_to_radius: 100  # radius (in centimeters) of been close to region
     explored_radius: 150       # radius (in centimeters) of visually explored region
     must_explore_close: False
-    min_obs_height_cm: 20    # minimum height (in centimeters) of obstacle
+    min_obs_height_cm: 10    # minimum height (in centimeters) of obstacle
     # erosion and filtering to reduce the number of spurious artifacts
     dilate_obstacles: True
     dilate_size: 3

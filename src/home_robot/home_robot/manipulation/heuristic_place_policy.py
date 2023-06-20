@@ -31,6 +31,10 @@ class HeuristicPlacePolicy(nn.Module):
     Policy to place object on end receptacle using depth and point-cloud-based heuristics. Objects will be placed nearby, on top of the surface, based on point cloud data. Requires segmentation to work properly.
     """
 
+    # TODO: read these values from the robot kinematic model
+    look_at_ee = np.array([-np.pi / 2, -np.pi / 4])
+    max_arm_height = 1.2
+
     def __init__(
         self,
         config,
@@ -411,6 +415,7 @@ class HeuristicPlacePolicy(nn.Module):
                 + [delta_gripper_yaw]
                 + [0] * 4
             )
+            joints = self._look_at_ee(joints)
             action = ContinuousFullBodyAction(joints)
         elif self.timestep == self.t_release_object:
             # desnap to drop the object
@@ -442,10 +447,17 @@ class HeuristicPlacePolicy(nn.Module):
         # We take the lift position = 1
         current_arm_lift = obs.joint[4]
         # Target lift is 0.99
-        lift_delta = 1.2 - current_arm_lift
+        lift_delta = self.max_arm_height - current_arm_lift
         joints[4] = lift_delta
+        joints = self._look_at_ee(joints)
         action = ContinuousFullBodyAction(joints)
         return action
+
+    def _look_at_ee(self, joints: np.ndarray) -> np.ndarray:
+        """Make sure it's actually looking at the end effector."""
+        joints[8] = self.look_at_ee[0]
+        joints[9] = self.look_at_ee[1]
+        return joints
 
     def _retract(self, obs: Observations) -> ContinuousFullBodyAction:
         """Compute a high-up retracted position to avoid collisions"""
@@ -454,10 +466,11 @@ class HeuristicPlacePolicy(nn.Module):
         # We take the lift position = 1
         current_arm_lift = obs.joint[4]
         # Target lift is 0.99
-        lift_delta = 1.2 - current_arm_lift
+        lift_delta = self.max_arm_height - current_arm_lift
         # Arm should be fully retracted
         arm_delta = -1 * np.sum(obs.joint[:4])
         joints[0] = arm_delta
         joints[4] = lift_delta
+        joints = self._look_at_ee(joints)
         action = ContinuousFullBodyAction(joints)
         return action
