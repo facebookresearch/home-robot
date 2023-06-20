@@ -24,4 +24,4 @@
 	url = https://huggingface.co/datasets/ai-habitat/OVMM_objects
 [submodule "data/hssd-hab"]
 	path = data/hssd-hab
-	url = https://huggingface.co/datasets/fpss/fphab
+	url = https://huggingface.co/datasets/hssd/hssd-hab
