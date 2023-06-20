@@ -25,7 +25,7 @@ git submodule update --init --recursive src/third_party/habitat-lab
 
 3. Install `habitat-lab`, `habitat-baselines` and `pytorch3d`.
 ```
-python -m pip pip install -e src/third_party/habitat-lab/habitat-lab
+python -m pip install -e src/third_party/habitat-lab/habitat-lab
 python -m pip install -e src/third_party/habitat-lab/habitat-baselines
 python -m pip install "git+https://github.com/facebookresearch/pytorch3d.git"
 ```
