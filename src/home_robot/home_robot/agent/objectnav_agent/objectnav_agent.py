@@ -349,12 +349,14 @@ class ObjectNavAgent(Agent):
         semantic = np.full_like(obs.semantic, 4)
         obj_goal_idx, start_recep_idx, end_recep_idx = 1, 2, 3
         semantic[obs.semantic == obs.task_observations["object_goal"]] = obj_goal_idx
-        semantic[
-            obs.semantic == obs.task_observations["start_recep_goal"]
-        ] = start_recep_idx
-        semantic[
-            obs.semantic == obs.task_observations["end_recep_goal"]
-        ] = end_recep_idx
+        if "start_recep_goal" in obs.task_observations:
+            semantic[
+                obs.semantic == obs.task_observations["start_recep_goal"]
+            ] = start_recep_idx
+        if "end_recep_goal" in obs.task_observations:
+            semantic[
+                obs.semantic == obs.task_observations["end_recep_goal"]
+            ] = end_recep_idx
         semantic = self.one_hot_encoding[torch.from_numpy(semantic).to(self.device)]
         obs_preprocessed = torch.cat([rgb, depth, semantic], dim=-1).unsqueeze(0)
         obs_preprocessed = obs_preprocessed.permute(0, 3, 1, 2)

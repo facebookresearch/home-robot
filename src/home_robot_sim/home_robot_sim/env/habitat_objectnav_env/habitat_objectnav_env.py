@@ -11,7 +11,7 @@ from home_robot.utils.constants import (
 )
 from home_robot_sim.env.habitat_abstract_env import HabitatEnv
 
-from .constants import (
+from home_robot.perception.constants import (
     FloorplannertoMukulIndoor,
     HM3DtoCOCOIndoor,
     HM3DtoHSSD28Indoor,
