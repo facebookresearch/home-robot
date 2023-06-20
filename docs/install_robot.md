@@ -21,8 +21,11 @@ sudo apt install python-is-python3 pybind11-dev
 git clone https://github.com/facebookresearch/home-robot
 HOME_ROBOT_ROOT=$(realpath home-robot)
 
-# Install the core home_robot package
+# Install requirements
 cd $HOME_ROBOT_ROOT/src/home_robot
+pip install -r requirements.txt
+
+# Install the core home_robot package
 pip install -e .
 
 # Install SLAM dependency on the robot

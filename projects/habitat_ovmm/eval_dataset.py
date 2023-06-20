@@ -62,9 +62,10 @@ class VectorizedEvaluator(PPOTrainer):
                 )
 
         episode_ids_range = config.habitat.dataset.episode_indices_range
-        config.EXP_NAME = os.path.join(
-            config.EXP_NAME, f"{episode_ids_range[0]}_{episode_ids_range[1]}"
-        )
+        if episode_ids_range is not None:
+            config.EXP_NAME = os.path.join(
+                config.EXP_NAME, f"{episode_ids_range[0]}_{episode_ids_range[1]}"
+            )
         OmegaConf.set_readonly(config, True)
 
         self.config = config
