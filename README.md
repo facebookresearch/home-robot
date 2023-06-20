@@ -66,11 +66,13 @@ This should install pytorch; if you run into trouble, you may need to edit the i
 
 #### 2. Install Home Robot Packages
 ```
+conda activate home-robot
+
 # Install the core home_robot package
-pip install -e src/home_robot
+python -m pip install -e src/home_robot
 
 # Install home_robot_hw
-pip install -e src/home_robot_hw
+python -m pip install -e src/home_robot_hw
 ```
 
 _Testing Real Robot Setup:_ Now you can run a couple commands to test your connection. If the `roscore` and the robot controllers are running properly, you can run `rostopic list` and should see a list of topics - streams of information coming from the robot. You can then run RVIZ to visualize the robot sensor output:
