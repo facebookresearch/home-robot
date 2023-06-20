@@ -89,13 +89,12 @@ class HabitatLanguageNavEnv(HabitatEnv):
 
     def reset(self):
         habitat_obs = self.habitat_env.reset()
-
-        goal_category, goal_caption = self._preprocess_goal(habitat_obs["languagegoal"])
-        target, room_name, landmark = self._preprocess_caption(goal_caption)
-        caption_tokens = (target, room_name, landmark)
+        target, landmarks = self._preprocess_goal(habitat_obs["languagegoal"])
+        caption_tokens = (target, landmarks)
 
         if not self.ground_truth_semantics:
-            self.init_perception_module(vocabulary=[".", target, landmark])
+            vocabulary = [".", target, landmarks]
+            self.init_perception_module(vocabulary=[".", target] + landmarks)
 
         self.semantic_category_mapping.reset_instance_id_to_category_id(
             self.habitat_env
@@ -121,25 +120,18 @@ class HabitatLanguageNavEnv(HabitatEnv):
             ),
         )
 
-
-    def _preprocess_caption(self, caption: str) -> Tuple[str, str, bool, str, bool]:
-        # api = ChatGPTAPI()
-        # target, room_name, landmark = api.get_target(caption)
-        # return target, room_name, landmark
-        return "curtain", None, "cardboard_box"
+        print("Initializing perception module with vocabulary:", vocabulary)
 
     def _preprocess_obs(
         self, habitat_obs: habitat.core.simulator.Observations, caption_tokens=None
     ) -> home_robot.core.interfaces.Observations:
         depth = self._preprocess_depth(habitat_obs["depth"])
         if caption_tokens is None:
-            goal_category, goal_caption = self._preprocess_goal(habitat_obs["languagegoal"])
-            target, room_name, landmark = self._preprocess_caption(goal_caption)
+            target, landmarks = self._preprocess_goal(habitat_obs["languagegoal"])
         else:
-            target, room_name, landmark = caption_tokens
+            target, landmarks = caption_tokens
 
         # TODO: extract all object/landmark tokens from instruction -> pass that as vocabulary to detic / for now just pass landmark and object
-
         obs = home_robot.core.interfaces.Observations(
             rgb=habitat_obs["rgb"],
             depth=depth,
@@ -147,8 +139,7 @@ class HabitatLanguageNavEnv(HabitatEnv):
             gps=self._preprocess_xy(habitat_obs["gps"]),
             task_observations={
                 "target": target,
-                "room_name": room_name,
-                "landmark": landmark,
+                "landmarks": landmarks,
                 # "object_goal": goal_id,
                 # "goal_name": goal_name,
                 # "recep_goal": None,
@@ -196,9 +187,17 @@ class HabitatLanguageNavEnv(HabitatEnv):
         return rescaled_depth[:, :, -1]
 
     def _preprocess_goal(self, goal: Dict) -> Tuple[str, str]:
-        category_name = goal["category_name"]
-        caption = goal["caption"].replace('Instruction: ', '')
-        return category_name, caption
+        target = goal["category_name"]
+        # caption = goal["caption"].replace('Instruction: ', '')
+        landmarks = goal["landmarks"]
+
+        if target in landmarks:
+            landmarks.remove(target)
+
+        target = "_".join(target.split())
+        landmarks=["_".join(landmark.split()) for landmark in landmarks]
+        # room = goal["room"]
+        return target, landmarks
 
     def _preprocess_action(self, action: home_robot.core.interfaces.Action) -> int:
         discrete_action = cast(

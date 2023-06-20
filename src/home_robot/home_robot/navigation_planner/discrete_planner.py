@@ -114,6 +114,7 @@ class DiscretePlanner:
         self.obs_dilation_selem = None
         self.min_goal_distance_cm = min_goal_distance_cm
         self.dd = None
+        self.reached_goal_candidate = False
 
         self.map_downsample_factor = map_downsample_factor
         self.map_update_frequency = map_update_frequency
@@ -154,7 +155,7 @@ class DiscretePlanner:
         frontier_map: np.ndarray,
         sensor_pose: np.ndarray,
         found_goal: bool,
-        debug: bool = True,
+        debug: bool = False,
         use_dilation_for_stg: bool = False,
         timestep: int = None,
     ) -> Tuple[DiscreteNavigationAction, np.ndarray]:
@@ -375,6 +376,7 @@ class DiscretePlanner:
                 elif relative_angle_goal < -2 * self.turn_angle / 3.0:
                     action = DiscreteNavigationAction.TURN_LEFT
                 else:
+                    self.reached_goal_candidate = True
                     action = DiscreteNavigationAction.STOP
             elif np.abs(relative_angle_goal) > self.continuous_angle_tolerance:
                 print("Continuous rotation towards goal point")

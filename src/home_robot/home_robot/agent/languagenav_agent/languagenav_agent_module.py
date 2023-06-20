@@ -8,7 +8,6 @@ from home_robot.mapping.semantic.categorical_2d_semantic_map_module import (
 from home_robot.navigation_policy.object_navigation.objectnav_frontier_exploration_policy import (
     ObjectNavFrontierExplorationPolicy,
 )
-
 # Do we need to visualize the frontier as we explore?
 debug_frontier_map = False
 
@@ -61,6 +60,7 @@ class LanguageNavAgentModule(nn.Module):
         seq_start_recep_goal_category=None,
         seq_end_recep_goal_category=None,
         seq_nav_to_recep=None,
+        reject_visited_regions=False,
     ):
         """Update maps and poses with a sequence of observations, and predict
         high-level goals from map features.
@@ -151,12 +151,14 @@ class LanguageNavAgentModule(nn.Module):
         if seq_end_recep_goal_category is not None:
             seq_end_recep_goal_category = seq_end_recep_goal_category.flatten(0, 1)
         # Compute the goal map
+
         goal_map, found_goal = self.policy(
             map_features,
             seq_object_goal_category,
             seq_start_recep_goal_category,
             seq_end_recep_goal_category,
             seq_nav_to_recep,
+            reject_visited_regions,
         )
         seq_goal_map = goal_map.view(batch_size, sequence_length, *goal_map.shape[-2:])
         seq_found_goal = found_goal.view(batch_size, sequence_length)
