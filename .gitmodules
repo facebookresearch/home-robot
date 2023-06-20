@@ -16,6 +16,12 @@
 [submodule "src/third_party/contact_graspnet"]
 	path = src/third_party/contact_graspnet
 	url = git@github.com:cpaxton/contact_graspnet.git
-[submodule "src/third_party/habitat-sim"]
-	path = src/third_party/habitat-sim
-	url = git@github.com:facebookresearch/habitat-sim.git
+[submodule "data/datasets/ovmm"]
+	path = data/datasets/ovmm
+	url = https://huggingface.co/datasets/ai-habitat/OVMM_dataset
+[submodule "data/objects"]
+	path = data/objects
+	url = https://huggingface.co/datasets/ai-habitat/OVMM_objects
+[submodule "data/hssd-hab"]
+	path = data/hssd-hab
+	url = https://huggingface.co/datasets/fpss/fphab
