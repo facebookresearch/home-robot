@@ -31,7 +31,7 @@ cd src/third_party/habitat-sim
 3. Build habitat-sim from source.
 
 ```
-pip install -r requirements.txt
+python -m pip install -r requirements.txt
 
 sudo apt-get update || true
 # These are fairly ubiquitous packages and your system likely has them already,
@@ -40,7 +40,7 @@ sudo apt-get install -y --no-install-recommends \
      libjpeg-dev libglm-dev libgl1-mesa-glx libegl1-mesa-dev mesa-utils xorg-dev freeglut3-dev
 
 # Build habitat with bullet physics
-python setup.py install --bullet
+python -m python setup.py install --bullet
 ```
 
 4. Install dependencies.
@@ -51,13 +51,13 @@ pip install -e src/third_party/habitat-lab/habitat-baselines
 python -m pip install "git+https://github.com/facebookresearch/pytorch3d.git"
 
 # Install the core home_robot package
-pip install -e src/home_robot
+python -m pip install -e src/home_robot
 
 # Install home_robot_hw
-pip install -e src/home_robot_hw
+python -m pip install -e src/home_robot_hw
 
 # Install home robot sim interfaces
-pip install -e src/home_robot_sim
+python -m pip install -e src/home_robot_sim
 ```
 
 ### On Mac:
