@@ -23,7 +23,11 @@ git submodule update --init data/objects
 
 These describe where objects are and where the robot starts:
 ```
-git submodule update --init data/datasets/ovmm
+mkdir -p data/checkpoints
+cd data/checkpoints
+wget https://dl.fbaipublicfiles.com/habitat/data/baselines/v1/ovmm_baseline_home_robot_challenge_2023.zip
+unzip ovmm_baseline_home_robot_challenge_2023.zip
+cd ../../
 ```
 
 ### Download the Robot Model
