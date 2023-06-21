@@ -26,13 +26,10 @@ cd ../../..
 Download to `data/scene_datasets/hm3d_v0.2` through instructions specified [here](https://github.com/facebookresearch/habitat-sim/blob/main/DATASETS.md#downloading-hm3d-with-the-download-utility).
 
 #### Episode dataset
-```sh
-mkdir -p data/datasets/objectnav/hm3d
-wget https://dl.fbaipublicfiles.com/habitat/data/datasets/objectnav/hm3d/v2/objectnav_hm3d_v2.zip -O data/datasets/objectnav/hm3d/objectnav_hm3d_v2.zip
-unzip data/datasets/objectnav/hm3d/objectnav_hm3d_v2.zip -d data/datasets/objectnav/hm3d
-mv data/datasets/objectnav/hm3d/objectnav_hm3d_v2 data/datasets/objectnav/hm3d/v2
+Run the following command to download episodes and to place them in the right location
 ```
-
+./projects/habitat_objectnav/download_hm3d_episodes.sh
+```
 
 ## Run evaluation!
 
