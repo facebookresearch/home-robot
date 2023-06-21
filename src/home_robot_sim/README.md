@@ -22,7 +22,6 @@ mamba env update -f src/home_robot_sim/environment.yml
 git submodule update --init --recursive src/third_party/habitat-lab
 ```
 
-
 3. Install `habitat-lab`, `habitat-baselines` and `pytorch3d`.
 ```
 pip install -e src/third_party/habitat-lab/habitat-lab
