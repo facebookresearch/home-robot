@@ -117,8 +117,11 @@ python demo.py --config-file configs/Detic_LCOCOI21k_CLIP_SwinB_896b32_4x_ft4x_m
 
 #### 6. Download pretrained skills
 ```
-cd $HOME_ROBOT_ROOT/data/
-git clone https://huggingface.co/datasets/osmm/checkpoints
+mkdir -p data/checkpoints
+cd data/checkpoints
+wget https://dl.fbaipublicfiles.com/habitat/data/baselines/v1/ovmm_baseline_home_robot_challenge_2023.zip
+unzip ovmm_baseline_home_robot_challenge_2023.zip
+cd ../../
 ```
 
 #### 7. Simulation Setup
