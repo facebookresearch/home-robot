@@ -1,3 +1,9 @@
+# Copyright (c) Meta Platforms, Inc. and affiliates.
+#
+# This source code is licensed under the MIT license found in the
+# LICENSE file in the root directory of this source tree.
+
+
 import numpy as np
 
 from home_robot.motion.stretch import STRETCH_HOME_Q, HelloStretchKinematics
