@@ -125,4 +125,4 @@ Here <manip>/<nav> are to be set to 'h' or 'r' for heuristic and RL skills respe
 
 ```
 
-In case you run into issues, please try `HABITAT_ENV_DEBUG=1` to get a better error message.
+In case you run into issues, please prepend your python command with `HABITAT_ENV_DEBUG=1` to get a better error message.
