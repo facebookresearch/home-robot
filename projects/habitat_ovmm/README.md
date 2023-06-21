@@ -22,9 +22,11 @@ git submodule update --init data/objects
 ### Download the Episodes
 
 These describe where objects are and where the robot starts:
+
 ```
 git submodule update --init data/datasets/ovmm
 ```
+
 
 ### Download the Robot Model
 
