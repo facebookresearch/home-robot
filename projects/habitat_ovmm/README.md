@@ -11,6 +11,7 @@
 
 ### Scene dataset setup 
 
+Please sign in [here](https://huggingface.co/datasets/hssd/hssd-hab/tree/ovmm) and accept the license for using HSSD scenes before proceeding to download them.
 ```
 # Download the scenes
 git submodule update --init data/hssd-hab
@@ -124,3 +125,5 @@ python projects/habitat_ovmm/eval_dataset.py --baseline_config_path projects/hab
 Here <manip>/<nav> are to be set to 'h' or 'r' for heuristic and RL skills respectively. <perception> is one of 'gt'/'detic'. Append <viz?>='_viz' for saving images.
 
 ```
+
+In case you run into issues, please prepend your python command with `HABITAT_ENV_DEBUG=1` to get a better error message.
