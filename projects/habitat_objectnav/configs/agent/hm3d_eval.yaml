@@ -1,7 +1,7 @@
 BASE_TASK_CONFIG_PATH: configs/task/hm3d_challenge2022_val.yaml
 
-NO_GPU: 1                 # 1: ignore IDs above and run on CPU, 0: run on GPUs with IDs above
-NUM_ENVIRONMENTS: 35      # number of environments (per agent process)
+NO_GPU: 0                 # 1: ignore IDs above and run on CPU, 0: run on GPUs with IDs above
+NUM_ENVIRONMENTS: 1      # number of environments (per agent process)
 DUMP_LOCATION: datadump   # path to dump models and log
 EXP_NAME: eval_hm3d       # experiment name
 VISUALIZE: 0              # 1: render observation and predicted semantic map, 0: no visualization
@@ -23,7 +23,7 @@ AGENT:
   max_steps: 500          # maximum number of steps before stopping an episode
   panorama_start: 1       # 1: turn around 360 degrees when starting an episode, 0: don't
   exploration_strategy: seen_frontier  # exploration strategy ("seen_frontier", "been_close_to_frontier")
-  radius: 0.0425            # robot radius (in meters)
+  radius: 0.05            # robot radius (in meters)
 
   SEMANTIC_MAP:
     semantic_categories: coco_indoor # map semantic channel categories ("coco_indoor", "longtail_indoor", "mukul_indoor")

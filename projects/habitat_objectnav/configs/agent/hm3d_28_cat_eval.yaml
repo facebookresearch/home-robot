@@ -7,6 +7,8 @@ EXP_NAME: eval_hm3d_28_cat       # experiment name
 VISUALIZE: 0              # 1: render observation and predicted semantic map, 0: no visualization
 PRINT_IMAGES: 1           # 1: save visualization as images, 0: no image saving
 GROUND_TRUTH_SEMANTICS: 0 # 1: use ground-truth semantics (for debugging / ablations)
+seed: 0
+SHOW_RL_OBS: False         # whether to show the observations passed to RL policices, for debugging
 
 ENVIRONMENT:
   turn_angle: 30.0        # agent turn angle (in degrees)
@@ -18,10 +20,10 @@ ENVIRONMENT:
   max_depth: 5.0          # maximum depth for depth sensor (in metres)
 
 AGENT:
-  max_steps: 50          # maximum number of steps before stopping an episode
+  max_steps: 500          # maximum number of steps before stopping an episode
   panorama_start: 1       # 1: turn around 360 degrees when starting an episode, 0: don't
   exploration_strategy: seen_frontier  # exploration strategy ("seen_frontier", "been_close_to_frontier")
-  radius: 0.0425            # robot radius (in meters)
+  radius: 0.05            # robot radius (in meters)
 
   SEMANTIC_MAP:
     semantic_categories: hssd_28_cat # map semantic channel categories ("coco_indoor", "longtail_indoor", "mukul_indoor")
@@ -38,7 +40,10 @@ AGENT:
     been_close_to_radius: 200  # radius (in centimeters) of been close to region
     must_explore_close: False
     min_obs_height_cm: 10    # minimum height (in centimeters) of obstacle to be considered as obstacle
-
+    # erosion and filtering to reduce the number of spurious artifacts
+    dilate_obstacles: False
+    dilate_size: 3
+    dilate_iter: 1
 
 
   PLANNER:
@@ -51,6 +56,7 @@ AGENT:
     map_update_frequency: 1             # compute fmm distance map every n steps 
     step_size: 5                    # maximum distance of the short-term goal selected by the planner
     discrete_actions: True         # discrete motion planner output space or not
+    verbose: False
 
 
 EVAL_VECTORIZED:
