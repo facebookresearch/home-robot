@@ -124,3 +124,5 @@ python projects/habitat_ovmm/eval_dataset.py --baseline_config_path projects/hab
 Here <manip>/<nav> are to be set to 'h' or 'r' for heuristic and RL skills respectively. <perception> is one of 'gt'/'detic'. Append <viz?>='_viz' for saving images.
 
 ```
+
+In case you run into issues, please try `HABITAT_ENV_DEBUG=1` to get a better error message.
