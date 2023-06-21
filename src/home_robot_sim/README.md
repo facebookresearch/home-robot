@@ -41,3 +41,4 @@ pip install -e src/home_robot_sim
 Please follow the links below for instructions on setting up the data directory, training policies and running evaluations for our supported tasks.
 1. [Open Vocab Mobile Manipulation (OVMM) in Habitat](../../projects/habitat_ovmm/README.md)
 2. [ObjectNav in Habitat](../../projects/habitat_objectnav/README.md)
+3. ImageNav in Habitat [WIP]
