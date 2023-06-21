@@ -1,8 +1,9 @@
 import argparse
 import json
+import os
 import sys
 from pathlib import Path
-import os
+
 # TODO Install home_robot, home_robot_sim and remove this
 sys.path.insert(
     0,
@@ -54,13 +55,12 @@ if __name__ == "__main__":
     if config.habitat.dataset.scene_indices_range is not None:
         scene_indices_range = config.habitat.dataset.scene_indices_range
         config.EXP_NAME = os.path.join(
-            config.EXP_NAME, f"{scene_indices_range[0]}_{scene_indices_range[1]}")
+            config.EXP_NAME, f"{scene_indices_range[0]}_{scene_indices_range[1]}"
+        )
     agent = ObjectNavAgent(config=config)
     env = HabitatObjectNavEnv(Env(config=config), config=config)
 
-    results_dir = os.path.join(
-            config.DUMP_LOCATION, "results", config.EXP_NAME
-    )
+    results_dir = os.path.join(config.DUMP_LOCATION, "results", config.EXP_NAME)
     os.makedirs(results_dir, exist_ok=True)
     episode_metrics = {}
     for i in range(len(env.habitat_env.episodes)):
@@ -75,9 +75,9 @@ if __name__ == "__main__":
             obs = env.get_observation()
             action, info = agent.act(obs)
             env.apply_action(action, info=info)
-        
+
         metrics = env.get_episode_metrics()
-        metrics['num_steps'] = t
-        episode_metrics[scene_id + '_' + episode_id] = metrics
+        metrics["num_steps"] = t
+        episode_metrics[scene_id + "_" + episode_id] = metrics
         with open(f"{results_dir}/episode_results.json", "w") as f:
             json.dump(episode_metrics, f, indent=4)

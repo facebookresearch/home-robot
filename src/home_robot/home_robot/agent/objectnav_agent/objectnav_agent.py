@@ -336,7 +336,6 @@ class ObjectNavAgent(Agent):
             vis_inputs[0]["short_term_goal"] = None
             vis_inputs[0]["dilated_obstacle_map"] = dilated_obstacle_map
         info = {**planner_inputs[0], **vis_inputs[0]}
-
         return action, info
 
     def _preprocess_obs(self, obs: Observations):
