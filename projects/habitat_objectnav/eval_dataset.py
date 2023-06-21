@@ -1,5 +1,6 @@
 import argparse
 import json
+import os
 import sys
 from pathlib import Path
 
@@ -46,26 +47,37 @@ if __name__ == "__main__":
     print(json.dumps(vars(args), indent=4))
     print("-" * 100)
 
-    config = get_config(args.habitat_config_path, args.baseline_config_path)
+    config = get_config(args.habitat_config_path, args.baseline_config_path, args.opts)
 
     config.NUM_ENVIRONMENTS = 1
     config.PRINT_IMAGES = 1
     config.habitat.dataset.split = "val"
-    config.EXP_NAME = "debug"
-
+    if config.habitat.dataset.scene_indices_range is not None:
+        scene_indices_range = config.habitat.dataset.scene_indices_range
+        config.EXP_NAME = os.path.join(
+            config.EXP_NAME, f"{scene_indices_range[0]}_{scene_indices_range[1]}"
+        )
     agent = ObjectNavAgent(config=config)
     env = HabitatObjectNavEnv(Env(config=config), config=config)
 
-    agent.reset()
-    env.reset()
+    results_dir = os.path.join(config.DUMP_LOCATION, "results", config.EXP_NAME)
+    os.makedirs(results_dir, exist_ok=True)
+    episode_metrics = {}
+    for i in range(len(env.habitat_env.episodes)):
 
-    t = 0
+        agent.reset()
+        env.reset()
+        scene_id = env.habitat_env.current_episode.scene_id
+        episode_id = env.habitat_env.current_episode.episode_id
+        t = 0
+        while not env.episode_over:
+            t += 1
+            obs = env.get_observation()
+            action, info = agent.act(obs)
+            env.apply_action(action, info=info)
 
-    while not env.episode_over:
-        t += 1
-        print(t)
-        obs = env.get_observation()
-        action, info = agent.act(obs)
-        env.apply_action(action, info=info)
-
-    print(env.get_episode_metrics())
+        metrics = env.get_episode_metrics()
+        metrics["num_steps"] = t
+        episode_metrics[scene_id + "_" + episode_id] = metrics
+        with open(f"{results_dir}/episode_results.json", "w") as f:
+            json.dump(episode_metrics, f, indent=4)

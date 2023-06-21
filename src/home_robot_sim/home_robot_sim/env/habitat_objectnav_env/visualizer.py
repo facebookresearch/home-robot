@@ -14,7 +14,11 @@ from PIL import Image
 
 import home_robot.utils.pose as pu
 import home_robot.utils.visualization as vu
-from home_robot.perception.constants import FloorplannertoMukulIndoor, HM3DtoCOCOIndoor
+from home_robot.perception.constants import (
+    FloorplannertoMukulIndoor,
+    HM3DtoCOCOIndoor,
+    HM3DtoHSSD28Indoor,
+)
 from home_robot.perception.constants import PaletteIndices as PI
 from home_robot.perception.constants import RearrangeDETICCategories
 
@@ -69,6 +73,8 @@ class Visualizer:
         if "hm3d" in self.episodes_data_path:
             if config.AGENT.SEMANTIC_MAP.semantic_categories == "coco_indoor":
                 self.semantic_category_mapping = HM3DtoCOCOIndoor()
+            elif config.AGENT.SEMANTIC_MAP.semantic_categories == "hssd_28_cat":
+                self.semantic_category_mapping = HM3DtoHSSD28Indoor()
             else:
                 raise NotImplementedError
         elif "ovmm" in self.episodes_data_path:

@@ -22,7 +22,6 @@ mamba env update -f src/home_robot_sim/environment.yml
 git submodule update --init --recursive src/third_party/habitat-lab
 ```
 
-
 3. Install `habitat-lab`, `habitat-baselines` and `pytorch3d`.
 ```
 python -m pip install -e src/third_party/habitat-lab/habitat-lab
@@ -38,7 +37,7 @@ pip install -e src/home_robot_sim
 
 ## Supported tasks
 
-### Open Vocab Mobile Manipulation (OVMM) in Habitat
-Please head over to [Habitat OVMM Readme](../../projects/habitat_ovmm/README.md) for instructions on setting up the data directory, training policies and running evaluations.
-
-
+Please follow the links below for instructions on setting up the data directory, training policies and running evaluations for our supported tasks.
+1. [Open Vocab Mobile Manipulation (OVMM) in Habitat](../../projects/habitat_ovmm/README.md)
+2. [ObjectNav in Habitat](../../projects/habitat_objectnav/README.md)
+3. ImageNav in Habitat [WIP]
