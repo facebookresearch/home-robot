@@ -11,7 +11,7 @@
 
 ### Scene dataset setup 
 
-Please sign in [here](https://huggingface.co/datasets/hssd/hssd-hab/tree/ovmm) and accept the license on HuggingFace before proceeding to download scenes.
+Please sign in [here](https://huggingface.co/datasets/hssd/hssd-hab/tree/ovmm) and accept the license for using HSSD scenes before proceeding to download them.
 ```
 # Download the scenes
 git submodule update --init data/hssd-hab
