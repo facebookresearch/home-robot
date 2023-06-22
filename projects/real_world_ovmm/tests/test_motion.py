@@ -45,7 +45,6 @@ def run_experiment(visualize_maps=False, test_id=0, reset_nav=False, **kwargs):
         if i % 2 == 0:
             robot.nav.navigate_to([0, 0, 0])
         else:
-
             robot.nav.navigate_to([0.2, 0, 0])
         i += 1
 

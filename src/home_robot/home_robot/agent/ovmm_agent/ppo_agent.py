@@ -8,7 +8,7 @@
 import copy
 import random
 from collections import OrderedDict
-from typing import Any, Dict
+from typing import Any, Tuple, Union
 
 import gym.spaces as spaces
 import numba
@@ -20,6 +20,7 @@ from habitat.utils.gym_adapter import (
     continuous_vector_action_to_hab_dict,
     create_action_space,
 )
+from habitat.utils.visualizations.utils import observations_to_image
 from habitat_baselines.common.baseline_registry import baseline_registry
 from habitat_baselines.common.obs_transformers import (
     apply_obs_transforms_batch,
@@ -28,7 +29,10 @@ from habitat_baselines.common.obs_transformers import (
 from habitat_baselines.config.default import get_config as get_habitat_config
 from habitat_baselines.utils.common import batch_obs
 
+import home_robot.utils.pose as pu
+from home_robot.agent.ovmm_agent.complete_obs_space import get_complete_obs_space
 from home_robot.core.interfaces import (
+    ContinuousFullBodyAction,
     ContinuousNavigationAction,
     DiscreteNavigationAction,
     Observations,
@@ -76,35 +80,7 @@ class PPOAgent(Agent):
         self.action_space = action_spaces
         if obs_spaces is None:
             self.obs_space = [
-                spaces.dict.Dict(
-                    {
-                        "is_holding": spaces.Box(0.0, 1.0, (1,), np.float32),
-                        "robot_head_depth": spaces.Box(
-                            0.0, 1.0, (256, 256, 1), np.float32
-                        ),
-                        "joint": spaces.Box(
-                            np.finfo(np.float32).min,
-                            np.finfo(np.float32).max,
-                            (10,),
-                            np.float32,
-                        ),
-                        "object_embedding": spaces.Box(
-                            np.finfo(np.float32).min,
-                            np.finfo(np.float32).max,
-                            (512,),
-                            np.float32,
-                        ),
-                        "relative_resting_position": spaces.Box(
-                            np.finfo(np.float32).min,
-                            np.finfo(np.float32).max,
-                            (3,),
-                            np.float32,
-                        ),
-                        "object_segmentation": spaces.Box(
-                            0.0, 1.0, (256, 256, 1), np.uint8
-                        ),
-                    }
-                )
+                get_complete_obs_space(skill_config, config),
             ]
         if action_spaces is None:
             self.action_space = [
@@ -118,13 +94,11 @@ class PPOAgent(Agent):
                         ),
                         "base_velocity": spaces.dict.Dict(
                             {
-                                "base_vel": spaces.Box(-20.0, 20.0, (2,), np.float32),
+                                "base_vel": spaces.Box(-20.0, 20.0, (3,), np.float32),
                             }
                         ),
-                        "extend_arm": EmptySpace(),
-                        "face_arm": EmptySpace(),
                         "rearrange_stop": EmptySpace(),
-                        "reset_joints": EmptySpace(),
+                        "manipulation_mode": EmptySpace(),
                     }
                 )
             ]
@@ -218,8 +192,27 @@ class PPOAgent(Agent):
                 }
             )
         self.actor_critic.eval()
-        self.max_forward = skill_config.max_forward
-        self.max_turn = skill_config.max_turn
+        self.max_displacement = skill_config.max_displacement
+        self.max_turn = skill_config.max_turn_degrees * np.pi / 180
+        self.min_displacement = skill_config.min_displacement
+        self.min_turn = skill_config.min_turn_degrees * np.pi / 180
+        self.nav_goal_seg_channels = skill_config.nav_goal_seg_channels
+        self.max_joint_delta = None
+        self.min_joint_delta = None
+        if "arm_action" in skill_config.allowed_actions:
+            self.max_joint_delta = skill_config.max_joint_delta
+            self.grip_threshold = skill_config.grip_threshold
+            self.min_joint_delta = skill_config.min_joint_delta
+        if "manipulation_mode" in skill_config.allowed_actions:
+            self.manip_mode_threshold = skill_config.manip_mode_threshold
+            self.constraint_base_in_manip_mode = (
+                skill_config.constraint_base_in_manip_mode
+            )
+        self.terminate_condition = skill_config.terminate_condition
+        self.show_rl_obs = config.SHOW_RL_OBS
+        self.manip_mode_called = False
+        self.skill_start_gps = None
+        self.skill_start_compass = None
 
     def reset(self) -> None:
         self.test_recurrent_hidden_states = torch.zeros(
@@ -237,6 +230,9 @@ class PPOAgent(Agent):
             dtype=torch.float32 if self.continuous_actions else torch.long,
             device=self.device,
         )
+        self.manip_mode_called = False
+        self.skill_start_gps = None
+        self.skill_start_compass = None
 
     def reset_vectorized(self):
         """Initialize agent state."""
@@ -246,31 +242,74 @@ class PPOAgent(Agent):
         """Initialize agent state."""
         self.reset()
 
-    def does_want_terminate(self, observations, actions):
-        # TODO: override in GazeAgent
-        # raise NotImplementedError
-        # For Gaze check if the center pixel corresponds to the object of interest
-        if not self.continuous_actions:
-            return actions == DiscreteNavigationAction.STOP
-        h, w = observations.semantic.shape
-        return (
-            observations.semantic[h // 2, w // 2]
-            == observations.task_observations["object_goal"]
-        )
+    def does_want_terminate(self, observations, action) -> bool:
+        if not self.continuous_actions and self.terminate_condition == "discrete_stop":
+            return action == DiscreteNavigationAction.STOP
+        elif self.terminate_condition == "grip":
+            return action["grip_action"][0] >= self.grip_threshold
+        elif self.terminate_condition == "ungrip":
+            return action["grip_action"][0] < self.grip_threshold
+        elif self.terminate_condition == "obj_goal_at_center":
+            # check if the center pixel corresponds to the object of interest
+            h, w = observations.semantic.shape
+            return (
+                observations.semantic[h // 2, w // 2]
+                == observations.task_observations["object_goal"]
+            )
+        elif (
+            "rearrange_stop" in action and self.terminate_condition == "continuous_stop"
+        ):
+            return action["rearrange_stop"][0] > 0
+        else:
+            raise ValueError("Invalid terminate condition")
+
+    def _get_goal_segmentation(self, obs: Observations) -> np.ndarray:
+        if self.nav_goal_seg_channels == 1:
+            return np.expand_dims(
+                obs.semantic == obs.task_observations["end_recep_goal"], -1
+            ).astype(np.uint8)
+        elif self.nav_goal_seg_channels == 2:
+            object_goal = np.expand_dims(
+                obs.semantic == obs.task_observations["object_goal"], -1
+            ).astype(np.uint8)
+            start_recep_goal = np.expand_dims(
+                obs.semantic == obs.task_observations["start_recep_goal"], -1
+            ).astype(np.uint8)
+            return np.concatenate([object_goal, start_recep_goal], axis=-1)
+
+    def _get_receptacle_segmentation(self, obs: Observations) -> np.ndarray:
+        rec_seg = obs.semantic
+        recep_idx_start = obs.task_observations["recep_idx"]
+        max_val = obs.task_observations["semantic_max_val"]
+        seg_map = np.zeros(max_val + 1, dtype=np.int32)
+        for obj_idx in range(recep_idx_start):
+            seg_map[obj_idx] = 0
+        for i, obj_idx in enumerate(range(recep_idx_start, max_val)):
+            seg_map[obj_idx] = i + 1
+        seg_map[max_val] = 0
+        rec_seg = seg_map[rec_seg]
+        return rec_seg[..., np.newaxis].astype(np.int32)
 
     def convert_to_habitat_obs_space(
         self, obs: Observations
     ) -> "OrderedDict[str, Any]":
-
         # normalize depth
         min_depth = self.config.ENVIRONMENT.min_depth
         max_depth = self.config.ENVIRONMENT.max_depth
         normalized_depth = obs.depth.copy()
-        normalized_depth[normalized_depth == MIN_DEPTH_REPLACEMENT_VALUE] = 0
-        normalized_depth[normalized_depth == MAX_DEPTH_REPLACEMENT_VALUE] = 1
+        normalized_depth[normalized_depth == MIN_DEPTH_REPLACEMENT_VALUE] = min_depth
+        normalized_depth[normalized_depth == MAX_DEPTH_REPLACEMENT_VALUE] = max_depth
+        normalized_depth = np.clip(normalized_depth, min_depth, max_depth)
         normalized_depth = (normalized_depth - min_depth) / (max_depth - min_depth)
-        # TODO: convert all observations to hab observation space here
-        return OrderedDict(
+        rel_pos = pu.get_rel_pose_change(
+            [obs.gps[0], obs.gps[1], obs.compass],
+            [
+                self.skill_start_gps[0],
+                self.skill_start_gps[1],
+                self.skill_start_compass,
+            ],
+        )
+        hab_obs = OrderedDict(
             {
                 "robot_head_depth": np.expand_dims(normalized_depth, -1).astype(
                     np.float32
@@ -279,28 +318,51 @@ class PPOAgent(Agent):
                 "object_segmentation": np.expand_dims(
                     obs.semantic == obs.task_observations["object_goal"], -1
                 ).astype(np.uint8),
+                "goal_recep_segmentation": np.expand_dims(
+                    obs.semantic == obs.task_observations["end_recep_goal"], -1
+                ).astype(np.uint8),
                 "joint": obs.joint,
                 "relative_resting_position": obs.relative_resting_position,
-                "is_holding": obs.is_holding,
-                "robot_start_gps": np.array((obs.gps[0], -1 * obs.gps[1])),
-                "robot_start_compass": obs.compass + np.pi / 2,
-                "receptacle_segmentation": obs.task_observations[
-                    "receptacle_segmentation"
-                ],
-                "ovmm_nav_goal_segmentation": obs.task_observations[
-                    "ovmm_nav_goal_segmentation"
-                ],
-                "start_receptacle": obs.task_observations["start_receptacle"],
+                "is_holding": np.array(obs.task_observations["prev_grasp_success"]),
+                "robot_start_gps": np.array((rel_pos[1].item(), rel_pos[0].item())),
+                "robot_start_compass": pu.normalize_radians(rel_pos[2]),
+                "start_receptacle": np.array(obs.task_observations["start_receptacle"]),
+                "goal_receptacle": np.array(obs.task_observations["goal_receptacle"]),
             }
         )
 
-    # FIXME: the return values do not match the signature
-    def act(self, observations: Observations) -> Dict[str, int]:
+        if "ovmm_nav_goal_segmentation" in self.skill_obs_keys:
+            hab_obs["ovmm_nav_goal_segmentation"] = self._get_goal_segmentation(obs)
+        if "receptacle_segmentation" in self.skill_obs_keys:
+            hab_obs["receptacle_segmentation"] = self._get_receptacle_segmentation(obs)
+        return hab_obs
+
+    def act(
+        self, observations: Observations, info
+    ) -> Tuple[
+        Union[
+            ContinuousFullBodyAction,
+            ContinuousNavigationAction,
+            DiscreteNavigationAction,
+        ],
+        bool,
+    ]:
         sample_random_seed()
+        if self.skill_start_gps is None:
+            self.skill_start_gps = observations.gps
+        if self.skill_start_compass is None:
+            self.skill_start_compass = observations.compass
         obs = self.convert_to_habitat_obs_space(observations)
+        viz_obs = {k: obs[k] for k in self.skill_obs_keys}
         batch = batch_obs([obs], device=self.device)
         batch = apply_obs_transforms_batch(batch, self.obs_transforms)
+        for k in self.skill_obs_keys:
+            viz_obs[k + "_resized"] = batch[k][0].cpu().numpy()
         batch = OrderedDict([(k, batch[k]) for k in self.skill_obs_keys])
+
+        if self.show_rl_obs:
+            frame = observations_to_image(viz_obs, info={})
+            info["rl_obs_frame"] = frame
 
         with torch.no_grad():
             action_data = self.actor_critic.act(
@@ -330,48 +392,74 @@ class PPOAgent(Agent):
                 step_action = continuous_vector_action_to_hab_dict(
                     self.filtered_action_space, self.vector_action_space, act[0]
                 )
+
+                robot_action = self._map_continuous_habitat_actions(
+                    step_action["action_args"]
+                )
+                does_want_terminate = self.does_want_terminate(
+                    observations, step_action["action_args"]
+                )
                 return (
-                    self._map_continuous_habitat_actions(step_action["action_args"]),
-                    self.does_want_terminate(observations, actions),
+                    robot_action,
+                    info,
+                    does_want_terminate,
                 )
             else:
                 step_action = self._map_discrete_habitat_actions(
                     actions.item(), self.skill_actions
                 )
-
-        if self.continuous_actions:
-            # Map policy controlled arm_action to complete arm_action space
-            if "arm_action" in step_action["action_args"]:
-                complete_arm_action = np.array([0.0] * len(self.arm_joint_mask))
-                controlled_joint_indices = np.nonzero(self.arm_joint_mask)
-                complete_arm_action[controlled_joint_indices] = step_action[
-                    "action_args"
-                ]["arm_action"]
-                step_action["action_args"]["arm_action"] = complete_arm_action
-
-            return (
-                step_action["action_args"],
-                self.does_want_terminate(observations, step_action),
-            )
-        else:
-            return (
-                step_action,
-                self.does_want_terminate(observations, step_action),
-            )
+                return (
+                    step_action,
+                    info,
+                    self.does_want_terminate(observations, step_action),
+                )
 
     def _map_continuous_habitat_actions(self, cont_action):
         """Map habitat continuous actions to home-robot continuous actions"""
-        # TODO: support simultaneous manipulation
-        waypoint, sel = cont_action["base_vel"]
+        # TODO: add home-robot support for simultaneous gripping
+        if (
+            not self.manip_mode_called
+            and "manipulation_mode" in cont_action
+            and cont_action["manipulation_mode"] >= self.manip_mode_threshold
+        ):
+            self.manip_mode_called = True
+            # Todo, look at the order in which hab-lab updates actions
+            return DiscreteNavigationAction.MANIPULATION_MODE
+        waypoint, turn, sel = cont_action[
+            "base_vel"
+        ]  # Teleport action after disabling simultaneous turn and lateral movement
+        xyt = [0, 0, 0]
         if sel >= 0:
-            action = ContinuousNavigationAction(
-                [np.clip(waypoint, -1, 1) * self.max_forward, 0, 0]
-            )  # forward
+            absolute_forward_dist = np.clip(waypoint, -1, 1) * self.max_displacement
+            if np.abs(absolute_forward_dist) < self.min_displacement:
+                absolute_forward_dist = 0
+            xyt = np.array([absolute_forward_dist, 0, 0])  # forward
         else:
-            action = ContinuousNavigationAction(
-                [0, 0, np.clip(waypoint, -1, 1) * self.max_turn]
-            )  # turn
-        return action
+            absolute_turn = np.clip(turn, -1, 1) * self.max_turn
+            if np.abs(absolute_turn) < self.min_turn:
+                absolute_turn = 0
+            xyt = np.array([0, 0, absolute_turn])  # turn
+
+        if self.manip_mode_called and self.constraint_base_in_manip_mode:
+            xyt = np.array([0, 0, 0])
+
+        joints = None
+        # Map policy controlled arm_action to complete arm_action space
+        if "arm_action" in cont_action:
+            complete_arm_action = np.array([0.0] * len(self.arm_joint_mask))
+            controlled_joint_indices = np.nonzero(self.arm_joint_mask)
+            # map the policy controlled joints to "controllable" action space
+            complete_arm_action[controlled_joint_indices] = cont_action["arm_action"]
+            # add zeros for arm_1, arm_2, arm_3 extensions
+            complete_arm_action = np.concatenate(
+                [complete_arm_action[:1], [0] * 3, complete_arm_action[1:]]
+            )
+            joints = np.clip(complete_arm_action, -1, 1) * self.max_joint_delta
+            # remove small joint movements
+            joints[np.abs(joints) < self.min_joint_delta] = 0
+            return ContinuousFullBodyAction(joints, xyt=xyt)
+        else:
+            return ContinuousNavigationAction(xyt)
 
     def _map_discrete_habitat_actions(self, discrete_action, skill_actions):
         discrete_action = skill_actions[discrete_action]

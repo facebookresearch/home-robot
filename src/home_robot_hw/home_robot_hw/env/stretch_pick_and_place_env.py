@@ -1,9 +1,12 @@
+import json
 import os
 import pickle
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, Optional
 
+import clip
 import numpy as np
 import rospy
+import torch
 
 import home_robot
 from home_robot.core.interfaces import (
@@ -16,39 +19,14 @@ from home_robot.motion.stretch import (
     STRETCH_ARM_EXTENSION,
     STRETCH_ARM_LIFT,
     STRETCH_HOME_Q,
+    STRETCH_POSTNAV_Q,
     STRETCH_PREGRASP_Q,
 )
-from home_robot.perception.detection.detic.detic_perception import DeticPerception
-from home_robot.utils.config import get_config
 from home_robot.utils.geometry import xyt2sophus
 from home_robot_hw.env.stretch_abstract_env import StretchEnv
 from home_robot_hw.env.visualizer import Visualizer
 from home_robot_hw.remote import StretchClient
 from home_robot_hw.utils.grasping import GraspPlanner
-
-REAL_WORLD_CATEGORIES = [
-    "other",
-    "chair",
-    "cup",
-    "table",
-    "other",
-]  # TODO: Remove hardcoded indices in the visualizer so we can add more objects
-
-
-DETIC = "detic"
-
-
-def load_config(visualize=False, print_images=True, config_path=None, **kwargs):
-    if config_path is None:
-        config_path = "projects/stretch_ovmm/configs/agent/floorplanner_eval.yaml"
-    config, config_str = get_config(config_path)
-    config.defrost()
-    config.NUM_ENVIRONMENTS = 1
-    config.VISUALIZE = int(visualize)
-    config.PRINT_IMAGES = int(print_images)
-    config.EXP_NAME = "debug"
-    config.freeze()
-    return config
 
 
 class StretchPickandPlaceEnv(StretchEnv):
@@ -60,13 +38,13 @@ class StretchPickandPlaceEnv(StretchEnv):
     def __init__(
         self,
         config,
-        goal_options: List[str] = None,
-        segmentation_method: str = DETIC,
+        cat_map_file: str,
         visualize_planner: bool = False,
         ros_grasping: bool = True,
         test_grasping: bool = False,
         dry_run: bool = False,
         debug: bool = False,
+        visualize_grasping: bool = False,
         *args,
         **kwargs,
     ):
@@ -78,38 +56,28 @@ class StretchPickandPlaceEnv(StretchEnv):
         """
         super().__init__(*args, **kwargs)
 
-        # TODO: pass this in or load from cfg
-        if goal_options is None:
-            goal_options = REAL_WORLD_CATEGORIES
-        self.goal_options = goal_options
         self.forward_step = config.ENVIRONMENT.forward
         self.rotate_step = np.radians(config.ENVIRONMENT.turn_angle)
         self.test_grasping = test_grasping
         self.dry_run = dry_run
         self.debug = debug
+        self.visualize_grasping = visualize_grasping
         self.task_info = {}
+        self.prev_obs = None
+        self.prev_grasp_success = False
+
+        with open(cat_map_file) as f:
+            self.category_map = json.load(f)
 
         self.robot = StretchClient(init_node=False)
 
         # Create a visualizer
         if config is not None:
             self.visualizer = Visualizer(config)
-            config.defrost()
-            config.AGENT.SEMANTIC_MAP.num_sem_categories = len(self.goal_options)
-            config.freeze()
         else:
             self.visualizer = None
 
-        # Set up the segmenter
-        self.segmentation_method = segmentation_method
-        if self.segmentation_method == DETIC:
-            # TODO Specify confidence threshold as a parameter
-            self.segmentation = DeticPerception(
-                vocabulary="custom",
-                custom_vocabulary=",".join(self.goal_options),
-                sem_gpu_id=0,
-            )
-
+        # Connect to grasp planner via ROS
         if ros_grasping:
             # Create a simple grasp planner object, which will let us pick stuff up.
             # This takes in a reference to the robot client - will replace "self" with "self.client"
@@ -148,6 +116,7 @@ class StretchPickandPlaceEnv(StretchEnv):
         # Switch control mode on the robot to nav
         # Also set the robot's head into "navigation" mode - facing forward
         self.robot.move_to_nav_posture()
+        self.prev_grasp_success = False
 
     def get_robot(self):
         """Return the robot interface."""
@@ -173,7 +142,6 @@ class StretchPickandPlaceEnv(StretchEnv):
         # Also do not rotate if you are just doing grasp testing
         if not self.dry_run and not self.test_grasping:
             self.robot.move_to_nav_posture()
-            self.robot.nav.navigate_to([0, 0, -np.pi / 2], relative=True, blocking=True)
 
         """Rotate the robot back to face forward"""
         if not self.robot.in_navigation_mode():
@@ -192,8 +160,14 @@ class StretchPickandPlaceEnv(StretchEnv):
             self.robot.nav.navigate_to([0, 0, np.pi / 2], relative=True, blocking=True)
             self.robot.move_to_manip_posture()
 
-    def apply_action(self, action: Action, info: Optional[Dict[str, Any]] = None):
+    def apply_action(
+        self,
+        action: Action,
+        info: Optional[Dict[str, Any]] = None,
+        prev_obs: Optional[Observations] = None,
+    ):
         """Handle all sorts of different actions we might be inputting into this class. We provide both a discrete and a continuous action handler."""
+        self.prev_obs = prev_obs
         # Process the action so we know what to do with it
         if not isinstance(action, HybridAction):
             action = HybridAction(action)
@@ -234,19 +208,20 @@ class StretchPickandPlaceEnv(StretchEnv):
                 continuous_action = None
                 self._switch_to_nav_mode()
                 continuous_action = None
+            elif action == DiscreteNavigationAction.POST_NAV_MODE:
+                self.robot.move_to_post_nav_posture()
+                continuous_action = None
             elif action == DiscreteNavigationAction.PICK_OBJECT:
                 print("[ENV] Discrete pick policy")
                 continuous_action = None
-                # Run in a while loop until we have succeeded
-                while not rospy.is_shutdown():
-                    if self.dry_run:
-                        # Dummy out robot execution code for perception tests
-                        break
+                # Dummy out robot execution code for perception tests
+                if not self.dry_run:
                     ok = self.grasp_planner.try_grasping(
-                        wait_for_input=self.debug, visualize=self.test_grasping
+                        wait_for_input=self.debug,
+                        visualize=(self.test_grasping or self.visualize_grasping),
+                        max_tries=1,
                     )
-                    if ok:
-                        break
+                    self.prev_grasp_success = ok
             elif action == DiscreteNavigationAction.SNAP_OBJECT:
                 # Close the gripper
                 gripper_action = 1
@@ -320,39 +295,43 @@ class StretchPickandPlaceEnv(StretchEnv):
 
     def set_goal(self, goal_find: str, goal_obj: str, goal_place: str):
         """Set the goal class as a string. Goal should be an object class we want to pick up."""
-        for goal in [goal_find, goal_obj, goal_place]:
-            if goal not in self.goal_options:
+        recep_name_map = self.category_map["recep_category_to_recep_category_id"]
+        for goal in [goal_find, goal_place]:
+            if goal not in recep_name_map:
                 raise RuntimeError(
-                    f"Goal not supported: {goal} not in {str(self.goal_options)}"
+                    f"Receptacle goal not supported: {goal} not in {str(list(recep_name_map.keys()))}"
                 )
-        goal_obj_id = self.goal_options.index(goal_obj)
-        goal_find_id = self.goal_options.index(goal_find)
-        goal_place_id = self.goal_options.index(goal_place)
         self.task_info = {
             "object_name": goal_obj,
             "start_recep_name": goal_find,
             "place_recep_name": goal_place,
-            "object_id": goal_obj_id,
-            "start_recep_id": goal_find_id,
-            "place_recep_id": goal_place_id,
             "goal_name": f"{goal_obj} from {goal_find} to {goal_place}",
-            # Consistency - add ids for the first task
-            "object_goal": goal_obj_id,
-            "recep_goal": goal_find_id,
+            "start_receptacle": recep_name_map[goal_find],
+            "goal_receptacle": recep_name_map[goal_place],
+            # # To be populated by the agent
+            "recep_idx": -1,
+            "semantic_max_val": -1,
+            "object_goal": -1,
+            "start_recep_goal": -1,
+            "end_recep_goal": -1,
         }
-        if self.clip_embeddings is not None:
-            # TODO: generate on fly if not available
+
+        if self.clip_embeddings is not None and goal_obj in self.clip_embeddings:
             self.task_info["object_embedding"] = self.clip_embeddings[goal_obj]
+        else:
+            # generate clip embeddings by loading clip model
+            device = "cuda" if torch.cuda.is_available() else "cpu"
+            model, _ = clip.load("ViT-B/32", device)
 
-        self.current_goal_id = self.goal_options.index(goal_obj)
-        self.current_goal_name = goal
+            # Prepare the inputs
+            text_inputs = torch.cat([clip.tokenize(f"a photo of a {goal_obj}")]).to(
+                device
+            )
 
-    def sample_goal(self):
-        """set a random goal"""
-        goal_obj_idx = np.random.randint(len(self.goal_options))
-        goal_obj = self.goal_options[goal_obj_idx]
-        self.current_goal_id = self.goal_options.index(goal_obj_idx)
-        self.current_goal_name = goal_obj
+            # Get CLIP embeddings
+            with torch.no_grad():
+                text_features = model.encode_text(text_inputs)
+            self.task_info["object_embedding"] = text_features[0].cpu().numpy()
 
     def get_observation(self) -> Observations:
         """Get Detic and rgb/xyz/theta from the robot. Read RGB + depth + point cloud from the robot's cameras, get current pose, and use all of this to compute the observations
@@ -388,43 +367,27 @@ class StretchPickandPlaceEnv(StretchEnv):
             camera_pose=self.robot.head.get_pose(rotated=True),
             joint=self.robot.model.config_to_hab(joint_positions),
             relative_resting_position=np.array([0.3878479, 0.12924957, 0.4224413]),
-            is_holding=np.array([0.0]),
         )
-        # Run the segmentation model here
-        if self.segmentation_method == DETIC:
-            obs = self.segmentation.predict(obs)
-
-            # Make sure we only have one "other" - for ??? some reason
-            obs.semantic[obs.semantic == 0] = len(self.goal_options) - 1
-
-            # Choose instance mask with highest score for goal mask
-            instance_scores = obs.task_observations["instance_scores"].copy()
-            class_mask = (
-                obs.task_observations["instance_classes"] == self.current_goal_id
-            )
-
-            # If we detected anything... check to see if our target object was found, and if so pass in the mask.
-            if len(instance_scores) and np.any(class_mask):
-                chosen_instance_idx = np.argmax(instance_scores * class_mask)
-                obs.task_observations["goal_mask"] = (
-                    obs.task_observations["instance_map"] == chosen_instance_idx
-                )
-            else:
-                obs.task_observations["goal_mask"] = np.zeros_like(obs.semantic).astype(
-                    bool
-                )
+        obs.task_observations["prev_grasp_success"] = np.array(
+            [self.prev_grasp_success], np.float32
+        )
+        obs.task_observations[
+            "in_manipulation_mode"
+        ] = self.robot.in_manipulation_mode()
+        obs.task_observations["in_navigation_mode"] = self.robot.in_navigation_mode()
 
         # TODO: remove debug code
-        debug_rgb_bgr = False
-        if debug_rgb_bgr:
-            import matplotlib.pyplot as plt
+        # debug_rgb_bgr = False
+        # if debug_rgb_bgr:
+        #     import matplotlib.pyplot as plt
 
-            plt.figure()
-            plt.subplot(121)
-            plt.imshow(obs.rgb)
-            plt.subplot(122)
-            plt.imshow(obs.task_observations["semantic_frame"])
-            plt.show()
+        #     plt.figure()
+        #     plt.subplot(121)
+        #     plt.imshow(obs.rgb)
+        #     plt.subplot(122)
+        #     plt.imshow(obs.task_observations["semantic_frame"])
+        #     plt.show()
+        self.prev_obs = obs
         return obs
 
     @property

@@ -5,7 +5,7 @@
 1. Follow instructions in [home_robot_hw](../../src/home_robot_hw/README.md) to set up the Home Robot hardware stack on both your Workstation and Robot.
 2. Install additional dependencies for OVMM
     ```sh
-    pip install -r projects/stretch_ovmm/requirements.txt
+    pip install -r projects/real_world_ovmm/requirements.txt
     ```
 3. Install habitat-lab dependencies
     ```sh
@@ -39,7 +39,7 @@ rviz -d $HOME_ROBOT_ROOT/src/home_robot_hw/launch/mapping_demo.rviz
 roslaunch home_robot visualization.launch
 
 # Run stand-alone pick & place script
-python projects/stretch_ovmm/eval_episode.py
+python projects/real_world_ovmm/eval_episode.py
 ```
 
 ## Troubleshooting the robot

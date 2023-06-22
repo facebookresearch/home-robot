@@ -158,3 +158,10 @@ def normalize_angle(angle_in_degrees):
     if angle_in_degrees > 180:
         angle_in_degrees -= 360
     return angle_in_degrees
+
+
+def normalize_radians(angle_in_radians):
+    angle_in_radians = angle_in_radians % (2 * np.pi)
+    if angle_in_radians > np.pi:
+        angle_in_radians -= 2 * np.pi
+    return angle_in_radians
