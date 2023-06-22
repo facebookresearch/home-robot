@@ -1,3 +1,9 @@
+# Copyright (c) Meta Platforms, Inc. and affiliates.
+#
+# This source code is licensed under the MIT license found in the
+# LICENSE file in the root directory of this source tree.
+
+
 """
 This file contains versions of the helpers in point_cloud.py that use pytorch directly (rather than numpy),
 to allow operations to be done on the GPU for speed.
