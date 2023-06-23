@@ -46,6 +46,7 @@ AGENT:
     dilate_obstacles: True
     dilate_size: 3
     dilate_iter: 1
+    record_instance_ids: False
 
   SKILLS:
     GAZE_OBJ:

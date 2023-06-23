@@ -58,6 +58,7 @@ class ObjectNavAgent(Agent):
             map_resolution=config.AGENT.SEMANTIC_MAP.map_resolution,
             map_size_cm=config.AGENT.SEMANTIC_MAP.map_size_cm,
             global_downscaling=config.AGENT.SEMANTIC_MAP.global_downscaling,
+            record_instance_ids=config.AGENT.SEMANTIC_MAP.record_instance_ids,
         )
         agent_radius_cm = config.AGENT.radius * 100.0
         agent_cell_radius = int(

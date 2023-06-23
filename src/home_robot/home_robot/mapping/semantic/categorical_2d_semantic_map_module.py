@@ -63,6 +63,7 @@ class Categorical2DSemanticMapModule(nn.Module):
         dilate_obstacles: bool = True,
         dilate_iter: int = 1,
         dilate_size: int = 3,
+        record_instance_ids: bool = True,
     ):
         """
         Arguments:
@@ -89,6 +90,7 @@ class Categorical2DSemanticMapModule(nn.Module):
              consider it as obstacle
             must_explore_close: reduce the distance we need to get to things to make them work
             min_obs_height_cm: minimum height of obstacles (in centimetres)
+            record_instance_ids: whether to record instance ids
         """
         super().__init__()
 
@@ -135,6 +137,7 @@ class Categorical2DSemanticMapModule(nn.Module):
         self.dilate_kernel = np.ones((dilate_size, dilate_size))
         self.dilate_size = dilate_size
         self.dilate_iter = dilate_iter
+        self.record_instance_ids = record_instance_ids
 
     @torch.no_grad()
     def forward(
@@ -197,6 +200,8 @@ class Categorical2DSemanticMapModule(nn.Module):
         device, dtype = seq_obs.device, seq_obs.dtype
 
         map_features_channels = 2 * MC.NON_SEM_CHANNELS + self.num_sem_categories
+        if self.record_instance_ids:
+            map_features_channels += self.num_sem_categories
         seq_map_features = torch.zeros(
             batch_size,
             sequence_length,

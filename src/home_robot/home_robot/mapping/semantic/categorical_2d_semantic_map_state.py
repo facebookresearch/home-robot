@@ -29,6 +29,7 @@ class Categorical2DSemanticMapState:
         map_resolution: int,
         map_size_cm: int,
         global_downscaling: int,
+        record_instance_ids: bool,
     ):
         """
         Arguments:
@@ -39,6 +40,7 @@ class Categorical2DSemanticMapState:
             map_resolution: size of map bins (in centimeters)
             map_size_cm: global map size (in centimetres)
             global_downscaling: ratio of global over local map
+            record_instance_ids: whether to predict and store instance ids in the map
         """
         self.device = device
         self.num_environments = num_environments
@@ -62,6 +64,9 @@ class Categorical2DSemanticMapState:
         # 4: Regions agent has been close to
         # 5, 6, 7, .., num_sem_categories + 5: Semantic Categories
         num_channels = self.num_sem_categories + MC.NON_SEM_CHANNELS
+        if record_instance_ids:
+            # num_sem_categories + 5, ..., 2 * num_sem_categories + 5: Instance ids per semantic category
+            num_channels += self.num_sem_categories
 
         self.global_map = torch.zeros(
             self.num_environments,
