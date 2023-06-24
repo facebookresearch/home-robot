@@ -85,5 +85,6 @@ if __name__ == "__main__":
         metrics = env.get_episode_metrics()
         metrics["num_steps"] = t
         episode_metrics[scene_id + "_" + episode_id] = metrics
+        print(metrics)
         with open(f"{results_dir}/episode_results.json", "w") as f:
             json.dump(episode_metrics, f, indent=4)

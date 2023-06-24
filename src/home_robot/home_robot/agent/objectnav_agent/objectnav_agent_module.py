@@ -172,7 +172,7 @@ class ObjectNavAgentModule(nn.Module):
         seq_found_goal = found_goal.view(batch_size, sequence_length)
 
         # Compute the frontier map here
-        frontier_map = self.policy.get_frontier_map(map_features)
+        frontier_map =  self.policy.get_frontier_map(map_features)
         seq_frontier_map = frontier_map.view(
             batch_size, sequence_length, *frontier_map.shape[-2:]
         )
