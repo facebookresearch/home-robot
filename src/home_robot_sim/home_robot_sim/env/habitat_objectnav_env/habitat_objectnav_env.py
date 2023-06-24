@@ -141,11 +141,13 @@ class HabitatObjectNavEnv(HabitatEnv):
         else:
             obs = self.segmentation.predict(obs, depth_threshold=0.5)
             if self.vocabulary == "coco":
-                obs.semantic = np.vectorize(coco_categories_mapping.get)(obs.semantic)
-                obs.semantic[obs.semantic == None] = (  # noqa: E711
+                OTHER_CATEGORY_ID = -1
+                get_coco_with_default_val = lambda x: coco_categories_mapping.get(x, OTHER_CATEGORY_ID)
+                semantic_obs = np.vectorize(get_coco_with_default_val)(obs.semantic)
+                semantic_obs[semantic_obs == OTHER_CATEGORY_ID] = (  # noqa: E711
                     self.semantic_category_mapping.num_sem_categories - 1
                 )
-                obs.semantic = obs.semantic.astype(int)
+                obs.semantic = semantic_obs.astype(int)
             if type(self.semantic_category_mapping) == FloorplannertoMukulIndoor:
                 # First index is a dummy unused category
                 obs.semantic[obs.semantic == 0] = (
