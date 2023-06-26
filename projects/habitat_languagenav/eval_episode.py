@@ -1,7 +1,11 @@
 import argparse
 import json
+import os
 import sys
 from pathlib import Path
+
+import numpy as np
+from tqdm import tqdm
 
 # TODO Install home_robot, home_robot_sim and remove this
 sys.path.insert(
@@ -51,22 +55,63 @@ if __name__ == "__main__":
     config.NUM_ENVIRONMENTS = 1
     config.PRINT_IMAGES = 1
     config.habitat.dataset.split = "val"
-    config.EXP_NAME = "debug"
 
     agent = LanguageNavAgent(config=config)
     habitat_env = Env(config)
     env = HabitatLanguageNavEnv(habitat_env, config=config)
 
-    agent.reset()
-    env.reset()
+    results_dir = os.path.join(config.DUMP_LOCATION, "results", config.EXP_NAME)
+    os.makedirs(results_dir, exist_ok=True)
 
-    t = 0
+    successes = []
+    spls = []
+    episode_ids = []
 
-    while not env.episode_over:
-        t += 1
-        print(t)
-        obs = env.get_observation()
-        action, info = agent.act(obs)
-        env.apply_action(action, info=info)
+    metrics = {}
 
-    print(env.get_episode_metrics())
+    for i in range(100):
+        env.reset()
+        agent.reset()
+        t = 0
+
+        scene_id = env.habitat_env.current_episode.scene_id.split("/")[-1].split(".")[0]
+        agent.planner.set_vis_dir(scene_id, env.habitat_env.current_episode.episode_id)
+        episode_id = env.habitat_env.current_episode.episode_id
+        episode_ids.append(env.habitat_env.current_episode.episode_id)
+
+        pbar = tqdm(total=config.AGENT.max_steps)
+        while not env.episode_over:
+            t += 1
+            obs = env.get_observation()
+            if t == 1:
+                print(env.habitat_env.current_episode.instructions[0])
+                print("Target:", obs.task_observations["target"])
+                print("Landmarks:", obs.task_observations["landmarks"])
+
+            action, info = agent.act(obs)
+            env.apply_action(action, info=info)
+            pbar.set_description(f"Action: {str(action).split('.')[-1]}")
+            pbar.update(1)
+
+        pbar.close()
+
+        ep_metrics = env.get_episode_metrics()
+        metrics[f"{scene_id}_{episode_id}"] = ep_metrics
+
+        print(f"{scene_id}_{episode_id}", ep_metrics)
+
+        with open(os.path.join(results_dir, "per_episode_metrics.json"), "w") as fp:
+            json.dump(metrics, fp, indent=4)
+
+        stats = {}
+
+        for metric in list(metrics.values())[0].keys():
+            stats[f"{metric}_mean"] = np.array(
+                [metrics[x][metric] for x in metrics.keys()]
+            ).mean()
+            stats[f"{metric}_median"] = np.median(
+                np.array([metrics[x][metric] for x in metrics])
+            )
+
+        with open(os.path.join(results_dir, "cumulative_metrics.json"), "w") as fp:
+            json.dump(stats, fp, indent=4)

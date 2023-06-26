@@ -413,33 +413,8 @@ class LanguageNavAgent(Agent):
         ).unsqueeze(0)
         self.last_poses[0] = curr_pose
         object_goal_category = None
-        end_recep_goal_category = None
-        # if (
-        #     "object_goal" in obs.task_observations
-        #     and obs.task_observations["object_goal"] is not None
-        # ):
-        #     if self.verbose:
-        #         print("object goal =", obs.task_observations["object_goal"])
+
         object_goal_category = torch.tensor(1).unsqueeze(0)
-        # start_recep_goal_category = None
-        # if (
-        #     "start_recep_goal" in obs.task_observations
-        #     and obs.task_observations["start_recep_goal"] is not None
-        # ):
-        #     if self.verbose:
-        #         print("start_recep goal =", obs.task_observations["start_recep_goal"])
-        #     start_recep_goal_category = torch.tensor(
-        #         obs.task_observations["start_recep_goal"]
-        #     ).unsqueeze(0)
-        # if (
-        #     "end_recep_goal" in obs.task_observations
-        #     and obs.task_observations["end_recep_goal"] is not None
-        # ):
-        #     if self.verbose:
-        #         print("end_recep goal =", obs.task_observations["end_recep_goal"])
-        #     end_recep_goal_category = torch.tensor(
-        #         obs.task_observations["end_recep_goal"]
-        #     ).unsqueeze(0)
         goal_name = [obs.task_observations["target"]]
 
         camera_pose = obs.camera_pose
