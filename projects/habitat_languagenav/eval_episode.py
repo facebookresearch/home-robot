@@ -69,7 +69,7 @@ if __name__ == "__main__":
 
     metrics = {}
 
-    for i in range(100):
+    for i in range(len(env.habitat_env.episodes)):
         env.reset()
         agent.reset()
         t = 0
