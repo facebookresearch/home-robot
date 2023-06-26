@@ -51,6 +51,7 @@ class Categorical2DSemanticMapModule(nn.Module):
         vision_range: int,
         explored_radius: int,
         been_close_to_radius: int,
+        target_blacklisting_radius: int,
         global_downscaling: int,
         du_scale: int,
         cat_pred_threshold: float,
@@ -79,6 +80,8 @@ class Categorical2DSemanticMapModule(nn.Module):
             explored_radius: radius (in centimeters) of region of the visual cone
              that will be marked as explored
             been_close_to_radius: radius (in centimeters) of been close to region
+            target_blacklisting_radius: radius (in centimeters) of region
+             around target that will be blacklisted (if invalid target)
             global_downscaling: ratio of global over local map
             du_scale: frame downscaling before projecting to point cloud
             cat_pred_threshold: number of depth points to be in bin to
@@ -111,6 +114,7 @@ class Categorical2DSemanticMapModule(nn.Module):
         self.vision_range = vision_range
         self.explored_radius = explored_radius
         self.been_close_to_radius = been_close_to_radius
+        self.target_blacklisting_radius = target_blacklisting_radius
         self.du_scale = du_scale
         self.cat_pred_threshold = cat_pred_threshold
         self.exp_pred_threshold = exp_pred_threshold
@@ -150,6 +154,7 @@ class Categorical2DSemanticMapModule(nn.Module):
         init_global_pose: Tensor,
         init_lmb: Tensor,
         init_origins: Tensor,
+        blacklist_target: bool = False,
     ) -> Tuple[Tensor, Tensor, Tensor, Tensor, Tensor, IntTensor, Tensor]:
         """Update maps and poses with a sequence of observations and generate map
         features at each time step.
@@ -237,6 +242,7 @@ class Categorical2DSemanticMapModule(nn.Module):
                 local_map,
                 local_pose,
                 seq_camera_poses,
+                blacklist_target,
             )
             for e in range(batch_size):
                 if seq_update_global[e, t]:
@@ -267,6 +273,7 @@ class Categorical2DSemanticMapModule(nn.Module):
         prev_map: Tensor,
         prev_pose: Tensor,
         camera_pose: Tensor,
+        blacklist_target: bool = False,
     ) -> Tuple[Tensor, Tensor]:
         """Update local map and sensor pose given a new observation using parameter-free
         differentiable projective geometry.
@@ -506,16 +513,32 @@ class Categorical2DSemanticMapModule(nn.Module):
                     y - radius : y + radius + 1,
                     x - radius : x + radius + 1,
                 ][explored_disk == 1] = 1
+
                 # Record the region the agent has been close to using a disc centered at the agent
                 radius = self.been_close_to_radius // self.resolution
                 been_close_disk = torch.from_numpy(skimage.morphology.disk(radius))
+
                 current_map[
                     e,
                     MC.BEEN_CLOSE_MAP,
                     y - radius : y + radius + 1,
                     x - radius : x + radius + 1,
                 ][been_close_disk == 1] = 1
+
+                if blacklist_target:
+                    # Record the region the agent has been close to using a disc centered at the agent
+                    radius = self.target_blacklisting_radius // self.resolution
+                    been_close_disk = torch.from_numpy(skimage.morphology.disk(radius))
+
+                    current_map[
+                        e,
+                        MC.BLACKLISTED_TARGETS_MAP,
+                        y - radius : y + radius + 1,
+                        x - radius : x + radius + 1,
+                    ][been_close_disk == 1] = 1
+
             except IndexError:
+
                 pass
 
         if debug_maps:

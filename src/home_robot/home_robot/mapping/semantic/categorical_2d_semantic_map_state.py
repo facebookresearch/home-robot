@@ -155,6 +155,12 @@ class Categorical2DSemanticMapState:
         """Get map showing regions the agent has been close to"""
         return np.copy(self.local_map[e, MC.BEEN_CLOSE_MAP, :, :].cpu().float().numpy())
 
+    def get_blacklisted_targets_map(self, e) -> np.ndarray:
+        """Get map showing regions the agent has been close to"""
+        return np.copy(
+            self.local_map[e, MC.BLACKLISTED_TARGETS_MAP, :, :].cpu().float().numpy()
+        )
+
     def get_semantic_map(self, e) -> np.ndarray:
         """Get local map of semantic categories for an environment."""
         semantic_map = np.copy(self.local_map[e].cpu().float().numpy())

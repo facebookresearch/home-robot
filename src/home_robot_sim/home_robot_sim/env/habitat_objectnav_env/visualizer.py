@@ -210,6 +210,7 @@ class Visualizer:
         explored_map: np.ndarray = None,
         semantic_map: np.ndarray = None,
         been_close_map: np.ndarray = None,
+        blacklisted_targets_map: np.ndarray = None,
         frontier_map: np.ndarray = None,
         goal_name: str = None,
         visualize_goal: bool = True,
@@ -352,6 +353,16 @@ class Visualizer:
             ][::-1]
             semantic_map_vis[been_close_map] = (
                 semantic_map_vis[been_close_map] + color
+            ) / 2
+
+            # overlay blacklisted targets
+            blacklisted_targets_map = np.flipud(np.rint(blacklisted_targets_map) == 1)
+            color_index = PI.BLACKLISTED_TARGETS_MAP * 3
+            color = self.semantic_category_mapping.map_color_palette[
+                color_index : color_index + 3
+            ][::-1]
+            semantic_map_vis[blacklisted_targets_map] = (
+                semantic_map_vis[blacklisted_targets_map] + color
             ) / 2
 
             semantic_map_vis = cv2.resize(

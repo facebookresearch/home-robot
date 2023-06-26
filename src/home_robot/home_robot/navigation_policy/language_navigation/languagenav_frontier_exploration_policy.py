@@ -24,7 +24,7 @@ class LanguageNavFrontierExplorationPolicy(nn.Module):
         super().__init__()
         assert exploration_strategy in ["seen_frontier", "been_close_to_frontier"]
         self.exploration_strategy = exploration_strategy
-        self.stale_been_close_map = None
+
         self.dilate_explored_kernel = nn.Parameter(
             torch.from_numpy(skimage.morphology.disk(10))
             .unsqueeze(0)
@@ -44,123 +44,37 @@ class LanguageNavFrontierExplorationPolicy(nn.Module):
     def goal_update_steps(self):
         return 1
 
-    def reach_single_category(
-        self,
-        map_features,
-        category,
-        reject_visited_regions=False,
-        update_stale_been_close_map=False,
-        local_map=None,
-        global_map=None,
-    ):
+    def reach_single_category(self, map_features, category, reject_visited_targets):
         # if the goal is found, reach it
-        # goal_map, found_goal = self.reach_goal_if_in_map(
-        #     map_features,
-        #     category,
-        # )
-        # Then check if the recep category exists in the map. if found, set it as a goal
         goal_map, found_goal = self.reach_goal_if_in_map(
-            map_features,
-            category,
-            reject_visited_regions=reject_visited_regions,
-            update_stale_been_close_map=update_stale_been_close_map,
-            # local_map=local_map,
-            # global_map=global_map
+            map_features, category, reject_visited_targets=reject_visited_targets
         )
         # otherwise, do frontier exploration
         goal_map = self.explore_otherwise(map_features, goal_map, found_goal)
         return goal_map, found_goal
 
-    def reach_object_recep_combination(
-        self, map_features, object_category, recep_category
-    ):
-        # First check if object (small goal) and recep category are in the same cell of the map. if found, set it as a goal
-        goal_map, found_goal = self.reach_goal_if_in_map(
-            map_features,
-            recep_category,
-            small_goal_category=object_category,
-        )
-        # Then check if the recep category exists in the map. if found, set it as a goal
-        goal_map, found_rec_goal = self.reach_goal_if_in_map(
-            map_features,
-            recep_category,
-            reject_visited_regions=True,
-            goal_map=goal_map,
-            found_goal=found_goal,
-        )
-        # Otherwise, set closest frontier as the goal
-        goal_map = self.explore_otherwise(map_features, goal_map, found_rec_goal)
-        return goal_map, found_goal
-
     def forward(
         self,
         map_features,
-        # local_map,
-        # global_map,
         object_category=None,
-        start_recep_category=None,
-        end_recep_category=None,
-        nav_to_recep=None,
-        reject_visited_regions=False,
-        update_stale_been_close_map=False,
+        reject_visited_targets=False,
     ):
         """
         Arguments:
             map_features: semantic map features of shape
              (batch_size, 9 + num_sem_categories, M, M)
             object_category: object goal category
-            start_recep_category: start receptacle category
-            end_recep_category: end receptacle category
-            nav_to_recep: If both object_category and recep_category are specified, whether to navigate to receptacle
         Returns:
             goal_map: binary map encoding goal(s) of shape (batch_size, M, M)
             found_goal: binary variables to denote whether we found the object
             goal category of shape (batch_size,)
         """
-        assert object_category is not None or end_recep_category is not None
+        assert object_category is not None
 
-        if object_category is not None and start_recep_category is not None:
-            if nav_to_recep is None or end_recep_category is None:
-                nav_to_recep = torch.tensor([0] * map_features.shape[0])
-
-            # there is at least one instance in the batch where the goal is object
-            if nav_to_recep.sum() < map_features.shape[0]:
-                goal_map_o, found_goal_o = self.reach_object_recep_combination(
-                    map_features, object_category, start_recep_category
-                )
-            # there is at least one instance in the batch where the goal is receptacle
-            elif nav_to_recep.sum() > 0:
-                goal_map_r, found_goal_r = self.reach_single_category(
-                    map_features, end_recep_category
-                )
-            # some instances in batch may be navigating to objects (before pick skill) and some may be navigating to recep (before place skill)
-            if nav_to_recep.sum() == 0:
-                return goal_map_o, found_goal_o
-            elif nav_to_recep.sum() == map_features.shape[0]:
-                return goal_map_r, found_goal_r
-            else:
-                goal_map = (
-                    goal_map_o * nav_to_recep.view(-1, 1, 1)
-                    + (1 - nav_to_recep).view(-1, 1, 1) * goal_map_o
-                )
-                found_goal = (
-                    found_goal_r * nav_to_recep + (1 - nav_to_recep) * found_goal_r
-                )
-
-                return goal_map, found_goal
-        else:
-            # Here, the goal is specified by a single object or receptacle to navigate to with no additional constraints (eg. the given object can be on any receptacle)
-            goal_category = (
-                object_category if object_category is not None else end_recep_category
-            )
-            goal_map, found_goal = self.reach_single_category(
-                map_features,
-                goal_category,
-                reject_visited_regions,
-                update_stale_been_close_map
-                # , local_map, global_map
-            )
-            return goal_map, found_goal
+        # Here, the goal is specified by a single object
+        return self.reach_single_category(
+            map_features, object_category, reject_visited_targets
+        )
 
     def cluster_filtering(self, m):
         # m is a 480x480 goal map
@@ -189,26 +103,15 @@ class LanguageNavFrontierExplorationPolicy(nn.Module):
         self,
         map_features,
         goal_category,
-        small_goal_category=None,
-        reject_visited_regions=False,
-        update_stale_been_close_map=False,
-        goal_map=None,
-        found_goal=None,
-        # local_map=None,
-        # global_map=None,
+        reject_visited_targets=False,
     ):
         """If the desired goal is in the semantic map, reach it."""
         batch_size, _, height, width = map_features.shape
         device = map_features.device
 
-        if goal_map is None and found_goal is None:
-            goal_map = torch.zeros((batch_size, height, width), device=device)
-            found_goal_current = torch.zeros(
-                batch_size, dtype=torch.bool, device=device
-            )
-        else:
-            # crate a fresh map
-            found_goal_current = torch.clone(found_goal)
+        goal_map = torch.zeros((batch_size, height, width), device=device)
+        found_goal_current = torch.zeros(batch_size, dtype=torch.bool, device=device)
+
         for e in range(batch_size):
             # if the category goal was not found previously
             if not found_goal_current[e]:
@@ -216,36 +119,13 @@ class LanguageNavFrontierExplorationPolicy(nn.Module):
                 category_map = map_features[
                     e, goal_category[e] + 2 * MC.NON_SEM_CHANNELS, :, :
                 ]
-                if small_goal_category is not None:
-                    # additionally check if the category has the required small object on it
-                    category_map = (
-                        category_map
-                        * map_features[
-                            e, small_goal_category[e] + 2 * MC.NON_SEM_CHANNELS, :, :
-                        ]
-                    )
-                if reject_visited_regions:
-                    print("Rejecting visited regions")
-                    category_map = category_map * (
-                        1 - map_features[e, MC.BEEN_CLOSE_MAP, :, :]
-                    )
-                    # if self.stale_been_close_map is None or update_stale_been_close_map:
-                    #     # remove the receptacles that the already been close to
-                    #     category_map = category_map * (
-                    #         1 - map_features[e, MC.BEEN_CLOSE_MAP, :, :]
-                    #     )
-                    #     # self.stale_been_close_map = global_map
-                    #     self.stale_been_close_map = map_features[e, MC.BEEN_CLOSE_MAP, :, :]
-                    #     print("Updated stale been close map")
-                    # else:
-                    #     # local_been_close_map =
-                    #     category_map = category_map * (
-                    #         1 - self.stale_been_close_map
-                    #     )
-                    #     print("Using stale been close map")
 
+                if reject_visited_targets:
+                    # remove the target objects that the agent has already been close to
+                    category_map = category_map * (
+                        1 - map_features[e, MC.BLACKLISTED_TARGETS_MAP, :, :]
+                    )
                 # if the desired category is found with required constraints, set goal for navigation
-                # import pdb;pdb.set_trace()
                 if (category_map == 1).sum() > 0:
                     goal_map[e] = category_map == 1
                     found_goal_current[e] = True

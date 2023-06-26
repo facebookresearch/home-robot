@@ -5,9 +5,10 @@ import torch.nn as nn
 from home_robot.mapping.semantic.categorical_2d_semantic_map_module import (
     Categorical2DSemanticMapModule,
 )
-from home_robot.navigation_policy.object_navigation.objectnav_frontier_exploration_policy import (
-    ObjectNavFrontierExplorationPolicy,
+from home_robot.navigation_policy.language_navigation.languagenav_frontier_exploration_policy import (
+    LanguageNavFrontierExplorationPolicy,
 )
+
 # Do we need to visualize the frontier as we explore?
 debug_frontier_map = False
 
@@ -27,6 +28,7 @@ class LanguageNavAgentModule(nn.Module):
             vision_range=config.AGENT.SEMANTIC_MAP.vision_range,
             explored_radius=config.AGENT.SEMANTIC_MAP.explored_radius,
             been_close_to_radius=config.AGENT.SEMANTIC_MAP.been_close_to_radius,
+            target_blacklisting_radius=config.AGENT.SEMANTIC_MAP.target_blacklisting_radius,
             global_downscaling=config.AGENT.SEMANTIC_MAP.global_downscaling,
             du_scale=config.AGENT.SEMANTIC_MAP.du_scale,
             cat_pred_threshold=config.AGENT.SEMANTIC_MAP.cat_pred_threshold,
@@ -34,8 +36,11 @@ class LanguageNavAgentModule(nn.Module):
             map_pred_threshold=config.AGENT.SEMANTIC_MAP.map_pred_threshold,
             must_explore_close=config.AGENT.SEMANTIC_MAP.must_explore_close,
             min_obs_height_cm=config.AGENT.SEMANTIC_MAP.min_obs_height_cm,
+            dilate_obstacles=config.AGENT.SEMANTIC_MAP.dilate_obstacles,
+            dilate_size=config.AGENT.SEMANTIC_MAP.dilate_size,
+            dilate_iter=config.AGENT.SEMANTIC_MAP.dilate_iter,
         )
-        self.policy = ObjectNavFrontierExplorationPolicy(
+        self.policy = LanguageNavFrontierExplorationPolicy(
             exploration_strategy=config.AGENT.exploration_strategy
         )
 
@@ -60,7 +65,8 @@ class LanguageNavAgentModule(nn.Module):
         seq_start_recep_goal_category=None,
         seq_end_recep_goal_category=None,
         seq_nav_to_recep=None,
-        reject_visited_regions=False,
+        reject_visited_targets=False,
+        blacklist_target=False,
     ):
         """Update maps and poses with a sequence of observations, and predict
         high-level goals from map features.
@@ -136,6 +142,7 @@ class LanguageNavAgentModule(nn.Module):
             init_global_pose,
             init_lmb,
             init_origins,
+            blacklist_target,
         )
 
         # t1 = time.time()
@@ -146,20 +153,14 @@ class LanguageNavAgentModule(nn.Module):
         map_features = seq_map_features.flatten(0, 1)
         if seq_object_goal_category is not None:
             seq_object_goal_category = seq_object_goal_category.flatten(0, 1)
-        if seq_start_recep_goal_category is not None:
-            seq_start_recep_goal_category = seq_start_recep_goal_category.flatten(0, 1)
-        if seq_end_recep_goal_category is not None:
-            seq_end_recep_goal_category = seq_end_recep_goal_category.flatten(0, 1)
-        # Compute the goal map
 
+        # Compute the goal map
         goal_map, found_goal = self.policy(
             map_features,
             seq_object_goal_category,
-            seq_start_recep_goal_category,
-            seq_end_recep_goal_category,
-            seq_nav_to_recep,
-            reject_visited_regions,
+            reject_visited_targets=reject_visited_targets,
         )
+
         seq_goal_map = goal_map.view(batch_size, sequence_length, *goal_map.shape[-2:])
         seq_found_goal = found_goal.view(batch_size, sequence_length)
 

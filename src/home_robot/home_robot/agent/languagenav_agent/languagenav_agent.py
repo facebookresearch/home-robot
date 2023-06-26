@@ -36,7 +36,7 @@ class LanguageNavAgent(Agent):
             self.panorama_start_steps = int(360 / config.ENVIRONMENT.turn_angle)
         else:
             self.panorama_start_steps = 0
-        
+
         self.panorama_rotate_steps = int(360 / config.ENVIRONMENT.turn_angle)
 
         self._module = LanguageNavAgentModule(config)
@@ -51,6 +51,9 @@ class LanguageNavAgent(Agent):
             # Use DataParallel only as a wrapper to move model inputs to GPU
             self.module = DataParallel(self._module, device_ids=[self.device_id])
 
+        self.naive_landmark_conditioned = (
+            config.AGENT.PLANNER.naive_landmark_conditioned
+        )
         self.visualize = config.VISUALIZE or config.PRINT_IMAGES
         self.use_dilation_for_stg = config.AGENT.PLANNER.use_dilation_for_stg
         self.semantic_map = Categorical2DSemanticMapState(
@@ -93,7 +96,8 @@ class LanguageNavAgent(Agent):
         self.episode_panorama_start_steps = None
         self.last_poses = None
         self.landmark_found = False
-        self.reject_visited_regions = False
+        self.reject_visited_targets = False
+        self.blacklist_target = False
 
     # ------------------------------------------------------------------
     # Inference methods to interact with vectorized simulation
@@ -110,7 +114,8 @@ class LanguageNavAgent(Agent):
         end_recep_goal_category: torch.Tensor = None,
         nav_to_recep: torch.Tensor = None,
         camera_pose: torch.Tensor = None,
-        reject_visited_regions: bool = False,
+        reject_visited_targets: bool = False,
+        blacklist_target: bool = False,
     ) -> Tuple[List[dict], List[dict]]:
         """Prepare low-level planner inputs from an observation - this is
         the main inference function of the agent that lets it interact with
@@ -181,7 +186,8 @@ class LanguageNavAgent(Agent):
             seq_start_recep_goal_category=start_recep_goal_category,
             seq_end_recep_goal_category=end_recep_goal_category,
             seq_nav_to_recep=nav_to_recep,
-            reject_visited_regions=reject_visited_regions
+            reject_visited_targets=reject_visited_targets,
+            blacklist_target=blacklist_target,
         )
 
         self.semantic_map.local_pose = seq_local_pose[:, -1]
@@ -191,9 +197,6 @@ class LanguageNavAgent(Agent):
 
         goal_map = goal_map.squeeze(1).cpu().numpy()
         found_goal = found_goal.squeeze(1).cpu()
-
-        # if self.timesteps[0] > 238:
-        #     import pdb;pdb.set_trace()
 
         for e in range(self.num_environments):
             self.semantic_map.update_frontier_map(e, frontier_map[e][0].cpu().numpy())
@@ -236,6 +239,9 @@ class LanguageNavAgent(Agent):
                     "explored_map": self.semantic_map.get_explored_map(e),
                     "semantic_map": self.semantic_map.get_semantic_map(e),
                     "been_close_map": self.semantic_map.get_been_close_map(e),
+                    "blacklisted_targets_map": self.semantic_map.get_blacklisted_targets_map(
+                        e
+                    ),
                     "timestep": self.timesteps[e],
                 }
                 for e in range(self.num_environments)
@@ -303,7 +309,8 @@ class LanguageNavAgent(Agent):
             object_goal_category=object_goal_category,
             camera_pose=camera_pose,
             nav_to_recep=self.get_nav_to_recep(),
-            reject_visited_regions=self.reject_visited_regions,
+            reject_visited_targets=self.reject_visited_targets,
+            blacklist_target=self.blacklist_target,
         )
 
         # t2 = time.time()
@@ -315,56 +322,68 @@ class LanguageNavAgent(Agent):
         dilated_obstacle_map = None
         if planner_inputs[0]["found_goal"]:
             self.episode_panorama_start_steps = 0
-            # self.reject_visited_regions = False
-
-
         if self.timesteps[0] < self.episode_panorama_start_steps:
             action = DiscreteNavigationAction.TURN_RIGHT
         elif self.timesteps[0] > self.max_steps:
             action = DiscreteNavigationAction.STOP
-        elif not self.planner.reached_goal_candidate or self.reached_goal_panorama_rotate_steps == 0:
-            (
-                action,
-                closest_goal_map,
-                short_term_goal,
-                dilated_obstacle_map,
-            ) = self.planner.plan(
-                **planner_inputs[0],
-                use_dilation_for_stg=self.use_dilation_for_stg,
-                timestep=self.timesteps[0]
-            )
-        
-        # if self.timesteps[0] > 240:
-        #     import pdb;pdb.set_trace()
+        else:
+            if not self.naive_landmark_conditioned:
+                (
+                    action,
+                    closest_goal_map,
+                    short_term_goal,
+                    dilated_obstacle_map,
+                ) = self.planner.plan(
+                    **planner_inputs[0],
+                    use_dilation_for_stg=self.use_dilation_for_stg,
+                    timestep=self.timesteps[0],
+                )
+            else:
+                # if planner hasn't reached goal
+                # if not self.planner.reached_goal_candidate or self.reached_goal_panorama_rotate_steps == 0:
+                if not self.planner.reached_goal_candidate:
+                    self.blacklist_target = False
+                    (
+                        action,
+                        closest_goal_map,
+                        short_term_goal,
+                        dilated_obstacle_map,
+                    ) = self.planner.plan(
+                        **planner_inputs[0],
+                        use_dilation_for_stg=self.use_dilation_for_stg,
+                        timestep=self.timesteps[0],
+                    )
 
-        if self.planner.reached_goal_candidate and self.reached_goal_panorama_rotate_steps >0:
-            if (np.unique(obs.semantic) > 1).any():
-                # self.landmark_found = True
-                print("A landmark was seen", np.unique(obs.semantic))
-            #     # TODO: undo rotation and call stop
+                if self.planner.reached_goal_candidate:
+                    # if planner has reached goal, but isn't done rotating
+                    if self.reached_goal_panorama_rotate_steps > 0:
+                        # check if any landmark is seen in the current observation
+                        if np.any(obs.semantic > 1):
+                            self.landmark_found = True
+                            print("A landmark was seen", np.unique(obs.semantic))
 
-            action = DiscreteNavigationAction.TURN_RIGHT
-            print("Reached goal, doing 360º rotate", self.reached_goal_panorama_rotate_steps)
-            self.reached_goal_panorama_rotate_steps -= 1
+                        action = DiscreteNavigationAction.TURN_RIGHT
+                        print(
+                            f"Reached goal, doing 360º rotate for {self.reached_goal_panorama_rotate_steps} more steps."
+                        )
+                        self.reached_goal_panorama_rotate_steps -= 1
 
-            if self.reached_goal_panorama_rotate_steps == 0 and not self.landmark_found:
-                print("[No landmark was seen, will ignore visited regions henceforth.]")
-                self.reject_visited_regions = True
-                self.planner.reached_goal_candidate = False
-                self.timesteps_before_goal_update[0] = 0
+                        if self.reached_goal_panorama_rotate_steps == 0:
+                            if self.landmark_found:
+                                print("[Landmark was seen, calling STOP.]")
+                                action = DiscreteNavigationAction.STOP
+                            else:
+                                print(
+                                    "[No landmark was seen, will ignore candidates in visited regions henceforth.]"
+                                )
+                                self.planner.reached_goal_candidate = False
 
-
-        elif self.reached_goal_panorama_rotate_steps == 0 and self.landmark_found:
-            action = DiscreteNavigationAction.STOP
-        # elif self.reached_goal_panorama_rotate_steps == 0 and not self.landmark_found:
-        #     # TODO: mechanism to blacklist goal from current map
-        
-        #     action = DiscreteNavigationAction.STOP
-
-        # t3 = time.time()
-        # print(f"[Agent] Planning time: {t3 - t2:.2f}")
-        # print(f"[Agent] Total time: {t3 - t0:.2f}")
-        # print()
+                                self.reject_visited_targets = True
+                                self.blacklist_target = True
+                                self.timesteps_before_goal_update[0] = 0
+                                self.reached_goal_panorama_rotate_steps = (
+                                    self.panorama_rotate_steps
+                                )
 
         vis_inputs[0]["goal_name"] = obs.task_observations["target"]
         if self.visualize:
@@ -374,7 +393,6 @@ class LanguageNavAgent(Agent):
             vis_inputs[0]["short_term_goal"] = short_term_goal
             vis_inputs[0]["dilated_obstacle_map"] = dilated_obstacle_map
         info = {**planner_inputs[0], **vis_inputs[0]}
-
 
         return action, info
 
