@@ -14,7 +14,6 @@ from PIL import Image
 
 import home_robot.utils.pose as pu
 import home_robot.utils.visualization as vu
-
 from home_robot.perception.constants import (
     FloorplannertoMukulIndoor,
     HM3DtoCOCOIndoor,
@@ -22,7 +21,7 @@ from home_robot.perception.constants import (
     LanguageNavCategories,
 )
 from home_robot.perception.constants import PaletteIndices as PI
-from home_robot.perception.constants import RearrangeBasicCategories, RearrangeDETICCategories
+from home_robot.perception.constants import RearrangeDETICCategories
 
 
 class VIS_LAYOUT:

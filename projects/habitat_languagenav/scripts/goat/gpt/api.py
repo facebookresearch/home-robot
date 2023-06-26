@@ -1,6 +1,7 @@
 # You will be asked to generate Python code to follow navigation instructions
 # following the API below. Don't nest if-else statements.
 
+
 class LandmarkName:
     """
     This class represents the name of a landmark in the house, i.e., a static
@@ -12,6 +13,7 @@ class LandmarkName:
         "the sofa"
         "the dishwasher"
     """
+
     def __init__(self, name: str):
         self.name = name
 
@@ -27,6 +29,7 @@ class RoomName:
         "kitchen"
         "living room"
     """
+
     def __init__(self, name: str):
         self.name = name
 
@@ -47,6 +50,7 @@ class MovingObjectReferringExpression:
         "the fruit basket on the kitchen counter"
         "my keys below a below on the sofa"
     """
+
     def __init__(self, referring_expression: str):
         self.referring_expression = referring_expression
 
@@ -63,6 +67,7 @@ class HumanName(MovingObjectReferringExpression):
         "John"
         "Mary"
     """
+
     pass
 
 
@@ -70,6 +75,7 @@ class HouseMap:
     """
     This class is responsible for storing the map of the house.
     """
+
     def is_landmark_in_map(self, landmark_name: LandmarkName) -> bool:
         """Check if a landmark object is in the map.
 
@@ -142,10 +148,9 @@ class HouseNavigator:
         """
         pass
 
-    def search_for_object_near_landmark(self,
-                                        target: MovingObjectReferringExpression,
-                                        landmark_name: LandmarkName
-                                        ) -> bool:
+    def search_for_object_near_landmark(
+        self, target: MovingObjectReferringExpression, landmark_name: LandmarkName
+    ) -> bool:
         """Search for an object near another object.
 
         Arguments:
@@ -167,10 +172,9 @@ class HouseNavigator:
         """
         pass
 
-    def search_for_object_in_room(self,
-                                  target: MovingObjectReferringExpression,
-                                  room_name: RoomName
-                                  ) -> bool:
+    def search_for_object_in_room(
+        self, target: MovingObjectReferringExpression, room_name: RoomName
+    ) -> bool:
         """Search for an object in a room.
 
         Arguments:
@@ -232,5 +236,6 @@ class HouseNavigator:
         >>>     print(f"Could not find {human_name} on the sofa or in the bedroom.")
         """
         pass
+
 
 # Generate Python code for the following command:
