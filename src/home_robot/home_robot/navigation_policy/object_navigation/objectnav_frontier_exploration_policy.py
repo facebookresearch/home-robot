@@ -44,21 +44,10 @@ class ObjectNavFrontierExplorationPolicy(nn.Module):
     def goal_update_steps(self):
         return 1
 
-    def reach_single_category(self, map_features, category, reject_visited_regions=False):
+    def reach_single_category(self, map_features, category):
         # if the goal is found, reach it
-        # goal_map, found_goal = self.reach_goal_if_in_map(
-        #     map_features,
-        #     category,
-        # )
-        # Then check if the recep category exists in the map. if found, set it as a goal
-        goal_map, found_goal = self.reach_goal_if_in_map(
-            map_features,
-            category,
-            reject_visited_regions=reject_visited_regions,
-        )
+        goal_map, found_goal = self.reach_goal_if_in_map(map_features, category)
         # otherwise, do frontier exploration
-        # if reject_visited_regions:
-        #     import pdb;pdb.set_trace()
         goal_map = self.explore_otherwise(map_features, goal_map, found_goal)
         return goal_map, found_goal
 
@@ -90,7 +79,6 @@ class ObjectNavFrontierExplorationPolicy(nn.Module):
         start_recep_category=None,
         end_recep_category=None,
         nav_to_recep=None,
-        reject_visited_regions=False,
     ):
         """
         Arguments:
@@ -134,15 +122,13 @@ class ObjectNavFrontierExplorationPolicy(nn.Module):
                 found_goal = (
                     found_goal_r * nav_to_recep + (1 - nav_to_recep) * found_goal_r
                 )
-                
                 return goal_map, found_goal
         else:
             # Here, the goal is specified by a single object or receptacle to navigate to with no additional constraints (eg. the given object can be on any receptacle)
             goal_category = (
                 object_category if object_category is not None else end_recep_category
             )
-            goal_map, found_goal = self.reach_single_category(map_features, goal_category, reject_visited_regions)
-            return goal_map, found_goal
+            return self.reach_single_category(map_features, goal_category)
 
     def cluster_filtering(self, m):
         # m is a 480x480 goal map
@@ -179,7 +165,6 @@ class ObjectNavFrontierExplorationPolicy(nn.Module):
         """If the desired goal is in the semantic map, reach it."""
         batch_size, _, height, width = map_features.shape
         device = map_features.device
-
         if goal_map is None and found_goal is None:
             goal_map = torch.zeros((batch_size, height, width), device=device)
             found_goal_current = torch.zeros(
