@@ -96,7 +96,12 @@ if __name__ == "__main__":
         pbar.close()
 
         ep_metrics = env.get_episode_metrics()
-        metrics[f"{scene_id}_{episode_id}"] = ep_metrics
+        scene_ep_id = f"{scene_id}_{episode_id}"
+        metrics[scene_ep_id] = ep_metrics
+        metrics[scene_ep_id][
+            "num_goal_candidates_visited"
+        ] = agent.num_goal_candidates_visited
+        metrics[scene_ep_id]["num_steps"] = t
 
         print(f"{scene_id}_{episode_id}", ep_metrics)
 
@@ -106,10 +111,10 @@ if __name__ == "__main__":
         stats = {}
 
         for metric in list(metrics.values())[0].keys():
-            stats[f"{metric}_mean"] = np.array(
-                [metrics[x][metric] for x in metrics.keys()]
-            ).mean()
-            stats[f"{metric}_median"] = np.median(
+            stats[f"{metric}_mean"] = np.nanmean(
+                np.array([metrics[x][metric] for x in metrics.keys()])
+            )
+            stats[f"{metric}_median"] = np.nanmedian(
                 np.array([metrics[x][metric] for x in metrics])
             )
 
