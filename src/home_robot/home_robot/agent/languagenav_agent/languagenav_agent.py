@@ -96,8 +96,10 @@ class LanguageNavAgent(Agent):
         self.episode_panorama_start_steps = None
         self.last_poses = None
         self.landmark_found = False
+        self.seen_landmarks = []
         self.reject_visited_targets = False
         self.blacklist_target = False
+        self.num_goal_candidates_visited = 0
 
     # ------------------------------------------------------------------
     # Inference methods to interact with vectorized simulation
@@ -259,7 +261,13 @@ class LanguageNavAgent(Agent):
         self.semantic_map.init_map_and_pose()
         self.episode_panorama_start_steps = self.panorama_start_steps
         self.reached_goal_panorama_rotate_steps = self.panorama_rotate_steps
+
         self.landmark_found = False
+        self.seen_landmarks = []
+        self.reject_visited_targets = False
+        self.blacklist_target = False
+        self.num_goal_candidates_visited = 0
+
         self.planner.reset()
 
     def reset_vectorized_for_env(self, e: int):
@@ -270,7 +278,13 @@ class LanguageNavAgent(Agent):
         self.semantic_map.init_map_and_pose_for_env(e)
         self.episode_panorama_start_steps = self.panorama_start_steps
         self.reached_goal_panorama_rotate_steps = self.panorama_rotate_steps
+
         self.landmark_found = False
+        self.seen_landmarks = []
+        self.reject_visited_targets = False
+        self.blacklist_target = False
+        self.num_goal_candidates_visited = 0
+
         self.planner.reset()
 
     # ---------------------------------------------------------------------
@@ -359,8 +373,13 @@ class LanguageNavAgent(Agent):
                     if self.reached_goal_panorama_rotate_steps > 0:
                         # check if any landmark is seen in the current observation
                         if np.any(obs.semantic > 1):
+
+                            seen_landmarks = np.unique(obs.semantic)
+                            seen_landmarks = seen_landmarks[seen_landmarks > 1]
+                            self.seen_landmarks += seen_landmarks.tolist()
+
                             self.landmark_found = True
-                            print("A landmark was seen", np.unique(obs.semantic))
+                            print("A landmark was seen", seen_landmarks.tolist())
 
                         action = DiscreteNavigationAction.TURN_RIGHT
                         print(
@@ -369,14 +388,25 @@ class LanguageNavAgent(Agent):
                         self.reached_goal_panorama_rotate_steps -= 1
 
                         if self.reached_goal_panorama_rotate_steps == 0:
+
+                            # [TODO: add config flag for this policy logic] if more than one time any landmark was seen
+                            # if len(obs.task_observations["landmarks"]) > 1:
+                            #     if len(set(self.seen_landmarks)) > 1:
+                            #         self.landmark_found = True
+                            # else:
+                            #     if len(self.seen_landmarks) > 1:
+                            #         self.landmark_found = True
+
+                            self.num_goal_candidates_visited += 1
                             if self.landmark_found:
                                 print("[Landmark was seen, calling STOP.]")
                                 action = DiscreteNavigationAction.STOP
                             else:
                                 print(
-                                    "[No landmark was seen, will ignore candidates in visited regions henceforth.]"
+                                    f"[Not enough landmarks were seen {self.seen_landmarks}, will ignore candidates in visited regions henceforth.]"
                                 )
                                 self.planner.reached_goal_candidate = False
+                                self.seen_landmarks = []
 
                                 self.reject_visited_targets = True
                                 self.blacklist_target = True
@@ -390,8 +420,10 @@ class LanguageNavAgent(Agent):
             vis_inputs[0]["semantic_frame"] = obs.task_observations["semantic_frame"]
             vis_inputs[0]["closest_goal_map"] = closest_goal_map
             vis_inputs[0]["third_person_image"] = obs.third_person_image
-            vis_inputs[0]["short_term_goal"] = short_term_goal
+            vis_inputs[0]["short_term_goal"] = None
             vis_inputs[0]["dilated_obstacle_map"] = dilated_obstacle_map
+            vis_inputs[0]["landmarks"] = obs.task_observations["landmarks"]
+            vis_inputs[0]["caption"] = obs.task_observations["caption"]
         info = {**planner_inputs[0], **vis_inputs[0]}
 
         return action, info
