@@ -19,7 +19,7 @@ from home_robot.utils.constants import (
     MIN_DEPTH_REPLACEMENT_VALUE,
 )
 from home_robot_sim.env.habitat_abstract_env import HabitatEnv
-from home_robot_sim.env.habitat_objectnav_env.visualizer import Visualizer
+from home_robot_sim.env.habitat_languagenav_env.visualizer import Visualizer
 
 
 class HabitatLanguageNavEnv(HabitatEnv):
@@ -86,6 +86,8 @@ class HabitatLanguageNavEnv(HabitatEnv):
         else:
             target, landmarks = caption_tokens
 
+        caption = habitat_obs["languagegoal"]["caption"].replace("Instruction: ", "")
+
         obs = home_robot.core.interfaces.Observations(
             rgb=habitat_obs["rgb"],
             depth=depth,
@@ -94,6 +96,7 @@ class HabitatLanguageNavEnv(HabitatEnv):
             task_observations={
                 "target": target,
                 "landmarks": landmarks,
+                "caption": caption,
             },
             camera_pose=None,
             third_person_image=None,

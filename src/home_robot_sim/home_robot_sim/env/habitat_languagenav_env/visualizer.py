@@ -5,7 +5,7 @@
 import json
 import os
 import shutil
-from typing import Optional
+from typing import List, Optional
 
 import cv2
 import numpy as np
@@ -14,11 +14,7 @@ from PIL import Image
 
 import home_robot.utils.pose as pu
 import home_robot.utils.visualization as vu
-from home_robot.perception.constants import (
-    FloorplannertoMukulIndoor,
-    HM3DtoCOCOIndoor,
-    HM3DtoHSSD28Indoor,
-)
+from home_robot.perception.constants import LanguageNavCategories
 from home_robot.perception.constants import PaletteIndices as PI
 from home_robot.perception.constants import RearrangeDETICCategories
 
@@ -41,10 +37,10 @@ class VIS_LAYOUT:
     FIRST_SEM_X2 = FIRST_SEM_X1 + FIRST_PERSON_W
     TOP_DOWN_X1 = FIRST_SEM_X2 + MIDDLE_PADDING
     TOP_DOWN_X2 = TOP_DOWN_X1 + TOP_DOWN_W
-    THIRD_PERSON_X1 = TOP_DOWN_X2 + MIDDLE_PADDING
-    THIRD_PERSON_X2 = THIRD_PERSON_X1 + THIRD_PERSON_W
+    # THIRD_PERSON_X1 = TOP_DOWN_X2 + MIDDLE_PADDING
+    # THIRD_PERSON_X2 = THIRD_PERSON_X1 + THIRD_PERSON_W
     IMAGE_HEIGHT = Y2 + BOTTOM_PADDING
-    IMAGE_WIDTH = THIRD_PERSON_X2 + LEFT_PADDING
+    IMAGE_WIDTH = TOP_DOWN_X2 + LEFT_PADDING
 
 
 V = VIS_LAYOUT
@@ -65,74 +61,12 @@ class Visualizer:
             self.episodes_data_path = config.habitat.dataset.data_path
         else:
             self.episodes_data_path = config.TASK_CONFIG.DATASET.DATA_PATH
-        assert (
-            "ovmm" in self.episodes_data_path
-            or "hm3d" in self.episodes_data_path
-            or "mp3d" in self.episodes_data_path
-        )
+
+        assert "hm3d" in self.episodes_data_path
+
         if "hm3d" in self.episodes_data_path:
-            if config.AGENT.SEMANTIC_MAP.semantic_categories == "coco_indoor":
-                self.semantic_category_mapping = HM3DtoCOCOIndoor()
-            elif config.AGENT.SEMANTIC_MAP.semantic_categories == "hssd_28_cat":
-                self.semantic_category_mapping = HM3DtoHSSD28Indoor()
-            else:
-                raise NotImplementedError
-        elif "ovmm" in self.episodes_data_path:
-            if self._dataset is None:
-                with open(config.ENVIRONMENT.category_map_file) as f:
-                    category_map = json.load(f)
-                self._obj_name_to_id_mapping = category_map[
-                    "obj_category_to_obj_category_id"
-                ]
-                self._rec_name_to_id_mapping = category_map[
-                    "recep_category_to_recep_category_id"
-                ]
-            else:
-                self._obj_name_to_id_mapping = (
-                    self._dataset.obj_category_to_obj_category_id
-                )
-                self._rec_name_to_id_mapping = (
-                    self._dataset.recep_category_to_recep_category_id
-                )
-            self._obj_id_to_name_mapping = {
-                k: v for v, k in self._obj_name_to_id_mapping.items()
-            }
-            self._rec_id_to_name_mapping = {
-                k: v for v, k in self._rec_name_to_id_mapping.items()
-            }
-
-            if config.GROUND_TRUTH_SEMANTICS:
-                # combining objs and receps ids into one dictionary
-                self.obj_rec_combined_mapping = {}
-                obj_id_to_name_mapping = {0: "goal_object"}
-                for i in range(
-                    len(obj_id_to_name_mapping) + len(self._rec_id_to_name_mapping)
-                ):
-                    if i < len(obj_id_to_name_mapping):
-                        self.obj_rec_combined_mapping[i + 1] = obj_id_to_name_mapping[i]
-                    else:
-                        self.obj_rec_combined_mapping[
-                            i + 1
-                        ] = self._rec_id_to_name_mapping[
-                            i - len(obj_id_to_name_mapping)
-                        ]
-
-                self.semantic_category_mapping = RearrangeDETICCategories(
-                    self.obj_rec_combined_mapping
-                )
-            else:
-                self.semantic_category_mapping = None
-
-        elif "floorplanner" in self.episodes_data_path:
-            if config.AGENT.SEMANTIC_MAP.semantic_categories == "mukul_indoor":
-                self.semantic_category_mapping = FloorplannertoMukulIndoor()
-            else:
-                raise NotImplementedError
-        elif "mp3d" in self.episodes_data_path:
-            # TODO This is a hack to get unit tests running, we'll need to
-            #  adapt this if we want to run ObjectNav on MP3D
-            if config.AGENT.SEMANTIC_MAP.semantic_categories == "mukul_indoor":
-                self.semantic_category_mapping = FloorplannertoMukulIndoor()
+            if config.AGENT.SEMANTIC_MAP.semantic_categories == "langnav_cat":
+                self.semantic_category_mapping = LanguageNavCategories()
             else:
                 raise NotImplementedError
 
@@ -149,9 +83,9 @@ class Visualizer:
         self.visited_map_vis = None
         self.last_xy = None
         self.font = cv2.FONT_HERSHEY_SIMPLEX
-        self.font_scale = 1
+        self.font_scale = 0.6
         self.text_color = (20, 20, 20)  # BGR
-        self.text_thickness = 2
+        self.text_thickness = 1
         self.show_rl_obs = config.SHOW_RL_OBS
 
     def reset(self):
@@ -207,6 +141,7 @@ class Visualizer:
         explored_map: np.ndarray = None,
         semantic_map: np.ndarray = None,
         been_close_map: np.ndarray = None,
+        blacklisted_targets_map: np.ndarray = None,
         frontier_map: np.ndarray = None,
         goal_name: str = None,
         visualize_goal: bool = True,
@@ -217,6 +152,8 @@ class Visualizer:
         dilated_obstacle_map: np.ndarray = None,
         semantic_category_mapping: Optional[RearrangeDETICCategories] = None,
         rl_obs_frame: Optional[np.ndarray] = None,
+        caption: str = None,
+        landmarks: List = None,
         **kwargs,
     ):
         """Visualize frame input and semantic map.
@@ -251,7 +188,9 @@ class Visualizer:
 
         # Initialize
         if self.image_vis is None or self.show_rl_obs:
-            self.image_vis = self._init_vis_image(goal_name, rl_obs_frame)
+            self.image_vis = self._init_vis_image(
+                goal_name, caption, landmarks, rl_obs_frame
+            )
 
         image_vis = self.image_vis.copy()
 
@@ -351,6 +290,16 @@ class Visualizer:
                 semantic_map_vis[been_close_map] + color
             ) / 2
 
+            # overlay blacklisted targets
+            blacklisted_targets_map = np.flipud(np.rint(blacklisted_targets_map) == 1)
+            color_index = PI.BLACKLISTED_TARGETS_MAP * 3
+            color = self.semantic_category_mapping.map_color_palette[
+                color_index : color_index + 3
+            ][::-1]
+            semantic_map_vis[blacklisted_targets_map] = (
+                semantic_map_vis[blacklisted_targets_map] + color
+            ) / 2
+
             semantic_map_vis = cv2.resize(
                 semantic_map_vis,
                 (V.TOP_DOWN_W, V.HEIGHT),
@@ -424,13 +373,15 @@ class Visualizer:
         bbox_y_start: int,
         bbox_x_len: int,
         bbox_y_len: int,
+        font_scale: int = None,
     ):
         """
         Place text at the center of the given bounding box.
         """
-        textsize = cv2.getTextSize(
-            text, self.font, self.font_scale, self.text_thickness
-        )[0]
+        if font_scale is None:
+            font_scale = self.font_scale
+
+        textsize = cv2.getTextSize(text, self.font, font_scale, self.text_thickness)[0]
         # The x coordinate at which the left edge of text needs to be placed
         textX = (bbox_x_len - textsize[0]) // 2 + bbox_x_start
         # The height at which base needs to be placed
@@ -440,13 +391,19 @@ class Visualizer:
             text,
             (textX, textY),
             self.font,
-            self.font_scale,
+            font_scale,
             self.text_color,
             self.text_thickness,
             cv2.LINE_AA,
         )
 
-    def _init_vis_image(self, goal_name: str, rl_obs_frame: None):
+    def _init_vis_image(
+        self,
+        goal_name: str,
+        caption: str = None,
+        landmarks: List = None,
+        rl_obs_frame: np.array = None,
+    ):
         width = V.IMAGE_WIDTH
 
         # if rl_obs_frame is passed, update width
@@ -458,21 +415,40 @@ class Visualizer:
             width = width - V.TOP_DOWN_W - V.THIRD_PERSON_W + rl_obs_frame_width
         vis_image = np.ones((V.IMAGE_HEIGHT, width, 3)).astype(np.uint8) * 255
 
+        # vis_image = self._put_text_on_image(
+        #     vis_image, goal_name, V.LEFT_PADDING, 0, 2 * V.FIRST_PERSON_W, V.TOP_PADDING
+        # )
+
+        if caption is not None:
+            vis_image = self._put_text_on_image(
+                vis_image, caption, 10, 0, width, V.TOP_PADDING, font_scale=0.4
+            )
+
         vis_image = self._put_text_on_image(
-            vis_image, goal_name, V.LEFT_PADDING, 0, 2 * V.FIRST_PERSON_W, V.TOP_PADDING
+            vis_image,
+            f"Target: {goal_name}",
+            0,
+            V.Y2 + V.LEGEND_TOP_PADDING,
+            width,
+            V.TOP_PADDING,
         )
+
+        if landmarks is not None:
+            vis_image = self._put_text_on_image(
+                vis_image,
+                f"Landmarks: {landmarks}",
+                0,
+                V.Y2 + V.LEGEND_TOP_PADDING + V.TOP_PADDING,
+                width,
+                V.TOP_PADDING,
+            )
 
         # the outlines are set for the standard layout (with debug RL frame)
         if rl_obs_frame is None:
-            text = "Predicted Semantic Map"
-            vis_image = self._put_text_on_image(
-                vis_image, text, V.TOP_DOWN_X1, 0, V.TOP_DOWN_W, V.TOP_PADDING
-            )
-
-            text = "Third person image"
-            vis_image = self._put_text_on_image(
-                vis_image, text, V.THIRD_PERSON_X1, 0, V.THIRD_PERSON_W, V.TOP_PADDING
-            )
+            # text = "Predicted Semantic Map"
+            # vis_image = self._put_text_on_image(
+            #     vis_image, text, V.TOP_DOWN_X1, 0, V.TOP_DOWN_W, V.TOP_PADDING
+            # )
 
             # Draw outlines
             color = (100, 100, 100)
@@ -481,7 +457,6 @@ class Visualizer:
                     (V.FIRST_RGB_X1, V.FIRST_PERSON_W),
                     (V.FIRST_SEM_X1, V.FIRST_PERSON_W),
                     (V.TOP_DOWN_X1, V.TOP_DOWN_W),
-                    (V.THIRD_PERSON_X1, V.THIRD_PERSON_W),
                 ]:
                     vis_image[y, x_start - 1 : x_start + x_len] = color
 
@@ -492,17 +467,15 @@ class Visualizer:
                 V.FIRST_SEM_X2,
                 V.TOP_DOWN_X1 - 1,
                 V.TOP_DOWN_X2,
-                V.THIRD_PERSON_X1 - 1,
-                V.THIRD_PERSON_X2,
             ]:
                 vis_image[V.Y1 - 1 : V.Y2, x] = color
 
         # Draw legend
-        if os.path.exists(self.semantic_category_mapping.categories_legend_path):
-            legend = cv2.imread(self.semantic_category_mapping.categories_legend_path)
-            lx, ly, _ = legend.shape
-            vis_image[
-                V.Y2 + V.LEGEND_TOP_PADDING : V.Y2 + lx + V.LEGEND_TOP_PADDING, 0:ly, :
-            ] = legend
+        # if os.path.exists(self.semantic_category_mapping.categories_legend_path):
+        #     legend = cv2.imread(self.semantic_category_mapping.categories_legend_path)
+        #     lx, ly, _ = legend.shape
+        #     vis_image[
+        #         V.Y2 + V.LEGEND_TOP_PADDING : V.Y2 + lx + V.LEGEND_TOP_PADDING, 0:ly, :
+        #     ] = legend
 
         return vis_image
