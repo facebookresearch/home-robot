@@ -44,6 +44,8 @@ AGENT:
     dilate_obstacles: False
     dilate_size: 3
     dilate_iter: 1
+    record_instance_ids: True
+    store_all_categories: True
 
 
   PLANNER:
