@@ -1,4 +1,4 @@
-_target_: eaif_models.transforms.transform_augment
+_target_: vc_models.transforms.transform_augment
 resize_size: 128
 output_size: 128
 jitter: true

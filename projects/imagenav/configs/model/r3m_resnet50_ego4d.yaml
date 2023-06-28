@@ -1,0 +1,12 @@
+_target_: vc_models.models.load_model
+model:
+  _target_: vc_models.models.resnet.resnet.resnet50
+checkpoint_dict:
+  _target_: vc_models.models.resnet.resnet.load_r3m_checkpoint
+  checkpoint_path: /home/cortex/home-robot/projects/imagenav/models/cortex_real_world/stretch/pvrs/r3m_50.pt
+transform:
+  _target_: vc_models.transforms.r3m_transforms
+metadata:
+  algo: r3m
+  model: resnet50
+  data: ego4d

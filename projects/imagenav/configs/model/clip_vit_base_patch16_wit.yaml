@@ -1,0 +1,16 @@
+_target_: vc_models.models.load_model
+model:
+  _target_: vc_models.models.clip.load_clip_vit_checkpoint
+  checkpoint_path: /home/cortex/home-robot/projects/imagenav/models/cortex_real_world/stretch/pvrs/CLIP_vit_b.pt
+  model:
+    _target_: vc_models.models.vit.vit.clip_vit_base_patch16
+    use_cls: true
+    del_head: false
+transform:
+  _target_: vc_models.transforms.clip_transforms
+  resize_size: 224
+  output_size: 224
+metadata:
+  algo: clip
+  model: vit_base_patch16
+  data: wit

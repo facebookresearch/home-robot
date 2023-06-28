@@ -1,0 +1,16 @@
+_target_: vc_models.models.load_model
+model:
+  _target_: vc_models.models.vit.vit.load_mae_encoder
+  model:
+    _target_: vc_models.models.vit.vit.vit_large_patch16
+    use_cls: True
+  checkpoint_path: /home/cortex/home-robot/projects/imagenav/models/cortex_real_world/stretch/pvrs/mvp_vit_l.pth
+transform:
+  _target_: vc_models.transforms.vit_transforms
+metadata:
+  algo: mvp
+  model: vit_large_patch16
+  data:
+    - ego4d
+    - hoi
+    - imagenet

@@ -7,19 +7,27 @@ defaults:
   - override hydra/output: path
   - _self_
 
-#checkpoint_path: "/home/cortex/home-robot/projects/imagenav/models/imagenav_stretch_500m_apr4.pth"
-checkpoint_path: "/home/cortex/home-robot/projects/imagenav/models/imagenav_stretch_1500m_apr12.pth"
-stretch_goal_image_path: "/home/cortex/home-robot/projects/imagenav/image_goals/goal_image.png"  # path to the goal image to be used in physical stretch operation
+checkpoint_path: "/home/cortex/home-robot/projects/imagenav/models/imagenav_stretch_embodiement_780m_may10.pth"
+stretch_goal_image_path: "/home/cortex/home-robot/projects/imagenav/image_goals/goal_image_11.png"  # path to the goal image to be used in physical stretch operation
 
 RUN_TYPE: eval
-NUM_ENVIRONMENTS: 14
+NUM_ENVIRONMENTS: 1
 TASK_CONFIG:
   SIMULATOR:
     AGENT_0:
       HEIGHT: 1.41
-      RADIUS: 0.17
+      RADIUS: 0.30
+      SENSORS: ["RGB_SENSOR"]
     RGB_SENSOR:
-      WIDTH: 128
-      HEIGHT: 128
+      WIDTH: 120
+      HEIGHT: 160
       HFOV: 42
       POSITION: [0, 1.31, 0]
+      ORIENTATION: [-0.1745, 0.0, 0.0]
+
+RL:
+  POLICY:
+    use_augmentations: False
+    use_augmentations_test_time: False
+    freeze_backbone: True
+    input_image_size: [160, 120] 
