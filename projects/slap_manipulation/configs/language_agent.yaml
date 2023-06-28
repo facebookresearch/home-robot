@@ -25,7 +25,7 @@ CORLAGENT:
   gt_run: True
 
 PERACT:
-  scene_bounds: [ -0.5 , -0.2 , -0.5 , 0.5 , 0.8 , 0.5]
+  scene_bounds: [ -0.5 , -0.6 , -0.5 , 0.5 , 0.4 , 0.5]
   cameras: ["head"]
   voxel_sizes: [100]
   num_latents: 256
