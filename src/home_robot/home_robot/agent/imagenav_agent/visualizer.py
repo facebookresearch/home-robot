@@ -90,6 +90,7 @@ def record_video(
     target_dir: str,
     image_dir: str,
     episode_name: str = "0",
+    fps=10
 ) -> None:
     """Converts a directory of image snapshots into a video."""
     print(f"Recording video {episode_name}")
@@ -97,11 +98,17 @@ def record_video(
     # Semantic map vis
     fnames = natsorted(glob.glob(f"{image_dir}/snapshot*.png"))
     imgs = [cv2.imread(fname) for fname in fnames]
+
+    goal_image_name = os.path.join(image_dir, "goal_image.png")
+    goal_image = cv2.imread(goal_image_name)
+
+    imgs = [cv2.hconcat([img, goal_image]) for img in imgs]
+
     images_to_video(
         [cv2.cvtColor(img, cv2.COLOR_RGB2BGR) for img in imgs],
         target_dir,
         f"{episode_name}",
-        fps=10,
+        fps=fps,
         quality=5,
         verbose=True,
     )

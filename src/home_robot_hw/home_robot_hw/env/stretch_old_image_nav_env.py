@@ -71,26 +71,12 @@ class StretchImageNavEnv(StretchEnv):
 
     def get_observation(self) -> Observations:
         """Get rgbd/xyz/theta from this"""
-        rgb, depth = self.get_images(compute_xyz=False, rotate_images=True)
-        current_pose = xyt2sophus(self.robot.nav.get_base_pose())
-
-        # use sophus to get the relative translation
-        relative_pose = self._episode_start_pose.inverse() * current_pose
-        euler_angles = relative_pose.so3().log()
-        theta = euler_angles[-1]
+        rgb, _ = self.get_images(compute_xyz=False, rotate_images=True)
 
         return {
             "rgb": rgb.copy(),
             "imagegoalrotation": self.image_goal.copy() if self.image_goal is not None else None
         }
-        # Create the observation
-        # return home_robot.core.interfaces.Observations(
-        #     rgb=rgb.copy(),
-        #     depth=depth.copy(),
-        #     gps=relative_pose.translation()[:2],
-        #     compass=np.array([theta]),
-        #     task_observations={"imagegoalrotation": self.image_goal},
-        # )
 
     @property
     def episode_over(self) -> bool:
