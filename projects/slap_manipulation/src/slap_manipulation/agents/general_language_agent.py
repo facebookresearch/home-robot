@@ -10,6 +10,7 @@ import trimesh.transformations as tra
 import yaml
 from slap_manipulation.agents.slap_agent import SLAPAgent
 
+from home_robot.agent.ovmm_agent.ovmm_agent import build_vocab_from_category_map
 from home_robot.agent.ovmm_agent.pick_and_place_agent import PickAndPlaceAgent
 from home_robot.core.interfaces import (
     Action,
@@ -80,7 +81,7 @@ def get_taskplan_for_robot(steps: List[str]) -> List[dict]:
 
 
 def get_task_plans_from_llm(
-    index, json_path="./llm_eval/icl_llama-7b.json", input_string="prediction"
+    index, json_path="./data/llm_eval/real_exp_v2.json", input_string="prediction"
 ):
     """Reads the dataset files and return a list of task plans"""
     with open(json_path, "r") as f:
@@ -120,12 +121,15 @@ def get_codelist(steps_list):
 
 
 class GeneralLanguageAgent(PickAndPlaceAgent):
-    def __init__(self, cfg, debug=True, task_id: int = -1, **kwargs):
+    def __init__(
+        self, cfg, debug=True, task_id: int = -1, start_from: int = 0, **kwargs
+    ):
         super().__init__(cfg, **kwargs)
         # Visualizations
         self.task_id = task_id
         print(f"[GeneralLanguageAgent]: {self.task_id=}")
         self.steps = []
+        self.start_from = start_from
         self.state = GeneralTaskState.NOT_STARTED
         self.mode = "navigation"  # TODO: turn into an enum
         self.current_step = ""
@@ -145,9 +149,9 @@ class GeneralLanguageAgent(PickAndPlaceAgent):
         self._task_information = yaml.load(
             open(self.cfg.AGENT.task_information_file, "r"), Loader=yaml.FullLoader
         )  # read from a YAML
-        if not self.debug and not self.gt_run:
+        if self.gt_run:
             self.task_plans = get_task_plans_from_llm  # get_task_plans_from_oracle
-        elif self.gt_run:
+        elif not self.gt_run:
             self.task_plans = {
                 0: [
                     "self.goto(['bottle'], obs)",
@@ -290,17 +294,17 @@ class GeneralLanguageAgent(PickAndPlaceAgent):
         if len(object_list) > 1:
             obs.task_observations["start_recep_goal"] = 1
             obs.task_observations["object_goal"] = 2
+            obs.task_observations["object_name"] = object_list[1]
             obs.task_observations["start_recep_name"] = object_list[0]
-            obs.task_observations["goal_name"] = object_list[1]
-            obs.task_observations["end_recep_goal"] = None
-            obs.task_observations["end_recep_name"] = None
+            obs.task_observations["place_recep_goal"] = None
+            obs.task_observations["place_recep_name"] = None
         else:
-            obs.task_observations["end_recep_goal"] = 1
-            obs.task_observations["end_recep_name"] = object_list[0]
+            obs.task_observations["place_recep_goal"] = None
+            obs.task_observations["place_recep_name"] = None
             obs.task_observations["start_recep_goal"] = None
             obs.task_observations["start_recep_name"] = None
-            obs.task_observations["object_goal"] = None
-            obs.task_observations["goal_name"] = object_list[0]
+            obs.task_observations["object_goal"] = 1
+            obs.task_observations["object_name"] = object_list[0]
         return obs
 
     def _preprocess_obs_for_place(
@@ -333,11 +337,32 @@ class GeneralLanguageAgent(PickAndPlaceAgent):
     def get_steps(self, task: str):
         """takes in a task string and returns a list of steps to complete the task"""
         if self.testing or self.debug or self.gt_run:
-            self.steps = self.task_plans[int(task)]
+            if self.gt_run:
+                self.steps = self.task_plans(int(task))
+            else:
+                self.steps = self.task_plans[int(task)]
         else:
             raise NotImplementedError(
                 "Getting plans outside of test tasks is not implemented yet"
             )
+        for i in range(self.start_from):
+            self.steps.pop(0)
+
+    def add_vocab_per_step(self):
+        self.object_lists = []
+        for i, step in enumerate(self.steps):
+            # Extracting the list of strings
+            matches = re.search(r"\[([^]]+)\]", step)
+
+            if matches:
+                # Split the matched string by commas to get individual strings
+                object_list = list(eval(matches.group(0)))
+                print(object_list)
+                self.object_lists.append(object_list)
+                object_dict = {id: object for id, object in enumerate(object_list)}
+                # Simple vocabulary contains only object and necessary receptacles
+                simple_vocab = build_vocab_from_category_map(object_dict, {})
+                self.semantic_sensor.update_vocabulary_list(simple_vocab, i)
 
     def goto(self, object_list: List[str], obs: Observations):
         if self.debug:
@@ -364,13 +389,13 @@ class GeneralLanguageAgent(PickAndPlaceAgent):
                         f"[GeneralLanguageAgent] Preparing for next task: {self.steps[0]} by decreasing rad + min_dist"
                     )
                     self.object_nav_agent.planner.min_goal_distance_cm = 50
-                    self.object_nav_agent.planner.goal_dilation_selem_radius = 7
+                    self.object_nav_agent.planner.goal_dilation_selem_radius = 10
                 else:
                     print(
                         f"[GeneralLanguageAgent] Preparing for next task: {self.steps[0]} by increasing rad + min_dist"
                     )
                     self.object_nav_agent.planner.min_goal_distance_cm = 80
-                    self.object_nav_agent.planner.goal_dilation_selem_radius = 25
+                    self.object_nav_agent.planner.goal_dilation_selem_radius = 20
                 action, info["viz"] = self.object_nav_agent.act(obs)
                 if action == DiscreteNavigationAction.STOP or self.dry_run:
                     self.soft_reset()
@@ -392,6 +417,7 @@ class GeneralLanguageAgent(PickAndPlaceAgent):
             self.mode = "manipulation"
             # TODO: can check if new obejct_name is same as last;
             # if yes, then don't change (saves a lot of time!!)
+            # TODO: set_goal for the agent here instead of the environment
             info["not_viz"] = True
             info["object_list"] = object_list
             self.state = GeneralTaskState.PREPPING
@@ -400,6 +426,9 @@ class GeneralLanguageAgent(PickAndPlaceAgent):
             print("[LangAgent]: Picking up with heuristic", object_list, obs)
             self.state = GeneralTaskState.IDLE
             return DiscreteNavigationAction.PICK_OBJECT, None
+
+    def place_on(self, object_list, obs):
+        return self.place(object_list, obs)
 
     def place(self, object_list, obs):
         info = {}
@@ -415,14 +444,19 @@ class GeneralLanguageAgent(PickAndPlaceAgent):
             print("[LangAgent]: DRYRUN: Run SLAP on: place-on", object_list, obs)
             self.state = GeneralTaskState.DOING_TASK
             # place the object somewhere - hopefully in front of the agent.
-            obs = self._preprocess_obs_for_place(obs, object_list)
+            # obs = self._preprocess_obs_for_place(obs, object_list)
+            info["semantic_frame"] = obs.task_observations["semantic_frame"]
+            info["object_list"] = object_list
             action, action_info = self.place_policy.forward(obs, info)
             if action == DiscreteNavigationAction.STOP:
                 self.state = GeneralTaskState.IDLE
             return action, action_info
 
+    def open(self, object_list, obs):
+        return self.open_object(object_list, obs)
+
     def open_object(self, object_list: List[str], obs: Observations):
-        language = "open-object-drawer"
+        language = "open-object-top-drawer"
         num_actions = self._task_information[language]
         return self.call_slap(language, num_actions, obs, object_list)
 
@@ -436,10 +470,18 @@ class GeneralLanguageAgent(PickAndPlaceAgent):
         num_actions = self._task_information[language]
         return self.call_slap(language, num_actions, obs, object_list)
 
+    def take(self, object_list: List[str], obs: Observations):
+        language = "take-bottle"
+        num_actions = self._task_information[language]
+        return self.call_slap(language, num_actions, obs, object_list)
+
     def take_bottle(self, object_list: List[str], obs: Observations):
         language = "take-bottle"
         num_actions = self._task_information[language]
         return self.call_slap(language, num_actions, obs, object_list)
+
+    def pour_in(self, object_list, obs):
+        return self.pour_into_bowl(object_list, obs)
 
     def pour_into_bowl(self, object_list: List[str], obs: Observations):
         language = "pour-into-bowl"
@@ -550,13 +592,30 @@ class GeneralLanguageAgent(PickAndPlaceAgent):
             return action, info
 
     def act(self, obs: Observations, task: str) -> Tuple[Action, Dict[str, Any]]:
-        # while True:
-        #     breakpoint()
         if self.state == GeneralTaskState.NOT_STARTED and len(self.steps) == 0:
             self.get_steps(task)
+            self.add_vocab_per_step()
+            self.current_step_id = -1
         if not self.is_busy():
             print(f"[LangAgent]: {self.state=}")
             self.current_step = self.steps.pop(0)
-        print(f"[LangAgent]: evaling: {self.current_step=}")
+            self.current_step_id += 1
+            self.current_object_list = self.object_lists[self.current_step_id]
+            print(
+                f"[LangAgent] {self.current_step=}, {self.current_step_id=}, {self.current_object_list=}"
+            )
+            if self.semantic_sensor.current_vocabulary_id != self.current_step_id:
+                self.semantic_sensor.set_vocabulary(self.current_step_id)
+        print(f"[LangAgent]: evaling: {self.current_step=}, {self.current_step_id=}")
+        if self.config.GROUND_TRUTH_SEMANTICS == 0:
+            if (
+                self.semantic_sensor is not None
+                and self.semantic_sensor.current_vocabulary_id is not None
+            ):
+                # TODO: update obs with details from current plan-step
+                obs = self._preprocess_obs(obs, self.current_object_list)
+                obs = self.semantic_sensor(obs)
+        else:
+            obs.task_observations["semantic_frame"] = None
         action, info = eval(self.current_step)
         return action, info
