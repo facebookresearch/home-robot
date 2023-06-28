@@ -8,7 +8,7 @@ from home_robot.motion.stretch import HelloStretchIdx, HelloStretchKinematics
 class SimpleGraspMotionPlanner(object):
     """Simple top-down grasp motion planner for the Stretch."""
 
-    def __init__(self, robot: HelloStretchKinematics, pregrasp_height=1.2):
+    def __init__(self, robot: HelloStretchKinematics, pregrasp_height=1.4):
         """
         Solve IK
         """
@@ -53,13 +53,13 @@ class SimpleGraspMotionPlanner(object):
             return None
 
         # Overwrite standoff pos.z with a really high value so it comes in from above
-        standoff_pos = grasp_pos + np.array([0.0, 0.0, 0.4])
-        standoff_pos[2] = np.min([1.2, standoff_pos[2]])
+        standoff_pos = grasp_pos + np.array([0.0, 0.0, 0.6])
+        standoff_pos[2] = np.min([1.4, standoff_pos[2]])
         print(f"EE should go to: {standoff_pos=}, given {grasp_pos=}")
         # Standoff is 8cm over the grasp for now
         # Overwrite standoff pos.z with a really high value so it comes in from above
-        standoff_pos = grasp_pos + np.array([0.0, 0.0, 0.4])
-        standoff_pos[2] = np.min([1.1, standoff_pos[2]])
+        standoff_pos = grasp_pos + np.array([0.0, 0.0, 0.6])
+        standoff_pos[2] = np.min([1.4, standoff_pos[2]])
         standoff_cfg, success, _ = self.robot.manip_ik(
             (standoff_pos, grasp_quat), q0=None
         )

@@ -239,7 +239,7 @@ class OpenVocabManipAgent(ObjectNavAgent):
         self.states[e] = next_skill
         return action
 
-    def _update_semantic_vocabs(self, obs: Observations):
+    def _update_semantic_vocabs(self, obs: Observations, update_full=True):
         """
         Sets vocabularies for semantic sensor at the start of episode.
         """
@@ -255,11 +255,14 @@ class OpenVocabManipAgent(ObjectNavAgent):
         simple_vocab = build_vocab_from_category_map(
             obj_id_to_name, simple_rec_id_to_name
         )
-        self.semantic_sensor.update_vocubulary_list(simple_vocab, SemanticVocab.SIMPLE)
+        self.semantic_sensor.update_vocabulary_list(simple_vocab, SemanticVocab.SIMPLE)
 
-        # Full vocabulary contains the object and all receptacles
-        full_vocab = build_vocab_from_category_map(obj_id_to_name, self.rec_name_to_id)
-        self.semantic_sensor.update_vocubulary_list(full_vocab, SemanticVocab.FULL)
+        if update_full:
+            # Full vocabulary contains the object and all receptacles
+            full_vocab = build_vocab_from_category_map(
+                obj_id_to_name, self.rec_name_to_id
+            )
+            self.semantic_sensor.update_vocabulary_list(full_vocab, SemanticVocab.FULL)
 
     def _set_semantic_vocab(self, vocab_id: SemanticVocab, force_set: bool):
         """
