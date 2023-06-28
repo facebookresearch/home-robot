@@ -139,6 +139,7 @@ class DiscretePlanner:
         self.goal_dilation_selem = skimage.morphology.disk(
             self.goal_dilation_selem_radius
         )
+        self.reached_goal_candidate = False
 
     def set_vis_dir(self, scene_id: str, episode_id: str):
         self.vis_dir = os.path.join(self.default_vis_dir, f"{scene_id}_{episode_id}")

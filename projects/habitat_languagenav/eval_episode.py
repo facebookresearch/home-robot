@@ -63,10 +63,6 @@ if __name__ == "__main__":
     results_dir = os.path.join(config.DUMP_LOCATION, "results", config.EXP_NAME)
     os.makedirs(results_dir, exist_ok=True)
 
-    successes = []
-    spls = []
-    episode_ids = []
-
     metrics = {}
 
     for i in range(len(env.habitat_env.episodes)):
@@ -77,7 +73,6 @@ if __name__ == "__main__":
         scene_id = env.habitat_env.current_episode.scene_id.split("/")[-1].split(".")[0]
         agent.planner.set_vis_dir(scene_id, env.habitat_env.current_episode.episode_id)
         episode_id = env.habitat_env.current_episode.episode_id
-        episode_ids.append(env.habitat_env.current_episode.episode_id)
 
         pbar = tqdm(total=config.AGENT.max_steps)
         while not env.episode_over:
@@ -102,6 +97,9 @@ if __name__ == "__main__":
             "num_goal_candidates_visited"
         ] = agent.num_goal_candidates_visited
         metrics[scene_ep_id]["num_steps"] = t
+        metrics[scene_ep_id]["target"] = obs.task_observations["target"]
+        metrics[scene_ep_id]["landmarks"] = obs.task_observations["landmarks"]
+        metrics[scene_ep_id]["caption"] = obs.task_observations["caption"]
 
         print(f"{scene_id}_{episode_id}", ep_metrics)
 
@@ -111,6 +109,9 @@ if __name__ == "__main__":
         stats = {}
 
         for metric in list(metrics.values())[0].keys():
+            if metric in ["target", "landmarks", "caption"]:
+                continue
+
             stats[f"{metric}_mean"] = np.nanmean(
                 np.array([metrics[x][metric] for x in metrics.keys()])
             )
