@@ -137,6 +137,7 @@ class GraspPlanner(object):
         dry_run: bool = False,
         max_tries: int = 1,
         wait_for_input: bool = False,
+        switch_mode: bool = True,
     ):
         """Detect grasps and try to pick up an object in front of the robot.
         Visualize - will show debug point clouds
@@ -286,7 +287,8 @@ class GraspPlanner(object):
                     break
             break
 
-        self.robot_client.switch_to_navigation_mode()
+        if switch_mode:
+            self.robot_client.switch_to_navigation_mode()
         return grasp_completed
 
     def plan_to_grasp(self, grasp: np.ndarray) -> Optional[np.ndarray]:

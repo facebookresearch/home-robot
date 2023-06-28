@@ -288,21 +288,30 @@ class StretchPickandPlaceEnv(StretchEnv):
             # If the gripper action was zero, do nothing!
             pass
 
-    def set_goal(self, goal_find: str, goal_obj: str, goal_place: str):
+    def set_goal(
+        self, goal_find: str, goal_obj: str, goal_place: str, check_receptacles=True
+    ):
         """Set the goal class as a string. Goal should be an object class we want to pick up."""
-        recep_name_map = self.category_map["recep_category_to_recep_category_id"]
-        for goal in [goal_find, goal_place]:
-            if goal not in recep_name_map:
-                raise RuntimeError(
-                    f"Receptacle goal not supported: {goal} not in {str(list(recep_name_map.keys()))}"
-                )
+        if check_receptacles:
+            recep_name_map = self.category_map["recep_category_to_recep_category_id"]
+            for goal in [goal_find, goal_place]:
+                if goal not in recep_name_map:
+                    raise RuntimeError(
+                        f"Receptacle goal not supported: {goal} not in {str(list(recep_name_map.keys()))}"
+                    )
+        else:
+            recep_name_map = None
         self.task_info = {
             "object_name": goal_obj,
             "start_recep_name": goal_find,
             "place_recep_name": goal_place,
             "goal_name": f"{goal_obj} from {goal_find} to {goal_place}",
-            "start_receptacle": recep_name_map[goal_find],
-            "goal_receptacle": recep_name_map[goal_place],
+            "start_receptacle": recep_name_map[goal_find]
+            if recep_name_map is not None
+            else -1,
+            "goal_receptacle": recep_name_map[goal_place]
+            if recep_name_map is not None
+            else -1,
             # # To be populated by the agent
             "recep_idx": -1,
             "semantic_max_val": -1,
@@ -370,18 +379,10 @@ class StretchPickandPlaceEnv(StretchEnv):
             "in_manipulation_mode"
         ] = self.robot.in_manipulation_mode()
         obs.task_observations["in_navigation_mode"] = self.robot.in_navigation_mode()
+        obs.task_observations[
+            "base_camera_pose"
+        ] = self.robot.head.get_pose_in_base_coords(rotated=True)
 
-        # TODO: remove debug code
-        # debug_rgb_bgr = False
-        # if debug_rgb_bgr:
-        #     import matplotlib.pyplot as plt
-
-        #     plt.figure()
-        #     plt.subplot(121)
-        #     plt.imshow(obs.rgb)
-        #     plt.subplot(122)
-        #     plt.imshow(obs.task_observations["semantic_frame"])
-        #     plt.show()
         self.prev_obs = obs
         return obs
 
