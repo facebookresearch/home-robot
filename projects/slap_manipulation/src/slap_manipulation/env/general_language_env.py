@@ -43,8 +43,6 @@ class GeneralLanguageEnv(StretchPickandPlaceEnv):
         super().__init__(
             config,
             cat_map_file,
-            # goal_options,
-            # segmentation_method,
             visualize_planner=visualize_planner,
             ros_grasping=ros_grasping,
             test_grasping=test_grasping,
@@ -61,7 +59,6 @@ class GeneralLanguageEnv(StretchPickandPlaceEnv):
         self.action_visualizer = ArrayVisualizer("slap_actions", [0.5, 0.5, 0, 0.5])
 
     def reset(self):
-        # TODO (@priyam): clean goal info if in obs
         rospy.sleep(0.5)  # Make sure we have time to get ROS messages
         self.robot.wait()
         self._episode_start_pose = xyt2sophus(self.robot.nav.get_base_pose())
@@ -73,18 +70,11 @@ class GeneralLanguageEnv(StretchPickandPlaceEnv):
         self.robot.move_to_nav_posture()
 
     def _set_goal(self, info: Dict):
-        # vocab = ["other"] + info["object_list"] + ["other"]
-        # self.segmentation.reset_vocab(vocab)
-
         if len(info["object_list"]) > 1:
             goal_find = info["object_list"][0]
             goal_obj = info["object_list"][1]
-            # self.current_goal_id = 2
-            # self.current_goal_name = info["object_list"][1]
             goal_place = None
         else:
-            # self.current_goal_id = 1
-            # self.current_goal_name = info["object_list"][0]
             goal_place = info["object_list"][0]
             goal_find = None
             goal_obj = None
@@ -220,11 +210,11 @@ class GeneralLanguageEnv(StretchPickandPlaceEnv):
                 p_i_matrix = to_matrix(p_i_global, quat)
                 self.interaction_visualizer.publish_2d(p_i_matrix)
                 p_i_global = p_i_matrix[:3, 3].reshape(3)
-                # TODO: visualize actions so we can introspect
                 pose_matrix_array = []
                 for i in range(len(pos)):
                     pose_matrix = to_matrix(pos[i], ori[i], trimesh_format=True)
                     pose_matrix_array.append(pose_matrix)
+                # visualize actions so we can introspect
                 self.action_visualizer(pose_matrix_array, frame_id="base_link")
                 combined_action = np.concatenate((pos, ori, gripper), axis=-1)
                 ok = self.skill_planner.try_executing_skill(combined_action, False)
@@ -234,7 +224,6 @@ class GeneralLanguageEnv(StretchPickandPlaceEnv):
             print("Execute navigation action:", continuous_action)
             if not self.robot.in_navigation_mode():
                 self.robot.switch_to_navigation_mode()
-                # rospy.sleep(self.msg_delay_t)
             if not self.dry_run:
                 print("GOTO", continuous_action)
                 if "SLAP" in info.keys():
