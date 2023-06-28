@@ -9,6 +9,8 @@
 
 ## Dataset Setup
 
+Run `git lfs install` to install Git LFS, which is used to manage the OVMM dataset.
+
 ### Scene dataset setup 
 
 Please sign in [here](https://huggingface.co/datasets/hssd/hssd-hab/tree/ovmm) and accept the license for using HSSD scenes before proceeding to download them.
@@ -20,12 +22,30 @@ git submodule update --init data/hssd-hab
 git submodule update --init data/objects
 ```
 
+If this didn't trigger a download of the datasets, you may be running an older version of git. Either upgrade your git version, or try the following commands:
+```
+cd data/hssd-hab
+git lfs pull
+cd -
+
+cd data/objects
+git lfs pull
+cd -
+```
+
 ### Download the Episodes
 
 These describe where objects are and where the robot starts:
 
 ```
 git submodule update --init data/datasets/ovmm
+```
+
+Similar to the scene dataset setup, you may need to run the following commands if this didn't download the episodes:
+```
+cd data/datasets/ovmm
+git lfs pull
+cd -
 ```
 
 
