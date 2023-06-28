@@ -12,10 +12,16 @@ from home_robot.core.interfaces import (
     HybridAction,
     Observations,
 )
-from home_robot.motion.stretch import STRETCH_TO_GRASP
+from home_robot.motion.stretch import (
+    STRETCH_ARM_EXTENSION,
+    STRETCH_ARM_LIFT,
+    STRETCH_HOME_Q,
+    STRETCH_PREGRASP_Q,
+    STRETCH_TO_GRASP,
+)
 from home_robot.utils.geometry import xyt2sophus, xyt_base_to_global, xyt_global_to_base
 from home_robot.utils.pose import to_matrix
-from home_robot_hw.env.stretch_pick_and_place_env import DETIC, StretchPickandPlaceEnv
+from home_robot_hw.env.stretch_pick_and_place_env import StretchPickandPlaceEnv
 from home_robot_hw.ros.visualizer import ArrayVisualizer, Visualizer
 
 
@@ -23,8 +29,9 @@ class GeneralLanguageEnv(StretchPickandPlaceEnv):
     def __init__(
         self,
         config,
-        goal_options: List[str] = None,
-        segmentation_method: str = DETIC,
+        cat_map_file: str = None,
+        # goal_options: List[str] = None,
+        # segmentation_method: str = "detic",
         visualize_planner: bool = False,
         ros_grasping: bool = True,
         test_grasping: bool = False,
@@ -35,13 +42,14 @@ class GeneralLanguageEnv(StretchPickandPlaceEnv):
     ):
         super().__init__(
             config,
-            goal_options,
-            segmentation_method,
-            visualize_planner,
-            ros_grasping,
-            test_grasping,
-            dry_run,
-            debug,
+            cat_map_file,
+            # goal_options,
+            # segmentation_method,
+            visualize_planner=visualize_planner,
+            ros_grasping=ros_grasping,
+            test_grasping=test_grasping,
+            dry_run=dry_run,
+            debug=debug,
             *args,
             **kwargs
         )
@@ -64,16 +72,23 @@ class GeneralLanguageEnv(StretchPickandPlaceEnv):
         # Also set the robot's head into "navigation" mode - facing forward
         self.robot.move_to_nav_posture()
 
-    def set_goal(self, info: Dict):
-        vocab = ["other"] + info["object_list"] + ["other"]
-        self.segmentation.reset_vocab(vocab)
+    def _set_goal(self, info: Dict):
+        # vocab = ["other"] + info["object_list"] + ["other"]
+        # self.segmentation.reset_vocab(vocab)
 
         if len(info["object_list"]) > 1:
-            self.current_goal_id = 2
-            self.current_goal_name = info["object_list"][1]
+            goal_find = info["object_list"][0]
+            goal_obj = info["object_list"][1]
+            # self.current_goal_id = 2
+            # self.current_goal_name = info["object_list"][1]
+            goal_place = None
         else:
-            self.current_goal_id = 1
-            self.current_goal_name = info["object_list"][0]
+            # self.current_goal_id = 1
+            # self.current_goal_name = info["object_list"][0]
+            goal_place = info["object_list"][0]
+            goal_find = None
+            goal_obj = None
+        self.set_goal(goal_find, goal_obj, goal_place, check_receptacles=False)
 
     def _switch_to_manip_mode(self, grasp_only=False, pre_demo_pose=False):
         """Rotate the robot and put it in the right configuration for grasping"""
@@ -131,7 +146,7 @@ class GeneralLanguageEnv(StretchPickandPlaceEnv):
                 continuous_action = None
             elif action == DiscreteNavigationAction.MANIPULATION_MODE:
                 # set goal based on info dict here
-                self.set_goal(info)
+                self._set_goal(info)
                 # sleeping here so observation comes from view after turning head
                 if not self.robot.in_manipulation_mode():
                     self._switch_to_manip_mode()
@@ -139,7 +154,7 @@ class GeneralLanguageEnv(StretchPickandPlaceEnv):
                 continuous_action = None
             elif action == DiscreteNavigationAction.NAVIGATION_MODE:
                 # set goal based on info dict here
-                self.set_goal(info)
+                self._set_goal(info)
                 continuous_action = None
                 if not self.robot.in_navigation_mode():
                     self._switch_to_nav_mode()
@@ -157,7 +172,9 @@ class GeneralLanguageEnv(StretchPickandPlaceEnv):
                         # Dummy out robot execution code for perception tests
                         break
                     ok = self.grasp_planner.try_grasping(
-                        wait_for_input=self.debug, visualize=self.test_grasping
+                        wait_for_input=self.debug,
+                        visualize=self.test_grasping,
+                        switch_mode=False,
                     )
                     if ok:
                         break
@@ -176,7 +193,7 @@ class GeneralLanguageEnv(StretchPickandPlaceEnv):
         elif action.is_navigation():
             continuous_action = action.get()
         elif action.is_manipulation():
-            if isinstance(action, ContinuousFullBodyAction):
+            if isinstance(action.action, ContinuousFullBodyAction):
                 joints_action, continuous_action = action.get()
             else:
                 pos, ori, gripper = action.get()
@@ -264,120 +281,3 @@ class GeneralLanguageEnv(StretchPickandPlaceEnv):
             print("[ENV] visualizing")
             self.visualizer.visualize(**info["viz"])
         return False
-
-    def get_observation(self) -> Observations:
-        """Get Detic and rgb/xyz/theta from the robot. Read RGB + depth + point cloud from the robot's cameras, get current pose, and use all of this to compute the observations
-
-        Returns:
-            obs: observations containing everything the robot policy will be using to make decisions, other than its own internal state.
-        """
-        rgb, depth, xyz = self.robot.head.get_images(
-            compute_xyz=True,
-        )
-        current_pose = xyt2sophus(self.robot.nav.get_base_pose())
-
-        # use sophus to get the relative translation
-        relative_pose = self._episode_start_pose.inverse() * current_pose
-        euler_angles = relative_pose.so3().log()
-        theta = euler_angles[-1]
-
-        # GPS in robot coordinates
-        gps = relative_pose.translation()[:2]
-
-        # Get joint state information
-        joint_positions, _, _ = self.robot.get_joint_state()
-
-        # Create the observation
-        obs = home_robot.core.interfaces.Observations(
-            rgb=rgb.copy(),
-            depth=depth.copy(),
-            xyz=xyz.copy(),
-            gps=gps,
-            compass=np.array([theta]),
-            task_observations=self.task_info,
-            # camera_pose=self.get_camera_pose_matrix(rotated=True),
-            camera_pose=self.robot.head.get_pose(rotated=True),
-            joint=self.robot.model.config_to_hab(joint_positions),
-            relative_resting_position=np.array([0.3878479, 0.12924957, 0.4224413]),
-            is_holding=np.array([0.0]),
-        )
-        if self.segmentation_method == DETIC:
-            obs = self.segmentation.predict(obs)
-
-            # Make sure we only have one "other" - for ??? some reason
-            obs.semantic[obs.semantic == 0] = len(self.goal_options) - 1
-
-            # Choose instance mask with highest score for goal mask
-            instance_scores = obs.task_observations["instance_scores"].copy()
-            class_mask = (
-                obs.task_observations["instance_classes"] == self.current_goal_id
-            )
-            valid_instances = (
-                instance_scores * class_mask
-            ) > self.min_detection_threshold
-            class_map = np.zeros_like(obs.task_observations["instance_map"]).astype(
-                bool
-            )
-
-            # If we detected anything... check to see if our target object was found, and if so pass in the mask.
-            if len(instance_scores) and np.any(class_mask):
-                # Compute mask of all detected objects fitting the description
-                print(valid_instances)
-                for i, valid in enumerate(valid_instances):
-                    if not valid:
-                        continue
-                    class_map = np.bitwise_or(
-                        class_map, obs.task_observations["instance_map"] == i
-                    )
-
-                # Mask of the most likely candidate is "goal"
-                chosen_instance_idx = np.argmax(instance_scores * class_mask)
-                obs.task_observations["goal_mask"] = (
-                    obs.task_observations["instance_map"] == chosen_instance_idx
-                )
-            else:
-                obs.task_observations["goal_mask"] = np.zeros_like(obs.semantic).astype(
-                    bool
-                )
-
-            obs.task_observations["goal_class_mask"] = class_map.astype(bool)
-        # # Run the segmentation model here
-        # if self.current_goal_id is not None:
-        #     if self.segmentation_method == DETIC:
-        #         obs = self.segmentation.predict(obs)
-        #
-        #         # Make sure we only have one "other" - for ??? some reason
-        #         obs.semantic[obs.semantic == 0] = len(self.goal_options) - 1
-        #
-        #         # Choose instance mask with highest score for goal mask
-        #         instance_scores = obs.task_observations["instance_scores"].copy()
-        #         class_mask = (
-        #             obs.task_observations["instance_classes"] == self.current_goal_id
-        #         )
-        #
-        #         # If we detected anything... check to see if our target object was found, and if so pass in the mask.
-        #         if len(instance_scores) and np.any(class_mask):
-        #             chosen_instance_idx = np.argmax(instance_scores * class_mask)
-        #             obs.task_observations["goal_mask"] = (
-        #                 obs.task_observations["instance_map"] == chosen_instance_idx
-        #             )
-        #         else:
-        #             obs.task_observations["goal_mask"] = np.zeros_like(
-        #                 obs.semantic
-        #             ).astype(bool)
-        obs.task_observations[
-            "base_camera_pose"
-        ] = self.robot.head.get_pose_in_base_coords(rotated=True)
-
-        # TODO: remove debug code
-        debug_rgb_bgr = False
-        if debug_rgb_bgr:
-            import matplotlib.pyplot as plt
-
-            plt.figure()
-            plt.subplot(121)
-            plt.imshow(obs.rgb)
-            plt.subplot(122)
-            plt.imshow(obs.task_observations["semantic_frame"])
-            plt.show()
-        return obs
