@@ -606,7 +606,7 @@ class InteractionPredictionModule(torch.nn.Module):
         new_rgb[mask] = np.array([1, 0, 0]).reshape(1, 3)
         if visualize:
             show_point_cloud(xyz, new_rgb)
-        return xyz[mask], rgb[mask]
+        return xyz[mask], new_rgb[mask]
 
     def show_validation_on_sensor(self, data, viz=False):
         """

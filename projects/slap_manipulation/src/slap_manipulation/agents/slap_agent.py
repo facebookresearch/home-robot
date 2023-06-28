@@ -123,7 +123,7 @@ class SLAPAgent(object):
         # plt.show()
         # only keep feat which is == semantic_id
         feat[feat >= (len(obs.task_observations["object_list"]) + 2)] = 0
-        feat[feat != 0] = 1
+        feat[feat != 1] = 0
 
         # proprio looks different now
         proprio = self.get_proprio()
@@ -279,7 +279,7 @@ class SLAPAgent(object):
                 info["top_xyz"] = (
                     top_xyz + self.ipm_input["mean"].detach().cpu().numpy()
                 )
-                info["top_rgb"] = top_rgb.detach().cpu().numpy()
+                info["top_rgb"] = top_rgb
                 semantic_mask = obs.task_observations["semantic_frame"]
                 filename = os.path.join(
                     os.getcwd(),
