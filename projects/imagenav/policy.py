@@ -11,8 +11,8 @@ from omegaconf import OmegaConf
 from habitat.config.default import Config as CN
 from habitat_baselines.utils.common import batch_obs
 
-from habitat_eaif.config import get_config
-from habitat_eaif.rl.policy import EAIPolicy
+from habitat_vc.config import get_config
+from habitat_vc.rl.policy import EAIPolicy
 
 from home_robot.core.interfaces import DiscreteNavigationAction
 

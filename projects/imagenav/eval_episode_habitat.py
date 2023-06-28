@@ -36,4 +36,5 @@ if __name__ == "__main__":
     record_video(
         target_dir=f"{config.dump_location}/videos/{config.exp_name}",
         image_dir=f"{config.dump_location}/images/{config.exp_name}",
+        fps=5
     )
