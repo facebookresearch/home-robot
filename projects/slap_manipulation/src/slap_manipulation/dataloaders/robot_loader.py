@@ -9,6 +9,8 @@ import torch
 import trimesh
 import trimesh.transformations as tra
 import yaml
+
+# import slap_manipulation.utils.transformations as tra
 from slap_manipulation.dataloaders.annotations import load_annotations_dict
 from slap_manipulation.dataloaders.rlbench_loader import RLBenchDataset
 from slap_manipulation.utils.data_processing import (
@@ -34,7 +36,6 @@ from home_robot.utils.point_cloud import (
     numpy_to_pcd,
     show_point_cloud,
 )
-from home_robot.utils.pose import to_matrix
 
 REAL_WORLD_CATEGORIES = [
     "cup",
@@ -471,9 +472,8 @@ class RobotDataset(RLBenchDataset):
             interaction_ee_keyframe[:3, 3],
         )
 
-    def get_datum(self, trial, keypoint_idx, verbose=False):
+    def get_datum(self, trial, keypoint_idx, verbose=False, debug=False):
         """Get a single training example given the index."""
-        debug = False
 
         cmds = trial["task_name"][()].decode("utf-8").split(",")
         cmd = cmds[0]
@@ -892,6 +892,7 @@ class RobotDataset(RLBenchDataset):
             "proprio": torch.FloatTensor(proprio),
             "all_proprio": torch.FloatTensor(all_proprio),
             "global_proprio": torch.FloatTensor(global_proprio),
+            "keyframes": torch.FloatTensor(keyframe),
             "time_step": torch.FloatTensor(time_step),
             "all_time_step": torch.FloatTensor(all_time_step),
             "target_gripper_state": torch.FloatTensor(target_gripper_state),
@@ -969,10 +970,10 @@ def debug_get_datum(data_dir, k_index, split, robot, waypoint_language):
         orientation_type="quaternion",
         show_voxelized_input_and_reference=True,
         show_cropped=True,
-        verbose=False,
+        verbose=True,
         multi_step=True,
-        visualize_interaction_estimates=False,
-        visualize_cropped_keyframes=False,
+        visualize_interaction_estimates=True,
+        visualize_cropped_keyframes=True,
         robot=robot,
         autoregressive=True,
         time_as_one_hot=True,
@@ -982,7 +983,7 @@ def debug_get_datum(data_dir, k_index, split, robot, waypoint_language):
     for trial in loader.trials:
         print(f"Trial name: {trial.name}")
         for k_i in k_index:
-            data = loader.get_datum(trial, k_i, verbose=False)
+            data = loader.get_datum(trial, k_i, verbose=True, debug=True)
 
 
 @click.command()
@@ -1016,7 +1017,7 @@ def show_all_keypoints(data_dir, split, template, robot):
         orientation_type="quaternion",
         show_voxelized_input_and_reference=True,
         show_cropped=True,
-        verbose=False,
+        verbose=True,
         multi_step=False,
         visualize_interaction_estimates=True,
         visualize_cropped_keyframes=True,

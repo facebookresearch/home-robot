@@ -10,9 +10,14 @@ import slap_manipulation.policy.peract_utils as utils
 
 # import peract_colab.arm.utils as utils
 import torch
+import trimesh.transformations as tra
 import yaml
 from slap_manipulation.dataloaders.robot_loader import RobotDataset
 from slap_manipulation.policy.voxel_grid import VoxelGrid
+
+from home_robot.utils.point_cloud import show_point_cloud
+
+# from home_robot.utils.pose import to_matrix
 
 
 class PerActRobotDataset(RobotDataset):
@@ -105,10 +110,10 @@ class PerActRobotDataset(RobotDataset):
         # scene bounds used to voxelize a part of the scene
         self.scene_bounds = [
             -0.5,
-            -0.2,
+            -0.6,
             -0.5,
             0.5,
-            0.8,
+            0.4,
             0.5,
         ]
         self._retries = 10
@@ -148,16 +153,11 @@ class PerActRobotDataset(RobotDataset):
             new_data["ee_keyframe_pos"] = all_keypoints[:, :3]
             new_data["proprio"] = data["all_proprio"]
 
-            # add language signals
+            # add language  and proprio signals
             new_data["cmd"] = data["cmd"]
-            description = data["cmd"]
-            new_data["gripper_width_array"] = data["gripper_width_array"]
             new_data["all_proprio"] = data["all_proprio"]
-            # tokens = clip.tokenize([description]).numpy()
-            # token_tensor = torch.from_numpy(tokens).to(self.device)
-            # lang, lang_emb = self._clip_encode_text(token_tensor)
-            # lang = self.clip_encode_text(description)
-            # new_data["cmd_embs"] = lang
+            new_data["num_keypoints"] = data["num_keypoints"]
+            new_data["peract_input"] = data["peract_input"]
 
             # discretize supervision signals
             (
@@ -206,7 +206,6 @@ class PerActRobotDataset(RobotDataset):
             new_data["rgb"] = rgb
             new_data["xyz"] = pcd
             new_data["action"] = gripper_states
-            new_data["peract_input"] = data["peract_input"]
 
             if self.is_action_valid(new_data):
                 return new_data
@@ -252,6 +251,12 @@ class PerActRobotDataset(RobotDataset):
         new_data["cmd"] = lang_goal
         new_data["rgb"] = obs
         new_data["xyz"] = pcd
+        new_data["target_continuous_position"] = new_data["batch"]["ee_keyframe_pos"][
+            0, idx, :
+        ]
+        new_data["target_continuous_orientation"] = new_data["batch"][
+            "ee_keyframe_ori_quat"
+        ][0, idx, :]
         return new_data
 
     def _norm_rgb(self, x):
@@ -294,17 +299,15 @@ class PerActRobotDataset(RobotDataset):
             attention_coordinate = sample["ee_keyframe_pos"]
             grip = float(sample["proprio"][-1])
             D = len(self.voxel_sizes)
-            gripper_width = sample["gripper_width_array"]
+            gripper_width = sample["peract_input"]["gripper_width_array"]
         else:
             quat = sample["ee_keyframe_ori_quat"][idx]
             attention_coordinate = sample["ee_keyframe_pos"][idx]
-            grip = float(sample["all_proprio"][idx, -1])
-            # gripper_state = sample["target_gripper_state"][idx]
-            # grip = float(sample["proprio"][idx][-1])
-            gripper_width = sample["gripper_width_array"][idx]
-            time_index = float((2.0 * idx) / max_keypoints)
+            grip = sample["peract_input"]["gripper_action"][idx].float()
+            gripper_width = sample["peract_input"]["gripper_width"][idx]
+            time_index = float((2.0 * idx) / max_keypoints - 1)
         quat = utils.normalize_quaternion(quat)
-        if quat[0] < 0:
+        if quat[-1] < 0:
             quat = -quat
         disc_rot = utils.quaternion_to_discrete_euler(quat, rotation_resolution)
         trans_indices, attention_coordinates = [], []
@@ -327,7 +330,9 @@ class PerActRobotDataset(RobotDataset):
             torch.Tensor([trans_indices]),
             torch.Tensor([rot_and_grip_indices]),
             torch.Tensor([ignore_collisions]),
-            torch.cat((gripper_width, torch.FloatTensor([grip, time_index]))),
+            torch.cat(
+                (gripper_width.unsqueeze(0), grip, torch.FloatTensor([time_index]))
+            ),
             torch.Tensor(attention_coordinate).unsqueeze(0),
         )
 
@@ -392,15 +397,6 @@ class PerActRobotDataset(RobotDataset):
         flat_img_features = batch["rgb"]
         pcd_flat = batch["xyz"]
 
-        # flatten observations
-        # bs = obs[0][0].shape[0]
-        # pcd_flat = torch.cat([p.permute(0, 2, 3, 1).reshape(bs, -1, 3) for p in pcds], 1)
-
-        # image_features = [o[0] for o in obs]
-        # feat_size = image_features[0].shape[1]
-        # flat_imag_features = torch.cat(
-        #     [p.permute(0, 2, 3, 1).reshape(bs, -1, feat_size) for p in image_features], 1)
-
         # tensorize scene bounds
         bounds = torch.tensor(self.scene_bounds, device=self.device).unsqueeze(0)
 
@@ -439,29 +435,6 @@ class PerActRobotDataset(RobotDataset):
 
 
 class TestPerActDataloader(unittest.TestCase):
-    # def test_dataloader(self):
-    #     # TODO convert split file from json to YAML
-    #     data_dir = "/home/priparashar/robopen_h5s/larp/unit_test_pick_bottle"
-    #     split_file = "/home/priparashar/Development/icra/home_robot/assets/train_test_val_split_9tasks_2022-12-01.json"
-    #     with open(split_file, "r") as f:
-    #         train_test_split = json.load(f)
-    #     ds = PerActRobotDataset(
-    #         data_dir,
-    #         trial_list=train_test_split["train"],
-    #     )
-    #     # Create data loaders
-    #     num_workers = 0
-    #     B = 1
-    #     data_loader = torch.utils.data.DataLoader(
-    #         ds,
-    #         batch_size=B,
-    #         num_workers=num_workers,
-    #         shuffle=True,
-    #         drop_last=True,
-    #     )
-    #     for batch in data_loader:
-    #         ds.visualize_data(batch)
-
     def test_is_action_valid(self):
         data_dir = "/home/priparashar/robopen_h5s/larp/unit_test_pick_bottle"
         split_file = "/home/priparashar/Development/icra/home_robot/assets/train_test_val_split_9tasks_2022-12-01.json"
@@ -530,15 +503,20 @@ def debug_get_datum(data_dir, k_index, split, robot, waypoint_language):
 @click.option(
     "-d",
     "--data_dir",
-    default="/home/priparashar/robopen_h5s/larp/9tasks_woutclutter",
+    default="./data",
 )
 @click.option("--split", help="json file with train-test-val split")
 @click.option("--template", default="*.h5")
 @click.option("--robot", default="stretch")
-def show_all_keypoints(data_dir, split, template, robot):
+@click.option("--test-pose/--no-test-pose", default=False)
+@click.option("--test-voxel-grid/--no-test-voxel-grid", default=False)
+def show_all_keypoints(data_dir, split, template, robot, test_pose, test_voxel_grid):
     """function which visualizes keypoints overlaid on initial frame, then
     visualizes the input frame for each keypoint with labeled interaction
     point overlaid"""
+    if test_pose and test_voxel_grid:
+        print("You can only test Poses or VoxelGrid at a time")
+        return
     if split:
         with open(split, "r") as f:
             train_test_split = yaml.safe_load(f)
@@ -546,24 +524,22 @@ def show_all_keypoints(data_dir, split, template, robot):
         data_dir,
         template=template,
         num_pts=8000,
-        data_augmentation=False,
-        crop_radius=True,
+        data_augmentation=True,
+        crop_radius=False,
         ori_dr_range=np.pi / 8,
         cart_dr_range=0.0,
         first_frame_as_input=False,
-        # first_keypoint_only=True,
-        # keypoint_range=[0],
         trial_list=train_test_split["train"] if split else [],
         orientation_type="quaternion",
         show_voxelized_input_and_reference=False,
         show_cropped=False,
         verbose=False,
-        multi_step=True,
         visualize_interaction_estimates=False,
         visualize_cropped_keyframes=False,
-        robot=robot,
+        robot="stretch",
         autoregressive=True,
         time_as_one_hot=True,
+        multi_step=True,
     )
     # Create data loaders
     num_workers = 0
@@ -576,47 +552,31 @@ def show_all_keypoints(data_dir, split, template, robot):
         drop_last=True,
     )
     for batch in data_loader:
-        ds.visualize_data(batch)
-    # skip_names = ["30_11_2022_15_22_40"]
-    # for trial in loader.trials:
-    #     print(f"Trial: {trial.name}")
-    #     print(f"Task name: {trial.h5_filename}")
-    #     if trial.name in skip_names:
-    #         print("skipping as known bad trajectory")
-    #     else:
-    #         num_keypt = trial.num_keypoints
-    #         for i in range(num_keypt):
-    #             print("Keypoint requested: ", i)
-    #             data = loader.get_datum(trial, i, verbose=True)
-    #             breakpoint()
-    #         # data = loader.get_datum(trial, 1, verbose=False)
+        if test_voxel_grid:
+            ds.visualize_data(batch)
+        if test_pose:
+            num_keypoints = batch["num_keypoints"][0]
+            for i in range(num_keypoints):
+                wp_batch = ds.get_per_waypoint_batch(batch, i)
+                xyz = wp_batch["xyz"][0]
+                rgb = wp_batch["rgb"][0]
+                # NOTE prior position, orientation does not matter to peract
+                # get input gripper-state
+                print("Task:", wp_batch["cmd"][0])
+                print("Input gripper state:", wp_batch["proprio"][0])
+                # get target position
+                # get target orientation
+                # get target gripper-state
+                position = wp_batch["target_continuous_position"]
+                orientation = wp_batch["target_continuous_orientation"]
+                print("position:", position, "; orientation:", orientation)
+                show_point_cloud(
+                    xyz,
+                    rgb,
+                    orig=position.reshape(3, 1),
+                    R=tra.quaternion_matrix(np.roll(orientation, -1))[:3, :3],
+                )
 
 
 if __name__ == "__main__":
     show_all_keypoints()
-    pass
-# def main():
-#     # TODO convert split file from json to YAML
-#     data_dir = "/home/priparashar/robopen_h5s/larp/unit_test_pick_bottle"
-#     split_file = "/home/priparashar/Development/icra/home_robot/assets/train_test_val_split_9tasks_2022-12-01.json"
-#     with open(split_file, "r") as f:
-#         train_test_split = json.load(f)
-#     ds = PerActRobotDataset(
-#         data_dir, trial_list=train_test_split["train"], num_pts=8000
-#     )
-#     # Create data loaders
-#     num_workers = 0
-#     B = 1
-#     data_loader = torch.utils.data.DataLoader(
-#         ds,
-#         batch_size=B,
-#         num_workers=num_workers,
-#         shuffle=True,
-#         drop_last=True,
-#     )
-#     for batch in data_loader:
-#         ds.visualize_data(batch)
-#
-#
-# if __name__ == "__main__":
-#     main()
