@@ -37,6 +37,7 @@ class GeneralLanguageEnv(StretchPickandPlaceEnv):
         test_grasping: bool = False,
         dry_run: bool = False,
         debug: bool = False,
+        closed_loop: bool = False,
         *args,
         **kwargs
     ):
@@ -51,6 +52,7 @@ class GeneralLanguageEnv(StretchPickandPlaceEnv):
             *args,
             **kwargs
         )
+        self.closed_loop = closed_loop
         self.current_goal_id = None
         self.current_goal_name = None
         self.skill_planner = CombinedSLAPPlanner(self.robot, {})
@@ -195,7 +197,9 @@ class GeneralLanguageEnv(StretchPickandPlaceEnv):
                     gripper = 1
                     new_pos = curr_pos + np.array([0, 0, 0.1])
                     ok = self.skill_planner.try_executing_skill(
-                        [(new_pos, curr_quat, gripper)], self.robot.get_joint_state()
+                        [(new_pos, curr_quat, gripper)],
+                        self.robot.get_joint_state(),
+                        closed_loop=self.closed_loop,
                     )
                 # visualize p_i
                 # convert p_i to global frame

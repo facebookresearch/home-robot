@@ -144,7 +144,10 @@ class CombinedSLAPPlanner(object):
             self.broadcaster.sendTransform(t)
 
     def try_executing_skill(
-        self, combined_action: np.ndarray, wait_for_input: bool = False
+        self,
+        combined_action: np.ndarray,
+        wait_for_input: bool = False,
+        closed_loop: bool = False,
     ) -> bool:
         """Execute a predefined end-effector trajectory. Expected input dimension is NUM_WAYPOINTSx8,
         where each waypoint is: pos(3-val), ori(4-val), gripper(1-val)"""
