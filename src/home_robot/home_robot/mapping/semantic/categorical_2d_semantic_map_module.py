@@ -602,9 +602,12 @@ class Categorical2DSemanticMapModule(nn.Module):
         )  # Perform connected component analysis
         return torch.tensor(labels, dtype=torch.int64, device=binary_map.device)
 
-
     def update_instances_in_global_map(
-        self, global_instances: Tensor, local_map: Tensor, x_range: tuple, y_range: tuple
+        self,
+        global_instances: Tensor,
+        local_map: Tensor,
+        x_range: tuple,
+        y_range: tuple,
     ) -> Tensor:
         """
         Adds new instances from the local map to the global map.
