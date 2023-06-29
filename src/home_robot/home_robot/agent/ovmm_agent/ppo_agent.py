@@ -209,6 +209,8 @@ class PPOAgent(Agent):
         self.manip_mode_called = False
         self.skill_start_gps = None
         self.skill_start_compass = None
+        self.gps_coordinates = []
+        self.compass_coordinates = []
 
     def reset(self) -> None:
         self.test_recurrent_hidden_states = torch.zeros(
@@ -319,9 +321,9 @@ class PPOAgent(Agent):
                 ).astype(np.uint8),
                 "joint": obs.joint,
                 "relative_resting_position": obs.relative_resting_position,
-                "is_holding": obs.task_observations["prev_grasp_success"],
+                "is_holding": np.array([obs.task_observations["prev_grasp_success"]]),
                 "robot_start_gps": np.array((rel_pos[1].item(), rel_pos[0].item())),
-                "robot_start_compass": pu.normalize_angle(rel_pos[2]),
+                "robot_start_compass": pu.normalize_angle_radians(rel_pos[2]),
                 "start_receptacle": np.array(obs.task_observations["start_receptacle"]),
                 "goal_receptacle": np.array(obs.task_observations["goal_receptacle"]),
             }
@@ -353,9 +355,14 @@ class PPOAgent(Agent):
         viz_obs = {k: obs[k] for k in self.skill_obs_keys}
         batch = batch_obs([obs], device=self.device)
         batch = apply_obs_transforms_batch(batch, self.obs_transforms)
+
+        self.gps_coordinates.append(batch['robot_start_gps'][0])
+        self.compass_coordinates.append(batch["robot_start_compass"][0])
+        print("Robots GPS {} and Compass {}".format(batch['robot_start_gps'][0], batch['robot_start_compass'][0]))
+
         for k in self.skill_obs_keys:
             viz_obs[k + "_resized"] = batch[k][0].cpu().numpy()
-        frame = observations_to_image(viz_obs, info={})
+        frame = observations_to_image(viz_obs, {}, None)
 
         batch = OrderedDict([(k, batch[k]) for k in self.skill_obs_keys])
         info["rl_obs_frame"] = frame
