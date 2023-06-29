@@ -1,4 +1,7 @@
 import json
+
+# from home_robot.utils.pose import to_matrix
+import time
 import unittest
 from typing import Optional
 
@@ -16,8 +19,6 @@ from slap_manipulation.dataloaders.robot_loader import RobotDataset
 from slap_manipulation.policy.voxel_grid import VoxelGrid
 
 from home_robot.utils.point_cloud import show_point_cloud
-
-# from home_robot.utils.pose import to_matrix
 
 
 class PerActRobotDataset(RobotDataset):
@@ -109,12 +110,12 @@ class PerActRobotDataset(RobotDataset):
             )
         # scene bounds used to voxelize a part of the scene
         self.scene_bounds = [
-            -0.5,
-            -0.6,
-            -0.5,
-            0.5,
-            0.4,
-            0.5,
+            -0.75,
+            -0.75,
+            -0.75,
+            0.75,
+            0.75,
+            0.75,
         ]
         self._retries = 10
         # [x_min,y_min,z_min,x_max,y_max,z_max] - metric volume to be voxelized
@@ -156,7 +157,7 @@ class PerActRobotDataset(RobotDataset):
             # add language  and proprio signals
             new_data["cmd"] = data["cmd"]
             new_data["all_proprio"] = data["all_proprio"]
-            new_data["num_keypoints"] = data["num_keypoints"]
+            new_data["num_actions"] = data["num_keypoints"]
             new_data["peract_input"] = data["peract_input"]
 
             # discretize supervision signals
@@ -220,9 +221,9 @@ class PerActRobotDataset(RobotDataset):
         # This gives us our action translation indices - location in the voxel cube
         action_trans = batch["trans_action_indices"][:, :, :3].int()
         # Rotation index
-        action_rot_grip = batch["rot_grip_action_indices"][0, :].int()
+        action_rot_grip = batch["rot_grip_action_indices"][:, :].int()
         # Do we take some action to ignore collisions or not
-        action_ignore_collisions = batch["ignore_collisions"][:, :, -1].int()
+        action_ignore_collisions = batch["ignore_collisions"][:, -1].int()
 
         # Get language goal embedding
         lang_goal = batch["cmd"]
@@ -236,10 +237,8 @@ class PerActRobotDataset(RobotDataset):
         proprio = batch["gripper_states"]
         proprio_instance = proprio[:, idx]
         action_trans_instance = action_trans[:, idx]
-        action_rot_grip_instance = action_rot_grip[idx].unsqueeze(0)
-        action_ignore_collisions_instance = action_ignore_collisions[:, idx].unsqueeze(
-            0
-        )
+        action_rot_grip_instance = action_rot_grip[:, idx]
+        action_ignore_collisions_instance = action_ignore_collisions
 
         # FIXME: use peract_input dictionary to create new proprio
         new_data["proprio"] = proprio_instance
@@ -252,11 +251,11 @@ class PerActRobotDataset(RobotDataset):
         new_data["rgb"] = obs
         new_data["xyz"] = pcd
         new_data["target_continuous_position"] = new_data["batch"]["ee_keyframe_pos"][
-            0, idx, :
+            :, idx
         ]
         new_data["target_continuous_orientation"] = new_data["batch"][
             "ee_keyframe_ori_quat"
-        ][0, idx, :]
+        ][:, idx]
         return new_data
 
     def _norm_rgb(self, x):
@@ -431,7 +430,8 @@ class PerActRobotDataset(RobotDataset):
             fig = plt.figure(figsize=(15, 15))
             plt.imshow(rendered_img)
             plt.axis("off")
-            plt.pause(2)
+            plt.pause(3)
+            plt.close()
 
 
 class TestPerActDataloader(unittest.TestCase):
@@ -472,7 +472,7 @@ def debug_get_datum(data_dir, k_index, split, robot, waypoint_language):
         data_dir,
         template="*.h5",
         num_pts=8000,
-        data_augmentation=False,
+        data_augmentation=True,
         crop_radius=True,
         ori_dr_range=np.pi / 8,
         cart_dr_range=0.0,
@@ -481,12 +481,12 @@ def debug_get_datum(data_dir, k_index, split, robot, waypoint_language):
         # keypoint_range=[0],
         trial_list=train_test_split["train"] if split else [],
         orientation_type="quaternion",
-        show_voxelized_input_and_reference=True,
-        show_cropped=True,
+        show_voxelized_input_and_reference=False,
+        show_cropped=False,
         verbose=False,
         multi_step=True,
-        visualize_interaction_estimates=True,
-        visualize_cropped_keyframes=True,
+        visualize_interaction_estimates=False,
+        visualize_cropped_keyframes=False,
         robot=robot,
         autoregressive=True,
         time_as_one_hot=True,
@@ -496,7 +496,7 @@ def debug_get_datum(data_dir, k_index, split, robot, waypoint_language):
     for trial in loader.trials:
         print(f"Trial name: {trial.name}")
         for k_i in k_index:
-            data = loader.get_datum(trial, k_i, verbose=True)
+            data = loader.get_datum(trial, k_i, verbose=False)
 
 
 @click.command()
@@ -555,8 +555,8 @@ def show_all_keypoints(data_dir, split, template, robot, test_pose, test_voxel_g
         if test_voxel_grid:
             ds.visualize_data(batch)
         if test_pose:
-            num_keypoints = batch["num_keypoints"][0]
-            for i in range(num_keypoints):
+            num_actions = batch["num_actions"][0]
+            for i in range(num_actions):
                 wp_batch = ds.get_per_waypoint_batch(batch, i)
                 xyz = wp_batch["xyz"][0]
                 rgb = wp_batch["rgb"][0]
