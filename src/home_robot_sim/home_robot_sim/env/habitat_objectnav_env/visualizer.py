@@ -5,7 +5,7 @@
 import json
 import os
 import shutil
-from typing import Optional
+from typing import Optional, List
 
 import cv2
 import numpy as np
@@ -169,11 +169,11 @@ class Visualizer:
     def disable_print_images(self):
         self.print_images = False
 
-    def get_semantic_vis(self, semantic_map, rgb_frame=None):
+    def get_semantic_vis(self, semantic_map, palette, rgb_frame=None):
         semantic_map_vis = Image.new(
             "P", (semantic_map.shape[1], semantic_map.shape[0])
         )
-        semantic_map_vis.putpalette(self.semantic_category_mapping.map_color_palette)
+        semantic_map_vis.putpalette(palette)
         semantic_map_vis.putdata(semantic_map.flatten().astype(np.uint8))
 
         if rgb_frame is not None:
@@ -194,6 +194,40 @@ class Visualizer:
         semantic_map_vis = np.asarray(semantic_map_vis)[:, :, [2, 1, 0]]
 
         return semantic_map_vis
+
+    def flatten_instance_map(self, instance_map):
+        """
+        Flatten the instance map.
+
+        Args:
+            instance_map: np.ndarray of shape [num_sem_categories - 2, H, W] where each channel has instances labeled as 1, 2, ...
+
+        Returns:
+            instance_map_combined: Flattened instance map with globally combined instance labels.
+            instances_per_category: Number of instances per category.
+        """
+        num_channels, height, width = instance_map.shape
+        instance_map_flattened = instance_map.reshape(num_channels, -1)
+        instances_per_category = np.max(instance_map_flattened, axis=1).astype(np.int64)
+
+        instance_map_combined = instance_map[0].copy()
+
+        if num_channels > 1:
+            cumulative_instances = np.cumsum(instances_per_category[:-1])
+            instance_map_combined += np.sum(instance_map[1:] * cumulative_instances[:, np.newaxis, np.newaxis], axis=0)
+
+        return instance_map_combined, instances_per_category
+
+    def replace_semantic_palette_with_instance_palette(self, input_colors: List[int], num_instances:List[int], delta: Optional[int]=20) -> List[int]:
+        shades = []
+        input_colors = np.reshape(input_colors, [-1, 3]).tolist()
+        for color, num_shades in zip(input_colors, num_instances):
+            if num_shades > 0:
+                new_shades = (np.array(color) + np.arange(num_shades).reshape(-1, 1) * np.array([[delta, delta, delta]])).reshape(-1)
+                new_shades = np.minimum(255, np.maximum(0, new_shades)).tolist()
+                shades += new_shades
+        return shades
+
 
     def visualize(
         self,
@@ -217,6 +251,7 @@ class Visualizer:
         dilated_obstacle_map: np.ndarray = None,
         semantic_category_mapping: Optional[RearrangeDETICCategories] = None,
         rl_obs_frame: Optional[np.ndarray] = None,
+        instance_map: Optional[np.ndarray] = None,
         **kwargs,
     ):
         """Visualize frame input and semantic map.
@@ -296,12 +331,21 @@ class Visualizer:
                 )
             self.last_xy = (curr_x, curr_y)
 
-            semantic_map += PI.SEM_START
+            palette = self.semantic_category_mapping.map_color_palette.copy()
+
 
             # Obstacles, explored, and visited areas
             no_category_mask = (
-                semantic_map == PI.SEM_START + self.num_sem_categories - 1
+                semantic_map == self.num_sem_categories - 1
             )  # Assumes the last category is "other"
+
+            if instance_map is not None:
+                instance_map_flattened, instances_per_category = self.flatten_instance_map(instance_map)
+                semantic_map = instance_map_flattened
+                palette[3*PI.SEM_START:] = self.replace_semantic_palette_with_instance_palette(palette[3*PI.SEM_START:], instances_per_category)
+                print(len(np.unique(instance_map_flattened)), instance_map_flattened.max())
+            semantic_map += PI.SEM_START
+
             obstacle_mask = np.rint(obstacle_map) == 1
             explored_mask = np.rint(explored_map) == 1
             visited_mask = self.visited_map_vis[gy1:gy2, gx1:gx2] == 1
@@ -398,7 +442,7 @@ class Visualizer:
         )
         # Semantic categories
         first_person_semantic_map_vis = self.get_semantic_vis(
-            semantic_frame[:, :, 3] + PI.SEM_START, rgb_frame
+            semantic_frame[:, :, 3] + PI.SEM_START, palette, rgb_frame
         )
         # First-person semantic frame
         image_vis[V.Y1 : V.Y2, V.FIRST_SEM_X1 : V.FIRST_SEM_X2] = cv2.resize(

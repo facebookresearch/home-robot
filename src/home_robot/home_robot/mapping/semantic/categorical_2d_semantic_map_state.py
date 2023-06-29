@@ -171,6 +171,11 @@ class Categorical2DSemanticMapState:
         ].argmax(0)
         return semantic_map
 
+    def get_instance_map(self, e) -> np.ndarray:
+        instance_map = self.local_map[e].cpu().float().numpy()
+        instance_map = instance_map[MC.NON_SEM_CHANNELS + self.num_sem_categories + 1:-1]
+        return instance_map
+
     def get_planner_pose_inputs(self, e) -> np.ndarray:
         """Get local planner pose inputs for an environment.
 

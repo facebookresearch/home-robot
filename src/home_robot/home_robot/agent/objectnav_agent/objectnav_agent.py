@@ -95,6 +95,7 @@ class ObjectNavAgent(Agent):
         self.episode_panorama_start_steps = None
         self.last_poses = None
         self.verbose = config.AGENT.PLANNER.verbose
+        self.record_instance_ids = config.AGENT.SEMANTIC_MAP.record_instance_ids
 
     # ------------------------------------------------------------------
     # Inference methods to interact with vectorized simulation
@@ -236,6 +237,10 @@ class ObjectNavAgent(Agent):
                 }
                 for e in range(self.num_environments)
             ]
+            if self.record_instance_ids:
+                for e in range(self.num_environments):
+                    vis_inputs[e]['instance_map'] = self.semantic_map.get_instance_map(e)
+
         else:
             vis_inputs = [{} for e in range(self.num_environments)]
 
