@@ -100,6 +100,10 @@ def filter_and_remove_duplicate_points(
         rgb = rgb[mask]
         xyz = xyz[mask]
         feats = feats[mask]
+        z_mask = xyz[:, 2] > 0.15
+        rgb = rgb[z_mask]
+        xyz = xyz[z_mask]
+        feats = feats[z_mask]
     if np.any(rgb > 1.0):
         rgb = rgb / 255.0
     debug_views = False
