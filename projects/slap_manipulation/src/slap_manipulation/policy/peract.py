@@ -22,7 +22,6 @@ import torch.nn.functional as F
 import trimesh.transformations as tra
 import yaml
 from einops import rearrange, repeat  # , reduce
-from einops.layers.torch import Reduce
 from perceiver_pytorch.perceiver_io import PreNorm  # exists,
 from perceiver_pytorch.perceiver_io import FeedForward, cache_fn, default
 from slap_manipulation.dataloaders.peract_loader import PerActRobotDataset
@@ -755,27 +754,73 @@ class PerceiverActorAgent:
         coords = coords.rotate(pred_keypt_rot)
         geoms.append(coords)
         o3d.visualization.draw(geoms)
-        # vis = o3d.visualization.Visualizer()
-        # vis.create_window()
-        # for geom in geoms:
-        #     vis.add_geometry(geom)
-        #     vis.update_geometry(geom)
-        # if viewpt:
-        #     ctr = vis.get_view_control()
-        #     ctr.set_front(viewpt["front"])
-        #     ctr.set_lookat(viewpt["lookat"])
-        #     ctr.set_up(viewpt["up"])
-        #     ctr.set_zoom(viewpt["zoom"])
-        # if save:
-        #     vis.poll_updates()
-        #     vis.update_renderer()
-        #     vis.capture_screen_image(f"/home/robopen08/.larp/{self.name}.png")
-        # else:
-        #     vis.run()
-        # vis.destroy_window()
-        # del vis
-        # if ctr:
-        #     del ctr
+
+    def do_epoch(
+        self,
+        training_dataset: PerActRobotDataset,
+        val_dataloader: PerActRobotDataset = None,
+        weight_path: str = None,
+        device: str = "cuda",
+        debug: bool = False,
+    ):
+        """training logic for peract policy"""
+        TRAINING_ITERATIONS = 20
+        LOG_ITER = 1
+        dt = datetime.datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
+        if debug:
+            hydra_output_dir = os.path.join(os.getcwd(), f"peract_debug_{dt}")
+        else:
+            hydra_output_dir = os.path.join(os.getcwd(), f"peract_{dt}")
+        Path(hydra_output_dir).mkdir(parents=True, exist_ok=True)
+        print(f"Saving models to: {hydra_output_dir}")
+        self.build(training=True, device=device)
+        num_workers = 0 if debug else 10
+        B = 1
+        print("Batch size: ", B, "Num workers: ", num_workers)
+        train_dataloader = torch.utils.data.DataLoader(
+            training_dataset,
+            batch_size=B,
+            num_workers=num_workers,
+            shuffle=True,
+            drop_last=True,
+        )
+
+        # start reading from dataloader
+        if weight_path is not None:
+            print(f"---> Loading provided checkpoint --- {weight_path} <----")
+            self.load_weights(weight_path)
+        iter = 0
+        per_update_iter = 0
+        loss = 0
+        while iter < TRAINING_ITERATIONS:
+            for batch in tqdm(train_dataloader, ncols=50):
+                if not batch["data_ok_status"] or not training_dataset.is_action_valid(
+                    batch
+                ):
+                    print(f"Skipping {iter} as action is not valid")
+                    continue
+                num_actions = batch["num_actions"]
+                for i in range(num_actions):
+                    per_action_batch = training_dataset.get_per_waypoint_batch(batch, i)
+                    desc = per_action_batch["cmd"]
+                    per_action_batch = {
+                        k: v.to(device)
+                        for k, v in per_action_batch.items()
+                        if type(v) == torch.Tensor
+                    }
+                    per_action_batch["cmd"] = desc
+                    update_dict = self.update(iter, per_action_batch)
+                    per_update_iter += 1
+                    loss += update_dict["total_loss"]
+            if iter % LOG_ITER == 0:
+                weight_file_name = os.path.join(
+                    hydra_output_dir, f"iter_{iter}_model.pth"
+                )
+                self.save_weights(weight_file_name)
+                print(f"Saved model to file: {weight_file_name}")
+            iter += 1
+        self.save_weights(os.path.join(hydra_output_dir, "best_model.pth"))
+        return loss / per_update_iter
 
     def update_for_rollout(self, batch: dict, center) -> dict:
         rgb = np.copy(batch["rgb"].detach().cpu().numpy())
@@ -865,20 +910,18 @@ class PerceiverActorAgent:
         backprop: true if training, false if inference
         """
 
-        # If val==False and backprop==False, this means it is a roll-out call
-        # do the update as usual without backpropping anything or looking for expert_actions
-        # sample
+        # NOTE: If val==False and backprop==False, this means it is a roll-out call do the
+        # update as usual without backpropping anything or looking for expert_actions
         action_trans = None
-        # FIXME: read all targets and inputs from PER_WAYPOINT_BATCH
+        action_rot_grip = None
+        action_ignore_collisions = None
         if val or backprop:
             # This gives us our action translation indices - location in the voxel cube
-            action_trans = replay_sample["trans_action_indices"][:, :, :3].int()
+            action_trans = replay_sample["action_trans"].int()
             # Rotation index
-            action_rot_grip = replay_sample["rot_grip_action_indices"][0, :].int()
+            action_rot_grip = replay_sample["action_rot_grip"].int()
             # Do we take some action to ignore collisions or not
-            action_ignore_collisions = replay_sample["ignore_collisions"][
-                :, :, -1
-            ].int()
+            action_ignore_collisions = replay_sample["action_ignore_collisions"]
 
         # Get language goal embedding
         lang_goal = replay_sample["cmd"]
@@ -892,8 +935,7 @@ class PerceiverActorAgent:
 
         # inputs
         # 4 dimensions - proprioception: {gripper_open, left_finger_joint, right_finger_joint, timestep}
-        # TODO: edit such that update happens 1x per action
-        proprio = replay_sample["gripper_states"]
+        proprio = replay_sample["proprio"]
 
         # NOTE: PerAct data augmentation is replaced by ours alongwith a check to
         # make sure that action is valid
@@ -904,23 +946,11 @@ class PerceiverActorAgent:
         # q_trans is going to be the 100 x 100 x 100 q function
         # Rot_grip_q is size 218 - X Y Z, 5 degree bins for each
         #  72 bins per x,y,z
-        # collision_q is a "binary" (2 values)
+        # collision_q is a "binary" (2 values) -- we hardcode this to 0.0
         # This is purely supervised and comes from oracle data
         total_loss = 0.0
-        num_iters = 0
-        continuous_trans_vector = []
-        translation_vector = []
-        rot_and_grip_vector = []
-        action_trans_vector = []
-        # for idx in range(len(replay_sample["ee_keyframe_pos"][0])):
-        #     proprio_instance = proprio[:, idx]
-        #     action_trans_instance = action_trans[:, idx]
-        #     action_rot_grip_instance = action_rot_grip[idx].unsqueeze(0)
-        #     action_ignore_collissions_instance = action_ignore_collisions[
-        #         :, idx
-        #     ].unsqueeze(0)
         q_trans, rot_grip_q, collision_q, voxel_grid = self._q(
-            obs, proprio_instance, pcd, lang_goal_embs, bounds
+            obs, proprio, pcd, lang_goal_embs, bounds
         )
 
         # one-hot expert actions
@@ -936,9 +966,9 @@ class PerceiverActorAgent:
                 action_collision_one_hot,
             ) = self._get_one_hot_expert_actions(
                 bs,
-                action_trans_instance,
-                action_rot_grip_instance,
-                action_ignore_collissions_instance,
+                action_trans,
+                action_rot_grip,
+                action_ignore_collisions,
                 device=self._device,
             )
         if val or backprop:
@@ -980,7 +1010,6 @@ class PerceiverActorAgent:
 
             loss = trans_loss + rot_grip_loss + 0 * collision_loss
             total_loss += loss.float()
-            num_iters += 1
 
             # backprop
             if backprop:
@@ -998,12 +1027,6 @@ class PerceiverActorAgent:
             # discrete to continuous translation action
             res = (bounds[:, 3:] - bounds[:, :3]) / self._voxel_size
             continuous_trans = bounds[:, :3] + res * coords_indicies.int() + res / 2
-
-            continuous_trans_vector = continuous_trans
-            translation_vector = coords_indicies
-            rot_and_grip_vector = rot_and_grip_indicies
-
-            total_loss = total_loss / num_iters
 
         return {
             "total_loss": total_loss,
@@ -1409,8 +1432,83 @@ def eval(path, template, split_path, weight_path, visualize, partition="test"):
 )
 @click.option("--debug/--no-debug", default=False)
 def main(flag, path, viz, split_path, weight_path, template, partition, debug):
+    # create dataloaders here
+    if split_path is not None:
+        with open(split_path, "r") as f:
+            train_test_split = yaml.safe_load(f)
+    ds = PerActRobotDataset(
+        path,
+        template=template,
+        # verbose=True,
+        num_pts=8000,
+        data_augmentation=True,
+        crop_radius=False,
+        ori_dr_range=np.pi / 8,
+        cart_dr_range=0.0,
+        first_frame_as_input=False,
+        # first_keypoint_only=True,
+        # keypoint_range=[0],
+        trial_list=train_test_split["train"] if split_path else [],
+        orientation_type="quaternion",
+        show_voxelized_input_and_reference=False,
+        show_cropped=False,
+        verbose=False,
+        multi_step=True,
+        visualize_interaction_estimates=False,
+        visualize_cropped_keyframes=False,
+        robot="stretch",
+        autoregressive=True,
+        time_as_one_hot=True,
+    )
+    # create agent here
+    # initialize PerceiverIO Transformer
+    perceiver_encoder = PerceiverIO(
+        depth=6,
+        iterations=1,
+        voxel_size=VOXEL_SIZES[0],
+        initial_dim=3 + 3 + 1 + 3,
+        low_dim_size=3,
+        layer=0,
+        num_rotation_classes=72,
+        num_grip_classes=2,
+        num_collision_classes=2,
+        num_latents=NUM_LATENTS,
+        latent_dim=512,
+        cross_heads=1,
+        latent_heads=8,
+        cross_dim_head=64,
+        latent_dim_head=64,
+        weight_tie_layers=False,
+        activation="lrelu",
+        input_dropout=0.1,
+        attn_dropout=0.1,
+        decoder_dropout=0.0,
+        voxel_patch_size=5,
+        voxel_patch_stride=5,
+        final_dim=64,
+    )
+    # initialize PerceiverActor
+    peract_agent = PerceiverActorAgent(
+        coordinate_bounds=ds.scene_bounds,
+        perceiver_encoder=perceiver_encoder,
+        camera_names=CAMERAS,
+        batch_size=BATCH_SIZE,
+        voxel_size=ds.voxel_sizes[0],
+        voxel_feature_size=3,
+        num_rotation_classes=72,
+        rotation_resolution=5,
+        lr=0.0001,
+        image_resolution=[IMAGE_SIZE, IMAGE_SIZE],
+        lambda_weight_l2=0.000001,
+        transform_augmentation=False,
+        optimizer_type="lamb",
+        num_pts=8000,
+    )
+    device = "cuda" if torch.cuda.is_available() else "cpu"
+
+    # call the intended function on the model
     if flag == "t":
-        train(path, template, split_path, weight_path, debug=debug)
+        peract_agent.do_epoch(ds, weight_path=weight_path, debug=debug)
     elif flag == "e":
         eval(path, template, split_path, weight_path, viz, partition=partition)
 
