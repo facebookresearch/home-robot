@@ -554,7 +554,6 @@ class RobotDataset(RLBenchDataset):
         # this index is of the actual episode step this keypoint belongs to; i.e. trial/current_keypoint_idx/<ee-pose, images, etc>
         if verbose:
             print(f"Key-point index chosen: abs={current_keypoint_idx}")
-
         gripper_width_array = trial["gripper_state"][()]
         peract_input_gripper_state = np.copy(gripper_width_array)
         if len(gripper_width_array.shape) == 1:
@@ -667,15 +666,10 @@ class RobotDataset(RLBenchDataset):
             index = trial.group["interaction_point_index"][()]
             interaction_point = xyz[index]
             labeled = True
-
         mask = np.bitwise_and(depth < 1.5, depth > 0.3)
         rgb = rgb[mask]
         xyz = xyz[mask]
         feat = feat[mask]
-        # y_mask = xyz[:, 0] < -0.9
-        # rgb = rgb[y_mask]
-        # xyz = xyz[y_mask]
-        # feat = feat[y_mask]
         z_mask = xyz[:, 2] > 0.15
         rgb = rgb[z_mask]
         xyz = xyz[z_mask]
@@ -696,7 +690,7 @@ class RobotDataset(RLBenchDataset):
         xyz, rgb, feat = filter_and_remove_duplicate_points(
             xyz, rgb, feat, voxel_size=VOXEL_SIZE_1, semantic_id=1
         )
-        # xyz, rgb, feat = self.remove_duplicate_points(xyz, rgb, feat)
+
         xyz, rgb, feat = self.dr_crop_radius(xyz, rgb, feat, interaction_ee_keyframe)
         orig_xyz, orig_rgb, orig_feat = xyz, rgb, feat
 
@@ -1041,5 +1035,4 @@ def show_all_keypoints(data_dir, split, template, robot):
 
 
 if __name__ == "__main__":
-    debug_get_datum()
-    pass
+    show_all_keypoints()
