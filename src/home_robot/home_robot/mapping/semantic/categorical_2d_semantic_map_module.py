@@ -91,7 +91,7 @@ class Categorical2DSemanticMapModule(nn.Module):
              consider it as obstacle
             must_explore_close: reduce the distance we need to get to things to make them work
             min_obs_height_cm: minimum height of obstacles (in centimetres)
-            record_instance_ids: whether to record instance ids
+            record_instance_ids: whether to record instance ids in the 2d semantic map
         """
         super().__init__()
 
@@ -586,21 +586,38 @@ class Categorical2DSemanticMapModule(nn.Module):
 
         return current_map, current_pose
 
-    def cluster_binary_map(self, binary_map):
+    def cluster_binary_map(self, binary_map: Tensor) -> Tensor:
+        """
+        Performs connected component analysis on a binary map.
+
+        Args:
+            binary_map (Tensor): A binary map tensor.
+
+        Returns:
+            Tensor: A tensor containing the labels after connected component analysis.
+
+        """
         labels = measure.label(
             binary_map.cpu().numpy(), connectivity=2
         )  # Perform connected component analysis
         return torch.tensor(labels, dtype=torch.int64, device=binary_map.device)
 
+
     def update_instances_in_global_map(
-        self, global_instances, local_map, x_range, y_range
-    ):
-        """Adds new instances from the local map to the global map
-        Arguments:
-        global_map:
-        local_map:
-        xrange:
-        yrange:
+        self, global_instances: Tensor, local_map: Tensor, x_range: tuple, y_range: tuple
+    ) -> Tensor:
+        """
+        Adds new instances from the local map to the global map.
+
+        Args:
+            global_instances (Tensor): The global map tensor.
+            local_map (Tensor): The local map tensor.
+            x_range (tuple): The range of indices in the x-axis for the local map in the global map.
+            y_range (tuple): The range of indices in the y-axis for the local map in the global map.
+
+        Returns:
+            Tensor: The updated global instances tensor.
+
         """
         p = self.padding_for_instance_overlap  # default: 1
         d = self.dilation_for_instances  # default: 0
@@ -654,10 +671,38 @@ class Categorical2DSemanticMapModule(nn.Module):
         # Get the instances from the global map within the local map's region
         global_instances_within_local = global_instances[x_start:x_end, y_start:y_end]
 
-        # Create a mapping of local instance IDs to global instance IDs
-        instance_mapping = {}
+        instance_mapping = self.get_instance_mapping(
+            extended_local_labels, global_instances_within_local
+        )
 
-        max_instance_id = torch.max(global_instances)
+        # Local instances in the original local map
+        local_instances = (extended_local_labels * extended_local_map)[
+            t_p : t_p + x2 - x1, l_p : l_p + y2 - y1
+        ]
+        # Update the global map with the associated instances from the local map
+        global_instances_in_local = np.vectorize(instance_mapping.get)(
+            local_instances.cpu().numpy()
+        )
+        global_instances[x1:x2, y1:y2] = torch.tensor(
+            global_instances_in_local, dtype=torch.int64, device=global_instances.device
+        )
+        return global_instances
+
+    def get_instance_mapping(
+        self, extended_local_labels: Tensor, global_instances_within_local: Tensor
+    ) -> dict:
+        """
+        Creates a mapping of local instance IDs to global instance IDs.
+
+        Args:
+            extended_local_labels (Tensor): Labels of instances in the extended local map.
+            global_instances_within_local (Tensor): Instances from the global map within the local map's region.
+
+        Returns:
+            dict: A mapping of local instance IDs to global instance IDs.
+        """
+        instance_mapping = {}
+        max_instance_id = torch.max(global_instances_within_local)
 
         # Associate instances in the local map with corresponding instances in the global map
         for local_instance_id in torch.unique(extended_local_labels):
@@ -680,36 +725,32 @@ class Categorical2DSemanticMapModule(nn.Module):
                 # If there is a corresponding instance in the global map, pick the first one and associate it
                 global_instance_id = unique_overlapping_instances[0].item()
                 instance_mapping[local_instance_id.item()] = global_instance_id
-                print("old instance: ", global_instance_id)
             else:
                 # If there are no corresponding instances, create a new instance
                 new_global_instance_id = max_instance_id + 1
                 instance_mapping[local_instance_id.item()] = new_global_instance_id
                 max_instance_id += 1
-                print("new instance: ", new_global_instance_id)
         instance_mapping[0] = 0
-        # Local instances in the original local map
-        local_instances = (extended_local_labels * extended_local_map)[
-            t_p : t_p + x2 - x1, l_p : l_p + y2 - y1
-        ]
-        # Update the global map with the associated instances from the local map
-
-        global_instances_in_local = np.vectorize(instance_mapping.get)(
-            local_instances.cpu().numpy()
-        )
-        global_instances[x1:x2, y1:y2] = torch.tensor(
-            global_instances_in_local, dtype=torch.int64, device=global_instances.device
-        )
-        return global_instances
+        return instance_mapping
 
     def add_instance_ids_to_global_map(
         self, e: int, global_map: Tensor, local_map: Tensor, lmb: Tensor
     ) -> Tensor:
+        """
+        Adds instance IDs to the global map based on the local map.
+
+        Args:
+            e (int): The index of the environment.
+            global_map (Tensor): The global map tensor.
+            local_map (Tensor): The local map tensor.
+            lmb (Tensor): The tensor containing the ranges of indices for the local map in the global map.
+
+        Returns:
+            Tensor: The updated global map tensor.
+        """
         for i in range(self.num_sem_categories):
             if i not in [0, self.num_sem_categories - 1]:
                 if torch.sum(local_map[e, MC.NON_SEM_CHANNELS + i]) > 0:
-                    print("category ", i)
-
                     # if the local map has any object instances, update the global map with instance ids
                     instances = self.update_instances_in_global_map(
                         global_map[

@@ -44,7 +44,7 @@ class ObjectNavAgentModule(nn.Module):
             dilate_obstacles=config.AGENT.SEMANTIC_MAP.dilate_obstacles,
             dilate_size=config.AGENT.SEMANTIC_MAP.dilate_size,
             dilate_iter=config.AGENT.SEMANTIC_MAP.dilate_iter,
-            record_instance_ids=config.AGENT.SEMANTIC_MAP.record_instance_ids,
+            record_instance_ids=getattr(config.AGENT.SEMANTIC_MAP, 'record_instance_ids', False),
         )
         self.policy = ObjectNavFrontierExplorationPolicy(
             exploration_strategy=config.AGENT.exploration_strategy

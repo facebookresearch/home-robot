@@ -5,7 +5,7 @@
 import json
 import os
 import shutil
-from typing import Optional, List
+from typing import List, Optional
 
 import cv2
 import numpy as np
@@ -214,20 +214,31 @@ class Visualizer:
 
         if num_channels > 1:
             cumulative_instances = np.cumsum(instances_per_category[:-1])
-            instance_map_combined += np.sum(instance_map[1:] * cumulative_instances[:, np.newaxis, np.newaxis], axis=0)
+            instance_map_combined += np.sum(
+                instance_map[1:] * cumulative_instances[:, np.newaxis, np.newaxis],
+                axis=0,
+            )
 
         return instance_map_combined, instances_per_category
 
-    def replace_semantic_palette_with_instance_palette(self, input_colors: List[int], num_instances:List[int], delta: Optional[int]=20) -> List[int]:
+    def replace_semantic_palette_with_instance_palette(
+        self,
+        input_colors: List[int],
+        num_instances: List[int],
+        delta: Optional[int] = 20,
+    ) -> List[int]:
         shades = []
         input_colors = np.reshape(input_colors, [-1, 3]).tolist()
         for color, num_shades in zip(input_colors, num_instances):
             if num_shades > 0:
-                new_shades = (np.array(color) + np.arange(num_shades).reshape(-1, 1) * np.array([[delta, delta, delta]])).reshape(-1)
+                new_shades = (
+                    np.array(color)
+                    + np.arange(num_shades).reshape(-1, 1)
+                    * np.array([[delta, delta, delta]])
+                ).reshape(-1)
                 new_shades = np.minimum(255, np.maximum(0, new_shades)).tolist()
                 shades += new_shades
         return shades
-
 
     def visualize(
         self,
@@ -333,17 +344,22 @@ class Visualizer:
 
             palette = self.semantic_category_mapping.map_color_palette.copy()
 
-
             # Obstacles, explored, and visited areas
             no_category_mask = (
                 semantic_map == self.num_sem_categories - 1
             )  # Assumes the last category is "other"
 
             if instance_map is not None:
-                instance_map_flattened, instances_per_category = self.flatten_instance_map(instance_map)
+                (
+                    instance_map_flattened,
+                    instances_per_category,
+                ) = self.flatten_instance_map(instance_map)
                 semantic_map = instance_map_flattened
-                palette[3*PI.SEM_START:] = self.replace_semantic_palette_with_instance_palette(palette[3*PI.SEM_START:], instances_per_category)
-                print(len(np.unique(instance_map_flattened)), instance_map_flattened.max())
+                palette[
+                    3 * PI.SEM_START :
+                ] = self.replace_semantic_palette_with_instance_palette(
+                    palette[3 * PI.SEM_START :], instances_per_category
+                )
             semantic_map += PI.SEM_START
 
             obstacle_mask = np.rint(obstacle_map) == 1
@@ -382,7 +398,7 @@ class Visualizer:
                     semantic_map[short_term_goal_mask] = PI.SHORT_TERM_GOAL
 
             # Semantic categories
-            semantic_map_vis = self.get_semantic_vis(semantic_map)
+            semantic_map_vis = self.get_semantic_vis(semantic_map, palette)
             semantic_map_vis = np.flipud(semantic_map_vis)
 
             # overlay the regions the agent has been close to

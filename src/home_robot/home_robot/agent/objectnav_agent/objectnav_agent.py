@@ -33,7 +33,7 @@ class ObjectNavAgent(Agent):
         self.max_steps = config.AGENT.max_steps
         self.num_environments = config.NUM_ENVIRONMENTS
         self.store_all_categories_in_map = (
-            config.AGENT.SEMANTIC_MAP.store_all_categories
+            getattr(config.AGENT.SEMANTIC_MAP,'store_all_categories', False)
         )
         if config.AGENT.panorama_start:
             self.panorama_start_steps = int(360 / config.ENVIRONMENT.turn_angle)
@@ -61,7 +61,7 @@ class ObjectNavAgent(Agent):
             map_resolution=config.AGENT.SEMANTIC_MAP.map_resolution,
             map_size_cm=config.AGENT.SEMANTIC_MAP.map_size_cm,
             global_downscaling=config.AGENT.SEMANTIC_MAP.global_downscaling,
-            record_instance_ids=config.AGENT.SEMANTIC_MAP.record_instance_ids,
+            record_instance_ids=getattr(config.AGENT.SEMANTIC_MAP, 'record_instance_ids', False),
         )
         agent_radius_cm = config.AGENT.radius * 100.0
         agent_cell_radius = int(
@@ -95,7 +95,7 @@ class ObjectNavAgent(Agent):
         self.episode_panorama_start_steps = None
         self.last_poses = None
         self.verbose = config.AGENT.PLANNER.verbose
-        self.record_instance_ids = config.AGENT.SEMANTIC_MAP.record_instance_ids
+        self.record_instance_ids = getattr(config.AGENT.SEMANTIC_MAP, 'record_instance_ids', False)
 
     # ------------------------------------------------------------------
     # Inference methods to interact with vectorized simulation
@@ -239,7 +239,9 @@ class ObjectNavAgent(Agent):
             ]
             if self.record_instance_ids:
                 for e in range(self.num_environments):
-                    vis_inputs[e]['instance_map'] = self.semantic_map.get_instance_map(e)
+                    vis_inputs[e]["instance_map"] = self.semantic_map.get_instance_map(
+                        e
+                    )
 
         else:
             vis_inputs = [{} for e in range(self.num_environments)]

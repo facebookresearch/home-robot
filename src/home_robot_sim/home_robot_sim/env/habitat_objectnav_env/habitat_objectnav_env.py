@@ -142,9 +142,10 @@ class HabitatObjectNavEnv(HabitatEnv):
             obs = self.segmentation.predict(obs, depth_threshold=0.5)
             if self.vocabulary == "coco":
                 OTHER_CATEGORY_ID = -1
-                get_coco_category_id = lambda x: coco_categories_mapping.get(
-                    x, OTHER_CATEGORY_ID
-                )
+                def get_coco_category_id(x):
+                    coco_categories_mapping.get(
+                        x, OTHER_CATEGORY_ID
+                    )
                 obs.semantic = np.vectorize(get_coco_category_id)(obs.semantic)
                 obs.semantic[obs.semantic == OTHER_CATEGORY_ID] = (  # noqa: E711
                     self.semantic_category_mapping.num_sem_categories - 1
