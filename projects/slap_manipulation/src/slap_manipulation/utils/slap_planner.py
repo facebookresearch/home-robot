@@ -43,19 +43,14 @@ class CombinedSLAPPlanner(object):
 
         interpolated_trajectory = []
         interpolated_gripper = []
-        end_pose_added = False
 
         for i in range(num_segments):
             start_pose = waypoints[i]
             end_pose = waypoints[i + 1]
-            end_pose_added = False
 
             spaced_idx = np.linspace(0, 1, num_points_per_segment)
             for t in spaced_idx:
                 interpolated_pose = start_pose
-                # interpolated_pose[:3, 3] = (1 - t) * start_pose[:3, 3] + t * end_pose[
-                #     :3, 3
-                # ]
                 interpolated_pose = (1 - t) * start_pose + t * end_pose
                 interpolated_trajectory.append(interpolated_pose)
                 if t == 1:
@@ -67,49 +62,6 @@ class CombinedSLAPPlanner(object):
 
         return interpolated_trajectory, interpolated_gripper
 
-    # def linear_interpolation(self, waypoints, gripper_action, num_points_per_segment=3):
-    #     num_waypoints = len(waypoints)
-    #     num_segments = num_waypoints - 1
-    #
-    #     interpolated_trajectory = []
-    #     end_pose_added = False
-    #     # interpolated_gripper_action = []
-    #
-    #     for i in range(num_segments):
-    #         start_pose = waypoints[i]
-    #         end_pose = waypoints[i + 1]
-    #         end_pose_added = False
-    #
-    #         # only interpolate between two poses if dist > 2cm
-    #         # dist = np.linalg.norm(start_pose - end_pose)
-    #         # if dist > 0.02:
-    #         # adaptive number of segments, take floor of dist / 2.5cm
-    #         # sub_segments = int(np.floor(dist/0.025)) - 2
-    #         # num_points_per_segment = int(np.floor(dist / 0.025)) - 2
-    #         spaced_idx = np.linspace(0, 1, num_points_per_segment)
-    #         for t in spaced_idx:
-    #             interpolated_pose = start_pose
-    #             interpolated_pose[:3, 3] = (1 - t) * start_pose[:3, 3] + t * end_pose[:3, 3]
-    #             interpolated_trajectory.append(interpolated_pose)
-    #             if t == 1:
-    #                 end_pose_added = True
-    #     #         if t < spaced_idx[-1]:
-    #     #             interpolated_gripper_action.append(gripper_action[i])
-    #     #         else:
-    #     #             interpolated_gripper_action.append(gripper_action[i + 1])
-    #     #             end_pose_added = True
-    #     # else:
-    #     #     interpolated_trajectory.append(start_pose)
-    #     #     interpolated_gripper_action.append(gripper_action[i])
-    #     # # if not end_pose_added:
-    #     if not end_pose_added:
-    #         interpolated_trajectory.append(end_pose)
-    #     # #     interpolated_gripper_action.append(gripper_action[-1])
-    #     interpolated_trajectory = np.array(interpolated_trajectory)
-    #     # interpolated_gripper_action = np.array(interpolated_gripper_action)
-    #
-    #     return interpolated_trajectory  # , interpolated_gripper_action
-
     def plan_for_skill(
         self, actions_pose_mat: np.ndarray, action_gripper: np.ndarray
     ) -> Optional[List[Tuple]]:
@@ -120,7 +72,6 @@ class CombinedSLAPPlanner(object):
         trajectory = []
         num_pts_per_segment = 4
 
-        # TODO: add skill-specific standoffs from 0th action
         joint_pos_pre = self.robot.manip.get_joint_positions()
 
         # smoothen trajectory via linear interpolation
@@ -161,8 +112,6 @@ class CombinedSLAPPlanner(object):
 
         num_actions = actions_pose_mat.shape[0]
         for i in range(num_actions):
-            # desired_pos = actions_pose_mat[i, 0:3]
-            # desired_quat = actions_pose_mat[i, 3:7]
             desired_pos, desired_quat = to_pos_quat(actions_pose_mat[i])
             desired_cfg, success, _ = self.robot.model.manip_ik(
                 (desired_pos, desired_quat), q0=None
@@ -177,7 +126,6 @@ class CombinedSLAPPlanner(object):
             else:
                 print(f"-> could not solve for skill; action_{i} unreachable")
                 return None
-        # trajectory.append(trajectory[0])
         # go back to initial pt with the gripper state same as last predicted action
         end_pt = ("end", joint_pos_pre, bool(action_gripper[-1]))
         trajectory.append(end_pt)
@@ -200,13 +148,12 @@ class CombinedSLAPPlanner(object):
     ) -> bool:
         """Execute a predefined end-effector trajectory. Expected input dimension is NUM_WAYPOINTSx8,
         where each waypoint is: pos(3-val), ori(4-val), gripper(1-val)"""
-        # assert grasp.shape == (4, 4)
         action_as_mat = []
         for act in combined_action:
             action_as_mat.append(to_matrix(act[:3], act[3:7], trimesh_format=True))
         action_as_mat = np.array(action_as_mat)
         action_as_mat = np.matmul(action_as_mat, self._robot_ee_to_grasp_offset)
-        # self._send_action_to_tf(action_as_mat)
+        self._send_action_to_tf(action_as_mat)
 
         # Generate a plan
         trajectory = self.plan_for_skill(action_as_mat, combined_action[:, -1])
@@ -217,18 +164,15 @@ class CombinedSLAPPlanner(object):
 
         for i, (name, waypoint, should_grasp) in enumerate(trajectory):
             self.robot.manip.goto_joint_positions(waypoint)
-            # TODO: remove this delay - it's to make sure we don't start moving again too early
-            rospy.sleep(0.1)
-            # self._publish_current_ee_pose()
             if should_grasp:
                 self.robot.manip.close_gripper()
                 if self.mode == "open":
-                    rospy.sleep(1.0)
+                    rospy.sleep(0.5)
                 self.mode = "close"
             else:
                 self.robot.manip.open_gripper()
                 if self.mode == "close":
-                    rospy.sleep(1.0)
+                    rospy.sleep(0.5)
                 self.mode = "open"
             if wait_for_input:
                 input(f"{i+1}) went to {name}")
