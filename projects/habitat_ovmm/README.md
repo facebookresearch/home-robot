@@ -104,20 +104,20 @@ python -u -m habitat_baselines.run \
 ## Running evaluations
 
 
-### With GT semantics
+### Evaluate with GT semantics
 ```
 python projects/habitat_ovmm/eval_baselines_agent.py
 ```
 
-### With DETIC
+### Evaluate with DETIC
 Ensure `GROUND_TRUTH_SEMANTICS:0` in `configs/agent/hssd_eval.yaml` before running the above command
 
-### On specific episodes
+### Evaluate on specific episodes
 ```
 python projects/habitat_ovmm/eval_baselines_agent.py habitat.dataset.episode_ids="[151,182]"
 ```
 
-### Evaluating all baseline variants
+### Evaluate all baseline variants
 1. First generate all possible configs using the base config `configs/agent/hssd_eval.yaml`. Configs will be saved under `projects/habitat_ovmm/configs/agent/generated`
 ```
 python projects/habitat_ovmm/scripts/gen_configs.py
