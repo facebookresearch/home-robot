@@ -4,21 +4,22 @@
 # LICENSE file in the root directory of this source tree.
 
 
+import json
+import os
+import time
+from collections import defaultdict
+
+import numpy as np
 from habitat import make_dataset
 from habitat.core.environments import get_env_class
 from habitat.core.vector_env import VectorEnv
 from habitat.utils.gym_definitions import _get_env_name
 from habitat_baselines.rl.ppo.ppo_trainer import PPOTrainer
 
+from home_robot.agent.ovmm_agent.ovmm_agent import OpenVocabManipAgent
 from home_robot_sim.env.habitat_ovmm_env.habitat_ovmm_env import (
     HabitatOpenVocabManipEnv,
 )
-from collections import defaultdict
-import numpy as np
-from home_robot.agent.ovmm_agent.ovmm_agent import OpenVocabManipAgent
-import os
-import json
-import time
 
 
 def create_ovmm_env_fn(config):
@@ -31,7 +32,6 @@ def create_ovmm_env_fn(config):
     habitat_env.seed(habitat_config.seed)
     env = HabitatOpenVocabManipEnv(habitat_env, config, dataset=dataset)
     return env
-
 
 
 class OVMMEvaluator(PPOTrainer):

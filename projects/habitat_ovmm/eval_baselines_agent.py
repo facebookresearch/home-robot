@@ -9,6 +9,7 @@ import json
 import os
 import sys
 from pathlib import Path
+
 from config_utils import process_and_adjust_config
 
 os.environ["OPENBLAS_NUM_THREADS"] = "1"
@@ -27,13 +28,6 @@ sys.path.insert(
 from evaluator import OVMMEvaluator
 
 from home_robot.agent.ovmm_agent.ovmm_agent import OpenVocabManipAgent
-
-
-
-
-
-
-
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
