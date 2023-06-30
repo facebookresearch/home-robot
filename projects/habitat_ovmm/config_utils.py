@@ -4,11 +4,11 @@
 # LICENSE file in the root directory of this source tree.
 
 
+from argparse import Namespace
 from typing import Optional, Tuple
 
 from habitat_baselines.config.default import _BASELINES_CFG_DIR
 from habitat_baselines.config.default import get_config as get_habitat_config
-from argparse import Namespace
 from omegaconf import DictConfig, OmegaConf
 
 
@@ -17,6 +17,7 @@ def get_config(
 ) -> Tuple[DictConfig, str]:
     config = get_habitat_config(path, overrides=opts, configs_dir=configs_dir)
     return config, ""
+
 
 def process_and_adjust_config(args: Namespace) -> DictConfig:
     """

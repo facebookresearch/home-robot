@@ -21,7 +21,6 @@ sys.path.insert(
     str(Path(__file__).resolve().parent.parent.parent / "src/home_robot_sim"),
 )
 from evaluator import OVMMEvaluator
-
 from habitat import make_dataset
 from habitat.core.environments import get_env_class
 from habitat.utils.gym_definitions import _get_env_name

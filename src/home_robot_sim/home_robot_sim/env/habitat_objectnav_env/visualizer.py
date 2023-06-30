@@ -152,7 +152,7 @@ class Visualizer:
         self.font_scale = 1
         self.text_color = (20, 20, 20)  # BGR
         self.text_thickness = 2
-        self.show_rl_obs = getattr(config, 'SHOW_RL_OBS', False)
+        self.show_rl_obs = getattr(config, "SHOW_RL_OBS", False)
 
     def reset(self):
         self.vis_dir = self.default_vis_dir
