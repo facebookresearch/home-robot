@@ -63,7 +63,6 @@ class MemoryCollector(OVMMEvaluator):
             agent,
             self.envs,
             num_episodes_per_env=num_episodes_per_env,
-            episode_keys=None,
         )
         return agent.memory
 

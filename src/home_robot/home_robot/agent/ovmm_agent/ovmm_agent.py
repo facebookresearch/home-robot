@@ -104,7 +104,7 @@ class OpenVocabManipAgent(ObjectNavAgent):
                 config.AGENT.SKILLS.NAV_TO_REC,
                 device_id=device_id,
             )
-        self._fall_wait_steps = config.AGENT.fall_wait_steps
+        self._fall_wait_steps = getattr(config.AGENT, "fall_wait_steps", 0)
         self.config = config
 
     def _get_info(self, obs: Observations) -> Dict[str, torch.Tensor]:
