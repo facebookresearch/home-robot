@@ -104,7 +104,7 @@ python -u -m habitat_baselines.run \
 ## Running evaluations
 
 
-### Evaluate with GT semantics
+### Evaluate with ground truth semantics
 ```
 python projects/habitat_ovmm/eval_baselines_agent.py
 ```
