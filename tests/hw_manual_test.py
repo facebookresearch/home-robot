@@ -35,7 +35,17 @@ if __name__ == "__main__":
     robot.nav.navigate_to(xyt_goal)
 
     xyt_curr = robot.nav.get_base_pose()
+    print("Current location:", xyt_curr[:2], "goal was", xyt_goal[:2])
     assert np.allclose(xyt_curr[:2], xyt_goal[:2], atol=POS_TOL)
+
+    # Sometimes the robot will time out before done moving.
+    print("Make sure orientation is correct...")
+    for _ in range(3):
+        print("- sending the command again to guard against timeouts...")
+        robot.nav.navigate_to(xyt_goal)
+    xyt_curr = robot.nav.get_base_pose()
+
+    print("Current orientation:", xyt_curr[2], "goal was", xyt_goal[2])
     assert np.allclose(xyt_curr[2], xyt_goal[2], atol=YAW_TOL)
 
     print(f"Confirm that the robot moved to {xyt_goal} (forward left, facing right)")
