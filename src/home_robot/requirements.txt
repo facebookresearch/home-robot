@@ -15,6 +15,7 @@ natsort
 openai-clip
 timm
 pandas
+mss
 # visualizations and debugging
 matplotlib
 # Command line tools
