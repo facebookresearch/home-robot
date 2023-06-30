@@ -9,9 +9,10 @@ import json
 import os
 import sys
 import time
+from argparse import Namespace
 from collections import defaultdict
 from pathlib import Path
-from argparse import Namespace
+
 import numpy as np
 from config_utils import get_config
 from omegaconf import DictConfig, OmegaConf
@@ -74,10 +75,7 @@ def process_and_adjust_config(args: Namespace) -> DictConfig:
         # TODO: not seeing any speed improvements when removing these sensors
         if "robot_third_rgb" in config.habitat.gym.obs_keys:
             config.habitat.gym.obs_keys.remove("robot_third_rgb")
-        if (
-            "third_rgb_sensor"
-            in config.habitat.simulator.agents.main_agent.sim_sensors
-        ):
+        if "third_rgb_sensor" in config.habitat.simulator.agents.main_agent.sim_sensors:
             config.habitat.simulator.agents.main_agent.sim_sensors.pop(
                 "third_rgb_sensor", None
             )
@@ -89,6 +87,7 @@ def process_and_adjust_config(args: Namespace) -> DictConfig:
         )
     OmegaConf.set_readonly(config, True)
     return config
+
 
 class VectorizedEvaluator(PPOTrainer):
     """Class for creating vectorized environments, evaluating OpenVocabManipAgent on an episode dataset and returning metrics"""
@@ -268,5 +267,6 @@ if __name__ == "__main__":
     evaluator = VectorizedEvaluator(config)
 
     evaluator.eval(
-        agent, num_episodes_per_env=config.EVAL_VECTORIZED.num_episodes_per_env,
+        agent,
+        num_episodes_per_env=config.EVAL_VECTORIZED.num_episodes_per_env,
     )
