@@ -41,7 +41,7 @@ class StretchExplorationEnv(StretchEnv):
         self.reset()
 
     def reset(self):
-        self._episode_start_pose = xyt2sophus(self.get_base_pose())
+        self._episode_start_pose = xyt2sophus(self.robot.nav.get_base_posern())
         self.curr_step = 0
         if self.visualizer is not None:
             self.visualizer.reset()
@@ -55,7 +55,7 @@ class StretchExplorationEnv(StretchEnv):
         home_q = self.robot_model.update_look_front(home_q.copy())
         # Flat
         # home_q = self.robot_model.update_look_ahead(home_q.copy())
-        self.goto(home_q, move_base=False, wait=True)
+        self.robot.nav._ros_client.goto(home_q, move_base=False, wait=True)
 
     def apply_action(
         self,
@@ -86,7 +86,7 @@ class StretchExplorationEnv(StretchEnv):
             pass
 
         if continuous_action is not None:
-            if not self.in_navigation_mode():
+            if not self.robot.in_navigation_mode():
                 self.robot.switch_to_navigation_mode()
                 rospy.sleep(self.msg_delay_t)
             if not self.dry_run:
@@ -97,8 +97,8 @@ class StretchExplorationEnv(StretchEnv):
 
     def get_observation(self) -> Observations:
         """Get rgb/xyz/theta from this"""
-        rgb, depth = self.get_images(compute_xyz=False, rotate_images=True)
-        current_pose = xyt2sophus(self.get_base_pose())
+        rgb, depth = self.robot.head.get_images(compute_xyz=False)
+        current_pose = xyt2sophus(self.robot.nav.get_base_pose())
 
         # use sophus to get the relative translation
         relative_pose = self._episode_start_pose.inverse() * current_pose
@@ -117,7 +117,7 @@ class StretchExplorationEnv(StretchEnv):
             compass=np.array([theta]),
             # base_pose=sophus2obs(relative_pose),
             task_observations={"image_frame": rgb.copy()[:, :, ::-1]},
-            camera_pose=self.get_camera_pose_matrix(rotated=True),
+            camera_pose=self.robot.head.get_pose(),
         )
         return obs
 
@@ -130,14 +130,14 @@ class StretchExplorationEnv(StretchEnv):
 
     def rotate(self, theta):
         """just rotate and keep trying"""
-        init_pose = self.get_base_pose()
+        init_pose = self.robot.nav.get_base_pose()
         xyt = [0, 0, theta]
         goal_pose = xyt_base_to_global(xyt, init_pose)
         rate = rospy.Rate(5)
         err = float("Inf"), float("Inf")
         pos_tol, ori_tol = 0.1, 0.1
         while not rospy.is_shutdown():
-            curr_pose = self.get_base_pose()
+            curr_pose = self.robot.nav.get_base_pose()
             print("init =", init_pose)
             print("curr =", curr_pose)
             print("goal =", goal_pose)
