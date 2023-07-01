@@ -1,3 +1,9 @@
+# Copyright (c) Meta Platforms, Inc. and affiliates.
+#
+# This source code is licensed under the MIT license found in the
+# LICENSE file in the root directory of this source tree.
+
+
 from datetime import datetime
 from enum import IntEnum, auto
 from typing import Any, Dict, Optional, Tuple
@@ -41,7 +47,7 @@ def get_skill_as_one_hot_dict(curr_skill: Skill):
 class OpenVocabManipAgent(ObjectNavAgent):
     """Simple object nav agent based on a 2D semantic map."""
 
-    def __init__(self, config, device_id: int = 0, obs_spaces=None, action_spaces=None):
+    def __init__(self, config, device_id: int = 0):
         super().__init__(config, device_id=device_id)
         self.states = None
         self.place_start_step = None
@@ -72,8 +78,6 @@ class OpenVocabManipAgent(ObjectNavAgent):
                 config,
                 config.AGENT.SKILLS.PLACE,
                 device_id=device_id,
-                obs_spaces=None,
-                action_spaces=None,
             )
         skip_both_gaze = self.skip_skills.gaze_at_obj and self.skip_skills.gaze_at_rec
         if config.AGENT.SKILLS.GAZE_OBJ.type == "rl" and not skip_both_gaze:
@@ -81,8 +85,6 @@ class OpenVocabManipAgent(ObjectNavAgent):
                 config,
                 config.AGENT.SKILLS.GAZE_OBJ,
                 device_id=device_id,
-                obs_spaces=None,
-                action_spaces=None,
             )
         if (
             config.AGENT.SKILLS.NAV_TO_OBJ.type == "rl"
@@ -92,8 +94,6 @@ class OpenVocabManipAgent(ObjectNavAgent):
                 config,
                 config.AGENT.SKILLS.NAV_TO_OBJ,
                 device_id=device_id,
-                obs_spaces=None,
-                action_spaces=None,
             )
         if (
             config.AGENT.SKILLS.NAV_TO_REC.type == "rl"
@@ -103,10 +103,8 @@ class OpenVocabManipAgent(ObjectNavAgent):
                 config,
                 config.AGENT.SKILLS.NAV_TO_REC,
                 device_id=device_id,
-                obs_spaces=None,
-                action_spaces=None,
             )
-        self._fall_wait_steps = config.AGENT.fall_wait_steps
+        self._fall_wait_steps = getattr(config.AGENT, "fall_wait_steps", 0)
         self.config = config
 
     def _get_info(self, obs: Observations) -> Dict[str, torch.Tensor]:
