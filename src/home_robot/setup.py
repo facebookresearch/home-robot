@@ -14,7 +14,6 @@ install_requires = [
     "pygifsicle",
     "numpy-quaternion",
     "pybind11-global",
-    "sophuspy",
     "trimesh",
     "pin==2.6.17",
 ]
