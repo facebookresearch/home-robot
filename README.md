@@ -35,6 +35,10 @@ Optionally, you can [manage Docker as a non-root user](https://docs.docker.com/e
    ```
    git clone https://github.com/facebookresearch/home-robot.git
    ```
+1. Navigate to projects/habitat_ovmm
+   ```
+   cd projects/habitat_ovmm
+   ```
 1. Implement your own agent or try our baseline agent, located in [projects/habitat_ovmm/eval_baselines_agent.py](projects/habitat_ovmm/eval_baselines_agent.py). 
 1.  Modify the provided [projects/habitat_ovmm/docker/ovmm_baseline.Dockerfile](projects/habitat_ovmm/docker/ovmm_baseline.Dockerfile) if you need custom modifications. Let’s say your code needs `<some extra package>`, this dependency should be pip installed inside a conda environment called `home-robot` that is shipped with our HomeRobot challenge docker, as shown below:
     ```dockerfile
@@ -43,10 +47,16 @@ Optionally, you can [manage Docker as a non-root user](https://docs.docker.com/e
     # install dependencies in the home-robot conda environment
     RUN /bin/bash -c ". activate home-robot; pip install <some extra package>"
 
-    ADD eval_baselines_agent.py /agent.py
-    ADD submission.sh /submission.sh
+    ADD eval_baselines_agent.py agent.py
+    ADD submission.sh submission.sh
+
+    CMD ["/bin/bash", "-c", ". activate home-robot; export PYTHONPATH=/home-robot/projects/habitat_ovmm:$PYTHONPATH; bash submission.sh"]
     ```
-1. Build your Docker image using: `docker build . -f docker/ovmm_baseline.Dockerfile -t ovmm_baseline_submission`.
+1. Build your Docker image using:
+
+    ```
+    docker build . -f docker/ovmm_baseline.Dockerfile -t ovmm_baseline_submission
+    ```
      
     *Note:* Please, make sure that you keep your local version of `fairembodied/habitat-challenge:homerobot-ovmm-challenge-2023-dev2` image up to date with the image we have hosted on [dockerhub](https://hub.docker.com/r/fairembodied/habitat-challenge/tags). This can be done by pruning all cached images, using:
     ```
@@ -54,15 +64,7 @@ Optionally, you can [manage Docker as a non-root user](https://docs.docker.com/e
     ```
     [Optional] Modify submission.sh file if your agent needs any custom modifications (e.g. command-line arguments). Otherwise, nothing to do. Default submission.sh is simply a call to agent in `agent.py`
 
-1. Download all the required data into the `home-robot/data` directory (see [Habitat OVMM readme](projects/habitat_ovmm/README.md)). If you used symlinks (i.e. `ln -s`) to link `home-robot/data` to an existing data folder, then modify the Docker command in `scripts/test_local.sh` file to mount the linked location by adding `-v $(pwd)/habitat-challenge-data:/habitat-challenge-data`. The modified docker command would be
-     ```bash
-    docker run \
-          -v $(pwd)/habitat-challenge-data:/habitat-challenge-data \
-          -v $(realpath data):/home-robot/data \
-          --runtime=nvidia \
-          -e "AGENT_EVALUATION_TYPE=local" \
-          ${DOCKER_NAME}
-    ```
+1. Download all the required data into the `home-robot/data` directory (see [Habitat OVMM readme](projects/habitat_ovmm/README.md)). Then in your `docker run` command mount `home-robot/data` data folder to the `home-robot/data` folder in the Docker image (see `./scripts/test_local.sh` for reference).
      
 1. Evaluate your docker container locally:
     ```bash
@@ -70,7 +72,32 @@ Optionally, you can [manage Docker as a non-root user](https://docs.docker.com/e
     ```
     If the above command runs successfully you will get an output similar to:
     ```
-    TODO: add example logs
+    Arguments:
+    {
+        "habitat_config_path": "ovmm/ovmm_eval.yaml",
+        "baseline_config_path": "projects/habitat_ovmm/configs/agent/hssd_eval.yaml",
+        "opts": []
+    }
+    ----------------------------------------------------------------------------------------------------
+    Configs:
+
+    ----------------------------------------------------------------------------------------------------
+    pybullet build time: May 20 2022 19:45:31
+    2023-07-03 15:04:05,629 Initializing dataset OVMMDataset-v0
+    2023-07-03 15:04:06,094 initializing sim OVMMSim-v0
+    2023-07-03 15:04:08,686 Initializing task OVMMNavToObjTask-v0
+    Running eval on [1200] episodes
+    Initializing episode...
+    [OVMM AGENT] step heuristic nav policy
+    Executing skill NAV_TO_OBJ at timestep 1
+    [OVMM AGENT] step heuristic nav policy
+    Executing skill NAV_TO_OBJ at timestep 2
+    [OVMM AGENT] step heuristic nav policy
+    Executing skill NAV_TO_OBJ at timestep 3
+    [OVMM AGENT] step heuristic nav policy
+    Executing skill NAV_TO_OBJ at timestep 4
+    [OVMM AGENT] step heuristic nav policy
+    Executing skill NAV_TO_OBJ at timestep 5
     ```
     Note: this same command will be run to evaluate your agent for the leaderboard. **Please submit your docker for remote evaluation (below) only if it runs successfully on your local setup.** 
 

@@ -20,8 +20,7 @@ esac
 done
 
 docker run \
-      -v $(pwd)/habitat-challenge-data:/habitat-challenge-data \
-      -v $(realpath data):/home-robot/data \
+      -v $(realpath ../../data):/home-robot/data \
       --runtime=nvidia \
       -e "AGENT_EVALUATION_TYPE=local" \
       ${DOCKER_NAME}
