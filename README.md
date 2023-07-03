@@ -27,86 +27,52 @@ Participate in the contest by registering on the EvalAI challenge page (link com
 #### Prerequisites 
 Make sure you have [Docker](https://docs.docker.com/engine/install/ubuntu/) with [NVIDIA Container Toolkit](https://docs.nvidia.com/datacenter/cloud-native/container-toolkit/latest/install-guide.html) installed. 
 
+Optionally, you can [manage Docker as a non-root user](https://docs.docker.com/engine/install/linux-postinstall/#manage-docker-as-a-non-root-user) if you don’t want to preface the `docker` command with `sudo`.
+
 #### Local Evaluation
 
 1. Clone the challenge repository:
    ```
-   foo
+   git clone https://github.com/facebookresearch/home-robot.git
    ```
-1. Implement your own agent or try one of ours. We provide an agents in `path to agents` . For example, `this agent` takes random actions:
-   ```
-   foo
-   ```
-1.  Modify the provided Dockerfile (`path to docker file`) if you need custom modifications. Let’s say your code needs `this package`, this dependency should be pip installed inside a conda environment called `home-robot` that is shipped with our HomeRobot challenge docker, as shown below:
+1. Implement your own agent or try our baseline agent, located in [projects/habitat_ovmm/eval_baselines_agent.py](projects/habitat_ovmm/eval_baselines_agent.py). 
+1.  Modify the provided [projects/habitat_ovmm/docker/ovmm_baseline.Dockerfile](projects/habitat_ovmm/docker/ovmm_baseline.Dockerfile) if you need custom modifications. Let’s say your code needs `<some extra package>`, this dependency should be pip installed inside a conda environment called `home-robot` that is shipped with our HomeRobot challenge docker, as shown below:
     ```dockerfile
-    # TODO: update
-    FROM fairembodied/habitat-challenge:habitat_navigation_2023_base_docker
+    FROM fairembodied/habitat-challenge:homerobot-ovmm-challenge-2023-dev2
 
-    # install dependencies in the habitat conda environment
-    RUN /bin/bash -c ". activate habitat; pip install torch"
+    # install dependencies in the home-robot conda environment
+    RUN /bin/bash -c ". activate home-robot; pip install <some extra package>"
 
-    ADD agents/agent.py /agent.py
+    ADD eval_baselines_agent.py /agent.py
     ADD submission.sh /submission.sh
     ```
-    Build your docker container using: `docker build . --file docker/{ObjectNav, ImageNav}_random_baseline.Dockerfile -t {objectnav, imagenav}_submission`.
-    
-    *Note #1:* you may need `sudo` privileges to run this command.
-    
-    *Note #2:* Please make sure that you keep your local version of `fairembodied/habitat-challenge:habitat_navigation_2023_base_docker` image up to date with the image we have hosted on [dockerhub](https://hub.docker.com/r/fairembodied/habitat-challenge/tags). This can be done by pruning all cached images, using:
+1. Build your Docker image using: `docker build . -f docker/ovmm_baseline.Dockerfile -t ovmm_baseline_submission`.
+     
+    *Note:* Please, make sure that you keep your local version of `fairembodied/habitat-challenge:homerobot-ovmm-challenge-2023-dev2` image up to date with the image we have hosted on [dockerhub](https://hub.docker.com/r/fairembodied/habitat-challenge/tags). This can be done by pruning all cached images, using:
     ```
     docker system prune -a
     ```
-    [Optional] Modify submission.sh file if your agent needs any custom modifications (e.g. command-line arguments). Otherwise, nothing to do. Default submission.sh is simply a call to `RandomAgent` agent in `agent.py`
+    [Optional] Modify submission.sh file if your agent needs any custom modifications (e.g. command-line arguments). Otherwise, nothing to do. Default submission.sh is simply a call to agent in `agent.py`
 
-1. Scene Dataset. Place this data in: `recommended path to data`
-    **Using Symlinks:**  If you used symlinks (i.e. `ln -s`) to link to an existing download of HM3D, there is an additional step. First, make sure there is only one level of symlink (instead of a symlink to a symlink link to a .... symlink) with
-      ```bash
-      ln -f -s $(realpath habitat-challenge-data/data/scene_datasets/hm3d_v0.2) \
-          habitat-challenge-data/data/scene_datasets/hm3d_v0.2
-      ```
-
-    Then modify the docker command in `scripts/test_local_{objectnav, imagenav}.sh` file to mount the linked to location by adding `-v $(realpath habitat-challenge-data/data/scene_datasets/hm3d_v0.2):/habitat-challenge-data/data/scene_datasets/hm3d_v0.2`. The modified docker command would be
+1. Download all the required data into the `home-robot/data` directory (see [Habitat OVMM readme](projects/habitat_ovmm/README.md)). If you used symlinks (i.e. `ln -s`) to link `home-robot/data` to an existing data folder, then modify the Docker command in `scripts/test_local.sh` file to mount the linked location by adding `-v $(pwd)/habitat-challenge-data:/habitat-challenge-data`. The modified docker command would be
      ```bash
-     # ObjectNav
     docker run \
           -v $(pwd)/habitat-challenge-data:/habitat-challenge-data \
-          -v $(realpath habitat-challenge-data/data/scene_datasets/hm3d_v0.2):/habitat-challenge-data/data/scene_datasets/hm3d_v0.2 \
+          -v $(realpath data):/home-robot/data \
           --runtime=nvidia \
           -e "AGENT_EVALUATION_TYPE=local" \
-          -e "TRACK_CONFIG_FILE=/configs/benchmark/nav/objectnav/objectnav_v2_hm3d_stretch_challenge.yaml" \
-          ${DOCKER_NAME}
-    
-    # ImageNav
-    docker run \
-          -v $(pwd)/habitat-challenge-data:/habitat-challenge-data \
-          -v $(realpath habitat-challenge-data/data/scene_datasets/hm3d_v0.2):/habitat-challenge-data/data/scene_datasets/hm3d_v0.2 \
-          --runtime=nvidia \
-          -e "AGENT_EVALUATION_TYPE=local" \
-          -e "TRACK_CONFIG_FILE=/configs/benchmark/nav/imagenav/imagenav_hm3d_v3_challenge.yaml" \
           ${DOCKER_NAME}
     ```
      
 1. Evaluate your docker container locally:
     ```bash
-    # Testing ObjectNav
-    ./scripts/test_local_objectnav.sh --docker-name objectnav_submission
-
-    # Testing ImageNav
-    ./scripts/test_local_imagenav.sh --docker-name imagenav_submission
+    ./scripts/test_local.sh --docker-name ovmm_baseline_submission
     ```
     If the above command runs successfully you will get an output similar to:
     ```
-    2023-03-01 16:35:02,244 distance_to_goal: 6.446822468439738
-    2023-03-01 16:35:02,244 success: 0.0
-    2023-03-01 16:35:02,244 spl: 0.0
-    2023-03-01 16:35:02,244 soft_spl: 0.0014486297806195665
-    2023-03-01 16:35:02,244 num_steps: 1.0
-    2023-03-01 16:35:02,244 collisions/count: 0.0
-    2023-03-01 16:35:02,244 collisions/is_collision: 0.0
-    2023-03-01 16:35:02,244 distance_to_goal_reward: 0.0009365876515706381
+    TODO: add example logs
     ```
     Note: this same command will be run to evaluate your agent for the leaderboard. **Please submit your docker for remote evaluation (below) only if it runs successfully on your local setup.** 
-1. If you want to try out one of the controllers we provide, change the `"--action_space"` in the dockerfile (`docker/{ObjectNav, ImageNav}_random_baseline.Dockerfile`) to use either `waypoint_controller` or `discrete_waypoint_controller`.
 
 #### Online Submission
 
@@ -120,111 +86,20 @@ pip install "evalai>=1.3.5"
 evalai set_token <your EvalAI participant token>
 
 # Push docker image to EvalAI docker registry
-# ObjectNav
-evalai push objectnav_submission:latest --phase <phase-name>
-
-# ImageNav
-evalai push imagenav_submission:latest --phase <phase-name>
+evalai push ovmm_baseline_submission --phase <phase-name>
 ```
 
 The challenge consists of the following phases:
 
-1. **Minival phase**: This split is the same as the one used in `./scripts/test_local_{objectnav, imagenav}.sh`. The purpose of this phase/split is sanity checking -- to confirm that our remote evaluation reports the same result as the one you’re seeing locally. Each team is allowed maximum of 100 submissions per day for this phase, but please use them judiciously. We will block and disqualify teams that spam our servers.
-1. **Test Standard phase**: The purpose of this phase/split is to serve as the public leaderboard establishing the state of the art; this is what should be used to report results in papers. Each team is allowed maximum of 10 submissions per day for this phase, but again, please use them judiciously. Don’t overfit to the test set.
-1. **Test Challenge phase**: This phase/split will be used to decide challenge winners. Each team is allowed a total of 5 submissions until the end of challenge submission phase. The highest performing of these 5 will be automatically chosen. Results on this split will not be made public until the announcement of final results at the [Embodied AI workshop at CVPR](https://embodied-ai.org/).
+1. **Minival phase**: The purpose of this phase is sanity checking — to confirm that remote evaluation reports the same result as local evaluation. Each team is allowed up to 100 submissions per day. We will disqualify teams that spam the servers.
+1. **Test standard phase**: The purpose of this phase/split is to serve as the public leaderboard establishing the state of the art. This is what should be used to report results in papers. Each team is allowed up to 10 submissions per day, to be used judiciously.
+1. **Test challenge phase**: This split will be used to decide challenge teams who will proceed to Stage 2 Evaluation. Each team is allowed a total of 5 submissions until the end of challenge submission phase. The highest performing of these 5 will be automatically chosen.
 
-Note: Your agent will be evaluated on 1000 episodes and will have a total available time of 48 hours to finish. Your submissions will be evaluated on AWS EC2 p2.xlarge instance which has a Tesla K80 GPU (12 GB Memory), 4 CPU cores, and 61 GB RAM. If you need more time/resources for evaluation of your submission please get in touch. If you face any issues or have questions you can ask them by opening an issue on this repository.
+Simulation agents will be evaluated on an AWS EC2 p2.xlarge instance which has a Tesla K80 GPU (12 GB Memory), 4 CPU cores, and 61 GB RAM. Agents will be evaluated on 1000 episodes and will have a total available time of 48 hours to finish each run. If you need more time/resources for evaluation of your submission please get in touch. If you face any issues or have questions you can ask them by opening an issue on this repository.
 
-### ObjectNav/ImageNav Baselines and DD-PPO Training Starter Code
-We have added a config in `configs/ddppo_objectnav_v2_hm3d_stretch.yaml | configs/ddppo_imagenav_v3_hm3d_stretch.yaml` that includes a baseline using DD-PPO from Habitat-Lab.
+### DD-PPO Training Starter Code
+Please refer to the Training DD-PPO skills section of the [Habitat OVMM readme](projects/habitat_ovmm/README.md#training-dd-ppo-skills) for more details.
 
-1. Install the [Habitat-Sim](https://github.com/facebookresearch/habitat-sim/) and [Habitat-Lab](https://github.com/facebookresearch/habitat-lab/) packages. You can install Habitat-Sim using our custom Conda package for habitat challenge 2023 with: ```conda install -c aihabitat habitat-sim-challenge-2023```. For Habitat-Lab, we have created the `habitat-challenge-2023` tag in our Github repo, which can be cloned using: ```git clone --branch challenge-2023 https://github.com/facebookresearch/habitat-lab.git```. Please ensure that both habitat-lab and habitat-baselines packages are installed using ```pip install -e habitat-lab``` and ```pip install -e habitat-baselines```. You will find further information for installation in the Github repositories. 
-
-1. Download the HM3D scene dataset following the instructions [here](https://matterport.com/partners/facebook). After downloading extract the dataset to folder `habitat-lab/data/scene_datasets/hm3d_v0.2/` folder (this folder should contain the `.glb` files from HM3D). Note that the `habitat-lab` folder is the [habitat-lab](https://github.com/facebookresearch/habitat-lab/) repository folder. You could also just symlink to the path of the HM3D scenes downloaded in step-4 of local-evaluation under the `habitat-challenge/habitat-challenge-data/data/scene_datasets` folder. This can be done using `ln -s /path/to/habitat-challenge-data/data/scene_datasets /path/to/habitat-lab/data/scene_datasets/` (if on OSX or Linux).
-
-1. **ObjectNav**: Download the episodes dataset for HM3D ObjectNav from [link](https://dl.fbaipublicfiles.com/habitat/data/datasets/objectnav/hm3d/v2/objectnav_hm3d_v2.zip) and place it in the folder `habitat-challenge/habitat-challenge-data/data/datasets/objectnav/hm3d`. If placed correctly, you should have the train and val splits at `habitat-challenge/habitat-challenge-data/data/datasets/objectnav/hm3d/v2/train/` and `habitat-challenge/habitat-challenge-data/data/datasets/objectnav/hm3d/v2/val/` respectively.
-
-    **ImageNav** Download the episodes dataset for HM3D InstanceImageNav from [link](https://dl.fbaipublicfiles.com/habitat/data/datasets/imagenav/hm3d/v3/instance_imagenav_hm3d_v3.zip) and place it in the folder `habitat-challenge/habitat-challenge-data/data/datasets/instance_imagenav/hm3d`. If placed correctly, you should have the train and val splits at `habitat-challenge/habitat-challenge-data/data/datasets/instance_imagenav/hm3d/v3/train/` and `habitat-challenge/habitat-challenge-data/data/datasets/instance_imagenav/hm3d/v3/val/` respectively.
-
-1. An example on how to train DD-PPO model can be found in [habitat-lab/habitat-baselines/habitat_baselines/rl/ddppo](https://github.com/facebookresearch/habitat-lab/tree/main/habitat-baselines/habitat_baselines/rl/ddppo). See the corresponding README in habitat-lab for how to adjust the various hyperparameters, save locations, visual encoders and other features.
-
-    1. To run on a single machine use the script [single_node.sh](https://github.com/facebookresearch/habitat-lab/blob/main/habitat-baselines/habitat_baselines/rl/ddppo/single_node.sh) from the `habitat-lab` directory, where `$task={objectnav_v2, imagenav_v3}`:
-        ```bash
-        #/bin/bash
-
-        export GLOG_minloglevel=2
-        export MAGNUM_LOG=quiet
-
-        set -x
-
-        python -u -m torch.distributed.launch \
-            --use_env \
-            --nproc_per_node 1 \
-            habitat_baselines/run.py \
-            --config-name=configs/ddppo_${task}_hm3d_stretch.yaml
-        ```
-    1. There is also an example script named [multi_node_slurm.sh](https://github.com/facebookresearch/habitat-lab/blob/main/habitat-baselines/habitat_baselines/rl/ddppo/multi_node_slurm.sh) for running the code in distributed mode on a cluster with SLURM. While this is not necessary, if you have access to a cluster, it can significantly speed up training. To run on multiple machines in a SLURM cluster run the following script: change ```#SBATCH --nodes $NUM_OF_MACHINES``` to the number of machines and ```#SBATCH --ntasks-per-node $NUM_OF_GPUS``` and ```$SBATCH --gpus $NUM_OF_GPUS``` to specify the number of GPUS to use per requested machine.
-        ```bash
-        #!/bin/bash
-        #SBATCH --job-name=ddppo
-        #SBATCH --output=logs.ddppo.out
-        #SBATCH --error=logs.ddppo.err
-        #SBATCH --gpus 1
-        #SBATCH --nodes 1
-        #SBATCH --cpus-per-task 10
-        #SBATCH --ntasks-per-node 1
-        #SBATCH --mem=60GB
-        #SBATCH --time=72:00:00
-        #SBATCH --signal=USR1@90
-        #SBATCH --requeue
-        #SBATCH --partition=dev
-
-        export GLOG_minloglevel=2
-        export MAGNUM_LOG=quiet
-
-        MAIN_ADDR=$(scontrol show hostnames "${SLURM_JOB_NODELIST}" | head -n 1)
-        export MAIN_ADDR
-
-        set -x
-        srun python -u -m habitat_baselines.run \
-            --config-name=configs/ddppo_${task}_hm3d_stretch.yaml
-        ```
-
-1. The checkpoint specified by ```$PATH_TO_CHECKPOINT ``` can evaluated based on the SPL and other measurements by running the following command:
-
-    ```bash
-    python -u -m habitat_baselines.run \
-        --config-name=configs/ddppo_${task}_hm3d_stretch.yaml \
-        habitat_baselines.evaluate=True \
-        habitat_baselines.eval_ckpt_path_dir=$PATH_TO_CHECKPOINT \
-        habitat.dataset.data_path.split=val
-    ```
-    The weights used for our DD-PPO Objectnav or Imagenav baseline for the Habitat-2023 challenge can be downloaded with the following command:
-    ```bash
-    wget https://dl.fbaipublicfiles.com/habitat/data/baselines/v1/{task}_baseline_habitat_navigation_challenge_2023.pth
-    ```
-    where `$task={objectnav, imagenav}`.
-
-1. To submit your entry via EvalAI, you will need to build a docker file. We provide Dockerfiles ready to use with the DD-PPO baselines in `docker/{ObjectNav, ImageNav}_ddppo_baseline.Dockerfile`. For the sake of completeness, we describe how you can make your own Dockerfile below. If you just want to test the baseline code, feel free to skip this bullet because  ```ObjectNav_ddppo_baseline.Dockerfile``` is ready to use.
-    1. You may want to modify the `{ObjectNav, ImageNav}_ddppo_baseline.Dockerfile` to include PyTorch or other libraries. To install pytorch, ifcfg and tensorboard, add the following command to the Docker file:
-        ```dockerfile
-        RUN /bin/bash -c ". activate habitat; pip install ifcfg torch tensorboard"
-        ```
-    1. You change which ```agent.py``` and which ``submission.sh`` script is used in the Docker, modify the following lines and replace the first agent.py or submission.sh with your new files:
-        ```dockerfile
-        ADD agents/agent.py agent.py
-        ADD submission.sh submission.sh
-        ```
-    1. Do not forget to add any other files you may need in the Docker, for example, we add the ```demo.ckpt.pth``` file which is the saved weights from the DD-PPO example code.
-
-    1. Finally, modify the submission.sh script to run the appropriate command to test your agents. The scaffold for this code can be found in ```agent.py``` and the DD-PPO specific agent can be found in ```habitat_baselines_agents.py```. In this example, we only modify the final command of the ObjectNav/ImageNav docker: by adding the following args to submission.sh ```--model-path demo.ckpt.pth --input-type rgbd```. The default submission.sh script will pass these args to the python script. You may also replace the submission.sh.
-
-1. Once your Dockerfile and other code is modified to your satisfaction, build it with the following command.
-    ```bash
-    docker build . --file docker/{ObjectNav, ImageNav}_ddppo_baseline.Dockerfile -t {objectnav, imagenav}_submission
-    ```
-1. To test locally simple run the ```scripts/test_local_{objectnav, imagenav}.sh``` script. If the docker runs your code without errors, it should work on Eval-AI. The instructions for submitting the Docker to EvalAI are listed above.
-1. Happy hacking!
 
 ## Core Concepts
 
