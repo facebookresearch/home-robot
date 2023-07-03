@@ -15,6 +15,7 @@ from habitat.core.environments import get_env_class
 from habitat.core.vector_env import VectorEnv
 from habitat.utils.gym_definitions import _get_env_name
 from habitat_baselines.rl.ppo.ppo_trainer import PPOTrainer
+from omegaconf import DictConfig
 
 from home_robot.agent.ovmm_agent.ovmm_agent import OpenVocabManipAgent
 from home_robot_sim.env.habitat_ovmm_env.habitat_ovmm_env import (
@@ -37,15 +38,16 @@ def create_ovmm_env_fn(config):
 class OVMMEvaluator(PPOTrainer):
     """Class for creating vectorized environments, evaluating OpenVocabManipAgent on an episode dataset and returning metrics"""
 
-    def __init__(self, config):
-        self.config = config
+    def __init__(self, eval_config: DictConfig) -> None:
+        self.metrics_save_freq = eval_config.EVAL_VECTORIZED.metrics_save_freq
         self.results_dir = os.path.join(
-            self.config.DUMP_LOCATION, "results", self.config.EXP_NAME
+            eval_config.DUMP_LOCATION, "results", eval_config.EXP_NAME
         )
-        self.videos_dir = self.config.habitat_baselines.video_dir
+        self.videos_dir = eval_config.habitat_baselines.video_dir
         os.makedirs(self.results_dir, exist_ok=True)
         os.makedirs(self.videos_dir, exist_ok=True)
-        super().__init__(config)
+
+        super().__init__(eval_config)
 
     def eval(self, agent, num_episodes_per_env=10):
         self._init_envs(
@@ -165,11 +167,7 @@ class OVMMEvaluator(PPOTrainer):
                             f"Episode indexes {episode_idxs[e]} / {num_episodes_per_env[e]} "
                             f"after {round(time.time() - start_time, 2)} seconds"
                         )
-                    if (
-                        len(episode_metrics)
-                        % self.config.EVAL_VECTORIZED.metrics_save_freq
-                        == 0
-                    ):
+                    if len(episode_metrics) % self.metrics_save_freq == 0:
                         self.write_results(episode_metrics)
                     if not stop():
                         obs[e] = envs.call_at(e, "reset")
