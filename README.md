@@ -42,7 +42,7 @@ Optionally, you can [manage Docker as a non-root user](https://docs.docker.com/e
 1. Implement your own agent or try our baseline agent, located in [projects/habitat_ovmm/eval_baselines_agent.py](projects/habitat_ovmm/eval_baselines_agent.py). 
 1. Modify the provided [projects/habitat_ovmm/docker/ovmm_baseline.Dockerfile](projects/habitat_ovmm/docker/ovmm_baseline.Dockerfile) if you need custom modifications. Let’s say your code needs `<some extra package>`, this dependency should be pip installed inside a conda environment called `home-robot` that is shipped with our HomeRobot challenge docker, as shown below:
     ```dockerfile
-    FROM fairembodied/habitat-challenge:homerobot-ovmm-challenge-2023-dev2
+    FROM fairembodied/habitat-challenge:homerobot-ovmm-challenge-2023
 
     # install dependencies in the home-robot conda environment
     RUN /bin/bash -c ". activate home-robot; pip install <some extra package>"
@@ -58,7 +58,7 @@ Optionally, you can [manage Docker as a non-root user](https://docs.docker.com/e
     docker build . -f docker/ovmm_baseline.Dockerfile -t ovmm_baseline_submission
     ```
      
-    *Note:* Please, make sure that you keep your local version of `fairembodied/habitat-challenge:homerobot-ovmm-challenge-2023-dev2` image up to date with the image we have hosted on [dockerhub](https://hub.docker.com/r/fairembodied/habitat-challenge/tags). This can be done by pruning all cached images, using:
+    *Note:* Please, make sure that you keep your local version of `fairembodied/habitat-challenge:homerobot-ovmm-challenge-2023` image up to date with the image we have hosted on [dockerhub](https://hub.docker.com/r/fairembodied/habitat-challenge/tags). This can be done by pruning all cached images, using:
     ```
     docker system prune -a
     ```

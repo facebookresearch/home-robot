@@ -1,4 +1,4 @@
-FROM fairembodied/habitat-challenge:homerobot-ovmm-challenge-2023-dev2
+FROM fairembodied/habitat-challenge:homerobot-ovmm-challenge-2023
 
 RUN /bin/bash -c "\
     . activate home-robot && \
