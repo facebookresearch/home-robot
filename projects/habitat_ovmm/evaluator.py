@@ -4,27 +4,12 @@
 # LICENSE file in the root directory of this source tree.
 
 
-import argparse
 import json
 import os
-import sys
 import time
 from collections import defaultdict
-from pathlib import Path
 
 import numpy as np
-from config_utils import get_config
-from omegaconf import DictConfig, OmegaConf
-
-sys.path.insert(
-    0,
-    str(Path(__file__).resolve().parent.parent.parent / "src/home_robot"),
-)
-sys.path.insert(
-    0,
-    str(Path(__file__).resolve().parent.parent.parent / "src/home_robot_sim"),
-)
-
 from habitat import make_dataset
 from habitat.core.environments import get_env_class
 from habitat.core.vector_env import VectorEnv
@@ -49,31 +34,10 @@ def create_ovmm_env_fn(config):
     return env
 
 
-class VectorizedEvaluator(PPOTrainer):
+class OVMMEvaluator(PPOTrainer):
     """Class for creating vectorized environments, evaluating OpenVocabManipAgent on an episode dataset and returning metrics"""
 
-    def __init__(self, config, config_str: str):
-        self.visualize = config.VISUALIZE or config.PRINT_IMAGES
-
-        if not self.visualize:
-            # TODO: not seeing any speed improvements when removing these sensors
-            if "robot_third_rgb" in config.habitat.gym.obs_keys:
-                config.habitat.gym.obs_keys.remove("robot_third_rgb")
-            if (
-                "third_rgb_sensor"
-                in config.habitat.simulator.agents.main_agent.sim_sensors
-            ):
-                config.habitat.simulator.agents.main_agent.sim_sensors.pop(
-                    "third_rgb_sensor", None
-                )
-
-        episode_ids_range = config.habitat.dataset.episode_indices_range
-        if episode_ids_range is not None:
-            config.EXP_NAME = os.path.join(
-                config.EXP_NAME, f"{episode_ids_range[0]}_{episode_ids_range[1]}"
-            )
-        OmegaConf.set_readonly(config, True)
-
+    def __init__(self, config):
         self.config = config
         self.results_dir = os.path.join(
             self.config.DUMP_LOCATION, "results", self.config.EXP_NAME
@@ -83,20 +47,14 @@ class VectorizedEvaluator(PPOTrainer):
         os.makedirs(self.videos_dir, exist_ok=True)
         super().__init__(config)
 
-    def eval(self, num_episodes_per_env=10):
+    def eval(self, agent, num_episodes_per_env=10):
         self._init_envs(
             config=self.config, is_eval=True, make_env_fn=create_ovmm_env_fn
-        )
-        agent = OpenVocabManipAgent(
-            config=self.config,
-            obs_spaces=self.envs.observation_spaces,
-            action_spaces=self.envs.orig_action_spaces,
         )
         self._eval(
             agent,
             self.envs,
             num_episodes_per_env=num_episodes_per_env,
-            episode_keys=None,
         )
 
     def write_results(self, episode_metrics):
@@ -137,7 +95,6 @@ class VectorizedEvaluator(PPOTrainer):
         agent: OpenVocabManipAgent,
         envs: VectorEnv,
         num_episodes_per_env=None,
-        episode_keys=None,
     ):
         # The stopping condition is either specified through
         # num_episodes_per_env (stop after each environment
@@ -222,41 +179,3 @@ class VectorizedEvaluator(PPOTrainer):
 
         envs.close()
         self.write_results(episode_metrics)
-
-
-if __name__ == "__main__":
-    parser = argparse.ArgumentParser()
-    parser.add_argument(
-        "--habitat_config_path",
-        type=str,
-        default="ovmm/ovmm_eval.yaml",
-        help="Path to config yaml",
-    )
-    parser.add_argument(
-        "--baseline_config_path",
-        type=str,
-        default="projects/habitat_ovmm/configs/agent/hssd_eval.yaml",
-        help="Path to config yaml",
-    )
-    parser.add_argument(
-        "opts",
-        default=None,
-        nargs=argparse.REMAINDER,
-        help="Modify config options from command line",
-    )
-
-    print("Arguments:")
-    args = parser.parse_args()
-    print(json.dumps(vars(args), indent=4))
-    print("-" * 100)
-
-    print("Configs:")
-    config, config_str = get_config(args.habitat_config_path, opts=args.opts)
-    baseline_config = OmegaConf.load(args.baseline_config_path)
-    config = DictConfig({**config, **baseline_config})
-    evaluator = VectorizedEvaluator(config, config_str)
-    print(config_str)
-    print("-" * 100)
-    evaluator.eval(
-        num_episodes_per_env=config.EVAL_VECTORIZED.num_episodes_per_env,
-    )
