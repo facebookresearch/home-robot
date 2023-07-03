@@ -43,6 +43,9 @@ def merge_configs(habitat_config, baseline_config):
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument(
+        "--evaluation", type=str, default="local", choices=["local", "remote"]
+    )
+    parser.add_argument(
         "--habitat_config_path",
         type=str,
         default="ovmm/ovmm_eval.yaml",
