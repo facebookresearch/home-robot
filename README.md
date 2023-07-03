@@ -35,12 +35,12 @@ Optionally, you can [manage Docker as a non-root user](https://docs.docker.com/e
    ```
    git clone https://github.com/facebookresearch/home-robot.git
    ```
-1. Navigate to projects/habitat_ovmm
+1. Navigate to `projects/habitat_ovmm`
    ```
    cd projects/habitat_ovmm
    ```
 1. Implement your own agent or try our baseline agent, located in [projects/habitat_ovmm/eval_baselines_agent.py](projects/habitat_ovmm/eval_baselines_agent.py). 
-1.  Modify the provided [projects/habitat_ovmm/docker/ovmm_baseline.Dockerfile](projects/habitat_ovmm/docker/ovmm_baseline.Dockerfile) if you need custom modifications. Let’s say your code needs `<some extra package>`, this dependency should be pip installed inside a conda environment called `home-robot` that is shipped with our HomeRobot challenge docker, as shown below:
+1. Modify the provided [projects/habitat_ovmm/docker/ovmm_baseline.Dockerfile](projects/habitat_ovmm/docker/ovmm_baseline.Dockerfile) if you need custom modifications. Let’s say your code needs `<some extra package>`, this dependency should be pip installed inside a conda environment called `home-robot` that is shipped with our HomeRobot challenge docker, as shown below:
     ```dockerfile
     FROM fairembodied/habitat-challenge:homerobot-ovmm-challenge-2023-dev2
 
