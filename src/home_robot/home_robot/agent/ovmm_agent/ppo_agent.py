@@ -209,7 +209,7 @@ class PPOAgent(Agent):
                 skill_config.constraint_base_in_manip_mode
             )
         self.terminate_condition = skill_config.terminate_condition
-        self.show_rl_obs = config.SHOW_RL_OBS
+        self.show_rl_obs = getattr(config, "SHOW_RL_OBS", False)
         self.manip_mode_called = False
         self.skill_start_gps = None
         self.skill_start_compass = None
