@@ -15,7 +15,7 @@ RUN mkdir -p home-robot/src/home_robot/home_robot/perception/detection/detic/Det
         -O home-robot/src/home_robot/home_robot/perception/detection/detic/Detic/models/Detic_LCOCOI21k_CLIP_SwinB_896b32_4x_ft4x_max-size.pth \
         --no-check-certificate
 
-ADD eval_baselines_agent.py agent.py
-ADD scripts/submission.sh submission.sh
+ADD eval_baselines_agent.py /home-robot/projects/habitat_ovmm/agent.py
+ADD scripts/submission.sh /home-robot/submission.sh
 
-CMD ["/bin/bash", "-c", ". activate home-robot; export PYTHONPATH=/home-robot/projects/habitat_ovmm:$PYTHONPATH; bash submission.sh"]
+CMD ["/bin/bash", "-c", ". activate home-robot; cd /home-robot; bash submission.sh"]
