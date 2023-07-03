@@ -14,7 +14,11 @@ from PIL import Image
 
 import home_robot.utils.pose as pu
 import home_robot.utils.visualization as vu
-from home_robot.perception.constants import FloorplannertoMukulIndoor, HM3DtoCOCOIndoor
+from home_robot.perception.constants import (
+    FloorplannertoMukulIndoor,
+    HM3DtoCOCOIndoor,
+    HM3DtoHSSD28Indoor,
+)
 from home_robot.perception.constants import PaletteIndices as PI
 from home_robot.perception.constants import RearrangeDETICCategories
 
@@ -62,20 +66,18 @@ class Visualizer:
         else:
             self.episodes_data_path = config.TASK_CONFIG.DATASET.DATA_PATH
         assert (
-            "rearrange" in self.episodes_data_path
+            "ovmm" in self.episodes_data_path
             or "hm3d" in self.episodes_data_path
             or "mp3d" in self.episodes_data_path
         )
         if "hm3d" in self.episodes_data_path:
             if config.AGENT.SEMANTIC_MAP.semantic_categories == "coco_indoor":
                 self.semantic_category_mapping = HM3DtoCOCOIndoor()
+            elif config.AGENT.SEMANTIC_MAP.semantic_categories == "hssd_28_cat":
+                self.semantic_category_mapping = HM3DtoHSSD28Indoor()
             else:
                 raise NotImplementedError
-        elif (
-            "rearrange" in self.episodes_data_path
-            and hasattr(config, "habitat")
-            and "OVMM" in config.habitat.task.type
-        ):
+        elif "ovmm" in self.episodes_data_path:
             if self._dataset is None:
                 with open(config.ENVIRONMENT.category_map_file) as f:
                     category_map = json.load(f)
@@ -150,7 +152,7 @@ class Visualizer:
         self.font_scale = 1
         self.text_color = (20, 20, 20)  # BGR
         self.text_thickness = 2
-        self.show_rl_obs = config.SHOW_RL_OBS
+        self.show_rl_obs = getattr(config, "SHOW_RL_OBS", False)
 
     def reset(self):
         self.vis_dir = self.default_vis_dir

@@ -93,7 +93,7 @@ class Visualizer:
         self.image_vis = None
         self.visited_map_vis = None
         self.last_xy = None
-        self.show_rl_obs = config.SHOW_RL_OBS
+        self.show_rl_obs = getattr(config, "SHOW_RL_OBS", False)
 
     def reset(self):
         self.vis_dir = self.default_vis_dir

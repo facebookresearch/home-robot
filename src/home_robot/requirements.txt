@@ -1,27 +1,28 @@
-- numpy <1.24 # certain deprecated operations were used in other deps
-- scipy
-- sophuspy
-- opencv-python
-- pybullet
-- trimesh
-- pytest
-- open3d
-- scikit-image
-- scikit-fmm
-- scikit-learn
-- numpy-quaternion
-- natsort
+numpy <1.24 # certain deprecated operations were used in other deps
+scipy
+sophuspy
+opencv-python
+pybullet
+trimesh
+pytest
+open3d
+scikit-image
+scikit-fmm
+scikit-learn
+numpy-quaternion
+natsort
 # Neural networks
-- openai-clip
-- timm
-- pandas
+openai-clip
+timm
+pandas
+mss
 # visualizations and debugging
-- matplotlib
+matplotlib
 # Command line tools
-- click
+click
 # data tools
-- yacs
-- h5py
-- imageio
-- pygifsicle
-- pynput
+yacs
+h5py
+imageio
+pygifsicle
+pynput
