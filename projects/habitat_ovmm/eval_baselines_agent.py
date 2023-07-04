@@ -7,37 +7,14 @@
 import argparse
 import os
 
-from config_utils import get_habitat_config, get_ovmm_baseline_config
+from config_utils import get_habitat_config, get_ovmm_baseline_config, merge_configs
 from evaluator import OVMMEvaluator
-from omegaconf import DictConfig, OmegaConf
 
 from home_robot.agent.ovmm_agent.ovmm_agent import OpenVocabManipAgent
 
 os.environ["OPENBLAS_NUM_THREADS"] = "1"
 os.environ["NUMEXPR_NUM_THREADS"] = "1"
 os.environ["MKL_NUM_THREADS"] = "1"
-
-
-def merge_configs(habitat_config, baseline_config):
-    config = DictConfig({**habitat_config, **baseline_config})
-
-    visualize = config.VISUALIZE or config.PRINT_IMAGES
-    if not visualize:
-        if "robot_third_rgb" in config.habitat.gym.obs_keys:
-            config.habitat.gym.obs_keys.remove("robot_third_rgb")
-        if "third_rgb_sensor" in config.habitat.simulator.agents.main_agent.sim_sensors:
-            config.habitat.simulator.agents.main_agent.sim_sensors.pop(
-                "third_rgb_sensor"
-            )
-
-    episode_ids_range = config.habitat.dataset.episode_indices_range
-    if episode_ids_range is not None:
-        config.EXP_NAME = os.path.join(
-            config.EXP_NAME, f"{episode_ids_range[0]}_{episode_ids_range[1]}"
-        )
-
-    OmegaConf.set_readonly(config, True)
-    return config
 
 
 if __name__ == "__main__":
@@ -84,7 +61,12 @@ if __name__ == "__main__":
 
     # create evaluator
     evaluator = OVMMEvaluator(eval_config)
-    evaluator.eval(
-        agent,
-        num_episodes_per_env=eval_config.EVAL_VECTORIZED.num_episodes_per_env,
-    )
+
+    # vectorized_local_evaluate example
+    # evaluator.vectorized_local_evaluate(
+    #     agent,
+    #     num_episodes_per_env=eval_config.EVAL_VECTORIZED.num_episodes_per_env,
+    # )
+
+    # standard evaluate example
+    evaluator.evaluate(agent, remote=args.evaluation == "remote", num_episodes=1)
