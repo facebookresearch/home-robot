@@ -16,8 +16,9 @@ HomeRobot lets you get started running a range of robotics tasks on a low-cost m
   - Put the object down on the receptacle.
 
 Check out the [Neurips 2023 HomeRobot Open-Vocabulary Mobile Manipulation Challenge!](https://aihabitat.org/challenge/2023_homerobot_ovmm/)
+
 When you're ready, 
-follow [these instructions to participate](docs/challenge.md)
+follow [these instructions to participate](docs/challenge.md).
 
 ## Core Concepts
 
