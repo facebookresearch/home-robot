@@ -1,4 +1,5 @@
 ![](docs/HomeRobot_Logo_Horiz_Color_white_bg.png)
+
 ## 🏠🤖 Challenge  🚀
 The objective of the HomeRobot: OVMM Challenge is to create a platform that enables researchers to develop agents that can navigate unfamiliar environments, manipulate novel objects, and move away from closed object classes towards open-vocabulary natural language. This challenge aims to facilitate cross-cutting research in embodied AI using recent advances in machine learning, computer vision, natural language, and robotics.
 
