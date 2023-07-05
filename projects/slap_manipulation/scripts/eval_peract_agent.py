@@ -40,24 +40,28 @@ def main(task_id, cat_map_file, test_pick=False, dry_run=False, **kwargs):
     agent.reset()
 
     goal_info = agent.get_goal_info()
-    env.set_goal(goal_info)
+    env._set_goal(goal_info)
     if not env.robot.in_manipulation_mode():
         env._switch_to_manip_mode(grasp_only=True, pre_demo_pose=True)
-        env.robot.manip.open_gripper()
     res = input("Press Y/y to close the gripper")
     if res == "y" or res == "Y":
-        env.robot.manip.close_gripper()
-        rospy.sleep(7.0)
-    obs = env.get_observation()
-    obs.task_observations.update(goal_info)
-    camera_pose = obs.task_observations["base_camera_pose"]
-    obs.xyz = tra.transform_points(obs.xyz.reshape(-1, 3), camera_pose)
-    # get the # of waypoints; repeat following for each waypoint
-    for i in range(num_actions):
+        env._handle_gripper_action(1)
+        # env.robot.manip.close_gripper()
+    else:
+        env._handle_gripper_action(-1)
+        # env.robot.manip.open_gripper()
+    rospy.sleep(3.0)
+    for i in range(goal_info["num-actions"]):
+        obs = env.get_observation()
+        obs.task_observations.update(goal_info)
+        camera_pose = obs.task_observations["base_camera_pose"]
+        obs.xyz = tra.transform_points(obs.xyz.reshape(-1, 3), camera_pose)
         result, info = agent.predict(obs)
         if result is not None:
             action = ContinuousEndEffectorAction(
-                result[:, :3], result[:, 3:7], np.expand_dims(result[:, 7], -1)
+                np.expand_dims(result["predicted_pos"], 0),
+                np.expand_dims(result["predicted_quat"], 0),
+                np.expand_dims(result["gripper_act"], 0),
             )
         else:
             action = ContinuousEndEffectorAction(
