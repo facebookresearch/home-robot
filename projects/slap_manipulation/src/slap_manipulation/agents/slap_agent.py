@@ -99,7 +99,13 @@ class SLAPAgent(object):
         return input_dict
 
     def create_interaction_prediction_input_from_obs(
-        self, obs, filter_depth=False, num_pts=8000, debug=False, semantic_id=1
+        self,
+        obs,
+        filter_depth=False,
+        num_pts=8000,
+        debug=False,
+        semantic_id=1,
+        zero_mean_norm=False,
     ) -> Dict[str, Any]:
         """method to convert obs into input expected by IPM
         takes raw data from stretch_manipulation_env, and language command from user.
@@ -111,26 +117,27 @@ class SLAPAgent(object):
             obs_vector[3]: language command; list of 1 string # should this be a list? only 1 string.
         """
         depth = obs.depth
-        rgb = obs.rgb.astype(np.float64) / 255.0
+        if zero_mean_norm:
+            rgb = (obs.rgb.astype(np.float64) / 255.0) * 2.0 - 1.0
+        else:
+            rgb = obs.rgb.astype(np.float64) / 255.0
         xyz = obs.xyz.astype(np.float64)
         gripper = obs.joint[GRIPPER_IDX]
-        # camera_pose = obs.task_observations["base_camera_pose"]
-        # xyz = trimesh.transform_points(xyz.reshape(-1, 3), camera_pose)
         feat = obs.semantic
         import matplotlib.pyplot as plt
 
-        # plt.imshow(obs.task_observations["semantic_frame"])
-        # plt.show()
         # only keep feat which is == semantic_id
-        feat[feat >= (len(obs.task_observations["object_list"]) + 2)] = 0
-        feat[feat != 1] = 0
+        if feat is not None:
+            feat[feat >= (len(obs.task_observations["object_list"]) + 2)] = 0
+            feat[feat != 1] = 0
 
         # proprio looks different now
         proprio = self.get_proprio()
 
         depth = depth.reshape(-1)
         rgb = rgb.reshape(-1, 3)
-        feat = feat.reshape(-1, self._feat_dim)
+        if feat is not None:
+            feat = feat.reshape(-1, self._feat_dim)
 
         # apply depth and z-filter for comparative distribution to training data
         if filter_depth:
@@ -139,7 +146,8 @@ class SLAPAgent(object):
             )
             rgb = rgb[valid_depth, :]
             xyz = xyz[valid_depth, :]
-            feat = feat[valid_depth, :]
+            if feat is not None:
+                feat = feat[valid_depth, :]
             # y_mask = xyz[:, 1] < self._y_max
             # rgb = rgb[y_mask]
             # xyz = xyz[y_mask]
@@ -147,8 +155,11 @@ class SLAPAgent(object):
             z_mask = xyz[:, 2] > self._z_min
             rgb = rgb[z_mask]
             xyz = xyz[z_mask]
-            feat = feat[z_mask]
-            xyz, rgb, feat = xyz.reshape(-1, 3), rgb.reshape(-1, 3), feat.reshape(-1, 1)
+            if feat is not None:
+                feat = feat[z_mask]
+            xyz, rgb = xyz.reshape(-1, 3), rgb.reshape(-1, 3)
+            if feat is not None:
+                feat = feat.reshape(-1, 1)
             # show_point_cloud(xyz, rgb, np.zeros((3,1)))
 
         # voxelize at a granular voxel-size then choose X points
@@ -158,7 +169,9 @@ class SLAPAgent(object):
 
         og_xyz = np.copy(xyz)
         og_rgb = np.copy(rgb)
-        og_feat = np.copy(feat)
+        og_feat = None
+        if feat is not None:
+            og_feat = np.copy(feat)
 
         # get 8k points for tractable learning
         downsample_mask = np.arange(rgb.shape[0])
@@ -167,7 +180,8 @@ class SLAPAgent(object):
             downsample_mask = downsample_mask[:num_pts]
         rgb = rgb[downsample_mask]
         xyz = xyz[downsample_mask]
-        feat = feat[downsample_mask]
+        if feat is not None:
+            feat = feat[downsample_mask]
 
         # mean-center the point cloud
         mean = xyz.mean(axis=0)
@@ -198,8 +212,9 @@ class SLAPAgent(object):
             "mean": mean,
             "og_xyz": og_xyz,
             "og_rgb": og_rgb,
-            "gripper": gripper,
+            "gripper-width": gripper,
             "og_feat": og_feat,
+            "gripper-state": obs.task_observations["gripper-state"],
         }
         return self.to_torch(input_data)
 

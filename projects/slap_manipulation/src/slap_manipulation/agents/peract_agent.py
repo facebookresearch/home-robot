@@ -51,44 +51,71 @@ class PeractAgent(SLAPAgent):
             optimizer_type="lamb",
             num_pts=8000,
         )
-        self.peract_agent.build(training=True, device=self.device)
+        self.peract_agent.build(training=False, device=self.device)
         self.peract_agent.load_weights(self.cfg.PERACT.model_path)
         print(f"---> loaded last best {self.cfg.PERACT.model_path} <---")
+        self._init_input = None
+        self._t = None
 
     def create_peract_input(self, input, t=0, num_actions=6):
         model_input = {}
-        open_gripper_width = 0.16
-        closed_gripper_width = -0.16
-        closed_gripper_pour = 0.041
-        if "pour" in input["lang"]:
-            curr_gripper_width = closed_gripper_pour
-            inferred_gripper_state = 1
-        elif input["gripper"] < -0.0020:
-            curr_gripper_width = closed_gripper_width
-            inferred_gripper_state = 1
-        else:
-            curr_gripper_width = open_gripper_width
-            inferred_gripper_state = 0
-        time_index = float(2 * t / num_actions)
-        gripper_states = np.array(
-            [curr_gripper_width, inferred_gripper_state, time_index]
-        )
+        # TODO: create proprio based on gripper-width and time
+        time_index = float((2.0 * t) / num_actions - 1)
+        curr_gripper_width = input["gripper-width"]
+        gripper_state = input["gripper-state"]
+        proprio = np.array([curr_gripper_width, gripper_state, time_index])
         model_input["cmd"] = input["lang"]
-        model_input["gripper_states"] = gripper_states
+        model_input["proprio"] = proprio
+        print(proprio)
         model_input = self.to_torch(model_input)
         input.update(model_input)
+        if len(input["rgb"].shape) != 3:
+            input["rgb"] = input["rgb"].unsqueeze(0)
+            input["xyz"] = input["xyz"].unsqueeze(0)
         return input
 
     def predict(self, obs):
         info = {}
+        info["p2p-motion"] = True
+        num_actions = obs.task_observations["num-actions"]
+        if self._t is None:
+            self._t = 0
+        else:
+            self._t += 1
         action = None
         self._input = self.create_interaction_prediction_input_from_obs(
             obs, filter_depth=True, debug=False
         )
-        for t in range(obs.task_observations["num-actions"]):
-            self.model_input = self.create_peract_input(
-                self._input, t=t, num_actions=obs.task_observations["num-actions"]
+        if self._init_input is None:
+            self._init_input = self._input
+        else:
+            # TODO: update gripper information in _init_input
+            pass
+        self.model_input = self.create_peract_input(
+            self._init_input,
+            t=self._t,
+            num_actions=num_actions,
+        )
+        v0 = True
+        if v0:
+            result = self.peract_agent.update_for_rollout(
+                self.model_input,
+                center=self.model_input["mean"].detach().cpu().numpy(),
+                debug=False,
             )
-            self.peract_agent.update_for_rollout(
-                self.model_input, center=self.model_input["mean"].detach().cpu().numpy()
+        else:
+            result = self.peract_agent.update(
+                -1,
+                self.model_input,
+                val=False,
+                backprop=False,
             )
+            result["predicted_pos"] = (
+                action["predicted_pos"].detach().cpu().numpy()
+                + self._init_input["mean"].detach().cpu().numpy()
+            )
+        return result, info
+
+    def reset(self):
+        self._init_input = None
+        self._t = None
