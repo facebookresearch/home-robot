@@ -1,3 +1,23 @@
+# ----------------------------------------------------------------------------
+# -                        Open3D: www.open3d.org                            -
+# ----------------------------------------------------------------------------
+# Copyright (c) 2018-2023 www.open3d.org
+# SPDX-License-Identifier: MIT
+# ----------------------------------------------------------------------------
+# function pick_points(pcd) taken from: examples/python/visualization/interactive_visualization.py
+
+# Copyright (c) Meta Platforms, Inc. and affiliates.
+#
+# This source code is licensed under the MIT license found in the
+# LICENSE file in the root directory of this source tree.
+
+"""Script to label interaction points for SLAP dataset for tasks
+needing explicit supervision, like pour-into-bowl where gripper does not explicitly touch bowl.
+
+Script supports following modes:
+        1. Read: Shows 0th image of each episode and associated labeled point cloud
+        2. Write: Shows 0th image and queries if user wants to label an interaction point"""
+
 import glob
 import os
 from typing import List
@@ -12,7 +32,8 @@ import home_robot.utils.data_tools.image as image
 from home_robot.utils.point_cloud import numpy_to_pcd, show_pcd
 
 
-def pick_points(pcd):
+def pick_points(pcd: o3d.geometry.PointCloud) -> List[int]:
+    """Helper file to pick points from point cloud using Open3D's visualizer"""
     print("")
     print("1) Please pick at least three correspondences using [shift + left click]")
     print("   Press [shift + right click] to undo point picking")
@@ -48,19 +69,15 @@ def main(data_dir, template, mode):
         for g_name in h5file.keys():
             rgb = image.img_from_bytes(h5file[g_name]["head_rgb/0"][()])
             xyz = h5file[g_name]["head_xyz"][()][0]
-            # depth = (
-            #     image.img_from_bytes(h5file[g_name]["head_depth/0"][()])
-            #     / depth_factor
-            # )
             print(f"Showing {g_name=} from {file=}...")
-            res = input("Do you wish to label this trial? (y/n): ")
-            if res == "y" or res == "Y":
-                pcd = numpy_to_pcd(xyz, rgb / 255.0)
-                points = pick_points(pcd)
-                print(f"Picked point is: {points}")
-                if mode == "write":
+            if mode == "write":
+                res = input("Do you wish to label this trial? (y/n): ")
+                if res == "y" or res == "Y":
+                    pcd = numpy_to_pcd(xyz, rgb / 255.0)
+                    points = pick_points(pcd)
+                    print(f"Picked point is: {points}")
                     h5file[g_name]["interaction_point_index"] = points
-                input("Press enter to continue...")
+            input("Press enter to continue...")
 
 
 if __name__ == "__main__":

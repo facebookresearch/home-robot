@@ -1,4 +1,7 @@
-"""Script to rename task-names consistently across episodes and files"""
+"""Script to edit the demonstrations so that the opening action
+is farther back for open-object-drawer task.
+Needed for putting/picking things from drawers."""
+
 import glob
 import os
 
@@ -15,7 +18,7 @@ import yaml
     help="Files will be looked up using regex: data-dir/template",
 )
 def edit_opening_drawer(data_dir, template):
-    """moves the opening action farther back"""
+    """moves the opening action farther back by 10 cm along y-axis"""
     action_index = 3
     files = glob.glob(os.path.join(data_dir, template))
     for file in files:

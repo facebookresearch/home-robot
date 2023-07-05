@@ -1,4 +1,12 @@
-"""Script to rename task-names consistently across episodes and files"""
+# Copyright (c) Meta Platforms, Inc. and affiliates.
+#
+# This source code is licensed under the MIT license found in the
+# LICENSE file in the root directory of this source tree.
+
+"""
+Script to rename task-names consistently across episodes and files
+Looks for a config file that maps old task-names to new task-names
+"""
 import glob
 import os
 

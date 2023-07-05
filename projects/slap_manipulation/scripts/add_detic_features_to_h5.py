@@ -1,3 +1,21 @@
+# Copyright (c) Meta Platforms, Inc. and affiliates.
+#
+# This source code is licensed under the MIT license found in the
+# LICENSE file in the root directory of this source tree.
+
+# Stand-alone script to add Detic features to pre-recorded images
+# Assumes data is stored in H5s with the following structure:
+# H5-file-|
+#         |-episode0-|
+#         |          |-head_rgb/<frame_number> (RGB Image)
+#         |          |-head_depth/<frame_number> (DEPTH Image)
+#         |          |-head_xyz/<frame_number> (XYZ point-cloud)
+#         |        ++|-head_semantic_frame
+#         |        ++|-head_semantic_mask
+# As outlined above two new keys are added to each episode which store the
+# semantic frame (visualizable BBox output) and mask for the head camera
+
+
 import glob
 import os
 from typing import List

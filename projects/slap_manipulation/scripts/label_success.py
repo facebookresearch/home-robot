@@ -1,3 +1,13 @@
+# Copyright (c) Meta Platforms, Inc. and affiliates.
+#
+# This source code is licensed under the MIT license found in the
+# LICENSE file in the root directory of this source tree.
+
+"""Script to label episode as success/failure (key: demo_status) for cases which
+   were mislabeled by data-collector. Shows: 
+       point-cloud, rgb-image, number-of-keyframes and current demo_status label
+"""
+
 import glob
 import os
 from typing import List
@@ -34,10 +44,6 @@ def main(data_dir, template, mode):
         for g_name in h5file.keys():
             rgb = image.img_from_bytes(h5file[g_name]["head_rgb/0"][()])
             xyz = h5file[g_name]["head_xyz"][()][0]
-            # depth = (
-            #     image.img_from_bytes(h5file[g_name]["head_depth/0"][()])
-            #     / depth_factor
-            # )
             print(file, g_name)
             print("Showing initial point-cloud...")
             show_point_cloud(xyz, rgb / 255.0)

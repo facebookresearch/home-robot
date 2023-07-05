@@ -3,8 +3,11 @@
 # This source code is licensed under the MIT license found in the
 # LICENSE file in the root directory of this source tree.
 
-"""Easy script to test Detic's detection on a single, live image. 
-Takes in optional categorical input for any user-defined object."""
+"""
+Script to test Detic's detection on a single, live image. Orient head-camera
+towards the test-scene and fire the detector.
+Takes in optional categorical input for any user-defined object.
+"""
 
 import click
 import numpy as np
@@ -35,8 +38,6 @@ def main(category):
         custom_vocabulary=",".join(category),
         sem_gpu_id=0,
     )
-    # image = Image.open("./desk.jpg")
-    # image_np = np.array(image)
     rgb, depth, xyz = robot.head.get_images(
         compute_xyz=True,
     )

@@ -1,3 +1,11 @@
+# Copyright (c) Meta Platforms, Inc. and affiliates.
+#
+# This source code is licensed under the MIT license found in the
+# LICENSE file in the root directory of this source tree.
+
+"""
+Given a folder of h5 files, create a train/test/val split and dump it out to a yaml file
+"""
 import datetime
 import glob
 import os
