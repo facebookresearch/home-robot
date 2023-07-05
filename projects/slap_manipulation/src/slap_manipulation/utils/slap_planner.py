@@ -1,3 +1,8 @@
+# Copyright (c) Meta Platforms, Inc. and affiliates.
+#
+# This source code is licensed under the MIT license found in the
+# LICENSE file in the root directory of this source tree.
+
 from typing import Dict, List, Optional, Tuple
 
 import numpy as np
@@ -18,7 +23,7 @@ from home_robot_hw.ros.utils import matrix_to_pose_msg, ros_pose_to_transform
 class CombinedSLAPPlanner(object):
     """Simple skill motion planner to connect three-six waypoints into a continuous motion"""
 
-    def __init__(self, robot: StretchClient, skill_standoffs: Dict):
+    def __init__(self, robot: StretchClient):
         """
         Solve IK
         """
@@ -27,7 +32,6 @@ class CombinedSLAPPlanner(object):
                 "The SimpleSkillMotionPlanner was designed only for Stretch."
             )
         self.robot = robot
-        self.skill_specific_standoffs = skill_standoffs
         self.broadcaster = tf2_ros.TransformBroadcaster()
         # TODO: find an elegant way of including this through Client
         # or something rather than hardcoding here

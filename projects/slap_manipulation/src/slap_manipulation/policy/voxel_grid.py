@@ -1,3 +1,6 @@
+# Taken from PerAct
+# Link: https://github.com/peract/peract/blob/main/voxel/voxel_grid.py
+
 from functools import reduce
 from operator import mul
 
@@ -9,6 +12,8 @@ INCLUDE_PER_VOXEL_COORD = False
 
 
 class VoxelGrid(nn.Module):
+    """Takes in a batch of point clouds and returns a voxel grid representation."""
+
     def __init__(
         self,
         coord_bounds,
