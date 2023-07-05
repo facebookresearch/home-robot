@@ -25,12 +25,12 @@ CORLAGENT:
   gt_run: True
 
 PERACT:
-  scene_bounds: [ -0.5 , -0.6 , -0.5 , 0.5 , 0.4 , 0.5]
+  scene_bounds: [ -0.75 , -0.75 , -0.75 , 0.75 , 0.75 , 0.75]
   cameras: ["head"]
   voxel_sizes: [100]
   num_latents: 256
   dim_latents: 512
-  model_path: data/checkpoints/corl_peract/multi-task_19_328.pth
+  model_path: data/checkpoints/corl_peract/peract_latest.pth
 
 AGENT:
   max_steps: 500          # maximum number of steps before stopping an episode
@@ -285,7 +285,7 @@ TASKS:
 
 
 EVAL:
-  task_name: pour-into-bowl
+  task_name: take-bottle
   object_list:
-    - bowl
+    - drawer
   num_keypoints: 4
