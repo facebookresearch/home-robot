@@ -192,12 +192,13 @@ class OVMMEvaluator(PPOTrainer):
     def local_evaluate(
         self, agent, num_episodes: Optional[int] = None
     ) -> Dict[str, float]:
+        env_num_episodes = self._env.number_of_episodes
         if num_episodes is None:
-            num_episodes = self._env.number_of_episodes
+            num_episodes = env_num_episodes
         else:
-            assert num_episodes <= self._env.number_of_episodes, (
+            assert num_episodes <= env_num_episodes, (
                 "num_episodes({}) is larger than number of episodes "
-                "in environment ({})".format(num_episodes, self._env.number_of_episodes)
+                "in environment ({})".format(num_episodes, env_num_episodes)
             )
 
         assert num_episodes > 0, "num_episodes should be greater than 0"
@@ -255,9 +256,9 @@ class OVMMEvaluator(PPOTrainer):
 
         return aggregated_metrics
 
-    def remote_evaluate(self, agent, num_episodes: Optional[int] = None):
-        # The modules imported below are specific to habitat-challenge remote evaluation.
-        # These modules are not part of the habitat-lab repository.
+    def remote_evaluate(
+        self, agent, num_episodes: Optional[int] = None
+    ) -> Dict[str, float]:
         import pickle
         import time
 
@@ -268,62 +269,92 @@ class OVMMEvaluator(PPOTrainer):
 
         time.sleep(60)
 
-        def pack_for_grpc(entity):
+        def grpc_dumps(entity):
             return pickle.dumps(entity)
 
-        def unpack_for_grpc(entity):
+        def grpc_loads(entity):
             return pickle.loads(entity)
-
-        def remote_ep_over(stub):
-            res_env = unpack_for_grpc(
-                stub.episode_over(evaluation_pb2.Package()).SerializedEntity
-            )
-            return res_env["episode_over"]
 
         env_address_port = os.environ.get("EVALENV_ADDPORT", "localhost:8085")
         channel = grpc.insecure_channel(env_address_port)
         stub = evaluation_pb2_grpc.EnvironmentStub(channel)
 
-        base_num_episodes = unpack_for_grpc(
-            stub.num_episodes(evaluation_pb2.Package()).SerializedEntity
+        env_num_episodes = grpc_loads(
+            stub.number_of_episodes(evaluation_pb2.Package()).SerializedEntity
         )
-        num_episodes = base_num_episodes["num_episodes"]
-
-        agg_metrics: Dict = defaultdict(float)
-
-        count_episodes = 0
-
-        while count_episodes < num_episodes:
-            agent.reset()
-            res_env = unpack_for_grpc(
-                stub.reset(evaluation_pb2.Package()).SerializedEntity
+        if num_episodes is None:
+            num_episodes = env_num_episodes
+        else:
+            assert num_episodes <= env_num_episodes, (
+                "num_episodes({}) is larger than number of episodes "
+                "in environment ({})".format(num_episodes, env_num_episodes)
             )
 
-            while not remote_ep_over(stub):
-                obs = res_env["observations"]
-                action = agent.act(obs)
+        assert num_episodes > 0, "num_episodes should be greater than 0"
 
-                res_env = unpack_for_grpc(
-                    stub.act_on_environment(
-                        evaluation_pb2.Package(SerializedEntity=pack_for_grpc(action))
+        episode_metrics: Dict = {}
+
+        count_episodes: int = 0
+
+        pbar = tqdm(total=num_episodes)
+        while count_episodes < num_episodes:
+            observations, done = (
+                grpc_loads(stub.reset(evaluation_pb2.Package()).SerializedEntity),
+                False,
+            )
+            current_episode = grpc_loads(
+                stub.get_current_episode(evaluation_pb2.Package()).SerializedEntity
+            )
+            agent.reset_vectorized([current_episode])
+
+            current_episode_key = (
+                f"{current_episode.scene_id.split('/')[-1].split('.')[0]}_"
+                f"{current_episode.episode_id}"
+            )
+            current_episode_metrics = {}
+
+            while not done:
+                action, info, _ = agent.act(observations)
+                observations, done, hab_info = grpc_loads(
+                    stub.apply_action(
+                        evaluation_pb2.Package(
+                            SerializedEntity=grpc_dumps((action, info))
+                        )
                     ).SerializedEntity
                 )
 
-            metrics = unpack_for_grpc(
-                stub.get_metrics(
-                    evaluation_pb2.Package(SerializedEntity=pack_for_grpc(action))
-                ).SerializedEntity
-            )
+                if info["skill_done"] != "":
+                    metrics = self._extract_scalars_from_info(hab_info)
+                    metrics_at_skill_end = {
+                        f"{info['skill_done']}." + k: v for k, v in metrics.items()
+                    }
+                    current_episode_metrics = {
+                        **metrics_at_skill_end,
+                        **current_episode_metrics,
+                    }
+                    current_episode_metrics["goal_name"] = info["goal_name"]
 
-            for m, v in metrics["metrics"].items():
-                agg_metrics[m] += v
+            metrics = self._extract_scalars_from_info(hab_info)
+            metrics_at_episode_end = {"END." + k: v for k, v in metrics.items()}
+            current_episode_metrics = {
+                **metrics_at_episode_end,
+                **current_episode_metrics,
+            }
+            current_episode_metrics["goal_name"] = info["goal_name"]
+
+            episode_metrics[current_episode_key] = current_episode_metrics
+            if len(episode_metrics) % self.metrics_save_freq == 0:
+                aggregated_metrics = self._aggregare_metrics(episode_metrics)
+                self._write_results(episode_metrics, aggregated_metrics)
+
             count_episodes += 1
+            pbar.update(1)
 
-        avg_metrics = {k: v / count_episodes for k, v in agg_metrics.items()}
+        grpc_loads(stub.close(evaluation_pb2.Package()).SerializedEntity)
+        aggregated_metrics = self._aggregare_metrics(episode_metrics)
+        self._write_results(episode_metrics, aggregated_metrics)
 
-        stub.evalai_update_submission(evaluation_pb2.Package())
-
-        return avg_metrics
+        return aggregated_metrics
 
     def evaluate(
         self, agent, num_episodes: Optional[int] = None, remote: bool = False
