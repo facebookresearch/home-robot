@@ -1,6 +1,4 @@
 import json
-
-# from home_robot.utils.pose import to_matrix
 import time
 import unittest
 from typing import Optional
@@ -233,17 +231,14 @@ class PerActRobotDataset(RobotDataset):
 
         # inputs
         # 3 dimensions - proprioception: {gripper_open, gripper_width, timestep}
-        # FIXME: use peract_input dictionary to create new proprio
         proprio = batch["gripper_states"]
         proprio_instance = proprio[:, idx]
         action_trans_instance = action_trans[:, idx]
         action_rot_grip_instance = action_rot_grip[:, idx]
         action_ignore_collisions_instance = action_ignore_collisions
 
-        # FIXME: use peract_input dictionary to create new proprio
         new_data["proprio"] = proprio_instance
 
-        # TODO: unify dictionary keys b/w here and peract's update method
         new_data["action_trans"] = action_trans_instance
         new_data["action_rot_grip"] = action_rot_grip_instance
         new_data["action_ignore_collisions"] = action_ignore_collisions_instance
@@ -267,10 +262,6 @@ class PerActRobotDataset(RobotDataset):
 
         rgb = self._norm_rgb(rgb)
 
-        # not required as we are not using the baselines below peract
-        # obs.append(
-        #     [rgb, pcd]
-        # )  # obs contains both rgb and pointcloud (used in ARM for other baselines)
         return rgb, pcd
 
     def is_action_valid(self, sample):
@@ -373,13 +364,6 @@ class PerActRobotDataset(RobotDataset):
 
         # Encode language here
         batch_size, lang_seq_len, _ = lang.shape
-        # lang = lang.view(batch_size * lang_seq_len, -1)
-        # learned pos encodings will be added in PerAct
-        # if self.learned_pos_encoding:
-        #     lang = self.lang_preprocess(lang) + self.pos_encoding
-        # else:
-        #     lang = self.lang_preprocess(lang)
-        #     lang = self.pos_encoding(lang)
         lang = lang.view(batch_size, lang_seq_len, -1)
 
         return lang
@@ -565,9 +549,8 @@ def show_all_keypoints(data_dir, split, template, robot, test_pose, test_voxel_g
                 print("Task:", wp_batch["cmd"][0])
                 print("Input gripper state:", wp_batch["proprio"][0])
                 # get target position
-                # get target orientation
-                # get target gripper-state
                 position = wp_batch["target_continuous_position"]
+                # get target orientation
                 orientation = wp_batch["target_continuous_orientation"]
                 print("position:", position, "; orientation:", orientation)
                 show_point_cloud(

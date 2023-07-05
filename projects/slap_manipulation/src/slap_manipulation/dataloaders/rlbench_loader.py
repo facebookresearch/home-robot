@@ -151,15 +151,6 @@ class RLBenchDataset(DatasetBase):
             pil_img = Image.fromarray(rgb)
             pil_img = self.color_jitter(pil_img)
             rgb = np.array(pil_img)
-            # For debugging the effects of color randomization / jitter
-            # TODO - @priyam - fix or remove
-            # TODO - remove this from code, it's debug code
-            # for _ in range(10):
-            #     pil_img = self.color_jitter(pil_img)
-            #     rgb = np.array(pil_img)
-            #     plt.imshow(rgb)
-            #     plt.show()
-            # breakpoint()
 
         depth = trial[view_name + "_depth"][idx]
         xyz = trial[view_name + "_xyz"][idx]
@@ -226,13 +217,11 @@ class RLBenchDataset(DatasetBase):
         # voxelize at a granular voxel-size rather than random downsample
         pcd = numpy_to_pcd(xyz, rgb)
         pcd_downsampled = pcd.voxel_down_sample(self._voxel_size)
-        # TODO: bring back code from stale branch to avg feats based on voxelization
         rgb = np.asarray(pcd_downsampled.colors)
         xyz = np.asarray(pcd_downsampled.points)
 
         debug_voxelization = False
         if debug_voxelization:
-            # print(f"Number of points in this PCD: {len(pcd_downsampled2.points)}")
             show_point_cloud(xyz, rgb)
 
         return xyz, rgb, feat
@@ -267,7 +256,6 @@ class RLBenchDataset(DatasetBase):
         pcd_downsampled2 = pcd_downsampled.voxel_down_sample(self._voxel_size_2)
         xyz2 = np.asarray(pcd_downsampled2.points)
         rgb2 = np.asarray(pcd_downsampled2.colors)
-        # TODO: bring back code from stale branch to avg feats based on voxelization
         feat2 = feat
 
         # for the voxelized pcd
@@ -629,8 +617,6 @@ class RLBenchDataset(DatasetBase):
         )
 
         # Get the commands we care about here
-        # TODO - remove debug code
-        # print(crop_ee_keyframe[:3, 3])
         positions, orientations, angles = self.get_commands(
             crop_ee_keyframe, crop_keyframes
         )
