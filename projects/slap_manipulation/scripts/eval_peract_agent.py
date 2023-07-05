@@ -64,8 +64,14 @@ def main(task_id, cat_map_file, test_pick=False, dry_run=False, **kwargs):
                 np.expand_dims(result["gripper_act"], 0),
             )
         else:
+            pos, quat = env.robot.manip.get_ee_pose()
+            # check if pos and quat are not numpy ndarrays
+            if not isinstance(pos, np.ndarray):
+                pos = np.array(pos)
+            if not isinstance(quat, np.ndarray):
+                quat = np.array(quat)
             action = ContinuousEndEffectorAction(
-                np.random.rand(1, 3), np.random.rand(1, 4), np.random.rand(1, 1)
+                pos.reshape(1, 3), quat.reshape(1, 4), np.random.rand(1, 1)
             )
         env.apply_action(action, info=info)
 
