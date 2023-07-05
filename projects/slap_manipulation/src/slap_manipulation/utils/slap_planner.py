@@ -63,7 +63,7 @@ class CombinedSLAPPlanner(object):
         return interpolated_trajectory, interpolated_gripper
 
     def plan_for_skill(
-        self, actions_pose_mat: np.ndarray, action_gripper: np.ndarray
+        self, actions_pose_mat: np.ndarray, action_gripper: np.ndarray, p2p_motion=False
     ) -> Optional[List[Tuple]]:
         """Simple trajectory generator which moves to an offset from 0th action,
         and then executes the given trajectory."""
@@ -74,61 +74,87 @@ class CombinedSLAPPlanner(object):
 
         joint_pos_pre = self.robot.manip.get_joint_positions()
 
-        # smoothen trajectory via linear interpolation
-        actions_pose_mat, action_gripper = self.linear_interpolation(
-            actions_pose_mat,
-            action_gripper,
-            num_points_per_segment=num_pts_per_segment,
-        )
-        assert len(actions_pose_mat) == len(action_gripper)
-
-        # 1st bring the ee up to the height of 1st action
-        begin_pose = self.robot.manip.get_ee_pose()
-        begin_pose = to_matrix(*begin_pose)
-        begin_pose[2, 3] = actions_pose_mat[0, 2, 3]
-        # TODO: also rotate the gripper as per 1st action
-        begin_pose[:3, :3] = actions_pose_mat[0, :3, :3]
-        # get current gripper reading, keep gripper as is during this motion
-        gripper = np.array([int(self.robot.manip.get_gripper_position() < -0.01)])
-        actions_pose_mat = np.concatenate(
-            (
-                np.expand_dims(begin_pose, 0),
-                actions_pose_mat,
-                np.expand_dims(begin_pose, 0),
-            ),
-            axis=0,
-        )
-        self._send_action_to_tf(actions_pose_mat)
-        action_gripper = np.concatenate(
-            (
-                gripper,
-                action_gripper.reshape(-1),
-                np.expand_dims(action_gripper.reshape(-1)[-1], axis=0),
-            ),
-            axis=-1,
-        )
-        initial_pt = ("initial", joint_pos_pre, gripper)
-        trajectory.append(initial_pt)
-
-        num_actions = actions_pose_mat.shape[0]
-        for i in range(num_actions):
-            desired_pos, desired_quat = to_pos_quat(actions_pose_mat[i])
-            desired_cfg, success, _ = self.robot.model.manip_ik(
-                (desired_pos, desired_quat), q0=None
+        if p2p_motion:
+            current_pose = self.robot.manip.get_ee_pose(matrix=True)
+            current_gripper = np.array([-1])  # do not change state
+            actions_pose_mat = np.concatenate(
+                (np.expand_dims(current_pose, 0), actions_pose_mat), axis=0
             )
-            if success and desired_cfg is not None:
-                desired_pt = (
-                    f"action_{i}",
-                    self.robot.model.config_to_manip_command(desired_cfg),
-                    bool(action_gripper[i]),
+            actions_gripper = np.concatenate((current_gripper, action_gripper), axis=0)
+            actions_pose_mat, action_gripper = self.linear_interpolation(
+                actions_pose_mat, actions_gripper
+            )
+            self._send_action_to_tf(actions_pose_mat)
+            for i in range(actions_pose_mat.shape[0]):
+                desired_pos, desired_quat = to_pos_quat(actions_pose_mat[i])
+                desired_cfg, success, _ = self.robot.model.manip_ik(
+                    (desired_pos, desired_quat), q0=None
                 )
-                trajectory.append(desired_pt)
-            else:
-                print(f"-> could not solve for skill; action_{i} unreachable")
-                return None
-        # go back to initial pt with the gripper state same as last predicted action
-        end_pt = ("end", joint_pos_pre, bool(action_gripper[-1]))
-        trajectory.append(end_pt)
+                if success and desired_cfg is not None:
+                    desired_pt = (
+                        f"action_{i}",
+                        self.robot.model.config_to_manip_command(desired_cfg),
+                        int(action_gripper[i]),
+                    )
+                    trajectory.append(desired_pt)
+                else:
+                    print(f"-> could not solve for skill; action_{i} unreachable")
+                    return None
+        else:
+            # smoothen trajectory via linear interpolation
+            actions_pose_mat, action_gripper = self.linear_interpolation(
+                actions_pose_mat,
+                action_gripper,
+                num_points_per_segment=num_pts_per_segment,
+            )
+            assert len(actions_pose_mat) == len(action_gripper)
+            # 1st bring the ee up to the height of 1st action
+            begin_pose = self.robot.manip.get_ee_pose()
+            begin_pose = to_matrix(*begin_pose)
+            begin_pose[2, 3] = actions_pose_mat[0, 2, 3]
+            # TODO: also rotate the gripper as per 1st action
+            begin_pose[:3, :3] = actions_pose_mat[0, :3, :3]
+            # get current gripper reading, keep gripper as is during this motion
+            gripper = np.array([int(self.robot.manip.get_gripper_position() < -0.01)])
+            actions_pose_mat = np.concatenate(
+                (
+                    np.expand_dims(begin_pose, 0),
+                    actions_pose_mat,
+                    np.expand_dims(begin_pose, 0),
+                ),
+                axis=0,
+            )
+            self._send_action_to_tf(actions_pose_mat)
+            action_gripper = np.concatenate(
+                (
+                    gripper,
+                    action_gripper.reshape(-1),
+                    np.expand_dims(action_gripper.reshape(-1)[-1], axis=0),
+                ),
+                axis=-1,
+            )
+            initial_pt = ("initial", joint_pos_pre, gripper)
+            trajectory.append(initial_pt)
+
+            num_actions = actions_pose_mat.shape[0]
+            for i in range(num_actions):
+                desired_pos, desired_quat = to_pos_quat(actions_pose_mat[i])
+                desired_cfg, success, _ = self.robot.model.manip_ik(
+                    (desired_pos, desired_quat), q0=None
+                )
+                if success and desired_cfg is not None:
+                    desired_pt = (
+                        f"action_{i}",
+                        self.robot.model.config_to_manip_command(desired_cfg),
+                        bool(action_gripper[i]),
+                    )
+                    trajectory.append(desired_pt)
+                else:
+                    print(f"-> could not solve for skill; action_{i} unreachable")
+                    return None
+            # go back to initial pt with the gripper state same as last predicted action
+            end_pt = ("end", joint_pos_pre, bool(action_gripper[-1]))
+            trajectory.append(end_pt)
         return trajectory
 
     def _send_action_to_tf(self, action):
@@ -147,32 +173,37 @@ class CombinedSLAPPlanner(object):
         self,
         combined_action: np.ndarray,
         wait_for_input: bool = False,
-        closed_loop: bool = False,
+        p2p_motion: bool = False,
+        trimesh_format: bool = True,
     ) -> bool:
         """Execute a predefined end-effector trajectory. Expected input dimension is NUM_WAYPOINTSx8,
         where each waypoint is: pos(3-val), ori(4-val), gripper(1-val)"""
         action_as_mat = []
         for act in combined_action:
-            action_as_mat.append(to_matrix(act[:3], act[3:7], trimesh_format=True))
+            action_as_mat.append(
+                to_matrix(act[:3], act[3:7], trimesh_format=trimesh_format)
+            )
         action_as_mat = np.array(action_as_mat)
         action_as_mat = np.matmul(action_as_mat, self._robot_ee_to_grasp_offset)
         self._send_action_to_tf(action_as_mat)
 
         # Generate a plan
-        trajectory = self.plan_for_skill(action_as_mat, combined_action[:, -1])
+        trajectory = self.plan_for_skill(
+            action_as_mat, combined_action[:, -1], p2p_motion=p2p_motion
+        )
 
         if trajectory is None:
             print("Planning failed")
             return False
 
-        for i, (name, waypoint, should_grasp) in enumerate(trajectory):
-            self.robot.manip.goto_joint_positions(waypoint)
-            if should_grasp:
+        for i, (name, waypoint, grasp) in enumerate(trajectory):
+            # self.robot.manip.goto_joint_positions(waypoint)
+            if grasp == 1:
                 self.robot.manip.close_gripper()
                 if self.mode == "open":
                     rospy.sleep(0.5)
                 self.mode = "close"
-            else:
+            elif grasp == 0:
                 self.robot.manip.open_gripper()
                 if self.mode == "close":
                     rospy.sleep(0.5)

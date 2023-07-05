@@ -99,11 +99,13 @@ def filter_and_remove_duplicate_points(
         mask = np.bitwise_and(depth < 1.5, depth > 0.3)
         rgb = rgb[mask]
         xyz = xyz[mask]
-        feats = feats[mask]
+        if feats is not None:
+            feats = feats[mask]
         z_mask = xyz[:, 2] > 0.15
         rgb = rgb[z_mask]
         xyz = xyz[z_mask]
-        feats = feats[z_mask]
+        if feats is not None:
+            feats = feats[z_mask]
     if np.any(rgb > 1.0):
         rgb = rgb / 255.0
     debug_views = False
@@ -126,10 +128,12 @@ def filter_and_remove_duplicate_points(
         voxelized_index_trace.append(np.asarray(intvec))
     rgb = np.asarray(pcd_voxelized.colors)
     xyz = np.asarray(pcd_voxelized.points)
-    feats = aggregate_feats(feats, voxelized_index_trace)
+    if feats is not None:
+        feats = aggregate_feats(feats, voxelized_index_trace)
 
     if debug_voxelization:
-        show_semantic_mask(xyz, rgb, feats)
+        if feats is not None:
+            show_semantic_mask(xyz, rgb, feats)
 
     return xyz, rgb, feats
 
@@ -152,12 +156,12 @@ def voxelize_point_cloud(
     rgb = np.asarray(pcd_voxelized.colors)
     xyz = np.asarray(pcd_voxelized.points)
     if feat is not None:
-        feats = aggregate_feats(feat, voxelized_index_trace)
+        feat = aggregate_feats(feat, voxelized_index_trace)
 
     if debug_voxelization:
-        show_semantic_mask(xyz, rgb, feats=feats)
+        show_semantic_mask(xyz, rgb, feats=feat)
 
-    return xyz, rgb, feats
+    return xyz, rgb, feat
 
 
 def dr_crop_radius_around_interaction_point(
