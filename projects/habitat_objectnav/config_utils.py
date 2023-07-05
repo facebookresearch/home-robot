@@ -1,12 +1,25 @@
+# Copyright (c) Meta Platforms, Inc. and affiliates.
+#
+# This source code is licensed under the MIT license found in the
+# LICENSE file in the root directory of this source tree.
+
+
 import json
 from typing import Optional, Tuple
 
 import habitat.config.default
 import yaml
-from habitat.config.default import Config
+from habitat_baselines.config.default import _BASELINES_CFG_DIR
+from habitat_baselines.config.default import get_config as get_habitat_config
+from omegaconf import DictConfig, OmegaConf
 
 
-def get_config(path: str, opts: Optional[list] = None) -> Tuple[Config, str]:
+def get_config(
+    habitat_config_path: str,
+    baseline_config_path: str,
+    opts: Optional[list] = None,
+    configs_dir: str = _BASELINES_CFG_DIR,
+) -> Tuple[DictConfig, str]:
     """Get configuration and ensure consistency between configurations
     inherited from the task and defaults and our code's configuration.
 
@@ -14,70 +27,46 @@ def get_config(path: str, opts: Optional[list] = None) -> Tuple[Config, str]:
         path: path to our code's config
         opts: command line arguments overriding the config
     """
-    config = Config()
-
-    # Start with our code's config
-    config.merge_from_file(path)
-
-    # Add Habitat's default config and the base task config path specified
-    # in our code's config under TASK_CONFIG
-    task_config = Config()
-    task_config.merge_from_other_cfg(habitat.config.default._C)
-    task_config.merge_from_file(config.BASE_TASK_CONFIG_PATH)
-    config.TASK_CONFIG = task_config
-
-    # Add command line arguments
-    if opts is not None:
-        config.merge_from_list(opts)
-
-    config.freeze()
-
-    # Generate a string representation of our code's config
-    config_dict = yaml.load(open(path), Loader=yaml.FullLoader)
-    if opts is not None:
-        for i in range(0, len(opts), 2):
-            dict = config_dict
-            keys = opts[i].split(".")
-            if "TASK_CONFIG" in keys:
-                continue
-            value = opts[i + 1]
-            for key in keys[:-1]:
-                dict = dict[key]
-            dict[keys[-1]] = value
-    config_str = json.dumps(config_dict, indent=4)
+    habitat_config = get_habitat_config(
+        habitat_config_path, overrides=opts, configs_dir=configs_dir
+    )
+    baseline_config = OmegaConf.load(baseline_config_path)
+    config = DictConfig({**habitat_config, **baseline_config})
 
     # Ensure consistency between configurations inherited from the task
-    # and defaults and our code's configuration
-    rgb_sensor = config.TASK_CONFIG.SIMULATOR.RGB_SENSOR
-    depth_sensor = config.TASK_CONFIG.SIMULATOR.DEPTH_SENSOR
-    semantic_sensor = config.TASK_CONFIG.SIMULATOR.get("SEMANTIC_SENSOR")
+    # # and defaults and our code's configuration
 
+    sim_sensors = config.habitat.simulator.agents.main_agent.sim_sensors
+
+    rgb_sensor = sim_sensors.rgb_sensor
+    depth_sensor = sim_sensors.depth_sensor
+    semantic_sensor = sim_sensors.semantic_sensor
     frame_height = config.ENVIRONMENT.frame_height
-    assert rgb_sensor.HEIGHT == depth_sensor.HEIGHT
+    assert rgb_sensor.height == depth_sensor.height
     if semantic_sensor:
-        assert rgb_sensor.HEIGHT == semantic_sensor.HEIGHT
-    assert rgb_sensor.HEIGHT >= frame_height and rgb_sensor.HEIGHT % frame_height == 0
+        assert rgb_sensor.height == semantic_sensor.height
+    assert rgb_sensor.height >= frame_height and rgb_sensor.height % frame_height == 0
 
     frame_width = config.ENVIRONMENT.frame_width
-    assert rgb_sensor.WIDTH == depth_sensor.WIDTH
+    assert rgb_sensor.width == depth_sensor.width
     if semantic_sensor:
-        assert rgb_sensor.WIDTH == semantic_sensor.WIDTH
-    assert rgb_sensor.WIDTH >= frame_width and rgb_sensor.WIDTH % frame_width == 0
+        assert rgb_sensor.width == semantic_sensor.width
+    assert rgb_sensor.width >= frame_width and rgb_sensor.width % frame_width == 0
 
     camera_height = config.ENVIRONMENT.camera_height
-    assert camera_height == rgb_sensor.POSITION[1]
-    assert camera_height == depth_sensor.POSITION[1]
+    assert camera_height == rgb_sensor.position[1]
+    assert camera_height == depth_sensor.position[1]
     if semantic_sensor:
-        assert camera_height == semantic_sensor.POSITION[1]
+        assert camera_height == semantic_sensor.position[1]
 
     hfov = config.ENVIRONMENT.hfov
-    assert hfov == rgb_sensor.HFOV
-    assert hfov == depth_sensor.HFOV
+    assert hfov == rgb_sensor.hfov
+    assert hfov == depth_sensor.hfov
     if semantic_sensor:
-        assert hfov == semantic_sensor.HFOV
+        assert hfov == semantic_sensor.hfov
 
-    assert config.ENVIRONMENT.min_depth == depth_sensor.MIN_DEPTH
-    assert config.ENVIRONMENT.max_depth == depth_sensor.MAX_DEPTH
-    assert config.ENVIRONMENT.turn_angle == config.TASK_CONFIG.SIMULATOR.TURN_ANGLE
+    assert config.ENVIRONMENT.min_depth == depth_sensor.min_depth
+    assert config.ENVIRONMENT.max_depth == depth_sensor.max_depth
+    assert config.ENVIRONMENT.turn_angle == config.habitat.simulator.turn_angle
 
-    return config, config_str
+    return config

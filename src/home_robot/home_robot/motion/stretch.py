@@ -18,9 +18,7 @@ from home_robot.utils.pose import to_matrix
 
 # Stretch stuff
 DEFAULT_STRETCH_URDF = "assets/hab_stretch/urdf/stretch_dex_wrist_simplified.urdf"
-# PLANNER_STRETCH_URDF =  'assets/hab_stretch/urdf/planner_stretch_dex_wrist_simplified.urdf'
 PLANNER_STRETCH_URDF = "assets/hab_stretch/urdf/planner_calibrated.urdf"
-# MANIP_STRETCH_URDF = "assets/hab_stretch/urdf/planner_calibrated_manipulation_mode.urdf"
 MANIP_STRETCH_URDF = "assets/hab_stretch/urdf/stretch_manip_mode.urdf"
 
 STRETCH_HOME_Q = np.array(
@@ -36,6 +34,23 @@ STRETCH_HOME_Q = np.array(
         3.0,  # wrist,
         0.0,
         0.0,
+    ]
+)
+
+# look down in navigation mode for doing manipulation post-navigation
+STRETCH_POSTNAV_Q = np.array(
+    [
+        0,  # x
+        0,  # y
+        0,  # theta
+        0.78,  # lift
+        0.01,  # arm
+        0.0,  # gripper rpy
+        0.0,  # wrist roll
+        -1.5,  # wrist pitch
+        0.0,  # wrist yaw
+        0.0,
+        math.radians(-45),
     ]
 )
 
@@ -200,6 +215,7 @@ class HelloStretchKinematics(Robot):
     look_at_ee = np.array([-np.pi / 2, -np.pi / 4])
     look_front = np.array([0.0, math.radians(-30)])
     look_ahead = np.array([0.0, 0.0])
+    max_arm_height = 1.2
 
     # For inverse kinematics mode
     default_ee_link_name = "link_straight_gripper"

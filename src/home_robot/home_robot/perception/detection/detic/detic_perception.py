@@ -1,4 +1,11 @@
+# Copyright (c) Meta Platforms, Inc. and affiliates.
+#
+# This source code is licensed under the MIT license found in the
+# LICENSE file in the root directory of this source tree.
+
+
 import argparse
+import pathlib
 import sys
 from pathlib import Path
 from typing import List, Optional, Tuple
@@ -179,6 +186,9 @@ class DeticPerception(PerceptionModule):
         self.cpu_device = torch.device("cpu")
         self.instance_mode = ColorMode.IMAGE
         self.predictor = DefaultPredictor(cfg)
+
+        if type(classifier) == pathlib.PosixPath:
+            classifier = str(classifier)
         reset_cls_test(self.predictor.model, classifier, num_classes)
 
     def reset_vocab(self, new_vocab: List[str], vocab_type="custom"):

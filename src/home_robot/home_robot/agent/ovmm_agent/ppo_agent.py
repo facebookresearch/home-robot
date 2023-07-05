@@ -20,6 +20,7 @@ from habitat.utils.gym_adapter import (
     continuous_vector_action_to_hab_dict,
     create_action_space,
 )
+from habitat.utils.visualizations.utils import observations_to_image
 from habitat_baselines.common.baseline_registry import baseline_registry
 from habitat_baselines.common.obs_transformers import (
     apply_obs_transforms_batch,
@@ -28,6 +29,7 @@ from habitat_baselines.common.obs_transformers import (
 from habitat_baselines.config.default import get_config as get_habitat_config
 from habitat_baselines.utils.common import batch_obs
 
+import home_robot.utils.pose as pu
 from home_robot.agent.ovmm_agent.complete_obs_space import get_complete_obs_space
 from home_robot.core.interfaces import (
     ContinuousFullBodyAction,
@@ -203,7 +205,11 @@ class PPOAgent(Agent):
             self.min_joint_delta = skill_config.min_joint_delta
         if "manipulation_mode" in skill_config.allowed_actions:
             self.manip_mode_threshold = skill_config.manip_mode_threshold
+            self.constraint_base_in_manip_mode = (
+                skill_config.constraint_base_in_manip_mode
+            )
         self.terminate_condition = skill_config.terminate_condition
+        self.show_rl_obs = getattr(config, "SHOW_RL_OBS", False)
         self.manip_mode_called = False
         self.skill_start_gps = None
         self.skill_start_compass = None
@@ -291,9 +297,18 @@ class PPOAgent(Agent):
         min_depth = self.config.ENVIRONMENT.min_depth
         max_depth = self.config.ENVIRONMENT.max_depth
         normalized_depth = obs.depth.copy()
-        normalized_depth[normalized_depth == MIN_DEPTH_REPLACEMENT_VALUE] = 0
-        normalized_depth[normalized_depth == MAX_DEPTH_REPLACEMENT_VALUE] = 1
+        normalized_depth[normalized_depth == MIN_DEPTH_REPLACEMENT_VALUE] = min_depth
+        normalized_depth[normalized_depth == MAX_DEPTH_REPLACEMENT_VALUE] = max_depth
+        normalized_depth = np.clip(normalized_depth, min_depth, max_depth)
         normalized_depth = (normalized_depth - min_depth) / (max_depth - min_depth)
+        rel_pos = pu.get_rel_pose_change(
+            [obs.gps[0], obs.gps[1], obs.compass],
+            [
+                self.skill_start_gps[0],
+                self.skill_start_gps[1],
+                self.skill_start_compass,
+            ],
+        )
         hab_obs = OrderedDict(
             {
                 "robot_head_depth": np.expand_dims(normalized_depth, -1).astype(
@@ -308,12 +323,11 @@ class PPOAgent(Agent):
                 ).astype(np.uint8),
                 "joint": obs.joint,
                 "relative_resting_position": obs.relative_resting_position,
-                "is_holding": obs.is_holding,
-                "robot_start_gps": np.array((obs.gps[0], -1 * obs.gps[1]))
-                - self.skill_start_gps,
-                "robot_start_compass": obs.compass - self.skill_start_compass,
-                "start_receptacle": obs.task_observations["start_receptacle"],
-                "goal_receptacle": obs.task_observations["goal_receptacle"],
+                "is_holding": np.array(obs.task_observations["prev_grasp_success"]),
+                "robot_start_gps": np.array((rel_pos[1].item(), rel_pos[0].item())),
+                "robot_start_compass": pu.normalize_radians(rel_pos[2]),
+                "start_receptacle": np.array(obs.task_observations["start_receptacle"]),
+                "goal_receptacle": np.array(obs.task_observations["goal_receptacle"]),
             }
         )
 
@@ -321,11 +335,10 @@ class PPOAgent(Agent):
             hab_obs["ovmm_nav_goal_segmentation"] = self._get_goal_segmentation(obs)
         if "receptacle_segmentation" in self.skill_obs_keys:
             hab_obs["receptacle_segmentation"] = self._get_receptacle_segmentation(obs)
-
         return hab_obs
 
     def act(
-        self, observations: Observations
+        self, observations: Observations, info
     ) -> Tuple[
         Union[
             ContinuousFullBodyAction,
@@ -336,15 +349,20 @@ class PPOAgent(Agent):
     ]:
         sample_random_seed()
         if self.skill_start_gps is None:
-            self.skill_start_gps = np.array(
-                (observations.gps[0], -1 * observations.gps[1])
-            )
+            self.skill_start_gps = observations.gps
         if self.skill_start_compass is None:
             self.skill_start_compass = observations.compass
         obs = self.convert_to_habitat_obs_space(observations)
+        viz_obs = {k: obs[k] for k in self.skill_obs_keys}
         batch = batch_obs([obs], device=self.device)
         batch = apply_obs_transforms_batch(batch, self.obs_transforms)
+        for k in self.skill_obs_keys:
+            viz_obs[k + "_resized"] = batch[k][0].cpu().numpy()
         batch = OrderedDict([(k, batch[k]) for k in self.skill_obs_keys])
+
+        if self.show_rl_obs:
+            frame = observations_to_image(viz_obs, info={})
+            info["rl_obs_frame"] = frame
 
         with torch.no_grad():
             action_data = self.actor_critic.act(
@@ -383,6 +401,7 @@ class PPOAgent(Agent):
                 )
                 return (
                     robot_action,
+                    info,
                     does_want_terminate,
                 )
             else:
@@ -391,6 +410,7 @@ class PPOAgent(Agent):
                 )
                 return (
                     step_action,
+                    info,
                     self.does_want_terminate(observations, step_action),
                 )
 
@@ -419,6 +439,10 @@ class PPOAgent(Agent):
             if np.abs(absolute_turn) < self.min_turn:
                 absolute_turn = 0
             xyt = np.array([0, 0, absolute_turn])  # turn
+
+        if self.manip_mode_called and self.constraint_base_in_manip_mode:
+            xyt = np.array([0, 0, 0])
+
         joints = None
         # Map policy controlled arm_action to complete arm_action space
         if "arm_action" in cont_action:

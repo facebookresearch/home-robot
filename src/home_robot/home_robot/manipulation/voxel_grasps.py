@@ -1,3 +1,9 @@
+# Copyright (c) Meta Platforms, Inc. and affiliates.
+#
+# This source code is licensed under the MIT license found in the
+# LICENSE file in the root directory of this source tree.
+
+
 from typing import Dict, Iterable, List, Optional, Tuple
 
 import click
@@ -6,7 +12,6 @@ import rospy
 from scipy.spatial.transform import Rotation as R
 
 from home_robot.mapping.voxel import SparseVoxelMap
-from home_robot.utils.point_cloud import show_point_cloud
 from home_robot_hw.ros.grasp_helper import GraspServer
 
 VERTICAL_GRIPPER_QUAT = [
@@ -55,6 +60,8 @@ def _visualize_grasps(
     rgb_colored = rgb.copy() / 255.0
     if idcs is not None:
         rgb_colored[idcs, :] = np.array([0.0, 0.0, 1.0])[None, :]
+    from home_robot.utils.point_cloud import show_point_cloud
+
     show_point_cloud(xyz, rgb_colored, orig=np.zeros(3), grasps=grasps)
 
 

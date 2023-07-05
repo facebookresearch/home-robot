@@ -1,3 +1,9 @@
+# Copyright (c) Meta Platforms, Inc. and affiliates.
+#
+# This source code is licensed under the MIT license found in the
+# LICENSE file in the root directory of this source tree.
+
+
 import timeit
 from typing import Optional, Tuple
 
@@ -197,7 +203,6 @@ class GraspPlanner(object):
                 )
 
             _, all_object_masks = self.get_object_class_masks(obs)
-
             # TODO: return to this if we want to take goal mask as an argument in the future
             # For now though we will choose the closest one
             # object_mask = obs.task_observations["goal_mask"]

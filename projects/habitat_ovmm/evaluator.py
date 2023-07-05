@@ -1,29 +1,21 @@
-import argparse
+# Copyright (c) Meta Platforms, Inc. and affiliates.
+#
+# This source code is licensed under the MIT license found in the
+# LICENSE file in the root directory of this source tree.
+
+
 import json
 import os
-import sys
 import time
 from collections import defaultdict
-from pathlib import Path
 
 import numpy as np
-from config_utils import get_config
-from omegaconf import DictConfig, OmegaConf
-
-sys.path.insert(
-    0,
-    str(Path(__file__).resolve().parent.parent.parent / "src/home_robot"),
-)
-sys.path.insert(
-    0,
-    str(Path(__file__).resolve().parent.parent.parent / "src/home_robot_sim"),
-)
-
 from habitat import make_dataset
 from habitat.core.environments import get_env_class
 from habitat.core.vector_env import VectorEnv
 from habitat.utils.gym_definitions import _get_env_name
 from habitat_baselines.rl.ppo.ppo_trainer import PPOTrainer
+from omegaconf import DictConfig
 
 from home_robot.agent.ovmm_agent.ovmm_agent import OpenVocabManipAgent
 from home_robot_sim.env.habitat_ovmm_env.habitat_ovmm_env import (
@@ -43,44 +35,28 @@ def create_ovmm_env_fn(config):
     return env
 
 
-class VectorizedEvaluator(PPOTrainer):
+class OVMMEvaluator(PPOTrainer):
     """Class for creating vectorized environments, evaluating OpenVocabManipAgent on an episode dataset and returning metrics"""
 
-    def __init__(self, config, config_str: str):
-        self.visualize = config.VISUALIZE or config.PRINT_IMAGES
-
-        if not self.visualize:
-            # TODO: not seeing any speed improvements when removing these sensors
-            config.habitat.gym.obs_keys.remove("robot_third_rgb")
-            config.habitat.simulator.agents.main_agent.sim_sensors.pop(
-                "third_rgb_sensor", None
-            )
-
-        OmegaConf.set_readonly(config, True)
-
-        self.config = config
+    def __init__(self, eval_config: DictConfig) -> None:
+        self.metrics_save_freq = eval_config.EVAL_VECTORIZED.metrics_save_freq
         self.results_dir = os.path.join(
-            self.config.DUMP_LOCATION, "results", self.config.EXP_NAME
+            eval_config.DUMP_LOCATION, "results", eval_config.EXP_NAME
         )
-        self.videos_dir = self.config.habitat_baselines.video_dir
+        self.videos_dir = eval_config.habitat_baselines.video_dir
         os.makedirs(self.results_dir, exist_ok=True)
         os.makedirs(self.videos_dir, exist_ok=True)
-        super().__init__(config)
 
-    def eval(self, num_episodes_per_env=10):
+        super().__init__(eval_config)
+
+    def eval(self, agent, num_episodes_per_env=10):
         self._init_envs(
             config=self.config, is_eval=True, make_env_fn=create_ovmm_env_fn
-        )
-        agent = OpenVocabManipAgent(
-            config=self.config,
-            obs_spaces=self.envs.observation_spaces,
-            action_spaces=self.envs.orig_action_spaces,
         )
         self._eval(
             agent,
             self.envs,
             num_episodes_per_env=num_episodes_per_env,
-            episode_keys=None,
         )
 
     def write_results(self, episode_metrics):
@@ -97,7 +73,6 @@ class VectorizedEvaluator(PPOTrainer):
             for k in metrics:
                 if k in v:
                     aggregated_metrics[f"{k}/total"].append(v[k])
-                    aggregated_metrics[f"{k}/{v['goal_name']}"].append(v[k])
 
         aggregated_metrics = dict(
             sorted(
@@ -122,29 +97,29 @@ class VectorizedEvaluator(PPOTrainer):
         agent: OpenVocabManipAgent,
         envs: VectorEnv,
         num_episodes_per_env=None,
-        episode_keys=None,
     ):
         # The stopping condition is either specified through
         # num_episodes_per_env (stop after each environment
-        # finishes a certain number of episodes) or episode_keys
-        # (stop after we iterate through a list of specific episodes)
-        assert (num_episodes_per_env is not None and episode_keys is None) or (
-            num_episodes_per_env is None and episode_keys is not None
-        )
+        # finishes a certain number of episodes)
+        print(f"Running eval on {envs.number_of_episodes} episodes")
+
+        if num_episodes_per_env is None:
+            num_episodes_per_env = envs.number_of_episodes
+        else:
+            num_episodes_per_env = [num_episodes_per_env] * envs.num_envs
+
+        episode_metrics = {}
 
         def stop():
-            if num_episodes_per_env is not None:
-                return all([i >= num_episodes_per_env for i in episode_idxs]) or len(
-                    episode_metrics
-                ) == sum(self.envs.number_of_episodes)
-            elif episode_keys is not None:
-                return done_episode_keys == episode_keys
+            return all(
+                [
+                    episode_idxs[i] >= num_episodes_per_env[i]
+                    for i in range(envs.num_envs)
+                ]
+            )
 
         start_time = time.time()
-        episode_metrics = {}
         episode_idxs = [0] * envs.num_envs
-        done_episode_keys = set()
-
         obs = envs.call(["reset"] * envs.num_envs)
 
         agent.reset_vectorized(self.envs.current_episodes())
@@ -175,51 +150,24 @@ class VectorizedEvaluator(PPOTrainer):
                         **metrics_at_skill_end,
                         **episode_metrics[episode_key],
                     }
-                if done:
+                    episode_metrics[episode_key]["goal_name"] = info["goal_name"]
+                if done:  # environment times out
                     metrics = self._extract_scalars_from_info(hab_info)
-                    # If the episode keys we care about are specified,
-                    #  ignore all other episodes
-                    if episode_keys is not None:
-                        if episode_key in episode_keys:
-                            done_episode_keys.add(episode_key)
-                            metrics_at_episode_end = {
-                                f"END." + k: v for k, v in metrics.items()
-                            }
-                            episode_metrics[episode_key] = {
-                                **metrics_at_episode_end,
-                                **episode_metrics[episode_key],
-                            }
-                            episode_metrics[episode_key]["goal_name"] = info[
-                                "goal_name"
-                            ]
-                            print(
-                                f"Finished episode {episode_key} after "
-                                f"{round(time.time() - start_time, 2)} seconds"
-                            )
-
-                    elif num_episodes_per_env is not None:
-                        if episode_idxs[e] < num_episodes_per_env:
-                            metrics_at_episode_end = {
-                                f"END." + k: v for k, v in metrics.items()
-                            }
-                            episode_metrics[episode_key] = {
-                                **metrics_at_episode_end,
-                                **episode_metrics[episode_key],
-                            }
-                            episode_metrics[episode_key]["goal_name"] = info[
-                                "goal_name"
-                            ]
+                    if episode_idxs[e] < num_episodes_per_env[e]:
+                        metrics_at_episode_end = {
+                            f"END." + k: v for k, v in metrics.items()
+                        }
+                        episode_metrics[episode_key] = {
+                            **metrics_at_episode_end,
+                            **episode_metrics[episode_key],
+                        }
+                        episode_metrics[episode_key]["goal_name"] = info["goal_name"]
                         episode_idxs[e] += 1
                         print(
-                            f"Episode indexes {episode_idxs} / {num_episodes_per_env} "
+                            f"Episode indexes {episode_idxs[e]} / {num_episodes_per_env[e]} "
                             f"after {round(time.time() - start_time, 2)} seconds"
                         )
-
-                    if (
-                        len(episode_metrics)
-                        % self.config.EVAL_VECTORIZED.metrics_save_freq
-                        == 0
-                    ):
+                    if len(episode_metrics) % self.metrics_save_freq == 0:
                         self.write_results(episode_metrics)
                     if not stop():
                         obs[e] = envs.call_at(e, "reset")
@@ -229,41 +177,3 @@ class VectorizedEvaluator(PPOTrainer):
 
         envs.close()
         self.write_results(episode_metrics)
-
-
-if __name__ == "__main__":
-    parser = argparse.ArgumentParser()
-    parser.add_argument(
-        "--habitat_config_path",
-        type=str,
-        default="rearrange/ovmm.yaml",
-        help="Path to config yaml",
-    )
-    parser.add_argument(
-        "--baseline_config_path",
-        type=str,
-        default="projects/habitat_ovmm/configs/agent/floorplanner_eval.yaml",
-        help="Path to config yaml",
-    )
-    parser.add_argument(
-        "opts",
-        default=None,
-        nargs=argparse.REMAINDER,
-        help="Modify config options from command line",
-    )
-
-    print("Arguments:")
-    args = parser.parse_args()
-    print(json.dumps(vars(args), indent=4))
-    print("-" * 100)
-
-    print("Configs:")
-    config, config_str = get_config(args.habitat_config_path, opts=args.opts)
-    baseline_config = OmegaConf.load(args.baseline_config_path)
-    config = DictConfig({**config, **baseline_config})
-    evaluator = VectorizedEvaluator(config, config_str)
-    print(config_str)
-    print("-" * 100)
-    evaluator.eval(
-        num_episodes_per_env=config.EVAL_VECTORIZED.num_episodes_per_env,
-    )

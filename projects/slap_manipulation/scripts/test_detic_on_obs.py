@@ -1,3 +1,11 @@
+# Copyright (c) Meta Platforms, Inc. and affiliates.
+#
+# This source code is licensed under the MIT license found in the
+# LICENSE file in the root directory of this source tree.
+
+"""Easy script to test Detic's detection on a single, live image. 
+Takes in optional categorical input for any user-defined object."""
+
 import click
 import numpy as np
 import rospy
@@ -14,7 +22,12 @@ MY_CATEGORIES = ["cup", "bottle", "drawer", "basket", "bowl", "computer", "mug"]
 
 
 @click.command()
-@click.option("--category", multiple=True, default=MY_CATEGORIES)
+@click.option(
+    "--category",
+    multiple=True,
+    default=MY_CATEGORIES,
+    help="Categories to detect in given image, takes multiple values",
+)
 def main(category):
     robot = StretchClient()
     segmentation = DeticPerception(

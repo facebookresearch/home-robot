@@ -1,3 +1,9 @@
+# Copyright (c) Meta Platforms, Inc. and affiliates.
+#
+# This source code is licensed under the MIT license found in the
+# LICENSE file in the root directory of this source tree.
+
+
 from dataclasses import dataclass
 from enum import Enum
 from typing import Any, Dict, List, Optional
@@ -30,15 +36,16 @@ class DiscreteNavigationAction(Action, Enum):
     PLACE_OBJECT = 5
     NAVIGATION_MODE = 6
     MANIPULATION_MODE = 7
+    POST_NAV_MODE = 8
     # Arm extension to a fixed position and height
-    EXTEND_ARM = 8
-    EMPTY_ACTION = 9
+    EXTEND_ARM = 9
+    EMPTY_ACTION = 10
     # Simulation only actions
-    SNAP_OBJECT = 10
-    DESNAP_OBJECT = 11
+    SNAP_OBJECT = 11
+    DESNAP_OBJECT = 12
     # Discrete gripper commands
-    OPEN_GRIPPER = 12
-    CLOSE_GRIPPER = 13
+    OPEN_GRIPPER = 13
+    CLOSE_GRIPPER = 14
 
 
 class ContinuousNavigationAction:

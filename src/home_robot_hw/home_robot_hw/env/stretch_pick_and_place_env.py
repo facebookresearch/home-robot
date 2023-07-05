@@ -1,3 +1,9 @@
+# Copyright (c) Meta Platforms, Inc. and affiliates.
+#
+# This source code is licensed under the MIT license found in the
+# LICENSE file in the root directory of this source tree.
+
+
 import json
 import os
 import pickle
@@ -19,9 +25,11 @@ from home_robot.motion.stretch import (
     STRETCH_ARM_EXTENSION,
     STRETCH_ARM_LIFT,
     STRETCH_HOME_Q,
+    STRETCH_POSTNAV_Q,
     STRETCH_PREGRASP_Q,
 )
 from home_robot.utils.geometry import xyt2sophus
+from home_robot_hw.constants import relative_resting_position
 from home_robot_hw.env.stretch_abstract_env import StretchEnv
 from home_robot_hw.env.visualizer import Visualizer
 from home_robot_hw.remote import StretchClient
@@ -77,6 +85,7 @@ class StretchPickandPlaceEnv(StretchEnv):
         else:
             self.visualizer = None
 
+        # Connect to grasp planner via ROS
         if ros_grasping:
             # Create a simple grasp planner object, which will let us pick stuff up.
             # This takes in a reference to the robot client - will replace "self" with "self.client"
@@ -206,6 +215,9 @@ class StretchPickandPlaceEnv(StretchEnv):
             elif action == DiscreteNavigationAction.NAVIGATION_MODE:
                 continuous_action = None
                 self._switch_to_nav_mode()
+                continuous_action = None
+            elif action == DiscreteNavigationAction.POST_NAV_MODE:
+                self.robot.move_to_post_nav_posture()
                 continuous_action = None
             elif action == DiscreteNavigationAction.PICK_OBJECT:
                 print("[ENV] Discrete pick policy")
@@ -370,14 +382,13 @@ class StretchPickandPlaceEnv(StretchEnv):
             gps=gps,
             compass=np.array([theta]),
             task_observations=self.task_info,
-            # camera_pose=self.get_camera_pose_matrix(rotated=True),
             camera_pose=self.robot.head.get_pose(rotated=True),
             joint=self.robot.model.config_to_hab(joint_positions),
-            relative_resting_position=np.array([0.3878479, 0.12924957, 0.4224413]),
-            is_holding=np.array([0.0]),
+            relative_resting_position=relative_resting_position,
         )
-
-        obs.task_observations["prev_grasp_success"] = self.prev_grasp_success
+        obs.task_observations["prev_grasp_success"] = np.array(
+            [self.prev_grasp_success], np.float32
+        )
         obs.task_observations[
             "in_manipulation_mode"
         ] = self.robot.in_manipulation_mode()

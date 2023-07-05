@@ -51,3 +51,6 @@ data/
 projects/**/wandb
 core
 projects/**/multirun/**/**
+
+# configs
+projects/habitat_ovmm/configs/agent/generated/*

@@ -336,10 +336,9 @@ class ObjectNavAgent(Agent):
             vis_inputs[0]["semantic_frame"] = obs.task_observations["semantic_frame"]
             vis_inputs[0]["closest_goal_map"] = closest_goal_map
             vis_inputs[0]["third_person_image"] = obs.third_person_image
-            vis_inputs[0]["short_term_goal"] = short_term_goal
+            vis_inputs[0]["short_term_goal"] = None
             vis_inputs[0]["dilated_obstacle_map"] = dilated_obstacle_map
         info = {**planner_inputs[0], **vis_inputs[0]}
-
         return action, info
 
     def _preprocess_obs(self, obs: Observations):
@@ -352,12 +351,14 @@ class ObjectNavAgent(Agent):
         semantic = np.full_like(obs.semantic, 4)
         obj_goal_idx, start_recep_idx, end_recep_idx = 1, 2, 3
         semantic[obs.semantic == obs.task_observations["object_goal"]] = obj_goal_idx
-        semantic[
-            obs.semantic == obs.task_observations["start_recep_goal"]
-        ] = start_recep_idx
-        semantic[
-            obs.semantic == obs.task_observations["end_recep_goal"]
-        ] = end_recep_idx
+        if "start_recep_goal" in obs.task_observations:
+            semantic[
+                obs.semantic == obs.task_observations["start_recep_goal"]
+            ] = start_recep_idx
+        if "end_recep_goal" in obs.task_observations:
+            semantic[
+                obs.semantic == obs.task_observations["end_recep_goal"]
+            ] = end_recep_idx
         semantic = self.one_hot_encoding[torch.from_numpy(semantic).to(self.device)]
         obs_preprocessed = torch.cat([rgb, depth, semantic], dim=-1).unsqueeze(0)
         obs_preprocessed = obs_preprocessed.permute(0, 3, 1, 2)

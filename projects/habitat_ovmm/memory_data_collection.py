@@ -1,14 +1,15 @@
+# Copyright (c) Meta Platforms, Inc. and affiliates.
+#
+# This source code is licensed under the MIT license found in the
+# LICENSE file in the root directory of this source tree.
+
+
 import argparse
 import json
-import os
 import sys
-import time
-from collections import defaultdict
 from pathlib import Path
 
-import numpy as np
 from config_utils import get_config
-from eval_vectorized import VectorizedEvaluator
 from omegaconf import DictConfig, OmegaConf
 
 sys.path.insert(
@@ -19,14 +20,11 @@ sys.path.insert(
     0,
     str(Path(__file__).resolve().parent.parent.parent / "src/home_robot_sim"),
 )
-
+from evaluator import OVMMEvaluator
 from habitat import make_dataset
 from habitat.core.environments import get_env_class
-from habitat.core.vector_env import VectorEnv
 from habitat.utils.gym_definitions import _get_env_name
-from habitat_baselines.rl.ppo.ppo_trainer import PPOTrainer
 
-from home_robot.agent.ovmm_agent.ovmm_agent import OpenVocabManipAgent
 from home_robot.agent.ovmm_agent.ovmm_llm_agent import OvmmLLMAgent
 from home_robot_sim.env.habitat_ovmm_env.habitat_ovmm_env import (
     HabitatOpenVocabManipEnv,
@@ -45,11 +43,11 @@ def create_ovmm_env_fn(config):
     return env
 
 
-class MemoryCollector(VectorizedEvaluator):
+class MemoryCollector(OVMMEvaluator):
     """Class for creating vectorized environments, evaluating OpenVocabManipAgent on an episode dataset and returning metrics"""
 
-    def __init__(self, config, config_str: str):
-        super().__init__(config, config_str)
+    def __init__(self, config):
+        super().__init__(config)
 
     def collect(self, num_episodes_per_env=1):
         """Return a dict mapping each timestep to the clip features of detected objects in the current frame"""
@@ -65,7 +63,6 @@ class MemoryCollector(VectorizedEvaluator):
             agent,
             self.envs,
             num_episodes_per_env=num_episodes_per_env,
-            episode_keys=None,
         )
         return agent.memory
 
@@ -75,7 +72,7 @@ if __name__ == "__main__":
     parser.add_argument(
         "--habitat_config_path",
         type=str,
-        default="rearrange/ovmm.yaml",
+        default="ovmm/ovmm_eval.yaml",
         help="Path to config yaml",
     )
     parser.add_argument(
@@ -100,9 +97,8 @@ if __name__ == "__main__":
     config, config_str = get_config(args.habitat_config_path, opts=args.opts)
     baseline_config = OmegaConf.load(args.baseline_config_path)
     config = DictConfig({**config, **baseline_config})
-    collector = MemoryCollector(config, config_str)
-    print(config_str)
-    print("-" * 100)
+    collector = MemoryCollector(config)
+
     result = collector.collect(
         num_episodes_per_env=config.EVAL_VECTORIZED.num_episodes_per_env,
     )

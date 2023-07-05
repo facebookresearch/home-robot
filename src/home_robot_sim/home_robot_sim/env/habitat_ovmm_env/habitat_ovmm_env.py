@@ -1,3 +1,9 @@
+# Copyright (c) Meta Platforms, Inc. and affiliates.
+#
+# This source code is licensed under the MIT license found in the
+# LICENSE file in the root directory of this source tree.
+
+
 from enum import IntEnum
 from typing import Any, Dict, Optional, Union
 
@@ -118,12 +124,16 @@ class HabitatOpenVocabManipEnv(HabitatEnv):
         hab_pose[:, [0, 1, 2]] = hab_pose[:, [2, 0, 1]]
         return hab_pose
 
+    def _preprocess_xy(self, xy: np.array) -> np.array:
+        """Translate Habitat navigation (x, y) (i.e., GPS sensor) into robot (x, y)."""
+        return np.array([xy[1], xy[0]])
+
     def _preprocess_obs(
         self, habitat_obs: habitat.core.simulator.Observations
     ) -> home_robot.core.interfaces.Observations:
         depth = self._preprocess_depth(habitat_obs["robot_head_depth"])
 
-        if self.visualize:
+        if self.visualize and "robot_third_rgb" in habitat_obs:
             third_person_image = habitat_obs["robot_third_rgb"]
         else:
             third_person_image = None
@@ -131,15 +141,15 @@ class HabitatOpenVocabManipEnv(HabitatEnv):
         obs = home_robot.core.interfaces.Observations(
             rgb=habitat_obs["robot_head_rgb"],
             depth=depth,
-            compass=habitat_obs["robot_start_compass"] - (np.pi / 2),
+            compass=habitat_obs["robot_start_compass"],
             gps=self._preprocess_xy(habitat_obs["robot_start_gps"]),
             task_observations={
                 "object_embedding": habitat_obs["object_embedding"],
                 "start_receptacle": habitat_obs["start_receptacle"],
                 "goal_receptacle": habitat_obs["goal_receptacle"],
+                "prev_grasp_success": habitat_obs["is_holding"],
             },
             joint=habitat_obs["joint"],
-            is_holding=habitat_obs["is_holding"],
             relative_resting_position=habitat_obs["relative_resting_position"],
             third_person_image=third_person_image,
             camera_pose=self.convert_pose_to_real_world_axis(
@@ -191,7 +201,9 @@ class HabitatOpenVocabManipEnv(HabitatEnv):
         goal_receptacle = self._rec_id_to_name_mapping[
             habitat_obs["goal_receptacle"][0]
         ]
-        goal_name = obj_name + " " + start_receptacle + " " + goal_receptacle
+        goal_name = (
+            "Move " + obj_name + " from " + start_receptacle + " to " + goal_receptacle
+        )
 
         obj_goal_id = 1  # semantic sensor returns binary mask for goal object
         if self.ground_truth_semantics:
@@ -240,9 +252,9 @@ class HabitatOpenVocabManipEnv(HabitatEnv):
             if action.xyt is not None:
                 if action.xyt[0] != 0:
                     waypoint_x = np.clip(action.xyt[0] / self.max_forward, -1, 1)
-                elif action.xyt[1] != 0:
+                if action.xyt[1] != 0:
                     waypoint_y = np.clip(action.xyt[1] / self.max_forward, -1, 1)
-                elif action.xyt[2] != 0:
+                if action.xyt[2] != 0:
                     turn = np.clip(action.xyt[2] / self.max_turn, -1, 1)
             arm_action = np.array([0] * self.joints_dof)
             # If action is of type ContinuousFullBodyAction, it would include waypoints for the joints
@@ -327,7 +339,10 @@ class HabitatOpenVocabManipEnv(HabitatEnv):
             self._process_info(info)
         habitat_action = self._preprocess_action(action, self._last_habitat_obs)
         habitat_obs, _, dones, infos = self.habitat_env.step(habitat_action)
-
+        # copy the keys in info starting with the prefix "is_curr_skill" into infos
+        for key in info:
+            if key.startswith("is_curr_skill"):
+                infos[key] = info[key]
         self._last_habitat_obs = habitat_obs
         self._last_obs = self._preprocess_obs(habitat_obs)
         return self._last_obs, dones, infos

@@ -35,7 +35,7 @@ class HeuristicPlacePolicy(nn.Module):
         self,
         config,
         device,
-        placement_drop_distance: float = 0.25,
+        placement_drop_distance: float = 0.4,
         debug_visualize_xyz: bool = False,
     ):
         """
@@ -51,6 +51,74 @@ class HeuristicPlacePolicy(nn.Module):
         self.debug_visualize_xyz = debug_visualize_xyz
         self.erosion_kernel = np.ones((5, 5), np.uint8)
         self.placement_drop_distance = placement_drop_distance
+
+    def reset(self):
+        self.timestep = 0
+
+    def get_target_point_cloud_base_coords(
+        self,
+        obs: Observations,
+        target_mask: np.ndarray,
+        arm_reachability_check: bool = False,
+    ):
+        """Get point cloud coordinates in base frame"""
+        goal_rec_depth = torch.tensor(
+            obs.depth, device=self.device, dtype=torch.float32
+        ).unsqueeze(0)
+
+        camera_matrix = du.get_camera_matrix(
+            self.config.ENVIRONMENT.frame_width,
+            self.config.ENVIRONMENT.frame_height,
+            self.config.ENVIRONMENT.hfov,
+        )
+        # Get object point cloud in camera coordinates
+        pcd_camera_coords = du.get_point_cloud_from_z_t(
+            goal_rec_depth, camera_matrix, self.device, scale=self.du_scale
+        )
+
+        # get point cloud in base coordinates
+        camera_pose = np.expand_dims(obs.camera_pose, 0)
+        angles = [tra.euler_from_matrix(p[:3, :3], "rzyx") for p in camera_pose]
+        tilt = angles[0][1]  # [0][1]
+
+        # Agent height comes from the environment config
+        agent_height = torch.tensor(camera_pose[0, 2, 3], device=self.device)
+
+        # Object point cloud in base coordinates
+        pcd_base_coords = du.transform_camera_view_t(
+            pcd_camera_coords, agent_height, np.rad2deg(tilt), self.device
+        )
+
+        if self.debug_visualize_xyz:
+            # Remove invalid points from the mask
+            xyz = (
+                pcd_base_coords[0]
+                .cpu()
+                .numpy()
+                .reshape(-1, 3)[target_mask.reshape(-1), :]
+            )
+            from home_robot.utils.point_cloud import show_point_cloud
+
+            rgb = (obs.rgb).reshape(-1, 3) / 255.0
+            show_point_cloud(xyz, rgb, orig=np.zeros(3))
+
+        # Whether or not I can extend the robot's arm in order to reach each point
+        if arm_reachability_check:
+            # filtering out unreachable points based on Y and Z coordinates of voxels (Z is up)
+            height_reachable_mask = (pcd_base_coords[0, :, :, 2] < agent_height).to(int)
+            height_reachable_mask = torch.stack([height_reachable_mask] * 3, axis=-1)
+            pcd_base_coords = pcd_base_coords * height_reachable_mask
+
+            length_reachable_mask = (pcd_base_coords[0, :, :, 1] < agent_height).to(int)
+            length_reachable_mask = torch.stack([length_reachable_mask] * 3, axis=-1)
+            pcd_base_coords = pcd_base_coords * length_reachable_mask
+
+        non_zero_mask = torch.stack(
+            [torch.from_numpy(target_mask).to(self.device)] * 3, axis=-1
+        )
+        pcd_base_coords = pcd_base_coords * non_zero_mask
+
+        return pcd_base_coords[0]
 
     def get_receptacle_placement_point(
         self,
@@ -90,73 +158,11 @@ class HeuristicPlacePolicy(nn.Module):
             return None
         else:
             rgb_vis = obs.rgb
-            goal_rec_depth = torch.tensor(
-                obs.depth, device=self.device, dtype=torch.float32
-            ).unsqueeze(0)
-
-            camera_matrix = du.get_camera_matrix(
-                self.config.ENVIRONMENT.frame_width,
-                self.config.ENVIRONMENT.frame_height,
-                self.config.ENVIRONMENT.hfov,
+            pcd_base_coords = self.get_target_point_cloud_base_coords(
+                obs, goal_rec_mask, arm_reachability_check=arm_reachability_check
             )
-            # Get object point cloud in camera coordinates
-            pcd_camera_coords = du.get_point_cloud_from_z_t(
-                goal_rec_depth, camera_matrix, self.device, scale=self.du_scale
-            )
-
-            # get point cloud in base coordinates
-            camera_pose = np.expand_dims(obs.camera_pose, 0)
-            angles = [tra.euler_from_matrix(p[:3, :3], "rzyx") for p in camera_pose]
-            tilt = angles[0][1]  # [0][1]
-
-            # Agent height comes from the environment config
-            agent_height = torch.tensor(camera_pose[0, 2, 3], device=self.device)
-
-            # Object point cloud in base coordinates
-            pcd_base_coords = du.transform_camera_view_t(
-                pcd_camera_coords, agent_height, np.rad2deg(tilt), self.device
-            )
-
-            if self.debug_visualize_xyz:
-                # Remove invalid points from the mask
-                xyz = (
-                    pcd_base_coords[0]
-                    .cpu()
-                    .numpy()
-                    .reshape(-1, 3)[goal_rec_mask.reshape(-1), :]
-                )
-                from home_robot.utils.point_cloud import show_point_cloud
-
-                rgb = (obs.rgb).reshape(-1, 3) / 255.0
-                show_point_cloud(xyz, rgb, orig=np.zeros(3))
-
-            # Whether or not I can extend the robot's arm in order to reach each point
-            if arm_reachability_check:
-                # filtering out unreachable points based on Y and Z coordinates of voxels (Z is up)
-                height_reachable_mask = (pcd_base_coords[0, :, :, 2] < agent_height).to(
-                    int
-                )
-                height_reachable_mask = torch.stack(
-                    [height_reachable_mask] * 3, axis=-1
-                )
-                pcd_base_coords = pcd_base_coords * height_reachable_mask
-
-                length_reachable_mask = (pcd_base_coords[0, :, :, 1] < agent_height).to(
-                    int
-                )
-                length_reachable_mask = torch.stack(
-                    [length_reachable_mask] * 3, axis=-1
-                )
-                pcd_base_coords = pcd_base_coords * length_reachable_mask
-
-            non_zero_mask = torch.stack(
-                [torch.from_numpy(goal_rec_mask).to(self.device)] * 3, axis=-1
-            )
-            pcd_base_coords = pcd_base_coords * non_zero_mask
-
             ## randomly sampling NUM_POINTS_TO_SAMPLE of receptacle point cloud – to choose for placement
-
-            reachable_point_cloud = pcd_base_coords[0].cpu().numpy()
+            reachable_point_cloud = pcd_base_coords.cpu().numpy()
             flat_array = reachable_point_cloud.reshape(-1, 3)
 
             # find the indices of the non-zero elements in the first two dimensions of the matrix
@@ -169,14 +175,15 @@ class HeuristicPlacePolicy(nn.Module):
                 )
                 for index in nonzero_indices
             ]
+
             # select a random subset of the non-zero indices
             random_indices = random.sample(
                 nonzero_tuples, min(NUM_POINTS_TO_SAMPLE, len(nonzero_tuples))
             )
 
-            x_values = pcd_base_coords[0, :, :, 0]
-            y_values = pcd_base_coords[0, :, :, 1]
-            z_values = pcd_base_coords[0, :, :, 2]
+            x_values = pcd_base_coords[:, :, 0]
+            y_values = pcd_base_coords[:, :, 1]
+            z_values = pcd_base_coords[:, :, 2]
 
             max_surface_points = 0
             # max_height = 0
@@ -185,7 +192,7 @@ class HeuristicPlacePolicy(nn.Module):
 
             ## iterating through all randomly selected voxels and choosing one with most XY neighboring surface area within some height threshold
             for ind in random_indices:
-                sampled_voxel = pcd_base_coords[0, ind[0], ind[1]]
+                sampled_voxel = pcd_base_coords[ind[0], ind[1]]
                 sampled_voxel_x, sampled_voxel_y, sampled_voxel_z = (
                     sampled_voxel[0],
                     sampled_voxel[1],
@@ -259,8 +266,10 @@ class HeuristicPlacePolicy(nn.Module):
             best_voxel[2] += self.placement_drop_distance
 
             if self.debug_visualize_xyz:
+                from home_robot.utils.point_cloud import show_point_cloud
+
                 show_point_cloud(
-                    pcd_base_coords[0].cpu().numpy(),
+                    pcd_base_coords.cpu().numpy(),
                     rgb=obs.rgb / 255.0,
                     orig=best_voxel.cpu().numpy(),
                 )
@@ -282,7 +291,6 @@ class HeuristicPlacePolicy(nn.Module):
             vis_inputs: dictionary containing extra info for visualizations
         """
 
-        self.timestep = self.timestep
         turn_angle = self.config.ENVIRONMENT.turn_angle
         fwd_step_size = self.config.ENVIRONMENT.forward
 
@@ -295,7 +303,7 @@ class HeuristicPlacePolicy(nn.Module):
                 print("Receptacle not visible. Execute hardcoded place.")
                 self.total_turn_and_forward_steps = 0
                 self.initial_orient_num_turns = -1
-                self.fall_wait_steps = 5
+                self.fall_wait_steps = 0
                 self.t_go_to_top = 1
                 self.t_extend_arm = 2
                 self.t_release_object = 3
@@ -331,7 +339,7 @@ class HeuristicPlacePolicy(nn.Module):
                 self.total_turn_and_forward_steps = (
                     self.forward_steps + self.initial_orient_num_turns
                 )
-                self.fall_wait_steps = 5
+                self.fall_wait_steps = 0
                 self.t_go_to_top = self.total_turn_and_forward_steps + 1
                 self.t_go_to_place = self.total_turn_and_forward_steps + 2
                 self.t_release_object = self.total_turn_and_forward_steps + 3

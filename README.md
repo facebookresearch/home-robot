@@ -9,21 +9,20 @@
 
 Your open-source robotic mobile manipulation stack!
 
-Check out the [Neurips 2023 HomeRobot Open-Vocabulary Mobile Manipulation Challenge!](https://aihabitat.org/challenge/2023_homerobot_ovmm/)
-
-_CURRENTLY UNDER ACTIVE DEVELOPMENT! PLEASE CONTACT US IF YOU ARE INTERESTED IN USING THIS LIBRARY!_
-
-_FULL RELEASE WILL HAPPEN MID-JUNE!_
-
 HomeRobot lets you get started running a range of robotics tasks on a low-cost mobile manipulator, starting with _Open Vocabulary Mobile Manipulation_, or OVMM. OVMM is a challenging task which means that, in an unknown environment, a robot must:
   - Explore its environment
   - Find an object
   - Find a receptacle -- a location on which it must place this object
   - Put the object down on the receptacle.
 
+Check out the [Neurips 2023 HomeRobot Open-Vocabulary Mobile Manipulation Challenge!](https://aihabitat.org/challenge/2023_homerobot_ovmm/)
+
+When you're ready, 
+follow [these instructions to participate](docs/challenge.md).
+
 ## Core Concepts
 
-This package assumes you have a low-cost mobile robot with limited compute -- initially a [Hello Robot Stretch](hello-robot.com/) -- and a "workstation" with more GPU compute. Both are assumed to be running on the same network.
+This package assumes you have a low-cost mobile robot with limited compute -- initially a [Hello Robot Stretch](https://hello-robot.com/stretch-2) -- and a "workstation" with more GPU compute. Both are assumed to be running on the same network.
 
 This is the recommended workflow for hardware robots:
   - Turn on your robot; for the Stretch, run `stretch_robot_home.py` to get it ready to use.
@@ -57,8 +56,11 @@ To set up your workstation, follow these instructions. We will assume that your 
 #### 1. Create Your Environment
 ```
 # Create a conda env - use the version in home_robot_hw if you want to run on the robot
-# Otherwise, you can use the version in src/home_robot
 mamba env create -n home-robot -f src/home_robot_hw/environment.yml
+
+# Otherwise, use the version in src/home_robot
+mamba env create -n home-robot -f src/home_robot/environment.yml
+
 conda activate home-robot
 ```
 
@@ -66,11 +68,15 @@ This should install pytorch; if you run into trouble, you may need to edit the i
 
 #### 2. Install Home Robot Packages
 ```
+conda activate home-robot
+
 # Install the core home_robot package
-pip install -e src/home_robot
+python -m pip install -e src/home_robot
+
+Skip to step 4 if you do not have a real robot setup or if you only want to use our simulation stack.
 
 # Install home_robot_hw
-pip install -e src/home_robot_hw
+python -m pip install -e src/home_robot_hw
 ```
 
 _Testing Real Robot Setup:_ Now you can run a couple commands to test your connection. If the `roscore` and the robot controllers are running properly, you can run `rostopic list` and should see a list of topics - streams of information coming from the robot. You can then run RVIZ to visualize the robot sensor output:
@@ -79,7 +85,12 @@ _Testing Real Robot Setup:_ Now you can run a couple commands to test your conne
 rviz -d $HOME_ROBOT_ROOT/src/home_robot_hw/launch/mapping_demo.rviz
 ```
 
-#### 3. Hardware Testing
+#### 3. Download third-party packages
+```
+git submodule update --init --recursive assets/hab_stretch src/home_robot/home_robot/perception/detection/detic/Detic src/third_party/detectron2 src/third_party/contact_graspnet
+```
+
+#### 4. Hardware Testing
 
 Run the hardware manual test to make sure you can control the robot remotely. Ensure the robot has one meter of free space before running the script.
 
@@ -89,13 +100,13 @@ python tests/hw_manual_test.py
 
 Follow the on-screen instructions. The robot should move through a set of configurations.
 
-
-#### 4. Install Detic
+#### 5. Install Detic
 
 Install [detectron2](https://detectron2.readthedocs.io/tutorials/install.html). If you installed our default environment above, you may need to [download CUDA11.7](https://developer.nvidia.com/cuda-11-7-0-download-archive).
-```
+
 
 Download Detic checkpoint as per the instructions [on the Detic github page](https://github.com/facebookresearch/Detic):
+
 ```bash
 cd $HOME_ROBOT_ROOT/src/home_robot/home_robot/perception/detection/detic/Detic/
 mkdir models
@@ -108,15 +119,23 @@ wget https://web.eecs.umich.edu/~fouhey/fun/desk/desk.jpg
 python demo.py --config-file configs/Detic_LCOCOI21k_CLIP_SwinB_896b32_4x_ft4x_max-size.yaml --input desk.jpg --output out2.jpg --vocabulary custom --custom_vocabulary headphone,webcam,paper,coffe --confidence-threshold 0.3 --opts MODEL.WEIGHTS models/Detic_LCOCOI21k_CLIP_SwinB_896b32_4x_ft4x_max-size.pth
 ```
 
-
-#### 5. Download pretrained skills
+#### 6. Download pretrained skills
 ```
-mkdir -p $HOME_ROBOT_ROOT/data/
-cd $HOME_ROBOT_ROOT/data/
-git clone https://huggingface.co/datasets/osmm/checkpoints
+mkdir -p data/checkpoints
+cd data/checkpoints
+wget https://dl.fbaipublicfiles.com/habitat/data/baselines/v1/ovmm_baseline_home_robot_challenge_2023.zip
+unzip ovmm_baseline_home_robot_challenge_2023.zip
+cd ../../
 ```
 
-#### 6. Run Open Vocabulary Mobile Manipulation on Stretch
+#### 7. Simulation Setup
+
+To set up the simulation stack with Habitat, train DDPPO skills and run evaluations: see the [installation instructions](src/home_robot_sim/README.md) in `home_robot_sim`.
+
+For more details on the OVMM challenge, see the [Habitat OVMM readme](projects/habitat_ovmm/README.md).
+
+
+#### 8. Run Open Vocabulary Mobile Manipulation on Stretch
 
 You should then be able to run the Stretch OVMM example.
 
@@ -136,15 +155,8 @@ python src/home_robot_hw/home_robot_hw/nodes/simple_grasp_server.py
 Then you can run the OVMM example script:
 ```
 cd $HOME_ROBOT_ROOT
-python projects/stretch_ovmm/eval_episode.py
+python projects/real_world_ovmm/eval_episode.py
 ```
-
-#### 7. Simulation Setup
-
-To set up the simulation stack with Habitat, train DDPPO skills and run evaluations: see the [installation instructions](src/home_robot_sim/README.md) in `home_robot_sim`.
-
-For more details on the OVMM challenge, see the [Habitat OVMM readme](projects/stretch_ovmm/README.md).
-
 
 ## Code Contribution
 

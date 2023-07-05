@@ -1,3 +1,9 @@
+# Copyright (c) Meta Platforms, Inc. and affiliates.
+#
+# This source code is licensed under the MIT license found in the
+# LICENSE file in the root directory of this source tree.
+
+
 from home_robot.utils.config import get_config
 
 
@@ -7,7 +13,7 @@ def load_config(
     """Load config path for real world experiments and use proper presets."""
     if config_path is None:
         # TODO: make sure this is the right default
-        config_path = "projects/stretch_ovmm/configs/agent/floorplanner_eval.yaml"
+        config_path = "projects/real_world_ovmm/configs/agent/eval.yaml"
     config, config_str = get_config(config_path)
     config.defrost()
     config.NUM_ENVIRONMENTS = 1

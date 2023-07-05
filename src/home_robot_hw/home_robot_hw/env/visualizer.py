@@ -66,6 +66,8 @@ SEMANTIC_MAP_ORIG_Y = 390
 SEMANTIC_MAP_ORIG_X = 50
 SEMANTIC_MAP_MAX_X = 530
 SEMANTIC_MAP_MAX_Y = 870
+IMAGE_HEIGHT = 480
+SEMANTIC_MAP_WIDTH = IMAGE_HEIGHT
 
 
 class Visualizer:
@@ -91,6 +93,7 @@ class Visualizer:
         self.image_vis = None
         self.visited_map_vis = None
         self.last_xy = None
+        self.show_rl_obs = getattr(config, "SHOW_RL_OBS", False)
 
     def reset(self):
         self.vis_dir = self.default_vis_dir
@@ -127,6 +130,7 @@ class Visualizer:
         dilated_obstacle_map: Optional[np.ndarray] = None,
         short_term_goal_map: Optional[np.ndarray] = None,
         curr_skill: str = None,
+        rl_obs_frame: Optional[np.ndarray] = None,
         **kwargs,
     ):
         """Visualize frame input and semantic map.
@@ -146,9 +150,10 @@ class Visualizer:
             timestep: time step within the episode
             visualize_goal: if True, visualize goal
             curr_skill: name of the current skill being executed
+            rl_obs_frame: variable sized image containing all observations passed to RL (useful for debugging)
         """
-        if self.image_vis is None:
-            self.image_vis = self._init_vis_image(goal_name)
+        if self.image_vis is None or self.show_rl_obs:
+            self.image_vis = self._init_vis_image(goal_name, rl_obs_frame=rl_obs_frame)
 
         # TODO: check that other maps are not None as well
         if obstacle_map is not None:
@@ -212,7 +217,9 @@ class Visualizer:
             semantic_map_vis = np.flipud(semantic_map_vis)
             semantic_map_vis = semantic_map_vis[:, :, [2, 1, 0]]
             semantic_map_vis = cv2.resize(
-                semantic_map_vis, (480, 480), interpolation=cv2.INTER_NEAREST
+                semantic_map_vis,
+                (SEMANTIC_MAP_WIDTH, IMAGE_HEIGHT),
+                interpolation=cv2.INTER_NEAREST,
             )
             self.image_vis[
                 SEMANTIC_MAP_ORIG_X:SEMANTIC_MAP_MAX_X,
@@ -222,10 +229,10 @@ class Visualizer:
             # Agent arrow - display where the agent is located in the world
             pos = (
                 (curr_x * 100.0 / self.map_resolution - gx1)
-                * 480
+                * SEMANTIC_MAP_WIDTH
                 / obstacle_map.shape[0],
                 (obstacle_map.shape[1] - curr_y * 100.0 / self.map_resolution + gy1)
-                * 480
+                * IMAGE_HEIGHT
                 / obstacle_map.shape[1],
                 np.deg2rad(-curr_o),
             )
@@ -234,6 +241,22 @@ class Visualizer:
             )
             color = map_color_palette[9:12][::-1]
             cv2.drawContours(self.image_vis, [agent_arrow], 0, color, -1)
+
+        elif self.show_rl_obs and rl_obs_frame is not None:
+            # Reshape the height while maintaining aspect ratio to V.HEIGHT
+            rl_obs_frame = rl_obs_frame[:, :, [2, 1, 0]]
+            # find the width of the frame such that height is V.HEIGHT
+            width = int(rl_obs_frame.shape[1] * IMAGE_HEIGHT / rl_obs_frame.shape[0])
+            rl_obs_frame = cv2.resize(
+                rl_obs_frame,
+                (width, IMAGE_HEIGHT),
+                interpolation=cv2.INTER_NEAREST,
+            )
+            self.image_vis[
+                SEMANTIC_MAP_ORIG_X : SEMANTIC_MAP_ORIG_X + IMAGE_HEIGHT,
+                SEMANTIC_MAP_ORIG_Y : SEMANTIC_MAP_ORIG_Y + width,
+            ] = rl_obs_frame
+            print(self.image_vis.shape, SEMANTIC_MAP_ORIG_X, SEMANTIC_MAP_ORIG_Y, width)
 
         # First-person semantic frame
         semantic_frame = cv2.cvtColor(semantic_frame, cv2.COLOR_BGR2RGB)
@@ -249,9 +272,17 @@ class Visualizer:
                 self.image_vis,
             )
 
-    def _init_vis_image(self, goal_name: str):
-        # vis_image = np.ones((655, 1165, 3)).astype(np.uint8) * 255
-        vis_image = np.ones((655, 885, 3)).astype(np.uint8) * 255
+    def _init_vis_image(
+        self, goal_name: str, rl_obs_frame: Optional[np.ndarray] = None
+    ):
+        width = 885
+        if self.show_rl_obs and rl_obs_frame is not None:
+            # find the width of the frame such that height is V.HEIGHT
+            rl_obs_frame_width = int(
+                rl_obs_frame.shape[1] * IMAGE_HEIGHT / rl_obs_frame.shape[0]
+            )
+            width = width - SEMANTIC_MAP_WIDTH + rl_obs_frame_width
+        vis_image = np.ones((655, width, 3)).astype(np.uint8) * 255
         font = cv2.FONT_HERSHEY_SIMPLEX
         fontScale = 0.6
         color = (20, 20, 20)  # BGR
@@ -272,31 +303,33 @@ class Visualizer:
             cv2.LINE_AA,
         )
 
-        text = "Predicted Semantic Map"
-        textsize = cv2.getTextSize(text, font, fontScale, thickness)[0]
-        textX = 360 + (480 - textsize[0]) // 2 + 30
-        textY = (50 + textsize[1]) // 2
-        vis_image = cv2.putText(
-            vis_image,
-            text,
-            (textX, textY),
-            font,
-            fontScale,
-            color,
-            thickness,
-            cv2.LINE_AA,
-        )
+        # the outlines are set for the standard layout (with debug RL frame)
+        if rl_obs_frame is None:
+            text = "Predicted Semantic Map"
+            textsize = cv2.getTextSize(text, font, fontScale, thickness)[0]
+            textX = 360 + (480 - textsize[0]) // 2 + 30
+            textY = (50 + textsize[1]) // 2
+            vis_image = cv2.putText(
+                vis_image,
+                text,
+                (textX, textY),
+                font,
+                fontScale,
+                color,
+                thickness,
+                cv2.LINE_AA,
+            )
 
-        # Draw outlines
-        color = [100, 100, 100]
-        vis_image[49, 15:375] = color
-        vis_image[49, 390:870] = color
-        vis_image[50:530, 14] = color
-        vis_image[50:530, 375] = color
-        vis_image[50:530, 389] = color
-        vis_image[50:530, 870] = color
-        vis_image[530, 15:375] = color
-        vis_image[530, 390:870] = color
+            # Draw outlines
+            color = [100, 100, 100]
+            vis_image[49, 15:375] = color
+            vis_image[49, 390:870] = color
+            vis_image[50:530, 14] = color
+            vis_image[50:530, 375] = color
+            vis_image[50:530, 389] = color
+            vis_image[50:530, 870] = color
+            vis_image[530, 15:375] = color
+            vis_image[530, 390:870] = color
 
         # Draw legend
         # lx, ly, _ = self.legend.shape

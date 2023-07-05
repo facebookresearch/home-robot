@@ -68,10 +68,10 @@ jobs:
                 vim \
                 ca-certificates \
                 unzip || true
+      - conda_env_setup
       - run:
           name: Sync submodules
-          command: git submodule sync && git submodule update --init
-      - conda_env_setup
+          command: git submodule sync && git submodule update --init assets/hab_stretch
       - run:
           name: Install libraries and run tests
           command: |
@@ -109,16 +109,13 @@ jobs:
                 unzip || true
       - run:
           name: Sync submodules
-          command: git submodule sync && git submodule update --init
+          command: git submodule sync && git submodule update --init src/third_party/habitat-lab
       - conda_env_setup
       - run:
           name: Install home-robot-sim dependencies & download data
           command: |
             conda activate ~/env_home_robot
             mamba env update -f src/home_robot_sim/environment.yml
-            cd src/third_party/habitat-sim
-            python setup.py install --headless --bullet 
-            cd -
             pip install -e src/third_party/habitat-lab
             python -m habitat_sim.utils.datasets_download --uids mp3d_example_scene --data-path data/
             mkdir -p tests/home_robot_sim/data/scene_datasets/mp3d_example/mp3d
