@@ -191,37 +191,33 @@ class GeneralLanguageEnv(StretchPickandPlaceEnv):
                 pos, ori, gripper = action.get()
                 continuous_action = None
                 print("[ENV] Receiving a ContinuousEndEffectorAction")
-                debug = False
-                if debug:
-                    curr_pos, curr_quat = self.robot.manip.get_ee_pose()
-                    gripper = 1
-                    new_pos = curr_pos + np.array([0, 0, 0.1])
+                if "p2p-motion" in info.keys() and info["p2p-motion"]:
+                    combined_action = np.concatenate((pos, ori, gripper), axis=-1)
                     ok = self.skill_planner.try_executing_skill(
-                        [(new_pos, curr_quat, gripper)],
-                        self.robot.get_joint_state(),
-                        closed_loop=self.closed_loop,
+                        combined_action, False, p2p_motion=True, trimesh_format=True
                     )
-                # visualize p_i
-                # convert p_i to global frame
-                import trimesh.transformations as tra
+                else:
+                    # visualize p_i
+                    # convert p_i to global frame
+                    import trimesh.transformations as tra
 
-                quat = np.array([0, 0, 0, 1])
-                p_i_global = np.copy(info["interaction_point"])
-                base_matrix = xyt2sophus(self.robot.nav.get_base_pose()).matrix()
-                p_i_global = tra.transform_points(
-                    np.expand_dims(p_i_global, axis=0), base_matrix
-                )
-                p_i_matrix = to_matrix(p_i_global, quat)
-                self.interaction_visualizer.publish_2d(p_i_matrix)
-                p_i_global = p_i_matrix[:3, 3].reshape(3)
-                pose_matrix_array = []
-                for i in range(len(pos)):
-                    pose_matrix = to_matrix(pos[i], ori[i], trimesh_format=True)
-                    pose_matrix_array.append(pose_matrix)
-                # visualize actions so we can introspect
-                self.action_visualizer(pose_matrix_array, frame_id="base_link")
-                combined_action = np.concatenate((pos, ori, gripper), axis=-1)
-                ok = self.skill_planner.try_executing_skill(combined_action, False)
+                    quat = np.array([0, 0, 0, 1])
+                    p_i_global = np.copy(info["interaction_point"])
+                    base_matrix = xyt2sophus(self.robot.nav.get_base_pose()).matrix()
+                    p_i_global = tra.transform_points(
+                        np.expand_dims(p_i_global, axis=0), base_matrix
+                    )
+                    p_i_matrix = to_matrix(p_i_global, quat)
+                    self.interaction_visualizer.publish_2d(p_i_matrix)
+                    p_i_global = p_i_matrix[:3, 3].reshape(3)
+                    pose_matrix_array = []
+                    for i in range(len(pos)):
+                        pose_matrix = to_matrix(pos[i], ori[i], trimesh_format=True)
+                        pose_matrix_array.append(pose_matrix)
+                    # visualize actions so we can introspect
+                    self.action_visualizer(pose_matrix_array, frame_id="base_link")
+                    combined_action = np.concatenate((pos, ori, gripper), axis=-1)
+                    ok = self.skill_planner.try_executing_skill(combined_action, False)
 
         # Move, if we are not doing anything with the arm
         if continuous_action is not None and not self.test_grasping:
