@@ -64,6 +64,7 @@ class StretchPickandPlaceEnv(StretchEnv):
         self.task_info = {}
         self.prev_obs = None
         self.prev_grasp_success = False
+        self._gripper_state = False
 
         with open(cat_map_file) as f:
             self.category_map = json.load(f)
@@ -279,11 +280,13 @@ class StretchPickandPlaceEnv(StretchEnv):
             if not self.robot.in_manipulation_mode():
                 self.robot.switch_to_manipulation_mode()
             self.robot.manip.close_gripper()
+            self._gripper_state = True
         elif gripper_action < 0:
             # Open the gripper
             if not self.robot.in_manipulation_mode():
                 self.robot.switch_to_manipulation_mode()
             self.robot.manip.open_gripper()
+            self._gripper_state = False
         else:
             # If the gripper action was zero, do nothing!
             pass
@@ -382,6 +385,7 @@ class StretchPickandPlaceEnv(StretchEnv):
         obs.task_observations[
             "base_camera_pose"
         ] = self.robot.head.get_pose_in_base_coords(rotated=True)
+        obs.task_observations["gripper-state"] = self._gripper_state
 
         self.prev_obs = obs
         return obs
