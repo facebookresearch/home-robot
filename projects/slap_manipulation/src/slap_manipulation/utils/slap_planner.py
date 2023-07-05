@@ -197,7 +197,6 @@ class CombinedSLAPPlanner(object):
             return False
 
         for i, (name, waypoint, grasp) in enumerate(trajectory):
-            # self.robot.manip.goto_joint_positions(waypoint)
             if grasp == 1:
                 self.robot.manip.close_gripper()
                 if self.mode == "open":
