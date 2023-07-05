@@ -461,8 +461,6 @@ def debug_get_datum(data_dir, k_index, split, robot, waypoint_language):
         ori_dr_range=np.pi / 8,
         cart_dr_range=0.0,
         first_frame_as_input=False,
-        # first_keypoint_only=True,
-        # keypoint_range=[0],
         trial_list=train_test_split["train"] if split else [],
         orientation_type="quaternion",
         show_voxelized_input_and_reference=False,
