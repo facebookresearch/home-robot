@@ -762,18 +762,21 @@ class PerceiverActorAgent:
         weight_path: str = None,
         device: str = "cuda",
         debug: bool = False,
+        training: bool = True,
+        validate: bool = False,
     ):
         """training logic for peract policy"""
         TRAINING_ITERATIONS = 20
         LOG_ITER = 1
-        dt = datetime.datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
-        if debug:
-            hydra_output_dir = os.path.join(os.getcwd(), f"peract_debug_{dt}")
-        else:
-            hydra_output_dir = os.path.join(os.getcwd(), f"peract_{dt}")
-        Path(hydra_output_dir).mkdir(parents=True, exist_ok=True)
-        print(f"Saving models to: {hydra_output_dir}")
-        self.build(training=True, device=device)
+        if training:
+            dt = datetime.datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
+            if debug:
+                hydra_output_dir = os.path.join(os.getcwd(), f"peract_debug_{dt}")
+            else:
+                hydra_output_dir = os.path.join(os.getcwd(), f"peract_{dt}")
+            Path(hydra_output_dir).mkdir(parents=True, exist_ok=True)
+            print(f"Saving models to: {hydra_output_dir}")
+        self.build(training=training, device=device)
         num_workers = 0 if debug else 10
         B = 1
         print("Batch size: ", B, "Num workers: ", num_workers)
@@ -809,88 +812,186 @@ class PerceiverActorAgent:
                         if type(v) == torch.Tensor
                     }
                     per_action_batch["cmd"] = desc
-                    update_dict = self.update(iter, per_action_batch)
-                    per_update_iter += 1
-                    loss += update_dict["total_loss"]
-            if iter % LOG_ITER == 0:
-                weight_file_name = os.path.join(
-                    hydra_output_dir, f"iter_{iter}_model.pth"
-                )
-                self.save_weights(weight_file_name)
-                print(f"Saved model to file: {weight_file_name}")
+                    if training:
+                        update_dict = self.update(
+                            iter, per_action_batch, val=validate, backprop=training
+                        )
+                        per_update_iter += 1
+                        loss += update_dict["total_loss"]
+                    if validate:
+                        with torch.no_grad():
+                            update_dict = self.update(
+                                iter, per_action_batch, val=validate, backprop=training
+                            )
+                            self.visualize_prediction(batch, update_dict)
+            if training:
+                if iter % LOG_ITER == 0:
+                    weight_file_name = os.path.join(
+                        hydra_output_dir, f"iter_{iter}_model.pth"
+                    )
+                    self.save_weights(weight_file_name)
+                    print(f"Saved model to file: {weight_file_name}")
             iter += 1
-        self.save_weights(os.path.join(hydra_output_dir, "best_model.pth"))
+        if training:
+            self.save_weights(os.path.join(hydra_output_dir, "best_model.pth"))
         return loss / per_update_iter
 
-    def update_for_rollout(self, batch: dict, center) -> dict:
+    def visualize_prediction(self, batch, update_dict):
+        # extract prediction
+        expert_pos = batch["ee_keyframe_pos"][0].detach().cpu().numpy()
+        # if "total_loss" in update_dict.keys():
+        #     loss += update_dict["total_loss"]
+        xyz = batch["xyz"].detach().cpu().numpy()
+        rgb = batch["rgb"].detach().cpu().numpy()
+        continuous_trans = []
+        continuous_quats = []
+        print(f"Lang Goal: {batch['cmd']}")
+        # things to visualize
+        vis_voxel_grid = update_dict["voxel_grid"][0].detach().cpu().numpy()
+        vis_trans_q = update_dict["q_trans"][0].detach().cpu().numpy()
+        vis_trans_coord = update_dict["pred_action"]["trans"][0].detach().cpu().numpy()
+        vis_gt_coord = (
+            update_dict["expert_action"]["action_trans"][0].detach().cpu().numpy()
+        )
+        # discrete to continuous
+        continuous_trans.append(
+            update_dict["pred_action"]["continuous_trans"][0].detach().cpu().numpy()
+        )
+        continuous_quats.append(
+            discrete_euler_to_quaternion(
+                update_dict["pred_action"]["rot_and_grip"][0][:3]
+                .detach()
+                .cpu()
+                .numpy(),
+                resolution=self._rotation_resolution,
+            )
+        )
+        gripper_open = bool(
+            update_dict["pred_action"]["rot_and_grip"][0][-1].detach().cpu().numpy()
+        )
+        print(f"Predicted gripper action: {gripper_open}")
+        print(f"Proprio: {batch['proprio'][0].detach().cpu().numpy()}")
+        # ignore_collision = bool(
+        #     update_dict["pred_action"]["collision"][0][0]
+        #     .detach()
+        #     .cpu()
+        #     .numpy()
+        # )
+
+        # gripper visualization pose
+        voxel_size = 0.045
+        voxel_scale = voxel_size * 100
+        # gripper_pose_mat = get_gripper_render_pose(
+        #     voxel_scale,
+        #     ds.scene_bounds[:3],
+        #     continuous_trans,
+        #     continuous_quat,
+        # )
+        gripper_open = None
+
+        # @markdown #### Show Q-Prediction and Best Action
+        show_expert_action = True  # @param {type:"boolean"}
+        show_q_values = True  # @param {type:"boolean"}
+        render_gripper = False  # @param {type:"boolean"}
+        rotation_amount = 0  # @param {type:"slider", min:-180, max:180, step:5}
+
+        rendered_img = visualise_voxel(
+            vis_voxel_grid,
+            vis_trans_q if show_q_values else None,
+            vis_trans_coord,
+            vis_gt_coord if show_expert_action else None,
+            voxel_size=voxel_size,
+            rotation_amount=np.deg2rad(rotation_amount),
+            # render_gripper=render_gripper,
+            # gripper_pose=None,
+            # gripper_mesh_scale=voxel_scale,
+        )
+
+        # visualize voxel-grid to confirm PerAct saw the right thing
+        # fig = plt.figure(figsize=(15, 15))
+        # plt.imshow(rendered_img)
+        # plt.axis("off")
+        # plt.show()
+        # TODO: also show the open3d visualization with orientation
+        continuous_quats = np.stack(continuous_quats)
+        continuous_trans = np.stack(continuous_trans)
+        actions = np.concatenate((continuous_trans, continuous_quats), axis=-1)
+        grasps = [to_matrix(action[:3], action[3:]) for action in actions]
+        show_point_cloud(xyz, rgb, grasps=grasps)
+
+    def real_time_update(self, obs):
+        """Infer using PerAct policy in real time with new observations"""
+        pass
+
+    def update_for_rollout(self, batch: dict, center, debug=False) -> dict:
+        update_dict = self.update(-1, batch, val=False, backprop=False)
         rgb = np.copy(batch["rgb"].detach().cpu().numpy())
         xyz = np.copy(batch["xyz"].detach().cpu().numpy())
-        # batch = {
-        #     k: v.to(self._device) for k, v in batch.items() if type(v) == torch.Tensor
-        # }
-        # batch["cmd"] = lang
-        # n, rgb_dim = batch["centered_rgb"].shape
-        # batch["centered_rgb"] = batch["centered_rgb"].view(1, n, rgb_dim)
-        # batch["centered_rgb"] = (batch["centered_rgb"].float() / 1.0) * 2.0 - 1.0
-        # _, xyz_dim = batch["centered_xyz"].shape
-        # batch["centered_xyz"] = batch["centered_xyz"].view(1, n, xyz_dim)
-        # batch["xyz"] = batch["centered_xyz"]
-        # batch["rgb"] = batch["centered_rgb"]
-        # Get language goal embedding
-        lang_goal = batch["cmd"]
-        lang_goal_embs = self.clip_encode_text(lang_goal)
-
-        obs = batch["rgb"].unsqueeze(0)
-        pcd = batch["xyz"].unsqueeze(0)
-
-        # metric scene bounds
-        bounds = self._coordinate_bounds
-        proprio = batch["gripper_states"].unsqueeze(0)
-
-        q_trans, rot_grip_q, collision_q, voxel_grid = self._q(
-            obs, proprio, pcd, lang_goal_embs, bounds
-        )
-        # choose best action through argmax
-        (
-            coords_indicies,
-            rot_and_grip_indicies,
-            ignore_collision_indicies,
-        ) = self._q.choose_highest_action(q_trans, rot_grip_q, collision_q)
-
-        # discrete to continuous translation action
-        res = (bounds[:, 3:] - bounds[:, :3]) / self._voxel_size
         continuous_trans = (
-            (bounds[:, :3] + res * coords_indicies.int() + res / 2)
-            .detach()
-            .cpu()
-            .numpy()
+            update_dict["pred_action"]["continuous_trans"][0].detach().cpu().numpy()
         )
-        # update_dict = self.update(0, batch, backprop=False)
-        # discrete to continuous
-        continuous_quat = discrete_euler_to_quaternion(
-            rot_and_grip_indicies[0][:3].detach().cpu().numpy(),
+        continuous_quats = discrete_euler_to_quaternion(
+            update_dict["pred_action"]["rot_and_grip"][0][:3].detach().cpu().numpy(),
             resolution=self._rotation_resolution,
         )
-        gripper_close = bool(rot_and_grip_indicies[0][-1].detach().cpu().numpy())
-        x, y, z, w = continuous_quat
-        pred_ori = tra.quaternion_matrix([w, x, y, z])[:3, :3]
-        pred_pos = center + continuous_trans
+        gripper_action = bool(
+            update_dict["pred_action"]["rot_and_grip"][0][-1].detach().cpu().numpy()
+        )
+        # visualize voxel-grid
+        if debug:
+            # things to visualize
+            vis_voxel_grid = update_dict["voxel_grid"][0].detach().cpu().numpy()
+            vis_trans_q = update_dict["q_trans"][0].detach().cpu().numpy()
+            vis_trans_coord = (
+                update_dict["pred_action"]["trans"][0].detach().cpu().numpy()
+            )
+            # gripper visualization pose
+            voxel_size = 0.045
+            voxel_scale = voxel_size * 100
+            gripper_open = None
+
+            # @markdown #### Show Q-Prediction and Best Action
+            show_expert_action = True  # @param {type:"boolean"}
+            show_q_values = True  # @param {type:"boolean"}
+            render_gripper = False  # @param {type:"boolean"}
+            rotation_amount = 90  # @param {type:"slider", min:-180, max:180, step:5}
+
+            rendered_img = visualise_voxel(
+                vis_voxel_grid,
+                vis_trans_q if show_q_values else None,
+                vis_trans_coord,
+                None,
+                voxel_size=voxel_size,
+                rotation_amount=np.deg2rad(rotation_amount),
+            )
+            fig = plt.figure(figsize=(15, 15))
+            plt.imshow(rendered_img)
+            plt.axis("off")
+            plt.pause(3)
+            plt.close()
+
+        print(f"Predicted gripper action: {gripper_action}")
+        pred_pos = continuous_trans + center
+        if continuous_quats[-1] < 0:
+            continuous_quats = -continuous_quats
+        x, y, z, w = continuous_quats
+        trimesh_quat = [w, x, y, z]
+        rot_quat = np.array([np.cos(np.pi / 2), 0, 0, np.sin(np.pi / 2)])
+        trimesh_quat = tra.quaternion_multiply(rot_quat, trimesh_quat)
+        pred_ori = tra.quaternion_matrix(trimesh_quat)[:3, :3]
         self.show_prediction(
             xyz,
             rgb,
             continuous_trans.reshape((3, 1)),
             pred_ori,
-            # viewpt=self.cam_view,
             save=False,
         )
-        # TODO can add a visualization here to only roll out reasonable outputs
-        # rgb = batch["rgb"][0].detach().cpu().numpy()
-        # xyz = batch["xyz"][0].detach().cpu().numpy()
 
         action_dict = {
             "predicted_pos": pred_pos,
-            "predicted_ori": pred_ori[:3, :3],
-            "gripper_act": gripper_close,
+            "predicted_ori_mat": pred_ori,
+            "gripper_act": np.array([float(gripper_action)]),
+            "predicted_quat": trimesh_quat,
         }
         print(action_dict)
         return action_dict
@@ -929,6 +1030,7 @@ class PerceiverActorAgent:
 
         obs = replay_sample["rgb"]
         pcd = replay_sample["xyz"]
+        print(f"Obs max and min: {obs.max()} {obs.min()}")
 
         # metric scene bounds
         bounds = self._coordinate_bounds
@@ -1017,16 +1119,16 @@ class PerceiverActorAgent:
                 loss.backward()
                 self._optimizer.step()
 
-            # choose best action through argmax
-            (
-                coords_indicies,
-                rot_and_grip_indicies,
-                ignore_collision_indicies,
-            ) = self._q.choose_highest_action(q_trans, rot_grip_q, collision_q)
+        # choose best action through argmax
+        (
+            coords_indicies,
+            rot_and_grip_indicies,
+            ignore_collision_indicies,
+        ) = self._q.choose_highest_action(q_trans, rot_grip_q, collision_q)
 
-            # discrete to continuous translation action
-            res = (bounds[:, 3:] - bounds[:, :3]) / self._voxel_size
-            continuous_trans = bounds[:, :3] + res * coords_indicies.int() + res / 2
+        # discrete to continuous translation action
+        res = (bounds[:, 3:] - bounds[:, :3]) / self._voxel_size
+        continuous_trans = bounds[:, :3] + res * coords_indicies.int() + res / 2
 
         return {
             "total_loss": total_loss,
@@ -1181,7 +1283,6 @@ def train(path, template, split_path, wt_path, debug=False):
                 }
                 per_action_batch["cmd"] = desc
                 per_action_batch["peract_input"] = peract_input
-                breakpoint()
                 update_dict = peract_agent.update(iter, per_action_batch)
 
         if iter % LOG_FREQ == 0:
@@ -1510,7 +1611,10 @@ def main(flag, path, viz, split_path, weight_path, template, partition, debug):
     if flag == "t":
         peract_agent.do_epoch(ds, weight_path=weight_path, debug=debug)
     elif flag == "e":
-        eval(path, template, split_path, weight_path, viz, partition=partition)
+        # eval(path, template, split_path, weight_path, viz, partition=partition)
+        peract_agent.do_epoch(
+            ds, weight_path=weight_path, debug=debug, training=False, validate=True
+        )
 
 
 if __name__ == "__main__":
