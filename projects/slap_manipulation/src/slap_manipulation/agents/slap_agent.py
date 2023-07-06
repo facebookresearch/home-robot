@@ -1,6 +1,12 @@
+# Copyright (c) Meta Platforms, Inc. and affiliates.
+#
+# This source code is licensed under the MIT license found in the
+# LICENSE file in the root directory of this source tree.
+
+
 import datetime
 import os
-from typing import Any, Dict
+from typing import Any, Dict, Optional, Tuple
 
 import numpy as np
 import torch
@@ -28,7 +34,11 @@ class SLAPAgent(object):
     to predict actions given a language instruction
     """
 
-    def __init__(self, cfg, device="cuda", task_id: int = -1):
+    def __init__(self, cfg, device: str = "cuda", task_id: int = -1):
+        """Constructor for SLAPAgent, takes in configuration file and
+        task_id. task_id is an int and maps to appropriate program
+        in inference file. Each task_id represents a natural language query
+        which was fed to LLM to generate programs in inference file"""
         self.task_id = task_id
         print("[SLAPAgent]: task_id = ", task_id)
         self._dry_run = cfg.SLAP.dry_run
@@ -51,7 +61,10 @@ class SLAPAgent(object):
         else:
             self.skill_to_action = None
 
-    def get_goal_info(self):
+    def get_goal_info(self) -> Dict[str, Any]:
+        """returns goal information for the task from cfg
+        information includes: task-name, object-list, num-actions
+        """
         info = {}
         info["task-name"] = self.cfg.EVAL.task_name
         info["object_list"] = self.cfg.EVAL.object_list
@@ -59,6 +72,7 @@ class SLAPAgent(object):
         return info
 
     def load_models(self):
+        """loads weights for IPM and APM"""
         self.interaction_prediction_module = InteractionPredictionModule()
         self.action_prediction_module = ActionPredictionModule(self.cfg.SLAP.APM)
         self.interaction_prediction_module.load_weights(self.cfg.SLAP.IPM.path)
@@ -68,12 +82,11 @@ class SLAPAgent(object):
         print("Loaded SLAP weights")
 
     def get_proprio(self):
-        # if self._last_action is None:
+        """initialzie proprio for LSTM"""
         return np.array([2, 2, 2, 2, 2, 2, 2, -1])
-        # else:
-        # return np.concatenate((self._last_action), axis=-1)
 
-    def get_time(self, time_as_float=False):
+    def get_time(self, time_as_float: bool = False):
+        """Returns the time element. Return 1x6 vector if time_as_float is False, else return float"""
         if time_as_float:
             norm_time = 2 * (self._curr_keyframe - 0) / 5  # assuming max 6 waypoints
             return norm_time
@@ -82,6 +95,7 @@ class SLAPAgent(object):
         return time_vector
 
     def to_torch(self, input_dict: Dict[str, Any]) -> Dict[str, Any]:
+        """converts numpy arrays in input_dict to torch tensors"""
         for k, v in input_dict.items():
             if isinstance(v, np.ndarray):
                 input_dict[k] = torch.from_numpy(v).float().to(self.device)
@@ -93,6 +107,7 @@ class SLAPAgent(object):
     def to_device(
         self, input_dict: Dict[str, Any], device: str = "cuda"
     ) -> Dict[str, Any]:
+        """converts tensors in input_dict to device"""
         for k, v in input_dict.items():
             if isinstance(v, torch.Tensor):
                 input_dict[k] = v.to(device)
@@ -108,13 +123,8 @@ class SLAPAgent(object):
         zero_mean_norm=False,
     ) -> Dict[str, Any]:
         """method to convert obs into input expected by IPM
-        takes raw data from stretch_manipulation_env, and language command from user.
-        Converts it into input batch used in Interaction Prediction Module
-        Return: obs_vector = ((rgb), xyz, proprio, lang)
-            obs_vector[0]: tuple of features per point in PCD; each element is expected to be Nxfeat_dim
-            obs_vector[1]: xyz coordinates of PCD points; N x 3
-            obs_vector[2]: proprioceptive state of robot; 3-dim vector: [gripper-state, gripper-width, time] # probably do not need time for IPM training
-            obs_vector[3]: language command; list of 1 string # should this be a list? only 1 string.
+        expects obs to have semantic-features, and ID of relevant
+        object to be semantic_id in the mask
         """
         depth = obs.depth
         if zero_mean_norm:
@@ -129,7 +139,7 @@ class SLAPAgent(object):
         # only keep feat which is == semantic_id
         if feat is not None:
             feat[feat >= (len(obs.task_observations["object_list"]) + 2)] = 0
-            feat[feat != 1] = 0
+            feat[feat != semantic_id] = 0
 
         # proprio looks different now
         proprio = self.get_proprio()
@@ -148,10 +158,6 @@ class SLAPAgent(object):
             xyz = xyz[valid_depth, :]
             if feat is not None:
                 feat = feat[valid_depth, :]
-            # y_mask = xyz[:, 1] < self._y_max
-            # rgb = rgb[y_mask]
-            # xyz = xyz[y_mask]
-            # feat = feat[y_mask]
             z_mask = xyz[:, 2] > self._z_min
             rgb = rgb[z_mask]
             xyz = xyz[z_mask]
@@ -160,7 +166,6 @@ class SLAPAgent(object):
             xyz, rgb = xyz.reshape(-1, 3), rgb.reshape(-1, 3)
             if feat is not None:
                 feat = feat.reshape(-1, 1)
-            # show_point_cloud(xyz, rgb, np.zeros((3,1)))
 
         # voxelize at a granular voxel-size then choose X points
         xyz, rgb, feat = filter_and_remove_duplicate_points(
@@ -199,7 +204,6 @@ class SLAPAgent(object):
             xyz, rgb, feat=feat, voxel_size=self._voxel_size_2, debug_voxelization=debug
         )
 
-        # input_vector = (rgb, xyz, proprio, lang, mean)
         input_data = {
             "rgb": rgb,
             "xyz": xyz,
@@ -259,7 +263,9 @@ class SLAPAgent(object):
         ipm_data.update(input_data)
         return ipm_data
 
-    def predict(self, obs, ipm_only=False):
+    def predict(
+        self, obs, ipm_only: bool = False, visualize=False, save_logs=False
+    ) -> Tuple[Dict[str, Any], Dict[str, Any]]:
         info = {}
         action = None
         dt = datetime.datetime.now().strftime("%d_%m_%H:%M:%S")
@@ -289,27 +295,10 @@ class SLAPAgent(object):
                     self.ipm_input["rgb_voxelized"],
                     scores,
                     threshold=10,
-                    visualize=False,
+                    visualize=visualize,
                 )
-                info["top_xyz"] = (
-                    top_xyz + self.ipm_input["mean"].detach().cpu().numpy()
-                )
-                info["top_rgb"] = top_rgb
-                semantic_mask = obs.task_observations["semantic_frame"]
-                filename = os.path.join(
-                    os.getcwd(),
-                    str(self.task_id)
-                    + f"_ipm_{dt}_"
-                    + obs.task_observations["task-name"]
-                    + "_".join(obs.task_observations["object_list"])
-                    + ".npz",
-                )
-                np.savez(
-                    filename,
-                    top_xyz=info["top_xyz"],
-                    top_rgb=info["top_rgb"],
-                    semantic_mask=semantic_mask,
-                )
+                if save_logs:
+                    self.save_ipm_logs(info, obs, top_xyz, top_rgb)
             else:
                 print("[SLAP] Predicting interaction point")
                 self.interaction_point = np.random.rand(3)
@@ -330,17 +319,39 @@ class SLAPAgent(object):
                 .numpy()
                 .reshape(1, 3)
             )
-            filename = os.path.join(
-                os.getcwd(),
-                str(self.task_id)
-                + f"_apm_{dt}_"
-                + obs.task_observations["task-name"]
-                + "_".join(obs.task_observations["object_list"])
-                + ".npz",
-            )
-            np.savez(filename, pred_action=action)
+            if save_logs:
+                self.save_apm_logs(obs, action)
             print(f"[SLAP] Predicted action: {action}")
         return action, info
+
+    def save_ipm_logs(self, info, obs, top_xyz, top_rgb):
+        info["top_xyz"] = top_xyz + self.ipm_input["mean"].detach().cpu().numpy()
+        info["top_rgb"] = top_rgb
+        filename = os.path.join(
+            os.getcwd(),
+            str(self.task_id)
+            + f"_ipm_{dt}_"
+            + obs.task_observations["task-name"]
+            + "_".join(obs.task_observations["object_list"])
+            + ".npz",
+        )
+        np.savez(
+            filename,
+            top_xyz=info["top_xyz"],
+            top_rgb=info["top_rgb"],
+            semantic_mask=obs.task_observations["semantic_frame"],
+        )
+
+    def save_apm_logs(self, obs, action):
+        filename = os.path.join(
+            os.getcwd(),
+            str(self.task_id)
+            + f"_apm_{dt}_"
+            + obs.task_observations["task-name"]
+            + "_".join(obs.task_observations["object_list"])
+            + ".npz",
+        )
+        np.savez(filename, pred_action=action)
 
     def reset(self):
         self.interaction_point = None

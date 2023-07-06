@@ -47,7 +47,9 @@ def main(task_id, **kwargs):
     obs.task_observations.update(goal_info)
     camera_pose = obs.task_observations["base_camera_pose"]
     obs.xyz = tra.transform_points(obs.xyz.reshape(-1, 3), camera_pose)
-    result, info = agent.predict(obs)
+    result, info = agent.predict(
+        obs, visualize=config.SLAP.visualize, save_logs=config.SLAP.save_logs
+    )
     if result is not None:
         action = ContinuousEndEffectorAction(
             result[:, :3], result[:, 3:7], np.expand_dims(result[:, 7], -1)
