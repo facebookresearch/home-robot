@@ -31,14 +31,17 @@ from home_robot_hw.env.stretch_abstract_env import GRIPPER_IDX
 class SLAPAgent(object):
     """
     Combined E2E agent which uses the SLAP architecture
-    to predict actions given a language instruction
+    to predict actions given a language description of a skill
     """
 
     def __init__(self, cfg, device: str = "cuda", task_id: int = -1):
         """Constructor for SLAPAgent, takes in configuration file and
-        task_id. task_id is an int and maps to appropriate program
-        in inference file. Each task_id represents a natural language query
-        which was fed to LLM to generate programs in inference file"""
+        :task_id:. :task_id: is an int and maps to a manipulation skill.
+        Each :task_id: represents a natural language action output generated
+        by LLM. In the absence of this, one can use a dictionary to simulate it.
+        Currently implemented by reading task, objects and num-actions described by
+        configuration file :cfg:
+        """
         self.task_id = task_id
         print("[SLAPAgent]: task_id = ", task_id)
         self._dry_run = cfg.SLAP.dry_run
@@ -66,9 +69,9 @@ class SLAPAgent(object):
         information includes: task-name, object-list, num-actions
         """
         info = {}
-        info["task-name"] = self.cfg.EVAL.task_name
-        info["object_list"] = self.cfg.EVAL.object_list
-        info["num-actions"] = self.cfg.EVAL.num_keypoints
+        info["task-name"] = self.cfg.EVAL.task_name[self.task_id]
+        info["object_list"] = self.cfg.EVAL.object_list[self.task_id]
+        info["num-actions"] = self.cfg.EVAL.num_keypoints[self.task_id]
         return info
 
     def load_models(self):

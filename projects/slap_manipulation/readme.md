@@ -15,7 +15,36 @@ Note above installation will uninstall torch and torch-deps installed as part of
 
 ## Configuration Parameters
 
-`num_keypoints`: (int) Number of keypoints; currently corresponds to total number of action prediction modules trained for your task
-`local_problem_size`: (float) Radius in meter around predicted interaction point which is cropped out as input for action prediction module
-`num_pts`: (int) Cardinality of input point-cloud after removing duplicates
-`execution.predict_action`: (True/False) Whether to predict action based on predicted interaction point (for debug purposes)
+SLAP and PerAct agents are inherited from OVMMAgent. They take the base configuration 
+that the base agent expects, but add following configurable parameters to control their behavior.
+
+### SLAP 
+Under `config.SLAP` one can find the following parameters:
+
+- `dry_run (bool)`: Dry-run the agent so it makes predictions but does not move the robot 
+- `min_depth (float)`: Minimum depth below which all point-cloud observations are cut-off
+- `max_depth (float)`: Maximum depth above which all point-cloud observations are cut-off
+- `x_max (float)`: Maximum distance in x-axis from the camera to consider for input-space
+- `z_min (float)`: Minimum height of the input point-cloud, observations lower than this are cut-off
+- `voxel_size_1 (float)`: Voxelization resolution for removing duplicate observations when combining multiple views
+- `voxel_size_2 (float)`: Voxelization resolution for final input to SLAP
+- `visualize (bool)`: Whether to visualize results from SLAP during RT inference
+- `save_logs (bool)`: Whether to save IPM + APM output to disk (saves as numpy multi-array)
+
+Under `config.SLAP.IPM` one can find the following model-specific parameters (these should remain the same b/w training and inference): 
+- `path (string)`: Weights to load for inference
+
+Under `config.SLAP.APM` you have the following parameters (ensure consistency b/w training and inference): 
+- `max_actions (int)`: maximum number of action prediction supported by APM per skill
+- `path (string)`: path to model checkpoint
+- `num_pts (int)`: Total number of points in the point-cloud
+- `orientation_type (string)`: choice of `quaternion/rpy`
+- `query_radius (float)`: Cropping radius around predicted interaction point
+- `skill_to_action_file (string)`: File with pre-coded language description of each action
+
+Extra params under `SLAP.IPM` and `SLAP.APM` used for training, but needed here for setting up defaults during model construction. 
+
+Task-specific evaluation information for per-skill experiments is taken from `config.EVAL`: 
+- `task_name`: Language description used during training
+- `object_list`: List of objects for Detic to detect
+- `num_keypoints`: Number of actions to predict for each skill
