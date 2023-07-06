@@ -137,7 +137,7 @@ class OVMMEvaluator(PPOTrainer):
                             f"after {round(time.time() - start_time, 2)} seconds"
                         )
                     if len(episode_metrics) % self.metrics_save_freq == 0:
-                        aggregated_metrics = self._aggregare_metrics(episode_metrics)
+                        aggregated_metrics = self._aggregate_metrics(episode_metrics)
                         self._write_results(episode_metrics, aggregated_metrics)
                     if not stop():
                         obs[e] = envs.call_at(e, "reset")
@@ -147,12 +147,12 @@ class OVMMEvaluator(PPOTrainer):
 
         envs.close()
 
-        aggregated_metrics = self._aggregare_metrics(episode_metrics)
+        aggregated_metrics = self._aggregate_metrics(episode_metrics)
         self._write_results(episode_metrics, aggregated_metrics)
 
         return aggregated_metrics
 
-    def _aggregare_metrics(self, episode_metrics):
+    def _aggregate_metrics(self, episode_metrics):
         aggregated_metrics = defaultdict(list)
         metrics = set(
             [
@@ -244,14 +244,14 @@ class OVMMEvaluator(PPOTrainer):
 
             episode_metrics[current_episode_key] = current_episode_metrics
             if len(episode_metrics) % self.metrics_save_freq == 0:
-                aggregated_metrics = self._aggregare_metrics(episode_metrics)
+                aggregated_metrics = self._aggregate_metrics(episode_metrics)
                 self._write_results(episode_metrics, aggregated_metrics)
 
             count_episodes += 1
             pbar.update(1)
 
         self._env.close()
-        aggregated_metrics = self._aggregare_metrics(episode_metrics)
+        aggregated_metrics = self._aggregate_metrics(episode_metrics)
         self._write_results(episode_metrics, aggregated_metrics)
 
         return aggregated_metrics
@@ -344,7 +344,7 @@ class OVMMEvaluator(PPOTrainer):
 
             episode_metrics[current_episode_key] = current_episode_metrics
             if len(episode_metrics) % self.metrics_save_freq == 0:
-                aggregated_metrics = self._aggregare_metrics(episode_metrics)
+                aggregated_metrics = self._aggregate_metrics(episode_metrics)
                 self._write_results(episode_metrics, aggregated_metrics)
 
             count_episodes += 1
@@ -353,7 +353,7 @@ class OVMMEvaluator(PPOTrainer):
         stub.evalai_update_submission(evaluation_pb2.Package())
         stub.close(evaluation_pb2.Package())
 
-        aggregated_metrics = self._aggregare_metrics(episode_metrics)
+        aggregated_metrics = self._aggregate_metrics(episode_metrics)
         self._write_results(episode_metrics, aggregated_metrics)
 
         return aggregated_metrics
