@@ -4,7 +4,7 @@ NO_GPU: 1                 # 1: ignore IDs above and run on CPU, 0: run on GPUs w
 NUM_ENVIRONMENTS: 35      # number of environments (per agent process)
 DUMP_LOCATION: datadump   # path to dump models and log
 EXP_NAME: eval_floorplanner       # experiment name
-VISUALIZE: 1              # 1: render observation and predicted semantic map, 0: no visualization
+VISUALIZE: 0              # 1: render observation and predicted semantic map, 0: no visualization
 PRINT_IMAGES: 1           # 1: save visualization as images, 0: no image saving
 GROUND_TRUTH_SEMANTICS: 0 # 1: use ground-truth semantics (for debugging / ablations)
 
@@ -26,7 +26,7 @@ AGENT:
 
   SEMANTIC_MAP:
     semantic_categories: mukul_indoor # map semantic channel categories ("coco_indoor", "longtail_indoor", "mukul_indoor")
-    num_sem_categories: 20            # number of map semantic channel categories (16, 257, 35)
+    num_sem_categories: 6             # number of map semantic channel categories (16, 257, 35)
     map_size_cm: 4800        # global map size (in centimeters)
     map_resolution: 5        # size of map bins (in centimeters)
     vision_range: 100        # diameter of local map region visible by the agent (in cells)
@@ -54,7 +54,7 @@ AGENT:
     map_downsample_factor: 1            # optional downsampling of traversible and goal map before fmm distance call (1 for no downsampling, 2 for halving resolution)
     map_update_frequency: 1             # compute fmm distance map every n steps
     discrete_actions: False          # discrete motion planner output space or not
-    verbose: True                    # display debug information during planning
+    verbose: False                    # display debug information during planning
 
 EVAL_VECTORIZED:
   simulator_gpu_ids: [1, 2, 3, 4, 5, 6, 7] # IDs of GPUs to use for vectorized environments
