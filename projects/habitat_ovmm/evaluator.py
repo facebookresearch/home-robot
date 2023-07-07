@@ -350,8 +350,8 @@ class OVMMEvaluator(PPOTrainer):
             count_episodes += 1
             pbar.update(1)
 
-        stub.evalai_update_submission(evaluation_pb2.Package())
         stub.close(evaluation_pb2.Package())
+        stub.evalai_update_submission(evaluation_pb2.Package())
 
         aggregated_metrics = self._aggregate_metrics(episode_metrics)
         self._write_results(episode_metrics, aggregated_metrics)
