@@ -7,6 +7,7 @@ import click
 import glob
 import pickle
 import sys
+import torch
 from pathlib import Path
 
 # TODO Install home_robot and remove this
@@ -15,8 +16,9 @@ sys.path.insert(
     str(Path(__file__).resolve().parent.parent.parent / "src/home_robot"),
 )
 
-from home_robot.agent.objectnav_agent.objectnav_agent import ObjectNavAgent
 from home_robot.perception.detection.detic.detic_perception import DeticPerception
+from home_robot.agent.mapping.dense.semantic.categorical_2d_semantic_map_state import Categorical2DSemanticMapState
+from home_robot.agent.mapping.dense.semantic.categorical_2d_semantic_map_module import Categorical2DSemanticMapModule
 from home_robot.utils.config import get_config
 
 
@@ -28,53 +30,53 @@ from home_robot.utils.config import get_config
 def main(trajectory_path):
     config_path = "projects/offline_mapping/configs/agent/eval.yaml"
     config, config_str = get_config(config_path)
-    config.defrost()
-    config.NUM_ENVIRONMENTS = 1
-    config.PRINT_IMAGES = 1
-    config.EXP_NAME = "debug"
-    config.freeze()
 
-    agent = ObjectNavAgent(config=config)
-    agent.reset()
+    # --------------------------------------------------------------------------------------------
+    # Load trajectory of home_robot Observations
+    # --------------------------------------------------------------------------------------------
 
-    # Load trajectory
     observations = []
     for path in sorted(glob.glob(str(Path(__file__).resolve().parent) + f"/{trajectory_path}/*.pkl")):
         with open(path, "rb") as f:
             observations.append(pickle.load(f))
 
-    # If the trajectory doesn't contain semantics, predict them here
+    # --------------------------------------------------------------------------------------------
+    # Preprocess trajectory
+    # --------------------------------------------------------------------------------------------
+
+    # Predict semantic segmentation
+    categories = [
+        "other",
+        "chair",
+        "couch",
+        "potted plant",
+        "bed",
+        "toilet",
+        "tv",
+        "dining table",
+        "oven",
+        "sink",
+        "refrigerator",
+        "book",
+        "clock",
+        "vase",
+        "cup",
+        "bottle",
+        "other",
+    ]
+    segmentation = DeticPerception(
+        vocabulary="custom",
+        custom_vocabulary=",".join(categories),
+        sem_gpu_id=0,
+    )
+    observations = [
+        segmentation.predict(obs, depth_threshold=0.5)
+        for obs in observations
+    ]
+    for obs in observations:
+        obs.semantic[obs.semantic == 0] = len(categories) - 1
+
     obs = observations[0]
-    if obs.semantic is None:
-        categories = [
-            "other",
-            "chair",
-            "sofa",
-            "plant",
-            "bed",
-            "other",
-        ]
-        segmentation = DeticPerception(
-            vocabulary="custom",
-            custom_vocabulary=",".join(categories),
-            sem_gpu_id=0,
-        )
-        observations = [
-            segmentation.predict(obs, depth_threshold=0.5)
-            for obs in observations
-        ]
-
-        # Stuff the ObjectNav agent expects
-        for obs in observations:
-            obs.semantic[obs.semantic == 0] = len(categories) - 1
-            obs.task_observations = {
-                "goal_id": 1,
-                "goal_name": 1,
-                "object_goal": 1,
-                "recep_goal": 1,
-                "semantic_frame": obs.rgb
-            }
-
     print()
     print("obs.gps", obs.gps)
     print("obs.compass", obs.compass)
@@ -85,9 +87,41 @@ def main(trajectory_path):
     print("obs.task_observations", obs.task_observations.keys())
     print()
 
-    print(f"Iterating over {len(observations)} observations")
-    for obs in observations:
-        agent.act(obs)
+    # --------------------------------------------------------------------------------------------
+    # Build semantic map
+    # --------------------------------------------------------------------------------------------
+
+    device = torch.device("cuda:0")
+
+    # State holds global and local map and sensor pose
+    # See class definition for argument info
+    semantic_map = Categorical2DSemanticMapState(
+        device=device,
+        num_environments=1,
+        num_sem_categories=16,
+        map_resolution=5,
+        map_size_cm=4800,
+        global_downscaling=2,
+    )
+    semantic_map.init_map_and_pose()
+
+    # Module is responsible for updating the local and global maps and poses
+    # See class definition for argument info
+    semantic_map_module = Categorical2DSemanticMapModule(
+        frame_height=480,
+        frame_width=640,
+        camera_height=0.88,
+        hfov=79.0,
+        num_sem_categories=16,
+        map_size_cm=4800,
+        map_resolution=5,
+        vision_range=100,
+        global_downscaling=2,
+        du_scale=4,
+        cat_pred_threshold=5.0,
+        exp_pred_threshold=1.0,
+        map_pred_threshold=1.0,
+    ).to(device)
 
 
 if __name__ == "__main__":
