@@ -15,7 +15,7 @@ sys.path.insert(
     str(Path(__file__).resolve().parent.parent.parent / "src/home_robot"),
 )
 
-from home_robot.agent.objectnav_agent.objectnav_agent import ObjectNavAgent
+from home_robot.agent.exploration_agent.exploration_agent import ExplorationAgent
 from home_robot.utils.config import get_config
 
 
@@ -33,11 +33,10 @@ def main(trajectory_path):
     config.EXP_NAME = "debug"
     config.freeze()
 
-    agent = ObjectNavAgent(config=config)
+    agent = ExplorationAgent(config=config)
     agent.reset()
 
     observations = []
-    print(str(Path(__file__).resolve().parent) + f"/{trajectory_path}/*.pkl")
     for path in sorted(glob.glob(str(Path(__file__).resolve().parent) + f"/{trajectory_path}/*.pkl")):
         with open(path, "rb") as f:
             observations.append(pickle.load(f))
