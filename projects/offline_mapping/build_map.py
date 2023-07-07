@@ -66,10 +66,10 @@ def main(trajectory_path):
         for obs in observations:
             obs.semantic[obs.semantic == 0] = len(categories) - 1
             obs.task_observations = {
-                "goal_id": 0,
-                "goal_name": 0,
-                "object_goal": 0,
-                "recep_goal": 0,
+                "goal_id": 1,
+                "goal_name": 1,
+                "object_goal": 1,
+                "recep_goal": 1,
             }
 
     print()
