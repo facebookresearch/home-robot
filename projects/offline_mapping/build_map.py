@@ -15,7 +15,7 @@ sys.path.insert(
     str(Path(__file__).resolve().parent.parent.parent / "src/home_robot"),
 )
 
-from home_robot.agent.exploration_agent.exploration_agent import ExplorationAgent
+# from home_robot.agent.exploration_agent.exploration_agent import ExplorationAgent
 from home_robot.utils.config import get_config
 
 
@@ -33,8 +33,8 @@ def main(trajectory_path):
     config.EXP_NAME = "debug"
     config.freeze()
 
-    agent = ExplorationAgent(config=config)
-    agent.reset()
+    # agent = ExplorationAgent(config=config)
+    # agent.reset()
 
     observations = []
     for path in sorted(glob.glob(str(Path(__file__).resolve().parent) + f"/{trajectory_path}/*.pkl")):
@@ -53,8 +53,8 @@ def main(trajectory_path):
     print()
 
     print(f"Iterating over {len(observations)} observations")
-    for obs in observations:
-        agent.act(obs)
+    # for obs in observations:
+    #     agent.act(obs)
 
 
 if __name__ == "__main__":
