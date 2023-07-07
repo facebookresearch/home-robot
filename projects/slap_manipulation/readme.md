@@ -24,7 +24,6 @@ Under `config.SLAP` one can find the following parameters:
 - `dry_run (bool)`: Dry-run the agent so it makes predictions but does not move the robot 
 - `min_depth (float)`: Minimum depth below which all point-cloud observations are cut-off
 - `max_depth (float)`: Maximum depth above which all point-cloud observations are cut-off
-- `x_max (float)`: Maximum distance in x-axis from the camera to consider for input-space
 - `z_min (float)`: Minimum height of the input point-cloud, observations lower than this are cut-off
 - `voxel_size_1 (float)`: Voxelization resolution for removing duplicate observations when combining multiple views
 - `voxel_size_2 (float)`: Voxelization resolution for final input to SLAP

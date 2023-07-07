@@ -108,7 +108,6 @@ SLAP:
   dry_run: False
   min_depth: 0.3
   max_depth: 1.5
-  x_max: 0.9  # do not care about objects beyond a meter-ish 
   z_min: 0.15  # 15cm
   voxel_size_1: 0.001
   voxel_size_2: 0.01

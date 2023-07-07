@@ -6,7 +6,7 @@
 
 import datetime
 import os
-from typing import Any, Dict, Optional, Tuple
+from typing import Any, Dict, List, Tuple
 
 import numpy as np
 import torch
@@ -24,6 +24,7 @@ from slap_manipulation.utils.pointcloud_preprocessing import (
     get_local_action_prediction_problem,
 )
 
+from home_robot.core.interfaces import Observations
 from home_robot.utils.point_cloud import show_point_cloud
 from home_robot_hw.env.stretch_abstract_env import GRIPPER_IDX
 
@@ -53,7 +54,6 @@ class SLAPAgent(object):
         self._min_depth = self.cfg.SLAP.min_depth
         self._max_depth = self.cfg.SLAP.max_depth
         self._feat_dim = 1
-        # self._x_max = self.cfg.SLAP.y_max
         self._z_min = self.cfg.SLAP.z_min
         self._voxel_size_1 = self.cfg.SLAP.voxel_size_1
         self._voxel_size_2 = self.cfg.SLAP.voxel_size_2
@@ -118,16 +118,22 @@ class SLAPAgent(object):
 
     def create_interaction_prediction_input_from_obs(
         self,
-        obs,
-        filter_depth=False,
-        num_pts=8000,
-        debug=False,
-        semantic_id=1,
-        zero_mean_norm=False,
+        obs: Observations,
+        filter_depth: bool = False,
+        num_pts: int = 8000,
+        debug: bool = False,
+        semantic_id: int = 1,
+        zero_mean_norm: bool = False,
     ) -> Dict[str, Any]:
         """method to convert obs into input expected by IPM
         expects obs to have semantic-features, and ID of relevant
         object to be semantic_id in the mask
+            :obs: Observations object from home-robot environment
+            :filter_depth: if True, only keep points with depth in range [self._min_depth, self._max_depth]
+            :num_pts: number of points to sample from original point-cloud
+            :debug: if True, plot point-cloud and mask
+            :semantic_id: ID of object to be segmented
+            :zero_mean_norm: if True, normalize rgb to [-1, 1]
         """
         depth = obs.depth
         if zero_mean_norm:
@@ -137,7 +143,6 @@ class SLAPAgent(object):
         xyz = obs.xyz.astype(np.float64)
         gripper = obs.joint[GRIPPER_IDX]
         feat = obs.semantic
-        import matplotlib.pyplot as plt
 
         # only keep feat which is == semantic_id
         if feat is not None:
@@ -192,11 +197,12 @@ class SLAPAgent(object):
             feat = feat[downsample_mask]
 
         # mean-center the point cloud
-        mean = xyz.mean(axis=0)
-        xyz -= mean
-        og_xyz -= mean
+        xyz, og_xyz = self.mean_center([xyz, og_xyz])
 
         if np.any(rgb > 1.0):
+            raise RuntimeWarning(
+                f"rgb values should be in range [0, 1] or [-1, 1]: got {rgb.min()} to {rgb.max()}"
+            )
             rgb = rgb / 255.0
         if debug:
             print("create_interaction_prediction_input")
@@ -225,9 +231,14 @@ class SLAPAgent(object):
         }
         return self.to_torch(input_data)
 
+    def mean_center(self, xyzs: List[np.ndarray]) -> List[np.ndarray]:
+        """mean centers a list of point clouds based on the mean of 1st entry in the list"""
+        mean = xyzs[0].mean(axis=0)
+        return [xyz - mean for xyz in xyzs]
+
     def create_action_prediction_input_from_obs(
         self,
-        obs,
+        obs: Observations,
         ipm_data: Dict[str, Any],
         debug=False,
     ) -> Dict[str, Any]:
@@ -236,6 +247,10 @@ class SLAPAgent(object):
         interaction_point"""
         xyz = ipm_data["og_xyz"]
         rgb = ipm_data["og_rgb"]
+        if np.any(rgb > 1.0):
+            raise RuntimeWarning(
+                f"rgb values should be in range [0, 1] or [-1, 1]: got {rgb.min()} to {rgb.max()}"
+            )
         feat = ipm_data["og_feat"]
         combined_feat = torch.cat([rgb, feat], dim=-1)
         cropped_feat, cropped_xyz, status = get_local_action_prediction_problem(
@@ -244,8 +259,6 @@ class SLAPAgent(object):
             xyz.detach().cpu().numpy(),
             self.interaction_point.detach().cpu().numpy(),
         )
-        if np.any(cropped_feat > 1.0):
-            cropped_feat = cropped_feat / 255.0
         if not status:
             raise RuntimeError(
                 "Interaction Prediction Module predicted an interaction point with no tractable local problem around it"
@@ -267,11 +280,19 @@ class SLAPAgent(object):
         return ipm_data
 
     def predict(
-        self, obs, ipm_only: bool = False, visualize=False, save_logs=False
-    ) -> Tuple[Dict[str, Any], Dict[str, Any]]:
+        self,
+        obs: Observations,
+        ipm_only: bool = False,
+        visualize: bool = False,
+        save_logs: bool = False,
+    ) -> Tuple[np.ndarray, Dict[str, Any]]:
+        """Main method for SLAP, predicts interaction point and action given observation from GeneralLanguageEnv
+        :ipm_only: if True, will only run interaction prediction module
+        :visualize: if True, will visualize the interaction point and action prediction
+        :save_logs: if True, will save logs for interaction point and action prediction
+        """
         info = {}
         action = None
-        dt = datetime.datetime.now().strftime("%d_%m_%H:%M:%S")
         if self.interaction_point is None:
             if not self._dry_run:
                 self.ipm_input = self.create_interaction_prediction_input_from_obs(
@@ -327,7 +348,20 @@ class SLAPAgent(object):
             print(f"[SLAP] Predicted action: {action}")
         return action, info
 
-    def save_ipm_logs(self, info, obs, top_xyz, top_rgb):
+    def save_ipm_logs(
+        self,
+        info: Dict[str, Any],
+        obs: Observations,
+        top_xyz: np.ndarray,
+        top_rgb: np.ndarray,
+    ):
+        """saves logs for interaction point prediction; including xyz and mask for top 5% attention-scores
+        :info: dictionary to store logs in
+        :obs: observation from GeneralLanguageEnv
+        :top_xyz: all xyz from PCD
+        :top_rgb: all rgb from PCD with top 5% attention-scores colored red
+        """
+        dt = datetime.datetime.now().strftime("%d_%m_%H:%M:%S")
         info["top_xyz"] = top_xyz + self.ipm_input["mean"].detach().cpu().numpy()
         info["top_rgb"] = top_rgb
         filename = os.path.join(
@@ -345,7 +379,8 @@ class SLAPAgent(object):
             semantic_mask=obs.task_observations["semantic_frame"],
         )
 
-    def save_apm_logs(self, obs, action):
+    def save_apm_logs(self, obs: Observations, action: List[np.ndarray]):
+        dt = datetime.datetime.now().strftime("%d_%m_%H:%M:%S")
         filename = os.path.join(
             os.getcwd(),
             str(self.task_id)
