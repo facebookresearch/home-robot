@@ -19,7 +19,6 @@ sys.path.insert(
 from home_robot.perception.detection.detic.detic_perception import DeticPerception
 from home_robot.mapping.semantic.categorical_2d_semantic_map_state import Categorical2DSemanticMapState
 from home_robot.mapping.semantic.categorical_2d_semantic_map_module import Categorical2DSemanticMapModule
-from home_robot.utils.config import get_config
 
 
 @click.command()
@@ -28,9 +27,6 @@ from home_robot.utils.config import get_config
     default="trajectories/fremont1",
 )
 def main(trajectory_path):
-    config_path = "projects/offline_mapping/configs/agent/eval.yaml"
-    config, config_str = get_config(config_path)
-
     # --------------------------------------------------------------------------------------------
     # Load trajectory of home_robot Observations
     # --------------------------------------------------------------------------------------------
@@ -116,11 +112,18 @@ def main(trajectory_path):
         map_size_cm=4800,
         map_resolution=5,
         vision_range=100,
+        explored_radius=150,
+        been_close_to_radius=200,
         global_downscaling=2,
         du_scale=4,
         cat_pred_threshold=5.0,
         exp_pred_threshold=1.0,
         map_pred_threshold=1.0,
+        must_explore_close=False,
+        min_obs_height_cm=10,
+        dilate_obstacles=False,
+        dilate_size=3,
+        dilate_iter=1,
     ).to(device)
 
 
