@@ -41,6 +41,17 @@ def main(trajectory_path):
         with open(path, "rb") as f:
             observations.append(pickle.load(f))
 
+    obs = observations[0]
+    print()
+    print("obs.gps", obs.gps)
+    print("obs.compass", obs.compass)
+    print("obs.rgb", obs.rgb.shape, obs.rgb.min(), obs.rgb.max())
+    print("obs.depth", obs.depth.shape, obs.depth.min(), obs.depth.max())
+    print("obs.semantic", obs.semantic.shape, obs.semantic.min(), obs.semantic.max())
+    print("obs.camera_pose", obs.camera_pose)
+    print("obs.task_observations", obs.task_observations)
+    print()
+
     print(f"Iterating over {len(observations)} observations")
     for obs in observations:
         agent.act(obs)
