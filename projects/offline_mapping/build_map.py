@@ -72,6 +72,7 @@ def main(trajectory_path):
                 "goal_name": 1,
                 "object_goal": 1,
                 "recep_goal": 1,
+                "semantic_frame": obs.rgb
             }
 
     print()
