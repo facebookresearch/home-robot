@@ -73,6 +73,7 @@ def main(trajectory_path):
     print("obs.depth", obs.depth.shape, obs.depth.min(), obs.depth.max())
     print("obs.semantic", obs.semantic.shape, obs.semantic.min(), obs.semantic.max())
     print("obs.camera_pose", obs.camera_pose)
+    print("obs.task_observations", obs.task_observations.keys())
     print()
 
     print(f"Iterating over {len(observations)} observations")
