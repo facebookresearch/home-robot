@@ -1,7 +1,13 @@
+# Copyright (c) Meta Platforms, Inc. and affiliates.
+#
+# This source code is licensed under the MIT license found in the
+# LICENSE file in the root directory of this source tree.
+
+
 import json
 import time
 import unittest
-from typing import Optional
+from typing import Any, Dict, Optional
 
 import click
 import clip
@@ -213,7 +219,11 @@ class PerActRobotDataset(RobotDataset):
 
         return new_data
 
-    def get_per_waypoint_batch(self, batch, idx):
+    def get_per_waypoint_batch(self, batch: Dict[str, Any], idx: int):
+        """Used on the batch received from dataloader to extract input and output for a single waypoint
+        :batch: batch received from dataloader
+        :idx: index of the waypoint
+        """
         new_data = {"batch": batch, "idx": idx}
 
         # This gives us our action translation indices - location in the voxel cube
@@ -253,10 +263,13 @@ class PerActRobotDataset(RobotDataset):
         ][:, idx]
         return new_data
 
-    def _norm_rgb(self, x):
+    def _norm_rgb(self, x: torch.Tensor) -> torch.Tensor:
+        """Normalize RGB images to [-1, 1]"""
         return (x.float() / 1.0) * 2.0 - 1.0
 
-    def _preprocess_inputs(self, sample):
+    def _preprocess_inputs(self, sample: Dict[str, Any]):
+        """Preprocess inputs for peract model; by normalizing RGB b/w -1 to 1
+        :sample: the batch received from dataloader"""
         rgb = sample["rgb"]
         pcd = sample["xyz"]
 
@@ -264,10 +277,11 @@ class PerActRobotDataset(RobotDataset):
 
         return rgb, pcd
 
-    def is_action_valid(self, sample):
+    def is_action_valid(self, sample: Dict[str, Any]):
         """
         simple method which compares ee-keyframe position with the scene bounds
         returns False if action is outside the scene bounds
+        :sample: batch received
         """
         bounds = np.array(self.scene_bounds)
         if (sample["ee_keyframe_pos"].numpy() > bounds[..., 3:]).any() or (
@@ -276,14 +290,19 @@ class PerActRobotDataset(RobotDataset):
             return False
         return True
 
-    # discretize translation, rotation, gripper open, and ignore collision actions
     def _get_action(
         self,
-        sample: dict,
+        sample: Dict[str, Any],
         rotation_resolution: int,
         idx: int = -1,
-        max_keypoints=6,
+        max_keypoints: int = 6,
     ):
+        """discretize translation, rotation, gripper open, and ignore collision actions
+        :sample: batch received from dataloader
+        :rotation_resolution: number of discrete rotation actions
+        :idx: index of the waypoint
+        :max_keypoints: max number of keypoints supported in the trajectory (used for calculating time-index)
+        """
         if idx == -1:
             quat = sample["ee_keyframe_ori_quat"]
             attention_coordinate = sample["ee_keyframe_pos"]
@@ -326,8 +345,8 @@ class PerActRobotDataset(RobotDataset):
             torch.Tensor(attention_coordinate).unsqueeze(0),
         )
 
-    # extract CLIP language features for goal string
-    def _clip_encode_text(self, text):
+    def _clip_encode_text(self, text: str):
+        """extract CLIP language features from :text: for goal string"""
         x = self.clip_model.token_embedding(text).type(
             self.clip_model.dtype
         )  # [batch_size, n_ctx, d_model]
@@ -346,29 +365,11 @@ class PerActRobotDataset(RobotDataset):
 
         return x, emb
 
-    def clip_encode_text(self, text):
-        """encode text as a sequence"""
-
-        with torch.no_grad():
-            lang = clip.tokenize(text).to(self.device)
-            lang = self.clip_model.token_embedding(lang).type(
-                self.clip_model.dtype
-            ) + self.clip_model.positional_embedding.type(self.clip_model.dtype)
-            lang = lang.permute(1, 0, 2)
-            lang = self.clip_model.transformer(lang)
-            lang = lang.permute(1, 0, 2)
-            lang = self.clip_model.ln_final(lang).type(self.clip_model.dtype)
-
-        # We now have per-word clip embeddings
-        lang = lang.float()
-
-        # Encode language here
-        batch_size, lang_seq_len, _ = lang.shape
-        lang = lang.view(batch_size, lang_seq_len, -1)
-
-        return lang
-
     def visualize_data(self, batch, vox_grid=None):
+        """visualize the data for debugging
+        :batch: data received from dataloader
+        :vox_grid: optional, external voxel_grid to be used for visualizing this
+        """
         if vox_grid is None:
             vox_grid = self.vox_grid
         lang_goal = batch["cmd"]
@@ -420,13 +421,10 @@ class PerActRobotDataset(RobotDataset):
 
 class TestPerActDataloader(unittest.TestCase):
     def test_is_action_valid(self):
-        data_dir = "/home/priparashar/robopen_h5s/larp/unit_test_pick_bottle"
-        split_file = "/home/priparashar/Development/icra/home_robot/assets/train_test_val_split_9tasks_2022-12-01.json"
-        with open(split_file, "r") as f:
-            train_test_split = json.load(f)
+        data_dir = "./data/"
         ds = PerActRobotDataset(
             data_dir,
-            trial_list=train_test_split["train"],
+            trial_list=[],
         )
         fake_data = {"ee_keyframe_pos": torch.Tensor([-9.0, -9.0, -9.0])}
         self.assertFalse(ds.is_action_valid(fake_data))
@@ -440,7 +438,7 @@ class TestPerActDataloader(unittest.TestCase):
 @click.option(
     "-d",
     "--data_dir",
-    default="/home/priparashar/Development/icra/home_robot/data/robopen/mst/",
+    default="./data/",
 )
 @click.option("--split", help="json file with train-test-val split")
 @click.option(
