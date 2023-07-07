@@ -41,6 +41,7 @@ def main(trajectory_path):
         with open(path, "rb") as f:
             observations.append(pickle.load(f))
 
+    print(f"Iterating over {len(observations)} observations")
     for obs in observations:
         agent.act(obs)
 
