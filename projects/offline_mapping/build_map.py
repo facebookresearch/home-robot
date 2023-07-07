@@ -25,7 +25,7 @@ from home_robot.utils.config import get_config
     default="trajectories/fremont1",
 )
 def main(trajectory_path):
-    config_path = "projects/offline_mapping/configs/agent/floorplanner_eval.yaml"
+    config_path = "projects/offline_mapping/configs/agent/eval.yaml"
     config, config_str = get_config(config_path)
     config.defrost()
     config.NUM_ENVIRONMENTS = 1
