@@ -6,6 +6,14 @@
 import click
 import glob
 import pickle
+import sys
+from pathlib import Path
+
+# TODO Install home_robot and remove this
+sys.path.insert(
+    0,
+    str(Path(__file__).resolve().parent.parent.parent / "src/home_robot"),
+)
 
 from home_robot.agent.objectnav_agent.objectnav_agent import ObjectNavAgent
 from home_robot.utils.config import get_config
