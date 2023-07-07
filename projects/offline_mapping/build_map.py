@@ -65,6 +65,12 @@ def main(trajectory_path):
         ]
         for obs in observations:
             obs.semantic[obs.semantic == 0] = len(categories) - 1
+            obs.task_observations = {
+                "goal_id": 0,
+                "goal_name": 0,
+                "object_goal": 0,
+                "recep_goal": 0,
+            }
 
     print()
     print("obs.gps", obs.gps)
