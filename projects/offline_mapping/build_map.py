@@ -17,8 +17,8 @@ sys.path.insert(
 )
 
 from home_robot.perception.detection.detic.detic_perception import DeticPerception
-from home_robot.agent.mapping.dense.semantic.categorical_2d_semantic_map_state import Categorical2DSemanticMapState
-from home_robot.agent.mapping.dense.semantic.categorical_2d_semantic_map_module import Categorical2DSemanticMapModule
+from home_robot.mapping.semantic.categorical_2d_semantic_map_state import Categorical2DSemanticMapState
+from home_robot.mapping.semantic.categorical_2d_semantic_map_module import Categorical2DSemanticMapModule
 from home_robot.utils.config import get_config
 
 
