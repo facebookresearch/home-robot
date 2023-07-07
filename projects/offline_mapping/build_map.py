@@ -16,6 +16,7 @@ sys.path.insert(
 )
 
 # from home_robot.agent.exploration_agent.exploration_agent import ExplorationAgent
+from home_robot.perception.detection.detic.detic_perception import DeticPerception
 from home_robot.utils.config import get_config
 
 
@@ -36,12 +37,36 @@ def main(trajectory_path):
     # agent = ExplorationAgent(config=config)
     # agent.reset()
 
+    # Load trajectory
     observations = []
     for path in sorted(glob.glob(str(Path(__file__).resolve().parent) + f"/{trajectory_path}/*.pkl")):
         with open(path, "rb") as f:
             observations.append(pickle.load(f))
 
+    # If the trajectory doesn't contain semantics, predict them here
     obs = observations[0]
+    if obs.semantic is None:
+        categories = [
+            "other",
+            "chair",
+            "sofa",
+            "plant",
+            "bed",
+            "other",
+        ]
+        segmentation = DeticPerception(
+            vocabulary="custom",
+            custom_vocabulary=",".join(categories),
+            sem_gpu_id=0,
+        )
+
+        observations = [
+            segmentation.predict(obs, depth_threshold=0.5)
+            for obs in observations
+        ]
+        for obs in observations:
+            obs.semantic[obs.semantic == 0] = len(categories) - 1
+
     print()
     print("obs.gps", obs.gps)
     print("obs.compass", obs.compass)
