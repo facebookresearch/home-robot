@@ -63,6 +63,8 @@ def main(trajectory_path):
             segmentation.predict(obs, depth_threshold=0.5)
             for obs in observations
         ]
+
+        # Stuff the ObjectNav agent expects
         for obs in observations:
             obs.semantic[obs.semantic == 0] = len(categories) - 1
             obs.task_observations = {

@@ -356,6 +356,7 @@ class ObjectNavAgent(Agent):
             semantic[
                 obs.semantic == obs.task_observations["end_recep_goal"]
             ] = end_recep_idx
+        breakpoint()
         semantic = self.one_hot_encoding[torch.from_numpy(semantic).to(self.device)]
         obs_preprocessed = torch.cat([rgb, depth, semantic], dim=-1).unsqueeze(0)
         obs_preprocessed = obs_preprocessed.permute(0, 3, 1, 2)
