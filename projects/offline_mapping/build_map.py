@@ -37,7 +37,7 @@ def main(trajectory_path):
     agent.reset()
 
     observations = []
-    for path in sorted(glob.glob(f"{trajectory_path}/*.pkl")):
+    for path in sorted(glob.glob(str(Path.cwd()) + f"/{trajectory_path}/*.pkl")):
         with open(path, "rb") as f:
             observations.append(pickle.load(f))
 
