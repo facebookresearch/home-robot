@@ -38,7 +38,7 @@ def main(trajectory_path):
 
     observations = []
     print(str(Path(__file__).resolve().parent) + f"/{trajectory_path}/*.pkl")
-    for path in sorted(str(Path(__file__).resolve().parent) + f"/{trajectory_path}/*.pkl"):
+    for path in sorted(glob.glob(str(Path(__file__).resolve().parent) + f"/{trajectory_path}/*.pkl")):
         with open(path, "rb") as f:
             observations.append(pickle.load(f))
 
