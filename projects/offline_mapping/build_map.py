@@ -15,7 +15,7 @@ sys.path.insert(
     str(Path(__file__).resolve().parent.parent.parent / "src/home_robot"),
 )
 
-# from home_robot.agent.exploration_agent.exploration_agent import ExplorationAgent
+from home_robot.agent.objectnav_agent.objectnav_agent import ObjectNavAgent
 from home_robot.perception.detection.detic.detic_perception import DeticPerception
 from home_robot.utils.config import get_config
 
@@ -34,8 +34,8 @@ def main(trajectory_path):
     config.EXP_NAME = "debug"
     config.freeze()
 
-    # agent = ExplorationAgent(config=config)
-    # agent.reset()
+    agent = ObjectNavAgent(config=config)
+    agent.reset()
 
     # Load trajectory
     observations = []
@@ -59,7 +59,6 @@ def main(trajectory_path):
             custom_vocabulary=",".join(categories),
             sem_gpu_id=0,
         )
-
         observations = [
             segmentation.predict(obs, depth_threshold=0.5)
             for obs in observations
@@ -74,12 +73,11 @@ def main(trajectory_path):
     print("obs.depth", obs.depth.shape, obs.depth.min(), obs.depth.max())
     print("obs.semantic", obs.semantic.shape, obs.semantic.min(), obs.semantic.max())
     print("obs.camera_pose", obs.camera_pose)
-    print("obs.task_observations", obs.task_observations)
     print()
 
     print(f"Iterating over {len(observations)} observations")
-    # for obs in observations:
-    #     agent.act(obs)
+    for obs in observations:
+        agent.act(obs)
 
 
 if __name__ == "__main__":
