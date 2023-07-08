@@ -249,8 +249,6 @@ def main(trajectory_path):
 
         for x in [obs_preprocessed.unsqueeze(1),
                 pose_delta.unsqueeze(1),
-                dones.unsqueeze(1),
-                update_global.unsqueeze(1),
                 camera_pose,
                 semantic_map.local_map,
                 semantic_map.global_map,
