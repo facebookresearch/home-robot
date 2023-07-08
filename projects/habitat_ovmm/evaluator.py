@@ -8,33 +8,25 @@ import json
 import os
 import time
 from collections import defaultdict
-from typing import Dict, Optional
+from enum import Enum
+from typing import TYPE_CHECKING, Dict, Optional
 
 import numpy as np
-from habitat import make_dataset
-from habitat.core.environments import get_env_class
-from habitat.core.vector_env import VectorEnv
-from habitat.utils.gym_definitions import _get_env_name
 from habitat_baselines.rl.ppo.ppo_trainer import PPOTrainer
 from omegaconf import DictConfig
 from tqdm import tqdm
+from utils.env_utils import create_ovmm_env_fn
 
-from home_robot.agent.ovmm_agent.ovmm_agent import OpenVocabManipAgent
-from home_robot_sim.env.habitat_ovmm_env.habitat_ovmm_env import (
-    HabitatOpenVocabManipEnv,
-)
+if TYPE_CHECKING:
+    from habitat.core.vector_env import VectorEnv
+
+    from home_robot.agent.ovmm_agent.ovmm_agent import OpenVocabManipAgent
 
 
-def create_ovmm_env_fn(config):
-    """Create habitat environment using configsand wrap HabitatOpenVocabManipEnv around it. This function is used by VectorEnv for creating the individual environments"""
-    habitat_config = config.habitat
-    dataset = make_dataset(habitat_config.dataset.type, config=habitat_config.dataset)
-    env_class_name = _get_env_name(config)
-    env_class = get_env_class(env_class_name)
-    habitat_env = env_class(config=habitat_config, dataset=dataset)
-    habitat_env.seed(habitat_config.seed)
-    env = HabitatOpenVocabManipEnv(habitat_env, config, dataset=dataset)
-    return env
+class EvaluationType(Enum):
+    LOCAL = "local"
+    LOCAL_VECTORIZED = "local_vectorized"
+    REMOTE = "remote"
 
 
 class OVMMEvaluator(PPOTrainer):
@@ -63,8 +55,8 @@ class OVMMEvaluator(PPOTrainer):
 
     def _evaluate_vectorized(
         self,
-        agent: OpenVocabManipAgent,
-        envs: VectorEnv,
+        agent: "OpenVocabManipAgent",
+        envs: "VectorEnv",
         num_episodes_per_env=None,
     ):
         # The stopping condition is either specified through
@@ -359,7 +351,7 @@ class OVMMEvaluator(PPOTrainer):
         return aggregated_metrics
 
     def evaluate(
-        self, agent, num_episodes: Optional[int] = None, remote: bool = False
+        self, agent, num_episodes: Optional[int] = None, evaluation_type: str = "local"
     ) -> Dict[str, float]:
         r"""..
 
@@ -368,9 +360,17 @@ class OVMMEvaluator(PPOTrainer):
             evaluation should be run.
         :return: dict containing metrics tracked by environment.
         """
-        if remote:
+
+        if evaluation_type == EvaluationType.LOCAL.value:
+            self._env = create_ovmm_env_fn(self.config)
+            return self.local_evaluate(agent, num_episodes)
+        elif evaluation_type == EvaluationType.LOCAL_VECTORIZED.value:
+            self._env = create_ovmm_env_fn(self.config)
+            return self.local_evaluate_vectorized(agent, num_episodes)
+        elif evaluation_type == EvaluationType.REMOTE.value:
             self._env = None
             return self.remote_evaluate(agent, num_episodes)
         else:
-            self._env = create_ovmm_env_fn(self.config)
-            return self.local_evaluate(agent, num_episodes)
+            raise ValueError(
+                "Invalid evaluation type. Please choose from 'local', 'local_vectorized', 'remote'"
+            )

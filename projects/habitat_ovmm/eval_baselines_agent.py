@@ -7,8 +7,12 @@
 import argparse
 import os
 
-from config_utils import get_habitat_config, get_ovmm_baseline_config, merge_configs
 from evaluator import OVMMEvaluator
+from utils.config_utils import (
+    get_habitat_config,
+    get_ovmm_baseline_config,
+    merge_configs,
+)
 
 from home_robot.agent.ovmm_agent.ovmm_agent import OpenVocabManipAgent
 
@@ -20,8 +24,12 @@ os.environ["MKL_NUM_THREADS"] = "1"
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument(
-        "--evaluation", type=str, default="local", choices=["local", "remote"]
+        "--evaluation_type",
+        type=str,
+        choices=["local", "local_vectorized", "remote"],
+        default="local",
     )
+    parser.add_argument("--num_episodes", type=int, default=None)
     parser.add_argument(
         "--habitat_config_path",
         type=str,
@@ -62,11 +70,10 @@ if __name__ == "__main__":
     # create evaluator
     evaluator = OVMMEvaluator(eval_config)
 
-    # vectorized_local_evaluate example
-    # evaluator.vectorized_local_evaluate(
-    #     agent,
-    #     num_episodes_per_env=eval_config.EVAL_VECTORIZED.num_episodes_per_env,
-    # )
-
-    # standard evaluate example
-    evaluator.evaluate(agent, remote=args.evaluation == "remote", num_episodes=1)
+    # evaluate agent
+    metrics = evaluator.evaluate(
+        agent=agent,
+        evaluation_type=args.evaluation_type,
+        num_episodes=args.num_episodes,
+    )
+    print(metrics)
