@@ -107,7 +107,7 @@ def main(trajectory_path):
     for path in sorted(glob.glob(str(Path(__file__).resolve().parent) + f"/{trajectory_path}/*.pkl")):
         with open(path, "rb") as f:
             observations.append(pickle.load(f))
-    observations = observations[:5]  # TODO Remove
+    observations = observations[:5]
 
     # Predict semantic segmentation
     categories = [
@@ -245,18 +245,6 @@ def main(trajectory_path):
             print("obs_preprocessed", obs_preprocessed.shape)
             print("pose_delta", pose_delta)
             print("camera_pose", camera_pose)
-
-
-        for x in [obs_preprocessed.unsqueeze(1),
-                pose_delta.unsqueeze(1),
-                camera_pose,
-                semantic_map.local_map,
-                semantic_map.global_map,
-                semantic_map.local_pose,
-                semantic_map.global_pose,
-                semantic_map.lmb,
-                semantic_map.origins]:
-            print(x.device)
 
         # Update map
         dones = torch.tensor([False]).to(device)
