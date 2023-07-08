@@ -110,7 +110,6 @@ def main(input_trajectory_path, output_visualization_path):
     for path in sorted(glob.glob(str(Path(__file__).resolve().parent) + f"/{input_trajectory_path}/*.pkl")):
         with open(path, "rb") as f:
             observations.append(pickle.load(f))
-    observations = observations[:5]
 
     # Predict semantic segmentation
     categories = [
