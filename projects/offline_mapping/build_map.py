@@ -241,7 +241,7 @@ def main(trajectory_path):
     semantic_map_vis.putdata(semantic_categories_map.flatten().astype(np.uint8))
     semantic_map_vis = semantic_map_vis.convert("RGB")
     semantic_map_vis = np.flipud(semantic_map_vis)
-    plt.imshow(semantic_map_vis)
+    plt.imsave("semantic_map.png", semantic_map_vis)
 
 
 if __name__ == "__main__":
