@@ -18,4 +18,9 @@ RUN mkdir -p home-robot/src/home_robot/home_robot/perception/detection/detic/Det
 ADD eval_baselines_agent.py /home-robot/projects/habitat_ovmm/agent.py
 ADD scripts/submission.sh /home-robot/submission.sh
 
-CMD ["/bin/bash", "-c", ". activate home-robot; cd /home-robot; bash submission.sh"]
+CMD /bin/bash -c "\
+    . activate home-robot \
+    && cd /home-robot \
+    && export PYTHONPATH=/evalai_remote_evaluation:$PYTHONPATH \
+    && bash submission.sh \
+    "

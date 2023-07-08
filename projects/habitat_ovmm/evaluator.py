@@ -268,8 +268,19 @@ class OVMMEvaluator(PPOTrainer):
             return pickle.loads(entity)
 
         env_address_port = os.environ.get("EVALENV_ADDPORT", "localhost:8085")
-        channel = grpc.insecure_channel(env_address_port)
+        channel = grpc.insecure_channel(
+            target=env_address_port,
+            compression=grpc.Compression.Gzip,
+            options=[
+                (
+                    "grpc.max_receive_message_length",
+                    -1,
+                )  # Unlimited message length that the channel can receive
+            ],
+        )
         stub = evaluation_pb2_grpc.EnvironmentStub(channel)
+
+        stub.init_env(evaluation_pb2.Package())
 
         env_num_episodes = grpc_loads(
             stub.number_of_episodes(evaluation_pb2.Package()).SerializedEntity
