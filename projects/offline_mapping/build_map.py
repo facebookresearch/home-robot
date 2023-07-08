@@ -214,11 +214,11 @@ def main(trajectory_path):
         curr_pose = np.array([obs.gps[0], obs.gps[1], obs.compass[0]])
         pose_delta = torch.tensor(
             pu.get_rel_pose_change(curr_pose, last_pose)
-        ).unsqueeze(0)
+        ).unsqueeze(0).to(device)
 
         camera_pose = obs.camera_pose
         if camera_pose is not None:
-            camera_pose = torch.tensor(np.asarray(camera_pose)).unsqueeze(0)
+            camera_pose = torch.tensor(np.asarray(camera_pose)).unsqueeze(0).to(device)
         return (
             obs_preprocessed,
             pose_delta,
