@@ -320,7 +320,7 @@ def main(input_trajectory_path, output_visualization_path):
     semantic_map_vis.putdata(semantic_categories_map.flatten().astype(np.uint8))
     semantic_map_vis = semantic_map_vis.convert("RGB")
     semantic_map_vis = np.flipud(semantic_map_vis)
-    path = Path(output_visualization_path)
+    path = Path(output_visualization_path).parent
     path.mkdir(parents=True, exist_ok=True)
     plt.imsave(output_visualization_path, semantic_map_vis)
 
