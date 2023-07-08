@@ -130,7 +130,8 @@ def main(trajectory_path):
         obs.semantic = obs.semantic - 1
 
     print()
-    print("home_robot observation:")
+    print("home_robot observations:")
+    print("------------------------")
     obs = observations[0]
     print("obs.gps", obs.gps)
     print("obs.compass", obs.compass)
@@ -228,7 +229,7 @@ def main(trajectory_path):
     last_pose = np.zeros(3)
     one_hot_encoding = torch.eye(num_sem_categories, device=device)
 
-    for obs in observations:
+    for i, obs in enumerate(observations):
         # Preprocess observation
         (
             obs_preprocessed,
@@ -236,6 +237,14 @@ def main(trajectory_path):
             camera_pose,
             last_pose
         ) = preprocess_obs(obs, last_pose)
+
+        if i == 0:
+            print()
+            print("preprocessed observations:")
+            print("-------------------------")
+            print("obs_preprocessed", obs_preprocessed.shape)
+            print("pose_delta", pose_delta)
+            print("camera_pose", camera_pose)
 
         # Update map
         dones = torch.tensor([False]).unsqueeze(0).to(device)
