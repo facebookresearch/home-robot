@@ -107,6 +107,7 @@ def main(trajectory_path):
     for path in sorted(glob.glob(str(Path(__file__).resolve().parent) + f"/{trajectory_path}/*.pkl")):
         with open(path, "rb") as f:
             observations.append(pickle.load(f))
+    observations = observations[:5]  # TODO Remove
 
     # Predict semantic segmentation
     categories = [
@@ -248,7 +249,7 @@ def main(trajectory_path):
             seq_lmb,
             seq_origins,
         ) = semantic_map_module(
-            obs,
+            obs_preprocessed,
             pose_delta,
             dones,
             update_global,
