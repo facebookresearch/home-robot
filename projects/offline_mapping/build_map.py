@@ -95,16 +95,19 @@ coco_categories_color_palette = [
 
 @click.command()
 @click.option(
-    "--trajectory_path",
+    "--input_trajectory_path",
     default="trajectories/airbnb1",
 )
-def main(trajectory_path):
+@click.option(
+    "--output_visualization_path",
+    default="map_visualization/airbnb1.png",
+)
+def main(input_trajectory_path, output_visualization_path):
     # --------------------------------------------------------------------------------------------
     # Load trajectory of home_robot Observations
     # --------------------------------------------------------------------------------------------
-
     observations = []
-    for path in sorted(glob.glob(str(Path(__file__).resolve().parent) + f"/{trajectory_path}/*.pkl")):
+    for path in sorted(glob.glob(str(Path(__file__).resolve().parent) + f"/{input_trajectory_path}/*.pkl")):
         with open(path, "rb") as f:
             observations.append(pickle.load(f))
     observations = observations[:5]
@@ -317,7 +320,9 @@ def main(trajectory_path):
     semantic_map_vis.putdata(semantic_categories_map.flatten().astype(np.uint8))
     semantic_map_vis = semantic_map_vis.convert("RGB")
     semantic_map_vis = np.flipud(semantic_map_vis)
-    plt.imsave("semantic_map.png", semantic_map_vis)
+    path = Path(output_visualization_path)
+    path.mkdir(parents=True, exist_ok=True)
+    plt.imsave(output_visualization_path, semantic_map_vis)
 
 
 if __name__ == "__main__":
