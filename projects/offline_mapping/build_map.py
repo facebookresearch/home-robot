@@ -96,7 +96,7 @@ coco_categories_color_palette = [
 @click.command()
 @click.option(
     "--trajectory_path",
-    default="trajectories/fremont1",
+    default="trajectories/airbnb1",
 )
 def main(trajectory_path):
     # --------------------------------------------------------------------------------------------
