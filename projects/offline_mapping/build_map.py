@@ -247,8 +247,8 @@ def main(trajectory_path):
             print("camera_pose", camera_pose)
 
         # Update map
-        dones = torch.tensor([False]).unsqueeze(0).to(device)
-        update_global = torch.tensor([True]).unsqueeze(0).to(device)
+        dones = torch.tensor([False]).to(device)
+        update_global = torch.tensor([True]).to(device)
         (
             seq_map_features,
             semantic_map.local_map,
@@ -258,10 +258,10 @@ def main(trajectory_path):
             seq_lmb,
             seq_origins,
         ) = semantic_map_module(
-            obs_preprocessed,
-            pose_delta,
-            dones,
-            update_global,
+            obs_preprocessed.unsqueeze(1),
+            pose_delta.unsqueeze(1),
+            dones.unsqueeze(1),
+            update_global.unsqueeze(1),
             camera_pose,
             semantic_map.local_map,
             semantic_map.global_map,
