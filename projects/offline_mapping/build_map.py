@@ -246,6 +246,20 @@ def main(trajectory_path):
             print("pose_delta", pose_delta)
             print("camera_pose", camera_pose)
 
+
+        for x in [obs_preprocessed.unsqueeze(1),
+                pose_delta.unsqueeze(1),
+                dones.unsqueeze(1),
+                update_global.unsqueeze(1),
+                camera_pose,
+                semantic_map.local_map,
+                semantic_map.global_map,
+                semantic_map.local_pose,
+                semantic_map.global_pose,
+                semantic_map.lmb,
+                semantic_map.origins]:
+            print(x.device)
+
         # Update map
         dones = torch.tensor([False]).to(device)
         update_global = torch.tensor([True]).to(device)
