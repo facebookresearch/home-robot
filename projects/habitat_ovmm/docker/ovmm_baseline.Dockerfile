@@ -1,13 +1,13 @@
 FROM fairembodied/habitat-challenge:homerobot-ovmm-challenge-2023
 
 RUN /bin/bash -c "\
-    . activate home-robot && \
-    cd home-robot && \
-    git submodule update --init --recursive src/third_party/detectron2 \
+    . activate home-robot \
+    && cd home-robot \
+    && git submodule update --init --recursive src/third_party/detectron2 \
         src/home_robot/home_robot/perception/detection/detic/Detic \
-        src/third_party/contact_graspnet && \
-    pip install -e src/third_party/detectron2 && \
-    pip install -r src/home_robot/home_robot/perception/detection/detic/Detic/requirements.txt \
+        src/third_party/contact_graspnet \
+    && pip install -e src/third_party/detectron2 \
+    && pip install -r src/home_robot/home_robot/perception/detection/detic/Detic/requirements.txt \
     "
 
 RUN mkdir -p home-robot/src/home_robot/home_robot/perception/detection/detic/Detic/models && \
