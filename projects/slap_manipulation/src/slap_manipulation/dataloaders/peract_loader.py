@@ -302,7 +302,8 @@ class PerActRobotDataset(RobotDataset):
         """discretize translation, rotation, gripper open, and ignore collision actions
         :sample: batch received from dataloader
         :rotation_resolution: number of discrete rotation actions
-        :idx: index of the waypoint
+        :idx: index of the action needed to be discretized (i.e. from trajectory
+        - action_0, action_1...)
         :max_keypoints: max number of keypoints supported in the trajectory (used for calculating time-index)
         """
         if idx == -1:
