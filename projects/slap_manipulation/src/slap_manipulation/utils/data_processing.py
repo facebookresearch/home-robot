@@ -1,3 +1,9 @@
+# Copyright (c) Meta Platforms, Inc. and affiliates.
+#
+# This source code is licensed under the MIT license found in the
+# LICENSE file in the root directory of this source tree.
+
+
 from typing import List, Optional, Tuple
 
 import matplotlib.pyplot as plt
@@ -65,7 +71,9 @@ def get_local_action_prediction_problem(
 def drop_frames_from_input(xyzs, rgb_imgs, depth_imgs, probability_dropout=0.33):
     probability_keep = 1.0 - probability_dropout
     idx_dropout = np.random.choice(
-        [False, True], size=len(rgb_imgs), p=[probability_dropout, probability_keep]
+        [False, True],
+        size=len(rgb_imgs),
+        p=[probability_dropout, probability_keep],
     )
     rgb_imgs = [rgb_imgs[i] for i in idx_dropout]
     xyzs = [xyzs[i] for i in idx_dropout]
@@ -588,7 +596,10 @@ def combine_and_dedepuplicate_multiple_views_from_torch(
     batch_xyzs, batch_rgbs, batch_feats = [], [], []
     for batch in zip(xyzs, rgbs, feats, depths):
         xyz_dash, rgb_dash, feat_dash = filter_and_remove_duplicate_points(
-            batch[0].numpy(), batch[1].numpy(), batch[2].numpy(), batch[3].numpy()
+            batch[0].numpy(),
+            batch[1].numpy(),
+            batch[2].numpy(),
+            batch[3].numpy(),
         )
         batch_xyzs.append(xyz_dash)
         batch_rgbs.append(rgb_dash)

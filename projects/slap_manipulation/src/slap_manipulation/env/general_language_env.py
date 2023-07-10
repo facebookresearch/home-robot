@@ -1,3 +1,9 @@
+# Copyright (c) Meta Platforms, Inc. and affiliates.
+#
+# This source code is licensed under the MIT license found in the
+# LICENSE file in the root directory of this source tree.
+
+
 from typing import Any, Dict, List, Optional
 
 import numpy as np
@@ -194,7 +200,10 @@ class GeneralLanguageEnv(StretchPickandPlaceEnv):
                 if "p2p-motion" in info.keys() and info["p2p-motion"]:
                     combined_action = np.concatenate((pos, ori, gripper), axis=-1)
                     ok = self.skill_planner.try_executing_skill(
-                        combined_action, False, p2p_motion=True, trimesh_format=True
+                        combined_action,
+                        False,
+                        p2p_motion=True,
+                        trimesh_format=True,
                     )
                 else:
                     # visualize p_i

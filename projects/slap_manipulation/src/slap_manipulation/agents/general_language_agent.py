@@ -1,3 +1,9 @@
+# Copyright (c) Meta Platforms, Inc. and affiliates.
+#
+# This source code is licensed under the MIT license found in the
+# LICENSE file in the root directory of this source tree.
+
+
 import json
 import re
 from enum import Enum
@@ -81,7 +87,9 @@ def get_taskplan_for_robot(steps: List[str]) -> List[dict]:
 
 
 def get_task_plans_from_llm(
-    index, json_path="./data/llm_eval/real_exp_v2.json", input_string="prediction"
+    index,
+    json_path="./data/llm_eval/real_exp_v2.json",
+    input_string="prediction",
 ):
     """Reads the dataset files and return a list of task plans"""
     with open(json_path, "r") as f:
@@ -95,7 +103,9 @@ def get_task_plans_from_llm(
 
 
 def get_task_plans_from_oracle(
-    index, datafile="./datasets/BringXFromYSurfaceToHuman.json", root="./datasets/"
+    index,
+    datafile="./datasets/BringXFromYSurfaceToHuman.json",
+    root="./datasets/",
 ):
     """Reads the dataset files and return a list of task plans"""
     if datafile == "all":
@@ -147,7 +157,8 @@ class GeneralLanguageAgent(PickAndPlaceAgent):
             open(self.cfg.AGENT.language_file, "r"), Loader=yaml.FullLoader
         )
         self._task_information = yaml.load(
-            open(self.cfg.AGENT.task_information_file, "r"), Loader=yaml.FullLoader
+            open(self.cfg.AGENT.task_information_file, "r"),
+            Loader=yaml.FullLoader,
         )  # read from a YAML
         if self.gt_run:
             self.task_plans = get_task_plans_from_llm  # get_task_plans_from_oracle
@@ -581,11 +592,15 @@ class GeneralLanguageAgent(PickAndPlaceAgent):
             result, info = self.slap_model.predict(obs)
             if result is not None:
                 action = ContinuousEndEffectorAction(
-                    result[:, :3], result[:, 3:7], np.expand_dims(result[:, 7], -1)
+                    result[:, :3],
+                    result[:, 3:7],
+                    np.expand_dims(result[:, 7], -1),
                 )
             else:
                 action = ContinuousEndEffectorAction(
-                    np.random.rand(1, 3), np.random.rand(1, 4), np.random.rand(1, 1)
+                    np.random.rand(1, 3),
+                    np.random.rand(1, 4),
+                    np.random.rand(1, 1),
                 )
             self.soft_reset()
             self.state = GeneralTaskState.IDLE
