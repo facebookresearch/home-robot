@@ -24,7 +24,8 @@ from home_robot_hw.utils.config import load_slap_config
 @click.option("--object", default="cup")
 @click.option("--task-id", default=0)
 @click.option(
-    "--cat-map-file", default="projects/stretch_ovmm/configs/example_cat_map.json"
+    "--cat-map-file",
+    default="projects/stretch_ovmm/configs/example_cat_map.json",
 )
 @click.option("--start-from", default=0)
 def main(
@@ -63,7 +64,7 @@ def main(
     # robot = env.get_robot()
 
     agent.reset()
-    env.reset()
+    env.reset(None, None, None, set_goal=False, open_gripper=False)
 
     center = input("Press Y to send robot back to 0,0,0")
     if center == "y" or center == "Y":

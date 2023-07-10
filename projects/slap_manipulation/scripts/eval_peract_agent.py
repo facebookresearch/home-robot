@@ -1,3 +1,12 @@
+# Copyright (c) Meta Platforms, Inc. and affiliates.
+#
+# This source code is licensed under the MIT license found in the
+# LICENSE file in the root directory of this source tree.
+
+
+"""Main script for running per-skill manipulation using PerActAgent. Takes in
+task-id just as an identifier for which skill to run (read from config)"""
+
 import click
 import numpy as np
 import rospy
@@ -16,9 +25,16 @@ from home_robot_hw.utils.config import load_slap_config
 @click.option("--object", default="cup")
 @click.option("--task-id", default=0)
 @click.option(
-    "--cat-map-file", default="projects/stretch_ovmm/configs/example_cat_map.json"
+    "--cat-map-file",
+    default="projects/stretch_ovmm/configs/example_cat_map.json",
 )
-def main(task_id, cat_map_file, test_pick=False, dry_run=False, **kwargs):
+def main(
+    task_id: int,
+    cat_map_file: str,
+    test_pick: bool = False,
+    dry_run: bool = False,
+    **kwargs
+):
     config = load_slap_config(
         visualize=True,
         config_path="projects/slap_manipulation/configs/language_agent.yaml",
@@ -36,7 +52,7 @@ def main(task_id, cat_map_file, test_pick=False, dry_run=False, **kwargs):
         cat_map_file=cat_map_file,
     )
 
-    env.reset()
+    env.reset(None, None, None, set_goal=False, open_gripper=False)
     agent.reset()
 
     goal_info = agent.get_goal_info()
@@ -46,10 +62,8 @@ def main(task_id, cat_map_file, test_pick=False, dry_run=False, **kwargs):
     res = input("Press Y/y to close the gripper")
     if res == "y" or res == "Y":
         env._handle_gripper_action(1)
-        # env.robot.manip.close_gripper()
     else:
         env._handle_gripper_action(-1)
-        # env.robot.manip.open_gripper()
     rospy.sleep(3.0)
     for i in range(goal_info["num-actions"]):
         obs = env.get_observation()

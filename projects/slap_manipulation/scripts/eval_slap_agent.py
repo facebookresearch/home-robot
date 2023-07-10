@@ -31,7 +31,7 @@ def main(task_id, **kwargs):
         segmentation_method="detic",
     )
 
-    env.reset()
+    env.reset(None, None, None, set_goal=False, open_gripper=False)
     agent.reset()
 
     goal_info = agent.get_goal_info()

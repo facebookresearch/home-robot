@@ -107,19 +107,29 @@ class StretchPickandPlaceEnv(StretchEnv):
         # Wait for the robot
         self.robot.wait()
 
-    def reset(self, goal_find: str, goal_obj: str, goal_place: str):
-        """Reset the robot and prepare to run a trial. Make sure we have images and up to date state info."""
-        self.set_goal(goal_find, goal_obj, goal_place)
+    def reset(
+        self,
+        goal_find: str,
+        goal_obj: str,
+        goal_place: str,
+        set_goal: bool = True,
+        open_gripper: bool = True,
+    ):
+        """Reset the robot and prepare to run a trial. Make sure we have images and up to date
+        state info."""
+        if set_goal:
+            self.set_goal(goal_find, goal_obj, goal_place)
         rospy.sleep(0.5)  # Make sure we have time to get ROS messages
         self.robot.wait()
         self._episode_start_pose = xyt2sophus(self.robot.nav.get_base_pose())
         if self.visualizer is not None:
             self.visualizer.reset()
 
-        # Make sure the gripper is open and ready
-        if not self.robot.in_manipulation_mode():
-            self.robot.switch_to_manipulation_mode()
-        self.robot.manip.open_gripper()
+        if open_gripper:
+            # Make sure the gripper is open and ready
+            if not self.robot.in_manipulation_mode():
+                self.robot.switch_to_manipulation_mode()
+            self.robot.manip.open_gripper()
 
         # Switch control mode on the robot to nav
         # Also set the robot's head into "navigation" mode - facing forward
@@ -304,7 +314,11 @@ class StretchPickandPlaceEnv(StretchEnv):
             pass
 
     def set_goal(
-        self, goal_find: str, goal_obj: str, goal_place: str, check_receptacles=True
+        self,
+        goal_find: str,
+        goal_obj: str,
+        goal_place: str,
+        check_receptacles=True,
     ):
         """Set the goal class as a string. Goal should be an object class we want to pick up."""
         if check_receptacles:

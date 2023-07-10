@@ -67,18 +67,6 @@ class GeneralLanguageEnv(StretchPickandPlaceEnv):
         self.interaction_visualizer = Visualizer("interaction_point", [1, 0, 0, 0.5])
         self.action_visualizer = ArrayVisualizer("slap_actions", [0.5, 0.5, 0, 0.5])
 
-    def reset(self):
-        """Resets environment"""
-        rospy.sleep(0.5)  # Make sure we have time to get ROS messages
-        self.robot.wait()
-        self._episode_start_pose = xyt2sophus(self.robot.nav.get_base_pose())
-        if self.visualizer is not None:
-            self.visualizer.reset()
-
-        # Switch control mode on the robot to nav
-        # Also set the robot's head into "navigation" mode - facing forward
-        self.robot.move_to_nav_posture()
-
     def _set_goal(self, info: Dict):
         """sets goals based on SLAP assumptions to either search for only one
         or two objects"""
@@ -115,7 +103,9 @@ class GeneralLanguageEnv(StretchPickandPlaceEnv):
             self.robot.move_to_manip_posture()
             rospy.sleep(5.0)
 
-    def apply_action(self, action: Action, info: Optional[Dict[str, Any]] = None):
+    def apply_action(
+        self, action: Action, info: Optional[Dict[str, Any]] = None
+    ) -> bool:
         """Handle all sorts of different actions we might be inputting into this class.
         We provide both a discrete and a continuous action handler."""
         # Process the action so we know what to do with it

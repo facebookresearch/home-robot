@@ -123,7 +123,7 @@ SLAP:
     learning_rate: 1e-3
     task_name: open_drawer
     source: stretch
-    run_for: -1  # what is this?!
+    run_for: -1  # time-based termination, -1 means iter based termination is used
     wandb: False
     split: False
     data_augmentation: True
