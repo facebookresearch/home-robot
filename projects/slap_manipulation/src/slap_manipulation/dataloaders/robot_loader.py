@@ -17,15 +17,15 @@ import trimesh.transformations as tra
 import yaml
 from slap_manipulation.dataloaders.annotations import load_annotations_dict
 from slap_manipulation.dataloaders.rlbench_loader import RLBenchDataset
-from slap_manipulation.utils.data_processing import (
-    filter_and_remove_duplicate_points,
-    voxelize_and_get_interaction_point,
-)
 from slap_manipulation.utils.data_visualizers import (
     show_point_cloud_with_keypt_and_closest_pt,
     show_semantic_mask,
 )
-from slap_manipulation.utils.pointcloud_preprocessing import find_closest_point_to_line
+from slap_manipulation.utils.pointcloud_preprocessing import (
+    filter_and_remove_duplicate_points,
+    find_closest_point_to_line,
+    voxelize_and_get_interaction_point,
+)
 
 from home_robot.core.interfaces import Observations
 from home_robot.motion.franka import FrankaPanda

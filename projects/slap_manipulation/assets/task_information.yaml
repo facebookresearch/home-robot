@@ -1,3 +1,5 @@
+# Mapping from name of the task to number of actions in its trajectory
+# calculated from demonstration data
 pour-into-bowl: 4
 sweep: 3
 handover-to-person: 3

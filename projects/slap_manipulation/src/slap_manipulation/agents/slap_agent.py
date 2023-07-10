@@ -16,12 +16,10 @@ from slap_manipulation.policy.action_prediction_module import ActionPredictionMo
 from slap_manipulation.policy.interaction_prediction_module import (
     InteractionPredictionModule,
 )
-from slap_manipulation.utils.data_processing import (
-    filter_and_remove_duplicate_points,
-    voxelize_point_cloud,
-)
 from slap_manipulation.utils.pointcloud_preprocessing import (
+    filter_and_remove_duplicate_points,
     get_local_action_prediction_problem,
+    voxelize_point_cloud,
 )
 
 from home_robot.core.interfaces import Observations
@@ -59,7 +57,8 @@ class SLAPAgent(object):
         self._voxel_size_2 = self.cfg.SLAP.voxel_size_2
         if cfg.SLAP.APM.skill_to_action_file is not None:
             self.skill_to_action = yaml.load(
-                open(cfg.SLAP.APM.skill_to_action_file, "r"), Loader=yaml.FullLoader
+                open(cfg.SLAP.APM.skill_to_action_file, "r"),
+                Loader=yaml.FullLoader,
             )
         else:
             self.skill_to_action = None
@@ -210,7 +209,11 @@ class SLAPAgent(object):
 
         # voxelize rgb, xyz, and feat
         voxelized_xyz, voxelized_rgb, voxelized_feat = voxelize_point_cloud(
-            xyz, rgb, feat=feat, voxel_size=self._voxel_size_2, debug_voxelization=debug
+            xyz,
+            rgb,
+            feat=feat,
+            voxel_size=self._voxel_size_2,
+            debug_voxelization=debug,
         )
 
         input_data = {
@@ -253,7 +256,7 @@ class SLAPAgent(object):
             )
         feat = ipm_data["og_feat"]
         combined_feat = torch.cat([rgb, feat], dim=-1)
-        cropped_feat, cropped_xyz, status = get_local_action_prediction_problem(
+        (cropped_feat, cropped_xyz, status,) = get_local_action_prediction_problem(
             self.cfg.SLAP.APM,
             combined_feat.detach().cpu().numpy(),
             xyz.detach().cpu().numpy(),

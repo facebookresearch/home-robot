@@ -17,7 +17,10 @@ from home_robot.utils.point_cloud import show_point_cloud
 
 
 def crop_around_voxel(
-    feat: np.ndarray, xyz: np.ndarray, crop_location: np.ndarray, crop_size: float
+    feat: np.ndarray,
+    xyz: np.ndarray,
+    crop_location: np.ndarray,
+    crop_size: float,
 ) -> Tuple[np.ndarray, np.ndarray]:
     """Crop a point cloud around given voxel"""
     mask = np.linalg.norm(xyz - crop_location, axis=1) < crop_size
@@ -59,3 +62,89 @@ def find_closest_point_to_line(xyz, gripper_position, action_axis):
     distances_to_line = np.linalg.norm(closest_points_on_line - xyz, axis=-1)
     closest_indices = np.argmin(distances_to_line)
     return closest_indices, xyz[closest_indices]
+
+
+def filter_and_remove_duplicate_points(
+    xyz: np.ndarray,
+    rgb: np.ndarray,
+    feats: np.ndarray,
+    depth: np.ndarray = None,
+    voxel_size: float = 0.001,
+    semantic_id: float = 0,
+    debug_voxelization: bool = False,
+):
+    """filters out points based on depth and them removes duplicate/overlapping
+    points by voxelizing at a fine resolution"""
+    # heuristic based trimming
+    if depth is not None:
+        mask = np.bitwise_and(depth < 1.5, depth > 0.3)
+        rgb = rgb[mask]
+        xyz = xyz[mask]
+        if feats is not None:
+            feats = feats[mask]
+        z_mask = xyz[:, 2] > 0.15
+        rgb = rgb[z_mask]
+        xyz = xyz[z_mask]
+        if feats is not None:
+            feats = feats[z_mask]
+    if np.any(rgb > 1.0):
+        rgb = rgb / 255.0
+    debug_views = False
+    if debug_views:
+        print("xyz", xyz.shape)
+        print("rgb", rgb.shape)
+        show_point_cloud(xyz, rgb)
+
+    # voxelize at a granular voxel-size rather than random downsample
+    pcd = numpy_to_pcd(xyz, rgb)
+    (
+        pcd_voxelized,
+        _,
+        voxelized_index_trace_vectors,
+    ) = pcd.voxel_down_sample_and_trace(
+        voxel_size, pcd.get_min_bound(), pcd.get_max_bound()
+    )
+    voxelized_index_trace = []
+    for intvec in voxelized_index_trace_vectors:
+        voxelized_index_trace.append(np.asarray(intvec))
+    rgb = np.asarray(pcd_voxelized.colors)
+    xyz = np.asarray(pcd_voxelized.points)
+    if feats is not None:
+        feats = aggregate_feats(feats, voxelized_index_trace)
+
+    if debug_voxelization:
+        if feats is not None:
+            show_semantic_mask(xyz, rgb, feats)
+
+    return xyz, rgb, feats
+
+
+def voxelize_point_cloud(
+    xyz: np.ndarray,
+    rgb: np.ndarray,
+    feat: np.ndarray = None,
+    debug_voxelization: bool = False,
+    voxel_size: float = 0.01,
+):
+    """voxelizes point-cloud and aggregates features"""
+    # voxelize at a granular voxel-size rather than random downsample
+    pcd = numpy_to_pcd(xyz, rgb)
+    (
+        pcd_voxelized,
+        _,
+        voxelized_index_trace_vectors,
+    ) = pcd.voxel_down_sample_and_trace(
+        voxel_size, pcd.get_min_bound(), pcd.get_max_bound()
+    )
+    voxelized_index_trace = []
+    for intvec in voxelized_index_trace_vectors:
+        voxelized_index_trace.append(np.asarray(intvec))
+    rgb = np.asarray(pcd_voxelized.colors)
+    xyz = np.asarray(pcd_voxelized.points)
+    if feat is not None:
+        feat = aggregate_feats(feat, voxelized_index_trace)
+
+    if debug_voxelization:
+        show_semantic_mask(xyz, rgb, feats=feat)
+
+    return xyz, rgb, feat
