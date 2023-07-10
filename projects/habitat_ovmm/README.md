@@ -121,7 +121,7 @@ python -u -m habitat_baselines.run \
 ```
 
 
-# Running evaluations
+## Running evaluations
 
 
 ### Evaluate with ground truth semantics
