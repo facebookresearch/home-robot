@@ -1,3 +1,8 @@
+# Copyright (c) Meta Platforms, Inc. and affiliates.
+#
+# This source code is licensed under the MIT license found in the
+# LICENSE file in the root directory of this source tree.
+
 # ----------------------------------------------------------------------------
 # -                        Open3D: www.open3d.org                            -
 # ----------------------------------------------------------------------------
@@ -52,11 +57,10 @@ def pick_points(pcd: o3d.geometry.PointCloud) -> List[int]:
 @click.option("--template", type=str, default="*/*.h5")
 @click.option(
     "--mode",
-    type=click.Choice(["read", "test", "write", "visualize"], case_sensitive=True),
+    type=click.Choice(["read", "write"], case_sensitive=True),
     default="read",
 )
-def main(data_dir, template, mode):
-    # depth_factor = 10000
+def main(data_dir: str, template: str, mode: str):
     files = glob.glob(os.path.join(data_dir, template))
     if mode == "read":
         print("Nothing will be written to H5s, this is to show labeled points")

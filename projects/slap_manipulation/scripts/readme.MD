@@ -114,11 +114,26 @@ Switch the usage mode by calling the right method in the script.
 
 ### Labeling mislabeled demonstrations as failure or success
 
-fill-me
+Usage:  
+`python label_demo_status.py --data-dir <path/to/data> --template <glob template> --mode [read/write]`
+
+Script to label episode as success/failure (key: `demo_status`) for cases which were mislabeled by
+data-collector. Visualizes the following then asks if user wants to relabel the episode: 
+       point-cloud, rgb-image, number-of-keyframes and current demo_status label
+
+Label is written when mode is write, otherwise above information is printed per episode and script exits.
 
 ### Labeling interaction points as extra supervision
 
-fill-me
+Usage:  
+`python label_interaction_points.py --data-dir <path/to/data> --template <glob template> --mode [read/write]`
+
+Script to label interaction points for SLAP dataset for tasks
+needing explicit supervision, like `pour-into-bowl` where gripper does not explicitly touch bowl.
+
+Script supports following modes:  
+  1. Read: Shows 0th image of each episode and associated labeled point cloud
+  2. Write: Shows 0th image and queries if user wants to label an interaction point
 
 ## Evaluation Scripts
 
