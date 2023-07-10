@@ -22,5 +22,6 @@ done
 docker run \
       -v $(realpath ../../data):/home-robot/data \
       --runtime=nvidia \
+      --gpus all \
       -e "AGENT_EVALUATION_TYPE=local" \
       ${DOCKER_NAME}
