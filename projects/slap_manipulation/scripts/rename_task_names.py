@@ -23,7 +23,9 @@ import yaml
     help="Files will be looked up using regex: data-dir/template",
 )
 @click.option("--config-file", type=str, default="configs/std_task_name_mapping.yaml")
-def full_rename(data_dir, template, config_file):
+def full_rename(data_dir: str, template: str, config_file: str):
+    """reads a config at path :config_file: that maps old task-names to new
+    task-names and changes names consistently everywhere"""
     with open(config_file, "r") as f:
         task_mapping = yaml.load(f, Loader=yaml.FullLoader)
     files = glob.glob(os.path.join(data_dir, template))
@@ -44,7 +46,9 @@ def full_rename(data_dir, template, config_file):
 )
 @click.option("--from-key", type=str)
 @click.option("--to-key", type=str)
-def rename_edits(data_dir, template, from_key, to_key):
+def rename_edits(data_dir: str, template: str, from_key: str, to_key: str):
+    """instead of config file, user can more precisely rename task-names from
+    :from_key: to :to_key:"""
     files = glob.glob(os.path.join(data_dir, template))
     for file in files:
         h5 = h5py.File(file, "a")
