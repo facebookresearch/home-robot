@@ -105,64 +105,63 @@ EVAL_VECTORIZED:
   record_planner_videos: 0  # 1: record planner videos (if record videos), 0: don't
 
 SLAP:
-  dry_run: False
-  min_depth: 0.3
-  max_depth: 1.5
-  z_min: 0.15  # 15cm
-  voxel_size_1: 0.001
-  voxel_size_2: 0.01
-  visualize: True
-  save_logs: True
+  dry_run: False  # whether to run SLAP Agent in dry_run mode
+  min_depth: 0.3  # minimum depth for filtering observations
+  max_depth: 1.5  # maximum depth for filtering observations
+  z_min: 0.15  # minimum height for filtering observations (everything below base is cut-off, i.e.  inaccessible by gripper)
+  voxel_size_1: 0.001  # resolution for voxelization used for removal of duplicate/overlapping points
+  voxel_size_2: 0.01  # resolution for final voxelization used for prediction
+  visualize: True  # whether to visualize the results
+  save_logs: True  # whether to save results as np files
   IPM:
-    validate: False
-    datadir: False
-    template: "*.h5"
-    load: False
-    resume: False
-    debug: False
-    learning_rate: 1e-3
-    task_name: open_drawer
-    source: stretch
+    validate: False  # training/validation: whether validation is performed (accesses GT)
+    datadir: False  # training/validation: path to dataset
+    template: "*.h5"  # training/validation: template for dataset files
+    load: False  # training/validation: whether to load a checkpoint
+    resume: False  # training: whether to resume training
+    debug: False  # training/validation: whether to run in debug mode
+    learning_rate: 1e-3  # training: learning rate for LAMB
+    task_name: open_drawer  # training/validation: task name, useful when saving checkpoints
+    source: stretch  # training/validation: source of data
     run_for: -1  # time-based termination, -1 means iter based termination is used
-    wandb: False
-    split: False
-    data_augmentation: True
-    color_jitter: False
-    loss_fn: "xent"
-    max_iter: 30
-    path: data/checkpoints/corl/ipm.pth
+    wandb: False  # training/validation: whether to use wandb
+    split: False  # training/validation: placeholder for split file provided from cmd-line
+    data_augmentation: True  # training/validation: whether to use data augmentation
+    color_jitter: False  # training/validation: whether to use color jitter
+    loss_fn: "xent"  # training/validation: loss function to use (supports xent, bce)
+    max_iter: 30  # training/validation: maximum number of training iterations
+    path: data/checkpoints/corl/ipm.pth  # execution/validation: path to checkpoint for experiments
   APM:
-    task_name: test
-    action_idx: -1
-    datadir: False
-    split: False
-    load: False
-    max_actions: 6
-    # path: data/checkpoints/corl/apm.pth
-    # path: projects/slap_manipulation/outputs/2023-06-06/17-31-38/best_action_predictor_corl_experiment.pth
-    path: data/checkpoints/corl/apm_w_fixed_pour.pth
+    task_name: test  # training/validation: (placeholder) task name, useful when saving checkpoints
+    action_idx: -1  # training/validation: (placeholder) action index to train/validate on; useful for debugging
+    datadir: False  # training/validation: path to dataset (placeholder)
+    split: False  # training/validation: placeholder for split file provided from cmd-line
+    load: False  # training/validation: path to checkpoint
+    max_actions: 6  # maximum number of actions APM supports for prediction
+    path: data/checkpoints/corl/apm.pth  # execution/validation: path to checkpoint for experiments
 
-    num_pts: 8000
-    orientation_type: "quaternion"  # change orientation_dim when you change this
-    learning_rate: 1e-4
-    lambda_weight_l2: 0.00001
-    optim: adam
-    multi_step: True
-    num_heads: 1
-    crop_size: 0.1
-    query_radius: 0.16
-    k: 3  # will change per task, read from task_information.yaml
-    lang_max_seq_len: 77
-    clip_model: "ViT-B/32"
-    max_iter: 50
-    dry_run: False
-    validate: False
-    template: "*.h5"
-    data_augmentation: True
-    source: "stretch"
-    wandb: False
-    debug: False
+    num_pts: 8000  # number of points to sample from the point cloud
+    orientation_type: "quaternion"  # quaternion, rpy, or euler
+    learning_rate: 1e-4  # training: learning rate for Adam
+    lambda_weight_l2: 0.00001  # training: weight for L2 regularization
+    optim: adam  # training: optimizer to use (supports adam, LAMB)
+    multi_step: True   # training: whether to use multi-step loss
+    num_heads: 1  # training: number of heads for multi-step loss
+    crop_size: 0.1  # training/validation: crop size for cropping point cloud for IPM
+    query_radius: 0.16  # training/validation/execution: radius for cropping point cloud for APM
+    k: 3  # (placeholder) number of actions in trajectory (read from task_information.yaml)
+    lang_max_seq_len: 77  # maximum sequence length for language tokens
+    clip_model: "ViT-B/32"  # clip model to use
+    max_iter: 50  # training: maximum number of training iterations
+    dry_run: False  # whether to run APM Agent in dry_run mode
+    validate: False  # training/validation: whether validation is performed (accesses GT)
+    template: "*.h5"  # training/validation: template for dataset files
+    data_augmentation: True  # training/validation: whether to use data augmentation
+    source: "stretch"  # training/validation: source of data
+    wandb: False  # training/validation: whether to use wandb
+    debug: False  # training/validation: whether to run in debug mode
 
+    # following describes the architecture of the APM model
     dims:
       proprio_in: 8
       proprio_out: 64
@@ -170,7 +169,6 @@ SLAP:
       lang_emb_out: 512
       position: 3
       orientation: 4
-      # rgb_out:
 
     handover_weights:
       position: 1e-1
