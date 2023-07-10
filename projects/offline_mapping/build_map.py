@@ -176,7 +176,7 @@ def main(input_trajectory_path, output_visualization_path):
         frame_height=obs.rgb.shape[0],
         frame_width=obs.rgb.shape[1],
         camera_height=obs.camera_pose[2, 3],
-        hfov=42.0,
+        hfov=47.0,  # 42.0,
         num_sem_categories=num_sem_categories,
         map_size_cm=4800,
         map_resolution=5,
