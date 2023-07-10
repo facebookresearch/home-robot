@@ -267,7 +267,7 @@ class Categorical2DSemanticMapModule(nn.Module):
         prev_map: Tensor,
         prev_pose: Tensor,
         camera_pose: Tensor,
-        debug: bool = True,
+        debug: bool = False,
     ) -> Tuple[Tensor, Tensor]:
         """Update local map and sensor pose given a new observation using parameter-free
         differentiable projective geometry.
