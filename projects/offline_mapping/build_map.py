@@ -163,7 +163,7 @@ def main(input_trajectory_path, output_visualization_path):
     semantic_map = Categorical2DSemanticMapState(
         device=device,
         num_environments=1,
-        num_sem_categories=16,
+        num_sem_categories=num_sem_categories,
         map_resolution=5,
         map_size_cm=4800,
         global_downscaling=2,
@@ -173,11 +173,11 @@ def main(input_trajectory_path, output_visualization_path):
     # Module is responsible for updating the local and global maps and poses
     # See class definition for argument info
     semantic_map_module = Categorical2DSemanticMapModule(
-        frame_height=640,
-        frame_width=480,
-        camera_height=1.31,
+        frame_height=obs.rgb.shape[0],
+        frame_width=obs.rgb.shape[1],
+        camera_height=obs.camera_pose[2, 3],
         hfov=42.0,
-        num_sem_categories=16,
+        num_sem_categories=num_sem_categories,
         map_size_cm=4800,
         map_resolution=5,
         vision_range=100,
