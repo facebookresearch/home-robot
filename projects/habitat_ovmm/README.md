@@ -105,22 +105,30 @@ python -u -m habitat_baselines.run \
 ```
 cd /path/to/home-robot
 
-
 # Evaluation on complete episode dataset with GT semantics
 python projects/habitat_ovmm/eval_dataset.py
 
 # Evaluation on complete episode dataset with DETIC
 Ensure `GROUND_TRUTH_SEMANTICS:0` in `configs/agent/hssd_eval.yaml` before running the above command
 
-# Evaluation on specific episodes
-python projects/habitat_ovmm/eval_dataset.py habitat.dataset.episode_ids="[151,182]"
+# Print out the metrics
+python projects/habitat_ovmm/scripts/summarize_metrics.py
+```
+
 
 # Evaluating all baseline variants
-# 1. First generate all possible configs using the base config `configs/agent/hssd_eval.yaml`. Configs will be saved under `projects/habitat_ovmm/configs/agent/generated`
+```
+1. First generate all possible configs using the base config `configs/agent/hssd_eval.yaml`. Configs will be saved under `projects/habitat_ovmm/configs/agent/generated`
 python projects/habitat_ovmm/scripts/gen_configs.py
 
-# 2. Run evaluation using the generated config files
-python projects/habitat_ovmm/eval_dataset.py --baseline_config_path projects/habitat_ovmm/configs/agent/generated/<dir_name>/<manip>_m_<nav>_n_<perception><viz?>.yaml
-Here <manip>/<nav> are to be set to 'h' or 'r' for heuristic and RL skills respectively. <perception> is one of 'gt'/'detic'. Append <viz?>='_viz' for saving images.
+2. Run evaluation using the generated config files
+python projects/habitat_ovmm/eval_dataset.py --baseline_config_path projects/habitat_ovmm/configs/agent/generated/<timestamp>/<manip>_m_<nav>_n_<perception><viz?>.yaml
+Here '<manip>/<nav>' are to be set to 'h' or 'r' for heuristic and RL skills respectively. '<perception>' is one of 'gt'/'detic'. Append '<viz?>=_viz' for saving images.
 
+```
+
+
+# Evaluation on specific episodes
+```
+python projects/habitat_ovmm/eval_dataset.py habitat.dataset.episode_ids="[151,182]"
 ```
