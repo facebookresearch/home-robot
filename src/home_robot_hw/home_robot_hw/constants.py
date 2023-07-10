@@ -1,5 +1,12 @@
+# Copyright (c) Meta Platforms, Inc. and affiliates.
+#
+# This source code is licensed under the MIT license found in the
+# LICENSE file in the root directory of this source tree.
+
 from enum import Enum
 from typing import Dict, List, Union
+
+import numpy as np
 
 from home_robot.motion.stretch import HelloStretchIdx
 
@@ -41,3 +48,7 @@ class ControlMode(Enum):
     VELOCITY = 1
     NAVIGATION = 2
     MANIPULATION = 3
+
+
+# Relative resting pose for creating observations
+relative_resting_position = np.array([0.3878479, 0.12924957, 0.4224413])

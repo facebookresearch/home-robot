@@ -1,3 +1,9 @@
+# Copyright (c) Meta Platforms, Inc. and affiliates.
+#
+# This source code is licensed under the MIT license found in the
+# LICENSE file in the root directory of this source tree.
+
+
 """A script to create a new h5 file consisting of only the 1st episode from a list of h5 files"""
 import glob
 import os

@@ -9,8 +9,11 @@
 
 ## Dataset Setup
 
+Run `git lfs install` to install Git LFS, which is used to manage the OVMM dataset.
+
 ### Scene dataset setup 
 
+Please sign in [here](https://huggingface.co/datasets/hssd/hssd-hab/tree/ovmm) and accept the license for using HSSD scenes before proceeding to download them.
 ```
 # Download the scenes
 git submodule update --init data/hssd-hab
@@ -19,12 +22,30 @@ git submodule update --init data/hssd-hab
 git submodule update --init data/objects
 ```
 
+If this didn't trigger a download of the datasets, you may be running an older version of git. Either upgrade your git version, or try the following commands:
+```
+cd data/hssd-hab
+git lfs pull
+cd -
+
+cd data/objects
+git lfs pull
+cd -
+```
+
 ### Download the Episodes
 
 These describe where objects are and where the robot starts:
 
 ```
 git submodule update --init data/datasets/ovmm
+```
+
+Similar to the scene dataset setup, you may need to run the following commands if this didn't download the episodes:
+```
+cd data/datasets/ovmm
+git lfs pull
+cd -
 ```
 
 
@@ -43,7 +64,7 @@ unzip hab_stretch_v1.0.zip
 
 Run
 ```
-python projects/habitat_ovmm/eval_dataset.py
+python projects/habitat_ovmm/eval_baselines_agent.py
 ```
 
 Results are saved to `datadump/images/eval_hssd/`.
@@ -100,35 +121,37 @@ python -u -m habitat_baselines.run \
 ```
 
 
-## Running evaluations
+# Running evaluations
 
+
+### Evaluate with ground truth semantics
 ```
-cd /path/to/home-robot
-
 # Evaluation on complete episode dataset with GT semantics
-python projects/habitat_ovmm/eval_dataset.py
-
-# Evaluation on complete episode dataset with DETIC
-Ensure `GROUND_TRUTH_SEMANTICS:0` in `configs/agent/hssd_eval.yaml` before running the above command
+python projects/habitat_ovmm/eval_baselines_agent.py
 
 # Print out the metrics
 python projects/habitat_ovmm/scripts/summarize_metrics.py
 ```
 
+### Evaluate with DETIC
+Ensure `GROUND_TRUTH_SEMANTICS:0` in `configs/agent/hssd_eval.yaml` before running the above command
 
-# Evaluating all baseline variants
+### Evaluate on specific episodes
 ```
+python projects/habitat_ovmm/eval_baselines_agent.py habitat.dataset.episode_ids="[151,182]"
+```
+
+### Evaluate all baseline variants
 1. First generate all possible configs using the base config `configs/agent/hssd_eval.yaml`. Configs will be saved under `projects/habitat_ovmm/configs/agent/generated`
+```
 python projects/habitat_ovmm/scripts/gen_configs.py
+```
 
 2. Run evaluation using the generated config files
-python projects/habitat_ovmm/eval_dataset.py --baseline_config_path projects/habitat_ovmm/configs/agent/generated/<timestamp>/<manip>_m_<nav>_n_<perception><viz?>.yaml
+```
+python projects/habitat_ovmm/eval_baselines_agent.py --baseline_config_path projects/habitat_ovmm/configs/agent/generated/<dir_name>/<manip>_m_<nav>_n_<perception><viz?>.yaml
+```
+
 Here '<manip>/<nav>' are to be set to 'h' or 'r' for heuristic and RL skills respectively. '<perception>' is one of 'gt'/'detic'. Append '<viz?>=_viz' for saving images.
 
-```
-
-
-# Evaluation on specific episodes
-```
-python projects/habitat_ovmm/eval_dataset.py habitat.dataset.episode_ids="[151,182]"
-```
+In case you run into issues, please prepend your python command with `HABITAT_ENV_DEBUG=1` to get a better error message.

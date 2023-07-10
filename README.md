@@ -9,13 +9,16 @@
 
 Your open-source robotic mobile manipulation stack!
 
-Check out the [Neurips 2023 HomeRobot Open-Vocabulary Mobile Manipulation Challenge!](https://aihabitat.org/challenge/2023_homerobot_ovmm/)
-
 HomeRobot lets you get started running a range of robotics tasks on a low-cost mobile manipulator, starting with _Open Vocabulary Mobile Manipulation_, or OVMM. OVMM is a challenging task which means that, in an unknown environment, a robot must:
   - Explore its environment
   - Find an object
   - Find a receptacle -- a location on which it must place this object
   - Put the object down on the receptacle.
+
+Check out the [Neurips 2023 HomeRobot Open-Vocabulary Mobile Manipulation Challenge!](https://aihabitat.org/challenge/2023_homerobot_ovmm/)
+
+When you're ready, 
+follow [these instructions to participate](docs/challenge.md).
 
 ## Core Concepts
 
@@ -82,7 +85,12 @@ _Testing Real Robot Setup:_ Now you can run a couple commands to test your conne
 rviz -d $HOME_ROBOT_ROOT/src/home_robot_hw/launch/mapping_demo.rviz
 ```
 
-#### 3. Hardware Testing
+#### 3. Download third-party packages
+```
+git submodule update --init --recursive assets/hab_stretch src/home_robot/home_robot/perception/detection/detic/Detic src/third_party/detectron2 src/third_party/contact_graspnet
+```
+
+#### 4. Hardware Testing
 
 Run the hardware manual test to make sure you can control the robot remotely. Ensure the robot has one meter of free space before running the script.
 
@@ -92,17 +100,13 @@ python tests/hw_manual_test.py
 
 Follow the on-screen instructions. The robot should move through a set of configurations.
 
-#### 4. Download third-party packages
-```
-git submodule update --init --recursive assets/hab_stretch src/home_robot/home_robot/perception/detection/detic/Detic src/third_party/detectron2 src/third_party/contact_graspnet
-```
-
 #### 5. Install Detic
 
 Install [detectron2](https://detectron2.readthedocs.io/tutorials/install.html). If you installed our default environment above, you may need to [download CUDA11.7](https://developer.nvidia.com/cuda-11-7-0-download-archive).
-```
+
 
 Download Detic checkpoint as per the instructions [on the Detic github page](https://github.com/facebookresearch/Detic):
+
 ```bash
 cd $HOME_ROBOT_ROOT/src/home_robot/home_robot/perception/detection/detic/Detic/
 mkdir models

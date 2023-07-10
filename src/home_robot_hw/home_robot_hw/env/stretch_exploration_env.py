@@ -1,3 +1,9 @@
+# Copyright (c) Meta Platforms, Inc. and affiliates.
+#
+# This source code is licensed under the MIT license found in the
+# LICENSE file in the root directory of this source tree.
+
+
 from typing import Any, Dict, Optional
 
 import numpy as np
@@ -8,6 +14,7 @@ from home_robot.core.interfaces import Action, DiscreteNavigationAction, Observa
 from home_robot.motion.stretch import STRETCH_NAVIGATION_Q, HelloStretchKinematics
 from home_robot.utils.config import get_config
 from home_robot.utils.geometry import xyt2sophus, xyt_base_to_global
+from home_robot_hw.constants import relative_resting_position
 from home_robot_hw.env.stretch_abstract_env import StretchEnv
 from home_robot_hw.env.visualizer import ExplorationVisualizer
 from home_robot_hw.remote import StretchClient
@@ -35,21 +42,12 @@ class StretchExplorationEnv(StretchEnv):
         self.reset()
 
     def reset(self):
-        self._episode_start_pose = xyt2sophus(self.get_base_pose())
+        """Save start pose and reset everything."""
+        self._episode_start_pose = xyt2sophus(self.robot.nav.get_base_pose())
         self.curr_step = 0
         if self.visualizer is not None:
             self.visualizer.reset()
-
-        # Switch control mode on the robot to nav
-        self.robot.switch_to_navigation_mode()
-        # put the robot in the correct mode with head facing forward
-        home_q = STRETCH_NAVIGATION_Q
-        # TODO: get this right
-        # tilted
-        home_q = self.robot_model.update_look_front(home_q.copy())
-        # Flat
-        # home_q = self.robot_model.update_look_ahead(home_q.copy())
-        self.goto(home_q, move_base=False, wait=True)
+        self.robot.move_to_nav_posture()
 
     def apply_action(
         self,
@@ -80,38 +78,41 @@ class StretchExplorationEnv(StretchEnv):
             pass
 
         if continuous_action is not None:
-            if not self.in_navigation_mode():
+            if not self.robot.in_navigation_mode():
                 self.robot.switch_to_navigation_mode()
                 rospy.sleep(self.msg_delay_t)
             if not self.dry_run:
                 self.robot.nav.navigate_to(
                     continuous_action, relative=True, blocking=True
                 )
-        rospy.sleep(0.5)
 
     def get_observation(self) -> Observations:
         """Get rgb/xyz/theta from this"""
-        rgb, depth = self.get_images(compute_xyz=False, rotate_images=True)
-        current_pose = xyt2sophus(self.get_base_pose())
+        rgb, depth, xyz = self.robot.head.get_images(compute_xyz=True)
+        current_pose = xyt2sophus(self.robot.nav.get_base_pose())
 
         # use sophus to get the relative translation
         relative_pose = self._episode_start_pose.inverse() * current_pose
         euler_angles = relative_pose.so3().log()
         theta = euler_angles[-1]
-        # pos, vel, frc = self.get_joint_state()
 
         # GPS in robot coordinates
         gps = relative_pose.translation()[:2]
+
+        # Get joint state information
+        joint_positions, _, _ = self.robot.get_joint_state()
 
         # Create the observation
         obs = home_robot.core.interfaces.Observations(
             rgb=rgb.copy(),
             depth=depth.copy(),
+            xyz=xyz.copy(),
             gps=gps,
             compass=np.array([theta]),
-            # base_pose=sophus2obs(relative_pose),
             task_observations={"image_frame": rgb.copy()[:, :, ::-1]},
-            camera_pose=self.get_camera_pose_matrix(rotated=True),
+            camera_pose=self.robot.head.get_pose(rotated=True),
+            joint=self.robot.model.config_to_hab(joint_positions),
+            relative_resting_position=relative_resting_position,
         )
         return obs
 
@@ -124,14 +125,14 @@ class StretchExplorationEnv(StretchEnv):
 
     def rotate(self, theta):
         """just rotate and keep trying"""
-        init_pose = self.get_base_pose()
+        init_pose = self.robot.nav.get_base_pose()
         xyt = [0, 0, theta]
         goal_pose = xyt_base_to_global(xyt, init_pose)
         rate = rospy.Rate(5)
         err = float("Inf"), float("Inf")
         pos_tol, ori_tol = 0.1, 0.1
         while not rospy.is_shutdown():
-            curr_pose = self.get_base_pose()
+            curr_pose = self.robot.nav.get_base_pose()
             print("init =", init_pose)
             print("curr =", curr_pose)
             print("goal =", goal_pose)

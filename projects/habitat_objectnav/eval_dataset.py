@@ -1,3 +1,9 @@
+# Copyright (c) Meta Platforms, Inc. and affiliates.
+#
+# This source code is licensed under the MIT license found in the
+# LICENSE file in the root directory of this source tree.
+
+
 import argparse
 import json
 import os
@@ -52,11 +58,7 @@ if __name__ == "__main__":
     config.NUM_ENVIRONMENTS = 1
     config.PRINT_IMAGES = 1
     config.habitat.dataset.split = "val"
-    if config.habitat.dataset.scene_indices_range is not None:
-        scene_indices_range = config.habitat.dataset.scene_indices_range
-        config.EXP_NAME = os.path.join(
-            config.EXP_NAME, f"{scene_indices_range[0]}_{scene_indices_range[1]}"
-        )
+
     agent = ObjectNavAgent(config=config)
     env = HabitatObjectNavEnv(Env(config=config), config=config)
 
