@@ -29,7 +29,15 @@ import home_robot.utils.data_tools.image as image
 from home_robot.core.interfaces import Observations
 from home_robot.perception.detection.detic.detic_perception import DeticPerception
 
-MY_CATEGORIES = ["cup", "bottle", "drawer", "basket", "bowl", "computer", "mug"]
+MY_CATEGORIES = [
+    "cup",
+    "bottle",
+    "drawer",
+    "basket",
+    "bowl",
+    "computer",
+    "mug",
+]
 TASK_TO_OBJECT_MAP = {
     "open-object-drawer": ["drawer handle", "drawer"],
     "close-object-drawer": ["drawer handle", "drawer"],
@@ -41,7 +49,9 @@ TASK_TO_OBJECT_MAP = {
 }
 
 
-def sandwich(obj_list: List[str]):
+def sandwich(obj_list: List[str]) -> List[str]:
+    """Returns a new list with :obj_list: sandwiched between two "other"
+    string tokens"""
     return ["other"] + obj_list + ["other"]
 
 
