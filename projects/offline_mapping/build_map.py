@@ -26,7 +26,8 @@ from home_robot.mapping.semantic.categorical_2d_semantic_map_state import Catego
 from home_robot.mapping.semantic.categorical_2d_semantic_map_module import Categorical2DSemanticMapModule
 
 
-coco_categories = [
+# Semantic segmentation categories predicted from frames and projected in the map
+categories = [
     "chair",
     "couch",
     "potted_plant",
@@ -44,7 +45,8 @@ coco_categories = [
     "bottle",
 ]
 
-coco_categories_color_palette = [
+# Color palette for semantic categories
+categories_color_palette = [
     0.9400000000000001,
     0.7818,
     0.66,  # chair
@@ -114,7 +116,7 @@ def main(input_trajectory_path, output_visualization_path):
     # Predict semantic segmentation
     categories = [
         "other",
-        *coco_categories,
+        *categories,
         "other",
     ]
     num_sem_categories = len(categories) - 1
@@ -295,7 +297,7 @@ def main(input_trajectory_path, output_visualization_path):
         0.96,
         0.36,
         0.26,  # visited area
-        *coco_categories_color_palette,
+        *categories_color_palette,
     ]
     map_color_palette = [int(x * 255.0) for x in map_color_palette]
 

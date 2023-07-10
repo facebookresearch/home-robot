@@ -10,3 +10,6 @@ python projects/offline_mapping/build_map.py \
     --output_visualization_path map_visualization/airbnb1.png
 ```
 You can see a visualization at `map_visualization/airbnb1.png`.
+
+It should look something like this:
+![](airbnb1.png)
