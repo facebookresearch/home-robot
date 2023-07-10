@@ -374,6 +374,9 @@ class DenseBlock(nn.Module):
 
 # Dependency taken from PerAct/Perceiver Code
 # the one big difference which makes PerceiverIO work for 6DOF manip
+# Perceiver IO implementation adpated for manipulation
+# Source: https://github.com/lucidrains/perceiver-pytorch
+# License: https://github.com/lucidrains/perceiver-pytorch/blob/main/LICENSE
 class Attention(nn.Module):  # is all you need. Living up to its name.
     def __init__(self, query_dim, context_dim=None, heads=8, dim_head=64, dropout=0.0):
         super().__init__()

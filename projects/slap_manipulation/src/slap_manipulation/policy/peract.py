@@ -1,57 +1,40 @@
+# Dependency taken from PerAct for easy integration
+# License: https://github.com/peract/peract/blob/main/LICENSE
 import copy
 import datetime
-import glob
 import os
-
-# import pickle
-# import shutil
-# import sys
 import time
 from pathlib import Path
 
+import arm.utils as utils
 import click
 import clip
-
-# import matplotlib
 import matplotlib.pyplot as plt
 import numpy as np
 import open3d as o3d
-import slap_manipulation.policy.peract_utils as utils
 import torch
 import torch.nn.functional as F
 import trimesh.transformations as tra
 import yaml
+from arm.qattention_agent import QFunction  # dependency: non-MIT license
 from einops import rearrange, repeat  # , reduce
-from perceiver_pytorch.perceiver_io import PreNorm  # exists,
-from perceiver_pytorch.perceiver_io import FeedForward, cache_fn, default
-from slap_manipulation.dataloaders.peract_loader import PerActRobotDataset
-from slap_manipulation.optim.lamb import Lamb
-from slap_manipulation.policy.components import Attention
-
-# from arm.demo_loading_utils import keypoint_discovery
-from slap_manipulation.policy.peract_components import (  # Conv3DInceptionBlock,; Conv3DInceptionBlockUpsampleBlock,
+from peract.helper.network_utils import (  # dependency: non-MIT license
     Conv3DBlock,
     Conv3DUpsampleBlock,
     DenseBlock,
     SpatialSoftmax3D,
 )
-from slap_manipulation.policy.peract_utils import (  # get_gripper_render_pose,
-    discrete_euler_to_quaternion,
-    visualise_voxel,
-)
-from slap_manipulation.policy.voxel_grid import VoxelGrid
+from peract.voxel.voxel_grid import VoxelGrid  # dependency: non-MIT license
+from perceiver_pytorch.perceiver_io import PreNorm  # exists,
+from perceiver_pytorch.perceiver_io import FeedForward, cache_fn, default
+from slap_manipulation.dataloaders.peract_loader import PerActRobotDataset
+from slap_manipulation.optim.lamb import Lamb  # dependency: MIT license
+from slap_manipulation.policy.components import Attention  # dependency: MIT license
 from torch import nn
 from tqdm import tqdm
 
 from home_robot.utils.point_cloud import numpy_to_pcd, show_point_cloud
 from home_robot.utils.pose import to_matrix
-
-# from functools import reduce as funtool_reduce
-# from functools import wraps
-# from math import log, pi
-# from operator import mul
-# from typing import List
-
 
 # constants
 CAMERAS = ["front", "left_shoulder", "right_shoulder", "wrist"]
@@ -74,6 +57,9 @@ BATCH_SIZE = 1
 
 # Main PerceiverIO implementation, uses Attention block defined above
 # PerceiverIO adapted for 6-DoF manipulation
+# Perceiver IO implementation adpated for manipulation
+# Source: https://github.com/lucidrains/perceiver-pytorch
+# License: https://github.com/lucidrains/perceiver-pytorch/blob/main/LICENSE
 class PerceiverIO(nn.Module):
     def __init__(
         self,
@@ -135,7 +121,9 @@ class PerceiverIO(nn.Module):
         lang_emb_dim, lang_max_seq_len = 512, 77
         self.pos_encoding = nn.Parameter(
             torch.randn(
-                1, lang_max_seq_len + spatial_size**3, self.input_dim_before_seq
+                1,
+                lang_max_seq_len + spatial_size**3,
+                self.input_dim_before_seq,
             )
         )
 
@@ -224,7 +212,10 @@ class PerceiverIO(nn.Module):
         for i in range(depth):
             self.layers.append(
                 nn.ModuleList(
-                    [get_latent_attn(**cache_args), get_latent_ff(**cache_args)]
+                    [
+                        get_latent_attn(**cache_args),
+                        get_latent_ff(**cache_args),
+                    ]
                 )
             )
 
@@ -312,7 +303,10 @@ class PerceiverIO(nn.Module):
         d0 = self.input_preprocess(ins)
 
         # aggregated features from 1st softmax and maxpool for MLP decoders
-        feats = [self.ss0(d0.contiguous()), self.global_maxp(d0).view(ins.shape[0], -1)]
+        feats = [
+            self.ss0(d0.contiguous()),
+            self.global_maxp(d0).view(ins.shape[0], -1),
+        ]
 
         # patchify input (5x5x5 patches)
         ins = self.patchify(d0)  # [B,64,100,100,100] -> [B,64,20,20,20]
@@ -372,7 +366,10 @@ class PerceiverIO(nn.Module):
 
         # aggregated features from 2nd softmax and maxpool for MLP decoders
         feats.extend(
-            [self.ss1(latents.contiguous()), self.global_maxp(latents).view(b, -1)]
+            [
+                self.ss1(latents.contiguous()),
+                self.global_maxp(latents).view(b, -1),
+            ]
         )
 
         # upsample layer
@@ -402,91 +399,8 @@ class PerceiverIO(nn.Module):
         return trans, rot_and_grip_out, collision_out
 
 
-# Q-Attention which builds on PerceiverIO for 6DOF manip
-class QFunction(nn.Module):
-    def __init__(
-        self,
-        perceiver_encoder: nn.Module,
-        voxel_grid: VoxelGrid,
-        rotation_resolution: float,
-        device,
-        training,
-    ):
-        super(QFunction, self).__init__()
-        self._rotation_resolution = rotation_resolution
-        self._voxel_grid = voxel_grid
-        self._qnet = copy.deepcopy(perceiver_encoder)
-        self._qnet._dev = device
-
-    def _argmax_3d(self, tensor_orig):
-        b, c, d, h, w = tensor_orig.shape  # c will be one
-        idxs = tensor_orig.view(b, c, -1).argmax(-1)
-        indices = torch.cat([((idxs // h) // d), (idxs // h) % w, idxs % w], 1)
-        return indices
-
-    def choose_highest_action(self, q_trans, q_rot_grip, q_collision):
-        coords = self._argmax_3d(q_trans)
-        rot_and_grip_indicies = None
-        if q_rot_grip is not None:
-            q_rot = torch.stack(
-                torch.split(
-                    q_rot_grip[:, :-2], int(360 // self._rotation_resolution), dim=1
-                ),
-                dim=1,
-            )
-            rot_and_grip_indicies = torch.cat(
-                [
-                    q_rot[:, 0:1].argmax(-1),
-                    q_rot[:, 1:2].argmax(-1),
-                    q_rot[:, 2:3].argmax(-1),
-                    q_rot_grip[:, -2:].argmax(-1, keepdim=True),
-                ],
-                -1,
-            )
-            ignore_collision = q_collision[:, -2:].argmax(-1, keepdim=True)
-        return coords, rot_and_grip_indicies, ignore_collision
-
-    def forward(
-        self, obs, proprio, pcd, lang_goal_embs, bounds: torch.Tensor = torch.Tensor()
-    ):
-        """Forward the q function.
-        This is where we will actually compute the value of each action.
-        """
-
-        bs = obs.shape[0]
-        # voxelize
-        # Create the voxelization code here
-        # Normalized RGB in flat_imag_features
-        voxel_grid = self._voxel_grid.coords_to_bounding_voxel_grid(
-            pcd, coord_features=obs, coord_bounds=bounds
-        )
-        # So this is a (1 x 100 x 100 x 100 x 10) grid
-        # We are essentially binning everything into 1cm cubes
-        # What is each value?
-        # RGB features
-        # 6 is voxel x
-        # 7 is voxel y
-        # 8 is voxel z
-        # Occupancy
-
-        # swap to channels first
-        voxel_grid = voxel_grid.permute(0, 4, 1, 2, 3).detach()
-
-        # batch bounds if necessary
-        if bounds.shape[0] != bs:
-            bounds = bounds.repeat(bs, 1)
-
-        # forward pass
-        q_trans, rot_and_grip_q, collision_q = self._qnet(
-            voxel_grid, proprio, lang_goal_embs, bounds
-        )
-        return q_trans, rot_and_grip_q, collision_q, voxel_grid
-
-    def latents(self):
-        return self._qnet.latent_dict
-
-
 # Main trainable actor class built on perceiverio + Q-attention mechanisms
+# Dependency from: https://colab.research.google.com/drive/1wpaosDS94S0rmtGmdnP0J1TjS7mEM14V?usp=sharing
 class PerceiverActorAgent:
     def __init__(
         self,
@@ -532,9 +446,21 @@ class PerceiverActorAgent:
         self._cross_entropy_loss = nn.CrossEntropyLoss(reduction="none")
         # for visualizations
         self.cam_view = {
-            "front": [-0.89795424592554529, 0.047678244807235863, 0.43749852250766141],
-            "lookat": [0.33531651482385966, 0.048464899929339826, 0.54704503365806367],
-            "up": [0.43890929711345494, 0.024286597087151203, 0.89820308956788786],
+            "front": [
+                -0.89795424592554529,
+                0.047678244807235863,
+                0.43749852250766141,
+            ],
+            "lookat": [
+                0.33531651482385966,
+                0.048464899929339826,
+                0.54704503365806367,
+            ],
+            "up": [
+                0.43890929711345494,
+                0.024286597087151203,
+                0.89820308956788786,
+            ],
             "zoom": 0.43999999999999972,
         }
 
@@ -814,14 +740,20 @@ class PerceiverActorAgent:
                     per_action_batch["cmd"] = desc
                     if training:
                         update_dict = self.update(
-                            iter, per_action_batch, val=validate, backprop=training
+                            iter,
+                            per_action_batch,
+                            val=validate,
+                            backprop=training,
                         )
                         per_update_iter += 1
                         loss += update_dict["total_loss"]
                     if validate:
                         with torch.no_grad():
                             update_dict = self.update(
-                                iter, per_action_batch, val=validate, backprop=training
+                                iter,
+                                per_action_batch,
+                                val=validate,
+                                backprop=training,
                             )
                             self.visualize_prediction(batch, update_dict)
             if training:
@@ -858,7 +790,7 @@ class PerceiverActorAgent:
             update_dict["pred_action"]["continuous_trans"][0].detach().cpu().numpy()
         )
         continuous_quats.append(
-            discrete_euler_to_quaternion(
+            utils.discrete_euler_to_quaternion(
                 update_dict["pred_action"]["rot_and_grip"][0][:3]
                 .detach()
                 .cpu()
@@ -895,7 +827,7 @@ class PerceiverActorAgent:
         render_gripper = False  # @param {type:"boolean"}
         rotation_amount = 0  # @param {type:"slider", min:-180, max:180, step:5}
 
-        rendered_img = visualise_voxel(
+        rendered_img = utils.visualise_voxel(
             vis_voxel_grid,
             vis_trans_q if show_q_values else None,
             vis_trans_coord,
@@ -908,11 +840,6 @@ class PerceiverActorAgent:
         )
 
         # visualize voxel-grid to confirm PerAct saw the right thing
-        # fig = plt.figure(figsize=(15, 15))
-        # plt.imshow(rendered_img)
-        # plt.axis("off")
-        # plt.show()
-        # TODO: also show the open3d visualization with orientation
         continuous_quats = np.stack(continuous_quats)
         continuous_trans = np.stack(continuous_trans)
         actions = np.concatenate((continuous_trans, continuous_quats), axis=-1)
@@ -930,7 +857,7 @@ class PerceiverActorAgent:
         continuous_trans = (
             update_dict["pred_action"]["continuous_trans"][0].detach().cpu().numpy()
         )
-        continuous_quats = discrete_euler_to_quaternion(
+        continuous_quats = utils.discrete_euler_to_quaternion(
             update_dict["pred_action"]["rot_and_grip"][0][:3].detach().cpu().numpy(),
             resolution=self._rotation_resolution,
         )
@@ -956,7 +883,7 @@ class PerceiverActorAgent:
             render_gripper = False  # @param {type:"boolean"}
             rotation_amount = 90  # @param {type:"slider", min:-180, max:180, step:5}
 
-            rendered_img = visualise_voxel(
+            rendered_img = utils.visualise_voxel(
                 vis_voxel_grid,
                 vis_trans_q if show_q_values else None,
                 vis_trans_coord,
@@ -1145,8 +1072,6 @@ class PerceiverActorAgent:
 
 
 def train(path, template, split_path, wt_path, debug=False):
-    # hydra_cfg = hydra.core.hydra_config.HydraConfig.get()
-    # hydra_output_dir = hydra_cfg["runtime"]["output_dir"]
     dt = datetime.datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
     if debug:
         hydra_output_dir = os.path.join(os.getcwd(), f"peract_debug_{dt}")
@@ -1155,12 +1080,6 @@ def train(path, template, split_path, wt_path, debug=False):
     Path(hydra_output_dir).mkdir(parents=True, exist_ok=True)
     device = "cuda" if torch.cuda.is_available() else "cpu"
 
-    # enter our own dataloader
-    # data_dir = (
-    #     "/home/priparashar/robopen_h5s/larp/kinesthetic_dataset/all_tasks/kin_data"
-    # )
-    # data_dir = "/home/cpaxton/data/kinesthetic_dataset"
-    # split_file = "./assets/task_splits/main_split.yaml"
     if split_path is not None:
         with open(split_path, "r") as f:
             train_test_split = yaml.safe_load(f)
@@ -1244,20 +1163,21 @@ def train(path, template, split_path, wt_path, debug=False):
     )
     peract_agent.build(training=True, device=device)
 
-    # basic test before training
-    # for batch in data_loader:
-    #     ds.visualize_data(batch, peract_agent._vox_grid)
-    #     res = input("Press enter if looks ok; n to exit")
-    #     if res == "n":
-    #         return
-    #     break
+    if debug:
+        # basic test before training
+        for batch in data_loader:
+            ds.visualize_data(batch, peract_agent._vox_grid)
+            res = input("Press enter if looks ok; n to exit")
+            if res == "n":
+                return
+            break
 
     LOG_FREQ = 1
     TRAINING_ITERATIONS = 20
 
     if wt_path:
         peract_agent.load_weights(wt_path)
-        print(f"---> loaded last best {wt_path} <---")
+        print(f"---> loaded {wt_path=} <---")
 
     start_time = time.time()
     iter = 0
@@ -1293,10 +1213,16 @@ def train(path, template, split_path, wt_path, debug=False):
                 per_iter_time = elapsed_time
             print(
                 "Iteration %d | Total Loss: %f | Elapsed Time: %f mins | Elapsed time per iter: %f mins"
-                % (iter, update_dict["total_loss"], elapsed_time, per_iter_time)
+                % (
+                    iter,
+                    update_dict["total_loss"],
+                    elapsed_time,
+                    per_iter_time,
+                )
             )
             filename = os.path.join(
-                hydra_output_dir, filename_prefix + f"_{iter}_{int(elapsed_time)}.pth"
+                hydra_output_dir,
+                filename_prefix + f"_{iter}_{int(elapsed_time)}.pth",
             )
             peract_agent.save_weights(filename)
             print(f"Written to {filename}")
@@ -1444,7 +1370,7 @@ def eval(path, template, split_path, weight_path, visualize, partition="test"):
                         .numpy()
                     )
                     continuous_quats.append(
-                        discrete_euler_to_quaternion(
+                        utils.discrete_euler_to_quaternion(
                             update_dict["pred_action"]["rot_and_grip"][idx][0][:3]
                             .detach()
                             .cpu()
@@ -1485,7 +1411,7 @@ def eval(path, template, split_path, weight_path, visualize, partition="test"):
                         0  # @param {type:"slider", min:-180, max:180, step:5}
                     )
 
-                    rendered_img = visualise_voxel(
+                    rendered_img = utils.visualise_voxel(
                         vis_voxel_grid,
                         vis_trans_q if show_q_values else None,
                         vis_trans_coord,
@@ -1498,12 +1424,10 @@ def eval(path, template, split_path, weight_path, visualize, partition="test"):
                     )
 
                     # visualize voxel-grid to confirm PerAct saw the right thing
-                    # fig = plt.figure(figsize=(15, 15))
-                    # plt.imshow(rendered_img)
-                    # plt.axis("off")
-                    # plt.show()
-                # TODO: also show the open3d visualization with orientation
-                breakpoint()
+                    fig = plt.figure(figsize=(15, 15))
+                    plt.imshow(rendered_img)
+                    plt.axis("off")
+                    plt.show()
                 continuous_quats = np.stack(continuous_quats)
                 continuous_trans = np.stack(continuous_trans)
                 actions = np.concatenate((continuous_trans, continuous_quats), axis=-1)
@@ -1516,7 +1440,11 @@ def eval(path, template, split_path, weight_path, visualize, partition="test"):
 @click.command()
 @click.option("-f", "--flag")
 @click.option(
-    "-p", "--path", type=str, default="./data/", help="Data directory where H5s live"
+    "-p",
+    "--path",
+    type=str,
+    default="./data/",
+    help="Data directory where H5s live",
 )
 @click.option(
     "-t",
@@ -1611,9 +1539,12 @@ def main(flag, path, viz, split_path, weight_path, template, partition, debug):
     if flag == "t":
         peract_agent.do_epoch(ds, weight_path=weight_path, debug=debug)
     elif flag == "e":
-        # eval(path, template, split_path, weight_path, viz, partition=partition)
         peract_agent.do_epoch(
-            ds, weight_path=weight_path, debug=debug, training=False, validate=True
+            ds,
+            weight_path=weight_path,
+            debug=debug,
+            training=False,
+            validate=True,
         )
 
 
