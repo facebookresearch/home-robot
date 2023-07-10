@@ -9,7 +9,7 @@ import os
 import time
 from collections import defaultdict
 from enum import Enum
-from typing import TYPE_CHECKING, Dict, Optional
+from typing import TYPE_CHECKING, Any, Dict, Optional
 
 import numpy as np
 from habitat_baselines.rl.ppo.ppo_trainer import PPOTrainer
@@ -144,7 +144,8 @@ class OVMMEvaluator(PPOTrainer):
 
         return aggregated_metrics
 
-    def _aggregate_metrics(self, episode_metrics):
+    def _aggregate_metrics(self, episode_metrics: Dict[str, Any]) -> Dict[str, float]:
+        """Aggregates metrics tracked by environment."""
         aggregated_metrics = defaultdict(list)
         metrics = set(
             [
@@ -175,7 +176,10 @@ class OVMMEvaluator(PPOTrainer):
 
         return aggregated_metrics
 
-    def _write_results(self, episode_metrics, aggregated_metrics):
+    def _write_results(
+        self, episode_metrics: Dict[str, Dict], aggregated_metrics: Dict[str, float]
+    ) -> None:
+        """Writes metrics tracked by environment to a file."""
         with open(f"{self.results_dir}/aggregated_results.json", "w") as f:
             json.dump(aggregated_metrics, f, indent=4)
         with open(f"{self.results_dir}/episode_results.json", "w") as f:
@@ -184,6 +188,14 @@ class OVMMEvaluator(PPOTrainer):
     def local_evaluate(
         self, agent, num_episodes: Optional[int] = None
     ) -> Dict[str, float]:
+        """
+        Evaluates the agent in the local environment.
+
+        :param agent: agent to be evaluated in environment.
+        :param num_episodes: count of number of episodes for which the evaluation should be run.
+        :return: dict containing metrics tracked by environment.
+        """
+
         env_num_episodes = self._env.number_of_episodes
         if num_episodes is None:
             num_episodes = env_num_episodes
@@ -251,6 +263,16 @@ class OVMMEvaluator(PPOTrainer):
     def remote_evaluate(
         self, agent, num_episodes: Optional[int] = None
     ) -> Dict[str, float]:
+        """
+        Evaluates the agent in the remote environment.
+
+        :param agent: agent to be evaluated in environment.
+        :param num_episodes: count of number of episodes for which the evaluation should be run.
+        :return: dict containing metrics tracked by environment.
+        """
+
+        # The modules imported below are specific to challenge remote evaluation.
+        # These modules are not part of the home-robot repository.
         import pickle
         import time
 
@@ -259,6 +281,7 @@ class OVMMEvaluator(PPOTrainer):
         import evaluation_pb2_grpc
         import grpc
 
+        # Wait for the remote environment to be up and running
         time.sleep(60)
 
         def grpc_dumps(entity):

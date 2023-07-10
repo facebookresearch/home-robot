@@ -4,6 +4,8 @@
 # LICENSE file in the root directory of this source tree.
 
 
+from typing import TYPE_CHECKING
+
 from habitat import make_dataset
 from habitat.core.environments import get_env_class
 from habitat.utils.gym_definitions import _get_env_name
@@ -12,9 +14,19 @@ from home_robot_sim.env.habitat_ovmm_env.habitat_ovmm_env import (
     HabitatOpenVocabManipEnv,
 )
 
+if TYPE_CHECKING:
+    from omegaconf import DictConfig
 
-def create_ovmm_env_fn(config):
-    """Create habitat environment using configsand wrap HabitatOpenVocabManipEnv around it. This function is used by VectorEnv for creating the individual environments"""
+
+def create_ovmm_env_fn(config: "DictConfig") -> HabitatOpenVocabManipEnv:
+    """
+    Creates an environment for the OVMM task.
+
+    Creates habitat environment from config and wraps it into HabitatOpenVocabManipEnv.
+
+    :param config: configuration for the environment.
+    :return: environment instance.
+    """
     habitat_config = config.habitat
     dataset = make_dataset(habitat_config.dataset.type, config=habitat_config.dataset)
     env_class_name = _get_env_name(config)

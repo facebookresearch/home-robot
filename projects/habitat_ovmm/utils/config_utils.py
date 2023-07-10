@@ -17,6 +17,7 @@ def get_habitat_config(
     overrides: Optional[list] = None,
     configs_dir: str = _BASELINES_CFG_DIR,
 ) -> Tuple[DictConfig, str]:
+    """Returns habitat config object composed of configs from yaml file (config_path) and overrides."""
     config = _get_habitat_config(
         config_path, overrides=overrides, configs_dir=configs_dir
     )
@@ -24,12 +25,27 @@ def get_habitat_config(
 
 
 def get_ovmm_baseline_config(baseline_config_path: str) -> DictConfig:
+    """Returns the baseline configuration."""
     config = OmegaConf.load(baseline_config_path)
     OmegaConf.set_readonly(config, True)
     return config
 
 
-def merge_configs(habitat_config, baseline_config):
+def merge_configs(
+    habitat_config: DictConfig, baseline_config: DictConfig
+) -> DictConfig:
+    """
+    Merges habitat and baseline configurations.
+
+    Adjusts the configuration based on the provided arguments:
+    1. Removes third person sensors to improve speed if visualization is not required.
+    2. Processes the episode range if specified and updates the EXP_NAME accordingly.
+
+    :param habitat_config: habitat configuration.
+    :param baseline_config: baseline configuration.
+    :return: merged configuration.
+    """
+
     config = DictConfig({**habitat_config, **baseline_config})
 
     visualize = config.VISUALIZE or config.PRINT_IMAGES
