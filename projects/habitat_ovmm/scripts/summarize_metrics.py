@@ -22,8 +22,9 @@ def compute_stats(aggregated_metrics: pd.DataFrame) -> dict:
 
     Returns:
         dict: A dictionary containing the computed statistics. The dictionary has the following keys:
-            - 'episode_count': The count of episodes for the 'END.ovmm_place_success' metric.
-            - 'does_want_terminate': The mean value of the 'END.does_want_terminate' metric.
+            - 'episode_count': The number of episodes over which metrics are calculated.
+            - 'does_want_terminate': The fraction of times the agent calls terminate.
+            - 'num_steps': The mean number of steps taken by the agent.
             - Other stage-wise success metrics: The mean value of stage-wise success metrics with 'END' in their names, after removing 'END.ovmm_' from the metric names.
             - 'partial_success': The mean value of the 'partial_success' metric.
     """
