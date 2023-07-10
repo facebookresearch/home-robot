@@ -128,6 +128,56 @@ def get_metrics_from_jsons(folder_name: str, exp_name: str) -> pd.DataFrame:
     return pd.concat(dfs)
 
 
+def get_stats_per_episode(
+    episode_metrics: pd.DataFrame,
+) -> Optional[dict]:  # noqa: C901
+    """Compute summary statistics from episode metrics.
+
+    This function computes summary statistics from episode metrics stored in a DataFrame. It aggregates the metrics, computes task success and partial success measures,
+    and generates a summary DataFrame containing the computed statistics.
+
+    Args:
+        episode_metrics (pd.DataFrame): The episode metrics DataFrame containing the metrics data.
+
+    Returns:
+        Optional[dict]: A dictionary containing the computed statistics. The dictionary has the following keys:
+            - 'episode_count': The count of episodes for the 'END.ovmm_place_success' metric.
+            - 'does_want_terminate': The mean value of the 'END.does_want_terminate' metric.
+            - Other stage-wise success metrics: The mean value of stage-wise success metrics with 'END' in their names, after removing 'END.ovmm_' from the metric names.
+            - 'partial_success': The mean value of the 'partial_success' metric.
+    """
+
+    # Get absolute start_idx's
+    episode_ids = (
+        episode_metrics.index.str.split("_").str[-1].astype(int)
+        + episode_metrics["start_idx"]
+    )
+    # Convert episode_id to string
+    episode_ids = episode_ids.astype(str)
+
+    # The task is considered successful if the agent places the object without robot collisions
+    task_success = (episode_metrics["END.robot_collisions.robot_scene_colls"] == 0) * (
+        episode_metrics["END.ovmm_place_success"] == 1
+    )
+
+    # Compute partial success measure
+    partial_success = (
+        episode_metrics["END.ovmm_find_object_phase_success"]
+        + episode_metrics["END.ovmm_pick_object_phase_success"]
+        + episode_metrics["END.ovmm_find_recep_phase_success"]
+        + task_success
+    ) / 4.0
+
+    episode_metrics = episode_metrics.assign(
+        episode_id=episode_ids,
+        task_success=task_success,
+        partial_success=partial_success,
+    )
+    aggregated_metrics = aggregate_metrics(episode_metrics)
+    stats = compute_stats(aggregated_metrics)
+    return stats
+
+
 def get_summary(args: argparse.Namespace, exclude_substr: str = "viz"):
     """Compute summary statistics from episode metrics.
 
@@ -159,35 +209,8 @@ def get_summary(args: argparse.Namespace, exclude_substr: str = "viz"):
         episode_metrics = get_metrics_from_jsons(args.folder_name, exp_name)
         if episode_metrics is None:
             continue
+        stats = get_stats_per_episode(episode_metrics)
 
-        # Get absolute start_idx's
-        episode_ids = (
-            episode_metrics.index.str.split("_").str[-1].astype(int)
-            + episode_metrics["start_idx"]
-        )
-        # Convert episode_id to string
-        episode_ids = episode_ids.astype(str)
-
-        # The task is considered successful if the agent places the object without robot collisions
-        task_success = (
-            episode_metrics["END.robot_collisions.robot_scene_colls"] == 0
-        ) * (episode_metrics["END.ovmm_place_success"] == 1)
-
-        # Compute partial success measure
-        partial_success = (
-            episode_metrics["END.ovmm_find_object_phase_success"]
-            + episode_metrics["END.ovmm_pick_object_phase_success"]
-            + episode_metrics["END.ovmm_find_recep_phase_success"]
-            + task_success
-        ) / 4.0
-
-        episode_metrics = episode_metrics.assign(
-            episode_id=episode_ids,
-            task_success=task_success,
-            partial_success=partial_success,
-        )
-        aggregated_metrics = aggregate_metrics(episode_metrics)
-        stats = compute_stats(aggregated_metrics)
         results_dfs[exp_name] = stats
 
     # Create DataFrame with exp_name as index
