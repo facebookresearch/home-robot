@@ -58,13 +58,9 @@ class SimpleGraspMotionPlanner(object):
             print("-> could not solve for grasp")
             return None
 
-        # Overwrite standoff pos.z with a really high value so it comes in from above
-        standoff_pos = grasp_pos + np.array([0.0, 0.0, 0.6])
-        standoff_pos[2] = np.min([self.robot.max_arm_height, standoff_pos[2]])
-        print(f"EE should go to: {standoff_pos=}, given {grasp_pos=}")
         # Standoff is 8cm over the grasp for now
         # Overwrite standoff pos.z with a really high value so it comes in from above
-        standoff_pos = grasp_pos + np.array([0.0, 0.0, 0.4])
+        standoff_pos = grasp_pos + np.array([0.0, 0.0, 0.6])
         standoff_pos[2] = np.min([self.robot.max_arm_height, standoff_pos[2]])
         standoff_cfg, success, _ = self.robot.manip_ik(
             (standoff_pos, grasp_quat), q0=None
