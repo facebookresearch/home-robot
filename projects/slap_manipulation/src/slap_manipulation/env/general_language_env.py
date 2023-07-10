@@ -32,12 +32,13 @@ from home_robot_hw.ros.visualizer import ArrayVisualizer, Visualizer
 
 
 class GeneralLanguageEnv(StretchPickandPlaceEnv):
+    """Derivative environment for running free-form language experiments with
+    SLAP being used for executing learnt skills"""
+
     def __init__(
         self,
         config,
         cat_map_file: str = None,
-        # goal_options: List[str] = None,
-        # segmentation_method: str = "detic",
         visualize_planner: bool = False,
         ros_grasping: bool = True,
         test_grasping: bool = False,
@@ -67,6 +68,7 @@ class GeneralLanguageEnv(StretchPickandPlaceEnv):
         self.action_visualizer = ArrayVisualizer("slap_actions", [0.5, 0.5, 0, 0.5])
 
     def reset(self):
+        """Resets environment"""
         rospy.sleep(0.5)  # Make sure we have time to get ROS messages
         self.robot.wait()
         self._episode_start_pose = xyt2sophus(self.robot.nav.get_base_pose())
@@ -78,6 +80,8 @@ class GeneralLanguageEnv(StretchPickandPlaceEnv):
         self.robot.move_to_nav_posture()
 
     def _set_goal(self, info: Dict):
+        """sets goals based on SLAP assumptions to either search for only one
+        or two objects"""
         if len(info["object_list"]) > 1:
             goal_find = info["object_list"][0]
             goal_obj = info["object_list"][1]
@@ -88,7 +92,9 @@ class GeneralLanguageEnv(StretchPickandPlaceEnv):
             goal_obj = None
         self.set_goal(goal_find, goal_obj, goal_place, check_receptacles=False)
 
-    def _switch_to_manip_mode(self, grasp_only=False, pre_demo_pose=False):
+    def _switch_to_manip_mode(
+        self, grasp_only: bool = False, pre_demo_pose: bool = False
+    ):
         """Rotate the robot and put it in the right configuration for grasping"""
 
         # We switch to navigation mode in order to rotate by 90 degrees
@@ -123,13 +129,13 @@ class GeneralLanguageEnv(StretchPickandPlaceEnv):
             action = action.get()
             continuous_action = np.zeros(3)
             if action == DiscreteNavigationAction.MOVE_FORWARD:
-                print("[ENV] Move forward")
+                print("[GeneralLanguageEnv] Move forward")
                 continuous_action[0] = self.forward_step
             elif action == DiscreteNavigationAction.TURN_RIGHT:
-                print("[ENV] TURN RIGHT")
+                print("[GeneralLanguageEnv] TURN RIGHT")
                 continuous_action[2] = -self.rotate_step
             elif action == DiscreteNavigationAction.TURN_LEFT:
-                print("[ENV] Turn left")
+                print("[GeneralLanguageEnv] Turn left")
                 continuous_action[2] = self.rotate_step
             elif action == DiscreteNavigationAction.STOP:
                 # Do nothing if "stop"
@@ -137,7 +143,7 @@ class GeneralLanguageEnv(StretchPickandPlaceEnv):
                 return True
             elif action == DiscreteNavigationAction.EXTEND_ARM:
                 """Extend the robot arm"""
-                print("[ENV] Extending arm")
+                print("[GeneralLanguageEnv] Extending arm")
                 joints_action = self.robot.model.create_action(
                     lift=STRETCH_ARM_LIFT, arm=STRETCH_ARM_EXTENSION
                 ).joints
@@ -162,7 +168,7 @@ class GeneralLanguageEnv(StretchPickandPlaceEnv):
                     )
                 continuous_action = None
             elif action == DiscreteNavigationAction.PICK_OBJECT:
-                print("[ENV] Discrete pick policy")
+                print("[GeneralLanguageEnv] Discrete pick policy")
                 continuous_action = None
                 # Run in a while loop until we have succeeded
                 while not rospy.is_shutdown():
@@ -184,7 +190,7 @@ class GeneralLanguageEnv(StretchPickandPlaceEnv):
                 gripper_action = -1
             else:
                 print(
-                    "[Env] Action not implemented in pick-and-place environment:",
+                    "[GeneralLanguageEnv] Action not implemented in pick-and-place environment:",
                     action,
                 )
                 continuous_action = None
@@ -196,7 +202,7 @@ class GeneralLanguageEnv(StretchPickandPlaceEnv):
             else:
                 pos, ori, gripper = action.get()
                 continuous_action = None
-                print("[ENV] Receiving a ContinuousEndEffectorAction")
+                print("[GeneralLanguageEnv] Receiving a ContinuousEndEffectorAction")
                 if "p2p-motion" in info.keys() and info["p2p-motion"]:
                     combined_action = np.concatenate((pos, ori, gripper), axis=-1)
                     ok = self.skill_planner.try_executing_skill(
@@ -230,7 +236,10 @@ class GeneralLanguageEnv(StretchPickandPlaceEnv):
 
         # Move, if we are not doing anything with the arm
         if continuous_action is not None and not self.test_grasping:
-            print("Execute navigation action:", continuous_action)
+            print(
+                "[GeneralLanguageEnv] Execute navigation action:",
+                continuous_action,
+            )
             if not self.robot.in_navigation_mode():
                 self.robot.switch_to_navigation_mode()
             if not self.dry_run:
@@ -276,6 +285,6 @@ class GeneralLanguageEnv(StretchPickandPlaceEnv):
         self._handle_gripper_action(gripper_action)
         # Update the visualizer
         if self.visualizer is not None and info is not None and "viz" in info.keys():
-            print("[ENV] visualizing")
+            print("[GeneralLanguageEnv] visualizing")
             self.visualizer.visualize(**info["viz"])
         return False

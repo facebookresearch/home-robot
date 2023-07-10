@@ -53,7 +53,30 @@ labeled `FAIL/SUCCESS` status and names of all keys present for each episode.
 
 ### Add Detic Semantic Features to H5 Files, Visualize and Debug
 
-fill-me
+Usage:  
+`python add_detic_features_to_h5.py --data-dir <path/to/data> --template <glob/template> --mode
+[read/write/visualize]`  
+Stand-alone script to add Detic features to pre-recorded images
+Assumes data is stored in H5s with the following structure:
+```python
+# H5-file-|
+#         |-episode0-|
+#         |          |-head_rgb/<frame_number> (RGB Image)
+#         |          |-head_depth/<frame_number> (DEPTH Image)
+#         |          |-head_xyz/<frame_number> (XYZ point-cloud)
+#         |        ++|-head_semantic_frame
+#         |        ++|-head_semantic_mask
+```
+As outlined above two new keys are added to each episode which store the
+semantic frame (visualizable BBox output) and mask for the head camera. 
+Remember to change `MY_CATEGORIES` and `TASK_TO_OBJECT_MAP` variables within the
+script to your specific case.
+
+The script has following 3 helpful modes:
+1. Read: Like a dry-run, reads information from H5 and shows the masks Detic generates for given categories.
+1. Write: If masks look as expected in "read" mode use this to write them to the H5 file
+1. Visualize: This reads the added masks from each episode and saves them to disk. 
+Useful for persistence as well as to debug if any files do not have mask.
 
 ### Edit Demonstrations Per Episode
 
@@ -79,7 +102,15 @@ and generates a YAML with provided number of entries under `train` (X), `test` (
 
 ### Renaming task-names for consistency across episodes
 
-fill-me
+Usage 1:  
+`python rename_task_names.py --data-dir <path/to/data> --template <glob template> --config-file`  
+
+Usage 2:  
+`python rename_task_names.py --data-dir <path/to/data> --template <glob template> --from-key <key
+to change> --to-key <replacement key name>`
+
+A couple of methods to allow user to rename task-name string in all episodes. 
+Switch the usage mode by calling the right method in the script.
 
 ### Labeling mislabeled demonstrations as failure or success
 

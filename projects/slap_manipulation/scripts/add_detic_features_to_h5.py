@@ -60,11 +60,10 @@ def sandwich(obj_list: List[str]) -> List[str]:
 @click.option("--template", type=str, default="*/*.h5")
 @click.option(
     "--mode",
-    type=click.Choice(["read", "test", "write", "visualize"], case_sensitive=True),
+    type=click.Choice(["read", "write", "visualize"], case_sensitive=True),
     default="read",
 )
-@click.option("--dry-run", is_flag=True, default=False)
-def main(data_dir, template, mode, dry_run):
+def main(data_dir, template, mode):
     segmentation = DeticPerception(
         vocabulary="custom",
         custom_vocabulary=",".join(MY_CATEGORIES),
@@ -73,22 +72,20 @@ def main(data_dir, template, mode, dry_run):
     depth_factor = 10000
     files = glob.glob(os.path.join(data_dir, template))
     # prev_object_for_task = None
-    if dry_run:
-        print("Nothing will be written to H5s, this is to show Detic masks")
     print("Add detic features")
     for file in files:
         # get object category to look for given task
-        if mode in ["read", "test"]:
+        if mode == "read":
             h5file = h5py.File(file, "r")
         else:
             h5file = h5py.File(file, "a")
         task_name = h5file[list(h5file.keys())[0]]["task_name"][()].decode("utf-8")
         print(f"Processing {task_name} in {file}")
-        if mode in ["test", "write"]:
+        if mode in ["read", "write"]:
             object_for_task = TASK_TO_OBJECT_MAP[task_name]
             segmentation.reset_vocab(sandwich(object_for_task))
         for g_name in h5file.keys():
-            if mode == "test":
+            if mode == "read":
                 rgb = image.img_from_bytes(h5file[g_name]["head_rgb/0"][()])
                 depth = (
                     image.img_from_bytes(h5file[g_name]["head_depth/0"][()])

@@ -3,7 +3,10 @@
 # This source code is licensed under the MIT license found in the
 # LICENSE file in the root directory of this source tree.
 
-"""Script to introspect h5s"""
+"""
+Shows input image, name of the task, name of the file, name of the episode, the
+labeled `FAIL/SUCCESS` status and names of all keys present for each episode.
+"""
 import glob
 import os
 
