@@ -1,13 +1,15 @@
+from typing import Any, Dict, Tuple
+
 import numpy as np
 from slap_manipulation.agents.slap_agent import SLAPAgent
 from slap_manipulation.policy.peract import PerceiverActorAgent, PerceiverIO
+
+from home_robot.core.interfaces import Observations
 
 
 class PeractAgent(SLAPAgent):
     def __init__(self, cfg, **kwargs):
         super().__init__(cfg, **kwargs)
-
-    def load_models(self):
         # initialize PerceiverIO Transformer
         self.perceiver_encoder = PerceiverIO(
             depth=6,
@@ -51,15 +53,25 @@ class PeractAgent(SLAPAgent):
             optimizer_type="lamb",
             num_pts=8000,
         )
+
+    def load_models(self):
+        """loads weights into the PerAct model"""
         self.peract_agent.build(training=False, device=self.device)
         self.peract_agent.load_weights(self.cfg.PERACT.model_path)
-        print(f"---> loaded last best {self.cfg.PERACT.model_path} <---")
+        print(f"---> loaded {self.cfg.PERACT.model_path} <---")
         self._init_input = None
         self._t = None
 
-    def create_peract_input(self, input, t=0, num_actions=6):
+    def create_peract_input(
+        self, input: Dict[str, Any], t: int = 0, num_actions: int = 6
+    ) -> Dict[str, Any]:
+        """creates input for the PerAct model expecting :input: to follow
+        schematics of IPM input created by SLAPAgent
+        :t: time-index of the current action
+        :num_actions: number of actions in the current task, time-index for
+        training is created to communicate "t out of num_actions"
+        """
         model_input = {}
-        # TODO: create proprio based on gripper-width and time
         time_index = float((2.0 * t) / num_actions - 1)
         curr_gripper_width = input["gripper-width"]
         gripper_state = input["gripper-state"]
@@ -74,9 +86,11 @@ class PeractAgent(SLAPAgent):
             input["xyz"] = input["xyz"].unsqueeze(0)
         return input
 
-    def predict(self, obs):
+    def predict(self, obs: Observations) -> Tuple[Dict[str, Any], Dict[str, Any]]:
+        """High-level prediction method, takes in Observations returned by
+        home-robot Env and return a 6D pose for the next action"""
         info = {}
-        info["p2p-motion"] = True
+        info["p2p-motion"] = True  # PerAct predicts next pose, so point-to-point motion
         num_actions = obs.task_observations["num-actions"]
         if self._t is None:
             self._t = 0
@@ -88,9 +102,6 @@ class PeractAgent(SLAPAgent):
         )
         if self._init_input is None:
             self._init_input = self._input
-        else:
-            # TODO: update gripper information in _init_input
-            pass
         self.model_input = self.create_peract_input(
             self._init_input,
             t=self._t,
@@ -117,5 +128,6 @@ class PeractAgent(SLAPAgent):
         return result, info
 
     def reset(self):
+        """reset peract agent to erase previous inputs"""
         self._init_input = None
         self._t = None
