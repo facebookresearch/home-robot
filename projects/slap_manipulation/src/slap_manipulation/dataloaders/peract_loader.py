@@ -303,7 +303,7 @@ class PerActRobotDataset(RobotDataset):
         :sample: batch received from dataloader
         :rotation_resolution: number of discrete rotation actions
         :idx: index of the action needed to be discretized (i.e. from trajectory
-        - action_0, action_1...)
+        - )
         :max_keypoints: max number of keypoints supported in the trajectory (used for calculating time-index)
         """
         if idx == -1:
@@ -319,7 +319,9 @@ class PerActRobotDataset(RobotDataset):
             gripper_width = sample["peract_input"]["gripper_width"][idx]
             time_index = float((2.0 * idx) / max_keypoints - 1)
         quat = utils.normalize_quaternion(quat)
-        if quat[-1] < 0:
+        if (
+            quat[-1] < 0
+        ):  # so quaternions map to consistent rotation bin after discretization
             quat = -quat
         disc_rot = utils.quaternion_to_discrete_euler(quat, rotation_resolution)
         trans_indices, attention_coordinates = [], []
