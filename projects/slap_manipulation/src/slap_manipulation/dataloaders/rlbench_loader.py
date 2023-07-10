@@ -4,15 +4,18 @@
 # LICENSE file in the root directory of this source tree.
 
 
-from typing import List, Tuple
+from typing import Any, Dict, List, Tuple, Type
 
-import matplotlib.pyplot as plt
+import h5py
 import numpy as np
 import open3d as o3d
 import torch
 import torchvision.transforms as T
 import trimesh.transformations as tra
 from PIL import Image
+from slap_manipulation.utils.data_visualizers import (
+    show_point_cloud_with_keypt_and_closest_pt,
+)
 
 from home_robot.utils.data_tools.loader import DatasetBase, Trial
 from home_robot.utils.point_cloud import (
@@ -23,27 +26,16 @@ from home_robot.utils.point_cloud import (
 )
 
 
-def show_point_cloud_with_keypt_and_closest_pt(
-    xyz, rgb, keypt_orig, keypt_rot, closest_pt
-):
-    pcd = numpy_to_pcd(xyz, rgb / 255)
-    geoms = [pcd]
-    coords = o3d.geometry.TriangleMesh.create_coordinate_frame(
-        size=0.1, origin=keypt_orig
-    )
-    coords = coords.rotate(keypt_rot)
-    geoms.append(coords)
-    closest_pt_sphere = o3d.geometry.TriangleMesh.create_sphere(radius=0.02)
-    closest_pt_sphere.translate(closest_pt)
-    closest_pt_sphere.paint_uniform_color([1, 0.706, 0])
-    geoms.append(closest_pt_sphere)
-    o3d.visualization.draw_geometries(geoms)
-
-
 class RLBHighLevelTrial(Trial):
     """handle a domain-randomized trial"""
 
-    def __init__(self, name, h5_filename, dataset, group):
+    def __init__(
+        self,
+        name: str,
+        h5_filename: str,
+        dataset: Type[DatasetBase],
+        group: h5py.Group,
+    ):
         """
         Use group for initialization
         """
@@ -122,22 +114,22 @@ class RLBenchDataset(DatasetBase):
         self.task_name = ""
         self.h5_filename = ""
 
-    def normalize_rgb(self, rgb):
-        """make sure rgb values are in -1 to 1"""
-        # rgb = ((rgb / 255.0) - 0.5) * 2
+    def normalize_rgb(self, rgb: np.ndarray) -> np.ndarray:
+        """make sure rgb values are b/w 0 to 1"""
         rgb = rgb / 255.0
         return rgb
 
-    def get_gripper_pose(self, trial, idx):
+    def get_gripper_pose(self, trial: RLBHighLevelTrial, idx: int) -> np.ndarray:
+        """get the 6D gripper pose at a particular time-step"""
         pos = trial["ee_xyz"][idx]
         x, y, z, w = trial["ee_rot"][idx]
         ee_pose = tra.quaternion_matrix([w, x, y, z])
         ee_pose[:3, 3] = pos
-        # ee_pose = self.robot.apply_grasp_offset(ee_pose)
         return ee_pose
 
-    def mask_voxels(self, voxels, query_pt_idx):
-        """return a mask telling us which voxels are not ambiguous"""
+    def mask_voxels(self, voxels: np.ndarray, query_pt_idx: int) -> np.ndarray:
+        """return a mask telling us which voxels are not ambiguous,
+        i.e. distance from :query_pt: is > self._ambiguous_radius"""
         query_pt = voxels[query_pt_idx]
         query = query_pt[None].repeat(voxels.shape[0], axis=0)
         dists = np.linalg.norm(voxels - query, axis=-1)
@@ -145,7 +137,11 @@ class RLBenchDataset(DatasetBase):
         mask[query_pt_idx] = True
         return mask
 
-    def process_images_from_view(self, trial, view_name, idx):
+    def process_images_from_view(
+        self, trial: RLBHighLevelTrial, view_name: str, idx: int
+    ) -> Tuple[np.ndarray, np.ndarray]:
+        """Processes images from a particular view given its name and index of
+        image to read"""
         rgb = trial[view_name + "_rgb"][idx]
         if self.data_augmentation and self.color_jitter is not None:
             pil_img = Image.fromarray(rgb)
@@ -180,12 +176,22 @@ class RLBenchDataset(DatasetBase):
 
         return rgb_pts, xyz_pts
 
-    def crop_around_voxel(self, xyz, rgb, feat, voxel, crop_size):
-        """Crop a point cloud around given voxel"""
+    def crop_around_voxel(
+        self,
+        xyz: np.ndarray,
+        rgb: np.ndarray,
+        feat: np.ndarray,
+        voxel: np.ndarray,
+        crop_size: float,
+    ) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
+        """Crop a point cloud around given voxel with radius :crop_size:"""
         mask = np.linalg.norm(xyz - voxel, axis=1) < crop_size
         return xyz[mask], rgb[mask], feat[mask]
 
-    def mean_center_shuffle_and_downsample_point_cloud(self, xyz, rgb, feat):
+    def mean_center_shuffle_and_downsample_point_cloud(
+        self, xyz: np.ndarray, rgb: np.ndarray, feat: np.ndarray
+    ) -> Tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
+        """mean center, shuffle and then sample :self.num_pts: from point cloud"""
         # Downsample pt clouds
         downsample = np.arange(rgb.shape[0])
         np.random.shuffle(downsample)
@@ -202,7 +208,10 @@ class RLBenchDataset(DatasetBase):
         xyz = xyz - center[None].repeat(xyz.shape[0], axis=0)
         return xyz, rgb, feat, center
 
-    def remove_duplicate_points(self, xyz, rgb, feat, feat_dim=1):
+    def remove_duplicate_points(
+        self, xyz: np.ndarray, rgb: np.ndarray, feat: np.ndarray, feat_dim=1
+    ) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
+        """remove duplicate points from point cloud by voxelizing with resolution :self._voxel_size:"""
         debug_views = False
         if debug_views:
             print("xyz", xyz.shape)
@@ -226,8 +235,14 @@ class RLBenchDataset(DatasetBase):
 
         return xyz, rgb, feat
 
-    def dr_crop_radius(self, xyz, rgb, feat, ref_ee_keyframe):
-        """do radius crop"""
+    def dr_crop_radius(
+        self,
+        xyz: np.ndarray,
+        rgb: np.ndarray,
+        feat: np.ndarray,
+        ref_ee_keyframe: np.ndarray,
+    ) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
+        """Radius crop around the ref_ee_keyframe with some probability :self.crop_radius_chance: with radius :self.crop_radius: as data-augmentation"""
         if self.data_augmentation and self.crop_radius:
             # crop out random points outside a certain distance from the gripper
             # this is to encourage it to learn only local features and skills
@@ -361,19 +376,19 @@ class RLBenchDataset(DatasetBase):
 
     def get_local_problem(
         self,
-        xyz,
-        rgb,
-        feat,
-        interaction_pt,
-        query_radius=0.1,
-        num_find_crop_tries=10,
-        min_num_points=50,
-    ):
+        xyz: np.ndarray,
+        rgb: np.ndarray,
+        feat: np.ndarray,
+        interaction_pt: np.ndarray,
+        query_radius: float = 0.1,
+        num_find_crop_tries: int = 10,
+        min_num_points: int = 50,
+    ) -> Tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray, bool]:
         """
-        Crop given PCD around a perturbed interaction_point as input to action prediction problem
-            (crop_xyz, crop_rgb, crop_ref_ee_keyframe, crop_ee_keyframe,
-                crop_keyframes) = self.get_local_problem(xyz, rgb, ee_keyframe,
-                                                        ref_ee_keyframe)
+        Crop given PCD around a perturbed interaction_point as input to action
+        prediction problem Returns the location around which the crop was made,
+        cropped xyz, rgb, feat and a boolean indicating whether the crop was
+        successful or not
         """
         # crop_xyz, crop_rgb, crop_ref_ee_keyframe,
         # orig_crop_location = ref_ee_keyframe[:3, 3].copy()
@@ -389,7 +404,8 @@ class RLBenchDataset(DatasetBase):
                 # Make sure at least min_num_points are within this radius
                 # get number of points in this area
                 dists = np.linalg.norm(
-                    xyz - crop_location[None].repeat(xyz.shape[0], axis=0), axis=-1
+                    xyz - crop_location[None].repeat(xyz.shape[0], axis=0),
+                    axis=-1,
                 )
                 # Make sure this is near some geometry
                 if np.sum(dists < query_radius) > min_num_points:
@@ -420,8 +436,16 @@ class RLBenchDataset(DatasetBase):
         return crop_location, crop_xyz, crop_rgb, crop_feat, status
 
     def get_local_commands(
-        self, crop_location, ee_keyframe, ref_ee_keyframe, keyframes
-    ):
+        self,
+        crop_location: np.ndarray,
+        ee_keyframe: np.ndarray,
+        ref_ee_keyframe: np.ndarray,
+        keyframes: np.ndarray,
+    ) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
+        """
+        Returns target action  by transforming it wrt :crop_location: as well as
+        transforms each action in :keyframes: to be wrt :crop_location:
+        """
         # NOTE: copying the keyframes is EXTREMELY important
         crop_ee_keyframe = ee_keyframe.copy()
         crop_ee_keyframe[:3, 3] -= crop_location
@@ -435,7 +459,10 @@ class RLBenchDataset(DatasetBase):
         return crop_ref_ee_keyframe, crop_ee_keyframe, crop_keyframes
 
     def _assert_positions_match_ee_keyframes(
-        self, crop_ee_keyframe, positions, tol=1e-6
+        self,
+        crop_ee_keyframe: np.ndarray,
+        positions: np.ndarray,
+        tol: float = 1e-6,
     ):
         """sanity check to make sure our data pipeline is consistent with multi head vs
         single channel data"""
@@ -450,16 +477,15 @@ class RLBenchDataset(DatasetBase):
             )
 
     def dr_rotation_translation(
-        self, orig_xyz, xyz, ee_keyframe, ref_ee_keyframe, keyframes
-    ):
-        """translate and rotate
-
-        Old spec - remove crop-first
-        (xyz, ee_keyframe, ref_ee_keyframe, crop_xyz, crop_ee_keyframe,
-            crop_ref_ee_keyframe, crop_keyframes) = self.dr_rotation_translation(xyz, ee_keyframe,
-                    ref_ee_keyframe, crop_xyz, crop_ee_keyframe, crop_ref_ee_keyframe,
-                    crop_keyframes)
-        """
+        self,
+        orig_xyz: np.ndarray,
+        xyz: np.ndarray,
+        ee_keyframe: np.ndarray,
+        ref_ee_keyframe: np.ndarray,
+        keyframes: np.ndarray,
+    ) -> Tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
+        """Translate in 3D and then rotate entire PCD+interaction_point+actions
+        around z-axis"""
         # note: above transforms points wrt translation and rotation provided
         # the second argument is a homogeneous matrix
         if self.data_augmentation:
@@ -497,11 +523,9 @@ class RLBenchDataset(DatasetBase):
                 new_keyframes.append(keyframe)
         else:
             new_keyframes = keyframes
-        # return (xyz, ee_keyframe, ref_ee_keyframe, crop_xyz, crop_ee_keyframe,
-        #    crop_ref_ee_keyframe, new_keyframes)
         return (orig_xyz, xyz, ee_keyframe, ref_ee_keyframe, new_keyframes)
 
-    def get_datum(self, trial, keypoint_idx):
+    def get_datum(self, trial: RLBHighLevelTrial, keypoint_idx: int) -> Dict[str, Any]:
         """Get a single training example given the index."""
 
         # Idx is going to determine keypoint, not actual index
@@ -565,7 +589,7 @@ class RLBenchDataset(DatasetBase):
             # Pull out gripper state from the sim data
             target_gripper_state = proprio[k_idx][0]
 
-        # Reduce the size of hte point cloud further
+        # Reduce the size of the point cloud further
         xyz, rgb = self.remove_duplicate_points(xyz, rgb)
         xyz, rgb = self.dr_crop_radius(xyz, rgb, ref_ee_keyframe)
         orig_xyz, orig_rgb = xyz, rgb
@@ -580,9 +604,6 @@ class RLBenchDataset(DatasetBase):
         for keyframe in keyframes:
             keyframe[:3, 3] -= center
 
-        # (xyz, ee_keyframe, ref_ee_keyframe, crop_xyz, crop_ee_keyframe,
-        #    crop_ref_ee_keyframe, crop_keyframes) = self.dr_rotation_translation(xyz, ee_keyframe,
-        #            ref_ee_keyframe, keyframes)
         (
             orig_xyz,
             xyz,
@@ -664,7 +685,7 @@ class RLBenchDataset(DatasetBase):
 
 def debug_get_datum():
     loader = RLBenchDataset(
-        "/home/priparashar/Development/icra/data/rlbench/reach_mt_train",
+        "./data/rlbench",
         data_augmentation=False,
         first_keypoint_only=True,
         debug_closest_pt=True,
@@ -673,9 +694,8 @@ def debug_get_datum():
     for trial in loader.trials:
         for keypt_idx in range(num_keypts):
             loader.keypoint_to_use = keypt_idx
-            data = loader.get_datum(trial, 5)
+            _ = loader.get_datum(trial, 5)
 
 
 if __name__ == "__main__":
     debug_get_datum()
-    pass

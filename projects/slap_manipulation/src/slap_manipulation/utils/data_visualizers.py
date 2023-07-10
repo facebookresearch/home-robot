@@ -49,13 +49,21 @@ def show_point_cloud_with_keypt_and_closest_pt(
     o3d.visualization.draw_geometries(geoms)
 
 
-def show_semantic_mask(xyz, rgb, feats=None, semantic_id=1):
+def show_semantic_mask(
+    xyz: np.ndarray,
+    rgb: np.ndarray,
+    feats: np.ndarray = None,
+    semantic_id: int = 1,
+):
+    """visualize given point cloud with semantic mask (assumes
+    :feats:[points-of-interest]==:semantic_id:)"""
     if feats is not None:
         semantic_rgb = np.copy(rgb)
         semantic_rgb[feats.reshape(-1) == semantic_id, 1] = 1.0
         print(
-            "Confirm that you can see voxelized points in green for object belonging to class-id 3"
+            f"Confirm that you can see points in green for object with feats == {semantic_id}"
         )
         show_point_cloud(xyz, semantic_rgb)
     else:
+        print("No feats passed, showing original point cloud")
         show_point_cloud(xyz, rgb, np.zeros((3, 1)))
