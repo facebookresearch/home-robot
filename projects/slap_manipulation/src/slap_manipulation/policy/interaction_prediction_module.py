@@ -76,7 +76,8 @@ def process_data(
     num_pts=8000,
 ):
     """helper function which takes in unprocessed point-cloud, it returns processed,
-    voxelized point-clouds and most relevant, closest points to the contact point"""
+    voxelized point-clouds and most relevant, closest points to the contact point
+    """
     # Get only a few points that we care about here
     orig_xyz, orig_rgb = xyz.reshape(-1, 3), rgb.reshape(-1, 3)
     downsample = np.arange(orig_rgb.shape[0])
@@ -133,7 +134,8 @@ class LocalityLoss(torch.nn.Module):
 
     def forward(self, xyz, scores):
         """penalize dispersal - find center, penalize distance from that
-        scaled according to the spread provided (high self.spread = lower penality)"""
+        scaled according to the spread provided (high self.spread = lower penality)
+        """
         B, C = xyz.shape
         scores = torch.softmax(scores, dim=-1)
         xyz_scores = scores.view(B, 1).repeat(1, 3)
@@ -155,7 +157,8 @@ class SupervisedLocalityLoss(torch.nn.Module):
 
     def forward(self, goal_pt, xyz, scores):
         """penalize dispersal - find center, penalize distance from that
-        scaled according to the spread provided (high self.spread = lower penality)"""
+        scaled according to the spread provided (high self.spread = lower penality)
+        """
         B, C = xyz.shape
         scores = torch.softmax(scores, dim=-1)
         # scores = torch.sigmoid(scores)
@@ -183,8 +186,16 @@ class InteractionPredictionModule(torch.nn.Module):
 
     # for visualizations
     cam_view = {
-        "front": [-0.89795424592554529, 0.047678244807235863, 0.43749852250766141],
-        "lookat": [0.33531651482385966, 0.048464899929339826, 0.54704503365806367],
+        "front": [
+            -0.89795424592554529,
+            0.047678244807235863,
+            0.43749852250766141,
+        ],
+        "lookat": [
+            0.33531651482385966,
+            0.048464899929339826,
+            0.54704503365806367,
+        ],
         "up": [0.43890929711345494, 0.024286597087151203, 0.89820308956788786],
         "zoom": 0.43999999999999972,
     }
@@ -405,7 +416,10 @@ class InteractionPredictionModule(torch.nn.Module):
     #     self._save_dir = path
 
     def load_weights(self, path: str):
-        self.load_state_dict(torch.load(path))
+        if os.path.isfile(path):
+            self.load_state_dict(torch.load(path))
+        else:
+            raise RuntimeError(f"[IPM] Checkpoint '{path}' not found")
 
     def get_optimizer(self):
         """optimizer config"""
@@ -711,7 +725,8 @@ class InteractionPredictionModule(torch.nn.Module):
                 new_rgb = rgb2[:, :-1].detach().cpu().numpy().copy()
                 new_rgb[mask.reshape(-1)] = np.array([1, 0, 0]).reshape(1, 3)
                 show_point_cloud(
-                    xyz2.detach().cpu().numpy(), rgb2[:, :-1].detach().cpu().numpy()
+                    xyz2.detach().cpu().numpy(),
+                    rgb2[:, :-1].detach().cpu().numpy(),
                 )
                 show_point_cloud(xyz2.detach().cpu().numpy(), new_rgb)
 
@@ -1011,7 +1026,9 @@ def parse_args():
         help="If the training ds should be augmented with DR",
     )
     parser.add_argument(
-        "--color-jitter", help="use color jitter when training", action="store_true"
+        "--color-jitter",
+        help="use color jitter when training",
+        action="store_true",
     )
     # parser.add_argument("--reload", action="store_true", help="reload best val")
     parser.add_argument("--template", default="*.h5")

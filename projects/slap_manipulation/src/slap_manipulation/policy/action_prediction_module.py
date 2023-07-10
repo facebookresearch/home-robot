@@ -307,9 +307,21 @@ class ActionPredictionModule(torch.nn.Module):
 
         # for visualizations
         self.cam_view = {
-            "front": [-0.89795424592554529, 0.047678244807235863, 0.43749852250766141],
-            "lookat": [0.33531651482385966, 0.048464899929339826, 0.54704503365806367],
-            "up": [0.43890929711345494, 0.024286597087151203, 0.89820308956788786],
+            "front": [
+                -0.89795424592554529,
+                0.047678244807235863,
+                0.43749852250766141,
+            ],
+            "lookat": [
+                0.33531651482385966,
+                0.048464899929339826,
+                0.54704503365806367,
+            ],
+            "up": [
+                0.43890929711345494,
+                0.024286597087151203,
+                0.89820308956788786,
+            ],
             "zoom": 0.43999999999999972,
         }
         # self.setup_training()
@@ -319,7 +331,10 @@ class ActionPredictionModule(torch.nn.Module):
         self.start_time = 0.0
 
     def load_weights(self, path: str):
-        self.load_state_dict(torch.load(path))
+        if os.path.isfile(path):
+            self.load_state_dict(torch.load(path))
+        else:
+            raise RuntimeError(f"[APM] Checkpoint '{path}' not found")
 
     def set_working_dir(self, path):
         self._save_dir = path
@@ -352,9 +367,6 @@ class ActionPredictionModule(torch.nn.Module):
         else:
             raise Exception(f"Optimizer not supported: {self._optimizer_type}")
         return optimizer
-
-    def load_weights(self, path):
-        self.load_state_dict(torch.load(path))
 
     def get_best_name(self):
         filename = os.path.join(self._save_dir, "best_" + self.name + ".pth")
@@ -492,7 +504,12 @@ class ActionPredictionModule(torch.nn.Module):
                 else:
                     # print(f"{t=},{cmd=},{proprio=}")
                     position, orientation, gripper, hidden = self.forward(
-                        cropped_xyz, cropped_feat, proprio, time_step, cmd, hidden
+                        cropped_xyz,
+                        cropped_feat,
+                        proprio,
+                        time_step,
+                        cmd,
+                        hidden,
                     )
                     position = position.view(3)
                     orientation = orientation.view(4)
@@ -1121,7 +1138,9 @@ class ActionPredictionModule(torch.nn.Module):
 
 
 @hydra.main(
-    version_base=None, config_path="./conf", config_name="action_predictor_training"
+    version_base=None,
+    config_path="./conf",
+    config_name="action_predictor_training",
 )
 def main(cfg):
     hydra_cfg = hydra.core.hydra_config.HydraConfig.get()
