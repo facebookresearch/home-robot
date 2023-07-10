@@ -3,15 +3,16 @@
 #
 # This source code is licensed under the MIT license found in the
 # LICENSE file in the root directory of this source tree.
-import click
 import glob
 import pickle
 import sys
-import torch
 from pathlib import Path
-import numpy as np
-from PIL import Image
+
+import click
 import matplotlib.pyplot as plt
+import numpy as np
+import torch
+from PIL import Image
 
 # TODO Install home_robot and remove this
 sys.path.insert(
@@ -21,10 +22,13 @@ sys.path.insert(
 
 import home_robot.utils.pose as pu
 from home_robot.core.interfaces import Observations
+from home_robot.mapping.semantic.categorical_2d_semantic_map_module import (
+    Categorical2DSemanticMapModule,
+)
+from home_robot.mapping.semantic.categorical_2d_semantic_map_state import (
+    Categorical2DSemanticMapState,
+)
 from home_robot.perception.detection.detic.detic_perception import DeticPerception
-from home_robot.mapping.semantic.categorical_2d_semantic_map_state import Categorical2DSemanticMapState
-from home_robot.mapping.semantic.categorical_2d_semantic_map_module import Categorical2DSemanticMapModule
-
 
 # Semantic segmentation categories predicted from frames and projected in the map
 categories = [
@@ -109,7 +113,11 @@ def main(input_trajectory_path, output_visualization_path):
     # Load trajectory of home_robot Observations
     # --------------------------------------------------------------------------------------------
     observations = []
-    for path in sorted(glob.glob(str(Path(__file__).resolve().parent) + f"/{input_trajectory_path}/*.pkl")):
+    for path in sorted(
+        glob.glob(
+            str(Path(__file__).resolve().parent) + f"/{input_trajectory_path}/*.pkl"
+        )
+    ):
         with open(path, "rb") as f:
             observations.append(pickle.load(f))
 
@@ -126,8 +134,7 @@ def main(input_trajectory_path, output_visualization_path):
         sem_gpu_id=0,
     )
     observations = [
-        segmentation.predict(obs, depth_threshold=0.5)
-        for obs in observations
+        segmentation.predict(obs, depth_threshold=0.5) for obs in observations
     ]
     for obs in observations:
         obs.semantic[obs.semantic == 0] = len(categories) - 1
@@ -208,39 +215,31 @@ def main(input_trajectory_path, output_visualization_path):
                 - rotations are in 3D
         """
         rgb = torch.from_numpy(obs.rgb).to(device)
-        depth = (
-            torch.from_numpy(obs.depth).unsqueeze(-1).to(device) * 100.0
-        )  # m to cm
+        depth = torch.from_numpy(obs.depth).unsqueeze(-1).to(device) * 100.0  # m to cm
         semantic = one_hot_encoding[torch.from_numpy(obs.semantic).to(device)]
         obs_preprocessed = torch.cat([rgb, depth, semantic], dim=-1).unsqueeze(0)
         obs_preprocessed = obs_preprocessed.permute(0, 3, 1, 2)
 
         curr_pose = np.array([obs.gps[0], obs.gps[1], obs.compass[0]])
-        pose_delta = torch.tensor(
-            pu.get_rel_pose_change(curr_pose, last_pose)
-        ).unsqueeze(0).to(device)
+        pose_delta = (
+            torch.tensor(pu.get_rel_pose_change(curr_pose, last_pose))
+            .unsqueeze(0)
+            .to(device)
+        )
 
         camera_pose = obs.camera_pose
         if camera_pose is not None:
             camera_pose = torch.tensor(np.asarray(camera_pose)).unsqueeze(0).to(device)
-        return (
-            obs_preprocessed,
-            pose_delta,
-            camera_pose,
-            curr_pose
-        )
+        return (obs_preprocessed, pose_delta, camera_pose, curr_pose)
 
     last_pose = np.zeros(3)
     one_hot_encoding = torch.eye(num_sem_categories, device=device)
 
     for i, obs in enumerate(observations):
         # Preprocess observation
-        (
-            obs_preprocessed,
-            pose_delta,
-            camera_pose,
-            last_pose
-        ) = preprocess_obs(obs, last_pose)
+        (obs_preprocessed, pose_delta, camera_pose, last_pose) = preprocess_obs(
+            obs, last_pose
+        )
 
         if i == 0:
             print()
