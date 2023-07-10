@@ -190,9 +190,9 @@ AGENT:
     min_obs_dilation_selem_radius: 3    # radius (in cells) of obstacle dilation structuring element
     map_downsample_factor: 1            # optional downsampling of traversible and goal map before fmm distance call (1 for no downsampling, 2 for halving resolution)
     map_update_frequency: 1             # compute fmm distance map every n steps 
-    discrete_actions: False        # discrete motion planner output space or not
-    min_goal_distance_cm: 50
-    continuous_angle_tolerance: 30
+    discrete_actions: False          # discrete motion planner output space or not
+    min_goal_distance_cm: 50         # minimum distance (in cm) between the goal and the robot before the planner terminates
+    continuous_angle_tolerance: 30   # angle tolerance (in degrees) dictating how tightly the robot faces the object at the end of  nav routine
     verbose: True                    # display debug information during planning
 
 EVAL_VECTORIZED:
