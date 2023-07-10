@@ -279,9 +279,11 @@ class PerActRobotDataset(RobotDataset):
 
     def is_action_valid(self, sample: Dict[str, Any]):
         """
-        simple method which compares ee-keyframe position with the scene bounds
+        PerAct can only process Q-values for an action if the action falls within
+        it's scene-bounds (defined in the config file, used to create VoxelGrid)
+        This method makes sure the action is learnable wrt PerAct's scene bounds
         returns False if action is outside the scene bounds
-        :sample: batch received
+        :sample: batch received from DataLoader which has the action
         """
         bounds = np.array(self.scene_bounds)
         if (sample["ee_keyframe_pos"].numpy() > bounds[..., 3:]).any() or (
@@ -340,7 +342,11 @@ class PerActRobotDataset(RobotDataset):
             torch.Tensor([rot_and_grip_indices]),
             torch.Tensor([ignore_collisions]),
             torch.cat(
-                (gripper_width.unsqueeze(0), grip, torch.FloatTensor([time_index]))
+                (
+                    gripper_width.unsqueeze(0),
+                    grip,
+                    torch.FloatTensor([time_index]),
+                )
             ),
             torch.Tensor(attention_coordinate).unsqueeze(0),
         )
@@ -442,7 +448,9 @@ class TestPerActDataloader(unittest.TestCase):
 )
 @click.option("--split", help="json file with train-test-val split")
 @click.option(
-    "--waypoint-language", help="yaml for skill-to-action lang breakdown", default=""
+    "--waypoint-language",
+    help="yaml for skill-to-action lang breakdown",
+    default="",
 )
 @click.option("-ki", "--k-index", default=[0], multiple=True)
 @click.option("-r", "--robot", default="stretch")
