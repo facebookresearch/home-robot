@@ -215,7 +215,7 @@ TASKS:
   - sweep-table-with-brush
 
 
-EVAL:
+EVAL:  # ordered list of tasks, implicated object (for Detic) and actions in demo trajectory
   task_name:
     - take-bottle
     - open-object-drawer
