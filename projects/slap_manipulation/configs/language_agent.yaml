@@ -22,7 +22,7 @@ ENVIRONMENT:
   category_map_file: projects/stretch_ovmm/configs/example_cat_map.json
 
 CORLAGENT:
-  gt_run: True
+  llm_run: True
 
 PERACT:
   scene_bounds: [ -0.75 , -0.75 , -0.75 , 0.75 , 0.75 , 0.75]
