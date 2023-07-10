@@ -81,7 +81,10 @@ class ContinuousEndEffectorAction:
     num_actions: int
 
     def __init__(
-        self, pos: np.ndarray = None, ori: np.ndarray = None, g: np.ndarray = None
+        self,
+        pos: np.ndarray = None,
+        ori: np.ndarray = None,
+        g: np.ndarray = None,
     ):
         """Create end-effector continuous action; moves to 6D pose and activates gripper"""
         if (

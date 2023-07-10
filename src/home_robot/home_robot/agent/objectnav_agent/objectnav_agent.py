@@ -266,7 +266,8 @@ class ObjectNavAgent(Agent):
         """Initialize agent state."""
         self.reset_vectorized()
         self.planner.reset()
-        print("ObjectNavAgent reset")
+        if self.verbose:
+            print("ObjectNavAgent reset")
 
     def get_nav_to_recep(self):
         return None
@@ -383,7 +384,10 @@ class ObjectNavAgent(Agent):
             and obs.task_observations["start_recep_goal"] is not None
         ):
             if self.verbose:
-                print("start_recep goal =", obs.task_observations["start_recep_goal"])
+                print(
+                    "start_recep goal =",
+                    obs.task_observations["start_recep_goal"],
+                )
             start_recep_goal_category = torch.tensor(start_recep_idx).unsqueeze(0)
         if (
             "end_recep_goal" in obs.task_observations
@@ -393,7 +397,8 @@ class ObjectNavAgent(Agent):
                 print("end_recep goal =", obs.task_observations["end_recep_goal"])
             end_recep_goal_category = torch.tensor(end_recep_idx).unsqueeze(0)
         goal_name = [obs.task_observations["goal_name"]]
-        print("[ObjectNav] Goal name: ", goal_name)
+        if self.verbose:
+            print("[ObjectNav] Goal name: ", goal_name)
 
         camera_pose = obs.camera_pose
         if camera_pose is not None:
