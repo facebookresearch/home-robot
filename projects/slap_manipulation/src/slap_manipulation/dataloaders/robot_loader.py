@@ -189,7 +189,6 @@ class RobotDataset(RLBenchDataset):
         self.depth_factor = depth_factor
         self.proprio_dim = 3 + 4 + 1
 
-        # super(RoboPenDataset, self).__init__(
         super(RLBenchDataset, self).__init__(
             dirname,
             template,

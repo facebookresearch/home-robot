@@ -58,28 +58,33 @@ class RLBenchDataset(DatasetBase):
         dirname,
         template="*.h5",
         trial_list: list = None,
-        predict: str = None,
-        verbose=False,
-        num_pts=10000,
-        data_augmentation=True,
-        random_idx=False,
-        random_cmd=True,
-        first_keypoint_only=False,
-        ori_dr_range=np.pi / 4,
-        cart_dr_range=1.0,
-        debug_closest_pt=False,
-        crop_radius=True,
-        crop_radius_chance=0.75,
-        crop_radius_shift=0.05,
-        crop_radius_range=[1.0, 2.0],
-        ambiguous_radius=0.03,
-        orientation_type="rpy",
-        multi_step=False,
-        color_jitter=True,
+        verbose: bool = False,
+        num_pts: int = 10000,
+        data_augmentation: bool = True,
+        random_idx: bool = False,
+        random_cmd: bool = True,
+        first_keypoint_only: bool = False,
+        ori_dr_range: float = np.pi / 4,
+        cart_dr_range: float = 1.0,
+        debug_closest_pt: bool = False,
+        crop_radius: bool = True,
+        crop_radius_chance: float = 0.75,
+        crop_radius_shift: float = 0.05,
+        crop_radius_range: List[float] = [1.0, 2.0],
+        ambiguous_radius: float = 0.03,
+        orientation_type: str = "rpy",
+        multi_step: bool = False,
+        color_jitter: bool = True,
+        query_radius: float = 0.1,
+        num_crop_tries: int = 10,
+        min_num_pts: int = 50,
         *args,
         **kwargs,
     ):
+        self._num_crop_tries = num_crop_tries
+        self._min_num_pts = min_num_pts
         self.multi_step = multi_step
+        self.query_radius = query_radius
         self.ori_type = orientation_type
         self.random_idx = random_idx
         self.random_cmd = random_cmd
@@ -413,9 +418,9 @@ class RLBenchDataset(DatasetBase):
         rgb: np.ndarray,
         feat: np.ndarray,
         interaction_pt: np.ndarray,
-        query_radius: float = 0.1,
-        num_find_crop_tries: int = 10,
-        min_num_points: int = 50,
+        query_radius: float = None,
+        num_find_crop_tries: int = None,
+        min_num_points: int = None,
     ) -> Tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray, bool]:
         """
         Crop given PCD around :interaction_pt: as input to action
@@ -431,8 +436,12 @@ class RLBenchDataset(DatasetBase):
         :feat: additional features per point (semantic features from Detic in
         this implementation)
         """
-        # crop_xyz, crop_rgb, crop_ref_ee_keyframe,
-        # orig_crop_location = ref_ee_keyframe[:3, 3].copy()
+        if query_radius is None:
+            query_radius = self.query_radius
+        if num_find_crop_tries is None:
+            num_find_crop_tries = self._num_crop_tries
+        if min_num_points is None:
+            min_num_points = self._min_num_pts
         orig_crop_location = interaction_pt
         if self.data_augmentation:
             # Check to see if enough points are within the crop radius
