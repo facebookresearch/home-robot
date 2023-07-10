@@ -10,6 +10,7 @@ from pathlib import Path
 
 import click
 import matplotlib.pyplot as plt
+import natsort
 import numpy as np
 import torch
 from PIL import Image
@@ -113,7 +114,7 @@ def main(input_trajectory_path, output_visualization_path):
     # Load trajectory of home_robot Observations
     # --------------------------------------------------------------------------------------------
     observations = []
-    for path in sorted(
+    for path in natsort.natsorted(
         glob.glob(
             str(Path(__file__).resolve().parent) + f"/{input_trajectory_path}/*.pkl"
         )
