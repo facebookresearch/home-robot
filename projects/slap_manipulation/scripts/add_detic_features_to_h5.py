@@ -86,12 +86,7 @@ def main(data_dir, template, mode, dry_run):
         print(f"Processing {task_name} in {file}")
         if mode in ["test", "write"]:
             object_for_task = TASK_TO_OBJECT_MAP[task_name]
-            # if prev_object_for_task is None or (
-            #     prev_object_for_task is not None
-            #     and prev_object_for_task != object_for_task
-            # ):
             segmentation.reset_vocab(sandwich(object_for_task))
-            # prev_object_for_task = object_for_task
         for g_name in h5file.keys():
             if mode == "test":
                 rgb = image.img_from_bytes(h5file[g_name]["head_rgb/0"][()])
