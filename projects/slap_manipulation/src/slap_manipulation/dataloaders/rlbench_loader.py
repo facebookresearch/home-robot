@@ -184,14 +184,26 @@ class RLBenchDataset(DatasetBase):
         voxel: np.ndarray,
         crop_size: float,
     ) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
-        """Crop a point cloud around given voxel with radius :crop_size:"""
+        """Crop a point cloud around given :voxel: (3D point) with radius
+        :crop_size:
+        :xyz: 3D positions of points in point-cloud
+        :rgb: rgb values of points in point-cloud
+        :feats: additional features per point (semantic features from Detic in
+        this implementation)
+        """
         mask = np.linalg.norm(xyz - voxel, axis=1) < crop_size
         return xyz[mask], rgb[mask], feat[mask]
 
     def mean_center_shuffle_and_downsample_point_cloud(
         self, xyz: np.ndarray, rgb: np.ndarray, feat: np.ndarray
     ) -> Tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
-        """mean center, shuffle and then sample :self.num_pts: from point cloud"""
+        """mean center, shuffle and then sample :self.num_pts: from given
+        point cloud described by
+        :xyz: 3D positions of points in point-cloud
+        :rgb: rgb values of points in point-cloud
+        :feats: additional features per point (semantic features from Detic in
+        this implementation)
+        """
         # Downsample pt clouds
         downsample = np.arange(rgb.shape[0])
         np.random.shuffle(downsample)
@@ -211,7 +223,13 @@ class RLBenchDataset(DatasetBase):
     def remove_duplicate_points(
         self, xyz: np.ndarray, rgb: np.ndarray, feat: np.ndarray, feat_dim=1
     ) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
-        """remove duplicate points from point cloud by voxelizing with resolution :self._voxel_size:"""
+        """remove duplicate points from point cloud by voxelizing with resolution
+        :self._voxel_size:
+        :xyz: 3D positions of points in point-cloud
+        :rgb: rgb values of points in point-cloud
+        :feats: additional features per point (semantic features from Detic in
+        this implementation)
+        """
         debug_views = False
         if debug_views:
             print("xyz", xyz.shape)
@@ -242,7 +260,13 @@ class RLBenchDataset(DatasetBase):
         feat: np.ndarray,
         ref_ee_keyframe: np.ndarray,
     ) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
-        """Radius crop around the ref_ee_keyframe with some probability :self.crop_radius_chance: with radius :self.crop_radius: as data-augmentation"""
+        """Radius crop around the ref_ee_keyframe with some probability
+        :self.crop_radius_chance: with radius :self.crop_radius: as data-augmentation
+        :xyz: 3D positions of points in point-cloud
+        :rgb: rgb values of points in point-cloud
+        :feat: additional features per point (semantic features from Detic in
+        this implementation)
+        """
         if self.data_augmentation and self.crop_radius:
             # crop out random points outside a certain distance from the gripper
             # this is to encourage it to learn only local features and skills
@@ -262,10 +286,19 @@ class RLBenchDataset(DatasetBase):
         return xyz, rgb, feat
 
     def voxelize_and_get_interaction_point(
-        self, xyz, rgb, feat, interaction_ee_keyframe
+        self,
+        xyz: np.ndarray,
+        rgb: np.ndarray,
+        feat: np.ndarray,
+        interaction_ee_keyframe: np.ndarray,
     ):
         """uniformly voxelizes the input point-cloud and returns the closest-point
-        in the point-cloud to the task's interaction ee-keyframe"""
+        in the point-cloud to the task's interaction ee-keyframe
+        :xyz: 3D positions of points in point-cloud
+        :rgb: rgb values of points in point-cloud
+        :feat: additional features per point (semantic features from Detic in
+        this implementation)
+        """
         # downsample another time to get sampled version
         pcd_downsampled = numpy_to_pcd(xyz, rgb)
         pcd_downsampled2 = pcd_downsampled.voxel_down_sample(self._voxel_size_2)
@@ -385,10 +418,18 @@ class RLBenchDataset(DatasetBase):
         min_num_points: int = 50,
     ) -> Tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray, bool]:
         """
-        Crop given PCD around a perturbed interaction_point as input to action
-        prediction problem Returns the location around which the crop was made,
+        Crop given PCD around :interaction_pt: as input to action
+        prediction problem, after perturbing :interaction_pt: by some small amt
+        Cropping is retried :num_find_crop_tries: times, until :min_num_points:
+        are found around (:interaction_pt: + noise)
+
+        Returns the location around which the crop was made,
         cropped xyz, rgb, feat and a boolean indicating whether the crop was
         successful or not
+        :xyz: 3D positions of points in point-cloud
+        :rgb: rgb values of points in point-cloud
+        :feat: additional features per point (semantic features from Detic in
+        this implementation)
         """
         # crop_xyz, crop_rgb, crop_ref_ee_keyframe,
         # orig_crop_location = ref_ee_keyframe[:3, 3].copy()
@@ -498,11 +539,6 @@ class RLBenchDataset(DatasetBase):
             xyz = tra.transform_points(xyz, rotation_matrix)
             ee_keyframe = rotation_matrix @ ee_keyframe
             ref_ee_keyframe = rotation_matrix @ ref_ee_keyframe
-
-            # Adjust cropped keyframe as well
-            # crop_xyz = tra.transform_points(crop_xyz, rotation_matrix)
-            # crop_ee_keyframe = rotation_matrix @ crop_ee_keyframe
-            # crop_ref_ee_keyframe = rotation_matrix @ crop_ref_ee_keyframe
 
             # Now add a random shift
             shift = ((np.random.rand(3) * 2) - 1) * self.cart_dr_range
