@@ -152,6 +152,6 @@ python projects/habitat_ovmm/scripts/gen_configs.py
 python projects/habitat_ovmm/eval_baselines_agent.py --baseline_config_path projects/habitat_ovmm/configs/agent/generated/<dir_name>/<manip>_m_<nav>_n_<perception><viz?>.yaml
 ```
 
-Here '<manip>/<nav>' are to be set to 'h' or 'r' for heuristic and RL skills respectively. '<perception>' is one of 'gt'/'detic'. Append '<viz?>=_viz' for saving images.
+Here `<manip>/<nav>` are to be set to 'h' or 'r' for heuristic and RL skills respectively. `<perception>` is one of 'gt'/'detic'. Append `<viz?>=_viz` for saving images.
 
 In case you run into issues, please prepend your python command with `HABITAT_ENV_DEBUG=1` to get a better error message.
