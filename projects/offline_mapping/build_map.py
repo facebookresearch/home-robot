@@ -230,7 +230,7 @@ def main(input_trajectory_dir: str, output_visualization_dir: str, legend_path: 
     # Load trajectory of home_robot Observations
     # --------------------------------------------------------------------------------------------
     observations = []
-    for path in natsort.natsorted(glob.glob(f"/{input_trajectory_dir}/*.pkl")):
+    for path in natsort.natsorted(glob.glob(f"{input_trajectory_dir}/*.pkl")):
         with open(path, "rb") as f:
             observations.append(pickle.load(f))
 
