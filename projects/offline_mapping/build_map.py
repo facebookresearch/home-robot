@@ -222,9 +222,9 @@ def get_semantic_map_vis(
     pos = (
         (curr_pose[0] * 100.0 / semantic_map.resolution)
         + (semantic_map.local_map_size / 2),
-        (curr_pose[1] * 100.0 / semantic_map.resolution)
-        + (semantic_map.local_map_size / 2),
-        curr_pose[2],
+        semantic_map.local_map_size / 2
+        - (curr_pose[1] * 100.0 / semantic_map.resolution),
+        -curr_pose[2],
     )
     print("curr_pose", curr_pose)
     print("pos", pos)
