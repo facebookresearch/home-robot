@@ -21,18 +21,6 @@ ENVIRONMENT:
   use_detic_viz: True
   category_map_file: projects/stretch_ovmm/configs/example_cat_map.json
 
-CORLAGENT:
-  llm_run: True           # switch b/w using GT plans and LLM plans
-  per_skill: False        # switch b/w running longitudinal plans and per-skill plans (only SLAP)
-
-PERACT:
-  scene_bounds: [ -0.75 , -0.75 , -0.75 , 0.75 , 0.75 , 0.75]  # scene-bounds for peract to create VoxelGrid
-  cameras: ["head"]       # cameras to extract information from
-  voxel_sizes: [100]      # number of voxels per dimension ([100] = 100x100x100)
-  num_latents: 256        # number of latents in PerceiverIO
-  dim_latents: 512        # dimension of latents in PerceiverIO
-  model_path: data/checkpoints/corl_peract/peract_latest.pth  # checkpoint path
-
 AGENT:
   max_steps: 500          # maximum number of steps before stopping an episode
   panorama_start: 1       # 1: turn around 360 degrees when starting an episode, 0: don't
@@ -104,6 +92,10 @@ EVAL_VECTORIZED:
   num_episodes_per_env: 100 # number of eval episodes per environment
   record_videos: 0          # 1: record videos from printed images, 0: don't
   record_planner_videos: 0  # 1: record planner videos (if record videos), 0: don't
+
+CORLAGENT:
+  llm_run: True           # switch b/w using GT plans and LLM plans
+  per_skill: False        # switch b/w running longitudinal plans and per-skill plans (only SLAP)
 
 SLAP:
   dry_run: False                # whether to run SLAP Agent in dry_run mode
@@ -225,4 +217,40 @@ EVAL:  # ordered list of tasks, implicated object (for Detic) and actions in dem
     - 3
     - 3
     - 4
+
+# baseline, all parameters are defaults except the ones annotated
+PERACT:
+  scene_bounds: [ -0.75 , -0.75 , -0.75 , 0.75 , 0.75 , 0.75]  # scene-bounds for peract to create VoxelGrid
+  cameras: ["head"]       # cameras to extract information from
+  model_path: data/checkpoints/corl_peract/peract_latest.pth  # checkpoint path
+  voxel_sizes: [100]      
+  num_latents: 256        
+  dim_latents: 512        
+  depth: 6
+  iterations: 1
+  initial_dim: 10
+  low_dim_size: 3
+  layer: 0
+  num_rotation_classes: 72
+  num_grip_classes: 2
+  num_collision_classes: 2
+  cross_heads: 1
+  latent_heads: 8
+  cross_dim_head: 64
+  latent_dim_head: 64
+  weight_tie_layers: False
+  activation: "lrelu"
+  input_dropout: 0.1
+  attn_dropout: 0.1
+  decoder_dropout: 0.0
+  voxel_patch_size: 5
+  voxel_patch_stride: 5
+  final_dim: 64 
+  rotation_resolution: 5
+  voxel_feature_size: 3
+  num_pts: 8000
+  lr: 0.0001
+  lambda_weight_l2: 0.000001
+  optimizer_type: "lamb"
+  transform_augmentation: False
 

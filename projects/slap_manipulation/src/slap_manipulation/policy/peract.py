@@ -419,7 +419,6 @@ class PerceiverActorAgent:
         num_rotation_classes: int,
         rotation_resolution: float,
         lr: float = 0.0001,
-        image_resolution: list = None,
         lambda_weight_l2: float = 0.0,
         transform_augmentation: bool = True,
         transform_augmentation_xyz: list = [0.0, 0.0, 0.0],
@@ -437,7 +436,6 @@ class PerceiverActorAgent:
         self._num_rotation_classes = num_rotation_classes
         self._rotation_resolution = rotation_resolution
         self._lr = lr
-        self._image_resolution = image_resolution
         self._lambda_weight_l2 = lambda_weight_l2
         self._transform_augmentation = transform_augmentation
         self._transform_augmentation_xyz = transform_augmentation_xyz
