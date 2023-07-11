@@ -235,10 +235,8 @@ class Categorical2DSemanticMapModule(nn.Module):
         global_map, global_pose = init_global_map.clone(), init_global_pose.clone()
         lmb, origins = init_lmb.clone(), init_origins.clone()
         for t in range(sequence_length):
-            print("t =", t, "seq len =", sequence_length)
             # Reset map and pose for episodes done at time step t
             for e in range(batch_size):
-                print(f"====== seq_dones {seq_dones[e, t]} ======")
                 if seq_dones[e, t]:
                     mu.init_map_and_pose_for_env(
                         e,
@@ -250,30 +248,8 @@ class Categorical2DSemanticMapModule(nn.Module):
                         origins,
                         self.map_size_parameters,
                     )
-            print(
-                "unique instances in prev map before: ",
-                torch.unique(
-                    local_map[
-                        :,
-                        MC.NON_SEM_CHANNELS
-                        + self.num_sem_categories : MC.NON_SEM_CHANNELS
-                        + self.num_sem_categories
-                        + self.num_sem_categories,
-                    ]
-                ),
-            )
-            print(
-                "unique instances in init local map before: ",
-                torch.unique(
-                    init_local_map[
-                        :,
-                        MC.NON_SEM_CHANNELS
-                        + self.num_sem_categories : MC.NON_SEM_CHANNELS
-                        + self.num_sem_categories
-                        + self.num_sem_categories,
-                    ]
-                ),
-            )
+            
+
             local_map, local_pose = self._update_local_map_and_pose(
                 seq_obs[:, t],
                 seq_pose_delta[:, t],
@@ -282,23 +258,10 @@ class Categorical2DSemanticMapModule(nn.Module):
                 seq_camera_poses,
             )
             for e in range(batch_size):
-                print(f"====== {seq_update_global[e, t]} ======")
                 if seq_update_global[e, t]:
                     self._update_global_map_and_pose_for_env(
                         e, local_map, global_map, local_pose, global_pose, lmb, origins
                     )
-            print(
-                "unique instances in local after global update: ",
-                torch.unique(
-                    local_map[
-                        :,
-                        MC.NON_SEM_CHANNELS
-                        + self.num_sem_categories : MC.NON_SEM_CHANNELS
-                        + self.num_sem_categories
-                        + self.num_sem_categories,
-                    ]
-                ),
-            )
 
             seq_local_pose[:, t] = local_pose
             seq_global_pose[:, t] = global_pose
@@ -897,7 +860,6 @@ class Categorical2DSemanticMapModule(nn.Module):
             if local_instance_id == 0:
                 # ignore 0 as it does not correspond to an instance
                 continue
-            print("trying to map: ", local_instance_id)
             # pixels corresponding to
             local_instance_pixels = extended_local_labels == local_instance_id
 
@@ -912,17 +874,10 @@ class Categorical2DSemanticMapModule(nn.Module):
                 # If there is a corresponding instance in the global map, pick the first one and associate it
                 global_instance_id = unique_overlapping_instances[0].item()
                 instance_mapping[local_instance_id.item()] = global_instance_id
-                print("mapped: ", local_instance_id, " to ", global_instance_id)
             else:
                 # If there are no corresponding instances, create a new instance
                 global_instance_id = max_instance_id + 1
                 instance_mapping[local_instance_id.item()] = global_instance_id
-                print(
-                    "created a new instance for : ",
-                    local_instance_id,
-                    " with id  ",
-                    global_instance_id,
-                )  
                 max_instance_id += 1
             # update the id in instance memory
             self.instance_memory.update_instance_id(
@@ -947,30 +902,6 @@ class Categorical2DSemanticMapModule(nn.Module):
             Tensor: The updated global map tensor.
         """
 
-        print(
-            "unique in local: ",
-            torch.unique(
-                local_map[
-                    e,
-                    MC.NON_SEM_CHANNELS
-                    + self.num_sem_categories : MC.NON_SEM_CHANNELS
-                    + self.num_sem_categories
-                    + self.num_sem_categories,
-                ]
-            ),
-        )
-        print(
-            "unique in global: ",
-            torch.unique(
-                global_map[
-                    e,
-                    MC.NON_SEM_CHANNELS
-                    + self.num_sem_categories : MC.NON_SEM_CHANNELS
-                    + self.num_sem_categories
-                    + self.num_sem_categories,
-                ]
-            ),
-        )
         max_instance_id = torch.max(
             global_map[
                 e,

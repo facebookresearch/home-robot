@@ -78,11 +78,9 @@ class InstanceMemory:
             global_instance.category_id = instance_view.category_id
             global_instance.instance_views.append(instance_view)
             self.instance_views[env_id][global_instance_id] = global_instance
-            print("creating instance", len(global_instance.instance_views))
         else:
             # add instance view to global instance
             global_instance.instance_views.append(instance_view)
-            print("added to existing instance", len(global_instance.instance_views))
 
     def process_instances_for_env(
         self,
@@ -98,7 +96,6 @@ class InstanceMemory:
         instance_id_to_category_id = {}
 
         self.unprocessed_views[env_id] = {}
-        print("clearing all unprocessed views")
         # append image to list of images
         if self.images[env_id] is None:
             self.images[env_id] = image.unsqueeze(0)
@@ -166,7 +163,6 @@ class InstanceMemory:
 
             # append instance view to list of instance views
             self.unprocessed_views[env_id][instance_id.item()] = instance_view
-            print("adding instance id", instance_id.item())
 
         self.timesteps[env_id] += 1
         return instance_id_to_category_id
