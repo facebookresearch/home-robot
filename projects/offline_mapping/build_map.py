@@ -211,8 +211,6 @@ def get_semantic_map_vis(
     vis_image[50:530, 15:655] = cv2.resize(semantic_frame[:, :, ::-1], (640, 480))
 
     # Draw depth frame
-    if len(depth_frame.shape) == 2:
-        depth_frame = np.repeat(depth_frame[:, :, np.newaxis], 3, axis=2)
     vis_image[50:530, 670:1310] = cv2.resize(depth_frame, (640, 480))
 
     # Draw legend
@@ -423,10 +421,13 @@ def main(input_trajectory_dir: str, output_visualization_dir: str, legend_path: 
         semantic_map.origins = seq_origins[:, -1]
 
         # Visualize map
+        depth_frame = (
+            np.repeat(obs.depth[:, :, np.newaxis], 3, axis=2) / np.max(obs.depth) * 255
+        )
         vis_image = get_semantic_map_vis(
             semantic_map,
             obs.task_observations["semantic_frame"],
-            obs.depth,
+            depth_frame,
             coco_categories_color_palette,
             legend,
         )
