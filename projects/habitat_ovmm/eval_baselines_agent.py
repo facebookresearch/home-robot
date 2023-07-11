@@ -5,32 +5,32 @@
 
 
 import argparse
-import json
 import os
-import sys
-from pathlib import Path
 
-from config_utils import process_and_adjust_config
+from evaluator import OVMMEvaluator
+from utils.config_utils import (
+    get_habitat_config,
+    get_ovmm_baseline_config,
+    merge_configs,
+)
+
+from home_robot.agent.ovmm_agent.ovmm_agent import OpenVocabManipAgent
+from home_robot.agent.ovmm_agent.random_agent import RandomAgent
 
 os.environ["OPENBLAS_NUM_THREADS"] = "1"
 os.environ["NUMEXPR_NUM_THREADS"] = "1"
 os.environ["MKL_NUM_THREADS"] = "1"
 
 
-sys.path.insert(
-    0,
-    str(Path(__file__).resolve().parent.parent.parent / "src/home_robot"),
-)
-sys.path.insert(
-    0,
-    str(Path(__file__).resolve().parent.parent.parent / "src/home_robot_sim"),
-)
-from evaluator import OVMMEvaluator
-
-from home_robot.agent.ovmm_agent.ovmm_agent import OpenVocabManipAgent
-
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
+    parser.add_argument(
+        "--evaluation_type",
+        type=str,
+        choices=["local", "local_vectorized", "remote"],
+        default="local",
+    )
+    parser.add_argument("--num_episodes", type=int, default=None)
     parser.add_argument(
         "--habitat_config_path",
         type=str,
@@ -44,22 +44,47 @@ if __name__ == "__main__":
         help="Path to config yaml",
     )
     parser.add_argument(
-        "opts",
+        "--agent_type",
+        type=str,
+        default="baseline",
+        choices=["baseline", "random"],
+        help="Agent to evaluate",
+    )
+    parser.add_argument(
+        "overrides",
         default=None,
         nargs=argparse.REMAINDER,
         help="Modify config options from command line",
     )
-
-    print("Arguments:")
     args = parser.parse_args()
-    print(json.dumps(vars(args), indent=4))
-    print("-" * 100)
 
-    config = process_and_adjust_config(args)
-    agent = OpenVocabManipAgent(config=config)
-    evaluator = OVMMEvaluator(config)
-
-    evaluator.eval(
-        agent,
-        num_episodes_per_env=config.EVAL_VECTORIZED.num_episodes_per_env,
+    # get habitat config
+    habitat_config_path = os.environ.get(
+        "CHALLENGE_CONFIG_FILE", args.habitat_config_path
     )
+    habitat_config, _ = get_habitat_config(
+        habitat_config_path, overrides=args.overrides
+    )
+
+    # get baseline config
+    baseline_config = get_ovmm_baseline_config(args.baseline_config_path)
+
+    # merge habitat and baseline configs
+    eval_config = merge_configs(habitat_config, baseline_config)
+
+    # create agent
+    if args.agent_type == "random":
+        agent = RandomAgent(eval_config)
+    else:
+        agent = OpenVocabManipAgent(eval_config)
+
+    # create evaluator
+    evaluator = OVMMEvaluator(eval_config)
+
+    # evaluate agent
+    metrics = evaluator.evaluate(
+        agent=agent,
+        evaluation_type=args.evaluation_type,
+        num_episodes=args.num_episodes,
+    )
+    print(metrics)
