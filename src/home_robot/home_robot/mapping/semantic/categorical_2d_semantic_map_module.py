@@ -853,8 +853,6 @@ class Categorical2DSemanticMapModule(nn.Module):
         else:
             extended_dilated_local_map = torch.clone(extended_local_map)
 
-        # # Determine instances on the extended local map
-        # extended_local_labels = self.cluster_binary_map(extended_dilated_local_map)
 
         # Get the instances from the global map within the local map's region
         global_instances_within_local = global_instances[x_start:x_end, y_start:y_end]
@@ -866,10 +864,6 @@ class Categorical2DSemanticMapModule(nn.Module):
             max_instance_id,
         )
 
-        # Local instances in the original local map
-        # local_instances = (extended_local_labels * extended_local_map)[
-        #     t_p : t_p + x2 - x1, l_p : l_p + y2 - y1
-        # ]
         # Update the global map with the associated instances from the local map
         global_instances_in_local = np.vectorize(instance_mapping.get)(
             local_map.cpu().numpy()
@@ -928,7 +922,7 @@ class Categorical2DSemanticMapModule(nn.Module):
                     local_instance_id,
                     " with id  ",
                     global_instance_id,
-                )  # , ' in env: ', env_id, ' with max_instance_id: ', max_instance_id, ' and global_instances_within_local: ', global_instances_within_local)
+                )  
                 max_instance_id += 1
             # update the id in instance memory
             self.instance_memory.update_instance_id(

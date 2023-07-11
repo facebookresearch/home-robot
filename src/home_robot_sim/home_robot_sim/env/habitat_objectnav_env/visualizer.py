@@ -225,24 +225,6 @@ class Visualizer:
 
         return instance_map_combined, instances_per_category
 
-    def replace_semantic_palette_with_instance_palette(
-        self,
-        input_colors: List[int],
-        num_instances: List[int],
-        delta: Optional[int] = 20,
-    ) -> List[int]:
-        shades = []
-        input_colors = np.reshape(input_colors, [-1, 3]).tolist()
-        for color, num_shades in zip(input_colors, num_instances):
-            if num_shades > 0:
-                new_shades = (
-                    np.array(color)
-                    + np.arange(num_shades).reshape(-1, 1)
-                    * np.array([[delta, delta, delta]])
-                ).reshape(-1)
-                new_shades = np.minimum(255, np.maximum(0, new_shades)).tolist()
-                shades += new_shades
-        return shades
 
     def update_semantic_map_with_instances(self, semantic_map, instance_map):
         """
@@ -376,15 +358,6 @@ class Visualizer:
                 semantic_map == self.num_sem_categories - 1
             )  # Assumes the last category is "other"
 
-            if instance_map is not None:
-
-                # semantic_map = instance_map_flattened
-                # # palette[
-                #     3 * PI.SEM_START :
-                # ] = self.replace_semantic_palette_with_instance_palette(
-                #     palette[3 * PI.SEM_START :], instances_per_category
-                # )
-                pass
 
             semantic_map += PI.SEM_START
 
@@ -429,16 +402,6 @@ class Visualizer:
             # Semantic categories
             semantic_map_vis = self.get_semantic_vis(semantic_map, palette)
             semantic_map_vis = np.flipud(semantic_map_vis)
-
-            # # overlay the regions the agent has been close to
-            # been_close_map = np.flipud(np.rint(been_close_map) == 1)
-            # color_index = PI.BEEN_CLOSE * 3
-            # color = self.semantic_category_mapping.map_color_palette[
-            #     color_index : color_index + 3
-            # ][::-1]
-            # semantic_map_vis[been_close_map] = (
-            #     semantic_map_vis[been_close_map] + color
-            # ) / 2
 
             semantic_map_vis = cv2.resize(
                 semantic_map_vis,

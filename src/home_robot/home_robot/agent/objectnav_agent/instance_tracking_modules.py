@@ -123,8 +123,6 @@ class InstanceMemory:
 
             # get semantic category
             category_id = semantic_map[instance_mask].unique()
-            # if len(category_id) != 1:
-            #     breakpoint()
             category_id = category_id[0]
 
             instance_id_to_category_id[instance_id] = category_id
@@ -169,15 +167,7 @@ class InstanceMemory:
             # append instance view to list of instance views
             self.unprocessed_views[env_id][instance_id.item()] = instance_view
             print("adding instance id", instance_id.item())
-            import cv2
 
-            # breakpoint()
-            cv2.imwrite(
-                f"instance_{instance_id}.png",
-                instance_mask.cpu().numpy().astype(np.uint8) * 255,
-            )
-            # save cropped image
-            # cv2.imwrite(f'cropped_image_{instance_id}.png', cropped_image.cpu().numpy().astype(np.uint8))
         self.timesteps[env_id] += 1
         return instance_id_to_category_id
 
