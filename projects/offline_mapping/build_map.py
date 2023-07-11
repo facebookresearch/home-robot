@@ -107,7 +107,7 @@ def get_semantic_map_vis(
     semantic_frame: np.array,
     depth_frame: np.array,
     color_palette: List[float],
-    # curr_pose: np.array,
+    curr_pose: np.array,
     legend=None,
 ):
     vis_image = np.ones((655, 1820, 3)).astype(np.uint8) * 255
@@ -219,8 +219,7 @@ def get_semantic_map_vis(
 
     # Draw agent arrow
     # pos = (
-    #     (curr_x * 100.0 / self.map_resolution - gx1)
-    #     * SEMANTIC_MAP_WIDTH
+    #     (curr_pose[0] * 100.0 / semantic_map.map_resolution) * SEMANTIC_MAP_WIDTH
     #     / obstacle_map.shape[0],
     #     (obstacle_map.shape[1] - curr_y * 100.0 / self.map_resolution + gy1)
     #     * IMAGE_HEIGHT
@@ -322,7 +321,7 @@ def main(input_trajectory_dir: str, output_visualization_dir: str, legend_path: 
         frame_height=obs.rgb.shape[0],
         frame_width=obs.rgb.shape[1],
         camera_height=obs.camera_pose[2, 3],
-        hfov=47.0,  # 42.0,
+        hfov=55.0,  # 47.0,  # 42.0,
         num_sem_categories=num_sem_categories,
         map_size_cm=4800,
         map_resolution=5,
@@ -367,8 +366,7 @@ def main(input_trajectory_dir: str, output_visualization_dir: str, legend_path: 
         obs_preprocessed = torch.cat([rgb, depth, semantic], dim=-1).unsqueeze(0)
         obs_preprocessed = obs_preprocessed.permute(0, 3, 1, 2)
 
-        # TODO Debug
-        curr_pose = np.array([obs.gps[0], obs.gps[1], -obs.compass[0]])
+        curr_pose = np.array([obs.gps[0], obs.gps[1], obs.compass[0]])
         pose_delta = (
             torch.tensor(pu.get_rel_pose_change(curr_pose, last_pose))
             .unsqueeze(0)
@@ -444,6 +442,7 @@ def main(input_trajectory_dir: str, output_visualization_dir: str, legend_path: 
             obs.task_observations["semantic_frame"],
             depth_frame,
             coco_categories_color_palette,
+            np.array([obs.gps[0], obs.gps[1], obs.compass[0]]),
             legend,
         )
         vis_images.append(vis_image)
