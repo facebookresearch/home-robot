@@ -12,6 +12,8 @@ from evaluator import OVMMEvaluator
 from omegaconf import DictConfig, OmegaConf
 
 from home_robot.agent.ovmm_agent.ovmm_agent import OpenVocabManipAgent
+from home_robot.agent.ovmm_agent.random_agent import RandomAgent
+
 
 os.environ["OPENBLAS_NUM_THREADS"] = "1"
 os.environ["NUMEXPR_NUM_THREADS"] = "1"
@@ -58,6 +60,13 @@ if __name__ == "__main__":
         help="Path to config yaml",
     )
     parser.add_argument(
+        "--agent_type",
+        type=str,
+        default="ovmm",
+        choices=["baseline", "random"],
+        help="Agent to evaluate",
+    )
+    parser.add_argument(
         "overrides",
         default=None,
         nargs=argparse.REMAINDER,
@@ -80,7 +89,10 @@ if __name__ == "__main__":
     eval_config = merge_configs(habitat_config, baseline_config)
 
     # create agent
-    agent = OpenVocabManipAgent(eval_config)
+    if args.agent_type == "random":
+        agent = RandomAgent(eval_config)
+    else:
+        agent = OpenVocabManipAgent(eval_config)
 
     # create evaluator
     evaluator = OVMMEvaluator(eval_config)

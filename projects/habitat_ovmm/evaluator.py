@@ -160,7 +160,8 @@ class OVMMEvaluator(PPOTrainer):
                 )
                 if episode_key not in episode_metrics:
                     episode_metrics[episode_key] = {}
-                if info["skill_done"] != "":
+                # Record metrics after each skill finishes. This is useful for debugging.
+                if "skill_done" in info and info["skill_done"] != "":
                     metrics = self._extract_scalars_from_info(hab_info)
                     metrics_at_skill_end = {
                         f"{info['skill_done']}." + k: v for k, v in metrics.items()
@@ -169,7 +170,8 @@ class OVMMEvaluator(PPOTrainer):
                         **metrics_at_skill_end,
                         **episode_metrics[episode_key],
                     }
-                    episode_metrics[episode_key]["goal_name"] = info["goal_name"]
+                    if "goal_name" in episode_metrics[episode_key]:
+                        episode_metrics[episode_key]["goal_name"] = info["goal_name"]
                 if done:  # environment times out
                     metrics = self._extract_scalars_from_info(hab_info)
                     if episode_idxs[e] < num_episodes_per_env[e]:
@@ -180,7 +182,8 @@ class OVMMEvaluator(PPOTrainer):
                             **metrics_at_episode_end,
                             **episode_metrics[episode_key],
                         }
-                        episode_metrics[episode_key]["goal_name"] = info["goal_name"]
+                        if "goal_name" in episode_metrics[episode_key]:
+                            episode_metrics[episode_key]["goal_name"] = info["goal_name"]
                         episode_idxs[e] += 1
                         print(
                             f"Episode indexes {episode_idxs[e]} / {num_episodes_per_env[e]} "

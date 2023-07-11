@@ -198,7 +198,7 @@ class Visualizer:
     def visualize(
         self,
         timestep: int,
-        semantic_frame: np.ndarray,
+        semantic_frame: np.ndarray = None,
         obstacle_map: np.ndarray = None,
         goal_map: np.ndarray = None,
         closest_goal_map: Optional[np.ndarray] = None,
@@ -392,20 +392,22 @@ class Visualizer:
             )
 
         # First-person RGB frame
-        rgb_frame = semantic_frame[:, :, [2, 1, 0]]
-        image_vis[V.Y1 : V.Y2, V.FIRST_RGB_X1 : V.FIRST_RGB_X2] = cv2.resize(
-            rgb_frame, (V.FIRST_PERSON_W, V.HEIGHT)
-        )
-        # Semantic categories
-        first_person_semantic_map_vis = self.get_semantic_vis(
-            semantic_frame[:, :, 3] + PI.SEM_START, rgb_frame
-        )
-        # First-person semantic frame
-        image_vis[V.Y1 : V.Y2, V.FIRST_SEM_X1 : V.FIRST_SEM_X2] = cv2.resize(
-            first_person_semantic_map_vis,
-            (V.FIRST_PERSON_W, V.HEIGHT),
-            interpolation=cv2.INTER_NEAREST,
-        )
+        if semantic_frame is not None:
+            rgb_frame = semantic_frame[:, :, [2, 1, 0]]
+            image_vis[V.Y1 : V.Y2, V.FIRST_RGB_X1 : V.FIRST_RGB_X2] = cv2.resize(
+                rgb_frame, (V.FIRST_PERSON_W, V.HEIGHT)
+            )
+            if semantic_frame.shape[2] > 3:
+                # Semantic categories
+                first_person_semantic_map_vis = self.get_semantic_vis(
+                    semantic_frame[:, :, 3] + PI.SEM_START, rgb_frame
+                )
+                # First-person semantic frame
+                image_vis[V.Y1 : V.Y2, V.FIRST_SEM_X1 : V.FIRST_SEM_X2] = cv2.resize(
+                    first_person_semantic_map_vis,
+                    (V.FIRST_PERSON_W, V.HEIGHT),
+                    interpolation=cv2.INTER_NEAREST,
+                )
 
         if self.show_images:
             cv2.imshow("Visualization", image_vis)
