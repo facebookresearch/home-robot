@@ -123,9 +123,7 @@ def main(input_trajectory_path, output_visualization_path):
             observations.append(pickle.load(f))
 
     # TODO Debug
-    observations = observations[:50]
-    for obs in observations:
-        print(obs.gps)
+    observations = observations[:38]
 
     # Predict semantic segmentation
     categories = [
