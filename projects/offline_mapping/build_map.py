@@ -219,19 +219,30 @@ def get_semantic_map_vis(
         vis_image[537 : 537 + lx, 155 : 155 + ly, :] = legend[:, :, ::-1]
 
     # Draw agent arrow
+    curr_x, curr_y, curr_o, gy1, _, gx1, _ = semantic_map.get_planner_pose_inputs(0)
     pos = (
-        (
-            curr_pose[0] * 100.0 / semantic_map.resolution
-            - semantic_map.origins[0, 0].item()
-        )
-        + (semantic_map.local_map_size / 2),
-        semantic_map.local_map_size / 2
-        - (
-            curr_pose[1] * 100.0 / semantic_map.resolution
-            + semantic_map.origins[0, 1].item()
-        ),
-        -curr_pose[2],
+        (curr_x * 100.0 / semantic_map.resolution - gx1)
+        * 480
+        / semantic_map.local_map_size,
+        (semantic_map.local_map_size - curr_y * 100.0 / semantic_map.resolution + gy1)
+        * 480
+        / semantic_map.local_map_size,
+        np.deg2rad(-curr_o),
     )
+
+    # pos = (
+    #     (
+    #         curr_pose[0] * 100.0 / semantic_map.resolution
+    #         - semantic_map.origins[0, 0].item()
+    #     )
+    #     + (semantic_map.local_map_size / 2),
+    #     semantic_map.local_map_size / 2
+    #     - (
+    #         curr_pose[1] * 100.0 / semantic_map.resolution
+    #         + semantic_map.origins[0, 1].item()
+    #     ),
+    #     -curr_pose[2],
+    # )
     print("curr_pose", curr_pose)
     print("pos", pos)
     agent_arrow = vu.get_contour_points(pos, origin=(1325, 50), size=10)
