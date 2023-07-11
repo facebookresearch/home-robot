@@ -421,12 +421,8 @@ def main(input_trajectory_dir: str, output_visualization_dir: str, legend_path: 
         semantic_map.origins = seq_origins[:, -1]
 
         # Visualize map
-        depth_frame = cv2.applyColorMap(
-            (obs.depth / np.max(obs.depth) * 255).astype(np.uint8), cv2.COLORMAP_JET
-        )
-        # depth_frame = (
-        #     np.repeat(obs.depth[:, :, np.newaxis], 3, axis=2) / np.max(obs.depth) * 255
-        # )
+        depth_frame = (obs.depth / obs.depth.max() * 255).astype(np.uint8)
+        depth_frame = np.repeat(depth_frame[:, :, np.newaxis], 3, axis=2)
         print("depth_frame.shape", depth_frame.shape)
         vis_image = get_semantic_map_vis(
             semantic_map,
