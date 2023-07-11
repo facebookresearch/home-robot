@@ -211,7 +211,9 @@ def get_semantic_map_vis(
     vis_image[50:530, 15:655] = cv2.resize(semantic_frame[:, :, ::-1], (640, 480))
 
     # Draw depth frame
-    vis_image[50:530, 670:1310] = cv2.resize(semantic_frame[:, :, ::-1], (640, 480))
+    if len(depth_frame.shape) == 2:
+        depth_frame = np.repeat(depth_frame[:, :, np.newaxis], 3, axis=2)
+    vis_image[50:530, 670:1310] = cv2.resize(depth_frame, (640, 480))
 
     # Draw legend
     if legend is not None:
