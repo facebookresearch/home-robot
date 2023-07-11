@@ -215,26 +215,22 @@ def save_semantic_map_vis(
 @click.command()
 @click.option(
     "--input_trajectory_dir",
-    default="trajectory/",
+    default=f"{str(Path(__file__).resolve().parent)}/trajectory/",
 )
 @click.option(
     "--output_visualization_dir",
-    default="map_visualization/",
+    default=f"{str(Path(__file__).resolve().parent)}/map_visualization/",
 )
 @click.option(
     "--legend_path",
-    default="coco_categories_legend.png",
+    default=f"{str(Path(__file__).resolve().parent)}/coco_categories_legend.png",
 )
 def main(input_trajectory_dir: str, output_visualization_dir: str, legend_path: str):
     # --------------------------------------------------------------------------------------------
     # Load trajectory of home_robot Observations
     # --------------------------------------------------------------------------------------------
     observations = []
-    for path in natsort.natsorted(
-        glob.glob(
-            str(Path(__file__).resolve().parent) + f"/{input_trajectory_dir}/*.pkl"
-        )
-    ):
+    for path in natsort.natsorted(glob.glob(f"/{input_trajectory_dir}/*.pkl")):
         with open(path, "rb") as f:
             observations.append(pickle.load(f))
 
