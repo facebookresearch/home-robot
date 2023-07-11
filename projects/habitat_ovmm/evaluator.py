@@ -12,10 +12,12 @@ from enum import Enum
 from typing import TYPE_CHECKING, Any, Dict, Optional
 
 import numpy as np
+import pandas as pd
 from habitat_baselines.rl.ppo.ppo_trainer import PPOTrainer
 from omegaconf import DictConfig
 from tqdm import tqdm
 from utils.env_utils import create_ovmm_env_fn
+from utils.metrics_utils import get_stats_from_episode_metrics
 
 if TYPE_CHECKING:
     from habitat.core.vector_env import VectorEnv
@@ -52,6 +54,23 @@ class OVMMEvaluator(PPOTrainer):
             self.envs,
             num_episodes_per_env=num_episodes_per_env,
         )
+
+    def _summarize_metrics(self, episode_metrics: Dict) -> Dict:
+        """Gets stats from episode metrics"""
+        # convert to a dataframe
+        episode_metrics_df = pd.DataFrame.from_dict(episode_metrics, orient="index")
+        episode_metrics_df["start_idx"] = 0
+        stats = get_stats_from_episode_metrics(episode_metrics_df)
+        return stats
+
+    def _print_summary(self, summary: dict):
+        """Prints the summary of metrics"""
+        print("=" * 50)
+        print("Averaged metrics")
+        print("=" * 50)
+        for k, v in summary.items():
+            print(f"{k}: {v}")
+        print("=" * 50)
 
     def _evaluate_vectorized(
         self,
@@ -102,7 +121,8 @@ class OVMMEvaluator(PPOTrainer):
                 )
                 if episode_key not in episode_metrics:
                     episode_metrics[episode_key] = {}
-                if info["skill_done"] != "":
+                # Record metrics after each skill finishes. This is useful for debugging.
+                if "skill_done" in info and info["skill_done"] != "":
                     metrics = self._extract_scalars_from_info(hab_info)
                     metrics_at_skill_end = {
                         f"{info['skill_done']}." + k: v for k, v in metrics.items()
@@ -111,7 +131,8 @@ class OVMMEvaluator(PPOTrainer):
                         **metrics_at_skill_end,
                         **episode_metrics[episode_key],
                     }
-                    episode_metrics[episode_key]["goal_name"] = info["goal_name"]
+                    if "goal_name" in episode_metrics[episode_key]:
+                        episode_metrics[episode_key]["goal_name"] = info["goal_name"]
                 if done:  # environment times out
                     metrics = self._extract_scalars_from_info(hab_info)
                     if episode_idxs[e] < num_episodes_per_env[e]:
@@ -122,7 +143,10 @@ class OVMMEvaluator(PPOTrainer):
                             **metrics_at_episode_end,
                             **episode_metrics[episode_key],
                         }
-                        episode_metrics[episode_key]["goal_name"] = info["goal_name"]
+                        if "goal_name" in episode_metrics[episode_key]:
+                            episode_metrics[episode_key]["goal_name"] = info[
+                                "goal_name"
+                            ]
                         episode_idxs[e] += 1
                         print(
                             f"Episode indexes {episode_idxs[e]} / {num_episodes_per_env[e]} "
@@ -141,7 +165,6 @@ class OVMMEvaluator(PPOTrainer):
 
         aggregated_metrics = self._aggregate_metrics(episode_metrics)
         self._write_results(episode_metrics, aggregated_metrics)
-
         return aggregated_metrics
 
     def _aggregate_metrics(self, episode_metrics: Dict[str, Any]) -> Dict[str, float]:
@@ -184,6 +207,8 @@ class OVMMEvaluator(PPOTrainer):
             json.dump(aggregated_metrics, f, indent=4)
         with open(f"{self.results_dir}/episode_results.json", "w") as f:
             json.dump(episode_metrics, f, indent=4)
+        summary = self._summarize_metrics(episode_metrics)
+        self._print_summary(summary)
 
     def local_evaluate(
         self, agent, num_episodes: Optional[int] = None
@@ -227,7 +252,7 @@ class OVMMEvaluator(PPOTrainer):
                 action, info, _ = agent.act(observations)
                 observations, done, hab_info = self._env.apply_action(action, info)
 
-                if info["skill_done"] != "":
+                if "skill_done" in info and info["skill_done"] != "":
                     metrics = self._extract_scalars_from_info(hab_info)
                     metrics_at_skill_end = {
                         f"{info['skill_done']}." + k: v for k, v in metrics.items()
@@ -236,7 +261,8 @@ class OVMMEvaluator(PPOTrainer):
                         **metrics_at_skill_end,
                         **current_episode_metrics,
                     }
-                    current_episode_metrics["goal_name"] = info["goal_name"]
+                    if "goal_name" in info:
+                        current_episode_metrics["goal_name"] = info["goal_name"]
 
             metrics = self._extract_scalars_from_info(hab_info)
             metrics_at_episode_end = {"END." + k: v for k, v in metrics.items()}
@@ -244,7 +270,8 @@ class OVMMEvaluator(PPOTrainer):
                 **metrics_at_episode_end,
                 **current_episode_metrics,
             }
-            current_episode_metrics["goal_name"] = info["goal_name"]
+            if "goal_name" in info:
+                current_episode_metrics["goal_name"] = info["goal_name"]
 
             episode_metrics[current_episode_key] = current_episode_metrics
             if len(episode_metrics) % self.metrics_save_freq == 0:
@@ -349,7 +376,8 @@ class OVMMEvaluator(PPOTrainer):
                     ).SerializedEntity
                 )
 
-                if info["skill_done"] != "":
+                # record metrics if the current skill finishes
+                if "skill_done" in info and info["skill_done"] != "":
                     metrics = self._extract_scalars_from_info(hab_info)
                     metrics_at_skill_end = {
                         f"{info['skill_done']}." + k: v for k, v in metrics.items()
@@ -358,7 +386,8 @@ class OVMMEvaluator(PPOTrainer):
                         **metrics_at_skill_end,
                         **current_episode_metrics,
                     }
-                    current_episode_metrics["goal_name"] = info["goal_name"]
+                    if "goal_name" in info:
+                        current_episode_metrics["goal_name"] = info["goal_name"]
 
             metrics = self._extract_scalars_from_info(hab_info)
             metrics_at_episode_end = {"END." + k: v for k, v in metrics.items()}
@@ -366,7 +395,8 @@ class OVMMEvaluator(PPOTrainer):
                 **metrics_at_episode_end,
                 **current_episode_metrics,
             }
-            current_episode_metrics["goal_name"] = info["goal_name"]
+            if "goal_name" in info:
+                current_episode_metrics["goal_name"] = info["goal_name"]
 
             episode_metrics[current_episode_key] = current_episode_metrics
             if len(episode_metrics) % self.metrics_save_freq == 0:
