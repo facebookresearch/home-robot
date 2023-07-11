@@ -7,9 +7,12 @@
 import argparse
 import os
 
-from config_utils import get_habitat_config, get_ovmm_baseline_config
 from evaluator import OVMMEvaluator
-from omegaconf import DictConfig, OmegaConf
+from utils.config_utils import (
+    get_habitat_config,
+    get_ovmm_baseline_config,
+    merge_configs,
+)
 
 from home_robot.agent.ovmm_agent.ovmm_agent import OpenVocabManipAgent
 from home_robot.agent.ovmm_agent.random_agent import RandomAgent
@@ -19,33 +22,15 @@ os.environ["NUMEXPR_NUM_THREADS"] = "1"
 os.environ["MKL_NUM_THREADS"] = "1"
 
 
-def merge_configs(habitat_config, baseline_config):
-    config = DictConfig({**habitat_config, **baseline_config})
-
-    visualize = config.VISUALIZE or config.PRINT_IMAGES
-    if not visualize:
-        if "robot_third_rgb" in config.habitat.gym.obs_keys:
-            config.habitat.gym.obs_keys.remove("robot_third_rgb")
-        if "third_rgb_sensor" in config.habitat.simulator.agents.main_agent.sim_sensors:
-            config.habitat.simulator.agents.main_agent.sim_sensors.pop(
-                "third_rgb_sensor"
-            )
-
-    episode_ids_range = config.habitat.dataset.episode_indices_range
-    if episode_ids_range is not None:
-        config.EXP_NAME = os.path.join(
-            config.EXP_NAME, f"{episode_ids_range[0]}_{episode_ids_range[1]}"
-        )
-
-    OmegaConf.set_readonly(config, True)
-    return config
-
-
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument(
-        "--evaluation", type=str, default="local", choices=["local", "remote"]
+        "--evaluation_type",
+        type=str,
+        choices=["local", "local_vectorized", "remote"],
+        default="local",
     )
+    parser.add_argument("--num_episodes", type=int, default=None)
     parser.add_argument(
         "--habitat_config_path",
         type=str,
@@ -61,7 +46,7 @@ if __name__ == "__main__":
     parser.add_argument(
         "--agent_type",
         type=str,
-        default="ovmm",
+        default="baseline",
         choices=["baseline", "random"],
         help="Agent to evaluate",
     )
@@ -95,7 +80,11 @@ if __name__ == "__main__":
 
     # create evaluator
     evaluator = OVMMEvaluator(eval_config)
-    evaluator.eval(
-        agent,
-        num_episodes_per_env=eval_config.EVAL_VECTORIZED.num_episodes_per_env,
+
+    # evaluate agent
+    metrics = evaluator.evaluate(
+        agent=agent,
+        evaluation_type=args.evaluation_type,
+        num_episodes=args.num_episodes,
     )
+    print(metrics)

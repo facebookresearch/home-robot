@@ -1,3 +1,8 @@
+# Copyright (c) Meta Platforms, Inc. and affiliates.
+#
+# This source code is licensed under the MIT license found in the
+# LICENSE file in the root directory of this source tree.
+
 import argparse
 import json
 import os
@@ -9,7 +14,7 @@ import numpy as np
 import pandas as pd
 
 sys.path.append("projects/habitat_ovmm/")
-from metrics_utils import get_stats_from_episode_metrics
+from utils.metrics_utils import get_stats_from_episode_metrics
 
 verbose = False
 
@@ -134,7 +139,9 @@ def main():
     """
     # Parse arguments to read folder_name and exp_name
     parser = argparse.ArgumentParser()
-    parser.add_argument("--folder_name", type=str, default="datadump/results/eval_hssd")
+    parser.add_argument(
+        "--folder_name", type=str, default="datadump/results/eval_hssd_0710/"
+    )
     parser.add_argument("--exp_name", type=str, default=None)
     args = parser.parse_args()
 

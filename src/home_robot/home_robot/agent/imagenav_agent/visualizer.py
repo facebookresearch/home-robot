@@ -180,6 +180,7 @@ class NavVisualizer:
         semantic_map: Optional[np.ndarray] = None,
         visualize_goal: bool = True,
         metrics: Dict[str, Any] = None,
+        **kwargs,
     ) -> None:
         """Visualize frame input and semantic map.
 
