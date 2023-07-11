@@ -129,7 +129,7 @@ def get_metrics_from_jsons(folder_name: str, exp_name: str) -> pd.DataFrame:
     return pd.concat(dfs)
 
 
-def get_stats_per_episode(
+def get_stats_from_episode_metrics(
     episode_metrics: pd.DataFrame,
 ) -> Optional[dict]:  # noqa: C901
     """Compute summary statistics from episode metrics.
@@ -210,7 +210,7 @@ def get_summary(args: argparse.Namespace, exclude_substr: str = "viz"):
         episode_metrics = get_metrics_from_jsons(args.folder_name, exp_name)
         if episode_metrics is None:
             continue
-        stats = get_stats_per_episode(episode_metrics)
+        stats = get_stats_from_episode_metrics(episode_metrics)
 
         results_dfs[exp_name] = stats
 
