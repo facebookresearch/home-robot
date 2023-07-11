@@ -1,7 +1,13 @@
-from home_robot.core.abstract_agent import Agent
-from home_robot.core.interfaces import (Observations, DiscreteNavigationAction, ContinuousFullBodyAction)
 from typing import Any, Dict, Tuple
+
 import numpy as np
+
+from home_robot.core.abstract_agent import Agent
+from home_robot.core.interfaces import (
+    ContinuousFullBodyAction,
+    DiscreteNavigationAction,
+    Observations,
+)
 
 
 class RandomAgent(Agent):
@@ -19,15 +25,14 @@ class RandomAgent(Agent):
         self.max_turn_degrees = (
             config.habitat.task.actions.base_velocity.max_turn_degrees
         )
-        self.max_turn_radians = (
-            self.max_turn_degrees / 180 * np.pi
-        )  
-        self.max_joints_delta = (
-            config.habitat.task.actions.arm_action.max_delta_pos
-        )  
+        self.max_turn_radians = self.max_turn_degrees / 180 * np.pi
+        self.max_joints_delta = config.habitat.task.actions.arm_action.max_delta_pos
         self.discrete_actions = config.AGENT.PLANNER.discrete_actions
         self.timestep = 0
-        assert self.snap_probability + self.desnap_probability + self.stop_probability <= 1.0
+        assert (
+            self.snap_probability + self.desnap_probability + self.stop_probability
+            <= 1.0
+        )
 
     def reset(self):
         """Initialize agent state."""
@@ -50,12 +55,14 @@ class RandomAgent(Agent):
         """Take a random action."""
         action = None
         r = np.random.rand()
-        info = {'timestep': self.timestep, 'semantic_frame': obs.rgb}
+        info = {"timestep": self.timestep, "semantic_frame": obs.rgb}
         if r < self.snap_probability:
             action = DiscreteNavigationAction.SNAP_OBJECT
         elif r < self.snap_probability + self.desnap_probability:
             action = DiscreteNavigationAction.DESNAP_OBJECT
-        elif r < self.snap_probability + self.desnap_probability + self.stop_probability:
+        elif (
+            r < self.snap_probability + self.desnap_probability + self.stop_probability
+        ):
             action = DiscreteNavigationAction.STOP
         elif self.discrete_actions:
             action = np.random.choice(
@@ -70,12 +77,12 @@ class RandomAgent(Agent):
             )
         else:
             xyt = np.random.uniform(
-                    [-self.max_forward, -self.max_forward, -self.max_turn_radians],
-                    [self.max_forward, self.max_forward, self.max_turn_radians],
-                )
+                [-self.max_forward, -self.max_forward, -self.max_turn_radians],
+                [self.max_forward, self.max_forward, self.max_turn_radians],
+            )
             joints = np.random.uniform(
-                    -self.max_joints_delta, self.max_joints_delta, size=(7,)
-                )
+                -self.max_joints_delta, self.max_joints_delta, size=(7,)
+            )
             action = ContinuousFullBodyAction(joints, xyt)
         self.timestep += 1
         return action, info, obs
