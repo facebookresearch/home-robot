@@ -718,7 +718,6 @@ class Categorical2DSemanticMapModule(nn.Module):
             )
         return current_map, current_pose
 
-
     def update_instances_in_global_map(
         self,
         env_id: int,
@@ -872,7 +871,6 @@ class Categorical2DSemanticMapModule(nn.Module):
             Tensor: The updated global map tensor.
         """
 
-
         for i in range(self.num_sem_categories):
             if (
                 torch.sum(
@@ -880,14 +878,18 @@ class Categorical2DSemanticMapModule(nn.Module):
                 )
                 > 0
             ):
-                max_instance_id = torch.max(
-                    global_map[
-                        e,
-                        MC.NON_SEM_CHANNELS
-                        + self.num_sem_categories : MC.NON_SEM_CHANNELS
-                        + 2 * self.num_sem_categories,
-                    ]
-                ).int().item()
+                max_instance_id = (
+                    torch.max(
+                        global_map[
+                            e,
+                            MC.NON_SEM_CHANNELS
+                            + self.num_sem_categories : MC.NON_SEM_CHANNELS
+                            + 2 * self.num_sem_categories,
+                        ]
+                    )
+                    .int()
+                    .item()
+                )
                 # if the local map has any object instances, update the global map with instance ids
                 instances = self.update_instances_in_global_map(
                     e,
