@@ -104,7 +104,7 @@ coco_categories_color_palette = [
 
 def save_semantic_map_vis(
     semantic_map: Categorical2DSemanticMapState,
-    visualization_path: str,
+    visualization_path: Path,
     color_palette: List[float],
 ):
     map_color_palette = [
@@ -157,10 +157,10 @@ def save_semantic_map_vis(
     default="trajectories/airbnb1",
 )
 @click.option(
-    "--output_visualization_path",
-    default="map_visualization/airbnb1.png",
+    "--output_visualization_dir",
+    default="map_visualization/",
 )
-def main(input_trajectory_path, output_visualization_path):
+def main(input_trajectory_path: str, output_visualization_dir: str):
     # --------------------------------------------------------------------------------------------
     # Load trajectory of home_robot Observations
     # --------------------------------------------------------------------------------------------
@@ -331,13 +331,12 @@ def main(input_trajectory_path, output_visualization_path):
         semantic_map.lmb = seq_lmb[:, -1]
         semantic_map.origins = seq_origins[:, -1]
 
-    # --------------------------------------------------------------------------------------------
-    # Map visualization
-    # --------------------------------------------------------------------------------------------
-
-    save_semantic_map_vis(
-        semantic_map, output_visualization_path, coco_categories_color_palette
-    )
+        # Map visualization
+        save_semantic_map_vis(
+            semantic_map,
+            Path(output_visualization_dir) / f"{i}.png",
+            coco_categories_color_palette,
+        )
 
 
 if __name__ == "__main__":
