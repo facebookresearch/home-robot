@@ -109,7 +109,6 @@ def get_semantic_map_vis(
     color_palette: List[float],
     legend=None,
 ):
-    # vis_image = np.ones((655, 1165, 3)).astype(np.uint8) * 255
     vis_image = np.ones((655, 1820, 3)).astype(np.uint8) * 255
     font = cv2.FONT_HERSHEY_SIMPLEX
     fontScale = 1
@@ -204,7 +203,6 @@ def get_semantic_map_vis(
     semantic_map_vis = cv2.resize(
         semantic_map_vis, (480, 480), interpolation=cv2.INTER_NEAREST
     )
-    # vis_image[50:530, 670:1150] = semantic_map_vis
     vis_image[50:530, 1325:1805] = semantic_map_vis
 
     # Draw semantic frame
@@ -265,7 +263,7 @@ def main(input_trajectory_dir: str, output_visualization_dir: str, legend_path: 
         sem_gpu_id=0,
     )
     observations = [
-        segmentation.predict(obs, depth_threshold=0.5) for obs in observations
+        segmentation.predict(obs, depth_threshold=None) for obs in observations
     ]
     for obs in observations:
         obs.semantic[obs.semantic == 0] = len(categories) - 1
