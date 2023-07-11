@@ -220,10 +220,16 @@ def get_semantic_map_vis(
 
     # Draw agent arrow
     pos = (
-        (curr_pose[0] * 100.0 / semantic_map.resolution - semantic_map.origins[0])
+        (
+            curr_pose[0] * 100.0 / semantic_map.resolution
+            - semantic_map.origins[0, 0].item()
+        )
         + (semantic_map.local_map_size / 2),
         semantic_map.local_map_size / 2
-        - (curr_pose[1] * 100.0 / semantic_map.resolution + semantic_map.origins[1]),
+        - (
+            curr_pose[1] * 100.0 / semantic_map.resolution
+            + semantic_map.origins[0, 1].item()
+        ),
         -curr_pose[2],
     )
     print("curr_pose", curr_pose)
