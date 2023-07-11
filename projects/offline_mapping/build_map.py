@@ -153,21 +153,21 @@ def save_semantic_map_vis(
 
 @click.command()
 @click.option(
-    "--input_trajectory_path",
-    default="trajectories/airbnb1",
+    "--input_trajectory_dir",
+    default="trajectory/",
 )
 @click.option(
     "--output_visualization_dir",
     default="map_visualization/",
 )
-def main(input_trajectory_path: str, output_visualization_dir: str):
+def main(input_trajectory_dir: str, output_visualization_dir: str):
     # --------------------------------------------------------------------------------------------
     # Load trajectory of home_robot Observations
     # --------------------------------------------------------------------------------------------
     observations = []
     for path in natsort.natsorted(
         glob.glob(
-            str(Path(__file__).resolve().parent) + f"/{input_trajectory_path}/*.pkl"
+            str(Path(__file__).resolve().parent) + f"/{input_trajectory_dir}/*.pkl"
         )
     ):
         with open(path, "rb") as f:
