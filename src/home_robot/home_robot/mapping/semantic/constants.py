@@ -12,4 +12,3 @@ class MapConstants:
     VISITED_MAP = 3
     BEEN_CLOSE_MAP = 4
     INSTANCE_MAP = 5
-

@@ -2,13 +2,15 @@
 #
 # This source code is licensed under the MIT license found in the
 # LICENSE file in the root directory of this source tree.
+from typing import Optional
+
 import numpy as np
 import torch
-from typing import Optional
+
+from home_robot.agent.objectnav_agent.instance_tracking_modules import InstanceMemory
 from home_robot.mapping.map_utils import MapSizeParameters, init_map_and_pose_for_env
 from home_robot.mapping.semantic.constants import MapConstants as MC
 
-from home_robot.agent.objectnav_agent.instance_tracking_modules import InstanceMemory
 
 class Categorical2DSemanticMapState:
     """
@@ -72,8 +74,7 @@ class Categorical2DSemanticMapState:
             # num_sem_categories + 5, ..., 2 * num_sem_categories + 5: Instance ids per semantic category
             num_channels += self.num_sem_categories
             self.instance_memory = instance_memory
-        
-        
+
         if evaluate_instance_tracking:
             num_channels += max_instances + 1
 
@@ -183,7 +184,11 @@ class Categorical2DSemanticMapState:
     def get_instance_map(self, e) -> np.ndarray:
         instance_map = self.local_map[e].cpu().float().numpy()
         instance_map = instance_map[
-            MC.NON_SEM_CHANNELS + self.num_sem_categories : MC.NON_SEM_CHANNELS + 2 * self.num_sem_categories, :, :
+            MC.NON_SEM_CHANNELS
+            + self.num_sem_categories : MC.NON_SEM_CHANNELS
+            + 2 * self.num_sem_categories,
+            :,
+            :,
         ]
         return instance_map
 

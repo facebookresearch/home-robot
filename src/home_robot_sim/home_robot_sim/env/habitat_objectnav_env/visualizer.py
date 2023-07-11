@@ -5,6 +5,7 @@
 import json
 import os
 import shutil
+from collections import defaultdict
 from typing import List, Optional
 
 import cv2
@@ -14,6 +15,7 @@ from PIL import Image
 
 import home_robot.utils.pose as pu
 import home_robot.utils.visualization as vu
+from home_robot.agent.objectnav_agent.instance_tracking_modules import InstanceMemory
 from home_robot.perception.constants import (
     FloorplannertoMukulIndoor,
     HM3DtoCOCOIndoor,
@@ -22,9 +24,6 @@ from home_robot.perception.constants import (
 from home_robot.perception.constants import PaletteIndices as PI
 from home_robot.perception.constants import RearrangeDETICCategories
 
-from home_robot.agent.objectnav_agent.instance_tracking_modules import InstanceMemory
-
-from collections import defaultdict
 
 class VIS_LAYOUT:
     HEIGHT = 480
@@ -125,7 +124,7 @@ class Visualizer:
                 )
             else:
                 self.semantic_category_mapping = None
-                
+
         elif "floorplanner" in self.episodes_data_path:
             if config.AGENT.SEMANTIC_MAP.semantic_categories == "mukul_indoor":
                 self.semantic_category_mapping = FloorplannertoMukulIndoor()
@@ -157,9 +156,7 @@ class Visualizer:
         self.text_thickness = 2
         self.show_rl_obs = getattr(config, "SHOW_RL_OBS", False)
 
-        self.instance_dilation_selem = skimage.morphology.disk(
-            1
-        )
+        self.instance_dilation_selem = skimage.morphology.disk(1)
 
     def reset(self):
         self.vis_dir = self.default_vis_dir
@@ -264,12 +261,10 @@ class Visualizer:
             # get the border pixels
             border_pixels = np.logical_and(
                 cv2.dilate(instance_channel, self.instance_dilation_selem),
-                np.logical_not(instance_channel)
+                np.logical_not(instance_channel),
             )
             # update semantic map with instance ids
             semantic_map[border_pixels > 0] = PI.INSTANCE_BORDER
-
-
 
     def visualize(
         self,
@@ -401,7 +396,6 @@ class Visualizer:
             semantic_map[np.logical_and(no_category_mask, obstacle_mask)] = PI.OBSTACLES
             semantic_map[visited_mask] = PI.VISITED
 
-
             # Goal
             if visualize_goal:
                 selem = skimage.morphology.disk(4)
@@ -467,8 +461,6 @@ class Visualizer:
             color = self.semantic_category_mapping.map_color_palette[9:12][::-1]
             cv2.drawContours(image_vis, [agent_arrow], 0, color, -1)
 
-
-
         # overlay RL observation frame
         if self.show_rl_obs and rl_obs_frame is not None:
             # Reshape the height while maintaining aspect ratio to V.HEIGHT
@@ -510,7 +502,9 @@ class Visualizer:
             num_views_per_instance = defaultdict(list)
             for instance_id, instance in instance_memory.instance_views[0].items():
                 num_instances_per_category[instance.category_id.item()] += 1
-                num_views_per_instance[instance.category_id.item()].append(len(instance.instance_views))
+                num_views_per_instance[instance.category_id.item()].append(
+                    len(instance.instance_views)
+                )
             text = "Instance counts"
             offset = 48
             y_pos = offset

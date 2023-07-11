@@ -1,7 +1,7 @@
-import numpy as np
-from typing import List, Dict, Optional, Tuple
-import torch
+from typing import Dict, List, Optional, Tuple
 
+import numpy as np
+import torch
 
 
 class InstanceView:
@@ -14,7 +14,17 @@ class InstanceView:
     # point cloud of instance in the current image
     point_cloud: np.ndarray = None
     category_id: Optional[int] = None
-    def __init__(self, bbox, timestep, cropped_image, embedding, mask, point_cloud, category_id=None):
+
+    def __init__(
+        self,
+        bbox,
+        timestep,
+        cropped_image,
+        embedding,
+        mask,
+        point_cloud,
+        category_id=None,
+    ):
         self.bbox = bbox
         self.timestep = timestep
         self.cropped_image = cropped_image
@@ -37,6 +47,7 @@ class InstanceMemory:
     point_cloud: List[torch.Tensor] = []
     unprocessed_views: List[Dict[int, InstanceView]] = []
     timesteps: List[int] = []
+
     def __init__(self, num_envs: int, du_scale: int):
         self.num_envs = num_envs
         self.du_scale = du_scale
@@ -49,18 +60,16 @@ class InstanceMemory:
         self.unprocessed_views = [{} for _ in range(self.num_envs)]
         self.timesteps = [0 for _ in range(self.num_envs)]
 
-    def update_instance_id(self, env_id: int, local_instance_id: int, global_instance_id: int):
-        # fetch instance view from the list of unprocessed views 
+    def update_instance_id(
+        self, env_id: int, local_instance_id: int, global_instance_id: int
+    ):
+        # fetch instance view from the list of unprocessed views
         # if global_instance_id already exists, add a new instance view to it
         # otherwise, create a new global instance with the given global_instance_id
 
-        print(f'checking if local instance id {local_instance_id} in unprocessed views')
-        
+
         # get instance view
-        try:
-            instance_view = self.unprocessed_views[env_id][local_instance_id]
-        except:
-            breakpoint()
+        instance_view = self.unprocessed_views[env_id][local_instance_id]
         # get global instance
         global_instance = self.instance_views[env_id].get(global_instance_id, None)
         if global_instance is None:
@@ -69,28 +78,40 @@ class InstanceMemory:
             global_instance.category_id = instance_view.category_id
             global_instance.instance_views.append(instance_view)
             self.instance_views[env_id][global_instance_id] = global_instance
-            print('creating instance', len(global_instance.instance_views))
+            print("creating instance", len(global_instance.instance_views))
         else:
             # add instance view to global instance
             global_instance.instance_views.append(instance_view)
-            print('added to existing instance',  len(global_instance.instance_views))
+            print("added to existing instance", len(global_instance.instance_views))
 
-    def process_instances_for_env(self, env_id: int, semantic_map: torch.Tensor, instance_map: torch.Tensor, point_cloud: torch.Tensor, image: torch.Tensor, num_sem_categories: int):
+    def process_instances_for_env(
+        self,
+        env_id: int,
+        semantic_map: torch.Tensor,
+        instance_map: torch.Tensor,
+        point_cloud: torch.Tensor,
+        image: torch.Tensor,
+        num_sem_categories: int,
+    ):
 
         # create a dict for mapping instance ids to categories
         instance_id_to_category_id = {}
 
         self.unprocessed_views[env_id] = {}
-        print('clearing all unprocessed views')
+        print("clearing all unprocessed views")
         # append image to list of images
         if self.images[env_id] is None:
             self.images[env_id] = image.unsqueeze(0)
         else:
-            self.images[env_id] = torch.cat([self.images[env_id], image.unsqueeze(0)], dim=0)
+            self.images[env_id] = torch.cat(
+                [self.images[env_id], image.unsqueeze(0)], dim=0
+            )
         if self.point_cloud[env_id] is None:
             self.point_cloud[env_id] = point_cloud.unsqueeze(0)
         else:
-            self.point_cloud[env_id] = torch.cat([self.point_cloud[env_id], point_cloud.unsqueeze(0)], dim=0)
+            self.point_cloud[env_id] = torch.cat(
+                [self.point_cloud[env_id], point_cloud.unsqueeze(0)], dim=0
+            )
         # unique instances
         instance_ids = torch.unique(instance_map)
         for instance_id in instance_ids:
@@ -109,30 +130,52 @@ class InstanceMemory:
             instance_id_to_category_id[instance_id] = category_id
 
             # get bounding box
-            try:
-                bbox = torch.stack([instance_mask.nonzero().min(dim=0)[0], instance_mask.nonzero().max(dim=0)[0]])
-            except:
-                breakpoint()
+            bbox = torch.stack(
+                [
+                    instance_mask.nonzero().min(dim=0)[0],
+                    instance_mask.nonzero().max(dim=0)[0],
+                ]
+            )
             # get cropped image
-            cropped_image = image[bbox[0, 0]:bbox[1, 0], bbox[0, 1]:bbox[1, 1]]
+            cropped_image = image[bbox[0, 0] : bbox[1, 0], bbox[0, 1] : bbox[1, 1]]
             # get embedding
             embedding = None
-        
+
             # downsample mask by du_scale using "NEAREST"
-            instance_mask = torch.nn.functional.interpolate(instance_mask.unsqueeze(0).unsqueeze(0).float(), scale_factor=1/self.du_scale, mode='nearest').squeeze(0).squeeze(0).bool()
+            instance_mask = (
+                torch.nn.functional.interpolate(
+                    instance_mask.unsqueeze(0).unsqueeze(0).float(),
+                    scale_factor=1 / self.du_scale,
+                    mode="nearest",
+                )
+                .squeeze(0)
+                .squeeze(0)
+                .bool()
+            )
             # get point cloud
             point_cloud_instance = point_cloud[instance_mask]
 
             # get instance view
-            instance_view = InstanceView(bbox=bbox, timestep=self.timesteps[env_id],
-            cropped_image=cropped_image, embedding=embedding, mask=instance_mask, point_cloud=point_cloud_instance, category_id=category_id)
+            instance_view = InstanceView(
+                bbox=bbox,
+                timestep=self.timesteps[env_id],
+                cropped_image=cropped_image,
+                embedding=embedding,
+                mask=instance_mask,
+                point_cloud=point_cloud_instance,
+                category_id=category_id,
+            )
 
             # append instance view to list of instance views
             self.unprocessed_views[env_id][instance_id.item()] = instance_view
-            print('adding instance id', instance_id.item())
+            print("adding instance id", instance_id.item())
             import cv2
+
             # breakpoint()
-            cv2.imwrite(f'instance_{instance_id}.png', instance_mask.cpu().numpy().astype(np.uint8)*255)
+            cv2.imwrite(
+                f"instance_{instance_id}.png",
+                instance_mask.cpu().numpy().astype(np.uint8) * 255,
+            )
             # save cropped image
             # cv2.imwrite(f'cropped_image_{instance_id}.png', cropped_image.cpu().numpy().astype(np.uint8))
         self.timesteps[env_id] += 1
@@ -141,11 +184,24 @@ class InstanceMemory:
     def get_unprocessed_instances_per_env(self, env_id: int):
         return self.unprocessed_views[env_id]
 
-    def process_instances(self, semantic_channels: torch.Tensor, instance_channels: torch.Tensor, point_cloud: torch.Tensor, image: torch.Tensor):
+    def process_instances(
+        self,
+        semantic_channels: torch.Tensor,
+        instance_channels: torch.Tensor,
+        point_cloud: torch.Tensor,
+        image: torch.Tensor,
+    ):
         instance_map = instance_channels.argmax(dim=1).int()
         semantic_map = semantic_channels.argmax(dim=1).int()
         for env_id in range(self.num_envs):
-            self.process_instances_for_env(env_id, semantic_map[env_id], instance_map[env_id], point_cloud[env_id], image[env_id], semantic_map.shape[1])
+            self.process_instances_for_env(
+                env_id,
+                semantic_map[env_id],
+                instance_map[env_id],
+                point_cloud[env_id],
+                image[env_id],
+                semantic_map.shape[1],
+            )
 
     def reset_for_env(self, env_id: int):
         self.instance_views[env_id] = {}
@@ -153,6 +209,3 @@ class InstanceMemory:
         self.point_cloud[env_id] = None
         self.unprocessed_views[env_id] = {}
         self.timesteps[env_id] = 0
-
-    # def 
-

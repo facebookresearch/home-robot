@@ -8,20 +8,20 @@ from typing import Optional
 
 import torch.nn as nn
 
+from home_robot.agent.objectnav_agent.instance_tracking_modules import InstanceMemory
 from home_robot.mapping.semantic.categorical_2d_semantic_map_module import (
     Categorical2DSemanticMapModule,
 )
 from home_robot.navigation_policy.object_navigation.objectnav_frontier_exploration_policy import (
     ObjectNavFrontierExplorationPolicy,
 )
-from home_robot.agent.objectnav_agent.instance_tracking_modules import InstanceMemory
 
 # Do we need to visualize the frontier as we explore?
 debug_frontier_map = False
 
 
 class ObjectNavAgentModule(nn.Module):
-    def __init__(self, config, instance_memory:Optional[InstanceMemory]=None):
+    def __init__(self, config, instance_memory: Optional[InstanceMemory] = None):
         super().__init__()
         self.instance_memory = instance_memory
         self.semantic_map_module = Categorical2DSemanticMapModule(
@@ -49,8 +49,10 @@ class ObjectNavAgentModule(nn.Module):
                 config.AGENT.SEMANTIC_MAP, "record_instance_ids", False
             ),
             instance_memory=instance_memory,
-            max_instances=getattr(config.AGENT.SEMANTIC_MAP, 'max_instances', 0),
-            evaluate_instance_tracking=getattr(config.AGENT.SEMANTIC_MAP, 'evaluate_instance_tracking', False),
+            max_instances=getattr(config.AGENT.SEMANTIC_MAP, "max_instances", 0),
+            evaluate_instance_tracking=getattr(
+                config.AGENT.SEMANTIC_MAP, "evaluate_instance_tracking", False
+            ),
         )
         self.policy = ObjectNavFrontierExplorationPolicy(
             exploration_strategy=config.AGENT.exploration_strategy

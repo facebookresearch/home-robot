@@ -137,7 +137,7 @@ class HabitatObjectNavEnv(HabitatEnv):
                 self.semantic_category_mapping.instance_id_to_category_id
             )
             obs.semantic = instance_id_to_category_id[habitat_semantic[:, :, -1]]
-            obs.task_observations['instance_map'] = habitat_semantic[:, :, -1] + 1   
+            obs.task_observations["instance_map"] = habitat_semantic[:, :, -1] + 1
             # TODO Ground-truth semantic visualization
             obs.task_observations["semantic_frame"] = obs.rgb
         else:
@@ -154,14 +154,18 @@ class HabitatObjectNavEnv(HabitatEnv):
                 )
                 obs.semantic = obs.semantic.astype(int)
                 obs.task_observations["instance_map"] += 1
-                
+
             if type(self.semantic_category_mapping) == FloorplannertoMukulIndoor:
                 # First index is a dummy unused category
                 obs.semantic[obs.semantic == 0] = (
                     self.semantic_category_mapping.num_sem_categories - 1
                 )
-        obs.task_observations["instance_map"] = obs.task_observations["instance_map"].astype(int)
-        obs.task_observations["gt_instance_ids"] = obs.task_observations["gt_instance_ids"].astype(int)
+        obs.task_observations["instance_map"] = obs.task_observations[
+            "instance_map"
+        ].astype(int)
+        obs.task_observations["gt_instance_ids"] = obs.task_observations[
+            "gt_instance_ids"
+        ].astype(int)
         obs.task_observations["semantic_frame"] = np.concatenate(
             [obs.rgb, obs.semantic[:, :, np.newaxis]], axis=2
         ).astype(np.uint8)
