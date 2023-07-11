@@ -107,6 +107,7 @@ def get_semantic_map_vis(
     semantic_frame: np.array,
     depth_frame: np.array,
     color_palette: List[float],
+    # curr_pose: np.array,
     legend=None,
 ):
     vis_image = np.ones((655, 1820, 3)).astype(np.uint8) * 255
@@ -215,6 +216,22 @@ def get_semantic_map_vis(
     if legend is not None:
         lx, ly, _ = legend.shape
         vis_image[537 : 537 + lx, 155 : 155 + ly, :] = legend[:, :, ::-1]
+
+    # Draw agent arrow
+    # pos = (
+    #     (curr_x * 100.0 / self.map_resolution - gx1)
+    #     * SEMANTIC_MAP_WIDTH
+    #     / obstacle_map.shape[0],
+    #     (obstacle_map.shape[1] - curr_y * 100.0 / self.map_resolution + gy1)
+    #     * IMAGE_HEIGHT
+    #     / obstacle_map.shape[1],
+    #     np.deg2rad(-curr_o),
+    # )
+    # agent_arrow = vu.get_contour_points(
+    #     pos, origin=(SEMANTIC_MAP_ORIG_Y, SEMANTIC_MAP_ORIG_X), size=10
+    # )
+    # color = map_color_palette[9:12][::-1]
+    # cv2.drawContours(self.image_vis, [agent_arrow], 0, color, -1)
 
     return vis_image
 
@@ -351,7 +368,7 @@ def main(input_trajectory_dir: str, output_visualization_dir: str, legend_path: 
         obs_preprocessed = obs_preprocessed.permute(0, 3, 1, 2)
 
         # TODO Debug
-        curr_pose = np.array([-obs.gps[0], -obs.gps[1], obs.compass[0]])
+        curr_pose = np.array([obs.gps[0], obs.gps[1], -obs.compass[0]])
         pose_delta = (
             torch.tensor(pu.get_rel_pose_change(curr_pose, last_pose))
             .unsqueeze(0)
