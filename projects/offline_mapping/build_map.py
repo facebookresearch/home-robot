@@ -333,7 +333,6 @@ def main(input_trajectory_dir: str, output_visualization_dir: str, legend_path: 
                 - +X is forward
                 - +Y is leftward
                 - +Z is upward
-                - rotations are in 3D
         """
         rgb = torch.from_numpy(obs.rgb).to(device)
         depth = torch.from_numpy(obs.depth).unsqueeze(-1).to(device) * 100.0  # m to cm
