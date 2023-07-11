@@ -108,7 +108,6 @@ def get_semantic_map_vis(
     semantic_frame: np.array,
     depth_frame: np.array,
     color_palette: List[float],
-    curr_pose: np.array,
     legend=None,
 ):
     vis_image = np.ones((655, 1820, 3)).astype(np.uint8) * 255
@@ -229,22 +228,6 @@ def get_semantic_map_vis(
         / semantic_map.local_map_size,
         np.deg2rad(-curr_o),
     )
-
-    # pos = (
-    #     (
-    #         curr_pose[0] * 100.0 / semantic_map.resolution
-    #         - semantic_map.origins[0, 0].item()
-    #     )
-    #     + (semantic_map.local_map_size / 2),
-    #     semantic_map.local_map_size / 2
-    #     - (
-    #         curr_pose[1] * 100.0 / semantic_map.resolution
-    #         + semantic_map.origins[0, 1].item()
-    #     ),
-    #     -curr_pose[2],
-    # )
-    print("curr_pose", curr_pose)
-    print("pos", pos)
     agent_arrow = vu.get_contour_points(pos, origin=(1325, 50), size=10)
     color = map_color_palette[9:12]
     cv2.drawContours(vis_image, [agent_arrow], 0, color, -1)
@@ -282,9 +265,6 @@ def main(input_trajectory_dir: str, output_visualization_dir: str, legend_path: 
     for path in natsort.natsorted(glob.glob(f"{input_trajectory_dir}/*.pkl")):
         with open(path, "rb") as f:
             observations.append(pickle.load(f))
-
-    # TODO Debug
-    observations = observations[:50]
 
     # Predict semantic segmentation
     categories = [
@@ -462,7 +442,6 @@ def main(input_trajectory_dir: str, output_visualization_dir: str, legend_path: 
             obs.task_observations["semantic_frame"],
             depth_frame,
             coco_categories_color_palette,
-            np.array([obs.gps[0], obs.gps[1], obs.compass[0]]),
             legend,
         )
         vis_images.append(vis_image)
