@@ -228,8 +228,8 @@ def get_semantic_map_vis(
     )
     print("curr_pose", curr_pose)
     print("pos", pos)
-    agent_arrow = vu.get_contour_points(pos, origin=(1325, 50), size=100)
-    color = map_color_palette[9:12][::-1]
+    agent_arrow = vu.get_contour_points(pos, origin=(1325, 50), size=10)
+    color = map_color_palette[9:12]
     cv2.drawContours(vis_image, [agent_arrow], 0, color, -1)
 
     return vis_image
@@ -267,7 +267,7 @@ def main(input_trajectory_dir: str, output_visualization_dir: str, legend_path: 
             observations.append(pickle.load(f))
 
     # TODO Debug
-    observations = observations[:5]
+    observations = observations[:50]
 
     # Predict semantic segmentation
     categories = [
