@@ -183,7 +183,9 @@ class OVMMEvaluator(PPOTrainer):
                             **episode_metrics[episode_key],
                         }
                         if "goal_name" in episode_metrics[episode_key]:
-                            episode_metrics[episode_key]["goal_name"] = info["goal_name"]
+                            episode_metrics[episode_key]["goal_name"] = info[
+                                "goal_name"
+                            ]
                         episode_idxs[e] += 1
                         print(
                             f"Episode indexes {episode_idxs[e]} / {num_episodes_per_env[e]} "

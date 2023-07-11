@@ -500,7 +500,9 @@ class Visualizer:
                 vis_image[V.Y1 - 1 : V.Y2, x] = color
 
         # Draw legend
-        if os.path.exists(self.semantic_category_mapping.categories_legend_path):
+        if self.semantic_category_mapping is not None and os.path.exists(
+            self.semantic_category_mapping.categories_legend_path
+        ):
             legend = cv2.imread(self.semantic_category_mapping.categories_legend_path)
             lx, ly, _ = legend.shape
             vis_image[

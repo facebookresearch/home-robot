@@ -81,7 +81,7 @@ class RandomAgent(Agent):
                 [self.max_forward, self.max_forward, self.max_turn_radians],
             )
             joints = np.random.uniform(
-                -self.max_joints_delta, self.max_joints_delta, size=(7,)
+                -self.max_joints_delta, self.max_joints_delta, size=(10,)
             )
             action = ContinuousFullBodyAction(joints, xyt)
         self.timestep += 1
