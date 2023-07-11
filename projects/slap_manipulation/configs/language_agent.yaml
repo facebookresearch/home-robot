@@ -22,15 +22,16 @@ ENVIRONMENT:
   category_map_file: projects/stretch_ovmm/configs/example_cat_map.json
 
 CORLAGENT:
-  llm_run: True
+  llm_run: True           # switch b/w using GT plans and LLM plans
+  per_skill: False        # switch b/w running longitudinal plans and per-skill plans (only SLAP)
 
 PERACT:
-  scene_bounds: [ -0.75 , -0.75 , -0.75 , 0.75 , 0.75 , 0.75]
-  cameras: ["head"]
-  voxel_sizes: [100]
-  num_latents: 256
-  dim_latents: 512
-  model_path: data/checkpoints/corl_peract/peract_latest.pth
+  scene_bounds: [ -0.75 , -0.75 , -0.75 , 0.75 , 0.75 , 0.75]  # scene-bounds for peract to create VoxelGrid
+  cameras: ["head"]       # cameras to extract information from
+  voxel_sizes: [100]      # number of voxels per dimension ([100] = 100x100x100)
+  num_latents: 256        # number of latents in PerceiverIO
+  dim_latents: 512        # dimension of latents in PerceiverIO
+  model_path: data/checkpoints/corl_peract/peract_latest.pth  # checkpoint path
 
 AGENT:
   max_steps: 500          # maximum number of steps before stopping an episode
@@ -105,61 +106,61 @@ EVAL_VECTORIZED:
   record_planner_videos: 0  # 1: record planner videos (if record videos), 0: don't
 
 SLAP:
-  dry_run: False  # whether to run SLAP Agent in dry_run mode
-  min_depth: 0.3  # minimum depth for filtering observations
-  max_depth: 1.5  # maximum depth for filtering observations
-  z_min: 0.15  # minimum height for filtering observations (everything below base is cut-off, i.e.  inaccessible by gripper)
-  voxel_size_1: 0.001  # resolution for voxelization used for removal of duplicate/overlapping points
-  voxel_size_2: 0.01  # resolution for final voxelization used for prediction
-  visualize: True  # whether to visualize the results
-  save_logs: True  # whether to save results as np files
+  dry_run: False                # whether to run SLAP Agent in dry_run mode
+  min_depth: 0.3                # minimum depth for filtering observations
+  max_depth: 1.5                # maximum depth for filtering observations
+  z_min: 0.15                   # minimum height for filtering observations (everything below base is cut-off, i.e.  inaccessible by gripper)
+  voxel_size_1: 0.001           # resolution for voxelization used for removal of duplicate/overlapping points
+  voxel_size_2: 0.01            # resolution for final voxelization used for prediction
+  visualize: True               # whether to visualize the results
+  save_logs: True               # whether to save results as np files
   IPM:
-    validate: False  # training/validation: whether validation is performed (accesses GT)
-    datadir: False  # training/validation: path to dataset
-    template: "*.h5"  # training/validation: template for dataset files
-    load: False  # training/validation: whether to load a checkpoint
-    resume: False  # training: whether to resume training
-    debug: False  # training/validation: whether to run in debug mode
-    learning_rate: 1e-3  # training: learning rate for LAMB
-    task_name: open_drawer  # training/validation: task name, useful when saving checkpoints
-    source: stretch  # training/validation: source of data
-    run_for: -1  # time-based termination, -1 means iter based termination is used
-    wandb: False  # training/validation: whether to use wandb
-    split: False  # training/validation: placeholder for split file provided from cmd-line
-    data_augmentation: True  # training/validation: whether to use data augmentation
-    color_jitter: False  # training/validation: whether to use color jitter
-    loss_fn: "xent"  # training/validation: loss function to use (supports xent, bce)
-    max_iter: 30  # training/validation: maximum number of training iterations
+    validate: False             # training/validation: whether validation is performed (accesses GT)
+    datadir: False              # training/validation: path to dataset
+    template: "*.h5"            # training/validation: template for dataset files
+    load: False                 # training/validation: whether to load a checkpoint
+    resume: False               # training: whether to resume training
+    debug: False                # training/validation: whether to run in debug mode
+    learning_rate: 1e-3         # training: learning rate for LAMB
+    task_name: open_drawer      # training/validation: task name, useful when saving checkpoints
+    source: stretch             # training/validation: source of data
+    run_for: -1                 # time-based termination, -1 means iter based termination is used
+    wandb: False                # training/validation: whether to use wandb
+    split: False                # training/validation: placeholder for split file provided from cmd-line
+    data_augmentation: True     # training/validation: whether to use data augmentation
+    color_jitter: False         # training/validation: whether to use color jitter
+    loss_fn: "xent"             # training/validation: loss function to use (supports xent, bce)
+    max_iter: 30                # training/validation: maximum number of training iterations
     path: data/checkpoints/corl/ipm.pth  # execution/validation: path to checkpoint for experiments
   APM:
-    task_name: test  # training/validation: (placeholder) task name, useful when saving checkpoints
-    action_idx: -1  # training/validation: (placeholder) action index to train/validate on; useful for debugging
-    datadir: False  # training/validation: path to dataset (placeholder)
-    split: False  # training/validation: placeholder for split file provided from cmd-line
-    load: False  # training/validation: path to checkpoint
-    max_actions: 6  # maximum number of actions APM supports for prediction
+    task_name: test         # training/validation: (placeholder) task name, useful when saving checkpoints
+    action_idx: -1          # training/validation: (placeholder) action index to train/validate on; useful for debugging
+    datadir: False          # training/validation: path to dataset (placeholder)
+    split: False            # training/validation: placeholder for split file provided from cmd-line
+    load: False             # training/validation: path to checkpoint
+    max_actions: 6          # maximum number of actions APM supports for prediction
     path: data/checkpoints/corl/apm.pth  # execution/validation: path to checkpoint for experiments
 
-    num_pts: 8000  # number of points to sample from the point cloud
+    num_pts: 8000           # number of points to sample from the point cloud
     orientation_type: "quaternion"  # quaternion, rpy, or euler
-    learning_rate: 1e-4  # training: learning rate for Adam
+    learning_rate: 1e-4     # training: learning rate for Adam
     lambda_weight_l2: 0.00001  # training: weight for L2 regularization
-    optim: adam  # training: optimizer to use (supports adam, LAMB)
-    multi_step: True   # training: whether to use multi-step loss
-    num_heads: 1  # training: number of heads for multi-step loss
-    crop_size: 0.1  # training/validation: crop size for cropping point cloud for IPM
-    query_radius: 0.16  # training/validation/execution: radius for cropping point cloud for APM
+    optim: adam             # training: optimizer to use (supports adam, LAMB)
+    multi_step: True        # training: whether to use multi-step loss
+    num_heads: 1            # training: number of heads for multi-step loss
+    crop_size: 0.1          # training/validation: crop size for cropping point cloud for IPM
+    query_radius: 0.16      # training/validation/execution: radius for cropping point cloud for APM
     k: 3  # (placeholder) number of actions in trajectory (read from task_information.yaml)
-    lang_max_seq_len: 77  # maximum sequence length for language tokens
+    lang_max_seq_len: 77    # maximum sequence length for language tokens
     clip_model: "ViT-B/32"  # clip model to use
-    max_iter: 50  # training: maximum number of training iterations
-    dry_run: False  # whether to run APM Agent in dry_run mode
-    validate: False  # training/validation: whether validation is performed (accesses GT)
-    template: "*.h5"  # training/validation: template for dataset files
+    max_iter: 50            # training: maximum number of training iterations
+    dry_run: False          # whether to run APM Agent in dry_run mode
+    validate: False         # training/validation: whether validation is performed (accesses GT)
+    template: "*.h5"        # training/validation: template for dataset files
     data_augmentation: True  # training/validation: whether to use data augmentation
-    source: "stretch"  # training/validation: source of data
-    wandb: False  # training/validation: whether to use wandb
-    debug: False  # training/validation: whether to run in debug mode
+    source: "stretch"       # training/validation: source of data
+    wandb: False            # training/validation: whether to use wandb
+    debug: False            # training/validation: whether to run in debug mode
 
     # following describes the architecture of the APM model
     dims:
@@ -170,12 +171,12 @@ SLAP:
       position: 3
       orientation: 4
 
-    handover_weights:
+    handover_weights:    # weights for noisier trajectories (handover, pouring)
       position: 1e-1
       orientation: 1e-1
       gripper: 1e-4
 
-    weights:
+    weights:            # weights for cleaner trajectories (opening/closing drawer, taking bottle)
       position: 1.0
       orientation: 1e-3
       gripper: 1e-4
@@ -198,21 +199,11 @@ SLAP:
       gripper_mlp: [1536, 512, 64]
       pos_in_channels: 3
 
-    per_action_cmd: False
-    gru_hidden_dim: 512
-    gru_hidden_layers: 2
-    use_mdn: False
+    per_action_cmd: False # different string description for each action (reads from per_cmd_language.yaml)
+    gru_hidden_dim: 512   # hidden dimension of GRU
+    gru_hidden_layers: 2  # number of hidden layers in GRU
+    use_mdn: False        # whether to use mixture density network for regression (not supported)
     skill_to_action_file: projects/slap_manipulation/configs/per_cmd_language.yaml
-
-TASKS:
-  std_names:
-  - open-object-drawer
-  - close-object-drawer
-  - handover-to-person
-  - take-bottle
-  - pour-into-bowl
-  - pour-into-sink
-  - sweep-table-with-brush
 
 
 EVAL:  # ordered list of tasks, implicated object (for Detic) and actions in demo trajectory
