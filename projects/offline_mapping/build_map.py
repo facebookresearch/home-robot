@@ -206,7 +206,7 @@ def get_semantic_map_vis(
     # Draw legend
     if legend is not None:
         lx, ly, _ = legend.shape
-        vis_image[537 : 537 + lx, 155 : 155 + ly, :] = legend
+        vis_image[537 : 537 + lx, 155 : 155 + ly, :] = legend[:, :, ::-1]
 
     return vis_image
 
