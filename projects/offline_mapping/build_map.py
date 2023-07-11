@@ -24,6 +24,7 @@ sys.path.insert(
 )
 
 import home_robot.utils.pose as pu
+import home_robot.utils.visualization as vu
 from home_robot.core.interfaces import Observations
 from home_robot.mapping.semantic.categorical_2d_semantic_map_module import (
     Categorical2DSemanticMapModule,
@@ -218,19 +219,16 @@ def get_semantic_map_vis(
         vis_image[537 : 537 + lx, 155 : 155 + ly, :] = legend[:, :, ::-1]
 
     # Draw agent arrow
-    # pos = (
-    #     (curr_pose[0] * 100.0 / semantic_map.map_resolution) * SEMANTIC_MAP_WIDTH
-    #     / obstacle_map.shape[0],
-    #     (obstacle_map.shape[1] - curr_y * 100.0 / self.map_resolution + gy1)
-    #     * IMAGE_HEIGHT
-    #     / obstacle_map.shape[1],
-    #     np.deg2rad(-curr_o),
-    # )
-    # agent_arrow = vu.get_contour_points(
-    #     pos, origin=(SEMANTIC_MAP_ORIG_Y, SEMANTIC_MAP_ORIG_X), size=10
-    # )
-    # color = map_color_palette[9:12][::-1]
-    # cv2.drawContours(self.image_vis, [agent_arrow], 0, color, -1)
+    pos = (
+        (curr_pose[0] * 100.0 / semantic_map.map_resolution)
+        * semantic_map.local_map_size,
+        (curr_pose[1] * 100.0 / semantic_map.map_resolution)
+        * semantic_map.local_map_size,
+        curr_pose[2],
+    )
+    agent_arrow = vu.get_contour_points(pos, origin=(50, 1325), size=10)
+    color = map_color_palette[9:12][::-1]
+    cv2.drawContours(vis_image, [agent_arrow], 0, color, -1)
 
     return vis_image
 
@@ -265,6 +263,9 @@ def main(input_trajectory_dir: str, output_visualization_dir: str, legend_path: 
     for path in natsort.natsorted(glob.glob(f"{input_trajectory_dir}/*.pkl")):
         with open(path, "rb") as f:
             observations.append(pickle.load(f))
+
+    # TODO Debug
+    observations = observations[:5]
 
     # Predict semantic segmentation
     categories = [
