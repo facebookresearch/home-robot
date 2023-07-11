@@ -297,7 +297,7 @@ def main(input_trajectory_dir: str, output_visualization_dir: str, legend_path: 
         frame_height=obs.rgb.shape[0],
         frame_width=obs.rgb.shape[1],
         camera_height=obs.camera_pose[2, 3],
-        hfov=79.0,  # 47.0,  # 42.0,
+        hfov=47.0,  # 42.0,
         num_sem_categories=num_sem_categories,
         map_size_cm=4800,
         map_resolution=5,
@@ -410,7 +410,7 @@ def main(input_trajectory_dir: str, output_visualization_dir: str, legend_path: 
         # Visualize map
         vis_image = get_semantic_map_vis(
             semantic_map,
-            obs.task_observations["semantic_frame"],
+            obs.depth,  # obs.task_observations["semantic_frame"],
             coco_categories_color_palette,
             legend,
         )
