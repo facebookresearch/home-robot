@@ -129,9 +129,9 @@ class InstanceMemory:
                     instance_mask.nonzero().min(dim=0)[0],
                     instance_mask.nonzero().max(dim=0)[0],
                 ]
-            )
+            ).cpu().numpy()
             # get cropped image
-            cropped_image = image[bbox[0, 0] : bbox[1, 0], bbox[0, 1] : bbox[1, 1]]
+            cropped_image = image[:, bbox[0, 0] : bbox[1, 0], bbox[0, 1] : bbox[1, 1]].permute(1, 2, 0).cpu().numpy().astype(np.uint8)
             # get embedding
             embedding = None
 
@@ -145,7 +145,7 @@ class InstanceMemory:
                 .squeeze(0)
                 .squeeze(0)
                 .bool()
-            )
+            ).cpu().numpy()
             # get point cloud
             point_cloud_instance = point_cloud[instance_mask]
 
