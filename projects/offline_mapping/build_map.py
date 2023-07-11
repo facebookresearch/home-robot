@@ -102,10 +102,9 @@ coco_categories_color_palette = [
 ]
 
 
-def save_semantic_map_vis(
+def get_semantic_map_vis(
     semantic_map: Categorical2DSemanticMapState,
     semantic_frame: np.array,
-    visualization_path: Path,
     color_palette: List[float],
     legend=None,
 ):
@@ -209,7 +208,16 @@ def save_semantic_map_vis(
         lx, ly, _ = legend.shape
         vis_image[537 : 537 + lx, 155 : 155 + ly, :] = legend
 
-    plt.imsave(visualization_path, vis_image)
+    return vis_image
+
+
+def create_video(images, output_file, fps):
+    height, width, _ = images[0].shape
+    fourcc = cv2.VideoWriter_fourcc(*"mp4v")
+    video_writer = cv2.VideoWriter(output_file, fourcc, fps, (width, height))
+    for image in images:
+        video_writer.write(image)
+    video_writer.release()
 
 
 @click.command()
@@ -355,6 +363,7 @@ def main(input_trajectory_dir: str, output_visualization_dir: str, legend_path: 
     else:
         legend = None
     Path(output_visualization_dir).mkdir(parents=True, exist_ok=True)
+    vis_images = []
 
     for i, obs in enumerate(observations):
         # Preprocess observation
@@ -401,13 +410,16 @@ def main(input_trajectory_dir: str, output_visualization_dir: str, legend_path: 
         semantic_map.origins = seq_origins[:, -1]
 
         # Visualize map
-        save_semantic_map_vis(
+        vis_image = get_semantic_map_vis(
             semantic_map,
             obs.task_observations["semantic_frame"],
-            Path(output_visualization_dir) / f"{i}.png",
             coco_categories_color_palette,
             legend,
         )
+        vis_images.append(vis_image)
+        plt.imsave(Path(output_visualization_dir) / f"{i}.png", vis_image)
+
+    create_video(vis_images, f"{output_visualization_dir}/video.mp4", fps=20)
 
 
 if __name__ == "__main__":
