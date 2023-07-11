@@ -9,11 +9,15 @@ This is only for processing inference-time data at the moment.
 TODO:   Make these methods generic enough to support H5 data processing as well.
         Right now the data processing in dataloaders occures using class's native methods
 """
-from typing import List, Tuple
+from typing import List, Optional, Tuple
 
 import numpy as np
+from slap_manipulation.utils.data_visualizers import (
+    show_point_cloud_with_keypt_and_closest_pt,
+    show_semantic_mask,
+)
 
-from home_robot.utils.point_cloud import show_point_cloud
+from home_robot.utils.point_cloud import numpy_to_pcd, show_point_cloud
 
 
 def crop_around_voxel(
@@ -70,7 +74,6 @@ def filter_and_remove_duplicate_points(
     feats: np.ndarray,
     depth: np.ndarray = None,
     voxel_size: float = 0.001,
-    semantic_id: float = 0,
     debug_voxelization: bool = False,
 ):
     """filters out points based on depth and them removes duplicate/overlapping
@@ -148,3 +151,111 @@ def voxelize_point_cloud(
         show_semantic_mask(xyz, rgb, feats=feat)
 
     return xyz, rgb, feat
+
+
+def voxelize_and_get_interaction_point(
+    xyz,
+    rgb,
+    feats,
+    interaction_ee_keyframe,
+    voxel_size=0.01,
+    debug=False,
+    semantic_id=1,
+) -> Tuple[
+    Optional[np.ndarray],
+    Optional[np.ndarray],
+    Optional[np.ndarray],
+    Optional[np.ndarray],
+    Optional[np.ndarray],
+    Optional[np.ndarray],
+    Optional[np.ndarray],
+]:
+    """uniformly voxelizes the input point-cloud and returns the closest-point
+    in the point-cloud to the task's interaction ee-keyframe"""
+    # voxelize another time to get sampled version
+    input_pcd = numpy_to_pcd(xyz, rgb)
+    (
+        voxelized_pcd,
+        _,
+        voxelized_index_trace_vectors,
+    ) = input_pcd.voxel_down_sample_and_trace(
+        voxel_size, input_pcd.get_min_bound(), input_pcd.get_max_bound()
+    )
+    voxelized_index_trace = []
+    for intvec in voxelized_index_trace_vectors:
+        voxelized_index_trace.append(np.asarray(intvec))
+    voxelized_xyz = np.asarray(voxelized_pcd.points)
+    voxelized_rgb = np.asarray(voxelized_pcd.colors)
+    voxelized_feats = aggregate_feats(feats, voxelized_index_trace)
+
+    if debug:
+        show_semantic_mask(voxelized_xyz, voxelized_rgb, voxelized_feats, semantic_id)
+
+    # for the voxelized pcd
+    if voxelized_xyz.shape[0] < 10:
+        return (None, None, None, None, None, None)
+    voxelized_pcd_tree = o3d.geometry.KDTreeFlann(voxelized_pcd)
+    # Find closest points based on ref_ee_keyframe
+    # This is used to supervise the location when we're detecting where the action
+    # could have happened
+    [_, target_idx_1, _] = voxelized_pcd_tree.search_knn_vector_3d(
+        interaction_ee_keyframe[:3, 3], 1
+    )
+    target_idx_down_pcd = np.asarray(target_idx_1)[0]
+    closest_pt_down_pcd = voxelized_xyz[target_idx_down_pcd]
+
+    # this is for exact point
+    # @Priyam I do not think the following is really needed
+    input_pcd_tree = o3d.geometry.KDTreeFlann(input_pcd)
+    [_, target_idx_2, _] = input_pcd_tree.search_knn_vector_3d(
+        # ee_keyframe[:3, 3], 1
+        interaction_ee_keyframe[:3, 3],
+        1,
+    )
+    target_idx_og_pcd = np.asarray(target_idx_2)[0]
+    closest_pt_og_pcd = xyz[target_idx_og_pcd]
+
+    if debug:
+        print("Closest point in voxelized pcd")
+        show_point_cloud_with_keypt_and_closest_pt(
+            voxelized_xyz,
+            voxelized_rgb,
+            interaction_ee_keyframe[:3, 3],
+            interaction_ee_keyframe[:3, :3],
+            voxelized_xyz[target_idx_down_pcd].reshape(3, 1),
+        )
+        print("Closest point in original pcd")
+        show_point_cloud_with_keypt_and_closest_pt(
+            xyz,
+            rgb,
+            interaction_ee_keyframe[:3, 3],
+            interaction_ee_keyframe[:3, :3],
+            xyz[target_idx_og_pcd].reshape(3, 1),
+        )
+    return (
+        voxelized_xyz,
+        voxelized_rgb,
+        voxelized_feats,
+        target_idx_down_pcd,
+        closest_pt_down_pcd,
+        target_idx_og_pcd,
+        closest_pt_og_pcd,
+    )
+
+
+def aggregate_feats(feats: np.ndarray, downsampled_index_trace: List[np.ndarray]):
+    """
+    this method is used to aggregate features over a downsampled point-cloud
+    while using its index-trace (from Open3D)
+    feats: (N, feat_dim)
+    downsampled_index_trace: list of list of index
+    """
+    # downsampled_index_trace is a list of list of index
+    # average feats over each list of index
+    agg_feats = []
+    _, feat_dim = feats.shape
+    for idx in downsampled_index_trace:
+        most_freq_feat = np.bincount(feats[idx, :].reshape(-1)).argmax()
+        agg_feats.append(most_freq_feat)
+    agg_feats = np.stack(agg_feats, axis=0).reshape(-1, feat_dim)
+    return agg_feats

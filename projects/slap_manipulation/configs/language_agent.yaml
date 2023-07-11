@@ -19,7 +19,7 @@ ENVIRONMENT:
   min_depth: 0.5          # minimum depth for depth sensor (in metres)
   max_depth: 5.0          # maximum depth for depth sensor (in metres)
   use_detic_viz: True
-  category_map_file: projects/stretch_ovmm/configs/example_cat_map.json
+  category_map_file: projects/real_world_ovmm/configs/example_cat_map.json
 
 AGENT:
   max_steps: 500          # maximum number of steps before stopping an episode
@@ -94,8 +94,9 @@ EVAL_VECTORIZED:
   record_planner_videos: 0  # 1: record planner videos (if record videos), 0: don't
 
 CORLAGENT:
-  llm_run: True           # switch b/w using GT plans and LLM plans
-  per_skill: False        # switch b/w running longitudinal plans and per-skill plans (only SLAP)
+  llm_run: False           # switch b/w using GT plans and LLM plans
+  per_skill: True        # switch b/w running longitudinal plans and per-skill plans (only SLAP)
+  verbose: True
 
 SLAP:
   dry_run: False                # whether to run SLAP Agent in dry_run mode

@@ -25,7 +25,7 @@ from home_robot_hw.utils.config import load_slap_config
 @click.option("--task-id", default=0)
 @click.option(
     "--cat-map-file",
-    default="projects/stretch_ovmm/configs/example_cat_map.json",
+    default="projects/real_world_ovmm/configs/example_cat_map.json",
 )
 @click.option("--start-from", default=0)
 def main(
@@ -52,7 +52,7 @@ def main(
         test_grasping=test_pick,
         dry_run=dry_run,
         # segmentation_method="detic",
-        cat_map_file=cat_map_file,
+        cat_map_file=config.ENVIRONMENT.category_map_file,
     )
     agent = GeneralLanguageAgent(
         cfg=config,

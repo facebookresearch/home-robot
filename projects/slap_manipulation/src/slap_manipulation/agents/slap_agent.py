@@ -145,7 +145,7 @@ class SLAPAgent(object):
 
         # only keep feat which is == semantic_id
         if feat is not None:
-            feat[feat >= (len(obs.task_observations["object_list"]) + 2)] = 0
+            # feat[feat >= (len(obs.task_observations["object_list"]) + 1)] = 0
             feat[feat != semantic_id] = 0
 
         # proprio looks different now
@@ -176,7 +176,10 @@ class SLAPAgent(object):
 
         # voxelize at a granular voxel-size then choose X points
         xyz, rgb, feat = filter_and_remove_duplicate_points(
-            xyz, rgb, feat, voxel_size=self._voxel_size_1, semantic_id=1
+            xyz,
+            rgb,
+            feat,
+            voxel_size=self._voxel_size_1,
         )
 
         og_xyz = np.copy(xyz)
@@ -196,7 +199,7 @@ class SLAPAgent(object):
             feat = feat[downsample_mask]
 
         # mean-center the point cloud
-        xyz, og_xyz = self.mean_center([xyz, og_xyz])
+        xyz, og_xyz, mean = self.mean_center([xyz, og_xyz])
 
         if np.any(rgb > 1.0):
             raise RuntimeWarning(
@@ -237,7 +240,7 @@ class SLAPAgent(object):
     def mean_center(self, xyzs: List[np.ndarray]) -> List[np.ndarray]:
         """mean centers a list of point clouds based on the mean of 1st entry in the list"""
         mean = xyzs[0].mean(axis=0)
-        return [xyz - mean for xyz in xyzs]
+        return [xyz - mean for xyz in xyzs] + [mean]
 
     def create_action_prediction_input_from_obs(
         self,
@@ -250,7 +253,7 @@ class SLAPAgent(object):
         interaction_point"""
         xyz = ipm_data["og_xyz"]
         rgb = ipm_data["og_rgb"]
-        if np.any(rgb > 1.0):
+        if torch.any(rgb > 1.0):
             raise RuntimeWarning(
                 f"rgb values should be in range [0, 1] or [-1, 1]: got {rgb.min()} to {rgb.max()}"
             )

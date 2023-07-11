@@ -950,7 +950,7 @@ def debug_get_datum(data_dir, k_index, split, robot, waypoint_language):
 @click.option("--split", help="json file with train-test-val split")
 @click.option("--template", default="*.h5")
 @click.option("--robot", default="stretch")
-@click.option("--skip-names", default="", multiple=True)
+@click.option("--skip-names", default=[], multiple=True)
 def show_all_keypoints(data_dir, split, template, robot, skip_names):
     """function which visualizes keypoints overlaid on initial frame, then
     visualizes the input frame for each keypoint with labeled interaction

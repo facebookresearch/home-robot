@@ -119,7 +119,8 @@ class CombinedSLAPPlanner(object):
             # TODO: also rotate the gripper as per 1st action
             begin_pose[:3, :3] = actions_pose_mat[0, :3, :3]
             # get current gripper reading, keep gripper as is during this motion
-            gripper = np.array([int(self.robot.manip.get_gripper_position() < -0.01)])
+            # gripper = np.array([int(self.robot.manip.get_gripper_position() < -0.01)])
+            gripper = np.array([-1])  # do not change state
             actions_pose_mat = np.concatenate(
                 (
                     np.expand_dims(begin_pose, 0),
@@ -201,6 +202,7 @@ class CombinedSLAPPlanner(object):
             return False
 
         for i, (name, waypoint, grasp) in enumerate(trajectory):
+            self.robot.manip.goto_joint_positions(waypoint)
             if grasp == 1:
                 self.robot.manip.close_gripper()
                 if self.mode == "open":

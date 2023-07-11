@@ -16,7 +16,7 @@ from home_robot_hw.ros.utils import matrix_to_pose_msg
 class Visualizer(object):
     """Simple visualizer to send a single marker message"""
 
-    def __init__(self, topic_name: str, rgba: Optional[List, np.ndarray] = None):
+    def __init__(self, topic_name: str, rgba: Optional[List] = None):
         self.pub = rospy.Publisher(topic_name, Marker, queue_size=1)
         if rgba is None:
             rgba = [1, 0, 0, 0.75]
@@ -56,7 +56,7 @@ class Visualizer(object):
 class ArrayVisualizer(object):
     """Simple visualizer to send an array of marker message"""
 
-    def __init__(self, topic_name: str, rgba: Optional[List, np.ndarray] = None):
+    def __init__(self, topic_name: str, rgba: Optional[List] = None):
         self.array_pub = rospy.Publisher(topic_name, MarkerArray, queue_size=1)
         if rgba is None:
             rgba = [1, 0, 0, 0.75]

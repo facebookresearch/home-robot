@@ -62,7 +62,7 @@ class GeneralLanguageEnv(StretchPickandPlaceEnv):
         self.closed_loop = closed_loop
         self.current_goal_id = None
         self.current_goal_name = None
-        self.skill_planner = CombinedSLAPPlanner(self.robot, {})
+        self.skill_planner = CombinedSLAPPlanner(self.robot)
         self.debug_visualizer = Visualizer("orientation_goal", [0, 0.5, 0.5, 0.5])
         self.interaction_visualizer = Visualizer("interaction_point", [1, 0, 0, 0.5])
         self.action_visualizer = ArrayVisualizer("slap_actions", [0.5, 0.5, 0, 0.5])
