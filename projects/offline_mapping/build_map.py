@@ -209,9 +209,7 @@ def save_semantic_map_vis(
         lx, ly, _ = legend.shape
         vis_image[537 : 537 + lx, 155 : 155 + ly, :] = legend
 
-    # path = Path(visualization_path).parent
-    # path.mkdir(parents=True, exist_ok=True)
-    # plt.imsave(visualization_path, semantic_map_vis)
+    plt.imsave(visualization_path, semantic_map_vis)
 
 
 @click.command()
@@ -360,6 +358,7 @@ def main(input_trajectory_dir: str, output_visualization_dir: str, legend_path: 
         legend = cv2.imread(legend_path)
     else:
         legend = None
+    Path(output_visualization_dir).mkdir(parents=True, exist_ok=True)
 
     for i, obs in enumerate(observations):
         # Preprocess observation
