@@ -171,7 +171,6 @@ class ObjectNavAgent(Agent):
                  predictions
         """
         dones = torch.tensor([False] * self.num_environments)
-        print(f"==== {self.timesteps_before_goal_update[0]} ====")
         update_global = torch.tensor(
             [
                 self.timesteps_before_goal_update[e] == 0
@@ -225,7 +224,6 @@ class ObjectNavAgent(Agent):
             self.semantic_map.update_frontier_map(e, frontier_map[e][0].cpu().numpy())
             if found_goal[e]:
                 self.semantic_map.update_global_goal_for_env(e, goal_map[e])
-                print("found goal")
             elif self.timesteps_before_goal_update[e] == 0:
                 self.semantic_map.update_global_goal_for_env(e, goal_map[e])
                 self.timesteps_before_goal_update[e] = self.goal_update_steps
