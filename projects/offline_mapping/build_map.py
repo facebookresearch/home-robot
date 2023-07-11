@@ -309,6 +309,8 @@ def main(input_trajectory_dir: str, output_visualization_dir: str, legend_path: 
         cat_pred_threshold=5.0,
         exp_pred_threshold=1.0,
         map_pred_threshold=1.0,
+        min_depth=0.5,
+        max_depth=1.5,  # 3.5,
         must_explore_close=False,
         min_obs_height_cm=10,
     ).to(device)
