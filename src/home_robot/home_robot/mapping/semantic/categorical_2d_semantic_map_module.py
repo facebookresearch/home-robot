@@ -718,21 +718,6 @@ class Categorical2DSemanticMapModule(nn.Module):
             )
         return current_map, current_pose
 
-    def cluster_binary_map(self, binary_map: Tensor) -> Tensor:
-        """
-        Performs connected component analysis on a binary map.
-
-        Args:
-            binary_map (Tensor): A binary map tensor.
-
-        Returns:
-            Tensor: A tensor containing the labels after connected component analysis.
-
-        """
-        labels = measure.label(
-            binary_map.cpu().numpy(), connectivity=2
-        )  # Perform connected component analysis
-        return torch.tensor(labels, dtype=torch.int64, device=binary_map.device)
 
     def update_instances_in_global_map(
         self,
