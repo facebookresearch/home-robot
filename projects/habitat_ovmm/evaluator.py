@@ -261,7 +261,8 @@ class OVMMEvaluator(PPOTrainer):
                         **metrics_at_skill_end,
                         **current_episode_metrics,
                     }
-                    current_episode_metrics["goal_name"] = info["goal_name"]
+                    if "goal_name" in info:
+                        current_episode_metrics["goal_name"] = info["goal_name"]
 
             metrics = self._extract_scalars_from_info(hab_info)
             metrics_at_episode_end = {"END." + k: v for k, v in metrics.items()}
@@ -269,7 +270,7 @@ class OVMMEvaluator(PPOTrainer):
                 **metrics_at_episode_end,
                 **current_episode_metrics,
             }
-            if "goal_name" in current_episode_metrics:
+            if "goal_name" in info:
                 current_episode_metrics["goal_name"] = info["goal_name"]
 
             episode_metrics[current_episode_key] = current_episode_metrics
@@ -385,7 +386,7 @@ class OVMMEvaluator(PPOTrainer):
                         **metrics_at_skill_end,
                         **current_episode_metrics,
                     }
-                    if "goal_name" in current_episode_metrics:
+                    if "goal_name" in info:
                         current_episode_metrics["goal_name"] = info["goal_name"]
 
             metrics = self._extract_scalars_from_info(hab_info)
@@ -394,7 +395,7 @@ class OVMMEvaluator(PPOTrainer):
                 **metrics_at_episode_end,
                 **current_episode_metrics,
             }
-            if "goal_name" in current_episode_metrics:
+            if "goal_name" in info:
                 current_episode_metrics["goal_name"] = info["goal_name"]
 
             episode_metrics[current_episode_key] = current_episode_metrics
