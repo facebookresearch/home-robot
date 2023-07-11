@@ -1,5 +1,7 @@
-import pandas as pd
 from typing import Optional
+
+import pandas as pd
+
 
 def aggregate_metrics(episode_metrics_df: pd.DataFrame) -> pd.DataFrame:
     """Aggregate metrics for each episode.
@@ -21,6 +23,7 @@ def aggregate_metrics(episode_metrics_df: pd.DataFrame) -> pd.DataFrame:
     # Compute aggregated metrics for each column, excluding NaN values, to get mean, min, max, and count
     aggregated_metrics = episode_metrics_df.agg(["mean", "min", "max", "count"], axis=0)
     return aggregated_metrics.T
+
 
 def compute_stats(aggregated_metrics: pd.DataFrame) -> dict:
     """Compute stage-wise successes and other useful metrics.
@@ -52,6 +55,7 @@ def compute_stats(aggregated_metrics: pd.DataFrame) -> dict:
 
     stats["partial_success"] = aggregated_metrics.loc["partial_success"]["mean"]
     return stats
+
 
 def get_stats_from_episode_metrics(
     episode_metrics: pd.DataFrame,

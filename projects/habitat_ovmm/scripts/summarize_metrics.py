@@ -5,19 +5,13 @@ import sys
 from enum import IntEnum, auto
 from typing import Optional
 
-import pandas as pd
 import numpy as np
+import pandas as pd
 
-import sys
-sys.path.append('projects/habitat_ovmm/')
+sys.path.append("projects/habitat_ovmm/")
 from metrics_utils import get_stats_from_episode_metrics
 
 verbose = False
-
-
-
-
-
 
 
 def read_single_json(json_filename: str) -> pd.DataFrame:
@@ -81,9 +75,6 @@ def get_metrics_from_jsons(folder_name: str, exp_name: str) -> pd.DataFrame:
         return None
 
     return pd.concat(dfs)
-
-
-
 
 
 def get_summary(args: argparse.Namespace, exclude_substr: str = "viz"):

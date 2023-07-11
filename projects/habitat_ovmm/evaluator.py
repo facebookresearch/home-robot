@@ -10,19 +10,20 @@ import time
 from collections import defaultdict
 
 import numpy as np
+import pandas as pd
 from habitat import make_dataset
 from habitat.core.environments import get_env_class
 from habitat.core.vector_env import VectorEnv
 from habitat.utils.gym_definitions import _get_env_name
 from habitat_baselines.rl.ppo.ppo_trainer import PPOTrainer
+from metrics_utils import get_stats_from_episode_metrics
 from omegaconf import DictConfig
 
 from home_robot.agent.ovmm_agent.ovmm_agent import OpenVocabManipAgent
 from home_robot_sim.env.habitat_ovmm_env.habitat_ovmm_env import (
     HabitatOpenVocabManipEnv,
 )
-from metrics_utils import get_stats_from_episode_metrics
-import pandas as pd
+
 
 def create_ovmm_env_fn(config):
     """Create habitat environment using configsand wrap HabitatOpenVocabManipEnv around it. This function is used by VectorEnv for creating the individual environments"""
@@ -93,7 +94,6 @@ class OVMMEvaluator(PPOTrainer):
         with open(f"{self.results_dir}/episode_results.json", "w") as f:
             json.dump(episode_metrics, f, indent=4)
 
-
     def summarize_metrics(self, episode_metrics: dict) -> dict:
         """Gets stats from episode metrics"""
         # convert to a dataframe
@@ -104,13 +104,12 @@ class OVMMEvaluator(PPOTrainer):
 
     def print_summary(self, summary: dict):
         """Prints the summary of metrics"""
-        print("="*50)
-        print('Averaged metrics')
-        print("="*50)
+        print("=" * 50)
+        print("Averaged metrics")
+        print("=" * 50)
         for k, v in summary.items():
             print(f"{k}: {v}")
-        print("="*50)
-
+        print("=" * 50)
 
     def _eval(
         self,
