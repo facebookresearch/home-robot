@@ -67,7 +67,6 @@ class InstanceMemory:
         # if global_instance_id already exists, add a new instance view to it
         # otherwise, create a new global instance with the given global_instance_id
 
-
         # get instance view
         instance_view = self.unprocessed_views[env_id][local_instance_id]
         # get global instance

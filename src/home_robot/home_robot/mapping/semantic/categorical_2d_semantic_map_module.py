@@ -248,7 +248,6 @@ class Categorical2DSemanticMapModule(nn.Module):
                         origins,
                         self.map_size_parameters,
                     )
-            
 
             local_map, local_pose = self._update_local_map_and_pose(
                 seq_obs[:, t],
@@ -279,9 +278,9 @@ class Categorical2DSemanticMapModule(nn.Module):
             seq_origins,
         )
 
-    def _store_instances_per_category(self, curr_map):
+    def _store_instances_per_category(self, curr_map, num_instance_channels):
         # first extract instance channels
-        top_down_instance_one_hot = translated[
+        top_down_instance_one_hot = curr_map[
             :,
             MC.NON_SEM_CHANNELS
             + self.num_sem_categories : MC.NON_SEM_CHANNELS
@@ -353,8 +352,6 @@ class Categorical2DSemanticMapModule(nn.Module):
             dim=1,
         )
         return curr_map
-
-
 
     def _update_local_map_and_pose(
         self,
@@ -580,7 +577,7 @@ class Categorical2DSemanticMapModule(nn.Module):
         agent_view[:, MC.OBSTACLE_MAP : MC.OBSTACLE_MAP + 1, y1:y2, x1:x2] = fp_map_pred
         agent_view[:, MC.EXPLORED_MAP : MC.EXPLORED_MAP + 1, y1:y2, x1:x2] = fp_exp_pred
 
-        agent_view[:, MC.NON_SEM_CHANNELS :, y1:y2, x1:x2, ] = (
+        agent_view[:, MC.NON_SEM_CHANNELS :, y1:y2, x1:x2] = (
             all_height_proj[:, 1:] / self.cat_pred_threshold
         )
 
@@ -603,10 +600,11 @@ class Categorical2DSemanticMapModule(nn.Module):
         # Clamp to [0, 1] after transform agent view to map coordinates
         translated = torch.clamp(translated, min=0.0, max=1.0)
 
-
         # update instance channels
         if self.record_instance_ids:
-            translated = self._store_instances_per_category(translated)
+            translated = self._store_instances_per_category(
+                translated, num_instance_channels
+            )
 
         maps = torch.cat((prev_map.unsqueeze(1), translated.unsqueeze(1)), 1)
 
@@ -815,7 +813,6 @@ class Categorical2DSemanticMapModule(nn.Module):
             )
         else:
             extended_dilated_local_map = torch.clone(extended_local_map)
-
 
         # Get the instances from the global map within the local map's region
         global_instances_within_local = global_instances[x_start:x_end, y_start:y_end]

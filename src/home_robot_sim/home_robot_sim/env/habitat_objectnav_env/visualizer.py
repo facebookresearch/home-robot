@@ -225,7 +225,6 @@ class Visualizer:
 
         return instance_map_combined, instances_per_category
 
-
     def update_semantic_map_with_instances(self, semantic_map, instance_map):
         """
         Update the semantic mapping with instance ids.
@@ -357,7 +356,6 @@ class Visualizer:
             no_category_mask = (
                 semantic_map == self.num_sem_categories - 1
             )  # Assumes the last category is "other"
-
 
             semantic_map += PI.SEM_START
 
