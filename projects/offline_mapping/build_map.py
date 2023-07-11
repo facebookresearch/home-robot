@@ -105,16 +105,18 @@ coco_categories_color_palette = [
 def get_semantic_map_vis(
     semantic_map: Categorical2DSemanticMapState,
     semantic_frame: np.array,
+    depth_frame: np.array,
     color_palette: List[float],
     legend=None,
 ):
-    vis_image = np.ones((655, 1165, 3)).astype(np.uint8) * 255
+    # vis_image = np.ones((655, 1165, 3)).astype(np.uint8) * 255
+    vis_image = np.ones((655, 1820, 3)).astype(np.uint8) * 255
     font = cv2.FONT_HERSHEY_SIMPLEX
     fontScale = 1
     color = (20, 20, 20)  # BGR
     thickness = 2
 
-    text = "Observations"
+    text = "Segmentation"
     textsize = cv2.getTextSize(text, font, fontScale, thickness)[0]
     textX = (640 - textsize[0]) // 2 + 15
     textY = (50 + textsize[1]) // 2
@@ -129,9 +131,9 @@ def get_semantic_map_vis(
         cv2.LINE_AA,
     )
 
-    text = "Predicted Semantic Map"
+    text = "Depth"
     textsize = cv2.getTextSize(text, font, fontScale, thickness)[0]
-    textX = 640 + (480 - textsize[0]) // 2 + 30
+    textX = 640 + (640 - textsize[0]) // 2 + 30
     textY = (50 + textsize[1]) // 2
     vis_image = cv2.putText(
         vis_image,
@@ -144,16 +146,20 @@ def get_semantic_map_vis(
         cv2.LINE_AA,
     )
 
-    # Draw outlines
-    color = [100, 100, 100]
-    vis_image[49, 15:655] = color
-    vis_image[49, 670:1150] = color
-    vis_image[50:530, 14] = color
-    vis_image[50:530, 655] = color
-    vis_image[50:530, 669] = color
-    vis_image[50:530, 1150] = color
-    vis_image[530, 15:655] = color
-    vis_image[530, 670:1150] = color
+    text = "Predicted Semantic Map"
+    textsize = cv2.getTextSize(text, font, fontScale, thickness)[0]
+    textX = 1280 + (480 - textsize[0]) // 2 + 45
+    textY = (50 + textsize[1]) // 2
+    vis_image = cv2.putText(
+        vis_image,
+        text,
+        (textX, textY),
+        font,
+        fontScale,
+        color,
+        thickness,
+        cv2.LINE_AA,
+    )
 
     map_color_palette = [
         1.0,
@@ -198,10 +204,14 @@ def get_semantic_map_vis(
     semantic_map_vis = cv2.resize(
         semantic_map_vis, (480, 480), interpolation=cv2.INTER_NEAREST
     )
-    vis_image[50:530, 670:1150] = semantic_map_vis
+    # vis_image[50:530, 670:1150] = semantic_map_vis
+    vis_image[50:530, 1325:1805] = semantic_map_vis
 
     # Draw semantic frame
     vis_image[50:530, 15:655] = cv2.resize(semantic_frame[:, :, ::-1], (640, 480))
+
+    # Draw depth frame
+    vis_image[50:530, 670:1310] = cv2.resize(semantic_frame[:, :, ::-1], (640, 480))
 
     # Draw legend
     if legend is not None:
@@ -410,7 +420,8 @@ def main(input_trajectory_dir: str, output_visualization_dir: str, legend_path: 
         # Visualize map
         vis_image = get_semantic_map_vis(
             semantic_map,
-            obs.depth,  # obs.task_observations["semantic_frame"],
+            obs.task_observations["semantic_frame"],
+            obs.depth,
             coco_categories_color_palette,
             legend,
         )
