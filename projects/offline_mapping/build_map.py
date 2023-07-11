@@ -419,7 +419,11 @@ def main(input_trajectory_dir: str, output_visualization_dir: str, legend_path: 
         vis_images.append(vis_image)
         plt.imsave(Path(output_visualization_dir) / f"{i}.png", vis_image)
 
-    create_video(vis_images, f"{output_visualization_dir}/video.mp4", fps=20)
+    create_video(
+        [v[:, :, ::-1] for v in vis_images],
+        f"{output_visualization_dir}/video.mp4",
+        fps=20,
+    )
 
 
 if __name__ == "__main__":
