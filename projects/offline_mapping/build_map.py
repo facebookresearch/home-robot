@@ -104,9 +104,58 @@ coco_categories_color_palette = [
 
 def save_semantic_map_vis(
     semantic_map: Categorical2DSemanticMapState,
+    semantic_frame: np.array,
     visualization_path: Path,
     color_palette: List[float],
+    legend=None,
 ):
+    vis_image = np.ones((655, 1165, 3)).astype(np.uint8) * 255
+    font = cv2.FONT_HERSHEY_SIMPLEX
+    fontScale = 1
+    color = (20, 20, 20)  # BGR
+    thickness = 2
+
+    text = "Observations"
+    textsize = cv2.getTextSize(text, font, fontScale, thickness)[0]
+    textX = (640 - textsize[0]) // 2 + 15
+    textY = (50 + textsize[1]) // 2
+    vis_image = cv2.putText(
+        vis_image,
+        text,
+        (textX, textY),
+        font,
+        fontScale,
+        color,
+        thickness,
+        cv2.LINE_AA,
+    )
+
+    text = "Predicted Semantic Map"
+    textsize = cv2.getTextSize(text, font, fontScale, thickness)[0]
+    textX = 640 + (480 - textsize[0]) // 2 + 30
+    textY = (50 + textsize[1]) // 2
+    vis_image = cv2.putText(
+        vis_image,
+        text,
+        (textX, textY),
+        font,
+        fontScale,
+        color,
+        thickness,
+        cv2.LINE_AA,
+    )
+
+    # Draw outlines
+    color = [100, 100, 100]
+    vis_image[49, 15:655] = color
+    vis_image[49, 670:1150] = color
+    vis_image[50:530, 14] = color
+    vis_image[50:530, 655] = color
+    vis_image[50:530, 669] = color
+    vis_image[50:530, 1150] = color
+    vis_image[530, 15:655] = color
+    vis_image[530, 670:1150] = color
+
     map_color_palette = [
         1.0,
         1.0,
@@ -141,14 +190,28 @@ def save_semantic_map_vis(
     semantic_categories_map[np.logical_and(no_category_mask, obstacle_mask)] = 1
     semantic_categories_map[visited_mask] = 3
 
+    # Draw semantic map
     semantic_map_vis = Image.new("P", semantic_categories_map.shape)
     semantic_map_vis.putpalette(map_color_palette)
     semantic_map_vis.putdata(semantic_categories_map.flatten().astype(np.uint8))
     semantic_map_vis = semantic_map_vis.convert("RGB")
     semantic_map_vis = np.flipud(semantic_map_vis)
-    path = Path(visualization_path).parent
-    path.mkdir(parents=True, exist_ok=True)
-    plt.imsave(visualization_path, semantic_map_vis)
+    semantic_map_vis = cv2.resize(
+        semantic_map_vis, (480, 480), interpolation=cv2.INTER_NEAREST
+    )
+    vis_image[50:530, 670:1150] = semantic_map_vis
+
+    # Draw semantic frame
+    vis_image[50:530, 15:655] = cv2.resize(semantic_frame, (640, 480))
+
+    # Draw legend
+    if legend is not None:
+        lx, ly, _ = legend.shape
+        vis_image[537 : 537 + lx, 155 : 155 + ly, :] = legend
+
+    # path = Path(visualization_path).parent
+    # path.mkdir(parents=True, exist_ok=True)
+    # plt.imsave(visualization_path, semantic_map_vis)
 
 
 @click.command()
@@ -160,7 +223,11 @@ def save_semantic_map_vis(
     "--output_visualization_dir",
     default="map_visualization/",
 )
-def main(input_trajectory_dir: str, output_visualization_dir: str):
+@click.option(
+    "--legend_path",
+    default="coco_categories_legend.png",
+)
+def main(input_trajectory_dir: str, output_visualization_dir: str, legend_path: str):
     # --------------------------------------------------------------------------------------------
     # Load trajectory of home_robot Observations
     # --------------------------------------------------------------------------------------------
@@ -172,6 +239,9 @@ def main(input_trajectory_dir: str, output_visualization_dir: str):
     ):
         with open(path, "rb") as f:
             observations.append(pickle.load(f))
+
+    # TODO Debug
+    observations = observations[:5]
 
     # Predict semantic segmentation
     categories = [
@@ -286,6 +356,10 @@ def main(input_trajectory_dir: str, output_visualization_dir: str):
 
     last_pose = np.zeros(3)
     one_hot_encoding = torch.eye(num_sem_categories, device=device)
+    if legend_path is not None:
+        legend = cv2.imread(legend_path)
+    else:
+        legend = None
 
     for i, obs in enumerate(observations):
         # Preprocess observation
@@ -331,11 +405,13 @@ def main(input_trajectory_dir: str, output_visualization_dir: str):
         semantic_map.lmb = seq_lmb[:, -1]
         semantic_map.origins = seq_origins[:, -1]
 
-        # Map visualization
+        # Visualize map
         save_semantic_map_vis(
             semantic_map,
+            obs.task_observations["semantic_frame"],
             Path(output_visualization_dir) / f"{i}.png",
             coco_categories_color_palette,
+            legend,
         )
 
 
