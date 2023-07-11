@@ -4,10 +4,11 @@
 # LICENSE file in the root directory of this source tree.
 import numpy as np
 import torch
-
+from typing import Optional
 from home_robot.mapping.map_utils import MapSizeParameters, init_map_and_pose_for_env
 from home_robot.mapping.semantic.constants import MapConstants as MC
 
+from home_robot.agent.objectnav_agent.instance_tracking_modules import InstanceMemory
 
 class Categorical2DSemanticMapState:
     """
@@ -30,6 +31,9 @@ class Categorical2DSemanticMapState:
         map_size_cm: int,
         global_downscaling: int,
         record_instance_ids: bool,
+        evaluate_instance_tracking: bool,
+        max_instances: int = 0,
+        instance_memory: Optional[InstanceMemory] = None,
     ):
         """
         Arguments:
@@ -67,6 +71,11 @@ class Categorical2DSemanticMapState:
         if record_instance_ids:
             # num_sem_categories + 5, ..., 2 * num_sem_categories + 5: Instance ids per semantic category
             num_channels += self.num_sem_categories
+            self.instance_memory = instance_memory
+        
+        
+        if evaluate_instance_tracking:
+            num_channels += max_instances + 1
 
         self.global_map = torch.zeros(
             self.num_environments,
@@ -174,7 +183,7 @@ class Categorical2DSemanticMapState:
     def get_instance_map(self, e) -> np.ndarray:
         instance_map = self.local_map[e].cpu().float().numpy()
         instance_map = instance_map[
-            MC.NON_SEM_CHANNELS + self.num_sem_categories + 1 : -1
+            MC.NON_SEM_CHANNELS + self.num_sem_categories : MC.NON_SEM_CHANNELS + 2 * self.num_sem_categories, :, :
         ]
         return instance_map
 

@@ -22,6 +22,9 @@ from home_robot.perception.constants import (
 from home_robot.perception.constants import PaletteIndices as PI
 from home_robot.perception.constants import RearrangeDETICCategories
 
+from home_robot.agent.objectnav_agent.instance_tracking_modules import InstanceMemory
+
+from collections import defaultdict
 
 class VIS_LAYOUT:
     HEIGHT = 480
@@ -122,7 +125,7 @@ class Visualizer:
                 )
             else:
                 self.semantic_category_mapping = None
-
+                
         elif "floorplanner" in self.episodes_data_path:
             if config.AGENT.SEMANTIC_MAP.semantic_categories == "mukul_indoor":
                 self.semantic_category_mapping = FloorplannertoMukulIndoor()
@@ -153,6 +156,10 @@ class Visualizer:
         self.text_color = (20, 20, 20)  # BGR
         self.text_thickness = 2
         self.show_rl_obs = getattr(config, "SHOW_RL_OBS", False)
+
+        self.instance_dilation_selem = skimage.morphology.disk(
+            1
+        )
 
     def reset(self):
         self.vis_dir = self.default_vis_dir
@@ -240,6 +247,30 @@ class Visualizer:
                 shades += new_shades
         return shades
 
+    def update_semantic_map_with_instances(self, semantic_map, instance_map):
+        """
+        Update the semantic mapping with instance ids.
+
+        Draws borders around instances in the semantic map.
+
+        Args:
+            semantic_map: np.ndarray of shape [H, W] with semantic categories.
+            instance_map: np.ndarray of shape [num_sem_categories - 2, H, W] where each channel has instances labeled as 1, 2, ...
+        """
+        for instance_channel in instance_map:
+            if np.sum(instance_channel) == 0:
+                continue
+            instance_channel = (instance_channel > 0).astype(np.uint8)
+            # get the border pixels
+            border_pixels = np.logical_and(
+                cv2.dilate(instance_channel, self.instance_dilation_selem),
+                np.logical_not(instance_channel)
+            )
+            # update semantic map with instance ids
+            semantic_map[border_pixels > 0] = PI.INSTANCE_BORDER
+
+
+
     def visualize(
         self,
         timestep: int,
@@ -263,6 +294,7 @@ class Visualizer:
         semantic_category_mapping: Optional[RearrangeDETICCategories] = None,
         rl_obs_frame: Optional[np.ndarray] = None,
         instance_map: Optional[np.ndarray] = None,
+        instance_memory: Optional[InstanceMemory] = None,
         **kwargs,
     ):
         """Visualize frame input and semantic map.
@@ -350,16 +382,15 @@ class Visualizer:
             )  # Assumes the last category is "other"
 
             if instance_map is not None:
-                (
-                    instance_map_flattened,
-                    instances_per_category,
-                ) = self.flatten_instance_map(instance_map)
-                semantic_map = instance_map_flattened
-                palette[
-                    3 * PI.SEM_START :
-                ] = self.replace_semantic_palette_with_instance_palette(
-                    palette[3 * PI.SEM_START :], instances_per_category
-                )
+
+                # semantic_map = instance_map_flattened
+                # # palette[
+                #     3 * PI.SEM_START :
+                # ] = self.replace_semantic_palette_with_instance_palette(
+                #     palette[3 * PI.SEM_START :], instances_per_category
+                # )
+                pass
+
             semantic_map += PI.SEM_START
 
             obstacle_mask = np.rint(obstacle_map) == 1
@@ -369,6 +400,7 @@ class Visualizer:
             semantic_map[np.logical_and(no_category_mask, explored_mask)] = PI.EXPLORED
             semantic_map[np.logical_and(no_category_mask, obstacle_mask)] = PI.OBSTACLES
             semantic_map[visited_mask] = PI.VISITED
+
 
             # Goal
             if visualize_goal:
@@ -397,19 +429,22 @@ class Visualizer:
                     short_term_goal_mask = short_term_goal_mask == 1
                     semantic_map[short_term_goal_mask] = PI.SHORT_TERM_GOAL
 
+            if instance_map is not None:
+                self.update_semantic_map_with_instances(semantic_map, instance_map)
+
             # Semantic categories
             semantic_map_vis = self.get_semantic_vis(semantic_map, palette)
             semantic_map_vis = np.flipud(semantic_map_vis)
 
-            # overlay the regions the agent has been close to
-            been_close_map = np.flipud(np.rint(been_close_map) == 1)
-            color_index = PI.BEEN_CLOSE * 3
-            color = self.semantic_category_mapping.map_color_palette[
-                color_index : color_index + 3
-            ][::-1]
-            semantic_map_vis[been_close_map] = (
-                semantic_map_vis[been_close_map] + color
-            ) / 2
+            # # overlay the regions the agent has been close to
+            # been_close_map = np.flipud(np.rint(been_close_map) == 1)
+            # color_index = PI.BEEN_CLOSE * 3
+            # color = self.semantic_category_mapping.map_color_palette[
+            #     color_index : color_index + 3
+            # ][::-1]
+            # semantic_map_vis[been_close_map] = (
+            #     semantic_map_vis[been_close_map] + color
+            # ) / 2
 
             semantic_map_vis = cv2.resize(
                 semantic_map_vis,
@@ -431,6 +466,8 @@ class Visualizer:
             agent_arrow = vu.get_contour_points(pos, origin=(V.TOP_DOWN_X1, V.Y1))
             color = self.semantic_category_mapping.map_color_palette[9:12][::-1]
             cv2.drawContours(image_vis, [agent_arrow], 0, color, -1)
+
+
 
         # overlay RL observation frame
         if self.show_rl_obs and rl_obs_frame is not None:
@@ -466,6 +503,30 @@ class Visualizer:
             (V.FIRST_PERSON_W, V.HEIGHT),
             interpolation=cv2.INTER_NEAREST,
         )
+
+        if instance_memory is not None:
+            # query the instance memory to get unique instances per category
+            num_instances_per_category = defaultdict(int)
+            num_views_per_instance = defaultdict(list)
+            for instance_id, instance in instance_memory.instance_views[0].items():
+                num_instances_per_category[instance.category_id.item()] += 1
+                num_views_per_instance[instance.category_id.item()].append(len(instance.instance_views))
+            text = "Instance counts"
+            offset = 48
+            y_pos = offset
+
+            for index, count in num_instances_per_category.items():
+                if count > 0:
+                    text = f"{index}: {count} ins"
+                    image_vis = self._put_text_on_image(
+                        image_vis,
+                        text,
+                        V.THIRD_PERSON_X1,
+                        y_pos,
+                        V.THIRD_PERSON_W,
+                        V.TOP_PADDING,
+                    )
+                    y_pos += offset
 
         if self.show_images:
             cv2.imshow("Visualization", image_vis)
@@ -529,7 +590,7 @@ class Visualizer:
                 vis_image, text, V.TOP_DOWN_X1, 0, V.TOP_DOWN_W, V.TOP_PADDING
             )
 
-            text = "Third person image"
+            text = "Instance counts"
             vis_image = self._put_text_on_image(
                 vis_image, text, V.THIRD_PERSON_X1, 0, V.THIRD_PERSON_W, V.TOP_PADDING
             )

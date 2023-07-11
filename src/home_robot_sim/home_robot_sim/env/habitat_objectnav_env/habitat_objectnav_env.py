@@ -123,12 +123,13 @@ class HabitatObjectNavEnv(HabitatEnv):
             camera_pose=None,
             third_person_image=None,
         )
-        obs = self._preprocess_semantic(obs, habitat_obs["semantic"])
+        obs = self._preprocess_semantic_and_instance(obs, habitat_obs["semantic"])
         return obs
 
-    def _preprocess_semantic(
+    def _preprocess_semantic_and_instance(
         self, obs: home_robot.core.interfaces.Observations, habitat_semantic: np.ndarray
     ) -> home_robot.core.interfaces.Observations:
+        obs.task_observations["gt_instance_ids"] = habitat_semantic[:, :, -1] + 1
         if self.ground_truth_semantics:
             if self.config.AGENT.SEMANTIC_MAP.semantic_categories == "hssd_28_cat":
                 raise NotImplementedError
@@ -136,6 +137,7 @@ class HabitatObjectNavEnv(HabitatEnv):
                 self.semantic_category_mapping.instance_id_to_category_id
             )
             obs.semantic = instance_id_to_category_id[habitat_semantic[:, :, -1]]
+            obs.task_observations['instance_map'] = habitat_semantic[:, :, -1] + 1   
             # TODO Ground-truth semantic visualization
             obs.task_observations["semantic_frame"] = obs.rgb
         else:
@@ -144,18 +146,22 @@ class HabitatObjectNavEnv(HabitatEnv):
                 OTHER_CATEGORY_ID = -1
 
                 def get_coco_category_id(x):
-                    coco_categories_mapping.get(x, OTHER_CATEGORY_ID)
+                    return coco_categories_mapping.get(x, OTHER_CATEGORY_ID)
 
                 obs.semantic = np.vectorize(get_coco_category_id)(obs.semantic)
                 obs.semantic[obs.semantic == OTHER_CATEGORY_ID] = (  # noqa: E711
                     self.semantic_category_mapping.num_sem_categories - 1
                 )
                 obs.semantic = obs.semantic.astype(int)
+                obs.task_observations["instance_map"] += 1
+                
             if type(self.semantic_category_mapping) == FloorplannertoMukulIndoor:
                 # First index is a dummy unused category
                 obs.semantic[obs.semantic == 0] = (
                     self.semantic_category_mapping.num_sem_categories - 1
                 )
+        obs.task_observations["instance_map"] = obs.task_observations["instance_map"].astype(int)
+        obs.task_observations["gt_instance_ids"] = obs.task_observations["gt_instance_ids"].astype(int)
         obs.task_observations["semantic_frame"] = np.concatenate(
             [obs.rgb, obs.semantic[:, :, np.newaxis]], axis=2
         ).astype(np.uint8)

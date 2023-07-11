@@ -46,7 +46,8 @@ AGENT:
     dilate_iter: 1
     record_instance_ids: True
     store_all_categories: True
-
+    evaluate_instance_tracking: True
+    max_instances: 800
 
   PLANNER:
     collision_threshold: 0.20       # forward move distance under which we consider there's a collision (in meters)

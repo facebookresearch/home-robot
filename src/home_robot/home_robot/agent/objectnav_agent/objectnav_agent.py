@@ -18,7 +18,7 @@ from home_robot.mapping.semantic.categorical_2d_semantic_map_state import (
 from home_robot.navigation_planner.discrete_planner import DiscretePlanner
 
 from .objectnav_agent_module import ObjectNavAgentModule
-
+from home_robot.agent.objectnav_agent.instance_tracking_modules import InstanceMemory
 # For visualizing exploration issues
 debug_frontier_map = False
 
@@ -40,7 +40,15 @@ class ObjectNavAgent(Agent):
         else:
             self.panorama_start_steps = 0
 
-        self._module = ObjectNavAgentModule(config)
+        self.instance_memory = None
+        self.record_instance_ids = getattr(
+            config.AGENT.SEMANTIC_MAP, "record_instance_ids", False
+        )
+
+        if self.record_instance_ids:
+            self.instance_memory = InstanceMemory(self.num_environments, config.AGENT.SEMANTIC_MAP.du_scale)
+
+        self._module = ObjectNavAgentModule(config, instance_memory=self.instance_memory)
 
         if config.NO_GPU:
             self.device = torch.device("cpu")
@@ -64,6 +72,9 @@ class ObjectNavAgent(Agent):
             record_instance_ids=getattr(
                 config.AGENT.SEMANTIC_MAP, "record_instance_ids", False
             ),
+            max_instances=getattr(config.AGENT.SEMANTIC_MAP, 'max_instances', 0),
+            evaluate_instance_tracking=getattr(config.AGENT.SEMANTIC_MAP, 'evaluate_instance_tracking', False),
+            instance_memory=self.instance_memory,
         )
         agent_radius_cm = config.AGENT.radius * 100.0
         agent_cell_radius = int(
@@ -97,9 +108,15 @@ class ObjectNavAgent(Agent):
         self.episode_panorama_start_steps = None
         self.last_poses = None
         self.verbose = config.AGENT.PLANNER.verbose
-        self.record_instance_ids = getattr(
-            config.AGENT.SEMANTIC_MAP, "record_instance_ids", False
+
+        self.evaluate_instance_tracking = getattr(
+            config.AGENT.SEMANTIC_MAP, "evaluate_instance_tracking", False
         )
+        self.one_hot_instance_encoding = None
+        if self.evaluate_instance_tracking:
+            self.one_hot_instance_encoding = torch.eye(
+                config.AGENT.SEMANTIC_MAP.max_instances + 1, device=self.device
+            )
 
     # ------------------------------------------------------------------
     # Inference methods to interact with vectorized simulation
@@ -147,6 +164,7 @@ class ObjectNavAgent(Agent):
                  predictions
         """
         dones = torch.tensor([False] * self.num_environments)
+        print(f"==== {self.timesteps_before_goal_update[0]} ====")
         update_global = torch.tensor(
             [
                 self.timesteps_before_goal_update[e] == 0
@@ -200,6 +218,7 @@ class ObjectNavAgent(Agent):
             self.semantic_map.update_frontier_map(e, frontier_map[e][0].cpu().numpy())
             if found_goal[e]:
                 self.semantic_map.update_global_goal_for_env(e, goal_map[e])
+                print('found goal')
             elif self.timesteps_before_goal_update[e] == 0:
                 self.semantic_map.update_global_goal_for_env(e, goal_map[e])
                 self.timesteps_before_goal_update[e] = self.goal_update_steps
@@ -249,7 +268,6 @@ class ObjectNavAgent(Agent):
 
         else:
             vis_inputs = [{} for e in range(self.num_environments)]
-
         return planner_inputs, vis_inputs
 
     def reset_vectorized(self):
@@ -350,6 +368,7 @@ class ObjectNavAgent(Agent):
             vis_inputs[0]["third_person_image"] = obs.third_person_image
             vis_inputs[0]["short_term_goal"] = None
             vis_inputs[0]["dilated_obstacle_map"] = dilated_obstacle_map
+            vis_inputs[0]["instance_memory"] = self.instance_memory
         info = {**planner_inputs[0], **vis_inputs[0]}
         return action, info
 
@@ -382,9 +401,29 @@ class ObjectNavAgent(Agent):
                     obs.semantic == obs.task_observations["end_recep_goal"]
                 ] = end_recep_idx
 
+        
+
         semantic = self.one_hot_encoding[torch.from_numpy(semantic).to(self.device)]
-        obs_preprocessed = torch.cat([rgb, depth, semantic], dim=-1).unsqueeze(0)
-        obs_preprocessed = obs_preprocessed.permute(0, 3, 1, 2)
+
+        obs_preprocessed = torch.cat([rgb, depth, semantic], dim=-1)
+        if self.record_instance_ids:
+            instances = obs.task_observations["instance_map"]
+            # first create a mapping to 1, 2, ... num_instances
+            instance_ids = np.unique(instances)
+            # map instance id to index
+            instance_id_to_idx = {instance_id: idx for idx, instance_id in enumerate(instance_ids)}
+            # convert instance ids to indices, use vectorized lookup
+            instances = torch.from_numpy(np.vectorize(instance_id_to_idx.get)(instances)).to(self.device)
+            # create a one-hot encoding
+            instances = torch.eye(len(instance_ids), device=self.device)[instances]
+            obs_preprocessed = torch.cat([obs_preprocessed, instances], dim=-1)
+
+        if self.evaluate_instance_tracking:
+            gt_instance_ids = torch.from_numpy(obs.task_observations["gt_instance_ids"]).to(self.device)
+            gt_instance_ids = self.one_hot_instance_encoding[gt_instance_ids]
+            obs_preprocessed = torch.cat([obs_preprocessed, gt_instance_ids], dim=-1)
+        
+        obs_preprocessed = obs_preprocessed.unsqueeze(0).permute(0, 3, 1, 2)
 
         curr_pose = np.array([obs.gps[0], obs.gps[1], obs.compass[0]])
         pose_delta = torch.tensor(

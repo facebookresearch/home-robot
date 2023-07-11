@@ -62,6 +62,7 @@ class HabitatOpenVocabManipEnv(HabitatEnv):
         self.visualize = config.VISUALIZE or config.PRINT_IMAGES
         if self.visualize:
             self.visualizer = Visualizer(config, dataset)
+
         self.episodes_data_path = config.habitat.dataset.data_path
         self.video_dir = config.habitat_baselines.video_dir
         self.max_forward = (
