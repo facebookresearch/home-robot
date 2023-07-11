@@ -716,18 +716,6 @@ class Categorical2DSemanticMapModule(nn.Module):
             current_map[:, MC.OBSTACLE_MAP] = (
                 current_map[:, MC.OBSTACLE_MAP] * current_map[:, MC.BEEN_CLOSE_MAP]
             )
-        print(
-            "unique instances in current map: ",
-            torch.unique(
-                current_map[
-                    :,
-                    MC.NON_SEM_CHANNELS
-                    + self.num_sem_categories : MC.NON_SEM_CHANNELS
-                    + self.num_sem_categories
-                    + self.num_sem_categories,
-                ]
-            ),
-        )
         return current_map, current_pose
 
     def cluster_binary_map(self, binary_map: Tensor) -> Tensor:
