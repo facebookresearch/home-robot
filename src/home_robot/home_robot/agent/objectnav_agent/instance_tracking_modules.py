@@ -124,28 +124,42 @@ class InstanceMemory:
             instance_id_to_category_id[instance_id] = category_id
 
             # get bounding box
-            bbox = torch.stack(
-                [
-                    instance_mask.nonzero().min(dim=0)[0],
-                    instance_mask.nonzero().max(dim=0)[0],
-                ]
-            ).cpu().numpy()
+            bbox = (
+                torch.stack(
+                    [
+                        instance_mask.nonzero().min(dim=0)[0],
+                        instance_mask.nonzero().max(dim=0)[0],
+                    ]
+                )
+                .cpu()
+                .numpy()
+            )
             # get cropped image
-            cropped_image = image[:, bbox[0, 0] : bbox[1, 0], bbox[0, 1] : bbox[1, 1]].permute(1, 2, 0).cpu().numpy().astype(np.uint8)
+            cropped_image = (
+                image[:, bbox[0, 0] : bbox[1, 0], bbox[0, 1] : bbox[1, 1]]
+                .permute(1, 2, 0)
+                .cpu()
+                .numpy()
+                .astype(np.uint8)
+            )
             # get embedding
             embedding = None
 
             # downsample mask by du_scale using "NEAREST"
             instance_mask = (
-                torch.nn.functional.interpolate(
-                    instance_mask.unsqueeze(0).unsqueeze(0).float(),
-                    scale_factor=1 / self.du_scale,
-                    mode="nearest",
+                (
+                    torch.nn.functional.interpolate(
+                        instance_mask.unsqueeze(0).unsqueeze(0).float(),
+                        scale_factor=1 / self.du_scale,
+                        mode="nearest",
+                    )
+                    .squeeze(0)
+                    .squeeze(0)
+                    .bool()
                 )
-                .squeeze(0)
-                .squeeze(0)
-                .bool()
-            ).cpu().numpy()
+                .cpu()
+                .numpy()
+            )
             # get point cloud
             point_cloud_instance = point_cloud[instance_mask]
 
