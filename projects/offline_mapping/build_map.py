@@ -252,9 +252,6 @@ def main(input_trajectory_dir: str, output_visualization_dir: str, legend_path: 
         with open(path, "rb") as f:
             observations.append(pickle.load(f))
 
-    # TODO Debug
-    observations = observations[:5]
-
     # Predict semantic segmentation
     categories = [
         "other",
@@ -423,7 +420,6 @@ def main(input_trajectory_dir: str, output_visualization_dir: str, legend_path: 
         # Visualize map
         depth_frame = (obs.depth / obs.depth.max() * 255).astype(np.uint8)
         depth_frame = np.repeat(depth_frame[:, :, np.newaxis], 3, axis=2)
-        print("depth_frame.shape", depth_frame.shape)
         vis_image = get_semantic_map_vis(
             semantic_map,
             obs.task_observations["semantic_frame"],
