@@ -94,14 +94,16 @@ class OVMMEvaluator(PPOTrainer):
             json.dump(episode_metrics, f, indent=4)
 
 
-    def summarize_metrics(self, episode_metrics):
+    def summarize_metrics(self, episode_metrics: dict) -> dict:
+        """Gets stats from episode metrics"""
         # convert to a dataframe
         episode_metrics_df = pd.DataFrame.from_dict(episode_metrics, orient="index")
         episode_metrics_df["start_idx"] = 0
         stats = get_stats_from_episode_metrics(episode_metrics_df)
         return stats
 
-    def print_summary(self, summary):
+    def print_summary(self, summary: dict):
+        """Prints the summary of metrics"""
         print("="*50)
         print('Averaged metrics')
         print("="*50)
