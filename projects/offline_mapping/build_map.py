@@ -209,7 +209,7 @@ def save_semantic_map_vis(
         lx, ly, _ = legend.shape
         vis_image[537 : 537 + lx, 155 : 155 + ly, :] = legend
 
-    plt.imsave(visualization_path, semantic_map_vis)
+    plt.imsave(visualization_path, vis_image)
 
 
 @click.command()
