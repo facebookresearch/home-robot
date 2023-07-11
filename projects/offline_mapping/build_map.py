@@ -7,8 +7,10 @@ import glob
 import pickle
 import sys
 from pathlib import Path
+from typing import List
 
 import click
+import cv2
 import matplotlib.pyplot as plt
 import natsort
 import numpy as np
@@ -100,6 +102,55 @@ coco_categories_color_palette = [
 ]
 
 
+def save_semantic_map_vis(
+    semantic_map: Categorical2DSemanticMapState,
+    visualization_path: str,
+    color_palette: List[float],
+):
+    map_color_palette = [
+        1.0,
+        1.0,
+        1.0,  # empty space
+        0.6,
+        0.6,
+        0.6,  # obstacles
+        0.95,
+        0.95,
+        0.95,  # explored area
+        0.96,
+        0.36,
+        0.26,  # visited area
+        *color_palette,
+    ]
+    map_color_palette = [int(x * 255.0) for x in map_color_palette]
+
+    semantic_categories_map = semantic_map.get_semantic_map(0)
+    obstacle_map = semantic_map.get_obstacle_map(0)
+    explored_map = semantic_map.get_explored_map(0)
+    visited_map = semantic_map.get_visited_map(0)
+
+    semantic_categories_map += 4
+    no_category_mask = (
+        semantic_categories_map == 4 + semantic_map.num_sem_categories - 1
+    )
+    obstacle_mask = np.rint(obstacle_map) == 1
+    explored_mask = np.rint(explored_map) == 1
+    visited_mask = visited_map == 1
+    semantic_categories_map[no_category_mask] = 0
+    semantic_categories_map[np.logical_and(no_category_mask, explored_mask)] = 2
+    semantic_categories_map[np.logical_and(no_category_mask, obstacle_mask)] = 1
+    semantic_categories_map[visited_mask] = 3
+
+    semantic_map_vis = Image.new("P", semantic_categories_map.shape)
+    semantic_map_vis.putpalette(map_color_palette)
+    semantic_map_vis.putdata(semantic_categories_map.flatten().astype(np.uint8))
+    semantic_map_vis = semantic_map_vis.convert("RGB")
+    semantic_map_vis = np.flipud(semantic_map_vis)
+    path = Path(visualization_path).parent
+    path.mkdir(parents=True, exist_ok=True)
+    plt.imsave(visualization_path, semantic_map_vis)
+
+
 @click.command()
 @click.option(
     "--input_trajectory_path",
@@ -121,9 +172,6 @@ def main(input_trajectory_path, output_visualization_path):
     ):
         with open(path, "rb") as f:
             observations.append(pickle.load(f))
-
-    # TODO Debug
-    observations = observations[:38]
 
     # Predict semantic segmentation
     categories = [
@@ -287,46 +335,9 @@ def main(input_trajectory_path, output_visualization_path):
     # Map visualization
     # --------------------------------------------------------------------------------------------
 
-    map_color_palette = [
-        1.0,
-        1.0,
-        1.0,  # empty space
-        0.6,
-        0.6,
-        0.6,  # obstacles
-        0.95,
-        0.95,
-        0.95,  # explored area
-        0.96,
-        0.36,
-        0.26,  # visited area
-        *coco_categories_color_palette,
-    ]
-    map_color_palette = [int(x * 255.0) for x in map_color_palette]
-
-    semantic_categories_map = semantic_map.get_semantic_map(0)
-    obstacle_map = semantic_map.get_obstacle_map(0)
-    explored_map = semantic_map.get_explored_map(0)
-    visited_map = semantic_map.get_visited_map(0)
-
-    semantic_categories_map += 4
-    no_category_mask = semantic_categories_map == 4 + num_sem_categories - 1
-    obstacle_mask = np.rint(obstacle_map) == 1
-    explored_mask = np.rint(explored_map) == 1
-    visited_mask = visited_map == 1
-    semantic_categories_map[no_category_mask] = 0
-    semantic_categories_map[np.logical_and(no_category_mask, explored_mask)] = 2
-    semantic_categories_map[np.logical_and(no_category_mask, obstacle_mask)] = 1
-    semantic_categories_map[visited_mask] = 3
-
-    semantic_map_vis = Image.new("P", semantic_categories_map.shape)
-    semantic_map_vis.putpalette(map_color_palette)
-    semantic_map_vis.putdata(semantic_categories_map.flatten().astype(np.uint8))
-    semantic_map_vis = semantic_map_vis.convert("RGB")
-    semantic_map_vis = np.flipud(semantic_map_vis)
-    path = Path(output_visualization_path).parent
-    path.mkdir(parents=True, exist_ok=True)
-    plt.imsave(output_visualization_path, semantic_map_vis)
+    save_semantic_map_vis(
+        semantic_map, output_visualization_path, coco_categories_color_palette
+    )
 
 
 if __name__ == "__main__":
