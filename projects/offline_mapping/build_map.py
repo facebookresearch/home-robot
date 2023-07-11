@@ -351,7 +351,7 @@ def main(input_trajectory_dir: str, output_visualization_dir: str, legend_path: 
         obs_preprocessed = obs_preprocessed.permute(0, 3, 1, 2)
 
         # TODO Debug
-        curr_pose = np.array([obs.gps[0], -obs.gps[1], obs.compass[0]])
+        curr_pose = np.array([-obs.gps[0], obs.gps[1], obs.compass[0]])
         pose_delta = (
             torch.tensor(pu.get_rel_pose_change(curr_pose, last_pose))
             .unsqueeze(0)
