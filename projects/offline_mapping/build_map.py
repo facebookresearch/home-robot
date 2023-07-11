@@ -226,7 +226,7 @@ def get_semantic_map_vis(
     )
     print("curr_pose", curr_pose)
     print("pos", pos)
-    agent_arrow = vu.get_contour_points(pos, origin=(50, 1325), size=100)
+    agent_arrow = vu.get_contour_points(pos, origin=(1325, 50), size=100)
     color = map_color_palette[9:12][::-1]
     cv2.drawContours(vis_image, [agent_arrow], 0, color, -1)
 
