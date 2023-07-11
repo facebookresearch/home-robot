@@ -242,9 +242,6 @@ def main(input_trajectory_dir: str, output_visualization_dir: str, legend_path: 
         with open(path, "rb") as f:
             observations.append(pickle.load(f))
 
-    # TODO Debug
-    observations = observations[:5]
-
     # Predict semantic segmentation
     categories = [
         "other",
