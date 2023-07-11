@@ -5,6 +5,7 @@ channels:
   - default
   - pytorch
   - nvidia
+  - fastai
 dependencies:
   - python=3.9
   - pytorch=1.12.1
@@ -18,6 +19,7 @@ dependencies:
   - pinocchio
   - cmake
   - pybind11
+  - opencv-python-headless
   - pip
   - pip:
     - numpy <1.24 # certain deprecated operations were used in other deps

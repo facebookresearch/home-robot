@@ -1,19 +1,53 @@
 # Spatial-Language Attention Policies for Efficient Robot Learning
 
-## Installation Instructions
 
-1. Use conda to `conda create env -f requirements.yaml` 
-  - IMPORTANT NOTE: If using mamba double check the pytorch, cudatoolkit, torchaudio and torchvision versions; it has trouble finding a solution for this combination.
-2. Install prerequisite `torch-geometric` library and dependencies by running:
+Code has been tested on Ubuntu 18.04 with CUDA 11.6, python 3.9 and pytorch 1.12.1 (with associated torchaudio and
+torchvision packages).
+
+## Installation
+
+### Instructions
+
+1. Use conda to `conda env create -f requirements.yaml` 
+2. Conda and mamba usually have trouble finding the right pytorch build for above mentioned specs.
+   Next we will install prerequisites using pip within the environment. This includes fixing
+   pytorch, installing prerequisites for (PyG)[https://pyg.org/] and finally the `torch-geometric` library and dependencies by running:
 ```bash
+conda activate slap_base
+
 python -m pip install torch==1.12.1+cu116 torchvision==0.13.1+cu116 torchaudio==0.12.1 --extra-index-url https://download.pytorch.org/whl/cu116
 python -m pip install --no-index pyg_lib torch_scatter torch_sparse torch_cluster torch_spline_conv -f https://data.pyg.org/whl/torch-1.12.1+cu116.html
 python -m pip install torch_geometric
 ```
+3. Install home-robot and home-robot-hw
+```bash
+# return to HOME_ROBOT_ROOT
+cd ../..
 
-Note above installation will uninstall torch and torch-deps installed as part of OVMM. This is okay and intended behavior for running SLAP.
+python -m pip install -e src/home_robot
+python -m pip install -e src/home_robot_hw
 
-## Configuration Parameters for execution
+# install Detectron2
+python -m pip install 'git+https://github.com/facebookresearch/detectron2.git'
+```
+Make sure to follow home-robot's [instructions](../../README.md#5-install-detic) to download checkpoint for Detectron2.
+
+### Troubleshooting
+
+- Encounter an error like following when you run any job:
+  ```bash
+  ImportError: /lib/x86_64-linux-gnu/libstdc++.so.6: version `GLIBCXX_3.4.XX' not found (required by /path/to/slap_base/lib/python3.9/site-packages/pinocchio/pinocchio_pywrap.cpython-39-x86_64-linux-gnu.so)
+  ```  
+  This is a known bug with `conda` which does not load environment variables as intended unless specified.
+  Following is a quick way to fix this:
+  ```bash
+  export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:/path/to/env/slap-base/lib
+  ```
+  To do this more systematically refer to `conda`'s documentation on [managing environment variables](https://docs.conda.io/projects/conda/en/latest/user-guide/tasks/manage-environments.html#setting-environment-variables).
+
+## Training SLAP
+
+## Configuration Parameters for Training and Execution
 
 SLAP and PerAct agents are inherited from OVMMAgent. They take the base configuration 
 that the base agent expects, but add following configurable parameters to control their behavior.
