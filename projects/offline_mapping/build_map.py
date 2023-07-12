@@ -267,6 +267,9 @@ def main(input_trajectory_dir: str, output_visualization_dir: str, legend_path: 
         with open(path, "rb") as f:
             observations.append(pickle.load(f))
 
+    # TODO Debug
+    observations = observations[:50]
+
     # Predict semantic segmentation
     categories = [
         "other",
@@ -368,6 +371,18 @@ def main(input_trajectory_dir: str, output_visualization_dir: str, legend_path: 
         obs_preprocessed = obs_preprocessed.permute(0, 3, 1, 2)
 
         curr_pose = np.array([obs.gps[0], obs.gps[1], obs.compass[0]])
+
+        # TODO Debug
+        # def yaw_rotation_matrix_2D(yaw):
+        #     cos_yaw = np.cos(yaw)
+        #     sin_yaw = np.sin(yaw)
+        #     rotation_matrix = np.array([
+        #         [cos_yaw, -sin_yaw],
+        #         [sin_yaw, cos_yaw]
+        #     ])
+        #     return rotation_matrix
+        # curr_pose[:2] = yaw_rotation_matrix_2D(-0.953531801700592) @ curr_pose[:2]
+
         pose_delta = (
             torch.tensor(pu.get_rel_pose_change(curr_pose, last_pose))
             .unsqueeze(0)
