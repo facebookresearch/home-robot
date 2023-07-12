@@ -207,8 +207,8 @@ def get_semantic_map_vis(
     vis_image[50:530, 1325:1805] = semantic_map_vis
 
     # Draw semantic frame
-    # vis_image[50:530, 15:655] = cv2.resize(semantic_frame[:, :, ::-1], (640, 480))
-    vis_image[50:530, 15:655] = cv2.resize(semantic_frame, (640, 480))
+    vis_image[50:530, 15:655] = cv2.resize(semantic_frame[:, :, ::-1], (640, 480))
+    # vis_image[50:530, 15:655] = cv2.resize(semantic_frame, (640, 480))
 
     # Draw depth frame
     vis_image[50:530, 670:1310] = cv2.resize(depth_frame, (640, 480))
@@ -322,7 +322,7 @@ def main(input_trajectory_dir: str, output_visualization_dir: str, legend_path: 
         frame_height=obs.rgb.shape[0],
         frame_width=obs.rgb.shape[1],
         camera_height=obs.camera_pose[2, 3],
-        hfov=42.0,  #  60.0,  # 47.0
+        hfov=60.0,  #  42.0,  # 47.0
         num_sem_categories=num_sem_categories,
         map_size_cm=4800,
         map_resolution=5,
@@ -335,7 +335,7 @@ def main(input_trajectory_dir: str, output_visualization_dir: str, legend_path: 
         exp_pred_threshold=1.0,
         map_pred_threshold=1.0,
         min_depth=0.5,
-        max_depth=3.5,  # 1.5,
+        max_depth=1.65,  # 3.5,
         must_explore_close=False,
         min_obs_height_cm=10,
     ).to(device)
@@ -367,7 +367,9 @@ def main(input_trajectory_dir: str, output_visualization_dir: str, legend_path: 
         obs_preprocessed = torch.cat([rgb, depth, semantic], dim=-1).unsqueeze(0)
         obs_preprocessed = obs_preprocessed.permute(0, 3, 1, 2)
 
-        curr_pose = np.array([obs.gps[0], obs.gps[1], obs.compass[0]])
+        curr_pose = np.array(
+            [obs.gps[0], obs.gps[1], obs.compass[0] + 0.953531801700592]
+        )
         pose_delta = (
             torch.tensor(pu.get_rel_pose_change(curr_pose, last_pose))
             .unsqueeze(0)
