@@ -278,9 +278,9 @@ class Categorical2DSemanticMapModule(nn.Module):
             seq_origins,
         )
 
-    def _store_instances_per_category(self, curr_map, num_instance_channels):
-        print("curr_map_input", curr_map.shape)
-        print("num", num_instance_channels)
+    def _aggregate_instance_map_channels_per_category(self, curr_map, num_instance_channels):
+        """Aggregate map channels for instances (binary) into category map channels
+        (containing instance IDs)."""
 
         # first extract instance channels
         top_down_instance_one_hot = curr_map[
@@ -301,7 +301,7 @@ class Categorical2DSemanticMapModule(nn.Module):
         )
 
         # loop over envs
-        # TODO We'll have to vectorize this across envs if we use multiple envs
+        # TODO Can we vectorize this across envs? (Only needed if we use multiple envs)
         for i in range(top_down_instance_one_hot.shape[0]):
             # create category id to instance id list mapping
             category_id_to_instance_id_list = defaultdict(list)
@@ -314,8 +314,6 @@ class Categorical2DSemanticMapModule(nn.Module):
                 category_id_to_instance_id_list[instance.category_id].append(
                     instance_id
                 )
-
-            print("category_id_to_instance_id_list", category_id_to_instance_id_list)
 
             # loop over categories
             # TODO Can we vectorize this across categories?
@@ -345,6 +343,10 @@ class Categorical2DSemanticMapModule(nn.Module):
                 # update the per category instance map
                 top_down_instances_per_category[i, category_id] = instance_id_map
 
+        print(1, torch.unique(top_down_instance_one_hot))
+        print(2, torch.unique(top_down_instances_per_category))
+        print()
+
         curr_map = torch.cat(
             (
                 curr_map[:, : MC.NON_SEM_CHANNELS + self.num_sem_categories],
@@ -359,7 +361,6 @@ class Categorical2DSemanticMapModule(nn.Module):
             dim=1,
         )
 
-        print("curr_map_output", curr_map.shape)
         return curr_map
 
     def _update_local_map_and_pose(
