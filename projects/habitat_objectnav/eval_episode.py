@@ -80,7 +80,8 @@ if __name__ == "__main__":
 
     t = 0
 
-    while not env.episode_over:
+    #while not env.episode_over:
+    for _ in range(10):  # TODO Debug
         t += 1
         print(t)
         obs = env.get_observation()
