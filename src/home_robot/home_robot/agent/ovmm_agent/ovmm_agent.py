@@ -65,7 +65,7 @@ class OpenVocabManipAgent(ObjectNavAgent):
         self.skip_skills = config.AGENT.skip_skills
         self.max_pick_attempts = 10
         if config.GROUND_TRUTH_SEMANTICS == 0:
-            self.semantic_sensor = OvmmPerception(config, device_id)
+            self.semantic_sensor = OvmmPerception(config, device_id, self.verbose)
             self.obj_name_to_id, self.rec_name_to_id = read_category_map_file(
                 config.ENVIRONMENT.category_map_file
             )
@@ -200,7 +200,8 @@ class OpenVocabManipAgent(ObjectNavAgent):
         """
         This method is called at the first timestep of every episode before any action is taken.
         """
-        print("Initializing episode...")
+        if self.verbose:
+            print("Initializing episode...")
         if self.config.GROUND_TRUTH_SEMANTICS == 0:
             self._update_semantic_vocabs(obs)
             if (
@@ -358,7 +359,8 @@ class OpenVocabManipAgent(ObjectNavAgent):
         if self.skip_skills.nav_to_obj:
             terminate = True
         elif nav_to_obj_type == "heuristic":
-            print("[OVMM AGENT] step heuristic nav policy")
+            if self.verbose:
+                print("[OVMM AGENT] step heuristic nav policy")
             action, info, terminate = self._heuristic_nav(obs, info)
         elif nav_to_obj_type == "rl":
             action, info, terminate = self.nav_to_obj_agent.act(obs, info)
@@ -544,5 +546,8 @@ class OpenVocabManipAgent(ObjectNavAgent):
                 action = self._switch_to_next_skill(0, new_state, info)
         # update the curr skill to the new skill whose action will be executed
         info["curr_skill"] = Skill(self.states[0].item()).name
-        print(f'Executing skill {info["curr_skill"]} at timestep {self.timesteps[0]}')
+        if self.verbose:
+            print(
+                f'Executing skill {info["curr_skill"]} at timestep {self.timesteps[0]}'
+            )
         return action, info, obs
