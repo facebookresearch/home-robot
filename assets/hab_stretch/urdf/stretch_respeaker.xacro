@@ -1,0 +1,62 @@
+<?xml version="1.0"?>
+<robot xmlns:xacro="http://www.ros.org/wiki/xacro" name="stretch_respeaker">
+
+  <link name="respeaker_base">
+    <inertial>
+      <origin
+        xyz="-0.00078082896792734 0.00765742173486017 -0.0042488298301937"
+        rpy="0 0 0" />
+      <mass
+        value="0.00969129410417277" />
+      <inertia
+        ixx="8.95656300428405E-07"
+        ixy="2.67330745809535E-08"
+        ixz="-3.84519793580934E-08"
+        iyy="4.0421099617056E-07"
+        iyz="3.15533542838673E-07"
+        izz="7.08282597118018E-07" />
+    </inertial>
+    <visual>
+      <origin
+        xyz="0 0 0"
+        rpy="0 0 0" />
+      <geometry>
+        <mesh
+          filename="package://stretch_description/meshes/link_respeaker.STL" />
+      </geometry>
+      <material
+        name="">
+        <color
+          rgba="0.792156862745098 0.819607843137255 0.933333333333333 1" />
+      </material>
+    </visual>
+    <collision>
+      <origin
+        xyz="0 0 0"
+        rpy="0 0 0" />
+      <geometry>
+        <mesh
+          filename="package://stretch_description/meshes/link_respeaker.STL" />
+      </geometry>
+    </collision>
+  </link>
+
+  <joint
+    name="joint_respeaker"
+    type="fixed">
+    <!-- rpy="   ?   rotate_sound_source_direction    ?   " --> 
+    <origin
+      xyz="1.09074743137871E-05 1.36992 0.00303572796911382"
+      rpy="1.57079632679553 0.0 3.14159265358916" />
+    <parent
+      link="link_mast" />
+    <child
+      link="respeaker_base" />
+    <axis
+      xyz="0 0 0" />
+  </joint>
+  
+</robot>
+
+  
+
