@@ -282,10 +282,8 @@ class Categorical2DSemanticMapModule(nn.Module):
         # first extract instance channels
         top_down_instance_one_hot = curr_map[
             :,
-            MC.NON_SEM_CHANNELS
-            + self.num_sem_categories : MC.NON_SEM_CHANNELS
-            + self.num_sem_categories
-            + num_instance_channels,
+            (MC.NON_SEM_CHANNELS + self.num_sem_categories) :
+            (MC.NON_SEM_CHANNELS + self.num_sem_categories + num_instance_channels),
             :,
             :,
         ]
@@ -299,7 +297,13 @@ class Categorical2DSemanticMapModule(nn.Module):
             dtype=curr_map.dtype,
         )
 
+        print("curr_map", curr_map.shape)
+        print("top_down_instance_one_hot", top_down_instance_one_hot.shape)
+        print("top_down_instances_per_category", top_down_instances_per_category.shape)
+        print()
+
         # loop over envs
+        # TODO We'll have to vectorize this across envs if we use multiple envs
         for i in range(top_down_instance_one_hot.shape[0]):
             # create category id to instance id list mapping
             category_id_to_instance_id_list = defaultdict(list)
@@ -314,6 +318,7 @@ class Categorical2DSemanticMapModule(nn.Module):
                 )
 
             # loop over categories
+            # TODO Can we vectorize this across categories?
             for category_id in category_id_to_instance_id_list.keys():
                 if len(category_id_to_instance_id_list[category_id]) == 0:
                     continue
