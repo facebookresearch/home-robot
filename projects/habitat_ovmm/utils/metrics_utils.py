@@ -56,7 +56,7 @@ def compute_stats(aggregated_metrics: pd.DataFrame) -> dict:
 
     # find indices in the DataFrame with stage success in their name and compute success rate
     for k in aggregated_metrics.index:
-        if ("phase_success" in k and "END" in k) or "task_success" in k:
+        if ("phase_success" in k and "END" in k) or "overall_success" in k:
             stats[k.replace("END.ovmm_", "")] = aggregated_metrics.loc[k]["mean"]
 
     stats["partial_success"] = aggregated_metrics.loc["partial_success"]["mean"]
@@ -91,7 +91,7 @@ def get_stats_from_episode_metrics(
     episode_ids = episode_ids.astype(str)
 
     # The task is considered successful if the agent places the object without robot collisions
-    task_success = (episode_metrics["END.robot_collisions.robot_scene_colls"] == 0) * (
+    overall_success = (episode_metrics["END.robot_collisions.robot_scene_colls"] == 0) * (
         episode_metrics["END.ovmm_place_success"] == 1
     )
 
@@ -100,12 +100,12 @@ def get_stats_from_episode_metrics(
         episode_metrics["END.ovmm_find_object_phase_success"]
         + episode_metrics["END.ovmm_pick_object_phase_success"]
         + episode_metrics["END.ovmm_find_recep_phase_success"]
-        + task_success
+        + overall_success
     ) / 4.0
 
     episode_metrics = episode_metrics.assign(
         episode_id=episode_ids,
-        task_success=task_success,
+        overall_success=overall_success,
         partial_success=partial_success,
     )
     aggregated_metrics = aggregate_metrics(episode_metrics)
