@@ -52,7 +52,10 @@ def merge_configs(
     if not visualize:
         if "robot_third_rgb" in env_config.habitat.gym.obs_keys:
             env_config.habitat.gym.obs_keys.remove("robot_third_rgb")
-        if "third_rgb_sensor" in env_config.habitat.simulator.agents.main_agent.sim_sensors:
+        if (
+            "third_rgb_sensor"
+            in env_config.habitat.simulator.agents.main_agent.sim_sensors
+        ):
             env_config.habitat.simulator.agents.main_agent.sim_sensors.pop(
                 "third_rgb_sensor"
             )
@@ -63,10 +66,9 @@ def merge_configs(
             env_config.EXP_NAME, f"{episode_ids_range[0]}_{episode_ids_range[1]}"
         )
 
-    agent_config = DictConfig({**env_config, 'AGENT': baseline_config})
+    agent_config = DictConfig({**env_config, "AGENT": baseline_config})
 
     OmegaConf.set_readonly(env_config, True)
     OmegaConf.set_readonly(agent_config, True)
-
 
     return agent_config, env_config

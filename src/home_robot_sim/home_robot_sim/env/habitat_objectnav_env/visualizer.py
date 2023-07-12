@@ -157,7 +157,7 @@ class Visualizer:
         dilated_obstacle_map: np.ndarray = None,
         semantic_category_mapping: Optional[RearrangeDETICCategories] = None,
         rl_obs_frame: Optional[np.ndarray] = None,
-        semantic_map_config = None,
+        semantic_map_config=None,
         **kwargs,
     ):
         """Visualize frame input and semantic map.

@@ -8,11 +8,7 @@ import argparse
 import os
 
 from evaluator import OVMMEvaluator
-from utils.config_utils import (
-    get_habitat_config,
-    get_omega_config,
-    merge_configs,
-)
+from utils.config_utils import get_habitat_config, get_omega_config, merge_configs
 
 from home_robot.agent.ovmm_agent.ovmm_agent import OpenVocabManipAgent
 from home_robot.agent.ovmm_agent.random_agent import RandomAgent
@@ -79,7 +75,9 @@ if __name__ == "__main__":
     env_config = get_omega_config(args.env_config_path)
 
     # merge habitat, eval config and baseline configs
-    agent_config, env_config = merge_configs(habitat_config, baseline_config, env_config)
+    agent_config, env_config = merge_configs(
+        habitat_config, baseline_config, env_config
+    )
 
     # create agent
     if args.agent_type == "random":
