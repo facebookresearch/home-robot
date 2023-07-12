@@ -84,6 +84,7 @@ class InstanceMemory:
     def __init__(self, num_envs: int, du_scale: int):
         self.num_envs = num_envs
         self.du_scale = du_scale
+        self.debug_visualize = False
         self.reset()
 
     def reset(self):
@@ -113,6 +114,20 @@ class InstanceMemory:
         else:
             # add instance view to global instance
             global_instance.instance_views.append(instance_view)
+        if self.debug_visualize:
+            import cv2
+            import os
+            os.makedirs(f"images/{global_instance_id}", exist_ok=True)
+            cv2.imwrite(
+                f"images/{global_instance_id}/{self.timesteps[env_id]}_{local_instance_id}.png",
+                instance_view.cropped_image,
+            )
+            print(
+                "mapping local instance id",
+                local_instance_id,
+                "to global instance id",
+                global_instance_id,
+            )
 
     def process_instances_for_env(
         self,
@@ -209,6 +224,15 @@ class InstanceMemory:
 
             # append instance view to list of instance views
             self.unprocessed_views[env_id][instance_id.item()] = instance_view
+            # save cropped image with timestep in filename
+            if self.debug_visualize:
+                import cv2, os
+                os.makedirs(f"images/", exist_ok=True)
+                cv2.imwrite(
+                    f"images/{self.timesteps[env_id]}_{instance_id.item()}.png",
+                    cropped_image,
+                )
+                print("adding local instance id", instance_id.item())
 
         self.timesteps[env_id] += 1
 
