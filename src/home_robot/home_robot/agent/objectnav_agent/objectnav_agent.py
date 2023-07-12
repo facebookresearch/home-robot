@@ -34,7 +34,7 @@ class ObjectNavAgent(Agent):
         self.max_steps = config.AGENT.max_steps
         self.num_environments = config.NUM_ENVIRONMENTS
         self.store_all_categories_in_map = getattr(
-            config.AGENT.SEMANTIC_MAP, "store_all_categories", False
+            config, "store_all_categories", False
         )
         if config.AGENT.panorama_start:
             self.panorama_start_steps = int(360 / config.ENVIRONMENT.turn_angle)

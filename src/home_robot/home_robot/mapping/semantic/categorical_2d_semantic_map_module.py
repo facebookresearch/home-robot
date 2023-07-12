@@ -66,10 +66,10 @@ class Categorical2DSemanticMapModule(nn.Module):
         dilate_obstacles: bool = True,
         dilate_iter: int = 1,
         dilate_size: int = 3,
-        record_instance_ids: bool = True,
+        record_instance_ids: bool = False,
+        evaluate_instance_tracking: bool = False,
         instance_memory: Optional[InstanceMemory] = None,
         max_instances: int = 0,
-        evaluate_instance_tracking: bool = False,
     ):
         """
         Arguments:
