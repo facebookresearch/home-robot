@@ -85,7 +85,7 @@ At this point, the simulation demo should run successfully. If you want to run t
 
 ```bash
 # in directory: /path/to/home-robot/projects/instanceimagenav
-python projects/instanceimagenav/eval_episode_habitat.py
+python eval_episode_habitat.py
 ```
 
 This will generate step-wise images and a video for a single episode. The results are saved to `projects/instanceimagenav/datadump/[images|videos]/debug`.
@@ -122,7 +122,7 @@ The episode can now be run:
 
 ```bash
 # in directory: /path/to/home-robot/projects/instanceimagenav
-python projects/instanceimagenav/eval_episode_stretch.py
+python eval_episode_stretch.py
 ```
 
 Step-wise images and a video will be generated. The results are saved to `projects/instanceimagenav/datadump/[images|videos]/debug`.

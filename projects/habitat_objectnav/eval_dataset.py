@@ -66,7 +66,6 @@ if __name__ == "__main__":
     os.makedirs(results_dir, exist_ok=True)
     episode_metrics = {}
     for i in range(len(env.habitat_env.episodes)):
-
         agent.reset()
         env.reset()
         scene_id = env.habitat_env.current_episode.scene_id

@@ -44,16 +44,31 @@ semantic_map:
   map_size_cm: 4800                 # global map size (in centimeters)
   map_resolution: 5                 # size of map bins (in centimeters)
   vision_range: 100                 # diameter of local map region visible by the agent (in cells)
+  explored_radius: 150              # radius (in centimeters) of visually explored region
+  been_close_to_radius: 200         # radius (in centimeters) of been close to region
   global_downscaling: 2             # ratio of global over local map
   du_scale: 4                       # frame downscaling before projecting to point cloud
   cat_pred_threshold: 5.0           # number of depth points to be in bin to classify it as a certain semantic category
   exp_pred_threshold: 1.0           # number of depth points to be in bin to consider it as explored
   map_pred_threshold: 1.0           # number of depth points to be in bin to consider it as obstacle
   num_sem_categories: 1
+  must_explore_close: False
+  min_obs_height_cm: 10             # minimum height (in centimeters) of obstacle to be considered as obstacle
+  # erosion and filtering to reduce the number of spurious artifacts
+  dilate_obstacles: False
+  dilate_size: 3
+  dilate_iter: 1
 planner:
   collision_threshold: 0.20         # forward move distance under which we consider there's a collision (in meters)
+  step_size: 5                      # maximum distance of the short-term goal selected by the planner
   obs_dilation_selem_radius: 3      # radius (in cells) of obstacle dilation structuring element
   goal_dilation_selem_radius: 11    # radius (in cells) of goal dilation structuring element
+  min_obs_dilation_selem_radius: 3  # min radius (in cells) of obstacle dilation structuring element
+  map_downsample_factor: 1          # optional downsampling of traversible and goal map before fmm distance call (1 for no downsampling, 2 for halving resolution)
+  map_update_frequency: 1           # compute fmm distance map every n steps 
+  discrete_actions: True            # discrete motion planner output space or not
+  use_dilation_for_stg: True        # use dilated goals for estimating short-term goals - or just reaching
+  verbose: False                    # display debug information during planning
 semantic_prediction:
   depth_filtering: True
   depth_filter_range_cm: 100        # 1m about the depth median (+/- 50cm)
