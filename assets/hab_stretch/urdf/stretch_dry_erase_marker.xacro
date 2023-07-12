@@ -1,0 +1,133 @@
+<?xml version="1.0"?>
+<robot xmlns:xacro="http://www.ros.org/wiki/xacro" name="stretch_dry_erase_marker">
+
+  <xacro:property name="scale_finger_length" value="0.9" />
+
+    <link
+    name="link_dry_erase_holder">
+    <inertial>
+      <origin
+        xyz="-0.00033908527678797 -4.72017042119077E-09 0.0177808576938317"
+        rpy="0 0 0" />
+      <mass
+        value="0.0347079059161226" />
+      <inertia
+        ixx="7.67214948728222E-06"
+        ixy="-8.06855261037992E-08"
+        ixz="1.26219371489433E-07"
+        iyy="7.63827740251564E-06"
+        iyz="9.35838075307735E-08"
+        izz="1.65327256645883E-07" />
+    </inertial>
+    <visual>
+      <origin
+        xyz="0 0 0"
+        rpy="0 0 0" />
+      <geometry>
+        <mesh
+          filename="package://stretch_description/meshes/link_dry_erase_holder.STL" />
+      </geometry>
+      <material
+        name="">
+        <color
+          rgba="0.792156862745098 0.819607843137255 0.933333333333333 1" />
+      </material>
+    </visual>
+    <collision>
+      <origin
+        xyz="0 0 0"
+        rpy="0 0 0" />
+      <geometry>
+        <mesh
+          filename="package://stretch_description/meshes/link_dry_erase_holder.STL" />
+      </geometry>
+    </collision>
+  </link>
+  <joint
+    name="joint_dry_erase_holder"
+    type="fixed">
+    <origin
+      xyz="0 0 -0.038"
+      rpy="-3.1416 -2.5445E-16 4.71238898038469" />
+    <parent
+      link="link_wrist_yaw" />
+    <child
+      link="link_dry_erase_holder" />
+    <axis
+      xyz="0 0 0" />
+  </joint>
+  <link
+    name="link_dry_erase_marker">
+    <inertial>
+      <origin
+        xyz="0.108173292344959 -2.76023830181327E-08 -0.000137755476015355"
+        rpy="0 0 0" />
+      <mass
+        value="0.00715580304305244" />
+      <inertia
+        ixx="3.95174478409412E-08"
+        ixy="2.65904489437298E-17"
+        ixz="1.33089367561534E-13"
+        iyy="3.95174462639471E-08"
+        iyz="-7.8953462362072E-12"
+        izz="1.57789054873579E-15" />
+    </inertial>
+    <visual>
+      <origin
+        xyz="0 0 0"
+        rpy="0 0 0" />
+      <geometry>
+        <mesh
+          filename="package://stretch_description/meshes/link_dry_erase_marker.STL" />
+      </geometry>
+      <material
+        name="">
+        <color
+          rgba="0.792156862745098 0.819607843137255 0.933333333333333 1" />
+      </material>
+    </visual>
+    <collision>
+      <origin
+        xyz="0 0 0"
+        rpy="0 0 0" />
+      <geometry>
+        <mesh
+          filename="package://stretch_description/meshes/link_dry_erase_marker.STL" />
+      </geometry>
+    </collision>
+  </link>
+  <joint
+    name="joint_dry_erase_marker"
+    type="fixed">
+    <origin
+      xyz="-0.081029 0 0.025418"
+      rpy="-4.8183E-17 -2.5445E-16 -2.1228E-28" />
+    <parent
+      link="link_dry_erase_holder" />
+    <child
+      link="link_dry_erase_marker" />
+    <axis
+      xyz="1 0 0" />
+  </joint>
+  
+  <link
+      name="link_dry_erase_tip">
+  </link>
+  
+  <joint
+    name="joint_dry_erase_tip"
+    type="fixed">
+    <origin
+      xyz="0.005 0 0"
+      rpy="0 0 1.5707963267948966" />
+    <parent
+      link="link_dry_erase_marker" />
+    <child
+      link="link_dry_erase_tip" />
+  </joint>
+  
+  
+</robot>
+
+  
+
