@@ -5,6 +5,17 @@ import torch
 
 
 class InstanceView:
+    """
+    Stores information about a single view of an instance
+
+    bbox: bounding box of instance in the current image
+    timestep: timestep at which the current view was recorded
+    cropped_image: cropped image of instance in the current image
+    embedding: embedding of instance in the current image
+    mask: mask of instance in the current image
+    point_cloud: point cloud of instance in the current image
+    category_id: category id of instance in the current image
+    """
     bbox: Tuple[int, int, int, int]
     timestep: int
     cropped_image: Optional[np.ndarray] = None
@@ -25,6 +36,9 @@ class InstanceView:
         point_cloud,
         category_id=None,
     ):
+        """
+        Initialize InstanceView
+        """
         self.bbox = bbox
         self.timestep = timestep
         self.cropped_image = cropped_image
@@ -35,13 +49,32 @@ class InstanceView:
 
 
 class Instance:
+    """
+    A single instance found in the environment. Each instance is composed of a list of InstanceView objects, each of which is a view of the instance at a particular timestep.
+    """
     def __init__(self):
+        """
+        Initialize Instance
+
+        name: name of instance
+        category_id: category id of instance
+        instance_views: list of InstanceView objects
+        """
         self.name = None
         self.category_id = None
         self.instance_views = []
 
 
 class InstanceMemory:
+    """
+    InstanceMemory stores information about instances found in the environment. It stores a list of Instance objects, each of which is a single instance found in the environment.
+
+    images: list of egocentric images at each timestep
+    instance_views: list of InstanceView objects at each timestep
+    point_cloud: list of point clouds at each timestep
+    unprocessed_views: list of unprocessed InstanceView objects at each timestep, before they are added to an Instance object
+    timesteps: list of timesteps
+    """
     images: List[torch.Tensor] = []
     instance_views: List[Dict[int, Instance]] = []
     point_cloud: List[torch.Tensor] = []
@@ -51,6 +84,7 @@ class InstanceMemory:
     def __init__(self, num_envs: int, du_scale: int):
         self.num_envs = num_envs
         self.du_scale = du_scale
+        self.debug_visualize = False
         self.reset()
 
     def reset(self):
@@ -80,6 +114,20 @@ class InstanceMemory:
         else:
             # add instance view to global instance
             global_instance.instance_views.append(instance_view)
+        if self.debug_visualize:
+            import cv2
+            import os
+            os.makedirs(f"images/{global_instance_id}", exist_ok=True)
+            cv2.imwrite(
+                f"images/{global_instance_id}/{self.timesteps[env_id]}_{local_instance_id}.png",
+                instance_view.cropped_image,
+            )
+            print(
+                "mapping local instance id",
+                local_instance_id,
+                "to global instance id",
+                global_instance_id,
+            )
 
     def process_instances_for_env(
         self,
@@ -176,6 +224,15 @@ class InstanceMemory:
 
             # append instance view to list of instance views
             self.unprocessed_views[env_id][instance_id.item()] = instance_view
+            # save cropped image with timestep in filename
+            if self.debug_visualize:
+                import cv2, os
+                os.makedirs(f"images/", exist_ok=True)
+                cv2.imwrite(
+                    f"images/{self.timesteps[env_id]}_{instance_id.item()}.png",
+                    cropped_image,
+                )
+                print("adding local instance id", instance_id.item())
 
         self.timesteps[env_id] += 1
 
