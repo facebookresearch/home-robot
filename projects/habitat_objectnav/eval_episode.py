@@ -80,8 +80,7 @@ if __name__ == "__main__":
 
     t = 0
 
-    # while not env.episode_over:
-    for _ in range(5):
+    while not env.episode_over:
         t += 1
         print(t)
         obs = env.get_observation()
@@ -92,7 +91,6 @@ if __name__ == "__main__":
 
     # Record video
     images = []
-    print("env.visualizer.vis_dir", env.visualizer.vis_dir)
     for path in natsort.natsorted(glob.glob(f"{env.visualizer.vis_dir}/*.png")):
         images.append(cv2.imread(path))
     create_video(images, f"{env.visualizer.vis_dir}/video.mp4", fps=20)
