@@ -335,6 +335,7 @@ class ObjectNavAgent(Agent):
             vis_inputs[0]["third_person_image"] = obs.third_person_image
             vis_inputs[0]["short_term_goal"] = None
             vis_inputs[0]["dilated_obstacle_map"] = dilated_obstacle_map
+            vis_inputs[0]["semantic_map_config"] = self.config.AGENT.SEMANTIC_MAP
         info = {**planner_inputs[0], **vis_inputs[0]}
         return action, info
 

@@ -10,7 +10,7 @@ import os
 from evaluator import OVMMEvaluator
 from utils.config_utils import (
     get_habitat_config,
-    get_ovmm_baseline_config,
+    get_omega_config,
     merge_configs,
 )
 
@@ -40,6 +40,12 @@ if __name__ == "__main__":
     parser.add_argument(
         "--baseline_config_path",
         type=str,
+        default="projects/habitat_ovmm/configs/agent/heuristic_agent.yaml",
+        help="Path to config yaml",
+    )
+    parser.add_argument(
+        "--env_config_path",
+        type=str,
         default="projects/habitat_ovmm/configs/agent/hssd_eval.yaml",
         help="Path to config yaml",
     )
@@ -67,19 +73,22 @@ if __name__ == "__main__":
     )
 
     # get baseline config
-    baseline_config = get_ovmm_baseline_config(args.baseline_config_path)
+    baseline_config = get_omega_config(args.baseline_config_path)
 
-    # merge habitat and baseline configs
-    eval_config = merge_configs(habitat_config, baseline_config)
+    # get env config
+    env_config = get_omega_config(args.env_config_path)
+
+    # merge habitat, eval config and baseline configs
+    agent_config, env_config = merge_configs(habitat_config, baseline_config, env_config)
 
     # create agent
     if args.agent_type == "random":
-        agent = RandomAgent(eval_config)
+        agent = RandomAgent(agent_config)
     else:
-        agent = OpenVocabManipAgent(eval_config)
+        agent = OpenVocabManipAgent(agent_config)
 
     # create evaluator
-    evaluator = OVMMEvaluator(eval_config)
+    evaluator = OVMMEvaluator(env_config)
 
     # evaluate agent
     metrics = evaluator.evaluate(

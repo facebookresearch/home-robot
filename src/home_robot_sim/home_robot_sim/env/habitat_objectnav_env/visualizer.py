@@ -70,80 +70,7 @@ class Visualizer:
             or "hm3d" in self.episodes_data_path
             or "mp3d" in self.episodes_data_path
         )
-        if "hm3d" in self.episodes_data_path:
-            if config.AGENT.SEMANTIC_MAP.semantic_categories == "coco_indoor":
-                self.semantic_category_mapping = HM3DtoCOCOIndoor()
-            elif config.AGENT.SEMANTIC_MAP.semantic_categories == "hssd_28_cat":
-                self.semantic_category_mapping = HM3DtoHSSD28Indoor()
-            else:
-                raise NotImplementedError
-        elif "ovmm" in self.episodes_data_path:
-            if self._dataset is None:
-                with open(config.ENVIRONMENT.category_map_file) as f:
-                    category_map = json.load(f)
-                self._obj_name_to_id_mapping = category_map[
-                    "obj_category_to_obj_category_id"
-                ]
-                self._rec_name_to_id_mapping = category_map[
-                    "recep_category_to_recep_category_id"
-                ]
-            else:
-                self._obj_name_to_id_mapping = (
-                    self._dataset.obj_category_to_obj_category_id
-                )
-                self._rec_name_to_id_mapping = (
-                    self._dataset.recep_category_to_recep_category_id
-                )
-            self._obj_id_to_name_mapping = {
-                k: v for v, k in self._obj_name_to_id_mapping.items()
-            }
-            self._rec_id_to_name_mapping = {
-                k: v for v, k in self._rec_name_to_id_mapping.items()
-            }
-
-            if config.GROUND_TRUTH_SEMANTICS:
-                # combining objs and receps ids into one dictionary
-                self.obj_rec_combined_mapping = {}
-                obj_id_to_name_mapping = {0: "goal_object"}
-                for i in range(
-                    len(obj_id_to_name_mapping) + len(self._rec_id_to_name_mapping)
-                ):
-                    if i < len(obj_id_to_name_mapping):
-                        self.obj_rec_combined_mapping[i + 1] = obj_id_to_name_mapping[i]
-                    else:
-                        self.obj_rec_combined_mapping[
-                            i + 1
-                        ] = self._rec_id_to_name_mapping[
-                            i - len(obj_id_to_name_mapping)
-                        ]
-
-                self.semantic_category_mapping = RearrangeDETICCategories(
-                    self.obj_rec_combined_mapping
-                )
-            else:
-                self.semantic_category_mapping = None
-
-        elif "floorplanner" in self.episodes_data_path:
-            if config.AGENT.SEMANTIC_MAP.semantic_categories == "mukul_indoor":
-                self.semantic_category_mapping = FloorplannertoMukulIndoor()
-            else:
-                raise NotImplementedError
-        elif "mp3d" in self.episodes_data_path:
-            # TODO This is a hack to get unit tests running, we'll need to
-            #  adapt this if we want to run ObjectNav on MP3D
-            if config.AGENT.SEMANTIC_MAP.semantic_categories == "mukul_indoor":
-                self.semantic_category_mapping = FloorplannertoMukulIndoor()
-            else:
-                raise NotImplementedError
-
-        self.num_sem_categories = config.AGENT.SEMANTIC_MAP.num_sem_categories
-        self.map_resolution = config.AGENT.SEMANTIC_MAP.map_resolution
-        map_size_cm = config.AGENT.SEMANTIC_MAP.map_size_cm
-        self.map_shape = (
-            map_size_cm // self.map_resolution,
-            map_size_cm // self.map_resolution,
-        )
-
+        self.ground_truth_semantics = config.GROUND_TRUTH_SEMANTICS
         self.vis_dir = None
         self.image_vis = None
         self.visited_map_vis = None
@@ -153,11 +80,24 @@ class Visualizer:
         self.text_color = (20, 20, 20)  # BGR
         self.text_thickness = 2
         self.show_rl_obs = getattr(config, "SHOW_RL_OBS", False)
+        self.semantic_category_mapping = None
+        self.num_sem_categories = None
+        self.map_resolution = None
+        self.map_shape = None
+
+    def initialize_map_params(self, map_config):
+        self.num_sem_categories = map_config.num_sem_categories
+        self.map_resolution = map_config.map_resolution
+        map_size_cm = map_config.map_size_cm
+        self.map_shape = (
+            map_size_cm // self.map_resolution,
+            map_size_cm // self.map_resolution,
+        )
 
     def reset(self):
         self.vis_dir = self.default_vis_dir
         self.image_vis = None
-        self.visited_map_vis = np.zeros(self.map_shape)
+        self.visited_map_vis = None
         self.last_xy = None
 
     def set_vis_dir(self, scene_id: str, episode_id: str):
@@ -217,6 +157,7 @@ class Visualizer:
         dilated_obstacle_map: np.ndarray = None,
         semantic_category_mapping: Optional[RearrangeDETICCategories] = None,
         rl_obs_frame: Optional[np.ndarray] = None,
+        semantic_map_config = None,
         **kwargs,
     ):
         """Visualize frame input and semantic map.
@@ -274,9 +215,14 @@ class Visualizer:
         if dilated_obstacle_map is not None:
             obstacle_map = dilated_obstacle_map
 
+        if semantic_map_config is not None:
+            self.initialize_map_params(semantic_map_config)
+
         if obstacle_map is not None:
             curr_x, curr_y, curr_o, gy1, gy2, gx1, gx2 = sensor_pose
             gy1, gy2, gx1, gx2 = int(gy1), int(gy2), int(gx1), int(gx2)
+            if self.visited_map_vis is None:
+                self.visited_map_vis = np.zeros(self.map_shape)
 
             # Update visited map with last visited area
             if self.last_xy is not None:

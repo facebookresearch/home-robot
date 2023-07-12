@@ -24,16 +24,16 @@ def get_habitat_config(
     return config, ""
 
 
-def get_ovmm_baseline_config(baseline_config_path: str) -> DictConfig:
+def get_omega_config(config_path: str) -> DictConfig:
     """Returns the baseline configuration."""
-    config = OmegaConf.load(baseline_config_path)
+    config = OmegaConf.load(config_path)
     OmegaConf.set_readonly(config, True)
     return config
 
 
 def merge_configs(
-    habitat_config: DictConfig, baseline_config: DictConfig
-) -> DictConfig:
+    habitat_config: DictConfig, baseline_config: DictConfig, env_config: DictConfig
+) -> Tuple[DictConfig, DictConfig]:
     """
     Merges habitat and baseline configurations.
 
@@ -43,25 +43,30 @@ def merge_configs(
 
     :param habitat_config: habitat configuration.
     :param baseline_config: baseline configuration.
-    :return: merged configuration.
+    :return: (merged agent configuration, merged env configuration)
     """
 
-    config = DictConfig({**habitat_config, **baseline_config})
+    env_config = DictConfig({**habitat_config, **env_config})
 
-    visualize = config.VISUALIZE or config.PRINT_IMAGES
+    visualize = env_config.VISUALIZE or env_config.PRINT_IMAGES
     if not visualize:
-        if "robot_third_rgb" in config.habitat.gym.obs_keys:
-            config.habitat.gym.obs_keys.remove("robot_third_rgb")
-        if "third_rgb_sensor" in config.habitat.simulator.agents.main_agent.sim_sensors:
-            config.habitat.simulator.agents.main_agent.sim_sensors.pop(
+        if "robot_third_rgb" in env_config.habitat.gym.obs_keys:
+            env_config.habitat.gym.obs_keys.remove("robot_third_rgb")
+        if "third_rgb_sensor" in env_config.habitat.simulator.agents.main_agent.sim_sensors:
+            env_config.habitat.simulator.agents.main_agent.sim_sensors.pop(
                 "third_rgb_sensor"
             )
 
-    episode_ids_range = config.habitat.dataset.episode_indices_range
+    episode_ids_range = env_config.habitat.dataset.episode_indices_range
     if episode_ids_range is not None:
-        config.EXP_NAME = os.path.join(
-            config.EXP_NAME, f"{episode_ids_range[0]}_{episode_ids_range[1]}"
+        env_config.EXP_NAME = os.path.join(
+            env_config.EXP_NAME, f"{episode_ids_range[0]}_{episode_ids_range[1]}"
         )
 
-    OmegaConf.set_readonly(config, True)
-    return config
+    agent_config = DictConfig({**env_config, 'AGENT': baseline_config})
+
+    OmegaConf.set_readonly(env_config, True)
+    OmegaConf.set_readonly(agent_config, True)
+
+
+    return agent_config, env_config
