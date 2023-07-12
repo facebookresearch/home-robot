@@ -362,6 +362,7 @@ class Categorical2DSemanticMapModule(nn.Module):
         prev_map: Tensor,
         prev_pose: Tensor,
         camera_pose: Tensor,
+        debug: bool = False,
     ) -> Tuple[Tensor, Tensor]:
         """Update local map and sensor pose given a new observation using parameter-free
         differentiable projective geometry.
@@ -398,6 +399,11 @@ class Categorical2DSemanticMapModule(nn.Module):
             # hab_agent_height = camera_pose[:, 1, 3] * 100
             agent_pos = camera_pose[:, :3, 3] * 100
             agent_height = agent_pos[:, 2]
+
+            if debug:
+                print("tilt", tilt)
+                print("agent_height", agent_height)
+                print()
         else:
             tilt = torch.zeros(batch_size)
             agent_height = self.agent_height
