@@ -321,7 +321,7 @@ def main(input_trajectory_dir: str, output_visualization_dir: str, legend_path: 
         frame_height=obs.rgb.shape[0],
         frame_width=obs.rgb.shape[1],
         camera_height=obs.camera_pose[2, 3],
-        hfov=47.0,  #  60.0,  # 47.0,  # 42.0,
+        hfov=42.0,  #  60.0,  # 47.0
         num_sem_categories=num_sem_categories,
         map_size_cm=4800,
         map_resolution=5,
@@ -334,7 +334,7 @@ def main(input_trajectory_dir: str, output_visualization_dir: str, legend_path: 
         exp_pred_threshold=1.0,
         map_pred_threshold=1.0,
         min_depth=0.5,
-        max_depth=1.5,  # 3.5,
+        max_depth=3.5,  # 1.5,
         must_explore_close=False,
         min_obs_height_cm=10,
     ).to(device)
@@ -445,7 +445,7 @@ def main(input_trajectory_dir: str, output_visualization_dir: str, legend_path: 
             legend,
         )
         vis_images.append(vis_image)
-        # plt.imsave(Path(output_visualization_dir) / f"{i}.png", vis_image)
+        plt.imsave(Path(output_visualization_dir) / f"{i}.png", vis_image)
 
     create_video(
         [v[:, :, ::-1] for v in vis_images],
