@@ -105,9 +105,16 @@ class InstanceMemory:
         # otherwise, create a new global instance with the given global_instance_id
 
         # get instance view
-        instance_view = self.unprocessed_views[env_id][local_instance_id]
+        instance_view = self.unprocessed_views[env_id].get(local_instance_id, None)
+        if instance_view is None and self.debug_visualize:
+            print(
+                "instance view with local instance id",
+                local_instance_id,
+                "not found in unprocessed views",
+            )
+
         # get global instance
-        global_instance = self.instance_views[env_id].get(global_instance_id, None)
+        global_instance = self.instance_views[env_id][global_instance_id]
         if global_instance is None:
             # create a new global instance
             global_instance = Instance()
@@ -118,10 +125,7 @@ class InstanceMemory:
             # add instance view to global instance
             global_instance.instance_views.append(instance_view)
         if self.debug_visualize:
-            import os
-
-            import cv2
-
+            import os, cv2
             os.makedirs(f"images/{global_instance_id}", exist_ok=True)
             cv2.imwrite(
                 f"images/{global_instance_id}/{self.timesteps[env_id]}_{local_instance_id}.png",
@@ -181,7 +185,7 @@ class InstanceMemory:
                 torch.stack(
                     [
                         instance_mask.nonzero().min(dim=0)[0],
-                        instance_mask.nonzero().max(dim=0)[0],
+                        instance_mask.nonzero().max(dim=0)[0] + 1,
                     ]
                 )
                 .cpu()
@@ -231,16 +235,12 @@ class InstanceMemory:
             self.unprocessed_views[env_id][instance_id.item()] = instance_view
             # save cropped image with timestep in filename
             if self.debug_visualize:
-                import os
-
-                import cv2
-
+                import os, cv2
                 os.makedirs("images/", exist_ok=True)
                 cv2.imwrite(
                     f"images/{self.timesteps[env_id]}_{instance_id.item()}.png",
                     cropped_image,
                 )
-                print("adding local instance id", instance_id.item())
 
         self.timesteps[env_id] += 1
 
