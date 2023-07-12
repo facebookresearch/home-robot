@@ -5,6 +5,17 @@ import torch
 
 
 class InstanceView:
+    """
+    Stores information about a single view of an instance
+
+    bbox: bounding box of instance in the current image
+    timestep: timestep at which the current view was recorded
+    cropped_image: cropped image of instance in the current image
+    embedding: embedding of instance in the current image
+    mask: mask of instance in the current image
+    point_cloud: point cloud of instance in the current image
+    category_id: category id of instance in the current image
+    """
     bbox: Tuple[int, int, int, int]
     timestep: int
     cropped_image: Optional[np.ndarray] = None
@@ -25,6 +36,9 @@ class InstanceView:
         point_cloud,
         category_id=None,
     ):
+        """
+        Initialize InstanceView
+        """
         self.bbox = bbox
         self.timestep = timestep
         self.cropped_image = cropped_image
@@ -35,13 +49,32 @@ class InstanceView:
 
 
 class Instance:
+    """
+    A single instance found in the environment. Each instance is composed of a list of InstanceView objects, each of which is a view of the instance at a particular timestep.
+    """
     def __init__(self):
+        """
+        Initialize Instance
+
+        name: name of instance
+        category_id: category id of instance
+        instance_views: list of InstanceView objects
+        """
         self.name = None
         self.category_id = None
         self.instance_views = []
 
 
 class InstanceMemory:
+    """
+    InstanceMemory stores information about instances found in the environment. It stores a list of Instance objects, each of which is a single instance found in the environment.
+
+    images: list of egocentric images at each timestep
+    instance_views: list of InstanceView objects at each timestep
+    point_cloud: list of point clouds at each timestep
+    unprocessed_views: list of unprocessed InstanceView objects at each timestep, before they are added to an Instance object
+    timesteps: list of timesteps
+    """
     images: List[torch.Tensor] = []
     instance_views: List[Dict[int, Instance]] = []
     point_cloud: List[torch.Tensor] = []
