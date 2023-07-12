@@ -240,6 +240,9 @@ class DeticPerception(PerceptionModule):
 
         pred = self.predictor(image)
 
+        if obs.task_observations is None:
+            obs.task_observations = {}
+
         if draw_instance_predictions:
             visualizer = Visualizer(
                 image[:, :, ::-1], self.metadata, instance_mode=self.instance_mode

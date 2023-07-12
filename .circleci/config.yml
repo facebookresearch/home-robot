@@ -70,9 +70,6 @@ jobs:
                 unzip || true
       - conda_env_setup
       - run:
-          name: Sync submodules
-          command: git submodule sync && git submodule update --init assets/hab_stretch
-      - run:
           name: Install libraries and run tests
           command: |
             conda activate ~/env_home_robot

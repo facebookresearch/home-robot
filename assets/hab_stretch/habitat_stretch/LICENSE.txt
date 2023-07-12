@@ -1,0 +1,7 @@
+Original "urdf/hab_stretch.urdf" and all assets referenced there-in are provided courtesy of Hello Robot, all rights reserved.
+All other assets represent derivative work of said authors.
+Written permission has been acquired for redistribution of these assets with attribution.
+
+Derivative work includes:
+- modifications to URDF file
+- Addition of new collision meshes
