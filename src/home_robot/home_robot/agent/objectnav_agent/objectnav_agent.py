@@ -426,9 +426,11 @@ class ObjectNavAgent(Agent):
             obs_preprocessed = torch.cat([obs_preprocessed, instances], dim=-1)
 
         if self.evaluate_instance_tracking:
-            gt_instance_ids = torch.from_numpy(
-                obs.task_observations["gt_instance_ids"]
-            ).to(self.device).long()
+            gt_instance_ids = (
+                torch.from_numpy(obs.task_observations["gt_instance_ids"])
+                .to(self.device)
+                .long()
+            )
             gt_instance_ids = self.one_hot_instance_encoding[gt_instance_ids]
             obs_preprocessed = torch.cat([obs_preprocessed, gt_instance_ids], dim=-1)
 

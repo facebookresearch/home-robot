@@ -238,7 +238,10 @@ class OpenVocabManipAgent(ObjectNavAgent):
             self.timesteps_before_goal_update[e] = 0
             if not self.skip_skills.nav_to_rec:
                 action = DiscreteNavigationAction.NAVIGATION_MODE
-                if self.config.AGENT.SKILLS.NAV_TO_OBJ.type == "rl" and not self.store_all_categories_in_map:
+                if (
+                    self.config.AGENT.SKILLS.NAV_TO_OBJ.type == "rl"
+                    and not self.store_all_categories_in_map
+                ):
                     self._set_semantic_vocab(SemanticVocab.FULL, force_set=False)
         elif next_skill == Skill.GAZE_AT_REC:
             if not self.store_all_categories_in_map:
@@ -276,9 +279,10 @@ class OpenVocabManipAgent(ObjectNavAgent):
         self.semantic_sensor.update_vocubulary_list(full_vocab, SemanticVocab.FULL)
 
         # All vocabulary contains all objects and all receptacles
-        all_vocab = build_vocab_from_category_map(self.obj_name_to_id, self.rec_name_to_id)
+        all_vocab = build_vocab_from_category_map(
+            self.obj_name_to_id, self.rec_name_to_id
+        )
         self.semantic_sensor.update_vocubulary_list(all_vocab, SemanticVocab.ALL)
-
 
     def _set_semantic_vocab(self, vocab_id: SemanticVocab, force_set: bool):
         """

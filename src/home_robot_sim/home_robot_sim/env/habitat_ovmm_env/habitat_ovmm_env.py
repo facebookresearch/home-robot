@@ -93,13 +93,21 @@ class HabitatOpenVocabManipEnv(HabitatEnv):
         self._obj_id_to_name_mapping = {
             k: v for v, k in self._obj_name_to_id_mapping.items()
         }
-        self._instance_ids_start_in_panoptic = config.habitat.simulator.instance_ids_start
+        self._instance_ids_start_in_panoptic = (
+            config.habitat.simulator.instance_ids_start
+        )
         self._rec_id_to_name_mapping = {
             k: v for v, k in self._rec_name_to_id_mapping.items()
         }
-        self.store_all_categories_in_map = getattr(config.AGENT.SEMANTIC_MAP, 'store_all_categories', False)
-        self.evaluate_instance_tracking = getattr(config.AGENT.SEMANTIC_MAP, 'evaluate_instance_tracking', False)
-        self.record_instance_ids = getattr(config.AGENT.SEMANTIC_MAP, 'record_instance_ids', False)
+        self.store_all_categories_in_map = getattr(
+            config.AGENT.SEMANTIC_MAP, "store_all_categories", False
+        )
+        self.evaluate_instance_tracking = getattr(
+            config.AGENT.SEMANTIC_MAP, "evaluate_instance_tracking", False
+        )
+        self.record_instance_ids = getattr(
+            config.AGENT.SEMANTIC_MAP, "record_instance_ids", False
+        )
         self._last_habitat_obs = None
 
     def get_current_episode(self):
@@ -160,7 +168,12 @@ class HabitatOpenVocabManipEnv(HabitatEnv):
                 np.asarray(habitat_obs["camera_pose"])
             ),
         )
-        gt_instance_ids = np.maximum(0, habitat_obs["robot_head_panoptic"] - self._instance_ids_start_in_panoptic + 1)[..., 0]
+        gt_instance_ids = np.maximum(
+            0,
+            habitat_obs["robot_head_panoptic"]
+            - self._instance_ids_start_in_panoptic
+            + 1,
+        )[..., 0]
         if self.evaluate_instance_tracking:
             obs.task_observations["gt_instance_ids"] = gt_instance_ids
         if self.record_instance_ids:
@@ -218,8 +231,12 @@ class HabitatOpenVocabManipEnv(HabitatEnv):
         if self.store_all_categories_in_map:
             obj_goal_id = self._obj_name_to_id_mapping[obj_name]
             num_obj_categories = len(self._obj_name_to_id_mapping)
-            start_rec_goal_id = self._rec_name_to_id_mapping[start_receptacle] + num_obj_categories
-            end_rec_goal_id = self._rec_name_to_id_mapping[goal_receptacle] + num_obj_categories
+            start_rec_goal_id = (
+                self._rec_name_to_id_mapping[start_receptacle] + num_obj_categories
+            )
+            end_rec_goal_id = (
+                self._rec_name_to_id_mapping[goal_receptacle] + num_obj_categories
+            )
         elif self.ground_truth_semantics:
             start_rec_goal_id = self._rec_name_to_id_mapping[start_receptacle] + 2
             end_rec_goal_id = self._rec_name_to_id_mapping[goal_receptacle] + 2

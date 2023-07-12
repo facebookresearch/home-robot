@@ -16,6 +16,7 @@ class InstanceView:
     point_cloud: point cloud of instance in the current image
     category_id: category id of instance in the current image
     """
+
     bbox: Tuple[int, int, int, int]
     timestep: int
     cropped_image: Optional[np.ndarray] = None
@@ -52,6 +53,7 @@ class Instance:
     """
     A single instance found in the environment. Each instance is composed of a list of InstanceView objects, each of which is a view of the instance at a particular timestep.
     """
+
     def __init__(self):
         """
         Initialize Instance
@@ -75,6 +77,7 @@ class InstanceMemory:
     unprocessed_views: list of unprocessed InstanceView objects at each timestep, before they are added to an Instance object
     timesteps: list of timesteps
     """
+
     images: List[torch.Tensor] = []
     instance_views: List[Dict[int, Instance]] = []
     point_cloud: List[torch.Tensor] = []
@@ -115,8 +118,10 @@ class InstanceMemory:
             # add instance view to global instance
             global_instance.instance_views.append(instance_view)
         if self.debug_visualize:
-            import cv2
             import os
+
+            import cv2
+
             os.makedirs(f"images/{global_instance_id}", exist_ok=True)
             cv2.imwrite(
                 f"images/{global_instance_id}/{self.timesteps[env_id]}_{local_instance_id}.png",
@@ -226,8 +231,11 @@ class InstanceMemory:
             self.unprocessed_views[env_id][instance_id.item()] = instance_view
             # save cropped image with timestep in filename
             if self.debug_visualize:
-                import cv2, os
-                os.makedirs(f"images/", exist_ok=True)
+                import os
+
+                import cv2
+
+                os.makedirs("images/", exist_ok=True)
                 cv2.imwrite(
                     f"images/{self.timesteps[env_id]}_{instance_id.item()}.png",
                     cropped_image,
