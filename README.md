@@ -195,7 +195,7 @@ rviz -d $HOME_ROBOT_ROOT/src/home_robot_hw/launch/mapping_demo.rviz
 
 #### 3. Download third-party packages
 ```
-git submodule update --init --recursive assets/hab_stretch src/home_robot/home_robot/perception/detection/detic/Detic src/third_party/detectron2 src/third_party/contact_graspnet
+git submodule update --init --recursive src/home_robot/home_robot/perception/detection/detic/Detic src/third_party/detectron2 src/third_party/contact_graspnet
 ```
 
 #### 4. Hardware Testing
