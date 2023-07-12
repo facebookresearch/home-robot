@@ -9,6 +9,8 @@ import json
 import sys
 from pathlib import Path
 import cv2
+import natsort
+import glob
 
 # TODO Install home_robot, home_robot_sim and remove this
 sys.path.insert(
@@ -87,3 +89,10 @@ if __name__ == "__main__":
         env.apply_action(action, info=info)
 
     print(env.get_episode_metrics())
+
+    # Record video
+    images = []
+    print("env.visualizer.vis_dir", env.visualizer.vis_dir)
+    for path in natsort.natsorted(glob.glob(f"{env.visualizer.vis_dir}/*.png")):
+        images.append(cv2.imread(path))
+    create_video(images, f"{env.visualizer.vis_dir}/video.mp4", fps=20)
