@@ -316,7 +316,7 @@ class Categorical2DSemanticMapModule(nn.Module):
                 )
 
             # loop over categories
-            # TODO Can we vectorize this across categories?
+            # TODO Can we vectorize this across categories? (Only needed if speed bottleneck)
             for category_id in category_id_to_instance_id_list.keys():
                 if len(category_id_to_instance_id_list[category_id]) == 0:
                     continue
@@ -618,7 +618,7 @@ class Categorical2DSemanticMapModule(nn.Module):
 
         # update instance channels
         if self.record_instance_ids:
-            translated = self._store_instances_per_category(
+            translated = self._aggregate_instance_map_channels_per_category(
                 translated, num_instance_channels
             )
 
