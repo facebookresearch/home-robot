@@ -474,7 +474,7 @@ class Visualizer:
 
             for index, count in num_instances_per_category.items():
                 if count > 0:
-                    text = f"{index}: {count} ins"
+                    text = f"cat {index}: {num_views_per_instance[index]} views"
                     image_vis = self._put_text_on_image(
                         image_vis,
                         text,

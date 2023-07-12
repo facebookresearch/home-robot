@@ -800,8 +800,13 @@ class Categorical2DSemanticMapModule(nn.Module):
         global_instances_in_local = np.vectorize(instance_mapping.get)(
             local_map.cpu().numpy()
         )
-        global_instances[x1:x2, y1:y2] = torch.tensor(
-            global_instances_in_local, dtype=torch.int64, device=global_instances.device
+        global_instances[x1:x2, y1:y2] = torch.maximum(
+            global_instances[x1:x2, y1:y2],
+            torch.tensor(
+                global_instances_in_local,
+                dtype=torch.int64,
+                device=global_instances.device,
+            ),
         )
         return global_instances
 
