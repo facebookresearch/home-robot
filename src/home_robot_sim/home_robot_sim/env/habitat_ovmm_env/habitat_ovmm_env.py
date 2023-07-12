@@ -100,7 +100,7 @@ class HabitatOpenVocabManipEnv(HabitatEnv):
             k: v for v, k in self._rec_name_to_id_mapping.items()
         }
         self.store_all_categories_in_map = getattr(
-            config.AGENT.SEMANTIC_MAP, "store_all_categories", False
+            config.AGENT, "store_all_categories", False
         )
         self.evaluate_instance_tracking = getattr(
             config.AGENT.SEMANTIC_MAP, "evaluate_instance_tracking", False

@@ -32,10 +32,10 @@ class Categorical2DSemanticMapState:
         map_resolution: int,
         map_size_cm: int,
         global_downscaling: int,
-        record_instance_ids: bool,
-        evaluate_instance_tracking: bool,
-        max_instances: int = 0,
+        record_instance_ids: bool = False,
+        evaluate_instance_tracking: bool = False,
         instance_memory: Optional[InstanceMemory] = None,
+        max_instances: int = 0,
     ):
         """
         Arguments:
