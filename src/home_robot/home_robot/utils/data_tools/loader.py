@@ -125,13 +125,16 @@ class DatasetBase(torch.utils.data.Dataset):
                     if not self.trial_list or (
                         self.trial_list and key in self.trial_list
                     ):
+                        # check if key demo_status exists, if it does it communicates
+                        # whether the trial is a success or failure. Do not include
+                        # failures in the dataset. If key does not exist, Trial
+                        # is assumed success and included.
                         if (
                             "demo_status" in h5_trial.keys()
                             and h5_trial["demo_status"][()] == 1
                         ) or "demo_status" not in h5_trial.keys():
                             # Open the trial and extract metadata
                             trial = self.Trial(key, filename, self, h5_trial)
-                            # get trial config, look for "demo_status" key and check if it is s/f
                             if self.verbose:
                                 print("trial =", key, trial.length)
                             lens.append(trial.length)

@@ -3,26 +3,6 @@
 # This source code is licensed under the MIT license found in the
 # LICENSE file in the root directory of this source tree.
 
-# Copyright (c) 2023 PyG Team <team@pyg.org>
-
-# Permission is hereby granted, free of charge, to any person obtaining a copy
-# of this software and associated documentation files (the "Software"), to deal
-# in the Software without restriction, including without limitation the rights
-# to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-# copies of the Software, and to permit persons to whom the Software is
-# furnished to do so, subject to the following conditions:
-
-# The above copyright notice and this permission notice shall be included in
-# all copies or substantial portions of the Software.
-
-# THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-# IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-# FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-# AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-# LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-# OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
-# THE SOFTWARE.
-# License: https://github.com/lucidrains/perceiver-pytorch/blob/main/LICENSE
 
 import math
 
@@ -56,6 +36,7 @@ from torch_scatter import scatter_max
 # https://github.com/pyg-team/pytorch_geometric/blob/master/examples/point_transformer_segmentation.py
 
 
+# License: https://github.com/pyg-team/pytorch_geometric/blob/master/LICENSE
 class TransformerBlock(torch.nn.Module):
     def __init__(self, in_channels, out_channels):
         super().__init__()
@@ -78,6 +59,7 @@ class TransformerBlock(torch.nn.Module):
         return x
 
 
+# License: https://github.com/pyg-team/pytorch_geometric/blob/master/LICENSE
 class TransitionDown(torch.nn.Module):
     """
     Samples the input point cloud by a ratio percentage to reduce
@@ -118,6 +100,7 @@ class TransitionDown(torch.nn.Module):
         return out, sub_pos, sub_batch
 
 
+# License: https://github.com/pyg-team/pytorch_geometric/blob/master/LICENSE
 def MLP(channels, batch_norm=True):
     return Seq(
         *[
@@ -131,6 +114,7 @@ def MLP(channels, batch_norm=True):
     )
 
 
+# License: https://github.com/pyg-team/pytorch_geometric/blob/master/LICENSE
 class TransitionUp(torch.nn.Module):
     """
     Reduce features dimensionnality and interpolate back to higher
@@ -244,6 +228,7 @@ class SAModule(torch.nn.Module):
         return x, sampled_pos, sampled_batch
 
 
+# License: https://github.com/pyg-team/pytorch_geometric/blob/master/LICENSE
 class PtnetSAModule(torch.nn.Module):
     def __init__(self, ratio, r, nn):
         super().__init__()
@@ -263,6 +248,7 @@ class PtnetSAModule(torch.nn.Module):
         return x, pos, batch
 
 
+# License: https://github.com/pyg-team/pytorch_geometric/blob/master/LICENSE
 class GlobalSAModule(torch.nn.Module):
     def __init__(self, nn):
         super().__init__()

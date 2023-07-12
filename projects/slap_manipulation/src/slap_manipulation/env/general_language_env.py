@@ -29,6 +29,7 @@ from home_robot.utils.geometry import xyt2sophus, xyt_base_to_global, xyt_global
 from home_robot.utils.pose import to_matrix
 from home_robot_hw.env.stretch_pick_and_place_env import StretchPickandPlaceEnv
 from home_robot_hw.ros.visualizer import ArrayVisualizer, Visualizer
+from home_robot_hw.utils.grasping import GraspPlanner
 
 
 class GeneralLanguageEnv(StretchPickandPlaceEnv):
@@ -52,13 +53,22 @@ class GeneralLanguageEnv(StretchPickandPlaceEnv):
             config,
             cat_map_file,
             visualize_planner=visualize_planner,
-            ros_grasping=ros_grasping,
+            ros_grasping=False,
             test_grasping=test_grasping,
             dry_run=dry_run,
             debug=debug,
             *args,
             **kwargs
         )
+        if self.grasp_planner is None and ros_grasping:
+            # create grasp_planner with preferred pregrasp_height
+            self.grasp_planner = GraspPlanner(
+                self.robot,
+                self,
+                visualize_planner=visualize_planner,
+                pregrasp_height=1.4,
+            )
+
         self.closed_loop = closed_loop
         self.current_goal_id = None
         self.current_goal_name = None
@@ -169,6 +179,7 @@ class GeneralLanguageEnv(StretchPickandPlaceEnv):
                         wait_for_input=self.debug,
                         visualize=self.test_grasping,
                         switch_mode=False,
+                        z_standoff=0.6,
                     )
                     if ok:
                         break

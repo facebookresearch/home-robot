@@ -14,7 +14,7 @@ from home_robot.motion.stretch import HelloStretchIdx, HelloStretchKinematics
 class SimpleGraspMotionPlanner(object):
     """Simple top-down grasp motion planner for the Stretch."""
 
-    def __init__(self, robot: HelloStretchKinematics, pregrasp_height=1.4):
+    def __init__(self, robot: HelloStretchKinematics, pregrasp_height=1.2):
         """
         Solve IK
         """
@@ -26,7 +26,10 @@ class SimpleGraspMotionPlanner(object):
         self.pregrasp_height = pregrasp_height
 
     def plan_to_grasp(
-        self, grasp_pose: Tuple[np.ndarray], initial_cfg: np.ndarray
+        self,
+        grasp_pose: Tuple[np.ndarray],
+        initial_cfg: np.ndarray,
+        z_standoff=0.4,
     ) -> Optional[List[Tuple]]:
         """Create offsets for the full trajectory plan to get to the object.
         Then return that plan.
@@ -60,7 +63,7 @@ class SimpleGraspMotionPlanner(object):
 
         # Standoff is 8cm over the grasp for now
         # Overwrite standoff pos.z with a really high value so it comes in from above
-        standoff_pos = grasp_pos + np.array([0.0, 0.0, 0.6])
+        standoff_pos = grasp_pos + np.array([0.0, 0.0, z_standoff])
         standoff_pos[2] = np.min([self.robot.max_arm_height, standoff_pos[2]])
         standoff_cfg, success, _ = self.robot.manip_ik(
             (standoff_pos, grasp_quat), q0=None
