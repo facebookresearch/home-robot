@@ -91,9 +91,9 @@ def get_stats_from_episode_metrics(
     episode_ids = episode_ids.astype(str)
 
     # The task is considered successful if the agent places the object without robot collisions
-    overall_success = (episode_metrics["END.robot_collisions.robot_scene_colls"] == 0) * (
-        episode_metrics["END.ovmm_place_success"] == 1
-    )
+    overall_success = (
+        episode_metrics["END.robot_collisions.robot_scene_colls"] == 0
+    ) * (episode_metrics["END.ovmm_place_success"] == 1)
 
     # Compute partial success measure
     partial_success = (

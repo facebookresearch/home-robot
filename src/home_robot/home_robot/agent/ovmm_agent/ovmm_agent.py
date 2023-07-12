@@ -547,5 +547,7 @@ class OpenVocabManipAgent(ObjectNavAgent):
         # update the curr skill to the new skill whose action will be executed
         info["curr_skill"] = Skill(self.states[0].item()).name
         if self.verbose:
-            print(f'Executing skill {info["curr_skill"]} at timestep {self.timesteps[0]}')
+            print(
+                f'Executing skill {info["curr_skill"]} at timestep {self.timesteps[0]}'
+            )
         return action, info, obs
