@@ -47,7 +47,7 @@ AGENT:
     dilate_iter: 1
     # instance mapping
     record_instance_ids: True  # whether to predict and store instance ids in the map
-    evaluate_instance_tracking: True
+    evaluate_instance_tracking: False
     max_instances: 800
 
   PLANNER:
