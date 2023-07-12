@@ -334,7 +334,9 @@ class Categorical2DSemanticMapModule(nn.Module):
                 # add a zero to start of instance ids
                 instance_id = [0] + instance_ids
                 # update the ids using the list of instance ids
-                instance_id_map = torch.tensor(instance_id)[instance_id_map]
+                instance_id_map = torch.tensor(
+                    instance_id, device=instance_id_map.device
+                )[instance_id_map]
                 # update the per category instance map
                 top_down_instances_per_category[i, category_id] = instance_id_map
 
