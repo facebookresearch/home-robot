@@ -94,3 +94,7 @@ if __name__ == "__main__":
     for path in natsort.natsorted(glob.glob(f"{env.visualizer.vis_dir}/*.png")):
         images.append(cv2.imread(path))
     create_video(images, f"{env.visualizer.vis_dir}/video.mp4", fps=20)
+
+    if config.AGENT.SEMANTIC_MAP.record_instance_ids:
+        # TODO Can we create a visualization of the instance memory here?
+        pass
