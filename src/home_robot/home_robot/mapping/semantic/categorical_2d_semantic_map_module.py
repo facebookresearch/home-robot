@@ -846,7 +846,7 @@ class Categorical2DSemanticMapModule(nn.Module):
             ]
             if len(unique_overlapping_instances) >= 1:
                 # If there is a corresponding instance in the global map, pick the first one and associate it
-                global_instance_id = unique_overlapping_instances[0].item()
+                global_instance_id = int(unique_overlapping_instances[0].item())
                 instance_mapping[local_instance_id.item()] = global_instance_id
             else:
                 # If there are no corresponding instances, create a new instance
