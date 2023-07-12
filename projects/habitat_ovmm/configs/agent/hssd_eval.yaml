@@ -46,7 +46,10 @@ AGENT:
     dilate_obstacles: True
     dilate_size: 3
     dilate_iter: 1
-    record_instance_ids: False
+    record_instance_ids: True
+    store_all_categories: True
+    evaluate_instance_tracking: True
+    max_instances: 800
 
   SKILLS:
     GAZE_OBJ:
