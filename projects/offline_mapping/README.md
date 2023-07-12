@@ -12,4 +12,4 @@ python projects/offline_mapping/build_map.py \
 You can see timestep visualizations and a video in the `map_visualization` folder.
 
 It should look something like this:
-![](airbnb1.png)
+![](map.png)
