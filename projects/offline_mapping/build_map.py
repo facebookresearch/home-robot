@@ -207,7 +207,8 @@ def get_semantic_map_vis(
     vis_image[50:530, 1325:1805] = semantic_map_vis
 
     # Draw semantic frame
-    vis_image[50:530, 15:655] = cv2.resize(semantic_frame[:, :, ::-1], (640, 480))
+    # vis_image[50:530, 15:655] = cv2.resize(semantic_frame[:, :, ::-1], (640, 480))
+    vis_image[50:530, 15:655] = cv2.resize(semantic_frame, (640, 480))
 
     # Draw depth frame
     vis_image[50:530, 670:1310] = cv2.resize(depth_frame, (640, 480))

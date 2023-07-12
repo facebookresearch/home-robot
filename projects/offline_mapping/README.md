@@ -9,7 +9,7 @@ python projects/offline_mapping/build_map.py \
     --input_trajectory_dir trajectory/ \
     --output_visualization_dir map_visualization/
 ```
-You can see visualizations in the `map_visualization` folder.
+You can see timestep visualizations and a video in the `map_visualization` folder.
 
 It should look something like this:
 ![](airbnb1.png)
