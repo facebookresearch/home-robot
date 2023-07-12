@@ -178,7 +178,6 @@ class InstanceMemory:
             self.unprocessed_views[env_id][instance_id.item()] = instance_view
 
         self.timesteps[env_id] += 1
-        return instance_id_to_category_id
 
     def get_unprocessed_instances_per_env(self, env_id: int):
         return self.unprocessed_views[env_id]
