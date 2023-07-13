@@ -31,19 +31,17 @@ def get_omega_config(config_path: str) -> DictConfig:
     return config
 
 
-def merge_configs(
-    habitat_config: DictConfig, baseline_config: DictConfig, env_config: DictConfig
-) -> Tuple[DictConfig, DictConfig]:
+def create_env_config(habitat_config: DictConfig, env_config: DictConfig) -> DictConfig:
     """
-    Merges habitat and baseline configurations.
+    Merges habitat and env configurations.
 
     Adjusts the configuration based on the provided arguments:
     1. Removes third person sensors to improve speed if visualization is not required.
     2. Processes the episode range if specified and updates the EXP_NAME accordingly.
 
     :param habitat_config: habitat configuration.
-    :param baseline_config: baseline configuration.
-    :return: (merged agent configuration, merged env configuration)
+    :param env_config: baseline configuration.
+    :return: merged env configuration
     """
 
     env_config = DictConfig({**habitat_config, **env_config})
@@ -65,10 +63,20 @@ def merge_configs(
         env_config.EXP_NAME = os.path.join(
             env_config.EXP_NAME, f"{episode_ids_range[0]}_{episode_ids_range[1]}"
         )
-
-    agent_config = DictConfig({**env_config, "AGENT": baseline_config})
-
     OmegaConf.set_readonly(env_config, True)
-    OmegaConf.set_readonly(agent_config, True)
+    return env_config
 
-    return agent_config, env_config
+
+def create_agent_config(
+    env_config: DictConfig, baseline_config: DictConfig
+) -> DictConfig:
+    """
+    Merges habitat and baseline configurations.
+
+    :param env_config: env configuration.
+    :param baseline_config: baseline configuration.
+    :return: merged agent configuration
+    """
+    agent_config = DictConfig({**env_config, "AGENT": baseline_config})
+    OmegaConf.set_readonly(agent_config, True)
+    return agent_config
