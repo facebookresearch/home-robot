@@ -4,7 +4,7 @@ from typing import Any, Dict, Optional
 import numpy as np
 import transforms3d as t3d
 
-import home_robot.core.abstract_env
+from home_robot.core.abstract_env import Env
 from home_robot.core.interfaces import Action, Observations
 
 HAND_DEPTH_THRESHOLD = 1.7  # in meters
@@ -37,20 +37,24 @@ def put_angle_in_interval(angle):
         angle -= 2 * np.pi
     return angle
 
-
-class SpotEnv(home_robot.core.abstract_env):
-    def __init__(self):
-        self.spot_env = 2  # TODO
-
+from spot_rl.envs.semnav_env import SpotSemanticNavEnv
+from spot_rl.utils.utils import (
+    construct_config,
+    get_default_parser,
+    nav_target_from_waypoints,
+)
+class SpotEnv(Env):
+    def __init__(self,spot):
+        config = construct_config()
+        self.env = SpotSemanticNavEnv(config,spot)
         self.start_gps = None
         self.start_compass = None
         self.rot_compass = None
 
-    @abstractmethod
     def reset(self):
-        observations = self.spot_env.get_observations()
+        observations = self.env.get_observations()
         self.start_gps = observations["position"]
-        self.start_compass = observations["compass"]
+        self.start_compass = observations["yaw"]
         self.rot_compass = yaw_rotation_matrix_2D(-self.start_compass)
 
     @abstractmethod
@@ -62,12 +66,11 @@ class SpotEnv(home_robot.core.abstract_env):
     ):
         pass
 
-    @abstractmethod
     def get_observation(self) -> Observations:
         """
         Preprocess Spot observation into home_robot.Observations schema.
         """
-        obs = self.spot_env.get_observations()
+        obs = self.env.get_observations()
 
         # Normalize GPS
         relative_gps = obs["position"] - self.start_gps
@@ -75,19 +78,15 @@ class SpotEnv(home_robot.core.abstract_env):
 
         # Normalize compass
         relative_compass = np.array(
-            [put_angle_in_interval(obs["compass"] - self.start_compass)]
+            [put_angle_in_interval(obs["yaw"] - self.start_compass)]
         )
 
         rgb = obs["hand_rgb"]
 
         # Preprocess depth
         depth = obs["hand_depth"]
-        depth = (depth / 255 * HAND_DEPTH_THRESHOLD)[:, :, 0]
+        depth = (depth / 255 * HAND_DEPTH_THRESHOLD)
         depth[depth > (HAND_DEPTH_THRESHOLD - 0.05)] = 0
-
-        obs["hand_depth"] = self.msg_to_cv2(self.filtered_hand_depth, "mono8")
-        obs["hand_depth_raw"] = self.msg_to_cv2(self.raw_hand_depth, "mono8")
-        obs["hand_rgb"] = self.msg_to_cv2(self.hand_rgb, "rgb8")
 
         home_robot_obs = Observations(
             gps=relative_gps,

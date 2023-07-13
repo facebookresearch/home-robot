@@ -12,4 +12,11 @@ class SpotTeleopEnv(SpotEnv):
         prev_obs: Optional[Observations] = None,
     ):
         # TODO
+        self.env.step(base_action=action)
+
+    @property
+    def episode_over(self) -> bool:
+        pass
+
+    def get_episode_metrics(self) -> Dict:
         pass

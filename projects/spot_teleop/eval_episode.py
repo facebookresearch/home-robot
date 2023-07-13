@@ -2,6 +2,8 @@ import sys
 from pathlib import Path
 from typing import List
 
+from spot_wrapper.spot import Spot
+
 import click
 import cv2
 import matplotlib.pyplot as plt
@@ -242,21 +244,16 @@ def create_video(images, output_file, fps):
     video_writer.release()
 
 
-@click.option(
-    "--output_visualization_dir",
-    default=f"{str(Path(__file__).resolve().parent)}/map_visualization/",
-)
-@click.option(
-    "--legend_path",
-    default=f"{str(Path(__file__).resolve().parent)}/coco_categories_legend.png",
-)
-def main(output_visualization_dir, legend_path):
+def main(spot):
+    output_visualization_dir = f"{str(Path(__file__).resolve().parent)}/map_visualization/"
+    legend_path = f"{str(Path(__file__).resolve().parent)}/coco_categories_legend.png"
 
     # --------------------------------------------------------------------------------------------
     # Initialization
     # --------------------------------------------------------------------------------------------
-
-    env = SpotTeleopEnv()
+    env = SpotTeleopEnv(spot)
+    env.env.power_robot()
+    env.env.initialize_arm()
     env.reset()
 
     device = torch.device("cuda:0")
@@ -419,12 +416,28 @@ def main(output_visualization_dir, legend_path):
             legend,
         )
         vis_images.append(vis_image)
-        plt.imshow(vis_image)
-        plt.imsave(Path(output_visualization_dir) / f"{t}.png", vis_image)
+        cv2.imshow("vis",vis_image)
+        key = cv2.waitKey(1)
+        if key == ord('w'):
+            action = [1,0]
+        # back
+        elif key == ord('s'):
+            action = [-1,0]
+        # rotate right
+        elif key == ord('a'):
+            action = [0,1]
+        # rotate left
+        elif key == ord('d'):
+            action = [0,-1]
+        elif key == ord('z'):
+            done = True
+        else:
+            action = [0,0]
+        # plt.imsave(Path(output_visualization_dir) / f"{t}.png", vis_image)
 
         # Take an action
         # TODO
-        # env.apply_action(action)
+        env.apply_action(action)
 
     create_video(
         [v[:, :, ::-1] for v in vis_images],
@@ -434,4 +447,7 @@ def main(output_visualization_dir, legend_path):
 
 
 if __name__ == "__main__":
-    main()
+    spot = Spot("RealNavEnv")
+    with spot.get_lease(hijack=True):
+        main(spot)
+    # main()
