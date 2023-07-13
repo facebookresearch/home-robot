@@ -10,6 +10,7 @@ from typing import Optional
 import cv2
 import numpy as np
 import skimage.morphology
+from omegaconf import DictConfig
 from PIL import Image
 
 import home_robot.utils.pose as pu
@@ -85,7 +86,13 @@ class Visualizer:
         self.map_resolution = None
         self.map_shape = None
 
-    def initialize_map_params(self, map_config):
+    def set_map_params(self, map_config: DictConfig):
+        """
+        Sets the map parameters needed for visualization as class members using the config specified under AGENT.SEMANTIC_MAP
+
+        Args:
+            map_config: DictConfig containing the map parameters
+        """
         self.num_sem_categories = map_config.num_sem_categories
         self.map_resolution = map_config.map_resolution
         map_size_cm = map_config.map_size_cm
@@ -216,7 +223,7 @@ class Visualizer:
             obstacle_map = dilated_obstacle_map
 
         if semantic_map_config is not None:
-            self.initialize_map_params(semantic_map_config)
+            self.set_map_params(semantic_map_config)
 
         if obstacle_map is not None:
             curr_x, curr_y, curr_o, gy1, gy2, gx1, gx2 = sensor_pose
