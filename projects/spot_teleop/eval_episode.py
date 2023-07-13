@@ -419,6 +419,8 @@ def main(spot):
         )
         vis_images.append(vis_image[:, :, ::-1])
         cv2.imshow("vis", vis_image)
+
+        # Take an action
         key = cv2.waitKey(1)
         if key == ord("w"):
             action = [1, 0]
@@ -435,10 +437,6 @@ def main(spot):
             done = True
         else:
             action = [0, 0]
-        # plt.imsave(Path(output_visualization_dir) / f"{t}.png", vis_image)
-
-        # Take an action
-        # TODO
         env.apply_action(action)
 
     create_video(
