@@ -48,8 +48,9 @@ class ObjectNavAgent(Agent):
 
         if self.record_instance_ids:
             self.instance_memory = InstanceMemory(
-                self.num_environments, config.AGENT.SEMANTIC_MAP.du_scale,
-                debug_visualize=config.PRINT_IMAGES
+                self.num_environments,
+                config.AGENT.SEMANTIC_MAP.du_scale,
+                debug_visualize=config.PRINT_IMAGES,
             )
 
         self._module = ObjectNavAgentModule(
