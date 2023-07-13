@@ -28,16 +28,14 @@ def main():
     env.reset()
 
     agent = ObjectNavAgent(config=config)
-    env = SpotTeleopEnv(config=config)
-
     agent.reset()
-    env.reset()
 
     t = 0
     while not env.episode_over:
         t += 1
         obs = env.get_observation()
         action, info = agent.act(obs)
+        print(action)
         print("STEP =", t)
         env.apply_action(action, info=info)
 

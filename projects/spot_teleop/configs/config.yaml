@@ -11,12 +11,12 @@ GROUND_TRUTH_SEMANTICS: 0 # 1: use ground-truth semantics (for debugging / ablat
 ENVIRONMENT:
   forward: 0.25           # forward motion (in meters)
   turn_angle: 30.0        # agent turn angle (in degrees)
-  frame_height: 640       # first-person frame height (in pixels)
-  frame_width: 480        # first-person frame width (in pixels)
-  camera_height: 1.31     # camera sensor height (in metres)
-  hfov: 42.0              # horizontal field of view (in degrees)
+  frame_height: 480       # first-person frame height (in pixels)
+  frame_width: 640        # first-person frame width (in pixels)
+  camera_height: 1.37     # camera sensor height (in metres)
+  hfov: 60.0              # horizontal field of view (in degrees)
   min_depth: 0.5          # minimum depth for depth sensor (in metres)
-  max_depth: 3.5          # maximum depth for depth sensor (in metres)
+  max_depth: 1.65         # maximum depth for depth sensor (in metres)
 
 AGENT:
   max_steps: 500          # maximum number of steps before stopping an episode
@@ -25,8 +25,8 @@ AGENT:
   radius: 0.17            # robot radius (in meters)
 
   SEMANTIC_MAP:
-    semantic_categories: mukul_indoor # map semantic channel categories ("coco_indoor", "longtail_indoor", "mukul_indoor")
-    num_sem_categories: 3             # number of map semantic channel categories (16, 257, 35)
+    semantic_categories: coco_indoor # map semantic channel categories ("coco_indoor", "longtail_indoor", "mukul_indoor")
+    num_sem_categories: 16             # number of map semantic channel categories (16, 257, 35)
     map_size_cm: 4800        # global map size (in centimeters)
     map_resolution: 5        # size of map bins (in centimeters)
     vision_range: 100        # diameter of local map region visible by the agent (in cells)
