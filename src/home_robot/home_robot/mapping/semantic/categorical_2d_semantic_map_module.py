@@ -20,8 +20,8 @@ import home_robot.mapping.map_utils as mu
 import home_robot.utils.depth as du
 import home_robot.utils.pose as pu
 import home_robot.utils.rotation as ru
-from home_robot.mapping.semantic.instance_tracking_modules import InstanceMemory
 from home_robot.mapping.semantic.constants import MapConstants as MC
+from home_robot.mapping.semantic.instance_tracking_modules import InstanceMemory
 
 # For debugging input and output maps - shows matplotlib visuals
 debug_maps = False
@@ -280,15 +280,18 @@ class Categorical2DSemanticMapModule(nn.Module):
             seq_origins,
         )
 
-    def _aggregate_instance_map_channels_per_category(self, curr_map, num_instance_channels):
+    def _aggregate_instance_map_channels_per_category(
+        self, curr_map, num_instance_channels
+    ):
         """Aggregate map channels for instances (input: one binary channel per instance in [0, 1])
         by category (output: one channel per category containing instance IDs)."""
 
         # first extract instance channels
         top_down_instance_one_hot = curr_map[
             :,
-            (MC.NON_SEM_CHANNELS + self.num_sem_categories) :
-            (MC.NON_SEM_CHANNELS + self.num_sem_categories + num_instance_channels),
+            (MC.NON_SEM_CHANNELS + self.num_sem_categories) : (
+                MC.NON_SEM_CHANNELS + self.num_sem_categories + num_instance_channels
+            ),
             :,
             :,
         ]
