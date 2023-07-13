@@ -204,8 +204,8 @@ def get_semantic_map_vis(
     vis_image[50:530, 1325:1805] = semantic_map_vis
 
     # Draw semantic frame
-    # vis_image[50:530, 15:655] = cv2.resize(semantic_frame[:, :, ::-1], (640, 480))
-    vis_image[50:530, 15:655] = cv2.resize(semantic_frame, (640, 480))
+    vis_image[50:530, 15:655] = cv2.resize(semantic_frame[:, :, ::-1], (640, 480))
+    # vis_image[50:530, 15:655] = cv2.resize(semantic_frame, (640, 480))
 
     # Draw depth frame
     vis_image[50:530, 670:1310] = cv2.resize(depth_frame, (640, 480))
@@ -362,9 +362,11 @@ def main(output_visualization_dir, legend_path):
     while not env.episode_over:
         t += 1
         print(t)
+
+        # Get an environment observation
         obs = env.get_observation()
 
-        # Segment
+        # Segment the image
         obs = segmentation.predict(obs, depth_threshold=None)
         obs.semantic[obs.semantic == 0] = len(categories) - 1
         obs.semantic = obs.semantic - 1
