@@ -5,12 +5,13 @@
 
 
 import argparse
+import glob
 import json
 import sys
 from pathlib import Path
+
 import cv2
 import natsort
-import glob
 
 # TODO Install home_robot, home_robot_sim and remove this
 sys.path.insert(
@@ -97,4 +98,5 @@ if __name__ == "__main__":
 
     if config.AGENT.SEMANTIC_MAP.record_instance_ids:
         # TODO Can we create a visualization of the instance memory here?
+
         pass
