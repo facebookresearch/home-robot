@@ -66,10 +66,12 @@ class Categorical2DSemanticMapModule(nn.Module):
         dilate_obstacles: bool = True,
         dilate_iter: int = 1,
         dilate_size: int = 3,
-        record_instance_ids: bool = True,
+        record_instance_ids: bool = False,
+        evaluate_instance_tracking: bool = False,
         instance_memory: Optional[InstanceMemory] = None,
         max_instances: int = 0,
-        evaluate_instance_tracking: bool = False,
+        dilation_for_instances: int = 5,
+        padding_for_instance_overlap: int = 5,
     ):
         """
         Arguments:
@@ -144,8 +146,8 @@ class Categorical2DSemanticMapModule(nn.Module):
         self.dilate_size = dilate_size
         self.dilate_iter = dilate_iter
         self.record_instance_ids = record_instance_ids
-        self.padding_for_instance_overlap = 5
-        self.dilation_for_instances = 5
+        self.padding_for_instance_overlap = padding_for_instance_overlap
+        self.dilation_for_instances = dilation_for_instances
         self.instance_memory = instance_memory
         self.max_instances = max_instances
         self.evaluate_instance_tracking = evaluate_instance_tracking
@@ -278,14 +280,15 @@ class Categorical2DSemanticMapModule(nn.Module):
             seq_origins,
         )
 
-    def _store_instances_per_category(self, curr_map, num_instance_channels):
+    def _aggregate_instance_map_channels_per_category(self, curr_map, num_instance_channels):
+        """Aggregate map channels for instances (input: one binary channel per instance in [0, 1])
+        by category (output: one channel per category containing instance IDs)."""
+
         # first extract instance channels
         top_down_instance_one_hot = curr_map[
             :,
-            MC.NON_SEM_CHANNELS
-            + self.num_sem_categories : MC.NON_SEM_CHANNELS
-            + self.num_sem_categories
-            + num_instance_channels,
+            (MC.NON_SEM_CHANNELS + self.num_sem_categories) :
+            (MC.NON_SEM_CHANNELS + self.num_sem_categories + num_instance_channels),
             :,
             :,
         ]
@@ -300,6 +303,7 @@ class Categorical2DSemanticMapModule(nn.Module):
         )
 
         # loop over envs
+        # TODO Can we vectorize this across envs? (Only needed if we use multiple envs)
         for i in range(top_down_instance_one_hot.shape[0]):
             # create category id to instance id list mapping
             category_id_to_instance_id_list = defaultdict(list)
@@ -314,6 +318,7 @@ class Categorical2DSemanticMapModule(nn.Module):
                 )
 
             # loop over categories
+            # TODO Can we vectorize this across categories? (Only needed if speed bottleneck)
             for category_id in category_id_to_instance_id_list.keys():
                 if len(category_id_to_instance_id_list[category_id]) == 0:
                     continue
@@ -353,6 +358,7 @@ class Categorical2DSemanticMapModule(nn.Module):
             ),
             dim=1,
         )
+
         return curr_map
 
     def _update_local_map_and_pose(
@@ -362,6 +368,7 @@ class Categorical2DSemanticMapModule(nn.Module):
         prev_map: Tensor,
         prev_pose: Tensor,
         camera_pose: Tensor,
+        debug: bool = False,
     ) -> Tuple[Tensor, Tensor]:
         """Update local map and sensor pose given a new observation using parameter-free
         differentiable projective geometry.
@@ -398,6 +405,11 @@ class Categorical2DSemanticMapModule(nn.Module):
             # hab_agent_height = camera_pose[:, 1, 3] * 100
             agent_pos = camera_pose[:, :3, 3] * 100
             agent_height = agent_pos[:, 2]
+
+            if debug:
+                print("tilt", tilt)
+                print("agent_height", agent_height)
+                print()
         else:
             tilt = torch.zeros(batch_size)
             agent_height = self.agent_height
@@ -604,7 +616,7 @@ class Categorical2DSemanticMapModule(nn.Module):
 
         # update instance channels
         if self.record_instance_ids:
-            translated = self._store_instances_per_category(
+            translated = self._aggregate_instance_map_channels_per_category(
                 translated, num_instance_channels
             )
 
@@ -612,7 +624,7 @@ class Categorical2DSemanticMapModule(nn.Module):
 
         current_map, _ = torch.max(maps, 1)
         if self.record_instance_ids:
-            # override
+            # overwrite channels containing instance IDs
             current_map[
                 :,
                 MC.NON_SEM_CHANNELS
@@ -720,7 +732,7 @@ class Categorical2DSemanticMapModule(nn.Module):
             )
         return current_map, current_pose
 
-    def update_instances_in_global_map(
+    def _update_global_map_instances_for_one_channel(
         self,
         env_id: int,
         global_instances: Tensor,
@@ -730,7 +742,8 @@ class Categorical2DSemanticMapModule(nn.Module):
         max_instance_id: int,
     ) -> Tensor:
         """
-        Adds new instances from the local map to the global map.
+        Update one instance channels in the global map from one instance channels in the local map:
+        aggregate local instances with existing global instances or create new global instances.
 
         Args:
             global_instances (Tensor): The global map tensor.
@@ -791,7 +804,7 @@ class Categorical2DSemanticMapModule(nn.Module):
         # Get the instances from the global map within the local map's region
         global_instances_within_local = global_instances[x_start:x_end, y_start:y_end]
 
-        instance_mapping = self.get_instance_mapping(
+        instance_mapping = self._get_local_to_global_instance_mapping(
             env_id,
             extended_dilated_local_map,
             global_instances_within_local,
@@ -812,7 +825,7 @@ class Categorical2DSemanticMapModule(nn.Module):
         )
         return global_instances
 
-    def get_instance_mapping(
+    def _get_local_to_global_instance_mapping(
         self,
         env_id: int,
         extended_local_labels: Tensor,
@@ -823,11 +836,11 @@ class Categorical2DSemanticMapModule(nn.Module):
         Creates a mapping of local instance IDs to global instance IDs.
 
         Args:
-            extended_local_labels (Tensor): Labels of instances in the extended local map.
-            global_instances_within_local (Tensor): Instances from the global map within the local map's region.
+            extended_local_labels: Labels of instances in the extended local map.
+            global_instances_within_local: Instances from the global map within the local map's region.
 
         Returns:
-            dict: A mapping of local instance IDs to global instance IDs.
+            A mapping of local instance IDs to global instance IDs.
         """
         instance_mapping = {}
 
@@ -862,11 +875,12 @@ class Categorical2DSemanticMapModule(nn.Module):
         instance_mapping[0] = 0
         return instance_mapping
 
-    def add_instance_ids_to_global_map(
+    def _update_global_map_instances(
         self, e: int, global_map: Tensor, local_map: Tensor, lmb: Tensor
     ) -> Tensor:
         """
-        Adds instance IDs to the global map based on the local map.
+        Update instance channels in the global map from instance channels in the local map:
+        aggregate local instances with existing global instances or create new global instances.
 
         Args:
             e (int): The index of the environment.
@@ -877,7 +891,7 @@ class Categorical2DSemanticMapModule(nn.Module):
         Returns:
             Tensor: The updated global map tensor.
         """
-
+        # TODO Can we vectorize this across categories? (Only needed if speed bottleneck)
         for i in range(self.num_sem_categories):
             if (
                 torch.sum(
@@ -898,7 +912,7 @@ class Categorical2DSemanticMapModule(nn.Module):
                     .item()
                 )
                 # if the local map has any object instances, update the global map with instance ids
-                instances = self.update_instances_in_global_map(
+                instances = self._update_global_map_instances_for_one_channel(
                     e,
                     global_map[e, MC.NON_SEM_CHANNELS + i + self.num_sem_categories],
                     local_map[e, MC.NON_SEM_CHANNELS + i + self.num_sem_categories],
@@ -927,7 +941,7 @@ class Categorical2DSemanticMapModule(nn.Module):
         """
 
         if self.record_instance_ids:
-            global_map = self.add_instance_ids_to_global_map(
+            global_map = self._update_global_map_instances(
                 e, global_map, local_map, lmb
             )
             global_map[

@@ -105,7 +105,14 @@ class InstanceMemory:
         # otherwise, create a new global instance with the given global_instance_id
 
         # get instance view
-        instance_view = self.unprocessed_views[env_id][local_instance_id]
+        instance_view = self.unprocessed_views[env_id].get(local_instance_id, None)
+        if instance_view is None and self.debug_visualize:
+            print(
+                "instance view with local instance id",
+                local_instance_id,
+                "not found in unprocessed views",
+            )
+
         # get global instance
         global_instance = self.instance_views[env_id].get(global_instance_id, None)
         if global_instance is None:
@@ -181,40 +188,42 @@ class InstanceMemory:
                 torch.stack(
                     [
                         instance_mask.nonzero().min(dim=0)[0],
-                        instance_mask.nonzero().max(dim=0)[0],
+                        instance_mask.nonzero().max(dim=0)[0] + 1,
                     ]
                 )
                 .cpu()
                 .numpy()
             )
+
+            # downsample mask by du_scale using "NEAREST"
+            instance_mask_downsampled = (
+                torch.nn.functional.interpolate(
+                    instance_mask.unsqueeze(0).unsqueeze(0).float(),
+                    scale_factor=1 / self.du_scale,
+                    mode="nearest",
+                )
+                .squeeze(0)
+                .squeeze(0)
+                .bool()
+            )
+
+            masked_image = image * instance_mask
             # get cropped image
             cropped_image = (
-                image[:, bbox[0, 0] : bbox[1, 0], bbox[0, 1] : bbox[1, 1]]
+                masked_image[:, bbox[0, 0] : bbox[1, 0], bbox[0, 1] : bbox[1, 1]]
                 .permute(1, 2, 0)
                 .cpu()
                 .numpy()
                 .astype(np.uint8)
             )
+
+            instance_mask = instance_mask.cpu().numpy().astype(bool)
+
             # get embedding
             embedding = None
 
-            # downsample mask by du_scale using "NEAREST"
-            instance_mask = (
-                (
-                    torch.nn.functional.interpolate(
-                        instance_mask.unsqueeze(0).unsqueeze(0).float(),
-                        scale_factor=1 / self.du_scale,
-                        mode="nearest",
-                    )
-                    .squeeze(0)
-                    .squeeze(0)
-                    .bool()
-                )
-                .cpu()
-                .numpy()
-            )
             # get point cloud
-            point_cloud_instance = point_cloud[instance_mask]
+            point_cloud_instance = point_cloud[instance_mask_downsampled.cpu().numpy()]
 
             # get instance view
             instance_view = InstanceView(
@@ -240,7 +249,6 @@ class InstanceMemory:
                     f"images/{self.timesteps[env_id]}_{instance_id.item()}.png",
                     cropped_image,
                 )
-                print("adding local instance id", instance_id.item())
 
         self.timesteps[env_id] += 1
 
