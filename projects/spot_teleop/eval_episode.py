@@ -415,7 +415,7 @@ def main(spot):
             coco_categories_color_palette,
             legend,
         )
-        vis_images.append(vis_image)
+        vis_images.append(vis_image[:,:,::-1])
         cv2.imshow("vis",vis_image)
         key = cv2.waitKey(1)
         if key == ord('w'):

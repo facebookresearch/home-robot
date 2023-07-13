@@ -52,6 +52,7 @@ class SpotEnv(Env):
         self.rot_compass = None
 
     def reset(self):
+        self.env.reset()
         observations = self.env.get_observations()
         self.start_gps = observations["position"]
         self.start_compass = observations["yaw"]
