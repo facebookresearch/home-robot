@@ -168,12 +168,13 @@ class HabitatOpenVocabManipEnv(HabitatEnv):
                 np.asarray(habitat_obs["camera_pose"])
             ),
         )
-        gt_instance_ids = np.maximum(
-            0,
-            habitat_obs["robot_head_panoptic"]
-            - self._instance_ids_start_in_panoptic
-            + 1,
-        )[..., 0]
+        if self.evaluate_instance_tracking or self.record_instance_ids:
+            gt_instance_ids = np.maximum(
+                0,
+                habitat_obs["robot_head_panoptic"]
+                - self._instance_ids_start_in_panoptic
+                + 1,
+            )[..., 0]
         if self.evaluate_instance_tracking:
             obs.task_observations["gt_instance_ids"] = gt_instance_ids
         if self.record_instance_ids:
