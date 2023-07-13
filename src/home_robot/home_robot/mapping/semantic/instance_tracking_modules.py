@@ -223,7 +223,7 @@ class InstanceMemory:
                 cropped_image=cropped_image,
                 embedding=embedding,
                 mask=instance_mask,
-                point_cloud=point_cloud_instance,
+                point_cloud=point_cloud_instance.cpu().numpy(),
                 category_id=category_id,
             )
 

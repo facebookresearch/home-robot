@@ -10,7 +10,7 @@ import torch
 from torch.nn import DataParallel
 
 import home_robot.utils.pose as pu
-from home_robot.agent.objectnav_agent.instance_tracking_modules import InstanceMemory
+from home_robot.mapping.semantic.instance_tracking_modules import InstanceMemory
 from home_robot.core.abstract_agent import Agent
 from home_robot.core.interfaces import DiscreteNavigationAction, Observations
 from home_robot.mapping.semantic.categorical_2d_semantic_map_state import (

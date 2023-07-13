@@ -8,7 +8,7 @@ from typing import Optional
 
 import torch.nn as nn
 
-from home_robot.agent.objectnav_agent.instance_tracking_modules import InstanceMemory
+from home_robot.mapping.semantic.instance_tracking_modules import InstanceMemory
 from home_robot.mapping.semantic.categorical_2d_semantic_map_module import (
     Categorical2DSemanticMapModule,
 )
