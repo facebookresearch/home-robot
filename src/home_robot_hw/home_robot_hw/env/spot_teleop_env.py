@@ -1,5 +1,5 @@
-import home_robot.core.abstract_env
+from home_robot_hw.env.spot_abstract_env import SpotEnv
 
 
-class SpotEnv(home_robot.core.abstract_env.Env):
+class SpotTeleopEnv(SpotEnv):
     pass
