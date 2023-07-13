@@ -2,8 +2,6 @@ import sys
 from pathlib import Path
 from typing import List
 
-from spot_wrapper.spot import Spot
-
 import click
 import cv2
 import matplotlib.pyplot as plt
@@ -20,6 +18,8 @@ sys.path.insert(
     0,
     str(Path(__file__).resolve().parent.parent.parent / "src/home_robot_sim"),
 )
+
+from spot_wrapper.spot import Spot
 
 import home_robot.utils.pose as pu
 import home_robot.utils.visualization as vu
@@ -245,7 +245,9 @@ def create_video(images, output_file, fps):
 
 
 def main(spot):
-    output_visualization_dir = f"{str(Path(__file__).resolve().parent)}/map_visualization/"
+    output_visualization_dir = (
+        f"{str(Path(__file__).resolve().parent)}/map_visualization/"
+    )
     legend_path = f"{str(Path(__file__).resolve().parent)}/coco_categories_legend.png"
 
     # --------------------------------------------------------------------------------------------
@@ -415,24 +417,24 @@ def main(spot):
             coco_categories_color_palette,
             legend,
         )
-        vis_images.append(vis_image[:,:,::-1])
-        cv2.imshow("vis",vis_image)
+        vis_images.append(vis_image[:, :, ::-1])
+        cv2.imshow("vis", vis_image)
         key = cv2.waitKey(1)
-        if key == ord('w'):
-            action = [1,0]
+        if key == ord("w"):
+            action = [1, 0]
         # back
-        elif key == ord('s'):
-            action = [-1,0]
+        elif key == ord("s"):
+            action = [-1, 0]
         # rotate right
-        elif key == ord('a'):
-            action = [0,1]
+        elif key == ord("a"):
+            action = [0, 1]
         # rotate left
-        elif key == ord('d'):
-            action = [0,-1]
-        elif key == ord('z'):
+        elif key == ord("d"):
+            action = [0, -1]
+        elif key == ord("z"):
             done = True
         else:
-            action = [0,0]
+            action = [0, 0]
         # plt.imsave(Path(output_visualization_dir) / f"{t}.png", vis_image)
 
         # Take an action
@@ -450,4 +452,3 @@ if __name__ == "__main__":
     spot = Spot("RealNavEnv")
     with spot.get_lease(hijack=True):
         main(spot)
-    # main()
