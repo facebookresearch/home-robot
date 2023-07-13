@@ -36,6 +36,7 @@ class Skill(IntEnum):
 class SemanticVocab(IntEnum):
     FULL = auto()
     SIMPLE = auto()
+    ALL = auto()
 
 
 def get_skill_as_one_hot_dict(curr_skill: Skill):
@@ -204,7 +205,9 @@ class OpenVocabManipAgent(ObjectNavAgent):
             print("Initializing episode...")
         if self.config.GROUND_TRUTH_SEMANTICS == 0:
             self._update_semantic_vocabs(obs)
-            if (
+            if self.store_all_categories_in_map:
+                self._set_semantic_vocab(SemanticVocab.ALL, force_set=True)
+            elif (
                 self.config.AGENT.SKILLS.NAV_TO_OBJ.type == "rl"
                 and not self.skip_skills.nav_to_obj
             ):
@@ -227,7 +230,8 @@ class OpenVocabManipAgent(ObjectNavAgent):
             # action = DiscreteNavigationAction.NAVIGATION_MODE
             pass
         elif next_skill == Skill.GAZE_AT_OBJ:
-            self._set_semantic_vocab(SemanticVocab.SIMPLE, force_set=False)
+            if not self.store_all_categories_in_map:
+                self._set_semantic_vocab(SemanticVocab.SIMPLE, force_set=False)
             self.gaze_at_obj_start_step[e] = self.timesteps[e]
         elif next_skill == Skill.PICK:
             self.pick_start_step[e] = self.timesteps[e]
@@ -235,10 +239,14 @@ class OpenVocabManipAgent(ObjectNavAgent):
             self.timesteps_before_goal_update[e] = 0
             if not self.skip_skills.nav_to_rec:
                 action = DiscreteNavigationAction.NAVIGATION_MODE
-                if self.config.AGENT.SKILLS.NAV_TO_OBJ.type == "rl":
+                if (
+                    self.config.AGENT.SKILLS.NAV_TO_OBJ.type == "rl"
+                    and not self.store_all_categories_in_map
+                ):
                     self._set_semantic_vocab(SemanticVocab.FULL, force_set=False)
         elif next_skill == Skill.GAZE_AT_REC:
-            self._set_semantic_vocab(SemanticVocab.SIMPLE, force_set=False)
+            if not self.store_all_categories_in_map:
+                self._set_semantic_vocab(SemanticVocab.SIMPLE, force_set=False)
             # We reuse gaze agent between pick and place
             if self.gaze_agent is not None:
                 self.gaze_agent.reset_vectorized_for_env(e)
@@ -270,6 +278,12 @@ class OpenVocabManipAgent(ObjectNavAgent):
         # Full vocabulary contains the object and all receptacles
         full_vocab = build_vocab_from_category_map(obj_id_to_name, self.rec_name_to_id)
         self.semantic_sensor.update_vocubulary_list(full_vocab, SemanticVocab.FULL)
+
+        # All vocabulary contains all objects and all receptacles
+        all_vocab = build_vocab_from_category_map(
+            self.obj_name_to_id, self.rec_name_to_id
+        )
+        self.semantic_sensor.update_vocubulary_list(all_vocab, SemanticVocab.ALL)
 
     def _set_semantic_vocab(self, vocab_id: SemanticVocab, force_set: bool):
         """
