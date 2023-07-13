@@ -431,19 +431,19 @@ def main(spot):
         elif key == ord("a"):
             action = [0, 1]
         # rotate left
-        elif key == ord("d"):
-            action = [0, -1]
-        elif key == ord("z"):
-            done = True
+        elif key == ord('d'):
+            action = [0,-1]
+        elif key == ord('z'):
+            break
         else:
             action = [0, 0]
         env.apply_action(action)
 
-    create_video(
-        [v[:, :, ::-1] for v in vis_images],
-        f"{output_visualization_dir}/video.mp4",
-        fps=20,
-    )
+    # create_video(
+    #     [v[:, :, ::-1] for v in vis_images],
+    #     f"{output_visualization_dir}/video.mp4",
+    #     fps=20,
+    # )
 
 
 if __name__ == "__main__":
