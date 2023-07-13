@@ -84,10 +84,10 @@ class InstanceMemory:
     unprocessed_views: List[Dict[int, InstanceView]] = []
     timesteps: List[int] = []
 
-    def __init__(self, num_envs: int, du_scale: int):
+    def __init__(self, num_envs: int, du_scale: int, debug_visualize: bool = False):
         self.num_envs = num_envs
         self.du_scale = du_scale
-        self.debug_visualize = False
+        self.debug_visualize = debug_visualize
         self.reset()
 
     def reset(self):
