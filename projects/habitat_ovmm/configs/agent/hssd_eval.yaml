@@ -29,7 +29,7 @@ AGENT:
   fall_wait_steps: 200    # number of steps to wait after the object has been dropped
   SEMANTIC_MAP:
     semantic_categories: rearrange # map semantic channel categories ("coco_indoor", "longtail_indoor", "mukul_indoor", "rearrange")
-    num_sem_categories: 5    # Following 5 categories: ["misc", "object_category", "start_receptacle", "goal_receptacle", "others"]
+    num_sem_categories: 151    # Following 5 categories: ["misc", "object_category", "start_receptacle", "goal_receptacle", "others"]
     map_size_cm: 4800        # global map size (in centimeters)
     map_resolution: 5        # size of map bins (in centimeters)
     vision_range: 100        # diameter of local map region visible by the agent (in cells)
@@ -48,7 +48,7 @@ AGENT:
     dilate_iter: 1
     record_instance_ids: True
     store_all_categories: True
-    evaluate_instance_tracking: True
+    evaluate_instance_tracking: False
     max_instances: 800
 
   SKILLS:
