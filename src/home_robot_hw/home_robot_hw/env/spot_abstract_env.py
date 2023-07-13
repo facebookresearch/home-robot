@@ -3,6 +3,12 @@ from typing import Any, Dict, Optional
 
 import numpy as np
 import transforms3d as t3d
+from spot_rl.envs.semnav_env import SpotSemanticNavEnv
+from spot_rl.utils.utils import (
+    construct_config,
+    get_default_parser,
+    nav_target_from_waypoints,
+)
 
 from home_robot.core.abstract_env import Env
 from home_robot.core.interfaces import Action, Observations
@@ -37,16 +43,11 @@ def put_angle_in_interval(angle):
         angle -= 2 * np.pi
     return angle
 
-from spot_rl.envs.semnav_env import SpotSemanticNavEnv
-from spot_rl.utils.utils import (
-    construct_config,
-    get_default_parser,
-    nav_target_from_waypoints,
-)
+
 class SpotEnv(Env):
-    def __init__(self,spot):
+    def __init__(self, spot):
         config = construct_config()
-        self.env = SpotSemanticNavEnv(config,spot)
+        self.env = SpotSemanticNavEnv(config, spot)
         self.start_gps = None
         self.start_compass = None
         self.rot_compass = None
@@ -86,7 +87,7 @@ class SpotEnv(Env):
 
         # Preprocess depth
         depth = obs["hand_depth"]
-        depth = (depth / 255 * HAND_DEPTH_THRESHOLD)
+        depth = depth / 255 * HAND_DEPTH_THRESHOLD
         depth[depth > (HAND_DEPTH_THRESHOLD - 0.05)] = 0
 
         home_robot_obs = Observations(
