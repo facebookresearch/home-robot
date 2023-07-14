@@ -46,7 +46,7 @@ coco_categories = [
     "sink",
     "refrigerator",
     "book",
-    "clock",
+    "person",
     "vase",
     "cup",
     "bottle",
@@ -291,7 +291,7 @@ def main(spot):
         frame_height=480,
         frame_width=640,
         camera_height=1.37,
-        hfov=60.0,
+        hfov=60.2,
         num_sem_categories=num_sem_categories,
         map_size_cm=4800,
         map_resolution=5,
@@ -300,11 +300,11 @@ def main(spot):
         been_close_to_radius=200,
         global_downscaling=2,
         du_scale=4,
-        cat_pred_threshold=5.0,
+        cat_pred_threshold=15.0,
         exp_pred_threshold=1.0,
-        map_pred_threshold=1.0,
-        min_depth=0.5,
-        max_depth=1.65,
+        map_pred_threshold=15.0,
+        min_depth=0.0,
+        max_depth=5.95,
         must_explore_close=False,
         min_obs_height_cm=10,
     ).to(device)
@@ -339,7 +339,7 @@ def main(spot):
                 - +Y is leftward
                 - +Z is upward
         """
-        rgb = torch.from_numpy(obs.rgb).to(device)
+        rgb = torch.from_numpy(obs.rgb[:,:,::-1].copy()).to(device)
         depth = torch.from_numpy(obs.depth).unsqueeze(-1).to(device) * 100.0  # m to cm
         semantic = one_hot_encoding[torch.from_numpy(obs.semantic).to(device)]
         obs_preprocessed = torch.cat([rgb, depth, semantic], dim=-1).unsqueeze(0)
@@ -412,13 +412,13 @@ def main(spot):
         depth_frame = np.repeat(depth_frame[:, :, np.newaxis], 3, axis=2)
         vis_image = get_semantic_map_vis(
             semantic_map,
-            obs.task_observations["semantic_frame"],
+            obs.task_observations["semantic_frame"][:,:,::-1],
             depth_frame,
             coco_categories_color_palette,
             legend,
         )
-        vis_images.append(vis_image[:, :, ::-1])
-        cv2.imshow("vis", vis_image)
+        vis_images.append(vis_image)
+        cv2.imshow("vis", vis_image[:,:,::-1])
 
         # Take an action
         key = cv2.waitKey(1)
@@ -430,20 +430,17 @@ def main(spot):
         # rotate right
         elif key == ord("a"):
             action = [0, 1]
-        # rotate left
-        elif key == ord('d'):
-            action = [0,-1]
-        elif key == ord('z'):
+        # rotate left[:,:,::-1]
             break
         else:
             action = [0, 0]
         env.apply_action(action)
 
-    # create_video(
-    #     [v[:, :, ::-1] for v in vis_images],
-    #     f"{output_visualization_dir}/video.mp4",
-    #     fps=20,
-    # )
+    create_video(
+        [v[:, :, ::-1] for v in vis_images],
+        f"{output_visualization_dir}/video.mp4",
+        fps=20,
+    )
 
 
 if __name__ == "__main__":

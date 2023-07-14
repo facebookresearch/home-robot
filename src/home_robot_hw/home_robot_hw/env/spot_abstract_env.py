@@ -7,7 +7,8 @@ import transforms3d as t3d
 from home_robot.core.abstract_env import Env
 from home_robot.core.interfaces import Action, Observations
 
-HAND_DEPTH_THRESHOLD = 1.7  # in meters
+# HAND_DEPTH_THRESHOLD = 1.7  # in meters
+HAND_DEPTH_THRESHOLD = 6.0  # in meters
 BASE_HEIGHT = 0.61  # in meters
 
 
@@ -85,7 +86,7 @@ class SpotEnv(Env):
         rgb = obs["hand_rgb"]
 
         # Preprocess depth
-        depth = obs["hand_depth"]
+        depth = obs["hand_depth_raw"]
         depth = (depth / 255 * HAND_DEPTH_THRESHOLD)
         depth[depth > (HAND_DEPTH_THRESHOLD - 0.05)] = 0
 
