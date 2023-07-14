@@ -51,7 +51,7 @@ class ObjectNavAgentModule(nn.Module):
             instance_memory=instance_memory,
             max_instances=getattr(config.AGENT.SEMANTIC_MAP, "max_instances", 0),
             evaluate_instance_tracking=getattr(
-                config.AGENT.SEMANTIC_MAP, "evaluate_instance_tracking", False
+                config.ENVIRONMENT, "evaluate_instance_tracking", False
             ),
         )
         self.policy = ObjectNavFrontierExplorationPolicy(

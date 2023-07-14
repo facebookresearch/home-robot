@@ -188,4 +188,5 @@ class HabitatObjectNavEnv(HabitatEnv):
 
     def _process_info(self, info: Dict[str, Any]) -> Any:
         if info:
+            info["semantic_category_mapping"] = self.semantic_category_mapping
             self.visualizer.visualize(**info)

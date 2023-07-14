@@ -81,7 +81,7 @@ class ObjectNavAgent(Agent):
             ),
             max_instances=getattr(config.AGENT.SEMANTIC_MAP, "max_instances", 0),
             evaluate_instance_tracking=getattr(
-                config.AGENT.SEMANTIC_MAP, "evaluate_instance_tracking", False
+                config.ENVIRONMENT, "evaluate_instance_tracking", False
             ),
             instance_memory=self.instance_memory,
         )
@@ -119,7 +119,7 @@ class ObjectNavAgent(Agent):
         self.verbose = config.AGENT.PLANNER.verbose
 
         self.evaluate_instance_tracking = getattr(
-            config.AGENT.SEMANTIC_MAP, "evaluate_instance_tracking", False
+            config.ENVIRONMENT, "evaluate_instance_tracking", False
         )
         self.one_hot_instance_encoding = None
         if self.evaluate_instance_tracking:
@@ -375,6 +375,7 @@ class ObjectNavAgent(Agent):
             vis_inputs[0]["third_person_image"] = obs.third_person_image
             vis_inputs[0]["short_term_goal"] = None
             vis_inputs[0]["dilated_obstacle_map"] = dilated_obstacle_map
+            vis_inputs[0]["semantic_map_config"] = self.config.AGENT.SEMANTIC_MAP
             vis_inputs[0]["instance_memory"] = self.instance_memory
         info = {**planner_inputs[0], **vis_inputs[0]}
         return action, info

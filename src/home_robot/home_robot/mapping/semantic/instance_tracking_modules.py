@@ -88,6 +88,10 @@ class InstanceMemory:
         self.num_envs = num_envs
         self.du_scale = du_scale
         self.debug_visualize = debug_visualize
+        if self.debug_visualize:
+            import shutil
+
+            shutil.rmtree("instances/", ignore_errors=True)
         self.reset()
 
     def reset(self):
@@ -129,9 +133,9 @@ class InstanceMemory:
 
             import cv2
 
-            os.makedirs(f"images/{global_instance_id}", exist_ok=True)
+            os.makedirs(f"instances/{global_instance_id}", exist_ok=True)
             cv2.imwrite(
-                f"images/{global_instance_id}/{self.timesteps[env_id]}_{local_instance_id}.png",
+                f"instances/{global_instance_id}/{self.timesteps[env_id]}_{local_instance_id}.png",
                 instance_view.cropped_image,
             )
             print(
@@ -150,7 +154,6 @@ class InstanceMemory:
         image: torch.Tensor,
         num_sem_categories: int,
     ):
-
         # create a dict for mapping instance ids to categories
         instance_id_to_category_id = {}
 
@@ -244,9 +247,9 @@ class InstanceMemory:
 
                 import cv2
 
-                os.makedirs("images/", exist_ok=True)
+                os.makedirs("instances/", exist_ok=True)
                 cv2.imwrite(
-                    f"images/{self.timesteps[env_id]}_{instance_id.item()}.png",
+                    f"instances/{self.timesteps[env_id]}_{instance_id.item()}.png",
                     cropped_image,
                 )
 

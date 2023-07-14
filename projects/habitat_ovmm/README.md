@@ -64,7 +64,7 @@ unzip hab_stretch_v1.0.zip
 
 Run
 ```
-python projects/habitat_ovmm/eval_baselines_agent.py
+python projects/habitat_ovmm/eval_baselines_agent.py --env_config projects/habitat_ovmm/configs/env/hssd_demo.yaml
 ```
 
 Results are saved to `datadump/images/eval_hssd/`.
@@ -134,7 +134,7 @@ python projects/habitat_ovmm/scripts/summarize_metrics.py
 ```
 
 ### Evaluate with DETIC
-Ensure `GROUND_TRUTH_SEMANTICS:0` in `configs/agent/hssd_eval.yaml` before running the above command
+Ensure `GROUND_TRUTH_SEMANTICS:0` in `configs/env/hssd_eval.yaml` before running the above command
 
 ### Evaluate on specific episodes
 ```
