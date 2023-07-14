@@ -120,12 +120,14 @@ class SpotObjectNavEnv(SpotEnv):
         obs.semantic = obs.semantic - 1
 
         # Specify the goal
-        obs.task_observations = {
-            "goal_id": self.current_goal_id,
-            "goal_name": self.current_goal_name,
-            "object_goal": self.current_goal_id,
-            "recep_goal": self.current_goal_id,
-        }
+        obs.task_observations.update(
+            {
+                "goal_id": self.current_goal_id,
+                "goal_name": self.current_goal_name,
+                "object_goal": self.current_goal_id,
+                "recep_goal": self.current_goal_id,
+            }
+        )
         return obs
 
     def set_goal(self, goal: str):
