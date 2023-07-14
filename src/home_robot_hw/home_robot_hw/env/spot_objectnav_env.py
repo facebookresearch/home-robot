@@ -1,6 +1,6 @@
 from typing import Any, Dict, Optional
 
-from home_robot.core.interfaces import Action, Observations
+from home_robot.core.interfaces import Action, DiscreteNavigationAction, Observations
 from home_robot.perception.detection.detic.detic_perception import DeticPerception
 from home_robot_hw.env.spot_abstract_env import SpotEnv
 
@@ -21,7 +21,6 @@ CATEGORIES = [
     "cup",
     "bottle",
 ]
-
 
 CATEGORIES_COLOR_PALETTE = [
     0.9400000000000001,
@@ -88,6 +87,7 @@ class SpotObjectNavEnv(SpotEnv):
             custom_vocabulary=",".join(categories),
             sem_gpu_id=0,
         )
+        self._episode_over = False
 
     def apply_action(
         self,
@@ -96,6 +96,8 @@ class SpotObjectNavEnv(SpotEnv):
         prev_obs: Optional[Observations] = None,
     ):
         self.env.step(base_action=action)
+        if action == DiscreteNavigationAction.STOP:
+            self._episode_over = True
 
     def reset(self):
         super().reset()
@@ -104,7 +106,7 @@ class SpotObjectNavEnv(SpotEnv):
 
     @property
     def episode_over(self) -> bool:
-        pass
+        return self._episode_over
 
     def get_episode_metrics(self) -> Dict:
         pass

@@ -21,6 +21,7 @@ from spot_wrapper.spot import Spot
 
 import home_robot.utils.visualization as vu
 from home_robot.agent.objectnav_agent.objectnav_agent import ObjectNavAgent
+from home_robot.core.interfaces import DiscreteNavigationAction
 from home_robot.mapping.semantic.categorical_2d_semantic_map_state import (
     Categorical2DSemanticMapState,
 )
@@ -237,26 +238,32 @@ def main():
         cv2.imshow("vis", vis_image)
 
         # Take an action
-        key = cv2.waitKey(1)
-        if key == ord("w"):
+        # key = cv2.waitKey(1)
+        # if key == ord("w"):
+        #     action = [1, 0]
+        # # back
+        # elif key == ord("s"):
+        #     action = [-1, 0]
+        # # rotate right
+        # elif key == ord("a"):
+        #     action = [0, 1]
+        # # rotate left
+        # elif key == ord("d"):
+        #     action = [0, -1]
+        # else:
+        #     action = [0, 0]
+
+        if action == DiscreteNavigationAction.MOVE_FORWARD:
             action = [1, 0]
-        # back
-        elif key == ord("s"):
-            action = [-1, 0]
-        # rotate right
-        elif key == ord("a"):
+        elif action == DiscreteNavigationAction.TURN_RIGHT:
             action = [0, 1]
         # rotate left
-        elif key == ord("d"):
+        elif action == DiscreteNavigationAction.TURN_LEFT:
             action = [0, -1]
-        elif key == ord("z"):
-            done = True
-        else:
+        elif action == DiscreteNavigationAction.STOP:
             action = [0, 0]
-        env.apply_action(action)
 
-        # TODO Generate continuous action with ObjectNav agent
-        # env.apply_action(action, info=info)
+        env.apply_action(action)
 
     print(env.get_episode_metrics())
 
