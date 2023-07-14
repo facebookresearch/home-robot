@@ -145,7 +145,12 @@ class GeneralLanguageAgent(PickAndPlaceAgent):
         start_from: int = 0,
         **kwargs,
     ):
-        super().__init__(cfg, **kwargs)
+        super().__init__(
+            cfg,
+            min_distance_goal_cm=cfg.AGENT.PLANNER.min_distance_goal_cm,
+            continuous_angle_tolerance=cfg.AGENT.PLANNER.continuous_angle_tolerance,
+            **kwargs,
+        )
         # Visualizations
         self.task_id = task_id
         print(f"[GeneralLanguageAgent]: {self.task_id=}")

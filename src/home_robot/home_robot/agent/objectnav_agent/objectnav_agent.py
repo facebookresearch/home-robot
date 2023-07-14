@@ -29,7 +29,13 @@ class ObjectNavAgent(Agent):
     # Flag for debugging data flow and task configuraiton
     verbose = False
 
-    def __init__(self, config, device_id: int = 0):
+    def __init__(
+        self,
+        config,
+        device_id: int = 0,
+        min_goal_distance_cm: float = 50.0,
+        continuous_angle_tolerance: float = 30.0,
+    ):
         self.max_steps = config.AGENT.max_steps
         self.num_environments = config.NUM_ENVIRONMENTS
         if config.AGENT.panorama_start:
@@ -80,8 +86,8 @@ class ObjectNavAgent(Agent):
             map_downsample_factor=config.AGENT.PLANNER.map_downsample_factor,
             map_update_frequency=config.AGENT.PLANNER.map_update_frequency,
             discrete_actions=config.AGENT.PLANNER.discrete_actions,
-            min_goal_distance_cm=config.AGENT.PLANNER.min_goal_distance_cm,
-            continuous_angle_tolerance=config.AGENT.PLANNER.continuous_angle_tolerance,
+            min_goal_distance_cm=min_goal_distance_cm,
+            continuous_angle_tolerance=continuous_angle_tolerance,
         )
         self.one_hot_encoding = torch.eye(
             config.AGENT.SEMANTIC_MAP.num_sem_categories, device=self.device
