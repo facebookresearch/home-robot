@@ -97,4 +97,4 @@ if __name__ == "__main__":
         evaluation_type=args.evaluation_type,
         num_episodes=args.num_episodes,
     )
-    print(metrics)
+    print("Metrics:\n", metrics)
