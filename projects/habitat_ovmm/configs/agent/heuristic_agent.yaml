@@ -24,7 +24,6 @@ SEMANTIC_MAP:
   dilate_size: 3
   dilate_iter: 1
   record_instance_ids: False
-  evaluate_instance_tracking: False
   max_instances: 0
 
 SKILLS:

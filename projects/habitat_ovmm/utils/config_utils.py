@@ -57,6 +57,11 @@ def create_env_config(habitat_config: DictConfig, env_config: DictConfig) -> Dic
             env_config.habitat.simulator.agents.main_agent.sim_sensors.pop(
                 "third_rgb_sensor"
             )
+    if (
+        getattr(env_config.ENVIRONMENT, "evaluate_instance_tracking", False)
+        or env_config.GROUND_TRUTH_SEMANTICS
+    ) and "robot_head_panoptic" not in env_config.habitat.gym.obs_keys:
+        env_config.habitat.gym.obs_keys.append("robot_head_panoptic")
 
     episode_ids_range = env_config.habitat.dataset.episode_indices_range
     if episode_ids_range is not None:

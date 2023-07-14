@@ -63,6 +63,11 @@ class OpenVocabManipAgent(ObjectNavAgent):
         self.pick_agent = None
         self.place_agent = None
         self.semantic_sensor = None
+
+        if config.GROUND_TRUTH_SEMANTICS == 1 and self.store_all_categories_in_map:
+            # currently we get ground truth semantics of only the target object category and all scene receptacles from the simulator
+            raise NotImplementedError
+
         self.skip_skills = config.AGENT.skip_skills
         self.max_pick_attempts = 10
         if config.GROUND_TRUTH_SEMANTICS == 0:

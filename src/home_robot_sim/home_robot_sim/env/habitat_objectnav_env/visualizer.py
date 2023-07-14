@@ -74,6 +74,52 @@ class Visualizer:
             or "mp3d" in self.episodes_data_path
         )
         self.ground_truth_semantics = config.GROUND_TRUTH_SEMANTICS
+
+        self.semantic_category_mapping = None
+        if "ovmm" in self.episodes_data_path:
+            if self._dataset is None:
+                with open(config.ENVIRONMENT.category_map_file) as f:
+                    category_map = json.load(f)
+                self._obj_name_to_id_mapping = category_map[
+                    "obj_category_to_obj_category_id"
+                ]
+                self._rec_name_to_id_mapping = category_map[
+                    "recep_category_to_recep_category_id"
+                ]
+            else:
+                self._obj_name_to_id_mapping = (
+                    self._dataset.obj_category_to_obj_category_id
+                )
+                self._rec_name_to_id_mapping = (
+                    self._dataset.recep_category_to_recep_category_id
+                )
+            self._obj_id_to_name_mapping = {
+                k: v for v, k in self._obj_name_to_id_mapping.items()
+            }
+            self._rec_id_to_name_mapping = {
+                k: v for v, k in self._rec_name_to_id_mapping.items()
+            }
+
+            if config.GROUND_TRUTH_SEMANTICS:
+                # combining objs and receps ids into one dictionary
+                self.obj_rec_combined_mapping = {}
+                obj_id_to_name_mapping = {0: "goal_object"}
+                for i in range(
+                    len(obj_id_to_name_mapping) + len(self._rec_id_to_name_mapping)
+                ):
+                    if i < len(obj_id_to_name_mapping):
+                        self.obj_rec_combined_mapping[i + 1] = obj_id_to_name_mapping[i]
+                    else:
+                        self.obj_rec_combined_mapping[
+                            i + 1
+                        ] = self._rec_id_to_name_mapping[
+                            i - len(obj_id_to_name_mapping)
+                        ]
+
+                self.semantic_category_mapping = RearrangeDETICCategories(
+                    self.obj_rec_combined_mapping
+                )
+
         self.vis_dir = None
         self.image_vis = None
         self.visited_map_vis = None
@@ -83,7 +129,6 @@ class Visualizer:
         self.text_color = (20, 20, 20)  # BGR
         self.text_thickness = 2
         self.show_rl_obs = getattr(config, "SHOW_RL_OBS", False)
-        self.semantic_category_mapping = None
         self.num_sem_categories = None
         self.map_resolution = None
         self.map_shape = None

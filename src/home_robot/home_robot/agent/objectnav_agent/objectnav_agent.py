@@ -81,7 +81,7 @@ class ObjectNavAgent(Agent):
             ),
             max_instances=getattr(config.AGENT.SEMANTIC_MAP, "max_instances", 0),
             evaluate_instance_tracking=getattr(
-                config.AGENT.SEMANTIC_MAP, "evaluate_instance_tracking", False
+                config.ENVIRONMENT, "evaluate_instance_tracking", False
             ),
             instance_memory=self.instance_memory,
         )
@@ -119,7 +119,7 @@ class ObjectNavAgent(Agent):
         self.verbose = config.AGENT.PLANNER.verbose
 
         self.evaluate_instance_tracking = getattr(
-            config.AGENT.SEMANTIC_MAP, "evaluate_instance_tracking", False
+            config.ENVIRONMENT, "evaluate_instance_tracking", False
         )
         self.one_hot_instance_encoding = None
         if self.evaluate_instance_tracking:
