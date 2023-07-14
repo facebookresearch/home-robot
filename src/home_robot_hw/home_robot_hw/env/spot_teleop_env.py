@@ -11,7 +11,6 @@ class SpotTeleopEnv(SpotEnv):
         info: Optional[Dict[str, Any]] = None,
         prev_obs: Optional[Observations] = None,
     ):
-        # TODO
         self.env.step(base_action=action)
 
     @property
