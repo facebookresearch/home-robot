@@ -359,7 +359,7 @@ def main(spot):
 
     while not env.episode_over:
         t += 1
-        print(t)
+        print("STEP =", t)
 
         # Get an environment observation
         obs = env.get_observation()
