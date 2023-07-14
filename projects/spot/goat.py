@@ -4,6 +4,7 @@ from typing import List
 
 import cv2
 import numpy as np
+import skimage.morphology
 from PIL import Image
 
 # TODO Install home_robot, home_robot_sim and remove this
@@ -27,12 +28,25 @@ from home_robot.utils.config import get_config
 from home_robot_hw.env.spot_teleop_env import SpotObjectNavEnv
 
 
+class PI:
+    EMPTY_SPACE = 0
+    OBSTACLES = 1
+    EXPLORED = 2
+    VISITED = 3
+    CLOSEST_GOAL = 4
+    REST_OF_GOAL = 5
+    BEEN_CLOSE = 6
+    SEM_START = 7
+
+
 def get_semantic_map_vis(
     semantic_map: Categorical2DSemanticMapState,
     semantic_frame: np.array,
+    closest_goal_map: np.array,
     depth_frame: np.array,
     color_palette: List[float],
     legend=None,
+    visualize_goal=True,
 ):
     vis_image = np.ones((655, 1820, 3)).astype(np.uint8) * 255
     font = cv2.FONT_HERSHEY_SIMPLEX
@@ -85,7 +99,6 @@ def get_semantic_map_vis(
         cv2.LINE_AA,
     )
 
-    # TODO Visualize closest goal and rest of goal
     map_color_palette = [
         1.0,
         1.0,
@@ -107,18 +120,36 @@ def get_semantic_map_vis(
     obstacle_map = semantic_map.get_obstacle_map(0)
     explored_map = semantic_map.get_explored_map(0)
     visited_map = semantic_map.get_visited_map(0)
+    goal_map = semantic_map.get_goal_map(0)
 
-    semantic_categories_map += 4
+    semantic_categories_map += PI.SEM_START
     no_category_mask = (
-        semantic_categories_map == 4 + semantic_map.num_sem_categories - 1
+        semantic_categories_map == PI.SEM_START + semantic_map.num_sem_categories - 1
     )
     obstacle_mask = np.rint(obstacle_map) == 1
     explored_mask = np.rint(explored_map) == 1
     visited_mask = visited_map == 1
-    semantic_categories_map[no_category_mask] = 0
-    semantic_categories_map[np.logical_and(no_category_mask, explored_mask)] = 2
-    semantic_categories_map[np.logical_and(no_category_mask, obstacle_mask)] = 1
-    semantic_categories_map[visited_mask] = 3
+    semantic_categories_map[no_category_mask] = PI.EMPTY_SPACE
+    semantic_categories_map[
+        np.logical_and(no_category_mask, explored_mask)
+    ] = PI.EXPLORED
+    semantic_categories_map[
+        np.logical_and(no_category_mask, obstacle_mask)
+    ] = PI.OBSTACLES
+    semantic_categories_map[visited_mask] = PI.VISITED
+
+    # Goal
+    if visualize_goal:
+        selem = skimage.morphology.disk(4)
+        goal_mat = (1 - skimage.morphology.binary_dilation(goal_map, selem)) != 1
+        goal_mask = goal_mat == 1
+        semantic_map[goal_mask] = PI.REST_OF_GOAL
+        if closest_goal_map is not None:
+            closest_goal_mat = (
+                1 - skimage.morphology.binary_dilation(closest_goal_map, selem)
+            ) != 1
+            closest_goal_mask = closest_goal_mat == 1
+            semantic_map[closest_goal_mask] = PI.CLOSEST_GOAL
 
     # Draw semantic map
     semantic_map_vis = Image.new("P", semantic_categories_map.shape)
@@ -198,6 +229,7 @@ def main():
         vis_image = get_semantic_map_vis(
             agent.semantic_map,
             obs.task_observations["semantic_frame"],
+            info["closest_goal_map"],
             depth_frame,
             env.color_palette,
             legend,
