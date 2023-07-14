@@ -165,7 +165,11 @@ class OVMMEvaluator(PPOTrainer):
 
         aggregated_metrics = self._aggregate_metrics(episode_metrics)
         self._write_results(episode_metrics, aggregated_metrics)
-        return aggregated_metrics
+
+        average_metrics = self._summarize_metrics(episode_metrics)
+        self._print_summary(average_metrics)
+
+        return average_metrics
 
     def _aggregate_metrics(self, episode_metrics: Dict[str, Any]) -> Dict[str, float]:
         """Aggregates metrics tracked by environment."""
@@ -207,8 +211,6 @@ class OVMMEvaluator(PPOTrainer):
             json.dump(aggregated_metrics, f, indent=4)
         with open(f"{self.results_dir}/episode_results.json", "w") as f:
             json.dump(episode_metrics, f, indent=4)
-        summary = self._summarize_metrics(episode_metrics)
-        self._print_summary(summary)
 
     def local_evaluate(
         self, agent, num_episodes: Optional[int] = None
@@ -282,10 +284,14 @@ class OVMMEvaluator(PPOTrainer):
             pbar.update(1)
 
         self._env.close()
+
         aggregated_metrics = self._aggregate_metrics(episode_metrics)
         self._write_results(episode_metrics, aggregated_metrics)
 
-        return aggregated_metrics
+        average_metrics = self._summarize_metrics(episode_metrics)
+        self._print_summary(average_metrics)
+
+        return average_metrics
 
     def remote_evaluate(
         self, agent, num_episodes: Optional[int] = None
@@ -412,7 +418,10 @@ class OVMMEvaluator(PPOTrainer):
         aggregated_metrics = self._aggregate_metrics(episode_metrics)
         self._write_results(episode_metrics, aggregated_metrics)
 
-        return aggregated_metrics
+        average_metrics = self._summarize_metrics(episode_metrics)
+        self._print_summary(average_metrics)
+
+        return average_metrics
 
     def evaluate(
         self, agent, num_episodes: Optional[int] = None, evaluation_type: str = "local"
