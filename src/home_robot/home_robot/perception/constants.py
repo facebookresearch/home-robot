@@ -21,6 +21,8 @@ from home_robot.utils.constants import (
 hm3d_to_mp3d_path = Path(__file__).resolve().parent / "matterport_category_mappings.tsv"
 df = pd.read_csv(hm3d_to_mp3d_path, sep="    ", header=0, engine="python")
 hm3d_to_mp3d = {row["category"]: row["mpcat40index"] for _, row in df.iterrows()}
+hm3d_raw_to_hm3d = {row["raw_category"]: row["category"] for _, row in df.iterrows()}
+all_hm3d_categories = [row["category"] for _, row in df.iterrows()]
 
 
 class SemanticCategoryMapping(ABC):
@@ -365,8 +367,25 @@ class LanguageNavCategories(SemanticCategoryMapping):
 
     def reset_instance_id_to_category_id(self, env: Env):
         # Identity everywhere except index 0 mapped to 4
-        self._instance_id_to_category_id = np.arange(self.num_sem_categories)
-        self._instance_id_to_category_id[0] = self.num_sem_categories - 1
+
+        self._instance_id_to_category_id = []
+        for obj in env.sim.semantic_annotations().objects:
+            raw_category = obj.category.name().lower().strip()
+            category = hm3d_raw_to_hm3d.get(raw_category)
+            if category is None:
+                self._instance_id_to_category_id.append(
+                    all_hm3d_categories.index("unknown")
+                )
+            else:
+                self._instance_id_to_category_id.append(
+                    all_hm3d_categories.index(category)
+                )
+
+        self._instance_id_to_category_id = np.array(self._instance_id_to_category_id)
+
+    @property
+    def all_hm3d_categories(self):
+        return all_hm3d_categories
 
     @property
     def instance_id_to_category_id(self) -> np.ndarray:
