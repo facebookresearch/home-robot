@@ -7,11 +7,13 @@ from typing import Any, Dict, List, Tuple
 
 import numpy as np
 import scipy
-from sklearn.cluster import DBSCAN
 import torch
+from sklearn.cluster import DBSCAN
 from torch.nn import DataParallel
 
 import home_robot.utils.pose as pu
+from home_robot.agent.imagenav_agent.obs_preprocessor import ObsPreprocessor
+from home_robot.agent.imagenav_agent.visualizer import NavVisualizer
 from home_robot.core.abstract_agent import Agent
 from home_robot.core.interfaces import DiscreteNavigationAction, Observations
 from home_robot.mapping.semantic.categorical_2d_semantic_map_state import (
@@ -20,11 +22,6 @@ from home_robot.mapping.semantic.categorical_2d_semantic_map_state import (
 from home_robot.navigation_planner.discrete_planner import DiscretePlanner
 
 from .goat_agent_module import GoatAgentModule
-from home_robot.agent.imagenav_agent.obs_preprocessor import ObsPreprocessor
-from home_robot.agent.imagenav_agent.visualizer import NavVisualizer
-
-
-
 
 # For visualizing exploration issues
 debug_frontier_map = False
@@ -146,8 +143,8 @@ class GoatAgent(Agent):
         camera_pose: torch.Tensor = None,
         reject_visited_targets: bool = False,
         blacklist_target: bool = False,
-        matches = None,
-        confidence = None
+        matches=None,
+        confidence=None,
     ) -> Tuple[List[dict], List[dict]]:
         """Prepare low-level planner inputs from an observation - this is
         the main inference function of the agent that lets it interact with
@@ -184,7 +181,6 @@ class GoatAgent(Agent):
             ]
         )
 
-
         if object_goal_category is not None:
             object_goal_category = object_goal_category.unsqueeze(1)
         (
@@ -215,7 +211,7 @@ class GoatAgent(Agent):
             reject_visited_targets=reject_visited_targets,
             blacklist_target=blacklist_target,
             matches=matches,
-            confidence=confidence
+            confidence=confidence,
         )
         self.semantic_map.local_pose = seq_local_pose[:, -1]
         self.semantic_map.global_pose = seq_global_pose[:, -1]
@@ -226,12 +222,14 @@ class GoatAgent(Agent):
             goal_map = self._prep_goal_map_input()
         else:
             goal_map = self.goal_map.squeeze(1).cpu().numpy()
-        
-        found_goal = self.found_goal.squeeze(1).cpu()
+
+        # found_goal = self.found_goal.squeeze(1).cpu()
 
         for e in range(self.num_environments):
             if frontier_map is not None:
-                self.semantic_map.update_frontier_map(e, frontier_map[e][0].cpu().numpy())
+                self.semantic_map.update_frontier_map(
+                    e, frontier_map[e][0].cpu().numpy()
+                )
             if self.found_goal[e]:
                 self.semantic_map.update_global_goal_for_env(e, goal_map[e])
             elif self.timesteps_before_goal_update[e] == 0:
@@ -240,7 +238,9 @@ class GoatAgent(Agent):
 
         for e in range(self.num_environments):
             self.sub_task_timesteps[e][self.current_task_idx] += 1
-        self.total_timesteps = [self.total_timesteps[e] + 1 for e in range(self.num_environments)]
+        self.total_timesteps = [
+            self.total_timesteps[e] + 1 for e in range(self.num_environments)
+        ]
         self.timesteps_before_goal_update = [
             self.timesteps_before_goal_update[e] - 1
             for e in range(self.num_environments)
@@ -288,7 +288,9 @@ class GoatAgent(Agent):
     def reset_vectorized(self):
         """Initialize agent state."""
         self.total_timesteps = [0] * self.num_environments
-        self.sub_task_timesteps = [[0] * self.max_num_sub_task_episodes] * self.num_environments
+        self.sub_task_timesteps = [
+            [0] * self.max_num_sub_task_episodes
+        ] * self.num_environments
         self.timesteps_before_goal_update = [0] * self.num_environments
         self.last_poses = [np.zeros(3)] * self.num_environments
         self.semantic_map.init_map_and_pose()
@@ -325,7 +327,7 @@ class GoatAgent(Agent):
         self.seen_landmarks = []
         self.reject_visited_targets = False
         self.blacklist_target = False
-        
+
         self.current_task_idx = 0
         self.planner.reset()
 
@@ -345,7 +347,7 @@ class GoatAgent(Agent):
         task_type = current_task["type"]
 
         # 1 - Obs preprocessing
-        if task_type == 'imagenav':
+        if task_type == "imagenav":
             self.imagenav_obs_preprocessor.current_task_idx = self.current_task_idx
             (
                 obs_preprocessed,
@@ -357,9 +359,14 @@ class GoatAgent(Agent):
             object_goal_category = current_task["semantic_id"]
             object_goal_category = torch.tensor(object_goal_category).unsqueeze(0)
             planner_inputs, vis_inputs = self.prepare_planner_inputs(
-                obs_preprocessed, pose_delta, object_goal_category=object_goal_category , matches=matches, confidence=confidence, camera_pose=camera_pose
+                obs_preprocessed,
+                pose_delta,
+                object_goal_category=object_goal_category,
+                matches=matches,
+                confidence=confidence,
+                camera_pose=camera_pose,
             )
-        elif task_type in ['objectnav', 'languagenav']:
+        elif task_type in ["objectnav", "languagenav"]:
             (
                 obs_preprocessed,
                 pose_delta,
@@ -406,23 +413,33 @@ class GoatAgent(Agent):
             #     # reset timesteps
             #     pass
 
-        if task_type == 'imagenav':
+        if task_type == "imagenav":
             collision = {"is_collision": False}
             info = {
                 **planner_inputs[0],
                 **vis_inputs[0],
                 "semantic_frame": obs.rgb,
                 "closest_goal_map": closest_goal_map,
-                "last_goal_image": obs.task_observations["tasks"][self.current_task_idx]["image"],
+                "last_goal_image": obs.task_observations["tasks"][
+                    self.current_task_idx
+                ]["image"],
                 "last_collisions": collision,
                 "last_td_map": obs.task_observations.get("top_down_map"),
             }
             self.imagenav_visualizer.visualize(**info)
         else:
-            goal_text_desc = {x:y for x,y in obs.task_observations["tasks"][self.current_task_idx].items() if x !='image'}
+            goal_text_desc = {
+                x: y
+                for x, y in obs.task_observations["tasks"][
+                    self.current_task_idx
+                ].items()
+                if x != "image"
+            }
             vis_inputs[0]["goal_name"] = goal_text_desc
             if self.visualize:
-                vis_inputs[0]["semantic_frame"] = obs.task_observations["semantic_frame"]
+                vis_inputs[0]["semantic_frame"] = obs.task_observations[
+                    "semantic_frame"
+                ]
                 vis_inputs[0]["closest_goal_map"] = closest_goal_map
                 vis_inputs[0]["third_person_image"] = obs.third_person_image
                 vis_inputs[0]["short_term_goal"] = None

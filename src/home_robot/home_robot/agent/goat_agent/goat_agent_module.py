@@ -1,17 +1,17 @@
 import time
-
-import torch.nn as nn
-import torch
 from typing import Tuple
+
+import torch
+import torch.nn as nn
 
 from home_robot.mapping.semantic.categorical_2d_semantic_map_module import (
     Categorical2DSemanticMapModule,
 )
-from home_robot.navigation_policy.language_navigation.languagenav_frontier_exploration_policy import (
-    LanguageNavFrontierExplorationPolicy,
-)
 from home_robot.navigation_policy.exploration.frontier_exploration_policy import (
     FrontierExplorationPolicy,
+)
+from home_robot.navigation_policy.language_navigation.languagenav_frontier_exploration_policy import (
+    LanguageNavFrontierExplorationPolicy,
 )
 
 # Do we need to visualize the frontier as we explore?
@@ -48,7 +48,9 @@ class GoatAgentModule(nn.Module):
         self.policy = LanguageNavFrontierExplorationPolicy(
             exploration_strategy=config.AGENT.exploration_strategy
         )
-        self.frontier_only_policy = FrontierExplorationPolicy(exploration_strategy=config.AGENT.exploration_strategy)
+        self.frontier_only_policy = FrontierExplorationPolicy(
+            exploration_strategy=config.AGENT.exploration_strategy
+        )
         self.goal_policy_config = config.AGENT.SUPERGLUE
 
     @property
@@ -187,8 +189,12 @@ class GoatAgentModule(nn.Module):
         # print(f"[Semantic mapping] Total time: {t1 - t0:.2f}")
 
         if matches is not None or confidence is not None:
-            explore_map = self.frontier_only_policy.get_frontier_map(seq_map_features.flatten(0, 1)[:, :-1])
-            seq_goal_map[seq_found_goal[:, 0] == 0] = explore_map[seq_found_goal[:, 0] == 0]
+            explore_map = self.frontier_only_policy.get_frontier_map(
+                seq_map_features.flatten(0, 1)[:, :-1]
+            )
+            seq_goal_map[seq_found_goal[:, 0] == 0] = explore_map[
+                seq_found_goal[:, 0] == 0
+            ]
             # predict if the goal is found and where it is.
             seq_goal_map, seq_found_goal = self.superglue(
                 seq_goal_map, seq_found_goal, final_local_map, matches, confidence
@@ -197,7 +203,7 @@ class GoatAgentModule(nn.Module):
                 batch_size, sequence_length, *seq_goal_map.shape[-2:]
             )
             frontier_map = explore_map
-        
+
         else:
             # Predict high-level goals from map features
             # batched across sequence length x num environments
@@ -212,7 +218,9 @@ class GoatAgentModule(nn.Module):
                 reject_visited_targets=reject_visited_targets,
             )
 
-            seq_goal_map = goal_map.view(batch_size, sequence_length, *goal_map.shape[-2:])
+            seq_goal_map = goal_map.view(
+                batch_size, sequence_length, *goal_map.shape[-2:]
+            )
             seq_found_goal = found_goal.view(batch_size, sequence_length)
 
             # Compute the frontier map here
