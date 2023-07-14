@@ -30,7 +30,7 @@ SKILLS:
   GAZE_OBJ:
     type: rl #end_to_end #heuristic #hardcoded
     checkpoint_path: data/checkpoints/ovmm_baseline_home_robot_challenge_2023/gaze_at_obj.pth
-    rl_config: projects/habitat_ovmm/configs/agent/gaze_rl.yaml # with continuous actions
+    rl_config: projects/habitat_ovmm/configs/agent/skills/gaze_rl.yaml # with continuous actions
     gym_obs_keys:
       - robot_head_depth
       - object_embedding
@@ -60,7 +60,7 @@ SKILLS:
   NAV_TO_OBJ:
     type: heuristic # heuristic (default) or rl
     checkpoint_path: data/checkpoints/ovmm_baseline_home_robot_challenge_2023/nav_to_obj.pth
-    rl_config: projects/habitat_ovmm/configs/agent/nav_to_obj_rl.yaml
+    rl_config: projects/habitat_ovmm/configs/agent/skills/nav_to_obj_rl.yaml
     gym_obs_keys:
       - robot_head_depth
       - object_embedding
@@ -90,7 +90,7 @@ SKILLS:
   NAV_TO_REC:
     type: heuristic # heuristic (default) or rl
     checkpoint_path: data/checkpoints/ovmm_baseline_home_robot_challenge_2023/nav_to_rec.pth
-    rl_config: projects/habitat_ovmm/configs/agent/nav_to_obj_rl.yaml
+    rl_config: projects/habitat_ovmm/configs/agent/skills/nav_to_obj_rl.yaml
     gym_obs_keys:
       - robot_head_depth
       - ovmm_nav_goal_segmentation
@@ -120,7 +120,7 @@ SKILLS:
   PLACE:
     type: heuristic # "rl" or "heuristic" or "hardcoded"
     checkpoint_path: data/checkpoints/ovmm_baseline_home_robot_challenge_2023/place.pth
-    rl_config: projects/habitat_ovmm/configs/agent/place_rl.yaml # with continuous actions
+    rl_config: projects/habitat_ovmm/configs/agent/skills/place_rl.yaml # with continuous actions
     gym_obs_keys:
       - robot_head_depth
       - goal_receptacle
