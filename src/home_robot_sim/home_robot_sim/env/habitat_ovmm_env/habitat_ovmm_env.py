@@ -99,9 +99,7 @@ class HabitatOpenVocabManipEnv(HabitatEnv):
         self._rec_id_to_name_mapping = {
             k: v for v, k in self._rec_name_to_id_mapping.items()
         }
-        self.store_all_categories_in_map = getattr(
-            config.AGENT, "store_all_categories", False
-        )
+        self.store_all_categories_in_map = False
         self.evaluate_instance_tracking = getattr(
             config.AGENT.SEMANTIC_MAP, "evaluate_instance_tracking", False
         )
@@ -229,16 +227,7 @@ class HabitatOpenVocabManipEnv(HabitatEnv):
         )
 
         obj_goal_id = 1  # semantic sensor returns binary mask for goal object
-        if self.store_all_categories_in_map:
-            obj_goal_id = self._obj_name_to_id_mapping[obj_name]
-            num_obj_categories = len(self._obj_name_to_id_mapping)
-            start_rec_goal_id = (
-                self._rec_name_to_id_mapping[start_receptacle] + num_obj_categories
-            )
-            end_rec_goal_id = (
-                self._rec_name_to_id_mapping[goal_receptacle] + num_obj_categories
-            )
-        elif self.ground_truth_semantics:
+        if self.ground_truth_semantics:
             start_rec_goal_id = self._rec_name_to_id_mapping[start_receptacle] + 2
             end_rec_goal_id = self._rec_name_to_id_mapping[goal_receptacle] + 2
         else:

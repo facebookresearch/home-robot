@@ -413,31 +413,7 @@ class Visualizer:
                 )
 
         if instance_memory is not None:
-            # query the instance memory to get unique instances per category
-            num_instances_per_category = defaultdict(int)
-            num_views_per_instance = defaultdict(list)
-            for instance_id, instance in instance_memory.instance_views[0].items():
-                num_instances_per_category[instance.category_id.item()] += 1
-                num_views_per_instance[instance.category_id.item()].append(
-                    len(instance.instance_views)
-                )
-            text = "Instance counts"
-            offset = 48
-            y_pos = offset
-
-            for index, count in num_instances_per_category.items():
-                if count > 0:
-                    text = f"cat {index}: {num_views_per_instance[index]} views"
-                    image_vis = self._put_text_on_image(
-                        image_vis,
-                        text,
-                        V.THIRD_PERSON_X1,
-                        y_pos,
-                        V.THIRD_PERSON_W,
-                        V.TOP_PADDING,
-                    )
-                    y_pos += offset
-
+            self._visualize_instance_counts(instance_memory)
         if self.show_images:
             cv2.imshow("Visualization", image_vis)
             cv2.waitKey(1)
@@ -446,6 +422,43 @@ class Visualizer:
                 os.path.join(self.vis_dir, "snapshot_{:03d}.png".format(timestep)),
                 image_vis,
             )
+
+    def _visualize_instance_counts(
+        self, instance_memory: InstanceMemory, image_vis: np.ndarray
+    ):
+        """
+            Query the instance memory to get unique instances per category
+            Args:
+            instance_memory (InstanceMemory): memory of all instances and views seen so far
+            image_vis (np.ndarray): The semantic map visualization before adding instances
+
+            Returns:
+            image_vis (np.ndarray): The semantic map visualization after adding instances
+        '"""
+        num_instances_per_category = defaultdict(int)
+        num_views_per_instance = defaultdict(list)
+        for instance_id, instance in instance_memory.instance_views[0].items():
+            num_instances_per_category[instance.category_id.item()] += 1
+            num_views_per_instance[instance.category_id.item()].append(
+                len(instance.instance_views)
+            )
+        text = "Instance counts"
+        offset = 48
+        y_pos = offset
+
+        for index, count in num_instances_per_category.items():
+            if count > 0:
+                text = f"cat {index}: {num_views_per_instance[index]} views"
+                image_vis = self._put_text_on_image(
+                    image_vis,
+                    text,
+                    V.THIRD_PERSON_X1,
+                    y_pos,
+                    V.THIRD_PERSON_W,
+                    V.TOP_PADDING,
+                )
+                y_pos += offset
+        return image_vis
 
     def _put_text_on_image(
         self,
