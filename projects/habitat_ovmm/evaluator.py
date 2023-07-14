@@ -76,7 +76,7 @@ class OVMMEvaluator(PPOTrainer):
         """
         Sets vis_dir for storing planner's debug visualisations
         """
-        if hasattr(agent, 'planner'):
+        if hasattr(agent, "planner"):
             agent.planner.set_vis_dir(
                 current_episode.scene_id.split("/")[-1].split(".")[0],
                 current_episode.episode_id,
