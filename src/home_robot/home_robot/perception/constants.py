@@ -74,6 +74,9 @@ class SemanticCategoryMapping(ABC):
 
 
 class PaletteIndices:
+    """
+    Indices of different types of maps maintained in the agent's map state.
+    """
     EMPTY_SPACE = 0
     OBSTACLES = 1
     EXPLORED = 2
@@ -357,6 +360,9 @@ languagenav_2categories_map_color_palette = [
 
 
 class LanguageNavCategories(SemanticCategoryMapping):
+    """
+    Mapping for LanguageNav episode visualizations and instance ID -> semantic category conversion.
+    """
     def __init__(self):
         super().__init__()
         self.goal_id_to_goal_name = languagenav_2categories_indexes
@@ -366,8 +372,6 @@ class LanguageNavCategories(SemanticCategoryMapping):
         return (goal_id, self.goal_id_to_goal_name[goal_id])
 
     def reset_instance_id_to_category_id(self, env: Env):
-        # Identity everywhere except index 0 mapped to 4
-
         self._instance_id_to_category_id = []
         for obj in env.sim.semantic_annotations().objects:
             raw_category = obj.category.name().lower().strip()
