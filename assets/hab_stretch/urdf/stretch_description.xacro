@@ -1,0 +1,18 @@
+<?xml version="1.0"?>
+<robot xmlns:xacro="http://www.ros.org/wiki/xacro" name="stretch_description">
+
+  <xacro:include filename="stretch_dex_wrist.xacro" />
+  <!--<xacro:include filename="stretch_gripper.xacro" /> -->
+  <!--<xacro:include filename="stretch_gripper_with_puller.xacro" />-->
+  <!--<xacro:include filename="stretch_dry_erase_marker.xacro" />-->
+    
+  <xacro:include filename="stretch_main.xacro" />
+  <xacro:include filename="stretch_aruco.xacro" />
+  <xacro:include filename="stretch_d435i.xacro" />
+  <xacro:include filename="stretch_laser_range_finder.xacro" />
+  <xacro:include filename="stretch_respeaker.xacro" />
+
+</robot>
+
+  
+

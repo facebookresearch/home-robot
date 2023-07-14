@@ -62,6 +62,7 @@ class HabitatOpenVocabManipEnv(HabitatEnv):
         self.visualize = config.VISUALIZE or config.PRINT_IMAGES
         if self.visualize:
             self.visualizer = Visualizer(config, dataset)
+
         self.episodes_data_path = config.habitat.dataset.data_path
         self.video_dir = config.habitat_baselines.video_dir
         self.max_forward = (
@@ -95,7 +96,9 @@ class HabitatOpenVocabManipEnv(HabitatEnv):
         self._rec_id_to_name_mapping = {
             k: v for v, k in self._rec_name_to_id_mapping.items()
         }
-
+        self._instance_ids_start_in_panoptic = (
+            config.habitat.simulator.instance_ids_start
+        )
         self._last_habitat_obs = None
 
     def get_current_episode(self):
@@ -158,6 +161,18 @@ class HabitatOpenVocabManipEnv(HabitatEnv):
         )
         obs = self._preprocess_goal(obs, habitat_obs)
         obs = self._preprocess_semantic(obs, habitat_obs)
+        if "robot_head_panoptic" in habitat_obs:
+            gt_instance_ids = np.maximum(
+                0,
+                habitat_obs["robot_head_panoptic"]
+                - self._instance_ids_start_in_panoptic
+                + 1,
+            )[..., 0]
+            # to be used for evaluating the instance map
+            obs.task_observations["gt_instance_ids"] = gt_instance_ids
+            if self.ground_truth_semantics:
+                # populate the instance map
+                obs.task_observations["instance_map"] = gt_instance_ids
         return obs
 
     def _preprocess_semantic(

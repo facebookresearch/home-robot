@@ -36,6 +36,7 @@ class Skill(IntEnum):
 class SemanticVocab(IntEnum):
     FULL = auto()
     SIMPLE = auto()
+    ALL = auto()
 
 
 def get_skill_as_one_hot_dict(curr_skill: Skill):
@@ -62,10 +63,15 @@ class OpenVocabManipAgent(ObjectNavAgent):
         self.pick_agent = None
         self.place_agent = None
         self.semantic_sensor = None
+
+        if config.GROUND_TRUTH_SEMANTICS == 1 and self.store_all_categories_in_map:
+            # currently we get ground truth semantics of only the target object category and all scene receptacles from the simulator
+            raise NotImplementedError
+
         self.skip_skills = config.AGENT.skip_skills
         self.max_pick_attempts = 10
         if config.GROUND_TRUTH_SEMANTICS == 0:
-            self.semantic_sensor = OvmmPerception(config, device_id)
+            self.semantic_sensor = OvmmPerception(config, device_id, self.verbose)
             self.obj_name_to_id, self.rec_name_to_id = read_category_map_file(
                 config.ENVIRONMENT.category_map_file
             )
@@ -200,10 +206,13 @@ class OpenVocabManipAgent(ObjectNavAgent):
         """
         This method is called at the first timestep of every episode before any action is taken.
         """
-        print("Initializing episode...")
+        if self.verbose:
+            print("Initializing episode...")
         if self.config.GROUND_TRUTH_SEMANTICS == 0:
             self._update_semantic_vocabs(obs)
-            if (
+            if self.store_all_categories_in_map:
+                self._set_semantic_vocab(SemanticVocab.ALL, force_set=True)
+            elif (
                 self.config.AGENT.SKILLS.NAV_TO_OBJ.type == "rl"
                 and not self.skip_skills.nav_to_obj
             ):
@@ -226,7 +235,8 @@ class OpenVocabManipAgent(ObjectNavAgent):
             # action = DiscreteNavigationAction.NAVIGATION_MODE
             pass
         elif next_skill == Skill.GAZE_AT_OBJ:
-            self._set_semantic_vocab(SemanticVocab.SIMPLE, force_set=False)
+            if not self.store_all_categories_in_map:
+                self._set_semantic_vocab(SemanticVocab.SIMPLE, force_set=False)
             self.gaze_at_obj_start_step[e] = self.timesteps[e]
         elif next_skill == Skill.PICK:
             self.pick_start_step[e] = self.timesteps[e]
@@ -234,10 +244,14 @@ class OpenVocabManipAgent(ObjectNavAgent):
             self.timesteps_before_goal_update[e] = 0
             if not self.skip_skills.nav_to_rec:
                 action = DiscreteNavigationAction.NAVIGATION_MODE
-                if self.config.AGENT.SKILLS.NAV_TO_OBJ.type == "rl":
+                if (
+                    self.config.AGENT.SKILLS.NAV_TO_OBJ.type == "rl"
+                    and not self.store_all_categories_in_map
+                ):
                     self._set_semantic_vocab(SemanticVocab.FULL, force_set=False)
         elif next_skill == Skill.GAZE_AT_REC:
-            self._set_semantic_vocab(SemanticVocab.SIMPLE, force_set=False)
+            if not self.store_all_categories_in_map:
+                self._set_semantic_vocab(SemanticVocab.SIMPLE, force_set=False)
             # We reuse gaze agent between pick and place
             if self.gaze_agent is not None:
                 self.gaze_agent.reset_vectorized_for_env(e)
@@ -277,6 +291,12 @@ class OpenVocabManipAgent(ObjectNavAgent):
                 obj_id_to_name, self.rec_name_to_id
             )
             self.semantic_sensor.update_vocabulary_list(full_vocab, SemanticVocab.FULL)
+
+        # All vocabulary contains all objects and all receptacles
+        all_vocab = build_vocab_from_category_map(
+            self.obj_name_to_id, self.rec_name_to_id
+        )
+        self.semantic_sensor.update_vocubulary_list(all_vocab, SemanticVocab.ALL)
 
     def _set_semantic_vocab(self, vocab_id: SemanticVocab, force_set: bool):
         """
@@ -366,7 +386,8 @@ class OpenVocabManipAgent(ObjectNavAgent):
         if self.skip_skills.nav_to_obj:
             terminate = True
         elif nav_to_obj_type == "heuristic":
-            print("[OVMM AGENT] step heuristic nav policy")
+            if self.verbose:
+                print("[OVMM AGENT] step heuristic nav policy")
             action, info, terminate = self._heuristic_nav(obs, info)
         elif nav_to_obj_type == "rl":
             action, info, terminate = self.nav_to_obj_agent.act(obs, info)
@@ -552,5 +573,8 @@ class OpenVocabManipAgent(ObjectNavAgent):
                 action = self._switch_to_next_skill(0, new_state, info)
         # update the curr skill to the new skill whose action will be executed
         info["curr_skill"] = Skill(self.states[0].item()).name
-        print(f'Executing skill {info["curr_skill"]} at timestep {self.timesteps[0]}')
+        if self.verbose:
+            print(
+                f'Executing skill {info["curr_skill"]} at timestep {self.timesteps[0]}'
+            )
         return action, info, obs

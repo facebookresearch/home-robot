@@ -201,6 +201,9 @@ coco_map_color_palette = [
         0.0,
         1.0,
         0.0,  # short term goal
+        0.0,
+        0.0,
+        0.0,  # instance border
         *coco_categories_color_palette,
     ]
 ]
@@ -314,7 +317,8 @@ class PaletteIndices:
     REST_OF_GOAL = 5
     BEEN_CLOSE = 6
     SHORT_TERM_GOAL = 7
-    SEM_START = 8
+    INSTANCE_BORDER = 8
+    SEM_START = 9
 
 
 rearrange_3categories_map_color_palette = [
@@ -344,6 +348,9 @@ rearrange_3categories_map_color_palette = [
         0.0,
         1.0,
         0.0,  # short term goal
+        0.0,
+        0.0,
+        0.0,  # instance border
         *[x / 255.0 for x in rearrange_3categories_color_palette],
     ]
 ]
@@ -431,6 +438,9 @@ mukul_33categories_map_color_palette = [
         0.0,
         1.0,
         0.0,  # short term goal
+        0.0,
+        0.0,
+        0.0,  # instance border
         *[x / 255.0 for x in mukul_33categories_color_palette],
     ]
 ]
@@ -557,6 +567,9 @@ hssd_28categories_map_color_palette = [
         0.0,
         1.0,
         0.0,  # short term goal
+        0.0,
+        0.0,
+        0.0,  # instance border
         *[x / 255.0 for x in hssd_28categories_color_palette],
     ]
 ]
@@ -696,6 +709,9 @@ class RearrangeDETICCategories(SemanticCategoryMapping):
                 0.0,
                 1.0,
                 0.0,  # short term goal
+                0.0,
+                0.0,
+                0.0,  # instance border
                 *[x / 255.0 for x in self.color_palette],
             ]
         ]

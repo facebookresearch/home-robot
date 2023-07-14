@@ -2,11 +2,14 @@
 #
 # This source code is licensed under the MIT license found in the
 # LICENSE file in the root directory of this source tree.
+from typing import Optional
+
 import numpy as np
 import torch
 
 from home_robot.mapping.map_utils import MapSizeParameters, init_map_and_pose_for_env
 from home_robot.mapping.semantic.constants import MapConstants as MC
+from home_robot.mapping.semantic.instance_tracking_modules import InstanceMemory
 
 
 class Categorical2DSemanticMapState:
@@ -29,6 +32,10 @@ class Categorical2DSemanticMapState:
         map_resolution: int,
         map_size_cm: int,
         global_downscaling: int,
+        record_instance_ids: bool = False,
+        evaluate_instance_tracking: bool = False,
+        instance_memory: Optional[InstanceMemory] = None,
+        max_instances: int = 0,
     ):
         """
         Arguments:
@@ -39,6 +46,7 @@ class Categorical2DSemanticMapState:
             map_resolution: size of map bins (in centimeters)
             map_size_cm: global map size (in centimetres)
             global_downscaling: ratio of global over local map
+            record_instance_ids: whether to predict and store instance ids in the map
         """
         self.device = device
         self.num_environments = num_environments
@@ -62,6 +70,13 @@ class Categorical2DSemanticMapState:
         # 4: Regions agent has been close to
         # 5, 6, 7, .., num_sem_categories + 5: Semantic Categories
         num_channels = self.num_sem_categories + MC.NON_SEM_CHANNELS
+        if record_instance_ids:
+            # num_sem_categories + 5, ..., 2 * num_sem_categories + 5: Instance ids per semantic category
+            num_channels += self.num_sem_categories
+            self.instance_memory = instance_memory
+
+        if evaluate_instance_tracking:
+            num_channels += max_instances + 1
 
         self.global_map = torch.zeros(
             self.num_environments,
@@ -165,6 +180,17 @@ class Categorical2DSemanticMapState:
             MC.NON_SEM_CHANNELS : MC.NON_SEM_CHANNELS + self.num_sem_categories, :, :
         ].argmax(0)
         return semantic_map
+
+    def get_instance_map(self, e) -> np.ndarray:
+        instance_map = self.local_map[e].cpu().float().numpy()
+        instance_map = instance_map[
+            MC.NON_SEM_CHANNELS
+            + self.num_sem_categories : MC.NON_SEM_CHANNELS
+            + 2 * self.num_sem_categories,
+            :,
+            :,
+        ]
+        return instance_map
 
     def get_planner_pose_inputs(self, e) -> np.ndarray:
         """Get local planner pose inputs for an environment.
