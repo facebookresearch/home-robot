@@ -114,7 +114,7 @@ class DiscretePlanner:
         self.obs_dilation_selem = None
         self.min_goal_distance_cm = min_goal_distance_cm
         self.dd = None
-        self.reached_goal_candidate = False
+        self.reached_goal_candidate = False  # to keep track of whether goal has been reached – for stacking additional checks to confirm whether goal is correct
 
         self.map_downsample_factor = map_downsample_factor
         self.map_update_frequency = map_update_frequency

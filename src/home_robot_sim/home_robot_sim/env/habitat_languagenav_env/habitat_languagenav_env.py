@@ -23,6 +23,10 @@ from home_robot_sim.env.habitat_languagenav_env.visualizer import Visualizer
 
 
 class HabitatLanguageNavEnv(HabitatEnv):
+    """
+    Environment wrapper for Language Navigation task in Habitat.
+    """
+
     semantic_category_mapping: Union[HM3DtoCOCOIndoor, FloorplannertoMukulIndoor]
 
     def __init__(self, habitat_env: habitat.core.env.Env, config):
