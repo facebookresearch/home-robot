@@ -85,6 +85,7 @@ def get_semantic_map_vis(
         cv2.LINE_AA,
     )
 
+    # TODO Visualize closest goal and rest of goal
     map_color_palette = [
         1.0,
         1.0,
@@ -221,6 +222,8 @@ def main():
         else:
             action = [0, 0]
         env.apply_action(action)
+
+        # TODO Generate continuous action with ObjectNav agent
         # env.apply_action(action, info=info)
 
     print(env.get_episode_metrics())
