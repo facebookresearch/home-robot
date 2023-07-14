@@ -8,8 +8,8 @@ import home_robot
 from home_robot.perception.constants import (
     HM3DtoCOCOIndoor,
     LanguageNavCategories,
-    coco_categories_mapping,
     all_hm3d_categories,
+    coco_categories_mapping,
 )
 from home_robot.utils.constants import (
     MAX_DEPTH_REPLACEMENT_VALUE,
@@ -54,7 +54,7 @@ class HabitatGoatEnv(HabitatEnv):
         self.current_episode = self.habitat_env.current_episode
         self.active_task_idx = 0
         # goal_type, goal = self.update_and_fetch_goal()
-        goals = habitat_obs['multigoal']
+        goals = habitat_obs["multigoal"]
         # open set vocabulary – all HM3D categories?
         vocabulary = self.fetch_vocabulary(goals)
         print("Vocabulary:", vocabulary)
@@ -87,9 +87,12 @@ class HabitatGoatEnv(HabitatEnv):
         print("Initializing perception module with vocabulary:", vocabulary)
 
     def _preprocess_obs(
-        self, habitat_obs: habitat.core.simulator.Observations) -> home_robot.core.interfaces.Observations:
+        self, habitat_obs: habitat.core.simulator.Observations
+    ) -> home_robot.core.interfaces.Observations:
         depth = self._preprocess_depth(habitat_obs["depth"])
-        goals, vocabulary = self._preprocess_goals(self.current_episode.tasks, habitat_obs)
+        goals, vocabulary = self._preprocess_goals(
+            self.current_episode.tasks, habitat_obs
+        )
         obs = home_robot.core.interfaces.Observations(
             rgb=habitat_obs["rgb"],
             depth=depth,
@@ -97,7 +100,7 @@ class HabitatGoatEnv(HabitatEnv):
             gps=self._preprocess_xy(habitat_obs["gps"]),
             task_observations={
                 "tasks": goals,
-                "top_down_map": self.get_episode_metrics()["top_down_map"]
+                "top_down_map": self.get_episode_metrics()["top_down_map"],
             },
             camera_pose=None,
             third_person_image=None,
@@ -106,7 +109,10 @@ class HabitatGoatEnv(HabitatEnv):
         return obs
 
     def _preprocess_semantic(
-        self, obs: home_robot.core.interfaces.Observations, habitat_semantic: np.ndarray, vocabulary
+        self,
+        obs: home_robot.core.interfaces.Observations,
+        habitat_semantic: np.ndarray,
+        vocabulary,
     ) -> home_robot.core.interfaces.Observations:
         if self.ground_truth_semantics:
             instance_id_to_category_id = (
@@ -175,7 +181,7 @@ class HabitatGoatEnv(HabitatEnv):
                 goal["landmarks"] = landmarks
             elif task["task_type"] == "imagenav":
                 goal["target"] = task["object_category"]
-                goal["image"] = habitat_obs['multigoal'][idx]['image']
+                goal["image"] = habitat_obs["multigoal"][idx]["image"]
 
             if goal["target"] not in vocabulary:
                 vocabulary.append(goal["target"])
@@ -195,5 +201,10 @@ class HabitatGoatEnv(HabitatEnv):
 
     def _process_info(self, info: Dict[str, Any]) -> Any:
         if info:
-            if self.habitat_env.current_episode.tasks[self.habitat_env.task.current_task_idx]['task_type'] != "imagenav":
+            if (
+                self.habitat_env.current_episode.tasks[
+                    self.habitat_env.task.current_task_idx
+                ]["task_type"]
+                != "imagenav"
+            ):
                 self.visualizer.visualize(**info)

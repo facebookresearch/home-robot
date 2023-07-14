@@ -26,22 +26,26 @@ class ObsPreprocessor:
 
     def __init__(self, config: DictConfig, device: torch.device) -> None:
         self.device = device
-        self.frame_height = config.frame_height
-        self.frame_width = config.frame_width
+        self.frame_height = config.ENVIRONMENT.frame_height
+        self.frame_width = config.ENVIRONMENT.frame_width
 
-        self.depth_filtering = config.semantic_prediction.depth_filtering
-        self.depth_filter_range_cm = config.semantic_prediction.depth_filter_range_cm
-        self.preprojection_kp_dilation = config.preprojection_kp_dilation
-        self.match_projection_threshold = config.superglue.match_projection_threshold
+        self.depth_filtering = config.AGENT.SEMANTIC_MAP.depth_filtering
+        self.depth_filter_range_cm = config.AGENT.SEMANTIC_MAP.depth_filter_range_cm
+        self.preprojection_kp_dilation = (
+            config.AGENT.SEMANTIC_MAP.preprojection_kp_dilation
+        )
+        self.match_projection_threshold = (
+            config.AGENT.SUPERGLUE.match_projection_threshold
+        )
 
         #  initialize detection and localization modules
         self.matching = Matching(
-            device=config.simulator_gpu_id,
-            config=config.superglue,
-            default_vis_dir=f"{config.dump_location}/images/{config.exp_name}",
-            print_images=config.generate_videos,
+            device=0,  # config.simulator_gpu_id
+            config=config.AGENT.SUPERGLUE,
+            default_vis_dir=f"{config.DUMP_LOCATION}/images/{config.EXP_NAME}",
+            print_images=config.PRINT_IMAGES,
         )
-        self.instance_seg = Detic(config.detic)
+        self.instance_seg = Detic(config.AGENT.DETIC)
 
         # init episode variables
         self.goal_image = None
@@ -56,6 +60,13 @@ class ObsPreprocessor:
         self.goal_image_keypoints = None
         self.goal_mask = None
         self.last_pose = np.zeros(3)
+        self.step = 0
+
+    def reset_sub_episode(self) -> None:
+        """Reset for a new sub-episode since pre-processing is temporally dependent."""
+        self.goal_image = None
+        self.goal_image_keypoints = None
+        self.goal_mask = None
         self.step = 0
 
     def preprocess(
@@ -79,7 +90,7 @@ class ObsPreprocessor:
             camera_pose: camera extrinsic pose of shape (num_environments, 4, 4)
         """
         if self.goal_image is None:
-            img_goal = obs.task_observations["instance_imagegoal"]
+            img_goal = obs.task_observations["tasks"][self.current_task_idx]["image"]
             (
                 self.goal_image,
                 self.goal_image_keypoints,

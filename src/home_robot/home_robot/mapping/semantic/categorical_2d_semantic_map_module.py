@@ -51,7 +51,6 @@ class Categorical2DSemanticMapModule(nn.Module):
         vision_range: int,
         explored_radius: int,
         been_close_to_radius: int,
-        target_blacklisting_radius: int,
         global_downscaling: int,
         du_scale: int,
         cat_pred_threshold: float,
@@ -64,6 +63,7 @@ class Categorical2DSemanticMapModule(nn.Module):
         dilate_obstacles: bool = True,
         dilate_iter: int = 1,
         dilate_size: int = 3,
+        target_blacklisting_radius: int = None,
     ):
         """
         Arguments:
@@ -114,7 +114,8 @@ class Categorical2DSemanticMapModule(nn.Module):
         self.vision_range = vision_range
         self.explored_radius = explored_radius
         self.been_close_to_radius = been_close_to_radius
-        self.target_blacklisting_radius = target_blacklisting_radius
+        if target_blacklisting_radius is not None:
+            self.target_blacklisting_radius = target_blacklisting_radius
         self.du_scale = du_scale
         self.cat_pred_threshold = cat_pred_threshold
         self.exp_pred_threshold = exp_pred_threshold

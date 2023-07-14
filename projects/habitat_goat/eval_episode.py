@@ -23,9 +23,7 @@ from habitat.core.env import Env
 
 from home_robot.agent.goat_agent.goat_agent import GoatAgent
 from home_robot.core.interfaces import DiscreteNavigationAction
-from home_robot_sim.env.habitat_goat_env.habitat_goat_env import (
-    HabitatGoatEnv,
-)
+from home_robot_sim.env.habitat_goat_env.habitat_goat_env import HabitatGoatEnv
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
@@ -70,17 +68,18 @@ if __name__ == "__main__":
         env.reset()
         agent.reset()
 
-        if i < 4:
-            continue
-
         t = 0
 
         scene_id = env.habitat_env.current_episode.scene_id.split("/")[-1].split(".")[0]
         episode = env.habitat_env.current_episode
         episode_id = episode.episode_id
         agent.planner.set_vis_dir(scene_id, f"{episode_id}_{agent.current_task_idx}")
-        agent.imagenav_visualizer.set_vis_dir(f"{scene_id}_{episode_id}_{agent.current_task_idx}")
-        agent.imagenav_obs_preprocessor.matching.set_vis_dir(f"{scene_id}_{episode_id}_{agent.current_task_idx}")
+        agent.imagenav_visualizer.set_vis_dir(
+            f"{scene_id}_{episode_id}_{agent.current_task_idx}"
+        )
+        agent.imagenav_obs_preprocessor.matching.set_vis_dir(
+            f"{scene_id}_{episode_id}_{agent.current_task_idx}"
+        )
         env.visualizer.set_vis_dir(scene_id, f"{episode_id}_{agent.current_task_idx}")
 
         all_subtask_metrics = []
@@ -97,27 +96,39 @@ if __name__ == "__main__":
                             continue
                         obs_task[key] = value
                         obs_tasks.append(obs_task)
-                
+
                 pprint(obs_tasks)
 
             action, info = agent.act(obs)
             print(action)
             env.apply_action(action, info=info)
-            pbar.set_description(f"Action: {str(action).split('.')[-1]} (sub-task: {agent.current_task_idx})")
+            pbar.set_description(
+                f"Action: {str(action).split('.')[-1]} (sub-task: {agent.current_task_idx})"
+            )
             pbar.update(1)
 
             if action == DiscreteNavigationAction.STOP:
-                import pdb; pdb.set_trace()
+                import pdb
+
+                pdb.set_trace()
                 ep_metrics = env.get_episode_metrics()
                 ep_metrics.pop("top_down_map", None)
                 print(ep_metrics)
 
                 all_subtask_metrics.append(ep_metrics)
                 if not env.episode_over:
-                    agent.imagenav_visualizer.set_vis_dir(f"{scene_id}_{episode_id}_{agent.current_task_idx}")
-                    agent.imagenav_obs_preprocessor.matching.set_vis_dir(f"{scene_id}_{episode_id}_{agent.current_task_idx}")
-                    agent.planner.set_vis_dir(scene_id, f"{episode_id}_{agent.current_task_idx}")
-                    env.visualizer.set_vis_dir(scene_id, f"{episode_id}_{agent.current_task_idx}")
+                    agent.imagenav_visualizer.set_vis_dir(
+                        f"{scene_id}_{episode_id}_{agent.current_task_idx}"
+                    )
+                    agent.imagenav_obs_preprocessor.matching.set_vis_dir(
+                        f"{scene_id}_{episode_id}_{agent.current_task_idx}"
+                    )
+                    agent.planner.set_vis_dir(
+                        scene_id, f"{episode_id}_{agent.current_task_idx}"
+                    )
+                    env.visualizer.set_vis_dir(
+                        scene_id, f"{episode_id}_{agent.current_task_idx}"
+                    )
                     pbar.reset()
 
         pbar.close()
@@ -131,11 +142,23 @@ if __name__ == "__main__":
 
         try:
             for metric in list(metrics.values())[0]["metrics"][0].keys():
-                metrics[scene_ep_id][f"{metric}_mean"] = np.round(np.nanmean(np.array([y[metric] for y in metrics[scene_ep_id]["metrics"]])), 4)
-                metrics[scene_ep_id][f"{metric}_median"] = np.round(np.nanmedian(np.array([y[metric] for y in metrics[scene_ep_id]["metrics"] ])), 4)
+                metrics[scene_ep_id][f"{metric}_mean"] = np.round(
+                    np.nanmean(
+                        np.array([y[metric] for y in metrics[scene_ep_id]["metrics"]])
+                    ),
+                    4,
+                )
+                metrics[scene_ep_id][f"{metric}_median"] = np.round(
+                    np.nanmedian(
+                        np.array([y[metric] for y in metrics[scene_ep_id]["metrics"]])
+                    ),
+                    4,
+                )
         except Exception as e:
             print(e)
-            import pdb; pdb.set_trace()
+            import pdb
+
+            pdb.set_trace()
 
         print("---------------------------------")
 
@@ -145,12 +168,30 @@ if __name__ == "__main__":
         stats = {}
 
         for metric in list(metrics.values())[0]["metrics"][0].keys():
-            stats[f"{metric}_mean"] = np.round(np.nanmean(
-                np.array([y[metric] for scene_ep_id in metrics.keys() for y in metrics[scene_ep_id]["metrics"]])
-            ), 4)
-            stats[f"{metric}_median"] = np.round(np.nanmedian(
-                np.array([y[metric] for scene_ep_id in metrics.keys() for y in metrics[scene_ep_id]["metrics"]])
-            ), 4)
+            stats[f"{metric}_mean"] = np.round(
+                np.nanmean(
+                    np.array(
+                        [
+                            y[metric]
+                            for scene_ep_id in metrics.keys()
+                            for y in metrics[scene_ep_id]["metrics"]
+                        ]
+                    )
+                ),
+                4,
+            )
+            stats[f"{metric}_median"] = np.round(
+                np.nanmedian(
+                    np.array(
+                        [
+                            y[metric]
+                            for scene_ep_id in metrics.keys()
+                            for y in metrics[scene_ep_id]["metrics"]
+                        ]
+                    )
+                ),
+                4,
+            )
 
         with open(os.path.join(results_dir, "cumulative_metrics.json"), "w") as fp:
             json.dump(stats, fp, indent=4)
