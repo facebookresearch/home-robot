@@ -257,7 +257,6 @@ def main():
             action = [1, 0]
         elif action == DiscreteNavigationAction.TURN_RIGHT:
             action = [0, 1]
-        # rotate left
         elif action == DiscreteNavigationAction.TURN_LEFT:
             action = [0, -1]
         elif action == DiscreteNavigationAction.STOP:
