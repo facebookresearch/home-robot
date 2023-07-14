@@ -36,7 +36,6 @@ class HabitatLanguageNavEnv(HabitatEnv):
         self.episodes_data_path = config.habitat.dataset.data_path
 
         assert "hm3d" in self.episodes_data_path, "only HM3D scenes supported for now."
-        assert not self.ground_truth_semantics, "GT segmentation not supported for now."
 
         if "hm3d" in self.episodes_data_path:
             self.semantic_category_mapping = LanguageNavCategories()
@@ -101,14 +100,38 @@ class HabitatLanguageNavEnv(HabitatEnv):
             camera_pose=None,
             third_person_image=None,
         )
-        obs = self._preprocess_semantic(obs, habitat_obs["semantic"])
+        obs = self._preprocess_semantic(obs, habitat_obs["semantic"], target, landmarks)
         return obs
 
     def _preprocess_semantic(
-        self, obs: home_robot.core.interfaces.Observations, habitat_semantic: np.ndarray
+        self,
+        obs: home_robot.core.interfaces.Observations,
+        habitat_semantic: np.ndarray,
+        target,
+        landmarks,
     ) -> home_robot.core.interfaces.Observations:
         if self.ground_truth_semantics:
-            raise NotImplementedError
+            instance_id_to_category_id = (
+                self.semantic_category_mapping.instance_id_to_category_id
+            )
+
+            obs.semantic = instance_id_to_category_id[habitat_semantic[:, :, -1]]
+            for idx_cat, obj_cat in enumerate([target, *landmarks]):
+
+                obj_cat = " ".join(obj_cat.split("_"))
+                try:
+                    if obj_cat in self.semantic_category_mapping.all_hm3d_categories:
+                        idx = self.semantic_category_mapping.all_hm3d_categories.index(
+                            obj_cat
+                        )
+                        obs.semantic[obs.semantic == idx] = -1 * (idx_cat + 1)
+                except Exception as e:
+                    print(e)
+                    print("Issue with mapping episode target to HM3D category.")
+
+            obs.semantic[obs.semantic >= 0] = 0
+            obs.semantic = obs.semantic * -1
+            obs.task_observations["semantic_frame"] = obs.rgb
         else:
             obs = self.segmentation.predict(obs, depth_threshold=0.5)
 
@@ -124,7 +147,7 @@ class HabitatLanguageNavEnv(HabitatEnv):
         return rescaled_depth[:, :, -1]
 
     def _preprocess_goal(self, goal: Dict) -> Tuple[str, str]:
-        target = goal["category_name"]
+        target = goal["target"]  # or goal["category_name"]
         landmarks = goal["landmarks"]
 
         if target in landmarks:
