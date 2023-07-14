@@ -71,6 +71,8 @@ def main(
         robot.nav.navigate_to([0, 0, 0])
 
     agent.reset()
+    if hasattr(agent, 'planner'):
+        agent.planner.set_vis_dir("real_world", now.strftime("%Y_%m_%d_%H_%M_%S"))
     env.reset(start_recep, pick_object, goal_recep)
 
     t = 0

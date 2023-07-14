@@ -144,18 +144,10 @@ class OpenVocabManipAgent(ObjectNavAgent):
         info = {**info, **get_skill_as_one_hot_dict(self.states[0].item())}
         return info
 
-    def reset_vectorized(self, episodes=None):
+    def reset_vectorized(self):
         """Initialize agent state."""
         super().reset_vectorized()
 
-        if episodes is None:
-            now = datetime.now()
-            self.planner.set_vis_dir("real_world", now.strftime("%Y_%m_%d_%H_%M_%S"))
-        else:
-            self.planner.set_vis_dir(
-                episodes[0].scene_id.split("/")[-1].split(".")[0],
-                episodes[0].episode_id,
-            )
         if self.gaze_agent is not None:
             self.gaze_agent.reset_vectorized()
         if self.nav_to_obj_agent is not None:
@@ -176,7 +168,7 @@ class OpenVocabManipAgent(ObjectNavAgent):
     def get_nav_to_recep(self):
         return (self.states == Skill.NAV_TO_REC).float().to(device=self.device)
 
-    def reset_vectorized_for_env(self, e: int, episode):
+    def reset_vectorized_for_env(self, e: int):
         """Initialize agent state for a specific environment."""
         self.states[e] = Skill.NAV_TO_OBJ
         self.place_start_step[e] = 0
@@ -190,9 +182,6 @@ class OpenVocabManipAgent(ObjectNavAgent):
         if self.config.AGENT.SKILLS.PICK.type == "heuristic":
             self.pick_policy.reset()
         super().reset_vectorized_for_env(e)
-        self.planner.set_vis_dir(
-            episode.scene_id.split("/")[-1].split(".")[0], episode.episode_id
-        )
         if self.gaze_agent is not None:
             self.gaze_agent.reset_vectorized_for_env(e)
         if self.nav_to_obj_agent is not None:
