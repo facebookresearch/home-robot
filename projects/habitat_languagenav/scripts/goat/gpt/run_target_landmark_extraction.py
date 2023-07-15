@@ -6,7 +6,9 @@ openai.api_key = os.getenv("OPENAI_API_KEY")
 
 
 def generate_gpt_response(command: str):
-    with open("projects/habitat_languagenav/scripts/goat/gpt/target_landmark_prompt.txt") as f:
+    with open(
+        "projects/habitat_languagenav/scripts/goat/gpt/target_landmark_prompt.txt"
+    ) as f:
         prompt = f.read()
 
     prompt = prompt + command
