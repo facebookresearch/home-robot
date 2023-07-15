@@ -29,6 +29,7 @@ from home_robot.motion.stretch import (
     STRETCH_PREGRASP_Q,
 )
 from home_robot.utils.geometry import xyt2sophus
+from home_robot_hw.constants import relative_resting_position
 from home_robot_hw.env.stretch_abstract_env import StretchEnv
 from home_robot_hw.env.visualizer import Visualizer
 from home_robot_hw.remote import StretchClient
@@ -369,10 +370,9 @@ class StretchPickandPlaceEnv(StretchEnv):
             gps=gps,
             compass=np.array([theta]),
             task_observations=self.task_info,
-            # camera_pose=self.get_camera_pose_matrix(rotated=True),
             camera_pose=self.robot.head.get_pose(rotated=True),
             joint=self.robot.model.config_to_hab(joint_positions),
-            relative_resting_position=np.array([0.3878479, 0.12924957, 0.4224413]),
+            relative_resting_position=relative_resting_position,
         )
         obs.task_observations["prev_grasp_success"] = np.array(
             [self.prev_grasp_success], np.float32

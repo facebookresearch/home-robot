@@ -58,17 +58,19 @@ class OvmmPerception:
     It also maintains a list of vocabularies to use in segmentation and can switch between them at runtime.
     """
 
-    def __init__(self, config, gpu_device_id: int = 0):
+    def __init__(self, config, gpu_device_id: int = 0, verbose: bool = False):
         self.config = config
         self._use_detic_viz = config.ENVIRONMENT.use_detic_viz
         self._vocabularies: Dict[int, RearrangeDETICCategories] = {}
         self._current_vocabulary: RearrangeDETICCategories = None
         self._current_vocabulary_id: int = None
+        self.verbose = verbose
         # TODO Specify confidence threshold as a parameter
         self._segmentation = DeticPerception(
             vocabulary="custom",
             custom_vocabulary=".",
             sem_gpu_id=gpu_device_id,
+            verbose=verbose,
         )
 
     @property

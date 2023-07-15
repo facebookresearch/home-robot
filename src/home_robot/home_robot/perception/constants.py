@@ -81,7 +81,8 @@ class PaletteIndices:
     BEEN_CLOSE = 6
     SHORT_TERM_GOAL = 7
     BLACKLISTED_TARGETS_MAP = 8
-    SEM_START = 9
+    INSTANCE_BORER = 9
+    SEM_START = 10
 
 
 # ----------------------------------------------------
@@ -217,6 +218,9 @@ coco_map_color_palette = [
         0.6,
         0.17,
         0.54,  # blacklisted targets map
+        0.0,
+        0.0,
+        0.0,  # instance border
         *coco_categories_color_palette,
     ]
 ]
@@ -444,6 +448,9 @@ rearrange_3categories_map_color_palette = [
         0.6,
         0.17,
         0.54,  # blacklisted targets map
+        0.0,
+        0.0,
+        0.0,  # instance border
         *[x / 255.0 for x in rearrange_3categories_color_palette],
     ]
 ]
@@ -534,6 +541,9 @@ mukul_33categories_map_color_palette = [
         0.6,
         0.17,
         0.54,  # blacklisted targets map
+        0.0,
+        0.0,
+        0.0,  # instance border
         *[x / 255.0 for x in mukul_33categories_color_palette],
     ]
 ]
@@ -663,6 +673,9 @@ hssd_28categories_map_color_palette = [
         0.6,
         0.17,
         0.54,  # blacklisted targets map
+        0.0,
+        0.0,
+        0.0,  # instance border
         *[x / 255.0 for x in hssd_28categories_color_palette],
     ]
 ]
@@ -805,6 +818,9 @@ class RearrangeDETICCategories(SemanticCategoryMapping):
                 0.6,
                 0.17,
                 0.54,  # blacklisted targets map
+                0.0,
+                0.0,
+                0.0,  # instance border
                 *[x / 255.0 for x in self.color_palette],
             ]
         ]

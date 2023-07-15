@@ -58,11 +58,7 @@ if __name__ == "__main__":
     config.NUM_ENVIRONMENTS = 1
     config.PRINT_IMAGES = 1
     config.habitat.dataset.split = "val"
-    if config.habitat.dataset.scene_indices_range is not None:
-        scene_indices_range = config.habitat.dataset.scene_indices_range
-        config.EXP_NAME = os.path.join(
-            config.EXP_NAME, f"{scene_indices_range[0]}_{scene_indices_range[1]}"
-        )
+
     agent = ObjectNavAgent(config=config)
     env = HabitatObjectNavEnv(Env(config=config), config=config)
 
@@ -70,7 +66,6 @@ if __name__ == "__main__":
     os.makedirs(results_dir, exist_ok=True)
     episode_metrics = {}
     for i in range(len(env.habitat_env.episodes)):
-
         agent.reset()
         env.reset()
         scene_id = env.habitat_env.current_episode.scene_id
