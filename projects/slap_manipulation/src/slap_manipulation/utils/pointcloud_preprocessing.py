@@ -1,3 +1,9 @@
+# Copyright (c) Meta Platforms, Inc. and affiliates.
+#
+# This source code is licensed under the MIT license found in the
+# LICENSE file in the root directory of this source tree.
+
+
 """
 This is only for processing inference-time data at the moment.
 TODO:   Make these methods generic enough to support H5 data processing as well.
