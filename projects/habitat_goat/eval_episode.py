@@ -95,12 +95,11 @@ if __name__ == "__main__":
                         if key == "image":
                             continue
                         obs_task[key] = value
-                        obs_tasks.append(obs_task)
+                    obs_tasks.append(obs_task)
 
                 pprint(obs_tasks)
 
             action, info = agent.act(obs)
-            print(action)
             env.apply_action(action, info=info)
             pbar.set_description(
                 f"Action: {str(action).split('.')[-1]} (sub-task: {agent.current_task_idx})"
@@ -108,9 +107,6 @@ if __name__ == "__main__":
             pbar.update(1)
 
             if action == DiscreteNavigationAction.STOP:
-                import pdb
-
-                pdb.set_trace()
                 ep_metrics = env.get_episode_metrics()
                 ep_metrics.pop("top_down_map", None)
                 print(ep_metrics)
