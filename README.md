@@ -9,13 +9,16 @@
 
 Your open-source robotic mobile manipulation stack!
 
-Check out the [Neurips 2023 HomeRobot Open-Vocabulary Mobile Manipulation Challenge!](https://aihabitat.org/challenge/2023_homerobot_ovmm/)
-
 HomeRobot lets you get started running a range of robotics tasks on a low-cost mobile manipulator, starting with _Open Vocabulary Mobile Manipulation_, or OVMM. OVMM is a challenging task which means that, in an unknown environment, a robot must:
   - Explore its environment
   - Find an object
   - Find a receptacle -- a location on which it must place this object
   - Put the object down on the receptacle.
+
+Check out the [Neurips 2023 HomeRobot Open-Vocabulary Mobile Manipulation Challenge!](https://aihabitat.org/challenge/2023_homerobot_ovmm/)
+
+When you're ready, 
+follow [these instructions to participate](docs/challenge.md).
 
 ## Core Concepts
 
@@ -84,7 +87,7 @@ rviz -d $HOME_ROBOT_ROOT/src/home_robot_hw/launch/mapping_demo.rviz
 
 #### 3. Download third-party packages
 ```
-git submodule update --init --recursive assets/hab_stretch src/home_robot/home_robot/perception/detection/detic/Detic src/third_party/detectron2 src/third_party/contact_graspnet
+git submodule update --init --recursive src/home_robot/home_robot/perception/detection/detic/Detic src/third_party/detectron2 src/third_party/contact_graspnet
 ```
 
 #### 4. Hardware Testing

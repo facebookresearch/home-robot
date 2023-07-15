@@ -255,7 +255,7 @@ class ExplorationAgent(Agent):
         elif self.timesteps[0] > self.max_steps:
             action = DiscreteNavigationAction.STOP
         else:
-            action, closest_goal_map = self.planner.plan(
+            action, closest_goal_map, _, _ = self.planner.plan(
                 **planner_inputs[0], use_dilation_for_stg=self.use_dilation_for_stg
             )
 
