@@ -159,8 +159,8 @@ class Observations:
     # ee_pose: Pose
 
     # Pose
-    gps: np.ndarray  # (x, y) where positive x is forward, positive y is translation to left
-    compass: np.ndarray  # positive theta is rotation to left - consistent with robot
+    gps: np.ndarray  # (x, y) where positive x is forward, positive y is translation to left in meters
+    compass: np.ndarray  # positive theta is rotation to left in radians - consistent with robot
 
     # Camera
     rgb: np.ndarray  # (camera_height, camera_width, 3) in [0, 255]

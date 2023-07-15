@@ -4,13 +4,14 @@
 # LICENSE file in the root directory of this source tree.
 
 
-import time
+from typing import Optional
 
 import torch.nn as nn
 
 from home_robot.mapping.semantic.categorical_2d_semantic_map_module import (
     Categorical2DSemanticMapModule,
 )
+from home_robot.mapping.semantic.instance_tracking_modules import InstanceMemory
 from home_robot.navigation_policy.object_navigation.objectnav_frontier_exploration_policy import (
     ObjectNavFrontierExplorationPolicy,
 )
@@ -20,9 +21,9 @@ debug_frontier_map = False
 
 
 class ObjectNavAgentModule(nn.Module):
-    def __init__(self, config):
+    def __init__(self, config, instance_memory: Optional[InstanceMemory] = None):
         super().__init__()
-
+        self.instance_memory = instance_memory
         self.semantic_map_module = Categorical2DSemanticMapModule(
             frame_height=config.ENVIRONMENT.frame_height,
             frame_width=config.ENVIRONMENT.frame_width,
@@ -44,6 +45,14 @@ class ObjectNavAgentModule(nn.Module):
             dilate_obstacles=config.AGENT.SEMANTIC_MAP.dilate_obstacles,
             dilate_size=config.AGENT.SEMANTIC_MAP.dilate_size,
             dilate_iter=config.AGENT.SEMANTIC_MAP.dilate_iter,
+            record_instance_ids=getattr(
+                config.AGENT.SEMANTIC_MAP, "record_instance_ids", False
+            ),
+            instance_memory=instance_memory,
+            max_instances=getattr(config.AGENT.SEMANTIC_MAP, "max_instances", 0),
+            evaluate_instance_tracking=getattr(
+                config.ENVIRONMENT, "evaluate_instance_tracking", False
+            ),
         )
         self.policy = ObjectNavFrontierExplorationPolicy(
             exploration_strategy=config.AGENT.exploration_strategy
@@ -75,8 +84,8 @@ class ObjectNavAgentModule(nn.Module):
         high-level goals from map features.
 
         Arguments:
-            seq_obs: sequence of frames containing (RGB, depth, segmentation)
-             of shape (batch_size, sequence_length, 3 + 1 + num_sem_categories,
+            seq_obs: sequence of frames containing (RGB, depth, semantic_segmentation, instance_segmentation)
+             of shape (batch_size, sequence_length, 3 + 1 + num_sem_categories + 1),
              frame_height, frame_width)
             seq_pose_delta: sequence of delta in pose since last frame of shape
              (batch_size, sequence_length, 3)
