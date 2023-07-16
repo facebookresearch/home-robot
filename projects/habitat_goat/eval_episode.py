@@ -108,7 +108,7 @@ if __name__ == "__main__":
 
             if action == DiscreteNavigationAction.STOP:
                 ep_metrics = env.get_episode_metrics()
-                ep_metrics.pop("top_down_map", None)
+                ep_metrics.pop("goat_top_down_map", None)
                 print(ep_metrics)
 
                 all_subtask_metrics.append(ep_metrics)

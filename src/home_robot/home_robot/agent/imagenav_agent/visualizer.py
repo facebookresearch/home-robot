@@ -182,7 +182,7 @@ class NavVisualizer:
         metrics: Dict[str, Any] = None,
         been_close_map=None,
         blacklisted_targets_map=None,
-        frontier_map: Optional[np.ndarray]=None,
+        frontier_map: Optional[np.ndarray] = None,
     ) -> None:
         """Visualize frame input and semantic map.
 

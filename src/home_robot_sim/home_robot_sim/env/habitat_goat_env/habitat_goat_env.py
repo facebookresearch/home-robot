@@ -100,7 +100,7 @@ class HabitatGoatEnv(HabitatEnv):
             gps=self._preprocess_xy(habitat_obs["gps"]),
             task_observations={
                 "tasks": goals,
-                "top_down_map": self.get_episode_metrics()["top_down_map"],
+                "top_down_map": self.get_episode_metrics()["goat_top_down_map"],
             },
             camera_pose=None,
             third_person_image=None,

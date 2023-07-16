@@ -390,7 +390,6 @@ class GoatAgent(Agent):
         dilated_obstacle_map = None
         if planner_inputs[0]["found_goal"]:
             self.episode_panorama_start_steps = 0
-
         if self.total_timesteps[0] < self.episode_panorama_start_steps:
             action = DiscreteNavigationAction.TURN_RIGHT
         elif self.sub_task_timesteps[0][self.current_task_idx] >= self.max_steps:
