@@ -182,11 +182,11 @@ class HabitatOpenVocabManipEnv(HabitatEnv):
             semantic = torch.from_numpy(
                 habitat_obs["object_segmentation"].squeeze(-1).astype(np.int64)
             )
-            recep_seg = torch.from_numpy(
+            recep_seg = (
                 habitat_obs["receptacle_segmentation"].squeeze(-1).astype(np.int64)
             )
-
             recep_seg[recep_seg != 0] += 1
+            recep_seg = torch.from_numpy(recep_seg)
             semantic = semantic + recep_seg
             semantic[semantic == 0] = len(self._rec_id_to_name_mapping) + 2
             obs.semantic = semantic.numpy()

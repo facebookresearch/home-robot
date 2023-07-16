@@ -76,9 +76,9 @@ class OpenVocabManipAgent(ObjectNavAgent):
                 config.ENVIRONMENT.category_map_file
             )
         if config.AGENT.SKILLS.PICK.type == "heuristic" and not self.skip_skills.pick:
-            self.pick_policy = HeuristicPickPolicy(config, self.device)
+            self.pick_policy = HeuristicPickPolicy(config, self.device, self.verbose)
         if config.AGENT.SKILLS.PLACE.type == "heuristic" and not self.skip_skills.place:
-            self.place_policy = HeuristicPlacePolicy(config, self.device)
+            self.place_policy = HeuristicPlacePolicy(config, self.device, self.verbose)
         elif config.AGENT.SKILLS.PLACE.type == "rl" and not self.skip_skills.place:
             self.place_agent = PPOAgent(
                 config,
