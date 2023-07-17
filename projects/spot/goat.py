@@ -26,7 +26,7 @@ from home_robot.mapping.semantic.categorical_2d_semantic_map_state import (
     Categorical2DSemanticMapState,
 )
 from home_robot.utils.config import get_config
-from home_robot_hw.env.spot_teleop_env import SpotObjectNavEnv
+from home_robot_hw.env.spot_objectnav_env import SpotObjectNavEnv
 
 
 class PI:
@@ -113,6 +113,12 @@ def get_semantic_map_vis(
         0.96,
         0.36,
         0.26,  # visited area
+        0.12,
+        0.46,
+        0.70,  # closest goal
+        0.63,
+        0.78,
+        0.95,  # rest of goal
         *color_palette,
     ]
     map_color_palette = [int(x * 255.0) for x in map_color_palette]
@@ -144,13 +150,13 @@ def get_semantic_map_vis(
         selem = skimage.morphology.disk(4)
         goal_mat = (1 - skimage.morphology.binary_dilation(goal_map, selem)) != 1
         goal_mask = goal_mat == 1
-        semantic_map[goal_mask] = PI.REST_OF_GOAL
+        semantic_categories_map[goal_mask] = PI.REST_OF_GOAL
         if closest_goal_map is not None:
             closest_goal_mat = (
                 1 - skimage.morphology.binary_dilation(closest_goal_map, selem)
             ) != 1
             closest_goal_mask = closest_goal_mat == 1
-            semantic_map[closest_goal_mask] = PI.CLOSEST_GOAL
+            semantic_categories_map[closest_goal_mask] = PI.CLOSEST_GOAL
 
     # Draw semantic map
     semantic_map_vis = Image.new("P", semantic_categories_map.shape)
@@ -193,7 +199,7 @@ def get_semantic_map_vis(
     return vis_image
 
 
-def main():
+def main(spot):
     config_path = "projects/spot/configs/config.yaml"
     config, config_str = get_config(config_path)
 
@@ -204,7 +210,7 @@ def main():
     env.env.power_robot()
     env.env.initialize_arm()
     env.reset()
-    env.set_goal("chair")
+    env.set_goal("potted_plant")
 
     agent = ObjectNavAgent(config=config)
     agent.reset()
@@ -229,13 +235,14 @@ def main():
         depth_frame = np.repeat(depth_frame[:, :, np.newaxis], 3, axis=2)
         vis_image = get_semantic_map_vis(
             agent.semantic_map,
-            obs.task_observations["semantic_frame"],
+            obs.task_observations["semantic_frame"][:, :, ::-1],
             info["closest_goal_map"],
             depth_frame,
             env.color_palette,
             legend,
         )
-        cv2.imshow("vis", vis_image)
+        cv2.imshow("vis", vis_image[:, :, ::-1])
+        cv2.waitKey(50)
 
         # Take an action
         # key = cv2.waitKey(1)
@@ -256,9 +263,9 @@ def main():
         if action == DiscreteNavigationAction.MOVE_FORWARD:
             action = [1, 0]
         elif action == DiscreteNavigationAction.TURN_RIGHT:
-            action = [0, 1]
-        elif action == DiscreteNavigationAction.TURN_LEFT:
             action = [0, -1]
+        elif action == DiscreteNavigationAction.TURN_LEFT:
+            action = [0, 1]
         elif action == DiscreteNavigationAction.STOP:
             action = [0, 0]
 

@@ -56,7 +56,7 @@ class ObjectNavAgent(Agent):
         self._module = ObjectNavAgentModule(
             config, instance_memory=self.instance_memory
         )
-
+        self.num_sem_categories = config.AGENT.SEMANTIC_MAP.num_sem_categories
         if config.NO_GPU:
             self.device = torch.device("cpu")
             self.module = self._module

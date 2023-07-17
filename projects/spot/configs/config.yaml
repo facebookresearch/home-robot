@@ -11,13 +11,13 @@ seed: 0
 SHOW_RL_OBS: False         # whether to show the observations passed to RL policices, for debugging
 
 ENVIRONMENT:
-  turn_angle: 30.0        # agent turn angle (in degrees)
+  turn_angle: 7.5         # agent turn angle (in degrees)
   frame_height: 480       # first-person frame height (in pixels)
   frame_width: 640        # first-person frame width (in pixels)
   camera_height: 1.37     # camera sensor height (in metres)
   hfov: 60.0              # horizontal field of view (in degrees)
   min_depth: 0.5          # minimum depth for depth sensor (in metres)
-  max_depth: 1.65         # maximum depth for depth sensor (in metres)
+  max_depth: 5.95         # maximum depth for depth sensor (in metres)
 
 AGENT:
   max_steps: 500          # maximum number of steps before stopping an episode

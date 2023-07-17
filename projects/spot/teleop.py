@@ -46,7 +46,7 @@ coco_categories = [
     "sink",
     "refrigerator",
     "book",
-    "person",
+    "person",  # clock
     "vase",
     "cup",
     "bottle",
@@ -412,13 +412,13 @@ def main(spot):
         depth_frame = np.repeat(depth_frame[:, :, np.newaxis], 3, axis=2)
         vis_image = get_semantic_map_vis(
             semantic_map,
-            obs.task_observations["semantic_frame"][:,:,::-1],
+            obs.task_observations["semantic_frame"][:, :, ::-1],
             depth_frame,
             coco_categories_color_palette,
             legend,
         )
         vis_images.append(vis_image)
-        cv2.imshow("vis", vis_image[:,:,::-1])
+        cv2.imshow("vis", vis_image[:, :, ::-1])
 
         # Take an action
         key = cv2.waitKey(1)
