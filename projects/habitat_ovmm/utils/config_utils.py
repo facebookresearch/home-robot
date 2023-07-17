@@ -31,16 +31,20 @@ def get_omega_config(config_path: str) -> DictConfig:
     return config
 
 
-def create_env_config(habitat_config: DictConfig, env_config: DictConfig) -> DictConfig:
+def create_env_config(
+    habitat_config: DictConfig, env_config: DictConfig, evaluation_type: str = "local"
+) -> DictConfig:
     """
     Merges habitat and env configurations.
 
     Adjusts the configuration based on the provided arguments:
     1. Removes third person sensors to improve speed if visualization is not required.
     2. Processes the episode range if specified and updates the EXP_NAME accordingly.
+    3. Adds paths to test objects in case of remote evaluation
 
     :param habitat_config: habitat configuration.
     :param env_config: baseline configuration.
+    :param evaluation_type: one of ["local", "remote", "local_vectorized"]
     :return: merged env configuration
     """
 
@@ -67,6 +71,18 @@ def create_env_config(habitat_config: DictConfig, env_config: DictConfig) -> Dic
     if episode_ids_range is not None:
         env_config.EXP_NAME = os.path.join(
             env_config.EXP_NAME, f"{episode_ids_range[0]}_{episode_ids_range[1]}"
+        )
+
+    if evaluation_type == "remote":
+        # in case of remote evaluation, add test object config paths
+        train_val_object_config_paths = (
+            env_config.habitat.simulator.additional_object_paths
+        )
+        test_object_config_paths = [
+            path.replace("train_val", "test") for path in train_val_object_config_paths
+        ]
+        env_config.habitat.simulator.additional_object_paths = (
+            train_val_object_config_paths + test_object_config_paths
         )
     OmegaConf.set_readonly(env_config, True)
     return env_config

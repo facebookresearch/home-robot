@@ -77,7 +77,9 @@ if __name__ == "__main__":
     env_config = get_omega_config(args.env_config_path)
 
     # merge habitat and env config to create env config
-    env_config = create_env_config(habitat_config, env_config)
+    env_config = create_env_config(
+        habitat_config, env_config, evaluation_type=args.evaluation_type
+    )
 
     # merge env config and baseline config to create agent config
     agent_config = create_agent_config(env_config, baseline_config)

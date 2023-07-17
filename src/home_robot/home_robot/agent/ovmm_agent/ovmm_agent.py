@@ -62,6 +62,8 @@ class OpenVocabManipAgent(ObjectNavAgent):
         self.nav_to_rec_agent = None
         self.pick_agent = None
         self.place_agent = None
+        self.pick_policy = None
+        self.place_policy = None
         self.semantic_sensor = None
 
         if config.GROUND_TRUTH_SEMANTICS == 1 and self.store_all_categories_in_map:
@@ -76,9 +78,13 @@ class OpenVocabManipAgent(ObjectNavAgent):
                 config.ENVIRONMENT.category_map_file
             )
         if config.AGENT.SKILLS.PICK.type == "heuristic" and not self.skip_skills.pick:
-            self.pick_policy = HeuristicPickPolicy(config, self.device)
+            self.pick_policy = HeuristicPickPolicy(
+                config, self.device, verbose=self.verbose
+            )
         if config.AGENT.SKILLS.PLACE.type == "heuristic" and not self.skip_skills.place:
-            self.place_policy = HeuristicPlacePolicy(config, self.device)
+            self.place_policy = HeuristicPlacePolicy(
+                config, self.device, verbose=self.verbose
+            )
         elif config.AGENT.SKILLS.PLACE.type == "rl" and not self.skip_skills.place:
             self.place_agent = PPOAgent(
                 config,
@@ -172,6 +178,10 @@ class OpenVocabManipAgent(ObjectNavAgent):
         self.fall_wait_start_step = torch.tensor([0] * self.num_environments)
         self.is_gaze_done = torch.tensor([0] * self.num_environments)
         self.place_done = torch.tensor([0] * self.num_environments)
+        if self.place_policy is not None:
+            self.place_policy.reset()
+        if self.pick_policy is not None:
+            self.pick_policy.reset()
 
     def get_nav_to_recep(self):
         return (self.states == Skill.NAV_TO_REC).float().to(device=self.device)
@@ -185,9 +195,9 @@ class OpenVocabManipAgent(ObjectNavAgent):
         self.fall_wait_start_step[e] = 0
         self.is_gaze_done[e] = 0
         self.place_done[e] = 0
-        if self.config.AGENT.SKILLS.PLACE.type == "heuristic":
+        if self.place_policy is not None:
             self.place_policy.reset()
-        if self.config.AGENT.SKILLS.PICK.type == "heuristic":
+        if self.pick_policy is not None:
             self.pick_policy.reset()
         super().reset_vectorized_for_env(e)
         self.planner.set_vis_dir(
