@@ -19,6 +19,7 @@ from home_robot.core.interfaces import DiscreteNavigationAction, Observations
 from home_robot.mapping.semantic.categorical_2d_semantic_map_state import (
     Categorical2DSemanticMapState,
 )
+from home_robot.mapping.semantic.instance_tracking_modules import InstanceMemory
 from home_robot.navigation_planner.discrete_planner import DiscretePlanner
 
 from .goat_agent_module import GoatAgentModule
@@ -355,7 +356,9 @@ class GoatAgent(Agent):
                 camera_pose,
                 matches,
                 confidence,
-            ) = self.imagenav_obs_preprocessor.preprocess(obs)
+            ) = self.imagenav_obs_preprocessor.preprocess(
+                obs, last_pose=self.last_poses[0]
+            )
             object_goal_category = current_task["semantic_id"]
             object_goal_category = torch.tensor(object_goal_category).unsqueeze(0)
             planner_inputs, vis_inputs = self.prepare_planner_inputs(
@@ -366,6 +369,7 @@ class GoatAgent(Agent):
                 confidence=confidence,
                 camera_pose=camera_pose,
             )
+            self.last_poses[0] = self.imagenav_obs_preprocessor.last_pose
         elif task_type in ["objectnav", "languagenav"]:
             (
                 obs_preprocessed,
@@ -412,40 +416,39 @@ class GoatAgent(Agent):
             #     # reset timesteps
             #     pass
 
-        if task_type == "imagenav":
-            collision = {"is_collision": False}
-            info = {
-                **planner_inputs[0],
-                **vis_inputs[0],
-                "semantic_frame": obs.rgb,
-                "closest_goal_map": closest_goal_map,
-                "last_goal_image": obs.task_observations["tasks"][
-                    self.current_task_idx
-                ]["image"],
-                "last_collisions": collision,
-                "last_td_map": obs.task_observations.get("top_down_map"),
-            }
-            self.imagenav_visualizer.visualize(**info)
-        else:
-            goal_text_desc = {
-                x: y
-                for x, y in obs.task_observations["tasks"][
-                    self.current_task_idx
-                ].items()
-                if x != "image"
-            }
-            vis_inputs[0]["goal_name"] = goal_text_desc
-            if self.visualize:
+        if self.visualize:
+            vis_inputs[0]["dilated_obstacle_map"] = dilated_obstacle_map
+            if task_type == "imagenav":
+                collision = {"is_collision": False}
+                info = {
+                    **planner_inputs[0],
+                    **vis_inputs[0],
+                    "semantic_frame": obs.rgb,
+                    "closest_goal_map": closest_goal_map,
+                    "last_goal_image": obs.task_observations["tasks"][
+                        self.current_task_idx
+                    ]["image"],
+                    "last_collisions": collision,
+                    "last_td_map": obs.task_observations.get("top_down_map"),
+                }
+                self.imagenav_visualizer.visualize(**info)
+            else:
+                goal_text_desc = {
+                    x: y
+                    for x, y in obs.task_observations["tasks"][
+                        self.current_task_idx
+                    ].items()
+                    if x != "image"
+                }
+                vis_inputs[0]["goal_name"] = goal_text_desc
                 vis_inputs[0]["semantic_frame"] = obs.task_observations[
                     "semantic_frame"
                 ]
                 vis_inputs[0]["closest_goal_map"] = closest_goal_map
                 vis_inputs[0]["third_person_image"] = obs.third_person_image
                 vis_inputs[0]["short_term_goal"] = None
-                vis_inputs[0]["dilated_obstacle_map"] = dilated_obstacle_map
-                # vis_inputs[0]["landmarks"] = obs.task_observations["landmarks"]
-                # vis_inputs[0]["caption"] = obs.task_observations["caption"]
-            info = {**planner_inputs[0], **vis_inputs[0]}
+
+                info = {**planner_inputs[0], **vis_inputs[0]}
 
         if action == DiscreteNavigationAction.STOP:
             if len(obs.task_observations["tasks"]) - 1 > self.current_task_idx:

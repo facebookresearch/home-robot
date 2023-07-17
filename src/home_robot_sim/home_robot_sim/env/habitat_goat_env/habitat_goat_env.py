@@ -118,12 +118,9 @@ class HabitatGoatEnv(HabitatEnv):
             instance_id_to_category_id = (
                 self.semantic_category_mapping.instance_id_to_category_id
             )
-
             obs.semantic = instance_id_to_category_id[habitat_semantic[:, :, -1]]
 
             for idx_cat, obj_cat in enumerate(vocabulary):
-                # obj_cat = obj_cat.lower()
-
                 obj_cat = " ".join(obj_cat.split("_"))
                 try:
                     if obj_cat in self.semantic_category_mapping.all_hm3d_categories:

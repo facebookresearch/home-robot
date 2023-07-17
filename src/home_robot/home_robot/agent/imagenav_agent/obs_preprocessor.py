@@ -70,7 +70,7 @@ class ObsPreprocessor:
         self.step = 0
 
     def preprocess(
-        self, obs: Observations
+        self, obs: Observations, last_pose: Optional[ndarray] = None
     ) -> Tuple[Tensor, Optional[Tensor], ndarray, ndarray]:
         """
         Preprocess observations of a single timestep batched across
@@ -89,6 +89,8 @@ class ObsPreprocessor:
             confidence: keypoint correspondence confidence of shape (1, n)
             camera_pose: camera extrinsic pose of shape (num_environments, 4, 4)
         """
+        if last_pose is not None:
+            self.last_pose = last_pose
         if self.goal_image is None:
             img_goal = obs.task_observations["tasks"][self.current_task_idx]["image"]
             (
