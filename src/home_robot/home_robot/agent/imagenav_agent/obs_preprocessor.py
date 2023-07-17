@@ -38,6 +38,13 @@ class ObsPreprocessor:
             config.AGENT.SUPERGLUE.match_projection_threshold
         )
 
+        self.store_all_categories_in_map = getattr(
+            config.AGENT, "store_all_categories", False
+        )
+        self.record_instance_ids = getattr(
+            config.AGENT.SEMANTIC_MAP, "record_instance_ids", False
+        )
+
         #  initialize detection and localization modules
         self.matching = Matching(
             device=0,  # config.simulator_gpu_id
@@ -46,7 +53,9 @@ class ObsPreprocessor:
             print_images=config.PRINT_IMAGES,
         )
         self.instance_seg = Detic(config.AGENT.DETIC)
-
+        self.one_hot_encoding = torch.eye(
+            config.AGENT.SEMANTIC_MAP.num_sem_categories, device=self.device
+        )
         # init episode variables
         self.goal_image = None
         self.goal_image_keypoints = None
@@ -155,24 +164,59 @@ class ObsPreprocessor:
 
             return kp_loc
 
-        depth = np.expand_dims(obs.depth, axis=2) * 100.0
-        rgb, depth = downscale(obs.rgb, depth)
+        # depth = np.expand_dims(obs.depth, axis=2) * 100.0
+        # rgb, depth = downscale(obs.rgb, depth)
+
+        rgb = torch.from_numpy(obs.rgb).to(self.device)
+        depth = torch.from_numpy(obs.depth).unsqueeze(-1).to(self.device) * 100.0
+
+        current_task = obs.task_observations["tasks"][self.current_task_idx]
+        current_goal_semantic_id = current_task["semantic_id"]
+
+        if self.store_all_categories_in_map:
+            semantic = obs.semantic
+        else:
+            semantic = np.full_like(obs.semantic, 4)
+            semantic[
+                obs.semantic == current_goal_semantic_id
+            ] = current_goal_semantic_id
+
+        semantic = self.one_hot_encoding[torch.from_numpy(semantic).to(self.device)]
+        obs_preprocessed = torch.cat([rgb, depth, semantic], dim=-1)
+
+        if self.record_instance_ids:
+            instances = obs.task_observations["instance_map"]
+            # first create a mapping to 1, 2, ... num_instances
+            instance_ids = np.unique(instances)
+            # map instance id to index
+            instance_id_to_idx = {
+                instance_id: idx for idx, instance_id in enumerate(instance_ids)
+            }
+            # convert instance ids to indices, use vectorized lookup
+            instances = torch.from_numpy(
+                np.vectorize(instance_id_to_idx.get)(instances)
+            ).to(self.device)
+            # create a one-hot encoding
+            instances = torch.eye(len(instance_ids), device=self.device)[instances]
+            obs_preprocessed = torch.cat([obs_preprocessed, instances], dim=-1)
+
+        obs_preprocessed = obs_preprocessed.unsqueeze(0).permute(0, 3, 1, 2)
 
         (goal_keypoints, rgb_keypoints, matches, confidence) = self.matching(
-            rgb,
+            obs.rgb,
             goal_image=self.goal_image,
             goal_image_keypoints=self.goal_image_keypoints,
             step=self.step,
         )
-        kp_loc = preprocess_keypoint_localization(
-            rgb, goal_keypoints, rgb_keypoints, matches, confidence
-        )
+        # kp_loc = preprocess_keypoint_localization(
+        #     obs.rgb, goal_keypoints, rgb_keypoints, matches, confidence
+        # )
 
-        obs_preprocessed = np.concatenate([rgb, depth, kp_loc], axis=2)
-        obs_preprocessed = obs_preprocessed.transpose(2, 0, 1)
-        obs_preprocessed = torch.from_numpy(obs_preprocessed)
-        obs_preprocessed = obs_preprocessed.to(device=self.device)
-        obs_preprocessed = obs_preprocessed.unsqueeze(0)
+        # obs_preprocessed = np.concatenate([rgb, depth, kp_loc], axis=2)
+        # obs_preprocessed = obs_preprocessed.transpose(2, 0, 1)
+        # obs_preprocessed = torch.from_numpy(obs_preprocessed)
+        # obs_preprocessed = obs_preprocessed.to(device=self.device)
+        # obs_preprocessed = obs_preprocessed.unsqueeze(0)
         return obs_preprocessed, matches, confidence
 
     def _preprocess_pose_and_delta(self, obs: Observations) -> Tuple[Tensor, ndarray]:
