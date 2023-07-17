@@ -311,6 +311,7 @@ class LanguageNavAgent(Agent):
             object_goal_category,
             goal_name,
             camera_pose,
+            landmarks,
         ) = self._preprocess_obs(obs)
 
         # t1 = time.time()
@@ -355,7 +356,7 @@ class LanguageNavAgent(Agent):
             else:
                 # if planner hasn't reached goal
                 # if not self.planner.reached_goal_candidate or self.reached_goal_panorama_rotate_steps == 0:
-                if not self.planner.reached_goal_candidate:
+                if not self.planner.reached_goal_candidate or len(landmarks) == 0:
                     self.blacklist_target = False
                     (
                         action,
@@ -378,7 +379,7 @@ class LanguageNavAgent(Agent):
                             seen_landmarks = seen_landmarks[seen_landmarks > 1]
                             self.seen_landmarks += seen_landmarks.tolist()
 
-                            self.landmark_found = True
+                            # self.landmark_found = True
                             print("A landmark was seen", seen_landmarks.tolist())
 
                         action = DiscreteNavigationAction.TURN_RIGHT
@@ -389,13 +390,23 @@ class LanguageNavAgent(Agent):
 
                         if self.reached_goal_panorama_rotate_steps == 0:
 
+                            print(
+                                f"Landmark was seen {len(self.seen_landmarks)} times."
+                            )
+                            print(
+                                f"{len(set(self.seen_landmarks))}/{len(landmarks)} landmarks were seen."
+                            )
+                            # if len(self.seen_landmarks) > 1:
+                            #     print("Landmark supposedly found.")
+                            #     self.landmark_found = True
+
                             # [TODO: add config flag for this policy logic] if more than one time any landmark was seen
-                            # if len(obs.task_observations["landmarks"]) > 1:
+                            # if len(landmarks) > 1:
                             #     if len(set(self.seen_landmarks)) > 1:
                             #         self.landmark_found = True
                             # else:
-                            #     if len(self.seen_landmarks) > 1:
-                            #         self.landmark_found = True
+                            if len(self.seen_landmarks) > 0:
+                                self.landmark_found = True
 
                             self.num_goal_candidates_visited += 1
                             if self.landmark_found:
@@ -444,10 +455,11 @@ class LanguageNavAgent(Agent):
             pu.get_rel_pose_change(curr_pose, self.last_poses[0])
         ).unsqueeze(0)
         self.last_poses[0] = curr_pose
-        object_goal_category = None
+        # object_goal_category = None
 
         object_goal_category = torch.tensor(1).unsqueeze(0)
         goal_name = [obs.task_observations["target"]]
+        landmarks = [obs.task_observations["landmarks"]]
 
         camera_pose = obs.camera_pose
         if camera_pose is not None:
@@ -458,4 +470,5 @@ class LanguageNavAgent(Agent):
             object_goal_category,
             goal_name,
             camera_pose,
+            landmarks,
         )
