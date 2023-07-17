@@ -44,12 +44,12 @@ class RandomAgent(Agent):
         self.timestep = 0
         pass
 
-    def reset_vectorized(self, episodes=None):
+    def reset_vectorized(self):
         """Initialize agent state."""
         self.timestep = 0
         pass
 
-    def reset_vectorized_for_env(self, e: int, episodes=None):
+    def reset_vectorized_for_env(self, e: int):
         """Initialize agent state for a specific environment."""
         self.timestep = 0
         pass
