@@ -5,6 +5,7 @@
 import json
 import os
 import shutil
+from collections import defaultdict
 from typing import List, Optional
 
 import cv2
@@ -14,6 +15,7 @@ from PIL import Image
 
 import home_robot.utils.pose as pu
 import home_robot.utils.visualization as vu
+from home_robot.mapping.semantic.instance_tracking_modules import InstanceMemory
 from home_robot.perception.constants import LanguageNavCategories
 from home_robot.perception.constants import PaletteIndices as PI
 from home_robot.perception.constants import RearrangeDETICCategories
@@ -115,6 +117,54 @@ class Visualizer:
 
         return semantic_map_vis
 
+    def flatten_instance_map(self, instance_map):
+        """
+        Flatten the instance map.
+
+        Args:
+            instance_map: np.ndarray of shape [num_sem_categories - 2, H, W] where each channel has instances labeled as 1, 2, ...
+
+        Returns:
+            instance_map_combined: Flattened instance map with globally combined instance labels.
+            instances_per_category: Number of instances per category.
+        """
+        num_channels, height, width = instance_map.shape
+        instance_map_flattened = instance_map.reshape(num_channels, -1)
+        instances_per_category = np.max(instance_map_flattened, axis=1).astype(np.int64)
+
+        instance_map_combined = instance_map[0].copy()
+
+        if num_channels > 1:
+            cumulative_instances = np.cumsum(instances_per_category[:-1])
+            instance_map_combined += np.sum(
+                instance_map[1:] * cumulative_instances[:, np.newaxis, np.newaxis],
+                axis=0,
+            )
+
+        return instance_map_combined, instances_per_category
+
+    def update_semantic_map_with_instances(self, semantic_map, instance_map):
+        """
+        Update the semantic mapping with instance ids.
+
+        Draws borders around instances in the semantic map.
+
+        Args:
+            semantic_map: np.ndarray of shape [H, W] with semantic categories.
+            instance_map: np.ndarray of shape [num_sem_categories - 2, H, W] where each channel has instances labeled as 1, 2, ...
+        """
+        for instance_channel in instance_map:
+            if np.sum(instance_channel) == 0:
+                continue
+            instance_channel = (instance_channel > 0).astype(np.uint8)
+            # get the border pixels
+            border_pixels = np.logical_and(
+                cv2.dilate(instance_channel, self.instance_dilation_selem),
+                np.logical_not(instance_channel),
+            )
+            # update semantic map with instance ids
+            semantic_map[border_pixels > 0] = PI.INSTANCE_BORDER
+
     def visualize(
         self,
         timestep: int,
@@ -140,6 +190,8 @@ class Visualizer:
         rl_obs_frame: Optional[np.ndarray] = None,
         caption: str = None,
         landmarks: List = None,
+        instance_map: Optional[np.ndarray] = None,
+        instance_memory: Optional[InstanceMemory] = None,
         **kwargs,
     ):
         """Visualize frame input and semantic map.
@@ -207,6 +259,8 @@ class Visualizer:
         if dilated_obstacle_map is not None:
             obstacle_map = dilated_obstacle_map
 
+        self.instance_dilation_selem = skimage.morphology.disk(1)
+
         if obstacle_map is not None:
             curr_x, curr_y, curr_o, gy1, gy2, gx1, gx2 = sensor_pose
             gy1, gy2, gx1, gx2 = int(gy1), int(gy2), int(gx1), int(gx2)
@@ -270,6 +324,9 @@ class Visualizer:
                     short_term_goal_mask = short_term_goal_mask == 1
                     semantic_map[short_term_goal_mask] = PI.SHORT_TERM_GOAL
 
+            if instance_map is not None:
+                self.update_semantic_map_with_instances(semantic_map, instance_map)
+
             # Semantic categories
             semantic_map_vis = self.get_semantic_vis(semantic_map)
             semantic_map_vis = np.flipud(semantic_map_vis)
@@ -329,7 +386,7 @@ class Visualizer:
             image_vis[V.Y1 : V.Y2, V.TOP_DOWN_X1 : V.TOP_DOWN_X1 + width] = rl_obs_frame
 
         elif third_person_image is not None:
-            image_vis[V.Y1 : V.Y2, V.THIRD_PERSON_X1 : V.THIRD_PERSON_X2] = cv2.resize(
+            image_vis[V.Y1 : V.Y2, V.THIRD_PERSON_W : V.THIRD_PERSON_X2] = cv2.resize(
                 third_person_image[:, :, [2, 1, 0]],
                 (V.THIRD_PERSON_W, V.HEIGHT),
             )
@@ -349,7 +406,8 @@ class Visualizer:
             (V.FIRST_PERSON_W, V.HEIGHT),
             interpolation=cv2.INTER_NEAREST,
         )
-
+        if instance_memory is not None:
+            image_vis = self._visualize_instance_counts(image_vis, instance_memory)
         if self.show_images:
             cv2.imshow("Visualization", image_vis)
             cv2.waitKey(1)
@@ -358,6 +416,44 @@ class Visualizer:
                 os.path.join(self.vis_dir, "snapshot_{:03d}.png".format(timestep)),
                 image_vis,
             )
+
+    def _visualize_instance_counts(
+        self, image_vis: np.ndarray, instance_memory: InstanceMemory
+    ):
+        """
+        Add instance counts to the panel
+
+        Args:
+            instance_memory (InstanceMemory): memory of all instances and views seen so far
+            image_vis (np.ndarray): The image panel before adding instances
+
+        Returns:
+            image_vis (np.ndarray): The image panel after adding instances
+        '"""
+        num_instances_per_category = defaultdict(int)
+        num_views_per_instance = defaultdict(list)
+        for instance_id, instance in instance_memory.instance_views[0].items():
+            num_instances_per_category[instance.category_id.item()] += 1
+            num_views_per_instance[instance.category_id.item()].append(
+                len(instance.instance_views)
+            )
+        text = "Instance counts"
+        offset = 48
+        y_pos = offset
+
+        for index, count in num_instances_per_category.items():
+            if count > 0:
+                text = f"cat {index}: {num_views_per_instance[index]} views"
+                image_vis = self._put_text_on_image(
+                    image_vis,
+                    text,
+                    V.THIRD_PERSON_W,
+                    y_pos,
+                    V.THIRD_PERSON_W,
+                    V.TOP_PADDING,
+                )
+                y_pos += offset
+        return image_vis
 
     def _put_text_on_image(
         self,

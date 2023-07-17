@@ -44,7 +44,19 @@ class GoatAgent(Agent):
 
         self.panorama_rotate_steps = int(360 / config.ENVIRONMENT.turn_angle)
 
-        self._module = GoatAgentModule(config)
+        self.instance_memory = None
+        self.record_instance_ids = getattr(
+            config.AGENT.SEMANTIC_MAP, "record_instance_ids", False
+        )
+
+        if self.record_instance_ids:
+            self.instance_memory = InstanceMemory(
+                self.num_environments,
+                config.AGENT.SEMANTIC_MAP.du_scale,
+                debug_visualize=config.PRINT_IMAGES,
+            )
+
+        self._module = GoatAgentModule(config, instance_memory=self.instance_memory)
 
         if config.NO_GPU:
             self.device = torch.device("cpu")
@@ -68,6 +80,14 @@ class GoatAgent(Agent):
             map_resolution=config.AGENT.SEMANTIC_MAP.map_resolution,
             map_size_cm=config.AGENT.SEMANTIC_MAP.map_size_cm,
             global_downscaling=config.AGENT.SEMANTIC_MAP.global_downscaling,
+            record_instance_ids=getattr(
+                config.AGENT.SEMANTIC_MAP, "record_instance_ids", False
+            ),
+            max_instances=getattr(config.AGENT.SEMANTIC_MAP, "max_instances", 0),
+            evaluate_instance_tracking=getattr(
+                config.ENVIRONMENT, "evaluate_instance_tracking", False
+            ),
+            instance_memory=self.instance_memory,
         )
         agent_radius_cm = config.AGENT.radius * 100.0
         agent_cell_radius = int(
@@ -281,6 +301,11 @@ class GoatAgent(Agent):
                 }
                 for e in range(self.num_environments)
             ]
+            if self.record_instance_ids:
+                for e in range(self.num_environments):
+                    vis_inputs[e]["instance_map"] = self.semantic_map.get_instance_map(
+                        e
+                    )
         else:
             vis_inputs = [{} for e in range(self.num_environments)]
 
@@ -447,6 +472,7 @@ class GoatAgent(Agent):
                 vis_inputs[0]["closest_goal_map"] = closest_goal_map
                 vis_inputs[0]["third_person_image"] = obs.third_person_image
                 vis_inputs[0]["short_term_goal"] = None
+                vis_inputs[0]["instance_memory"] = self.instance_memory
 
                 info = {**planner_inputs[0], **vis_inputs[0]}
 
@@ -471,8 +497,25 @@ class GoatAgent(Agent):
             torch.from_numpy(obs.depth).unsqueeze(-1).to(self.device) * 100.0
         )  # m to cm
         semantic = self.one_hot_encoding[torch.from_numpy(obs.semantic).to(self.device)]
-        obs_preprocessed = torch.cat([rgb, depth, semantic], dim=-1).unsqueeze(0)
-        obs_preprocessed = obs_preprocessed.permute(0, 3, 1, 2)
+        obs_preprocessed = torch.cat([rgb, depth, semantic], dim=-1)
+
+        if self.record_instance_ids:
+            instances = obs.task_observations["instance_map"]
+            # first create a mapping to 1, 2, ... num_instances
+            instance_ids = np.unique(instances)
+            # map instance id to index
+            instance_id_to_idx = {
+                instance_id: idx for idx, instance_id in enumerate(instance_ids)
+            }
+            # convert instance ids to indices, use vectorized lookup
+            instances = torch.from_numpy(
+                np.vectorize(instance_id_to_idx.get)(instances)
+            ).to(self.device)
+            # create a one-hot encoding
+            instances = torch.eye(len(instance_ids), device=self.device)[instances]
+            obs_preprocessed = torch.cat([obs_preprocessed, instances], dim=-1)
+
+        obs_preprocessed = obs_preprocessed.unsqueeze(0).permute(0, 3, 1, 2)
 
         curr_pose = np.array([obs.gps[0], obs.gps[1], obs.compass[0]])
         pose_delta = torch.tensor(

@@ -119,6 +119,7 @@ class HabitatGoatEnv(HabitatEnv):
                 self.semantic_category_mapping.instance_id_to_category_id
             )
             obs.semantic = instance_id_to_category_id[habitat_semantic[:, :, -1]]
+            obs.task_observations["instance_map"] = habitat_semantic[:, :, -1] + 1
 
             for idx_cat, obj_cat in enumerate(vocabulary):
                 obj_cat = " ".join(obj_cat.split("_"))

@@ -25,6 +25,7 @@ AGENT:
   panorama_start: 1       # 1: turn around 360 degrees when starting an episode, 0: don't
   exploration_strategy: seen_frontier  # exploration strategy ("seen_frontier", "been_close_to_frontier")
   radius: 0.05            # robot radius (in meters)
+  store_all_categories: True  # whether to store all semantic categories in the map or just task-relevant ones
 
   SEMANTIC_MAP:
     semantic_categories: langnav_cat # map semantic channel categories ("coco_indoor", "longtail_indoor", "mukul_indoor")
@@ -51,6 +52,8 @@ AGENT:
     depth_filter_range_cm: 100        # 1m about the depth median (+/- 50cm)
     preprojection_kp_dilation: 15 
     goal_filtering: True
+
+    record_instance_ids: True  # whether to predict and store instance ids in the map
 
   PLANNER:
     collision_threshold: 0.20       # forward move distance under which we consider there's a collision (in meters)
