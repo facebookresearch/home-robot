@@ -1,6 +1,7 @@
 import sys
 from pathlib import Path
 from typing import List
+import pickle
 
 import cv2
 import numpy as np
@@ -38,6 +39,15 @@ class PI:
     REST_OF_GOAL = 5
     BEEN_CLOSE = 6
     SEM_START = 7
+
+
+def create_video(images, output_file, fps):
+    height, width, _ = images[0].shape
+    fourcc = cv2.VideoWriter_fourcc(*"mp4v")
+    video_writer = cv2.VideoWriter(output_file, fourcc, fps, (width, height))
+    for image in images:
+        video_writer.write(image)
+    video_writer.release()
 
 
 def get_semantic_map_vis(
@@ -203,14 +213,25 @@ def main(spot):
     config_path = "projects/spot/configs/config.yaml"
     config, config_str = get_config(config_path)
 
+    output_visualization_dir = (
+        f"{str(Path(__file__).resolve().parent)}/map_visualization/"
+    )
+    Path(output_visualization_dir).mkdir(parents=True, exist_ok=True)
+
+    obs_dir = (
+        f"{str(Path(__file__).resolve().parent)}/obs/"
+    )
+    Path(obs_dir).mkdir(parents=True, exist_ok=True)
+
     legend_path = f"{str(Path(__file__).resolve().parent)}/coco_categories_legend.png"
     legend = cv2.imread(legend_path)
+    vis_images = []
 
     env = SpotObjectNavEnv(spot)
     env.env.power_robot()
     env.env.initialize_arm()
     env.reset()
-    env.set_goal("potted_plant")
+    env.set_goal("chair")
 
     agent = ObjectNavAgent(config=config)
     agent.reset()
@@ -223,6 +244,8 @@ def main(spot):
         print("STEP =", t)
 
         obs = env.get_observation()
+        with open(f"{obs_dir}/{t}.pkl", "wb") as f:
+            pickle.dump(obs, f)
 
         action, info = agent.act(obs)
         print("ObjectNavAgent action", action)
@@ -241,6 +264,7 @@ def main(spot):
             env.color_palette,
             legend,
         )
+        vis_images.append(vis_image)
         cv2.imshow("vis", vis_image[:, :, ::-1])
         cv2.waitKey(50)
 
@@ -268,10 +292,15 @@ def main(spot):
             action = [0, 1]
         elif action == DiscreteNavigationAction.STOP:
             action = [0, 0]
+            break
 
         env.apply_action(action)
 
-    print(env.get_episode_metrics())
+    create_video(
+        [v[:, :, ::-1] for v in vis_images],
+        f"{output_visualization_dir}/video.mp4",
+        fps=20,
+    )
 
 
 if __name__ == "__main__":
