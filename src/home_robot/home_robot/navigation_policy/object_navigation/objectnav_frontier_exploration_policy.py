@@ -42,7 +42,7 @@ class ObjectNavFrontierExplorationPolicy(nn.Module):
 
     @property
     def goal_update_steps(self):
-        return 1
+        return 25 # 1
 
     def reach_single_category(self, map_features, category):
         # if the goal is found, reach it

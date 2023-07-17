@@ -11,7 +11,7 @@ seed: 0
 SHOW_RL_OBS: False         # whether to show the observations passed to RL policices, for debugging
 
 ENVIRONMENT:
-  turn_angle: 7.5         # agent turn angle (in degrees)
+  turn_angle: 30.0 #7.5         # agent turn angle (in degrees)
   frame_height: 480       # first-person frame height (in pixels)
   frame_width: 640        # first-person frame width (in pixels)
   camera_height: 1.37     # camera sensor height (in metres)
@@ -57,7 +57,7 @@ AGENT:
     goal_dilation_selem_radius: 10  # radius (in cells) of goal dilation structuring element
     use_dilation_for_stg: False      # use dilated goals for estimating short-term goals - or just reaching
     map_downsample_factor: 1            # optional downsampling of traversible and goal map before fmm distance call (1 for no downsampling, 2 for halving resolution)
-    map_update_frequency: 1             # compute fmm distance map every n steps 
+    map_update_frequency: 1            # compute fmm distance map every n steps 
     step_size: 5                    # maximum distance of the short-term goal selected by the planner
     discrete_actions: True         # discrete motion planner output space or not
     verbose: False
