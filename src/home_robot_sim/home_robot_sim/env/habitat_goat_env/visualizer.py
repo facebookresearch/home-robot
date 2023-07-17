@@ -109,21 +109,7 @@ class Visualizer:
         )
         semantic_map_vis.putpalette(self.semantic_category_mapping.map_color_palette)
         semantic_map_vis.putdata(semantic_map.flatten().astype(np.uint8))
-
-        if rgb_frame is not None:
-            # overlaying semantics on RGB frame
-            rgb_frame = rgb_frame[:, :, [2, 1, 0]]
-            mask = np.array(semantic_map_vis)
-            mask = (
-                mask
-                == self.semantic_category_mapping.num_sem_categories - 1 + PI.SEM_START
-            ).astype(np.uint8) * 255
-            mask = Image.fromarray(mask)
-            rgb_pil = Image.fromarray(rgb_frame)
-            semantic_map_vis = semantic_map_vis.convert("RGB")
-            semantic_map_vis.paste(rgb_pil, mask=mask)
-        else:
-            semantic_map_vis = semantic_map_vis.convert("RGB")
+        semantic_map_vis = semantic_map_vis.convert("RGB")
 
         semantic_map_vis = np.asarray(semantic_map_vis)[:, :, [2, 1, 0]]
 
@@ -193,6 +179,14 @@ class Visualizer:
             )
 
         image_vis = self.image_vis.copy()
+        image_vis = self._put_text_on_image(
+            image_vis,
+            str(goal_name),
+            0,
+            V.Y2 + V.LEGEND_TOP_PADDING,
+            V.IMAGE_WIDTH,
+            V.TOP_PADDING,
+        )
 
         # if curr_skill is not None, place the skill name below the third person image
         text = None
@@ -423,15 +417,6 @@ class Visualizer:
             vis_image = self._put_text_on_image(
                 vis_image, caption, 10, 0, width, V.TOP_PADDING, font_scale=0.4
             )
-
-        vis_image = self._put_text_on_image(
-            vis_image,
-            f"Target: {goal_name}",
-            0,
-            V.Y2 + V.LEGEND_TOP_PADDING,
-            width,
-            V.TOP_PADDING,
-        )
 
         if landmarks is not None:
             vis_image = self._put_text_on_image(

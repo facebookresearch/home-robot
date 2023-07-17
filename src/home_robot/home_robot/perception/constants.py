@@ -316,8 +316,11 @@ languagenav_2categories_legend_path = str(
     Path(__file__).resolve().parent / "rearrange_3categories_legend.png"
 )
 
+# languagenav_2categories_color_palette = [255, 255, 255] + list(
+#     d3_40_colors_rgb[1:3].flatten()
+# )
 languagenav_2categories_color_palette = [255, 255, 255] + list(
-    d3_40_colors_rgb[1:3].flatten()
+    d3_40_colors_rgb[1:].flatten()
 )
 languagenav_2categories_frame_color_palette = languagenav_2categories_color_palette + [
     255,
@@ -355,6 +358,9 @@ languagenav_2categories_map_color_palette = [
         0.6,
         0.17,
         0.54,  # blacklisted targets map
+        0.0,
+        0.0,
+        0.0,  # instance border
         *[x / 255.0 for x in languagenav_2categories_color_palette],
     ]
 ]
@@ -370,26 +376,24 @@ class LanguageNavCategories(SemanticCategoryMapping):
         return (goal_id, self.goal_id_to_goal_name[goal_id])
 
     def reset_instance_id_to_category_id(self, env: Env):
-        # Identity everywhere except index 0 mapped to 4
-
         self._instance_id_to_category_id = []
         for obj in env.sim.semantic_annotations().objects:
             raw_category = obj.category.name().lower().strip()
             category = hm3d_raw_to_hm3d.get(raw_category)
             if category is None:
                 self._instance_id_to_category_id.append(
-                    all_hm3d_categories.index("unknown")
+                    self.all_hm3d_categories.index("unknown")
                 )
             else:
                 self._instance_id_to_category_id.append(
-                    all_hm3d_categories.index(category)
+                    self.all_hm3d_categories.index(category)
                 )
 
         self._instance_id_to_category_id = np.array(self._instance_id_to_category_id)
 
     @property
     def all_hm3d_categories(self):
-        return all_hm3d_categories
+        return list(set(all_hm3d_categories))
 
     @property
     def instance_id_to_category_id(self) -> np.ndarray:
