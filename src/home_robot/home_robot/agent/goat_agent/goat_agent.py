@@ -37,6 +37,9 @@ class GoatAgent(Agent):
     def __init__(self, config, device_id: int = 0):
         self.max_steps = config.AGENT.max_steps
         self.num_environments = config.NUM_ENVIRONMENTS
+        self.store_all_categories_in_map = getattr(
+            config.AGENT, "store_all_categories", False
+        )
         if config.AGENT.panorama_start:
             self.panorama_start_steps = int(360 / config.ENVIRONMENT.turn_angle)
         else:
@@ -496,7 +499,19 @@ class GoatAgent(Agent):
         depth = (
             torch.from_numpy(obs.depth).unsqueeze(-1).to(self.device) * 100.0
         )  # m to cm
-        semantic = self.one_hot_encoding[torch.from_numpy(obs.semantic).to(self.device)]
+
+        current_task = obs.task_observations["tasks"][self.current_task_idx]
+        current_goal_semantic_id = current_task["semantic_id"]
+
+        if self.store_all_categories_in_map:
+            semantic = obs.semantic
+        else:
+            semantic = np.full_like(obs.semantic, 4)
+            semantic[
+                obs.semantic == current_goal_semantic_id
+            ] = current_goal_semantic_id
+
+        semantic = self.one_hot_encoding[torch.from_numpy(semantic).to(self.device)]
         obs_preprocessed = torch.cat([rgb, depth, semantic], dim=-1)
 
         if self.record_instance_ids:
@@ -524,8 +539,7 @@ class GoatAgent(Agent):
         self.last_poses[0] = curr_pose
 
         # goals = obs.task_observations["tasks"]
-        current_task = obs.task_observations["tasks"][self.current_task_idx]
-        current_goal_semantic_id = current_task["semantic_id"]
+
         object_goal_category = torch.tensor(current_goal_semantic_id).unsqueeze(0)
         if "landmarks" in current_task.keys():
             landmarks = current_task["landmarks"]
