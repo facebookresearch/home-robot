@@ -251,6 +251,7 @@ class HM3DtoCOCOIndoor(SemanticCategoryMapping):
 
     def __init__(self):
         super().__init__()
+        self.goal_id_to_goal_name = {idx: name for name, idx in coco_categories.items()}
         self.hm3d_goal_id_to_coco_goal_name = {
             0: "chair",
             1: "bed",

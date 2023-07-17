@@ -254,21 +254,15 @@ class GoatAgent(Agent):
                 self.semantic_map.update_frontier_map(
                     e, frontier_map[e][0].cpu().numpy()
                 )
-            if self.found_goal[e]:
+            if self.found_goal[e] or self.timesteps_before_goal_update[e] == 0:
                 self.semantic_map.update_global_goal_for_env(e, goal_map[e])
-            elif self.timesteps_before_goal_update[e] == 0:
-                self.semantic_map.update_global_goal_for_env(e, goal_map[e])
-                self.timesteps_before_goal_update[e] = self.goal_update_steps
-
-        for e in range(self.num_environments):
+                if self.timesteps_before_goal_update[e] == 0:
+                    self.timesteps_before_goal_update[e] = self.goal_update_steps
+            self.total_timesteps[e] = self.total_timesteps[e] + 1
             self.sub_task_timesteps[e][self.current_task_idx] += 1
-        self.total_timesteps = [
-            self.total_timesteps[e] + 1 for e in range(self.num_environments)
-        ]
-        self.timesteps_before_goal_update = [
-            self.timesteps_before_goal_update[e] - 1
-            for e in range(self.num_environments)
-        ]
+            self.timesteps_before_goal_update[e] = (
+                self.timesteps_before_goal_update[e] - 1
+            )
 
         # if debug_frontier_map:
         #     import matplotlib.pyplot as plt

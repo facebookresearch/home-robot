@@ -364,7 +364,25 @@ def main(input_trajectory_dir: str, output_visualization_dir: str, legend_path: 
         rgb = torch.from_numpy(obs.rgb).to(device)
         depth = torch.from_numpy(obs.depth).unsqueeze(-1).to(device) * 100.0  # m to cm
         semantic = one_hot_encoding[torch.from_numpy(obs.semantic).to(device)]
-        obs_preprocessed = torch.cat([rgb, depth, semantic], dim=-1).unsqueeze(0)
+        obs_preprocessed = torch.cat([rgb, depth, semantic], dim=-1)
+
+        if record_instance_ids:
+            instances = obs.task_observations["instance_map"]
+            # first create a mapping to 1, 2, ... num_instances
+            instance_ids = np.unique(instances)
+            # map instance id to index
+            instance_id_to_idx = {
+                instance_id: idx for idx, instance_id in enumerate(instance_ids)
+            }
+            # convert instance ids to indices, use vectorized lookup
+            instances = torch.from_numpy(
+                np.vectorize(instance_id_to_idx.get)(instances)
+            ).to(device)
+            # create a one-hot encoding
+            instances = torch.eye(len(instance_ids), device=device)[instances]
+            obs_preprocessed = torch.cat([obs_preprocessed, instances], dim=-1)
+
+        obs_preprocessed = obs_preprocessed.unsqueeze(0)
         obs_preprocessed = obs_preprocessed.permute(0, 3, 1, 2)
 
         curr_pose = np.array([obs.gps[0], obs.gps[1], obs.compass[0]])
