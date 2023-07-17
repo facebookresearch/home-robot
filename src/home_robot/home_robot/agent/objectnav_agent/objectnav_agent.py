@@ -233,8 +233,6 @@ class ObjectNavAgent(Agent):
             self.timesteps_before_goal_update[e] = (
                 self.timesteps_before_goal_update[e] - 1
             )
-            if self.timesteps_before_goal_update[e] < 0:
-                self.timesteps_before_goal_update[e] = self.goal_update_steps
 
         if debug_frontier_map:
             import matplotlib.pyplot as plt
