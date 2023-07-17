@@ -296,7 +296,7 @@ class OpenVocabManipAgent(ObjectNavAgent):
         all_vocab = build_vocab_from_category_map(
             self.obj_name_to_id, self.rec_name_to_id
         )
-        self.semantic_sensor.update_vocubulary_list(all_vocab, SemanticVocab.ALL)
+        self.semantic_sensor.update_vocabulary_list(all_vocab, SemanticVocab.ALL)
 
     def _set_semantic_vocab(self, vocab_id: SemanticVocab, force_set: bool):
         """
