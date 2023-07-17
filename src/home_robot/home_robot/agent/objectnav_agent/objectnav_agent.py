@@ -116,6 +116,7 @@ class ObjectNavAgent(Agent):
         self.timesteps_before_goal_update = None
         self.episode_panorama_start_steps = None
         self.last_poses = None
+        self.closest_goal_map = None
         self.verbose = config.AGENT.PLANNER.verbose
 
         self.evaluate_instance_tracking = getattr(
@@ -284,6 +285,7 @@ class ObjectNavAgent(Agent):
         self.last_poses = [np.zeros(3)] * self.num_environments
         self.semantic_map.init_map_and_pose()
         self.episode_panorama_start_steps = self.panorama_start_steps
+        self.closest_goal_map = [None] * self.num_environments
         self.planner.reset()
 
     def reset_vectorized_for_env(self, e: int):
@@ -362,6 +364,8 @@ class ObjectNavAgent(Agent):
                 timestep=self.timesteps[0],
                 debug=self.verbose,
             )
+            if self.timesteps_before_goal_update[0] == self.goal_update_steps - 1:
+                self.closest_goal_map[0] = closest_goal_map
 
         # t3 = time.time()
         # print(f"[Agent] Planning time: {t3 - t2:.2f}")
@@ -371,7 +375,7 @@ class ObjectNavAgent(Agent):
         vis_inputs[0]["goal_name"] = obs.task_observations["goal_name"]
         if self.visualize:
             vis_inputs[0]["semantic_frame"] = obs.task_observations["semantic_frame"]
-            vis_inputs[0]["closest_goal_map"] = closest_goal_map
+            vis_inputs[0]["closest_goal_map"] = self.closest_goal_map[0]
             vis_inputs[0]["third_person_image"] = obs.third_person_image
             vis_inputs[0]["short_term_goal"] = None
             vis_inputs[0]["dilated_obstacle_map"] = dilated_obstacle_map
