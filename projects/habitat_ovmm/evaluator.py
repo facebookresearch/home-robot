@@ -20,9 +20,11 @@ from utils.env_utils import create_ovmm_env_fn
 from utils.metrics_utils import get_stats_from_episode_metrics
 
 if TYPE_CHECKING:
+    from habitat.core.dataset import BaseEpisode
     from habitat.core.vector_env import VectorEnv
 
     from home_robot.agent.ovmm_agent.ovmm_agent import OpenVocabManipAgent
+    from home_robot.core.abstract_agent import Agent
 
 
 class EvaluationType(Enum):
@@ -72,9 +74,11 @@ class OVMMEvaluator(PPOTrainer):
             print(f"{k}: {v}")
         print("=" * 50)
 
-    def _set_planner_vis_dir(self, agent: "Agent", current_episode: "BaseEpisode"):
+    def _check_set_planner_vis_dir(
+        self, agent: "Agent", current_episode: "BaseEpisode"
+    ):
         """
-        Sets vis_dir for storing planner's debug visualisations
+        Sets vis_dir for storing planner's debug visualisations if the agent has a planner.
         """
         if hasattr(agent, "planner"):
             agent.planner.set_vis_dir(
@@ -113,7 +117,7 @@ class OVMMEvaluator(PPOTrainer):
         obs = envs.call(["reset"] * envs.num_envs)
 
         agent.reset_vectorized()
-        self._set_planner_vis_dir(agent, self.envs.current_episodes()[0])
+        self._check_set_planner_vis_dir(agent, self.envs.current_episodes()[0])
         while not stop():
             current_episodes_info = self.envs.current_episodes()
             # TODO: Currently agent can work with only 1 env, Parallelize act across envs
@@ -169,7 +173,9 @@ class OVMMEvaluator(PPOTrainer):
                     if not stop():
                         obs[e] = envs.call_at(e, "reset")
                         agent.reset_vectorized_for_env(e)
-                        self._set_planner_vis_dir(envs, envs.current_episodes()[e])
+                        self._check_set_planner_vis_dir(
+                            envs, envs.current_episodes()[e]
+                        )
 
         envs.close()
 
@@ -223,7 +229,7 @@ class OVMMEvaluator(PPOTrainer):
             json.dump(episode_metrics, f, indent=4)
 
     def local_evaluate(
-        self, agent, num_episodes: Optional[int] = None
+        self, agent: "Agent", num_episodes: Optional[int] = None
     ) -> Dict[str, float]:
         """
         Evaluates the agent in the local environment.
@@ -252,8 +258,8 @@ class OVMMEvaluator(PPOTrainer):
         while count_episodes < num_episodes:
             observations, done = self._env.reset(), False
             current_episode = self._env.get_current_episode()
-            agent.reset_vectorized()
-            self._set_planner_vis_dir(agent, current_episode)
+            agent.reset()
+            self._check_set_planner_vis_dir(agent, current_episode)
 
             current_episode_key = (
                 f"{current_episode.scene_id.split('/')[-1].split('.')[0]}_"
@@ -305,7 +311,7 @@ class OVMMEvaluator(PPOTrainer):
         return average_metrics
 
     def remote_evaluate(
-        self, agent, num_episodes: Optional[int] = None
+        self, agent: "Agent", num_episodes: Optional[int] = None
     ) -> Dict[str, float]:
         """
         Evaluates the agent in the remote environment.
@@ -375,8 +381,8 @@ class OVMMEvaluator(PPOTrainer):
             current_episode = grpc_loads(
                 stub.get_current_episode(evaluation_pb2.Package()).SerializedEntity
             )
-            agent.reset_vectorized()
-            self._set_planner_vis_dir(agent, current_episode)
+            agent.reset()
+            self._check_set_planner_vis_dir(agent, current_episode)
 
             current_episode_key = (
                 f"{current_episode.scene_id.split('/')[-1].split('.')[0]}_"
@@ -436,7 +442,10 @@ class OVMMEvaluator(PPOTrainer):
         return average_metrics
 
     def evaluate(
-        self, agent, num_episodes: Optional[int] = None, evaluation_type: str = "local"
+        self,
+        agent: "Agent",
+        num_episodes: Optional[int] = None,
+        evaluation_type: str = "local",
     ) -> Dict[str, float]:
         r"""..
 

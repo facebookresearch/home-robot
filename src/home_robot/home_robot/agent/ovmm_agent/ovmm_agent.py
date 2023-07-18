@@ -150,6 +150,10 @@ class OpenVocabManipAgent(ObjectNavAgent):
         info = {**info, **get_skill_as_one_hot_dict(self.states[0].item())}
         return info
 
+    def reset(self):
+        """Initialize agent state."""
+        self.reset_vectorized()
+
     def reset_vectorized(self):
         """Initialize agent state."""
         super().reset_vectorized()
