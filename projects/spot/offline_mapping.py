@@ -32,6 +32,7 @@ from home_robot.mapping.semantic.categorical_2d_semantic_map_module import (
 from home_robot.mapping.semantic.categorical_2d_semantic_map_state import (
     Categorical2DSemanticMapState,
 )
+from home_robot.mapping.semantic.instance_tracking_modules import InstanceMemory
 from home_robot.perception.detection.detic.detic_perception import DeticPerception
 
 # Semantic segmentation categories predicted from frames and projected in the map
@@ -304,6 +305,13 @@ def main(input_trajectory_dir: str, output_visualization_dir: str, legend_path: 
 
     device = torch.device("cuda:0")
 
+    # Instance memory
+    instance_memory = InstanceMemory(
+        num_envs=1,
+        du_scale=4,
+        debug_visualize=True,
+    )
+
     # State holds global and local map and sensor pose
     # See class definition for argument info
     semantic_map = Categorical2DSemanticMapState(
@@ -313,6 +321,10 @@ def main(input_trajectory_dir: str, output_visualization_dir: str, legend_path: 
         map_resolution=5,
         map_size_cm=4800,
         global_downscaling=2,
+        record_instance_ids=True,
+        max_instances=800,
+        evaluate_instance_tracking=False,
+        instance_memory=instance_memory,
     )
     semantic_map.init_map_and_pose()
 
@@ -338,6 +350,10 @@ def main(input_trajectory_dir: str, output_visualization_dir: str, legend_path: 
         max_depth=5.95,
         must_explore_close=False,
         min_obs_height_cm=10,
+        record_instance_ids=True,
+        max_instances=800,
+        evaluate_instance_tracking=False,
+        instance_memory=instance_memory,
     ).to(device)
 
     # --------------------------------------------------------------------------------------------
