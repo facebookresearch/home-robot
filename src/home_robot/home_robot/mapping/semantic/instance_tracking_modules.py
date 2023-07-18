@@ -1,5 +1,8 @@
+import os
+import shutil
 from typing import Dict, List, Optional, Tuple
 
+import cv2
 import numpy as np
 import torch
 
@@ -88,9 +91,8 @@ class InstanceMemory:
         self.num_envs = num_envs
         self.du_scale = du_scale
         self.debug_visualize = debug_visualize
+        breakpoint()
         if self.debug_visualize:
-            import shutil
-
             shutil.rmtree("instances/", ignore_errors=True)
         self.reset()
 
@@ -129,10 +131,6 @@ class InstanceMemory:
             # add instance view to global instance
             global_instance.instance_views.append(instance_view)
         if self.debug_visualize:
-            import os
-
-            import cv2
-
             os.makedirs(f"instances/{global_instance_id}", exist_ok=True)
             cv2.imwrite(
                 f"instances/{global_instance_id}/{self.timesteps[env_id]}_{local_instance_id}.png",
@@ -243,10 +241,6 @@ class InstanceMemory:
             self.unprocessed_views[env_id][instance_id.item()] = instance_view
             # save cropped image with timestep in filename
             if self.debug_visualize:
-                import os
-
-                import cv2
-
                 os.makedirs("instances/", exist_ok=True)
                 cv2.imwrite(
                     f"instances/{self.timesteps[env_id]}_{instance_id.item()}.png",
