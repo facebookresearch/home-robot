@@ -6,8 +6,10 @@
 
 import argparse
 import datetime
+import logging
 import os
 import random
+import uuid
 from pprint import pprint
 from time import time
 from typing import List, Tuple
@@ -16,6 +18,7 @@ import clip
 import hydra
 import numpy as np
 import open3d as o3d
+import open3d.visualization.gui as gui
 import torch
 import torch.nn as nn
 import wandb
@@ -46,7 +49,7 @@ from slap_manipulation.policy.components import (
     PositionalEncoding,
     SAModule,
 )
-from torch_geometric.nn import MLP, Linear, PointConv, radius
+from torch_geometric.nn import MLP, Linear, PointNetConv, radius
 from tqdm import tqdm
 
 from home_robot.utils.point_cloud import numpy_to_pcd, show_pcd, show_point_cloud
@@ -63,6 +66,7 @@ LATENT_DIM = 512
 # LATENT_DIM = 256
 
 
+# CLEANUP: I do not think the following is used anywhere
 def process_data(
     xyz,
     rgb,
@@ -72,7 +76,8 @@ def process_data(
     num_pts=8000,
 ):
     """helper function which takes in unprocessed point-cloud, it returns processed,
-    voxelized point-clouds and most relevant, closest points to the contact point"""
+    voxelized point-clouds and most relevant, closest points to the contact point
+    """
     # Get only a few points that we care about here
     orig_xyz, orig_rgb = xyz.reshape(-1, 3), rgb.reshape(-1, 3)
     downsample = np.arange(orig_rgb.shape[0])
@@ -106,8 +111,8 @@ def process_data(
     processed_data = {
         "xyz": torch.FloatTensor(uncentered_xyz),
         "rgb": torch.FloatTensor(uncentered_rgb),
-        "xyz_downsampled": torch.FloatTensor(xyz_voxel_size_2),
-        "rgb_downsampled": torch.FloatTensor(rgb_voxel_size_2),
+        "xyz_voxelized": torch.FloatTensor(xyz_voxel_size_2),
+        "rgb_voxelized": torch.FloatTensor(rgb_voxel_size_2),
         "center": center,
         "centered_xyz": torch.FloatTensor(centered_xyz),
         "centered_rgb": torch.FloatTensor(centered_rgb),
@@ -129,7 +134,8 @@ class LocalityLoss(torch.nn.Module):
 
     def forward(self, xyz, scores):
         """penalize dispersal - find center, penalize distance from that
-        scaled according to the spread provided (high self.spread = lower penality)"""
+        scaled according to the spread provided (high self.spread = lower penality)
+        """
         B, C = xyz.shape
         scores = torch.softmax(scores, dim=-1)
         xyz_scores = scores.view(B, 1).repeat(1, 3)
@@ -151,7 +157,8 @@ class SupervisedLocalityLoss(torch.nn.Module):
 
     def forward(self, goal_pt, xyz, scores):
         """penalize dispersal - find center, penalize distance from that
-        scaled according to the spread provided (high self.spread = lower penality)"""
+        scaled according to the spread provided (high self.spread = lower penality)
+        """
         B, C = xyz.shape
         scores = torch.softmax(scores, dim=-1)
         # scores = torch.sigmoid(scores)
@@ -179,8 +186,16 @@ class InteractionPredictionModule(torch.nn.Module):
 
     # for visualizations
     cam_view = {
-        "front": [-0.89795424592554529, 0.047678244807235863, 0.43749852250766141],
-        "lookat": [0.33531651482385966, 0.048464899929339826, 0.54704503365806367],
+        "front": [
+            -0.89795424592554529,
+            0.047678244807235863,
+            0.43749852250766141,
+        ],
+        "lookat": [
+            0.33531651482385966,
+            0.048464899929339826,
+            0.54704503365806367,
+        ],
         "up": [0.43890929711345494, 0.024286597087151203, 0.89820308956788786],
         "zoom": 0.43999999999999972,
     }
@@ -238,7 +253,7 @@ class InteractionPredictionModule(torch.nn.Module):
         self._query_radius = 0.2
         self._max_neighbor = 64  # default from pointnet2 code
         # for mixing proprio and images
-        self.proprio_dim_size = 3
+        self.proprio_dim_size = 8
         self.im_channels = 64
         self.use_proprio = use_proprio
 
@@ -255,7 +270,7 @@ class InteractionPredictionModule(torch.nn.Module):
             0.5 * self._query_radius,
             128,
             self.device,
-            MLP([6, 64, 128], batch_norm=False),
+            MLP([7, 64, 128], batch_norm=False),
         )
         self.sa2_module = SAModule(
             # 0.1, 64, self.device, MLP([128 + 3, 128, 256, 512])
@@ -387,6 +402,9 @@ class InteractionPredictionModule(torch.nn.Module):
             # self.setup_training()
             self.start_time = 0.0
 
+    def set_working_dir(self, path):
+        self.working_dir = path
+
     # def setup_training(self):
     #     # get today's date
     #     date_time = datetime.datetime.now().strftime("%Y-%m-%d_%H-%M")
@@ -396,6 +414,12 @@ class InteractionPredictionModule(torch.nn.Module):
     #     if not os.path.exists(path):
     #         os.mkdir(path)
     #     self._save_dir = path
+
+    def load_weights(self, path: str):
+        if os.path.isfile(path):
+            self.load_state_dict(torch.load(path))
+        else:
+            raise RuntimeError(f"[IPM] Checkpoint '{path}' not found")
 
     def get_optimizer(self):
         """optimizer config"""
@@ -428,13 +452,16 @@ class InteractionPredictionModule(torch.nn.Module):
         return new_batch
 
     def get_best_name(self):
-        filename = "best_" + self.name + ".pth"
+        filename = os.path.join(self.working_dir, "best_" + self.name + ".pth")
         return filename
 
     def smart_save(self, epoch, val_loss, best_val_loss):
         if val_loss < best_val_loss:
             time_elapsed = int((time() - self.start_time) / 60)
-            filename = self.name + "_%04d" % (epoch) + "_%06d" % (time_elapsed) + ".pth"
+            filename = os.path.join(
+                self.working_dir,
+                self.name + "_%04d" % (epoch) + "_%06d" % (time_elapsed) + ".pth",
+            )
             torch.save(self.state_dict(), filename)
             filename = self.get_best_name()
             torch.save(self.state_dict(), filename)
@@ -448,13 +475,19 @@ class InteractionPredictionModule(torch.nn.Module):
         down_rgb = np.asarray(downpcd.colors)
         return down_xyz, down_rgb
 
-    def predict(
-        self,
-        feat: np.ndarray,
-        xyz: np.ndarray,
-        proprio: np.ndarray,
-        lang: List[str],
-    ):
+    def read_batch(self, batch):
+        return (
+            batch["xyz"],
+            batch["rgb"],
+            batch["feat"],
+            batch["xyz_voxelized"],
+            batch["rgb_voxelized"],
+            batch["feat_voxelized"],
+            batch["proprio"],
+            [batch["lang"]],
+        )
+
+    def predict(self, batch, debug=False):
         """
         helper function for predicting index of closest voxel and encoded spatial features
 
@@ -463,33 +496,56 @@ class InteractionPredictionModule(torch.nn.Module):
         lang: language annotation which is encoded
         proprio: proprioception, an np.ndarray (gripper-action, gripper-width, time)
         """
-        t_rgb = torch.FloatTensor(feat).to(self.device)
-        t_xyz = torch.FloatTensor(xyz).to(self.device)
-        t_proprio = torch.FloatTensor(proprio).to(self.device)
-        down_xyz, down_rgb = self._preprocess_input(xyz, feat)
-        t_down_xyz, t_down_rgb = torch.FloatTensor(down_xyz).to(
-            self.device
-        ), torch.FloatTensor(down_rgb).to(self.device)
+        self.eval()
+        xyz, rgb, feat, v_xyz, v_rgb, v_feat, proprio, lang = self.read_batch(batch)
+        print(f"[IPM] {lang=}")
+        if debug:
+            show_point_cloud(
+                v_xyz.detach().cpu().numpy(),
+                v_rgb.detach().cpu().numpy(),
+                np.zeros((3, 1)),
+            )
+        # combine rgb and feat
+        rgb = torch.cat([rgb, feat], dim=-1)
+        v_rgb = torch.cat([v_rgb, v_feat], dim=-1)
+        if debug:
+            print("[IPM] Semantic feats")
+            v_semantic = torch.clone(v_rgb[:, :3])
+            v_semantic[v_rgb[:, -1].detach().cpu().numpy().reshape(-1) == 1, 1] = 1.0
+            show_point_cloud(
+                v_xyz.detach().cpu().numpy(),
+                v_semantic.detach().cpu().numpy(),
+                np.zeros((3, 1)),
+            )
 
         classification_scores, xyz, output_feat = self.forward(
-            t_rgb,
-            t_down_rgb,
-            t_xyz,
-            t_down_xyz,
+            rgb,
+            v_rgb,
+            xyz,
+            v_xyz,
             lang,
-            t_proprio,
+            proprio,
         )
-        self.visualize_top_attention(t_down_xyz, t_down_rgb, classification_scores)
-        self.show_prediction_with_grnd_truth(
-            t_down_xyz,
-            t_down_rgb,
-            t_down_xyz[self.predict_closest_idx(classification_scores)],
+        self.get_top_attention(
+            v_xyz, v_rgb[:, :3], classification_scores, visualize=True
         )
+        if debug:
+            feat_rgb = v_rgb[:, :3].detach().cpu().numpy().reshape(-1, 3)
+            feat_rgb[v_feat.detach().cpu().numpy().reshape(-1) == 1, 1] = 1.0
+            print("Semantic features being passed")
+            show_point_cloud(v_xyz.detach().cpu().numpy(), feat_rgb)
+            print("Predicted interaction point")
+            self.show_prediction_with_grnd_truth(
+                v_xyz,
+                v_rgb[:, :3],
+                v_xyz[self.predict_closest_idx(classification_scores)],
+            )
+        predicted_idx = self.predict_closest_idx(classification_scores)[0]
         return (
-            self.predict_closest_idx(classification_scores)[0].detach().cpu().numpy(),
+            v_xyz[predicted_idx],
+            predicted_idx,
             classification_scores,
             output_feat,
-            (down_xyz, down_rgb),
         )
 
     def predict_closest_idx(self, classification_probs) -> torch.Tensor:
@@ -528,6 +584,13 @@ class InteractionPredictionModule(torch.nn.Module):
         else:
             print("No ground truth available")
         o3d.visualization.draw_geometries(geoms)
+        # app = gui.Application.instance
+        # app.initialize()
+        # vis = o3d.visualization.O3DVisualizer()
+        # for i, geom in enumerate(geoms):
+        #     vis.add_geometry(f"geom_{i}", geom)
+        # app.add_window(vis)
+        # app.run()
         # vis = o3d.visualization.Visualizer()
         # vis.create_window()
         # for geom in geoms:
@@ -551,16 +614,19 @@ class InteractionPredictionModule(torch.nn.Module):
         # if viewpt:
         #     del ctr
 
-    def visualize_top_attention(self, xyz, rgb, classification_scores):
+    def get_top_attention(
+        self, xyz, rgb, classification_scores, threshold=0.05, visualize=True
+    ):
         xyz = xyz.detach().cpu().numpy()
         new_rgb = rgb.detach().cpu().numpy().copy()
-        show_point_cloud(xyz, new_rgb)
         _, mask = torch.sort(classification_scores, descending=True)
-        top_05 = int(classification_scores.shape[1] * 0.05)
-        mask = mask.squeeze()[:top_05].detach().cpu().numpy()
+        top_pts = int(classification_scores.shape[1] * threshold)
+        mask = mask.squeeze()[:top_pts].detach().cpu().numpy()
         # mask = (classification_probs > thresh).detach().cpu().numpy()
         new_rgb[mask] = np.array([1, 0, 0]).reshape(1, 3)
-        show_point_cloud(xyz, new_rgb)
+        if visualize:
+            show_point_cloud(xyz, new_rgb)
+        return xyz[mask], new_rgb[mask]
 
     def show_validation_on_sensor(self, data, viz=False):
         """
@@ -571,8 +637,8 @@ class InteractionPredictionModule(torch.nn.Module):
         data = self.to_device(data)
         rgb = data["rgb"]
         xyz = data["xyz"]
-        rgb2 = data["rgb_downsampled"]
-        xyz2 = data["xyz_downsampled"]
+        rgb2 = data["rgb_voxelized"]
+        xyz2 = data["xyz_voxelized"]
         cmd = data["cmd"]
         proprio = data["proprio"]
         print("--- ", cmd, " ---")
@@ -626,12 +692,17 @@ class InteractionPredictionModule(torch.nn.Module):
             batch = self.to_device(batch)
             rgb = batch["rgb"][0]
             xyz = batch["xyz"][0]
-            rgb2 = batch["rgb_downsampled"][0]
-            xyz2 = batch["xyz_downsampled"][0]
+            feat = batch["feat"][0]
+            rgb2 = batch["rgb_voxelized"][0]
+            xyz2 = batch["xyz_voxelized"][0]
+            feat2 = batch["feat_voxelized"][0]
             cmd = batch["cmd"]
             proprio = batch["proprio"][0]
             target_pos = batch["closest_voxel"][0]
             metrics["cmd"].append(cmd)
+
+            rgb = torch.cat([rgb, feat], dim=-1)
+            rgb2 = torch.cat([rgb2, feat2], dim=-1)
 
             print()
             print("---", i, "---")
@@ -651,10 +722,11 @@ class InteractionPredictionModule(torch.nn.Module):
                 _, mask = torch.sort(classification_probs, descending=True)
                 ten_percent = int(int(classification_probs.shape[1]) * 0.05)
                 mask = mask[0, :ten_percent].detach().cpu().numpy()
-                new_rgb = rgb2.detach().cpu().numpy().copy()
+                new_rgb = rgb2[:, :-1].detach().cpu().numpy().copy()
                 new_rgb[mask.reshape(-1)] = np.array([1, 0, 0]).reshape(1, 3)
                 show_point_cloud(
-                    xyz2.detach().cpu().numpy(), rgb2.detach().cpu().numpy()
+                    xyz2.detach().cpu().numpy(),
+                    rgb2[:, :-1].detach().cpu().numpy(),
                 )
                 show_point_cloud(xyz2.detach().cpu().numpy(), new_rgb)
 
@@ -672,22 +744,22 @@ class InteractionPredictionModule(torch.nn.Module):
             if viz:
                 self.show_prediction_with_grnd_truth(
                     xyz,
-                    rgb,
+                    rgb[:, :-1],
                     xyz2[predicted_idx[0]].detach().cpu().numpy(),
                     target_pos.detach().cpu().numpy(),
                     i=i,
                     save=save,
                 )
         pprint(metrics)
-        todaydate = datetime.date.today()
-        time = datetime.datetime.now().strftime("%H_%M")
-        output_dir = f"./outputs/{todaydate}/{self.name}/"
-        output_file = f"output_{time}.json"
-        if not os.path.exists(output_dir):
-            os.makedirs(output_dir)
-        with open(os.path.join(output_dir, output_file), "w") as f:
-            # FIXME: replace with yaml
-            json.dump(metrics, f, indent=4)
+        # todaydate = datetime.date.today()
+        # time = datetime.datetime.now().strftime("%H_%M")
+        # output_dir = f"./outputs/{todaydate}/{self.name}/"
+        # output_file = f"output_{time}.json"
+        # if not os.path.exists(output_dir):
+        #     os.makedirs(output_dir)
+        # with open(os.path.join(output_dir, output_file), "w") as f:
+        #     # FIXME: replace with yaml
+        #     json.dump(metrics, f, indent=4)
 
     def clip_encode_text(self, text):
         """encode text as a sequence"""
@@ -737,8 +809,10 @@ class InteractionPredictionModule(torch.nn.Module):
             optimizer.zero_grad()
             rgb = batch["rgb"][0]  # N x 3
             xyz = batch["xyz"][0]  # N x 3
-            down_xyz = batch["xyz_downsampled"][0]
-            down_rgb = batch["rgb_downsampled"][0]
+            feat = batch["feat"][0]
+            down_xyz = batch["xyz_voxelized"][0]
+            down_rgb = batch["rgb_voxelized"][0]
+            down_feat = batch["feat_voxelized"][0]
             lang = batch["cmd"]  # list of 1
             if self.use_proprio:
                 proprio = batch["proprio"][0]
@@ -751,11 +825,6 @@ class InteractionPredictionModule(torch.nn.Module):
             ee_keyframe = batch["ee_keyframe_pos"][0]
             ee_keyframe_rot = batch["ee_keyframe_ori"][0]
 
-            # Visualize
-            # show_point_cloud(
-            #        down_xyz.detach().cpu().numpy(),
-            #        down_rgb.detach().cpu().numpy(),
-            #        orig=np.zeros(3))
             if debug:
                 show_point_cloud_with_keypt_and_closest_pt(
                     down_xyz.detach().cpu().numpy(),
@@ -764,6 +833,10 @@ class InteractionPredictionModule(torch.nn.Module):
                     ee_keyframe_rot.detach().cpu().numpy().reshape(3, 3),
                     target_pos.detach().cpu().numpy().reshape(3, 1),
                 )
+
+            # combine rgb and feats
+            rgb = torch.cat([rgb, feat], dim=-1)
+            down_rgb = torch.cat([down_rgb, down_feat], dim=-1)
 
             # predict the closest centroid
             classification_probs, _, _ = self.forward(
@@ -809,6 +882,8 @@ class InteractionPredictionModule(torch.nn.Module):
                     target = target[:, classification_probs]
 
             loss = self.loss_fn(classification_probs, target) + locality_loss
+            if torch.isnan(loss):
+                breakpoint()
             # print(float(loss), float(locality_loss))
 
             # TODO: remove this unused code
@@ -951,7 +1026,9 @@ def parse_args():
         help="If the training ds should be augmented with DR",
     )
     parser.add_argument(
-        "--color-jitter", help="use color jitter when training", action="store_true"
+        "--color-jitter",
+        help="use color jitter when training",
+        action="store_true",
     )
     # parser.add_argument("--reload", action="store_true", help="reload best val")
     parser.add_argument("--template", default="*.h5")
@@ -965,6 +1042,8 @@ def parse_args():
     config_name="interaction_predictor_training",
 )
 def main(cfg):
+    hydra_cfg = hydra.core.hydra_config.HydraConfig.get()
+    hydra_output_dir = hydra_cfg["runtime"]["output_dir"]
     # args = parse_args()
     if cfg.split:
         with open(cfg.split, "r") as f:
@@ -975,7 +1054,7 @@ def main(cfg):
         train_list = train_test_split["train"]
     else:
         train_test_split = None
-        train_list, valid_list, test_list = None, None, None
+        train_list, valid_list, test_list = [], [], []
     # Set up data augmentation
     # This is a warning for you - if things are not going well
     if cfg.data_augmentation:
@@ -983,7 +1062,7 @@ def main(cfg):
     else:
         print("-> NOT using data augmentation.")
     # Set up data loaders
-    if cfg.source == "robopen":
+    if cfg.source in ["robopen", "stretch"]:
         # Get the robopebn dataset
         Dataset = RobotDataset
         train_dataset = RobotDataset(
@@ -997,6 +1076,8 @@ def main(cfg):
             color_jitter=cfg.color_jitter,
             template=cfg.template,
             dr_factor=5,
+            autoregressive=True,
+            multi_step=True,
         )
         valid_dataset = RobotDataset(
             cfg.datadir,
@@ -1006,7 +1087,8 @@ def main(cfg):
             keypoint_range=[0, 1, 2],
             color_jitter=False,
             template=cfg.template,
-            # template="**/*.h5",
+            autoregressive=True,
+            multi_step=True,
         )
         test_dataset = RobotDataset(
             cfg.datadir,
@@ -1016,7 +1098,8 @@ def main(cfg):
             keypoint_range=[0, 1, 2],
             color_jitter=False,
             template=cfg.template,
-            # template="**/*.h5",
+            autoregressive=True,
+            multi_step=True,
         )
     else:
         # get rlbench dataset
@@ -1074,9 +1157,15 @@ def main(cfg):
     model = InteractionPredictionModule(
         xent_loss=cfg.loss_fn == "xent",
         use_proprio=True,
-        name=f"classify-{cfg.task_name}",
+        name=f"ipm-{cfg.task_name}",
+        locality_loss_wt=cfg.locality_loss_wt,
+        lr=cfg.learning_rate,
+        num_latents=cfg.latent_num,
+        latent_dim=cfg.latent_dim,
+        skip_ambiguous_pts=True,
     )
     model.to(model.device)
+    model.set_working_dir(hydra_output_dir)
 
     optimizer = model.get_optimizer()
     # scheduler = torch.optim.lr_scheduler.StepLR(optimizer, step_size=20, gamma=0.5)
@@ -1105,7 +1194,7 @@ def main(cfg):
         best_valid_loss = float("Inf")
         print("Starting training")
         if cfg.wandb:
-            wandb.init(project="classification-v1", name=f"{model.name}")
+            wandb.init(project="CoRL-2023", name=f"{model.name}_{uuid.uuid4()}")
             # wandb.config.data_voxel_1 = test_dataset._voxel_size
             # wandb.config.data_voxel_2 = test_dataset._voxel_size_2
             wandb.config.loss_fn = cfg.loss_fn

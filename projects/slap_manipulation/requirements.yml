@@ -4,12 +4,12 @@ channels:
   - conda-forge
   - default
   - pytorch
+  - nvidia
+  - fastai
 dependencies:
   - python=3.9
   - pytorch=1.12.1
-  - torchaudio=0.12.1
   - cudatoolkit=11.6
-  - torchvision=0.13.1
   - trimesh
   - h5py
   - imageio
@@ -19,12 +19,12 @@ dependencies:
   - pinocchio
   - cmake
   - pybind11
+  - opencv-python-headless
   - pip
   - pip:
     - numpy <1.24 # certain deprecated operations were used in other deps
     - scipy
     - sophuspy
-    - opencv-python>=3.3.0
     - pybullet
     - trimesh
     - pytest

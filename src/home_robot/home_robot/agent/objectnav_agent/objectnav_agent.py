@@ -27,10 +27,16 @@ debug_frontier_map = False
 class ObjectNavAgent(Agent):
     """Simple object nav agent based on a 2D semantic map"""
 
-    # Flag for debugging data flow and task configuraiton
+    # Flag for debugging data flow and task configuration
     verbose = False
 
-    def __init__(self, config, device_id: int = 0):
+    def __init__(
+        self,
+        config,
+        device_id: int = 0,
+        min_goal_distance_cm: float = 50.0,
+        continuous_angle_tolerance: float = 30.0,
+    ):
         self.config = config
         self.max_steps = config.AGENT.max_steps
         self.num_environments = config.NUM_ENVIRONMENTS
@@ -107,6 +113,8 @@ class ObjectNavAgent(Agent):
             map_downsample_factor=config.AGENT.PLANNER.map_downsample_factor,
             map_update_frequency=config.AGENT.PLANNER.map_update_frequency,
             discrete_actions=config.AGENT.PLANNER.discrete_actions,
+            min_goal_distance_cm=min_goal_distance_cm,
+            continuous_angle_tolerance=continuous_angle_tolerance,
         )
         self.one_hot_encoding = torch.eye(
             config.AGENT.SEMANTIC_MAP.num_sem_categories, device=self.device
@@ -128,6 +136,7 @@ class ObjectNavAgent(Agent):
             self.one_hot_instance_encoding = torch.eye(
                 config.AGENT.SEMANTIC_MAP.max_instances + 1, device=self.device
             )
+        self.config = config
 
     # ------------------------------------------------------------------
     # Inference methods to interact with vectorized simulation
@@ -226,17 +235,14 @@ class ObjectNavAgent(Agent):
 
         for e in range(self.num_environments):
             self.semantic_map.update_frontier_map(e, frontier_map[e][0].cpu().numpy())
-            if found_goal[e]:
+            if found_goal[e] or self.timesteps_before_goal_update[e] == 0:
                 self.semantic_map.update_global_goal_for_env(e, goal_map[e])
-            elif self.timesteps_before_goal_update[e] == 0:
-                self.semantic_map.update_global_goal_for_env(e, goal_map[e])
-                self.timesteps_before_goal_update[e] = self.goal_update_steps
+                if self.timesteps_before_goal_update[e] == 0:
+                    self.timesteps_before_goal_update[e] = self.goal_update_steps
             self.timesteps[e] = self.timesteps[e] + 1
             self.timesteps_before_goal_update[e] = (
                 self.timesteps_before_goal_update[e] - 1
             )
-            if self.timesteps_before_goal_update[e] < 0:
-                self.timesteps_before_goal_update[e] = self.goal_update_steps
 
         if debug_frontier_map:
             import matplotlib.pyplot as plt
@@ -307,6 +313,8 @@ class ObjectNavAgent(Agent):
         """Initialize agent state."""
         self.reset_vectorized()
         self.planner.reset()
+        if self.verbose:
+            print("ObjectNavAgent reset")
 
     def get_nav_to_recep(self):
         return None
@@ -464,7 +472,10 @@ class ObjectNavAgent(Agent):
             and obs.task_observations["start_recep_goal"] is not None
         ):
             if self.verbose:
-                print("start_recep goal =", obs.task_observations["start_recep_goal"])
+                print(
+                    "start_recep goal =",
+                    obs.task_observations["start_recep_goal"],
+                )
             start_recep_goal_category = torch.tensor(start_recep_idx).unsqueeze(0)
         if (
             "end_recep_goal" in obs.task_observations
@@ -474,6 +485,8 @@ class ObjectNavAgent(Agent):
                 print("end_recep goal =", obs.task_observations["end_recep_goal"])
             end_recep_goal_category = torch.tensor(end_recep_idx).unsqueeze(0)
         goal_name = [obs.task_observations["goal_name"]]
+        if self.verbose:
+            print("[ObjectNav] Goal name: ", goal_name)
 
         camera_pose = obs.camera_pose
         if camera_pose is not None:

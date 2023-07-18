@@ -305,48 +305,49 @@ class Categorical2DSemanticMapModule(nn.Module):
             dtype=curr_map.dtype,
         )
 
-        # loop over envs
-        # TODO Can we vectorize this across envs? (Only needed if we use multiple envs)
-        for i in range(top_down_instance_one_hot.shape[0]):
-            # create category id to instance id list mapping
-            category_id_to_instance_id_list = defaultdict(list)
-            # retrieve unprocessed instances
-            unprocessed_instances = (
-                self.instance_memory.get_unprocessed_instances_per_env(i)
-            )
-            # loop over unprocessed instances
-            for instance_id, instance in unprocessed_instances.items():
-                category_id_to_instance_id_list[instance.category_id].append(
-                    instance_id
+        if num_instance_channels > 0:
+            # loop over envs
+            # TODO Can we vectorize this across envs? (Only needed if we use multiple envs)
+            for i in range(top_down_instance_one_hot.shape[0]):
+                # create category id to instance id list mapping
+                category_id_to_instance_id_list = defaultdict(list)
+                # retrieve unprocessed instances
+                unprocessed_instances = (
+                    self.instance_memory.get_unprocessed_instances_per_env(i)
                 )
+                # loop over unprocessed instances
+                for instance_id, instance in unprocessed_instances.items():
+                    category_id_to_instance_id_list[instance.category_id].append(
+                        instance_id
+                    )
 
-            # loop over categories
-            # TODO Can we vectorize this across categories? (Only needed if speed bottleneck)
-            for category_id in category_id_to_instance_id_list.keys():
-                if len(category_id_to_instance_id_list[category_id]) == 0:
-                    continue
-                # get the instance ids for this category
-                instance_ids = category_id_to_instance_id_list[category_id]
-                # create a tensor by slicing top_down_instance_one_hot using the instance ids
-                instance_one_hot = top_down_instance_one_hot[i, instance_ids]
-                # add a channel with all values equal to 1e-5 as the first channel
-                instance_one_hot = torch.cat(
-                    (
-                        1e-5 * torch.ones_like(instance_one_hot[:1]),
-                        instance_one_hot,
-                    ),
-                    dim=0,
-                )
-                # get the instance id map using argmax
-                instance_id_map = instance_one_hot.argmax(dim=0)
-                # add a zero to start of instance ids
-                instance_id = [0] + instance_ids
-                # update the ids using the list of instance ids
-                instance_id_map = torch.tensor(
-                    instance_id, device=instance_id_map.device
-                )[instance_id_map]
-                # update the per category instance map
-                top_down_instances_per_category[i, category_id] = instance_id_map
+                # loop over categories
+                # TODO Can we vectorize this across categories? (Only needed if speed bottleneck)
+                for category_id in category_id_to_instance_id_list.keys():
+                    if len(category_id_to_instance_id_list[category_id]) == 0:
+                        continue
+                    # get the instance ids for this category
+                    instance_ids = category_id_to_instance_id_list[category_id]
+                    # create a tensor by slicing top_down_instance_one_hot using the instance ids
+                    instance_one_hot = top_down_instance_one_hot[i, instance_ids]
+                    # add a channel with all values equal to 1e-5 as the first channel
+                    instance_one_hot = torch.cat(
+                        (
+                            1e-5 * torch.ones_like(instance_one_hot[:1]),
+                            instance_one_hot,
+                        ),
+                        dim=0,
+                    )
+                    # get the instance id map using argmax
+                    instance_id_map = instance_one_hot.argmax(dim=0)
+                    # add a zero to start of instance ids
+                    instance_id = [0] + instance_ids
+                    # update the ids using the list of instance ids
+                    instance_id_map = torch.tensor(
+                        instance_id, device=instance_id_map.device
+                    )[instance_id_map]
+                    # update the per category instance map
+                    top_down_instances_per_category[i, category_id] = instance_id_map
 
         curr_map = torch.cat(
             (
@@ -508,12 +509,13 @@ class Categorical2DSemanticMapModule(nn.Module):
                 :,
                 :,
             ]
-            self.instance_memory.process_instances(
-                semantic_channels,
-                instance_channels,
-                point_cloud_t,
-                image=obs[:, :3, :, :],
-            )
+            if num_instance_channels > 0:
+                self.instance_memory.process_instances(
+                    semantic_channels,
+                    instance_channels,
+                    point_cloud_t,
+                    image=obs[:, :3, :, :],
+                )
 
         feat[:, 1:, :] = nn.AvgPool2d(self.du_scale)(obs[:, 4:, :, :]).view(
             batch_size, obs_channels - 4, h // self.du_scale * w // self.du_scale
@@ -658,7 +660,7 @@ class Categorical2DSemanticMapModule(nn.Module):
             # This is around the current agent - we just sort of assume we know where we are
             try:
                 # TODO Make this a parameter: 40 on robot, 10 in sim
-                radius = 40 # 10
+                radius = 40  # 10
                 explored_disk = torch.from_numpy(skimage.morphology.disk(radius))
                 current_map[
                     e,

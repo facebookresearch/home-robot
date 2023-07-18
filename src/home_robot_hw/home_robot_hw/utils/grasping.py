@@ -40,12 +40,15 @@ class GraspPlanner(object):
         min_obj_pts: int = 100,
         min_detection_threshold: float = 0.5,
         max_distance_m: float = 1.5,
+        pregrasp_height: float = 1.2,
     ):
         self.robot_client = robot_client
         self.env = env
         self.grasp_client = RosGraspClient()
         self.verbose = verbose
-        self.planner = SimpleGraspMotionPlanner(self.robot_client.model)
+        self.planner = SimpleGraspMotionPlanner(
+            self.robot_client.model, pregrasp_height=pregrasp_height
+        )
         self.min_obj_pts = min_obj_pts
         self.min_detection_threshold = min_detection_threshold
         self.max_distance_m = max_distance_m
@@ -85,7 +88,15 @@ class GraspPlanner(object):
             obj_pts = pts[mask.reshape(-1), :]
             mean_pt = np.mean(obj_pts, axis=0)
             dist = np.linalg.norm(mean_pt)
-            print(" -", obj_id, "with", num_obj_pts, "points; dist to cam =", dist, "m")
+            print(
+                " -",
+                obj_id,
+                "with",
+                num_obj_pts,
+                "points; dist to cam =",
+                dist,
+                "m",
+            )
 
             if dist > self.max_distance_m:
                 print(" --> too far away from camera, not reachable")
@@ -143,6 +154,8 @@ class GraspPlanner(object):
         dry_run: bool = False,
         max_tries: int = 1,
         wait_for_input: bool = False,
+        switch_mode: bool = True,
+        z_standoff: float = 0.4,
     ):
         """Detect grasps and try to pick up an object in front of the robot.
         Visualize - will show debug point clouds
@@ -283,7 +296,9 @@ class GraspPlanner(object):
                 print(" - with theta x/y from vertical =", theta_x, theta_y)
                 if not dry_run:
                     grasp_completed = self.try_executing_grasp(
-                        grasp, wait_for_input=wait_for_input
+                        grasp,
+                        wait_for_input=wait_for_input,
+                        z_standoff=z_standoff,
                     )
                 else:
                     grasp_completed = False
@@ -291,10 +306,13 @@ class GraspPlanner(object):
                     break
             break
 
-        self.robot_client.switch_to_navigation_mode()
+        if switch_mode:
+            self.robot_client.switch_to_navigation_mode()
         return grasp_completed
 
-    def plan_to_grasp(self, grasp: np.ndarray) -> Optional[np.ndarray]:
+    def plan_to_grasp(
+        self, grasp: np.ndarray, z_standoff: float = 0.4
+    ) -> Optional[np.ndarray]:
         """Create offsets for the full trajectory plan to get to the object.
         Then return that plan."""
         grasp_pos, grasp_quat = to_pos_quat(grasp)
@@ -304,7 +322,9 @@ class GraspPlanner(object):
         # Get pregrasp pose: current pose + maxed out lift
         joint_pos_pre = self.robot_client.manip.get_joint_positions()
         return self.planner.plan_to_grasp(
-            (grasp_pos, grasp_quat), initial_cfg=joint_pos_pre
+            (grasp_pos, grasp_quat),
+            initial_cfg=joint_pos_pre,
+            z_standoff=z_standoff,
         )
 
     def _send_predicted_grasp_to_tf(self, grasp):
@@ -335,14 +355,17 @@ class GraspPlanner(object):
         self.grasp_client.broadcaster.sendTransform(t)
 
     def try_executing_grasp(
-        self, grasp: np.ndarray, wait_for_input: bool = False
+        self,
+        grasp: np.ndarray,
+        wait_for_input: bool = False,
+        z_standoff: float = 0.4,
     ) -> bool:
         """Execute a predefined grasp trajectory to the given pose. Grasp should be an se(3) pose, expressed as a 4x4 numpy matrix."""
         assert grasp.shape == (4, 4)
         self._send_predicted_grasp_to_tf(grasp)
 
         # Generate a plan
-        trajectory = self.plan_to_grasp(grasp)
+        trajectory = self.plan_to_grasp(grasp, z_standoff=z_standoff)
 
         if trajectory is None:
             print("Planning failed")

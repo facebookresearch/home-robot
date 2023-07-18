@@ -132,8 +132,8 @@ class InstanceMemory:
         if self.debug_visualize:
             os.makedirs(f"instances/{global_instance_id}", exist_ok=True)
             cv2.imwrite(
-                f"instances/{global_instance_id}/{self.timesteps[env_id]}_{local_instance_id}.png",
-                instance_view.cropped_image,
+                f"instances/{global_instance_id}/{self.timesteps[env_id]}_{local_instance_id}_cat_{instance_view.category_id}.png",
+                instance_view.cropped_image[:, :, ::-1],
             )
             print(
                 "mapping local instance id",
