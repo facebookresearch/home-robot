@@ -135,12 +135,12 @@ class InstanceMemory:
                 f"instances/{global_instance_id}/{self.timesteps[env_id]}_{local_instance_id}_cat_{instance_view.category_id}.png",
                 instance_view.cropped_image[:, :, ::-1],
             )
-            print(
-                "mapping local instance id",
-                local_instance_id,
-                "to global instance id",
-                global_instance_id,
-            )
+            # print(
+            #     "mapping local instance id",
+            #     local_instance_id,
+            #     "to global instance id",
+            #     global_instance_id,
+            # )
 
     def process_instances_for_env(
         self,
