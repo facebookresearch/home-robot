@@ -1,7 +1,7 @@
+import pickle
 import sys
 from pathlib import Path
 from typing import List
-import pickle
 
 import cv2
 import numpy as np
@@ -218,9 +218,7 @@ def main(spot):
     )
     Path(output_visualization_dir).mkdir(parents=True, exist_ok=True)
 
-    obs_dir = (
-        f"{str(Path(__file__).resolve().parent)}/obs/"
-    )
+    obs_dir = f"{str(Path(__file__).resolve().parent)}/obs/"
     Path(obs_dir).mkdir(parents=True, exist_ok=True)
 
     legend_path = f"{str(Path(__file__).resolve().parent)}/coco_categories_legend.png"
