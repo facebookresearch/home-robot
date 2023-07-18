@@ -47,7 +47,7 @@ coco_categories = [
     "sink",
     "refrigerator",
     "book",
-    "clock",
+    "person",  # clock
     "vase",
     "cup",
     "bottle",

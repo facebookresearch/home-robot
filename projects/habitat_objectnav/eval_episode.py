@@ -52,7 +52,7 @@ if __name__ == "__main__":
     parser.add_argument(
         "--baseline_config_path",
         type=str,
-        default="projects/habitat_objectnav/configs/agent/hm3d_eval.yaml",
+        default="projects/habitat_objectnav/configs/agent/hm3d_28_cat_eval.yaml",
         help="Path to config yaml",
     )
     parser.add_argument(
