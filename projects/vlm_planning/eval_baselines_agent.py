@@ -16,6 +16,7 @@ from utils.config_utils import (
 )
 
 from home_robot.agent.ovmm_agent.ovmm_agent import OpenVocabManipAgent
+from home_robot.agent.ovmm_agent.vlm_agent import VLMAgent
 from home_robot.agent.ovmm_agent.random_agent import RandomAgent
 
 os.environ["OPENBLAS_NUM_THREADS"] = "1"
@@ -41,20 +42,20 @@ if __name__ == "__main__":
     parser.add_argument(
         "--baseline_config_path",
         type=str,
-        default="projects/habitat_ovmm/configs/agent/vlm_agent.yaml",
+        default="projects/vlm_planning/configs/agent/vlm_agent.yaml",
         help="Path to config yaml",
     )
     parser.add_argument(
         "--env_config_path",
         type=str,
-        default="projects/habitat_ovmm/configs/env/hssd_demo.yaml",
+        default="projects/vlm_planning/configs/env/hssd_demo.yaml",
         help="Path to config yaml",
     )
     parser.add_argument(
         "--agent_type",
         type=str,
-        default="baseline",
-        choices=["baseline", "random"],
+        default="vlm",
+        choices=["baseline", "random", "vlm"],
         help="Agent to evaluate",
     )
     parser.add_argument(
@@ -85,6 +86,8 @@ if __name__ == "__main__":
     # create agent
     if args.agent_type == "random":
         agent = RandomAgent(agent_config)
+    elif args.agent_type == "vlm":
+        agent = VLMAgent(agent_config)
     else:
         agent = OpenVocabManipAgent(agent_config)
 
