@@ -47,7 +47,7 @@ AGENT:
     dilate_size: 3
     dilate_iter: 1
     # instance mapping
-    record_instance_ids: False  # whether to predict and store instance ids in the map
+    record_instance_ids: True  # whether to predict and store instance ids in the map
     max_instances: 800
 
   PLANNER:

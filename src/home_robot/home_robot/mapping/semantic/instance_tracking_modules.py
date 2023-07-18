@@ -91,7 +91,6 @@ class InstanceMemory:
         self.num_envs = num_envs
         self.du_scale = du_scale
         self.debug_visualize = debug_visualize
-        breakpoint()
         if self.debug_visualize:
             shutil.rmtree("instances/", ignore_errors=True)
         self.reset()
