@@ -512,7 +512,7 @@ class Visualizer:
 
         for index, count in num_instances_per_category.items():
             if count > 0:
-                text = f"cat {index}: {num_views_per_instance[index]} views"
+                text = f"{self.semantic_category_mapping.goal_id_to_goal_name[index]}: {num_views_per_instance[index]} views"
                 image_vis = self._put_text_on_image(
                     image_vis,
                     text,

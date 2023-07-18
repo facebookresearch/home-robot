@@ -134,6 +134,7 @@ class ObjectNavAgent(Agent):
             self.one_hot_instance_encoding = torch.eye(
                 config.AGENT.SEMANTIC_MAP.max_instances + 1, device=self.device
             )
+        self.config = config
 
     # ------------------------------------------------------------------
     # Inference methods to interact with vectorized simulation
@@ -232,17 +233,14 @@ class ObjectNavAgent(Agent):
 
         for e in range(self.num_environments):
             self.semantic_map.update_frontier_map(e, frontier_map[e][0].cpu().numpy())
-            if found_goal[e]:
+            if found_goal[e] or self.timesteps_before_goal_update[e] == 0:
                 self.semantic_map.update_global_goal_for_env(e, goal_map[e])
-            elif self.timesteps_before_goal_update[e] == 0:
-                self.semantic_map.update_global_goal_for_env(e, goal_map[e])
-                self.timesteps_before_goal_update[e] = self.goal_update_steps
+                if self.timesteps_before_goal_update[e] == 0:
+                    self.timesteps_before_goal_update[e] = self.goal_update_steps
             self.timesteps[e] = self.timesteps[e] + 1
             self.timesteps_before_goal_update[e] = (
                 self.timesteps_before_goal_update[e] - 1
             )
-            if self.timesteps_before_goal_update[e] < 0:
-                self.timesteps_before_goal_update[e] = self.goal_update_steps
 
         if debug_frontier_map:
             import matplotlib.pyplot as plt
