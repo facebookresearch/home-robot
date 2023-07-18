@@ -60,7 +60,7 @@ Optionally, you can [manage Docker as a non-root user](https://docs.docker.com/e
     Arguments:
     {
         "habitat_config_path": "ovmm/ovmm_eval.yaml",
-        "baseline_config_path": "projects/habitat_ovmm/configs/agent/hssd_eval.yaml",
+        "baseline_config_path": "projects/habitat_ovmm/configs/env/hssd_eval.yaml",
         "opts": []
     }
     ----------------------------------------------------------------------------------------------------

@@ -24,44 +24,80 @@ def get_habitat_config(
     return config, ""
 
 
-def get_ovmm_baseline_config(baseline_config_path: str) -> DictConfig:
+def get_omega_config(config_path: str) -> DictConfig:
     """Returns the baseline configuration."""
-    config = OmegaConf.load(baseline_config_path)
+    config = OmegaConf.load(config_path)
     OmegaConf.set_readonly(config, True)
     return config
 
 
-def merge_configs(
-    habitat_config: DictConfig, baseline_config: DictConfig
+def create_env_config(
+    habitat_config: DictConfig, env_config: DictConfig, evaluation_type: str = "local"
 ) -> DictConfig:
     """
-    Merges habitat and baseline configurations.
+    Merges habitat and env configurations.
 
     Adjusts the configuration based on the provided arguments:
     1. Removes third person sensors to improve speed if visualization is not required.
     2. Processes the episode range if specified and updates the EXP_NAME accordingly.
+    3. Adds paths to test objects in case of remote evaluation
 
     :param habitat_config: habitat configuration.
-    :param baseline_config: baseline configuration.
-    :return: merged configuration.
+    :param env_config: baseline configuration.
+    :param evaluation_type: one of ["local", "remote", "local_vectorized"]
+    :return: merged env configuration
     """
 
-    config = DictConfig({**habitat_config, **baseline_config})
+    env_config = DictConfig({**habitat_config, **env_config})
 
-    visualize = config.VISUALIZE or config.PRINT_IMAGES
+    visualize = env_config.VISUALIZE or env_config.PRINT_IMAGES
     if not visualize:
-        if "robot_third_rgb" in config.habitat.gym.obs_keys:
-            config.habitat.gym.obs_keys.remove("robot_third_rgb")
-        if "third_rgb_sensor" in config.habitat.simulator.agents.main_agent.sim_sensors:
-            config.habitat.simulator.agents.main_agent.sim_sensors.pop(
+        if "robot_third_rgb" in env_config.habitat.gym.obs_keys:
+            env_config.habitat.gym.obs_keys.remove("robot_third_rgb")
+        if (
+            "third_rgb_sensor"
+            in env_config.habitat.simulator.agents.main_agent.sim_sensors
+        ):
+            env_config.habitat.simulator.agents.main_agent.sim_sensors.pop(
                 "third_rgb_sensor"
             )
+    if (
+        getattr(env_config.ENVIRONMENT, "evaluate_instance_tracking", False)
+        or env_config.GROUND_TRUTH_SEMANTICS
+    ) and "robot_head_panoptic" not in env_config.habitat.gym.obs_keys:
+        env_config.habitat.gym.obs_keys.append("robot_head_panoptic")
 
-    episode_ids_range = config.habitat.dataset.episode_indices_range
+    episode_ids_range = env_config.habitat.dataset.episode_indices_range
     if episode_ids_range is not None:
-        config.EXP_NAME = os.path.join(
-            config.EXP_NAME, f"{episode_ids_range[0]}_{episode_ids_range[1]}"
+        env_config.EXP_NAME = os.path.join(
+            env_config.EXP_NAME, f"{episode_ids_range[0]}_{episode_ids_range[1]}"
         )
 
-    OmegaConf.set_readonly(config, True)
-    return config
+    if evaluation_type == "remote":
+        # in case of remote evaluation, add test object config paths
+        train_val_object_config_paths = (
+            env_config.habitat.simulator.additional_object_paths
+        )
+        test_object_config_paths = [
+            path.replace("train_val", "test") for path in train_val_object_config_paths
+        ]
+        env_config.habitat.simulator.additional_object_paths = (
+            train_val_object_config_paths + test_object_config_paths
+        )
+    OmegaConf.set_readonly(env_config, True)
+    return env_config
+
+
+def create_agent_config(
+    env_config: DictConfig, baseline_config: DictConfig
+) -> DictConfig:
+    """
+    Merges habitat and baseline configurations.
+
+    :param env_config: env configuration.
+    :param baseline_config: baseline configuration.
+    :return: merged agent configuration
+    """
+    agent_config = DictConfig({**env_config, "AGENT": baseline_config})
+    OmegaConf.set_readonly(agent_config, True)
+    return agent_config

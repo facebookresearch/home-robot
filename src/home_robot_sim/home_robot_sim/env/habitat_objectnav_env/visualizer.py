@@ -11,6 +11,7 @@ from typing import List, Optional
 import cv2
 import numpy as np
 import skimage.morphology
+from omegaconf import DictConfig
 from PIL import Image
 
 import home_robot.utils.pose as pu
@@ -72,14 +73,10 @@ class Visualizer:
             or "hm3d" in self.episodes_data_path
             or "mp3d" in self.episodes_data_path
         )
-        if "hm3d" in self.episodes_data_path:
-            if config.AGENT.SEMANTIC_MAP.semantic_categories == "coco_indoor":
-                self.semantic_category_mapping = HM3DtoCOCOIndoor()
-            elif config.AGENT.SEMANTIC_MAP.semantic_categories == "hssd_28_cat":
-                self.semantic_category_mapping = HM3DtoHSSD28Indoor()
-            else:
-                raise NotImplementedError
-        elif "ovmm" in self.episodes_data_path:
+        self.ground_truth_semantics = config.GROUND_TRUTH_SEMANTICS
+
+        self.semantic_category_mapping = None
+        if "ovmm" in self.episodes_data_path:
             if self._dataset is None:
                 with open(config.ENVIRONMENT.category_map_file) as f:
                     category_map = json.load(f)
@@ -122,29 +119,6 @@ class Visualizer:
                 self.semantic_category_mapping = RearrangeDETICCategories(
                     self.obj_rec_combined_mapping
                 )
-            else:
-                self.semantic_category_mapping = None
-
-        elif "floorplanner" in self.episodes_data_path:
-            if config.AGENT.SEMANTIC_MAP.semantic_categories == "mukul_indoor":
-                self.semantic_category_mapping = FloorplannertoMukulIndoor()
-            else:
-                raise NotImplementedError
-        elif "mp3d" in self.episodes_data_path:
-            # TODO This is a hack to get unit tests running, we'll need to
-            #  adapt this if we want to run ObjectNav on MP3D
-            if config.AGENT.SEMANTIC_MAP.semantic_categories == "mukul_indoor":
-                self.semantic_category_mapping = FloorplannertoMukulIndoor()
-            else:
-                raise NotImplementedError
-
-        self.num_sem_categories = config.AGENT.SEMANTIC_MAP.num_sem_categories
-        self.map_resolution = config.AGENT.SEMANTIC_MAP.map_resolution
-        map_size_cm = config.AGENT.SEMANTIC_MAP.map_size_cm
-        self.map_shape = (
-            map_size_cm // self.map_resolution,
-            map_size_cm // self.map_resolution,
-        )
 
         self.vis_dir = None
         self.image_vis = None
@@ -155,13 +129,31 @@ class Visualizer:
         self.text_color = (20, 20, 20)  # BGR
         self.text_thickness = 2
         self.show_rl_obs = getattr(config, "SHOW_RL_OBS", False)
+        self.num_sem_categories = None
+        self.map_resolution = None
+        self.map_shape = None
+
+    def set_map_params(self, map_config: DictConfig):
+        """
+        Sets the map parameters needed for visualization as class members using the config specified under AGENT.SEMANTIC_MAP
+
+        Args:
+            map_config: DictConfig containing the map parameters
+        """
+        self.num_sem_categories = map_config.num_sem_categories
+        self.map_resolution = map_config.map_resolution
+        map_size_cm = map_config.map_size_cm
+        self.map_shape = (
+            map_size_cm // self.map_resolution,
+            map_size_cm // self.map_resolution,
+        )
 
         self.instance_dilation_selem = skimage.morphology.disk(1)
 
     def reset(self):
         self.vis_dir = self.default_vis_dir
         self.image_vis = None
-        self.visited_map_vis = np.zeros(self.map_shape)
+        self.visited_map_vis = None
         self.last_xy = None
 
     def set_vis_dir(self, scene_id: str, episode_id: str):
@@ -269,6 +261,7 @@ class Visualizer:
         dilated_obstacle_map: np.ndarray = None,
         semantic_category_mapping: Optional[RearrangeDETICCategories] = None,
         rl_obs_frame: Optional[np.ndarray] = None,
+        semantic_map_config=None,
         instance_map: Optional[np.ndarray] = None,
         instance_memory: Optional[InstanceMemory] = None,
         **kwargs,
@@ -328,9 +321,16 @@ class Visualizer:
         if dilated_obstacle_map is not None:
             obstacle_map = dilated_obstacle_map
 
+        if semantic_map_config is not None:
+            self.set_map_params(semantic_map_config)
+
+        palette = self.semantic_category_mapping.map_color_palette.copy()
+
         if obstacle_map is not None:
             curr_x, curr_y, curr_o, gy1, gy2, gx1, gx2 = sensor_pose
             gy1, gy2, gx1, gx2 = int(gy1), int(gy2), int(gx1), int(gx2)
+            if self.visited_map_vis is None:
+                self.visited_map_vis = np.zeros(self.map_shape)
 
             # Update visited map with last visited area
             if self.last_xy is not None:
@@ -349,8 +349,6 @@ class Visualizer:
                     last_pose, curr_pose, self.visited_map_vis[gy1:gy2, gx1:gx2]
                 )
             self.last_xy = (curr_x, curr_y)
-
-            palette = self.semantic_category_mapping.map_color_palette.copy()
 
             # Obstacles, explored, and visited areas
             no_category_mask = (
@@ -443,48 +441,11 @@ class Visualizer:
 
         # First-person RGB frame
         if semantic_frame is not None:
-            rgb_frame = semantic_frame[:, :, [2, 1, 0]]
-            image_vis[V.Y1 : V.Y2, V.FIRST_RGB_X1 : V.FIRST_RGB_X2] = cv2.resize(
-                rgb_frame, (V.FIRST_PERSON_W, V.HEIGHT)
+            image_vis = self._visualize_semantic_frame(
+                image_vis, semantic_frame, palette
             )
-            if semantic_frame.shape[2] > 3:
-                # Semantic categories
-                first_person_semantic_map_vis = self.get_semantic_vis(
-                    semantic_frame[:, :, 3] + PI.SEM_START, palette, rgb_frame
-                )
-                # First-person semantic frame
-                image_vis[V.Y1 : V.Y2, V.FIRST_SEM_X1 : V.FIRST_SEM_X2] = cv2.resize(
-                    first_person_semantic_map_vis,
-                    (V.FIRST_PERSON_W, V.HEIGHT),
-                    interpolation=cv2.INTER_NEAREST,
-                )
-
         if instance_memory is not None:
-            # query the instance memory to get unique instances per category
-            num_instances_per_category = defaultdict(int)
-            num_views_per_instance = defaultdict(list)
-            for instance_id, instance in instance_memory.instance_views[0].items():
-                num_instances_per_category[instance.category_id.item()] += 1
-                num_views_per_instance[instance.category_id.item()].append(
-                    len(instance.instance_views)
-                )
-            text = "Instance counts"
-            offset = 48
-            y_pos = offset
-
-            for index, count in num_instances_per_category.items():
-                if count > 0:
-                    text = f"cat {index}: {num_views_per_instance[index]} views"
-                    image_vis = self._put_text_on_image(
-                        image_vis,
-                        text,
-                        V.THIRD_PERSON_X1,
-                        y_pos,
-                        V.THIRD_PERSON_W,
-                        V.TOP_PADDING,
-                    )
-                    y_pos += offset
-
+            image_vis = self._visualize_instance_counts(image_vis, instance_memory)
         if self.show_images:
             cv2.imshow("Visualization", image_vis)
             cv2.waitKey(1)
@@ -493,6 +454,75 @@ class Visualizer:
                 os.path.join(self.vis_dir, "snapshot_{:03d}.png".format(timestep)),
                 image_vis,
             )
+
+    def _visualize_semantic_frame(
+        self, image_vis: np.ndarray, semantic_frame: np.ndarray, palette: List
+    ):
+        """
+        Add semantic frame to the panel
+
+        Args:
+            image_vis (np.ndarray): complete image panel
+            semantic_frame (np.ndarray): egocentric semantic frame
+            palette (List): list of rgb colors of size [#colors * 3]
+
+        Returns:
+            image_vis (np.ndarray): complete image panel
+        """
+        rgb_frame = semantic_frame[:, :, [2, 1, 0]]
+        image_vis[V.Y1 : V.Y2, V.FIRST_RGB_X1 : V.FIRST_RGB_X2] = cv2.resize(
+            rgb_frame, (V.FIRST_PERSON_W, V.HEIGHT)
+        )
+        if semantic_frame.shape[2] > 3:
+            # Semantic categories
+            first_person_semantic_map_vis = self.get_semantic_vis(
+                semantic_frame[:, :, 3] + PI.SEM_START, palette, rgb_frame
+            )
+            # First-person semantic frame
+            image_vis[V.Y1 : V.Y2, V.FIRST_SEM_X1 : V.FIRST_SEM_X2] = cv2.resize(
+                first_person_semantic_map_vis,
+                (V.FIRST_PERSON_W, V.HEIGHT),
+                interpolation=cv2.INTER_NEAREST,
+            )
+        return image_vis
+
+    def _visualize_instance_counts(
+        self, image_vis: np.ndarray, instance_memory: InstanceMemory
+    ):
+        """
+        Add instance counts to the panel
+
+        Args:
+            instance_memory (InstanceMemory): memory of all instances and views seen so far
+            image_vis (np.ndarray): The image panel before adding instances
+
+        Returns:
+            image_vis (np.ndarray): The image panel after adding instances
+        '"""
+        num_instances_per_category = defaultdict(int)
+        num_views_per_instance = defaultdict(list)
+        for instance_id, instance in instance_memory.instance_views[0].items():
+            num_instances_per_category[instance.category_id.item()] += 1
+            num_views_per_instance[instance.category_id.item()].append(
+                len(instance.instance_views)
+            )
+        text = "Instance counts"
+        offset = 48
+        y_pos = offset
+
+        for index, count in num_instances_per_category.items():
+            if count > 0:
+                text = f"cat {index}: {num_views_per_instance[index]} views"
+                image_vis = self._put_text_on_image(
+                    image_vis,
+                    text,
+                    V.THIRD_PERSON_X1,
+                    y_pos,
+                    V.THIRD_PERSON_W,
+                    V.TOP_PADDING,
+                )
+                y_pos += offset
+        return image_vis
 
     def _put_text_on_image(
         self,

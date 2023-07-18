@@ -72,6 +72,16 @@ class OVMMEvaluator(PPOTrainer):
             print(f"{k}: {v}")
         print("=" * 50)
 
+    def _set_planner_vis_dir(self, agent: "Agent", current_episode: "BaseEpisode"):
+        """
+        Sets vis_dir for storing planner's debug visualisations
+        """
+        if hasattr(agent, "planner"):
+            agent.planner.set_vis_dir(
+                current_episode.scene_id.split("/")[-1].split(".")[0],
+                current_episode.episode_id,
+            )
+
     def _evaluate_vectorized(
         self,
         agent: "OpenVocabManipAgent",
@@ -102,7 +112,8 @@ class OVMMEvaluator(PPOTrainer):
         episode_idxs = [0] * envs.num_envs
         obs = envs.call(["reset"] * envs.num_envs)
 
-        agent.reset_vectorized(self.envs.current_episodes())
+        agent.reset_vectorized()
+        self._set_planner_vis_dir(agent, self.envs.current_episodes()[0])
         while not stop():
             current_episodes_info = self.envs.current_episodes()
             # TODO: Currently agent can work with only 1 env, Parallelize act across envs
@@ -157,15 +168,18 @@ class OVMMEvaluator(PPOTrainer):
                         self._write_results(episode_metrics, aggregated_metrics)
                     if not stop():
                         obs[e] = envs.call_at(e, "reset")
-                        agent.reset_vectorized_for_env(
-                            e, self.envs.current_episodes()[e]
-                        )
+                        agent.reset_vectorized_for_env(e)
+                        self._set_planner_vis_dir(envs, envs.current_episodes()[e])
 
         envs.close()
 
         aggregated_metrics = self._aggregate_metrics(episode_metrics)
         self._write_results(episode_metrics, aggregated_metrics)
-        return aggregated_metrics
+
+        average_metrics = self._summarize_metrics(episode_metrics)
+        self._print_summary(average_metrics)
+
+        return average_metrics
 
     def _aggregate_metrics(self, episode_metrics: Dict[str, Any]) -> Dict[str, float]:
         """Aggregates metrics tracked by environment."""
@@ -207,8 +221,6 @@ class OVMMEvaluator(PPOTrainer):
             json.dump(aggregated_metrics, f, indent=4)
         with open(f"{self.results_dir}/episode_results.json", "w") as f:
             json.dump(episode_metrics, f, indent=4)
-        summary = self._summarize_metrics(episode_metrics)
-        self._print_summary(summary)
 
     def local_evaluate(
         self, agent, num_episodes: Optional[int] = None
@@ -240,7 +252,8 @@ class OVMMEvaluator(PPOTrainer):
         while count_episodes < num_episodes:
             observations, done = self._env.reset(), False
             current_episode = self._env.get_current_episode()
-            agent.reset_vectorized([current_episode])
+            agent.reset_vectorized()
+            self._set_planner_vis_dir(agent, current_episode)
 
             current_episode_key = (
                 f"{current_episode.scene_id.split('/')[-1].split('.')[0]}_"
@@ -282,10 +295,14 @@ class OVMMEvaluator(PPOTrainer):
             pbar.update(1)
 
         self._env.close()
+
         aggregated_metrics = self._aggregate_metrics(episode_metrics)
         self._write_results(episode_metrics, aggregated_metrics)
 
-        return aggregated_metrics
+        average_metrics = self._summarize_metrics(episode_metrics)
+        self._print_summary(average_metrics)
+
+        return average_metrics
 
     def remote_evaluate(
         self, agent, num_episodes: Optional[int] = None
@@ -358,7 +375,8 @@ class OVMMEvaluator(PPOTrainer):
             current_episode = grpc_loads(
                 stub.get_current_episode(evaluation_pb2.Package()).SerializedEntity
             )
-            agent.reset_vectorized([current_episode])
+            agent.reset_vectorized()
+            self._set_planner_vis_dir(agent, current_episode)
 
             current_episode_key = (
                 f"{current_episode.scene_id.split('/')[-1].split('.')[0]}_"
@@ -412,7 +430,10 @@ class OVMMEvaluator(PPOTrainer):
         aggregated_metrics = self._aggregate_metrics(episode_metrics)
         self._write_results(episode_metrics, aggregated_metrics)
 
-        return aggregated_metrics
+        average_metrics = self._summarize_metrics(episode_metrics)
+        self._print_summary(average_metrics)
+
+        return average_metrics
 
     def evaluate(
         self, agent, num_episodes: Optional[int] = None, evaluation_type: str = "local"
@@ -424,7 +445,6 @@ class OVMMEvaluator(PPOTrainer):
             evaluation should be run.
         :return: dict containing metrics tracked by environment.
         """
-
         if evaluation_type == EvaluationType.LOCAL.value:
             self._env = create_ovmm_env_fn(self.config)
             return self.local_evaluate(agent, num_episodes)
