@@ -31,6 +31,7 @@ class ObjectNavAgent(Agent):
     verbose = False
 
     def __init__(self, config, device_id: int = 0):
+        self.config = config
         self.max_steps = config.AGENT.max_steps
         self.num_environments = config.NUM_ENVIRONMENTS
         self.store_all_categories_in_map = getattr(
