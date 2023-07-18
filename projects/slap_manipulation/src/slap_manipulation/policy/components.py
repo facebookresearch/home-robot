@@ -36,6 +36,7 @@ from torch_scatter import scatter_max
 # https://github.com/pyg-team/pytorch_geometric/blob/master/examples/point_transformer_segmentation.py
 
 
+# License: https://github.com/pyg-team/pytorch_geometric/blob/master/LICENSE
 class TransformerBlock(torch.nn.Module):
     def __init__(self, in_channels, out_channels):
         super().__init__()
@@ -58,6 +59,7 @@ class TransformerBlock(torch.nn.Module):
         return x
 
 
+# License: https://github.com/pyg-team/pytorch_geometric/blob/master/LICENSE
 class TransitionDown(torch.nn.Module):
     """
     Samples the input point cloud by a ratio percentage to reduce
@@ -98,6 +100,7 @@ class TransitionDown(torch.nn.Module):
         return out, sub_pos, sub_batch
 
 
+# License: https://github.com/pyg-team/pytorch_geometric/blob/master/LICENSE
 def MLP(channels, batch_norm=True):
     return Seq(
         *[
@@ -111,6 +114,7 @@ def MLP(channels, batch_norm=True):
     )
 
 
+# License: https://github.com/pyg-team/pytorch_geometric/blob/master/LICENSE
 class TransitionUp(torch.nn.Module):
     """
     Reduce features dimensionnality and interpolate back to higher
@@ -224,6 +228,7 @@ class SAModule(torch.nn.Module):
         return x, sampled_pos, sampled_batch
 
 
+# License: https://github.com/pyg-team/pytorch_geometric/blob/master/LICENSE
 class PtnetSAModule(torch.nn.Module):
     def __init__(self, ratio, r, nn):
         super().__init__()
@@ -243,6 +248,7 @@ class PtnetSAModule(torch.nn.Module):
         return x, pos, batch
 
 
+# License: https://github.com/pyg-team/pytorch_geometric/blob/master/LICENSE
 class GlobalSAModule(torch.nn.Module):
     def __init__(self, nn):
         super().__init__()
@@ -374,6 +380,9 @@ class DenseBlock(nn.Module):
 
 # Dependency taken from PerAct/Perceiver Code
 # the one big difference which makes PerceiverIO work for 6DOF manip
+# Perceiver IO implementation adpated for manipulation
+# Source: https://github.com/lucidrains/perceiver-pytorch
+# License: https://github.com/lucidrains/perceiver-pytorch/blob/main/LICENSE
 class Attention(nn.Module):  # is all you need. Living up to its name.
     def __init__(self, query_dim, context_dim=None, heads=8, dim_head=64, dropout=0.0):
         super().__init__()

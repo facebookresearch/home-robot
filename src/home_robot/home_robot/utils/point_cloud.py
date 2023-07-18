@@ -31,10 +31,21 @@ def pcd_to_numpy(pcd: o3d.geometry.PointCloud) -> (np.ndarray, np.ndarray):
 
 
 def show_point_cloud(
-    xyz: np.ndarray, rgb: np.ndarray = None, orig=None, R=None, save=None, grasps=None
+    xyz: np.ndarray,
+    rgb: np.ndarray = None,
+    orig: np.ndarray = None,
+    R: np.ndarray = None,
+    save: str = None,
+    grasps: list = None,
+    size: float = 0.1,
 ):
+    """Shows the point-cloud described by np.ndarrays xyz & rgb.
+    Optional origin and rotation params are for showing origin coordinate.
+    Optional grasps param for showing a list of 6D poses as coordinate frames.
+    size controls scale of coordinate frame's size
+    """
     pcd = numpy_to_pcd(xyz, rgb)
-    show_pcd(pcd, orig, R, save, grasps)
+    show_pcd(pcd, orig=orig, R=R, save=save, grasps=grasps, size=size)
 
 
 def show_pcd(
@@ -43,8 +54,15 @@ def show_pcd(
     R: np.ndarray = None,
     save: str = None,
     grasps: list = None,
+    size: float = 0.1,
 ):
-    geoms = create_visualization_geometries(pcd=pcd, orig=orig, R=R, grasps=grasps)
+    """Shows the point-cloud described by open3d.geometry.PointCloud pcd
+    Optional origin and rotation params are for showing origin coordinate.
+    Optional grasps param for showing a list of 6D poses as coordinate frames.
+    """
+    geoms = create_visualization_geometries(
+        pcd=pcd, orig=orig, R=R, grasps=grasps, size=size
+    )
     o3d.visualization.draw_geometries(geoms)
 
     if save is not None:

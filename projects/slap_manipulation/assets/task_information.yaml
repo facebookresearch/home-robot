@@ -1,0 +1,9 @@
+# Mapping from name of the task to number of actions in its trajectory
+# calculated from demonstration data
+pour-into-bowl: 4
+sweep: 3
+handover-to-person: 3
+take-bottle: 4
+open-object-drawer: 3
+open-object-top-drawer: 3
+close-object-drawer: 3
