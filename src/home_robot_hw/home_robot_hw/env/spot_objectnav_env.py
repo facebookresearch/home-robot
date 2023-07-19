@@ -97,7 +97,7 @@ class SpotObjectNavEnv(SpotEnv):
         prev_obs: Optional[Observations] = None,
     ):
         if self.position_control:
-            self.env.act_point(action,blocking=True)
+            self.env.act_point(action,blocking=False)
         else:
             self.env.step(base_action=action)
             if action == DiscreteNavigationAction.STOP:

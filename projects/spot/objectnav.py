@@ -245,14 +245,22 @@ def main(spot):
 
         action, info = agent.act(obs)
         print("SHORT_TERM:", info['short_term_goal'])
-        stg = info['short_term_goal']
-        dist = np.linalg.norm(stg[:2])
-        angle = -stg[2]*np.pi/180
-        pos = np.array([np.cos(angle),np.sin(angle)])*dist*0.05
+        x,y = info['short_term_goal']
+        x=x-240
+        y=y-240
+        import math
+        angle_st_goal = math.atan2(x, y)
+        dist = np.linalg.norm((x,y))*0.05
+        xg = dist*np.cos(angle_st_goal + env.start_compass) + env.start_gps[0]
+        yg = dist*np.sin(angle_st_goal + env.start_compass) + env.start_gps[1]
+        # 
+        # dist = np.linalg.norm(stg[:2])
+        # angle = -stg[2]*np.pi/180
+        # pos = np.array([np.cos(angle),np.sin(angle)])*dist*0.05
         # pos = np.array(stg[:2])*0.05
         # pos = np.array((stg[1],stg[0]))*0.05
         
-        action = [*pos,angle]
+        action = [xg,yg,angle_st_goal+env.start_compass]
         print("ObjectNavAgent point action", action)
         # print("ObjectNavAgent action", action)
 
@@ -286,7 +294,9 @@ def main(spot):
         elif action == DiscreteNavigationAction.STOP:
             action = [0, 0]
             break
-        breakpoint()
+        
+        # breakpoint()
+        env.env.get_observations()['position']
         env.apply_action(action)
         
 
