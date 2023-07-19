@@ -284,7 +284,7 @@ def main(input_trajectory_dir: str, output_visualization_dir: str, legend_path: 
         sem_gpu_id=0,
     )
     observations = [
-        segmentation.predict(obs, depth_threshold=None) for obs in observations
+        segmentation.predict(obs, depth_threshold=0.5) for obs in observations
     ]
     for obs in observations:
         obs.semantic[obs.semantic == 0] = len(categories) - 1

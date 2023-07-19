@@ -365,7 +365,7 @@ def main(spot):
         obs = env.get_observation()
 
         # Segment the image
-        obs = segmentation.predict(obs, depth_threshold=None)
+        obs = segmentation.predict(obs, depth_threshold=0.5)
         obs.semantic[obs.semantic == 0] = len(categories) - 1
         obs.semantic = obs.semantic - 1
 
