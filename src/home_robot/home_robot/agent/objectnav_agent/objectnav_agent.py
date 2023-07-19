@@ -232,7 +232,7 @@ class ObjectNavAgent(Agent):
 
         goal_map = goal_map.squeeze(1).cpu().numpy()
         found_goal = found_goal.squeeze(1).cpu()
-
+        
         for e in range(self.num_environments):
             self.semantic_map.update_frontier_map(e, frontier_map[e][0].cpu().numpy())
             if found_goal[e] or self.timesteps_before_goal_update[e] == 0:
@@ -348,6 +348,11 @@ class ObjectNavAgent(Agent):
             nav_to_recep=self.get_nav_to_recep(),
         )
 
+        # breakpoint()
+        planner_inputs[0]["goal_map"] = np.zeros((480, 480))
+        planner_inputs[0]["goal_map"][240,300] = 1
+        # planner_inputs[0].goal_map
+
         # t2 = time.time()
         # print(f"[Agent] Semantic mapping and policy time: {t2 - t1:.2f}")
 
@@ -375,7 +380,7 @@ class ObjectNavAgent(Agent):
             )
             if self.timesteps_before_goal_update[0] == self.goal_update_steps - 1:
                 self.closest_goal_map[0] = closest_goal_map
-
+        # breakpoint()
         # t3 = time.time()
         # print(f"[Agent] Planning time: {t3 - t2:.2f}")
         # print(f"[Agent] Total time: {t3 - t0:.2f}")
@@ -390,7 +395,7 @@ class ObjectNavAgent(Agent):
             vis_inputs[0]["dilated_obstacle_map"] = dilated_obstacle_map
             vis_inputs[0]["semantic_map_config"] = self.config.AGENT.SEMANTIC_MAP
             vis_inputs[0]["instance_memory"] = self.instance_memory
-        info = {**planner_inputs[0], **vis_inputs[0]}
+        info = {**planner_inputs[0], **vis_inputs[0],'short_term_goal': short_term_goal}
         return action, info
 
     def _preprocess_obs(self, obs: Observations):

@@ -22,7 +22,7 @@ ENVIRONMENT:
 
 AGENT:
   max_steps: 500          # maximum number of steps before stopping an episode
-  panorama_start: 1       # 1: turn around 360 degrees when starting an episode, 0: don't
+  panorama_start: 0       # 1: turn around 360 degrees when starting an episode, 0: don't
   exploration_strategy: seen_frontier  # exploration strategy ("seen_frontier", "been_close_to_frontier")
   radius: 0.17            # robot radius (in meters)
   store_all_categories: True  # whether to store all semantic categories in the map or just task-relevant ones
@@ -35,9 +35,9 @@ AGENT:
     vision_range: 100        # diameter of local map region visible by the agent (in cells)
     global_downscaling: 2    # ratio of global over local map
     du_scale: 4              # frame downscaling before projecting to point cloud
-    cat_pred_threshold: 15.0 # number of depth points to be in bin to classify it as a certain semantic category
+    cat_pred_threshold: 5.0 # number of depth points to be in bin to classify it as a certain semantic category
     exp_pred_threshold: 1.0  # number of depth points to be in bin to consider it as explored
-    map_pred_threshold: 15.0 # number of depth points to be in bin to consider it as obstacle
+    map_pred_threshold: 5.0 # number of depth points to be in bin to consider it as obstacle
     explored_radius: 150     # radius (in centimeters) of visually explored region
     been_close_to_radius: 200  # radius (in centimeters) of been close to region
     must_explore_close: False
@@ -58,7 +58,7 @@ AGENT:
     use_dilation_for_stg: False      # use dilated goals for estimating short-term goals - or just reaching
     map_downsample_factor: 1            # optional downsampling of traversible and goal map before fmm distance call (1 for no downsampling, 2 for halving resolution)
     map_update_frequency: 1            # compute fmm distance map every n steps 
-    step_size: 5                    # maximum distance of the short-term goal selected by the planner
+    step_size: 15                    # maximum distance of the short-term goal selected by the planner
     discrete_actions: True         # discrete motion planner output space or not
     verbose: False
 

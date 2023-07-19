@@ -360,7 +360,8 @@ class DiscretePlanner:
         )
 
         self.last_action = action
-        return action, closest_goal_map, short_term_goal, dilated_obstacles
+        # return action, closest_goal_map, short_term_goal, dilated_obstacles
+        return action, closest_goal_map, (relative_stg_x, relative_stg_y,relative_angle_to_stg), dilated_obstacles
 
     def get_action(
         self,

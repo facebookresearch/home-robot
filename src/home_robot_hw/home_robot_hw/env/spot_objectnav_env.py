@@ -72,10 +72,11 @@ CATEGORIES_COLOR_PALETTE = [
 
 
 class SpotObjectNavEnv(SpotEnv):
-    def __init__(self, spot):
+    def __init__(self, spot,position_control=False):
         super().__init__(spot)
         self.goal_options = CATEGORIES
         self.color_palette = CATEGORIES_COLOR_PALETTE
+        self.position_control = position_control
         categories = [
             "other",
             *self.goal_options,
@@ -95,9 +96,12 @@ class SpotObjectNavEnv(SpotEnv):
         info: Optional[Dict[str, Any]] = None,
         prev_obs: Optional[Observations] = None,
     ):
-        self.env.step(base_action=action)
-        if action == DiscreteNavigationAction.STOP:
-            self._episode_over = True
+        if self.position_control:
+            self.env.act_point(action,blocking=True)
+        else:
+            self.env.step(base_action=action)
+            if action == DiscreteNavigationAction.STOP:
+                self._episode_over = True
 
     def reset(self):
         super().reset()

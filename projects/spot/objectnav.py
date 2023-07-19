@@ -225,9 +225,7 @@ def main(spot):
     legend = cv2.imread(legend_path)
     vis_images = []
 
-    env = SpotObjectNavEnv(spot)
-    env.env.power_robot()
-    env.env.initialize_arm()
+    env = SpotObjectNavEnv(spot,position_control=True)
     env.reset()
     env.set_goal("chair")
 
@@ -246,7 +244,17 @@ def main(spot):
             pickle.dump(obs, f)
 
         action, info = agent.act(obs)
-        print("ObjectNavAgent action", action)
+        print("SHORT_TERM:", info['short_term_goal'])
+        stg = info['short_term_goal']
+        dist = np.linalg.norm(stg[:2])
+        angle = -stg[2]*np.pi/180
+        pos = np.array([np.cos(angle),np.sin(angle)])*dist*0.05
+        # pos = np.array(stg[:2])*0.05
+        # pos = np.array((stg[1],stg[0]))*0.05
+        
+        action = [*pos,angle]
+        print("ObjectNavAgent point action", action)
+        # print("ObjectNavAgent action", action)
 
         # Visualize map
         depth_frame = obs.depth
@@ -264,7 +272,10 @@ def main(spot):
         )
         vis_images.append(vis_image)
         cv2.imshow("vis", vis_image[:, :, ::-1])
-        cv2.waitKey(50)
+        key = cv2.waitKey(50)
+        if key == ord('z'):
+            break
+        
 
         if action == DiscreteNavigationAction.MOVE_FORWARD:
             action = [1, 0]
@@ -275,8 +286,9 @@ def main(spot):
         elif action == DiscreteNavigationAction.STOP:
             action = [0, 0]
             break
-
+        breakpoint()
         env.apply_action(action)
+        
 
     create_video(
         [v[:, :, ::-1] for v in vis_images],
