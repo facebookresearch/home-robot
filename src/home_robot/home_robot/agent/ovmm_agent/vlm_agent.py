@@ -17,7 +17,7 @@ import warnings
 import json
 import sys
 sys.path.append(
-    "src/home_robot/home_robot/perception/detection/minigpt4/MiniGPT4/")
+    "src/home_robot/home_robot/perception/detection/minigpt4/MiniGPT-4/")
 
 
 class Skill(IntEnum):
@@ -42,7 +42,7 @@ class VLMAgent(OpenVocabManipAgent):
             "vlm agent is currently under development and not fully supported yet."
         )
         super().__init__(config, device_id=device_id)
-        from home_robot.perception.detection.minigpt4.MiniGPT4.example import Predictor
+        from minigpt4_example import Predictor
         self.vlm = Predictor()
 
     def act(self, obs: Observations) -> Tuple[DiscreteNavigationAction, Dict[str, Any]]:

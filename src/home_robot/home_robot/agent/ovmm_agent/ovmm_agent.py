@@ -71,7 +71,8 @@ class OpenVocabManipAgent(ObjectNavAgent):
         self.skip_skills = config.AGENT.skip_skills
         self.max_pick_attempts = 10
         if config.GROUND_TRUTH_SEMANTICS == 0:
-            self.semantic_sensor = OvmmPerception(config, device_id, self.verbose)
+            self.semantic_sensor = OvmmPerception(
+                config, device_id, self.verbose)
             self.obj_name_to_id, self.rec_name_to_id = read_category_map_file(
                 config.ENVIRONMENT.category_map_file
             )
@@ -150,7 +151,8 @@ class OpenVocabManipAgent(ObjectNavAgent):
 
         if episodes is None:
             now = datetime.now()
-            self.planner.set_vis_dir("real_world", now.strftime("%Y_%m_%d_%H_%M_%S"))
+            self.planner.set_vis_dir(
+                "real_world", now.strftime("%Y_%m_%d_%H_%M_%S"))
         else:
             self.planner.set_vis_dir(
                 episodes[0].scene_id.split("/")[-1].split(".")[0],
@@ -248,7 +250,8 @@ class OpenVocabManipAgent(ObjectNavAgent):
                     self.config.AGENT.SKILLS.NAV_TO_OBJ.type == "rl"
                     and not self.store_all_categories_in_map
                 ):
-                    self._set_semantic_vocab(SemanticVocab.FULL, force_set=False)
+                    self._set_semantic_vocab(
+                        SemanticVocab.FULL, force_set=False)
         elif next_skill == Skill.GAZE_AT_REC:
             if not self.store_all_categories_in_map:
                 self._set_semantic_vocab(SemanticVocab.SIMPLE, force_set=False)
@@ -278,17 +281,21 @@ class OpenVocabManipAgent(ObjectNavAgent):
         simple_vocab = build_vocab_from_category_map(
             obj_id_to_name, simple_rec_id_to_name
         )
-        self.semantic_sensor.update_vocubulary_list(simple_vocab, SemanticVocab.SIMPLE)
+        self.semantic_sensor.update_vocubulary_list(
+            simple_vocab, SemanticVocab.SIMPLE)
 
         # Full vocabulary contains the object and all receptacles
-        full_vocab = build_vocab_from_category_map(obj_id_to_name, self.rec_name_to_id)
-        self.semantic_sensor.update_vocubulary_list(full_vocab, SemanticVocab.FULL)
+        full_vocab = build_vocab_from_category_map(
+            obj_id_to_name, self.rec_name_to_id)
+        self.semantic_sensor.update_vocubulary_list(
+            full_vocab, SemanticVocab.FULL)
 
         # All vocabulary contains all objects and all receptacles
         all_vocab = build_vocab_from_category_map(
             self.obj_name_to_id, self.rec_name_to_id
         )
-        self.semantic_sensor.update_vocubulary_list(all_vocab, SemanticVocab.ALL)
+        self.semantic_sensor.update_vocubulary_list(
+            all_vocab, SemanticVocab.ALL)
 
     def _set_semantic_vocab(self, vocab_id: SemanticVocab, force_set: bool):
         """
@@ -504,7 +511,8 @@ class OpenVocabManipAgent(ObjectNavAgent):
         elif place_type == "rl":
             action, info = self._rl_place(obs, info)
         else:
-            raise ValueError(f"Got unexpected value for PLACE.type: {place_type}")
+            raise ValueError(
+                f"Got unexpected value for PLACE.type: {place_type}")
         new_state = None
         if action == DiscreteNavigationAction.STOP:
             action = None
