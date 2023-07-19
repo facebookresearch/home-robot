@@ -79,7 +79,10 @@ class ObsPreprocessor:
         self.step = 0
 
     def preprocess(
-        self, obs: Observations, last_pose: Optional[ndarray] = None
+        self,
+        obs: Observations,
+        last_pose: Optional[ndarray] = None,
+        instance_memory=None,
     ) -> Tuple[Tensor, Optional[Tensor], ndarray, ndarray]:
         """
         Preprocess observations of a single timestep batched across
@@ -109,16 +112,27 @@ class ObsPreprocessor:
             self.goal_mask, _ = self.instance_seg.get_goal_mask(img_goal)
 
         pose_delta, self.last_pose = self._preprocess_pose_and_delta(obs)
-        obs_preprocessed, matches, confidence = self._preprocess_frame(obs)
+        obs_preprocessed, matches, confidence = self._preprocess_frame(
+            obs, instance_memory
+        )
 
         camera_pose = obs.camera_pose
         if camera_pose is not None:
             camera_pose = torch.tensor(np.asarray(camera_pose)).unsqueeze(0)
 
         self.step += 1
-        return obs_preprocessed, pose_delta, camera_pose, matches, confidence
+        return (
+            obs_preprocessed,
+            self.goal_image,
+            pose_delta,
+            camera_pose,
+            matches,
+            confidence,
+        )
 
-    def _preprocess_frame(self, obs: Observations) -> Tuple[Tensor, ndarray, ndarray]:
+    def _preprocess_frame(
+        self, obs: Observations, instance_memory
+    ) -> Tuple[Tensor, ndarray, ndarray]:
         """Preprocess frame information in the observation."""
 
         def downscale(rgb: ndarray, depth: ndarray) -> Tuple[ndarray, ndarray]:
@@ -164,25 +178,44 @@ class ObsPreprocessor:
 
             return kp_loc
 
-        # depth = np.expand_dims(obs.depth, axis=2) * 100.0
-        # rgb, depth = downscale(obs.rgb, depth)
+        depth = np.expand_dims(obs.depth, axis=2) * 100.0
+        rgb, depth = downscale(obs.rgb, depth)
 
-        rgb = torch.from_numpy(obs.rgb).to(self.device)
-        depth = torch.from_numpy(obs.depth).unsqueeze(-1).to(self.device) * 100.0
+        # rgb = torch.from_numpy(obs.rgb).to(self.device)
+        # depth = torch.from_numpy(obs.depth).unsqueeze(-1).to(self.device) * 100.0
 
-        current_task = obs.task_observations["tasks"][self.current_task_idx]
-        current_goal_semantic_id = current_task["semantic_id"]
+        (goal_keypoints, rgb_keypoints, matches, confidence) = self.matching(
+            obs.rgb,
+            goal_image=self.goal_image,
+            goal_image_keypoints=self.goal_image_keypoints,
+            step=self.step,
+        )
 
-        if self.store_all_categories_in_map:
-            semantic = obs.semantic
-        else:
-            semantic = np.full_like(obs.semantic, 4)
-            semantic[
-                obs.semantic == current_goal_semantic_id
-            ] = current_goal_semantic_id
+        kp_loc = preprocess_keypoint_localization(
+            obs.rgb, goal_keypoints, rgb_keypoints, matches, confidence
+        )
 
-        semantic = self.one_hot_encoding[torch.from_numpy(semantic).to(self.device)]
-        obs_preprocessed = torch.cat([rgb, depth, semantic], dim=-1)
+        # if self.store_all_categories_in_map:
+        semantic = obs.semantic
+        # else:
+        #     semantic = np.full_like(obs.semantic, 4)
+        #     semantic[
+        #         obs.semantic == current_goal_semantic_id
+        #     ] = current_goal_semantic_id
+        semantic = (
+            self.one_hot_encoding[torch.from_numpy(semantic)][..., :-1].cpu().numpy()
+        )
+
+        obs_preprocessed = np.concatenate([rgb, depth, semantic, kp_loc], axis=2)
+        # obs_preprocessed = obs_preprocessed.transpose(2, 0, 1)
+        obs_preprocessed = torch.from_numpy(obs_preprocessed)
+        obs_preprocessed = obs_preprocessed.to(device=self.device)
+        # obs_preprocessed = obs_preprocessed.unsqueeze(0)
+
+        # current_task = obs.task_observations["tasks"][self.current_task_idx]
+        # current_goal_semantic_id = current_task["semantic_id"]
+
+        # obs_preprocessed = torch.cat([rgb, depth, semantic], dim=-1)
 
         if self.record_instance_ids:
             instances = obs.task_observations["instance_map"]
@@ -202,21 +235,23 @@ class ObsPreprocessor:
 
         obs_preprocessed = obs_preprocessed.unsqueeze(0).permute(0, 3, 1, 2)
 
-        (goal_keypoints, rgb_keypoints, matches, confidence) = self.matching(
-            obs.rgb,
-            goal_image=self.goal_image,
-            goal_image_keypoints=self.goal_image_keypoints,
-            step=self.step,
-        )
-        # kp_loc = preprocess_keypoint_localization(
-        #     obs.rgb, goal_keypoints, rgb_keypoints, matches, confidence
-        # )
+        # if self.record_instance_ids:
+        #     instances = instance_memory.instance_views[0]
+        #     for (inst_key,inst) in instances.items():
+        #         inst_views = inst.instance_views
+        #         for view_idx,inst_view in enumerate(inst_views):
+        #             if inst_view.cropped_image.shape[0] * inst_view.cropped_image.shape[1] < 2500 or (np.array(inst_view.cropped_image.shape[0:2]) < 15).any():
+        #                 continue
+        #             print(inst_key, view_idx, inst_view.cropped_image.shape)
+        #             (_, _, matches_, confidence_) = self.matching(
+        #                 inst_view.cropped_image,
+        #                 goal_image=self.goal_image,
+        #                 goal_image_keypoints=self.goal_image_keypoints,
+        #                 step=1000*self.step+10*inst_key+view_idx,
+        #             )
+        #             print(matches_, confidence_)
+        #             print('------------------')
 
-        # obs_preprocessed = np.concatenate([rgb, depth, kp_loc], axis=2)
-        # obs_preprocessed = obs_preprocessed.transpose(2, 0, 1)
-        # obs_preprocessed = torch.from_numpy(obs_preprocessed)
-        # obs_preprocessed = obs_preprocessed.to(device=self.device)
-        # obs_preprocessed = obs_preprocessed.unsqueeze(0)
         return obs_preprocessed, matches, confidence
 
     def _preprocess_pose_and_delta(self, obs: Observations) -> Tuple[Tensor, ndarray]:

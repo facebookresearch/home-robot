@@ -57,6 +57,7 @@ class GoatAgent(Agent):
                 self.num_environments,
                 config.AGENT.SEMANTIC_MAP.du_scale,
                 debug_visualize=config.PRINT_IMAGES,
+                config=config,
             )
 
         self._module = GoatAgentModule(config, instance_memory=self.instance_memory)
@@ -364,6 +365,8 @@ class GoatAgent(Agent):
         self.reset_vectorized()
         self.planner.reset()
 
+    # def compare_img_goal_with_instances(self, img_goal):
+
     def act(self, obs: Observations) -> Tuple[DiscreteNavigationAction, Dict[str, Any]]:
         """Act end-to-end."""
         current_task = obs.task_observations["tasks"][self.current_task_idx]
@@ -374,12 +377,13 @@ class GoatAgent(Agent):
             self.imagenav_obs_preprocessor.current_task_idx = self.current_task_idx
             (
                 obs_preprocessed,
+                img_goal,
                 pose_delta,
                 camera_pose,
                 matches,
                 confidence,
             ) = self.imagenav_obs_preprocessor.preprocess(
-                obs, last_pose=self.last_poses[0]
+                obs, last_pose=self.last_poses[0], instance_memory=self.instance_memory
             )
             object_goal_category = current_task["semantic_id"]
             object_goal_category = torch.tensor(object_goal_category).unsqueeze(0)
@@ -497,13 +501,13 @@ class GoatAgent(Agent):
         current_task = obs.task_observations["tasks"][self.current_task_idx]
         current_goal_semantic_id = current_task["semantic_id"]
 
-        if self.store_all_categories_in_map:
-            semantic = obs.semantic
-        else:
-            semantic = np.full_like(obs.semantic, 4)
-            semantic[
-                obs.semantic == current_goal_semantic_id
-            ] = current_goal_semantic_id
+        # if self.store_all_categories_in_map:
+        semantic = obs.semantic
+        # else:
+        #     semantic = np.full_like(obs.semantic, 4)
+        #     semantic[
+        #         obs.semantic == current_goal_semantic_id
+        #     ] = current_goal_semantic_id
 
         semantic = self.one_hot_encoding[torch.from_numpy(semantic).to(self.device)]
         obs_preprocessed = torch.cat([rgb, depth, semantic], dim=-1)
