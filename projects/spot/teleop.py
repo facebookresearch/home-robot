@@ -339,7 +339,7 @@ def main(spot):
                 - +Y is leftward
                 - +Z is upward
         """
-        rgb = torch.from_numpy(obs.rgb[:,:,::-1].copy()).to(device)
+        rgb = torch.from_numpy(obs.rgb[:, :, ::-1].copy()).to(device)
         depth = torch.from_numpy(obs.depth).unsqueeze(-1).to(device) * 100.0  # m to cm
         semantic = one_hot_encoding[torch.from_numpy(obs.semantic).to(device)]
         obs_preprocessed = torch.cat([rgb, depth, semantic], dim=-1).unsqueeze(0)
@@ -423,15 +423,17 @@ def main(spot):
         # Take an action
         key = cv2.waitKey(1)
         if key == ord("w"):
+            # forward
             action = [1, 0]
-        # back
         elif key == ord("s"):
+            # back
             action = [-1, 0]
-        # rotate right
         elif key == ord("a"):
+            # left
             action = [0, 1]
-        # rotate left[:,:,::-1]
-            break
+        elif key == ord("d"):
+            # right
+            action = [0, -1]
         else:
             action = [0, 0]
         env.apply_action(action)

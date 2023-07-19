@@ -266,22 +266,6 @@ def main(spot):
         cv2.imshow("vis", vis_image[:, :, ::-1])
         cv2.waitKey(50)
 
-        # Take an action
-        # key = cv2.waitKey(1)
-        # if key == ord("w"):
-        #     action = [1, 0]
-        # # back
-        # elif key == ord("s"):
-        #     action = [-1, 0]
-        # # rotate right
-        # elif key == ord("a"):
-        #     action = [0, 1]
-        # # rotate left
-        # elif key == ord("d"):
-        #     action = [0, -1]
-        # else:
-        #     action = [0, 0]
-
         if action == DiscreteNavigationAction.MOVE_FORWARD:
             action = [1, 0]
         elif action == DiscreteNavigationAction.TURN_RIGHT:

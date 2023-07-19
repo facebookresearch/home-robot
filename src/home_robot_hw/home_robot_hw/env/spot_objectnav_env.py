@@ -119,6 +119,12 @@ class SpotObjectNavEnv(SpotEnv):
         obs.semantic[obs.semantic == 0] = self.num_sem_categories
         obs.semantic = obs.semantic - 1
 
+        # Instance mapping
+        obs.task_observations["instance_map"] += 1
+        obs.task_observations["instance_map"] = obs.task_observations[
+            "instance_map"
+        ].astype(int)
+
         # Specify the goal
         obs.task_observations.update(
             {
