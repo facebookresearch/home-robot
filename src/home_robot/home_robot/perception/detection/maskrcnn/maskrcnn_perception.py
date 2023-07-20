@@ -87,6 +87,7 @@ class MaskRCNNPerception(PerceptionModule):
         # depth = obs.depth
         height, width, _ = image.shape
 
+        breakpoint()
         pred = self.model.run_on_images([image])
 
         # if obs.task_observations is None:
