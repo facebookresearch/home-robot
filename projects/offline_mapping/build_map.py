@@ -293,13 +293,13 @@ def main(input_trajectory_dir: str, output_visualization_dir: str, legend_path: 
     observations = [
         segmentation.predict(obs, depth_threshold=None) for obs in observations
     ]
-    # for obs in observations:
-    #     obs.semantic[obs.semantic == 0] = len(categories) - 1
-    #     obs.semantic = obs.semantic - 1
-    #     obs.task_observations["instance_map"] += 1
-    #     obs.task_observations["instance_map"] = obs.task_observations[
-    #         "instance_map"
-    #     ].astype(int)
+    for obs in observations:
+        obs.semantic[obs.semantic == 0] = len(categories) - 1
+        obs.semantic = obs.semantic - 1
+        obs.task_observations["instance_map"] += 1
+        obs.task_observations["instance_map"] = obs.task_observations[
+            "instance_map"
+        ].astype(int)
     print()
     print("home_robot observations:")
     print("------------------------")
