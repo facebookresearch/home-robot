@@ -7,6 +7,7 @@ import cv2
 import numpy as np
 import skimage.morphology
 from PIL import Image
+import time
 
 # TODO Install home_robot, home_robot_sim and remove this
 sys.path.insert(
@@ -178,7 +179,6 @@ def get_semantic_map_vis(
             subgoal_mask = subgoal_mat == 1
             # hack for now
             semantic_categories_map[subgoal_mask] = PI.REST_OF_GOAL
-        
 
     # Draw semantic map
     semantic_map_vis = Image.new("P", semantic_categories_map.shape)
@@ -250,7 +250,12 @@ def main(spot):
     agent.reset()
 
     assert agent.num_sem_categories == env.num_sem_categories
-
+    pan_warmup = True
+    positions = spot.get_arm_joint_positions()
+    new_pos = positions.copy()
+    new_pos[0] = np.pi
+    spot.set_arm_joint_positions(new_pos,travel_time=3)
+    time.sleep(3)
     t = 0
     while not env.episode_over:
         t += 1
@@ -341,9 +346,17 @@ def main(spot):
             action = [0, 0]
             break
         
-        if action is not None:
-            env.apply_action(action)
-        
+        if pan_warmup:
+            positions = spot.get_arm_joint_positions()
+            new_pos = positions.copy()
+            new_pos[0] = -np.pi
+            spot.set_arm_joint_positions(new_pos,travel_time=20)
+            if positions[0] < -2.5:
+                pan_warmup = False
+                env.env.initialize_arm()
+        else:
+            if action is not None:
+                env.apply_action(action)
 
     create_video(
         [v[:, :, ::-1] for v in vis_images],
