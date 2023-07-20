@@ -114,6 +114,7 @@ class MaskRCNNPerception(PerceptionModule):
                 relevant_class_idcs.append(coco_categories_mapping[class_idx])
                 relevant_scores.append(scores[i])
 
+        breakpoint()
         if len(relevant_masks) > 0:
             masks = np.stack(relevant_masks)
             class_idcs = np.stack(relevant_class_idcs)
