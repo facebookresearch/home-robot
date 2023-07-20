@@ -8,10 +8,10 @@
 # https://github.com/facebookresearch/detectron2/blob/master/demo/predictor.py
 
 import argparse
-import time
 from pathlib import Path
 from typing import List, Optional, Tuple
 
+import cv2
 import numpy as np
 import torch
 from detectron2.checkpoint import DetectionCheckpointer
@@ -21,86 +21,26 @@ from detectron2.modeling import build_model
 from detectron2.utils.logger import setup_logger
 from detectron2.utils.visualizer import ColorMode, VisImage, Visualizer
 
+from home_robot.core.abstract_perception import PerceptionModule
+from home_robot.core.interfaces import Observations
+
 from .coco_categories import coco_categories, coco_categories_mapping
 
 
-class COCOMaskRCNN:
-    def __init__(self, sem_pred_prob_thr: float, sem_gpu_id: int, visualize: bool):
-        """
+class MaskRCNNPerception(PerceptionModule):
+    def __init__(
+        self,
+        sem_pred_prob_thr: float = 0.9,
+        sem_gpu_id: int = 0,
+        visualize: bool = True,
+    ):
+        """Load MaskRCNN model trained on COCO categories for inference.
+
         Arguments:
             sem_pred_prob_thr: prediction threshold
             sem_gpu_id: prediction GPU id (-1 for CPU)
             visualize: if True, visualize predictions
         """
-        self.segmentation_model = ImageSegmentation(sem_pred_prob_thr, sem_gpu_id)
-        self.visualize = visualize
-        self.num_sem_categories = len(coco_categories)
-
-    def get_prediction(
-        self, images: np.ndarray, depths: Optional[np.ndarray] = None
-    ) -> Tuple[np.ndarray, np.ndarray]:
-        """
-        Arguments:
-            images: images of shape (batch_size, H, W, 3) (in BGR order)
-            depths: depth frames of shape (batch_size, H, W)
-
-        Returns:
-            one_hot_predictions: one hot segmentation predictions of shape
-             (batch_size, H, W, num_sem_categories)
-            visualizations: prediction visualization images
-             shape (batch_size, H, W, 3) if self.visualize=True, else
-             original images
-        """
-        batch_size, height, width, _ = images.shape
-
-        predictions, visualizations = self.segmentation_model.get_predictions(
-            images, visualize=self.visualize
-        )
-        one_hot_predictions = np.zeros(
-            (batch_size, height, width, self.num_sem_categories)
-        )
-
-        # t0 = time.time()
-
-        for i in range(batch_size):
-            for j, class_idx in enumerate(
-                predictions[i]["instances"].pred_classes.cpu().numpy()
-            ):
-                if class_idx in list(coco_categories_mapping.keys()):
-                    idx = coco_categories_mapping[class_idx]
-                    obj_mask = predictions[i]["instances"].pred_masks[j] * 1.0
-                    obj_mask = obj_mask.cpu().numpy()
-
-                    if depths is not None:
-                        depth = depths[i]
-                        md = np.median(depth[obj_mask == 1])
-                        if md == 0:
-                            filter_mask = np.ones_like(obj_mask, dtype=bool)
-                        else:
-                            # Restrict objects to 1m depth
-                            filter_mask = (depth >= md + 50) | (depth <= md - 50)
-                        # print(
-                        #     f"Median object depth: {md.item()}, filtering out "
-                        #     f"{np.count_nonzero(filter_mask)} pixels"
-                        # )
-                        obj_mask[filter_mask] = 0.0
-
-                    one_hot_predictions[i, :, :, idx] += obj_mask
-
-        # t1 = time.time()
-        # print(f"[Obs preprocessing] Segmentation depth filtering time: {t1 - t0:.2f}")
-
-        if self.visualize:
-            visualizations = np.stack([vis.get_image() for vis in visualizations])
-        else:
-            # Convert BGR to RGB for visualization
-            visualizations = images[:, :, :, ::-1]
-
-        return one_hot_predictions, visualizations
-
-
-class ImageSegmentation:
-    def __init__(self, sem_pred_prob_thr, sem_gpu_id):
         config_path = Path(__file__).resolve().parent / "mask_rcnn_R_50_FPN_3x.yaml"
         string_args = f"""
             --config-file {config_path}
@@ -122,10 +62,141 @@ class ImageSegmentation:
         logger.info("Arguments: " + str(args))
 
         cfg = setup_cfg(args)
-        self.demo = VisualizationDemo(cfg)
+        self.model = VisualizationDemo(cfg)
+        self.visualize = visualize
+        self.num_sem_categories = len(coco_categories)
 
-    def get_predictions(self, images, visualize=False):
-        return self.demo.run_on_images(images, visualize=visualize)
+    def predict(
+        self,
+        obs: Observations,
+        depth_threshold: Optional[float] = None,
+    ) -> Observations:
+        """
+        Arguments:
+            obs.rgb: image of shape (H, W, 3) (in RGB order - Detic expects BGR)
+            obs.depth: depth frame of shape (H, W), used for depth filtering
+            depth_threshold: if specified, the depth threshold per instance
+
+        Returns:
+            obs.semantic: segmentation predictions of shape (H, W) with
+             indices in [0, num_sem_categories - 1]
+            obs.task_observations["semantic_frame"]: segmentation visualization
+             image of shape (H, W, 3)
+        """
+        image = cv2.cvtColor(obs.rgb, cv2.COLOR_RGB2BGR)
+        # depth = obs.depth
+        height, width, _ = image.shape
+
+        pred = self.model.run_on_images([image])
+
+        # if obs.task_observations is None:
+        #     obs.task_observations = {}
+        #
+        # if draw_instance_predictions:
+        #     visualizer = Visualizer(
+        #         image[:, :, ::-1], self.metadata, instance_mode=self.instance_mode
+        #     )
+        #     visualization = visualizer.draw_instance_predictions(
+        #         predictions=pred["instances"].to(self.cpu_device)
+        #     ).get_image()
+        #     obs.task_observations["semantic_frame"] = visualization
+        # else:
+        #     obs.task_observations["semantic_frame"] = None
+        #
+        # # Sort instances by mask size
+        # masks = pred["instances"].pred_masks.cpu().numpy()
+        # class_idcs = pred["instances"].pred_classes.cpu().numpy()
+        # scores = pred["instances"].scores.cpu().numpy()
+        #
+        # if depth_threshold is not None and depth is not None:
+        #     masks = np.array(
+        #         [filter_depth(mask, depth, depth_threshold) for mask in masks]
+        #     )
+        #
+        # semantic_map, instance_map = overlay_masks(masks, class_idcs, (height, width))
+        #
+        # obs.semantic = semantic_map.astype(int)
+        # obs.task_observations["instance_map"] = instance_map
+        # obs.task_observations["instance_classes"] = class_idcs
+        # obs.task_observations["instance_scores"] = scores
+
+        breakpoint()
+        return pred
+
+
+# class COCOMaskRCNN:
+#     def __init__(self, sem_pred_prob_thr: float, sem_gpu_id: int, visualize: bool):
+#         """
+#         Arguments:
+#             sem_pred_prob_thr: prediction threshold
+#             sem_gpu_id: prediction GPU id (-1 for CPU)
+#             visualize: if True, visualize predictions
+#         """
+#         self.segmentation_model = (sem_pred_prob_thr, sem_gpu_id)
+#         self.visualize = visualize
+#         self.num_sem_categories = len(coco_categories)
+#
+#     def get_prediction(
+#         self, images: np.ndarray, depths: Optional[np.ndarray] = None
+#     ) -> Tuple[np.ndarray, np.ndarray]:
+#         """
+#         Arguments:
+#             images: images of shape (batch_size, H, W, 3) (in BGR order)
+#             depths: depth frames of shape (batch_size, H, W)
+#
+#         Returns:
+#             one_hot_predictions: one hot segmentation predictions of shape
+#              (batch_size, H, W, num_sem_categories)
+#             visualizations: prediction visualization images
+#              shape (batch_size, H, W, 3) if self.visualize=True, else
+#              original images
+#         """
+#         batch_size, height, width, _ = images.shape
+#
+#         predictions, visualizations = self.segmentation_model.get_predictions(
+#             images, visualize=self.visualize
+#         )
+#         one_hot_predictions = np.zeros(
+#             (batch_size, height, width, self.num_sem_categories)
+#         )
+#
+#         # t0 = time.time()
+#
+#         for i in range(batch_size):
+#             for j, class_idx in enumerate(
+#                 predictions[i]["instances"].pred_classes.cpu().numpy()
+#             ):
+#                 if class_idx in list(coco_categories_mapping.keys()):
+#                     idx = coco_categories_mapping[class_idx]
+#                     obj_mask = predictions[i]["instances"].pred_masks[j] * 1.0
+#                     obj_mask = obj_mask.cpu().numpy()
+#
+#                     if depths is not None:
+#                         depth = depths[i]
+#                         md = np.median(depth[obj_mask == 1])
+#                         if md == 0:
+#                             filter_mask = np.ones_like(obj_mask, dtype=bool)
+#                         else:
+#                             # Restrict objects to 1m depth
+#                             filter_mask = (depth >= md + 50) | (depth <= md - 50)
+#                         # print(
+#                         #     f"Median object depth: {md.item()}, filtering out "
+#                         #     f"{np.count_nonzero(filter_mask)} pixels"
+#                         # )
+#                         obj_mask[filter_mask] = 0.0
+#
+#                     one_hot_predictions[i, :, :, idx] += obj_mask
+#
+#         # t1 = time.time()
+#         # print(f"[Obs preprocessing] Segmentation depth filtering time: {t1 - t0:.2f}")
+#
+#         if self.visualize:
+#             visualizations = np.stack([vis.get_image() for vis in visualizations])
+#         else:
+#             # Convert BGR to RGB for visualization
+#             visualizations = images[:, :, :, ::-1]
+#
+#         return one_hot_predictions, visualizations
 
 
 def setup_cfg(args):
@@ -200,17 +271,12 @@ class VisualizationDemo:
             predictions: a list of predictions for all images
             visualizations: a list of prediction visualizations for all images
         """
-        # t0 = time.time()
-
         predictions = self.predictor(images)
         batch_size = len(predictions)
         visualizations = []
 
         # Convert BGR to RGB for visualization
         images = images[:, :, :, ::-1]
-
-        # t1 = time.time()
-        # print(f"[Obs preprocessing] Segmentation prediction time: {t1 - t0:.2f}")
 
         if visualize:
             for i in range(batch_size):
@@ -235,9 +301,6 @@ class VisualizationDemo:
                             predictions=instances
                         )
                 visualizations.append(vis)
-
-        # t2 = time.time()
-        # print(f"[Obs preprocessing] Segmentation visualization time: {t2 - t1:.2f}")
 
         return predictions, visualizations
 
