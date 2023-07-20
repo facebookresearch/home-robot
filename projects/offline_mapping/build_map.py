@@ -293,6 +293,7 @@ def main(input_trajectory_dir: str, output_visualization_dir: str, legend_path: 
     observations = [
         segmentation.predict(obs, depth_threshold=None) for obs in observations
     ]
+    breakpoint()
     for obs in observations:
         obs.semantic[obs.semantic == 0] = len(categories) - 1
         obs.semantic = obs.semantic - 1
