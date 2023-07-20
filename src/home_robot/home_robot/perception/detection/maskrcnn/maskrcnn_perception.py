@@ -111,7 +111,7 @@ class MaskRCNNPerception(PerceptionModule):
         for i, class_idx in enumerate(class_idcs):
             if class_idx in coco_categories_mapping:
                 relevant_masks.append(masks[i])
-                relevant_class_idcs.append(coco_categories_mapping[class_idx])
+                relevant_class_idcs.append(coco_categories_mapping[class_idx] + 1)
                 relevant_scores.append(scores[i])
 
         if len(relevant_masks) > 0:
@@ -130,7 +130,6 @@ class MaskRCNNPerception(PerceptionModule):
         obs.task_observations["instance_classes"] = class_idcs
         obs.task_observations["instance_scores"] = scores
 
-        breakpoint()
         return obs
 
 
