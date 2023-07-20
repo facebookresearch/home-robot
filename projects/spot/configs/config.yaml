@@ -58,7 +58,7 @@ AGENT:
     use_dilation_for_stg: False      # use dilated goals for estimating short-term goals - or just reaching
     map_downsample_factor: 1            # optional downsampling of traversible and goal map before fmm distance call (1 for no downsampling, 2 for halving resolution)
     map_update_frequency: 1            # compute fmm distance map every n steps 
-    step_size: 30                    # maximum distance of the short-term goal selected by the planner
+    step_size: 30               # maximum distance of the short-term goal selected by the planner
     discrete_actions: True         # discrete motion planner output space or not
     verbose: False
 

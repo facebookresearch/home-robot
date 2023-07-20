@@ -350,7 +350,7 @@ class ObjectNavAgent(Agent):
 
         # breakpoint()
         # planner_inputs[0]["goal_map"] = np.zeros((480, 480))
-        # planner_inputs[0]["goal_map"][240,200] = 1
+        # planner_inputs[0]["goal_map"][200,240] = 1
         # planner_inputs[0].goal_map
 
         # t2 = time.time()

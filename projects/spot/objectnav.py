@@ -2,7 +2,7 @@ import pickle
 import sys
 from pathlib import Path
 from typing import List
-
+import math
 import cv2
 import numpy as np
 import skimage.morphology
@@ -40,6 +40,7 @@ class PI:
     REST_OF_GOAL = 5
     BEEN_CLOSE = 6
     SEM_START = 7
+    SUBGOAL = 8
 
 
 def create_video(images, output_file, fps):
@@ -59,6 +60,7 @@ def get_semantic_map_vis(
     color_palette: List[float],
     legend=None,
     visualize_goal=True,
+    subgoal=None,
 ):
     vis_image = np.ones((655, 1820, 3)).astype(np.uint8) * 255
     font = cv2.FONT_HERSHEY_SIMPLEX
@@ -168,6 +170,15 @@ def get_semantic_map_vis(
             ) != 1
             closest_goal_mask = closest_goal_mat == 1
             semantic_categories_map[closest_goal_mask] = PI.CLOSEST_GOAL
+        if subgoal is not None:
+            subgoal_map = np.zeros_like(goal_map)
+            # might need to flip row value
+            subgoal_map[subgoal[0],subgoal[1]] = 1
+            subgoal_mat = (1 - skimage.morphology.binary_dilation(subgoal_map, selem)) != 1
+            subgoal_mask = subgoal_mat == 1
+            # hack for now
+            semantic_categories_map[subgoal_mask] = PI.REST_OF_GOAL
+        
 
     # Draw semantic map
     semantic_map_vis = Image.new("P", semantic_categories_map.shape)
@@ -175,9 +186,14 @@ def get_semantic_map_vis(
     semantic_map_vis.putdata(semantic_categories_map.flatten().astype(np.uint8))
     semantic_map_vis = semantic_map_vis.convert("RGB")
     semantic_map_vis = np.flipud(semantic_map_vis)
-    semantic_map_vis = cv2.resize(
-        semantic_map_vis, (480, 480), interpolation=cv2.INTER_NEAREST
-    )
+    semantic_map_vis = cv2.resize(semantic_map_vis, (480, 480), interpolation=cv2.INTER_NEAREST
+)
+    # from matplotlib import pyplot as plt
+    # breakpoint()
+    # plt.imshow(semantic_map_vis)
+    # plt.imshow(subgoal_map)
+    # plt.show()
+    
     vis_image[50:530, 1325:1805] = semantic_map_vis
 
     # Draw semantic frame
@@ -250,34 +266,47 @@ def main(spot):
         lmb = agent.semantic_map.get_planner_pose_inputs(0)[3:]
         x=x-240 + (lmb[0] - 240)
         y=y-240 + (lmb[2] - 240)
-        import math
+        # angle from the origin to the STG
         angle_st_goal = math.atan2(x, y)
         dist = np.linalg.norm((x,y))*0.05
         xg = dist*np.cos(angle_st_goal + env.start_compass) + env.start_gps[0]
         yg = dist*np.sin(angle_st_goal + env.start_compass) + env.start_gps[1]
+        
+        # compute the angle from the current pose to the destination point
+        # in robot global frame
+        cx,cy,yaw = spot.get_xy_yaw()
+        angle = math.atan2((yg-cy),(xg-cx)) % (2*np.pi)
+        # angle
+        # angle
+        # angle_st_goal + env.start_compass
+        
         # 
         # dist = np.linalg.norm(stg[:2])
         # angle = -stg[2]*np.pi/180
         # pos = np.array([np.cos(angle),np.sin(angle)])*dist*0.05
         # pos = np.array(stg[:2])*0.05
         # pos = np.array((stg[1],stg[0]))*0.05
-        x,y,yaw = spot.get_xy_yaw()
-        relative_angle = angle_st_goal + env.start_compass - yaw
-        relative_angle = pu.normalize_radians(relative_angle)
-        print("Relative Angle: ",relative_angle)
-        if abs(relative_angle) > np.pi/6:
-            # while abs(relative_angle) > np.pi/2:
-            x,y,yaw = spot.get_xy_yaw()
-            relative_angle = angle_st_goal + env.start_compass - yaw
-            relative_angle = pu.normalize_radians(relative_angle)
-            vel = 0.5
-            rot = -vel if relative_angle < 0 else vel
-            spot.set_base_velocity(0,0,rot,1)  
-            print("Angle too steep, rotating by ", rot)  
-        else:
-            action = [xg,yg,angle_st_goal+env.start_compass]
-            print("ObjectNavAgent point action", action)
-            env.apply_action(action)
+
+        # x,y,yaw = spot.get_xy_yaw()
+        # relative_angle = angle_st_goal + env.start_compass - yaw
+        # relative_angle = pu.normalize_radians(relative_angle)
+        # print("Relative Angle: ",relative_angle)
+        # if abs(relative_angle) > np.pi/6:
+        #     # while abs(relative_angle) > np.pi/2:
+        #     x,y,yaw = spot.get_xy_yaw()
+        #     relative_angle = angle_st_goal + env.start_compass - yaw
+        #     relative_angle = pu.normalize_radians(relative_angle)
+        #     vel = 0.5
+        #     rot = -vel if relative_angle < 0 else vel
+        #     spot.set_base_velocity(0,0,rot,1)  
+        #     print("Angle too steep, rotating by ", rot)
+        #     action = None  
+        # else:
+        # action = [xg,yg,angle_st_goal+env.start_compass]
+        action = [xg,yg,angle]
+        print("ObjectNavAgent point action", action)
+        # diff = action - np.array(spot.get_xy_yaw())
+        # diff[2] % 2*np.pi
         # print("ObjectNavAgent action", action)
 
         # Visualize map
@@ -293,14 +322,15 @@ def main(spot):
             depth_frame,
             env.color_palette,
             legend,
+            subgoal = info['short_term_goal']
         )
         vis_images.append(vis_image)
         cv2.imshow("vis", vis_image[:, :, ::-1])
-        key = cv2.waitKey(50)
+        key = cv2.waitKey(1)
+        # breakpoint()
         if key == ord('z'):
             break
         
-
         if action == DiscreteNavigationAction.MOVE_FORWARD:
             action = [1, 0]
         elif action == DiscreteNavigationAction.TURN_RIGHT:
@@ -311,6 +341,8 @@ def main(spot):
             action = [0, 0]
             break
         
+        if action is not None:
+            env.apply_action(action)
         
 
     create_video(
