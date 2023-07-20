@@ -44,7 +44,7 @@ source $HOME/catkin_ws/devel/setup.bash
 roslaunch home_robot_hw visualization.launch
 ```
 
-![](docs/example_with_urdf.png)
+![](example_with_urdf.png)
 
 You should see RVIZ come up, now with a mesh showing your current robot state.
 
