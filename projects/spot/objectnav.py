@@ -21,6 +21,7 @@ sys.path.insert(
 from spot_wrapper.spot import Spot
 
 import home_robot.utils.visualization as vu
+import home_robot.utils.pose as pu
 from home_robot.agent.objectnav_agent.objectnav_agent import ObjectNavAgent
 from home_robot.core.interfaces import DiscreteNavigationAction
 from home_robot.mapping.semantic.categorical_2d_semantic_map_state import (
@@ -246,8 +247,9 @@ def main(spot):
         action, info = agent.act(obs)
         print("SHORT_TERM:", info['short_term_goal'])
         x,y = info['short_term_goal']
-        x=x-240
-        y=y-240
+        lmb = agent.semantic_map.get_planner_pose_inputs(0)[3:]
+        x=x-240 + (lmb[0] - 240)
+        y=y-240 + (lmb[2] - 240)
         import math
         angle_st_goal = math.atan2(x, y)
         dist = np.linalg.norm((x,y))*0.05
@@ -259,9 +261,23 @@ def main(spot):
         # pos = np.array([np.cos(angle),np.sin(angle)])*dist*0.05
         # pos = np.array(stg[:2])*0.05
         # pos = np.array((stg[1],stg[0]))*0.05
-        
-        action = [xg,yg,angle_st_goal+env.start_compass]
-        print("ObjectNavAgent point action", action)
+        x,y,yaw = spot.get_xy_yaw()
+        relative_angle = angle_st_goal + env.start_compass - yaw
+        relative_angle = pu.normalize_radians(relative_angle)
+        print("Relative Angle: ",relative_angle)
+        if abs(relative_angle) > np.pi/6:
+            # while abs(relative_angle) > np.pi/2:
+            x,y,yaw = spot.get_xy_yaw()
+            relative_angle = angle_st_goal + env.start_compass - yaw
+            relative_angle = pu.normalize_radians(relative_angle)
+            vel = 0.5
+            rot = -vel if relative_angle < 0 else vel
+            spot.set_base_velocity(0,0,rot,1)  
+            print("Angle too steep, rotating by ", rot)  
+        else:
+            action = [xg,yg,angle_st_goal+env.start_compass]
+            print("ObjectNavAgent point action", action)
+            env.apply_action(action)
         # print("ObjectNavAgent action", action)
 
         # Visualize map
@@ -295,9 +311,6 @@ def main(spot):
             action = [0, 0]
             break
         
-        # breakpoint()
-        env.env.get_observations()['position']
-        env.apply_action(action)
         
 
     create_video(
