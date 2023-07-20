@@ -100,7 +100,18 @@ class MaskRCNNPerception(PerceptionModule):
         scores = pred["instances"].scores.cpu().numpy()
 
         # Keep only relevant COCO categories
-        # class_idcs = np.array([coco_categories_mapping[idx] for idx in class_idcs])
+        relevant_masks = []
+        relevant_class_idcs = []
+        relevant_scores = []
+        for i, class_idx in enumerate(class_idcs):
+            if class_idx in coco_categories_mapping:
+                relevant_masks.append(masks[i])
+                relevant_class_idcs.append(coco_categories_mapping[class_idx])
+                relevant_scores.append(scores[i])
+        breakpoint()
+        masks = np.stack(relevant_masks)
+        class_idcs = np.stack(relevant_class_idcs)
+        scores = np.stack(relevant_scores)
 
         if depth_threshold is not None and depth is not None:
             masks = np.array(
@@ -114,7 +125,6 @@ class MaskRCNNPerception(PerceptionModule):
         obs.task_observations["instance_classes"] = class_idcs
         obs.task_observations["instance_scores"] = scores
 
-        breakpoint()
         return obs
 
 
