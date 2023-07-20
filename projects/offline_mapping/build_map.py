@@ -281,17 +281,17 @@ def main(input_trajectory_dir: str, output_visualization_dir: str, legend_path: 
         "other",
     ]
     num_sem_categories = len(categories) - 1
-    # segmentation = DeticPerception(
-    #     vocabulary="custom",
-    #     custom_vocabulary=",".join(categories),
-    #     sem_gpu_id=0,
-    # )
-    segmentation = MaskRCNNPerception(
-        sem_pred_prob_thr=0.8,
+    segmentation = DeticPerception(
+        vocabulary="custom",
+        custom_vocabulary=",".join(categories),
         sem_gpu_id=0,
     )
+    # segmentation = MaskRCNNPerception(
+    #     sem_pred_prob_thr=0.8,
+    #     sem_gpu_id=0,
+    # )
     observations = [
-        segmentation.predict(obs, depth_threshold=0.5) for obs in observations
+        segmentation.predict(obs, depth_threshold=None) for obs in observations
     ]
     for obs in observations:
         obs.semantic[obs.semantic == 0] = len(categories) - 1
