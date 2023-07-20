@@ -27,19 +27,53 @@ from home_robot.core.interfaces import Observations
 from .coco_categories import coco_categories, coco_categories_mapping
 
 
+def overlay_masks(
+    masks: np.ndarray, class_idcs: np.ndarray, shape: Tuple[int, int]
+) -> np.ndarray:
+    """Overlays the masks of objects
+    Determines the order of masks based on mask size
+    """
+    mask_sizes = [np.sum(mask) for mask in masks]
+    sorted_mask_idcs = np.argsort(mask_sizes)
+
+    semantic_mask = np.zeros(shape)
+    instance_mask = -np.ones(shape)
+    for i_mask in sorted_mask_idcs[::-1]:  # largest to smallest
+        semantic_mask[masks[i_mask].astype(bool)] = class_idcs[i_mask]
+        instance_mask[masks[i_mask].astype(bool)] = i_mask
+
+    return semantic_mask, instance_mask
+
+
+def filter_depth(
+    mask: np.ndarray, depth: np.ndarray, depth_threshold: Optional[float] = None
+) -> np.ndarray:
+    md = np.median(depth[mask == 1])  # median depth
+    if md == 0:
+        # Remove mask if more than half of points has invalid depth
+        filter_mask = np.ones_like(mask, dtype=bool)
+    elif depth_threshold is not None:
+        # Restrict objects to 1m depth
+        filter_mask = (depth >= md + depth_threshold) | (depth <= md - depth_threshold)
+    else:
+        filter_mask = np.zeros_like(mask, dtype=bool)
+    mask_out = mask.copy()
+    mask_out[filter_mask] = 0.0
+
+    return mask_out
+
+
 class MaskRCNNPerception(PerceptionModule):
     def __init__(
         self,
         sem_pred_prob_thr: float = 0.9,
         sem_gpu_id: int = 0,
-        visualize: bool = True,
     ):
         """Load MaskRCNN model trained on COCO categories for inference.
 
         Arguments:
             sem_pred_prob_thr: prediction threshold
             sem_gpu_id: prediction GPU id (-1 for CPU)
-            visualize: if True, visualize predictions
         """
         config_path = Path(__file__).resolve().parent / "mask_rcnn_R_50_FPN_3x.yaml"
         string_args = f"""
@@ -63,7 +97,6 @@ class MaskRCNNPerception(PerceptionModule):
 
         cfg = setup_cfg(args)
         self.model = VisualizationDemo(cfg)
-        self.visualize = visualize
         self.num_sem_categories = len(coco_categories)
 
     def predict(
@@ -84,42 +117,35 @@ class MaskRCNNPerception(PerceptionModule):
              image of shape (H, W, 3)
         """
         image = cv2.cvtColor(obs.rgb, cv2.COLOR_RGB2BGR)
-        # depth = obs.depth
+        depth = obs.depth
         height, width, _ = image.shape
 
-        breakpoint()
-        pred = self.model.run_on_images([image])
+        if obs.task_observations is None:
+            obs.task_observations = {}
 
-        # if obs.task_observations is None:
-        #     obs.task_observations = {}
-        #
-        # if draw_instance_predictions:
-        #     visualizer = Visualizer(
-        #         image[:, :, ::-1], self.metadata, instance_mode=self.instance_mode
-        #     )
-        #     visualization = visualizer.draw_instance_predictions(
-        #         predictions=pred["instances"].to(self.cpu_device)
-        #     ).get_image()
-        #     obs.task_observations["semantic_frame"] = visualization
-        # else:
-        #     obs.task_observations["semantic_frame"] = None
-        #
-        # # Sort instances by mask size
-        # masks = pred["instances"].pred_masks.cpu().numpy()
-        # class_idcs = pred["instances"].pred_classes.cpu().numpy()
-        # scores = pred["instances"].scores.cpu().numpy()
-        #
-        # if depth_threshold is not None and depth is not None:
-        #     masks = np.array(
-        #         [filter_depth(mask, depth, depth_threshold) for mask in masks]
-        #     )
-        #
-        # semantic_map, instance_map = overlay_masks(masks, class_idcs, (height, width))
-        #
-        # obs.semantic = semantic_map.astype(int)
-        # obs.task_observations["instance_map"] = instance_map
-        # obs.task_observations["instance_classes"] = class_idcs
-        # obs.task_observations["instance_scores"] = scores
+        predictions, visualizations = self.model.run_on_images(
+            image[np.newaxis], visualize=True
+        )
+
+        pred = predictions[0]
+        obs.task_observations["semantic_frame"] = visualizations[0].get_image()
+
+        # Sort instances by mask size
+        masks = pred["instances"].pred_masks.cpu().numpy()
+        class_idcs = pred["instances"].pred_classes.cpu().numpy()
+        scores = pred["instances"].scores.cpu().numpy()
+
+        if depth_threshold is not None and depth is not None:
+            masks = np.array(
+                [filter_depth(mask, depth, depth_threshold) for mask in masks]
+            )
+
+        semantic_map, instance_map = overlay_masks(masks, class_idcs, (height, width))
+
+        obs.semantic = semantic_map.astype(int)
+        obs.task_observations["instance_map"] = instance_map
+        obs.task_observations["instance_classes"] = class_idcs
+        obs.task_observations["instance_scores"] = scores
 
         breakpoint()
         return pred
