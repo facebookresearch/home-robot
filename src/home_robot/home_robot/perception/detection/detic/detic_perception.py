@@ -241,7 +241,6 @@ class DeticPerception(PerceptionModule):
         obs.task_observations["instance_classes"] = class_idcs
         obs.task_observations["instance_scores"] = scores
 
-        breakpoint()
         return obs
 
 
