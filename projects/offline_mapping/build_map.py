@@ -34,7 +34,9 @@ from home_robot.mapping.semantic.categorical_2d_semantic_map_state import (
 )
 from home_robot.mapping.semantic.instance_tracking_modules import InstanceMemory
 from home_robot.perception.detection.detic.detic_perception import DeticPerception
-from home_robot.perception.detection.detic.maskrcnn_perception import MaskRCNNPerception
+from home_robot.perception.detection.maskrcnn.maskrcnn_perception import (
+    MaskRCNNPerception,
+)
 
 # Semantic segmentation categories predicted from frames and projected in the map
 coco_categories = [
