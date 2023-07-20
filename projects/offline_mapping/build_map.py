@@ -287,7 +287,7 @@ def main(input_trajectory_dir: str, output_visualization_dir: str, legend_path: 
     #     sem_gpu_id=0,
     # )
     segmentation = MaskRCNNPerception(
-        sem_pred_prob_thr=0.2,
+        sem_pred_prob_thr=0.9,
         sem_gpu_id=0,
     )
     observations = [

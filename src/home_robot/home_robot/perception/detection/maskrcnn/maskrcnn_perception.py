@@ -108,7 +108,6 @@ class MaskRCNNPerception(PerceptionModule):
                 relevant_masks.append(masks[i])
                 relevant_class_idcs.append(coco_categories_mapping[class_idx])
                 relevant_scores.append(scores[i])
-        breakpoint()
         masks = np.stack(relevant_masks)
         class_idcs = np.stack(relevant_class_idcs)
         scores = np.stack(relevant_scores)
@@ -126,81 +125,6 @@ class MaskRCNNPerception(PerceptionModule):
         obs.task_observations["instance_scores"] = scores
 
         return obs
-
-
-# class COCOMaskRCNN:
-#     def __init__(self, sem_pred_prob_thr: float, sem_gpu_id: int, visualize: bool):
-#         """
-#         Arguments:
-#             sem_pred_prob_thr: prediction threshold
-#             sem_gpu_id: prediction GPU id (-1 for CPU)
-#             visualize: if True, visualize predictions
-#         """
-#         self.segmentation_model = (sem_pred_prob_thr, sem_gpu_id)
-#         self.visualize = visualize
-#         self.num_sem_categories = len(coco_categories)
-#
-#     def get_prediction(
-#         self, images: np.ndarray, depths: Optional[np.ndarray] = None
-#     ) -> Tuple[np.ndarray, np.ndarray]:
-#         """
-#         Arguments:
-#             images: images of shape (batch_size, H, W, 3) (in BGR order)
-#             depths: depth frames of shape (batch_size, H, W)
-#
-#         Returns:
-#             one_hot_predictions: one hot segmentation predictions of shape
-#              (batch_size, H, W, num_sem_categories)
-#             visualizations: prediction visualization images
-#              shape (batch_size, H, W, 3) if self.visualize=True, else
-#              original images
-#         """
-#         batch_size, height, width, _ = images.shape
-#
-#         predictions, visualizations = self.segmentation_model.get_predictions(
-#             images, visualize=self.visualize
-#         )
-#         one_hot_predictions = np.zeros(
-#             (batch_size, height, width, self.num_sem_categories)
-#         )
-#
-#         # t0 = time.time()
-#
-#         for i in range(batch_size):
-#             for j, class_idx in enumerate(
-#                 predictions[i]["instances"].pred_classes.cpu().numpy()
-#             ):
-#                 if class_idx in list(coco_categories_mapping.keys()):
-#                     idx = coco_categories_mapping[class_idx]
-#                     obj_mask = predictions[i]["instances"].pred_masks[j] * 1.0
-#                     obj_mask = obj_mask.cpu().numpy()
-#
-#                     if depths is not None:
-#                         depth = depths[i]
-#                         md = np.median(depth[obj_mask == 1])
-#                         if md == 0:
-#                             filter_mask = np.ones_like(obj_mask, dtype=bool)
-#                         else:
-#                             # Restrict objects to 1m depth
-#                             filter_mask = (depth >= md + 50) | (depth <= md - 50)
-#                         # print(
-#                         #     f"Median object depth: {md.item()}, filtering out "
-#                         #     f"{np.count_nonzero(filter_mask)} pixels"
-#                         # )
-#                         obj_mask[filter_mask] = 0.0
-#
-#                     one_hot_predictions[i, :, :, idx] += obj_mask
-#
-#         # t1 = time.time()
-#         # print(f"[Obs preprocessing] Segmentation depth filtering time: {t1 - t0:.2f}")
-#
-#         if self.visualize:
-#             visualizations = np.stack([vis.get_image() for vis in visualizations])
-#         else:
-#             # Convert BGR to RGB for visualization
-#             visualizations = images[:, :, :, ::-1]
-#
-#         return one_hot_predictions, visualizations
 
 
 def setup_cfg(args):
