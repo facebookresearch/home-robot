@@ -99,6 +99,11 @@ class MaskRCNNPerception(PerceptionModule):
         class_idcs = pred["instances"].pred_classes.cpu().numpy()
         scores = pred["instances"].scores.cpu().numpy()
 
+        if depth_threshold is not None and depth is not None:
+            masks = np.array(
+                [filter_depth(mask, depth, depth_threshold) for mask in masks]
+            )
+
         # Keep only relevant COCO categories
         relevant_masks = []
         relevant_class_idcs = []
@@ -108,17 +113,17 @@ class MaskRCNNPerception(PerceptionModule):
                 relevant_masks.append(masks[i])
                 relevant_class_idcs.append(coco_categories_mapping[class_idx])
                 relevant_scores.append(scores[i])
-        breakpoint()
-        masks = np.stack(relevant_masks)
-        class_idcs = np.stack(relevant_class_idcs)
-        scores = np.stack(relevant_scores)
 
-        if depth_threshold is not None and depth is not None:
-            masks = np.array(
-                [filter_depth(mask, depth, depth_threshold) for mask in masks]
+        if len(relevant_masks) > 0:
+            masks = np.stack(relevant_masks)
+            class_idcs = np.stack(relevant_class_idcs)
+            scores = np.stack(relevant_scores)
+            semantic_map, instance_map = overlay_masks(
+                masks, class_idcs, (height, width)
             )
-
-        semantic_map, instance_map = overlay_masks(masks, class_idcs, (height, width))
+        else:
+            semantic_map = np.zeros((height, width))
+            instance_map = -np.ones((height, width))
 
         obs.semantic = semantic_map.astype(int)
         obs.task_observations["instance_map"] = instance_map
