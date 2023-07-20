@@ -67,6 +67,7 @@ if __name__ == "__main__":
     print("-" * 100)
 
     config = get_config(args.habitat_config_path, args.baseline_config_path)
+    breakpoint()
 
     config.NUM_ENVIRONMENTS = 1
     config.PRINT_IMAGES = 1
