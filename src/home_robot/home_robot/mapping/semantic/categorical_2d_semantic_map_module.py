@@ -104,7 +104,8 @@ class Categorical2DSemanticMapModule(nn.Module):
 
         self.screen_h = frame_height
         self.screen_w = frame_width
-        self.camera_matrix = du.get_camera_matrix(self.screen_w, self.screen_h, hfov)
+        self.camera_matrix = du.get_camera_matrix(
+            self.screen_w, self.screen_h, hfov)
         self.num_sem_categories = num_sem_categories
         self.must_explore_close = must_explore_close
 
@@ -138,7 +139,8 @@ class Categorical2DSemanticMapModule(nn.Module):
         self.max_mapped_height = int(
             (self.agent_height + 1) / self.z_resolution - self.min_voxel_height
         )
-        self.shift_loc = [self.vision_range * self.xy_resolution // 2, 0, np.pi / 2.0]
+        self.shift_loc = [self.vision_range *
+                          self.xy_resolution // 2, 0, np.pi / 2.0]
 
         # For cleaning up maps
         self.dilate_obstacles = dilate_obstacles
@@ -226,12 +228,15 @@ class Categorical2DSemanticMapModule(nn.Module):
             device=device,
             dtype=dtype,
         )
-        seq_local_pose = torch.zeros(batch_size, sequence_length, 3, device=device)
-        seq_global_pose = torch.zeros(batch_size, sequence_length, 3, device=device)
+        seq_local_pose = torch.zeros(
+            batch_size, sequence_length, 3, device=device)
+        seq_global_pose = torch.zeros(
+            batch_size, sequence_length, 3, device=device)
         seq_lmb = torch.zeros(
             batch_size, sequence_length, 4, device=device, dtype=torch.int32
         )
-        seq_origins = torch.zeros(batch_size, sequence_length, 3, device=device)
+        seq_origins = torch.zeros(
+            batch_size, sequence_length, 3, device=device)
 
         local_map, local_pose = init_local_map.clone(), init_local_pose.clone()
         global_map, global_pose = init_global_map.clone(), init_global_pose.clone()
@@ -268,7 +273,8 @@ class Categorical2DSemanticMapModule(nn.Module):
             seq_global_pose[:, t] = global_pose
             seq_lmb[:, t] = lmb
             seq_origins[:, t] = origins
-            seq_map_features[:, t] = self._get_map_features(local_map, global_map)
+            seq_map_features[:, t] = self._get_map_features(
+                local_map, global_map)
 
         return (
             seq_map_features,
@@ -289,7 +295,7 @@ class Categorical2DSemanticMapModule(nn.Module):
         # first extract instance channels
         top_down_instance_one_hot = curr_map[
             :,
-            (MC.NON_SEM_CHANNELS + self.num_sem_categories) : (
+            (MC.NON_SEM_CHANNELS + self.num_sem_categories): (
                 MC.NON_SEM_CHANNELS + self.num_sem_categories + num_instance_channels
             ),
             :,
@@ -346,7 +352,8 @@ class Categorical2DSemanticMapModule(nn.Module):
                     instance_id, device=instance_id_map.device
                 )[instance_id_map]
                 # update the per category instance map
-                top_down_instances_per_category[i, category_id] = instance_id_map
+                top_down_instances_per_category[i,
+                                                category_id] = instance_id_map
 
         curr_map = torch.cat(
             (
@@ -356,7 +363,7 @@ class Categorical2DSemanticMapModule(nn.Module):
                     :,
                     MC.NON_SEM_CHANNELS
                     + self.num_sem_categories
-                    + num_instance_channels :,
+                    + num_instance_channels:,
                 ],
             ),
             dim=1,
@@ -397,7 +404,8 @@ class Categorical2DSemanticMapModule(nn.Module):
             # hab_angles = pt.matrix_to_euler_angles(camera_pose[:, :3, :3], convention="YZX")
             # angles = pt.matrix_to_euler_angles(camera_pose[:, :3, :3], convention="ZYX")
             angles = torch.Tensor(
-                [tra.euler_from_matrix(p[:3, :3].cpu(), "rzyx") for p in camera_pose]
+                [tra.euler_from_matrix(p[:3, :3].cpu(), "rzyx")
+                 for p in camera_pose]
             )
             # For habitat - pull x angle
             # tilt = angles[:, -1]
@@ -427,7 +435,8 @@ class Categorical2DSemanticMapModule(nn.Module):
         if self.debug_mode:
             from home_robot.utils.point_cloud import show_point_cloud
 
-            rgb = obs[:, :3, :: self.du_scale, :: self.du_scale].permute(0, 2, 3, 1)
+            rgb = obs[:, :3, :: self.du_scale,
+                      :: self.du_scale].permute(0, 2, 3, 1)
             xyz = point_cloud_t[0].reshape(-1, 3)
             rgb = rgb[0].reshape(-1, 3)
             print("-> Showing point cloud in camera coords")
@@ -438,7 +447,8 @@ class Categorical2DSemanticMapModule(nn.Module):
             )
 
         point_cloud_base_coords = du.transform_camera_view_t(
-            point_cloud_t, agent_height, torch.rad2deg(tilt).cpu().numpy(), device
+            point_cloud_t, agent_height, torch.rad2deg(
+                tilt).cpu().numpy(), device
         )
 
         # Show the point cloud in base coordinates for debugging
@@ -447,7 +457,8 @@ class Categorical2DSemanticMapModule(nn.Module):
             print("------------------------------")
             print("agent angles =", angles)
             print("agent tilt   =", tilt)
-            print("agent height =", agent_height, "preset =", self.agent_height)
+            print("agent height =", agent_height,
+                  "preset =", self.agent_height)
             xyz = point_cloud_base_coords[0].reshape(-1, 3)
             print("-> Showing point cloud in base coords")
             show_point_cloud(
@@ -496,13 +507,13 @@ class Categorical2DSemanticMapModule(nn.Module):
             dtype=torch.float32,
         )
 
-        semantic_channels = obs[:, 4 : 4 + self.num_sem_categories, :, :]
+        semantic_channels = obs[:, 4: 4 + self.num_sem_categories, :, :]
 
         if self.record_instance_ids:
             instance_channels = obs[
                 :,
                 4
-                + self.num_sem_categories : 4
+                + self.num_sem_categories: 4
                 + self.num_sem_categories
                 + num_instance_channels,
                 :,
@@ -522,7 +533,8 @@ class Categorical2DSemanticMapModule(nn.Module):
         XYZ_cm_std = point_cloud_map_coords.float()
         XYZ_cm_std[..., :2] = XYZ_cm_std[..., :2] / self.xy_resolution
         XYZ_cm_std[..., :2] = (
-            (XYZ_cm_std[..., :2] - self.vision_range // 2.0) / self.vision_range * 2.0
+            (XYZ_cm_std[..., :2] - self.vision_range // 2.0) /
+            self.vision_range * 2.0
         )
         XYZ_cm_std[..., 2] = XYZ_cm_std[..., 2] / self.z_resolution
         XYZ_cm_std[..., 2] = (
@@ -543,7 +555,7 @@ class Categorical2DSemanticMapModule(nn.Module):
         voxels = du.splat_feat_nd(init_grid, feat, XYZ_cm_std).transpose(2, 3)
 
         agent_height_proj = voxels[
-            ..., self.min_mapped_height : self.max_mapped_height
+            ..., self.min_mapped_height: self.max_mapped_height
         ].sum(4)
         all_height_proj = voxels.sum(4)
 
@@ -587,14 +599,17 @@ class Categorical2DSemanticMapModule(nn.Module):
                 # fp_map_pred[i, 0] = torch.tensor(env_map_eroded)
                 fp_map_pred[i, 0] = torch.tensor(median_filtered)
 
-        x1 = self.local_map_size_cm // (self.xy_resolution * 2) - self.vision_range // 2
+        x1 = self.local_map_size_cm // (self.xy_resolution * 2) - \
+            self.vision_range // 2
         x2 = x1 + self.vision_range
         y1 = self.local_map_size_cm // (self.xy_resolution * 2)
         y2 = y1 + self.vision_range
-        agent_view[:, MC.OBSTACLE_MAP : MC.OBSTACLE_MAP + 1, y1:y2, x1:x2] = fp_map_pred
-        agent_view[:, MC.EXPLORED_MAP : MC.EXPLORED_MAP + 1, y1:y2, x1:x2] = fp_exp_pred
+        agent_view[:, MC.OBSTACLE_MAP: MC.OBSTACLE_MAP +
+                   1, y1:y2, x1:x2] = fp_map_pred
+        agent_view[:, MC.EXPLORED_MAP: MC.EXPLORED_MAP +
+                   1, y1:y2, x1:x2] = fp_exp_pred
 
-        agent_view[:, MC.NON_SEM_CHANNELS :, y1:y2, x1:x2] = (
+        agent_view[:, MC.NON_SEM_CHANNELS:, y1:y2, x1:x2] = (
             all_height_proj[:, 1:] / self.cat_pred_threshold
         )
 
@@ -631,12 +646,12 @@ class Categorical2DSemanticMapModule(nn.Module):
             current_map[
                 :,
                 MC.NON_SEM_CHANNELS
-                + self.num_sem_categories : MC.NON_SEM_CHANNELS
+                + self.num_sem_categories: MC.NON_SEM_CHANNELS
                 + 2 * self.num_sem_categories,
             ] = translated[
                 :,
                 MC.NON_SEM_CHANNELS
-                + self.num_sem_categories : MC.NON_SEM_CHANNELS
+                + self.num_sem_categories: MC.NON_SEM_CHANNELS
                 + 2 * self.num_sem_categories,
             ]
 
@@ -649,30 +664,32 @@ class Categorical2DSemanticMapModule(nn.Module):
             x, y = curr_loc[e]
             current_map[
                 e,
-                MC.CURRENT_LOCATION : MC.CURRENT_LOCATION + 2,
-                y - 2 : y + 3,
-                x - 2 : x + 3,
+                MC.CURRENT_LOCATION: MC.CURRENT_LOCATION + 2,
+                y - 2: y + 3,
+                x - 2: x + 3,
             ].fill_(1.0)
 
             # Set a disk around the agent to explored
             # This is around the current agent - we just sort of assume we know where we are
             try:
                 radius = 10
-                explored_disk = torch.from_numpy(skimage.morphology.disk(radius))
+                explored_disk = torch.from_numpy(
+                    skimage.morphology.disk(radius))
                 current_map[
                     e,
                     MC.EXPLORED_MAP,
-                    y - radius : y + radius + 1,
-                    x - radius : x + radius + 1,
+                    y - radius: y + radius + 1,
+                    x - radius: x + radius + 1,
                 ][explored_disk == 1] = 1
                 # Record the region the agent has been close to using a disc centered at the agent
                 radius = self.been_close_to_radius // self.resolution
-                been_close_disk = torch.from_numpy(skimage.morphology.disk(radius))
+                been_close_disk = torch.from_numpy(
+                    skimage.morphology.disk(radius))
                 current_map[
                     e,
                     MC.BEEN_CLOSE_MAP,
-                    y - radius : y + radius + 1,
-                    x - radius : x + radius + 1,
+                    y - radius: y + radius + 1,
+                    x - radius: x + radius + 1,
                 ][been_close_disk == 1] = 1
             except IndexError:
                 pass
@@ -708,7 +725,8 @@ class Categorical2DSemanticMapModule(nn.Module):
             plt.imshow(been_close * obstacles)
             plt.subplot(337)
             plt.axis("off")
-            rgb = obs[0, :3, :: self.du_scale, :: self.du_scale].permute(1, 2, 0)
+            rgb = obs[0, :3, :: self.du_scale,
+                      :: self.du_scale].permute(1, 2, 0)
             plt.imshow(rgb.cpu().numpy())
             plt.subplot(338)
             plt.imshow(depth[0].cpu().numpy())
@@ -728,10 +746,12 @@ class Categorical2DSemanticMapModule(nn.Module):
 
         if self.must_explore_close:
             current_map[:, MC.EXPLORED_MAP] = (
-                current_map[:, MC.EXPLORED_MAP] * current_map[:, MC.BEEN_CLOSE_MAP]
+                current_map[:, MC.EXPLORED_MAP] *
+                current_map[:, MC.BEEN_CLOSE_MAP]
             )
             current_map[:, MC.OBSTACLE_MAP] = (
-                current_map[:, MC.OBSTACLE_MAP] * current_map[:, MC.BEEN_CLOSE_MAP]
+                current_map[:, MC.OBSTACLE_MAP] *
+                current_map[:, MC.BEEN_CLOSE_MAP]
             )
         return current_map, current_pose
 
@@ -782,7 +802,8 @@ class Categorical2DSemanticMapModule(nn.Module):
         local_map = torch.round(local_map)
 
         # pad the local map
-        extended_local_map = F.pad(local_map.float(), (l_p, r_p), mode="replicate")
+        extended_local_map = F.pad(
+            local_map.float(), (l_p, r_p), mode="replicate")
         extended_local_map = F.pad(
             extended_local_map.transpose(1, 0), (t_p, b_p), mode="replicate"
         ).transpose(1, 0)
@@ -864,7 +885,8 @@ class Categorical2DSemanticMapModule(nn.Module):
             ]
             if len(unique_overlapping_instances) >= 1:
                 # If there is a corresponding instance in the global map, pick the first one and associate it
-                global_instance_id = int(unique_overlapping_instances[0].item())
+                global_instance_id = int(
+                    unique_overlapping_instances[0].item())
                 instance_mapping[local_instance_id.item()] = global_instance_id
             else:
                 # If there are no corresponding instances, create a new instance
@@ -898,7 +920,8 @@ class Categorical2DSemanticMapModule(nn.Module):
         for i in range(self.num_sem_categories):
             if (
                 torch.sum(
-                    local_map[e, MC.NON_SEM_CHANNELS + i + self.num_sem_categories]
+                    local_map[e, MC.NON_SEM_CHANNELS +
+                              i + self.num_sem_categories]
                 )
                 > 0
             ):
@@ -907,7 +930,7 @@ class Categorical2DSemanticMapModule(nn.Module):
                         global_map[
                             e,
                             MC.NON_SEM_CHANNELS
-                            + self.num_sem_categories : MC.NON_SEM_CHANNELS
+                            + self.num_sem_categories: MC.NON_SEM_CHANNELS
                             + 2 * self.num_sem_categories,
                         ]
                     )
@@ -917,8 +940,10 @@ class Categorical2DSemanticMapModule(nn.Module):
                 # if the local map has any object instances, update the global map with instance ids
                 instances = self._update_global_map_instances_for_one_channel(
                     e,
-                    global_map[e, MC.NON_SEM_CHANNELS + i + self.num_sem_categories],
-                    local_map[e, MC.NON_SEM_CHANNELS + i + self.num_sem_categories],
+                    global_map[e, MC.NON_SEM_CHANNELS +
+                               i + self.num_sem_categories],
+                    local_map[e, MC.NON_SEM_CHANNELS +
+                              i + self.num_sem_categories],
                     (lmb[e, 0], lmb[e, 1]),
                     (lmb[e, 2], lmb[e, 3]),
                     max_instance_id,
@@ -950,17 +975,17 @@ class Categorical2DSemanticMapModule(nn.Module):
             global_map[
                 e,
                 : MC.NON_SEM_CHANNELS + self.num_sem_categories,
-                lmb[e, 0] : lmb[e, 1],
-                lmb[e, 2] : lmb[e, 3],
+                lmb[e, 0]: lmb[e, 1],
+                lmb[e, 2]: lmb[e, 3],
             ] = local_map[e, : MC.NON_SEM_CHANNELS + self.num_sem_categories]
             global_map[
                 e,
-                MC.NON_SEM_CHANNELS + 2 * self.num_sem_categories :,
-                lmb[e, 0] : lmb[e, 1],
-                lmb[e, 2] : lmb[e, 3],
-            ] = local_map[e, MC.NON_SEM_CHANNELS + 2 * self.num_sem_categories :]
+                MC.NON_SEM_CHANNELS + 2 * self.num_sem_categories:,
+                lmb[e, 0]: lmb[e, 1],
+                lmb[e, 2]: lmb[e, 3],
+            ] = local_map[e, MC.NON_SEM_CHANNELS + 2 * self.num_sem_categories:]
         else:
-            global_map[e, :, lmb[e, 0] : lmb[e, 1], lmb[e, 2] : lmb[e, 3]] = local_map[
+            global_map[e, :, lmb[e, 0]: lmb[e, 1], lmb[e, 2]: lmb[e, 3]] = local_map[
                 e
             ]
         global_pose[e] = local_pose[e] + origins[e]
@@ -1005,18 +1030,18 @@ class Categorical2DSemanticMapModule(nn.Module):
         )
 
         # Local obstacles, explored area, and current and past position
-        map_features[:, 0 : MC.NON_SEM_CHANNELS, :, :] = local_map[
-            :, 0 : MC.NON_SEM_CHANNELS, :, :
+        map_features[:, 0: MC.NON_SEM_CHANNELS, :, :] = local_map[
+            :, 0: MC.NON_SEM_CHANNELS, :, :
         ]
         # Global obstacles, explored area, and current and past position
         map_features[
-            :, MC.NON_SEM_CHANNELS : 2 * MC.NON_SEM_CHANNELS, :, :
+            :, MC.NON_SEM_CHANNELS: 2 * MC.NON_SEM_CHANNELS, :, :
         ] = nn.MaxPool2d(self.global_downscaling)(
-            global_map[:, 0 : MC.NON_SEM_CHANNELS, :, :]
+            global_map[:, 0: MC.NON_SEM_CHANNELS, :, :]
         )
         # Local semantic categories
-        map_features[:, 2 * MC.NON_SEM_CHANNELS :, :, :] = local_map[
-            :, MC.NON_SEM_CHANNELS :, :, :
+        map_features[:, 2 * MC.NON_SEM_CHANNELS:, :, :] = local_map[
+            :, MC.NON_SEM_CHANNELS:, :, :
         ]
 
         if debug_maps:

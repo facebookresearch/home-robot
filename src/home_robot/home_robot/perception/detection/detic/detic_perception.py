@@ -90,7 +90,8 @@ def filter_depth(
         filter_mask = np.ones_like(mask, dtype=bool)
     elif depth_threshold is not None:
         # Restrict objects to 1m depth
-        filter_mask = (depth >= md + depth_threshold) | (depth <= md - depth_threshold)
+        filter_mask = (depth >= md + depth_threshold) | (depth <=
+                                                         md - depth_threshold)
     else:
         filter_mask = np.zeros_like(mask, dtype=bool)
     mask_out = mask.copy()
@@ -165,7 +166,8 @@ class DeticPerception(PerceptionModule):
                 i: i for i in range(len(self.metadata.thing_classes))
             }
         elif args.vocabulary == "coco":
-            self.metadata = MetadataCatalog.get(BUILDIN_METADATA_PATH[args.vocabulary])
+            self.metadata = MetadataCatalog.get(
+                BUILDIN_METADATA_PATH[args.vocabulary])
             classifier = BUILDIN_CLASSIFIER[args.vocabulary]
             self.categories_mapping = {
                 56: 0,  # chair
@@ -239,12 +241,11 @@ class DeticPerception(PerceptionModule):
             obs.task_observations["semantic_frame"]: segmentation visualization
              image of shape (H, W, 3)
         """
+
         image = cv2.cvtColor(obs.rgb, cv2.COLOR_RGB2BGR)
         depth = obs.depth
         height, width, _ = image.shape
-
         pred = self.predictor(image)
-
         if obs.task_observations is None:
             obs.task_observations = {}
 
@@ -269,7 +270,8 @@ class DeticPerception(PerceptionModule):
                 [filter_depth(mask, depth, depth_threshold) for mask in masks]
             )
 
-        semantic_map, instance_map = overlay_masks(masks, class_idcs, (height, width))
+        semantic_map, instance_map = overlay_masks(
+            masks, class_idcs, (height, width))
 
         obs.semantic = semantic_map.astype(int)
         obs.task_observations["instance_map"] = instance_map
@@ -300,14 +302,16 @@ def setup_cfg(args, verbose: bool = False):
         cfg.MODEL.ROI_HEADS.ONE_CLASS_PER_PROPOSAL = True
     # Fix cfg paths given we're not running from the Detic folder
     cfg.MODEL.ROI_BOX_HEAD.CAT_FREQ_PATH = str(
-        Path(__file__).resolve().parent / "Detic" / cfg.MODEL.ROI_BOX_HEAD.CAT_FREQ_PATH
+        Path(__file__).resolve().parent / "Detic" /
+        cfg.MODEL.ROI_BOX_HEAD.CAT_FREQ_PATH
     )
     cfg.freeze()
     return cfg
 
 
 def get_parser():
-    parser = argparse.ArgumentParser(description="Detectron2 demo for builtin configs")
+    parser = argparse.ArgumentParser(
+        description="Detectron2 demo for builtin configs")
     parser.add_argument(
         "--config-file",
         default="configs/quick_schedules/mask_rcnn_R_50_FPN_inference_acc_test.yaml",

@@ -42,19 +42,19 @@ if __name__ == "__main__":
     parser.add_argument(
         "--baseline_config_path",
         type=str,
-        default="projects/vlm_planning/configs/agent/vlm_agent.yaml",
+        default="projects/vlm_planning/configs/agent/heuristic_agent.yaml",
         help="Path to config yaml",
     )
     parser.add_argument(
         "--env_config_path",
         type=str,
-        default="projects/vlm_planning/configs/env/hssd_demo.yaml",
+        default="projects/vlm_planning/configs/env/hssd_eval.yaml",
         help="Path to config yaml",
     )
     parser.add_argument(
         "--agent_type",
         type=str,
-        default="vlm",
+        default="baseline",
         choices=["baseline", "random", "vlm"],
         help="Agent to evaluate",
     )

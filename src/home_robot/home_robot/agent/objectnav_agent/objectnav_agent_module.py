@@ -49,7 +49,8 @@ class ObjectNavAgentModule(nn.Module):
                 config.AGENT.SEMANTIC_MAP, "record_instance_ids", False
             ),
             instance_memory=instance_memory,
-            max_instances=getattr(config.AGENT.SEMANTIC_MAP, "max_instances", 0),
+            max_instances=getattr(
+                config.AGENT.SEMANTIC_MAP, "max_instances", 0),
             evaluate_instance_tracking=getattr(
                 config.ENVIRONMENT, "evaluate_instance_tracking", False
             ),
@@ -165,9 +166,11 @@ class ObjectNavAgentModule(nn.Module):
         if seq_object_goal_category is not None:
             seq_object_goal_category = seq_object_goal_category.flatten(0, 1)
         if seq_start_recep_goal_category is not None:
-            seq_start_recep_goal_category = seq_start_recep_goal_category.flatten(0, 1)
+            seq_start_recep_goal_category = seq_start_recep_goal_category.flatten(
+                0, 1)
         if seq_end_recep_goal_category is not None:
-            seq_end_recep_goal_category = seq_end_recep_goal_category.flatten(0, 1)
+            seq_end_recep_goal_category = seq_end_recep_goal_category.flatten(
+                0, 1)
         # Compute the goal map
         goal_map, found_goal = self.policy(
             map_features,
@@ -176,7 +179,8 @@ class ObjectNavAgentModule(nn.Module):
             seq_end_recep_goal_category,
             seq_nav_to_recep,
         )
-        seq_goal_map = goal_map.view(batch_size, sequence_length, *goal_map.shape[-2:])
+        seq_goal_map = goal_map.view(
+            batch_size, sequence_length, *goal_map.shape[-2:])
         seq_found_goal = found_goal.view(batch_size, sequence_length)
 
         # Compute the frontier map here
