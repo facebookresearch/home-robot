@@ -170,6 +170,8 @@ class GoatAgent(Agent):
         blacklist_target: bool = False,
         matches=None,
         confidence=None,
+        all_matches=None,
+        all_confidences=None,
     ) -> Tuple[List[dict], List[dict]]:
         """Prepare low-level planner inputs from an observation - this is
         the main inference function of the agent that lets it interact with
@@ -237,6 +239,8 @@ class GoatAgent(Agent):
             blacklist_target=blacklist_target,
             matches=matches,
             confidence=confidence,
+            all_matches=all_matches,
+            all_confidences=all_confidences,
         )
         self.semantic_map.local_pose = seq_local_pose[:, -1]
         self.semantic_map.global_pose = seq_global_pose[:, -1]
@@ -382,6 +386,8 @@ class GoatAgent(Agent):
                 camera_pose,
                 matches,
                 confidence,
+                all_matches,
+                all_confidences,
             ) = self.imagenav_obs_preprocessor.preprocess(
                 obs, last_pose=self.last_poses[0], instance_memory=self.instance_memory
             )
@@ -394,6 +400,8 @@ class GoatAgent(Agent):
                 matches=matches,
                 confidence=confidence,
                 camera_pose=camera_pose,
+                all_matches=all_matches,
+                all_confidences=all_confidences,
             )
             self.last_poses[0] = self.imagenav_obs_preprocessor.last_pose
         elif task_type in ["objectnav", "languagenav"]:

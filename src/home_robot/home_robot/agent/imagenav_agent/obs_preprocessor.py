@@ -13,6 +13,7 @@ import torch
 from numpy import ndarray
 from omegaconf import DictConfig
 from torch import Tensor
+from tqdm import tqdm
 
 import home_robot.utils.pose as pu
 from home_robot.core.interfaces import Observations
@@ -112,9 +113,13 @@ class ObsPreprocessor:
             self.goal_mask, _ = self.instance_seg.get_goal_mask(img_goal)
 
         pose_delta, self.last_pose = self._preprocess_pose_and_delta(obs)
-        obs_preprocessed, matches, confidence = self._preprocess_frame(
-            obs, instance_memory
-        )
+        (
+            obs_preprocessed,
+            matches,
+            confidence,
+            all_matches,
+            all_confidences,
+        ) = self._preprocess_frame(obs, instance_memory)
 
         camera_pose = obs.camera_pose
         if camera_pose is not None:
@@ -128,6 +133,8 @@ class ObsPreprocessor:
             camera_pose,
             matches,
             confidence,
+            all_matches,
+            all_confidences,
         )
 
     def _preprocess_frame(
@@ -235,24 +242,33 @@ class ObsPreprocessor:
 
         obs_preprocessed = obs_preprocessed.unsqueeze(0).permute(0, 3, 1, 2)
 
-        # if self.record_instance_ids:
-        #     instances = instance_memory.instance_views[0]
-        #     for (inst_key,inst) in instances.items():
-        #         inst_views = inst.instance_views
-        #         for view_idx,inst_view in enumerate(inst_views):
-        #             if inst_view.cropped_image.shape[0] * inst_view.cropped_image.shape[1] < 2500 or (np.array(inst_view.cropped_image.shape[0:2]) < 15).any():
-        #                 continue
-        #             print(inst_key, view_idx, inst_view.cropped_image.shape)
-        #             (_, _, matches_, confidence_) = self.matching(
-        #                 inst_view.cropped_image,
-        #                 goal_image=self.goal_image,
-        #                 goal_image_keypoints=self.goal_image_keypoints,
-        #                 step=1000*self.step+10*inst_key+view_idx,
-        #             )
-        #             print(matches_, confidence_)
-        #             print('------------------')
+        all_matches, all_confidences = [], []
+        if self.record_instance_ids and self.step == 0:
+            instances = instance_memory.instance_views[0]
+            for (inst_key, inst) in tqdm(
+                instances.items(), desc="Matching goal image with instance views"
+            ):
+                inst_matches, inst_confidences = [], []
+                inst_views = inst.instance_views
+                for view_idx, inst_view in enumerate(inst_views):
+                    # if inst_view.cropped_image.shape[0] * inst_view.cropped_image.shape[1] < 2500 or (np.array(inst_view.cropped_image.shape[0:2]) < 15).any():
+                    #     continue
+                    img = instance_memory.images[0][inst_view.timestep].cpu().numpy()
+                    img = np.transpose(img, (1, 2, 0))
 
-        return obs_preprocessed, matches, confidence
+                    _, _, view_matches, view_confidence = self.matching(
+                        # inst_view.cropped_image,
+                        img,
+                        goal_image=self.goal_image,
+                        goal_image_keypoints=self.goal_image_keypoints,
+                        step=1000 * self.step + 10 * inst_key + view_idx,
+                    )
+                    inst_matches.append(view_matches)
+                    inst_confidences.append(view_confidence)
+                all_matches.append(inst_matches)
+                all_confidences.append(inst_confidences)
+
+        return obs_preprocessed, matches, confidence, all_matches, all_confidences
 
     def _preprocess_pose_and_delta(self, obs: Observations) -> Tuple[Tensor, ndarray]:
         """merge GPS+compass. Compute the delta from the previous timestep."""

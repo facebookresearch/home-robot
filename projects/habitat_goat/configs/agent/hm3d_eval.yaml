@@ -3,7 +3,7 @@ BASE_TASK_CONFIG_PATH: configs/task/hm3d_challenge2022_val.yaml
 NO_GPU: 0                 # 1: ignore IDs above and run on CPU, 0: run on GPUs with IDs above
 NUM_ENVIRONMENTS: 35      # number of environments (per agent process)
 DUMP_LOCATION: datadump   # path to dump models and log
-EXP_NAME: debug_goat_gt_5       # experiment name
+EXP_NAME: debug       # experiment name
 VISUALIZE: 0              # 1: render observation and predicted semantic map, 0: no visualization
 PRINT_IMAGES: 1           # 1: save visualization as images, 0: no image saving
 GROUND_TRUTH_SEMANTICS: 1 # 1: use ground-truth semantics (for debugging / ablations)
@@ -30,7 +30,7 @@ AGENT:
   SEMANTIC_MAP:
     semantic_categories: langnav_cat # map semantic channel categories ("coco_indoor", "longtail_indoor", "mukul_indoor")
     num_sem_categories: 16           # number of map semantic channel categories (16, 257, 35)
-    map_size_cm: 4800        # global map size (in centimeters)
+    map_size_cm: 6000        # global map size (in centimeters)
     map_resolution: 5        # size of map bins (in centimeters)
     vision_range: 100        # diameter of local map region visible by the agent (in cells)
     global_downscaling: 2    # ratio of global over local map
