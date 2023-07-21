@@ -69,7 +69,7 @@ def receptacle_position_aggregate(scene_info_dir: str, env: HabitatOpenVocabMani
         elif count_dict[hash_str] == 1:
             break
         else:
-            raise NotImplementedError  # Technically, this shouldn't happen
+            raise ValueError('Something went wrong. Count_dict should only contain 0 or 1.')
 
         if not scene_id in receptacle_positions:
             receptacle_positions[scene_id] = {}
@@ -118,7 +118,7 @@ def gen_receptacle_images(scene_info_dir: str, data_dir: str, env: HabitatOpenVo
         elif count_dict[hash_str] == 1:
             break
         else:
-            raise NotImplementedError  # Technically, this shouldn't happen
+            raise ValueError('Something went wrong. Count_dict should only contain 0 or 1.')
 
         os.makedirs(
             f'./{data_dir}/scene_{scene_id}/ep_{episode.episode_id}', exist_ok=True)
@@ -180,7 +180,7 @@ def gen_dataset_question(scene_info_dir: str, data_dir: str, env: HabitatOpenVoc
         elif count_dict[hash_str] == 1:
             break
         else:
-            raise NotImplementedError  # Technically, this shouldn't happen
+            raise ValueError('Something went wrong. Count_dict should only contain 0 or 1.')
 
         scene_receptacles = list(receptacle_positions[scene_id].keys())
         scene_receptacles_id = {}
