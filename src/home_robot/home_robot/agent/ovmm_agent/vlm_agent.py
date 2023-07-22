@@ -57,7 +57,6 @@ class VLMAgent(OpenVocabManipAgent):
                                                        obs.task_observations["start_recep_name"] + " in the image?" + prompt, conv) else False
         g_recep_answer = True if "Yes" in self.vlm.ask("Is there " +
                                                        obs.task_observations["place_recep_name"] + " in the image?" + prompt, conv) else False
-        print(object_answer, s_recep_answer, g_recep_answer)
         return object_answer, s_recep_answer, g_recep_answer
 
     def _preprocess_obs(self, obs: Observations):

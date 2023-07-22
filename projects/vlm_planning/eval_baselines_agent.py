@@ -54,7 +54,7 @@ if __name__ == "__main__":
     parser.add_argument(
         "--agent_type",
         type=str,
-        default="baseline",
+        default="vlm",
         choices=["baseline", "random", "vlm"],
         help="Agent to evaluate",
     )
