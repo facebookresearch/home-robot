@@ -7,10 +7,10 @@ import argparse
 import os
 import pickle
 import numpy as np
+import h5py
 
 from habitat.tasks.rearrange.utils import get_robot_spawns
 from home_robot_sim.env.habitat_ovmm_env.habitat_ovmm_env import HabitatOpenVocabManipEnv
-from matplotlib import pyplot as plt
 from evaluator import create_ovmm_env_fn
 from utils.config_utils import (
     create_env_config,
@@ -47,7 +47,7 @@ def get_init_scene_episode_count_dict(env: HabitatOpenVocabManipEnv) -> dict:
     return count_dict
 
 
-def receptacle_position_aggregate(scene_info_dir: str, env: HabitatOpenVocabManipEnv):
+def receptacle_position_aggregate(data_dir: str, env: HabitatOpenVocabManipEnv):
     """Aggregates receptacles position by scene using all episodes"""
 
     # This is for iterating through all episodes once using only one env
@@ -69,7 +69,8 @@ def receptacle_position_aggregate(scene_info_dir: str, env: HabitatOpenVocabMani
         elif count_dict[hash_str] == 1:
             break
         else:
-            raise ValueError('Something went wrong. Count_dict should only contain 0 or 1.')
+            raise ValueError(
+                'Something went wrong. Count_dict should only contain 0 or 1.')
 
         if not scene_id in receptacle_positions:
             receptacle_positions[scene_id] = {}
@@ -82,12 +83,12 @@ def receptacle_position_aggregate(scene_info_dir: str, env: HabitatOpenVocabMani
             receptacle_positions[scene_id][episode.goal_recep_category].add(
                 tuple(recep_position + view_point_position))
 
-    os.makedirs(f'./{scene_info_dir}', exist_ok=True)
-    with open(f'./{scene_info_dir}/recep_position.pickle', 'wb') as handle:
+    os.makedirs(f'./{data_dir}', exist_ok=True)
+    with open(f'./{data_dir}/recep_position.pickle', 'wb') as handle:
         pickle.dump(receptacle_positions, handle, protocol=pickle.HIGHEST_PROTOCOL)
 
 
-def gen_receptacle_images(scene_info_dir: str, data_dir: str, env: HabitatOpenVocabManipEnv):
+def gen_receptacle_images(data_dir: str, dataset_file: h5py.File, env: HabitatOpenVocabManipEnv):
     """Generates images of receptacles by episode for all scenes"""
 
     sim = env.habitat_env.env._env._env._sim
@@ -96,12 +97,11 @@ def gen_receptacle_images(scene_info_dir: str, data_dir: str, env: HabitatOpenVo
     count_dict = get_init_scene_episode_count_dict(env)
 
     # Also, creating folders for storing dataset
-    os.makedirs(f'./{data_dir}', exist_ok=True)
     for episode in env._dataset.episodes:
         scene_id = extract_scene_id(episode.scene_id)
-        os.makedirs(f'./{data_dir}/scene_{scene_id}', exist_ok=True)
+        dataset_file.create_group(f'scene_{scene_id}')
 
-    with open(f'./{scene_info_dir}/recep_position.pickle', 'rb') as handle:
+    with open(f'./{data_dir}/recep_position.pickle', 'rb') as handle:
         receptacle_positions = pickle.load(handle)
 
     # Ideally, we can make it like an iterator to make it feel more intuitive
@@ -118,14 +118,13 @@ def gen_receptacle_images(scene_info_dir: str, data_dir: str, env: HabitatOpenVo
         elif count_dict[hash_str] == 1:
             break
         else:
-            raise ValueError('Something went wrong. Count_dict should only contain 0 or 1.')
+            raise ValueError(
+                'Something went wrong. Count_dict should only contain 0 or 1.')
 
-        os.makedirs(
-            f'./{data_dir}/scene_{scene_id}/ep_{episode.episode_id}', exist_ok=True)
+        scene_ep_grp = dataset_file.create_group(
+            f'/scene_{scene_id}/ep_{episode.episode_id}')
 
         for recep in receptacle_positions[scene_id]:
-            os.makedirs(
-                f'./{data_dir}/scene_{scene_id}/ep_{episode.episode_id}/{recep}', exist_ok=True)
             recep_vals = list(receptacle_positions[scene_id][recep])
 
             if len(recep_vals) > 4:  # Too many views around same receptacle can be unneccassary
@@ -133,7 +132,7 @@ def gen_receptacle_images(scene_info_dir: str, data_dir: str, env: HabitatOpenVo
                 recep_len = np.random.randint(1, 5)
                 recep_vals = recep_vals[:recep_len]
 
-            idx = 0
+            recep_images = []
             for pos_pair in recep_vals:
                 pos_pair_lst = list(pos_pair)
                 recep_position = np.array(pos_pair_lst[:3])
@@ -150,20 +149,21 @@ def gen_receptacle_images(scene_info_dir: str, data_dir: str, env: HabitatOpenVo
                 sim.robot.base_rot = start_rotation
                 sim.maybe_update_robot()
                 obs = sim.get_sensor_observations()
-                plt.imsave(
-                    f'./{data_dir}/scene_{scene_id}/ep_{episode.episode_id}/{recep}/img_{idx}.png',
-                    obs['robot_head_rgb'][:, :, :3]
-                )
-                idx += 1
+                recep_images.append(obs['robot_head_rgb'][:, :, :3][None])
+
+            recep_images = np.concatenate(recep_images, axis=0)  # Shape is (N, H, W, 3)
+            scene_ep_grp.create_dataset(recep, data=recep_images)
+
+        dataset_file.flush()
 
 
-def gen_dataset_question(scene_info_dir: str, data_dir: str, env: HabitatOpenVocabManipEnv):
+def gen_dataset_question(data_dir: str, dataset_file: h5py.File, env: HabitatOpenVocabManipEnv):
     """Generates templated Q/A per episode for all scenes"""
 
     # This is for iterating through all episodes once using only one env
     count_dict = get_init_scene_episode_count_dict(env)
 
-    with open(f'./{scene_info_dir}/recep_position.pickle', 'rb') as handle:
+    with open(f'./{data_dir}/recep_position.pickle', 'rb') as handle:
         receptacle_positions = pickle.load(handle)
 
     # Ideally, we can make it like an iterator to make it feel more intuitive
@@ -180,22 +180,22 @@ def gen_dataset_question(scene_info_dir: str, data_dir: str, env: HabitatOpenVoc
         elif count_dict[hash_str] == 1:
             break
         else:
-            raise ValueError('Something went wrong. Count_dict should only contain 0 or 1.')
+            raise ValueError(
+                'Something went wrong. Count_dict should only contain 0 or 1.')
+
+        scene_ep_grp = dataset_file[f'/scene_{scene_id}/ep_{episode.episode_id}']
 
         scene_receptacles = list(receptacle_positions[scene_id].keys())
         scene_receptacles_id = {}
 
         recep_idx = 0
         for recep in scene_receptacles:
-            scene_dir = f'./{data_dir}/scene_{scene_id}/ep_{episode.episode_id}/{recep}/'
-            scene_receptacles_id[recep] = []
+            n_images = scene_ep_grp[recep].data.shape[0]
+            scene_receptacles_id[recep] = list(range(recep_idx, recep_idx + n_images))
+            recep_idx += n_images
 
-            for path in os.listdir(scene_dir):
-                if os.path.isfile(os.path.join(scene_dir, path)):
-                    scene_receptacles_id[recep].append(recep_idx)
-                    recep_idx += 1
-
-        for (q_idx, recep) in enumerate(all_receptacles):
+        questions = []
+        for recep in all_receptacles:
             question_str = f"We show images from different locations inside a home. Which location(s) contain {recep.replace('_', ' ')}? You can choose multiple options\n"
             options_str = "Options: "
             for idx in range(recep_idx):
@@ -211,9 +211,12 @@ def gen_dataset_question(scene_info_dir: str, data_dir: str, env: HabitatOpenVoc
                 answer_str += "Not found"
 
             prompt_str = question_str + options_str + answer_str
-            with open(f"./{data_dir}/scene_{scene_id}/ep_{episode.episode_id}/question_{q_idx}.txt", "w") as f_text:
-                f_text.write(prompt_str)
-                f_text.close()
+            questions.append(prompt_str)
+
+        questions = np.array(questions)
+        scene_ep_grp.create_dataset('questions', data=questions)
+
+    dataset_file.flush()
 
 
 if __name__ == "__main__":
@@ -231,13 +234,13 @@ if __name__ == "__main__":
         help="Path to config yaml",
     )
     parser.add_argument(
-        "--scene_info_dir",
+        "--data_dir",
         type=str,
-        default="scene_info",
+        default="scene_ep_data",
         help="Path to saving scene info",
     )
     parser.add_argument(
-        "--data_dir",
+        "--datafile",
         type=str,
         default="data_out",
         help="Path to saving data",
@@ -269,14 +272,20 @@ if __name__ == "__main__":
         habitat_config, env_config, evaluation_type=args.evaluation_type
     )
 
+    # Create h5py files
+    dataset_file = h5py.File(f'./{args.data_dir}/{args.datafile}.hdf5', 'w')
+
     # Create an env
     env = create_ovmm_env_fn(env_config)
 
     # Aggregate receptacles position by scene using all episodes
-    receptacle_position_aggregate(args.scene_info_dir, env)
+    receptacle_position_aggregate(args.data_dir, env)
 
     # Generate images of receptacles by episode
-    gen_receptacle_images(args.scene_info_dir, args.data_dir, env)
+    gen_receptacle_images(args.data_dir, dataset_file, env)
 
     # Generate templated Q/A per episode
-    gen_dataset_question(args.scene_info_dir, args.data_dir, env)
+    gen_dataset_question(args.data_dir, dataset_file, env)
+
+    # Close the h5py file
+    dataset_file.close()
