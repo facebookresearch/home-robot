@@ -20,7 +20,10 @@ from segment_anything import SamPredictor  # noqa: E402
 
 from home_robot.core.abstract_perception import PerceptionModule  # noqa: E402
 from home_robot.core.interfaces import Observations  # noqa: E402
-from home_robot.perception.detection.utils import overlay_masks  # noqa: E402
+from home_robot.perception.detection.utils import (  # noqa: E402
+    filter_depth,
+    overlay_masks,
+)
 
 DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
@@ -46,6 +49,16 @@ class GroundedSAMPerception(PerceptionModule):
         checkpoint_file: str = MOBILE_SAM_CHECKPOINT_PATH,
         verbose=False,
     ):
+        """Load trained Detic model for inference.
+
+        Arguments:
+            config_file: path to model config
+            custom_vocabulary: if vocabulary="custom", this should be a comma-separated
+             list of classes (as a single string)
+            sem_gpu_id: GPU ID to load the model on, -1 for CPU
+            checkpoint_file: path to model checkpoint
+            verbose: whether to print out debug information
+        """
         # Building GroundingDINO inference model
         self.grounding_dino_model = Model(
             model_config_path=GROUNDING_DINO_CONFIG_PATH,
@@ -61,7 +74,12 @@ class GroundedSAMPerception(PerceptionModule):
         self.sam_predictor = SamPredictor(self.mobile_sam)
 
     def reset_vocab(self, new_vocab: List[str]):
-
+        """Resets the vocabulary of Detic model allowing you to change detection on
+        the fly. Note that previous vocabulary is not preserved.
+        Args:
+            new_vocab: list of strings representing the new vocabulary
+            vocab_type: one of "custom" or "coco"; only "custom" supported right now
+        """
         self.custom_vocabulary = new_vocab
 
     def predict(
@@ -70,6 +88,18 @@ class GroundedSAMPerception(PerceptionModule):
         depth_threshold: Optional = None,
         draw_instance_predictions: bool = False,
     ):
+        """
+        Arguments:
+            obs.rgb: image of shape (H, W, 3) (in RGB order)
+            obs.depth: depth frame of shape (H, W), used for depth filtering
+            depth_threshold: if specified, the depth threshold per instance
+
+        Returns:
+            obs.semantic: segmentation predictions of shape (H, W) with
+             indices in [0, num_sem_categories - 1]
+            obs.task_observations["semantic_frame"]: segmentation visualization
+             image of shape (H, W, 3)
+        """
 
         if draw_instance_predictions:
             raise NotImplementedError
@@ -101,9 +131,16 @@ class GroundedSAMPerception(PerceptionModule):
         detections.class_id = detections.class_id[nms_idx]
 
         # convert detections to masks
-        detections.mask = self.segment(
-            image=cv2.cvtColor(obs.rgb, cv2.COLOR_BGR2RGB), xyxy=detections.xyxy
-        )
+        detections.mask = self.segment(image=obs.rgb, xyxy=detections.xyxy)
+
+        if depth_threshold is not None and obs.depth is not None:
+            detections.mask = np.array(
+                [
+                    filter_depth(mask, obs.depth, depth_threshold)
+                    for mask in detections.mask
+                ]
+            )
+
         semantic_map, instance_map = overlay_masks(
             detections.mask, detections.class_id, (height, width)
         )
@@ -119,6 +156,14 @@ class GroundedSAMPerception(PerceptionModule):
 
     # Prompting SAM with detected boxes
     def segment(self, image: np.ndarray, xyxy: np.ndarray) -> np.ndarray:
+        """
+        Get masks for all detected bounding boxes using SAM
+        Arguments:
+            image: image of shape (H, W, 3)
+            xyxy: bounding boxes of shape (N, 4) in (x1, y1, x2, y2) format
+        Returns:
+            masks: masks of shape (N, H, W)
+        """
         self.sam_predictor.set_image(image)
         result_masks = []
         for box in xyxy:
