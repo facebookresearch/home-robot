@@ -8,10 +8,9 @@ import os
 import pickle
 import numpy as np
 import h5py
-
+from evaluator import create_ovmm_env_fn
 from habitat.tasks.rearrange.utils import get_robot_spawns
 from home_robot_sim.env.habitat_ovmm_env.habitat_ovmm_env import HabitatOpenVocabManipEnv
-from evaluator import create_ovmm_env_fn
 from utils.config_utils import (
     create_env_config,
     get_habitat_config,
@@ -40,20 +39,23 @@ def get_init_scene_episode_count_dict(env: HabitatOpenVocabManipEnv) -> dict:
     """Returns a dictionary containing entries for all (scene, episode) pairs 
         with count value initialized as 0"""
     count_dict = {}
+    num_episodes = 0
     for episode in env._dataset.episodes:
         scene_id = extract_scene_id(episode.scene_id)
         hash_str = f'ep_{episode.episode_id}_scene_{scene_id}'
         count_dict[hash_str] = 0
-    return count_dict
+        num_episodes += 1
+    return count_dict, num_episodes
 
 
 def receptacle_position_aggregate(data_dir: str, env: HabitatOpenVocabManipEnv):
     """Aggregates receptacles position by scene using all episodes"""
 
     # This is for iterating through all episodes once using only one env
-    count_dict = get_init_scene_episode_count_dict(env)
+    count_dict, num_episodes = get_init_scene_episode_count_dict(env)
 
     receptacle_positions = {}
+    count_episodes = 0
 
     # Ideally, we can make it like an iterator to make it feel more intuitive
     while True:
@@ -66,11 +68,10 @@ def receptacle_position_aggregate(data_dir: str, env: HabitatOpenVocabManipEnv):
         hash_str = f'ep_{episode.episode_id}_scene_{scene_id}'
         if count_dict[hash_str] == 0:
             count_dict[hash_str] += 1
-        elif count_dict[hash_str] == 1:
-            break
+            count_episodes += 1
         else:
             raise ValueError(
-                'Something went wrong. Count_dict should only contain 0 or 1.')
+                'count_dict[hash_str] is 0 when hash_str is called for the first time.')
 
         if not scene_id in receptacle_positions:
             receptacle_positions[scene_id] = {}
@@ -83,6 +84,9 @@ def receptacle_position_aggregate(data_dir: str, env: HabitatOpenVocabManipEnv):
             receptacle_positions[scene_id][episode.goal_recep_category].add(
                 tuple(recep_position + view_point_position))
 
+        if count_episodes == num_episodes:
+            break
+
     os.makedirs(f'./{data_dir}', exist_ok=True)
     with open(f'./{data_dir}/recep_position.pickle', 'wb') as handle:
         pickle.dump(receptacle_positions, handle, protocol=pickle.HIGHEST_PROTOCOL)
@@ -94,15 +98,18 @@ def gen_receptacle_images(data_dir: str, dataset_file: h5py.File, env: HabitatOp
     sim = env.habitat_env.env._env._env._sim
 
     # This is for iterating through all episodes once using only one env
-    count_dict = get_init_scene_episode_count_dict(env)
+    count_dict, num_episodes = get_init_scene_episode_count_dict(env)
 
     # Also, creating folders for storing dataset
     for episode in env._dataset.episodes:
         scene_id = extract_scene_id(episode.scene_id)
-        dataset_file.create_group(f'scene_{scene_id}')
+        if f'scene_{scene_id}' not in dataset_file:
+            dataset_file.create_group(f'scene_{scene_id}')
 
     with open(f'./{data_dir}/recep_position.pickle', 'rb') as handle:
         receptacle_positions = pickle.load(handle)
+
+    count_episodes = 0
 
     # Ideally, we can make it like an iterator to make it feel more intuitive
     while True:
@@ -115,11 +122,10 @@ def gen_receptacle_images(data_dir: str, dataset_file: h5py.File, env: HabitatOp
         hash_str = f'ep_{episode.episode_id}_scene_{scene_id}'
         if count_dict[hash_str] == 0:
             count_dict[hash_str] += 1
-        elif count_dict[hash_str] == 1:
-            break
+            count_episodes += 1
         else:
             raise ValueError(
-                'Something went wrong. Count_dict should only contain 0 or 1.')
+                'count_dict[hash_str] is 0 when hash_str is called for the first time.')
 
         scene_ep_grp = dataset_file.create_group(
             f'/scene_{scene_id}/ep_{episode.episode_id}')
@@ -156,15 +162,20 @@ def gen_receptacle_images(data_dir: str, dataset_file: h5py.File, env: HabitatOp
 
         dataset_file.flush()
 
+        if count_episodes == num_episodes:
+            break
+
 
 def gen_dataset_question(data_dir: str, dataset_file: h5py.File, env: HabitatOpenVocabManipEnv):
     """Generates templated Q/A per episode for all scenes"""
 
     # This is for iterating through all episodes once using only one env
-    count_dict = get_init_scene_episode_count_dict(env)
+    count_dict, num_episodes = get_init_scene_episode_count_dict(env)
 
     with open(f'./{data_dir}/recep_position.pickle', 'rb') as handle:
         receptacle_positions = pickle.load(handle)
+
+    count_episodes = 0
 
     # Ideally, we can make it like an iterator to make it feel more intuitive
     while True:
@@ -177,12 +188,10 @@ def gen_dataset_question(data_dir: str, dataset_file: h5py.File, env: HabitatOpe
         hash_str = f'ep_{episode.episode_id}_scene_{scene_id}'
         if count_dict[hash_str] == 0:
             count_dict[hash_str] += 1
-        elif count_dict[hash_str] == 1:
-            break
+            count_episodes += 1
         else:
             raise ValueError(
-                'Something went wrong. Count_dict should only contain 0 or 1.')
-
+                'count_dict[hash_str] is 0 when hash_str is called for the first time.')
         scene_ep_grp = dataset_file[f'/scene_{scene_id}/ep_{episode.episode_id}']
 
         scene_receptacles = list(receptacle_positions[scene_id].keys())
@@ -190,7 +199,7 @@ def gen_dataset_question(data_dir: str, dataset_file: h5py.File, env: HabitatOpe
 
         recep_idx = 0
         for recep in scene_receptacles:
-            n_images = scene_ep_grp[recep].data.shape[0]
+            n_images = scene_ep_grp[recep].shape[0]
             scene_receptacles_id[recep] = list(range(recep_idx, recep_idx + n_images))
             recep_idx += n_images
 
@@ -213,10 +222,12 @@ def gen_dataset_question(data_dir: str, dataset_file: h5py.File, env: HabitatOpe
             prompt_str = question_str + options_str + answer_str
             questions.append(prompt_str)
 
-        questions = np.array(questions)
-        scene_ep_grp.create_dataset('questions', data=questions)
+        questions = [question.encode("ascii", "ignore") for question in questions]
+        scene_ep_grp.create_dataset('questions', (len(questions), 1), 'S10', questions)
+        dataset_file.flush()
 
-    dataset_file.flush()
+        if count_episodes == num_episodes:
+            break
 
 
 if __name__ == "__main__":
@@ -273,6 +284,7 @@ if __name__ == "__main__":
     )
 
     # Create h5py files
+    os.makedirs(f'./{args.data_dir}', exist_ok=True)
     dataset_file = h5py.File(f'./{args.data_dir}/{args.datafile}.hdf5', 'w')
 
     # Create an env
