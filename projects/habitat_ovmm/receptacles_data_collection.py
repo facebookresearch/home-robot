@@ -35,7 +35,7 @@ def extract_scene_id(scene_id: str) -> str:
     return after
 
 
-def get_init_scene_episode_count_dict(env: HabitatOpenVocabManipEnv) -> dict:
+def get_init_scene_episode_count_dict(env: HabitatOpenVocabManipEnv) -> dict, int:
     """Returns a dictionary containing entries for all (scene, episode) pairs 
         with count value initialized as 0"""
     count_dict = {}
