@@ -13,11 +13,11 @@ from typing import List, Optional, Tuple
 import cv2
 import numpy as np
 import torch
-
 from detectron2.config import get_cfg
 from detectron2.data import MetadataCatalog
 from detectron2.engine.defaults import DefaultPredictor
 from detectron2.utils.visualizer import ColorMode, Visualizer
+
 from home_robot.core.abstract_perception import PerceptionModule
 from home_robot.core.interfaces import Observations
 from home_robot.perception.detection.utils import filter_depth, overlay_masks
@@ -207,6 +207,7 @@ class DeticPerception(PerceptionModule):
         image = cv2.cvtColor(obs.rgb, cv2.COLOR_RGB2BGR)
         depth = obs.depth
         height, width, _ = image.shape
+
         pred = self.predictor(image)
 
         if obs.task_observations is None:

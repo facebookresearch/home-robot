@@ -14,7 +14,6 @@ from typing import List, Optional, Tuple
 
 import numpy as np
 import torch
-
 from detectron2.checkpoint import DetectionCheckpointer
 from detectron2.config import get_cfg
 from detectron2.data.catalog import MetadataCatalog
