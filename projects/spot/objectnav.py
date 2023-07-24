@@ -244,13 +244,14 @@ def main(spot):
 
     env = SpotObjectNavEnv(spot,position_control=True)
     env.reset()
-    env.set_goal("person")
+    env.set_goal("airplane")
 
     agent = ObjectNavAgent(config=config)
     agent.reset()
 
     assert agent.num_sem_categories == env.num_sem_categories
     pan_warmup = False
+    keyboard_takeover = False
     if pan_warmup:
         positions = spot.get_arm_joint_positions()
         new_pos = positions.copy()
@@ -335,28 +336,33 @@ def main(spot):
         key = cv2.waitKey(50)
         if key == ord('z'):
             break
-        
-        if action == DiscreteNavigationAction.MOVE_FORWARD:
-            action = [1, 0]
-        elif action == DiscreteNavigationAction.TURN_RIGHT:
-            action = [0, -1]
-        elif action == DiscreteNavigationAction.TURN_LEFT:
-            action = [0, 1]
-        elif action == DiscreteNavigationAction.STOP:
-            action = [0, 0]
-            break
-        
-        if pan_warmup:
-            positions = spot.get_arm_joint_positions()
-            new_pos = positions.copy()
-            new_pos[0] = -np.pi
-            spot.set_arm_joint_positions(new_pos,travel_time=20)
-            if positions[0] < -2.5:
-                pan_warmup = False
-                env.env.initialize_arm()
+        if key == ord('q'):
+            keyboard_takeover = True
+            print("KEYBOARD TAKEOVER")
+        if keyboard_takeover:
+            if key == ord("w"):
+                spot.set_base_velocity(0.5,0,0,0.5)
+            elif key == ord("s"):
+                # back
+                spot.set_base_velocity(-0.5,0,0,0.5)
+            elif key == ord("a"):
+                # left
+                spot.set_base_velocity(0,0.5,0,0.5)
+            elif key == ord("d"):
+                # right
+                spot.set_base_velocity(0,-0.5,0,0.5)
         else:
-            if action is not None:
-                env.apply_action(action)
+            if pan_warmup:
+                positions = spot.get_arm_joint_positions()
+                new_pos = positions.copy()
+                new_pos[0] = -np.pi
+                spot.set_arm_joint_positions(new_pos,travel_time=20)
+                if positions[0] < -2.5:
+                    pan_warmup = False
+                    env.env.initialize_arm()
+            else:
+                if action is not None:
+                    env.apply_action(action)
     out_dest = f"{output_visualization_dir}/video.mp4"
     print("Writing", out_dest)
     create_video(
