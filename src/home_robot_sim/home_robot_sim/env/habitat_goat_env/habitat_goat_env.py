@@ -192,6 +192,10 @@ class HabitatGoatEnv(HabitatEnv):
         return goals, vocabulary
 
     def _preprocess_action(self, action: home_robot.core.interfaces.Action) -> int:
+
+        if type(action) == int:
+            return action
+
         discrete_action = cast(
             home_robot.core.interfaces.DiscreteNavigationAction, action
         )

@@ -84,14 +84,20 @@ class InstanceMemory:
     unprocessed_views: List[Dict[int, InstanceView]] = []
     timesteps: List[int] = []
 
-    def __init__(self, num_envs: int, du_scale: int, debug_visualize: bool = False):
+    def __init__(
+        self, num_envs: int, du_scale: int, debug_visualize: bool = False, config=None
+    ):
         self.num_envs = num_envs
         self.du_scale = du_scale
         self.debug_visualize = debug_visualize
+        self.config = config
         if self.debug_visualize:
             import shutil
 
-            shutil.rmtree("instances/", ignore_errors=True)
+            shutil.rmtree(
+                f"{self.config.DUMP_LOCATION}/instances/{self.config.EXP_NAME}",
+                ignore_errors=True,
+            )
         self.reset()
 
     def reset(self):
@@ -133,9 +139,15 @@ class InstanceMemory:
 
             import cv2
 
-            os.makedirs(f"instances/{global_instance_id}", exist_ok=True)
+            instance_write_path = os.path.join(
+                self.config.DUMP_LOCATION,
+                "instances",
+                self.config.EXP_NAME,
+                str(global_instance_id),
+            )
+            os.makedirs(instance_write_path, exist_ok=True)
             cv2.imwrite(
-                f"instances/{global_instance_id}/{self.timesteps[env_id]}_{local_instance_id}_cat_{instance_view.category_id}.png",
+                f"{instance_write_path}/{self.timesteps[env_id]}_{local_instance_id}_cat_{instance_view.category_id}.png",
                 instance_view.cropped_image[:, :, ::-1],
             )
             print(
