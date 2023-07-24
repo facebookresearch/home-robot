@@ -101,6 +101,13 @@ class InstanceMemory:
         self.unprocessed_views = [{} for _ in range(self.num_envs)]
         self.timesteps = [0 for _ in range(self.num_envs)]
 
+    def reset_for_env(self, env_id: int):
+        self.instance_views[env_id] = {}
+        self.images[env_id] = None
+        self.point_cloud[env_id] = None
+        self.unprocessed_views[env_id] = {}
+        self.timesteps[env_id] = 0
+
     def update_instance_id(
         self, env_id: int, local_instance_id: int, global_instance_id: int
     ):
@@ -277,9 +284,3 @@ class InstanceMemory:
                 semantic_map.shape[1],
             )
 
-    def reset_for_env(self, env_id: int):
-        self.instance_views[env_id] = {}
-        self.images[env_id] = None
-        self.point_cloud[env_id] = None
-        self.unprocessed_views[env_id] = {}
-        self.timesteps[env_id] = 0
