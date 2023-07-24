@@ -34,9 +34,6 @@ from home_robot.mapping.semantic.categorical_2d_semantic_map_state import (
 )
 from home_robot.mapping.semantic.instance_tracking_modules import InstanceMemory
 from home_robot.perception.detection.detic.detic_perception import DeticPerception
-from home_robot.perception.detection.maskrcnn.maskrcnn_perception import (
-    MaskRCNNPerception,
-)
 
 # Semantic segmentation categories predicted from frames and projected in the map
 coco_categories = [
@@ -286,10 +283,6 @@ def main(input_trajectory_dir: str, output_visualization_dir: str, legend_path: 
         custom_vocabulary=",".join(categories),
         sem_gpu_id=0,
     )
-    # segmentation = MaskRCNNPerception(
-    #     sem_pred_prob_thr=0.8,
-    #     sem_gpu_id=0,
-    # )
     observations = [
         segmentation.predict(obs, depth_threshold=None) for obs in observations
     ]

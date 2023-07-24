@@ -1,3 +1,8 @@
+# Copyright (c) Meta Platforms, Inc. and affiliates.
+#
+# This source code is licensed under the MIT license found in the
+# LICENSE file in the root directory of this source tree.
+
 from typing import Optional, Tuple
 
 import numpy as np
@@ -24,12 +29,19 @@ def overlay_masks(
 def filter_depth(
     mask: np.ndarray, depth: np.ndarray, depth_threshold: Optional[float] = None
 ) -> np.ndarray:
+    """Filter object mask by depth.
+
+    Arguments:
+        mask: binary object mask of shape (height, width)
+        depth: depth map of shape (height, width)
+        depth_threshold: restrict mask to (depth median - threshold, depth median + threshold)
+    """
     md = np.median(depth[mask == 1])  # median depth
     if md == 0:
         # Remove mask if more than half of points has invalid depth
         filter_mask = np.ones_like(mask, dtype=bool)
     elif depth_threshold is not None:
-        # Restrict objects to 1m depth
+        # Restrict objects to depth_threshold
         filter_mask = (depth >= md + depth_threshold) | (depth <= md - depth_threshold)
     else:
         filter_mask = np.zeros_like(mask, dtype=bool)
