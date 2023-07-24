@@ -244,18 +244,19 @@ def main(spot):
 
     env = SpotObjectNavEnv(spot,position_control=True)
     env.reset()
-    env.set_goal("chair")
+    env.set_goal("person")
 
     agent = ObjectNavAgent(config=config)
     agent.reset()
 
     assert agent.num_sem_categories == env.num_sem_categories
-    pan_warmup = True
-    positions = spot.get_arm_joint_positions()
-    new_pos = positions.copy()
-    new_pos[0] = np.pi
-    spot.set_arm_joint_positions(new_pos,travel_time=3)
-    time.sleep(3)
+    pan_warmup = False
+    if pan_warmup:
+        positions = spot.get_arm_joint_positions()
+        new_pos = positions.copy()
+        new_pos[0] = np.pi
+        spot.set_arm_joint_positions(new_pos,travel_time=3)
+        time.sleep(3)
     t = 0
     while not env.episode_over:
         t += 1
@@ -331,8 +332,7 @@ def main(spot):
         )
         vis_images.append(vis_image)
         cv2.imshow("vis", vis_image[:, :, ::-1])
-        key = cv2.waitKey(1)
-        # breakpoint()
+        key = cv2.waitKey(50)
         if key == ord('z'):
             break
         
@@ -357,11 +357,12 @@ def main(spot):
         else:
             if action is not None:
                 env.apply_action(action)
-
+    out_dest = f"{output_visualization_dir}/video.mp4"
+    print("Writing", out_dest)
     create_video(
         [v[:, :, ::-1] for v in vis_images],
-        f"{output_visualization_dir}/video.mp4",
-        fps=20,
+        out_dest,
+        fps=5,
     )
 
 
