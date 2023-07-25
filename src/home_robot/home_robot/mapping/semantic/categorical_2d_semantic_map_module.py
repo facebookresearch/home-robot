@@ -625,9 +625,17 @@ class Categorical2DSemanticMapModule(nn.Module):
                 translated, num_instance_channels
             )
 
-        maps = torch.cat((prev_map.unsqueeze(1), translated.unsqueeze(1)), 1)
+        # Aggregate by taking the max of the previous map and current map — this is robust
+        # to false negatives in one frame but makes it impossible to remove false positives
+        # maps = torch.cat((prev_map.unsqueeze(1), translated.unsqueeze(1)), 1)
+        # current_map, _ = torch.max(maps, 1)
 
-        current_map, _ = torch.max(maps, 1)
+        # Aggregate by trusting the current map — this is not robust to false negatives in
+        # one frame, but it makes it possible to remove false positives
+        current_mask = translated[1, :, :] > 0
+        current_map = prev_map.clone()
+        current_map[:, current_mask] = translated[:, current_mask]
+
         if self.record_instance_ids:
             # overwrite channels containing instance IDs
             current_map[
