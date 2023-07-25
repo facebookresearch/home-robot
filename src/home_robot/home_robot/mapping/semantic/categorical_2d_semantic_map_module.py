@@ -617,7 +617,7 @@ class Categorical2DSemanticMapModule(nn.Module):
         translated = F.grid_sample(rotated, trans_mat, align_corners=True)
 
         # Clamp to [0, 1] after transform agent view to map coordinates
-        translated = torch.clamp(translated, min=0.0, max=1.0)
+        translated = torch.clamp(translated, min=0.0, max=1.0).float()
 
         # update instance channels
         if self.record_instance_ids:
@@ -627,14 +627,15 @@ class Categorical2DSemanticMapModule(nn.Module):
 
         # Aggregate by taking the max of the previous map and current map — this is robust
         # to false negatives in one frame but makes it impossible to remove false positives
-        # maps = torch.cat((prev_map.unsqueeze(1), translated.unsqueeze(1)), 1)
-        # current_map, _ = torch.max(maps, 1)
+        maps = torch.cat((prev_map.unsqueeze(1), translated.unsqueeze(1)), 1)
+        current_map, _ = torch.max(maps, 1)
 
         # Aggregate by trusting the current map — this is not robust to false negatives in
         # one frame, but it makes it possible to remove false positives
-        current_mask = translated[1, :, :] > 0
-        current_map = prev_map.clone()
-        current_map[:, current_mask] = translated[:, current_mask]
+        # TODO Implement this properly for num_environments > 1
+        # current_mask = translated[0, 1, :, :] > 0
+        # current_map = prev_map.clone()
+        # current_map[0, :, current_mask] = translated[0, :, current_mask]
 
         if self.record_instance_ids:
             # overwrite channels containing instance IDs
