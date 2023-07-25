@@ -241,7 +241,7 @@ def main(spot):
 
     env = SpotObjectNavEnv(spot,position_control=True)
     env.reset()
-    env.set_goal("oven")
+    env.set_goal("toilet")
 
     agent = ObjectNavAgent(config=config)
     agent.reset()

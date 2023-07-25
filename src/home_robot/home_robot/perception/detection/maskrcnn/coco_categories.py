@@ -14,7 +14,6 @@ coco_categories = {
     "sink": 8,
     "refrigerator": 9,
     "book": 10,
-    # "clock": 11,
     "person": 11,
     "vase": 12,
     "cup": 13,
@@ -34,7 +33,7 @@ coco_categories_mapping = {
     71: 8,  # sink
     72: 9,  # refrigerator
     73: 10,  # book
-    74: 11,  # clock
+    0: 11,  # person
     75: 12,  # vase
     41: 13,  # cup
     39: 14,  # bottle
@@ -76,7 +75,7 @@ coco_categories_color_palette = [
     0.9400000000000001,  # book
     0.8168,
     0.66,
-    0.9400000000000001,  # clock
+    0.9400000000000001,  # person
     0.9218,
     0.66,
     0.9400000000000001,  # vase

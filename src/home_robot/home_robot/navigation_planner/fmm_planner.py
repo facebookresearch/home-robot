@@ -26,8 +26,8 @@ class FMMPlanner:
         step_size: int = 5,
         goal_tolerance: float = 2.0,
         vis_dir: str = "data/images/planner",
-        visualize=False,
-        print_images=False,
+        visualize=True,
+        print_images=True,
         debug=False,
     ):
         """
@@ -139,6 +139,7 @@ class FMMPlanner:
 
         self.fmm_dist = dd
         # self.goal_map = goal_map
+
         if self.visualize or self.print_images and timestep != 0:
             r, c = traversible.shape  # for visualizing (downsampled) traversible map
             dist_vis = np.zeros((r, c * 3))
