@@ -39,10 +39,7 @@ class PI:
     VISITED = 3
     CLOSEST_GOAL = 4
     REST_OF_GOAL = 5
-    BEEN_CLOSE = 6
-    SEM_START = 7
-    SUBGOAL = 8
-
+    SEM_START = 6
 
 def create_video(images, output_file, fps):
     height, width, _ = images[0].shape
@@ -244,7 +241,7 @@ def main(spot):
 
     env = SpotObjectNavEnv(spot,position_control=True)
     env.reset()
-    env.set_goal("airplane")
+    env.set_goal("oven")
 
     agent = ObjectNavAgent(config=config)
     agent.reset()
@@ -324,7 +321,7 @@ def main(spot):
         depth_frame = np.repeat(depth_frame[:, :, np.newaxis], 3, axis=2)
         vis_image = get_semantic_map_vis(
             agent.semantic_map,
-            obs.task_observations["semantic_frame"][:, :, ::-1],
+            obs.task_observations["semantic_frame"],
             info["closest_goal_map"],
             depth_frame,
             env.color_palette,

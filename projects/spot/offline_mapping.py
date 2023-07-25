@@ -34,6 +34,9 @@ from home_robot.mapping.semantic.categorical_2d_semantic_map_state import (
 )
 from home_robot.mapping.semantic.instance_tracking_modules import InstanceMemory
 from home_robot.perception.detection.detic.detic_perception import DeticPerception
+from home_robot.perception.detection.maskrcnn.maskrcnn_perception import (
+    MaskRCNNPerception,
+)
 
 # Semantic segmentation categories predicted from frames and projected in the map
 coco_categories = [
@@ -272,22 +275,34 @@ def main(input_trajectory_dir: str, output_visualization_dir: str, legend_path: 
             observations.append(pickle.load(f))
 
     # Predict semantic segmentation
-    categories = [
-        "other",
-        *coco_categories,
-        "other",
-    ]
-    num_sem_categories = len(categories) - 1
-    segmentation = DeticPerception(
-        vocabulary="custom",
-        custom_vocabulary=",".join(categories),
+    # categories = [
+    #     "other",
+    #     *coco_categories,
+    #     "other",
+    # ]
+    # num_sem_categories = len(categories) - 1
+    # segmentation = DeticPerception(
+    #     vocabulary="custom",
+    #     custom_vocabulary=",".join(categories),
+    #     sem_gpu_id=0,
+    # )
+    
+    from home_robot.perception.detection.maskrcnn.coco_categories import (
+        coco_categories,
+        coco_categories_color_palette,
+    )
+    categories = list(coco_categories.keys())
+    num_sem_categories = len(coco_categories)
+    segmentation = MaskRCNNPerception(
+        sem_pred_prob_thr=0.8,
         sem_gpu_id=0,
     )
+
     observations = [
         segmentation.predict(obs, depth_threshold=0.5) for obs in observations
     ]
     for obs in observations:
-        obs.semantic[obs.semantic == 0] = len(categories) - 1
+        obs.semantic[obs.semantic == 0] = num_sem_categories
         obs.semantic = obs.semantic - 1
         obs.task_observations["instance_map"] += 1
         obs.task_observations["instance_map"] = obs.task_observations[
@@ -309,7 +324,7 @@ def main(input_trajectory_dir: str, output_visualization_dir: str, legend_path: 
     # Map initialization
     # --------------------------------------------------------------------------------------------
 
-    device = torch.device("cuda:1")
+    device = torch.device("cuda:0")
 
     # Instance memory is responsible for tracking instances in the map
     instance_memory = None

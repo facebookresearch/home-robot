@@ -137,7 +137,7 @@ class SpotObjectNavEnv(SpotEnv):
         obs = super().get_observation()
 
         # Segment the image
-        obs = self.segmentation.predict(obs, depth_threshold=None)
+        obs = self.segmentation.predict(obs, depth_threshold=0.5)
         obs.semantic[obs.semantic == 0] = self.num_sem_categories
         obs.semantic = obs.semantic - 1
 
