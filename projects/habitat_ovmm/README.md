@@ -11,7 +11,7 @@
 
 Run `git lfs install` to install Git LFS, which is used to manage the OVMM dataset. Please sign in [here](https://huggingface.co/datasets/hssd/hssd-hab/tree/ovmm) and accept the license for using HSSD scenes.
 
-You can then use the following commmand to install download data:
+You can then use the following command to download data:
 ```
 $HOME_ROBOT_ROOT/projects/habitat_ovmm/install.sh
 ```
