@@ -38,6 +38,11 @@ git submodule update --init --recursive src/third_party/detectron2
 cd $HOME_ROBOT_ROOT
 pip install -e src/third_party/detectron2
 
+echo "Download DETIC checkpoint..."
+cd $HOME_ROBOT_ROOT/src/home_robot/home_robot/perception/detection/detic/Detic
+mkdir models
+wget https://dl.fbaipublicfiles.com/detic/Detic_LCOCOI21k_CLIP_SwinB_896b32_4x_ft4x_max-size.pth -O models/Detic_LCOCOI21k_CLIP_SwinB_896b32_4x_ft4x_max-size.pth
+
 echo ""
 echo "Downloading pretrained skills..."
 cd $HOME_ROBOT_ROOT
