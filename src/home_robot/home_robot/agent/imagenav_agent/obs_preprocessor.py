@@ -198,7 +198,6 @@ class ObsPreprocessor:
             goal_image_keypoints=self.goal_image_keypoints,
             step=self.step,
         )
-
         kp_loc = preprocess_keypoint_localization(
             obs.rgb, goal_keypoints, rgb_keypoints, matches, confidence
         )

@@ -45,9 +45,12 @@ def get_matches_against_memory(
                 step=1000 * step + 10 * inst_key + view_idx,
             )
 
-    # unflatten based on number of views per instance
-    all_matches = np.concatenate(all_matches, 0)
-    all_confidences = np.concatenate(all_confidences, 0)
-    all_matches = np.split(all_matches, np.cumsum(instance_view_counts)[:-1])
-    all_confidences = np.split(all_confidences, np.cumsum(instance_view_counts)[:-1])
-    return all_matches, all_confidences
+        # unflatten based on number of views per instance
+        all_matches = np.concatenate(all_matches, 0)
+        all_confidences = np.concatenate(all_confidences, 0)
+        all_matches = np.split(all_matches, np.cumsum(instance_view_counts)[:-1])
+        all_confidences = np.split(
+            all_confidences, np.cumsum(instance_view_counts)[:-1]
+        )
+        return all_matches, all_confidences
+    return [], []
