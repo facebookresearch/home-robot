@@ -244,7 +244,7 @@ def main(spot):
 
     env = SpotObjectNavEnv(spot, position_control=True)
     env.reset()
-    env.set_goal("toilet")
+    env.set_goal("sink")
 
     agent = ObjectNavAgent(config=config)
     agent.reset()
@@ -290,6 +290,7 @@ def main(spot):
             subgoal=info["short_term_goal"],
         )
         vis_images.append(vis_image)
+        cv2.imwrite(f"{output_visualization_dir}/{t}.png", vis_image[:, :, ::-1])
         cv2.imshow("vis", vis_image[:, :, ::-1])
 
         key = cv2.waitKey(50)
