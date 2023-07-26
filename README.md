@@ -54,6 +54,9 @@ roslaunch home_robot_hw startup_stretch_hector_slam.launch
 To set up your workstation, follow these instructions. We will assume that your system supports CUDA 11.8 or better for pytorch; earlier versions should be fine, but may require some changes to the conda environment.
 
 #### 1. Create Your Environment
+
+If necessary, [install mamba](https://mamba.readthedocs.io/en/latest/installation.html) in your base conda environment. Optionally: [install ROS noetic](http://wiki.ros.org/noetic/Installation/Ubuntu) on your workstation.
+
 ```
 # Create a conda env - use the version in home_robot_hw if you want to run on the robot
 mamba env create -n home-robot -f src/home_robot_hw/environment.yml
@@ -65,6 +68,8 @@ conda activate home-robot
 ```
 
 This should install pytorch; if you run into trouble, you may need to edit the installation to make sure you have the right CUDA version. See the [pytorch install notes](docs/install_pytorch.md) for more.
+
+Optionally, setup a [catkin workspace](docs/catkin.md) to use improved ROS visualizations.
 
 #### 2. Install Home Robot Packages
 ```
