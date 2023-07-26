@@ -244,7 +244,9 @@ def main(spot):
 
     env = SpotObjectNavEnv(spot, position_control=True)
     env.reset()
-    env.set_goal("sink")
+    user_input = input("Enter the goal category: ")
+    print("You entered:", user_input)
+    env.set_goal(user_input)
 
     agent = ObjectNavAgent(config=config)
     agent.reset()
@@ -297,6 +299,11 @@ def main(spot):
 
         if key == ord("z"):
             break
+
+        if key == ord("g"):
+            user_input = input("Enter the goal category: ")
+            print("You entered:", user_input)
+            env.set_goal(user_input)
 
         if key == ord("q"):
             keyboard_takeover = True
