@@ -51,3 +51,8 @@ cd $HOME_ROBOT_ROOT/data/checkpoints
 wget https://dl.fbaipublicfiles.com/habitat/data/baselines/v1/ovmm_baseline_home_robot_challenge_2023.zip
 unzip ovmm_baseline_home_robot_challenge_2023.zip
 cd $HOME_ROBOT_ROOT
+
+echo ""
+echo "Install pre-commit hooks"
+pip install pre-commit
+pre-commit install-hooks
