@@ -137,8 +137,8 @@ class PickAndPlaceAgent(OpenVocabManipAgent):
         task_info = obs.task_observations
         # Recep goal is unused by our object nav policies
         obs.task_observations["recep_goal"] = None
-        obs.task_observations["start_recep_goal"] = task_info["start_recep_id"]
-        obs.task_observations["object_goal"] = task_info["object_id"]
+        obs.task_observations["start_recep_goal"] = task_info["start_recep_goal"]
+        obs.task_observations["object_goal"] = task_info["object_goal"]
         obs.task_observations["goal_name"] = task_info["object_name"]
         return obs
 
@@ -148,7 +148,7 @@ class PickAndPlaceAgent(OpenVocabManipAgent):
         """Process information we need for the place skills."""
         task_info = obs.task_observations
         # Receptacle goal used for placement
-        obs.task_observations["end_recep_goal"] = task_info["place_recep_id"]
+        obs.task_observations["end_recep_goal"] = task_info["end_recep_goal"]
         # Start receptacle goal unused
         obs.task_observations["start_recep_goal"] = None
         # Object goal unused - we already presumably have it in our hands
