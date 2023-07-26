@@ -16,11 +16,7 @@ echo " - HOME_ROBOT_ROOT is set"
 echo "Currently:"
 echo " - CUDA_HOME=$CUDA_HOME"
 echo " - HOME_ROBOT_ROOT=$HOME_ROBOT_ROOT"
-
-# Download the scenes
-cd $HOME_ROBOT_ROOT
-git submodule update --init --recursive
-git submodule update --init --recursive src/home_robot/home_robot/perception/detection/detic/Detic src/third_party/detectron2 src/third_party/contact_graspnet
+echo " - python=`which python`"
 
 # Activate conda environment
 # conda activate $ENV
@@ -38,6 +34,7 @@ pip install -e src/third_party/habitat-lab/habitat-baselines
 
 echo ""
 echo "Install detectron2..."
+git submodule update --init --recursive src/third_party/detectron2
 cd $HOME_ROBOT_ROOT
 pip install -e src/third_party/detectron2
 
