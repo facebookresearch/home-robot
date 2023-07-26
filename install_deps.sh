@@ -17,6 +17,15 @@ echo "Currently:"
 echo " - CUDA_HOME=$CUDA_HOME"
 echo " - HOME_ROBOT_ROOT=$HOME_ROBOT_ROOT"
 echo " - python=`which python`"
+echo ""
+read -p "Does all this look correct? (y/n) " yn
+case $yn in
+	y ) echo "Starting installation...";;
+	n ) echo "Exiting...";
+		exit;;
+	* ) echo Invalid response!;
+		exit 1;;
+esac
 
 # Activate conda environment
 # conda activate $ENV
