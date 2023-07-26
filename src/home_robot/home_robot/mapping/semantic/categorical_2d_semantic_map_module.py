@@ -160,6 +160,7 @@ class Categorical2DSemanticMapModule(nn.Module):
         seq_dones: Tensor,
         seq_update_global: Tensor,
         seq_camera_poses: Tensor,
+        seq_obstacle_locations: Tensor,
         init_local_map: Tensor,
         init_global_map: Tensor,
         init_local_pose: Tensor,
@@ -257,6 +258,7 @@ class Categorical2DSemanticMapModule(nn.Module):
                 local_map,
                 local_pose,
                 seq_camera_poses,
+                seq_obstacle_locations[:, t],
             )
             for e in range(batch_size):
                 if seq_update_global[e, t]:
@@ -372,6 +374,7 @@ class Categorical2DSemanticMapModule(nn.Module):
         prev_map: Tensor,
         prev_pose: Tensor,
         camera_pose: Tensor,
+        obstacle_locations: Tensor,
         debug: bool = False,
     ) -> Tuple[Tensor, Tensor]:
         """Update local map and sensor pose given a new observation using parameter-free
@@ -628,6 +631,11 @@ class Categorical2DSemanticMapModule(nn.Module):
         # Remove people from the last map if people are detected
         if translated[:, 5 + 11, :, :].sum() > 0.99:
             prev_map[:, 5 + 11, :, :] = 0
+
+        # Add extra obstacles to current map
+        # TODO Implement this properly for num_environments > 1
+        translated[0, 0, obstacle_locations[0, :, 1], obstacle_locations[0, :, 0]] = 1
+        # breakpoint()
 
         # Aggregate by taking the max of the previous map and current map — this is robust
         # to false negatives in one frame but makes it impossible to remove false positives

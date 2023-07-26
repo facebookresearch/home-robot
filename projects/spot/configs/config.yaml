@@ -36,8 +36,8 @@ AGENT:
     global_downscaling: 2    # ratio of global over local map
     du_scale: 4              # frame downscaling before projecting to point cloud
     cat_pred_threshold: 20.0 # number of depth points to be in bin to classify it as a certain semantic category
-    exp_pred_threshold: 1.0  # number of depth points to be in bin to consider it as explored
-    map_pred_threshold: 20.0 # number of depth points to be in bin to consider it as obstacle
+    exp_pred_threshold: 20.0  # number of depth points to be in bin to consider it as explored
+    map_pred_threshold: 1000.0 # number of depth points to be in bin to consider it as obstacle
     explored_radius: 150     # radius (in centimeters) of visually explored region
     been_close_to_radius: 200  # radius (in centimeters) of been close to region
     must_explore_close: False

@@ -1,5 +1,6 @@
 from abc import abstractmethod
 from typing import Any, Dict, Optional
+import torch
 
 import numpy as np
 import transforms3d as t3d
@@ -95,7 +96,7 @@ class SpotEnv(Env):
             gps=relative_gps,
             compass=relative_compass,
             rgb=rgb,
-            depth=depth,
+            depth=depth
         )
 
         # Camera pose
@@ -108,6 +109,14 @@ class SpotEnv(Env):
         abs_rot = yaw_rotation_matrix_3D(home_robot_obs.compass[0]) @ rel_rot
         home_robot_obs.camera_pose[:3, :3] = abs_rot
 
+        relative_obs_locations = obs["obstacle_distances"][:, :2] - self.start_gps
+        relative_obs_locations = (self.rot_compass @ relative_obs_locations.T).T
+        home_robot_obs.task_observations = {}
+        # home_robot_obs.task_observations["obstacle_distances"] = torch.from_numpy(relative_obs_locations)
+        is_obstacle_mask = obs["obstacle_distances"][:, 2] <= 0.01
+        trusted_point = np.linalg.norm(obs["obstacle_distances"][:, :2] - obs['position'],axis=-1) <= 5
+        # breakpoint()
+        home_robot_obs.task_observations["obstacle_locations"] = torch.from_numpy(relative_obs_locations[is_obstacle_mask & trusted_point])
         return home_robot_obs
 
     @property

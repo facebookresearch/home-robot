@@ -360,6 +360,7 @@ def main(spot):
             else:
                 if action is not None:
                     env.apply_action(action)
+                    # breakpoint()
     out_dest = f"{output_visualization_dir}/video.mp4"
     print("Writing", out_dest)
     create_video(
