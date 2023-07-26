@@ -37,7 +37,7 @@ class SpotObjectNavEnv(SpotEnv):
         prev_obs: Optional[Observations] = None,
     ):
         if self.position_control:
-            x, y, _ = action
+            x, y, _ = action.xyt
 
             # angle from the origin to the STG
             angle_st_goal = math.atan2(x, y)
