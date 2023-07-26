@@ -81,7 +81,7 @@ class GoatAgentModule(nn.Module):
         assert score_func in ["confidence_sum", "match_count"]
 
         if all_matches is not None:
-            self.img_instance_goal_found = True
+            self.img_instance_goal_found = False
             self.goal_inst = None
             if len(all_matches) > 0:
                 max_scores = []
@@ -107,13 +107,14 @@ class GoatAgentModule(nn.Module):
                     ]  # TODO: currently assuming img goal instance was an object outside of the vocabulary
                     inst_map_idx = instance_map == inst_idx + 1
                     inst_map_idx = torch.argmax(torch.sum(inst_map_idx, axis=(1, 2)))
-                    goal_map = (instance_map[inst_map_idx] == inst_idx + 1).to(
+                    goal_map_temp = (instance_map[inst_map_idx] == inst_idx + 1).to(
                         torch.float
                     )
 
-                    if goal_map.any():
+                    if goal_map_temp.any():
                         self.img_instance_goal_found = True
                         self.goal_inst = inst_idx + 1
+                        goal_map = goal_map_temp
                         print(f"{self.goal_inst} will be the goal")
                     else:
                         print("Instance was seen, but not present in local map.")
@@ -130,7 +131,7 @@ class GoatAgentModule(nn.Module):
                 + 2 * self.num_sem_categories,
                 :,
                 :,
-            ]  # TODO: currently assuming img goal instance was an object outside of the vocabulary
+            ]
             inst_map_idx = instance_map == self.goal_inst
             inst_map_idx = torch.argmax(torch.sum(inst_map_idx, axis=(1, 2)))
             goal_map = (instance_map[inst_map_idx] == self.goal_inst).to(torch.float)
@@ -139,7 +140,7 @@ class GoatAgentModule(nn.Module):
         else:
             for e in range(confidence.shape[0]):
                 # if the goal category is empty, the goal can't be found
-                if not local_map[e, -1].any().item():
+                if not local_map[e, 21].any().item():
                     continue
 
                 if score_func == "confidence_sum":
@@ -152,7 +153,7 @@ class GoatAgentModule(nn.Module):
 
                 found_goal[e] = True
                 # Set goal_map to the last channel of the local semantic map
-                goal_map[e, 0] = local_map[e, -1]
+                goal_map[e, 0] = local_map[e, 21]
 
         return goal_map, found_goal
 
@@ -227,7 +228,8 @@ class GoatAgentModule(nn.Module):
 
         # Reset the last channel of the local map each step when found_goal=False
         if matches is not None or confidence is not None:
-            init_local_map[:, -1][seq_found_goal[:, 0] == 0] *= 0.0
+            # TODO:
+            init_local_map[:, 21][seq_found_goal[:, 0] == 0] *= 0.0
 
         # Update map with observations and generate map features
         batch_size, sequence_length = seq_obs.shape[:2]
