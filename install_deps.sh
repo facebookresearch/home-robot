@@ -39,6 +39,7 @@ pip install -e src/third_party/habitat-lab/habitat-baselines
 echo ""
 echo "Install detectron2..."
 cd $HOME_ROBOT_ROOT/src/third_party
+pip install -e src/third_party/detectron2
 
 echo ""
 echo "Downloading pretrained skills..."
