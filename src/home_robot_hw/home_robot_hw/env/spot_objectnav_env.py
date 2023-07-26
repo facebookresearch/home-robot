@@ -1,102 +1,24 @@
+import math
 from typing import Any, Dict, Optional
+
+import numpy as np
 
 from home_robot.core.interfaces import Action, DiscreteNavigationAction, Observations
 from home_robot.perception.detection.maskrcnn.coco_categories import (
     coco_categories,
     coco_categories_color_palette,
 )
-
-# from home_robot.perception.detection.detic.detic_perception import DeticPerception
 from home_robot.perception.detection.maskrcnn.maskrcnn_perception import (
     MaskRCNNPerception,
 )
 from home_robot_hw.env.spot_abstract_env import SpotEnv
 
-# CATEGORIES = [
-#     "chair",
-#     "couch",
-#     "potted_plant",
-#     "bed",
-#     "toilet",
-#     "tv",
-#     "dining_table",
-#     "oven",
-#     "sink",
-#     "refrigerator",
-#     "book",
-#     "person",  # clock
-#     "vase",
-#     "cup",
-#     "bottle",
-# ]
-#
-# CATEGORIES_COLOR_PALETTE = [
-#     0.9400000000000001,
-#     0.7818,
-#     0.66,  # chair
-#     0.9400000000000001,
-#     0.8868,
-#     0.66,  # couch
-#     0.8882000000000001,
-#     0.9400000000000001,
-#     0.66,  # potted plant
-#     0.7832000000000001,
-#     0.9400000000000001,
-#     0.66,  # bed
-#     0.6782000000000001,
-#     0.9400000000000001,
-#     0.66,  # toilet
-#     0.66,
-#     0.9400000000000001,
-#     0.7468000000000001,  # tv
-#     0.66,
-#     0.9400000000000001,
-#     0.8518000000000001,  # dining-table
-#     0.66,
-#     0.9232,
-#     0.9400000000000001,  # oven
-#     0.66,
-#     0.8182,
-#     0.9400000000000001,  # sink
-#     0.66,
-#     0.7132,
-#     0.9400000000000001,  # refrigerator
-#     0.7117999999999999,
-#     0.66,
-#     0.9400000000000001,  # book
-#     0.8168,
-#     0.66,
-#     0.9400000000000001,  # clock
-#     0.9218,
-#     0.66,
-#     0.9400000000000001,  # vase
-#     0.9400000000000001,
-#     0.66,
-#     0.8531999999999998,  # cup
-#     0.9400000000000001,
-#     0.66,
-#     0.748199999999999,  # bottle
-# ]
-
 
 class SpotObjectNavEnv(SpotEnv):
     def __init__(self, spot, position_control=False):
         super().__init__(spot)
+        self.spot = spot
         self.position_control = position_control
-
-        # self.goal_options = CATEGORIES
-        # self.color_palette = CATEGORIES_COLOR_PALETTE
-        # categories = [
-        #     "other",
-        #     *self.goal_options,
-        #     "other",
-        # ]
-        # self.num_sem_categories = len(categories) - 1
-        # self.segmentation = DeticPerception(
-        #     vocabulary="custom",
-        #     custom_vocabulary=",".join(categories),
-        #     sem_gpu_id=0,
-        # )
 
         self.goal_options = list(coco_categories.keys())
         self.color_palette = coco_categories_color_palette
@@ -115,6 +37,21 @@ class SpotObjectNavEnv(SpotEnv):
         prev_obs: Optional[Observations] = None,
     ):
         if self.position_control:
+            x, y, _ = action
+
+            # angle from the origin to the STG
+            angle_st_goal = math.atan2(x, y)
+            dist = np.linalg.norm((x, y)) * 0.05
+            xg = dist * np.cos(angle_st_goal + self.start_compass) + self.start_gps[0]
+            yg = dist * np.sin(angle_st_goal + self.start_compass) + self.start_gps[1]
+
+            # compute the angle from the current pose to the destination point
+            # in robot global frame
+            cx, cy, yaw = self.spot.get_xy_yaw()
+            angle = math.atan2((yg - cy), (xg - cx)) % (2 * np.pi)
+
+            action = [xg, yg, angle]
+            print("ObjectNavAgent point action", action)
             self.env.act_point(action, blocking=False)
         else:
             self.env.step(base_action=action)

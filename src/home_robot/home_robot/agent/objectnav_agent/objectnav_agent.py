@@ -343,13 +343,6 @@ class ObjectNavAgent(Agent):
             obstacle_locations = (
                 obstacle_locations * 100.0 / self.semantic_map.resolution
             ).long()
-
-            # obstacle_locations += self.semantic_map.global_map_size // 2
-            # obstacle_locations[:, 0] -= self.semantic_map.lmb[0, 2].cpu()
-            # obstacle_locations[:, 1] -= self.semantic_map.lmb[0, 0].cpu()
-
-            # obstacle_locations[:, 0] -= self.semantic_map.lmb[0, 0].cpu()
-            # obstacle_locations[:, 1] -= self.semantic_map.lmb[0, 2].cpu()
             (
                 obstacle_locations[:, 0],
                 obstacle_locations[:, 1],

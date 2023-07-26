@@ -25,7 +25,10 @@ from spot_wrapper.spot import Spot
 import home_robot.utils.pose as pu
 import home_robot.utils.visualization as vu
 from home_robot.agent.objectnav_agent.objectnav_agent import ObjectNavAgent
-from home_robot.core.interfaces import DiscreteNavigationAction
+from home_robot.core.interfaces import (
+    ContinuousNavigationAction,
+    DiscreteNavigationAction,
+)
 from home_robot.mapping.semantic.categorical_2d_semantic_map_state import (
     Categorical2DSemanticMapState,
 )
@@ -268,24 +271,8 @@ def main(spot):
         action, info = agent.act(obs)
         print("SHORT_TERM:", info["short_term_goal"])
         x, y = info["short_term_goal"]
-        # lmb = agent.semantic_map.get_planner_pose_inputs(0)[3:]
-        # x = x - 240 + (lmb[0] - 240)
-        # y = y - 240 + (lmb[2] - 240)
         x, y = agent.semantic_map.local_to_global(x, y)
-
-        # angle from the origin to the STG
-        angle_st_goal = math.atan2(x, y)
-        dist = np.linalg.norm((x, y)) * 0.05
-        xg = dist * np.cos(angle_st_goal + env.start_compass) + env.start_gps[0]
-        yg = dist * np.sin(angle_st_goal + env.start_compass) + env.start_gps[1]
-
-        # compute the angle from the current pose to the destination point
-        # in robot global frame
-        cx, cy, yaw = spot.get_xy_yaw()
-        angle = math.atan2((yg - cy), (xg - cx)) % (2 * np.pi)
-
-        action = [xg, yg, angle]
-        print("ObjectNavAgent point action", action)
+        action = ContinuousNavigationAction(np.array([x, y, 0.0]))
 
         # Visualize map
         depth_frame = obs.depth
