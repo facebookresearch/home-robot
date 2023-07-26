@@ -63,7 +63,7 @@ Make sure you have [Docker](https://docs.docker.com/engine/install/ubuntu/) with
     ```
     *Note 2:* You can modify `submission.sh` file if your agent needs any custom modifications (e.g. command-line arguments). For example, agent type may be changed by changing `--agent_type` (and corresponding `--baseline_config_path`) argument in the `./scripts/test_local.sh` or `projects/habitat_ovmm/eval_baselines_agent.py`. Otherwise, nothing to do. Default submission.sh is simply a call to agent in `agent.py`
 
-1. Download all the required data into the `home-robot/data` directory (see [Habitat OVMM readme](projects/habitat_ovmm/README.md)). Then in your `docker run` command mount `home-robot/data` data folder to the `home-robot/data` folder in the Docker image (see `./scripts/test_local.sh` for reference).
+1. Download all the required data into the `home-robot/data` directory (see [Habitat OVMM readme](../projects/habitat_ovmm/README.md)). Then in your `docker run` command mount `home-robot/data` data folder to the `home-robot/data` folder in the Docker image (see `./scripts/test_local.sh` for reference).
      
 1. Evaluate your docker container locally:
     ```bash
