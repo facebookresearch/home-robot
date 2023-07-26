@@ -109,14 +109,22 @@ class SpotEnv(Env):
         relative_obs_locations = (self.rot_compass @ relative_obs_locations.T).T[
             :, ::-1
         ]
-        home_robot_obs.task_observations = {}
-        is_obstacle_mask = obs["obstacle_distances"][:, 2] <= 0.01
+
         trusted_point = (
             np.linalg.norm(obs["obstacle_distances"][:, :2] - obs["position"], axis=-1)
             <= 5
         )
+
+        obstacle_threshold = 0.01
+        is_obstacle_mask = obs["obstacle_distances"][:, 2] <= obstacle_threshold
+        is_free_mask = obs["obstacle_distances"][:, 2] > obstacle_threshold
+
+        home_robot_obs.task_observations = {}
         home_robot_obs.task_observations["obstacle_locations"] = torch.from_numpy(
             relative_obs_locations[is_obstacle_mask & trusted_point]
+        )
+        home_robot_obs.task_observations["free_locations"] = torch.from_numpy(
+            relative_obs_locations[is_free_mask & trusted_point]
         )
         return home_robot_obs
 

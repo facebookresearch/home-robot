@@ -154,6 +154,7 @@ class ObjectNavAgent(Agent):
         nav_to_recep: torch.Tensor = None,
         camera_pose: torch.Tensor = None,
         obstacle_locations: torch.Tensor = None,
+        free_locations: torch.Tensor = None,
     ) -> Tuple[List[dict], List[dict]]:
         """Prepare low-level planner inputs from an observation - this is
         the main inference function of the agent that lets it interact with
@@ -194,6 +195,8 @@ class ObjectNavAgent(Agent):
 
         if obstacle_locations is not None:
             obstacle_locations = obstacle_locations.unsqueeze(1)
+        if free_locations is not None:
+            free_locations = free_locations.unsqueeze(1)
         if object_goal_category is not None:
             object_goal_category = object_goal_category.unsqueeze(1)
         if start_recep_goal_category is not None:
@@ -227,6 +230,7 @@ class ObjectNavAgent(Agent):
             seq_end_recep_goal_category=end_recep_goal_category,
             seq_nav_to_recep=nav_to_recep,
             seq_obstacle_locations=obstacle_locations,
+            seq_free_locations=free_locations,
         )
 
         self.semantic_map.local_pose = seq_local_pose[:, -1]
@@ -354,6 +358,22 @@ class ObjectNavAgent(Agent):
         else:
             obstacle_locations = None
 
+        if "free_locations" in obs.task_observations:
+            free_locations = obs.task_observations["free_locations"]
+            free_locations = (
+                free_locations * 100.0 / self.semantic_map.resolution
+            ).long()
+            (
+                free_locations[:, 0],
+                free_locations[:, 1],
+            ) = self.semantic_map.global_to_local(
+                free_locations[:, 0], free_locations[:, 1]
+            )
+
+            free_locations = free_locations.unsqueeze(0)
+        else:
+            free_locations = None
+
         # t1 = time.time()
         # print(f"[Agent] Obs preprocessing time: {t1 - t0:.2f}")
 
@@ -367,6 +387,7 @@ class ObjectNavAgent(Agent):
             camera_pose=camera_pose,
             nav_to_recep=self.get_nav_to_recep(),
             obstacle_locations=obstacle_locations,
+            free_locations=free_locations,
         )
 
         # t2 = time.time()
