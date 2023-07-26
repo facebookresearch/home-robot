@@ -27,12 +27,12 @@ def get_matches_against_memory(
             img = instance_memory.images[0][inst_view.timestep].cpu().numpy()
             img = np.transpose(img, (1, 2, 0))
             all_views.append(img)
-            instance_view_counts.append(len(inst_views))
             steps_per_view.append(1000 * step + 10 * inst_key + view_idx)
+        instance_view_counts.append(len(inst_views))
 
     if len(all_views) > 0:
         if image_goal is not None:
-            all_matches, all_confidences = matching_fn(
+            _, _, all_matches, all_confidences = matching_fn(
                 all_views,
                 goal_image=image_goal,
                 goal_image_keypoints=kwargs["goal_image_keypoints"],
@@ -46,8 +46,8 @@ def get_matches_against_memory(
             )
 
     # unflatten based on number of views per instance
-    all_matches = np.array(all_matches)
-    all_confidences = np.array(all_confidences)
-    all_matches = np.split(all_matches, np.cumsum(instance_view_counts))
-    all_confidences = np.split(all_confidences, np.cumsum(instance_view_counts))
+    all_matches = np.concatenate(all_matches, 0)
+    all_confidences = np.concatenate(all_confidences, 0)
+    all_matches = np.split(all_matches, np.cumsum(instance_view_counts)[:-1])
+    all_confidences = np.split(all_confidences, np.cumsum(instance_view_counts)[:-1])
     return all_matches, all_confidences

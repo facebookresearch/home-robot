@@ -243,6 +243,7 @@ class ObsPreprocessor:
 
         obs_preprocessed = obs_preprocessed.unsqueeze(0).permute(0, 3, 1, 2)
 
+        all_matches, all_confidences = [], []
         if self.record_instance_ids and self.step == 0:
             all_matches, all_confidences = get_matches_against_memory(
                 instance_memory,
