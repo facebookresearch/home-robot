@@ -295,7 +295,7 @@ def main(spot):
         cv2.imwrite(f"{output_visualization_dir}/{t}.png", vis_image[:, :, ::-1])
         cv2.imshow("vis", vis_image[:, :, ::-1])
 
-        key = cv2.waitKey(50)
+        key = cv2.waitKey(500)
 
         if key == ord("z"):
             break

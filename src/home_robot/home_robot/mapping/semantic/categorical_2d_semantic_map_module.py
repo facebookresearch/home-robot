@@ -639,7 +639,7 @@ class Categorical2DSemanticMapModule(nn.Module):
         # Update obstacles in current map
         # TODO Implement this properly for num_environments > 1
         translated[0, 0, obstacle_locations[0, :, 0], obstacle_locations[0, :, 1]] = 1
-        translated[0, 0, free_locations[0, :, 0], free_locations[0, :, 1]] = 1
+        translated[0, 0, free_locations[0, :, 0], free_locations[0, :, 1]] = 0
 
         # Aggregate by taking the max of the previous map and current map — this is robust
         # to false negatives in one frame but makes it impossible to remove false positives
@@ -658,7 +658,7 @@ class Categorical2DSemanticMapModule(nn.Module):
         # TODO Implement this properly for num_environments > 1
         people_mask = (
             skimage.morphology.binary_dilation(
-                current_map[0, 5 + 11, :, :].cpu().numpy(), skimage.morphology.disk(5)
+                current_map[0, 5 + 11, :, :].cpu().numpy(), skimage.morphology.disk(2)
             )
             * 1.0
         )
