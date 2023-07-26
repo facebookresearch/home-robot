@@ -629,13 +629,14 @@ class Categorical2DSemanticMapModule(nn.Module):
             )
 
         # Remove people from the last map if people are detected
+        # TODO Handle people more cleanly
         if translated[:, 5 + 11, :, :].sum() > 0.99:
             prev_map[:, 5 + 11, :, :] = 0
 
         # Add extra obstacles to current map
         # TODO Implement this properly for num_environments > 1
-        translated[0, 0, obstacle_locations[0, :, 1], obstacle_locations[0, :, 0]] = 1
-        # breakpoint()
+        # translated[0, 0, obstacle_locations[0, :, 1], obstacle_locations[0, :, 0]] = 1
+        translated[0, 0, obstacle_locations[0, :, 0], obstacle_locations[0, :, 1]] = 1
 
         # Aggregate by taking the max of the previous map and current map — this is robust
         # to false negatives in one frame but makes it impossible to remove false positives
@@ -650,9 +651,15 @@ class Categorical2DSemanticMapModule(nn.Module):
         # current_map[0, :, current_mask] = translated[0, :, current_mask]
 
         # Set people as not obstacles for planning
+        # TODO Handle people more cleanly
         # TODO Implement this properly for num_environments > 1
-        people_mask = skimage.morphology.binary_dilation(current_map[0, 5 + 11, :, :].cpu().numpy(), skimage.morphology.disk(5)) * 1.0
-        current_map[0, 0, :, :] *= (1 - torch.from_numpy(people_mask).to(device))
+        people_mask = (
+            skimage.morphology.binary_dilation(
+                current_map[0, 5 + 11, :, :].cpu().numpy(), skimage.morphology.disk(5)
+            )
+            * 1.0
+        )
+        current_map[0, 0, :, :] *= 1 - torch.from_numpy(people_mask).to(device)
 
         if self.record_instance_ids:
             # overwrite channels containing instance IDs

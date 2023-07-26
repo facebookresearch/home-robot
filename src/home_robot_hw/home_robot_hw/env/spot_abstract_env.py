@@ -1,8 +1,8 @@
 from abc import abstractmethod
 from typing import Any, Dict, Optional
-import torch
 
 import numpy as np
+import torch
 import transforms3d as t3d
 from spot_rl.envs.semnav_env import SpotSemanticNavEnv
 from spot_rl.utils.utils import (
@@ -14,7 +14,6 @@ from spot_rl.utils.utils import (
 from home_robot.core.abstract_env import Env
 from home_robot.core.interfaces import Action, Observations
 
-# HAND_DEPTH_THRESHOLD = 1.7  # in meters
 HAND_DEPTH_THRESHOLD = 6.0  # in meters
 BASE_HEIGHT = 0.61  # in meters
 
@@ -89,14 +88,11 @@ class SpotEnv(Env):
 
         # Preprocess depth
         depth = obs["hand_depth_raw"]
-        depth = (depth / 255 * HAND_DEPTH_THRESHOLD)
+        depth = depth / 255 * HAND_DEPTH_THRESHOLD
         depth[depth > (HAND_DEPTH_THRESHOLD - 0.05)] = 0
 
         home_robot_obs = Observations(
-            gps=relative_gps,
-            compass=relative_compass,
-            rgb=rgb,
-            depth=depth
+            gps=relative_gps, compass=relative_compass, rgb=rgb, depth=depth
         )
 
         # Camera pose
@@ -110,13 +106,18 @@ class SpotEnv(Env):
         home_robot_obs.camera_pose[:3, :3] = abs_rot
 
         relative_obs_locations = obs["obstacle_distances"][:, :2] - self.start_gps
-        relative_obs_locations = (self.rot_compass @ relative_obs_locations.T).T
+        relative_obs_locations = (self.rot_compass @ relative_obs_locations.T).T[
+            :, ::-1
+        ]
         home_robot_obs.task_observations = {}
-        # home_robot_obs.task_observations["obstacle_distances"] = torch.from_numpy(relative_obs_locations)
         is_obstacle_mask = obs["obstacle_distances"][:, 2] <= 0.01
-        trusted_point = np.linalg.norm(obs["obstacle_distances"][:, :2] - obs['position'],axis=-1) <= 5
-        # breakpoint()
-        home_robot_obs.task_observations["obstacle_locations"] = torch.from_numpy(relative_obs_locations[is_obstacle_mask & trusted_point])
+        trusted_point = (
+            np.linalg.norm(obs["obstacle_distances"][:, :2] - obs["position"], axis=-1)
+            <= 5
+        )
+        home_robot_obs.task_observations["obstacle_locations"] = torch.from_numpy(
+            relative_obs_locations[is_obstacle_mask & trusted_point]
+        )
         return home_robot_obs
 
     @property

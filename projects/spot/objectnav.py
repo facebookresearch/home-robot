@@ -1,13 +1,14 @@
+import math
 import pickle
 import sys
+import time
 from pathlib import Path
 from typing import List
-import math
+
 import cv2
 import numpy as np
 import skimage.morphology
 from PIL import Image
-import time
 
 # TODO Install home_robot, home_robot_sim and remove this
 sys.path.insert(
@@ -21,8 +22,8 @@ sys.path.insert(
 
 from spot_wrapper.spot import Spot
 
-import home_robot.utils.visualization as vu
 import home_robot.utils.pose as pu
+import home_robot.utils.visualization as vu
 from home_robot.agent.objectnav_agent.objectnav_agent import ObjectNavAgent
 from home_robot.core.interfaces import DiscreteNavigationAction
 from home_robot.mapping.semantic.categorical_2d_semantic_map_state import (
@@ -40,6 +41,7 @@ class PI:
     CLOSEST_GOAL = 4
     REST_OF_GOAL = 5
     SEM_START = 6
+
 
 def create_video(images, output_file, fps):
     height, width, _ = images[0].shape
@@ -171,8 +173,10 @@ def get_semantic_map_vis(
         if subgoal is not None:
             subgoal_map = np.zeros_like(goal_map)
             # might need to flip row value
-            subgoal_map[subgoal[0],subgoal[1]] = 1
-            subgoal_mat = (1 - skimage.morphology.binary_dilation(subgoal_map, selem)) != 1
+            subgoal_map[subgoal[0], subgoal[1]] = 1
+            subgoal_mat = (
+                1 - skimage.morphology.binary_dilation(subgoal_map, selem)
+            ) != 1
             subgoal_mask = subgoal_mat == 1
             # hack for now
             semantic_categories_map[subgoal_mask] = PI.REST_OF_GOAL
@@ -183,14 +187,10 @@ def get_semantic_map_vis(
     semantic_map_vis.putdata(semantic_categories_map.flatten().astype(np.uint8))
     semantic_map_vis = semantic_map_vis.convert("RGB")
     semantic_map_vis = np.flipud(semantic_map_vis)
-    semantic_map_vis = cv2.resize(semantic_map_vis, (480, 480), interpolation=cv2.INTER_NEAREST
-)
-    # from matplotlib import pyplot as plt
-    # breakpoint()
-    # plt.imshow(semantic_map_vis)
-    # plt.imshow(subgoal_map)
-    # plt.show()
-    
+    semantic_map_vis = cv2.resize(
+        semantic_map_vis, (480, 480), interpolation=cv2.INTER_NEAREST
+    )
+
     vis_image[50:530, 1325:1805] = semantic_map_vis
 
     # Draw semantic frame
@@ -239,7 +239,7 @@ def main(spot):
     legend = cv2.imread(legend_path)
     vis_images = []
 
-    env = SpotObjectNavEnv(spot,position_control=True)
+    env = SpotObjectNavEnv(spot, position_control=True)
     env.reset()
     env.set_goal("toilet")
 
@@ -253,8 +253,9 @@ def main(spot):
         positions = spot.get_arm_joint_positions()
         new_pos = positions.copy()
         new_pos[0] = np.pi
-        spot.set_arm_joint_positions(new_pos,travel_time=3)
+        spot.set_arm_joint_positions(new_pos, travel_time=3)
         time.sleep(3)
+
     t = 0
     while not env.episode_over:
         t += 1
@@ -265,53 +266,26 @@ def main(spot):
             pickle.dump(obs, f)
 
         action, info = agent.act(obs)
-        print("SHORT_TERM:", info['short_term_goal'])
-        x,y = info['short_term_goal']
-        lmb = agent.semantic_map.get_planner_pose_inputs(0)[3:]
-        x=x-240 + (lmb[0] - 240)
-        y=y-240 + (lmb[2] - 240)
+        print("SHORT_TERM:", info["short_term_goal"])
+        x, y = info["short_term_goal"]
+        # lmb = agent.semantic_map.get_planner_pose_inputs(0)[3:]
+        # x = x - 240 + (lmb[0] - 240)
+        # y = y - 240 + (lmb[2] - 240)
+        x, y = agent.semantic_map.local_to_global(x, y)
+
         # angle from the origin to the STG
         angle_st_goal = math.atan2(x, y)
-        dist = np.linalg.norm((x,y))*0.05
-        xg = dist*np.cos(angle_st_goal + env.start_compass) + env.start_gps[0]
-        yg = dist*np.sin(angle_st_goal + env.start_compass) + env.start_gps[1]
-        
+        dist = np.linalg.norm((x, y)) * 0.05
+        xg = dist * np.cos(angle_st_goal + env.start_compass) + env.start_gps[0]
+        yg = dist * np.sin(angle_st_goal + env.start_compass) + env.start_gps[1]
+
         # compute the angle from the current pose to the destination point
         # in robot global frame
-        cx,cy,yaw = spot.get_xy_yaw()
-        angle = math.atan2((yg-cy),(xg-cx)) % (2*np.pi)
-        # angle
-        # angle
-        # angle_st_goal + env.start_compass
-        
-        # 
-        # dist = np.linalg.norm(stg[:2])
-        # angle = -stg[2]*np.pi/180
-        # pos = np.array([np.cos(angle),np.sin(angle)])*dist*0.05
-        # pos = np.array(stg[:2])*0.05
-        # pos = np.array((stg[1],stg[0]))*0.05
+        cx, cy, yaw = spot.get_xy_yaw()
+        angle = math.atan2((yg - cy), (xg - cx)) % (2 * np.pi)
 
-        # x,y,yaw = spot.get_xy_yaw()
-        # relative_angle = angle_st_goal + env.start_compass - yaw
-        # relative_angle = pu.normalize_radians(relative_angle)
-        # print("Relative Angle: ",relative_angle)
-        # if abs(relative_angle) > np.pi/6:
-        #     # while abs(relative_angle) > np.pi/2:
-        #     x,y,yaw = spot.get_xy_yaw()
-        #     relative_angle = angle_st_goal + env.start_compass - yaw
-        #     relative_angle = pu.normalize_radians(relative_angle)
-        #     vel = 0.5
-        #     rot = -vel if relative_angle < 0 else vel
-        #     spot.set_base_velocity(0,0,rot,1)  
-        #     print("Angle too steep, rotating by ", rot)
-        #     action = None  
-        # else:
-        # action = [xg,yg,angle_st_goal+env.start_compass]
-        action = [xg,yg,angle]
+        action = [xg, yg, angle]
         print("ObjectNavAgent point action", action)
-        # diff = action - np.array(spot.get_xy_yaw())
-        # diff[2] % 2*np.pi
-        # print("ObjectNavAgent action", action)
 
         # Visualize map
         depth_frame = obs.depth
@@ -326,41 +300,46 @@ def main(spot):
             depth_frame,
             env.color_palette,
             legend,
-            subgoal = info['short_term_goal']
+            subgoal=info["short_term_goal"],
         )
         vis_images.append(vis_image)
         cv2.imshow("vis", vis_image[:, :, ::-1])
+
         key = cv2.waitKey(50)
-        if key == ord('z'):
+
+        if key == ord("z"):
             break
-        if key == ord('q'):
+
+        if key == ord("q"):
             keyboard_takeover = True
             print("KEYBOARD TAKEOVER")
+
         if keyboard_takeover:
             if key == ord("w"):
-                spot.set_base_velocity(0.5,0,0,0.5)
+                spot.set_base_velocity(0.5, 0, 0, 0.5)
             elif key == ord("s"):
                 # back
-                spot.set_base_velocity(-0.5,0,0,0.5)
+                spot.set_base_velocity(-0.5, 0, 0, 0.5)
             elif key == ord("a"):
                 # left
-                spot.set_base_velocity(0,0.5,0,0.5)
+                spot.set_base_velocity(0, 0.5, 0, 0.5)
             elif key == ord("d"):
                 # right
-                spot.set_base_velocity(0,-0.5,0,0.5)
+                spot.set_base_velocity(0, -0.5, 0, 0.5)
+
         else:
             if pan_warmup:
                 positions = spot.get_arm_joint_positions()
                 new_pos = positions.copy()
                 new_pos[0] = -np.pi
-                spot.set_arm_joint_positions(new_pos,travel_time=20)
+                spot.set_arm_joint_positions(new_pos, travel_time=20)
                 if positions[0] < -2.5:
                     pan_warmup = False
                     env.env.initialize_arm()
             else:
                 if action is not None:
                     env.apply_action(action)
-                    # breakpoint()
+
     out_dest = f"{output_visualization_dir}/video.mp4"
     print("Writing", out_dest)
     create_video(
