@@ -226,7 +226,7 @@ class ObjectNavAgent(Agent):
             seq_start_recep_goal_category=start_recep_goal_category,
             seq_end_recep_goal_category=end_recep_goal_category,
             seq_nav_to_recep=nav_to_recep,
-            seq_obstacle_distances=obstacle_locations,
+            seq_obstacle_locations=obstacle_locations,
         )
 
         self.semantic_map.local_pose = seq_local_pose[:, -1]

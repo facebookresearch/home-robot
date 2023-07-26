@@ -79,7 +79,7 @@ class ObjectNavAgentModule(nn.Module):
         seq_start_recep_goal_category=None,
         seq_end_recep_goal_category=None,
         seq_nav_to_recep=None,
-        seq_obstacle_distances=None
+        seq_obstacle_locations=None
     ):
         """Update maps and poses with a sequence of observations, and predict
         high-level goals from map features.
@@ -149,7 +149,7 @@ class ObjectNavAgentModule(nn.Module):
             seq_dones,
             seq_update_global,
             seq_camera_poses,
-            seq_obstacle_distances,
+            seq_obstacle_locations,
             init_local_map,
             init_global_map,
             init_local_pose,

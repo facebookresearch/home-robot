@@ -635,7 +635,6 @@ class Categorical2DSemanticMapModule(nn.Module):
 
         # Add extra obstacles to current map
         # TODO Implement this properly for num_environments > 1
-        # translated[0, 0, obstacle_locations[0, :, 1], obstacle_locations[0, :, 0]] = 1
         translated[0, 0, obstacle_locations[0, :, 0], obstacle_locations[0, :, 1]] = 1
 
         # Aggregate by taking the max of the previous map and current map — this is robust
