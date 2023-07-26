@@ -22,6 +22,10 @@ echo " - python=`which python`"
 # conda activate $ENV
 
 echo ""
+echo "Ensure Git LFS is installed"
+git lfs install
+
+echo ""
 echo "Install home_robot core..."
 python -m pip install -e src/home_robot
 echo "Install home_robot ROS..."
