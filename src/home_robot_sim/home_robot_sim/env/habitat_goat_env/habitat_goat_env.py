@@ -177,6 +177,8 @@ class HabitatGoatEnv(HabitatEnv):
 
                 goal["target"] = target
                 goal["landmarks"] = landmarks
+                if "instructions" in task:
+                    goal["instruction"] = task["instructions"][0]
             elif task["task_type"] == "imagenav":
                 goal["target"] = task["object_category"]
                 goal["image"] = habitat_obs["multigoal"][idx]["image"]

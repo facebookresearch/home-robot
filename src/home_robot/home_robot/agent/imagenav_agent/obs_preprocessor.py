@@ -16,6 +16,7 @@ from torch import Tensor
 from tqdm import tqdm
 
 import home_robot.utils.pose as pu
+from home_robot.agent.goat_agent.utils.agent_utils import get_matches_against_memory
 from home_robot.core.interfaces import Observations
 from home_robot.perception.detection.detic.detic_mask import Detic
 
@@ -242,31 +243,14 @@ class ObsPreprocessor:
 
         obs_preprocessed = obs_preprocessed.unsqueeze(0).permute(0, 3, 1, 2)
 
-        all_matches, all_confidences = [], []
         if self.record_instance_ids and self.step == 0:
-            instances = instance_memory.instance_views[0]
-            for (inst_key, inst) in tqdm(
-                instances.items(), desc="Matching goal image with instance views"
-            ):
-                inst_matches, inst_confidences = [], []
-                inst_views = inst.instance_views
-                for view_idx, inst_view in enumerate(inst_views):
-                    # if inst_view.cropped_image.shape[0] * inst_view.cropped_image.shape[1] < 2500 or (np.array(inst_view.cropped_image.shape[0:2]) < 15).any():
-                    #     continue
-                    img = instance_memory.images[0][inst_view.timestep].cpu().numpy()
-                    img = np.transpose(img, (1, 2, 0))
-
-                    _, _, view_matches, view_confidence = self.matching(
-                        # inst_view.cropped_image,
-                        img,
-                        goal_image=self.goal_image,
-                        goal_image_keypoints=self.goal_image_keypoints,
-                        step=1000 * self.step + 10 * inst_key + view_idx,
-                    )
-                    inst_matches.append(view_matches)
-                    inst_confidences.append(view_confidence)
-                all_matches.append(inst_matches)
-                all_confidences.append(inst_confidences)
+            all_matches, all_confidences = get_matches_against_memory(
+                instance_memory,
+                self.matching,
+                self.step,
+                image_goal=self.goal_image,
+                goal_image_keypoints=self.goal_image_keypoints,
+            )
 
         return obs_preprocessed, matches, confidence, all_matches, all_confidences
 

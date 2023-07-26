@@ -5,6 +5,7 @@
 
 from typing import Any, Dict, List, Tuple
 
+import clip
 import numpy as np
 import scipy
 import torch
@@ -12,6 +13,7 @@ from sklearn.cluster import DBSCAN
 from torch.nn import DataParallel
 
 import home_robot.utils.pose as pu
+from home_robot.agent.goat_agent.utils.agent_utils import get_matches_against_memory
 from home_robot.agent.imagenav_agent.obs_preprocessor import ObsPreprocessor
 from home_robot.agent.imagenav_agent.visualizer import NavVisualizer
 from home_robot.core.abstract_agent import Agent
@@ -153,6 +155,10 @@ class GoatAgent(Agent):
             device=self.device,
         )
         self.goal_filtering = config.AGENT.SEMANTIC_MAP.goal_filtering
+        # generate clip embeddings by loading clip model
+        device = "cuda" if torch.cuda.is_available() else "cpu"
+        self.clip_model, self.clip_preprocess = clip.load("ViT-B/32", device)
+        self.prev_task_type = None
 
     # ------------------------------------------------------------------
     # Inference methods to interact with vectorized simulation
@@ -324,7 +330,7 @@ class GoatAgent(Agent):
         self.semantic_map.init_map_and_pose()
         self.episode_panorama_start_steps = self.panorama_start_steps
         self.reached_goal_panorama_rotate_steps = self.panorama_rotate_steps
-
+        self.instance_memory.reset()
         self.landmark_found = False
         self.seen_landmarks = []
         self.reject_visited_targets = False
@@ -335,10 +341,9 @@ class GoatAgent(Agent):
             self.imagenav_visualizer.reset()
         self.imagenav_obs_preprocessor.reset()
 
-        self.current_task_idx = 0
-
         self.found_goal[:] = False
         self.goal_map[:] *= 0
+        self.prev_task_type = None
         self.planner.reset()
 
     def reset_vectorized_for_env(self, e: int):
@@ -350,7 +355,7 @@ class GoatAgent(Agent):
         self.semantic_map.init_map_and_pose_for_env(e)
         self.episode_panorama_start_steps = self.panorama_start_steps
         self.reached_goal_panorama_rotate_steps = self.panorama_rotate_steps
-
+        self.instance_memory.reset_for_env(e)
         self.landmark_found = False
         self.seen_landmarks = []
         self.reject_visited_targets = False
@@ -375,7 +380,6 @@ class GoatAgent(Agent):
         """Act end-to-end."""
         current_task = obs.task_observations["tasks"][self.current_task_idx]
         task_type = current_task["type"]
-
         # 1 - Obs preprocessing
         if task_type == "imagenav":
             self.imagenav_obs_preprocessor.current_task_idx = self.current_task_idx
@@ -411,7 +415,11 @@ class GoatAgent(Agent):
                 object_goal_category,
                 landmarks,
                 camera_pose,
-            ) = self._preprocess_obs(obs)
+                matches,
+                confidence,
+                all_matches,
+                all_confidences,
+            ) = self._preprocess_obs(obs, task_type)
 
             # 2 - Semantic mapping + policy
             planner_inputs, vis_inputs = self.prepare_planner_inputs(
@@ -421,6 +429,10 @@ class GoatAgent(Agent):
                 camera_pose=camera_pose,
                 reject_visited_targets=self.reject_visited_targets,
                 blacklist_target=self.blacklist_target,
+                matches=matches,
+                confidence=confidence,
+                all_matches=all_matches,
+                all_confidences=all_confidences,
             )
 
         # 3 - Planning
@@ -495,10 +507,10 @@ class GoatAgent(Agent):
                     self.num_environments, 1, dtype=bool, device=self.device
                 )
                 self.imagenav_obs_preprocessor.reset_sub_episode()
-
+        self.prev_task_type = task_type
         return action, info
 
-    def _preprocess_obs(self, obs: Observations):
+    def _preprocess_obs(self, obs: Observations, task_type: str):
         """Take a home-robot observation, preprocess it to put it into the correct format for the
         semantic map."""
         rgb = torch.from_numpy(obs.rgb).to(self.device)
@@ -555,6 +567,48 @@ class GoatAgent(Agent):
         camera_pose = obs.camera_pose
         if camera_pose is not None:
             camera_pose = torch.tensor(np.asarray(camera_pose)).unsqueeze(0)
+
+        matches, confidences, all_matches, all_confidences = None, None, None, None
+        if task_type == "languagenav":
+
+            def clip_matching_fn(goal_language, views, **kwargs):
+                batch_size = 64
+                goal_language = goal_language.replace("Instruction: ", "")
+                goal_language = clip.tokenize(goal_language).to(self.device)
+                goal_language = self.clip_model.encode_text(goal_language)
+                # get clip embedding for views with a batch size of batch_size
+                device = "cuda" if torch.cuda.is_available() else "cpu"
+
+                views = torch.cat(
+                    [
+                        self.clip_model.encode_image(v.permute(0, 3, 1, 2))
+                        for v in torch.tensor(self.clip_preprocess(views))
+                        .to(device)
+                        .split(batch_size)
+                    ],
+                    dim=0,
+                )
+                # compute similarity
+                similarity = (goal_language @ views.T).softmax(dim=-1)
+                return [[1]] * similarity.shape[
+                    0
+                ], similarity.cpu().numpy().expand_dims(0)
+
+            if self.prev_task_type != "languagenav":
+                # TODO: Use this method for imagenav as well
+                all_matches, all_confidences = get_matches_against_memory(
+                    self.instance_memory,
+                    clip_matching_fn,
+                    self.total_timesteps[0],
+                    language_goal=current_task["instruction"],
+                )
+            else:
+                matches, confidences = clip_matching_fn(
+                    current_task["instruction"], np.expand_dims(obs.rgb, 0)
+                )
+                matches = matches[0]
+                confidences = confidences[0]
+
         return (
             obs_preprocessed,
             pose_delta,
@@ -562,6 +616,10 @@ class GoatAgent(Agent):
             landmarks,
             # goals,
             camera_pose,
+            matches,
+            confidences,
+            all_matches,
+            all_confidences,
         )
 
     def _prep_goal_map_input(self) -> None:
