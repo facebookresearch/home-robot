@@ -41,7 +41,7 @@ def get_matches_against_memory(
         elif language_goal is not None:
             all_matches, all_confidences = matching_fn(
                 all_views,
-                goal_language=language_goal,
+                language_goal,
                 step=1000 * step + 10 * inst_key + view_idx,
             )
 

@@ -11,6 +11,13 @@ import scipy
 import torch
 from sklearn.cluster import DBSCAN
 from torch.nn import DataParallel
+from torchvision.transforms import (
+    CenterCrop,
+    Compose,
+    InterpolationMode,
+    Normalize,
+    Resize,
+)
 
 import home_robot.utils.pose as pu
 from home_robot.agent.goat_agent.utils.agent_utils import get_matches_against_memory
@@ -157,7 +164,18 @@ class GoatAgent(Agent):
         self.goal_filtering = config.AGENT.SEMANTIC_MAP.goal_filtering
         # generate clip embeddings by loading clip model
         device = "cuda" if torch.cuda.is_available() else "cpu"
-        self.clip_model, self.clip_preprocess = clip.load("ViT-B/32", device)
+        self.clip_model, _ = clip.load("ViT-B/32", device)
+        n_px = self.clip_model.visual.input_resolution
+        self.clip_image_preprocess = Compose(
+            [
+                Resize(n_px, interpolation=InterpolationMode.BICUBIC),
+                CenterCrop(n_px),
+                Normalize(
+                    (0.48145466, 0.4578275, 0.40821073),
+                    (0.26862954, 0.26130258, 0.27577711),
+                ),
+            ]
+        )
         self.prev_task_type = None
 
     # ------------------------------------------------------------------
@@ -568,31 +586,35 @@ class GoatAgent(Agent):
         if camera_pose is not None:
             camera_pose = torch.tensor(np.asarray(camera_pose)).unsqueeze(0)
 
-        matches, confidences, all_matches, all_confidences = None, None, None, None
+        matches, confidences, all_matches, all_confidences = None, None, [], []
         if task_type == "languagenav":
 
-            def clip_matching_fn(goal_language, views, **kwargs):
+            def clip_matching_fn(views, language_goal, **kwargs):
                 batch_size = 64
-                goal_language = goal_language.replace("Instruction: ", "")
-                goal_language = clip.tokenize(goal_language).to(self.device)
-                goal_language = self.clip_model.encode_text(goal_language)
+                language_goal = language_goal.replace("Instruction: ", "")
+                language_goal = clip.tokenize(language_goal).to(self.device)
+                language_goal = self.clip_model.encode_text(language_goal)
                 # get clip embedding for views with a batch size of batch_size
                 device = "cuda" if torch.cuda.is_available() else "cpu"
 
+                if isinstance(views, list):
+                    views = np.stack(views, 0)
+                if views.dtype == np.uint8:
+                    views = views.astype(np.float32) / 255
                 views = torch.cat(
                     [
-                        self.clip_model.encode_image(v.permute(0, 3, 1, 2))
-                        for v in torch.tensor(self.clip_preprocess(views))
-                        .to(device)
-                        .split(batch_size)
+                        self.clip_model.encode_image(
+                            self.clip_image_preprocess(v.permute(0, 3, 1, 2)).to(device)
+                        )
+                        for v in torch.tensor(views).split(batch_size)
                     ],
                     dim=0,
                 )
                 # compute similarity
-                similarity = (goal_language @ views.T).softmax(dim=-1)
-                return [[1]] * similarity.shape[
-                    0
-                ], similarity.cpu().numpy().expand_dims(0)
+                similarity = (language_goal @ views.T).softmax(dim=-1)
+                return [[1]] * similarity.shape[0], np.expand_dims(
+                    similarity.detach().cpu().numpy(), 1
+                )
 
             if self.prev_task_type != "languagenav":
                 # TODO: Use this method for imagenav as well
@@ -604,7 +626,7 @@ class GoatAgent(Agent):
                 )
             else:
                 matches, confidences = clip_matching_fn(
-                    current_task["instruction"], np.expand_dims(obs.rgb, 0)
+                    np.expand_dims(obs.rgb, 0), current_task["instruction"]
                 )
                 matches = matches[0]
                 confidences = confidences[0]
