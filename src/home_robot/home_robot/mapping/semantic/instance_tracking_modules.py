@@ -87,12 +87,20 @@ class InstanceMemory:
     unprocessed_views: List[Dict[int, InstanceView]] = []
     timesteps: List[int] = []
 
-    def __init__(self, num_envs: int, du_scale: int, debug_visualize: bool = False):
+    def __init__(
+        self, num_envs: int, du_scale: int, debug_visualize: bool = False, config=None
+    ):
         self.num_envs = num_envs
         self.du_scale = du_scale
         self.debug_visualize = debug_visualize
+        self.config = config
         if self.debug_visualize:
-            shutil.rmtree("instances/", ignore_errors=True)
+            import shutil
+
+            shutil.rmtree(
+                f"{self.config.DUMP_LOCATION}/instances/{self.config.EXP_NAME}",
+                ignore_errors=True,
+            )
         self.reset()
 
     def reset(self):
@@ -130,17 +138,27 @@ class InstanceMemory:
             # add instance view to global instance
             global_instance.instance_views.append(instance_view)
         if self.debug_visualize:
-            os.makedirs(f"instances/{global_instance_id}", exist_ok=True)
+            import os
+
+            import cv2
+
+            instance_write_path = os.path.join(
+                self.config.DUMP_LOCATION,
+                "instances",
+                self.config.EXP_NAME,
+                str(global_instance_id),
+            )
+            os.makedirs(instance_write_path, exist_ok=True)
             cv2.imwrite(
-                f"instances/{global_instance_id}/{self.timesteps[env_id]}_{local_instance_id}_cat_{instance_view.category_id}.png",
+                f"{instance_write_path}/{self.timesteps[env_id]}_{local_instance_id}_cat_{instance_view.category_id}.png",
                 instance_view.cropped_image[:, :, ::-1],
             )
-            # print(
-            #     "mapping local instance id",
-            #     local_instance_id,
-            #     "to global instance id",
-            #     global_instance_id,
-            # )
+            print(
+                "mapping local instance id",
+                local_instance_id,
+                "to global instance id",
+                global_instance_id,
+            )
 
     def process_instances_for_env(
         self,

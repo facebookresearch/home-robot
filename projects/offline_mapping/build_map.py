@@ -246,7 +246,7 @@ def create_video(images, output_file, fps):
     video_writer.release()
 
 
-record_instance_ids = False
+record_instance_ids = True
 
 
 @click.command()
