@@ -5,7 +5,6 @@
 
 from typing import Any, Dict, List, Tuple
 
-import clip
 import cv2
 import numpy as np
 import scipy
@@ -13,13 +12,6 @@ import skimage.morphology
 import torch
 from sklearn.cluster import DBSCAN
 from torch.nn import DataParallel
-from torchvision.transforms import (
-    CenterCrop,
-    Compose,
-    InterpolationMode,
-    Normalize,
-    Resize,
-)
 
 import home_robot.utils.pose as pu
 from home_robot.agent.goat_agent.utils.agent_utils import get_matches_against_memory
@@ -34,7 +26,7 @@ from home_robot.navigation_planner.discrete_planner import DiscretePlanner
 from home_robot.perception.detection.detic.detic_mask import Detic
 
 from .goat_agent_module import GoatAgentModule
-from .superglue import GOATMatching as Matching
+from .superglue import GoatMatching
 
 # For visualizing exploration issues
 debug_frontier_map = False
@@ -72,7 +64,32 @@ class GoatAgent(Agent):
                 config=config,
             )
 
-        self._module = GoatAgentModule(config, instance_memory=self.instance_memory)
+        ## imagenav stuff
+        self.goal_image = None
+        self.goal_mask = None
+        self.goal_image_keypoints = None
+
+        self.instance_seg = Detic(config.AGENT.DETIC)
+        self.matching = GoatMatching(
+            device=0,  # config.simulator_gpu_id
+            score_func=self.goal_policy_config.score_function,
+            score_thresh=self.goal_policy_config.score_thresh,
+            num_sem_categories=self.num_sem_categories,
+            config=config.AGENT.SUPERGLUE,
+            default_vis_dir=f"{config.DUMP_LOCATION}/images/{config.EXP_NAME}",
+            print_images=config.PRINT_IMAGES,
+        )
+        self.preprojection_kp_dilation = (
+            config.AGENT.SEMANTIC_MAP.preprojection_kp_dilation
+        )
+        self.match_projection_threshold = (
+            config.AGENT.SUPERGLUE.match_projection_threshold
+            ## imagenav stuff
+        )
+
+        self._module = GoatAgentModule(
+            config, matching=self.matching, instance_memory=self.instance_memory
+        )
 
         if config.NO_GPU:
             self.device = torch.device("cpu")
@@ -164,41 +181,7 @@ class GoatAgent(Agent):
             device=self.device,
         )
         self.goal_filtering = config.AGENT.SEMANTIC_MAP.goal_filtering
-        # generate clip embeddings by loading clip model
-        device = "cuda" if torch.cuda.is_available() else "cpu"
-        self.clip_model, _ = clip.load("ViT-B/32", device)
-        n_px = self.clip_model.visual.input_resolution
-        self.clip_image_preprocess = Compose(
-            [
-                Resize(n_px, interpolation=InterpolationMode.BICUBIC),
-                CenterCrop(n_px),
-                Normalize(
-                    (0.48145466, 0.4578275, 0.40821073),
-                    (0.26862954, 0.26130258, 0.27577711),
-                ),
-            ]
-        )
         self.prev_task_type = None
-
-        ## imagenav stuff
-        self.goal_image = None
-        self.goal_mask = None
-        self.goal_image_keypoints = None
-
-        self.instance_seg = Detic(config.AGENT.DETIC)
-        self.matching = Matching(
-            device=0,  # config.simulator_gpu_id
-            config=config.AGENT.SUPERGLUE,
-            default_vis_dir=f"{config.DUMP_LOCATION}/images/{config.EXP_NAME}",
-            print_images=config.PRINT_IMAGES,
-        )
-        self.preprojection_kp_dilation = (
-            config.AGENT.SEMANTIC_MAP.preprojection_kp_dilation
-        )
-        self.match_projection_threshold = (
-            config.AGENT.SUPERGLUE.match_projection_threshold
-            ## imagenav stuff
-        )
 
     # ------------------------------------------------------------------
     # Inference methods to interact with vectorized simulation
@@ -601,7 +584,12 @@ class GoatAgent(Agent):
                 ) = self.matching.get_goal_image_keypoints(img_goal)
                 self.goal_mask, _ = self.instance_seg.get_goal_mask(img_goal)
 
-            (goal_keypoints, rgb_keypoints, matches, confidences) = self.matching(
+            (
+                goal_keypoints,
+                rgb_keypoints,
+                matches,
+                confidences,
+            ) = self.matching.match_image_to_image(
                 obs.rgb,
                 goal_image=self.goal_image,
                 goal_image_keypoints=self.goal_image_keypoints,
@@ -660,45 +648,18 @@ class GoatAgent(Agent):
 
         if task_type in ["objectnav", "languagenav"]:
             matches, confidences, all_matches, all_confidences = None, None, [], []
+
         if task_type == "languagenav":
-
-            def clip_matching_fn(views, language_goal, **kwargs):
-                batch_size = 64
-                language_goal = language_goal.replace("Instruction: ", "")
-                language_goal = clip.tokenize(language_goal).to(self.device)
-                language_goal = self.clip_model.encode_text(language_goal)
-                # get clip embedding for views with a batch size of batch_size
-                device = "cuda" if torch.cuda.is_available() else "cpu"
-
-                if isinstance(views, list):
-                    views = np.stack(views, 0)
-                if views.dtype == np.uint8:
-                    views = views.astype(np.float32) / 255
-                views = torch.cat(
-                    [
-                        self.clip_model.encode_image(
-                            self.clip_image_preprocess(v.permute(0, 3, 1, 2)).to(device)
-                        )
-                        for v in torch.tensor(views).split(batch_size)
-                    ],
-                    dim=0,
-                )
-                # compute similarity
-                similarity = (language_goal @ views.T).softmax(dim=-1)
-                return [[1]] * similarity.shape[0], np.expand_dims(
-                    similarity.detach().cpu().numpy(), 1
-                )
-
             if self.prev_task_type != "languagenav":
                 # TODO: Use this method for imagenav as well
                 all_matches, all_confidences = get_matches_against_memory(
                     self.instance_memory,
-                    clip_matching_fn,
+                    self.matching.match_language_to_image,
                     self.total_timesteps[0],
                     language_goal=current_task["instruction"],
                 )
             else:
-                matches, confidences = clip_matching_fn(
+                matches, confidences = self.matching.match_language_to_image(
                     np.expand_dims(obs.rgb, 0), current_task["instruction"]
                 )
                 matches = matches[0]
@@ -711,7 +672,7 @@ class GoatAgent(Agent):
             ):
                 all_matches, all_confidences = get_matches_against_memory(
                     self.instance_memory,
-                    self.matching,
+                    self.matching.match_image_to_image,
                     self.sub_task_timesteps[0][self.current_task_idx],
                     image_goal=self.goal_image,
                     goal_image_keypoints=self.goal_image_keypoints,

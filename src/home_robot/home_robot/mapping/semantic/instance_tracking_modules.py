@@ -93,14 +93,15 @@ class InstanceMemory:
         self.num_envs = num_envs
         self.du_scale = du_scale
         self.debug_visualize = debug_visualize
-        self.config = config
-        if self.debug_visualize:
-            import shutil
 
-            shutil.rmtree(
-                f"{self.config.DUMP_LOCATION}/instances/{self.config.EXP_NAME}",
-                ignore_errors=True,
-            )
+        if config is not None:
+            self.save_dir = f"{config.DUMP_LOCATION}/instances/{config.EXP_NAME}"
+        else:
+            self.save_dir = "instances"
+
+        if self.debug_visualize:
+            shutil.rmtree(self.save_dir, ignore_errors=True)
+
         self.reset()
 
     def reset(self):
@@ -138,20 +139,11 @@ class InstanceMemory:
             # add instance view to global instance
             global_instance.instance_views.append(instance_view)
         if self.debug_visualize:
-            import os
-
-            import cv2
-
-            instance_write_path = os.path.join(
-                self.config.DUMP_LOCATION,
-                "instances",
-                self.config.EXP_NAME,
-                str(global_instance_id),
-            )
+            instance_write_path = f"{self.save_dir}/{str(global_instance_id)}"
             os.makedirs(instance_write_path, exist_ok=True)
             cv2.imwrite(
                 f"{instance_write_path}/{self.timesteps[env_id]}_{local_instance_id}_cat_{instance_view.category_id}.png",
-                instance_view.cropped_image[:, :, ::-1],
+                instance_view.cropped_image,
             )
             print(
                 "mapping local instance id",
@@ -258,9 +250,9 @@ class InstanceMemory:
             self.unprocessed_views[env_id][instance_id.item()] = instance_view
             # save cropped image with timestep in filename
             if self.debug_visualize:
-                os.makedirs("instances/", exist_ok=True)
+                os.makedirs("instances/all", exist_ok=True)
                 cv2.imwrite(
-                    f"instances/{self.timesteps[env_id]}_{instance_id.item()}.png",
+                    f"instances/all/{self.timesteps[env_id] + 1}_{instance_id.item()}.png",
                     cropped_image,
                 )
 

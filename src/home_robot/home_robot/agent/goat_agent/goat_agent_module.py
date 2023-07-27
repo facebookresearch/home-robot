@@ -14,16 +14,24 @@ from home_robot.navigation_policy.language_navigation.languagenav_frontier_explo
     LanguageNavFrontierExplorationPolicy,
 )
 
+from .superglue import GoatMatching
+
 # Do we need to visualize the frontier as we explore?
 debug_frontier_map = False
 
 
 class GoatAgentModule(nn.Module):
-    def __init__(self, config, instance_memory: Optional[InstanceMemory] = None):
+    def __init__(
+        self,
+        config,
+        matching: GoatMatching,
+        instance_memory: Optional[InstanceMemory] = None,
+    ):
         super().__init__()
+        self.matching = matching
         self.instance_memory = instance_memory
         self.goal_inst = None
-        self.img_instance_goal_found = False
+        self.instance_goal_found = False
         self.num_sem_categories = config.AGENT.SEMANTIC_MAP.num_sem_categories
         self.semantic_map_module = Categorical2DSemanticMapModule(
             frame_height=config.ENVIRONMENT.frame_height,
@@ -64,98 +72,6 @@ class GoatAgentModule(nn.Module):
     @property
     def goal_update_steps(self):
         return self.policy.goal_update_steps
-
-    def superglue(
-        self,
-        goal_map: torch.Tensor,
-        found_goal: torch.Tensor,
-        local_map: torch.Tensor,
-        matches: torch.Tensor,
-        confidence: torch.Tensor,
-        all_matches: List = None,
-        all_confidences: List = None,
-    ) -> Tuple[torch.Tensor, torch.Tensor]:
-        """Goal detection and localization via SuperGlue"""
-
-        score_func = self.goal_policy_config.score_function
-        assert score_func in ["confidence_sum", "match_count"]
-
-        if all_matches is not None:
-            self.img_instance_goal_found = False
-            self.goal_inst = None
-            if len(all_matches) > 0:
-                max_scores = []
-                for inst_idx, match_inst in enumerate(all_matches):
-                    inst_view_scores = []
-                    for view_idx, match_view in enumerate(match_inst):
-                        view_score = all_confidences[inst_idx][view_idx][
-                            match_view != -1
-                        ].sum()
-                        inst_view_scores.append(view_score)
-
-                    max_scores.append(max(inst_view_scores))
-                    print(f"Instance {inst_idx+1} score: {max(inst_view_scores)}")
-
-                if max(max_scores) > self.goal_policy_config.score_thresh:
-                    inst_idx = np.argmax(max_scores)
-                    instance_map = local_map[0][
-                        MC.NON_SEM_CHANNELS
-                        + self.num_sem_categories : MC.NON_SEM_CHANNELS
-                        + 2 * self.num_sem_categories,
-                        :,
-                        :,
-                    ]  # TODO: currently assuming img goal instance was an object outside of the vocabulary
-                    inst_map_idx = instance_map == inst_idx + 1
-                    inst_map_idx = torch.argmax(torch.sum(inst_map_idx, axis=(1, 2)))
-                    goal_map_temp = (instance_map[inst_map_idx] == inst_idx + 1).to(
-                        torch.float
-                    )
-
-                    if goal_map_temp.any():
-                        self.img_instance_goal_found = True
-                        self.goal_inst = inst_idx + 1
-                        goal_map = goal_map_temp
-                        print(f"{self.goal_inst} will be the goal")
-                    else:
-                        print("Instance was seen, but not present in local map.")
-                else:
-                    print("Goal image does not match any instance.")
-                    # TODO: dont stop at the first instance, but rather find the best one
-
-        if self.goal_inst is not None and self.img_instance_goal_found is True:
-            found_goal[0] = True
-
-            instance_map = local_map[0][
-                MC.NON_SEM_CHANNELS
-                + self.num_sem_categories : MC.NON_SEM_CHANNELS
-                + 2 * self.num_sem_categories,
-                :,
-                :,
-            ]
-            inst_map_idx = instance_map == self.goal_inst
-            inst_map_idx = torch.argmax(torch.sum(inst_map_idx, axis=(1, 2)))
-            goal_map = (instance_map[inst_map_idx] == self.goal_inst).to(torch.float)
-
-            # goal_map = (local_map[0][22:38][0] == self.goal_inst).to(torch.float)
-        else:
-            for e in range(confidence.shape[0]):
-                # if the goal category is empty, the goal can't be found
-                if not local_map[e, 21].any().item():
-                    continue
-
-                if score_func == "confidence_sum":
-                    score = confidence[e][matches[e] != -1].sum()
-                else:  # match_count
-                    score = (matches[e] != -1).sum()
-
-                if score < self.goal_policy_config.score_thresh:
-                    continue
-
-                found_goal[e] = True
-                # Set goal_map to the last channel of the local semantic map
-                goal_map[e, 0] = local_map[e, 21]
-
-        return goal_map, found_goal
 
     def forward(
         self,
@@ -269,19 +185,39 @@ class GoatAgentModule(nn.Module):
             ]
 
             if len(all_matches) > 0:
-                seq_goal_map, seq_found_goal = self.superglue(
+                self.instance_goal_found = False
+                self.goal_inst = None
+                (
+                    seq_goal_map,
+                    seq_found_goal,
+                    self.instance_goal_found,
+                    self.goal_inst,
+                ) = self.matching.superglue(
                     seq_goal_map,
                     seq_found_goal,
                     final_local_map,
                     matches,
                     confidence,
+                    self.instance_goal_found,
+                    self.goal_inst,
                     all_matches,
                     all_confidences,
                 )
 
             # predict if the goal is found and where it is.
-            seq_goal_map, seq_found_goal = self.superglue(
-                seq_goal_map, seq_found_goal, final_local_map, matches, confidence
+            (
+                seq_goal_map,
+                seq_found_goal,
+                self.instance_goal_found,
+                self.goal_inst,
+            ) = self.matching.superglue(
+                seq_goal_map,
+                seq_found_goal,
+                final_local_map,
+                matches,
+                confidence,
+                self.instance_goal_found,
+                self.goal_inst,
             )
             seq_goal_map = seq_goal_map.view(
                 batch_size, sequence_length, *seq_goal_map.shape[-2:]

@@ -165,14 +165,14 @@ class Categorical2DSemanticMapModule(nn.Module):
         seq_dones: Tensor,
         seq_update_global: Tensor,
         seq_camera_poses: Tensor,
-        seq_obstacle_locations: Tensor,
-        seq_free_locations: Tensor,
         init_local_map: Tensor,
         init_global_map: Tensor,
         init_local_pose: Tensor,
         init_global_pose: Tensor,
         init_lmb: Tensor,
         init_origins: Tensor,
+        seq_obstacle_locations: Optional[Tensor] = None,
+        seq_free_locations: Optional[Tensor] = None,
         blacklist_target: bool = False,
     ) -> Tuple[Tensor, Tensor, Tensor, Tensor, Tensor, IntTensor, Tensor]:
         """Update maps and poses with a sequence of observations and generate map
@@ -265,8 +265,10 @@ class Categorical2DSemanticMapModule(nn.Module):
                 local_map,
                 local_pose,
                 seq_camera_poses,
-                seq_obstacle_locations[:, t],
-                seq_free_locations[:, t],
+                seq_obstacle_locations[:, t]
+                if seq_obstacle_locations is not None
+                else None,
+                seq_free_locations[:, t] if seq_free_locations is not None else None,
                 blacklist_target,
             )
             for e in range(batch_size):
@@ -376,15 +378,15 @@ class Categorical2DSemanticMapModule(nn.Module):
 
         return curr_map
 
-    def _update_local_map_and_pose(
+    def _update_local_map_and_pose(  # noqa: C901
         self,
         obs: Tensor,
         pose_delta: Tensor,
         prev_map: Tensor,
         prev_pose: Tensor,
         camera_pose: Tensor,
-        obstacle_locations: Tensor,
-        free_locations: Tensor,
+        obstacle_locations: Optional[Tensor] = None,
+        free_locations: Optional[Tensor] = None,
         blacklist_target: bool = False,
         debug: bool = False,
     ) -> Tuple[Tensor, Tensor]:
@@ -646,8 +648,12 @@ class Categorical2DSemanticMapModule(nn.Module):
 
         # Update obstacles in current map
         # TODO Implement this properly for num_environments > 1
-        translated[0, 0, obstacle_locations[0, :, 0], obstacle_locations[0, :, 1]] = 1
-        translated[0, 0, free_locations[0, :, 0], free_locations[0, :, 1]] = 0
+        if obstacle_locations is not None:
+            translated[
+                0, 0, obstacle_locations[0, :, 0], obstacle_locations[0, :, 1]
+            ] = 1
+        if free_locations is not None:
+            translated[0, 0, free_locations[0, :, 0], free_locations[0, :, 1]] = 0
 
         # Aggregate by taking the max of the previous map and current map — this is robust
         # to false negatives in one frame but makes it impossible to remove false positives
