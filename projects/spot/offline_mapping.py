@@ -444,7 +444,7 @@ def main(input_trajectory_dir: str, output_visualization_dir: str, legend_path: 
         score_func="confidence_sum",
         score_thresh=24.5,
         num_sem_categories=num_sem_categories,
-        config=config,
+        config=config.AGENT.SUPERGLUE,
         default_vis_dir=output_visualization_dir,
         print_images=True,
     )
