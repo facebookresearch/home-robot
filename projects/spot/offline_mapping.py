@@ -453,31 +453,34 @@ def main(input_trajectory_dir: str, output_visualization_dir: str, legend_path: 
     # Image goal
     # -----------------------------------------------
 
-    # image_goal = # TODO
-    # image_goal, goal_image_keypoints = matching.get_goal_image_keypoints(image_goal)
-    # all_matches, all_confidences = matching.get_matches_against_memory(
-    #     instance_memory,
-    #     matching.match_image_to_image,
-    #     0,
-    #     image_goal=image_goal,
-    #     goal_image_keypoints=goal_image_keypoints,
-    # )
-    #
-    # goal_map, found_goal, instance_goal_found, goal_inst = matching.superglue(
-    #     goal_map=None,
-    #     found_goal=False,
-    #     local_map=semantic_map.local_map,
-    #     matches=None,
-    #     confidence=None,
-    #     instance_goal_found=False,
-    #     goal_inst=None,
-    #     all_matches=all_matches,
-    #     all_confidences=all_confidences,
-    # )
-    # print("goal_map", goal_map.shape)
-    # print("found_goal", found_goal)
-    # print("instance_goal_found", instance_goal_found)
-    # print("goal_inst", goal_inst)
+    image_goal_path = f"{str(Path(__file__).resolve().parent)}/image_goal.png"
+    image_goal = cv2.imread(image_goal_path)
+    image_goal, goal_image_keypoints = matching.get_goal_image_keypoints(image_goal)
+    all_matches, all_confidences = matching.get_matches_against_memory(
+        instance_memory,
+        matching.match_image_to_image,
+        0,
+        image_goal=image_goal,
+        goal_image_keypoints=goal_image_keypoints,
+    )
+    print("all_matches", all_matches)
+    print("all_confidences", all_confidences)
+
+    goal_map, found_goal, instance_goal_found, goal_inst = matching.superglue(
+        goal_map=None,
+        found_goal=False,
+        local_map=semantic_map.local_map,
+        matches=None,
+        confidence=None,
+        instance_goal_found=False,
+        goal_inst=None,
+        all_matches=all_matches,
+        all_confidences=all_confidences,
+    )
+    print("goal_map", goal_map.shape)
+    print("found_goal", found_goal)
+    print("instance_goal_found", instance_goal_found)
+    print("goal_inst", goal_inst)
 
     # -----------------------------------------------
     # Language goal
