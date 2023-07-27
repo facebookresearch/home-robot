@@ -33,78 +33,13 @@ from home_robot.mapping.semantic.categorical_2d_semantic_map_state import (
     Categorical2DSemanticMapState,
 )
 from home_robot.mapping.semantic.instance_tracking_modules import InstanceMemory
-from home_robot.perception.detection.detic.detic_perception import DeticPerception
+from home_robot.perception.detection.maskrcnn.coco_categories import (
+    coco_categories,
+    coco_categories_color_palette,
+)
 from home_robot.perception.detection.maskrcnn.maskrcnn_perception import (
     MaskRCNNPerception,
 )
-
-# Semantic segmentation categories predicted from frames and projected in the map
-coco_categories = [
-    "chair",
-    "couch",
-    "potted_plant",
-    "bed",
-    "toilet",
-    "tv",
-    "dining_table",
-    "oven",
-    "sink",
-    "refrigerator",
-    "book",
-    "person",  # clock
-    "vase",
-    "cup",
-    "bottle",
-]
-
-# Color palette for semantic categories
-coco_categories_color_palette = [
-    0.9400000000000001,
-    0.7818,
-    0.66,  # chair
-    0.9400000000000001,
-    0.8868,
-    0.66,  # couch
-    0.8882000000000001,
-    0.9400000000000001,
-    0.66,  # potted plant
-    0.7832000000000001,
-    0.9400000000000001,
-    0.66,  # bed
-    0.6782000000000001,
-    0.9400000000000001,
-    0.66,  # toilet
-    0.66,
-    0.9400000000000001,
-    0.7468000000000001,  # tv
-    0.66,
-    0.9400000000000001,
-    0.8518000000000001,  # dining-table
-    0.66,
-    0.9232,
-    0.9400000000000001,  # oven
-    0.66,
-    0.8182,
-    0.9400000000000001,  # sink
-    0.66,
-    0.7132,
-    0.9400000000000001,  # refrigerator
-    0.7117999999999999,
-    0.66,
-    0.9400000000000001,  # book
-    0.8168,
-    0.66,
-    0.9400000000000001,  # clock
-    0.9218,
-    0.66,
-    0.9400000000000001,  # vase
-    0.9400000000000001,
-    0.66,
-    0.8531999999999998,  # cup
-    0.9400000000000001,
-    0.66,
-    0.748199999999999,  # bottle
-]
 
 
 def get_semantic_map_vis(
@@ -275,26 +210,10 @@ def main(input_trajectory_dir: str, output_visualization_dir: str, legend_path: 
             observations.append(pickle.load(f))
 
     # Predict semantic segmentation
-    # categories = [
-    #     "other",
-    #     *coco_categories,
-    #     "other",
-    # ]
-    # num_sem_categories = len(categories) - 1
-    # segmentation = DeticPerception(
-    #     vocabulary="custom",
-    #     custom_vocabulary=",".join(categories),
-    #     sem_gpu_id=0,
-    # )
-    
-    from home_robot.perception.detection.maskrcnn.coco_categories import (
-        coco_categories,
-        coco_categories_color_palette,
-    )
     categories = list(coco_categories.keys())
     num_sem_categories = len(coco_categories)
     segmentation = MaskRCNNPerception(
-        sem_pred_prob_thr=0.8,
+        sem_pred_prob_thr=0.9,
         sem_gpu_id=0,
     )
 
@@ -354,7 +273,7 @@ def main(input_trajectory_dir: str, output_visualization_dir: str, legend_path: 
     semantic_map_module = Categorical2DSemanticMapModule(
         frame_height=obs.rgb.shape[0],
         frame_width=obs.rgb.shape[1],
-        camera_height=1.37,
+        camera_height=obs.camera_pose[2, 3],
         hfov=60.2,
         num_sem_categories=num_sem_categories,
         map_size_cm=4800,
