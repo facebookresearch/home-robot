@@ -455,7 +455,9 @@ def main(input_trajectory_dir: str, output_visualization_dir: str, legend_path: 
 
     image_goal_path = f"{str(Path(__file__).resolve().parent)}/image_goal.png"
     image_goal = cv2.imread(image_goal_path)
+    print("image_goal", image_goal.shape, image_goal.dtype)
     image_goal, goal_image_keypoints = matching.get_goal_image_keypoints(image_goal)
+    breakpoint()
     all_matches, all_confidences = matching.get_matches_against_memory(
         instance_memory,
         matching.match_image_to_image,
