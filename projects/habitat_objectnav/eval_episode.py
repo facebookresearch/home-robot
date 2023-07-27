@@ -101,5 +101,5 @@ if __name__ == "__main__":
 
     if config.AGENT.SEMANTIC_MAP.record_instance_ids:
         # TODO Can we create a visualization of the instance memory here?
-
+        print("Let's generate visualization")
         pass

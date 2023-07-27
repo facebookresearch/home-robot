@@ -1,0 +1,14 @@
+# Mapping for renaming task-names used at record time to standard names
+# (used with rename_task_names.py)
+close-top-drawer: close-object-drawer
+handover-bottle: handover-to-person
+open-top-drawer: open-object-drawer
+pick-bottle: take-bottle
+pick-bottle-from-cabinet: take-bottle
+pick-bottle-from-cabinet-new: take-bottle
+pick-bottle-from-table: take-bottle
+pour-mug: pour-into-bowl
+pour_mug: pour-into-bowl
+pour_sink: pour-into-sink
+sweep_edge_of_table: sweep-table-with-brush
+sweep_table: sweep-table-with-brush

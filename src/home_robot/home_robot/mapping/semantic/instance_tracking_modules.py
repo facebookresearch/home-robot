@@ -1,5 +1,8 @@
+import os
+import shutil
 from typing import Dict, List, Optional, Tuple
 
+import cv2
 import numpy as np
 import torch
 
@@ -255,10 +258,6 @@ class InstanceMemory:
             self.unprocessed_views[env_id][instance_id.item()] = instance_view
             # save cropped image with timestep in filename
             if self.debug_visualize:
-                import os
-
-                import cv2
-
                 os.makedirs("instances/", exist_ok=True)
                 cv2.imwrite(
                     f"instances/{self.timesteps[env_id]}_{instance_id.item()}.png",

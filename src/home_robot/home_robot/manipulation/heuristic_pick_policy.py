@@ -36,12 +36,10 @@ class HeuristicPickPolicy(HeuristicPlacePolicy):
     """
 
     def __init__(
-        self,
-        config,
-        device,
-        debug_visualize_xyz: bool = False,
+        self, config, device, debug_visualize_xyz: bool = False, verbose: bool = False
     ):
         self.timestep = 0
+        self.verbose = verbose
         super().__init__(config, device, debug_visualize_xyz)
 
     def get_object_pick_point(
@@ -66,7 +64,8 @@ class HeuristicPickPolicy(HeuristicPlacePolicy):
             cv2.imwrite(f"{self.object_name}_semantic.png", goal_object_mask * 255)
 
         if not goal_object_mask.any():
-            print("Goal object not visible!")
+            if self.verbose:
+                print("Goal object not visible!")
             return None
         else:
             pcd_base_coords = self.get_target_point_cloud_base_coords(
@@ -146,7 +145,8 @@ class HeuristicPickPolicy(HeuristicPlacePolicy):
             self.t_relative_grasp = 2
             self.t_relative_snap_object = 3
             self.t_start_pick = np.inf
-            print("-" * 20)
+            if self.verbose:
+                print("-" * 20)
 
     def get_action(
         self, obs: Observations, vis_inputs: Optional[Dict] = None
@@ -228,10 +228,12 @@ class HeuristicPickPolicy(HeuristicPlacePolicy):
             action = ContinuousFullBodyAction(joints)
         elif self.timestep == self.t_start_pick + self.t_relative_snap_object:
             # snap to pick the object
-            print("[Pick] Snapping object")
+            if self.verbose:
+                print("[Pick] Snapping object")
             action = DiscreteNavigationAction.SNAP_OBJECT
         else:
-            print("[Pick] Stopping")
+            if self.verbose:
+                print("[Pick] Stopping")
             action = DiscreteNavigationAction.STOP
         return action, vis_inputs
 
@@ -240,9 +242,9 @@ class HeuristicPickPolicy(HeuristicPlacePolicy):
 
         if self.timestep == 0:
             self.generate_plan(obs, vis_inputs)
-
-        print("-" * 20)
-        print("Timestep", self.timestep)
+        if self.verbose:
+            print("-" * 20)
+            print("Timestep", self.timestep)
         action, vis_inputs = self.get_action(obs, vis_inputs)
 
         self.timestep += 1

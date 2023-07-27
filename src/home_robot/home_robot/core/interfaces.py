@@ -6,7 +6,7 @@
 
 from dataclasses import dataclass
 from enum import Enum
-from typing import Any, Dict, Optional
+from typing import Any, Dict, List, Optional
 
 import numpy as np
 
@@ -48,7 +48,7 @@ class DiscreteNavigationAction(Action, Enum):
     CLOSE_GRIPPER = 14
 
 
-class ContinuousNavigationAction:
+class ContinuousNavigationAction(Action):
     xyt: np.ndarray
 
     def __init__(self, xyt: np.ndarray):
@@ -74,10 +74,39 @@ class ContinuousFullBodyAction:
         self.joints = joints
 
 
+class ContinuousEndEffectorAction:
+    pos: np.ndarray
+    ori: np.ndarray
+    g: np.ndarray
+    num_actions: int
+
+    def __init__(
+        self,
+        pos: np.ndarray = None,
+        ori: np.ndarray = None,
+        g: np.ndarray = None,
+    ):
+        """Create end-effector continuous action; moves to 6D pose and activates gripper"""
+        if (
+            pos is not None
+            and ori is not None
+            and g is not None
+            and not (pos.shape[1] + ori.shape[1] + g.shape[1]) == 8
+        ):
+            raise RuntimeError(
+                "continuous end-effector action space has 8 dimentions: pos=3, ori=4, gripper=1"
+            )
+        self.pos = pos
+        self.ori = ori
+        self.g = g
+        self.num_actions = pos.shape[0]
+
+
 class ActionType(Enum):
     DISCRETE = 0
     CONTINUOUS_NAVIGATION = 1
     CONTINUOUS_MANIPULATION = 2
+    CONTINUOUS_EE_MANIPULATION = 3
 
 
 class HybridAction(Action):
@@ -86,7 +115,15 @@ class HybridAction(Action):
     action_type: ActionType
     action: Action
 
-    def __init__(self, action=None, xyt: np.ndarray = None, joints: np.ndarray = None):
+    def __init__(
+        self,
+        action=None,
+        xyt: np.ndarray = None,
+        joints: np.ndarray = None,
+        pos: np.ndarray = None,
+        ori: np.ndarray = None,
+        gripper: np.ndarray = None,
+    ):
         """Make sure that we were passed a useful generic action here. Process it into something useful."""
         if action is not None:
             if type(action) == HybridAction:
@@ -95,6 +132,8 @@ class HybridAction(Action):
                 self.action_type = ActionType.DISCRETE
             elif type(action) == ContinuousNavigationAction:
                 self.action_type = ActionType.CONTINUOUS_NAVIGATION
+            elif type(action) == ContinuousEndEffectorAction:
+                self.action_type = ActionType.CONTINUOUS_EE_MANIPULATION
             else:
                 self.action_type = ActionType.CONTINUOUS_MANIPULATION
         elif joints is not None:
@@ -103,6 +142,9 @@ class HybridAction(Action):
         elif xyt is not None:
             self.action_type = ActionType.CONTINUOUS_NAVIGATION
             action = ContinuousNavigationAction(xyt)
+        elif pos is not None:
+            self.action_type = ActionType.CONTINUOUS_EE_MANIPULATION
+            action = ContinuousEndEffectorAction(pos, ori, gripper)
         else:
             raise RuntimeError("Cannot create HybridAction without any action!")
         if isinstance(action, HybridAction):
@@ -123,7 +165,10 @@ class HybridAction(Action):
         return self.action_type == ActionType.CONTINUOUS_NAVIGATION
 
     def is_manipulation(self):
-        return self.action_type == ActionType.CONTINUOUS_MANIPULATION
+        return self.action_type in [
+            ActionType.CONTINUOUS_MANIPULATION,
+            ActionType.CONTINUOUS_EE_MANIPULATION,
+        ]
 
     def get(self):
         """Extract continuous component of the command and return it."""
@@ -131,6 +176,8 @@ class HybridAction(Action):
             return self.action
         elif self.action_type == ActionType.CONTINUOUS_NAVIGATION:
             return self.action.xyt
+        elif self.action_type == ActionType.CONTINUOUS_EE_MANIPULATION:
+            return self.action.pos, self.action.ori, self.action.g
         else:
             # Extract both the joints and the waypoint target
             return self.action.joints, self.action.xyt

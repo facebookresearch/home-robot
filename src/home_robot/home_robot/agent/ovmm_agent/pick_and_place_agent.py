@@ -55,6 +55,8 @@ class PickAndPlaceAgent(OpenVocabManipAgent):
         skip_gaze=False,
         test_place=False,
         skip_orient_place=True,
+        min_distance_goal_cm: float = 50.0,
+        continuous_angle_tolerance: float = 30.0,
     ):
         """Create the component object nav agent as a PickAndPlaceAgent object.
 
@@ -91,7 +93,12 @@ class PickAndPlaceAgent(OpenVocabManipAgent):
             self.place_policy = HeuristicPlacePolicy(self.config, self.device)
 
         # Agent for object nav
-        self.object_nav_agent = ObjectNavAgent(config, device_id)
+        self.object_nav_agent = ObjectNavAgent(
+            config,
+            device_id,
+            min_goal_distance_cm=min_distance_goal_cm,
+            continuous_angle_tolerance=continuous_angle_tolerance,
+        )
         if not self.skip_gaze and hasattr(self.config.AGENT.SKILLS, "GAZE"):
             self.gaze_agent = PPOAgent(
                 config,
@@ -196,7 +203,11 @@ class PickAndPlaceAgent(OpenVocabManipAgent):
             self.state = SimpleTaskState.GAZE_OBJECT
             if not self.skip_orient:
                 # orient to face the object
-                return DiscreteNavigationAction.MANIPULATION_MODE, action_info, obs
+                return (
+                    DiscreteNavigationAction.MANIPULATION_MODE,
+                    action_info,
+                    obs,
+                )
         if self.state == SimpleTaskState.GAZE_OBJECT:
             if self.skip_gaze or self.gaze_agent is None:
                 self.state = SimpleTaskState.PICK_OBJECT
@@ -229,7 +240,11 @@ class PickAndPlaceAgent(OpenVocabManipAgent):
             self.state = SimpleTaskState.PLACE_OBJECT
             if not self.skip_orient_place:
                 # orient to face the object
-                return DiscreteNavigationAction.MANIPULATION_MODE, action_info, obs
+                return (
+                    DiscreteNavigationAction.MANIPULATION_MODE,
+                    action_info,
+                    obs,
+                )
         if self.state == SimpleTaskState.PLACE_OBJECT:
             # place the object somewhere - hopefully in front of the agent.
             obs, info = self._preprocess_obs_for_place(obs, info)

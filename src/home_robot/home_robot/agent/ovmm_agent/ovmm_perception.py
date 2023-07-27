@@ -81,7 +81,7 @@ class OvmmPerception:
     def current_vocabulary(self) -> RearrangeDETICCategories:
         return self._current_vocabulary
 
-    def update_vocubulary_list(
+    def update_vocabulary_list(
         self, vocabulary: RearrangeDETICCategories, vocabulary_id: int
     ):
         """
@@ -116,15 +116,24 @@ class OvmmPerception:
         obs.task_observations["semantic_max_val"] = (
             self._current_vocabulary.num_sem_categories - 1
         )
-        obs.task_observations["start_recep_goal"] = self.vocabulary_name_to_id[
-            obs.task_observations["start_recep_name"]
-        ]
-        obs.task_observations["end_recep_goal"] = self.vocabulary_name_to_id[
-            obs.task_observations["place_recep_name"]
-        ]
-        obs.task_observations["object_goal"] = self.vocabulary_name_to_id[
-            obs.task_observations["object_name"]
-        ]
+        if obs.task_observations["start_recep_name"] is not None:
+            obs.task_observations["start_recep_goal"] = self.vocabulary_name_to_id[
+                obs.task_observations["start_recep_name"]
+            ]
+        else:
+            obs.task_observations["start_recep_name"] = None
+        if obs.task_observations["place_recep_name"] is not None:
+            obs.task_observations["end_recep_goal"] = self.vocabulary_name_to_id[
+                obs.task_observations["place_recep_name"]
+            ]
+        else:
+            obs.task_observations["end_recep_name"] = None
+        if obs.task_observations["object_name"] is not None:
+            obs.task_observations["object_goal"] = self.vocabulary_name_to_id[
+                obs.task_observations["object_name"]
+            ]
+        else:
+            obs.task_observations["object_goal"] = None
 
     def __call__(self, obs: Observations) -> Observations:
         return self.forward(obs)
