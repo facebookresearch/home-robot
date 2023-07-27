@@ -25,6 +25,7 @@ sys.path.insert(
 
 import home_robot.utils.pose as pu
 import home_robot.utils.visualization as vu
+from home_robot.agent.goat_agent.superglue import GoatMatching
 from home_robot.core.interfaces import Observations
 from home_robot.mapping.semantic.categorical_2d_semantic_map_module import (
     Categorical2DSemanticMapModule,
@@ -40,6 +41,7 @@ from home_robot.perception.detection.maskrcnn.coco_categories import (
 from home_robot.perception.detection.maskrcnn.maskrcnn_perception import (
     MaskRCNNPerception,
 )
+from home_robot.utils.config import get_config
 
 
 def get_semantic_map_vis(
@@ -209,7 +211,7 @@ def main(input_trajectory_dir: str, output_visualization_dir: str, legend_path: 
     for path in natsort.natsorted(glob.glob(f"{input_trajectory_dir}/*.pkl")):
         with open(path, "rb") as f:
             observations.append(pickle.load(f))
-    observations = observations[:20]
+    observations = observations[:1]
 
     # Predict semantic segmentation
     categories = list(coco_categories.keys())
@@ -435,7 +437,17 @@ def main(input_trajectory_dir: str, output_visualization_dir: str, legend_path: 
     if not ground_goals_in_memory:
         return
 
-    # TODO
+    config_path = "projects/spot/configs/config.yaml"
+    config, _ = get_config(config_path)
+    matching = GoatMatching(
+        device=device,
+        score_func="confidence_sum",
+        score_thresh=24.5,
+        num_sem_categories=num_sem_categories,
+        config=config,
+        default_vis_dir=output_visualization_dir,
+        print_images=True,
+    )
 
 
 if __name__ == "__main__":

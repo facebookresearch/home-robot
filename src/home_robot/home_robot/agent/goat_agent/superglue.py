@@ -24,7 +24,7 @@ matplotlib.use("Agg")
 
 
 class GoatMatching(Matching):
-    """ " Implement matching between images"""
+    """Matching (image, image) or (image, language)."""
 
     def __init__(
         self,
