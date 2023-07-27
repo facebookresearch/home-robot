@@ -6,8 +6,10 @@
 from typing import Any, Dict, List, Tuple
 
 import clip
+import cv2
 import numpy as np
 import scipy
+import skimage.morphology
 import torch
 from sklearn.cluster import DBSCAN
 from torch.nn import DataParallel
@@ -21,7 +23,6 @@ from torchvision.transforms import (
 
 import home_robot.utils.pose as pu
 from home_robot.agent.goat_agent.utils.agent_utils import get_matches_against_memory
-from home_robot.agent.imagenav_agent.obs_preprocessor import ObsPreprocessor
 from home_robot.agent.imagenav_agent.visualizer import NavVisualizer
 from home_robot.core.abstract_agent import Agent
 from home_robot.core.interfaces import DiscreteNavigationAction, Observations
@@ -30,8 +31,10 @@ from home_robot.mapping.semantic.categorical_2d_semantic_map_state import (
 )
 from home_robot.mapping.semantic.instance_tracking_modules import InstanceMemory
 from home_robot.navigation_planner.discrete_planner import DiscretePlanner
+from home_robot.perception.detection.detic.detic_mask import Detic
 
 from .goat_agent_module import GoatAgentModule
+from .superglue import GOATMatching as Matching
 
 # For visualizing exploration issues
 debug_frontier_map = False
@@ -142,7 +145,6 @@ class GoatAgent(Agent):
 
         self.current_task_idx = 0
 
-        self.imagenav_obs_preprocessor = ObsPreprocessor(config, self.device)
         self.imagenav_visualizer = NavVisualizer(
             num_sem_categories=config.AGENT.SEMANTIC_MAP.num_sem_categories,
             map_size_cm=config.AGENT.SEMANTIC_MAP.map_size_cm,
@@ -177,6 +179,26 @@ class GoatAgent(Agent):
             ]
         )
         self.prev_task_type = None
+
+        ## imagenav stuff
+        self.goal_image = None
+        self.goal_mask = None
+        self.goal_image_keypoints = None
+
+        self.instance_seg = Detic(config.AGENT.DETIC)
+        self.matching = Matching(
+            device=0,  # config.simulator_gpu_id
+            config=config.AGENT.SUPERGLUE,
+            default_vis_dir=f"{config.DUMP_LOCATION}/images/{config.EXP_NAME}",
+            print_images=config.PRINT_IMAGES,
+        )
+        self.preprojection_kp_dilation = (
+            config.AGENT.SEMANTIC_MAP.preprojection_kp_dilation
+        )
+        self.match_projection_threshold = (
+            config.AGENT.SUPERGLUE.match_projection_threshold
+            ## imagenav stuff
+        )
 
     # ------------------------------------------------------------------
     # Inference methods to interact with vectorized simulation
@@ -357,12 +379,21 @@ class GoatAgent(Agent):
 
         if self.imagenav_visualizer is not None:
             self.imagenav_visualizer.reset()
-        self.imagenav_obs_preprocessor.reset()
+
+        self.goal_image = None
+        self.goal_mask = None
+        self.goal_image_keypoints = None
 
         self.found_goal[:] = False
         self.goal_map[:] *= 0
         self.prev_task_type = None
         self.planner.reset()
+
+    def reset_sub_episode(self) -> None:
+        """Reset for a new sub-episode since pre-processing is temporally dependent."""
+        self.goal_image = None
+        self.goal_image_keypoints = None
+        self.goal_mask = None
 
     def reset_vectorized_for_env(self, e: int):
         """Initialize agent state for a specific environment."""
@@ -382,6 +413,10 @@ class GoatAgent(Agent):
         self.current_task_idx = 0
         self.planner.reset()
 
+        self.goal_image = None
+        self.goal_image_keypoints = None
+        self.goal_mask = None
+
     # ---------------------------------------------------------------------
     # Inference methods to interact with the robot or a single un-vectorized
     # simulation environment
@@ -392,6 +427,10 @@ class GoatAgent(Agent):
         self.reset_vectorized()
         self.planner.reset()
 
+        self.goal_image = None
+        self.goal_mask = None
+        self.goal_image_keypoints = None
+
     # def compare_img_goal_with_instances(self, img_goal):
 
     def act(self, obs: Observations) -> Tuple[DiscreteNavigationAction, Dict[str, Any]]:
@@ -399,59 +438,34 @@ class GoatAgent(Agent):
         current_task = obs.task_observations["tasks"][self.current_task_idx]
         task_type = current_task["type"]
         # 1 - Obs preprocessing
-        if task_type == "imagenav":
-            self.imagenav_obs_preprocessor.current_task_idx = self.current_task_idx
-            (
-                obs_preprocessed,
-                img_goal,
-                pose_delta,
-                camera_pose,
-                matches,
-                confidence,
-                all_matches,
-                all_confidences,
-            ) = self.imagenav_obs_preprocessor.preprocess(
-                obs, last_pose=self.last_poses[0], instance_memory=self.instance_memory
-            )
-            object_goal_category = current_task["semantic_id"]
-            object_goal_category = torch.tensor(object_goal_category).unsqueeze(0)
-            planner_inputs, vis_inputs = self.prepare_planner_inputs(
-                obs_preprocessed,
-                pose_delta,
-                object_goal_category=object_goal_category,
-                matches=matches,
-                confidence=confidence,
-                camera_pose=camera_pose,
-                all_matches=all_matches,
-                all_confidences=all_confidences,
-            )
-            self.last_poses[0] = self.imagenav_obs_preprocessor.last_pose
-        elif task_type in ["objectnav", "languagenav"]:
-            (
-                obs_preprocessed,
-                pose_delta,
-                object_goal_category,
-                landmarks,
-                camera_pose,
-                matches,
-                confidence,
-                all_matches,
-                all_confidences,
-            ) = self._preprocess_obs(obs, task_type)
+        (
+            obs_preprocessed,
+            pose_delta,
+            object_goal_category,
+            landmarks,
+            img_goal,
+            camera_pose,
+            matches,
+            confidence,
+            all_matches,
+            all_confidences,
+        ) = self._preprocess_obs(obs, task_type)
 
-            # 2 - Semantic mapping + policy
-            planner_inputs, vis_inputs = self.prepare_planner_inputs(
-                obs_preprocessed,
-                pose_delta,
-                object_goal_category=object_goal_category,
-                camera_pose=camera_pose,
-                reject_visited_targets=self.reject_visited_targets,
-                blacklist_target=self.blacklist_target,
-                matches=matches,
-                confidence=confidence,
-                all_matches=all_matches,
-                all_confidences=all_confidences,
-            )
+        # import pdb;pdb.set_trace()
+
+        # 2 - Semantic mapping + policy
+        planner_inputs, vis_inputs = self.prepare_planner_inputs(
+            obs_preprocessed,
+            pose_delta,
+            object_goal_category=object_goal_category,
+            camera_pose=camera_pose,
+            reject_visited_targets=self.reject_visited_targets,
+            blacklist_target=self.blacklist_target,
+            matches=matches,
+            confidence=confidence,
+            all_matches=all_matches,
+            all_confidences=all_confidences,
+        )
 
         # 3 - Planning
         closest_goal_map = None
@@ -524,13 +538,48 @@ class GoatAgent(Agent):
                 self.found_goal = torch.zeros(
                     self.num_environments, 1, dtype=bool, device=self.device
                 )
-                self.imagenav_obs_preprocessor.reset_sub_episode()
+                self.reset_sub_episode()
         self.prev_task_type = task_type
         return action, info
+
+    def preprocess_keypoint_localization(
+        self,
+        rgb: np.ndarray,
+        goal_keypoints: torch.Tensor,
+        rgb_keypoints: torch.Tensor,
+        matches: np.ndarray,
+        confidence: np.ndarray,
+    ) -> np.ndarray:
+        """
+        Given keypoint correspondences, determine the egocentric pixel coordinates
+        of matched keypoints that lie within a mask of the goal object.
+        """
+        goal_keypoints = goal_keypoints[0].cpu().to(dtype=int).numpy()
+        rgb_keypoints = rgb_keypoints[0].cpu().to(dtype=int).numpy()
+        confidence = confidence[0]
+        matches = matches[0]
+
+        # map the valid goal keypoints to ego keypoints
+        is_in_mask = self.goal_mask[goal_keypoints[:, 1], goal_keypoints[:, 0]]
+        has_high_confidence = confidence >= self.match_projection_threshold
+        is_matching_kp = matches > -1
+        valid = np.logical_and(is_in_mask, has_high_confidence, is_matching_kp)
+        matched_rgb_keypoints = rgb_keypoints[matches[valid]]
+
+        # set matched rgb keypoints as goal points
+        kp_loc = np.zeros((*rgb.shape[:2], 1), dtype=rgb.dtype)
+        kp_loc[matched_rgb_keypoints[:, 1], matched_rgb_keypoints[:, 0]] = 1
+
+        if self.preprojection_kp_dilation > 0:
+            disk = skimage.morphology.disk(self.preprojection_kp_dilation)
+            kp_loc = np.expand_dims(cv2.dilate(kp_loc, disk, iterations=1), axis=2)
+
+        return kp_loc
 
     def _preprocess_obs(self, obs: Observations, task_type: str):
         """Take a home-robot observation, preprocess it to put it into the correct format for the
         semantic map."""
+
         rgb = torch.from_numpy(obs.rgb).to(self.device)
         depth = (
             torch.from_numpy(obs.depth).unsqueeze(-1).to(self.device) * 100.0
@@ -539,15 +588,40 @@ class GoatAgent(Agent):
         current_task = obs.task_observations["tasks"][self.current_task_idx]
         current_goal_semantic_id = current_task["semantic_id"]
 
-        # if self.store_all_categories_in_map:
         semantic = obs.semantic
-        # else:
-        #     semantic = np.full_like(obs.semantic, 4)
-        #     semantic[
-        #         obs.semantic == current_goal_semantic_id
-        #     ] = current_goal_semantic_id
 
-        semantic = self.one_hot_encoding[torch.from_numpy(semantic).to(self.device)]
+        if task_type == "imagenav":
+            if self.goal_image is None:
+                img_goal = obs.task_observations["tasks"][self.current_task_idx][
+                    "image"
+                ]
+                (
+                    self.goal_image,
+                    self.goal_image_keypoints,
+                ) = self.matching.get_goal_image_keypoints(img_goal)
+                self.goal_mask, _ = self.instance_seg.get_goal_mask(img_goal)
+
+            (goal_keypoints, rgb_keypoints, matches, confidences) = self.matching(
+                obs.rgb,
+                goal_image=self.goal_image,
+                goal_image_keypoints=self.goal_image_keypoints,
+                step=self.sub_task_timesteps[0][self.current_task_idx],
+            )
+
+            kp_loc = self.preprocess_keypoint_localization(
+                obs.rgb, goal_keypoints, rgb_keypoints, matches, confidences
+            )
+            semantic = (
+                self.one_hot_encoding[torch.from_numpy(semantic)][..., :-1]
+                .cpu()
+                .numpy()
+            )
+            semantic = torch.tensor(np.concatenate([semantic, kp_loc], axis=-1)).to(
+                self.device
+            )
+        else:
+            semantic = self.one_hot_encoding[torch.from_numpy(semantic).to(self.device)]
+
         obs_preprocessed = torch.cat([rgb, depth, semantic], dim=-1)
 
         if self.record_instance_ids:
@@ -574,8 +648,6 @@ class GoatAgent(Agent):
         ).unsqueeze(0)
         self.last_poses[0] = curr_pose
 
-        # goals = obs.task_observations["tasks"]
-
         object_goal_category = torch.tensor(current_goal_semantic_id).unsqueeze(0)
         if "landmarks" in current_task.keys():
             landmarks = current_task["landmarks"]
@@ -586,7 +658,8 @@ class GoatAgent(Agent):
         if camera_pose is not None:
             camera_pose = torch.tensor(np.asarray(camera_pose)).unsqueeze(0)
 
-        matches, confidences, all_matches, all_confidences = None, None, [], []
+        if task_type in ["objectnav", "languagenav"]:
+            matches, confidences, all_matches, all_confidences = None, None, [], []
         if task_type == "languagenav":
 
             def clip_matching_fn(views, language_goal, **kwargs):
@@ -630,13 +703,26 @@ class GoatAgent(Agent):
                 )
                 matches = matches[0]
                 confidences = confidences[0]
+        elif task_type == "imagenav":
+            all_matches, all_confidences = [], []
+            if (
+                self.record_instance_ids
+                and self.sub_task_timesteps[0][self.current_task_idx] == 0
+            ):
+                all_matches, all_confidences = get_matches_against_memory(
+                    self.instance_memory,
+                    self.matching,
+                    self.sub_task_timesteps[0][self.current_task_idx],
+                    image_goal=self.goal_image,
+                    goal_image_keypoints=self.goal_image_keypoints,
+                )
 
         return (
             obs_preprocessed,
             pose_delta,
             object_goal_category,
             landmarks,
-            # goals,
+            self.goal_image,
             camera_pose,
             matches,
             confidences,
@@ -657,18 +743,22 @@ class GoatAgent(Agent):
         for e in range(goal_map.shape[0]):
             if not self.found_goal[e]:
                 continue
+            try:
+                # cluster goal points
+                c = DBSCAN(eps=4, min_samples=1)
+                data = np.array(goal_map[e].nonzero()).T
+                c.fit(data)
 
-            # cluster goal points
-            c = DBSCAN(eps=4, min_samples=1)
-            data = np.array(goal_map[e].nonzero()).T
-            c.fit(data)
+                # mask all points not in the largest cluster
+                mode = scipy.stats.mode(c.labels_, keepdims=False).mode.item()
+                mode_mask = (c.labels_ != mode).nonzero()
+                x = data[mode_mask]
+                goal_map_ = np.copy(goal_map[e])
+                goal_map_[x] = 0.0
+            except Exception as e:
+                import pdb
 
-            # mask all points not in the largest cluster
-            mode = scipy.stats.mode(c.labels_, keepdims=False).mode.item()
-            mode_mask = (c.labels_ != mode).nonzero()
-            x = data[mode_mask]
-            goal_map_ = np.copy(goal_map[e])
-            goal_map_[x] = 0.0
+                pdb.set_trace()
 
             # adopt masked map if non-empty
             if goal_map_.sum() > 0:

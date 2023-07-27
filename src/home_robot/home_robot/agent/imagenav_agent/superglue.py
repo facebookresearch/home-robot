@@ -234,7 +234,7 @@ class Matching(nn.Module):
     @torch.no_grad()
     def forward(
         self,
-        rgb_image: Union[np.ndarray, List[np.ndarray]],
+        rgb_image: np.ndarray,
         goal_image: Union[np.ndarray, torch.Tensor],
         rgb_image_keypoints: Optional[Dict[str, Any]] = None,
         goal_image_keypoints: Optional[Dict[str, Any]] = None,
@@ -249,56 +249,35 @@ class Matching(nn.Module):
             tensor of keypoint matches
             tensor of match confidences
         """
-        if isinstance(rgb_image, np.ndarray) and len(rgb_image.shape) == 3:
-            rgb_image_batched = [rgb_image]
+        if goal_image_keypoints is None:
+            goal_image_keypoints = {}
+        if rgb_image_keypoints is None:
+            rgb_image_keypoints = {}
+
+        if isinstance(goal_image, np.ndarray):
+            goal_image = self._preprocess_image(goal_image)
+        if isinstance(rgb_image, np.ndarray):
+            rgb_image = self._preprocess_image(rgb_image)
+
+        matcher_inputs = {
+            "image0": goal_image,
+            "image1": rgb_image,
+            **goal_image_keypoints,
+            **rgb_image_keypoints,
+        }
+        pred = self.matcher(matcher_inputs)
+        matches = pred["matches0"].cpu().numpy()
+        confidence = pred["matching_scores0"].cpu().numpy()
+        self._visualize(matcher_inputs, pred, step)
+
+        if "keypoints0" in matcher_inputs:
+            goal_keypoints = matcher_inputs["keypoints0"]
         else:
-            rgb_image_batched = rgb_image
-            assert rgb_image_keypoints is None
+            goal_keypoints = pred["keypoints0"]
 
-        all_goal_keypoints = []
-        all_rgb_keypoints = []
-        all_matches = []
-        all_confidences = []
-        for i in range(len(rgb_image_batched)):
-            if goal_image_keypoints is None:
-                goal_image_keypoints = {}
-            if rgb_image_keypoints is None:
-                rgb_image_keypoints = {}
+        if "keypoints1" in matcher_inputs:
+            rgb_keypoints = matcher_inputs["keypoints1"]
+        else:
+            rgb_keypoints = pred["keypoints1"]
 
-            if isinstance(goal_image, np.ndarray):
-                goal_image_processed = self._preprocess_image(goal_image)
-            else:
-                goal_image_processed = goal_image
-            if isinstance(rgb_image_batched[i], np.ndarray):
-                rgb_image_processed = self._preprocess_image(rgb_image_batched[i])
-            else:
-                rgb_image_processed = rgb_image_batched[i]
-
-            matcher_inputs = {
-                "image0": goal_image_processed,
-                "image1": rgb_image_processed,
-                **goal_image_keypoints,
-                **rgb_image_keypoints,
-            }
-            pred = self.matcher(matcher_inputs)
-            matches = pred["matches0"].cpu().numpy()
-            confidence = pred["matching_scores0"].cpu().numpy()
-            self._visualize(matcher_inputs, pred, step)
-
-            if "keypoints0" in matcher_inputs:
-                goal_keypoints = matcher_inputs["keypoints0"]
-            else:
-                goal_keypoints = pred["keypoints0"]
-
-            if "keypoints1" in matcher_inputs:
-                rgb_keypoints = matcher_inputs["keypoints1"]
-            else:
-                rgb_keypoints = pred["keypoints1"]
-            if isinstance(rgb_image, np.ndarray) and len(rgb_image.shape) == 3:
-                return goal_keypoints, rgb_keypoints, matches, confidence
-
-            all_goal_keypoints.append(goal_keypoints)
-            all_rgb_keypoints.append(rgb_keypoints)
-            all_matches.append(matches)
-            all_confidences.append(confidence)
-        return all_goal_keypoints, all_rgb_keypoints, all_matches, all_confidences
+        return goal_keypoints, rgb_keypoints, matches, confidence
