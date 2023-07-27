@@ -217,6 +217,7 @@ class Matching(nn.Module):
 
     def _preprocess_image(self, img: np.ndarray) -> Tensor:
         """Prepare an image for SuperPoint inference"""
+        breakpoint()
         img_in = cv2.cvtColor(img, cv2.COLOR_RGB2GRAY)
         img_in = img_in.astype("float32") / 255.0
         img_in = torch.from_numpy(img_in)[None, None]
