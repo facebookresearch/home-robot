@@ -638,11 +638,11 @@ class Categorical2DSemanticMapModule(nn.Module):
 
         # Update obstacles in current map
         # TODO Implement this properly for num_environments > 1
+        # remove obstacles that are observed to be free
+        prev_map[0, 0, free_locations[0, :, 0], free_locations[0, :, 1]] = 0
         translated[0, 0, obstacle_locations[0, :, 0], obstacle_locations[0, :, 1]] = 1
-        translated[0, 0, free_locations[0, :, 0], free_locations[0, :, 1]] = 0
 
-        # Aggregate by taking the max of the previous map and current map — this is robust
-        # to false negatives in one frame but makes it impossible to remove false positives
+        # Aggregate by taking the max of the previous map and current map after removing obstacles
         maps = torch.cat((prev_map.unsqueeze(1), translated.unsqueeze(1)), 1)
         current_map, _ = torch.max(maps, 1)
 

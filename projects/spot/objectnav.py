@@ -226,7 +226,7 @@ def get_semantic_map_vis(
     return vis_image
 
 
-def main(spot):
+def main(spot,args):
     config_path = "projects/spot/configs/config.yaml"
     config, config_str = get_config(config_path)
 
@@ -244,16 +244,21 @@ def main(spot):
 
     env = SpotObjectNavEnv(spot, position_control=True)
     env.reset()
-    user_input = input("Enter the goal category: ")
-    print("You entered:", user_input)
-    env.set_goal(user_input)
+    if args.category:
+        env.set_goal(args.category)
+    else:
+        user_input = input("Enter the goal category: ")
+        print("You entered:", user_input)
+        env.set_goal(user_input)
 
     agent = ObjectNavAgent(config=config)
     agent.reset()
 
     assert agent.num_sem_categories == env.num_sem_categories
     pan_warmup = False
-    keyboard_takeover = False
+
+    # control with keyboard instead of planner
+    keyboard_takeover = args.keyboard
     if pan_warmup:
         positions = spot.get_arm_joint_positions()
         new_pos = positions.copy()
@@ -345,6 +350,11 @@ def main(spot):
 
 
 if __name__ == "__main__":
+    import argparse
+    parser = argparse.ArgumentParser(description='')
+    parser.add_argument('--keyboard',action='store_true')
+    parser.add_argument('--category',default=None)
+    args = parser.parse_args()
     spot = Spot("RealNavEnv")
     with spot.get_lease(hijack=True):
-        main(spot)
+        main(spot,args)
