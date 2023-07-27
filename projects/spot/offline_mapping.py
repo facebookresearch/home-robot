@@ -211,7 +211,7 @@ def main(input_trajectory_dir: str, output_visualization_dir: str, legend_path: 
     for path in natsort.natsorted(glob.glob(f"{input_trajectory_dir}/*.pkl")):
         with open(path, "rb") as f:
             observations.append(pickle.load(f))
-    observations = observations[:10]
+    observations = observations[:30]
 
     # Predict semantic segmentation
     categories = list(coco_categories.keys())
