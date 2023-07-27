@@ -143,7 +143,7 @@ class InstanceMemory:
             os.makedirs(instance_write_path, exist_ok=True)
             cv2.imwrite(
                 f"{instance_write_path}/{self.timesteps[env_id]}_{local_instance_id}_cat_{instance_view.category_id}.png",
-                instance_view.cropped_image[:, :, ::-1],
+                instance_view.cropped_image,
             )
             print(
                 "mapping local instance id",
@@ -250,9 +250,9 @@ class InstanceMemory:
             self.unprocessed_views[env_id][instance_id.item()] = instance_view
             # save cropped image with timestep in filename
             if self.debug_visualize:
-                os.makedirs("instances/", exist_ok=True)
+                os.makedirs("instances/all", exist_ok=True)
                 cv2.imwrite(
-                    f"instances/{self.timesteps[env_id]}_{instance_id.item()}.png",
+                    f"instances/all/{self.timesteps[env_id] + 1}_{instance_id.item()}.png",
                     cropped_image,
                 )
 
