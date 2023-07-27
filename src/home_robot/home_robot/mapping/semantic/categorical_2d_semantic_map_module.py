@@ -165,14 +165,14 @@ class Categorical2DSemanticMapModule(nn.Module):
         seq_dones: Tensor,
         seq_update_global: Tensor,
         seq_camera_poses: Tensor,
-        seq_obstacle_locations: Tensor,
-        seq_free_locations: Tensor,
         init_local_map: Tensor,
         init_global_map: Tensor,
         init_local_pose: Tensor,
         init_global_pose: Tensor,
         init_lmb: Tensor,
         init_origins: Tensor,
+        seq_obstacle_locations: Optional[Tensor] = None,
+        seq_free_locations: Optional[Tensor] = None,
         blacklist_target: bool = False,
     ) -> Tuple[Tensor, Tensor, Tensor, Tensor, Tensor, IntTensor, Tensor]:
         """Update maps and poses with a sequence of observations and generate map
