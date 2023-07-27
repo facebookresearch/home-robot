@@ -362,7 +362,8 @@ class DiscretePlanner:
         )
 
         self.last_action = action
-        return action, closest_goal_map, short_term_goal, dilated_obstacles
+        # return action, closest_goal_map, short_term_goal, dilated_obstacles
+        return action, closest_goal_map, (stg_x, stg_y), dilated_obstacles
 
     def get_action(
         self,

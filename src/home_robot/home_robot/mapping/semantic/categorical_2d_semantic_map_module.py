@@ -164,6 +164,8 @@ class Categorical2DSemanticMapModule(nn.Module):
         seq_dones: Tensor,
         seq_update_global: Tensor,
         seq_camera_poses: Tensor,
+        seq_obstacle_locations: Tensor,
+        seq_free_locations: Tensor,
         init_local_map: Tensor,
         init_global_map: Tensor,
         init_local_pose: Tensor,
@@ -262,6 +264,8 @@ class Categorical2DSemanticMapModule(nn.Module):
                 local_map,
                 local_pose,
                 seq_camera_poses,
+                seq_obstacle_locations[:, t],
+                seq_free_locations[:, t],
                 blacklist_target,
             )
             for e in range(batch_size):
@@ -311,48 +315,49 @@ class Categorical2DSemanticMapModule(nn.Module):
             dtype=curr_map.dtype,
         )
 
-        # loop over envs
-        # TODO Can we vectorize this across envs? (Only needed if we use multiple envs)
-        for i in range(top_down_instance_one_hot.shape[0]):
-            # create category id to instance id list mapping
-            category_id_to_instance_id_list = defaultdict(list)
-            # retrieve unprocessed instances
-            unprocessed_instances = (
-                self.instance_memory.get_unprocessed_instances_per_env(i)
-            )
-            # loop over unprocessed instances
-            for instance_id, instance in unprocessed_instances.items():
-                category_id_to_instance_id_list[instance.category_id].append(
-                    instance_id
+        if num_instance_channels > 0:
+            # loop over envs
+            # TODO Can we vectorize this across envs? (Only needed if we use multiple envs)
+            for i in range(top_down_instance_one_hot.shape[0]):
+                # create category id to instance id list mapping
+                category_id_to_instance_id_list = defaultdict(list)
+                # retrieve unprocessed instances
+                unprocessed_instances = (
+                    self.instance_memory.get_unprocessed_instances_per_env(i)
                 )
+                # loop over unprocessed instances
+                for instance_id, instance in unprocessed_instances.items():
+                    category_id_to_instance_id_list[instance.category_id].append(
+                        instance_id
+                    )
 
-            # loop over categories
-            # TODO Can we vectorize this across categories? (Only needed if speed bottleneck)
-            for category_id in category_id_to_instance_id_list.keys():
-                if len(category_id_to_instance_id_list[category_id]) == 0:
-                    continue
-                # get the instance ids for this category
-                instance_ids = category_id_to_instance_id_list[category_id]
-                # create a tensor by slicing top_down_instance_one_hot using the instance ids
-                instance_one_hot = top_down_instance_one_hot[i, instance_ids]
-                # add a channel with all values equal to 1e-5 as the first channel
-                instance_one_hot = torch.cat(
-                    (
-                        1e-5 * torch.ones_like(instance_one_hot[:1]),
-                        instance_one_hot,
-                    ),
-                    dim=0,
-                )
-                # get the instance id map using argmax
-                instance_id_map = instance_one_hot.argmax(dim=0)
-                # add a zero to start of instance ids
-                instance_id = [0] + instance_ids
-                # update the ids using the list of instance ids
-                instance_id_map = torch.tensor(
-                    instance_id, device=instance_id_map.device
-                )[instance_id_map]
-                # update the per category instance map
-                top_down_instances_per_category[i, category_id] = instance_id_map
+                # loop over categories
+                # TODO Can we vectorize this across categories? (Only needed if speed bottleneck)
+                for category_id in category_id_to_instance_id_list.keys():
+                    if len(category_id_to_instance_id_list[category_id]) == 0:
+                        continue
+                    # get the instance ids for this category
+                    instance_ids = category_id_to_instance_id_list[category_id]
+                    # create a tensor by slicing top_down_instance_one_hot using the instance ids
+                    instance_one_hot = top_down_instance_one_hot[i, instance_ids]
+                    # add a channel with all values equal to 1e-5 as the first channel
+                    instance_one_hot = torch.cat(
+                        (
+                            1e-5 * torch.ones_like(instance_one_hot[:1]),
+                            instance_one_hot,
+                        ),
+                        dim=0,
+                    )
+                    # get the instance id map using argmax
+                    instance_id_map = instance_one_hot.argmax(dim=0)
+                    # add a zero to start of instance ids
+                    instance_id = [0] + instance_ids
+                    # update the ids using the list of instance ids
+                    instance_id_map = torch.tensor(
+                        instance_id, device=instance_id_map.device
+                    )[instance_id_map]
+                    # update the per category instance map
+                    top_down_instances_per_category[i, category_id] = instance_id_map
 
         curr_map = torch.cat(
             (
@@ -377,6 +382,8 @@ class Categorical2DSemanticMapModule(nn.Module):
         prev_map: Tensor,
         prev_pose: Tensor,
         camera_pose: Tensor,
+        obstacle_locations: Tensor,
+        free_locations: Tensor,
         blacklist_target: bool = False,
         debug: bool = False,
     ) -> Tuple[Tensor, Tensor]:
@@ -515,12 +522,13 @@ class Categorical2DSemanticMapModule(nn.Module):
                 :,
                 :,
             ]
-            self.instance_memory.process_instances(
-                semantic_channels,
-                instance_channels,
-                point_cloud_t,
-                image=obs[:, :3, :, :],
-            )
+            if num_instance_channels > 0:
+                self.instance_memory.process_instances(
+                    semantic_channels,
+                    instance_channels,
+                    point_cloud_t,
+                    image=obs[:, :3, :, :],
+                )
 
         feat[:, 1:, :] = nn.AvgPool2d(self.du_scale)(obs[:, 4:, :, :]).view(
             batch_size, obs_channels - 4, h // self.du_scale * w // self.du_scale
@@ -622,7 +630,7 @@ class Categorical2DSemanticMapModule(nn.Module):
         translated = F.grid_sample(rotated, trans_mat, align_corners=True)
 
         # Clamp to [0, 1] after transform agent view to map coordinates
-        translated = torch.clamp(translated, min=0.0, max=1.0)
+        translated = torch.clamp(translated, min=0.0, max=1.0).float()
 
         # update instance channels
         if self.record_instance_ids:
@@ -630,9 +638,39 @@ class Categorical2DSemanticMapModule(nn.Module):
                 translated, num_instance_channels
             )
 
-        maps = torch.cat((prev_map.unsqueeze(1), translated.unsqueeze(1)), 1)
+        # Remove people from the last map if people are detected
+        # TODO Handle people more cleanly
+        if translated[:, 5 + 11, :, :].sum() > 0.99:
+            prev_map[:, 5 + 11, :, :] = 0
 
+        # Update obstacles in current map
+        # TODO Implement this properly for num_environments > 1
+        translated[0, 0, obstacle_locations[0, :, 0], obstacle_locations[0, :, 1]] = 1
+        translated[0, 0, free_locations[0, :, 0], free_locations[0, :, 1]] = 0
+
+        # Aggregate by taking the max of the previous map and current map — this is robust
+        # to false negatives in one frame but makes it impossible to remove false positives
+        maps = torch.cat((prev_map.unsqueeze(1), translated.unsqueeze(1)), 1)
         current_map, _ = torch.max(maps, 1)
+
+        # Aggregate by trusting the current map — this is not robust to false negatives in
+        # one frame, but it makes it possible to remove false positives
+        # TODO Implement this properly for num_environments > 1
+        # current_mask = translated[0, 1, :, :] > 0
+        # current_map = prev_map.clone()
+        # current_map[0, :, current_mask] = translated[0, :, current_mask]
+
+        # Set people as not obstacles for planning
+        # TODO Handle people more cleanly
+        # TODO Implement this properly for num_environments > 1
+        people_mask = (
+            skimage.morphology.binary_dilation(
+                current_map[0, 5 + 11, :, :].cpu().numpy(), skimage.morphology.disk(2)
+            )
+            * 1.0
+        )
+        current_map[0, 0, :, :] *= 1 - torch.from_numpy(people_mask).to(device)
+
         if self.record_instance_ids:
             # overwrite channels containing instance IDs
             current_map[
@@ -664,7 +702,8 @@ class Categorical2DSemanticMapModule(nn.Module):
             # Set a disk around the agent to explored
             # This is around the current agent - we just sort of assume we know where we are
             try:
-                radius = 10
+                # TODO Make this a parameter: 40 on robot, 10 in sim
+                radius = 40  # 10
                 explored_disk = torch.from_numpy(skimage.morphology.disk(radius))
                 current_map[
                     e,

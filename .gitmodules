@@ -22,3 +22,7 @@
 [submodule "data/hssd-hab"]
 	path = data/hssd-hab
 	url = https://huggingface.co/datasets/hssd/hssd-hab
+[submodule "spot-sim2real"]
+	path = src/third_party/spot-sim2real
+	url = git@github.com:MatthewChang/spot-sim2real.git
+	branch = no_habitat
