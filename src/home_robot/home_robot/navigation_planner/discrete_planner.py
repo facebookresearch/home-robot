@@ -114,6 +114,7 @@ class DiscretePlanner:
         self.obs_dilation_selem = None
         self.min_goal_distance_cm = min_goal_distance_cm
         self.dd = None
+        self.reached_goal_candidate = False  # to keep track of whether goal has been reached – for stacking additional checks to confirm whether goal is correct
 
         self.map_downsample_factor = map_downsample_factor
         self.map_update_frequency = map_update_frequency
@@ -138,6 +139,7 @@ class DiscretePlanner:
         self.goal_dilation_selem = skimage.morphology.disk(
             self.goal_dilation_selem_radius
         )
+        self.reached_goal_candidate = False
 
     def set_vis_dir(self, scene_id: str, episode_id: str):
         self.vis_dir = os.path.join(self.default_vis_dir, f"{scene_id}_{episode_id}")
@@ -154,7 +156,7 @@ class DiscretePlanner:
         frontier_map: np.ndarray,
         sensor_pose: np.ndarray,
         found_goal: bool,
-        debug: bool = True,
+        debug: bool = False,
         use_dilation_for_stg: bool = False,
         timestep: int = None,
     ) -> Tuple[DiscreteNavigationAction, np.ndarray]:
@@ -427,6 +429,7 @@ class DiscretePlanner:
                 elif relative_angle_to_closest_goal < -2 * self.turn_angle / 3.0:
                     action = DiscreteNavigationAction.TURN_LEFT
                 else:
+                    self.reached_goal_candidate = True
                     action = DiscreteNavigationAction.STOP
             elif (
                 np.abs(relative_angle_to_closest_goal) > self.continuous_angle_tolerance

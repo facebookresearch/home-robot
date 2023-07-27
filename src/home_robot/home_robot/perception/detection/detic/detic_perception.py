@@ -123,6 +123,8 @@ class DeticPerception(PerceptionModule):
 
         assert vocabulary in ["coco", "custom"]
         if args.vocabulary == "custom":
+            if "__unused" in MetadataCatalog.keys():
+                MetadataCatalog.remove("__unused")
             self.metadata = MetadataCatalog.get("__unused")
             self.metadata.thing_classes = args.custom_vocabulary.split(",")
             classifier = get_clip_embeddings(self.metadata.thing_classes)
