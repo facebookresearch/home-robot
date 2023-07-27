@@ -14,7 +14,7 @@ from home_robot.navigation_policy.language_navigation.languagenav_frontier_explo
     LanguageNavFrontierExplorationPolicy,
 )
 
-from .superglue import GoatMatching
+from .goat_matching import GoatMatching
 
 # Do we need to visualize the frontier as we explore?
 debug_frontier_map = False

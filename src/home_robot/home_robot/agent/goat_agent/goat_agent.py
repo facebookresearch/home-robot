@@ -25,7 +25,7 @@ from home_robot.navigation_planner.discrete_planner import DiscretePlanner
 from home_robot.perception.detection.detic.detic_mask import Detic
 
 from .goat_agent_module import GoatAgentModule
-from .superglue import GoatMatching
+from .goat_matching import GoatMatching
 
 # For visualizing exploration issues
 debug_frontier_map = False

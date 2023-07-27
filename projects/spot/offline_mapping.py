@@ -25,7 +25,7 @@ sys.path.insert(
 
 import home_robot.utils.pose as pu
 import home_robot.utils.visualization as vu
-from home_robot.agent.goat_agent.superglue import GoatMatching
+from home_robot.agent.goat_agent.goat_matching import GoatMatching
 from home_robot.core.interfaces import Observations
 from home_robot.mapping.semantic.categorical_2d_semantic_map_module import (
     Categorical2DSemanticMapModule,
