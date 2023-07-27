@@ -457,7 +457,6 @@ def main(input_trajectory_dir: str, output_visualization_dir: str, legend_path: 
     image_goal = cv2.imread(image_goal_path)
     image_goal = cv2.resize(image_goal, (512, 512))
     image_goal, goal_image_keypoints = matching.get_goal_image_keypoints(image_goal)
-    breakpoint()
     all_matches, all_confidences = matching.get_matches_against_memory(
         instance_memory,
         matching.match_image_to_image,
