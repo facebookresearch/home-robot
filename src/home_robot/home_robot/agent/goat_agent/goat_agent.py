@@ -743,22 +743,18 @@ class GoatAgent(Agent):
         for e in range(goal_map.shape[0]):
             if not self.found_goal[e]:
                 continue
-            try:
-                # cluster goal points
-                c = DBSCAN(eps=4, min_samples=1)
-                data = np.array(goal_map[e].nonzero()).T
-                c.fit(data)
 
-                # mask all points not in the largest cluster
-                mode = scipy.stats.mode(c.labels_, keepdims=False).mode.item()
-                mode_mask = (c.labels_ != mode).nonzero()
-                x = data[mode_mask]
-                goal_map_ = np.copy(goal_map[e])
-                goal_map_[x] = 0.0
-            except Exception as e:
-                import pdb
+            # cluster goal points
+            c = DBSCAN(eps=4, min_samples=1)
+            data = np.array(goal_map[e].nonzero()).T
+            c.fit(data)
 
-                pdb.set_trace()
+            # mask all points not in the largest cluster
+            mode = scipy.stats.mode(c.labels_, keepdims=False).mode.item()
+            mode_mask = (c.labels_ != mode).nonzero()
+            x = data[mode_mask]
+            goal_map_ = np.copy(goal_map[e])
+            goal_map_[x] = 0.0
 
             # adopt masked map if non-empty
             if goal_map_.sum() > 0:

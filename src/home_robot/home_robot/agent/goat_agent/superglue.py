@@ -18,10 +18,10 @@ import torch
 import torch.nn as nn
 from torch import Tensor
 
+from home_robot.agent.imagenav_agent.superglue import Matching
 from home_robot.agent.imagenav_agent.SuperGluePretrainedNetwork.models.matching import (
     Matching as SGPMatching,
 )
-from home_robot.agent.imagenav_agent.superglue import Matching
 
 matplotlib.use("Agg")
 
