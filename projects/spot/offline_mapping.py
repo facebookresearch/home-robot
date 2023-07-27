@@ -440,7 +440,7 @@ def main(input_trajectory_dir: str, output_visualization_dir: str, legend_path: 
     config_path = "projects/spot/configs/config.yaml"
     config, _ = get_config(config_path)
     matching = GoatMatching(
-        device=device,
+        device=device.index,
         score_func="confidence_sum",
         score_thresh=24.5,
         num_sem_categories=num_sem_categories,
