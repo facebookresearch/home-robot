@@ -243,7 +243,7 @@ def main(input_trajectory_dir: str, output_visualization_dir: str, legend_path: 
     # Map initialization
     # --------------------------------------------------------------------------------------------
 
-    device = torch.device("cuda:0")
+    device = torch.device("cuda:1")
 
     # Instance memory is responsible for tracking instances in the map
     instance_memory = None
