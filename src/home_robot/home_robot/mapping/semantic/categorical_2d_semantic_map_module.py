@@ -265,8 +265,10 @@ class Categorical2DSemanticMapModule(nn.Module):
                 local_map,
                 local_pose,
                 seq_camera_poses,
-                seq_obstacle_locations[:, t],
-                seq_free_locations[:, t],
+                seq_obstacle_locations[:, t]
+                if seq_obstacle_locations is not None
+                else None,
+                seq_free_locations[:, t] if seq_free_locations is not None else None,
                 blacklist_target,
             )
             for e in range(batch_size):
@@ -383,8 +385,8 @@ class Categorical2DSemanticMapModule(nn.Module):
         prev_map: Tensor,
         prev_pose: Tensor,
         camera_pose: Tensor,
-        obstacle_locations: Tensor,
-        free_locations: Tensor,
+        obstacle_locations: Optional[Tensor] = None,
+        free_locations: Optional[Tensor] = None,
         blacklist_target: bool = False,
         debug: bool = False,
     ) -> Tuple[Tensor, Tensor]:
