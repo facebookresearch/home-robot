@@ -14,7 +14,6 @@ from sklearn.cluster import DBSCAN
 from torch.nn import DataParallel
 
 import home_robot.utils.pose as pu
-from home_robot.agent.goat_agent.utils.agent_utils import get_matches_against_memory
 from home_robot.agent.imagenav_agent.visualizer import NavVisualizer
 from home_robot.core.abstract_agent import Agent
 from home_robot.core.interfaces import DiscreteNavigationAction, Observations
@@ -652,7 +651,7 @@ class GoatAgent(Agent):
         if task_type == "languagenav":
             if self.prev_task_type != "languagenav":
                 # TODO: Use this method for imagenav as well
-                all_matches, all_confidences = get_matches_against_memory(
+                all_matches, all_confidences = self.matching.get_matches_against_memory(
                     self.instance_memory,
                     self.matching.match_language_to_image,
                     self.total_timesteps[0],
@@ -670,7 +669,7 @@ class GoatAgent(Agent):
                 self.record_instance_ids
                 and self.sub_task_timesteps[0][self.current_task_idx] == 0
             ):
-                all_matches, all_confidences = get_matches_against_memory(
+                all_matches, all_confidences = self.matching.get_matches_against_memory(
                     self.instance_memory,
                     self.matching.match_image_to_image,
                     self.sub_task_timesteps[0][self.current_task_idx],
