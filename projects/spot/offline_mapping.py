@@ -185,6 +185,7 @@ def create_video(images, output_file, fps):
 
 
 record_instance_ids = True
+ground_goals_in_memory = True
 
 
 @click.command()
@@ -208,6 +209,7 @@ def main(input_trajectory_dir: str, output_visualization_dir: str, legend_path: 
     for path in natsort.natsorted(glob.glob(f"{input_trajectory_dir}/*.pkl")):
         with open(path, "rb") as f:
             observations.append(pickle.load(f))
+    observations = observations[:20]
 
     # Predict semantic segmentation
     categories = list(coco_categories.keys())
@@ -425,6 +427,15 @@ def main(input_trajectory_dir: str, output_visualization_dir: str, legend_path: 
         f"{output_visualization_dir}/video.mp4",
         fps=20,
     )
+
+    # --------------------------------------------------------------------------------------------
+    # Ground goals in memory
+    # --------------------------------------------------------------------------------------------
+
+    if not ground_goals_in_memory:
+        return
+
+    # TODO
 
 
 if __name__ == "__main__":

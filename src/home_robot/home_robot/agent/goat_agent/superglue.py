@@ -3,43 +3,63 @@
 # This source code is licensed under the MIT license found in the
 # LICENSE file in the root directory of this source tree.
 
-
-import os
-import shutil
 from typing import Any, Dict, List, Optional, Tuple, Union
 
-import cv2
+import clip
 import matplotlib
-import matplotlib.cm as cm
-import matplotlib.patheffects as patheffects
-import matplotlib.pyplot as plt
 import numpy as np
 import torch
-import torch.nn as nn
-from torch import Tensor
+from torchvision.transforms import (
+    CenterCrop,
+    Compose,
+    InterpolationMode,
+    Normalize,
+    Resize,
+)
 
 from home_robot.agent.imagenav_agent.superglue import Matching
-from home_robot.agent.imagenav_agent.SuperGluePretrainedNetwork.models.matching import (
-    Matching as SGPMatching,
-)
+from home_robot.mapping.semantic.constants import MapConstants as MC
 
 matplotlib.use("Agg")
 
 
-class GOATMatching(Matching):
+class GoatMatching(Matching):
     """ " Implement matching between images"""
 
     def __init__(
         self,
         device: int,
+        score_func: str,
+        score_thresh: float,
+        num_sem_categories: int,
         config: Dict[str, Any],
         default_vis_dir: str,
         print_images: bool,
     ) -> None:
         super().__init__(device, config, default_vis_dir, print_images)
 
+        assert score_func in ["confidence_sum", "match_count"]
+        self.score_func = score_func
+        self.score_thresh = score_thresh
+        self.num_sem_categories = num_sem_categories
+
+        # generate clip embeddings by loading clip model
+        self.device = device
+        self.clip_model, _ = clip.load("ViT-B/32", device)
+        n_px = self.clip_model.visual.input_resolution
+        self.clip_image_preprocess = Compose(
+            [
+                Resize(n_px, interpolation=InterpolationMode.BICUBIC),
+                CenterCrop(n_px),
+                Normalize(
+                    (0.48145466, 0.4578275, 0.40821073),
+                    (0.26862954, 0.26130258, 0.27577711),
+                ),
+            ]
+        )
+
     @torch.no_grad()
-    def forward(
+    def match_image_to_image(
         self,
         rgb_image: Union[np.ndarray, List[np.ndarray]],
         goal_image: Union[np.ndarray, torch.Tensor],
@@ -109,3 +129,119 @@ class GOATMatching(Matching):
             all_matches.append(matches)
             all_confidences.append(confidence)
         return all_goal_keypoints, all_rgb_keypoints, all_matches, all_confidences
+
+    @torch.no_grad()
+    def match_language_to_image(self, views, language_goal, **kwargs):
+        batch_size = 64
+        language_goal = language_goal.replace("Instruction: ", "")
+        language_goal = clip.tokenize(language_goal).to(self.device)
+        language_goal = self.clip_model.encode_text(language_goal)
+        # get clip embedding for views with a batch size of batch_size
+        device = "cuda" if torch.cuda.is_available() else "cpu"
+
+        if isinstance(views, list):
+            views = np.stack(views, 0)
+        if views.dtype == np.uint8:
+            views = views.astype(np.float32) / 255
+        views = torch.cat(
+            [
+                self.clip_model.encode_image(
+                    self.clip_image_preprocess(v.permute(0, 3, 1, 2)).to(device)
+                )
+                for v in torch.tensor(views).split(batch_size)
+            ],
+            dim=0,
+        )
+        # compute similarity
+        similarity = (language_goal @ views.T).softmax(dim=-1)
+        return [[1]] * similarity.shape[0], np.expand_dims(
+            similarity.detach().cpu().numpy(), 1
+        )
+
+    def superglue(
+        self,
+        goal_map: torch.Tensor,
+        found_goal: torch.Tensor,
+        local_map: torch.Tensor,
+        matches: torch.Tensor,
+        confidence: torch.Tensor,
+        instance_goal_found: bool,
+        goal_inst: Optional[int],
+        all_matches: List = None,
+        all_confidences: List = None,
+    ) -> Tuple[torch.Tensor, torch.Tensor, bool, Optional[int]]:
+        """Goal detection and localization via SuperGlue"""
+
+        if all_matches is not None:
+            if len(all_matches) > 0:
+                max_scores = []
+                for inst_idx, match_inst in enumerate(all_matches):
+                    inst_view_scores = []
+                    for view_idx, match_view in enumerate(match_inst):
+                        view_score = all_confidences[inst_idx][view_idx][
+                            match_view != -1
+                        ].sum()
+                        inst_view_scores.append(view_score)
+
+                    max_scores.append(max(inst_view_scores))
+                    print(f"Instance {inst_idx+1} score: {max(inst_view_scores)}")
+
+                if max(max_scores) > self.score_thresh:
+                    inst_idx = np.argmax(max_scores)
+                    instance_map = local_map[0][
+                        MC.NON_SEM_CHANNELS
+                        + self.num_sem_categories : MC.NON_SEM_CHANNELS
+                        + 2 * self.num_sem_categories,
+                        :,
+                        :,
+                    ]  # TODO: currently assuming img goal instance was an object outside of the vocabulary
+                    inst_map_idx = instance_map == inst_idx + 1
+                    inst_map_idx = torch.argmax(torch.sum(inst_map_idx, axis=(1, 2)))
+                    goal_map_temp = (instance_map[inst_map_idx] == inst_idx + 1).to(
+                        torch.float
+                    )
+
+                    if goal_map_temp.any():
+                        instance_goal_found = True
+                        goal_inst = inst_idx + 1
+                        goal_map = goal_map_temp
+                        print(f"{goal_inst} will be the goal")
+                    else:
+                        print("Instance was seen, but not present in local map.")
+                else:
+                    print("Goal image does not match any instance.")
+                    # TODO: dont stop at the first instance, but rather find the best one
+
+        if goal_inst is not None and instance_goal_found is True:
+            found_goal[0] = True
+
+            instance_map = local_map[0][
+                MC.NON_SEM_CHANNELS
+                + self.num_sem_categories : MC.NON_SEM_CHANNELS
+                + 2 * self.num_sem_categories,
+                :,
+                :,
+            ]
+            inst_map_idx = instance_map == goal_inst
+            inst_map_idx = torch.argmax(torch.sum(inst_map_idx, axis=(1, 2)))
+            goal_map = (instance_map[inst_map_idx] == goal_inst).to(torch.float)
+
+        else:
+            for e in range(confidence.shape[0]):
+                # if the goal category is empty, the goal can't be found
+                if not local_map[e, 21].any().item():
+                    continue
+
+                if self.score_func == "confidence_sum":
+                    score = confidence[e][matches[e] != -1].sum()
+                else:  # match_count
+                    score = (matches[e] != -1).sum()
+
+                if score < self.score_thresh:
+                    continue
+
+                found_goal[e] = True
+                # Set goal_map to the last channel of the local semantic map
+                goal_map[e, 0] = local_map[e, 21]
+
+        return goal_map, found_goal, instance_goal_found, goal_inst
