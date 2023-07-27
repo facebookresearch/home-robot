@@ -378,7 +378,7 @@ class Categorical2DSemanticMapModule(nn.Module):
 
         return curr_map
 
-    def _update_local_map_and_pose(
+    def _update_local_map_and_pose(  # noqa: C901
         self,
         obs: Tensor,
         pose_delta: Tensor,
@@ -648,8 +648,12 @@ class Categorical2DSemanticMapModule(nn.Module):
 
         # Update obstacles in current map
         # TODO Implement this properly for num_environments > 1
-        translated[0, 0, obstacle_locations[0, :, 0], obstacle_locations[0, :, 1]] = 1
-        translated[0, 0, free_locations[0, :, 0], free_locations[0, :, 1]] = 0
+        if obstacle_locations is not None:
+            translated[
+                0, 0, obstacle_locations[0, :, 0], obstacle_locations[0, :, 1]
+            ] = 1
+        if free_locations is not None:
+            translated[0, 0, free_locations[0, :, 0], free_locations[0, :, 1]] = 0
 
         # Aggregate by taking the max of the previous map and current map — this is robust
         # to false negatives in one frame but makes it impossible to remove false positives
