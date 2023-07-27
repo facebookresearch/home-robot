@@ -1,5 +1,5 @@
 # If True, use dummy offline environment that loads observations from disk
-OFFLINE = True
+OFFLINE = False
 
 import math
 import pickle

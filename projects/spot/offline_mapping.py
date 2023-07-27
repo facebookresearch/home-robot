@@ -184,7 +184,7 @@ def create_video(images, output_file, fps):
     video_writer.release()
 
 
-record_instance_ids = True
+record_instance_ids = False
 
 
 @click.command()
@@ -208,6 +208,7 @@ def main(input_trajectory_dir: str, output_visualization_dir: str, legend_path: 
     for path in natsort.natsorted(glob.glob(f"{input_trajectory_dir}/*.pkl")):
         with open(path, "rb") as f:
             observations.append(pickle.load(f))
+    observations = observations[:50]  # TODO DEBUG
 
     # Predict semantic segmentation
     categories = list(coco_categories.keys())
