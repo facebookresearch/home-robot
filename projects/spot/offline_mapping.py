@@ -259,7 +259,8 @@ def text_to_image(
 
 
 record_instance_ids = True
-ground_goals_in_memory = True
+ground_image_in_memory = True
+ground_language_in_memory = False
 
 
 @click.command()
@@ -515,7 +516,7 @@ def main(input_trajectory_dir: str, output_visualization_dir: str, legend_path: 
     # Ground goals in memory
     # --------------------------------------------------------------------------------------------
 
-    if not ground_goals_in_memory:
+    if not (ground_image_in_memory or ground_language_in_memory):
         return
 
     config_path = "projects/spot/configs/config.yaml"
@@ -534,50 +535,56 @@ def main(input_trajectory_dir: str, output_visualization_dir: str, legend_path: 
     # Image goal
     # -----------------------------------------------
 
+    if not ground_image_in_memory:
+        return
+
     image_goal_path = f"{str(Path(__file__).resolve().parent)}/image_goal.png"
     image_goal = cv2.imread(image_goal_path)
 
-    # goal_image, goal_image_keypoints = matching.get_goal_image_keypoints(image_goal)
-    # all_matches, all_confidences = matching.get_matches_against_memory(
-    #     instance_memory,
-    #     matching.match_image_to_image,
-    #     0,
-    #     image_goal=goal_image,
-    #     goal_image_keypoints=goal_image_keypoints,
-    # )
-    #
-    # goal_map, _, instance_goal_found, goal_inst = matching.superglue(
-    #     goal_map=None,
-    #     found_goal=torch.Tensor([False]),
-    #     local_map=semantic_map.local_map,
-    #     matches=None,
-    #     confidence=None,
-    #     instance_goal_found=False,
-    #     goal_inst=None,
-    #     all_matches=all_matches,
-    #     all_confidences=all_confidences,
-    # )
-    # semantic_map.update_global_goal_for_env(0, goal_map.cpu().numpy())
-    #
-    # vis_image = get_semantic_map_vis(
-    #     semantic_map,
-    #     goal_image=image_goal[:, :, ::-1],
-    #     # Visualize the first cropped view of the instance
-    #     instance_image=instance_memory.instance_views[0][goal_inst]
-    #     .instance_views[0]
-    #     .cropped_image[:, :, ::-1],
-    #     color_palette=coco_categories_color_palette,
-    #     legend=legend,
-    # )
-    # plt.imsave(Path(output_visualization_dir) / f"image_goal_match.png", vis_image)
-    #
-    # print("IMAGE GOAL")
-    # print("Found goal:", instance_goal_found)
-    # print("Goal instance ID:", goal_inst)
+    goal_image, goal_image_keypoints = matching.get_goal_image_keypoints(image_goal)
+    all_matches, all_confidences = matching.get_matches_against_memory(
+        instance_memory,
+        matching.match_image_to_image,
+        0,
+        image_goal=goal_image,
+        goal_image_keypoints=goal_image_keypoints,
+    )
+
+    goal_map, _, instance_goal_found, goal_inst = matching.superglue(
+        goal_map=None,
+        found_goal=torch.Tensor([False]),
+        local_map=semantic_map.local_map,
+        matches=None,
+        confidence=None,
+        instance_goal_found=False,
+        goal_inst=None,
+        all_matches=all_matches,
+        all_confidences=all_confidences,
+    )
+    semantic_map.update_global_goal_for_env(0, goal_map.cpu().numpy())
+
+    vis_image = get_semantic_map_vis(
+        semantic_map,
+        goal_image=image_goal[:, :, ::-1],
+        # Visualize the first cropped view of the instance
+        instance_image=instance_memory.instance_views[0][goal_inst]
+        .instance_views[0]
+        .cropped_image[:, :, ::-1],
+        color_palette=coco_categories_color_palette,
+        legend=legend,
+    )
+    plt.imsave(Path(output_visualization_dir) / f"image_goal_match.png", vis_image)
+
+    print("IMAGE GOAL")
+    print("Found goal:", instance_goal_found)
+    print("Goal instance ID:", goal_inst)
 
     # -----------------------------------------------
     # Language goal
     # -----------------------------------------------
+
+    if not ground_language_in_memory:
+        return
 
     language_goal = "the person with a grey t-shirt"
     all_matches, all_confidences = matching.get_matches_against_memory(
@@ -587,7 +594,6 @@ def main(input_trajectory_dir: str, output_visualization_dir: str, legend_path: 
         language_goal=language_goal,
     )
 
-    breakpoint()
     goal_map, _, instance_goal_found, goal_inst = matching.superglue(
         goal_map=None,
         found_goal=torch.Tensor([False]),
