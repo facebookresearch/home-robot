@@ -242,9 +242,9 @@ GOALS = {
     "image1": {
         "type": "imagenav",
         "target": "chair",
-        "image": None,  # TODO (512, 512, 3) array
+        "image": cv2.imread(f"{str(Path(__file__).resolve().parent)}/image_goal1.png"),
     },
-    "object1": {"type": "objectnav", "target": "oven"},
+    "object1": {"type": "objectnav", "target": "chair"},
 }
 
 
@@ -273,16 +273,17 @@ def main(spot=None):
         env = SpotGoatEnv(spot, position_control=True)
         env.reset()
 
-    user_input = input("Enter the goals separated by commas: ")
-    print("You entered:", user_input)
-    goals = [GOALS[g] for g in ",".split(user_input)]
-    pprint.pprint(goals, indent=4)
-    env.set_goal(goals)
+    # user_input = input("Enter the goals separated by commas: ")
+    # print("You entered:", user_input)
+    # goals = [GOALS[g] for g in user_input.split(",")]
+    # pprint.pprint(goals, indent=4)
+    # env.set_goals(goals)
+    env.set_goals([GOALS["object1"]])
+    # env.set_goals([GOALS["image1"]])
 
     agent = GoatAgent(config=config)
     agent.reset()
 
-    assert agent.num_sem_categories == env.num_sem_categories
     pan_warmup = False
     keyboard_takeover = False
     if pan_warmup:
@@ -344,9 +345,9 @@ def main(spot=None):
             if key == ord("g"):
                 user_input = input("Enter the goals separated by commas: ")
                 print("You entered:", user_input)
-                goals = [GOALS[g] for g in ",".split(user_input)]
+                goals = [GOALS[g] for g in user_input.split(",")]
                 pprint.pprint(goals, indent=4)
-                env.set_goal(goals)
+                env.set_goals(goals)
 
             if key == ord("q"):
                 keyboard_takeover = True
