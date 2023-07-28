@@ -259,7 +259,7 @@ def text_to_image(
 
 
 record_instance_ids = True
-ground_image_in_memory = False
+ground_image_in_memory = True
 ground_language_in_memory = True
 
 
@@ -288,7 +288,6 @@ def main(obs_dir: str, map_vis_dir: str, goal_grounding_vis_dir: str, legend_pat
     for path in natsort.natsorted(glob.glob(f"{obs_dir}/*.pkl")):
         with open(path, "rb") as f:
             observations.append(pickle.load(f))
-    observations = observations[:30]
 
     # Predict semantic segmentation
     categories = list(coco_categories.keys())
