@@ -516,6 +516,7 @@ def main(input_trajectory_dir: str, output_visualization_dir: str, legend_path: 
         color_palette=coco_categories_color_palette,
         legend=legend,
     )
+    plt.imsave(Path(output_visualization_dir) / f"image_goal_match.png", vis_image)
 
     breakpoint()
     print("IMAGE GOAL")
