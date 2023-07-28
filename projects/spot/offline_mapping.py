@@ -231,7 +231,7 @@ def main(input_trajectory_dir: str, output_visualization_dir: str, legend_path: 
         obs.task_observations["instance_map"] = obs.task_observations[
             "instance_map"
         ].astype(int)
-        obs.rgb = obs.rgb.astype(np.uint8)
+
     print()
     print("home_robot observations:")
     print("------------------------")

@@ -151,8 +151,9 @@ class GoatMatching(Matching):
             else:
                 goal_image_processed = goal_image
             if isinstance(rgb_image_batched[i], np.ndarray):
-                breakpoint()
-                rgb_image_processed = self._preprocess_image(rgb_image_batched[i])
+                rgb_image_processed = self._preprocess_image(
+                    rgb_image_batched[i].astype(np.uint8)
+                )
             else:
                 rgb_image_processed = rgb_image_batched[i]
 
