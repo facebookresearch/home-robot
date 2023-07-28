@@ -14,6 +14,7 @@ import cv2
 import matplotlib.pyplot as plt
 import natsort
 import numpy as np
+import skimage.morphology
 import torch
 from PIL import Image
 
@@ -42,6 +43,15 @@ from home_robot.perception.detection.maskrcnn.maskrcnn_perception import (
     MaskRCNNPerception,
 )
 from home_robot.utils.config import get_config
+
+
+class PI:
+    EMPTY_SPACE = 0
+    OBSTACLES = 1
+    EXPLORED = 2
+    VISITED = 3
+    GOAL = 4
+    SEM_START = 5
 
 
 def get_semantic_map_vis(
@@ -131,6 +141,12 @@ def get_semantic_map_vis(
         0.96,
         0.36,
         0.26,  # visited area
+        0.12,
+        0.46,
+        0.70,  # closest goal
+        0.63,
+        0.78,
+        0.95,  # rest of goal
         *color_palette,
     ]
     map_color_palette = [int(x * 255.0) for x in map_color_palette]
@@ -139,18 +155,29 @@ def get_semantic_map_vis(
     obstacle_map = semantic_map.get_obstacle_map(0)
     explored_map = semantic_map.get_explored_map(0)
     visited_map = semantic_map.get_visited_map(0)
+    goal_map = semantic_map.get_goal_map(0)
 
-    semantic_categories_map += 4
+    semantic_categories_map += PI.SEM_START
     no_category_mask = (
-        semantic_categories_map == 4 + semantic_map.num_sem_categories - 1
+        semantic_categories_map == PI.SEM_START + semantic_map.num_sem_categories - 1
     )
     obstacle_mask = np.rint(obstacle_map) == 1
     explored_mask = np.rint(explored_map) == 1
     visited_mask = visited_map == 1
-    semantic_categories_map[no_category_mask] = 0
-    semantic_categories_map[np.logical_and(no_category_mask, explored_mask)] = 2
-    semantic_categories_map[np.logical_and(no_category_mask, obstacle_mask)] = 1
-    semantic_categories_map[visited_mask] = 3
+    semantic_categories_map[no_category_mask] = PI.EMPTY_SPACE
+    semantic_categories_map[
+        np.logical_and(no_category_mask, explored_mask)
+    ] = PI.EXPLORED
+    semantic_categories_map[
+        np.logical_and(no_category_mask, obstacle_mask)
+    ] = PI.OBSTACLES
+    semantic_categories_map[visited_mask] = PI.VISITED
+
+    # Goal
+    selem = skimage.morphology.disk(4)
+    goal_mat = (1 - skimage.morphology.binary_dilation(goal_map, selem)) != 1
+    goal_mask = goal_mat == 1
+    semantic_categories_map[goal_mask] = PI.GOAL
 
     # Draw semantic map
     semantic_map_vis = Image.new("P", semantic_categories_map.shape)
@@ -161,6 +188,7 @@ def get_semantic_map_vis(
     semantic_map_vis = cv2.resize(
         semantic_map_vis, (480, 480), interpolation=cv2.INTER_NEAREST
     )
+
     vis_image[50:530, 1325:1805] = semantic_map_vis
 
     if semantic_frame is not None:
@@ -198,6 +226,162 @@ def get_semantic_map_vis(
     cv2.drawContours(vis_image, [agent_arrow], 0, color, -1)
 
     return vis_image
+
+
+# def get_semantic_map_vis(
+#     semantic_map: Categorical2DSemanticMapState,
+#     color_palette: List[float],
+#     # To visualize a trajectory
+#     semantic_frame: Optional[np.array] = None,
+#     depth_frame: Optional[np.array] = None,
+#     # To visualize matching a goal to memory
+#     goal_image: Optional[np.array] = None,
+#     instance_image: Optional[np.array] = None,
+#     legend=None,
+# ):
+#     vis_image = np.ones((655, 1820, 3)).astype(np.uint8) * 255
+#     font = cv2.FONT_HERSHEY_SIMPLEX
+#     fontScale = 1
+#     color = (20, 20, 20)  # BGR
+#     thickness = 2
+#
+#     if semantic_frame is not None:
+#         text = "Segmentation"
+#     elif goal_image is not None:
+#         text = "Goal"
+#     else:
+#         raise NotImplementedError
+#
+#     textsize = cv2.getTextSize(text, font, fontScale, thickness)[0]
+#     textX = (640 - textsize[0]) // 2 + 15
+#     textY = (50 + textsize[1]) // 2
+#     vis_image = cv2.putText(
+#         vis_image,
+#         text,
+#         (textX, textY),
+#         font,
+#         fontScale,
+#         color,
+#         thickness,
+#         cv2.LINE_AA,
+#     )
+#
+#     if depth_frame is not None:
+#         text = "Depth"
+#     elif instance_image is not None:
+#         text = "Matching Instance"
+#     else:
+#         raise NotImplementedError
+#
+#     textsize = cv2.getTextSize(text, font, fontScale, thickness)[0]
+#     textX = 640 + (640 - textsize[0]) // 2 + 30
+#     textY = (50 + textsize[1]) // 2
+#     vis_image = cv2.putText(
+#         vis_image,
+#         text,
+#         (textX, textY),
+#         font,
+#         fontScale,
+#         color,
+#         thickness,
+#         cv2.LINE_AA,
+#     )
+#
+#     text = "Predicted Semantic Map"
+#     textsize = cv2.getTextSize(text, font, fontScale, thickness)[0]
+#     textX = 1280 + (480 - textsize[0]) // 2 + 45
+#     textY = (50 + textsize[1]) // 2
+#     vis_image = cv2.putText(
+#         vis_image,
+#         text,
+#         (textX, textY),
+#         font,
+#         fontScale,
+#         color,
+#         thickness,
+#         cv2.LINE_AA,
+#     )
+#
+#     map_color_palette = [
+#         1.0,
+#         1.0,
+#         1.0,  # empty space
+#         0.6,
+#         0.6,
+#         0.6,  # obstacles
+#         0.95,
+#         0.95,
+#         0.95,  # explored area
+#         0.96,
+#         0.36,
+#         0.26,  # visited area
+#         *color_palette,
+#     ]
+#     map_color_palette = [int(x * 255.0) for x in map_color_palette]
+#
+#     semantic_categories_map = semantic_map.get_semantic_map(0)
+#     obstacle_map = semantic_map.get_obstacle_map(0)
+#     explored_map = semantic_map.get_explored_map(0)
+#     visited_map = semantic_map.get_visited_map(0)
+#
+#     semantic_categories_map += 4
+#     no_category_mask = (
+#         semantic_categories_map == 4 + semantic_map.num_sem_categories - 1
+#     )
+#     obstacle_mask = np.rint(obstacle_map) == 1
+#     explored_mask = np.rint(explored_map) == 1
+#     visited_mask = visited_map == 1
+#     semantic_categories_map[no_category_mask] = 0
+#     semantic_categories_map[np.logical_and(no_category_mask, explored_mask)] = 2
+#     semantic_categories_map[np.logical_and(no_category_mask, obstacle_mask)] = 1
+#     semantic_categories_map[visited_mask] = 3
+#
+#     # Draw semantic map
+#     semantic_map_vis = Image.new("P", semantic_categories_map.shape)
+#     semantic_map_vis.putpalette(map_color_palette)
+#     semantic_map_vis.putdata(semantic_categories_map.flatten().astype(np.uint8))
+#     semantic_map_vis = semantic_map_vis.convert("RGB")
+#     semantic_map_vis = np.flipud(semantic_map_vis)
+#     semantic_map_vis = cv2.resize(
+#         semantic_map_vis, (480, 480), interpolation=cv2.INTER_NEAREST
+#     )
+#     vis_image[50:530, 1325:1805] = semantic_map_vis
+#
+#     if semantic_frame is not None:
+#         vis_image[50:530, 15:655] = cv2.resize(semantic_frame[:, :, ::-1], (640, 480))
+#     elif goal_image is not None:
+#         vis_image[50:530, 15:655] = cv2.resize(goal_image, (640, 480))
+#     else:
+#         raise NotImplementedError
+#
+#     if depth_frame is not None:
+#         vis_image[50:530, 670:1310] = cv2.resize(depth_frame, (640, 480))
+#     elif instance_image is not None:
+#         vis_image[50:530, 670:1310] = cv2.resize(instance_image, (640, 480))
+#     else:
+#         raise NotImplementedError
+#
+#     # Draw legend
+#     if legend is not None:
+#         lx, ly, _ = legend.shape
+#         vis_image[537 : 537 + lx, 155 : 155 + ly, :] = legend[:, :, ::-1]
+#
+#     # Draw agent arrow
+#     curr_x, curr_y, curr_o, gy1, _, gx1, _ = semantic_map.get_planner_pose_inputs(0)
+#     pos = (
+#         (curr_x * 100.0 / semantic_map.resolution - gx1)
+#         * 480
+#         / semantic_map.local_map_size,
+#         (semantic_map.local_map_size - curr_y * 100.0 / semantic_map.resolution + gy1)
+#         * 480
+#         / semantic_map.local_map_size,
+#         np.deg2rad(-curr_o),
+#     )
+#     agent_arrow = vu.get_contour_points(pos, origin=(1325, 50), size=10)
+#     color = map_color_palette[9:12]
+#     cv2.drawContours(vis_image, [agent_arrow], 0, color, -1)
+#
+#     return vis_image
 
 
 def create_video(images, output_file, fps):
@@ -508,14 +692,16 @@ def main(input_trajectory_dir: str, output_visualization_dir: str, legend_path: 
         all_matches=all_matches,
         all_confidences=all_confidences,
     )
+    breakpoint()
+    semantic_map.update_goal_map_for_env(0, goal_map.cpu().numpy())
 
     vis_image = get_semantic_map_vis(
         semantic_map,
-        goal_image=image_goal,
+        goal_image=image_goal[:, :, ::-1],
         # Visualize the first cropped view of the instance
         instance_image=instance_memory.instance_views[0][goal_inst]
         .instance_views[0]
-        .cropped_image,
+        .cropped_image[:, :, ::-1],
         color_palette=coco_categories_color_palette,
         legend=legend,
     )
