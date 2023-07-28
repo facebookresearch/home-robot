@@ -541,6 +541,8 @@ def main(input_trajectory_dir: str, output_visualization_dir: str, legend_path: 
         f"{str(Path(__file__).resolve().parent)}/image_goals/*.png"
     )
     for i, image_goal_path in enumerate(image_goal_paths):
+        print()
+        print("Image goal:", image_goal_path)
         image_goal = cv2.imread(image_goal_path)
 
         goal_image, goal_image_keypoints = matching.get_goal_image_keypoints(image_goal)
@@ -552,7 +554,12 @@ def main(input_trajectory_dir: str, output_visualization_dir: str, legend_path: 
             goal_image_keypoints=goal_image_keypoints,
         )
 
-        goal_map, _, instance_goal_found, goal_inst = matching.superglue(
+        (
+            goal_map,
+            _,
+            instance_goal_found,
+            goal_inst,
+        ) = matching.select_and_localize_instance(
             goal_map=None,
             found_goal=torch.Tensor([False]),
             local_map=semantic_map.local_map,
@@ -577,8 +584,6 @@ def main(input_trajectory_dir: str, output_visualization_dir: str, legend_path: 
         )
         plt.imsave(Path(output_visualization_dir) / f"image_goal{i}.png", vis_image)
 
-        print()
-        print("Image goal:", image_goal_path)
         print("Found goal:", instance_goal_found)
         print("Goal instance ID:", goal_inst)
 
@@ -594,6 +599,9 @@ def main(input_trajectory_dir: str, output_visualization_dir: str, legend_path: 
     ]
 
     for i, language_goal in enumerate(language_goals):
+        print()
+        print("Language goal:", language_goal)
+
         all_matches, all_confidences = matching.get_matches_against_memory(
             instance_memory,
             matching.match_language_to_image,
@@ -601,7 +609,12 @@ def main(input_trajectory_dir: str, output_visualization_dir: str, legend_path: 
             language_goal=language_goal,
         )
 
-        goal_map, _, instance_goal_found, goal_inst = matching.superglue(
+        (
+            goal_map,
+            _,
+            instance_goal_found,
+            goal_inst,
+        ) = matching.select_and_localize_instance(
             goal_map=None,
             found_goal=torch.Tensor([False]),
             local_map=semantic_map.local_map,
@@ -626,8 +639,6 @@ def main(input_trajectory_dir: str, output_visualization_dir: str, legend_path: 
         )
         plt.imsave(Path(output_visualization_dir) / f"language_goal{i}.png", vis_image)
 
-        print()
-        print("Language goal:")
         print("Found goal:", instance_goal_found)
         print("Goal instance ID:", goal_inst)
 

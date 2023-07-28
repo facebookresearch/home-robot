@@ -192,7 +192,7 @@ class GoatAgentModule(nn.Module):
                     seq_found_goal,
                     self.instance_goal_found,
                     self.goal_inst,
-                ) = self.matching.superglue(
+                ) = self.matching.select_and_localize_instance(
                     seq_goal_map,
                     seq_found_goal,
                     final_local_map,
@@ -210,7 +210,7 @@ class GoatAgentModule(nn.Module):
                 seq_found_goal,
                 self.instance_goal_found,
                 self.goal_inst,
-            ) = self.matching.superglue(
+            ) = self.matching.select_and_localize_instance(
                 seq_goal_map,
                 seq_found_goal,
                 final_local_map,

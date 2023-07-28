@@ -188,6 +188,7 @@ class GoatMatching(Matching):
 
     @torch.no_grad()
     def match_language_to_image(self, views, language_goal, **kwargs):
+        """Compute matching scores from a language goal to images."""
         batch_size = 64
         language_goal = language_goal.replace("Instruction: ", "")
         language_goal = clip.tokenize(language_goal).to(self.device)
@@ -212,7 +213,7 @@ class GoatMatching(Matching):
             similarity.detach().cpu().numpy(), 1
         )
 
-    def superglue(
+    def select_and_localize_instance(
         self,
         goal_map: torch.Tensor,
         found_goal: torch.Tensor,
@@ -224,7 +225,7 @@ class GoatMatching(Matching):
         all_matches: List = None,
         all_confidences: List = None,
     ) -> Tuple[torch.Tensor, torch.Tensor, bool, Optional[int]]:
-        """Goal detection and localization via SuperGlue"""
+        """Select and localize an instance."""
 
         if all_matches is not None:
             if len(all_matches) > 0:
