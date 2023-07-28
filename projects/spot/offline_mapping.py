@@ -231,15 +231,24 @@ def main(input_trajectory_dir: str, output_visualization_dir: str, legend_path: 
         obs.task_observations["instance_map"] = obs.task_observations[
             "instance_map"
         ].astype(int)
+        obs.rgb = obs.rgb.astype(np.uint8)
     print()
     print("home_robot observations:")
     print("------------------------")
     obs = observations[0]
     print("obs.gps", obs.gps)
     print("obs.compass", obs.compass)
-    print("obs.rgb", obs.rgb.shape, obs.rgb.min(), obs.rgb.max())
-    print("obs.depth", obs.depth.shape, obs.depth.min(), obs.depth.max())
-    print("obs.semantic", obs.semantic.shape, obs.semantic.min(), obs.semantic.max())
+    print("obs.rgb", obs.rgb.shape, obs.rgb.dtype, obs.rgb.min(), obs.rgb.max())
+    print(
+        "obs.depth", obs.depth.shape, obs.depth.dtype, obs.depth.min(), obs.depth.max()
+    )
+    print(
+        "obs.semantic",
+        obs.semantic.shape,
+        obs.semantic.dtype,
+        obs.semantic.min(),
+        obs.semantic.max(),
+    )
     print("obs.camera_pose", obs.camera_pose)
     print("obs.task_observations", obs.task_observations.keys())
 
