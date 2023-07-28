@@ -265,25 +265,30 @@ ground_language_in_memory = False
 
 @click.command()
 @click.option(
-    "--input_trajectory_dir",
-    default=f"{str(Path(__file__).resolve().parent)}/trajectory/",
+    "--obs_dir",
+    default=f"{str(Path(__file__).resolve().parent)}/obs/",
 )
 @click.option(
-    "--output_visualization_dir",
-    default=f"{str(Path(__file__).resolve().parent)}/map_visualization/",
+    "--map_vis_dir",
+    default=f"{str(Path(__file__).resolve().parent)}/map_vis/",
+)
+@click.option(
+    "--goal_grounding_vis_dir",
+    default=f"{str(Path(__file__).resolve().parent)}/goal_grounding_vis/",
 )
 @click.option(
     "--legend_path",
     default=f"{str(Path(__file__).resolve().parent)}/coco_categories_legend.png",
 )
-def main(input_trajectory_dir: str, output_visualization_dir: str, legend_path: str):
+def main(obs_dir: str, map_vis_dir: str, goal_grounding_vis_dir: str, legend_path: str):
     # --------------------------------------------------------------------------------------------
     # Load trajectory of home_robot Observations
     # --------------------------------------------------------------------------------------------
     observations = []
-    for path in natsort.natsorted(glob.glob(f"{input_trajectory_dir}/*.pkl")):
+    for path in natsort.natsorted(glob.glob(f"{obs_dir}/*.pkl")):
         with open(path, "rb") as f:
             observations.append(pickle.load(f))
+    observations = observations[:30]
 
     # Predict semantic segmentation
     categories = list(coco_categories.keys())
@@ -442,7 +447,7 @@ def main(input_trajectory_dir: str, output_visualization_dir: str, legend_path: 
         legend = cv2.imread(legend_path)
     else:
         legend = None
-    Path(output_visualization_dir).mkdir(parents=True, exist_ok=True)
+    Path(map_vis_dir).mkdir(parents=True, exist_ok=True)
     vis_images = []
 
     for i, obs in enumerate(observations):
@@ -503,11 +508,11 @@ def main(input_trajectory_dir: str, output_visualization_dir: str, legend_path: 
             legend=legend,
         )
         vis_images.append(vis_image)
-        plt.imsave(Path(output_visualization_dir) / f"{i}.png", vis_image)
+        plt.imsave(Path(map_vis_dir) / f"{i}.png", vis_image)
 
     create_video(
         [v[:, :, ::-1] for v in vis_images],
-        f"{output_visualization_dir}/video.mp4",
+        f"{map_vis_dir}/video.mp4",
         fps=20,
     )
 
@@ -526,9 +531,11 @@ def main(input_trajectory_dir: str, output_visualization_dir: str, legend_path: 
         score_thresh=24.5,
         num_sem_categories=num_sem_categories,
         config=config.AGENT.SUPERGLUE,
-        default_vis_dir=output_visualization_dir,
+        default_vis_dir=map_vis_dir,
         print_images=True,
     )
+
+    Path(goal_grounding_vis_dir).mkdir(parents=True, exist_ok=True)
 
     # -----------------------------------------------
     # Image goal
@@ -582,7 +589,7 @@ def main(input_trajectory_dir: str, output_visualization_dir: str, legend_path: 
             color_palette=coco_categories_color_palette,
             legend=legend,
         )
-        plt.imsave(Path(output_visualization_dir) / f"image_goal{i}.png", vis_image)
+        plt.imsave(Path(goal_grounding_vis_dir) / f"image_goal{i}.png", vis_image)
 
         print("Found goal:", instance_goal_found)
         print("Goal instance ID:", goal_inst)
@@ -637,7 +644,7 @@ def main(input_trajectory_dir: str, output_visualization_dir: str, legend_path: 
             color_palette=coco_categories_color_palette,
             legend=legend,
         )
-        plt.imsave(Path(output_visualization_dir) / f"language_goal{i}.png", vis_image)
+        plt.imsave(Path(goal_grounding_vis_dir) / f"language_goal{i}.png", vis_image)
 
         print("Found goal:", instance_goal_found)
         print("Goal instance ID:", goal_inst)
