@@ -555,7 +555,7 @@ def main(input_trajectory_dir: str, output_visualization_dir: str, legend_path: 
     # Language goal
     # -----------------------------------------------
 
-    language_goal = "the high chair with metal legs"
+    language_goal = "the person with a grey t-shirt"
     all_matches, all_confidences = matching.get_matches_against_memory(
         instance_memory,
         matching.match_language_to_image,
