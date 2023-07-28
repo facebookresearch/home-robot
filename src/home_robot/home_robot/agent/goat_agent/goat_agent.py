@@ -14,7 +14,7 @@ from sklearn.cluster import DBSCAN
 from torch.nn import DataParallel
 
 import home_robot.utils.pose as pu
-from home_robot.agent.imagenav_agent.visualizer import NavVisualizer
+# from home_robot.agent.imagenav_agent.visualizer import NavVisualizer
 from home_robot.core.abstract_agent import Agent
 from home_robot.core.interfaces import DiscreteNavigationAction, Observations
 from home_robot.mapping.semantic.categorical_2d_semantic_map_state import (
@@ -163,14 +163,15 @@ class GoatAgent(Agent):
 
         self.current_task_idx = 0
 
-        self.imagenav_visualizer = NavVisualizer(
-            num_sem_categories=config.AGENT.SEMANTIC_MAP.num_sem_categories,
-            map_size_cm=config.AGENT.SEMANTIC_MAP.map_size_cm,
-            map_resolution=config.AGENT.SEMANTIC_MAP.map_resolution,
-            print_images=config.PRINT_IMAGES,
-            dump_location=config.DUMP_LOCATION,
-            exp_name=config.EXP_NAME,
-        )
+        # self.imagenav_visualizer = NavVisualizer(
+        #     num_sem_categories=config.AGENT.SEMANTIC_MAP.num_sem_categories,
+        #     map_size_cm=config.AGENT.SEMANTIC_MAP.map_size_cm,
+        #     map_resolution=config.AGENT.SEMANTIC_MAP.map_resolution,
+        #     print_images=config.PRINT_IMAGES,
+        #     dump_location=config.DUMP_LOCATION,
+        #     exp_name=config.EXP_NAME,
+        # )
+        self.imagenav_visualizer = None
         self.found_goal = torch.zeros(
             self.num_environments, 1, dtype=bool, device=self.device
         )
@@ -492,8 +493,9 @@ class GoatAgent(Agent):
                     ]["image"],
                     "last_collisions": collision,
                     "last_td_map": obs.task_observations.get("top_down_map"),
+                    "short_term_goal": short_term_goal,
                 }
-                self.imagenav_visualizer.visualize(**info)
+                # self.imagenav_visualizer.visualize(**info)
             else:
                 goal_text_desc = {
                     x: y
@@ -511,7 +513,11 @@ class GoatAgent(Agent):
                 vis_inputs[0]["short_term_goal"] = None
                 vis_inputs[0]["instance_memory"] = self.instance_memory
 
-                info = {**planner_inputs[0], **vis_inputs[0]}
+                info = {
+                    **planner_inputs[0],
+                    **vis_inputs[0],
+                    "short_term_goal": short_term_goal,
+                }
 
         if action == DiscreteNavigationAction.STOP:
             if len(obs.task_observations["tasks"]) - 1 > self.current_task_idx:

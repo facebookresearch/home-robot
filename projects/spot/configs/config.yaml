@@ -40,15 +40,23 @@ AGENT:
     map_pred_threshold: 1000.0 # number of depth points to be in bin to consider it as obstacle
     explored_radius: 150     # radius (in centimeters) of visually explored region
     been_close_to_radius: 200  # radius (in centimeters) of been close to region
+    target_blacklisting_radius: 100  # radius (in centimeters) of region around goal to blacklist if object isn't a valid target
     must_explore_close: False
     min_obs_height_cm: 10    # minimum height (in centimeters) of obstacle to be considered as obstacle
+    
     # erosion and filtering to reduce the number of spurious artifacts
     dilate_obstacles: False
     dilate_size: 3
     dilate_iter: 1
+
     # instance mapping
-    record_instance_ids: False  # whether to predict and store instance ids in the map
+    record_instance_ids: True  # whether to predict and store instance ids in the map
     max_instances: 800
+
+    depth_filtering: True
+    depth_filter_range_cm: 100        # 1m about the depth median (+/- 50cm)
+    preprojection_kp_dilation: 15 
+    goal_filtering: True
 
   PLANNER:
     collision_threshold: 0.20       # forward move distance under which we consider there's a collision (in meters)
@@ -61,6 +69,7 @@ AGENT:
     step_size: 15               # maximum distance of the short-term goal selected by the planner
     discrete_actions: True         # discrete motion planner output space or not
     verbose: False
+    naive_landmark_conditioned: True # rotate 360º after reaching target to see if landmark is present 
 
   SUPERGLUE:
     max_keypoints: 1024
@@ -72,6 +81,14 @@ AGENT:
     score_function: confidence_sum    # or match_count
     score_thresh: 24.5  # real-world experiments used 6.0
     match_projection_threshold: 0.2   # confidence must be at least this high to project as goal point.
+
+  DETIC:
+    config_file: Detic/configs/Detic_LCOCOI21k_CLIP_SwinB_896b32_4x_ft4x_max-size.yaml
+    vocabulary: custom
+    custom_vocabulary: chair,sofa,bed,toilet,potted_plant,tv_monitor
+    confidence_threshold: 0.2
+    weights: Detic/models/Detic_LCOCOI21k_CLIP_SwinB_896b32_4x_ft4x_max-size.pth
+    augment_mask_with_box: True
 
 EVAL_VECTORIZED:
   simulator_gpu_ids: [1, 2, 3, 4, 5, 6, 7] # IDs of GPUs to use for vectorized environments
