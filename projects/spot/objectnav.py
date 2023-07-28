@@ -1,4 +1,6 @@
 import math
+from spot_wrapper.depth_utils import point_from_depth_image
+from matplotlib import pyplot as plt
 import pickle
 import sys
 import time
@@ -20,7 +22,7 @@ sys.path.insert(
     str(Path(__file__).resolve().parent.parent.parent / "src/home_robot_sim"),
 )
 
-from spot_wrapper.spot import Spot
+from spot_wrapper.spot import BODY_FRAME_NAME, Spot, VISION_FRAME_NAME
 
 import home_robot.utils.pose as pu
 import home_robot.utils.visualization as vu
@@ -300,7 +302,7 @@ def main(spot,args):
         cv2.imwrite(f"{output_visualization_dir}/{t}.png", vis_image[:, :, ::-1])
         cv2.imshow("vis", vis_image[:, :, ::-1])
 
-        key = cv2.waitKey(500)
+        key = cv2.waitKey(1)
 
         if key == ord("z"):
             break
@@ -310,10 +312,29 @@ def main(spot,args):
             print("You entered:", user_input)
             env.set_goal(user_input)
 
-        if key == ord("q"):
+        if key == ord("t"):
             keyboard_takeover = True
             print("KEYBOARD TAKEOVER")
 
+        # target object detected in current frame
+        if (obs.semantic == env.current_goal_id).sum() > 0:
+            response = obs.raw_obs['depth_response']
+            mask = obs.semantic == env.current_goal_id
+            mask_points = np.stack(np.where(mask),axis=-1)
+            centroid = mask_points.mean(axis=0).astype(int)
+            assert mask[centroid[0],centroid[1]]
+            pixel_xy = (centroid[1],centroid[0])
+            point = point_from_depth_image(response,pixel_xy,BODY_FRAME_NAME)
+            dist = np.linalg.norm(point)
+            print("Distance to object: ",dist)
+            if dist > 1.5 and dist < 3:
+                print("Seeking object")
+                # walk to the point as localized in the depth image
+                global_point = point_from_depth_image(response,pixel_xy,VISION_FRAME_NAME)[:2]
+                cur_xy = spot.get_xy_yaw()[:2]
+                delta = global_point-cur_xy
+                heading = math.atan2(delta[1],delta[0])
+                spot.set_base_position(global_point[0],global_point[1],heading,10,relative=False, max_fwd_vel=0.5, max_hor_vel=0.5, max_ang_vel=np.pi / 4,blocking=True)
         if keyboard_takeover:
             if key == ord("w"):
                 spot.set_base_velocity(0.5, 0, 0, 0.5)
@@ -326,6 +347,12 @@ def main(spot,args):
             elif key == ord("d"):
                 # right
                 spot.set_base_velocity(0, -0.5, 0, 0.5)
+            elif key == ord("q"):
+                # rotate left
+                spot.set_base_velocity(0, 0, 0.5, 0.5)
+            elif key == ord("e"):
+                # rotate right
+                spot.set_base_velocity(0, 0, -0.5, 0.5)
 
         else:
             if pan_warmup:

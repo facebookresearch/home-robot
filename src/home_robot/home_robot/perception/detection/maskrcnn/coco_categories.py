@@ -18,7 +18,8 @@ coco_categories = {
     "vase": 12,
     "cup": 13,
     "bottle": 14,
-    "no-category": 15,
+    "teddy bear": 15,
+    "no-category": 16,
 }
 
 coco_categories_mapping = {
@@ -37,6 +38,7 @@ coco_categories_mapping = {
     75: 12,  # vase
     41: 13,  # cup
     39: 14,  # bottle
+    77: 15,  # teddy bear
 }
 
 coco_categories_color_palette = [
@@ -85,4 +87,7 @@ coco_categories_color_palette = [
     0.9400000000000001,
     0.66,
     0.748199999999999,  # bottle
+    0.9400000000000001,
+    0.5,
+    0.9,  # teddy bear
 ]

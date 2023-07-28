@@ -94,6 +94,7 @@ class SpotEnv(Env):
         home_robot_obs = Observations(
             gps=relative_gps, compass=relative_compass, rgb=rgb, depth=depth
         )
+        home_robot_obs.raw_obs = obs
 
         # Camera pose
         home_robot_obs.camera_pose = np.zeros((4, 4))
