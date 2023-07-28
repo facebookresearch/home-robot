@@ -588,7 +588,7 @@ def main(input_trajectory_dir: str, output_visualization_dir: str, legend_path: 
     )
     plt.imsave(Path(output_visualization_dir) / f"image_goal_match.png", vis_image)
 
-    print("IMAGE GOAL")
+    print("LANGUAGE GOAL")
     print("Found goal:", instance_goal_found)
     print("Goal instance ID:", goal_inst)
 

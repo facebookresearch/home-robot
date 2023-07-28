@@ -193,8 +193,6 @@ class GoatMatching(Matching):
         language_goal = clip.tokenize(language_goal).to(self.device)
         language_goal = self.clip_model.encode_text(language_goal)
         # get clip embedding for views with a batch size of batch_size
-        device = "cuda" if torch.cuda.is_available() else "cpu"
-
         if isinstance(views, list):
             views = np.stack(views, 0)
         if views.dtype == np.uint8:
@@ -202,7 +200,7 @@ class GoatMatching(Matching):
         views = torch.cat(
             [
                 self.clip_model.encode_image(
-                    self.clip_image_preprocess(v.permute(0, 3, 1, 2)).to(device)
+                    self.clip_image_preprocess(v.permute(0, 3, 1, 2)).to(self.device)
                 )
                 for v in torch.tensor(views).split(batch_size)
             ],
