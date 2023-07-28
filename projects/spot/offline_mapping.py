@@ -7,7 +7,7 @@ import glob
 import pickle
 import sys
 from pathlib import Path
-from typing import List
+from typing import List, Optional
 
 import click
 import cv2
@@ -46,9 +46,13 @@ from home_robot.utils.config import get_config
 
 def get_semantic_map_vis(
     semantic_map: Categorical2DSemanticMapState,
-    semantic_frame: np.array,
-    depth_frame: np.array,
     color_palette: List[float],
+    # To visualize a trajectory
+    semantic_frame: Optional[np.array] = None,
+    depth_frame: Optional[np.array] = None,
+    # To visualize matching a goal to memory
+    goal_image: Optional[np.array] = None,
+    instance_image: Optional[np.array] = None,
     legend=None,
 ):
     vis_image = np.ones((655, 1820, 3)).astype(np.uint8) * 255
@@ -57,7 +61,13 @@ def get_semantic_map_vis(
     color = (20, 20, 20)  # BGR
     thickness = 2
 
-    text = "Segmentation"
+    if semantic_frame is not None:
+        text = "Segmentation"
+    elif goal_image is not None:
+        text = "Goal"
+    else:
+        raise NotImplementedError
+
     textsize = cv2.getTextSize(text, font, fontScale, thickness)[0]
     textX = (640 - textsize[0]) // 2 + 15
     textY = (50 + textsize[1]) // 2
@@ -72,7 +82,13 @@ def get_semantic_map_vis(
         cv2.LINE_AA,
     )
 
-    text = "Depth"
+    if depth_frame is not None:
+        text = "Depth"
+    elif instance_image is not None:
+        text = "Matching Instance"
+    else:
+        raise NotImplementedError
+
     textsize = cv2.getTextSize(text, font, fontScale, thickness)[0]
     textX = 640 + (640 - textsize[0]) // 2 + 30
     textY = (50 + textsize[1]) // 2
@@ -147,12 +163,19 @@ def get_semantic_map_vis(
     )
     vis_image[50:530, 1325:1805] = semantic_map_vis
 
-    # Draw semantic frame
-    vis_image[50:530, 15:655] = cv2.resize(semantic_frame[:, :, ::-1], (640, 480))
-    # vis_image[50:530, 15:655] = cv2.resize(semantic_frame, (640, 480))
+    if semantic_frame is not None:
+        vis_image[50:530, 15:655] = cv2.resize(semantic_frame[:, :, ::-1], (640, 480))
+    elif goal_image is not None:
+        vis_image[50:530, 15:655] = cv2.resize(goal_image, (640, 480))
+    else:
+        raise NotImplementedError
 
-    # Draw depth frame
-    vis_image[50:530, 670:1310] = cv2.resize(depth_frame, (640, 480))
+    if depth_frame is not None:
+        vis_image[50:530, 670:1310] = cv2.resize(depth_frame, (640, 480))
+    elif instance_image is not None:
+        vis_image[50:530, 670:1310] = cv2.resize(instance_image, (640, 480))
+    else:
+        raise NotImplementedError
 
     # Draw legend
     if legend is not None:
@@ -425,10 +448,10 @@ def main(input_trajectory_dir: str, output_visualization_dir: str, legend_path: 
         depth_frame = np.repeat(depth_frame[:, :, np.newaxis], 3, axis=2)
         vis_image = get_semantic_map_vis(
             semantic_map,
-            obs.task_observations["semantic_frame"],
-            depth_frame,
-            coco_categories_color_palette,
-            legend,
+            semantic_frame=obs.task_observations["semantic_frame"],
+            depth_frame=depth_frame,
+            color_palette=coco_categories_color_palette,
+            legend=legend,
         )
         vis_images.append(vis_image)
         plt.imsave(Path(output_visualization_dir) / f"{i}.png", vis_image)
@@ -464,18 +487,17 @@ def main(input_trajectory_dir: str, output_visualization_dir: str, legend_path: 
 
     image_goal_path = f"{str(Path(__file__).resolve().parent)}/image_goal.png"
     image_goal = cv2.imread(image_goal_path)
-    # image_goal = cv2.resize(image_goal, (512, 512))
 
-    image_goal, goal_image_keypoints = matching.get_goal_image_keypoints(image_goal)
+    goal_image, goal_image_keypoints = matching.get_goal_image_keypoints(image_goal)
     all_matches, all_confidences = matching.get_matches_against_memory(
         instance_memory,
         matching.match_image_to_image,
         0,
-        image_goal=image_goal,
+        image_goal=goal_image,
         goal_image_keypoints=goal_image_keypoints,
     )
 
-    goal_map, found_goal, instance_goal_found, goal_inst = matching.superglue(
+    goal_map, _, instance_goal_found, goal_inst = matching.superglue(
         goal_map=None,
         found_goal=torch.Tensor([False]),
         local_map=semantic_map.local_map,
@@ -486,11 +508,20 @@ def main(input_trajectory_dir: str, output_visualization_dir: str, legend_path: 
         all_matches=all_matches,
         all_confidences=all_confidences,
     )
+
     breakpoint()
-    print("goal_map", goal_map.shape)
-    print("found_goal", found_goal)
+    vis_image = get_semantic_map_vis(
+        semantic_map,
+        goal_image=image_goal,
+        color_palette=coco_categories_color_palette,
+        legend=legend,
+    )
+
+    breakpoint()
+    print("IMAGE GOAL")
     print("instance_goal_found", instance_goal_found)
-    print("goal_inst", goal_inst)
+    print("Found goal:", instance_goal_found)
+    print("Goal instance ID:", goal_inst)
 
     # -----------------------------------------------
     # Language goal
