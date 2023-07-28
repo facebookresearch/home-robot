@@ -563,6 +563,7 @@ def main(input_trajectory_dir: str, output_visualization_dir: str, legend_path: 
         language_goal=language_goal,
     )
 
+    breakpoint()
     goal_map, _, instance_goal_found, goal_inst = matching.superglue(
         goal_map=None,
         found_goal=torch.Tensor([False]),
