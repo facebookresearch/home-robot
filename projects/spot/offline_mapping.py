@@ -464,7 +464,7 @@ def main(input_trajectory_dir: str, output_visualization_dir: str, legend_path: 
 
     image_goal_path = f"{str(Path(__file__).resolve().parent)}/image_goal.png"
     image_goal = cv2.imread(image_goal_path)
-    image_goal = cv2.resize(image_goal, (512, 512))
+    # image_goal = cv2.resize(image_goal, (512, 512))
 
     image_goal, goal_image_keypoints = matching.get_goal_image_keypoints(image_goal)
     all_matches, all_confidences = matching.get_matches_against_memory(
@@ -486,6 +486,7 @@ def main(input_trajectory_dir: str, output_visualization_dir: str, legend_path: 
         all_matches=all_matches,
         all_confidences=all_confidences,
     )
+    breakpoint()
     print("goal_map", goal_map.shape)
     print("found_goal", found_goal)
     print("instance_goal_found", instance_goal_found)
