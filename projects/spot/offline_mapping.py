@@ -16,7 +16,7 @@ import natsort
 import numpy as np
 import skimage.morphology
 import torch
-from PIL import Image
+from PIL import Image, ImageDraw, ImageFont
 
 # TODO Install home_robot and remove this
 sys.path.insert(
@@ -232,6 +232,30 @@ def create_video(images, output_file, fps):
     for image in images:
         video_writer.write(image)
     video_writer.release()
+
+
+def text_to_image(
+    text,
+    width,
+    height,
+    font_path="/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf",
+):
+    # Create a blank image with the specified dimensions
+    image = Image.new(
+        "RGB", (width, height), color=(73, 109, 137)
+    )  # RGB color can be any combination you like
+    # Set up the drawing context
+    d = ImageDraw.Draw(image)
+    # Set the font and size. Font path might be different in your system. Install a font if necessary.
+    font = ImageFont.truetype(font_path, 15)
+    # Calculate width and height of the text to center it
+    text_width, text_height = d.textsize(text, font=font)
+    position = ((width - text_width) / 2, (height - text_height) / 2)
+    # Add the text to the image
+    d.text(position, text, fill=(255, 255, 255), font=font)
+    # Convert the PIL image to a NumPy array
+    image_array = np.array(image)
+    return image_array
 
 
 record_instance_ids = True
@@ -579,7 +603,7 @@ def main(input_trajectory_dir: str, output_visualization_dir: str, legend_path: 
 
     vis_image = get_semantic_map_vis(
         semantic_map,
-        goal_image=image_goal[:, :, ::-1],
+        goal_image=text_to_image(language_goal, 640, 480),
         # Visualize the first cropped view of the instance
         instance_image=instance_memory.instance_views[0][goal_inst]
         .instance_views[0]
