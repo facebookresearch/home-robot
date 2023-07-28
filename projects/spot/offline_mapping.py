@@ -7,15 +7,16 @@ import glob
 import pickle
 import sys
 from pathlib import Path
-from typing import List
+from typing import List, Optional
 
 import click
 import cv2
 import matplotlib.pyplot as plt
 import natsort
 import numpy as np
+import skimage.morphology
 import torch
-from PIL import Image
+from PIL import Image, ImageDraw, ImageFont
 
 # TODO Install home_robot and remove this
 sys.path.insert(
@@ -25,6 +26,7 @@ sys.path.insert(
 
 import home_robot.utils.pose as pu
 import home_robot.utils.visualization as vu
+from home_robot.agent.goat_agent.goat_matching import GoatMatching
 from home_robot.core.interfaces import Observations
 from home_robot.mapping.semantic.categorical_2d_semantic_map_module import (
     Categorical2DSemanticMapModule,
@@ -40,13 +42,27 @@ from home_robot.perception.detection.maskrcnn.coco_categories import (
 from home_robot.perception.detection.maskrcnn.maskrcnn_perception import (
     MaskRCNNPerception,
 )
+from home_robot.utils.config import get_config
+
+
+class PI:
+    EMPTY_SPACE = 0
+    OBSTACLES = 1
+    EXPLORED = 2
+    VISITED = 3
+    GOAL = 4
+    SEM_START = 5
 
 
 def get_semantic_map_vis(
     semantic_map: Categorical2DSemanticMapState,
-    semantic_frame: np.array,
-    depth_frame: np.array,
     color_palette: List[float],
+    # To visualize a trajectory
+    semantic_frame: Optional[np.array] = None,
+    depth_frame: Optional[np.array] = None,
+    # To visualize matching a goal to memory
+    goal_image: Optional[np.array] = None,
+    instance_image: Optional[np.array] = None,
     legend=None,
 ):
     vis_image = np.ones((655, 1820, 3)).astype(np.uint8) * 255
@@ -55,7 +71,13 @@ def get_semantic_map_vis(
     color = (20, 20, 20)  # BGR
     thickness = 2
 
-    text = "Segmentation"
+    if semantic_frame is not None:
+        text = "Segmentation"
+    elif goal_image is not None:
+        text = "Goal"
+    else:
+        raise NotImplementedError
+
     textsize = cv2.getTextSize(text, font, fontScale, thickness)[0]
     textX = (640 - textsize[0]) // 2 + 15
     textY = (50 + textsize[1]) // 2
@@ -70,7 +92,13 @@ def get_semantic_map_vis(
         cv2.LINE_AA,
     )
 
-    text = "Depth"
+    if depth_frame is not None:
+        text = "Depth"
+    elif instance_image is not None:
+        text = "Matching Instance"
+    else:
+        raise NotImplementedError
+
     textsize = cv2.getTextSize(text, font, fontScale, thickness)[0]
     textX = 640 + (640 - textsize[0]) // 2 + 30
     textY = (50 + textsize[1]) // 2
@@ -113,6 +141,9 @@ def get_semantic_map_vis(
         0.96,
         0.36,
         0.26,  # visited area
+        0.12,
+        0.46,
+        0.70,  # goal
         *color_palette,
     ]
     map_color_palette = [int(x * 255.0) for x in map_color_palette]
@@ -121,18 +152,29 @@ def get_semantic_map_vis(
     obstacle_map = semantic_map.get_obstacle_map(0)
     explored_map = semantic_map.get_explored_map(0)
     visited_map = semantic_map.get_visited_map(0)
+    goal_map = semantic_map.get_goal_map(0)
 
-    semantic_categories_map += 4
+    semantic_categories_map += PI.SEM_START
     no_category_mask = (
-        semantic_categories_map == 4 + semantic_map.num_sem_categories - 1
+        semantic_categories_map == PI.SEM_START + semantic_map.num_sem_categories - 1
     )
     obstacle_mask = np.rint(obstacle_map) == 1
     explored_mask = np.rint(explored_map) == 1
     visited_mask = visited_map == 1
-    semantic_categories_map[no_category_mask] = 0
-    semantic_categories_map[np.logical_and(no_category_mask, explored_mask)] = 2
-    semantic_categories_map[np.logical_and(no_category_mask, obstacle_mask)] = 1
-    semantic_categories_map[visited_mask] = 3
+    semantic_categories_map[no_category_mask] = PI.EMPTY_SPACE
+    semantic_categories_map[
+        np.logical_and(no_category_mask, explored_mask)
+    ] = PI.EXPLORED
+    semantic_categories_map[
+        np.logical_and(no_category_mask, obstacle_mask)
+    ] = PI.OBSTACLES
+    semantic_categories_map[visited_mask] = PI.VISITED
+
+    # Goal
+    selem = skimage.morphology.disk(4)
+    goal_mat = (1 - skimage.morphology.binary_dilation(goal_map, selem)) != 1
+    goal_mask = goal_mat == 1
+    semantic_categories_map[goal_mask] = PI.GOAL
 
     # Draw semantic map
     semantic_map_vis = Image.new("P", semantic_categories_map.shape)
@@ -143,14 +185,22 @@ def get_semantic_map_vis(
     semantic_map_vis = cv2.resize(
         semantic_map_vis, (480, 480), interpolation=cv2.INTER_NEAREST
     )
+
     vis_image[50:530, 1325:1805] = semantic_map_vis
 
-    # Draw semantic frame
-    vis_image[50:530, 15:655] = cv2.resize(semantic_frame[:, :, ::-1], (640, 480))
-    # vis_image[50:530, 15:655] = cv2.resize(semantic_frame, (640, 480))
+    if semantic_frame is not None:
+        vis_image[50:530, 15:655] = cv2.resize(semantic_frame[:, :, ::-1], (640, 480))
+    elif goal_image is not None:
+        vis_image[50:530, 15:655] = cv2.resize(goal_image, (640, 480))
+    else:
+        raise NotImplementedError
 
-    # Draw depth frame
-    vis_image[50:530, 670:1310] = cv2.resize(depth_frame, (640, 480))
+    if depth_frame is not None:
+        vis_image[50:530, 670:1310] = cv2.resize(depth_frame, (640, 480))
+    elif instance_image is not None:
+        vis_image[50:530, 670:1310] = cv2.resize(instance_image, (640, 480))
+    else:
+        raise NotImplementedError
 
     # Draw legend
     if legend is not None:
@@ -184,32 +234,60 @@ def create_video(images, output_file, fps):
     video_writer.release()
 
 
+def text_to_image(
+    text,
+    width,
+    height,
+    font_path="/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf",
+):
+    # Create a blank image with the specified dimensions
+    image = Image.new(
+        "RGB", (width, height), color=(73, 109, 137)
+    )  # RGB color can be any combination you like
+    # Set up the drawing context
+    d = ImageDraw.Draw(image)
+    # Set the font and size. Font path might be different in your system. Install a font if necessary.
+    font = ImageFont.truetype(font_path, 15)
+    # Calculate width and height of the text to center it
+    text_width, text_height = d.textsize(text, font=font)
+    position = ((width - text_width) / 2, (height - text_height) / 2)
+    # Add the text to the image
+    d.text(position, text, fill=(255, 255, 255), font=font)
+    # Convert the PIL image to a NumPy array
+    image_array = np.array(image)
+    return image_array
+
+
 record_instance_ids = True
-ground_goals_in_memory = True
+ground_image_in_memory = True
+ground_language_in_memory = True
 
 
 @click.command()
 @click.option(
-    "--input_trajectory_dir",
-    default=f"{str(Path(__file__).resolve().parent)}/trajectory/",
+    "--obs_dir",
+    default=f"{str(Path(__file__).resolve().parent)}/obs/",
 )
 @click.option(
-    "--output_visualization_dir",
-    default=f"{str(Path(__file__).resolve().parent)}/map_visualization/",
+    "--map_vis_dir",
+    default=f"{str(Path(__file__).resolve().parent)}/map_vis/",
+)
+@click.option(
+    "--goal_grounding_vis_dir",
+    default=f"{str(Path(__file__).resolve().parent)}/goal_grounding_vis/",
 )
 @click.option(
     "--legend_path",
     default=f"{str(Path(__file__).resolve().parent)}/coco_categories_legend.png",
 )
-def main(input_trajectory_dir: str, output_visualization_dir: str, legend_path: str):
+def main(obs_dir: str, map_vis_dir: str, goal_grounding_vis_dir: str, legend_path: str):
     # --------------------------------------------------------------------------------------------
     # Load trajectory of home_robot Observations
     # --------------------------------------------------------------------------------------------
     observations = []
-    for path in natsort.natsorted(glob.glob(f"{input_trajectory_dir}/*.pkl")):
+    for path in natsort.natsorted(glob.glob(f"{obs_dir}/*.pkl")):
         with open(path, "rb") as f:
             observations.append(pickle.load(f))
-    observations = observations[:20]
 
     # Predict semantic segmentation
     categories = list(coco_categories.keys())
@@ -229,15 +307,24 @@ def main(input_trajectory_dir: str, output_visualization_dir: str, legend_path: 
         obs.task_observations["instance_map"] = obs.task_observations[
             "instance_map"
         ].astype(int)
+
     print()
     print("home_robot observations:")
     print("------------------------")
     obs = observations[0]
     print("obs.gps", obs.gps)
     print("obs.compass", obs.compass)
-    print("obs.rgb", obs.rgb.shape, obs.rgb.min(), obs.rgb.max())
-    print("obs.depth", obs.depth.shape, obs.depth.min(), obs.depth.max())
-    print("obs.semantic", obs.semantic.shape, obs.semantic.min(), obs.semantic.max())
+    print("obs.rgb", obs.rgb.shape, obs.rgb.dtype, obs.rgb.min(), obs.rgb.max())
+    print(
+        "obs.depth", obs.depth.shape, obs.depth.dtype, obs.depth.min(), obs.depth.max()
+    )
+    print(
+        "obs.semantic",
+        obs.semantic.shape,
+        obs.semantic.dtype,
+        obs.semantic.min(),
+        obs.semantic.max(),
+    )
     print("obs.camera_pose", obs.camera_pose)
     print("obs.task_observations", obs.task_observations.keys())
 
@@ -359,7 +446,7 @@ def main(input_trajectory_dir: str, output_visualization_dir: str, legend_path: 
         legend = cv2.imread(legend_path)
     else:
         legend = None
-    Path(output_visualization_dir).mkdir(parents=True, exist_ok=True)
+    Path(map_vis_dir).mkdir(parents=True, exist_ok=True)
     vis_images = []
 
     for i, obs in enumerate(observations):
@@ -414,17 +501,17 @@ def main(input_trajectory_dir: str, output_visualization_dir: str, legend_path: 
         depth_frame = np.repeat(depth_frame[:, :, np.newaxis], 3, axis=2)
         vis_image = get_semantic_map_vis(
             semantic_map,
-            obs.task_observations["semantic_frame"],
-            depth_frame,
-            coco_categories_color_palette,
-            legend,
+            semantic_frame=obs.task_observations["semantic_frame"],
+            depth_frame=depth_frame,
+            color_palette=coco_categories_color_palette,
+            legend=legend,
         )
         vis_images.append(vis_image)
-        plt.imsave(Path(output_visualization_dir) / f"{i}.png", vis_image)
+        plt.imsave(Path(map_vis_dir) / f"{i}.png", vis_image)
 
     create_video(
         [v[:, :, ::-1] for v in vis_images],
-        f"{output_visualization_dir}/video.mp4",
+        f"{map_vis_dir}/video.mp4",
         fps=20,
     )
 
@@ -432,10 +519,134 @@ def main(input_trajectory_dir: str, output_visualization_dir: str, legend_path: 
     # Ground goals in memory
     # --------------------------------------------------------------------------------------------
 
-    if not ground_goals_in_memory:
+    if not (ground_image_in_memory or ground_language_in_memory):
         return
 
-    # TODO
+    config_path = "projects/spot/configs/config.yaml"
+    config, _ = get_config(config_path)
+    matching = GoatMatching(
+        device=device.index,
+        score_func="confidence_sum",
+        score_thresh=24.5,
+        num_sem_categories=num_sem_categories,
+        config=config.AGENT.SUPERGLUE,
+        default_vis_dir=map_vis_dir,
+        print_images=True,
+    )
+
+    Path(goal_grounding_vis_dir).mkdir(parents=True, exist_ok=True)
+
+    # -----------------------------------------------
+    # Image goal
+    # -----------------------------------------------
+
+    if ground_image_in_memory:
+        image_goal_paths = glob.glob(
+            f"{str(Path(__file__).resolve().parent)}/image_goals/*.png"
+        )
+        for i, image_goal_path in enumerate(image_goal_paths):
+            print()
+            print("Image goal:", image_goal_path)
+            image_goal = cv2.imread(image_goal_path)
+
+            goal_image, goal_image_keypoints = matching.get_goal_image_keypoints(
+                image_goal
+            )
+            all_matches, all_confidences = matching.get_matches_against_memory(
+                instance_memory,
+                matching.match_image_to_image,
+                0,
+                image_goal=goal_image,
+                goal_image_keypoints=goal_image_keypoints,
+            )
+
+            (
+                goal_map,
+                _,
+                instance_goal_found,
+                goal_inst,
+            ) = matching.select_and_localize_instance(
+                goal_map=None,
+                found_goal=torch.Tensor([False]),
+                local_map=semantic_map.local_map,
+                matches=None,
+                confidence=None,
+                instance_goal_found=False,
+                goal_inst=None,
+                all_matches=all_matches,
+                all_confidences=all_confidences,
+            )
+            semantic_map.update_global_goal_for_env(0, goal_map.cpu().numpy())
+
+            vis_image = get_semantic_map_vis(
+                semantic_map,
+                goal_image=image_goal[:, :, ::-1],
+                # Visualize the first cropped view of the instance
+                instance_image=instance_memory.instance_views[0][goal_inst]
+                .instance_views[0]
+                .cropped_image[:, :, ::-1],
+                color_palette=coco_categories_color_palette,
+                legend=legend,
+            )
+            plt.imsave(Path(goal_grounding_vis_dir) / f"image_goal{i}.png", vis_image)
+
+            print("Found goal:", instance_goal_found)
+            print("Goal instance ID:", goal_inst)
+
+    # -----------------------------------------------
+    # Language goal
+    # -----------------------------------------------
+
+    if ground_language_in_memory:
+        language_goals = [
+            "the person with a grey t-shirt",
+        ]
+
+        for i, language_goal in enumerate(language_goals):
+            print()
+            print("Language goal:", language_goal)
+
+            all_matches, all_confidences = matching.get_matches_against_memory(
+                instance_memory,
+                matching.match_language_to_image,
+                0,
+                language_goal=language_goal,
+            )
+
+            (
+                goal_map,
+                _,
+                instance_goal_found,
+                goal_inst,
+            ) = matching.select_and_localize_instance(
+                goal_map=None,
+                found_goal=torch.Tensor([False]),
+                local_map=semantic_map.local_map,
+                matches=None,
+                confidence=None,
+                instance_goal_found=False,
+                goal_inst=None,
+                all_matches=all_matches,
+                all_confidences=all_confidences,
+            )
+            semantic_map.update_global_goal_for_env(0, goal_map.cpu().numpy())
+
+            vis_image = get_semantic_map_vis(
+                semantic_map,
+                goal_image=text_to_image(language_goal, 640, 480),
+                # Visualize the first cropped view of the instance
+                instance_image=instance_memory.instance_views[0][goal_inst]
+                .instance_views[0]
+                .cropped_image[:, :, ::-1],
+                color_palette=coco_categories_color_palette,
+                legend=legend,
+            )
+            plt.imsave(
+                Path(goal_grounding_vis_dir) / f"language_goal{i}.png", vis_image
+            )
+
+            print("Found goal:", instance_goal_found)
+            print("Goal instance ID:", goal_inst)
 
 
 if __name__ == "__main__":

@@ -14,7 +14,7 @@ from home_robot.navigation_policy.language_navigation.languagenav_frontier_explo
     LanguageNavFrontierExplorationPolicy,
 )
 
-from .superglue import GoatMatching
+from .goat_matching import GoatMatching
 
 # Do we need to visualize the frontier as we explore?
 debug_frontier_map = False
@@ -192,7 +192,7 @@ class GoatAgentModule(nn.Module):
                     seq_found_goal,
                     self.instance_goal_found,
                     self.goal_inst,
-                ) = self.matching.superglue(
+                ) = self.matching.select_and_localize_instance(
                     seq_goal_map,
                     seq_found_goal,
                     final_local_map,
@@ -210,7 +210,7 @@ class GoatAgentModule(nn.Module):
                 seq_found_goal,
                 self.instance_goal_found,
                 self.goal_inst,
-            ) = self.matching.superglue(
+            ) = self.matching.select_and_localize_instance(
                 seq_goal_map,
                 seq_found_goal,
                 final_local_map,
