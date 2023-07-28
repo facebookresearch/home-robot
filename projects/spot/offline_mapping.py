@@ -143,10 +143,7 @@ def get_semantic_map_vis(
         0.26,  # visited area
         0.12,
         0.46,
-        0.70,  # closest goal
-        0.63,
-        0.78,
-        0.95,  # rest of goal
+        0.70,  # goal
         *color_palette,
     ]
     map_color_palette = [int(x * 255.0) for x in map_color_palette]
