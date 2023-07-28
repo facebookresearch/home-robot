@@ -81,7 +81,7 @@ HOME_ROBOT_ROOT=$USER/src/home-robot
 CUDA_HOME=/usr/local/cuda-11.7
 ```
 
-Finally, you can run the [install script](install.sh) to download submodules, model checkpoints, and build Detc for open-vocabulary object detection:
+Finally, you can run the [install script](install.sh) to download submodules, model checkpoints, and build Detic for open-vocabulary object detection:
 ```
 conda activate home-robot
 cd $HOME_ROBOT_ROOT
