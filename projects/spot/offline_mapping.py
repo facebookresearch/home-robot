@@ -692,8 +692,7 @@ def main(input_trajectory_dir: str, output_visualization_dir: str, legend_path: 
         all_matches=all_matches,
         all_confidences=all_confidences,
     )
-    breakpoint()
-    semantic_map.update_goal_map_for_env(0, goal_map.cpu().numpy())
+    semantic_map.update_global_goal_for_env(0, goal_map.cpu().numpy())
 
     vis_image = get_semantic_map_vis(
         semantic_map,
