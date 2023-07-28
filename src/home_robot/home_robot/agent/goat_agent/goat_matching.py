@@ -26,8 +26,6 @@ matplotlib.use("Agg")
 
 
 class GoatMatching(Matching):
-    """Matching (image, image) or (image, language)."""
-
     def __init__(
         self,
         device: int,
@@ -69,6 +67,10 @@ class GoatMatching(Matching):
         language_goal=None,
         **kwargs,
     ):
+        """
+        Compute matching scores from an image or language goal with each instance
+        in the instance memory.
+        """
         all_matches, all_confidences = [], []
         instances = instance_memory.instance_views[0]
         all_views = []
@@ -225,7 +227,7 @@ class GoatMatching(Matching):
         all_matches: List = None,
         all_confidences: List = None,
     ) -> Tuple[torch.Tensor, torch.Tensor, bool, Optional[int]]:
-        """Select and localize an instance."""
+        """Select and localize an instance given computed matching scores."""
 
         if all_matches is not None:
             if len(all_matches) > 0:
