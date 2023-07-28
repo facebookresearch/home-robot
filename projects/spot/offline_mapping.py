@@ -509,18 +509,19 @@ def main(input_trajectory_dir: str, output_visualization_dir: str, legend_path: 
         all_confidences=all_confidences,
     )
 
-    breakpoint()
     vis_image = get_semantic_map_vis(
         semantic_map,
         goal_image=image_goal,
+        # Visualize the first cropped view of the instance
+        instance_image=instance_memory.instance_views[0][goal_inst]
+        .instance_views[0]
+        .cropped_image,
         color_palette=coco_categories_color_palette,
         legend=legend,
     )
     plt.imsave(Path(output_visualization_dir) / f"image_goal_match.png", vis_image)
 
-    breakpoint()
     print("IMAGE GOAL")
-    print("instance_goal_found", instance_goal_found)
     print("Found goal:", instance_goal_found)
     print("Goal instance ID:", goal_inst)
 
