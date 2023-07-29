@@ -95,6 +95,7 @@ class GoatAgentModule(nn.Module):
         confidence=None,
         all_matches=None,
         all_confidences=None,
+        score_thresh=0.0,
     ):
         """Update maps and poses with a sequence of observations, and predict
         high-level goals from map features.
@@ -202,6 +203,7 @@ class GoatAgentModule(nn.Module):
                     self.goal_inst,
                     all_matches,
                     all_confidences,
+                    score_thresh,
                 )
 
             # predict if the goal is found and where it is.
@@ -218,6 +220,7 @@ class GoatAgentModule(nn.Module):
                 confidence,
                 self.instance_goal_found,
                 self.goal_inst,
+                score_thresh,
             )
             seq_goal_map = seq_goal_map.view(
                 batch_size, sequence_length, *seq_goal_map.shape[-2:]

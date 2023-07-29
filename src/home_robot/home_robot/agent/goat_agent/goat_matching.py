@@ -9,13 +9,7 @@ import clip
 import matplotlib
 import numpy as np
 import torch
-from torchvision.transforms import (
-    CenterCrop,
-    Compose,
-    InterpolationMode,
-    Normalize,
-    Resize,
-)
+from torchvision.transforms import ToPILImage
 from tqdm import tqdm
 
 from home_robot.agent.imagenav_agent.superglue import Matching
@@ -30,7 +24,6 @@ class GoatMatching(Matching):
         self,
         device: int,
         score_func: str,
-        score_thresh: float,
         num_sem_categories: int,
         config: Dict[str, Any],
         default_vis_dir: str,
@@ -40,23 +33,11 @@ class GoatMatching(Matching):
 
         assert score_func in ["confidence_sum", "match_count"]
         self.score_func = score_func
-        self.score_thresh = score_thresh
         self.num_sem_categories = num_sem_categories
 
         # generate clip embeddings by loading clip model
         self.device = device
-        self.clip_model, _ = clip.load("ViT-B/32", device)
-        n_px = self.clip_model.visual.input_resolution
-        self.clip_image_preprocess = Compose(
-            [
-                Resize(n_px, interpolation=InterpolationMode.BICUBIC),
-                CenterCrop(n_px),
-                Normalize(
-                    (0.48145466, 0.4578275, 0.40821073),
-                    (0.26862954, 0.26130258, 0.27577711),
-                ),
-            ]
-        )
+        self.clip_model, self.clip_preprocess = clip.load("ViT-B/32", device)
 
     def get_matches_against_memory(
         self,
@@ -65,6 +46,7 @@ class GoatMatching(Matching):
         step,
         image_goal=None,
         language_goal=None,
+        use_full_image=False,
         **kwargs,
     ):
         """
@@ -83,8 +65,11 @@ class GoatMatching(Matching):
             for view_idx, inst_view in enumerate(inst_views):
                 # if inst_view.cropped_image.shape[0] * inst_view.cropped_image.shape[1] < 2500 or (np.array(inst_view.cropped_image.shape[0:2]) < 15).any():
                 #     continue
-                img = instance_memory.images[0][inst_view.timestep].cpu().numpy()
-                img = np.transpose(img, (1, 2, 0))
+                if use_full_image:
+                    img = instance_memory.images[0][inst_view.timestep].cpu().numpy()
+                    img = np.transpose(img, (1, 2, 0))
+                else:
+                    img = inst_view.cropped_image
                 all_views.append(img)
                 steps_per_view.append(1000 * step + 10 * inst_key + view_idx)
             instance_view_counts.append(len(inst_views))
@@ -103,7 +88,6 @@ class GoatMatching(Matching):
                     language_goal,
                     step=1000 * step + 10 * inst_key + view_idx,
                 )
-
             # unflatten based on number of views per instance
             all_matches = np.concatenate(all_matches, 0)
             all_confidences = np.concatenate(all_confidences, 0)
@@ -189,30 +173,33 @@ class GoatMatching(Matching):
         return all_goal_keypoints, all_rgb_keypoints, all_matches, all_confidences
 
     @torch.no_grad()
-    def match_language_to_image(self, views, language_goal, **kwargs):
+    def match_language_to_image(self, views_orig, language_goal, **kwargs):
         """Compute matching scores from a language goal to images."""
         batch_size = 64
         language_goal = language_goal.replace("Instruction: ", "")
         language_goal = clip.tokenize(language_goal).to(self.device)
         language_goal = self.clip_model.encode_text(language_goal)
         # get clip embedding for views with a batch size of batch_size
-        if isinstance(views, list):
-            views = np.stack(views, 0)
-        if views.dtype == np.uint8:
-            views = views.astype(np.float32) / 255
-        views = torch.cat(
+
+        views = views_orig
+        views = torch.stack(
+            [self.clip_preprocess(ToPILImage()(v.astype(np.uint8))) for v in views],
+            dim=0,
+        )
+        view_embeddings = torch.cat(
             [
-                self.clip_model.encode_image(
-                    self.clip_image_preprocess(v.permute(0, 3, 1, 2)).to(self.device)
-                )
-                for v in torch.tensor(views).split(batch_size)
+                self.clip_model.encode_image(v.to(self.device))
+                for v in views.split(batch_size)
             ],
             dim=0,
         )
-        # compute similarity
-        similarity = (language_goal @ views.T).softmax(dim=-1)
-        return [[1]] * similarity.shape[0], np.expand_dims(
-            similarity.detach().cpu().numpy(), 1
+        # normalize the embeddings
+        view_embeddings = view_embeddings / view_embeddings.norm(dim=-1, keepdim=True)
+        language_goal = language_goal / language_goal.norm(dim=-1, keepdim=True)
+        # compute cosines similarity
+        similarity = (language_goal @ view_embeddings.T).squeeze(0)
+        return [[[1]]] * similarity.shape[0], similarity.detach().cpu().numpy().reshape(
+            -1, 1, 1
         )
 
     def select_and_localize_instance(
@@ -226,6 +213,7 @@ class GoatMatching(Matching):
         goal_inst: Optional[int],
         all_matches: List = None,
         all_confidences: List = None,
+        score_thresh: float = 0.0,
     ) -> Tuple[torch.Tensor, torch.Tensor, bool, Optional[int]]:
         """Select and localize an instance given computed matching scores."""
 
@@ -243,8 +231,10 @@ class GoatMatching(Matching):
                     max_scores.append(max(inst_view_scores))
                     print(f"Instance {inst_idx+1} score: {max(inst_view_scores)}")
 
-                if max(max_scores) > self.score_thresh:
-                    inst_idx = np.argmax(max_scores)
+                sorted_inst_ids = np.argsort(max_scores)[::-1]
+                idx = 0
+                while idx < len(sorted_inst_ids) and max_scores[idx] > score_thresh:
+                    inst_idx = sorted_inst_ids[idx]
                     instance_map = local_map[0][
                         MC.NON_SEM_CHANNELS
                         + self.num_sem_categories : MC.NON_SEM_CHANNELS
@@ -263,9 +253,12 @@ class GoatMatching(Matching):
                         goal_inst = inst_idx + 1
                         goal_map = goal_map_temp
                         print(f"{goal_inst} will be the goal")
+                        break
                     else:
                         print("Instance was seen, but not present in local map.")
-                else:
+                    idx += 1
+
+                if idx == len(sorted_inst_ids):
                     print("Goal image does not match any instance.")
                     # TODO: dont stop at the first instance, but rather find the best one
 
@@ -283,7 +276,7 @@ class GoatMatching(Matching):
             inst_map_idx = torch.argmax(torch.sum(inst_map_idx, axis=(1, 2)))
             goal_map = (instance_map[inst_map_idx] == goal_inst).to(torch.float)
 
-        else:
+        elif confidence is not None and matches is not None:
             for e in range(confidence.shape[0]):
                 # if the goal category is empty, the goal can't be found
                 if not local_map[e, 21].any().item():
@@ -294,7 +287,7 @@ class GoatMatching(Matching):
                 else:  # match_count
                     score = (matches[e] != -1).sum()
 
-                if score < self.score_thresh:
+                if score < score_thresh:
                     continue
 
                 found_goal[e] = True

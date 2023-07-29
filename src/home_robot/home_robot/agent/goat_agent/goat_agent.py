@@ -72,7 +72,6 @@ class GoatAgent(Agent):
         self.matching = GoatMatching(
             device=0,  # config.simulator_gpu_id
             score_func=self.goal_policy_config.score_function,
-            score_thresh=self.goal_policy_config.score_thresh,
             num_sem_categories=self.num_sem_categories,
             config=config.AGENT.SUPERGLUE,
             default_vis_dir=f"{config.DUMP_LOCATION}/images/{config.EXP_NAME}",
@@ -200,6 +199,7 @@ class GoatAgent(Agent):
         confidence=None,
         all_matches=None,
         all_confidences=None,
+        score_thresh=0.0,
     ) -> Tuple[List[dict], List[dict]]:
         """Prepare low-level planner inputs from an observation - this is
         the main inference function of the agent that lets it interact with
@@ -269,6 +269,7 @@ class GoatAgent(Agent):
             confidence=confidence,
             all_matches=all_matches,
             all_confidences=all_confidences,
+            score_thresh=score_thresh,
         )
         self.semantic_map.local_pose = seq_local_pose[:, -1]
         self.semantic_map.global_pose = seq_global_pose[:, -1]
@@ -413,7 +414,13 @@ class GoatAgent(Agent):
         self.goal_mask = None
         self.goal_image_keypoints = None
 
-    # def compare_img_goal_with_instances(self, img_goal):
+    def score_thresh(self, task_type):
+        if task_type == "languagenav":
+            return self.goal_policy_config.score_thresh_lang
+        elif task_type == "imagenav":
+            return self.goal_policy_config.score_thresh_image
+        else:
+            return 0.0
 
     def act(self, obs: Observations) -> Tuple[DiscreteNavigationAction, Dict[str, Any]]:
         """Act end-to-end."""
@@ -447,6 +454,7 @@ class GoatAgent(Agent):
             confidence=confidence,
             all_matches=all_matches,
             all_confidences=all_confidences,
+            score_thresh=self.score_thresh(task_type),
         )
 
         # 3 - Planning
@@ -656,6 +664,7 @@ class GoatAgent(Agent):
                     self.matching.match_language_to_image,
                     self.total_timesteps[0],
                     language_goal=current_task["instruction"],
+                    use_full_image=False,
                 )
             else:
                 matches, confidences = self.matching.match_language_to_image(
@@ -675,6 +684,7 @@ class GoatAgent(Agent):
                     self.sub_task_timesteps[0][self.current_task_idx],
                     image_goal=self.goal_image,
                     goal_image_keypoints=self.goal_image_keypoints,
+                    use_full_image=True,
                 )
 
         return (
