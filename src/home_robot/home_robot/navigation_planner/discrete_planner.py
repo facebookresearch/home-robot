@@ -62,7 +62,7 @@ class DiscretePlanner:
         agent_cell_radius: int = 1,
         map_downsample_factor: float = 1.0,
         map_update_frequency: int = 1,
-        goal_tolerance: float = 0.01,
+        goal_tolerance: float = 1.5,
         discrete_actions: bool = True,
         continuous_angle_tolerance: float = 30.0,
     ):
@@ -375,6 +375,7 @@ class DiscretePlanner:
         found_goal: bool,
         stop: bool,
         debug: bool,
+        reorient: bool = False,
     ):
         """
         Gets discrete/continuous action given short-term goal. Agent orients to closest goal if found_goal=True and stop=True
@@ -416,6 +417,10 @@ class DiscretePlanner:
                         -relative_angle_to_stg
                     )  # the original angle was already in base frame
                     action = ContinuousNavigationAction(xyt_local)
+        
+        elif not reorient:
+            return DiscreteNavigationAction.STOP
+        
         else:
             # Try to orient towards the goal object - or at least any point sampled from the goal
             # object.

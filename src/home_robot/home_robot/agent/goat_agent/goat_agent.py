@@ -203,6 +203,8 @@ class GoatAgent(Agent):
         confidence=None,
         all_matches=None,
         all_confidences=None,
+        obstacle_locations: torch.Tensor = None,
+        free_locations: torch.Tensor = None,
     ) -> Tuple[List[dict], List[dict]]:
         """Prepare low-level planner inputs from an observation - this is
         the main inference function of the agent that lets it interact with
@@ -239,6 +241,10 @@ class GoatAgent(Agent):
             ]
         )
 
+        if obstacle_locations is not None:
+            obstacle_locations = obstacle_locations.unsqueeze(1)
+        if free_locations is not None:
+            free_locations = free_locations.unsqueeze(1)
         if object_goal_category is not None:
             object_goal_category = object_goal_category.unsqueeze(1)
         (
@@ -272,6 +278,8 @@ class GoatAgent(Agent):
             confidence=confidence,
             all_matches=all_matches,
             all_confidences=all_confidences,
+            seq_obstacle_locations=obstacle_locations,
+            seq_free_locations=free_locations,
         )
         self.semantic_map.local_pose = seq_local_pose[:, -1]
         self.semantic_map.global_pose = seq_global_pose[:, -1]
@@ -299,17 +307,6 @@ class GoatAgent(Agent):
             self.timesteps_before_goal_update[e] = (
                 self.timesteps_before_goal_update[e] - 1
             )
-
-        # if debug_frontier_map:
-        #     import matplotlib.pyplot as plt
-
-        #     plt.subplot(131)
-        #     plt.imshow(self.semantic_map.get_frontier_map(e))
-        #     plt.subplot(132)
-        #     plt.imshow(frontier_map[e][0])
-        #     plt.subplot(133)
-        #     plt.imshow(self.semantic_map.get_goal_map(e))
-        #     plt.show()
 
         planner_inputs = [
             {
@@ -436,7 +433,37 @@ class GoatAgent(Agent):
             all_confidences,
         ) = self._preprocess_obs(obs, task_type)
 
-        # import pdb;pdb.set_trace()
+        if "obstacle_locations" in obs.task_observations:
+            obstacle_locations = obs.task_observations["obstacle_locations"]
+            obstacle_locations = (
+                obstacle_locations * 100.0 / self.semantic_map.resolution
+            ).long()
+            (
+                obstacle_locations[:, 0],
+                obstacle_locations[:, 1],
+            ) = self.semantic_map.global_to_local(
+                obstacle_locations[:, 0], obstacle_locations[:, 1]
+            )
+
+            obstacle_locations = obstacle_locations.unsqueeze(0)
+        else:
+            obstacle_locations = None
+
+        if "free_locations" in obs.task_observations:
+            free_locations = obs.task_observations["free_locations"]
+            free_locations = (
+                free_locations * 100.0 / self.semantic_map.resolution
+            ).long()
+            (
+                free_locations[:, 0],
+                free_locations[:, 1],
+            ) = self.semantic_map.global_to_local(
+                free_locations[:, 0], free_locations[:, 1]
+            )
+
+            free_locations = free_locations.unsqueeze(0)
+        else:
+            free_locations = None
 
         # 2 - Semantic mapping + policy
         planner_inputs, vis_inputs = self.prepare_planner_inputs(
@@ -450,6 +477,8 @@ class GoatAgent(Agent):
             confidence=confidence,
             all_matches=all_matches,
             all_confidences=all_confidences,
+            obstacle_locations=obstacle_locations,
+            free_locations=free_locations,
         )
 
         # 3 - Planning
@@ -520,6 +549,7 @@ class GoatAgent(Agent):
                 }
 
         if action == DiscreteNavigationAction.STOP:
+            print("Called STOP action")
             if len(obs.task_observations["tasks"]) - 1 > self.current_task_idx:
                 self.current_task_idx += 1
                 self.timesteps_before_goal_update[0] = 0
