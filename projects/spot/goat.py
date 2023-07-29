@@ -233,10 +233,19 @@ def get_semantic_map_vis(
 
 
 GOALS = {
+    # Object goals
     "object_chair": {"type": "objectnav", "target": "chair"},
-    "object_toilet": {"type": "objectnav", "target": "toilet"},
     "object_couch": {"type": "objectnav", "target": "couch"},
+    "object_plant": {"type": "objectnav", "target": "potted plant"},
+    "object_bed": {"type": "objectnav", "target": "bed"},
+    "object_toilet": {"type": "objectnav", "target": "toilet"},
+    "object_tv": {"type": "objectnav", "target": "tv"},
+    "object_table": {"type": "objectnav", "target": "dining table"},
     "object_oven": {"type": "objectnav", "target": "oven"},
+    "object_sink": {"type": "objectnav", "target": "sink"},
+    "object_refrigerator": {"type": "objectnav", "target": "refrigerator"},
+
+    # Image goals
     "image_chair1": {
         "type": "imagenav",
         "target": "chair",
@@ -257,6 +266,8 @@ GOALS = {
         "target": "chair",
         "image": cv2.imread(f"{str(Path(__file__).resolve().parent)}/image_goals/chair4_spot.png"),
     },
+
+    # Language goals
     "language_chair2": {
         "type": "languagenav",
         "target": "chair",
@@ -293,7 +304,7 @@ def main(spot=None):
 
     # user_input = input("Enter the goals separated by commas: ")
     # print("You entered:", user_input)
-    # goals = [GOALS[g] for g in user_input.split(",")]
+    # goals = [GOALS.get(g, "object_chair") for g in user_input.split(",")]
     # pprint.pprint(goals, indent=4)
     # env.set_goals(goals)
 
@@ -367,8 +378,9 @@ def main(spot=None):
             if key == ord("g"):
                 user_input = input("Enter the goals separated by commas: ")
                 print("You entered:", user_input)
-                goals = [GOALS[g] for g in user_input.split(",")]
+                goals = [GOALS.get(g, "object_chair") for g in user_input.split(",")]
                 pprint.pprint(goals, indent=4)
+                agent.current_task_idx = 0
                 env.set_goals(goals)
 
             if key == ord("q"):
