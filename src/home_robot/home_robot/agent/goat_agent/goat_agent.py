@@ -68,11 +68,13 @@ class GoatAgent(Agent):
         self.goal_mask = None
         self.goal_image_keypoints = None
 
+        self.goal_policy_config = config.AGENT.SUPERGLUE
+
         self.instance_seg = Detic(config.AGENT.DETIC)
         self.matching = GoatMatching(
             device=0,  # config.simulator_gpu_id
             score_func=self.goal_policy_config.score_function,
-            num_sem_categories=self.num_sem_categories,
+            num_sem_categories=config.AGENT.SEMANTIC_MAP.num_sem_categories,
             config=config.AGENT.SUPERGLUE,
             default_vis_dir=f"{config.DUMP_LOCATION}/images/{config.EXP_NAME}",
             print_images=config.PRINT_IMAGES,

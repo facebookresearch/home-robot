@@ -170,7 +170,7 @@ class GoatAgentModule(nn.Module):
             init_global_pose,
             init_lmb,
             init_origins,
-            blacklist_target,
+            blacklist_target=blacklist_target,
         )
 
         # t1 = time.time()

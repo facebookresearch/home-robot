@@ -21,7 +21,7 @@ from PIL import Image
 import home_robot.utils.pose as pu
 from home_robot.perception.constants import PaletteIndices as PI
 from home_robot.perception.constants import languagenav_2categories_map_color_palette
-from home_robot.perception.detection.coco_maskrcnn.coco_categories import (
+from home_robot.perception.detection.maskrcnn.coco_categories import (
     coco_categories_color_palette,
 )
 from home_robot.utils.visualization import draw_line, get_contour_points

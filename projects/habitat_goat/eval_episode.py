@@ -77,9 +77,7 @@ if __name__ == "__main__":
         agent.imagenav_visualizer.set_vis_dir(
             f"{scene_id}_{episode_id}_{agent.current_task_idx}"
         )
-        agent.imagenav_obs_preprocessor.matching.set_vis_dir(
-            f"{scene_id}_{episode_id}_{agent.current_task_idx}"
-        )
+        agent.matching.set_vis_dir(f"{scene_id}_{episode_id}_{agent.current_task_idx}")
         env.visualizer.set_vis_dir(scene_id, f"{episode_id}_{agent.current_task_idx}")
 
         all_subtask_metrics = []
@@ -116,7 +114,7 @@ if __name__ == "__main__":
                     agent.imagenav_visualizer.set_vis_dir(
                         f"{scene_id}_{episode_id}_{agent.current_task_idx}"
                     )
-                    agent.imagenav_obs_preprocessor.matching.set_vis_dir(
+                    agent.matching.set_vis_dir(
                         f"{scene_id}_{episode_id}_{agent.current_task_idx}"
                     )
                     agent.planner.set_vis_dir(
