@@ -125,6 +125,6 @@ The challenge consists of the following phases:
 Simulation agents will be evaluated on an AWS EC2 p2.xlarge instance which has a Tesla K80 GPU (12 GB Memory), 4 CPU cores, and 61 GB RAM. Agents will be evaluated on 1000 episodes and will have a total available time of 48 hours to finish each run. If you need more time/resources for evaluation of your submission please get in touch. If you face any issues or have questions you can ask them by opening an issue on this repository.
 
 ### DD-PPO Training Starter Code
-Please refer to the Training DD-PPO skills section of the [Habitat OVMM readme](projects/habitat_ovmm/README.md#training-dd-ppo-skills) for more details.
+Please refer to the Training DD-PPO skills section of the [Habitat OVMM readme](../projects/habitat_ovmm/README.md#training-dd-ppo-skills) for more details.
 
 
