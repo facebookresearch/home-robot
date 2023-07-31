@@ -259,8 +259,8 @@ def text_to_image(
 
 
 record_instance_ids = True
-save_map_and_instances = True
-load_map_and_instances = False
+save_map_and_instances = False
+load_map_and_instances = True
 ground_image_in_memory = False
 ground_language_in_memory = True
 
@@ -621,9 +621,15 @@ def main(base_dir: str, legend_path: str):
 
     if ground_language_in_memory:
         language_goals = [
-            "a person",
-            "a sofa",
-            "a chair",
+            "the high chair next to the kitchen island",
+            "the chair next to the dining table",
+            "the grey armchair",
+            "the person with the grey shirt",
+            "the white cup",
+            "the white sofa",
+            "the big potted plant",
+            "the white bed",
+            "the toilet",
         ]
 
         for i, language_goal in enumerate(language_goals):
