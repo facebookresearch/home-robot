@@ -257,12 +257,12 @@ def main(spot,args):
     agent.reset()
 
     assert agent.num_sem_categories == env.num_sem_categories
-    pan_warmup = True
+    pan_warmup = args.rotate
 
     # control with keyboard instead of planner
     keyboard_takeover = args.keyboard
     if pan_warmup:
-        env.env.set_arm_yaw(np.pi, time=4,blocking=True)
+        env.env.set_arm_yaw(np.pi+np.pi/4, time=4,blocking=True)
         positions = spot.get_arm_joint_positions()
         print(positions)
 
@@ -342,7 +342,7 @@ def main(spot,args):
                 spot.set_base_position(global_point[0],global_point[1],heading,10,relative=False, max_fwd_vel=0.5, max_hor_vel=0.5, max_ang_vel=np.pi / 4,blocking=True)
         if pan_warmup:
             positions = spot.get_arm_joint_positions()
-            env.env.set_arm_yaw(-np.pi, time=20)
+            env.env.set_arm_yaw(-np.pi, time=15)
             if positions[0] < -2.5:
                 pan_warmup = False
                 env.env.initialize_arm()
@@ -384,6 +384,7 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(description='')
     parser.add_argument('--keyboard',action='store_true')
     parser.add_argument('--category',default=None)
+    parser.add_argument('--rotate',action='store_true')
     args = parser.parse_args()
     spot = Spot("RealNavEnv")
     with spot.get_lease(hijack=True):

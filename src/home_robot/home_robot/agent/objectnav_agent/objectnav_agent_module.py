@@ -53,6 +53,9 @@ class ObjectNavAgentModule(nn.Module):
             evaluate_instance_tracking=getattr(
                 config.ENVIRONMENT, "evaluate_instance_tracking", False
             ),
+            exploration_type=config.AGENT.SEMANTIC_MAP.exploration_type,
+            gaze_width=config.AGENT.SEMANTIC_MAP.gaze_width,
+            gaze_distance=config.AGENT.SEMANTIC_MAP.gaze_distance,
         )
         self.policy = ObjectNavFrontierExplorationPolicy(
             exploration_strategy=config.AGENT.exploration_strategy

@@ -38,7 +38,7 @@ AGENT:
     cat_pred_threshold: 15.0 # number of depth points to be in bin to classify it as a certain semantic category
     exp_pred_threshold: 1000.0  # number of depth points to be in bin to consider it as explored
     map_pred_threshold: 1000.0 # number of depth points to be in bin to consider it as obstacle
-    explored_radius: 150     # radius (in centimeters) of visually explored region
+    explored_radius: 10     # radius (in centimeters) from the robot to mark as explored
     been_close_to_radius: 200  # radius (in centimeters) of been close to region
     must_explore_close: False
     min_obs_height_cm: 10    # minimum height (in centimeters) of obstacle to be considered as obstacle
@@ -49,6 +49,9 @@ AGENT:
     # instance mapping
     record_instance_ids: False  # whether to predict and store instance ids in the map
     max_instances: 800
+    exploration_type: gaze
+    gaze_width: 40
+    gaze_distance: 3
 
   PLANNER:
     collision_threshold: 0.20       # forward move distance under which we consider there's a collision (in meters)

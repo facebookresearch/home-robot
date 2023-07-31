@@ -22,6 +22,7 @@ import home_robot.utils.pose as pu
 import home_robot.utils.rotation as ru
 from home_robot.mapping.semantic.constants import MapConstants as MC
 from home_robot.mapping.semantic.instance_tracking_modules import InstanceMemory
+from home_robot.utils.spot import draw_circle_segment
 
 # For debugging input and output maps - shows matplotlib visuals
 debug_maps = False
@@ -72,6 +73,9 @@ class Categorical2DSemanticMapModule(nn.Module):
         max_instances: int = 0,
         dilation_for_instances: int = 5,
         padding_for_instance_overlap: int = 5,
+        exploration_type = 'default',
+        gaze_width = 30,
+        gaze_distance = 3,
     ):
         """
         Arguments:
@@ -99,6 +103,9 @@ class Categorical2DSemanticMapModule(nn.Module):
             must_explore_close: reduce the distance we need to get to things to make them work
             min_obs_height_cm: minimum height of obstacles (in centimetres)
             record_instance_ids: whether to record instance ids in the 2d semantic map
+            exploration_type: how to define explored area
+            gaze_width: hfov in degrees for use with the gaze based exploration
+            gaze_distance: depth to be considered explored with gaze based exploration
         """
         super().__init__()
 
@@ -151,6 +158,9 @@ class Categorical2DSemanticMapModule(nn.Module):
         self.instance_memory = instance_memory
         self.max_instances = max_instances
         self.evaluate_instance_tracking = evaluate_instance_tracking
+        self.exploration_type = exploration_type
+        self.gaze_width = gaze_width
+        self.gaze_distance = gaze_distance
 
     @torch.no_grad()
     def forward(
@@ -560,9 +570,28 @@ class Categorical2DSemanticMapModule(nn.Module):
         all_height_proj = voxels.sum(4)
 
         fp_map_pred = agent_height_proj[:, 0:1, :, :]
-        fp_exp_pred = all_height_proj[:, 0:1, :, :]
+
+        # +rows is away from the camera, with the camra origin at row 0
+        # +cols is to the right of the image frame, the camera origin is at num_cols/2
+        # so the camera origin is at [0,num_cols/2]
+
+        # self.local_map_size_cm
+        # plt.imshow(fp_exp_pred[0,0].cpu())
+        # plt.pause(0.01)
+
         fp_map_pred = fp_map_pred / self.map_pred_threshold
-        fp_exp_pred = fp_exp_pred / self.exp_pred_threshold
+        if self.exploration_type == 'default':
+            fp_exp_pred = all_height_proj[:, 0:1, :, :]
+            fp_exp_pred = fp_exp_pred / self.exp_pred_threshold
+        elif self.exploration_type == 'gaze':
+            fp_exp_pred = torch.zeros_like(fp_map_pred)
+            view_image = torch.zeros(fp_map_pred.shape[-2:])
+            # get the desired radius in cells
+            dist = self.gaze_distance*100/self.resolution
+            view_image = draw_circle_segment(view_image,(0,fp_exp_pred.shape[-1]//2),dist,0,self.gaze_width)
+            fp_exp_pred[...,:,:] = view_image
+        else:
+            raise Exception(f'not implemented')
 
         num_channels = MC.NON_SEM_CHANNELS + self.num_sem_categories
         if self.record_instance_ids:
@@ -650,8 +679,8 @@ class Categorical2DSemanticMapModule(nn.Module):
         # Update obstacles in current map
         # TODO Implement this properly for num_environments > 1
         # remove obstacles that are observed to be free
-        # prev_map[0, 0, free_locations[0, :, 0], free_locations[0, :, 1]] = 0
-        # translated[0, 0, obstacle_locations[0, :, 0], obstacle_locations[0, :, 1]] = 1
+        prev_map[0, 0, free_locations[0, :, 0], free_locations[0, :, 1]] = 0
+        translated[0, 0, obstacle_locations[0, :, 0], obstacle_locations[0, :, 1]] = 1
 
         # Aggregate by taking the max of the previous map and current map after removing obstacles
         maps = torch.cat((prev_map.unsqueeze(1), translated.unsqueeze(1)), 1)
@@ -707,7 +736,7 @@ class Categorical2DSemanticMapModule(nn.Module):
             # This is around the current agent - we just sort of assume we know where we are
             try:
                 # TODO Make this a parameter: 40 on robot, 10 in sim
-                radius = 40  # 10
+                radius = self.explored_radius
                 explored_disk = torch.from_numpy(skimage.morphology.disk(radius))
                 current_map[
                     e,
