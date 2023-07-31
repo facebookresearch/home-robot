@@ -513,6 +513,8 @@ def main(base_dir: str, legend_path: str):
         fps=20,
     )
 
+    breakpoint()
+
     # --------------------------------------------------------------------------------------------
     # Ground goals in memory
     # --------------------------------------------------------------------------------------------
@@ -534,7 +536,7 @@ def main(base_dir: str, legend_path: str):
     Path(goal_grounding_vis_dir).mkdir(parents=True, exist_ok=True)
 
     # -----------------------------------------------
-    # Image goal
+    # Image goals
     # -----------------------------------------------
 
     if ground_image_in_memory:
@@ -593,7 +595,7 @@ def main(base_dir: str, legend_path: str):
             print("Goal instance ID:", goal_inst)
 
     # -----------------------------------------------
-    # Language goal
+    # Language goals
     # -----------------------------------------------
 
     if ground_language_in_memory:
