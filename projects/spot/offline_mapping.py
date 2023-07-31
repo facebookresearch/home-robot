@@ -265,22 +265,18 @@ ground_language_in_memory = True
 
 @click.command()
 @click.option(
-    "--obs_dir",
-    default=f"{str(Path(__file__).resolve().parent)}/obs/",
-)
-@click.option(
-    "--map_vis_dir",
-    default=f"{str(Path(__file__).resolve().parent)}/map_vis/",
-)
-@click.option(
-    "--goal_grounding_vis_dir",
-    default=f"{str(Path(__file__).resolve().parent)}/goal_grounding_vis/",
+    "--base_dir",
+    default=f"{str(Path(__file__).resolve().parent)}/trajectories/trajectory1",
 )
 @click.option(
     "--legend_path",
     default=f"{str(Path(__file__).resolve().parent)}/coco_categories_legend.png",
 )
-def main(obs_dir: str, map_vis_dir: str, goal_grounding_vis_dir: str, legend_path: str):
+def main(base_dir: str, legend_path: str):
+    obs_dir = f"{base_dir}/obs/"
+    map_vis_dir = f"{base_dir}/map_vis/"
+    goal_grounding_vis_dir = f"{base_dir}/goal_grounding_vis/"
+
     # --------------------------------------------------------------------------------------------
     # Load trajectory of home_robot Observations
     # --------------------------------------------------------------------------------------------
