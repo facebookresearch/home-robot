@@ -417,10 +417,10 @@ class DiscretePlanner:
                         -relative_angle_to_stg
                     )  # the original angle was already in base frame
                     action = ContinuousNavigationAction(xyt_local)
-        
+
         elif not reorient:
             return DiscreteNavigationAction.STOP
-        
+
         else:
             # Try to orient towards the goal object - or at least any point sampled from the goal
             # object.

@@ -14,6 +14,7 @@ from sklearn.cluster import DBSCAN
 from torch.nn import DataParallel
 
 import home_robot.utils.pose as pu
+
 # from home_robot.agent.imagenav_agent.visualizer import NavVisualizer
 from home_robot.core.abstract_agent import Agent
 from home_robot.core.interfaces import DiscreteNavigationAction, Observations
@@ -74,7 +75,6 @@ class GoatAgent(Agent):
         self.matching = GoatMatching(
             device=0,  # config.simulator_gpu_id
             score_func=self.goal_policy_config.score_function,
-            score_thresh=self.goal_policy_config.score_thresh,
             num_sem_categories=config.AGENT.SEMANTIC_MAP.num_sem_categories,
             config=config.AGENT.SUPERGLUE,
             default_vis_dir=f"{config.DUMP_LOCATION}/images/{config.EXP_NAME}",
@@ -203,35 +203,36 @@ class GoatAgent(Agent):
         confidence=None,
         all_matches=None,
         all_confidences=None,
+        score_thresh=0.0,
         obstacle_locations: torch.Tensor = None,
         free_locations: torch.Tensor = None,
     ) -> Tuple[List[dict], List[dict]]:
         """Prepare low-level planner inputs from an observation - this is
-        the main inference function of the agent that lets it interact with
-        vectorized environments.
+                the main inference function of the agent that lets it interact with
+                vectorized environments.
+        s
+                This function assumes that the agent has been initialized.
 
-        This function assumes that the agent has been initialized.
+                Args:
+                    obs: current frame containing (RGB, depth, segmentation) of shape
+                     (num_environments, 3 + 1 + num_sem_categories, frame_height, frame_width)
+                    pose_delta: sensor pose delta (dy, dx, dtheta) since last frame
+                     of shape (num_environments, 3)
+                    object_goal_category: semantic category of small object goals
+                    camera_pose: camera extrinsic pose of shape (num_environments, 4, 4)
 
-        Args:
-            obs: current frame containing (RGB, depth, segmentation) of shape
-             (num_environments, 3 + 1 + num_sem_categories, frame_height, frame_width)
-            pose_delta: sensor pose delta (dy, dx, dtheta) since last frame
-             of shape (num_environments, 3)
-            object_goal_category: semantic category of small object goals
-            camera_pose: camera extrinsic pose of shape (num_environments, 4, 4)
-
-        Returns:
-            planner_inputs: list of num_environments planner inputs dicts containing
-                obstacle_map: (M, M) binary np.ndarray local obstacle map
-                 prediction
-                sensor_pose: (7,) np.ndarray denoting global pose (x, y, o)
-                 and local map boundaries planning window (gx1, gx2, gy1, gy2)
-                goal_map: (M, M) binary np.ndarray denoting goal location
-            vis_inputs: list of num_environments visualization info dicts containing
-                explored_map: (M, M) binary np.ndarray local explored map
-                 prediction
-                semantic_map: (M, M) np.ndarray containing local semantic map
-                 predictions
+                Returns:
+                    planner_inputs: list of num_environments planner inputs dicts containing
+                        obstacle_map: (M, M) binary np.ndarray local obstacle map
+                         prediction
+                        sensor_pose: (7,) np.ndarray denoting global pose (x, y, o)
+                         and local map boundaries planning window (gx1, gx2, gy1, gy2)
+                        goal_map: (M, M) binary np.ndarray denoting goal location
+                    vis_inputs: list of num_environments visualization info dicts containing
+                        explored_map: (M, M) binary np.ndarray local explored map
+                         prediction
+                        semantic_map: (M, M) np.ndarray containing local semantic map
+                         predictions
         """
         dones = torch.tensor([False] * self.num_environments)
         update_global = torch.tensor(
@@ -278,6 +279,7 @@ class GoatAgent(Agent):
             confidence=confidence,
             all_matches=all_matches,
             all_confidences=all_confidences,
+            score_thresh=score_thresh,
             seq_obstacle_locations=obstacle_locations,
             seq_free_locations=free_locations,
         )
@@ -413,7 +415,13 @@ class GoatAgent(Agent):
         self.goal_mask = None
         self.goal_image_keypoints = None
 
-    # def compare_img_goal_with_instances(self, img_goal):
+    def score_thresh(self, task_type):
+        if task_type == "languagenav":
+            return self.goal_policy_config.score_thresh_lang
+        elif task_type == "imagenav":
+            return self.goal_policy_config.score_thresh_image
+        else:
+            return 0.0
 
     def act(self, obs: Observations) -> Tuple[DiscreteNavigationAction, Dict[str, Any]]:
         """Act end-to-end."""
@@ -477,6 +485,7 @@ class GoatAgent(Agent):
             confidence=confidence,
             all_matches=all_matches,
             all_confidences=all_confidences,
+            score_thresh=self.score_thresh(task_type),
             obstacle_locations=obstacle_locations,
             free_locations=free_locations,
         )
@@ -694,6 +703,7 @@ class GoatAgent(Agent):
                     self.matching.match_language_to_image,
                     self.total_timesteps[0],
                     language_goal=current_task["instruction"],
+                    use_full_image=False,
                 )
             else:
                 matches, confidences = self.matching.match_language_to_image(
@@ -713,6 +723,7 @@ class GoatAgent(Agent):
                     self.sub_task_timesteps[0][self.current_task_idx],
                     image_goal=self.goal_image,
                     goal_image_keypoints=self.goal_image_keypoints,
+                    use_full_image=True,
                 )
 
         return (

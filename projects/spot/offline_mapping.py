@@ -332,7 +332,7 @@ def main(obs_dir: str, map_vis_dir: str, goal_grounding_vis_dir: str, legend_pat
     # Map initialization
     # --------------------------------------------------------------------------------------------
 
-    device = torch.device("cuda:1")
+    device = torch.device("cuda:0")
 
     # Instance memory is responsible for tracking instances in the map
     instance_memory = None
@@ -527,7 +527,6 @@ def main(obs_dir: str, map_vis_dir: str, goal_grounding_vis_dir: str, legend_pat
     matching = GoatMatching(
         device=device.index,
         score_func="confidence_sum",
-        score_thresh=24.5,
         num_sem_categories=num_sem_categories,
         config=config.AGENT.SUPERGLUE,
         default_vis_dir=map_vis_dir,
@@ -558,6 +557,7 @@ def main(obs_dir: str, map_vis_dir: str, goal_grounding_vis_dir: str, legend_pat
                 0,
                 image_goal=goal_image,
                 goal_image_keypoints=goal_image_keypoints,
+                use_full_image=True,
             )
 
             (
@@ -575,6 +575,7 @@ def main(obs_dir: str, map_vis_dir: str, goal_grounding_vis_dir: str, legend_pat
                 goal_inst=None,
                 all_matches=all_matches,
                 all_confidences=all_confidences,
+                score_thresh=config.AGENT.SUPERGLUE.score_thresh_image,
             )
             semantic_map.update_global_goal_for_env(0, goal_map.cpu().numpy())
 
@@ -611,6 +612,7 @@ def main(obs_dir: str, map_vis_dir: str, goal_grounding_vis_dir: str, legend_pat
                 matching.match_language_to_image,
                 0,
                 language_goal=language_goal,
+                use_full_image=False,
             )
 
             (
@@ -628,25 +630,27 @@ def main(obs_dir: str, map_vis_dir: str, goal_grounding_vis_dir: str, legend_pat
                 goal_inst=None,
                 all_matches=all_matches,
                 all_confidences=all_confidences,
+                score_thresh=config.AGENT.SUPERGLUE.score_thresh_lang,
             )
-            semantic_map.update_global_goal_for_env(0, goal_map.cpu().numpy())
+            if instance_goal_found:
+                semantic_map.update_global_goal_for_env(0, goal_map.cpu().numpy())
 
-            vis_image = get_semantic_map_vis(
-                semantic_map,
-                goal_image=text_to_image(language_goal, 640, 480),
-                # Visualize the first cropped view of the instance
-                instance_image=instance_memory.instance_views[0][goal_inst]
-                .instance_views[0]
-                .cropped_image[:, :, ::-1],
-                color_palette=coco_categories_color_palette,
-                legend=legend,
-            )
-            plt.imsave(
-                Path(goal_grounding_vis_dir) / f"language_goal{i}.png", vis_image
-            )
+                vis_image = get_semantic_map_vis(
+                    semantic_map,
+                    goal_image=text_to_image(language_goal, 640, 480),
+                    # Visualize the first cropped view of the instance
+                    instance_image=instance_memory.instance_views[0][goal_inst]
+                    .instance_views[0]
+                    .cropped_image[:, :, ::-1],
+                    color_palette=coco_categories_color_palette,
+                    legend=legend,
+                )
+                plt.imsave(
+                    Path(goal_grounding_vis_dir) / f"language_goal{i}.png", vis_image
+                )
 
-            print("Found goal:", instance_goal_found)
-            print("Goal instance ID:", goal_inst)
+                print("Found goal:", instance_goal_found)
+                print("Goal instance ID:", goal_inst)
 
 
 if __name__ == "__main__":
