@@ -88,7 +88,12 @@ class InstanceMemory:
     timesteps: List[int] = []
 
     def __init__(
-        self, num_envs: int, du_scale: int, debug_visualize: bool = False, config=None
+        self,
+        num_envs: int,
+        du_scale: int,
+        debug_visualize: bool = False,
+        config=None,
+        save_dir="instances",
     ):
         self.num_envs = num_envs
         self.du_scale = du_scale
@@ -97,7 +102,7 @@ class InstanceMemory:
         if config is not None:
             self.save_dir = f"{config.DUMP_LOCATION}/instances/{config.EXP_NAME}"
         else:
-            self.save_dir = "instances"
+            self.save_dir = save_dir
 
         if self.debug_visualize:
             shutil.rmtree(self.save_dir, ignore_errors=True)
