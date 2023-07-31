@@ -259,6 +259,8 @@ def text_to_image(
 
 
 record_instance_ids = True
+save_map_and_instances = True
+load_map_and_instances = True
 ground_image_in_memory = False
 ground_language_in_memory = True
 
@@ -273,247 +275,267 @@ ground_language_in_memory = True
     default=f"{str(Path(__file__).resolve().parent)}/coco_categories_legend.png",
 )
 def main(base_dir: str, legend_path: str):
+
     obs_dir = f"{base_dir}/obs/"
     map_vis_dir = f"{base_dir}/map_vis/"
     goal_grounding_vis_dir = f"{base_dir}/goal_grounding_vis/"
-
-    # --------------------------------------------------------------------------------------------
-    # Load trajectory of home_robot Observations
-    # --------------------------------------------------------------------------------------------
-    observations = []
-    for path in natsort.natsorted(glob.glob(f"{obs_dir}/*.pkl")):
-        with open(path, "rb") as f:
-            observations.append(pickle.load(f))
-    observations = observations[:30]
-
-    # Predict semantic segmentation
-    categories = list(coco_categories.keys())
-    num_sem_categories = len(coco_categories)
-    segmentation = MaskRCNNPerception(
-        sem_pred_prob_thr=0.9,
-        sem_gpu_id=0,
-    )
-
-    observations = [
-        segmentation.predict(obs, depth_threshold=0.5) for obs in observations
-    ]
-    for obs in observations:
-        obs.semantic[obs.semantic == 0] = num_sem_categories
-        obs.semantic = obs.semantic - 1
-        obs.task_observations["instance_map"] += 1
-        obs.task_observations["instance_map"] = obs.task_observations[
-            "instance_map"
-        ].astype(int)
-
-    print()
-    print("home_robot observations:")
-    print("------------------------")
-    obs = observations[0]
-    print("obs.gps", obs.gps)
-    print("obs.compass", obs.compass)
-    print("obs.rgb", obs.rgb.shape, obs.rgb.dtype, obs.rgb.min(), obs.rgb.max())
-    print(
-        "obs.depth", obs.depth.shape, obs.depth.dtype, obs.depth.min(), obs.depth.max()
-    )
-    print(
-        "obs.semantic",
-        obs.semantic.shape,
-        obs.semantic.dtype,
-        obs.semantic.min(),
-        obs.semantic.max(),
-    )
-    print("obs.camera_pose", obs.camera_pose)
-    print("obs.task_observations", obs.task_observations.keys())
-
-    # --------------------------------------------------------------------------------------------
-    # Map initialization
-    # --------------------------------------------------------------------------------------------
-
-    device = torch.device("cuda:1")
-
-    # Instance memory is responsible for tracking instances in the map
-    instance_memory = None
-    if record_instance_ids:
-        instance_memory = InstanceMemory(
-            1,
-            4,
-            debug_visualize=True,
-            save_dir=f"{base_dir}/instances",
-        )
-
-    # State holds global and local map and sensor pose
-    # See class definition for argument info
-    semantic_map = Categorical2DSemanticMapState(
-        device=device,
-        num_environments=1,
-        num_sem_categories=num_sem_categories,
-        map_resolution=5,
-        map_size_cm=4800,
-        global_downscaling=2,
-        record_instance_ids=record_instance_ids,
-        instance_memory=instance_memory,
-    )
-    semantic_map.init_map_and_pose()
-
-    # Module is responsible for updating the local and global maps and poses
-    # See class definition for argument info
-    semantic_map_module = Categorical2DSemanticMapModule(
-        frame_height=obs.rgb.shape[0],
-        frame_width=obs.rgb.shape[1],
-        camera_height=obs.camera_pose[2, 3],
-        hfov=60.2,
-        num_sem_categories=num_sem_categories,
-        map_size_cm=4800,
-        map_resolution=5,
-        vision_range=100,
-        explored_radius=150,
-        been_close_to_radius=200,
-        global_downscaling=2,
-        du_scale=4,
-        cat_pred_threshold=15.0,
-        exp_pred_threshold=1.0,
-        map_pred_threshold=15.0,
-        min_depth=0.5,
-        max_depth=5.95,
-        must_explore_close=False,
-        min_obs_height_cm=10,
-        record_instance_ids=record_instance_ids,
-        instance_memory=instance_memory,
-    ).to(device)
-
-    # --------------------------------------------------------------------------------------------
-    # Map building
-    # --------------------------------------------------------------------------------------------
-
-    def preprocess_obs(obs: Observations, last_pose: np.array):
-        """Take a home-robot observation, preprocess it to put it into the
-        correct format for the semantic map.
-
-        Output conventions:
-            * obs_preprocessed = (1, 4 + num_sem_categories + num_instances, H, W) torch.Tensor
-                - channels 1-3 are RGB (0 - 255 range)
-                - channel 4 is depth (in cm)
-            * pose_delta = (1, 3) torch.Tensor:
-                - +X is forward
-                - +Y is leftward
-                - +theta is measured from +X to +Y
-            * camera_pose = (1, 4, 4) camera extrinsics
-                - +X is forward
-                - +Y is leftward
-                - +Z is upward
-        """
-        rgb = torch.from_numpy(obs.rgb).to(device)
-        depth = torch.from_numpy(obs.depth).unsqueeze(-1).to(device) * 100.0  # m to cm
-        semantic = one_hot_encoding[torch.from_numpy(obs.semantic).to(device)]
-        obs_preprocessed = torch.cat([rgb, depth, semantic], dim=-1)
-
-        if record_instance_ids:
-            instances = obs.task_observations["instance_map"]
-            # first create a mapping to 1, 2, ... num_instances
-            instance_ids = np.unique(instances)
-            # map instance id to index
-            instance_id_to_idx = {
-                instance_id: idx for idx, instance_id in enumerate(instance_ids)
-            }
-            # convert instance ids to indices, use vectorized lookup
-            instances = torch.from_numpy(
-                np.vectorize(instance_id_to_idx.get)(instances)
-            ).to(device)
-            # create a one-hot encoding
-            instances = torch.eye(len(instance_ids), device=device)[instances]
-            obs_preprocessed = torch.cat([obs_preprocessed, instances], dim=-1)
-
-        obs_preprocessed = obs_preprocessed.unsqueeze(0)
-        obs_preprocessed = obs_preprocessed.permute(0, 3, 1, 2)
-
-        curr_pose = np.array([obs.gps[0], obs.gps[1], obs.compass[0]])
-        pose_delta = (
-            torch.tensor(pu.get_rel_pose_change(curr_pose, last_pose))
-            .unsqueeze(0)
-            .to(device)
-        )
-
-        camera_pose = obs.camera_pose
-        if camera_pose is not None:
-            camera_pose = torch.tensor(np.asarray(camera_pose)).unsqueeze(0).to(device)
-        return (obs_preprocessed, pose_delta, camera_pose, curr_pose)
-
-    last_pose = np.zeros(3)
-    one_hot_encoding = torch.eye(num_sem_categories, device=device)
     if legend_path is not None:
         legend = cv2.imread(legend_path)
     else:
         legend = None
-    Path(map_vis_dir).mkdir(parents=True, exist_ok=True)
-    vis_images = []
 
-    for i, obs in enumerate(observations):
-        # Preprocess observation
-        (obs_preprocessed, pose_delta, camera_pose, last_pose) = preprocess_obs(
-            obs, last_pose
+    device = torch.device("cuda:1")
+
+    categories = list(coco_categories.keys())
+    num_sem_categories = len(coco_categories)
+
+    if load_map_and_instances:
+        print("Loading prebuilt map and instance memory...")
+        semantic_map = pickle.load(open(f"{base_dir}/semantic_map.pkl", "rb"))
+        instance_memory = pickle.load(open(f"{base_dir}/instance_memory.pkl", "rb"))
+
+    else:
+        # --------------------------------------------------------------------------------------------
+        # Load trajectory of home_robot Observations
+        # --------------------------------------------------------------------------------------------
+
+        observations = []
+        for path in natsort.natsorted(glob.glob(f"{obs_dir}/*.pkl")):
+            with open(path, "rb") as f:
+                observations.append(pickle.load(f))
+        observations = observations[:30]
+
+        # Predict semantic segmentation
+        segmentation = MaskRCNNPerception(
+            sem_pred_prob_thr=0.9,
+            sem_gpu_id=0,
         )
 
-        if i == 0:
-            print()
-            print("preprocessed observations:")
-            print("-------------------------")
-            print("obs_preprocessed", obs_preprocessed.shape)
-            print("pose_delta", pose_delta)
-            print("camera_pose", camera_pose)
+        observations = [
+            segmentation.predict(obs, depth_threshold=0.5) for obs in observations
+        ]
+        for obs in observations:
+            obs.semantic[obs.semantic == 0] = num_sem_categories
+            obs.semantic = obs.semantic - 1
+            obs.task_observations["instance_map"] += 1
+            obs.task_observations["instance_map"] = obs.task_observations[
+                "instance_map"
+            ].astype(int)
 
-        # Update map
-        dones = torch.tensor([False]).to(device)
-        update_global = torch.tensor([True]).to(device)
-        (
-            seq_map_features,
-            semantic_map.local_map,
-            semantic_map.global_map,
-            seq_local_pose,
-            seq_global_pose,
-            seq_lmb,
-            seq_origins,
-        ) = semantic_map_module(
-            obs_preprocessed.unsqueeze(1),
-            pose_delta.unsqueeze(1),
-            dones.unsqueeze(1),
-            update_global.unsqueeze(1),
-            camera_pose,
-            semantic_map.local_map,
-            semantic_map.global_map,
-            semantic_map.local_pose,
-            semantic_map.global_pose,
-            semantic_map.lmb,
-            semantic_map.origins,
+        print()
+        print("home_robot observations:")
+        print("------------------------")
+        obs = observations[0]
+        print("obs.gps", obs.gps)
+        print("obs.compass", obs.compass)
+        print("obs.rgb", obs.rgb.shape, obs.rgb.dtype, obs.rgb.min(), obs.rgb.max())
+        print(
+            "obs.depth",
+            obs.depth.shape,
+            obs.depth.dtype,
+            obs.depth.min(),
+            obs.depth.max(),
+        )
+        print(
+            "obs.semantic",
+            obs.semantic.shape,
+            obs.semantic.dtype,
+            obs.semantic.min(),
+            obs.semantic.max(),
+        )
+        print("obs.camera_pose", obs.camera_pose)
+        print("obs.task_observations", obs.task_observations.keys())
+
+        # --------------------------------------------------------------------------------------------
+        # Map initialization
+        # --------------------------------------------------------------------------------------------
+
+        # Instance memory is responsible for tracking instances in the map
+        instance_memory = None
+        if record_instance_ids:
+            instance_memory = InstanceMemory(
+                1,
+                4,
+                debug_visualize=True,
+                save_dir=f"{base_dir}/instances",
+            )
+
+        # State holds global and local map and sensor pose
+        # See class definition for argument info
+        semantic_map = Categorical2DSemanticMapState(
+            device=device,
+            num_environments=1,
+            num_sem_categories=num_sem_categories,
+            map_resolution=5,
+            map_size_cm=4800,
+            global_downscaling=2,
+            record_instance_ids=record_instance_ids,
+            instance_memory=instance_memory,
+        )
+        semantic_map.init_map_and_pose()
+
+        # Module is responsible for updating the local and global maps and poses
+        # See class definition for argument info
+        semantic_map_module = Categorical2DSemanticMapModule(
+            frame_height=obs.rgb.shape[0],
+            frame_width=obs.rgb.shape[1],
+            camera_height=obs.camera_pose[2, 3],
+            hfov=60.2,
+            num_sem_categories=num_sem_categories,
+            map_size_cm=4800,
+            map_resolution=5,
+            vision_range=100,
+            explored_radius=150,
+            been_close_to_radius=200,
+            global_downscaling=2,
+            du_scale=4,
+            cat_pred_threshold=15.0,
+            exp_pred_threshold=1.0,
+            map_pred_threshold=15.0,
+            min_depth=0.5,
+            max_depth=5.95,
+            must_explore_close=False,
+            min_obs_height_cm=10,
+            record_instance_ids=record_instance_ids,
+            instance_memory=instance_memory,
+        ).to(device)
+
+        # --------------------------------------------------------------------------------------------
+        # Map building
+        # --------------------------------------------------------------------------------------------
+
+        def preprocess_obs(obs: Observations, last_pose: np.array):
+            """Take a home-robot observation, preprocess it to put it into the
+            correct format for the semantic map.
+
+            Output conventions:
+                * obs_preprocessed = (1, 4 + num_sem_categories + num_instances, H, W) torch.Tensor
+                    - channels 1-3 are RGB (0 - 255 range)
+                    - channel 4 is depth (in cm)
+                * pose_delta = (1, 3) torch.Tensor:
+                    - +X is forward
+                    - +Y is leftward
+                    - +theta is measured from +X to +Y
+                * camera_pose = (1, 4, 4) camera extrinsics
+                    - +X is forward
+                    - +Y is leftward
+                    - +Z is upward
+            """
+            rgb = torch.from_numpy(obs.rgb).to(device)
+            depth = (
+                torch.from_numpy(obs.depth).unsqueeze(-1).to(device) * 100.0
+            )  # m to cm
+            semantic = one_hot_encoding[torch.from_numpy(obs.semantic).to(device)]
+            obs_preprocessed = torch.cat([rgb, depth, semantic], dim=-1)
+
+            if record_instance_ids:
+                instances = obs.task_observations["instance_map"]
+                # first create a mapping to 1, 2, ... num_instances
+                instance_ids = np.unique(instances)
+                # map instance id to index
+                instance_id_to_idx = {
+                    instance_id: idx for idx, instance_id in enumerate(instance_ids)
+                }
+                # convert instance ids to indices, use vectorized lookup
+                instances = torch.from_numpy(
+                    np.vectorize(instance_id_to_idx.get)(instances)
+                ).to(device)
+                # create a one-hot encoding
+                instances = torch.eye(len(instance_ids), device=device)[instances]
+                obs_preprocessed = torch.cat([obs_preprocessed, instances], dim=-1)
+
+            obs_preprocessed = obs_preprocessed.unsqueeze(0)
+            obs_preprocessed = obs_preprocessed.permute(0, 3, 1, 2)
+
+            curr_pose = np.array([obs.gps[0], obs.gps[1], obs.compass[0]])
+            pose_delta = (
+                torch.tensor(pu.get_rel_pose_change(curr_pose, last_pose))
+                .unsqueeze(0)
+                .to(device)
+            )
+
+            camera_pose = obs.camera_pose
+            if camera_pose is not None:
+                camera_pose = (
+                    torch.tensor(np.asarray(camera_pose)).unsqueeze(0).to(device)
+                )
+            return (obs_preprocessed, pose_delta, camera_pose, curr_pose)
+
+        last_pose = np.zeros(3)
+        one_hot_encoding = torch.eye(num_sem_categories, device=device)
+        Path(map_vis_dir).mkdir(parents=True, exist_ok=True)
+        vis_images = []
+
+        for i, obs in enumerate(observations):
+            # Preprocess observation
+            (obs_preprocessed, pose_delta, camera_pose, last_pose) = preprocess_obs(
+                obs, last_pose
+            )
+
+            if i == 0:
+                print()
+                print("preprocessed observations:")
+                print("-------------------------")
+                print("obs_preprocessed", obs_preprocessed.shape)
+                print("pose_delta", pose_delta)
+                print("camera_pose", camera_pose)
+
+            # Update map
+            dones = torch.tensor([False]).to(device)
+            update_global = torch.tensor([True]).to(device)
+            (
+                seq_map_features,
+                semantic_map.local_map,
+                semantic_map.global_map,
+                seq_local_pose,
+                seq_global_pose,
+                seq_lmb,
+                seq_origins,
+            ) = semantic_map_module(
+                obs_preprocessed.unsqueeze(1),
+                pose_delta.unsqueeze(1),
+                dones.unsqueeze(1),
+                update_global.unsqueeze(1),
+                camera_pose,
+                semantic_map.local_map,
+                semantic_map.global_map,
+                semantic_map.local_pose,
+                semantic_map.global_pose,
+                semantic_map.lmb,
+                semantic_map.origins,
+            )
+
+            semantic_map.local_pose = seq_local_pose[:, -1]
+            semantic_map.global_pose = seq_global_pose[:, -1]
+            semantic_map.lmb = seq_lmb[:, -1]
+            semantic_map.origins = seq_origins[:, -1]
+
+            # Visualize map
+            depth_frame = obs.depth
+            if depth_frame.max() > 0:
+                depth_frame = depth_frame / depth_frame.max()
+            depth_frame = (depth_frame * 255).astype(np.uint8)
+            depth_frame = np.repeat(depth_frame[:, :, np.newaxis], 3, axis=2)
+            vis_image = get_semantic_map_vis(
+                semantic_map,
+                semantic_frame=obs.task_observations["semantic_frame"],
+                depth_frame=depth_frame,
+                color_palette=coco_categories_color_palette,
+                legend=legend,
+            )
+            vis_images.append(vis_image)
+            plt.imsave(Path(map_vis_dir) / f"{i}.png", vis_image)
+
+        create_video(
+            [v[:, :, ::-1] for v in vis_images],
+            f"{map_vis_dir}/video.mp4",
+            fps=20,
         )
 
-        semantic_map.local_pose = seq_local_pose[:, -1]
-        semantic_map.global_pose = seq_global_pose[:, -1]
-        semantic_map.lmb = seq_lmb[:, -1]
-        semantic_map.origins = seq_origins[:, -1]
-
-        # Visualize map
-        depth_frame = obs.depth
-        if depth_frame.max() > 0:
-            depth_frame = depth_frame / depth_frame.max()
-        depth_frame = (depth_frame * 255).astype(np.uint8)
-        depth_frame = np.repeat(depth_frame[:, :, np.newaxis], 3, axis=2)
-        vis_image = get_semantic_map_vis(
-            semantic_map,
-            semantic_frame=obs.task_observations["semantic_frame"],
-            depth_frame=depth_frame,
-            color_palette=coco_categories_color_palette,
-            legend=legend,
-        )
-        vis_images.append(vis_image)
-        plt.imsave(Path(map_vis_dir) / f"{i}.png", vis_image)
-
-    create_video(
-        [v[:, :, ::-1] for v in vis_images],
-        f"{map_vis_dir}/video.mp4",
-        fps=20,
-    )
-
-    breakpoint()
+    if save_map_and_instances:
+        print("Saving map and instance memory...")
+        pickle.dump(semantic_map, open(f"{base_dir}/semantic_map.pkl", "wb"))
+        pickle.dump(instance_memory, open(f"{base_dir}/instance_memory.pkl", "wb"))
 
     # --------------------------------------------------------------------------------------------
     # Ground goals in memory
