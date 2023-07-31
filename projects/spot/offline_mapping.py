@@ -260,7 +260,7 @@ def text_to_image(
 
 record_instance_ids = True
 save_map_and_instances = True
-load_map_and_instances = True
+load_map_and_instances = False
 ground_image_in_memory = False
 ground_language_in_memory = True
 
@@ -303,7 +303,6 @@ def main(base_dir: str, legend_path: str):
         for path in natsort.natsorted(glob.glob(f"{obs_dir}/*.pkl")):
             with open(path, "rb") as f:
                 observations.append(pickle.load(f))
-        observations = observations[:30]
 
         # Predict semantic segmentation
         segmentation = MaskRCNNPerception(
