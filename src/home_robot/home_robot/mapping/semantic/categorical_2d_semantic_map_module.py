@@ -406,10 +406,13 @@ class Categorical2DSemanticMapModule(nn.Module):
             angles = torch.Tensor(
                 [tra.euler_from_matrix(p[:3, :3].cpu(), "rzyx") for p in camera_pose]
             )
+
             # For habitat - pull x angle
             # tilt = angles[:, -1]
             # For real robot
             tilt = angles[:, 1]
+            # angles gives roll, pitch, yaw
+            yaw = angles[:,-1]
 
             # Get the agent pose
             # hab_agent_height = camera_pose[:, 1, 3] * 100
@@ -421,6 +424,7 @@ class Categorical2DSemanticMapModule(nn.Module):
                 print("agent_height", agent_height)
                 print()
         else:
+            yaw = 0
             tilt = torch.zeros(batch_size)
             agent_height = self.agent_height
 
@@ -618,9 +622,16 @@ class Categorical2DSemanticMapModule(nn.Module):
         )
         st_pose[:, 2] = 90.0 - (st_pose[:, 2])
 
-        rot_mat, trans_mat = ru.get_grid(st_pose, agent_view.size(), dtype)
+        # st_pose is current pose, last term in degrees
+        # account for camera yaw here by rotating the new map based on camera yaw
+        st_pose_adjusted = st_pose.clone()
+        # yaw has to be inverted here, below rotates the map clockwise
+        st_pose_adjusted[:,2] -= yaw.to(st_pose_adjusted.device)*180/np.pi
+
+        rot_mat, trans_mat = ru.get_grid(st_pose_adjusted, agent_view.size(), dtype)
         rotated = F.grid_sample(agent_view, rot_mat, align_corners=True)
         translated = F.grid_sample(rotated, trans_mat, align_corners=True)
+        plt.imshow(rotated[0,0].cpu())
 
         # Clamp to [0, 1] after transform agent view to map coordinates
         translated = torch.clamp(translated, min=0.0, max=1.0).float()
@@ -639,8 +650,8 @@ class Categorical2DSemanticMapModule(nn.Module):
         # Update obstacles in current map
         # TODO Implement this properly for num_environments > 1
         # remove obstacles that are observed to be free
-        prev_map[0, 0, free_locations[0, :, 0], free_locations[0, :, 1]] = 0
-        translated[0, 0, obstacle_locations[0, :, 0], obstacle_locations[0, :, 1]] = 1
+        # prev_map[0, 0, free_locations[0, :, 0], free_locations[0, :, 1]] = 0
+        # translated[0, 0, obstacle_locations[0, :, 0], obstacle_locations[0, :, 1]] = 1
 
         # Aggregate by taking the max of the previous map and current map after removing obstacles
         maps = torch.cat((prev_map.unsqueeze(1), translated.unsqueeze(1)), 1)

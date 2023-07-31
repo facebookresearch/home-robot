@@ -257,16 +257,14 @@ def main(spot,args):
     agent.reset()
 
     assert agent.num_sem_categories == env.num_sem_categories
-    pan_warmup = False
+    pan_warmup = True
 
     # control with keyboard instead of planner
     keyboard_takeover = args.keyboard
     if pan_warmup:
+        env.env.set_arm_yaw(np.pi, time=4,blocking=True)
         positions = spot.get_arm_joint_positions()
-        new_pos = positions.copy()
-        new_pos[0] = np.pi
-        spot.set_arm_joint_positions(new_pos, travel_time=3)
-        time.sleep(3)
+        print(positions)
 
     t = 0
     while not env.episode_over:
@@ -278,6 +276,13 @@ def main(spot,args):
             pickle.dump(obs, f)
 
         action, info = agent.act(obs)
+        # env.env.set_arm_yaw(np.pi/4)
+        # import transforms3d as t3d
+        # mat = t3d.quaternions.quat2mat(env.env.get_observations()['camera_rotation'])
+        # import trimesh.transformations as tra
+        # tra.euler_from_matrix(mat, "rzyx")
+        # np.pi/4
+        # env.env.initial_joints
         print("SHORT_TERM:", info["short_term_goal"])
         x, y = info["short_term_goal"]
         x, y = agent.semantic_map.local_to_global(x, y)
@@ -335,34 +340,32 @@ def main(spot,args):
                 delta = global_point-cur_xy
                 heading = math.atan2(delta[1],delta[0])
                 spot.set_base_position(global_point[0],global_point[1],heading,10,relative=False, max_fwd_vel=0.5, max_hor_vel=0.5, max_ang_vel=np.pi / 4,blocking=True)
-        if keyboard_takeover:
-            if key == ord("w"):
-                spot.set_base_velocity(0.5, 0, 0, 0.5)
-            elif key == ord("s"):
-                # back
-                spot.set_base_velocity(-0.5, 0, 0, 0.5)
-            elif key == ord("a"):
-                # left
-                spot.set_base_velocity(0, 0.5, 0, 0.5)
-            elif key == ord("d"):
-                # right
-                spot.set_base_velocity(0, -0.5, 0, 0.5)
-            elif key == ord("q"):
-                # rotate left
-                spot.set_base_velocity(0, 0, 0.5, 0.5)
-            elif key == ord("e"):
-                # rotate right
-                spot.set_base_velocity(0, 0, -0.5, 0.5)
-
+        if pan_warmup:
+            positions = spot.get_arm_joint_positions()
+            env.env.set_arm_yaw(-np.pi, time=20)
+            if positions[0] < -2.5:
+                pan_warmup = False
+                env.env.initialize_arm()
         else:
-            if pan_warmup:
-                positions = spot.get_arm_joint_positions()
-                new_pos = positions.copy()
-                new_pos[0] = -np.pi
-                spot.set_arm_joint_positions(new_pos, travel_time=20)
-                if positions[0] < -2.5:
-                    pan_warmup = False
-                    env.env.initialize_arm()
+            if keyboard_takeover:
+                if key == ord("w"):
+                    spot.set_base_velocity(0.5, 0, 0, 0.5)
+                elif key == ord("s"):
+                    # back
+                    spot.set_base_velocity(-0.5, 0, 0, 0.5)
+                elif key == ord("a"):
+                    # left
+                    spot.set_base_velocity(0, 0.5, 0, 0.5)
+                elif key == ord("d"):
+                    # right
+                    spot.set_base_velocity(0, -0.5, 0, 0.5)
+                elif key == ord("q"):
+                    # rotate left
+                    spot.set_base_velocity(0, 0, 0.5, 0.5)
+                elif key == ord("e"):
+                    # rotate right
+                    spot.set_base_velocity(0, 0, -0.5, 0.5)
+
             else:
                 if action is not None:
                     env.apply_action(action)
