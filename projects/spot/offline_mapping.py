@@ -601,7 +601,9 @@ def main(obs_dir: str, map_vis_dir: str, goal_grounding_vis_dir: str, legend_pat
 
     if ground_language_in_memory:
         language_goals = [
-            "the person with a grey t-shirt",
+            "a person",
+            "a sofa",
+            "a chair",
         ]
 
         for i, language_goal in enumerate(language_goals):
