@@ -259,7 +259,7 @@ def text_to_image(
 
 
 record_instance_ids = True
-ground_image_in_memory = True
+ground_image_in_memory = False
 ground_language_in_memory = True
 
 
