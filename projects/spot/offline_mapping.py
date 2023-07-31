@@ -332,7 +332,7 @@ def main(obs_dir: str, map_vis_dir: str, goal_grounding_vis_dir: str, legend_pat
     # Map initialization
     # --------------------------------------------------------------------------------------------
 
-    device = torch.device("cuda:0")
+    device = torch.device("cuda:1")
 
     # Instance memory is responsible for tracking instances in the map
     instance_memory = None
