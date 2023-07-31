@@ -233,18 +233,44 @@ def get_semantic_map_vis(
 
 
 GOALS = {
-    "language1": {
+    "object_chair": {"type": "objectnav", "target": "chair"},
+    "object_toilet": {"type": "objectnav", "target": "toilet"},
+    "object_couch": {"type": "objectnav", "target": "couch"},
+    "object_oven": {"type": "objectnav", "target": "oven"},
+    "image_chair1": {
+        "type": "imagenav",
+        "target": "chair",
+        "image": cv2.imread(
+            f"{str(Path(__file__).resolve().parent)}/image_goals/chair1_spot.png"
+        ),
+    },
+    "image_chair2": {
+        "type": "imagenav",
+        "target": "chair",
+        "image": cv2.imread(
+            f"{str(Path(__file__).resolve().parent)}/image_goals/chair2_spot.png"
+        ),
+    },
+    "image_chair3": {
+        "type": "imagenav",
+        "target": "chair",
+        "image": cv2.imread(
+            f"{str(Path(__file__).resolve().parent)}/image_goals/chair3_spot.png"
+        ),
+    },
+    "image_chair4": {
+        "type": "imagenav",
+        "target": "chair",
+        "image": cv2.imread(
+            f"{str(Path(__file__).resolve().parent)}/image_goals/chair4_spot.png"
+        ),
+    },
+    "language_chair2": {
         "type": "languagenav",
         "target": "chair",
         "landmarks": ["dining table"],
-        "instruction": "Instruction: Find the chair next to the dining table.",
+        "instruction": "Instruction: Find the high chair next to the kitchen table.",
     },
-    "image1": {
-        "type": "imagenav",
-        "target": "chair",
-        "image": cv2.imread(f"{str(Path(__file__).resolve().parent)}/image_goal1.png"),
-    },
-    "object1": {"type": "objectnav", "target": "chair"},
 }
 
 
@@ -278,8 +304,14 @@ def main(spot=None):
     # goals = [GOALS[g] for g in user_input.split(",")]
     # pprint.pprint(goals, indent=4)
     # env.set_goals(goals)
-    env.set_goals([GOALS["object1"]])
-    # env.set_goals([GOALS["image1"]])
+
+    env.set_goals(
+        [
+            GOALS["object_chair"],
+            GOALS["object_couch"],
+            GOALS["image_chair1"],
+        ]
+    )
 
     agent = GoatAgent(config=config)
     agent.reset()

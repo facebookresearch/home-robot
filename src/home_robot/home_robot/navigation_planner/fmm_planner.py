@@ -28,7 +28,7 @@ class FMMPlanner:
         vis_dir: str = "data/images/planner",
         visualize=True,
         print_images=True,
-        debug=False,
+        debug=True,
     ):
         """
         Arguments:
@@ -209,6 +209,11 @@ class FMMPlanner:
                 subset[self.du, self.du] * 5,
             )
         stop = subset[self.du, self.du] < self.goal_tolerance
+        if self.debug:
+            print("subset[self.du, self.du]", subset[self.du, self.du])
+            print("self.goal_tolerance", self.goal_tolerance)
+            print("stop", stop)
+            print()
 
         subset -= subset[self.du, self.du]
         ratio1 = subset / dist_mask

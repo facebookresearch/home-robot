@@ -96,6 +96,8 @@ class GoatAgentModule(nn.Module):
         all_matches=None,
         all_confidences=None,
         score_thresh=0.0,
+        seq_obstacle_locations=None,
+        seq_free_locations=None,
     ):
         """Update maps and poses with a sequence of observations, and predict
         high-level goals from map features.
@@ -170,6 +172,8 @@ class GoatAgentModule(nn.Module):
             init_global_pose,
             init_lmb,
             init_origins,
+            seq_obstacle_locations=seq_obstacle_locations,
+            seq_free_locations=seq_free_locations,
             blacklist_target=blacklist_target,
         )
 
