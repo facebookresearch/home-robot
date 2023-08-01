@@ -599,22 +599,27 @@ def main(base_dir: str, legend_path: str):
                 all_confidences=all_confidences,
                 score_thresh=config.AGENT.SUPERGLUE.score_thresh_image,
             )
-            semantic_map.update_global_goal_for_env(0, goal_map.cpu().numpy())
 
-            vis_image = get_semantic_map_vis(
-                semantic_map,
-                goal_image=image_goal[:, :, ::-1],
-                # Visualize the first cropped view of the instance
-                instance_image=instance_memory.instance_views[0][goal_inst]
-                .instance_views[0]
-                .cropped_image[:, :, ::-1],
-                color_palette=coco_categories_color_palette,
-                legend=legend,
-            )
-            plt.imsave(Path(goal_grounding_vis_dir) / image_goal_str, vis_image)
+            if instance_goal_found:
+                semantic_map.update_global_goal_for_env(0, goal_map.cpu().numpy())
 
-            print("Found goal:", instance_goal_found)
-            print("Goal instance ID:", goal_inst)
+                vis_image = get_semantic_map_vis(
+                    semantic_map,
+                    goal_image=image_goal[:, :, ::-1],
+                    # Visualize the first cropped view of the instance matched
+                    instance_image=instance_memory.instance_views[0][goal_inst]
+                    .instance_views[0]
+                    .cropped_image[:, :, ::-1],
+                    color_palette=coco_categories_color_palette,
+                    legend=legend,
+                )
+                plt.imsave(Path(goal_grounding_vis_dir) / image_goal_str, vis_image)
+
+                print("Found goal:", instance_goal_found)
+                print("Goal instance ID:", goal_inst)
+
+            else:
+                print("Could not find goal")
 
     # -----------------------------------------------
     # Language goals
