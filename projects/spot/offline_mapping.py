@@ -642,7 +642,8 @@ def main(base_dir: str, legend_path: str):
             "the kitchen sink",
             "the bathroom sink",
             # Refrigerator
-            "the refrigerator" "the bed",
+            "the refrigerator",
+            "the bed",
             "the sofa",
             "the oven",
             "the person with the grey shirt",
