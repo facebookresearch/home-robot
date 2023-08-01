@@ -284,7 +284,7 @@ def main(base_dir: str, legend_path: str):
     else:
         legend = None
 
-    device = torch.device("cuda:1")
+    device = torch.device("cuda:0")
 
     categories = list(coco_categories.keys())
     num_sem_categories = len(coco_categories)
