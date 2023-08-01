@@ -234,7 +234,6 @@ class GoatMatching(Matching):
                     max_scores.append(max(inst_view_scores))
                     print(f"Instance {inst_idx+1} score: {max(inst_view_scores)}")
 
-                breakpoint()
                 sorted_inst_ids = np.argsort(max_scores)[::-1]
                 idx = 0
                 while (
