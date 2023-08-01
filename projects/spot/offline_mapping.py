@@ -569,6 +569,8 @@ def main(base_dir: str, legend_path: str):
             image_goal_str = image_goal_path.split("/")[-1]
             print()
             print("Image goal:", image_goal_str)
+            if image_goal_str != "chair2_spot.png":
+                continue  # TODO Debug
 
             goal_image, goal_image_keypoints = matching.get_goal_image_keypoints(
                 image_goal
@@ -603,6 +605,7 @@ def main(base_dir: str, legend_path: str):
             if instance_goal_found:
                 semantic_map.update_global_goal_for_env(0, goal_map.cpu().numpy())
 
+                breakpoint()
                 vis_image = get_semantic_map_vis(
                     semantic_map,
                     goal_image=image_goal[:, :, ::-1],
@@ -627,14 +630,23 @@ def main(base_dir: str, legend_path: str):
 
     if ground_language_in_memory:
         language_goals = [
+            # Chairs
             "the high chair next to the kitchen island",
-            "the chair next to the dining table",
+            "the grey chair next to the dining table",
             "the grey armchair",
+            "the black office chair"
+            # Plants
+            "the big potted plant next to the armchair",
+            "the potted plant next to the brown chair"
+            # Sinks
+            "the kitchen sink",
+            "the bathroom sink",
+            # Refrigerator
+            "the refrigerator" "the bed",
+            "the sofa",
+            "the oven",
             "the person with the grey shirt",
             "the white cup",
-            "the white sofa",
-            "the big potted plant",
-            "the white bed",
             "the toilet",
         ]
 
