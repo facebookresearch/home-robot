@@ -58,9 +58,7 @@ class GoatMatching(Matching):
         all_views = []
         instance_view_counts = []
         steps_per_view = []
-        for (inst_key, inst) in tqdm(
-            instances.items(), desc="Matching goal image with instance views"
-        ):
+        for (inst_key, inst) in instances.items():
             inst_views = inst.instance_views
             for view_idx, inst_view in enumerate(inst_views):
                 # if inst_view.cropped_image.shape[0] * inst_view.cropped_image.shape[1] < 2500 or (np.array(inst_view.cropped_image.shape[0:2]) < 15).any():
@@ -128,7 +126,8 @@ class GoatMatching(Matching):
         all_confidences = []
 
         # TODO Can we batch this for loop to speed it up? It is a bottleneck
-        for i in range(len(rgb_image_batched)):
+        print("Computing matching score with each view...")
+        for i in tqdm(range(len(rgb_image_batched))):
             if goal_image_keypoints is None:
                 goal_image_keypoints = {}
             if rgb_image_keypoints is None:
@@ -250,6 +249,7 @@ class GoatMatching(Matching):
                     inst_map_idx = torch.argmax(torch.sum(inst_map_idx, axis=(1, 2)))
                     goal_map_temp = (instance_map[inst_map_idx] == inst_idx + 1).float()
 
+                    breakpoint()
                     if goal_map_temp.any():
                         instance_goal_found = True
                         goal_inst = inst_idx + 1
@@ -264,6 +264,7 @@ class GoatMatching(Matching):
                     print("Goal image does not match any instance.")
                     # TODO: dont stop at the first instance, but rather find the best one
 
+        breakpoint()
         if goal_inst is not None and instance_goal_found is True:
             found_goal[0] = True
 
