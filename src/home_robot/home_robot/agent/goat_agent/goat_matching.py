@@ -252,10 +252,9 @@ class GoatMatching(Matching):
                     inst_map_idx = torch.argmax(torch.sum(inst_map_idx, axis=(1, 2)))
                     goal_map_temp = (instance_map[inst_map_idx] == inst_idx + 1).float()
 
-                    breakpoint()
                     if goal_map_temp.any():
                         instance_goal_found = True
-                        goal_inst = inst_idx + 1
+                        goal_inst = inst_idx
                         goal_map = goal_map_temp
                         print(f"{goal_inst} will be the goal")
                         break
@@ -267,7 +266,6 @@ class GoatMatching(Matching):
                     print("Goal image does not match any instance.")
                     # TODO: dont stop at the first instance, but rather find the best one
 
-        breakpoint()
         if goal_inst is not None and instance_goal_found is True:
             found_goal[0] = True
 
