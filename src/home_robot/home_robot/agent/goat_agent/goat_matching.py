@@ -73,7 +73,6 @@ class GoatMatching(Matching):
                 all_views.append(img)
                 steps_per_view.append(1000 * step + 10 * inst_key + view_idx)
             instance_view_counts.append(len(inst_views))
-        breakpoint()
 
         if len(all_views) > 0:
             if image_goal is not None:
@@ -117,7 +116,6 @@ class GoatMatching(Matching):
             tensor of keypoint matches
             tensor of match confidences
         """
-        breakpoint()
         if isinstance(rgb_image, np.ndarray) and len(rgb_image.shape) == 3:
             rgb_image_batched = [rgb_image]
         else:
@@ -128,6 +126,8 @@ class GoatMatching(Matching):
         all_rgb_keypoints = []
         all_matches = []
         all_confidences = []
+
+        # TODO Can we batch this for loop to speed it up? It is a bottleneck
         for i in range(len(rgb_image_batched)):
             if goal_image_keypoints is None:
                 goal_image_keypoints = {}
@@ -219,7 +219,6 @@ class GoatMatching(Matching):
     ) -> Tuple[torch.Tensor, torch.Tensor, bool, Optional[int]]:
         """Select and localize an instance given computed matching scores."""
 
-        breakpoint()
         if all_matches is not None:
             if len(all_matches) > 0:
                 max_scores = []
@@ -234,6 +233,7 @@ class GoatMatching(Matching):
                     max_scores.append(max(inst_view_scores))
                     print(f"Instance {inst_idx+1} score: {max(inst_view_scores)}")
 
+                breakpoint()
                 sorted_inst_ids = np.argsort(max_scores)[::-1]
                 idx = 0
                 while idx < len(sorted_inst_ids) and max_scores[idx] > score_thresh:
