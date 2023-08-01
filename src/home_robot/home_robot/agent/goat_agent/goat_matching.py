@@ -73,6 +73,7 @@ class GoatMatching(Matching):
                 all_views.append(img)
                 steps_per_view.append(1000 * step + 10 * inst_key + view_idx)
             instance_view_counts.append(len(inst_views))
+        breakpoint()
 
         if len(all_views) > 0:
             if image_goal is not None:
@@ -116,6 +117,7 @@ class GoatMatching(Matching):
             tensor of keypoint matches
             tensor of match confidences
         """
+        breakpoint()
         if isinstance(rgb_image, np.ndarray) and len(rgb_image.shape) == 3:
             rgb_image_batched = [rgb_image]
         else:
