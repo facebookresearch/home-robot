@@ -81,7 +81,7 @@ HOME_ROBOT_ROOT=$USER/src/home-robot
 CUDA_HOME=/usr/local/cuda-11.7
 ```
 
-Finally, you can run the [install script](install.sh) to download submodules, model checkpoints, and build Detic for open-vocabulary object detection:
+Finally, you can run the [install script](install_deps.sh) to download submodules, model checkpoints, and build Detic for open-vocabulary object detection:
 ```
 conda activate home-robot
 cd $HOME_ROBOT_ROOT
@@ -97,7 +97,9 @@ To set up the simulation stack with Habitat, train DDPPO skills and run evaluati
 
 For more details on the OVMM challenge, see the [Habitat OVMM readme](projects/habitat_ovmm/README.md). You can start by running the [install script](projects/habitat_ovmm/install.sh) to download all the necessary data:
 
+```
 $HOME_ROBOT_ROOT/projects/habitat_ovmm/install.sh
+```
 
 
 #### 4. Run Open Vocabulary Mobile Manipulation on Stretch
