@@ -230,10 +230,11 @@ class GoatMatching(Matching):
                         ].sum()
                         inst_view_scores.append(view_score)
 
+                    # Take the max matching score across views of the instance
+                    # TODO Try other aggregation strategies (mean, median)
                     max_scores.append(max(inst_view_scores))
                     print(f"Instance {inst_idx+1} score: {max(inst_view_scores)}")
 
-                breakpoint()
                 sorted_inst_ids = np.argsort(max_scores)[::-1]
                 idx = 0
                 while idx < len(sorted_inst_ids) and max_scores[idx] > score_thresh:
@@ -247,9 +248,7 @@ class GoatMatching(Matching):
                     ]  # TODO: currently assuming img goal instance was an object outside of the vocabulary
                     inst_map_idx = instance_map == inst_idx + 1
                     inst_map_idx = torch.argmax(torch.sum(inst_map_idx, axis=(1, 2)))
-                    goal_map_temp = (instance_map[inst_map_idx] == inst_idx + 1).to(
-                        torch.float
-                    )
+                    goal_map_temp = (instance_map[inst_map_idx] == inst_idx + 1).float()
 
                     if goal_map_temp.any():
                         instance_goal_found = True
