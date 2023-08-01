@@ -605,7 +605,6 @@ def main(base_dir: str, legend_path: str):
             if instance_goal_found:
                 semantic_map.update_global_goal_for_env(0, goal_map.cpu().numpy())
 
-                breakpoint()
                 vis_image = get_semantic_map_vis(
                     semantic_map,
                     goal_image=image_goal[:, :, ::-1],
