@@ -247,7 +247,7 @@ class GoatMatching(Matching):
                         + 2 * self.num_sem_categories,
                         :,
                         :,
-                    ]  # TODO: currently assuming img goal instance was an object outside of the vocabulary
+                    ]
                     inst_map_idx = instance_map == inst_idx + 1
                     inst_map_idx = torch.argmax(torch.sum(inst_map_idx, axis=(1, 2)))
                     goal_map_temp = (instance_map[inst_map_idx] == inst_idx + 1).float()
@@ -255,7 +255,7 @@ class GoatMatching(Matching):
                     breakpoint()
                     if goal_map_temp.any():
                         instance_goal_found = True
-                        goal_inst = inst_idx
+                        goal_inst = inst_idx + 1
                         goal_map = goal_map_temp
                         print(f"{goal_inst} will be the goal")
                         break
@@ -265,7 +265,6 @@ class GoatMatching(Matching):
 
                 if idx == len(sorted_inst_ids):
                     print("Goal image does not match any instance.")
-                    # TODO: dont stop at the first instance, but rather find the best one
 
         if goal_inst is not None and instance_goal_found is True:
             found_goal[0] = True
