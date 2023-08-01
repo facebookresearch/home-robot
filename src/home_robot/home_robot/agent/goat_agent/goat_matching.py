@@ -217,6 +217,7 @@ class GoatMatching(Matching):
     ) -> Tuple[torch.Tensor, torch.Tensor, bool, Optional[int]]:
         """Select and localize an instance given computed matching scores."""
 
+        breakpoint()
         if all_matches is not None:
             if len(all_matches) > 0:
                 max_scores = []
