@@ -252,7 +252,6 @@ class GoatMatching(Matching):
                     inst_map_idx = torch.argmax(torch.sum(inst_map_idx, axis=(1, 2)))
                     goal_map_temp = (instance_map[inst_map_idx] == inst_idx + 1).float()
 
-                    breakpoint()
                     if goal_map_temp.any():
                         instance_goal_found = True
                         goal_inst = inst_idx + 1
