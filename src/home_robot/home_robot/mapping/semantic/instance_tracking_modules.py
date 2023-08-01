@@ -94,10 +94,12 @@ class InstanceMemory:
         debug_visualize: bool = False,
         config=None,
         save_dir="instances",
+        mask_cropped_instances=False,
     ):
         self.num_envs = num_envs
         self.du_scale = du_scale
         self.debug_visualize = debug_visualize
+        self.mask_cropped_instances = mask_cropped_instances
 
         if config is not None:
             self.save_dir = f"{config.DUMP_LOCATION}/instances/{config.EXP_NAME}"
@@ -222,7 +224,11 @@ class InstanceMemory:
                 .bool()
             )
 
-            masked_image = image * instance_mask
+            if self.mask_cropped_instances:
+                masked_image = image * instance_mask
+            else:
+                masked_image = image
+
             # get cropped image
             cropped_image = (
                 masked_image[:, bbox[0, 0] : bbox[1, 0], bbox[0, 1] : bbox[1, 1]]
