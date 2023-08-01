@@ -37,6 +37,13 @@ coco_categories_mapping = {
     75: 12,  # vase
     41: 13,  # cup
     39: 14,  # bottle
+    # Potential new categories
+    # 24: 15,  # backpack
+    # 25: 16,  # umbrella
+    # 38: 17,  # tennis racket
+    # 44: 18,  # bowl
+    # 46: 19,  # banana
+    # 47: 20,  # apple
 }
 
 coco_categories_color_palette = [
