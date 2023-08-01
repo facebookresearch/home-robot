@@ -62,6 +62,7 @@ class GoatAgent(Agent):
                 config.AGENT.SEMANTIC_MAP.du_scale,
                 debug_visualize=config.PRINT_IMAGES,
                 config=config,
+                mask_cropped_instances=False,
             )
 
         ## imagenav stuff
@@ -723,7 +724,7 @@ class GoatAgent(Agent):
                     self.sub_task_timesteps[0][self.current_task_idx],
                     image_goal=self.goal_image,
                     goal_image_keypoints=self.goal_image_keypoints,
-                    use_full_image=True,
+                    use_full_image=False,
                 )
 
         return (
