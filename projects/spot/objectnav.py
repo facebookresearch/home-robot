@@ -244,9 +244,10 @@ def main(spot):
 
     env = SpotObjectNavEnv(spot, position_control=True)
     env.reset()
-    user_input = input("Enter the goal category: ")
-    print("You entered:", user_input)
-    env.set_goal(user_input)
+    # user_input = input("Enter the goal category: ")
+    # print("You entered:", user_input)
+    # env.set_goal(user_input)
+    env.set_goal("sink")
 
     agent = ObjectNavAgent(config=config)
     agent.reset()
@@ -269,6 +270,8 @@ def main(spot):
         obs = env.get_observation()
         with open(f"{obs_dir}/{t}.pkl", "wb") as f:
             pickle.dump(obs, f)
+        cv2.imwrite("projects/spot/goal_spot.png", obs.rgb)
+        return 
 
         action, info = agent.act(obs)
         print("SHORT_TERM:", info["short_term_goal"])
@@ -296,6 +299,8 @@ def main(spot):
         cv2.imshow("vis", vis_image[:, :, ::-1])
 
         key = cv2.waitKey(500)
+        cv2.imwrite("goal_spot.png", obs.rgb)
+        breakpoint()
 
         if key == ord("z"):
             break
