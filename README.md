@@ -85,7 +85,7 @@ Finally, you can run the [install script](install.sh) to download submodules, mo
 ```
 conda activate home-robot
 cd $HOME_ROBOT_ROOT
-./install.sh
+./install_deps.sh
 ```
 
 If you run into issues, check out the [step-by-step instructions](docs/install_workstation.md).
