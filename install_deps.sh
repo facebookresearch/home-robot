@@ -42,6 +42,7 @@ python -m pip install -e src/home_robot_hw
 
 echo ""
 echo "Install habitat dependencies..."
+git submodule update --init --recursive src/third_party/habitat-lab
 pip install -e src/third_party/habitat-lab/habitat-lab
 pip install -e src/third_party/habitat-lab/habitat-baselines
 
@@ -51,6 +52,12 @@ git submodule update --init --recursive src/third_party/detectron2
 cd $HOME_ROBOT_ROOT
 pip install -e src/third_party/detectron2
 
+cd $HOME_ROBOT_ROOT
+echo ""
+echo "Cloning Detic and third party submodules..."
+git submodule update --init --recursive src/home_robot/home_robot/perception/detection/detic/Detic
+
+echo ""
 echo "Download DETIC checkpoint..."
 cd $HOME_ROBOT_ROOT/src/home_robot/home_robot/perception/detection/detic/Detic
 mkdir models
@@ -68,4 +75,5 @@ cd $HOME_ROBOT_ROOT
 echo ""
 echo "Install pre-commit hooks"
 pip install pre-commit
+pre-commit install
 pre-commit install-hooks

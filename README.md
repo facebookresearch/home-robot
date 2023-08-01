@@ -71,76 +71,36 @@ This should install pytorch; if you run into trouble, you may need to edit the i
 
 Optionally, setup a [catkin workspace](docs/catkin.md) to use improved ROS visualizations.
 
-#### 2. Install Home Robot Packages
+#### 2. Run Install Script
+
+Make sure you have the correct environment variables set: `CUDA_HOME` should point to your cuda install, matching the one used by your python environment. We recommend 11.7, and it's what will be automatically installed above. You can download it from [nvidia's downloads page](https://developer.nvidia.com/cuda-11-7-0-download-archive?target_os=Linux&target_arch=x86_64&Distribution=Ubuntu). Download the runfile, and make sure to check the box NOT to install your drivers.
+
+Then make sure the environment variables are set to something reasonable:
+```
+HOME_ROBOT_ROOT=$USER/src/home-robot
+CUDA_HOME=/usr/local/cuda-11.7
+```
+
+Finally, you can run the [install script](install.sh) to download submodules, model checkpoints, and build Detic for open-vocabulary object detection:
 ```
 conda activate home-robot
-
-# Install the core home_robot package
-python -m pip install -e src/home_robot
-
-Skip to step 4 if you do not have a real robot setup or if you only want to use our simulation stack.
-
-# Install home_robot_hw
-python -m pip install -e src/home_robot_hw
+cd $HOME_ROBOT_ROOT
+./install_deps.sh
 ```
 
-_Testing Real Robot Setup:_ Now you can run a couple commands to test your connection. If the `roscore` and the robot controllers are running properly, you can run `rostopic list` and should see a list of topics - streams of information coming from the robot. You can then run RVIZ to visualize the robot sensor output:
-
-```
-rviz -d $HOME_ROBOT_ROOT/src/home_robot_hw/launch/mapping_demo.rviz
-```
-
-#### 3. Download third-party packages
-```
-git submodule update --init --recursive src/home_robot/home_robot/perception/detection/detic/Detic src/third_party/detectron2 src/third_party/contact_graspnet
-```
-
-#### 4. Hardware Testing
-
-Run the hardware manual test to make sure you can control the robot remotely. Ensure the robot has one meter of free space before running the script.
-
-```
-python tests/hw_manual_test.py
-```
-
-Follow the on-screen instructions. The robot should move through a set of configurations.
-
-#### 5. Install Detic
-
-Install [detectron2](https://detectron2.readthedocs.io/tutorials/install.html). If you installed our default environment above, you may need to [download CUDA11.7](https://developer.nvidia.com/cuda-11-7-0-download-archive).
+If you run into issues, check out the [step-by-step instructions](docs/install_workstation.md).
 
 
-Download Detic checkpoint as per the instructions [on the Detic github page](https://github.com/facebookresearch/Detic):
-
-```bash
-cd $HOME_ROBOT_ROOT/src/home_robot/home_robot/perception/detection/detic/Detic/
-mkdir models
-wget https://dl.fbaipublicfiles.com/detic/Detic_LCOCOI21k_CLIP_SwinB_896b32_4x_ft4x_max-size.pth -O models/Detic_LCOCOI21k_CLIP_SwinB_896b32_4x_ft4x_max-size.pth --no-check-certificate
-```
-
-You should be able to run the Detic demo script as per the Detic instructions to verify your installation was correct:
-```bash
-wget https://web.eecs.umich.edu/~fouhey/fun/desk/desk.jpg
-python demo.py --config-file configs/Detic_LCOCOI21k_CLIP_SwinB_896b32_4x_ft4x_max-size.yaml --input desk.jpg --output out2.jpg --vocabulary custom --custom_vocabulary headphone,webcam,paper,coffe --confidence-threshold 0.3 --opts MODEL.WEIGHTS models/Detic_LCOCOI21k_CLIP_SwinB_896b32_4x_ft4x_max-size.pth
-```
-
-#### 6. Download pretrained skills
-```
-mkdir -p data/checkpoints
-cd data/checkpoints
-wget https://dl.fbaipublicfiles.com/habitat/data/baselines/v1/ovmm_baseline_home_robot_challenge_2023.zip
-unzip ovmm_baseline_home_robot_challenge_2023.zip
-cd ../../
-```
-
-#### 7. Simulation Setup
+#### 3. Simulation Setup
 
 To set up the simulation stack with Habitat, train DDPPO skills and run evaluations: see the [installation instructions](src/home_robot_sim/README.md) in `home_robot_sim`.
 
-For more details on the OVMM challenge, see the [Habitat OVMM readme](projects/habitat_ovmm/README.md).
+For more details on the OVMM challenge, see the [Habitat OVMM readme](projects/habitat_ovmm/README.md). You can start by running the [install script](projects/habitat_ovmm/install.sh) to download all the necessary data:
+
+$HOME_ROBOT_ROOT/projects/habitat_ovmm/install.sh
 
 
-#### 8. Run Open Vocabulary Mobile Manipulation on Stretch
+#### 4. Run Open Vocabulary Mobile Manipulation on Stretch
 
 You should then be able to run the Stretch OVMM example.
 
