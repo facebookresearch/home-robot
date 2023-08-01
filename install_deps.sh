@@ -42,6 +42,7 @@ python -m pip install -e src/home_robot_hw
 
 echo ""
 echo "Install habitat dependencies..."
+git submodule update --init --recursive src/third_party/habitat-lab
 pip install -e src/third_party/habitat-lab/habitat-lab
 pip install -e src/third_party/habitat-lab/habitat-baselines
 
