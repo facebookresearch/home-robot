@@ -58,9 +58,7 @@ class GoatMatching(Matching):
         all_views = []
         instance_view_counts = []
         steps_per_view = []
-        for (inst_key, inst) in tqdm(
-            instances.items(), desc="Matching goal image with instance views"
-        ):
+        for (inst_key, inst) in instances.items():
             inst_views = inst.instance_views
             for view_idx, inst_view in enumerate(inst_views):
                 # if inst_view.cropped_image.shape[0] * inst_view.cropped_image.shape[1] < 2500 or (np.array(inst_view.cropped_image.shape[0:2]) < 15).any():
@@ -126,7 +124,10 @@ class GoatMatching(Matching):
         all_rgb_keypoints = []
         all_matches = []
         all_confidences = []
-        for i in range(len(rgb_image_batched)):
+
+        # TODO Can we batch this for loop to speed it up? It is a bottleneck
+        print("Computing matching score with each view...")
+        for i in tqdm(range(len(rgb_image_batched))):
             if goal_image_keypoints is None:
                 goal_image_keypoints = {}
             if rgb_image_keypoints is None:
@@ -228,12 +229,17 @@ class GoatMatching(Matching):
                         ].sum()
                         inst_view_scores.append(view_score)
 
+                    # Take the max matching score across views of the instance
+                    # TODO Try other aggregation strategies (mean, median)
                     max_scores.append(max(inst_view_scores))
                     print(f"Instance {inst_idx+1} score: {max(inst_view_scores)}")
 
                 sorted_inst_ids = np.argsort(max_scores)[::-1]
                 idx = 0
-                while idx < len(sorted_inst_ids) and max_scores[idx] > score_thresh:
+                while (
+                    idx < len(sorted_inst_ids)
+                    and max_scores[sorted_inst_ids[idx]] > score_thresh
+                ):
                     inst_idx = sorted_inst_ids[idx]
                     instance_map = local_map[0][
                         MC.NON_SEM_CHANNELS
@@ -241,12 +247,10 @@ class GoatMatching(Matching):
                         + 2 * self.num_sem_categories,
                         :,
                         :,
-                    ]  # TODO: currently assuming img goal instance was an object outside of the vocabulary
+                    ]
                     inst_map_idx = instance_map == inst_idx + 1
                     inst_map_idx = torch.argmax(torch.sum(inst_map_idx, axis=(1, 2)))
-                    goal_map_temp = (instance_map[inst_map_idx] == inst_idx + 1).to(
-                        torch.float
-                    )
+                    goal_map_temp = (instance_map[inst_map_idx] == inst_idx + 1).float()
 
                     if goal_map_temp.any():
                         instance_goal_found = True
@@ -260,7 +264,6 @@ class GoatMatching(Matching):
 
                 if idx == len(sorted_inst_ids):
                     print("Goal image does not match any instance.")
-                    # TODO: dont stop at the first instance, but rather find the best one
 
         if goal_inst is not None and instance_goal_found is True:
             found_goal[0] = True
