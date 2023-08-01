@@ -561,8 +561,8 @@ def main(base_dir: str, legend_path: str):
     # -----------------------------------------------
 
     if ground_image_in_memory:
-        image_goal_paths = glob.glob(
-            f"{str(Path(__file__).resolve().parent)}/image_goals/*.png"
+        image_goal_paths = sorted(
+            glob.glob(f"{str(Path(__file__).resolve().parent)}/image_goals/*.png")
         )
         for image_goal_path in image_goal_paths:
             image_goal = cv2.imread(image_goal_path)
