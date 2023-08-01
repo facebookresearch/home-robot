@@ -5,12 +5,12 @@
 # LICENSE file in the root directory of this source tree.
 
 
+from datetime import datetime
 from typing import Optional, Tuple
 
 import click
 import rospy
 
-from datetime import datetime
 from home_robot.agent.ovmm_agent.ovmm_agent import OpenVocabManipAgent
 from home_robot.motion.stretch import STRETCH_HOME_Q
 from home_robot_hw.env.stretch_pick_and_place_env import StretchPickandPlaceEnv
