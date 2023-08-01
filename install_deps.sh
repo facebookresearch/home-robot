@@ -52,9 +52,12 @@ git submodule update --init --recursive src/third_party/detectron2
 cd $HOME_ROBOT_ROOT
 pip install -e src/third_party/detectron2
 
-echo "Cloning Detic and third party submodules..."
 cd $HOME_ROBOT_ROOT
-git submodule update --init --recursive src/home_robot/home_robot/perception/detection/detic/Detic
+echo ""
+echo "Cloning Detic and third party submodules..."
+git submodule update --init --recursive src/home_robot/home_robot/perception/detection/detic/Detic/
+
+echo ""
 echo "Download DETIC checkpoint..."
 cd $HOME_ROBOT_ROOT/src/home_robot/home_robot/perception/detection/detic/Detic
 mkdir models
