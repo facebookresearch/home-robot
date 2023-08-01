@@ -568,6 +568,9 @@ def main(base_dir: str, legend_path: str):
             if "spot.png" in image_goal_path:
                 # TODO Restrict to iPhone goals to debug
                 continue
+            if "bed1_iphone.png" not in image_goal_path:
+                # TODO Debug
+                continue
             image_goal = cv2.imread(image_goal_path)
             image_goal_str = image_goal_path.split("/")[-1]
             print()

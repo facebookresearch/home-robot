@@ -79,7 +79,7 @@ AGENT:
     sinkhorn_iterations: 20
     match_threshold: 0.2
     score_function: confidence_sum    # or match_count
-    score_thresh_image: 24.5  # real-world experiments used 6.0
+    score_thresh_image: 14.0
     score_thresh_lang: 0.25
     match_projection_threshold: 0.2   # confidence must be at least this high to project as goal point.
 
