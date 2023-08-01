@@ -81,7 +81,6 @@ class MaskRCNNPerception(PerceptionModule):
             obs.task_observations["semantic_frame"]: segmentation visualization
              image of shape (H, W, 3)
         """
-        breakpoint()
         image = cv2.cvtColor(obs.rgb, cv2.COLOR_RGB2BGR)
         depth = obs.depth
         height, width, _ = image.shape
