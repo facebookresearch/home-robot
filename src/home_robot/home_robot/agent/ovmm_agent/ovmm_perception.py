@@ -10,6 +10,9 @@ from typing import Dict, Tuple
 from home_robot.core.interfaces import Observations
 from home_robot.perception.constants import RearrangeDETICCategories
 from home_robot.perception.detection.detic.detic_perception import DeticPerception
+from home_robot.perception.detection.grounded_sam.grounded_sam_perception import (
+    GroundedSAMPerception,
+)
 
 
 def read_category_map_file(
@@ -58,20 +61,36 @@ class OvmmPerception:
     It also maintains a list of vocabularies to use in segmentation and can switch between them at runtime.
     """
 
-    def __init__(self, config, gpu_device_id: int = 0, verbose: bool = False):
+    def __init__(
+        self,
+        config,
+        gpu_device_id: int = 0,
+        verbose: bool = False,
+        module="grounded_sam",
+    ):
         self.config = config
         self._use_detic_viz = config.ENVIRONMENT.use_detic_viz
+        self._detection_module = getattr(config.AGENT, "detection_module", "detic")
         self._vocabularies: Dict[int, RearrangeDETICCategories] = {}
         self._current_vocabulary: RearrangeDETICCategories = None
         self._current_vocabulary_id: int = None
         self.verbose = verbose
-        # TODO Specify confidence threshold as a parameter
-        self._segmentation = DeticPerception(
-            vocabulary="custom",
-            custom_vocabulary=".",
-            sem_gpu_id=gpu_device_id,
-            verbose=verbose,
-        )
+        if self._detection_module == "detic":
+            # TODO Specify confidence threshold as a parameter
+            self._segmentation = DeticPerception(
+                vocabulary="custom",
+                custom_vocabulary=".",
+                sem_gpu_id=gpu_device_id,
+                verbose=verbose,
+            )
+        elif self._detection_module == "grounded_sam":
+            self._segmentation = GroundedSAMPerception(
+                custom_vocabulary=".",
+                sem_gpu_id=gpu_device_id,
+                verbose=verbose,
+            )
+        else:
+            raise NotImplementedError
 
     @property
     def current_vocabulary_id(self) -> int:
