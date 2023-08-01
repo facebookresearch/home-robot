@@ -259,10 +259,10 @@ def text_to_image(
 
 
 record_instance_ids = True
-save_map_and_instances = False
-load_map_and_instances = True
+save_map_and_instances = True
+load_map_and_instances = False
 ground_image_in_memory = True
-ground_language_in_memory = False
+ground_language_in_memory = True
 
 
 @click.command()
@@ -582,7 +582,7 @@ def main(base_dir: str, legend_path: str):
                 0,
                 image_goal=goal_image,
                 goal_image_keypoints=goal_image_keypoints,
-                use_full_image=True,
+                use_full_image=False,
             )
 
             (
@@ -634,15 +634,16 @@ def main(base_dir: str, legend_path: str):
             "the high chair next to the kitchen island",
             "the grey chair next to the dining table",
             "the grey armchair",
-            "the black office chair"
+            "the black office chair",
             # Plants
             "the big potted plant next to the armchair",
-            "the potted plant next to the brown chair"
+            "the potted plant next to the brown chair",
             # Sinks
             "the kitchen sink",
             "the bathroom sink",
             # Refrigerator
-            "the refrigerator" "the bed",
+            "the refrigerator",
+            "the bed",
             "the sofa",
             "the oven",
             "the person with the grey shirt",
