@@ -236,7 +236,10 @@ class GoatMatching(Matching):
 
                 sorted_inst_ids = np.argsort(max_scores)[::-1]
                 idx = 0
-                while idx < len(sorted_inst_ids) and max_scores[idx] > score_thresh:
+                while (
+                    idx < len(sorted_inst_ids)
+                    and max_scores[sorted_inst_ids[idx]] > score_thresh
+                ):
                     inst_idx = sorted_inst_ids[idx]
                     instance_map = local_map[0][
                         MC.NON_SEM_CHANNELS
