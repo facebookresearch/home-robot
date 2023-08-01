@@ -10,6 +10,7 @@ from typing import Optional, Tuple
 import click
 import rospy
 
+from datetime import datetime
 from home_robot.agent.ovmm_agent.ovmm_agent import OpenVocabManipAgent
 from home_robot.motion.stretch import STRETCH_HOME_Q
 from home_robot_hw.env.stretch_pick_and_place_env import StretchPickandPlaceEnv
@@ -78,6 +79,7 @@ def main(
 
     agent.reset()
     if hasattr(agent, "planner"):
+        now = datetime.now()
         agent.planner.set_vis_dir("real_world", now.strftime("%Y_%m_%d_%H_%M_%S"))
     env.reset(start_recep, pick_object, goal_recep)
 
