@@ -56,6 +56,10 @@ class StretchHeadClient(AbstractControlModule):
         q, _, _ = self._ros_client.get_joint_state()
         return q[HelloStretchIdx.HEAD_PAN], q[HelloStretchIdx.HEAD_TILT]
 
+    def intrinsics(self) -> np.ndarray:
+        """Return 3x3 intrinsics matrics"""
+        return self._ros_client.rgb_cam.K
+
     def set_pan_tilt(
         self,
         pan: Optional[float] = None,
