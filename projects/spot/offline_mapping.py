@@ -634,10 +634,10 @@ def main(base_dir: str, legend_path: str):
             "the high chair next to the kitchen island",
             "the grey chair next to the dining table",
             "the grey armchair",
-            "the black office chair"
+            "the black office chair",
             # Plants
             "the big potted plant next to the armchair",
-            "the potted plant next to the brown chair"
+            "the potted plant next to the brown chair",
             # Sinks
             "the kitchen sink",
             "the bathroom sink",
