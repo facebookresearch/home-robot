@@ -259,9 +259,9 @@ def text_to_image(
 
 
 record_instance_ids = True
-save_map_and_instances = True
-load_map_and_instances = False
-ground_image_in_memory = False
+save_map_and_instances = False
+load_map_and_instances = True
+ground_image_in_memory = True
 ground_language_in_memory = False
 
 
@@ -564,10 +564,11 @@ def main(base_dir: str, legend_path: str):
         image_goal_paths = glob.glob(
             f"{str(Path(__file__).resolve().parent)}/image_goals/*.png"
         )
-        for i, image_goal_path in enumerate(image_goal_paths):
-            print()
-            print("Image goal:", image_goal_path)
+        for image_goal_path in image_goal_paths:
             image_goal = cv2.imread(image_goal_path)
+            image_goal_str = image_goal_path.split("/")[-1]
+            print()
+            print("Image goal:", image_goal_str)
 
             goal_image, goal_image_keypoints = matching.get_goal_image_keypoints(
                 image_goal
@@ -610,7 +611,7 @@ def main(base_dir: str, legend_path: str):
                 color_palette=coco_categories_color_palette,
                 legend=legend,
             )
-            plt.imsave(Path(goal_grounding_vis_dir) / f"image_goal{i}.png", vis_image)
+            plt.imsave(Path(goal_grounding_vis_dir) / image_goal_str, vis_image)
 
             print("Found goal:", instance_goal_found)
             print("Goal instance ID:", goal_inst)
