@@ -573,10 +573,11 @@ def main(base_dir: str, legend_path: str):
                 continue
             image_goal = cv2.imread(image_goal_path)
             image_goal_str = image_goal_path.split("/")[-1]
-            category_id = re.split("(\d+)", image_goal_str)[0]
+            category = re.split("(\d+)", image_goal_str)[0]
+            category_id = coco_categories.get(category, coco_categories["no-category"])
             print()
             print("Image goal:", image_goal_str)
-            print("Category:", category_id)
+            print("Category:", category)
 
             goal_image, goal_image_keypoints = matching.get_goal_image_keypoints(
                 image_goal
