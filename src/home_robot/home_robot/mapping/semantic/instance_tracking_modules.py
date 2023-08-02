@@ -178,16 +178,16 @@ class InstanceMemory:
         self.unprocessed_views[env_id] = {}
         # append image to list of images
         if self.images[env_id] is None:
-            self.images[env_id] = image.unsqueeze(0).detach()
+            self.images[env_id] = image.unsqueeze(0).detach().cpu()
         else:
             self.images[env_id] = torch.cat(
-                [self.images[env_id], image.unsqueeze(0).detach()], dim=0
+                [self.images[env_id], image.unsqueeze(0).detach().cpu()], dim=0
             )
         if self.point_cloud[env_id] is None:
-            self.point_cloud[env_id] = point_cloud.unsqueeze(0).detach()
+            self.point_cloud[env_id] = point_cloud.unsqueeze(0).detach().cpu()
         else:
             self.point_cloud[env_id] = torch.cat(
-                [self.point_cloud[env_id], point_cloud.unsqueeze(0).detach()], dim=0
+                [self.point_cloud[env_id], point_cloud.unsqueeze(0).detach().cpu()], dim=0
             )
         # unique instances
         instance_ids = torch.unique(instance_map)
@@ -259,7 +259,7 @@ class InstanceMemory:
                 mask=instance_mask,
                 point_cloud=point_cloud_instance.cpu().numpy(),
                 category_id=category_id,
-                pose=pose.detach(),
+                pose=pose.detach().cpu(),
             )
 
             # append instance view to list of instance views
