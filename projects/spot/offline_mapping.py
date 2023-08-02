@@ -573,7 +573,7 @@ def main(base_dir: str, legend_path: str):
                 continue
             image_goal = cv2.imread(image_goal_path)
             image_goal_str = image_goal_path.split("/")[-1]
-            category_id = re.split("(\d+)", image_goal_str)
+            category_id = re.split("(\d+)", image_goal_str)[0]
             print()
             print("Image goal:", image_goal_str)
             print("Category:", category_id)
