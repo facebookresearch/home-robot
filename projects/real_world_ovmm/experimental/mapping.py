@@ -13,13 +13,14 @@
 
 import click
 import matplotlib.pyplot as plt
+import numpy as np
 import rospy
 from fastsam import FastSAM, FastSAMPrompt
 
 import home_robot
 import home_robot_hw
 from home_robot.mapping.voxel import SparseVoxelMap
-from home_robot_hw.env.stretch_pick_and_place_env import StretchPickandPlaceEnv
+from home_robot.utils.point_cloud import show_point_cloud
 from home_robot_hw.remote.api import StretchClient
 from home_robot_hw.utils.config import load_config
 
@@ -89,34 +90,30 @@ def main(
     sam_weights=None,
     **kwargs,
 ):
-    print("- Starting ROS node")
-    rospy.init_node("eval_episode_stretch_objectnav")
-
-    print("- Loading configuration")
-    config = load_config(visualize=visualize_maps, **kwargs)
-
-    print("- Creating environment")
-
-    env = StretchPickandPlaceEnv(
-        config=config,
-        test_grasping=test_pick,
-        dry_run=dry_run,
-        cat_map_file=cat_map_file,
-        visualize_grasping=visualize_grasping,
-    )
-    robot = env.get_robot()
+    print("- Creating robot client")
+    robot = StretchClient()
+    print("- Loading SAM weights")
     sam = load_sam_model(sam_weights)
-
+    print("- Creating voxel map")
     voxel_map = SparseVoxelMap(resolution=0.01)
-    env.reset(start_recep, pick_object, goal_recep)
 
     t = 0
-    while not env.episode_over and not rospy.is_shutdown():
+    while not rospy.is_shutdown():
         t += 1
         print("STEP =", t)
-        obs = env.get_observation()
+
+        # Get information from the head camera
+        rgb, depth, xyz = robot.head.get_images(
+            compute_xyz=True,
+        )
+        # Get the camera pose and make sure this works properly
+        camera_pose = self.robot.head.get_pose(rotated=False)
+
+        # run a segmenter
         res = try_sam(obs.rgb, sam, debug=True)
-        voxel_map.add(obs.camera_pose, obs.xyz, obs.rgb)
+
+        # Update the voxel map
+        voxel_map.add(camera_pose, xyz, rgb)
         pc_xyz, pc_rgb = voxel_map.get_data()
         show_point_cloud(pc_xyz, pc_rgb / 255, orig=np.zeros(3))
         breakpoint()
