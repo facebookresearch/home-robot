@@ -261,7 +261,7 @@ def text_to_image(
 record_instance_ids = True
 save_map_and_instances = True
 load_map_and_instances = False
-ground_image_in_memory = True
+ground_image_in_memory = False
 ground_language_in_memory = True
 
 
@@ -306,7 +306,7 @@ def main(base_dir: str, legend_path: str):
 
         # Predict semantic segmentation
         segmentation = MaskRCNNPerception(
-            sem_pred_prob_thr=0.9,
+            sem_pred_prob_thr=0.8,
             sem_gpu_id=0,
         )
 
