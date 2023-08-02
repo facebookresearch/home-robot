@@ -261,10 +261,10 @@ def text_to_image(
 
 
 record_instance_ids = True
-save_map_and_instances = True
-load_map_and_instances = False
+save_map_and_instances = False
+load_map_and_instances = True
 ground_image_in_memory = True
-ground_language_in_memory = True
+ground_language_in_memory = False
 
 
 @click.command()
@@ -615,6 +615,21 @@ def main(base_dir: str, legend_path: str):
                 score_thresh=config.AGENT.SUPERGLUE.score_thresh_image,
                 agg_fn=config.AGENT.SUPERGLUE.agg_fn_image,
             )
+            breakpoint()
+            stats = {
+                i: {
+                    "mean": float(scores.mean()),
+                    "median": float(np.median(scores)),
+                    "max": float(scores.max()),
+                    "min": float(scores.min()),
+                    "all": scores.flatten().tolist(),
+                }
+                for i, scores in zip(instance_ids, all_confidences)
+            }
+            with open(
+                Path(goal_grounding_vis_dir) / f"language_goal{i}_stats.json", "w"
+            ) as f:
+                json.dump(stats, f, indent=4)
 
             if instance_goal_found:
                 semantic_map.update_global_goal_for_env(0, goal_map.cpu().numpy())
