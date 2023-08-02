@@ -33,15 +33,18 @@ def load_sam_model(path_to_weights):
 
 def try_sam(image, model, debug=True):
     DEVICE = "cpu"
+    print("Running SAM for image of shape:", image.shape)
     everything_results = model(
         image,
         device=DEVICE,
         retina_masks=True,
-        imgsz=1024,
+        imgsz=640,
         conf=0.4,
         iou=0.9,
     )
+    print("- processed image")
     prompt_process = FastSAMPrompt(image, everything_results, device=DEVICE)
+    print("- handling prompt")
 
     # everything prompt
     ann = prompt_process.everything_prompt()
@@ -50,6 +53,8 @@ def try_sam(image, model, debug=True):
             annotations=ann,
             output_path="./output.jpg",
         )
+
+    print("--- done trying sam")
     return everything_results
 
 
@@ -69,6 +74,57 @@ def show_map(
     geoms = create_visualization_geometries(pcd=pcd, orig=orig, size=size)
     geoms += [robot_model]
     o3d.visualization.draw_geometries(geoms)
+
+
+def check_collision(
+    robot_mesh,
+    kdtree,
+    robot_transform=np.eye(4),
+    voxel_size: float = 0.1,
+    robot_sphere: float = 0.35,
+    collision_threshold: float = 0.05,
+):
+    """
+    Check for collision between the robot and the environment.
+
+    Parameters:
+        robot_mesh (o3d.geometry.TriangleMesh): The mesh representation of the robot.
+        kdtree (o3d.geometry.KDTreeFlann): KDTree for the environment point cloud.
+        robot_transform (np.ndarray): The transformation matrix of the robot in the environment.
+        voxel_size: ...
+        collision_threshold: ...
+
+    Returns:
+        bool: True if there is a collision, False otherwise.
+    """
+
+    # Duplicate mesh so we don't break anything
+    # We will use the copy construtor for this
+    robot_mesh = o3d.geometry.TriangleMesh(robot_mesh)
+
+    # Perform collision check using KDTree query
+    # First check the whole robot as a sphere
+    # This distance is the sphere + 1/2 the voxel size
+    rough_collision_distance = voxel_size / 2 + robot_sphere
+    distances, _, _ = kdtree.search_radius_vector_3d(
+        robot_transform[:3, 3], rough_collision_distance
+    )
+
+    # Check if there are any collisions (distances to the environment points are below a threshold)
+    if not np.any(distances < collision_threshold):
+        # Collision
+        return False
+
+    # Now check individual robot points
+    # Transform the robot mesh according to its current position
+    robot_mesh.transform(robot_transform)
+
+    # Get the points of the robot's mesh
+    robot_points = np.asarray(robot_mesh.vertices)
+    distances, _, _ = kdtree.search_radius_vector_3d(robot_points, voxel_size)
+
+    # Nothing was found
+    return False
 
 
 @click.command()
@@ -112,7 +168,7 @@ def main(
         )
         # Get the camera pose and make sure this works properly
         camera_pose = robot.head.get_pose(rotated=False)
-        robot_pose = robot.nav.get_base_pose()
+        robot_pose = robot.nav.get_base_pose(matrix=True)
 
         # run a segmenter
         res = try_sam(rgb, sam, debug=True)
@@ -120,6 +176,10 @@ def main(
         # Update the voxel map
         voxel_map.add(camera_pose, xyz, rgb)
         pc_xyz, pc_rgb = voxel_map.get_data()
+
+        kd_tree = voxel_map.get_kd_tree()
+        check_collision(robot_base, kd_tree, robot_pose, voxel_size, 0.05)
+
         show_map(pc_xyz, pc_rgb / 255, robot_base, robot_pose, orig=np.zeros(3))
         breakpoint()
 

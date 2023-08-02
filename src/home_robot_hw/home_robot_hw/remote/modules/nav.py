@@ -42,9 +42,12 @@ class StretchNavigationClient(AbstractControlModule):
 
     # Interface methods
 
-    def get_base_pose(self):
+    def get_base_pose(self, matrix=False):
         """get the latest base pose from sensors"""
-        return sophus2xyt(self._ros_client.se3_base_filtered)
+        if not matrix:
+            return sophus2xyt(self._ros_client.se3_base_filtered)
+        else:
+            return self._ros_client.se3_base_filtered.matrix()
 
     def at_goal(self) -> bool:
         """Returns true if the agent is currently at its goal location"""
