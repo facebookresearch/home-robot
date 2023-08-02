@@ -580,9 +580,11 @@ class Categorical2DSemanticMapModule(nn.Module):
         # plt.pause(0.01)
 
         fp_map_pred = fp_map_pred / self.map_pred_threshold
+        # uses depth point projections but limits the fov and distance
         if self.exploration_type == 'default':
             fp_exp_pred = all_height_proj[:, 0:1, :, :]
             fp_exp_pred = fp_exp_pred / self.exp_pred_threshold
+        # uses a fixed cone infront of the camerea
         elif self.exploration_type == 'gaze':
             fp_exp_pred = torch.zeros_like(fp_map_pred)
             view_image = torch.zeros(fp_map_pred.shape[-2:])
@@ -590,6 +592,15 @@ class Categorical2DSemanticMapModule(nn.Module):
             dist = self.gaze_distance*100/self.resolution
             view_image = draw_circle_segment(view_image,(0,fp_exp_pred.shape[-1]//2),dist,0,self.gaze_width)
             fp_exp_pred[...,:,:] = view_image
+        # uses depth point projections but limits the fov and distance using the code
+        elif self.exploration_type == 'gaze_projected':
+            fp_exp_pred = all_height_proj[:, 0:1, :, :]
+            fp_exp_pred = fp_exp_pred / self.exp_pred_threshold
+            view_image = torch.zeros(fp_map_pred.shape[-2:])
+            # get the desired radius in cells
+            dist = self.gaze_distance*100/self.resolution
+            view_image = draw_circle_segment(view_image,(0,fp_exp_pred.shape[-1]//2),dist,0,self.gaze_width)/255
+            fp_exp_pred *= view_image.to(fp_exp_pred.device)
         else:
             raise Exception(f'not implemented')
 

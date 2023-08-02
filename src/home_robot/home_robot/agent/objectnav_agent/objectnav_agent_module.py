@@ -58,7 +58,9 @@ class ObjectNavAgentModule(nn.Module):
             gaze_distance=config.AGENT.SEMANTIC_MAP.gaze_distance,
         )
         self.policy = ObjectNavFrontierExplorationPolicy(
-            exploration_strategy=config.AGENT.exploration_strategy
+            exploration_strategy=config.AGENT.exploration_strategy,
+            explored_area_dilation_radius=config.AGENT.PLANNER.explored_area_dilation_radius,
+            explored_area_erosion_radius=config.AGENT.PLANNER.explored_area_erosion_radius,
         )
 
     @property

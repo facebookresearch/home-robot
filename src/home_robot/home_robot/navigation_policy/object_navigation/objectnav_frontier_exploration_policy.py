@@ -10,7 +10,7 @@ import torch.nn as nn
 from sklearn.cluster import DBSCAN
 
 from home_robot.mapping.semantic.constants import MapConstants as MC
-from home_robot.utils.morphology import binary_dilation
+from home_robot.utils.morphology import binary_dilation, binary_erosion
 
 
 class ObjectNavFrontierExplorationPolicy(nn.Module):
@@ -20,13 +20,20 @@ class ObjectNavFrontierExplorationPolicy(nn.Module):
     unexplored region) otherwise.
     """
 
-    def __init__(self, exploration_strategy: str):
+    def __init__(self, exploration_strategy: str,explored_area_dilation_radius=10,explored_area_erosion_radius=5):
         super().__init__()
         assert exploration_strategy in ["seen_frontier", "been_close_to_frontier"]
         self.exploration_strategy = exploration_strategy
 
         self.dilate_explored_kernel = nn.Parameter(
-            torch.from_numpy(skimage.morphology.disk(10))
+            torch.from_numpy(skimage.morphology.disk(explored_area_dilation_radius))
+            .unsqueeze(0)
+            .unsqueeze(0)
+            .float(),
+            requires_grad=False,
+        )
+        self.erosion_explored_kernel = nn.Parameter(
+            torch.from_numpy(skimage.morphology.disk(explored_area_erosion_radius))
             .unsqueeze(0)
             .unsqueeze(0)
             .float(),
@@ -205,6 +212,12 @@ class ObjectNavFrontierExplorationPolicy(nn.Module):
             frontier_map = (map_features[:, [MC.EXPLORED_MAP], :, :] == 0).float()
         elif self.exploration_strategy == "been_close_to_frontier":
             frontier_map = (map_features[:, [MC.BEEN_CLOSE_MAP], :, :] == 0).float()
+        else:
+            raise Exception(f'not implemented')
+
+        # erode and dilate to remove small components
+        # eroded = 1 - binary_erosion(1 - frontier_map,self.erosion_explored_kernel)
+        # frontier_map = 1 - binary_dilation(1 - eroded,self.erosion_explored_kernel)
 
         # Dilate explored area
         frontier_map = 1 - binary_dilation(
@@ -215,6 +228,11 @@ class ObjectNavFrontierExplorationPolicy(nn.Module):
         frontier_map = (
             binary_dilation(frontier_map, self.select_border_kernel) - frontier_map
         )
+        
+        # Remove obstacles from the frontier
+        obstacle_map = map_features[:, [MC.OBSTACLE_MAP], :, :]
+        frontier_map[obstacle_map > 0] = 0.0
+
         return frontier_map
 
     def explore_otherwise(self, map_features, goal_map, found_goal):
