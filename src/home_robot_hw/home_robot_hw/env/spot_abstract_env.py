@@ -116,7 +116,6 @@ class SpotEnv(Env):
             <= 1.5
         )
         # import pdb; pdb.set_trace()
-        print('sum3',trusted_point.sum())
 
         obstacle_threshold = 0.01
         is_obstacle_mask = obs["obstacle_distances"][:, 2] <= obstacle_threshold
