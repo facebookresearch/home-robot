@@ -37,7 +37,8 @@ class GoatMatching(Matching):
 
         # generate clip embeddings by loading clip model
         self.device = device
-        self.clip_model, self.clip_preprocess = clip.load("ViT-B/32", device)
+        self.clip_model, clip_transforms = clip.load("ViT-B/32", device)
+        self.clip_normalize = clip_transforms.transforms[-1]
 
     def get_matches_against_memory(
         self,
@@ -188,12 +189,10 @@ class GoatMatching(Matching):
         # get clip embedding for views with a batch size of batch_size
 
         views = views_orig
-        breakpoint()
         views = torch.stack(
             [self.clip_preprocess(ToPILImage()(v.astype(np.uint8))) for v in views],
             dim=0,
         )
-        breakpoint()
         view_embeddings = torch.cat(
             [
                 self.clip_model.encode_image(v.to(self.device))
@@ -201,7 +200,16 @@ class GoatMatching(Matching):
             ],
             dim=0,
         )
-        breakpoint()
+        # view_embeddings = []
+        # for view in views_orig:
+        #     view = (
+        #         torch.from_numpy(view[np.newaxis]).permute(0, 3, 1, 2).to(self.device)
+        #     )
+        #     view = self.clip_normalize(view / 255.0)
+        #     view_embedding = self.clip_model.encode_image(view)
+        #     view_embeddings.append(view_embedding)
+        # view_embeddings = torch.stack(view_embeddings)
+
         # normalize the embeddings
         view_embeddings = view_embeddings / view_embeddings.norm(dim=-1, keepdim=True)
         language_goal = language_goal / language_goal.norm(dim=-1, keepdim=True)
