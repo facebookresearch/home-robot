@@ -263,7 +263,7 @@ def text_to_image(
 record_instance_ids = True
 save_map_and_instances = False
 load_map_and_instances = True
-ground_image_in_memory = True
+ground_image_in_memory = False
 ground_language_in_memory = True
 
 

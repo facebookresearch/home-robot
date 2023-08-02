@@ -188,10 +188,12 @@ class GoatMatching(Matching):
         # get clip embedding for views with a batch size of batch_size
 
         views = views_orig
+        breakpoint()
         views = torch.stack(
             [self.clip_preprocess(ToPILImage()(v.astype(np.uint8))) for v in views],
             dim=0,
         )
+        breakpoint()
         view_embeddings = torch.cat(
             [
                 self.clip_model.encode_image(v.to(self.device))
@@ -199,6 +201,7 @@ class GoatMatching(Matching):
             ],
             dim=0,
         )
+        breakpoint()
         # normalize the embeddings
         view_embeddings = view_embeddings / view_embeddings.norm(dim=-1, keepdim=True)
         language_goal = language_goal / language_goal.norm(dim=-1, keepdim=True)
