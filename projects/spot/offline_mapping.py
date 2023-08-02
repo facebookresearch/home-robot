@@ -615,19 +615,18 @@ def main(base_dir: str, legend_path: str):
                 score_thresh=config.AGENT.SUPERGLUE.score_thresh_image,
                 agg_fn=config.AGENT.SUPERGLUE.agg_fn_image,
             )
-            breakpoint()
             stats = {
                 i: {
-                    "mean": float(scores.mean()),
-                    "median": float(np.median(scores)),
-                    "max": float(scores.max()),
-                    "min": float(scores.min()),
-                    "all": scores.flatten().tolist(),
+                    "mean": float(scores.sum(axis=1).mean()),
+                    "median": float(np.median(scores.sum(axis=1))),
+                    "max": float(scores.sum(axis=1).max()),
+                    "min": float(scores.sum(axis=1).min()),
+                    "all": scores.sum(axis=1).tolist(),
                 }
                 for i, scores in zip(instance_ids, all_confidences)
             }
             with open(
-                Path(goal_grounding_vis_dir) / f"language_goal{i}_stats.json", "w"
+                Path(goal_grounding_vis_dir) / f"{image_goal_str}_stats.json", "w"
             ) as f:
                 json.dump(stats, f, indent=4)
 
