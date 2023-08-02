@@ -204,6 +204,7 @@ class GoatAgent(Agent):
         confidence=None,
         all_matches=None,
         all_confidences=None,
+        instance_ids=None,
         score_thresh=0.0,
         obstacle_locations: torch.Tensor = None,
         free_locations: torch.Tensor = None,
@@ -280,6 +281,7 @@ class GoatAgent(Agent):
             confidence=confidence,
             all_matches=all_matches,
             all_confidences=all_confidences,
+            instance_ids=instance_ids,
             score_thresh=score_thresh,
             seq_obstacle_locations=obstacle_locations,
             seq_free_locations=free_locations,
@@ -440,6 +442,7 @@ class GoatAgent(Agent):
             confidence,
             all_matches,
             all_confidences,
+            instance_ids
         ) = self._preprocess_obs(obs, task_type)
 
         if "obstacle_locations" in obs.task_observations:
@@ -486,14 +489,17 @@ class GoatAgent(Agent):
             confidence=confidence,
             all_matches=all_matches,
             all_confidences=all_confidences,
+            instance_ids=instance_ids,
             score_thresh=self.score_thresh(task_type),
             obstacle_locations=obstacle_locations,
             free_locations=free_locations,
         )
 
+
         # 3 - Planning
         closest_goal_map = None
         dilated_obstacle_map = None
+        short_term_goal = None
         if planner_inputs[0]["found_goal"]:
             self.episode_panorama_start_steps = 0
         if self.total_timesteps[0] < self.episode_panorama_start_steps:
@@ -699,7 +705,7 @@ class GoatAgent(Agent):
         if task_type == "languagenav":
             if self.prev_task_type != "languagenav":
                 # TODO: Use this method for imagenav as well
-                all_matches, all_confidences = self.matching.get_matches_against_memory(
+                all_matches, all_confidences, instance_ids = self.matching.get_matches_against_memory(
                     self.instance_memory,
                     self.matching.match_language_to_image,
                     self.total_timesteps[0],
@@ -713,12 +719,11 @@ class GoatAgent(Agent):
                 matches = matches[0]
                 confidences = confidences[0]
         elif task_type == "imagenav":
-            all_matches, all_confidences = [], []
             if (
                 self.record_instance_ids
                 and self.sub_task_timesteps[0][self.current_task_idx] == 0
             ):
-                all_matches, all_confidences = self.matching.get_matches_against_memory(
+                all_matches, all_confidences, instance_ids = self.matching.get_matches_against_memory(
                     self.instance_memory,
                     self.matching.match_image_to_image,
                     self.sub_task_timesteps[0][self.current_task_idx],
@@ -738,6 +743,7 @@ class GoatAgent(Agent):
             confidences,
             all_matches,
             all_confidences,
+            instance_ids,
         )
 
     def _prep_goal_map_input(self) -> None:
