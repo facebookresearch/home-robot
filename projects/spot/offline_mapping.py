@@ -574,7 +574,7 @@ def main(base_dir: str, legend_path: str):
             image_goal = cv2.imread(image_goal_path)
             image_goal_str = image_goal_path.split("/")[-1]
             category = re.split("(\d+)", image_goal_str)[0]
-            category_id = coco_categories.get(category, coco_categories["no-category"])
+            category_id = coco_categories.get(category)
             print()
             print("Image goal:", image_goal_str)
             print("Category:", category)
@@ -593,7 +593,7 @@ def main(base_dir: str, legend_path: str):
                 image_goal=goal_image,
                 goal_image_keypoints=goal_image_keypoints,
                 use_full_image=False,
-                categories=[category_id],
+                categories=[category_id] if category_id is not None else None,
             )
             breakpoint()
 
@@ -672,10 +672,7 @@ def main(base_dir: str, legend_path: str):
             print("Language goal:", language_goal)
             category_ids = None
             if categories is not None:
-                category_ids = [
-                    coco_categories.get(c, coco_categories["no-category"])
-                    for c in categories
-                ]
+                category_ids = [coco_categories.get(c) for c in categories]
             (
                 all_matches,
                 all_confidences,
