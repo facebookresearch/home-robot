@@ -26,8 +26,8 @@ class FMMPlanner:
         step_size: int = 5,
         goal_tolerance: float = 2.0,
         vis_dir: str = "data/images/planner",
-        visualize=False,
-        print_images=False,
+        visualize=True,
+        print_images=True,
         debug=False,
     ):
         """

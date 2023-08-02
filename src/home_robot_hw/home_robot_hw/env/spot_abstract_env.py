@@ -94,6 +94,7 @@ class SpotEnv(Env):
         home_robot_obs = Observations(
             gps=relative_gps, compass=relative_compass, rgb=rgb, depth=depth
         )
+        home_robot_obs.raw_obs = obs
 
         # Camera pose
         home_robot_obs.camera_pose = np.zeros((4, 4))
@@ -114,7 +115,7 @@ class SpotEnv(Env):
             np.linalg.norm(obs["obstacle_distances"][:, :2] - obs["position"], axis=-1)
             <= 5
         )
-
+        # import pdb; pdb.set_trace()
         obstacle_threshold = 0.01
         is_obstacle_mask = obs["obstacle_distances"][:, 2] <= obstacle_threshold
         is_free_mask = obs["obstacle_distances"][:, 2] > obstacle_threshold

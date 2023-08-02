@@ -31,6 +31,14 @@ def add_boundary(mat: np.ndarray, value=1) -> np.ndarray:
     new_mat[1 : h + 1, 1 : w + 1] = mat
     return new_mat
 
+# compute the fmm distance map between source (specified as row, col)
+# obstacles is 1 for obstacle 0 for free
+def fmm_distance(obstacles,source):
+    map_obs = np.ones_like(obstacles)
+    map_obs[source[0],source[1]] = 0
+    marr = np.ma.MaskedArray(map_obs,obstacles)
+    dists = skfmm.distance(marr)
+    return dists
 
 def remove_boundary(mat: np.ndarray, value=1) -> np.ndarray:
     return mat[value:-value, value:-value]
@@ -504,6 +512,42 @@ class DiscretePlanner:
         ] = 1
         traversible = add_boundary(traversible)
         goal_map = add_boundary(goal_map, value=0)
+
+        # hardcoded test
+        # obstacles[100,:] = 1
+        # obstacles[100,0] = 0
+        obstacles = 1 - traversible
+        # start = (240,240)
+        if traversible[start[0],start[1]] == 0:
+            import pdb; pdb.set_trace()
+        dists = fmm_distance(obstacles,start)
+        goal_dists = dists.copy()
+        goal_dists.mask = goal_dists.mask | (1-goal_map).astype(bool)
+        min_loc = np.unravel_index(np.argmin(goal_dists),goal_dists.shape)
+        dists_from_goal = fmm_distance(obstacles,min_loc)
+        # find all points that are step_size away from the current location
+        potential_subgoals = ((dists > self.step_size) & (dists <= self.step_size + 1))
+        dists_from_goal.mask |= ~potential_subgoals
+        # select the potential subgoal that is closes to the goal
+        subgoal = np.unravel_index(np.argmin(dists_from_goal),goal_dists.shape)
+        return (
+            short_term_goal,
+            goal_distance_map,
+            replan,
+            stop,
+            closest_goal_pt,
+            dilated_obstacles,
+        )
+
+        # return (
+            # subgoal,
+            # goal_distance_map,
+            # replan,
+            # stop,
+            # closest_goal_pt,
+            # dilated_obstacles,
+        # )
+
         planner = FMMPlanner(
             traversible,
             step_size=self.step_size,

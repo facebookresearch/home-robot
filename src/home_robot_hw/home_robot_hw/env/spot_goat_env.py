@@ -1,5 +1,6 @@
 import math
 from typing import Any, Dict, List, Optional
+from bosdyn.client import math_helpers
 
 import numpy as np
 
@@ -50,6 +51,12 @@ class SpotGoatEnv(SpotEnv):
             # in robot global frame
             cx, cy, yaw = self.spot.get_xy_yaw()
             angle = math.atan2((yg - cy), (xg - cx)) % (2 * np.pi)
+            rotation_speed = np.pi/8
+            yaw_diff = math_helpers.angle_diff(angle,yaw)
+            time=max(np.abs(yaw_diff)/rotation_speed,0.5)
+            print(angle,yaw,yaw_diff,time)
+            assert time > 0
+            self.env.set_arm_yaw(yaw_diff,time=time)
 
             action = [xg, yg, angle]
             print("ObjectNavAgent point action", action)

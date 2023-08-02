@@ -53,9 +53,14 @@ class ObjectNavAgentModule(nn.Module):
             evaluate_instance_tracking=getattr(
                 config.ENVIRONMENT, "evaluate_instance_tracking", False
             ),
+            exploration_type=config.AGENT.SEMANTIC_MAP.exploration_type,
+            gaze_width=config.AGENT.SEMANTIC_MAP.gaze_width,
+            gaze_distance=config.AGENT.SEMANTIC_MAP.gaze_distance,
         )
         self.policy = ObjectNavFrontierExplorationPolicy(
-            exploration_strategy=config.AGENT.exploration_strategy
+            exploration_strategy=config.AGENT.exploration_strategy,
+            explored_area_dilation_radius=config.AGENT.PLANNER.explored_area_dilation_radius,
+            explored_area_erosion_radius=config.AGENT.PLANNER.explored_area_erosion_radius,
         )
 
     @property
@@ -150,6 +155,8 @@ class ObjectNavAgentModule(nn.Module):
             seq_dones,
             seq_update_global,
             seq_camera_poses,
+            seq_obstacle_locations,
+            seq_free_locations,
             init_local_map,
             init_global_map,
             init_local_pose,

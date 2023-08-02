@@ -22,6 +22,7 @@ import home_robot.utils.pose as pu
 import home_robot.utils.rotation as ru
 from home_robot.mapping.semantic.constants import MapConstants as MC
 from home_robot.mapping.semantic.instance_tracking_modules import InstanceMemory
+from home_robot.utils.spot import draw_circle_segment
 
 # For debugging input and output maps - shows matplotlib visuals
 debug_maps = False
@@ -73,6 +74,9 @@ class Categorical2DSemanticMapModule(nn.Module):
         max_instances: int = 0,
         dilation_for_instances: int = 5,
         padding_for_instance_overlap: int = 5,
+        exploration_type = 'default',
+        gaze_width = 30,
+        gaze_distance = 3,
     ):
         """
         Arguments:
@@ -102,6 +106,9 @@ class Categorical2DSemanticMapModule(nn.Module):
             must_explore_close: reduce the distance we need to get to things to make them work
             min_obs_height_cm: minimum height of obstacles (in centimetres)
             record_instance_ids: whether to record instance ids in the 2d semantic map
+            exploration_type: how to define explored area
+            gaze_width: hfov in degrees for use with the gaze based exploration
+            gaze_distance: depth to be considered explored with gaze based exploration
         """
         super().__init__()
 
@@ -156,6 +163,9 @@ class Categorical2DSemanticMapModule(nn.Module):
         self.instance_memory = instance_memory
         self.max_instances = max_instances
         self.evaluate_instance_tracking = evaluate_instance_tracking
+        self.exploration_type = exploration_type
+        self.gaze_width = gaze_width
+        self.gaze_distance = gaze_distance
 
     @torch.no_grad()
     def forward(
@@ -416,10 +426,13 @@ class Categorical2DSemanticMapModule(nn.Module):
             angles = torch.Tensor(
                 [tra.euler_from_matrix(p[:3, :3].cpu(), "rzyx") for p in camera_pose]
             )
+
             # For habitat - pull x angle
             # tilt = angles[:, -1]
             # For real robot
             tilt = angles[:, 1]
+            # angles gives roll, pitch, yaw
+            yaw = angles[:,-1]
 
             # Get the agent pose
             # hab_agent_height = camera_pose[:, 1, 3] * 100
@@ -431,6 +444,7 @@ class Categorical2DSemanticMapModule(nn.Module):
                 print("agent_height", agent_height)
                 print()
         else:
+            yaw = 0
             tilt = torch.zeros(batch_size)
             agent_height = self.agent_height
 
@@ -569,9 +583,39 @@ class Categorical2DSemanticMapModule(nn.Module):
         all_height_proj = voxels.sum(4)
 
         fp_map_pred = agent_height_proj[:, 0:1, :, :]
-        fp_exp_pred = all_height_proj[:, 0:1, :, :]
+
+        # +rows is away from the camera, with the camra origin at row 0
+        # +cols is to the right of the image frame, the camera origin is at num_cols/2
+        # so the camera origin is at [0,num_cols/2]
+
+        # self.local_map_size_cm
+        # plt.imshow(fp_exp_pred[0,0].cpu())
+        # plt.pause(0.01)
+
         fp_map_pred = fp_map_pred / self.map_pred_threshold
-        fp_exp_pred = fp_exp_pred / self.exp_pred_threshold
+        # uses depth point projections but limits the fov and distance
+        if self.exploration_type == 'default':
+            fp_exp_pred = all_height_proj[:, 0:1, :, :]
+            fp_exp_pred = fp_exp_pred / self.exp_pred_threshold
+        # uses a fixed cone infront of the camerea
+        elif self.exploration_type == 'gaze':
+            fp_exp_pred = torch.zeros_like(fp_map_pred)
+            view_image = torch.zeros(fp_map_pred.shape[-2:])
+            # get the desired radius in cells
+            dist = self.gaze_distance*100/self.resolution
+            view_image = draw_circle_segment(view_image,(0,fp_exp_pred.shape[-1]//2),dist,0,self.gaze_width)
+            fp_exp_pred[...,:,:] = view_image
+        # uses depth point projections but limits the fov and distance using the code
+        elif self.exploration_type == 'gaze_projected':
+            fp_exp_pred = all_height_proj[:, 0:1, :, :]
+            fp_exp_pred = fp_exp_pred / self.exp_pred_threshold
+            view_image = torch.zeros(fp_map_pred.shape[-2:])
+            # get the desired radius in cells
+            dist = self.gaze_distance*100/self.resolution
+            view_image = draw_circle_segment(view_image,(0,fp_exp_pred.shape[-1]//2),dist,0,self.gaze_width)/255
+            fp_exp_pred *= view_image.to(fp_exp_pred.device)
+        else:
+            raise Exception(f'not implemented')
 
         num_channels = MC.NON_SEM_CHANNELS + self.num_sem_categories
         if self.record_instance_ids:
@@ -629,9 +673,16 @@ class Categorical2DSemanticMapModule(nn.Module):
         )
         st_pose[:, 2] = 90.0 - (st_pose[:, 2])
 
-        rot_mat, trans_mat = ru.get_grid(st_pose, agent_view.size(), dtype)
+        # st_pose is current pose, last term in degrees
+        # account for camera yaw here by rotating the new map based on camera yaw
+        st_pose_adjusted = st_pose.clone()
+        # yaw has to be inverted here, below rotates the map clockwise
+        st_pose_adjusted[:,2] -= yaw.to(st_pose_adjusted.device)*180/np.pi
+
+        rot_mat, trans_mat = ru.get_grid(st_pose_adjusted, agent_view.size(), dtype)
         rotated = F.grid_sample(agent_view, rot_mat, align_corners=True)
         translated = F.grid_sample(rotated, trans_mat, align_corners=True)
+        plt.imshow(rotated[0,0].cpu())
 
         # Clamp to [0, 1] after transform agent view to map coordinates
         translated = torch.clamp(translated, min=0.0, max=1.0).float()
@@ -711,7 +762,7 @@ class Categorical2DSemanticMapModule(nn.Module):
             # This is around the current agent - we just sort of assume we know where we are
             try:
                 # TODO Make this a parameter: 40 on robot, 10 in sim
-                radius = 40  # 10
+                radius = self.explored_radius
                 explored_disk = torch.from_numpy(skimage.morphology.disk(radius))
                 current_map[
                     e,

@@ -248,7 +248,6 @@ def create_video(images, output_file, fps):
 
 record_instance_ids = True
 
-
 @click.command()
 @click.option(
     "--input_trajectory_dir",

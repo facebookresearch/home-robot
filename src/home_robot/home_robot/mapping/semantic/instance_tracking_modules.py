@@ -161,6 +161,12 @@ class InstanceMemory:
                 "to global instance id",
                 global_instance_id,
             )
+            # print(
+            #     "mapping local instance id",
+            #     local_instance_id,
+            #     "to global instance id",
+            #     global_instance_id,
+            # )
 
     def process_instances_for_env(
         self,

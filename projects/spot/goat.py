@@ -316,7 +316,8 @@ def main(spot=None):
 
     env.set_goals(
         [
-            GOALS["object_sink"],
+            # GOALS["object_sink"],
+            GOALS["object_chair"],
             # GOALS["object_couch"],
             # GOALS["image_chair1"],
         ]
