@@ -626,7 +626,9 @@ def main(base_dir: str, legend_path: str):
                 for i, scores in zip(instance_ids, all_confidences)
             }
             with open(
-                Path(goal_grounding_vis_dir) / f"{image_goal_str}_stats.json", "w"
+                Path(goal_grounding_vis_dir)
+                / f"image_{image_goal_str.split('.')[0]}_stats.json",
+                "w",
             ) as f:
                 json.dump(stats, f, indent=4)
 
@@ -643,7 +645,9 @@ def main(base_dir: str, legend_path: str):
                     color_palette=coco_categories_color_palette,
                     legend=legend,
                 )
-                plt.imsave(Path(goal_grounding_vis_dir) / image_goal_str, vis_image)
+                plt.imsave(
+                    Path(goal_grounding_vis_dir) / f"image_{image_goal_str}", vis_image
+                )
 
                 print("Found goal:", instance_goal_found)
                 print("Goal instance ID:", goal_inst)
