@@ -113,8 +113,10 @@ class SpotEnv(Env):
 
         trusted_point = (
             np.linalg.norm(obs["obstacle_distances"][:, :2] - obs["position"], axis=-1)
-            <= 5
+            <= 1.5
         )
+        # import pdb; pdb.set_trace()
+        print('sum2',trusted_point.sum())
 
         obstacle_threshold = 0.01
         is_obstacle_mask = obs["obstacle_distances"][:, 2] <= obstacle_threshold
@@ -124,6 +126,7 @@ class SpotEnv(Env):
         home_robot_obs.task_observations["obstacle_locations"] = torch.from_numpy(
             relative_obs_locations[is_obstacle_mask & trusted_point]
         )
+
         home_robot_obs.task_observations["free_locations"] = torch.from_numpy(
             relative_obs_locations[is_free_mask & trusted_point]
         )

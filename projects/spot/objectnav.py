@@ -45,7 +45,8 @@ class PI:
     VISITED = 3
     CLOSEST_GOAL = 4
     REST_OF_GOAL = 5
-    SEM_START = 6
+    SHORT_TERM_GOAL = 6
+    SEM_START = 7
 
 
 def create_video(images, output_file, fps):
@@ -125,9 +126,9 @@ def get_semantic_map_vis(
         0.6,
         0.6,
         0.6,  # obstacles
-        0.95,
-        0.95,
-        0.95,  # explored area
+        1.00,
+        0.90,
+        0.90,  # explored area
         0.96,
         0.36,
         0.26,  # visited area
@@ -137,6 +138,9 @@ def get_semantic_map_vis(
         0.63,
         0.78,
         0.95,  # rest of goal
+        0.00,
+        0.00,
+        0.00,  # short term goal
         *color_palette,
     ]
     map_color_palette = [int(x * 255.0) for x in map_color_palette]
@@ -184,7 +188,7 @@ def get_semantic_map_vis(
             ) != 1
             subgoal_mask = subgoal_mat == 1
             # hack for now
-            semantic_categories_map[subgoal_mask] = PI.REST_OF_GOAL
+            semantic_categories_map[subgoal_mask] = PI.SHORT_TERM_GOAL
 
     # Draw semantic map
     semantic_map_vis = Image.new("P", semantic_categories_map.shape)
