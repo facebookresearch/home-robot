@@ -357,7 +357,8 @@ class GoatAgent(Agent):
         self.semantic_map.init_map_and_pose()
         self.episode_panorama_start_steps = self.panorama_start_steps
         self.reached_goal_panorama_rotate_steps = self.panorama_rotate_steps
-        self.instance_memory.reset()
+        if self.instance_memory is not None:
+            self.instance_memory.reset()
         self.landmark_found = False
         self.seen_landmarks = []
         self.reject_visited_targets = False
@@ -391,7 +392,8 @@ class GoatAgent(Agent):
         self.semantic_map.init_map_and_pose_for_env(e)
         self.episode_panorama_start_steps = self.panorama_start_steps
         self.reached_goal_panorama_rotate_steps = self.panorama_rotate_steps
-        self.instance_memory.reset_for_env(e)
+        if self.instance_memory is not None:
+            self.instance_memory.reset_for_env(e)
         self.landmark_found = False
         self.seen_landmarks = []
         self.reject_visited_targets = False
@@ -625,6 +627,7 @@ class GoatAgent(Agent):
         current_goal_semantic_id = current_task["semantic_id"]
 
         semantic = obs.semantic
+        instance_ids = None
 
         if task_type == "imagenav":
             if self.goal_image is None:
