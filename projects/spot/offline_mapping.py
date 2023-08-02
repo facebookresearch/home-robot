@@ -4,7 +4,9 @@
 # This source code is licensed under the MIT license found in the
 # LICENSE file in the root directory of this source tree.
 import glob
+import json
 import pickle
+import re
 import sys
 from pathlib import Path
 from typing import List, Optional
@@ -571,8 +573,10 @@ def main(base_dir: str, legend_path: str):
                 continue
             image_goal = cv2.imread(image_goal_path)
             image_goal_str = image_goal_path.split("/")[-1]
+            category_id = re.split("(\d+)", image_goal_str)
             print()
             print("Image goal:", image_goal_str)
+            print("Category:", category_id)
 
             goal_image, goal_image_keypoints = matching.get_goal_image_keypoints(
                 image_goal
@@ -588,6 +592,7 @@ def main(base_dir: str, legend_path: str):
                 image_goal=goal_image,
                 goal_image_keypoints=goal_image_keypoints,
                 use_full_image=False,
+                categories=[category_id],
             )
             breakpoint()
 
