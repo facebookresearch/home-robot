@@ -271,7 +271,7 @@ def main(spot):
         with open(f"{obs_dir}/{t}.pkl", "wb") as f:
             pickle.dump(obs, f)
         cv2.imwrite("projects/spot/goal_spot.png", obs.rgb)
-        return 
+        return
 
         action, info = agent.act(obs)
         print("SHORT_TERM:", info["short_term_goal"])

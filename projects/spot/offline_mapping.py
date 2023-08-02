@@ -577,7 +577,11 @@ def main(base_dir: str, legend_path: str):
             goal_image, goal_image_keypoints = matching.get_goal_image_keypoints(
                 image_goal
             )
-            all_matches, all_confidences = matching.get_matches_against_memory(
+            (
+                all_matches,
+                all_confidences,
+                instance_ids,
+            ) = matching.get_matches_against_memory(
                 instance_memory,
                 matching.match_image_to_image,
                 0,
@@ -601,7 +605,9 @@ def main(base_dir: str, legend_path: str):
                 goal_inst=None,
                 all_matches=all_matches,
                 all_confidences=all_confidences,
+                instance_ids=instance_ids,
                 score_thresh=config.AGENT.SUPERGLUE.score_thresh_image,
+                agg_fn=config.AGENT.SUPERGLUE.agg_fn_image,
             )
 
             if instance_goal_found:
@@ -632,36 +638,46 @@ def main(base_dir: str, legend_path: str):
     if ground_language_in_memory:
         language_goals = [
             # Chairs
-            "the high chair next to the kitchen island",
-            "the grey chair next to the dining table",
-            "the grey armchair",
-            "the black office chair",
+            ("the high chair next to the kitchen island", ["chair"]),
+            ("the grey chair next to the dining table", ["chair"]),
+            ("the grey armchair", ["chair"]),
+            ("the black office chair", ["chair"]),
             # Plants
-            "the big potted plant next to the armchair",
-            "the potted plant next to the brown chair",
+            ("the big potted plant next to the armchair", ["potted plant"]),
+            ("the potted plant next to the brown chair", ["potted plant", "chair"]),
             # Sinks
-            "the kitchen sink",
-            "the bathroom sink",
+            ("the kitchen sink", ["sink"]),
+            ("the bathroom sink", ["sink"]),
             # Refrigerator
-            "the refrigerator",
-            "the bed",
-            "the sofa",
-            "the oven",
-            "the person with the grey shirt",
-            "the white cup",
-            "the toilet",
+            ("the refrigerator", ["refrigerator"]),
+            ("the bed", ["bed"]),
+            ("the sofa", ["couch"]),
+            ("the oven", ["oven"]),
+            ("the person with the grey shirt", None),
+            ("the white cup", ["cup"]),
+            ("the toilet", ["toilet"]),
         ]
 
-        for i, language_goal in enumerate(language_goals):
+        for i, (language_goal, categories) in enumerate(language_goals):
             print()
             print("Language goal:", language_goal)
-
-            all_matches, all_confidences = matching.get_matches_against_memory(
+            category_ids = None
+            if categories is not None:
+                category_ids = [
+                    coco_categories.get(c, coco_categories["no-category"])
+                    for c in categories
+                ]
+            (
+                all_matches,
+                all_confidences,
+                instance_ids,
+            ) = matching.get_matches_against_memory(
                 instance_memory,
                 matching.match_language_to_image,
                 0,
                 language_goal=language_goal,
                 use_full_image=False,
+                categories=category_ids,
             )
 
             (
@@ -679,7 +695,9 @@ def main(base_dir: str, legend_path: str):
                 goal_inst=None,
                 all_matches=all_matches,
                 all_confidences=all_confidences,
+                instance_ids=instance_ids,
                 score_thresh=config.AGENT.SUPERGLUE.score_thresh_lang,
+                agg_fn=config.AGENT.SUPERGLUE.agg_fn_lang,
             )
             if instance_goal_found:
                 semantic_map.update_global_goal_for_env(0, goal_map.cpu().numpy())
