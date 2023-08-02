@@ -259,8 +259,8 @@ def text_to_image(
 
 
 record_instance_ids = True
-save_map_and_instances = True
-load_map_and_instances = False
+save_map_and_instances = False
+load_map_and_instances = True
 ground_image_in_memory = True
 ground_language_in_memory = True
 
@@ -589,6 +589,7 @@ def main(base_dir: str, legend_path: str):
                 goal_image_keypoints=goal_image_keypoints,
                 use_full_image=False,
             )
+            breakpoint()
 
             (
                 goal_map,
