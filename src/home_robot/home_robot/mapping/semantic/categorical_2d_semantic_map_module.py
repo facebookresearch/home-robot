@@ -692,6 +692,7 @@ class Categorical2DSemanticMapModule(nn.Module):
         # remove obstacles that are observed to be free
         prev_map[0, 0, free_locations[0, :, 0], free_locations[0, :, 1]] = 0
         translated[0, 0, obstacle_locations[0, :, 0], obstacle_locations[0, :, 1]] = 1
+        print(obstacle_locations.shape)
 
         # Aggregate by taking the max of the previous map and current map after removing obstacles
         maps = torch.cat((prev_map.unsqueeze(1), translated.unsqueeze(1)), 1)

@@ -113,7 +113,8 @@ class SpotEnv(Env):
 
         trusted_point = (
             np.linalg.norm(obs["obstacle_distances"][:, :2] - obs["position"], axis=-1)
-            <= 1.5
+            # <= 1.5
+            <= 5
         )
         # import pdb; pdb.set_trace()
 
