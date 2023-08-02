@@ -93,6 +93,7 @@ class GoatAgentModule(nn.Module):
         blacklist_target=False,
         matches=None,
         confidence=None,
+        local_instance_ids=None,
         all_matches=None,
         all_confidences=None,
         instance_ids=None,
@@ -185,34 +186,13 @@ class GoatAgentModule(nn.Module):
         # Compute the frontier map here
         frontier_map = self.policy.get_frontier_map(map_features)
 
-        if matches is not None or confidence is not None:
-            seq_goal_map[seq_found_goal[:, 0] == 0] = frontier_map[
-                seq_found_goal[:, 0] == 0
-            ]
+        seq_goal_map[seq_found_goal[:, 0] == 0] = frontier_map[
+            seq_found_goal[:, 0] == 0
+        ]
 
-            if len(all_matches) > 0:
-                self.instance_goal_found = False
-                self.goal_inst = None
-                (
-                    seq_goal_map,
-                    seq_found_goal,
-                    self.instance_goal_found,
-                    self.goal_inst,
-                ) = self.matching.select_and_localize_instance(
-                    seq_goal_map,
-                    seq_found_goal,
-                    final_local_map,
-                    matches,
-                    confidence,
-                    self.instance_goal_found,
-                    self.goal_inst,
-                    all_matches=all_matches,
-                    all_confidences=all_confidences,
-                    instance_ids=instance_ids,
-                    score_thresh=score_thresh,
-                )
-
-            # predict if the goal is found and where it is.
+        if len(all_matches) > 0 or matches is not None:
+            self.instance_goal_found = False
+            self.goal_inst = None
             (
                 seq_goal_map,
                 seq_found_goal,
@@ -224,10 +204,16 @@ class GoatAgentModule(nn.Module):
                 final_local_map,
                 matches,
                 confidence,
+                local_instance_ids,
+                self.instance_memory.local_id_to_global_id_map,
                 self.instance_goal_found,
                 self.goal_inst,
+                all_matches=all_matches,
+                all_confidences=all_confidences,
+                instance_ids=instance_ids,
                 score_thresh=score_thresh,
             )
+
             seq_goal_map = seq_goal_map.view(
                 batch_size, sequence_length, *seq_goal_map.shape[-2:]
             )
