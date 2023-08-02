@@ -568,9 +568,9 @@ def main(base_dir: str, legend_path: str):
             glob.glob(f"{str(Path(__file__).resolve().parent)}/image_goals/*.png")
         )
         for image_goal_path in image_goal_paths:
-            # if "spot.png" in image_goal_path:
-            #     # TODO Restrict to iPhone goals to debug
-            #     continue
+            if "spot.png" in image_goal_path:
+                # TODO Restrict to iPhone goals to debug
+                continue
             image_goal = cv2.imread(image_goal_path)
             image_goal_str = image_goal_path.split("/")[-1]
             category = re.split("(\d+)", image_goal_str)[0]
