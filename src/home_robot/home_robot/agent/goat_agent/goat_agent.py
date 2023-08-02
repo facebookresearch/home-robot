@@ -497,7 +497,6 @@ class GoatAgent(Agent):
             free_locations=free_locations,
         )
 
-
         # 3 - Planning
         closest_goal_map = None
         dilated_obstacle_map = None

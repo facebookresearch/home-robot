@@ -512,42 +512,6 @@ class DiscretePlanner:
         ] = 1
         traversible = add_boundary(traversible)
         goal_map = add_boundary(goal_map, value=0)
-
-        # hardcoded test
-        # obstacles[100,:] = 1
-        # obstacles[100,0] = 0
-        obstacles = 1 - traversible
-        # start = (240,240)
-        if traversible[start[0],start[1]] == 0:
-            import pdb; pdb.set_trace()
-        dists = fmm_distance(obstacles,start)
-        goal_dists = dists.copy()
-        goal_dists.mask = goal_dists.mask | (1-goal_map).astype(bool)
-        min_loc = np.unravel_index(np.argmin(goal_dists),goal_dists.shape)
-        dists_from_goal = fmm_distance(obstacles,min_loc)
-        # find all points that are step_size away from the current location
-        potential_subgoals = ((dists > self.step_size) & (dists <= self.step_size + 1))
-        dists_from_goal.mask |= ~potential_subgoals
-        # select the potential subgoal that is closes to the goal
-        subgoal = np.unravel_index(np.argmin(dists_from_goal),goal_dists.shape)
-        return (
-            short_term_goal,
-            goal_distance_map,
-            replan,
-            stop,
-            closest_goal_pt,
-            dilated_obstacles,
-        )
-
-        # return (
-            # subgoal,
-            # goal_distance_map,
-            # replan,
-            # stop,
-            # closest_goal_pt,
-            # dilated_obstacles,
-        # )
-
         planner = FMMPlanner(
             traversible,
             step_size=self.step_size,

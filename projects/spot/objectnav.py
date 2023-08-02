@@ -187,7 +187,6 @@ def get_semantic_map_vis(
                 1 - skimage.morphology.binary_dilation(subgoal_map, selem)
             ) != 1
             subgoal_mask = subgoal_mat == 1
-            # hack for now
             semantic_categories_map[subgoal_mask] = PI.SHORT_TERM_GOAL
 
     # Draw semantic map
