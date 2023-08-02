@@ -684,7 +684,20 @@ def main(base_dir: str, legend_path: str):
                 use_full_image=False,
                 categories=category_ids,
             )
-            breakpoint()
+            stats = {
+                i: {
+                    "mean": float(scores.mean()),
+                    "median": float(np.median(scores)),
+                    "max": float(scores.max()),
+                    "min": float(scores.min()),
+                    "all": scores.flatten().tolist(),
+                }
+                for i, scores in zip(instance_ids, all_confidences)
+            }
+            with open(
+                Path(goal_grounding_vis_dir) / f"language_goal{i}_stats.json", "w"
+            ) as f:
+                json.dump(stats, f, indent=4)
 
             (
                 goal_map,
