@@ -263,7 +263,7 @@ def text_to_image(
 record_instance_ids = True
 save_map_and_instances = False
 load_map_and_instances = True
-ground_image_in_memory = True
+ground_image_in_memory = False
 ground_language_in_memory = True
 
 
@@ -595,7 +595,6 @@ def main(base_dir: str, legend_path: str):
                 use_full_image=False,
                 categories=[category_id] if category_id is not None else None,
             )
-            breakpoint()
 
             (
                 goal_map,
@@ -685,6 +684,7 @@ def main(base_dir: str, legend_path: str):
                 use_full_image=False,
                 categories=category_ids,
             )
+            breakpoint()
 
             (
                 goal_map,
