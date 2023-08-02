@@ -261,7 +261,7 @@ def text_to_image(
 record_instance_ids = True
 save_map_and_instances = True
 load_map_and_instances = False
-ground_image_in_memory = False
+ground_image_in_memory = True
 ground_language_in_memory = True
 
 
@@ -641,10 +641,12 @@ def main(base_dir: str, legend_path: str):
             ("the high chair next to the kitchen island", ["chair"]),
             ("the grey chair next to the dining table", ["chair"]),
             ("the grey armchair", ["chair"]),
-            ("the black office chair", ["chair"]),
+            ("the black chair", ["chair"]),
+            ("the brown leather chair", ["chair"]),
             # Plants
             ("the big potted plant next to the armchair", ["potted plant"]),
             ("the potted plant next to the brown chair", ["potted plant", "chair"]),
+            ("the brown dead plant", ["potted plant"]),
             # Sinks
             ("the kitchen sink", ["sink"]),
             ("the bathroom sink", ["sink"]),
