@@ -29,6 +29,7 @@ class InstanceView:
     # point cloud of instance in the current image
     point_cloud: np.ndarray = None
     category_id: Optional[int] = None
+    pose: np.ndarray = None
 
     def __init__(
         self,
@@ -38,6 +39,7 @@ class InstanceView:
         embedding,
         mask,
         point_cloud,
+        pose,
         category_id=None,
     ):
         """
@@ -49,6 +51,7 @@ class InstanceView:
         self.embedding = embedding
         self.mask = mask
         self.point_cloud = point_cloud
+        self.pose = pose
         self.category_id = category_id
 
 
@@ -165,6 +168,7 @@ class InstanceMemory:
         semantic_map: torch.Tensor,
         instance_map: torch.Tensor,
         point_cloud: torch.Tensor,
+        pose: torch.Tensor,
         image: torch.Tensor,
         num_sem_categories: int,
     ):
@@ -278,6 +282,7 @@ class InstanceMemory:
         semantic_channels: torch.Tensor,
         instance_channels: torch.Tensor,
         point_cloud: torch.Tensor,
+        pose: torch.Tensor,
         image: torch.Tensor,
     ):
         instance_map = instance_channels.argmax(dim=1).int()
@@ -288,6 +293,7 @@ class InstanceMemory:
                 semantic_map[env_id],
                 instance_map[env_id],
                 point_cloud[env_id],
+                pose[env_id],
                 image[env_id],
                 semantic_map.shape[1],
             )
