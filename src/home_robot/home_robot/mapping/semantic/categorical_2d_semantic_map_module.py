@@ -515,6 +515,8 @@ class Categorical2DSemanticMapModule(nn.Module):
 
         semantic_channels = obs[:, 4 : 4 + self.num_sem_categories, :, :]
 
+        current_pose = pu.get_new_pose_batch(prev_pose.clone(), pose_delta)
+
         if self.record_instance_ids:
             instance_channels = obs[
                 :,
@@ -530,6 +532,7 @@ class Categorical2DSemanticMapModule(nn.Module):
                     semantic_channels,
                     instance_channels,
                     point_cloud_t,
+                    current_pose,
                     image=obs[:, :3, :, :],
                 )
 
@@ -616,9 +619,7 @@ class Categorical2DSemanticMapModule(nn.Module):
             all_height_proj[:, 1:] / self.cat_pred_threshold
         )
 
-        current_pose = pu.get_new_pose_batch(prev_pose.clone(), pose_delta)
         st_pose = current_pose.clone().detach()
-
         st_pose[:, :2] = -(
             (
                 st_pose[:, :2] * 100.0 / self.xy_resolution

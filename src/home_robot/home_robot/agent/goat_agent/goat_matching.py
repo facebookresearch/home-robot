@@ -47,6 +47,7 @@ class GoatMatching(Matching):
         image_goal=None,
         language_goal=None,
         use_full_image=False,
+        categories=None,
         **kwargs,
     ):
         """
@@ -58,7 +59,11 @@ class GoatMatching(Matching):
         all_views = []
         instance_view_counts = []
         steps_per_view = []
+        instance_ids = []
         for (inst_key, inst) in instances.items():
+            if categories is not None and inst.category_id not in categories:
+                continue
+            instance_ids.append(inst_key)
             inst_views = inst.instance_views
             for view_idx, inst_view in enumerate(inst_views):
                 # if inst_view.cropped_image.shape[0] * inst_view.cropped_image.shape[1] < 2500 or (np.array(inst_view.cropped_image.shape[0:2]) < 15).any():
@@ -93,8 +98,8 @@ class GoatMatching(Matching):
             all_confidences = np.split(
                 all_confidences, np.cumsum(instance_view_counts)[:-1]
             )
-            return all_matches, all_confidences
-        return [], []
+            return all_matches, all_confidences, instance_ids
+        return [], [], []
 
     @torch.no_grad()
     def match_image_to_image(
@@ -214,13 +219,15 @@ class GoatMatching(Matching):
         goal_inst: Optional[int],
         all_matches: List = None,
         all_confidences: List = None,
+        instance_ids: List = None,
         score_thresh: float = 0.0,
+        agg_fn: str = "max",
     ) -> Tuple[torch.Tensor, torch.Tensor, bool, Optional[int]]:
         """Select and localize an instance given computed matching scores."""
 
         if all_matches is not None:
             if len(all_matches) > 0:
-                max_scores = []
+                agg_scores = []
                 for inst_idx, match_inst in enumerate(all_matches):
                     inst_view_scores = []
                     for view_idx, match_view in enumerate(match_inst):
@@ -229,16 +236,21 @@ class GoatMatching(Matching):
                         ].sum()
                         inst_view_scores.append(view_score)
 
-                    # Take the max matching score across views of the instance
-                    # TODO Try other aggregation strategies (mean, median)
-                    max_scores.append(max(inst_view_scores))
+                    if agg_fn == "max":
+                        agg_scores.append(max(inst_view_scores))
+                    elif agg_fn == "mean":
+                        agg_scores.append(np.mean(inst_view_scores))
+                    elif agg_fn == "median":
+                        agg_scores.append(np.median(inst_view_scores))
+                    else:
+                        raise NotImplementedError
                     print(f"Instance {inst_idx+1} score: {max(inst_view_scores)}")
 
-                sorted_inst_ids = np.argsort(max_scores)[::-1]
+                sorted_inst_ids = np.argsort(agg_scores)[::-1]
                 idx = 0
                 while (
                     idx < len(sorted_inst_ids)
-                    and max_scores[sorted_inst_ids[idx]] > score_thresh
+                    and agg_scores[sorted_inst_ids[idx]] > score_thresh
                 ):
                     inst_idx = sorted_inst_ids[idx]
                     instance_map = local_map[0][
@@ -248,13 +260,20 @@ class GoatMatching(Matching):
                         :,
                         :,
                     ]
-                    inst_map_idx = instance_map == inst_idx + 1
+                    if instance_ids is None:
+                        best_instance_id = inst_idx + 1
+                    else:
+                        best_instance_id = instance_ids[inst_idx]
+                    inst_map_idx = instance_map == best_instance_id
                     inst_map_idx = torch.argmax(torch.sum(inst_map_idx, axis=(1, 2)))
-                    goal_map_temp = (instance_map[inst_map_idx] == inst_idx + 1).float()
+
+                    goal_map_temp = (
+                        instance_map[inst_map_idx] == best_instance_id
+                    ).float()
 
                     if goal_map_temp.any():
                         instance_goal_found = True
-                        goal_inst = inst_idx + 1
+                        goal_inst = best_instance_id
                         goal_map = goal_map_temp
                         print(f"{goal_inst} will be the goal")
                         break
