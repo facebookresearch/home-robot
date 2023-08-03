@@ -295,10 +295,11 @@ class GoatMatching(Matching):
         ):
             inst_idx = sorted_inst_ids[idx]
             idx += 1
+            print(f"Trying to localize instance {inst_idx + 1} with score {scores[inst_idx]}")
             if instance_ids is None:
                 best_instance_id = inst_idx + 1
             else:
-                best_instance_id = instance_ids[inst_idx]
+                best_instance_id = instance_ids[inst_idx]  # TODO Should this not be inst_idx + 1 to be consistent?
             if instance_ids[inst_idx] == -1:
                 continue
             inst_map_idx = instance_map == best_instance_id
@@ -310,7 +311,7 @@ class GoatMatching(Matching):
                 instance_goal_found = True
                 goal_inst = best_instance_id
                 print(f"{goal_inst} will be the goal")
-                break
+                return instance_goal_found, goal_inst
             else:
                 print("Instance was seen, but not present in local map.")
 

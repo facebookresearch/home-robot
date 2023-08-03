@@ -252,28 +252,35 @@ GOALS = {
         "type": "imagenav",
         "target": "chair",
         "image": cv2.imread(
-            f"{str(Path(__file__).resolve().parent)}/image_goals/chair1_spot.png"
+            f"{str(Path(__file__).resolve().parent)}/image_goals/chair1_iphone.png"
         ),
     },
     "image_chair2": {
         "type": "imagenav",
         "target": "chair",
         "image": cv2.imread(
-            f"{str(Path(__file__).resolve().parent)}/image_goals/chair2_spot.png"
+            f"{str(Path(__file__).resolve().parent)}/image_goals/chair2_iphone.png"
         ),
     },
     "image_chair3": {
         "type": "imagenav",
         "target": "chair",
         "image": cv2.imread(
-            f"{str(Path(__file__).resolve().parent)}/image_goals/chair3_spot.png"
+            f"{str(Path(__file__).resolve().parent)}/image_goals/chair3_iphone.png"
         ),
     },
     "image_chair4": {
         "type": "imagenav",
         "target": "chair",
         "image": cv2.imread(
-            f"{str(Path(__file__).resolve().parent)}/image_goals/chair4_spot.png"
+            f"{str(Path(__file__).resolve().parent)}/image_goals/chair4_iphone.png"
+        ),
+    },
+    "image_chair5": {
+        "type": "imagenav",
+        "target": "chair",
+        "image": cv2.imread(
+            f"{str(Path(__file__).resolve().parent)}/image_goals/chair5_iphone.png"
         ),
     },
     # Language goals
@@ -322,7 +329,7 @@ def main(spot=None):
             # GOALS["object_sink"],
             # GOALS["object_chair"],
             # GOALS["object_couch"],
-            GOALS["image_chair1"],
+            GOALS["image_chair5"],
             # GOALS["language_chair1"],
         ]
     )
