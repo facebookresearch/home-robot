@@ -155,8 +155,6 @@ class ObjectNavAgentModule(nn.Module):
             seq_dones,
             seq_update_global,
             seq_camera_poses,
-            seq_obstacle_locations,
-            seq_free_locations,
             init_local_map,
             init_global_map,
             init_local_pose,

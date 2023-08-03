@@ -415,8 +415,10 @@ class ObjectNavAgent(Agent):
                 timestep=self.timesteps[0],
                 debug=self.verbose,
             )
-            if self.timesteps_before_goal_update[0] == self.goal_update_steps - 1:
-                self.closest_goal_map[0] = closest_goal_map
+            # this is just changing the visualization but not the actual performance
+            # if self.timesteps_before_goal_update[0] == self.goal_update_steps - 1:
+                # self.closest_goal_map[0] = closest_goal_map
+            self.closest_goal_map[0] = closest_goal_map
 
         # t3 = time.time()
         # print(f"[Agent] Planning time: {t3 - t2:.2f}")

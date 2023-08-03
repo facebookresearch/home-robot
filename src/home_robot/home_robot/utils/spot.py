@@ -79,3 +79,25 @@ if __name__ == '__main__':
     plt.imshow(result_image, cmap='gray')
     plt.axis('off')
     plt.show()
+
+# takes in an image shape and point in that image A, (row column). 
+# Returns a numpy array of the specified shape where each point contains the angle in radians of that point measured from A.
+def calculate_angles(image_shape, point_A):
+    rows, cols = np.indices(image_shape)
+    row_diff = rows - point_A[0]
+    col_diff = cols - point_A[1]
+    angles = np.arctan2(row_diff, col_diff)
+    return angles
+
+def angular_distance_from_angle(image_shape, point_A, angle):
+    # Get the angles from the 'calculate_angles' function
+    angles_array = calculate_angles(image_shape, point_A)
+    
+    # Calculate angular distance from 'angle' at each point
+    angular_distance = angles_array - angle
+    
+    # Normalize the angular distance to be within (-pi, pi]
+    angular_distance = (angular_distance + np.pi) % (2 * np.pi) - np.pi
+    
+    return angular_distance
+

@@ -287,7 +287,7 @@ def main(spot,args):
         # tra.euler_from_matrix(mat, "rzyx")
         # np.pi/4
         # env.env.initial_joints
-        print("SHORT_TERM:", info["short_term_goal"])
+        print("SHORT_TERM:", info["short_term_goal"],np.where(info['closest_goal_map']))
         x, y = info["short_term_goal"]
         x, y = agent.semantic_map.local_to_global(x, y)
         action = ContinuousNavigationAction(np.array([x, y, 0.0]))
@@ -310,6 +310,7 @@ def main(spot,args):
         vis_images.append(vis_image)
         cv2.imwrite(f"{output_visualization_dir}/{t}.png", vis_image[:, :, ::-1])
         cv2.imshow("vis", vis_image[:, :, ::-1])
+        # map is (y,x) (bottom left of image is 0,0)
 
         key = cv2.waitKey(1)
 
