@@ -295,12 +295,15 @@ class GoatMatching(Matching):
         ):
             inst_idx = sorted_inst_ids[idx]
             idx += 1
-            print(f"Trying to localize instance {inst_idx + 1} with score {scores[inst_idx]}")
+            print(
+                f"Trying to localize instance {inst_idx + 1} with score {scores[inst_idx]}"
+            )
             if instance_ids is None:
                 best_instance_id = inst_idx + 1
             else:
-                best_instance_id = instance_ids[inst_idx]  # TODO Should this not be inst_idx + 1 to be consistent?
+                best_instance_id = instance_ids[inst_idx]
             if instance_ids[inst_idx] == -1:
+                print("instance_ids[inst_idx] == -1")
                 continue
             inst_map_idx = instance_map == best_instance_id
             inst_map_idx = torch.argmax(torch.sum(inst_map_idx, axis=(1, 2)))
