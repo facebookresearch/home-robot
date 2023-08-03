@@ -27,6 +27,9 @@ from home_robot.perception.detection.detic.detic_mask import Detic
 
 from .goat_agent_module import GoatAgentModule
 from .goat_matching import GoatMatching
+from home_robot.perception.detection.maskrcnn.coco_categories import (
+    coco_categories,
+)
 
 # For visualizing exploration issues
 debug_frontier_map = False
@@ -731,6 +734,7 @@ class GoatAgent(Agent):
                     self.total_timesteps[0],
                     language_goal=current_task["instruction"],
                     use_full_image=False,
+                    categories=[coco_categories.get(current_task["target"])],
                 )
 
         elif task_type == "imagenav":
@@ -749,6 +753,7 @@ class GoatAgent(Agent):
                     image_goal=self.goal_image,
                     goal_image_keypoints=self.goal_image_keypoints,
                     use_full_image=False,
+                    categories=[coco_categories.get(current_task["target"])],
                 )
 
         return (

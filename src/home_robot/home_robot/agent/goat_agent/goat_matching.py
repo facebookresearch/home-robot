@@ -56,7 +56,7 @@ class GoatMatching(Matching):
         Compute matching scores from an image or language goal with each instance
         detected in the current frame.
         """
-
+        # TODO We should restrict detections in the current frame by category
         detections = []
         instance_ids = []
         # first collect crops of instances found in the current frame

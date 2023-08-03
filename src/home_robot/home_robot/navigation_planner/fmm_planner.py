@@ -28,7 +28,7 @@ class FMMPlanner:
         vis_dir: str = "data/images/planner",
         visualize=True,
         print_images=True,
-        debug=False,
+        debug=True,
     ):
         """
         Arguments:

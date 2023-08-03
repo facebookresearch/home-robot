@@ -60,7 +60,7 @@ class SpotGoatEnv(SpotEnv):
 
             action = [xg, yg, angle]
             # print("ObjectNavAgent point action", action)
-            self.env.act_point(action, blocking=False,max_fwd_vel=0.3,max_ang_vel=np.pi/6,max_hor_vel=0.3)
+            self.env.act_point(action, blocking=False,max_fwd_vel=0.4,max_ang_vel=np.pi/6,max_hor_vel=0.25)
         else:
             self.env.step(base_action=action)
             if action == DiscreteNavigationAction.STOP:

@@ -63,6 +63,7 @@ class GoatAgentModule(nn.Module):
             evaluate_instance_tracking=getattr(
                 config.ENVIRONMENT, "evaluate_instance_tracking", False
             ),
+            exploration_type=config.AGENT.SEMANTIC_MAP.exploration_type,
         )
         self.policy = LanguageNavFrontierExplorationPolicy(
             exploration_strategy=config.AGENT.exploration_strategy

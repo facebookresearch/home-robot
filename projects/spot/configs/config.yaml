@@ -38,7 +38,7 @@ AGENT:
     du_scale: 4              # frame downscaling before projecting to point cloud
     target_blacklisting_radius: 100  # radius (in centimeters) of region around goal to blacklist if object isn't a valid target
     
-    cat_pred_threshold: 15.0 # number of depth points to be in bin to classify it as a certain semantic category
+    cat_pred_threshold: 1.0 # number of depth points to be in bin to classify it as a certain semantic category
     exp_pred_threshold: 1.0  # number of depth points to be in bin to consider it as explored
     map_pred_threshold: 1000.0 # number of depth points to be in bin to consider it as obstacle
     #explored_radius: 40     # radius (in centimeters) from the robot to mark as explored
@@ -86,7 +86,7 @@ AGENT:
     sinkhorn_iterations: 20
     match_threshold: 0.2
     score_function: confidence_sum    # or match_count
-    score_thresh_image: 4.0
+    score_thresh_image: 3.0
     score_thresh_lang: 0.28
     agg_fn_image: max
     agg_fn_lang: max

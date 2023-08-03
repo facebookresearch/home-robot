@@ -72,7 +72,7 @@ class DiscretePlanner:
         agent_cell_radius: int = 1,
         map_downsample_factor: float = 1.0,
         map_update_frequency: int = 1,
-        goal_tolerance: float = 1.5,
+        goal_tolerance: float = 10.0,
         discrete_actions: bool = True,
         continuous_angle_tolerance: float = 30.0,
     ):
@@ -569,7 +569,7 @@ class DiscretePlanner:
             if orientation is not None:
                 # convert to radians
                 angle = orientation/180*np.pi
-                print(angle)
+                # print(angle)
                 rotation_cost = np.abs(angular_distance_from_angle(local_goal_dists.shape,(self.step_size,self.step_size),angle))
             else:
                 rotation_cost = np.zeros_like(local_goal_dists)
@@ -591,7 +591,10 @@ class DiscretePlanner:
             assert y1 == 0
             short_term_goal = int(stg_x), int(stg_y)
             replan = False
-            stop = False
+            # print("local_goal_dists[self.step_size,self.step_size]", local_goal_dists[self.step_size,self.step_size])
+            # print("self.goal_tolerance", self.goal_tolerance)
+            stop = local_goal_dists[self.step_size,self.step_size] < self.goal_tolerance
+            # print("stop", stop)
             closest_goal_pt = (0,0)
             vis_goal_map = np.zeros_like(dists)
         return (

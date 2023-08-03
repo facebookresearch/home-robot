@@ -283,6 +283,20 @@ GOALS = {
             f"{str(Path(__file__).resolve().parent)}/image_goals/chair5_iphone.png"
         ),
     },
+    "image_couch1": {
+        "type": "imagenav",
+        "target": "couch",
+        "image": cv2.imread(
+            f"{str(Path(__file__).resolve().parent)}/image_goals/couch1_spot.png"
+        ),
+    },
+    "image_oven1": {
+        "type": "imagenav",
+        "target": "oven",
+        "image": cv2.imread(
+            f"{str(Path(__file__).resolve().parent)}/image_goals/oven1_iphone.png"
+        ),
+    },
     "image_plant1": {
         "type": "imagenav",
         "target": "potted plant",
@@ -290,12 +304,72 @@ GOALS = {
             f"{str(Path(__file__).resolve().parent)}/image_goals/plant1_spot.png"
         ),
     },
+    "image_plant2": {
+        "type": "imagenav",
+        "target": "potted plant",
+        "image": cv2.imread(
+            f"{str(Path(__file__).resolve().parent)}/image_goals/plant2_spot.png"
+        ),
+    },
+    "image_sink1": {
+        "type": "imagenav",
+        "target": "sink",
+        "image": cv2.imread(
+            f"{str(Path(__file__).resolve().parent)}/image_goals/sink1_spot.png"
+        ),
+    },
+    "image_sink2": {
+        "type": "imagenav",
+        "target": "sink",
+        "image": cv2.imread(
+            f"{str(Path(__file__).resolve().parent)}/image_goals/sink2_spot.png"
+        ),
+    },
+    "image_refrigerator1": {
+        "type": "imagenav",
+        "target": "refrigerator",
+        "image": cv2.imread(
+            f"{str(Path(__file__).resolve().parent)}/image_goals/refrigerator1_spot.png"
+        ),
+    },
+    "image_bed1": {
+        "type": "imagenav",
+        "target": "bed",
+        "image": cv2.imread(
+            f"{str(Path(__file__).resolve().parent)}/image_goals/bed1_spot.png"
+        ),
+    },
+    "image_toile1": {
+        "type": "imagenav",
+        "target": "toilet",
+        "image": cv2.imread(
+            f"{str(Path(__file__).resolve().parent)}/image_goals/toilet1_spot.png"
+        ),
+    },
     # Language goals
-    "language_chair2": {
+    "language_chair1": {
         "type": "languagenav",
         "target": "chair",
-        "landmarks": ["dining table"],
-        "instruction": "Instruction: Find the high chair next to the kitchen table.",
+        "landmarks": [],
+        "instruction": "The high chair next to the kitchen table.",
+    },
+    "language_chair4": {
+        "type": "languagenav",
+        "target": "chair",
+        "landmarks": [],
+        "instruction": "The grey armchair.",
+    },
+    "language_couch1": {
+        "type": "languagenav",
+        "target": "bed",
+        "landmarks": [],
+        "instruction": "The couch.",
+    },
+    "language_bed1": {
+        "type": "languagenav",
+        "target": "bed",
+        "landmarks": [],
+        "instruction": "The bed.",
     },
 }
 
@@ -325,21 +399,24 @@ def main(spot=None):
         env = SpotGoatEnv(spot, position_control=True)
         env.reset()
 
-    # user_input = input("Enter the goals separated by commas: ")
-    # print("You entered:", user_input)
-    # goals = [GOALS.get(g, "object_chair") for g in user_input.split(",")]
-    # pprint.pprint(goals, indent=4)
-    # env.set_goals(goals)
+    user_input = input("Enter the goals separated by commas: ")
+    print("You entered:", user_input)
+    goals = [GOALS.get(g) for g in user_input.split(",")]
+    goals = [g for g in goals if g is not None]
+    pprint.pprint(goals, indent=4)
+    env.set_goals(goals)
+    # object_chair,image_bed1,language_couch1
 
-    env.set_goals(
-        [
-            # GOALS["object_sink"],
-            # GOALS["object_chair"],
-            # GOALS["object_couch"],
-            GOALS["image_plant1"],
-            # GOALS["language_chair1"],
-        ]
-    )
+    # env.set_goals(
+    #     [
+    #         # GOALS["object_sink"],
+    #         # GOALS["object_chair"],
+    #         # GOALS["object_couch"],
+    #         # GOALS["image_bed1"],
+    #         # GOALS["language_chair1"],
+    #         GOALS["language_bed1"],
+    #     ]
+    # )
 
     agent = GoatAgent(config=config)
     agent.reset()
@@ -406,7 +483,8 @@ def main(spot=None):
             if key == ord("g"):
                 user_input = input("Enter the goals separated by commas: ")
                 print("You entered:", user_input)
-                goals = [GOALS.get(g, "object_chair") for g in user_input.split(",")]
+                goals = [GOALS.get(g) for g in user_input.split(",")]
+                goals = [g for g in goals if g is not None]
                 pprint.pprint(goals, indent=4)
                 agent.current_task_idx = 0
                 env.set_goals(goals)
