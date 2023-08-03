@@ -120,7 +120,7 @@ class StretchRosInterface:
             self._create_cameras()
             self._wait_for_cameras()
         if init_lidar:
-            self._lidar = RosLidar(self._lidar_topic, verbose=True)
+            self._lidar = RosLidar(self._lidar_topic)
             self._lidar.wait_for_scan()
 
     # Interfaces
