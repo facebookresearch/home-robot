@@ -41,6 +41,7 @@ from home_robot_hw.ros.visualizer import Visualizer
 
 DEFAULT_COLOR_TOPIC = "/camera/color"
 DEFAULT_DEPTH_TOPIC = "/camera/aligned_depth_to_color"
+DEFAULT_LIDAR_TOPIC = "/scan"
 
 
 class StretchRosInterface:
@@ -77,6 +78,7 @@ class StretchRosInterface:
         lidar_topic: Optional[str] = None,
         verbose: bool = False,
     ):
+        # Verbosity for the ROS client
         self.verbose = verbose
 
         # Initialize caches
@@ -110,15 +112,16 @@ class StretchRosInterface:
         # Initialize cameras
         self._color_topic = DEFAULT_COLOR_TOPIC if color_topic is None else color_topic
         self._depth_topic = DEFAULT_DEPTH_TOPIC if depth_topic is None else depth_topic
+        self._lidar_topic = DEFAULT_LIDAR_TOPIC if lidar_topic is None else lidar_topic
         self._depth_buffer_size = depth_buffer_size
 
         self.rgb_cam, self.dpt_cam = None, None
         if init_cameras:
             self._create_cameras(color_topic, depth_topic)
             self._wait_for_cameras()
-        if init_lidar and lidar_topic is not None:
-            print("[CLIENT->LIDAR] remove debug code")
+        if init_lidar:
             self._lidar = RosLidar(lidar_topic, verbose=True)
+            self._lidar.wait_for_scan()
 
     # Interfaces
 
