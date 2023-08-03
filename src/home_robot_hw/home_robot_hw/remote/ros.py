@@ -117,10 +117,10 @@ class StretchRosInterface:
 
         self.rgb_cam, self.dpt_cam = None, None
         if init_cameras:
-            self._create_cameras(color_topic, depth_topic)
+            self._create_cameras()
             self._wait_for_cameras()
         if init_lidar:
-            self._lidar = RosLidar(lidar_topic, verbose=True)
+            self._lidar = RosLidar(self._lidar_topic, verbose=True)
             self._lidar.wait_for_scan()
 
     # Interfaces
@@ -276,7 +276,7 @@ class StretchRosInterface:
         for i in range(3, self.dof):
             self.ros_joint_names += CONFIG_TO_ROS[i]
 
-    def _create_cameras(self, color_topic=None, depth_topic=None):
+    def _create_cameras(self):
         if self.rgb_cam is not None or self.dpt_cam is not None:
             raise RuntimeError("Already created cameras")
         print("Creating cameras...")
