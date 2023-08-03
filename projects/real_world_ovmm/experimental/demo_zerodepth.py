@@ -7,6 +7,8 @@
 #  pip install torch-scatter einops lpip
 
 
+import timeit
+
 import matplotlib.pyplot as plt
 import torch
 
@@ -26,14 +28,26 @@ rgb, depth, xyz = client.head.get_images(compute_xyz=True)
 plt.imshow(rgb)
 plt.show()
 
-rgb = torch.FloatTensor(rgb[None]).permute(0, 3, 1, 2)
+orig_rgb = rgb / 255.0
+rgb = torch.FloatTensor(orig_rgb[None]).permute(0, 3, 1, 2)
 intrinsics = torch.FloatTensor(client.head.intrinsics()[None])
+print("Predicting depth...")
+t0 = timeit.default_timer()
 pred_depth = zerodepth_model(rgb, intrinsics)[0, 0].detach().cpu().numpy()
+t1 = timeit.default_timer()
+print("...done. Took", t1 - t0, "seconds.")
 
 plt.figure()
 plt.subplot(1, 2, 1)
 plt.imshow(depth)
 plt.subplot(1, 2, 2)
 plt.imshow(pred_depth)
+plt.show()
+
+pred_xyz = client.head.depth_to_xyz(pred_depth)
+print("Original depth...")
+show_point_cloud(xyz, orig_rgb, orig=np.zeros(3))
+print("Predicted depth...")
+show_point_cloud(pred_xyz, orig_rgb, orig=np.zeros(3))
 
 breakpoint()

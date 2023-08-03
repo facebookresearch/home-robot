@@ -113,6 +113,13 @@ class StretchHeadClient(AbstractControlModule):
 
         return imgs
 
+    def depth_to_xyz(self, dpt: np.ndarray) -> np.ndarray:
+        """Convert depth to xyz coordinates"""
+        xyz = self._ros_client.dpt_cam.depth_to_xyz(
+            self._ros_client.dpt_cam.fix_depth(dpt)
+        )
+        return xyz
+
     # Helper methods
 
     def _process_depth(self, depth):

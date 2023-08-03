@@ -19,7 +19,7 @@ class RosCamera(Camera):
     def __init__(
         self,
         name: str = "/camera/color",
-        verbose: bool = True,
+        verbose: bool = False,
         rotations: int = 0,
         buffer_size: int = None,
     ):
