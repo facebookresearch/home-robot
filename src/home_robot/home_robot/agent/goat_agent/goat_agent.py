@@ -377,12 +377,14 @@ class GoatAgent(Agent):
         self.goal_map[:] *= 0
         self.prev_task_type = None
         self.planner.reset()
+        self._module.reset()
 
     def reset_sub_episode(self) -> None:
         """Reset for a new sub-episode since pre-processing is temporally dependent."""
         self.goal_image = None
         self.goal_image_keypoints = None
         self.goal_mask = None
+        self._module.reset_sub_episode()
 
     def reset_vectorized_for_env(self, e: int):
         """Initialize agent state for a specific environment."""
@@ -401,7 +403,7 @@ class GoatAgent(Agent):
 
         self.current_task_idx = 0
         self.planner.reset()
-
+        self._module.reset()
         self.goal_image = None
         self.goal_image_keypoints = None
         self.goal_mask = None

@@ -17,6 +17,8 @@ from home_robot.mapping.semantic.constants import MapConstants as MC
 from home_robot.mapping.semantic.instance_tracking_modules import InstanceMemory
 
 matplotlib.use("Agg")
+MIN_PIXELS = 1000
+MIN_EDGE = 15
 
 
 class GoatMatching(Matching):
@@ -57,20 +59,20 @@ class GoatMatching(Matching):
 
         detections = []
         instance_ids = []
-
+        # first collect crops of instances found in the current frame
         for local_instance_id, inst_view in instance_memory.unprocessed_views[
             0
         ].items():
-            # first collect crops of instances found in the current frame
+            if (
+                inst_view.cropped_image.shape[0] * inst_view.cropped_image.shape[1]
+                < MIN_PIXELS
+                or (np.array(inst_view.cropped_image.shape[0:2]) < MIN_EDGE).any()
+            ):
+                continue
             if use_full_image:
                 img = instance_memory.images[0][-1]
             else:
                 img = inst_view.cropped_image
-            if (
-                img.shape[0] * img.shape[1] < 2500
-                or (np.array(img.shape[0:2]) < 15).any()
-            ):
-                continue
             detections.append(img)
             instance_ids.append(local_instance_id)
 
@@ -134,17 +136,27 @@ class GoatMatching(Matching):
         for (inst_key, inst) in instances.items():
             if categories is not None and inst.category_id not in categories:
                 continue
-            instance_ids.append(inst_key)
             inst_views = inst.instance_views
+            views_added = 0
             for view_idx, inst_view in enumerate(inst_views):
+                if (
+                    inst_view.cropped_image.shape[0] * inst_view.cropped_image.shape[1]
+                    < MIN_PIXELS
+                    or (np.array(inst_view.cropped_image.shape[0:2]) < MIN_EDGE).any()
+                ):
+                    continue
                 if use_full_image:
                     img = instance_memory.images[0][inst_view.timestep].cpu().numpy()
                     img = np.transpose(img, (1, 2, 0))
                 else:
                     img = inst_view.cropped_image
+
                 all_views.append(img)
+                views_added += 1
                 steps_per_view.append(1000 * step + 10 * inst_key + view_idx)
-            instance_view_counts.append(len(inst_views))
+            if views_added > 0:
+                instance_view_counts.append(views_added)
+                instance_ids.append(inst_key)
 
         if len(all_views) > 0:
             all_matches, all_confidences = self.match_images_to_goal(
@@ -281,8 +293,8 @@ class GoatMatching(Matching):
         while (
             idx < len(sorted_inst_ids) and scores[sorted_inst_ids[idx]] > score_thresh
         ):
-
             inst_idx = sorted_inst_ids[idx]
+            idx += 1
             if instance_ids is None:
                 best_instance_id = inst_idx + 1
             else:
@@ -301,7 +313,6 @@ class GoatMatching(Matching):
                 break
             else:
                 print("Instance was seen, but not present in local map.")
-            idx += 1
 
         if idx == len(sorted_inst_ids):
             print("Goal image does not match any instance.")
@@ -328,6 +339,16 @@ class GoatMatching(Matching):
                 print(f"Instance {inst_idx+1} score: {max(inst_view_scores)}")
         return agg_scores
 
+    def get_goal_map_from_goal_instance(
+        self, instance_map, goal_map, goal_inst, instance_goal_found, found_goal
+    ):
+        if goal_inst is not None and instance_goal_found is True:
+            found_goal[0] = True
+            inst_map_idx = instance_map == goal_inst
+            inst_map_idx = torch.argmax(torch.sum(inst_map_idx, axis=(1, 2)))
+            goal_map = (instance_map[inst_map_idx] == goal_inst).to(torch.float)
+        return goal_map, found_goal
+
     def select_and_localize_instance(
         self,
         goal_map: torch.Tensor,
@@ -353,6 +374,13 @@ class GoatMatching(Matching):
             :,
             :,
         ]
+
+        if goal_inst is not None and instance_goal_found is True:
+            goal_map, found_goal = self.get_goal_map_from_goal_instance(
+                instance_map, goal_map, goal_inst, instance_goal_found, found_goal
+            )
+            return goal_map, found_goal, instance_goal_found, goal_inst
+
         if all_matches is not None:
             if len(all_matches) > 0:
                 agg_scores = self.aggregate_scores_per_instance(
@@ -380,10 +408,8 @@ class GoatMatching(Matching):
                     )
 
         if goal_inst is not None and instance_goal_found is True:
-            found_goal[0] = True
-
-            inst_map_idx = instance_map == goal_inst
-            inst_map_idx = torch.argmax(torch.sum(inst_map_idx, axis=(1, 2)))
-            goal_map = (instance_map[inst_map_idx] == goal_inst).to(torch.float)
+            goal_map, found_goal = self.get_goal_map_from_goal_instance(
+                instance_map, goal_map, goal_inst, instance_goal_found, found_goal
+            )
 
         return goal_map, found_goal, instance_goal_found, goal_inst

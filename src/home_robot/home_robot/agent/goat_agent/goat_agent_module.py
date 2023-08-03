@@ -68,6 +68,15 @@ class GoatAgentModule(nn.Module):
             exploration_strategy=config.AGENT.exploration_strategy
         )
         self.goal_policy_config = config.AGENT.SUPERGLUE
+        self.instance_goal_found = False
+        self.goal_inst = None
+
+    def reset_sub_episode(self):
+        self.instance_goal_found = False
+        self.goal_inst = None
+
+    def reset(self):
+        self.reset_sub_episode()
 
     @property
     def goal_update_steps(self):
@@ -190,9 +199,7 @@ class GoatAgentModule(nn.Module):
             seq_found_goal[:, 0] == 0
         ]
 
-        if len(all_matches) > 0 or matches is not None:
-            self.instance_goal_found = False
-            self.goal_inst = None
+        if len(all_matches) > 0 or matches is not None or self.instance_goal_found:
             (
                 seq_goal_map,
                 seq_found_goal,

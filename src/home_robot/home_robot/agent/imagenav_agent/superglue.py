@@ -159,7 +159,7 @@ class Matching(nn.Module):
             color=txt_color,
         )
         txt.set_path_effects([patheffects.withStroke(linewidth=2, foreground="w")])
-
+        os.makedirs(os.path.dirname(path), exist_ok=True)
         plt.savefig(str(path), bbox_inches="tight", pad_inches=0)
         plt.close()
 

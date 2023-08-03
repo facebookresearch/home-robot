@@ -153,10 +153,14 @@ class InstanceMemory:
             global_instance.instance_views.append(instance_view)
         self.local_id_to_global_id_map[env_id][local_instance_id] = global_instance_id
         if self.debug_visualize:
-            instance_write_path = f"{self.save_dir}/{str(global_instance_id)}"
+            instance_write_path = os.path.join(self.save_dir, str(global_instance_id))
             os.makedirs(instance_write_path, exist_ok=True)
+
             cv2.imwrite(
-                f"{instance_write_path}/{self.timesteps[env_id]}_{local_instance_id}_cat_{instance_view.category_id}.png",
+                os.path.join(
+                    instance_write_path,
+                    f"{self.timesteps[env_id]}_{local_instance_id}_cat_{instance_view.category_id}.png",
+                ),
                 instance_view.cropped_image,
             )
             print(
