@@ -30,6 +30,7 @@ class InstanceView:
     point_cloud: np.ndarray = None
     category_id: Optional[int] = None
     pose: np.ndarray = None
+    instance_id: Optional[int] = None
 
     def __init__(
         self,
@@ -88,6 +89,7 @@ class InstanceMemory:
     instance_views: List[Dict[int, Instance]] = []
     point_cloud: List[torch.Tensor] = []
     unprocessed_views: List[Dict[int, InstanceView]] = []
+    local_id_to_global_id_map: List[Dict[int, int]] = []
     timesteps: List[int] = []
 
     def __init__(
@@ -119,6 +121,7 @@ class InstanceMemory:
         self.point_cloud = [None for _ in range(self.num_envs)]
         self.instance_views = [{} for _ in range(self.num_envs)]
         self.unprocessed_views = [{} for _ in range(self.num_envs)]
+        self.local_id_to_global_id_map = [{} for _ in range(self.num_envs)]
         self.timesteps = [0 for _ in range(self.num_envs)]
 
     def update_instance_id(
@@ -148,11 +151,16 @@ class InstanceMemory:
         else:
             # add instance view to global instance
             global_instance.instance_views.append(instance_view)
+        self.local_id_to_global_id_map[env_id][local_instance_id] = global_instance_id
         if self.debug_visualize:
-            instance_write_path = f"{self.save_dir}/{str(global_instance_id)}"
+            instance_write_path = os.path.join(self.save_dir, str(global_instance_id))
             os.makedirs(instance_write_path, exist_ok=True)
+
             cv2.imwrite(
-                f"{instance_write_path}/{self.timesteps[env_id]}_{local_instance_id}_cat_{instance_view.category_id}.png",
+                os.path.join(
+                    instance_write_path,
+                    f"{self.timesteps[env_id]}_{local_instance_id}_cat_{instance_view.category_id}.png",
+                ),
                 instance_view.cropped_image,
             )
             print(
@@ -182,6 +190,7 @@ class InstanceMemory:
         instance_id_to_category_id = {}
 
         self.unprocessed_views[env_id] = {}
+        self.local_id_to_global_id_map[env_id] = {}
         # append image to list of images
         if self.images[env_id] is None:
             self.images[env_id] = image.unsqueeze(0).detach().cpu()
@@ -193,7 +202,8 @@ class InstanceMemory:
             self.point_cloud[env_id] = point_cloud.unsqueeze(0).detach().cpu()
         else:
             self.point_cloud[env_id] = torch.cat(
-                [self.point_cloud[env_id], point_cloud.unsqueeze(0).detach().cpu()], dim=0
+                [self.point_cloud[env_id], point_cloud.unsqueeze(0).detach().cpu()],
+                dim=0,
             )
         # unique instances
         instance_ids = torch.unique(instance_map)
@@ -310,3 +320,4 @@ class InstanceMemory:
         self.point_cloud[env_id] = None
         self.unprocessed_views[env_id] = {}
         self.timesteps[env_id] = 0
+        self.local_id_to_global_id_map[env_id] = {}

@@ -49,7 +49,8 @@ class PI:
     VISITED = 3
     CLOSEST_GOAL = 4
     REST_OF_GOAL = 5
-    SEM_START = 6
+    SHORT_TERM_GOAL = 6
+    SEM_START = 7
 
 
 def create_video(images, output_file, fps):
@@ -141,6 +142,9 @@ def get_semantic_map_vis(
         0.63,
         0.78,
         0.95,  # rest of goal
+        0.00,
+        0.00,
+        0.00,  # short term goal
         *color_palette,
     ]
     map_color_palette = [int(x * 255.0) for x in map_color_palette]
@@ -187,8 +191,7 @@ def get_semantic_map_vis(
                 1 - skimage.morphology.binary_dilation(subgoal_map, selem)
             ) != 1
             subgoal_mask = subgoal_mat == 1
-            # hack for now
-            semantic_categories_map[subgoal_mask] = PI.REST_OF_GOAL
+            semantic_categories_map[subgoal_mask] = PI.SHORT_TERM_GOAL
 
     # Draw semantic map
     semantic_map_vis = Image.new("P", semantic_categories_map.shape)
@@ -249,28 +252,42 @@ GOALS = {
         "type": "imagenav",
         "target": "chair",
         "image": cv2.imread(
-            f"{str(Path(__file__).resolve().parent)}/image_goals/chair1_spot.png"
+            f"{str(Path(__file__).resolve().parent)}/image_goals/chair1_iphone.png"
         ),
     },
     "image_chair2": {
         "type": "imagenav",
         "target": "chair",
         "image": cv2.imread(
-            f"{str(Path(__file__).resolve().parent)}/image_goals/chair2_spot.png"
+            f"{str(Path(__file__).resolve().parent)}/image_goals/chair2_iphone.png"
         ),
     },
     "image_chair3": {
         "type": "imagenav",
         "target": "chair",
         "image": cv2.imread(
-            f"{str(Path(__file__).resolve().parent)}/image_goals/chair3_spot.png"
+            f"{str(Path(__file__).resolve().parent)}/image_goals/chair3_iphone.png"
         ),
     },
     "image_chair4": {
         "type": "imagenav",
         "target": "chair",
         "image": cv2.imread(
-            f"{str(Path(__file__).resolve().parent)}/image_goals/chair4_spot.png"
+            f"{str(Path(__file__).resolve().parent)}/image_goals/chair4_iphone.png"
+        ),
+    },
+    "image_chair5": {
+        "type": "imagenav",
+        "target": "chair",
+        "image": cv2.imread(
+            f"{str(Path(__file__).resolve().parent)}/image_goals/chair5_iphone.png"
+        ),
+    },
+    "image_plant1": {
+        "type": "imagenav",
+        "target": "potted plant",
+        "image": cv2.imread(
+            f"{str(Path(__file__).resolve().parent)}/image_goals/plant1_spot.png"
         ),
     },
     # Language goals
@@ -317,9 +334,10 @@ def main(spot=None):
     env.set_goals(
         [
             # GOALS["object_sink"],
-            GOALS["object_chair"],
+            # GOALS["object_chair"],
             # GOALS["object_couch"],
-            # GOALS["image_chair1"],
+            GOALS["image_plant1"],
+            # GOALS["language_chair1"],
         ]
     )
 
@@ -339,6 +357,7 @@ def main(spot=None):
     t = 0
     while not env.episode_over:
         t += 1
+        print()
         print("STEP =", t)
 
         if not OFFLINE:
@@ -353,7 +372,7 @@ def main(spot=None):
                 break
 
         action, info = agent.act(obs)
-        print("SHORT_TERM:", info["short_term_goal"])
+        # print("SHORT_TERM:", info["short_term_goal"])
         x, y = info["short_term_goal"]
         x, y = agent.semantic_map.local_to_global(x, y)
         action = ContinuousNavigationAction(np.array([x, y, 0.0]))

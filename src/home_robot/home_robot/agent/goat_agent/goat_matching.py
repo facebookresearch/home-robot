@@ -17,6 +17,8 @@ from home_robot.mapping.semantic.constants import MapConstants as MC
 from home_robot.mapping.semantic.instance_tracking_modules import InstanceMemory
 
 matplotlib.use("Agg")
+MIN_PIXELS = 1000
+MIN_EDGE = 15
 
 
 class GoatMatching(Matching):
@@ -38,6 +40,77 @@ class GoatMatching(Matching):
         # generate clip embeddings by loading clip model
         self.device = device
         self.clip_model, self.clip_preprocess = clip.load("ViT-B/32", device)
+
+    def get_matches_against_current_frame(
+        self,
+        instance_memory,
+        matching_fn,
+        step,
+        image_goal=None,
+        language_goal=None,
+        use_full_image=None,
+        categories=None,
+        **kwargs,
+    ):
+        """
+        Compute matching scores from an image or language goal with each instance
+        detected in the current frame.
+        """
+
+        detections = []
+        instance_ids = []
+        # first collect crops of instances found in the current frame
+        for local_instance_id, inst_view in instance_memory.unprocessed_views[
+            0
+        ].items():
+            if (
+                inst_view.cropped_image.shape[0] * inst_view.cropped_image.shape[1]
+                < MIN_PIXELS
+                or (np.array(inst_view.cropped_image.shape[0:2]) < MIN_EDGE).any()
+            ):
+                continue
+            if use_full_image:
+                img = instance_memory.images[0][-1]
+            else:
+                img = inst_view.cropped_image
+            detections.append(img)
+            instance_ids.append(local_instance_id)
+
+        matches, confidences = [], []
+        if len(detections) > 0:
+            matches, confidences = self.match_images_to_goal(
+                detections,
+                matching_fn,
+                step,
+                image_goal=image_goal,
+                language_goal=language_goal,
+                **kwargs,
+            )
+        return np.array([matches]), np.array([confidences]), np.array([instance_ids])
+
+    def match_images_to_goal(
+        self,
+        all_views,
+        matching_fn,
+        step,
+        image_goal=None,
+        language_goal=None,
+        **kwargs,
+    ):
+        all_matches, all_confidences = [], []
+        if image_goal is not None:
+            _, _, all_matches, all_confidences = matching_fn(
+                all_views,
+                goal_image=image_goal,
+                goal_image_keypoints=kwargs["goal_image_keypoints"],
+                step=1000 * step,
+            )
+        elif language_goal is not None:
+            all_matches, all_confidences = matching_fn(
+                all_views,
+                language_goal,
+            )
+        return all_matches, all_confidences
 
     def get_matches_against_memory(
         self,
@@ -63,34 +136,37 @@ class GoatMatching(Matching):
         for (inst_key, inst) in instances.items():
             if categories is not None and inst.category_id not in categories:
                 continue
-            instance_ids.append(inst_key)
             inst_views = inst.instance_views
+            views_added = 0
             for view_idx, inst_view in enumerate(inst_views):
-                # if inst_view.cropped_image.shape[0] * inst_view.cropped_image.shape[1] < 2500 or (np.array(inst_view.cropped_image.shape[0:2]) < 15).any():
-                #     continue
+                if (
+                    inst_view.cropped_image.shape[0] * inst_view.cropped_image.shape[1]
+                    < MIN_PIXELS
+                    or (np.array(inst_view.cropped_image.shape[0:2]) < MIN_EDGE).any()
+                ):
+                    continue
                 if use_full_image:
                     img = instance_memory.images[0][inst_view.timestep].cpu().numpy()
                     img = np.transpose(img, (1, 2, 0))
                 else:
                     img = inst_view.cropped_image
+
                 all_views.append(img)
+                views_added += 1
                 steps_per_view.append(1000 * step + 10 * inst_key + view_idx)
-            instance_view_counts.append(len(inst_views))
+            if views_added > 0:
+                instance_view_counts.append(views_added)
+                instance_ids.append(inst_key)
 
         if len(all_views) > 0:
-            if image_goal is not None:
-                _, _, all_matches, all_confidences = matching_fn(
-                    all_views,
-                    goal_image=image_goal,
-                    goal_image_keypoints=kwargs["goal_image_keypoints"],
-                    step=1000 * step + 10 * inst_key + view_idx,
-                )
-            elif language_goal is not None:
-                all_matches, all_confidences = matching_fn(
-                    all_views,
-                    language_goal,
-                    step=1000 * step + 10 * inst_key + view_idx,
-                )
+            all_matches, all_confidences = self.match_images_to_goal(
+                all_views,
+                matching_fn,
+                step,
+                image_goal=image_goal,
+                language_goal=language_goal,
+                **kwargs,
+            )
             # unflatten based on number of views per instance
             all_matches = np.concatenate(all_matches, 0)
             all_confidences = np.concatenate(all_confidences, 0)
@@ -156,9 +232,10 @@ class GoatMatching(Matching):
                 **rgb_image_keypoints,
             }
             pred = self.matcher(matcher_inputs)
+
             matches = pred["matches0"].cpu().numpy()
             confidence = pred["matching_scores0"].cpu().numpy()
-            self._visualize(matcher_inputs, pred, step)
+            self._visualize(matcher_inputs, pred, step + i)
 
             if "keypoints0" in matcher_inputs:
                 goal_keypoints = matcher_inputs["keypoints0"]
@@ -208,6 +285,74 @@ class GoatMatching(Matching):
             -1, 1, 1
         )
 
+    def get_best_match(self, scores, instance_ids, instance_map, score_thresh):
+        instance_goal_found = False
+        goal_inst = None
+        sorted_inst_ids = np.argsort(scores)[::-1]
+        idx = 0
+        while (
+            idx < len(sorted_inst_ids) and scores[sorted_inst_ids[idx]] > score_thresh
+        ):
+            inst_idx = sorted_inst_ids[idx]
+            idx += 1
+            print(
+                f"Trying to localize instance {inst_idx + 1} with score {scores[inst_idx]}"
+            )
+            if instance_ids is None:
+                best_instance_id = inst_idx + 1
+            else:
+                best_instance_id = instance_ids[inst_idx]
+            if instance_ids[inst_idx] == -1:
+                print("instance_ids[inst_idx] == -1")
+                continue
+            inst_map_idx = instance_map == best_instance_id
+            inst_map_idx = torch.argmax(torch.sum(inst_map_idx, axis=(1, 2)))
+
+            goal_map_temp = (instance_map[inst_map_idx] == best_instance_id).float()
+
+            if goal_map_temp.any():
+                instance_goal_found = True
+                goal_inst = best_instance_id
+                print(f"{goal_inst} will be the goal")
+                return instance_goal_found, goal_inst
+            else:
+                print("Instance was seen, but not present in local map.")
+
+        if idx == len(sorted_inst_ids):
+            print("Goal image does not match any instance.")
+
+        return instance_goal_found, goal_inst
+
+    def aggregate_scores_per_instance(self, matches, confidences, agg_fn):
+        agg_scores = []
+        if len(matches) > 0:
+            for inst_idx, match_inst in enumerate(matches):
+                inst_view_scores = []
+                for view_idx, match_view in enumerate(match_inst):
+                    view_score = confidences[inst_idx][view_idx][match_view != -1].sum()
+                    inst_view_scores.append(view_score)
+
+                if agg_fn == "max":
+                    agg_scores.append(max(inst_view_scores))
+                elif agg_fn == "mean":
+                    agg_scores.append(np.mean(inst_view_scores))
+                elif agg_fn == "median":
+                    agg_scores.append(np.median(inst_view_scores))
+                else:
+                    raise NotImplementedError
+                print(f"Instance {inst_idx+1} score: {max(inst_view_scores)}")
+        return agg_scores
+
+    def get_goal_map_from_goal_instance(
+        self, instance_map, goal_map, goal_inst, instance_goal_found, found_goal
+    ):
+        if goal_inst is not None and instance_goal_found is True:
+            found_goal[0] = True
+            inst_map_idx = instance_map == goal_inst
+            inst_map_idx = torch.argmax(torch.sum(inst_map_idx, axis=(1, 2)))
+            goal_map = (instance_map[inst_map_idx] == goal_inst).to(torch.float)
+        return goal_map, found_goal
+
     def select_and_localize_instance(
         self,
         goal_map: torch.Tensor,
@@ -215,6 +360,8 @@ class GoatMatching(Matching):
         local_map: torch.Tensor,
         matches: torch.Tensor,
         confidence: torch.Tensor,
+        local_instance_ids: List,
+        local_id_to_global_id_map: Optional[Dict],
         instance_goal_found: bool,
         goal_inst: Optional[int],
         all_matches: List = None,
@@ -224,96 +371,49 @@ class GoatMatching(Matching):
         agg_fn: str = "max",
     ) -> Tuple[torch.Tensor, torch.Tensor, bool, Optional[int]]:
         """Select and localize an instance given computed matching scores."""
+        instance_map = local_map[0][
+            MC.NON_SEM_CHANNELS
+            + self.num_sem_categories : MC.NON_SEM_CHANNELS
+            + 2 * self.num_sem_categories,
+            :,
+            :,
+        ]
+
+        if goal_inst is not None and instance_goal_found is True:
+            goal_map, found_goal = self.get_goal_map_from_goal_instance(
+                instance_map, goal_map, goal_inst, instance_goal_found, found_goal
+            )
+            return goal_map, found_goal, instance_goal_found, goal_inst
 
         if all_matches is not None:
             if len(all_matches) > 0:
-                agg_scores = []
-                for inst_idx, match_inst in enumerate(all_matches):
-                    inst_view_scores = []
-                    for view_idx, match_view in enumerate(match_inst):
-                        view_score = all_confidences[inst_idx][view_idx][
-                            match_view != -1
-                        ].sum()
-                        inst_view_scores.append(view_score)
+                agg_scores = self.aggregate_scores_per_instance(
+                    all_matches, all_confidences, agg_fn
+                )
+                if len(agg_scores) > 0:
+                    instance_goal_found, goal_inst = self.get_best_match(
+                        agg_scores, instance_ids, instance_map, score_thresh
+                    )
 
-                    if agg_fn == "max":
-                        agg_scores.append(max(inst_view_scores))
-                    elif agg_fn == "mean":
-                        agg_scores.append(np.mean(inst_view_scores))
-                    elif agg_fn == "median":
-                        agg_scores.append(np.median(inst_view_scores))
-                    else:
-                        raise NotImplementedError
-                    print(f"Instance {inst_idx+1} score: {max(inst_view_scores)}")
+        if goal_inst is None and matches is not None:
+            for e in range(confidence.shape[0]):
+                scores = confidence[e]
 
-                sorted_inst_ids = np.argsort(agg_scores)[::-1]
-                idx = 0
-                while (
-                    idx < len(sorted_inst_ids)
-                    and agg_scores[sorted_inst_ids[idx]] > score_thresh
-                ):
-                    inst_idx = sorted_inst_ids[idx]
-                    instance_map = local_map[0][
-                        MC.NON_SEM_CHANNELS
-                        + self.num_sem_categories : MC.NON_SEM_CHANNELS
-                        + 2 * self.num_sem_categories,
-                        :,
-                        :,
+                if len(scores) > 0:
+                    global_instance_ids = [
+                        local_id_to_global_id_map[e].get(i, -1)
+                        for i in local_instance_ids[e]
                     ]
-                    if instance_ids is None:
-                        best_instance_id = inst_idx + 1
-                    else:
-                        best_instance_id = instance_ids[inst_idx]
-                    inst_map_idx = instance_map == best_instance_id
-                    inst_map_idx = torch.argmax(torch.sum(inst_map_idx, axis=(1, 2)))
-
-                    goal_map_temp = (
-                        instance_map[inst_map_idx] == best_instance_id
-                    ).float()
-
-                    if goal_map_temp.any():
-                        instance_goal_found = True
-                        goal_inst = best_instance_id
-                        goal_map = goal_map_temp
-                        print(f"{goal_inst} will be the goal")
-                        break
-                    else:
-                        print("Instance was seen, but not present in local map.")
-                    idx += 1
-
-                if idx == len(sorted_inst_ids):
-                    print("Goal image does not match any instance.")
+                    agg_scores = self.aggregate_scores_per_instance(
+                        matches[e], confidence[e], agg_fn
+                    )
+                    instance_goal_found, goal_inst = self.get_best_match(
+                        agg_scores, global_instance_ids, instance_map, score_thresh
+                    )
 
         if goal_inst is not None and instance_goal_found is True:
-            found_goal[0] = True
-
-            instance_map = local_map[0][
-                MC.NON_SEM_CHANNELS
-                + self.num_sem_categories : MC.NON_SEM_CHANNELS
-                + 2 * self.num_sem_categories,
-                :,
-                :,
-            ]
-            inst_map_idx = instance_map == goal_inst
-            inst_map_idx = torch.argmax(torch.sum(inst_map_idx, axis=(1, 2)))
-            goal_map = (instance_map[inst_map_idx] == goal_inst).to(torch.float)
-
-        elif confidence is not None and matches is not None:
-            for e in range(confidence.shape[0]):
-                # if the goal category is empty, the goal can't be found
-                if not local_map[e, 21].any().item():
-                    continue
-
-                if self.score_func == "confidence_sum":
-                    score = confidence[e][matches[e] != -1].sum()
-                else:  # match_count
-                    score = (matches[e] != -1).sum()
-
-                if score < score_thresh:
-                    continue
-
-                found_goal[e] = True
-                # Set goal_map to the last channel of the local semantic map
-                goal_map[e, 0] = local_map[e, 21]
+            goal_map, found_goal = self.get_goal_map_from_goal_instance(
+                instance_map, goal_map, goal_inst, instance_goal_found, found_goal
+            )
 
         return goal_map, found_goal, instance_goal_found, goal_inst

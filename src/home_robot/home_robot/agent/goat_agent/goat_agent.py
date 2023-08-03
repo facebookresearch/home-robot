@@ -202,6 +202,7 @@ class GoatAgent(Agent):
         blacklist_target: bool = False,
         matches=None,
         confidence=None,
+        local_instance_ids=None,
         all_matches=None,
         all_confidences=None,
         instance_ids=None,
@@ -279,6 +280,7 @@ class GoatAgent(Agent):
             blacklist_target=blacklist_target,
             matches=matches,
             confidence=confidence,
+            local_instance_ids=local_instance_ids,
             all_matches=all_matches,
             all_confidences=all_confidences,
             instance_ids=instance_ids,
@@ -376,12 +378,14 @@ class GoatAgent(Agent):
         self.goal_map[:] *= 0
         self.prev_task_type = None
         self.planner.reset()
+        self._module.reset()
 
     def reset_sub_episode(self) -> None:
         """Reset for a new sub-episode since pre-processing is temporally dependent."""
         self.goal_image = None
         self.goal_image_keypoints = None
         self.goal_mask = None
+        self._module.reset_sub_episode()
 
     def reset_vectorized_for_env(self, e: int):
         """Initialize agent state for a specific environment."""
@@ -401,7 +405,7 @@ class GoatAgent(Agent):
 
         self.current_task_idx = 0
         self.planner.reset()
-
+        self._module.reset()
         self.goal_image = None
         self.goal_image_keypoints = None
         self.goal_mask = None
@@ -442,9 +446,10 @@ class GoatAgent(Agent):
             camera_pose,
             matches,
             confidence,
+            local_instance_ids,
             all_matches,
             all_confidences,
-            instance_ids
+            instance_ids,
         ) = self._preprocess_obs(obs, task_type)
 
         if "obstacle_locations" in obs.task_observations:
@@ -489,6 +494,7 @@ class GoatAgent(Agent):
             blacklist_target=self.blacklist_target,
             matches=matches,
             confidence=confidence,
+            local_instance_ids=local_instance_ids,
             all_matches=all_matches,
             all_confidences=all_confidences,
             instance_ids=instance_ids,
@@ -496,7 +502,6 @@ class GoatAgent(Agent):
             obstacle_locations=obstacle_locations,
             free_locations=free_locations,
         )
-
 
         # 3 - Planning
         closest_goal_map = None
@@ -629,6 +634,15 @@ class GoatAgent(Agent):
         semantic = obs.semantic
         instance_ids = None
 
+        (
+            matches,
+            confidences,
+            local_instance_ids,
+            all_matches,
+            all_confidences,
+            instance_ids,
+        ) = (None, None, None, [], [], [])
+
         if task_type == "imagenav":
             if self.goal_image is None:
                 img_goal = obs.task_observations["tasks"][self.current_task_idx][
@@ -641,30 +655,32 @@ class GoatAgent(Agent):
                 self.goal_mask, _ = self.instance_seg.get_goal_mask(img_goal)
 
             (
-                goal_keypoints,
-                rgb_keypoints,
                 matches,
                 confidences,
-            ) = self.matching.match_image_to_image(
-                obs.rgb,
-                goal_image=self.goal_image,
+                local_instance_ids,
+            ) = self.matching.get_matches_against_current_frame(
+                self.instance_memory,
+                self.matching.match_image_to_image,
+                self.total_timesteps[0],
+                image_goal=self.goal_image,
                 goal_image_keypoints=self.goal_image_keypoints,
-                step=self.sub_task_timesteps[0][self.current_task_idx],
+                use_full_image=False,
             )
+            print(local_instance_ids, len(matches[0]))
 
-            kp_loc = self.preprocess_keypoint_localization(
-                obs.rgb, goal_keypoints, rgb_keypoints, matches, confidences
+        elif task_type == "languagenav":
+            (
+                matches,
+                confidences,
+                local_instance_ids,
+            ) = self.matching.get_matches_against_current_frame(
+                self.instance_memory,
+                self.matching.match_language_to_image,
+                self.total_timesteps[0],
+                language_goal=current_task["instruction"],
+                use_full_image=False,
             )
-            semantic = (
-                self.one_hot_encoding[torch.from_numpy(semantic)][..., :-1]
-                .cpu()
-                .numpy()
-            )
-            semantic = torch.tensor(np.concatenate([semantic, kp_loc], axis=-1)).to(
-                self.device
-            )
-        else:
-            semantic = self.one_hot_encoding[torch.from_numpy(semantic).to(self.device)]
+        semantic = self.one_hot_encoding[torch.from_numpy(semantic).to(self.device)]
 
         obs_preprocessed = torch.cat([rgb, depth, semantic], dim=-1)
 
@@ -702,31 +718,31 @@ class GoatAgent(Agent):
         if camera_pose is not None:
             camera_pose = torch.tensor(np.asarray(camera_pose)).unsqueeze(0)
 
-        if task_type in ["objectnav", "languagenav"]:
-            matches, confidences, all_matches, all_confidences = None, None, [], []
-
         if task_type == "languagenav":
             if self.prev_task_type != "languagenav":
                 # TODO: Use this method for imagenav as well
-                all_matches, all_confidences, instance_ids = self.matching.get_matches_against_memory(
+                (
+                    all_matches,
+                    all_confidences,
+                    instance_ids,
+                ) = self.matching.get_matches_against_memory(
                     self.instance_memory,
                     self.matching.match_language_to_image,
                     self.total_timesteps[0],
                     language_goal=current_task["instruction"],
                     use_full_image=False,
                 )
-            else:
-                matches, confidences = self.matching.match_language_to_image(
-                    np.expand_dims(obs.rgb, 0), current_task["instruction"]
-                )
-                matches = matches[0]
-                confidences = confidences[0]
+
         elif task_type == "imagenav":
             if (
                 self.record_instance_ids
                 and self.sub_task_timesteps[0][self.current_task_idx] == 0
             ):
-                all_matches, all_confidences, instance_ids = self.matching.get_matches_against_memory(
+                (
+                    all_matches,
+                    all_confidences,
+                    instance_ids,
+                ) = self.matching.get_matches_against_memory(
                     self.instance_memory,
                     self.matching.match_image_to_image,
                     self.sub_task_timesteps[0][self.current_task_idx],
@@ -744,6 +760,7 @@ class GoatAgent(Agent):
             camera_pose,
             matches,
             confidences,
+            local_instance_ids,
             all_matches,
             all_confidences,
             instance_ids,
