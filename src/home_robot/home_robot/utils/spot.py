@@ -1,4 +1,4 @@
-
+import cv2
 import numpy as np
 from matplotlib import pyplot as plt 
 
@@ -100,4 +100,21 @@ def angular_distance_from_angle(image_shape, point_A, angle):
     angular_distance = (angular_distance + np.pi) % (2 * np.pi) - np.pi
     
     return angular_distance
+
+
+def fill_convex_hull(binary_image):
+    # Find the coordinates of non-zero elements (i.e., 1s) in the binary image
+    coords = np.column_stack(np.where(binary_image))
+
+    # Compute the convex hull
+    # hull = cv2.convexHull(coords)
+    hull = cv2.convexHull(coords[:, ::-1])
+
+    # Create an empty binary mask with the same shape as the input image
+    convex_hull = np.zeros_like(binary_image)
+
+    # Fill the convex hull points with 1s
+    cv2.fillPoly(convex_hull, [hull], 1)
+
+    return convex_hull.astype(np.uint8)
 

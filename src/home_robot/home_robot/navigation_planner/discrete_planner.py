@@ -508,7 +508,7 @@ class DiscretePlanner:
         # Create inverse map of obstacles - this is territory we assume is traversible
         # Traversible is now the map
         traversible = 1 - dilated_obstacles
-        # traversible[self.collision_map[gx1:gx2, gy1:gy2][x1:x2, y1:y2] == 1] = 0
+        traversible[self.collision_map[gx1:gx2, gy1:gy2][x1:x2, y1:y2] == 1] = 0
         traversible[self.visited_map[gx1:gx2, gy1:gy2][x1:x2, y1:y2] == 1] = 1
         agent_rad = self.agent_cell_radius
         # traversible[

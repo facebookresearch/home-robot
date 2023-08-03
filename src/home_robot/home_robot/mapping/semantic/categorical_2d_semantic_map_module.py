@@ -22,7 +22,7 @@ import home_robot.utils.pose as pu
 import home_robot.utils.rotation as ru
 from home_robot.mapping.semantic.constants import MapConstants as MC
 from home_robot.mapping.semantic.instance_tracking_modules import InstanceMemory
-from home_robot.utils.spot import draw_circle_segment
+from home_robot.utils.spot import draw_circle_segment, fill_convex_hull
 
 # For debugging input and output maps - shows matplotlib visuals
 debug_maps = False
@@ -597,6 +597,18 @@ class Categorical2DSemanticMapModule(nn.Module):
         if self.exploration_type == 'default':
             fp_exp_pred = all_height_proj[:, 0:1, :, :]
             fp_exp_pred = fp_exp_pred / self.exp_pred_threshold
+        elif self.exploration_type == 'hull':
+            fp_exp_pred = all_height_proj[:, 0:1, :, :]
+            fp_exp_pred = fp_exp_pred / self.exp_pred_threshold
+            fp_exp_pred = fp_exp_pred.clip(0,1)
+            # set the current agent position as 1
+            fp_exp_pred[:,:,0,fp_exp_pred.shape[-1]//2] = 1
+
+            # fill convex hull
+            filled = fill_convex_hull(fp_exp_pred[0,0].cpu())
+            assert fp_exp_pred.shape[:2] == (1,1)
+            fp_exp_pred[0,0] = torch.tensor(filled)
+
         # uses a fixed cone infront of the camerea
         elif self.exploration_type == 'gaze':
             fp_exp_pred = torch.zeros_like(fp_map_pred)
@@ -761,7 +773,6 @@ class Categorical2DSemanticMapModule(nn.Module):
             # Set a disk around the agent to explored
             # This is around the current agent - we just sort of assume we know where we are
             try:
-                # TODO Make this a parameter: 40 on robot, 10 in sim
                 radius = self.explored_radius
                 explored_disk = torch.from_numpy(skimage.morphology.disk(radius))
                 current_map[

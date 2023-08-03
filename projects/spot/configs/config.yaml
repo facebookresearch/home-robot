@@ -54,7 +54,7 @@ AGENT:
     # instance mapping
     max_instances: 800
 
-    exploration_type: default
+    exploration_type: hull
     gaze_width: 40
     gaze_distance: 1.5
     # not sure what these are
