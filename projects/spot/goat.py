@@ -49,7 +49,8 @@ class PI:
     VISITED = 3
     CLOSEST_GOAL = 4
     REST_OF_GOAL = 5
-    SEM_START = 6
+    SHORT_TERM_GOAL = 6
+    SEM_START = 7
 
 
 def create_video(images, output_file, fps):
@@ -141,6 +142,9 @@ def get_semantic_map_vis(
         0.63,
         0.78,
         0.95,  # rest of goal
+        0.00,
+        0.00,
+        0.00,  # short term goal
         *color_palette,
     ]
     map_color_palette = [int(x * 255.0) for x in map_color_palette]
@@ -187,8 +191,7 @@ def get_semantic_map_vis(
                 1 - skimage.morphology.binary_dilation(subgoal_map, selem)
             ) != 1
             subgoal_mask = subgoal_mat == 1
-            # hack for now
-            semantic_categories_map[subgoal_mask] = PI.REST_OF_GOAL
+            semantic_categories_map[subgoal_mask] = PI.SHORT_TERM_GOAL
 
     # Draw semantic map
     semantic_map_vis = Image.new("P", semantic_categories_map.shape)
@@ -316,9 +319,11 @@ def main(spot=None):
 
     env.set_goals(
         [
-            GOALS["object_sink"],
+            # GOALS["object_sink"],
+            # GOALS["object_chair"],
             # GOALS["object_couch"],
-            # GOALS["image_chair1"],
+            GOALS["image_chair1"],
+            # GOALS["language_chair1"],
         ]
     )
 

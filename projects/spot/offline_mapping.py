@@ -4,7 +4,9 @@
 # This source code is licensed under the MIT license found in the
 # LICENSE file in the root directory of this source tree.
 import glob
+import json
 import pickle
+import re
 import sys
 from pathlib import Path
 from typing import List, Optional
@@ -259,8 +261,8 @@ def text_to_image(
 
 
 record_instance_ids = True
-save_map_and_instances = True
-load_map_and_instances = False
+save_map_and_instances = False
+load_map_and_instances = True
 ground_image_in_memory = True
 ground_language_in_memory = True
 
@@ -306,7 +308,7 @@ def main(base_dir: str, legend_path: str):
 
         # Predict semantic segmentation
         segmentation = MaskRCNNPerception(
-            sem_pred_prob_thr=0.9,
+            sem_pred_prob_thr=0.8,
             sem_gpu_id=0,
         )
 
@@ -571,8 +573,11 @@ def main(base_dir: str, legend_path: str):
                 continue
             image_goal = cv2.imread(image_goal_path)
             image_goal_str = image_goal_path.split("/")[-1]
+            category = re.split("(\d+)", image_goal_str)[0]
+            category_id = coco_categories.get(category)
             print()
             print("Image goal:", image_goal_str)
+            print("Category:", category)
 
             goal_image, goal_image_keypoints = matching.get_goal_image_keypoints(
                 image_goal
@@ -588,6 +593,7 @@ def main(base_dir: str, legend_path: str):
                 image_goal=goal_image,
                 goal_image_keypoints=goal_image_keypoints,
                 use_full_image=False,
+                categories=[category_id] if category_id is not None else None,
             )
 
             (
@@ -609,6 +615,22 @@ def main(base_dir: str, legend_path: str):
                 score_thresh=config.AGENT.SUPERGLUE.score_thresh_image,
                 agg_fn=config.AGENT.SUPERGLUE.agg_fn_image,
             )
+            stats = {
+                i: {
+                    "mean": float(scores.sum(axis=1).mean()),
+                    "median": float(np.median(scores.sum(axis=1))),
+                    "max": float(scores.sum(axis=1).max()),
+                    "min": float(scores.sum(axis=1).min()),
+                    "all": scores.sum(axis=1).tolist(),
+                }
+                for i, scores in zip(instance_ids, all_confidences)
+            }
+            with open(
+                Path(goal_grounding_vis_dir)
+                / f"image_{image_goal_str.split('.')[0]}_stats.json",
+                "w",
+            ) as f:
+                json.dump(stats, f, indent=4)
 
             if instance_goal_found:
                 semantic_map.update_global_goal_for_env(0, goal_map.cpu().numpy())
@@ -623,7 +645,9 @@ def main(base_dir: str, legend_path: str):
                     color_palette=coco_categories_color_palette,
                     legend=legend,
                 )
-                plt.imsave(Path(goal_grounding_vis_dir) / image_goal_str, vis_image)
+                plt.imsave(
+                    Path(goal_grounding_vis_dir) / f"image_{image_goal_str}", vis_image
+                )
 
                 print("Found goal:", instance_goal_found)
                 print("Goal instance ID:", goal_inst)
@@ -641,10 +665,12 @@ def main(base_dir: str, legend_path: str):
             ("the high chair next to the kitchen island", ["chair"]),
             ("the grey chair next to the dining table", ["chair"]),
             ("the grey armchair", ["chair"]),
-            ("the black office chair", ["chair"]),
+            ("the black chair", ["chair"]),
+            ("the brown leather chair", ["chair"]),
             # Plants
             ("the big potted plant next to the armchair", ["potted plant"]),
             ("the potted plant next to the brown chair", ["potted plant", "chair"]),
+            ("the brown dead plant", ["potted plant"]),
             # Sinks
             ("the kitchen sink", ["sink"]),
             ("the bathroom sink", ["sink"]),
@@ -663,10 +689,7 @@ def main(base_dir: str, legend_path: str):
             print("Language goal:", language_goal)
             category_ids = None
             if categories is not None:
-                category_ids = [
-                    coco_categories.get(c, coco_categories["no-category"])
-                    for c in categories
-                ]
+                category_ids = [coco_categories.get(c) for c in categories]
             (
                 all_matches,
                 all_confidences,
@@ -679,6 +702,20 @@ def main(base_dir: str, legend_path: str):
                 use_full_image=False,
                 categories=category_ids,
             )
+            stats = {
+                i: {
+                    "mean": float(scores.mean()),
+                    "median": float(np.median(scores)),
+                    "max": float(scores.max()),
+                    "min": float(scores.min()),
+                    "all": scores.flatten().tolist(),
+                }
+                for i, scores in zip(instance_ids, all_confidences)
+            }
+            with open(
+                Path(goal_grounding_vis_dir) / f"language_goal{i}_stats.json", "w"
+            ) as f:
+                json.dump(stats, f, indent=4)
 
             (
                 goal_map,

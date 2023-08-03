@@ -21,7 +21,8 @@ ENVIRONMENT:
   max_num_sub_task_episodes: 5
 
 AGENT:
-  max_steps: 500          # maximum number of steps before stopping an episode
+  max_steps: 10000          # maximum number of steps before stopping an episode
+  evaluate_instance_tracking: False # whether to evaluate the built instance map against groundtruth instance ids
   panorama_start: 0       # 1: turn around 360 degrees when starting an episode, 0: don't
   exploration_strategy: seen_frontier  # exploration strategy ("seen_frontier", "been_close_to_frontier")
   radius: 0.17            # robot radius (in meters)
@@ -29,13 +30,13 @@ AGENT:
 
   SEMANTIC_MAP:
     semantic_categories: coco_indoor # map semantic channel categories ("coco_indoor", "longtail_indoor", "mukul_indoor")
-    num_sem_categories: 16           # number of map semantic channel categories (16, 257, 35)
+    num_sem_categories: 17           # number of map semantic channel categories (16, 257, 35)
     map_size_cm: 4800        # global map size (in centimeters)
     map_resolution: 5        # size of map bins (in centimeters)
     vision_range: 100        # diameter of local map region visible by the agent (in cells)
     global_downscaling: 2    # ratio of global over local map
     du_scale: 4              # frame downscaling before projecting to point cloud
-    cat_pred_threshold: 15.0 # number of depth points to be in bin to classify it as a certain semantic category
+    cat_pred_threshold: 1.0  # number of depth points to be in bin to classify it as a certain semantic category
     exp_pred_threshold: 1000.0  # number of depth points to be in bin to consider it as explored
     map_pred_threshold: 1000.0 # number of depth points to be in bin to consider it as obstacle
     explored_radius: 150     # radius (in centimeters) of visually explored region
@@ -44,15 +45,26 @@ AGENT:
     must_explore_close: False
     min_obs_height_cm: 10    # minimum height (in centimeters) of obstacle to be considered as obstacle
     
+    cat_pred_threshold: 15.0 # number of depth points to be in bin to classify it as a certain semantic category
+    exp_pred_threshold: 1.0  # number of depth points to be in bin to consider it as explored
+    map_pred_threshold: 1000.0 # number of depth points to be in bin to consider it as obstacle
+    #explored_radius: 10     # radius (in centimeters) from the robot to mark as explored
+    explored_radius: 40     # radius (in centimeters) from the robot to mark as explored
+    been_close_to_radius: 200  # radius (in centimeters) of been close to region
+    must_explore_close: False
+    min_obs_height_cm: 10    # minimum height (in centimeters) of obstacle to be considered as obstacle
     # erosion and filtering to reduce the number of spurious artifacts
     dilate_obstacles: False
     dilate_size: 3
     dilate_iter: 1
-
-    # instance mapping
     record_instance_ids: True  # whether to predict and store instance ids in the map
+    # instance mapping
     max_instances: 800
 
+    exploration_type: default
+    gaze_width: 40
+    gaze_distance: 1.5
+    # not sure what these are
     depth_filtering: True
     depth_filter_range_cm: 100        # 1m about the depth median (+/- 50cm)
     preprojection_kp_dilation: 15 
@@ -63,6 +75,8 @@ AGENT:
     min_obs_dilation_selem_radius: 3    # radius (in cells) of obstacle dilation structuring element
     obs_dilation_selem_radius: 3    # radius (in cells) of obstacle dilation structuring element
     goal_dilation_selem_radius: 10  # radius (in cells) of goal dilation structuring element
+    explored_area_dilation_radius: 10  # radius (in cells) of goal dilation structuring element
+    explored_area_erosion_radius: 1
     use_dilation_for_stg: False      # use dilated goals for estimating short-term goals - or just reaching
     map_downsample_factor: 1            # optional downsampling of traversible and goal map before fmm distance call (1 for no downsampling, 2 for halving resolution)
     map_update_frequency: 1            # compute fmm distance map every n steps 
@@ -79,7 +93,7 @@ AGENT:
     sinkhorn_iterations: 20
     match_threshold: 0.2
     score_function: confidence_sum    # or match_count
-    score_thresh_image: 14.0
+    score_thresh_image: 4.0
     score_thresh_lang: 0.28
     agg_fn_image: max
     agg_fn_lang: max

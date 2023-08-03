@@ -31,6 +31,14 @@ def add_boundary(mat: np.ndarray, value=1) -> np.ndarray:
     new_mat[1 : h + 1, 1 : w + 1] = mat
     return new_mat
 
+# compute the fmm distance map between source (specified as row, col)
+# obstacles is 1 for obstacle 0 for free
+def fmm_distance(obstacles,source):
+    map_obs = np.ones_like(obstacles)
+    map_obs[source[0],source[1]] = 0
+    marr = np.ma.MaskedArray(map_obs,obstacles)
+    dists = skfmm.distance(marr)
+    return dists
 
 def remove_boundary(mat: np.ndarray, value=1) -> np.ndarray:
     return mat[value:-value, value:-value]

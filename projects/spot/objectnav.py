@@ -1,4 +1,6 @@
 import math
+from spot_wrapper.depth_utils import point_from_depth_image
+from matplotlib import pyplot as plt
 import pickle
 import sys
 import time
@@ -20,7 +22,7 @@ sys.path.insert(
     str(Path(__file__).resolve().parent.parent.parent / "src/home_robot_sim"),
 )
 
-from spot_wrapper.spot import Spot
+from spot_wrapper.spot import BODY_FRAME_NAME, Spot, VISION_FRAME_NAME
 
 import home_robot.utils.pose as pu
 import home_robot.utils.visualization as vu
@@ -43,7 +45,8 @@ class PI:
     VISITED = 3
     CLOSEST_GOAL = 4
     REST_OF_GOAL = 5
-    SEM_START = 6
+    SHORT_TERM_GOAL = 6
+    SEM_START = 7
 
 
 def create_video(images, output_file, fps):
@@ -123,9 +126,9 @@ def get_semantic_map_vis(
         0.6,
         0.6,
         0.6,  # obstacles
-        0.95,
-        0.95,
-        0.95,  # explored area
+        1.00,
+        0.90,
+        0.90,  # explored area
         0.96,
         0.36,
         0.26,  # visited area
@@ -135,6 +138,9 @@ def get_semantic_map_vis(
         0.63,
         0.78,
         0.95,  # rest of goal
+        0.00,
+        0.00,
+        0.00,  # short term goal
         *color_palette,
     ]
     map_color_palette = [int(x * 255.0) for x in map_color_palette]
@@ -181,8 +187,7 @@ def get_semantic_map_vis(
                 1 - skimage.morphology.binary_dilation(subgoal_map, selem)
             ) != 1
             subgoal_mask = subgoal_mat == 1
-            # hack for now
-            semantic_categories_map[subgoal_mask] = PI.REST_OF_GOAL
+            semantic_categories_map[subgoal_mask] = PI.SHORT_TERM_GOAL
 
     # Draw semantic map
     semantic_map_vis = Image.new("P", semantic_categories_map.shape)
@@ -226,7 +231,7 @@ def get_semantic_map_vis(
     return vis_image
 
 
-def main(spot):
+def main(spot,args):
     config_path = "projects/spot/configs/config.yaml"
     config, config_str = get_config(config_path)
 
@@ -244,23 +249,25 @@ def main(spot):
 
     env = SpotObjectNavEnv(spot, position_control=True)
     env.reset()
-    # user_input = input("Enter the goal category: ")
-    # print("You entered:", user_input)
-    # env.set_goal(user_input)
-    env.set_goal("sink")
+    if args.category:
+        env.set_goal(args.category)
+    else:
+        user_input = input("Enter the goal category: ")
+        print("You entered:", user_input)
+        env.set_goal(user_input)
 
     agent = ObjectNavAgent(config=config)
     agent.reset()
 
     assert agent.num_sem_categories == env.num_sem_categories
-    pan_warmup = False
-    keyboard_takeover = False
+    pan_warmup = args.rotate
+
+    # control with keyboard instead of planner
+    keyboard_takeover = args.keyboard
     if pan_warmup:
+        env.env.set_arm_yaw(np.pi+np.pi/4, time=4,blocking=True)
         positions = spot.get_arm_joint_positions()
-        new_pos = positions.copy()
-        new_pos[0] = np.pi
-        spot.set_arm_joint_positions(new_pos, travel_time=3)
-        time.sleep(3)
+        print(positions)
 
     t = 0
     while not env.episode_over:
@@ -270,10 +277,15 @@ def main(spot):
         obs = env.get_observation()
         with open(f"{obs_dir}/{t}.pkl", "wb") as f:
             pickle.dump(obs, f)
-        cv2.imwrite("projects/spot/goal_spot.png", obs.rgb)
-        return
 
         action, info = agent.act(obs)
+        # env.env.set_arm_yaw(np.pi/4)
+        # import transforms3d as t3d
+        # mat = t3d.quaternions.quat2mat(env.env.get_observations()['camera_rotation'])
+        # import trimesh.transformations as tra
+        # tra.euler_from_matrix(mat, "rzyx")
+        # np.pi/4
+        # env.env.initial_joints
         print("SHORT_TERM:", info["short_term_goal"])
         x, y = info["short_term_goal"]
         x, y = agent.semantic_map.local_to_global(x, y)
@@ -298,9 +310,7 @@ def main(spot):
         cv2.imwrite(f"{output_visualization_dir}/{t}.png", vis_image[:, :, ::-1])
         cv2.imshow("vis", vis_image[:, :, ::-1])
 
-        key = cv2.waitKey(500)
-        cv2.imwrite("goal_spot.png", obs.rgb)
-        breakpoint()
+        key = cv2.waitKey(1)
 
         if key == ord("z"):
             break
@@ -310,32 +320,54 @@ def main(spot):
             print("You entered:", user_input)
             env.set_goal(user_input)
 
-        if key == ord("q"):
+        if key == ord("t"):
             keyboard_takeover = True
             print("KEYBOARD TAKEOVER")
 
-        if keyboard_takeover:
-            if key == ord("w"):
-                spot.set_base_velocity(0.5, 0, 0, 0.5)
-            elif key == ord("s"):
-                # back
-                spot.set_base_velocity(-0.5, 0, 0, 0.5)
-            elif key == ord("a"):
-                # left
-                spot.set_base_velocity(0, 0.5, 0, 0.5)
-            elif key == ord("d"):
-                # right
-                spot.set_base_velocity(0, -0.5, 0, 0.5)
-
+        # target object detected in current frame
+        if (obs.semantic == env.current_goal_id).sum() > 0:
+            response = obs.raw_obs['depth_response']
+            mask = obs.semantic == env.current_goal_id
+            mask_points = np.stack(np.where(mask),axis=-1)
+            centroid = mask_points.mean(axis=0).astype(int)
+            assert mask[centroid[0],centroid[1]]
+            pixel_xy = (centroid[1],centroid[0])
+            point = point_from_depth_image(response,pixel_xy,BODY_FRAME_NAME)
+            dist = np.linalg.norm(point)
+            print("Distance to object: ",dist)
+            if dist > 1.5 and dist < 3:
+                print("Seeking object")
+                # walk to the point as localized in the depth image
+                global_point = point_from_depth_image(response,pixel_xy,VISION_FRAME_NAME)[:2]
+                cur_xy = spot.get_xy_yaw()[:2]
+                delta = global_point-cur_xy
+                heading = math.atan2(delta[1],delta[0])
+                spot.set_base_position(global_point[0],global_point[1],heading,10,relative=False, max_fwd_vel=0.5, max_hor_vel=0.5, max_ang_vel=np.pi / 4,blocking=True)
+        if pan_warmup:
+            positions = spot.get_arm_joint_positions()
+            env.env.set_arm_yaw(-np.pi, time=15)
+            if positions[0] < -2.5:
+                pan_warmup = False
+                env.env.initialize_arm()
         else:
-            if pan_warmup:
-                positions = spot.get_arm_joint_positions()
-                new_pos = positions.copy()
-                new_pos[0] = -np.pi
-                spot.set_arm_joint_positions(new_pos, travel_time=20)
-                if positions[0] < -2.5:
-                    pan_warmup = False
-                    env.env.initialize_arm()
+            if keyboard_takeover:
+                if key == ord("w"):
+                    spot.set_base_velocity(0.5, 0, 0, 0.5)
+                elif key == ord("s"):
+                    # back
+                    spot.set_base_velocity(-0.5, 0, 0, 0.5)
+                elif key == ord("a"):
+                    # left
+                    spot.set_base_velocity(0, 0.5, 0, 0.5)
+                elif key == ord("d"):
+                    # right
+                    spot.set_base_velocity(0, -0.5, 0, 0.5)
+                elif key == ord("q"):
+                    # rotate left
+                    spot.set_base_velocity(0, 0, 0.5, 0.5)
+                elif key == ord("e"):
+                    # rotate right
+                    spot.set_base_velocity(0, 0, -0.5, 0.5)
             else:
                 if action is not None:
                     env.apply_action(action)
@@ -350,6 +382,12 @@ def main(spot):
 
 
 if __name__ == "__main__":
+    import argparse
+    parser = argparse.ArgumentParser(description='')
+    parser.add_argument('--keyboard',action='store_true')
+    parser.add_argument('--category',default=None)
+    parser.add_argument('--rotate',action='store_true')
+    args = parser.parse_args()
     spot = Spot("RealNavEnv")
     with spot.get_lease(hijack=True):
-        main(spot)
+        main(spot,args)
