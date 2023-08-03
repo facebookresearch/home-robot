@@ -508,93 +508,179 @@ class DiscretePlanner:
         # Create inverse map of obstacles - this is territory we assume is traversible
         # Traversible is now the map
         traversible = 1 - dilated_obstacles
-        # traversible[self.collision_map[gx1:gx2, gy1:gy2][x1:x2, y1:y2] == 1] = 0
+        traversible[self.collision_map[gx1:gx2, gy1:gy2][x1:x2, y1:y2] == 1] = 0
         traversible[self.visited_map[gx1:gx2, gy1:gy2][x1:x2, y1:y2] == 1] = 1
         agent_rad = self.agent_cell_radius
-        traversible[
-            int(start[0] - x1) - agent_rad : int(start[0] - x1) + agent_rad + 1,
-            int(start[1] - y1) - agent_rad : int(start[1] - y1) + agent_rad + 1,
-        ] = 1
-        traversible = add_boundary(traversible)
-        goal_map = add_boundary(goal_map, value=0)
-        planner = FMMPlanner(
-            traversible,
-            step_size=self.step_size,
-            vis_dir=self.vis_dir,
-            visualize=self.visualize,
-            print_images=self.print_images,
-            goal_tolerance=self.goal_tolerance,
-        )
-        if plan_to_dilated_goal:
-            # Compute dilated goal map for use with simulation code - use this to compute closest goal
-            dilated_goal_map = cv2.dilate(
-                goal_map, self.goal_dilation_selem, iterations=1
-            )
-            # Set multi goal to the dilated goal map
-            # We will now try to find a path to any of these spaces
-            self.dd = planner.set_multi_goal(
-                dilated_goal_map,
-                self.timestep,
-                self.dd,
-                self.map_downsample_factor,
-                self.map_update_frequency,
-            )
-            goal_distance_map, closest_goal_pt = self.get_closest_traversible_goal(
-                traversible, goal_map, start, dilated_goal_map=dilated_goal_map
-            )
+        # traversible[
+            # int(start[0] - x1) - agent_rad : int(start[0] - x1) + agent_rad + 1,
+            # int(start[1] - y1) - agent_rad : int(start[1] - y1) + agent_rad + 1,
+        # ] = 1
+        # traversible = add_boundary(traversible)
+        # goal_map = add_boundary(goal_map, value=0)
+        obstacles = 1 - traversible
+        state = [start[0] - x1, start[1] - y1]
+        traversible_points = np.stack(np.where(traversible),axis=1)
+        dists = np.linalg.norm(traversible_points-state,axis=1)
+        # get closest navigable point
+        cnp = traversible_points[np.argmin(dists)]
+        assert traversible[cnp[0],cnp[1]] == 1
+        # print(state)
+        # if traversible[state[0],state[1]] == 0:
+            # import pdb; pdb.set_trace()
+        discrete_long_term_goal = False
+        dists = fmm_distance(obstacles,cnp)
+        if discrete_long_term_goal:
+            goal_dists = dists.copy()
+            goal_dists.mask = goal_dists.mask | (1-goal_map).astype(bool)
+            long_term_goal = np.unravel_index(np.argmin(goal_dists),goal_dists.shape)
+            dists_from_goal = fmm_distance(obstacles,long_term_goal)
+            # find all points that are step_size away from the current location
+            potential_subgoals = (dists > self.step_size) & (dists <= self.step_size + 2)
+            dists_from_goal.mask |= ~potential_subgoals
+            # select the potential subgoal that is closes to the goal
+            stg_x,stg_y = np.unravel_index(np.argmin(dists_from_goal),dists_from_goal.shape)
+            stg_x, stg_y = stg_x + x1, stg_y + y1
+            short_term_goal = int(stg_x), int(stg_y)
+            replan = False
+            stop = False
+            closest_goal_pt = long_term_goal
+            vis_goal_map = np.zeros_like(dists)
+            vis_goal_map[long_term_goal[0],long_term_goal[1]] = 1
         else:
-            navigable_goal_map = planner._find_within_distance_to_multi_goal(
-                goal_map,
-                self.min_goal_distance_cm / self.map_resolution,
-                timestep=self.timestep,
-                vis_dir=self.vis_dir,
-            )
-            if not np.any(navigable_goal_map):
-                frontier_map = add_boundary(frontier_map, value=0)
-                navigable_goal_map = frontier_map
-            self.dd = planner.set_multi_goal(
-                navigable_goal_map,
-                self.timestep,
-                self.dd,
-                self.map_downsample_factor,
-                self.map_update_frequency,
-            )
-            goal_distance_map, closest_goal_pt = self.get_closest_goal(goal_map, start)
+            map_obs = np.ones_like(obstacles)
+            map_obs[goal_map == 1] = 0
+            marr = np.ma.MaskedArray(map_obs,obstacles)
+            goal_dists = np.ma.MaskedArray(skfmm.distance(marr))
+            # grid sampling creates bias towards corners
+            local_grid = np.ones((self.step_size*2+1,self.step_size*2+1))
+            local_grid[self.step_size,self.step_size] = 0
+            proto_dist = skfmm.distance(local_grid)
+            local_dists = dists[cnp[0]-self.step_size:cnp[0]+self.step_size+1,cnp[1]-self.step_size:cnp[1]+self.step_size+1]
+            diff_dists = local_dists-proto_dist
+            # if, at a certain point, the difference is very low 
+            # between the ffm distances with obstacles in and no obstacles then there is a
+            # straight line path from the agent to that point
+            # below is a mask for those points in a local range around the agent
+            # straight_line_mask = diff_dists < 0.1
+            straight_line_mask = diff_dists < 0.1
+            # of the valid points, find the one closest to the goal
+            local_goal_dists = goal_dists[cnp[0]-self.step_size:cnp[0]+self.step_size+1,cnp[1]-self.step_size:cnp[1]+self.step_size+1].copy()
+            # bias towards planning in the direction the agent is facing
+            if orientation is not None:
+                # convert to radians
+                angle = orientation/180*np.pi
+                print(angle)
+                rotation_cost = np.abs(angular_distance_from_angle(local_goal_dists.shape,(self.step_size,self.step_size),angle))
+            else:
+                rotation_cost = np.zeros_like(local_goal_dists)
 
-        self.timestep += 1
+            total_cost = local_goal_dists + rotation_cost*2
 
-        state = [start[0] - x1 + 1, start[1] - y1 + 1]
-        # This is where we create the planner to get the trajectory to this state
-        stg_x, stg_y, replan, stop = planner.get_short_term_goal(
-            state, continuous=(not self.discrete_actions)
-        )
-        stg_x, stg_y = stg_x + x1 - 1, stg_y + y1 - 1
-        short_term_goal = int(stg_x), int(stg_y)
-
-        if visualize:
-            print("Start visualizing")
-            plt.figure(1)
-            plt.subplot(131)
-            _navigable_goal_map = navigable_goal_map.copy()
-            _navigable_goal_map[int(stg_x), int(stg_y)] = 1
-            plt.imshow(np.flipud(_navigable_goal_map))
-            plt.plot(stg_x, stg_y, "bx")
-            plt.plot(start[0], start[1], "rx")
-            plt.subplot(132)
-            plt.imshow(np.flipud(planner.fmm_dist))
-            plt.subplot(133)
-            plt.imshow(np.flipud(planner.traversible))
-            plt.show()
-            print("Done visualizing.")
-
+            # only select straght lint points
+            total_cost.mask |= ~straight_line_mask
+            # only select points that are within step-size
+            circular_mask = proto_dist <= self.step_size
+            total_cost.mask |= ~circular_mask
+            cv2.imshow('total_cost',total_cost/total_cost.max())
+            cv2.waitKey(1)
+            # local_stg = np.unravel_index(np.argmin(local_goal_dists),local_goal_dists.shape)
+            local_stg = np.unravel_index(np.argmin(total_cost),local_goal_dists.shape)
+            # adjust back to the uncropped frame
+            stg_x,stg_y = local_stg + cnp - self.step_size
+            assert x1 == 0
+            assert y1 == 0
+            short_term_goal = int(stg_x), int(stg_y)
+            replan = False
+            stop = False
+            closest_goal_pt = (0,0)
+            vis_goal_map = np.zeros_like(dists)
         return (
             short_term_goal,
-            goal_distance_map,
+            vis_goal_map,
             replan,
             stop,
             closest_goal_pt,
             dilated_obstacles,
         )
+
+        # planner = FMMPlanner(
+            # traversible,
+            # step_size=self.step_size,
+            # vis_dir=self.vis_dir,
+            # visualize=self.visualize,
+            # print_images=self.print_images,
+            # goal_tolerance=self.goal_tolerance,
+        # )
+        # if plan_to_dilated_goal:
+            # # Compute dilated goal map for use with simulation code - use this to compute closest goal
+            # dilated_goal_map = cv2.dilate(
+                # goal_map, self.goal_dilation_selem, iterations=1
+            # )
+            # # Set multi goal to the dilated goal map
+            # # We will now try to find a path to any of these spaces
+            # self.dd = planner.set_multi_goal(
+                # dilated_goal_map,
+                # self.timestep,
+                # self.dd,
+                # self.map_downsample_factor,
+                # self.map_update_frequency,
+            # )
+            # goal_distance_map, closest_goal_pt = self.get_closest_traversible_goal(
+                # traversible, goal_map, start, dilated_goal_map=dilated_goal_map
+            # )
+        # else:
+            # navigable_goal_map = planner._find_within_distance_to_multi_goal(
+                # goal_map,
+                # self.min_goal_distance_cm / self.map_resolution,
+                # timestep=self.timestep,
+                # vis_dir=self.vis_dir,
+            # )
+            # if not np.any(navigable_goal_map):
+                # frontier_map = add_boundary(frontier_map, value=0)
+                # navigable_goal_map = frontier_map
+            # self.dd = planner.set_multi_goal(
+                # navigable_goal_map,
+                # self.timestep,
+                # self.dd,
+                # self.map_downsample_factor,
+                # self.map_update_frequency,
+            # )
+            # goal_distance_map, closest_goal_pt = self.get_closest_goal(goal_map, start)
+
+        # self.timestep += 1
+
+        # state = [start[0] - x1 + 1, start[1] - y1 + 1]
+        # # This is where we create the planner to get the trajectory to this state
+        # stg_x, stg_y, replan, stop = planner.get_short_term_goal(
+            # state, continuous=(not self.discrete_actions)
+        # )
+        # stg_x, stg_y = stg_x + x1 - 1, stg_y + y1 - 1
+        # short_term_goal = int(stg_x), int(stg_y)
+
+        # if visualize:
+            # print("Start visualizing")
+            # plt.figure(1)
+            # plt.subplot(131)
+            # _navigable_goal_map = navigable_goal_map.copy()
+            # _navigable_goal_map[int(stg_x), int(stg_y)] = 1
+            # plt.imshow(np.flipud(_navigable_goal_map))
+            # plt.plot(stg_x, stg_y, "bx")
+            # plt.plot(start[0], start[1], "rx")
+            # plt.subplot(132)
+            # plt.imshow(np.flipud(planner.fmm_dist))
+            # plt.subplot(133)
+            # plt.imshow(np.flipud(planner.traversible))
+            # plt.show()
+            # print("Done visualizing.")
+
+        # return (
+            # short_term_goal,
+            # goal_distance_map,
+            # replan,
+            # stop,
+            # closest_goal_pt,
+            # dilated_obstacles,
+        # )
 
     def get_closest_traversible_goal(
         self, traversible, goal_map, start, dilated_goal_map=None
