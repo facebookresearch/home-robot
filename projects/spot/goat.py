@@ -283,6 +283,13 @@ GOALS = {
             f"{str(Path(__file__).resolve().parent)}/image_goals/chair5_iphone.png"
         ),
     },
+    "image_plant1": {
+        "type": "imagenav",
+        "target": "potted plant",
+        "image": cv2.imread(
+            f"{str(Path(__file__).resolve().parent)}/image_goals/plant1_spot.png"
+        ),
+    },
     # Language goals
     "language_chair2": {
         "type": "languagenav",
@@ -329,7 +336,7 @@ def main(spot=None):
             # GOALS["object_sink"],
             # GOALS["object_chair"],
             # GOALS["object_couch"],
-            GOALS["image_chair5"],
+            GOALS["image_plant1"],
             # GOALS["language_chair1"],
         ]
     )
@@ -350,6 +357,7 @@ def main(spot=None):
     t = 0
     while not env.episode_over:
         t += 1
+        print()
         print("STEP =", t)
 
         if not OFFLINE:
@@ -364,7 +372,7 @@ def main(spot=None):
                 break
 
         action, info = agent.act(obs)
-        print("SHORT_TERM:", info["short_term_goal"])
+        # print("SHORT_TERM:", info["short_term_goal"])
         x, y = info["short_term_goal"]
         x, y = agent.semantic_map.local_to_global(x, y)
         action = ContinuousNavigationAction(np.array([x, y, 0.0]))

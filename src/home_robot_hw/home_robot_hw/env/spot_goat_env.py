@@ -54,12 +54,12 @@ class SpotGoatEnv(SpotEnv):
             rotation_speed = np.pi/8
             yaw_diff = math_helpers.angle_diff(angle,yaw)
             time=max(np.abs(yaw_diff)/rotation_speed,0.5)
-            print(angle,yaw,yaw_diff,time)
+            # print(angle,yaw,yaw_diff,time)
             assert time > 0
             self.env.set_arm_yaw(yaw_diff,time=time)
 
             action = [xg, yg, angle]
-            print("ObjectNavAgent point action", action)
+            # print("ObjectNavAgent point action", action)
             self.env.act_point(action, blocking=False,max_fwd_vel=0.3,max_ang_vel=np.pi/6,max_hor_vel=0.3)
         else:
             self.env.step(base_action=action)
