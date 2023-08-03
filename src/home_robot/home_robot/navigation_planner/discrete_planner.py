@@ -511,10 +511,10 @@ class DiscretePlanner:
         # traversible[self.collision_map[gx1:gx2, gy1:gy2][x1:x2, y1:y2] == 1] = 0
         traversible[self.visited_map[gx1:gx2, gy1:gy2][x1:x2, y1:y2] == 1] = 1
         agent_rad = self.agent_cell_radius
-        traversible[
-            int(start[0] - x1) - agent_rad : int(start[0] - x1) + agent_rad + 1,
-            int(start[1] - y1) - agent_rad : int(start[1] - y1) + agent_rad + 1,
-        ] = 1
+        # traversible[
+            # int(start[0] - x1) - agent_rad : int(start[0] - x1) + agent_rad + 1,
+            # int(start[1] - y1) - agent_rad : int(start[1] - y1) + agent_rad + 1,
+        # ] = 1
         # traversible = add_boundary(traversible)
         # goal_map = add_boundary(goal_map, value=0)
         obstacles = 1 - traversible
@@ -574,7 +574,7 @@ class DiscretePlanner:
             else:
                 rotation_cost = np.zeros_like(local_goal_dists)
 
-            total_cost = local_goal_dists + rotation_cost*3
+            total_cost = local_goal_dists + rotation_cost*2
 
             # only select straght lint points
             total_cost.mask |= ~straight_line_mask

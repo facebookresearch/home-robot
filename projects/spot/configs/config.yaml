@@ -36,20 +36,13 @@ AGENT:
     vision_range: 100        # diameter of local map region visible by the agent (in cells)
     global_downscaling: 2    # ratio of global over local map
     du_scale: 4              # frame downscaling before projecting to point cloud
-    cat_pred_threshold: 1.0  # number of depth points to be in bin to classify it as a certain semantic category
-    exp_pred_threshold: 1000.0  # number of depth points to be in bin to consider it as explored
-    map_pred_threshold: 1000.0 # number of depth points to be in bin to consider it as obstacle
-    explored_radius: 150     # radius (in centimeters) of visually explored region
-    been_close_to_radius: 200  # radius (in centimeters) of been close to region
     target_blacklisting_radius: 100  # radius (in centimeters) of region around goal to blacklist if object isn't a valid target
-    must_explore_close: False
-    min_obs_height_cm: 10    # minimum height (in centimeters) of obstacle to be considered as obstacle
     
     cat_pred_threshold: 15.0 # number of depth points to be in bin to classify it as a certain semantic category
     exp_pred_threshold: 1.0  # number of depth points to be in bin to consider it as explored
     map_pred_threshold: 1000.0 # number of depth points to be in bin to consider it as obstacle
-    #explored_radius: 10     # radius (in centimeters) from the robot to mark as explored
-    explored_radius: 40     # radius (in centimeters) from the robot to mark as explored
+    #explored_radius: 40     # radius (in centimeters) from the robot to mark as explored
+    explored_radius: 10     # radius (in centimeters) from the robot to mark as explored
     been_close_to_radius: 200  # radius (in centimeters) of been close to region
     must_explore_close: False
     min_obs_height_cm: 10    # minimum height (in centimeters) of obstacle to be considered as obstacle
@@ -75,12 +68,12 @@ AGENT:
     min_obs_dilation_selem_radius: 3    # radius (in cells) of obstacle dilation structuring element
     obs_dilation_selem_radius: 3    # radius (in cells) of obstacle dilation structuring element
     goal_dilation_selem_radius: 10  # radius (in cells) of goal dilation structuring element
-    explored_area_dilation_radius: 10  # radius (in cells) of goal dilation structuring element
+    explored_area_dilation_radius: 1  # radius (in cells) of goal dilation structuring element
     explored_area_erosion_radius: 1
     use_dilation_for_stg: False      # use dilated goals for estimating short-term goals - or just reaching
     map_downsample_factor: 1            # optional downsampling of traversible and goal map before fmm distance call (1 for no downsampling, 2 for halving resolution)
     map_update_frequency: 1            # compute fmm distance map every n steps 
-    step_size: 15               # maximum distance of the short-term goal selected by the planner
+    step_size: 30               # maximum distance of the short-term goal selected by the planner
     discrete_actions: True         # discrete motion planner output space or not
     verbose: False
     naive_landmark_conditioned: True # rotate 360º after reaching target to see if landmark is present 
