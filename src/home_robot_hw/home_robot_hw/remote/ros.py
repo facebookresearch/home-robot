@@ -35,6 +35,7 @@ from home_robot_hw.constants import (
     ROS_WRIST_YAW,
 )
 from home_robot_hw.ros.camera import RosCamera
+from home_robot_hw.ros.lidar import RosLidar
 from home_robot_hw.ros.utils import matrix_from_pose_msg
 from home_robot_hw.ros.visualizer import Visualizer
 
@@ -72,7 +73,12 @@ class StretchRosInterface:
         color_topic: Optional[str] = None,
         depth_topic: Optional[str] = None,
         depth_buffer_size: Optional[int] = None,
+        init_lidar: bool = True,
+        lidar_topic: Optional[str] = None,
+        verbose: bool = False,
     ):
+        self.verbose = verbose
+
         # Initialize caches
         self.current_mode: Optional[str] = None
 
@@ -110,6 +116,9 @@ class StretchRosInterface:
         if init_cameras:
             self._create_cameras(color_topic, depth_topic)
             self._wait_for_cameras()
+        if init_lidar and lidar_topic is not None:
+            print("[CLIENT->LIDAR] remove debug code")
+            self._lidar = RosLidar(lidar_topic, verbose=True)
 
     # Interfaces
 
@@ -278,6 +287,10 @@ class StretchRosInterface:
         )
         self.filter_depth = self._depth_buffer_size is not None
 
+    def _wait_for_lidar(self):
+        """wait until lidar has a message"""
+        self._lidar.wait_for_scan()
+
     def _wait_for_cameras(self):
         if self.rgb_cam is None or self.dpt_cam is None:
             raise RuntimeError("cameras not initialized")
@@ -286,8 +299,9 @@ class StretchRosInterface:
         print("Waiting for depth camera images...")
         self.dpt_cam.wait_for_image()
         print("..done.")
-        print("rgb frame =", self.rgb_cam.get_frame())
-        print("dpt frame =", self.dpt_cam.get_frame())
+        if self.verbose:
+            print("rgb frame =", self.rgb_cam.get_frame())
+            print("dpt frame =", self.dpt_cam.get_frame())
         if self.rgb_cam.get_frame() != self.dpt_cam.get_frame():
             raise RuntimeError("issue with camera setup; depth and rgb not aligned")
 

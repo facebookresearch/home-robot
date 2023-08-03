@@ -10,6 +10,7 @@
 import timeit
 
 import matplotlib.pyplot as plt
+import numpy as np
 import torch
 
 from home_robot.utils.point_cloud import show_point_cloud
