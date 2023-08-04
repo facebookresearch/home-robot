@@ -72,7 +72,7 @@ class DiscretePlanner:
         agent_cell_radius: int = 1,
         map_downsample_factor: float = 1.0,
         map_update_frequency: int = 1,
-        goal_tolerance: float = 10.0,
+        goal_tolerance: float = 20.0,  # 1m
         discrete_actions: bool = True,
         continuous_angle_tolerance: float = 30.0,
     ):
@@ -93,7 +93,7 @@ class DiscretePlanner:
         self.discrete_actions = discrete_actions
         self.visualize = visualize
         self.print_images = print_images
-        self.default_vis_dir = f"{dump_location}/images/{exp_name}"
+        self.default_vis_dir = f"{dump_location}/planner"
         os.makedirs(self.default_vis_dir, exist_ok=True)
 
         self.map_size_cm = map_size_cm
@@ -591,7 +591,7 @@ class DiscretePlanner:
             assert y1 == 0
             short_term_goal = int(stg_x), int(stg_y)
             replan = False
-            # print("local_goal_dists[self.step_size,self.step_size]", local_goal_dists[self.step_size,self.step_size])
+            print(f"Distance to goal (in m): {local_goal_dists[self.step_size,self.step_size] / 20.0:.2f} (<1m = STOP)")
             # print("self.goal_tolerance", self.goal_tolerance)
             stop = local_goal_dists[self.step_size,self.step_size] < self.goal_tolerance
             # print("stop", stop)

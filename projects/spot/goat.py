@@ -337,28 +337,28 @@ GOALS = {
         "type": "imagenav",
         "target": "refrigerator",
         "image": cv2.imread(
-            f"{str(Path(__file__).resolve().parent)}/fremont_image_goals/refrigerator1_spot.png"
+            f"{str(Path(__file__).resolve().parent)}/fremont_image_goals/refrigerator1.png"
         ),
     },
     "image_sink1": {
         "type": "imagenav",
         "target": "sink",
         "image": cv2.imread(
-            f"{str(Path(__file__).resolve().parent)}/fremont_image_goals/sink1_spot.png"
+            f"{str(Path(__file__).resolve().parent)}/fremont_image_goals/sink1.png"
         ),
     },
     "image_sink2": {
         "type": "imagenav",
         "target": "sink",
         "image": cv2.imread(
-            f"{str(Path(__file__).resolve().parent)}/fremont_image_goals/sink2_spot.png"
+            f"{str(Path(__file__).resolve().parent)}/fremont_image_goals/sink2.png"
         ),
     },
     "image_toilet1": {
         "type": "imagenav",
         "target": "toilet",
         "image": cv2.imread(
-            f"{str(Path(__file__).resolve().parent)}/fremont_image_goals/toilet1_spot.png"
+            f"{str(Path(__file__).resolve().parent)}/fremont_image_goals/toilet1.png"
         ),
     },
     # Language goals
@@ -464,13 +464,14 @@ GOALS = {
 def main(spot=None):
     config_path = "projects/spot/configs/config.yaml"
     config, config_str = get_config(config_path)
+    config.defrost()
+    config.DUMP_LOCATION = f"{str(Path(__file__).resolve().parent)}/fremont_trajectories/trajectory1"
+    config.freeze()
 
-    output_visualization_dir = (
-        f"{str(Path(__file__).resolve().parent)}/map_visualization/"
-    )
+    output_visualization_dir = f"{config.DUMP_LOCATION}/main_visualization"
     Path(output_visualization_dir).mkdir(parents=True, exist_ok=True)
 
-    obs_dir = f"{str(Path(__file__).resolve().parent)}/obs/"
+    obs_dir = f"{config.DUMP_LOCATION}/obs"
     Path(obs_dir).mkdir(parents=True, exist_ok=True)
 
     legend_path = f"{str(Path(__file__).resolve().parent)}/coco_categories_legend.png"
@@ -486,12 +487,10 @@ def main(spot=None):
         env = SpotGoatEnv(spot, position_control=True)
         env.reset()
 
-    # Fremont trajectories
-    # object_toilet,image_chair1,image_chair2
-
     user_input = input("Enter the goals separated by commas: ")
     print("You entered:", user_input)
-    goals = [GOALS.get(g) for g in user_input.split(",")]
+    goal_strings = user_input.split(",")
+    goals = [GOALS.get(g) for g in goal_strings]
     goals = [g for g in goals if g is not None]
     pprint.pprint(goals, indent=4)
     env.set_goals(goals)
@@ -504,6 +503,9 @@ def main(spot=None):
     #         GOALS["language_bed1"],
     #     ]
     # )
+
+    # Fremont trajectories
+    # object_toilet,object_couch,image_chair1,image_chair2,image_chair3,image_chair4,image_chair5
 
     agent = GoatAgent(config=config)
     agent.reset()
@@ -523,6 +525,7 @@ def main(spot=None):
         t += 1
         print()
         print("STEP =", t)
+        print(f"Goal {agent.current_task_idx}: {goal_strings[agent.current_task_idx]}")
 
         if not OFFLINE:
             obs = env.get_observation()
@@ -570,7 +573,8 @@ def main(spot=None):
             if key == ord("g"):
                 user_input = input("Enter the goals separated by commas: ")
                 print("You entered:", user_input)
-                goals = [GOALS.get(g) for g in user_input.split(",")]
+                goal_strings = user_input.split(",")
+                goals = [GOALS.get(g) for g in goal_strings]
                 goals = [g for g in goals if g is not None]
                 pprint.pprint(goals, indent=4)
                 agent.current_task_idx = 0
