@@ -497,7 +497,8 @@ def main(spot=None):
     goals = [g for g in goals if g is not None]
     pprint.pprint(goals, indent=4)
     env.set_goals(goals)
-    json.dump(f"{config.DUMP_LOCATION}/goals.json", goal_strings, indent=4)
+    with open(f"{config.DUMP_LOCATION}/goals.json", "w") as f:
+        json.dump(goal_strings, f, indent=4)
 
     # Debugging
     # env.set_goals(
@@ -509,7 +510,9 @@ def main(spot=None):
     # )
 
     # Fremont trajectories
-    # object_toilet,object_couch,image_chair1,image_chair2,image_chair3,image_chair4,image_chair5
+    # object_bed,image_toilet1
+    # object_toilet,image_bed1
+    # object_toilet,image_chair1,image_chair2,image_chair3,image_chair4,image_chair5,image_chair6
 
     agent = GoatAgent(config=config)
     agent.reset()

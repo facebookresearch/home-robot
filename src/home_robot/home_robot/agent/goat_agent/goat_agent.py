@@ -9,6 +9,7 @@ from typing import Any, Dict, List, Tuple
 import cv2
 import numpy as np
 import scipy
+from pathlib import Path
 import skimage.morphology
 import torch
 from sklearn.cluster import DBSCAN
@@ -52,7 +53,9 @@ class GoatAgent(Agent):
             self.panorama_start_steps = 0
 
         self.panorama_rotate_steps = int(360 / config.ENVIRONMENT.turn_angle)
+
         self.goal_matching_vis_dir = f"{config.DUMP_LOCATION}/goal_grounding_vis"
+        Path(self.goal_matching_vis_dir).mkdir(parents=True, exist_ok=True)
 
         self.instance_memory = None
         self.record_instance_ids = getattr(
@@ -515,6 +518,7 @@ class GoatAgent(Agent):
         if self.total_timesteps[0] < self.episode_panorama_start_steps:
             action = DiscreteNavigationAction.TURN_RIGHT
         elif self.sub_task_timesteps[0][self.current_task_idx] >= self.max_steps:
+            print("Reached max number of steps for subgoal, calling STOP")
             action = DiscreteNavigationAction.STOP
         else:
             (
