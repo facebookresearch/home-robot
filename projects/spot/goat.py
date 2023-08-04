@@ -561,6 +561,7 @@ def main(spot=None):
         t += 1
         print()
         print("STEP =", t)
+        print("Subgoal step =", agent.sub_task_timesteps[agent.current_task_idx])
         print(f"Goal {agent.current_task_idx}: {goal_strings[agent.current_task_idx]}")
 
         if not OFFLINE:
