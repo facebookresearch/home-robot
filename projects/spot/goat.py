@@ -13,7 +13,7 @@ from typing import List
 import cv2
 import numpy as np
 import skimage.morphology
-from PIL import Image
+from PIL import Image, ImageDraw, ImageFont
 
 # TODO Install home_robot, home_robot_sim and remove this
 sys.path.insert(
@@ -67,7 +67,8 @@ def get_semantic_map_vis(
     semantic_map: Categorical2DSemanticMapState,
     semantic_frame: np.array,
     closest_goal_map: np.array,
-    depth_frame: np.array,
+    # depth_frame: np.array,
+    goal_image: np.array,
     color_palette: List[float],
     legend=None,
     visualize_goal=True,
@@ -94,7 +95,8 @@ def get_semantic_map_vis(
         cv2.LINE_AA,
     )
 
-    text = "Depth"
+    # text = "Depth"
+    text = "Goal"
     textsize = cv2.getTextSize(text, font, fontScale, thickness)[0]
     textX = 640 + (640 - textsize[0]) // 2 + 30
     textY = (50 + textsize[1]) // 2
@@ -211,7 +213,10 @@ def get_semantic_map_vis(
     # vis_image[50:530, 15:655] = cv2.resize(semantic_frame, (640, 480))
 
     # Draw depth frame
-    vis_image[50:530, 670:1310] = cv2.resize(depth_frame, (640, 480))
+    # vis_image[50:530, 670:1310] = cv2.resize(depth_frame, (640, 480))
+
+    # Draw goal image
+    vis_image[50:530, 670:1310] = cv2.resize(goal_image, (640, 480))
 
     # Draw legend
     if legend is not None:
@@ -234,6 +239,30 @@ def get_semantic_map_vis(
     cv2.drawContours(vis_image, [agent_arrow], 0, color, -1)
 
     return vis_image
+
+
+def text_to_image(
+    text,
+    width,
+    height,
+    font_path="/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf",
+):
+    # Create a blank image with the specified dimensions
+    image = Image.new(
+        "RGB", (width, height), color=(73, 109, 137)
+    )  # RGB color can be any combination you like
+    # Set up the drawing context
+    d = ImageDraw.Draw(image)
+    # Set the font and size. Font path might be different in your system. Install a font if necessary.
+    font = ImageFont.truetype(font_path, 15)
+    # Calculate width and height of the text to center it
+    text_width, text_height = d.textsize(text, font=font)
+    position = ((width - text_width) / 2, (height - text_height) / 2)
+    # Add the text to the image
+    d.text(position, text, fill=(255, 255, 255), font=font)
+    # Convert the PIL image to a NumPy array
+    image_array = np.array(image)
+    return image_array
 
 
 # Fremont goals
@@ -552,19 +581,28 @@ def main(spot=None):
         action = ContinuousNavigationAction(np.array([x, y, 0.0]))
 
         # Visualize map
-        # TODO GOAT-specific visualization
-        depth_frame = obs.depth
-        if depth_frame.max() > 0:
-            depth_frame = depth_frame / depth_frame.max()
-        depth_frame = (depth_frame * 255).astype(np.uint8)
-        depth_frame = np.repeat(depth_frame[:, :, np.newaxis], 3, axis=2)
+        # depth_frame = obs.depth
+        # if depth_frame.max() > 0:
+        #     depth_frame = depth_frame / depth_frame.max()
+        # depth_frame = (depth_frame * 255).astype(np.uint8)
+        # depth_frame = np.repeat(depth_frame[:, :, np.newaxis], 3, axis=2)
+
+        current_goal = goals[agent.current_task_idx]
+        if current_goal["type"] == "imagenav":
+            goal_image = current_goal["image"][:, :, ::-1]
+        elif current_goal["type"] == "languagenav":
+            goal_image = text_to_image(current_goal["instruction"], 640, 480)
+        elif current_goal["type"] == "objectnav":
+            goal_image = text_to_image(current_goal["target"], 640, 480)
+
         vis_image = get_semantic_map_vis(
             agent.semantic_map,
             obs.task_observations["semantic_frame"],
             info["closest_goal_map"],
-            depth_frame,
-            env.color_palette,
-            legend,
+            # depth_frame,
+            goal_image=goal_image,
+            color_palette=env.color_palette,
+            legend=legend,
             subgoal=info["short_term_goal"],
         )
         vis_images.append(vis_image)
@@ -576,16 +614,6 @@ def main(spot=None):
 
             if key == ord("z"):
                 break
-
-            if key == ord("g"):
-                user_input = input("Enter the goals separated by commas: ")
-                print("You entered:", user_input)
-                goal_strings = user_input.split(",")
-                goals = [GOALS.get(g) for g in goal_strings]
-                goals = [g for g in goals if g is not None]
-                pprint.pprint(goals, indent=4)
-                agent.current_task_idx = 0
-                env.set_goals(goals)
 
             if key == ord("q"):
                 keyboard_takeover = True
