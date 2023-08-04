@@ -1,0 +1,23 @@
+oracle_nav:
+  _target_                   : 'home_robot.agent.ovmm_agent.motor_skills.MotorSkillTool'
+  _recursive_                : False
+
+  skill_config                :
+    skill                      :
+      _target_                 : "home_robot.agent.ovmm_agent.motor_skills.OracleNavSkill"
+      _partial_                : True
+
+    name                       : 'Navigate'
+    description                : 'Navigate towards a target object or receptacle, you need to provide the id of the place you want to navigate to.'
+    max_skill_steps            : 600
+    force_end_on_timeout       : True
+
+    dist_thresh                : 0.2
+    turn_thresh                : 0.3
+    forward_velocity           : 10.0
+    turn_velocity              : 10.0
+    navmesh_offset             : [[0.0,0.0]]
+    sim_freq                   : 20 # Hz
+    enable_backing_up          : True
+    # Disable exploration
+    enable_exploration         : False

@@ -47,16 +47,16 @@ def create_env_config(habitat_config: DictConfig, env_config: DictConfig) -> Dic
     env_config = DictConfig({**habitat_config, **env_config})
 
     visualize = env_config.VISUALIZE or env_config.PRINT_IMAGES
-    if not visualize:
-        if "robot_third_rgb" in env_config.habitat.gym.obs_keys:
-            env_config.habitat.gym.obs_keys.remove("robot_third_rgb")
-        if (
-            "third_rgb_sensor"
-            in env_config.habitat.simulator.agents.main_agent.sim_sensors
-        ):
-            env_config.habitat.simulator.agents.main_agent.sim_sensors.pop(
-                "third_rgb_sensor"
-            )
+    # if not visualize:
+    #     if "robot_third_rgb" in env_config.habitat.gym.obs_keys:
+    #         env_config.habitat.gym.obs_keys.remove("robot_third_rgb")
+    #     if (
+    #         "third_rgb_sensor"
+    #         in env_config.habitat.simulator.agents.main_agent.sim_sensors
+    #     ):
+    #         env_config.habitat.simulator.agents.main_agent.sim_sensors.pop(
+    #             "third_rgb_sensor"
+    #         )
     if (
         getattr(env_config.ENVIRONMENT, "evaluate_instance_tracking", False)
         or env_config.GROUND_TRUTH_SEMANTICS

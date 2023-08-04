@@ -1,0 +1,20 @@
+oracle_pick:
+  _target_                     : 'home_robot.agent.ovmm_agent.motor_skills.MotorSkillTool'
+  _recursive_                  : False
+
+  skill_config                  :
+    skill                      :
+      _target_                 : "home_robot.agent.ovmm_agent.motor_skills.OraclePickSkill"
+      _partial_                : True
+
+    name                       : 'Pick'
+    description                : 'Pick up an object, you need to provide the id of the object'
+
+    max_skill_steps            : 25
+    force_end_on_timeout       : True
+
+    wait_time_for_obj_to_grasp : 10    # in steps
+    thre_for_art_state         : 0.01  # Threshold to determine whether the receptacle is closed
+    grasping_distance          : 2.0   # Distance threshold of picking up the object
+
+    enable_exploration         : False # Disable exploration    

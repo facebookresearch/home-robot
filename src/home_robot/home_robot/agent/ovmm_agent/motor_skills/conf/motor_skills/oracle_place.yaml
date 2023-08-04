@@ -1,0 +1,20 @@
+oracle_place:
+  _target_                     : 'home_robot.agent.ovmm_agent.motor_skills.MotorSkillTool'
+  _recursive_                  : False
+
+  skill_config                  :
+    skill                      :
+      _target_                 : "home_robot.agent.ovmm_agent.motor_skills.OraclePlaceSkill"
+      _partial_                : True
+
+    name                       : 'Place'
+    description                : "Place an object, you need to provide the id of the place where you want to place the object"
+
+    max_skill_steps            : 25
+    force_end_on_timeout       : True
+
+    wait_time_for_obj_to_place : 10    # in steps
+    placing_distance           : 2.0
+    thre_for_art_state         : 0.01  # Threshold to determine whether the receptacle is closed
+
+    enable_exploration         : False # Disable exploration

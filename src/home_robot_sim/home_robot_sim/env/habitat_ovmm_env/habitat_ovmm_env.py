@@ -51,7 +51,7 @@ class SimJointActionIndex(IntEnum):
 
 
 class HabitatOpenVocabManipEnv(HabitatEnv):
-    joints_dof = 7
+    joints_dof = 10
 
     def __init__(self, habitat_env: habitat.core.env.Env, config, dataset):
         super().__init__(habitat_env)
@@ -135,8 +135,7 @@ class HabitatOpenVocabManipEnv(HabitatEnv):
         self, habitat_obs: habitat.core.simulator.Observations
     ) -> home_robot.core.interfaces.Observations:
         depth = self._preprocess_depth(habitat_obs["robot_head_depth"])
-
-        if self.visualize and "robot_third_rgb" in habitat_obs:
+        if "robot_third_rgb" in habitat_obs:
             third_person_image = habitat_obs["robot_third_rgb"]
         else:
             third_person_image = None
@@ -352,8 +351,8 @@ class HabitatOpenVocabManipEnv(HabitatEnv):
             if type(action) == DiscreteNavigationAction:
                 info["curr_action"] = DiscreteNavigationAction(action).name
             self._process_info(info)
-        habitat_action = self._preprocess_action(action, self._last_habitat_obs)
-        habitat_obs, _, dones, infos = self.habitat_env.step(habitat_action)
+        # habitat_action = self._preprocess_action(action, self._last_habitat_obs)
+        habitat_obs, _, dones, infos = self.habitat_env.step(action)
         # copy the keys in info starting with the prefix "is_curr_skill" into infos
         for key in info:
             if key.startswith("is_curr_skill"):
