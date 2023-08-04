@@ -3,6 +3,7 @@
 # This source code is licensed under the MIT license found in the
 # LICENSE file in the root directory of this source tree.
 
+import json
 from typing import Any, Dict, List, Tuple
 
 import cv2
@@ -24,12 +25,10 @@ from home_robot.mapping.semantic.categorical_2d_semantic_map_state import (
 from home_robot.mapping.semantic.instance_tracking_modules import InstanceMemory
 from home_robot.navigation_planner.discrete_planner import DiscretePlanner
 from home_robot.perception.detection.detic.detic_mask import Detic
+from home_robot.perception.detection.maskrcnn.coco_categories import coco_categories
 
 from .goat_agent_module import GoatAgentModule
 from .goat_matching import GoatMatching
-from home_robot.perception.detection.maskrcnn.coco_categories import (
-    coco_categories,
-)
 
 # For visualizing exploration issues
 debug_frontier_map = False
@@ -53,6 +52,7 @@ class GoatAgent(Agent):
             self.panorama_start_steps = 0
 
         self.panorama_rotate_steps = int(360 / config.ENVIRONMENT.turn_angle)
+        self.goal_matching_vis_dir = f"{config.DUMP_LOCATION}/goal_grounding_vis"
 
         self.instance_memory = None
         self.record_instance_ids = getattr(
@@ -723,7 +723,7 @@ class GoatAgent(Agent):
 
         if task_type == "languagenav":
             if self.prev_task_type != "languagenav":
-                # TODO: Use this method for imagenav as well
+                # TODO: Why is this if condition different from the one below?
                 (
                     all_matches,
                     all_confidences,
@@ -736,6 +736,21 @@ class GoatAgent(Agent):
                     use_full_image=False,
                     categories=[coco_categories.get(current_task["target"])],
                 )
+                stats = {
+                    i: {
+                        "mean": float(scores.mean()),
+                        "median": float(np.median(scores)),
+                        "max": float(scores.max()),
+                        "min": float(scores.min()),
+                        "all": scores.flatten().tolist(),
+                    }
+                    for i, scores in zip(instance_ids, all_confidences)
+                }
+                with open(
+                    f"{self.goal_matching_vis_dir}/goal{self.current_task_idx}_language_stats.json",
+                    "w",
+                ) as f:
+                    json.dump(stats, f, indent=4)
 
         elif task_type == "imagenav":
             if (
@@ -755,6 +770,21 @@ class GoatAgent(Agent):
                     use_full_image=False,
                     categories=[coco_categories.get(current_task["target"])],
                 )
+                stats = {
+                    i: {
+                        "mean": float(scores.sum(axis=1).mean()),
+                        "median": float(np.median(scores.sum(axis=1))),
+                        "max": float(scores.sum(axis=1).max()),
+                        "min": float(scores.sum(axis=1).min()),
+                        "all": scores.sum(axis=1).tolist(),
+                    }
+                    for i, scores in zip(instance_ids, all_confidences)
+                }
+                with open(
+                    f"{self.goal_matching_vis_dir}/goal{self.current_task_idx}_image_stats.json",
+                    "w",
+                ) as f:
+                    json.dump(stats, f, indent=4)
 
         return (
             obs_preprocessed,

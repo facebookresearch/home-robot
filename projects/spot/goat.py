@@ -1,6 +1,7 @@
 # If True, use dummy offline environment that loads observations from disk
 OFFLINE = False
 
+import json
 import math
 import pickle
 import pprint
@@ -465,7 +466,9 @@ def main(spot=None):
     config_path = "projects/spot/configs/config.yaml"
     config, config_str = get_config(config_path)
     config.defrost()
-    config.DUMP_LOCATION = f"{str(Path(__file__).resolve().parent)}/fremont_trajectories/trajectory1"
+    config.DUMP_LOCATION = (
+        f"{str(Path(__file__).resolve().parent)}/fremont_trajectories/trajectory1"
+    )
     config.freeze()
 
     output_visualization_dir = f"{config.DUMP_LOCATION}/main_visualization"
@@ -494,6 +497,7 @@ def main(spot=None):
     goals = [g for g in goals if g is not None]
     pprint.pprint(goals, indent=4)
     env.set_goals(goals)
+    json.dump(f"{config.DUMP_LOCATION}/goals.json", goal_strings, indent=4)
 
     # Debugging
     # env.set_goals(
