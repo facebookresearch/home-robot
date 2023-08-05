@@ -4,6 +4,7 @@
 # LICENSE file in the root directory of this source tree.
 
 import json
+import time
 from typing import Any, Dict, List, Tuple
 
 import cv2
@@ -27,6 +28,8 @@ from home_robot.mapping.semantic.instance_tracking_modules import InstanceMemory
 from home_robot.navigation_planner.discrete_planner import DiscretePlanner
 from home_robot.perception.detection.detic.detic_mask import Detic
 from home_robot.perception.detection.maskrcnn.coco_categories import coco_categories
+from home_robot.mapping.semantic.constants import MapConstants as MC
+
 
 from .goat_agent_module import GoatAgentModule
 from .goat_matching import GoatMatching
@@ -42,7 +45,8 @@ class GoatAgent(Agent):
     verbose = False
 
     def __init__(self, config, device_id: int = 0):
-        self.max_steps = config.AGENT.max_steps
+        # self.max_steps = config.AGENT.max_steps
+        self.max_steps = [500, 400, 300, 200, 200, 200, 200, 200, 200, 200, 200]
         self.num_environments = config.NUM_ENVIRONMENTS
         self.store_all_categories_in_map = getattr(
             config.AGENT, "store_all_categories", False
@@ -442,6 +446,9 @@ class GoatAgent(Agent):
         """Act end-to-end."""
         current_task = obs.task_observations["tasks"][self.current_task_idx]
         task_type = current_task["type"]
+
+        t0 = time.time()
+
         # 1 - Obs preprocessing
         (
             obs_preprocessed,
@@ -457,6 +464,9 @@ class GoatAgent(Agent):
             all_confidences,
             instance_ids,
         ) = self._preprocess_obs(obs, task_type)
+
+        t1 = time.time()
+        print(f"Obs preprocessing: {t1 - t0:.2f}")
 
         if "obstacle_locations" in obs.task_observations:
             obstacle_locations = obs.task_observations["obstacle_locations"]
@@ -509,28 +519,42 @@ class GoatAgent(Agent):
             free_locations=free_locations,
         )
 
+        t2 = time.time()
+        print(f"Mapping and goal selection: {t2 - t1:.2f}")
+
         # 3 - Planning
         closest_goal_map = None
         dilated_obstacle_map = None
         short_term_goal = None
+        could_not_find_path = False
         if planner_inputs[0]["found_goal"]:
             self.episode_panorama_start_steps = 0
         if self.total_timesteps[0] < self.episode_panorama_start_steps:
             action = DiscreteNavigationAction.TURN_RIGHT
-        elif self.sub_task_timesteps[0][self.current_task_idx] >= self.max_steps:
-            print("Reached max number of steps for subgoal, calling STOP")
-            action = DiscreteNavigationAction.STOP
         else:
             (
                 action,
                 closest_goal_map,
                 short_term_goal,
                 dilated_obstacle_map,
+                could_not_find_path,
             ) = self.planner.plan(
                 **planner_inputs[0],
                 use_dilation_for_stg=self.use_dilation_for_stg,
                 timestep=self.sub_task_timesteps[0][self.current_task_idx],
             )
+
+        t3 = time.time()
+        print(f"Planning: {t3 - t2:.2f}")
+
+        if self.sub_task_timesteps[0][self.current_task_idx] >= self.max_steps[self.current_task_idx]:
+            print("Reached max number of steps for subgoal, calling STOP")
+            action = DiscreteNavigationAction.STOP
+        
+        if could_not_find_path:
+            print("Resetting explored area")
+            self.semantic_map.local_map[0, MC.EXPLORED_MAP] *= 0
+            self.semantic_map.global_map[0, MC.EXPLORED_MAP] *= 0
 
             # if self.reached_goal_candidate:
             #     # move to next sub-task

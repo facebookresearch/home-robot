@@ -9,6 +9,8 @@ import sys
 import time
 from pathlib import Path
 from typing import List
+import warnings
+warnings.filterwarnings("ignore")
 
 import cv2
 import numpy as np
@@ -496,7 +498,7 @@ def main(spot=None):
     config, config_str = get_config(config_path)
     config.defrost()
     config.DUMP_LOCATION = (
-        f"{str(Path(__file__).resolve().parent)}/fremont_trajectories/trajectory1"
+        f"{str(Path(__file__).resolve().parent)}/fremont_trajectories/trajectory3"
     )
     config.freeze()
 
@@ -541,7 +543,8 @@ def main(spot=None):
     # Fremont trajectories
     # object_bed,image_toilet1
     # object_toilet,image_bed1
-    # object_toilet,image_chair1,image_chair2,image_chair3,image_chair4,image_chair5,image_chair6
+    # object_toilet,image_chair1,image_chair3,image_chair4,image_chair5,image_chair6
+    # object_chair,language_bed1,language_chair1
 
     agent = GoatAgent(config=config)
     agent.reset()
@@ -556,16 +559,20 @@ def main(spot=None):
         spot.set_arm_joint_positions(new_pos, travel_time=3)
         time.sleep(3)
 
+    global_start_time = time.time()
     t = 0
     while not env.episode_over:
+        step_start_time = time.time()
         t += 1
         print()
         print("STEP =", t)
-        print("Subgoal step =", agent.sub_task_timesteps[agent.current_task_idx])
+        print("Subgoal step =", agent.sub_task_timesteps[0][agent.current_task_idx])
+        print(f"Time: {global_start_time:.2f}")
         print(f"Goal {agent.current_task_idx}: {goal_strings[agent.current_task_idx]}")
 
         if not OFFLINE:
             obs = env.get_observation()
+            print(f"Environment (including segmentation) {time.time() - step_start_time:2f}")
             with open(f"{obs_dir}/{t}.pkl", "wb") as f:
                 pickle.dump(obs, f)
         else:
@@ -576,6 +583,7 @@ def main(spot=None):
                 break
 
         action, info = agent.act(obs)
+        print(f"Step time {time.time() - step_start_time:2f}")
         # print("SHORT_TERM:", info["short_term_goal"])
         x, y = info["short_term_goal"]
         x, y = agent.semantic_map.local_to_global(x, y)

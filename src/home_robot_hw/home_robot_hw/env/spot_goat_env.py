@@ -25,7 +25,7 @@ class SpotGoatEnv(SpotEnv):
         self.color_palette = coco_categories_color_palette
         self.num_sem_categories = len(coco_categories)
         self.segmentation = MaskRCNNPerception(
-            sem_pred_prob_thr=0.8,
+            sem_pred_prob_thr=0.75,
             sem_gpu_id=0,
         )
 
@@ -51,7 +51,7 @@ class SpotGoatEnv(SpotEnv):
             # in robot global frame
             cx, cy, yaw = self.spot.get_xy_yaw()
             angle = math.atan2((yg - cy), (xg - cx)) % (2 * np.pi)
-            rotation_speed = np.pi/8
+            rotation_speed = np.pi/10
             yaw_diff = math_helpers.angle_diff(angle,yaw)
             time=max(np.abs(yaw_diff)/rotation_speed,0.5)
             # print(angle,yaw,yaw_diff,time)
@@ -60,7 +60,7 @@ class SpotGoatEnv(SpotEnv):
 
             action = [xg, yg, angle]
             # print("ObjectNavAgent point action", action)
-            self.env.act_point(action, blocking=False,max_fwd_vel=0.4,max_ang_vel=np.pi/6,max_hor_vel=0.25)
+            self.env.act_point(action, blocking=False,max_fwd_vel=0.25,max_ang_vel=np.pi/10,max_hor_vel=0.15)
         else:
             self.env.step(base_action=action)
             if action == DiscreteNavigationAction.STOP:

@@ -708,6 +708,7 @@ class Categorical2DSemanticMapModule(nn.Module):
         # Remove people from the last map if people are detected
         # TODO Handle people more cleanly
         if translated[:, 5 + 11, :, :].sum() > 0.99:
+            print("Detected a person, removing previous people from the map")
             prev_map[:, 5 + 11, :, :] = 0
 
         # Update obstacles in current map
@@ -718,6 +719,7 @@ class Categorical2DSemanticMapModule(nn.Module):
             ] = 1
         if free_locations is not None:
             translated[0, 0, free_locations[0, :, 0], free_locations[0, :, 1]] = 0
+            prev_map[0, 0, free_locations[0, :, 0], free_locations[0, :, 1]] = 0
 
         # Aggregate by taking the max of the previous map and current map — this is robust
         # to false negatives in one frame but makes it impossible to remove false positives

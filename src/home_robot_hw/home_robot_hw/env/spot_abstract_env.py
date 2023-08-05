@@ -118,7 +118,7 @@ class SpotEnv(Env):
 
         trusted_point = (
             np.linalg.norm(obs["obstacle_distances"][:, :2] - obs["position"], axis=-1)
-            <= 5
+            <= 1.5
         )
         obstacle_threshold = 0.01
         is_obstacle_mask = obs["obstacle_distances"][:, 2] <= obstacle_threshold
