@@ -18,6 +18,7 @@ import natsort
 import numpy as np
 import skimage.morphology
 import torch
+from habitat_sim.utils.common import d3_40_colors_rgb
 from PIL import Image, ImageDraw, ImageFont
 
 # TODO Install home_robot and remove this
@@ -25,6 +26,8 @@ sys.path.insert(
     0,
     str(Path(__file__).resolve().parent.parent.parent / "src/home_robot"),
 )
+
+from collections import defaultdict
 
 import home_robot.utils.pose as pu
 import home_robot.utils.visualization as vu
@@ -40,6 +43,7 @@ from home_robot.mapping.semantic.instance_tracking_modules import InstanceMemory
 from home_robot.perception.detection.maskrcnn.coco_categories import (
     coco_categories,
     coco_categories_color_palette,
+    coco_category_id_to_coco_category,
 )
 from home_robot.perception.detection.maskrcnn.maskrcnn_perception import (
     MaskRCNNPerception,
@@ -56,6 +60,53 @@ class PI:
     SEM_START = 5
 
 
+def generate_legend(
+    vis_image: np.ndarray,
+    colors: np.ndarray,
+    texts: List[str],
+    start_x: int,
+    start_y: int,
+    total_w: int,
+    total_h: int,
+):
+    font = 0
+    font_scale = 0.5
+    font_color = (0, 0, 0)
+    font_thickness = 1
+
+    # grid size - number of labels in each column/row
+    grid_w, grid_h = 6, 6
+    int_w = total_w / grid_w
+    int_h = total_h / grid_h
+    ctr = 0
+    for y in range(grid_h):
+        for x in range(grid_w):
+            if ctr > len(colors) - 1:
+                break
+            rect_start_x = int(total_w * x / grid_w) + start_x
+            rect_start_y = int(total_h * y / grid_h) + start_y
+            rect_start = [rect_start_x, rect_start_y]
+            rect_end_x = rect_start_x + int(int_h * 0.2) + 20
+            rect_end_y = rect_start_y + int(int_h * 0.2) + 10
+            rect_end = [rect_end_x, rect_end_y]
+            vis_image = cv2.rectangle(
+                vis_image, rect_start, rect_end, colors[ctr].tolist(), thickness=-1
+            )
+            print(colors[ctr].tolist())
+            vis_image = cv2.putText(
+                vis_image,
+                texts[ctr],
+                (rect_end_x + 5, rect_end_y - 5),
+                font,
+                font_scale,
+                font_color,
+                font_thickness,
+                cv2.LINE_AA,
+            )
+            ctr += 1
+    return vis_image
+
+
 def get_semantic_map_vis(
     semantic_map: Categorical2DSemanticMapState,
     color_palette: List[float],
@@ -63,9 +114,12 @@ def get_semantic_map_vis(
     semantic_frame: Optional[np.array] = None,
     depth_frame: Optional[np.array] = None,
     # To visualize matching a goal to memory
+    instance_map: Optional[np.array] = None,
     goal_image: Optional[np.array] = None,
     instance_image: Optional[np.array] = None,
-    legend=None,
+    instance_memory: Optional[InstanceMemory] = None,
+    visualize_instances: bool = False,
+    legend: Optional[np.array] = None,
 ):
     vis_image = np.ones((655, 1820, 3)).astype(np.uint8) * 255
     font = cv2.FONT_HERSHEY_SIMPLEX
@@ -146,20 +200,40 @@ def get_semantic_map_vis(
         0.12,
         0.46,
         0.70,  # goal
-        *color_palette,
     ]
     map_color_palette = [int(x * 255.0) for x in map_color_palette]
+
+    map_color_palette += d3_40_colors_rgb.flatten().tolist()
 
     semantic_categories_map = semantic_map.get_semantic_map(0)
     obstacle_map = semantic_map.get_obstacle_map(0)
     explored_map = semantic_map.get_explored_map(0)
     visited_map = semantic_map.get_visited_map(0)
     goal_map = semantic_map.get_goal_map(0)
+    instance_map = semantic_map.get_instance_map(0)
 
-    semantic_categories_map += PI.SEM_START
-    no_category_mask = (
-        semantic_categories_map == PI.SEM_START + semantic_map.num_sem_categories - 1
-    )
+    no_category_mask = semantic_categories_map == semantic_map.num_sem_categories - 1
+    if not visualize_instances:
+        semantic_categories_map += PI.SEM_START
+    else:
+        unique_instances, remapped_instances = np.unique(
+            instance_map, return_inverse=True
+        )
+
+        # project instance map
+        projected_instance_map = instance_map.max(0)
+
+        semantic_categories_map = projected_instance_map
+        semantic_categories_map += PI.SEM_START - 1
+        semantic_categories_map[
+            semantic_categories_map == PI.SEM_START - 1
+        ] = PI.EMPTY_SPACE
+
+        num_instances = len(unique_instances)
+
+        if len(unique_instances) > len(d3_40_colors_rgb):
+            raise NotImplementedError
+
     obstacle_mask = np.rint(obstacle_map) == 1
     explored_mask = np.rint(explored_map) == 1
     visited_mask = visited_map == 1
@@ -208,6 +282,38 @@ def get_semantic_map_vis(
     if legend is not None:
         lx, ly, _ = legend.shape
         vis_image[537 : 537 + lx, 155 : 155 + ly, :] = legend[:, :, ::-1]
+    elif visualize_instances:
+        # Name instances as chair-1, chair-2 and so on
+        category_counts = defaultdict(int)
+        instance_to_name = {}
+        for instance in unique_instances:
+            if instance == 0:
+                continue
+            if instance_memory is not None:
+                # retrieve name
+                category = (
+                    instance_memory.instance_views[0][int(instance)].category_id
+                ).item()
+                category_counts[category] += 1
+                instance_to_name[instance] = (
+                    coco_category_id_to_coco_category[category]
+                    + f" - {category_counts[category]}"
+                )
+            else:
+                instance_to_name[instance] = f"Instance - {instance}"
+        vis_image = generate_legend(
+            vis_image,
+            np.array(
+                map_color_palette[
+                    3 * PI.SEM_START : (PI.SEM_START + num_instances - 1) * 3
+                ]
+            ).reshape(-1, 3),
+            [instance_to_name[i] for i in range(1, num_instances)],
+            155,
+            537,
+            1100,
+            115,
+        )
 
     # Draw agent arrow
     curr_x, curr_y, curr_o, gy1, _, gx1, _ = semantic_map.get_planner_pose_inputs(0)
@@ -223,7 +329,6 @@ def get_semantic_map_vis(
     agent_arrow = vu.get_contour_points(pos, origin=(1325, 50), size=10)
     color = map_color_palette[9:12]
     cv2.drawContours(vis_image, [agent_arrow], 0, color, -1)
-
     return vis_image
 
 
@@ -523,7 +628,9 @@ def main(base_dir: str, legend_path: str):
                 semantic_frame=obs.task_observations["semantic_frame"],
                 depth_frame=depth_frame,
                 color_palette=coco_categories_color_palette,
-                legend=legend,
+                legend=None,
+                instance_memory=instance_memory,
+                visualize_instances=True,
             )
             vis_images.append(vis_image)
             plt.imsave(Path(map_vis_dir) / f"{i}.png", vis_image)
@@ -728,6 +835,8 @@ def main(base_dir: str, legend_path: str):
                 local_map=semantic_map.local_map,
                 matches=None,
                 confidence=None,
+                local_instance_ids=None,
+                local_id_to_global_id_map=None,
                 instance_goal_found=False,
                 goal_inst=None,
                 all_matches=all_matches,
