@@ -1,6 +1,7 @@
 # If True, use dummy offline environment that loads observations from disk
 OFFLINE = False
 
+import json
 import math
 import pickle
 import pprint
@@ -8,11 +9,13 @@ import sys
 import time
 from pathlib import Path
 from typing import List
+import warnings
+warnings.filterwarnings("ignore")
 
 import cv2
 import numpy as np
 import skimage.morphology
-from PIL import Image
+from PIL import Image, ImageDraw, ImageFont
 
 # TODO Install home_robot, home_robot_sim and remove this
 sys.path.insert(
@@ -66,7 +69,8 @@ def get_semantic_map_vis(
     semantic_map: Categorical2DSemanticMapState,
     semantic_frame: np.array,
     closest_goal_map: np.array,
-    depth_frame: np.array,
+    # depth_frame: np.array,
+    goal_image: np.array,
     color_palette: List[float],
     legend=None,
     visualize_goal=True,
@@ -93,7 +97,8 @@ def get_semantic_map_vis(
         cv2.LINE_AA,
     )
 
-    text = "Depth"
+    # text = "Depth"
+    text = "Goal"
     textsize = cv2.getTextSize(text, font, fontScale, thickness)[0]
     textX = 640 + (640 - textsize[0]) // 2 + 30
     textY = (50 + textsize[1]) // 2
@@ -210,7 +215,10 @@ def get_semantic_map_vis(
     # vis_image[50:530, 15:655] = cv2.resize(semantic_frame, (640, 480))
 
     # Draw depth frame
-    vis_image[50:530, 670:1310] = cv2.resize(depth_frame, (640, 480))
+    # vis_image[50:530, 670:1310] = cv2.resize(depth_frame, (640, 480))
+
+    # Draw goal image
+    vis_image[50:530, 670:1310] = cv2.resize(goal_image, (640, 480))
 
     # Draw legend
     if legend is not None:
@@ -235,6 +243,31 @@ def get_semantic_map_vis(
     return vis_image
 
 
+def text_to_image(
+    text,
+    width,
+    height,
+    font_path="/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf",
+):
+    # Create a blank image with the specified dimensions
+    image = Image.new(
+        "RGB", (width, height), color=(73, 109, 137)
+    )  # RGB color can be any combination you like
+    # Set up the drawing context
+    d = ImageDraw.Draw(image)
+    # Set the font and size. Font path might be different in your system. Install a font if necessary.
+    font = ImageFont.truetype(font_path, 15)
+    # Calculate width and height of the text to center it
+    text_width, text_height = d.textsize(text, font=font)
+    position = ((width - text_width) / 2, (height - text_height) / 2)
+    # Add the text to the image
+    d.text(position, text, fill=(255, 255, 255), font=font)
+    # Convert the PIL image to a NumPy array
+    image_array = np.array(image)
+    return image_array
+
+
+# Fremont goals
 GOALS = {
     # Object goals
     "object_chair": {"type": "objectnav", "target": "chair"},
@@ -248,110 +281,142 @@ GOALS = {
     "object_sink": {"type": "objectnav", "target": "sink"},
     "object_refrigerator": {"type": "objectnav", "target": "refrigerator"},
     # Image goals
+    "image_bed1": {
+        "type": "imagenav",
+        "target": "bed",
+        "image": cv2.imread(
+            f"{str(Path(__file__).resolve().parent)}/fremont_image_goals/bed1.png"
+        ),
+    },
     "image_chair1": {
         "type": "imagenav",
         "target": "chair",
         "image": cv2.imread(
-            f"{str(Path(__file__).resolve().parent)}/image_goals/chair1_iphone.png"
+            f"{str(Path(__file__).resolve().parent)}/fremont_image_goals/chair1.png"
         ),
     },
     "image_chair2": {
         "type": "imagenav",
         "target": "chair",
         "image": cv2.imread(
-            f"{str(Path(__file__).resolve().parent)}/image_goals/chair2_iphone.png"
+            f"{str(Path(__file__).resolve().parent)}/fremont_image_goals/chair2.png"
         ),
     },
     "image_chair3": {
         "type": "imagenav",
         "target": "chair",
         "image": cv2.imread(
-            f"{str(Path(__file__).resolve().parent)}/image_goals/chair3_iphone.png"
+            f"{str(Path(__file__).resolve().parent)}/fremont_image_goals/chair3.png"
         ),
     },
     "image_chair4": {
         "type": "imagenav",
         "target": "chair",
         "image": cv2.imread(
-            f"{str(Path(__file__).resolve().parent)}/image_goals/chair4_iphone.png"
+            f"{str(Path(__file__).resolve().parent)}/fremont_image_goals/chair4.png"
         ),
     },
     "image_chair5": {
         "type": "imagenav",
         "target": "chair",
         "image": cv2.imread(
-            f"{str(Path(__file__).resolve().parent)}/image_goals/chair5_iphone.png"
+            f"{str(Path(__file__).resolve().parent)}/fremont_image_goals/chair5.png"
+        ),
+    },
+    "image_chair6": {
+        "type": "imagenav",
+        "target": "chair",
+        "image": cv2.imread(
+            f"{str(Path(__file__).resolve().parent)}/fremont_image_goals/chair6.png"
         ),
     },
     "image_couch1": {
         "type": "imagenav",
         "target": "couch",
         "image": cv2.imread(
-            f"{str(Path(__file__).resolve().parent)}/image_goals/couch1_spot.png"
+            f"{str(Path(__file__).resolve().parent)}/fremont_image_goals/couch1.png"
         ),
     },
     "image_oven1": {
         "type": "imagenav",
         "target": "oven",
         "image": cv2.imread(
-            f"{str(Path(__file__).resolve().parent)}/image_goals/oven1_iphone.png"
+            f"{str(Path(__file__).resolve().parent)}/fremont_image_goals/oven1.png"
         ),
     },
     "image_plant1": {
         "type": "imagenav",
         "target": "potted plant",
         "image": cv2.imread(
-            f"{str(Path(__file__).resolve().parent)}/image_goals/plant1_spot.png"
+            f"{str(Path(__file__).resolve().parent)}/fremont_image_goals/plant1.png"
         ),
     },
     "image_plant2": {
         "type": "imagenav",
         "target": "potted plant",
         "image": cv2.imread(
-            f"{str(Path(__file__).resolve().parent)}/image_goals/plant2_spot.png"
+            f"{str(Path(__file__).resolve().parent)}/fremont_image_goals/plant2.png"
         ),
     },
-    "image_sink1": {
+    "image_plant3": {
         "type": "imagenav",
-        "target": "sink",
+        "target": "potted plant",
         "image": cv2.imread(
-            f"{str(Path(__file__).resolve().parent)}/image_goals/sink1_spot.png"
-        ),
-    },
-    "image_sink2": {
-        "type": "imagenav",
-        "target": "sink",
-        "image": cv2.imread(
-            f"{str(Path(__file__).resolve().parent)}/image_goals/sink2_spot.png"
+            f"{str(Path(__file__).resolve().parent)}/fremont_image_goals/plant3.png"
         ),
     },
     "image_refrigerator1": {
         "type": "imagenav",
         "target": "refrigerator",
         "image": cv2.imread(
-            f"{str(Path(__file__).resolve().parent)}/image_goals/refrigerator1_spot.png"
+            f"{str(Path(__file__).resolve().parent)}/fremont_image_goals/refrigerator1.png"
         ),
     },
-    "image_bed1": {
+    "image_sink1": {
         "type": "imagenav",
-        "target": "bed",
+        "target": "sink",
         "image": cv2.imread(
-            f"{str(Path(__file__).resolve().parent)}/image_goals/bed1_spot.png"
+            f"{str(Path(__file__).resolve().parent)}/fremont_image_goals/sink1.png"
         ),
     },
-    "image_toile1": {
+    "image_sink2": {
+        "type": "imagenav",
+        "target": "sink",
+        "image": cv2.imread(
+            f"{str(Path(__file__).resolve().parent)}/fremont_image_goals/sink2.png"
+        ),
+    },
+    "image_toilet1": {
         "type": "imagenav",
         "target": "toilet",
         "image": cv2.imread(
-            f"{str(Path(__file__).resolve().parent)}/image_goals/toilet1_spot.png"
+            f"{str(Path(__file__).resolve().parent)}/fremont_image_goals/toilet1.png"
         ),
     },
     # Language goals
+    "language_bed1": {
+        "type": "languagenav",
+        "target": "bed",
+        "landmarks": [],
+        "instruction": "The white bed.",
+    },
     "language_chair1": {
         "type": "languagenav",
         "target": "chair",
         "landmarks": [],
-        "instruction": "The high chair next to the kitchen table.",
+        "instruction": "The brown leather chair next to the bedside table.",
+    },
+    "language_chair2": {
+        "type": "languagenav",
+        "target": "chair",
+        "landmarks": [],
+        "instruction": "The black plastic office chair.",
+    },
+    "language_chair3": {
+        "type": "languagenav",
+        "target": "chair",
+        "landmarks": [],
+        "instruction": "The brown leather chair next to the picture and plant.",
     },
     "language_chair4": {
         "type": "languagenav",
@@ -359,17 +424,71 @@ GOALS = {
         "landmarks": [],
         "instruction": "The grey armchair.",
     },
+    "language_chair5": {
+        "type": "languagenav",
+        "target": "chair",
+        "landmarks": [],
+        "instruction": "The high chair with metal legs next to the kitchen counter.",
+    },
+    "language_chair6": {
+        "type": "languagenav",
+        "target": "chair",
+        "landmarks": [],
+        "instruction": "The chair with metal legs next to the dining table.",
+    },
     "language_couch1": {
         "type": "languagenav",
-        "target": "bed",
+        "target": "couch",
         "landmarks": [],
-        "instruction": "The couch.",
+        "instruction": "The couch with colorful pillows.",
     },
-    "language_bed1": {
+    "language_oven1": {
         "type": "languagenav",
-        "target": "bed",
+        "target": "oven",
         "landmarks": [],
-        "instruction": "The bed.",
+        "instruction": "The oven.",
+    },
+    "language_plant1": {
+        "type": "languagenav",
+        "target": "potted plant",
+        "landmarks": [],
+        "instruction": "The green leafy plant next to the brown chair.",
+    },
+    "language_plant2": {
+        "type": "languagenav",
+        "target": "potted plant",
+        "landmarks": [],
+        "instruction": "The green leafy plant next to the grey armchair.",
+    },
+    "language_plant3": {
+        "type": "languagenav",
+        "target": "potted plant",
+        "landmarks": [],
+        "instruction": "The brown dead plant.",
+    },
+    "language_refrigerator1": {
+        "type": "languagenav",
+        "target": "refrigerator",
+        "landmarks": [],
+        "instruction": "The refrigerator.",
+    },
+    "language_sink1": {
+        "type": "languagenav",
+        "target": "sink",
+        "landmarks": [],
+        "instruction": "The bathroom sink.",
+    },
+    "language_sink2": {
+        "type": "languagenav",
+        "target": "sink",
+        "landmarks": [],
+        "instruction": "The kitchen sink.",
+    },
+    "language_toilet1": {
+        "type": "languagenav",
+        "target": "sink",
+        "landmarks": [],
+        "instruction": "The toilet.",
     },
 }
 
@@ -377,13 +496,16 @@ GOALS = {
 def main(spot=None):
     config_path = "projects/spot/configs/config.yaml"
     config, config_str = get_config(config_path)
-
-    output_visualization_dir = (
-        f"{str(Path(__file__).resolve().parent)}/map_visualization/"
+    config.defrost()
+    config.DUMP_LOCATION = (
+        f"{str(Path(__file__).resolve().parent)}/fremont_trajectories/trajectory3"
     )
+    config.freeze()
+
+    output_visualization_dir = f"{config.DUMP_LOCATION}/main_visualization"
     Path(output_visualization_dir).mkdir(parents=True, exist_ok=True)
 
-    obs_dir = f"{str(Path(__file__).resolve().parent)}/obs/"
+    obs_dir = f"{config.DUMP_LOCATION}/obs"
     Path(obs_dir).mkdir(parents=True, exist_ok=True)
 
     legend_path = f"{str(Path(__file__).resolve().parent)}/coco_categories_legend.png"
@@ -401,22 +523,28 @@ def main(spot=None):
 
     user_input = input("Enter the goals separated by commas: ")
     print("You entered:", user_input)
-    goals = [GOALS.get(g) for g in user_input.split(",")]
+    goal_strings = user_input.split(",")
+    goals = [GOALS.get(g) for g in goal_strings]
     goals = [g for g in goals if g is not None]
     pprint.pprint(goals, indent=4)
     env.set_goals(goals)
-    # object_chair,image_bed1,language_couch1
+    with open(f"{config.DUMP_LOCATION}/goals.json", "w") as f:
+        json.dump(goal_strings, f, indent=4)
 
+    # Debugging
     # env.set_goals(
     #     [
-    #         # GOALS["object_sink"],
-    #         # GOALS["object_chair"],
-    #         # GOALS["object_couch"],
-    #         # GOALS["image_bed1"],
-    #         # GOALS["language_chair1"],
+    #         GOALS["object_sink"],
+    #         GOALS["image_bed1"],
     #         GOALS["language_bed1"],
     #     ]
     # )
+
+    # Fremont trajectories
+    # object_bed,image_toilet1
+    # object_toilet,image_bed1
+    # object_toilet,image_chair1,image_chair3,image_chair4,image_chair5,image_chair6
+    # object_chair,language_bed1,language_chair1
 
     agent = GoatAgent(config=config)
     agent.reset()
@@ -431,14 +559,20 @@ def main(spot=None):
         spot.set_arm_joint_positions(new_pos, travel_time=3)
         time.sleep(3)
 
+    global_start_time = time.time()
     t = 0
     while not env.episode_over:
+        step_start_time = time.time()
         t += 1
         print()
         print("STEP =", t)
+        print("Subgoal step =", agent.sub_task_timesteps[0][agent.current_task_idx])
+        print(f"Time: {global_start_time:.2f}")
+        print(f"Goal {agent.current_task_idx}: {goal_strings[agent.current_task_idx]}")
 
         if not OFFLINE:
             obs = env.get_observation()
+            print(f"Environment (including segmentation) {time.time() - step_start_time:2f}")
             with open(f"{obs_dir}/{t}.pkl", "wb") as f:
                 pickle.dump(obs, f)
         else:
@@ -449,25 +583,35 @@ def main(spot=None):
                 break
 
         action, info = agent.act(obs)
+        print(f"Step time {time.time() - step_start_time:2f}")
         # print("SHORT_TERM:", info["short_term_goal"])
         x, y = info["short_term_goal"]
         x, y = agent.semantic_map.local_to_global(x, y)
         action = ContinuousNavigationAction(np.array([x, y, 0.0]))
 
         # Visualize map
-        # TODO GOAT-specific visualization
-        depth_frame = obs.depth
-        if depth_frame.max() > 0:
-            depth_frame = depth_frame / depth_frame.max()
-        depth_frame = (depth_frame * 255).astype(np.uint8)
-        depth_frame = np.repeat(depth_frame[:, :, np.newaxis], 3, axis=2)
+        # depth_frame = obs.depth
+        # if depth_frame.max() > 0:
+        #     depth_frame = depth_frame / depth_frame.max()
+        # depth_frame = (depth_frame * 255).astype(np.uint8)
+        # depth_frame = np.repeat(depth_frame[:, :, np.newaxis], 3, axis=2)
+
+        current_goal = goals[agent.current_task_idx]
+        if current_goal["type"] == "imagenav":
+            goal_image = current_goal["image"][:, :, ::-1]
+        elif current_goal["type"] == "languagenav":
+            goal_image = text_to_image(current_goal["instruction"], 640, 480)
+        elif current_goal["type"] == "objectnav":
+            goal_image = text_to_image(current_goal["target"], 640, 480)
+
         vis_image = get_semantic_map_vis(
             agent.semantic_map,
             obs.task_observations["semantic_frame"],
             info["closest_goal_map"],
-            depth_frame,
-            env.color_palette,
-            legend,
+            # depth_frame,
+            goal_image=goal_image,
+            color_palette=env.color_palette,
+            legend=legend,
             subgoal=info["short_term_goal"],
         )
         vis_images.append(vis_image)
@@ -479,15 +623,6 @@ def main(spot=None):
 
             if key == ord("z"):
                 break
-
-            if key == ord("g"):
-                user_input = input("Enter the goals separated by commas: ")
-                print("You entered:", user_input)
-                goals = [GOALS.get(g) for g in user_input.split(",")]
-                goals = [g for g in goals if g is not None]
-                pprint.pprint(goals, indent=4)
-                agent.current_task_idx = 0
-                env.set_goals(goals)
 
             if key == ord("q"):
                 keyboard_takeover = True

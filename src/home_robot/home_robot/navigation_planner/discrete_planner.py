@@ -72,7 +72,7 @@ class DiscretePlanner:
         agent_cell_radius: int = 1,
         map_downsample_factor: float = 1.0,
         map_update_frequency: int = 1,
-        goal_tolerance: float = 10.0,
+        goal_tolerance: float = 20.0,  # 1m
         discrete_actions: bool = True,
         continuous_angle_tolerance: float = 30.0,
     ):
@@ -93,7 +93,7 @@ class DiscretePlanner:
         self.discrete_actions = discrete_actions
         self.visualize = visualize
         self.print_images = print_images
-        self.default_vis_dir = f"{dump_location}/images/{exp_name}"
+        self.default_vis_dir = f"{dump_location}/planner"
         os.makedirs(self.default_vis_dir, exist_ok=True)
 
         self.map_size_cm = map_size_cm
@@ -247,6 +247,7 @@ class DiscretePlanner:
                 np.zeros(goal_map.shape),
                 (0, 0),
                 np.zeros(goal_map.shape),
+                False
             )
         # Short term goal is in cm, start_x and start_y are in m
         if debug:
@@ -269,54 +270,54 @@ class DiscretePlanner:
         # print(f"[Planning] get_short_term_goal() time: {t1 - t0}")
 
         # We were not able to find a path to the high-level goal
-        if replan and not stop:
-            # Clean collision map
-            self.collision_map *= 0
-            # Reduce obstacle dilation
-            if self.curr_obs_dilation_selem_radius > self.min_obs_dilation_selem_radius:
-                self.curr_obs_dilation_selem_radius -= 1
-                self.obs_dilation_selem = skimage.morphology.disk(
-                    self.curr_obs_dilation_selem_radius
-                )
-                if debug:
-                    print(
-                        f"reduced obs dilation to {self.curr_obs_dilation_selem_radius}"
-                    )
+        # if replan and not stop:
+        #     # Clean collision map
+        #     self.collision_map *= 0
+        #     # Reduce obstacle dilation
+        #     if self.curr_obs_dilation_selem_radius > self.min_obs_dilation_selem_radius:
+        #         self.curr_obs_dilation_selem_radius -= 1
+        #         self.obs_dilation_selem = skimage.morphology.disk(
+        #             self.curr_obs_dilation_selem_radius
+        #         )
+        #         if debug:
+        #             print(
+        #                 f"reduced obs dilation to {self.curr_obs_dilation_selem_radius}"
+        #             )
 
-            if found_goal:
-                if debug:
-                    print(
-                        "ERROR: Could not find a path to the high-level goal. Trying to explore more..."
-                    )
-                (
-                    short_term_goal,
-                    closest_goal_map,
-                    replan,
-                    stop,
-                    closest_goal_pt,
-                    dilated_obstacles,
-                ) = self._get_short_term_goal(
-                    obstacle_map,
-                    frontier_map,
-                    start,
-                    planning_window,
-                    plan_to_dilated_goal=True,
-                    orientation = start_o,
-                )
-                if debug:
-                    print("--- after replanning to frontier ---")
-                    print("goal =", short_term_goal)
-                found_goal = False
-                if replan:
-                    print("Nowhere left to explore. Stopping.")
-                    # Calling the STOP action here will cause the agent to try grasping
-                    #  TODO separate out STOP_SUCCESS and STOP_FAILURE actions
-                    return (
-                        DiscreteNavigationAction.STOP,
-                        closest_goal_map,
-                        short_term_goal,
-                        dilated_obstacles,
-                    )
+        #     if found_goal:
+        #         if debug:
+        #             print(
+        #                 "ERROR: Could not find a path to the high-level goal. Trying to explore more..."
+        #             )
+        #         (
+        #             short_term_goal,
+        #             closest_goal_map,
+        #             replan,
+        #             stop,
+        #             closest_goal_pt,
+        #             dilated_obstacles,
+        #         ) = self._get_short_term_goal(
+        #             obstacle_map,
+        #             frontier_map,
+        #             start,
+        #             planning_window,
+        #             plan_to_dilated_goal=True,
+        #             orientation = start_o,
+        #         )
+        #         if debug:
+        #             print("--- after replanning to frontier ---")
+        #             print("goal =", short_term_goal)
+        #         found_goal = False
+        #         if replan:
+        #             print("Nowhere left to explore. Stopping.")
+        #             # Calling the STOP action here will cause the agent to try grasping
+        #             #  TODO separate out STOP_SUCCESS and STOP_FAILURE actions
+        #             return (
+        #                 DiscreteNavigationAction.STOP,
+        #                 closest_goal_map,
+        #                 short_term_goal,
+        #                 dilated_obstacles,
+        #             )
 
         # Normalize agent angle
         angle_agent = pu.normalize_angle(start_o)
@@ -375,7 +376,7 @@ class DiscretePlanner:
 
         self.last_action = action
         # return action, closest_goal_map, short_term_goal, dilated_obstacles
-        return action, closest_goal_map, (stg_x, stg_y), dilated_obstacles
+        return action, closest_goal_map, (stg_x, stg_y), dilated_obstacles, replan
 
     def get_action(
         self,
@@ -557,12 +558,13 @@ class DiscretePlanner:
             proto_dist = skfmm.distance(local_grid)
             local_dists = dists[cnp[0]-self.step_size:cnp[0]+self.step_size+1,cnp[1]-self.step_size:cnp[1]+self.step_size+1]
             diff_dists = local_dists-proto_dist
+
             # if, at a certain point, the difference is very low 
             # between the ffm distances with obstacles in and no obstacles then there is a
             # straight line path from the agent to that point
             # below is a mask for those points in a local range around the agent
             # straight_line_mask = diff_dists < 0.1
-            straight_line_mask = diff_dists < 0.1
+            straight_line_mask = np.ma.filled(diff_dists < 0.1,False)
             # of the valid points, find the one closest to the goal
             local_goal_dists = goal_dists[cnp[0]-self.step_size:cnp[0]+self.step_size+1,cnp[1]-self.step_size:cnp[1]+self.step_size+1].copy()
             # bias towards planning in the direction the agent is facing
@@ -581,8 +583,16 @@ class DiscretePlanner:
             # only select points that are within step-size
             circular_mask = proto_dist <= self.step_size
             total_cost.mask |= ~circular_mask
-            cv2.imshow('total_cost',total_cost/total_cost.max())
-            cv2.waitKey(1)
+            # cv2.imshow('proto_dist',proto_dist/proto_dist.max())
+            # cv2.imshow('local_dists',local_dists/local_dists.max())
+            # cv2.imshow('diff_dists',diff_dists/diff_dists.max()) 
+            # cv2.imshow('straight_line_mask',straight_line_mask/straight_line_mask.max()) 
+            # cv2.imshow('agent_dists',dists/dists.max()) 
+            # cv2.imshow('goal_dists',goal_dists/goal_dists.max())
+            # cv2.imshow('total_cost',total_cost/total_cost.max())
+            # cv2.waitKey(1)
+            # breakpoint()
+            
             # local_stg = np.unravel_index(np.argmin(local_goal_dists),local_goal_dists.shape)
             local_stg = np.unravel_index(np.argmin(total_cost),local_goal_dists.shape)
             # adjust back to the uncropped frame
@@ -590,8 +600,10 @@ class DiscretePlanner:
             assert x1 == 0
             assert y1 == 0
             short_term_goal = int(stg_x), int(stg_y)
-            replan = False
-            # print("local_goal_dists[self.step_size,self.step_size]", local_goal_dists[self.step_size,self.step_size])
+            replan = local_goal_dists.mask[self.step_size,self.step_size]
+            print(f"Distance to goal (in m): {local_goal_dists[self.step_size,self.step_size] / 20.0:.2f} (<1m = STOP)")
+            if replan:
+                print("Could not find a path")
             # print("self.goal_tolerance", self.goal_tolerance)
             stop = local_goal_dists[self.step_size,self.step_size] < self.goal_tolerance
             # print("stop", stop)

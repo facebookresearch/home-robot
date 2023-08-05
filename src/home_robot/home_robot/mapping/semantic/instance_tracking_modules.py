@@ -107,7 +107,7 @@ class InstanceMemory:
         self.mask_cropped_instances = mask_cropped_instances
 
         if config is not None:
-            self.save_dir = f"{config.DUMP_LOCATION}/instances/{config.EXP_NAME}"
+            self.save_dir = f"{config.DUMP_LOCATION}/instances"
         else:
             self.save_dir = save_dir
 
