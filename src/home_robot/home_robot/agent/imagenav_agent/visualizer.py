@@ -201,6 +201,7 @@ class NavVisualizer:
         frontier_map: Optional[np.ndarray] = None,
         dilated_obstacle_map: Optional[np.ndarray] = None,
         instance_map: Optional[np.ndarray] = None,
+        short_term_goal: Optional[np.ndarray] = None,
     ) -> None:
         """Visualize frame input and semantic map.
 

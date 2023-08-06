@@ -448,6 +448,7 @@ class Categorical2DSemanticMapModule(nn.Module):
             tilt = torch.zeros(batch_size)
             agent_height = self.agent_height
 
+        yaw = torch.tensor(yaw)
         depth = obs[:, 3, :, :].float()
         depth[depth > self.max_depth] = 0
 

@@ -47,6 +47,7 @@ AGENT:
     dilate_obstacles: False
     dilate_size: 3
     dilate_iter: 1
+    exploration_type: 'default'
 
     depth_filtering: True
     depth_filter_range_cm: 100        # 1m about the depth median (+/- 50cm)
