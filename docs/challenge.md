@@ -106,7 +106,7 @@ Follow instructions in the `submit` tab of the EvalAI challenge page to submit y
     evalai set_token <your EvalAI participant token>
     ```
 
-3. Push docker image to EvalAI docker registry
+3. Push docker image to EvalAI docker registry. See below for more detailed example commands.
     ```bash
     evalai push ovmm_baseline_submission --phase <phase-name>
     ```
@@ -123,6 +123,28 @@ The challenge consists of the following phases:
 1. **Test challenge phase**: This split will be used to decide challenge teams who will proceed to Stage 2 Evaluation. Each team is allowed a total of 5 submissions until the end of challenge submission phase. The highest performing of these 5 will be automatically chosen.
 
 Simulation agents will be evaluated on an AWS EC2 p2.xlarge instance which has a Tesla K80 GPU (12 GB Memory), 4 CPU cores, and 61 GB RAM. Agents will be evaluated on 1000 episodes and will have a total available time of 48 hours to finish each run. If you need more time/resources for evaluation of your submission please get in touch. If you face any issues or have questions you can ask them by opening an issue on this repository.
+
+### Example Commands
+
+```
+# For minival submissions
+# With a public submission, anyone can see your score
+evalai push <image>:<tag> --phase neurips-ovmm-minival-2023-2100
+# You can also make a private submission - no one but you and the organizers can see the results
+evalai push <image>:<tag> --phase neurips-ovmm-minival-2023-2100 --private
+
+# For standard test submissions
+# With a public submission, anyone can see your score
+evalai push <image>:<tag> --phase neurips-ovmm-test-standard-2023-2100
+# Make a private submission - no one but you and the organizers can see the result
+evalai push <image>:<tag> --phase neurips-ovmm-test-standard-2023-2100 --private
+
+# For challenge submissions - YOU ONLY HAVE 5 SUMBMISSIONS EVER!
+# BE VERY CAREFUL ATTEMPTING THIS! Again, you only get five (5) attempts for the whole challenge
+evalai push <image>:<tag> --phase neurips-ovmm-test-challenge-2023-2100
+# Alternately, make a private submission 
+evalai push <image>:<tag> --phase neurips-ovmm-test-challenge-2023-2100 --private
+```
 
 ### DD-PPO Training Starter Code
 Please refer to the Training DD-PPO skills section of the [Habitat OVMM readme](../projects/habitat_ovmm/README.md#training-dd-ppo-skills) for more details.
