@@ -10,9 +10,6 @@ from typing import Dict, Tuple
 from home_robot.core.interfaces import Observations
 from home_robot.perception.constants import RearrangeDETICCategories
 from home_robot.perception.detection.detic.detic_perception import DeticPerception
-from home_robot.perception.detection.grounded_sam.grounded_sam_perception import (
-    GroundedSAMPerception,
-)
 
 
 def read_category_map_file(
@@ -84,6 +81,10 @@ class OvmmPerception:
                 verbose=verbose,
             )
         elif self._detection_module == "grounded_sam":
+            from home_robot.perception.detection.grounded_sam.grounded_sam_perception import (
+                GroundedSAMPerception,
+            )
+
             self._segmentation = GroundedSAMPerception(
                 custom_vocabulary=".",
                 sem_gpu_id=gpu_device_id,
