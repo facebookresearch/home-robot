@@ -73,6 +73,12 @@ def create_video(images, output_file, fps):
     video_writer.release()
 
 
+def resize_to_fit(img, target_width, target_height):
+    h, w = img.shape[:2]
+    ratio = min(target_width / w, target_height / h)
+    return cv2.resize(img, (int(w * ratio), int(h * ratio)))
+
+
 def generate_legend(
     vis_image: np.ndarray,
     colors: np.ndarray,
@@ -291,7 +297,7 @@ def get_semantic_map_vis(
     # vis_image[50:530, 670:1310] = cv2.resize(depth_frame, (640, 480))
 
     # Draw goal image
-    vis_image[50:530, 670:1310] = cv2.resize(goal_image, (640, 480))
+    vis_image[50:530, 670:1310] = resize_to_fit(goal_image, 640, 480)
 
     # Draw legend
     if legend is not None:
