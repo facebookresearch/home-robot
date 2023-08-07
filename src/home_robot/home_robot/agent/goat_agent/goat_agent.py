@@ -25,7 +25,6 @@ from home_robot.mapping.semantic.categorical_2d_semantic_map_state import (
     Categorical2DSemanticMapState,
 )
 from home_robot.mapping.semantic.instance_tracking_modules import InstanceMemory
-from home_robot.navigation_planner.discrete_planner import DiscretePlanner
 from home_robot.perception.detection.detic.detic_mask import Detic
 from home_robot.perception.detection.maskrcnn.coco_categories import coco_categories
 from home_robot.mapping.semantic.constants import MapConstants as MC
@@ -139,6 +138,12 @@ class GoatAgent(Agent):
             np.ceil(agent_radius_cm / config.AGENT.SEMANTIC_MAP.map_resolution)
         )
         self.max_num_sub_task_episodes = config.ENVIRONMENT.max_num_sub_task_episodes
+        
+        if 'planner_type' in config.AGENT.PLANNER and config.AGENT.PLANNER.planner_type == "old":
+            from home_robot.navigation_planner.old_discrete_planner import DiscretePlanner
+        else:
+            from home_robot.navigation_planner.discrete_planner import DiscretePlanner
+
         self.planner = DiscretePlanner(
             turn_angle=config.ENVIRONMENT.turn_angle,
             collision_threshold=config.AGENT.PLANNER.collision_threshold,
@@ -465,7 +470,7 @@ class GoatAgent(Agent):
         ) = self._preprocess_obs(obs, task_type)
 
         t1 = time.time()
-        print(f"Obs preprocessing: {t1 - t0:.2f}")
+        # print(f"Obs preprocessing: {t1 - t0:.2f}")
 
         if "obstacle_locations" in obs.task_observations:
             obstacle_locations = obs.task_observations["obstacle_locations"]
@@ -519,7 +524,7 @@ class GoatAgent(Agent):
         )
 
         t2 = time.time()
-        print(f"Mapping and goal selection: {t2 - t1:.2f}")
+        # print(f"Mapping and goal selection: {t2 - t1:.2f}")
 
         # 3 - Planning
         closest_goal_map = None
@@ -544,7 +549,7 @@ class GoatAgent(Agent):
             )
 
         t3 = time.time()
-        print(f"Planning: {t3 - t2:.2f}")
+        # print(f"Planning: {t3 - t2:.2f}")
 
         if self.sub_task_timesteps[0][self.current_task_idx] >= self.max_steps[self.current_task_idx]:
             print("Reached max number of steps for subgoal, calling STOP")
