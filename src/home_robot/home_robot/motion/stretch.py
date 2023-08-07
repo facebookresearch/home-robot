@@ -355,7 +355,7 @@ class HelloStretchKinematics(Robot):
     def set_articulated_object_positions(
         self, bullet_obj: hrb.PbArticulatedObject, q: np.ndarray, mode: str = "manip"
     ):
-        """Update positions of a bullet articulated object"""
+        """Update positions of a bullet articulated object. This is mostly a helper to wrap bullet objects for visualizations and the like."""
         if mode != "manip":
             raise NotImplementedError(
                 "non manip mode articulated objects not yet supported"
@@ -366,12 +366,7 @@ class HelloStretchKinematics(Robot):
             controlled_joints
         ), "incorrect size for joint positions array"
         controlled_joint_indices = bullet_obj.joint_names_to_indices(controlled_joints)
-        # bullet_obj.set_joint_positions(q, controlled_joint_indices)
-        for pos, idx in zip(q, controlled_joint_indices):
-            bullet_obj.set_joint_position(idx, pos)
-            print(idx, pos)
-            input("--")
-        breakpoint()
+        bullet_obj.set_joint_positions(q, controlled_joint_indices)
 
     def set_head_config(self, q):
         # WARNING: this sets all configs

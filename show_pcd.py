@@ -2,7 +2,7 @@ import numpy as np
 import trimesh
 
 import home_robot.utils.transformations as tra
-from home_robot.motion.stretch import HelloStretchKinematics
+from home_robot.motion.stretch import STRETCH_STANDOFF_DISTANCE, HelloStretchKinematics
 
 # Create bullet client
 from home_robot.utils.bullet import PbArticulatedObject, PbClient, PbObject
@@ -50,12 +50,25 @@ robot = client.add_articulated_object("robot", MANIP_STRETCH_URDF)
 grasp_orientation = tra.quaternion_from_euler(0, np.pi, 0)
 
 model = HelloStretchKinematics()
+
+print("Target point to grasp:", pt)
+print("Raising the point by the size of the stretch gripper before doing IK...")
+pt[2] += STRETCH_STANDOFF_DISTANCE
+print("Target point to grasp:", pt)
+
 cfg, res, info = model.manip_ik((pt, grasp_orientation))
 print("cfg =", cfg)
 print("res =", res)
 print("inf =", info)
 
 model.set_articulated_object_positions(robot, cfg)
-breakpoint()
 
+print()
+print("After switching to manipulation mode, then you can move the robot like this:")
+print("base x motion:", cfg[0])
+print("lift:         ", cfg[1])
+print("arm extension:", cfg[2] + cfg[3] + cfg[4] + cfg[5])
+print("wrist yaw:    ", cfg[6])
+print("wrist pitch:  ", cfg[7])
+print("wrist roll:   ", cfg[8])
 input("press enter when done")
