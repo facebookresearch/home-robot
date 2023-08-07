@@ -164,3 +164,18 @@ python projects/habitat_ovmm/eval_baselines_agent.py --baseline_config_path proj
 Here `<manip>/<nav>` are to be set to 'h' or 'r' for heuristic and RL skills respectively. `<perception>` is one of 'gt'/'detic'. Append `<viz?>=_viz` for saving images.
 
 In case you run into issues, please prepend your python command with `HABITAT_ENV_DEBUG=1` to get a better error message.
+
+## Command Line Usage
+
+### Running just examples of pick skill
+
+```
+python projects/habitat_ovmm/eval_baselines_agent.py \
+  --baseline_config_path projects/habitat_ovmm/configs/agent/pick_skill_only.yaml \
+  --env_config_path projects/habitat_ovmm/configs/env/hssd_demo_gt.yaml \
+  habitat.task.pick_init=True habitat.task.episode_init=False \
+  habitat.environment.max_episode_steps=10  \
+  habitat.task.actions.arm_action.grasp_thresh_dist=0.1 \
+  habitat.dataset.episode_ids="[0]"
+```
+```
