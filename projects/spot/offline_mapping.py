@@ -109,12 +109,10 @@ def generate_legend(
 
 def get_semantic_map_vis(
     semantic_map: Categorical2DSemanticMapState,
-    color_palette: List[float],
     # To visualize a trajectory
     semantic_frame: Optional[np.array] = None,
     depth_frame: Optional[np.array] = None,
     # To visualize matching a goal to memory
-    instance_map: Optional[np.array] = None,
     goal_image: Optional[np.array] = None,
     instance_image: Optional[np.array] = None,
     instance_memory: Optional[InstanceMemory] = None,
@@ -202,7 +200,6 @@ def get_semantic_map_vis(
         0.70,  # goal
     ]
     map_color_palette = [int(x * 255.0) for x in map_color_palette]
-
     map_color_palette += d3_40_colors_rgb.flatten().tolist()
 
     semantic_categories_map = semantic_map.get_semantic_map(0)
@@ -627,7 +624,6 @@ def main(base_dir: str, legend_path: str):
                 semantic_map,
                 semantic_frame=obs.task_observations["semantic_frame"],
                 depth_frame=depth_frame,
-                color_palette=coco_categories_color_palette,
                 legend=None,
                 instance_memory=instance_memory,
                 visualize_instances=True,
@@ -749,7 +745,6 @@ def main(base_dir: str, legend_path: str):
                     instance_image=instance_memory.instance_views[0][goal_inst]
                     .instance_views[0]
                     .cropped_image[:, :, ::-1],
-                    color_palette=coco_categories_color_palette,
                     legend=legend,
                 )
                 plt.imsave(
@@ -855,7 +850,6 @@ def main(base_dir: str, legend_path: str):
                     instance_image=instance_memory.instance_views[0][goal_inst]
                     .instance_views[0]
                     .cropped_image[:, :, ::-1],
-                    color_palette=coco_categories_color_palette,
                     legend=legend,
                 )
                 plt.imsave(

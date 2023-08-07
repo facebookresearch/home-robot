@@ -7,14 +7,18 @@ import pickle
 import pprint
 import sys
 import time
-from pathlib import Path
-from typing import List
 import warnings
+from pathlib import Path
+from typing import List, Optional
+
 warnings.filterwarnings("ignore")
+
+from collections import defaultdict
 
 import cv2
 import numpy as np
 import skimage.morphology
+from habitat_sim.utils.common import d3_40_colors_rgb
 from PIL import Image, ImageDraw, ImageFont
 
 # TODO Install home_robot, home_robot_sim and remove this
@@ -39,6 +43,10 @@ from home_robot.core.interfaces import (
 )
 from home_robot.mapping.semantic.categorical_2d_semantic_map_state import (
     Categorical2DSemanticMapState,
+)
+from home_robot.mapping.semantic.instance_tracking_modules import InstanceMemory
+from home_robot.perception.detection.maskrcnn.coco_categories import (
+    coco_category_id_to_coco_category,
 )
 from home_robot.utils.config import get_config
 from home_robot_hw.env.spot_goat_env import SpotGoatEnv
@@ -65,13 +73,62 @@ def create_video(images, output_file, fps):
     video_writer.release()
 
 
+def generate_legend(
+    vis_image: np.ndarray,
+    colors: np.ndarray,
+    texts: List[str],
+    start_x: int,
+    start_y: int,
+    total_w: int,
+    total_h: int,
+):
+    font = 0
+    font_scale = 0.5
+    font_color = (0, 0, 0)
+    font_thickness = 1
+
+    # grid size - number of labels in each column/row
+    grid_w, grid_h = 6, 6
+    int_w = total_w / grid_w
+    int_h = total_h / grid_h
+    ctr = 0
+    for y in range(grid_h):
+        for x in range(grid_w):
+            if ctr > len(colors) - 1:
+                break
+            rect_start_x = int(total_w * x / grid_w) + start_x
+            rect_start_y = int(total_h * y / grid_h) + start_y
+            rect_start = [rect_start_x, rect_start_y]
+            rect_end_x = rect_start_x + int(int_h * 0.2) + 20
+            rect_end_y = rect_start_y + int(int_h * 0.2) + 10
+            rect_end = [rect_end_x, rect_end_y]
+            vis_image = cv2.rectangle(
+                vis_image, rect_start, rect_end, colors[ctr].tolist(), thickness=-1
+            )
+            print(colors[ctr].tolist())
+            vis_image = cv2.putText(
+                vis_image,
+                texts[ctr],
+                (rect_end_x + 5, rect_end_y - 5),
+                font,
+                font_scale,
+                font_color,
+                font_thickness,
+                cv2.LINE_AA,
+            )
+            ctr += 1
+    return vis_image
+
+
 def get_semantic_map_vis(
     semantic_map: Categorical2DSemanticMapState,
     semantic_frame: np.array,
     closest_goal_map: np.array,
     # depth_frame: np.array,
     goal_image: np.array,
-    color_palette: List[float],
+    instance_image: Optional[np.array] = None,
+    instance_memory: Optional[InstanceMemory] = None,
+    visualize_instances: bool = False,
     legend=None,
     visualize_goal=True,
     subgoal=None,
@@ -150,20 +207,39 @@ def get_semantic_map_vis(
         0.00,
         0.00,
         0.00,  # short term goal
-        *color_palette,
     ]
     map_color_palette = [int(x * 255.0) for x in map_color_palette]
+    map_color_palette += d3_40_colors_rgb.flatten().tolist()
 
     semantic_categories_map = semantic_map.get_semantic_map(0)
     obstacle_map = semantic_map.get_obstacle_map(0)
     explored_map = semantic_map.get_explored_map(0)
     visited_map = semantic_map.get_visited_map(0)
     goal_map = semantic_map.get_goal_map(0)
+    instance_map = semantic_map.get_instance_map(0)
 
-    semantic_categories_map += PI.SEM_START
-    no_category_mask = (
-        semantic_categories_map == PI.SEM_START + semantic_map.num_sem_categories - 1
-    )
+    no_category_mask = semantic_categories_map == semantic_map.num_sem_categories - 1
+    if not visualize_instances:
+        semantic_categories_map += PI.SEM_START
+    else:
+        unique_instances, remapped_instances = np.unique(
+            instance_map, return_inverse=True
+        )
+
+        # project instance map
+        projected_instance_map = instance_map.max(0)
+
+        semantic_categories_map = projected_instance_map
+        semantic_categories_map += PI.SEM_START - 1
+        semantic_categories_map[
+            semantic_categories_map == PI.SEM_START - 1
+        ] = PI.EMPTY_SPACE
+
+        num_instances = len(unique_instances)
+
+        if len(unique_instances) > len(d3_40_colors_rgb):
+            raise NotImplementedError
+
     obstacle_mask = np.rint(obstacle_map) == 1
     explored_mask = np.rint(explored_map) == 1
     visited_mask = visited_map == 1
@@ -177,26 +253,23 @@ def get_semantic_map_vis(
     semantic_categories_map[visited_mask] = PI.VISITED
 
     # Goal
-    if visualize_goal:
-        selem = skimage.morphology.disk(4)
-        goal_mat = (1 - skimage.morphology.binary_dilation(goal_map, selem)) != 1
-        goal_mask = goal_mat == 1
-        semantic_categories_map[goal_mask] = PI.REST_OF_GOAL
-        if closest_goal_map is not None:
-            closest_goal_mat = (
-                1 - skimage.morphology.binary_dilation(closest_goal_map, selem)
-            ) != 1
-            closest_goal_mask = closest_goal_mat == 1
-            semantic_categories_map[closest_goal_mask] = PI.CLOSEST_GOAL
-        if subgoal is not None:
-            subgoal_map = np.zeros_like(goal_map)
-            # might need to flip row value
-            subgoal_map[subgoal[0], subgoal[1]] = 1
-            subgoal_mat = (
-                1 - skimage.morphology.binary_dilation(subgoal_map, selem)
-            ) != 1
-            subgoal_mask = subgoal_mat == 1
-            semantic_categories_map[subgoal_mask] = PI.SHORT_TERM_GOAL
+    selem = skimage.morphology.disk(4)
+    goal_mat = (1 - skimage.morphology.binary_dilation(goal_map, selem)) != 1
+    goal_mask = goal_mat == 1
+    semantic_categories_map[goal_mask] = PI.REST_OF_GOAL
+    if closest_goal_map is not None:
+        closest_goal_mat = (
+            1 - skimage.morphology.binary_dilation(closest_goal_map, selem)
+        ) != 1
+        closest_goal_mask = closest_goal_mat == 1
+        semantic_categories_map[closest_goal_mask] = PI.CLOSEST_GOAL
+    if subgoal is not None:
+        subgoal_map = np.zeros_like(goal_map)
+        # might need to flip row value
+        subgoal_map[subgoal[0], subgoal[1]] = 1
+        subgoal_mat = (1 - skimage.morphology.binary_dilation(subgoal_map, selem)) != 1
+        subgoal_mask = subgoal_mat == 1
+        semantic_categories_map[subgoal_mask] = PI.SHORT_TERM_GOAL
 
     # Draw semantic map
     semantic_map_vis = Image.new("P", semantic_categories_map.shape)
@@ -224,6 +297,38 @@ def get_semantic_map_vis(
     if legend is not None:
         lx, ly, _ = legend.shape
         vis_image[537 : 537 + lx, 155 : 155 + ly, :] = legend[:, :, ::-1]
+    elif visualize_instances:
+        # Name instances as chair-1, chair-2 and so on
+        category_counts = defaultdict(int)
+        instance_to_name = {}
+        for instance in unique_instances:
+            if instance == 0:
+                continue
+            if instance_memory is not None:
+                # retrieve name
+                category = (
+                    instance_memory.instance_views[0][int(instance)].category_id
+                ).item()
+                category_counts[category] += 1
+                instance_to_name[instance] = (
+                    coco_category_id_to_coco_category[category]
+                    + f" - {category_counts[category]}"
+                )
+            else:
+                instance_to_name[instance] = f"Instance - {instance}"
+        vis_image = generate_legend(
+            vis_image,
+            np.array(
+                map_color_palette[
+                    3 * PI.SEM_START : (PI.SEM_START + num_instances - 1) * 3
+                ]
+            ).reshape(-1, 3),
+            [instance_to_name[i] for i in range(1, num_instances)],
+            155,
+            537,
+            1100,
+            115,
+        )
 
     # Draw agent arrow
     curr_x, curr_y, curr_o, gy1, _, gx1, _ = semantic_map.get_planner_pose_inputs(0)
@@ -572,7 +677,9 @@ def main(spot=None):
 
         if not OFFLINE:
             obs = env.get_observation()
-            print(f"Environment (including segmentation) {time.time() - step_start_time:2f}")
+            print(
+                f"Environment (including segmentation) {time.time() - step_start_time:2f}"
+            )
             with open(f"{obs_dir}/{t}.pkl", "wb") as f:
                 pickle.dump(obs, f)
         else:
@@ -606,13 +713,14 @@ def main(spot=None):
 
         vis_image = get_semantic_map_vis(
             agent.semantic_map,
-            obs.task_observations["semantic_frame"],
-            info["closest_goal_map"],
+            semantic_frame=obs.task_observations["semantic_frame"],
+            closest_goal_map=info["closest_goal_map"],
+            subgoal=info["short_term_goal"],
             # depth_frame,
             goal_image=goal_image,
-            color_palette=env.color_palette,
-            legend=legend,
-            subgoal=info["short_term_goal"],
+            legend=None,
+            instance_memory=agent.instance_memory,
+            visualize_instances=True,
         )
         vis_images.append(vis_image)
         cv2.imwrite(f"{output_visualization_dir}/{t}.png", vis_image[:, :, ::-1])
