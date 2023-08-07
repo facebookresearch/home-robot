@@ -128,16 +128,21 @@ Simulation agents will be evaluated on an AWS EC2 p2.xlarge instance which has a
 
 ```
 # For minival submissions
+# With a public submission, anyone can see your score
 evalai push <image>:<tag> --phase neurips-ovmm-minival-2023-2100
+# You can also make a private submission - no one but the organizers can see how you did
 evalai push <image>:<tag> --phase neurips-ovmm-minival-2023-2100 --private
 
 # For standard test submissions
+# With a public submission, anyone can see your score
 evalai push <image>:<tag> --phase neurips-ovmm-test-standard-2023-2100
+# Make a private submission - no one but the organizers can see 
 evalai push <image>:<tag> --phase neurips-ovmm-test-standard-2023-2100 --private
 
 # For challenge submissions - YOU ONLY HAVE 5 SUMBMISSIONS!
 # BE VERY CAREFUL ATTEMPTING THIS! Again, you only get five (5) attempts.
 evalai push <image>:<tag> --phase neurips-ovmm-test-challenge-2023-2100
+# Make a private submission - no one but the organizers can see 
 evalai push <image>:<tag> --phase neurips-ovmm-test-challenge-2023-2100 --private
 ```
 
