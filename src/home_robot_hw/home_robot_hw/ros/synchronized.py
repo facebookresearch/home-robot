@@ -20,6 +20,8 @@ DEFAULT_POSE_TOPIC = "/state_estimator/pose_filtered"
 
 
 class SynchronizedSensors(object):
+    """Quick class to use a time synchronizer to collect sensor data to speed up the robot execution."""
+
     def _process_laser(self, scan_msg):
 
         # Get the range and angle data from the scan message
@@ -41,6 +43,9 @@ class SynchronizedSensors(object):
         cam_info = rospy.wait_for_message(camera_info_topic, CameraInfo)
         topic = name + "/image_raw"
         return Subscriber(topic, Image), cam_info
+
+    def _callback(self, color, depth, lidar, pose):
+        self._lidar_points = self._process_laser(lidar)
 
     def __init__(
         self,
@@ -65,6 +70,7 @@ class SynchronizedSensors(object):
             queue_size=10,
             slop=slop_time_seconds,
         )
+        self._sync.registerCallback(self._callback)
 
 
 if __name__ == "__main__":
