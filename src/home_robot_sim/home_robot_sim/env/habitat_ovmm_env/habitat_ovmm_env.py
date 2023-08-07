@@ -96,9 +96,7 @@ class HabitatOpenVocabManipEnv(HabitatEnv):
         self._rec_id_to_name_mapping = {
             k: v for v, k in self._rec_name_to_id_mapping.items()
         }
-        self._instance_ids_start_in_panoptic = (
-            config.habitat.simulator.instance_ids_start
-        )
+        self._instance_ids_start_in_panoptic = config.habitat.simulator.object_ids_start
         self._last_habitat_obs = None
 
     def get_current_episode(self):
@@ -134,15 +132,15 @@ class HabitatOpenVocabManipEnv(HabitatEnv):
     def _preprocess_obs(
         self, habitat_obs: habitat.core.simulator.Observations
     ) -> home_robot.core.interfaces.Observations:
-        depth = self._preprocess_depth(habitat_obs["robot_head_depth"])
+        depth = self._preprocess_depth(habitat_obs["head_depth"])
 
-        if self.visualize and "robot_third_rgb" in habitat_obs:
-            third_person_image = habitat_obs["robot_third_rgb"]
+        if self.visualize and "third_rgb" in habitat_obs:
+            third_person_image = habitat_obs["third_rgb"]
         else:
             third_person_image = None
 
         obs = home_robot.core.interfaces.Observations(
-            rgb=habitat_obs["robot_head_rgb"],
+            rgb=habitat_obs["head_rgb"],
             depth=depth,
             compass=habitat_obs["robot_start_compass"],
             gps=self._preprocess_xy(habitat_obs["robot_start_gps"]),

@@ -52,8 +52,8 @@ def create_env_config(
 
     visualize = env_config.VISUALIZE or env_config.PRINT_IMAGES
     if not visualize:
-        if "robot_third_rgb" in env_config.habitat.gym.obs_keys:
-            env_config.habitat.gym.obs_keys.remove("robot_third_rgb")
+        if "third_rgb" in env_config.habitat.gym.obs_keys:
+            env_config.habitat.gym.obs_keys.remove("third_rgb")
         if (
             "third_rgb_sensor"
             in env_config.habitat.simulator.agents.main_agent.sim_sensors
@@ -64,8 +64,8 @@ def create_env_config(
     if (
         getattr(env_config.ENVIRONMENT, "evaluate_instance_tracking", False)
         or env_config.GROUND_TRUTH_SEMANTICS
-    ) and "robot_head_panoptic" not in env_config.habitat.gym.obs_keys:
-        env_config.habitat.gym.obs_keys.append("robot_head_panoptic")
+    ) and "head_panoptic" not in env_config.habitat.gym.obs_keys:
+        env_config.habitat.gym.obs_keys.append("head_panoptic")
 
     episode_ids_range = env_config.habitat.dataset.episode_indices_range
     if episode_ids_range is not None:

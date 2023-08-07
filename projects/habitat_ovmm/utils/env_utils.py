@@ -8,7 +8,7 @@ from typing import TYPE_CHECKING
 
 from habitat import make_dataset
 from habitat.core.environments import get_env_class
-from habitat.utils.gym_definitions import _get_env_name
+from habitat.gym.gym_definitions import _get_env_name
 
 from home_robot_sim.env.habitat_ovmm_env.habitat_ovmm_env import (
     HabitatOpenVocabManipEnv,

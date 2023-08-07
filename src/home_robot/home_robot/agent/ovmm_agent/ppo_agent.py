@@ -16,7 +16,7 @@ import numpy as np
 import torch
 from habitat.core.agent import Agent
 from habitat.core.spaces import EmptySpace
-from habitat.utils.gym_adapter import (
+from habitat.gym.gym_wrapper import (
     continuous_vector_action_to_hab_dict,
     create_action_space,
 )
