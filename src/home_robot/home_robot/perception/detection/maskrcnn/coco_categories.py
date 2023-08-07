@@ -22,6 +22,8 @@ coco_categories = {
     "no-category": 16,
 }
 
+coco_category_id_to_coco_category = {v: k for k, v in coco_categories.items()}
+
 coco_categories_mapping = {
     56: 0,  # chair
     57: 1,  # couch
