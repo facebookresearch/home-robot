@@ -5,12 +5,12 @@
 
 import json
 import time
+from pathlib import Path
 from typing import Any, Dict, List, Tuple
 
 import cv2
 import numpy as np
 import scipy
-from pathlib import Path
 import torch
 from sklearn.cluster import DBSCAN
 from torch.nn import DataParallel
@@ -23,11 +23,10 @@ from home_robot.core.interfaces import DiscreteNavigationAction, Observations
 from home_robot.mapping.semantic.categorical_2d_semantic_map_state import (
     Categorical2DSemanticMapState,
 )
+from home_robot.mapping.semantic.constants import MapConstants as MC
 from home_robot.mapping.semantic.instance_tracking_modules import InstanceMemory
 from home_robot.perception.detection.detic.detic_mask import Detic
 from home_robot.perception.detection.maskrcnn.coco_categories import coco_categories
-from home_robot.mapping.semantic.constants import MapConstants as MC
-
 
 from .goat_agent_module import GoatAgentModule
 from .goat_matching import GoatMatching
@@ -128,10 +127,15 @@ class GoatAgent(Agent):
             np.ceil(agent_radius_cm / config.AGENT.SEMANTIC_MAP.map_resolution)
         )
         self.max_num_sub_task_episodes = config.ENVIRONMENT.max_num_sub_task_episodes
-        
-        if 'planner_type' in config.AGENT.PLANNER and config.AGENT.PLANNER.planner_type == "old":
+
+        if (
+            "planner_type" in config.AGENT.PLANNER
+            and config.AGENT.PLANNER.planner_type == "old"
+        ):
             print("Using old planner")
-            from home_robot.navigation_planner.old_discrete_planner import DiscretePlanner
+            from home_robot.navigation_planner.old_discrete_planner import (
+                DiscretePlanner,
+            )
         else:
             print("Using new planner")
             from home_robot.navigation_planner.discrete_planner import DiscretePlanner
@@ -369,6 +373,7 @@ class GoatAgent(Agent):
         self.reject_visited_targets = False
         self.blacklist_target = False
         self.current_task_idx = 0
+        self.fully_explored = [False] * self.num_environments
 
         if self.imagenav_visualizer is not None:
             self.imagenav_visualizer.reset()
@@ -426,6 +431,11 @@ class GoatAgent(Agent):
         self.goal_image_keypoints = None
 
     def score_thresh(self, task_type):
+        # If we have fully explored the environment, set the matching threshold to 0.0
+        # to go to the highest scoring instance
+        if self.fully_explored[0]:
+            return 0.0
+
         if task_type == "languagenav":
             return self.goal_policy_config.score_thresh_lang
         elif task_type == "imagenav":
@@ -438,7 +448,7 @@ class GoatAgent(Agent):
         current_task = obs.task_observations["tasks"][self.current_task_idx]
         task_type = current_task["type"]
 
-        t0 = time.time()
+        # t0 = time.time()
 
         # 1 - Obs preprocessing
         (
@@ -456,7 +466,7 @@ class GoatAgent(Agent):
             instance_ids,
         ) = self._preprocess_obs(obs, task_type)
 
-        t1 = time.time()
+        # t1 = time.time()
         # print(f"Obs preprocessing: {t1 - t0:.2f}")
 
         if "obstacle_locations" in obs.task_observations:
@@ -510,7 +520,7 @@ class GoatAgent(Agent):
             free_locations=free_locations,
         )
 
-        t2 = time.time()
+        # t2 = time.time()
         # print(f"Mapping and goal selection: {t2 - t1:.2f}")
 
         # 3 - Planning
@@ -535,26 +545,25 @@ class GoatAgent(Agent):
                 timestep=self.sub_task_timesteps[0][self.current_task_idx],
             )
 
-        t3 = time.time()
+        # t3 = time.time()
         # print(f"Planning: {t3 - t2:.2f}")
 
-        if self.sub_task_timesteps[0][self.current_task_idx] >= self.max_steps[self.current_task_idx]:
+        if (
+            self.sub_task_timesteps[0][self.current_task_idx]
+            >= self.max_steps[self.current_task_idx]
+        ):
             print("Reached max number of steps for subgoal, calling STOP")
             action = DiscreteNavigationAction.STOP
-        
+
         if could_not_find_path:
             # This doesn't help
             # print("Resetting explored area")
             # self.semantic_map.local_map[0, MC.EXPLORED_MAP] *= 0
             # self.semantic_map.global_map[0, MC.EXPLORED_MAP] *= 0
 
-            # Instead, let's go to the instance with the highest matching score
-            print("Going to best match")
-            (
-                all_matches,
-                all_confidences,
-                instance_ids
-            ) = self._match_against_memory(task_type, current_task)
+            print("Can't find a path. Map fully explored.")
+            self.fully_explored[0] = True
+            self.force_match_against_memory = True
 
             # if self.reached_goal_candidate:
             #     # move to next sub-task
@@ -607,6 +616,7 @@ class GoatAgent(Agent):
             print("Called STOP action")
             if len(obs.task_observations["tasks"]) - 1 > self.current_task_idx:
                 self.current_task_idx += 1
+                self.force_match_against_memory = False
                 self.timesteps_before_goal_update[0] = 0
                 self.total_timesteps = [0] * self.num_environments
                 print("Moving to next task", self.current_task_idx)
@@ -716,15 +726,22 @@ class GoatAgent(Agent):
         if camera_pose is not None:
             camera_pose = torch.tensor(np.asarray(camera_pose)).unsqueeze(0)
 
+        # Match a goal against every instance in memory the moment we get it
+        # or when the map just got fully explored
         if (
-                self.record_instance_ids
-                and self.sub_task_timesteps[0][self.current_task_idx] == 0
-            ):
-            (
-                all_matches,
-                all_confidences,
-                instance_ids
-            ) = self._match_against_memory(task_type, current_task)
+            task_type in ["languagenav", "imagenav"]
+            and self.record_instance_ids
+            and (
+                self.sub_task_timesteps[0][self.current_task_idx] == 0
+                or self.force_match_against_memory
+            )
+        ):
+            if self.force_match_against_memory:
+                print("Force a match against the memory")
+            self.force_match_against_memory = False
+            (all_matches, all_confidences, instance_ids) = self._match_against_memory(
+                task_type, current_task
+            )
 
         return (
             obs_preprocessed,
@@ -740,7 +757,7 @@ class GoatAgent(Agent):
             all_confidences,
             instance_ids,
         )
-    
+
     def _match_against_memory(self, task_type: str, current_task: Dict):
         if task_type == "languagenav":
             (
@@ -800,7 +817,7 @@ class GoatAgent(Agent):
                 "w",
             ) as f:
                 json.dump(stats, f, indent=4)
-        
+
         return all_matches, all_confidences, instance_ids
 
     def _prep_goal_map_input(self) -> None:

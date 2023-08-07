@@ -371,6 +371,7 @@ class GoatMatching(Matching):
         agg_fn: str = "max",
     ) -> Tuple[torch.Tensor, torch.Tensor, bool, Optional[int]]:
         """Select and localize an instance given computed matching scores."""
+        print(f"Selecting and localizing an instance with threshold {score_thresh}")
         instance_map = local_map[0][
             MC.NON_SEM_CHANNELS
             + self.num_sem_categories : MC.NON_SEM_CHANNELS
