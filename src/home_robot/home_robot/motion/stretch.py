@@ -348,6 +348,31 @@ class HelloStretchKinematics(Robot):
 
         self._create_ik_solvers(ik_type=ik_type, visualize=visualize)
 
+    def get_manip_mode_joint_names(self):
+        """Return the controlled joints used in manipulation mode"""
+        return self._manip_mode_controlled_joints
+
+    def set_articulated_object_positions(
+        self, bullet_obj: hrb.PbArticulatedObject, q: np.ndarray, mode: str = "manip"
+    ):
+        """Update positions of a bullet articulated object"""
+        if mode != "manip":
+            raise NotImplementedError(
+                "non manip mode articulated objects not yet supported"
+            )
+        else:
+            controlled_joints = self.get_manip_mode_joint_names()
+        assert len(q) == len(
+            controlled_joints
+        ), "incorrect size for joint positions array"
+        controlled_joint_indices = bullet_obj.joint_names_to_indices(controlled_joints)
+        # bullet_obj.set_joint_positions(q, controlled_joint_indices)
+        for pos, idx in zip(q, controlled_joint_indices):
+            bullet_obj.set_joint_position(idx, pos)
+            print(idx, pos)
+            input("--")
+        breakpoint()
+
     def set_head_config(self, q):
         # WARNING: this sets all configs
         bidxs = [HelloStretchIdx.HEAD_PAN, HelloStretchIdx.HEAD_TILT]

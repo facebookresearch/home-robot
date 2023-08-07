@@ -127,6 +127,7 @@ class PbArticulatedObject(PbObject):
         self.joint_infos = []
         self.controllable_joint_infos = []
         self.controllable_joint_name_to_idx = {}
+        self.joint_name_to_idx = {}
         for i in range(self.num_joints):
             self.joint_infos.append(
                 PbJointInfo(*pb.getJointInfo(self.id, i, self.client))
@@ -145,6 +146,7 @@ class PbArticulatedObject(PbObject):
                 else:
                     name = info.name
                 self.controllable_joint_name_to_idx[name] = controllable_idx
+                self.joint_name_to_idx[name] = info.index
 
     def get_joint_info_by_name(self, name):
         for info in self.joint_infos:
@@ -180,13 +182,23 @@ class PbArticulatedObject(PbObject):
             for joint_name in controlled_joints
         ]
 
+    def joint_names_to_indices(self, joint_names):
+        """Get the settable bullet index associated with each joint"""
+        return [self.joint_name_to_idx[joint_name] for joint_name in joint_names]
+
     def set_joint_positions(self, positions, indices=None):
         """set joint positions of a bullet articulated object"""
         dof = self.get_num_controllable_joints()
         if len(positions) > dof:
             raise RuntimeError("too many positions sent to set_joint_positions")
-        for i, q in zip(self.controllable_joint_infos, positions):
-            self.set_joint_position(i.index, q)
+        if indices is not None:
+            # Use the provided indices
+            for i, q in zip(indices, positions):
+                self.set_joint_position(i, q)
+        else:
+            # Use the default indices
+            for i, q in zip(self.controllable_joint_infos, positions):
+                self.set_joint_position(i.index, q)
 
     def get_joint_positions(self):
         return pb.getJointState(
