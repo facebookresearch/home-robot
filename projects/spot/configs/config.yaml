@@ -17,7 +17,7 @@ ENVIRONMENT:
   camera_height: 1.37     # camera sensor height (in metres)
   hfov: 60.2              # horizontal field of view (in degrees)
   min_depth: 0.2          # minimum depth for depth sensor (in metres)
-  max_depth: 5.95         # maximum depth for depth sensor (in metres)
+  max_depth: 5.95       # maximum depth for depth sensor (in metres)
   max_num_sub_task_episodes: 10
 
 AGENT:
@@ -35,6 +35,7 @@ AGENT:
     map_resolution: 5        # size of map bins (in centimeters)
     vision_range: 100        # diameter of local map region visible by the agent (in cells)
     global_downscaling: 2    # ratio of global over local map
+    max_depth: 5             # max depth for mapping in meters
     du_scale: 4              # frame downscaling before projecting to point cloud
     target_blacklisting_radius: 100  # radius (in centimeters) of region around goal to blacklist if object isn't a valid target
     
@@ -64,6 +65,7 @@ AGENT:
     goal_filtering: True
 
   PLANNER:
+    planner_type: "new"
     collision_threshold: 0.20       # forward move distance under which we consider there's a collision (in meters)
     min_obs_dilation_selem_radius: 3    # radius (in cells) of obstacle dilation structuring element
     obs_dilation_selem_radius: 3    # radius (in cells) of obstacle dilation structuring element

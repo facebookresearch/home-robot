@@ -44,7 +44,8 @@ class GoatAgent(Agent):
 
     def __init__(self, config, device_id: int = 0):
         # self.max_steps = config.AGENT.max_steps
-        self.max_steps = [500, 400, 300, 200, 200, 200, 200, 200, 200, 200, 200]
+        # self.max_steps = [500, 400, 300, 200, 200, 200, 200, 200, 200, 200, 200]
+        self.max_steps = [300, 200, 100, 100, 100, 100, 100, 100, 100, 100, 100]
         self.num_environments = config.NUM_ENVIRONMENTS
         self.store_all_categories_in_map = getattr(
             config.AGENT, "store_all_categories", False
@@ -129,8 +130,10 @@ class GoatAgent(Agent):
         self.max_num_sub_task_episodes = config.ENVIRONMENT.max_num_sub_task_episodes
         
         if 'planner_type' in config.AGENT.PLANNER and config.AGENT.PLANNER.planner_type == "old":
+            print("Using old planner")
             from home_robot.navigation_planner.old_discrete_planner import DiscretePlanner
         else:
+            print("Using new planner")
             from home_robot.navigation_planner.discrete_planner import DiscretePlanner
 
         self.planner = DiscretePlanner(
@@ -540,9 +543,18 @@ class GoatAgent(Agent):
             action = DiscreteNavigationAction.STOP
         
         if could_not_find_path:
-            print("Resetting explored area")
-            self.semantic_map.local_map[0, MC.EXPLORED_MAP] *= 0
-            self.semantic_map.global_map[0, MC.EXPLORED_MAP] *= 0
+            # This doesn't help
+            # print("Resetting explored area")
+            # self.semantic_map.local_map[0, MC.EXPLORED_MAP] *= 0
+            # self.semantic_map.global_map[0, MC.EXPLORED_MAP] *= 0
+
+            # Instead, let's go to the instance with the highest matching score
+            print("Going to best match")
+            (
+                all_matches,
+                all_confidences,
+                instance_ids
+            ) = self._match_against_memory(task_type, current_task)
 
             # if self.reached_goal_candidate:
             #     # move to next sub-task
@@ -704,70 +716,15 @@ class GoatAgent(Agent):
         if camera_pose is not None:
             camera_pose = torch.tensor(np.asarray(camera_pose)).unsqueeze(0)
 
-        if task_type == "languagenav":
-            if self.prev_task_type != "languagenav":
-                # TODO: Why is this if condition different from the one below?
-                (
-                    all_matches,
-                    all_confidences,
-                    instance_ids,
-                ) = self.matching.get_matches_against_memory(
-                    self.instance_memory,
-                    self.matching.match_language_to_image,
-                    self.total_timesteps[0],
-                    language_goal=current_task["instruction"],
-                    use_full_image=False,
-                    categories=[coco_categories.get(current_task["target"])],
-                )
-                stats = {
-                    i: {
-                        "mean": float(scores.mean()),
-                        "median": float(np.median(scores)),
-                        "max": float(scores.max()),
-                        "min": float(scores.min()),
-                        "all": scores.flatten().tolist(),
-                    }
-                    for i, scores in zip(instance_ids, all_confidences)
-                }
-                with open(
-                    f"{self.goal_matching_vis_dir}/goal{self.current_task_idx}_language_stats.json",
-                    "w",
-                ) as f:
-                    json.dump(stats, f, indent=4)
-
-        elif task_type == "imagenav":
-            if (
+        if (
                 self.record_instance_ids
                 and self.sub_task_timesteps[0][self.current_task_idx] == 0
             ):
-                (
-                    all_matches,
-                    all_confidences,
-                    instance_ids,
-                ) = self.matching.get_matches_against_memory(
-                    self.instance_memory,
-                    self.matching.match_image_to_image,
-                    self.sub_task_timesteps[0][self.current_task_idx],
-                    image_goal=self.goal_image,
-                    goal_image_keypoints=self.goal_image_keypoints,
-                    use_full_image=False,
-                    categories=[coco_categories.get(current_task["target"])],
-                )
-                stats = {
-                    i: {
-                        "mean": float(scores.sum(axis=1).mean()),
-                        "median": float(np.median(scores.sum(axis=1))),
-                        "max": float(scores.sum(axis=1).max()),
-                        "min": float(scores.sum(axis=1).min()),
-                        "all": scores.sum(axis=1).tolist(),
-                    }
-                    for i, scores in zip(instance_ids, all_confidences)
-                }
-                with open(
-                    f"{self.goal_matching_vis_dir}/goal{self.current_task_idx}_image_stats.json",
-                    "w",
-                ) as f:
-                    json.dump(stats, f, indent=4)
+            (
+                all_matches,
+                all_confidences,
+                instance_ids
+            ) = self._match_against_memory(task_type, current_task)
 
         return (
             obs_preprocessed,
@@ -783,6 +740,68 @@ class GoatAgent(Agent):
             all_confidences,
             instance_ids,
         )
+    
+    def _match_against_memory(self, task_type: str, current_task: Dict):
+        if task_type == "languagenav":
+            (
+                all_matches,
+                all_confidences,
+                instance_ids,
+            ) = self.matching.get_matches_against_memory(
+                self.instance_memory,
+                self.matching.match_language_to_image,
+                self.total_timesteps[0],
+                language_goal=current_task["instruction"],
+                use_full_image=False,
+                categories=[coco_categories.get(current_task["target"])],
+            )
+            stats = {
+                i: {
+                    "mean": float(scores.mean()),
+                    "median": float(np.median(scores)),
+                    "max": float(scores.max()),
+                    "min": float(scores.min()),
+                    "all": scores.flatten().tolist(),
+                }
+                for i, scores in zip(instance_ids, all_confidences)
+            }
+            with open(
+                f"{self.goal_matching_vis_dir}/goal{self.current_task_idx}_language_stats.json",
+                "w",
+            ) as f:
+                json.dump(stats, f, indent=4)
+
+        elif task_type == "imagenav":
+            (
+                all_matches,
+                all_confidences,
+                instance_ids,
+            ) = self.matching.get_matches_against_memory(
+                self.instance_memory,
+                self.matching.match_image_to_image,
+                self.sub_task_timesteps[0][self.current_task_idx],
+                image_goal=self.goal_image,
+                goal_image_keypoints=self.goal_image_keypoints,
+                use_full_image=False,
+                categories=[coco_categories.get(current_task["target"])],
+            )
+            stats = {
+                i: {
+                    "mean": float(scores.sum(axis=1).mean()),
+                    "median": float(np.median(scores.sum(axis=1))),
+                    "max": float(scores.sum(axis=1).max()),
+                    "min": float(scores.sum(axis=1).min()),
+                    "all": scores.sum(axis=1).tolist(),
+                }
+                for i, scores in zip(instance_ids, all_confidences)
+            }
+            with open(
+                f"{self.goal_matching_vis_dir}/goal{self.current_task_idx}_image_stats.json",
+                "w",
+            ) as f:
+                json.dump(stats, f, indent=4)
+        
+        return all_matches, all_confidences, instance_ids
 
     def _prep_goal_map_input(self) -> None:
         """

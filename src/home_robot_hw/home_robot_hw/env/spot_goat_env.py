@@ -25,7 +25,7 @@ class SpotGoatEnv(SpotEnv):
         self.color_palette = coco_categories_color_palette
         self.num_sem_categories = len(coco_categories)
         self.segmentation = MaskRCNNPerception(
-            sem_pred_prob_thr=0.75,
+            sem_pred_prob_thr=0.8,
             sem_gpu_id=0,
         )
 

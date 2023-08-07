@@ -167,7 +167,7 @@ def get_semantic_map_vis(
         cv2.LINE_AA,
     )
 
-    text = "Predicted Semantic Map"
+    text = "Predicted Instance Map"
     textsize = cv2.getTextSize(text, font, fontScale, thickness)[0]
     textX = 1280 + (480 - textsize[0]) // 2 + 45
     textY = (50 + textsize[1]) // 2

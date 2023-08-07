@@ -40,6 +40,7 @@ class GoatAgentModule(nn.Module):
             hfov=config.ENVIRONMENT.hfov,
             num_sem_categories=config.AGENT.SEMANTIC_MAP.num_sem_categories,
             map_size_cm=config.AGENT.SEMANTIC_MAP.map_size_cm,
+            max_depth=config.AGENT.SEMANTIC_MAP.max_depth,
             map_resolution=config.AGENT.SEMANTIC_MAP.map_resolution,
             vision_range=config.AGENT.SEMANTIC_MAP.vision_range,
             explored_radius=config.AGENT.SEMANTIC_MAP.explored_radius,

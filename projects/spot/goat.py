@@ -141,7 +141,7 @@ def generate_legend(
             vis_image = cv2.rectangle(
                 vis_image, rect_start, rect_end, colors[ctr].tolist(), thickness=-1
             )
-            print(colors[ctr].tolist())
+            # print(colors[ctr].tolist())
             vis_image = cv2.putText(
                 vis_image,
                 texts[ctr],
@@ -206,7 +206,7 @@ def get_semantic_map_vis(
         cv2.LINE_AA,
     )
 
-    text = "Predicted Semantic Map"
+    text = "Predicted Instance Map"
     textsize = cv2.getTextSize(text, font, fontScale, thickness)[0]
     textX = 1280 + (480 - textsize[0]) // 2 + 45
     textY = (50 + textsize[1]) // 2
@@ -271,9 +271,9 @@ def get_semantic_map_vis(
             semantic_categories_map == PI.SEM_START - 1
         ] = PI.EMPTY_SPACE
 
-        num_instances = len(unique_instances)
+        num_instances = int(np.max(unique_instances))
 
-        if len(unique_instances) > len(d3_40_colors_rgb):
+        if num_instances > len(d3_40_colors_rgb):
             raise NotImplementedError
 
     obstacle_mask = np.rint(obstacle_map) == 1
@@ -337,7 +337,7 @@ def get_semantic_map_vis(
         # Name instances as chair-1, chair-2 and so on
         category_counts = defaultdict(int)
         instance_to_name = {}
-        for instance in unique_instances:
+        for instance in range(1, int(np.max(unique_instances)) + 1):
             if instance == 0:
                 continue
             if instance_memory is not None:
@@ -352,6 +352,7 @@ def get_semantic_map_vis(
                 )
             else:
                 instance_to_name[instance] = f"Instance - {instance}"
+
         vis_image = generate_legend(
             vis_image,
             np.array(
@@ -581,7 +582,8 @@ GOALS = {
         "type": "languagenav",
         "target": "couch",
         "landmarks": [],
-        "instruction": "The couch with colorful pillows.",
+        # "instruction": "The couch with colorful pillows.",
+        "instruction": "The white couch.",
     },
     "language_oven1": {
         "type": "languagenav",
@@ -594,6 +596,12 @@ GOALS = {
         "target": "potted plant",
         "landmarks": [],
         "instruction": "The green leafy plant next to the brown chair.",
+    },
+    "language_cup1": {
+        "type": "languagenav",
+        "target": "cup",
+        "landmarks": [],
+        "instruction": "The blue cup.",
     },
     "language_plant2": {
         "type": "languagenav",
@@ -631,15 +639,28 @@ GOALS = {
         "landmarks": [],
         "instruction": "The toilet.",
     },
+    "language_bottle1": {
+        "type": "languagenav",
+        "target": "bottle",
+        "landmarks": [],
+        "instruction": "Bottle of water.",
+    },
+    "language_teddybear1": {
+        "type": "languagenav",
+        "target": "teddy bear",
+        "landmarks": [],
+        "instruction": "The beige teddy bear.",
+    },
 }
 
-
-def main(spot=None):
+# Example command:
+# python projects/spot/goat.py --trajectory=trajectory1 --goals=object_toilet,image_bed1,language_chair4,image_couch1,language_plant1,language_plant2,image_refrigerator1
+def main(spot=None, args=None):
     config_path = "projects/spot/configs/config.yaml"
     config, config_str = get_config(config_path)
     config.defrost()
     config.DUMP_LOCATION = (
-        f"{str(Path(__file__).resolve().parent)}/fremont_trajectories/trajectory3"
+        f"{str(Path(__file__).resolve().parent)}/fremont_trajectories/{args.trajectory}"
     )
     config.freeze()
 
@@ -662,12 +683,15 @@ def main(spot=None):
         env = SpotGoatEnv(spot, position_control=True)
         env.reset()
 
-    user_input = input("Enter the goals separated by commas: ")
-    print("You entered:", user_input)
-    goal_strings = user_input.split(",")
+    # user_input = input("Enter the goals separated by commas: ")
+    # print("You entered:", user_input)
+    # goal_strings = user_input.split(",")
+    # if args.goals 
+    goal_strings = args.goals.split(",")
+    print("Goals:", goal_strings)
     goals = [GOALS.get(g) for g in goal_strings]
     goals = [g for g in goals if g is not None]
-    pprint.pprint(goals, indent=4)
+    # pprint.pprint(goals, indent=4)
     env.set_goals(goals)
     with open(f"{config.DUMP_LOCATION}/goals.json", "w") as f:
         json.dump(goal_strings, f, indent=4)
@@ -682,7 +706,7 @@ def main(spot=None):
     # )
 
     # Fremont trajectories
-    # object_bed,image_toilet1
+    # object_toilet,image_bed1,language_chair4,image_couch1,language_plant1,language_plant2,image_refrigerator1
     # object_toilet,image_bed1
     # object_toilet,image_chair1,image_chair3,image_chair4,image_chair5,image_chair6
     # object_chair,language_bed1,language_chair1
@@ -713,6 +737,7 @@ def main(spot=None):
 
         if not OFFLINE:
             obs = env.get_observation()
+            obs.task_observations["current_task_idx"] = agent.current_task_idx
             print(
                 f"Environment (including segmentation) {time.time() - step_start_time:2f}"
             )
@@ -808,9 +833,15 @@ def main(spot=None):
 
 
 if __name__ == "__main__":
+    import argparse
+    parser = argparse.ArgumentParser(description='')
+    parser.add_argument('--trajectory', default="trajectory1")
+    parser.add_argument('--goals', default="object_chair,object_sink")
+    args = parser.parse_args()
+
     if not OFFLINE:
         spot = Spot("RealNavEnv")
         with spot.get_lease(hijack=True):
-            main(spot)
+            main(spot, args)
     else:
         main()
