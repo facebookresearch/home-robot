@@ -6,6 +6,10 @@ from home_robot.motion.stretch import HelloStretchKinematics
 from home_robot.utils.bullet import PbArticulatedObject, PbClient, PbObject
 from home_robot.utils.point_cloud import show_point_cloud
 
+"""
+python projects/habitat_ovmm/eval_baselines_agent.py --baseline_config_path projects/habitat_ovmm/configs/agent/pick_skill_only.yaml --env_config_path projects/habitat_ovmm/configs/env/hssd_demo_gt.yaml habitat.task.pick_init=True habitat.task.episode_init=False habitat.environment.max_episode_steps=10  habitat.task.actions.arm_action.grasp_thresh_dist=0.1 habitat.dataset.episode_ids="[0]"
+"""
+
 data = np.load("test.npz")
 all_xyz = data["all_xyz"]
 xyz = data["xyz"]
