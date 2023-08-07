@@ -175,9 +175,6 @@ class DiscretePlanner:
              location in the goal map in geodesic distance
         """
         # Reset timestep using argument; useful when there are timesteps where the discrete planner is not invoked
-        print("OLD DISCRETE PLANNER!!!")
-        print("OLD DISCRETE PLANNER!!!")
-        print("OLD DISCRETE PLANNER!!!")
         if timestep is not None:
             self.timestep = timestep
 

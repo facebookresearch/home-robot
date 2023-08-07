@@ -11,7 +11,6 @@ import cv2
 import numpy as np
 import scipy
 from pathlib import Path
-import skimage.morphology
 import torch
 from sklearn.cluster import DBSCAN
 from torch.nn import DataParallel
@@ -90,13 +89,6 @@ class GoatAgent(Agent):
             default_vis_dir=f"{config.DUMP_LOCATION}/images/{config.EXP_NAME}",
             print_images=config.PRINT_IMAGES,
         )
-        self.preprojection_kp_dilation = (
-            config.AGENT.SEMANTIC_MAP.preprojection_kp_dilation
-        )
-        self.match_projection_threshold = (
-            config.AGENT.SUPERGLUE.match_projection_threshold
-            ## imagenav stuff
-        )
 
         self._module = GoatAgentModule(
             config, matching=self.matching, instance_memory=self.instance_memory
@@ -112,9 +104,6 @@ class GoatAgent(Agent):
             # Use DataParallel only as a wrapper to move model inputs to GPU
             self.module = DataParallel(self._module, device_ids=[self.device_id])
 
-        self.naive_landmark_conditioned = (
-            config.AGENT.PLANNER.naive_landmark_conditioned
-        )
         self.visualize = config.VISUALIZE or config.PRINT_IMAGES
         self.use_dilation_for_stg = config.AGENT.PLANNER.use_dilation_for_stg
         self.semantic_map = Categorical2DSemanticMapState(
@@ -172,8 +161,6 @@ class GoatAgent(Agent):
         self.timesteps_before_goal_update = None
         self.episode_panorama_start_steps = None
         self.last_poses = None
-        self.landmark_found = False
-        self.seen_landmarks = []
         self.reject_visited_targets = False
         self.blacklist_target = False
 
@@ -375,8 +362,6 @@ class GoatAgent(Agent):
         self.reached_goal_panorama_rotate_steps = self.panorama_rotate_steps
         if self.instance_memory is not None:
             self.instance_memory.reset()
-        self.landmark_found = False
-        self.seen_landmarks = []
         self.reject_visited_targets = False
         self.blacklist_target = False
         self.current_task_idx = 0
@@ -412,8 +397,6 @@ class GoatAgent(Agent):
         self.reached_goal_panorama_rotate_steps = self.panorama_rotate_steps
         if self.instance_memory is not None:
             self.instance_memory.reset_for_env(e)
-        self.landmark_found = False
-        self.seen_landmarks = []
         self.reject_visited_targets = False
         self.blacklist_target = False
 
@@ -619,40 +602,6 @@ class GoatAgent(Agent):
                 self.reset_sub_episode()
         self.prev_task_type = task_type
         return action, info
-
-    def preprocess_keypoint_localization(
-        self,
-        rgb: np.ndarray,
-        goal_keypoints: torch.Tensor,
-        rgb_keypoints: torch.Tensor,
-        matches: np.ndarray,
-        confidence: np.ndarray,
-    ) -> np.ndarray:
-        """
-        Given keypoint correspondences, determine the egocentric pixel coordinates
-        of matched keypoints that lie within a mask of the goal object.
-        """
-        goal_keypoints = goal_keypoints[0].cpu().to(dtype=int).numpy()
-        rgb_keypoints = rgb_keypoints[0].cpu().to(dtype=int).numpy()
-        confidence = confidence[0]
-        matches = matches[0]
-
-        # map the valid goal keypoints to ego keypoints
-        is_in_mask = self.goal_mask[goal_keypoints[:, 1], goal_keypoints[:, 0]]
-        has_high_confidence = confidence >= self.match_projection_threshold
-        is_matching_kp = matches > -1
-        valid = np.logical_and(is_in_mask, has_high_confidence, is_matching_kp)
-        matched_rgb_keypoints = rgb_keypoints[matches[valid]]
-
-        # set matched rgb keypoints as goal points
-        kp_loc = np.zeros((*rgb.shape[:2], 1), dtype=rgb.dtype)
-        kp_loc[matched_rgb_keypoints[:, 1], matched_rgb_keypoints[:, 0]] = 1
-
-        if self.preprojection_kp_dilation > 0:
-            disk = skimage.morphology.disk(self.preprojection_kp_dilation)
-            kp_loc = np.expand_dims(cv2.dilate(kp_loc, disk, iterations=1), axis=2)
-
-        return kp_loc
 
     def _preprocess_obs(self, obs: Observations, task_type: str):
         """Take a home-robot observation, preprocess it to put it into the correct format for the
