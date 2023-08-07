@@ -73,10 +73,40 @@ def create_video(images, output_file, fps):
     video_writer.release()
 
 
-def resize_to_fit(img, target_width, target_height):
-    h, w = img.shape[:2]
-    ratio = min(target_width / w, target_height / h)
-    return cv2.resize(img, (int(w * ratio), int(h * ratio)))
+def resize_image_to_fit(img, target_width, target_height):
+    # Calculate the aspect ratio of the original image.
+    original_width, original_height = img.shape[1], img.shape[0]
+    aspect_ratio = original_width / original_height
+
+    # Determine the dimensions to which the image should be resized.
+    if original_width > original_height:
+        new_width = target_width
+        new_height = int(new_width / aspect_ratio)
+        if new_height > target_height:
+            new_height = target_height
+            new_width = int(aspect_ratio * new_height)
+    else:
+        new_height = target_height
+        new_width = int(aspect_ratio * new_height)
+        if new_width > target_width:
+            new_width = target_width
+            new_height = int(new_width / aspect_ratio)
+
+    # Resize the image.
+    resized_img = cv2.resize(img, (new_width, new_height))
+
+    # If you want to ensure the resulting image is exactly the target size,
+    # create a blank canvas and paste the resized image onto it.
+    canvas = (
+        np.ones((target_height, target_width, 3), dtype=np.uint8) * 255
+    )  # Assuming white canvas
+    y_offset = (target_height - new_height) // 2
+    x_offset = (target_width - new_width) // 2
+    canvas[
+        y_offset : y_offset + new_height, x_offset : x_offset + new_width
+    ] = resized_img
+
+    return canvas
 
 
 def generate_legend(
@@ -297,7 +327,7 @@ def get_semantic_map_vis(
     # vis_image[50:530, 670:1310] = cv2.resize(depth_frame, (640, 480))
 
     # Draw goal image
-    vis_image[50:530, 670:1310] = resize_to_fit(goal_image, 640, 480)
+    vis_image[50:530, 670:1310] = resize_image_to_fit(goal_image, 640, 480)
 
     # Draw legend
     if legend is not None:
