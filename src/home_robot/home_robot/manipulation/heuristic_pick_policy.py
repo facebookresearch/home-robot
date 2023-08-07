@@ -48,7 +48,9 @@ class HeuristicPickPolicy(HeuristicPlacePolicy):
         vis_inputs: Optional[Dict] = None,
         arm_reachability_check: bool = False,
         visualize: bool = True,
+        debug: bool = False,
     ):
+        """Compute pick position in 3d base coords"""
         goal_object_mask = (
             obs.semantic
             == obs.task_observations["object_goal"] * du.valid_depth_mask(obs.depth)
@@ -86,6 +88,26 @@ class HeuristicPickPolicy(HeuristicPlacePolicy):
                 (0, 255, 0),
                 thickness=2,
             )
+
+            debug = True
+            if debug:
+                # from home_robot.utils.point_cloud import show_point_cloud
+                # show_point_cloud(pcd_base_coords, rgb, orig=np.zeros(3))
+                all_xyz = (
+                    self.get_target_point_cloud_base_coords(
+                        obs, np.ones_like(goal_object_mask), arm_reachability_check
+                    )
+                    .cpu()
+                    .numpy()
+                )
+                np.savez(
+                    "test.npz",
+                    xyz=pcd_base_coords,
+                    rgb=obs.rgb,
+                    pt=best_voxel,
+                    all_xyz=all_xyz,
+                )
+
             if vis_inputs is not None:
                 vis_inputs["semantic_frame"][..., :3] = rgb_vis_tmp
             return best_voxel, vis_inputs
@@ -174,6 +196,7 @@ class HeuristicPickPolicy(HeuristicPlacePolicy):
             action = DiscreteNavigationAction.MANIPULATION_MODE
         elif self.timestep == self.t_turn_to_orient_post_manip_mode:
             grasp_voxel = self.get_object_pick_point(obs, vis_inputs)
+
             # recalibrate the grasp voxel (since the agent may have moved a bit and is looking down)
             if grasp_voxel is not None:
                 self.grasp_voxel, vis_inputs = grasp_voxel
