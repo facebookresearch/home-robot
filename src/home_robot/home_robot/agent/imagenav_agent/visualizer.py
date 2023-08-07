@@ -249,7 +249,8 @@ class NavVisualizer:
         )
         td_map_frame = None if last_td_map is None else self.make_td_map(last_td_map)
 
-        kp_frame = self.make_keypoint(timestep)
+        kp_frame = np.ones_like(goal_frame) * 255
+        # kp_frame = self.make_keypoint(timestep)
 
         if td_map_frame is None:
             frame = np.concatenate(
