@@ -493,7 +493,7 @@ def main(base_dir: str, legend_path: str):
             been_close_to_radius=200,
             global_downscaling=2,
             du_scale=4,
-            cat_pred_threshold=15.0,
+            cat_pred_threshold=1.0,
             exp_pred_threshold=1.0,
             map_pred_threshold=15.0,
             min_depth=0.5,
@@ -671,9 +671,6 @@ def main(base_dir: str, legend_path: str):
             glob.glob(f"{str(Path(__file__).resolve().parent)}/image_goals/*.png")
         )
         for image_goal_path in image_goal_paths:
-            if "spot.png" in image_goal_path:
-                # TODO Restrict to iPhone goals to debug
-                continue
             image_goal = cv2.imread(image_goal_path)
             image_goal_str = image_goal_path.split("/")[-1]
             category = re.split("(\d+)", image_goal_str)[0]
@@ -763,27 +760,28 @@ def main(base_dir: str, legend_path: str):
 
     if ground_language_in_memory:
         language_goals = [
-            # Chairs
-            ("the high chair next to the kitchen island", ["chair"]),
-            ("the grey chair next to the dining table", ["chair"]),
-            ("the grey armchair", ["chair"]),
-            ("the black chair", ["chair"]),
-            ("the brown leather chair", ["chair"]),
-            # Plants
-            ("the big potted plant next to the armchair", ["potted plant"]),
-            ("the potted plant next to the brown chair", ["potted plant", "chair"]),
-            ("the brown dead plant", ["potted plant"]),
-            # Sinks
+            ("The high chair with metal legs next to the kitchen counter.", ["chair"]),
+            ("The chair with metal legs next to the dining table.", ["chair"]),
+            ("The grey armchair.", ["chair"]),
+            ("The black plastic office chair.", ["chair"]),
+            ("The brown leather chair next to the bedside table.", ["chair"]),
+            ("The brown leather chair next to the picture and plant.", ["chair"]),
+            ("The green leafy plant next to the grey armchair.", ["potted plant"]),
+            (
+                "The green leafy plant next to the brown chair.",
+                ["potted plant", "chair"],
+            ),
+            ("The brown dead plant.", ["potted plant"]),
             ("the kitchen sink", ["sink"]),
             ("the bathroom sink", ["sink"]),
-            # Refrigerator
-            ("the refrigerator", ["refrigerator"]),
+            ("The bed with white sheets.", ["refrigerator"]),
             ("the bed", ["bed"]),
-            ("the sofa", ["couch"]),
-            ("the oven", ["oven"]),
+            ("The large white couch.", ["couch"]),
+            ("The oven.", ["oven"]),
             ("the person with the grey shirt", None),
             ("the white cup", ["cup"]),
             ("the toilet", ["toilet"]),
+            ("the beige teddy bear", ["teddy bear"]),
         ]
 
         for i, (language_goal, categories) in enumerate(language_goals):
