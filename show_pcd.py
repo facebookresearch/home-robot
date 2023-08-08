@@ -14,7 +14,7 @@ python projects/habitat_ovmm/eval_baselines_agent.py --baseline_config_path proj
 """
 
 
-def main(show_pcds=True):
+def main(show_pcds=False):
     # Debug pointclouds
 
     data = np.load("test-sriram.npz")
@@ -44,26 +44,57 @@ def main(show_pcds=True):
     red_block = PbObject(
         "red_block", "./assets/red_block.urdf", start_pos=pt, client=client.id
     )
-    print("Created object to track grasp pt:", red_block)
+    blue_block = PbObject("blue_block", "./assets/blue_block.urdf", client=client.id)
+    print("Created object to track target pt:", red_block)
+    print("Created object to track grasp pt:", blue_block)
     # PLANNER_STRETCH_URDF = "assets/hab_stretch/urdf/planner_calibrated.urdf"
     MANIP_STRETCH_URDF = "assets/hab_stretch/urdf/stretch_manip_mode.urdf"
     # Load a robot model here
     robot = client.add_articulated_object("robot", MANIP_STRETCH_URDF)
 
     # Inverse kinematics
-    grasp_orientation = tra.quaternion_from_euler(0, np.pi, 0)
+    #
+    R = tra.euler_matrix(0, np.pi, 0)
+    # R_x = tra.euler_matrix(-np.pi/4, 0, 0)
+    # Top down grasp
+    pos_top = pt.copy()
+    pos_top[2] += STRETCH_STANDOFF_DISTANCE
+    rot_top = tra.quaternion_from_matrix(R)
+    # Side grasp
+    pos_side = pt.copy()
+    pos_side[1] += STRETCH_STANDOFF_DISTANCE
+    rot_side = tra.quaternion_from_euler(np.pi / 2, 0, 0)
 
     model = HelloStretchKinematics()
 
     print("Target point to grasp:", pt)
     print("Raising the point by the size of the stretch gripper before doing IK...")
-    pt[2] += STRETCH_STANDOFF_DISTANCE
+    pt[1] += STRETCH_STANDOFF_DISTANCE
+    blue_block.set_pose(pt, (0, 0, 0, 1))
     print("Target point to grasp:", pt)
 
-    cfg, res, info = model.manip_ik((pt, grasp_orientation))
+    cfg, res, info = model.manip_ik((pos_top, rot_top))
+    print("--- TOP GRASP SOLUTION ---")
     print("cfg =", cfg)
     print("res =", res)
     print("inf =", info)
+
+    if res is not True:
+        print("Inverse kinematics failed! Trying from the side...")
+        cfg, res, info = model.manip_ik((pos_side, rot_side))
+        print("--- SIDE GRASP SOLUTION ---")
+        print("cfg =", cfg)
+        print("res =", res)
+        print("inf =", info)
+
+        if res is not True:
+            print("--- SIDE GRASP SOLUTION ---")
+            print("Still failed!")
+            input("press enter when done")
+            return
+
+    cfg = model._to_manip_format(cfg)
+    print("Fixed cfg =", cfg)
 
     model.set_articulated_object_positions(robot, cfg)
 

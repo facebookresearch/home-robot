@@ -256,16 +256,19 @@ class HeuristicPickPolicy(HeuristicPlacePolicy):
             if grasp_voxel is not None:
                 self.grasp_voxel, vis_inputs = grasp_voxel
             print("Grasp voxel:", grasp_voxel)
-            grasp_orientation = tra.quaternion_from_euler(0, np.pi, 0)
             pt = self.grasp_voxel
             # TODO: make thie constant
             rot = tra.euler_matrix(0, 0, np.pi)
             pt = trimesh.transform_points(pt[None], rot)[0]
 
             pt[2] += STRETCH_STANDOFF_DISTANCE
-            self.grasp_indicator.set_pose(self.grasp_voxel, (0, 0, 0, 1))
+            # self.grasp_indicator.set_pose(self.grasp_voxel, (0, 0, 0, 1))
+            cfg = self._find_grasp_cfg(pt)
+            if cfg is None:
+                print("IK FAILED! GET CLOSER!")
+                breakpoint()
+
             print("Target point to grasp:", pt)
-            cfg, res, info = self.model.manip_ik((pt, grasp_orientation))
             print(
                 "After switching to manipulation mode, then you can move the robot like this:"
             )
@@ -280,10 +283,11 @@ class HeuristicPickPolicy(HeuristicPlacePolicy):
             target_ext = cfg[2:6].sum()
             joints = np.array(
                 [
-                    -target_ext - current_arm_ext,
+                    target_ext,
                     0,
                     0,
                     0,
+                    # TODO: something wrong with the constants here
                     cfg[1],
                     cfg[6],
                     cfg[7],
@@ -292,7 +296,7 @@ class HeuristicPickPolicy(HeuristicPlacePolicy):
                     obs.joint[-1],
                 ]
             )
-            print(current_arm_ext, target_ext)
+            print("Current arm ext =", current_arm_ext, "target =", target_ext)
             action = ContinuousFullBodyAction(joints - obs.joint, xyt=xyt)
 
             # After this:
@@ -334,6 +338,55 @@ class HeuristicPickPolicy(HeuristicPlacePolicy):
                 print("[Pick] Stopping")
             action = DiscreteNavigationAction.STOP
         return action, vis_inputs
+
+    def _find_grasp_cfg(self, pt, verbose=True):
+        """Find grasp config for the arm at pt = (x, y, z)"""
+        # Top down grasp
+        pos_top = pt.copy()
+        pos_top[2] += STRETCH_STANDOFF_DISTANCE
+        R = tra.euler_matrix(0, np.pi, 0)
+        rot_top = tra.quaternion_from_matrix(R)
+        # Side grasp
+        pos_side = pt.copy()
+        pos_side[1] += STRETCH_STANDOFF_DISTANCE
+        rot_side = tra.quaternion_from_euler(np.pi / 2, 0, 0)
+
+        model = HelloStretchKinematics()
+
+        if verbose:
+            print(
+                "Raising the point by the size of the stretch gripper before doing IK..."
+            )
+            print("[TOP] Target point to grasp:", pos_top)
+            print("[SIDE] Target point to grasp:", pos_side)
+
+        cfg, res, info = model.manip_ik((pos_top, rot_top))
+        if verbose:
+            print("--- TOP GRASP SOLUTION ---")
+            print("cfg =", cfg)
+            print("res =", res)
+            print("inf =", info)
+
+        if res is not True:
+            if verbose:
+                print("Inverse kinematics failed! Trying from the side...")
+            cfg, res, info = model.manip_ik((pos_side, rot_side))
+            if verbose:
+                print("--- SIDE GRASP SOLUTION ---")
+                print("cfg =", cfg)
+                print("res =", res)
+                print("inf =", info)
+
+            if res is not True:
+                if verbose:
+                    print("IK still failed!")
+                return None
+
+        cfg = self.model._to_manip_format(cfg)
+        if verbose:
+            print("Fixed cfg =", cfg)
+        self.model.set_articulated_object_positions(self.robot, cfg)
+        return cfg
 
     def forward(self, obs: Observations, vis_inputs: Optional[Dict] = None):
         self.timestep = self.timestep
