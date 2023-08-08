@@ -67,6 +67,7 @@ AGENT:
     step_size: 5                    # maximum distance of the short-term goal selected by the planner
     discrete_actions: True         # discrete motion planner output space or not
     naive_landmark_conditioned: True # rotate 360º after reaching target to see if landmark is present 
+    planner_type: old
 
   SUPERGLUE:
     max_keypoints: 1024

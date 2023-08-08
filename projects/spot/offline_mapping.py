@@ -92,7 +92,6 @@ def generate_legend(
             vis_image = cv2.rectangle(
                 vis_image, rect_start, rect_end, colors[ctr].tolist(), thickness=-1
             )
-            print(colors[ctr].tolist())
             vis_image = cv2.putText(
                 vis_image,
                 texts[ctr],
@@ -203,7 +202,7 @@ def get_semantic_map_vis(
     map_color_palette += d3_40_colors_rgb.flatten().tolist()
 
     new_colors = d3_40_colors_rgb.copy()
-    new_colors[:, 0] =  np.minimum(new_colors[:, 0] + 15, 255)
+    new_colors[:, 0] = np.minimum(new_colors[:, 0] + 15, 255)
     new_colors[:, 2] = np.maximum(new_colors[:, 2] - 15, 0)
     map_color_palette += new_colors.flatten().tolist()
 
@@ -293,9 +292,7 @@ def get_semantic_map_vis(
                 continue
             if instance_memory is not None:
                 # retrieve name
-                category = (
-                    instance_memory.instance_views[0][int(instance)].category_id
-                ).item()
+                category = instance_memory.instance_views[0][int(instance)].category_id
                 category_counts[category] += 1
                 instance_to_name[instance] = (
                     coco_category_id_to_coco_category[category]
@@ -306,9 +303,7 @@ def get_semantic_map_vis(
         vis_image = generate_legend(
             vis_image,
             np.array(
-                map_color_palette[
-                    3 * PI.SEM_START : (PI.SEM_START + num_instances) * 3
-                ]
+                map_color_palette[3 * PI.SEM_START : (PI.SEM_START + num_instances) * 3]
             ).reshape(-1, 3),
             [instance_to_name[i] for i in range(1, num_instances + 1)],
             155,

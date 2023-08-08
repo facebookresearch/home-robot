@@ -74,9 +74,9 @@ class Categorical2DSemanticMapModule(nn.Module):
         max_instances: int = 0,
         dilation_for_instances: int = 5,
         padding_for_instance_overlap: int = 5,
-        exploration_type = 'default',
-        gaze_width = 30,
-        gaze_distance = 3,
+        exploration_type="default",
+        gaze_width=30,
+        gaze_distance=3,
     ):
         """
         Arguments:
@@ -432,7 +432,7 @@ class Categorical2DSemanticMapModule(nn.Module):
             # For real robot
             tilt = angles[:, 1]
             # angles gives roll, pitch, yaw
-            yaw = angles[:,-1]
+            yaw = angles[:, -1]
 
             # Get the agent pose
             # hab_agent_height = camera_pose[:, 1, 3] * 100
@@ -595,40 +595,51 @@ class Categorical2DSemanticMapModule(nn.Module):
 
         fp_map_pred = fp_map_pred / self.map_pred_threshold
         # uses depth point projections but limits the fov and distance
-        if self.exploration_type == 'default':
+        if self.exploration_type == "default":
             fp_exp_pred = all_height_proj[:, 0:1, :, :]
             fp_exp_pred = fp_exp_pred / self.exp_pred_threshold
-        elif self.exploration_type == 'hull':
+        elif self.exploration_type == "hull":
             fp_exp_pred = all_height_proj[:, 0:1, :, :]
             fp_exp_pred = fp_exp_pred / self.exp_pred_threshold
-            fp_exp_pred = fp_exp_pred.clip(0,1)
+            fp_exp_pred = fp_exp_pred.clip(0, 1)
             # set the current agent position as 1
-            fp_exp_pred[:,:,0,fp_exp_pred.shape[-1]//2] = 1
+            fp_exp_pred[:, :, 0, fp_exp_pred.shape[-1] // 2] = 1
 
             # fill convex hull
-            filled = fill_convex_hull(fp_exp_pred[0,0].cpu())
-            assert fp_exp_pred.shape[:2] == (1,1)
-            fp_exp_pred[0,0] = torch.tensor(filled)
+            filled = fill_convex_hull(fp_exp_pred[0, 0].cpu())
+            assert fp_exp_pred.shape[:2] == (1, 1)
+            fp_exp_pred[0, 0] = torch.tensor(filled)
 
         # uses a fixed cone infront of the camerea
-        elif self.exploration_type == 'gaze':
+        elif self.exploration_type == "gaze":
             fp_exp_pred = torch.zeros_like(fp_map_pred)
             view_image = torch.zeros(fp_map_pred.shape[-2:])
             # get the desired radius in cells
-            dist = self.gaze_distance*100/self.resolution
-            view_image = draw_circle_segment(view_image,(0,fp_exp_pred.shape[-1]//2),dist,0,self.gaze_width)
-            fp_exp_pred[...,:,:] = view_image
+            dist = self.gaze_distance * 100 / self.resolution
+            view_image = draw_circle_segment(
+                view_image, (0, fp_exp_pred.shape[-1] // 2), dist, 0, self.gaze_width
+            )
+            fp_exp_pred[..., :, :] = view_image
         # uses depth point projections but limits the fov and distance using the code
-        elif self.exploration_type == 'gaze_projected':
+        elif self.exploration_type == "gaze_projected":
             fp_exp_pred = all_height_proj[:, 0:1, :, :]
             fp_exp_pred = fp_exp_pred / self.exp_pred_threshold
             view_image = torch.zeros(fp_map_pred.shape[-2:])
             # get the desired radius in cells
-            dist = self.gaze_distance*100/self.resolution
-            view_image = draw_circle_segment(view_image,(0,fp_exp_pred.shape[-1]//2),dist,0,self.gaze_width)/255
+            dist = self.gaze_distance * 100 / self.resolution
+            view_image = (
+                draw_circle_segment(
+                    view_image,
+                    (0, fp_exp_pred.shape[-1] // 2),
+                    dist,
+                    0,
+                    self.gaze_width,
+                )
+                / 255
+            )
             fp_exp_pred *= view_image.to(fp_exp_pred.device)
         else:
-            raise Exception(f'not implemented')
+            raise Exception("not implemented")
 
         num_channels = MC.NON_SEM_CHANNELS + self.num_sem_categories
         if self.record_instance_ids:
@@ -690,12 +701,12 @@ class Categorical2DSemanticMapModule(nn.Module):
         # account for camera yaw here by rotating the new map based on camera yaw
         st_pose_adjusted = st_pose.clone()
         # yaw has to be inverted here, below rotates the map clockwise
-        st_pose_adjusted[:,2] -= yaw.to(st_pose_adjusted.device)*180/np.pi
+        st_pose_adjusted[:, 2] -= yaw.to(st_pose_adjusted.device) * 180 / np.pi
 
         rot_mat, trans_mat = ru.get_grid(st_pose_adjusted, agent_view.size(), dtype)
         rotated = F.grid_sample(agent_view, rot_mat, align_corners=True)
         translated = F.grid_sample(rotated, trans_mat, align_corners=True)
-        plt.imshow(rotated[0,0].cpu())
+        plt.imshow(rotated[0, 0].cpu())
 
         # Clamp to [0, 1] after transform agent view to map coordinates
         translated = torch.clamp(translated, min=0.0, max=1.0).float()
@@ -938,7 +949,6 @@ class Categorical2DSemanticMapModule(nn.Module):
             )
         else:
             extended_dilated_local_map = torch.clone(extended_local_map)
-
         # Get the instances from the global map within the local map's region
         global_instances_within_local = global_instances[x_start:x_end, y_start:y_end]
 
@@ -947,6 +957,7 @@ class Categorical2DSemanticMapModule(nn.Module):
             extended_dilated_local_map,
             global_instances_within_local,
             max_instance_id,
+            torch.unique(extended_local_map),
         )
 
         # Update the global map with the associated instances from the local map
@@ -969,6 +980,7 @@ class Categorical2DSemanticMapModule(nn.Module):
         extended_local_labels: Tensor,
         global_instances_within_local: Tensor,
         max_instance_id: int,
+        local_instance_ids: Tensor,
     ) -> dict:
         """
         Creates a mapping of local instance IDs to global instance IDs.
@@ -983,7 +995,7 @@ class Categorical2DSemanticMapModule(nn.Module):
         instance_mapping = {}
 
         # Associate instances in the local map with corresponding instances in the global map
-        for local_instance_id in torch.unique(extended_local_labels):
+        for local_instance_id in local_instance_ids:
             if local_instance_id == 0:
                 # ignore 0 as it does not correspond to an instance
                 continue
@@ -1010,7 +1022,7 @@ class Categorical2DSemanticMapModule(nn.Module):
             self.instance_memory.update_instance_id(
                 env_id, int(local_instance_id.item()), global_instance_id
             )
-        instance_mapping[0] = 0
+        instance_mapping[0.0] = 0
         return instance_mapping
 
     def _update_global_map_instances(

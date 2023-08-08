@@ -63,6 +63,8 @@ class GoatMatching(Matching):
         for local_instance_id, inst_view in instance_memory.unprocessed_views[
             0
         ].items():
+            if categories is not None and inst_view.category_id not in categories:
+                continue
             if (
                 inst_view.cropped_image.shape[0] * inst_view.cropped_image.shape[1]
                 < MIN_PIXELS

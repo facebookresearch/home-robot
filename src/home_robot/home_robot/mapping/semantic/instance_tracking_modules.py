@@ -107,7 +107,9 @@ class InstanceMemory:
         self.mask_cropped_instances = mask_cropped_instances
 
         if config is not None:
-            self.save_dir = f"{config.DUMP_LOCATION}/instances"
+            self.save_dir = os.path.join(
+                config.DUMP_LOCATION, "instances", config.EXP_NAME
+            )
         else:
             self.save_dir = save_dir
 
@@ -216,7 +218,7 @@ class InstanceMemory:
 
             # get semantic category
             category_id = semantic_map[instance_mask].unique()
-            category_id = category_id[0]
+            category_id = category_id[0].item()
 
             instance_id_to_category_id[instance_id] = category_id
 
@@ -282,9 +284,9 @@ class InstanceMemory:
             self.unprocessed_views[env_id][instance_id.item()] = instance_view
             # save cropped image with timestep in filename
             if self.debug_visualize:
-                os.makedirs("instances/all", exist_ok=True)
+                os.makedirs(f"{self.save_dir}/all", exist_ok=True)
                 cv2.imwrite(
-                    f"instances/all/{self.timesteps[env_id] + 1}_{instance_id.item()}.png",
+                    f"{self.save_dir}/all/{self.timesteps[env_id] + 1}_{instance_id.item()}.png",
                     cropped_image,
                 )
 

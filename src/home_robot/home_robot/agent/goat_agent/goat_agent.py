@@ -651,44 +651,47 @@ class GoatAgent(Agent):
             all_confidences,
             instance_ids,
         ) = (None, None, None, [], [], [])
+        if not self._module.instance_goal_found:
+            if task_type == "imagenav":
+                if self.goal_image is None:
+                    img_goal = obs.task_observations["tasks"][self.current_task_idx][
+                        "image"
+                    ]
+                    (
+                        self.goal_image,
+                        self.goal_image_keypoints,
+                    ) = self.matching.get_goal_image_keypoints(img_goal)
+                    self.goal_mask, _ = self.instance_seg.get_goal_mask(img_goal)
 
-        if task_type == "imagenav":
-            if self.goal_image is None:
-                img_goal = obs.task_observations["tasks"][self.current_task_idx][
-                    "image"
-                ]
                 (
-                    self.goal_image,
-                    self.goal_image_keypoints,
-                ) = self.matching.get_goal_image_keypoints(img_goal)
-                self.goal_mask, _ = self.instance_seg.get_goal_mask(img_goal)
+                    matches,
+                    confidences,
+                    local_instance_ids,
+                ) = self.matching.get_matches_against_current_frame(
+                    self.instance_memory,
+                    self.matching.match_image_to_image,
+                    self.total_timesteps[0],
+                    image_goal=self.goal_image,
+                    goal_image_keypoints=self.goal_image_keypoints,
+                    categories=[current_task["semantic_id"]],
+                    use_full_image=False,
+                )
 
-            (
-                matches,
-                confidences,
-                local_instance_ids,
-            ) = self.matching.get_matches_against_current_frame(
-                self.instance_memory,
-                self.matching.match_image_to_image,
-                self.total_timesteps[0],
-                image_goal=self.goal_image,
-                goal_image_keypoints=self.goal_image_keypoints,
-                use_full_image=False,
-            )
-            print(local_instance_ids, len(matches[0]))
+                print(local_instance_ids, len(matches[0]))
 
-        elif task_type == "languagenav":
-            (
-                matches,
-                confidences,
-                local_instance_ids,
-            ) = self.matching.get_matches_against_current_frame(
-                self.instance_memory,
-                self.matching.match_language_to_image,
-                self.total_timesteps[0],
-                language_goal=current_task["instruction"],
-                use_full_image=False,
-            )
+            elif task_type == "languagenav":
+                (
+                    matches,
+                    confidences,
+                    local_instance_ids,
+                ) = self.matching.get_matches_against_current_frame(
+                    self.instance_memory,
+                    self.matching.match_language_to_image,
+                    self.total_timesteps[0],
+                    language_goal=current_task["instruction"],
+                    categories=[current_task["semantic_id"]],
+                    use_full_image=False,
+                )
         semantic = self.one_hot_encoding[torch.from_numpy(semantic).to(self.device)]
 
         obs_preprocessed = torch.cat([rgb, depth, semantic], dim=-1)
@@ -771,7 +774,7 @@ class GoatAgent(Agent):
                 self.total_timesteps[0],
                 language_goal=current_task["instruction"],
                 use_full_image=False,
-                categories=[coco_categories.get(current_task["target"])],
+                categories=[current_task["semantic_id"]],
             )
             stats = {
                 i: {
@@ -801,7 +804,7 @@ class GoatAgent(Agent):
                 image_goal=self.goal_image,
                 goal_image_keypoints=self.goal_image_keypoints,
                 use_full_image=False,
-                categories=[coco_categories.get(current_task["target"])],
+                categories=[current_task["semantic_id"]],
             )
             stats = {
                 i: {
