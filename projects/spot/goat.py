@@ -540,7 +540,7 @@ GOALS = {
         "type": "languagenav",
         "target": "bed",
         "landmarks": [],
-        "instruction": "The white bed.",
+        "instruction": "The bed with white sheets.",
     },
     "language_chair1": {
         "type": "languagenav",
@@ -583,7 +583,7 @@ GOALS = {
         "target": "couch",
         "landmarks": [],
         # "instruction": "The couch with colorful pillows.",
-        "instruction": "The white couch.",
+        "instruction": "The large white couch.",
     },
     "language_oven1": {
         "type": "languagenav",

@@ -374,6 +374,7 @@ class GoatAgent(Agent):
         self.blacklist_target = False
         self.current_task_idx = 0
         self.fully_explored = [False] * self.num_environments
+        self.force_match_against_memory = False
 
         if self.imagenav_visualizer is not None:
             self.imagenav_visualizer.reset()
