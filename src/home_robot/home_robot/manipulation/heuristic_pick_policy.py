@@ -9,6 +9,7 @@ from typing import Any, Dict, Optional, Tuple, Union
 import cv2
 import numpy as np
 import torch
+import trimesh
 
 import home_robot.utils.depth as du
 import home_robot.utils.transformations as tra
@@ -48,10 +49,13 @@ class HeuristicPickPolicy(HeuristicPlacePolicy):
         self.ik = True
         self.robot = None
         if self.ik:
-            client = PbClient(visualize=debug_visualize_xyz)
+            self.client = PbClient(visualize=debug_visualize_xyz)
+            self.grasp_indicator = PbObject(
+                "red_block", "./assets/red_block.urdf", client=self.client.id
+            )
             MANIP_STRETCH_URDF = "assets/hab_stretch/urdf/stretch_manip_mode.urdf"
             # Load a robot model here
-            self.robot = client.add_articulated_object("robot", MANIP_STRETCH_URDF)
+            self.robot = self.client.add_articulated_object("robot", MANIP_STRETCH_URDF)
             self.model = HelloStretchKinematics()
         super().__init__(config, device, debug_visualize_xyz)
 
@@ -251,9 +255,15 @@ class HeuristicPickPolicy(HeuristicPlacePolicy):
             grasp_voxel = self.get_object_pick_point(obs, vis_inputs)
             if grasp_voxel is not None:
                 self.grasp_voxel, vis_inputs = grasp_voxel
+            print("Grasp voxel:", grasp_voxel)
             grasp_orientation = tra.quaternion_from_euler(0, np.pi, 0)
             pt = self.grasp_voxel
+            # TODO: make thie constant
+            rot = tra.euler_matrix(0, 0, np.pi)
+            pt = trimesh.transform_points(pt[None], rot)[0]
+
             pt[2] += STRETCH_STANDOFF_DISTANCE
+            self.grasp_indicator.set_pose(self.grasp_voxel, (0, 0, 0, 1))
             print("Target point to grasp:", pt)
             cfg, res, info = self.model.manip_ik((pt, grasp_orientation))
             print(
@@ -284,6 +294,10 @@ class HeuristicPickPolicy(HeuristicPlacePolicy):
             )
             print(current_arm_ext, target_ext)
             action = ContinuousFullBodyAction(joints - obs.joint, xyt=xyt)
+
+            # After this:
+            # - rotate 90 to the left
+            # - then execute this action
         elif self.timestep == self.t_start_pick + self.t_relative_back:
             # final recalibration of the grasp voxel
             grasp_voxel = self.get_object_pick_point(obs, vis_inputs)
