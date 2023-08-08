@@ -75,7 +75,7 @@ def generate_legend(
     font_thickness = 1
 
     # grid size - number of labels in each column/row
-    grid_w, grid_h = 6, 6
+    grid_w, grid_h = 7, 6
     int_w = total_w / grid_w
     int_h = total_h / grid_h
     ctr = 0
@@ -202,6 +202,11 @@ def get_semantic_map_vis(
     map_color_palette = [int(x * 255.0) for x in map_color_palette]
     map_color_palette += d3_40_colors_rgb.flatten().tolist()
 
+    new_colors = d3_40_colors_rgb.copy()
+    new_colors[:, 0] =  np.minimum(new_colors[:, 0] + 15, 255)
+    new_colors[:, 2] = np.maximum(new_colors[:, 2] - 15, 0)
+    map_color_palette += new_colors.flatten().tolist()
+
     semantic_categories_map = semantic_map.get_semantic_map(0)
     obstacle_map = semantic_map.get_obstacle_map(0)
     explored_map = semantic_map.get_explored_map(0)
@@ -226,9 +231,9 @@ def get_semantic_map_vis(
             semantic_categories_map == PI.SEM_START - 1
         ] = PI.EMPTY_SPACE
 
-        num_instances = len(unique_instances)
+        num_instances = int(np.max(unique_instances))
 
-        if len(unique_instances) > len(d3_40_colors_rgb):
+        if num_instances > 2 * len(d3_40_colors_rgb):
             raise NotImplementedError
 
     obstacle_mask = np.rint(obstacle_map) == 1
@@ -283,7 +288,7 @@ def get_semantic_map_vis(
         # Name instances as chair-1, chair-2 and so on
         category_counts = defaultdict(int)
         instance_to_name = {}
-        for instance in unique_instances:
+        for instance in range(1, num_instances + 1):
             if instance == 0:
                 continue
             if instance_memory is not None:
@@ -302,13 +307,13 @@ def get_semantic_map_vis(
             vis_image,
             np.array(
                 map_color_palette[
-                    3 * PI.SEM_START : (PI.SEM_START + num_instances - 1) * 3
+                    3 * PI.SEM_START : (PI.SEM_START + num_instances) * 3
                 ]
             ).reshape(-1, 3),
-            [instance_to_name[i] for i in range(1, num_instances)],
+            [instance_to_name[i] for i in range(1, num_instances + 1)],
             155,
             537,
-            1100,
+            1250,
             115,
         )
 
