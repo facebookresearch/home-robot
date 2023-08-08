@@ -47,15 +47,7 @@ class HeuristicPickPolicy(HeuristicPlacePolicy):
         self.timestep = 0
 
         self.ik = True
-        self.robot = None
         if self.ik:
-            self.client = PbClient(visualize=debug_visualize_xyz)
-            self.grasp_indicator = PbObject(
-                "red_block", "./assets/red_block.urdf", client=self.client.id
-            )
-            MANIP_STRETCH_URDF = "assets/hab_stretch/urdf/stretch_manip_mode.urdf"
-            # Load a robot model here
-            self.robot = self.client.add_articulated_object("robot", MANIP_STRETCH_URDF)
             self.model = HelloStretchKinematics()
         super().__init__(config, device, debug_visualize_xyz)
 
@@ -385,7 +377,6 @@ class HeuristicPickPolicy(HeuristicPlacePolicy):
         cfg = self.model._to_manip_format(cfg)
         if verbose:
             print("Fixed cfg =", cfg)
-        self.model.set_articulated_object_positions(self.robot, cfg)
         return cfg
 
     def forward(self, obs: Observations, vis_inputs: Optional[Dict] = None):
