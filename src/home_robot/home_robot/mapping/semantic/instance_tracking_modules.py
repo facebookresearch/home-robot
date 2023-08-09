@@ -100,11 +100,13 @@ class InstanceMemory:
         config=None,
         save_dir="instances",
         mask_cropped_instances=False,
+        category_id_to_category_name=None,
     ):
         self.num_envs = num_envs
         self.du_scale = du_scale
         self.debug_visualize = debug_visualize
         self.mask_cropped_instances = mask_cropped_instances
+        self.category_id_to_category_name = category_id_to_category_name
 
         if config is not None:
             self.save_dir = os.path.join(
@@ -155,15 +157,30 @@ class InstanceMemory:
             global_instance.instance_views.append(instance_view)
         self.local_id_to_global_id_map[env_id][local_instance_id] = global_instance_id
         if self.debug_visualize:
-            instance_write_path = os.path.join(self.save_dir, str(global_instance_id))
+            category_name = (
+                f"cat_{instance_view.category_id}"
+                if self.category_id_to_category_name is None
+                else self.category_id_to_category_name[instance_view.category_id]
+            )
+            instance_write_path = os.path.join(
+                self.save_dir, f"{global_instance_id}_{category_name}.png"
+            )
             os.makedirs(instance_write_path, exist_ok=True)
 
+            step = instance_view.timestep
+            full_image = self.images[env_id][step]
+            full_image = full_image.numpy().astype(np.uint8).transpose(1, 2, 0)
+            # overlay mask on image
+            mask = np.zeros(full_image.shape, full_image.dtype)
+            mask[:, :] = (0, 0, 255)
+            mask = cv2.bitwise_and(mask, mask, mask=instance_view.mask.astype(np.uint8))
+            masked_image = cv2.addWeighted(mask, 1, full_image, 1, 0)
             cv2.imwrite(
                 os.path.join(
                     instance_write_path,
-                    f"{self.timesteps[env_id]}_{local_instance_id}_cat_{instance_view.category_id}.png",
+                    f"step_{self.timesteps[env_id]}_local_id_{local_instance_id}.png",
                 ),
-                instance_view.cropped_image,
+                masked_image,
             )
             print(
                 "mapping local instance id",

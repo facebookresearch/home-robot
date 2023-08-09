@@ -462,6 +462,7 @@ def main(base_dir: str, legend_path: str):
                 debug_visualize=True,
                 save_dir=f"{base_dir}/instances",
                 mask_cropped_instances=False,
+                category_id_to_category_name=coco_category_id_to_coco_category,
             )
 
         # State holds global and local map and sensor pose
