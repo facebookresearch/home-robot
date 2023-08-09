@@ -6,7 +6,7 @@ VISUALIZE: 0              # 1: render observation and predicted semantic map, 0:
 PRINT_IMAGES: 1           # 1: save visualization as images, 0: no image saving
 GROUND_TRUTH_SEMANTICS: 1 # 1: use ground-truth semantics (for debugging / ablations)
 seed: 0                   # seed
-SHOW_RL_OBS: False         # whether to show the observations passed to RL policices, for debugging
+SHOW_RL_OBS: True         # whether to show the observations passed to RL policices, for debugging
 
 ENVIRONMENT:
   forward: 0.25           # forward motion (in meters)

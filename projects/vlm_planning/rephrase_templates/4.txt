@@ -1,0 +1,20 @@
+Relocate *** from the &&& to the $$$.
+Transfer *** from the &&& onto the $$$.
+Move *** from the &&& and place it on the $$$.
+Shift ***'s position from the &&& to the $$$.
+Take *** off the &&& and put it on the $$$.
+Move *** so that it's no longer on the &&& but on the $$$.
+Place *** onto the $$$, removing it from the &&&.
+Move *** from the &&& to rest on the $$$.
+Shift ***'s location from the &&& to the $$$.
+Transport *** from the &&& to the $$$.
+Relocate *** from the source (&&&) to the destination ($$$).
+Transfer *** from the current location (&&&) to the intended spot ($$$).
+Shift ***'s position from the initial place (&&&) to the desired one ($$$).
+Move *** away from the origin (&&&) and onto the target ($$$).
+Place *** on the $$$, taking it from the &&&.
+Carry *** from the &&& and set it down on the $$$.
+Bring *** over from the &&& to the $$$.
+Remove *** from the &&& and place it onto the $$$.
+Reassign *** to the destination ($$$), moving it from the source (&&&).
+Take *** off the &&& and relocate it to the $$$.

@@ -88,6 +88,7 @@ class InstanceMemory:
         self.num_envs = num_envs
         self.du_scale = du_scale
         self.debug_visualize = debug_visualize
+        self.debug_visualize = False
         if self.debug_visualize:
             import shutil
 
@@ -101,6 +102,13 @@ class InstanceMemory:
         self.unprocessed_views = [{} for _ in range(self.num_envs)]
         self.timesteps = [0 for _ in range(self.num_envs)]
 
+    def reset_for_env(self, env_id: int):
+        self.instance_views[env_id] = {}
+        self.images[env_id] = None
+        self.point_cloud[env_id] = None
+        self.unprocessed_views[env_id] = {}
+        self.timesteps[env_id] = 0
+
     def update_instance_id(
         self, env_id: int, local_instance_id: int, global_instance_id: int
     ):
@@ -109,7 +117,8 @@ class InstanceMemory:
         # otherwise, create a new global instance with the given global_instance_id
 
         # get instance view
-        instance_view = self.unprocessed_views[env_id].get(local_instance_id, None)
+        instance_view = self.unprocessed_views[env_id].get(
+            local_instance_id, None)
         if instance_view is None and self.debug_visualize:
             print(
                 "instance view with local instance id",
@@ -118,7 +127,8 @@ class InstanceMemory:
             )
 
         # get global instance
-        global_instance = self.instance_views[env_id].get(global_instance_id, None)
+        global_instance = self.instance_views[env_id].get(
+            global_instance_id, None)
         if global_instance is None:
             # create a new global instance
             global_instance = Instance()
@@ -213,7 +223,7 @@ class InstanceMemory:
             masked_image = image * instance_mask
             # get cropped image
             cropped_image = (
-                masked_image[:, bbox[0, 0] : bbox[1, 0], bbox[0, 1] : bbox[1, 1]]
+                masked_image[:, bbox[0, 0]: bbox[1, 0], bbox[0, 1]: bbox[1, 1]]
                 .permute(1, 2, 0)
                 .cpu()
                 .numpy()
@@ -226,7 +236,8 @@ class InstanceMemory:
             embedding = None
 
             # get point cloud
-            point_cloud_instance = point_cloud[instance_mask_downsampled.cpu().numpy()]
+            point_cloud_instance = point_cloud[instance_mask_downsampled.cpu(
+            ).numpy()]
 
             # get instance view
             instance_view = InstanceView(
@@ -276,10 +287,3 @@ class InstanceMemory:
                 image[env_id],
                 semantic_map.shape[1],
             )
-
-    def reset_for_env(self, env_id: int):
-        self.instance_views[env_id] = {}
-        self.images[env_id] = None
-        self.point_cloud[env_id] = None
-        self.unprocessed_views[env_id] = {}
-        self.timesteps[env_id] = 0

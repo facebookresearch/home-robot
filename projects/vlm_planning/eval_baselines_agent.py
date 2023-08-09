@@ -42,7 +42,7 @@ if __name__ == "__main__":
     parser.add_argument(
         "--baseline_config_path",
         type=str,
-        default="projects/vlm_planning/configs/agent/heuristic_agent.yaml",
+        default="projects/vlm_planning/configs/agent/rl_agent.yaml",
         help="Path to config yaml",
     )
     parser.add_argument(
@@ -54,7 +54,7 @@ if __name__ == "__main__":
     parser.add_argument(
         "--agent_type",
         type=str,
-        default="vlm",
+        default="baseline",
         choices=["baseline", "random", "vlm"],
         help="Agent to evaluate",
     )

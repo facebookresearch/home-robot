@@ -1,4 +1,4 @@
-max_steps: 10000         # maximum number of steps before stopping an episode during navigation; a lower value set for habitat episode termination 
+max_steps: 10000       # maximum number of steps before stopping an episode during navigation; a lower value set for habitat episode termination 
 panorama_start: 1       # 1: turn around 360 degrees when starting an episode, 0: don't
 exploration_strategy: seen_frontier  # exploration strategy ("seen_frontier", "been_close_to_frontier")
 radius: 0.05            # robot radius (in meters)
@@ -23,7 +23,7 @@ SEMANTIC_MAP:
   dilate_obstacles: True
   dilate_size: 3
   dilate_iter: 1
-  record_instance_ids: False
+  record_instance_ids: True
   max_instances: 0
 
 SKILLS:

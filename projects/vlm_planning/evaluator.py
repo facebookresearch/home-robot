@@ -7,6 +7,7 @@
 import json
 import os
 import time
+import pickle
 from collections import defaultdict
 from enum import Enum
 from typing import TYPE_CHECKING, Any, Dict, Optional
@@ -58,7 +59,8 @@ class OVMMEvaluator(PPOTrainer):
     def _summarize_metrics(self, episode_metrics: Dict) -> Dict:
         """Gets stats from episode metrics"""
         # convert to a dataframe
-        episode_metrics_df = pd.DataFrame.from_dict(episode_metrics, orient="index")
+        episode_metrics_df = pd.DataFrame.from_dict(
+            episode_metrics, orient="index")
         episode_metrics_df["start_idx"] = 0
         stats = get_stats_from_episode_metrics(episode_metrics_df)
         return stats
@@ -153,8 +155,10 @@ class OVMMEvaluator(PPOTrainer):
                             f"after {round(time.time() - start_time, 2)} seconds"
                         )
                     if len(episode_metrics) % self.metrics_save_freq == 0:
-                        aggregated_metrics = self._aggregate_metrics(episode_metrics)
-                        self._write_results(episode_metrics, aggregated_metrics)
+                        aggregated_metrics = self._aggregate_metrics(
+                            episode_metrics)
+                        self._write_results(
+                            episode_metrics, aggregated_metrics)
                     if not stop():
                         obs[e] = envs.call_at(e, "reset")
                         agent.reset_vectorized_for_env(
@@ -242,6 +246,7 @@ class OVMMEvaluator(PPOTrainer):
         while count_episodes < num_episodes:
             observations, done = self._env.reset(), False
             current_episode = self._env.get_current_episode()
+            # TODO: add here to record instance memory for data collection
             agent.reset_vectorized([current_episode])
 
             current_episode_key = (
@@ -252,7 +257,8 @@ class OVMMEvaluator(PPOTrainer):
 
             while not done:
                 action, info, _ = agent.act(observations)
-                observations, done, hab_info = self._env.apply_action(action, info)
+                observations, done, hab_info = self._env.apply_action(
+                    action, info)
 
                 if "skill_done" in info and info["skill_done"] != "":
                     metrics = self._extract_scalars_from_info(hab_info)
@@ -265,9 +271,18 @@ class OVMMEvaluator(PPOTrainer):
                     }
                     if "goal_name" in info:
                         current_episode_metrics["goal_name"] = info["goal_name"]
+            os.makedirs("/private/home/xiaohanzhang/data/ovmm_rl",
+                        exist_ok=True)
+            os.makedirs("/private/home/xiaohanzhang/data/ovmm_rl/" +
+                        str(current_episode_key), exist_ok=True)
+            with open("/private/home/xiaohanzhang/data/ovmm_rl/"+str(current_episode_key)+"/instance_memory.pkl", 'wb') as f:
+                pickle.dump(agent.instance_memory, f)
+            with open("/private/home/xiaohanzhang/data/ovmm_rl/"+str(current_episode_key)+"/info.pkl", 'wb') as f:
+                pickle.dump(info, f)
 
             metrics = self._extract_scalars_from_info(hab_info)
-            metrics_at_episode_end = {"END." + k: v for k, v in metrics.items()}
+            metrics_at_episode_end = {
+                "END." + k: v for k, v in metrics.items()}
             current_episode_metrics = {
                 **metrics_at_episode_end,
                 **current_episode_metrics,
@@ -358,11 +373,13 @@ class OVMMEvaluator(PPOTrainer):
         pbar = tqdm(total=num_episodes)
         while count_episodes < num_episodes:
             observations, done = (
-                grpc_loads(stub.reset(evaluation_pb2.Package()).SerializedEntity),
+                grpc_loads(stub.reset(
+                    evaluation_pb2.Package()).SerializedEntity),
                 False,
             )
             current_episode = grpc_loads(
-                stub.get_current_episode(evaluation_pb2.Package()).SerializedEntity
+                stub.get_current_episode(
+                    evaluation_pb2.Package()).SerializedEntity
             )
             agent.reset_vectorized([current_episode])
 
@@ -396,7 +413,8 @@ class OVMMEvaluator(PPOTrainer):
                         current_episode_metrics["goal_name"] = info["goal_name"]
 
             metrics = self._extract_scalars_from_info(hab_info)
-            metrics_at_episode_end = {"END." + k: v for k, v in metrics.items()}
+            metrics_at_episode_end = {
+                "END." + k: v for k, v in metrics.items()}
             current_episode_metrics = {
                 **metrics_at_episode_end,
                 **current_episode_metrics,
