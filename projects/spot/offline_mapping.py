@@ -390,7 +390,13 @@ def print_metrics(
         ]
 
     print(
-        f"total: {len(metrics_df)}, matched correctly: {metrics_df['success'].sum()}, at least mapped: {metrics_df['instance_detected'].sum()}"
+        f"total: {len(metrics_df)}, "
+        f"matched correctly: {metrics_df['success'].sum()}, "
+        f"at least mapped: {metrics_df['instance_detected'].sum()}"
+    )
+    print(
+        f"% mapped: {metrics_df['instance_detected'].sum() / len(metrics_df):.2f}, "
+        f"% matched correctly: {metrics_df['success'].sum() / metrics_df['instance_detected'].sum():.2f}"
     )
 
 
