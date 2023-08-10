@@ -817,6 +817,9 @@ def main(base_dir: str, legend_path: str):
     print_metrics(metrics, goal_type="image")
     print("-" * 50)
     print_metrics(metrics, goal_type="language")
+    for category in np.unique([m["category"] for m in metrics]):
+        print("-" * 50)
+        print_metrics(metrics, goal_category=category)
 
 
 if __name__ == "__main__":
