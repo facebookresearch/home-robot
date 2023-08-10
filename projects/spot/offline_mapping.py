@@ -9,13 +9,14 @@ import pickle
 import re
 import sys
 from pathlib import Path
-from typing import List, Optional
+from typing import Dict, List, Optional
 
 import click
 import cv2
 import matplotlib.pyplot as plt
 import natsort
 import numpy as np
+import pandas as pd
 import skimage.morphology
 import torch
 from habitat_sim.utils.common import d3_40_colors_rgb
@@ -367,6 +368,20 @@ save_map_and_instances = False
 load_map_and_instances = True
 
 
+def print_metrics(metrics_list: List[Dict], goal_type: Optional[str] = None):
+    if goal_type is None:
+        print("all goals:")
+    else:
+        print(f"{goal_type} goals: ")
+
+    metrics_df = pd.DataFrame.from_records(metrics_list)
+    if goal_type is not None:
+        metrics_df = metrics_df[metrics_df["type"] == goal_type]
+    print(
+        f"total: {len(metrics_df)}, matched correctly: {metrics_df['success'].sum()}, at least mapped: {metrics_df['instance_detected'].sum()}"
+    )
+
+
 @click.command()
 @click.option(
     "--base_dir",
@@ -386,7 +401,7 @@ def main(base_dir: str, legend_path: str):
     else:
         legend = None
 
-    device = torch.device("cuda:0")
+    device = torch.device("cuda:1")
 
     categories = list(coco_categories.keys())
     num_sem_categories = len(coco_categories)
@@ -665,9 +680,7 @@ def main(base_dir: str, legend_path: str):
         print("No goals specified: goals.json does not exist")
         sys.exit()
 
-    success = []
-    lang_success = []
-    image_success = []
+    metrics = []
     for i, goal in enumerate(goals):
         categories = goal["categories"]
         goal_type = goal["type"]
@@ -728,7 +741,6 @@ def main(base_dir: str, legend_path: str):
             Path(goal_grounding_vis_dir) / f"{goal_type}_goal{i}_stats.json", "w"
         ) as f:
             json.dump(stats, f, indent=4)
-
         (
             goal_map,
             _,
@@ -772,19 +784,26 @@ def main(base_dir: str, legend_path: str):
         correct_instances = [
             instance["id"] for instance in goal["ground_truth_instances"]
         ]
-        print(f"Correct instances were {correct_instances}")
-        success.append(int(goal_inst in correct_instances))
-        if goal_type == "image":
-            image_success.append(success[-1])
-        else:
-            lang_success.append(success[-1])
 
-    print("Results.")
-    print(f"Identified {sum(success)}/{len(success)} goals correctly")
-    print(
-        f"Identified {sum(lang_success)}/{len(lang_success)} language goals correctly"
-    )
-    print(f"Identified {sum(image_success)}/{len(image_success)} image goals correctly")
+        print(f"Correct instances were {correct_instances}")
+        metrics_per_goal = {
+            "type": goal_type,
+            "name": name,
+            "success": int(goal_inst in correct_instances),
+            "instance_detected": np.any(
+                [
+                    inst in instance_memory.instance_views[0]
+                    for inst in correct_instances
+                ]
+            ),
+        }
+        metrics.append(metrics_per_goal)
+    print()
+    print_metrics(metrics)
+    print("-" * 50)
+    print_metrics(metrics, goal_type="image")
+    print("-" * 50)
+    print_metrics(metrics, goal_type="language")
 
 
 if __name__ == "__main__":
