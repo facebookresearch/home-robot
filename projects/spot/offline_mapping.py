@@ -495,7 +495,7 @@ def main(base_dir: str, legend_path: str):
                 debug_visualize=True,
                 save_dir=f"{base_dir}/instances",
                 mask_cropped_instances=False,
-                padding_cropped_instances=100,
+                padding_cropped_instances=0,
                 category_id_to_category_name=coco_category_id_to_coco_category,
             )
 
@@ -744,7 +744,7 @@ def main(base_dir: str, legend_path: str):
             0,
             language_goal=language_goal,
             image_goal=image_goal,
-            use_full_image=False,
+            use_full_image=True,
             categories=category_ids,
             goal_image_keypoints=goal_image_keypoints,
         )
