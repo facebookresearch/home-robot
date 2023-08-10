@@ -3,14 +3,14 @@ NUM_ENVIRONMENTS: 1       # number of environments (per agent process)
 DUMP_LOCATION: datadump   # path to dump models and log
 EXP_NAME: eval_hssd       # experiment name
 VISUALIZE: 0              # 1: render observation and predicted semantic map, 0: no visualization
-PRINT_IMAGES: 0           # 1: save visualization as images, 0: no image saving
-GROUND_TRUTH_SEMANTICS: 0 # 1: use ground-truth semantics (for debugging / ablations)
+PRINT_IMAGES: 1           # 1: save visualization as images, 0: no image saving
+GROUND_TRUTH_SEMANTICS: 1 # 1: use ground-truth semantics (for debugging / ablations)
 seed: 0                   # seed
 SHOW_RL_OBS: False         # whether to show the observations passed to RL policices, for debugging
 
 ENVIRONMENT:
-  forward: 0.25           # forward motion (in meters)
-  turn_angle: 30.0        # agent turn angle (in degrees)
+  forward: 0.25           # forward motion (in meters)  Note: changing this should require a corresponding change in the habitat benchmark config
+  turn_angle: 30.0         # agent turn angle (in degrees)  Note: changing this should require a corresponding change in the habitat benchmark config
   frame_height: 640       # first-person frame height (in pixels)
   frame_width: 480        # first-person frame width (in pixels)
   camera_height: 1.31     # camera sensor height (in metres)
