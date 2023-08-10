@@ -393,7 +393,7 @@ def print_metrics(
         f"total: {len(metrics_df)}, "
         f"matched correctly: {metrics_df['success'].sum()}, "
         f"false positive: {metrics_df['false_positive'].sum()}, "
-        f"false negative: {metrics_df['false_positive'].sum()}, "
+        f"false negative: {metrics_df['false_negative'].sum()}, "
         f"at least mapped: {metrics_df['instance_detected'].sum()}"
     )
     print(
