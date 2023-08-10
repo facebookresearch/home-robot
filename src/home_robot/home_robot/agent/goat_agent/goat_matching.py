@@ -315,7 +315,7 @@ class GoatMatching(Matching):
             if goal_map_temp.any():
                 instance_goal_found = True
                 goal_inst = best_instance_id
-                print(f"{goal_inst} will be the goal")
+                print(f"Instance {goal_inst} will be the goal")
                 return instance_goal_found, goal_inst
             else:
                 print("Instance was seen, but not present in local map.")

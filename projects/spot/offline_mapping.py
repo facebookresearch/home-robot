@@ -368,15 +368,27 @@ save_map_and_instances = False
 load_map_and_instances = True
 
 
-def print_metrics(metrics_list: List[Dict], goal_type: Optional[str] = None):
-    if goal_type is None:
-        print("all goals:")
-    else:
-        print(f"{goal_type} goals: ")
-
+def print_metrics(
+    metrics_list: List[Dict],
+    goal_type: Optional[str] = None,
+    goal_category: Optional[str] = None,
+):
     metrics_df = pd.DataFrame.from_records(metrics_list)
-    if goal_type is not None:
+
+    if goal_type is None and goal_category is None:
+        print("all goals:")
+    elif goal_type is not None and goal_category is None:
+        print(f"{goal_type} goals: ")
         metrics_df = metrics_df[metrics_df["type"] == goal_type]
+    elif goal_type is None and goal_category is not None:
+        print(f"{goal_category} goals: ")
+        metrics_df = metrics_df[metrics_df["category"] == goal_category]
+    else:
+        print(f"{goal_type} {goal_category} goals: ")
+        metrics_df = metrics_df[metrics_df["type"] == goal_type][
+            metrics_df["category"] == goal_category
+        ]
+
     print(
         f"total: {len(metrics_df)}, matched correctly: {metrics_df['success'].sum()}, at least mapped: {metrics_df['instance_detected'].sum()}"
     )
@@ -788,6 +800,7 @@ def main(base_dir: str, legend_path: str):
         print(f"Correct instances were {correct_instances}")
         metrics_per_goal = {
             "type": goal_type,
+            "category": categories[0],
             "name": name,
             "success": int(goal_inst in correct_instances),
             "instance_detected": np.any(
