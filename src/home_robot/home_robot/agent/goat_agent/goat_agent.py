@@ -773,7 +773,7 @@ class GoatAgent(Agent):
                 self.matching.match_language_to_image,
                 self.total_timesteps[0],
                 language_goal=current_task["instruction"],
-                use_full_image=False,
+                use_full_image=True,
                 categories=[current_task["semantic_id"]],
             )
             stats = {
@@ -803,7 +803,7 @@ class GoatAgent(Agent):
                 self.sub_task_timesteps[0][self.current_task_idx],
                 image_goal=self.goal_image,
                 goal_image_keypoints=self.goal_image_keypoints,
-                use_full_image=False,
+                use_full_image=True,
                 categories=[current_task["semantic_id"]],
             )
             stats = {
