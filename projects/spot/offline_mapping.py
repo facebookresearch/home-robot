@@ -780,7 +780,7 @@ def main(base_dir: str, legend_path: str):
             all_matches=all_matches,
             all_confidences=all_confidences,
             instance_ids=instance_ids,
-            score_thresh=score_thresh,
+            score_thresh=0.0,  # score_thresh,
             agg_fn=agg_fn,
         )
         if instance_goal_found:
