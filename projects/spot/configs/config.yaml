@@ -89,7 +89,7 @@ AGENT:
     match_threshold: 0.2
     score_function: confidence_sum    # or match_count
     score_thresh_image: 3.0
-    score_thresh_lang: 0.28
+    score_thresh_lang: 0.26
     agg_fn_image: max
     agg_fn_lang: max
     match_projection_threshold: 0.2   # confidence must be at least this high to project as goal point.
