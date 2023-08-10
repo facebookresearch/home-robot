@@ -397,8 +397,8 @@ def print_metrics(
         f"at least mapped: {metrics_df['instance_detected'].sum()}"
     )
     print(
-        f"matching accuracy: {metrics_df['success'].sum() / metrics_df['instance_detected'].sum() * 100.0:d}%, "
-        f"at least mapped: {metrics_df['instance_detected'].sum() / len(metrics_df) * 100.0:d}%"
+        f"matching accuracy: {metrics_df['success'].sum() / metrics_df['instance_detected'].sum() * 100.0:.1f}%, "
+        f"at least mapped: {metrics_df['instance_detected'].sum() / len(metrics_df) * 100.0:.1f}%"
     )
 
 
@@ -495,6 +495,7 @@ def main(base_dir: str, legend_path: str):
                 debug_visualize=True,
                 save_dir=f"{base_dir}/instances",
                 mask_cropped_instances=False,
+                padding_cropped_instances=0,
                 category_id_to_category_name=coco_category_id_to_coco_category,
             )
 

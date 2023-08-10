@@ -100,12 +100,14 @@ class InstanceMemory:
         config=None,
         save_dir="instances",
         mask_cropped_instances=False,
+        padding_cropped_instances=0,
         category_id_to_category_name=None,
     ):
         self.num_envs = num_envs
         self.du_scale = du_scale
         self.debug_visualize = debug_visualize
         self.mask_cropped_instances = mask_cropped_instances
+        self.padding_cropped_instances = padding_cropped_instances
         self.category_id_to_category_name = category_id_to_category_name
 
         if config is not None:
@@ -269,8 +271,11 @@ class InstanceMemory:
                 masked_image = image
 
             # get cropped image
+            p = self.padding_cropped_instances
             cropped_image = (
-                masked_image[:, bbox[0, 0] : bbox[1, 0], bbox[0, 1] : bbox[1, 1]]
+                masked_image[
+                    :, bbox[0, 0] - p : bbox[1, 0] + p, bbox[0, 1] - p : bbox[1, 1] + p
+                ]
                 .permute(1, 2, 0)
                 .cpu()
                 .numpy()
