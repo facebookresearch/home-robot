@@ -266,10 +266,12 @@ class InstanceMemory:
 
             # get cropped image
             p = self.padding_cropped_instances
-            breakpoint()
+            h, w = masked_image.shape[1:]
             cropped_image = (
                 masked_image[
-                    :, bbox[0, 0] - p : bbox[1, 0] + p, bbox[0, 1] - p : bbox[1, 1] + p
+                    :,
+                    max(bbox[0, 0] - p, 0) : min(bbox[1, 0] + p, h),
+                    max(bbox[0, 1] - p, 0) : min(bbox[1, 1] + p, w),
                 ]
                 .permute(1, 2, 0)
                 .cpu()
