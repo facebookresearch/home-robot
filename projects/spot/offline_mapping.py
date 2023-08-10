@@ -365,8 +365,6 @@ def text_to_image(
 record_instance_ids = True
 save_map_and_instances = False
 load_map_and_instances = True
-ground_image_in_memory = True
-ground_language_in_memory = True
 
 
 @click.command()
@@ -388,7 +386,7 @@ def main(base_dir: str, legend_path: str):
     else:
         legend = None
 
-    device = torch.device("cuda:1")
+    device = torch.device("cuda:0")
 
     categories = list(coco_categories.keys())
     num_sem_categories = len(coco_categories)
@@ -647,9 +645,6 @@ def main(base_dir: str, legend_path: str):
     # Ground goals in memory
     # --------------------------------------------------------------------------------------------
 
-    if not (ground_image_in_memory or ground_language_in_memory):
-        return
-
     config_path = "projects/spot/configs/config.yaml"
     config, _ = get_config(config_path)
     matching = GoatMatching(
@@ -661,202 +656,133 @@ def main(base_dir: str, legend_path: str):
         print_images=True,
     )
 
-    Path(goal_grounding_vis_dir).mkdir(parents=True, exist_ok=True)
+    goals_file = Path(f"{base_dir}/goals.json")
+    goals = []
+    if Path.exists(goals_file):
+        with open(goals_file) as f:
+            goals = json.load(f)
+    else:
+        print("No goals specified: goals.json does not exist")
+        sys.exit()
 
-    # -----------------------------------------------
-    # Image goals
-    # -----------------------------------------------
-
-    if ground_image_in_memory:
-        image_goal_paths = sorted(
-            glob.glob(f"{str(Path(__file__).resolve().parent)}/image_goals/*.png")
-        )
-        for image_goal_path in image_goal_paths:
-            image_goal = cv2.imread(image_goal_path)
-            image_goal_str = image_goal_path.split("/")[-1]
-            category = re.split("(\d+)", image_goal_str)[0]
-            category_id = coco_categories.get(category)
-            print()
-            print("Image goal:", image_goal_str)
-            print("Category:", category)
-
-            goal_image, goal_image_keypoints = matching.get_goal_image_keypoints(
+    success = []
+    lang_success = []
+    image_success = []
+    for i, goal in enumerate(goals):
+        categories = goal["categories"]
+        goal_type = goal["type"]
+        name = goal["name"]
+        print()
+        print(f"Goal {i}")
+        print(f"Type: {goal_type}")
+        category_ids = None
+        if categories is not None:
+            category_ids = [coco_categories.get(c) for c in categories]
+        if goal_type == "image":
+            image_goal = cv2.imread(str(Path(base_dir) / "image_goals" / name))
+            goal_vis_image = image_goal[:, :, ::-1]
+            image_goal, goal_image_keypoints = matching.get_goal_image_keypoints(
                 image_goal
             )
-            (
-                all_matches,
-                all_confidences,
-                instance_ids,
-            ) = matching.get_matches_against_memory(
-                instance_memory,
-                matching.match_image_to_image,
-                0,
-                image_goal=goal_image,
-                goal_image_keypoints=goal_image_keypoints,
-                use_full_image=False,
-                categories=[category_id] if category_id is not None else None,
+            language_goal = None
+            matching_fn = matching.match_image_to_image
+            score_thresh = config.AGENT.SUPERGLUE.score_thresh_image
+            agg_fn = config.AGENT.SUPERGLUE.agg_fn_image
+        elif goal_type == "language":
+            language_goal = name
+            goal_vis_image = text_to_image(language_goal, 640, 480)
+            image_goal, goal_image_keypoints = None, None
+            matching_fn = matching.match_language_to_image
+            score_thresh = config.AGENT.SUPERGLUE.score_thresh_lang
+            agg_fn = config.AGENT.SUPERGLUE.agg_fn_lang
+        else:
+            raise ValueError(
+                "Invalid goal type. Only image and language goals supported currently"
             )
 
-            (
-                goal_map,
-                _,
-                instance_goal_found,
-                goal_inst,
-            ) = matching.select_and_localize_instance(
-                goal_map=None,
-                found_goal=torch.Tensor([False]),
-                local_map=semantic_map.local_map,
-                matches=None,
-                confidence=None,
-                instance_goal_found=False,
-                goal_inst=None,
-                all_matches=all_matches,
-                all_confidences=all_confidences,
-                instance_ids=instance_ids,
-                score_thresh=config.AGENT.SUPERGLUE.score_thresh_image,
-                agg_fn=config.AGENT.SUPERGLUE.agg_fn_image,
-            )
-            stats = {
-                i: {
-                    "mean": float(scores.sum(axis=1).mean()),
-                    "median": float(np.median(scores.sum(axis=1))),
-                    "max": float(scores.sum(axis=1).max()),
-                    "min": float(scores.sum(axis=1).min()),
-                    "all": scores.sum(axis=1).tolist(),
-                }
-                for i, scores in zip(instance_ids, all_confidences)
+        (
+            all_matches,
+            all_confidences,
+            instance_ids,
+        ) = matching.get_matches_against_memory(
+            instance_memory,
+            matching_fn,
+            0,
+            language_goal=language_goal,
+            use_full_image=False,
+            categories=category_ids,
+        )
+        stats = {
+            i: {
+                "mean": float(scores.mean()),
+                "median": float(np.median(scores)),
+                "max": float(scores.max()),
+                "min": float(scores.min()),
+                "all": scores.flatten().tolist(),
             }
-            with open(
-                Path(goal_grounding_vis_dir)
-                / f"image_{image_goal_str.split('.')[0]}_stats.json",
-                "w",
-            ) as f:
-                json.dump(stats, f, indent=4)
+            for i, scores in zip(instance_ids, all_confidences)
+        }
+        with open(
+            Path(goal_grounding_vis_dir) / f"language_goal{i}_stats.json", "w"
+        ) as f:
+            json.dump(stats, f, indent=4)
 
-            if instance_goal_found:
-                semantic_map.update_global_goal_for_env(0, goal_map.cpu().numpy())
+        (
+            goal_map,
+            _,
+            instance_goal_found,
+            goal_inst,
+        ) = matching.select_and_localize_instance(
+            goal_map=None,
+            found_goal=torch.Tensor([False]),
+            local_map=semantic_map.local_map,
+            matches=None,
+            confidence=None,
+            local_instance_ids=None,
+            local_id_to_global_id_map=None,
+            instance_goal_found=False,
+            goal_inst=None,
+            all_matches=all_matches,
+            all_confidences=all_confidences,
+            instance_ids=instance_ids,
+            score_thresh=score_thresh,
+            agg_fn=agg_fn,
+        )
+        if instance_goal_found:
+            semantic_map.update_global_goal_for_env(0, goal_map.cpu().numpy())
 
-                vis_image = get_semantic_map_vis(
-                    semantic_map,
-                    goal_image=image_goal[:, :, ::-1],
-                    # Visualize the first cropped view of the instance matched
-                    instance_image=instance_memory.instance_views[0][goal_inst]
-                    .instance_views[0]
-                    .cropped_image[:, :, ::-1],
-                    legend=legend,
-                )
-                plt.imsave(
-                    Path(goal_grounding_vis_dir) / f"image_{image_goal_str}", vis_image
-                )
+            vis_image = get_semantic_map_vis(
+                semantic_map,
+                goal_image=goal_vis_image,
+                # Visualize the first cropped view of the instance
+                instance_image=instance_memory.instance_views[0][goal_inst]
+                .instance_views[0]
+                .cropped_image[:, :, ::-1],
+                legend=legend,
+            )
+            plt.imsave(
+                Path(goal_grounding_vis_dir) / f"{goal_type}_goal{i}.png", vis_image
+            )
 
-                print("Found goal:", instance_goal_found)
-                print("Goal instance ID:", goal_inst)
+            print("Found goal:", instance_goal_found)
+            print("Goal instance ID:", goal_inst)
 
-            else:
-                print("Could not find goal")
-
-    # -----------------------------------------------
-    # Language goals
-    # -----------------------------------------------
-
-    if ground_language_in_memory:
-        language_goals = [
-            ("The high chair with metal legs next to the kitchen counter.", ["chair"]),
-            ("The chair with metal legs next to the dining table.", ["chair"]),
-            ("The grey armchair.", ["chair"]),
-            ("The black plastic office chair.", ["chair"]),
-            ("The brown leather chair next to the bedside table.", ["chair"]),
-            ("The brown leather chair next to the picture and plant.", ["chair"]),
-            ("The green leafy plant next to the grey armchair.", ["potted plant"]),
-            (
-                "The green leafy plant next to the brown chair.",
-                ["potted plant", "chair"],
-            ),
-            ("The brown dead plant.", ["potted plant"]),
-            ("the kitchen sink", ["sink"]),
-            ("the bathroom sink", ["sink"]),
-            ("The bed with white sheets.", ["refrigerator"]),
-            ("the bed", ["bed"]),
-            ("The large white couch.", ["couch"]),
-            ("The oven.", ["oven"]),
-            ("the person with the grey shirt", None),
-            ("the white cup", ["cup"]),
-            ("the toilet", ["toilet"]),
-            ("the beige teddy bear", ["teddy bear"]),
+        correct_instances = [
+            instance["id"] for instance in goal["ground_truth_instances"]
         ]
+        print(f"Correct instances were {correct_instances}")
+        success.append(int(goal_inst in correct_instances))
+        if goal_type == "image":
+            image_success.append(success[-1])
+        else:
+            lang_success.append(success[-1])
 
-        for i, (language_goal, categories) in enumerate(language_goals):
-            print()
-            print("Language goal:", language_goal)
-            category_ids = None
-            if categories is not None:
-                category_ids = [coco_categories.get(c) for c in categories]
-            (
-                all_matches,
-                all_confidences,
-                instance_ids,
-            ) = matching.get_matches_against_memory(
-                instance_memory,
-                matching.match_language_to_image,
-                0,
-                language_goal=language_goal,
-                use_full_image=False,
-                categories=category_ids,
-            )
-            stats = {
-                i: {
-                    "mean": float(scores.mean()),
-                    "median": float(np.median(scores)),
-                    "max": float(scores.max()),
-                    "min": float(scores.min()),
-                    "all": scores.flatten().tolist(),
-                }
-                for i, scores in zip(instance_ids, all_confidences)
-            }
-            with open(
-                Path(goal_grounding_vis_dir) / f"language_goal{i}_stats.json", "w"
-            ) as f:
-                json.dump(stats, f, indent=4)
-
-            (
-                goal_map,
-                _,
-                instance_goal_found,
-                goal_inst,
-            ) = matching.select_and_localize_instance(
-                goal_map=None,
-                found_goal=torch.Tensor([False]),
-                local_map=semantic_map.local_map,
-                matches=None,
-                confidence=None,
-                local_instance_ids=None,
-                local_id_to_global_id_map=None,
-                instance_goal_found=False,
-                goal_inst=None,
-                all_matches=all_matches,
-                all_confidences=all_confidences,
-                instance_ids=instance_ids,
-                score_thresh=config.AGENT.SUPERGLUE.score_thresh_lang,
-                agg_fn=config.AGENT.SUPERGLUE.agg_fn_lang,
-            )
-            if instance_goal_found:
-                semantic_map.update_global_goal_for_env(0, goal_map.cpu().numpy())
-
-                vis_image = get_semantic_map_vis(
-                    semantic_map,
-                    goal_image=text_to_image(language_goal, 640, 480),
-                    # Visualize the first cropped view of the instance
-                    instance_image=instance_memory.instance_views[0][goal_inst]
-                    .instance_views[0]
-                    .cropped_image[:, :, ::-1],
-                    legend=legend,
-                )
-                plt.imsave(
-                    Path(goal_grounding_vis_dir) / f"language_goal{i}.png", vis_image
-                )
-
-                print("Found goal:", instance_goal_found)
-                print("Goal instance ID:", goal_inst)
+    print("Results.")
+    print(f"Identified {sum(success)}/{len(success)} goals correctly")
+    print(
+        f"Identified {sum(lang_success)}/{len(lang_success)} language goals correctly"
+    )
+    print(f"Identified {sum(image_success)}/{len(image_success)} image goals correctly")
 
 
 if __name__ == "__main__":
