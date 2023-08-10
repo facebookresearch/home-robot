@@ -364,8 +364,8 @@ def text_to_image(
 
 
 record_instance_ids = True
-save_map_and_instances = False
-load_map_and_instances = True
+save_map_and_instances = True
+load_map_and_instances = False
 
 
 def print_metrics(
@@ -495,7 +495,7 @@ def main(base_dir: str, legend_path: str):
                 debug_visualize=True,
                 save_dir=f"{base_dir}/instances",
                 mask_cropped_instances=False,
-                padding_cropped_instances=0,
+                padding_cropped_instances=50,
                 category_id_to_category_name=coco_category_id_to_coco_category,
             )
 
