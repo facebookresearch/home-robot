@@ -392,11 +392,13 @@ def print_metrics(
     print(
         f"total: {len(metrics_df)}, "
         f"matched correctly: {metrics_df['success'].sum()}, "
+        f"false positive: {metrics_df['false_positive'].sum()}, "
+        f"false negative: {metrics_df['false_positive'].sum()}, "
         f"at least mapped: {metrics_df['instance_detected'].sum()}"
     )
     print(
-        f"matched correctly out of mapped: {metrics_df['success'].sum() / metrics_df['instance_detected'].sum() * 100.0:.2f}%, "
-        f"at least mapped: {metrics_df['instance_detected'].sum() / len(metrics_df) * 100.0:.2f}%"
+        f"matching accuracy: {metrics_df['success'].sum() / metrics_df['instance_detected'].sum() * 100.0:d}%, "
+        f"at least mapped: {metrics_df['instance_detected'].sum() / len(metrics_df) * 100.0:d}%"
     )
 
 
@@ -809,6 +811,10 @@ def main(base_dir: str, legend_path: str):
             "category": categories[0],
             "name": name,
             "success": int(goal_inst in correct_instances),
+            "false_positive": int(
+                goal_inst is not None and goal_inst not in correct_instances
+            ),
+            "false_negative": int(goal_inst is None),
             "instance_detected": np.any(
                 [
                     inst in instance_memory.instance_views[0]
