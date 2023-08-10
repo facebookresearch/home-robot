@@ -709,8 +709,10 @@ def main(base_dir: str, legend_path: str):
             matching_fn,
             0,
             language_goal=language_goal,
+            image_goal=image_goal,
             use_full_image=False,
             categories=category_ids,
+            goal_image_keypoints=goal_image_keypoints,
         )
         stats = {
             i: {
@@ -723,7 +725,7 @@ def main(base_dir: str, legend_path: str):
             for i, scores in zip(instance_ids, all_confidences)
         }
         with open(
-            Path(goal_grounding_vis_dir) / f"language_goal{i}_stats.json", "w"
+            Path(goal_grounding_vis_dir) / f"{goal_type}_goal{i}_stats.json", "w"
         ) as f:
             json.dump(stats, f, indent=4)
 
