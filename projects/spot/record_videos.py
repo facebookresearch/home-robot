@@ -1,8 +1,16 @@
 import glob
 import pickle
+import sys
+from pathlib import Path
 
 import cv2
 import natsort
+
+# TODO Install home_robot and remove this
+sys.path.insert(
+    0,
+    str(Path(__file__).resolve().parent.parent.parent / "src/home_robot"),
+)
 
 
 def create_video(images, output_file, fps):
