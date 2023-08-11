@@ -67,6 +67,7 @@ def record_videos(trajectory: str):
 
     # Videos
     video_dir = f"{trajectory}/videos"
+    Path(video_dir).mkdir(parents=True, exist_ok=True)
     create_video(rgbs, f"{video_dir}/rgb.mp4", fps=5)
     create_video(semantic_frames, f"{video_dir}/semantic_frame.mp4", fps=5)
     create_video(depths, f"{video_dir}/depth.mp4", fps=5)
