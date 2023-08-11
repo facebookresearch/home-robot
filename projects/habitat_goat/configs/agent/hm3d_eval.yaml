@@ -80,6 +80,7 @@ AGENT:
     score_thresh_image: 24.5  # real-world experiments used 6.0
     score_thresh_lang: 0.28
     match_projection_threshold: 0.2   # confidence must be at least this high to project as goal point.
+    goto_past_pose: False
 
   DETIC:
     config_file: Detic/configs/Detic_LCOCOI21k_CLIP_SwinB_896b32_4x_ft4x_max-size.yaml

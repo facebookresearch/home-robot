@@ -200,7 +200,7 @@ def get_semantic_map_vis(
         0.70,  # goal
     ]
     map_color_palette = [int(x * 255.0) for x in map_color_palette]
-    map_color_palette += d3_40_colors_rgb.flatten().tolist()
+    map_color_palette += d3_40_colors_rgb.flatten().tolist()[1:]
 
     new_colors = d3_40_colors_rgb.copy()
     new_colors[:, 0] = np.minimum(new_colors[:, 0] + 15, 255)
@@ -233,7 +233,7 @@ def get_semantic_map_vis(
 
         num_instances = int(np.max(unique_instances))
 
-        if num_instances > 2 * len(d3_40_colors_rgb):
+        if num_instances > 2 * len(d3_40_colors_rgb) - 1:
             raise NotImplementedError
 
     obstacle_mask = np.rint(obstacle_map) == 1
@@ -690,6 +690,7 @@ def main(base_dir: str, legend_path: str):
         config=config.AGENT.SUPERGLUE,
         default_vis_dir=map_vis_dir,
         print_images=True,
+        instance_memory=instance_memory,
     )
 
     goals_file = Path(f"{base_dir}/goals.json")
@@ -739,7 +740,6 @@ def main(base_dir: str, legend_path: str):
             all_confidences,
             instance_ids,
         ) = matching.get_matches_against_memory(
-            instance_memory,
             matching_fn,
             0,
             language_goal=language_goal,
@@ -771,6 +771,7 @@ def main(base_dir: str, legend_path: str):
             goal_map=None,
             found_goal=torch.Tensor([False]),
             local_map=semantic_map.local_map,
+            lmb=semantic_map.lmb,
             matches=None,
             confidence=None,
             local_instance_ids=None,
@@ -793,7 +794,9 @@ def main(base_dir: str, legend_path: str):
                 instance_image=instance_memory.instance_views[0][goal_inst]
                 .instance_views[0]
                 .cropped_image[:, :, ::-1],
-                legend=legend,
+                legend=None,
+                instance_memory=instance_memory,
+                visualize_instances=True,
             )
             plt.imsave(
                 Path(goal_grounding_vis_dir) / f"{goal_type}_goal{i}.png", vis_image
@@ -809,7 +812,7 @@ def main(base_dir: str, legend_path: str):
         print(f"Correct instances were {correct_instances}")
         metrics_per_goal = {
             "type": goal_type,
-            "category": categories[0],
+            "category": categories[0] if categories is not None else "None",
             "name": name,
             "success": int(goal_inst in correct_instances),
             "false_positive": int(

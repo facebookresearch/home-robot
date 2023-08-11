@@ -30,6 +30,7 @@ class GoatMatching(Matching):
         config: Dict[str, Any],
         default_vis_dir: str,
         print_images: bool,
+        instance_memory: InstanceMemory,
     ) -> None:
         super().__init__(device, config, default_vis_dir, print_images)
 
@@ -40,10 +41,11 @@ class GoatMatching(Matching):
         # generate clip embeddings by loading clip model
         self.device = device
         self.clip_model, self.clip_preprocess = clip.load("ViT-B/32", device)
+        self.goto_past_pose = config.goto_past_pose
+        self.instance_memory = instance_memory
 
     def get_matches_against_current_frame(
         self,
-        instance_memory,
         matching_fn,
         step,
         image_goal=None,
@@ -56,6 +58,7 @@ class GoatMatching(Matching):
         Compute matching scores from an image or language goal with each instance
         detected in the current frame.
         """
+        instance_memory = self.instance_memory
         # TODO We should restrict detections in the current frame by category
         detections = []
         instance_ids = []
@@ -116,7 +119,6 @@ class GoatMatching(Matching):
 
     def get_matches_against_memory(
         self,
-        instance_memory: InstanceMemory,
         matching_fn,
         step,
         image_goal=None,
@@ -129,6 +131,7 @@ class GoatMatching(Matching):
         Compute matching scores from an image or language goal with each instance
         in the instance memory.
         """
+        instance_memory = self.instance_memory
         all_matches, all_confidences = [], []
         instances = instance_memory.instance_views[0]
         all_views = []
@@ -310,15 +313,18 @@ class GoatMatching(Matching):
             inst_map_idx = instance_map == best_instance_id
             inst_map_idx = torch.argmax(torch.sum(inst_map_idx, axis=(1, 2)))
 
-            goal_map_temp = (instance_map[inst_map_idx] == best_instance_id).float()
-
-            if goal_map_temp.any():
-                instance_goal_found = True
-                goal_inst = best_instance_id
-                print(f"Instance {goal_inst} will be the goal")
-                return instance_goal_found, goal_inst
+            if not self.goto_past_pose:
+                goal_map_temp = (instance_map[inst_map_idx] == best_instance_id).float()
+                if goal_map_temp.any():
+                    instance_goal_found = True
+                    goal_inst = best_instance_id
+                    print(f"Instance {goal_inst} will be the goal")
+                    return instance_goal_found, goal_inst
+                else:
+                    print("Instance was seen, but not present in local map.")
             else:
-                print("Instance was seen, but not present in local map.")
+                # we are ok with object not being on map when using agent pose as target
+                return True, best_instance_id
 
         if idx == len(sorted_inst_ids):
             print("Goal image does not match any instance.")
@@ -346,13 +352,27 @@ class GoatMatching(Matching):
         return agg_scores
 
     def get_goal_map_from_goal_instance(
-        self, instance_map, goal_map, goal_inst, instance_goal_found, found_goal
+        self, instance_map, goal_map, lmb, goal_inst, instance_goal_found, found_goal
     ):
         if goal_inst is not None and instance_goal_found is True:
             found_goal[0] = True
-            inst_map_idx = instance_map == goal_inst
-            inst_map_idx = torch.argmax(torch.sum(inst_map_idx, axis=(1, 2)))
-            goal_map = (instance_map[inst_map_idx] == goal_inst).to(torch.float)
+            if self.goto_past_pose:
+                instance_memory = self.instance_memory
+                # pick a view to get the pose, using the last one - expected to be closest
+                pose = (
+                    instance_memory.instance_views[0][goal_inst].instance_views[-1].pose
+                )
+                curr_x, curr_y, curr_o, gy1, _, gx1, _ = pose.tolist()
+                goal_map = torch.zeros(instance_map[0].shape)
+                pos = (
+                    int(curr_x * 100.0 / 5 - lmb[0][2]),
+                    int(curr_y * 100.0 / 5 - lmb[0][0]),
+                )
+                goal_map[pos[1], pos[0]] = 1
+            else:
+                inst_map_idx = instance_map == goal_inst
+                inst_map_idx = torch.argmax(torch.sum(inst_map_idx, axis=(1, 2)))
+                goal_map = (instance_map[inst_map_idx] == goal_inst).to(torch.float)
         return goal_map, found_goal
 
     def select_and_localize_instance(
@@ -360,6 +380,7 @@ class GoatMatching(Matching):
         goal_map: torch.Tensor,
         found_goal: torch.Tensor,
         local_map: torch.Tensor,
+        lmb: torch.Tensor,  # local map boundaries
         matches: torch.Tensor,
         confidence: torch.Tensor,
         local_instance_ids: List,
@@ -384,7 +405,7 @@ class GoatMatching(Matching):
 
         if goal_inst is not None and instance_goal_found is True:
             goal_map, found_goal = self.get_goal_map_from_goal_instance(
-                instance_map, goal_map, goal_inst, instance_goal_found, found_goal
+                instance_map, goal_map, lmb, goal_inst, instance_goal_found, found_goal
             )
             return goal_map, found_goal, instance_goal_found, goal_inst
 
@@ -416,7 +437,7 @@ class GoatMatching(Matching):
 
         if goal_inst is not None and instance_goal_found is True:
             goal_map, found_goal = self.get_goal_map_from_goal_instance(
-                instance_map, goal_map, goal_inst, instance_goal_found, found_goal
+                instance_map, goal_map, lmb, goal_inst, instance_goal_found, found_goal
             )
 
         return goal_map, found_goal, instance_goal_found, goal_inst

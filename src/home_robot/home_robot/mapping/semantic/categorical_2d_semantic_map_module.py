@@ -275,6 +275,8 @@ class Categorical2DSemanticMapModule(nn.Module):
                 local_map,
                 local_pose,
                 seq_camera_poses,
+                origins,
+                lmb,
                 seq_obstacle_locations[:, t]
                 if seq_obstacle_locations is not None
                 else None,
@@ -292,7 +294,6 @@ class Categorical2DSemanticMapModule(nn.Module):
             seq_lmb[:, t] = lmb
             seq_origins[:, t] = origins
             seq_map_features[:, t] = self._get_map_features(local_map, global_map)
-
         return (
             seq_map_features,
             local_map,
@@ -395,6 +396,8 @@ class Categorical2DSemanticMapModule(nn.Module):
         prev_map: Tensor,
         prev_pose: Tensor,
         camera_pose: Tensor,
+        origins: Tensor,
+        lmb: Tensor,
         obstacle_locations: Optional[Tensor] = None,
         free_locations: Optional[Tensor] = None,
         blacklist_target: bool = False,
@@ -547,7 +550,9 @@ class Categorical2DSemanticMapModule(nn.Module):
                     semantic_channels,
                     instance_channels,
                     point_cloud_t,
-                    current_pose,
+                    torch.concat([current_pose + origins, lmb], axis=1)
+                    .cpu()
+                    .float(),  # store the global pose
                     image=obs[:, :3, :, :],
                 )
 

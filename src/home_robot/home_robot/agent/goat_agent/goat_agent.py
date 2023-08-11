@@ -88,6 +88,7 @@ class GoatAgent(Agent):
             config=config.AGENT.SUPERGLUE,
             default_vis_dir=f"{config.DUMP_LOCATION}/images/{config.EXP_NAME}",
             print_images=config.PRINT_IMAGES,
+            instance_memory=self.instance_memory,
         )
 
         self._module = GoatAgentModule(
@@ -668,7 +669,6 @@ class GoatAgent(Agent):
                     confidences,
                     local_instance_ids,
                 ) = self.matching.get_matches_against_current_frame(
-                    self.instance_memory,
                     self.matching.match_image_to_image,
                     self.total_timesteps[0],
                     image_goal=self.goal_image,
@@ -685,7 +685,6 @@ class GoatAgent(Agent):
                     confidences,
                     local_instance_ids,
                 ) = self.matching.get_matches_against_current_frame(
-                    self.instance_memory,
                     self.matching.match_language_to_image,
                     self.total_timesteps[0],
                     language_goal=current_task["instruction"],
@@ -769,7 +768,6 @@ class GoatAgent(Agent):
                 all_confidences,
                 instance_ids,
             ) = self.matching.get_matches_against_memory(
-                self.instance_memory,
                 self.matching.match_language_to_image,
                 self.total_timesteps[0],
                 language_goal=current_task["instruction"],
@@ -798,7 +796,6 @@ class GoatAgent(Agent):
                 all_confidences,
                 instance_ids,
             ) = self.matching.get_matches_against_memory(
-                self.instance_memory,
                 self.matching.match_image_to_image,
                 self.sub_task_timesteps[0][self.current_task_idx],
                 image_goal=self.goal_image,
