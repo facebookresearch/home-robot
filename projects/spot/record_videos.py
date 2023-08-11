@@ -1,5 +1,7 @@
-import cv2
 import glob
+import pickle
+
+import cv2
 import natsort
 
 
@@ -11,22 +13,29 @@ def create_video(images, output_file, fps):
         video_writer.write(image)
     video_writer.release()
 
-trajectories_folder = "07_26_trajectories"
 
-for traj in glob.glob(f"{trajectories_folder}/*"):
-    print(f"Recording videos for {traj}")
-    full_vis = natsort.natsorted(glob.glob(f"{traj}/map_visualization/*.png"))
-    full_vis = [cv2.imread(f) for f in full_vis]
-    create_video(
-        full_vis,
-        f"{traj}/full_vis.mp4",
-        fps=5,
-    )
+def record_videos(trajectory: str):
+    obs_dir = f"{trajectory}/obs/"
+    observations = []
+    for path in natsort.natsorted(glob.glob(f"{obs_dir}/*.pkl")):
+        with open(path, "rb") as f:
+            observations.append(pickle.load(f))
+    print(f"Recording videos for {trajectory} with {len(observations)} timesteps")
 
-    planner_vis = natsort.natsorted(glob.glob(f"{traj}/images/planner/*.png"))
-    planner_vis = [cv2.imread(f) for f in planner_vis]
-    create_video(
-        planner_vis,
-        f"{traj}/planner_vis.mp4",
-        fps=5,
-    )
+    # full_vis = natsort.natsorted(glob.glob(f"{trajectory}/map_visualization/*.png"))
+    # full_vis = [cv2.imread(f) for f in full_vis]
+    # create_video(
+    #     full_vis,
+    #     f"{trajectory}/full_vis.mp4",
+    #     fps=5,
+    # )
+
+
+if __name__ == "__main__":
+    import argparse
+
+    parser = argparse.ArgumentParser(description="")
+    parser.add_argument("--trajectory", default="trajectories/trajectory1")
+    args = parser.parse_args()
+
+    record_videos(args.trajectory)
