@@ -63,7 +63,7 @@ def record_videos(trajectory: str):
     maps = [img[50:530, 1325:1805] for img in main_vis]
 
     # Legend
-    legends = [img[155 : 155 + 1250, 537 : 537 + 115] for img in main_vis]
+    legends = [img[537 : 537 + 115, 155 : 155 + 1250] for img in main_vis]
 
     # Videos
     video_dir = f"{trajectory}/videos"
