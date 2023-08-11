@@ -23,7 +23,7 @@ def create_video(images, output_file, fps=5):
     video_writer.release()
 
 
-def create_video_aligned(images, output_file, timestamps, fps=5, speedup_factor=1.0):
+def create_video_aligned(images, output_file, timestamps, fps=30, speedup_factor=1.0):
     assert len(images) == len(
         timestamps
     ), "Mismatch between number of images and timestamps."
