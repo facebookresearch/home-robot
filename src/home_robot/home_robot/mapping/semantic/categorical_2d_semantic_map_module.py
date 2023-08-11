@@ -724,9 +724,9 @@ class Categorical2DSemanticMapModule(nn.Module):
 
         # Remove people from the last map if people are detected
         # TODO Handle people more cleanly
-        if translated[:, 5 + 11, :, :].sum() > 0.99:
+        if translated[:, MC.NON_SEM_CHANNELS + 11, :, :].sum() > 0.99:
             print("Detected a person, removing previous people from the map")
-            prev_map[:, 5 + 11, :, :] = 0
+            prev_map[:, MC.NON_SEM_CHANNELS + 11, :, :] = 0
 
         # Update obstacles in current map
         # TODO Implement this properly for num_environments > 1
@@ -753,13 +753,13 @@ class Categorical2DSemanticMapModule(nn.Module):
         # Set people as not obstacles for planning
         # TODO Handle people more cleanly
         # TODO Implement this properly for num_environments > 1
-        people_mask = (
-            skimage.morphology.binary_dilation(
-                current_map[0, 5 + 11, :, :].cpu().numpy(), skimage.morphology.disk(2)
-            )
-            * 1.0
-        )
-        current_map[0, 0, :, :] *= 1 - torch.from_numpy(people_mask).to(device)
+        # people_mask = (
+        #     skimage.morphology.binary_dilation(
+        #         current_map[0, 5 + 11, :, :].cpu().numpy(), skimage.morphology.disk(2)
+        #     )
+        #     * 1.0
+        # )
+        # current_map[0, 0, :, :] *= 1 - torch.from_numpy(people_mask).to(device)
 
         if self.record_instance_ids:
             # overwrite channels containing instance IDs

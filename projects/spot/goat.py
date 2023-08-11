@@ -47,6 +47,7 @@ from home_robot.mapping.semantic.categorical_2d_semantic_map_state import (
 from home_robot.mapping.semantic.instance_tracking_modules import InstanceMemory
 from home_robot.perception.detection.maskrcnn.coco_categories import (
     coco_category_id_to_coco_category,
+    coco_categories_color_palette,
 )
 from home_robot.utils.config import get_config
 from home_robot_hw.env.spot_goat_env import SpotGoatEnv
@@ -220,7 +221,39 @@ def get_semantic_map_vis(
         cv2.LINE_AA,
     )
 
-    map_color_palette = [
+    if legend is None:
+        map_color_palette = [
+            1.0,
+            1.0,
+            1.0,  # empty space
+            0.6,
+            0.6,
+            0.6,  # obstacles
+            0.95,
+            0.95,
+            0.95,  # explored area
+            0.96,
+            0.36,
+            0.26,  # visited area
+            0.12,
+            0.46,
+            0.70,  # closest goal
+            0.63,
+            0.78,
+            0.95,  # rest of goal
+            0.00,
+            0.00,
+            0.00,  # short term goal
+        ]
+        map_color_palette = [int(x * 255.0) for x in map_color_palette]
+        map_color_palette += d3_40_colors_rgb.flatten().tolist()
+
+        new_colors = d3_40_colors_rgb.copy()
+        new_colors[:, 0] = np.minimum(new_colors[:, 0] + 15, 255)
+        new_colors[:, 2] = np.maximum(new_colors[:, 2] - 15, 0)
+        map_color_palette += new_colors.flatten().tolist()
+    else:
+        map_color_palette = [
         1.0,
         1.0,
         1.0,  # empty space
@@ -242,14 +275,9 @@ def get_semantic_map_vis(
         0.00,
         0.00,
         0.00,  # short term goal
+        *coco_categories_color_palette,
     ]
     map_color_palette = [int(x * 255.0) for x in map_color_palette]
-    map_color_palette += d3_40_colors_rgb.flatten().tolist()
-
-    new_colors = d3_40_colors_rgb.copy()
-    new_colors[:, 0] = np.minimum(new_colors[:, 0] + 15, 255)
-    new_colors[:, 2] = np.maximum(new_colors[:, 2] - 15, 0)
-    map_color_palette += new_colors.flatten().tolist()
 
     semantic_categories_map = semantic_map.get_semantic_map(0)
     obstacle_map = semantic_map.get_obstacle_map(0)
@@ -423,6 +451,7 @@ GOALS = {
     "object_sink": {"type": "objectnav", "target": "sink"},
     "object_refrigerator": {"type": "objectnav", "target": "refrigerator"},
     "object_book": {"type": "objectnav", "target": "book"},
+    "object_person": {"type": "objectnav", "target": "person"},
     # Image goals
     "image_bed1": {
         "type": "imagenav",
@@ -681,7 +710,7 @@ def main(spot=None, args=None):
         env.reset(obs_dir)
 
     else:
-        env = SpotGoatEnv(spot, position_control=True)
+        env = SpotGoatEnv(spot, position_control=True,estimated_depth_threshold=config.ENVIRONMENT.estimated_depth_threshold)
         env.reset()
 
     goal_strings = args.goals.split(",")
@@ -761,9 +790,9 @@ def main(spot=None, args=None):
             subgoal=info["short_term_goal"],
             # depth_frame,
             goal_image=goal_image,
-            legend=None,
+            legend=legend if (not config.AGENT.SEMANTIC_MAP.record_instance_ids) else None,
             instance_memory=agent.instance_memory,
-            visualize_instances=True,
+            visualize_instances=config.AGENT.SEMANTIC_MAP.record_instance_ids,
         )
         vis_images.append(vis_image)
         cv2.imwrite(f"{output_visualization_dir}/{t}.png", vis_image[:, :, ::-1])

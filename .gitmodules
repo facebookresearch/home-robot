@@ -28,4 +28,4 @@
 	branch = no_habitat
 [submodule "src/third_party/MiDaS"]
 	path = src/third_party/MiDaS
-	url = https://github.com/isl-org/MiDaS
+	url = git@github.com:MatthewChang/MiDaS.git

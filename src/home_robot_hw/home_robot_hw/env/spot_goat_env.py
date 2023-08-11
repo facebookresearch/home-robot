@@ -52,7 +52,7 @@ class Midas:
 
 
 class SpotGoatEnv(SpotEnv):
-    def __init__(self, spot, position_control=False):
+    def __init__(self, spot, position_control=False,estimated_depth_threshold=5):
         super().__init__(spot)
         self.spot = spot
         self.position_control = position_control
@@ -68,6 +68,7 @@ class SpotGoatEnv(SpotEnv):
         self.goals = None
         self._episode_over = False
         self.midas = Midas("cuda:0")
+        self.estimated_depth_threshold = estimated_depth_threshold
 
     def patch_depth(self,obs):
         rgb,depth = obs.rgb, obs.depth
@@ -75,6 +76,9 @@ class SpotGoatEnv(SpotEnv):
 
         # clip at 0 if the linear transformation makes some points negative depth
         monocular_estimate[monocular_estimate < 0] = 0
+        
+        # threshold max distance to for estimated depth
+        # monocular_estimate[monocular_estimate > self.estimated_depth_threshold] = 0
 
         # assign estimated depth where there are no values
         no_depth_mask = depth == 0
@@ -139,6 +143,7 @@ class SpotGoatEnv(SpotEnv):
         obs = super().get_observation()
 
         # fill in depth here before segmentation
+        orig_depth = obs.depth.copy()
         obs = self.patch_depth(obs)
 
         # Segment the image
@@ -154,7 +159,7 @@ class SpotGoatEnv(SpotEnv):
 
         # Specify the goals
         obs.task_observations["tasks"] = self.goals
-
+        obs.task_observations['orig_depth'] = orig_depth
         return obs
 
     def set_goals(self, goals: List[Dict]):
