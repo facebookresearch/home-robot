@@ -64,8 +64,7 @@ def record_videos(trajectory: str):
     # timestamps = [obs.task_observations["timestamp"] for obs in observations]
     timestamps = []
     for path in natsort.natsorted(glob.glob(f"{obs_dir}/*.pkl")):
-        breakpoint()
-        ts = Path(path).stat().st_mtime
+        timestamps.append(Path(path).stat().st_mtime)
 
     # RGB
     rgbs = [obs.rgb for obs in observations]
@@ -93,7 +92,7 @@ def record_videos(trajectory: str):
     legends = [img[537 : 537 + 115, 155 : 155 + 1250] for img in main_vis]
 
     # Videos
-    # TODO Use timestamps to align videos to real time
+    breakpoint()
     video_dir = f"{trajectory}/videos"
     Path(video_dir).mkdir(parents=True, exist_ok=True)
     create_video_aligned(rgbs, f"{video_dir}/rgb.mp4", timestamps)
