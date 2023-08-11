@@ -15,6 +15,42 @@ from home_robot.perception.detection.maskrcnn.maskrcnn_perception import (
 from home_robot_hw.env.spot_abstract_env import SpotEnv
 
 
+import torch
+from midas.model_loader import default_models, load_model
+from midas.run import process
+class Midas:
+    def __init__(self,device):
+        super().__init__()
+        #midas params
+        self.device = device
+        self.model_type="dpt_beit_large_512"
+        self.optimize=False
+        height=None
+        square=False
+        model_path = f'src/third_party/MiDaS/weights/{self.model_type}.pt'
+        self.model, self.transform, self.net_w, self.net_h = load_model(device, model_path, self.model_type, self.optimize, height, square)
+    
+    # expects numpy rgb, [0,255]
+    def depth_estimate(self,rgb,depth):
+        image = self.transform({"image": (rgb/255)})["image"]
+        # compute
+        with torch.no_grad():
+            prediction = process(self.device, self.model, self.model_type, image, (self.net_w, self.net_h), rgb.shape[1::-1], self.optimize, False)
+        depth_valid = depth > 0
+
+        # solve for MSE for the system of equations Ax = b where b is the observed depth and x is the predicted depth values
+        x = np.stack((prediction[depth_valid], np.ones_like(prediction[depth_valid])),axis=1).T
+        b = depth[depth_valid].T
+        # 1 x 2 * 2 x n = 1 x n
+        pinvx = np.linalg.pinv(x)
+        A = b@pinvx
+
+        adjusted = prediction*A[0] + A[1]
+        mse = ((A@x-b)**2).mean()
+        mean_error = np.abs(A@x-b).mean()
+        return adjusted,mse,mean_error
+
+
 class SpotGoatEnv(SpotEnv):
     def __init__(self, spot, position_control=False):
         super().__init__(spot)
@@ -31,6 +67,28 @@ class SpotGoatEnv(SpotEnv):
 
         self.goals = None
         self._episode_over = False
+        self.midas = Midas("cuda:0")
+
+    def patch_depth(self,obs):
+        rgb,depth = obs.rgb, obs.depth
+        monocular_estimate,mse,mean_error = self.midas.depth_estimate(rgb,depth)
+
+        # clip at 0 if the linear transformation makes some points negative depth
+        monocular_estimate[monocular_estimate < 0] = 0
+
+        # assign estimated depth where there are no values
+        no_depth_mask = depth == 0
+
+        # get a mask for the region of the image which has depth values (skip the blank borders)
+        row,cols = np.where(~no_depth_mask)
+        col_inds =np.indices(depth.shape)[1] 
+        depth_region = (col_inds >= cols.min()) & (col_inds <= cols.max())
+        no_depth_mask = no_depth_mask & depth_region
+
+        depth[no_depth_mask] = monocular_estimate[no_depth_mask]
+        obs.depth = depth.copy()
+        return obs
+
 
     def apply_action(
         self,
@@ -79,6 +137,9 @@ class SpotGoatEnv(SpotEnv):
 
     def get_observation(self) -> Observations:
         obs = super().get_observation()
+
+        # fill in depth here before segmentation
+        obs = self.patch_depth(obs)
 
         # Segment the image
         obs = self.segmentation.predict(obs, depth_threshold=0.5)

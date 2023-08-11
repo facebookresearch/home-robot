@@ -716,7 +716,7 @@ def main(spot=None, args=None):
     agent.reset()
 
     pan_warmup = False
-    keyboard_takeover = False
+    keyboard_takeover = args.keyboard
     if pan_warmup:
         assert not OFFLINE
         positions = spot.get_arm_joint_positions()
@@ -789,7 +789,8 @@ def main(spot=None, args=None):
 
         if not OFFLINE:
             cv2.imshow("vis", vis_image[:, :, ::-1])
-            key = cv2.waitKey(500)
+            cv2.imshow("depth", obs.depth/obs.depth.max())
+            key = cv2.waitKey(1)
 
             if key == ord("z"):
                 break
@@ -839,6 +840,8 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="")
     parser.add_argument("--trajectory", default="trajectory1")
     parser.add_argument("--goals", default="object_chair,object_sink")
+    parser.add_argument('--keyboard',action='store_true')
+                        
     args = parser.parse_args()
 
     if not OFFLINE:
