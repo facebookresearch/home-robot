@@ -75,7 +75,7 @@ class GoatMatching(Matching):
             ):
                 continue
             if use_full_image:
-                img = instance_memory.images[0][-1]
+                img = instance_memory.images[0][-1].cpu().numpy()
             else:
                 img = inst_view.cropped_image
             detections.append(img)

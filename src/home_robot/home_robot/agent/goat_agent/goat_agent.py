@@ -44,7 +44,7 @@ class GoatAgent(Agent):
     def __init__(self, config, device_id: int = 0):
         # self.max_steps = config.AGENT.max_steps
         # self.max_steps = [500, 400, 300, 200, 200, 200, 200, 200, 200, 200, 200]
-        self.max_steps = [300, 200, 100, 100, 100, 100, 100, 100, 100, 100, 100]
+        self.max_steps = [400, 300, 200, 200, 200, 200, 200, 200, 200, 200, 200]
         self.num_environments = config.NUM_ENVIRONMENTS
         self.store_all_categories_in_map = getattr(
             config.AGENT, "store_all_categories", False
@@ -71,6 +71,7 @@ class GoatAgent(Agent):
                 debug_visualize=config.PRINT_IMAGES,
                 config=config,
                 mask_cropped_instances=False,
+                padding_cropped_instances=200
             )
 
         ## imagenav stuff
@@ -674,7 +675,7 @@ class GoatAgent(Agent):
                     image_goal=self.goal_image,
                     goal_image_keypoints=self.goal_image_keypoints,
                     categories=[current_task["semantic_id"]],
-                    use_full_image=True,
+                    use_full_image=False,
                 )
 
                 print(local_instance_ids, len(matches[0]))
@@ -689,7 +690,7 @@ class GoatAgent(Agent):
                     self.total_timesteps[0],
                     language_goal=current_task["instruction"],
                     categories=[current_task["semantic_id"]],
-                    use_full_image=True,
+                    use_full_image=False,
                 )
         semantic = self.one_hot_encoding[torch.from_numpy(semantic).to(self.device)]
 

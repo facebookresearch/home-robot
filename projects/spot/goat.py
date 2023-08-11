@@ -422,6 +422,7 @@ GOALS = {
     "object_oven": {"type": "objectnav", "target": "oven"},
     "object_sink": {"type": "objectnav", "target": "sink"},
     "object_refrigerator": {"type": "objectnav", "target": "refrigerator"},
+    "object_book": {"type": "objectnav", "target": "book"},
     # Image goals
     "image_bed1": {
         "type": "imagenav",
