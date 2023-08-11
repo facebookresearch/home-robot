@@ -118,14 +118,12 @@ class MaskRCNNPerception(PerceptionModule):
             masks = np.stack(relevant_masks)
             class_idcs = np.stack(relevant_class_idcs)
             scores = np.stack(relevant_scores)
-            semantic_map, instance_map = overlay_masks(
-                masks, class_idcs, (height, width)
-            )
+            semantic_map, instance_map = overlay_masks( masks, class_idcs, (height, width))
         else:
             semantic_map = np.zeros((height, width))
             instance_map = -np.ones((height, width))
 
-        obs.semantic = semantic_map.astype(int)
+        obs.semantic = semantic_map.astype(int).copy()
         obs.task_observations["instance_map"] = instance_map
         obs.task_observations["instance_classes"] = class_idcs
         obs.task_observations["instance_scores"] = scores

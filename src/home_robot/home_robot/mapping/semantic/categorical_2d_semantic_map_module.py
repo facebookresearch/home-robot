@@ -583,6 +583,7 @@ class Categorical2DSemanticMapModule(nn.Module):
         ].sum(4)
         all_height_proj = voxels.sum(4)
 
+
         fp_map_pred = agent_height_proj[:, 0:1, :, :]
 
         # +rows is away from the camera, with the camra origin at row 0

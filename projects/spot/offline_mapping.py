@@ -1,4 +1,6 @@
 #!/usr/bin/env python
+import imageio
+from tqdm import tqdm
 # Copyright (c) Meta Platforms, Inc. and affiliates.
 #
 # This source code is licensed under the MIT license found in the
@@ -49,6 +51,41 @@ from home_robot.perception.detection.maskrcnn.maskrcnn_perception import (
     MaskRCNNPerception,
 )
 from home_robot.utils.config import get_config
+from midas.model_loader import default_models, load_model
+from midas.run import process
+
+
+class Midas:
+    def __init__(self,device):
+        super().__init__()
+        #midas params
+        self.device = device
+        self.model_type="dpt_beit_large_512"
+        self.optimize=False
+        height=None
+        square=False
+        model_path = f'src/third_party/MiDaS/weights/{self.model_type}.pt'
+        self.model, self.transform, self.net_w, self.net_h = load_model(device, model_path, self.model_type, self.optimize, height, square)
+    
+    # expects numpy rgb, [0,255]
+    def depth_estimate(self,rgb,depth):
+        image = self.transform({"image": (rgb/255)})["image"]
+        # compute
+        with torch.no_grad():
+            prediction = process(self.device, self.model, self.model_type, image, (self.net_w, self.net_h), rgb.shape[1::-1], self.optimize, False)
+        depth_valid = depth > 0
+
+        # solve for MSE for the system of equations Ax = b where b is the observed depth and x is the predicted depth values
+        x = np.stack((prediction[depth_valid], np.ones_like(prediction[depth_valid])),axis=1).T
+        b = depth[depth_valid].T
+        # 1 x 2 * 2 x n = 1 x n
+        pinvx = np.linalg.pinv(x)
+        A = b@pinvx
+
+        adjusted = prediction*A[0] + A[1]
+        mse = ((A@x-b)**2).mean()
+        mean_error = np.abs(A@x-b).mean()
+        return adjusted,mse,mean_error
 
 
 class PI:
@@ -364,7 +401,8 @@ def text_to_image(
 
 record_instance_ids = True
 save_map_and_instances = False
-load_map_and_instances = True
+# load_map_and_instances = True
+load_map_and_instances = False
 ground_image_in_memory = True
 ground_language_in_memory = True
 
@@ -380,6 +418,7 @@ ground_language_in_memory = True
 )
 def main(base_dir: str, legend_path: str):
 
+
     obs_dir = f"{base_dir}/obs/"
     map_vis_dir = f"{base_dir}/map_vis/"
     goal_grounding_vis_dir = f"{base_dir}/goal_grounding_vis/"
@@ -389,6 +428,7 @@ def main(base_dir: str, legend_path: str):
         legend = None
 
     device = torch.device("cuda:1")
+    midas = Midas(device)
 
     categories = list(coco_categories.keys())
     num_sem_categories = len(coco_categories)
@@ -414,9 +454,39 @@ def main(base_dir: str, legend_path: str):
             sem_gpu_id=0,
         )
 
+        def patch_depth(obs):
+            rgb,depth = obs.rgb, obs.depth
+            monocular_estimate,mse,mean_error = midas.depth_estimate(rgb,depth)
+
+            # clip at 0 if the linear transformation makes some points negative depth
+            monocular_estimate[monocular_estimate < 0] = 0
+
+            # assign estimated depth where there are no values
+            no_depth_mask = depth == 0
+
+            # get a mask for the region of the image which has depth values (skip the blank borders)
+            row,cols = np.where(~no_depth_mask)
+            col_inds =np.indices(depth.shape)[1] 
+            depth_region = (col_inds >= cols.min()) & (col_inds <= cols.max())
+            no_depth_mask = no_depth_mask & depth_region
+
+            depth[no_depth_mask] = monocular_estimate[no_depth_mask]
+            obs.depth = depth.copy()
+            return obs
+
+        # obs = observations[26]
+        # rgb,depth = obs.rgb, obs.depth
+        # monocular_estimate,mse,mean_error = midas.depth_estimate(rgb,depth)
+        # plt.imsave('vis/test.png',monocular_estimate)
+        # monocular_estimate.min()
+        # import pdb; pdb.set_trace()
+
+        observations = [patch_depth(obs) for obs in tqdm(observations)]
+
         observations = [
-            segmentation.predict(obs, depth_threshold=0.5) for obs in observations
+            segmentation.predict(obs, depth_threshold=0.5) for obs in tqdm(observations)
         ]
+        
         for obs in observations:
             obs.semantic[obs.semantic == 0] = num_sem_categories
             obs.semantic = obs.semantic - 1
@@ -526,9 +596,11 @@ def main(base_dir: str, legend_path: str):
                     - +Z is upward
             """
             rgb = torch.from_numpy(obs.rgb).to(device)
+
             depth = (
                 torch.from_numpy(obs.depth).unsqueeze(-1).to(device) * 100.0
             )  # m to cm
+
             semantic = one_hot_encoding[torch.from_numpy(obs.semantic).to(device)]
             obs_preprocessed = torch.cat([rgb, depth, semantic], dim=-1)
 
@@ -570,6 +642,7 @@ def main(base_dir: str, legend_path: str):
         Path(map_vis_dir).mkdir(parents=True, exist_ok=True)
         vis_images = []
 
+        all_errors = []
         for i, obs in enumerate(observations):
             # Preprocess observation
             (obs_preprocessed, pose_delta, camera_pose, last_pose) = preprocess_obs(
@@ -615,7 +688,8 @@ def main(base_dir: str, legend_path: str):
             semantic_map.origins = seq_origins[:, -1]
 
             # Visualize map
-            depth_frame = obs.depth
+            depth_frame = obs_preprocessed[0, 3, :, :].cpu().numpy()
+            # depth_frame = obs.depth
             if depth_frame.max() > 0:
                 depth_frame = depth_frame / depth_frame.max()
             depth_frame = (depth_frame * 255).astype(np.uint8)
@@ -630,12 +704,15 @@ def main(base_dir: str, legend_path: str):
             )
             vis_images.append(vis_image)
             plt.imsave(Path(map_vis_dir) / f"{i}.png", vis_image)
+            # obs_preprocessed[0,4:].max(axis=1)
+            # import pdb; pdb.set_trace()
 
         create_video(
             [v[:, :, ::-1] for v in vis_images],
             f"{map_vis_dir}/video.mp4",
             fps=20,
         )
+
 
     if save_map_and_instances:
         print("Saving map and instance memory...")
