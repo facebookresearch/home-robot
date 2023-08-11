@@ -5,6 +5,7 @@ from pathlib import Path
 
 import cv2
 import natsort
+import numpy as np
 
 # TODO Install home_robot and remove this
 sys.path.insert(
@@ -28,30 +29,41 @@ def record_videos(trajectory: str):
     for path in natsort.natsorted(glob.glob(f"{obs_dir}/*.pkl")):
         with open(path, "rb") as f:
             observations.append(pickle.load(f))
+
+    main_vis_dir = f"{trajectory}/main_visualization/"
+    main_vis = []
+    for path in natsort.natsorted(glob.glob(f"{main_vis_dir}/*.png")):
+        main_vis.append(cv2.imread(path))
+
     print(f"Recording videos for {trajectory} with {len(observations)} timesteps")
     breakpoint()
 
     # Timestamps
 
     # RGB
+    rgbs = [obs.rgb for obs in observations]
 
     # Semantics
+    semantic_frames = [img[50:530, 15:655] for img in main_vis]
 
     # Depth
+    depths = []
+    for obs in observations:
+        depth_frame = obs.depth
+        if depth_frame.max() > 0:
+            depth_frame = depth_frame / depth_frame.max()
+        depth_frame = (depth_frame * 255).astype(np.uint8)
+        depth_frame = np.repeat(depth_frame[:, :, np.newaxis], 3, axis=2)
+        depths.append(depth_frame)
 
     # Goal
+    goals = [img[50:530, 670:1310] for img in main_vis]
 
     # Map
+    maps = [img[50:530, 1325:1805] for img in main_vis]
 
     # Legend
-
-    # full_vis = natsort.natsorted(glob.glob(f"{trajectory}/map_visualization/*.png"))
-    # full_vis = [cv2.imread(f) for f in full_vis]
-    # create_video(
-    #     full_vis,
-    #     f"{trajectory}/full_vis.mp4",
-    #     fps=5,
-    # )
+    legend = [img[155 : 155 + 537, 1250 : 1250 + 115] for img in main_vis]
 
 
 if __name__ == "__main__":
