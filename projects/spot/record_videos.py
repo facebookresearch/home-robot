@@ -29,6 +29,21 @@ def record_videos(trajectory: str):
         with open(path, "rb") as f:
             observations.append(pickle.load(f))
     print(f"Recording videos for {trajectory} with {len(observations)} timesteps")
+    breakpoint()
+
+    # Timestamps
+
+    # RGB
+
+    # Semantics
+
+    # Depth
+
+    # Goal
+
+    # Map
+
+    # Legend
 
     # full_vis = natsort.natsorted(glob.glob(f"{trajectory}/map_visualization/*.png"))
     # full_vis = [cv2.imread(f) for f in full_vis]
