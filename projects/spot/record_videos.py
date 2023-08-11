@@ -14,12 +14,35 @@ sys.path.insert(
 )
 
 
-def create_video(images, output_file, fps):
+def create_video(images, output_file, fps=5):
     height, width, _ = images[0].shape
     fourcc = cv2.VideoWriter_fourcc(*"mp4v")
     video_writer = cv2.VideoWriter(output_file, fourcc, fps, (width, height))
     for image in images:
         video_writer.write(image)
+    video_writer.release()
+
+
+def create_video_aligned(images, output_file, timestamps, fps=5):
+    assert len(images) == len(
+        timestamps
+    ), "Mismatch between number of images and timestamps."
+
+    height, width, _ = images[0].shape
+    fourcc = cv2.VideoWriter_fourcc(*"mp4v")
+
+    # Calculate differences between consecutive timestamps to determine the frame delay.
+    frame_delays = [
+        timestamps[i + 1] - timestamps[i] for i in range(len(timestamps) - 1)
+    ]
+    # Convert time differences to number of frames (assuming 1 unit of timestamp is 1 second for now).
+    frame_counts = [round(delay * fps) for delay in frame_delays]
+
+    video_writer = cv2.VideoWriter(output_file, fourcc, fps, (width, height))
+    for idx, image in enumerate(images[:-1]):
+        for _ in range(frame_counts[idx]):
+            video_writer.write(image)
+    video_writer.write(images[-1])  # Write the last frame
     video_writer.release()
 
 
@@ -38,7 +61,11 @@ def record_videos(trajectory: str):
     print(f"Recording videos for {trajectory} with {len(observations)} timesteps")
 
     # Timestamps
-    timestamps = [obs.task_observations["timestamp"] for obs in observations]
+    # timestamps = [obs.task_observations["timestamp"] for obs in observations]
+    timestamps = []
+    for path in natsort.natsorted(glob.glob(f"{obs_dir}/*.pkl")):
+        breakpoint()
+        ts = Path(path).stat().st_mtime
 
     # RGB
     rgbs = [obs.rgb for obs in observations]
@@ -69,12 +96,12 @@ def record_videos(trajectory: str):
     # TODO Use timestamps to align videos to real time
     video_dir = f"{trajectory}/videos"
     Path(video_dir).mkdir(parents=True, exist_ok=True)
-    create_video(rgbs, f"{video_dir}/rgb.mp4", fps=5)
-    create_video(semantic_frames, f"{video_dir}/semantic_frame.mp4", fps=5)
-    create_video(depths, f"{video_dir}/depth.mp4", fps=5)
-    create_video(goals, f"{video_dir}/goal.mp4", fps=5)
-    create_video(maps, f"{video_dir}/map.mp4", fps=5)
-    create_video(legends, f"{video_dir}/legend.mp4", fps=5)
+    create_video_aligned(rgbs, f"{video_dir}/rgb.mp4", timestamps)
+    create_video_aligned(semantic_frames, f"{video_dir}/semantic_frame.mp4", timestamps)
+    create_video_aligned(depths, f"{video_dir}/depth.mp4", timestamps)
+    create_video_aligned(goals, f"{video_dir}/goal.mp4", timestamps)
+    create_video_aligned(maps, f"{video_dir}/map.mp4", timestamps)
+    create_video_aligned(legends, f"{video_dir}/legend.mp4", timestamps)
 
 
 if __name__ == "__main__":
