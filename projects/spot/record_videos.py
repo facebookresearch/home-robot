@@ -23,7 +23,7 @@ def create_video(images, output_file, fps=5):
     video_writer.release()
 
 
-def create_video_aligned(images, output_file, timestamps, fps=5):
+def create_video_aligned(images, output_file, timestamps, fps=5, speedup_factor=1.0):
     assert len(images) == len(
         timestamps
     ), "Mismatch between number of images and timestamps."
@@ -36,7 +36,7 @@ def create_video_aligned(images, output_file, timestamps, fps=5):
         timestamps[i + 1] - timestamps[i] for i in range(len(timestamps) - 1)
     ]
     # Convert time differences to number of frames (assuming 1 unit of timestamp is 1 second for now).
-    frame_counts = [round(delay * fps) for delay in frame_delays]
+    frame_counts = [round(delay * fps / speedup_factor) for delay in frame_delays]
 
     video_writer = cv2.VideoWriter(output_file, fourcc, fps, (width, height))
     for idx, image in enumerate(images[:-1]):
@@ -93,13 +93,29 @@ def record_videos(trajectory: str):
 
     # Videos
     video_dir = f"{trajectory}/videos"
+    speedup_factor = 8.0
     Path(video_dir).mkdir(parents=True, exist_ok=True)
-    create_video_aligned(rgbs, f"{video_dir}/rgb.mp4", timestamps)
-    create_video_aligned(semantic_frames, f"{video_dir}/semantic_frame.mp4", timestamps)
-    create_video_aligned(depths, f"{video_dir}/depth.mp4", timestamps)
-    create_video_aligned(goals, f"{video_dir}/goal.mp4", timestamps)
-    create_video_aligned(maps, f"{video_dir}/map.mp4", timestamps)
-    create_video_aligned(legends, f"{video_dir}/legend.mp4", timestamps)
+    create_video_aligned(
+        rgbs, f"{video_dir}/rgb.mp4", timestamps, speedup_factor=speedup_factor
+    )
+    create_video_aligned(
+        semantic_frames,
+        f"{video_dir}/semantic_frame.mp4",
+        timestamps,
+        speedup_factor=speedup_factor,
+    )
+    create_video_aligned(
+        depths, f"{video_dir}/depth.mp4", timestamps, speedup_factor=speedup_factor
+    )
+    create_video_aligned(
+        goals, f"{video_dir}/goal.mp4", timestamps, speedup_factor=speedup_factor
+    )
+    create_video_aligned(
+        maps, f"{video_dir}/map.mp4", timestamps, speedup_factor=speedup_factor
+    )
+    create_video_aligned(
+        legends, f"{video_dir}/legend.mp4", timestamps, speedup_factor=speedup_factor
+    )
 
 
 if __name__ == "__main__":
