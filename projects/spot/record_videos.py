@@ -36,9 +36,9 @@ def record_videos(trajectory: str):
         main_vis.append(cv2.imread(path))
 
     print(f"Recording videos for {trajectory} with {len(observations)} timesteps")
-    breakpoint()
 
     # Timestamps
+    # TODO
 
     # RGB
     rgbs = [obs.rgb for obs in observations]
@@ -63,7 +63,16 @@ def record_videos(trajectory: str):
     maps = [img[50:530, 1325:1805] for img in main_vis]
 
     # Legend
-    legend = [img[155 : 155 + 537, 1250 : 1250 + 115] for img in main_vis]
+    legends = [img[155 : 155 + 537, 1250 : 1250 + 115] for img in main_vis]
+
+    # Videos
+    video_dir = f"{trajectory}/videos"
+    create_video(rgbs, f"{video_dir}/rgb.mp4", fps=5)
+    create_video(semantic_frames, f"{video_dir}/semantic_frame.mp4", fps=5)
+    create_video(depths, f"{video_dir}/depth.mp4", fps=5)
+    create_video(goals, f"{video_dir}/goal.mp4", fps=5)
+    create_video(maps, f"{video_dir}/map.mp4", fps=5)
+    create_video(legends, f"{video_dir}/legend.mp4", fps=5)
 
 
 if __name__ == "__main__":
