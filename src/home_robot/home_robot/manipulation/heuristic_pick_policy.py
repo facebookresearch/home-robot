@@ -20,7 +20,11 @@ from home_robot.core.interfaces import (
     Observations,
 )
 from home_robot.manipulation.heuristic_place_policy import HeuristicPlacePolicy
-from home_robot.motion.stretch import STRETCH_STANDOFF_DISTANCE, HelloStretchKinematics
+from home_robot.motion.stretch import (
+    STRETCH_PREGRASP_Q,
+    STRETCH_STANDOFF_DISTANCE,
+    HelloStretchKinematics,
+)
 
 # Create bullet client
 from home_robot.utils.bullet import PbArticulatedObject, PbClient, PbObject
@@ -352,7 +356,7 @@ class HeuristicPickPolicy(HeuristicPlacePolicy):
             print("[TOP] Target point to grasp:", pos_top)
             print("[SIDE] Target point to grasp:", pos_side)
 
-        cfg, res, info = model.manip_ik((pos_top, rot_top))
+        cfg, res, info = model.manip_ik((pos_top, rot_top), q0=STRETCH_PREGRASP_Q)
         if verbose:
             print("--- TOP GRASP SOLUTION ---")
             print("cfg =", cfg)
