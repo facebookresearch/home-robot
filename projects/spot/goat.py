@@ -684,33 +684,13 @@ def main(spot=None, args=None):
         env = SpotGoatEnv(spot, position_control=True)
         env.reset()
 
-    # user_input = input("Enter the goals separated by commas: ")
-    # print("You entered:", user_input)
-    # goal_strings = user_input.split(",")
-    # if args.goals
     goal_strings = args.goals.split(",")
     print("Goals:", goal_strings)
     goals = [GOALS.get(g) for g in goal_strings]
     goals = [g for g in goals if g is not None]
-    # pprint.pprint(goals, indent=4)
     env.set_goals(goals)
     with open(f"{config.DUMP_LOCATION}/goals.json", "w") as f:
         json.dump(goal_strings, f, indent=4)
-
-    # Debugging
-    # env.set_goals(
-    #     [
-    #         GOALS["object_sink"],
-    #         GOALS["image_bed1"],
-    #         GOALS["language_bed1"],
-    #     ]
-    # )
-
-    # Fremont trajectories
-    # object_toilet,image_bed1,language_chair4,image_couch1,language_plant1,language_plant2,image_refrigerator1
-    # object_toilet,image_bed1
-    # object_toilet,image_chair1,image_chair3,image_chair4,image_chair5,image_chair6
-    # object_chair,language_bed1,language_chair1
 
     agent = GoatAgent(config=config)
     agent.reset()
@@ -733,12 +713,13 @@ def main(spot=None, args=None):
         print()
         print("STEP =", t)
         print("Subgoal step =", agent.sub_task_timesteps[0][agent.current_task_idx])
-        print(f"Time: {global_start_time:.2f}")
+        print(f"Time: {step_start_time - global_start_time:.2f}")
         print(f"Goal {agent.current_task_idx}: {goal_strings[agent.current_task_idx]}")
 
         if not OFFLINE:
             obs = env.get_observation()
             obs.task_observations["current_task_idx"] = agent.current_task_idx
+            obs.task_observations["timestamp"] = step_start_time - global_start_time
             print(
                 f"Environment (including segmentation) {time.time() - step_start_time:2f}"
             )

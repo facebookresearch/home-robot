@@ -38,7 +38,7 @@ def record_videos(trajectory: str):
     print(f"Recording videos for {trajectory} with {len(observations)} timesteps")
 
     # Timestamps
-    # TODO
+    timestamps = [obs.task_observations["timestamp"] for obs in observations]
 
     # RGB
     rgbs = [obs.rgb for obs in observations]
@@ -66,6 +66,7 @@ def record_videos(trajectory: str):
     legends = [img[537 : 537 + 115, 155 : 155 + 1250] for img in main_vis]
 
     # Videos
+    # TODO Use timestamps to align videos to real time
     video_dir = f"{trajectory}/videos"
     Path(video_dir).mkdir(parents=True, exist_ok=True)
     create_video(rgbs, f"{video_dir}/rgb.mp4", fps=5)
