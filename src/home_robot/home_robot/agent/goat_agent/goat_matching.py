@@ -50,7 +50,7 @@ class GoatMatching(Matching):
         step,
         image_goal=None,
         language_goal=None,
-        use_full_image=None,
+        use_full_image=False,
         categories=None,
         **kwargs,
     ):
@@ -87,6 +87,7 @@ class GoatMatching(Matching):
                 detections,
                 matching_fn,
                 step,
+                use_full_image=use_full_image,
                 image_goal=image_goal,
                 language_goal=language_goal,
                 **kwargs,
@@ -98,6 +99,7 @@ class GoatMatching(Matching):
         all_views,
         matching_fn,
         step,
+        use_full_image=False,
         image_goal=None,
         language_goal=None,
         **kwargs,
@@ -108,6 +110,7 @@ class GoatMatching(Matching):
                 all_views,
                 goal_image=image_goal,
                 goal_image_keypoints=kwargs["goal_image_keypoints"],
+                use_full_image=use_full_image,
                 step=1000 * step,
             )
         elif language_goal is not None:
@@ -168,6 +171,7 @@ class GoatMatching(Matching):
                 all_views,
                 matching_fn,
                 step,
+                use_full_image=use_full_image,
                 image_goal=image_goal,
                 language_goal=language_goal,
                 **kwargs,
@@ -189,6 +193,7 @@ class GoatMatching(Matching):
         goal_image: Union[np.ndarray, torch.Tensor],
         rgb_image_keypoints: Optional[Dict[str, Any]] = None,
         goal_image_keypoints: Optional[Dict[str, Any]] = None,
+        use_full_image: bool = False,
         step: Optional[int] = None,
     ):
         """Computes and describes keypoints using SuperPoint and matches
@@ -224,6 +229,8 @@ class GoatMatching(Matching):
             else:
                 goal_image_processed = goal_image
             if isinstance(rgb_image_batched[i], np.ndarray):
+                if rgb_image_batched[i].shape[0] == 3:
+                    rgb_image_batched[i] = rgb_image_batched[i].transpose(1,2,0)
                 rgb_image_processed = self._preprocess_image(
                     rgb_image_batched[i].astype(np.uint8)
                 )
@@ -259,6 +266,107 @@ class GoatMatching(Matching):
             all_matches.append(matches)
             all_confidences.append(confidence)
         return all_goal_keypoints, all_rgb_keypoints, all_matches, all_confidences
+
+    @torch.no_grad()
+    def match_image_batch_to_image(
+        self,
+        rgb_image: Union[np.ndarray, List[np.ndarray]],
+        goal_image: Union[np.ndarray, torch.Tensor],
+        rgb_image_keypoints: Optional[Dict[str, Any]] = None,
+        goal_image_keypoints: Optional[Dict[str, Any]] = None,
+        use_full_image: bool = False,
+        step: Optional[int] = None,
+    ):
+        """Computes and describes keypoints using SuperPoint and matches
+        keypoints between an RGB image and a goal image using SuperGlue.
+        Either goal_image or goal_image_keypoints must be provided.
+        Returns:
+            tensor of goal image keypoints
+            tensor of rgb image keypoints
+            tensor of keypoint matches
+            tensor of match confidences
+        """
+
+        if use_full_image is not True:
+            '''
+            add empty zero padding around instance crops to 
+            make them all the same size so they can be batched
+            '''
+            padded_detections = []
+            max_detection_w = max([x.shape[0] for x in rgb_image])
+            max_detection_h = max([x.shape[1] for x in rgb_image])
+            padding_bg = np.zeros((max_detection_w, max_detection_h, 3), dtype=np.uint8) * 255
+            for detection in rgb_image:
+                w = detection.shape[0]
+                h = detection.shape[1]
+                padding_bg_new = padding_bg.copy()
+                padding_bg_new[:w, :h, :] = detection
+                padded_detections.append(padding_bg_new)
+            
+            rgb_image = padded_detections
+
+        if isinstance(rgb_image, np.ndarray) and len(rgb_image.shape) == 3:
+            rgb_image_batched = [rgb_image]
+        else:
+            rgb_image_batched = rgb_image
+            assert rgb_image_keypoints is None
+
+        # TODO Can we batch this for loop to speed it up? It is a bottleneck
+        print("Computing matching score with each view...")
+
+        if isinstance(goal_image, np.ndarray):
+            goal_image_processed = self._preprocess_image(goal_image)
+        else:
+            goal_image_processed = goal_image
+
+        for i in range(len(rgb_image_batched)):
+            if rgb_image_batched[i].shape[0] == 3:
+                rgb_image_batched[i] = rgb_image_batched[i].transpose(1,2,0)
+            rgb_image_batched[i] = self._preprocess_image(
+                rgb_image_batched[i].astype(np.uint8)
+            )
+
+        if goal_image_keypoints is None:
+            goal_image_keypoints = {}
+        if rgb_image_keypoints is None:
+            rgb_image_keypoints = {}
+
+        matcher_inputs = {
+            "image0": goal_image_processed,
+            "image1": rgb_image_batched,
+            **goal_image_keypoints,
+            **rgb_image_keypoints,
+        }
+        pred = self.matcher(matcher_inputs)
+        matches = pred["matches0"].cpu().numpy()
+        confidence = pred["matching_scores0"].cpu().numpy()
+        for i in range(len(rgb_image_batched)):
+            single_matcher_input = {
+                "image0": goal_image_processed,
+                "image1": rgb_image_batched[i],
+                **goal_image_keypoints,
+                **rgb_image_keypoints,
+            }
+
+            self._batched_visualize(single_matcher_input, pred, step + i, idx=i)
+
+        if "keypoints0" in matcher_inputs:
+            goal_keypoints = matcher_inputs["keypoints0"]
+        else:
+            goal_keypoints = pred["keypoints0"]
+
+        if "keypoints1" in matcher_inputs:
+            rgb_keypoints = matcher_inputs["keypoints1"]
+        else:
+            rgb_keypoints = pred["keypoints1"]
+        
+        if isinstance(rgb_image, np.ndarray) and len(rgb_image.shape) == 3:
+            return goal_keypoints, rgb_keypoints, matches, confidence
+
+        confidence = confidence[:, np.newaxis, :]
+        matches = matches[:, np.newaxis, :]
+
+        return goal_keypoints, rgb_keypoints, matches.tolist(), confidence.tolist()
 
     @torch.no_grad()
     def match_language_to_image(self, views_orig, language_goal, **kwargs):
