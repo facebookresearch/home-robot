@@ -92,6 +92,11 @@ class GoatAgent(Agent):
             instance_memory=self.instance_memory,
         )
 
+        if self.goal_policy_config.batching:
+            self.image_matching_function = self.matching.match_image_batch_to_image
+        else:
+            self.image_matching_function = self.matching.match_image_to_image
+
         self._module = GoatAgentModule(
             config, matching=self.matching, instance_memory=self.instance_memory
         )
@@ -670,7 +675,7 @@ class GoatAgent(Agent):
                     confidences,
                     local_instance_ids,
                 ) = self.matching.get_matches_against_current_frame(
-                    self.matching.match_image_to_image,
+                    self.image_matching_function,
                     self.total_timesteps[0],
                     image_goal=self.goal_image,
                     goal_image_keypoints=self.goal_image_keypoints,
@@ -797,7 +802,7 @@ class GoatAgent(Agent):
                 all_confidences,
                 instance_ids,
             ) = self.matching.get_matches_against_memory(
-                self.matching.match_image_to_image,
+                self.image_matching_function,
                 self.sub_task_timesteps[0][self.current_task_idx],
                 image_goal=self.goal_image,
                 goal_image_keypoints=self.goal_image_keypoints,
