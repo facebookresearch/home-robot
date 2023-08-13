@@ -50,6 +50,12 @@ Make sure you have [Docker](https://docs.docker.com/engine/install/ubuntu/) with
         && bash submission.sh \
         "
     ```
+    *Note:* we provide 2 versions of the base Docker image participants may build from:
+    - `fairembodied/habitat-challenge:homerobot-ovmm-challenge-2023-ubuntu22.04` (alias of `fairembodied/habitat-challenge:homerobot-ovmm-challenge-2023`)
+    - `fairembodied/habitat-challenge:homerobot-ovmm-challenge-2023-ubuntu20.04`
+
+    where the only difference is the Ubuntu version. Our example baseline Docker image uses `fairembodied/habitat-challenge:homerobot-ovmm-challenge-2023` as a base image. But participants may use any of the base Docker images listed above.
+
 1. Build your Docker image using:
 
     ```bash
