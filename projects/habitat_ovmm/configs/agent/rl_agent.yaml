@@ -34,7 +34,7 @@ SKILLS:
     checkpoint_path: data/checkpoints/ovmm_baseline_home_robot_challenge_2023/gaze_at_obj.pth
     rl_config: projects/habitat_ovmm/configs/agent/skills/gaze_rl.yaml # with continuous actions
     gym_obs_keys:
-      - robot_head_depth
+      - head_depth
       - object_embedding
       - object_segmentation
       - joint
@@ -64,7 +64,7 @@ SKILLS:
     checkpoint_path: data/checkpoints/ovmm_baseline_home_robot_challenge_2023/nav_to_obj.pth
     rl_config: projects/habitat_ovmm/configs/agent/skills/nav_to_obj_rl.yaml
     gym_obs_keys:
-      - robot_head_depth
+      - head_depth
       - object_embedding
       - ovmm_nav_goal_segmentation
       - receptacle_segmentation
@@ -94,7 +94,7 @@ SKILLS:
     checkpoint_path: data/checkpoints/ovmm_baseline_home_robot_challenge_2023/nav_to_rec.pth
     rl_config: projects/habitat_ovmm/configs/agent/skills/nav_to_obj_rl.yaml
     gym_obs_keys:
-      - robot_head_depth
+      - head_depth
       - ovmm_nav_goal_segmentation
       - receptacle_segmentation
       - goal_receptacle
@@ -124,7 +124,7 @@ SKILLS:
     checkpoint_path: data/checkpoints/ovmm_baseline_home_robot_challenge_2023/place.pth
     rl_config: projects/habitat_ovmm/configs/agent/skills/place_rl.yaml # with continuous actions
     gym_obs_keys:
-      - robot_head_depth
+      - head_depth
       - goal_receptacle
       - joint
       - goal_recep_segmentation

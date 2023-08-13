@@ -26,8 +26,8 @@ habitat_baselines:
             size: 120
             channels_last: True
             trans_keys:
-              - robot_head_rgb
-              - robot_head_depth
+              - head_rgb
+              - head_depth
               - ovmm_nav_goal_segmentation
               - receptacle_segmentation
             semantic_keys:
@@ -39,8 +39,8 @@ habitat_baselines:
             width: 120
             channels_last: True
             trans_keys:
-              - robot_head_rgb
-              - robot_head_depth
+              - head_rgb
+              - head_depth
               - ovmm_nav_goal_segmentation
               - receptacle_segmentation
 
@@ -97,4 +97,4 @@ habitat:
   simulator:
     agents:
       main_agent:
-        robot_type: "StretchRobot"
+        articulated_agent_type: "StretchRobot"

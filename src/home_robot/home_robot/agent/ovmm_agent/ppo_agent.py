@@ -188,9 +188,10 @@ class PPOAgent(Agent):
                 {
                     k[len("actor_critic.") :]: v
                     for k, v in ckpt["state_dict"].items()
-                    if "actor_critic" in k
+                    if "actor_critic" in k and "running_mean_and_var" not in k
                 }
             )
+
         self.actor_critic.eval()
         self.max_displacement = skill_config.max_displacement
         self.max_turn = skill_config.max_turn_degrees * np.pi / 180
@@ -311,9 +312,7 @@ class PPOAgent(Agent):
         )
         hab_obs = OrderedDict(
             {
-                "robot_head_depth": np.expand_dims(normalized_depth, -1).astype(
-                    np.float32
-                ),
+                "head_depth": np.expand_dims(normalized_depth, -1).astype(np.float32),
                 "object_embedding": obs.task_observations["object_embedding"],
                 "object_segmentation": np.expand_dims(
                     obs.semantic == obs.task_observations["object_goal"], -1
@@ -372,12 +371,11 @@ class PPOAgent(Agent):
                 self.not_done_masks,
                 deterministic=False,
             )
-            (
-                _,
-                actions,
-                _,
-                self.test_recurrent_hidden_states,
-            ) = action_data
+
+            actions, self.test_recurrent_hidden_states = (
+                action_data.actions,
+                action_data.rnn_hidden_states,
+            )
 
             #  Make masks not done till reset (end of episode) will be called
             self.not_done_masks.fill_(True)
