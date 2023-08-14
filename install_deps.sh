@@ -63,6 +63,33 @@ cd $HOME_ROBOT_ROOT/src/home_robot/home_robot/perception/detection/detic/Detic
 mkdir models
 wget https://dl.fbaipublicfiles.com/detic/Detic_LCOCOI21k_CLIP_SwinB_896b32_4x_ft4x_max-size.pth -O models/Detic_LCOCOI21k_CLIP_SwinB_896b32_4x_ft4x_max-size.pth
 
+cd $HOME_ROBOT_ROOT
+echo ""
+echo "Cloning GroundedSAM third party submodule..."
+git submodule update --init --recursive src/home_robot/home_robot/perception/detection/grounded_sam/Grounded-Segment-Anything
+
+echo "Installing GroundedSAM dependencies..."
+cd $HOME_ROBOT_ROOT/src/home_robot/home_robot/perception/detection/grounded_sam/Grounded-Segment-Anything
+export AM_I_DOCKER=False
+export BUILD_WITH_CUDA=True
+python -m pip install -e segment_anything
+python -m pip install -e GroundingDINO
+pip install --upgrade diffusers[torch]
+cd grounded-sam-osx && bash install.sh
+python -m pip install opencv-python pycocotools matplotlib ipykernel
+
+mkdir $HOME_ROBOT_ROOT/src/home_robot/home_robot/perception/detection/grounded_sam/checkpoints/
+
+echo "Downloading MobileSAM checkpoint..."
+wget -P $HOME_ROBOT_ROOT/src/home_robot/home_robot/perception/detection/grounded_sam/checkpoints/ https://github.com/ChaoningZhang/MobileSAM/raw/master/weights/mobile_sam.pt
+
+echo "Downloading SAM checkpoint..."
+wget -P $HOME_ROBOT_ROOT/src/home_robot/home_robot/perception/detection/grounded_sam/checkpoints/ https://dl.fbaipublicfiles.com/segment_anything/sam_vit_h_4b8939.pth
+
+echo "Downloading GroundedDINO checkpoints.."
+wget -P $HOME_ROBOT_ROOT/src/home_robot/home_robot/perception/detection/grounded_sam/checkpoints/ https://huggingface.co/ShilongLiu/GroundingDINO/resolve/main/groundingdino_swint_ogc.pth
+wget -P $HOME_ROBOT_ROOT/src/home_robot/home_robot/perception/detection/grounded_sam/checkpoints/ https://huggingface.co/ShilongLiu/GroundingDINO/resolve/main/groundingdino_swinb_cogcoor.pth
+
 echo ""
 echo "Downloading pretrained skills..."
 cd $HOME_ROBOT_ROOT
