@@ -1,25 +1,27 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 # quick fix for import
-import home_robot.utils.pose as pu
-from home_robot.manipulation import HeuristicPlacePolicy
-from home_robot.core.interfaces import DiscreteNavigationAction, Observations
-from home_robot.agent.ovmm_agent.ppo_agent import PPOAgent
-from home_robot.agent.ovmm_agent.ovmm_agent import OpenVocabManipAgent
-from home_robot.agent.objectnav_agent.objectnav_agent import ObjectNavAgent
-from home_robot.agent.ovmm_agent.vlm_exploration_agent import VLMExplorationAgent
-from PIL import Image
-import torch
-import numpy as np
-import matplotlib.pyplot as plt
-import clip
-from typing import Any, Dict, Optional, Tuple
-from enum import IntEnum, auto
-import warnings
 import json
 import sys
-sys.path.append(
-    "src/home_robot/home_robot/perception/detection/minigpt4/MiniGPT-4/")
+import warnings
+from enum import IntEnum, auto
+from typing import Any, Dict, Optional, Tuple
+
+import clip
+import matplotlib.pyplot as plt
+import numpy as np
+import torch
+from PIL import Image
+
+import home_robot.utils.pose as pu
+from home_robot.agent.objectnav_agent.objectnav_agent import ObjectNavAgent
+from home_robot.agent.ovmm_agent.ovmm_agent import OpenVocabManipAgent
+from home_robot.agent.ovmm_agent.ppo_agent import PPOAgent
+from home_robot.agent.ovmm_agent.vlm_exploration_agent import VLMExplorationAgent
+from home_robot.core.interfaces import DiscreteNavigationAction, Observations
+from home_robot.manipulation import HeuristicPlacePolicy
+
+sys.path.append("src/home_robot/home_robot/perception/detection/minigpt4/MiniGPT-4/")
 
 
 class Skill(IntEnum):
@@ -39,7 +41,6 @@ def get_skill_as_one_hot_dict(curr_skill: Skill):
 
 
 class VLMAgent(OpenVocabManipAgent):
-
     def __init__(self, config, device_id: int = 0, obs_spaces=None, action_spaces=None):
         warnings.warn(
             "vlm agent is currently under development and not fully supported yet."
@@ -48,18 +49,21 @@ class VLMAgent(OpenVocabManipAgent):
         # if config.GROUND_TRUTH_SEMANTICS == 0 or self.store_all_categories_in_map:
         #     raise NotImplementedError
         from minigpt4_example import Predictor
+
         # self.vlm = Predictor()
-        print ("VLM Agent created")
-        
+        print("VLM Agent created")
+
         self.vlm_freq = 1
 
         self.explore_agent = VLMExplorationAgent(config=config)
-        self.explore_agent.reset()   
-        print ("Also created a simple exploration agent for frontier exploration behaviors")     
+        self.explore_agent.reset()
+        print(
+            "Also created a simple exploration agent for frontier exploration behaviors"
+        )
 
     def switch_high_level_action(self):
         self.states[0] == Skill.EXPLORE
-        return 
+        return
 
     def _explore(
         self, obs: Observations, info: Dict[str, Any]
@@ -81,7 +85,7 @@ class VLMAgent(OpenVocabManipAgent):
         new_state = None
         # if terminate:
         #     action = None
-            # new_state = Skill.GAZE_AT_OBJ
+        # new_state = Skill.GAZE_AT_OBJ
         return action, info, new_state
 
     def reset_vectorized(self, episodes=None):
@@ -103,21 +107,27 @@ class VLMAgent(OpenVocabManipAgent):
         info = self._get_info(obs)
 
         self.timesteps[0] += 1
-        
+
         if self.timesteps[0] % self.vlm_freq == 0:
-            
+
             self.switch_high_level_action()
-            # import pdb; pdb.set_trace()     
+            # import pdb; pdb.set_trace()
 
         action = None
         while action is None:
             if self.states[0] == Skill.EXPLORE:
                 action, info, new_state = self._explore(obs, info)
-            # if self.states[0] == Skill.NAV_TO_OBJ:
-            #     action, info, new_state = self._nav_to_obj(obs, info)
+            if self.states[0] == Skill.NAV_TO_INSTANCE:
+                obs.task_observations["instance_id"] = 1  # TODO: get this from model
+                action, info, new_state = self._nav_to_obj(obs, info)
             elif self.states[0] == Skill.GAZE_AT_OBJ:
                 action, info, new_state = self._gaze_at_obj(obs, info)
             elif self.states[0] == Skill.PICK:
+                pick_instance_id = 1  # TODO
+                category_id = self.instance_memory.instance_views[0][
+                    pick_instance_id
+                ].category_id
+                obs.task_observations["object_goal"] = category_id
                 action, info, new_state = self._pick(obs, info)
             # elif self.states[0] == Skill.NAV_TO_REC:
             #     action, info, new_state = self._nav_to_rec(obs, info)
