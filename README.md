@@ -51,7 +51,7 @@ roslaunch home_robot_hw startup_stretch_hector_slam.launch
 
 ### Workstation Instructions
 
-To set up your workstation, follow these instructions. We will assume that your system supports CUDA 11.8 or better for pytorch; earlier versions should be fine, but may require some changes to the conda environment.
+To set up your workstation, follow these instructions. HomeRobot requires Python 3.9. These instructions assume that your system supports CUDA 11.7 or better for pytorch; earlier versions should be fine, but may require some changes to the conda environment.
 
 #### 1. Create Your Environment
 
@@ -81,7 +81,7 @@ HOME_ROBOT_ROOT=$USER/src/home-robot
 CUDA_HOME=/usr/local/cuda-11.7
 ```
 
-Finally, you can run the [install script](install.sh) to download submodules, model checkpoints, and build Detic for open-vocabulary object detection:
+Finally, you can run the [install script](install_deps.sh) to download submodules, model checkpoints, and build Detic for open-vocabulary object detection:
 ```
 conda activate home-robot
 cd $HOME_ROBOT_ROOT
@@ -93,11 +93,13 @@ If you run into issues, check out the [step-by-step instructions](docs/install_w
 
 #### 3. Simulation Setup
 
-To set up the simulation stack with Habitat, train DDPPO skills and run evaluations: see the [installation instructions](src/home_robot_sim/README.md) in `home_robot_sim`.
+To set up the simulation stack with Habitat, train DDPPO skills and run evaluations: see the [installation instructions](src/home_robot_sim/README.md) in `home_robot_sim`. As with other components, the simulation assumes that you have Python 3.9, conda, mamba, and CUDA 11.7 or greater, although other CUDA versions may work.
 
 For more details on the OVMM challenge, see the [Habitat OVMM readme](projects/habitat_ovmm/README.md). You can start by running the [install script](projects/habitat_ovmm/install.sh) to download all the necessary data:
 
+```
 $HOME_ROBOT_ROOT/projects/habitat_ovmm/install.sh
+```
 
 
 #### 4. Run Open Vocabulary Mobile Manipulation on Stretch
