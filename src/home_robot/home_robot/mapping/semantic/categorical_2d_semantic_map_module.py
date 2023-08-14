@@ -263,6 +263,7 @@ class Categorical2DSemanticMapModule(nn.Module):
                 local_pose,
                 seq_camera_poses,
             )
+            import pdb;pdb.set_trace()
             for e in range(batch_size):
                 if seq_update_global[e, t]:
                     self._update_global_map_and_pose_for_env(

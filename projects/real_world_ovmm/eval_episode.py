@@ -1,14 +1,16 @@
 #!/usr/bin/env python
+from datetime import datetime
 from typing import Optional, Tuple
 
 import click
 import rospy
-
+import copy
+from home_robot.agent.ovmm_agent.vlm_agent import VLMAgent
 from home_robot.agent.ovmm_agent.ovmm_agent import OpenVocabManipAgent
 from home_robot.motion.stretch import STRETCH_HOME_Q
 from home_robot_hw.env.stretch_pick_and_place_env import StretchPickandPlaceEnv
 from home_robot_hw.utils.config import load_config
-
+import numpy as np
 
 @click.command()
 @click.option("--test-pick", default=False, is_flag=True)
@@ -62,8 +64,9 @@ def main(
     )
 
     print("- Creating agent")
-    agent = OpenVocabManipAgent(config=config)
-
+    # agent = OpenVocabManipAgent(config=config)
+    agent = VLMAgent(config=config)
+    # explore_agent = VLMExplorationAgent(config=config)
     robot = env.get_robot()
     if reset_nav:
         print("- Sending the robot to [0, 0, 0]")
@@ -71,14 +74,25 @@ def main(
         robot.nav.navigate_to([0, 0, 0])
 
     agent.reset()
-    env.reset(start_recep, pick_object, goal_recep)
-
+    # explore_agent.reset()
+    print ("Agent(s) has been reset")
+    if hasattr(agent, "planner"):
+        now = datetime.now()
+        agent.planner.set_vis_dir("real_world", now.strftime("%Y_%m_%d_%H_%M_%S"))
+    env.reset(start_recep, pick_object, goal_recep, set_goal=True)
+    print ("Env has been reset")
     t = 0
     while not env.episode_over and not rospy.is_shutdown():
         t += 1
         print("STEP =", t)
-        obs = env.get_observation()
+        obs = env.get_observation()   
         action, info, obs = agent.act(obs)
+        # action, info, obs = explore_agent.act(explore_obs) 
+        # info['semantic_map'].fill(np.max(info['semantic_map']))
+        # info['semantic_map'].fill(4)
+        # info['found_goal'] = False
+        # print (info)
+        # import pdb; pdb.set_trace()
         done = env.apply_action(action, info=info, prev_obs=obs)
         if done:
             print("Done.")
@@ -88,7 +102,10 @@ def main(
             break
 
     print("Metrics:", env.get_episode_metrics())
-
+    # if reset_nav:
+    #     print("- Sending the robot to [0, 0, 0]")
+    #     # Send it back to origin position to make testing a bit easier
+    #     robot.nav.navigate_to([0, 0, 0])
 
 if __name__ == "__main__":
     print("---- Starting real-world evaluation ----")

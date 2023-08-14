@@ -417,7 +417,8 @@ class ObjectNavAgent(Agent):
                 semantic[
                     obs.semantic == obs.task_observations["end_recep_goal"]
                 ] = end_recep_idx
-
+        # print (semantic)
+        # import pdb; pdb.set_trace()
         semantic = self.one_hot_encoding[torch.from_numpy(
             semantic).to(self.device)]
 

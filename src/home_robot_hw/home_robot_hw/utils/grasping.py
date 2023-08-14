@@ -294,7 +294,9 @@ class GraspPlanner(object):
         self.robot_client.switch_to_navigation_mode()
         return grasp_completed
 
-    def plan_to_grasp(self, grasp: np.ndarray) -> Optional[np.ndarray]:
+    def plan_to_grasp(
+        self, grasp: np.ndarray, z_standoff: float = 0.4
+    ) -> Optional[np.ndarray]:
         """Create offsets for the full trajectory plan to get to the object.
         Then return that plan."""
         grasp_pos, grasp_quat = to_pos_quat(grasp)
@@ -304,7 +306,9 @@ class GraspPlanner(object):
         # Get pregrasp pose: current pose + maxed out lift
         joint_pos_pre = self.robot_client.manip.get_joint_positions()
         return self.planner.plan_to_grasp(
-            (grasp_pos, grasp_quat), initial_cfg=joint_pos_pre
+            (grasp_pos, grasp_quat),
+            initial_cfg=joint_pos_pre,
+            z_standoff=z_standoff,
         )
 
     def _send_predicted_grasp_to_tf(self, grasp):

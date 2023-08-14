@@ -7,6 +7,7 @@ PRINT_IMAGES: 1           # 1: save visualization as images, 0: no image saving
 GROUND_TRUTH_SEMANTICS: 0 # 1: use ground-truth semantics (for debugging / ablations)
 seed: 0                   # seed
 SHOW_RL_OBS: True         # whether to show the observations passed to RL policices, for debugging
+store_all_categories: True
 
 ENVIRONMENT:
   forward: 0.25           # forward motion (in meters)
@@ -49,6 +50,7 @@ AGENT:
     dilate_obstacles: True
     dilate_size: 3
     dilate_iter: 1
+    record_instance_ids: True
 
   SKILLS:
     GAZE_OBJ:

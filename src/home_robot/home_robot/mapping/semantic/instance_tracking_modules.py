@@ -3,6 +3,7 @@ from typing import Dict, List, Optional, Tuple
 import numpy as np
 import torch
 
+padding = 1.5
 
 class InstanceView:
     """
@@ -88,7 +89,7 @@ class InstanceMemory:
         self.num_envs = num_envs
         self.du_scale = du_scale
         self.debug_visualize = debug_visualize
-        self.debug_visualize = False
+        self.debug_visualize = True
         if self.debug_visualize:
             import shutil
 
@@ -155,6 +156,33 @@ class InstanceMemory:
                 global_instance_id,
             )
 
+    def get_cropped_image(self, image, bbox):
+        # image = instance_memory.images[0][iv.timestep]
+        im_h = image.shape[1]
+        im_w = image.shape[2]
+        # bbox = iv.bbox
+        x = bbox[0, 1]
+        y = bbox[0, 0]
+        w = bbox[1, 1] - x
+        h = bbox[1, 0] - y
+        x = 0 if (x-(padding-1)*w /
+                2) < 0 else int(x-(padding-1)*w/2)
+        y = 0 if (y-(padding-1)*h /
+                2) < 0 else int(y-(padding-1)*h/2)
+        y2 = im_h if y + \
+            int(h*padding) >= im_h else y+int(h*padding)
+        x2 = im_w if x + \
+            int(w*padding) >= im_w else x+int(w*padding)
+        cropped_image = (
+            image[:,  y: y2, x: x2,
+                ]
+            .permute(1, 2, 0)
+            .cpu()
+            .numpy()
+            .astype(np.uint8)
+        )
+        return cropped_image
+
     def process_instances_for_env(
         self,
         env_id: int,
@@ -193,7 +221,7 @@ class InstanceMemory:
             # get semantic category
             category_id = semantic_map[instance_mask].unique()
             category_id = category_id[0]
-
+            # import pdb; pdb.set_trace()
             instance_id_to_category_id[instance_id] = category_id
 
             # get bounding box
@@ -222,14 +250,14 @@ class InstanceMemory:
 
             masked_image = image * instance_mask
             # get cropped image
-            cropped_image = (
-                masked_image[:, bbox[0, 0]: bbox[1, 0], bbox[0, 1]: bbox[1, 1]]
-                .permute(1, 2, 0)
-                .cpu()
-                .numpy()
-                .astype(np.uint8)
-            )
-
+            # cropped_image = (
+            #     masked_image[:, bbox[0, 0]: bbox[1, 0], bbox[0, 1]: bbox[1, 1]]
+            #     .permute(1, 2, 0)
+            #     .cpu()
+            #     .numpy()
+            #     .astype(np.uint8)
+            # )
+            cropped_image = self.get_cropped_image(image, bbox)
             instance_mask = instance_mask.cpu().numpy().astype(bool)
 
             # get embedding

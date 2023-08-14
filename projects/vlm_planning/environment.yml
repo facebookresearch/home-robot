@@ -1,14 +1,18 @@
-name: home-robot-minigpt4
+name: home-robot
 channels:
   - pytorch
   - defaults
   - anaconda
   # added
+  - robostack
+  - robostack-staging
   - conda-forge
   - aihabitat
   - pytorch3d
   - nvidia
 dependencies:
+  - ros-noetic-desktop
+  - ros-noetic-ros-numpy
   - python=3.9
   - cudatoolkit
   - pip
@@ -29,7 +33,9 @@ dependencies:
   - pytorch3d
   # - opencv
   - pip:
+    - mss
     - accelerate==0.16.0
+    - open3d
     - aiohttp==3.8.4
     - aiosignal==1.3.1
     - async-timeout==4.0.2
