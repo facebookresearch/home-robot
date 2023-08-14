@@ -259,10 +259,10 @@ class HelloStretchKinematics(Robot):
 
         # You can set one of the visualize flags to true to debug IK issues
         self._manip_dof = len(self._manip_mode_controlled_joints)
+        ranges = np.zeros((self._manip_dof, 2))
+        ranges[:, 0] = self._to_manip_format(self.range[:, 0])
+        ranges[:, 1] = self._to_manip_format(self.range[:, 1])
         if "pybullet" in ik_type:
-            ranges = np.zeros((self._manip_dof, 2))
-            ranges[:, 0] = self._to_manip_format(self.range[:, 0])
-            ranges[:, 1] = self._to_manip_format(self.range[:, 1])
             self.manip_ik_solver = PybulletIKSolver(
                 self.manip_mode_urdf_path,
                 self._ee_link_name,
@@ -275,6 +275,7 @@ class HelloStretchKinematics(Robot):
                 self.manip_mode_urdf_path,
                 self._ee_link_name,
                 self._manip_mode_controlled_joints,
+                joint_range=ranges,
             )
 
         if "optimize" in ik_type:
@@ -282,6 +283,7 @@ class HelloStretchKinematics(Robot):
                 ik_solver=self.manip_ik_solver,
                 pos_error_tol=0.005,
                 ori_error_range=np.array([0.0, 0.0, 0.2]),
+                joint_range=ranges,
             )
 
     def __init__(
