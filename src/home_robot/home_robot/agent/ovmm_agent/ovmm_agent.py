@@ -30,6 +30,8 @@ class Skill(IntEnum):
     NAV_TO_REC = auto()
     GAZE_AT_REC = auto()
     PLACE = auto()
+    EXPLORE = auto()
+    NAV_TO_INSTANCE = auto()
     FALL_WAIT = auto()
 
 
@@ -452,9 +454,6 @@ class OpenVocabManipAgent(ObjectNavAgent):
                     action = DiscreteNavigationAction.PICK_OBJECT
                 else:
                     action = None
-            else:
-                # We have tried too many times and we're going to quit
-                action = None
         else:
             raise NotImplementedError(
                 f"pick type not supported: {self.config.AGENT.SKILLS.PICK.type}"

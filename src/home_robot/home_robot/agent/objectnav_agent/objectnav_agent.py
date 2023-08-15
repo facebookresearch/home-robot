@@ -491,6 +491,7 @@ class ObjectNavAgent(Agent):
         camera_pose = obs.camera_pose
         if camera_pose is not None:
             camera_pose = torch.tensor(np.asarray(camera_pose)).unsqueeze(0)
+        # import pdb; pbd.set_trace()
         return (
             obs_preprocessed,
             pose_delta,

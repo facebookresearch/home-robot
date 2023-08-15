@@ -32,6 +32,8 @@ class Skill(IntEnum):
     GAZE_AT_REC = auto()
     PLACE = auto()
     EXPLORE = auto()
+    NAV_TO_INSTANCE = auto()
+    FALL_WAIT = auto()
 
 
 def get_skill_as_one_hot_dict(curr_skill: Skill):
@@ -54,7 +56,6 @@ class VLMAgent(OpenVocabManipAgent):
         print("VLM Agent created")
 
         self.vlm_freq = 1
-
         self.explore_agent = VLMExplorationAgent(config=config)
         self.explore_agent.reset()
         print(
@@ -62,7 +63,9 @@ class VLMAgent(OpenVocabManipAgent):
         )
 
     def switch_high_level_action(self):
-        self.states[0] == Skill.EXPLORE
+        self.states = torch.tensor([Skill.EXPLORE] * self.num_environments)
+        if self.timesteps[0] >= 20:
+            self.states = torch.tensor([Skill.NAV_TO_INSTANCE] * self.num_environments)    
         return
 
     def _explore(
@@ -81,6 +84,7 @@ class VLMAgent(OpenVocabManipAgent):
         #     raise ValueError(
         #         f"Got unexpected value for NAV_TO_OBJ.type: {nav_to_obj_type}"
         #     )
+        # _, _, _ = self.act(obs)
         action, info, obs = self.explore_agent.act(obs)
         new_state = None
         # if terminate:
@@ -112,21 +116,20 @@ class VLMAgent(OpenVocabManipAgent):
 
             self.switch_high_level_action()
             # import pdb; pdb.set_trace()
-
         action = None
         while action is None:
             if self.states[0] == Skill.EXPLORE:
-                action, info, new_state = self._explore(obs, info)
-            if self.states[0] == Skill.NAV_TO_INSTANCE:
-                obs.task_observations["instance_id"] = 1  # TODO: get this from model
+                obs.task_observations["instance_id"] = 100000000000  # TODO: get this from model
+                action, info, new_state = self._nav_to_obj(obs, info)
+            elif self.states[0] == Skill.NAV_TO_INSTANCE:
+                # import pdb; pdb.set_trace()
+                obs.task_observations["instance_id"] = 3  # TODO: get this from model
                 action, info, new_state = self._nav_to_obj(obs, info)
             elif self.states[0] == Skill.GAZE_AT_OBJ:
                 action, info, new_state = self._gaze_at_obj(obs, info)
             elif self.states[0] == Skill.PICK:
                 pick_instance_id = 1  # TODO
-                category_id = self.instance_memory.instance_views[0][
-                    pick_instance_id
-                ].category_id
+                category_id = self.instance_memory.instance_views[0][pick_instance_id].category_id
                 obs.task_observations["object_goal"] = category_id
                 action, info, new_state = self._pick(obs, info)
             # elif self.states[0] == Skill.NAV_TO_REC:

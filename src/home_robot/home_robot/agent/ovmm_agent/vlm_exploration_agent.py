@@ -28,6 +28,9 @@ class Skill(IntEnum):
     NAV_TO_REC = auto()
     GAZE_AT_REC = auto()
     PLACE = auto()
+    EXPLORE = auto()
+    NAV_TO_INSTANCE = auto()
+    FALL_WAIT = auto()
 
 
 def get_skill_as_one_hot_dict(curr_skill: Skill):
@@ -43,6 +46,7 @@ class VLMExplorationAgent(OpenVocabManipAgent):
             "vlm agent is currently under development and not fully supported yet."
         )
         super().__init__(config, device_id=device_id)
+        # self.record_instance_ids = False
         print ("Simple Exploration Agent (for VLM) created")
 
     def _preprocess_obs(self, obs: Observations):
@@ -136,6 +140,7 @@ class VLMExplorationAgent(OpenVocabManipAgent):
             object_goal_category,
             start_recep_goal_category,
             end_recep_goal_category,
+            None,
             goal_name,
             camera_pose,
         )
