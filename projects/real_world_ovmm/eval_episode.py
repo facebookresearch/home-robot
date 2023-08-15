@@ -1,4 +1,11 @@
 #!/usr/bin/env python
+# Copyright (c) Meta Platforms, Inc. and affiliates.
+#
+# This source code is licensed under the MIT license found in the
+# LICENSE file in the root directory of this source tree.
+
+
+from datetime import datetime
 from typing import Optional, Tuple
 
 import click
@@ -72,6 +79,7 @@ def main(
 
     agent.reset()
     if hasattr(agent, "planner"):
+        now = datetime.now()
         agent.planner.set_vis_dir("real_world", now.strftime("%Y_%m_%d_%H_%M_%S"))
     env.reset(start_recep, pick_object, goal_recep)
 
