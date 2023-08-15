@@ -20,6 +20,7 @@ from detectron2.utils.visualizer import ColorMode, Visualizer
 
 from home_robot.core.abstract_perception import PerceptionModule
 from home_robot.core.interfaces import Observations
+from home_robot.perception.detection.utils import filter_depth, overlay_masks
 
 sys.path.insert(
     0, str(Path(__file__).resolve().parent / "Detic/third_party/CenterNet2/")
@@ -63,42 +64,6 @@ def get_clip_embeddings(vocabulary, prompt="a "):
     return emb
 
 
-def overlay_masks(
-    masks: np.ndarray, class_idcs: np.ndarray, shape: Tuple[int, int]
-) -> np.ndarray:
-    """Overlays the masks of objects
-    Determines the order of masks based on mask size
-    """
-    mask_sizes = [np.sum(mask) for mask in masks]
-    sorted_mask_idcs = np.argsort(mask_sizes)
-
-    semantic_mask = np.zeros(shape)
-    instance_mask = -np.ones(shape)
-    for i_mask in sorted_mask_idcs[::-1]:  # largest to smallest
-        semantic_mask[masks[i_mask].astype(bool)] = class_idcs[i_mask]
-        instance_mask[masks[i_mask].astype(bool)] = i_mask
-
-    return semantic_mask, instance_mask
-
-
-def filter_depth(
-    mask: np.ndarray, depth: np.ndarray, depth_threshold: Optional[float] = None
-) -> np.ndarray:
-    md = np.median(depth[mask == 1])  # median depth
-    if md == 0:
-        # Remove mask if more than half of points has invalid depth
-        filter_mask = np.ones_like(mask, dtype=bool)
-    elif depth_threshold is not None:
-        # Restrict objects to 1m depth
-        filter_mask = (depth >= md + depth_threshold) | (depth <= md - depth_threshold)
-    else:
-        filter_mask = np.zeros_like(mask, dtype=bool)
-    mask_out = mask.copy()
-    mask_out[filter_mask] = 0.0
-
-    return mask_out
-
-
 class DeticPerception(PerceptionModule):
     def __init__(
         self,
@@ -107,6 +72,7 @@ class DeticPerception(PerceptionModule):
         custom_vocabulary="",
         checkpoint_file=None,
         sem_gpu_id=0,
+        verbose: bool = False,
     ):
         """Load trained Detic model for inference.
 
@@ -118,7 +84,9 @@ class DeticPerception(PerceptionModule):
              list of classes (as a single string)
             checkpoint_file: path to model checkpoint
             sem_gpu_id: GPU ID to load the model on, -1 for CPU
+            verbose: whether to print out debug information
         """
+        self.verbose = verbose
         if config_file is None:
             config_file = str(
                 Path(__file__).resolve().parent
@@ -129,9 +97,10 @@ class DeticPerception(PerceptionModule):
                 Path(__file__).resolve().parent
                 / "Detic/models/Detic_LCOCOI21k_CLIP_SwinB_896b32_4x_ft4x_max-size.pth"
             )
-        print(
-            f"Loading Detic with config={config_file} and checkpoint={checkpoint_file}"
-        )
+        if self.verbose:
+            print(
+                f"Loading Detic with config={config_file} and checkpoint={checkpoint_file}"
+            )
 
         string_args = f"""
             --config-file {config_file} --vocabulary {vocabulary}
@@ -150,7 +119,7 @@ class DeticPerception(PerceptionModule):
 
         string_args = string_args.split()
         args = get_parser().parse_args(string_args)
-        cfg = setup_cfg(args)
+        cfg = setup_cfg(args, verbose=verbose)
 
         assert vocabulary in ["coco", "custom"]
         if args.vocabulary == "custom":
@@ -198,7 +167,8 @@ class DeticPerception(PerceptionModule):
             new_vocab: list of strings representing the new vocabulary
             vocab_type: one of "custom" or "coco"; only "custom" supported right now
         """
-        print(f"Resetting vocabulary to {new_vocab}")
+        if self.verbose:
+            print(f"Resetting vocabulary to {new_vocab}")
         MetadataCatalog.remove("__unused")
         if vocab_type == "custom":
             self.metadata = MetadataCatalog.get("__unused")
@@ -240,6 +210,9 @@ class DeticPerception(PerceptionModule):
 
         pred = self.predictor(image)
 
+        if obs.task_observations is None:
+            obs.task_observations = {}
+
         if draw_instance_predictions:
             visualizer = Visualizer(
                 image[:, :, ::-1], self.metadata, instance_mode=self.instance_mode
@@ -271,7 +244,7 @@ class DeticPerception(PerceptionModule):
         return obs
 
 
-def setup_cfg(args):
+def setup_cfg(args, verbose: bool = False):
     cfg = get_cfg()
     if args.cpu:
         cfg.MODEL.DEVICE = "cpu"
@@ -285,7 +258,8 @@ def setup_cfg(args):
     cfg.MODEL.PANOPTIC_FPN.COMBINE.INSTANCES_CONFIDENCE_THRESH = (
         args.confidence_threshold
     )
-    print("[DETIC] Confidence threshold =", args.confidence_threshold)
+    if verbose:
+        print("[DETIC] Confidence threshold =", args.confidence_threshold)
     cfg.MODEL.ROI_BOX_HEAD.ZEROSHOT_WEIGHT_PATH = "rand"  # load later
     if not args.pred_all_class:
         cfg.MODEL.ROI_HEADS.ONE_CLASS_PER_PROPOSAL = True

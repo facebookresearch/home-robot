@@ -104,7 +104,6 @@ class VectorizedEvaluator:
         num_episodes_per_env=None,
         episode_keys=None,
     ):
-
         # The stopping condition is either specified through
         # num_episodes_per_env (stop after each environment
         # finishes a certain number of episodes) or episode_keys

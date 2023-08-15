@@ -38,6 +38,10 @@ data/
 *.hdf5
 *.mp4
 *.glb
+# used by habitat for object info
+*.json
+*.png
+*.npz
 
 # Detic model files
 *.pth
@@ -45,6 +49,9 @@ data/
 
 # Training stuff
 projects/**/wandb
+core
+projects/**/multirun/**/**
+projects/slap_manipulation/assets/**
 
 # configs
 projects/habitat_ovmm/configs/agent/generated/*

@@ -1,0 +1,283 @@
+<?xml version="1.0"?>
+<robot xmlns:xacro="http://www.ros.org/wiki/xacro" name="stretch_aruco">
+
+  <link
+    name="link_aruco_right_base">
+    <inertial>
+      <origin
+        xyz="0 0 -5.00000000014378E-07"
+        rpy="0 0 0" />
+      <mass
+        value="3.59999999990368E-06" />
+      <inertia
+        ixx="0"
+        ixy="0"
+        ixz="0"
+        iyy="0"
+        iyz="0"
+        izz="0" />
+    </inertial>
+    <visual>
+      <origin
+        xyz="0 0 0"
+        rpy="0 0 0" />
+      <geometry>
+        <mesh
+          filename="package://stretch_description/meshes/link_aruco_right_base.STL" />
+      </geometry>
+      <material
+        name="">
+        <color
+          rgba="0.792156862745098 0.819607843137255 0.933333333333333 1" />
+      </material>
+    </visual>
+    <collision>
+      <origin
+        xyz="0 0 0"
+        rpy="0 0 0" />
+      <geometry>
+        <mesh
+          filename="package://stretch_description/meshes/link_aruco_right_base.STL" />
+      </geometry>
+    </collision>
+  </link>
+  
+  <joint
+    name="joint_aruco_right_base"
+    type="fixed">
+    <origin
+      xyz="-0.00500000000000014 -0.1304972 0.1597482"
+      rpy="0 0 -1.5707963267949" />
+    <parent
+      link="base_link" />
+    <child
+      link="link_aruco_right_base" />
+    <axis
+      xyz="0 0 0" />
+  </joint>
+
+  
+  <link
+    name="link_aruco_left_base">
+    <inertial>
+      <origin
+        xyz="0 0 -5.00000000014378E-07"
+        rpy="0 0 0" />
+      <mass
+        value="3.59999999990368E-06" />
+      <inertia
+        ixx="0"
+        ixy="0"
+        ixz="0"
+        iyy="0"
+        iyz="0"
+        izz="0" />
+    </inertial>
+    <visual>
+      <origin
+        xyz="0 0 0"
+        rpy="0 0 0" />
+      <geometry>
+        <mesh
+          filename="package://stretch_description/meshes/link_aruco_left_base.STL" />
+      </geometry>
+      <material
+        name="">
+        <color
+          rgba="0.792156862745098 0.819607843137255 0.933333333333333 1" />
+      </material>
+    </visual>
+    <collision>
+      <origin
+        xyz="0 0 0"
+        rpy="0 0 0" />
+      <geometry>
+        <mesh
+          filename="package://stretch_description/meshes/link_aruco_left_base.STL" />
+      </geometry>
+    </collision>
+  </link>
+  
+  <joint
+    name="joint_aruco_left_base"
+    type="fixed">
+    <origin
+      xyz="-0.00500000000000014 0.1304972 0.1597482"
+      rpy="0 0 -1.5707963267949" />
+    <parent
+      link="base_link" />
+    <child
+      link="link_aruco_left_base" />
+    <axis
+      xyz="0 0 0" />
+  </joint>
+  
+  <link
+    name="link_aruco_shoulder">
+    <inertial>
+      <origin
+        xyz="-2.77555756156289E-17 2.56739074444567E-16 -0.000125000000000042"
+        rpy="0 0 0" />
+      <mass
+        value="0" />
+      <inertia
+        ixx="0"
+        ixy="0"
+        ixz="0"
+        iyy="0"
+        iyz="0"
+        izz="0" />
+    </inertial>
+    <visual>
+      <origin
+        xyz="0 0 0"
+        rpy="0 0 0" />
+      <geometry>
+        <mesh
+          filename="package://stretch_description/meshes/link_aruco_shoulder.STL" />
+      </geometry>
+      <material
+        name="">
+        <color
+          rgba="0.792156862745098 0.819607843137255 0.933333333333333 1" />
+      </material>
+    </visual>
+    <collision>
+      <origin
+        xyz="0 0 0"
+        rpy="0 0 0" />
+      <geometry>
+        <mesh
+          filename="package://stretch_description/meshes/link_aruco_shoulder.STL" />
+      </geometry>
+    </collision>
+  </link>
+
+  <joint
+    name="joint_aruco_shoulder"
+    type="fixed">
+    <origin
+      xyz="-0.0133768876375287 0.0558540528812078 0.0861368272417975"
+      rpy="-1.53998860117704E-29 3.55962409571165E-15 0.0" />
+    <parent
+      link="link_lift" />
+    <child
+      link="link_aruco_shoulder" />
+    <axis
+      xyz="0 0 0" />
+  </joint>
+
+  <link
+    name="link_aruco_top_wrist">
+    <inertial>
+      <origin
+        xyz="1.11022302462516E-16 3.05311331771918E-16 -0.00012499999999821"
+        rpy="0 0 0" />
+      <mass
+        value="0" />
+      <inertia
+        ixx="0"
+        ixy="0"
+        ixz="0"
+        iyy="0"
+        iyz="0"
+        izz="0" />
+    </inertial>
+    <visual>
+      <origin
+        xyz="0 0 0"
+        rpy="0 0 0" />
+      <geometry>
+        <mesh
+          filename="package://stretch_description/meshes/link_aruco_top_wrist.STL" />
+      </geometry>
+      <material
+        name="">
+        <color
+          rgba="0.792156862745098 0.819607843137255 0.933333333333333 1" />
+      </material>
+    </visual>
+    <collision>
+      <origin
+        xyz="0 0 0"
+        rpy="0 0 0" />
+      <geometry>
+        <mesh
+          filename="package://stretch_description/meshes/link_aruco_top_wrist.STL" />
+      </geometry>
+    </collision>
+  </link>
+
+  <joint
+    name="joint_aruco_top_wrist"
+    type="fixed">
+    <origin
+      xyz="0.0472500000000019 0.0292850000000015 0"
+      rpy="1.5707963267949 -8.03728587323464E-15 3.14159265358979" />
+    <parent
+      link="link_arm_l0" />
+    <child
+      link="link_aruco_top_wrist" />
+    <axis
+      xyz="0 0 0" />
+  </joint>
+
+  <link
+    name="link_aruco_inner_wrist">
+    <inertial>
+      <origin
+        xyz="8.32667268468867E-17 1.77635683940025E-15 -0.000125000000000264"
+        rpy="0 0 0" />
+      <mass
+        value="0" />
+      <inertia
+        ixx="0"
+        ixy="0"
+        ixz="0"
+        iyy="0"
+        iyz="0"
+        izz="0" />
+    </inertial>
+    <visual>
+      <origin
+        xyz="0 0 0"
+        rpy="0 0 0" />
+      <geometry>
+        <mesh
+          filename="package://stretch_description/meshes/link_aruco_inner_wrist.STL" />
+      </geometry>
+      <material
+        name="">
+        <color
+          rgba="0.792156862745098 0.819607843137255 0.933333333333333 1" />
+      </material>
+    </visual>
+    <collision>
+      <origin
+        xyz="0 0 0"
+        rpy="0 0 0" />
+      <geometry>
+        <mesh
+          filename="package://stretch_description/meshes/link_aruco_inner_wrist.STL" />
+      </geometry>
+    </collision>
+  </link>
+
+  <joint
+    name="joint_aruco_inner_wrist"
+    type="fixed">
+    <origin
+      xyz="0.0472499999999947 -0.0119000000000034 -0.0272499999991938"
+      rpy="3.14159265358979 4.23377442363088E-14 3.14159265358979" />
+    <parent
+      link="link_arm_l0" />
+    <child
+      link="link_aruco_inner_wrist" />
+    <axis
+      xyz="0 0 0" />
+  </joint>
+
+</robot>
+
+  
+

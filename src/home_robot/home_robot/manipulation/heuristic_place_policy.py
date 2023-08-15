@@ -41,12 +41,15 @@ class HeuristicPlacePolicy(nn.Module):
         device,
         placement_drop_distance: float = 0.4,
         debug_visualize_xyz: bool = False,
+        verbose: bool = False,
     ):
         """
         Parameters:
             config
             device
             placement_drop_distance: distance from placement point that we add as a margin
+            debug_visualize_xyz: whether to display point clouds for debugging
+            verbose: whether to print debug statements
         """
         super().__init__()
         self.timestep = 0
@@ -55,6 +58,7 @@ class HeuristicPlacePolicy(nn.Module):
         self.debug_visualize_xyz = debug_visualize_xyz
         self.erosion_kernel = np.ones((5, 5), np.uint8)
         self.placement_drop_distance = placement_drop_distance
+        self.verbose = verbose
 
     def reset(self):
         self.timestep = 0
@@ -158,7 +162,8 @@ class HeuristicPlacePolicy(nn.Module):
             cv2.imwrite(f"{self.end_receptacle}_semantic.png", goal_rec_mask * 255)
 
         if not goal_rec_mask.any():
-            print("End receptacle not visible.")
+            if self.verbose:
+                print("End receptacle not visible.")
             return None
         else:
             rgb_vis = obs.rgb
@@ -304,7 +309,8 @@ class HeuristicPlacePolicy(nn.Module):
             found = self.get_receptacle_placement_point(obs, vis_inputs)
 
             if found is None:
-                print("Receptacle not visible. Execute hardcoded place.")
+                if self.verbose:
+                    print("Receptacle not visible. Execute hardcoded place.")
                 self.total_turn_and_forward_steps = 0
                 self.initial_orient_num_turns = -1
                 self.fall_wait_steps = 0
@@ -353,32 +359,33 @@ class HeuristicPlacePolicy(nn.Module):
                 self.t_done_waiting = (
                     self.total_turn_and_forward_steps + 5 + self.fall_wait_steps
                 )
+                if self.verbose:
+                    print("-" * 20)
+                    print(f"Turn to orient for {self.initial_orient_num_turns} steps.")
+                    print(f"Move forward for {self.forward_steps} steps.")
 
-                print("-" * 20)
-                print(f"Turn to orient for {self.initial_orient_num_turns} steps.")
-                print(f"Move forward for {self.forward_steps} steps.")
-
-        print("-" * 20)
-        print("Timestep", self.timestep)
+        if self.verbose:
+            print("-" * 20)
+            print("Timestep", self.timestep)
         if self.timestep < self.initial_orient_num_turns:
             if self.orient_turn_direction == -1:
-                print("[Placement] Turning right to orient towards object")
                 action = DiscreteNavigationAction.TURN_RIGHT
             if self.orient_turn_direction == +1:
-                print("[Placement] Turning left to orient towards object")
                 action = DiscreteNavigationAction.TURN_LEFT
+            if self.verbose:
+                print("[Placement] Turning to orient towards object")
         elif self.timestep < self.total_turn_and_forward_steps:
-            print("[Placement] Moving forward")
+            if self.verbose:
+                print("[Placement] Moving forward")
             action = DiscreteNavigationAction.MOVE_FORWARD
         elif self.timestep == self.total_turn_and_forward_steps:
             action = DiscreteNavigationAction.MANIPULATION_MODE
-            print("[Placement] Aligning camera to arm")
         elif self.timestep == self.t_go_to_top:
             # We should move the arm back and retract it to make sure it does not hit anything as it moves towards the target position
-            print("[Placement] Raising the arm before placement.")
             action = self._retract(obs)
         elif self.timestep == self.t_go_to_place:
-            print("[Placement] Move arm into position")
+            if self.verbose:
+                print("[Placement] Move arm into position")
             placement_height, placement_extension = (
                 self.placement_voxel[2],
                 self.placement_voxel[1],
@@ -406,8 +413,9 @@ class HeuristicPlacePolicy(nn.Module):
 
             delta_gripper_yaw = delta_heading / 90 - HARDCODED_YAW_OFFSET
 
-            print("[Placement] Delta arm extension:", delta_arm_ext)
-            print("[Placement] Delta arm lift:", delta_arm_lift)
+            if self.verbose:
+                print("[Placement] Delta arm extension:", delta_arm_ext)
+                print("[Placement] Delta arm lift:", delta_arm_lift)
             joints = np.array(
                 [delta_arm_ext]
                 + [0] * 3
@@ -419,23 +427,34 @@ class HeuristicPlacePolicy(nn.Module):
             action = ContinuousFullBodyAction(joints)
         elif self.timestep == self.t_release_object:
             # desnap to drop the object
-            print("[Placement] Desnapping object")
             action = DiscreteNavigationAction.DESNAP_OBJECT
         elif self.timestep == self.t_lift_arm:
-            print("[Placement] Lifting the arm after placement.")
             action = self._lift(obs)
         elif self.timestep == self.t_retract_arm:
-            print("[Placement] Retracting the arm after placement.")
             action = self._retract(obs)
         elif self.timestep == self.t_extend_arm:
-            print("[Placement] Extending the arm out for placing.")
             action = DiscreteNavigationAction.EXTEND_ARM
         elif self.timestep <= self.t_done_waiting:
-            print("[Placement] Empty action")  # allow the object to come to rest
+            if self.verbose:
+                print("[Placement] Empty action")  # allow the object to come to rest
             action = DiscreteNavigationAction.EMPTY_ACTION
         else:
-            print("[Placement] Stopping")
+            if self.verbose:
+                print("[Placement] Stopping")
             action = DiscreteNavigationAction.STOP
+
+        debug_texts = {
+            self.total_turn_and_forward_steps: "[Placement] Aligning camera to arm",
+            self.t_go_to_top: "[Placement] Raising the arm before placement.",
+            self.t_go_to_place: "[Placement] Move arm into position",
+            self.t_release_object: "[Placement] Desnapping object",
+            self.t_lift_arm: "[Placement] Lifting the arm after placement.",
+            self.t_retract_arm: "[Placement] Retracting the arm after placement.",
+            self.t_extend_arm: "[Placement] Extending the arm out for placing.",
+            self.t_done_waiting: "[Placement] Empty action",
+        }
+        if self.verbose and self.timestep in debug_texts:
+            print(debug_texts[self.timestep])
 
         self.timestep += 1
         return action, vis_inputs

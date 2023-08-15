@@ -1,0 +1,30 @@
+# Task breakdown where we assign a unique string to
+# each action in the trajectory. We assume such information
+# to be available through LLM or supervised labeling.
+"handover-to-person":
+  - "handover-to-person-approach-person"
+  - "handover-to-person-align-with-hand"
+  - "handover-to-person-release-object"
+
+"open-object-drawer":
+  - "open-object-in-front-of-handle"
+  - "open-object-grasp-handle"
+  - "open-object-pull-out-handle"
+
+"close-object-drawer":
+  - "close-object-drawer-align-with-surface"
+  - "close-object-drawer-close-gripper"
+  - "close-object-drawer-push-in"
+
+"pour-into-bowl":
+  - "pour-into-bowl-align-with-bowl"
+  - "pour-into-bowl-tilt-into-bowl"
+  - "pour-into-bowl-tilt-further"
+  - "pour-into-bowl-empty-out"
+
+"take-bottle":
+  - "take-bottle-align-with-bottle"
+  - "take-bottle-grasp-bottle"
+  - "take-bottle-lift-bottle"
+  - "take-bottle-retract-arm"
+

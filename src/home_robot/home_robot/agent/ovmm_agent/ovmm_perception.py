@@ -58,18 +58,40 @@ class OvmmPerception:
     It also maintains a list of vocabularies to use in segmentation and can switch between them at runtime.
     """
 
-    def __init__(self, config, gpu_device_id: int = 0):
+    def __init__(
+        self,
+        config,
+        gpu_device_id: int = 0,
+        verbose: bool = False,
+        module="grounded_sam",
+    ):
         self.config = config
         self._use_detic_viz = config.ENVIRONMENT.use_detic_viz
+        self._detection_module = getattr(config.AGENT, "detection_module", "detic")
         self._vocabularies: Dict[int, RearrangeDETICCategories] = {}
         self._current_vocabulary: RearrangeDETICCategories = None
         self._current_vocabulary_id: int = None
-        # TODO Specify confidence threshold as a parameter
-        self._segmentation = DeticPerception(
-            vocabulary="custom",
-            custom_vocabulary=".",
-            sem_gpu_id=gpu_device_id,
-        )
+        self.verbose = verbose
+        if self._detection_module == "detic":
+            # TODO Specify confidence threshold as a parameter
+            self._segmentation = DeticPerception(
+                vocabulary="custom",
+                custom_vocabulary=".",
+                sem_gpu_id=gpu_device_id,
+                verbose=verbose,
+            )
+        elif self._detection_module == "grounded_sam":
+            from home_robot.perception.detection.grounded_sam.grounded_sam_perception import (
+                GroundedSAMPerception,
+            )
+
+            self._segmentation = GroundedSAMPerception(
+                custom_vocabulary=".",
+                sem_gpu_id=gpu_device_id,
+                verbose=verbose,
+            )
+        else:
+            raise NotImplementedError
 
     @property
     def current_vocabulary_id(self) -> int:
@@ -79,7 +101,7 @@ class OvmmPerception:
     def current_vocabulary(self) -> RearrangeDETICCategories:
         return self._current_vocabulary
 
-    def update_vocubulary_list(
+    def update_vocabulary_list(
         self, vocabulary: RearrangeDETICCategories, vocabulary_id: int
     ):
         """
@@ -114,15 +136,24 @@ class OvmmPerception:
         obs.task_observations["semantic_max_val"] = (
             self._current_vocabulary.num_sem_categories - 1
         )
-        obs.task_observations["start_recep_goal"] = self.vocabulary_name_to_id[
-            obs.task_observations["start_recep_name"]
-        ]
-        obs.task_observations["end_recep_goal"] = self.vocabulary_name_to_id[
-            obs.task_observations["place_recep_name"]
-        ]
-        obs.task_observations["object_goal"] = self.vocabulary_name_to_id[
-            obs.task_observations["object_name"]
-        ]
+        if obs.task_observations["start_recep_name"] is not None:
+            obs.task_observations["start_recep_goal"] = self.vocabulary_name_to_id[
+                obs.task_observations["start_recep_name"]
+            ]
+        else:
+            obs.task_observations["start_recep_name"] = None
+        if obs.task_observations["place_recep_name"] is not None:
+            obs.task_observations["end_recep_goal"] = self.vocabulary_name_to_id[
+                obs.task_observations["place_recep_name"]
+            ]
+        else:
+            obs.task_observations["end_recep_name"] = None
+        if obs.task_observations["object_name"] is not None:
+            obs.task_observations["object_goal"] = self.vocabulary_name_to_id[
+                obs.task_observations["object_name"]
+            ]
+        else:
+            obs.task_observations["object_goal"] = None
 
     def __call__(self, obs: Observations) -> Observations:
         return self.forward(obs)

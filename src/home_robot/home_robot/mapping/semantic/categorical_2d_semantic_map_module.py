@@ -2,7 +2,8 @@
 #
 # This source code is licensed under the MIT license found in the
 # LICENSE file in the root directory of this source tree.
-from typing import Tuple
+from collections import defaultdict
+from typing import Optional, Tuple
 
 import cv2
 import matplotlib.pyplot as plt
@@ -11,6 +12,7 @@ import skimage.morphology
 import torch
 import torch.nn as nn
 import trimesh.transformations as tra
+from skimage import measure
 from torch import IntTensor, Tensor
 from torch.nn import functional as F
 
@@ -19,6 +21,7 @@ import home_robot.utils.depth as du
 import home_robot.utils.pose as pu
 import home_robot.utils.rotation as ru
 from home_robot.mapping.semantic.constants import MapConstants as MC
+from home_robot.mapping.semantic.instance_tracking_modules import InstanceMemory
 
 # For debugging input and output maps - shows matplotlib visuals
 debug_maps = False
@@ -63,6 +66,12 @@ class Categorical2DSemanticMapModule(nn.Module):
         dilate_obstacles: bool = True,
         dilate_iter: int = 1,
         dilate_size: int = 3,
+        record_instance_ids: bool = False,
+        evaluate_instance_tracking: bool = False,
+        instance_memory: Optional[InstanceMemory] = None,
+        max_instances: int = 0,
+        dilation_for_instances: int = 5,
+        padding_for_instance_overlap: int = 5,
     ):
         """
         Arguments:
@@ -89,6 +98,7 @@ class Categorical2DSemanticMapModule(nn.Module):
              consider it as obstacle
             must_explore_close: reduce the distance we need to get to things to make them work
             min_obs_height_cm: minimum height of obstacles (in centimetres)
+            record_instance_ids: whether to record instance ids in the 2d semantic map
         """
         super().__init__()
 
@@ -135,6 +145,12 @@ class Categorical2DSemanticMapModule(nn.Module):
         self.dilate_kernel = np.ones((dilate_size, dilate_size))
         self.dilate_size = dilate_size
         self.dilate_iter = dilate_iter
+        self.record_instance_ids = record_instance_ids
+        self.padding_for_instance_overlap = padding_for_instance_overlap
+        self.dilation_for_instances = dilation_for_instances
+        self.instance_memory = instance_memory
+        self.max_instances = max_instances
+        self.evaluate_instance_tracking = evaluate_instance_tracking
 
     @torch.no_grad()
     def forward(
@@ -197,6 +213,10 @@ class Categorical2DSemanticMapModule(nn.Module):
         device, dtype = seq_obs.device, seq_obs.dtype
 
         map_features_channels = 2 * MC.NON_SEM_CHANNELS + self.num_sem_categories
+        if self.record_instance_ids:
+            map_features_channels += self.num_sem_categories
+        if self.evaluate_instance_tracking:
+            map_features_channels += self.max_instances + 1
         seq_map_features = torch.zeros(
             batch_size,
             sequence_length,
@@ -260,6 +280,91 @@ class Categorical2DSemanticMapModule(nn.Module):
             seq_origins,
         )
 
+    def _aggregate_instance_map_channels_per_category(
+        self, curr_map, num_instance_channels
+    ):
+        """Aggregate map channels for instances (input: one binary channel per instance in [0, 1])
+        by category (output: one channel per category containing instance IDs)."""
+
+        # first extract instance channels
+        top_down_instance_one_hot = curr_map[
+            :,
+            (MC.NON_SEM_CHANNELS + self.num_sem_categories) : (
+                MC.NON_SEM_CHANNELS + self.num_sem_categories + num_instance_channels
+            ),
+            :,
+            :,
+        ]
+        # now we convert the top down instance map to get a map for storing instances per channel
+        top_down_instances_per_category = torch.zeros(
+            curr_map.shape[0],
+            self.num_sem_categories,
+            curr_map.shape[2],
+            curr_map.shape[3],
+            device=curr_map.device,
+            dtype=curr_map.dtype,
+        )
+
+        if num_instance_channels > 0:
+            # loop over envs
+            # TODO Can we vectorize this across envs? (Only needed if we use multiple envs)
+            for i in range(top_down_instance_one_hot.shape[0]):
+                # create category id to instance id list mapping
+                category_id_to_instance_id_list = defaultdict(list)
+                # retrieve unprocessed instances
+                unprocessed_instances = (
+                    self.instance_memory.get_unprocessed_instances_per_env(i)
+                )
+                # loop over unprocessed instances
+                for instance_id, instance in unprocessed_instances.items():
+                    category_id_to_instance_id_list[instance.category_id].append(
+                        instance_id
+                    )
+
+                # loop over categories
+                # TODO Can we vectorize this across categories? (Only needed if speed bottleneck)
+                for category_id in category_id_to_instance_id_list.keys():
+                    if len(category_id_to_instance_id_list[category_id]) == 0:
+                        continue
+                    # get the instance ids for this category
+                    instance_ids = category_id_to_instance_id_list[category_id]
+                    # create a tensor by slicing top_down_instance_one_hot using the instance ids
+                    instance_one_hot = top_down_instance_one_hot[i, instance_ids]
+                    # add a channel with all values equal to 1e-5 as the first channel
+                    instance_one_hot = torch.cat(
+                        (
+                            1e-5 * torch.ones_like(instance_one_hot[:1]),
+                            instance_one_hot,
+                        ),
+                        dim=0,
+                    )
+                    # get the instance id map using argmax
+                    instance_id_map = instance_one_hot.argmax(dim=0)
+                    # add a zero to start of instance ids
+                    instance_id = [0] + instance_ids
+                    # update the ids using the list of instance ids
+                    instance_id_map = torch.tensor(
+                        instance_id, device=instance_id_map.device
+                    )[instance_id_map]
+                    # update the per category instance map
+                    top_down_instances_per_category[i, category_id] = instance_id_map
+
+        curr_map = torch.cat(
+            (
+                curr_map[:, : MC.NON_SEM_CHANNELS + self.num_sem_categories],
+                top_down_instances_per_category,
+                curr_map[
+                    :,
+                    MC.NON_SEM_CHANNELS
+                    + self.num_sem_categories
+                    + num_instance_channels :,
+                ],
+            ),
+            dim=1,
+        )
+
+        return curr_map
+
     def _update_local_map_and_pose(
         self,
         obs: Tensor,
@@ -267,6 +372,7 @@ class Categorical2DSemanticMapModule(nn.Module):
         prev_map: Tensor,
         prev_pose: Tensor,
         camera_pose: Tensor,
+        debug: bool = False,
     ) -> Tuple[Tensor, Tensor]:
         """Update local map and sensor pose given a new observation using parameter-free
         differentiable projective geometry.
@@ -303,12 +409,18 @@ class Categorical2DSemanticMapModule(nn.Module):
             # hab_agent_height = camera_pose[:, 1, 3] * 100
             agent_pos = camera_pose[:, :3, 3] * 100
             agent_height = agent_pos[:, 2]
+
+            if debug:
+                print("tilt", tilt)
+                print("agent_height", agent_height)
+                print()
         else:
             tilt = torch.zeros(batch_size)
             agent_height = self.agent_height
 
         depth = obs[:, 3, :, :].float()
         depth[depth > self.max_depth] = 0
+
         point_cloud_t = du.get_point_cloud_from_z_t(
             depth, self.camera_matrix, device, scale=self.du_scale
         )
@@ -359,6 +471,14 @@ class Categorical2DSemanticMapModule(nn.Module):
             )
 
         voxel_channels = 1 + self.num_sem_categories
+        num_instance_channels = 0
+        if self.record_instance_ids:
+            num_instance_channels = obs_channels - 4 - self.num_sem_categories
+            if self.evaluate_instance_tracking:
+                num_instance_channels -= self.max_instances + 1
+            voxel_channels += num_instance_channels
+        if self.evaluate_instance_tracking:
+            voxel_channels += self.max_instances + 1
 
         init_grid = torch.zeros(
             batch_size,
@@ -376,6 +496,27 @@ class Categorical2DSemanticMapModule(nn.Module):
             device=device,
             dtype=torch.float32,
         )
+
+        semantic_channels = obs[:, 4 : 4 + self.num_sem_categories, :, :]
+
+        if self.record_instance_ids:
+            instance_channels = obs[
+                :,
+                4
+                + self.num_sem_categories : 4
+                + self.num_sem_categories
+                + num_instance_channels,
+                :,
+                :,
+            ]
+            if num_instance_channels > 0:
+                self.instance_memory.process_instances(
+                    semantic_channels,
+                    instance_channels,
+                    point_cloud_t,
+                    image=obs[:, :3, :, :],
+                )
+
         feat[:, 1:, :] = nn.AvgPool2d(self.du_scale)(obs[:, 4:, :, :]).view(
             batch_size, obs_channels - 4, h // self.du_scale * w // self.du_scale
         )
@@ -413,9 +554,16 @@ class Categorical2DSemanticMapModule(nn.Module):
         fp_map_pred = fp_map_pred / self.map_pred_threshold
         fp_exp_pred = fp_exp_pred / self.exp_pred_threshold
 
+        num_channels = MC.NON_SEM_CHANNELS + self.num_sem_categories
+        if self.record_instance_ids:
+            num_channels += num_instance_channels
+
+        if self.evaluate_instance_tracking:
+            num_channels += self.max_instances + 1
+
         agent_view = torch.zeros(
             batch_size,
-            MC.NON_SEM_CHANNELS + self.num_sem_categories,
+            num_channels,
             self.local_map_size_cm // self.xy_resolution,
             self.local_map_size_cm // self.xy_resolution,
             device=device,
@@ -447,14 +595,9 @@ class Categorical2DSemanticMapModule(nn.Module):
         y2 = y1 + self.vision_range
         agent_view[:, MC.OBSTACLE_MAP : MC.OBSTACLE_MAP + 1, y1:y2, x1:x2] = fp_map_pred
         agent_view[:, MC.EXPLORED_MAP : MC.EXPLORED_MAP + 1, y1:y2, x1:x2] = fp_exp_pred
-        agent_view[
-            :,
-            MC.NON_SEM_CHANNELS : MC.NON_SEM_CHANNELS + self.num_sem_categories,
-            y1:y2,
-            x1:x2,
-        ] = (
-            all_height_proj[:, 1 : 1 + self.num_sem_categories]
-            / self.cat_pred_threshold
+
+        agent_view[:, MC.NON_SEM_CHANNELS :, y1:y2, x1:x2] = (
+            all_height_proj[:, 1:] / self.cat_pred_threshold
         )
 
         current_pose = pu.get_new_pose_batch(prev_pose.clone(), pose_delta)
@@ -476,10 +619,28 @@ class Categorical2DSemanticMapModule(nn.Module):
         # Clamp to [0, 1] after transform agent view to map coordinates
         translated = torch.clamp(translated, min=0.0, max=1.0)
 
+        # update instance channels
+        if self.record_instance_ids:
+            translated = self._aggregate_instance_map_channels_per_category(
+                translated, num_instance_channels
+            )
+
         maps = torch.cat((prev_map.unsqueeze(1), translated.unsqueeze(1)), 1)
-        current_map, _ = torch.max(
-            maps[:, :, : MC.NON_SEM_CHANNELS + self.num_sem_categories], 1
-        )
+
+        current_map, _ = torch.max(maps, 1)
+        if self.record_instance_ids:
+            # overwrite channels containing instance IDs
+            current_map[
+                :,
+                MC.NON_SEM_CHANNELS
+                + self.num_sem_categories : MC.NON_SEM_CHANNELS
+                + 2 * self.num_sem_categories,
+            ] = translated[
+                :,
+                MC.NON_SEM_CHANNELS
+                + self.num_sem_categories : MC.NON_SEM_CHANNELS
+                + 2 * self.num_sem_categories,
+            ]
 
         # Reset current location
         current_map[:, MC.CURRENT_LOCATION, :, :].fill_(0.0)
@@ -574,8 +735,201 @@ class Categorical2DSemanticMapModule(nn.Module):
             current_map[:, MC.OBSTACLE_MAP] = (
                 current_map[:, MC.OBSTACLE_MAP] * current_map[:, MC.BEEN_CLOSE_MAP]
             )
-
         return current_map, current_pose
+
+    def _update_global_map_instances_for_one_channel(
+        self,
+        env_id: int,
+        global_instances: Tensor,
+        local_map: Tensor,
+        x_range: tuple,
+        y_range: tuple,
+        max_instance_id: int,
+    ) -> Tensor:
+        """
+        Update one instance channels in the global map from one instance channels in the local map:
+        aggregate local instances with existing global instances or create new global instances.
+
+        Args:
+            global_instances (Tensor): The global map tensor.
+            local_map (Tensor): The local map tensor.
+            x_range (tuple): The range of indices in the x-axis for the local map in the global map.
+            y_range (tuple): The range of indices in the y-axis for the local map in the global map.
+
+        Returns:
+            Tensor: The updated global instances tensor.
+
+        """
+        p = self.padding_for_instance_overlap  # default: 1
+        d = self.dilation_for_instances  # default: 0
+
+        H = global_instances.shape[0]
+        W = global_instances.shape[1]
+
+        x1, x2 = x_range
+        y1, y2 = y_range
+
+        # padding added on each side
+        t_p = min(x1, p)
+        b_p = min(H - x2, p)
+        l_p = min(y1, p)
+        r_p = min(W - y2, p)
+
+        # the indices of the padded local_map in the global map
+        x_start = x1 - t_p
+        x_end = x2 + b_p
+        y_start = y1 - l_p
+        y_end = y2 + r_p
+
+        local_map = torch.round(local_map)
+
+        # pad the local map
+        extended_local_map = F.pad(local_map.float(), (l_p, r_p), mode="replicate")
+        extended_local_map = F.pad(
+            extended_local_map.transpose(1, 0), (t_p, b_p), mode="replicate"
+        ).transpose(1, 0)
+
+        self.instance_dilation_selem = skimage.morphology.disk(d)
+        # dilate the extended local map
+        if d > 0:
+            extended_dilated_local_map = torch.round(
+                torch.tensor(
+                    cv2.dilate(
+                        extended_local_map.cpu().numpy(),
+                        self.instance_dilation_selem,
+                        iterations=1,
+                    ),
+                    device=local_map.device,
+                    dtype=local_map.dtype,
+                )
+            )
+        else:
+            extended_dilated_local_map = torch.clone(extended_local_map)
+
+        # Get the instances from the global map within the local map's region
+        global_instances_within_local = global_instances[x_start:x_end, y_start:y_end]
+
+        instance_mapping = self._get_local_to_global_instance_mapping(
+            env_id,
+            extended_dilated_local_map,
+            global_instances_within_local,
+            max_instance_id,
+        )
+
+        # Update the global map with the associated instances from the local map
+        global_instances_in_local = np.vectorize(instance_mapping.get)(
+            local_map.cpu().numpy()
+        )
+        global_instances[x1:x2, y1:y2] = torch.maximum(
+            global_instances[x1:x2, y1:y2],
+            torch.tensor(
+                global_instances_in_local,
+                dtype=torch.int64,
+                device=global_instances.device,
+            ),
+        )
+        return global_instances
+
+    def _get_local_to_global_instance_mapping(
+        self,
+        env_id: int,
+        extended_local_labels: Tensor,
+        global_instances_within_local: Tensor,
+        max_instance_id: int,
+    ) -> dict:
+        """
+        Creates a mapping of local instance IDs to global instance IDs.
+
+        Args:
+            extended_local_labels: Labels of instances in the extended local map.
+            global_instances_within_local: Instances from the global map within the local map's region.
+
+        Returns:
+            A mapping of local instance IDs to global instance IDs.
+        """
+        instance_mapping = {}
+
+        # Associate instances in the local map with corresponding instances in the global map
+        for local_instance_id in torch.unique(extended_local_labels):
+            if local_instance_id == 0:
+                # ignore 0 as it does not correspond to an instance
+                continue
+            # pixels corresponding to
+            local_instance_pixels = extended_local_labels == local_instance_id
+
+            # Check for overlapping instances in the global map
+            overlapping_instances = global_instances_within_local[local_instance_pixels]
+            unique_overlapping_instances = torch.unique(overlapping_instances)
+
+            unique_overlapping_instances = unique_overlapping_instances[
+                unique_overlapping_instances != 0
+            ]
+            if len(unique_overlapping_instances) >= 1:
+                # If there is a corresponding instance in the global map, pick the first one and associate it
+                global_instance_id = int(unique_overlapping_instances[0].item())
+                instance_mapping[local_instance_id.item()] = global_instance_id
+            else:
+                # If there are no corresponding instances, create a new instance
+                global_instance_id = max_instance_id + 1
+                instance_mapping[local_instance_id.item()] = global_instance_id
+                max_instance_id += 1
+            # update the id in instance memory
+            self.instance_memory.update_instance_id(
+                env_id, int(local_instance_id.item()), global_instance_id
+            )
+        instance_mapping[0] = 0
+        return instance_mapping
+
+    def _update_global_map_instances(
+        self, e: int, global_map: Tensor, local_map: Tensor, lmb: Tensor
+    ) -> Tensor:
+        """
+        Update instance channels in the global map from instance channels in the local map:
+        aggregate local instances with existing global instances or create new global instances.
+
+        Args:
+            e (int): The index of the environment.
+            global_map (Tensor): The global map tensor.
+            local_map (Tensor): The local map tensor.
+            lmb (Tensor): The tensor containing the ranges of indices for the local map in the global map.
+
+        Returns:
+            Tensor: The updated global map tensor.
+        """
+        # TODO Can we vectorize this across categories? (Only needed if speed bottleneck)
+        for i in range(self.num_sem_categories):
+            if (
+                torch.sum(
+                    local_map[e, MC.NON_SEM_CHANNELS + i + self.num_sem_categories]
+                )
+                > 0
+            ):
+                max_instance_id = (
+                    torch.max(
+                        global_map[
+                            e,
+                            MC.NON_SEM_CHANNELS
+                            + self.num_sem_categories : MC.NON_SEM_CHANNELS
+                            + 2 * self.num_sem_categories,
+                        ]
+                    )
+                    .int()
+                    .item()
+                )
+                # if the local map has any object instances, update the global map with instance ids
+                instances = self._update_global_map_instances_for_one_channel(
+                    e,
+                    global_map[e, MC.NON_SEM_CHANNELS + i + self.num_sem_categories],
+                    local_map[e, MC.NON_SEM_CHANNELS + i + self.num_sem_categories],
+                    (lmb[e, 0], lmb[e, 1]),
+                    (lmb[e, 2], lmb[e, 3]),
+                    max_instance_id,
+                )
+                global_map[
+                    e, i + MC.NON_SEM_CHANNELS + self.num_sem_categories
+                ] = instances
+
+        return global_map
 
     def _update_global_map_and_pose_for_env(
         self,
@@ -590,7 +944,27 @@ class Categorical2DSemanticMapModule(nn.Module):
         """Update global map and pose and re-center local map and pose for a
         particular environment.
         """
-        global_map[e, :, lmb[e, 0] : lmb[e, 1], lmb[e, 2] : lmb[e, 3]] = local_map[e]
+
+        if self.record_instance_ids:
+            global_map = self._update_global_map_instances(
+                e, global_map, local_map, lmb
+            )
+            global_map[
+                e,
+                : MC.NON_SEM_CHANNELS + self.num_sem_categories,
+                lmb[e, 0] : lmb[e, 1],
+                lmb[e, 2] : lmb[e, 3],
+            ] = local_map[e, : MC.NON_SEM_CHANNELS + self.num_sem_categories]
+            global_map[
+                e,
+                MC.NON_SEM_CHANNELS + 2 * self.num_sem_categories :,
+                lmb[e, 0] : lmb[e, 1],
+                lmb[e, 2] : lmb[e, 3],
+            ] = local_map[e, MC.NON_SEM_CHANNELS + 2 * self.num_sem_categories :]
+        else:
+            global_map[e, :, lmb[e, 0] : lmb[e, 1], lmb[e, 2] : lmb[e, 3]] = local_map[
+                e
+            ]
         global_pose[e] = local_pose[e] + origins[e]
         mu.recenter_local_map_and_pose_for_env(
             e,
@@ -617,6 +991,11 @@ class Categorical2DSemanticMapModule(nn.Module):
              (batch_size, 2 * MC.NON_SEM_CHANNELS + num_sem_categories, M, M)
         """
         map_features_channels = 2 * MC.NON_SEM_CHANNELS + self.num_sem_categories
+
+        if self.record_instance_ids:
+            map_features_channels += self.num_sem_categories
+        if self.evaluate_instance_tracking:
+            map_features_channels += self.max_instances + 1
 
         map_features = torch.zeros(
             local_map.size(0),

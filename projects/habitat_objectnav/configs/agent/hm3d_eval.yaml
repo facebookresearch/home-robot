@@ -18,12 +18,14 @@ ENVIRONMENT:
   hfov: 79.0              # horizontal field of view (in degrees)
   min_depth: 0.5          # minimum depth for depth sensor (in metres)
   max_depth: 5.0          # maximum depth for depth sensor (in metres)
+  evaluate_instance_tracking: False # whether to evaluate the built instance map against groundtruth instance ids
 
 AGENT:
   max_steps: 500          # maximum number of steps before stopping an episode
   panorama_start: 1       # 1: turn around 360 degrees when starting an episode, 0: don't
   exploration_strategy: seen_frontier  # exploration strategy ("seen_frontier", "been_close_to_frontier")
   radius: 0.05            # robot radius (in meters)
+  store_all_categories: True  # whether to store all semantic categories in the map or just task-relevant ones
 
   SEMANTIC_MAP:
     semantic_categories: coco_indoor # map semantic channel categories ("coco_indoor", "longtail_indoor", "mukul_indoor")
@@ -44,7 +46,9 @@ AGENT:
     dilate_obstacles: False
     dilate_size: 3
     dilate_iter: 1
-
+    # instance mapping
+    record_instance_ids: False  # whether to predict and store instance ids in the map
+    max_instances: 800
 
   PLANNER:
     collision_threshold: 0.20       # forward move distance under which we consider there's a collision (in meters)

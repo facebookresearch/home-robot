@@ -9,7 +9,6 @@ import json
 import sys
 from pathlib import Path
 
-from config_utils import get_config
 from omegaconf import DictConfig, OmegaConf
 
 sys.path.insert(
@@ -21,26 +20,10 @@ sys.path.insert(
     str(Path(__file__).resolve().parent.parent.parent / "src/home_robot_sim"),
 )
 from evaluator import OVMMEvaluator
-from habitat import make_dataset
-from habitat.core.environments import get_env_class
-from habitat.utils.gym_definitions import _get_env_name
+from utils.config_utils import get_habitat_config
+from utils.env_utils import create_ovmm_env_fn
 
 from home_robot.agent.ovmm_agent.ovmm_llm_agent import OvmmLLMAgent
-from home_robot_sim.env.habitat_ovmm_env.habitat_ovmm_env import (
-    HabitatOpenVocabManipEnv,
-)
-
-
-def create_ovmm_env_fn(config):
-    """Create habitat environment using configsand wrap HabitatOpenVocabManipEnv around it. This function is used by VectorEnv for creating the individual environments"""
-    habitat_config = config.habitat
-    dataset = make_dataset(habitat_config.dataset.type, config=habitat_config.dataset)
-    env_class_name = _get_env_name(config)
-    env_class = get_env_class(env_class_name)
-    habitat_env = env_class(config=habitat_config, dataset=dataset)
-    habitat_env.seed(habitat_config.seed)
-    env = HabitatOpenVocabManipEnv(habitat_env, config, dataset=dataset)
-    return env
 
 
 class MemoryCollector(OVMMEvaluator):
@@ -94,7 +77,7 @@ if __name__ == "__main__":
     print("-" * 100)
 
     print("Configs:")
-    config, config_str = get_config(args.habitat_config_path, opts=args.opts)
+    config, config_str = get_habitat_config(args.habitat_config_path, opts=args.opts)
     baseline_config = OmegaConf.load(args.baseline_config_path)
     config = DictConfig({**config, **baseline_config})
     collector = MemoryCollector(config)

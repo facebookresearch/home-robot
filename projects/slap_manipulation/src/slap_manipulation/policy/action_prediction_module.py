@@ -20,7 +20,7 @@ import torch
 import trimesh.transformations as tra
 import wandb
 import yaml
-from omegaconf import OmegaConf
+from omegaconf import OmegaConf, dictconfig
 from slap_manipulation.dataloaders.rlbench_loader import RLBenchDataset
 from slap_manipulation.dataloaders.robot_loader import RobotDataset
 from slap_manipulation.optim.lamb import Lamb
@@ -34,6 +34,7 @@ from tqdm import tqdm
 # Default debug dataset paths
 # from home_robot.policy.pt_query import train_dataset_dir, valid_dataset_dir
 from home_robot.utils.point_cloud import numpy_to_pcd, show_point_cloud
+from home_robot.utils.pose import to_matrix
 
 np.random.seed(0)
 torch.manual_seed(0)
@@ -65,21 +66,38 @@ class QueryRegressionHead(torch.nn.Module):
             )
 
         self.final_dim = cfg.regression_head.final_dim
-        self.pos_mlp = MLP(
-            OmegaConf.to_object(cfg.regression_head.pos_mlp),
-            dropout=0.0,
-            batch_norm=False,
-        )
-        self.ori_mlp = MLP(
-            OmegaConf.to_object(cfg.regression_head.ori_mlp),
-            dropout=0.0,
-            batch_norm=False,
-        )
-        self.gripper_mlp = MLP(
-            OmegaConf.to_object(cfg.regression_head.gripper_mlp),
-            dropout=0.0,
-            batch_norm=False,
-        )
+        if isinstance(cfg, dictconfig.DictConfig):
+            self.pos_mlp = MLP(
+                OmegaConf.to_object(cfg.regression_head.pos_mlp),
+                dropout=0.0,
+                batch_norm=False,
+            )
+            self.ori_mlp = MLP(
+                OmegaConf.to_object(cfg.regression_head.ori_mlp),
+                dropout=0.0,
+                batch_norm=False,
+            )
+            self.gripper_mlp = MLP(
+                OmegaConf.to_object(cfg.regression_head.gripper_mlp),
+                dropout=0.0,
+                batch_norm=False,
+            )
+        else:
+            self.pos_mlp = MLP(
+                cfg.regression_head.pos_mlp,
+                dropout=0.0,
+                batch_norm=False,
+            )
+            self.ori_mlp = MLP(
+                cfg.regression_head.ori_mlp,
+                dropout=0.0,
+                batch_norm=False,
+            )
+            self.gripper_mlp = MLP(
+                cfg.regression_head.gripper_mlp,
+                dropout=0.0,
+                batch_norm=False,
+            )
         self.pos_mdn = MDN(self.final_dim, self.pos_in_channels, 1)
         self.pos_linear = Linear(self.final_dim, self.pos_in_channels)
         self.ori_linear = Linear(self.final_dim, self.ori_in_channels)
@@ -101,9 +119,9 @@ class QueryRegressionHead(torch.nn.Module):
             abs_ee_ori = abs_ee_ori / abs_ee_ori.norm(dim=-1)
 
         if self.use_mdn:
-            return pos_sigma, pos_mu, abs_ee_ori, self.to_activation(gripper)
+            return pos_sigma, pos_mu, abs_ee_ori, gripper
         else:
-            return delta_ee_pos, abs_ee_ori, self.to_activation(gripper)
+            return delta_ee_pos, abs_ee_ori, gripper
 
 
 class ActionPredictionModule(torch.nn.Module):
@@ -122,23 +140,32 @@ class ActionPredictionModule(torch.nn.Module):
 
         self.multi_head = cfg.multi_step
         self.num_heads = cfg.num_heads
+        self._max_actions = cfg.max_actions
         self._crop_size = cfg.crop_size
         self._query_radius = cfg.query_radius
         self._k = cfg.k  # default from pyg example
         self.proprio_in_dim = cfg.dims.proprio_in
         self.image_in_dim = cfg.dims.image_in
         self.proprio_out_dim = cfg.dims.proprio_out
-        self.hidden_dim = cfg.hidden_dim
+        self.hidden_dim = cfg.gru_hidden_dim
+        self.hidden_layers = cfg.gru_hidden_layers
         self.use_mdn = cfg.use_mdn
 
         self.pos_wt = cfg.weights.position
         self.ori_wt = cfg.weights.orientation
         self.gripper_wt = cfg.weights.gripper
 
+        self.handover_pos_wt = cfg.handover_weights.position
+        self.handover_ori_wt = cfg.handover_weights.orientation
+        self.handover_gripper_wt = cfg.handover_weights.gripper
+
         # encoding language
         # learnable positional encoding
         # Unlike eg in peract, this ONLY applies to the language
-        lang_emb_dim, lang_max_seq_len = cfg.dims.lang_emb_out, cfg.lang_max_seq_len
+        lang_emb_dim, lang_max_seq_len = (
+            cfg.dims.lang_emb_out,
+            cfg.lang_max_seq_len,
+        )
         with torch.no_grad():
             self.clip_model, self.clip_preprocess = clip.load(
                 cfg.clip_model, device=self.device
@@ -153,59 +180,118 @@ class ActionPredictionModule(torch.nn.Module):
         )
 
         # Input channels account for both `pos` and node features.
-        self.sa1_module = SAModule(
-            0.5,  # fps sampling ratio
-            0.5 * self._query_radius,
-            MLP(
-                OmegaConf.to_object(cfg.model.sa1_mlp),
-                batch_norm=False,
-                dropout=0.0,
-            ),
-        )
-        self.sa2_module = SAModule(
-            0.25,  # this is apparently the FPS sampling ratio
-            self._query_radius,
-            MLP(
-                OmegaConf.to_object(cfg.model.sa2_mlp),
-                batch_norm=False,
-                dropout=0.0,
-            ),
-        )
-        self.sa3_module = GlobalSAModule(
-            MLP(
-                OmegaConf.to_object(cfg.model.sa3_mlp),
+        if isinstance(cfg, dictconfig.DictConfig):
+            self.sa1_module = SAModule(
+                0.5,  # fps sampling ratio
+                0.5 * self._query_radius,
+                MLP(
+                    OmegaConf.to_object(cfg.model.sa1_mlp),
+                    batch_norm=False,
+                    dropout=0.0,
+                ),
+            )
+            self.sa2_module = SAModule(
+                0.25,  # this is apparently the FPS sampling ratio
+                self._query_radius,
+                MLP(
+                    OmegaConf.to_object(cfg.model.sa2_mlp),
+                    batch_norm=False,
+                    dropout=0.0,
+                ),
+            )
+            self.sa3_module = GlobalSAModule(
+                MLP(
+                    OmegaConf.to_object(cfg.model.sa3_mlp),
+                    batch_norm=False,
+                    dropout=0.0,
+                )
+            )
+            self.proprio_emb = MLP(
+                OmegaConf.to_object(cfg.model.proprio_mlp),
                 batch_norm=False,
                 dropout=0.0,
             )
-        )
-        self.proprio_emb = MLP(
-            OmegaConf.to_object(cfg.model.proprio_mlp),
-            batch_norm=False,
-            dropout=0.0,
-        )
-        self.lang_emb = MLP(
-            OmegaConf.to_object(cfg.model.lang_mlp),
-            batch_norm=False,
-            dropout=0.0,
-        )
-        self.time_emb = MLP(
-            OmegaConf.to_object(cfg.model.time_mlp),
-            batch_norm=False,
-            dropout=0.0,
-        )
-        self.x_gru = torch.nn.GRU(1024, self.hidden_dim, 1)
-        self.post_process = MLP(
-            OmegaConf.to_object(cfg.model.post_process_mlp),
-            batch_norm=False,
-            dropout=0.0,
-            # activation_layer=torch.nn.LeakyReLU()
-        )
-        self.pre_process = MLP(
-            OmegaConf.to_object(cfg.model.pre_process_mlp),
-            batch_norm=False,
-            dropout=0.0,
-            # activation_layer=torch.nn.LeakyReLU()
-        )
+            self.lang_emb = MLP(
+                OmegaConf.to_object(cfg.model.lang_mlp),
+                batch_norm=False,
+                dropout=0.0,
+            )
+            self.time_emb = MLP(
+                OmegaConf.to_object(cfg.model.time_mlp),
+                batch_norm=False,
+                dropout=0.0,
+            )
+            self.x_gru = torch.nn.GRU(
+                cfg.model.gru_dim, self.hidden_dim, self.hidden_layers
+            )
+            self.post_process = MLP(
+                OmegaConf.to_object(cfg.model.post_process_mlp),
+                batch_norm=False,
+                dropout=0.0,
+                # activation_layer=torch.nn.LeakyReLU()
+            )
+            self.pre_process = MLP(
+                OmegaConf.to_object(cfg.model.pre_process_mlp),
+                batch_norm=False,
+                dropout=0.0,
+                # activation_layer=torch.nn.LeakyReLU()
+            )
+        else:
+            self.sa1_module = SAModule(
+                0.5,  # fps sampling ratio
+                0.5 * self._query_radius,
+                MLP(
+                    cfg.model.sa1_mlp,
+                    batch_norm=False,
+                    dropout=0.0,
+                ),
+            )
+            self.sa2_module = SAModule(
+                0.25,  # this is apparently the FPS sampling ratio
+                self._query_radius,
+                MLP(
+                    cfg.model.sa2_mlp,
+                    batch_norm=False,
+                    dropout=0.0,
+                ),
+            )
+            self.sa3_module = GlobalSAModule(
+                MLP(
+                    cfg.model.sa3_mlp,
+                    batch_norm=False,
+                    dropout=0.0,
+                )
+            )
+            self.proprio_emb = MLP(
+                cfg.model.proprio_mlp,
+                batch_norm=False,
+                dropout=0.0,
+            )
+            self.lang_emb = MLP(
+                cfg.model.lang_mlp,
+                batch_norm=False,
+                dropout=0.0,
+            )
+            self.time_emb = MLP(
+                cfg.model.time_mlp,
+                batch_norm=False,
+                dropout=0.0,
+            )
+            self.x_gru = torch.nn.GRU(
+                cfg.model.gru_dim, self.hidden_dim, self.hidden_layers
+            )
+            self.post_process = MLP(
+                cfg.model.post_process_mlp,
+                batch_norm=False,
+                dropout=0.0,
+                # activation_layer=torch.nn.LeakyReLU()
+            )
+            self.pre_process = MLP(
+                cfg.model.pre_process_mlp,
+                batch_norm=False,
+                dropout=0.0,
+                # activation_layer=torch.nn.LeakyReLU()
+            )
 
         self.regression_head = QueryRegressionHead(cfg)
         self.pos_in_channels = cfg.regression_head.pos_in_channels
@@ -215,30 +301,51 @@ class ActionPredictionModule(torch.nn.Module):
         # self._regression_heads = torch.nn.Sequential(*self.regression_heads)
         # self.classify_loss = torch.nn.BCEWithLogitsLoss()
         # self.classify_loss = torch.nn.BinaryCrossEntropyLoss()
-        self.classify_loss = torch.nn.BCELoss()
-        self.name = f"action_predictor_{cfg.name}"
+        self.classify_loss = torch.nn.BCEWithLogitsLoss()
+        self.name = f"action_predictor_{cfg.task_name}"
         self.max_iter = cfg.max_iter
 
         # for visualizations
         self.cam_view = {
-            "front": [-0.89795424592554529, 0.047678244807235863, 0.43749852250766141],
-            "lookat": [0.33531651482385966, 0.048464899929339826, 0.54704503365806367],
-            "up": [0.43890929711345494, 0.024286597087151203, 0.89820308956788786],
+            "front": [
+                -0.89795424592554529,
+                0.047678244807235863,
+                0.43749852250766141,
+            ],
+            "lookat": [
+                0.33531651482385966,
+                0.048464899929339826,
+                0.54704503365806367,
+            ],
+            "up": [
+                0.43890929711345494,
+                0.024286597087151203,
+                0.89820308956788786,
+            ],
             "zoom": 0.43999999999999972,
         }
-        self.setup_training()
-        if not cfg.validate and not cfg.dry_run:
-            if not os.path.exists(self._save_dir):
-                os.mkdir(self._save_dir)
+        # self.setup_training()
+        # if not cfg.validate and not cfg.dry_run:
+        #     if not os.path.exists(self._save_dir):
+        #         os.mkdir(self._save_dir)
         self.start_time = 0.0
 
-    def setup_training(self):
-        # get today's date
-        date_time = datetime.datetime.now().strftime("%Y-%m-%d_%H-%M")
-        folder_name = self.name + "_" + date_time
-        # append folder name to current working dir
-        path = os.path.join(os.getcwd(), folder_name)
+    def load_weights(self, path: str):
+        if os.path.isfile(path):
+            self.load_state_dict(torch.load(path))
+        else:
+            raise RuntimeError(f"[APM] Checkpoint '{path}' not found")
+
+    def set_working_dir(self, path):
         self._save_dir = path
+
+    # def setup_training(self):
+    #     # get today's date
+    #     date_time = datetime.datetime.now().strftime("%Y-%m-%d_%H-%M")
+    #     folder_name = self.name + "_" + date_time
+    #     # append folder name to current working dir
+    #     path = os.path.join(os.getcwd(), folder_name)
+    #     self._save_dir = path
 
     def get_optimizer(self):
         """optimizer config"""
@@ -260,9 +367,6 @@ class ActionPredictionModule(torch.nn.Module):
         else:
             raise Exception(f"Optimizer not supported: {self._optimizer_type}")
         return optimizer
-
-    def load_weights(self, path):
-        self.load_state_dict(torch.load(path))
 
     def get_best_name(self):
         filename = os.path.join(self._save_dir, "best_" + self.name + ".pth")
@@ -327,6 +431,10 @@ class ActionPredictionModule(torch.nn.Module):
             grnd_coords = grnd_coords.rotate(grnd_rot)
             grnd_coords.paint_uniform_color([1, 0, 0])
             geoms.append(grnd_coords)
+        origin = o3d.geometry.TriangleMesh.create_coordinate_frame(
+            size=0.1, origin=np.zeros((3, 1))
+        )
+        geoms.append(origin)
         o3d.visualization.draw_geometries(geoms)
         # , lookat=self.cam_view["lookat"], up=self.cam_view["up"]
         # )
@@ -354,30 +462,83 @@ class ActionPredictionModule(torch.nn.Module):
         # if viewpt:
         #     del ctr
 
-    def predict(
-        self,
-        # rgb: np.ndarray,
-        rgb_crop: np.ndarray,
-        # xyz: np.ndarray,
-        xyz_crop: np.ndarray,
-        proprio: np.ndarray,
-        lang: List[str],
-        p_i: np.ndarray,
-        rgb_down: np.ndarray,
-        xyz_down: np.ndarray,
-    ) -> Dict[str, Any]:
-        data = {}
-        # data["rgb"] = rgb
-        # data["xyz"] = xyz
-        data["rgb_downsampled"] = rgb_down
-        data["xyz_downsampled"] = xyz_down
-        data["cmd"] = lang
-        data["proprio"] = torch.FloatTensor(proprio)
-        data["xyz_crop"] = torch.FloatTensor(xyz_crop)
-        data["rgb_crop"] = torch.FloatTensor(rgb_crop)
-        data["query_pt"] = torch.FloatTensor(p_i)
-        return self.show_validation_on_sensor(data)
-        # return output
+    def read_batch(self, batch):
+        if "rgb_crop" in batch.keys() and batch["rgb_crop"] is not None:
+            cropped_feat = torch.cat([batch["rgb_crop"], batch["feat_crop"]], dim=-1)
+        else:
+            cropped_feat = batch["feat_crop"]
+        return (
+            batch["xyz_crop"],
+            cropped_feat,
+            batch["proprio"],
+            [batch["lang"]],
+        )
+
+    def predict(self, input_data: Dict[str, any], debug=False) -> List[torch.Tensor]:
+        unbatched = True
+        self.eval()
+        cropped_xyz, cropped_feat, proprio, lang = self.read_batch(input_data)
+        num_actions = input_data["num-actions"]
+        # if debug:
+        #     show_point_cloud(
+        #         cropped_xyz.detach().cpu().numpy(),
+        #         cropped_feat[:, :3].detach().cpu().numpy(),
+        #     )
+        output = []
+        if unbatched:
+            for t in range(num_actions):
+                if t == 0:
+                    hidden = torch.zeros(self.hidden_layers, self.hidden_dim).to(
+                        self.device
+                    )
+
+                proprio, time_step, cmd = self.get_keypoint(
+                    input_data, t, real_time=True
+                )
+
+                # Run the predictor - get positions and orientations for the model
+                if self.use_mdn:
+                    raise NotImplementedError(
+                        "MDN based inference is not implemented for sensor data yet"
+                    )
+                else:
+                    # print(f"{t=},{cmd=},{proprio=}")
+                    position, orientation, gripper, hidden = self.forward(
+                        cropped_xyz,
+                        cropped_feat,
+                        proprio,
+                        time_step,
+                        cmd,
+                        hidden,
+                    )
+                    position = position.view(3)
+                    orientation = orientation.view(4)
+                    input_data["proprio"] = torch.cat(
+                        [
+                            position,
+                            orientation,
+                            (torch.nn.Sigmoid()(gripper).view(1) > 0.5),
+                        ],
+                        dim=-1,
+                    )
+                    output.append(torch.clone(input_data["proprio"]))
+        viz_output = []
+        for pose in output:
+            viz_output.append(
+                to_matrix(
+                    pose[:3].detach().cpu().numpy(),
+                    pose[3:7].detach().cpu().numpy(),
+                    trimesh_format=True,
+                )
+            )
+        if debug:
+            show_point_cloud(
+                cropped_xyz.detach().cpu().numpy(),
+                cropped_feat[:, :3].detach().cpu().numpy(),
+                orig=np.zeros((3, 1)),
+                grasps=viz_output,
+            )
+        return output
 
     def forward(self, xyz, rgb, proprio, time_step, cmd, hidden):
         """
@@ -447,11 +608,19 @@ class ActionPredictionModule(torch.nn.Module):
         else:
             return positions, orientations, grippers, hidden
 
-    def get_keypoint(self, batch, i):
+    def get_keypoint(self, batch, i, real_time=False):
         """return input for predicting ith keypoint from batch"""
-        proprio = batch["all_proprio"][0][i]
-        time_step = batch["all_time_step"][0][i]
-        cmd = [batch["all_cmd"][i][0]]
+        if not real_time:
+            # input is from an H5
+            proprio = batch["all_proprio"][0][i]
+            time_step = batch["all_time_step"][0][i]
+            cmd = [batch["all_cmd"][i][0]]
+        else:
+            # input is from sensor-stream
+            proprio = batch["proprio"]
+            time_step = torch.zeros(self._max_actions).to(self.device)
+            time_step[i] = 1
+            cmd = [batch["all_cmd"][i]]
         return proprio, time_step, cmd
 
     def get_targets(self, batch, i):
@@ -486,6 +655,8 @@ class ActionPredictionModule(torch.nn.Module):
             # cmd = batch["cmd"]
             crop_xyz = batch["xyz_crop"][0]
             crop_rgb = batch["rgb_crop"][0]
+            crop_feat = batch["feat_crop"][0]
+
             perturbed_crop_location = batch["perturbed_crop_location"]
             num_keypoints = batch["num_keypoints"][0]
             # time_step = batch["time_step"][0]
@@ -497,6 +668,7 @@ class ActionPredictionModule(torch.nn.Module):
 
             # target_gripper_state = batch["target_gripper_state"][0]
             # target_ee_angles = batch["target_ee_angles"][0]
+            crop_rgb = torch.cat([crop_rgb, crop_feat], dim=-1)
 
             pos_loss = 0
             ori_loss = 0
@@ -504,7 +676,9 @@ class ActionPredictionModule(torch.nn.Module):
             if unbatched:
                 for t in range(num_keypoints):
                     if t == 0:
-                        hidden = torch.zeros(1, self.hidden_dim).to(self.device)
+                        hidden = torch.zeros(self.hidden_layers, self.hidden_dim).to(
+                            self.device
+                        )
 
                     proprio, time_step, cmd = self.get_keypoint(batch, t)
                     target_pos, target_ori, target_g = self.get_targets(batch, t)
@@ -525,6 +699,7 @@ class ActionPredictionModule(torch.nn.Module):
                         target_pos = target_pos.view(num_samples, 3)
                         pos_loss += mdn_loss(pos_sigma, pos_mu, target_pos)
                     else:
+                        # print(f"{t=},{cmd=},{proprio=}")
                         position, orientation, gripper, hidden = self.forward(
                             crop_xyz, crop_rgb, proprio, time_step, cmd, hidden
                         )
@@ -539,7 +714,9 @@ class ActionPredictionModule(torch.nn.Module):
                         gripper.view(-1), target_g.view(-1)
                     )
             else:
-                hidden = torch.zeros(1, self.hidden_dim).to(self.device)
+                hidden = torch.zeros(self.hidden_layers, self.hidden_dim).to(
+                    self.device
+                )
                 # get batched input and targets
                 proprio = batch["all_proprio"]
                 time_step = batch["all_time_step"]
@@ -590,11 +767,19 @@ class ActionPredictionModule(torch.nn.Module):
             pos_loss /= 3
             ori_loss /= 3
             gripper_loss /= 3
-            loss = (
-                self.pos_wt * pos_loss
-                + self.ori_wt * ori_loss
-                + self.gripper_wt * gripper_loss
-            )
+            task_name = batch["cmd"][0]
+            if "handover" in task_name or "pour" in task_name or "open-object":
+                loss = (
+                    self.handover_pos_wt * pos_loss
+                    + self.handover_ori_wt * ori_loss
+                    + self.handover_gripper_wt * gripper_loss
+                )
+            else:
+                loss = (
+                    self.pos_wt * pos_loss
+                    + self.ori_wt * ori_loss
+                    + self.gripper_wt * gripper_loss
+                )
 
             tot_pos_loss = tot_pos_loss + pos_loss.item()
             tot_ori_loss = tot_ori_loss + ori_loss.item()
@@ -740,6 +925,8 @@ class ActionPredictionModule(torch.nn.Module):
             batch_size = 1
             crop_xyz = batch["xyz_crop"][0]
             crop_rgb = batch["rgb_crop"][0]
+            crop_feat = batch["feat_crop"][0]
+            crop_rgb = torch.cat((crop_rgb, crop_feat), dim=-1)
             perturbed_crop_location = batch["perturbed_crop_location"]
             num_keypoints = batch["num_keypoints"][0]
 
@@ -751,9 +938,12 @@ class ActionPredictionModule(torch.nn.Module):
 
             for t in range(num_keypoints):
                 if t == 0:
-                    hidden = torch.zeros(1, self.hidden_dim).to(self.device)
+                    hidden = torch.zeros(self.hidden_layers, self.hidden_dim).to(
+                        self.device
+                    )
+                    proprio, time_step, cmd = self.get_keypoint(batch, t)
 
-                proprio, time_step, cmd = self.get_keypoint(batch, t)
+                _, time_step, cmd = self.get_keypoint(batch, t)
                 target_pos, target_ori, target_g = self.get_targets(batch, t)
                 print(proprio, time_step, cmd)
 
@@ -771,6 +961,14 @@ class ActionPredictionModule(torch.nn.Module):
                     position = position.view(1, 3)
                     target_pos = target_pos.view(1, 3)
                     pos_loss += ((position - target_pos) ** 2).sum()
+                    proprio = torch.cat(
+                        (
+                            position.view(-1),
+                            orientation.view(-1),
+                            (torch.nn.Sigmoid()(gripper) > 0.5).view(-1),
+                        ),
+                        dim=-1,
+                    )
                 orientation = orientation.view(1, 4)
                 target_ori = target_ori.view(1, 4)
 
@@ -799,10 +997,10 @@ class ActionPredictionModule(torch.nn.Module):
                 )[:3, :3]
                 # show point-cloud with coordinate frame where ee should be
                 print(f"{cmd}")
-                print(f"Predicted gripper state: {gripper}")
+                print(f"Predicted gripper state: {torch.nn.Sigmoid()(gripper)}")
                 self.show_pred_and_grnd_truth(
                     crop_xyz.detach().cpu().numpy(),
-                    crop_rgb.detach().cpu().numpy(),
+                    crop_rgb[:, :-1].detach().cpu().numpy(),
                     viz_position.reshape(3, 1),
                     pred_ori_R,
                     perturbed_crop_location.detach().cpu().numpy().reshape(3, 1),
@@ -940,9 +1138,13 @@ class ActionPredictionModule(torch.nn.Module):
 
 
 @hydra.main(
-    version_base=None, config_path="./conf", config_name="action_predictor_training"
+    version_base=None,
+    config_path="./conf",
+    config_name="action_predictor_training",
 )
 def main(cfg):
+    hydra_cfg = hydra.core.hydra_config.HydraConfig.get()
+    hydra_output_dir = hydra_cfg["runtime"]["output_dir"]
     # Speed up training by configuring the number of workers
     num_workers = 8 if not cfg.debug else 0
     B = 1
@@ -950,6 +1152,7 @@ def main(cfg):
     # create model, load weights for classifier
     model = ActionPredictionModule(cfg)
     model.to(model.device)
+    model.set_working_dir(hydra_output_dir)
     optimizer = model.get_optimizer()
     scheduler = ReduceLROnPlateau(optimizer, patience=3)
 
@@ -975,7 +1178,7 @@ def main(cfg):
         # valid_dir = robopen_data_dir
         # Dataset = RobotDataset
         train_dataset = RobotDataset(
-            cfg.data_dir,
+            cfg.datadir,
             num_pts=cfg.num_pts,
             data_augmentation=cfg.data_augmentation,  # (not validate),
             ori_dr_range=np.pi / 8,
@@ -988,9 +1191,10 @@ def main(cfg):
             autoregressive=True,
             time_as_one_hot=True,
             per_action_cmd=cfg.per_action_cmd,
+            skill_to_action_file=cfg.skill_to_action_file,
         )
         valid_dataset = RobotDataset(
-            cfg.data_dir,
+            cfg.datadir,
             num_pts=cfg.num_pts,
             data_augmentation=False,
             # first_frame_as_input=True,
@@ -1002,9 +1206,10 @@ def main(cfg):
             autoregressive=True,
             time_as_one_hot=True,
             per_action_cmd=cfg.per_action_cmd,
+            skill_to_action_file=cfg.skill_to_action_file,
         )
         test_dataset = RobotDataset(
-            cfg.data_dir,
+            cfg.datadir,
             num_pts=cfg.num_pts,
             data_augmentation=False,
             # first_frame_as_input=True,
@@ -1016,6 +1221,7 @@ def main(cfg):
             autoregressive=True,
             time_as_one_hot=True,
             per_action_cmd=cfg.per_action_cmd,
+            skill_to_action_file=cfg.skill_to_action_file,
         )
     else:
         train_dir = train_dataset_dir
@@ -1062,11 +1268,11 @@ def main(cfg):
             model.load_weights(model.get_best_name())
         else:
             model.load_weights(cfg.load)
-        model.show_validation(valid_data, viz=True)
+        model.show_validation(test_data, viz=True)
     else:
         if cfg.wandb:
             date_time = datetime.datetime.now().strftime("%d/%m/%Y-%H:%M")
-            wandb.init(project="action_predictor", name=f"{cfg.name}_{date_time}")
+            wandb.init(project="action_predictor", name=f"{cfg.task_name}_{date_time}")
             wandb.config.query_radius = model._query_radius
             # wandb.config.voxelization_scheme = [
             #     test_dataset._voxel_size,

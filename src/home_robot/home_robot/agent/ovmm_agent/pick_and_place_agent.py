@@ -16,7 +16,6 @@ from home_robot.agent.ovmm_agent.ovmm_perception import (
     build_vocab_from_category_map,
     read_category_map_file,
 )
-from home_robot.agent.ovmm_agent.ppo_agent import PPOAgent
 from home_robot.core.abstract_agent import Agent
 from home_robot.core.interfaces import Action, DiscreteNavigationAction, Observations
 from home_robot.manipulation import HeuristicPlacePolicy
@@ -55,6 +54,8 @@ class PickAndPlaceAgent(OpenVocabManipAgent):
         skip_gaze=False,
         test_place=False,
         skip_orient_place=True,
+        min_distance_goal_cm: float = 50.0,
+        continuous_angle_tolerance: float = 30.0,
     ):
         """Create the component object nav agent as a PickAndPlaceAgent object.
 
@@ -91,8 +92,15 @@ class PickAndPlaceAgent(OpenVocabManipAgent):
             self.place_policy = HeuristicPlacePolicy(self.config, self.device)
 
         # Agent for object nav
-        self.object_nav_agent = ObjectNavAgent(config, device_id)
+        self.object_nav_agent = ObjectNavAgent(
+            config,
+            device_id,
+            min_goal_distance_cm=min_distance_goal_cm,
+            continuous_angle_tolerance=continuous_angle_tolerance,
+        )
         if not self.skip_gaze and hasattr(self.config.AGENT.SKILLS, "GAZE"):
+            from home_robot.agent.ovmm_agent.ppo_agent import PPOAgent
+
             self.gaze_agent = PPOAgent(
                 config,
                 config.AGENT.SKILLS.GAZE,
@@ -129,8 +137,8 @@ class PickAndPlaceAgent(OpenVocabManipAgent):
         task_info = obs.task_observations
         # Recep goal is unused by our object nav policies
         obs.task_observations["recep_goal"] = None
-        obs.task_observations["start_recep_goal"] = task_info["start_recep_id"]
-        obs.task_observations["object_goal"] = task_info["object_id"]
+        obs.task_observations["start_recep_goal"] = task_info["start_recep_goal"]
+        obs.task_observations["object_goal"] = task_info["object_goal"]
         obs.task_observations["goal_name"] = task_info["object_name"]
         return obs
 
@@ -140,7 +148,7 @@ class PickAndPlaceAgent(OpenVocabManipAgent):
         """Process information we need for the place skills."""
         task_info = obs.task_observations
         # Receptacle goal used for placement
-        obs.task_observations["end_recep_goal"] = task_info["place_recep_id"]
+        obs.task_observations["end_recep_goal"] = task_info["end_recep_goal"]
         # Start receptacle goal unused
         obs.task_observations["start_recep_goal"] = None
         # Object goal unused - we already presumably have it in our hands
@@ -196,7 +204,11 @@ class PickAndPlaceAgent(OpenVocabManipAgent):
             self.state = SimpleTaskState.GAZE_OBJECT
             if not self.skip_orient:
                 # orient to face the object
-                return DiscreteNavigationAction.MANIPULATION_MODE, action_info, obs
+                return (
+                    DiscreteNavigationAction.MANIPULATION_MODE,
+                    action_info,
+                    obs,
+                )
         if self.state == SimpleTaskState.GAZE_OBJECT:
             if self.skip_gaze or self.gaze_agent is None:
                 self.state = SimpleTaskState.PICK_OBJECT
@@ -229,7 +241,11 @@ class PickAndPlaceAgent(OpenVocabManipAgent):
             self.state = SimpleTaskState.PLACE_OBJECT
             if not self.skip_orient_place:
                 # orient to face the object
-                return DiscreteNavigationAction.MANIPULATION_MODE, action_info, obs
+                return (
+                    DiscreteNavigationAction.MANIPULATION_MODE,
+                    action_info,
+                    obs,
+                )
         if self.state == SimpleTaskState.PLACE_OBJECT:
             # place the object somewhere - hopefully in front of the agent.
             obs, info = self._preprocess_obs_for_place(obs, info)

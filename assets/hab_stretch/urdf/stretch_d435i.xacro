@@ -1,0 +1,22 @@
+<?xml version="1.0"?>
+<robot xmlns:xacro="http://www.ros.org/wiki/xacro" name="stretch_d435i">
+
+  <xacro:arg name="use_nominal_extrinsics" default="true"/>
+  <xacro:arg name="add_plug" default="false"/>
+  <xacro:include filename="$(find realsense2_description)/urdf/_d435i.urdf.xacro"/>
+
+  <!-- xyz = "
+       depth (- recessed into head / + protruding from front)
+       up and down (- down / + up)
+       sideways (- right / + left)
+       " -->
+  <xacro:sensor_d435i parent="link_head_tilt" use_nominal_extrinsics="$(arg use_nominal_extrinsics)">
+    <origin
+      xyz="0.03 -0.0122 0.0182"
+      rpy="0.0 0.0 0.0" />
+  </xacro:sensor_d435i>
+  
+</robot>
+
+  
+
