@@ -31,6 +31,13 @@ pip install -e .
 # Install SLAM dependency on the robot
 sudo apt install ros-noetic-hector-slam 
 
+# Create a catkin workspace  - this will contain your code
+# It may already exist. If so, skip this step
+cd $HOME
+mkdir -p catkin_ws/src
+cd catkin_ws
+catkin_init_workspace
+
 # Stretch ROS library
 cd $HOME/catkin_ws/src
 git clone https://github.com/hello-robot/stretch_ros.git --branch noetic
