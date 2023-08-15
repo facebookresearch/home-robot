@@ -276,8 +276,8 @@ def get_semantic_map_vis(
         0.00,
         0.00,  # short term goal
         *coco_categories_color_palette,
-    ]
-    map_color_palette = [int(x * 255.0) for x in map_color_palette]
+        ]
+        map_color_palette = [int(x * 255.0) for x in map_color_palette]
 
     semantic_categories_map = semantic_map.get_semantic_map(0)
     obstacle_map = semantic_map.get_obstacle_map(0)
