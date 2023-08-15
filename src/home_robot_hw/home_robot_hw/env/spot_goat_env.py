@@ -52,7 +52,7 @@ class Midas:
 
 
 class SpotGoatEnv(SpotEnv):
-    def __init__(self, spot, position_control=False,estimated_depth_threshold=5):
+    def __init__(self, spot, position_control=False,estimated_depth_threshold=5,gaze_at_subgoal=True):
         super().__init__(spot)
         self.spot = spot
         self.position_control = position_control
@@ -69,6 +69,7 @@ class SpotGoatEnv(SpotEnv):
         self._episode_over = False
         self.midas = Midas("cuda:0")
         self.estimated_depth_threshold = estimated_depth_threshold
+        self.gaze_at_subgoal=gaze_at_subgoal
 
     def patch_depth(self,obs):
         rgb,depth = obs.rgb, obs.depth
@@ -118,7 +119,8 @@ class SpotGoatEnv(SpotEnv):
             time=max(np.abs(yaw_diff)/rotation_speed,0.5)
             # print(angle,yaw,yaw_diff,time)
             assert time > 0
-            self.env.set_arm_yaw(yaw_diff,time=time)
+            if self.gaze_at_subgoal:
+                self.env.set_arm_yaw(yaw_diff,time=time)
 
             action = [xg, yg, angle]
             # print("ObjectNavAgent point action", action)

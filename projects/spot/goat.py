@@ -306,7 +306,8 @@ def get_semantic_map_vis(
         num_instances = int(np.max(unique_instances))
 
         if num_instances > 2 * len(d3_40_colors_rgb):
-            raise NotImplementedError
+            # raise NotImplementedError
+            pass
 
     obstacle_mask = np.rint(obstacle_map) == 1
     explored_mask = np.rint(explored_map) == 1
@@ -710,7 +711,7 @@ def main(spot=None, args=None):
         env.reset(obs_dir)
 
     else:
-        env = SpotGoatEnv(spot, position_control=True,estimated_depth_threshold=config.ENVIRONMENT.estimated_depth_threshold)
+        env = SpotGoatEnv(spot, position_control=True,estimated_depth_threshold=config.ENVIRONMENT.estimated_depth_threshold,gaze_at_subgoal=config.ENVIRONMENT.gaze_at_subgoal)
         env.reset()
 
     goal_strings = args.goals.split(",")

@@ -365,8 +365,8 @@ class GoatMatching(Matching):
                 curr_x, curr_y, curr_o, gy1, _, gx1, _ = pose.tolist()
                 goal_map = torch.zeros(instance_map[0].shape)
                 pos = (
-                    int(curr_x * 100.0 / 5 - lmb[0][2]),
-                    int(curr_y * 100.0 / 5 - lmb[0][0]),
+                    int(curr_x * 100.0 / 5 - lmb[0][0][2]),
+                    int(curr_y * 100.0 / 5 - lmb[0][0][0]),
                 )
                 goal_map[pos[1], pos[0]] = 1
             else:
