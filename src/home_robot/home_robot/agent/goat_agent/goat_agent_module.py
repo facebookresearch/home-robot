@@ -211,7 +211,7 @@ class GoatAgentModule(nn.Module):
                 seq_goal_map,
                 seq_found_goal,
                 final_local_map,
-                seq_lmb,
+                seq_lmb[0],
                 matches,
                 confidence,
                 local_instance_ids,
