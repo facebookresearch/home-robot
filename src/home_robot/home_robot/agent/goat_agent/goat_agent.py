@@ -199,6 +199,7 @@ class GoatAgent(Agent):
             dtype=self.semantic_map.local_map.dtype,
             device=self.device,
         )
+        self.goal_pose = None
         self.goal_filtering = config.AGENT.SEMANTIC_MAP.goal_filtering
         self.prev_task_type = None
 
@@ -270,6 +271,7 @@ class GoatAgent(Agent):
         (
             self.goal_map,
             self.found_goal,
+            self.goal_pose,
             frontier_map,
             self.semantic_map.local_map,
             self.semantic_map.global_map,
@@ -338,6 +340,7 @@ class GoatAgent(Agent):
                 "frontier_map": self.semantic_map.get_frontier_map(e),
                 "sensor_pose": self.semantic_map.get_planner_pose_inputs(e),
                 "found_goal": self.found_goal[e].item(),
+                "goal_pose": self.goal_pose[e] if self.goal_pose is not None else None
             }
             for e in range(self.num_environments)
         ]

@@ -156,6 +156,7 @@ class DiscretePlanner:
         frontier_map: np.ndarray,
         sensor_pose: np.ndarray,
         found_goal: bool,
+        goal_pose: float = None,
         debug: bool = False,
         use_dilation_for_stg: bool = False,
         timestep: int = None,
@@ -318,7 +319,13 @@ class DiscretePlanner:
         # Compute angle to the final goal
         goal_x, goal_y = closest_goal_pt
         angle_goal = math.degrees(math.atan2(goal_x - start[0], goal_y - start[1]))
-        relative_angle_to_closest_goal = pu.normalize_angle(angle_agent - angle_goal)
+
+        if goal_pose is None:
+            # Compute angle to the final goal
+            relative_angle_to_closest_goal = pu.normalize_angle(angle_agent - angle_goal)
+        else:
+            relative_angle_to_closest_goal = pu.normalize_angle(angle_agent - goal_pose)
+
 
         if debug:
             # Actual metric distance to goal

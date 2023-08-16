@@ -166,6 +166,7 @@ class DiscretePlanner:
         frontier_map: np.ndarray,
         sensor_pose: np.ndarray,
         found_goal: bool,
+        goal_pose: float = None,
         debug: bool = False,
         use_dilation_for_stg: bool = False,
         timestep: int = None,
@@ -331,7 +332,12 @@ class DiscretePlanner:
         # Compute angle to the final goal
         goal_x, goal_y = closest_goal_pt
         angle_goal = math.degrees(math.atan2(goal_x - start[0], goal_y - start[1]))
-        relative_angle_to_closest_goal = pu.normalize_angle(angle_agent - angle_goal)
+
+        if goal_pose is None:
+            # Compute angle to the final goal
+            relative_angle_to_closest_goal = pu.normalize_angle(angle_agent - angle_goal)
+        else:
+            relative_angle_to_closest_goal = pu.normalize_angle(angle_agent - goal_pose)
 
         if debug:
             # Actual metric distance to goal
@@ -583,14 +589,15 @@ class DiscretePlanner:
             # only select points that are within step-size
             circular_mask = proto_dist <= self.step_size
             total_cost.mask |= ~circular_mask
-            cv2.imshow('proto_dist',proto_dist/proto_dist.max())
-            cv2.imshow('local_dists',local_dists/local_dists.max())
-            cv2.imshow('diff_dists',diff_dists/diff_dists.max()) 
-            cv2.imshow('straight_line_mask',straight_line_mask/straight_line_mask.max()) 
-            cv2.imshow('agent_dists',dists/dists.max()) 
-            cv2.imshow('goal_dists',goal_dists/goal_dists.max())
-            cv2.imshow('total_cost',total_cost/total_cost.max())
-            cv2.waitKey(1)
+            if visualize:
+                cv2.imshow('proto_dist',proto_dist/proto_dist.max())
+                cv2.imshow('local_dists',local_dists/local_dists.max())
+                cv2.imshow('diff_dists',diff_dists/diff_dists.max()) 
+                cv2.imshow('straight_line_mask',straight_line_mask/straight_line_mask.max()) 
+                cv2.imshow('agent_dists',dists/dists.max()) 
+                cv2.imshow('goal_dists',goal_dists/goal_dists.max())
+                cv2.imshow('total_cost',total_cost/total_cost.max())
+                cv2.waitKey(1)
             # breakpoint()
             
             # local_stg = np.unravel_index(np.argmin(local_goal_dists),local_goal_dists.shape)

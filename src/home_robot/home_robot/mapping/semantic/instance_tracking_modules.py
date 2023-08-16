@@ -31,6 +31,7 @@ class InstanceView:
     category_id: Optional[int] = None
     pose: np.ndarray = None
     instance_id: Optional[int] = None
+    object_coverage: Optional[int] = None
 
     def __init__(
         self,
@@ -41,6 +42,7 @@ class InstanceView:
         mask,
         point_cloud,
         pose,
+        object_coverage,
         category_id=None,
     ):
         """
@@ -54,6 +56,7 @@ class InstanceView:
         self.point_cloud = point_cloud
         self.pose = pose
         self.category_id = category_id
+        self.object_coverage = object_coverage
 
 
 class Instance:
@@ -287,6 +290,8 @@ class InstanceMemory:
             # get point cloud
             point_cloud_instance = point_cloud[instance_mask_downsampled.cpu().numpy()]
 
+            object_coverage = np.sum(instance_mask) / instance_mask.size
+
             # get instance view
             instance_view = InstanceView(
                 bbox=bbox,
@@ -297,6 +302,7 @@ class InstanceMemory:
                 point_cloud=point_cloud_instance.cpu().numpy(),
                 category_id=category_id,
                 pose=pose.detach().cpu(),
+                object_coverage=object_coverage
             )
 
             # append instance view to list of instance views

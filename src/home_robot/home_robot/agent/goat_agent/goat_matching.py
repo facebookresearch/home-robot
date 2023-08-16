@@ -462,14 +462,15 @@ class GoatMatching(Matching):
     def get_goal_map_from_goal_instance(
         self, instance_map, goal_map, lmb, goal_inst, instance_goal_found, found_goal
     ):
+        goal_pose = None
         if goal_inst is not None and instance_goal_found is True:
             found_goal[0] = True
             if self.goto_past_pose:
                 instance_memory = self.instance_memory
-                # pick a view to get the pose, using the first one # TODO: select a better view and keep it fixed
-                pose = (
-                    instance_memory.instance_views[0][goal_inst].instance_views[0].pose
-                )
+                instance_views = instance_memory.instance_views[0][goal_inst].instance_views
+                # pick a view with maximum object coverage
+                best_view = np.argmax([view.object_coverage for view in instance_views])
+                pose = instance_views[best_view].pose
                 curr_x, curr_y, curr_o, gy1, _, gx1, _ = pose.tolist()
                 goal_map = torch.zeros(instance_map[0].shape)
                 pos = (
@@ -477,11 +478,13 @@ class GoatMatching(Matching):
                     int(curr_y * 100.0 / 5 - lmb[0][0]),
                 )
                 goal_map[pos[1], pos[0]] = 1
+                goal_pose = [curr_o]
             else:
                 inst_map_idx = instance_map == goal_inst
                 inst_map_idx = torch.argmax(torch.sum(inst_map_idx, axis=(1, 2)))
                 goal_map = (instance_map[inst_map_idx] == goal_inst).to(torch.float)
-        return goal_map, found_goal
+
+        return goal_map, found_goal, goal_pose
 
     def select_and_localize_instance(
         self,
@@ -503,6 +506,7 @@ class GoatMatching(Matching):
     ) -> Tuple[torch.Tensor, torch.Tensor, bool, Optional[int]]:
         """Select and localize an instance given computed matching scores."""
         print(f"Selecting and localizing an instance with threshold {score_thresh}")
+        goal_pose = None
         instance_map = local_map[0][
             MC.NON_SEM_CHANNELS
             + self.num_sem_categories : MC.NON_SEM_CHANNELS
@@ -512,10 +516,10 @@ class GoatMatching(Matching):
         ]
 
         if goal_inst is not None and instance_goal_found is True:
-            goal_map, found_goal = self.get_goal_map_from_goal_instance(
+            goal_map, found_goal, goal_pose = self.get_goal_map_from_goal_instance(
                 instance_map, goal_map, lmb, goal_inst, instance_goal_found, found_goal
             )
-            return goal_map, found_goal, instance_goal_found, goal_inst
+            return goal_map, found_goal, goal_pose, instance_goal_found, goal_inst
 
         if all_matches is not None:
             if len(all_matches) > 0:
@@ -544,8 +548,8 @@ class GoatMatching(Matching):
                     )
 
         if goal_inst is not None and instance_goal_found is True:
-            goal_map, found_goal = self.get_goal_map_from_goal_instance(
+            goal_map, found_goal, goal_pose = self.get_goal_map_from_goal_instance(
                 instance_map, goal_map, lmb, goal_inst, instance_goal_found, found_goal
             )
 
-        return goal_map, found_goal, instance_goal_found, goal_inst
+        return goal_map, found_goal, goal_pose, instance_goal_found, goal_inst

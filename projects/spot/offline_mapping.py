@@ -765,6 +765,7 @@ def main(base_dir: str, legend_path: str):
         (
             goal_map,
             _,
+            _,
             instance_goal_found,
             goal_inst,
         ) = matching.select_and_localize_instance(

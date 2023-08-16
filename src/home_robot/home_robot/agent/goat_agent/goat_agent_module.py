@@ -201,10 +201,12 @@ class GoatAgentModule(nn.Module):
             seq_found_goal[:, 0] == 0
         ]
 
+        seq_goal_pose = None
         if len(all_matches) > 0 or matches is not None or self.instance_goal_found:
             (
                 seq_goal_map,
                 seq_found_goal,
+                seq_goal_pose,
                 self.instance_goal_found,
                 self.goal_inst,
             ) = self.matching.select_and_localize_instance(
@@ -253,6 +255,7 @@ class GoatAgentModule(nn.Module):
         return (
             seq_goal_map,
             seq_found_goal,
+            seq_goal_pose,
             seq_frontier_map,
             final_local_map,
             final_global_map,
