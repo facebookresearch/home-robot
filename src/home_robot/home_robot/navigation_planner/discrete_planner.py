@@ -583,14 +583,24 @@ class DiscretePlanner:
             # only select points that are within step-size
             circular_mask = proto_dist <= self.step_size
             total_cost.mask |= ~circular_mask
-            cv2.imshow('proto_dist',proto_dist/proto_dist.max())
-            cv2.imshow('local_dists',local_dists/local_dists.max())
-            cv2.imshow('diff_dists',diff_dists/diff_dists.max()) 
-            cv2.imshow('straight_line_mask',straight_line_mask/straight_line_mask.max()) 
-            cv2.imshow('agent_dists',dists/dists.max()) 
-            cv2.imshow('goal_dists',goal_dists/goal_dists.max())
-            cv2.imshow('total_cost',total_cost/total_cost.max())
-            cv2.waitKey(1)
+
+            def vis(name,im):
+                cv2.imshow(name,im/im.max())
+            vis('proto_dist',proto_dist)
+            vis('local_dists',local_dists)
+            vis('diff_dists',diff_dists)
+            vis('straight_line_mask',straight_line_mask)
+            vis('agent_dists',dists)
+            vis('goal_dists',goal_dists)
+            vis('total_cost',total_cost)
+            # cv2.imshow('proto_dist',proto_dist/proto_dist.max())
+            # cv2.imshow('local_dists',local_dists/local_dists.max())
+            # cv2.imshow('diff_dists',diff_dists/diff_dists.max()) 
+            # cv2.imshow('straight_line_mask',straight_line_mask/straight_line_mask.max()) 
+            # cv2.imshow('agent_dists',dists/dists.max()) 
+            # cv2.imshow('goal_dists',goal_dists/goal_dists.max())
+            # cv2.imshow('total_cost',total_cost/total_cost.max())
+            # cv2.waitKey(1)
             # breakpoint()
             
             # local_stg = np.unravel_index(np.argmin(local_goal_dists),local_goal_dists.shape)
