@@ -10,7 +10,7 @@ import time
 from random import random
 from typing import Callable
 
-from home_robot.motion.base import Planner, PlannerConfig
+from home_robot.motion.base import Planner, PlanResult
 from home_robot.motion.space import ConfigurationSpace
 
 
@@ -31,27 +31,28 @@ class TreeNode(object):
         return sequence[::-1]
 
 
-def RRT(object):
+class RRT(Planner):
     """Define RRT planning problem and parameters"""
 
     def __init__(
         self,
         space: ConfigurationSpace,
         validate_fn: Callable,
-        collision_fn: Callable,
         max_iterations=1000,
         max_runtime=None,
     ):
         """Create RRT planner with configuration"""
         super(RRT, self).__init__(space, validate_fn)
 
-    def plan(self, q0, qg):
+    def plan(self, q0, qg) -> PlanResult:
         """plan from start to goal. creates a new tree.
 
         Based on Caelan Garrett's code (MIT licensed):
         https://github.com/caelan/motion-planners/blob/master/motion_planners/rrt.py
         """
-        raise NotImplementedError
+        # start_time = time.time()
+        if self.validate(q0):
+            return PlanResult(False)
 
     def backup(self):
         sequence = []
