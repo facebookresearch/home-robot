@@ -71,7 +71,7 @@ class RosMapDataCollector(object):
             orig_depth=orig_depth,
         )
         if visualize_map:
-            grid_map = self.voxel_map.get_2d_map()
+            grid_map = self.voxel_map.get_2d_map(debug=True)
 
     def show(self) -> Tuple[np.ndarray, np.ndarray]:
         """Display the aggregated point cloud."""

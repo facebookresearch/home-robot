@@ -129,7 +129,9 @@ class SparseVoxelMap(object):
         )
         self.xyz, self.feats = pcd_to_numpy(self._pcd)
 
-    def get_2d_map(self) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
+    def get_2d_map(
+        self, debug: bool = False
+    ) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
         """Get 2d map with explored area and frontiers."""
 
         # Convert metric measurements to discrete
@@ -152,7 +154,7 @@ class SparseVoxelMap(object):
         # Compute the obstacle voxel grid based on what we've seen
         obstacle_voxels = voxels[:, :, min_height:]
         obstacles_soft = np.sum(obstacle_voxels, axis=-1)
-        # obstacles = obstacles_soft > self.obs_min_density
+        obstacles = obstacles_soft > self.obs_min_density
 
         # Explored area = only floor mass
         floor_voxels = voxels[:, :, :min_height]
@@ -161,9 +163,17 @@ class SparseVoxelMap(object):
         # Frontier consists of floor voxels adjacent to empty voxels
         # TODO
 
+        if debug:
+            import matplotlib.pyplot as plt
+
+            plt.subplot(1, 2, 1)
+            plt.imshow(obstacles_soft)
+            plt.subplot(1, 2, 2)
+            plt.imshow(explored)
+
         # Add places where there are obstacles above a certain height and density
         # Add frontiers where there are ground points and no obstacles
-        return obstacles_soft, explored
+        return obstacles, explored
 
     def get_kd_tree(self):
         return o3d.geometry.KDTreeFlann(self._pcd)
