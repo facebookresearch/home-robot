@@ -71,7 +71,11 @@ class RosMapDataCollector(object):
             orig_depth=orig_depth,
         )
         if visualize_map:
-            grid_map = self.voxel_map.get_2d_map(debug=True)
+            self.voxel_map.get_2d_map(debug=True)
+
+    def get_2d_map(self):
+        """Get 2d obstacle map for low level motion planning and frontier-based exploration"""
+        return self.voxel_map.get_2d_map()
 
     def show(self) -> Tuple[np.ndarray, np.ndarray]:
         """Display the aggregated point cloud."""
@@ -133,9 +137,10 @@ def main(rate, max_frames, visualize, manual_wait, pcd_filename, pkl_filename):
         (0, 0, 0),
     ]
 
+    visualize_map_at_start = False
     visualize_map = True
 
-    collector.step(visualize_map=visualize_map)  # Append latest observations
+    collector.step(visualize_map=visualize_map_at_start)  # Append latest observations
     # print("Press ctrl+c to finish...")
     t0 = rospy.Time.now()
     while not rospy.is_shutdown():
@@ -151,7 +156,7 @@ def main(rate, max_frames, visualize, manual_wait, pcd_filename, pkl_filename):
         step += 1
 
         # Append latest observations
-        collector.step(visualize_map=visualize_map)
+        collector.step()
 
         frames += 1
         if max_frames > 0 and frames >= max_frames or step >= len(trajectory):
@@ -162,6 +167,17 @@ def main(rate, max_frames, visualize, manual_wait, pcd_filename, pkl_filename):
     print("Done collecting data.")
     robot.nav.navigate_to((0, 0, 0))
     pc_xyz, pc_rgb = collector.show()
+
+    if visualize_map:
+        import matplotlib.pyplot as plt
+
+        obstacles, explored = collector.get_2d_map()
+
+        plt.subplot(1, 2, 1)
+        plt.imshow(obstacles)
+        plt.subplot(1, 2, 2)
+        plt.imshow(explored)
+        plt.show()
 
     # Create pointcloud
     if len(pcd_filename) > 0:
