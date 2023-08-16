@@ -466,9 +466,9 @@ class GoatMatching(Matching):
             found_goal[0] = True
             if self.goto_past_pose:
                 instance_memory = self.instance_memory
-                # pick a view to get the pose, using the last one - expected to be closest
+                # pick a view to get the pose, using the first one # TODO: select a better view and keep it fixed
                 pose = (
-                    instance_memory.instance_views[0][goal_inst].instance_views[-1].pose
+                    instance_memory.instance_views[0][goal_inst].instance_views[0].pose
                 )
                 curr_x, curr_y, curr_o, gy1, _, gx1, _ = pose.tolist()
                 goal_map = torch.zeros(instance_map[0].shape)
