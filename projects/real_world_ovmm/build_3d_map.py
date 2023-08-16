@@ -137,7 +137,7 @@ def main(rate, max_frames, visualize, manual_wait, pcd_filename, pkl_filename):
         (0, 0, 0),
     ]
 
-    visualize_map_at_start = False
+    visualize_map_at_start = True
     visualize_map = True
 
     collector.step(visualize_map=visualize_map_at_start)  # Append latest observations
