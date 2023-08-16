@@ -8,11 +8,10 @@ import timeit
 from typing import Tuple
 
 import click
+import matplotlib.pyplot as plt
 import numpy as np
 import open3d
 import rospy
-import trimesh
-import trimesh.transformations as tra
 
 from home_robot.mapping.voxel import SparseVoxelMap
 from home_robot.motion.stretch import STRETCH_NAVIGATION_Q, HelloStretchKinematics
@@ -40,7 +39,7 @@ class RosMapDataCollector(object):
         self.robot_model = HelloStretchKinematics(visualize=visualize_planner)
         self.voxel_map = SparseVoxelMap(resolution=0.01)
 
-    def step(self):
+    def step(self, visualize_map=False):
         """Step the collector. Get a single observation of the world. Remove bad points, such as
         those from too far or too near the camera."""
         rgb, depth, xyz = self.robot.head.get_images(
@@ -71,6 +70,8 @@ class RosMapDataCollector(object):
             orig_rgb=orig_rgb,
             orig_depth=orig_depth,
         )
+        if visualize_map:
+            grid_map = self.voxel_map.get_2d_map()
 
     def show(self) -> Tuple[np.ndarray, np.ndarray]:
         """Display the aggregated point cloud."""
@@ -132,7 +133,9 @@ def main(rate, max_frames, visualize, manual_wait, pcd_filename, pkl_filename):
         (0, 0, 0),
     ]
 
-    collector.step()  # Append latest observations
+    visualize_map = True
+
+    collector.step(visualize_map=visualize_map)  # Append latest observations
     # print("Press ctrl+c to finish...")
     t0 = rospy.Time.now()
     while not rospy.is_shutdown():
@@ -147,7 +150,8 @@ def main(rate, max_frames, visualize, manual_wait, pcd_filename, pkl_filename):
         print("... capturing frame!")
         step += 1
 
-        collector.step()  # Append latest observations
+        # Append latest observations
+        collector.step(visualize_map=visualize_map)
 
         frames += 1
         if max_frames > 0 and frames >= max_frames or step >= len(trajectory):

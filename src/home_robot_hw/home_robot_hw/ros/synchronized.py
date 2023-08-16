@@ -46,6 +46,8 @@ class SynchronizedSensors(object):
 
     def _callback(self, color, depth, lidar, pose):
         self._lidar_points = self._process_laser(lidar)
+        print(color.header)
+        print(pose)
 
     def __init__(
         self,
@@ -74,4 +76,12 @@ class SynchronizedSensors(object):
 
 
 if __name__ == "__main__":
-    pass
+    sensor = SynchronizedSensors(
+        color_name="/camera/color",
+        depth_name="/camera/aligned_depth_to_color",
+        scan_topic="/scan",
+        pose_topic="state_estimator/pose_filtered",
+    )
+    rate = rospy.Rate(10)
+    while not rospy.is_shutdown():
+        rate.sleep()

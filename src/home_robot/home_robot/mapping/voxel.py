@@ -29,15 +29,39 @@ def combine_point_clouds(
     return numpy_to_pcd(pc_xyz, pc_rgb).voxel_down_sample(voxel_size=sparse_voxel_size)
 
 
+DEFAULT_GRID_SIZE = [512, 512]
+GRID_CHANNELS = 3
+
+
 class SparseVoxelMap(object):
     """Create a voxel map object which captures 3d information."""
 
-    def __init__(self, resolution=0.01, feature_dim=3):
+    def __init__(
+        self,
+        resolution=0.01,
+        feature_dim=3,
+        grid_size: Tuple[int, int] = None,
+        grid_resolution: float = 0.05,
+        obs_min_height=0.1,
+        obs_max_height=1.8,
+        obs_min_density=5,
+    ):
         self.resolution = resolution
         self.feature_dim = feature_dim
         self.xyz = None
         self.feats = None
         self.observations = []
+        self.obs_min_height = obs_min_height
+        self.obs_max_height = obs_max_height
+        self.obs_min_density = obs_min_density
+        self.grid_resolution = grid_resolution
+        if grid_size is not None:
+            self.grid_size = [grid_size[0], grid_size[1]]
+        else:
+            self.grid_size = DEFAULT_GRID_SIZE
+        # Track the center of the grid - (0, 0) in our coordinate system
+        # We then just need to update everything when we want to track obstacles
+        self.grid_origin = np.array(self.grid_size + [0]) // 2
 
     def add(self, camera_pose: np.ndarray, xyz: np.ndarray, feats: np.ndarray, **info):
         """Add this to our history of observations. Also update the current running map."""
@@ -104,6 +128,42 @@ class SparseVoxelMap(object):
             voxel_size=self.resolution
         )
         self.xyz, self.feats = pcd_to_numpy(self._pcd)
+
+    def get_2d_map(self) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
+        """Get 2d map with explored area and frontiers."""
+
+        # Convert metric measurements to discrete
+        # Gets the xyz correctly - for now everyhting is assumed to be within correct distance of origin
+        xyz = ((self.xyz / self.grid_resolution) + self.grid_origin).astype(np.uint32)
+
+        # Crop to robot height
+        min_height = self.obs_min_height / self.grid_resolution
+        max_height = self.obs_max_height / self.grid_resolution
+        # NOTE: keep this if we only care about obstacles
+        # voxels = np.zeros(self.grid_size + [int(max_height - min_height)])
+        # But we might want to track floor pixels as well
+        voxels = np.zeros(self.grid_size + [int(max_height)])
+        obs_mask = np.bitwise_and(xyz[:, -1] > min_height, xyz[:, -1] < max_height)
+        x_coords = xyz[obs_mask, 0]
+        y_coords = xyz[obs_mask, 1]
+        z_coords = (xyz[obs_mask, 2] - min_height).astype(np.uint32)
+        voxels[x_coords, y_coords, z_coords] = 1
+
+        # Compute the obstacle voxel grid based on what we've seen
+        obstacle_voxels = voxels[:, :, min_height:]
+        obstacles_soft = np.sum(obstacle_voxels, axis=-1)
+        # obstacles = obstacles_soft > self.obs_min_density
+
+        # Explored area = only floor mass
+        floor_voxels = voxels[:, :, :min_height]
+        explored = np.sum(floor_voxels, axis=-1)
+
+        # Frontier consists of floor voxels adjacent to empty voxels
+        # TODO
+
+        # Add places where there are obstacles above a certain height and density
+        # Add frontiers where there are ground points and no obstacles
+        return obstacles_soft, explored
 
     def get_kd_tree(self):
         return o3d.geometry.KDTreeFlann(self._pcd)
