@@ -139,16 +139,18 @@ class SparseVoxelMap(object):
         xyz = ((self.xyz / self.grid_resolution) + self.grid_origin).astype(np.uint32)
 
         # Crop to robot height
-        min_height = self.obs_min_height / self.grid_resolution
-        max_height = self.obs_max_height / self.grid_resolution
+        min_height = int(self.obs_min_height / self.grid_resolution)
+        max_height = int(self.obs_max_height / self.grid_resolution)
         # NOTE: keep this if we only care about obstacles
         # voxels = np.zeros(self.grid_size + [int(max_height - min_height)])
         # But we might want to track floor pixels as well
-        voxels = np.zeros(self.grid_size + [int(max_height)])
-        obs_mask = np.bitwise_and(xyz[:, -1] > min_height, xyz[:, -1] < max_height)
+        voxels = np.zeros(self.grid_size + [max_height])
+        # NOTE: you can use min_height for this if we only care about obstacles
+        obs_mask = np.bitwise_and(xyz[:, -1] > 0, xyz[:, -1] < max_height)
+        obs_mask = xyz[:, -1] < max_height
         x_coords = xyz[obs_mask, 0]
         y_coords = xyz[obs_mask, 1]
-        z_coords = (xyz[obs_mask, 2] - min_height).astype(np.uint32)
+        z_coords = xyz[obs_mask, 2]
         voxels[x_coords, y_coords, z_coords] = 1
 
         # Compute the obstacle voxel grid based on what we've seen
@@ -160,16 +162,25 @@ class SparseVoxelMap(object):
         floor_voxels = voxels[:, :, :min_height]
         explored = np.sum(floor_voxels, axis=-1)
 
+        # Add explored radius around the robot, up to min depth
+        # TODO: make sure lidar is supported here as well; if we do not have lidar assume a certain radius is explored
+
         # Frontier consists of floor voxels adjacent to empty voxels
         # TODO
 
         if debug:
             import matplotlib.pyplot as plt
 
+            # TODO: uncomment to show the original world representation
+            # show_point_cloud(self.xyz, self.feats / 255., orig=np.zeros(3))
+            # TODO: uncomment to show voxel point cloud
+            # show_point_cloud(xyz, self.feats/255., orig=self.grid_origin)
+
             plt.subplot(1, 2, 1)
             plt.imshow(obstacles_soft)
             plt.subplot(1, 2, 2)
             plt.imshow(explored)
+            plt.show()
 
         # Add places where there are obstacles above a certain height and density
         # Add frontiers where there are ground points and no obstacles
