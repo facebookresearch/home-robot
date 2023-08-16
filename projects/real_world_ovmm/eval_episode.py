@@ -81,31 +81,31 @@ def main(
         agent.planner.set_vis_dir("real_world", now.strftime("%Y_%m_%d_%H_%M_%S"))
     env.reset(start_recep, pick_object, goal_recep, set_goal=True)
     print ("Env has been reset")
-    t = 0
-    while not env.episode_over and not rospy.is_shutdown():
-        t += 1
-        print("STEP =", t)
-        obs = env.get_observation()   
-        action, info, obs = agent.act(obs)
-        # action, info, obs = explore_agent.act(explore_obs) 
-        # info['semantic_map'].fill(np.max(info['semantic_map']))
-        # info['semantic_map'].fill(4)
-        # info['found_goal'] = False
-        # print (info)
-        # import pdb; pdb.set_trace()
-        done = env.apply_action(action, info=info, prev_obs=obs)
-        if done:
-            print("Done.")
-            break
-        elif t >= max_num_steps:
-            print("Reached maximum step limit.")
-            break
 
-    print("Metrics:", env.get_episode_metrics())
-    # if reset_nav:
-    #     print("- Sending the robot to [0, 0, 0]")
-    #     # Send it back to origin position to make testing a bit easier
-    #     robot.nav.navigate_to([0, 0, 0])
+    while True:
+        t = 0
+        agent.reset()
+        task = input("what you want me to do: ")
+        # task = "find a cup please"
+        agent.set_task(task)
+
+        while not env.episode_over and not rospy.is_shutdown():
+            t += 1
+            print("STEP =", t)
+            obs = env.get_observation()   
+            action, info, obs, is_finished = agent.act(obs)
+            if is_finished:
+                break
+            done = env.apply_action(action, info=info, prev_obs=obs)
+
+            if done:
+                print("Done.")
+                break
+            elif t >= max_num_steps:
+                print("Reached maximum step limit.")
+                break
+
+    # print("Metrics:", env.get_episode_metrics())
 
 if __name__ == "__main__":
     print("---- Starting real-world evaluation ----")

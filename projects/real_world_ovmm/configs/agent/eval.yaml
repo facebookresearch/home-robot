@@ -7,7 +7,7 @@ PRINT_IMAGES: 1           # 1: save visualization as images, 0: no image saving
 GROUND_TRUTH_SEMANTICS: 0 # 1: use ground-truth semantics (for debugging / ablations)
 seed: 0                   # seed
 SHOW_RL_OBS: True         # whether to show the observations passed to RL policices, for debugging
-store_all_categories: True
+
 
 ENVIRONMENT:
   forward: 0.25           # forward motion (in meters)
@@ -30,10 +30,10 @@ AGENT:
   radius: 0.05            # robot radius (in meters)
   fall_wait_steps: 0      # number of steps to wait after the object has been dropped
   clip_embeddings_file: data/objects/clip_embeddings.pickle
-
+  store_all_categories: True
   SEMANTIC_MAP:
     semantic_categories: rearrange # map semantic channel categories ("coco_indoor", "longtail_indoor", "mukul_indoor", "rearrange")
-    num_sem_categories: 5    # Following 5 categories: ["misc", "object_category", "start_receptacle", "goal_receptacle", "others"]
+    num_sem_categories: 151    # Following 5 categories: ["misc", "object_category", "start_receptacle", "goal_receptacle", "others"]
     map_size_cm: 4800        # global map size (in centimeters)
     map_resolution: 5        # size of map bins (in centimeters)
     vision_range: 100        # diameter of local map region visible by the agent (in cells)

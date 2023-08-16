@@ -303,6 +303,7 @@ class OpenVocabManipAgent(ObjectNavAgent):
         """
         Set active vocabulary for semantic sensor to use to the given ID.
         """
+        # import pdb; pdb.set_trace()
         if self.config.GROUND_TRUTH_SEMANTICS == 0 and (
             force_set or self.semantic_sensor.current_vocabulary_id != vocab_id
         ):

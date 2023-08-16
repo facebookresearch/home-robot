@@ -6,13 +6,13 @@ import sys
 import warnings
 from enum import IntEnum, auto
 from typing import Any, Dict, Optional, Tuple
-
+import os
 import clip
 import matplotlib.pyplot as plt
 import numpy as np
 import torch
 from PIL import Image
-
+import random
 import home_robot.utils.pose as pu
 from home_robot.agent.objectnav_agent.objectnav_agent import ObjectNavAgent
 from home_robot.agent.ovmm_agent.ovmm_agent import OpenVocabManipAgent
@@ -35,13 +35,6 @@ class Skill(IntEnum):
     NAV_TO_INSTANCE = auto()
     FALL_WAIT = auto()
 
-
-def get_skill_as_one_hot_dict(curr_skill: Skill):
-    skill_dict = {skill.name: 0 for skill in Skill}
-    skill_dict[f"is_curr_skill_{Skill(curr_skill).name}"] = 1
-    return skill_dict
-
-
 class VLMAgent(OpenVocabManipAgent):
     def __init__(self, config, device_id: int = 0, obs_spaces=None, action_spaces=None):
         warnings.warn(
@@ -52,15 +45,81 @@ class VLMAgent(OpenVocabManipAgent):
         #     raise NotImplementedError
         from minigpt4_example import Predictor
 
-        # self.vlm = Predictor()
+        self.vlm = Predictor()
         print("VLM Agent created")
+        self.vlm_freq = 5
+        self.high_level_plan = None
+        self.max_context_length = 20
+        self.planning_times = 5
+        self.remaining_actions = None
 
-        self.vlm_freq = 1
-        self.explore_agent = VLMExplorationAgent(config=config)
-        self.explore_agent.reset()
-        print(
-            "Also created a simple exploration agent for frontier exploration behaviors"
-        )
+    def _explore(
+        self, obs: Observations, info: Dict[str, Any]
+    ) -> Tuple[DiscreteNavigationAction, Any, Optional[Skill]]:
+        nav_to_obj_type = self.config.AGENT.SKILLS.NAV_TO_OBJ.type
+        if self.skip_skills.nav_to_obj:
+            terminate = True
+        elif nav_to_obj_type == "heuristic":
+            if self.verbose:
+                print("[OVMM AGENT] step heuristic nav policy")
+            action, info, terminate = self._heuristic_nav(obs, info)
+        elif nav_to_obj_type == "rl":
+            action, info, terminate = self.nav_to_obj_agent.act(obs, info)
+        else:
+            raise ValueError(
+                f"Got unexpected value for NAV_TO_OBJ.type: {nav_to_obj_type}"
+            )
+        new_state = None
+        if terminate:
+            action = None
+            new_state = True
+        return action, info, new_state
+
+    def _nav_to_obj(
+        self, obs: Observations, info: Dict[str, Any]
+    ) -> Tuple[DiscreteNavigationAction, Any, Optional[Skill]]:
+        nav_to_obj_type = self.config.AGENT.SKILLS.NAV_TO_OBJ.type
+        if self.skip_skills.nav_to_obj:
+            terminate = True
+        elif nav_to_obj_type == "heuristic":
+            if self.verbose:
+                print("[OVMM AGENT] step heuristic nav policy")
+            action, info, terminate = self._heuristic_nav(obs, info)
+        elif nav_to_obj_type == "rl":
+            action, info, terminate = self.nav_to_obj_agent.act(obs, info)
+        else:
+            raise ValueError(
+                f"Got unexpected value for NAV_TO_OBJ.type: {nav_to_obj_type}"
+            )
+        new_state = None
+        if terminate:
+            action = None
+            new_state = Skill.GAZE_AT_OBJ
+        return action, info, new_state
+
+    def _gaze_at_obj(
+        self, obs: Observations, info: Dict[str, Any]
+    ) -> Tuple[DiscreteNavigationAction, Any, Optional[Skill]]:
+        gaze_step = self.timesteps[0] - self.gaze_at_obj_start_step[0]
+        if self.skip_skills.gaze_at_obj:
+            terminate = True
+        elif gaze_step == 0:
+            return DiscreteNavigationAction.POST_NAV_MODE, info, None
+        else:
+            action, info, terminate = self.gaze_agent.act(obs, info)
+        new_state = None
+        if terminate:
+            # action = (
+            #     {}
+            # )  # TODO: update after simultaneous gripping/motion is supported
+            # action["grip_action"] = [1]  # grasp the object when gaze is done
+            # self.is_pick_done[0] = 1
+            action = None
+            new_state = True
+        return action, info, new_state
+
+    def set_task(self, task):
+        self.task = task
 
     def switch_high_level_action(self):
         self.states = torch.tensor([Skill.EXPLORE] * self.num_environments)
@@ -68,39 +127,131 @@ class VLMAgent(OpenVocabManipAgent):
             self.states = torch.tensor([Skill.NAV_TO_INSTANCE] * self.num_environments)    
         return
 
-    def _explore(
-        self, obs: Observations, info: Dict[str, Any]
-    ) -> Tuple[DiscreteNavigationAction, Any, Optional[Skill]]:
-        # nav_to_obj_type = self.config.AGENT.SKILLS.NAV_TO_OBJ.type
-        # if self.skip_skills.nav_to_obj:
-        #     terminate = True
-        # elif nav_to_obj_type == "heuristic":
-        #     if self.verbose:
-        #         print("[OVMM AGENT] step heuristic nav policy")
-        #     action, info, terminate = self._heuristic_nav(obs, info)
-        # elif nav_to_obj_type == "rl":
-        #     action, info, terminate = self.nav_to_obj_agent.act(obs, info)
-        # else:
-        #     raise ValueError(
-        #         f"Got unexpected value for NAV_TO_OBJ.type: {nav_to_obj_type}"
-        #     )
-        # _, _, _ = self.act(obs)
-        action, info, obs = self.explore_agent.act(obs)
-        new_state = None
-        # if terminate:
-        #     action = None
-        # new_state = Skill.GAZE_AT_OBJ
-        return action, info, new_state
-
     def reset_vectorized(self, episodes=None):
         """Initialize agent state."""
         super().reset_vectorized()
         self.states = torch.tensor([Skill.EXPLORE] * self.num_environments)
+        self.remaining_actions = None
+        self.high_level_plan = None
+        self.world_representation = None
+
+    def ask_vlm_for_plan(self, world_representation):
+        sample = self.vlm.prepare_sample(self.task, world_representation)
+        plan = self.vlm.evaluate(sample)
+        return plan
+
+    def get_obj_centric_world_representation(self):
+        crops = []
+        for global_id, instance in self.instance_memory.instance_views[0].items():
+            instance_crops = instance.instance_views
+            crops.append((global_id, random.sample(instance_crops, 1)[0].cropped_image))
+
+        # TODO: the model currenly can only handle 20 crops
+        if len(crops) > self.max_context_length:
+            crops = random.sample(crops, self.max_context_length)
+        import shutil
+        debug_path = "crops_for_planning/"
+        shutil.rmtree(debug_path, ignore_errors=True)
+        os.mkdir(debug_path)
+        ret = []
+        for crop in crops:
+            Image.fromarray(crop[1], "RGB").save(debug_path+str(crop[0])+'.png')
+            ret.append(str(crop[0])+'.png')
+        return ret
+
+    def _pick(
+        self, obs: Observations, info: Dict[str, Any]
+    ) -> Tuple[DiscreteNavigationAction, Any, Optional[Skill]]:
+        """Handle picking policies, either in sim or on the real robot."""
+        if self.skip_skills.pick:
+            action = None
+        elif self.config.AGENT.SKILLS.PICK.type == "oracle":
+            pick_step = self.timesteps[0] - self.pick_start_step[0]
+            if pick_step == 0:
+                action = DiscreteNavigationAction.MANIPULATION_MODE
+            elif pick_step == 1:
+                action = DiscreteNavigationAction.SNAP_OBJECT
+            elif pick_step == 2:
+                action = None
+            else:
+                raise ValueError(
+                    "Still in oracle pick. Should've transitioned to next skill."
+                )
+        elif self.config.AGENT.SKILLS.PICK.type == "heuristic":
+            action, info = self.pick_policy(obs, info)
+        elif self.config.AGENT.SKILLS.PICK.type == "hw":
+            # use the hardware pick skill
+            pick_step = self.timesteps[0] - self.pick_start_step[0]
+            if pick_step == 0:
+                action = DiscreteNavigationAction.MANIPULATION_MODE
+            elif pick_step < self.max_pick_attempts:
+                # If we have not seen an object mask to try to grasp...
+                if not obs.task_observations["prev_grasp_success"]:
+                    action = DiscreteNavigationAction.PICK_OBJECT
+                else:
+                    action = None
+        else:
+            raise NotImplementedError(
+                f"pick type not supported: {self.config.AGENT.SKILLS.PICK.type}"
+            )
+        new_state = None
+        if action in [None, DiscreteNavigationAction.STOP]:
+            new_state = True
+            action = None
+        return action, info, new_state
+
+
+    def _switch_to_next_skill(
+        self, e: int, next_skill, info: Dict[str, Any]
+    ) -> DiscreteNavigationAction:
+        """Switch to the next skill for environment `e`.
+
+        This function transitions to the next skill for the specified environment `e`.
+        Initial setup for each skill is done here, and each skill can return a single
+        action to take when starting (meant to switch between navigation and manipulation modes)
+        """
+
+        # action = None
+        if type(next_skill) == bool:
+            self.remaining_actions.pop(0)
+            if len(self.remaining_actions) == 0:
+                return True
+            next_skill = self.from_pred_to_skill(self.remaining_actions[0])
+        # if next_skill == Skill.NAV_TO_OBJ:
+        #     # action = DiscreteNavigationAction.NAVIGATION_MODE
+        #     pass
+        if next_skill == Skill.GAZE_AT_OBJ:
+            self.gaze_at_obj_start_step[e] = self.timesteps[e]
+        elif next_skill == Skill.PICK:
+            self.pick_start_step[e] = self.timesteps[e]
+        # elif next_skill == Skill.NAV_TO_REC:
+        #     self.timesteps_before_goal_update[e] = 0
+        #     if not self.skip_skills.nav_to_rec:
+        #         action = DiscreteNavigationAction.NAVIGATION_MODE
+        # elif next_skill == Skill.GAZE_AT_REC:
+        #     # We reuse gaze agent between pick and place
+        #     if self.gaze_agent is not None:
+        #         self.gaze_agent.reset_vectorized_for_env(e)
+        # elif next_skill == Skill.PLACE:
+        #     self.place_start_step[e] = self.timesteps[e]
+        # elif next_skill == Skill.FALL_WAIT:
+        #     self.fall_wait_start_step[e] = self.timesteps[e]
+        self.states[e] = next_skill
+        return False
+
+    def from_pred_to_skill(self, pred):
+        if "goto" in pred:
+            return Skill.NAV_TO_INSTANCE
+        if "pickup" in pred:
+            return Skill.PICK
+        raise NotImplementedError
 
     def act(
         self, obs: Observations
     ) -> Tuple[DiscreteNavigationAction, Dict[str, Any], Observations]:
         """State machine"""
+        
+
         if self.timesteps[0] == 0:
             self._init_episode(obs)
 
@@ -111,31 +262,52 @@ class VLMAgent(OpenVocabManipAgent):
         info = self._get_info(obs)
 
         self.timesteps[0] += 1
-
-        if self.timesteps[0] % self.vlm_freq == 0:
-
-            self.switch_high_level_action()
-            # import pdb; pdb.set_trace()
+        if not self.high_level_plan:
+            if self.timesteps[0] % self.vlm_freq == 0:
+                for _ in range(self.planning_times):
+                    self.world_representation = self.get_obj_centric_world_representation() # a list of images
+                    self.high_level_plan = self.ask_vlm_for_plan(self.world_representation)
+                    # self.high_level_plan = "goto(obj_1)"
+                    if self.high_level_plan:
+                        print ("plan found by VLMs!!!!!!!!")
+                        print (self.high_level_plan)
+                        self.remaining_actions = self.high_level_plan.split("; ")
+                        dry_run = input("want to try next task? ")
+                        if 'y' in dry_run:
+                            return None, info, obs, True
+                        break
+        
+        if self.remaining_actions and len(self.remaining_actions)>0:
+            current_high_level_action = self.remaining_actions[0]
+            if self.states[0] == Skill.EXPLORE:
+                self.states = torch.tensor([Skill.NAV_TO_INSTANCE] * self.num_environments)
+            # if self.states[0] == Skill.GAZE_AT_OBJ:
+            #     pass
+            # else:
+            #     self.states = torch.tensor([self.from_pred_to_skill(current_high_level_action)] * self.num_environments)
+            # # elif "goto" in current_high_level_action:
+            #     self.states = torch.tensor([Skill.NAV_TO_INSTANCE] * self.num_environments)
+            # elif "pickup" in current_high_level_action:
+            #     self.states = torch.tensor([Skill.PICK] * self.num_environments)
+        is_finished = False       
         action = None
         while action is None:
             if self.states[0] == Skill.EXPLORE:
-                obs.task_observations["instance_id"] = 100000000000  # TODO: get this from model
-                action, info, new_state = self._nav_to_obj(obs, info)
+                obs.task_observations["instance_id"] = 100000000000  
+                action, info, new_state = self._explore(obs, info)
             elif self.states[0] == Skill.NAV_TO_INSTANCE:
-                # import pdb; pdb.set_trace()
-                obs.task_observations["instance_id"] = 3  # TODO: get this from model
+                obs.task_observations["instance_id"] = int(self.world_representation[int(current_high_level_action.split('(')[1].split(')')[0].split(', ')[0].split('_')[1])].split('.')[0])
                 action, info, new_state = self._nav_to_obj(obs, info)
             elif self.states[0] == Skill.GAZE_AT_OBJ:
+                pick_instance_id = int(self.world_representation[int(current_high_level_action.split('(')[1].split(')')[0].split(', ')[0].split('_')[1])].split('.')[0])
+                category_id = self.instance_memory.instance_views[0][pick_instance_id].category_id
+                obs.task_observations["object_goal"] = category_id
                 action, info, new_state = self._gaze_at_obj(obs, info)
             elif self.states[0] == Skill.PICK:
-                pick_instance_id = 1  # TODO
+                pick_instance_id = int(self.world_representation[int(current_high_level_action.split('(')[1].split(')')[0].split(', ')[0].split('_')[1])].split('.')[0])
                 category_id = self.instance_memory.instance_views[0][pick_instance_id].category_id
                 obs.task_observations["object_goal"] = category_id
                 action, info, new_state = self._pick(obs, info)
-            # elif self.states[0] == Skill.NAV_TO_REC:
-            #     action, info, new_state = self._nav_to_rec(obs, info)
-            # elif self.states[0] == Skill.GAZE_AT_REC:
-            #     action, info, new_state = self._gaze_at_rec(obs, info)
             elif self.states[0] == Skill.PLACE:
                 action, info, new_state = self._place(obs, info)
             elif self.states[0] == Skill.FALL_WAIT:
@@ -151,132 +323,20 @@ class VLMAgent(OpenVocabManipAgent):
                 assert (
                     action is None
                 ), f"action must be None when switching states, found {action} instead"
-                action = self._switch_to_next_skill(0, new_state, info)
+                # if len(self.remaining_actions) == 0:
+                #     is_finished = True
+                # else:
+                is_finished = self._switch_to_next_skill(0, new_state, info)
+                if is_finished:
+                    break
+            if self.timesteps[0] >= 30:
+                is_finished = True
+                break
         # update the curr skill to the new skill whose action will be executed
         info["curr_skill"] = Skill(self.states[0].item()).name
         if self.verbose:
             print(
                 f'Executing skill {info["curr_skill"]} at timestep {self.timesteps[0]}'
             )
-        return action, info, obs
+        return action, info, obs, is_finished
 
-    # def get_perceived_objects(self, obs):
-    #     conv = self.vlm.init_conv(Image.fromarray(obs.rgb))
-    #     prompt = " Please only answer Yes or No."
-    #     object_answer = True if "Yes" in self.vlm.ask("Is there " +
-    #                                                   obs.task_observations["object_name"] + " in the image?" + prompt, conv) else False
-    #     s_recep_answer = True if "Yes" in self.vlm.ask("Is there " +
-    #                                                    obs.task_observations["start_recep_name"] + " in the image?" + prompt, conv) else False
-    #     g_recep_answer = True if "Yes" in self.vlm.ask("Is there " +
-    #                                                    obs.task_observations["place_recep_name"] + " in the image?" + prompt, conv) else False
-    #     return object_answer, s_recep_answer, g_recep_answer
-
-    # def _preprocess_obs(self, obs: Observations):
-    #     """Take a home-robot observation, preprocess it to put it into the correct format for the
-    #     semantic map."""
-    #     rgb = torch.from_numpy(obs.rgb).to(self.device)
-    #     depth = (
-    #         torch.from_numpy(obs.depth).unsqueeze(-1).to(self.device) * 100.0
-    #     )  # m to cm
-    #     if self.store_all_categories_in_map:
-    #     #     semantic = obs.semantic
-    #         obj_goal_idx = obs.task_observations["object_goal"]
-    #         if "start_recep_goal" in obs.task_observations:
-    #             start_recep_idx = obs.task_observations["start_recep_goal"]
-    #         if "end_recep_goal" in obs.task_observations:
-    #             end_recep_idx = obs.task_observations["end_recep_goal"]
-    #     else:
-    #     #     semantic = np.full_like(obs.semantic, 4)
-    #         obj_goal_idx, start_recep_idx, end_recep_idx = 1, 2, 3
-    #     #     goal, start, end = self.get_perceived_objects(obs)
-    #     #     if goal:
-    #     #         semantic[
-    #     #             obs.semantic == obs.task_observations["object_goal"]
-    #     #         ] = obj_goal_idx
-    #     #     if "start_recep_goal" in obs.task_observations and start:
-    #     #         semantic[
-    #     #             obs.semantic == obs.task_observations["start_recep_goal"]
-    #     #         ] = start_recep_idx
-    #     #     if "end_recep_goal" in obs.task_observations and end:
-    #     #         semantic[
-    #     #             obs.semantic == obs.task_observations["end_recep_goal"]
-    #     #         ] = end_recep_idx
-    #     semantic = np.full_like(obs.semantic, 4)
-    #     semantic = self.one_hot_encoding[torch.from_numpy(
-    #         semantic).to(self.device)]
-
-    #     obs_preprocessed = torch.cat([rgb, depth, semantic], dim=-1)
-    #     if self.record_instance_ids:
-    #         instances = obs.task_observations["instance_map"]
-    #         # first create a mapping to 1, 2, ... num_instances
-    #         instance_ids = np.unique(instances)
-    #         # map instance id to index
-    #         instance_id_to_idx = {
-    #             instance_id: idx for idx, instance_id in enumerate(instance_ids)
-    #         }
-    #         # convert instance ids to indices, use vectorized lookup
-    #         instances = torch.from_numpy(np.vectorize(
-    #             instance_id_to_idx.get)(instances)).to(self.device)
-    #         # create a one-hot encoding
-    #         instances = torch.eye(len(instance_ids), device=self.device)[
-    #             instances]
-    #         obs_preprocessed = torch.cat([obs_preprocessed, instances], dim=-1)
-
-    #     if self.evaluate_instance_tracking:
-    #         gt_instance_ids = (
-    #             torch.from_numpy(obs.task_observations["gt_instance_ids"])
-    #             .to(self.device)
-    #             .long()
-    #         )
-    #         gt_instance_ids = self.one_hot_instance_encoding[gt_instance_ids]
-    #         obs_preprocessed = torch.cat(
-    #             [obs_preprocessed, gt_instance_ids], dim=-1)
-
-    #     obs_preprocessed = obs_preprocessed.unsqueeze(0).permute(0, 3, 1, 2)
-
-    #     curr_pose = np.array([obs.gps[0], obs.gps[1], obs.compass[0]])
-    #     pose_delta = torch.tensor(
-    #         pu.get_rel_pose_change(curr_pose, self.last_poses[0])
-    #     ).unsqueeze(0)
-    #     self.last_poses[0] = curr_pose
-    #     object_goal_category = None
-    #     end_recep_goal_category = None
-    #     if (
-    #         "object_goal" in obs.task_observations
-    #         and obs.task_observations["object_goal"] is not None
-    #     ):
-    #         if self.verbose:
-    #             print("object goal =", obs.task_observations["object_goal"])
-    #         object_goal_category = torch.tensor(obj_goal_idx).unsqueeze(0)
-    #     start_recep_goal_category = None
-    #     if (
-    #         "start_recep_goal" in obs.task_observations
-    #         and obs.task_observations["start_recep_goal"] is not None
-    #     ):
-    #         if self.verbose:
-    #             print("start_recep goal =",
-    #                   obs.task_observations["start_recep_goal"])
-    #         start_recep_goal_category = torch.tensor(
-    #             start_recep_idx).unsqueeze(0)
-    #     if (
-    #         "end_recep_goal" in obs.task_observations
-    #         and obs.task_observations["end_recep_goal"] is not None
-    #     ):
-    #         if self.verbose:
-    #             print("end_recep goal =",
-    #                   obs.task_observations["end_recep_goal"])
-    #         end_recep_goal_category = torch.tensor(end_recep_idx).unsqueeze(0)
-    #     goal_name = [obs.task_observations["goal_name"]]
-
-    #     camera_pose = obs.camera_pose
-    #     if camera_pose is not None:
-    #         camera_pose = torch.tensor(np.asarray(camera_pose)).unsqueeze(0)
-    #     return (
-    #         obs_preprocessed,
-    #         pose_delta,
-    #         object_goal_category,
-    #         start_recep_goal_category,
-    #         end_recep_goal_category,
-    #         goal_name,
-    #         camera_pose,
-    #     )
