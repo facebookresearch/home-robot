@@ -20,7 +20,7 @@ ENVIRONMENT:
   max_depth: 5.95       # maximum depth for depth sensor (in metres)
   max_num_sub_task_episodes: 10
   estimated_depth_threshold: 5
-  gaze_at_subgoal: False  # False for CoW, True for
+  gaze_at_subgoal: True  # False for CoW, True for
 
 AGENT:
   max_steps: 100          # maximum number of steps per subgoal before stopping an episode
@@ -81,7 +81,7 @@ AGENT:
     discrete_actions: True         # discrete motion planner output space or not
     verbose: False
     naive_landmark_conditioned: True # rotate 360º after reaching target to see if landmark is present
-    goal_tolerance: 5
+    goal_tolerance: 20
 
   SUPERGLUE:
     max_keypoints: 1024
@@ -96,7 +96,7 @@ AGENT:
     agg_fn_image: max
     agg_fn_lang: max
     match_projection_threshold: 0.2   # confidence must be at least this high to project as goal point.
-    goto_past_pose: True              # True for CoW, False for goat
+    goto_past_pose: False              # True for CoW, False for goat
 
   DETIC:
     config_file: Detic/configs/Detic_LCOCOI21k_CLIP_SwinB_896b32_4x_ft4x_max-size.yaml

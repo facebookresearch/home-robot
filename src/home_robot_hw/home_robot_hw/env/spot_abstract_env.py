@@ -13,10 +13,26 @@ from spot_rl.utils.utils import (
 
 from home_robot.core.abstract_env import Env
 from home_robot.core.interfaces import Action, Observations
+import skfmm
 
 HAND_DEPTH_THRESHOLD = 6.0  # in meters
 BASE_HEIGHT = 0.61  # in meters
 
+
+def fmm_distance(obstacles,source):
+    map_obs = np.ones_like(obstacles)
+    map_obs[source[0],source[1]] = 0
+    marr = np.ma.MaskedArray(map_obs,obstacles)
+    dists = skfmm.distance(marr)
+    return dists
+
+
+# returns a mask dicating which regions are occoluded by obstacles from the point
+def ray_trace(obstacles,point):
+    raw_dists = fmm_distance(obstacles,point)
+    occ_dists = fmm_distance(obstacles,point)
+    occluded_mask = np.abs(occ_dists - raw_dists) > 0.5
+    return occluded_mask
 
 def yaw_rotation_matrix_2D(yaw):
     cos_yaw = np.cos(yaw)
@@ -113,6 +129,7 @@ class SpotEnv(Env):
         abs_rot = yaw_rotation_matrix_3D(home_robot_obs.compass[0]) @ rel_rot
         home_robot_obs.camera_pose[:3, :3] = abs_rot
 
+        
         relative_obs_locations = (obs["obstacle_distances"][:, :2] - self.start_gps).copy()
         relative_obs_locations = (self.rot_compass @ relative_obs_locations.T).T[ :, ::-1 ]
 
@@ -128,9 +145,36 @@ class SpotEnv(Env):
         home_robot_obs.task_observations["obstacle_locations"] = torch.from_numpy(
             relative_obs_locations[is_obstacle_mask & trusted_point]
         )
-        home_robot_obs.task_observations["free_locations"] = torch.from_numpy(
-            relative_obs_locations[is_free_mask & trusted_point]
-        )
+        free_points = relative_obs_locations[is_free_mask & trusted_point]
+        ray_tracing = True
+        if ray_tracing:
+            # meters to pixel
+            resolution = 0.05
+            pixel_locations = ((obs["obstacle_distances"][:, :2] - obs["position"]) / resolution)
+            print(pixel_locations.min(),pixel_locations.max())
+            rad = max(-pixel_locations.min(),pixel_locations.max()) + 0.1
+            dia = int(2*rad/resolution)
+            map_region = np.zeros((dia, dia))
+            pixel_locations = ((obs["obstacle_distances"][:, :2] - obs["position"]) / resolution) + dia/2
+            pixel_locations = pixel_locations[is_obstacle_mask].astype(int)
+            map_region[pixel_locations[:, 0], pixel_locations[:, 1]] = 1
+            occluded_mask = ray_trace(map_region,(dia//2,dia//2))
+            observed_free = (map_region == 0) & ~occluded_mask
+            free_points = np.stack(np.where(observed_free),axis=1)
+            free_points = (free_points - dia/2) * resolution
+            trusted_free = free_points[np.linalg.norm(free_points, axis=-1) <= 1.5].copy()
+
+            trusted_free = (self.rot_compass @ trusted_free.T).T[ :, ::-1 ].copy()
+            trusted_free += obs['position'] - self.start_gps
+            print(trusted_free)
+            print(free_points)
+            home_robot_obs.task_observations["free_locations"] = torch.from_numpy(
+                trusted_free
+            )
+        else:
+            home_robot_obs.task_observations["free_locations"] = torch.from_numpy(
+                free_points
+            )
         return home_robot_obs
 
     @property

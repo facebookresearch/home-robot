@@ -149,7 +149,7 @@ class SpotGoatEnv(SpotEnv):
         obs = self.patch_depth(obs)
 
         # Segment the image
-        obs = self.segmentation.predict(obs, depth_threshold=0.5)
+        obs = self.segmentation.predict(obs, depth_threshold=None)
         obs.semantic[obs.semantic == 0] = self.num_sem_categories
         obs.semantic = obs.semantic - 1
 
