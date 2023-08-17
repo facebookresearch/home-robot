@@ -852,6 +852,7 @@ if __name__ == "__main__":
     parser.add_argument("--trajectory", default="trajectory1")
     parser.add_argument("--goals", default="object_chair,object_sink")
     parser.add_argument('--keyboard',action='store_true')
+    parser.add_argument('--pick-place',action='store_true')
                         
     args = parser.parse_args()
 
