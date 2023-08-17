@@ -35,7 +35,7 @@ def loose_wait(robot, x, y, theta, rate=10, pos_err_threshold=0.2, verbose=True)
     rate = rospy.Rate(rate)
     xy = np.array([x, y])
     if verbose:
-        print("Waiting for", x, y, theta, "threshold =", thresh0ld)
+        print("Waiting for", x, y, theta, "threshold =", threshold)
     while not rospy.is_shutdown():
         # Loop until we get there (or time out)
         curr = robot.nav.get_base_pose()

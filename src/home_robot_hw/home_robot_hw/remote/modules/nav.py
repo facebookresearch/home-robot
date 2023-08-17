@@ -4,6 +4,7 @@
 # LICENSE file in the root directory of this source tree.
 from typing import Iterable
 
+import numpy as np
 import rospy
 from geometry_msgs.msg import Twist
 from std_srvs.srv import SetBoolRequest, TriggerRequest
@@ -59,6 +60,37 @@ class StretchNavigationClient(AbstractControlModule):
             return self._ros_client.at_goal
         else:
             return False
+
+    def wait_for_waypoint(
+        self,
+        xyt: np.ndarray,
+        rate: int = 10,
+        pos_err_threshold: float = 0.2,
+        verbose: bool = True,
+        timeout: float = 10.0,
+    ) -> bool:
+        """Wait until the robot has reached a configuration... but only roughly. Used for trajectory execution."""
+        rate = rospy.Rate(rate)
+        xy = xyt[:2]
+        if verbose:
+            print("Waiting for", xyt, "threshold =", pos_err_threshold)
+        # Save start time for exiting trajectory loop
+        t0 = rospy.Time.now()
+        while not rospy.is_shutdown():
+            # Loop until we get there (or time out)
+            curr = self.get_base_pose()
+            pos_err = np.linalg.norm(xy - curr[:2])
+            if verbose:
+                print("- curr pose =", curr, "target =", xyt, "err =", pos_err)
+            if pos_err < pos_err_threshold:
+                # We reached the goal position
+                return True
+            t1 = rospy.Time.now()
+            if (t1 - t0).to_sec() > timeout:
+                if verbose:
+                    rospy.logerr("Could not reach goal: " + str(xyt))
+                return False
+            rate.sleep()
 
     @enforce_enabled
     def set_velocity(self, v, w):
