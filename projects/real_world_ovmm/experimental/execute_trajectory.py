@@ -30,17 +30,19 @@ def txt_to_trajectory(filename):
     return goals, trajectories
 
 
-def loose_wait(robot, x, y, theta, rate=10, threshold=0.2, verbose=True):
+def loose_wait(robot, x, y, theta, rate=10, pos_err_threshold=0.2, verbose=True):
     """Wait until the robot has reached a configuration... but only roughly. Used for trajectory execution."""
     rate = rospy.Rate(rate)
     xy = np.array([x, y])
+    if verbose:
+        print("Waiting for", x, y, theta, "threshold =", thresh0ld)
     while not rospy.is_shutdown():
+        # Loop until we get there (or time out)
         curr = robot.nav.get_base_pose()
-        print(curr, x, y, theta)
         pos_err = np.linalg.norm(xy - curr[:2])
         if verbose:
-            print("-", pos_err)
-        if pos_err < threshold:
+            print("- curr pose =", curr, "target =", x, y, theta, "err =", pos_err)
+        if pos_err < pos_err_threshold:
             break
         rate.sleep()
 
@@ -49,24 +51,12 @@ def loose_wait(robot, x, y, theta, rate=10, threshold=0.2, verbose=True):
 @click.option("--wait", default=False, is_flag=True)
 @click.option("--dry-run", default=False, is_flag=True)
 def main(wait=False, dry_run=False):
-    # config_path = "scripts/adhoc/agent_config.yaml"
-    # config, config_str = get_config(config_path)
-    # config.defrost()
-    # config.NUM_ENVIRONMENTS = 1
-    # config.PRINT_IMAGES = 1
-    # config.EXP_NAME = "debug"
-    # config.freeze()
-
+    """Run through trajectory examples loaded in these scripts"""
     if dry_run:
         wait = False
 
-    rospy.init_node("eval_usa")
-    # agent = PickAndPlaceAgent(
-    #     config=config, skip_find_object=test_pick, skip_place=test_pick
-    # )
-    # agent.reset()
-
-    example_dir = "model_2022-04-05/example"
+    rospy.init_node("trajectory_execution_example")
+    example_dir = "projects/real_world_ovmm/experimental"
     robot = StretchClient(init_node=False)
     robot.switch_to_navigation_mode()
     _, trajectories = txt_to_trajectory(os.path.join(example_dir, "trajectories.txt"))
