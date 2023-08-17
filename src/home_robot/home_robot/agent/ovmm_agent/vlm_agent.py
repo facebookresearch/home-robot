@@ -45,7 +45,7 @@ class VLMAgent(OpenVocabManipAgent):
         #     raise NotImplementedError
         from minigpt4_example import Predictor
 
-        self.vlm = Predictor()
+        # self.vlm = Predictor()
         print("VLM Agent created")
         self.vlm_freq = 5
         self.high_level_plan = None
@@ -108,6 +108,7 @@ class VLMAgent(OpenVocabManipAgent):
         else:
             action, info, terminate = self.gaze_agent.act(obs, info)
         new_state = None
+
         if terminate:
             # action = (
             #     {}
@@ -266,13 +267,13 @@ class VLMAgent(OpenVocabManipAgent):
             if self.timesteps[0] % self.vlm_freq == 0:
                 for _ in range(self.planning_times):
                     self.world_representation = self.get_obj_centric_world_representation() # a list of images
-                    self.high_level_plan = self.ask_vlm_for_plan(self.world_representation)
-                    # self.high_level_plan = "goto(obj_1)"
+                    # self.high_level_plan = self.ask_vlm_for_plan(self.world_representation)
+                    self.high_level_plan = "goto(obj_1)"
                     if self.high_level_plan:
                         print ("plan found by VLMs!!!!!!!!")
                         print (self.high_level_plan)
                         self.remaining_actions = self.high_level_plan.split("; ")
-                        dry_run = input("want to try next task? ")
+                        dry_run = input("type y if you want to switch to the next task, otherwise will execute the plan: ")
                         if 'y' in dry_run:
                             return None, info, obs, True
                         break
@@ -291,6 +292,8 @@ class VLMAgent(OpenVocabManipAgent):
             #     self.states = torch.tensor([Skill.PICK] * self.num_environments)
         is_finished = False       
         action = None
+
+        import pdb; pdb.set_trace()
         while action is None:
             if self.states[0] == Skill.EXPLORE:
                 obs.task_observations["instance_id"] = 100000000000  
@@ -329,9 +332,9 @@ class VLMAgent(OpenVocabManipAgent):
                 is_finished = self._switch_to_next_skill(0, new_state, info)
                 if is_finished:
                     break
-            if self.timesteps[0] >= 30:
-                is_finished = True
-                break
+            # if self.timesteps[0] >= 30:
+            #     is_finished = True
+            #     break
         # update the curr skill to the new skill whose action will be executed
         info["curr_skill"] = Skill(self.states[0].item()).name
         if self.verbose:

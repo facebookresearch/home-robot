@@ -227,6 +227,7 @@ class DiscretePlanner:
                 plan_to_dilated_goal=use_dilation_for_stg,
                 frontier_map=frontier_map,
             )
+            import pdb; pdb.set_trace()
         except Exception as e:
             print("Warning! Planner crashed with error:", e)
             return (
