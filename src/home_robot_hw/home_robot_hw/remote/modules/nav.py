@@ -69,7 +69,17 @@ class StretchNavigationClient(AbstractControlModule):
         verbose: bool = True,
         timeout: float = 10.0,
     ) -> bool:
-        """Wait until the robot has reached a configuration... but only roughly. Used for trajectory execution."""
+        """Wait until the robot has reached a configuration... but only roughly. Used for trajectory execution.
+
+        Parameters:
+            xyt: se(2) base pose in world coordinates to go to
+            rate: rate at which we should check to see if done
+            pos_err_threshold: how far robot can be for this waypoint
+            verbose: prints extra info out
+            timeout: aborts at this point
+
+        Returns:
+            success: did we reach waypoint in time"""
         rate = rospy.Rate(rate)
         xy = xyt[:2]
         if verbose:
