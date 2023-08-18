@@ -13,7 +13,11 @@ import numpy as np
 import open3d
 import rospy
 
-from home_robot.agent.ovmm_agent import OvmmPerception
+from home_robot.agent.ovmm_agent import (
+    OvmmPerception,
+    build_vocab_from_category_map,
+    read_category_map_file,
+)
 from home_robot.mapping.voxel import SparseVoxelMap
 from home_robot.motion.stretch import STRETCH_NAVIGATION_Q, HelloStretchKinematics
 from home_robot.utils.point_cloud import numpy_to_pcd, pcd_to_numpy, show_point_cloud
@@ -46,12 +50,16 @@ class RosMapDataCollector(object):
     def step(self, visualize_map=False):
         """Step the collector. Get a single observation of the world. Remove bad points, such as
         those from too far or too near the camera."""
-        rgb, depth, xyz = self.robot.head.get_images(
-            compute_xyz=True,
-        )
-        # Get the camera pose and make sure this works properly
-        camera_pose = self.robot.head.get_pose(rotated=False)
+        obs = self.robot.get_observation()
+
+        rgb = obs.rgb
+        depth = obs.depth
+        xyz = obs.xyz
+        camera_pose = obs.camera_pose
+        breakpoint()
+
         base_pose = self.robot.nav.get_base_pose()
+
         # Get RGB and depth as necessary
         orig_rgb = rgb.copy()
         orig_depth = depth.copy()
@@ -121,10 +129,16 @@ def main(
     print("- Connect to Stretch")
     robot = StretchClient()
 
-    print("- Stretch")
-    semantic_sensor = OvmmPerception(config, device_id, verbose)
+    print("- Create and load vocabulary and perception model")
+    semantic_sensor = OvmmPerception(config, device_id, verbose, module="detic")
+    obj_name_to_id, rec_name_to_id = read_category_map_file(
+        config.ENVIRONMENT.category_map_file
+    )
+    vocab = build_vocab_from_category_map(obj_name_to_id, rec_name_to_id)
+    semantic_sensor.update_vocabulary_list(vocab, 0)
+    semantic_sensor.set_vocabulary(0)
 
-    collector = RosMapDataCollector(robot, visualize)
+    collector = RosMapDataCollector(robot, semantic_sensor, visualize)
 
     # Tuck the arm away
     print("Sending arm to  home...")
