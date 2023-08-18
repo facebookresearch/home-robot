@@ -1103,7 +1103,7 @@ class Categorical2DSemanticMapModule(nn.Module):
             # shift local free locations
             global_free_locations = free_locations + torch.tensor([lmb[e,0],lmb[e,2]]).to(free_locations.device)
             # zero out those channels
-            global_map[e,:MC.NON_SEM_CHANNELS,global_free_locations[:,0],global_free_locations[:,1]] = 0
+            global_map[e,MC.NON_SEM_CHANNELS:,global_free_locations[:,0],global_free_locations[:,1]] = 0
 
         if self.record_instance_ids:
             global_map = self._update_global_map_instances(

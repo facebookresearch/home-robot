@@ -1,6 +1,3 @@
-# If True, use dummy offline environment that loads observations from disk
-OFFLINE = False
-
 import json
 import math
 import pickle
@@ -31,8 +28,6 @@ sys.path.insert(
     str(Path(__file__).resolve().parent.parent.parent / "src/home_robot_sim"),
 )
 
-if not OFFLINE:
-    from spot_wrapper.spot import Spot
 
 import home_robot.utils.pose as pu
 import home_robot.utils.visualization as vu
@@ -705,10 +700,10 @@ def main(spot=None, args=None):
     legend = cv2.imread(legend_path)
     vis_images = []
 
-    if OFFLINE:
+    if args.offline:
         # Load observations from disk instead of generating them
-        env = SpotGoatOfflineEnv()
-        env.reset(obs_dir)
+        env = SpotGoatOfflineEnv(obs_dir)
+        env.reset()
 
     else:
         env = SpotGoatEnv(spot, position_control=True,estimated_depth_threshold=config.ENVIRONMENT.estimated_depth_threshold,gaze_at_subgoal=config.ENVIRONMENT.gaze_at_subgoal)
@@ -746,7 +741,7 @@ def main(spot=None, args=None):
         print(f"Time: {step_start_time - global_start_time:.2f}")
         print(f"Goal {agent.current_task_idx}: {goal_strings[agent.current_task_idx]}")
 
-        if not OFFLINE:
+        if not args.offline:
             obs = env.get_observation()
             obs.task_observations["current_task_idx"] = agent.current_task_idx
             obs.task_observations["timestamp"] = step_start_time - global_start_time
@@ -797,8 +792,11 @@ def main(spot=None, args=None):
         )
         vis_images.append(vis_image)
         cv2.imwrite(f"{output_visualization_dir}/{t}.png", vis_image[:, :, ::-1])
+        cv2.imshow("vis", vis_image[:, :, ::-1])
+        cv2.imshow("depth", obs.depth/obs.depth.max())
+        key = cv2.waitKey(1)
 
-        if not OFFLINE:
+        if not args.offline:
             cv2.imshow("vis", vis_image[:, :, ::-1])
             cv2.imshow("depth", obs.depth/obs.depth.max())
             key = cv2.waitKey(1)
@@ -853,12 +851,14 @@ if __name__ == "__main__":
     parser.add_argument("--goals", default="object_chair,object_sink")
     parser.add_argument('--keyboard',action='store_true')
     parser.add_argument('--pick-place',action='store_true')
+    parser.add_argument('--offline',action='store_true')
                         
     args = parser.parse_args()
 
-    if not OFFLINE:
+    if not args.offline:
+        from spot_wrapper.spot import Spot
         spot = Spot("RealNavEnv")
         with spot.get_lease(hijack=True):
             main(spot, args)
     else:
-        main()
+        main(spot=None,args=args)
