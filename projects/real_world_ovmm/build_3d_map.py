@@ -79,30 +79,6 @@ class RosMapDataCollector(object):
             K=self.robot.head._ros_client.rgb_cam.K,
         )
         if visualize_map:
-            pc_xyz, pc_rgb = self.voxel_map.get_data()
-            pcd = numpy_to_pcd(pc_xyz, pc_rgb / 255.0)
-            geoms = create_visualization_geometries(pcd=pcd, orig=np.zeros(3))
-            for instance_view in self.voxel_map._instance_views:
-                mins, maxs = instance_view.bounds
-                width, height, depth = maxs - mins
-
-                # Create a mesh to visualzie where the instances were seen
-                mesh_box = open3d.geometry.TriangleMesh.create_box(
-                    width=width, height=height, depth=depth
-                )
-
-                # Get vertex array from the mesh
-                vertices = np.asarray(mesh_box.vertices)
-
-                # Translate the vertices to the desired position
-                vertices += mins
-
-                # Update the mesh vertices
-                mesh_box.vertices = open3d.utility.Vector3dVector(vertices)
-                geoms.append(mesh_box)
-
-            open3d.visualization.draw_geometries(geoms)
-
             # Now draw 2d
             self.voxel_map.get_2d_map(debug=True)
 
@@ -115,8 +91,48 @@ class RosMapDataCollector(object):
 
         # Create a combined point cloud
         # Do the other stuff we need
+
         pc_xyz, pc_rgb = self.voxel_map.get_data()
-        show_point_cloud(pc_xyz, pc_rgb / 255, orig=np.zeros(3))
+        # TODO: easy version, just pt clouds
+        # show_point_cloud(pc_xyz, pc_rgb / 255, orig=np.zeros(3))
+
+        pcd = numpy_to_pcd(pc_xyz, pc_rgb / 255.0)
+        geoms = create_visualization_geometries(pcd=pcd, orig=np.zeros(3))
+        for instance_view in self.voxel_map._instance_views:
+            mins, maxs = instance_view.bounds
+            width, height, depth = maxs - mins
+
+            # Create a mesh to visualzie where the instances were seen
+            mesh_box = open3d.geometry.TriangleMesh.create_box(
+                width=width, height=height, depth=depth
+            )
+
+            # Get vertex array from the mesh
+            vertices = np.asarray(mesh_box.vertices)
+
+            # Translate the vertices to the desired position
+            vertices += mins
+            triangles = np.asarray(mesh_box.triangles)
+
+            # Create a wireframe mesh
+            lines = []
+            for tri in triangles:
+                lines.append([tri[0], tri[1]])
+                lines.append([tri[1], tri[2]])
+                lines.append([tri[2], tri[0]])
+
+            color = [1.0, 0.0, 0.0]  # Red color (R, G, B)
+            colors = [color for _ in range(len(lines))]
+            wireframe = open3d.geometry.LineSet(
+                points=open3d.utility.Vector3dVector(vertices),
+                lines=open3d.utility.Vector2iVector(lines),
+            )
+            # Get the colors and add to wireframe
+            wireframe.colors = open3d.utility.Vector3dVector(colors)
+            geoms.append(wireframe)
+
+        # Show the geometries of where we have explored
+        open3d.visualization.draw_geometries(geoms)
         return pc_xyz, pc_rgb
 
 
