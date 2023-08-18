@@ -309,7 +309,7 @@ class VLMAgent(OpenVocabManipAgent):
             elif self.states[0] == Skill.PICK:
                 pick_instance_id = int(self.world_representation[int(current_high_level_action.split('(')[1].split(')')[0].split(', ')[0].split('_')[1])].split('.')[0])
                 category_id = self.instance_memory.instance_views[0][pick_instance_id].category_id
-                obs.task_observations["object_goal"] = category_id
+                obs.task_observations["object_goal"] = category_id.item()
                 # import pdb; pdb.set_trace()
                 action, info, new_state = self._pick(obs, info)
             elif self.states[0] == Skill.PLACE:

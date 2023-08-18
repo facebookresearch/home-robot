@@ -304,7 +304,8 @@ class VoxelGraspGenerator(object):
 
         # Add an emergency grasp generator - just try to grab the top or something
         # This will work best on squishy objects
-        if len(scores_raw) == 0 and self._always_grasp:
+        # if len(scores_raw) == 0 and self._always_grasp:
+        if True:
             # we need to add an emergency grasp location
             # TODO: mean or median?
             # avg_top_xyz = np.mean(xyz_top, axis=0)
