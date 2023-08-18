@@ -71,7 +71,11 @@ class InstanceView:
 
     @staticmethod
     def create_from_observations(
-        world_xyz: np.ndarray, valid_mask: np.ndarray, obs: Observations, timestep: int
+        world_xyz: np.ndarray,
+        valid_mask: np.ndarray,
+        obs: Observations,
+        timestep: int,
+        min_points: int = 100,
     ) -> List[InstanceView]:
         """Create a set of instance views from the observations"""
         views = []
@@ -91,6 +95,8 @@ class InstanceView:
                 cropped_rgb = obs.rgb[x0 : x1 + 1, y0 : y1 + 1]
                 mask = mask.reshape(-1)
                 point_cloud = world_xyz[mask[valid_mask]]
+                if len(point_cloud) < min_points:
+                    continue
                 bbox = [x0, x1, y0, y1]
                 bounds = np.min(point_cloud, axis=0), np.max(point_cloud, axis=0)
                 views.append(
