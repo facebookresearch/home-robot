@@ -20,7 +20,12 @@ from home_robot.agent.ovmm_agent import (
 )
 from home_robot.mapping.voxel import SparseVoxelMap
 from home_robot.motion.stretch import STRETCH_NAVIGATION_Q, HelloStretchKinematics
-from home_robot.utils.point_cloud import numpy_to_pcd, pcd_to_numpy, show_point_cloud
+from home_robot.utils.point_cloud import (
+    create_visualization_geometries,
+    numpy_to_pcd,
+    pcd_to_numpy,
+    show_point_cloud,
+)
 from home_robot.utils.pose import to_pos_quat
 from home_robot_hw.env.stretch_pick_and_place_env import StretchPickandPlaceEnv
 from home_robot_hw.remote import StretchClient
@@ -56,21 +61,11 @@ class RosMapDataCollector(object):
         depth = obs.depth
         xyz = obs.xyz
         camera_pose = obs.camera_pose
-        breakpoint()
+        base_pose = np.array([obs.gps[0], obs.gps[1], obs.compass[0]])
 
-        base_pose = self.robot.nav.get_base_pose()
+        # Semantic prediction
+        obs = self.semantic_sensor.predict(obs)
 
-        # Get RGB and depth as necessary
-        orig_rgb = rgb.copy()
-        orig_depth = depth.copy()
-
-        # apply depth filter
-        depth = depth.reshape(-1)
-        rgb = rgb.reshape(-1, 3)
-        xyz = xyz.reshape(-1, 3)
-        valid_depth = np.bitwise_and(depth > 0.1, depth < 4.0)
-        rgb = rgb[valid_depth, :]
-        xyz = xyz[valid_depth, :]
         # TODO: remove debug code
         # For now you can use this to visualize a single frame
         # show_point_cloud(xyz, rgb / 255, orig=np.zeros(3))
@@ -80,11 +75,35 @@ class RosMapDataCollector(object):
             rgb,
             depth=depth,
             base_pose=base_pose,
+            obs=obs,
             K=self.robot.head._ros_client.rgb_cam.K,
-            orig_rgb=orig_rgb,
-            orig_depth=orig_depth,
         )
         if visualize_map:
+            pc_xyz, pc_rgb = self.voxel_map.get_data()
+            pcd = numpy_to_pcd(pc_xyz, pc_rgb / 255.0)
+            geoms = create_visualization_geometries(pcd=pcd, orig=np.zeros(3))
+            for instance_view in self.voxel_map._instance_views:
+                mins, maxs = instance_view.bounds
+                width, height, depth = maxs - mins
+
+                # Create a mesh to visualzie where the instances were seen
+                mesh_box = open3d.geometry.TriangleMesh.create_box(
+                    width=width, height=height, depth=depth
+                )
+
+                # Get vertex array from the mesh
+                vertices = np.asarray(mesh_box.vertices)
+
+                # Translate the vertices to the desired position
+                vertices += mins
+
+                # Update the mesh vertices
+                mesh_box.vertices = open3d.utility.Vector3dVector(vertices)
+                geoms.append(mesh_box)
+
+            open3d.visualization.draw_geometries(geoms)
+
+            # Now draw 2d
             self.voxel_map.get_2d_map(debug=True)
 
     def get_2d_map(self):

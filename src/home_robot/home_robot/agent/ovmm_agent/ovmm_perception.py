@@ -158,12 +158,18 @@ class OvmmPerception:
     def __call__(self, obs: Observations) -> Observations:
         return self.forward(obs)
 
-    def forward(self, obs: Observations) -> Observations:
+    def predict(self, obs: Observations, depth_threshold: float = 0.5) -> Observations:
+        """Run with no postprocessing. Updates observation to add semantics."""
+        return self._segmentation.predict(
+            obs,
+            depth_threshold=depth_threshold,
+            draw_instance_predictions=self._use_detic_viz,
+        )
+
+    def forward(self, obs: Observations, depth_threshold: float = 0.5) -> Observations:
         """
         Run segmentation model and preprocess observations for OVMM skills
         """
-        obs = self._segmentation.predict(
-            obs, depth_threshold=0.5, draw_instance_predictions=self._use_detic_viz
-        )
+        obs = self.predict(obs, depth_threshold)
         self._process_obs(obs)
         return obs

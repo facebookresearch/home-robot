@@ -10,6 +10,8 @@ import open3d as o3d
 import trimesh
 from scipy.ndimage import distance_transform_edt
 
+from home_robot.core.interfaces import Observations
+from home_robot.mapping.semantic.instance_tracking_modules import InstanceView
 from home_robot.motion.space import XYT
 from home_robot.utils.point_cloud import numpy_to_pcd, pcd_to_numpy, show_point_cloud
 
@@ -67,6 +69,8 @@ class SparseVoxelMap(object):
         add_local_radius_points: bool = True,
         local_radius: float = 0.25,
         cast_to_center: bool = False,
+        min_depth: float = 0.1,
+        max_depth: float = 4.0,
     ):
         self.resolution = resolution
         self.feature_dim = feature_dim
@@ -77,6 +81,8 @@ class SparseVoxelMap(object):
         self.grid_resolution = grid_resolution
         self._seq = 0
         self._2d_last_updated = -1
+        self.min_depth = min_depth
+        self.max_depth = max_depth
 
         # Create disk for mapping explored areas near the robot - since camera can't always see it
         self._disk_size = np.ceil(1.0 / self.grid_resolution)
@@ -108,6 +114,9 @@ class SparseVoxelMap(object):
         # Stores points in 2d coords where robot has been
         self._visited = np.zeros(self.grid_size)
 
+        # Store instances detected (all of them for now)
+        self._instance_views = []
+
         # Store 2d map information
         # This is computed from our various point clouds
         self._map2d = None
@@ -120,8 +129,9 @@ class SparseVoxelMap(object):
         camera_pose: np.ndarray,
         xyz: np.ndarray,
         feats: np.ndarray,
+        depth: Optional[np.ndarray] = None,
         base_pose: Optional[np.ndarray] = None,
-        instance_ids: Optional[np.ndarray] = None,
+        obs: Optional[Observations] = None,
         **info
     ):
         """Add this to our history of observations. Also update the current running map.
@@ -131,19 +141,36 @@ class SparseVoxelMap(object):
             xyz: N x 3 point cloud points
             feats: N x D point cloud features; D == 3 for RGB is most common
             base_pose: optional location of robot base
-            instance:ids: object instance IDs from some detector for creating landmarks"""
+            obs: observations
+        """
+        # TODO: we should remove the xyz/feats maybe? just use observations as input?
+        # TODO: switch to using just Obs struct?
         assert xyz.shape[-1] == 3
         assert feats.shape[-1] == self.feature_dim
         assert xyz.shape[0] == feats.shape[0]
+
+        # apply depth filter
+        feats = feats.reshape(-1, 3)
+        xyz = xyz.reshape(-1, 3)
+
+        if depth is not None:
+            depth = depth.reshape(-1)
+            valid_depth = np.bitwise_and(depth > self.min_depth, depth < self.max_depth)
+            feats = feats[valid_depth, :]
+            xyz = xyz[valid_depth, :]
+        else:
+            valid_depth = np.ones_like(xyz)
 
         if len(xyz.shape) > 2:
             xyz = xyz.reshape(-1, 3)
             feats = feats.reshape(-1, 3)
 
-        self.observations.append(
-            (camera_pose, xyz, feats, base_pose, instance_ids, info)
-        )
+        self.observations.append((camera_pose, xyz, feats, base_pose, obs, info))
         world_xyz = trimesh.transform_points(xyz, camera_pose)
+        instances = InstanceView.create_from_observations(
+            world_xyz, valid_depth, obs, self._seq
+        )
+        self._instance_views += instances
 
         # Combine point clouds by adding in the current view to the previous ones and
         # voxelizing.
@@ -188,8 +215,9 @@ class SparseVoxelMap(object):
         data["poses"] = []
         data["xyz"] = []
         data["feats"] = []
-        for camera_pose, xyz, feats, base_pose, ids, info in self.observations:
+        for camera_pose, xyz, feats, base_pose, obs, info in self.observations:
             # add it to pickle
+            # TODO: switch to using just Obs struct?
             data["poses"].append(camera_pose)
             data["xyz"].append(xyz)
             data["feats"].append(feats)
@@ -206,7 +234,9 @@ class SparseVoxelMap(object):
         """Recompute the entire map from scratch instead of doing incremental updates.
         This is a helper function which recomputes everything from the beginning and migh"""
         self.reset_cache()
-        for camera_pose, xyz, feats, base_pose, ids, _ in self.observations:
+        for camera_pose, xyz, feats, base_pose, obs, _ in self.observations:
+            # TODO: logic should be the same as in "add" above
+            # TODO: switch to using just Obs struct?
             world_xyz = trimesh.transform_points(xyz, camera_pose)
             if self.xyz is None:
                 pc_xyz, pc_rgb = world_xyz, feats

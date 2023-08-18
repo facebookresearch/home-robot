@@ -9,6 +9,18 @@ from typing import Dict, List, Optional, Tuple
 import numpy as np
 import torch
 
+from home_robot.core.interfaces import Observations
+
+
+class InstanceView:
+    """placeholder"""
+
+    pass
+
+
+# TODO: disable this unless you're having some trouble with cropped images
+DEBUG_SHOW_CROPS = False
+
 
 class InstanceView:
     """
@@ -32,6 +44,7 @@ class InstanceView:
     # point cloud of instance in the current image
     point_cloud: np.ndarray = None
     category_id: Optional[int] = None
+    bounds: Optional[Tuple[np.ndarray]] = None
 
     def __init__(
         self,
@@ -42,6 +55,7 @@ class InstanceView:
         mask,
         point_cloud,
         category_id=None,
+        bounds: Optional[Tuple[np.ndarray]] = None,
     ):
         """
         Initialize InstanceView
@@ -53,6 +67,50 @@ class InstanceView:
         self.mask = mask
         self.point_cloud = point_cloud
         self.category_id = category_id
+        self.bounds = bounds
+
+    @staticmethod
+    def create_from_observations(
+        world_xyz: np.ndarray, valid_mask: np.ndarray, obs: Observations, timestep: int
+    ) -> List[InstanceView]:
+        """Create a set of instance views from the observations"""
+        views = []
+        ids = np.unique(obs.instance)
+        x_idx, y_idx = np.indices(obs.instance.shape)
+        for i in ids:
+            if i < 0:
+                # This is a background point; just skip it
+                continue
+            else:
+                # Get the instances
+                mask = obs.instance == i
+                x0 = np.min(x_idx[mask])
+                x1 = np.max(x_idx[mask])
+                y0 = np.min(y_idx[mask])
+                y1 = np.max(y_idx[mask])
+                cropped_rgb = obs.rgb[x0 : x1 + 1, y0 : y1 + 1]
+                mask = mask.reshape(-1)
+                point_cloud = world_xyz[mask[valid_mask]]
+                bbox = [x0, x1, y0, y1]
+                bounds = np.min(point_cloud, axis=0), np.max(point_cloud, axis=0)
+                views.append(
+                    InstanceView(
+                        bbox,
+                        timestep,
+                        cropped_rgb,
+                        None,
+                        mask,
+                        point_cloud,
+                        None,
+                        bounds,
+                    )
+                )
+                if DEBUG_SHOW_CROPS:
+                    import matplotlib.pyplot as plt
+
+                    plt.imshow(cropped_rgb)
+                    plt.show()
+        return views
 
 
 class Instance:
