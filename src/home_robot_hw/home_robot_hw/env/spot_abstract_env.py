@@ -134,7 +134,7 @@ class SpotEnv(Env):
         relative_obs_locations = (obs["obstacle_distances"][:, :2] - self.start_gps).copy()
         relative_obs_locations = (self.rot_compass @ relative_obs_locations.T).T[ :, ::-1 ]
 
-        trust_region = 2.5
+        trust_region = 1.9
         trusted_point = (
             np.linalg.norm(obs["obstacle_distances"][:, :2] - obs["position"], axis=-1)
             <= trust_region

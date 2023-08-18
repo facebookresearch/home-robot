@@ -7,6 +7,8 @@ import time
 import warnings
 from pathlib import Path
 from typing import List, Optional
+from spot_wrapper.depth_utils import point_from_depth_image
+from spot_wrapper.spot import BODY_FRAME_NAME, Spot, VISION_FRAME_NAME
 
 warnings.filterwarnings("ignore")
 
@@ -443,6 +445,7 @@ GOALS = {
     "object_toilet": {"type": "objectnav", "target": "toilet"},
     "object_tv": {"type": "objectnav", "target": "tv"},
     "object_table": {"type": "objectnav", "target": "dining table"},
+    "object_bear": {"type": "objectnav", "target": "teddy bear"},
     "object_oven": {"type": "objectnav", "target": "oven"},
     "object_sink": {"type": "objectnav", "target": "sink"},
     "object_refrigerator": {"type": "objectnav", "target": "refrigerator"},
@@ -822,6 +825,7 @@ def main(spot=None, args=None):
                     spot.set_base_velocity(0, -0.5, 0, 0.5)
 
             else:
+                target_semantic_class = env.goals[agent.current_task_idx]['semantic_id']
                 if pan_warmup:
                     positions = spot.get_arm_joint_positions()
                     new_pos = positions.copy()
@@ -830,6 +834,40 @@ def main(spot=None, args=None):
                     if positions[0] < -2.5:
                         pan_warmup = False
                         env.env.initialize_arm()
+                elif args.pick_place and (obs.semantic == target_semantic_class).sum() > 0:
+                    import pdb; pdb.set_trace()
+                    response = obs.raw_obs['depth_response']
+                    mask = obs.semantic == target_semantic_class
+                    from matplotlib import pyplot as plt 
+                    mask_points = np.stack(np.where(mask),axis=-1)
+                    centroid = mask_points.mean(axis=0).astype(int)
+                    assert mask[centroid[0],centroid[1]]
+                    pixel_xy = (centroid[1],centroid[0])
+                    point = point_from_depth_image(response,pixel_xy,BODY_FRAME_NAME)
+                    dist = np.linalg.norm(point)
+                    print("Distance to object: ",dist)
+                    if dist < 3:
+                        print("Seeking object")
+                        # walk to the point as localized in the depth image
+                        global_point = point_from_depth_image(response,pixel_xy,VISION_FRAME_NAME)
+                        cur_xy = spot.get_xy_yaw()[:2]
+                        delta = global_point[:2]-cur_xy
+                        heading = math.atan2(delta[1],delta[0])
+                        # move close and look at grasp target
+                        spot.set_base_position(global_point[0],global_point[1],heading,10,relative=False, max_fwd_vel=0.5, max_hor_vel=0.5, max_ang_vel=np.pi / 4,blocking=True)
+                        spot.look_at(global_point,VISION_FRAME_NAME)
+
+                        nobs = env.get_observation()
+                        response = nobs.raw_obs['depth_response']
+                        mask = obs.semantic == target_semantic_class
+                        mask_points = np.stack(np.where(mask),axis=-1)
+                        centroid = mask_points.mean(axis=0).astype(int)
+                        pixel_xy = (centroid[1],centroid[0])
+                        point = point_from_depth_image(response,pixel_xy,VISION_FRAME_NAME)
+                        grasp_result = spot.grasp_point_in_image(response,pixel_xy=pixel_xy)
+                        print("Grasp success" if grasp_result else "Grasp Failed")
+                        cv2.imshow('vis',nobs.rgb)
+                        cv2.waitKey(1)
                 else:
                     if action is not None:
                         env.apply_action(action)

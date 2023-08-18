@@ -737,8 +737,12 @@ class Categorical2DSemanticMapModule(nn.Module):
                 0, 0, obstacle_locations[0, :, 0], obstacle_locations[0, :, 1]
             ] = 1
         if free_locations is not None:
+            # remove samantics
             translated[0, MC.NON_SEM_CHANNELS:, free_locations[0, :, 0], free_locations[0, :, 1]] = 0
             prev_map[0, MC.NON_SEM_CHANNELS:, free_locations[0, :, 0], free_locations[0, :, 1]] = 0
+            # remove obstacles
+            translated[0, 0, free_locations[0, :, 0], free_locations[0, :, 1]] = 0
+            prev_map[0, 0, free_locations[0, :, 0], free_locations[0, :, 1]] = 0
 
         # Aggregate by taking the max of the previous map and current map — this is robust
         # to false negatives in one frame but makes it impossible to remove false positives
