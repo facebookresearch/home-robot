@@ -70,8 +70,6 @@ class SparseVoxelMap(object):
     ):
         self.resolution = resolution
         self.feature_dim = feature_dim
-        self.xyz = None
-        self.feats = None
         self.observations = []
         self.obs_min_height = obs_min_height
         self.obs_max_height = obs_max_height
@@ -79,10 +77,6 @@ class SparseVoxelMap(object):
         self.grid_resolution = grid_resolution
         self._seq = 0
         self._2d_last_updated = -1
-
-        # Store 2d map information
-        # This is computed from our various point clouds
-        self._map2d = None
 
         # Create disk for mapping explored areas near the robot - since camera can't always see it
         self._disk_size = np.ceil(1.0 / self.grid_resolution)
@@ -106,7 +100,20 @@ class SparseVoxelMap(object):
         # We then just need to update everything when we want to track obstacles
         self.grid_origin = np.array(self.grid_size + [0]) // 2
         # Create map here
+        self.reset_cache()
+
+    def reset_cache(self):
+        """Clear some tracked things"""
+
+        # Stores points in 2d coords where robot has been
         self._visited = np.zeros(self.grid_size)
+
+        # Store 2d map information
+        # This is computed from our various point clouds
+        self._map2d = None
+
+        # Holds 3d data
+        self.xyz, self.feats = None, None
 
     def add(
         self,
@@ -146,19 +153,23 @@ class SparseVoxelMap(object):
         self.xyz, self.feats = pcd_to_numpy(self._pcd)
 
         if base_pose is not None:
-            # Add exploration here
-            # Base pose can be whatever, going to assume xyt for now
-            map_xy = (
-                (base_pose[:2] / self.grid_resolution) + self.grid_origin[:2]
-            ).astype(np.uint32)
-            x0 = int(map_xy[0] - self._disk_size)
-            x1 = int(map_xy[0] + self._disk_size + 1)
-            y0 = int(map_xy[1] - self._disk_size)
-            y1 = int(map_xy[1] + self._disk_size + 1)
-            self._visited[x0:x1, y0:y1] = self._visited_disk
+            self._update_visited(base_pose)
 
         # Increment sequence counter
         self._seq += 1
+
+    def _update_visited(self, base_pose: np.ndarray):
+        """Update 2d map of where robot has visited"""
+        # Add exploration here
+        # Base pose can be whatever, going to assume xyt for now
+        map_xy = ((base_pose[:2] / self.grid_resolution) + self.grid_origin[:2]).astype(
+            np.uint32
+        )
+        x0 = int(map_xy[0] - self._disk_size)
+        x1 = int(map_xy[0] + self._disk_size + 1)
+        y0 = int(map_xy[1] - self._disk_size)
+        y1 = int(map_xy[1] + self._disk_size + 1)
+        self._visited[x0:x1, y0:y1] += self._visited_disk
 
     def get_data(self, in_place: bool = True) -> Tuple[np.ndarray, np.ndarray]:
         """Return the current point cloud and features; optionally copying."""
@@ -189,7 +200,7 @@ class SparseVoxelMap(object):
 
     def recompute_map(self):
         """Recompute the entire map from scratch instead of doing incremental updates"""
-        self.xyz, self.feats = None, None
+        self.reset_cache()
         for camera_pose, xyz, feats, _ in self.observations:
             world_xyz = trimesh.transform_points(xyz, camera_pose)
             if self.xyz is None:
