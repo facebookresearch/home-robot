@@ -13,12 +13,14 @@ import numpy as np
 import open3d
 import rospy
 
+from home_robot.agent.ovmm_agent import OvmmPerception
 from home_robot.mapping.voxel import SparseVoxelMap
 from home_robot.motion.stretch import STRETCH_NAVIGATION_Q, HelloStretchKinematics
 from home_robot.utils.point_cloud import numpy_to_pcd, pcd_to_numpy, show_point_cloud
 from home_robot.utils.pose import to_pos_quat
 from home_robot_hw.env.stretch_pick_and_place_env import StretchPickandPlaceEnv
 from home_robot_hw.remote import StretchClient
+from home_robot_hw.utils.config import load_config
 
 
 class RosMapDataCollector(object):
@@ -33,8 +35,10 @@ class RosMapDataCollector(object):
     This is an example collecting the data; not necessarily the way you should do it.
     """
 
-    def __init__(self, robot, visualize_planner=False):
+    def __init__(self, robot, semantic_sensor=None, visualize_planner=False):
         self.robot = robot  # Get the connection to the ROS environment via agent
+        # Run detection here
+        self.semantic_sensor = semantic_sensor
         self.started = False
         self.robot_model = HelloStretchKinematics(visualize=visualize_planner)
         self.voxel_map = SparseVoxelMap(resolution=0.01)
@@ -96,8 +100,30 @@ class RosMapDataCollector(object):
 @click.option("--manual_wait", default=False, is_flag=True)
 @click.option("--pcd-filename", default="output.ply", type=str)
 @click.option("--pkl-filename", default="output.pkl", type=str)
-def main(rate, max_frames, visualize, manual_wait, pcd_filename, pkl_filename):
+def main(
+    rate,
+    max_frames,
+    visualize,
+    manual_wait,
+    pcd_filename,
+    pkl_filename,
+    visualize_map_at_start: bool = True,
+    visualize_map: bool = True,
+    blocking: bool = True,
+    verbose: bool = True,
+    device_id: int = 0,
+    **kwargs,
+):
+
+    print("- Loading configuration")
+    config = load_config(visualize=False, **kwargs)
+
+    print("- Connect to Stretch")
     robot = StretchClient()
+
+    print("- Stretch")
+    semantic_sensor = OvmmPerception(config, device_id, verbose)
+
     collector = RosMapDataCollector(robot, visualize)
 
     # Tuck the arm away
@@ -139,15 +165,10 @@ def main(rate, max_frames, visualize, manual_wait, pcd_filename, pkl_filename):
         (0, 0, 0),
     ]
 
-    visualize_map_at_start = True
-    visualize_map = True
-
     collector.step(visualize_map=visualize_map_at_start)  # Append latest observations
-    # print("Press ctrl+c to finish...")
+
     t0 = rospy.Time.now()
     while not rospy.is_shutdown():
-        # Run until we control+C this script
-
         ti = (rospy.Time.now() - t0).to_sec()
         print("t =", ti, trajectory[step])
         robot.nav.navigate_to(trajectory[step])
