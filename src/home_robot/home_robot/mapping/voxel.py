@@ -65,7 +65,7 @@ class SparseVoxelMap(object):
         obs_max_height: float = 1.8,
         obs_min_density: float = 5,
         add_local_radius_points: bool = True,
-        local_radius: float = 0.2,
+        local_radius: float = 0.25,
         cast_to_center: bool = False,
     ):
         self.resolution = resolution
@@ -121,6 +121,7 @@ class SparseVoxelMap(object):
         xyz: np.ndarray,
         feats: np.ndarray,
         base_pose: Optional[np.ndarray] = None,
+        instance_ids: Optional[np.ndarray] = None,
         **info
     ):
         """Add this to our history of observations. Also update the current running map.
@@ -129,7 +130,8 @@ class SparseVoxelMap(object):
             camera_pose(np.ndarray): necessary for measuring where the recording was taken
             xyz: N x 3 point cloud points
             feats: N x D point cloud features; D == 3 for RGB is most common
-            base_pose: optional location of robot base"""
+            base_pose: optional location of robot base
+            instance:ids: object instance IDs from some detector for creating landmarks"""
         assert xyz.shape[-1] == 3
         assert feats.shape[-1] == self.feature_dim
         assert xyz.shape[0] == feats.shape[0]
@@ -138,7 +140,9 @@ class SparseVoxelMap(object):
             xyz = xyz.reshape(-1, 3)
             feats = feats.reshape(-1, 3)
 
-        self.observations.append((camera_pose, xyz, feats, info))
+        self.observations.append(
+            (camera_pose, xyz, feats, base_pose, instance_ids, info)
+        )
         world_xyz = trimesh.transform_points(xyz, camera_pose)
 
         # Combine point clouds by adding in the current view to the previous ones and
@@ -184,7 +188,7 @@ class SparseVoxelMap(object):
         data["poses"] = []
         data["xyz"] = []
         data["feats"] = []
-        for camera_pose, xyz, feats, info in self.observations:
+        for camera_pose, xyz, feats, base_pose, ids, info in self.observations:
             # add it to pickle
             data["poses"].append(camera_pose)
             data["xyz"].append(xyz)
@@ -199,15 +203,18 @@ class SparseVoxelMap(object):
             pickle.dump(data, f)
 
     def recompute_map(self):
-        """Recompute the entire map from scratch instead of doing incremental updates"""
+        """Recompute the entire map from scratch instead of doing incremental updates.
+        This is a helper function which recomputes everything from the beginning and migh"""
         self.reset_cache()
-        for camera_pose, xyz, feats, _ in self.observations:
+        for camera_pose, xyz, feats, base_pose, ids, _ in self.observations:
             world_xyz = trimesh.transform_points(xyz, camera_pose)
             if self.xyz is None:
                 pc_xyz, pc_rgb = world_xyz, feats
             else:
                 pc_rgb = np.concatenate([self.feats, feats], axis=0)
                 pc_xyz = np.concatenate([self.xyz, world_xyz], axis=0)
+            if base_pose is not None:
+                self._update_visited(base_pose)
         self._pcd = numpy_to_pcd(pc_xyz, pc_rgb).voxel_down_sample(
             voxel_size=self.resolution
         )
@@ -248,11 +255,12 @@ class SparseVoxelMap(object):
 
         # Explored area = only floor mass
         floor_voxels = voxels[:, :, :min_height]
-        explored = np.sum(floor_voxels, axis=-1)
+        explored_soft = np.sum(floor_voxels, axis=-1)
 
         # Add explored radius around the robot, up to min depth
         # TODO: make sure lidar is supported here as well; if we do not have lidar assume a certain radius is explored
-        explored += self._visited
+        explored_soft += self._visited
+        explored = explored_soft > 0
 
         # Frontier consists of floor voxels adjacent to empty voxels
         # TODO
@@ -266,9 +274,13 @@ class SparseVoxelMap(object):
             # TODO: uncomment to show voxel point cloud
             # show_point_cloud(xyz, self.feats/255., orig=self.grid_origin)
 
-            plt.subplot(1, 2, 1)
+            plt.subplot(2, 2, 1)
             plt.imshow(obstacles_soft)
-            plt.subplot(1, 2, 2)
+            plt.subplot(2, 2, 2)
+            plt.imshow(explored_soft)
+            plt.subplot(2, 2, 3)
+            plt.imshow(obstacles)
+            plt.subplot(2, 2, 4)
             plt.imshow(explored)
             plt.show()
 
@@ -303,4 +315,11 @@ class SparseVoxelGridXYTSpace(XYT):
 
     def sample_uniform(self):
         """Sample any position that corresponds to an "explored" location. Goals are valid if they are within a reasonable distance of explored locations. Paths through free space are ok and don't collide."""
+        # Extract 2d map from this - hopefully it is already cached
+        obstacles, explored = self.map.get_2d_map()
+
+        # Sample any point which is explored and not an obstacle
+
+        # Sample a random orientation
+
         raise NotImplementedError()
