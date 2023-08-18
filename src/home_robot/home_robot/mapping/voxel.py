@@ -265,7 +265,6 @@ class SparseVoxelMap(object):
         # Frontier consists of floor voxels adjacent to empty voxels
         # TODO
 
-        debug = True
         if debug:
             import matplotlib.pyplot as plt
 
