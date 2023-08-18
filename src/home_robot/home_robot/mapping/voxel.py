@@ -65,7 +65,7 @@ class SparseVoxelMap(object):
         obs_max_height: float = 1.8,
         obs_min_density: float = 5,
         add_local_radius_points: bool = True,
-        local_radius: float = 0.15,
+        local_radius: float = 0.2,
         cast_to_center: bool = False,
     ):
         self.resolution = resolution
@@ -79,6 +79,10 @@ class SparseVoxelMap(object):
         self.grid_resolution = grid_resolution
         self._seq = 0
         self._2d_last_updated = -1
+
+        # Store 2d map information
+        # This is computed from our various point clouds
+        self._map2d = None
 
         # Create disk for mapping explored areas near the robot - since camera can't always see it
         self._disk_size = np.ceil(1.0 / self.grid_resolution)
@@ -144,20 +148,17 @@ class SparseVoxelMap(object):
         if base_pose is not None:
             # Add exploration here
             # Base pose can be whatever, going to assume xyt for now
-            map_xy = ((base_pose[:2] / self.grid_resolution) + self.grid_origin).astype(
-                np.uint32
-            )
-            x0 = map_xy[0] - self._disk_size
-            x1 = map_xy[0] + self._disk_size + 1
-            y0 = map_xy[1] - self._disk_size
-            y1 = map_xy[1] + self._disk_size + 1
+            map_xy = (
+                (base_pose[:2] / self.grid_resolution) + self.grid_origin[:2]
+            ).astype(np.uint32)
+            x0 = int(map_xy[0] - self._disk_size)
+            x1 = int(map_xy[0] + self._disk_size + 1)
+            y0 = int(map_xy[1] - self._disk_size)
+            y1 = int(map_xy[1] + self._disk_size + 1)
             self._visited[x0:x1, y0:y1] = self._visited_disk
-            import matplotlib.pyplot as plt
-
-            breakpoint()
 
         # Increment sequence counter
-        self.seq += 1
+        self._seq += 1
 
     def get_data(self, in_place: bool = True) -> Tuple[np.ndarray, np.ndarray]:
         """Return the current point cloud and features; optionally copying."""
@@ -240,10 +241,12 @@ class SparseVoxelMap(object):
 
         # Add explored radius around the robot, up to min depth
         # TODO: make sure lidar is supported here as well; if we do not have lidar assume a certain radius is explored
+        explored += self._visited
 
         # Frontier consists of floor voxels adjacent to empty voxels
         # TODO
 
+        debug = True
         if debug:
             import matplotlib.pyplot as plt
 
