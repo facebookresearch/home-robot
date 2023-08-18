@@ -3,13 +3,14 @@
 # This source code is licensed under the MIT license found in the
 # LICENSE file in the root directory of this source tree.
 import pickle
-from typing import Tuple
+from typing import Optional, Tuple
 
 import numpy as np
 import open3d as o3d
 import trimesh
 from scipy.ndimage import distance_transform_edt
 
+from home_robot.motion.space import XYT
 from home_robot.utils.point_cloud import numpy_to_pcd, pcd_to_numpy, show_point_cloud
 
 
@@ -76,10 +77,12 @@ class SparseVoxelMap(object):
         self.obs_max_height = obs_max_height
         self.obs_min_density = obs_min_density
         self.grid_resolution = grid_resolution
+        self._seq = 0
+        self._2d_last_updated = -1
 
         # Create disk for mapping explored areas near the robot - since camera can't always see it
         self._disk_size = np.ceil(1.0 / self.grid_resolution)
-        self._explored_disk = create_disk(
+        self._visited_disk = create_disk(
             1.0 / self.grid_resolution, (2 * self._disk_size) + 1
         )
 
@@ -98,9 +101,24 @@ class SparseVoxelMap(object):
         # Track the center of the grid - (0, 0) in our coordinate system
         # We then just need to update everything when we want to track obstacles
         self.grid_origin = np.array(self.grid_size + [0]) // 2
+        # Create map here
+        self._visited = np.zeros(self.grid_size)
 
-    def add(self, camera_pose: np.ndarray, xyz: np.ndarray, feats: np.ndarray, **info):
-        """Add this to our history of observations. Also update the current running map."""
+    def add(
+        self,
+        camera_pose: np.ndarray,
+        xyz: np.ndarray,
+        feats: np.ndarray,
+        base_pose: Optional[np.ndarray] = None,
+        **info
+    ):
+        """Add this to our history of observations. Also update the current running map.
+
+        Parameters:
+            camera_pose(np.ndarray): necessary for measuring where the recording was taken
+            xyz: N x 3 point cloud points
+            feats: N x D point cloud features; D == 3 for RGB is most common
+            base_pose: optional location of robot base"""
         assert xyz.shape[-1] == 3
         assert feats.shape[-1] == self.feature_dim
         assert xyz.shape[0] == feats.shape[0]
@@ -122,6 +140,24 @@ class SparseVoxelMap(object):
             sparse_voxel_size=self.resolution,
         )
         self.xyz, self.feats = pcd_to_numpy(self._pcd)
+
+        if base_pose is not None:
+            # Add exploration here
+            # Base pose can be whatever, going to assume xyt for now
+            map_xy = ((base_pose[:2] / self.grid_resolution) + self.grid_origin).astype(
+                np.uint32
+            )
+            x0 = map_xy[0] - self._disk_size
+            x1 = map_xy[0] + self._disk_size + 1
+            y0 = map_xy[1] - self._disk_size
+            y1 = map_xy[1] + self._disk_size + 1
+            self._visited[x0:x1, y0:y1] = self._visited_disk
+            import matplotlib.pyplot as plt
+
+            breakpoint()
+
+        # Increment sequence counter
+        self.seq += 1
 
     def get_data(self, in_place: bool = True) -> Tuple[np.ndarray, np.ndarray]:
         """Return the current point cloud and features; optionally copying."""
@@ -169,6 +205,10 @@ class SparseVoxelMap(object):
         self, debug: bool = False
     ) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
         """Get 2d map with explored area and frontiers."""
+
+        # Is this already cached? If so we don't need to go to all this work
+        if self._map2d is not None and self._seq == self._2d_last_updated:
+            return self._map2d
 
         # Convert metric measurements to discrete
         # Gets the xyz correctly - for now everyhting is assumed to be within correct distance of origin
@@ -218,8 +258,9 @@ class SparseVoxelMap(object):
             plt.imshow(explored)
             plt.show()
 
-        # Add places where there are obstacles above a certain height and density
-        # Add frontiers where there are ground points and no obstacles
+        # Update cache
+        self._map2d = (obstacles, explored)
+        self._2d_last_updated = self._seq
         return obstacles, explored
 
     def get_kd_tree(self):
@@ -238,3 +279,14 @@ class SparseVoxelMap(object):
         # Do the other stuff we need
         pc_xyz, pc_rgb = self.voxel_map.get_data()
         show_point_cloud(pc_xyz, pc_rgb / 255, orig=np.zeros(3))
+
+
+class SparseVoxelGridXYTSpace(XYT):
+    """subclass for sampling XYT states from explored space"""
+
+    def __init__(self, voxel_map: SparseVoxelMap):
+        self.map = voxel_map
+
+    def sample_uniform(self):
+        """Sample any position that corresponds to an "explored" location. Goals are valid if they are within a reasonable distance of explored locations. Paths through free space are ok and don't collide."""
+        raise NotImplementedError()
