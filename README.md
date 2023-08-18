@@ -73,12 +73,12 @@ Optionally, setup a [catkin workspace](docs/catkin.md) to use improved ROS visua
 
 #### 2. Run Install Script
 
-Make sure you have the correct environment variables set: `CUDA_HOME` should point to your cuda install, matching the one used by your python environment. We recommend 11.7, and it's what will be automatically installed above. You can download it from [nvidia's downloads page](https://developer.nvidia.com/cuda-11-7-0-download-archive?target_os=Linux&target_arch=x86_64&Distribution=Ubuntu). Download the runfile, and make sure to check the box NOT to install your drivers.
+Make sure you have the correct environment variables set: `CUDA_HOME` should point to your cuda install, matching the one used by your python environment. We recommend 11.8, and it's what will be automatically installed above. You can download it from [nvidia's downloads page](https://developer.nvidia.com/cuda-11-7-0-download-archive?target_os=Linux&target_arch=x86_64&Distribution=Ubuntu). Download the runfile, and make sure to check the box NOT to install your drivers.
 
 Then make sure the environment variables are set to something reasonable:
 ```
-HOME_ROBOT_ROOT=$USER/src/home-robot
-CUDA_HOME=/usr/local/cuda-11.7
+HOME_ROBOT_ROOT=$USER/home-robot
+CUDA_HOME=/usr/local/cuda-11.8
 ```
 
 Finally, you can run the [install script](install_deps.sh) to download submodules, model checkpoints, and build Detic for open-vocabulary object detection:
