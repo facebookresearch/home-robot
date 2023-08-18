@@ -100,7 +100,6 @@ class ObjectNavFrontierExplorationPolicy(nn.Module):
             or end_recep_category is not None
             or instance_id is not None
         )
-        import pdb; pdb.set_trace()
         if instance_id is not None:
             instance_map = map_features[0][
                 2 * MC.NON_SEM_CHANNELS

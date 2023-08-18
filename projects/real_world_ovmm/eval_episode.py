@@ -85,6 +85,8 @@ def main(
     while True:
         t = 0
         agent.reset()
+        env.reset(start_recep, pick_object, goal_recep, set_goal=True)
+        robot.switch_to_navigation_mode()
         task = input("what you want me to do: ")
         # task = "find a cup please"
         agent.set_task(task)

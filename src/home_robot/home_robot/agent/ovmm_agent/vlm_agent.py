@@ -45,9 +45,9 @@ class VLMAgent(OpenVocabManipAgent):
         #     raise NotImplementedError
         from minigpt4_example import Predictor
 
-        # self.vlm = Predictor()
+        self.vlm = Predictor()
         print("VLM Agent created")
-        self.vlm_freq = 5
+        self.vlm_freq = 3
         self.high_level_plan = None
         self.max_context_length = 20
         self.planning_times = 5
@@ -164,6 +164,7 @@ class VLMAgent(OpenVocabManipAgent):
         self, obs: Observations, info: Dict[str, Any]
     ) -> Tuple[DiscreteNavigationAction, Any, Optional[Skill]]:
         """Handle picking policies, either in sim or on the real robot."""
+        action = None
         if self.skip_skills.pick:
             action = None
         elif self.config.AGENT.SKILLS.PICK.type == "oracle":
@@ -267,8 +268,8 @@ class VLMAgent(OpenVocabManipAgent):
             if self.timesteps[0] % self.vlm_freq == 0:
                 for _ in range(self.planning_times):
                     self.world_representation = self.get_obj_centric_world_representation() # a list of images
-                    # self.high_level_plan = self.ask_vlm_for_plan(self.world_representation)
-                    self.high_level_plan = "goto(obj_1)"
+                    self.high_level_plan = self.ask_vlm_for_plan(self.world_representation)
+                    # self.high_level_plan = "goto(obj_1)"
                     if self.high_level_plan:
                         print ("plan found by VLMs!!!!!!!!")
                         print (self.high_level_plan)
@@ -293,7 +294,6 @@ class VLMAgent(OpenVocabManipAgent):
         is_finished = False       
         action = None
 
-        import pdb; pdb.set_trace()
         while action is None:
             if self.states[0] == Skill.EXPLORE:
                 obs.task_observations["instance_id"] = 100000000000  
@@ -310,6 +310,7 @@ class VLMAgent(OpenVocabManipAgent):
                 pick_instance_id = int(self.world_representation[int(current_high_level_action.split('(')[1].split(')')[0].split(', ')[0].split('_')[1])].split('.')[0])
                 category_id = self.instance_memory.instance_views[0][pick_instance_id].category_id
                 obs.task_observations["object_goal"] = category_id
+                # import pdb; pdb.set_trace()
                 action, info, new_state = self._pick(obs, info)
             elif self.states[0] == Skill.PLACE:
                 action, info, new_state = self._place(obs, info)
