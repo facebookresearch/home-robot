@@ -152,7 +152,7 @@ class FMMPlanner:
 
             if self.print_images and timestep is not None:
                 cv2.imwrite(
-                    os.path.join(self.vis_dir, f"planner_snapshot_{timestep}.png"),
+                    os.path.join(self.vis_dir, f"planner_snapshot_{timestep:04d}.png"),
                     (dist_vis * 255).astype(int),
                 )
         return dd

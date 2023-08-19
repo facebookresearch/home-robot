@@ -268,7 +268,7 @@ class Visualizer:
 
         if self.print_images:
             cv2.imwrite(
-                os.path.join(self.vis_dir, "snapshot_{:03d}.png".format(timestep)),
+                os.path.join(self.vis_dir, "snapshot_{:04d}.png".format(timestep)),
                 self.image_vis,
             )
 
@@ -488,7 +488,7 @@ class ExplorationVisualizer:
 
         if self.print_images:
             cv2.imwrite(
-                os.path.join(self.vis_dir, "snapshot_{:03d}.png".format(timestep)),
+                os.path.join(self.vis_dir, "snapshot_{:04d}.png".format(timestep)),
                 self.image_vis,
             )
 

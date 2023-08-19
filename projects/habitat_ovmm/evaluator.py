@@ -267,9 +267,25 @@ class OVMMEvaluator(PPOTrainer):
             )
             current_episode_metrics = {}
 
+            agent.set_oracle_info(self._env)
+            steps = -1
+
             while not done:
+                steps += 1
+                print(f"\nTimestep:\t{steps}")
                 action, info, _ = agent.act(observations)
                 observations, done, hab_info = self._env.apply_action(action, info)
+                print(f"Current skill: {info['curr_skill']}")
+                print(
+                    f"info['ovmm_dist_to_pick_goal']:\t{hab_info['ovmm_dist_to_pick_goal']:.4f}"
+                )
+                print(
+                    f"info['ovmm_dist_to_keep_goal']:\t{hab_info['ovmm_dist_to_place_goal']:.4f}"
+                )
+                import time
+
+                if info["curr_skill"] == "PICK":
+                    time.sleep(10)
 
                 if "skill_done" in info and info["skill_done"] != "":
                     metrics = self._extract_scalars_from_info(hab_info)

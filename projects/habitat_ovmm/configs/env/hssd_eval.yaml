@@ -9,8 +9,8 @@ seed: 0                   # seed
 SHOW_RL_OBS: False         # whether to show the observations passed to RL policices, for debugging
 
 ENVIRONMENT:
-  forward: 0.25           # forward motion (in meters)  Note: changing this should require a corresponding change in the habitat benchmark config
-  turn_angle: 30.0         # agent turn angle (in degrees)  Note: changing this should require a corresponding change in the habitat benchmark config
+  forward: 0.10           # forward motion (in meters)  Note: changing this should require a corresponding change in the habitat benchmark config
+  turn_angle: 5           # agent turn angle (in degrees)  Note: changing this should require a corresponding change in the habitat benchmark config
   frame_height: 640       # first-person frame height (in pixels)
   frame_width: 480        # first-person frame width (in pixels)
   camera_height: 1.31     # camera sensor height (in metres)
