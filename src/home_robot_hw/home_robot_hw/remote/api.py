@@ -170,6 +170,7 @@ class StretchClient:
         self.manip.goto_joint_positions(
             self.manip._extract_joint_pos(STRETCH_PREGRASP_Q)
         )
+        print("- Robot switched to manipulation mode.")
 
     def move_to_pre_demo_posture(self):
         """Move the arm and head into pre-demo posture: gripper straight, arm way down, head facing the gripper."""
@@ -189,6 +190,7 @@ class StretchClient:
             self.manip._extract_joint_pos(STRETCH_NAVIGATION_Q)
         )
         self.switch_to_navigation_mode()
+        print("- Robot switched to navigation mode.")
 
     def move_to_post_nav_posture(self):
         """Move the arm to nav mode, head to nav mode with PREGRASP's tilt. The head will be looking front."""

@@ -94,6 +94,7 @@ class StretchRosInterface:
         self.curr_visualizer = Visualizer("current_pose", rgba=[0.0, 0.0, 1.0, 0.5])
 
         # Initialize ros communication
+        self._safety_check()
         self._create_pubs_subs()
         self._create_services()
 
@@ -189,6 +190,34 @@ class StretchRosInterface:
         return trajectory_goal
 
     # Helper functions
+
+    def _safety_check(self, max_time: float = 30.0):
+        """Make sure we can actually execute code on the robot as a quality of life measure"""
+        run_stopped = rospy.wait_for_message("is_runstopped", Bool, timeout=max_time)
+        if run_stopped is None:
+            rospy.logwarn(
+                "is_runstopped not received; you might have out of date stretch_ros"
+            )
+        elif run_stopped.data is True:
+            rospy.logerr("Runstop is pressed! Cannot execute!")
+            raise RuntimeError("Stretch is runstopped")
+        calibrated = rospy.wait_for_message("is_calibrated", Bool, timeout=max_time)
+        if calibrated is None:
+            rospy.logwarn(
+                "is_calibrated not received; you might have out of date stretch_ros"
+            )
+        elif calibrated.data is False:
+            rospy.logwarn("Robot is not calibrated!")
+        homed = rospy.wait_for_message("is_homed", Bool, timeout=max_time)
+        if homed is None:
+            rospy.logwarn(
+                "is_homed not received; you might have out of date stretch_ros"
+            )
+        elif homed.data is False:
+            rospy.logerr(
+                "Robot is not homed! Cannot execute! Run stretch_robot_home.py"
+            )
+            raise RuntimeError("Stretch is not homed!")
 
     def _create_services(self):
         """Create services to activate/deactive robot modes"""
