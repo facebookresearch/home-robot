@@ -837,8 +837,8 @@ def main(spot=None, args=None):
                 elif args.pick_place and (obs.semantic == target_semantic_class).sum() > 0:
                     import pdb; pdb.set_trace()
                     response = obs.raw_obs['depth_response']
+                    from bosdyn.client.frame_helpers import VISION_FRAME_NAME, get_a_tform_b, BODY_FRAME_NAME
                     mask = obs.semantic == target_semantic_class
-                    from matplotlib import pyplot as plt 
                     mask_points = np.stack(np.where(mask),axis=-1)
                     centroid = mask_points.mean(axis=0).astype(int)
                     assert mask[centroid[0],centroid[1]]
@@ -848,26 +848,29 @@ def main(spot=None, args=None):
                     print("Distance to object: ",dist)
                     if dist < 3:
                         print("Seeking object")
-                        # walk to the point as localized in the depth image
+                        # walk to where the shot was taken
+                        x,y,yaw = spot.get_xy_yaw(transforms_snapshot = response.shot.transforms_snapshot)
+                        spot.set_base_position(x,y,yaw,10,relative=False, max_fwd_vel=0.5, max_hor_vel=0.5, max_ang_vel=np.pi / 4,blocking=True)
                         global_point = point_from_depth_image(response,pixel_xy,VISION_FRAME_NAME)
-                        cur_xy = spot.get_xy_yaw()[:2]
-                        delta = global_point[:2]-cur_xy
-                        heading = math.atan2(delta[1],delta[0])
-                        # move close and look at grasp target
-                        spot.set_base_position(global_point[0],global_point[1],heading,10,relative=False, max_fwd_vel=0.5, max_hor_vel=0.5, max_ang_vel=np.pi / 4,blocking=True)
+                        env.env.initialize_arm()
+                        # loot at detection
                         spot.look_at(global_point,VISION_FRAME_NAME)
 
                         nobs = env.get_observation()
-                        response = nobs.raw_obs['depth_response']
-                        mask = obs.semantic == target_semantic_class
+                        # has to be rgb for grasping for some reason
+                        rgb_response = nobs.raw_obs['rgb_response']
+                        mask = nobs.semantic == target_semantic_class
+                        print(mask.sum())
                         mask_points = np.stack(np.where(mask),axis=-1)
                         centroid = mask_points.mean(axis=0).astype(int)
                         pixel_xy = (centroid[1],centroid[0])
-                        point = point_from_depth_image(response,pixel_xy,VISION_FRAME_NAME)
-                        grasp_result = spot.grasp_point_in_image(response,pixel_xy=pixel_xy)
-                        print("Grasp success" if grasp_result else "Grasp Failed")
-                        cv2.imshow('vis',nobs.rgb)
+                        vis_im = nobs.task_observations['semantic_frame'].copy()
+                        vis_im = cv2.circle(vis_im, (pixel_xy[0],pixel_xy[1]), 3, (0,0,255),-1)
+                        cv2.imshow('grasp_frame',vis_im)
                         cv2.waitKey(1)
+                        grasp_result = spot.grasp_point_in_image(rgb_response,pixel_xy=pixel_xy)
+                        env.env.initialize_arm()
+                        print("Grasp success" if grasp_result else "Grasp Failed")
                 else:
                     if action is not None:
                         env.apply_action(action)
