@@ -172,6 +172,25 @@ class OpenVocabManipAgent(ObjectNavAgent):
             print(
                 f"Providing oracle environment information to NAV_TO_OBJ agent for episode {episode_id}"
             )
+            if self.config.EXPERIMENT.NAV_TO_OBJ.goal == "max_iou_viewpoint":
+                object_goal = ovmm_env.habitat_env.env._env.habitat_env.current_episode.candidate_objects[
+                    0
+                ]
+                object_nav_goal = self.get_position_for_max_iou_viewpoint(object_goal)
+            elif self.config.EXPERIMENT.NAV_TO_OBJ.goal == "exact":
+                object_nav_goal = ovmm_env.habitat_env.env._env.habitat_env.current_episode.candidate_objects[
+                    0
+                ].position
+            elif self.config.EXPERIMENT.NAV_TO_OBJ.goal == "vp_then_exact":
+                object_goal = ovmm_env.habitat_env.env._env.habitat_env.current_episode.candidate_objects[
+                    0
+                ]
+                object_nav_goal = self.get_position_for_max_iou_viewpoint(object_goal)
+                object_nav_goal = mn.Vector3(
+                    ovmm_env.habitat_env.env._env.habitat_env.current_episode.candidate_objects[
+                        0
+                    ].position
+                )
             object_goal = ovmm_env.habitat_env.env._env.habitat_env.current_episode.candidate_objects[
                 0
             ]
