@@ -3,7 +3,6 @@
 # This source code is licensed under the MIT license found in the
 # LICENSE file in the root directory of this source tree.
 
-
 import json
 import os
 import time
@@ -11,6 +10,7 @@ from collections import defaultdict
 from enum import Enum
 from typing import TYPE_CHECKING, Any, Dict, Optional
 
+import cv2
 import numpy as np
 import pandas as pd
 from habitat_baselines.rl.ppo.ppo_trainer import PPOTrainer
@@ -18,6 +18,7 @@ from omegaconf import DictConfig
 from tqdm import tqdm
 from utils.env_utils import create_ovmm_env_fn
 from utils.metrics_utils import get_stats_from_episode_metrics
+from utils.video_utils import record_video
 
 if TYPE_CHECKING:
     from habitat.core.dataset import BaseEpisode
@@ -41,8 +42,12 @@ class OVMMEvaluator(PPOTrainer):
         self.results_dir = os.path.join(
             eval_config.DUMP_LOCATION, "results", eval_config.EXP_NAME
         )
+        self.images_dir = os.path.join(
+            eval_config.DUMP_LOCATION, "images", eval_config.EXP_NAME
+        )
         self.videos_dir = eval_config.habitat_baselines.video_dir
         os.makedirs(self.results_dir, exist_ok=True)
+        os.makedirs(self.images_dir, exist_ok=True)
         os.makedirs(self.videos_dir, exist_ok=True)
 
         super().__init__(eval_config)
@@ -194,8 +199,8 @@ class OVMMEvaluator(PPOTrainer):
             [
                 k
                 for metrics_per_episode in episode_metrics.values()
-                for k in metrics_per_episode
-                if k != "goal_name"
+                for k, v in metrics_per_episode.items()
+                if not isinstance(v, str)
             ]
         )
         for v in episode_metrics.values():
@@ -212,6 +217,7 @@ class OVMMEvaluator(PPOTrainer):
                         f"{k1}/mean": np.mean(v1),
                         f"{k1}/min": np.min(v1),
                         f"{k1}/max": np.max(v1),
+                        f"{k1}/sum": np.sum(v1),
                     }.items()
                 }.items()
             )
@@ -220,13 +226,55 @@ class OVMMEvaluator(PPOTrainer):
         return aggregated_metrics
 
     def _write_results(
-        self, episode_metrics: Dict[str, Dict], aggregated_metrics: Dict[str, float]
+        self,
+        episode_metrics: Dict[str, Dict],
+        aggregated_metrics: Dict[str, float],
+        average_metrics: Dict[str, float],
     ) -> None:
         """Writes metrics tracked by environment to a file."""
         with open(f"{self.results_dir}/aggregated_results.json", "w") as f:
             json.dump(aggregated_metrics, f, indent=4)
         with open(f"{self.results_dir}/episode_results.json", "w") as f:
             json.dump(episode_metrics, f, indent=4)
+        with open(f"{self.results_dir}/summary_results.json", "w") as f:
+            json.dump(average_metrics, f, indent=4)
+
+    def get_episode_completion_stage(self, metrics_at_episode_end):
+        # TODO: temporary
+        if metrics_at_episode_end["END.ovmm_place_success"] == 1:
+            return "0_overall_success"
+        elif metrics_at_episode_end["END.obj_anywhere_on_goal.0"] == 1:
+            return "1_place_anywhere_on_goal_success"
+        elif metrics_at_episode_end["END.ovmm_find_recep_phase_success"] == 1:
+            return "2_nav_to_goal_success_but_place_failure"
+        elif metrics_at_episode_end["END.ovmm_pick_object_phase_success"] == 1:
+            return "3_pick_success_but_nav_to_goal_failure"
+        elif metrics_at_episode_end["END.ovmm_find_object_phase_success"] == 1:
+            return "4_nav_to_object_success_but_pick_failure"
+        return "5_nav_to_object_failure"
+
+    def get_all_episode_completion_stages(self):
+        # TODO: temporary: should be an Enum if productionized
+        return [
+            "0_overall_success",
+            "1_place_anywhere_on_goal_success",
+            "2_nav_to_goal_success_but_place_failure",
+            "3_pick_success_but_nav_to_goal_failure",
+            "4_nav_to_object_success_but_pick_failure",
+            "5_nav_to_object_failure",
+        ]
+
+    def initialize_episode_and_agent(self, agent):
+        observations, done = self._env.reset(), False
+        current_episode = self._env.get_current_episode()
+        agent.reset()
+        self._check_set_planner_vis_dir(agent, current_episode)
+        print(
+            f"Starting evaluation for {self.config.EVAL_VECTORIZED.split} episode {current_episode.episode_id}"
+        )
+        print(f"Using strategy: {self.config.EXPERIMENT.type}")
+        agent.set_oracle_info(self._env)
+        return observations, done, current_episode
 
     def local_evaluate(
         self, agent: "Agent", num_episodes: Optional[int] = None
@@ -253,24 +301,48 @@ class OVMMEvaluator(PPOTrainer):
         episode_metrics: Dict = {}
 
         count_episodes: int = 0
+        skipped_episodes = []
+        computed_episodes = []
+        skip_computed = True  # TODO: temporary
 
         pbar = tqdm(total=num_episodes)
         while count_episodes < num_episodes:
-            observations, done = self._env.reset(), False
-            current_episode = self._env.get_current_episode()
-            agent.reset()
-            self._check_set_planner_vis_dir(agent, current_episode)
-
-            current_episode_key = (
-                f"{current_episode.scene_id.split('/')[-1].split('.')[0]}_"
-                f"{current_episode.episode_id}"
+            observations, done, current_episode = self.initialize_episode_and_agent(
+                agent
             )
+            current_scene_name = current_episode.scene_id.split("/")[-1].split(".")[0]
+            current_episode_key = f"{current_scene_name}_{current_episode.episode_id}"
             current_episode_metrics = {}
 
-            agent.set_oracle_info(self._env)
-            steps = -1
+            if skip_computed:
+                computed_episodes = []
+                for completion_stage in self.get_all_episode_completion_stages():
+                    target_dir = os.path.join(
+                        self.videos_dir, completion_stage, self.config.EXPERIMENT.type
+                    )
+                    target_file = f"split_{self.config.EVAL_VECTORIZED.split}_scene_{current_scene_name}_episode_{current_episode.episode_id}"
+                    if os.path.exists(f"{target_dir}/{target_file}.json"):
+                        computed_episodes.append(current_episode_key)
+                        break
+                if current_episode_key in computed_episodes:
+                    try:
+                        with open(f"{target_dir}/{target_file}.json", "r") as f:
+                            episode_metrics[current_episode_key] = json.load(f)
+                        print(
+                            f"Skipping episode {current_episode.episode_id} because it has already been computed"
+                        )
+                        count_episodes += 1
+                        pbar.update(1)
+                        continue
+                    except:
+                        print(
+                            f"Error loading metrics for {current_episode_key}. Not skipping. Recomputing..."
+                        )
 
-            while not done:
+            steps, max_steps = -1, 2000
+            start_time = time.time()
+
+            while not done and steps < max_steps:
                 steps += 1
                 print(f"\nTimestep:\t{steps}")
                 action, info, _ = agent.act(observations)
@@ -282,10 +354,6 @@ class OVMMEvaluator(PPOTrainer):
                 print(
                     f"info['ovmm_dist_to_keep_goal']:\t{hab_info['ovmm_dist_to_place_goal']:.4f}"
                 )
-                import time
-
-                if info["curr_skill"] == "PICK":
-                    time.sleep(10)
 
                 if "skill_done" in info and info["skill_done"] != "":
                     metrics = self._extract_scalars_from_info(hab_info)
@@ -299,29 +367,45 @@ class OVMMEvaluator(PPOTrainer):
                     if "goal_name" in info:
                         current_episode_metrics["goal_name"] = info["goal_name"]
 
+            end_time = time.time()
+            print(f"Episode took {end_time - start_time} seconds")
+
             metrics = self._extract_scalars_from_info(hab_info)
+            metrics["total_time_in_seconds"] = end_time - start_time
+            metrics["done"] = 1.0 if done else 0.0
             metrics_at_episode_end = {"END." + k: v for k, v in metrics.items()}
             current_episode_metrics = {
                 **metrics_at_episode_end,
                 **current_episode_metrics,
             }
+            current_episode_metrics["episode_id"] = current_episode.episode_id
+            current_episode_metrics["scene_name"] = current_scene_name
+            current_episode_metrics["data_split"] = self.config.EVAL_VECTORIZED.split
             if "goal_name" in info:
                 current_episode_metrics["goal_name"] = info["goal_name"]
 
-            episode_metrics[current_episode_key] = current_episode_metrics
-            if len(episode_metrics) % self.metrics_save_freq == 0:
-                aggregated_metrics = self._aggregate_metrics(episode_metrics)
-                self._write_results(episode_metrics, aggregated_metrics)
+            if self.config.EVAL_VECTORIZED.record_videos:
+                source_dir = os.path.join(self.images_dir, current_episode_key)
+                target_dir = os.path.join(
+                    self.videos_dir,
+                    self.get_episode_completion_stage(current_episode_metrics),
+                    self.config.EXPERIMENT.type,
+                )
+                target_file = f"split_{self.config.EVAL_VECTORIZED.split}_scene_{current_scene_name}_episode_{current_episode.episode_id}"
+                os.makedirs(target_dir, exist_ok=True)
+                with open(f"{target_dir}/{target_file}.json", "w") as f:
+                    json.dump(current_episode_metrics, f, indent=4)
+                record_video(source_dir, target_dir, target_file)
 
+            episode_metrics[current_episode_key] = current_episode_metrics
             count_episodes += 1
             pbar.update(1)
 
         self._env.close()
 
         aggregated_metrics = self._aggregate_metrics(episode_metrics)
-        self._write_results(episode_metrics, aggregated_metrics)
-
         average_metrics = self._summarize_metrics(episode_metrics)
+        self._write_results(episode_metrics, aggregated_metrics, average_metrics)
         self._print_summary(average_metrics)
 
         return average_metrics

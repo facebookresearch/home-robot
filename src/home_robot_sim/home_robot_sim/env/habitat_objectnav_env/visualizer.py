@@ -506,7 +506,7 @@ class Visualizer:
             num_views_per_instance[instance.category_id.item()].append(
                 len(instance.instance_views)
             )
-        text = "Instance counts"
+        text = "Stretch Robot"
         offset = 48
         y_pos = offset
 
