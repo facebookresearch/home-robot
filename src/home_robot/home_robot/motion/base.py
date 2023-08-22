@@ -14,7 +14,7 @@ This just defines the standard interface for a motion planner
 
 
 class PlanResult(object):
-    """holds motion plan. Can be extended."""
+    """Stores motion plan. Can be extended."""
 
     def __init__(self, success, trajectory: Optional[List] = None):
         self.success = success
