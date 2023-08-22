@@ -16,7 +16,7 @@ class ConfigurationSpace(ABC):
 
     def update_bounds(self, mins, maxs):
         assert len(mins) == self.dof, "mins' length must be equal to the space dof"
-        assert len(maxs) == self.dof, "maxs must be equal to space dof"
+        assert len(maxs) == self.dof, "maxs' length must be equal to space dof"
         self.mins = mins
         self.maxs = maxs
         self.rngs = maxs - mins
