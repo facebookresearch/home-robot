@@ -7,8 +7,6 @@ import time
 import warnings
 from pathlib import Path
 from typing import List, Optional
-from spot_wrapper.depth_utils import point_from_depth_image
-from spot_wrapper.spot import BODY_FRAME_NAME, Spot, VISION_FRAME_NAME
 
 warnings.filterwarnings("ignore")
 
@@ -47,9 +45,10 @@ from home_robot.perception.detection.maskrcnn.coco_categories import (
     coco_categories_color_palette,
 )
 from home_robot.utils.config import get_config
-from home_robot_hw.env.spot_goat_env import SpotGoatEnv
 from home_robot_hw.env.spot_goat_offline_env import SpotGoatOfflineEnv
-
+from bosdyn.client.frame_helpers import VISION_FRAME_NAME, get_a_tform_b, BODY_FRAME_NAME
+from spot_wrapper.depth_utils import point_from_depth_image,masked_point_cloud_from_depth_image,homogeneous_transform
+from home_robot.utils.spot import get_xy_yaw,create_point_cloud_transformation
 
 class PI:
     EMPTY_SPACE = 0
@@ -798,6 +797,7 @@ def main(spot=None, args=None):
         cv2.imshow("vis", vis_image[:, :, ::-1])
         cv2.imshow("depth", obs.depth/obs.depth.max())
         key = cv2.waitKey(1)
+        import pdb; pdb.set_trace()
 
         if not args.offline:
             cv2.imshow("vis", vis_image[:, :, ::-1])
@@ -823,9 +823,9 @@ def main(spot=None, args=None):
                 elif key == ord("d"):
                     # right
                     spot.set_base_velocity(0, -0.5, 0, 0.5)
-
             else:
                 target_semantic_class = env.goals[agent.current_task_idx]['semantic_id']
+                target_mask = obs.semantic == target_semantic_class
                 if pan_warmup:
                     positions = spot.get_arm_joint_positions()
                     new_pos = positions.copy()
@@ -834,14 +834,42 @@ def main(spot=None, args=None):
                     if positions[0] < -2.5:
                         pan_warmup = False
                         env.env.initialize_arm()
-                elif args.pick_place and (obs.semantic == target_semantic_class).sum() > 0:
-                    import pdb; pdb.set_trace()
+                elif args.pick_place and target_mask.sum() > 0:
+                    from home_robot.utils.spot import find_largest_connected_component
+                    largest_mask = find_largest_connected_component(target_mask)
                     response = obs.raw_obs['depth_response']
-                    from bosdyn.client.frame_helpers import VISION_FRAME_NAME, get_a_tform_b, BODY_FRAME_NAME
-                    mask = obs.semantic == target_semantic_class
-                    mask_points = np.stack(np.where(mask),axis=-1)
+                    points = masked_point_cloud_from_depth_image(response,largest_mask,VISION_FRAME_NAME)
+                    mapTworld,image_size,transformed_points = create_point_cloud_transformation(points,0.05,padding=1)
+                    # homogeneous_transform(np.linalg.inv(transform),transformed_points)
+                    # res = homogeneous_transform(transform,points)
+                    projection = np.zeros(image_size[:2])
+                    locations_2d = transformed_points[:,:2].astype(int)
+                    projection[locations_2d[:,0],locations_2d[:,1]] = 1
+                    eroded = cv2.erode(projection,np.ones((3,3),np.uint8),iterations=1)
+                    # potential place locations in the 2d map
+                    valid_pixel_locs = np.stack(np.where(eroded),axis=-1)
+                    px,py,_ = get_xy_yaw(response.shot.transforms_snapshot)
+                    agent_pixel_loc = homogeneous_transform(mapTworld,np.array([[px,py,0]]))[0,:2]
+                    # valid 2d location closest to the agent
+                    closest = np.linalg.norm(valid_pixel_locs-agent_pixel_loc,axis=-1).argmin()
+                    
+                    # mask of points which project to the selected 2d location
+                    project_to_place_loc = (locations_2d == valid_pixel_locs[closest]).all(axis=-1)
+                    # points in world coords which map to the place location
+                    selected_points = points[project_to_place_loc]
+
+                    # find the highest point for placing
+                    selected_point = selected_points[selected_points[:,-1].argmax()]
+                    offset = np.array((0,0,0.2))
+                    motion_target = selected_point + offset
+                    INITIAL_RPY = np.deg2rad([0.0, 55.0, 0.0])
+                    cmd_id = spot.move_gripper_to_point(motion_target, INITIAL_RPY,frame_name=VISION_FRAME_NAME)
+                    
+                elif args.pick_place and target_mask.sum() > 0:
+                    response = obs.raw_obs['depth_response']
+                    mask_points = np.stack(np.where(target_mask),axis=-1)
                     centroid = mask_points.mean(axis=0).astype(int)
-                    assert mask[centroid[0],centroid[1]]
+                    assert target_mask[centroid[0],centroid[1]]
                     pixel_xy = (centroid[1],centroid[0])
                     point = point_from_depth_image(response,pixel_xy,BODY_FRAME_NAME)
                     dist = np.linalg.norm(point)
@@ -856,12 +884,12 @@ def main(spot=None, args=None):
                         # loot at detection
                         spot.look_at(global_point,VISION_FRAME_NAME)
 
+                        # TODO: might need to wait for new observation
                         nobs = env.get_observation()
                         # has to be rgb for grasping for some reason
                         rgb_response = nobs.raw_obs['rgb_response']
-                        mask = nobs.semantic == target_semantic_class
-                        print(mask.sum())
-                        mask_points = np.stack(np.where(mask),axis=-1)
+                        target_mask = nobs.semantic == target_semantic_class
+                        mask_points = np.stack(np.where(target_mask),axis=-1)
                         centroid = mask_points.mean(axis=0).astype(int)
                         pixel_xy = (centroid[1],centroid[0])
                         vis_im = nobs.task_observations['semantic_frame'].copy()
@@ -898,6 +926,8 @@ if __name__ == "__main__":
 
     if not args.offline:
         from spot_wrapper.spot import Spot
+        from spot_wrapper.spot import BODY_FRAME_NAME, Spot, VISION_FRAME_NAME
+        from home_robot_hw.env.spot_goat_env import SpotGoatEnv
         spot = Spot("RealNavEnv")
         with spot.get_lease(hijack=True):
             main(spot, args)

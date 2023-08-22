@@ -118,3 +118,80 @@ def fill_convex_hull(binary_image):
 
     return convex_hull.astype(np.uint8)
 
+def find_largest_connected_component(image):
+  """
+  Finds the largest connected component in a boolean binary image.
+
+  Args:
+    image: A boolean binary image.
+
+  Returns:
+    A boolean binary image containing the largest connected component.
+  """
+
+  image = np.array(image, dtype=np.uint8)
+
+  # Find all connected components in the image.
+  _, output, stats, _ = cv2.connectedComponentsWithStats(image, connectivity=4)
+
+  # Find the index of the largest connected component.
+  max_label = 1
+  max_size = stats[1, -1]
+  for i in range(2, len(stats)):
+    if stats[i, -1] > max_size:
+      max_label = i
+      max_size = stats[i, -1]
+
+  # Create a mask for the largest connected component.
+  mask = output == max_label
+
+  # Return the mask of the largest connected component.
+  return mask
+
+from bosdyn.client.frame_helpers import  get_vision_tform_body
+from bosdyn.client import math_helpers
+def get_xy_yaw(transforms_snapshot):
+    """
+    Returns the relative x and y distance from robot boot, as well as relative heading
+    """
+    robot_tform = get_vision_tform_body(transforms_snapshot)
+    yaw = math_helpers.quat_to_eulerZYX(robot_tform.rotation)[0]
+    return robot_tform.x, robot_tform.y, yaw
+
+from spot_wrapper.depth_utils import homogeneous_transform
+def create_point_cloud_transformation(point_cloud, desired_resolution,padding=0):
+    # Calculate point cloud center
+    center = np.mean(point_cloud, axis=0)
+    center_matrix = np.array([
+        [1, 0, 0, -center[0]],
+        [0, 1, 0, -center[1]],
+        [0, 0, 1, -center[2]],
+        [0, 0, 0, 1]
+    ])
+    centered_points = homogeneous_transform(center_matrix, point_cloud)
+    scaling_factor = 1.0 / desired_resolution
+    # Create scaling matrix
+    scaling_matrix = np.array([
+        [scaling_factor, 0, 0, 0],
+        [0, scaling_factor, 0, 0],
+        [0, 0, scaling_factor, 0],
+        [0, 0, 0, 1]
+    ])
+    scaled_points = homogeneous_transform(scaling_matrix, centered_points)
+    min_extent = np.min(scaled_points, axis=0)
+    max_extent = np.max(scaled_points, axis=0)
+    # pad by specified cells
+    min_extent -= padding
+    max_extent += padding
+    # Calculate image size based on extents
+    image_size = np.ceil(max_extent - min_extent).astype(int)
+    # Create translation matrix to ensure positive coordinates
+    translation_matrix = np.array([
+        [1, 0, 0, -min_extent[0]],
+        [0, 1, 0, -min_extent[1]],
+        [0, 0, 1, -min_extent[2]],
+        [0, 0, 0, 1]
+    ])
+    final_points = homogeneous_transform(translation_matrix, scaled_points)
+    transformation_matrix = translation_matrix @ scaling_matrix @ center_matrix
+    return transformation_matrix, image_size, final_points
