@@ -260,7 +260,7 @@ class SparseVoxelMap(object):
             return self._map2d
 
         # Convert metric measurements to discrete
-        # Gets the xyz correctly - for now everyhting is assumed to be within correct distance of origin
+        # Gets the xyz correctly - for now everything is assumed to be within the correct distance of origin
         xyz = ((self.xyz / self.grid_resolution) + self.grid_origin).astype(np.uint32)
 
         # Crop to robot height
