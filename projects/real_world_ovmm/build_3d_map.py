@@ -21,6 +21,7 @@ from home_robot.agent.ovmm_agent import (
 )
 from home_robot.mapping.voxel import SparseVoxelMap
 from home_robot.motion.stretch import STRETCH_NAVIGATION_Q, HelloStretchKinematics
+from home_robot.utils.geometry import xyt2sophus
 from home_robot.utils.image import Camera
 from home_robot.utils.point_cloud import numpy_to_pcd, pcd_to_numpy, show_point_cloud
 from home_robot.utils.pose import to_pos_quat
@@ -267,34 +268,51 @@ def main(
     elif mode == "dir":
         # This is for backwards compatibility with the GOAT data
         click.echo(f"- Loading pickled observations from a directory at {input_path}.")
+        print("WARNING! This is not fully supported yet.")
         input_path = Path(input_path)
         pkl_files = input_path.glob("*.pkl")
         sorted_pkl_files = sorted(pkl_files, key=lambda f: int(f.stem))
         voxel_map = SparseVoxelMap(resolution=voxel_size)
-        camera_matrix = None
+        camera = None
         hfov = 60.2
         for i, pkl_file in enumerate(sorted_pkl_files):
             print("-", i, pkl_file)
             obs = np.load(pkl_file, allow_pickle=True)
-            if camera_matrix is None:
+            if camera is None:
                 camera = Camera.from_width_height_fov(
                     obs.rgb.shape[1], obs.rgb.shape[0], hfov
                 )
-                # camera_matrix = du.get_camera_matrix(obs.rgb.shape[1], obs.rgb.shape[0], hfov)
-            xyt = np.array([obs.gps[0], obs.gps[1], obs.compass])
+                camera_matrix = du.get_camera_matrix(
+                    obs.rgb.shape[1], obs.rgb.shape[0], hfov
+                )
+            xyt = np.array([obs.gps[0], obs.gps[1], obs.compass[0]])
+            base_pose_matrix = xyt2sophus(xyt).matrix()
             if obs.xyz is None:
                 # need to find camera matrix K
                 assert obs.depth is not None, "need depth"
                 xyz = camera.depth_to_xyz(obs.depth)
+                from home_robot.utils.point_cloud import show_point_cloud
+
+                show_point_cloud(xyz, obs.rgb / 255.0, orig=np.zeros(3))
+                import trimesh
+                import trimesh.transformations as tra
+
+                xyz = trimesh.transform_points(xyz.reshape(-1, 3), obs.camera_pose)
+                show_point_cloud(xyz, obs.rgb / 255.0, orig=np.zeros(3))
+                breakpoint()
             else:
                 xyz = obs.xyz
             # For backwards compatibility
             if obs.instance is None:
                 # This copies instance map out of task data if it exists
                 obs.instance = obs.task_observations["instance_map"]
+            # Put the camera pose into the world frame
+            camera_pose_world_coords = obs.camera_pose @ base_pose_matrix
             # Now try to create everything
-            voxel_map.add(obs.camera_pose, xyz, obs.rgb, None, obs.depth, xyt, obs)
-            if i > 10:
+            voxel_map.add(
+                camera_pose_world_coords, xyz, obs.rgb, None, obs.depth, xyt, obs
+            )
+            if i > 0:
                 break
         voxel_map.show_point_cloud()
     elif mode == "pkl":
