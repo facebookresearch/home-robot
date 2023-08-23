@@ -86,27 +86,21 @@ class RosMapDataCollector(object):
         return self.voxel_map.show()
 
 
-@click.command()
-@click.option("--rate", default=5, type=int)
-@click.option("--max-frames", default=20, type=int)
-@click.option("--visualize", default=False, is_flag=True)
-@click.option("--manual_wait", default=False, is_flag=True)
-@click.option("--pcd-filename", default="output.ply", type=str)
-@click.option("--pkl-filename", default="output.pkl", type=str)
-def main(
+def collect_data(
     rate,
     max_frames,
     visualize,
     manual_wait,
     pcd_filename,
     pkl_filename,
+    device_id: int = 0,
     visualize_map_at_start: bool = True,
     visualize_map: bool = True,
     blocking: bool = True,
     verbose: bool = True,
-    device_id: int = 0,
     **kwargs,
 ):
+    """Collect data from a Stretch robot. Robot will move through a preset trajectory, stopping repeatedly."""
 
     print("- Loading configuration")
     config = load_config(visualize=False, **kwargs)
@@ -209,6 +203,57 @@ def main(
         collector.voxel_map.write_to_pickle(pkl_filename)
 
     rospy.signal_shutdown("done")
+
+
+DATA_MODES = ["ros", "npy", "dir"]
+
+
+@click.command()
+@click.argument(
+    "mode", type=click.Choice(DATA_MODES), default="ros"
+)  # help="Choose data source. ROS requires connecting to a real stretch robot")
+@click.option("--rate", default=5, type=int)
+@click.option("--max-frames", default=20, type=int)
+@click.option("--visualize", default=False, is_flag=True)
+@click.option("--manual_wait", default=False, is_flag=True)
+@click.option("--output-pcd-filename", default="output.ply", type=str)
+@click.option("--output-pkl-filename", default="output.pkl", type=str)
+@click.option("--from-ros", default=False, is_flag=True)
+@click.argument(
+    "--input-path", type=click.Path(), default="output.npy"
+)  # help="Input path with default value 'output.npy'")
+def main(
+    mode,
+    rate,
+    max_frames,
+    visualize,
+    manual_wait,
+    output_pcd_filename,
+    output_pkl_filename,
+    input_path: str = "",
+    **kwargs,
+):
+
+    click.echo(f"Processing data in mode: {mode}")
+    click.echo(f"Using input path: {input_path}")
+
+    if mode == "ros":
+        click.echo("Will connect to a Stretch robot and collect a short trajectory.")
+        collect_data(
+            rate,
+            max_frames,
+            visualize,
+            manual_wait,
+            output_pcd_filename,
+            output_pkl_filename,
+            **kwargs,
+        )
+    elif mode == "dir":
+        click.echo("- Loading pickled observations from a directory at {input_path}.")
+        breakpoint()
+        raise NotImplementedError()
+    else:
+        raise NotImplementedError(f"- data mode {mode} not supported or recognized")
 
 
 if __name__ == "__main__":
