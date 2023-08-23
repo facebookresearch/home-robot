@@ -185,6 +185,7 @@ class SparseVoxelMap(object):
             depth = depth.reshape(-1)
             valid_depth = np.bitwise_and(depth > self.min_depth, depth < self.max_depth)
             feats = feats[valid_depth, :]
+            rgb = rgb[valid_depth, :]
             xyz = xyz[valid_depth, :]
         else:
             valid_depth = np.ones_like(xyz)

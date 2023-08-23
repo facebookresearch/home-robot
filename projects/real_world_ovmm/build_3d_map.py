@@ -154,7 +154,8 @@ def collect_data(
         (0.85, 0.3, np.pi / 4),
         (0.95, 0.5, np.pi / 2),
         (1.0, 0.55, np.pi),
-        (0.6, 0.45, 9 * np.pi / 8),
+        (1.0, 0.55, 3 * np.pi / 2),
+        (0.6, 0.45, 7 * np.pi / 8),
         (0.0, 0.3, -np.pi / 2),
         (0, 0, 0),
         # (0.2, 0, 0),
@@ -231,7 +232,7 @@ DATA_MODES = ["ros", "pkl", "dir"]
 @click.option(
     "--input-path",
     type=click.Path(),
-    default="output.npy",
+    default="output.pkl",
     help="Input path with default value 'output.npy'",
 )
 def main(
@@ -280,7 +281,7 @@ def main(
         click.echo("- Loading pickled observations from a single file at {input_path}.")
         input_path = Path(input_path)
         voxel_map = SparseVoxelMap(resolution=voxel_size)
-        voxel_map.load_from_file(input_path)
+        voxel_map.read_from_pickle(input_path)
         voxel_map.show()
     else:
         raise NotImplementedError(f"- data mode {mode} not supported or recognized")
