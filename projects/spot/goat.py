@@ -797,7 +797,6 @@ def main(spot=None, args=None):
         cv2.imshow("vis", vis_image[:, :, ::-1])
         cv2.imshow("depth", obs.depth/obs.depth.max())
         key = cv2.waitKey(1)
-        import pdb; pdb.set_trace()
 
         if not args.offline:
             cv2.imshow("vis", vis_image[:, :, ::-1])
@@ -836,6 +835,7 @@ def main(spot=None, args=None):
                         env.env.initialize_arm()
                 elif args.pick_place and target_mask.sum() > 0:
                     from home_robot.utils.spot import find_largest_connected_component
+                    import pdb; pdb.set_trace()
                     largest_mask = find_largest_connected_component(target_mask)
                     response = obs.raw_obs['depth_response']
                     points = masked_point_cloud_from_depth_image(response,largest_mask,VISION_FRAME_NAME)
@@ -845,7 +845,12 @@ def main(spot=None, args=None):
                     projection = np.zeros(image_size[:2])
                     locations_2d = transformed_points[:,:2].astype(int)
                     projection[locations_2d[:,0],locations_2d[:,1]] = 1
-                    eroded = cv2.erode(projection,np.ones((3,3),np.uint8),iterations=1)
+                    from matplotlib import pyplot as plt 
+                    
+                    eroded = cv2.erode(projection,np.ones((2,2),np.uint8),iterations=3)
+                    plt.clf()
+                    plt.imshow(eroded)
+                    plt.savefig('vis/test.png')
                     # potential place locations in the 2d map
                     valid_pixel_locs = np.stack(np.where(eroded),axis=-1)
                     px,py,_ = get_xy_yaw(response.shot.transforms_snapshot)
@@ -863,7 +868,27 @@ def main(spot=None, args=None):
                     offset = np.array((0,0,0.2))
                     motion_target = selected_point + offset
                     INITIAL_RPY = np.deg2rad([0.0, 55.0, 0.0])
+                    env.env.initialize_arm()
+                    from IPython import embed; embed()
+                    def yaw_toward(target):
+                        px,py,yaw = spot.get_xy_yaw()
+                        angle = math.atan2((target[1] - py), (target[0] - px)) % (2 * np.pi)
+                        return angle
+                    target_yaw = yaw_toward(motion_target)
+                    spot.set_base_position(motion_target[0],motion_target[1],target_yaw,10,relative=False, max_fwd_vel=0.5, max_hor_vel=0.5, max_ang_vel=np.pi / 4,blocking=False)
+                    start_time = time.time()
+                    while time.time() - start_time < 10:
+                        px,py,yaw = spot.get_xy_yaw()
+                        dist = np.linalg.norm(motion_target[:2]-(px,py))
+                        print(dist)
+                        if dist < 1.3:
+                            break
+                    px,py,yaw = spot.get_xy_yaw()
+                    target_yaw = yaw_toward(motion_target)
+                    spot.set_base_position(px,py,target_yaw,10,relative=False, max_fwd_vel=0.5, max_hor_vel=0.5, max_ang_vel=np.pi / 4,blocking=False)
                     cmd_id = spot.move_gripper_to_point(motion_target, INITIAL_RPY,frame_name=VISION_FRAME_NAME)
+                    spot.open_gripper()
+                    env.env.initialize_arm()
                     
                 elif args.pick_place and target_mask.sum() > 0:
                     response = obs.raw_obs['depth_response']
