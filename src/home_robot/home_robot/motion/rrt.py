@@ -8,10 +8,16 @@
 
 import time
 from random import random
-from typing import Callable
+from typing import Callable, List
 
 from home_robot.motion.base import Planner, PlanResult
 from home_robot.motion.space import ConfigurationSpace
+
+
+class TreeNode:
+    """Placeholder class"""
+
+    pass
 
 
 class TreeNode(object):
@@ -19,8 +25,9 @@ class TreeNode(object):
 
     def __init__(self, state, parent=None):
         self.state = state
+        self.parent = None
 
-    def backup(self):
+    def backup(self) -> List[TreeNode]:
         """Get the full plan by looking back from this point"""
         sequence = []
         node = self
@@ -54,11 +61,4 @@ class RRT(Planner):
         if self.validate(q0):
             return PlanResult(False)
 
-    def backup(self):
-        sequence = []
-        node = self
-        while node is not None:
-            sequence.append(node)
-            node = node.parent
-        # Invert sequence and return it
-        return sequence[::-1]
+        raise NotImplementedError("RRT not finished")
