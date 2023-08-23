@@ -70,6 +70,8 @@ class Instance:
         """
         self.name = None
         self.category_id = None
+        self.point_cloud = None
+        self.bounds = None
         self.instance_views = []
 
 
@@ -90,10 +92,19 @@ class InstanceMemory:
     unprocessed_views: List[Dict[int, InstanceView]] = []
     timesteps: List[int] = []
 
-    def __init__(self, num_envs: int, du_scale: int, debug_visualize: bool = False):
+    def __init__(
+        self,
+        num_envs: int,
+        du_scale: int,
+        instance_association: str = "iou",
+        iou_threshold: float = 0.7,
+        debug_visualize: bool = False,
+    ):
         self.num_envs = num_envs
         self.du_scale = du_scale
         self.debug_visualize = debug_visualize
+        self.instance_association = instance_association
+        self.iou_threshold = iou_threshold
         if self.debug_visualize:
             import shutil
 
@@ -107,14 +118,71 @@ class InstanceMemory:
         self.unprocessed_views = [{} for _ in range(self.num_envs)]
         self.timesteps = [0 for _ in range(self.num_envs)]
 
-    def update_instance_id(
-        self, env_id: int, local_instance_id: int, global_instance_id: int
+    def get_bbox_overlap(
+        self,
+        local_bbox: Tuple[np.ndarray, np.ndarray],
+        global_bboxes: List[Tuple[np.ndarray, np.ndarray]],
     ):
-        # fetch instance view from the list of unprocessed views
-        # if global_instance_id already exists, add a new instance view to it
-        # otherwise, create a new global instance with the given global_instance_id
+        global_bboxes_min, global_bboxes_max = zip(*global_bboxes)
+        global_bboxes_min = np.stack(global_bboxes_min, axis=0)
+        global_bboxes_max = np.stack(global_bboxes_max, axis=0)
+        intersection_min = np.maximum(
+            np.expand_dims(local_bbox[0], 0), global_bboxes_min
+        )
+        intersection_max = np.minimum(
+            np.expand_dims(local_bbox[1], 0), global_bboxes_max
+        )
+        union_min = np.minimum(np.expand_dims(local_bbox[0], 0), global_bboxes_min)
+        union_max = np.maximum(np.expand_dims(local_bbox[1], 0), global_bboxes_max)
+        zero_iou = (intersection_min > intersection_max).any(axis=-1)
+        intersection = np.prod(intersection_max - intersection_min, axis=-1)
+        union = np.prod(union_max - union_min, axis=-1)
+        ious = intersection / union
+        ious[zero_iou] = 0.0
+        ious[np.isnan(ious)] = 0.0
+        return ious
 
+    def find_global_instance_by_bbox_overlap(self, env_id: int, local_instance_id: int):
+        if len(self.instance_views[env_id]) == 0:
+            return None, None
+        global_instance_ids, global_bounds = zip(
+            *[
+                (inst_id, instance.bounds)
+                for inst_id, instance in self.instance_views[env_id].items()
+            ]
+        )
         # get instance view
+        instance_view = self.get_local_instance_view(env_id, local_instance_id)
+        if instance_view is not None:
+            ious = self.get_bbox_overlap(instance_view.bounds, global_bounds)
+            if ious.max() > self.iou_threshold:
+                return global_instance_ids[ious.argmax()], ious.max()
+        return None, None
+
+    def associate_instances_to_memory(self):
+        # for each instance view, find the best matching instance
+        # if the best matching instance is above a threshold, add the instance view to the instance
+        # otherwise, create a new instance
+        for env_id in range(self.num_envs):
+            for local_instance_id, instance_view in self.unprocessed_views[
+                env_id
+            ].items():
+                if self.instance_association == "iou":
+                    global_instance_id, iou = self.find_global_instance_by_bbox_overlap(
+                        env_id, local_instance_id
+                    )
+                    if global_instance_id is None:
+                        global_instance_id = len(self.instance_views[env_id])
+                    self.update_instance_id(
+                        env_id, local_instance_id, global_instance_id, iou
+                    )
+                elif self.instance_association == "map":
+                    # association happens at the time of global map update
+                    pass
+                else:
+                    raise NotImplementedError
+
+    def get_local_instance_view(self, env_id: int, local_instance_id: int):
         instance_view = self.unprocessed_views[env_id].get(local_instance_id, None)
         if instance_view is None and self.debug_visualize:
             print(
@@ -122,6 +190,17 @@ class InstanceMemory:
                 local_instance_id,
                 "not found in unprocessed views",
             )
+        return instance_view
+
+    def update_instance_id(
+        self, env_id: int, local_instance_id: int, global_instance_id: int, iou
+    ):
+        # fetch instance view from the list of unprocessed views
+        # if global_instance_id already exists, add a new instance view to it
+        # otherwise, create a new global instance with the given global_instance_id
+
+        # get instance view
+        instance_view = self.get_local_instance_view(env_id, local_instance_id)
 
         # get global instance
         global_instance = self.instance_views[env_id].get(global_instance_id, None)
@@ -130,19 +209,36 @@ class InstanceMemory:
             global_instance = Instance()
             global_instance.category_id = instance_view.category_id
             global_instance.instance_views.append(instance_view)
+            global_instance.bounds = instance_view.bounds
+            global_instance.point_cloud = instance_view.point_cloud
             self.instance_views[env_id][global_instance_id] = global_instance
         else:
             # add instance view to global instance
             global_instance.instance_views.append(instance_view)
+            global_instance.point_cloud = np.concatenate(
+                [global_instance.point_cloud, instance_view.point_cloud], axis=0
+            )
+            global_instance.bounds = np.min(
+                global_instance.point_cloud, axis=0
+            ), np.max(global_instance.point_cloud, axis=0)
+
         if self.debug_visualize:
             import os
 
             import cv2
 
+            step = instance_view.timestep
+            full_image = self.images[env_id][step]
+            full_image = full_image.numpy().astype(np.uint8).transpose(1, 2, 0)
+            # overlay mask on image
+            mask = np.zeros(full_image.shape, full_image.dtype)
+            mask[:, :] = (0, 0, 255)
+            mask = cv2.bitwise_and(mask, mask, mask=instance_view.mask.astype(np.uint8))
+            masked_image = cv2.addWeighted(mask, 1, full_image, 1, 0)
             os.makedirs(f"instances/{global_instance_id}", exist_ok=True)
             cv2.imwrite(
-                f"instances/{global_instance_id}/{self.timesteps[env_id]}_{local_instance_id}_cat_{instance_view.category_id}.png",
-                instance_view.cropped_image[:, :, ::-1],
+                f"instances/{global_instance_id}/{self.timesteps[env_id]}_{local_instance_id}_cat_{instance_view.category_id}_{iou}.png",
+                masked_image,
             )
             print(
                 "mapping local instance id",
@@ -166,10 +262,10 @@ class InstanceMemory:
         self.unprocessed_views[env_id] = {}
         # append image to list of images
         if self.images[env_id] is None:
-            self.images[env_id] = image.unsqueeze(0)
+            self.images[env_id] = image.unsqueeze(0).cpu()
         else:
             self.images[env_id] = torch.cat(
-                [self.images[env_id], image.unsqueeze(0)], dim=0
+                [self.images[env_id], image.unsqueeze(0).cpu()], dim=0
             )
         if self.point_cloud[env_id] is None:
             self.point_cloud[env_id] = point_cloud.unsqueeze(0)
@@ -232,21 +328,29 @@ class InstanceMemory:
             embedding = None
 
             # get point cloud
-            point_cloud_instance = point_cloud[instance_mask_downsampled.cpu().numpy()]
-
-            # get instance view
-            instance_view = InstanceView(
-                bbox=bbox,
-                timestep=self.timesteps[env_id],
-                cropped_image=cropped_image,
-                embedding=embedding,
-                mask=instance_mask,
-                point_cloud=point_cloud_instance.cpu().numpy(),
-                category_id=category_id,
+            point_cloud_instance = (
+                point_cloud[instance_mask_downsampled.cpu().numpy()].cpu().numpy()
             )
 
-            # append instance view to list of instance views
-            self.unprocessed_views[env_id][instance_id.item()] = instance_view
+            if instance_mask_downsampled.sum() > 0 and point_cloud_instance.sum() > 0:
+                bounds = np.min(point_cloud_instance, axis=0), np.max(
+                    point_cloud_instance, axis=0
+                )
+
+                # get instance view
+                instance_view = InstanceView(
+                    bbox=bbox,
+                    timestep=self.timesteps[env_id],
+                    cropped_image=cropped_image,
+                    embedding=embedding,
+                    mask=instance_mask,
+                    point_cloud=point_cloud_instance,
+                    category_id=category_id,
+                    bounds=bounds,
+                )
+                # append instance view to list of instance views
+                self.unprocessed_views[env_id][instance_id.item()] = instance_view
+
             # save cropped image with timestep in filename
             if self.debug_visualize:
                 import os
@@ -282,6 +386,7 @@ class InstanceMemory:
                 image[env_id],
                 semantic_map.shape[1],
             )
+        self.associate_instances_to_memory()
 
     def reset_for_env(self, env_id: int):
         self.instance_views[env_id] = {}
