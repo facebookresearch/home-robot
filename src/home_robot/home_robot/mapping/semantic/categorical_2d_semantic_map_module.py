@@ -513,10 +513,10 @@ class Categorical2DSemanticMapModule(nn.Module):
             ]
             if num_instance_channels > 0:
                 self.instance_memory.process_instances(
-                    semantic_channels,
                     instance_channels,
                     point_cloud_t,
                     image=obs[:, :3, :, :],
+                    semantic_channels=semantic_channels,
                 )
 
         feat[:, 1:, :] = nn.AvgPool2d(self.du_scale)(obs[:, 4:, :, :]).view(
@@ -876,7 +876,7 @@ class Categorical2DSemanticMapModule(nn.Module):
                 instance_mapping[local_instance_id.item()] = global_instance_id
                 max_instance_id += 1
             # update the id in instance memory
-            self.instance_memory.update_instance_id(
+            self.instance_memory.add_view_to_instance(
                 env_id, int(local_instance_id.item()), global_instance_id
             )
         instance_mapping[0] = 0
