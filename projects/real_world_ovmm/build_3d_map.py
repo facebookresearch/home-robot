@@ -154,8 +154,7 @@ def collect_data(
         (0.85, 0.3, np.pi / 4),
         (0.95, 0.5, np.pi / 2),
         (1.0, 0.55, np.pi),
-        (1.0, 0.55, 3 * np.pi / 2),
-        (0.6, 0.45, 7 * np.pi / 8),
+        (0.6, 0.45, 5 * np.pi / 4),
         (0.0, 0.3, -np.pi / 2),
         (0, 0, 0),
         # (0.2, 0, 0),
@@ -276,13 +275,13 @@ def main(
                 # need to find camera matrix K
                 assert obs.depth is not None, "need depth"
             voxel_map.add(obs.camera_pose, xyz, obs.rgb, obs.depth, xyt)
-        voxel_map.show()
+        voxel_map.show_point_cloud()
     elif mode == "pkl":
         click.echo("- Loading pickled observations from a single file at {input_path}.")
         input_path = Path(input_path)
         voxel_map = SparseVoxelMap(resolution=voxel_size)
         voxel_map.read_from_pickle(input_path)
-        voxel_map.show()
+        voxel_map.show_point_cloud()
     else:
         raise NotImplementedError(f"- data mode {mode} not supported or recognized")
 

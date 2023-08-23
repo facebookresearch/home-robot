@@ -175,6 +175,11 @@ class SparseVoxelMap(object):
             # Copy features as RGB for now
             feats = rgb
 
+        # add observations before we start changing things
+        self.observations.append(
+            Frame(camera_pose, xyz, rgb, feats, depth, base_pose, obs, info)
+        )
+
         if feats is not None:
             feats = feats.reshape(-1, 3)
         rgb = rgb.reshape(-1, 3)
@@ -188,18 +193,15 @@ class SparseVoxelMap(object):
             rgb = rgb[valid_depth, :]
             xyz = xyz[valid_depth, :]
         else:
-            valid_depth = np.ones_like(xyz)
+            valid_depth = None
 
         if len(xyz.shape) > 2:
             xyz = xyz.reshape(-1, 3)
             feats = feats.reshape(-1, 3)
 
-        self.observations.append(
-            Frame(camera_pose, xyz, rgb, feats, depth, base_pose, obs, info)
-        )
         world_xyz = trimesh.transform_points(xyz, camera_pose)
         instances = InstanceView.create_from_observations(
-            world_xyz, valid_depth, obs, self._seq
+            world_xyz, obs, self._seq, valid_mask=valid_depth
         )
         self._instance_views += instances
 
@@ -254,7 +256,7 @@ class SparseVoxelMap(object):
             # add it to pickle
             # TODO: switch to using just Obs struct?
             data["camera_poses"].append(frame.camera_pose)
-            data["base_poses"].append(frame.camera_pose)
+            data["base_poses"].append(frame.base_pose)
             data["xyz"].append(frame.xyz)
             data["rgb"].append(frame.rgb)
             data["depth"].append(frame.depth)
