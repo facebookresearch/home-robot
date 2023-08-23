@@ -21,6 +21,8 @@ from home_robot.utils.point_cloud import (
     show_point_cloud,
 )
 
+# TODO: add rgb
+# TODO: add K
 Frame = namedtuple(
     "Frame", ["camera_pose", "xyz", "feats", "depth", "base_pose", "obs", "info"]
 )

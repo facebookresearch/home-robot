@@ -2,9 +2,9 @@
 #
 # This source code is licensed under the MIT license found in the
 # LICENSE file in the root directory of this source tree.
-import argparse
 import sys
 import timeit
+from pathlib import Path
 from typing import Tuple
 
 import click
@@ -209,8 +209,8 @@ DATA_MODES = ["ros", "npy", "dir"]
 
 
 @click.command()
-@click.argument(
-    "mode", type=click.Choice(DATA_MODES), default="ros"
+@click.option(
+    "--mode", type=click.Choice(DATA_MODES), default="ros"
 )  # help="Choose data source. ROS requires connecting to a real stretch robot")
 @click.option("--rate", default=5, type=int)
 @click.option("--max-frames", default=20, type=int)
@@ -219,9 +219,12 @@ DATA_MODES = ["ros", "npy", "dir"]
 @click.option("--output-pcd-filename", default="output.ply", type=str)
 @click.option("--output-pkl-filename", default="output.pkl", type=str)
 @click.option("--from-ros", default=False, is_flag=True)
-@click.argument(
-    "--input-path", type=click.Path(), default="output.npy"
-)  # help="Input path with default value 'output.npy'")
+@click.option(
+    "--input-path",
+    type=click.Path(),
+    default="output.npy",
+    help="Input path with default value 'output.npy'",
+)
 def main(
     mode,
     rate,
@@ -230,7 +233,7 @@ def main(
     manual_wait,
     output_pcd_filename,
     output_pkl_filename,
-    input_path: str = "",
+    input_path: str = ".",
     **kwargs,
 ):
 
@@ -250,8 +253,18 @@ def main(
         )
     elif mode == "dir":
         click.echo("- Loading pickled observations from a directory at {input_path}.")
-        breakpoint()
-        raise NotImplementedError()
+        input_path = Path(input_path)
+        pkl_files = input_path.glob("*.pkl")
+        sorted_pkl_files = sorted(pkl_files, key=lambda f: int(f.stem))
+        voxel_map = SparseVoxelMap(resolution=0.01)
+        for pkl_file in sorted_pkl_files:
+            obs = np.load(pkl_file, allow_pickle=True)
+            xyt = np.array([obs.gps[0], obs.gps[1], obs.compass])
+            if obs.xyz is None:
+                # need to find camera matrix K
+                assert obs.depth is not None, "need depth"
+            voxel_map.add(obs.camera_pose, xyz, obs.rgb, obs.depth, xyt)
+        voxel_map.show()
     else:
         raise NotImplementedError(f"- data mode {mode} not supported or recognized")
 
