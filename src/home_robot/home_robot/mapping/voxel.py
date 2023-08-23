@@ -248,6 +248,7 @@ class SparseVoxelMap(object):
         data["rgb"] = []
         data["depth"] = []
         data["feats"] = []
+        data["obs"] = []
         for frame in self.observations:
             # add it to pickle
             # TODO: switch to using just Obs struct?
@@ -257,6 +258,7 @@ class SparseVoxelMap(object):
             data["rgb"].append(frame.rgb)
             data["depth"].append(frame.depth)
             data["feats"].append(frame.feats)
+            data["obs"].append(frame.obs)
             for k, v in frame.info.items():
                 if k not in data:
                     data[k] = []
@@ -274,15 +276,16 @@ class SparseVoxelMap(object):
         assert filename.exists(), f"No file found at {filename}"
         with filename.open("rb") as f:
             data = pickle.load(f)
-        for camera_pose, xyz, rgb, feats, depth, base_pose in zip(
+        for camera_pose, xyz, rgb, feats, depth, base_pose, obs in zip(
             data["camera_poses"],
             data["xyz"],
             data["rgb"],
             data["feats"],
             data["depth"],
             data["base_poses"],
+            data["obs"],
         ):
-            self.add(camera_pose, xyz, rgb, feats, depth, base_pose)
+            self.add(camera_pose, xyz, rgb, feats, depth, base_pose, obs)
 
     def recompute_map(self):
         """Recompute the entire map from scratch instead of doing incremental updates.
