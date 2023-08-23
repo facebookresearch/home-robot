@@ -4,6 +4,7 @@
 # LICENSE file in the root directory of this source tree.
 import pickle
 from collections import namedtuple
+from pathlib import Path
 from typing import Optional, Tuple
 
 import numpy as np
@@ -24,7 +25,7 @@ from home_robot.utils.point_cloud import (
 # TODO: add rgb
 # TODO: add K
 Frame = namedtuple(
-    "Frame", ["camera_pose", "xyz", "feats", "depth", "base_pose", "obs", "info"]
+    "Frame", ["camera_pose", "xyz", "rgb", "feats", "depth", "base_pose", "obs", "info"]
 )
 
 
@@ -79,7 +80,7 @@ class SparseVoxelMap(object):
         obs_max_height: float = 1.8,
         obs_min_density: float = 5,
         add_local_radius_points: bool = True,
-        local_radius: float = 0.25,
+        local_radius: float = 0.3,
         cast_to_center: bool = False,
         min_depth: float = 0.1,
         max_depth: float = 4.0,
@@ -140,32 +141,47 @@ class SparseVoxelMap(object):
         self,
         camera_pose: np.ndarray,
         xyz: np.ndarray,
-        feats: np.ndarray,
+        rgb: np.ndarray,
+        feats: Optional[np.ndarray] = None,
         depth: Optional[np.ndarray] = None,
         base_pose: Optional[np.ndarray] = None,
         obs: Optional[Observations] = None,
-        **info
+        **info,
     ):
         """Add this to our history of observations. Also update the current running map.
 
         Parameters:
             camera_pose(np.ndarray): necessary for measuring where the recording was taken
             xyz: N x 3 point cloud points
+            rgb: N x 3 color points
             feats: N x D point cloud features; D == 3 for RGB is most common
             base_pose: optional location of robot base
             obs: observations
         """
         # TODO: we should remove the xyz/feats maybe? just use observations as input?
         # TODO: switch to using just Obs struct?
-        assert xyz.shape[-1] == 3
-        assert feats.shape[-1] == self.feature_dim
-        assert xyz.shape[0] == feats.shape[0]
+        assert (
+            xyz.shape[-1] == 3
+        ), "xyz must have last dimension = 3 for x, y, z position of points"
+        assert rgb.shape == xyz.shape, "rgb shape must match xyz"
+        if feats is not None:
+            assert (
+                feats.shape[-1] == self.feature_dim
+            ), f"features must match voxel feature dimenstionality of {self.feature_dim}"
+            assert (
+                xyz.shape[0] == feats.shape[0]
+            ), "features must be available for each point"
+        else:
+            # Copy features as RGB for now
+            feats = rgb
 
-        # apply depth filter
-        feats = feats.reshape(-1, 3)
+        if feats is not None:
+            feats = feats.reshape(-1, 3)
+        rgb = rgb.reshape(-1, 3)
         xyz = xyz.reshape(-1, 3)
 
         if depth is not None:
+            # Apply depth filter
             depth = depth.reshape(-1)
             valid_depth = np.bitwise_and(depth > self.min_depth, depth < self.max_depth)
             feats = feats[valid_depth, :]
@@ -178,7 +194,7 @@ class SparseVoxelMap(object):
             feats = feats.reshape(-1, 3)
 
         self.observations.append(
-            Frame(camera_pose, xyz, feats, depth, base_pose, obs, info)
+            Frame(camera_pose, xyz, rgb, feats, depth, base_pose, obs, info)
         )
         world_xyz = trimesh.transform_points(xyz, camera_pose)
         instances = InstanceView.create_from_observations(
@@ -226,23 +242,47 @@ class SparseVoxelMap(object):
     def write_to_pickle(self, filename: str):
         """Write out to a pickle file. This is a rough, quick-and-easy output for debugging, not intended to replace the scalable data writer in data_tools for bigger efforts."""
         data = {}
-        data["poses"] = []
+        data["camera_poses"] = []
+        data["base_poses"] = []
         data["xyz"] = []
+        data["rgb"] = []
+        data["depth"] = []
         data["feats"] = []
         for frame in self.observations:
             # add it to pickle
             # TODO: switch to using just Obs struct?
-            data["poses"].append(frame.camera_pose)
+            data["camera_poses"].append(frame.camera_pose)
+            data["base_poses"].append(frame.camera_pose)
             data["xyz"].append(frame.xyz)
+            data["rgb"].append(frame.rgb)
+            data["depth"].append(frame.depth)
             data["feats"].append(frame.feats)
             for k, v in frame.info.items():
                 if k not in data:
                     data[k] = []
                 data[k].append(v)
-        data["world_xyx"] = self.xyz
-        data["world_feats"] = self.feats
+        data["combined_xyx"] = self.xyz
+        data["combined_feats"] = self.feats
         with open(filename, "wb") as f:
             pickle.dump(data, f)
+
+    def read_from_pickle(self, filename: str):
+        """Read from a pickle file as above. Will clear all currently stored data first."""
+        self.reset_cache()
+        if isinstance(filename, str):
+            filename = Path(filename)
+        assert filename.exists(), f"No file found at {filename}"
+        with filename.open("rb") as f:
+            data = pickle.load(f)
+        for camera_pose, xyz, rgb, feats, depth, base_pose in zip(
+            data["camera_poses"],
+            data["xyz"],
+            data["rgb"],
+            data["feats"],
+            data["depth"],
+            data["base_poses"],
+        ):
+            self.add(camera_pose, xyz, rgb, feats, depth, base_pose)
 
     def recompute_map(self):
         """Recompute the entire map from scratch instead of doing incremental updates.
@@ -255,11 +295,12 @@ class SparseVoxelMap(object):
             self.add(
                 frame.camera_pose,
                 frame.xyz,
+                frame.rgb,
                 frame.feats,
                 frame.depth,
                 frame.base_pose,
                 frame.obs,
-                **frame.info
+                **frame.info,
             )
 
     def get_2d_map(

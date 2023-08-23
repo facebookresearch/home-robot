@@ -39,13 +39,19 @@ class RosMapDataCollector(object):
     This is an example collecting the data; not necessarily the way you should do it.
     """
 
-    def __init__(self, robot, semantic_sensor=None, visualize_planner=False):
+    def __init__(
+        self,
+        robot,
+        semantic_sensor=None,
+        visualize_planner=False,
+        voxel_size: float = 0.01,
+    ):
         self.robot = robot  # Get the connection to the ROS environment via agent
         # Run detection here
         self.semantic_sensor = semantic_sensor
         self.started = False
         self.robot_model = HelloStretchKinematics(visualize=visualize_planner)
-        self.voxel_map = SparseVoxelMap(resolution=0.01)
+        self.voxel_map = SparseVoxelMap(resolution=voxel_size)
 
     def step(self, visualize_map=False):
         """Step the collector. Get a single observation of the world. Remove bad points, such as
@@ -93,6 +99,7 @@ def collect_data(
     manual_wait,
     pcd_filename,
     pkl_filename,
+    voxel_size: float = 0.01,
     device_id: int = 0,
     visualize_map_at_start: bool = True,
     visualize_map: bool = True,
@@ -117,7 +124,9 @@ def collect_data(
     semantic_sensor.update_vocabulary_list(vocab, 0)
     semantic_sensor.set_vocabulary(0)
 
-    collector = RosMapDataCollector(robot, semantic_sensor, visualize)
+    collector = RosMapDataCollector(
+        robot, semantic_sensor, visualize, voxel_size=voxel_size
+    )
 
     # Tuck the arm away
     print("Sending arm to  home...")
@@ -148,14 +157,14 @@ def collect_data(
         (0.6, 0.45, 9 * np.pi / 8),
         (0.0, 0.3, -np.pi / 2),
         (0, 0, 0),
-        (0.2, 0, 0),
-        (0.5, 0, 0),
-        (0.7, 0.2, np.pi / 4),
-        (0.7, 0.4, np.pi / 2),
-        (0.5, 0.4, np.pi),
-        (0.2, 0.2, -np.pi / 4),
-        (0, 0, -np.pi / 2),
-        (0, 0, 0),
+        # (0.2, 0, 0),
+        # (0.5, 0, 0),
+        # (0.7, 0.2, np.pi / 4),
+        # (0.7, 0.4, np.pi / 2),
+        # (0.5, 0.4, np.pi),
+        # (0.2, 0.2, -np.pi / 4),
+        # (0, 0, -np.pi / 2),
+        # (0, 0, 0),
     ]
 
     collector.step(visualize_map=visualize_map_at_start)  # Append latest observations
@@ -205,7 +214,7 @@ def collect_data(
     rospy.signal_shutdown("done")
 
 
-DATA_MODES = ["ros", "npy", "dir"]
+DATA_MODES = ["ros", "pkl", "dir"]
 
 
 @click.command()
@@ -234,6 +243,7 @@ def main(
     output_pcd_filename,
     output_pkl_filename,
     input_path: str = ".",
+    voxel_size: float = 0.01,
     **kwargs,
 ):
 
@@ -249,6 +259,7 @@ def main(
             manual_wait,
             output_pcd_filename,
             output_pkl_filename,
+            voxel_size,
             **kwargs,
         )
     elif mode == "dir":
@@ -256,7 +267,7 @@ def main(
         input_path = Path(input_path)
         pkl_files = input_path.glob("*.pkl")
         sorted_pkl_files = sorted(pkl_files, key=lambda f: int(f.stem))
-        voxel_map = SparseVoxelMap(resolution=0.01)
+        voxel_map = SparseVoxelMap(resolution=voxel_size)
         for pkl_file in sorted_pkl_files:
             obs = np.load(pkl_file, allow_pickle=True)
             xyt = np.array([obs.gps[0], obs.gps[1], obs.compass])
@@ -264,6 +275,12 @@ def main(
                 # need to find camera matrix K
                 assert obs.depth is not None, "need depth"
             voxel_map.add(obs.camera_pose, xyz, obs.rgb, obs.depth, xyt)
+        voxel_map.show()
+    elif mode == "pkl":
+        click.echo("- Loading pickled observations from a single file at {input_path}.")
+        input_path = Path(input_path)
+        voxel_map = SparseVoxelMap(resolution=voxel_size)
+        voxel_map.load_from_file(input_path)
         voxel_map.show()
     else:
         raise NotImplementedError(f"- data mode {mode} not supported or recognized")
