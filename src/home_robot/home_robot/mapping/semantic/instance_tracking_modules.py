@@ -97,7 +97,7 @@ class InstanceMemory:
         num_envs: int,
         du_scale: int,
         instance_association: str = "iou",
-        iou_threshold: float = 0.7,
+        iou_threshold: float = 0.8,
         debug_visualize: bool = False,
     ):
         self.num_envs = num_envs
@@ -132,11 +132,13 @@ class InstanceMemory:
         intersection_max = np.minimum(
             np.expand_dims(local_bbox[1], 0), global_bboxes_max
         )
-        union_min = np.minimum(np.expand_dims(local_bbox[0], 0), global_bboxes_min)
-        union_max = np.maximum(np.expand_dims(local_bbox[1], 0), global_bboxes_max)
         zero_iou = (intersection_min > intersection_max).any(axis=-1)
         intersection = np.prod(intersection_max - intersection_min, axis=-1)
-        union = np.prod(union_max - union_min, axis=-1)
+        union = (
+            np.prod(global_bboxes_max - global_bboxes_min, axis=-1)
+            + np.prod(local_bbox[1] - local_bbox[0])
+            - intersection
+        )
         ious = intersection / union
         ious[zero_iou] = 0.0
         ious[np.isnan(ious)] = 0.0
