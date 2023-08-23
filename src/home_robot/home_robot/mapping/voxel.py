@@ -3,17 +3,27 @@
 # This source code is licensed under the MIT license found in the
 # LICENSE file in the root directory of this source tree.
 import pickle
+from collections import namedtuple
 from typing import Optional, Tuple
 
 import numpy as np
-import open3d as o3d
+import open3d as open3d
 import trimesh
 from scipy.ndimage import distance_transform_edt
 
 from home_robot.core.interfaces import Observations
 from home_robot.mapping.semantic.instance_tracking_modules import InstanceView
 from home_robot.motion.space import XYT
-from home_robot.utils.point_cloud import numpy_to_pcd, pcd_to_numpy, show_point_cloud
+from home_robot.utils.point_cloud import (
+    create_visualization_geometries,
+    numpy_to_pcd,
+    pcd_to_numpy,
+    show_point_cloud,
+)
+
+Frame = namedtuple(
+    "Frame", ["camera_pose", "xyz", "feats", "depth", "base_pose", "obs", "info"]
+)
 
 
 def combine_point_clouds(
@@ -165,7 +175,9 @@ class SparseVoxelMap(object):
             xyz = xyz.reshape(-1, 3)
             feats = feats.reshape(-1, 3)
 
-        self.observations.append((camera_pose, xyz, feats, base_pose, obs, info))
+        self.observations.append(
+            Frame(camera_pose, xyz, feats, depth, base_pose, obs, info)
+        )
         world_xyz = trimesh.transform_points(xyz, camera_pose)
         instances = InstanceView.create_from_observations(
             world_xyz, valid_depth, obs, self._seq
@@ -215,13 +227,13 @@ class SparseVoxelMap(object):
         data["poses"] = []
         data["xyz"] = []
         data["feats"] = []
-        for camera_pose, xyz, feats, base_pose, obs, info in self.observations:
+        for frame in self.observations:
             # add it to pickle
             # TODO: switch to using just Obs struct?
-            data["poses"].append(camera_pose)
-            data["xyz"].append(xyz)
-            data["feats"].append(feats)
-            for k, v in info.items():
+            data["poses"].append(frame.camera_pose)
+            data["xyz"].append(frame.xyz)
+            data["feats"].append(frame.feats)
+            for k, v in frame.info.items():
                 if k not in data:
                     data[k] = []
                 data[k].append(v)
@@ -232,23 +244,21 @@ class SparseVoxelMap(object):
 
     def recompute_map(self):
         """Recompute the entire map from scratch instead of doing incremental updates.
-        This is a helper function which recomputes everything from the beginning and migh"""
+        This is a helper function which recomputes everything from the beginning.
+
+        Currently this will be slightly inefficient since it recreates all the objects incrementally."""
+        old_observations = self.observations
         self.reset_cache()
-        for camera_pose, xyz, feats, base_pose, obs, _ in self.observations:
-            # TODO: logic should be the same as in "add" above
-            # TODO: switch to using just Obs struct?
-            world_xyz = trimesh.transform_points(xyz, camera_pose)
-            if self.xyz is None:
-                pc_xyz, pc_rgb = world_xyz, feats
-            else:
-                pc_rgb = np.concatenate([self.feats, feats], axis=0)
-                pc_xyz = np.concatenate([self.xyz, world_xyz], axis=0)
-            if base_pose is not None:
-                self._update_visited(base_pose)
-        self._pcd = numpy_to_pcd(pc_xyz, pc_rgb).voxel_down_sample(
-            voxel_size=self.resolution
-        )
-        self.xyz, self.feats = pcd_to_numpy(self._pcd)
+        for frame in old_observations:
+            self.add(
+                frame.camera_pose,
+                frame.xyz,
+                frame.feats,
+                frame.depth,
+                frame.base_pose,
+                frame.obs,
+                **frame.info
+            )
 
     def get_2d_map(
         self, debug: bool = False
@@ -267,11 +277,13 @@ class SparseVoxelMap(object):
         min_height = int(self.obs_min_height / self.grid_resolution)
         max_height = int(self.obs_max_height / self.grid_resolution)
         # NOTE: keep this if we only care about obstacles
+        # TODO: delete unused code
         # voxels = np.zeros(self.grid_size + [int(max_height - min_height)])
         # But we might want to track floor pixels as well
         voxels = np.zeros(self.grid_size + [max_height])
         # NOTE: you can use min_height for this if we only care about obstacles
-        obs_mask = np.bitwise_and(xyz[:, -1] > 0, xyz[:, -1] < max_height)
+        # TODO: delete unused code
+        # obs_mask = np.bitwise_and(xyz[:, -1] > 0, xyz[:, -1] < max_height)
         obs_mask = xyz[:, -1] < max_height
         x_coords = xyz[obs_mask, 0]
         y_coords = xyz[obs_mask, 1]
@@ -319,7 +331,7 @@ class SparseVoxelMap(object):
         return obstacles, explored
 
     def get_kd_tree(self):
-        return o3d.geometry.KDTreeFlann(self._pcd)
+        return open3d.geometry.KDTreeFlann(self._pcd)
 
     def reset(self) -> None:
         """Clear out the entire voxel map."""
@@ -327,13 +339,61 @@ class SparseVoxelMap(object):
         self.feats = None
         self.observations = []
 
-    def show(self):
-        """Display the aggregated point cloud."""
+    def show_point_cloud(self):
+        """Display the aggregated point cloud and return."""
 
         # Create a combined point cloud
         # Do the other stuff we need
-        pc_xyz, pc_rgb = self.voxel_map.get_data()
+        pc_xyz, pc_rgb = self.get_data()
         show_point_cloud(pc_xyz, pc_rgb / 255, orig=np.zeros(3))
+        return pc_xyz, pc_rgb
+
+    def show(self) -> Tuple[np.ndarray, np.ndarray]:
+        """Show and return bounding box information and rgb color information from an explored point cloud. Uses open3d."""
+
+        # Create a combined point cloud
+        # Do the other stuff we need to show instances
+        pc_xyz, pc_rgb = self.get_data()
+        pcd = numpy_to_pcd(pc_xyz, pc_rgb / 255.0)
+        geoms = create_visualization_geometries(pcd=pcd, orig=np.zeros(3))
+        for instance_view in self._instance_views:
+            mins, maxs = instance_view.bounds
+            width, height, depth = maxs - mins
+
+            # Create a mesh to visualzie where the instances were seen
+            mesh_box = open3d.geometry.TriangleMesh.create_box(
+                width=width, height=height, depth=depth
+            )
+
+            # Get vertex array from the mesh
+            vertices = np.asarray(mesh_box.vertices)
+
+            # Translate the vertices to the desired position
+            vertices += mins
+            triangles = np.asarray(mesh_box.triangles)
+
+            # Create a wireframe mesh
+            lines = []
+            for tri in triangles:
+                lines.append([tri[0], tri[1]])
+                lines.append([tri[1], tri[2]])
+                lines.append([tri[2], tri[0]])
+
+            color = [1.0, 0.0, 0.0]  # Red color (R, G, B)
+            colors = [color for _ in range(len(lines))]
+            wireframe = open3d.geometry.LineSet(
+                points=open3d.utility.Vector3dVector(vertices),
+                lines=open3d.utility.Vector2iVector(lines),
+            )
+            # Get the colors and add to wireframe
+            wireframe.colors = open3d.utility.Vector3dVector(colors)
+            geoms.append(wireframe)
+
+        # Show the geometries of where we have explored
+        open3d.visualization.draw_geometries(geoms)
+        return pc_xyz, pc_rgb
+
+        return pc_xyz, pc_rgb
 
 
 class SparseVoxelGridXYTSpace(XYT):

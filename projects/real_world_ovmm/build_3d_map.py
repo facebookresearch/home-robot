@@ -20,12 +20,7 @@ from home_robot.agent.ovmm_agent import (
 )
 from home_robot.mapping.voxel import SparseVoxelMap
 from home_robot.motion.stretch import STRETCH_NAVIGATION_Q, HelloStretchKinematics
-from home_robot.utils.point_cloud import (
-    create_visualization_geometries,
-    numpy_to_pcd,
-    pcd_to_numpy,
-    show_point_cloud,
-)
+from home_robot.utils.point_cloud import numpy_to_pcd, pcd_to_numpy, show_point_cloud
 from home_robot.utils.pose import to_pos_quat
 from home_robot_hw.env.stretch_pick_and_place_env import StretchPickandPlaceEnv
 from home_robot_hw.remote import StretchClient
@@ -88,52 +83,7 @@ class RosMapDataCollector(object):
 
     def show(self) -> Tuple[np.ndarray, np.ndarray]:
         """Display the aggregated point cloud."""
-
-        # Create a combined point cloud
-        # Do the other stuff we need
-
-        pc_xyz, pc_rgb = self.voxel_map.get_data()
-        # TODO: easy version, just pt clouds
-        # show_point_cloud(pc_xyz, pc_rgb / 255, orig=np.zeros(3))
-
-        pcd = numpy_to_pcd(pc_xyz, pc_rgb / 255.0)
-        geoms = create_visualization_geometries(pcd=pcd, orig=np.zeros(3))
-        for instance_view in self.voxel_map._instance_views:
-            mins, maxs = instance_view.bounds
-            width, height, depth = maxs - mins
-
-            # Create a mesh to visualzie where the instances were seen
-            mesh_box = open3d.geometry.TriangleMesh.create_box(
-                width=width, height=height, depth=depth
-            )
-
-            # Get vertex array from the mesh
-            vertices = np.asarray(mesh_box.vertices)
-
-            # Translate the vertices to the desired position
-            vertices += mins
-            triangles = np.asarray(mesh_box.triangles)
-
-            # Create a wireframe mesh
-            lines = []
-            for tri in triangles:
-                lines.append([tri[0], tri[1]])
-                lines.append([tri[1], tri[2]])
-                lines.append([tri[2], tri[0]])
-
-            color = [1.0, 0.0, 0.0]  # Red color (R, G, B)
-            colors = [color for _ in range(len(lines))]
-            wireframe = open3d.geometry.LineSet(
-                points=open3d.utility.Vector3dVector(vertices),
-                lines=open3d.utility.Vector2iVector(lines),
-            )
-            # Get the colors and add to wireframe
-            wireframe.colors = open3d.utility.Vector3dVector(colors)
-            geoms.append(wireframe)
-
-        # Show the geometries of where we have explored
-        open3d.visualization.draw_geometries(geoms)
-        return pc_xyz, pc_rgb
+        return self.voxel_map.show()
 
 
 @click.command()

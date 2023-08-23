@@ -19,10 +19,10 @@ class ConfigurationSpace(ABC):
         assert len(maxs) == self.dof, "maxs' length must be equal to space dof"
         self.mins = mins
         self.maxs = maxs
-        self.rngs = maxs - mins
+        self.ranges = maxs - mins
 
     def sample_uniform(self) -> np.ndarray:
-        return (np.random.random(self.dof) * self.rngs) + self.mins
+        return (np.random.random(self.dof) * self.ranges) + self.mins
 
     @abstractmethod
     def distance(self, q0, q1) -> float:
@@ -55,4 +55,4 @@ class XYT(ConfigurationSpace):
             # Just update x and y
             self.mins[:2] = mins
             self.maxs[:2] = maxs
-            self.rngs[:2] = maxs - mins
+            self.ranges[:2] = maxs - mins
