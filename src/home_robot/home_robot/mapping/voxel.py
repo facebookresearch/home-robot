@@ -24,11 +24,14 @@ from home_robot.utils.point_cloud import (
     pcd_to_numpy,
 )
 
-# TODO: add rgb
 # TODO: add K
 Frame = namedtuple(
     "Frame", ["camera_pose", "xyz", "rgb", "feats", "depth", "base_pose", "obs", "info"]
 )
+
+
+DEFAULT_GRID_SIZE = [512, 512]
+GRID_CHANNELS = 3
 
 
 def combine_point_clouds(
@@ -46,10 +49,6 @@ def combine_point_clouds(
         pc_rgb = np.concatenate([pc_rgb, rgb], axis=0)
         pc_xyz = np.concatenate([pc_xyz, xyz], axis=0)
     return numpy_to_pcd(pc_xyz, pc_rgb).voxel_down_sample(voxel_size=sparse_voxel_size)
-
-
-DEFAULT_GRID_SIZE = [512, 512]
-GRID_CHANNELS = 3
 
 
 def create_disk(radius, size):
@@ -83,7 +82,6 @@ class SparseVoxelMap(object):
         obs_min_density: float = 5,
         add_local_radius_points: bool = True,
         local_radius: float = 0.3,
-        cast_to_center: bool = False,
         min_depth: float = 0.1,
         max_depth: float = 4.0,
     ):
@@ -112,10 +110,6 @@ class SparseVoxelMap(object):
         # Add points with local_radius to the voxel map at (0,0,0) unless we receive lidar points
         self.add_local_radius_points = add_local_radius_points
         self.local_radius = local_radius
-        # TODO:
-        # Cast lines to the center from nearest points - this is to create explored re
-        if cast_to_center is True:
-            raise NotImplementedError("cast to center not implemented")
 
         if grid_size is not None:
             self.grid_size = [grid_size[0], grid_size[1]]
@@ -178,6 +172,7 @@ class SparseVoxelMap(object):
         assert (
             xyz.shape[-1] == 3
         ), "xyz must have last dimension = 3 for x, y, z position of points"
+        W, H, _ = xyz.shape
         assert rgb.shape == xyz.shape, "rgb shape must match xyz"
         if feats is not None:
             assert (
@@ -199,6 +194,7 @@ class SparseVoxelMap(object):
             feats = feats.reshape(-1, 3)
         rgb = rgb.reshape(-1, 3)
         xyz = xyz.reshape(-1, 3)
+        full_world_xyz = trimesh.transform_points(xyz, camera_pose)
 
         if depth is not None:
             # Apply depth filter
@@ -207,14 +203,10 @@ class SparseVoxelMap(object):
             feats = feats[valid_depth, :]
             rgb = rgb[valid_depth, :]
             xyz = xyz[valid_depth, :]
+            world_xyz = full_world_xyz[valid_depth, :]
         else:
             valid_depth = None
 
-        if len(xyz.shape) > 2:
-            xyz = xyz.reshape(-1, 3)
-            feats = feats.reshape(-1, 3)
-
-        world_xyz = trimesh.transform_points(xyz, camera_pose)
         if self._no_instance_memory:
             instances = InstanceView.create_from_observations(
                 world_xyz, obs, self._seq, valid_mask=valid_depth
@@ -227,10 +219,11 @@ class SparseVoxelMap(object):
             # Note that in process_instances_for_env, we assume that the background class is 0
             # In OvmmPerception, it is -1
             # This is why we add 1 to the image instance mask below.
+            # TODO: it is very inefficient to do this wri
             self.instances.process_instances_for_env(
                 0,
                 torch.Tensor(obs.instance) + 1,
-                torch.Tensor(obs.xyz),
+                torch.Tensor(full_world_xyz.reshape(W, H, 3)),
                 torch.Tensor(obs.rgb).permute(2, 0, 1),
                 torch.Tensor(obs.semantic),
                 mask_out_object=False,  # Save the whole image here
