@@ -224,15 +224,17 @@ class SparseVoxelMap(object):
             import torch
 
             # TODO: tensorize earlier
+            # Note that in process_instances_for_env, we assume that the background class is 0
+            # In OvmmPerception, it is -1
+            # This is why we add 1 to the image instance mask below.
             self.instances.process_instances_for_env(
                 0,
                 torch.Tensor(obs.instance) + 1,
                 torch.Tensor(obs.xyz),
                 torch.Tensor(obs.rgb).permute(2, 0, 1),
                 torch.Tensor(obs.semantic),
-                mask_out_object=False,
+                mask_out_object=False,  # Save the whole image here
             )
-            breakpoint()
 
         # Combine point clouds by adding in the current view to the previous ones and
         # voxelizing.
