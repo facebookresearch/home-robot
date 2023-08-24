@@ -99,7 +99,9 @@ class SparseVoxelMap(object):
 
         # TODO: remove this if we don't need to track instances ourselves
         self._no_instance_memory = False
-        self.instances = InstanceMemory(num_envs=1, du_scale=1)
+        self.instances = InstanceMemory(
+            num_envs=1, du_scale=1, instance_association="bbox_iou"
+        )
 
         # Create disk for mapping explored areas near the robot - since camera can't always see it
         self._disk_size = np.ceil(1.0 / self.grid_resolution)
@@ -143,8 +145,10 @@ class SparseVoxelMap(object):
         if self._no_instance_memory:
             return self._instance_views
         else:
-            # TODO: Sriram: we should change this to do some processing?
-            return self.instances.get_unprocessed_instances_per_env(0).values()
+            # NOTE: This is just the bad ones
+            # TODO: remove dead code
+            # return self.instances.get_unprocessed_instances_per_env(0).values()
+            return self.instances.instance_views[0].values()
 
     def add(
         self,
@@ -227,8 +231,8 @@ class SparseVoxelMap(object):
                 torch.Tensor(obs.rgb).permute(2, 0, 1),
                 torch.Tensor(obs.semantic),
                 mask_out_object=False,  # Save the whole image here
-                instance_association="bbox_iou",
             )
+            self.instances.associate_instances_to_memory()
 
         # Combine point clouds by adding in the current view to the previous ones and
         # voxelizing.
@@ -426,6 +430,9 @@ class SparseVoxelMap(object):
         if instances:
             for instance_view in self.get_instances():
                 mins, maxs = instance_view.bounds
+                if np.any(maxs - mins < 1e-5):
+                    print("Warning: bad box:", mins, maxs)
+                    continue
                 width, height, depth = maxs - mins
 
                 # Create a mesh to visualzie where the instances were seen
