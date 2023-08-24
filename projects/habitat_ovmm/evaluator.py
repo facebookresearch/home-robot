@@ -301,7 +301,6 @@ class OVMMEvaluator(PPOTrainer):
         episode_metrics: Dict = {}
 
         count_episodes: int = 0
-        skipped_episodes = []
         computed_episodes = []
         skip_computed = True  # TODO: temporary
 

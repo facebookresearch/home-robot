@@ -22,7 +22,7 @@ class ShortestPathFollowerAgent(Agent):
     def __init__(self):
         self.env = None
         self.shortest_path_follower = None
-        self.goal_coordinates = None
+        self.goal_coordinates = None  # needs to be a list, and the agent is implemented to follow one after the other in order
         self.discrete_action_map = {
             HabitatSimActions.stop: DiscreteNavigationAction.STOP,
             HabitatSimActions.move_forward: DiscreteNavigationAction.MOVE_FORWARD,
@@ -30,39 +30,44 @@ class ShortestPathFollowerAgent(Agent):
             HabitatSimActions.turn_right: DiscreteNavigationAction.TURN_RIGHT,
         }
 
-    def set_oracle_info(self, env, goal_coordinates):
+    def set_oracle_info(self, env, goal_coordinates, goal_radius=0.5):
         """Instantiate shortest path follower
 
         Args:
             env: Habitat env
-            goal_coordinates: List of candidate xyz goal coordinates
+            goal_coordinates: List of xyz goal coordinates. Agent implemented to follow one after the other in order
         """
         self.env = env
         self.shortest_path_follower = ShortestPathFollower(
             sim=env.habitat_env.sim,
-            goal_radius=0.1,  # TODO: should come from a config
+            goal_radius=goal_radius,
             return_one_hot=False,
         )
         self.goal_coordinates = goal_coordinates
-        self.goal_candidate = 0
+        self.current_goal = (
+            0  # index of the current goal in the list of goal coordinates
+        )
 
     def act(self, observations, info) -> Union[int, np.ndarray]:
         action = self.discrete_action_map[
             self.shortest_path_follower.get_next_action(
-                self.goal_coordinates[self.goal_candidate]
+                self.goal_coordinates[self.current_goal]
             )
         ]
         print(f"Oracle action: {action}")
-        print(f"Goal: {self.goal_coordinates[self.goal_candidate]}")
+        print(f"Goal: {self.goal_coordinates[self.current_goal]}")
         print(f"Agent: {self.shortest_path_follower._sim.robot.base_pos}")
 
         terminate = False
         if action == DiscreteNavigationAction.STOP:
-            terminate = True
-            # if self.goal_candidate == len(self.goal_coordinates) - 1:
-            #     terminate = True
-            # else:
-            #     self.goal_candidate += 1
+            if self.current_goal >= len(self.goal_coordinates) - 1:
+                terminate = True  # completed all goals
+            else:
+                print("Reached goal! Moving to next goal...")
+                print(f"Curr goal: {self.goal_coordinates[self.current_goal]}")
+                print(f"Next goal: {self.goal_coordinates[self.current_goal+1]}")
+                self.current_goal += 1  # move to next goal
+                return self.act(observations, info)
 
         return action, terminate
 

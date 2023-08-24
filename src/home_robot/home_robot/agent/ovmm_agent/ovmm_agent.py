@@ -172,31 +172,23 @@ class OpenVocabManipAgent(ObjectNavAgent):
             print(
                 f"Providing oracle environment information to NAV_TO_OBJ agent for episode {episode_id}"
             )
-            if self.config.EXPERIMENT.NAV_TO_OBJ.goal == "max_iou_viewpoint":
-                object_goal = ovmm_env.habitat_env.env._env.habitat_env.current_episode.candidate_objects[
-                    0
-                ]
-                object_nav_goal = self.get_position_for_max_iou_viewpoint(object_goal)
-            elif self.config.EXPERIMENT.NAV_TO_OBJ.goal == "exact":
-                object_nav_goal = ovmm_env.habitat_env.env._env.habitat_env.current_episode.candidate_objects[
-                    0
-                ].position
-            elif self.config.EXPERIMENT.NAV_TO_OBJ.goal == "vp_then_exact":
-                object_goal = ovmm_env.habitat_env.env._env.habitat_env.current_episode.candidate_objects[
-                    0
-                ]
-                object_nav_goal = self.get_position_for_max_iou_viewpoint(object_goal)
-                object_nav_goal = mn.Vector3(
-                    ovmm_env.habitat_env.env._env.habitat_env.current_episode.candidate_objects[
-                        0
-                    ].position
-                )
             object_goal = ovmm_env.habitat_env.env._env.habitat_env.current_episode.candidate_objects[
                 0
             ]
-            object_nav_goal = self.get_position_for_max_iou_viewpoint(object_goal)
+            object_vp_nav_goal = self.get_position_for_max_iou_viewpoint(object_goal)
+            object_nav_goal = object_goal.position
+
+            if self.config.EXPERIMENT.NAV_TO_OBJ.goal == "exact":
+                goal_coordinates = [object_nav_goal]
+            elif self.config.EXPERIMENT.NAV_TO_OBJ.goal == "max_iou_viewpoint":
+                goal_coordinates = [object_vp_nav_goal]
+            elif self.config.EXPERIMENT.NAV_TO_OBJ.goal == "vp_then_exact":
+                goal_coordinates = [object_vp_nav_goal, object_nav_goal]
+
             self.nav_to_obj_agent.set_oracle_info(
-                ovmm_env.habitat_env.env._env, goal_coordinates=[object_nav_goal]
+                ovmm_env.habitat_env.env._env,
+                goal_coordinates=goal_coordinates,
+                goal_radius=self.config.EXPERIMENT.NAV_TO_OBJ.goal_radius,
             )
 
         if (
@@ -215,28 +207,23 @@ class OpenVocabManipAgent(ObjectNavAgent):
             # for vp_idx, vp in enumerate(ovmm_env.habitat_env.env._env.habitat_env.current_episode.candidate_goal_receps[0].view_points):
             #     print(f"Viewpoint {vp_idx}: {vp.agent_state.position}")
             # exit(1)
-            if self.config.EXPERIMENT.NAV_TO_REC.goal == "max_iou_viewpoint":
-                object_goal = ovmm_env.habitat_env.env._env.habitat_env.current_episode.candidate_goal_receps[
-                    0
-                ]
-                object_nav_goal = self.get_position_for_max_iou_viewpoint(object_goal)
-            elif self.config.EXPERIMENT.NAV_TO_REC.goal == "exact":
-                object_nav_goal = ovmm_env.habitat_env.env._env.habitat_env.current_episode.candidate_goal_receps[
-                    0
-                ].position
+            object_goal = ovmm_env.habitat_env.env._env.habitat_env.current_episode.candidate_goal_receps[
+                0
+            ]
+            object_vp_nav_goal = self.get_position_for_max_iou_viewpoint(object_goal)
+            object_nav_goal = object_goal.position
+
+            if self.config.EXPERIMENT.NAV_TO_REC.goal == "exact":
+                goal_coordinates = [object_nav_goal]
+            elif self.config.EXPERIMENT.NAV_TO_REC.goal == "max_iou_viewpoint":
+                goal_coordinates = [object_vp_nav_goal]
             elif self.config.EXPERIMENT.NAV_TO_REC.goal == "vp_then_exact":
-                object_goal = ovmm_env.habitat_env.env._env.habitat_env.current_episode.candidate_goal_receps[
-                    0
-                ]
-                object_nav_goal = self.get_position_for_max_iou_viewpoint(object_goal)
-                object_nav_goal = mn.Vector3(
-                    ovmm_env.habitat_env.env._env.habitat_env.current_episode.candidate_goal_receps[
-                        0
-                    ].position
-                )
+                goal_coordinates = [object_vp_nav_goal, object_nav_goal]
+
             self.nav_to_rec_agent.set_oracle_info(
                 ovmm_env.habitat_env.env._env,
-                goal_coordinates=[object_nav_goal],
+                goal_coordinates=goal_coordinates,
+                goal_radius=self.config.EXPERIMENT.NAV_TO_REC.goal_radius,
             )
 
     def _get_info(self, obs: Observations) -> Dict[str, torch.Tensor]:
@@ -455,7 +442,7 @@ class OpenVocabManipAgent(ObjectNavAgent):
             # info overwrites planner_info entries for keys with same name
             info = {**planner_info, **info}
             self.timesteps[0] -= 1  # objectnav agent increments timestep
-            info["timestep"] = self.timesteps[0]
+        info["timestep"] = self.timesteps[0]
         action, terminate = oracle_agent.act(obs, info)
         return action, info, terminate
 
