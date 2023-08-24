@@ -21,9 +21,10 @@ class Camera(object):
         """Create a camera given minimal information only. Fov is in degrees"""
         horizontal_fov_rad = np.radians(fov_degrees)
         focal_length_x = width / (2 * np.tan(horizontal_fov_rad / 2))
-        focal_length_y = height / 2
-        principal_point_x = width / 2
-        principal_point_y = height / 2
+        # focal_length_y = height / 2
+        focal_length_y = width / (2 * np.tan(horizontal_fov_rad / 2))
+        principal_point_x = (width - 1.0) / 2
+        principal_point_y = (height - 1.0) / 2
         return Camera(
             (0, 0, 0),
             (0, 0, 0, 1),

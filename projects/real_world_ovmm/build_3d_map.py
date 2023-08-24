@@ -24,7 +24,7 @@ from home_robot.motion.stretch import STRETCH_NAVIGATION_Q, HelloStretchKinemati
 from home_robot.utils.geometry import xyt2sophus
 from home_robot.utils.image import Camera
 from home_robot.utils.point_cloud import numpy_to_pcd, pcd_to_numpy, show_point_cloud
-from home_robot.utils.pose import to_pos_quat
+from home_robot.utils.pose import convert_pose_habitat_to_opencv, to_pos_quat
 from home_robot_hw.env.stretch_pick_and_place_env import StretchPickandPlaceEnv
 from home_robot_hw.remote import StretchClient
 from home_robot_hw.utils.config import load_config
@@ -287,8 +287,6 @@ def main(
         pkl_files = input_path.glob("*.pkl")
         sorted_pkl_files = sorted(pkl_files, key=lambda f: int(f.stem))
         voxel_map = SparseVoxelMap(resolution=voxel_size)
-        # Load semantic sensor setup
-        config, semantic_sensor = create_semantic_sensor(device_id, verbose)
         camera = None
         hfov = 60.2
         for i, pkl_file in enumerate(sorted_pkl_files):
@@ -296,9 +294,6 @@ def main(
             obs = np.load(pkl_file, allow_pickle=True)
             if camera is None:
                 camera = Camera.from_width_height_fov(
-                    obs.rgb.shape[1], obs.rgb.shape[0], hfov
-                )
-                camera_matrix = du.get_camera_matrix(
                     obs.rgb.shape[1], obs.rgb.shape[0], hfov
                 )
             xyt = np.array([obs.gps[0], obs.gps[1], obs.compass[0]])
@@ -313,9 +308,45 @@ def main(
                 import trimesh
                 import trimesh.transformations as tra
 
-                xyz = trimesh.transform_points(xyz.reshape(-1, 3), obs.camera_pose)
-                show_point_cloud(xyz, obs.rgb / 255.0, orig=np.zeros(3))
+                import home_robot.utils.depth as du
+
+                camera_matrix = du.get_camera_matrix(
+                    obs.rgb.shape[1], obs.rgb.shape[0], hfov
+                )
+                agent_pos = obs.camera_pose[:3, 3] * 100
+                agent_height = agent_pos[2]
+                import torch
+
+                device = torch.device("cpu")
+                point_cloud_t = du.get_point_cloud_from_z_t(
+                    torch.Tensor(obs.depth).unsqueeze(0), camera_matrix, device, scale=1
+                )
+                show_point_cloud(
+                    point_cloud_t[0].cpu().numpy(), obs.rgb / 255.0, orig=np.zeros(3)
+                )
+                xyz = point_cloud_t[0].cpu().numpy()
+
+                """
+                # Now co
+                import trimesh.transformations as tra
+                angles = torch.Tensor(
+                    [tra.euler_from_matrix(obs.camera_pose[:3, :3], "rzyx")]
+                )
+                tilt = angles[:, 1]
+                point_cloud_t = du.transform_camera_view_t(
+                    point_cloud_t,
+                    agent_height,
+                    torch.rad2deg(tilt).cpu().numpy(),
+                    device,
+                )
+                show_point_cloud(
+                    point_cloud_t[0].cpu().numpy(), obs.rgb / 255.0, orig=np.zeros(3)
+                )
                 breakpoint()
+                """
+                camera_pose = convert_pose_habitat_to_opencv(obs.camera_pose)
+                xyz = trimesh.transform_points(xyz.reshape(-1, 3), camera_pose)
+                show_point_cloud(xyz, obs.rgb / 255.0, orig=np.zeros(3))
             else:
                 xyz = obs.xyz
             # For backwards compatibility
@@ -337,8 +368,6 @@ def main(
         )
         input_path = Path(input_path)
         voxel_map = SparseVoxelMap(resolution=voxel_size)
-        # Load semantic sensor here
-        config, semantic_sensor = create_semantic_sensor(device_id, verbose)
         voxel_map.read_from_pickle(input_path)
         voxel_map.show(instances=True)
     else:
