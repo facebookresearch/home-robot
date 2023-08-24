@@ -100,7 +100,7 @@ def create_semantic_sensor(
     verbose: bool = True,
     **kwargs,
 ):
-    """Create segmentation sensor and load config"""
+    """Create segmentation sensor and load config. Returns config from file, as well as a OvmmPerception object that can be used to label scenes."""
     print("- Loading configuration")
     config = load_config(visualize=False, **kwargs)
 
@@ -340,7 +340,7 @@ def main(
         # Load semantic sensor here
         config, semantic_sensor = create_semantic_sensor(device_id, verbose)
         voxel_map.read_from_pickle(input_path)
-        voxel_map.show_point_cloud()
+        voxel_map.show(instances=True)
     else:
         raise NotImplementedError(f"- data mode {mode} not supported or recognized")
 

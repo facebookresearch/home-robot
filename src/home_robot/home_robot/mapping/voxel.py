@@ -397,7 +397,7 @@ class SparseVoxelMap(object):
         show_point_cloud(pc_xyz, pc_rgb / 255, orig=np.zeros(3))
         return pc_xyz, pc_rgb
 
-    def show(self) -> Tuple[np.ndarray, np.ndarray]:
+    def show(self, instances: bool = True) -> Tuple[np.ndarray, np.ndarray]:
         """Show and return bounding box information and rgb color information from an explored point cloud. Uses open3d."""
 
         # Create a combined point cloud
@@ -405,43 +405,42 @@ class SparseVoxelMap(object):
         pc_xyz, pc_rgb = self.get_data()
         pcd = numpy_to_pcd(pc_xyz, pc_rgb / 255.0)
         geoms = create_visualization_geometries(pcd=pcd, orig=np.zeros(3))
-        for instance_view in self._instance_views:
-            mins, maxs = instance_view.bounds
-            width, height, depth = maxs - mins
+        if instances:
+            for instance_view in self._instance_views:
+                mins, maxs = instance_view.bounds
+                width, height, depth = maxs - mins
 
-            # Create a mesh to visualzie where the instances were seen
-            mesh_box = open3d.geometry.TriangleMesh.create_box(
-                width=width, height=height, depth=depth
-            )
+                # Create a mesh to visualzie where the instances were seen
+                mesh_box = open3d.geometry.TriangleMesh.create_box(
+                    width=width, height=height, depth=depth
+                )
 
-            # Get vertex array from the mesh
-            vertices = np.asarray(mesh_box.vertices)
+                # Get vertex array from the mesh
+                vertices = np.asarray(mesh_box.vertices)
 
-            # Translate the vertices to the desired position
-            vertices += mins
-            triangles = np.asarray(mesh_box.triangles)
+                # Translate the vertices to the desired position
+                vertices += mins
+                triangles = np.asarray(mesh_box.triangles)
 
-            # Create a wireframe mesh
-            lines = []
-            for tri in triangles:
-                lines.append([tri[0], tri[1]])
-                lines.append([tri[1], tri[2]])
-                lines.append([tri[2], tri[0]])
+                # Create a wireframe mesh
+                lines = []
+                for tri in triangles:
+                    lines.append([tri[0], tri[1]])
+                    lines.append([tri[1], tri[2]])
+                    lines.append([tri[2], tri[0]])
 
-            color = [1.0, 0.0, 0.0]  # Red color (R, G, B)
-            colors = [color for _ in range(len(lines))]
-            wireframe = open3d.geometry.LineSet(
-                points=open3d.utility.Vector3dVector(vertices),
-                lines=open3d.utility.Vector2iVector(lines),
-            )
-            # Get the colors and add to wireframe
-            wireframe.colors = open3d.utility.Vector3dVector(colors)
-            geoms.append(wireframe)
+                color = [1.0, 0.0, 0.0]  # Red color (R, G, B)
+                colors = [color for _ in range(len(lines))]
+                wireframe = open3d.geometry.LineSet(
+                    points=open3d.utility.Vector3dVector(vertices),
+                    lines=open3d.utility.Vector2iVector(lines),
+                )
+                # Get the colors and add to wireframe
+                wireframe.colors = open3d.utility.Vector3dVector(colors)
+                geoms.append(wireframe)
 
         # Show the geometries of where we have explored
         open3d.visualization.draw_geometries(geoms)
-        return pc_xyz, pc_rgb
-
         return pc_xyz, pc_rgb
 
 
