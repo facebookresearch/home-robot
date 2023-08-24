@@ -227,6 +227,7 @@ class SparseVoxelMap(object):
                 torch.Tensor(obs.rgb).permute(2, 0, 1),
                 torch.Tensor(obs.semantic),
                 mask_out_object=False,  # Save the whole image here
+                instance_association="bbox_iou",
             )
 
         # Combine point clouds by adding in the current view to the previous ones and
