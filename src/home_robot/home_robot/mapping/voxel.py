@@ -22,7 +22,6 @@ from home_robot.utils.point_cloud import (
     create_visualization_geometries,
     numpy_to_pcd,
     pcd_to_numpy,
-    show_point_cloud,
 )
 
 # TODO: add rgb
@@ -150,7 +149,8 @@ class SparseVoxelMap(object):
         if self._no_instance_memory:
             return self._instance_views
         else:
-            return self.instances.instance_views[0]
+            # TODO: Sriram: we should change this to do some processing?
+            return self.instances.get_unprocessed_instances_per_env(0).values()
 
     def add(
         self,
@@ -391,8 +391,10 @@ class SparseVoxelMap(object):
             import matplotlib.pyplot as plt
 
             # TODO: uncomment to show the original world representation
+            # from home_robot.utils.point_cloud import show_point_cloud
             # show_point_cloud(self.xyz, self.feats / 255., orig=np.zeros(3))
             # TODO: uncomment to show voxel point cloud
+            # from home_robot.utils.point_cloud import show_point_cloud
             # show_point_cloud(xyz, self.feats/255., orig=self.grid_origin)
 
             plt.subplot(2, 2, 1)
@@ -419,15 +421,6 @@ class SparseVoxelMap(object):
         self.feats = None
         self.observations = []
 
-    def show_point_cloud(self):
-        """Display the aggregated point cloud and return."""
-
-        # Create a combined point cloud
-        # Do the other stuff we need
-        pc_xyz, pc_rgb = self.get_data()
-        show_point_cloud(pc_xyz, pc_rgb / 255, orig=np.zeros(3))
-        return pc_xyz, pc_rgb
-
     def show(self, instances: bool = True) -> Tuple[np.ndarray, np.ndarray]:
         """Show and return bounding box information and rgb color information from an explored point cloud. Uses open3d."""
 
@@ -437,7 +430,7 @@ class SparseVoxelMap(object):
         pcd = numpy_to_pcd(pc_xyz, pc_rgb / 255.0)
         geoms = create_visualization_geometries(pcd=pcd, orig=np.zeros(3))
         if instances:
-            for instance_view in self._instance_views:
+            for instance_view in self.get_instances():
                 mins, maxs = instance_view.bounds
                 width, height, depth = maxs - mins
 

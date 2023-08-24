@@ -330,7 +330,7 @@ def main(
             )
             if i > 0:
                 break
-        voxel_map.show_point_cloud()
+        voxel_map.show()
     elif mode == "pkl":
         click.echo(
             f"- Loading pickled observations from a single file at {input_path}."
