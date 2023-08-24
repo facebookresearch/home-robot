@@ -113,6 +113,12 @@ class ScanNetDataset(object):
         ├── scans
         ├── scans_test
         ├── scannet_instance_data
+        ├── scannet_2d_instance_data
+        │   ├── scene_yyyy_yy
+        │   │   ├── labels
+        │   │   ├── labels-filt
+        │   │   ├── instance
+        │   │   ├── instance-filt
         ├── points
         │   ├── xxxxx.bin
         ├── instance_mask
@@ -139,6 +145,7 @@ class ScanNetDataset(object):
         self.root_dir = Path(root_dir)
         self.posed_dir = self.root_dir / "posed_images"
         self.instance_dir = self.root_dir / "scannet_instance_data"
+        self.instance_2d_dir = self.root_dir / "scannet_instance_data"
         self.scan_dir = self.root_dir / "scannet_instance_data"
         self.split = split
         self.height = height
@@ -154,6 +161,8 @@ class ScanNetDataset(object):
         assert len(self.scene_list) > 0
 
     def find_data(self, scan_name):
+
+        # RGBD + pose
         scene_pose_dir = self.posed_dir / scan_name
         scene_posed_files = list([str(s) for s in scene_pose_dir.iterdir()])
         img_names = list(
@@ -171,10 +180,10 @@ class ScanNetDataset(object):
                 ]
             )
         )[:: self.frame_skip]
-        boxes_path = self.instance_dir / f"{scan_name}_aligned_bbox.npy"
-
         assert len(img_names) == len(depth_names)
         assert len(img_names) == len(pose_names)
+
+        # 2D instance masks
 
         intrinsic_name = self.posed_dir / scan_name / "intrinsic.txt"
         return {
@@ -362,119 +371,11 @@ if __name__ == "__main__":
     import open3d
 
     from home_robot.utils.point_cloud import (
-        get_xyz_coordinates,
         numpy_to_pcd,
         pcd_to_numpy,
         show_point_cloud,
     )
-
-    def get_xyz_coordinates2(
-        depth: torch.Tensor,
-        mask: torch.Tensor,
-        pose: torch.Tensor,
-        inv_intrinsics: torch.Tensor,
-    ) -> torch.Tensor:
-        """Returns the XYZ coordinates for a posed RGBD image.
-
-        Args:
-            depth: The depth tensor, with shape (B, 1, H, W)
-            mask: The mask tensor, with the same shape as the depth tensor,
-                where True means that the point should be masked (not included)
-            inv_intrinsics: The inverse intrinsics, with shape (B, 3, 3)
-            pose: The poses, with shape (B, 4, 4)
-
-        Returns:
-            XYZ coordinates, with shape (N, 3) where N is the number of points in
-            the depth image which are unmasked
-        """
-
-        bsz, _, height, width = depth.shape
-        flipped_mask = ~mask
-
-        # Gets the pixel grid.
-        xs, ys = torch.meshgrid(
-            torch.arange(0, width), torch.arange(0, height), indexing="xy"
-        )
-
-        xy = torch.stack([xs, ys], dim=-1)[None, :, :].repeat_interleave(bsz, dim=0)
-        xy = xy[flipped_mask.squeeze(1)]
-        xyz = torch.cat((xy, torch.ones_like(xy[..., :1])), dim=-1)
-
-        # Associates poses and intrinsics with XYZ coordinates.
-        inv_intrinsics = inv_intrinsics[:, None, None, :, :].expand(
-            bsz, height, width, 3, 3
-        )[flipped_mask.squeeze(1)]
-        pose = pose[:, None, None, :, :].expand(bsz, height, width, 4, 4)[
-            flipped_mask.squeeze(1)
-        ]
-        depth = depth[flipped_mask]
-
-        # Applies intrinsics and extrinsics.
-        xyz = xyz.to(inv_intrinsics).unsqueeze(1) @ inv_intrinsics.permute([0, 2, 1])
-        xyz = xyz * depth[:, None, None]
-        xyz = (xyz[..., None, :] * pose[..., None, :3, :3]).sum(dim=-1) + pose[
-            ..., None, :3, 3
-        ]
-        xyz = xyz.squeeze(1)
-
-        return xyz
-
-    class ObjectPointcloudRepresentation(object):
-        def __init__(self, robot, visualize_planner=False):
-            self.started = False
-            self.voxel_map = SparseVoxelMap(resolution=0.01)
-
-        def step(self, rgb, depth, cam_to_world, K, visualize_map=False):
-            """Step the collector. Get a single observation of the world. Remove bad points, such as
-            those from too far or too near the camera."""
-            # Get the camera pose and make sure this works properly
-            camera_pose = cam_to_world
-            # Get RGB and depth as necessary
-            orig_rgb = rgb.copy()
-            orig_depth = depth.copy()
-
-            assert rgb.shape[:-1] == depth.shape
-            assert rgb.ndim == 3
-            height, width, _ = rgb.shape
-
-            xyz = open3d.camera.PinholeCameraIntrinsic(
-                width, height, K.detach().cpu().numpy()
-            )
-
-            # apply depth filter
-            depth = depth.reshape(-1)
-            rgb = rgb.reshape(-1, 3)
-            xyz = xyz.reshape(-1, 3)
-            valid_depth = np.bitwise_and(depth > 0.1, depth < 4.0)
-            rgb = rgb[valid_depth, :]
-            xyz = xyz[valid_depth, :]
-            # TODO: remove debug code
-            # For now you can use this to visualize a single frame
-            # show_point_cloud(xyz, rgb / 255, orig=np.zeros(3))
-            self.voxel_map.add(
-                camera_pose,
-                xyz,
-                rgb,
-                depth=depth,
-                K=K,
-                orig_rgb=orig_rgb,
-                orig_depth=orig_depth,
-            )
-            if visualize_map:
-                self.voxel_map.get_2d_map(debug=True)
-
-        def get_2d_map(self):
-            """Get 2d obstacle map for low level motion planning and frontier-based exploration"""
-            return self.voxel_map.get_2d_map()
-
-        def show(self) -> Tuple[np.ndarray, np.ndarray]:
-            """Display the aggregated point cloud."""
-
-            # Create a combined point cloud
-            # Do the other stuff we need
-            pc_xyz, pc_rgb = self.voxel_map.get_data()
-            show_point_cloud(pc_xyz, pc_rgb / 255, orig=np.zeros(3))
-            return pc_xyz, pc_rgb
+    from home_robot.utils.point_cloud_torch import get_xyz_coordinates
 
     data = ScanNetDataset(
         root_dir="/private/home/ssax/home-robot/projects/eval_scannet/scannet",
@@ -485,7 +386,7 @@ if __name__ == "__main__":
     depth = result["depths"][0].squeeze().unsqueeze(0).unsqueeze(1)
     valid_depth = (0.1 < depth) & (depth < 4.0)
 
-    xyz = get_xyz_coordinates2(
+    xyz = get_xyz_coordinates(
         depth=depth,
         mask=~valid_depth,
         pose=torch.eye(4).unsqueeze(0),

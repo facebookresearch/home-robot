@@ -4,8 +4,8 @@ test_bboxes_3d.py
 # Don't commit data
 /robot_data/
 /mmdetection3d/
-/scannet/*
+data/*
 # But keep scannet processing files and README
-! /scannet/*.py
-! /scannet/README.md
+! data/*.py
+! data/README.md
 
