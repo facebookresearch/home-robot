@@ -30,6 +30,9 @@ data/
 *.pkl
 *.zip
 
+# Visualizations
+*.ogv
+
 # Git stuff
 *~HEAD
 

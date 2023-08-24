@@ -5,7 +5,7 @@
 import pickle
 from collections import namedtuple
 from pathlib import Path
-from typing import Optional, Tuple
+from typing import List, Optional, Tuple
 
 import numpy as np
 import open3d as open3d
@@ -13,7 +13,10 @@ import trimesh
 from scipy.ndimage import distance_transform_edt
 
 from home_robot.core.interfaces import Observations
-from home_robot.mapping.semantic.instance_tracking_modules import InstanceView
+from home_robot.mapping.semantic.instance_tracking_modules import (
+    InstanceMemory,
+    InstanceView,
+)
 from home_robot.motion.space import XYT
 from home_robot.utils.point_cloud import (
     create_visualization_geometries,
@@ -97,6 +100,10 @@ class SparseVoxelMap(object):
         self.min_depth = min_depth
         self.max_depth = max_depth
 
+        # TODO: remove this if we don't need to track instances ourselves
+        self._no_instance_memory = False
+        self.instances = InstanceMemory(num_envs=1, du_scale=1)
+
         # Create disk for mapping explored areas near the robot - since camera can't always see it
         self._disk_size = np.ceil(1.0 / self.grid_resolution)
         self._visited_disk = create_disk(
@@ -129,6 +136,7 @@ class SparseVoxelMap(object):
 
         # Store instances detected (all of them for now)
         self._instance_views = []
+        self.instances.reset()
 
         # Store 2d map information
         # This is computed from our various point clouds
@@ -136,6 +144,13 @@ class SparseVoxelMap(object):
 
         # Holds 3d data
         self.xyz, self.feats = None, None
+
+    def get_instances(self) -> List[InstanceView]:
+        """Return a list of all viewable instances"""
+        if self._no_instance_memory:
+            return self._instance_views
+        else:
+            return self.instances.instance_views[0]
 
     def add(
         self,
@@ -200,10 +215,24 @@ class SparseVoxelMap(object):
             feats = feats.reshape(-1, 3)
 
         world_xyz = trimesh.transform_points(xyz, camera_pose)
-        instances = InstanceView.create_from_observations(
-            world_xyz, obs, self._seq, valid_mask=valid_depth
-        )
-        self._instance_views += instances
+        if self._no_instance_memory:
+            instances = InstanceView.create_from_observations(
+                world_xyz, obs, self._seq, valid_mask=valid_depth
+            )
+            self._instance_views += instances
+        else:
+            import torch
+
+            # TODO: tensorize earlier
+            self.instances.process_instances_for_env(
+                0,
+                torch.Tensor(obs.instance) + 1,
+                torch.Tensor(obs.xyz),
+                torch.Tensor(obs.rgb).permute(2, 0, 1),
+                torch.Tensor(obs.semantic),
+                mask_out_object=False,
+            )
+            breakpoint()
 
         # Combine point clouds by adding in the current view to the previous ones and
         # voxelizing.
