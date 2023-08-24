@@ -37,6 +37,6 @@ class Planner(ABC):
         self.validate = validate_fn
 
     @abstractmethod
-    def plan(self, q0, qg) -> PlanResult:
+    def plan(self, start, goal) -> PlanResult:
         """returns a trajectory"""
         raise NotImplementedError

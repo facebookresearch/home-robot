@@ -3,8 +3,16 @@
 # This source code is licensed under the MIT license found in the
 # LICENSE file in the root directory of this source tree.
 from abc import ABC, abstractmethod
+from typing import List
 
 import numpy as np
+
+
+class Node(ABC):
+    """Placeholder containing just a state."""
+
+    def __init__(self, state):
+        self.state = state
 
 
 class ConfigurationSpace(ABC):
@@ -21,18 +29,28 @@ class ConfigurationSpace(ABC):
         self.maxs = maxs
         self.ranges = maxs - mins
 
-    def sample_uniform(self) -> np.ndarray:
+    def sample(self) -> np.ndarray:
         return (np.random.random(self.dof) * self.ranges) + self.mins
 
-    @abstractmethod
     def distance(self, q0, q1) -> float:
-        """Return distance between q0 and q1"""
-        raise NotImplementedError()
+        """Return distance between q0 and q1."""
+        return np.linalg.norm(q1 - q1)
 
     @abstractmethod
     def extend(self, q0, q1, step_size=0.1):
         """extend towards another configuration in this space"""
         raise NotImplementedError()
+
+    def closest_node_to_state(self, state, nodes: List[Node]):
+        """returns closest node to a given state"""
+        min_dist = float("Inf")
+        min_node = None
+        for node in nodes:
+            dist = self.distance(node.state, state)
+            if dist < min_dist:
+                min_dist = dist
+                min_node = node
+        return min_node
 
 
 class XYT(ConfigurationSpace):
