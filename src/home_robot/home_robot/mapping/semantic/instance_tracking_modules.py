@@ -56,7 +56,6 @@ class InstanceView:
         embedding,
         mask,
         point_cloud,
-        bounds,
         category_id=None,
         bounds: Optional[Tuple[np.ndarray]] = None,
     ):

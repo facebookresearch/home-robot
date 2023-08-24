@@ -95,28 +95,14 @@ class RosMapDataCollector(object):
         return self.voxel_map.show()
 
 
-def collect_data(
-    rate,
-    max_frames,
-    visualize,
-    manual_wait,
-    pcd_filename,
-    pkl_filename,
-    voxel_size: float = 0.01,
+def create_semantic_sensor(
     device_id: int = 0,
-    visualize_map_at_start: bool = True,
-    visualize_map: bool = True,
-    blocking: bool = True,
     verbose: bool = True,
     **kwargs,
 ):
-    """Collect data from a Stretch robot. Robot will move through a preset trajectory, stopping repeatedly."""
-
+    """Create segmentation sensor and load config"""
     print("- Loading configuration")
     config = load_config(visualize=False, **kwargs)
-
-    print("- Connect to Stretch")
-    robot = StretchClient()
 
     print("- Create and load vocabulary and perception model")
     semantic_sensor = OvmmPerception(config, device_id, verbose, module="detic")
@@ -126,7 +112,32 @@ def collect_data(
     vocab = build_vocab_from_category_map(obj_name_to_id, rec_name_to_id)
     semantic_sensor.update_vocabulary_list(vocab, 0)
     semantic_sensor.set_vocabulary(0)
+    return config, semantic_sensor
 
+
+def collect_data(
+    rate,
+    max_frames,
+    visualize,
+    manual_wait,
+    pcd_filename,
+    pkl_filename,
+    voxel_size: float = 0.01,
+    device_id: int = 0,
+    verbose: bool = True,
+    visualize_map_at_start: bool = True,
+    visualize_map: bool = True,
+    blocking: bool = True,
+    **kwargs,
+):
+    """Collect data from a Stretch robot. Robot will move through a preset trajectory, stopping repeatedly."""
+
+    print("- Connect to Stretch")
+    robot = StretchClient()
+
+    config, semantic_sensor = create_semantic_sensor(device_id, verbose)
+
+    print("- Start ROS data collector")
     collector = RosMapDataCollector(
         robot, semantic_sensor, visualize, voxel_size=voxel_size
     )
@@ -247,6 +258,8 @@ def main(
     output_pkl_filename,
     input_path: str = ".",
     voxel_size: float = 0.01,
+    device_id: int = 0,
+    verbose: bool = True,
     **kwargs,
 ):
 
@@ -263,16 +276,19 @@ def main(
             output_pcd_filename,
             output_pkl_filename,
             voxel_size,
+            device_id,
+            verbose,
             **kwargs,
         )
     elif mode == "dir":
         # This is for backwards compatibility with the GOAT data
-        click.echo(f"- Loading pickled observations from a directory at {input_path}.")
         print("WARNING! This is not fully supported yet.")
         input_path = Path(input_path)
         pkl_files = input_path.glob("*.pkl")
         sorted_pkl_files = sorted(pkl_files, key=lambda f: int(f.stem))
         voxel_map = SparseVoxelMap(resolution=voxel_size)
+        # Load semantic sensor setup
+        config, semantic_sensor = create_semantic_sensor(device_id, verbose)
         camera = None
         hfov = 60.2
         for i, pkl_file in enumerate(sorted_pkl_files):
@@ -321,6 +337,8 @@ def main(
         )
         input_path = Path(input_path)
         voxel_map = SparseVoxelMap(resolution=voxel_size)
+        # Load semantic sensor here
+        config, semantic_sensor = create_semantic_sensor(device_id, verbose)
         voxel_map.read_from_pickle(input_path)
         voxel_map.show_point_cloud()
     else:
