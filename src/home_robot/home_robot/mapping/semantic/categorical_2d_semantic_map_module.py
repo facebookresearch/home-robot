@@ -70,7 +70,7 @@ class Categorical2DSemanticMapModule(nn.Module):
         evaluate_instance_tracking: bool = False,
         instance_memory: Optional[InstanceMemory] = None,
         max_instances: int = 0,
-        instance_association: str = "iou",
+        instance_association: str = "bbox_iou",
         dilation_for_instances: int = 5,
         padding_for_instance_overlap: int = 5,
     ):
@@ -947,7 +947,7 @@ class Categorical2DSemanticMapModule(nn.Module):
         particular environment.
         """
 
-        if self.record_instance_ids and self.instance_association == "map":
+        if self.record_instance_ids and self.instance_association == "map_overlap":
             global_map = self._update_global_map_instances(
                 e, global_map, local_map, lmb
             )

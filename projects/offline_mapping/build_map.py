@@ -317,6 +317,7 @@ def main(input_trajectory_dir: str, output_visualization_dir: str, legend_path: 
         instance_memory = InstanceMemory(
             1,
             4,
+            instance_association="map_overlap",
             debug_visualize=True,
         )
 
@@ -358,6 +359,7 @@ def main(input_trajectory_dir: str, output_visualization_dir: str, legend_path: 
         min_obs_height_cm=10,
         record_instance_ids=record_instance_ids,
         instance_memory=instance_memory,
+        instance_association="map_overlap",
     ).to(device)
 
     # --------------------------------------------------------------------------------------------

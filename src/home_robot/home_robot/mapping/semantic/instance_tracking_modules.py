@@ -102,7 +102,7 @@ class InstanceMemory:
         self,
         num_envs: int,
         du_scale: int,
-        instance_association: str = "iou",
+        instance_association: str = "bbox_iou",
         iou_threshold: float = 0.8,
         debug_visualize: bool = False,
     ):
@@ -213,10 +213,10 @@ class InstanceMemory:
         The association process can be based on Intersection over Union (IoU) or a global map.
 
         For each environment and local instance view, the following steps are taken:
-        - If the instance association method is set to "iou", the best matching global instance is found using the
+        - If the instance association method is set to "bbox_iou", the best matching global instance is found using the
         `find_global_instance_by_bbox_overlap` method. If a suitable global instance is not found (IoU below a threshold),
         a new instance is created. Otherwise, the instance view is associated with the existing global instance.
-        - If the instance association method is set to "map", the association occurs during the global map update, and no action is taken here.
+        - If the instance association method is set to "map_overlap", the association occurs during the global map update, and no action is taken here.
         - If the instance association method is not recognized, a NotImplementedError is raised.
 
         Note:
@@ -229,7 +229,7 @@ class InstanceMemory:
             for local_instance_id, instance_view in self.unprocessed_views[
                 env_id
             ].items():
-                if self.instance_association == "iou":
+                if self.instance_association == "bbox_iou":
                     global_instance_id = self.find_global_instance_by_bbox_overlap(
                         env_id, local_instance_id
                     )
@@ -238,7 +238,7 @@ class InstanceMemory:
                     self.add_view_to_instance(
                         env_id, local_instance_id, global_instance_id
                     )
-                elif self.instance_association == "map":
+                elif self.instance_association == "map_overlap":
                     # association happens at the time of global map update
                     pass
                 else:
