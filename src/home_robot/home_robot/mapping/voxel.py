@@ -11,20 +11,19 @@ import numpy as np
 import open3d as open3d
 import torch
 import trimesh
-from scipy.ndimage import distance_transform_edt
 
 from home_robot.core.interfaces import Observations
 from home_robot.mapping.semantic.instance_tracking_modules import (
     InstanceMemory,
     InstanceView,
 )
-from home_robot.motion.space import XYT
 from home_robot.utils.point_cloud import (
     create_visualization_geometries,
     numpy_to_pcd,
     pcd_to_numpy,
     show_point_cloud,
 )
+from home_robot.utils.visualization import create_disk
 
 # TODO: add K
 Frame = namedtuple(
@@ -33,7 +32,6 @@ Frame = namedtuple(
 
 
 DEFAULT_GRID_SIZE = [512, 512]
-GRID_CHANNELS = 3
 
 
 def combine_point_clouds(
@@ -86,23 +84,6 @@ def combine_point_clouds(
         point_cloud = point_cloud.voxel_down_sample(voxel_size=sparse_voxel_size)
         new_feats = None
     return point_cloud, new_feats
-
-
-def create_disk(radius, size):
-    """create disk of the given size - helper function used to get explored areas"""
-
-    # Create a grid of coordinates
-    x = np.arange(0, size)
-    y = np.arange(0, size)
-    xx, yy = np.meshgrid(x, y, indexing="ij")
-
-    # Compute the distance transform
-    distance_map = np.sqrt((xx - size // 2) ** 2 + (yy - size // 2) ** 2)
-
-    # Create the disk by thresholding the distance transform
-    disk = distance_map <= radius
-
-    return disk
 
 
 class SparseVoxelMap(object):
@@ -502,21 +483,3 @@ class SparseVoxelMap(object):
         # Show the geometries of where we have explored
         open3d.visualization.draw_geometries(geoms)
         return pc_xyz, pc_rgb
-
-
-class SparseVoxelGridXYTSpace(XYT):
-    """subclass for sampling XYT states from explored space"""
-
-    def __init__(self, voxel_map: SparseVoxelMap):
-        self.map = voxel_map
-
-    def sample_uniform(self):
-        """Sample any position that corresponds to an "explored" location. Goals are valid if they are within a reasonable distance of explored locations. Paths through free space are ok and don't collide."""
-        # Extract 2d map from this - hopefully it is already cached
-        obstacles, explored = self.map.get_2d_map()
-
-        # Sample any point which is explored and not an obstacle
-
-        # Sample a random orientation
-
-        raise NotImplementedError()
