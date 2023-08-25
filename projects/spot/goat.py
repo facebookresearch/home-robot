@@ -69,6 +69,28 @@ def create_video(images, output_file, fps):
         video_writer.write(image)
     video_writer.release()
 
+def distance_to_class(obs,target_class):
+    response = obs.raw_obs['depth_response']
+    target_mask = obs.semantic == target_class
+    mask_points = np.stack(np.where(target_mask),axis=-1)
+    centroid = mask_points.mean(axis=0).astype(int)
+    assert target_mask[centroid[0],centroid[1]]
+    pixel_xy = (centroid[1],centroid[0])
+    point = point_from_depth_image(response,pixel_xy,BODY_FRAME_NAME)
+    dist = np.linalg.norm(point)
+    return dist,pixel_xy
+
+def attempt_grasp(obs,pixel_xy,num_attempts=3):
+    response = obs.raw_obs['rgb_response']
+    x,y,yaw = spot.get_xy_yaw(transforms_snapshot = response.shot.transforms_snapshot)
+    grasp_success = False
+    for _ in range(num_attempts):
+        spot.set_base_position(x,y,yaw,10,relative=False, max_fwd_vel=0.5, max_hor_vel=0.5, max_ang_vel=np.pi / 4,blocking=True)
+        grasp_success = spot.grasp_point_in_image(response,pixel_xy=pixel_xy)
+        if grasp_success:
+            break
+    return grasp_success
+
 
 def resize_image_to_fit(img, target_width, target_height):
     # Calculate the aspect ratio of the original image.
@@ -723,6 +745,7 @@ def main(spot=None, args=None):
     agent.reset()
 
     pan_warmup = False
+    picked = False
     keyboard_takeover = args.keyboard
     if pan_warmup:
         assert not OFFLINE
@@ -833,9 +856,9 @@ def main(spot=None, args=None):
                     if positions[0] < -2.5:
                         pan_warmup = False
                         env.env.initialize_arm()
-                elif args.pick_place and target_mask.sum() > 0:
-                    from home_robot.utils.spot import find_largest_connected_component
+                elif picked and args.pick_place and target_mask.sum() > 0:
                     import pdb; pdb.set_trace()
+                    from home_robot.utils.spot import find_largest_connected_component
                     largest_mask = find_largest_connected_component(target_mask)
                     response = obs.raw_obs['depth_response']
                     points = masked_point_cloud_from_depth_image(response,largest_mask,VISION_FRAME_NAME)
@@ -869,7 +892,6 @@ def main(spot=None, args=None):
                     motion_target = selected_point + offset
                     INITIAL_RPY = np.deg2rad([0.0, 55.0, 0.0])
                     env.env.initialize_arm()
-                    from IPython import embed; embed()
                     def yaw_toward(target):
                         px,py,yaw = spot.get_xy_yaw()
                         angle = math.atan2((target[1] - py), (target[0] - px)) % (2 * np.pi)
@@ -889,41 +911,22 @@ def main(spot=None, args=None):
                     cmd_id = spot.move_gripper_to_point(motion_target, INITIAL_RPY,frame_name=VISION_FRAME_NAME)
                     spot.open_gripper()
                     env.env.initialize_arm()
-                    
-                elif args.pick_place and target_mask.sum() > 0:
-                    response = obs.raw_obs['depth_response']
-                    mask_points = np.stack(np.where(target_mask),axis=-1)
-                    centroid = mask_points.mean(axis=0).astype(int)
-                    assert target_mask[centroid[0],centroid[1]]
-                    pixel_xy = (centroid[1],centroid[0])
-                    point = point_from_depth_image(response,pixel_xy,BODY_FRAME_NAME)
-                    dist = np.linalg.norm(point)
+                elif not picked and args.pick_place and target_mask.sum() > 0:
+                    import pdb; pdb.set_trace()
+                    dist,pixel_xy = distance_to_class(obs,target_semantic_class)
                     print("Distance to object: ",dist)
                     if dist < 3:
                         print("Seeking object")
-                        # walk to where the shot was taken
-                        x,y,yaw = spot.get_xy_yaw(transforms_snapshot = response.shot.transforms_snapshot)
-                        spot.set_base_position(x,y,yaw,10,relative=False, max_fwd_vel=0.5, max_hor_vel=0.5, max_ang_vel=np.pi / 4,blocking=True)
-                        global_point = point_from_depth_image(response,pixel_xy,VISION_FRAME_NAME)
-                        env.env.initialize_arm()
-                        # loot at detection
-                        spot.look_at(global_point,VISION_FRAME_NAME)
-
-                        # TODO: might need to wait for new observation
-                        nobs = env.get_observation()
-                        # has to be rgb for grasping for some reason
-                        rgb_response = nobs.raw_obs['rgb_response']
-                        target_mask = nobs.semantic == target_semantic_class
-                        mask_points = np.stack(np.where(target_mask),axis=-1)
-                        centroid = mask_points.mean(axis=0).astype(int)
-                        pixel_xy = (centroid[1],centroid[0])
-                        vis_im = nobs.task_observations['semantic_frame'].copy()
-                        vis_im = cv2.circle(vis_im, (pixel_xy[0],pixel_xy[1]), 3, (0,0,255),-1)
-                        cv2.imshow('grasp_frame',vis_im)
-                        cv2.waitKey(1)
-                        grasp_result = spot.grasp_point_in_image(rgb_response,pixel_xy=pixel_xy)
-                        env.env.initialize_arm()
-                        print("Grasp success" if grasp_result else "Grasp Failed")
+                        grasp_success = attempt_grasp(obs,pixel_xy)
+                        env.env.initialize_arm(open_gripper=False)
+                        print("Grasp success" if grasp_success else "Grasp Failed")
+                        if  grasp_success:
+                            picked=True
+                            agent.current_task_idx += 1
+                            env.env.place_on_back()
+                        else:
+                            print("Grap Failed: dropping to keyboard")
+                            keyboard_takeover = True
                 else:
                     if action is not None:
                         env.apply_action(action)

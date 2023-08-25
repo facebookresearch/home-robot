@@ -243,6 +243,7 @@ class DiscretePlanner:
             )
         except Exception as e:
             print("Warning! Planner crashed with error:", e)
+            # debug self._get_short_term_goal(obstacle_map, goal_map, start, planning_window, plan_to_dilated_goal=use_dilation_for_stg, frontier_map=frontier_map, orientation = start_o, found_goal=found_goal)
             return (
                 DiscreteNavigationAction.STOP,
                 np.zeros(goal_map.shape),
@@ -513,7 +514,7 @@ class DiscretePlanner:
         traversible = 1 - dilated_obstacles
         # traversible[self.collision_map[gx1:gx2, gy1:gy2][x1:x2, y1:y2] == 1] = 0
         traversible[self.visited_map[gx1:gx2, gy1:gy2][x1:x2, y1:y2] == 1] = 1
-        agent_rad = self.agent_cell_radius
+        # agent_rad = self.agent_cell_radius
         # traversible[
             # int(start[0] - x1) - agent_rad : int(start[0] - x1) + agent_rad + 1,
             # int(start[1] - y1) - agent_rad : int(start[1] - y1) + agent_rad + 1,
@@ -550,31 +551,29 @@ class DiscretePlanner:
             vis_goal_map = np.zeros_like(dists)
             vis_goal_map[long_term_goal[0],long_term_goal[1]] = 1
         else:
-            # force unreachable goal
-
             map_obs = np.ones_like(obstacles)
             map_obs[goal_map == 1] = 0
             marr = np.ma.MaskedArray(map_obs,obstacles)
+            num_reachable_goals = ((~dists.mask) & (goal_map==1)).sum()
             
-            goal_dists = np.ma.MaskedArray(skfmm.distance(marr))
-            if found_goal:
-                num_reachable_goals = ((~dists.mask) & (goal_map==1)).sum()
+            if found_goal and num_reachable_goals == 0:
                 # if the goal is not reachable, find the closest reachable point and replan
-                if num_reachable_goals == 0:
-                    reachable = np.stack(np.where(~dists.mask),1)
-                    goal_locs = np.stack(np.where(goal_map==1),1)
-                    d1 = np.subtract.outer(reachable[:,0],goal_locs[:,0])
-                    d2 = np.subtract.outer(reachable[:,1],goal_locs[:,1])
-                    point_dists = np.linalg.norm(np.stack((d1,d2)),axis=0)
-                    min_point = np.unravel_index(point_dists.argmin(), point_dists.shape)
-                    nearest_reachable_point = reachable[min_point[0]]
-                    # recompute goal distances
-                    goal_map[nearest_reachable_point[0],nearest_reachable_point[1]] = 1
-                    map_obs[goal_map == 1] = 0
-                    marr = np.ma.MaskedArray(map_obs,obstacles)
-                    goal_dists = np.ma.MaskedArray(skfmm.distance(marr))
-                    num_reachable_goals = ((~dists.mask) & (goal_map==1)).sum()
-                    assert num_reachable_goals > 0
+                reachable = np.stack(np.where(~dists.mask),1)
+                goal_locs = np.stack(np.where(goal_map==1),1)
+                d1 = np.subtract.outer(reachable[:,0],goal_locs[:,0])
+                d2 = np.subtract.outer(reachable[:,1],goal_locs[:,1])
+                point_dists = np.linalg.norm(np.stack((d1,d2)),axis=0)
+                min_point = np.unravel_index(point_dists.argmin(), point_dists.shape)
+                nearest_reachable_point = reachable[min_point[0]]
+                # recompute goal distances
+                goal_map[nearest_reachable_point[0],nearest_reachable_point[1]] = 1
+                map_obs[goal_map == 1] = 0
+                marr = np.ma.MaskedArray(map_obs,obstacles)
+                goal_dists = np.ma.MaskedArray(skfmm.distance(marr))
+                num_reachable_goals = ((~dists.mask) & (goal_map==1)).sum()
+                assert num_reachable_goals > 0
+            else:
+                goal_dists = np.ma.MaskedArray(skfmm.distance(marr))
                     
             # grid sampling creates bias towards corners
             local_grid = np.ones((self.step_size*2+1,self.step_size*2+1))
@@ -619,7 +618,17 @@ class DiscretePlanner:
             vis('agent_dists',dists)
             vis('goal_dists',goal_dists)
             vis('total_cost',total_cost)
+            # cv2.imshow('proto_dist',proto_dist/proto_dist.max())
+            # cv2.imshow('local_dists',local_dists/local_dists.max())
+            # cv2.imshow('diff_dists',diff_dists/diff_dists.max()) 
+            # cv2.imshow('straight_line_mask',straight_line_mask/straight_line_mask.max()) 
+            # cv2.imshow('agent_dists',dists/dists.max()) 
+            # cv2.imshow('goal_dists',goal_dists/goal_dists.max())
+            # cv2.imshow('total_cost',total_cost/total_cost.max())
+            # cv2.waitKey(1)
+            # breakpoint()
             
+            # local_stg = np.unravel_index(np.argmin(local_goal_dists),local_goal_dists.shape)
             local_stg = np.unravel_index(np.argmin(total_cost),local_goal_dists.shape)
             # adjust back to the uncropped frame
             stg_x,stg_y = local_stg + cnp - self.step_size
