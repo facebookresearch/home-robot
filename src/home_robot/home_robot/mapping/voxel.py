@@ -77,12 +77,15 @@ def combine_point_clouds(
             min_bound=np.min(pc_xyz, axis=0),
             max_bound=np.max(pc_xyz, axis=0),
         )
-        # Features need to be downsampled using trace matrix
-        new_features = pc_feats
+        # Features need to be downsampled using trace matrix. This is going to be slow.
+        new_feats = np.zeros((len(trace_indices), feats.shape[-1]))
+        for i, indices in enumerate(trace_indices):
+            feature_vec = np.mean(pc_feats[indices], axis=0)
+            new_feats[i] = feature_vec
     else:
         point_cloud = point_cloud.voxel_down_sample(voxel_size=sparse_voxel_size)
-        new_features = None
-    return point_cloud, new_features
+        new_feats = None
+    return point_cloud, new_feats
 
 
 def create_disk(radius, size):
