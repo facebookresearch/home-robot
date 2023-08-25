@@ -46,7 +46,6 @@ class InstanceView:
     point_cloud: np.ndarray = None
     bounds: Tuple[np.ndarray, np.ndarray]
     category_id: Optional[int] = None
-    bounds: Optional[Tuple[np.ndarray]] = None
 
     def __init__(
         self,
@@ -70,7 +69,6 @@ class InstanceView:
         self.point_cloud = point_cloud
         self.bounds = bounds
         self.category_id = category_id
-        self.bounds = bounds
 
     @staticmethod
     def create_from_observations(
