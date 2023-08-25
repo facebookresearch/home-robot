@@ -12,24 +12,20 @@ from typing import Callable, List
 import numpy as np
 
 from home_robot.motion.base import Planner, PlanResult
-from home_robot.motion.rrt import TreeNode
+from home_robot.motion.rrt import RRT, TreeNode
 from home_robot.motion.space import ConfigurationSpace, Node
 
 
-class RRTConnect(Planner):
+class RRTConnect(RRT):
     """Define RRT planning problem and parameters. Holds two different trees and tries to connect them with some probabability."""
 
     def __init__(
         self,
-        space: ConfigurationSpace,
-        validate_fn: Callable,
-        p_sample_goal: float = 0.1,
-        goal_tolerance: float = 1e-4,
-        p_connect_trees: float = 0.1,
+        *args,
+        **kwargs,
     ):
         """Create RRT planner with configuration"""
-        super(RRTConnect, self).__init__(space, validate_fn)
-        self.p_sample_goal = p_sample_goal
+        super(RRTConnect, self).__init__(*args, **kwargs)
         self.reset()
 
     def reset(self):
@@ -56,3 +52,17 @@ class RRTConnect(Planner):
             return PlanResult(False)
         # Add start to the tree
         self.nodes_rev.append(TreeNode(goal))
+
+        force_sample_goal = True
+        for i in range(self.max_iter):
+            # Loop for a certain number of iterations
+            if force_sample_goal:
+                # Always sample in the first timestep
+                should_sample_goal = True
+                force_sample_goal = False
+            else:
+                should_sample_goal = random() < self.p_sample_goal
+
+            print(should_sample_goal)
+
+        return PlanResult(False)

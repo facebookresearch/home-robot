@@ -8,7 +8,7 @@
 
 import time
 from random import random
-from typing import Callable, List
+from typing import Callable, List, Optional
 
 import matplotlib.pyplot as plt
 import numpy as np
@@ -94,17 +94,19 @@ class RRT(Planner):
         #    self.sample_goal = lambda: goal
         self.goal_state = goal
         # Always try goal first
-        res = self.step_planner(force_sample_goal=True)
+        res, _ = self.step_planner(force_sample_goal=True)
         if res.success:
             return res
         # Iterate a bunch of times
         for i in range(self.max_iter - 1):
-            res = self.step_planner()
+            res, _ = self.step_planner()
             if res.success:
                 return res
         return PlanResult(False)
 
-    def step_planner(self, force_sample_goal=False) -> PlanResult:
+    def step_planner(
+        self, force_sample_goal=False, nodes: Optional[TreeNode] = None
+    ) -> PlanResult:
         """Continue planning for a while. In case you want to try for anytime planning."""
         assert (
             self.goal_state is not None
@@ -117,6 +119,8 @@ class RRT(Planner):
             should_sample_goal = True
         else:
             should_sample_goal = random() < self.p_sample_goal
+        if nodes is None:
+            nodes = self.nodes
         # Get a new state
         next_state = self.goal_state if should_sample_goal else self.space.sample()
         closest = self.space.closest_node_to_state(next_state, self.nodes)
@@ -135,4 +139,4 @@ class RRT(Planner):
             ):
                 # We made it! We're close enough to goal to be done
                 return PlanResult(True, self.nodes[-1].backup())
-        return PlanResult(False)
+        return PlanResult(False), closest
