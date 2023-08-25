@@ -171,14 +171,14 @@ def collect_data(
         (0.6, 0.45, 5 * np.pi / 4),
         (0.0, 0.3, -np.pi / 2),
         (0, 0, 0),
-        # (0.2, 0, 0),
-        # (0.5, 0, 0),
-        # (0.7, 0.2, np.pi / 4),
-        # (0.7, 0.4, np.pi / 2),
-        # (0.5, 0.4, np.pi),
-        # (0.2, 0.2, -np.pi / 4),
-        # (0, 0, -np.pi / 2),
-        # (0, 0, 0),
+        (0.2, 0, 0),
+        (0.5, 0, 0),
+        (0.7, 0.2, np.pi / 4),
+        (0.7, 0.4, np.pi / 2),
+        (0.5, 0.4, np.pi),
+        (0.2, 0.2, -np.pi / 4),
+        (0, 0, -np.pi / 2),
+        (0, 0, 0),
     ]
 
     collector.step(visualize_map=visualize_map_at_start)  # Append latest observations
