@@ -13,13 +13,16 @@ from typing import List, Optional, Union
 import cv2
 import numpy as np
 import torch
-from torch_geometric.nn.pool.voxel_grid import voxel_grid
 
 from home_robot.utils.image import Camera
 
 
 def depth_to_xyz(depth: torch.Tensor, camera: Camera):
     """get depth from numpy using simple pinhole camera model"""
+    # TODO: convert to torch:
+    # xs, ys = torch.meshgrid(
+    #     torch.arange(0, width), torch.arange(0, height), indexing="xy", device=depth.device
+    # )
     indices = np.indices((camera.height, camera.width), dtype=np.float32).transpose(
         1, 2, 0
     )
@@ -31,6 +34,59 @@ def depth_to_xyz(depth: torch.Tensor, camera: Camera):
 
     # Should now be batch x height x width x 3, after this:
     xyz = torch.stack([x, y, z], axis=-1)
+    return xyz
+
+
+def unproject_masked_depth_to_xyz_coordinates(
+    depth: torch.Tensor,
+    mask: torch.Tensor,
+    pose: torch.Tensor,
+    inv_intrinsics: torch.Tensor,
+) -> torch.Tensor:
+    """Returns the XYZ coordinates for a batch posed RGBD image.
+
+    Args:
+        depth: The depth tensor, with shape (B, 1, H, W)
+        mask: The mask tensor, with the same shape as the depth tensor,
+            where True means that the point should be masked (not included)
+        inv_intrinsics: The inverse intrinsics, with shape (B, 3, 3)
+        pose: The poses, with shape (B, 4, 4)
+
+    Returns:
+        XYZ coordinates, with shape (N, 3) where N is the number of points in
+        the depth image which are unmasked
+    """
+
+    bsz, _, height, width = depth.shape
+    flipped_mask = ~mask
+
+    # Gets the pixel grid.
+    xs, ys = torch.meshgrid(
+        torch.arange(0, width, device=depth.device),
+        torch.arange(0, height, device=depth.device),
+        indexing="xy",
+    )
+    xy = torch.stack([xs, ys], dim=-1)[None, :, :].repeat_interleave(bsz, dim=0)
+    xy = xy[flipped_mask.squeeze(1)]
+    xyz = torch.cat((xy, torch.ones_like(xy[..., :1])), dim=-1)
+
+    # Associates poses and intrinsics with XYZ coordinates.
+    inv_intrinsics = inv_intrinsics[:, None, None, :, :].expand(
+        bsz, height, width, 3, 3
+    )[flipped_mask.squeeze(1)]
+    pose = pose[:, None, None, :, :].expand(bsz, height, width, 4, 4)[
+        flipped_mask.squeeze(1)
+    ]
+    depth = depth[flipped_mask]
+
+    # Applies intrinsics and extrinsics.
+    xyz = xyz.to(inv_intrinsics).unsqueeze(1) @ inv_intrinsics.permute([0, 2, 1])
+    xyz = xyz * depth[:, None, None]
+    xyz = (xyz[..., None, :] * pose[..., None, :3, :3]).sum(dim=-1) + pose[
+        ..., None, :3, 3
+    ]
+    xyz = xyz.squeeze(1)
+
     return xyz
 
 
@@ -140,38 +196,39 @@ def grid_pool_point_cloud(
     Overlays a grid, and selects one point in each grid cell (if one exists). If use_random_centers is True,
     the point selected is random within that cell. Otherwise it's whichever voxel_grid returns first.
     """
-    # Voxel grid returns a list, same length as the original, with a mapping to unique grid identifiers
-    xyz_grid_indices = voxel_grid(unbatched_xyz, voxel_size, unbatched_batch_ids)
+    raise NotImplementedError
+    # # Voxel grid returns a list, same length as the original, with a mapping to unique grid identifiers
+    # xyz_grid_indices = voxel_grid(unbatched_xyz, voxel_size, unbatched_batch_ids)
 
-    # We wish to take one of each grid identifier, to use as our point
-    # Based on: https://stackoverflow.com/questions/72001505/how-to-get-unique-elements-and-their-firstly-appeared-indices-of-a-pytorch-tenso
-    grid_ids, xyz_to_grid_id, grid_cell_counts = torch.unique(
-        xyz_grid_indices, sorted=True, return_inverse=True, return_counts=True
-    )
+    # # We wish to take one of each grid identifier, to use as our point
+    # # Based on: https://stackoverflow.com/questions/72001505/how-to-get-unique-elements-and-their-firstly-appeared-indices-of-a-pytorch-tenso
+    # grid_ids, xyz_to_grid_id, grid_cell_counts = torch.unique(
+    #     xyz_grid_indices, sorted=True, return_inverse=True, return_counts=True
+    # )
 
-    # The grid ids are sorted, and the counts match that sorting. So if we sort xyz_to_grid_id and get the mapping
-    # from that operation, we can use the count maps as indices into the original xyzs, by doing cumsum
-    _, xyz_to_grid_id_sort_mapping = torch.sort(xyz_to_grid_id, stable=True)
+    # # The grid ids are sorted, and the counts match that sorting. So if we sort xyz_to_grid_id and get the mapping
+    # # from that operation, we can use the count maps as indices into the original xyzs, by doing cumsum
+    # _, xyz_to_grid_id_sort_mapping = torch.sort(xyz_to_grid_id, stable=True)
 
-    if use_random_centers:
-        random_offsets = (
-            torch.rand(grid_cell_counts.shape[0]).to(grid_cell_counts.device)
-            * grid_cell_counts
-        ).int()
-    else:
-        random_offsets = 0
+    # if use_random_centers:
+    #     random_offsets = (
+    #         torch.rand(grid_cell_counts.shape[0]).to(grid_cell_counts.device)
+    #         * grid_cell_counts
+    #     ).int()
+    # else:
+    #     random_offsets = 0
 
-    unique_grid_indices = (
-        torch.cat(
-            (
-                torch.tensor([0]).to(grid_cell_counts.device),
-                grid_cell_counts.cumsum(0)[:-1],
-            ),
-            axis=0,
-        )
-        + random_offsets
-    )
-    unique_grid_xyz_indices = xyz_to_grid_id_sort_mapping[unique_grid_indices]
+    # unique_grid_indices = (
+    #     torch.cat(
+    #         (
+    #             torch.tensor([0]).to(grid_cell_counts.device),
+    #             grid_cell_counts.cumsum(0)[:-1],
+    #         ),
+    #         axis=0,
+    #     )
+    #     + random_offsets
+    # )
+    # unique_grid_xyz_indices = xyz_to_grid_id_sort_mapping[unique_grid_indices]
 
-    # We return the indices into the original data, for consistency with fps
-    return unique_grid_xyz_indices
+    # # We return the indices into the original data, for consistency with fps
+    # return unique_grid_xyz_indices
