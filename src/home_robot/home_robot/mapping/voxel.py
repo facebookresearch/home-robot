@@ -243,11 +243,12 @@ class SparseVoxelMap(object):
             instance = obs.instance
         self.instances.process_instances_for_env(
             0,
-            torch.Tensor(instance) + 1,
+            torch.Tensor(instance),
             torch.Tensor(full_world_xyz.reshape(W, H, 3)),
             torch.Tensor(obs.rgb).permute(2, 0, 1),
             torch.Tensor(obs.semantic),
             mask_out_object=False,  # Save the whole image here
+            background_class_label=-1,
         )
         self.instances.associate_instances_to_memory()
 

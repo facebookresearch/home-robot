@@ -348,6 +348,7 @@ class InstanceMemory:
         image: torch.Tensor,
         semantic_seg: Optional[torch.Tensor] = None,
         mask_out_object: bool = True,
+        background_class_label: int = 0,
     ):
         """
         Process instance information in the current frame and add instance views to the list of unprocessed views for future association.
@@ -362,6 +363,7 @@ class InstanceMemory:
             image (torch.Tensor): Image data.
             semantic_seg (Optional[torch.Tensor]): Semantic segmentation tensor, if available.
             mask_out_object (bool): true if we want to save crops of just objects on black background; false otherwise
+            background_class_label(int): id used to represent background points in instance mask (default = 0)
 
         Note:
             - The method creates instance views for detected instances within the provided data.
@@ -395,7 +397,7 @@ class InstanceMemory:
         instance_ids = torch.unique(instance_seg)
         for instance_id in instance_ids:
             # skip background
-            if instance_id == 0:
+            if instance_id == background_class_label:
                 continue
             # get instance mask
             instance_mask = instance_seg == instance_id
