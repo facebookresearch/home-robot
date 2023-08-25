@@ -185,6 +185,8 @@ class SparseVoxelMap(object):
             assert (
                 xyz.shape[0] == feats.shape[0]
             ), "features must be available for each point"
+            # Concatenate RGB image and features
+            # feats = np.concatenate([rgb, feats], axis=-1)
         else:
             # Copy features as RGB for now
             feats = rgb
@@ -205,7 +207,6 @@ class SparseVoxelMap(object):
             depth = depth.reshape(-1)
             valid_depth = np.bitwise_and(depth > self.min_depth, depth < self.max_depth)
             feats = feats[valid_depth, :]
-            rgb = rgb[valid_depth, :]
             xyz = xyz[valid_depth, :]
             world_xyz = full_world_xyz[valid_depth, :]
         else:
@@ -224,9 +225,15 @@ class SparseVoxelMap(object):
             # In OvmmPerception, it is -1
             # This is why we add 1 to the image instance mask below.
             # TODO: it is very inefficient to do this wri
+            if valid_depth is not None:
+                instance = obs.instance.reshape(-1)
+                instance[valid_depth == 0] = -1
+                instance = instance.reshape(W, H)
+            else:
+                instance = obs.instance
             self.instances.process_instances_for_env(
                 0,
-                torch.Tensor(obs.instance) + 1,
+                torch.Tensor(instance) + 1,
                 torch.Tensor(full_world_xyz.reshape(W, H, 3)),
                 torch.Tensor(obs.rgb).permute(2, 0, 1),
                 torch.Tensor(obs.semantic),
@@ -454,7 +461,8 @@ class SparseVoxelMap(object):
                     lines.append([tri[1], tri[2]])
                     lines.append([tri[2], tri[0]])
 
-                color = [1.0, 0.0, 0.0]  # Red color (R, G, B)
+                # color = [1.0, 0.0, 0.0]  # Red color (R, G, B)
+                color = np.random.random(3)
                 colors = [color for _ in range(len(lines))]
                 wireframe = open3d.geometry.LineSet(
                     points=open3d.utility.Vector3dVector(vertices),

@@ -345,8 +345,8 @@ def main(
                 breakpoint()
                 """
                 camera_pose = convert_pose_habitat_to_opencv(obs.camera_pose)
-                xyz = trimesh.transform_points(xyz.reshape(-1, 3), camera_pose)
-                show_point_cloud(xyz, obs.rgb / 255.0, orig=np.zeros(3))
+                cvt_xyz = trimesh.transform_points(xyz.reshape(-1, 3), obs.camera_pose)
+                show_point_cloud(cvt_xyz, obs.rgb / 255.0, orig=np.zeros(3))
             else:
                 xyz = obs.xyz
             # For backwards compatibility
