@@ -9,6 +9,7 @@ from typing import List, Optional, Tuple
 
 import numpy as np
 import open3d as open3d
+import torch
 import trimesh
 from scipy.ndimage import distance_transform_edt
 
@@ -97,8 +98,7 @@ class SparseVoxelMap(object):
         self.min_depth = min_depth
         self.max_depth = max_depth
 
-        # TODO: remove this if we don't need to track instances ourselves
-        self._no_instance_memory = False
+        # Create an instance memory to associate bounding boxes in space
         self.instances = InstanceMemory(
             num_envs=1, du_scale=1, instance_association="bbox_iou"
         )
@@ -130,7 +130,6 @@ class SparseVoxelMap(object):
         self._visited = np.zeros(self.grid_size)
 
         # Store instances detected (all of them for now)
-        self._instance_views = []
         self.instances.reset()
 
         # Store 2d map information
@@ -212,35 +211,28 @@ class SparseVoxelMap(object):
         else:
             valid_depth = None
 
-        if self._no_instance_memory:
-            instances = InstanceView.create_from_observations(
-                world_xyz, obs, self._seq, valid_mask=valid_depth
-            )
-            self._instance_views += instances
+        # TODO: tensorize earlier
+        # Note that in process_instances_for_env, we assume that the background class is 0
+        # In OvmmPerception, it is -1
+        # This is why we add 1 to the image instance mask below.
+        # TODO: it is very inefficient to do this conversion so late. We should switch to PyTorch tensors first instead of numpy matrices.
+        if valid_depth is not None:
+            instance = obs.instance.reshape(-1)
+            instance[valid_depth == 0] = -1
+            instance = instance.reshape(W, H)
         else:
-            import torch
+            instance = obs.instance
+        self.instances.process_instances_for_env(
+            0,
+            torch.Tensor(instance) + 1,
+            torch.Tensor(full_world_xyz.reshape(W, H, 3)),
+            torch.Tensor(obs.rgb).permute(2, 0, 1),
+            torch.Tensor(obs.semantic),
+            mask_out_object=False,  # Save the whole image here
+        )
+        self.instances.associate_instances_to_memory()
 
-            # TODO: tensorize earlier
-            # Note that in process_instances_for_env, we assume that the background class is 0
-            # In OvmmPerception, it is -1
-            # This is why we add 1 to the image instance mask below.
-            # TODO: it is very inefficient to do this wri
-            if valid_depth is not None:
-                instance = obs.instance.reshape(-1)
-                instance[valid_depth == 0] = -1
-                instance = instance.reshape(W, H)
-            else:
-                instance = obs.instance
-            self.instances.process_instances_for_env(
-                0,
-                torch.Tensor(instance) + 1,
-                torch.Tensor(full_world_xyz.reshape(W, H, 3)),
-                torch.Tensor(obs.rgb).permute(2, 0, 1),
-                torch.Tensor(obs.semantic),
-                mask_out_object=False,  # Save the whole image here
-            )
-            self.instances.associate_instances_to_memory()
-
+        # TODO: This is probably the only place we need to use Numpy for now. We can keep everything else as tensors.
         # Combine point clouds by adding in the current view to the previous ones and
         # voxelizing.
         self._pcd = combine_point_clouds(

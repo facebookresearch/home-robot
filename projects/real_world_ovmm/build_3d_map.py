@@ -299,6 +299,7 @@ def main(
             xyt = np.array([obs.gps[0], obs.gps[1], obs.compass[0]])
             base_pose_matrix = xyt2sophus(xyt).matrix()
             if obs.xyz is None:
+                NotImplementedError("Not yet working")
                 # need to find camera matrix K
                 assert obs.depth is not None, "need depth"
                 xyz = camera.depth_to_xyz(obs.depth)
