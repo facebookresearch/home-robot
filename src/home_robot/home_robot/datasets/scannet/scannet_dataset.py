@@ -167,7 +167,6 @@ class ScanNetDataset(object):
         self.instance_dir = self.root_dir / "scannet_instance_data"
         self.instance_2d_dir = self.root_dir / "scannet_instance_data"
         self.scan_dir = self.root_dir / "scannet_instance_data"
-        self.referit_dir = self.root_dir / "referit3d"
 
         self.split = split
         self.height = height
@@ -250,7 +249,6 @@ class ScanNetDataset(object):
             / f"{scan_name}_unaligned_bbox.npy",
             "bboxs_aligned_path": self.instance_dir / f"{scan_name}_aligned_bbox.npy",
             "axis_align_path": self.instance_dir / f"{scan_name}_axis_align_matrix.npy",
-            # ""
         }
 
     def __getitem__(self, idx: Union[str, int], show_progress: bool = False):

@@ -56,6 +56,9 @@ class ObjectNavAgent(Agent):
             self.instance_memory = InstanceMemory(
                 self.num_environments,
                 config.AGENT.SEMANTIC_MAP.du_scale,
+                instance_association=getattr(
+                    config.AGENT.SEMANTIC_MAP, "instance_association", "map_overlap"
+                ),
                 debug_visualize=config.PRINT_IMAGES,
             )
 
