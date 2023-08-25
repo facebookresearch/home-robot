@@ -23,6 +23,7 @@ from home_robot.utils.point_cloud import (
     create_visualization_geometries,
     numpy_to_pcd,
     pcd_to_numpy,
+    show_point_cloud,
 )
 
 # TODO: add K
@@ -40,7 +41,10 @@ def combine_point_clouds(
     pc_rgb: np.ndarray,
     xyz: np.ndarray,
     rgb: np.ndarray,
+    pc_feats: Optional[np.ndarray] = None,
+    feats: Optional[np.ndarray] = None,
     sparse_voxel_size: float = 0.01,
+    debug: bool = False,
 ) -> np.ndarray:
     """Tool to combine point clouds without duplicates. Concatenate, voxelize, and then return
     the finished results."""
@@ -49,7 +53,36 @@ def combine_point_clouds(
     else:
         pc_rgb = np.concatenate([pc_rgb, rgb], axis=0)
         pc_xyz = np.concatenate([pc_xyz, xyz], axis=0)
-    return numpy_to_pcd(pc_xyz, pc_rgb).voxel_down_sample(voxel_size=sparse_voxel_size)
+    # Optionally process extra point cloud features
+    if feats is not None:
+        if pc_feats is None:
+            pc_feats = feats
+        else:
+            pc_feats = np.concatenate([pc_feats, feats], axis=0)
+
+    # Create an Open3d point cloud object
+    point_cloud = numpy_to_pcd(pc_xyz, pc_rgb)
+    if debug:
+        print("Showing union of input point clouds...")
+        show_point_cloud(pc_xyz, pc_rgb / 255)
+
+    # Apply downsampling
+    if pc_feats is not None:
+        (
+            point_cloud,
+            trace_matrix,
+            trace_indices,
+        ) = point_cloud.voxel_down_sample_and_trace(
+            voxel_size=sparse_voxel_size,
+            min_bound=np.min(pc_xyz, axis=0),
+            max_bound=np.max(pc_xyz, axis=0),
+        )
+        # Features need to be downsampled using trace matrix
+        new_features = pc_feats
+    else:
+        point_cloud = point_cloud.voxel_down_sample(voxel_size=sparse_voxel_size)
+        new_features = None
+    return point_cloud, new_features
 
 
 def create_disk(radius, size):
@@ -120,7 +153,13 @@ class SparseVoxelMap(object):
         # Track the center of the grid - (0, 0) in our coordinate system
         # We then just need to update everything when we want to track obstacles
         self.grid_origin = np.array(self.grid_size + [0]) // 2
-        # Create map here
+        # Init variables
+        self.reset()
+
+    def reset(self) -> None:
+        """Clear out the entire voxel map."""
+        self.observations = []
+        # Create map here - just reset *some* variables
         self.reset_cache()
 
     def reset_cache(self):
@@ -137,7 +176,10 @@ class SparseVoxelMap(object):
         self._map2d = None
 
         # Holds 3d data
-        self.xyz, self.feats = None, None
+        self._pcd = None
+        self.xyz = None
+        self.rgb = None
+        self.feats = None
 
     def get_instances(self) -> List[InstanceView]:
         """Return a list of all viewable instances"""
@@ -178,11 +220,8 @@ class SparseVoxelMap(object):
             assert (
                 xyz.shape[0] == feats.shape[0]
             ), "features must be available for each point"
-            # Concatenate RGB image and features
-            # feats = np.concatenate([rgb, feats], axis=-1)
         else:
-            # Copy features as RGB for now
-            feats = rgb
+            pass
 
         # add observations before we start changing things
         self.observations.append(
@@ -190,16 +229,18 @@ class SparseVoxelMap(object):
         )
 
         if feats is not None:
-            feats = feats.reshape(-1, 3)
+            feats = feats.reshape(-1, feats.shape[-1])
         rgb = rgb.reshape(-1, 3)
         xyz = xyz.reshape(-1, 3)
         full_world_xyz = trimesh.transform_points(xyz, camera_pose)
 
         if depth is not None:
             # Apply depth filter
-            depth = depth.reshape(-1)
             valid_depth = np.bitwise_and(depth > self.min_depth, depth < self.max_depth)
-            feats = feats[valid_depth, :]
+            valid_depth = valid_depth.reshape(-1)
+            if feats is not None:
+                feats = feats[valid_depth, :]
+            rgb = rgb[valid_depth, :]
             xyz = xyz[valid_depth, :]
             world_xyz = full_world_xyz[valid_depth, :]
         else:
@@ -229,14 +270,16 @@ class SparseVoxelMap(object):
         # TODO: This is probably the only place we need to use Numpy for now. We can keep everything else as tensors.
         # Combine point clouds by adding in the current view to the previous ones and
         # voxelizing.
-        self._pcd = combine_point_clouds(
+        self._pcd, self.feats = combine_point_clouds(
             self.xyz,
-            self.feats,
+            self.rgb,
             world_xyz,
+            rgb,
+            self.feats,
             feats,
             sparse_voxel_size=self.resolution,
         )
-        self.xyz, self.feats = pcd_to_numpy(self._pcd)
+        self.xyz, self.rgb = pcd_to_numpy(self._pcd)
 
         if base_pose is not None:
             self._update_visited(base_pose)
@@ -260,9 +303,9 @@ class SparseVoxelMap(object):
     def get_data(self, in_place: bool = True) -> Tuple[np.ndarray, np.ndarray]:
         """Return the current point cloud and features; optionally copying."""
         if in_place or self.xyz is None:
-            return self.xyz, self.feats
+            return self.xyz, self.rgb, self.feats
         else:
-            return self.xyz.copy(), self.feats.copy()
+            return self.xyz.copy(), self.rgb.copy(), self.feats.copy()
 
     def write_to_pickle(self, filename: str):
         """Write out to a pickle file. This is a rough, quick-and-easy output for debugging, not intended to replace the scalable data writer in data_tools for bigger efforts."""
@@ -403,21 +446,16 @@ class SparseVoxelMap(object):
         self._2d_last_updated = self._seq
         return obstacles, explored
 
-    def get_kd_tree(self):
+    def get_kd_tree(self) -> open3d.geometry.KDTreeFlann:
+        """Return kdtree for collision checks"""
         return open3d.geometry.KDTreeFlann(self._pcd)
-
-    def reset(self) -> None:
-        """Clear out the entire voxel map."""
-        self.xyz = None
-        self.feats = None
-        self.observations = []
 
     def show(self, instances: bool = True) -> Tuple[np.ndarray, np.ndarray]:
         """Show and return bounding box information and rgb color information from an explored point cloud. Uses open3d."""
 
         # Create a combined point cloud
         # Do the other stuff we need to show instances
-        pc_xyz, pc_rgb = self.get_data()
+        pc_xyz, pc_rgb, pc_feats = self.get_data()
         pcd = numpy_to_pcd(pc_xyz, pc_rgb / 255.0)
         geoms = create_visualization_geometries(pcd=pcd, orig=np.zeros(3))
         if instances:
