@@ -38,7 +38,7 @@ class RRTConnect(Planner):
         self.nodes_fwd = []
         self.nodes_rev = []
 
-    def plan(self, start, goal, num_iter: int = 1000) -> PlanResult:
+    def plan(self, start, goal) -> PlanResult:
         """Plan from start to goal. creates a new tree.
 
         Based on Caelan Garrett's code (MIT licensed):

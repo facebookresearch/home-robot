@@ -3,6 +3,7 @@
 # This source code is licensed under the MIT license found in the
 # LICENSE file in the root directory of this source tree.
 import os
+import random
 
 import matplotlib.pyplot as plt
 import numpy as np
@@ -11,6 +12,7 @@ from scipy.spatial.transform import Rotation as R
 
 from home_robot.motion.rrt import RRT
 from home_robot.motion.rrt_connect import RRTConnect
+from home_robot.motion.shortcut import Shortcut
 from home_robot.utils.simple_env import SimpleEnv
 
 
@@ -20,6 +22,8 @@ def _run_simple_env(planner, env, start, goal, visualize: bool = False):
     print("Planner =", planner)
     print("Start =", start)
     print("Goal =", goal)
+    random.seed(0)
+    np.random.seed(0)
     res = planner.plan(start, goal)
     print("Success:", res.success)
     if res.success:
@@ -39,6 +43,18 @@ def test_rrt_simple_env(start, goal, obs, visualize: bool = False):
     return _run_simple_env(planner, env, start, goal, visualize)
 
 
+def test_shortcut_rrt_simple_env(start, goal, obs, visualize: bool = False):
+    """Test just pure RRT stuff"""
+    env = SimpleEnv(obs)
+    planner0 = RRT(env.get_space(), env.validate)
+    planner1 = Shortcut(planner0)
+    res0 = _run_simple_env(planner0, env, start, goal, False)
+    res1 = _run_simple_env(planner1, env, start, goal, visualize)
+    assert len(res0.trajectory) >= len(
+        res1.trajectory
+    ), "Shortcut should not make plans longer"
+
+
 # def test_rrt_connect_simple_env(start, goal, obs, visualize: bool = False):
 #    """Test the connect code"""
 #    env = SimpleEnv(obs)
@@ -52,8 +68,10 @@ if __name__ == "__main__":
     goal = np.array([9, 9])
     obs = np.array([0, 9])
     test_rrt_simple_env(start, goal, obs, visualize=True)
+    test_shortcut_rrt_simple_env(start, goal, obs, visualize=True)
 
     start = np.array([1, 4])
     goal = np.array([9, 9])
     obs = np.array([1, 5])
     test_rrt_simple_env(start, goal, obs, visualize=True)
+    test_shortcut_rrt_simple_env(start, goal, obs, visualize=True)
