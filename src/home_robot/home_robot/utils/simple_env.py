@@ -27,7 +27,7 @@ class SimpleEnv(Env):
 
     def get_space(self) -> ConfigurationSpace:
         """Get a space that we can use for planning"""
-        return ConfigurationSpace(2, np.zeros(2), np.ones(2) * self.size)
+        return ConfigurationSpace(2, np.zeros(2), np.ones(2) * self.size, step_size=0.5)
 
     def validate(self, q):
         """Check to see if this configuration is feasible for planning"""

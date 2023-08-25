@@ -22,12 +22,11 @@ def _run_simple_env(planner, env, start, goal, visualize: bool = False):
     print("Goal =", goal)
     res = planner.plan(start, goal)
     print("Success:", res.success)
-    # if res.success:
-    #    print("Plan =", [n.state for n in res.trajectory])
-    # assert res.success, f"Planning failed with {planner}"
-
     if res.success:
-        env.show([start, goal] + [n.state for n in res.trajectory])
+        print("Plan =", [n.state for n in res.trajectory])
+    assert res.success, f"Planning failed with {planner}"
+    if res.success:
+        env.show([n.state for n in res.trajectory])
     else:
         env.show([start, goal])
     return res
@@ -40,11 +39,11 @@ def test_rrt_simple_env(start, goal, obs, visualize: bool = False):
     return _run_simple_env(planner, env, start, goal, visualize)
 
 
-def test_rrt_connect_simple_env(start, goal, obs, visualize: bool = False):
-    """Test the connect code"""
-    env = SimpleEnv(obs)
-    planner = RRTConnect(env.get_space(), env.validate)
-    return _run_simple_env(planner, env, start, goal, visualize)
+# def test_rrt_connect_simple_env(start, goal, obs, visualize: bool = False):
+#    """Test the connect code"""
+#    env = SimpleEnv(obs)
+#    planner = RRTConnect(env.get_space(), env.validate)
+#    return _run_simple_env(planner, env, start, goal, visualize)
 
 
 if __name__ == "__main__":
@@ -52,7 +51,7 @@ if __name__ == "__main__":
     start = np.array([1, 1])
     goal = np.array([9, 9])
     obs = np.array([0, 9])
-    # test_rrt_simple_env(start, goal, obs, visualize=True)
+    test_rrt_simple_env(start, goal, obs, visualize=True)
 
     start = np.array([1, 4])
     goal = np.array([9, 9])

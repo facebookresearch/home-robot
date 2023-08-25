@@ -18,8 +18,9 @@ class Node(ABC):
 class ConfigurationSpace(ABC):
     """class defining a region over which we can sample parameters"""
 
-    def __init__(self, dof: int, mins, maxs):
+    def __init__(self, dof: int, mins, maxs, step_size: float = 0.1):
         self.dof = dof
+        self.step_size = step_size
         self.update_bounds(mins, maxs)
 
     def update_bounds(self, mins, maxs):
@@ -36,17 +37,14 @@ class ConfigurationSpace(ABC):
         """Return distance between q0 and q1."""
         return np.linalg.norm(q0 - q1)
 
-    def extend(self, q0, q1, step_size=0.1):
+    def extend(self, q0, q1):
         """extend towards another configuration in this space"""
         dq = q1 - q0
-        step = dq / np.linalg.norm(dq) * step_size
-        print("e --", q0, q1, self.distance(q0, q1))
-        if self.distance(q0, q1) > step_size:
+        step = dq / np.linalg.norm(dq) * self.step_size
+        if self.distance(q0, q1) > self.step_size:
             qi = q0 + step
-            print("   ", qi)
-            while self.distance(qi, q1) > step_size:
-                qi += step
-                print("   ", qi)
+            while self.distance(qi, q1) > self.step_size:
+                qi = qi + step
                 yield qi
         yield q1
 

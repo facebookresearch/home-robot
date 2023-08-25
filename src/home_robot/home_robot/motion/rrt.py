@@ -39,7 +39,6 @@ class TreeNode(Node):
         # Look backwards to get a tree
         while node is not None:
             sequence.append(node)
-            print("bkup", node.state)
             node = node.parent
         return sequence[::-1]
 
@@ -122,10 +121,8 @@ class RRT(Planner):
         next_state = self.goal_state if should_sample_goal else self.space.sample()
         closest = self.space.closest_node_to_state(next_state, self.nodes)
         for step_state in self.space.extend(closest.state, next_state):
-            print(step_state, self.validate(step_state))
             if not self.validate(step_state):
                 # This did not work
-                print("invalid")
                 break
             else:
                 # Create a new TreeNode poining back to closest node
