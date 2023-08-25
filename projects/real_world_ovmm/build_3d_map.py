@@ -116,7 +116,10 @@ def create_semantic_sensor(
 
 
 def run_fixed_trajectory(
-    collector: RosMapDataCollector, robot: StretchClient, manual_wait: bool = False
+    collector: RosMapDataCollector,
+    robot: StretchClient,
+    rate: int = 10,
+    manual_wait: bool = False,
 ):
     """Go through a fixed robot trajectory"""
     trajectory = [
@@ -143,6 +146,8 @@ def run_fixed_trajectory(
     step = 0
     # Number of frames collected
     frames = 0
+    # Spin rate
+    rate = rospy.Rate(rate)
 
     t0 = rospy.Time.now()
     while not rospy.is_shutdown():
@@ -159,7 +164,7 @@ def run_fixed_trajectory(
         collector.step()
 
         frames += 1
-        if max_frames > 0 and frames >= max_frames or step >= len(trajectory):
+        if step >= len(trajectory):
             break
 
         rate.sleep()
@@ -168,11 +173,13 @@ def run_fixed_trajectory(
 def run_exploration(
     collector: RosMapDataCollector,
     robot: StretchClient,
+    rate: int = 10,
     manual_wait: bool = False,
     explore_iter: int = 10,
 ):
     """Go through exploration. We use the voxel_grid map created by our collector to sample free space, and then use our motion planner (RRT for now) to get there. At the end, we plan back to (0,0,0)."""
     breakpoint()
+    rate = rospy.Rate(rate)
     for i in range(explore_iter):
         # sample a goal
         # plan to that goal
@@ -185,7 +192,6 @@ def run_exploration(
 
 def collect_data(
     rate,
-    max_frames,
     visualize,
     manual_wait,
     pcd_filename,
@@ -221,15 +227,13 @@ def collect_data(
     )
     print("... done.")
 
-    rate = rospy.Rate(rate)
-
     # Move the robot
     robot.switch_to_navigation_mode()
     collector.step(visualize_map=visualize_map_at_start)  # Append latest observations
     if explore:
-        run_exploration(collector, robot, manual_wait)
+        run_exploration(collector, robot, rate, manual_wait)
     else:
-        run_fixed_trajectory(collector, robot, manual_wait)
+        run_fixed_trajectory(collector, robot, rate, manual_wait)
 
     print("Done collecting data.")
     robot.nav.navigate_to((0, 0, 0))
@@ -264,7 +268,6 @@ DATA_MODES = ["ros", "pkl", "dir"]
     "--mode", type=click.Choice(DATA_MODES), default="ros"
 )  # help="Choose data source. ROS requires connecting to a real stretch robot")
 @click.option("--rate", default=5, type=int)
-@click.option("--max-frames", default=20, type=int)
 @click.option("--visualize", default=False, is_flag=True)
 @click.option("--manual_wait", default=False, is_flag=True)
 @click.option("--output-pcd-filename", default="output.ply", type=str)
@@ -279,7 +282,6 @@ DATA_MODES = ["ros", "pkl", "dir"]
 def main(
     mode,
     rate,
-    max_frames,
     visualize,
     manual_wait,
     output_pcd_filename,
@@ -302,7 +304,6 @@ def main(
         click.echo("Will connect to a Stretch robot and collect a short trajectory.")
         collect_data(
             rate,
-            max_frames,
             visualize,
             manual_wait,
             output_pcd_filename,
