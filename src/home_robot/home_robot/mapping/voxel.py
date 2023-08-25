@@ -141,13 +141,7 @@ class SparseVoxelMap(object):
 
     def get_instances(self) -> List[InstanceView]:
         """Return a list of all viewable instances"""
-        if self._no_instance_memory:
-            return self._instance_views
-        else:
-            # NOTE: This is just the bad ones
-            # TODO: remove dead code
-            # return self.instances.get_unprocessed_instances_per_env(0).values()
-            return self.instances.instance_views[0].values()
+        return self.instances.instance_views[0].values()
 
     def add(
         self,
