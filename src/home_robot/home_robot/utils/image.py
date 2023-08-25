@@ -10,6 +10,38 @@ import trimesh.transformations as tra
 
 
 class Camera(object):
+    """Simple pinhole camera model. Contains parameters for projecting from depth to xyz, and saving information about camera position for planning."""
+
+    @staticmethod
+    def from_width_height_fov(
+        width: float,
+        height: float,
+        fov_degrees: float,
+        near_val: float = 0.1,
+        far_val: float = 4.0,
+    ):
+        """Create a simple pinhole camera given minimal information only. Fov is in degrees"""
+        horizontal_fov_rad = np.radians(fov_degrees)
+        focal_length = width / (2 * np.tan(horizontal_fov_rad / 2))
+        principal_point_x = (width - 1.0) / 2
+        principal_point_y = (height - 1.0) / 2
+        return Camera(
+            (0, 0, 0),
+            (0, 0, 0, 1),
+            height,
+            width,
+            focal_length,
+            focal_length,
+            principal_point_x,
+            principal_point_y,
+            near_val,
+            far_val,
+            np.eye(4),
+            None,
+            None,
+            horizontal_fov_rad,
+        )
+
     def __init__(
         self,
         pos,
@@ -43,6 +75,7 @@ class Camera(object):
         self.pose_matrix = pose_matrix
         self.pos = pos
         self.orn = orn
+        self.K = np.array([[self.fx, 0, self.px], [0, self.fy, self.py], [0, 0, 1]])
 
     def to_dict(self):
         """create a dictionary so that we can extract the necessary information for

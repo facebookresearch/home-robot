@@ -35,11 +35,13 @@ from home_robot_hw.constants import (
     ROS_WRIST_YAW,
 )
 from home_robot_hw.ros.camera import RosCamera
+from home_robot_hw.ros.lidar import RosLidar
 from home_robot_hw.ros.utils import matrix_from_pose_msg
 from home_robot_hw.ros.visualizer import Visualizer
 
 DEFAULT_COLOR_TOPIC = "/camera/color"
 DEFAULT_DEPTH_TOPIC = "/camera/aligned_depth_to_color"
+DEFAULT_LIDAR_TOPIC = "/scan"
 
 
 class StretchRosInterface:
@@ -72,7 +74,13 @@ class StretchRosInterface:
         color_topic: Optional[str] = None,
         depth_topic: Optional[str] = None,
         depth_buffer_size: Optional[int] = None,
+        init_lidar: bool = True,
+        lidar_topic: Optional[str] = None,
+        verbose: bool = False,
     ):
+        # Verbosity for the ROS client
+        self.verbose = verbose
+
         # Initialize caches
         self.current_mode: Optional[str] = None
 
@@ -105,12 +113,16 @@ class StretchRosInterface:
         # Initialize cameras
         self._color_topic = DEFAULT_COLOR_TOPIC if color_topic is None else color_topic
         self._depth_topic = DEFAULT_DEPTH_TOPIC if depth_topic is None else depth_topic
+        self._lidar_topic = DEFAULT_LIDAR_TOPIC if lidar_topic is None else lidar_topic
         self._depth_buffer_size = depth_buffer_size
 
         self.rgb_cam, self.dpt_cam = None, None
         if init_cameras:
-            self._create_cameras(color_topic, depth_topic)
+            self._create_cameras()
             self._wait_for_cameras()
+        if init_lidar:
+            self._lidar = RosLidar(self._lidar_topic)
+            self._lidar.wait_for_scan()
 
     # Interfaces
 
@@ -293,7 +305,7 @@ class StretchRosInterface:
         for i in range(3, self.dof):
             self.ros_joint_names += CONFIG_TO_ROS[i]
 
-    def _create_cameras(self, color_topic=None, depth_topic=None):
+    def _create_cameras(self):
         if self.rgb_cam is not None or self.dpt_cam is not None:
             raise RuntimeError("Already created cameras")
         print("Creating cameras...")
@@ -307,6 +319,10 @@ class StretchRosInterface:
         )
         self.filter_depth = self._depth_buffer_size is not None
 
+    def _wait_for_lidar(self):
+        """wait until lidar has a message"""
+        self._lidar.wait_for_scan()
+
     def _wait_for_cameras(self):
         if self.rgb_cam is None or self.dpt_cam is None:
             raise RuntimeError("cameras not initialized")
@@ -315,8 +331,9 @@ class StretchRosInterface:
         print("Waiting for depth camera images...")
         self.dpt_cam.wait_for_image()
         print("..done.")
-        print("rgb frame =", self.rgb_cam.get_frame())
-        print("dpt frame =", self.dpt_cam.get_frame())
+        if self.verbose:
+            print("rgb frame =", self.rgb_cam.get_frame())
+            print("dpt frame =", self.dpt_cam.get_frame())
         if self.rgb_cam.get_frame() != self.dpt_cam.get_frame():
             raise RuntimeError("issue with camera setup; depth and rgb not aligned")
 

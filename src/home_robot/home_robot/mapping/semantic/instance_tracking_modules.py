@@ -9,6 +9,8 @@ from typing import Dict, List, Optional, Tuple
 import numpy as np
 import torch
 
+from home_robot.core.interfaces import Observations
+
 
 class InstanceView:
     """
@@ -43,8 +45,8 @@ class InstanceView:
         embedding,
         mask,
         point_cloud,
-        bounds,
         category_id=None,
+        bounds: Optional[Tuple[np.ndarray]] = None,
     ):
         """
         Initialize InstanceView
@@ -345,6 +347,8 @@ class InstanceMemory:
         point_cloud: torch.Tensor,
         image: torch.Tensor,
         semantic_seg: Optional[torch.Tensor] = None,
+        mask_out_object: bool = True,
+        background_class_label: int = 0,
     ):
         """
         Process instance information in the current frame and add instance views to the list of unprocessed views for future association.
@@ -355,9 +359,11 @@ class InstanceMemory:
         Args:
             env_id (int): Identifier for the environment being processed.
             instance_seg (torch.Tensor): Instance segmentation tensor.
-            point_cloud (torch.Tensor): Point cloud data.
+            point_cloud (torch.Tensor): Point cloud data in world coordinates.
             image (torch.Tensor): Image data.
             semantic_seg (Optional[torch.Tensor]): Semantic segmentation tensor, if available.
+            mask_out_object (bool): true if we want to save crops of just objects on black background; false otherwise
+            background_class_label(int): id used to represent background points in instance mask (default = 0)
 
         Note:
             - The method creates instance views for detected instances within the provided data.
@@ -369,6 +375,9 @@ class InstanceMemory:
         """
         # create a dict for mapping instance ids to categories
         instance_id_to_category_id = {}
+        assert (
+            image.shape[0] == 3
+        ), "Ensure that RGB images are channels-first and in the right format."
 
         self.unprocessed_views[env_id] = {}
         # append image to list of images
@@ -388,7 +397,7 @@ class InstanceMemory:
         instance_ids = torch.unique(instance_seg)
         for instance_id in instance_ids:
             # skip background
-            if instance_id == 0:
+            if instance_id == background_class_label:
                 continue
             # get instance mask
             instance_mask = instance_seg == instance_id
@@ -412,29 +421,35 @@ class InstanceMemory:
                 .cpu()
                 .numpy()
             )
+            assert bbox.shape == (
+                2,
+                2,
+            ), "Bounding box has extra dimensions - you have a problem with input instance image mask!"
 
-            # downsample mask by du_scale using "NEAREST"
-            instance_mask_downsampled = (
-                torch.nn.functional.interpolate(
-                    instance_mask.unsqueeze(0).unsqueeze(0).float(),
-                    scale_factor=1 / self.du_scale,
-                    mode="nearest",
+            if self.du_scale != 1:
+                # downsample mask by du_scale using "NEAREST"
+                instance_mask_downsampled = (
+                    torch.nn.functional.interpolate(
+                        instance_mask.unsqueeze(0).unsqueeze(0).float(),
+                        scale_factor=1 / self.du_scale,
+                        mode="nearest",
+                    )
+                    .squeeze(0)
+                    .squeeze(0)
+                    .bool()
                 )
-                .squeeze(0)
-                .squeeze(0)
-                .bool()
-            )
+            else:
+                instance_mask_downsampled = instance_mask
 
-            masked_image = image * instance_mask
+            if mask_out_object:
+                masked_image = image * instance_mask
+            else:
+                masked_image = image
+            image_box = masked_image[
+                :, bbox[0, 0] : bbox[1, 0], bbox[0, 1] : bbox[1, 1]
+            ]
             # get cropped image
-            cropped_image = (
-                masked_image[:, bbox[0, 0] : bbox[1, 0], bbox[0, 1] : bbox[1, 1]]
-                .permute(1, 2, 0)
-                .cpu()
-                .numpy()
-                .astype(np.uint8)
-            )
-
+            cropped_image = image_box.permute(1, 2, 0).cpu().numpy().astype(np.uint8)
             instance_mask = instance_mask.cpu().numpy().astype(bool)
 
             # get embedding
