@@ -115,6 +115,68 @@ def create_semantic_sensor(
     return config, semantic_sensor
 
 
+def run_fixed_trajectory(collector: RosMapDataCollector, robot: StretchClient):
+    """Go through a fixed robot trajectory"""
+    trajectory = [
+        (0, 0, 0),
+        (0.4, 0, 0),
+        (0.75, 0.15, np.pi / 4),
+        (0.85, 0.3, np.pi / 4),
+        (0.95, 0.5, np.pi / 2),
+        (1.0, 0.55, np.pi),
+        (0.6, 0.45, 5 * np.pi / 4),
+        (0.0, 0.3, -np.pi / 2),
+        (0, 0, 0),
+        (0.2, 0, 0),
+        (0.5, 0, 0),
+        (0.7, 0.2, np.pi / 4),
+        (0.7, 0.4, np.pi / 2),
+        (0.5, 0.4, np.pi),
+        (0.2, 0.2, -np.pi / 4),
+        (0, 0, -np.pi / 2),
+        (0, 0, 0),
+    ]
+
+    # Sequence information if we are executing the trajectory
+    step = 0
+    # Number of frames collected
+    frames = 0
+
+    t0 = rospy.Time.now()
+    while not rospy.is_shutdown():
+        ti = (rospy.Time.now() - t0).to_sec()
+        print("t =", ti, trajectory[step])
+        robot.nav.navigate_to(trajectory[step])
+        print("... done navigating.")
+        if manual_wait:
+            input("... press enter ...")
+        print("... capturing frame!")
+        step += 1
+
+        # Append latest observations
+        collector.step()
+
+        frames += 1
+        if max_frames > 0 and frames >= max_frames or step >= len(trajectory):
+            break
+
+        rate.sleep()
+
+
+def run_exploration(
+    collector: RosMapDataCollector, robot: StretchClient, explore_iter: int = 10
+):
+    """Go through exploration. We use the voxel_grid map created by our collector to sample free space, and then use our motion planner (RRT for now) to get there. At the end, we plan back to (0,0,0)."""
+    breakpoint()
+    for i in range(explore_iter):
+        # sample a goal
+        # plan to that goal
+        # if it fails, skip; else, execute a trajectory to it
+        pass
+
+    # Finally - plan back to (0,0,0)
+
+
 def collect_data(
     rate,
     max_frames,
@@ -128,6 +190,7 @@ def collect_data(
     visualize_map_at_start: bool = True,
     visualize_map: bool = True,
     blocking: bool = True,
+    explore: bool = False,
     **kwargs,
 ):
     """Collect data from a Stretch robot. Robot will move through a preset trajectory, stopping repeatedly."""
@@ -156,52 +219,11 @@ def collect_data(
 
     # Move the robot
     robot.switch_to_navigation_mode()
-    # Sequence information if we are executing the trajectory
-    step = 0
-    # Number of frames collected
-    frames = 0
-
-    trajectory = [
-        (0, 0, 0),
-        (0.4, 0, 0),
-        (0.75, 0.15, np.pi / 4),
-        (0.85, 0.3, np.pi / 4),
-        (0.95, 0.5, np.pi / 2),
-        (1.0, 0.55, np.pi),
-        (0.6, 0.45, 5 * np.pi / 4),
-        (0.0, 0.3, -np.pi / 2),
-        (0, 0, 0),
-        (0.2, 0, 0),
-        (0.5, 0, 0),
-        (0.7, 0.2, np.pi / 4),
-        (0.7, 0.4, np.pi / 2),
-        (0.5, 0.4, np.pi),
-        (0.2, 0.2, -np.pi / 4),
-        (0, 0, -np.pi / 2),
-        (0, 0, 0),
-    ]
-
     collector.step(visualize_map=visualize_map_at_start)  # Append latest observations
-
-    t0 = rospy.Time.now()
-    while not rospy.is_shutdown():
-        ti = (rospy.Time.now() - t0).to_sec()
-        print("t =", ti, trajectory[step])
-        robot.nav.navigate_to(trajectory[step])
-        print("... done navigating.")
-        if manual_wait:
-            input("... press enter ...")
-        print("... capturing frame!")
-        step += 1
-
-        # Append latest observations
-        collector.step()
-
-        frames += 1
-        if max_frames > 0 and frames >= max_frames or step >= len(trajectory):
-            break
-
-        rate.sleep()
+    if explore:
+        run_exploration(collector, robot)
+    else:
+        run_fixed_trajectory(collector, robot)
 
     print("Done collecting data.")
     robot.nav.navigate_to((0, 0, 0))
@@ -241,7 +263,7 @@ DATA_MODES = ["ros", "pkl", "dir"]
 @click.option("--manual_wait", default=False, is_flag=True)
 @click.option("--output-pcd-filename", default="output.ply", type=str)
 @click.option("--output-pkl-filename", default="output.pkl", type=str)
-@click.option("--from-ros", default=False, is_flag=True)
+@click.option("--explore", default=False, is_flag=True)
 @click.option(
     "--input-path",
     type=click.Path(),
@@ -256,6 +278,7 @@ def main(
     manual_wait,
     output_pcd_filename,
     output_pkl_filename,
+    explore: bool = False,
     input_path: str = ".",
     voxel_size: float = 0.01,
     device_id: int = 0,
@@ -265,6 +288,9 @@ def main(
 
     click.echo(f"Processing data in mode: {mode}")
     click.echo(f"Using input path: {input_path}")
+
+    if explore and not mode == "ros":
+        raise RuntimeError("explore cannot be used without a robot to interact with")
 
     if mode == "ros":
         click.echo("Will connect to a Stretch robot and collect a short trajectory.")
@@ -278,6 +304,7 @@ def main(
             voxel_size,
             device_id,
             verbose,
+            explore=explore,
             **kwargs,
         )
     elif mode == "dir":
