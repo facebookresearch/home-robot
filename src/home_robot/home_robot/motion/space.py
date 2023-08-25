@@ -34,12 +34,21 @@ class ConfigurationSpace(ABC):
 
     def distance(self, q0, q1) -> float:
         """Return distance between q0 and q1."""
-        return np.linalg.norm(q1 - q1)
+        return np.linalg.norm(q0 - q1)
 
-    @abstractmethod
     def extend(self, q0, q1, step_size=0.1):
         """extend towards another configuration in this space"""
-        raise NotImplementedError()
+        dq = q1 - q0
+        step = dq / np.linalg.norm(dq) * step_size
+        print("e --", q0, q1, self.distance(q0, q1))
+        if self.distance(q0, q1) > step_size:
+            qi = q0 + step
+            print("   ", qi)
+            while self.distance(qi, q1) > step_size:
+                qi += step
+                print("   ", qi)
+                yield qi
+        yield q1
 
     def closest_node_to_state(self, state, nodes: List[Node]):
         """returns closest node to a given state"""
