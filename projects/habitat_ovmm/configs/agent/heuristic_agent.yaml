@@ -84,6 +84,8 @@ SKILLS:
     min_turn_degrees: 5.0
     min_displacement: 0.1
     sensor_height: 160
+    discrete_forward: 0.25
+    discrete_turn_degrees: 10
     sensor_width: 120
     terminate_condition: discrete_stop
     nav_goal_seg_channels: 2
@@ -112,6 +114,8 @@ SKILLS:
     max_turn_degrees: 30.0
     min_turn_degrees: 5.0
     min_displacement: 0.1
+    discrete_forward: 0.25
+    discrete_turn_degrees: 10
     sensor_height: 160
     sensor_width: 120
     terminate_condition: discrete_stop
