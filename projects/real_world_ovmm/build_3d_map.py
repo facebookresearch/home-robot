@@ -115,7 +115,9 @@ def create_semantic_sensor(
     return config, semantic_sensor
 
 
-def run_fixed_trajectory(collector: RosMapDataCollector, robot: StretchClient):
+def run_fixed_trajectory(
+    collector: RosMapDataCollector, robot: StretchClient, manual_wait: bool = False
+):
     """Go through a fixed robot trajectory"""
     trajectory = [
         (0, 0, 0),
@@ -164,7 +166,10 @@ def run_fixed_trajectory(collector: RosMapDataCollector, robot: StretchClient):
 
 
 def run_exploration(
-    collector: RosMapDataCollector, robot: StretchClient, explore_iter: int = 10
+    collector: RosMapDataCollector,
+    robot: StretchClient,
+    manual_wait: bool = False,
+    explore_iter: int = 10,
 ):
     """Go through exploration. We use the voxel_grid map created by our collector to sample free space, and then use our motion planner (RRT for now) to get there. At the end, we plan back to (0,0,0)."""
     breakpoint()
@@ -172,7 +177,8 @@ def run_exploration(
         # sample a goal
         # plan to that goal
         # if it fails, skip; else, execute a trajectory to it
-        pass
+        if manual_wait:
+            input("... press enter ...")
 
     # Finally - plan back to (0,0,0)
 
@@ -221,9 +227,9 @@ def collect_data(
     robot.switch_to_navigation_mode()
     collector.step(visualize_map=visualize_map_at_start)  # Append latest observations
     if explore:
-        run_exploration(collector, robot)
+        run_exploration(collector, robot, manual_wait)
     else:
-        run_fixed_trajectory(collector, robot)
+        run_fixed_trajectory(collector, robot, manual_wait)
 
     print("Done collecting data.")
     robot.nav.navigate_to((0, 0, 0))
