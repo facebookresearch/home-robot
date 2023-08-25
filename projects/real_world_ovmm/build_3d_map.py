@@ -303,18 +303,17 @@ def main(
                 # need to find camera matrix K
                 assert obs.depth is not None, "need depth"
                 xyz = camera.depth_to_xyz(obs.depth)
-                from home_robot.utils.point_cloud import show_point_cloud
-
-                show_point_cloud(xyz, obs.rgb / 255.0, orig=np.zeros(3))
+                # show_point_cloud(xyz, obs.rgb / 255.0, orig=np.zeros(3))
                 import trimesh
                 import trimesh.transformations as tra
 
                 import home_robot.utils.depth as du
+                from home_robot.utils.point_cloud import show_point_cloud
 
                 camera_matrix = du.get_camera_matrix(
                     obs.rgb.shape[1], obs.rgb.shape[0], hfov
                 )
-                agent_pos = obs.camera_pose[:3, 3] * 100
+                agent_pos = obs.camera_pose[:3, 3]
                 agent_height = agent_pos[2]
                 import torch
 
@@ -322,32 +321,42 @@ def main(
                 point_cloud_t = du.get_point_cloud_from_z_t(
                     torch.Tensor(obs.depth).unsqueeze(0), camera_matrix, device, scale=1
                 )
-                show_point_cloud(
-                    point_cloud_t[0].cpu().numpy(), obs.rgb / 255.0, orig=np.zeros(3)
-                )
-                xyz = point_cloud_t[0].cpu().numpy()
-
-                """
+                # show_point_cloud(
+                #    point_cloud_t[0].cpu().numpy(), obs.rgb / 255.0, orig=np.zeros(3)
+                # )
+                # xyz = point_cloud_t[0].cpu().numpy()
                 # Now co
                 import trimesh.transformations as tra
+
                 angles = torch.Tensor(
                     [tra.euler_from_matrix(obs.camera_pose[:3, :3], "rzyx")]
                 )
                 tilt = angles[:, 1]
-                point_cloud_t = du.transform_camera_view_t(
+                point_cloud_base = du.transform_camera_view_t(
                     point_cloud_t,
                     agent_height,
                     torch.rad2deg(tilt).cpu().numpy(),
                     device,
                 )
-                show_point_cloud(
-                    point_cloud_t[0].cpu().numpy(), obs.rgb / 255.0, orig=np.zeros(3)
-                )
+                xyz1 = point_cloud_t[0].cpu().numpy()
+                xyz2 = point_cloud_base[0].cpu().numpy()
+                show_point_cloud(xyz1, obs.rgb / 255.0, orig=np.zeros(3))
+                show_point_cloud(xyz2, obs.rgb / 255.0, orig=np.zeros(3))
                 breakpoint()
-                """
+
                 camera_pose = convert_pose_habitat_to_opencv(obs.camera_pose)
-                cvt_xyz = trimesh.transform_points(xyz.reshape(-1, 3), obs.camera_pose)
+                import trimesh.transformations as tra
+
+                angles = torch.Tensor(
+                    [tra.euler_from_matrix(obs.camera_pose[:3, :3], "rzyx")]
+                )
+                angles2 = tra.euler_from_matrix(obs.camera_pose[:3, :3], "rzyx")
+                print("not corrected", angles)
+                print("    corrected", angles2)
+                R = tra.euler_matrix(angles2[0], 0, 0)  # angles2[2])
+                cvt_xyz = trimesh.transform_points(xyz.reshape(-1, 3), R)
                 show_point_cloud(cvt_xyz, obs.rgb / 255.0, orig=np.zeros(3))
+                breakpoint()
             else:
                 xyz = obs.xyz
             # For backwards compatibility

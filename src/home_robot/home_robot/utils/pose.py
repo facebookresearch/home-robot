@@ -172,6 +172,11 @@ def normalize_radians(angle_in_radians):
 
 def convert_pose_habitat_to_opencv(hab_pose: np.ndarray) -> np.ndarray:
     """Update axis convention of habitat pose to match the real-world axis convention"""
-    hab_pose[[0, 1, 2]] = hab_pose[[2, 0, 1]]
-    hab_pose[:, [0, 1, 2]] = hab_pose[:, [2, 0, 1]]
+    hab_pose[[1, 2]] = hab_pose[[2, 1]]
+    hab_pose[:, [1, 2]] = hab_pose[:, [2, 1]]
+
+    hab_pose[0, 0] = -hab_pose[0, 0]
+    hab_pose[1, 1] = -hab_pose[1, 1]
+    hab_pose[0, 3] = -hab_pose[0, 3]
+
     return hab_pose
