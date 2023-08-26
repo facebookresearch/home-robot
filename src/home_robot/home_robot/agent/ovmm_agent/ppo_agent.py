@@ -138,7 +138,6 @@ class PPOAgent(Agent):
 
         # actions the skill takes
         self.skill_actions = skill_config.allowed_actions
-
         if self.continuous_actions:
             # filter the action space, deepcopy is necessary because we override arm_action next
             self.filtered_action_space = spaces.Dict(
@@ -209,6 +208,15 @@ class PPOAgent(Agent):
             self.constraint_base_in_manip_mode = (
                 skill_config.constraint_base_in_manip_mode
             )
+        self.discrete_forward = None
+        self.discrete_turn = None
+        if "move_forward" in skill_config.allowed_actions:
+            self.discrete_forward = skill_config.discrete_forward
+        if (
+            "turn_left" in skill_config.allowed_actions
+            or "turn_right" in skill_config.allowed_actions
+        ):
+            self.discrete_turn = skill_config.discrete_turn_degrees * np.pi / 180
         self.terminate_condition = skill_config.terminate_condition
         self.show_rl_obs = getattr(config, "SHOW_RL_OBS", False)
         self.manip_mode_called = False
@@ -461,13 +469,15 @@ class PPOAgent(Agent):
 
     def _map_discrete_habitat_actions(self, discrete_action, skill_actions):
         discrete_action = skill_actions[discrete_action]
+        cont_action = np.array([0.0, 0.0, 0.0])
         if discrete_action == "move_forward":
-            return DiscreteNavigationAction.MOVE_FORWARD
+            cont_action[0] = self.discrete_forward
         elif discrete_action == "turn_left":
-            return DiscreteNavigationAction.TURN_LEFT
+            cont_action[2] = self.discrete_turn
         elif discrete_action == "turn_right":
-            return DiscreteNavigationAction.TURN_RIGHT
+            cont_action[2] = -self.discrete_turn
         elif discrete_action == "stop":
             return DiscreteNavigationAction.STOP
         else:
             raise ValueError
+        return ContinuousNavigationAction(cont_action)
