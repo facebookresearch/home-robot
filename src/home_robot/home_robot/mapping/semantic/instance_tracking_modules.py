@@ -3,62 +3,60 @@
 # This source code is licensed under the MIT license found in the
 # LICENSE file in the root directory of this source tree.
 
-
+from dataclasses import dataclass
 from typing import Dict, List, Optional, Tuple
 
 import numpy as np
 import torch
+from pytorch3d.ops import box3d_overlap
+from torch import Tensor
 
 from home_robot.core.interfaces import Observations
+from home_robot.utils.bboxes_3d import (
+    box3d_overlap_from_bounds,
+    get_box_bounds_from_verts,
+    get_box_verts_from_bounds,
+)
+from home_robot.utils.point_cloud_torch import get_bounds
 
 
+@dataclass
 class InstanceView:
     """
-    Stores information about a single view of an instance
-
-    bbox: bounding box of instance in the current image
-    timestep: timestep at which the current view was recorded
-    cropped_image: cropped image of instance in the current image
-    embedding: embedding of instance in the current image
-    mask: mask of instance in the current image
-    point_cloud: point cloud of instance in the current image
-    bounds: The bounding box of the point cloud inferred in the current image
-    category_id: category id of instance in the current image
+    Stores information about a single view of a single instance
     """
 
-    bbox: Tuple[int, int, int, int]
+    # Required: 2D and 3D bbox. Should we unify the names?
+    bbox: Tensor
+    """ [4,] bbox: bounding box of instance in the current image """
+    bounds: Tensor
+    """[3, 2] xyz mins and maxes"""
+    """TODO: rename to bounds_3d"""
     timestep: int
-    cropped_image: Optional[np.ndarray] = None
-    embedding: Optional[np.ndarray] = None
-    # mask of instance in the current image
-    mask: np.ndarray = None
-    # point cloud of instance in the current image
-    point_cloud: np.ndarray = None
-    bounds: Tuple[np.ndarray, np.ndarray]
-    category_id: Optional[int] = None
+    """ timestep: timestep at which the current view was recorded """
 
-    def __init__(
-        self,
-        bbox,
-        timestep,
-        cropped_image,
-        embedding,
-        mask,
-        point_cloud,
-        category_id=None,
-        bounds: Optional[Tuple[np.ndarray]] = None,
-    ):
-        """
-        Initialize InstanceView
-        """
-        self.bbox = bbox
-        self.timestep = timestep
-        self.cropped_image = cropped_image
-        self.embedding = embedding
-        self.mask = mask
-        self.point_cloud = point_cloud
-        self.bounds = bounds
-        self.category_id = category_id
+    # View info
+    cropped_image: Optional[Tensor] = None
+    """ cropped_image: cropped image of instance in the current image"""
+    embedding: Optional[Tensor] = None
+    """ embedding: embedding of instance in the current image """
+    mask: Tensor = None
+    """ mask: mask of instance in the current (uncropped) image """
+    image_instance_id: Optional[int] = None
+    """ID of this instance in the image"""
+
+    # Detection info
+    global_instance_id: Optional[int] = None
+    """ID of this instance in the scene (across views)"""
+    category_id: Optional[int] = None
+    """category_id: category id of instance in the current image"""
+    score: Optional[float] = None
+    """score: confidence of the detection (used for NMS)"""
+
+    # 3D info
+    point_cloud: Tensor = None
+    """point_cloud: 3d locations of world points corresponding to instance view pixels"""
+    """TODO: rename to points_3d"""
 
 
 class Instance:
@@ -129,7 +127,7 @@ class InstanceMemory:
         self.unprocessed_views = [{} for _ in range(self.num_envs)]
         self.timesteps = [0 for _ in range(self.num_envs)]
 
-    def get_bbox_overlap(
+    def get_bbox_overlap_np(
         self,
         local_bbox: Tuple[np.ndarray, np.ndarray],
         global_bboxes: List[Tuple[np.ndarray, np.ndarray]],
@@ -200,7 +198,10 @@ class InstanceMemory:
         # get instance view
         instance_view = self.get_local_instance_view(env_id, local_instance_id)
         if instance_view is not None:
-            ious = self.get_bbox_overlap(instance_view.bounds, global_bounds)
+            _, iou = box3d_overlap_from_bounds(
+                instance_view.bounds.unsqueeze(0), torch.stack(global_bounds, dim=0)
+            )
+            ious = iou.flatten()
             if ious.max() > self.iou_threshold:
                 return global_instance_ids[ious.argmax()]
         return None
@@ -227,24 +228,26 @@ class InstanceMemory:
         Raises:
             NotImplementedError: When an unrecognized instance association method is specified.
         """
-        for env_id in range(self.num_envs):
-            for local_instance_id, instance_view in self.unprocessed_views[
-                env_id
-            ].items():
-                if self.instance_association == "bbox_iou":
-                    global_instance_id = self.find_global_instance_by_bbox_overlap(
-                        env_id, local_instance_id
-                    )
-                    if global_instance_id is None:
-                        global_instance_id = len(self.instance_views[env_id])
-                    self.add_view_to_instance(
-                        env_id, local_instance_id, global_instance_id
-                    )
-                elif self.instance_association == "map_overlap":
-                    # association happens at the time of global map update
-                    pass
-                else:
-                    raise NotImplementedError
+        if self.instance_association == "bbox_iou":
+            for env_id in range(self.num_envs):
+                for local_instance_id, instance_view in self.unprocessed_views[
+                    env_id
+                ].items():
+                    if self.instance_association == "bbox_iou":
+                        global_instance_id = self.find_global_instance_by_bbox_overlap(
+                            env_id, local_instance_id
+                        )
+                        if global_instance_id is None:
+                            global_instance_id = len(self.instance_views[env_id])
+                        self.add_view_to_instance(
+                            env_id, local_instance_id, global_instance_id
+                        )
+
+        elif self.instance_association == "map_overlap":
+            # association happens at the time of global map update
+            pass
+        else:
+            raise NotImplementedError
 
     def get_local_instance_view(self, env_id: int, local_instance_id: int):
         """
@@ -308,12 +311,10 @@ class InstanceMemory:
         else:
             # add instance view to global instance
             global_instance.instance_views.append(instance_view)
-            global_instance.point_cloud = np.concatenate(
-                [global_instance.point_cloud, instance_view.point_cloud], axis=0
+            global_instance.point_cloud = torch.cat(
+                [global_instance.point_cloud, instance_view.point_cloud], dim=0
             )
-            global_instance.bounds = np.min(
-                global_instance.point_cloud, axis=0
-            ), np.max(global_instance.point_cloud, axis=0)
+            global_instance.bounds = get_bounds(global_instance.point_cloud)
 
         if self.debug_visualize:
             import os
@@ -322,7 +323,9 @@ class InstanceMemory:
 
             step = instance_view.timestep
             full_image = self.images[env_id][step]
-            full_image = full_image.numpy().astype(np.uint8).transpose(1, 2, 0)
+            full_image = (
+                (full_image * 255).cpu().numpy().astype(np.uint8).transpose(1, 2, 0)
+            )
             # overlay mask on image
             mask = np.zeros(full_image.shape, full_image.dtype)
             mask[:, :] = (0, 0, 255)
@@ -346,9 +349,10 @@ class InstanceMemory:
         instance_seg: torch.Tensor,
         point_cloud: torch.Tensor,
         image: torch.Tensor,
-        semantic_seg: Optional[torch.Tensor] = None,
+        instance_classes: Optional[torch.Tensor] = None,
+        instance_scores: Optional[torch.Tensor] = None,
         mask_out_object: bool = True,
-        background_class_label: int = 0,
+        background_instance_label: int = 0,
     ):
         """
         Process instance information in the current frame and add instance views to the list of unprocessed views for future association.
@@ -358,12 +362,15 @@ class InstanceMemory:
 
         Args:
             env_id (int): Identifier for the environment being processed.
-            instance_seg (torch.Tensor): Instance segmentation tensor.
+            instance_seg (torch.Tensor): [H, W] tensor of instance ids at each pixel
             point_cloud (torch.Tensor): Point cloud data in world coordinates.
-            image (torch.Tensor): Image data.
-            semantic_seg (Optional[torch.Tensor]): Semantic segmentation tensor, if available.
+            image (torch.Tensor): [3, H, W] RGB image
+            instance_classes (Optional[torch.Tensor]): [K,] class ids for each instance in instance seg
+                class_int = instance_classes[instance_id]
+            instance_scores (Optional[torch.Tensor]): [K,] detection confidences for each instance in instance_seg
             mask_out_object (bool): true if we want to save crops of just objects on black background; false otherwise
-            background_class_label(int): id used to represent background points in instance mask (default = 0)
+                # If false does it not save crops? Not black background?
+            background_class_label(int): id indicating background points in instance_seg. That view is not saved. (default = 0)
 
         Note:
             - The method creates instance views for detected instances within the provided data.
@@ -382,10 +389,10 @@ class InstanceMemory:
         self.unprocessed_views[env_id] = {}
         # append image to list of images
         if self.images[env_id] is None:
-            self.images[env_id] = image.unsqueeze(0).cpu()
+            self.images[env_id] = image.unsqueeze(0)
         else:
             self.images[env_id] = torch.cat(
-                [self.images[env_id], image.unsqueeze(0).cpu()], dim=0
+                [self.images[env_id], image.unsqueeze(0)], dim=0
             )
         if self.point_cloud[env_id] is None:
             self.point_cloud[env_id] = point_cloud.unsqueeze(0)
@@ -397,30 +404,31 @@ class InstanceMemory:
         instance_ids = torch.unique(instance_seg)
         for instance_id in instance_ids:
             # skip background
-            if instance_id == background_class_label:
+            if instance_id == background_instance_label:
                 continue
             # get instance mask
             instance_mask = instance_seg == instance_id
 
+            # get semantic category
             category_id = None
-            if semantic_seg is not None:
-                # get semantic category
-                category_id = semantic_seg[instance_mask].unique()
-                category_id = category_id[0]
+            if instance_classes is not None:
+                category_id = instance_classes[instance_id]
+
+            # detection score
+            score = None
+            if instance_scores is not None:
+                score = instance_scores[instance_id]
 
             instance_id_to_category_id[instance_id] = category_id
 
             # get bounding box
-            bbox = (
-                torch.stack(
-                    [
-                        instance_mask.nonzero().min(dim=0)[0],
-                        instance_mask.nonzero().max(dim=0)[0] + 1,
-                    ]
-                )
-                .cpu()
-                .numpy()
+            bbox = torch.stack(
+                [
+                    instance_mask.nonzero().min(dim=0)[0],
+                    instance_mask.nonzero().max(dim=0)[0] + 1,
+                ]
             )
+
             assert bbox.shape == (
                 2,
                 2,
@@ -449,32 +457,27 @@ class InstanceMemory:
                 :, bbox[0, 0] : bbox[1, 0], bbox[0, 1] : bbox[1, 1]
             ]
             # get cropped image
-            cropped_image = image_box.permute(1, 2, 0).cpu().numpy().astype(np.uint8)
-            instance_mask = instance_mask.cpu().numpy().astype(bool)
+            cropped_image = image_box.permute(1, 2, 0)
 
             # get embedding
             embedding = None
 
             # get point cloud
-            point_cloud_instance = (
-                point_cloud[instance_mask_downsampled.cpu().numpy()].cpu().numpy()
-            )
+            point_cloud_instance = point_cloud[instance_mask_downsampled]
 
-            if instance_mask_downsampled.sum() > 0 and point_cloud_instance.sum() > 0:
-                bounds = np.min(point_cloud_instance, axis=0), np.max(
-                    point_cloud_instance, axis=0
-                )
-
+            if instance_mask_downsampled.sum() > 0:
+                bounds = get_bounds(point_cloud_instance)
                 # get instance view
                 instance_view = InstanceView(
                     bbox=bbox,
                     timestep=self.timesteps[env_id],
-                    cropped_image=cropped_image,
+                    cropped_image=cropped_image,  # .cpu().numpy(),
                     embedding=embedding,
-                    mask=instance_mask,
-                    point_cloud=point_cloud_instance,
+                    mask=instance_mask,  # cpu().numpy().astype(bool),
+                    point_cloud=point_cloud_instance,  # .cpu().numpy(),
                     category_id=category_id,
-                    bounds=bounds,
+                    score=score,
+                    bounds=bounds,  # .cpu().numpy(),
                 )
                 # append instance view to list of instance views
                 self.unprocessed_views[env_id][instance_id.item()] = instance_view
@@ -488,7 +491,7 @@ class InstanceMemory:
                 os.makedirs("instances/", exist_ok=True)
                 cv2.imwrite(
                     f"instances/{self.timesteps[env_id]}_{instance_id.item()}.png",
-                    cropped_image,
+                    (cropped_image.cpu().numpy() * 255).astype(np.uint8),
                 )
 
         self.timesteps[env_id] += 1

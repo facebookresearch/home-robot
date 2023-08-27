@@ -42,6 +42,7 @@ import torch
 from pytorch3d.common.datatypes import Device, make_device
 from pytorch3d.ops import box3d_overlap
 from pytorch3d.structures import utils as struct_utils
+from torch import Tensor
 
 
 class BBoxes3D:
@@ -1004,6 +1005,22 @@ def get_box_bounds_from_verts(
         # verts = R @ (verts - means) + means
         raise NotImplementedError
     return torch.stack([verts.min(dim=1)[0], verts.max(dim=1)[0]], dim=-1)
+
+
+def box3d_overlap_from_bounds(bounds1: Tensor, bounds2: Tensor):
+    """Calculates box overlap
+
+    Args:
+        bounds1 (Tensor): [N, 3, 2] mins and maxes along each axis
+        bounds2 (Tensor): [M, 3, 2] mins and maxes along each axis
+
+    Returns:
+        vol: [N, M] volume of intersection
+        iou: [N, M] intersection over union
+    """
+    corners1 = get_box_verts_from_bounds(bounds1)
+    corners2 = get_box_verts_from_bounds(bounds2)
+    return box3d_overlap(corners1, corners2)
 
 
 def nms3d(bounding_boxes, confidence_score, iou_threshold=0.3):

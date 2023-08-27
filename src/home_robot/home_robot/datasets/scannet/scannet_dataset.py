@@ -17,9 +17,10 @@ import pandas as pd
 import torch
 from natsort import natsorted
 from PIL import Image
-from referit3d_data import ReferIt3dDataConfig, load_referit3d_data
-from scanrefer_data import ScanReferDataConfig, load_scanrefer_data
 from tqdm import tqdm
+
+from .referit3d_data import ReferIt3dDataConfig, load_referit3d_data
+from .scanrefer_data import ScanReferDataConfig, load_scanrefer_data
 
 
 class ScanNetDataset(object):
@@ -279,7 +280,7 @@ class ScanNetDataset(object):
             pose = np.array(pose).reshape(4, 4)
             # pose[:3, 1] *= -1
             # pose[:3, 2] *= -1
-            pose = torch.from_numpy(pose.astype(np.float32)).float()
+            pose = axis_align_mat @ torch.from_numpy(pose.astype(np.float32)).float()
             # We cannot accept files directly, as some of the poses are invalid
             if np.isinf(pose).any():
                 continue
@@ -298,11 +299,11 @@ class ScanNetDataset(object):
             intrinsics.append(K)
             images.append(img)
             depths.append(depth)
-        poses = torch.stack(poses)
-        intrinsics = torch.stack(intrinsics)
-        images = torch.stack(images)
-        depths = torch.stack(depths)
-        axis_align_mats = torch.stack(axis_align_mats)
+        poses = torch.stack(poses).float()
+        intrinsics = torch.stack(intrinsics).float()
+        images = torch.stack(images).float()
+        depths = torch.stack(depths).float()
+        axis_align_mats = torch.stack(axis_align_mats).float()
 
         # 3D information
         boxes_aligned, box_classes, box_obj_ids = load_3d_bboxes(

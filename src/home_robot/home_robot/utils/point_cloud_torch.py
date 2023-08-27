@@ -8,11 +8,14 @@
 This file contains versions of the helpers in point_cloud.py that use pytorch directly (rather than numpy),
 to allow operations to be done on the GPU for speed.
 """
+
 from typing import List, Optional, Union
 
 import cv2
 import numpy as np
 import torch
+from torch import Tensor
+from torch_geometric.nn.pool.voxel_grid import voxel_grid
 
 from home_robot.utils.image import Camera
 
@@ -39,9 +42,9 @@ def depth_to_xyz(depth: torch.Tensor, camera: Camera):
 
 def unproject_masked_depth_to_xyz_coordinates(
     depth: torch.Tensor,
-    mask: torch.Tensor,
     pose: torch.Tensor,
     inv_intrinsics: torch.Tensor,
+    mask: Optional[torch.Tensor] = None,
 ) -> torch.Tensor:
     """Returns the XYZ coordinates for a batch posed RGBD image.
 
@@ -58,6 +61,8 @@ def unproject_masked_depth_to_xyz_coordinates(
     """
 
     bsz, _, height, width = depth.shape
+    if mask is None:
+        mask = torch.full_like(depth, fill_value=False, dtype=torch.bool)
     flipped_mask = ~mask
 
     # Gets the pixel grid.
@@ -186,7 +191,7 @@ def dropout_random_ellipses(
     return depth_img
 
 
-def grid_pool_point_cloud(
+def get_one_point_per_voxel_from_pointcloud(
     unbatched_xyz: torch.Tensor,
     unbatched_batch_ids: torch.Tensor,
     voxel_size: Union[float, List[float], torch.Tensor],
@@ -196,39 +201,50 @@ def grid_pool_point_cloud(
     Overlays a grid, and selects one point in each grid cell (if one exists). If use_random_centers is True,
     the point selected is random within that cell. Otherwise it's whichever voxel_grid returns first.
     """
-    raise NotImplementedError
-    # # Voxel grid returns a list, same length as the original, with a mapping to unique grid identifiers
-    # xyz_grid_indices = voxel_grid(unbatched_xyz, voxel_size, unbatched_batch_ids)
+    # Voxel grid returns a list, same length as the original, with a mapping to unique grid identifiers
+    xyz_grid_indices = voxel_grid(unbatched_xyz, voxel_size, unbatched_batch_ids)
 
-    # # We wish to take one of each grid identifier, to use as our point
-    # # Based on: https://stackoverflow.com/questions/72001505/how-to-get-unique-elements-and-their-firstly-appeared-indices-of-a-pytorch-tenso
-    # grid_ids, xyz_to_grid_id, grid_cell_counts = torch.unique(
-    #     xyz_grid_indices, sorted=True, return_inverse=True, return_counts=True
-    # )
+    # We wish to take one of each grid identifier, to use as our point
+    # Based on: https://stackoverflow.com/questions/72001505/how-to-get-unique-elements-and-their-firstly-appeared-indices-of-a-pytorch-tenso
+    grid_ids, xyz_to_grid_id, grid_cell_counts = torch.unique(
+        xyz_grid_indices, sorted=True, return_inverse=True, return_counts=True
+    )
 
-    # # The grid ids are sorted, and the counts match that sorting. So if we sort xyz_to_grid_id and get the mapping
-    # # from that operation, we can use the count maps as indices into the original xyzs, by doing cumsum
-    # _, xyz_to_grid_id_sort_mapping = torch.sort(xyz_to_grid_id, stable=True)
+    # The grid ids are sorted, and the counts match that sorting. So if we sort xyz_to_grid_id and get the mapping
+    # from that operation, we can use the count maps as indices into the original xyzs, by doing cumsum
+    _, xyz_to_grid_id_sort_mapping = torch.sort(xyz_to_grid_id, stable=True)
 
-    # if use_random_centers:
-    #     random_offsets = (
-    #         torch.rand(grid_cell_counts.shape[0]).to(grid_cell_counts.device)
-    #         * grid_cell_counts
-    #     ).int()
-    # else:
-    #     random_offsets = 0
+    if use_random_centers:
+        random_offsets = (
+            torch.rand(grid_cell_counts.shape[0]).to(grid_cell_counts.device)
+            * grid_cell_counts
+        ).int()
+    else:
+        random_offsets = 0
 
-    # unique_grid_indices = (
-    #     torch.cat(
-    #         (
-    #             torch.tensor([0]).to(grid_cell_counts.device),
-    #             grid_cell_counts.cumsum(0)[:-1],
-    #         ),
-    #         axis=0,
-    #     )
-    #     + random_offsets
-    # )
-    # unique_grid_xyz_indices = xyz_to_grid_id_sort_mapping[unique_grid_indices]
+    unique_grid_indices = (
+        torch.cat(
+            (
+                torch.tensor([0]).to(grid_cell_counts.device),
+                grid_cell_counts.cumsum(0)[:-1],
+            ),
+            axis=0,
+        )
+        + random_offsets
+    )
+    unique_grid_xyz_indices = xyz_to_grid_id_sort_mapping[unique_grid_indices]
 
-    # # We return the indices into the original data, for consistency with fps
-    # return unique_grid_xyz_indices
+    # We return the indices into the original data, for consistency with fps
+    return unique_grid_xyz_indices
+
+
+def get_bounds(points: Tensor):
+    """Returns min and max along each dimension
+
+    Args:
+        points (Tensor): [N, 3]
+
+    Returns:
+        mins_and_maxes: [3, 2]
+    """
+    return torch.stack([points.min(dim=0)[0], points.max(dim=0)[0]], dim=-1)
