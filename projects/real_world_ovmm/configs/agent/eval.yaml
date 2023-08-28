@@ -31,6 +31,8 @@ AGENT:
   fall_wait_steps: 0      # number of steps to wait after the object has been dropped
   clip_embeddings_file: data/objects/clip_embeddings.pickle
   store_all_categories: True
+  detection_module: detic
+
   SEMANTIC_MAP:
     semantic_categories: rearrange # map semantic channel categories ("coco_indoor", "longtail_indoor", "mukul_indoor", "rearrange")
     num_sem_categories: 151    # Following 5 categories: ["misc", "object_category", "start_receptacle", "goal_receptacle", "others"]
@@ -45,7 +47,7 @@ AGENT:
     been_close_to_radius: 100  # radius (in centimeters) of been close to region
     explored_radius: 150       # radius (in centimeters) of visually explored region
     must_explore_close: False
-    min_obs_height_cm: 20    # minimum height (in centimeters) of obstacle
+    min_obs_height_cm: 10    # minimum height (in centimeters) of obstacle
     # erosion and filtering to reduce the number of spurious artifacts
     dilate_obstacles: True
     dilate_size: 3

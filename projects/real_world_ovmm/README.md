@@ -49,3 +49,7 @@ Reset the robot hardware after some component fails:
 2. `stretch_robot_home.py`
 
 Check if the robot hardware is functional: `stretch_robot_system_check.py`
+
+## Experimental
+
+These scripts are for work in progress experiments; they are not necessarily going to be useful.

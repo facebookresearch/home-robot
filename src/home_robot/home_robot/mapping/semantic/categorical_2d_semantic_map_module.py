@@ -70,6 +70,7 @@ class Categorical2DSemanticMapModule(nn.Module):
         evaluate_instance_tracking: bool = False,
         instance_memory: Optional[InstanceMemory] = None,
         max_instances: int = 0,
+        instance_association: str = "bbox_iou",
         dilation_for_instances: int = 5,
         padding_for_instance_overlap: int = 5,
     ):
@@ -148,6 +149,7 @@ class Categorical2DSemanticMapModule(nn.Module):
         self.dilate_size = dilate_size
         self.dilate_iter = dilate_iter
         self.record_instance_ids = record_instance_ids
+        self.instance_association = instance_association
         self.padding_for_instance_overlap = padding_for_instance_overlap
         self.dilation_for_instances = dilation_for_instances
         self.instance_memory = instance_memory
@@ -312,20 +314,21 @@ class Categorical2DSemanticMapModule(nn.Module):
             dtype=curr_map.dtype,
         )
 
-        # loop over envs
-        # TODO Can we vectorize this across envs? (Only needed if we use multiple envs)
-        for i in range(top_down_instance_one_hot.shape[0]):
-            # create category id to instance id list mapping
-            category_id_to_instance_id_list = defaultdict(list)
-            # retrieve unprocessed instances
-            unprocessed_instances = (
-                self.instance_memory.get_unprocessed_instances_per_env(i)
-            )
-            # loop over unprocessed instances
-            for instance_id, instance in unprocessed_instances.items():
-                category_id_to_instance_id_list[instance.category_id].append(
-                    instance_id
+        if num_instance_channels > 0:
+            # loop over envs
+            # TODO Can we vectorize this across envs? (Only needed if we use multiple envs)
+            for i in range(top_down_instance_one_hot.shape[0]):
+                # create category id to instance id list mapping
+                category_id_to_instance_id_list = defaultdict(list)
+                # retrieve unprocessed instances
+                unprocessed_instances = (
+                    self.instance_memory.get_unprocessed_instances_per_env(i)
                 )
+                # loop over unprocessed instances
+                for instance_id, instance in unprocessed_instances.items():
+                    category_id_to_instance_id_list[instance.category_id].append(
+                        instance_id
+                    )
 
             # loop over categories
             # TODO Can we vectorize this across categories? (Only needed if speed bottleneck)
@@ -520,12 +523,13 @@ class Categorical2DSemanticMapModule(nn.Module):
                 :,
                 :,
             ]
-            self.instance_memory.process_instances(
-                semantic_channels,
-                instance_channels,
-                point_cloud_t,
-                image=obs[:, :3, :, :],
-            )
+            if num_instance_channels > 0:
+                self.instance_memory.process_instances(
+                    instance_channels,
+                    point_cloud_t,
+                    image=obs[:, :3, :, :],
+                    semantic_channels=semantic_channels,
+                )
 
         feat[:, 1:, :] = nn.AvgPool2d(self.du_scale)(obs[:, 4:, :, :]).view(
             batch_size, obs_channels - 4, h // self.du_scale * w // self.du_scale
@@ -895,7 +899,7 @@ class Categorical2DSemanticMapModule(nn.Module):
                 instance_mapping[local_instance_id.item()] = global_instance_id
                 max_instance_id += 1
             # update the id in instance memory
-            self.instance_memory.update_instance_id(
+            self.instance_memory.add_view_to_instance(
                 env_id, int(local_instance_id.item()), global_instance_id
             )
         instance_mapping[0] = 0
@@ -969,7 +973,7 @@ class Categorical2DSemanticMapModule(nn.Module):
         particular environment.
         """
 
-        if self.record_instance_ids:
+        if self.record_instance_ids and self.instance_association == "map_overlap":
             global_map = self._update_global_map_instances(
                 e, global_map, local_map, lmb
             )

@@ -50,6 +50,9 @@ class ObjectNavAgentModule(nn.Module):
             ),
             instance_memory=instance_memory,
             max_instances=getattr(config.AGENT.SEMANTIC_MAP, "max_instances", 0),
+            instance_association=getattr(
+                config.AGENT.SEMANTIC_MAP, "instance_association", "map_overlap"
+            ),
             evaluate_instance_tracking=getattr(
                 config.ENVIRONMENT, "evaluate_instance_tracking", False
             ),

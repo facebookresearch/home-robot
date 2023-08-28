@@ -182,11 +182,11 @@ class HabitatOpenVocabManipEnv(HabitatEnv):
             semantic = torch.from_numpy(
                 habitat_obs["object_segmentation"].squeeze(-1).astype(np.int64)
             )
-            recep_seg = torch.from_numpy(
+            recep_seg = (
                 habitat_obs["receptacle_segmentation"].squeeze(-1).astype(np.int64)
             )
-
             recep_seg[recep_seg != 0] += 1
+            recep_seg = torch.from_numpy(recep_seg)
             semantic = semantic + recep_seg
             semantic[semantic == 0] = len(self._rec_id_to_name_mapping) + 2
             obs.semantic = semantic.numpy()
@@ -354,10 +354,11 @@ class HabitatOpenVocabManipEnv(HabitatEnv):
             self._process_info(info)
         habitat_action = self._preprocess_action(action, self._last_habitat_obs)
         habitat_obs, _, dones, infos = self.habitat_env.step(habitat_action)
-        # copy the keys in info starting with the prefix "is_curr_skill" into infos
-        for key in info:
-            if key.startswith("is_curr_skill"):
-                infos[key] = info[key]
+        if info is not None:
+            # copy the keys in info starting with the prefix "is_curr_skill" into infos
+            for key in info:
+                if key.startswith("is_curr_skill"):
+                    infos[key] = info[key]
         self._last_habitat_obs = habitat_obs
         self._last_obs = self._preprocess_obs(habitat_obs)
         return self._last_obs, dones, infos

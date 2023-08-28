@@ -24,11 +24,15 @@ datasets/
 scene_datasets/
 datadump/
 */datasets/
+!/src/home_robot/home_robot/datasets
 data/
 
 # Archive files
 *.pkl
 *.zip
+
+# Visualizations
+*.ogv
 
 # Git stuff
 *~HEAD
@@ -38,13 +42,33 @@ data/
 *.hdf5
 *.mp4
 *.glb
+# used by habitat for object info
+*.json
+*.png
+*.npz
+*.pickle
+data/**
+data*/**
 
-# Detic model files
+# Mesh files
+*.stl
+*.STL
+*.mtl
+*.navmesh
+*.obj
+*.dae
+*.DAE
+
+# Detic and other torch model files
 *.pth
 *.ply
+*.pt
 
 # Training stuff
 projects/**/wandb
+core
+projects/**/multirun/**/**
+projects/slap_manipulation/assets/**
 
 # configs
 projects/habitat_ovmm/configs/agent/generated/*

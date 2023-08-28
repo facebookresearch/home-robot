@@ -1,4 +1,10 @@
 #!/usr/bin/env python
+# Copyright (c) Meta Platforms, Inc. and affiliates.
+#
+# This source code is licensed under the MIT license found in the
+# LICENSE file in the root directory of this source tree.
+
+
 from datetime import datetime
 from typing import Optional, Tuple
 
@@ -11,6 +17,7 @@ from home_robot.motion.stretch import STRETCH_HOME_Q
 from home_robot_hw.env.stretch_pick_and_place_env import StretchPickandPlaceEnv
 from home_robot_hw.utils.config import load_config
 import numpy as np
+
 
 @click.command()
 @click.option("--test-pick", default=False, is_flag=True)
@@ -46,13 +53,15 @@ def main(
     test_place=False,
     cat_map_file=None,
     max_num_steps=200,
+    config_path="projects/real_world_ovmm/configs/agent/eval.yaml",
     **kwargs,
 ):
     print("- Starting ROS node")
     rospy.init_node("eval_episode_stretch_objectnav")
 
     print("- Loading configuration")
-    config = load_config(visualize=visualize_maps, **kwargs)
+    config = load_config(config_path=config_path,
+                         visualize=visualize_maps, **kwargs)
 
     print("- Creating environment")
     env = StretchPickandPlaceEnv(
@@ -75,12 +84,13 @@ def main(
 
     agent.reset()
     # explore_agent.reset()
-    print ("Agent(s) has been reset")
+    print("Agent(s) has been reset")
     if hasattr(agent, "planner"):
         now = datetime.now()
-        agent.planner.set_vis_dir("real_world", now.strftime("%Y_%m_%d_%H_%M_%S"))
+        agent.planner.set_vis_dir(
+            "real_world", now.strftime("%Y_%m_%d_%H_%M_%S"))
     env.reset(start_recep, pick_object, goal_recep, set_goal=True)
-    print ("Env has been reset")
+    print("Env has been reset")
 
     while True:
         t = 0
@@ -94,7 +104,7 @@ def main(
         while not env.episode_over and not rospy.is_shutdown():
             t += 1
             print("STEP =", t)
-            obs = env.get_observation()   
+            obs = env.get_observation()
             action, info, obs, is_finished = agent.act(obs)
             if is_finished:
                 break
@@ -108,6 +118,7 @@ def main(
                 break
 
     # print("Metrics:", env.get_episode_metrics())
+
 
 if __name__ == "__main__":
     print("---- Starting real-world evaluation ----")

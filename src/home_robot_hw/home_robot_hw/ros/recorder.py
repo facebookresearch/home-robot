@@ -53,6 +53,7 @@ class Recorder(object):
         print(f"... done recording trial named: {filename}.")
         self.idx += 1
         print("Ready for next episode...Press START to begin ")
+        self.robot.switch_to_navigation_mode()
         return demo_status
 
     def _construct_camera_info(self, camera):

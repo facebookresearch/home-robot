@@ -20,6 +20,7 @@ from detectron2.utils.visualizer import ColorMode, Visualizer
 
 from home_robot.core.abstract_perception import PerceptionModule
 from home_robot.core.interfaces import Observations
+from home_robot.perception.detection.utils import filter_depth, overlay_masks
 
 sys.path.insert(
     0, str(Path(__file__).resolve().parent / "Detic/third_party/CenterNet2/")
@@ -274,6 +275,9 @@ class DeticPerception(PerceptionModule):
             masks, class_idcs, (height, width))
 
         obs.semantic = semantic_map.astype(int)
+        obs.instance = instance_map.astype(int)
+        if obs.task_observations is None:
+            obs.task_observations = dict()
         obs.task_observations["instance_map"] = instance_map
         obs.task_observations["instance_classes"] = class_idcs
         obs.task_observations["instance_scores"] = scores
