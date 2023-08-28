@@ -109,14 +109,13 @@ class GoatMatching(Matching):
             _, _, all_matches, all_confidences = matching_fn(
                 all_views,
                 goal_image=image_goal,
-                goal_image_keypoints=kwargs["goal_image_keypoints"],
                 use_full_image=use_full_image,
                 step=1000 * step,
+                **kwargs,
             )
         elif language_goal is not None:
             all_matches, all_confidences = matching_fn(
-                all_views,
-                language_goal,
+                all_views, language_goal, **kwargs
             )
         return all_matches, all_confidences
 
@@ -128,6 +127,7 @@ class GoatMatching(Matching):
         language_goal=None,
         use_full_image=False,
         categories=None,
+        aggregate_feats=False,
         **kwargs,
     ):
         """
@@ -174,8 +174,14 @@ class GoatMatching(Matching):
                 use_full_image=use_full_image,
                 image_goal=image_goal,
                 language_goal=language_goal,
+                instance_view_counts=instance_view_counts,
+                aggregate_feats=aggregate_feats,
                 **kwargs,
             )
+            if aggregate_feats:
+                instance_view_counts = np.ones(
+                    len(instance_view_counts), dtype=np.int64
+                )
             # unflatten based on number of views per instance
             all_matches = np.concatenate(all_matches, 0)
             all_confidences = np.concatenate(all_confidences, 0)
@@ -195,6 +201,7 @@ class GoatMatching(Matching):
         goal_image_keypoints: Optional[Dict[str, Any]] = None,
         use_full_image: bool = False,
         step: Optional[int] = None,
+        **kwargs,
     ):
         """Computes and describes keypoints using SuperPoint and matches
         keypoints between an RGB image and a goal image using SuperGlue.
@@ -205,6 +212,9 @@ class GoatMatching(Matching):
             tensor of keypoint matches
             tensor of match confidences
         """
+        if kwargs.get("aggregate_feats", False):
+            raise NotImplementedError
+
         if isinstance(rgb_image, np.ndarray) and len(rgb_image.shape) == 3:
             rgb_image_batched = [rgb_image]
         else:
@@ -230,7 +240,7 @@ class GoatMatching(Matching):
                 goal_image_processed = goal_image
             if isinstance(rgb_image_batched[i], np.ndarray):
                 if rgb_image_batched[i].shape[0] == 3:
-                    rgb_image_batched[i] = rgb_image_batched[i].transpose(1,2,0)
+                    rgb_image_batched[i] = rgb_image_batched[i].transpose(1, 2, 0)
                 rgb_image_processed = self._preprocess_image(
                     rgb_image_batched[i].astype(np.uint8)
                 )
@@ -288,21 +298,23 @@ class GoatMatching(Matching):
         """
 
         if use_full_image is not True:
-            '''
-            add empty zero padding around instance crops to 
+            """
+            add empty zero padding around instance crops to
             make them all the same size so they can be batched
-            '''
+            """
             padded_detections = []
             max_detection_w = max([x.shape[0] for x in rgb_image])
             max_detection_h = max([x.shape[1] for x in rgb_image])
-            padding_bg = np.zeros((max_detection_w, max_detection_h, 3), dtype=np.uint8) * 255
+            padding_bg = (
+                np.zeros((max_detection_w, max_detection_h, 3), dtype=np.uint8) * 255
+            )
             for detection in rgb_image:
                 w = detection.shape[0]
                 h = detection.shape[1]
                 padding_bg_new = padding_bg.copy()
                 padding_bg_new[:w, :h, :] = detection
                 padded_detections.append(padding_bg_new)
-            
+
             rgb_image = padded_detections
 
         if isinstance(rgb_image, np.ndarray) and len(rgb_image.shape) == 3:
@@ -321,7 +333,7 @@ class GoatMatching(Matching):
 
         for i in range(len(rgb_image_batched)):
             if rgb_image_batched[i].shape[0] == 3:
-                rgb_image_batched[i] = rgb_image_batched[i].transpose(1,2,0)
+                rgb_image_batched[i] = rgb_image_batched[i].transpose(1, 2, 0)
             rgb_image_batched[i] = self._preprocess_image(
                 rgb_image_batched[i].astype(np.uint8)
             )
@@ -359,7 +371,7 @@ class GoatMatching(Matching):
             rgb_keypoints = matcher_inputs["keypoints1"]
         else:
             rgb_keypoints = pred["keypoints1"]
-        
+
         if isinstance(rgb_image, np.ndarray) and len(rgb_image.shape) == 3:
             return goal_keypoints, rgb_keypoints, matches, confidence
 
@@ -369,7 +381,15 @@ class GoatMatching(Matching):
         return goal_keypoints, rgb_keypoints, matches.tolist(), confidence.tolist()
 
     @torch.no_grad()
-    def match_language_to_image(self, views_orig, language_goal, **kwargs):
+    def match_language_to_image(
+        self,
+        views_orig,
+        language_goal,
+        aggregate_feats=True,
+        feat_agg_fn="mean",
+        instance_view_counts=None,
+        **kwargs,
+    ):
         """Compute matching scores from a language goal to images."""
         batch_size = 64
         language_goal = language_goal.replace("Instruction: ", "")
@@ -391,6 +411,18 @@ class GoatMatching(Matching):
         )
         # normalize the embeddings
         view_embeddings = view_embeddings / view_embeddings.norm(dim=-1, keepdim=True)
+
+        if aggregate_feats:
+            assert instance_view_counts is not None
+            view_embeddings_grouped = np.split(
+                view_embeddings, np.cumsum(instance_view_counts)[:-1]
+            )
+            if feat_agg_fn == "mean":
+                view_embeddings = torch.stack(
+                    [torch.mean(views, dim=0) for views in view_embeddings_grouped],
+                    dim=0,
+                )
+
         language_goal = language_goal / language_goal.norm(dim=-1, keepdim=True)
         # compute cosines similarity
         similarity = (language_goal @ view_embeddings.T).squeeze(0)
@@ -454,6 +486,12 @@ class GoatMatching(Matching):
                     agg_scores.append(np.mean(inst_view_scores))
                 elif agg_fn == "median":
                     agg_scores.append(np.median(inst_view_scores))
+                elif "top" in agg_fn:
+                    np_agg_fn, top_k = agg_fn.split("_")[-2:]
+                    assert np_agg_fn in ["mean", "median"]
+                    top_k = int(top_k)
+                    inst_view_scores.sort(reverse=True)
+                    agg_scores.append(getattr(np, np_agg_fn)(inst_view_scores[:top_k]))
                 else:
                     raise NotImplementedError
                 print(f"Instance {inst_idx+1} score: {max(inst_view_scores)}")
@@ -467,7 +505,9 @@ class GoatMatching(Matching):
             found_goal[0] = True
             if self.goto_past_pose:
                 instance_memory = self.instance_memory
-                instance_views = instance_memory.instance_views[0][goal_inst].instance_views
+                instance_views = instance_memory.instance_views[0][
+                    goal_inst
+                ].instance_views
                 # pick a view with maximum object coverage
                 best_view = np.argmax([view.object_coverage for view in instance_views])
                 pose = instance_views[best_view].pose

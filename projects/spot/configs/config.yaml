@@ -92,7 +92,12 @@ AGENT:
     score_thresh_image: 3.0
     score_thresh_lang: 0.26
     agg_fn_image: max
+    aggregate_feats_image: False
+    feat_agg_fn_image: mean
+
     agg_fn_lang: max
+    aggregate_feats_lang: False
+    feat_agg_fn_lang: mean
     match_projection_threshold: 0.2   # confidence must be at least this high to project as goal point.
     goto_past_pose: False
 

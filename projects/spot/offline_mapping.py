@@ -723,6 +723,8 @@ def main(base_dir: str, legend_path: str):
             matching_fn = matching.match_image_to_image
             score_thresh = config.AGENT.SUPERGLUE.score_thresh_image
             agg_fn = config.AGENT.SUPERGLUE.agg_fn_image
+            feat_agg_fn = config.AGENT.SUPERGLUE.feat_agg_fn_image
+            aggregate_feats = config.AGENT.SUPERGLUE.aggregate_feats_image
         elif goal_type == "language":
             language_goal = name
             goal_vis_image = text_to_image(language_goal, 640, 480)
@@ -730,6 +732,8 @@ def main(base_dir: str, legend_path: str):
             matching_fn = matching.match_language_to_image
             score_thresh = config.AGENT.SUPERGLUE.score_thresh_lang
             agg_fn = config.AGENT.SUPERGLUE.agg_fn_lang
+            feat_agg_fn = config.AGENT.SUPERGLUE.feat_agg_fn_lang
+            aggregate_feats = config.AGENT.SUPERGLUE.aggregate_feats_lang
         else:
             raise ValueError(
                 "Invalid goal type. Only image and language goals supported currently"
@@ -747,6 +751,8 @@ def main(base_dir: str, legend_path: str):
             use_full_image=True,
             categories=category_ids,
             goal_image_keypoints=goal_image_keypoints,
+            aggregate_feats=aggregate_feats,
+            feat_agg_fn=feat_agg_fn,
         )
         stats = {
             i: {
