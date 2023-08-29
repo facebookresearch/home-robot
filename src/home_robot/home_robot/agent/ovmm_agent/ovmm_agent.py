@@ -168,15 +168,6 @@ class OpenVocabManipAgent(ObjectNavAgent):
         """Initialize agent state."""
         super().reset_vectorized()
 
-        if episodes is None:
-            now = datetime.now()
-            self.planner.set_vis_dir(
-                "real_world", now.strftime("%Y_%m_%d_%H_%M_%S"))
-        else:
-            self.planner.set_vis_dir(
-                episodes[0].scene_id.split("/")[-1].split(".")[0],
-                episodes[0].episode_id,
-            )
         if self.gaze_agent is not None:
             self.gaze_agent.reset_vectorized()
         if self.nav_to_obj_agent is not None:

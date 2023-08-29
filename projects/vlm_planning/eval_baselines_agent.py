@@ -14,9 +14,8 @@ from utils.config_utils import (
     get_habitat_config,
     get_omega_config,
 )
-
-from home_robot.agent.ovmm_agent.ovmm_agent import OpenVocabManipAgent
 from home_robot.agent.ovmm_agent.vlm_agent import VLMAgent
+from home_robot.agent.ovmm_agent.ovmm_agent import OpenVocabManipAgent
 from home_robot.agent.ovmm_agent.random_agent import RandomAgent
 
 os.environ["OPENBLAS_NUM_THREADS"] = "1"
@@ -42,20 +41,20 @@ if __name__ == "__main__":
     parser.add_argument(
         "--baseline_config_path",
         type=str,
-        default="projects/vlm_planning/configs/agent/rl_agent.yaml",
+        default="projects/vlm_planning/configs/agent/heuristic_instance_tracking_agent.yaml",
         help="Path to config yaml",
     )
     parser.add_argument(
         "--env_config_path",
         type=str,
-        default="projects/vlm_planning/configs/env/hssd_eval.yaml",
+        default="projects/vlm_planning/configs/env/hssd_demo.yaml",
         help="Path to config yaml",
     )
     parser.add_argument(
         "--agent_type",
         type=str,
         default="baseline",
-        choices=["baseline", "random", "vlm"],
+        choices=["baseline", "random"],
         help="Agent to evaluate",
     )
     parser.add_argument(
@@ -78,7 +77,9 @@ if __name__ == "__main__":
     env_config = get_omega_config(args.env_config_path)
 
     # merge habitat and env config to create env config
-    env_config = create_env_config(habitat_config, env_config)
+    env_config = create_env_config(
+        habitat_config, env_config, evaluation_type=args.evaluation_type
+    )
 
     # merge env config and baseline config to create agent config
     agent_config = create_agent_config(env_config, baseline_config)
@@ -86,10 +87,10 @@ if __name__ == "__main__":
     # create agent
     if args.agent_type == "random":
         agent = RandomAgent(agent_config)
-    elif args.agent_type == "vlm":
-        agent = VLMAgent(agent_config)
     else:
-        agent = OpenVocabManipAgent(agent_config)
+        agent = VLMAgent(config=agent_config)
+
+    agent.set_task("find a cup")
 
     # create evaluator
     evaluator = OVMMEvaluator(env_config)
