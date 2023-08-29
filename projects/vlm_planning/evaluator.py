@@ -270,8 +270,12 @@ class OVMMEvaluator(PPOTrainer):
             )
             current_episode_metrics = {}
 
+            agent.set_task("find a cup")
+
             while not done:
-                action, info, _ = agent.act(observations)
+                action, info, _, is_finished = agent.act(observations)
+                if is_finished:
+                    break
                 observations, done, hab_info = self._env.apply_action(
                     action, info)
 

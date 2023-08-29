@@ -90,8 +90,6 @@ if __name__ == "__main__":
     else:
         agent = VLMAgent(config=agent_config)
 
-    agent.set_task("find a cup")
-
     # create evaluator
     evaluator = OVMMEvaluator(env_config)
 
