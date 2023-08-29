@@ -18,6 +18,7 @@ pandas
 mss
 # visualizations and debugging
 matplotlib
+seaborn
 # Command line tools
 click
 # data tools

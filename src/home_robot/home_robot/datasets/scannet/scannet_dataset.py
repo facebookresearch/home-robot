@@ -19,8 +19,8 @@ from natsort import natsorted
 from PIL import Image
 from tqdm import tqdm
 
-from .referit3d_data import ReferIt3dDataConfig, load_referit3d_data
-from .scanrefer_data import ScanReferDataConfig, load_scanrefer_data
+from home_robot.datasets.scannet.referit3d_data import ReferIt3dDataConfig, load_referit3d_data
+from home_robot.datasets.scannet.scanrefer_data import ScanReferDataConfig, load_scanrefer_data
 
 
 class ScanNetDataset(object):
