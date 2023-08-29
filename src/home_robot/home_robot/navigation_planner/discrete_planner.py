@@ -75,6 +75,7 @@ class DiscretePlanner:
         goal_tolerance: float = 20.0,  # 1m
         discrete_actions: bool = True,
         continuous_angle_tolerance: float = 30.0,
+        unstick_perturbation: float = 0.0,
     ):
         """
         Arguments:
@@ -125,6 +126,7 @@ class DiscretePlanner:
         self.min_goal_distance_cm = min_goal_distance_cm
         self.dd = None
         self.reached_goal_candidate = False  # to keep track of whether goal has been reached – for stacking additional checks to confirm whether goal is correct
+        self.unstick_perturbation = unstick_perturbation
 
         self.map_downsample_factor = map_downsample_factor
         self.map_update_frequency = map_update_frequency
@@ -219,7 +221,6 @@ class DiscretePlanner:
             and np.linalg.norm(self.last_action.xyt[:2]) > 0
         ):
             self._check_collision()
-
         try:
             # High-level goal -> short-term goal
             # Extracts a local waypoint
@@ -241,6 +242,7 @@ class DiscretePlanner:
                 orientation = start_o,
                 found_goal=found_goal
             )
+
         except Exception as e:
             print("Warning! Planner crashed with error:", e)
             # debug self._get_short_term_goal(obstacle_map, goal_map, start, planning_window, plan_to_dilated_goal=use_dilation_for_stg, frontier_map=frontier_map, orientation = start_o, found_goal=found_goal)
@@ -251,6 +253,13 @@ class DiscretePlanner:
                 np.zeros(goal_map.shape),
                 False
             )
+
+        if self._check_stuck():
+            # unstick_perturbation is in meters, 
+            noise = np.random.normal(0, self.unstick_perturbation/self.map_resolution*100, 2).astype(int)
+            short_term_goal = tuple(np.array(short_term_goal) + noise)
+            print(f"-----------STUCK!: adding noise to STG {noise}")
+
         # Short term goal is in cm, start_x and start_y are in m
         if debug:
             print("Current pose:", start)
@@ -508,6 +517,7 @@ class DiscretePlanner:
 
         # Dilate obstacles
         dilated_obstacles = cv2.dilate(obstacles, self.obs_dilation_selem, iterations=1)
+        goal_map = cv2.dilate(goal_map, self.goal_dilation_selem, iterations=1)
 
         # Create inverse map of obstacles - this is territory we assume is traversible
         # Traversible is now the map
@@ -531,25 +541,27 @@ class DiscretePlanner:
         # print(state)
         # if traversible[state[0],state[1]] == 0:
             # import pdb; pdb.set_trace()
-        discrete_long_term_goal = False
         dists = fmm_distance(obstacles,cnp)
+        discrete_long_term_goal = False
         if discrete_long_term_goal:
-            goal_dists = dists.copy()
-            goal_dists.mask = goal_dists.mask | (1-goal_map).astype(bool)
-            long_term_goal = np.unravel_index(np.argmin(goal_dists),goal_dists.shape)
-            dists_from_goal = fmm_distance(obstacles,long_term_goal)
-            # find all points that are step_size away from the current location
-            potential_subgoals = (dists > self.step_size) & (dists <= self.step_size + 2)
-            dists_from_goal.mask |= ~potential_subgoals
-            # select the potential subgoal that is closes to the goal
-            stg_x,stg_y = np.unravel_index(np.argmin(dists_from_goal),dists_from_goal.shape)
-            stg_x, stg_y = stg_x + x1, stg_y + y1
-            short_term_goal = int(stg_x), int(stg_y)
-            replan = False
-            stop = False
-            closest_goal_pt = long_term_goal
-            vis_goal_map = np.zeros_like(dists)
-            vis_goal_map[long_term_goal[0],long_term_goal[1]] = 1
+            pass
+            # We're not using the below for now, which samaples a goal point explicitly
+            # goal_dists = dists.copy()
+            # goal_dists.mask = goal_dists.mask | (1-goal_map).astype(bool)
+            # long_term_goal = np.unravel_index(np.argmin(goal_dists),goal_dists.shape)
+            # dists_from_goal = fmm_distance(obstacles,long_term_goal)
+            # # find all points that are step_size away from the current location
+            # potential_subgoals = (dists > self.step_size) & (dists <= self.step_size + 2)
+            # dists_from_goal.mask |= ~potential_subgoals
+            # # select the potential subgoal that is closes to the goal
+            # stg_x,stg_y = np.unravel_index(np.argmin(dists_from_goal),dists_from_goal.shape)
+            # stg_x, stg_y = stg_x + x1, stg_y + y1
+            # short_term_goal = int(stg_x), int(stg_y)
+            # replan = False
+            # stop = False
+            # closest_goal_pt = long_term_goal
+            # vis_goal_map = np.zeros_like(dists)
+            # vis_goal_map[long_term_goal[0],long_term_goal[1]] = 1
         else:
             map_obs = np.ones_like(obstacles)
             map_obs[goal_map == 1] = 0
@@ -581,7 +593,6 @@ class DiscretePlanner:
             proto_dist = skfmm.distance(local_grid)
             local_dists = dists[cnp[0]-self.step_size:cnp[0]+self.step_size+1,cnp[1]-self.step_size:cnp[1]+self.step_size+1]
             diff_dists = local_dists-proto_dist
-
             # if, at a certain point, the difference is very low 
             # between the ffm distances with obstacles in and no obstacles then there is a
             # straight line path from the agent to that point
@@ -598,9 +609,7 @@ class DiscretePlanner:
                 rotation_cost = np.abs(angular_distance_from_angle(local_goal_dists.shape,(self.step_size,self.step_size),angle))
             else:
                 rotation_cost = np.zeros_like(local_goal_dists)
-
             total_cost = local_goal_dists + rotation_cost*2
-
             # only select straght lint points
             total_cost.mask |= ~straight_line_mask
             # only select points that are within step-size
@@ -611,13 +620,6 @@ class DiscretePlanner:
                 # flip vertically to aligh with main vis
                 res = np.flip(im,axis=0)
                 cv2.imshow(name,res/res.max())
-            vis('proto_dist',proto_dist)
-            vis('local_dists',local_dists)
-            vis('diff_dists',diff_dists)
-            vis('straight_line_mask',straight_line_mask)
-            vis('agent_dists',dists)
-            vis('goal_dists',goal_dists)
-            vis('total_cost',total_cost)
             # cv2.imshow('proto_dist',proto_dist/proto_dist.max())
             # cv2.imshow('local_dists',local_dists/local_dists.max())
             # cv2.imshow('diff_dists',diff_dists/diff_dists.max()) 
@@ -636,9 +638,20 @@ class DiscretePlanner:
             assert y1 == 0
             short_term_goal = int(stg_x), int(stg_y)
             replan = local_goal_dists.mask[self.step_size,self.step_size]
-            print(f"Distance to goal (in m): {local_goal_dists[self.step_size,self.step_size] / 20.0:.2f} (<1m = STOP)")
+            distance = local_goal_dists[self.step_size,self.step_size] / 20.0
+            print(f"Distance to goal (in m): {distance:.2f} (<1m = STOP)")
+            if found_goal and distance > 18:
+                import pdb; pdb.set_trace()
             if replan:
                 print("Could not find a path")
+            vis('proto_dist',proto_dist)
+            vis('local_dists',local_dists)
+            vis('diff_dists',diff_dists)
+            vis('straight_line_mask',straight_line_mask)
+            vis('agent_dists',dists)
+            vis('goal_dists',goal_dists)
+            vis('total_cost',total_cost)
+            cv2.waitKey(1)
             # print("self.goal_tolerance", self.goal_tolerance)
             stop = local_goal_dists[self.step_size,self.step_size] < self.goal_tolerance
             # print("stop", stop)
@@ -777,6 +790,28 @@ class DiscretePlanner:
         )
         return closest_goal_map, closest_goal_pt
 
+    def _check_stuck(self):
+        """Check whether we had a collision and update the collision map."""
+        x1, y1, t1 = self.last_pose
+        x2, y2, _ = self.curr_pose
+        buf = 4
+        length = 2
+
+        # You must move at least 5 cm
+        # Otherwise we assume there has been a collision
+        if abs(x1 - x2) < 0.05 and abs(y1 - y2) < 0.05:
+            self.col_width += 2
+            if self.col_width == 7:
+                length = 4
+                buf = 3
+            self.col_width = min(self.col_width, 5)
+        else:
+            self.col_width = 1
+
+        dist = pu.get_l2_distance(x1, x2, y1, y2)
+
+        return dist < self.collision_threshold
+
     def _check_collision(self):
         """Check whether we had a collision and update the collision map."""
         x1, y1, t1 = self.last_pose
@@ -798,6 +833,7 @@ class DiscretePlanner:
         dist = pu.get_l2_distance(x1, x2, y1, y2)
 
         if dist < self.collision_threshold:
+            print("----------STUCK DETECTED-------------")
             # We have a collision
             width = self.col_width
 

@@ -160,6 +160,7 @@ class GoatAgent(Agent):
             map_update_frequency=config.AGENT.PLANNER.map_update_frequency,
             discrete_actions=config.AGENT.PLANNER.discrete_actions,
             goal_tolerance=config.AGENT.PLANNER.goal_tolerance,
+            unstick_perturbation=config.AGENT.PLANNER.unstick_perturbation,
         )
         self.one_hot_encoding = torch.eye(
             config.AGENT.SEMANTIC_MAP.num_sem_categories, device=self.device

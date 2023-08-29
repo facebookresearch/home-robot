@@ -88,3 +88,5 @@ DISPLAY=:1 python projects/spot/goat.py --trajectory=spot_abnb1_trial9 --goals=l
 DISPLAY=:1 python projects/spot/goat.py --trajectory=spot_abnb1_trial9_test --goals=language_bed2,image_couch2,image_chair1,image_plant2,language_sink1,language_couch1,image_oven1
 
 DISPLAY=:1 python projects/spot/goat.py --trajectory=spot_abnb1_video1 --goals=image_bed1,image_bed2,object_oven,image_chair1,language_couch1,image_chair3,language_chair2
+
+DISPLAY=:1 python projects/spot/goat.py --trajectory=spot_abnb1_video2 --goals=image_bed1,image_bed2,object_oven,image_chair1,language_couch1,image_chair3,language_chair2 --offline

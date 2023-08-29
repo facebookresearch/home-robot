@@ -68,10 +68,11 @@ AGENT:
 
   PLANNER:
     planner_type: "new"
-    collision_threshold: 0.20       # forward move distance under which we consider there's a collision (in meters)
+    collision_threshold: 0.10       # forward move distance under which we consider there's a collision (in meters)
+    unstick_perturbation: 0.5 #std of noise in meters
     min_obs_dilation_selem_radius: 3    # radius (in cells) of obstacle dilation structuring element
-    obs_dilation_selem_radius: 3    # radius (in cells) of obstacle dilation structuring element
-    goal_dilation_selem_radius: 10  # radius (in cells) of goal dilation structuring element
+    obs_dilation_selem_radius: 0    # radius (in cells) of obstacle dilation structuring element
+    goal_dilation_selem_radius: 3  # radius (in cells) of goal dilation structuring element
     explored_area_dilation_radius: 1  # radius (in cells) of goal dilation structuring element
     explored_area_erosion_radius: 1
     use_dilation_for_stg: False      # use dilated goals for estimating short-term goals - or just reaching
