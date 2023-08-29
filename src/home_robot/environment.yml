@@ -6,13 +6,14 @@ channels:
 dependencies:
   - python==3.9.*
   - cmake
+  - jupyter
+  - nbconvert
+  - opencv
   - pybind11
   - pinocchio
   - pytorch==1.13.*  # Compatibility with pytorch3d
   - pytorch-cuda=11.7
   - pytorch3d
-  - opencv
-  - nbconvert
   - pip
   - pip:
     - numpy <1.24 # certain deprecated operations were used in other deps

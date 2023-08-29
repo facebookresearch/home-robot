@@ -377,5 +377,7 @@ def reduce_pointcloud(
         rgb_cluster = scatter_weighted_mean(
             rgbs, weights, voxel_cluster, weights_cluster, dim=0
         )
+    else:
+        rgb_cluster = None
 
     return pos_cluster, feature_cluster, weights_cluster, rgb_cluster
