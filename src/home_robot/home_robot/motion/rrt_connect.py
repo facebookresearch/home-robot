@@ -53,16 +53,16 @@ class RRTConnect(RRT):
         # Add start to the tree
         self.nodes_rev.append(TreeNode(goal))
 
-        force_sample_goal = True
+        # First step - just run the RRT algo
+        res = self.step_planner(force_sample_goal=True, nodes=self.nodes_fwd)
+        if res.success:
+            return res
+
         for i in range(self.max_iter):
             # Loop for a certain number of iterations
-            if force_sample_goal:
-                # Always sample in the first timestep
-                should_sample_goal = True
-                force_sample_goal = False
-            else:
-                should_sample_goal = random() < self.p_sample_goal
+            # Sample a random point and try to connect both trees
+            # If they both connect, you won!
+            pass
 
-            print(should_sample_goal)
-
+        raise NotImplementedError("RRT-connect not yet implemented")
         return PlanResult(False)

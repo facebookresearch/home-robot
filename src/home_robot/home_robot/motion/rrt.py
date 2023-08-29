@@ -123,7 +123,7 @@ class RRT(Planner):
             nodes = self.nodes
         # Get a new state
         next_state = self.goal_state if should_sample_goal else self.space.sample()
-        closest = self.space.closest_node_to_state(next_state, self.nodes)
+        closest = self.space.closest_node_to_state(next_state, nodes)
         for step_state in self.space.extend(closest.state, next_state):
             if not self.validate(step_state):
                 # This did not work
@@ -131,12 +131,12 @@ class RRT(Planner):
             else:
                 # Create a new TreeNode poining back to closest node
                 closest = TreeNode(step_state, parent=closest)
-                self.nodes.append(closest)
+                nodes.append(closest)
             # Check to see if it's the goal
             if (
-                self.space.distance(self.nodes[-1].state, self.goal_state)
+                self.space.distance(nodes[-1].state, self.goal_state)
                 < self.goal_tolerance
             ):
                 # We made it! We're close enough to goal to be done
-                return PlanResult(True, self.nodes[-1].backup())
+                return PlanResult(True, nodes[-1].backup())
         return PlanResult(False), closest
