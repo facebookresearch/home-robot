@@ -6,10 +6,11 @@ channels:
 dependencies:
   - python==3.9.*
   - cmake
+  - jupyter
   - pybind11
   - pinocchio
-  - pytorch==1.13.*  # Compatibility with pytorch3d
-  - pytorch-cuda=11.7
+  - pytorch=2.0.0  # Compatibility with pytorch3d
+  - pytorch-cuda=11.8
   - pytorch3d
   - opencv
   - nbconvert
@@ -26,10 +27,12 @@ dependencies:
     - scikit-learn
     - numpy-quaternion
     - natsort
+    - frozendict
     # Neural networks
     - openai-clip
     - timm
     - pandas
+    - mss
     # visualizations and debugging
     - matplotlib
     # Command line tools
