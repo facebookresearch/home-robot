@@ -55,6 +55,8 @@ class InstanceView:
 
     # 3D info
     point_cloud: Tensor = None
+    point_cloud_rgb: Tensor = None
+    point_cloud_features: Tensor = None
     """point_cloud: 3d locations of world points corresponding to instance view pixels"""
     """TODO: rename to points_3d"""
 
@@ -77,8 +79,82 @@ class Instance:
         self.name = None
         self.category_id = None
         self.point_cloud = None
+        self.point_cloud_rgb = None
+        self.point_cloud_features = None
         self.bounds = None
         self.instance_views = []
+
+    def _show_point_cloud_pytorch3d(self, **plot_scene_kwargs):
+        """Visualize an instance in the map
+
+        Args:
+            idx (int): Instance index
+
+        Returns:
+            ptc_fig: Plotly visualization of pointcloud
+        """
+        from pytorch3d.structures import Pointclouds
+        from pytorch3d.vis.plotly_vis import AxisArgs, plot_scene
+
+        from home_robot.utils.bboxes_3d_plotly import plot_scene_with_bboxes
+        from home_robot.utils.data_tools.dict import update
+
+        # Show points
+        features = [self.point_cloud_rgb] if self.point_cloud_rgb is not None else None
+        ptc = Pointclouds(points=[self.point_cloud], features=features)
+
+        _default_plot_args = dict(
+            xaxis={"backgroundcolor": "rgb(200, 200, 230)"},
+            yaxis={"backgroundcolor": "rgb(230, 200, 200)"},
+            zaxis={"backgroundcolor": "rgb(200, 230, 200)"},
+            axis_args=AxisArgs(showgrid=True),
+            pointcloud_marker_size=3,
+            pointcloud_max_points=200_000,
+        )
+        fig = plot_scene(
+            plots={
+                f"Name {self.name}: (category: {self.category_id}) -- {len(self.instance_views)} views": {
+                    "Points": ptc,
+                    # "Instance boxes": detected_boxes,
+                    # "Fused boxes": global_boxes,
+                    # "cameras": cameras,
+                },
+                # Could add keyframes or instances here.
+            },
+            **update(_default_plot_args, plot_scene_kwargs),
+        )
+        return fig
+
+    def _show_instance_view_frames(self, mask_out_opacity=0.3):
+        import matplotlib.pyplot as plt
+
+        plt.figure()
+
+        n_views = len(self.instance_views)
+        f, axarr = plt.subplots(n_views, 1)  # n_views rows, 1 col
+        for i, view in enumerate(self.instance_views):
+            ax = axarr[i] if (n_views > 1) else axarr
+            cropped_image_np = torch.from_numpy(
+                view.cropped_image.detach().cpu().numpy()
+            )
+
+            mask_np = torch.from_numpy(view.mask.detach().cpu().numpy())
+            if (
+                mask_np.shape[0] != cropped_image_np.shape[0]
+                or mask_np.shape[1] != cropped_image_np.shape[1]
+            ):
+                mask_np = mask_np[
+                    view.bbox[0, 0] : view.bbox[1, 0], view.bbox[0, 1] : view.bbox[1, 1]
+                ]
+            display_im = cropped_image_np * mask_out_opacity + (
+                1 - mask_out_opacity
+            ) * (cropped_image_np * mask_np[..., None])
+
+            ax.imshow(display_im)
+            ax.title.set_text(f"View {i}")
+        plt.tight_layout()
+        plt.show()
+        return f
 
 
 class InstanceMemory:
@@ -307,13 +383,30 @@ class InstanceMemory:
             global_instance.instance_views.append(instance_view)
             global_instance.bounds = instance_view.bounds
             global_instance.point_cloud = instance_view.point_cloud
+            global_instance.point_cloud_rgb = instance_view.point_cloud_rgb
+            global_instance.point_cloud_features = instance_view.point_cloud_features
             self.instance_views[env_id][global_instance_id] = global_instance
         else:
             # add instance view to global instance
             global_instance.instance_views.append(instance_view)
+            # Right now we concatenate point clouds
+            # To keep the number of points manageable, we could do voxel downsampling
             global_instance.point_cloud = torch.cat(
                 [global_instance.point_cloud, instance_view.point_cloud], dim=0
             )
+            if global_instance.point_cloud_rgb is not None:
+                global_instance.point_cloud_rgb = torch.cat(
+                    [global_instance.point_cloud_rgb, instance_view.point_cloud_rgb],
+                    dim=0,
+                )
+            if global_instance.point_cloud_features is not None:
+                global_instance.point_cloud_features = torch.cat(
+                    [
+                        global_instance.point_cloud_features,
+                        instance_view.point_cloud_features,
+                    ],
+                    dim=0,
+                )
             global_instance.bounds = get_bounds(global_instance.point_cloud)
 
         if self.debug_visualize:
@@ -464,6 +557,7 @@ class InstanceMemory:
 
             # get point cloud
             point_cloud_instance = point_cloud[instance_mask_downsampled]
+            point_cloud_rgb_instance = image.permute(1, 2, 0)[instance_mask_downsampled]
 
             if instance_mask_downsampled.sum() > 0:
                 bounds = get_bounds(point_cloud_instance)
@@ -475,6 +569,7 @@ class InstanceMemory:
                     embedding=embedding,
                     mask=instance_mask,  # cpu().numpy().astype(bool),
                     point_cloud=point_cloud_instance,  # .cpu().numpy(),
+                    point_cloud_rgb=point_cloud_rgb_instance,
                     category_id=category_id,
                     score=score,
                     bounds=bounds,  # .cpu().numpy(),

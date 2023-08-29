@@ -137,7 +137,7 @@ class SparseVoxelMap(object):
 
     def get_instances(self) -> List[InstanceView]:
         """Return a list of all viewable instances"""
-        return self.instances.instance_views[0].values()
+        return tuple(self.instances.instance_views[0].values())
 
     def add(
         self,
@@ -476,7 +476,6 @@ class SparseVoxelMap(object):
             boxes_plot_together=True,
             boxes_wireframe_width=3,
         )
-        print(update(_default_plot_args, plot_scene_kwargs))
         fig = plot_scene_with_bboxes(
             plots={
                 "Global scene": {

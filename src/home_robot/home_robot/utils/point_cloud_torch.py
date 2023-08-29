@@ -60,7 +60,7 @@ def unproject_masked_depth_to_xyz_coordinates(
         the depth image which are unmasked
     """
 
-    bsz, _, height, width = depth.shape
+    batch_size, _, height, width = depth.shape
     if mask is None:
         mask = torch.full_like(depth, fill_value=False, dtype=torch.bool)
     flipped_mask = ~mask
@@ -71,15 +71,15 @@ def unproject_masked_depth_to_xyz_coordinates(
         torch.arange(0, height, device=depth.device),
         indexing="xy",
     )
-    xy = torch.stack([xs, ys], dim=-1)[None, :, :].repeat_interleave(bsz, dim=0)
+    xy = torch.stack([xs, ys], dim=-1)[None, :, :].repeat_interleave(batch_size, dim=0)
     xy = xy[flipped_mask.squeeze(1)]
     xyz = torch.cat((xy, torch.ones_like(xy[..., :1])), dim=-1)
 
     # Associates poses and intrinsics with XYZ coordinates.
     inv_intrinsics = inv_intrinsics[:, None, None, :, :].expand(
-        bsz, height, width, 3, 3
+        batch_size, height, width, 3, 3
     )[flipped_mask.squeeze(1)]
-    pose = pose[:, None, None, :, :].expand(bsz, height, width, 4, 4)[
+    pose = pose[:, None, None, :, :].expand(batch_size, height, width, 4, 4)[
         flipped_mask.squeeze(1)
     ]
     depth = depth[flipped_mask]

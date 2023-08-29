@@ -254,7 +254,7 @@ class VoxelizedPointcloud:
         Detach object. All internal tensors are detached individually.
 
         Returns:
-            new BBoxes3D object.
+            new VoxelizedPointcloud object.
         """
         other = self.__class__({k: getattr(self, k) for k in self._INIT_ARGS})
         for k in self._INTERNAL_TENSORS:

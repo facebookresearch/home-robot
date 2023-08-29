@@ -40,8 +40,6 @@ from os import path as osp
 
 import numpy as np
 
-# from load_scannet_data import export
-
 DONOTCARE_CLASS_IDS = np.array([])
 OBJ_CLASS_IDS = np.array(
     [3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 14, 16, 24, 28, 33, 34, 36, 39]
