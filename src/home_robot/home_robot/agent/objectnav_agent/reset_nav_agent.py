@@ -424,6 +424,7 @@ class ResetNavAgent(Agent):
                 closest_goal_map,
                 short_term_goal,
                 dilated_obstacle_map,
+                could_not_find_path,
             ) = self.planner.plan(
                 **planner_inputs[0],
                 use_dilation_for_stg=self.use_dilation_for_stg,

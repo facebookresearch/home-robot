@@ -618,18 +618,24 @@ class GoatAgent(Agent):
 
         if action == DiscreteNavigationAction.STOP:
             print("Called STOP action")
-            if len(obs.task_observations["tasks"]) - 1 > self.current_task_idx:
-                self.current_task_idx += 1
-                self.force_match_against_memory = False
-                self.timesteps_before_goal_update[0] = 0
-                self.total_timesteps = [0] * self.num_environments
-                print("Moving to next task", self.current_task_idx)
-                self.found_goal = torch.zeros(
-                    self.num_environments, 1, dtype=bool, device=self.device
-                )
-                self.reset_sub_episode()
+            cur_task = obs.task_observations["tasks"][self.current_task_idx]
+            # advance to next task unless it's a pick or place action
+            if 'action' not in cur_task:
+                self.advance_to_next_task(obs)
         self.prev_task_type = task_type
         return action, info
+
+    def advance_to_next_task(self,obs):
+        if len(obs.task_observations["tasks"]) - 1 > self.current_task_idx:
+            self.current_task_idx += 1
+            self.force_match_against_memory = False
+            self.timesteps_before_goal_update[0] = 0
+            self.total_timesteps = [0] * self.num_environments
+            print("Moving to next task", self.current_task_idx)
+            self.found_goal = torch.zeros(
+                self.num_environments, 1, dtype=bool, device=self.device
+            )
+            self.reset_sub_episode()
 
     def _preprocess_obs(self, obs: Observations, task_type: str):
         """Take a home-robot observation, preprocess it to put it into the correct format for the

@@ -1,6 +1,3 @@
-# If True, use dummy offline environment that loads observations from disk
-OFFLINE = False
-
 import json
 import math
 import pickle
@@ -31,8 +28,6 @@ sys.path.insert(
     str(Path(__file__).resolve().parent.parent.parent / "src/home_robot_sim"),
 )
 
-if not OFFLINE:
-    from spot_wrapper.spot import Spot
 
 import home_robot.utils.pose as pu
 import home_robot.utils.visualization as vu
@@ -50,9 +45,10 @@ from home_robot.perception.detection.maskrcnn.coco_categories import (
     coco_categories_color_palette,
 )
 from home_robot.utils.config import get_config
-from home_robot_hw.env.spot_goat_env import SpotGoatEnv
 from home_robot_hw.env.spot_goat_offline_env import SpotGoatOfflineEnv
-
+from bosdyn.client.frame_helpers import VISION_FRAME_NAME, get_a_tform_b, BODY_FRAME_NAME
+from spot_wrapper.depth_utils import point_from_depth_image,masked_point_cloud_from_depth_image,homogeneous_transform
+from home_robot.utils.spot import get_xy_yaw,create_point_cloud_transformation
 
 class PI:
     EMPTY_SPACE = 0
@@ -72,6 +68,28 @@ def create_video(images, output_file, fps):
     for image in images:
         video_writer.write(image)
     video_writer.release()
+
+def distance_to_class(obs,target_class):
+    response = obs.raw_obs['depth_response']
+    target_mask = obs.semantic == target_class
+    mask_points = np.stack(np.where(target_mask),axis=-1)
+    centroid = mask_points.mean(axis=0).astype(int)
+    assert target_mask[centroid[0],centroid[1]]
+    pixel_xy = (centroid[1],centroid[0])
+    point = point_from_depth_image(response,pixel_xy,BODY_FRAME_NAME)
+    dist = np.linalg.norm(point)
+    return dist,pixel_xy
+
+def attempt_grasp(obs,pixel_xy,num_attempts=3):
+    response = obs.raw_obs['rgb_response']
+    x,y,yaw = spot.get_xy_yaw(transforms_snapshot = response.shot.transforms_snapshot)
+    grasp_success = False
+    for _ in range(num_attempts):
+        spot.set_base_position(x,y,yaw,10,relative=False, max_fwd_vel=0.5, max_hor_vel=0.5, max_ang_vel=np.pi / 4,blocking=True)
+        grasp_success = spot.grasp_point_in_image(response,pixel_xy=pixel_xy)
+        if grasp_success:
+            break
+    return grasp_success
 
 
 def resize_image_to_fit(img, target_width, target_height):
@@ -439,250 +457,7 @@ def text_to_image(
 
 
 # Fremont goals
-GOALS = {
-    # Object goals
-    "object_chair": {"type": "objectnav", "target": "chair"},
-    "object_couch": {"type": "objectnav", "target": "couch"},
-    "object_plant": {"type": "objectnav", "target": "potted plant"},
-    "object_bed": {"type": "objectnav", "target": "bed"},
-    "object_toilet": {"type": "objectnav", "target": "toilet"},
-    "object_tv": {"type": "objectnav", "target": "tv"},
-    "object_table": {"type": "objectnav", "target": "dining table"},
-    "object_oven": {"type": "objectnav", "target": "oven"},
-    "object_sink": {"type": "objectnav", "target": "sink"},
-    "object_refrigerator": {"type": "objectnav", "target": "refrigerator"},
-    "object_book": {"type": "objectnav", "target": "book"},
-    "object_person": {"type": "objectnav", "target": "person"},
-    # Image goals
-    "image_bed1": {
-        "type": "imagenav",
-        "target": "bed",
-        "image": cv2.imread(
-            f"{str(Path(__file__).resolve().parent)}/fremont_image_goals/bed1.png"
-        ),
-    },
-    "image_chair1": {
-        "type": "imagenav",
-        "target": "chair",
-        "image": cv2.imread(
-            f"{str(Path(__file__).resolve().parent)}/fremont_image_goals/chair1.png"
-        ),
-    },
-    "image_chair2": {
-        "type": "imagenav",
-        "target": "chair",
-        "image": cv2.imread(
-            f"{str(Path(__file__).resolve().parent)}/fremont_image_goals/chair2.png"
-        ),
-    },
-    "image_chair3": {
-        "type": "imagenav",
-        "target": "chair",
-        "image": cv2.imread(
-            f"{str(Path(__file__).resolve().parent)}/fremont_image_goals/chair3.png"
-        ),
-    },
-    "image_chair4": {
-        "type": "imagenav",
-        "target": "chair",
-        "image": cv2.imread(
-            f"{str(Path(__file__).resolve().parent)}/fremont_image_goals/chair4.png"
-        ),
-    },
-    "image_chair5": {
-        "type": "imagenav",
-        "target": "chair",
-        "image": cv2.imread(
-            f"{str(Path(__file__).resolve().parent)}/fremont_image_goals/chair5.png"
-        ),
-    },
-    "image_chair6": {
-        "type": "imagenav",
-        "target": "chair",
-        "image": cv2.imread(
-            f"{str(Path(__file__).resolve().parent)}/fremont_image_goals/chair6.png"
-        ),
-    },
-    "image_couch1": {
-        "type": "imagenav",
-        "target": "couch",
-        "image": cv2.imread(
-            f"{str(Path(__file__).resolve().parent)}/fremont_image_goals/couch1.png"
-        ),
-    },
-    "image_oven1": {
-        "type": "imagenav",
-        "target": "oven",
-        "image": cv2.imread(
-            f"{str(Path(__file__).resolve().parent)}/fremont_image_goals/oven1.png"
-        ),
-    },
-    "image_plant1": {
-        "type": "imagenav",
-        "target": "potted plant",
-        "image": cv2.imread(
-            f"{str(Path(__file__).resolve().parent)}/fremont_image_goals/plant1.png"
-        ),
-    },
-    "image_plant2": {
-        "type": "imagenav",
-        "target": "potted plant",
-        "image": cv2.imread(
-            f"{str(Path(__file__).resolve().parent)}/fremont_image_goals/plant2.png"
-        ),
-    },
-    "image_plant3": {
-        "type": "imagenav",
-        "target": "potted plant",
-        "image": cv2.imread(
-            f"{str(Path(__file__).resolve().parent)}/fremont_image_goals/plant3.png"
-        ),
-    },
-    "image_refrigerator1": {
-        "type": "imagenav",
-        "target": "refrigerator",
-        "image": cv2.imread(
-            f"{str(Path(__file__).resolve().parent)}/fremont_image_goals/refrigerator1.png"
-        ),
-    },
-    "image_sink1": {
-        "type": "imagenav",
-        "target": "sink",
-        "image": cv2.imread(
-            f"{str(Path(__file__).resolve().parent)}/fremont_image_goals/sink1.png"
-        ),
-    },
-    "image_sink2": {
-        "type": "imagenav",
-        "target": "sink",
-        "image": cv2.imread(
-            f"{str(Path(__file__).resolve().parent)}/fremont_image_goals/sink2.png"
-        ),
-    },
-    "image_toilet1": {
-        "type": "imagenav",
-        "target": "toilet",
-        "image": cv2.imread(
-            f"{str(Path(__file__).resolve().parent)}/fremont_image_goals/toilet1.png"
-        ),
-    },
-    # Language goals
-    "language_bed1": {
-        "type": "languagenav",
-        "target": "bed",
-        "landmarks": [],
-        "instruction": "The bed with white sheets.",
-    },
-    "language_chair1": {
-        "type": "languagenav",
-        "target": "chair",
-        "landmarks": [],
-        "instruction": "The brown leather chair next to the bedside table.",
-    },
-    "language_chair2": {
-        "type": "languagenav",
-        "target": "chair",
-        "landmarks": [],
-        "instruction": "The black plastic office chair.",
-    },
-    "language_chair3": {
-        "type": "languagenav",
-        "target": "chair",
-        "landmarks": [],
-        "instruction": "The brown leather chair next to the picture and plant.",
-    },
-    "language_chair4": {
-        "type": "languagenav",
-        "target": "chair",
-        "landmarks": [],
-        "instruction": "The grey armchair.",
-    },
-    "language_chair5": {
-        "type": "languagenav",
-        "target": "chair",
-        "landmarks": [],
-        "instruction": "The high chair with metal legs next to the kitchen counter.",
-    },
-    "language_chair6": {
-        "type": "languagenav",
-        "target": "chair",
-        "landmarks": [],
-        "instruction": "The chair with metal legs next to the dining table.",
-    },
-    "language_couch1": {
-        "type": "languagenav",
-        "target": "couch",
-        "landmarks": [],
-        # "instruction": "The couch with colorful pillows.",
-        "instruction": "The large white couch.",
-    },
-    "language_oven1": {
-        "type": "languagenav",
-        "target": "oven",
-        "landmarks": [],
-        "instruction": "The oven.",
-    },
-    "language_plant1": {
-        "type": "languagenav",
-        "target": "potted plant",
-        "landmarks": [],
-        "instruction": "The green leafy plant next to the brown chair.",
-    },
-    "language_cup1": {
-        "type": "languagenav",
-        "target": "cup",
-        "landmarks": [],
-        "instruction": "The blue cup.",
-    },
-    "language_plant2": {
-        "type": "languagenav",
-        "target": "potted plant",
-        "landmarks": [],
-        "instruction": "The green leafy plant next to the grey armchair.",
-    },
-    "language_plant3": {
-        "type": "languagenav",
-        "target": "potted plant",
-        "landmarks": [],
-        "instruction": "The brown dead plant.",
-    },
-    "language_refrigerator1": {
-        "type": "languagenav",
-        "target": "refrigerator",
-        "landmarks": [],
-        "instruction": "The refrigerator.",
-    },
-    "language_sink1": {
-        "type": "languagenav",
-        "target": "sink",
-        "landmarks": [],
-        "instruction": "The bathroom sink.",
-    },
-    "language_sink2": {
-        "type": "languagenav",
-        "target": "sink",
-        "landmarks": [],
-        "instruction": "The kitchen sink.",
-    },
-    "language_toilet1": {
-        "type": "languagenav",
-        "target": "sink",
-        "landmarks": [],
-        "instruction": "The toilet.",
-    },
-    "language_bottle1": {
-        "type": "languagenav",
-        "target": "bottle",
-        "landmarks": [],
-        "instruction": "Bottle of water.",
-    },
-    "language_teddybear1": {
-        "type": "languagenav",
-        "target": "teddy bear",
-        "landmarks": [],
-        "instruction": "The beige teddy bear.",
-    },
-}
+from goals_abnb1 import GOALS
 
 # Example command:
 # python projects/spot/goat.py --trajectory=trajectory1 --goals=object_toilet,image_bed1,language_chair4,image_couch1,language_plant1,language_plant2,image_refrigerator1
@@ -705,10 +480,10 @@ def main(spot=None, args=None):
     legend = cv2.imread(legend_path)
     vis_images = []
 
-    if OFFLINE:
+    if args.offline:
         # Load observations from disk instead of generating them
-        env = SpotGoatOfflineEnv()
-        env.reset(obs_dir)
+        env = SpotGoatOfflineEnv(obs_dir)
+        env.reset()
 
     else:
         env = SpotGoatEnv(spot, position_control=True,estimated_depth_threshold=config.ENVIRONMENT.estimated_depth_threshold,gaze_at_subgoal=config.ENVIRONMENT.gaze_at_subgoal)
@@ -726,6 +501,7 @@ def main(spot=None, args=None):
     agent.reset()
 
     pan_warmup = False
+    picked = False
     keyboard_takeover = args.keyboard
     if pan_warmup:
         assert not OFFLINE
@@ -746,7 +522,7 @@ def main(spot=None, args=None):
         print(f"Time: {step_start_time - global_start_time:.2f}")
         print(f"Goal {agent.current_task_idx}: {goal_strings[agent.current_task_idx]}")
 
-        if not OFFLINE:
+        if not args.offline:
             obs = env.get_observation()
             obs.task_observations["current_task_idx"] = agent.current_task_idx
             obs.task_observations["timestamp"] = step_start_time - global_start_time
@@ -797,8 +573,11 @@ def main(spot=None, args=None):
         )
         vis_images.append(vis_image)
         cv2.imwrite(f"{output_visualization_dir}/{t}.png", vis_image[:, :, ::-1])
+        cv2.imshow("vis", vis_image[:, :, ::-1])
+        cv2.imshow("depth", obs.depth/obs.depth.max())
+        key = cv2.waitKey(1)
 
-        if not OFFLINE:
+        if not args.offline:
             cv2.imshow("vis", vis_image[:, :, ::-1])
             cv2.imshow("depth", obs.depth/obs.depth.max())
             key = cv2.waitKey(1)
@@ -809,6 +588,9 @@ def main(spot=None, args=None):
             if key == ord("q"):
                 keyboard_takeover = True
                 print("KEYBOARD TAKEOVER")
+            if key == ord("n"):
+                agent.advance_to_next_task(obs)
+                print("--------SKIPPING GOAL-------------")
 
             if keyboard_takeover:
                 if key == ord("w"):
@@ -822,8 +604,10 @@ def main(spot=None, args=None):
                 elif key == ord("d"):
                     # right
                     spot.set_base_velocity(0, -0.5, 0, 0.5)
-
             else:
+                action_type = env.goals[agent.current_task_idx].get('action')
+                target_semantic_class = env.goals[agent.current_task_idx]['semantic_id']
+                target_mask = obs.semantic == target_semantic_class
                 if pan_warmup:
                     positions = spot.get_arm_joint_positions()
                     new_pos = positions.copy()
@@ -832,6 +616,87 @@ def main(spot=None, args=None):
                     if positions[0] < -2.5:
                         pan_warmup = False
                         env.env.initialize_arm()
+                elif action_type == 'place' and target_mask.sum() > 0:
+                    import pdb; pdb.set_trace()
+                    from IPython import embed; embed()
+                    from home_robot.utils.spot import find_largest_connected_component
+                    largest_mask = find_largest_connected_component(target_mask)
+                    response = obs.raw_obs['depth_response']
+                    points = masked_point_cloud_from_depth_image(response,largest_mask,VISION_FRAME_NAME)
+                    mapTworld,image_size,transformed_points = create_point_cloud_transformation(points,0.05,padding=1)
+                    projection = np.zeros(image_size[:2])
+                    locations_2d = transformed_points[:,:2].astype(int)
+                    projection[locations_2d[:,0],locations_2d[:,1]] = 1
+                    from matplotlib import pyplot as plt 
+                    
+                    # eroded = cv2.erode(projection,np.ones((3,3),np.uint8),iterations=2)
+                    # plt.clf()
+                    # plt.imshow(eroded)
+                    # plt.savefig('vis/test.png')
+                    # potential place locations in the 2d map
+                    # valid_pixel_locs = np.stack(np.where(eroded),axis=-1)
+                    valid_pixel_locs = np.stack(np.where(projection),axis=-1)
+                    px,py,_ = get_xy_yaw(response.shot.transforms_snapshot)
+                    agent_pixel_loc = homogeneous_transform(mapTworld,np.array([[px,py,0]]))[0,:2]
+                    # valid 2d location closest to the agent
+                    centroid = valid_pixel_locs.mean(axis=0)
+                    agent_pixel_loc = centroid
+                    closest = np.linalg.norm(valid_pixel_locs-agent_pixel_loc,axis=-1).argmin()
+                    # closest_point = valid_pixel_locs[closest]
+                    # vec = centroid-closest_point
+                    # target_pixel = 5*(vec/np.linalg.norm(vec)) + closest_point
+                    # selected_pixel = np.linalg.norm(valid_pixel_locs-target_pixel,axis=-1).argmin()
+
+                    # pt = np.concatenate((centroid,[1]))
+                    # target_point = homogeneous_transform(np.linalg.inv(mapTworld),pt[None])[0]
+                    # target_point[-1] = 0.0
+                    
+                    # mask of points which project to the selected 2d location
+                    project_to_place_loc = (locations_2d == valid_pixel_locs[closest]).all(axis=-1)
+                    # points in world coords which map to the place location
+                    nearest_heights = points[project_to_place_loc]
+                    # find the highest point for placing
+                    selected_height = nearest_heights[nearest_heights[:,-1].argmax()][-1]
+                    offset = np.array((0,0,0.2))
+                    # motion_target = selected_point + offset
+                    motion_target = selected_height + offset
+                    INITIAL_RPY = np.deg2rad([0.0, 55.0, 0.0])
+                    env.env.initialize_arm()
+                    def yaw_toward(target):
+                        px,py,yaw = spot.get_xy_yaw()
+                        angle = math.atan2((target[1] - py), (target[0] - px)) % (2 * np.pi)
+                        return angle
+                    target_yaw = yaw_toward(motion_target)
+                    spot.set_base_position(motion_target[0],motion_target[1],target_yaw,10,relative=False, max_fwd_vel=0.5, max_hor_vel=0.5, max_ang_vel=np.pi / 4,blocking=False)
+                    start_time = time.time()
+                    while time.time() - start_time < 10:
+                        px,py,yaw = spot.get_xy_yaw()
+                        dist = np.linalg.norm(motion_target[:2]-(px,py))
+                        print(dist)
+                        if dist < 0.8:
+                            break
+                    px,py,yaw = spot.get_xy_yaw()
+                    target_yaw = yaw_toward(motion_target)
+                    spot.set_base_position(px,py,target_yaw,10,relative=False, max_fwd_vel=0.5, max_hor_vel=0.5, max_ang_vel=np.pi / 4,blocking=False)
+                    env.env.pick_from_back()
+                    cmd_id = spot.move_gripper_to_point(motion_target, INITIAL_RPY,frame_name=VISION_FRAME_NAME)
+                    spot.open_gripper()
+                    env.env.initialize_arm()
+                elif action_type == 'pick' and target_mask.sum() > 0:
+                    dist,pixel_xy = distance_to_class(obs,target_semantic_class)
+                    print("Distance to object: ",dist)
+                    if dist < 3:
+                        print("Seeking object")
+                        grasp_success = attempt_grasp(obs,pixel_xy)
+                        env.env.initialize_arm(open_gripper=False)
+                        print("Grasp success" if grasp_success else "Grasp Failed")
+                        if  grasp_success:
+                            picked=True
+                            agent.current_task_idx += 1
+                            env.env.place_on_back()
+                        else:
+                            print("Grap Failed: dropping to keyboard")
+                            keyboard_takeover = True
                 else:
                     if action is not None:
                         env.apply_action(action)
@@ -852,12 +717,17 @@ if __name__ == "__main__":
     parser.add_argument("--trajectory", default="trajectory1")
     parser.add_argument("--goals", default="object_chair,object_sink")
     parser.add_argument('--keyboard',action='store_true')
+    parser.add_argument('--pick-place',action='store_true')
+    parser.add_argument('--offline',action='store_true')
                         
     args = parser.parse_args()
 
-    if not OFFLINE:
+    if not args.offline:
+        from spot_wrapper.spot import Spot
+        from spot_wrapper.spot import BODY_FRAME_NAME, Spot, VISION_FRAME_NAME
+        from home_robot_hw.env.spot_goat_env import SpotGoatEnv
         spot = Spot("RealNavEnv")
         with spot.get_lease(hijack=True):
             main(spot, args)
     else:
-        main()
+        main(spot=None,args=args)

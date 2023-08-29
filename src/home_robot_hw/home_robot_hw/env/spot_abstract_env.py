@@ -1,4 +1,5 @@
 from abc import abstractmethod
+import cv2
 from typing import Any, Dict, Optional
 
 import numpy as np
@@ -29,7 +30,7 @@ def fmm_distance(obstacles,source):
 
 # returns a mask dicating which regions are occoluded by obstacles from the point
 def ray_trace(obstacles,point):
-    raw_dists = fmm_distance(obstacles,point)
+    raw_dists = fmm_distance(np.zeros_like(obstacles),point)
     occ_dists = fmm_distance(obstacles,point)
     occluded_mask = np.abs(occ_dists - raw_dists) > 0.5
     return occluded_mask
@@ -133,9 +134,10 @@ class SpotEnv(Env):
         relative_obs_locations = (obs["obstacle_distances"][:, :2] - self.start_gps).copy()
         relative_obs_locations = (self.rot_compass @ relative_obs_locations.T).T[ :, ::-1 ]
 
+        trust_region = 1.3
         trusted_point = (
             np.linalg.norm(obs["obstacle_distances"][:, :2] - obs["position"], axis=-1)
-            <= 1.5
+            <= trust_region
         )
         obstacle_threshold = 0.01
         is_obstacle_mask = obs["obstacle_distances"][:, 2] <= obstacle_threshold
@@ -145,35 +147,77 @@ class SpotEnv(Env):
         home_robot_obs.task_observations["obstacle_locations"] = torch.from_numpy(
             relative_obs_locations[is_obstacle_mask & trusted_point]
         )
-        free_points = relative_obs_locations[is_free_mask & trusted_point]
+        free_locations = relative_obs_locations[is_free_mask & trusted_point]
         ray_tracing = True
         if ray_tracing:
+            # import pdb; pdb.set_trace()
+            # from matplotlib import pyplot as plt 
+            # plt.scatter(free_points[:,0],free_points[:,1])
+            # plt.show()
+            # from IPython import embed; embed()
+            # import dill
+            # import pickle
+            # loc = locals()
+            # save_dir = {k: v for k,v in loc.items() if test_pickle(v)}
+            # def test_pickle(o):
+                # import pickle
+                # try:
+                    # pickle.dumps(o)
+                # except (pickle.PicklingError, TypeError, AttributeError):
+                    # return False
+                # return True
+            # pickle.dump(save_dir, open(f'locals.pkl', 'wb'))
+
+           # obs['obstacle_distances'][:,:2] - obs['position']
             # meters to pixel
             resolution = 0.05
-            pixel_locations = ((obs["obstacle_distances"][:, :2] - obs["position"]) / resolution)
-            print(pixel_locations.min(),pixel_locations.max())
-            rad = max(-pixel_locations.min(),pixel_locations.max()) + 0.1
-            dia = int(2*rad/resolution)
+            # pixel_locations = ((obs["obstacle_distances"][:, :2] - obs["position"]) / resolution)
+            # print(pixel_locations.min(),pixel_locations.max())
+            rad = 3/resolution
+            dia = int(2*rad)
             map_region = np.zeros((dia, dia))
             pixel_locations = ((obs["obstacle_distances"][:, :2] - obs["position"]) / resolution) + dia/2
             pixel_locations = pixel_locations[is_obstacle_mask].astype(int)
             map_region[pixel_locations[:, 0], pixel_locations[:, 1]] = 1
             occluded_mask = ray_trace(map_region,(dia//2,dia//2))
             observed_free = (map_region == 0) & ~occluded_mask
-            free_points = np.stack(np.where(observed_free),axis=1)
+            # you have to and with the mask channel, np.where doesn't respect the masked array
+            free_points = np.stack(np.where(observed_free & ~observed_free.mask),axis=1)
             free_points = (free_points - dia/2) * resolution
-            trusted_free = free_points[np.linalg.norm(free_points, axis=-1) <= 1.5].copy()
+            trusted_free = free_points[np.linalg.norm(free_points, axis=-1) <= trust_region].copy()
 
-            trusted_free = (self.rot_compass @ trusted_free.T).T[ :, ::-1 ].copy()
             trusted_free += obs['position'] - self.start_gps
-            print(trusted_free)
-            print(free_points)
+            trusted_free = (self.rot_compass @ trusted_free.T).T[ :, ::-1 ].copy()
+
+            # from matplotlib.figure import Figure
+            # from matplotlib.backends.backend_agg import FigureCanvasAgg
+            # fig = Figure(figsize=(5,4),dpi=100)
+            # ax = fig.add_subplot()
+            # ax.scatter(trusted_free[:,0],trusted_free[:,1])
+            # ca = FigureCanvasAgg(fig)
+            # ca.draw()
+            # shape,(w,h) = ca.print_to_buffer()
+            # img = np.frombuffer(shape,dtype='uint8').reshape((h,w,4))
+
+            # fig = Figure(figsize=(5,4),dpi=100)
+            # ax = fig.add_subplot()
+            # ax.scatter(free_locations[:,0],free_locations[:,1])
+            # ca = FigureCanvasAgg(fig)
+            # ca.draw()
+            # shape,(w,h) = ca.print_to_buffer()
+            # img2 = np.frombuffer(shape,dtype='uint8').reshape((h,w,4))
+            # vis = np.concatenate((img,img2),axis=1)
+            # cv2.imshow('scatters',vis)
+            # print(obs['position'])
+            # print(self.start_gps)
+            # from matplotlib import pyplot as plt 
+
             home_robot_obs.task_observations["free_locations"] = torch.from_numpy(
                 trusted_free
             )
         else:
             home_robot_obs.task_observations["free_locations"] = torch.from_numpy(
-                free_points
+                free_locations
             )
         return home_robot_obs
 

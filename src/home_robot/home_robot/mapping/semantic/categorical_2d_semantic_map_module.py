@@ -285,8 +285,10 @@ class Categorical2DSemanticMapModule(nn.Module):
             )
             for e in range(batch_size):
                 if seq_update_global[e, t]:
+                    # TODO: Pass in free locations here
                     self._update_global_map_and_pose_for_env(
-                        e, local_map, global_map, local_pose, global_pose, lmb, origins
+                        e, local_map, global_map, local_pose, global_pose, lmb, origins,
+                        free_locations = seq_free_locations[e,t]
                     )
 
             seq_local_pose[:, t] = local_pose
@@ -735,8 +737,12 @@ class Categorical2DSemanticMapModule(nn.Module):
                 0, 0, obstacle_locations[0, :, 0], obstacle_locations[0, :, 1]
             ] = 1
         if free_locations is not None:
+            # remove samantics
             translated[0, MC.NON_SEM_CHANNELS:, free_locations[0, :, 0], free_locations[0, :, 1]] = 0
             prev_map[0, MC.NON_SEM_CHANNELS:, free_locations[0, :, 0], free_locations[0, :, 1]] = 0
+            # remove obstacles
+            translated[0, 0, free_locations[0, :, 0], free_locations[0, :, 1]] = 0
+            prev_map[0, 0, free_locations[0, :, 0], free_locations[0, :, 1]] = 0
 
         # Aggregate by taking the max of the previous map and current map — this is robust
         # to false negatives in one frame but makes it impossible to remove false positives
@@ -1090,10 +1096,18 @@ class Categorical2DSemanticMapModule(nn.Module):
         global_pose: Tensor,
         lmb: Tensor,
         origins: Tensor,
+        free_locations=None,
     ):
         """Update global map and pose and re-center local map and pose for a
         particular environment.
         """
+
+        # TODO: remove______
+        if free_locations is not None:
+            # shift local free locations
+            global_free_locations = free_locations + torch.tensor([lmb[e,0],lmb[e,2]]).to(free_locations.device)
+            # zero out those channels
+            global_map[e,MC.NON_SEM_CHANNELS:,global_free_locations[:,0],global_free_locations[:,1]] = 0
 
         if self.record_instance_ids:
             global_map = self._update_global_map_instances(
