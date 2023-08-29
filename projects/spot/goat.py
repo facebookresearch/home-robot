@@ -463,10 +463,12 @@ GOALS = {
     "object_couch": {"type": "objectnav", "target": "couch"},
     "object_plant": {"type": "objectnav", "target": "potted plant"},
     "object_bed": {"type": "objectnav", "target": "bed"},
+    "place_object_bed": {"type": "objectnav", "target": "bed",'action': 'place'},
     "object_toilet": {"type": "objectnav", "target": "toilet"},
     "object_tv": {"type": "objectnav", "target": "tv"},
     "object_table": {"type": "objectnav", "target": "dining table"},
     "object_bear": {"type": "objectnav", "target": "teddy bear"},
+    "pick_object_bear": {"type": "objectnav", "target": "teddy bear",'action': "pick"},
     "object_oven": {"type": "objectnav", "target": "oven"},
     "object_sink": {"type": "objectnav", "target": "sink"},
     "object_refrigerator": {"type": "objectnav", "target": "refrigerator"},
@@ -846,6 +848,7 @@ def main(spot=None, args=None):
                     # right
                     spot.set_base_velocity(0, -0.5, 0, 0.5)
             else:
+                action_type = env.goals[agent.current_task_idx].get('action')
                 target_semantic_class = env.goals[agent.current_task_idx]['semantic_id']
                 target_mask = obs.semantic == target_semantic_class
                 if pan_warmup:
@@ -856,40 +859,50 @@ def main(spot=None, args=None):
                     if positions[0] < -2.5:
                         pan_warmup = False
                         env.env.initialize_arm()
-                elif picked and args.pick_place and target_mask.sum() > 0:
+                elif action_type == 'place' and target_mask.sum() > 0:
                     import pdb; pdb.set_trace()
+                    from IPython import embed; embed()
                     from home_robot.utils.spot import find_largest_connected_component
                     largest_mask = find_largest_connected_component(target_mask)
                     response = obs.raw_obs['depth_response']
                     points = masked_point_cloud_from_depth_image(response,largest_mask,VISION_FRAME_NAME)
                     mapTworld,image_size,transformed_points = create_point_cloud_transformation(points,0.05,padding=1)
-                    # homogeneous_transform(np.linalg.inv(transform),transformed_points)
-                    # res = homogeneous_transform(transform,points)
                     projection = np.zeros(image_size[:2])
                     locations_2d = transformed_points[:,:2].astype(int)
                     projection[locations_2d[:,0],locations_2d[:,1]] = 1
                     from matplotlib import pyplot as plt 
                     
-                    eroded = cv2.erode(projection,np.ones((2,2),np.uint8),iterations=3)
-                    plt.clf()
-                    plt.imshow(eroded)
-                    plt.savefig('vis/test.png')
+                    # eroded = cv2.erode(projection,np.ones((3,3),np.uint8),iterations=2)
+                    # plt.clf()
+                    # plt.imshow(eroded)
+                    # plt.savefig('vis/test.png')
                     # potential place locations in the 2d map
-                    valid_pixel_locs = np.stack(np.where(eroded),axis=-1)
+                    # valid_pixel_locs = np.stack(np.where(eroded),axis=-1)
+                    valid_pixel_locs = np.stack(np.where(projection),axis=-1)
                     px,py,_ = get_xy_yaw(response.shot.transforms_snapshot)
                     agent_pixel_loc = homogeneous_transform(mapTworld,np.array([[px,py,0]]))[0,:2]
                     # valid 2d location closest to the agent
+                    centroid = valid_pixel_locs.mean(axis=0)
+                    agent_pixel_loc = centroid
                     closest = np.linalg.norm(valid_pixel_locs-agent_pixel_loc,axis=-1).argmin()
+                    # closest_point = valid_pixel_locs[closest]
+                    # vec = centroid-closest_point
+                    # target_pixel = 5*(vec/np.linalg.norm(vec)) + closest_point
+                    # selected_pixel = np.linalg.norm(valid_pixel_locs-target_pixel,axis=-1).argmin()
+
+                    # pt = np.concatenate((centroid,[1]))
+                    # target_point = homogeneous_transform(np.linalg.inv(mapTworld),pt[None])[0]
+                    # target_point[-1] = 0.0
                     
                     # mask of points which project to the selected 2d location
                     project_to_place_loc = (locations_2d == valid_pixel_locs[closest]).all(axis=-1)
                     # points in world coords which map to the place location
-                    selected_points = points[project_to_place_loc]
-
+                    nearest_heights = points[project_to_place_loc]
                     # find the highest point for placing
-                    selected_point = selected_points[selected_points[:,-1].argmax()]
+                    selected_height = nearest_heights[nearest_heights[:,-1].argmax()][-1]
                     offset = np.array((0,0,0.2))
-                    motion_target = selected_point + offset
+                    # motion_target = selected_point + offset
+                    motion_target = selected_height + offset
                     INITIAL_RPY = np.deg2rad([0.0, 55.0, 0.0])
                     env.env.initialize_arm()
                     def yaw_toward(target):
@@ -903,16 +916,16 @@ def main(spot=None, args=None):
                         px,py,yaw = spot.get_xy_yaw()
                         dist = np.linalg.norm(motion_target[:2]-(px,py))
                         print(dist)
-                        if dist < 1.3:
+                        if dist < 0.8:
                             break
                     px,py,yaw = spot.get_xy_yaw()
                     target_yaw = yaw_toward(motion_target)
                     spot.set_base_position(px,py,target_yaw,10,relative=False, max_fwd_vel=0.5, max_hor_vel=0.5, max_ang_vel=np.pi / 4,blocking=False)
+                    env.env.pick_from_back()
                     cmd_id = spot.move_gripper_to_point(motion_target, INITIAL_RPY,frame_name=VISION_FRAME_NAME)
                     spot.open_gripper()
                     env.env.initialize_arm()
-                elif not picked and args.pick_place and target_mask.sum() > 0:
-                    import pdb; pdb.set_trace()
+                elif action_type == 'pick' and target_mask.sum() > 0:
                     dist,pixel_xy = distance_to_class(obs,target_semantic_class)
                     print("Distance to object: ",dist)
                     if dist < 3:

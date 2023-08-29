@@ -618,7 +618,10 @@ class GoatAgent(Agent):
 
         if action == DiscreteNavigationAction.STOP:
             print("Called STOP action")
-            self.advance_to_next_task(obs)
+            cur_task = obs.task_observations["tasks"][self.current_task_idx]
+            # advance to next task unless it's a pick or place action
+            if 'action' not in cur_task:
+                self.advance_to_next_task(obs)
         self.prev_task_type = task_type
         return action, info
 
