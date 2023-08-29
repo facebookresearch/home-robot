@@ -5,6 +5,7 @@ channels:
   - pytorch
   - pytorch3d
   - nvidia
+  - pyg
 dependencies:
   - python==3.9.*
   - ros-noetic-desktop
@@ -16,6 +17,7 @@ dependencies:
   - pytorch==1.13.*  # Compatibility with pytorch3d
   - pytorch-cuda=11.7
   - pytorch3d
+  - pyg
   - opencv
   - pip
   - pip:
