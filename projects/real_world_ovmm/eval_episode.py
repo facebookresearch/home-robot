@@ -51,13 +51,14 @@ def main(
     test_place=False,
     cat_map_file=None,
     max_num_steps=200,
+    config_path="projects/real_world_ovmm/configs/agent/eval.yaml",
     **kwargs,
 ):
     print("- Starting ROS node")
     rospy.init_node("eval_episode_stretch_objectnav")
 
     print("- Loading configuration")
-    config = load_config(visualize=visualize_maps, **kwargs)
+    config = load_config(config_path=config_path, visualize=visualize_maps, **kwargs)
 
     print("- Creating environment")
     env = StretchPickandPlaceEnv(

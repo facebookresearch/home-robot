@@ -2,24 +2,32 @@
 #
 # This source code is licensed under the MIT license found in the
 # LICENSE file in the root directory of this source tree.
-import argparse
 import sys
 import timeit
+from pathlib import Path
 from typing import Tuple
 
 import click
+import matplotlib.pyplot as plt
 import numpy as np
 import open3d
 import rospy
-import trimesh
-import trimesh.transformations as tra
 
+import home_robot.utils.depth as du
+from home_robot.agent.ovmm_agent import (
+    OvmmPerception,
+    build_vocab_from_category_map,
+    read_category_map_file,
+)
 from home_robot.mapping.voxel import SparseVoxelMap
 from home_robot.motion.stretch import STRETCH_NAVIGATION_Q, HelloStretchKinematics
+from home_robot.utils.geometry import xyt2sophus
+from home_robot.utils.image import Camera
 from home_robot.utils.point_cloud import numpy_to_pcd, pcd_to_numpy, show_point_cloud
-from home_robot.utils.pose import to_pos_quat
+from home_robot.utils.pose import convert_pose_habitat_to_opencv, to_pos_quat
 from home_robot_hw.env.stretch_pick_and_place_env import StretchPickandPlaceEnv
 from home_robot_hw.remote import StretchClient
+from home_robot_hw.utils.config import load_config
 
 
 class RosMapDataCollector(object):
@@ -34,31 +42,34 @@ class RosMapDataCollector(object):
     This is an example collecting the data; not necessarily the way you should do it.
     """
 
-    def __init__(self, robot, visualize_planner=False):
+    def __init__(
+        self,
+        robot,
+        semantic_sensor=None,
+        visualize_planner=False,
+        voxel_size: float = 0.01,
+    ):
         self.robot = robot  # Get the connection to the ROS environment via agent
+        # Run detection here
+        self.semantic_sensor = semantic_sensor
         self.started = False
         self.robot_model = HelloStretchKinematics(visualize=visualize_planner)
-        self.voxel_map = SparseVoxelMap(resolution=0.01)
+        self.voxel_map = SparseVoxelMap(resolution=voxel_size)
 
-    def step(self):
+    def step(self, visualize_map=False):
         """Step the collector. Get a single observation of the world. Remove bad points, such as
         those from too far or too near the camera."""
-        rgb, depth, xyz = self.robot.head.get_images(
-            compute_xyz=True,
-        )
-        # Get the camera pose and make sure this works properly
-        camera_pose = self.robot.head.get_pose(rotated=False)
-        # Get RGB and depth as necessary
-        orig_rgb = rgb.copy()
-        orig_depth = depth.copy()
+        obs = self.robot.get_observation()
 
-        # apply depth filter
-        depth = depth.reshape(-1)
-        rgb = rgb.reshape(-1, 3)
-        xyz = xyz.reshape(-1, 3)
-        valid_depth = np.bitwise_and(depth > 0.1, depth < 4.0)
-        rgb = rgb[valid_depth, :]
-        xyz = xyz[valid_depth, :]
+        rgb = obs.rgb
+        depth = obs.depth
+        xyz = obs.xyz
+        camera_pose = obs.camera_pose
+        base_pose = np.array([obs.gps[0], obs.gps[1], obs.compass[0]])
+
+        # Semantic prediction
+        obs = self.semantic_sensor.predict(obs)
+
         # TODO: remove debug code
         # For now you can use this to visualize a single frame
         # show_point_cloud(xyz, rgb / 255, orig=np.zeros(3))
@@ -67,31 +78,69 @@ class RosMapDataCollector(object):
             xyz,
             rgb,
             depth=depth,
+            base_pose=base_pose,
+            obs=obs,
             K=self.robot.head._ros_client.rgb_cam.K,
-            orig_rgb=orig_rgb,
-            orig_depth=orig_depth,
         )
+        if visualize_map:
+            # Now draw 2d
+            self.voxel_map.get_2d_map(debug=True)
+
+    def get_2d_map(self):
+        """Get 2d obstacle map for low level motion planning and frontier-based exploration"""
+        return self.voxel_map.get_2d_map()
 
     def show(self) -> Tuple[np.ndarray, np.ndarray]:
         """Display the aggregated point cloud."""
-
-        # Create a combined point cloud
-        # Do the other stuff we need
-        pc_xyz, pc_rgb = self.voxel_map.get_data()
-        show_point_cloud(pc_xyz, pc_rgb / 255, orig=np.zeros(3))
-        return pc_xyz, pc_rgb
+        return self.voxel_map.show()
 
 
-@click.command()
-@click.option("--rate", default=5, type=int)
-@click.option("--max-frames", default=20, type=int)
-@click.option("--visualize", default=False, is_flag=True)
-@click.option("--manual_wait", default=False, is_flag=True)
-@click.option("--pcd-filename", default="output.ply", type=str)
-@click.option("--pkl-filename", default="output.pkl", type=str)
-def main(rate, max_frames, visualize, manual_wait, pcd_filename, pkl_filename):
+def create_semantic_sensor(
+    device_id: int = 0,
+    verbose: bool = True,
+    **kwargs,
+):
+    """Create segmentation sensor and load config. Returns config from file, as well as a OvmmPerception object that can be used to label scenes."""
+    print("- Loading configuration")
+    config = load_config(visualize=False, **kwargs)
+
+    print("- Create and load vocabulary and perception model")
+    semantic_sensor = OvmmPerception(config, device_id, verbose, module="detic")
+    obj_name_to_id, rec_name_to_id = read_category_map_file(
+        config.ENVIRONMENT.category_map_file
+    )
+    vocab = build_vocab_from_category_map(obj_name_to_id, rec_name_to_id)
+    semantic_sensor.update_vocabulary_list(vocab, 0)
+    semantic_sensor.set_vocabulary(0)
+    return config, semantic_sensor
+
+
+def collect_data(
+    rate,
+    max_frames,
+    visualize,
+    manual_wait,
+    pcd_filename,
+    pkl_filename,
+    voxel_size: float = 0.01,
+    device_id: int = 0,
+    verbose: bool = True,
+    visualize_map_at_start: bool = True,
+    visualize_map: bool = True,
+    blocking: bool = True,
+    **kwargs,
+):
+    """Collect data from a Stretch robot. Robot will move through a preset trajectory, stopping repeatedly."""
+
+    print("- Connect to Stretch")
     robot = StretchClient()
-    collector = RosMapDataCollector(robot, visualize)
+
+    config, semantic_sensor = create_semantic_sensor(device_id, verbose)
+
+    print("- Start ROS data collector")
+    collector = RosMapDataCollector(
+        robot, semantic_sensor, visualize, voxel_size=voxel_size
+    )
 
     # Tuck the arm away
     print("Sending arm to  home...")
@@ -119,25 +168,23 @@ def main(rate, max_frames, visualize, manual_wait, pcd_filename, pkl_filename):
         (0.85, 0.3, np.pi / 4),
         (0.95, 0.5, np.pi / 2),
         (1.0, 0.55, np.pi),
-        (0.6, 0.45, 9 * np.pi / 8),
+        (0.6, 0.45, 5 * np.pi / 4),
         (0.0, 0.3, -np.pi / 2),
         (0, 0, 0),
-        (0.2, 0, 0),
-        (0.5, 0, 0),
-        (0.7, 0.2, np.pi / 4),
-        (0.7, 0.4, np.pi / 2),
-        (0.5, 0.4, np.pi),
-        (0.2, 0.2, -np.pi / 4),
-        (0, 0, -np.pi / 2),
-        (0, 0, 0),
+        # (0.2, 0, 0),
+        # (0.5, 0, 0),
+        # (0.7, 0.2, np.pi / 4),
+        # (0.7, 0.4, np.pi / 2),
+        # (0.5, 0.4, np.pi),
+        # (0.2, 0.2, -np.pi / 4),
+        # (0, 0, -np.pi / 2),
+        # (0, 0, 0),
     ]
 
-    collector.step()  # Append latest observations
-    # print("Press ctrl+c to finish...")
+    collector.step(visualize_map=visualize_map_at_start)  # Append latest observations
+
     t0 = rospy.Time.now()
     while not rospy.is_shutdown():
-        # Run until we control+C this script
-
         ti = (rospy.Time.now() - t0).to_sec()
         print("t =", ti, trajectory[step])
         robot.nav.navigate_to(trajectory[step])
@@ -147,7 +194,8 @@ def main(rate, max_frames, visualize, manual_wait, pcd_filename, pkl_filename):
         print("... capturing frame!")
         step += 1
 
-        collector.step()  # Append latest observations
+        # Append latest observations
+        collector.step()
 
         frames += 1
         if max_frames > 0 and frames >= max_frames or step >= len(trajectory):
@@ -159,6 +207,17 @@ def main(rate, max_frames, visualize, manual_wait, pcd_filename, pkl_filename):
     robot.nav.navigate_to((0, 0, 0))
     pc_xyz, pc_rgb = collector.show()
 
+    if visualize_map:
+        import matplotlib.pyplot as plt
+
+        obstacles, explored = collector.get_2d_map()
+
+        plt.subplot(1, 2, 1)
+        plt.imshow(obstacles)
+        plt.subplot(1, 2, 2)
+        plt.imshow(explored)
+        plt.show()
+
     # Create pointcloud
     if len(pcd_filename) > 0:
         pcd = numpy_to_pcd(pc_xyz, pc_rgb / 255)
@@ -167,6 +226,161 @@ def main(rate, max_frames, visualize, manual_wait, pcd_filename, pkl_filename):
         collector.voxel_map.write_to_pickle(pkl_filename)
 
     rospy.signal_shutdown("done")
+
+
+DATA_MODES = ["ros", "pkl", "dir"]
+
+
+@click.command()
+@click.option(
+    "--mode", type=click.Choice(DATA_MODES), default="ros"
+)  # help="Choose data source. ROS requires connecting to a real stretch robot")
+@click.option("--rate", default=5, type=int)
+@click.option("--max-frames", default=20, type=int)
+@click.option("--visualize", default=False, is_flag=True)
+@click.option("--manual_wait", default=False, is_flag=True)
+@click.option("--output-pcd-filename", default="output.ply", type=str)
+@click.option("--output-pkl-filename", default="output.pkl", type=str)
+@click.option("--from-ros", default=False, is_flag=True)
+@click.option(
+    "--input-path",
+    type=click.Path(),
+    default="output.pkl",
+    help="Input path with default value 'output.npy'",
+)
+def main(
+    mode,
+    rate,
+    max_frames,
+    visualize,
+    manual_wait,
+    output_pcd_filename,
+    output_pkl_filename,
+    input_path: str = ".",
+    voxel_size: float = 0.01,
+    device_id: int = 0,
+    verbose: bool = True,
+    **kwargs,
+):
+
+    click.echo(f"Processing data in mode: {mode}")
+    click.echo(f"Using input path: {input_path}")
+
+    if mode == "ros":
+        click.echo("Will connect to a Stretch robot and collect a short trajectory.")
+        collect_data(
+            rate,
+            max_frames,
+            visualize,
+            manual_wait,
+            output_pcd_filename,
+            output_pkl_filename,
+            voxel_size,
+            device_id,
+            verbose,
+            **kwargs,
+        )
+    elif mode == "dir":
+        # This is for backwards compatibility with the GOAT data
+        raise NotImplementedError("Output in directory mode not yet working.")
+        input_path = Path(input_path)
+        pkl_files = input_path.glob("*.pkl")
+        sorted_pkl_files = sorted(pkl_files, key=lambda f: int(f.stem))
+        voxel_map = SparseVoxelMap(resolution=voxel_size)
+        camera = None
+        hfov = 60.2
+        for i, pkl_file in enumerate(sorted_pkl_files):
+            print("-", i, pkl_file)
+            obs = np.load(pkl_file, allow_pickle=True)
+            if camera is None:
+                camera = Camera.from_width_height_fov(
+                    obs.rgb.shape[1], obs.rgb.shape[0], hfov
+                )
+            xyt = np.array([obs.gps[0], obs.gps[1], obs.compass[0]])
+            base_pose_matrix = xyt2sophus(xyt).matrix()
+            if obs.xyz is None:
+                # need to find camera matrix K
+                assert obs.depth is not None, "need depth"
+                xyz = camera.depth_to_xyz(obs.depth)
+                # show_point_cloud(xyz, obs.rgb / 255.0, orig=np.zeros(3))
+                import trimesh
+                import trimesh.transformations as tra
+
+                import home_robot.utils.depth as du
+                from home_robot.utils.point_cloud import show_point_cloud
+
+                camera_matrix = du.get_camera_matrix(
+                    obs.rgb.shape[1], obs.rgb.shape[0], hfov
+                )
+                agent_pos = obs.camera_pose[:3, 3]
+                agent_height = agent_pos[2]
+                import torch
+
+                device = torch.device("cpu")
+                point_cloud_t = du.get_point_cloud_from_z_t(
+                    torch.Tensor(obs.depth).unsqueeze(0), camera_matrix, device, scale=1
+                )
+                # show_point_cloud(
+                #    point_cloud_t[0].cpu().numpy(), obs.rgb / 255.0, orig=np.zeros(3)
+                # )
+                # xyz = point_cloud_t[0].cpu().numpy()
+                # Now co
+                import trimesh.transformations as tra
+
+                angles = torch.Tensor(
+                    [tra.euler_from_matrix(obs.camera_pose[:3, :3], "rzyx")]
+                )
+                tilt = angles[:, 1]
+                point_cloud_base = du.transform_camera_view_t(
+                    point_cloud_t,
+                    agent_height,
+                    torch.rad2deg(tilt).cpu().numpy(),
+                    device,
+                )
+                xyz1 = point_cloud_t[0].cpu().numpy()
+                xyz2 = point_cloud_base[0].cpu().numpy()
+                show_point_cloud(xyz1, obs.rgb / 255.0, orig=np.zeros(3))
+                show_point_cloud(xyz2, obs.rgb / 255.0, orig=np.zeros(3))
+                breakpoint()
+
+                camera_pose = convert_pose_habitat_to_opencv(obs.camera_pose)
+                import trimesh.transformations as tra
+
+                angles = torch.Tensor(
+                    [tra.euler_from_matrix(obs.camera_pose[:3, :3], "rzyx")]
+                )
+                angles2 = tra.euler_from_matrix(obs.camera_pose[:3, :3], "rzyx")
+                print("not corrected", angles)
+                print("    corrected", angles2)
+                R = tra.euler_matrix(angles2[0], 0, 0)  # angles2[2])
+                cvt_xyz = trimesh.transform_points(xyz.reshape(-1, 3), R)
+                show_point_cloud(cvt_xyz, obs.rgb / 255.0, orig=np.zeros(3))
+                breakpoint()
+            else:
+                xyz = obs.xyz
+            # For backwards compatibility
+            if obs.instance is None:
+                # This copies instance map out of task data if it exists
+                obs.instance = obs.task_observations["instance_map"]
+            # Put the camera pose into the world frame
+            camera_pose_world_coords = obs.camera_pose @ base_pose_matrix
+            # Now try to create everything
+            voxel_map.add(
+                camera_pose_world_coords, xyz, obs.rgb, None, obs.depth, xyt, obs
+            )
+            if i > 0:
+                break
+        voxel_map.show()
+    elif mode == "pkl":
+        click.echo(
+            f"- Loading pickled observations from a single file at {input_path}."
+        )
+        input_path = Path(input_path)
+        voxel_map = SparseVoxelMap(resolution=voxel_size)
+        voxel_map.read_from_pickle(input_path)
+        voxel_map.show(instances=True)
+    else:
+        raise NotImplementedError(f"- data mode {mode} not supported or recognized")
 
 
 if __name__ == "__main__":

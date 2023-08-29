@@ -42,3 +42,4 @@ dependencies:
     - pygifsicle
     - pynput
     - git+https://github.com/openai/CLIP.git
+    - open3d
