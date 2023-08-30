@@ -173,7 +173,6 @@ def run_fixed_trajectory(
         frames += 1
         if step >= len(trajectory):
             break
-        break
 
         rate.sleep()
 
