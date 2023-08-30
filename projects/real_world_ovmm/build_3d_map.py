@@ -81,9 +81,9 @@ class RosMapDataCollector(object):
         # For now you can use this to visualize a single frame
         # show_point_cloud(xyz, rgb / 255, orig=np.zeros(3))
         self.voxel_map.add(
-            camera_pose,
-            xyz,
-            rgb,
+            camera_pose=camera_pose,
+            xyz=xyz,
+            rgb=rgb,
             depth=depth,
             base_pose=base_pose,
             obs=obs,
@@ -173,6 +173,7 @@ def run_fixed_trajectory(
         frames += 1
         if step >= len(trajectory):
             break
+        break
 
         rate.sleep()
 
@@ -185,7 +186,6 @@ def run_exploration(
     explore_iter: int = 10,
 ):
     """Go through exploration. We use the voxel_grid map created by our collector to sample free space, and then use our motion planner (RRT for now) to get there. At the end, we plan back to (0,0,0)."""
-    breakpoint()
     rate = rospy.Rate(rate)
     for i in range(explore_iter):
         # sample a goal
