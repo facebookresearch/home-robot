@@ -72,7 +72,7 @@ class Categorical2DSemanticMapModule(nn.Module):
         evaluate_instance_tracking: bool = False,
         instance_memory: Optional[InstanceMemory] = None,
         max_instances: int = 0,
-        instance_association: str = "bbox_iou",
+        instance_association: str = "map_overlap",
         dilation_for_instances: int = 5,
         padding_for_instance_overlap: int = 5,
         exploration_type="default",

@@ -120,7 +120,7 @@ class InstanceMemory:
         mask_cropped_instances=False,
         padding_cropped_instances=0,
         category_id_to_category_name=None,
-        instance_association: str = "bbox_iou",
+        instance_association: str = "map_overlap",
         iou_threshold: float = 0.8,
         debug_visualize: bool = False,
     ):
@@ -263,7 +263,7 @@ class InstanceMemory:
                         env_id, local_instance_id
                     )
                     if global_instance_id is None:
-                        global_instance_id = len(self.instance_views[env_id])
+                        global_instance_id = len(self.instance_views[env_id]) + 1
                     self.add_view_to_instance(
                         env_id, local_instance_id, global_instance_id
                     )
@@ -446,7 +446,7 @@ class InstanceMemory:
             if semantic_seg is not None:
                 # get semantic category
                 category_id = semantic_seg[instance_mask].unique()
-                category_id = category_id[0]
+                category_id = category_id[0].item()
 
             instance_id_to_category_id[instance_id] = category_id
 
