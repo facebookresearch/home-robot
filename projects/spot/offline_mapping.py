@@ -411,7 +411,8 @@ def print_metrics(
     "--legend_path",
     default=f"{str(Path(__file__).resolve().parent)}/coco_categories_legend.png",
 )
-def main(base_dir: str, legend_path: str):
+@click.option("--device", default="cuda:0")
+def main(base_dir: str, legend_path: str, device: str):
     obs_dir = f"{base_dir}/obs/"
     map_vis_dir = f"{base_dir}/map_vis/"
     goal_grounding_vis_dir = f"{base_dir}/goal_grounding_vis/"
@@ -420,7 +421,7 @@ def main(base_dir: str, legend_path: str):
     else:
         legend = None
 
-    device = torch.device("cuda:1")
+    device = torch.device(device)
 
     categories = list(coco_categories.keys())
     num_sem_categories = len(coco_categories)
