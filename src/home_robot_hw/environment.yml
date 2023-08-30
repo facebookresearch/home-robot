@@ -11,11 +11,10 @@ dependencies:
   - ros-noetic-ros-numpy
   - catkin_tools
   - cmake
-  - jupyter
   - pybind11
   - pinocchio
-  - pytorch=2.0.*
-  - pytorch-cuda=11.8
+  - pytorch==1.13.*  # Compatibility with pytorch3d
+  - pytorch-cuda=11.7
   - pytorch3d
   - opencv
   - pip
@@ -32,7 +31,6 @@ dependencies:
     - scikit-learn
     - numpy-quaternion
     - natsort
-    - frozendict
     # Neural networks
     - openai-clip
     - timm

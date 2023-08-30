@@ -2,25 +2,16 @@
 #
 # This source code is licensed under the MIT license found in the
 # LICENSE file in the root directory of this source tree.
-
-import copy
-import dataclasses
-import os
-import warnings
 from functools import partial
 from pathlib import Path
 from typing import List, Optional, Tuple, Union
 
 import cv2
 import numpy as np
-import pandas as pd
 import torch
 from natsort import natsorted
 from PIL import Image
 from tqdm import tqdm
-
-from .referit3d_data import ReferIt3dDataConfig, load_referit3d_data
-from .scanrefer_data import ScanReferDataConfig, load_scanrefer_data
 
 
 class ScanNetDataset(object):
@@ -106,16 +97,10 @@ class ScanNetDataset(object):
         frame_skip: int = 1,
         height: Optional[int] = 480,
         width: Optional[int] = 640,
-        # modalities: Tuple[str] = ("rgb", "depth", "pose", "intrinsics"),
-        referit3d_config: Optional[ReferIt3dDataConfig] = None,
-        scanrefer_config: Optional[ScanReferDataConfig] = None,
+        modalities: Tuple[str] = ("rgb", "depth", "pose", "intrinsics"),
         show_load_progress: bool = False,
     ):
         """
-
-        frame_skip: Only use every frame_skip frames
-
-
         The directory structure after pre-processing should be as below.
         For dowloading and preprocessing scripts, see https://mmdetection3d.readthedocs.io/en/v0.15.0/datasets/scannet_det.html
 
@@ -151,12 +136,6 @@ class ScanNetDataset(object):
         │   │   ├── xxxxxx.png # depth
         │   │   ├── xxxxxx.jpg # color
         │   │   ├── intrinsic.txt
-        ├── referit3d
-        │   ├── nr3d.csv
-        │   ├── sr3d.csv
-        │   ├── sr3d+.csv
-        ├── scanrefer
-        │   ├── ScanRefer_filtered_<SPLIT>.csv
         ├── scannet_infos_train.pkl
         ├── scannet_infos_val.pkl
         ├── scannet_infos_test.pkl
@@ -168,11 +147,9 @@ class ScanNetDataset(object):
         self.instance_dir = self.root_dir / "scannet_instance_data"
         self.instance_2d_dir = self.root_dir / "scannet_instance_data"
         self.scan_dir = self.root_dir / "scannet_instance_data"
-
         self.split = split
         self.height = height
         self.width = width
-
         assert (self.height is None) == (self.width is None)  # Neither or both
         self.frame_skip = frame_skip
 
@@ -183,39 +160,8 @@ class ScanNetDataset(object):
         self.scene_list = natsorted(self.scene_list)
         assert len(self.scene_list) > 0
 
-        # Referit3d
-        self.referit_data: Optional[pd.DateFrame] = None
-        if referit3d_config is not None:
-            if split != "train":
-                warnings.warn(RuntimeWarning("ReferIt3D not evaluated on test set"))
-            r3d_config_copy = copy.deepcopy(referit3d_config)
-            if not os.path.isabs(r3d_config_copy.nr3d_csv_fpath):
-                r3d_config_copy.nr3d_csv_fpath = (
-                    self.root_dir / r3d_config_copy.nr3d_csv_fpath
-                )
-            if r3d_config_copy.sr3d_csv_fpath is not None and not os.path.isabs(
-                r3d_config_copy.sr3d_csv_fpath
-            ):
-                r3d_config_copy.sr3d_csv_fpath = (
-                    self.root_dir / r3d_config_copy.sr3d_csv_fpath
-                )
-            self.referit_data = load_referit3d_data(
-                scans_split={"train": self.scene_list},
-                **dataclasses.asdict(r3d_config_copy),
-            )
+    def find_data(self, scan_name):
 
-        # ScanRefer
-        self.scanrefer_data: Optional[pd.DateFrame] = None
-        if scanrefer_config is not None:
-            json_fpath = (
-                self.root_dir
-                / scanrefer_config.json_dir
-                / f"ScanRefer_filtered_{split}.json"
-            )
-            self.scanrefer_data = load_scanrefer_data(json_fpath)
-        # '/private/home/ssax/home-robot/src/home_robot/home_robot/datasets/scannet/data/scanrefer/ScanRefer_filtered_val.json'
-
-    def find_data(self, scan_name: str):
         # RGBD + pose
         scene_pose_dir = self.posed_dir / scan_name
         scene_posed_files = list([str(s) for s in scene_pose_dir.iterdir()])
@@ -238,7 +184,6 @@ class ScanNetDataset(object):
         assert len(img_names) == len(pose_names)
 
         # 2D instance masks
-        #   Not implemented yet
 
         intrinsic_name = self.posed_dir / scan_name / "intrinsic.txt"
         return {
@@ -258,10 +203,9 @@ class ScanNetDataset(object):
         scan_name = self.scene_list[idx]
 
         data = self.find_data(scan_name)
-
-        # 2D information
         K = torch.from_numpy(np.loadtxt(data["intrinsic_path"]).astype(np.float32))
         axis_align_mat = torch.from_numpy(np.load(data["axis_align_path"])).float()
+
         K[0] *= float(self.width) / self.DEFAULT_WIDTH  # scale_x
         K[1] *= float(self.height) / self.DEFAULT_HEIGHT  # scale_y
 
@@ -280,7 +224,7 @@ class ScanNetDataset(object):
             pose = np.array(pose).reshape(4, 4)
             # pose[:3, 1] *= -1
             # pose[:3, 2] *= -1
-            pose = axis_align_mat @ torch.from_numpy(pose.astype(np.float32)).float()
+            pose = torch.from_numpy(pose.astype(np.float32)).float()
             # We cannot accept files directly, as some of the poses are invalid
             if np.isinf(pose).any():
                 continue
@@ -299,58 +243,22 @@ class ScanNetDataset(object):
             intrinsics.append(K)
             images.append(img)
             depths.append(depth)
-        poses = torch.stack(poses).float()
-        intrinsics = torch.stack(intrinsics).float()
-        images = torch.stack(images).float()
-        depths = torch.stack(depths).float()
-        axis_align_mats = torch.stack(axis_align_mats).float()
-
-        # 3D information
-        boxes_aligned, box_classes, box_obj_ids = load_3d_bboxes(
-            data["bboxs_aligned_path"]
-        )
-
-        # Referring expressions
-        column_names = [
-            "utterance",
-            "instance_type",
-            "target_id",
-            "stimulus_id",
-            "dataset",
-        ]
-        ref_expr_df = pd.DataFrame(columns=column_names)
-
-        # Referit
-        if self.referit_data is not None:
-            r3d_expr = self.referit_data[self.referit_data.scan_id == scan_name][
-                column_names
-            ]
-            ref_expr_df = pd.concat([ref_expr_df, r3d_expr])
-
-        # ScanRefer
-        if self.scanrefer_data is not None:
-            scanrefer_expr = self.scanrefer_data[
-                self.scanrefer_data.scan_id == scan_name
-            ][column_names]
-            ref_expr_df = pd.concat([scanrefer_expr, r3d_expr])
-
+        poses = torch.stack(poses)
+        intrinsics = torch.stack(intrinsics)
+        images = torch.stack(images)
+        depths = torch.stack(depths)
+        axis_align_mats = torch.stack(axis_align_mats)
+        boxes_aligned, box_classes = load_3d_bboxes(data["bboxs_aligned_path"])
         return dict(
-            # Pose
             poses=poses,
             intrinsics=intrinsics,
-            axis_align_mats=axis_align_mats,
-            # Frames
             images=images,
             depths=depths,
             image_paths=image_paths,
-            # 3d boxes
             boxes_aligned=boxes_aligned,
             box_classes=box_classes,
-            box_target_ids=box_obj_ids,
-            # Scene metadata
+            axis_align_mats=axis_align_mats,
             scan_name=scan_name,
-            # Referring expressions,
-            ref_expr=ref_expr_df,
         )
 
 
@@ -361,9 +269,7 @@ def maybe_show_progress(iterable, description, length, show=False):
         yield x
 
 
-##################################
-# Load different modalities
-def load_pose_opengl(path):
+def load_pose(path):
     pose = np.loadtxt(path)
     pose = np.array(pose).reshape(4, 4)
     pose[:3, 1] *= -1
@@ -372,12 +278,12 @@ def load_pose_opengl(path):
     return pose
 
 
-def load_cam_intrinsics(path):
-    raise NotImplementedError
+def load_intrinsics(path):
+    pass
 
 
 def load_semantic_masks(path):
-    raise NotImplementedError
+    pass
 
 
 def get_image_from_path(
@@ -450,17 +356,15 @@ def load_3d_bboxes(path) -> Tuple[torch.Tensor, torch.Tensor]:
 
     Returns:
         bounds: FloatTensor of box bounds (xyz mins and maxes)
-        label_id: IntTensor of class IDs
-        obj_id: IntTensor of object IDs
+        label_id: IntTensor of label IDs
     """
     bboxes = np.load(path)
     bbox_coords = torch.from_numpy(bboxes[:, :6])
-    labels = torch.from_numpy(bboxes[:, -2])
-    obj_ids = torch.from_numpy(bboxes[:, -1])
+    labels = torch.from_numpy(bboxes[:, -1])
     centers, lengths = bbox_coords[:, :3], bbox_coords[:, 3:6]
     mins = centers - lengths / 2.0
     maxs = centers + lengths / 2.0
-    return torch.stack([mins, maxs], dim=-1), labels, obj_ids
+    return torch.stack([mins, maxs], dim=-1), labels
 
 
 if __name__ == "__main__":
