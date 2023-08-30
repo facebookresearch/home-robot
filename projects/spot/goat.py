@@ -7,6 +7,7 @@ import time
 import warnings
 from pathlib import Path
 from typing import List, Optional
+import os
 
 warnings.filterwarnings("ignore")
 
@@ -500,6 +501,12 @@ def main(spot=None, args=None):
     agent = GoatAgent(config=config)
     agent.reset()
 
+    if args.home:
+        home_position = spot.get_xy_yaw()
+        spot.loginfo(f"setting home position home_position: {home_position}")
+        # write home position to numpy file
+        np.save(f'{os.environ["HOME"]}/spot_home_position.npy',home_position)
+
     pan_warmup = False
     picked = False
     keyboard_takeover = args.keyboard
@@ -575,8 +582,8 @@ def main(spot=None, args=None):
         cv2.imwrite(f"{output_visualization_dir}/{t}.png", vis_image[:, :, ::-1])
         
         if not args.offline:
-            cv2.imshow("vis", vis_image[:, :, ::-1])
             cv2.imshow("depth", obs.depth/obs.depth.max())
+            cv2.imshow("vis", vis_image[:, :, ::-1])
             key = cv2.waitKey(100 if keyboard_takeover else 1)
 
             if key == ord("z"):
@@ -714,6 +721,7 @@ if __name__ == "__main__":
     parser.add_argument("--trajectory", default="trajectory1")
     parser.add_argument("--goals", default="object_chair,object_sink")
     parser.add_argument('--keyboard',action='store_true')
+    parser.add_argument('--home',action='store_true')
     parser.add_argument('--pick-place',action='store_true')
     parser.add_argument('--offline',action='store_true')
                         

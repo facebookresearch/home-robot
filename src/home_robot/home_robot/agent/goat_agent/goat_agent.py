@@ -645,6 +645,9 @@ class GoatAgent(Agent):
             if self.instance_memory is not None:
                 self.instance_memory.reset()
             self.planner.reset()
+            self.last_poses = [np.zeros(3)] * self.num_environments
+            self.fully_explored = [False] * self.num_environments
+            self.force_match_against_memory = False
 
     def _preprocess_obs(self, obs: Observations, task_type: str):
         """Take a home-robot observation, preprocess it to put it into the correct format for the

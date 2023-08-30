@@ -36,11 +36,13 @@ def filter_depth(
         depth: depth map of shape (height, width)
         depth_threshold: restrict mask to (depth median - threshold, depth median + threshold)
     """
-    md = np.median(depth[mask == 1])  # median depth
-    if md == 0:
+    valid_depth = depth[mask == 1]
+    md = np.median(valid_depth[valid_depth > 0])  # median depth
+    # md = np.median(depth[mask == 1])  # median depth
+    # if md == 0:
         # Remove mask if more than half of points has invalid depth
-        filter_mask = np.ones_like(mask, dtype=bool)
-    elif depth_threshold is not None:
+        # filter_mask = np.ones_like(mask, dtype=bool)
+    if depth_threshold is not None:
         # Restrict objects to depth_threshold
         filter_mask = (depth >= md + depth_threshold) | (depth <= md - depth_threshold)
     else:
