@@ -44,10 +44,6 @@ export HOME_ROBOT_ROOT=/path/to/home-robot
 export ROS_IP=$WORKSTATION_IP
 export ROS_MASTER_URI=http://$HELLO_ROBOT_IP:11311
 
-# Optionally - make it clear to avoid issues
-echo "Setting ROS_MASTER_URI to $ROS_MASTER_URI"
-echo "Setting ROS IP to $ROS_IP"
-
 # Helpful alias - connect to the robot
 alias ssh-robot="ssh hello-robot@$HELLO_ROBOT_IP"
 ```

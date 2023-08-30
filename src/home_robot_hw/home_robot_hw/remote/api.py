@@ -4,8 +4,10 @@
 # LICENSE file in the root directory of this source tree.
 from typing import Dict, List, Optional
 
+import numpy as np
 import rospy
 
+from home_robot.core.interfaces import Observations
 from home_robot.motion.robot import Robot
 from home_robot.motion.stretch import (
     STRETCH_NAVIGATION_Q,
@@ -14,6 +16,7 @@ from home_robot.motion.stretch import (
     STRETCH_PREGRASP_Q,
     HelloStretchKinematics,
 )
+from home_robot.utils.geometry import xyt2sophus
 from home_robot_hw.constants import ControlMode
 
 from .modules.head import StretchHeadClient
@@ -170,6 +173,7 @@ class StretchClient:
         self.manip.goto_joint_positions(
             self.manip._extract_joint_pos(STRETCH_PREGRASP_Q)
         )
+        print("- Robot switched to manipulation mode.")
 
     def move_to_pre_demo_posture(self):
         """Move the arm and head into pre-demo posture: gripper straight, arm way down, head facing the gripper."""
@@ -189,6 +193,7 @@ class StretchClient:
             self.manip._extract_joint_pos(STRETCH_NAVIGATION_Q)
         )
         self.switch_to_navigation_mode()
+        print("- Robot switched to navigation mode.")
 
     def move_to_post_nav_posture(self):
         """Move the arm to nav mode, head to nav mode with PREGRASP's tilt. The head will be looking front."""
@@ -198,3 +203,41 @@ class StretchClient:
             self.manip._extract_joint_pos(STRETCH_POSTNAV_Q)
         )
         self.switch_to_navigation_mode()
+
+    def get_observation(
+        self, rotate_head_pts=False, start_pose: Optional[np.ndarray] = None
+    ) -> Observations:
+        """Get an observation from the current robot.
+
+        Parameters:
+            rotate_head_pts: this is true to put things into the same format as Habitat; generally we do not want to do this"""
+        rgb, depth, xyz = self.head.get_images(
+            compute_xyz=True,
+        )
+        current_pose = xyt2sophus(self.nav.get_base_pose())
+
+        if start_pose is not None:
+            # use sophus to get the relative translation
+            relative_pose = start_pose.inverse() * current_pose
+        else:
+            relative_pose = current_pose
+        euler_angles = relative_pose.so3().log()
+        theta = euler_angles[-1]
+
+        # GPS in robot coordinates
+        gps = relative_pose.translation()[:2]
+
+        # Get joint state information
+        joint_positions, _, _ = self.get_joint_state()
+
+        # Create the observation
+        obs = Observations(
+            rgb=rgb.copy(),
+            depth=depth.copy(),
+            xyz=xyz.copy(),
+            gps=gps,
+            compass=np.array([theta]),
+            camera_pose=self.head.get_pose(rotated=rotate_head_pts),
+            joint=self.model.config_to_hab(joint_positions),
+        )
+        return obs

@@ -95,7 +95,7 @@ class HabitatEnv(home_robot.core.abstract_env.Env):
     def action_space(self) -> spaces.Space[ActType]:
         return self.habitat_env.action_space
 
-    def current_episode(self, all_info: bool = False) -> int:
+    def current_episode(self, all_info: bool = True) -> int:
         return self.habitat_env.current_episode(all_info)
 
     @property
