@@ -486,16 +486,19 @@ def main(base_dir: str, legend_path: str):
         # Map initialization
         # --------------------------------------------------------------------------------------------
 
+        config_path = "projects/spot/configs/config.yaml"
+        config, _ = get_config(config_path)
+
         # Instance memory is responsible for tracking instances in the map
         instance_memory = None
         if record_instance_ids:
             instance_memory = InstanceMemory(
                 1,
-                4,
+                config.AGENT.SEMANTIC_MAP.du_scale,
                 debug_visualize=True,
                 save_dir=f"{base_dir}/instances",
                 mask_cropped_instances=False,
-                padding_cropped_instances=0,
+                padding_cropped_instances=200,
                 category_id_to_category_name=coco_category_id_to_coco_category,
             )
 
@@ -505,10 +508,16 @@ def main(base_dir: str, legend_path: str):
             device=device,
             num_environments=1,
             num_sem_categories=num_sem_categories,
-            map_resolution=5,
-            map_size_cm=4800,
-            global_downscaling=2,
-            record_instance_ids=record_instance_ids,
+            map_resolution=config.AGENT.SEMANTIC_MAP.map_resolution,
+            map_size_cm=config.AGENT.SEMANTIC_MAP.map_size_cm,
+            global_downscaling=config.AGENT.SEMANTIC_MAP.global_downscaling,
+            record_instance_ids=getattr(
+                config.AGENT.SEMANTIC_MAP, "record_instance_ids", False
+            ),
+            max_instances=getattr(config.AGENT.SEMANTIC_MAP, "max_instances", 0),
+            evaluate_instance_tracking=getattr(
+                config.ENVIRONMENT, "evaluate_instance_tracking", False
+            ),
             instance_memory=instance_memory,
         )
         semantic_map.init_map_and_pose()
@@ -516,27 +525,37 @@ def main(base_dir: str, legend_path: str):
         # Module is responsible for updating the local and global maps and poses
         # See class definition for argument info
         semantic_map_module = Categorical2DSemanticMapModule(
-            frame_height=obs.rgb.shape[0],
-            frame_width=obs.rgb.shape[1],
-            camera_height=obs.camera_pose[2, 3],
-            hfov=60.2,
+            frame_height=config.ENVIRONMENT.frame_height,
+            frame_width=config.ENVIRONMENT.frame_width,
+            camera_height=config.ENVIRONMENT.camera_height,
+            hfov=config.ENVIRONMENT.hfov,
             num_sem_categories=num_sem_categories,
-            map_size_cm=4800,
-            map_resolution=5,
-            vision_range=100,
-            explored_radius=150,
-            been_close_to_radius=200,
-            global_downscaling=2,
-            du_scale=4,
-            cat_pred_threshold=1.0,
-            exp_pred_threshold=1.0,
-            map_pred_threshold=1000.0,
-            min_depth=0.5,
-            max_depth=5.95,
-            must_explore_close=False,
-            min_obs_height_cm=10,
-            record_instance_ids=record_instance_ids,
+            map_size_cm=config.AGENT.SEMANTIC_MAP.map_size_cm,
+            max_depth=config.AGENT.SEMANTIC_MAP.max_depth,
+            map_resolution=config.AGENT.SEMANTIC_MAP.map_resolution,
+            vision_range=config.AGENT.SEMANTIC_MAP.vision_range,
+            explored_radius=config.AGENT.SEMANTIC_MAP.explored_radius,
+            been_close_to_radius=config.AGENT.SEMANTIC_MAP.been_close_to_radius,
+            target_blacklisting_radius=config.AGENT.SEMANTIC_MAP.target_blacklisting_radius,
+            global_downscaling=config.AGENT.SEMANTIC_MAP.global_downscaling,
+            du_scale=config.AGENT.SEMANTIC_MAP.du_scale,
+            cat_pred_threshold=config.AGENT.SEMANTIC_MAP.cat_pred_threshold,
+            exp_pred_threshold=config.AGENT.SEMANTIC_MAP.exp_pred_threshold,
+            map_pred_threshold=config.AGENT.SEMANTIC_MAP.map_pred_threshold,
+            must_explore_close=config.AGENT.SEMANTIC_MAP.must_explore_close,
+            min_obs_height_cm=config.AGENT.SEMANTIC_MAP.min_obs_height_cm,
+            dilate_obstacles=config.AGENT.SEMANTIC_MAP.dilate_obstacles,
+            dilate_size=config.AGENT.SEMANTIC_MAP.dilate_size,
+            dilate_iter=config.AGENT.SEMANTIC_MAP.dilate_iter,
+            record_instance_ids=getattr(
+                config.AGENT.SEMANTIC_MAP, "record_instance_ids", False
+            ),
             instance_memory=instance_memory,
+            max_instances=getattr(config.AGENT.SEMANTIC_MAP, "max_instances", 0),
+            evaluate_instance_tracking=getattr(
+                config.ENVIRONMENT, "evaluate_instance_tracking", False
+            ),
+            exploration_type=config.AGENT.SEMANTIC_MAP.exploration_type,
         ).to(device)
 
         # --------------------------------------------------------------------------------------------
@@ -715,8 +734,6 @@ def main(base_dir: str, legend_path: str):
     # Ground goals in memory
     # --------------------------------------------------------------------------------------------
 
-    config_path = "projects/spot/configs/config.yaml"
-    config, _ = get_config(config_path)
     matching = GoatMatching(
         device=device.index,
         score_func="confidence_sum",
