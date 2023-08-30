@@ -105,7 +105,10 @@ class RRT(Planner):
         return PlanResult(False)
 
     def step_planner(
-        self, force_sample_goal=False, nodes: Optional[TreeNode] = None
+        self,
+        force_sample_goal=False,
+        nodes: Optional[TreeNode] = None,
+        next_state: Optional[np.ndarray] = None,
     ) -> PlanResult:
         """Continue planning for a while. In case you want to try for anytime planning."""
         assert (
@@ -115,14 +118,20 @@ class RRT(Planner):
             self.start_time is not None
         ), "does not look like you started planning with plan(start, goal)"
 
-        if force_sample_goal:
+        if force_sample_goal or next_state is not None:
             should_sample_goal = True
         else:
             should_sample_goal = random() < self.p_sample_goal
         if nodes is None:
             nodes = self.nodes
         # Get a new state
-        next_state = self.goal_state if should_sample_goal else self.space.sample()
+        if next_state is not None:
+            goal_state = next_state
+        else:
+            goal_state = self.goal_state
+        # Set the state we will try to move to
+        if next_state is None:
+            next_state = goal_state if should_sample_goal else self.space.sample()
         closest = self.space.closest_node_to_state(next_state, nodes)
         for step_state in self.space.extend(closest.state, next_state):
             if not self.validate(step_state):
@@ -133,10 +142,7 @@ class RRT(Planner):
                 closest = TreeNode(step_state, parent=closest)
                 nodes.append(closest)
             # Check to see if it's the goal
-            if (
-                self.space.distance(nodes[-1].state, self.goal_state)
-                < self.goal_tolerance
-            ):
+            if self.space.distance(nodes[-1].state, goal_state) < self.goal_tolerance:
                 # We made it! We're close enough to goal to be done
-                return PlanResult(True, nodes[-1].backup())
+                return PlanResult(True, nodes[-1].backup()), nodes[-1]
         return PlanResult(False), closest
