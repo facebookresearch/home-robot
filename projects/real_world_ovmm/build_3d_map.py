@@ -416,6 +416,7 @@ def main(
         voxel_map = SparseVoxelMap(resolution=voxel_size)
         voxel_map.read_from_pickle(input_path)
         voxel_map.show(instances=True)
+        voxel_map.get_2d_map(debug=True)
 
         if explore:
             print(

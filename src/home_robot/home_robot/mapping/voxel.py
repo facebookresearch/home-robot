@@ -465,7 +465,8 @@ class SparseVoxelMap(object):
 
     def xy_to_grid_coords(self, xy: np.ndarray) -> Optional[np.ndarray]:
         """convert xy point to grid coords"""
-        grid_xy = (xy / self.grid_resolution) + self.grid_origin[:2]
+        # TODO: tensor version of this
+        grid_xy = (xy / self.grid_resolution) + self.grid_origin[:2].cpu().numpy()
         if np.any(grid_xy >= self.grid_size) or np.any(grid_xy < np.zeros(2)):
             return None
         else:
@@ -473,7 +474,9 @@ class SparseVoxelMap(object):
 
     def grid_coords_to_xy(self, grid_coords: np.ndarray) -> np.ndarray:
         """convert grid coordinate point to metric world xy point"""
-        return (grid_coords - self.grid_origin[:2]) * self.grid_resolution
+        assert grid_coords.shape[-1] == 2, "grid coords must be an Nx2 or 2d array"
+        # TODO: tensor version of this
+        return (grid_coords - self.grid_origin[:2].cpu().numpy()) * self.grid_resolution
 
     def grid_coords_to_xyt(self, grid_coords: np.ndarray) -> np.ndarray:
         """convert grid coordinate point to metric world xyt point"""
@@ -553,7 +556,10 @@ class SparseVoxelMap(object):
         """Return obstacle-free xy point in explored space"""
         obstacles, explored = self.get_2d_map()
         valid_indices = np.argwhere(
-            np.bitwise_and(np.bitwise_not(obstacles), explored) == 1
+            np.bitwise_and(
+                np.bitwise_not(obstacles.cpu().numpy()), explored.cpu().numpy()
+            )
+            == 1
         )
         if len(valid_indices) > 0:
             random_index = np.random.choice(len(valid_indices))
