@@ -266,6 +266,9 @@ def main(input_trajectory_dir: str, output_visualization_dir: str, legend_path: 
     # --------------------------------------------------------------------------------------------
     # Load trajectory of home_robot Observations
     # --------------------------------------------------------------------------------------------
+    print("Read trajectories from:", input_trajectory_dir)
+    print("        Output data to:", output_visualization_dir)
+    print("          Legend is at:", legend_path)
     observations = []
     for path in natsort.natsorted(glob.glob(f"{input_trajectory_dir}/*.pkl")):
         with open(path, "rb") as f:

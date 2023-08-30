@@ -412,7 +412,6 @@ def print_metrics(
     default=f"{str(Path(__file__).resolve().parent)}/coco_categories_legend.png",
 )
 def main(base_dir: str, legend_path: str):
-
     obs_dir = f"{base_dir}/obs/"
     map_vis_dir = f"{base_dir}/map_vis/"
     goal_grounding_vis_dir = f"{base_dir}/goal_grounding_vis/"
@@ -438,8 +437,12 @@ def main(base_dir: str, legend_path: str):
 
         observations = []
         for path in natsort.natsorted(glob.glob(f"{obs_dir}/*.pkl")):
+            print("- loading", path)
             with open(path, "rb") as f:
-                observations.append(pickle.load(f))
+                try:
+                    observations.append(pickle.load(f))
+                except Exception as e:
+                    print(e)
 
         # Predict semantic segmentation
         segmentation = MaskRCNNPerception(
