@@ -611,6 +611,38 @@ def main(base_dir: str, legend_path: str):
                 obs, last_pose
             )
 
+            if "obstacle_locations" in obs.task_observations:
+                obstacle_locations = obs.task_observations["obstacle_locations"]
+                obstacle_locations = (
+                    obstacle_locations * 100.0 / semantic_map.resolution
+                ).long()
+                (
+                    obstacle_locations[:, 0],
+                    obstacle_locations[:, 1],
+                ) = semantic_map.global_to_local(
+                    obstacle_locations[:, 0], obstacle_locations[:, 1]
+                )
+
+                obstacle_locations = obstacle_locations.unsqueeze(0).unsqueeze(1)
+            else:
+                obstacle_locations = None
+
+            if "free_locations" in obs.task_observations:
+                free_locations = obs.task_observations["free_locations"]
+                free_locations = (
+                    free_locations * 100.0 / semantic_map.resolution
+                ).long()
+                (
+                    free_locations[:, 0],
+                    free_locations[:, 1],
+                ) = semantic_map.global_to_local(
+                    free_locations[:, 0], free_locations[:, 1]
+                )
+
+                free_locations = free_locations.unsqueeze(0).unsqueeze(1)
+            else:
+                free_locations = None
+
             if i == 0:
                 print()
                 print("preprocessed observations:")
@@ -642,6 +674,8 @@ def main(base_dir: str, legend_path: str):
                 semantic_map.global_pose,
                 semantic_map.lmb,
                 semantic_map.origins,
+                seq_obstacle_locations=obstacle_locations,
+                seq_free_locations=free_locations,
             )
 
             semantic_map.local_pose = seq_local_pose[:, -1]
