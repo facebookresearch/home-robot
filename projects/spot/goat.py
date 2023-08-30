@@ -794,6 +794,9 @@ def main(spot=None, args=None):
             instance_memory=agent.instance_memory,
             visualize_instances=config.AGENT.SEMANTIC_MAP.record_instance_ids,
         )
+        instance_mem = agent.instance_memory
+        with open(f"{config.DUMP_LOCATION}/instance_memory_{t}.pkl", "wb") as f:
+                pickle.dump(instance_mem, f)
         vis_images.append(vis_image)
         cv2.imwrite(f"{output_visualization_dir}/{t}.png", vis_image[:, :, ::-1])
 
