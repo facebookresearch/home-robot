@@ -530,7 +530,7 @@ def main(base_dir: str, legend_path: str):
             du_scale=4,
             cat_pred_threshold=1.0,
             exp_pred_threshold=1.0,
-            map_pred_threshold=15.0,
+            map_pred_threshold=1000.0,
             min_depth=0.5,
             max_depth=5.95,
             must_explore_close=False,
@@ -727,13 +727,13 @@ def main(base_dir: str, legend_path: str):
         instance_memory=instance_memory,
     )
 
-    goals_file = Path(f"{base_dir}/goals.json")
+    goals_file = Path(f"{base_dir}/offline_goals.json")
     goals = []
     if Path.exists(goals_file):
         with open(goals_file) as f:
             goals = json.load(f)
     else:
-        print("No goals specified: goals.json does not exist")
+        print("No goals specified: offline_goals.json does not exist")
         sys.exit()
 
     metrics = []
