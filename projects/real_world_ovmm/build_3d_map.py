@@ -12,6 +12,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 import open3d
 import rospy
+import torch
 
 import home_robot.utils.depth as du
 from home_robot.agent.ovmm_agent import (
@@ -65,11 +66,13 @@ class RosMapDataCollector(object):
         those from too far or too near the camera."""
         obs = self.robot.get_observation()
 
-        rgb = obs.rgb
-        depth = obs.depth
-        xyz = obs.xyz
-        camera_pose = obs.camera_pose
-        base_pose = np.array([obs.gps[0], obs.gps[1], obs.compass[0]])
+        rgb = torch.from_numpy(obs.rgb).float()
+        depth = torch.from_numpy(obs.depth).float()
+        xyz = torch.from_numpy(obs.xyz).float()
+        camera_pose = torch.from_numpy(obs.camera_pose).float()
+        base_pose = torch.from_numpy(
+            np.array([obs.gps[0], obs.gps[1], obs.compass[0]])
+        ).float()
 
         # Semantic prediction
         obs = self.semantic_sensor.predict(obs)
@@ -84,7 +87,7 @@ class RosMapDataCollector(object):
             depth=depth,
             base_pose=base_pose,
             obs=obs,
-            K=self.robot.head._ros_client.rgb_cam.K,
+            K=torch.from_numpy(self.robot.head._ros_client.rgb_cam.K).float(),
         )
         if visualize_map:
             # Now draw 2d
