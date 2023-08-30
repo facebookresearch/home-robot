@@ -1,4 +1,4 @@
-    # Copyright (c) Meta Platforms, Inc. and affiliates.
+# Copyright (c) Meta Platforms, Inc. and affiliates.
 #
 # This source code is licensed under the MIT license found in the
 # LICENSE file in the root directory of this source tree.
@@ -14,6 +14,7 @@ from home_robot.core.abstract_agent import Agent
 from home_robot.core.interfaces import DiscreteNavigationAction, Observations
 from home_robot.mapping.geometric.geometric_map_state import GeometricMapState
 from home_robot.navigation_planner.discrete_planner import DiscretePlanner
+
 from .exploration_agent_module import ExplorationAgentModule
 
 # For visualizing exploration issues
