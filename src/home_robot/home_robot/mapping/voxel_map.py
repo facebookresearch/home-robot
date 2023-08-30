@@ -11,8 +11,19 @@ from home_robot.motion.space import XYT
 class SparseVoxelMapNavigationSpace(XYT):
     """subclass for sampling XYT states from explored space"""
 
-    def __init__(self, voxel_map: SparseVoxelMap):
+    def __init__(
+        self,
+        voxel_map: SparseVoxelMap,
+        step_size: float = 0.1,
+        orientation: bool = False,
+    ):
+        self.orientation = orientation
+        self.step_size = step_size
         self.map = voxel_map
+        if self.orientation:
+            self.dof = 2
+        else:
+            self.dof = 3
 
     def sample(self):
         """Sample any position that corresponds to an "explored" location. Goals are valid if they are within a reasonable distance of explored locations. Paths through free space are ok and don't collide."""

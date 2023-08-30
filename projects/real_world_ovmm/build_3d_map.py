@@ -297,7 +297,6 @@ def main(
     verbose: bool = True,
     **kwargs,
 ):
-
     click.echo(f"Processing data in mode: {mode}")
     click.echo(f"Using input path: {input_path}")
 
@@ -422,16 +421,18 @@ def main(
             print(
                 "Running exploration test on offline data. Will plan to various waypoints"
             )
-            space = SparseVoxelMapNavigationSpace(voxel_map)
+            space = SparseVoxelMapNavigationSpace(voxel_map, orientation=False)
             planner = Shortcut(RRTConnect(space, voxel_map.xyt_is_safe))
-            goal = voxel_map.sample_explored()
-            start = np.zeros(3)
-            print("       Start:", start)
-            print("Sampled Goal:", goal)
-            print("Start is valid:", voxel_map.xyt_is_safe(start))
-            print(" Goal is valid:", voxel_map.xyt_is_safe(goal))
-            res = planner.plan(start, goal)
-            print("Found plan:", res.success)
+            for i in range(10):
+                print("-" * 10, i, "-" * 10)
+                goal = voxel_map.sample_explored()
+                start = np.zeros(2)
+                print("       Start:", start)
+                print("Sampled Goal:", goal)
+                print("Start is valid:", voxel_map.xyt_is_safe(start))
+                print(" Goal is valid:", voxel_map.xyt_is_safe(goal))
+                res = planner.plan(start, goal)
+                print("Found plan:", res.success)
     else:
         raise NotImplementedError(f"- data mode {mode} not supported or recognized")
 
