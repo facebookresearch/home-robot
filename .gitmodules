@@ -31,3 +31,6 @@
 [submodule "src/home_robot/home_robot/perception/detection/minigpt4/cortex-minigpt4"]
 	path = src/home_robot/home_robot/perception/detection/minigpt4/cortex-minigpt4
 	url = https://huggingface.co/keke-220/cortex-minigpt4
+[submodule "src/home_robot/home_robot/perception/detection/minigpt4/Llama-2-7b-chat-hf"]
+	path = src/home_robot/home_robot/perception/detection/minigpt4/Llama-2-7b-chat-hf
+	url = https://huggingface.co/meta-llama/Llama-2-7b-chat-hf
