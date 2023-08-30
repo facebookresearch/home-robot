@@ -19,7 +19,11 @@ from home_robot.agent.ovmm_agent import (
     build_vocab_from_category_map,
     read_category_map_file,
 )
-from home_robot.mapping.voxel import SparseVoxelMap
+from home_robot.mapping import SparseVoxelMap, SparseVoxelMapNavigationSpace
+
+# Import planning tools for exploration
+from home_robot.motion.rrt_connect import RRTConnect
+from home_robot.motion.shortcut import Shortcut
 from home_robot.motion.stretch import STRETCH_NAVIGATION_Q, HelloStretchKinematics
 from home_robot.utils.geometry import xyt2sophus
 from home_robot.utils.image import Camera
@@ -297,7 +301,7 @@ def main(
     click.echo(f"Processing data in mode: {mode}")
     click.echo(f"Using input path: {input_path}")
 
-    if explore and not mode == "ros":
+    if explore and not (mode == "ros" or mode == "pkl"):
         raise RuntimeError("explore cannot be used without a robot to interact with")
 
     if mode == "ros":
@@ -413,6 +417,21 @@ def main(
         voxel_map = SparseVoxelMap(resolution=voxel_size)
         voxel_map.read_from_pickle(input_path)
         voxel_map.show(instances=True)
+
+        if explore:
+            print(
+                "Running exploration test on offline data. Will plan to various waypoints"
+            )
+            space = SparseVoxelMapNavigationSpace(voxel_map)
+            planner = Shortcut(RRTConnect(space, voxel_map.xyt_is_safe))
+            goal = voxel_map.sample_explored()
+            start = np.zeros(3)
+            print("       Start:", start)
+            print("Sampled Goal:", goal)
+            print("Start is valid:", voxel_map.xyt_is_safe(start))
+            print(" Goal is valid:", voxel_map.xyt_is_safe(goal))
+            res = planner.plan(start, goal)
+            print("Found plan:", res.success)
     else:
         raise NotImplementedError(f"- data mode {mode} not supported or recognized")
 

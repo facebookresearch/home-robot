@@ -17,6 +17,7 @@ from home_robot.mapping.semantic.instance_tracking_modules import (
     InstanceMemory,
     InstanceView,
 )
+from home_robot.motion import Robot
 from home_robot.utils.point_cloud import (
     create_visualization_geometries,
     numpy_to_pcd,
@@ -431,9 +432,66 @@ class SparseVoxelMap(object):
         self._2d_last_updated = self._seq
         return obstacles, explored
 
+    def xy_to_grid_coords(self, xy: np.ndarray) -> Optional[np.ndarray]:
+        """convert xy point to grid coords"""
+        grid_xy = (xy / self.grid_resolution) + self.grid_origin[:2]
+        if np.any(grid_xy >= self.grid_size) or np.any(grid_xy < np.zeros(2)):
+            return None
+        else:
+            return xy
+
+    def grid_coords_to_xy(self, grid_coords: np.ndarray) -> np.ndarray:
+        """convert grid coordinate point to metric world xy point"""
+        return (grid_coords - self.grid_origin[:2]) * self.grid_resolution
+
+    def grid_coords_to_xyt(self, grid_coords: np.ndarray) -> np.ndarray:
+        """convert grid coordinate point to metric world xyt point"""
+        res = np.zeros(3)
+        res[:2] = self.grid_coords_to_xy(grid_coords)
+        return res
+
     def get_kd_tree(self) -> open3d.geometry.KDTreeFlann:
         """Return kdtree for collision checks"""
         return open3d.geometry.KDTreeFlann(self._pcd)
+
+    def sample_explored(self, robot: Optional[Robot] = None) -> Optional[np.ndarray]:
+        """Return obstacle-free xy point in explored space"""
+        obstacles, explored = self.get_2d_map()
+        valid_indices = np.argwhere(
+            np.bitwise_and(np.bitwise_not(obstacles), explored) == 1
+        )
+        if len(valid_indices) > 0:
+            random_index = np.random.choice(len(valid_indices))
+            return self.grid_coords_to_xy(valid_indices[random_index])
+        else:
+            return None
+
+    def xyt_is_safe(self, xyt: np.ndarray, robot: Optional[Robot] = None) -> bool:
+        """Check to see if a given xyt position is known to be safe."""
+        if robot is not None:
+            raise NotImplementedError(
+                "not currently checking against robot base geometry"
+            )
+        obstacles, explored = self.get_2d_map()
+        # Convert xy to grid coords
+        grid_xy = self.xy_to_grid_coords(xyt[:2])
+        # Check to see if grid coords are explored and obstacle free
+        if grid_xy is None:
+            # Conversion failed - probably out of bounds
+            return False
+        obstacles, explored = self.get_2d_map()
+        # Convert xy to grid coords
+        grid_xy = self.xy_to_grid_coords(xyt[:2])
+        # Check to see if grid coords are explored and obstacle free
+        if grid_xy is None:
+            # Conversion failed - probably out of bounds
+            return False
+        if robot is not None:
+            # TODO: check against robot geometry
+            raise NotImplementedError(
+                "not currently checking against robot base geometry"
+            )
+        return True
 
     def show(self, instances: bool = True) -> Tuple[np.ndarray, np.ndarray]:
         """Show and return bounding box information and rgb color information from an explored point cloud. Uses open3d."""

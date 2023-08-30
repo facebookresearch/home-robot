@@ -8,7 +8,7 @@ from home_robot.mapping.voxel import SparseVoxelMap
 from home_robot.motion.space import XYT
 
 
-class SparseVoxelGridXYTSpace(XYT):
+class SparseVoxelMapNavigationSpace(XYT):
     """subclass for sampling XYT states from explored space"""
 
     def __init__(self, voxel_map: SparseVoxelMap):
