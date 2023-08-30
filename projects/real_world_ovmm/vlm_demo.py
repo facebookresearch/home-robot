@@ -10,11 +10,13 @@ from typing import Optional, Tuple
 
 import click
 import rospy
-
+import copy
+from home_robot.agent.ovmm_agent.vlm_agent import VLMAgent
 from home_robot.agent.ovmm_agent.ovmm_agent import OpenVocabManipAgent
 from home_robot.motion.stretch import STRETCH_HOME_Q
 from home_robot_hw.env.stretch_pick_and_place_env import StretchPickandPlaceEnv
 from home_robot_hw.utils.config import load_config
+import numpy as np
 
 
 @click.command()
@@ -51,14 +53,15 @@ def main(
     test_place=False,
     cat_map_file=None,
     max_num_steps=200,
-    config_path="projects/real_world_ovmm/configs/agent/eval.yaml",
+    config_path="projects/real_world_ovmm/configs/agent/eval_vlm.yaml",
     **kwargs,
 ):
     print("- Starting ROS node")
     rospy.init_node("eval_episode_stretch_objectnav")
 
     print("- Loading configuration")
-    config = load_config(config_path=config_path, visualize=visualize_maps, **kwargs)
+    config = load_config(config_path=config_path,
+                         visualize=visualize_maps, **kwargs)
 
     print("- Creating environment")
     env = StretchPickandPlaceEnv(
@@ -70,8 +73,9 @@ def main(
     )
 
     print("- Creating agent")
-    agent = OpenVocabManipAgent(config=config)
-
+    # agent = OpenVocabManipAgent(config=config)
+    agent = VLMAgent(config=config)
+    # explore_agent = VLMExplorationAgent(config=config)
     robot = env.get_robot()
     if reset_nav:
         print("- Sending the robot to [0, 0, 0]")
@@ -79,26 +83,41 @@ def main(
         robot.nav.navigate_to([0, 0, 0])
 
     agent.reset()
+    # explore_agent.reset()
+    print("Agent(s) has been reset")
     if hasattr(agent, "planner"):
         now = datetime.now()
-        agent.planner.set_vis_dir("real_world", now.strftime("%Y_%m_%d_%H_%M_%S"))
-    env.reset(start_recep, pick_object, goal_recep)
+        agent.planner.set_vis_dir(
+            "real_world", now.strftime("%Y_%m_%d_%H_%M_%S"))
+    env.reset(start_recep, pick_object, goal_recep, set_goal=True)
+    print("Env has been reset")
 
-    t = 0
-    while not env.episode_over and not rospy.is_shutdown():
-        t += 1
-        print("STEP =", t)
-        obs = env.get_observation()
-        action, info, obs = agent.act(obs)
-        done = env.apply_action(action, info=info, prev_obs=obs)
-        if done:
-            print("Done.")
-            break
-        elif t >= max_num_steps:
-            print("Reached maximum step limit.")
-            break
+    while True:
+        t = 0
+        agent.reset()
+        env.reset(start_recep, pick_object, goal_recep, set_goal=True)
+        robot.switch_to_navigation_mode()
+        task = input("what you want me to do: ")
+        # task = "find a cup please"
+        agent.set_task(task)
 
-    print("Metrics:", env.get_episode_metrics())
+        while not env.episode_over and not rospy.is_shutdown():
+            t += 1
+            print("STEP =", t)
+            obs = env.get_observation()
+            action, info, obs, is_finished = agent.act(obs)
+            if is_finished:
+                break
+            done = env.apply_action(action, info=info, prev_obs=obs)
+
+            if done:
+                print("Done.")
+                break
+            elif t >= max_num_steps:
+                print("Reached maximum step limit.")
+                break
+
+    # print("Metrics:", env.get_episode_metrics())
 
 
 if __name__ == "__main__":
