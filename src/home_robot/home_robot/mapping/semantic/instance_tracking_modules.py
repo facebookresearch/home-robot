@@ -51,8 +51,8 @@ class InstanceView:
         embedding,
         mask,
         point_cloud,
-        pose,
-        object_coverage,
+        pose=None,
+        object_coverage=None,
         category_id=None,
         bounds: Optional[Tuple[np.ndarray]] = None,
     ):
@@ -337,10 +337,13 @@ class InstanceMemory:
             global_instance.instance_views.append(instance_view)
         self.local_id_to_global_id_map[env_id][local_instance_id] = global_instance_id
         if self.debug_visualize:
+            import os
+
+            cat_id = int(instance_view.category_id)
             category_name = (
                 f"cat_{instance_view.category_id}"
                 if self.category_id_to_category_name is None
-                else self.category_id_to_category_name[instance_view.category_id]
+                else self.category_id_to_category_name[cat_id]
             )
             instance_write_path = os.path.join(
                 self.save_dir, f"{global_instance_id}_{category_name}.png"

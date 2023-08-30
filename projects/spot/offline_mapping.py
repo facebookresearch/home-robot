@@ -293,7 +293,12 @@ def get_semantic_map_vis(
                 continue
             if instance_memory is not None:
                 # retrieve name
-                category = instance_memory.instance_views[0][int(instance)].category_id
+                try:
+                    category = instance_memory.instance_views[0][
+                        int(instance)
+                    ].category_id
+                except KeyError as e:
+                    breakpoint()
                 category_counts[category] += 1
                 instance_to_name[instance] = (
                     coco_category_id_to_coco_category[category]
