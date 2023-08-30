@@ -402,7 +402,7 @@ class SparseVoxelMap(object):
         # Gets the xyz correctly - for now everything is assumed to be within the correct distance of origin
         xyz, _, _, _ = self.voxel_pcd.get_pointcloud()
         device = xyz.device
-        xyz = ((self.xyz / self.grid_resolution) + self.grid_origin).int()
+        xyz = ((xyz / self.grid_resolution) + self.grid_origin).long()
 
         # Crop to robot height
         min_height = int(self.obs_min_height / self.grid_resolution)
@@ -443,10 +443,10 @@ class SparseVoxelMap(object):
 
             # TODO: uncomment to show the original world representation
             # from home_robot.utils.point_cloud import show_point_cloud
-            # show_point_cloud(self.xyz, self.feats / 255., orig=np.zeros(3))
+            # show_point_cloud(xyz, rgb / 255., orig=np.zeros(3))
             # TODO: uncomment to show voxel point cloud
             # from home_robot.utils.point_cloud import show_point_cloud
-            # show_point_cloud(xyz, self.feats/255., orig=self.grid_origin)
+            # show_point_cloud(xyz, rgb/255., orig=self.grid_origin)
 
             plt.subplot(2, 2, 1)
             plt.imshow(obstacles_soft.detach().cpu().numpy())
