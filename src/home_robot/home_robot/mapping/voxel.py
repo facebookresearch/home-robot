@@ -273,7 +273,7 @@ class SparseVoxelMap(object):
         if feats is not None:
             feats = feats[valid_depth].reshape(-1, feats.shape[-1])
         rgb = rgb[valid_depth].reshape(-1, 3)
-        world_xyz = full_world_xyz[valid_depth.flatten()]
+        world_xyz = full_world_xyz.view(-1, 3)[valid_depth.flatten()]
 
         # TODO: weights could also be confidence, inv distance from camera, etc
         self.voxel_pcd.add(world_xyz, features=feats, rgb=rgb, weights=None)
@@ -351,14 +351,14 @@ class SparseVoxelMap(object):
             data["base_poses"],
             data["obs"],
         ):
-            camera_pose = torch.from_numpy(camera_pose)
-            xyz = torch.from_numpy(xyz)
-            rgb = torch.from_numpy(rgb)
-            depth = torch.from_numpy(depth)
+            camera_pose = torch.from_numpy(camera_pose).float()
+            xyz = torch.from_numpy(xyz).float()
+            rgb = torch.from_numpy(rgb).float()
+            depth = torch.from_numpy(depth).float()
             if feats is not None:
-                feats = torch.from_numpy(feats)
-            base_pose = torch.from_numpy(base_pose)
-            instance = torch.from_numpy(obs.instance)
+                feats = torch.from_numpy(feats).float()
+            base_pose = torch.from_numpy(base_pose).float()
+            instance = torch.from_numpy(obs.instance).float()
             self.add(
                 camera_pose=camera_pose,
                 xyz=xyz,
