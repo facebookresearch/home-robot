@@ -499,7 +499,7 @@ class SparseVoxelMap(object):
     ) -> Tuple[np.ndarray, np.ndarray]:
         """Display the aggregated point cloud."""
         if backend == "open3d":
-            return self._show_open3d(**backend_kwargs)
+            return self._show_open3d(instances, **backend_kwargs)
         elif backend == "pytorch3d":
             return self._show_pytorch3d(**backend_kwargs)
         else:
@@ -595,11 +595,16 @@ class SparseVoxelMap(object):
         # Do the other stuff we need to show instances
         # pc_xyz, pc_rgb, pc_feats = self.get_data()
         points, _, _, rgb = self.voxel_pcd.get_pointcloud()
-        pcd = numpy_to_pcd(points.detach().cpu().numpy(), rgb.detach().cpu().numpy())
+        pcd = numpy_to_pcd(
+            points.detach().cpu().numpy(), (rgb / 255.0).detach().cpu().numpy()
+        )
         geoms = create_visualization_geometries(pcd=pcd, orig=np.zeros(3))
         if instances:
             for instance_view in self.get_instances():
-                mins, maxs = instance_view.bounds
+                mins, maxs = (
+                    instance_view.bounds[:, 0].cpu().numpy(),
+                    instance_view.bounds[:, 1].cpu().numpy(),
+                )
                 if np.any(maxs - mins < 1e-5):
                     print("Warning: bad box:", mins, maxs)
                     continue
