@@ -195,6 +195,12 @@ def get_semantic_map_vis(
         0.96,
         0.36,
         0.26,  # visited area
+<<<<<<< HEAD
+=======
+        0.80,
+        0.20,
+        0.10,  # visited area agent arrow
+>>>>>>> 13618cbc (Match online map)
         0.12,
         0.46,
         0.70,  # goal
