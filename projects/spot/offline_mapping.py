@@ -57,8 +57,9 @@ class PI:
     OBSTACLES = 1
     EXPLORED = 2
     VISITED = 3
-    GOAL = 4
-    SEM_START = 5
+    VISITED_AGENT_ARROW = 4
+    GOAL = 5
+    SEM_START = 6
 
 
 def generate_legend(
@@ -195,6 +196,9 @@ def get_semantic_map_vis(
         0.96,
         0.36,
         0.26,  # visited area
+        0.90,
+        0.30,
+        0.20,  # visited area agent arrow
         0.12,
         0.46,
         0.70,  # goal
@@ -325,7 +329,7 @@ def get_semantic_map_vis(
         np.deg2rad(-curr_o),
     )
     agent_arrow = vu.get_contour_points(pos, origin=(1325, 50), size=10)
-    color = map_color_palette[9:12]
+    color = map_color_palette[12:15]
     cv2.drawContours(vis_image, [agent_arrow], 0, color, -1)
     return vis_image
 
