@@ -71,8 +71,10 @@ class GoatAgent(Agent):
                 debug_visualize=config.PRINT_IMAGES,
                 config=config,
                 mask_cropped_instances=False,
-                padding_cropped_instances=200
+                padding_cropped_instances=200,
             )
+
+        self.baseline_without_memory = config.AGENT.baseline_without_memory
 
         ## imagenav stuff
         self.goal_image = None
@@ -621,12 +623,12 @@ class GoatAgent(Agent):
             print("Called STOP action")
             cur_task = obs.task_observations["tasks"][self.current_task_idx]
             # advance to next task unless it's a pick or place action
-            if 'action' not in cur_task:
+            if "action" not in cur_task:
                 self.advance_to_next_task(obs)
         self.prev_task_type = task_type
         return action, info
 
-    def advance_to_next_task(self,obs):
+    def advance_to_next_task(self, obs):
         if len(obs.task_observations["tasks"]) - 1 > self.current_task_idx:
             self.current_task_idx += 1
             self.force_match_against_memory = False
@@ -637,6 +639,12 @@ class GoatAgent(Agent):
                 self.num_environments, 1, dtype=bool, device=self.device
             )
             self.reset_sub_episode()
+
+        if self.baseline_without_memory:
+            self.semantic_map.init_map_and_pose()
+            if self.instance_memory is not None:
+                self.instance_memory.reset()
+            self.planner.reset()
 
     def _preprocess_obs(self, obs: Observations, task_type: str):
         """Take a home-robot observation, preprocess it to put it into the correct format for the
