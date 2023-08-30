@@ -8,6 +8,8 @@ rsync -vaz akshara-spot:/home/akshara/asc_demo/home-robot/projects/spot/fremont_
 
 rsync -vaz akshara-spot:/home/akshara/asc_demo/home-robot/projects/spot/fremont_trajectories/spot_abnb1_trial9_test2 ~/data/fremont_trajectories
 
+rsync -vaz akshara:/home/akshara/asc_demo/home-robot/projects/spot/fremont_trajectories/spot_abnb1_video6 ~/data/fremont_trajectories
+
 rsync -vazu ~/data/fremont_trajectories devfair:/private/home/matthewchang/spot_trajectories
 rsync -vaz akshara-spot:/home/akshara/Desktop/vids_to_copy ~/data/vis/
 
@@ -72,7 +74,8 @@ __________ IRL experiments
 python resize_images.py /Users/matthewchang/Desktop/airbnb_images/airbnb1
 rsync -vaz /Users/matthewchang/Desktop/airbnb_images/airbnb1_resized/ akshara-spot:/home/akshara/asc_demo/home-robot/projects/spot/airbnb1_goals
 
-python projects/spot/sample_goals.py
+python resize_image.py /Users/matthewchang/Desktop/airbnb_images/airbnb2
+rsync -vaz /Users/matthewchang/Desktop/airbnb_images/airbnb1_resized/ akshara:/home/akshara/asc_demo/home-robot/projects/spot/airbnb2_goals
 
 DISPLAY=:1 python projects/spot/goat.py --trajectory=spot_abnb1_trial0 --goals=object_oven,language_oven1,object_plant,image_chair3,image_refrigerator1,language_refrigerator1,object_toilet,image_couch1
 DISPLAY=:1 python projects/spot/goat.py --trajectory=spot_abnb1_trial1 --goals=image_cup1,language_chair1,image_bear1,object_sink,object_toilet,object_bear,language_toilet1

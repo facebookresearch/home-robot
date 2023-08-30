@@ -457,7 +457,7 @@ def text_to_image(
 
 
 # Fremont goals
-from goals_abnb1 import GOALS
+from goals_abnb2 import GOALS
 
 # Example command:
 # python projects/spot/goat.py --trajectory=trajectory1 --goals=object_toilet,image_bed1,language_chair4,image_couch1,language_plant1,language_plant2,image_refrigerator1
@@ -573,14 +573,11 @@ def main(spot=None, args=None):
         )
         vis_images.append(vis_image)
         cv2.imwrite(f"{output_visualization_dir}/{t}.png", vis_image[:, :, ::-1])
-        cv2.imshow("vis", vis_image[:, :, ::-1])
-        cv2.imshow("depth", obs.depth/obs.depth.max())
-        key = cv2.waitKey(1)
-
+        
         if not args.offline:
             cv2.imshow("vis", vis_image[:, :, ::-1])
             cv2.imshow("depth", obs.depth/obs.depth.max())
-            key = cv2.waitKey(1)
+            key = cv2.waitKey(100 if keyboard_takeover else 1)
 
             if key == ord("z"):
                 break
