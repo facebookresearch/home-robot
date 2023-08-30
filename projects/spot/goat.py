@@ -46,8 +46,8 @@ from home_robot.mapping.semantic.categorical_2d_semantic_map_state import (
 )
 from home_robot.mapping.semantic.instance_tracking_modules import InstanceMemory
 from home_robot.perception.detection.maskrcnn.coco_categories import (
-    coco_category_id_to_coco_category,
     coco_categories_color_palette,
+    coco_category_id_to_coco_category,
 )
 from home_robot.utils.config import get_config
 from home_robot_hw.env.spot_goat_env import SpotGoatEnv
@@ -59,10 +59,11 @@ class PI:
     OBSTACLES = 1
     EXPLORED = 2
     VISITED = 3
-    CLOSEST_GOAL = 4
-    REST_OF_GOAL = 5
-    SHORT_TERM_GOAL = 6
-    SEM_START = 7
+    VISITED_AGENT_ARROW = 4
+    CLOSEST_GOAL = 5
+    REST_OF_GOAL = 6
+    SHORT_TERM_GOAL = 7
+    SEM_START = 8
 
 
 def create_video(images, output_file, fps):
@@ -235,6 +236,9 @@ def get_semantic_map_vis(
             0.96,
             0.36,
             0.26,  # visited area
+            0.80,
+            0.20,
+            0.10,  # visited area agent arrow
             0.12,
             0.46,
             0.70,  # closest goal
@@ -254,29 +258,29 @@ def get_semantic_map_vis(
         map_color_palette += new_colors.flatten().tolist()
     else:
         map_color_palette = [
-        1.0,
-        1.0,
-        1.0,  # empty space
-        0.6,
-        0.6,
-        0.6,  # obstacles
-        0.95,
-        0.95,
-        0.95,  # explored area
-        0.96,
-        0.36,
-        0.26,  # visited area
-        0.12,
-        0.46,
-        0.70,  # closest goal
-        0.63,
-        0.78,
-        0.95,  # rest of goal
-        0.00,
-        0.00,
-        0.00,  # short term goal
-        *coco_categories_color_palette,
-    ]
+            1.0,
+            1.0,
+            1.0,  # empty space
+            0.6,
+            0.6,
+            0.6,  # obstacles
+            0.95,
+            0.95,
+            0.95,  # explored area
+            0.96,
+            0.36,
+            0.26,  # visited area
+            0.12,
+            0.46,
+            0.70,  # closest goal
+            0.63,
+            0.78,
+            0.95,  # rest of goal
+            0.00,
+            0.00,
+            0.00,  # short term goal
+            *coco_categories_color_palette,
+        ]
     map_color_palette = [int(x * 255.0) for x in map_color_palette]
 
     semantic_categories_map = semantic_map.get_semantic_map(0)
@@ -321,23 +325,26 @@ def get_semantic_map_vis(
     semantic_categories_map[visited_mask] = PI.VISITED
 
     # Goal
-    selem = skimage.morphology.disk(4)
-    goal_mat = (1 - skimage.morphology.binary_dilation(goal_map, selem)) != 1
-    goal_mask = goal_mat == 1
-    semantic_categories_map[goal_mask] = PI.REST_OF_GOAL
-    if closest_goal_map is not None:
-        closest_goal_mat = (
-            1 - skimage.morphology.binary_dilation(closest_goal_map, selem)
-        ) != 1
-        closest_goal_mask = closest_goal_mat == 1
-        semantic_categories_map[closest_goal_mask] = PI.CLOSEST_GOAL
-    if subgoal is not None:
-        subgoal_map = np.zeros_like(goal_map)
-        # might need to flip row value
-        subgoal_map[subgoal[0], subgoal[1]] = 1
-        subgoal_mat = (1 - skimage.morphology.binary_dilation(subgoal_map, selem)) != 1
-        subgoal_mask = subgoal_mat == 1
-        semantic_categories_map[subgoal_mask] = PI.SHORT_TERM_GOAL
+    if visualize_goal:
+        selem = skimage.morphology.disk(4)
+        goal_mat = (1 - skimage.morphology.binary_dilation(goal_map, selem)) != 1
+        goal_mask = goal_mat == 1
+        semantic_categories_map[goal_mask] = PI.REST_OF_GOAL
+        if closest_goal_map is not None:
+            closest_goal_mat = (
+                1 - skimage.morphology.binary_dilation(closest_goal_map, selem)
+            ) != 1
+            closest_goal_mask = closest_goal_mat == 1
+            semantic_categories_map[closest_goal_mask] = PI.CLOSEST_GOAL
+        if subgoal is not None:
+            subgoal_map = np.zeros_like(goal_map)
+            # might need to flip row value
+            subgoal_map[subgoal[0], subgoal[1]] = 1
+            subgoal_mat = (
+                1 - skimage.morphology.binary_dilation(subgoal_map, selem)
+            ) != 1
+            subgoal_mask = subgoal_mat == 1
+            semantic_categories_map[subgoal_mask] = PI.SHORT_TERM_GOAL
 
     # Draw semantic map
     semantic_map_vis = Image.new("P", semantic_categories_map.shape)
@@ -407,7 +414,7 @@ def get_semantic_map_vis(
         np.deg2rad(-curr_o),
     )
     agent_arrow = vu.get_contour_points(pos, origin=(1325, 50), size=10)
-    color = map_color_palette[9:12]
+    color = map_color_palette[12:15]
     cv2.drawContours(vis_image, [agent_arrow], 0, color, -1)
 
     return vis_image
@@ -694,15 +701,19 @@ def main(spot=None, args=None):
     )
     config.freeze()
 
-    output_visualization_dir = f"{config.DUMP_LOCATION}/main_visualization"
-    Path(output_visualization_dir).mkdir(parents=True, exist_ok=True)
+    output_visualization_dir_with_goal = f"{config.DUMP_LOCATION}/vis_with_goal"
+    Path(output_visualization_dir_with_goal).mkdir(parents=True, exist_ok=True)
+
+    output_visualization_dir_without_goal = f"{config.DUMP_LOCATION}/vis_without_goal"
+    Path(output_visualization_dir_without_goal).mkdir(parents=True, exist_ok=True)
 
     obs_dir = f"{config.DUMP_LOCATION}/obs"
     Path(obs_dir).mkdir(parents=True, exist_ok=True)
 
     legend_path = f"{str(Path(__file__).resolve().parent)}/coco_categories_legend.png"
     legend = cv2.imread(legend_path)
-    vis_images = []
+    vis_images_with_goal = []
+    vis_images_without_goal = []
 
     if OFFLINE:
         # Load observations from disk instead of generating them
@@ -710,7 +721,11 @@ def main(spot=None, args=None):
         env.reset(obs_dir)
 
     else:
-        env = SpotGoatEnv(spot, position_control=True,estimated_depth_threshold=config.ENVIRONMENT.estimated_depth_threshold)
+        env = SpotGoatEnv(
+            spot,
+            position_control=True,
+            estimated_depth_threshold=config.ENVIRONMENT.estimated_depth_threshold,
+        )
         env.reset()
 
     goal_strings = args.goals.split(",")
@@ -783,23 +798,48 @@ def main(spot=None, args=None):
         elif current_goal["type"] == "objectnav":
             goal_image = text_to_image(current_goal["target"], 640, 480)
 
-        vis_image = get_semantic_map_vis(
+        vis_image_with_goal = get_semantic_map_vis(
             agent.semantic_map,
             semantic_frame=obs.task_observations["semantic_frame"],
             closest_goal_map=info["closest_goal_map"],
             subgoal=info["short_term_goal"],
             # depth_frame,
             goal_image=goal_image,
-            legend=legend if (not config.AGENT.SEMANTIC_MAP.record_instance_ids) else None,
+            legend=legend
+            if (not config.AGENT.SEMANTIC_MAP.record_instance_ids)
+            else None,
             instance_memory=agent.instance_memory,
             visualize_instances=config.AGENT.SEMANTIC_MAP.record_instance_ids,
+            visualize_goal=True,
         )
-        vis_images.append(vis_image)
-        cv2.imwrite(f"{output_visualization_dir}/{t}.png", vis_image[:, :, ::-1])
+        vis_image_without_goal = get_semantic_map_vis(
+            agent.semantic_map,
+            semantic_frame=obs.task_observations["semantic_frame"],
+            closest_goal_map=info["closest_goal_map"],
+            subgoal=info["short_term_goal"],
+            # depth_frame,
+            goal_image=goal_image,
+            legend=legend
+            if (not config.AGENT.SEMANTIC_MAP.record_instance_ids)
+            else None,
+            instance_memory=agent.instance_memory,
+            visualize_instances=config.AGENT.SEMANTIC_MAP.record_instance_ids,
+            visualize_goal=False,
+        )
+        vis_images_with_goal.append(vis_image_with_goal)
+        vis_images_without_goal.append(vis_image_without_goal)
+        cv2.imwrite(
+            f"{output_visualization_dir_with_goal}/{t}.png",
+            vis_image_with_goal[:, :, ::-1],
+        )
+        cv2.imwrite(
+            f"{output_visualization_dir_without_goal}/{t}.png",
+            vis_image_without_goal[:, :, ::-1],
+        )
 
         if not OFFLINE:
-            cv2.imshow("vis", vis_image[:, :, ::-1])
-            cv2.imshow("depth", obs.depth/obs.depth.max())
+            cv2.imshow("vis", vis_image_with_goal[:, :, ::-1])
+            cv2.imshow("depth", obs.depth / obs.depth.max())
             key = cv2.waitKey(1)
 
             if key == ord("z"):
@@ -835,10 +875,10 @@ def main(spot=None, args=None):
                     if action is not None:
                         env.apply_action(action)
 
-    out_dest = f"{output_visualization_dir}/video.mp4"
+    out_dest = f"{output_visualization_dir_with_goal}/video.mp4"
     print("Writing", out_dest)
     create_video(
-        [v[:, :, ::-1] for v in vis_images],
+        [v[:, :, ::-1] for v in vis_images_with_goal],
         out_dest,
         fps=5,
     )
@@ -850,8 +890,8 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="")
     parser.add_argument("--trajectory", default="trajectory1")
     parser.add_argument("--goals", default="object_chair,object_sink")
-    parser.add_argument('--keyboard',action='store_true')
-                        
+    parser.add_argument("--keyboard", action="store_true")
+
     args = parser.parse_args()
 
     if not OFFLINE:
