@@ -171,7 +171,9 @@ class SparseVoxelMap(object):
         # TODO: we should remove the xyz/feats maybe? just use observations as input?
         # TODO: switch to using just Obs struct?
         # Shape checking
-        assert rgb.ndim == 3 and rgb.shape[:2] == depth.shape
+        assert (
+            rgb.ndim == 3 and rgb.shape[:2] == depth.shape
+        ), f"{rgb.shape=} {depth.shape=}"
         H, W, _ = rgb.shape
         assert xyz is not None or (camera_K is not None and depth is not None)
         if xyz is not None:
