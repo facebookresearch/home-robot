@@ -8,11 +8,13 @@
 This file contains versions of the helpers in point_cloud.py that use pytorch directly (rather than numpy),
 to allow operations to be done on the GPU for speed.
 """
+
 from typing import List, Optional, Union
 
 import cv2
 import numpy as np
 import torch
+from torch import Tensor
 from torch_geometric.nn.pool.voxel_grid import voxel_grid
 
 from home_robot.utils.image import Camera
@@ -20,6 +22,10 @@ from home_robot.utils.image import Camera
 
 def depth_to_xyz(depth: torch.Tensor, camera: Camera):
     """get depth from numpy using simple pinhole camera model"""
+    # TODO: convert to torch:
+    # xs, ys = torch.meshgrid(
+    #     torch.arange(0, width), torch.arange(0, height), indexing="xy", device=depth.device
+    # )
     indices = np.indices((camera.height, camera.width), dtype=np.float32).transpose(
         1, 2, 0
     )
@@ -31,6 +37,61 @@ def depth_to_xyz(depth: torch.Tensor, camera: Camera):
 
     # Should now be batch x height x width x 3, after this:
     xyz = torch.stack([x, y, z], axis=-1)
+    return xyz
+
+
+def unproject_masked_depth_to_xyz_coordinates(
+    depth: torch.Tensor,
+    pose: torch.Tensor,
+    inv_intrinsics: torch.Tensor,
+    mask: Optional[torch.Tensor] = None,
+) -> torch.Tensor:
+    """Returns the XYZ coordinates for a batch posed RGBD image.
+
+    Args:
+        depth: The depth tensor, with shape (B, 1, H, W)
+        mask: The mask tensor, with the same shape as the depth tensor,
+            where True means that the point should be masked (not included)
+        inv_intrinsics: The inverse intrinsics, with shape (B, 3, 3)
+        pose: The poses, with shape (B, 4, 4)
+
+    Returns:
+        XYZ coordinates, with shape (N, 3) where N is the number of points in
+        the depth image which are unmasked
+    """
+
+    batch_size, _, height, width = depth.shape
+    if mask is None:
+        mask = torch.full_like(depth, fill_value=False, dtype=torch.bool)
+    flipped_mask = ~mask
+
+    # Gets the pixel grid.
+    xs, ys = torch.meshgrid(
+        torch.arange(0, width, device=depth.device),
+        torch.arange(0, height, device=depth.device),
+        indexing="xy",
+    )
+    xy = torch.stack([xs, ys], dim=-1)[None, :, :].repeat_interleave(batch_size, dim=0)
+    xy = xy[flipped_mask.squeeze(1)]
+    xyz = torch.cat((xy, torch.ones_like(xy[..., :1])), dim=-1)
+
+    # Associates poses and intrinsics with XYZ coordinates.
+    inv_intrinsics = inv_intrinsics[:, None, None, :, :].expand(
+        batch_size, height, width, 3, 3
+    )[flipped_mask.squeeze(1)]
+    pose = pose[:, None, None, :, :].expand(batch_size, height, width, 4, 4)[
+        flipped_mask.squeeze(1)
+    ]
+    depth = depth[flipped_mask]
+
+    # Applies intrinsics and extrinsics.
+    xyz = xyz.to(inv_intrinsics).unsqueeze(1) @ inv_intrinsics.permute([0, 2, 1])
+    xyz = xyz * depth[:, None, None]
+    xyz = (xyz[..., None, :] * pose[..., None, :3, :3]).sum(dim=-1) + pose[
+        ..., None, :3, 3
+    ]
+    xyz = xyz.squeeze(1)
+
     return xyz
 
 
@@ -130,7 +191,7 @@ def dropout_random_ellipses(
     return depth_img
 
 
-def grid_pool_point_cloud(
+def get_one_point_per_voxel_from_pointcloud(
     unbatched_xyz: torch.Tensor,
     unbatched_batch_ids: torch.Tensor,
     voxel_size: Union[float, List[float], torch.Tensor],
@@ -175,3 +236,15 @@ def grid_pool_point_cloud(
 
     # We return the indices into the original data, for consistency with fps
     return unique_grid_xyz_indices
+
+
+def get_bounds(points: Tensor):
+    """Returns min and max along each dimension
+
+    Args:
+        points (Tensor): [N, 3]
+
+    Returns:
+        mins_and_maxes: [3, 2]
+    """
+    return torch.stack([points.min(dim=0)[0], points.max(dim=0)[0]], dim=-1)
