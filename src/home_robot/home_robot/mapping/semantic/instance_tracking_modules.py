@@ -525,9 +525,15 @@ class InstanceMemory:
             )
 
             if instance_mask_downsampled.sum() > 0 and point_cloud_instance.sum() > 0:
-                bounds = np.min(point_cloud_instance, axis=0), np.max(
-                    point_cloud_instance, axis=0
-                )
+                if isinstance(point_cloud_instance, np.ndarray):
+                    bounds = np.min(point_cloud_instance, axis=0), np.max(
+                        point_cloud_instance, axis=0
+                    )
+                else:
+                    bounds = (
+                        point_cloud_instance.min(dim=0)[0],
+                        point_cloud_instance.max(dim=0)[0],
+                    )
 
                 # get instance view
                 instance_view = InstanceView(
