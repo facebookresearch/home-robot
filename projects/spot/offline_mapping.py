@@ -773,6 +773,7 @@ def main(base_dir: str, legend_path: str, device: str):
             }
             for i, scores in zip(instance_ids, all_confidences)
         }
+        Path(goal_grounding_vis_dir).mkdir(parents=True, exist_ok=True)
         with open(
             Path(goal_grounding_vis_dir) / f"{goal_type}_goal{i}_stats.json", "w"
         ) as f:
