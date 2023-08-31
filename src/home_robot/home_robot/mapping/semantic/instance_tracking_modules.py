@@ -461,22 +461,12 @@ class InstanceMemory:
             ), "Bounding box has extra dimensions - you have a problem with input instance image mask!"
 
             if self.du_scale != 1:
-                # downsample mask by du_scale using "NEAREST"
-                instance_mask_downsampled = (
-                    (
-                        torch.nn.functional.interpolate(
-                            instance_mask.unsqueeze(0).unsqueeze(0).float(),
-                            scale_factor=1 / self.du_scale,
-                            mode="nearest",
-                        )
-                        .squeeze(0)
-                        .squeeze(0)
-                        .bool()
-                    )
-                    .squeeze(0)
-                    .squeeze(0)
-                    .bool()
-                )
+                # downsample mask by du_scale using "NEAREST": temporarily adds batch and channel dimensions before passing to torch.nn.functional.interpolate function
+                instance_mask_downsampled = torch.nn.functional.interpolate(
+                    instance_mask.unsqueeze(0).unsqueeze(0).float(),
+                    scale_factor=1 / self.du_scale,
+                    mode="nearest",
+                )[0, 0].bool()
 
             if self.mask_cropped_instances:
                 masked_image = image * instance_mask
