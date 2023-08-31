@@ -21,7 +21,8 @@ from home_robot.agent.ovmm_agent.vlm_exploration_agent import VLMExplorationAgen
 from home_robot.core.interfaces import DiscreteNavigationAction, Observations
 from home_robot.manipulation import HeuristicPlacePolicy
 
-sys.path.append("src/home_robot/home_robot/perception/detection/minigpt4/MiniGPT-4/")
+sys.path.append(
+    "src/home_robot/home_robot/perception/detection/minigpt4/MiniGPT-4/")
 
 
 class Skill(IntEnum):
@@ -34,6 +35,7 @@ class Skill(IntEnum):
     EXPLORE = auto()
     NAV_TO_INSTANCE = auto()
     FALL_WAIT = auto()
+
 
 class VLMAgent(OpenVocabManipAgent):
     def __init__(self, config, device_id: int = 0, obs_spaces=None, action_spaces=None):
@@ -125,7 +127,8 @@ class VLMAgent(OpenVocabManipAgent):
     def switch_high_level_action(self):
         self.states = torch.tensor([Skill.EXPLORE] * self.num_environments)
         if self.timesteps[0] >= 20:
-            self.states = torch.tensor([Skill.NAV_TO_INSTANCE] * self.num_environments)    
+            self.states = torch.tensor(
+                [Skill.NAV_TO_INSTANCE] * self.num_environments)
         return
 
     def reset_vectorized(self, episodes=None):
@@ -145,7 +148,8 @@ class VLMAgent(OpenVocabManipAgent):
         crops = []
         for global_id, instance in self.instance_memory.instance_views[0].items():
             instance_crops = instance.instance_views
-            crops.append((global_id, random.sample(instance_crops, 1)[0].cropped_image))
+            crops.append((global_id, random.sample(
+                instance_crops, 1)[0].cropped_image))
 
         # TODO: the model currenly can only handle 20 crops
         if len(crops) > self.max_context_length:
@@ -156,7 +160,8 @@ class VLMAgent(OpenVocabManipAgent):
         os.mkdir(debug_path)
         ret = []
         for crop in crops:
-            Image.fromarray(crop[1], "RGB").save(debug_path+str(crop[0])+'.png')
+            Image.fromarray(crop[1], "RGB").save(
+                debug_path+str(crop[0])+'.png')
             ret.append(str(crop[0])+'.png')
         return ret
 
@@ -201,7 +206,6 @@ class VLMAgent(OpenVocabManipAgent):
             new_state = True
             action = None
         return action, info, new_state
-
 
     def _switch_to_next_skill(
         self, e: int, next_skill, info: Dict[str, Any]
@@ -252,7 +256,6 @@ class VLMAgent(OpenVocabManipAgent):
         self, obs: Observations
     ) -> Tuple[DiscreteNavigationAction, Dict[str, Any], Observations]:
         """State machine"""
-        
 
         if self.timesteps[0] == 0:
             self._init_episode(obs)
@@ -267,22 +270,26 @@ class VLMAgent(OpenVocabManipAgent):
         if not self.high_level_plan:
             if self.timesteps[0] % self.vlm_freq == 0:
                 for _ in range(self.planning_times):
-                    self.world_representation = self.get_obj_centric_world_representation() # a list of images
-                    self.high_level_plan = self.ask_vlm_for_plan(self.world_representation)
+                    self.world_representation = self.get_obj_centric_world_representation()  # a list of images
+                    self.high_level_plan = self.ask_vlm_for_plan(
+                        self.world_representation)
                     # self.high_level_plan = "goto(obj_1)"
                     if self.high_level_plan:
-                        print ("plan found by VLMs!!!!!!!!")
-                        print (self.high_level_plan)
-                        self.remaining_actions = self.high_level_plan.split("; ")
-                        dry_run = input("type y if you want to switch to the next task, otherwise will execute the plan: ")
+                        print("plan found by VLMs!!!!!!!!")
+                        print(self.high_level_plan)
+                        self.remaining_actions = self.high_level_plan.split(
+                            "; ")
+                        dry_run = input(
+                            "type y if you want to switch to the next task, otherwise will execute the plan: ")
                         if 'y' in dry_run:
                             return None, info, obs, True
                         break
-        
-        if self.remaining_actions and len(self.remaining_actions)>0:
+
+        if self.remaining_actions and len(self.remaining_actions) > 0:
             current_high_level_action = self.remaining_actions[0]
             if self.states[0] == Skill.EXPLORE:
-                self.states = torch.tensor([Skill.NAV_TO_INSTANCE] * self.num_environments)
+                self.states = torch.tensor(
+                    [Skill.NAV_TO_INSTANCE] * self.num_environments)
             # if self.states[0] == Skill.GAZE_AT_OBJ:
             #     pass
             # else:
@@ -291,23 +298,26 @@ class VLMAgent(OpenVocabManipAgent):
             #     self.states = torch.tensor([Skill.NAV_TO_INSTANCE] * self.num_environments)
             # elif "pickup" in current_high_level_action:
             #     self.states = torch.tensor([Skill.PICK] * self.num_environments)
-        is_finished = False       
+        is_finished = False
         action = None
 
         while action is None:
             if self.states[0] == Skill.EXPLORE:
-                obs.task_observations["instance_id"] = 100000000000  
+                obs.task_observations["instance_id"] = 100000000000
                 action, info, new_state = self._explore(obs, info)
             elif self.states[0] == Skill.NAV_TO_INSTANCE:
-                obs.task_observations["instance_id"] = int(self.world_representation[int(current_high_level_action.split('(')[1].split(')')[0].split(', ')[0].split('_')[1])].split('.')[0])
+                obs.task_observations["instance_id"] = int(self.world_representation[int(
+                    current_high_level_action.split('(')[1].split(')')[0].split(', ')[0].split('_')[1])].split('.')[0])
                 action, info, new_state = self._nav_to_obj(obs, info)
             elif self.states[0] == Skill.GAZE_AT_OBJ:
-                pick_instance_id = int(self.world_representation[int(current_high_level_action.split('(')[1].split(')')[0].split(', ')[0].split('_')[1])].split('.')[0])
+                pick_instance_id = int(self.world_representation[int(current_high_level_action.split(
+                    '(')[1].split(')')[0].split(', ')[0].split('_')[1])].split('.')[0])
                 category_id = self.instance_memory.instance_views[0][pick_instance_id].category_id
                 obs.task_observations["object_goal"] = category_id
                 action, info, new_state = self._gaze_at_obj(obs, info)
             elif self.states[0] == Skill.PICK:
-                pick_instance_id = int(self.world_representation[int(current_high_level_action.split('(')[1].split(')')[0].split(', ')[0].split('_')[1])].split('.')[0])
+                pick_instance_id = int(self.world_representation[int(current_high_level_action.split(
+                    '(')[1].split(')')[0].split(', ')[0].split('_')[1])].split('.')[0])
                 category_id = self.instance_memory.instance_views[0][pick_instance_id].category_id
                 obs.task_observations["object_goal"] = category_id.item()
                 # import pdb; pdb.set_trace()
@@ -343,4 +353,3 @@ class VLMAgent(OpenVocabManipAgent):
                 f'Executing skill {info["curr_skill"]} at timestep {self.timesteps[0]}'
             )
         return action, info, obs, is_finished
-
