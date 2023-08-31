@@ -247,4 +247,5 @@ def get_bounds(points: Tensor):
     Returns:
         mins_and_maxes: [3, 2]
     """
+    assert points.ndim == 2 and points.shape[-1] == 3, points.shape
     return torch.stack([points.min(dim=0)[0], points.max(dim=0)[0]], dim=-1)

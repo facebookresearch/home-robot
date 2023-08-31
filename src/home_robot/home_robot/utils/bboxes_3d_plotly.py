@@ -240,6 +240,7 @@ def _add_separate_bbox3d_traces(
     bboxes = bboxes.detach().cpu()
     extrema_coords = bboxes.bounds_packed()
     features = bboxes.features_packed()
+    n_boxes = len(extrema_coords)
 
     if not use_separate_traces:
         all_box_wires = get_bbox_wireframe(
@@ -263,11 +264,11 @@ def _add_separate_bbox3d_traces(
         elif box_name_to_tracename_dict is not None:
             bbox_names = [box_name_to_tracename_dict[int(name)] for name in bbox_names]
         else:
-            bbox_names = [str(name) for name in bbox_names]
+            bbox_names = [str(int(name)) for name in bbox_names]
     if bbox_names is None:
-        bbox_names = [f"{i}" for i in range(len(extrema_coords))]
+        bbox_names = [f"{int(i)}" for i in range(n_boxes)]
 
-    bbox_color = [color] * len(bboxes)
+    bbox_color = [color] * n_boxes
     if features is not None:
         if features.shape[1] == 4:  # rgba
             template = "rgb(%d, %d, %d, %f)"
@@ -284,6 +285,7 @@ def _add_separate_bbox3d_traces(
     all_box_wires = get_bbox_wireframe(
         extrema_coords, add_cross_face_bars=add_cross_face_bars
     )
+
     # row, col = subplot_idx // ncols + 1, subplot_idx % ncols + 1
     for (coords, name, color) in zip(all_box_wires, bbox_names, bbox_color):
         _add_bbox3d_trace(

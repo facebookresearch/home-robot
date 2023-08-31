@@ -442,7 +442,7 @@ class SparseVoxelMap(object):
     ) -> Tuple[np.ndarray, np.ndarray]:
         """Display the aggregated point cloud."""
         if backend == "open3d":
-            return self._show_open3d(**backend_kwargs)
+            return self._show_open3d(instances, **backend_kwargs)
         elif backend == "pytorch3d":
             return self._show_pytorch3d(**backend_kwargs)
         else:
@@ -450,23 +450,34 @@ class SparseVoxelMap(object):
                 f"Uknown backend {backend}, must be 'open3d' or 'pytorch3d"
             )
 
-    def _show_pytorch3d(self, **plot_scene_kwargs):
+    def _show_pytorch3d(self, instances: bool, **plot_scene_kwargs):
         from pytorch3d.vis.plotly_vis import AxisArgs, plot_scene
 
         from home_robot.utils.bboxes_3d_plotly import plot_scene_with_bboxes
 
         points, _, _, rgb = self.voxel_pcd.get_pointcloud()
 
+        traces = {}
+
         # Show points
         ptc = Pointclouds(points=[points], features=[rgb])
+        traces["Points"] = ptc
 
         # Show instances
-        bounds, names = zip(*[(v.bounds, v.category_id) for v in self.get_instances()])
-        detected_boxes = BBoxes3D(
-            bounds=[torch.stack(bounds, dim=0)],
-            # features = [colors],
-            names=[torch.stack(names, dim=0).unsqueeze(-1)],
-        )
+        if instances:
+            bounds, names = zip(
+                *[(v.bounds, v.category_id) for v in self.get_instances()]
+            )
+            detected_boxes = BBoxes3D(
+                bounds=[torch.stack(bounds, dim=0)],
+                # features = [colors],
+                names=[torch.stack(names, dim=0).unsqueeze(-1)],
+            )
+            traces["Instance boxes"] = detected_boxes
+
+        # Show cameras
+        # "Fused boxes": global_boxes,
+        # "cameras": cameras,
 
         _default_plot_args = dict(
             xaxis={"backgroundcolor": "rgb(200, 200, 230)"},
@@ -479,15 +490,7 @@ class SparseVoxelMap(object):
             boxes_wireframe_width=3,
         )
         fig = plot_scene_with_bboxes(
-            plots={
-                "Global scene": {
-                    "Points": ptc,
-                    "Instance boxes": detected_boxes,
-                    # "Fused boxes": global_boxes,
-                    # "cameras": cameras,
-                },
-                # Could add keyframes or instances here.
-            },
+            plots={"Global scene": traces},
             **update(_default_plot_args, plot_scene_kwargs),
         )
         return fig

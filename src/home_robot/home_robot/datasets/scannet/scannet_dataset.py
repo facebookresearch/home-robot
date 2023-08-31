@@ -455,8 +455,8 @@ def load_3d_bboxes(path) -> Tuple[torch.Tensor, torch.Tensor]:
     """
     bboxes = np.load(path)
     bbox_coords = torch.from_numpy(bboxes[:, :6])
-    labels = torch.from_numpy(bboxes[:, -2])
-    obj_ids = torch.from_numpy(bboxes[:, -1])
+    labels = torch.from_numpy(bboxes[:, -2]).int()
+    obj_ids = torch.from_numpy(bboxes[:, -1]).int()
     centers, lengths = bbox_coords[:, :3], bbox_coords[:, 3:6]
     mins = centers - lengths / 2.0
     maxs = centers + lengths / 2.0

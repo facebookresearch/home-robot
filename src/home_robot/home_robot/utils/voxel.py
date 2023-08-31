@@ -357,8 +357,15 @@ def reduce_pointcloud(
         pos, weights, voxel_cluster, weights_cluster, dim=0
     )
 
+    if rgbs is not None:
+        rgb_cluster = scatter_weighted_mean(
+            rgbs, weights, voxel_cluster, weights_cluster, dim=0
+        )
+    else:
+        rgb_cluster = None
+
     if features is None:
-        return pos_cluster, None, weights_cluster
+        return pos_cluster, None, weights_cluster, rgb_cluster
 
     if feature_reduce == "mean":
         feature_cluster = scatter_weighted_mean(
@@ -372,12 +379,5 @@ def reduce_pointcloud(
         )
     else:
         raise NotImplementedError(f"Unknown feature reduction method {feature_reduce}")
-
-    if rgbs is not None:
-        rgb_cluster = scatter_weighted_mean(
-            rgbs, weights, voxel_cluster, weights_cluster, dim=0
-        )
-    else:
-        rgb_cluster = None
 
     return pos_cluster, feature_cluster, weights_cluster, rgb_cluster
