@@ -5,7 +5,7 @@
 import pickle
 from collections import namedtuple
 from pathlib import Path
-from typing import List, Optional, Sequence, Tuple, Union
+from typing import Any, Dict, List, Optional, Sequence, Tuple, Union
 
 import numpy as np
 import open3d as open3d
@@ -64,6 +64,8 @@ class SparseVoxelMap(object):
         min_depth: float = 0.1,
         max_depth: float = 4.0,
         background_instance_label: int = -1,
+        instance_memory_kwargs: Dict[str, Any] = {},
+        voxel_kwargs: Dict[str, Any] = {},
     ):
         # TODO: We an use fastai.store_attr() to get rid of this boilerplate code
         self.resolution = resolution
@@ -76,6 +78,8 @@ class SparseVoxelMap(object):
         self.min_depth = min_depth
         self.max_depth = max_depth
         self.background_instance_label = background_instance_label
+        self.instance_memory_kwargs = instance_memory_kwargs
+        self.voxel_kwargs = voxel_kwargs
 
         # TODO: This 2D map code could be moved to another class or helper function
         #   This class could use that code via containment (same as InstanceMemory or VoxelizedPointcloud)
@@ -106,7 +110,10 @@ class SparseVoxelMap(object):
         self.observations = []
         # Create an instance memory to associate bounding boxes in space
         self.instances = InstanceMemory(
-            num_envs=1, du_scale=1, instance_association="bbox_iou"
+            num_envs=1,
+            du_scale=1,
+            instance_association="bbox_iou",
+            **self.instance_memory_kwargs,
         )
         # Create voxelized pointcloud
         self.voxel_pcd = VoxelizedPointcloud(
@@ -114,6 +121,7 @@ class SparseVoxelMap(object):
             dim_mins=None,
             dim_maxs=None,
             feature_pool_method="mean",
+            **self.voxel_kwargs,
         )
 
         self._seq = 0
@@ -234,7 +242,7 @@ class SparseVoxelMap(object):
 
         # Add instance views to memory
         instance = instance_image.clone()
-        instance[~valid_depth] = -1
+        # instance[~valid_depth] = -1
         self.instances.process_instances_for_env(
             env_id=0,
             instance_seg=instance,
@@ -244,6 +252,7 @@ class SparseVoxelMap(object):
             instance_scores=instance_scores,
             mask_out_object=False,  # Save the whole image here? Or is this with background?
             background_instance_label=self.background_instance_label,
+            valid_points=valid_depth,
         )
         self.instances.associate_instances_to_memory()
 
@@ -444,13 +453,13 @@ class SparseVoxelMap(object):
         if backend == "open3d":
             return self._show_open3d(instances, **backend_kwargs)
         elif backend == "pytorch3d":
-            return self._show_pytorch3d(**backend_kwargs)
+            return self._show_pytorch3d(instances, **backend_kwargs)
         else:
             raise NotImplementedError(
                 f"Uknown backend {backend}, must be 'open3d' or 'pytorch3d"
             )
 
-    def _show_pytorch3d(self, instances: bool, **plot_scene_kwargs):
+    def _show_pytorch3d(self, instances: bool = True, **plot_scene_kwargs):
         from pytorch3d.vis.plotly_vis import AxisArgs, plot_scene
 
         from home_robot.utils.bboxes_3d_plotly import plot_scene_with_bboxes
@@ -495,7 +504,7 @@ class SparseVoxelMap(object):
         )
         return fig
 
-    def _show_open3d(self, instances: bool, **backend_kwargs):
+    def _show_open3d(self, instances: bool = True, **backend_kwargs):
         """Show and return bounding box information and rgb color information from an explored point cloud. Uses open3d."""
 
         # Create a combined point cloud

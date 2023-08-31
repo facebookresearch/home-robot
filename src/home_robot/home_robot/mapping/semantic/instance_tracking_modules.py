@@ -17,6 +17,7 @@ from home_robot.utils.bboxes_3d import (
     get_box_bounds_from_verts,
     get_box_verts_from_bounds,
 )
+from home_robot.utils.image import dilate_or_erode_mask
 from home_robot.utils.point_cloud_torch import get_bounds
 
 
@@ -168,9 +169,9 @@ class InstanceMemory:
     timesteps: list of timesteps
     """
 
-    images: List[torch.Tensor] = []
+    images: List[Tensor] = []
     instance_views: List[Dict[int, Instance]] = []
-    point_cloud: List[torch.Tensor] = []
+    point_cloud: List[Tensor] = []
     unprocessed_views: List[Dict[int, InstanceView]] = []
     timesteps: List[int] = []
 
@@ -181,12 +182,28 @@ class InstanceMemory:
         instance_association: str = "bbox_iou",
         iou_threshold: float = 0.8,
         debug_visualize: bool = False,
+        erode_mask_num_pix: int = 0,
+        erode_mask_num_iter: int = 1,
     ):
+        """See class definition for information about InstanceMemory
+
+        Args:
+            num_envs (int): Number of environments to track
+            du_scale (int): Downsample images by 1 / du_scale
+            instance_association (str, optional): Instance association method. Defaults to "bbox_iou".
+            iou_threshold (float, optional): Threshold for associating instance views to global memory. Defaults to 0.8.
+            debug_visualize (bool, optional): Visualize by writing out to disk. Defaults to False.
+            erode_mask_num_pix (int, optional): If nonzero, how many pixels to erode instance masks. Defaults to 0.
+            erode_mask_num_iter (int, optional): If nonzero, how times to iterate erode instance masks. Defaults to 1.
+        """
         self.num_envs = num_envs
         self.du_scale = du_scale
         self.debug_visualize = debug_visualize
         self.instance_association = instance_association
         self.iou_threshold = iou_threshold
+        self.erode_mask_num_pix = erode_mask_num_pix
+        self.erode_mask_num_iter = erode_mask_num_iter
+
         if self.debug_visualize:
             import shutil
 
@@ -439,13 +456,14 @@ class InstanceMemory:
     def process_instances_for_env(
         self,
         env_id: int,
-        instance_seg: torch.Tensor,
-        point_cloud: torch.Tensor,
-        image: torch.Tensor,
-        instance_classes: Optional[torch.Tensor] = None,
-        instance_scores: Optional[torch.Tensor] = None,
+        instance_seg: Tensor,
+        point_cloud: Tensor,
+        image: Tensor,
+        instance_classes: Optional[Tensor] = None,
+        instance_scores: Optional[Tensor] = None,
         mask_out_object: bool = True,
         background_instance_label: int = 0,
+        valid_points: Optional[Tensor] = None,
     ):
         """
         Process instance information in the current frame and add instance views to the list of unprocessed views for future association.
@@ -455,16 +473,16 @@ class InstanceMemory:
 
         Args:
             env_id (int): Identifier for the environment being processed.
-            instance_seg (torch.Tensor): [H, W] tensor of instance ids at each pixel
-            point_cloud (torch.Tensor): Point cloud data in world coordinates.
-            image (torch.Tensor): [3, H, W] RGB image
-            instance_classes (Optional[torch.Tensor]): [K,] class ids for each instance in instance seg
+            instance_seg (Tensor): [H, W] tensor of instance ids at each pixel
+            point_cloud (Tensor): Point cloud data in world coordinates.
+            image (Tensor): [3, H, W] RGB image
+            instance_classes (Optional[Tensor]): [K,] class ids for each instance in instance seg
                 class_int = instance_classes[instance_id]
-            instance_scores (Optional[torch.Tensor]): [K,] detection confidences for each instance in instance_seg
+            instance_scores (Optional[Tensor]): [K,] detection confidences for each instance in instance_seg
             mask_out_object (bool): true if we want to save crops of just objects on black background; false otherwise
                 # If false does it not save crops? Not black background?
             background_class_label(int): id indicating background points in instance_seg. That view is not saved. (default = 0)
-
+            valid_points (Tensor): [H, W] boolean tensor indicating valid points in the pointcloud
         Note:
             - The method creates instance views for detected instances within the provided data.
             - If a semantic segmentation tensor is provided, each instance is associated with a semantic category.
@@ -493,6 +511,26 @@ class InstanceMemory:
             self.point_cloud[env_id] = torch.cat(
                 [self.point_cloud[env_id], point_cloud.unsqueeze(0)], dim=0
             )
+
+        # Valid opints
+        if valid_points is None:
+            valid_points = torch.full(
+                image.shape[:, 0], True, dtype=torch.bool, device=image.device
+            )
+        if self.du_scale != 1:
+            valid_points_downsampled = (
+                torch.nn.functional.interpolate(
+                    valid_points.unsqueeze(0).unsqueeze(0).float(),
+                    scale_factor=1 / self.du_scale,
+                    mode="nearest",
+                )
+                .squeeze(0)
+                .squeeze(0)
+                .bool()
+            )
+        else:
+            valid_points_downsampled = valid_points
+
         # unique instances
         instance_ids = torch.unique(instance_seg)
         for instance_id in instance_ids:
@@ -527,6 +565,7 @@ class InstanceMemory:
                 2,
             ), "Bounding box has extra dimensions - you have a problem with input instance image mask!"
 
+            # TODO: If we use du_scale, we should apply this at the beginning to speed things up
             if self.du_scale != 1:
                 # downsample mask by du_scale using "NEAREST"
                 instance_mask_downsampled = (
@@ -539,9 +578,25 @@ class InstanceMemory:
                     .squeeze(0)
                     .bool()
                 )
+
             else:
                 instance_mask_downsampled = instance_mask
 
+            # Erode instance masks for point cloud
+            # TODO: We can do erosion and masking on the downsampled/cropped image to avoid unnecessary computation
+            if self.erode_mask_num_pix > 0:
+                instance_mask_downsampled = dilate_or_erode_mask(
+                    instance_mask_downsampled.unsqueeze(0),
+                    radius=-self.erode_mask_num_pix,
+                    num_iterations=self.erode_mask_num_iter,
+                ).squeeze(0)
+                instance_mask = dilate_or_erode_mask(
+                    instance_mask.unsqueeze(0),
+                    radius=-self.erode_mask_num_pix,
+                    num_iterations=self.erode_mask_num_iter,
+                ).squeeze(0)
+
+            # Mask out the RGB image using the original detection mask
             if mask_out_object:
                 masked_image = image * instance_mask
             else:
@@ -556,8 +611,11 @@ class InstanceMemory:
             embedding = None
 
             # get point cloud
-            point_cloud_instance = point_cloud[instance_mask_downsampled]
-            point_cloud_rgb_instance = image.permute(1, 2, 0)[instance_mask_downsampled]
+            point_mask_downsampled = (
+                instance_mask_downsampled & valid_points_downsampled
+            )
+            point_cloud_instance = point_cloud[point_mask_downsampled]
+            point_cloud_rgb_instance = image.permute(1, 2, 0)[point_mask_downsampled]
 
             if instance_mask_downsampled.sum() > 0:
                 bounds = get_bounds(point_cloud_instance)
@@ -596,10 +654,10 @@ class InstanceMemory:
 
     def process_instances(
         self,
-        instance_channels: torch.Tensor,
-        point_cloud: torch.Tensor,
-        image: torch.Tensor,
-        semantic_channels: Optional[torch.Tensor] = None,
+        instance_channels: Tensor,
+        point_cloud: Tensor,
+        image: Tensor,
+        semantic_channels: Optional[Tensor] = None,
     ):
         """
         Process instance information across environments and associate instance views with global instances.
@@ -608,10 +666,10 @@ class InstanceMemory:
         It extracts and prepares instance views based on the provided data for each environment and associates them with global instances.
 
         Args:
-            instance_channels (torch.Tensor): Tensor containing instance segmentation channels for each environment.
-            point_cloud (torch.Tensor): Tensor containing point cloud data for each environment.
-            image (torch.Tensor): Tensor containing image data for each environment.
-            semantic_channels (Optional[torch.Tensor]): Tensor containing semantic segmentation channels for each environment, if available.
+            instance_channels (Tensor): Tensor containing instance segmentation channels for each environment.
+            point_cloud (Tensor): Tensor containing point cloud data for each environment.
+            image (Tensor): Tensor containing image data for each environment.
+            semantic_channels (Optional[Tensor]): Tensor containing semantic segmentation channels for each environment, if available.
 
         Note:
             - Instance views are extracted and prepared for each environment based on the instance channels.

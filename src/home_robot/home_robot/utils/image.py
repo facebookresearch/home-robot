@@ -2,15 +2,22 @@
 #
 # This source code is licensed under the MIT license found in the
 # LICENSE file in the root directory of this source tree.
+import functools
 from typing import List
 
 import cv2
 import numpy as np
+import torch
+import torch.nn.functional as F
 import trimesh.transformations as tra
+from torch import Tensor
 
 
 class Camera(object):
-    """Simple pinhole camera model. Contains parameters for projecting from depth to xyz, and saving information about camera position for planning."""
+    """
+    Simple pinhole camera model. Contains parameters for projecting from depth to xyz, and saving information about camera position for planning.
+    TODO: Move this to utils/cameras.py?
+    """
 
     @staticmethod
     def from_width_height_fov(
@@ -193,3 +200,53 @@ def rotate_image(imgs: List[np.ndarray]) -> List[np.ndarray]:
     """stretch specific routine to flip and rotate sideways images for normal viewing"""
     imgs = [np.rot90(np.fliplr(np.flipud(x))) for x in imgs]
     return imgs
+
+
+def build_mask(
+    target: Tensor, val: float = 0.0, tol: float = 1e-3, mask_extra_radius: int = 5
+) -> Tensor:
+    """Build mask where all channels are (val - tol) <= target <= (val + tol)
+        Optionally, dilate by mask_extra_radius
+
+    Args:
+        target (Tensor): [B, N_channels, H, W] input tensor
+        val (float, optional): Value to use for masking. Defaults to 0.0.
+        tol (float, optional): Tolerance for mask. Defaults to 1e-3.
+        mask_extra_radius (int, optional): Dilate by mask_extra_radius pix . Defaults to 5.
+
+    Returns:
+        _type_: Mask of shape target.shape
+    """
+    assert target.ndim == 4, target.shape
+    if target.shape[1] == 1:
+        masks = [target[:, t] for t in range(target.shape[1])]
+        masks = [(t >= val - tol) & (t <= val + tol) for t in masks]
+        mask = functools.reduce(lambda a, b: a & b, masks).unsqueeze(1)
+    else:
+        mask = (target >= val - tol) & (target <= val + tol)
+    mask = 0 != F.conv2d(
+        mask.float(),
+        torch.ones(1, 1, mask_extra_radius, mask_extra_radius, device=mask.device),
+        padding=(mask_extra_radius // 2),
+    )
+    #     mask = F.conv2d(mask.float(), torch.ones(1, 1, 5, 5, device=mask.device), padding=2) != 0
+    return (~mask).expand_as(target)
+
+
+def dilate_or_erode_mask(mask: Tensor, radius: int, num_iterations=1) -> Tensor:
+    assert mask.dtype == torch.bool, mask.dtype
+    abs_radius = abs(radius)
+    erode = radius < 0
+    if erode:
+        mask = ~mask
+    mask = mask.half()
+    conv_kernel = torch.ones(
+        (1, 1, abs_radius, abs_radius), dtype=mask.dtype, device=mask.device
+    )
+    for _ in range(num_iterations):
+        mask = mask.half()
+        mask = F.conv2d(mask, conv_kernel, padding="same")
+        mask = mask > 0.0
+    if erode:
+        mask = ~mask
+    return mask
