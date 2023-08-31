@@ -99,3 +99,6 @@ DISPLAY=:1 python projects/spot/goat.py --trajectory=spot_abnb1_video2 --goals=i
 k
 DISPLAY=:1 python projects/spot/goat.py --trajectory=spot_abnb3_test --goals=image_bed1,image_bed2,object_oven,image_chair1,language_couch1,image_chair3,language_chair2
 DISPLAY=:1 python projects/spot/goat.py --trajectory=spot_abnb3_test --goals=image_bed1,image_bed2,object_oven,image_chair1,language_couch1,image_chair3,language_chair2 --raw-depth
+
+DISPLAY=:1 python projects/spot/goat.py --trajectory=spot_abnb3_video1 --goals=image_couch1,image_plant1,image_cup1,image_couch3,image_bed1,image_sink2,image_chair2,image_bear1,image_couch2,image_cup2,image_bowl1,image_plant3,image_chair3,image_bowl2,image_sink1,image_tv2,image_chair1
+
