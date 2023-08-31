@@ -337,8 +337,6 @@ class InstanceMemory:
             global_instance.instance_views.append(instance_view)
         self.local_id_to_global_id_map[env_id][local_instance_id] = global_instance_id
         if self.debug_visualize:
-            import os
-
             cat_id = int(instance_view.category_id)
             category_name = (
                 f"cat_{instance_view.category_id}"
@@ -351,10 +349,6 @@ class InstanceMemory:
             os.makedirs(instance_write_path, exist_ok=True)
 
         if self.debug_visualize:
-            import os
-
-            import cv2
-
             step = instance_view.timestep
             full_image = self.images[env_id][step]
             full_image = full_image.numpy().astype(np.uint8).transpose(1, 2, 0)
