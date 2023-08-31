@@ -29,6 +29,7 @@ import argparse
 import inspect
 import json
 import os
+from typing import Dict, List
 
 import numpy as np
 import scannet_utils
@@ -72,9 +73,14 @@ def read_segmentation(filename):
     return seg_to_verts, num_verts
 
 
-def extract_bbox(mesh_vertices, object_id_to_segs, object_id_to_label_id, instance_ids):
+def extract_bbox(
+    mesh_vertices: np.ndarray,
+    object_id_to_segs: Dict[int, List[int]],
+    object_id_to_label_id: Dict[int, int],
+    instance_ids: np.ndarray,
+):
     num_instances = len(np.unique(list(object_id_to_segs.keys())))
-    instance_bboxes = np.zeros((num_instances, 7))
+    instance_bboxes = np.zeros((num_instances, 8))
     for obj_id in object_id_to_segs:
         label_id = object_id_to_label_id[obj_id]
         obj_pc = mesh_vertices[instance_ids == obj_id, 0:3]
@@ -83,7 +89,12 @@ def extract_bbox(mesh_vertices, object_id_to_segs, object_id_to_label_id, instan
         xyz_min = np.min(obj_pc, axis=0)
         xyz_max = np.max(obj_pc, axis=0)
         bbox = np.concatenate(
-            [(xyz_min + xyz_max) / 2.0, xyz_max - xyz_min, np.array([label_id])]
+            [
+                (xyz_min + xyz_max) / 2.0,
+                xyz_max - xyz_min,
+                np.array([label_id]),
+                np.array([obj_id]),
+            ],
         )
         # NOTE: this assumes obj_id is in 1,2,3,.,,,.NUM_INSTANCES
         instance_bboxes[obj_id - 1, :] = bbox
