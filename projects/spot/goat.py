@@ -458,7 +458,7 @@ def text_to_image(
 
 
 # Fremont goals
-from goals_abnb2 import GOALS
+from goals_abnb3 import GOALS
 
 # Example command:
 # python projects/spot/goat.py --trajectory=trajectory1 --goals=object_toilet,image_bed1,language_chair4,image_couch1,language_plant1,language_plant2,image_refrigerator1
@@ -476,6 +476,8 @@ def main(spot=None, args=None):
 
     obs_dir = f"{config.DUMP_LOCATION}/obs"
     Path(obs_dir).mkdir(parents=True, exist_ok=True)
+    import yaml
+    with open(f'{config.DUMP_LOCATION}/config.yaml', "w") as f: f.write(yaml.dump(config))
 
     legend_path = f"{str(Path(__file__).resolve().parent)}/coco_categories_legend.png"
     legend = cv2.imread(legend_path)
@@ -487,7 +489,7 @@ def main(spot=None, args=None):
         env.reset()
 
     else:
-        env = SpotGoatEnv(spot, position_control=True,estimated_depth_threshold=config.ENVIRONMENT.estimated_depth_threshold,gaze_at_subgoal=config.ENVIRONMENT.gaze_at_subgoal)
+        env = SpotGoatEnv(spot, position_control=True,estimated_depth_threshold=config.ENVIRONMENT.estimated_depth_threshold,gaze_at_subgoal=config.ENVIRONMENT.gaze_at_subgoal,use_patch_depth=(not args.raw_depth))
         env.reset()
 
     goal_strings = args.goals.split(",")
@@ -724,6 +726,7 @@ if __name__ == "__main__":
     parser.add_argument('--home',action='store_true')
     parser.add_argument('--pick-place',action='store_true')
     parser.add_argument('--offline',action='store_true')
+    parser.add_argument('--raw-depth',action='store_true')
                         
     args = parser.parse_args()
 

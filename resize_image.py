@@ -1,5 +1,7 @@
 from PIL import Image
 import os
+import numpy as np
+import cv2
 
 def resize_images(input_folder, output_folder, target_size):
     if not os.path.exists(output_folder):
@@ -10,8 +12,8 @@ def resize_images(input_folder, output_folder, target_size):
             input_path = os.path.join(input_folder, filename)
             output_path = os.path.join(output_folder, filename)
 
-            img = Image.open(input_path)
-            width, height = img.size
+            img = cv2.imread(input_path)
+            height, width = img.shape[:2]
 
             if width < height:
                 new_width = target_size
@@ -20,8 +22,8 @@ def resize_images(input_folder, output_folder, target_size):
                 new_width = int(target_size * (width / height))
                 new_height = target_size
 
-            resized_img = img.resize((new_width, new_height), Image.ANTIALIAS)
-            resized_img.save(output_path)
+            resized_img = cv2.resize(img, (new_width, new_height), interpolation=cv2.INTER_AREA)
+            cv2.imwrite(output_path, resized_img)
             print(f"Resized {filename} to {new_width}x{new_height}")
 
 if __name__ == "__main__":

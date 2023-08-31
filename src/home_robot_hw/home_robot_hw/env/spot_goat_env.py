@@ -52,7 +52,7 @@ class Midas:
 
 
 class SpotGoatEnv(SpotEnv):
-    def __init__(self, spot, position_control=False,estimated_depth_threshold=5,gaze_at_subgoal=True):
+    def __init__(self, spot, position_control=False,estimated_depth_threshold=5,gaze_at_subgoal=True,use_patch_depth=True):
         super().__init__(spot)
         self.spot = spot
         self.position_control = position_control
@@ -70,6 +70,7 @@ class SpotGoatEnv(SpotEnv):
         self.midas = Midas("cuda:0")
         self.estimated_depth_threshold = estimated_depth_threshold
         self.gaze_at_subgoal=gaze_at_subgoal
+        self.use_patch_depth = use_patch_depth
 
     def patch_depth(self,obs):
         rgb,depth = obs.rgb, obs.depth
@@ -146,7 +147,8 @@ class SpotGoatEnv(SpotEnv):
 
         # fill in depth here before segmentation
         orig_depth = obs.depth.copy()
-        obs = self.patch_depth(obs)
+        if self.use_patch_depth:
+            obs = self.patch_depth(obs)
 
         # Segment the image
         obs = self.segmentation.predict(obs, depth_threshold=0.5)

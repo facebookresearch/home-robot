@@ -40,6 +40,8 @@ def fmm_distance(obstacles,source):
     map_obs[source[0],source[1]] = 0
     marr = np.ma.MaskedArray(map_obs,obstacles)
     dists = skfmm.distance(marr)
+    if not isinstance(dists,np.ma.MaskedArray):
+        dists = np.ma.MaskedArray(dists,np.zeros_like(dists))
     return dists
 
 def remove_boundary(mat: np.ndarray, value=1) -> np.ndarray:
@@ -221,38 +223,38 @@ class DiscretePlanner:
             and np.linalg.norm(self.last_action.xyt[:2]) > 0
         ):
             self._check_collision()
-        try:
+        # try:
             # High-level goal -> short-term goal
             # Extracts a local waypoint
             # Defined by the step size - should be relatively close to the robot
-            (
-                short_term_goal,
-                closest_goal_map,
-                replan,
-                stop,
-                closest_goal_pt,
-                dilated_obstacles,
-            ) = self._get_short_term_goal(
-                obstacle_map,
-                np.copy(goal_map),
-                start,
-                planning_window,
-                plan_to_dilated_goal=use_dilation_for_stg,
-                frontier_map=frontier_map,
-                orientation = start_o,
-                found_goal=found_goal
-            )
+        (
+            short_term_goal,
+            closest_goal_map,
+            replan,
+            stop,
+            closest_goal_pt,
+            dilated_obstacles,
+        ) = self._get_short_term_goal(
+            obstacle_map,
+            np.copy(goal_map),
+            start,
+            planning_window,
+            plan_to_dilated_goal=use_dilation_for_stg,
+            frontier_map=frontier_map,
+            orientation = start_o,
+            found_goal=found_goal
+        )
 
-        except Exception as e:
-            print("Warning! Planner crashed with error:", e)
-            # debug self._get_short_term_goal(obstacle_map, goal_map, start, planning_window, plan_to_dilated_goal=use_dilation_for_stg, frontier_map=frontier_map, orientation = start_o, found_goal=found_goal)
-            return (
-                DiscreteNavigationAction.STOP,
-                np.zeros(goal_map.shape),
-                (0, 0),
-                np.zeros(goal_map.shape),
-                False
-            )
+        # except Exception as e:
+            # print("Warning! Planner crashed with error:", e)
+            # # debug self._get_short_term_goal(obstacle_map, goal_map, start, planning_window, plan_to_dilated_goal=use_dilation_for_stg, frontier_map=frontier_map, orientation = start_o, found_goal=found_goal)
+            # return (
+                # DiscreteNavigationAction.STOP,
+                # np.zeros(goal_map.shape),
+                # (0, 0),
+                # np.zeros(goal_map.shape),
+                # False
+            # )
 
         if self._check_stuck():
             # unstick_perturbation is in meters, 
@@ -585,7 +587,9 @@ class DiscretePlanner:
                 num_reachable_goals = ((~dists.mask) & (goal_map==1)).sum()
                 assert num_reachable_goals > 0
             else:
-                goal_dists = np.ma.MaskedArray(skfmm.distance(marr))
+                goal_dists = skfmm.distance(marr)
+                if not isinstance(goal_dists,np.ma.MaskedArray):
+                    goal_dists = np.ma.MaskedArray(goal_dists,np.zeros_like(goal_dists))
                     
             # grid sampling creates bias towards corners
             local_grid = np.ones((self.step_size*2+1,self.step_size*2+1))

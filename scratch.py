@@ -1,7 +1,8 @@
 import numpy as np
 from matplotlib import pyplot as plt 
-from projects.spot.goals_abnb1 import GOALS
-GOALS['image_couch2']
+from projects.spot.goals_abnb3 import GOALS
+GOALS.keys()
+
 
 # import sys
 # sys.path.append('src/home_robot')
@@ -10,6 +11,7 @@ GOALS['image_couch2']
 # data.keys()
 # for k,v in data.items():
     # locals()[k] = v
+
 
 
 
