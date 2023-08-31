@@ -14,6 +14,8 @@ GOALS = {
     "object_bear": {"type": "objectnav", "target": "teddy bear"},
     "object_oven": {"type": "objectnav", "target": "oven"},
     "object_sink": {"type": "objectnav", "target": "sink"},
+    "object_cup": {"type": "objectnav", "target": "cup"},
+    "object_bowl": {"type": "objectnav", "target": "bowl"},
     "object_refrigerator": {"type": "objectnav", "target": "refrigerator"},
     # "object_book": {"type": "objectnav", "target": "book"},
     # "object_person": {"type": "objectnav", "target": "person"},
@@ -283,7 +285,7 @@ GOALS = {
         # "instruction": "Bottle of water.",
     # },
 }
-replace = {'bear': 'teddy bear', 'table': 'dining table'}
+replace = {'bear': 'teddy bear', 'table': 'dining table','plant': 'potted plant'}
 folder = f"{str(Path(__file__).resolve().parent)}/airbnb3_goals"
 import os
 for img in os.listdir(folder):

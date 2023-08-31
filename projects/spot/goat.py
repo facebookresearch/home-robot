@@ -303,7 +303,7 @@ def get_semantic_map_vis(
             0.00,  # short term goal
             *coco_categories_color_palette,
         ]
-    map_color_palette = [int(x * 255.0) for x in map_color_palette]
+        map_color_palette = [int(x * 255.0) for x in map_color_palette]
 
     semantic_categories_map = semantic_map.get_semantic_map(0)
     obstacle_map = semantic_map.get_obstacle_map(0)
@@ -371,6 +371,7 @@ def get_semantic_map_vis(
 
     # Draw semantic map
     semantic_map_vis = Image.new("P", semantic_categories_map.shape)
+    # print(map_color_palette.max(), type(map_color_palette[0]))
     semantic_map_vis.putpalette(map_color_palette)
     semantic_map_vis.putdata(semantic_categories_map.flatten().astype(np.uint8))
     semantic_map_vis = semantic_map_vis.convert("RGB")
@@ -527,7 +528,7 @@ def main(spot=None, args=None):
     picked = False
     keyboard_takeover = args.keyboard
     if pan_warmup:
-        assert not OFFLINE
+        assert not args.offline
         positions = spot.get_arm_joint_positions()
         new_pos = positions.copy()
         new_pos[0] = np.pi
@@ -622,7 +623,7 @@ def main(spot=None, args=None):
             vis_image_without_goal[:, :, ::-1],
         )
 
-        if not OFFLINE:
+        if not args.offline:
             cv2.imshow("vis", vis_image_with_goal[:, :, ::-1])
             cv2.imshow("depth", obs.depth / obs.depth.max())
             key = cv2.waitKey(100 if keyboard_takeover else 1)
