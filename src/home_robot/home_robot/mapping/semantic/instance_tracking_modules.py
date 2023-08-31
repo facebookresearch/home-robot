@@ -335,6 +335,12 @@ class InstanceMemory:
         else:
             # add instance view to global instance
             global_instance.instance_views.append(instance_view)
+            global_instance.point_cloud = np.concatenate(
+                [global_instance.point_cloud, instance_view.point_cloud], axis=0
+            )
+            global_instance.bounds = np.min(
+                global_instance.point_cloud, axis=0
+            ), np.max(global_instance.point_cloud, axis=0)
         self.local_id_to_global_id_map[env_id][local_instance_id] = global_instance_id
         if self.debug_visualize:
             cat_id = int(instance_view.category_id)
@@ -500,32 +506,14 @@ class InstanceMemory:
 
             # get point cloud
             point_cloud_instance = point_cloud[instance_mask_downsampled.cpu().numpy()]
+            point_cloud_instance = point_cloud_instance.cpu().numpy()
 
             object_coverage = np.sum(instance_mask) / instance_mask.size
 
-            # get instance view
-            instance_view = InstanceView(
-                bbox=bbox,
-                timestep=self.timesteps[env_id],
-                cropped_image=cropped_image,
-                embedding=embedding,
-                mask=instance_mask,
-                point_cloud=point_cloud_instance.cpu().numpy(),
-                category_id=category_id,
-                pose=pose.detach().cpu(),
-                object_coverage=object_coverage,
-            )
-
             if instance_mask_downsampled.sum() > 0 and point_cloud_instance.sum() > 0:
-                if isinstance(point_cloud_instance, np.ndarray):
-                    bounds = np.min(point_cloud_instance, axis=0), np.max(
-                        point_cloud_instance, axis=0
-                    )
-                else:
-                    bounds = (
-                        point_cloud_instance.min(dim=0)[0],
-                        point_cloud_instance.max(dim=0)[0],
-                    )
+                bounds = np.min(point_cloud_instance, axis=0), np.max(
+                    point_cloud_instance, axis=0
+                )
 
                 # get instance view
                 instance_view = InstanceView(
@@ -537,6 +525,8 @@ class InstanceMemory:
                     point_cloud=point_cloud_instance,
                     category_id=category_id,
                     bounds=bounds,
+                    pose=pose.detach().cpu(),
+                    object_coverage=object_coverage,
                 )
                 # append instance view to list of instance views
                 self.unprocessed_views[env_id][instance_id.item()] = instance_view
