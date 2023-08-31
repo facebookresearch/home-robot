@@ -418,7 +418,7 @@ def print_metrics(
 def main(base_dir: str, legend_path: str):
 
     obs_dir = f"{base_dir}/obs/"
-    map_vis_dir = f"{base_dir}/map_vis/"
+    map_vis_dir = f"{base_dir}/vis_without_goal/"
     goal_grounding_vis_dir = f"{base_dir}/goal_grounding_vis/"
     if legend_path is not None:
         legend = cv2.imread(legend_path)

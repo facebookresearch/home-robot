@@ -53,7 +53,7 @@ def record_videos(trajectory: str):
         with open(path, "rb") as f:
             observations.append(pickle.load(f))
 
-    main_vis_dir = f"{trajectory}/main_visualization/"
+    main_vis_dir = f"{trajectory}/vis_without_goal/"
     main_vis = []
     for path in natsort.natsorted(glob.glob(f"{main_vis_dir}/*.png")):
         main_vis.append(cv2.imread(path))
