@@ -617,7 +617,7 @@ class InstanceMemory:
             point_cloud_instance = point_cloud[point_mask_downsampled]
             point_cloud_rgb_instance = image.permute(1, 2, 0)[point_mask_downsampled]
 
-            if instance_mask_downsampled.sum() > 0:
+            if instance_mask_downsampled.sum() > 0 and point_mask_downsampled.sum() > 0:
                 bounds = get_bounds(point_cloud_instance)
                 # get instance view
                 instance_view = InstanceView(

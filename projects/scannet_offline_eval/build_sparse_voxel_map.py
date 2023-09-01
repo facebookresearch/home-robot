@@ -16,7 +16,7 @@ import click
 import matplotlib.pyplot as plt
 import numpy as np
 import torch
-from eval.utils import eval_bboxes_and_print
+from eval.obj_det import eval_bboxes_and_print
 from tqdm import tqdm
 
 from home_robot.core.interfaces import Observations

@@ -27,8 +27,8 @@ class ScanNetDataset(object):
     # Segmentation data
     METAINFO = {
         "classes": (
-            "wall",
-            "floor",
+            # "wall",
+            # "floor",
             "cabinet",
             "bed",
             "chair",
@@ -42,11 +42,11 @@ class ScanNetDataset(object):
             "desk",
             "curtain",
             "refrigerator",
-            "showercurtrain",
+            "shower curtain",
             "toilet",
             "sink",
             "bathtub",
-            "otherfurniture",
+            "furniture",  # other furniture
         ),
         "palette": [
             [174, 199, 232],
@@ -71,8 +71,8 @@ class ScanNetDataset(object):
             [82, 84, 163],
         ],
         "seg_valid_class_ids": (
-            1,
-            2,
+            # 1,
+            # 2,
             3,
             4,
             5,
