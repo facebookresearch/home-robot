@@ -261,6 +261,7 @@ def main(spot,args):
 
     t = 0
     keyboard_takeover = False
+    recover_right = False
     while not env.episode_over:
         t += 1
         print("STEP =", t)
@@ -272,11 +273,16 @@ def main(spot,args):
         map_location = agent.boot_world_to_local_map(torch.tensor(map_boot_world))[0]
         agent.set_target(map_location)
         action, info = agent.act(obs,map_location)
-        # if action == "stuck":
-        #     spot.set_base_velocity(0, 0, -0.5, 2)
-        #     breakpoint()
+        if action == "super_stuck":
+            if recover_right:
+                print("------RECOVERING RIGHT------")
+                spot.set_base_velocity(-0.2, 0, -0.5, 2)
+            else:
+                print("------RECOVERING LEFT------")
+                spot.set_base_velocity(-0.2, 0, 0.5, 2)
+            time.sleep(2)
+            recover_right = not recover_right
         
-
         print("SHORT_TERM:", info["short_term_goal"],np.where(info['closest_goal_map']))
         x, y = info["short_term_goal"]
         x, y = agent.semantic_map.local_to_global(x, y)

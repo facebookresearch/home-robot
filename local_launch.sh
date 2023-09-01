@@ -9,6 +9,8 @@ rsync -vaz akshara-spot:/home/akshara/asc_demo/home-robot/projects/spot/fremont_
 rsync -vaz akshara:/home/akshara/asc_demo/home-robot/projects/spot/fremont_trajectories/spot_abnb1_video6 ~/data/fremont_trajectories
 rsync -vaz akshara:/home/akshara/asc_demo/home-robot/projects/spot/fremont_trajectories/spot_abnb3_video2 ~/data/fremont_trajectories
 
+rsync -vaz akshara:/home/akshara/asc_demo/home-robot/projects/spot/fremont_trajectories/spot_abnb4_video4/obs ~/data/fremont_trajectories/spot_abnb4_video4
+
 rsync -vazu ~/data/fremont_trajectories devfair:/private/home/matthewchang/spot_trajectories
 rsync -vaz akshara-spot:/home/akshara/Desktop/vids_to_copy ~/data/vis/
 
@@ -108,8 +110,7 @@ DISPLAY=:1 python projects/spot/goat.py --trajectory=spot_abnb4_video1 --home --
 
 DISPLAY=:1 python projects/spot/goat.py --trajectory=spot_abnb4_video1 --home --goals=image_couch1,image_chair1,image_couch2,image_chair2,object_bear,image_chair3,object_bowl,image_chair4,object_cup,object_sink,object_oven,image_bed2,object_tv,object_refrigerator
 
-DISPLAY=:1 python projects/spot/goat.py --trajectory=pick_place_bottle --goals=pick_object_bear,place_object_bed
-DISPLAY=:1 python projects/spot/goat.py --trajectory=pick_place_bottle --goals=pick_object_bottle,place_object_bed
+DISPLAY=:1 python projects/spot/goat.py --trajectory=pick_place_bear --goals=pick_object_bear,place_object_couch
+DISPLAY=:1 python projects/spot/goat.py --trajectory=pick_place_bottle --goals=pick_object_bottle,place_object_couch
 DISPLAY=:1 python projects/spot/goat.py --trajectory=place_bear --goals=place_object_chair
-
-
+DISPLAY=:1 python projects/spot/reset.py

@@ -590,6 +590,8 @@ def main(spot=None, args=None):
 
     global_start_time = time.time()
     t = 0
+    # Which way to turn for recovery behavior
+    recover_right = False
     while not env.episode_over:
         step_start_time = time.time()
         t += 1
@@ -616,6 +618,15 @@ def main(spot=None, args=None):
                 break
 
         action, info = agent.act(obs)
+        if action == "super_stuck":
+            if recover_right:
+                print("------RECOVERING RIGHT------")
+                spot.set_base_velocity(-0.2, 0, -0.5, 2)
+            else:
+                print("------RECOVERING LEFT------")
+                spot.set_base_velocity(-0.2, 0, 0.5, 2)
+            time.sleep(2)
+            recover_right = not recover_right
         print(f"Step time {time.time() - step_start_time:2f}")
         # print("SHORT_TERM:", info["short_term_goal"])
         x, y = info["short_term_goal"]
@@ -723,7 +734,7 @@ def main(spot=None, args=None):
                 elif action_type == 'pick' and target_mask.sum() > 0:
                     dist,pixel_xy = distance_to_class(obs,target_semantic_class)
                     print("Distance to object: ",dist)
-                    if dist < 3:
+                    if dist < 2.5:
                         print("Seeking object")
                         grasp_success = attempt_grasp(env,obs,pixel_xy)
                         env.env.initialize_arm(open_gripper=False)

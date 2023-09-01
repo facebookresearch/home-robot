@@ -132,6 +132,7 @@ class DiscretePlanner:
 
         self.map_downsample_factor = map_downsample_factor
         self.map_update_frequency = map_update_frequency
+        self.last_actions = []
 
     def reset(self):
         self.vis_dir = self.default_vis_dir
@@ -390,6 +391,10 @@ class DiscretePlanner:
         if self._check_stuck():
             action = "stuck"
 
+        self.last_actions.append(action)
+        if len(self.last_actions) > 10 and all([x == 'stuck' for x in self.last_actions[-10:]]):
+            action = "super_stuck"
+            self.last_actions[-1] = "super_stuck"
         self.last_action = action
         # return action, closest_goal_map, short_term_goal, dilated_obstacles
         return action, closest_goal_map, (stg_x, stg_y), dilated_obstacles, replan
