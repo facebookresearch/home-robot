@@ -41,7 +41,7 @@ python generate_executables.py
 pip install -e .
 
 ### The following is a minimal set of dependencies needed to use the functionalities that GOAT uses from spotsim2real
-pip install bosdyn-api==3.2.3 transforms3d einops gym==0.23.1 vtk
+pip install bosdyn-api transforms3d einops gym==0.23.1 vtk
 
 ```
 
