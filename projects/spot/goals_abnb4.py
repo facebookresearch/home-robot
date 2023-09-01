@@ -4,7 +4,9 @@ GOALS = {
     # Object goals
     "place_object_bed": {"type": "objectnav", "target": "bed",'action': 'place'},
     "place_object_chair": {"type": "objectnav", "target": "chair",'action': 'place'},
+    "place_object_couch": {"type": "objectnav", "target": "couch",'action': 'place'},
     "pick_object_bear": {"type": "objectnav", "target": "teddy bear",'action': "pick"},
+    "pick_object_bottle": {"type": "objectnav", "target": "bottle",'action': "pick"},
     "object_chair": {"type": "objectnav", "target": "chair"},
     "object_couch": {"type": "objectnav", "target": "couch"},
     "object_plant": {"type": "objectnav", "target": "potted plant"},

@@ -507,7 +507,12 @@ def place_object(env,obs,target_semantic_class,target_mask):
         vector = motion_target[:2] - (px,py)
         vector /= np.linalg.norm(vector)
         #set place point 1 meter in that direction
-        place_target = np.array([*(vector * 1 + (px,py)),0.6])
+        
+        transforms_snapshot = spot.robot_state_client.get_robot_state().kinematic_state.transforms_snapshot
+        from bosdyn.client.frame_helpers import get_vision_tform_body
+        body_height = get_vision_tform_body(transforms_snapshot).z
+
+        place_target = np.array([*(vector * 1 + (px,py)),body_height+0.4])
         env.env.pick_from_back()
         cmd_id = spot.move_gripper_to_point(place_target, INITIAL_RPY,frame_name=VISION_FRAME_NAME)
         spot.block_until_arm_arrives(cmd_id)

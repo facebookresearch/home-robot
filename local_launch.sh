@@ -108,7 +108,8 @@ DISPLAY=:1 python projects/spot/goat.py --trajectory=spot_abnb4_video1 --home --
 
 DISPLAY=:1 python projects/spot/goat.py --trajectory=spot_abnb4_video1 --home --goals=image_couch1,image_chair1,image_couch2,image_chair2,object_bear,image_chair3,object_bowl,image_chair4,object_cup,object_sink,object_oven,image_bed2,object_tv,object_refrigerator
 
-DISPLAY=:1 python projects/spot/goat.py --trajectory=pick_place_bear --goals=pick_object_bear,place_object_chair
+DISPLAY=:1 python projects/spot/goat.py --trajectory=pick_place_bottle --goals=pick_object_bear,place_object_bed
+DISPLAY=:1 python projects/spot/goat.py --trajectory=pick_place_bottle --goals=pick_object_bottle,place_object_bed
 DISPLAY=:1 python projects/spot/goat.py --trajectory=place_bear --goals=place_object_chair
 
 

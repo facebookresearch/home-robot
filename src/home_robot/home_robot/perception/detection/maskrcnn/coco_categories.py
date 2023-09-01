@@ -15,7 +15,7 @@ coco_categories = {
     "refrigerator": 9,
     "book": 10,
     "person": 11,
-    "vase": 12,
+    "bottle": 12,
     "cup": 13,
     "bowl": 14,
     "teddy bear": 15,
@@ -37,9 +37,9 @@ coco_categories_mapping = {
     72: 9,  # refrigerator
     73: 10,  # book
     0: 11,  # person
-    75: 12,  # vase
+    # 75: 12,  # vase
     41: 13,  # cup
-    # 39: 14,  # bottle
+    39: 12,  # bottle
     44: 14,
     # Potential new categories
     # 24: 15,  # backpack
