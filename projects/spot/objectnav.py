@@ -279,6 +279,8 @@ def main(spot,args):
             pickle.dump(obs, f)
 
         action, info = agent.act(obs)
+        if action == "stuck":
+            breakpoint()
         # env.env.set_arm_yaw(np.pi/4)
         # import transforms3d as t3d
         # mat = t3d.quaternions.quat2mat(env.env.get_observations()['camera_rotation'])

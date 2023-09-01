@@ -44,7 +44,7 @@ class GoatAgent(Agent):
     def __init__(self, config, device_id: int = 0):
         # self.max_steps = config.AGENT.max_steps
         # self.max_steps = [500, 400, 300, 200, 200, 200, 200, 200, 200, 200, 200]
-        self.max_steps = [400, 300, 200, 200, 200, 200, 200, 200, 200, 200, 200]
+        self.max_steps = [400, 300, 200, 200, 200, 200, 200, 200, 200, 200, 200,200, 200, 200, 200, 200, 200, 200, 200, 200,200, 200, 200, 200, 200, 200, 200, 200, 200]
         self.num_environments = config.NUM_ENVIRONMENTS
         self.store_all_categories_in_map = getattr(
             config.AGENT, "store_all_categories", False

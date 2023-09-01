@@ -150,6 +150,7 @@ class DiscretePlanner:
         self.obs_dilation_selem = skimage.morphology.disk(
             self.curr_obs_dilation_selem_radius
         )
+        self.visited_dilation_selem = skimage.morphology.disk(1)
         self.goal_dilation_selem = skimage.morphology.disk(
             self.goal_dilation_selem_radius
         )
@@ -386,6 +387,8 @@ class DiscretePlanner:
             stop,
             debug,
         )
+        if self._check_stuck():
+            action = "stuck"
 
         self.last_action = action
         # return action, closest_goal_map, short_term_goal, dilated_obstacles
@@ -525,7 +528,9 @@ class DiscretePlanner:
         # Traversible is now the map
         traversible = 1 - dilated_obstacles
         # traversible[self.collision_map[gx1:gx2, gy1:gy2][x1:x2, y1:y2] == 1] = 0
-        traversible[self.visited_map[gx1:gx2, gy1:gy2][x1:x2, y1:y2] == 1] = 1
+        dilated_visited = cv2.dilate(self.visited_map, self.visited_dilation_selem, iterations=1)
+        
+        traversible[dilated_visited[gx1:gx2, gy1:gy2][x1:x2, y1:y2] == 1] = 1
         # agent_rad = self.agent_cell_radius
         # traversible[
             # int(start[0] - x1) - agent_rad : int(start[0] - x1) + agent_rad + 1,
@@ -644,8 +649,6 @@ class DiscretePlanner:
             replan = local_goal_dists.mask[self.step_size,self.step_size]
             distance = local_goal_dists[self.step_size,self.step_size] / 20.0
             print(f"Distance to goal (in m): {distance:.2f} (<1m = STOP)")
-            if found_goal and distance > 18:
-                import pdb; pdb.set_trace()
             if replan:
                 print("Could not find a path")
             vis('proto_dist',proto_dist)

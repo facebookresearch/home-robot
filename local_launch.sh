@@ -9,6 +9,7 @@ rsync -vaz akshara-spot:/home/akshara/asc_demo/home-robot/projects/spot/fremont_
 rsync -vaz akshara-spot:/home/akshara/asc_demo/home-robot/projects/spot/fremont_trajectories/spot_abnb1_trial9_test2 ~/data/fremont_trajectories
 
 rsync -vaz akshara:/home/akshara/asc_demo/home-robot/projects/spot/fremont_trajectories/spot_abnb1_video6 ~/data/fremont_trajectories
+rsync -vaz akshara:/home/akshara/asc_demo/home-robot/projects/spot/fremont_trajectories/spot_abnb3_video2 ~/data/fremont_trajectories
 
 rsync -vazu ~/data/fremont_trajectories devfair:/private/home/matthewchang/spot_trajectories
 rsync -vaz akshara-spot:/home/akshara/Desktop/vids_to_copy ~/data/vis/
@@ -80,6 +81,9 @@ rsync -vaz /Users/matthewchang/Desktop/airbnb_images/airbnb1_resized/ akshara:/h
 python resize_image.py /Users/matthewchang/Desktop/airbnb_images/airbnb3
 rsync -vaz /Users/matthewchang/Desktop/airbnb_images/airbnb3_resized/ akshara:/home/akshara/asc_demo/home-robot/projects/spot/airbnb3_goals
 
+python resize_image.py /Users/matthewchang/Desktop/airbnb_images/airbnb4
+rsync -vaz /Users/matthewchang/Desktop/airbnb_images/airbnb4_resized/ akshara:/home/akshara/asc_demo/home-robot/projects/spot/airbnb4_goals
+
 DISPLAY=:1 python projects/spot/goat.py --trajectory=spot_abnb1_trial0 --goals=object_oven,language_oven1,object_plant,image_chair3,image_refrigerator1,language_refrigerator1,object_toilet,image_couch1
 DISPLAY=:1 python projects/spot/goat.py --trajectory=spot_abnb1_trial1 --goals=image_cup1,language_chair1,image_bear1,object_sink,object_toilet,object_bear,language_toilet1
 DISPLAY=:1 python projects/spot/goat.py --trajectory=spot_abnb1_trial2 --goals=language_couch1,language_sink2,image_plant2,image_bed1,image_bed2,object_sink,image_toilet1,image_chair3
@@ -102,3 +106,4 @@ DISPLAY=:1 python projects/spot/goat.py --trajectory=spot_abnb3_test --goals=ima
 
 DISPLAY=:1 python projects/spot/goat.py --trajectory=spot_abnb3_video1 --goals=image_couch3,image_plant1,image_couch1,image_bed1,image_sink2,image_chair2,image_bear1,image_cup1,image_couch2,image_cup2,image_bowl1,image_plant3,image_chair3,image_bowl2,image_sink1,image_tv2,image_chair1
 
+DISPLAY=:1 python projects/spot/goat.py --trajectory=spot_abnb4_video1 --home --goals=image_couch1,image_chair1,image_couch2,image_chair2,object_bear,image_chair3,object_bowl,image_chair4,object_cup,object_sink,object_oven,image_bed2,object_tv,object_refrigerator

@@ -469,7 +469,7 @@ def text_to_image(
 
 
 # Fremont goals
-from goals_abnb3 import GOALS
+from goals_abnb4 import GOALS
 
 # Example command:
 # python projects/spot/goat.py --trajectory=trajectory1 --goals=object_toilet,image_bed1,language_chair4,image_couch1,language_plant1,language_plant2,image_refrigerator1
@@ -638,19 +638,18 @@ def main(spot=None, args=None):
                 agent.advance_to_next_task(obs)
                 print("--------SKIPPING GOAL-------------")
 
-            if keyboard_takeover:
-                if key == ord("w"):
-                    spot.set_base_velocity(0.5, 0, 0, 0.5)
-                elif key == ord("s"):
-                    # back
-                    spot.set_base_velocity(-0.5, 0, 0, 0.5)
-                elif key == ord("a"):
-                    # left
-                    spot.set_base_velocity(0, 0.5, 0, 0.5)
-                elif key == ord("d"):
-                    # right
-                    spot.set_base_velocity(0, -0.5, 0, 0.5)
-            else:
+            if key == ord("w"):
+                spot.set_base_velocity(0.5, 0, 0, 1)
+            elif key == ord("s"):
+                # back
+                spot.set_base_velocity(-0.5, 0, 0, 1)
+            elif key == ord("a"):
+                # left
+                spot.set_base_velocity(0, 0, 0.5, 1)
+            elif key == ord("d"):
+                # right
+                spot.set_base_velocity(0, 0, -0.5, 1)
+            elif not keyboard_takeover:
                 action_type = env.goals[agent.current_task_idx].get('action')
                 target_semantic_class = env.goals[agent.current_task_idx]['semantic_id']
                 target_mask = obs.semantic == target_semantic_class

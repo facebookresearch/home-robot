@@ -1,7 +1,7 @@
 import numpy as np
 from matplotlib import pyplot as plt 
-from projects.spot.goals_abnb3 import GOALS
-GOALS.keys()
+from projects.spot.goals_abnb4 import GOALS
+print(GOALS.keys())
 
 
 # import sys

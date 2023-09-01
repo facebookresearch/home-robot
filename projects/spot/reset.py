@@ -272,6 +272,9 @@ def main(spot,args):
         map_location = agent.boot_world_to_local_map(torch.tensor(map_boot_world))[0]
         agent.set_target(map_location)
         action, info = agent.act(obs,map_location)
+        # if action == "stuck":
+        #     spot.set_base_velocity(0, 0, -0.5, 2)
+        #     breakpoint()
         
 
         print("SHORT_TERM:", info["short_term_goal"],np.where(info['closest_goal_map']))
