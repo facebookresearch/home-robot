@@ -341,7 +341,6 @@ def get_semantic_map_vis(
 
     # Draw semantic map
     semantic_map_vis = Image.new("P", semantic_categories_map.shape)
-    breakpoint()
     semantic_map_vis.putpalette(map_color_palette)
     semantic_map_vis.putdata(semantic_categories_map.flatten().astype(np.uint8))
     semantic_map_vis = semantic_map_vis.convert("RGB")
