@@ -1,0 +1,32 @@
+device: "cuda"
+
+# SAM params
+SAM_checkpoint_path: "/srv/flash1/kyadav32/datasets/ovmm/sam/sam_vit_h_4b8939.pth"
+model_type: "vit_h"
+# Ignore masks that have valid pixels less than this fraction (of the image area)
+bbox_area_thresh: 0.0005
+# Number of query points (grid size) to be sampled by SAM
+points_per_side: 32
+
+# Data params
+# episode_file: "/srv/flash1/kyadav32/datasets/gunshi/habitat_dataset/128x128_0750/0001.h5"
+# episode_file: "/srv/flash1/kyadav32/datasets/gunshi/habitat_dataset/128x128_0750_pose_depth/0001.h5"
+episode_file: "/srv/flash1/kyadav32/datasets/ovmm/hm3d_512x512/0001.h5"
+# Stride (number of frames to skip between successive fusion steps)
+stride: 20
+# Desired image width and height
+desired_height: 256
+desired_width: 256
+
+# CLIP model paramsß
+open_clip_model: "ViT-H-14"
+open_clip_pretrained_dataset: "laion2b_s32b_b79k"
+
+# Similarity params
+viz_type: "topk" # "topk" or "thresh"
+similarity_thresh: 0.6
+topk: 1000
+
+# Directory to save extracted features
+save_path: "saved-feat"
+voxel_map_file: "None" #"/srv/flash1/kyadav32/code/ovmm/home-robot/projects/real_world_ovmm/experimental/voxel_map_512x512.pkl"
