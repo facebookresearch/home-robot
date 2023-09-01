@@ -33,6 +33,8 @@ def ray_trace(obstacles,point):
     raw_dists = fmm_distance(np.zeros_like(obstacles),point)
     occ_dists = fmm_distance(obstacles,point)
     occluded_mask = np.abs(occ_dists - raw_dists) > 0.5
+    if not isinstance(occluded_mask,np.ma.MaskedArray):
+        occluded_mask = np.ma.MaskedArray(occluded_mask,np.zeros_like(occluded_mask))
     return occluded_mask
 
 def yaw_rotation_matrix_2D(yaw):

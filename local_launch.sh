@@ -1,5 +1,3 @@
-# TODO: Profile
-# TODO: depth point from point cloud
 rsync -vaz akshara-spot:/home/akshara/asc_demo/home-robot/projects/spot/map_visualization/video.mp4 ~/data/vis/dynamic_map.mp4
 rsync -vaz akshara-spot:/home/akshara/asc_demo/home-robot/program.prof ~/data/program.prof
 rsync -vaz akshara-spot:/home/akshara/asc_demo/home-robot/projects/spot/
@@ -107,3 +105,10 @@ DISPLAY=:1 python projects/spot/goat.py --trajectory=spot_abnb3_test --goals=ima
 DISPLAY=:1 python projects/spot/goat.py --trajectory=spot_abnb3_video1 --goals=image_couch3,image_plant1,image_couch1,image_bed1,image_sink2,image_chair2,image_bear1,image_cup1,image_couch2,image_cup2,image_bowl1,image_plant3,image_chair3,image_bowl2,image_sink1,image_tv2,image_chair1
 
 DISPLAY=:1 python projects/spot/goat.py --trajectory=spot_abnb4_video1 --home --goals=image_couch1,image_chair1,image_couch2,image_chair2,object_bear,image_chair3,object_bowl,image_chair4,object_cup,object_sink,object_oven,image_bed2,object_tv,object_refrigerator
+
+DISPLAY=:1 python projects/spot/goat.py --trajectory=spot_abnb4_video1 --home --goals=image_couch1,image_chair1,image_couch2,image_chair2,object_bear,image_chair3,object_bowl,image_chair4,object_cup,object_sink,object_oven,image_bed2,object_tv,object_refrigerator
+
+DISPLAY=:1 python projects/spot/goat.py --trajectory=pick_place_bear --goals=pick_object_bear,place_object_chair
+DISPLAY=:1 python projects/spot/goat.py --trajectory=place_bear --goals=place_object_chair
+
+

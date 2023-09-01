@@ -29,6 +29,7 @@ sys.path.insert(
     str(Path(__file__).resolve().parent.parent.parent / "src/home_robot_sim"),
 )
 
+from home_robot.utils.spot import find_largest_connected_component
 
 import home_robot.utils.pose as pu
 import home_robot.utils.visualization as vu
@@ -76,13 +77,15 @@ def distance_to_class(obs,target_class):
     target_mask = obs.semantic == target_class
     mask_points = np.stack(np.where(target_mask),axis=-1)
     centroid = mask_points.mean(axis=0).astype(int)
-    assert target_mask[centroid[0],centroid[1]]
-    pixel_xy = (centroid[1],centroid[0])
+    closest_to_centroid = np.linalg.norm(mask_points - centroid,axis=-1).argmin()
+    sample_point = mask_points[closest_to_centroid]
+    assert target_mask[sample_point[0],sample_point[1]]
+    pixel_xy = (sample_point[1],sample_point[0])
     point = point_from_depth_image(response,pixel_xy,BODY_FRAME_NAME)
     dist = np.linalg.norm(point)
     return dist,pixel_xy
 
-def attempt_grasp(obs,pixel_xy,num_attempts=3):
+def attempt_grasp(env,obs,pixel_xy,num_attempts=3):
     response = obs.raw_obs['rgb_response']
     x,y,yaw = spot.get_xy_yaw(transforms_snapshot = response.shot.transforms_snapshot)
     grasp_success = False
@@ -91,6 +94,7 @@ def attempt_grasp(obs,pixel_xy,num_attempts=3):
         grasp_success = spot.grasp_point_in_image(response,pixel_xy=pixel_xy)
         if grasp_success:
             break
+        env.env.initialize_arm()
     return grasp_success
 
 
@@ -467,6 +471,52 @@ def text_to_image(
     image_array = np.array(image)
     return image_array
 
+def place_object(env,obs,target_semantic_class,target_mask):
+    dist,pixel_xy = distance_to_class(obs,target_semantic_class)
+    if dist > 3:
+        return 'continue'
+    largest_mask = find_largest_connected_component(target_mask)
+    response = obs.raw_obs['depth_response']
+
+    depth_scale = response.source.depth_scale
+    points = masked_point_cloud_from_depth_image(response,largest_mask,depth=obs.depth*depth_scale,frame=VISION_FRAME_NAME)
+    if len(points) > 0:
+        motion_target = points.mean(axis=0)
+        INITIAL_RPY = np.deg2rad([0.0, 55.0, 0.0])
+        env.env.initialize_arm()
+        def yaw_toward(target):
+            px,py,yaw = spot.get_xy_yaw()
+            angle = math.atan2((target[1] - py), (target[0] - px)) % (2 * np.pi)
+            return angle
+        print(motion_target)
+        target_yaw = yaw_toward(motion_target)
+        spot.set_base_position(motion_target[0],motion_target[1],target_yaw,10,relative=False, max_fwd_vel=0.5, max_hor_vel=0.5, max_ang_vel=np.pi / 4,blocking=False)
+        start_time = time.time()
+        while time.time() - start_time < 10:
+            px,py,yaw = spot.get_xy_yaw()
+            dist = np.linalg.norm(motion_target[:2]-(px,py))
+            print(dist)
+            if dist < 1:
+                break
+        px,py,yaw = spot.get_xy_yaw()
+        target_yaw = yaw_toward(motion_target)
+        spot.set_base_position(px,py,target_yaw,10,relative=False, max_fwd_vel=0.5, max_hor_vel=0.5, max_ang_vel=np.pi / 4,blocking=True)
+        px,py,yaw = spot.get_xy_yaw()
+
+        # normal vector in direction of motion target
+        vector = motion_target[:2] - (px,py)
+        vector /= np.linalg.norm(vector)
+        #set place point 1 meter in that direction
+        place_target = np.array([*(vector * 1 + (px,py)),0.6])
+        env.env.pick_from_back()
+        cmd_id = spot.move_gripper_to_point(place_target, INITIAL_RPY,frame_name=VISION_FRAME_NAME)
+        spot.block_until_arm_arrives(cmd_id)
+        spot.open_gripper()
+        time.sleep(1)
+        env.env.initialize_arm()
+        return 'success'
+    else:
+        return 'continue'
 
 # Fremont goals
 from goals_abnb4 import GOALS
@@ -509,8 +559,7 @@ def main(spot=None, args=None):
 
     goal_strings = args.goals.split(",")
     print("Goals:", goal_strings)
-    goals = [GOALS.get(g) for g in goal_strings]
-    goals = [g for g in goals if g is not None]
+    goals = [GOALS[g] for g in goal_strings]
     env.set_goals(goals)
     with open(f"{config.DUMP_LOCATION}/goals.json", "w") as f:
         json.dump(goal_strings, f, indent=4)
@@ -525,7 +574,6 @@ def main(spot=None, args=None):
         np.save(f'{os.environ["HOME"]}/spot_home_position.npy',home_position)
 
     pan_warmup = False
-    picked = False
     keyboard_takeover = args.keyboard
     if pan_warmup:
         assert not args.offline
@@ -662,86 +710,27 @@ def main(spot=None, args=None):
                         pan_warmup = False
                         env.env.initialize_arm()
                 elif action_type == 'place' and target_mask.sum() > 0:
-                    import pdb; pdb.set_trace()
-                    from IPython import embed; embed()
-                    from home_robot.utils.spot import find_largest_connected_component
-                    largest_mask = find_largest_connected_component(target_mask)
-                    response = obs.raw_obs['depth_response']
-                    points = masked_point_cloud_from_depth_image(response,largest_mask,VISION_FRAME_NAME)
-                    mapTworld,image_size,transformed_points = create_point_cloud_transformation(points,0.05,padding=1)
-                    projection = np.zeros(image_size[:2])
-                    locations_2d = transformed_points[:,:2].astype(int)
-                    projection[locations_2d[:,0],locations_2d[:,1]] = 1
-                    from matplotlib import pyplot as plt 
-                    
-                    # eroded = cv2.erode(projection,np.ones((3,3),np.uint8),iterations=2)
-                    # plt.clf()
-                    # plt.imshow(eroded)
-                    # plt.savefig('vis/test.png')
-                    # potential place locations in the 2d map
-                    # valid_pixel_locs = np.stack(np.where(eroded),axis=-1)
-                    valid_pixel_locs = np.stack(np.where(projection),axis=-1)
-                    px,py,_ = get_xy_yaw(response.shot.transforms_snapshot)
-                    agent_pixel_loc = homogeneous_transform(mapTworld,np.array([[px,py,0]]))[0,:2]
-                    # valid 2d location closest to the agent
-                    centroid = valid_pixel_locs.mean(axis=0)
-                    agent_pixel_loc = centroid
-                    closest = np.linalg.norm(valid_pixel_locs-agent_pixel_loc,axis=-1).argmin()
-                    # closest_point = valid_pixel_locs[closest]
-                    # vec = centroid-closest_point
-                    # target_pixel = 5*(vec/np.linalg.norm(vec)) + closest_point
-                    # selected_pixel = np.linalg.norm(valid_pixel_locs-target_pixel,axis=-1).argmin()
-
-                    # pt = np.concatenate((centroid,[1]))
-                    # target_point = homogeneous_transform(np.linalg.inv(mapTworld),pt[None])[0]
-                    # target_point[-1] = 0.0
-                    
-                    # mask of points which project to the selected 2d location
-                    project_to_place_loc = (locations_2d == valid_pixel_locs[closest]).all(axis=-1)
-                    # points in world coords which map to the place location
-                    nearest_heights = points[project_to_place_loc]
-                    # find the highest point for placing
-                    selected_height = nearest_heights[nearest_heights[:,-1].argmax()][-1]
-                    offset = np.array((0,0,0.2))
-                    # motion_target = selected_point + offset
-                    motion_target = selected_height + offset
-                    INITIAL_RPY = np.deg2rad([0.0, 55.0, 0.0])
-                    env.env.initialize_arm()
-                    def yaw_toward(target):
-                        px,py,yaw = spot.get_xy_yaw()
-                        angle = math.atan2((target[1] - py), (target[0] - px)) % (2 * np.pi)
-                        return angle
-                    target_yaw = yaw_toward(motion_target)
-                    spot.set_base_position(motion_target[0],motion_target[1],target_yaw,10,relative=False, max_fwd_vel=0.5, max_hor_vel=0.5, max_ang_vel=np.pi / 4,blocking=False)
-                    start_time = time.time()
-                    while time.time() - start_time < 10:
-                        px,py,yaw = spot.get_xy_yaw()
-                        dist = np.linalg.norm(motion_target[:2]-(px,py))
-                        print(dist)
-                        if dist < 0.8:
-                            break
-                    px,py,yaw = spot.get_xy_yaw()
-                    target_yaw = yaw_toward(motion_target)
-                    spot.set_base_position(px,py,target_yaw,10,relative=False, max_fwd_vel=0.5, max_hor_vel=0.5, max_ang_vel=np.pi / 4,blocking=False)
-                    env.env.pick_from_back()
-                    cmd_id = spot.move_gripper_to_point(motion_target, INITIAL_RPY,frame_name=VISION_FRAME_NAME)
-                    spot.open_gripper()
-                    env.env.initialize_arm()
+                    res = place_object(env,obs,target_semantic_class,target_mask)
+                    if res == 'success':
+                        agent.advance_to_next_task(obs)
+                    else:
+                        env.apply_action(action)
                 elif action_type == 'pick' and target_mask.sum() > 0:
                     dist,pixel_xy = distance_to_class(obs,target_semantic_class)
                     print("Distance to object: ",dist)
                     if dist < 3:
                         print("Seeking object")
-                        grasp_success = attempt_grasp(obs,pixel_xy)
+                        grasp_success = attempt_grasp(env,obs,pixel_xy)
                         env.env.initialize_arm(open_gripper=False)
                         print("Grasp success" if grasp_success else "Grasp Failed")
                         if  grasp_success:
-                            picked=True
-                            agent.current_task_idx += 1
                             env.env.place_on_back()
+                            agent.advance_to_next_task(obs)
                         else:
                             print("Grap Failed: dropping to keyboard")
                             keyboard_takeover = True
+                    else:
+                        env.apply_action(action)
                 else:
                     if action is not None:
                         env.apply_action(action)
