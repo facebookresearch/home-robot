@@ -62,6 +62,9 @@ pip install bosdyn-api==3.2.3 transforms3d einops gym==0.23.1 vtk
 ```
 git submodule update --init --recursive src/home_robot/home_robot/perception/detection/detic/Detic src/third_party/detectron2 src/third_party/contact_graspnet  src/third_party/habitat-lab src/third_party/spot-sim2real src/third_party/MiDaS src/home_robot/home_robot/agent/imagenav_agent/SuperGluePretrainedNetwork
 ```
+cd $HOME_ROBOT_ROOT/src/third_party/MiDaS/weights
+wget https://github.com/isl-org/MiDaS/releases/download/v3_1/dpt_beit_large_512.pt
+```
 
 2. Install spotsim2real
 
