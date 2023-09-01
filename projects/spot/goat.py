@@ -698,6 +698,10 @@ def main(spot=None, args=None):
     output_visualization_dir = f"{config.DUMP_LOCATION}/main_visualization"
     Path(output_visualization_dir).mkdir(parents=True, exist_ok=True)
 
+    # create instance_memory and semantic_map dirs
+    Path(f"{config.DUMP_LOCATION}/instance_memory").mkdir(parents=True, exist_ok=True)
+    Path(f"{config.DUMP_LOCATION}/semantic_map").mkdir(parents=True, exist_ok=True)
+
     obs_dir = f"{config.DUMP_LOCATION}/obs"
     Path(obs_dir).mkdir(parents=True, exist_ok=True)
 
@@ -802,8 +806,14 @@ def main(spot=None, args=None):
             visualize_instances=config.AGENT.SEMANTIC_MAP.record_instance_ids,
         )
         instance_mem = agent.instance_memory
-        with open(f"{config.DUMP_LOCATION}/instance_memory_{t}.pkl", "wb") as f:
+        with open(f"{config.DUMP_LOCATION}/instance_memory/instance_memory_{t}.pkl", "wb") as f:
             pickle.dump(instance_mem, f)
+
+        # Save semantic map
+        semantic_map = agent.semantic_map
+        with open(f"{config.DUMP_LOCATION}/semantic_map/semantic_map_{t}.pth", "wb") as f:
+            torch.save(semantic_map, f)
+
         vis_images.append(vis_image)
         cv2.imwrite(f"{output_visualization_dir}/{t}.png", vis_image[:, :, ::-1])
 
