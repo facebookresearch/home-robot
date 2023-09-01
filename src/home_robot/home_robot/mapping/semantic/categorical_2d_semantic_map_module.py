@@ -550,7 +550,7 @@ class Categorical2DSemanticMapModule(nn.Module):
             if num_instance_channels > 0:
                 self.instance_memory.process_instances(
                     instance_channels,
-                    point_cloud_t,
+                    point_cloud_map_coords,
                     torch.concat([current_pose + origins, lmb], axis=1)
                     .cpu()
                     .float(),  # store the global pose
