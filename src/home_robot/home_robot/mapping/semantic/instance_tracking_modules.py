@@ -126,9 +126,6 @@ class InstanceMemory:
         iou_threshold: float = 0.8,
         debug_visualize: bool = False,
     ):
-
-        debug_visualize = True
-
         self.num_envs = num_envs
         self.du_scale = du_scale
         self.debug_visualize = debug_visualize
@@ -565,7 +562,7 @@ class InstanceMemory:
         pose: torch.Tensor,
         image: torch.Tensor,
         semantic_channels: Optional[torch.Tensor] = None,
-        background_class_labels: List[int]=[0],
+        background_class_labels: List[int] = [0],
     ):
         """
         Process instance information across environments and associate instance views with global instances.

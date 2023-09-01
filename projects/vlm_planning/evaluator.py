@@ -269,9 +269,6 @@ class OVMMEvaluator(PPOTrainer):
                 f"{current_episode.episode_id}"
             )
             current_episode_metrics = {}
-
-            agent.set_task("find a cup")
-
             while not done:
                 action, info, _, is_finished = agent.act(observations)
                 if is_finished:

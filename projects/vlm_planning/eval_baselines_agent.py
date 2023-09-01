@@ -58,37 +58,51 @@ if __name__ == "__main__":
         help="Agent to evaluate",
     )
     parser.add_argument(
+        "--task",
+        default=None,
+        help="Specify any task in natural language",
+    )
+    parser.add_argument("--cfg-path", default="src/home_robot/home_robot/perception/detection/minigpt4/MiniGPT-4/eval_configs/ovmm_test.yaml",
+                        help="path to configuration file.")
+    parser.add_argument("--gpu-id", type=int, default=1,
+                        help="specify the gpu to load the model.")
+    parser.add_argument(
+        "--options",
+        nargs="+",
+        help="override some settings in the used config, the key-value pair "
+        "in xxx=yyy format will be merged into config file (deprecate), "
+        "change to --cfg-options instead.",
+    )
+    parser.add_argument(
         "overrides",
         default=None,
         nargs=argparse.REMAINDER,
         help="Modify config options from command line",
     )
-    args = parser.parse_args()
-
+    parsed_args = parser.parse_args()
     # get habitat config
     habitat_config, _ = get_habitat_config(
-        args.habitat_config_path, overrides=args.overrides
+        parsed_args.habitat_config_path, overrides=parsed_args.overrides
     )
 
     # get baseline config
-    baseline_config = get_omega_config(args.baseline_config_path)
+    baseline_config = get_omega_config(parsed_args.baseline_config_path)
 
     # get env config
-    env_config = get_omega_config(args.env_config_path)
+    env_config = get_omega_config(parsed_args.env_config_path)
 
     # merge habitat and env config to create env config
     env_config = create_env_config(
-        habitat_config, env_config, evaluation_type=args.evaluation_type
+        habitat_config, env_config, evaluation_type=parsed_args.evaluation_type
     )
 
     # merge env config and baseline config to create agent config
     agent_config = create_agent_config(env_config, baseline_config)
-
     # create agent
-    if args.agent_type == "random":
+    if parsed_args.agent_type == "random":
         agent = RandomAgent(agent_config)
     else:
-        agent = VLMAgent(config=agent_config)
+        agent = VLMAgent(config=agent_config, args=parsed_args)
 
     # create evaluator
     evaluator = OVMMEvaluator(env_config)
@@ -96,7 +110,7 @@ if __name__ == "__main__":
     # evaluate agent
     metrics = evaluator.evaluate(
         agent=agent,
-        evaluation_type=args.evaluation_type,
-        num_episodes=args.num_episodes,
+        evaluation_type=parsed_args.evaluation_type,
+        num_episodes=parsed_args.num_episodes,
     )
     print("Metrics:\n", metrics)

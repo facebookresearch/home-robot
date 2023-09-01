@@ -3,6 +3,7 @@
 # quick fix for import
 import json
 import sys
+import pdb
 import warnings
 from enum import IntEnum, auto
 from typing import Any, Dict, Optional, Tuple
@@ -38,21 +39,23 @@ class Skill(IntEnum):
 
 
 class VLMAgent(OpenVocabManipAgent):
-    def __init__(self, config, device_id: int = 0, obs_spaces=None, action_spaces=None):
+    def __init__(self, config, device_id: int = 0, obs_spaces=None, action_spaces=None, args=None):
         warnings.warn(
-            "vlm agent is currently under development and not fully supported yet."
+            "VLM (MiniGPT-4) agent is currently under development and not fully supported yet."
         )
         super().__init__(config, device_id=device_id)
         # if config.GROUND_TRUTH_SEMANTICS == 0 or self.store_all_categories_in_map:
         #     raise NotImplementedError
         from minigpt4_example import Predictor
-
-        self.vlm = Predictor()
+        if args.task:
+            print("Reset the agent task to " + args.task)
+            self.set_task(args.task)
+        self.vlm = Predictor(args)
         print("VLM Agent created")
         self.vlm_freq = 3
         self.high_level_plan = None
         self.max_context_length = 20
-        self.planning_times = 5
+        self.planning_times = 1
         self.remaining_actions = None
 
     def _explore(
@@ -272,7 +275,6 @@ class VLMAgent(OpenVocabManipAgent):
                     self.world_representation = self.get_obj_centric_world_representation()  # a list of images
                     self.high_level_plan = self.ask_vlm_for_plan(
                         self.world_representation)
-                    # self.high_level_plan = "goto(obj_1)"
                     if self.high_level_plan:
                         print("plan found by VLMs!!!!!!!!")
                         print(self.high_level_plan)
