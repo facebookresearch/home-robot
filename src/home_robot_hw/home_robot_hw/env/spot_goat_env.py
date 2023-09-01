@@ -80,8 +80,8 @@ class SpotGoatEnv(SpotEnv):
         # threshold max distance to for estimated depth
         # monocular_estimate[monocular_estimate > self.estimated_depth_threshold] = 0
 
-        # assign estimated depth where there are no values
         try:
+            # assign estimated depth where there are no values
             no_depth_mask = depth == 0
 
             # get a mask for the region of the image which has depth values (skip the blank borders)
@@ -92,12 +92,11 @@ class SpotGoatEnv(SpotEnv):
 
             depth[no_depth_mask] = monocular_estimate[no_depth_mask]
             obs.depth = depth.copy()
+            return obs
         except:
-            print('Failed to patch depth')
-            pass
-        return obs
-
-
+            print('Midas failed')
+            return obs
+        
 
     def apply_action(
         self,
