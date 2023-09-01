@@ -63,6 +63,11 @@ cd $HOME_ROBOT_ROOT/src/home_robot/home_robot/perception/detection/detic/Detic
 mkdir models
 wget https://dl.fbaipublicfiles.com/detic/Detic_LCOCOI21k_CLIP_SwinB_896b32_4x_ft4x_max-size.pth -O models/Detic_LCOCOI21k_CLIP_SwinB_896b32_4x_ft4x_max-size.pth
 
+echo ""
+echo "Download MiDaS checkpoint..."
+cd $HOME_ROBOT_ROOT/src/third_party/MiDaS/weights
+wget https://github.com/isl-org/MiDaS/releases/download/v3_1/dpt_beit_large_512.pt
+
 cd $HOME_ROBOT_ROOT
 echo ""
 echo "Cloning GroundedSAM third party submodule..."
