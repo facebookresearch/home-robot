@@ -188,6 +188,7 @@ class Categorical2DSemanticMapModule(nn.Module):
         seq_obstacle_locations: Optional[Tensor] = None,
         seq_free_locations: Optional[Tensor] = None,
         blacklist_target: bool = False,
+        semantic_max_val: Optional[int] = None
     ) -> Tuple[Tensor, Tensor, Tensor, Tensor, Tensor, IntTensor, Tensor]:
         """Update maps and poses with a sequence of observations and generate map
         features at each time step.
@@ -290,6 +291,7 @@ class Categorical2DSemanticMapModule(nn.Module):
                 seq_free_locations[:,
                                    t] if seq_free_locations is not None else None,
                 blacklist_target,
+                semantic_max_val=semantic_max_val
             )
             for e in range(batch_size):
                 if seq_update_global[e, t]:
@@ -413,6 +415,7 @@ class Categorical2DSemanticMapModule(nn.Module):
         free_locations: Optional[Tensor] = None,
         blacklist_target: bool = False,
         debug: bool = False,
+        semantic_max_val: Optional[int] = None
     ) -> Tuple[Tensor, Tensor]:
         """Update local map and sensor pose given a new observation using parameter-free
         differentiable projective geometry.
@@ -431,6 +434,8 @@ class Categorical2DSemanticMapModule(nn.Module):
              and location of shape (batch_size, MC.NON_SEM_CHANNELS + num_sem_categories, M, M)
             current_pose: current pose updated with pose delta of shape (batch_size, 3)
         """
+        if semantic_max_val is None:
+            semantic_max_val = self.num_sem_categories
         batch_size, obs_channels, h, w = obs.size()
         device, dtype = obs.device, obs.dtype
         if camera_pose is not None:
@@ -569,6 +574,7 @@ class Categorical2DSemanticMapModule(nn.Module):
                     .float(),  # store the global pose
                     image=obs[:, :3, :, :],
                     semantic_channels=semantic_channels,
+                    background_class_labels=[0, semantic_max_val],
                 )
 
         feat[:, 1:, :] = nn.AvgPool2d(self.du_scale)(obs[:, 4:, :, :]).view(

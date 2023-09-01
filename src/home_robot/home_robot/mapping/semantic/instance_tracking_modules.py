@@ -395,7 +395,7 @@ class InstanceMemory:
         image: torch.Tensor,
         semantic_seg: Optional[torch.Tensor] = None,
         mask_out_object: bool = True,
-        background_class_label: int = 0,
+        background_class_labels: List[int] = [0],
     ):
         """
         Process instance information in the current frame and add instance views to the list of unprocessed views for future association.
@@ -410,7 +410,7 @@ class InstanceMemory:
             image (torch.Tensor): Image data.
             semantic_seg (Optional[torch.Tensor]): Semantic segmentation tensor, if available.
             mask_out_object (bool): true if we want to save crops of just objects on black background; false otherwise
-            background_class_label(int): id used to represent background points in instance mask (default = 0)
+            background_class_labels (List[int]): id used to represent background points in instance mask (default = [0])
 
         Note:
             - The method creates instance views for detected instances within the provided data.
@@ -446,9 +446,7 @@ class InstanceMemory:
         # unique instances
         instance_ids = torch.unique(instance_seg)
         for instance_id in instance_ids:
-            # skip background
-            if instance_id == background_class_label:
-                continue
+
             # get instance mask
             instance_mask = instance_seg == instance_id
 
@@ -457,6 +455,10 @@ class InstanceMemory:
                 # get semantic category
                 category_id = semantic_seg[instance_mask].unique()
                 category_id = category_id[0].item()
+
+            # skip background
+            if category_id is not None and category_id in background_class_labels:
+                continue
 
             instance_id_to_category_id[instance_id] = category_id
 
@@ -563,6 +565,7 @@ class InstanceMemory:
         pose: torch.Tensor,
         image: torch.Tensor,
         semantic_channels: Optional[torch.Tensor] = None,
+        background_class_labels: List[int]=[0],
     ):
         """
         Process instance information across environments and associate instance views with global instances.
@@ -598,6 +601,7 @@ class InstanceMemory:
                 pose[env_id],
                 image[env_id],
                 semantic_seg=semantic_seg,
+                background_class_labels=background_class_labels,
             )
         self.associate_instances_to_memory()
 

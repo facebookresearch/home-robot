@@ -3,7 +3,7 @@
 # This source code is licensed under the MIT license found in the
 # LICENSE file in the root directory of this source tree.
 
-from typing import Any, Dict, List, Tuple
+from typing import Any, Dict, List, Tuple, Optional
 
 import numpy as np
 import torch
@@ -158,6 +158,7 @@ class ObjectNavAgent(Agent):
         instance_id: torch.Tensor = None,
         nav_to_recep: torch.Tensor = None,
         camera_pose: torch.Tensor = None,
+        semantic_max_val: Optional[List[int]] = None,
     ) -> Tuple[List[dict], List[dict]]:
         """Prepare low-level planner inputs from an observation - this is
         the main inference function of the agent that lets it interact with
@@ -231,6 +232,7 @@ class ObjectNavAgent(Agent):
             seq_end_recep_goal_category=end_recep_goal_category,
             seq_instance_id=instance_id,
             seq_nav_to_recep=nav_to_recep,
+            semantic_max_val=semantic_max_val,
         )
 
         self.semantic_map.local_pose = seq_local_pose[:, -1]
@@ -349,6 +351,10 @@ class ObjectNavAgent(Agent):
         # t1 = time.time()
         # print(f"[Agent] Obs preprocessing time: {t1 - t0:.2f}")
 
+        semantic_max_val = None
+        if 'semantic_max_val' in obs.task_observations:
+            semantic_max_val = obs.task_observations['semantic_max_val']
+
         # 2 - Semantic mapping + policy
         planner_inputs, vis_inputs = self.prepare_planner_inputs(
             obs_preprocessed,
@@ -359,6 +365,7 @@ class ObjectNavAgent(Agent):
             instance_id=instance_id,
             camera_pose=camera_pose,
             nav_to_recep=self.get_nav_to_recep(),
+            semantic_max_val=semantic_max_val,
         )
 
         # t2 = time.time()
