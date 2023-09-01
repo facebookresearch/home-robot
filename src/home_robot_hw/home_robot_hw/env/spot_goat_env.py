@@ -71,7 +71,12 @@ class SpotGoatEnv(SpotEnv):
         self.estimated_depth_threshold = estimated_depth_threshold
 
     def patch_depth(self,obs):
+        # Benchmark monocular depth estimate
+        # replace depth by from spot_rl.utils.depth_map_utils import filter_depth
+        # call filter depth instead of midas.depth_estimate
+
         rgb,depth = obs.rgb, obs.depth
+        # breakpoint()
         monocular_estimate,mse,mean_error = self.midas.depth_estimate(rgb,depth)
 
         # clip at 0 if the linear transformation makes some points negative depth
@@ -80,18 +85,22 @@ class SpotGoatEnv(SpotEnv):
         # threshold max distance to for estimated depth
         # monocular_estimate[monocular_estimate > self.estimated_depth_threshold] = 0
 
-        # assign estimated depth where there are no values
-        no_depth_mask = depth == 0
+        try: 
+            # assign estimated depth where there are no values
+            # no_depth_mask = depth == 0
 
-        # get a mask for the region of the image which has depth values (skip the blank borders)
-        row,cols = np.where(~no_depth_mask)
-        col_inds =np.indices(depth.shape)[1] 
-        depth_region = (col_inds >= cols.min()) & (col_inds <= cols.max())
-        no_depth_mask = no_depth_mask & depth_region
+            # # get a mask for the region of the image which has depth values (skip the blank borders)
+            # row,cols = np.where(~no_depth_mask)
+            # col_inds =np.indices(depth.shape)[1] 
+            # depth_region = (col_inds >= cols.min()) & (col_inds <= cols.max())
+            # no_depth_mask = no_depth_mask & depth_region
 
-        depth[no_depth_mask] = monocular_estimate[no_depth_mask]
-        obs.depth = depth.copy()
-        return obs
+            # depth[no_depth_mask] = monocular_estimate[no_depth_mask]
+            obs.depth = monocular_estimate.copy()
+            return obs
+        except:
+            print('Failed in patch depth')
+            return obs
 
 
     def apply_action(
