@@ -46,8 +46,8 @@ from home_robot.mapping.semantic.categorical_2d_semantic_map_state import (
 )
 from home_robot.mapping.semantic.instance_tracking_modules import InstanceMemory
 from home_robot.perception.detection.maskrcnn.coco_categories import (
-    coco_category_id_to_coco_category,
     coco_categories_color_palette,
+    coco_category_id_to_coco_category,
 )
 from home_robot.utils.config import get_config
 from home_robot_hw.env.spot_goat_env import SpotGoatEnv
@@ -254,30 +254,30 @@ def get_semantic_map_vis(
         map_color_palette += new_colors.flatten().tolist()
     else:
         map_color_palette = [
-        1.0,
-        1.0,
-        1.0,  # empty space
-        0.6,
-        0.6,
-        0.6,  # obstacles
-        0.95,
-        0.95,
-        0.95,  # explored area
-        0.96,
-        0.36,
-        0.26,  # visited area
-        0.12,
-        0.46,
-        0.70,  # closest goal
-        0.63,
-        0.78,
-        0.95,  # rest of goal
-        0.00,
-        0.00,
-        0.00,  # short term goal
-        *coco_categories_color_palette,
-    ]
-    map_color_palette = [int(x * 255.0) for x in map_color_palette]
+            1.0,
+            1.0,
+            1.0,  # empty space
+            0.6,
+            0.6,
+            0.6,  # obstacles
+            0.95,
+            0.95,
+            0.95,  # explored area
+            0.96,
+            0.36,
+            0.26,  # visited area
+            0.12,
+            0.46,
+            0.70,  # closest goal
+            0.63,
+            0.78,
+            0.95,  # rest of goal
+            0.00,
+            0.00,
+            0.00,  # short term goal
+            *coco_categories_color_palette,
+        ]
+        map_color_palette = [int(x * 255.0) for x in map_color_palette]
 
     semantic_categories_map = semantic_map.get_semantic_map(0)
     obstacle_map = semantic_map.get_obstacle_map(0)
@@ -341,6 +341,7 @@ def get_semantic_map_vis(
 
     # Draw semantic map
     semantic_map_vis = Image.new("P", semantic_categories_map.shape)
+    breakpoint()
     semantic_map_vis.putpalette(map_color_palette)
     semantic_map_vis.putdata(semantic_categories_map.flatten().astype(np.uint8))
     semantic_map_vis = semantic_map_vis.convert("RGB")
@@ -683,6 +684,7 @@ GOALS = {
     },
 }
 
+
 # Example command:
 # python projects/spot/goat.py --trajectory=trajectory1 --goals=object_toilet,image_bed1,language_chair4,image_couch1,language_plant1,language_plant2,image_refrigerator1
 def main(spot=None, args=None):
@@ -710,7 +712,11 @@ def main(spot=None, args=None):
         env.reset(obs_dir)
 
     else:
-        env = SpotGoatEnv(spot, position_control=True,estimated_depth_threshold=config.ENVIRONMENT.estimated_depth_threshold)
+        env = SpotGoatEnv(
+            spot,
+            position_control=True,
+            estimated_depth_threshold=config.ENVIRONMENT.estimated_depth_threshold,
+        )
         env.reset()
 
     goal_strings = args.goals.split(",")
@@ -790,19 +796,21 @@ def main(spot=None, args=None):
             subgoal=info["short_term_goal"],
             # depth_frame,
             goal_image=goal_image,
-            legend=legend if (not config.AGENT.SEMANTIC_MAP.record_instance_ids) else None,
+            legend=legend
+            if (not config.AGENT.SEMANTIC_MAP.record_instance_ids)
+            else None,
             instance_memory=agent.instance_memory,
             visualize_instances=config.AGENT.SEMANTIC_MAP.record_instance_ids,
         )
         instance_mem = agent.instance_memory
         with open(f"{config.DUMP_LOCATION}/instance_memory_{t}.pkl", "wb") as f:
-                pickle.dump(instance_mem, f)
+            pickle.dump(instance_mem, f)
         vis_images.append(vis_image)
         cv2.imwrite(f"{output_visualization_dir}/{t}.png", vis_image[:, :, ::-1])
 
         if not OFFLINE:
             cv2.imshow("vis", vis_image[:, :, ::-1])
-            cv2.imshow("depth", obs.depth/obs.depth.max())
+            cv2.imshow("depth", obs.depth / obs.depth.max())
             key = cv2.waitKey(1)
 
             if key == ord("z"):
@@ -853,8 +861,8 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="")
     parser.add_argument("--trajectory", default="trajectory1")
     parser.add_argument("--goals", default="object_chair,object_sink")
-    parser.add_argument('--keyboard',action='store_true')
-                        
+    parser.add_argument("--keyboard", action="store_true")
+
     args = parser.parse_args()
 
     if not OFFLINE:
