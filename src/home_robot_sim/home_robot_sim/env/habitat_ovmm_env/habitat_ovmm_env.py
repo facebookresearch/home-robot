@@ -108,7 +108,8 @@ class HabitatOpenVocabManipEnv(HabitatEnv):
             return self.habitat_env.current_episode
 
     def set_vis_dir(self):
-        scene_id = self.get_current_episode().scene_id.split("/")[-1].split(".")[0]
+        scene_id = self.get_current_episode(
+        ).scene_id.split("/")[-1].split(".")[0]
         episode_id = self.get_current_episode().episode_id
         self.visualizer.set_vis_dir(scene_id=scene_id, episode_id=episode_id)
 
@@ -180,24 +181,34 @@ class HabitatOpenVocabManipEnv(HabitatEnv):
     ) -> home_robot.core.interfaces.Observations:
         if self.ground_truth_semantics:
             semantic = torch.from_numpy(
-                habitat_obs["object_segmentation"].squeeze(-1).astype(np.int64)
+                habitat_obs["all_object_segmentation"].squeeze(
+                    -1).astype(np.int64)
             )
             recep_seg = (
-                habitat_obs["receptacle_segmentation"].squeeze(-1).astype(np.int64)
+                habitat_obs["receptacle_segmentation"].squeeze(
+                    -1).astype(np.int64)
             )
-            recep_seg[recep_seg != 0] += 1
+            recep_seg[recep_seg != 0] += len(self._obj_id_to_name_mapping)
             recep_seg = torch.from_numpy(recep_seg)
             semantic = semantic + recep_seg
-            semantic[semantic == 0] = len(self._rec_id_to_name_mapping) + 2
+            semantic[semantic == 0] = (
+                len(self._rec_id_to_name_mapping)
+                + 1
+                + len(self._obj_id_to_name_mapping)
+            )
             obs.semantic = semantic.numpy()
-            obs.task_observations["recep_idx"] = 2
+            obs.task_observations["recep_idx"] = 1 + \
+                len(self._obj_id_to_name_mapping)
             obs.task_observations["semantic_max_val"] = (
-                len(self._rec_id_to_name_mapping) + 2
+                len(self._rec_id_to_name_mapping)
+                + 1
+                + len(self._obj_id_to_name_mapping)
             )
         return obs
 
     def _preprocess_depth(self, depth: np.array) -> np.array:
-        rescaled_depth = self.min_depth + depth * (self.max_depth - self.min_depth)
+        rescaled_depth = self.min_depth + depth * \
+            (self.max_depth - self.min_depth)
         rescaled_depth[depth == 0.0] = MIN_DEPTH_REPLACEMENT_VALUE
         rescaled_depth[depth == 1.0] = MAX_DEPTH_REPLACEMENT_VALUE
         return rescaled_depth[:, :, -1]
@@ -219,11 +230,20 @@ class HabitatOpenVocabManipEnv(HabitatEnv):
         goal_name = (
             "Move " + obj_name + " from " + start_receptacle + " to " + goal_receptacle
         )
-
-        obj_goal_id = 1  # semantic sensor returns binary mask for goal object
+        obj_goal_id = (
+            1 + habitat_obs["object_category"]
+        )  # semantic sensor returns binary mask for goal object
         if self.ground_truth_semantics:
-            start_rec_goal_id = self._rec_name_to_id_mapping[start_receptacle] + 2
-            end_rec_goal_id = self._rec_name_to_id_mapping[goal_receptacle] + 2
+            start_rec_goal_id = (
+                self._rec_name_to_id_mapping[start_receptacle]
+                + 1
+                + len(self._obj_id_to_name_mapping)
+            )
+            end_rec_goal_id = (
+                self._rec_name_to_id_mapping[goal_receptacle]
+                + 1
+                + len(self._obj_id_to_name_mapping)
+            )
         else:
             # To be populated by the agent
             start_rec_goal_id = -1
@@ -266,16 +286,19 @@ class HabitatOpenVocabManipEnv(HabitatEnv):
             # Set waypoint correctly, if base waypoint is passed with the action
             if action.xyt is not None:
                 if action.xyt[0] != 0:
-                    waypoint_x = np.clip(action.xyt[0] / self.max_forward, -1, 1)
+                    waypoint_x = np.clip(
+                        action.xyt[0] / self.max_forward, -1, 1)
                 if action.xyt[1] != 0:
-                    waypoint_y = np.clip(action.xyt[1] / self.max_forward, -1, 1)
+                    waypoint_y = np.clip(
+                        action.xyt[1] / self.max_forward, -1, 1)
                 if action.xyt[2] != 0:
                     turn = np.clip(action.xyt[2] / self.max_turn, -1, 1)
             arm_action = np.array([0] * self.joints_dof)
             # If action is of type ContinuousFullBodyAction, it would include waypoints for the joints
             if type(action) == ContinuousFullBodyAction:
                 # We specify only one arm extension that rolls over to all the arm joints
-                arm_action = np.concatenate([action.joints[0:1], action.joints[4:]])
+                arm_action = np.concatenate(
+                    [action.joints[0:1], action.joints[4:]])
             cont_action = np.concatenate(
                 [
                     np.clip(arm_action / self.max_joints_delta, -1, 1),
@@ -305,7 +328,8 @@ class HabitatOpenVocabManipEnv(HabitatEnv):
             if action == DiscreteNavigationAction.MANIPULATION_MODE:
                 # turn left by 90 degrees, positive for turn left
                 turn = 90
-                target_joint_pos = map_joint_q_state_to_action_space(STRETCH_PREGRASP_Q)
+                target_joint_pos = map_joint_q_state_to_action_space(
+                    STRETCH_PREGRASP_Q)
                 arm_action = target_joint_pos - curr_joint_pos
             elif action == DiscreteNavigationAction.NAVIGATION_MODE:
                 target_joint_pos = map_joint_q_state_to_action_space(
@@ -352,7 +376,8 @@ class HabitatOpenVocabManipEnv(HabitatEnv):
             if type(action) == DiscreteNavigationAction:
                 info["curr_action"] = DiscreteNavigationAction(action).name
             self._process_info(info)
-        habitat_action = self._preprocess_action(action, self._last_habitat_obs)
+        habitat_action = self._preprocess_action(
+            action, self._last_habitat_obs)
         habitat_obs, _, dones, infos = self.habitat_env.step(habitat_action)
         if info is not None:
             # copy the keys in info starting with the prefix "is_curr_skill" into infos

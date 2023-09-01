@@ -84,6 +84,7 @@ class ObjectNavAgentModule(nn.Module):
         seq_end_recep_goal_category=None,
         seq_instance_id=None,
         seq_nav_to_recep=None,
+        semantic_max_val=None
     ):
         """Update maps and poses with a sequence of observations, and predict
         high-level goals from map features.
@@ -159,6 +160,7 @@ class ObjectNavAgentModule(nn.Module):
             init_global_pose,
             init_lmb,
             init_origins,
+            semantic_max_val=semantic_max_val,
         )
 
         # t1 = time.time()
