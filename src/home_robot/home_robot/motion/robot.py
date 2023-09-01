@@ -2,10 +2,14 @@
 #
 # This source code is licensed under the MIT license found in the
 # LICENSE file in the root directory of this source tree.
+import abc
+
+import torch
+
 import home_robot.utils.bullet as hrb
 
 
-class Robot(object):
+class Robot(abc.ABC):
     """placeholder"""
 
     def __init__(self, name="robot", urdf_path=None, visualize=False, assets_path=None):
@@ -16,15 +20,17 @@ class Robot(object):
             name, urdf_path, assets_path=assets_path
         )
 
-    def get_backend(self):
-        raise NotImplementedError
+    def get_backend(self) -> hrb.PbClient:
+        """Return model of the robot in bullet - environment for 3d collision checks"""
+        return self.backend
 
-    def get_dof(self):
+    def get_dof(self) -> int:
         """return degrees of freedom of the robot"""
         return self.dof
 
+    @abc.abstactmethod
     def set_config(self, q):
-        """put the robot in the right position"""
+        """put the robot in the right position for bullet planning"""
         raise NotImplementedError
 
     def get_config(self):
@@ -39,4 +45,9 @@ class Robot(object):
         """take a bullet camera and put it on the robot's head"""
         if q is not None:
             self.set_head_config(q)
+        raise NotImplementedError
+
+    @abc.abstractmethod
+    def get_footprint(self) -> torch.Tensor:
+        """return a footprint mask that we can check 2d collisions against"""
         raise NotImplementedError
