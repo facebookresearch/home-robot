@@ -150,7 +150,6 @@ class VLMAgent(OpenVocabManipAgent):
             instance_crops = instance.instance_views
             crops.append((global_id, random.sample(
                 instance_crops, 1)[0].cropped_image))
-
         # TODO: the model currenly can only handle 20 crops
         if len(crops) > self.max_context_length:
             crops = random.sample(crops, self.max_context_length)

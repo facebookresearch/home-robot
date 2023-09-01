@@ -4,63 +4,73 @@
 # LICENSE file in the root directory of this source tree.
 
 
-from home_robot.utils.point_cloud_torch import get_bounds
-from home_robot.utils.bboxes_3d import (
-    box3d_overlap_from_bounds,
-    get_box_bounds_from_verts,
-    get_box_verts_from_bounds,
-)
-from home_robot.core.interfaces import Observations
-from dataclasses import dataclass
+import os
+import shutil
 from typing import Dict, List, Optional, Tuple
 
+import cv2
 import numpy as np
 import torch
-from pytorch3d.ops import box3d_overlap
-from torch import Tensor
+
+from home_robot.core.interfaces import Observations
 
 padding = 1.5
 
 
-@dataclass
 class InstanceView:
     """
-    Stores information about a single view of a single instance
+    Stores information about a single view of an instance
+
+    bbox: bounding box of instance in the current image
+    timestep: timestep at which the current view was recorded
+    cropped_image: cropped image of instance in the current image
+    embedding: embedding of instance in the current image
+    mask: mask of instance in the current image
+    point_cloud: point cloud of instance in the current image
+    bounds: The bounding box of the point cloud inferred in the current image
+    category_id: category id of instance in the current image
     """
 
-    # Required: 2D and 3D bbox. Should we unify the names?
-    bbox: Tensor
-    """ [4,] bbox: bounding box of instance in the current image """
-    bounds: Tensor
-    """[3, 2] xyz mins and maxes"""
-    """TODO: rename to bounds_3d"""
+    bbox: Tuple[int, int, int, int]
     timestep: int
-    """ timestep: timestep at which the current view was recorded """
-
-    # View info
-    cropped_image: Optional[Tensor] = None
-    """ cropped_image: cropped image of instance in the current image"""
-    embedding: Optional[Tensor] = None
-    """ embedding: embedding of instance in the current image """
-    mask: Tensor = None
-    """ mask: mask of instance in the current (uncropped) image """
-    image_instance_id: Optional[int] = None
-    """ID of this instance in the image"""
-
-    # Detection info
-    global_instance_id: Optional[int] = None
-    """ID of this instance in the scene (across views)"""
+    cropped_image: Optional[np.ndarray] = None
+    embedding: Optional[np.ndarray] = None
+    # mask of instance in the current image
+    mask: np.ndarray = None
+    # point cloud of instance in the current image
+    point_cloud: np.ndarray = None
+    bounds: Tuple[np.ndarray, np.ndarray]
     category_id: Optional[int] = None
-    """category_id: category id of instance in the current image"""
-    score: Optional[float] = None
-    """score: confidence of the detection (used for NMS)"""
+    pose: np.ndarray = None
+    instance_id: Optional[int] = None
+    object_coverage: Optional[int] = None
 
-    # 3D info
-    point_cloud: Tensor = None
-    point_cloud_rgb: Tensor = None
-    point_cloud_features: Tensor = None
-    """point_cloud: 3d locations of world points corresponding to instance view pixels"""
-    """TODO: rename to points_3d"""
+    def __init__(
+        self,
+        bbox,
+        timestep,
+        cropped_image,
+        embedding,
+        mask,
+        point_cloud,
+        pose=None,
+        object_coverage=None,
+        category_id=None,
+        bounds: Optional[Tuple[np.ndarray]] = None,
+    ):
+        """
+        Initialize InstanceView
+        """
+        self.bbox = bbox
+        self.timestep = timestep
+        self.cropped_image = cropped_image
+        self.embedding = embedding
+        self.mask = mask
+        self.point_cloud = point_cloud
+        self.pose = pose
+        self.bounds = bounds
+        self.category_id = category_id
+        self.object_coverage = object_coverage
 
 
 class Instance:
@@ -81,83 +91,8 @@ class Instance:
         self.name = None
         self.category_id = None
         self.point_cloud = None
-        self.point_cloud_rgb = None
-        self.point_cloud_features = None
         self.bounds = None
         self.instance_views = []
-
-    def _show_point_cloud_pytorch3d(self, **plot_scene_kwargs):
-        """Visualize an instance in the map
-
-        Args:
-            idx (int): Instance index
-
-        Returns:
-            ptc_fig: Plotly visualization of pointcloud
-        """
-        from pytorch3d.structures import Pointclouds
-        from pytorch3d.vis.plotly_vis import AxisArgs, plot_scene
-
-        from home_robot.utils.bboxes_3d_plotly import plot_scene_with_bboxes
-        from home_robot.utils.data_tools.dict import update
-
-        # Show points
-        features = [
-            self.point_cloud_rgb] if self.point_cloud_rgb is not None else None
-        ptc = Pointclouds(points=[self.point_cloud], features=features)
-
-        _default_plot_args = dict(
-            xaxis={"backgroundcolor": "rgb(200, 200, 230)"},
-            yaxis={"backgroundcolor": "rgb(230, 200, 200)"},
-            zaxis={"backgroundcolor": "rgb(200, 230, 200)"},
-            axis_args=AxisArgs(showgrid=True),
-            pointcloud_marker_size=3,
-            pointcloud_max_points=200_000,
-        )
-        fig = plot_scene(
-            plots={
-                f"Name {self.name}: (category: {self.category_id}) -- {len(self.instance_views)} views": {
-                    "Points": ptc,
-                    # "Instance boxes": detected_boxes,
-                    # "Fused boxes": global_boxes,
-                    # "cameras": cameras,
-                },
-                # Could add keyframes or instances here.
-            },
-            **update(_default_plot_args, plot_scene_kwargs),
-        )
-        return fig
-
-    def _show_instance_view_frames(self, mask_out_opacity=0.3):
-        import matplotlib.pyplot as plt
-
-        plt.figure()
-
-        n_views = len(self.instance_views)
-        f, axarr = plt.subplots(n_views, 1)  # n_views rows, 1 col
-        for i, view in enumerate(self.instance_views):
-            ax = axarr[i] if (n_views > 1) else axarr
-            cropped_image_np = torch.from_numpy(
-                view.cropped_image.detach().cpu().numpy()
-            )
-
-            mask_np = torch.from_numpy(view.mask.detach().cpu().numpy())
-            if (
-                mask_np.shape[0] != cropped_image_np.shape[0]
-                or mask_np.shape[1] != cropped_image_np.shape[1]
-            ):
-                mask_np = mask_np[
-                    view.bbox[0, 0]: view.bbox[1, 0], view.bbox[0, 1]: view.bbox[1, 1]
-                ]
-            display_im = cropped_image_np * mask_out_opacity + (
-                1 - mask_out_opacity
-            ) * (cropped_image_np * mask_np[..., None])
-
-            ax.imshow(display_im)
-            ax.title.set_text(f"View {i}")
-        plt.tight_layout()
-        plt.show()
-        return f
 
 
 class InstanceMemory:
@@ -175,26 +110,44 @@ class InstanceMemory:
     instance_views: List[Dict[int, Instance]] = []
     point_cloud: List[torch.Tensor] = []
     unprocessed_views: List[Dict[int, InstanceView]] = []
+    local_id_to_global_id_map: List[Dict[int, int]] = []
     timesteps: List[int] = []
 
     def __init__(
         self,
         num_envs: int,
         du_scale: int,
-        instance_association: str = "bbox_iou",
+        config=None,
+        save_dir="instances",
+        mask_cropped_instances=False,
+        padding_cropped_instances=0,
+        category_id_to_category_name=None,
+        instance_association: str = "map_overlap",
         iou_threshold: float = 0.8,
         debug_visualize: bool = False,
     ):
+
+        debug_visualize = True
+
         self.num_envs = num_envs
         self.du_scale = du_scale
         self.debug_visualize = debug_visualize
-        self.debug_visualize = True
+        self.mask_cropped_instances = mask_cropped_instances
+        self.padding_cropped_instances = padding_cropped_instances
+        self.category_id_to_category_name = category_id_to_category_name
+
+        if config is not None:
+            self.save_dir = os.path.join(
+                config.DUMP_LOCATION, "instances", config.EXP_NAME
+            )
+        else:
+            self.save_dir = save_dir
+
         self.instance_association = instance_association
         self.iou_threshold = iou_threshold
         if self.debug_visualize:
-            import shutil
+            shutil.rmtree(self.save_dir, ignore_errors=True)
 
-            shutil.rmtree("instances/", ignore_errors=True)
         self.reset()
 
     def reset(self):
@@ -205,9 +158,10 @@ class InstanceMemory:
         self.point_cloud = [None for _ in range(self.num_envs)]
         self.instance_views = [{} for _ in range(self.num_envs)]
         self.unprocessed_views = [{} for _ in range(self.num_envs)]
+        self.local_id_to_global_id_map = [{} for _ in range(self.num_envs)]
         self.timesteps = [0 for _ in range(self.num_envs)]
 
-    def get_bbox_overlap_np(
+    def get_bbox_overlap(
         self,
         local_bbox: Tuple[np.ndarray, np.ndarray],
         global_bboxes: List[Tuple[np.ndarray, np.ndarray]],
@@ -278,11 +232,7 @@ class InstanceMemory:
         # get instance view
         instance_view = self.get_local_instance_view(env_id, local_instance_id)
         if instance_view is not None:
-            _, iou = box3d_overlap_from_bounds(
-                instance_view.bounds.unsqueeze(
-                    0), torch.stack(global_bounds, dim=0)
-            )
-            ious = iou.flatten()
+            ious = self.get_bbox_overlap(instance_view.bounds, global_bounds)
             if ious.max() > self.iou_threshold:
                 return global_instance_ids[ious.argmax()]
         return None
@@ -309,27 +259,25 @@ class InstanceMemory:
         Raises:
             NotImplementedError: When an unrecognized instance association method is specified.
         """
-        if self.instance_association == "bbox_iou":
-            for env_id in range(self.num_envs):
-                for local_instance_id, instance_view in self.unprocessed_views[
-                    env_id
-                ].items():
-                    if self.instance_association == "bbox_iou":
-                        global_instance_id = self.find_global_instance_by_bbox_overlap(
-                            env_id, local_instance_id
-                        )
-                        if global_instance_id is None:
-                            global_instance_id = len(
-                                self.instance_views[env_id])
-                        self.add_view_to_instance(
-                            env_id, local_instance_id, global_instance_id
-                        )
-
-        elif self.instance_association == "map_overlap":
-            # association happens at the time of global map update
-            pass
-        else:
-            raise NotImplementedError
+        for env_id in range(self.num_envs):
+            for local_instance_id, instance_view in self.unprocessed_views[
+                env_id
+            ].items():
+                if self.instance_association == "bbox_iou":
+                    global_instance_id = self.find_global_instance_by_bbox_overlap(
+                        env_id, local_instance_id
+                    )
+                    if global_instance_id is None:
+                        global_instance_id = len(
+                            self.instance_views[env_id]) + 1
+                    self.add_view_to_instance(
+                        env_id, local_instance_id, global_instance_id
+                    )
+                elif self.instance_association == "map_overlap":
+                    # association happens at the time of global map update
+                    pass
+                else:
+                    raise NotImplementedError
 
     def get_local_instance_view(self, env_id: int, local_instance_id: int):
         """
@@ -391,52 +339,44 @@ class InstanceMemory:
             global_instance.instance_views.append(instance_view)
             global_instance.bounds = instance_view.bounds
             global_instance.point_cloud = instance_view.point_cloud
-            global_instance.point_cloud_rgb = instance_view.point_cloud_rgb
-            global_instance.point_cloud_features = instance_view.point_cloud_features
             self.instance_views[env_id][global_instance_id] = global_instance
         else:
             # add instance view to global instance
             global_instance.instance_views.append(instance_view)
-            # Right now we concatenate point clouds
-            # To keep the number of points manageable, we could do voxel downsampling
-            global_instance.point_cloud = torch.cat(
-                [global_instance.point_cloud, instance_view.point_cloud], dim=0
+            global_instance.point_cloud = np.concatenate(
+                [global_instance.point_cloud, instance_view.point_cloud], axis=0
             )
-            if global_instance.point_cloud_rgb is not None:
-                global_instance.point_cloud_rgb = torch.cat(
-                    [global_instance.point_cloud_rgb,
-                        instance_view.point_cloud_rgb],
-                    dim=0,
-                )
-            if global_instance.point_cloud_features is not None:
-                global_instance.point_cloud_features = torch.cat(
-                    [
-                        global_instance.point_cloud_features,
-                        instance_view.point_cloud_features,
-                    ],
-                    dim=0,
-                )
-            global_instance.bounds = get_bounds(global_instance.point_cloud)
+            global_instance.bounds = np.min(
+                global_instance.point_cloud, axis=0
+            ), np.max(global_instance.point_cloud, axis=0)
+        self.local_id_to_global_id_map[env_id][local_instance_id] = global_instance_id
+        if self.debug_visualize:
+            cat_id = int(instance_view.category_id)
+            category_name = (
+                f"cat_{instance_view.category_id}"
+                if self.category_id_to_category_name is None
+                else self.category_id_to_category_name[cat_id]
+            )
+            instance_write_path = os.path.join(
+                self.save_dir, f"{global_instance_id}_{category_name}.png"
+            )
+            os.makedirs(instance_write_path, exist_ok=True)
 
         if self.debug_visualize:
-            import os
-
-            import cv2
-
             step = instance_view.timestep
             full_image = self.images[env_id][step]
-            full_image = (
-                (full_image * 255).cpu().numpy().astype(np.uint8).transpose(1, 2, 0)
-            )
+            full_image = full_image.numpy().astype(np.uint8).transpose(1, 2, 0)
             # overlay mask on image
             mask = np.zeros(full_image.shape, full_image.dtype)
             mask[:, :] = (0, 0, 255)
             mask = cv2.bitwise_and(
                 mask, mask, mask=instance_view.mask.astype(np.uint8))
             masked_image = cv2.addWeighted(mask, 1, full_image, 1, 0)
-            os.makedirs(f"instances/{global_instance_id}", exist_ok=True)
             cv2.imwrite(
-                f"instances/{global_instance_id}/{self.timesteps[env_id]}_{local_instance_id}_cat_{instance_view.category_id}.png",
+                os.path.join(
+                    instance_write_path,
+                    f"step_{self.timesteps[env_id]}_local_id_{local_instance_id}.png",
+                ),
                 masked_image,
             )
             print(
@@ -446,43 +386,16 @@ class InstanceMemory:
                 global_instance_id,
             )
 
-    def get_cropped_image(self, image, bbox):
-        # image = instance_memory.images[0][iv.timestep]
-        im_h = image.shape[1]
-        im_w = image.shape[2]
-        # bbox = iv.bbox
-        x = bbox[0, 1]
-        y = bbox[0, 0]
-        w = bbox[1, 1] - x
-        h = bbox[1, 0] - y
-        x = 0 if (x-(padding-1)*w /
-                  2) < 0 else int(x-(padding-1)*w/2)
-        y = 0 if (y-(padding-1)*h /
-                  2) < 0 else int(y-(padding-1)*h/2)
-        y2 = im_h if y + \
-            int(h*padding) >= im_h else y+int(h*padding)
-        x2 = im_w if x + \
-            int(w*padding) >= im_w else x+int(w*padding)
-        cropped_image = (
-            image[:,  y: y2, x: x2,
-                  ]
-            .permute(1, 2, 0)
-            .cpu()
-            .numpy()
-            .astype(np.uint8)
-        )
-        return cropped_image
-
     def process_instances_for_env(
         self,
         env_id: int,
         instance_seg: torch.Tensor,
         point_cloud: torch.Tensor,
+        pose: torch.Tensor,
         image: torch.Tensor,
-        instance_classes: Optional[torch.Tensor] = None,
-        instance_scores: Optional[torch.Tensor] = None,
+        semantic_seg: Optional[torch.Tensor] = None,
         mask_out_object: bool = True,
-        background_instance_label: int = 0,
+        background_class_label: int = 0,
     ):
         """
         Process instance information in the current frame and add instance views to the list of unprocessed views for future association.
@@ -492,15 +405,12 @@ class InstanceMemory:
 
         Args:
             env_id (int): Identifier for the environment being processed.
-            instance_seg (torch.Tensor): [H, W] tensor of instance ids at each pixel
+            instance_seg (torch.Tensor): Instance segmentation tensor.
             point_cloud (torch.Tensor): Point cloud data in world coordinates.
-            image (torch.Tensor): [3, H, W] RGB image
-            instance_classes (Optional[torch.Tensor]): [K,] class ids for each instance in instance seg
-                class_int = instance_classes[instance_id]
-            instance_scores (Optional[torch.Tensor]): [K,] detection confidences for each instance in instance_seg
+            image (torch.Tensor): Image data.
+            semantic_seg (Optional[torch.Tensor]): Semantic segmentation tensor, if available.
             mask_out_object (bool): true if we want to save crops of just objects on black background; false otherwise
-                # If false does it not save crops? Not black background?
-            background_class_label(int): id indicating background points in instance_seg. That view is not saved. (default = 0)
+            background_class_label(int): id used to represent background points in instance mask (default = 0)
 
         Note:
             - The method creates instance views for detected instances within the provided data.
@@ -517,55 +427,57 @@ class InstanceMemory:
         ), "Ensure that RGB images are channels-first and in the right format."
 
         self.unprocessed_views[env_id] = {}
+        self.local_id_to_global_id_map[env_id] = {}
         # append image to list of images
         if self.images[env_id] is None:
-            self.images[env_id] = image.unsqueeze(0)
+            self.images[env_id] = image.unsqueeze(0).detach().cpu()
         else:
             self.images[env_id] = torch.cat(
-                [self.images[env_id], image.unsqueeze(0)], dim=0
+                [self.images[env_id], image.unsqueeze(0).detach().cpu()], dim=0
             )
         if self.point_cloud[env_id] is None:
-            self.point_cloud[env_id] = point_cloud.unsqueeze(0)
+            self.point_cloud[env_id] = point_cloud.unsqueeze(0).detach().cpu()
         else:
             self.point_cloud[env_id] = torch.cat(
-                [self.point_cloud[env_id], point_cloud.unsqueeze(0)], dim=0
+                [self.point_cloud[env_id],
+                    point_cloud.unsqueeze(0).detach().cpu()],
+                dim=0,
             )
         # unique instances
         instance_ids = torch.unique(instance_seg)
         for instance_id in instance_ids:
             # skip background
-            if instance_id == background_instance_label:
+            if instance_id == background_class_label:
                 continue
             # get instance mask
             instance_mask = instance_seg == instance_id
 
-            # get semantic category
             category_id = None
-            if instance_classes is not None:
-                category_id = instance_classes[instance_id]
-
-            # detection score
-            score = None
-            if instance_scores is not None:
-                score = instance_scores[instance_id]
+            if semantic_seg is not None:
+                # get semantic category
+                category_id = semantic_seg[instance_mask].unique()
+                category_id = category_id[0].item()
 
             instance_id_to_category_id[instance_id] = category_id
 
             # get bounding box
-            bbox = torch.stack(
-                [
-                    instance_mask.nonzero().min(dim=0)[0],
-                    instance_mask.nonzero().max(dim=0)[0] + 1,
-                ]
+            bbox = (
+                torch.stack(
+                    [
+                        instance_mask.nonzero().min(dim=0)[0],
+                        instance_mask.nonzero().max(dim=0)[0] + 1,
+                    ]
+                )
+                .cpu()
+                .numpy()
             )
-
             assert bbox.shape == (
                 2,
                 2,
             ), "Bounding box has extra dimensions - you have a problem with input instance image mask!"
 
             if self.du_scale != 1:
-                # downsample mask by du_scale using "NEAREST"
+                # downsample mask by du_scale using "NEAREST": temporarily adds batch and channel dimensions before passing to torch.nn.functional.interpolate function
                 instance_mask_downsampled = (
                     torch.nn.functional.interpolate(
                         instance_mask.unsqueeze(0).unsqueeze(0).float(),
@@ -576,19 +488,21 @@ class InstanceMemory:
                     .squeeze(0)
                     .bool()
                 )
-            else:
-                instance_mask_downsampled = instance_mask
 
-            if mask_out_object:
+            if self.mask_cropped_instances:
                 masked_image = image * instance_mask
             else:
                 masked_image = image
-            image_box = masked_image[
-                :, bbox[0, 0]: bbox[1, 0], bbox[0, 1]: bbox[1, 1]
-            ]
+
             # get cropped image
+            p = self.padding_cropped_instances
+            h, w = masked_image.shape[1:]
             # cropped_image = (
-            #     masked_image[:, bbox[0, 0]: bbox[1, 0], bbox[0, 1]: bbox[1, 1]]
+            #     masked_image[
+            #         :,
+            #         max(bbox[0, 0] - p, 0) : min(bbox[1, 0] + p, h),
+            #         max(bbox[0, 1] - p, 0) : min(bbox[1, 1] + p, w),
+            #     ]
             #     .permute(1, 2, 0)
             #     .cpu()
             #     .numpy()
@@ -601,24 +515,29 @@ class InstanceMemory:
             embedding = None
 
             # get point cloud
-            point_cloud_instance = point_cloud[instance_mask_downsampled]
-            point_cloud_rgb_instance = image.permute(
-                1, 2, 0)[instance_mask_downsampled]
+            point_cloud_instance = point_cloud[instance_mask_downsampled.cpu(
+            ).numpy()]
+            point_cloud_instance = point_cloud_instance.cpu().numpy()
 
-            if instance_mask_downsampled.sum() > 0:
-                bounds = get_bounds(point_cloud_instance)
+            object_coverage = np.sum(instance_mask) / instance_mask.size
+
+            if instance_mask_downsampled.sum() > 0 and point_cloud_instance.sum() > 0:
+                bounds = np.min(point_cloud_instance, axis=0), np.max(
+                    point_cloud_instance, axis=0
+                )
+
                 # get instance view
                 instance_view = InstanceView(
                     bbox=bbox,
                     timestep=self.timesteps[env_id],
-                    cropped_image=cropped_image,  # .cpu().numpy(),
+                    cropped_image=cropped_image,
                     embedding=embedding,
-                    mask=instance_mask,  # cpu().numpy().astype(bool),
-                    point_cloud=point_cloud_instance,  # .cpu().numpy(),
-                    point_cloud_rgb=point_cloud_rgb_instance,
+                    mask=instance_mask,
+                    point_cloud=point_cloud_instance,
                     category_id=category_id,
-                    score=score,
-                    bounds=bounds,  # .cpu().numpy(),
+                    bounds=bounds,
+                    pose=pose.detach().cpu(),
+                    object_coverage=object_coverage,
                 )
                 # append instance view to list of instance views
                 self.unprocessed_views[env_id][instance_id.item(
@@ -626,14 +545,10 @@ class InstanceMemory:
 
             # save cropped image with timestep in filename
             if self.debug_visualize:
-                import os
-
-                import cv2
-
-                os.makedirs("instances/", exist_ok=True)
+                os.makedirs(f"{self.save_dir}/all", exist_ok=True)
                 cv2.imwrite(
-                    f"instances/{self.timesteps[env_id]}_{instance_id.item()}.png",
-                    (cropped_image.cpu().numpy() * 255).astype(np.uint8),
+                    f"{self.save_dir}/all/{self.timesteps[env_id] + 1}_{instance_id.item()}.png",
+                    cropped_image,
                 )
 
         self.timesteps[env_id] += 1
@@ -645,6 +560,7 @@ class InstanceMemory:
         self,
         instance_channels: torch.Tensor,
         point_cloud: torch.Tensor,
+        pose: torch.Tensor,
         image: torch.Tensor,
         semantic_channels: Optional[torch.Tensor] = None,
     ):
@@ -679,6 +595,7 @@ class InstanceMemory:
                 env_id,
                 instance_segs[env_id],
                 point_cloud[env_id],
+                pose[env_id],
                 image[env_id],
                 semantic_seg=semantic_seg,
             )
@@ -690,3 +607,31 @@ class InstanceMemory:
         self.point_cloud[env_id] = None
         self.unprocessed_views[env_id] = {}
         self.timesteps[env_id] = 0
+        self.local_id_to_global_id_map[env_id] = {}
+
+    def get_cropped_image(self, image, bbox):
+        # image = instance_memory.images[0][iv.timestep]
+        im_h = image.shape[1]
+        im_w = image.shape[2]
+        # bbox = iv.bbox
+        x = bbox[0, 1]
+        y = bbox[0, 0]
+        w = bbox[1, 1] - x
+        h = bbox[1, 0] - y
+        x = 0 if (x-(padding-1)*w /
+                  2) < 0 else int(x-(padding-1)*w/2)
+        y = 0 if (y-(padding-1)*h /
+                  2) < 0 else int(y-(padding-1)*h/2)
+        y2 = im_h if y + \
+            int(h*padding) >= im_h else y+int(h*padding)
+        x2 = im_w if x + \
+            int(w*padding) >= im_w else x+int(w*padding)
+        cropped_image = (
+            image[:,  y: y2, x: x2,
+                  ]
+            .permute(1, 2, 0)
+            .cpu()
+            .numpy()
+            .astype(np.uint8)
+        )
+        return cropped_image
