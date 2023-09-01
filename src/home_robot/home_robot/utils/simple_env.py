@@ -52,11 +52,15 @@ class SimpleEnv(Env):
         np.random.seed(seed)
         self.obstacle_pos = np.random.random(2) * (self.size - self.obstacle_size)
 
-    def show(self, states):
+    def show(self, states, backend="mpl", show: bool = True):
         """Display the scene + states"""
+
+        if not backend == "mlp":
+            raise NotImplementedError(f"Backend {backend} not yet supported.")
+
         # Create a figure and axis without axes
         fig, ax = plt.subplots()
-        # ax.axis('off')
+        ax.axis("off")
 
         # Draw obstacle box
         obstacle_rect = plt.Rectangle(
@@ -76,8 +80,11 @@ class SimpleEnv(Env):
         traj_x, traj_y = zip(*states)
         ax.plot(traj_x, traj_y, "b-")  # 'b-' means blue solid line
 
-        # Show the plot
-        plt.show()
+        if show:
+            # Show the plot
+            plt.show()
+
+        return fig
 
     def apply_action(
         self,
