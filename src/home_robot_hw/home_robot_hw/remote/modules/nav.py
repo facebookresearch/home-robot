@@ -2,7 +2,7 @@
 #
 # This source code is licensed under the MIT license found in the
 # LICENSE file in the root directory of this source tree.
-from typing import Iterable
+from typing import Iterable, List
 
 import numpy as np
 import rospy
@@ -101,6 +101,31 @@ class StretchNavigationClient(AbstractControlModule):
                     rospy.logerr("Could not reach goal: " + str(xyt))
                 return False
             rate.sleep()
+
+    @enforce_enabled
+    def execute_trajectory(
+        self,
+        trajectory: List[np.ndarray],
+        pos_err_threshold: float = 0.2,
+        spin_rate: int = 10,
+        verbose: bool = True,
+        per_waypoint_timeout: float = 10.0,
+        relative: bool = False,
+    ):
+        """Execute a multi-step trajectory; this is always blocking since it waits to reach each one in turn."""
+        for i, pt in enumerate(trajectory):
+            assert (
+                len(pt) == 3 or len(pt) == 2
+            ), "base trajectory needs to be 2-3 dimensions: x, y, and (optionally) theta"
+            just_xy = len(pt) == 2
+            self.navigate_to(pt, relative, position_only=just_xy, blocking=False)
+            self.wait_for_waypoint(
+                pt,
+                pos_err_threshold=pos_err_threshold,
+                rate=spin_rate,
+                verbose=verbose,
+                timeout=per_waypoint_timeout,
+            )
 
     @enforce_enabled
     def set_velocity(self, v, w):

@@ -334,6 +334,17 @@ class SparseVoxelMap(object):
         with open(filename, "wb") as f:
             pickle.dump(data, f)
 
+    def fix_data_type(self, tensor) -> torch.Tensor:
+        """make sure tensors are in the right format for this model"""
+        # Conversions
+        if isinstance(tensor, np.ndarray):
+            tensor = torch.from_numpy(tensor)
+        # Data types
+        if isinstance(tensor, torch.Tensor):
+            return tensor.float()
+        else:
+            raise NotImplementedError("unsupported data type for tensor:", tensor)
+
     def read_from_pickle(self, filename: str):
         """Read from a pickle file as above. Will clear all currently stored data first."""
         self.reset_cache()
@@ -351,14 +362,14 @@ class SparseVoxelMap(object):
             data["base_poses"],
             data["obs"],
         ):
-            camera_pose = torch.from_numpy(camera_pose).float()
-            xyz = torch.from_numpy(xyz).float()
-            rgb = torch.from_numpy(rgb).float()
-            depth = torch.from_numpy(depth).float()
+            camera_pose = self.fix_data_type(camera_pose)
+            xyz = self.fix_data_type(xyz)
+            rgb = self.fix_data_type(rgb)
+            depth = self.fix_data_type(depth)
             if feats is not None:
-                feats = torch.from_numpy(feats).float()
-            base_pose = torch.from_numpy(base_pose).float()
-            instance = torch.from_numpy(obs.instance).float()
+                feats = self.fix_data_type(feats)
+            base_pose = self.fix_data_type(base_pose)
+            instance = self.fix_data_type(obs.instance)
             self.add(
                 camera_pose=camera_pose,
                 xyz=xyz,
@@ -374,7 +385,8 @@ class SparseVoxelMap(object):
         """Recompute the entire map from scratch instead of doing incremental updates.
         This is a helper function which recomputes everything from the beginning.
 
-        Currently this will be slightly inefficient since it recreates all the objects incrementally."""
+        Currently this will be slightly inefficient since it recreates all the objects incrementally.
+        """
         old_observations = self.observations
         self.reset_cache()
         for frame in old_observations:
