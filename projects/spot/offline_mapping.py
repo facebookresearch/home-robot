@@ -717,7 +717,7 @@ def main(base_dir: str, legend_path: str):
             semantic_map.lmb = seq_lmb[:, -1]
             semantic_map.origins = seq_origins[:, -1]
 
-            # Hack to localize current goal
+            # Localize current goal
 
             # abnb1_video6
             # goals = (
@@ -736,43 +736,43 @@ def main(base_dir: str, legend_path: str):
             # )
 
             # abnb3_video2
-            goals = (
-                [None] * 59  # 1-59
-                + [13] * 10  # 60-69 sink
-                + [None] * 14  # 70-83
-                + [20] * 4  # 84-87 bear
-                + [None] * 14  # 88-101
-                + [22] * 4  # 102-105 cup
-                + [4] * 17  # 106-122 couch
-                + [None] * 37  # 123-159
-                + [28] * 4  # 160-163 bed
-                + [13] * 23  # 164-186 sink
-                + [3] * 28  # 187-214 chair
-                + [11] * 17  # 215-231 plant
-                + [1] * 20  # 232-251 couch
-                + [None] * 62  # 252-313
-                + [40] * 12  # 314-325 toilet
-                + [None] * 4  # 326-328
-                + [27] * 3  # 329-331 bed
-            )
+            # goals = (
+            #     [None] * 59  # 1-59
+            #     + [13] * 10  # 60-69 sink
+            #     + [None] * 14  # 70-83
+            #     + [20] * 4  # 84-87 bear
+            #     + [None] * 14  # 88-101
+            #     + [22] * 4  # 102-105 cup
+            #     + [4] * 17  # 106-122 couch
+            #     + [None] * 37  # 123-159
+            #     + [28] * 4  # 160-163 bed
+            #     + [13] * 23  # 164-186 sink
+            #     + [3] * 28  # 187-214 chair
+            #     + [11] * 17  # 215-231 plant
+            #     + [1] * 20  # 232-251 couch
+            #     + [None] * 62  # 252-313
+            #     + [40] * 12  # 314-325 toilet
+            #     + [None] * 4  # 326-328
+            #     + [27] * 3  # 329-331 bed
+            # )
 
-            instance_map = semantic_map.local_map[0][
-                MC.NON_SEM_CHANNELS
-                + num_sem_categories : MC.NON_SEM_CHANNELS
-                + 2 * num_sem_categories,
-                :,
-                :,
-            ]
-            goal_map = torch.zeros(instance_map[0].shape)
-            goal_map, _, _ = matching.get_goal_map_from_goal_instance(
-                instance_map=instance_map,
-                goal_map=goal_map,
-                lmb=semantic_map.lmb,
-                goal_inst=goals[i],
-                instance_goal_found=True,
-                found_goal=torch.Tensor([False]),
-            )
-            semantic_map.update_global_goal_for_env(0, goal_map.cpu().numpy())
+            # instance_map = semantic_map.local_map[0][
+            #     MC.NON_SEM_CHANNELS
+            #     + num_sem_categories : MC.NON_SEM_CHANNELS
+            #     + 2 * num_sem_categories,
+            #     :,
+            #     :,
+            # ]
+            # goal_map = torch.zeros(instance_map[0].shape)
+            # goal_map, _, _ = matching.get_goal_map_from_goal_instance(
+            #     instance_map=instance_map,
+            #     goal_map=goal_map,
+            #     lmb=semantic_map.lmb,
+            #     goal_inst=goals[i],
+            #     instance_goal_found=True,
+            #     found_goal=torch.Tensor([False]),
+            # )
+            # semantic_map.update_global_goal_for_env(0, goal_map.cpu().numpy())
 
             # Visualize map
             depth_frame = obs.depth
