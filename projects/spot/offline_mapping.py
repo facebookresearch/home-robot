@@ -756,7 +756,6 @@ def main(base_dir: str, legend_path: str):
                 + [27] * 3  # 329-331 bed
             )
 
-            print(len(goals))
             instance_map = semantic_map.local_map[0][
                 MC.NON_SEM_CHANNELS
                 + num_sem_categories : MC.NON_SEM_CHANNELS
