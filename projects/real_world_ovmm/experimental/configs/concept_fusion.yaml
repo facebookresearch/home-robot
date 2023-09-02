@@ -22,6 +22,10 @@ desired_width: 256
 open_clip_model: "ViT-H-14"
 open_clip_pretrained_dataset: "laion2b_s32b_b79k"
 
+# DBSCAN params
+epsilon: 1.0
+min_samples: 5
+
 # Similarity params
 viz_type: "topk" # "topk" or "thresh"
 similarity_thresh: 0.6

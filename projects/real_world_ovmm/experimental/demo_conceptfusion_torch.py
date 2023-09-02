@@ -6,6 +6,7 @@ import struct
 
 import h5py
 import hydra
+from sklearn.cluster import DBSCAN
 import torch
 from torchvision import transforms
 
@@ -13,6 +14,16 @@ from home_robot.utils.voxel import VoxelizedPointcloud
 
 import generate_concept_fusion_features
 import home_robot.utils.image as im
+
+COLOR_LIST = [
+    [0, 0, 1],
+    [0, 1, 0],
+    [1, 0, 0],
+    [0, 1, 1],
+    [1, 0, 1],
+    [1, 1, 0],
+    [1, 1, 1],
+]
 
 def write_pointcloud(filename, xyz_points, rgb_points=None):
 
@@ -74,6 +85,31 @@ def resize_images(rgb, depth, args):
     rgb = np.array(rgb)
 
     return rgb, depth
+
+def get_bounding_boxes(args, data, color_data):
+    db = DBSCAN(eps=args.epsilon, min_samples=args.min_samples).fit(data)
+    labels = db.labels_
+
+    num_clusters = len(np.unique(labels))
+    num_noise = np.sum(np.array(labels) == -1, axis=0)
+
+    print('Estimated no. of clusters: %d' % num_clusters)
+    print('Estimated no. of noise points: %d' % num_noise)
+
+    # get max and min x, y, z values for each cluster
+    bb_coords = np.zeros((num_clusters, 6))
+    for i in range(num_clusters-1):
+        cluster = data[labels == i]
+        bb_coords[i, 0] = np.min(cluster[:, 0])
+        bb_coords[i, 1] = np.max(cluster[:, 0])
+        bb_coords[i, 2] = np.min(cluster[:, 1])
+        bb_coords[i, 3] = np.max(cluster[:, 1])
+        bb_coords[i, 4] = np.min(cluster[:, 2])
+        bb_coords[i, 5] = np.max(cluster[:, 2])
+
+        # use different bright colors for points in different clusters
+        color_data[labels == i] = COLOR_LIST[i % len(COLOR_LIST)]
+    return color_data
 
 
 @hydra.main(config_path="configs", config_name="concept_fusion")
@@ -151,9 +187,12 @@ def main(args):
 
     pc_xyz, pc_feat, _, pc_rgb = voxel_map.get_pointcloud()
 
-    pc_query = concept_fusion.text_query("window", pc_feat)
+    pc_query, selected_inds = concept_fusion.text_query("sofa", pc_feat)
 
-    pc_query =  np.expand_dims(np.logical_not((pc_query.sum(axis=1) > 0)), axis=1) * pc_rgb.cpu().numpy() + pc_query * 255
+    pc_xyz = pc_xyz.cpu().numpy()
+    pc_query[selected_inds] = get_bounding_boxes(args, pc_xyz[selected_inds].squeeze(), pc_query[selected_inds].squeeze())
+
+    pc_query = np.expand_dims(np.logical_not((pc_query.sum(axis=1) > 0)), axis=1) * pc_rgb.cpu().numpy() + pc_query * 255
 
     # store point cloud as ply file for visualization
     write_pointcloud("my_cloud.ply", pc_xyz, pc_query)

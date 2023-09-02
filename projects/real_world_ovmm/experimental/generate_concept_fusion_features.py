@@ -215,6 +215,7 @@ class ConceptFusion:
             # Viz topk points
             _, topk_ind = torch.topk(similarity, self.args.topk)
             map_colors[topk_ind.detach().cpu().numpy()] = np.array([1.0, 0.0, 0.0])
+            selected_inds = topk_ind
 
         elif self.args.viz_type == "thresh":
             # Viz thresholded "relative" attention scores
@@ -224,13 +225,14 @@ class ConceptFusion:
                 similarity.max() - similarity.min() + 1e-12
             )
             similarity_rel[similarity_rel < self.args.similarity_thresh] = 0.0
+            selected_inds = torch.nonzero(similarity_rel).squeeze(1)
 
             cmap = matplotlib.cm.get_cmap("jet")
             similarity_colormap = cmap(similarity_rel[0].detach().cpu().numpy())[:, :3]
 
             map_colors = 0.5 * map_colors + 0.5 * similarity_colormap
 
-        return map_colors
+        return map_colors, selected_inds.detach().cpu().numpy()
 
 
 @hydra.main(config_path="configs", config_name="concept_fusion")
