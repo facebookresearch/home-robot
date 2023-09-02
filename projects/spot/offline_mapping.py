@@ -750,6 +750,7 @@ def main(base_dir: str, legend_path: str):
                 + [3] * 28  # 187-214 chair
                 + [11] * 17  # 215-231 plant
                 + [33] * 20  # 232-251 couch
+                + [None] * 62  # 252-313
                 + [40] * 12  # 314-325 toilet
                 + [27] * 3  # 329-331 bed
             )
