@@ -57,6 +57,9 @@ class ObjectNavAgent(Agent):
             self.instance_memory = InstanceMemory(
                 self.num_environments,
                 config.AGENT.SEMANTIC_MAP.du_scale,
+                instance_association=getattr(
+                    config.AGENT.SEMANTIC_MAP, "instance_association", "map_overlap"
+                ),
                 debug_visualize=config.PRINT_IMAGES,
             )
 
@@ -417,7 +420,7 @@ class ObjectNavAgent(Agent):
             )
             # this is just changing the visualization but not the actual performance
             # if self.timesteps_before_goal_update[0] == self.goal_update_steps - 1:
-                # self.closest_goal_map[0] = closest_goal_map
+            # self.closest_goal_map[0] = closest_goal_map
             self.closest_goal_map[0] = closest_goal_map
 
         # t3 = time.time()

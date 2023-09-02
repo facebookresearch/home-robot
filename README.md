@@ -30,7 +30,7 @@ This is the recommended workflow for hardware robots:
   - If desired, run [rviz](http://wiki.ros.org/rviz) on the workstation to see what the robot is seeing.
   - Start running your AI code on the workstation - For example, you can run `python projects/stretch_grasping/eval_episode.py` to run the OVMM task.
 
-We provide a couple connections for useful perception libraries like [Detic](https://github.com/facebookresearch/Detic) and [Contact Graspnet](https://github.com/NVlabs/contact_graspnet), which you can then use as a part of your methods.
+We provide a couple connections for useful perception libraries like [Detic](https://github.com/facebookresearch/Detic), [Grounded-SAM](https://github.com/IDEA-Research/Grounded-Segment-Anything) and [Contact Graspnet](https://github.com/NVlabs/contact_graspnet), which you can then use as a part of your methods.
 
 ## Installation
 
@@ -51,9 +51,12 @@ roslaunch home_robot_hw startup_stretch_hector_slam.launch
 
 ### Workstation Instructions
 
-To set up your workstation, follow these instructions. We will assume that your system supports CUDA 11.8 or better for pytorch; earlier versions should be fine, but may require some changes to the conda environment.
+To set up your workstation, follow these instructions. HomeRobot requires Python 3.9. These instructions assume that your system supports CUDA 11.7 or better for pytorch; earlier versions should be fine, but may require some changes to the conda environment.
 
 #### 1. Create Your Environment
+
+If necessary, [install mamba](https://mamba.readthedocs.io/en/latest/installation.html) in your base conda environment. Optionally: [install ROS noetic](http://wiki.ros.org/noetic/Installation/Ubuntu) on your workstation.
+
 ```
 # Create a conda env - use the version in home_robot_hw if you want to run on the robot
 mamba env create -n home-robot -f src/home_robot_hw/environment.yml
@@ -66,76 +69,40 @@ conda activate home-robot
 
 This should install pytorch; if you run into trouble, you may need to edit the installation to make sure you have the right CUDA version. See the [pytorch install notes](docs/install_pytorch.md) for more.
 
-#### 2. Install Home Robot Packages
+Optionally, setup a [catkin workspace](docs/catkin.md) to use improved ROS visualizations.
+
+#### 2. Run Install Script
+
+Make sure you have the correct environment variables set: `CUDA_HOME` should point to your cuda install, matching the one used by your python environment. We recommend 11.7, and it's what will be automatically installed above. You can download it from [nvidia's downloads page](https://developer.nvidia.com/cuda-11-7-0-download-archive?target_os=Linux&target_arch=x86_64&Distribution=Ubuntu). Download the runfile, and make sure to check the box NOT to install your drivers.
+
+Then make sure the environment variables are set to something reasonable:
+```
+HOME_ROBOT_ROOT=$USER/src/home-robot
+CUDA_HOME=/usr/local/cuda-11.7
+```
+
+Finally, you can run the [install script](install_deps.sh) to download submodules, model checkpoints, and build Detic for open-vocabulary object detection:
 ```
 conda activate home-robot
-
-# Install the core home_robot package
-python -m pip install -e src/home_robot
-
-Skip to step 4 if you do not have a real robot setup or if you only want to use our simulation stack.
-
-# Install home_robot_hw
-python -m pip install -e src/home_robot_hw
+cd $HOME_ROBOT_ROOT
+./install_deps.sh
 ```
 
-_Testing Real Robot Setup:_ Now you can run a couple commands to test your connection. If the `roscore` and the robot controllers are running properly, you can run `rostopic list` and should see a list of topics - streams of information coming from the robot. You can then run RVIZ to visualize the robot sensor output:
+If you run into issues, check out the [step-by-step instructions](docs/install_workstation.md).
+
+
+#### 3. Simulation Setup
+
+To set up the simulation stack with Habitat, train DDPPO skills and run evaluations: see the [installation instructions](src/home_robot_sim/README.md) in `home_robot_sim`. As with other components, the simulation assumes that you have Python 3.9, conda, mamba, and CUDA 11.7 or greater, although other CUDA versions may work.
+
+For more details on the OVMM challenge, see the [Habitat OVMM readme](projects/habitat_ovmm/README.md). You can start by running the [install script](projects/habitat_ovmm/install.sh) to download all the necessary data:
 
 ```
-rviz -d $HOME_ROBOT_ROOT/src/home_robot_hw/launch/mapping_demo.rviz
+$HOME_ROBOT_ROOT/projects/habitat_ovmm/install.sh
 ```
 
-#### 3. Download third-party packages
-```
-git submodule update --init --recursive src/home_robot/home_robot/perception/detection/detic/Detic src/third_party/detectron2 src/third_party/contact_graspnet
-```
 
-#### 4. Hardware Testing
-
-Run the hardware manual test to make sure you can control the robot remotely. Ensure the robot has one meter of free space before running the script.
-
-```
-python tests/hw_manual_test.py
-```
-
-Follow the on-screen instructions. The robot should move through a set of configurations.
-
-#### 5. Install Detic
-
-Install [detectron2](https://detectron2.readthedocs.io/tutorials/install.html). If you installed our default environment above, you may need to [download CUDA11.7](https://developer.nvidia.com/cuda-11-7-0-download-archive).
-
-
-Download Detic checkpoint as per the instructions [on the Detic github page](https://github.com/facebookresearch/Detic):
-
-```bash
-cd $HOME_ROBOT_ROOT/src/home_robot/home_robot/perception/detection/detic/Detic/
-mkdir models
-wget https://dl.fbaipublicfiles.com/detic/Detic_LCOCOI21k_CLIP_SwinB_896b32_4x_ft4x_max-size.pth -O models/Detic_LCOCOI21k_CLIP_SwinB_896b32_4x_ft4x_max-size.pth --no-check-certificate
-```
-
-You should be able to run the Detic demo script as per the Detic instructions to verify your installation was correct:
-```bash
-wget https://web.eecs.umich.edu/~fouhey/fun/desk/desk.jpg
-python demo.py --config-file configs/Detic_LCOCOI21k_CLIP_SwinB_896b32_4x_ft4x_max-size.yaml --input desk.jpg --output out2.jpg --vocabulary custom --custom_vocabulary headphone,webcam,paper,coffe --confidence-threshold 0.3 --opts MODEL.WEIGHTS models/Detic_LCOCOI21k_CLIP_SwinB_896b32_4x_ft4x_max-size.pth
-```
-
-#### 6. Download pretrained skills
-```
-mkdir -p data/checkpoints
-cd data/checkpoints
-wget https://dl.fbaipublicfiles.com/habitat/data/baselines/v1/ovmm_baseline_home_robot_challenge_2023.zip
-unzip ovmm_baseline_home_robot_challenge_2023.zip
-cd ../../
-```
-
-#### 7. Simulation Setup
-
-To set up the simulation stack with Habitat, train DDPPO skills and run evaluations: see the [installation instructions](src/home_robot_sim/README.md) in `home_robot_sim`.
-
-For more details on the OVMM challenge, see the [Habitat OVMM readme](projects/habitat_ovmm/README.md).
-
-
-#### 8. Run Open Vocabulary Mobile Manipulation on Stretch
+#### 4. Run Open Vocabulary Mobile Manipulation on Stretch
 
 You should then be able to run the Stretch OVMM example.
 
@@ -167,6 +134,7 @@ There are two main classes in HomeRobot that you need to be concerned with:
   - *Agents* extend the [abstract Agent class](https://github.com/facebookresearch/home-robot/blob/main/src/home_robot/home_robot/core/abstract_agent.py), which takes in an [observation](https://github.com/facebookresearch/home-robot/blob/main/src/home_robot/home_robot/core/interfaces.py#L95) and produces an [action](https://github.com/facebookresearch/home-robot/blob/main/src/home_robot/home_robot/core/interfaces.py#L50).
 
 Generally, new methods will be implemented as Agents.
+
 
 ### Developing on Hardware
 
