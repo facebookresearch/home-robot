@@ -729,7 +729,7 @@ def main(base_dir: str, legend_path: str):
                 + [1] * 22  # 171-191 oven
                 + [9] * 15  # 192-206 plant
                 + [7] * 17  # 207-223 refrigerator
-                + [30] * 16  # 224-239 chair
+                + [2] * 16  # 224-239 chair
                 + [34] * 21  # 240-260 chair
                 + [16] * 43  # 261-303 teddy bear
             )
