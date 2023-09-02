@@ -718,31 +718,20 @@ def main(base_dir: str, legend_path: str):
             semantic_map.origins = seq_origins[:, -1]
 
             # Hack to localize current goal
-            # 1-51
-            # 52-61 bed
-            # 62-121
-            # 122-126 chair
-            # 127-164
-            # 165-170 plant
-            # 171-191 oven
-            # 192-206 plant
-            # 207-223 refrigerator
-            # 224-239 chair
-            # 240-260 chair
-            # 261-303 teddy bear
+            # abnb1_video6
             goals = (
-                [None] * 51
-                + [13] * 10
-                + [None] * 62
-                + [23] * 5
-                + [None] * 38
-                + [31] * 6
-                + [1] * 22
-                + [9] * 15
-                + [7] * 17
-                + [30] * 16
-                + [32] * 21
-                + [16] * 43
+                [None] * 51  # 1-51
+                + [13] * 10  # 52-61 bed
+                + [None] * 62  # 62-121
+                + [23] * 5  # 122-126 chair
+                + [None] * 38  # 127-164
+                + [26] * 6  # 165-170 plant
+                + [1] * 22  # 171-191 oven
+                + [9] * 15  # 192-206 plant
+                + [7] * 17  # 207-223 refrigerator
+                + [30] * 16  # 224-239 chair
+                + [34] * 21  # 240-260 chair
+                + [16] * 43  # 261-303 teddy bear
             )
             instance_map = semantic_map.local_map[0][
                 MC.NON_SEM_CHANNELS
