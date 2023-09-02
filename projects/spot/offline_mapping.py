@@ -724,13 +724,25 @@ def main(base_dir: str, legend_path: str):
             # 122-126 chair
             # 127-164
             # 165-170 plant
+            # 171-191 oven
+            # 192-206 plant
+            # 207-223 refrigerator
+            # 224-239 chair
+            # 240-260 chair
+            # 261-303 teddy bear
             goals = (
                 [None] * 51
                 + [13] * 10
                 + [None] * 62
                 + [23] * 5
-                + [31] * 38
-                + [None] * 500
+                + [None] * 38
+                + [31] * 6
+                + [1] * 22
+                + [9] * 15
+                + [7] * 17
+                + [30] * 16
+                + [32] * 21
+                + [16] * 43
             )
             instance_map = semantic_map.local_map[0][
                 MC.NON_SEM_CHANNELS
