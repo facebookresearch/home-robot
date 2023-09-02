@@ -200,9 +200,9 @@ def get_semantic_map_vis(
         0.80,
         0.20,
         0.10,  # visited area agent arrow
-        0.12,
-        0.46,
-        0.70,  # goal
+        0.00,
+        0.56,
+        0.00,  # goal
     ]
     map_color_palette = [int(x * 255.0) for x in map_color_palette]
     map_color_palette += d3_40_colors_rgb.flatten().tolist()[1:]
