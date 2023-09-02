@@ -720,38 +720,53 @@ def main(base_dir: str, legend_path: str):
             # Hack to localize current goal
 
             # abnb1_video6
+            goals = (
+                [None] * 51  # 1-51
+                + [13] * 10  # 52-61 bed
+                + [None] * 62  # 62-121
+                + [23] * 5  # 122-126 chair
+                + [None] * 38  # 127-164
+                + [26] * 6  # 165-170 plant
+                + [1] * 22  # 171-191 oven
+                + [9] * 15  # 192-206 plant
+                + [7] * 17  # 207-223 refrigerator
+                + [2] * 16  # 224-239 chair
+                + [32] * 21  # 240-260 chair
+                + [16] * 43  # 261-303 teddy bear
+            )
+
+            # abnb3_video2
             # goals = (
-            #     [None] * 51  # 1-51
-            #     + [13] * 10  # 52-61 bed
-            #     + [None] * 62  # 62-121
-            #     + [23] * 5  # 122-126 chair
-            #     + [None] * 38  # 127-164
-            #     + [26] * 6  # 165-170 plant
-            #     + [1] * 22  # 171-191 oven
-            #     + [9] * 15  # 192-206 plant
-            #     + [7] * 17  # 207-223 refrigerator
-            #     + [2] * 16  # 224-239 chair
-            #     + [32] * 21  # 240-260 chair
-            #     + [16] * 43  # 261-303 teddy bear
+            #     # 60-69 sink
+            #     # 84-87 bear
+            #     # 102-105 cup
+            #     # 106-122 couch
+            #     # 160-163 bed
+            #     # 164-186 sink
+            #     # 187-214 chair
+            #     # 215-231 plant
+            #     # 232-251 couch
+            #     # 314-325 toilet
+            #     # 329-331 bed
             # )
 
-            # instance_map = semantic_map.local_map[0][
-            #     MC.NON_SEM_CHANNELS
-            #     + num_sem_categories : MC.NON_SEM_CHANNELS
-            #     + 2 * num_sem_categories,
-            #     :,
-            #     :,
-            # ]
-            # goal_map = torch.zeros(instance_map[0].shape)
-            # goal_map, _, _ = matching.get_goal_map_from_goal_instance(
-            #     instance_map=instance_map,
-            #     goal_map=goal_map,
-            #     lmb=semantic_map.lmb,
-            #     goal_inst=goals[i],
-            #     instance_goal_found=True,
-            #     found_goal=torch.Tensor([False]),
-            # )
-            # semantic_map.update_global_goal_for_env(0, goal_map.cpu().numpy())
+            instance_map = semantic_map.local_map[0][
+                MC.NON_SEM_CHANNELS
+                + num_sem_categories : MC.NON_SEM_CHANNELS
+                + 2 * num_sem_categories,
+                :,
+                :,
+            ]
+            goal_map = torch.zeros(instance_map[0].shape)
+            goal_map, _, _ = matching.get_goal_map_from_goal_instance(
+                instance_map=instance_map,
+                goal_map=goal_map,
+                lmb=semantic_map.lmb,
+                goal_inst=goals[i],
+                instance_goal_found=True,
+                found_goal=torch.Tensor([False]),
+            )
+            semantic_map.update_global_goal_for_env(0, goal_map.cpu().numpy())
 
             # Visualize map
             depth_frame = obs.depth
