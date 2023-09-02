@@ -40,6 +40,7 @@ from home_robot.mapping.semantic.categorical_2d_semantic_map_module import (
 from home_robot.mapping.semantic.categorical_2d_semantic_map_state import (
     Categorical2DSemanticMapState,
 )
+from home_robot.mapping.semantic.constants import MapConstants as MC
 from home_robot.mapping.semantic.instance_tracking_modules import InstanceMemory
 from home_robot.perception.detection.maskrcnn.coco_categories import (
     coco_categories,
@@ -562,6 +563,16 @@ def main(base_dir: str, legend_path: str):
             exploration_type=config.AGENT.SEMANTIC_MAP.exploration_type,
         ).to(device)
 
+        matching = GoatMatching(
+            device=device.index,
+            score_func="confidence_sum",
+            num_sem_categories=num_sem_categories,
+            config=config.AGENT.SUPERGLUE,
+            default_vis_dir=map_vis_dir,
+            print_images=True,
+            instance_memory=instance_memory,
+        )
+
         # --------------------------------------------------------------------------------------------
         # Map building
         # --------------------------------------------------------------------------------------------
@@ -706,6 +717,24 @@ def main(base_dir: str, legend_path: str):
             semantic_map.lmb = seq_lmb[:, -1]
             semantic_map.origins = seq_origins[:, -1]
 
+            # Localize current goal
+            instance_map = semantic_map.local_map[0][
+                MC.NON_SEM_CHANNELS
+                + num_sem_categories : MC.NON_SEM_CHANNELS
+                + 2 * num_sem_categories,
+                :,
+                :,
+            ]
+            # goal_map, _, _ = matching.get_goal_map_from_goal_instance(
+            #     instance_map=instance_map,
+            #     goal_map=None,
+            #     lmb=semantic_map.lmb,
+            #     goal_inst=2,  # TODO
+            #     instance_goal_found=True,
+            #     found_goal=torch.Tensor([False]),
+            # )
+            # semantic_map.update_global_goal_for_env(0, goal_map.cpu().numpy())
+
             # Visualize map
             depth_frame = obs.depth
             if depth_frame.max() > 0:
@@ -737,16 +766,6 @@ def main(base_dir: str, legend_path: str):
     # --------------------------------------------------------------------------------------------
     # Ground goals in memory
     # --------------------------------------------------------------------------------------------
-
-    matching = GoatMatching(
-        device=device.index,
-        score_func="confidence_sum",
-        num_sem_categories=num_sem_categories,
-        config=config.AGENT.SUPERGLUE,
-        default_vis_dir=map_vis_dir,
-        print_images=True,
-        instance_memory=instance_memory,
-    )
 
     goals_file = Path(f"{base_dir}/offline_goals.json")
     goals = []
