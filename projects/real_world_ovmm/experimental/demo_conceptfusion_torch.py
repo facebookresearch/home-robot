@@ -56,13 +56,6 @@ def write_pointcloud(filename, xyz_points, rgb_points=None):
 
 def convert_pose_to_real_world_axis(hab_pose):
     """Update axis convention of habitat pose to match the real-world axis convention"""
-    # hab_pose[[1, 2]] = hab_pose[[2, 1]]
-    # hab_pose[:, [1, 2]] = hab_pose[:, [2, 1]]
-
-    # hab_pose[0, 0] = -hab_pose[0, 0]
-    # hab_pose[1, 1] = -hab_pose[1, 1]
-    # hab_pose[0, 3] = -hab_pose[0, 3]
-
     hab_pose[[1, 2]] = hab_pose[[2, 1]]
     hab_pose[:, [1, 2]] = hab_pose[:, [2, 1]]
 
@@ -119,8 +112,6 @@ def main(args):
 
         print("Extracting SAM masks...")
         for idx in trange(len(img_dataset)):
-            if idx < 50 or idx >= 60:
-                continue
             img = img_dataset[idx]
             depth = torch.tensor(depth_dataset[idx]).unsqueeze(0)
             camera_pose = torch.tensor(camera_pose_dataset[idx]).float()
@@ -147,18 +138,16 @@ def main(args):
                 rgb=torch.tensor(img).reshape(-1, 3),
             )
 
-            # save image
-            img = Image.fromarray(img)
-            img.save("img_{}.jpg".format(idx))
+            if args.save_images:
+                # save rgb
+                img = Image.fromarray(img)
+                img.save("img_{}.jpg".format(idx))
 
-            # save depth
-            depth = depth.squeeze().numpy()
-            depth = np.clip(depth, 0, 15) / 15
-            depth = Image.fromarray((depth * 255).astype(np.uint8)).convert("RGB")
-            depth.save("depth_{}.png".format(idx))
-
-        # save data
-        # voxel_map.write_to_pickle(args.voxel_map_file)
+                # save depth
+                depth = depth.squeeze().numpy()
+                depth = np.clip(depth, 0, 4) / 4
+                depth = Image.fromarray((depth * 255).astype(np.uint8)).convert("RGB")
+                depth.save("depth_{}.png".format(idx))
 
     pc_xyz, pc_feat, _, pc_rgb = voxel_map.get_pointcloud()
 
@@ -166,7 +155,7 @@ def main(args):
 
     pc_query =  np.expand_dims(np.logical_not((pc_query.sum(axis=1) > 0)), axis=1) * pc_rgb.cpu().numpy() + pc_query * 255
 
-    # store point cloud as ply file
+    # store point cloud as ply file for visualization
     write_pointcloud("my_cloud.ply", pc_xyz, pc_query)
 
 if __name__ == "__main__":

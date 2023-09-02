@@ -29,4 +29,5 @@ topk: 1000
 
 # Directory to save extracted features
 save_path: "saved-feat"
+save_images: False
 voxel_map_file: "None" #"/srv/flash1/kyadav32/code/ovmm/home-robot/projects/real_world_ovmm/experimental/voxel_map_512x512.pkl"
