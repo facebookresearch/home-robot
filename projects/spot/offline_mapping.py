@@ -717,7 +717,9 @@ def main(base_dir: str, legend_path: str):
             semantic_map.lmb = seq_lmb[:, -1]
             semantic_map.origins = seq_origins[:, -1]
 
-            # Localize current goal
+            # Hack to localize current goal
+            # 1-51, 52-61, 62-121, 122-126,
+            goals = [None] * 51 + [13] * 10 + [None] * 62 + [23] * 5 + [None] * 500
             instance_map = semantic_map.local_map[0][
                 MC.NON_SEM_CHANNELS
                 + num_sem_categories : MC.NON_SEM_CHANNELS
@@ -725,15 +727,15 @@ def main(base_dir: str, legend_path: str):
                 :,
                 :,
             ]
-            # goal_map, _, _ = matching.get_goal_map_from_goal_instance(
-            #     instance_map=instance_map,
-            #     goal_map=None,
-            #     lmb=semantic_map.lmb,
-            #     goal_inst=2,  # TODO
-            #     instance_goal_found=True,
-            #     found_goal=torch.Tensor([False]),
-            # )
-            # semantic_map.update_global_goal_for_env(0, goal_map.cpu().numpy())
+            goal_map, _, _ = matching.get_goal_map_from_goal_instance(
+                instance_map=instance_map,
+                goal_map=None,
+                lmb=semantic_map.lmb,
+                goal_inst=goals[i],
+                instance_goal_found=True,
+                found_goal=torch.Tensor([False]),
+            )
+            semantic_map.update_global_goal_for_env(0, goal_map.cpu().numpy())
 
             # Visualize map
             depth_frame = obs.depth
