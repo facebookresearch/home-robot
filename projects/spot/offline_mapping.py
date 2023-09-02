@@ -201,7 +201,7 @@ def get_semantic_map_vis(
         0.20,
         0.10,  # visited area agent arrow
         0.00,
-        0.36,
+        0.75,
         0.00,  # goal
     ]
     map_color_palette = [int(x * 255.0) for x in map_color_palette]
