@@ -10,22 +10,33 @@ import argparse
 import dataclasses
 import sys
 import timeit
-from typing import Any, Dict, Tuple
+from enum import IntEnum, auto
+from pathlib import Path
+from typing import Any, Dict, List, Optional, Sequence, Tuple, Union
 
 import click
 import matplotlib.pyplot as plt
 import numpy as np
 import torch
-from eval.obj_det import eval_bboxes_and_print
+from evaluation.obj_det import eval_bboxes_and_print
 from tqdm import tqdm
 
+from home_robot.agent.ovmm_agent.ovmm_perception import OvmmPerception
 from home_robot.core.interfaces import Observations
 from home_robot.datasets.scannet import ScanNetDataset
+from home_robot.mapping.semantic.instance_tracking_modules import Instance
 from home_robot.mapping.voxel import SparseVoxelMap
-from home_robot.perception.detection.detic.detic_perception import DeticPerception
+from home_robot.perception.constants import RearrangeDETICCategories
+from home_robot.utils.config import get_config
 
 
-class ScanNetSparseVoxelMap(object):
+class SemanticVocab(IntEnum):
+    FULL = auto()
+    SIMPLE = auto()
+    ALL = auto()
+
+
+class SparseVoxelMapAgent:
     """Simple class to collect RGB, Depth, and Pose information for building 3d spatial-semantic
     maps for the robot. Needs to subscribe to:
     - color images
@@ -34,44 +45,56 @@ class ScanNetSparseVoxelMap(object):
     - joint states/head camera pose
     - base pose (relative to world frame)
 
+    - Add option to cache Instance Segmentation + Pixel features
     This is an example collecting the data; not necessarily the way you should do it.
     """
 
     def __init__(
         self,
-        semantic_sensor=None,
+        semantic_sensor: Optional[OvmmPerception] = None,
+        voxel_map: Optional[SparseVoxelMap] = None,
         visualize_planner=False,
-        voxel_size: float = 0.01,
-        background_instance_label=-1,
         device="cpu",
+        cache_dir: Optional[Union[Path, str]] = None,
     ):
         self.device = device
         self.semantic_sensor = semantic_sensor
+        self.voxel_map = voxel_map
         self.visualize_planner = visualize_planner
+        self.cache_dir = cache_dir
 
-        self.voxel_map = SparseVoxelMap(
-            background_instance_label=background_instance_label,
-            resolution=voxel_size,
-            # min_iou=0.25
-        )
+        if voxel_map is None:
+            _default_args = dict(
+                resolution=0.01,
+                background_instance_label=-1,
+            )
+            self.voxel_map = SparseVoxelMap(**_default_args)
 
+    ##############################################
+    # Add new observations
+    ##############################################
     def step(self, obs: Observations, visualize_map=False):
         """Step the collector. Get a single observation of the world. Remove bad points, such as
         those from too far or too near the camera."""
-
         device = self.device
 
         if self.semantic_sensor is not None:
             # This is slow because it gets passed back + forth to the CPU
-            obs = Observations(
-                rgb=obs.cpu().numpy(), gps=None, compass=None, depth=None
+            # And is done one-at-a-time.
+            # Would be good to try caching these
+            obs_for_semantic_sensor = Observations(
+                rgb=obs.rgb.cpu().numpy(), gps=None, compass=None, depth=None
             )
-            res = self.semantic_sensor.predict(obs).task_observations
+            res = self.semantic_sensor.predict(
+                obs_for_semantic_sensor
+            ).task_observations
             instance_image = torch.from_numpy(res["instance_map"]).int().to(device)
             instance_classes = (
                 torch.from_numpy(res["instance_classes"]).int().to(device)
             )
-            instance_scores = torch.from_numpy(res["instance_scores"]).int().to(device)
+            instance_scores = (
+                torch.from_numpy(res["instance_scores"]).float().to(device)
+            )
             # semantic_frame = torch.from_numpy(res['semantic_frame']
         else:
             instance_image = obs.instance
@@ -81,7 +104,7 @@ class ScanNetSparseVoxelMap(object):
         self.voxel_map.add(
             rgb=obs.rgb.float() / 255.0,
             depth=obs.depth.squeeze(-1),
-            feats=obs.task_observations["features"],
+            feats=obs.task_observations.get("features", None),
             camera_K=obs.camera_K,
             camera_pose=obs.camera_pose,  # scene_obs['axis_align_mats'][i] @ scene_obs['poses'][i],
             instance_image=instance_image,
@@ -93,6 +116,42 @@ class ScanNetSparseVoxelMap(object):
             # Now draw 2d
             self.voxel_map.get_2d_map(debug=True)
 
+    def step_trajectory(
+        self, obs_list: Sequence[Observations], cache_key: Optional[str] = None
+    ):
+        if cache_key is not None:
+            # load from cache
+            assert self.cache_dir is not None
+            raise NotImplementedError
+        else:
+            for i, obs in enumerate(obs_list):
+                self.step(obs)
+            if self.cache_dir is not None:
+                # Save to cache
+                raise NotImplementedError
+        print(f"Found {len(self.voxel_map.get_instances())} instances")
+
+    ##############################################
+    # Language queries that return instances
+    ##############################################
+    def set_vocabulary(self, vocabulary: Dict[int, str]):
+        vocabulary = RearrangeDETICCategories(vocabulary)
+        self.semantic_sensor.update_vocabulary_list(vocabulary, SemanticVocab.SIMPLE)
+        self.semantic_sensor.set_vocabulary(SemanticVocab.SIMPLE)
+        return self.semantic_sensor.current_vocabulary
+
+    def get_instances_for_query(self, text_query: str) -> List[Instance]:
+        assert (
+            text_query in self.semantic_sensor.name_to_seg_id
+        ), f"{text_query} not in semantic_sensor vocabulary (current vocab: {self.semantic_sensor.current_vocabulary_id})"
+        query_class_id = self.semantic_sensor.name_to_seg_id[text_query]
+        instances = self.voxel_map.get_instances()
+        instances = [inst for inst in instances if inst.category_id == query_class_id]
+        return instances
+
+    ##############################################
+    # 2D map projections for planning
+    ##############################################
     def get_2d_map(self):
         """Get 2d obstacle map for low level motion planning and frontier-based exploration"""
         return self.voxel_map.get_2d_map()
@@ -132,7 +191,9 @@ class ScanNetSparseVoxelMap(object):
 
 
 if __name__ == "__main__":
-    from eval.utils import eval_bboxes_and_print
+    from evaluation.obj_det import eval_bboxes_and_print
+
+    from home_robot.perception.detection.detic.detic_perception import DeticPerception
 
     parser = argparse.ArgumentParser(
         prog="build_3d_map",
@@ -236,7 +297,10 @@ if __name__ == "__main__":
         scene_obs[key] = scene_obs[key].to(torch_device)
 
     # Add to ScanNetSparseVoxelMap
-    sn_svm = ScanNetSparseVoxelMap()
+    sn_svm = SparseVoxelMapAgent(
+        background_instance_label=-1,
+        resolution=0.01,
+    )
     n_frames = len(scene_obs["images"])
     with torch.no_grad():
         for i in tqdm(range(n_frames), desc="Adding observations to map"):
@@ -285,6 +349,7 @@ if __name__ == "__main__":
         box_pred_scores=[scores],
         match_within_class=True,
         iou_thr=(0.25, 0.5, 0.75),
+        # label_to_cat=
     )
 
     if args.show_open3d:

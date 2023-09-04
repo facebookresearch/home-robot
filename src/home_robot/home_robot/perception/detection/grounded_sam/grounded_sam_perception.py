@@ -117,9 +117,17 @@ class GroundedSAMPerception(PerceptionModule):
         # Predict classes and hyper-param for GroundingDINO
         CLASSES = self.custom_vocabulary
         height, width, _ = obs.rgb.shape
+
+        # convert to uint8 instead of silently failing by returning no instances
+        image = obs.rgb
+        if not image.dtype == np.uint8:
+            if image.max() <= 1.0:
+                image = image * 255.0
+            image = image.astype(np.uint8)
+
         # detect objects
         detections = self.grounding_dino_model.predict_with_classes(
-            image=obs.rgb,
+            image=image,
             classes=CLASSES,
             box_threshold=self.box_threshold,
             text_threshold=self.text_threshold,
@@ -142,7 +150,7 @@ class GroundedSAMPerception(PerceptionModule):
         detections.class_id = detections.class_id[nms_idx]
 
         # convert detections to masks
-        detections.mask = self.segment(image=obs.rgb, xyxy=detections.xyxy)
+        detections.mask = self.segment(image=image, xyxy=detections.xyxy)
 
         if depth_threshold is not None and obs.depth is not None:
             detections.mask = np.array(

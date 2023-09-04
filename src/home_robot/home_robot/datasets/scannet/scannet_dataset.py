@@ -103,6 +103,7 @@ class ScanNetDataset(object):
         root_dir: Union[str, Path],
         split: str = "train",
         keep_only_scenes: Optional[List[str]] = None,
+        keep_only_first_k_scenes: int = -1,
         frame_skip: int = 1,
         height: Optional[int] = 480,
         width: Optional[int] = 640,
@@ -176,11 +177,13 @@ class ScanNetDataset(object):
         assert (self.height is None) == (self.width is None)  # Neither or both
         self.frame_skip = frame_skip
 
+        # Create scene list
         with open(self.root_dir / "meta_data" / f"scannetv2_{split}.txt", "rb") as f:
             self.scene_list = [line.rstrip().decode() for line in f]
         if keep_only_scenes is not None:
             self.scene_list = [s for s in self.scene_list if s in keep_only_scenes]
         self.scene_list = natsorted(self.scene_list)
+        self.scene_list = self.scene_list[:keep_only_first_k_scenes]
         assert len(self.scene_list) > 0
 
         # Referit3d
@@ -234,8 +237,13 @@ class ScanNetDataset(object):
                 ]
             )
         )[:: self.frame_skip]
-        assert len(img_names) == len(depth_names)
-        assert len(img_names) == len(pose_names)
+        assert len(img_names) > 0, f"Found zero images for scene {scan_name}"
+        assert len(img_names) == len(
+            depth_names
+        ), f"Unequal number of color and depth images for scene {scan_name} ({len(img_names)} != ({len(depth_names)}))"
+        assert len(img_names) == len(
+            pose_names
+        ), f"Unequal number of color and poses for scene {scan_name} ({len(img_names)} != ({len(pose_names)}))"
 
         # 2D instance masks
         #   Not implemented yet
@@ -259,7 +267,7 @@ class ScanNetDataset(object):
 
         data = self.find_data(scan_name)
 
-        # 2D information
+        # Intrinsics shared across images
         K = torch.from_numpy(np.loadtxt(data["intrinsic_path"]).astype(np.float32))
         axis_align_mat = torch.from_numpy(np.load(data["axis_align_path"])).float()
         K[0] *= float(self.width) / self.DEFAULT_WIDTH  # scale_x
@@ -268,9 +276,12 @@ class ScanNetDataset(object):
         poses, intrinsics, images, depths = [], [], [], []
         boxes_aligned, axis_align_mats = [], []
         image_paths = []
+
+        # Load all images
+        # for i, (img, depth, pose) in enumerate(zip(data["img_paths"], data["depth_paths"], data["pose_paths"])):
         for i, (img, depth, pose) in enumerate(
             maybe_show_progress(
-                zip(data["img_paths"], data["depth_paths"], data["pose_paths"]),
+                list(zip(data["img_paths"], data["depth_paths"], data["pose_paths"])),
                 description=f"Loading scene {scan_name}",
                 length=len(data["img_paths"]),
                 show=show_progress,
@@ -283,6 +294,7 @@ class ScanNetDataset(object):
             pose = axis_align_mat @ torch.from_numpy(pose.astype(np.float32)).float()
             # We cannot accept files directly, as some of the poses are invalid
             if np.isinf(pose).any():
+                print(f"Found inf pose in {scan_name}")
                 continue
 
             image_paths.append(img)
@@ -305,7 +317,7 @@ class ScanNetDataset(object):
         depths = torch.stack(depths).float()
         axis_align_mats = torch.stack(axis_align_mats).float()
 
-        # 3D information
+        # Load bounding boxes
         boxes_aligned, box_classes, box_obj_ids = load_3d_bboxes(
             data["bboxs_aligned_path"]
         )
@@ -334,6 +346,7 @@ class ScanNetDataset(object):
             ][column_names]
             ref_expr_df = pd.concat([scanrefer_expr, r3d_expr])
 
+        # Return as dict
         return dict(
             # Pose
             poses=poses,
@@ -353,12 +366,17 @@ class ScanNetDataset(object):
             ref_expr=ref_expr_df,
         )
 
+    def __len__(self):
+        return len(self.scene_list)
+
 
 def maybe_show_progress(iterable, description, length, show=False):
-    if not show:
-        return iterable
-    for x in tqdm(iterable, desc=description, total=length):
-        yield x
+    if show:
+        for x in tqdm(iterable, desc=description, total=length):
+            yield x
+    else:
+        for x in iterable:
+            yield x
 
 
 ##################################

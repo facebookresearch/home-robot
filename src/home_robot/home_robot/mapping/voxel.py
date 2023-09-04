@@ -2,6 +2,7 @@
 #
 # This source code is licensed under the MIT license found in the
 # LICENSE file in the root directory of this source tree.
+import copy
 import pickle
 from collections import namedtuple
 from pathlib import Path
@@ -50,6 +51,11 @@ def ensure_tensor(arr):
 class SparseVoxelMap(object):
     """Create a voxel map object which captures 3d information."""
 
+    DEFAULT_INSTANCE_MAP_KWARGS = dict(
+        du_scale=1,
+        instance_association="bbox_iou",
+    )
+
     def __init__(
         self,
         resolution=0.01,
@@ -78,7 +84,9 @@ class SparseVoxelMap(object):
         self.min_depth = min_depth
         self.max_depth = max_depth
         self.background_instance_label = background_instance_label
-        self.instance_memory_kwargs = instance_memory_kwargs
+        self.instance_memory_kwargs = update(
+            copy.deepcopy(self.DEFAULT_INSTANCE_MAP_KWARGS), instance_memory_kwargs
+        )
         self.voxel_kwargs = voxel_kwargs
 
         # TODO: This 2D map code could be moved to another class or helper function
@@ -111,8 +119,6 @@ class SparseVoxelMap(object):
         # Create an instance memory to associate bounding boxes in space
         self.instances = InstanceMemory(
             num_envs=1,
-            du_scale=1,
-            instance_association="bbox_iou",
             **self.instance_memory_kwargs,
         )
         # Create voxelized pointcloud
@@ -145,7 +151,7 @@ class SparseVoxelMap(object):
 
     def get_instances(self) -> List[InstanceView]:
         """Return a list of all viewable instances"""
-        return tuple(self.instances.instance_views[0].values())
+        return tuple(self.instances.instances[0].values())
 
     def add(
         self,

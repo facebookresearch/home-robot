@@ -3,8 +3,9 @@
 # This source code is licensed under the MIT license found in the
 # LICENSE file in the root directory of this source tree.
 
-from dataclasses import dataclass
-from typing import Dict, List, Optional, Tuple
+import warnings
+from dataclasses import dataclass, field
+from typing import Dict, List, Optional, Sequence, Tuple
 
 import numpy as np
 import torch
@@ -13,7 +14,10 @@ from torch import Tensor
 
 from home_robot.core.interfaces import Observations
 from home_robot.utils.bboxes_3d import (
+    box3d_intersection_from_bounds,
+    box3d_nms,
     box3d_overlap_from_bounds,
+    box3d_volume_from_bounds,
     get_box_bounds_from_verts,
     get_box_verts_from_bounds,
 )
@@ -62,28 +66,74 @@ class InstanceView:
     """TODO: rename to points_3d"""
 
 
+@dataclass
 class Instance:
     """
     A single instance found in the environment. Each instance is composed of a list of InstanceView objects, each of which is a view of the instance at a particular timestep.
     """
 
-    def __init__(self):
-        """
-        Initialize Instance
+    name: str = None
+    category_id: int = None
+    """ingeger indicating the category"""
+    point_cloud: Tensor = None
+    """point_cloud: aggregated point cloud for the instance """
+    point_cloud_rgb: Tensor = None
+    """point_cloud_rgb: aggregated point cloud colors for the instance """
+    point_cloud_features: Tensor = None
+    """point_cloud_features: aggregated point cloud features for the instance """
+    bounds: Tensor = None
+    """ 3 x 2 mins and maxes """
+    instance_views: List[InstanceView] = field(default_factory=list)
+    """List of all instance views"""
+    score: float = None
+    """Confidence score of bbox detection"""
+    score_aggregation_method: str = "max"
 
-        name: name of instance
-        category_id: category id of instance
-        point_cloud: aggregated point cloud for the instance
-        bounds Tuple[np.ndarray, np.ndarray]: bounding box of the aggregated point cloud
-        instance_views: list of InstanceView objects
-        """
-        self.name = None
-        self.category_id = None
-        self.point_cloud = None
-        self.point_cloud_rgb = None
-        self.point_cloud_features = None
-        self.bounds = None
-        self.instance_views = []
+    def add_instance_view(self, instance_view: InstanceView):
+        if len(self.instance_views) == 0:
+            # instantiate from instance
+            self.category_id = instance_view.category_id
+            self.instance_views.append(instance_view)
+            self.bounds = instance_view.bounds
+            self.point_cloud = instance_view.point_cloud
+            self.point_cloud_rgb = instance_view.point_cloud_rgb
+            self.point_cloud_features = instance_view.point_cloud_features
+            self.score = instance_view.score
+        else:
+            # Right now we concatenate point clouds
+            # To keep the number of points manageable, we could make the pointcloud a VoxelizedPointcloud class
+            self.point_cloud = torch.cat(
+                [self.point_cloud, instance_view.point_cloud], dim=0
+            )
+            if self.point_cloud_rgb is not None:
+                self.point_cloud_rgb = torch.cat(
+                    [self.point_cloud_rgb, instance_view.point_cloud_rgb],
+                    dim=0,
+                )
+            if self.point_cloud_features is not None:
+                self.point_cloud_features = torch.cat(
+                    [
+                        self.point_cloud_features,
+                        instance_view.point_cloud_features,
+                    ],
+                    dim=0,
+                )
+            if self.score_aggregation_method == "max":
+                self.score = max(self.score, instance_view.score)
+            elif self.score_aggregation_method == "mean":
+                self.score = (
+                    self.score * len(self.instance_views) + instance_view.score
+                ) / (len(self.instance_views) + 1)
+            else:
+                raise NotImplementedError(
+                    f'Unknown score_aggregation_method "{self.score_aggregation_method}"'
+                )
+
+            # add instance view to global instance
+            # do this last because we use the current length for computing average score above
+            self.instance_views.append(instance_view)
+
+            self.bounds = get_bounds(self.point_cloud)
 
     def _show_point_cloud_pytorch3d(self, **plot_scene_kwargs):
         """Visualize an instance in the map
@@ -170,7 +220,7 @@ class InstanceMemory:
     """
 
     images: List[Tensor] = []
-    instance_views: List[Dict[int, Instance]] = []
+    instances: List[Dict[int, Instance]] = []
     point_cloud: List[Tensor] = []
     unprocessed_views: List[Dict[int, InstanceView]] = []
     timesteps: List[int] = []
@@ -181,9 +231,11 @@ class InstanceMemory:
         du_scale: int,
         instance_association: str = "bbox_iou",
         iou_threshold: float = 0.8,
+        global_box_nms_thresh: float = 0.0,
         debug_visualize: bool = False,
         erode_mask_num_pix: int = 0,
         erode_mask_num_iter: int = 1,
+        instance_view_score_aggregation_mode="max",
     ):
         """See class definition for information about InstanceMemory
 
@@ -192,9 +244,11 @@ class InstanceMemory:
             du_scale (int): Downsample images by 1 / du_scale
             instance_association (str, optional): Instance association method. Defaults to "bbox_iou".
             iou_threshold (float, optional): Threshold for associating instance views to global memory. Defaults to 0.8.
+            global_box_nms_thresh (float): If nonzero, perform nonmax suppression on global bboxes after associating instances to memory
             debug_visualize (bool, optional): Visualize by writing out to disk. Defaults to False.
             erode_mask_num_pix (int, optional): If nonzero, how many pixels to erode instance masks. Defaults to 0.
-            erode_mask_num_iter (int, optional): If nonzero, how times to iterate erode instance masks. Defaults to 1.
+            erode_mask_num_iter (int, optional): If erode_mask_num_pix is nonzero, how times to iterate erode instance masks. Defaults to 1.
+            instance_view_score_aggregation_mode (str): When adding views to an instance, how to update instance scores. Defaults to 'max'
         """
         self.num_envs = num_envs
         self.du_scale = du_scale
@@ -203,6 +257,8 @@ class InstanceMemory:
         self.iou_threshold = iou_threshold
         self.erode_mask_num_pix = erode_mask_num_pix
         self.erode_mask_num_iter = erode_mask_num_iter
+        self.global_box_nms_thresh = global_box_nms_thresh
+        self.instance_view_score_aggregation_mode = instance_view_score_aggregation_mode
 
         if self.debug_visualize:
             import shutil
@@ -216,45 +272,90 @@ class InstanceMemory:
         """
         self.images = [None for _ in range(self.num_envs)]
         self.point_cloud = [None for _ in range(self.num_envs)]
-        self.instance_views = [{} for _ in range(self.num_envs)]
+        self.instances = [{} for _ in range(self.num_envs)]
         self.unprocessed_views = [{} for _ in range(self.num_envs)]
         self.timesteps = [0 for _ in range(self.num_envs)]
 
-    def get_bbox_overlap_np(
-        self,
-        local_bbox: Tuple[np.ndarray, np.ndarray],
-        global_bboxes: List[Tuple[np.ndarray, np.ndarray]],
-    ):
+    def get_instance(self, env_id: int, global_instance_id: int) -> Instance:
         """
-        Calculate Intersection over Union (IoU) scores between a local 3D bounding box and a list of global 3D bounding boxes.
+        Retrieve an instance given an environment ID and a global instance ID.
 
         Args:
-            local_bbox (Tuple[np.ndarray, np.ndarray]): Bounding box of a point cloud obtained from the local instance in the current frame.
-            global_bboxes (List[Tuple[np.ndarray, np.ndarray]]): List of bounding boxes of instances obtained by aggregating point clouds across different views.
+            env_id (int): The environment ID.
+            global_instance_id (int): The global instance ID within the specified environment.
 
         Returns:
-            ious (np.ndarray): IoU scores between the local_bbox and each of the global_bboxes.
+            Instance: The Instance object associated with the given IDs.
         """
-        global_bboxes_min, global_bboxes_max = zip(*global_bboxes)
-        global_bboxes_min = np.stack(global_bboxes_min, axis=0)
-        global_bboxes_max = np.stack(global_bboxes_max, axis=0)
-        intersection_min = np.maximum(
-            np.expand_dims(local_bbox[0], 0), global_bboxes_min
-        )
-        intersection_max = np.minimum(
-            np.expand_dims(local_bbox[1], 0), global_bboxes_max
-        )
-        zero_iou = (intersection_min > intersection_max).any(axis=-1)
-        intersection = np.prod(intersection_max - intersection_min, axis=-1)
-        union = (
-            np.prod(global_bboxes_max - global_bboxes_min, axis=-1)
-            + np.prod(local_bbox[1] - local_bbox[0])
-            - intersection
-        )
-        ious = intersection / union
-        ious[zero_iou] = 0.0
-        ious[np.isnan(ious)] = 0.0
-        return ious
+        return self.instances[env_id][global_instance_id]
+
+    def get_global_instance_ids(self, env_id: int) -> List[int]:
+        """
+        Get the list of global instance IDs associated with a given environment ID.
+
+        Args:
+            env_id (int): The environment ID.
+
+        Returns:
+            List[int]: A list of global instance IDs associated with the environment.
+        """
+        return list(self.instances[env_id].keys())
+
+    def get_instances(
+        self, env_id: int, global_instance_idxs: Optional[Sequence[int]] = None
+    ) -> List[Instance]:
+        """
+        Retrieve a list of instances for a given environment ID. If instance indexes are specified, only instances
+        with those indexes will be returned.
+
+        Args:
+            env_id (int): The environment ID.
+            global_instance_idxs (Optional[Sequence[int]]): The global instance IDs to retrieve. If None, all instances
+                                                    for the given environment will be returned. Defaults to None.
+
+        Returns:
+            List[Instance]: List of Instance objects associated with the given IDs.
+        """
+        if global_instance_idxs is None:
+            return self.instances[env_id]
+        return [self.instances[env_id][g_id] for g_id in global_instance_idxs]
+
+    def pop_global_instance(
+        self, env_id: int, global_instance_id: int, skip_reindex: bool = False
+    ) -> Instance:
+        """
+        Remove and return an instance given an environment ID and a global instance ID. Optionally skip reindexing of
+        global instance IDs.
+
+        Args:
+            env_id (int): The environment ID.
+            global_instance_id (int): The global instance ID to remove.
+            skip_reindex (bool): Whether to skip reindexing of global instance IDs. Defaults to False.
+
+        Returns:
+            Instance: The removed Instance object.
+        """
+        instance = self.instances[env_id].pop(global_instance_id)
+        if not skip_reindex:
+            self.reindex_global_instances()
+        return instance
+
+    def reindex_global_instances(self, env_id: int) -> Dict[int, Instance]:
+        """
+        Reindex the global instance IDs within a specified environment. This is typically used after removing an instance
+        to ensure that the global instance IDs are contiguous. Mutates self.instances.
+
+        Args:
+            env_id (int): The environment ID for which to reindex global instance IDs.
+
+        Returns:
+            Dict[int, Instance]: The newly indexed dictionary of Instance objects for the given environment.
+        """
+        ids, instances = zip(*self.instances[env_id].items())
+        new_ids = range(len(ids))
+        new_env_instances = dict(zip(new_ids, instances))
+        self.instances[env_id] = new_env_instances
+        return self.instances[env_id]
 
     def find_global_instance_by_bbox_overlap(
         self, env_id: int, local_instance_id: int
@@ -280,12 +381,12 @@ class InstanceMemory:
             If no instances meet the criteria, the method returns None.
         """
 
-        if len(self.instance_views[env_id]) == 0:
+        if len(self.instances[env_id]) == 0:
             return None
         global_instance_ids, global_bounds = zip(
             *[
                 (inst_id, instance.bounds)
-                for inst_id, instance in self.instance_views[env_id].items()
+                for inst_id, instance in self.instances[env_id].items()
             ]
         )
         # get instance view
@@ -295,6 +396,115 @@ class InstanceMemory:
                 instance_view.bounds.unsqueeze(0), torch.stack(global_bounds, dim=0)
             )
             ious = iou.flatten()
+            if ious.max() > self.iou_threshold:
+                return global_instance_ids[ious.argmax()]
+        return None
+
+    def find_global_instance_by_one_sided_iou(
+        self, env_id: int, local_instance_id: int
+    ) -> Optional[int]:
+        """
+        Find the global instance ID that has the maximum one-sided Intersection over Union (IoU)
+        with the local instance identified by the local_instance_id in the environment specified by env_id.
+
+        Args:
+            env_id (int): The environment ID.
+            local_instance_id (int): The local instance ID whose global counterpart needs to be found.
+
+        Returns:
+            Optional[int]: The global instance ID with the maximum one-sided IoU.
+                        Returns None if no such global instance is found or if the maximum IoU
+                        is below the threshold.
+        """
+        # get instance view
+        instance_view = self.get_local_instance_view(env_id, local_instance_id)
+        volume1 = box3d_volume_from_bounds(instance_view.bounds)
+        assert torch.all(volume1 > 0.0), volume1
+        if instance_view is not None:
+            global_instance_ids = self.get_global_instance_ids(env_id)
+            if len(global_instance_ids) == 0:
+                return None
+            global_bounds = [
+                inst.bounds
+                for inst in self.get_instances(
+                    env_id=env_id, global_instance_idxs=global_instance_ids
+                )
+            ]
+
+            global_bounds = torch.stack(global_bounds, dim=0)
+            vol2 = box3d_volume_from_bounds(global_bounds)
+            assert torch.all(vol2 > 0.0), vol2
+            print(volume1, vol2)
+            vol_int, _ = box3d_overlap_from_bounds(
+                instance_view.bounds.unsqueeze(0), global_bounds
+            )
+
+            ious = vol_int / volume1
+            assert ious.ndim == 2 and ious.shape[0] == 1, ious.shape
+            ious = ious.flatten()
+
+            if ious.max() > self.iou_threshold:
+                return global_instance_ids[ious.argmax()]
+        return None
+
+    def find_global_instance_by_pointcloud_overlap(
+        self, env_id: int, local_instance_view_id: int
+    ) -> Optional[int]:
+        """
+        Find the global instance ID that has the most overlapping points in the point cloud
+        with the local instance identified by `local_instance_id` in the environment specified by `env_id`.
+
+        This function performs the following steps to associate the local instance with a global instance:
+        1. Compute the 3D box intersection between the local instance's 3D bounding box and those of all global instances.
+        2. Filter both local and global instance point clouds by this intersection.
+        3. Compute the distance to the nearest global points from the local instance's point cloud.
+                nearest_global_point = knn(instance_view.points_filtered, global_instance.points_filtered)
+        4. Determine the percentage of points in the local instance's filtered point cloud that are near to points in the global instances' point clouds.
+                points_matched = % of instance_view.points_filtered[nearest_point_dist < dist_thresh]
+        5. Associate the local instance with the global instance based on one of the following metrics:
+            - The (% matched points) * one-sided IoU: one_sided_IoU * points_matched.mean()
+            - The sum of matched points * points_matched.sum()
+
+        Args:
+            env_id (int): The environment ID.
+            local_instance_view_id (int): The local instance view ID whose global counterpart needs to be found.
+
+        Returns:
+            Optional[int]: The global instance ID with the most point cloud overlap.
+                        Returns None if no such global instance is found.
+
+        TODO:
+            - Optimize by having global instances store a voxelized point cloud to keep the number of points manageable.
+        """
+        raise NotImplementedError
+        # get instance view
+        instance_view = self.get_local_instance_view(env_id, local_instance_view_id)
+        volume1 = box3d_volume_from_bounds(instance_view.bounds)
+
+        if instance_view is not None:
+            global_instance_ids = self.get_global_instance_ids(env_id)
+            if len(global_instance_ids) == 0:
+                return None
+            global_bounds = [
+                inst.bounds
+                for inst in self.get_instances(
+                    env_id=env_id, global_instance_idxs=global_instance_ids
+                )
+            ]
+
+            global_bounds = torch.stack(global_bounds, dim=0)
+            vol_int, iou, intersection_bounds = box3d_intersection_from_bounds(
+                instance_view.bounds.unsqueeze(0), global_bounds
+            )
+            # 2. Filter by intersection_bounds
+            # 3. nearest_global_point = knn(instance_view.points_filtered, global_instance.points_filtered)
+            # 4. points_matched = % of instance_view.points_filtered[nearest_point_dist < dist_thresh]
+            # 5.
+
+            ious = vol_int / volume1
+            assert ious.ndim == 2 and ious.shape[0] == 1, ious.shape
+            ious = ious.flatten()
+
             if ious.max() > self.iou_threshold:
                 return global_instance_ids[ious.argmax()]
         return None
@@ -331,16 +541,87 @@ class InstanceMemory:
                             env_id, local_instance_id
                         )
                         if global_instance_id is None:
-                            global_instance_id = len(self.instance_views[env_id])
+                            global_instance_id = len(self.instances[env_id])
                         self.add_view_to_instance(
                             env_id, local_instance_id, global_instance_id
                         )
-
+        if self.instance_association == "bbox_one_sided_iou":
+            for env_id in range(self.num_envs):
+                for local_instance_id, instance_view in self.unprocessed_views[
+                    env_id
+                ].items():
+                    if self.instance_association == "bbox_one_sided_iou":
+                        global_instance_id = self.find_global_instance_by_one_sided_iou(
+                            env_id, local_instance_id
+                        )
+                        if global_instance_id is None:
+                            global_instance_id = len(self.instances[env_id])
+                        self.add_view_to_instance(
+                            env_id, local_instance_id, global_instance_id
+                        )
         elif self.instance_association == "map_overlap":
             # association happens at the time of global map update
             pass
         else:
             raise NotImplementedError
+
+        if self.global_box_nms_thresh > 0.0:
+            for env_id in range(self.num_envs):
+                self.global_instance_nms(env_id)
+
+    def global_instance_nms(
+        self,
+        env_id,
+        nms_iou_thresh: Optional[float] = None,
+        within_category: bool = True,
+    ) -> None:
+        """
+        Perform Non-Maximum Suppression (NMS) on global instances within the specified environment.
+
+        This function performs NMS based on 3D bounding boxes and confidence scores. Instances that have a high overlap (IoU)
+        and lower confidence scores are removed, and their instance views are added to the instance that is kept. The instances
+        are reindexed after the NMS operation.
+
+        Args:
+            env_id: The environment ID where the global instances are located.
+            nms_iou_thresh (Optional[float]): The IoU threshold for performing NMS.
+                If not provided, the function uses the global_box_nms_thresh
+                class variable as the threshold.
+            within_category (bool): Only do NMS on objects of the same category
+
+        Returns:
+            None: This function modifies the internal state of the InstanceMemory object but does not return any value.
+
+        Example usage:
+            >>> instance_memory.global_instance_nms(env_id=0, nms_iou_thresh=0.5)
+
+        Note:
+            This function directly modifies the internal list of instances (`self.instances`) and
+            reindexes them after the NMS operation.
+        """
+        if within_category:
+            raise NotImplementedError
+        if nms_iou_thresh is None:
+            nms_iou_thresh = self.global_box_nms_thresh
+        global_instance_ids = self.get_global_instance_ids(env_id)
+        instances = self.get_instances(env_id, global_instance_ids)
+        instance_bounds = torch.stack([inst.bounds for inst in instances], dim=0)
+        instance_corners = get_box_verts_from_bounds(instance_bounds)
+        confidences = torch.stack([inst.score for inst in instances], dim=0)
+        keep, vol, iou, assignments = box3d_nms(
+            instance_corners, confidence_score=confidences, iou_threshold=nms_iou_thresh
+        )
+        for keep_id, delete_ids in assignments.items():
+            inst_to_keep = self.get_instance(
+                env_id=env_id, global_instance_id=int(keep_id)
+            )
+            for delete_id in delete_ids:
+                inst_to_delete = self.pop_global_instance(
+                    env_id, global_instance_id=int(delete_id), skip_reindex=True
+                )
+                for view in inst_to_delete.instance_views:
+                    inst_to_keep.add_instance_view(view)
+        self.reindex_global_instances(env_id)
 
     def get_local_instance_view(self, env_id: int, local_instance_id: int):
         """
@@ -392,39 +673,13 @@ class InstanceMemory:
         instance_view = self.get_local_instance_view(env_id, local_instance_id)
 
         # get global instance
-        global_instance = self.instance_views[env_id].get(global_instance_id, None)
+        global_instance = self.instances[env_id].get(global_instance_id, None)
         if global_instance is None:
-            # create a new global instance
-            global_instance = Instance()
-            global_instance.category_id = instance_view.category_id
-            global_instance.instance_views.append(instance_view)
-            global_instance.bounds = instance_view.bounds
-            global_instance.point_cloud = instance_view.point_cloud
-            global_instance.point_cloud_rgb = instance_view.point_cloud_rgb
-            global_instance.point_cloud_features = instance_view.point_cloud_features
-            self.instance_views[env_id][global_instance_id] = global_instance
-        else:
-            # add instance view to global instance
-            global_instance.instance_views.append(instance_view)
-            # Right now we concatenate point clouds
-            # To keep the number of points manageable, we could do voxel downsampling
-            global_instance.point_cloud = torch.cat(
-                [global_instance.point_cloud, instance_view.point_cloud], dim=0
+            global_instance = Instance(
+                score_aggregation_method=self.instance_view_score_aggregation_mode
             )
-            if global_instance.point_cloud_rgb is not None:
-                global_instance.point_cloud_rgb = torch.cat(
-                    [global_instance.point_cloud_rgb, instance_view.point_cloud_rgb],
-                    dim=0,
-                )
-            if global_instance.point_cloud_features is not None:
-                global_instance.point_cloud_features = torch.cat(
-                    [
-                        global_instance.point_cloud_features,
-                        instance_view.point_cloud_features,
-                    ],
-                    dim=0,
-                )
-            global_instance.bounds = get_bounds(global_instance.point_cloud)
+            self.instances[env_id][global_instance_id] = global_instance
+        global_instance.add_instance_view(instance_view)
 
         if self.debug_visualize:
             import os
@@ -617,8 +872,19 @@ class InstanceMemory:
             point_cloud_instance = point_cloud[point_mask_downsampled]
             point_cloud_rgb_instance = image.permute(1, 2, 0)[point_mask_downsampled]
 
-            if instance_mask_downsampled.sum() > 0 and point_mask_downsampled.sum() > 0:
+            n_points = point_mask_downsampled.sum()
+            n_mask = instance_mask_downsampled.sum()
+
+            if n_mask > 0 and n_points > 0:
                 bounds = get_bounds(point_cloud_instance)
+                volume = float(box3d_volume_from_bounds(bounds).squeeze())
+                if volume < 1e-6:
+                    warnings.warn(
+                        RuntimeError(
+                            f"Skipping box with {n_points} points in cloud and {n_points} points in mask and {volume} volume"
+                        )
+                    )
+                    continue
                 # get instance view
                 instance_view = InstanceView(
                     bbox=bbox,
@@ -696,7 +962,7 @@ class InstanceMemory:
         self.associate_instances_to_memory()
 
     def reset_for_env(self, env_id: int):
-        self.instance_views[env_id] = {}
+        self.instances[env_id] = {}
         self.images[env_id] = None
         self.point_cloud[env_id] = None
         self.unprocessed_views[env_id] = {}
