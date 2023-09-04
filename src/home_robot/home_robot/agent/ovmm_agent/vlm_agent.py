@@ -7,6 +7,7 @@ import pdb
 import warnings
 from enum import IntEnum, auto
 from typing import Any, Dict, Optional, Tuple
+import shutil
 import os
 import clip
 import matplotlib.pyplot as plt
@@ -52,11 +53,16 @@ class VLMAgent(OpenVocabManipAgent):
             self.set_task(args.task)
         self.vlm = Predictor(args)
         print("VLM Agent created")
-        self.vlm_freq = 3
+        self.vlm_freq = 10
         self.high_level_plan = None
         self.max_context_length = 20
         self.planning_times = 1
         self.remaining_actions = None
+
+        # print_image currently breaks
+        self.obs_path = "data_obs/"
+        shutil.rmtree(self.obs_path, ignore_errors=True)
+        os.makedirs(self.obs_path, exist_ok=True)
 
     def _explore(
         self, obs: Observations, info: Dict[str, Any]
@@ -99,7 +105,7 @@ class VLMAgent(OpenVocabManipAgent):
         new_state = None
         if terminate:
             action = None
-            new_state = Skill.GAZE_AT_OBJ
+            new_state = True
         return action, info, new_state
 
     def _gaze_at_obj(
@@ -225,27 +231,20 @@ class VLMAgent(OpenVocabManipAgent):
             if len(self.remaining_actions) == 0:
                 return True
             next_skill = self.from_pred_to_skill(self.remaining_actions[0])
-        # if next_skill == Skill.NAV_TO_OBJ:
-        #     # action = DiscreteNavigationAction.NAVIGATION_MODE
+        # if next_skill == Skill.NAV_TO_INSTANCE:
+        #     action = DiscreteNavigationAction.NAVIGATION_MODE
         #     pass
         if next_skill == Skill.GAZE_AT_OBJ:
             self.gaze_at_obj_start_step[e] = self.timesteps[e]
         elif next_skill == Skill.PICK:
             self.pick_start_step[e] = self.timesteps[e]
-        # elif next_skill == Skill.NAV_TO_REC:
-        #     self.timesteps_before_goal_update[e] = 0
-        #     if not self.skip_skills.nav_to_rec:
-        #         action = DiscreteNavigationAction.NAVIGATION_MODE
-        # elif next_skill == Skill.GAZE_AT_REC:
-        #     # We reuse gaze agent between pick and place
-        #     if self.gaze_agent is not None:
-        #         self.gaze_agent.reset_vectorized_for_env(e)
         # elif next_skill == Skill.PLACE:
         #     self.place_start_step[e] = self.timesteps[e]
         # elif next_skill == Skill.FALL_WAIT:
         #     self.fall_wait_start_step[e] = self.timesteps[e]
+        # import pdb
+        # pdb.set_trace()
         self.states[e] = next_skill
-        return False
 
     def from_pred_to_skill(self, pred):
         if "goto" in pred:
@@ -268,13 +267,17 @@ class VLMAgent(OpenVocabManipAgent):
             obs.task_observations["semantic_frame"] = None
         info = self._get_info(obs)
 
+        Image.fromarray(obs.rgb, "RGB").save(self.obs_path +
+                                             str(self.timesteps[0])+'.png')
+
         self.timesteps[0] += 1
         if not self.high_level_plan:
-            if self.timesteps[0] % self.vlm_freq == 0:
+            if self.timesteps[0] % self.vlm_freq == 0 and self.timesteps[0] != 0:
                 for _ in range(self.planning_times):
                     self.world_representation = self.get_obj_centric_world_representation()  # a list of images
                     self.high_level_plan = self.ask_vlm_for_plan(
                         self.world_representation)
+                    # self.high_level_plan = "goto(crop_2); pickup(crop_2); goto(crop_11); goto(crop_4); goto(crop_6)"
                     if self.high_level_plan:
                         print("plan found by VLMs!!!!!!!!")
                         print(self.high_level_plan)
@@ -288,17 +291,11 @@ class VLMAgent(OpenVocabManipAgent):
 
         if self.remaining_actions and len(self.remaining_actions) > 0:
             current_high_level_action = self.remaining_actions[0]
+            # hard code the first action to be nav_to_instance
             if self.states[0] == Skill.EXPLORE:
                 self.states = torch.tensor(
                     [Skill.NAV_TO_INSTANCE] * self.num_environments)
-            # if self.states[0] == Skill.GAZE_AT_OBJ:
-            #     pass
-            # else:
-            #     self.states = torch.tensor([self.from_pred_to_skill(current_high_level_action)] * self.num_environments)
-            # # elif "goto" in current_high_level_action:
-            #     self.states = torch.tensor([Skill.NAV_TO_INSTANCE] * self.num_environments)
-            # elif "pickup" in current_high_level_action:
-            #     self.states = torch.tensor([Skill.PICK] * self.num_environments)
+
         is_finished = False
         action = None
 
@@ -307,32 +304,39 @@ class VLMAgent(OpenVocabManipAgent):
                 obs.task_observations["instance_id"] = 100000000000
                 action, info, new_state = self._explore(obs, info)
             elif self.states[0] == Skill.NAV_TO_INSTANCE:
-                obs.task_observations["instance_id"] = int(self.world_representation[int(
+                current_high_level_action = self.remaining_actions[0]
+                nav_instance_id = int(self.world_representation[int(
                     current_high_level_action.split('(')[1].split(')')[0].split(', ')[0].split('_')[1])].split('.')[0])
+                obs.task_observations["instance_id"] = nav_instance_id
+                print("Navigating to instance of category: " +
+                      str(nav_instance_id))
                 action, info, new_state = self._nav_to_obj(obs, info)
             elif self.states[0] == Skill.GAZE_AT_OBJ:
+                current_high_level_action = self.remaining_actions[0]
                 pick_instance_id = int(self.world_representation[int(current_high_level_action.split(
                     '(')[1].split(')')[0].split(', ')[0].split('_')[1])].split('.')[0])
                 category_id = self.instance_memory.instance_views[0][pick_instance_id].category_id
                 obs.task_observations["object_goal"] = category_id
                 action, info, new_state = self._gaze_at_obj(obs, info)
             elif self.states[0] == Skill.PICK:
+                current_high_level_action = self.remaining_actions[0]
                 pick_instance_id = int(self.world_representation[int(current_high_level_action.split(
                     '(')[1].split(')')[0].split(', ')[0].split('_')[1])].split('.')[0])
                 category_id = self.instance_memory.instance_views[0][pick_instance_id].category_id
-                obs.task_observations["object_goal"] = category_id.item()
+                obs.task_observations["object_goal"] = category_id
                 # import pdb; pdb.set_trace()
                 action, info, new_state = self._pick(obs, info)
-            elif self.states[0] == Skill.PLACE:
-                action, info, new_state = self._place(obs, info)
-            elif self.states[0] == Skill.FALL_WAIT:
-                action, info, new_state = self._fall_wait(obs, info)
+            # elif self.states[0] == Skill.PLACE:
+            #     action, info, new_state = self._place(obs, info)
+            # elif self.states[0] == Skill.FALL_WAIT:
+            #     action, info, new_state = self._fall_wait(obs, info)
             else:
                 raise ValueError
 
             # Since heuristic nav is not properly vectorized, this agent currently only supports 1 env
             # _switch_to_next_skill is thus invoked with e=0
             if new_state:
+                print("Done with current skill...")
                 # mark the current skill as done
                 info["skill_done"] = info["curr_skill"]
                 assert (
@@ -341,12 +345,7 @@ class VLMAgent(OpenVocabManipAgent):
                 # if len(self.remaining_actions) == 0:
                 #     is_finished = True
                 # else:
-                is_finished = self._switch_to_next_skill(0, new_state, info)
-                if is_finished:
-                    break
-            # if self.timesteps[0] >= 30:
-            #     is_finished = True
-            #     break
+                self._switch_to_next_skill(0, new_state, info)
         # update the curr skill to the new skill whose action will be executed
         info["curr_skill"] = Skill(self.states[0].item()).name
         if self.verbose:
