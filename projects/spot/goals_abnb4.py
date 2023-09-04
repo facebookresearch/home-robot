@@ -28,7 +28,7 @@ GOALS = {
         "type": "languagenav",
         "target": "teddy bear",
         "landmarks": [],
-        "instruction": "The beige teddy bear.",
+        "instruction": "The stuffed lion toy",
     },
     "language_bed1": {
         "type": "languagenav",
@@ -42,11 +42,17 @@ GOALS = {
         "landmarks": [],
         "instruction": "The bed with the stuffed animal on top.",
     },
+    "language_bowl1": {
+        "type": "languagenav",
+        "target": "bowl",
+        "landmarks": [],
+        "instruction": "The light blue bowl on the kitchen island",
+    },
     "language_chair1": {
         "type": "languagenav",
         "target": "chair",
         "landmarks": [],
-        "instruction": "The brown chair near the pland with an orange pillow.",
+        "instruction": "The brown chair near the plant with an orange pillow.",
     },
     "language_chair2": {
         "type": "languagenav",
@@ -60,6 +66,12 @@ GOALS = {
         "landmarks": [],
         "instruction": "The grey chair with a white pillow.",
     },
+    "language_chair4": {
+        "type": "languagenav",
+        "target": "chair",
+        "landmarks": [],
+        "instruction": "The small wooden chair at the desk.",
+    },
     "language_couch1": {
         "type": "languagenav",
         "target": "couch",
@@ -72,11 +84,29 @@ GOALS = {
         "landmarks": [],
         "instruction": "The large grey living room couch with many pillows.",
     },
+    "language_cup1": {
+        "type": "languagenav",
+        "target": "cup",
+        "landmarks": [],
+        "instruction": "The red cup on top coffee table.",
+    },
     "language_oven1": {
         "type": "languagenav",
         "target": "oven",
         "landmarks": [],
         "instruction": "The oven.",
+    },
+    "language_plant1": {
+        "type": "languagenav",
+        "target": "potted plant",
+        "landmarks": [],
+        "instruction": "The group of plants in front of the curtain",
+    },
+    "language_plant2": {
+        "type": "languagenav",
+        "target": "potted plant",
+        "landmarks": [],
+        "instruction": "The potted plant on top of the cabinet",
     },
     "language_refrigerator1": {
         "type": "languagenav",
@@ -95,6 +125,18 @@ GOALS = {
         "target": "sink",
         "landmarks": [],
         "instruction": "The kitchen sink.",
+    },
+    "language_toilet1": {
+        "type": "languagenav",
+        "target": "sink",
+        "landmarks": [],
+        "instruction": "The toilet.",
+    },
+    "language_tv1": {
+        "type": "languagenav",
+        "target": "sink",
+        "landmarks": [],
+        "instruction": "The television.",
     },
 }
 replace = {'bear': 'teddy bear', 'table': 'dining table'}

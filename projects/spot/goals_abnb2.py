@@ -220,12 +220,6 @@ GOALS = {
         "type": "languagenav",
         "target": "chair",
         "landmarks": [],
-        "instruction": "The dark blue chair in the bedroom",
-    },
-    "language_chair2": {
-        "type": "languagenav",
-        "target": "chair",
-        "landmarks": [],
         "instruction": "The black chair with red seat",
     },
     "language_chair2": {
@@ -240,24 +234,61 @@ GOALS = {
         "landmarks": [],
         "instruction": "The grey couch",
     },
+    "language_cup1": {
+        "type": "languagenav",
+        "target": "cup",
+        "landmarks": [],
+        "instruction": "The red cup on the kitchen counter.",
+    },
     "language_oven1": {
         "type": "languagenav",
         "target": "oven",
         "landmarks": [],
         "instruction": "The oven.",
     },
-    "language_cup1": {
+    "language_plant1": {
         "type": "languagenav",
-        "target": "cup",
+        "target": "potted plant",
         "landmarks": [],
-        "instruction": "The orange cup.",
+        "instruction": "The large potted plant infront the patterned curtain",
     },
-    "language_refrigerator1": {
+    "language_plant2": {
         "type": "languagenav",
-        "target": "refrigerator",
+        "target": "potted plant",
         "landmarks": [],
-        "instruction": "The refrigerator.",
+        "instruction": "The large potted plant in the bedroom",
     },
+    "language_plant3": {
+        "type": "languagenav",
+        "target": "potted plant",
+        "landmarks": [],
+        "instruction": "The potted plant next to the stairs",
+    },
+    "language_plant4": {
+        "type": "languagenav",
+        "target": "potted plant",
+        "landmarks": [],
+        "instruction": "The potted plant near the kitchen and tv",
+    },
+    "language_plant5": {
+        "type": "languagenav",
+        "target": "potted plant",
+        "landmarks": [],
+        "instruction": "The potted plant next to the refrigerator",
+    },
+
+    "language_plant6": {
+        "type": "languagenav",
+        "target": "potted plant",
+        "landmarks": [],
+        "instruction": "The potted plant near the front door",
+    },
+    # "language_refrigerator1": {
+        # "type": "languagenav",
+        # "target": "refrigerator",
+        # "landmarks": [],
+        # "instruction": "The refrigerator.",
+    # },
     "language_sink1": {
         "type": "languagenav",
         "target": "sink",
@@ -269,6 +300,24 @@ GOALS = {
         "target": "sink",
         "landmarks": [],
         "instruction": "The bathroom sink with black and white counter.",
+    },
+    "language_table1": {
+        "type": "languagenav",
+        "target": "sink",
+        "landmarks": [],
+        "instruction": "The dining table.",
+    },
+    "language_toilet1": {
+        "type": "languagenav",
+        "target": "sink",
+        "landmarks": [],
+        "instruction": "The toilet next to the glass shower door.",
+    },
+    "language_toilet2": {
+        "type": "languagenav",
+        "target": "sink",
+        "landmarks": [],
+        "instruction": "The toilet next to white shower curtain with blue fish.",
     },
     "language_tv1": {
         "type": "languagenav",

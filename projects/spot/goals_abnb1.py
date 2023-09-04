@@ -211,6 +211,12 @@ GOALS = {
         "landmarks": [],
         "instruction": "The couch covered in a white blanket",
     },
+    "language_cup1": {
+        "type": "languagenav",
+        "target": "cup",
+        "landmarks": [],
+        "instruction": "The red cup on the kitchen counter",
+    },
     "language_oven1": {
         "type": "languagenav",
         "target": "oven",
@@ -221,19 +227,19 @@ GOALS = {
         "type": "languagenav",
         "target": "potted plant",
         "landmarks": [],
-        "instruction": "The small potted plant on the hallway table",
-    },
-    "language_plant2": {
-        "type": "languagenav",
-        "target": "potted plant",
-        "landmarks": [],
         "instruction": "The large potted plant infront of the mirror",
     },
     "language_plant2": {
         "type": "languagenav",
         "target": "potted plant",
         "landmarks": [],
-        "instruction": "The large potted plant infront of the window",
+        "instruction": "The small potted plant on the hallway table",
+    },
+    "language_plant3": {
+        "type": "languagenav",
+        "target": "potted plant",
+        "landmarks": [],
+        "instruction": "The plant infront of the window",
     },
     # "language_cup1": {
         # "type": "languagenav",
