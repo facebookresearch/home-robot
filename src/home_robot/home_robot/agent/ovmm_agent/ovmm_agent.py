@@ -224,7 +224,6 @@ class OpenVocabManipAgent(ObjectNavAgent):
                 ovmm_env.habitat_env.env._env,
                 goal_coordinates=goal_coordinates,
                 goal_radius=self.config.EXPERIMENT.NAV_TO_REC.goal_radius,
-                coarse_navigation=False,
             )
 
     def _get_info(self, obs: Observations) -> Dict[str, torch.Tensor]:
