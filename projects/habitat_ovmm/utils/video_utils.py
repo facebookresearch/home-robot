@@ -12,7 +12,9 @@ def record_video(source_dir: str, target_dir: str, target_file: str):
     print(f"Recording video {target_dir}/{target_file}")
 
     # Semantic map vis
-    image_paths = natsorted(glob.glob(f"{source_dir}/snapshot*.png"))
+    image_paths = natsorted(glob.glob(f"{source_dir}/tp_snapshot*.png"))
+    if len(image_paths) == 0:
+        image_paths = natsorted(glob.glob(f"{source_dir}/snapshot*.png"))
     if len(image_paths) == 0:
         return
     # Get the dimensions of the first image (assuming all images have the same dimensions)

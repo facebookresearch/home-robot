@@ -454,6 +454,10 @@ class Visualizer:
                 os.path.join(self.vis_dir, "snapshot_{:04d}.png".format(timestep)),
                 image_vis,
             )
+            cv2.imwrite(
+                os.path.join(self.vis_dir, "tp_snapshot_{:04d}.png".format(timestep)),
+                image_vis[V.Y1 : V.Y2, V.THIRD_PERSON_X1 : V.THIRD_PERSON_X2],
+            )
 
     def _visualize_semantic_frame(
         self, image_vis: np.ndarray, semantic_frame: np.ndarray, palette: List

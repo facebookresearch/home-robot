@@ -29,6 +29,10 @@ class ShortestPathFollowerAgent(Agent):
             HabitatSimActions.turn_left: DiscreteNavigationAction.TURN_LEFT,
             HabitatSimActions.turn_right: DiscreteNavigationAction.TURN_RIGHT,
         }
+        self.current_goal = (
+            0  # index of the current goal in the list of goal coordinates
+        )
+        self.coarse_navigation = False
 
     def set_oracle_info(self, env, goal_coordinates, goal_radius=0.5):
         """Instantiate shortest path follower

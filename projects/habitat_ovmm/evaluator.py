@@ -302,7 +302,7 @@ class OVMMEvaluator(PPOTrainer):
 
         count_episodes: int = 0
         computed_episodes = []
-        skip_computed = True  # TODO: temporary
+        skip_computed = False  # TODO: temporary
 
         pbar = tqdm(total=num_episodes)
         while count_episodes < num_episodes:
@@ -332,10 +332,39 @@ class OVMMEvaluator(PPOTrainer):
                         )
                         count_episodes += 1
                         pbar.update(1)
+
+                        if self.config.EVAL_VECTORIZED.record_videos:
+                            source_dir = os.path.join(
+                                self.images_dir, current_episode_key
+                            )
+                            target_dir_annotation = os.path.join(
+                                "video_dir_annotation",
+                                self.get_episode_completion_stage(
+                                    episode_metrics[current_episode_key]
+                                ),
+                                f"scene_{current_scene_name}",
+                            )
+                            target_file_annotation = f"split_{self.config.EVAL_VECTORIZED.split}_episode_{current_episode.episode_id}_exp_{self.config.EXP_NAME.split('_')[-1]}"
+                            os.makedirs(target_dir_annotation, exist_ok=True)
+                            with open(
+                                f"{target_dir_annotation}/{target_file_annotation}.json",
+                                "w",
+                            ) as f:
+                                json.dump(
+                                    episode_metrics[current_episode_key], f, indent=4
+                                )
+
+                            import shutil
+
+                            shutil.copyfile(
+                                f"{target_dir}/{target_file}.mp4",
+                                f"{target_dir_annotation}/{target_file_annotation}.mp4",
+                            )
+
                         continue
-                    except:
+                    except Exception as e:
                         print(
-                            f"Error loading metrics for {current_episode_key}. Not skipping. Recomputing..."
+                            f"Error {e} loading metrics for {current_episode_key}. Not skipping. Recomputing..."
                         )
 
             steps, max_steps = -1, 2000
@@ -395,6 +424,19 @@ class OVMMEvaluator(PPOTrainer):
                 with open(f"{target_dir}/{target_file}.json", "w") as f:
                     json.dump(current_episode_metrics, f, indent=4)
                 record_video(source_dir, target_dir, target_file)
+
+                target_dir_annotation = os.path.join(
+                    "video_dir_annotation",
+                    self.get_episode_completion_stage(current_episode_metrics),
+                    f"scene_{current_scene_name}",
+                )
+                target_file_annotation = f"split_{self.config.EVAL_VECTORIZED.split}_episode_{current_episode.episode_id}_exp_{self.config.EXP_NAME.split('_')[-1]}"
+                os.makedirs(target_dir_annotation, exist_ok=True)
+                with open(
+                    f"{target_dir_annotation}/{target_file_annotation}.json", "w"
+                ) as f:
+                    json.dump(current_episode_metrics, f, indent=4)
+                record_video(source_dir, target_dir_annotation, target_file_annotation)
 
             episode_metrics[current_episode_key] = current_episode_metrics
             count_episodes += 1
