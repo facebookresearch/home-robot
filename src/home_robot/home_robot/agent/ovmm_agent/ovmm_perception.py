@@ -58,20 +58,40 @@ class OvmmPerception:
     It also maintains a list of vocabularies to use in segmentation and can switch between them at runtime.
     """
 
-    def __init__(self, config, gpu_device_id: int = 0, verbose: bool = False):
+    def __init__(
+        self,
+        config,
+        gpu_device_id: int = 0,
+        verbose: bool = False,
+        module="grounded_sam",
+    ):
         self.config = config
         self._use_detic_viz = config.ENVIRONMENT.use_detic_viz
+        self._detection_module = getattr(config.AGENT, "detection_module", "detic")
         self._vocabularies: Dict[int, RearrangeDETICCategories] = {}
         self._current_vocabulary: RearrangeDETICCategories = None
         self._current_vocabulary_id: int = None
         self.verbose = verbose
-        # TODO Specify confidence threshold as a parameter
-        self._segmentation = DeticPerception(
-            vocabulary="custom",
-            custom_vocabulary=".",
-            sem_gpu_id=gpu_device_id,
-            verbose=verbose,
-        )
+        if self._detection_module == "detic":
+            # TODO Specify confidence threshold as a parameter
+            self._segmentation = DeticPerception(
+                vocabulary="custom",
+                custom_vocabulary=".",
+                sem_gpu_id=gpu_device_id,
+                verbose=verbose,
+            )
+        elif self._detection_module == "grounded_sam":
+            from home_robot.perception.detection.grounded_sam.grounded_sam_perception import (
+                GroundedSAMPerception,
+            )
+
+            self._segmentation = GroundedSAMPerception(
+                custom_vocabulary=".",
+                sem_gpu_id=gpu_device_id,
+                verbose=verbose,
+            )
+        else:
+            raise NotImplementedError
 
     @property
     def current_vocabulary_id(self) -> int:
@@ -138,12 +158,18 @@ class OvmmPerception:
     def __call__(self, obs: Observations) -> Observations:
         return self.forward(obs)
 
-    def forward(self, obs: Observations) -> Observations:
+    def predict(self, obs: Observations, depth_threshold: float = 0.5) -> Observations:
+        """Run with no postprocessing. Updates observation to add semantics."""
+        return self._segmentation.predict(
+            obs,
+            depth_threshold=depth_threshold,
+            draw_instance_predictions=self._use_detic_viz,
+        )
+
+    def forward(self, obs: Observations, depth_threshold: float = 0.5) -> Observations:
         """
         Run segmentation model and preprocess observations for OVMM skills
         """
-        obs = self._segmentation.predict(
-            obs, depth_threshold=0.5, draw_instance_predictions=self._use_detic_viz
-        )
+        obs = self.predict(obs, depth_threshold)
         self._process_obs(obs)
         return obs
