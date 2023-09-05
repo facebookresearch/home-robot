@@ -411,8 +411,8 @@ def print_metrics(
     "--legend_path",
     default=f"{str(Path(__file__).resolve().parent)}/coco_categories_legend.png",
 )
-@click.option("--device", default="cuda:0")
-def main(base_dir: str, legend_path: str, device: str):
+def main(base_dir: str, legend_path: str):
+
     obs_dir = f"{base_dir}/obs/"
     map_vis_dir = f"{base_dir}/map_vis/"
     goal_grounding_vis_dir = f"{base_dir}/goal_grounding_vis/"
@@ -421,7 +421,7 @@ def main(base_dir: str, legend_path: str, device: str):
     else:
         legend = None
 
-    device = torch.device(device)
+    device = torch.device("cuda:1")
 
     categories = list(coco_categories.keys())
     num_sem_categories = len(coco_categories)
@@ -438,12 +438,8 @@ def main(base_dir: str, legend_path: str, device: str):
 
         observations = []
         for path in natsort.natsorted(glob.glob(f"{obs_dir}/*.pkl")):
-            print("- loading", path)
             with open(path, "rb") as f:
-                try:
-                    observations.append(pickle.load(f))
-                except Exception as e:
-                    print(e)
+                observations.append(pickle.load(f))
 
         # Predict semantic segmentation
         segmentation = MaskRCNNPerception(
@@ -768,7 +764,6 @@ def main(base_dir: str, legend_path: str, device: str):
             }
             for i, scores in zip(instance_ids, all_confidences)
         }
-        Path(goal_grounding_vis_dir).mkdir(parents=True, exist_ok=True)
         with open(
             Path(goal_grounding_vis_dir) / f"{goal_type}_goal{i}_stats.json", "w"
         ) as f:

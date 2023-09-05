@@ -17,6 +17,7 @@ from home_robot.agent.ovmm_agent.ovmm_perception import (
     build_vocab_from_category_map,
     read_category_map_file,
 )
+from home_robot.agent.ovmm_agent.ppo_agent import PPOAgent
 from home_robot.core.interfaces import DiscreteNavigationAction, Observations
 from home_robot.manipulation import HeuristicPickPolicy, HeuristicPlacePolicy
 from home_robot.perception.constants import RearrangeBasicCategories
@@ -85,8 +86,6 @@ class OpenVocabManipAgent(ObjectNavAgent):
                 config, self.device, verbose=self.verbose
             )
         elif config.AGENT.SKILLS.PLACE.type == "rl" and not self.skip_skills.place:
-            from home_robot.agent.ovmm_agent.ppo_agent import PPOAgent
-
             self.place_agent = PPOAgent(
                 config,
                 config.AGENT.SKILLS.PLACE,
@@ -94,8 +93,6 @@ class OpenVocabManipAgent(ObjectNavAgent):
             )
         skip_both_gaze = self.skip_skills.gaze_at_obj and self.skip_skills.gaze_at_rec
         if config.AGENT.SKILLS.GAZE_OBJ.type == "rl" and not skip_both_gaze:
-            from home_robot.agent.ovmm_agent.ppo_agent import PPOAgent
-
             self.gaze_agent = PPOAgent(
                 config,
                 config.AGENT.SKILLS.GAZE_OBJ,
@@ -105,8 +102,6 @@ class OpenVocabManipAgent(ObjectNavAgent):
             config.AGENT.SKILLS.NAV_TO_OBJ.type == "rl"
             and not self.skip_skills.nav_to_obj
         ):
-            from home_robot.agent.ovmm_agent.ppo_agent import PPOAgent
-
             self.nav_to_obj_agent = PPOAgent(
                 config,
                 config.AGENT.SKILLS.NAV_TO_OBJ,
@@ -116,8 +111,6 @@ class OpenVocabManipAgent(ObjectNavAgent):
             config.AGENT.SKILLS.NAV_TO_REC.type == "rl"
             and not self.skip_skills.nav_to_rec
         ):
-            from home_robot.agent.ovmm_agent.ppo_agent import PPOAgent
-
             self.nav_to_rec_agent = PPOAgent(
                 config,
                 config.AGENT.SKILLS.NAV_TO_REC,

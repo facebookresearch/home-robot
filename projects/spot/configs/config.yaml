@@ -94,7 +94,6 @@ AGENT:
     agg_fn_image: max
     aggregate_feats_image: False
     feat_agg_fn_image: mean
-    batching: False
 
     agg_fn_lang: max
     aggregate_feats_lang: False

@@ -218,18 +218,8 @@ class Observations:
     semantic: Optional[
         np.array
     ] = None  # (camera_height, camera_width) in [0, num_sem_categories - 1]
-
-    # Instance IDs per observation frame
-    # Size: (camera_height, camera_width)
-    # Range: 0 to max int
-    instance: Optional[np.array] = None
-
-    # Optional third-person view from simulation
     third_person_image: Optional[np.array] = None
-
-    # Pose of the camera in world coordinates
     camera_pose: Optional[np.array] = None
-
     # Proprioreception
     joint: Optional[np.array] = None  # joint positions of the robot
     relative_resting_position: Optional[

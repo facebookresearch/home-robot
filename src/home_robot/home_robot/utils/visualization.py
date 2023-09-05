@@ -61,20 +61,3 @@ def draw_line(
         y = int(np.rint(start[1] + (end[1] - start[1]) * i / steps))
         mat[x - w : x + w, y - w : y + w] = 1
     return mat
-
-
-def create_disk(radius: float, size: int):
-    """Create image of a disk of the given size - helper function used to get explored areas. Image will be size x size."""
-
-    # Create a grid of coordinates
-    x = np.arange(0, size)
-    y = np.arange(0, size)
-    xx, yy = np.meshgrid(x, y, indexing="ij")
-
-    # Compute the distance transform
-    distance_map = np.sqrt((xx - size // 2) ** 2 + (yy - size // 2) ** 2)
-
-    # Create the disk by thresholding the distance transform
-    disk = distance_map <= radius
-
-    return disk

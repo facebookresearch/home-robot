@@ -72,7 +72,6 @@ class Categorical2DSemanticMapModule(nn.Module):
         evaluate_instance_tracking: bool = False,
         instance_memory: Optional[InstanceMemory] = None,
         max_instances: int = 0,
-        instance_association: str = "map_overlap",
         dilation_for_instances: int = 5,
         padding_for_instance_overlap: int = 5,
         exploration_type="default",
@@ -159,7 +158,6 @@ class Categorical2DSemanticMapModule(nn.Module):
         self.dilate_size = dilate_size
         self.dilate_iter = dilate_iter
         self.record_instance_ids = record_instance_ids
-        self.instance_association = instance_association
         self.padding_for_instance_overlap = padding_for_instance_overlap
         self.dilation_for_instances = dilation_for_instances
         self.instance_memory = instance_memory
@@ -549,13 +547,13 @@ class Categorical2DSemanticMapModule(nn.Module):
             ]
             if num_instance_channels > 0:
                 self.instance_memory.process_instances(
+                    semantic_channels,
                     instance_channels,
-                    point_cloud_map_coords,
+                    point_cloud_t,
                     torch.concat([current_pose + origins, lmb], axis=1)
                     .cpu()
                     .float(),  # store the global pose
                     image=obs[:, :3, :, :],
-                    semantic_channels=semantic_channels,
                 )
 
         feat[:, 1:, :] = nn.AvgPool2d(self.du_scale)(obs[:, 4:, :, :]).view(
@@ -1026,7 +1024,7 @@ class Categorical2DSemanticMapModule(nn.Module):
                 instance_mapping[local_instance_id.item()] = global_instance_id
                 max_instance_id += 1
             # update the id in instance memory
-            self.instance_memory.add_view_to_instance(
+            self.instance_memory.update_instance_id(
                 env_id, int(local_instance_id.item()), global_instance_id
             )
         instance_mapping[0.0] = 0
@@ -1097,7 +1095,7 @@ class Categorical2DSemanticMapModule(nn.Module):
         particular environment.
         """
 
-        if self.record_instance_ids and self.instance_association == "map_overlap":
+        if self.record_instance_ids:
             global_map = self._update_global_map_instances(
                 e, global_map, local_map, lmb
             )

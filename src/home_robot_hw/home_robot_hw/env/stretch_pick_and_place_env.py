@@ -136,7 +136,7 @@ class StretchPickandPlaceEnv(StretchEnv):
         self.robot.move_to_nav_posture()
         self.prev_grasp_success = False
 
-    def get_robot(self) -> StretchClient:
+    def get_robot(self):
         """Return the robot interface."""
         return self.robot
 

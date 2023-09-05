@@ -10,6 +10,8 @@ from typing import Tuple
 
 import numpy as np
 import pandas as pd
+from habitat.core.env import Env
+from habitat_sim.utils.common import d3_40_colors_rgb
 
 from home_robot.utils.constants import (
     MAX_DEPTH_REPLACEMENT_VALUE,
@@ -21,56 +23,6 @@ df = pd.read_csv(hm3d_to_mp3d_path, sep="    ", header=0, engine="python")
 hm3d_to_mp3d = {row["category"]: row["mpcat40index"] for _, row in df.iterrows()}
 hm3d_raw_to_hm3d = {row["raw_category"]: row["category"] for _, row in df.iterrows()}
 all_hm3d_categories = [row["category"] for _, row in df.iterrows()]
-
-
-# Color constants we use.
-# Note: originally from Habitat
-# from habitat_sim.utils.common import d3_40_colors_rgb
-d3_40_colors_rgb: np.ndarray = np.array(
-    [
-        [31, 119, 180],
-        [174, 199, 232],
-        [255, 127, 14],
-        [255, 187, 120],
-        [44, 160, 44],
-        [152, 223, 138],
-        [214, 39, 40],
-        [255, 152, 150],
-        [148, 103, 189],
-        [197, 176, 213],
-        [140, 86, 75],
-        [196, 156, 148],
-        [227, 119, 194],
-        [247, 182, 210],
-        [127, 127, 127],
-        [199, 199, 199],
-        [188, 189, 34],
-        [219, 219, 141],
-        [23, 190, 207],
-        [158, 218, 229],
-        [57, 59, 121],
-        [82, 84, 163],
-        [107, 110, 207],
-        [156, 158, 222],
-        [99, 121, 57],
-        [140, 162, 82],
-        [181, 207, 107],
-        [206, 219, 156],
-        [140, 109, 49],
-        [189, 158, 57],
-        [231, 186, 82],
-        [231, 203, 148],
-        [132, 60, 57],
-        [173, 73, 74],
-        [214, 97, 107],
-        [231, 150, 156],
-        [123, 65, 115],
-        [165, 81, 148],
-        [206, 109, 189],
-        [222, 158, 214],
-    ],
-    dtype=np.uint8,
-)
 
 
 class SemanticCategoryMapping(ABC):
@@ -88,8 +40,7 @@ class SemanticCategoryMapping(ABC):
         pass
 
     @abstractmethod
-    def reset_instance_id_to_category_id(self, env):
-        """Reset instance id. Env should be a simulation environment."""
+    def reset_instance_id_to_category_id(self, env: Env):
         pass
 
     @property
@@ -325,8 +276,7 @@ class HM3DtoCOCOIndoor(SemanticCategoryMapping):
             self.hm3d_goal_id_to_coco_goal_name[goal_id],
         )
 
-    def reset_instance_id_to_category_id(self, env):
-
+    def reset_instance_id_to_category_id(self, env: Env):
         self._instance_id_to_category_id = np.array(
             [
                 mp3d_to_coco.get(
@@ -434,7 +384,7 @@ class LanguageNavCategories(SemanticCategoryMapping):
     def map_goal_id(self, goal_id: int) -> Tuple[int, str]:
         return (goal_id, self.goal_id_to_goal_name[goal_id])
 
-    def reset_instance_id_to_category_id(self, env):
+    def reset_instance_id_to_category_id(self, env: Env):
         self._instance_id_to_category_id = []
         for obj in env.sim.semantic_annotations().objects:
             raw_category = obj.category.name().lower().strip()
@@ -646,7 +596,7 @@ class FloorplannertoMukulIndoor(SemanticCategoryMapping):
     def map_goal_id(self, goal_id: int) -> Tuple[int, str]:
         return (goal_id, self.floorplanner_goal_id_to_goal_name[goal_id])
 
-    def reset_instance_id_to_category_id(self, env):
+    def reset_instance_id_to_category_id(self, env: Env):
         # Identity everywhere except index 0 mapped to 34
         self._instance_id_to_category_id = np.arange(self.num_sem_categories)
         self._instance_id_to_category_id[0] = self.num_sem_categories - 1
@@ -774,8 +724,7 @@ class HM3DtoHSSD28Indoor(SemanticCategoryMapping):
     def map_goal_id(self, goal_id: int) -> Tuple[int, str]:
         return (goal_id, self.floorplanner_goal_id_to_goal_name[goal_id])
 
-    def reset_instance_id_to_category_id(self, env):
-        """Reset habitat instance ids. Env should be a simulation environment."""
+    def reset_instance_id_to_category_id(self, env: Env):
         pass
 
     @property
@@ -809,8 +758,7 @@ class RearrangeBasicCategories(SemanticCategoryMapping):
     def map_goal_id(self, goal_id: int) -> Tuple[int, str]:
         return (goal_id, self.goal_id_to_goal_name[goal_id])
 
-    def reset_instance_id_to_category_id(self, env=None):
-        """Reset instance IDs in habitat environments. Env should be a habitat env."""
+    def reset_instance_id_to_category_id(self, env: Env):
         # Identity everywhere except index 0 mapped to 4
         self._instance_id_to_category_id = np.arange(self.num_sem_categories)
         self._instance_id_to_category_id[0] = self.num_sem_categories - 1
@@ -855,8 +803,7 @@ class RearrangeDETICCategories(SemanticCategoryMapping):
     def map_goal_id(self, goal_id: int) -> Tuple[int, str]:
         return (goal_id, self.goal_id_to_goal_name[goal_id])
 
-    def reset_instance_id_to_category_id(self, env=None):
-        """Reset instance Ids."""
+    def reset_instance_id_to_category_id(self, env: Env):
         self._instance_id_to_category_id = np.arange(self.num_sem_categories)
         self._instance_id_to_category_id[0] = self.num_sem_categories - 1
 
@@ -1828,8 +1775,7 @@ class HM3DtoLongTailIndoor(SemanticCategoryMapping):
             self.hm3d_goal_id_to_longtail_goal_name[goal_id],
         )
 
-    def reset_instance_id_to_category_id(self, env):
-        """Reset instance IDs from semantic annotations. Env here should be a simulation env from habitat."""
+    def reset_instance_id_to_category_id(self, env: Env):
         self._instance_id_to_category_id = np.ndarray(
             [
                 long_tail_indoor_categories.index(

@@ -9,20 +9,11 @@
 
 ## Dataset Setup
 
-Run `git lfs install` to install Git LFS, which is used to manage the OVMM dataset. Please sign in [here](https://huggingface.co/datasets/hssd/hssd-hab/tree/ovmm) and accept the license for using HSSD scenes.
+Run `git lfs install` to install Git LFS, which is used to manage the OVMM dataset.
 
-You can then use the following command to download data:
-```
-$HOME_ROBOT_ROOT/projects/habitat_ovmm/install.sh
-```
+### Scene dataset setup 
 
-### Detailed Explanation
-
-If anything goes wrong, you can check out this explanation of the different steps.
-
-#### Scene dataset setup 
-
-Please sign in [here](https://huggingface.co/datasets/hssd/hssd-hab/tree/ovmm) and accept the license for using HSSD scenes before proceeding to download them. You will need your login information to proceed.
+Please sign in [here](https://huggingface.co/datasets/hssd/hssd-hab/tree/ovmm) and accept the license for using HSSD scenes before proceeding to download them.
 ```
 # Download the scenes
 git submodule update --init data/hssd-hab
@@ -42,7 +33,7 @@ git lfs pull
 cd -
 ```
 
-#### Download the Episodes
+### Download the Episodes
 
 These describe where objects are and where the robot starts:
 
@@ -58,7 +49,7 @@ cd -
 ```
 
 
-#### Download the Robot Model
+### Download the Robot Model
 
 Download and unzip the robot model:
 ```

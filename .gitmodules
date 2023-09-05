@@ -29,6 +29,3 @@
 [submodule "src/third_party/MiDaS"]
 	path = src/third_party/MiDaS
 	url = git@github.com:MatthewChang/MiDaS.git
-[submodule "src/home_robot/home_robot/perception/detection/grounded_sam/Grounded-Segment-Anything"]
-	path = src/home_robot/home_robot/perception/detection/grounded_sam/Grounded-Segment-Anything
-	url = https://github.com/IDEA-Research/Grounded-Segment-Anything

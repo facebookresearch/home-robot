@@ -53,7 +53,6 @@ from home_robot_hw.constants import (
     T_LOC_STABILIZE,
     ControlMode,
 )
-from home_robot_hw.remote import StretchClient
 from home_robot_hw.ros.camera import RosCamera
 from home_robot_hw.ros.utils import matrix_from_pose_msg, matrix_to_pose_msg
 from home_robot_hw.ros.visualizer import Visualizer
@@ -145,11 +144,6 @@ class StretchEnv(home_robot.core.abstract_env.Env):
 
     @abstractmethod
     def get_episode_metrics(self) -> Dict:
-        pass
-
-    @abstractmethod
-    def get_robot(self) -> StretchClient:
-        """Return a reference to the robot client"""
         pass
 
 

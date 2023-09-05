@@ -19,7 +19,7 @@ class RosCamera(Camera):
     def __init__(
         self,
         name: str = "/camera/color",
-        verbose: bool = False,
+        verbose: bool = True,
         rotations: int = 0,
         buffer_size: int = None,
     ):
@@ -130,8 +130,8 @@ class RosCamera(Camera):
     def wait_for_image(self) -> None:
         """Wait for image. Needs to be sort of slow, in order to make sure we give it time
         to update the image in the backend."""
-        # rospy.sleep(0.2)
-        rate = rospy.Rate(5)
+        rospy.sleep(0.2)
+        rate = rospy.Rate(2)
         while not rospy.is_shutdown():
             with self._lock:
                 if self.buffer_size is None:
@@ -149,7 +149,7 @@ class RosCamera(Camera):
             if self._img is None:
                 return None
             else:
-                # Return a copy
+                # We are using torch
                 img = self._img.copy()
 
         if device is not None:

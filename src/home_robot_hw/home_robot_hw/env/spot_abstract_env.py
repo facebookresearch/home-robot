@@ -45,6 +45,7 @@ def put_angle_in_interval(angle):
     return angle
 
 
+
 class SpotEnv(Env):
     def __init__(self, spot):
         config = construct_config()
@@ -54,7 +55,7 @@ class SpotEnv(Env):
         self.rot_compass = None
 
     # world_pos should be (n x 2) matrix of points in the spot world frame
-    def spot_world_to_boot_world(self, world_pos):
+    def spot_world_to_boot_world(self,world_pos):
         relative_obs_locations = world_pos[:, :2] - self.start_gps
         relative_obs_locations = (self.rot_compass @ relative_obs_locations.T).T
         return relative_obs_locations
@@ -112,12 +113,8 @@ class SpotEnv(Env):
         abs_rot = yaw_rotation_matrix_3D(home_robot_obs.compass[0]) @ rel_rot
         home_robot_obs.camera_pose[:3, :3] = abs_rot
 
-        relative_obs_locations = (
-            obs["obstacle_distances"][:, :2] - self.start_gps
-        ).copy()
-        relative_obs_locations = (self.rot_compass @ relative_obs_locations.T).T[
-            :, ::-1
-        ]
+        relative_obs_locations = (obs["obstacle_distances"][:, :2] - self.start_gps).copy()
+        relative_obs_locations = (self.rot_compass @ relative_obs_locations.T).T[ :, ::-1 ]
 
         trusted_point = (
             np.linalg.norm(obs["obstacle_distances"][:, :2] - obs["position"], axis=-1)
@@ -134,7 +131,6 @@ class SpotEnv(Env):
         home_robot_obs.task_observations["free_locations"] = torch.from_numpy(
             relative_obs_locations[is_free_mask & trusted_point]
         )
-
         return home_robot_obs
 
     @property

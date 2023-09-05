@@ -248,7 +248,6 @@ def create_video(images, output_file, fps):
 
 record_instance_ids = True
 
-
 @click.command()
 @click.option(
     "--input_trajectory_dir",
@@ -266,9 +265,6 @@ def main(input_trajectory_dir: str, output_visualization_dir: str, legend_path: 
     # --------------------------------------------------------------------------------------------
     # Load trajectory of home_robot Observations
     # --------------------------------------------------------------------------------------------
-    print("Read trajectories from:", input_trajectory_dir)
-    print("        Output data to:", output_visualization_dir)
-    print("          Legend is at:", legend_path)
     observations = []
     for path in natsort.natsorted(glob.glob(f"{input_trajectory_dir}/*.pkl")):
         with open(path, "rb") as f:
@@ -320,7 +316,6 @@ def main(input_trajectory_dir: str, output_visualization_dir: str, legend_path: 
         instance_memory = InstanceMemory(
             1,
             4,
-            instance_association="map_overlap",
             debug_visualize=True,
         )
 
@@ -362,7 +357,6 @@ def main(input_trajectory_dir: str, output_visualization_dir: str, legend_path: 
         min_obs_height_cm=10,
         record_instance_ids=record_instance_ids,
         instance_memory=instance_memory,
-        instance_association="map_overlap",
     ).to(device)
 
     # --------------------------------------------------------------------------------------------
