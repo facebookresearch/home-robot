@@ -66,27 +66,12 @@ class RosMapDataCollector(object):
         those from too far or too near the camera."""
         obs = self.robot.get_observation()
 
-        rgb = torch.from_numpy(obs.rgb).float()
-        depth = torch.from_numpy(obs.depth).float()
-        xyz = torch.from_numpy(obs.xyz).float()
-        camera_pose = torch.from_numpy(obs.camera_pose).float()
-        base_pose = torch.from_numpy(
-            np.array([obs.gps[0], obs.gps[1], obs.compass[0]])
-        ).float()
-
         # Semantic prediction
         obs = self.semantic_sensor.predict(obs)
 
-        # TODO: remove debug code
-        # For now you can use this to visualize a single frame
-        # show_point_cloud(xyz, rgb / 255, orig=np.zeros(3))
-        self.voxel_map.add(
-            camera_pose=camera_pose,
-            xyz=xyz,
-            rgb=rgb,
-            depth=depth,
-            base_pose=base_pose,
-            obs=obs,
+        # Add observation - helper function will unpack it
+        self.voxel_map.add_obs(
+            obs,
             K=torch.from_numpy(self.robot.head._ros_client.rgb_cam.K).float(),
         )
         if visualize_map:
