@@ -520,7 +520,7 @@ class InstanceMemory:
 
             object_coverage = np.sum(instance_mask) / instance_mask.size
 
-            if instance_mask_downsampled.sum() > 0 and point_cloud_instance.sum() > 0:
+            if instance_mask_downsampled.sum() > 0:
                 bounds = np.min(point_cloud_instance, axis=0), np.max(
                     point_cloud_instance, axis=0
                 )

@@ -453,7 +453,9 @@ class Categorical2DSemanticMapModule(nn.Module):
             tilt = angles[:, 1]
             # angles gives roll, pitch, yaw
             yaw = angles[:, -1]
-
+            roll = angles[:, 0]
+            camera_x = camera_pose[:, 0, 3] * -100
+            camera_y = camera_pose[:, 1, 3] * -100
             # Get the agent pose
             # hab_agent_height = camera_pose[:, 1, 3] * 100
             agent_pos = camera_pose[:, :3, 3] * 100
@@ -465,6 +467,9 @@ class Categorical2DSemanticMapModule(nn.Module):
                 print()
         else:
             yaw = 0
+            roll = 0
+            camera_x = None
+            camera_y = None
             tilt = torch.zeros(batch_size)
             agent_height = self.agent_height
 
@@ -565,10 +570,21 @@ class Categorical2DSemanticMapModule(nn.Module):
                 :,
                 :,
             ]
+            global_pose = current_pose + origins
+
+            if camera_x is None:
+                camera_x = global_pose[:, 0]
+            if camera_y is None:
+                camera_y = global_pose[:, 1]
+            global_pose = np.array([camera_x.item(), camera_y.item(), roll.item()])
+            absolute_point_cloud = du.transform_pose_t(point_cloud_base_coords, 
+                global_pose, 
+                device)
+
             if num_instance_channels > 0:
                 self.instance_memory.process_instances(
                     instance_channels,
-                    point_cloud_map_coords,
+                    absolute_point_cloud,
                     torch.concat([current_pose + origins, lmb], axis=1)
                     .cpu()
                     .float(),  # store the global pose
