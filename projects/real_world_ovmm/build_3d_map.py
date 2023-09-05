@@ -415,12 +415,15 @@ def main(
             print(
                 "Running exploration test on offline data. Will plan to various waypoints"
             )
-            space = SparseVoxelMapNavigationSpace(voxel_map, orientation=False)
-            planner = Shortcut(RRTConnect(space, voxel_map.xyt_is_safe))
+            robot_model = HelloStretchKinematics()
+            space = SparseVoxelMapNavigationSpace(voxel_map, robot_model)
+            planner = Shortcut(RRTConnect(space, space.is_valid))
             for i in range(10):
                 print("-" * 10, i, "-" * 10)
-                goal = voxel_map.sample_explored().cpu().numpy()
-                start = np.zeros(2)
+                goal = space.sample_valid_location().cpu().numpy()
+                if goal is None:
+                    print(" ------ sampling failed!")
+                start = np.zeros(3)
                 print("       Start:", start)
                 print("Sampled Goal:", goal)
                 print("Start is valid:", voxel_map.xyt_is_safe(start))
@@ -429,11 +432,12 @@ def main(
                 print("Found plan:", res.success)
 
                 if show_paths:
-                    obstacles, _ = voxel_map.get_2d_map()
-                    path = voxel_map.plan_to_grid_coords(res)
-                    x, y = get_x_and_y_from_path(path)
-                    plt.imshow(obstacles)
-                    plt.plot(x, y)
+                    obstacles, explored = voxel_map.get_2d_map()
+                    plt.imshow(obstacles + explored)
+                    if res.success:
+                        path = voxel_map.plan_to_grid_coords(res)
+                        x, y = get_x_and_y_from_path(path)
+                        plt.plot(x, y)
                     plt.show()
     else:
         raise NotImplementedError(f"- data mode {mode} not supported or recognized")

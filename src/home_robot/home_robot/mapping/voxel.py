@@ -51,7 +51,7 @@ Frame = namedtuple(
 
 VALID_FRAMES = ["camera", "world"]
 
-DEFAULT_GRID_SIZE = [512, 512]
+DEFAULT_GRID_SIZE = [1024, 1024]
 
 
 def ensure_tensor(arr):
@@ -529,7 +529,7 @@ class SparseVoxelMap(object):
         else:
             traj = []
             for node in plan_result.trajectory:
-                traj.append(self.xy_to_grid_coords(node.state))
+                traj.append(self.xy_to_grid_coords(node.state[:2]))
             return traj
 
     def grid_coords_to_xy(self, grid_coords: torch.Tensor) -> np.ndarray:
@@ -540,7 +540,7 @@ class SparseVoxelMap(object):
 
     def grid_coords_to_xyt(self, grid_coords: np.ndarray) -> np.ndarray:
         """convert grid coordinate point to metric world xyt point"""
-        res = np.zeros(3)
+        res = torch.zeros(3)
         res[:2] = self.grid_coords_to_xy(grid_coords)
         return res
 
@@ -612,7 +612,7 @@ class SparseVoxelMap(object):
         )
         return fig
 
-    def sample_explored(self, robot: Optional[Robot] = None) -> Optional[np.ndarray]:
+    def sample_explored(self) -> Optional[np.ndarray]:
         """Return obstacle-free xy point in explored space"""
         obstacles, explored = self.get_2d_map()
 

@@ -8,12 +8,11 @@ from typing import List, Optional, Tuple
 
 import numpy as np
 import pybullet as pb
-import torch
 
 import home_robot.utils.bullet as hrb
 from home_robot.core.interfaces import ContinuousFullBodyAction
 from home_robot.motion.pinocchio_ik_solver import PinocchioIKSolver, PositionIKOptimizer
-from home_robot.motion.robot import Robot
+from home_robot.motion.robot import Footprint, Robot
 from home_robot.utils.bullet import PybulletIKSolver
 from home_robot.utils.pose import to_matrix
 
@@ -247,12 +246,9 @@ class HelloStretchKinematics(Robot):
         "joint_wrist_roll",
     ]
 
-    def get_footprint(self, device: Optional[torch.device] = None) -> torch.Tensor:
+    def get_footprint(self) -> Footprint:
         """Return footprint for the robot. This is expected to be a mask."""
-        mask = torch.ones(1).bool()
-        if device is not None:
-            mask = mask.to(device)
-        return mask
+        return Footprint(width=0.34, length=0.33, width_offset=0.0, length_offset=0.1)
 
     def _create_ik_solvers(self, ik_type: str = "pinocchio", visualize: bool = False):
         """Create ik solvers using physics backends such as pybullet or pinocchio."""
