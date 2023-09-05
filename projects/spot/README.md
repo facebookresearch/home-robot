@@ -24,10 +24,15 @@ git submodule update --init --recursive src/home_robot/home_robot/perception/det
 git submodule update -f src/home_robot/home_robot/perception/detection/detic/Detic src/third_party/detectron2 src/third_party/contact_graspnet  src/third_party/habitat-lab src/third_party/spot-sim2real src/third_party/MiDaS src/home_robot/home_robot/agent/imagenav_agent/SuperGluePretrainedNetwork
 ```
 
-`mamba env create -n home-robot -f src/home_robot_hw/environment.yml`
+```
+mamba env create -n home-robot -f src/home_robot_hw/environment.yml
+```
 
  If `mamba` not found, `conda install -c conda-forge mamba --yes`
-```conda activate home-robot```
+ 
+```
+conda activate home-robot
+```
 
 Change this env variable to your cuda -- `CUDA_HOME=/usr/local/cuda-11.7`
 
