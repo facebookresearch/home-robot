@@ -30,6 +30,7 @@ from home_robot.utils.geometry import xyt2sophus
 from home_robot.utils.image import Camera
 from home_robot.utils.point_cloud import numpy_to_pcd, pcd_to_numpy, show_point_cloud
 from home_robot.utils.pose import convert_pose_habitat_to_opencv, to_pos_quat
+from home_robot.utils.visualization import get_x_and_y_from_path
 from home_robot_hw.env.stretch_pick_and_place_env import StretchPickandPlaceEnv
 from home_robot_hw.remote import StretchClient
 from home_robot_hw.utils.config import load_config
@@ -264,6 +265,8 @@ DATA_MODES = ["ros", "pkl", "dir"]
 @click.option("--output-pcd-filename", default="output.ply", type=str)
 @click.option("--output-pkl-filename", default="output.pkl", type=str)
 @click.option("--explore", default=False, is_flag=True)
+@click.option("--show-maps", default=False, is_flag=True)
+@click.option("--show-paths", default=False, is_flag=True)
 @click.option(
     "--input-path",
     type=click.Path(),
@@ -282,6 +285,8 @@ def main(
     voxel_size: float = 0.01,
     device_id: int = 0,
     verbose: bool = True,
+    show_maps: bool = False,
+    show_paths: bool = False,
     **kwargs,
 ):
     click.echo(f"Processing data in mode: {mode}")
@@ -402,8 +407,9 @@ def main(
         input_path = Path(input_path)
         voxel_map = SparseVoxelMap(resolution=voxel_size)
         voxel_map.read_from_pickle(input_path)
-        voxel_map.show(instances=True)
-        voxel_map.get_2d_map(debug=True)
+        if show_maps:
+            voxel_map.show(instances=True)
+        voxel_map.get_2d_map(debug=show_maps)
 
         if explore:
             print(
@@ -421,6 +427,14 @@ def main(
                 print(" Goal is valid:", voxel_map.xyt_is_safe(goal))
                 res = planner.plan(start, goal)
                 print("Found plan:", res.success)
+
+                if show_paths:
+                    obstacles, _ = voxel_map.get_2d_map()
+                    path = voxel_map.plan_to_grid_coords(res)
+                    x, y = get_x_and_y_from_path(path)
+                    plt.imshow(obstacles)
+                    plt.plot(x, y)
+                    plt.show()
     else:
         raise NotImplementedError(f"- data mode {mode} not supported or recognized")
 

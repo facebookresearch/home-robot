@@ -19,7 +19,7 @@ from home_robot.mapping.semantic.instance_tracking_modules import (
     InstanceMemory,
     InstanceView,
 )
-from home_robot.motion import Robot
+from home_robot.motion import PlanResult, Robot
 from home_robot.utils.bboxes_3d import BBoxes3D
 from home_robot.utils.data_tools.dict import update
 from home_robot.utils.point_cloud import (
@@ -518,7 +518,19 @@ class SparseVoxelMap(object):
         ):
             return None
         else:
-            return xy
+            return grid_xy
+
+    def plan_to_grid_coords(
+        self, plan_result: PlanResult
+    ) -> Optional[List[torch.Tensor]]:
+        """Convert a plan properly into grid coordinates"""
+        if not plan_result.success:
+            return None
+        else:
+            traj = []
+            for node in plan_result.trajectory:
+                traj.append(self.xy_to_grid_coords(node.state))
+            return traj
 
     def grid_coords_to_xy(self, grid_coords: torch.Tensor) -> np.ndarray:
         """convert grid coordinate point to metric world xy point"""
@@ -604,7 +616,7 @@ class SparseVoxelMap(object):
         """Return obstacle-free xy point in explored space"""
         obstacles, explored = self.get_2d_map()
 
-        valid_indices = torch.nonzero(~(obstacles | explored), as_tuple=False)
+        valid_indices = torch.nonzero(~obstacles & explored, as_tuple=False)
         if valid_indices.size(0) > 0:
             random_index = torch.randint(valid_indices.size(0), (1,))
             return self.grid_coords_to_xy(valid_indices[random_index])
