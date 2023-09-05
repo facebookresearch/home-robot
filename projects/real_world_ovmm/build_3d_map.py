@@ -413,7 +413,7 @@ def main(
             planner = Shortcut(RRTConnect(space, voxel_map.xyt_is_safe))
             for i in range(10):
                 print("-" * 10, i, "-" * 10)
-                goal = voxel_map.sample_explored()
+                goal = voxel_map.sample_explored().cpu().numpy()
                 start = np.zeros(2)
                 print("       Start:", start)
                 print("Sampled Goal:", goal)

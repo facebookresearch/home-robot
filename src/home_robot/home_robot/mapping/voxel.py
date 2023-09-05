@@ -111,6 +111,8 @@ class SparseVoxelMap(object):
         # Track the center of the grid - (0, 0) in our coordinate system
         # We then just need to update everything when we want to track obstacles
         self.grid_origin = Tensor(self.grid_size + [0]) // 2
+        # Used for tensorized bounds checks
+        self._grid_size_t = Tensor(self.grid_size)
 
         # Init variables
         self.reset()
@@ -504,20 +506,25 @@ class SparseVoxelMap(object):
         self._2d_last_updated = self._seq
         return obstacles, explored
 
-    def xy_to_grid_coords(self, xy: np.ndarray) -> Optional[np.ndarray]:
+    def xy_to_grid_coords(self, xy: torch.Tensor) -> Optional[np.ndarray]:
         """convert xy point to grid coords"""
-        # TODO: tensor version of this
-        grid_xy = (xy / self.grid_resolution) + self.grid_origin[:2].cpu().numpy()
-        if np.any(grid_xy >= self.grid_size) or np.any(grid_xy < np.zeros(2)):
+        assert xy.shape[-1] == 2, "coords must be Nx2 or 2d array"
+        # Handle convertion
+        if isinstance(xy, np.ndarray):
+            xy = torch.from_numpy(xy).float()
+        grid_xy = (xy / self.grid_resolution) + self.grid_origin[:2]
+        if torch.any(grid_xy >= self._grid_size_t) or torch.any(
+            grid_xy < torch.zeros(2)
+        ):
             return None
         else:
             return xy
 
-    def grid_coords_to_xy(self, grid_coords: np.ndarray) -> np.ndarray:
+    def grid_coords_to_xy(self, grid_coords: torch.Tensor) -> np.ndarray:
         """convert grid coordinate point to metric world xy point"""
         assert grid_coords.shape[-1] == 2, "grid coords must be an Nx2 or 2d array"
         # TODO: tensor version of this
-        return (grid_coords - self.grid_origin[:2].cpu().numpy()) * self.grid_resolution
+        return (grid_coords - self.grid_origin[:2]) * self.grid_resolution
 
     def grid_coords_to_xyt(self, grid_coords: np.ndarray) -> np.ndarray:
         """convert grid coordinate point to metric world xyt point"""
@@ -596,14 +603,10 @@ class SparseVoxelMap(object):
     def sample_explored(self, robot: Optional[Robot] = None) -> Optional[np.ndarray]:
         """Return obstacle-free xy point in explored space"""
         obstacles, explored = self.get_2d_map()
-        valid_indices = np.argwhere(
-            np.bitwise_and(
-                np.bitwise_not(obstacles.cpu().numpy()), explored.cpu().numpy()
-            )
-            == 1
-        )
-        if len(valid_indices) > 0:
-            random_index = np.random.choice(len(valid_indices))
+
+        valid_indices = torch.nonzero(~(obstacles | explored), as_tuple=False)
+        if valid_indices.size(0) > 0:
+            random_index = torch.randint(valid_indices.size(0), (1,))
             return self.grid_coords_to_xy(valid_indices[random_index])
         else:
             return None
