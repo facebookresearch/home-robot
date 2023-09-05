@@ -433,7 +433,7 @@ def main(
 
                 if show_paths:
                     obstacles, explored = voxel_map.get_2d_map()
-                    plt.imshow(obstacles + explored)
+                    plt.imshow((10 * obstacles) + explored)
                     if res.success:
                         path = voxel_map.plan_to_grid_coords(res)
                         x, y = get_x_and_y_from_path(path)
