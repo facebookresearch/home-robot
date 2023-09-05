@@ -28,7 +28,7 @@ class Robot(abc.ABC):
         """return degrees of freedom of the robot"""
         return self.dof
 
-    @abc.abstactmethod
+    @abc.abstractmethod
     def set_config(self, q):
         """put the robot in the right position for bullet planning"""
         raise NotImplementedError
