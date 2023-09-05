@@ -101,16 +101,24 @@ def eval_runner(
         ) = ([], [], [], [], [])
         for clas in data_classes:
             class_name = class_id_to_class_names[int(clas)]
-            scene_gt_bounds.append(scene_obs["boxes_aligned"])
-            scene_gt_classes.append(scene_obs["box_classes"])
+            gt_class_match = scene_obs["box_classes"] == int(clas)
+            if len(gt_class_match) == 0:
+                raise RuntimeError(
+                    f"No GT for class {class_name} in {scene_obs['scan_name']}"
+                )
+            scene_gt_bounds.append(scene_obs["boxes_aligned"][gt_class_match])
+            scene_gt_classes.append(scene_obs["box_classes"][gt_class_match])
             instances = model.get_instances_for_query(class_name)
-            scene_pred_bounds.append(
-                torch.stack([inst.bounds for inst in instances], dim=0)
-            )
-            scene_pred_classes.append(
-                torch.full_like(len(instances), int(clas), dtype=dtype, device=device)
-            )
-            scene_pred_scores.append(torch.stack([inst.score for inst in instances]))
+            if len(instances) > 0:
+                scene_pred_bounds.append(
+                    torch.stack([inst.bounds for inst in instances], dim=0)
+                )
+                scene_pred_classes.append(
+                    torch.full((len(instances),), int(clas), dtype=dtype, device=device)
+                )
+                scene_pred_scores.append(
+                    torch.stack([inst.score for inst in instances])
+                )
 
         for combined_list, scene_results in zip(
             [gt_bounds, gt_classes, pred_bounds, pred_classes, pred_scores],

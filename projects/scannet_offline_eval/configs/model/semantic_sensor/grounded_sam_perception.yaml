@@ -5,7 +5,7 @@ config:
   AGENT:
     detection_module: grounded_sam
     module_kwargs: 
-      box_threshold: 0.25
+      box_threshold: 0.5
       text_threshold: null # Defaults to box_threshold
       nms_threshold: 0.8
 

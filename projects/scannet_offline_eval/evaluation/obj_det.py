@@ -71,6 +71,7 @@ def get_det_assigments_to_gt(
     box_pred_scores: Tensor,
     iou_thr: Sequence[float] = (0.25, 0.5, 0.75),
     ap_mode: str = "area",
+    eps: float = 1e-6,
 ):
     """_summary_
 
@@ -140,7 +141,9 @@ def get_det_assigments_to_gt(
     # Go down the detections list in order of descending confidence, and associate to GT
     for i, cur_box_pred_corners in enumerate(box_pred_corners):
         _, box_iou = box3d_overlap(
-            cur_box_pred_corners.unsqueeze(0), box_gt_corners
+            cur_box_pred_corners.unsqueeze(0),
+            box_gt_corners,
+            eps,
         )  # (1, N_gt)
         box_iou = box_iou[0]  # We are only evaluating one detection at a time
         max_iou, gt_match_idx = box_iou.max(dim=0)  # (N_gt)
@@ -224,6 +227,7 @@ def compute_box_det_ap_recall(
     iou_thr: Sequence[float] = (0.25, 0.5, 0.75),
     ap_mode: str = "area",
     all_class: int = 0,
+    eps: float = 1e-6,
 ):
     """Compute Average Precision (AP) and Recall for object detection tasks.
 
@@ -247,7 +251,7 @@ def compute_box_det_ap_recall(
         This function internally calls `get_det_assigments_to_gt()` to assign detections to ground-truth boxes based on IoU.
         The final AP and Recall are calculated per class and can be accessed in the returned dictionaries.
     """
-    classes = torch.cat(box_gt_class, dim=0).unique()
+    # classes = torch.cat(box_gt_class, dim=0).unique()
     cls_to_retvals = defaultdict(list)
     n_scenes = len(box_gt_bounds)
     assert len(box_gt_class) == n_scenes, len(box_gt_class)
@@ -274,7 +278,7 @@ def compute_box_det_ap_recall(
         if match_within_class:
             _classes = _gt_class.unique()
             assert len(_classes) > 0, f"No GT detections for element {i}"
-            for _cls in classes:
+            for _cls in _classes:
                 # Partition the bboxes by classes and evaluate classes separately
                 gt_within_cls = _gt_class == _cls
                 pred_within_cls = _pred_class == _cls
@@ -285,6 +289,7 @@ def compute_box_det_ap_recall(
                     box_pred_class=_pred_class[pred_within_cls],
                     box_pred_scores=_pred_scores[pred_within_cls],
                     iou_thr=iou_thr,
+                    eps=eps,
                 )
                 cls_to_retvals[int(_cls.cpu())].append(assignment_dict)
 
@@ -296,6 +301,7 @@ def compute_box_det_ap_recall(
                 box_pred_class=_pred_class,
                 box_pred_scores=_pred_scores,
                 iou_thr=iou_thr,
+                eps=eps,
             )
             cls_to_retvals[all_class].append(assignment_dict)
 
@@ -325,6 +331,7 @@ def eval_bboxes_and_print(
     iou_thr: Sequence[float] = (0.25, 0.5, 0.75),
     ap_mode: str = "area",
     label_to_cat: Dict[int, str] = None,
+    eps: float = 1e-6,
 ):
     ALL_CLASS = 0
     if not match_within_class:
@@ -344,6 +351,7 @@ def eval_bboxes_and_print(
         iou_thr=iou_thr,
         ap_mode=ap_mode,
         all_class=ALL_CLASS,
+        eps=eps,
     )
 
     ret_dict = dict()

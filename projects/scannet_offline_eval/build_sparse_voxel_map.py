@@ -293,7 +293,6 @@ if __name__ == "__main__":
 
     # Move other keys to device
     for key in ["images", "depths", "intrinsics", "poses"]:
-        print(key)
         scene_obs[key] = scene_obs[key].to(torch_device)
 
     # Add to ScanNetSparseVoxelMap

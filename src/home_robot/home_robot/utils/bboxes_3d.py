@@ -1011,7 +1011,7 @@ def get_box_bounds_from_verts(
     return torch.stack([verts.min(dim=1)[0], verts.max(dim=1)[0]], dim=-1)
 
 
-def box3d_overlap_from_bounds(bounds1: Tensor, bounds2: Tensor):
+def box3d_overlap_from_bounds(bounds1: Tensor, bounds2: Tensor, eps=1e-4):
     """Calculates box overlap
 
     Args:
@@ -1024,13 +1024,10 @@ def box3d_overlap_from_bounds(bounds1: Tensor, bounds2: Tensor):
     """
     corners1 = get_box_verts_from_bounds(bounds1)
     corners2 = get_box_verts_from_bounds(bounds2)
-    return box3d_overlap(corners1, corners2)
+    return box3d_overlap(corners1, corners2, eps=eps)
 
 
-def box3d_intersection_from_bounds(
-    boxes1: Tensor,
-    boxes2: Tensor,
-):
+def box3d_intersection_from_bounds(boxes1: Tensor, boxes2: Tensor, eps: float = 1e-4):
     """
     Calculate Intersection over Union (IoU) scores between a local 3D bounding box and a list of global 3D bounding boxes.
 

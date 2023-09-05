@@ -236,6 +236,7 @@ class InstanceMemory:
         erode_mask_num_pix: int = 0,
         erode_mask_num_iter: int = 1,
         instance_view_score_aggregation_mode="max",
+        overlap_eps: float = 1e-6,
     ):
         """See class definition for information about InstanceMemory
 
@@ -259,6 +260,7 @@ class InstanceMemory:
         self.erode_mask_num_iter = erode_mask_num_iter
         self.global_box_nms_thresh = global_box_nms_thresh
         self.instance_view_score_aggregation_mode = instance_view_score_aggregation_mode
+        self.overlap_eps = overlap_eps
 
         if self.debug_visualize:
             import shutil
@@ -393,7 +395,9 @@ class InstanceMemory:
         instance_view = self.get_local_instance_view(env_id, local_instance_id)
         if instance_view is not None:
             _, iou = box3d_overlap_from_bounds(
-                instance_view.bounds.unsqueeze(0), torch.stack(global_bounds, dim=0)
+                instance_view.bounds.unsqueeze(0),
+                torch.stack(global_bounds, dim=0),
+                self.overlap_eps,
             )
             ious = iou.flatten()
             if ious.max() > self.iou_threshold:
@@ -419,7 +423,8 @@ class InstanceMemory:
         # get instance view
         instance_view = self.get_local_instance_view(env_id, local_instance_id)
         volume1 = box3d_volume_from_bounds(instance_view.bounds)
-        assert torch.all(volume1 > 0.0), volume1
+        assert torch.all(volume1 > 0.0), instance_view.bounds
+
         if instance_view is not None:
             global_instance_ids = self.get_global_instance_ids(env_id)
             if len(global_instance_ids) == 0:
@@ -432,11 +437,8 @@ class InstanceMemory:
             ]
 
             global_bounds = torch.stack(global_bounds, dim=0)
-            vol2 = box3d_volume_from_bounds(global_bounds)
-            assert torch.all(vol2 > 0.0), vol2
-            print(volume1, vol2)
             vol_int, _ = box3d_overlap_from_bounds(
-                instance_view.bounds.unsqueeze(0), global_bounds
+                instance_view.bounds.unsqueeze(0), global_bounds, self.overlap_eps
             )
 
             ious = vol_int / volume1
@@ -494,7 +496,7 @@ class InstanceMemory:
 
             global_bounds = torch.stack(global_bounds, dim=0)
             vol_int, iou, intersection_bounds = box3d_intersection_from_bounds(
-                instance_view.bounds.unsqueeze(0), global_bounds
+                instance_view.bounds.unsqueeze(0), global_bounds, self.overlap_eps
             )
             # 2. Filter by intersection_bounds
             # 3. nearest_global_point = knn(instance_view.points_filtered, global_instance.points_filtered)
@@ -603,6 +605,7 @@ class InstanceMemory:
             raise NotImplementedError
         if nms_iou_thresh is None:
             nms_iou_thresh = self.global_box_nms_thresh
+        assert 0.0 < nms_iou_thresh and nms_iou_thresh <= 1.0, nms_iou_thresh
         global_instance_ids = self.get_global_instance_ids(env_id)
         instances = self.get_instances(env_id, global_instance_ids)
         instance_bounds = torch.stack([inst.bounds for inst in instances], dim=0)
@@ -875,31 +878,32 @@ class InstanceMemory:
             n_points = point_mask_downsampled.sum()
             n_mask = instance_mask_downsampled.sum()
 
-            if n_mask > 0 and n_points > 0:
+            # Create InstanceView if the view is large enough
+            if n_mask > 1 and n_points > 1:
                 bounds = get_bounds(point_cloud_instance)
                 volume = float(box3d_volume_from_bounds(bounds).squeeze())
+
                 if volume < 1e-6:
                     warnings.warn(
-                        RuntimeError(
-                            f"Skipping box with {n_points} points in cloud and {n_points} points in mask and {volume} volume"
-                        )
+                        f"Skipping box with {n_points} points in cloud and {n_points} points in mask and {volume} volume",
+                        UserWarning,
                     )
-                    continue
-                # get instance view
-                instance_view = InstanceView(
-                    bbox=bbox,
-                    timestep=self.timesteps[env_id],
-                    cropped_image=cropped_image,  # .cpu().numpy(),
-                    embedding=embedding,
-                    mask=instance_mask,  # cpu().numpy().astype(bool),
-                    point_cloud=point_cloud_instance,  # .cpu().numpy(),
-                    point_cloud_rgb=point_cloud_rgb_instance,
-                    category_id=category_id,
-                    score=score,
-                    bounds=bounds,  # .cpu().numpy(),
-                )
-                # append instance view to list of instance views
-                self.unprocessed_views[env_id][instance_id.item()] = instance_view
+                else:
+                    # get instance view
+                    instance_view = InstanceView(
+                        bbox=bbox,
+                        timestep=self.timesteps[env_id],
+                        cropped_image=cropped_image,  # .cpu().numpy(),
+                        embedding=embedding,
+                        mask=instance_mask,  # cpu().numpy().astype(bool),
+                        point_cloud=point_cloud_instance,  # .cpu().numpy(),
+                        point_cloud_rgb=point_cloud_rgb_instance,
+                        category_id=category_id,
+                        score=score,
+                        bounds=bounds,  # .cpu().numpy(),
+                    )
+                    # append instance view to list of instance views
+                    self.unprocessed_views[env_id][instance_id.item()] = instance_view
 
             # save cropped image with timestep in filename
             if self.debug_visualize:

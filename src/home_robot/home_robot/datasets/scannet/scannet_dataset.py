@@ -293,7 +293,7 @@ class ScanNetDataset(object):
             # pose[:3, 2] *= -1
             pose = axis_align_mat @ torch.from_numpy(pose.astype(np.float32)).float()
             # We cannot accept files directly, as some of the poses are invalid
-            if np.isinf(pose).any():
+            if torch.any(torch.isnan(pose)):
                 print(f"Found inf pose in {scan_name}")
                 continue
 
@@ -321,6 +321,9 @@ class ScanNetDataset(object):
         boxes_aligned, box_classes, box_obj_ids = load_3d_bboxes(
             data["bboxs_aligned_path"]
         )
+
+        if len(boxes_aligned) == 0:
+            raise RuntimeError(f"No GT boxes for scene {scan_name}")
 
         # Referring expressions
         column_names = [

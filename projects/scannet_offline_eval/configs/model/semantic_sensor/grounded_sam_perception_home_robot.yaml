@@ -1,13 +1,3 @@
-_target_: home_robot.agent.ovmm_agent.ovmm_perception.OvmmPerception
-config:
-  ENVIRONMENT:
-    use_detic_viz: False
-  AGENT:
-    detection_module: grounded_sam
-    module_kwargs: 
-      # erosion and filtering to reduce the number of spurious artifacts
-      dilate_size: 5
-      dilate_iter: 5
 # This shouldn't be an arg in init() -- model should implement .to(device)
 gpu_device_id: 0 
 

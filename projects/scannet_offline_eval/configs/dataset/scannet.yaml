@@ -1,8 +1,8 @@
 _target_: home_robot.datasets.scannet.ScanNetDataset
 root_dir: '/private/home/ssax/home-robot/src/home_robot/home_robot/datasets/scannet/data'
-split: "train"
+split: "val"
 keep_only_scenes: null
-keep_only_first_k_scenes: 2
+keep_only_first_k_scenes: 5
 frame_skip: 30
 height: 480
 width: 640
