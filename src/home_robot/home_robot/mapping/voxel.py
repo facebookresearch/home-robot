@@ -45,9 +45,11 @@ Frame = namedtuple(
         "base_pose",
         "info",
         "obs",
+        "xyz_frame",
     ],
 )
 
+VALID_FRAMES = ["camera", "world"]
 
 DEFAULT_GRID_SIZE = [512, 512]
 
@@ -168,6 +170,7 @@ class SparseVoxelMap(object):
             depth=depth,
             base_pose=base_pose,
             obs=obs,
+            xyz_frame="camera",
             *args,
             **kwargs,
         )
@@ -185,6 +188,7 @@ class SparseVoxelMap(object):
         instance_classes: Optional[Tensor] = None,
         instance_scores: Optional[Tensor] = None,
         obs: Optional[Observations] = None,
+        xyz_frame: str = "camera",
         **info,
     ):
         """Add this to our history of observations. Also update the current running map.
@@ -240,6 +244,9 @@ class SparseVoxelMap(object):
             and camera_pose.shape[0] == 4
             and camera_pose.shape[1] == 4
         )
+        assert (
+            xyz_frame in VALID_FRAMES
+        ), f"frame {xyz_frame} was not valid; should one one of {VALID_FRAMES}"
 
         # Get full_world_xyz
         if xyz is not None:
@@ -259,7 +266,7 @@ class SparseVoxelMap(object):
             Frame(
                 camera_pose,
                 camera_K,
-                full_world_xyz,
+                xyz,
                 rgb,
                 feats,
                 depth,
@@ -267,6 +274,7 @@ class SparseVoxelMap(object):
                 base_pose,
                 info,
                 obs,
+                xyz_frame=xyz_frame,
             )
         )
 
