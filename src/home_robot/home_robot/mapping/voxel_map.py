@@ -177,14 +177,15 @@ class SparseVoxelMapNavigationSpace(XYT):
             if verbose:
                 print("[VOXEL MAP: sampling] sampling margin of size", radius)
             expanded_frontier = expand_mask(frontier_edges, radius)
+            # TODO: should we do this or not?
             # Make sure not to sample things that will just be in obstacles
-            expanded_obstacles = expand_mask(obstacles, radius)
+            # expanded_obstacles = expand_mask(obstacles, radius)
 
             # Mask where we will look at
-            outside_frontier = expanded_frontier & ~explored & ~expanded_obstacles
+            outside_frontier = expanded_frontier & ~explored & ~obstacles
 
             # Mask where we will sample locations to move to
-            expanded_frontier = expanded_frontier & explored & ~expanded_obstacles
+            expanded_frontier = expanded_frontier & explored & ~obstacles
 
             if debug:
                 import matplotlib.pyplot as plt

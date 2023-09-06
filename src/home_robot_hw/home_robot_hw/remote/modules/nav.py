@@ -126,6 +126,7 @@ class StretchNavigationClient(AbstractControlModule):
                 verbose=verbose,
                 timeout=per_waypoint_timeout,
             )
+        self.navigate_to(pt, blocking=True)
 
     @enforce_enabled
     def set_velocity(self, v, w):

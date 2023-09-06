@@ -198,6 +198,7 @@ def run_exploration(
         print("Sampled Goal:", goal)
         print("Start is valid:", collector.voxel_map.xyt_is_safe(start))
         print(" Goal is valid:", collector.voxel_map.xyt_is_safe(goal))
+        # plan to the sampled goal
         res = planner.plan(start, goal)
         print("Found plan:", res.success)
         obstacles, explored = collector.get_2d_map()
@@ -207,8 +208,13 @@ def run_exploration(
             x, y = get_x_and_y_from_path(path)
             plt.plot(x, y)
         plt.show()
-        # plan to that goal
         # if it fails, skip; else, execute a trajectory to it
+        if res.success:
+            print("Full plan:")
+            for i, pt in enumerate(res.trajectory):
+                print("-", i, pt.state)
+            robot.nav.execute_trajectory([pt.state for pt in res.trajectory])
+
         if manual_wait:
             input("... press enter ...")
 
