@@ -12,6 +12,7 @@ install_requires = [
     "h5py",
     "pybullet",
     "pygifsicle",
+    "open3d",
     "numpy-quaternion",
     "pybind11-global",
     "sophuspy",
