@@ -32,8 +32,13 @@ esac
 
 echo ""
 echo "Ensure Git LFS is installed"
+wget https://github.com/git-lfs/git-lfs/releases/download/v3.4.0/git-lfs-linux-amd64-v3.4.0.tar.gz
+tar -xzf git-lfs-linux-amd64-v3.4.0.tar.gz
+cd git-lfs-3.4.0/
+./install.sh
 git lfs install
 
+cd $HOME_ROBOT_ROOT
 echo ""
 echo "Install home_robot core..."
 python -m pip install -e src/home_robot
