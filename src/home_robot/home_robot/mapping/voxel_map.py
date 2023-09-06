@@ -14,6 +14,7 @@ from skimage.morphology import binary_dilation, disk
 from home_robot.mapping.voxel import SparseVoxelMap
 from home_robot.motion.robot import Robot
 from home_robot.motion.space import XYT
+from home_robot.utils.geometry import angle_difference, interpolate_angles
 from home_robot.utils.morphology import (
     binary_erosion,
     expand_mask,
@@ -30,11 +31,13 @@ class SparseVoxelMapNavigationSpace(XYT):
         voxel_map: SparseVoxelMap,
         robot: Robot,
         step_size: float = 0.1,
+        rotation_step_size: float = 0.5,
         use_orientation: bool = False,
         orientation_resolution: int = 64,
     ):
         self.robot = robot
         self.step_size = step_size
+        self.rotation_step_size = rotation_step_size
         self.voxel_map = voxel_map
         self.create_collision_masks(orientation_resolution)
 
@@ -120,6 +123,18 @@ class SparseVoxelMapNavigationSpace(XYT):
             new_theta = math.atan2(dxy[1], dxy[0])
             if new_theta < 0:
                 new_theta += 2 * np.pi
+
+            # TODO: oreint towards the new theta
+            cur_theta = q0[-1]
+            angle_diff = angle_difference(new_theta, cur_theta)
+            while angle_diff > self.rotation_step_size:
+                # Interpolate
+                cur_theta = interpolate_angles(
+                    cur_theta, new_theta, self.rotation_step_size
+                )
+                yield np.array([xy[0], xy[1], cur_theta])
+                angle_diff = angle_difference(new_theta, cur_theta)
+
             xy = q0[:2] + step
             # First, turn in the right direction
             yield np.array([xy[0], xy[1], new_theta])

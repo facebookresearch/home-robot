@@ -103,3 +103,15 @@ def angle_difference(angle1: float, angle2: float):
     wrapped_diff = np.minimum(abs_diff, 2 * np.pi - abs_diff)
 
     return wrapped_diff
+
+
+def interpolate_angles(start_angle, end_angle, step_size: float = 0.1):
+    diff = end_angle - start_angle
+
+    if diff >= np.pi:
+        end_angle -= 2 * np.pi
+    elif diff <= -np.pi:
+        end_angle += 2 * np.pi
+
+    interpolated_angle = start_angle + step_size * np.sign(end_angle - start_angle)
+    return interpolated_angle
