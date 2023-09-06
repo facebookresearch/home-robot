@@ -482,6 +482,12 @@ def place_object(env,obs,target_semantic_class,target_mask):
     points = masked_point_cloud_from_depth_image(response,largest_mask,depth=obs.depth*depth_scale,frame=VISION_FRAME_NAME)
     if len(points) > 0:
         motion_target = points.mean(axis=0)
+
+        px,py,yaw = spot.get_xy_yaw()
+        vector = motion_target[:2] - (px,py)
+        vector /= np.linalg.norm(vector)
+        motion_target[:2] += 0.5*vector
+
         INITIAL_RPY = np.deg2rad([0.0, 55.0, 0.0])
         env.env.initialize_arm()
         def yaw_toward(target):
@@ -524,7 +530,9 @@ def place_object(env,obs,target_semantic_class,target_mask):
         return 'continue'
 
 # Fremont goals
-from goals_abnb4 import GOALS
+from goals_abnb5 import GOALS
+# breakpoint()
+# print(sorted(GOALS.keys()))
 
 # Example command:
 # python projects/spot/goat.py --trajectory=trajectory1 --goals=object_toilet,image_bed1,language_chair4,image_couch1,language_plant1,language_plant2,image_refrigerator1

@@ -114,3 +114,7 @@ DISPLAY=:1 python projects/spot/goat.py --trajectory=pick_place_bear --goals=pic
 DISPLAY=:1 python projects/spot/goat.py --trajectory=pick_place_bottle --goals=pick_object_bottle,place_object_couch
 DISPLAY=:1 python projects/spot/goat.py --trajectory=place_bear --goals=place_object_chair
 DISPLAY=:1 python projects/spot/reset.py
+
+DISPLAY=:1 python projects/spot/goat.py --trajectory=airbnb5_test --goals=object_bear
+DISPLAY=:1 python projects/spot/goat.py --trajectory=airbnb5_video1 --goals=image_bed2,image_chair8,image_chair7,image_couch3,image_bed1,image_chair6,image_chair5,image_chair4,image_chair9,image_couch2,image_chair1,object_oven,image_refrigerator1,object_cup,object_bowl,object_bear
+DISPLAY=:1 python projects/spot/goat.py --trajectory=airbnb5_video2 --goals=image_bed2,image_chair8,image_chair7,image_couch3,image_bed1,image_chair6,image_chair5,image_chair4,image_chair9,image_couch2,image_chair1,object_oven,image_refrigerator1,object_cup,object_bowl,object_bear

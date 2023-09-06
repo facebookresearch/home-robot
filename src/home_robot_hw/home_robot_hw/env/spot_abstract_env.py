@@ -175,11 +175,12 @@ class SpotEnv(Env):
             resolution = 0.05
             # pixel_locations = ((obs["obstacle_distances"][:, :2] - obs["position"]) / resolution)
             # print(pixel_locations.min(),pixel_locations.max())
-            rad = 3/resolution
+            rad = 4/resolution
             dia = int(2*rad)
             map_region = np.zeros((dia, dia))
             pixel_locations = ((obs["obstacle_distances"][:, :2] - obs["position"]) / resolution) + dia/2
             pixel_locations = pixel_locations[is_obstacle_mask].astype(int)
+            np.clip(pixel_locations,0,map_region.shape[0]-1)
             map_region[pixel_locations[:, 0], pixel_locations[:, 1]] = 1
             occluded_mask = ray_trace(map_region,(dia//2,dia//2))
             observed_free = (map_region == 0) & ~occluded_mask
