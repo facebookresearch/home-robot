@@ -32,9 +32,10 @@ mamba env create -n home-robot -f src/home_robot_hw/environment.yml
  
 ```
 conda activate home-robot
+pip install -e src/home_robot_hw/.
 ```
 
-Change this env variable to your cuda -- `CUDA_HOME=/usr/local/cuda-11.7`
+Change this env variable to your cuda -- `CUDA_HOME=/usr/local/cuda-<version_tag>`
 
 
 #### Install spot sim2real
@@ -56,7 +57,7 @@ python generate_executables.py
 pip install -e .
 ```
 ```
-pip install bosdyn-api  bosdyn-client transforms3d einops gym==0.23.1 vtk
+pip install bosdyn-api  bosdyn-client transforms3d einops gym==0.23.1 vtk scikit-image open3d natsort scikit-fmm
 ```
 
 #### Install MiDaS
@@ -106,8 +107,26 @@ python demo.py --config-file configs/Detic_LCOCOI21k_CLIP_SwinB_896b32_4x_ft4x_m
 #### Additional installtions
 
 ```
-pip install scikit-image open3d natsort
 pip install -e src/third_party/detectron2/.
-pip install -e src/home_robot_hw/.
-pip install scikit-fmm
+```
+##### Issues with installing detectron2
+Set `CUDA_HOME=/usr/local/cuda-<VERSION>/` and install again
+
+###### If getting a version_mismatch error
++ Install cuda from this [website](https://developer.nvidia.com/cuda-downloads) and select the correct version tag when installing cuda. 
+##### For `qObject: movToThread` errors/warnings when running the demo
+
+```
+pip install --no-binary opencv-python opencv-python
+```
+
+##### Attribute error for SE3 with sophuspy
+```
+git clone https://github.com/pybind/pybind11.git
+cd pybind11
+mkdir build && cd build
+cmake .. -DCMAKE_INSTALL_PREFIX=../install/
+make -j8
+make install
+pybind11_DIR=$PWD/../install/share/cmake/pybind11/ pip3 install --user sophuspy
 ```
