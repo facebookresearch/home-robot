@@ -9,6 +9,7 @@ RUN /bin/bash -c "\
         src/third_party/contact_graspnet \
     && pip install -e src/third_party/detectron2 \
     && pip install -r src/home_robot/home_robot/perception/detection/detic/Detic/requirements.txt \
+    && pip install -e src/home_robot \
     "
 
 # download pretrained Detic checkpoint
