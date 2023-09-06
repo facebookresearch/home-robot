@@ -107,7 +107,7 @@ class SparseVoxelMapNavigationSpace(XYT):
         xy = q0[:2]
         if np.linalg.norm(q1[:2] - q0[:2]) > self.step_size:
             # Compute theta looking at new goal point
-            new_theta = math.atan2(dxy[1], dxy[0])
+            new_theta = math.atan2(-dxy[1], -dxy[0])
             if new_theta < 0:
                 new_theta += 2 * np.pi
             xy = q0[:2] + step
@@ -122,6 +122,10 @@ class SparseVoxelMapNavigationSpace(XYT):
 
     def _get_theta_index(self, theta: float) -> int:
         """gets the index associated with theta here"""
+        if theta < 0:
+            theta += 2 * np.pi
+        if theta >= 2 * np.pi:
+            theta -= 2 * np.pi
         assert (
             theta >= 0 and theta <= 2 * np.pi
         ), "only angles between 0 and 2*PI allowed"

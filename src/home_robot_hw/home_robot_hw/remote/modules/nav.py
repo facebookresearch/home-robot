@@ -66,7 +66,7 @@ class StretchNavigationClient(AbstractControlModule):
         xyt: np.ndarray,
         rate: int = 10,
         pos_err_threshold: float = 0.2,
-        verbose: bool = True,
+        verbose: bool = False,
         timeout: float = 10.0,
     ) -> bool:
         """Wait until the robot has reached a configuration... but only roughly. Used for trajectory execution.
@@ -198,19 +198,20 @@ class StretchNavigationClient(AbstractControlModule):
                 break
             rate.sleep()
 
-    def _wait_for_goal_reached(self):
+    def _wait_for_goal_reached(self, verbose: bool = False):
         """Wait until goal is reached"""
         rospy.sleep(self._ros_client.msg_delay_t)
         rate = rospy.Rate(self.block_spin_rate)
         t0 = rospy.Time.now()
         while not rospy.is_shutdown():
             t1 = rospy.Time.now()
-            print(
-                "...waited for controller",
-                (t1 - t0).to_sec(),
-                "is at goal =",
-                self.at_goal(),
-            )
+            if verbose:
+                print(
+                    "...waited for controller",
+                    (t1 - t0).to_sec(),
+                    "is at goal =",
+                    self.at_goal(),
+                )
             # Verify that we are at goal and perception is synchronized with pose
             if self.at_goal() and self._ros_client.recent_depth_image(
                 self._ros_client.msg_delay_t

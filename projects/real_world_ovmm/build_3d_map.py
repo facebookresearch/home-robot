@@ -184,6 +184,8 @@ def run_exploration(
 
     # Create a simple motion planner
     planner = Shortcut(RRTConnect(space, space.is_valid))
+
+    print("Go to (0, 0, 0) to start with...")
     robot.nav.navigate_to([0, 0, 0])
 
     # Explore some number of times
@@ -212,12 +214,16 @@ def run_exploration(
             x, y = get_x_and_y_from_path(path)
             plt.plot(x, y)
         plt.show()
-        # if it fails, skip; else, execute a trajectory to it
+
+        # if it fails, skip; else, execute a trajectory to this position
         if res.success:
             print("Full plan:")
             for i, pt in enumerate(res.trajectory):
                 print("-", i, pt.state)
             robot.nav.execute_trajectory([pt.state for pt in res.trajectory])
+
+        # Append latest observations
+        collector.step()
 
         if manual_wait:
             input("... press enter ...")
