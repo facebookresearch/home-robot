@@ -5,7 +5,7 @@
 ### Requirements
 
 + Home robot - [Demo branch](https://github.com/facebookresearch/home-robot/tree/demo)
-+ Spot sim2real - [Jay's fork with no_habitat branhc](https://github.com/jdvakil/spot-sim2real)
++ Spot sim2real - [Jay's fork with no_habitat branch](https://github.com/jdvakil/spot-sim2real)
 
 ### Steps
 
