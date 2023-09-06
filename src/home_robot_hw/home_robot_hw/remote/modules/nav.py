@@ -97,8 +97,7 @@ class StretchNavigationClient(AbstractControlModule):
                 return True
             t1 = rospy.Time.now()
             if (t1 - t0).to_sec() > timeout:
-                if verbose:
-                    rospy.logerr("Could not reach goal: " + str(xyt))
+                rospy.logerr("Could not reach goal in time: " + str(xyt))
                 return False
             rate.sleep()
 

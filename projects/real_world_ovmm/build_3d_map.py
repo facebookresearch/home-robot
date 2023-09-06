@@ -65,7 +65,7 @@ class RosMapDataCollector(object):
     def get_planning_space(self) -> SparseVoxelMapNavigationSpace:
         """return space for motion planning"""
         return SparseVoxelMapNavigationSpace(
-            self.voxel_map, self.robot_model, step_size=0.2
+            self.voxel_map, self.robot_model, step_size=0.25
         )
 
     def step(self, visualize_map=False):
@@ -212,7 +212,7 @@ def run_exploration(
         if res.success:
             path = collector.voxel_map.plan_to_grid_coords(res)
             x, y = get_x_and_y_from_path(path)
-            plt.plot(x, y)
+            plt.plot(y, x)
         plt.show()
 
         # if it fails, skip; else, execute a trajectory to this position
@@ -224,6 +224,7 @@ def run_exploration(
 
         # Append latest observations
         collector.step()
+        collector.show()
 
         if manual_wait:
             input("... press enter ...")

@@ -7,6 +7,7 @@ from typing import Optional
 
 import matplotlib.pyplot as plt
 import numpy as np
+import skimage
 import torch
 from skimage.morphology import binary_dilation, disk
 
@@ -14,6 +15,7 @@ from home_robot.mapping.voxel import SparseVoxelMap
 from home_robot.motion.robot import Robot
 from home_robot.motion.space import XYT
 from home_robot.utils.morphology import (
+    binary_erosion,
     expand_mask,
     find_closest_point_on_mask,
     get_edges,
@@ -42,6 +44,14 @@ class SparseVoxelMapNavigationSpace(XYT):
             self.dof = 3
         else:
             self.dof = 2
+
+        self.dilate_explored_kernel = torch.nn.Parameter(
+            torch.from_numpy(skimage.morphology.disk(10))
+            .unsqueeze(0)
+            .unsqueeze(0)
+            .float(),
+            requires_grad=False,
+        )
 
     def draw_state_on_grid(
         self, img: np.ndarray, state: np.ndarray, weight: int = 10
@@ -189,7 +199,10 @@ class SparseVoxelMapNavigationSpace(XYT):
         obstacles, explored = self.voxel_map.get_2d_map()
 
         # Extract edges from our explored mask
-        edges = get_edges(explored)
+        less_explored = binary_erosion(
+            explored.float().unsqueeze(0).unsqueeze(0), self.dilate_explored_kernel
+        )[0, 0]
+        edges = get_edges(less_explored)
 
         # Do not explore obstacles any more
         frontier_edges = edges & ~obstacles
@@ -204,20 +217,26 @@ class SparseVoxelMapNavigationSpace(XYT):
             # expanded_obstacles = expand_mask(obstacles, radius)
 
             # Mask where we will look at
-            outside_frontier = expanded_frontier & ~explored & ~obstacles
+            outside_frontier = ~explored & ~obstacles
 
             # Mask where we will sample locations to move to
             expanded_frontier = expanded_frontier & explored & ~obstacles
 
+            debug = True
             if debug:
                 import matplotlib.pyplot as plt
 
-                plt.subplot(1, 3, 1)
+                plt.subplot(221)
                 plt.imshow(frontier_edges.cpu().numpy())
-                plt.subplot(1, 3, 2)
+                plt.subplot(222)
                 plt.imshow(expanded_frontier.cpu().numpy())
-                plt.subplot(1, 3, 3)
+                plt.title("expanded frontier")
+                plt.subplot(223)
                 plt.imshow(outside_frontier.cpu().numpy())
+                plt.title("outside frontier")
+                plt.subplot(224)
+                plt.imshow((less_explored + explored).cpu().numpy())
+                plt.title("explored")
                 plt.show()
 
             # TODO: this really should not be random at all
@@ -240,6 +259,18 @@ class SparseVoxelMapNavigationSpace(XYT):
 
                 # convert back
                 point = self.voxel_map.grid_coords_to_xy(point_grid_coords)
+                if point is None:
+                    print("[VOXEL MAP: sampling] ERR:", point, point_grid_coords)
+                    continue
+                if outside_point is None:
+                    print(
+                        "[VOXEL MAP: sampling] ERR finding closest pt:",
+                        point,
+                        point_grid_coords,
+                        "closest =",
+                        outside_point,
+                    )
+                    continue
                 theta = math.atan2(
                     outside_point[1] - point_grid_coords[0, 1],
                     outside_point[0] - point_grid_coords[0, 0],
