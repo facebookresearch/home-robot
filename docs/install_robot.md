@@ -29,7 +29,9 @@ pip install -r requirements.txt
 pip install -e .
 
 # Install SLAM dependency on the robot
-sudo apt install ros-noetic-hector-slam 
+sudo apt install ros-noetic-hector-slam
+# Install pinocchio dependency on the robot
+sudo apt install ros-noetic-pinocchio
 
 # Create a catkin workspace  - this will contain your code
 # It may already exist. If so, skip this step
