@@ -46,7 +46,7 @@ echo "Install home_robot ROS..."
 python -m pip install -e src/home_robot_hw
 
 echo "WARNING! we should include this elsewhere"
-python -m pip install torch_scatter torch_cluster -f https://data.pyg.org/whl/torch-2.0.0+118.html
+python -m pip install torch_scatter torch_cluster torch_geometric -f https://data.pyg.org/whl/torch-2.0.0+118.html
 
 echo ""
 echo "Install habitat dependencies..."
