@@ -48,7 +48,7 @@ class DiscreteNavigationAction(Action, Enum):
     CLOSE_GRIPPER = 14
 
 
-class ContinuousNavigationAction:
+class ContinuousNavigationAction(Action):
     xyt: np.ndarray
 
     def __init__(self, xyt: np.ndarray):

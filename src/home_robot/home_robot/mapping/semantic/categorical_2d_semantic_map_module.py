@@ -22,7 +22,7 @@ import home_robot.utils.pose as pu
 import home_robot.utils.rotation as ru
 from home_robot.mapping.semantic.constants import MapConstants as MC
 from home_robot.mapping.semantic.instance_tracking_modules import InstanceMemory
-# from home_robot.utils.spot import draw_circle_segment, fill_convex_hull
+from home_robot.utils.spot import draw_circle_segment, fill_convex_hull
 
 # For debugging input and output maps - shows matplotlib visuals
 debug_maps = False
@@ -560,6 +560,8 @@ class Categorical2DSemanticMapModule(nn.Module):
 
         current_pose = pu.get_new_pose_batch(prev_pose.clone(), pose_delta)
 
+        current_pose = pu.get_new_pose_batch(prev_pose.clone(), pose_delta)
+
         if self.record_instance_ids:
             instance_channels = obs[
                 :,
@@ -576,10 +578,11 @@ class Categorical2DSemanticMapModule(nn.Module):
                 camera_x = global_pose[:, 0]
             if camera_y is None:
                 camera_y = global_pose[:, 1]
-            global_pose = np.array([camera_x.item(), camera_y.item(), roll.item()])
-            absolute_point_cloud = du.transform_pose_t(point_cloud_base_coords, 
-                global_pose, 
-                device)
+            global_pose = np.array(
+                [camera_x.item(), camera_y.item(), roll.item()])
+            absolute_point_cloud = du.transform_pose_t(point_cloud_base_coords,
+                                                       global_pose,
+                                                       device)
 
             if num_instance_channels > 0:
                 self.instance_memory.process_instances(
