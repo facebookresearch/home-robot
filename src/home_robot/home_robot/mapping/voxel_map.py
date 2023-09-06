@@ -177,7 +177,7 @@ class SparseVoxelMapNavigationSpace(XYT):
         theta_idx = self._get_theta_index(theta)
         return self._oriented_masks[theta_idx]
 
-    def is_valid(self, state: torch.Tensor) -> bool:
+    def is_valid(self, state: torch.Tensor, debug: bool = False) -> bool:
         """Check to see if state is valid; i.e. if there's any collisions if mask is at right place"""
         assert len(state) == 3
         if isinstance(state, np.ndarray):
@@ -203,9 +203,30 @@ class SparseVoxelMapNavigationSpace(XYT):
         crop_exp = explored[x0:x1, y0:y1]
 
         collision = torch.any(crop_obs & mask)
-        unknown_if_safe = torch.any(~crop_exp & mask)
+        is_safe = torch.all((crop_exp & mask) | ~mask)
 
-        return (not collision) and (not unknown_if_safe)
+        valid = bool((not collision) and is_safe)
+
+        if debug:
+            print(f"{valid=}")
+            obs = obstacles.cpu().numpy().copy()
+            exp = explored.cpu().numpy().copy()
+            obs[x0:x1, y0:y1] = 1
+            plt.subplot(321)
+            plt.imshow(obs)
+            plt.subplot(322)
+            plt.imshow(exp)
+            plt.subplot(323)
+            plt.imshow(crop_obs.cpu().numpy())
+            plt.title("obstacles")
+            plt.subplot(324)
+            plt.imshow(crop_exp.cpu().numpy())
+            plt.title("explored")
+            plt.subplot(325)
+            plt.imshow(mask.cpu().numpy())
+            plt.show()
+
+        return valid
 
     def sample_frontier(
         self,
