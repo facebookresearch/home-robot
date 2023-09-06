@@ -653,7 +653,9 @@ class SparseVoxelMap(object):
             )
         return True
 
-    def _show_open3d(self, instances: bool, **backend_kwargs):
+    def _show_open3d(
+        self, instances: bool, orig: Optional[np.ndarray] = None, **backend_kwargs
+    ):
         """Show and return bounding box information and rgb color information from an explored point cloud. Uses open3d."""
 
         # Create a combined point cloud
@@ -663,7 +665,9 @@ class SparseVoxelMap(object):
         pcd = numpy_to_pcd(
             points.detach().cpu().numpy(), (rgb / 255.0).detach().cpu().numpy()
         )
-        geoms = create_visualization_geometries(pcd=pcd, orig=np.zeros(3))
+        if orig is None:
+            orig = np.zeros(3)
+        geoms = create_visualization_geometries(pcd=pcd, orig=orig)
         if instances:
             for instance_view in self.get_instances():
                 mins, maxs = (

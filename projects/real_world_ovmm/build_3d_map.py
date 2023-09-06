@@ -5,7 +5,7 @@
 import sys
 import timeit
 from pathlib import Path
-from typing import Tuple
+from typing import Optional, Tuple
 
 import click
 import matplotlib.pyplot as plt
@@ -25,10 +25,7 @@ from home_robot.mapping import SparseVoxelMap, SparseVoxelMapNavigationSpace
 # Import planning tools for exploration
 from home_robot.motion.rrt_connect import RRTConnect
 from home_robot.motion.shortcut import Shortcut
-from home_robot.motion.stretch import (
-    STRETCH_CAUTIOUS_NAVIGATION_Q,
-    HelloStretchKinematics,
-)
+from home_robot.motion.stretch import HelloStretchKinematics
 from home_robot.utils.geometry import xyt2sophus
 from home_robot.utils.image import Camera
 from home_robot.utils.point_cloud import numpy_to_pcd, pcd_to_numpy, show_point_cloud
@@ -63,12 +60,12 @@ class RosMapDataCollector(object):
         self.semantic_sensor = semantic_sensor
         self.started = False
         self.robot_model = HelloStretchKinematics(visualize=visualize_planner)
-        self.voxel_map = SparseVoxelMap(resolution=voxel_size, local_radius=0.15)
+        self.voxel_map = SparseVoxelMap(resolution=voxel_size, local_radius=0.1)
 
     def get_planning_space(self) -> SparseVoxelMapNavigationSpace:
         """return space for motion planning"""
         return SparseVoxelMapNavigationSpace(
-            self.voxel_map, self.robot_model, step_size=0.25
+            self.voxel_map, self.robot_model, step_size=0.1
         )
 
     def step(self, visualize_map=False):
@@ -92,9 +89,9 @@ class RosMapDataCollector(object):
         """Get 2d obstacle map for low level motion planning and frontier-based exploration"""
         return self.voxel_map.get_2d_map()
 
-    def show(self) -> Tuple[np.ndarray, np.ndarray]:
+    def show(self, orig: Optional[np.ndarray] = None) -> Tuple[np.ndarray, np.ndarray]:
         """Display the aggregated point cloud."""
-        return self.voxel_map.show()
+        return self.voxel_map.show(orig=orig)
 
 
 def create_semantic_sensor(
@@ -202,6 +199,8 @@ def run_exploration(
         start = robot.get_base_pose()
         print("       Start:", start)
         print("Sampled Goal:", goal)
+        show_goal = np.zeros(3)
+        show_goal[:2] = goal[:2]
         print("Start is valid:", collector.voxel_map.xyt_is_safe(start))
         print(" Goal is valid:", collector.voxel_map.xyt_is_safe(goal))
         # plan to the sampled goal
@@ -216,7 +215,12 @@ def run_exploration(
             path = collector.voxel_map.plan_to_grid_coords(res)
             x, y = get_x_and_y_from_path(path)
             plt.plot(y, x)
+        else:
+            continue
+
+        # Display goal
         plt.show()
+        collector.show(orig=show_goal)
 
         # if it fails, skip; else, execute a trajectory to this position
         if res.success:
@@ -227,7 +231,6 @@ def run_exploration(
 
         # Append latest observations
         collector.step()
-        collector.show()
 
         if manual_wait:
             input("... press enter ...")
