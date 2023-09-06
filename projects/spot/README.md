@@ -55,7 +55,9 @@ cd ../spot_rl_experiments
 python generate_executables.py
 pip install -e .
 ```
-`pip install bosdyn-api transforms3d einops gym==0.23.1 vtk`
+```
+pip install bosdyn-api  bosdyn-client transforms3d einops gym==0.23.1 vtk
+```
 
 #### Install MiDaS
 + Make sure you are on the master branch
@@ -69,6 +71,13 @@ git pull origin
 cd weights
 wget https://github.com/isl-org/MiDaS/releases/download/v3_1/dpt_beit_large_512.pt
 ```
++ Packages
+```
+cd ../
+pip install -e .
+pip install imutils
+
+```
 
 #### Install Habitat-sim
 ```
@@ -77,11 +86,6 @@ pip install -e habitat-lab
 mamba install habitat-sim headless -c conda-forge -c aihabitat --yes
 ```
 
-#### Install Boston Dynamics packages
-
-```
-pip install bosdyn-api bosdyn-client
-```
 
 #### Install SuperGLUE
 ```
@@ -91,8 +95,17 @@ pip install -r src/home_robot/home_robot/agent/imagenav_agent/SuperGluePretraine
 #### Install Detic
 ```
 cd src/home_robot/home_robot/perception/detection/detic/Detic
+pip install -r requirements.txt
 mkdir models
 wget https://dl.fbaipublicfiles.com/detic/Detic_LCOCOI21k_CLIP_SwinB_896b32_4x_ft4x_max-size.pth -O models/Detic_LCOCOI21k_CLIP_SwinB_896b32_4x_ft4x_max-size.pth
 wget https://eecs.engin.umich.edu/~fouhey/fun/desk/desk.jpg
 python demo.py --config-file configs/Detic_LCOCOI21k_CLIP_SwinB_896b32_4x_ft4x_max-size.yaml --input desk.jpg --output out.jpg --vocabulary lvis --opts MODEL.WEIGHTS models/Detic_LCOCOI21k_CLIP_SwinB_896b32_4x_ft4x_max-size.pth
+
+
+#### Additional installtions
+```
+pip install scikit-image open3d natsort
+pip install -e src/third_party/detectron2/.
+pip install -e src/home_robot_hw/.
+pip install scikit-fmm
 ```
