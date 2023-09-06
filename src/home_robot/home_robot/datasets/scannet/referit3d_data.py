@@ -123,13 +123,21 @@ def load_referit3d_data(
     # Add the is_train data to the pandas data frame (needed in creating data loaders for the train and test)
     is_train = referit_data.scan_id.apply(lambda x: x in scans_split["train"])
     referit_data["is_train"] = is_train
+    referit_columns = (
+        referit_data.columns
+    )  # Get columns here because if DF has 0 rows, pandas also deletes the columns
+    referit_data = referit_data[is_train]
 
     # Trim data based on token length
-    train_token_lens = referit_data.tokens[is_train].apply(lambda x: len(x))
-    print(
-        "{}-th percentile of token length for remaining (training) data"
-        " is: {:.1f}".format(95, np.percentile(train_token_lens, 95))
-    )
+    # train_token_lens = referit_data.tokens[is_train].apply(lambda x: len(x))
+    train_token_lens = referit_data.tokens.apply(lambda x: len(x))
+    if len(train_token_lens) == 0:
+        print(f"No NR3D expressions found for scenes {scans_split['train']}")
+    else:
+        print(
+            "{}-th percentile of token length for remaining (training) data"
+            " is: {:.1f}".format(95, np.percentile(train_token_lens, 95))
+        )
     n_original = len(referit_data)
     referit_data = referit_data[
         referit_data.tokens.apply(lambda x: len(x) <= max_seq_len)
@@ -149,13 +157,13 @@ def load_referit3d_data(
         is_train = sr3d.scan_id.apply(lambda x: x in scans_split["train"])
         sr3d["is_train"] = is_train
         sr3d = sr3d[is_train]
-        sr3d = sr3d[referit_data.columns]
+        sr3d = sr3d[referit_columns]
         print("Dataset-size before augmentation:", len(referit_data))
         referit_data = pd.concat([referit_data, sr3d], axis=0)
         referit_data.reset_index(inplace=True, drop=True)
         print("Dataset-size after augmentation:", len(referit_data))
 
-    context_size = referit_data[~referit_data.is_train].stimulus_id.apply(
+    context_size = referit_data.stimulus_id.apply(
         lambda x: decode_stimulus_string(x)[2]
     )
     print(

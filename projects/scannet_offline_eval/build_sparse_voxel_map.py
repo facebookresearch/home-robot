@@ -70,6 +70,9 @@ class SparseVoxelMapAgent:
             )
             self.voxel_map = SparseVoxelMap(**_default_args)
 
+    def reset(self):
+        self.voxel_map.reset()
+
     ##############################################
     # Add new observations
     ##############################################
@@ -148,6 +151,37 @@ class SparseVoxelMapAgent:
         instances = self.voxel_map.get_instances()
         instances = [inst for inst in instances if inst.category_id == query_class_id]
         return instances
+
+    def build_scene_and_get_instances_for_queries(
+        self, scene_obs: Dict[str, Any], queries: Sequence[str]
+    ):
+        # Build scene representation
+        obs_list = []
+        for i in range(len(scene_obs["images"])):
+            obs = Observations(
+                gps=None,
+                compass=None,
+                rgb=scene_obs["images"][i] * 255,
+                depth=scene_obs["depths"][i],
+                semantic=None,
+                # Instance IDs per observation frame
+                # Size: (camera_height, camera_width)
+                # Range: 0 to max int
+                instance=None,
+                # Pose of the camera in world coordinates
+                camera_pose=scene_obs["poses"][i],
+                camera_K=scene_obs["intrinsics"][i],
+                task_observations={
+                    # "features": scene_obs["images"][i],
+                },
+            )
+            obs_list.append(obs)
+        instances_dict = {}
+        self.step_trajectory(obs_list)
+        for class_name in queries:
+            instances_dict[class_name] = self.get_instances_for_query(class_name)
+        self.reset()
+        return instances_dict
 
     ##############################################
     # 2D map projections for planning

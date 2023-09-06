@@ -488,7 +488,7 @@ class SparseVoxelMap(object):
                 # features = [colors],
                 names=[torch.stack(names, dim=0).unsqueeze(-1)],
             )
-            traces["Instance boxes"] = detected_boxes
+            traces["IB"] = detected_boxes
 
         # Show cameras
         # "Fused boxes": global_boxes,

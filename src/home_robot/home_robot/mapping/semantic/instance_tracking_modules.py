@@ -230,6 +230,7 @@ class InstanceMemory:
         num_envs: int,
         du_scale: int,
         instance_association: str = "bbox_iou",
+        instance_association_within_class: bool = True,
         iou_threshold: float = 0.8,
         global_box_nms_thresh: float = 0.0,
         debug_visualize: bool = False,
@@ -237,6 +238,7 @@ class InstanceMemory:
         erode_mask_num_iter: int = 1,
         instance_view_score_aggregation_mode="max",
         overlap_eps: float = 1e-6,
+        min_pixels_for_instance_view=100,
     ):
         """See class definition for information about InstanceMemory
 
@@ -261,6 +263,8 @@ class InstanceMemory:
         self.global_box_nms_thresh = global_box_nms_thresh
         self.instance_view_score_aggregation_mode = instance_view_score_aggregation_mode
         self.overlap_eps = overlap_eps
+        self.min_pixels_for_instance_view = min_pixels_for_instance_view
+        self.instance_association_within_class = instance_association_within_class
 
         if self.debug_visualize:
             import shutil
@@ -303,7 +307,7 @@ class InstanceMemory:
         """
         return list(self.instances[env_id].keys())
 
-    def get_instances(
+    def get_instances_by_ids(
         self, env_id: int, global_instance_idxs: Optional[Sequence[int]] = None
     ) -> List[Instance]:
         """
@@ -319,7 +323,7 @@ class InstanceMemory:
             List[Instance]: List of Instance objects associated with the given IDs.
         """
         if global_instance_idxs is None:
-            return self.instances[env_id]
+            return list(self.instances[env_id].values())
         return [self.instances[env_id][g_id] for g_id in global_instance_idxs]
 
     def pop_global_instance(
@@ -359,8 +363,42 @@ class InstanceMemory:
         self.instances[env_id] = new_env_instances
         return self.instances[env_id]
 
+    def get_ids_to_instances(
+        self, env_id: int, category_id: Optional[int] = None
+    ) -> List[Instance]:
+        """
+        Retrieve a Dict of IDs -> global instances for a given environment. If category_id is specified,
+        only instances matching that category will be returned.
+
+        Args:
+            env_id (int): The environment ID.
+            category_id: (Optional[Sequence[int]]): The category of instances to retreive. If None, all instances
+                                                    for the given environment will be returned. Defaults to None.
+
+        Returns:
+            Dict[int, Instance]: ID -> Instance objects associated with the given category_id.
+        """
+        # Get global instances
+        global_instance_ids = self.get_global_instance_ids(env_id)
+        if len(global_instance_ids) == 0:
+            return []
+        global_instances = self.get_instances_by_ids(
+            env_id=env_id, global_instance_idxs=global_instance_ids
+        )
+        return_dict = {
+            gid: inst for gid, inst in zip(global_instance_ids, global_instances)
+        }
+        if category_id is not None:
+            return_dict = {
+                gid: g for gid, g in return_dict.items() if g.category_id == category_id
+            }
+        return return_dict
+
     def find_global_instance_by_bbox_overlap(
-        self, env_id: int, local_instance_id: int
+        self,
+        env_id: int,
+        local_instance_id: int,
+        match_within_category: bool = False,
     ) -> Optional[int]:
         """
         Find the global instance with the maximum bounding box IoU overlap above a certain threshold with a local instance in a specific environment.
@@ -372,6 +410,7 @@ class InstanceMemory:
             env_id (int): Identifier for the environment in which the search is conducted.
             local_instance_id (int): Identifier for the local instance within the specified environment.
             iou_threshold (float): Minimum IoU threshold for considering instances as matching candidates.
+            match_within_category (bool): Only associate w/ bboxes of same category_id. Defaults to False.
 
         Returns:
             matching_global_instance (Optional[int]): Global instance ID with the maximum bounding box IoU overlap above the threshold,
@@ -385,27 +424,36 @@ class InstanceMemory:
 
         if len(self.instances[env_id]) == 0:
             return None
-        global_instance_ids, global_bounds = zip(
-            *[
-                (inst_id, instance.bounds)
-                for inst_id, instance in self.instances[env_id].items()
-            ]
-        )
+        # global_instance_ids, global_bounds = zip(
+        #     *[
+        #         (inst_id, instance.bounds)
+        #         for inst_id, instance in self.instances[env_id].items()
+        #     ]
+        # )
         # get instance view
         instance_view = self.get_local_instance_view(env_id, local_instance_id)
         if instance_view is not None:
+            ids_to_instances = self.get_ids_to_instances(
+                env_id,
+            )
+            if len(ids_to_instances) == 0:
+                return None
+            global_bounds = torch.stack(
+                [inst.bounds for inst in ids_to_instances.values()], dim=0
+            )
+
             _, iou = box3d_overlap_from_bounds(
                 instance_view.bounds.unsqueeze(0),
-                torch.stack(global_bounds, dim=0),
+                global_bounds,
                 self.overlap_eps,
             )
             ious = iou.flatten()
             if ious.max() > self.iou_threshold:
-                return global_instance_ids[ious.argmax()]
+                return list(ids_to_instances.keys())[ious.argmax()]
         return None
 
     def find_global_instance_by_one_sided_iou(
-        self, env_id: int, local_instance_id: int
+        self, env_id: int, local_instance_id: int, match_within_category: bool = False
     ) -> Optional[int]:
         """
         Find the global instance ID that has the maximum one-sided Intersection over Union (IoU)
@@ -414,6 +462,7 @@ class InstanceMemory:
         Args:
             env_id (int): The environment ID.
             local_instance_id (int): The local instance ID whose global counterpart needs to be found.
+            match_within_category (bool): Only associate w/ bboxes of same category_id. Defaults to False.
 
         Returns:
             Optional[int]: The global instance ID with the maximum one-sided IoU.
@@ -422,21 +471,20 @@ class InstanceMemory:
         """
         # get instance view
         instance_view = self.get_local_instance_view(env_id, local_instance_id)
+        match_category_id = instance_view.category_id if match_within_category else None
         volume1 = box3d_volume_from_bounds(instance_view.bounds)
         assert torch.all(volume1 > 0.0), instance_view.bounds
 
         if instance_view is not None:
-            global_instance_ids = self.get_global_instance_ids(env_id)
-            if len(global_instance_ids) == 0:
+            ids_to_instances = self.get_ids_to_instances(
+                env_id, category_id=match_category_id
+            )
+            if len(ids_to_instances) == 0:
                 return None
-            global_bounds = [
-                inst.bounds
-                for inst in self.get_instances(
-                    env_id=env_id, global_instance_idxs=global_instance_ids
-                )
-            ]
+            global_bounds = torch.stack(
+                [inst.bounds for inst in ids_to_instances.values()], dim=0
+            )
 
-            global_bounds = torch.stack(global_bounds, dim=0)
             vol_int, _ = box3d_overlap_from_bounds(
                 instance_view.bounds.unsqueeze(0), global_bounds, self.overlap_eps
             )
@@ -446,7 +494,7 @@ class InstanceMemory:
             ious = ious.flatten()
 
             if ious.max() > self.iou_threshold:
-                return global_instance_ids[ious.argmax()]
+                return list(ids_to_instances.keys())[ious.argmax()]
         return None
 
     def find_global_instance_by_pointcloud_overlap(
@@ -489,7 +537,7 @@ class InstanceMemory:
                 return None
             global_bounds = [
                 inst.bounds
-                for inst in self.get_instances(
+                for inst in self.get_instances_by_ids(
                     env_id=env_id, global_instance_idxs=global_instance_ids
                 )
             ]
@@ -540,7 +588,9 @@ class InstanceMemory:
                 ].items():
                     if self.instance_association == "bbox_iou":
                         global_instance_id = self.find_global_instance_by_bbox_overlap(
-                            env_id, local_instance_id
+                            env_id,
+                            local_instance_id,
+                            match_within_category=self.instance_association_within_class,
                         )
                         if global_instance_id is None:
                             global_instance_id = len(self.instances[env_id])
@@ -554,7 +604,9 @@ class InstanceMemory:
                 ].items():
                     if self.instance_association == "bbox_one_sided_iou":
                         global_instance_id = self.find_global_instance_by_one_sided_iou(
-                            env_id, local_instance_id
+                            env_id,
+                            local_instance_id,
+                            match_within_category=self.instance_association_within_class,
                         )
                         if global_instance_id is None:
                             global_instance_id = len(self.instances[env_id])
@@ -573,7 +625,7 @@ class InstanceMemory:
 
     def global_instance_nms(
         self,
-        env_id,
+        env_id: int,
         nms_iou_thresh: Optional[float] = None,
         within_category: bool = True,
     ) -> None:
@@ -601,30 +653,79 @@ class InstanceMemory:
             This function directly modifies the internal list of instances (`self.instances`) and
             reindexes them after the NMS operation.
         """
-        if within_category:
-            raise NotImplementedError
         if nms_iou_thresh is None:
             nms_iou_thresh = self.global_box_nms_thresh
         assert 0.0 < nms_iou_thresh and nms_iou_thresh <= 1.0, nms_iou_thresh
-        global_instance_ids = self.get_global_instance_ids(env_id)
-        instances = self.get_instances(env_id, global_instance_ids)
-        instance_bounds = torch.stack([inst.bounds for inst in instances], dim=0)
-        instance_corners = get_box_verts_from_bounds(instance_bounds)
-        confidences = torch.stack([inst.score for inst in instances], dim=0)
-        keep, vol, iou, assignments = box3d_nms(
-            instance_corners, confidence_score=confidences, iou_threshold=nms_iou_thresh
-        )
-        for keep_id, delete_ids in assignments.items():
-            inst_to_keep = self.get_instance(
-                env_id=env_id, global_instance_id=int(keep_id)
-            )
-            for delete_id in delete_ids:
-                inst_to_delete = self.pop_global_instance(
-                    env_id, global_instance_id=int(delete_id), skip_reindex=True
+        if within_category:
+            categories = torch.tensor(
+                [inst.category_id for inst in self.get_instances_by_ids(env_id)]
+            ).unique()
+            for category_id in categories:
+                category_id = int(category_id)
+                ids_to_instances = self.get_ids_to_instances(
+                    env_id, category_id=category_id
                 )
-                for view in inst_to_delete.instance_views:
-                    inst_to_keep.add_instance_view(view)
+                ids, instances = list(ids_to_instances.keys()), list(
+                    ids_to_instances.values()
+                )
+                instance_bounds = torch.stack(
+                    [inst.bounds for inst in instances], dim=0
+                )
+                confidences = torch.stack([inst.score for inst in instances], dim=0)
+                # Could implement a different NMS designed for partial views
+                # Idea: Go over bounding boxes large-to-small
+                # If intersection / small_volume > thresh -- assign small -> large
+                confidences = box3d_volume_from_bounds(
+                    instance_bounds
+                )  # Larger boxes get priority
+                keep, vol, iou, assignments = box3d_sub_box_suppression(
+                    instance_bounds,
+                    confidence_score=confidences,
+                    iou_threshold=nms_iou_thresh,
+                )
+                for keep_id, delete_ids in assignments.items():
+                    # Map the sequential ids from box3d_nms to the instanceMemory global id
+                    keep_id = ids[keep_id]
+                    delete_ids = [ids[d_id] for d_id in delete_ids]
+                    inst_to_keep = self.get_instance(
+                        env_id=env_id, global_instance_id=int(keep_id)
+                    )
+                    for delete_id in delete_ids:
+                        inst_to_delete = self.pop_global_instance(
+                            env_id, global_instance_id=int(delete_id), skip_reindex=True
+                        )
+                        for view in inst_to_delete.instance_views:
+                            inst_to_keep.add_instance_view(view)
+        else:
+            global_instance_ids = self.get_global_instance_ids(env_id)
+            instances = self.get_instances_by_ids(env_id, global_instance_ids)
+            instance_bounds = torch.stack([inst.bounds for inst in instances], dim=0)
+            instance_corners = get_box_verts_from_bounds(instance_bounds)
+            confidences = torch.stack([inst.score for inst in instances], dim=0)
+            keep, vol, iou, assignments = box3d_nms(
+                instance_corners,
+                confidence_score=confidences,
+                iou_threshold=nms_iou_thresh,
+            )
+            for keep_id, delete_ids in assignments.items():
+                inst_to_keep = self.get_instance(
+                    env_id=env_id, global_instance_id=int(keep_id)
+                )
+                for delete_id in delete_ids:
+                    inst_to_delete = self.pop_global_instance(
+                        env_id, global_instance_id=int(delete_id), skip_reindex=True
+                    )
+                    for view in inst_to_delete.instance_views:
+                        inst_to_keep.add_instance_view(view)
         self.reindex_global_instances(env_id)
+
+    def global_instance_nms_ids(
+        self,
+        env_id: int,
+        global_ids: Sequence[int],
+        nms_iou_thresh: Optional[float] = None,
+    ):
+        pass
 
     def get_local_instance_view(self, env_id: int, local_instance_id: int):
         """
@@ -879,7 +980,7 @@ class InstanceMemory:
             n_mask = instance_mask_downsampled.sum()
 
             # Create InstanceView if the view is large enough
-            if n_mask > 1 and n_points > 1:
+            if n_mask >= self.min_pixels_for_instance_view and n_points > 1:
                 bounds = get_bounds(point_cloud_instance)
                 volume = float(box3d_volume_from_bounds(bounds).squeeze())
 
@@ -971,3 +1072,65 @@ class InstanceMemory:
         self.point_cloud[env_id] = None
         self.unprocessed_views[env_id] = {}
         self.timesteps[env_id] = 0
+
+
+def box3d_sub_box_suppression(
+    bounds: Tensor, confidence_score: Tensor, iou_threshold: float = 0.3
+):
+    """
+    Non-max suppression where boxes inside other boxes get suppressed
+
+    Args:
+      bounds: (N, 3, 2) vertex coordinates. Must be in order specified by box3d_overlap
+      confidence_score: (N,)
+      iou_threshold: Suppress boxes whose IoU > iou_threshold
+
+    Returns:
+      keep, vol, iou, assignments
+      keep: indexes into N of which bounding boxes to keep
+      vol: (N, N) tensor of the volume of the intersecting convex shapes
+      iov: (N, M) tensor of the intersection over union which is
+          defined as: `iou = vol_int / (vol)`
+      assignments: superbox_idx -> List[boxes_to_delete]
+    """
+    assert len(bounds) > 0, bounds.shape
+
+    order = torch.argsort(confidence_score)
+
+    (
+        intersection,
+        _,
+        _,
+    ) = box3d_intersection_from_bounds(bounds, bounds)
+    volume = box3d_volume_from_bounds(bounds)
+    intersection_over_volume = intersection / volume.unsqueeze(0)
+    # There is a subtle possible bug here if we want to combine bboxes instead of just suppress
+    # I.e. if box 1 contains most of box 8, but doensn't contain box1
+    # and box 8 contains box 1
+    # and box 1 is larger than box 8 larger than box 1
+    # Then box 8 gets assigned to 1 and box 1 makes it through
+    # Is this desired behavior?
+
+    keep = []
+    assignments = {}
+    while len(order) > 0:
+
+        idx = order[-1]  # Highest confidence (S)
+
+        # push S in filtered predictions list
+        keep.append(idx)
+
+        # remove S from P
+        order = order[:-1]
+
+        # sanity check
+        if len(order) == 0:
+            break
+
+        # keep the boxes with IoU less than thresh_iou
+        # _, iou = box3d_overlap(bounding_boxes[idx].unsqueeze(0), bounding_boxes[order])
+        mask = intersection_over_volume[idx, order] < iou_threshold
+        assignments[idx] = order[~mask]
+        order = order[mask]
+
+    return torch.tensor(keep), intersection, intersection_over_volume, assignments

@@ -1104,8 +1104,7 @@ def box3d_nms(bounding_boxes, confidence_score, iou_threshold=0.3):
           defined as: `iou = vol / (vol1 + vol2 - vol)`
       assignments: superbox_idx -> List[boxes_to_delete]
     """
-    if len(bounding_boxes) == 0:
-        return []
+    assert len(bounding_boxes) > 0, bounding_boxes.shape
 
     order = torch.argsort(confidence_score)
 

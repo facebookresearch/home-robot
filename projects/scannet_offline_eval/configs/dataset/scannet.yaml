@@ -3,6 +3,7 @@ root_dir: '/private/home/ssax/home-robot/src/home_robot/home_robot/datasets/scan
 split: "val"
 keep_only_scenes: null
 keep_only_first_k_scenes: 5
+skip_first_k_scenes: 0
 frame_skip: 30
 height: 480
 width: 640

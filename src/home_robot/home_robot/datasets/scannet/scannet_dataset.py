@@ -104,6 +104,7 @@ class ScanNetDataset(object):
         split: str = "train",
         keep_only_scenes: Optional[List[str]] = None,
         keep_only_first_k_scenes: int = -1,
+        skip_first_k_scenes: int = 0,
         frame_skip: int = 1,
         height: Optional[int] = 480,
         width: Optional[int] = 640,
@@ -183,7 +184,12 @@ class ScanNetDataset(object):
         if keep_only_scenes is not None:
             self.scene_list = [s for s in self.scene_list if s in keep_only_scenes]
         self.scene_list = natsorted(self.scene_list)
-        self.scene_list = self.scene_list[:keep_only_first_k_scenes]
+        print(
+            f"ScanNetDataset: Keeping next {keep_only_first_k_scenes} scenes starting at idx {skip_first_k_scenes}"
+        )
+        self.scene_list = self.scene_list[skip_first_k_scenes:][
+            :keep_only_first_k_scenes
+        ]
         assert len(self.scene_list) > 0
 
         # Referit3d
@@ -294,7 +300,7 @@ class ScanNetDataset(object):
             pose = axis_align_mat @ torch.from_numpy(pose.astype(np.float32)).float()
             # We cannot accept files directly, as some of the poses are invalid
             if torch.any(torch.isnan(pose)):
-                print(f"Found inf pose in {scan_name}")
+                # print(f"Found inf pose in {scan_name}")
                 continue
 
             image_paths.append(img)
