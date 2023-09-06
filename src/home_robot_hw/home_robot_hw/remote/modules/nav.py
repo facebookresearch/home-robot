@@ -71,7 +71,7 @@ class StretchNavigationClient(AbstractControlModule):
         xyt: np.ndarray,
         rate: int = 10,
         pos_err_threshold: float = 0.2,
-        rot_err_threshold: float = 0.5,
+        rot_err_threshold: float = 0.3,
         verbose: bool = False,
         timeout: float = 10.0,
     ) -> bool:
