@@ -62,6 +62,12 @@ class RosMapDataCollector(object):
         self.robot_model = HelloStretchKinematics(visualize=visualize_planner)
         self.voxel_map = SparseVoxelMap(resolution=voxel_size)
 
+    def get_planning_space(self) -> SparseVoxelMapNavigationSpace:
+        """return space for motion planning"""
+        return SparseVoxelMapNavigationSpace(
+            self.voxel_map, self.robot_model, step_size=0.2
+        )
+
     def step(self, visualize_map=False):
         """Step the collector. Get a single observation of the world. Remove bad points, such as
         those from too far or too near the camera."""
@@ -172,8 +178,26 @@ def run_exploration(
 ):
     """Go through exploration. We use the voxel_grid map created by our collector to sample free space, and then use our motion planner (RRT for now) to get there. At the end, we plan back to (0,0,0)."""
     rate = rospy.Rate(rate)
+    space = collector.get_planning_space()
     for i in range(explore_iter):
         # sample a goal
+        goal = space.sample_frontier().cpu().numpy()
+        if goal is None:
+            print(" ------ sampling failed!")
+        start = robot.get_base_pose()
+        print("       Start:", start)
+        print("Sampled Goal:", goal)
+        print("Start is valid:", collector.voxel_map.xyt_is_safe(start))
+        print(" Goal is valid:", collector.voxel_map.xyt_is_safe(goal))
+        res = planner.plan(start, goal)
+        print("Found plan:", res.success)
+        obstacles, explored = voxel_map.get_2d_map()
+        plt.imshow((10 * obstacles) + explored)
+        if res.success:
+            path = voxel_map.plan_to_grid_coords(res)
+            x, y = get_x_and_y_from_path(path)
+            plt.plot(x, y)
+        plt.show()
         # plan to that goal
         # if it fails, skip; else, execute a trajectory to it
         if manual_wait:

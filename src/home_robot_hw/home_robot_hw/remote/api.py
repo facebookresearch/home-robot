@@ -204,6 +204,10 @@ class StretchClient:
         )
         self.switch_to_navigation_mode()
 
+    def get_base_pose(self) -> np.ndarray:
+        """Get the robot's base pose as XYT."""
+        return self.nav.get_base_pose()
+
     def get_observation(
         self, rotate_head_pts=False, start_pose: Optional[np.ndarray] = None
     ) -> Observations:
