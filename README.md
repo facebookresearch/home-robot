@@ -28,7 +28,7 @@ This is the recommended workflow for hardware robots:
   - Turn on your robot; for the Stretch, run `stretch_robot_home.py` to get it ready to use.
   - From your workstation, SSH into the robot and start a [ROS launch file](http://wiki.ros.org/roslaunch) which brings up necessary low-level control and hardware drivers.
   - If desired, run [rviz](http://wiki.ros.org/rviz) on the workstation to see what the robot is seeing.
-  - Start running your AI code on the workstation - For example, you can run `python projects/stretch_grasping/eval_episode.py` to run the OVMM task.
+  - Start running your AI code on the workstation - For example, you can run `python projects/real_world_ovmm/eval_episode.py` to run the OVMM task.
 
 We provide a couple connections for useful perception libraries like [Detic](https://github.com/facebookresearch/Detic), [Grounded-SAM](https://github.com/IDEA-Research/Grounded-Segment-Anything) and [Contact Graspnet](https://github.com/NVlabs/contact_graspnet), which you can then use as a part of your methods.
 
