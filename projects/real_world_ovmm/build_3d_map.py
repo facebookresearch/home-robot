@@ -178,8 +178,17 @@ def run_exploration(
 ):
     """Go through exploration. We use the voxel_grid map created by our collector to sample free space, and then use our motion planner (RRT for now) to get there. At the end, we plan back to (0,0,0)."""
     rate = rospy.Rate(rate)
+
+    # Create planning space
     space = collector.get_planning_space()
+
+    # Create a simple motion planner
+    planner = Shortcut(RRTConnect(space, space.is_valid))
+
+    # Explore some number of times
     for i in range(explore_iter):
+        print("\n" * 2)
+        print("-" * 20, i, "-" * 20)
         # sample a goal
         goal = space.sample_frontier().cpu().numpy()
         if goal is None:
@@ -191,10 +200,10 @@ def run_exploration(
         print(" Goal is valid:", collector.voxel_map.xyt_is_safe(goal))
         res = planner.plan(start, goal)
         print("Found plan:", res.success)
-        obstacles, explored = voxel_map.get_2d_map()
+        obstacles, explored = collector.get_2d_map()
         plt.imshow((10 * obstacles) + explored)
         if res.success:
-            path = voxel_map.plan_to_grid_coords(res)
+            path = collector.voxel_map.plan_to_grid_coords(res)
             x, y = get_x_and_y_from_path(path)
             plt.plot(x, y)
         plt.show()
