@@ -10,7 +10,12 @@ from geometry_msgs.msg import Twist
 from std_srvs.srv import SetBoolRequest, TriggerRequest
 
 from home_robot.motion.robot import Robot
-from home_robot.utils.geometry import sophus2xyt, xyt2sophus, xyt_base_to_global
+from home_robot.utils.geometry import (
+    angle_difference,
+    sophus2xyt,
+    xyt2sophus,
+    xyt_base_to_global,
+)
 from home_robot_hw.constants import T_LOC_STABILIZE
 from home_robot_hw.ros.utils import matrix_to_pose_msg
 
@@ -66,6 +71,7 @@ class StretchNavigationClient(AbstractControlModule):
         xyt: np.ndarray,
         rate: int = 10,
         pos_err_threshold: float = 0.2,
+        rot_err_threshold: float = 0.5,
         verbose: bool = False,
         timeout: float = 10.0,
     ) -> bool:
@@ -90,9 +96,19 @@ class StretchNavigationClient(AbstractControlModule):
             # Loop until we get there (or time out)
             curr = self.get_base_pose()
             pos_err = np.linalg.norm(xy - curr[:2])
+            rot_err = angle_difference(curr[-1], xyt[2])
             if verbose:
-                print("- curr pose =", curr, "target =", xyt, "err =", pos_err)
-            if pos_err < pos_err_threshold:
+                print(
+                    "- curr pose =",
+                    curr,
+                    "target =",
+                    xyt,
+                    "err =",
+                    pos_err,
+                    "rot err =",
+                    rot_err,
+                )
+            if pos_err < pos_err_threshold and rot_err < rot_err_threshold:
                 # We reached the goal position
                 return True
             t1 = rospy.Time.now()

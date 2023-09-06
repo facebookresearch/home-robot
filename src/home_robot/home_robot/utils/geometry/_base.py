@@ -91,3 +91,15 @@ def sophus2obs(pose_sp):
         position=pose_sp.translation(),
         orientation=Rotation.from_matrix(pose_sp.so3().matrix()).as_quat(),
     )
+
+
+def angle_difference(angle1: float, angle2: float):
+    """angle difference"""
+
+    # Calculate the absolute angular difference
+    abs_diff = np.abs(angle1 - angle2)
+
+    # Calculate the wrapped angular difference
+    wrapped_diff = np.minimum(abs_diff, 2 * np.pi - abs_diff)
+
+    return wrapped_diff
