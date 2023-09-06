@@ -49,10 +49,12 @@ class SparseVoxelMapNavigationSpace(XYT):
         """Helper function to draw masks on image"""
         grid_xy = self.voxel_map.xy_to_grid_coords(state[:2])
         mask = self.get_oriented_mask(state[2])
-        x0 = grid_xy[0] - mask.shape[0] // 2
-        x1 = grid_xy[0] + mask.shape[0] // 2 + 1
-        y0 = grid_xy[1] - mask.shape[1] // 2
-        y1 = grid_xy[1] + mask.shape[1] // 2 + 1
+        x0 = int(np.round(float(grid_xy[0] - mask.shape[0] // 2)))
+        x1 = int(np.round(float(grid_xy[0] + mask.shape[0] // 2 + 1)))
+        y0 = int(np.round(float(grid_xy[1] - mask.shape[1] // 2)))
+        y1 = int(np.round(float(grid_xy[1] + mask.shape[1] // 2 + 1)))
+        assert x1 - x0 == mask.shape[0], "crop shape incorrect"
+        assert y1 - y0 == mask.shape[1], "crop shape incorrect"
         img[x0:x1, y0:y1] += mask * weight
         return img
 
