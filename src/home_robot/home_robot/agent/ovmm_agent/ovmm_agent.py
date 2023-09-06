@@ -29,6 +29,8 @@ class Skill(IntEnum):
     NAV_TO_REC = auto()
     GAZE_AT_REC = auto()
     PLACE = auto()
+    EXPLORE = auto()
+    NAV_TO_INSTANCE = auto()
     FALL_WAIT = auto()
 
 
@@ -65,14 +67,15 @@ class OpenVocabManipAgent(ObjectNavAgent):
         self.place_policy = None
         self.semantic_sensor = None
 
-        if config.GROUND_TRUTH_SEMANTICS == 1 and self.store_all_categories_in_map:
+        if config.GROUND_TRUTH_SEMANTICS == 1 and not self.store_all_categories_in_map:
             # currently we get ground truth semantics of only the target object category and all scene receptacles from the simulator
             raise NotImplementedError
 
         self.skip_skills = config.AGENT.skip_skills
         self.max_pick_attempts = 10
         if config.GROUND_TRUTH_SEMANTICS == 0:
-            self.semantic_sensor = OvmmPerception(config, device_id, self.verbose)
+            self.semantic_sensor = OvmmPerception(
+                config, device_id, self.verbose)
             self.obj_name_to_id, self.rec_name_to_id = read_category_map_file(
                 config.ENVIRONMENT.category_map_file
             )
@@ -258,7 +261,8 @@ class OpenVocabManipAgent(ObjectNavAgent):
                     self.config.AGENT.SKILLS.NAV_TO_OBJ.type == "rl"
                     and not self.store_all_categories_in_map
                 ):
-                    self._set_semantic_vocab(SemanticVocab.FULL, force_set=False)
+                    self._set_semantic_vocab(
+                        SemanticVocab.FULL, force_set=False)
         elif next_skill == Skill.GAZE_AT_REC:
             if not self.store_all_categories_in_map:
                 self._set_semantic_vocab(SemanticVocab.SIMPLE, force_set=False)
@@ -293,25 +297,29 @@ class OpenVocabManipAgent(ObjectNavAgent):
         simple_vocab = build_vocab_from_category_map(
             obj_id_to_name, simple_rec_id_to_name
         )
-        self.semantic_sensor.update_vocabulary_list(simple_vocab, SemanticVocab.SIMPLE)
+        self.semantic_sensor.update_vocabulary_list(
+            simple_vocab, SemanticVocab.SIMPLE)
 
         if update_full_vocabulary:
             # Full vocabulary contains the object and all receptacles
             full_vocab = build_vocab_from_category_map(
                 obj_id_to_name, self.rec_name_to_id
             )
-            self.semantic_sensor.update_vocabulary_list(full_vocab, SemanticVocab.FULL)
+            self.semantic_sensor.update_vocabulary_list(
+                full_vocab, SemanticVocab.FULL)
 
         # All vocabulary contains all objects and all receptacles
         all_vocab = build_vocab_from_category_map(
             self.obj_name_to_id, self.rec_name_to_id
         )
-        self.semantic_sensor.update_vocabulary_list(all_vocab, SemanticVocab.ALL)
+        self.semantic_sensor.update_vocabulary_list(
+            all_vocab, SemanticVocab.ALL)
 
     def _set_semantic_vocab(self, vocab_id: SemanticVocab, force_set: bool):
         """
         Set active vocabulary for semantic sensor to use to the given ID.
         """
+        # import pdb; pdb.set_trace()
         if self.config.GROUND_TRUTH_SEMANTICS == 0 and (
             force_set or self.semantic_sensor.current_vocabulary_id != vocab_id
         ):
@@ -463,9 +471,6 @@ class OpenVocabManipAgent(ObjectNavAgent):
                     action = DiscreteNavigationAction.PICK_OBJECT
                 else:
                     action = None
-            else:
-                # We have tried too many times and we're going to quit
-                action = None
         else:
             raise NotImplementedError(
                 f"pick type not supported: {self.config.AGENT.SKILLS.PICK.type}"
@@ -522,7 +527,8 @@ class OpenVocabManipAgent(ObjectNavAgent):
         elif place_type == "rl":
             action, info = self._rl_place(obs, info)
         else:
-            raise ValueError(f"Got unexpected value for PLACE.type: {place_type}")
+            raise ValueError(
+                f"Got unexpected value for PLACE.type: {place_type}")
         new_state = None
         if action == DiscreteNavigationAction.STOP:
             action = None

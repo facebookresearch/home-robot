@@ -14,6 +14,8 @@ import torch
 
 from home_robot.core.interfaces import Observations
 
+padding = 1.5
+
 
 class InstanceView:
     """
@@ -263,7 +265,8 @@ class InstanceMemory:
                         env_id, local_instance_id
                     )
                     if global_instance_id is None:
-                        global_instance_id = len(self.instance_views[env_id]) + 1
+                        global_instance_id = len(
+                            self.instance_views[env_id]) + 1
                     self.add_view_to_instance(
                         env_id, local_instance_id, global_instance_id
                     )
@@ -287,7 +290,8 @@ class InstanceMemory:
             instance_view (Optional[InstanceView]): The instance view associated with the specified local instance in the given environment,
                 or None if no matching instance view is found.
         """
-        instance_view = self.unprocessed_views[env_id].get(local_instance_id, None)
+        instance_view = self.unprocessed_views[env_id].get(
+            local_instance_id, None)
         if instance_view is None and self.debug_visualize:
             print(
                 "instance view with local instance id",
@@ -323,7 +327,8 @@ class InstanceMemory:
         instance_view = self.get_local_instance_view(env_id, local_instance_id)
 
         # get global instance
-        global_instance = self.instance_views[env_id].get(global_instance_id, None)
+        global_instance = self.instance_views[env_id].get(
+            global_instance_id, None)
         if global_instance is None:
             # create a new global instance
             global_instance = Instance()
@@ -361,7 +366,8 @@ class InstanceMemory:
             # overlay mask on image
             mask = np.zeros(full_image.shape, full_image.dtype)
             mask[:, :] = (0, 0, 255)
-            mask = cv2.bitwise_and(mask, mask, mask=instance_view.mask.astype(np.uint8))
+            mask = cv2.bitwise_and(
+                mask, mask, mask=instance_view.mask.astype(np.uint8))
             masked_image = cv2.addWeighted(mask, 1, full_image, 1, 0)
             cv2.imwrite(
                 os.path.join(
@@ -386,7 +392,7 @@ class InstanceMemory:
         image: torch.Tensor,
         semantic_seg: Optional[torch.Tensor] = None,
         mask_out_object: bool = True,
-        background_class_label: int = 0,
+        background_class_labels: List[int] = [0],
     ):
         """
         Process instance information in the current frame and add instance views to the list of unprocessed views for future association.
@@ -401,7 +407,7 @@ class InstanceMemory:
             image (torch.Tensor): Image data.
             semantic_seg (Optional[torch.Tensor]): Semantic segmentation tensor, if available.
             mask_out_object (bool): true if we want to save crops of just objects on black background; false otherwise
-            background_class_label(int): id used to represent background points in instance mask (default = 0)
+            background_class_labels (List[int]): id used to represent background points in instance mask (default = [0])
 
         Note:
             - The method creates instance views for detected instances within the provided data.
@@ -430,15 +436,14 @@ class InstanceMemory:
             self.point_cloud[env_id] = point_cloud.unsqueeze(0).detach().cpu()
         else:
             self.point_cloud[env_id] = torch.cat(
-                [self.point_cloud[env_id], point_cloud.unsqueeze(0).detach().cpu()],
+                [self.point_cloud[env_id],
+                    point_cloud.unsqueeze(0).detach().cpu()],
                 dim=0,
             )
         # unique instances
         instance_ids = torch.unique(instance_seg)
         for instance_id in instance_ids:
-            # skip background
-            if instance_id == background_class_label:
-                continue
+
             # get instance mask
             instance_mask = instance_seg == instance_id
 
@@ -447,6 +452,10 @@ class InstanceMemory:
                 # get semantic category
                 category_id = semantic_seg[instance_mask].unique()
                 category_id = category_id[0].item()
+
+            # skip background
+            if category_id is not None and category_id in background_class_labels:
+                continue
 
             instance_id_to_category_id[instance_id] = category_id
 
@@ -487,30 +496,31 @@ class InstanceMemory:
             # get cropped image
             p = self.padding_cropped_instances
             h, w = masked_image.shape[1:]
-            cropped_image = (
-                masked_image[
-                    :,
-                    max(bbox[0, 0] - p, 0) : min(bbox[1, 0] + p, h),
-                    max(bbox[0, 1] - p, 0) : min(bbox[1, 1] + p, w),
-                ]
-                .permute(1, 2, 0)
-                .cpu()
-                .numpy()
-                .astype(np.uint8)
-            )
-
+            # cropped_image = (
+            #     masked_image[
+            #         :,
+            #         max(bbox[0, 0] - p, 0) : min(bbox[1, 0] + p, h),
+            #         max(bbox[0, 1] - p, 0) : min(bbox[1, 1] + p, w),
+            #     ]
+            #     .permute(1, 2, 0)
+            #     .cpu()
+            #     .numpy()
+            #     .astype(np.uint8)
+            # )
+            cropped_image = self.get_cropped_image(image, bbox)
             instance_mask = instance_mask.cpu().numpy().astype(bool)
 
             # get embedding
             embedding = None
 
             # get point cloud
-            point_cloud_instance = point_cloud[instance_mask_downsampled.cpu().numpy()]
+            point_cloud_instance = point_cloud[instance_mask_downsampled.cpu(
+            ).numpy()]
             point_cloud_instance = point_cloud_instance.cpu().numpy()
 
             object_coverage = np.sum(instance_mask) / instance_mask.size
 
-            if instance_mask_downsampled.sum() > 0 and point_cloud_instance.sum() > 0:
+            if instance_mask_downsampled.sum() > 0:
                 bounds = np.min(point_cloud_instance, axis=0), np.max(
                     point_cloud_instance, axis=0
                 )
@@ -529,7 +539,8 @@ class InstanceMemory:
                     object_coverage=object_coverage,
                 )
                 # append instance view to list of instance views
-                self.unprocessed_views[env_id][instance_id.item()] = instance_view
+                self.unprocessed_views[env_id][instance_id.item(
+                )] = instance_view
 
             # save cropped image with timestep in filename
             if self.debug_visualize:
@@ -551,6 +562,7 @@ class InstanceMemory:
         pose: torch.Tensor,
         image: torch.Tensor,
         semantic_channels: Optional[torch.Tensor] = None,
+        background_class_labels: List[int] = [0],
     ):
         """
         Process instance information across environments and associate instance views with global instances.
@@ -586,6 +598,7 @@ class InstanceMemory:
                 pose[env_id],
                 image[env_id],
                 semantic_seg=semantic_seg,
+                background_class_labels=background_class_labels,
             )
         self.associate_instances_to_memory()
 
@@ -596,3 +609,30 @@ class InstanceMemory:
         self.unprocessed_views[env_id] = {}
         self.timesteps[env_id] = 0
         self.local_id_to_global_id_map[env_id] = {}
+
+    def get_cropped_image(self, image, bbox):
+        # image = instance_memory.images[0][iv.timestep]
+        im_h = image.shape[1]
+        im_w = image.shape[2]
+        # bbox = iv.bbox
+        x = bbox[0, 1]
+        y = bbox[0, 0]
+        w = bbox[1, 1] - x
+        h = bbox[1, 0] - y
+        x = 0 if (x-(padding-1)*w /
+                  2) < 0 else int(x-(padding-1)*w/2)
+        y = 0 if (y-(padding-1)*h /
+                  2) < 0 else int(y-(padding-1)*h/2)
+        y2 = im_h if y + \
+            int(h*padding) >= im_h else y+int(h*padding)
+        x2 = im_w if x + \
+            int(w*padding) >= im_w else x+int(w*padding)
+        cropped_image = (
+            image[:,  y: y2, x: x2,
+                  ]
+            .permute(1, 2, 0)
+            .cpu()
+            .numpy()
+            .astype(np.uint8)
+        )
+        return cropped_image
