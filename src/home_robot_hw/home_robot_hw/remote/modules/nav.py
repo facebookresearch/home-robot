@@ -107,7 +107,7 @@ class StretchNavigationClient(AbstractControlModule):
         trajectory: List[np.ndarray],
         pos_err_threshold: float = 0.2,
         spin_rate: int = 10,
-        verbose: bool = True,
+        verbose: bool = False,
         per_waypoint_timeout: float = 10.0,
         relative: bool = False,
     ):

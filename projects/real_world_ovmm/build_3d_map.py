@@ -25,7 +25,10 @@ from home_robot.mapping import SparseVoxelMap, SparseVoxelMapNavigationSpace
 # Import planning tools for exploration
 from home_robot.motion.rrt_connect import RRTConnect
 from home_robot.motion.shortcut import Shortcut
-from home_robot.motion.stretch import STRETCH_NAVIGATION_Q, HelloStretchKinematics
+from home_robot.motion.stretch import (
+    STRETCH_CAUTIOUS_NAVIGATION_Q,
+    HelloStretchKinematics,
+)
 from home_robot.utils.geometry import xyt2sophus
 from home_robot.utils.image import Camera
 from home_robot.utils.point_cloud import numpy_to_pcd, pcd_to_numpy, show_point_cloud
@@ -60,7 +63,7 @@ class RosMapDataCollector(object):
         self.semantic_sensor = semantic_sensor
         self.started = False
         self.robot_model = HelloStretchKinematics(visualize=visualize_planner)
-        self.voxel_map = SparseVoxelMap(resolution=voxel_size)
+        self.voxel_map = SparseVoxelMap(resolution=voxel_size, local_radius=0.15)
 
     def get_planning_space(self) -> SparseVoxelMapNavigationSpace:
         """return space for motion planning"""
@@ -263,10 +266,8 @@ def collect_data(
     print("Sending arm to  home...")
     robot.switch_to_manipulation_mode()
 
-    robot.head.look_front(blocking=False)
-    robot.manip.goto_joint_positions(
-        robot.manip._extract_joint_pos(STRETCH_NAVIGATION_Q)
-    )
+    robot.move_to_nav_posture()
+    robot.head.look_close(blocking=False)
     print("... done.")
 
     # Move the robot

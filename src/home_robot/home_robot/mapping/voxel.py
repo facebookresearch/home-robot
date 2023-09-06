@@ -74,7 +74,7 @@ class SparseVoxelMap(object):
         obs_max_height: float = 1.8,
         obs_min_density: float = 5,
         add_local_radius_points: bool = True,
-        local_radius: float = 0.3,
+        local_radius: float = 0.15,
         min_depth: float = 0.1,
         max_depth: float = 4.0,
         background_instance_label: int = -1,

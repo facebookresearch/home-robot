@@ -104,6 +104,7 @@ STRETCH_NAVIGATION_Q = np.array(
     ]
 )
 
+
 PIN_CONTROLLED_JOINTS = [
     "base_x_joint",
     "joint_lift",
@@ -215,6 +216,8 @@ class HelloStretchKinematics(Robot):
     look_at_ee = np.array([-np.pi / 2, -np.pi / 4])
     look_front = np.array([0.0, math.radians(-30)])
     look_ahead = np.array([0.0, 0.0])
+    look_close = np.array([0.0, math.radians(-45)])
+
     max_arm_height = 1.2
 
     # For inverse kinematics mode
