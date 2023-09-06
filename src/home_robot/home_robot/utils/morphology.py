@@ -58,8 +58,12 @@ def get_edges(mask: torch.Tensor, threshold: float = 0.5) -> torch.Tensor:
     mask = mask.float()
 
     # Define the Sobel filter kernels
-    sobel_x = torch.tensor([[-1, 0, 1], [-2, 0, 2], [-1, 0, 1]], dtype=torch.float32)
-    sobel_y = torch.tensor([[-1, -2, -1], [0, 0, 0], [1, 2, 1]], dtype=torch.float32)
+    sobel_x = torch.tensor(
+        [[-1, 0, 1], [-2, 0, 2], [-1, 0, 1]], dtype=torch.float32, device=mask.device
+    )
+    sobel_y = torch.tensor(
+        [[-1, -2, -1], [0, 0, 0], [1, 2, 1]], dtype=torch.float32, device=mask.device
+    )
 
     # Calculate padding for convolution to preserve the original size
     # Sobel x and y operators are the same size
@@ -95,7 +99,9 @@ def expand_mask(mask: torch.Tensor, radius: int, threshold: float = 0.5):
 
     # Create a disk-shaped structuring element
     x, y = torch.meshgrid(
-        torch.arange(-radius, radius + 1), torch.arange(-radius, radius + 1)
+        torch.arange(-radius, radius + 1),
+        torch.arange(-radius, radius + 1),
+        indexing="ij",
     )
     selem = (x**2 + y**2 <= radius**2).to(torch.float32)
 

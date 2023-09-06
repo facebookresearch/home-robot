@@ -98,16 +98,7 @@ class StretchNavigationClient(AbstractControlModule):
             pos_err = np.linalg.norm(xy - curr[:2])
             rot_err = angle_difference(curr[-1], xyt[2])
             if verbose:
-                print(
-                    "- curr pose =",
-                    curr,
-                    "target =",
-                    xyt,
-                    "err =",
-                    pos_err,
-                    "rot err =",
-                    rot_err,
-                )
+                print(f"- {curr=} target {xyt=} {pos_err=} {rot_err=}")
             if pos_err < pos_err_threshold and rot_err < rot_err_threshold:
                 # We reached the goal position
                 return True

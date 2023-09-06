@@ -29,8 +29,11 @@ class SimpleEnv(Env):
         """Get a space that we can use for planning"""
         return ConfigurationSpace(2, np.zeros(2), np.ones(2) * self.size, step_size=0.5)
 
-    def validate(self, q):
-        """Check to see if this configuration is feasible for planning"""
+    def validate(self, q: np.ndarray):
+        """Check to see if this configuration is feasible for planning
+
+        Args:
+            q(np.ndarray): 2D numpy array denoting a point"""
         assert len(q) == 2
         x, y = q
         if x < 0 or y < 0 or x > self.size or y > self.size:
