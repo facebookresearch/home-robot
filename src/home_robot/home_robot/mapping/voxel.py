@@ -615,8 +615,11 @@ class SparseVoxelMap(object):
     def sample_explored(self) -> Optional[np.ndarray]:
         """Return obstacle-free xy point in explored space"""
         obstacles, explored = self.get_2d_map()
+        return self.sample_from_mask(~obstacles & explored)
 
-        valid_indices = torch.nonzero(~obstacles & explored, as_tuple=False)
+    def sample_from_mask(self, mask: torch.Tensor) -> Optional[np.ndarray]:
+        """Sample from any mask"""
+        valid_indices = torch.nonzero(mask, as_tuple=False)
         if valid_indices.size(0) > 0:
             random_index = torch.randint(valid_indices.size(0), (1,))
             return self.grid_coords_to_xy(valid_indices[random_index])

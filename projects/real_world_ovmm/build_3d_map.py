@@ -416,11 +416,14 @@ def main(
                 "Running exploration test on offline data. Will plan to various waypoints"
             )
             robot_model = HelloStretchKinematics()
-            space = SparseVoxelMapNavigationSpace(voxel_map, robot_model)
+            space = SparseVoxelMapNavigationSpace(voxel_map, robot_model, step_size=0.2)
             planner = Shortcut(RRTConnect(space, space.is_valid))
             for i in range(10):
                 print("-" * 10, i, "-" * 10)
-                goal = space.sample_valid_location().cpu().numpy()
+                # NOTE: this is how you can sample a random free location
+                # goal = space.sample_valid_location().cpu().numpy()
+                # This lets you sample a free location only on the frontier
+                goal = space.sample_frontier().cpu().numpy()
                 if goal is None:
                     print(" ------ sampling failed!")
                 start = np.zeros(3)
