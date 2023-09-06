@@ -43,6 +43,19 @@ class SparseVoxelMapNavigationSpace(XYT):
         else:
             self.dof = 2
 
+    def draw_state_on_grid(
+        self, img: np.ndarray, state: np.ndarray, weight: int = 10
+    ) -> np.ndarray:
+        """Helper function to draw masks on image"""
+        grid_xy = self.voxel_map.xy_to_grid_coords(state[:2])
+        mask = self.get_oriented_mask(state[2])
+        x0 = grid_xy[0] - mask.shape[0] // 2
+        x1 = grid_xy[0] + mask.shape[0] // 2 + 1
+        y0 = grid_xy[1] - mask.shape[1] // 2
+        y1 = grid_xy[1] + mask.shape[1] // 2 + 1
+        img[x0:x1, y0:y1] += mask * weight
+        return img
+
     def create_collision_masks(
         self, orientation_resolution: int, show_all: bool = False
     ):
@@ -115,6 +128,10 @@ class SparseVoxelMapNavigationSpace(XYT):
             theta_idx = 0
         return int(theta_idx)
 
+    def get_oriented_mask(self, theta: float) -> torch.Tensor:
+        theta_idx = self._get_theta_index(theta)
+        return self._oriented_masks[theta_idx]
+
     def is_valid(self, state: torch.Tensor) -> bool:
         """Check to see if state is valid; i.e. if there's any collisions if mask is at right place"""
         assert len(state) == 3
@@ -126,8 +143,7 @@ class SparseVoxelMapNavigationSpace(XYT):
             return False
 
         # Now sample mask at this location
-        theta_idx = self._get_theta_index(state[-1])
-        mask = self._oriented_masks[theta_idx]
+        mask = self.get_oriented_mask(state[-1])
         assert mask.shape[0] == mask.shape[1], "square masks only for now"
         dim = mask.shape[0]
         half_dim = dim // 2

@@ -202,7 +202,10 @@ def run_exploration(
         res = planner.plan(start, goal)
         print("Found plan:", res.success)
         obstacles, explored = collector.get_2d_map()
-        plt.imshow((10 * obstacles) + explored)
+        img = (10 * obstacles) + explored
+        space.draw_state_on_grid(img, start, weight=5)
+        space.draw_state_on_grid(img, goal, weight=5)
+        plt.imshow(img)
         if res.success:
             path = collector.voxel_map.plan_to_grid_coords(res)
             x, y = get_x_and_y_from_path(path)
