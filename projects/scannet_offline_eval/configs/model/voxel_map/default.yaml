@@ -6,3 +6,6 @@ instance_memory_kwargs:
     erode_mask_num_iter: 5
     iou_threshold: 0.3
     instance_association: 'bbox_one_sided_iou'
+    instance_view_score_aggregation_mode: 'max'
+    overlap_eps: 1e-6
+    min_pixels_for_instance_view: 100

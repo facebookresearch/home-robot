@@ -19,6 +19,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 import torch
 from evaluation.obj_det import eval_bboxes_and_print
+from torch import Tensor
 from tqdm import tqdm
 
 from home_robot.agent.ovmm_agent.ovmm_perception import OvmmPerception
@@ -27,7 +28,13 @@ from home_robot.datasets.scannet import ScanNetDataset
 from home_robot.mapping.semantic.instance_tracking_modules import Instance
 from home_robot.mapping.voxel import SparseVoxelMap
 from home_robot.perception.constants import RearrangeDETICCategories
+from home_robot.utils.bboxes_3d import (
+    box3d_intersection_from_bounds,
+    box3d_volume_from_bounds,
+)
 from home_robot.utils.config import get_config
+from home_robot.utils.point_cloud_torch import get_bounds
+from home_robot.utils.voxel import VoxelizedPointcloud
 
 
 class SemanticVocab(IntEnum):
@@ -56,12 +63,18 @@ class SparseVoxelMapAgent:
         visualize_planner=False,
         device="cpu",
         cache_dir: Optional[Union[Path, str]] = None,
+        global_nms_thresh: float = 0.0,
+        instance_box_compression_resolution: float = 0.01,
+        instance_box_compression_drop_prop: float = 0.1,
     ):
         self.device = device
         self.semantic_sensor = semantic_sensor
         self.voxel_map = voxel_map
         self.visualize_planner = visualize_planner
         self.cache_dir = cache_dir
+        self.global_nms_thresh = global_nms_thresh
+        self.instance_box_compression_resolution = instance_box_compression_resolution
+        self.instance_box_compression_drop_prop = instance_box_compression_drop_prop
 
         if voxel_map is None:
             _default_args = dict(
@@ -155,6 +168,20 @@ class SparseVoxelMapAgent:
     def build_scene_and_get_instances_for_queries(
         self, scene_obs: Dict[str, Any], queries: Sequence[str]
     ):
+        """_summary_
+
+        Args:
+            scene_obs (Dict[str, Any]): Contains
+                - Images
+                - Depths
+                - Poses
+                - Intrinsics
+                - scan_name -- str that could be used for caching (but we probably also want to pass in dataset or sth in case we change resoluton, frame_skip, etc)
+            queries (Sequence[str]): _description_
+
+        Returns:
+            _type_: _description_
+        """
         # Build scene representation
         obs_list = []
         for i in range(len(scene_obs["images"])):
@@ -164,10 +191,7 @@ class SparseVoxelMapAgent:
                 rgb=scene_obs["images"][i] * 255,
                 depth=scene_obs["depths"][i],
                 semantic=None,
-                # Instance IDs per observation frame
-                # Size: (camera_height, camera_width)
-                # Range: 0 to max int
-                instance=None,
+                instance=None,  # These could be cached
                 # Pose of the camera in world coordinates
                 camera_pose=scene_obs["poses"][i],
                 camera_K=scene_obs["intrinsics"][i],
@@ -176,8 +200,38 @@ class SparseVoxelMapAgent:
                 },
             )
             obs_list.append(obs)
-        instances_dict = {}
         self.step_trajectory(obs_list)
+
+        # Do NMS on global bboxes
+        if self.global_nms_thresh > 0.0 and len(self.voxel_map.get_instances()) > 0:
+            # Loop this since when we combine bboxes, they are now bigger.
+            # And some bounding boxes might be inside the new larger bboxes
+            last_n_instances = -1
+            while len(self.voxel_map.get_instances()) != last_n_instances:
+                if self.instance_box_compression_drop_prop > 0.0:
+                    compress_instance_bounds_(
+                        instances=self.voxel_map.get_instances(),
+                        drop_prop=self.instance_box_compression_drop_prop,
+                        voxel_size=self.instance_box_compression_resolution,
+                    )
+                last_n_instances = len(self.voxel_map.get_instances())
+                self.voxel_map.instances.global_instance_nms(
+                    0, within_category=True, nms_iou_thresh=self.global_nms_thresh
+                )
+
+        # Compute tighter boxes by dropping lowest-weight points
+        if (
+            self.instance_box_compression_drop_prop > 0.0
+            and len(self.voxel_map.get_instances()) > 0
+        ):
+            compress_instance_bounds_(
+                instances=self.voxel_map.get_instances(),
+                drop_prop=self.instance_box_compression_drop_prop,
+                voxel_size=self.instance_box_compression_resolution,
+            )
+
+        # Get query results
+        instances_dict = {}
         for class_name in queries:
             instances_dict[class_name] = self.get_instances_for_query(class_name)
         self.reset()
@@ -201,6 +255,46 @@ class SparseVoxelMapAgent:
             ),
             backend="pytorch3d",
         )
+
+
+def compress_instance_bounds_(
+    instances: Sequence[Instance], drop_prop: float, voxel_size: float
+):
+    """Trailing _ in torch indicate in-place"""
+    for instance in instances:
+        reduced_points = drop_smallest_weight_points(
+            instance.point_cloud, drop_prop=drop_prop, voxel_size=voxel_size
+        )
+        new_bounds = get_bounds(reduced_points)
+        instance.bounds = new_bounds
+    return instances
+
+
+def drop_smallest_weight_points(
+    points: Tensor, voxel_size: float = 0.01, drop_prop: float = 0.1
+):
+    voxel_pcd = VoxelizedPointcloud(
+        voxel_size=voxel_size,
+        dim_mins=None,
+        dim_maxs=None,
+        feature_pool_method="mean",
+    )
+    voxel_pcd.add(
+        points=points,
+        features=None,  # instance.point_cloud_features,
+        rgb=None,  # instance.point_cloud_rgb,
+    )
+    orig_points = points
+    points = voxel_pcd._points
+    weights = voxel_pcd._weights
+    assert len(points) > 0, points.shape
+    weights_sorted, sort_idxs = torch.sort(weights, dim=0)
+    points_sorted = points[sort_idxs]
+    weights_cumsum = torch.cumsum(weights_sorted, dim=0)
+    above_cutoff = weights_cumsum >= (drop_prop * weights_cumsum[-1])
+    cutoff_idx = int(above_cutoff.max(dim=0).indices)
+    # print(f"Reduced {len(orig_points)} -> {len(points)} -> {above_cutoff.sum()}")
+    return points_sorted[cutoff_idx:]
 
 
 # TODO: use this code to create semantic sensor

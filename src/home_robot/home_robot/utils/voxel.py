@@ -70,8 +70,8 @@ class VoxelizedPointcloud:
     def add(
         self,
         points: Tensor,
-        features: Tensor,
-        rgb: Tensor,
+        features: Optional[Tensor],
+        rgb: Optional[Tensor],
         weights: Optional[Tensor] = None,
     ):
         """Add a feature pointcloud to the voxel grid.
