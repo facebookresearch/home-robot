@@ -184,6 +184,7 @@ def run_exploration(
 
     # Create a simple motion planner
     planner = Shortcut(RRTConnect(space, space.is_valid))
+    robot.nav.navigate_to([0, 0, 0])
 
     # Explore some number of times
     for i in range(explore_iter):
