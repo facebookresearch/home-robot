@@ -10,7 +10,7 @@ import time
 from collections import defaultdict
 from enum import Enum
 from typing import TYPE_CHECKING, Any, Dict, Optional
-
+import pickle
 import numpy as np
 import pandas as pd
 from habitat_baselines.rl.ppo.ppo_trainer import PPOTrainer
@@ -36,7 +36,7 @@ class EvaluationType(Enum):
 class OVMMEvaluator(PPOTrainer):
     """Class for creating vectorized environments, evaluating OpenVocabManipAgent on an episode dataset and returning metrics"""
 
-    def __init__(self, eval_config: DictConfig) -> None:
+    def __init__(self, eval_config: DictConfig, save_instance_memory=False, save_dir=None) -> None:
         self.metrics_save_freq = eval_config.EVAL_VECTORIZED.metrics_save_freq
         self.results_dir = os.path.join(
             eval_config.DUMP_LOCATION, "results", eval_config.EXP_NAME
@@ -44,7 +44,8 @@ class OVMMEvaluator(PPOTrainer):
         self.videos_dir = eval_config.habitat_baselines.video_dir
         os.makedirs(self.results_dir, exist_ok=True)
         os.makedirs(self.videos_dir, exist_ok=True)
-
+        self.save_instance_memory = save_instance_memory
+        self.save_dir = save_dir
         super().__init__(eval_config)
 
     def local_evaluate_vectorized(self, agent, num_episodes_per_env=10):
@@ -258,6 +259,9 @@ class OVMMEvaluator(PPOTrainer):
         count_episodes: int = 0
 
         pbar = tqdm(total=num_episodes)
+        # print(num_episodes)
+        # import pdb
+        # pdb.set_trace()
         while count_episodes < num_episodes:
             observations, done = self._env.reset(), False
             current_episode = self._env.get_current_episode()
@@ -287,6 +291,11 @@ class OVMMEvaluator(PPOTrainer):
                     }
                     if "goal_name" in info:
                         current_episode_metrics["goal_name"] = info["goal_name"]
+
+            if self.save_instance_memory:
+                os.makedirs(self.save_dir+current_episode_key, exist_ok=True)
+                with open(self.save_dir+current_episode_key+"/instance_memory.pkl", 'wb') as f:
+                    pickle.dump(agent.instance_memory, f)
 
             metrics = self._extract_scalars_from_info(hab_info)
             metrics_at_episode_end = {

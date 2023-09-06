@@ -15,6 +15,7 @@ from utils.config_utils import (
     get_omega_config,
 )
 from home_robot.agent.ovmm_agent.vlm_agent import VLMAgent
+from home_robot.agent.ovmm_agent.vlm_exploration_agent import VLMExplorationAgent
 from home_robot.agent.ovmm_agent.ovmm_agent import OpenVocabManipAgent
 from home_robot.agent.ovmm_agent.random_agent import RandomAgent
 
@@ -54,7 +55,7 @@ if __name__ == "__main__":
         "--agent_type",
         type=str,
         default="baseline",
-        choices=["baseline", "random"],
+        choices=["baseline", "explore"],
         help="Agent to evaluate",
     )
     parser.add_argument(
@@ -62,6 +63,41 @@ if __name__ == "__main__":
         default=None,
         help="Specify any task in natural language",
     )
+    parser.add_argument(
+        "--max_step",
+        type=int,
+        default=None,
+        help="Max agent action step",
+    )
+
+    parser.add_argument(
+        "--data_collection",
+        type=bool,
+        default=False,
+        help="If is data collection or not",
+    )
+
+    parser.add_argument(
+        "--save_dir",
+        type=str,
+        default=None,
+        help="Data collection save directory",
+    )
+
+    parser.add_argument(
+        "--episode_min",
+        type=int,
+        default=None,
+        help="Min idx of episode",
+    )
+
+    parser.add_argument(
+        "--episode_max",
+        type=int,
+        default=None,
+        help="Max idx of episode",
+    )
+
     parser.add_argument("--cfg-path", default="src/home_robot/home_robot/perception/detection/minigpt4/MiniGPT-4/eval_configs/ovmm_test.yaml",
                         help="path to configuration file.")
     parser.add_argument("--gpu-id", type=int, default=1,
@@ -79,7 +115,15 @@ if __name__ == "__main__":
         nargs=argparse.REMAINDER,
         help="Modify config options from command line",
     )
+
     parsed_args = parser.parse_args()
+
+    episode_idx_list = []
+    for idx in range(parsed_args.episode_min, parsed_args.episode_max):
+        episode_idx_list.append(idx)
+    parsed_args.overrides.append(
+        "habitat.dataset.episode_ids="+str(episode_idx_list))
+
     # get habitat config
     habitat_config, _ = get_habitat_config(
         parsed_args.habitat_config_path, overrides=parsed_args.overrides
@@ -99,13 +143,14 @@ if __name__ == "__main__":
     # merge env config and baseline config to create agent config
     agent_config = create_agent_config(env_config, baseline_config)
     # create agent
-    if parsed_args.agent_type == "random":
-        agent = RandomAgent(agent_config)
+    if parsed_args.agent_type == "explore":
+        agent = VLMExplorationAgent(config=agent_config, args=parsed_args)
     else:
         agent = VLMAgent(config=agent_config, args=parsed_args)
 
     # create evaluator
-    evaluator = OVMMEvaluator(env_config)
+    evaluator = OVMMEvaluator(
+        env_config, save_instance_memory=parsed_args.data_collection, save_dir=parsed_args.save_dir)
 
     # evaluate agent
     metrics = evaluator.evaluate(
