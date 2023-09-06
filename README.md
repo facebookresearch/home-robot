@@ -77,8 +77,8 @@ Make sure you have the correct environment variables set: `CUDA_HOME` should poi
 
 Then make sure the environment variables are set to something reasonable:
 ```
-HOME_ROBOT_ROOT=$USER/src/home-robot
-CUDA_HOME=/usr/local/cuda-11.7
+export HOME_ROBOT_ROOT=$USER/src/home-robot
+export CUDA_HOME=/usr/local/cuda-11.7
 ```
 
 Finally, you can run the [install script](install_deps.sh) to download submodules, model checkpoints, and build Detic for open-vocabulary object detection:
