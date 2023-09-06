@@ -175,6 +175,7 @@ def run_exploration(
     rate: int = 10,
     manual_wait: bool = False,
     explore_iter: int = 10,
+    dry_run: bool = True,
 ):
     """Go through exploration. We use the voxel_grid map created by our collector to sample free space, and then use our motion planner (RRT for now) to get there. At the end, we plan back to (0,0,0)."""
     rate = rospy.Rate(rate)
@@ -227,7 +228,8 @@ def run_exploration(
             print("Full plan:")
             for i, pt in enumerate(res.trajectory):
                 print("-", i, pt.state)
-            robot.nav.execute_trajectory([pt.state for pt in res.trajectory])
+            if not dry_run:
+                robot.nav.execute_trajectory([pt.state for pt in res.trajectory])
 
         # Append latest observations
         collector.step()
