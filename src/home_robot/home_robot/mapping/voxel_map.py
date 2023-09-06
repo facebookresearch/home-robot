@@ -222,7 +222,6 @@ class SparseVoxelMapNavigationSpace(XYT):
             # Mask where we will sample locations to move to
             expanded_frontier = expanded_frontier & explored & ~obstacles
 
-            debug = True
             if debug:
                 import matplotlib.pyplot as plt
 
