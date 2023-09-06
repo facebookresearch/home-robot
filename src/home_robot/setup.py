@@ -18,6 +18,9 @@ install_requires = [
     "sophuspy",
     "trimesh",
     "pin==2.6.17",
+    "torch_geometric",
+    "torch_cluster",
+    "torch_scatter",
 ]
 
 setup(
