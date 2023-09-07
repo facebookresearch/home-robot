@@ -18,6 +18,7 @@ dependencies:
   - pyg
   - pytorch-cluster
   - pytorch-scatter
+  - pinocchio
   - exa # optional: nice ls
   - fzf # optional: fancy ctrl + R
   - pip
@@ -36,7 +37,6 @@ dependencies:
     - frozendict
     # Robots
     - opencv-python
-    - pin==2.6.17
     # Neural networks
     - openai-clip
     - timm
