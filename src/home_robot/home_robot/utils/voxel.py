@@ -381,3 +381,38 @@ def reduce_pointcloud(
         raise NotImplementedError(f"Unknown feature reduction method {feature_reduce}")
 
     return pos_cluster, feature_cluster, weights_cluster, rgb_cluster
+
+
+def scatter3d(
+    voxel_indices: Tensor, weights: Tensor, grid_dimensions: List[int]
+) -> Tensor:
+    """Scatter weights into a 3d voxel grid of the appropriate size.
+
+    Args:
+        voxel_indices (LongTensor): [N, 3] indices to scatter values to.
+        weights (FloatTensor): [N] values of equal size to scatter through voxel map.
+        grid_dimenstions (List[int]): sizes of the resulting voxel map, should be 3d.
+
+    Returns:
+        voxels (FloatTensor): [grid_dimensions] voxel map containing combined weights."""
+
+    assert voxel_indices.shape[0] == weights.shape[0], "weights and indices must match"
+    assert len(grid_dimensions) == 3, "this is designed to work only in 3d"
+    assert voxel_indices.shape[-1] == 3, "3d points expected for indices"
+
+    # Calculate a unique index for each voxel in the 3D grid
+    unique_voxel_indices = (
+        voxel_indices[:, 0] * (grid_dimensions[1] * grid_dimensions[2])
+        + voxel_indices[:, 1] * grid_dimensions[2]
+        + voxel_indices[:, 2]
+    )
+
+    # Use scatter to accumulate weights into voxels
+    voxel_weights = scatter(
+        weights,
+        unique_voxel_indices,
+        dim=0,
+        reduce="mean",
+        dim_size=grid_dimensions[0] * grid_dimensions[1] * grid_dimensions[2],
+    )
+    return voxel_weights.reshape(*grid_dimensions)

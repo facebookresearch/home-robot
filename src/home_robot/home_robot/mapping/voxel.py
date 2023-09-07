@@ -30,7 +30,7 @@ from home_robot.utils.point_cloud import (
 )
 from home_robot.utils.point_cloud_torch import unproject_masked_depth_to_xyz_coordinates
 from home_robot.utils.visualization import create_disk
-from home_robot.utils.voxel import VoxelizedPointcloud
+from home_robot.utils.voxel import VoxelizedPointcloud, scatter3d
 
 Frame = namedtuple(
     "Frame",
@@ -72,7 +72,7 @@ class SparseVoxelMap(object):
         grid_resolution: float = 0.05,
         obs_min_height: float = 0.1,
         obs_max_height: float = 1.8,
-        obs_min_density: float = 5,
+        obs_min_density: float = 10,
         add_local_radius_points: bool = True,
         local_radius: float = 0.15,
         min_depth: float = 0.1,
@@ -443,26 +443,23 @@ class SparseVoxelMap(object):
 
         # Convert metric measurements to discrete
         # Gets the xyz correctly - for now everything is assumed to be within the correct distance of origin
-        xyz, _, _, _ = self.voxel_pcd.get_pointcloud()
+        xyz, _, counts, _ = self.voxel_pcd.get_pointcloud()
         device = xyz.device
         xyz = ((xyz / self.grid_resolution) + self.grid_origin).long()
 
         # Crop to robot height
         min_height = int(self.obs_min_height / self.grid_resolution)
         max_height = int(self.obs_max_height / self.grid_resolution)
-        # NOTE: keep this if we only care about obstacles
-        # TODO: delete unused code
-        # voxels = np.zeros(self.grid_size + [int(max_height - min_height)])
-        # But we might want to track floor pixels as well
-        voxels = torch.zeros(self.grid_size + [max_height], device=device)
-        # NOTE: you can use min_height for this if we only care about obstacles
-        # TODO: delete unused code
-        # obs_mask = np.bitwise_and(xyz[:, -1] > 0, xyz[:, -1] < max_height)
+        grid_size = self.grid_size + [max_height]
+        voxels = torch.zeros(grid_size, device=device)
+
+        # Mask out obstacles only above a certain height
         obs_mask = xyz[:, -1] < max_height
-        x_coords = xyz[obs_mask, 0]
-        y_coords = xyz[obs_mask, 1]
-        z_coords = xyz[obs_mask, 2]
-        voxels[x_coords, y_coords, z_coords] = 1
+        xyz = xyz[obs_mask, :]
+        counts = counts[obs_mask][:, None]
+
+        # voxels[x_coords, y_coords, z_coords] = 1
+        voxels = scatter3d(xyz, counts, grid_size)
 
         # Compute the obstacle voxel grid based on what we've seen
         obstacle_voxels = voxels[:, :, min_height:]
