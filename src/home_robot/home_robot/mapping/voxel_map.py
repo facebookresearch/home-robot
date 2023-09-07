@@ -63,11 +63,9 @@ class SparseVoxelMapNavigationSpace(XYT):
         grid_xy = self.voxel_map.xy_to_grid_coords(state[:2])
         mask = self.get_oriented_mask(state[2])
         x0 = int(np.round(float(grid_xy[0] - mask.shape[0] // 2)))
-        x1 = int(np.round(float(grid_xy[0] + mask.shape[0] // 2 + 1)))
+        x1 = x0 + mask.shape[0]
         y0 = int(np.round(float(grid_xy[1] - mask.shape[1] // 2)))
-        y1 = int(np.round(float(grid_xy[1] + mask.shape[1] // 2 + 1)))
-        assert x1 - x0 == mask.shape[0], "crop shape incorrect"
-        assert y1 - y0 == mask.shape[1], "crop shape incorrect"
+        y1 = y0 + mask.shape[1]
         img[x0:x1, y0:y1] += mask * weight
         return img
 
@@ -194,13 +192,15 @@ class SparseVoxelMapNavigationSpace(XYT):
         half_dim = dim // 2
         grid_xy = self.voxel_map.xy_to_grid_coords(state[:2])
         x0 = int(grid_xy[0]) - half_dim
-        x1 = int(grid_xy[0]) + half_dim + 1
+        x1 = x0 + dim
         y0 = int(grid_xy[1]) - half_dim
-        y1 = int(grid_xy[1]) + half_dim + 1
+        y1 = y0 + dim
 
         obstacles, explored = self.voxel_map.get_2d_map()
         crop_obs = obstacles[x0:x1, y0:y1]
         crop_exp = explored[x0:x1, y0:y1]
+        assert mask.shape == crop_obs.shape
+        assert mask.shape == crop_exp.shape
 
         collision = torch.any(crop_obs & mask)
         is_safe = torch.all((crop_exp & mask) | ~mask)

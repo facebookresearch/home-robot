@@ -33,6 +33,7 @@ from home_robot.utils.pose import convert_pose_habitat_to_opencv, to_pos_quat
 from home_robot.utils.visualization import get_x_and_y_from_path
 from home_robot_hw.env.stretch_pick_and_place_env import StretchPickandPlaceEnv
 from home_robot_hw.remote import StretchClient
+from home_robot_hw.ros.visualizer import Visualizer
 from home_robot_hw.utils.config import load_config
 
 
@@ -474,6 +475,9 @@ def main(
             robot_model = HelloStretchKinematics()
             space = SparseVoxelMapNavigationSpace(voxel_map, robot_model, step_size=0.2)
             planner = Shortcut(RRTConnect(space, space.is_valid))
+
+            rospy.init_node("build_3d_map")
+            goal_visualizer = Visualizer("goto_controller/goal_abs")
             for i in range(10):
                 print("-" * 10, i, "-" * 10)
                 # NOTE: this is how you can sample a random free location
@@ -492,17 +496,28 @@ def main(
 
                 if show_paths:
                     obstacles, explored = voxel_map.get_2d_map()
-                    img = (10 * obstacles) + explored
-                    space.draw_state_on_grid(img, start, weight=5)
-                    space.draw_state_on_grid(img, goal, weight=5)
+                    H, W = obstacles.shape
+                    img = np.zeros((H, W, 3))
+                    img[:, :, 0] = obstacles
+                    img[:, :, 2] = explored
+                    import torch
+
+                    states = torch.zeros_like(obstacles).float()
+                    space.draw_state_on_grid(states, start, weight=5)
+                    space.draw_state_on_grid(states, goal, weight=5)
+                    img[:, :, 1] = states.cpu().numpy()
                     plt.imshow(img)
                     if res.success:
                         path = voxel_map.plan_to_grid_coords(res)
                         x, y = get_x_and_y_from_path(path)
-                        plt.plot(x, y)
+                        plt.plot(y, x)
                     plt.show()
                     show_orig = np.zeros(3)
                     show_orig[:2] = goal[:2]
+
+                    # Send it to ROS
+                    pose_goal = xyt2sophus(goal)
+                    goal_visualizer(pose_goal.matrix())
                     voxel_map.show(orig=show_orig)
     else:
         raise NotImplementedError(f"- data mode {mode} not supported or recognized")
