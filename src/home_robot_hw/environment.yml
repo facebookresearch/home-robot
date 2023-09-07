@@ -11,6 +11,7 @@ dependencies:
   - ros-noetic-ros-numpy
   - catkin_tools
   - cmake
+  - jupyter
   - pybind11
   - pinocchio
   - pytorch==2.0.0
@@ -31,6 +32,7 @@ dependencies:
     - scikit-learn
     - numpy-quaternion
     - natsort
+    - frozendict
     # Neural networks
     - openai-clip
     - timm
