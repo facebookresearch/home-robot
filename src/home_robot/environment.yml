@@ -1,21 +1,19 @@
 channels:
-  - conda-forge
   - pytorch
   - pytorch3d
   - nvidia
-  - pyg
+  - conda-forge
 dependencies:
   - python==3.9.*
   - cmake
   - jupyter
   - nbconvert
-  - opencv
   - pybind11
-  - pinocchio
-  - pytorch=1.13.1
-  - pytorch-cuda=11.7
-  - torchvision=0.14.1
-  - torchaudio=0.13.1
+  - pytorch=2.0.0
+  - pytorch-cuda=11.8
+  - pytorch3d
+  - torchvision
+  - torchaudio
   - exa # optional: nice ls
   - fzf # optional: fancy ctrl + R
   - pip
@@ -32,6 +30,9 @@ dependencies:
     - numpy-quaternion
     - natsort
     - frozendict
+    # Robots
+    - cv2
+    - pin==2.6.17
     # Neural networks
     - openai-clip
     - timm
