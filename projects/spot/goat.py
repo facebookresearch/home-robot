@@ -486,7 +486,7 @@ def place_object(env,obs,target_semantic_class,target_mask):
         px,py,yaw = spot.get_xy_yaw()
         vector = motion_target[:2] - (px,py)
         vector /= np.linalg.norm(vector)
-        motion_target[:2] += 0.5*vector
+        # motion_target[:2] += 0.5*vector
 
         INITIAL_RPY = np.deg2rad([0.0, 55.0, 0.0])
         env.env.initialize_arm()
@@ -518,7 +518,7 @@ def place_object(env,obs,target_semantic_class,target_mask):
         from bosdyn.client.frame_helpers import get_vision_tform_body
         body_height = get_vision_tform_body(transforms_snapshot).z
 
-        place_target = np.array([*(vector * 1 + (px,py)),body_height+0.4])
+        place_target = np.array([*(vector * 1 + (px,py)),body_height+0.2])
         env.env.pick_from_back()
         cmd_id = spot.move_gripper_to_point(place_target, INITIAL_RPY,frame_name=VISION_FRAME_NAME)
         spot.block_until_arm_arrives(cmd_id)
@@ -529,8 +529,7 @@ def place_object(env,obs,target_semantic_class,target_mask):
     else:
         return 'continue'
 
-# Fremont goals
-from goals_abnb5 import GOALS
+from goals_abnb6 import GOALS
 # breakpoint()
 # print(sorted(GOALS.keys()))
 

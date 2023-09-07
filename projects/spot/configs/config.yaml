@@ -20,7 +20,7 @@ ENVIRONMENT:
   max_depth: 5.95       # maximum depth for depth sensor (in metres)
   max_num_sub_task_episodes: 20
   estimated_depth_threshold: 5
-  gaze_at_subgoal: False  # False for CoW, True for
+  gaze_at_subgoal: True  # False for CoW, True for
 
 AGENT:
   max_steps: 100          # maximum number of steps per subgoal before stopping an episode

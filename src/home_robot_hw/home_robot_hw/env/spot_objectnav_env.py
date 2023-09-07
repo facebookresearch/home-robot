@@ -59,8 +59,8 @@ class SpotObjectNavEnv(SpotEnv):
 
             action = [xg, yg, angle]
             print("ObjectNavAgent point action", action)
-            # self.env.act_point(action, blocking=False,max_fwd_vel=0.5,max_ang_vel=np.pi/10,max_hor_vel=0.4 )
-            self.env.act_point(action, blocking=False,max_fwd_vel=0.25,max_ang_vel=np.pi/10,max_hor_vel=0.15)
+            self.env.act_point(action, blocking=False,max_fwd_vel=0.5,max_ang_vel=np.pi/10,max_hor_vel=0.4 )
+            # self.env.act_point(action, blocking=False,max_fwd_vel=0.25,max_ang_vel=np.pi/10,max_hor_vel=0.15)
         else:
             self.env.step(base_action=action)
             if action == DiscreteNavigationAction.STOP:
