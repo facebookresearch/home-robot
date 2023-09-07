@@ -3,6 +3,7 @@ channels:
   - pytorch3d
   - nvidia
   - conda-forge
+  - pyg
 dependencies:
   - python==3.9.*
   - cmake
@@ -14,6 +15,9 @@ dependencies:
   - pytorch3d
   - torchvision
   - torchaudio
+  - pyg
+  - pytorch-cluster
+  - pytorch-scatter
   - exa # optional: nice ls
   - fzf # optional: fancy ctrl + R
   - pip
