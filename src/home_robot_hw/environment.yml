@@ -6,7 +6,7 @@ channels:
   - pytorch3d
   - nvidia
 dependencies:
-  - python==3.9.*
+  - python=3.9.*
   - ros-noetic-desktop
   - ros-noetic-ros-numpy
   - catkin_tools
@@ -14,9 +14,8 @@ dependencies:
   - jupyter
   - pybind11
   - pinocchio
-  - pytorch==2.0.0
-  - pytorch-cuda=11.8
-  - pytorch3d
+  - pytorch=1.13.*  # Compatibility with pytorch3d
+  - pytorch-cuda=11.7
   - opencv
   - pip
   - pip:
@@ -48,3 +47,4 @@ dependencies:
     - imageio
     - pygifsicle
     - pynput
+    - open3d
