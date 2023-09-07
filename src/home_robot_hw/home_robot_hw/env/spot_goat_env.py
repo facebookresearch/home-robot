@@ -170,6 +170,7 @@ class SpotGoatEnv(SpotEnv):
     def set_goals(self, goals: List[Dict]):
         for goal in goals:
             assert goal["type"] in ["objectnav", "imagenav", "languagenav"]
+            print(goal['target'])
             assert goal["target"] in self.sem_categories
             if goal["type"] == "languagenav":
                 assert all(land in self.sem_categories for land in goal["landmarks"])

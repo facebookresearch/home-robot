@@ -84,6 +84,9 @@ rsync -vaz /Users/matthewchang/Desktop/airbnb_images/airbnb3_resized/ akshara:/h
 python resize_image.py /Users/matthewchang/Desktop/airbnb_images/airbnb4
 rsync -vaz /Users/matthewchang/Desktop/airbnb_images/airbnb4_resized/ akshara:/home/akshara/asc_demo/home-robot/projects/spot/airbnb4_goals
 
+python resize_image.py /Users/matthewchang/Desktop/airbnb_images/airbnb7
+rsync -vaz /Users/matthewchang/Desktop/airbnb_images/airbnb7_resized/ akshara:/home/akshara/asc_demo/home-robot/projects/spot/airbnb7_goals
+
 DISPLAY=:1 python projects/spot/goat.py --trajectory=spot_abnb1_trial0 --goals=object_oven,language_oven1,object_plant,image_chair3,image_refrigerator1,language_refrigerator1,object_toilet,image_couch1
 DISPLAY=:1 python projects/spot/goat.py --trajectory=spot_abnb1_trial1 --goals=image_cup1,language_chair1,image_bear1,object_sink,object_toilet,object_bear,language_toilet1
 DISPLAY=:1 python projects/spot/goat.py --trajectory=spot_abnb1_trial2 --goals=language_couch1,language_sink2,image_plant2,image_bed1,image_bed2,object_sink,image_toilet1,image_chair3
@@ -123,3 +126,9 @@ DISPLAY=:1 python projects/spot/goat.py --trajectory=airbnb5_pickplace --goals=p
 
 
 DISPLAY=:1 python projects/spot/goat.py --trajectory=airbnb6_video1 --goals=image_chair3,image_chair2,image_couch2,image_oven1,image_refrigerator1,image_bed2,image_sink2,image_chair4,image_chair3,image_bed1,image_cup1,object_bear
+
+DISPLAY=:1 python projects/spot/goat.py --trajectory=airbnb7_video1 --goals=image_bed1,image_plant1,image_bed3,image_oven1,image_refrigerator1,image_bear2,image_chair2,image_chair3,image_couch1,image_cup1,image_bear1,image_cup2,object_bowl,object_tv,image_sink1,image_sink2,image_bear3,image_cup3,image_cup4
+
+DISPLAY=:1 python projects/spot/goat.py --trajectory=airbnb7_pickplace1 --goals=place_object_bed
+
+

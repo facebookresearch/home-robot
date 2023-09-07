@@ -486,7 +486,7 @@ def place_object(env,obs,target_semantic_class,target_mask):
         px,py,yaw = spot.get_xy_yaw()
         vector = motion_target[:2] - (px,py)
         vector /= np.linalg.norm(vector)
-        # motion_target[:2] += 0.5*vector
+        motion_target[:2] += 0.25*vector
 
         INITIAL_RPY = np.deg2rad([0.0, 55.0, 0.0])
         env.env.initialize_arm()
@@ -529,7 +529,7 @@ def place_object(env,obs,target_semantic_class,target_mask):
     else:
         return 'continue'
 
-from goals_abnb6 import GOALS
+from goals_abnb7 import GOALS
 # breakpoint()
 # print(sorted(GOALS.keys()))
 
@@ -625,7 +625,7 @@ def main(spot=None, args=None):
                 break
 
         action, info = agent.act(obs)
-        if action == "super_stuck":
+        if action == "super_stuck" and not args.no_lease:
             if recover_right:
                 print("------RECOVERING RIGHT------")
                 spot.set_base_velocity(-0.2, 0, -0.5, 2)
@@ -720,7 +720,7 @@ def main(spot=None, args=None):
             elif key == ord("d"):
                 # right
                 spot.set_base_velocity(0, 0, -0.5, 1)
-            elif not keyboard_takeover:
+            elif not keyboard_takeover and not args.no_lease:
                 action_type = env.goals[agent.current_task_idx].get('action')
                 target_semantic_class = env.goals[agent.current_task_idx]['semantic_id']
                 target_mask = obs.semantic == target_semantic_class
@@ -778,6 +778,7 @@ if __name__ == "__main__":
     parser.add_argument('--pick-place',action='store_true')
     parser.add_argument('--offline',action='store_true')
     parser.add_argument('--raw-depth',action='store_true')
+    parser.add_argument('--no-lease',action='store_true')
                         
     args = parser.parse_args()
 
@@ -786,7 +787,10 @@ if __name__ == "__main__":
         from spot_wrapper.spot import BODY_FRAME_NAME, Spot, VISION_FRAME_NAME
         from home_robot_hw.env.spot_goat_env import SpotGoatEnv
         spot = Spot("RealNavEnv")
-        with spot.get_lease(hijack=True):
+        if args.no_lease:
             main(spot, args)
+        else:
+            with spot.get_lease(hijack=True):
+                main(spot, args)
     else:
         main(spot=None,args=args)

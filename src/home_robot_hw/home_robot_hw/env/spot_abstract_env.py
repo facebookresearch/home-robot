@@ -68,7 +68,7 @@ def put_angle_in_interval(angle):
 class SpotEnv(Env):
     def __init__(self, spot):
         config = construct_config()
-        self.env = SpotSemanticNavEnv(config, spot)
+        self.env = SpotSemanticNavEnv(config, spot,get_lease=False)
         self.start_gps = None
         self.start_compass = None
         self.rot_compass = None
