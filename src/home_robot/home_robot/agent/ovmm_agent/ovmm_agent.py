@@ -48,9 +48,6 @@ class OpenVocabManipAgent(ObjectNavAgent):
     """Simple object nav agent based on a 2D semantic map."""
 
     def __init__(self, config, device_id: int = 0):
-        print('torch cuda available: ', torch.cuda.is_available())
-        print('torch device count: ', torch.cuda.device_count())
-        print('device that will be used: ', device_id)
         super().__init__(config, device_id=device_id)
         self.states = None
         self.place_start_step = None
