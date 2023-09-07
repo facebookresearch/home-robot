@@ -10,6 +10,9 @@ GROUND_TRUTH_SEMANTICS: 0 # 1: use ground-truth semantics (for debugging / ablat
 seed: 0
 SHOW_RL_OBS: False         # whether to show the observations passed to RL policices, for debugging
 
+GAZE_ARM_JOINT_ANGLES: [0, -160, 100, 0, 90, 0]
+PLACE_ARM_JOINT_ANGLES: [0, -170, 120, 0, 75, 0]
+
 ENVIRONMENT:
   turn_angle: 30.0        # agent turn angle (in degrees)
   frame_height: 480       # first-person frame height (in pixels)
