@@ -498,6 +498,9 @@ def main(
                         x, y = get_x_and_y_from_path(path)
                         plt.plot(x, y)
                     plt.show()
+                    show_orig = np.zeros(3)
+                    show_orig[:2] = goal[:2]
+                    voxel_map.show(orig=show_orig)
     else:
         raise NotImplementedError(f"- data mode {mode} not supported or recognized")
 
