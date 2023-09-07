@@ -43,7 +43,7 @@ python -m pip install -e src/home_robot_hw
 echo ""
 echo "WARNING! we should include this elsewhere"
 echo "Install torch scatter and torch cluster..."
-python -m pip install torch_scatter torch_cluster -f https://data.pyg.org/whl/torch-1.13.0+117.html
+python -m pip install torch_scatter torch_cluster -f https://data.pyg.org/whl/torch-2.0.0+118.html
 
 echo ""
 echo "Install habitat dependencies..."

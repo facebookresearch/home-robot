@@ -14,8 +14,8 @@ dependencies:
   - jupyter
   - pybind11
   - pinocchio
-  - pytorch=1.13.*  # Compatibility with pytorch3d
-  - pytorch-cuda=11.7
+  - pytorch=2.0.0  # Compatibility with pytorch3d
+  - pytorch-cuda=11.8
   - opencv
   - pip
   - pip:
