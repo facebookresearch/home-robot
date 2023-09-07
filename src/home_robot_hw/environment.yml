@@ -16,6 +16,8 @@ dependencies:
   - pinocchio
   - pytorch=2.0.0  # Compatibility with pytorch3d
   - pytorch-cuda=11.8
+  - torchvision
+  - torchaudio
   - opencv
   - pip
   - pip:
