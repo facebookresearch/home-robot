@@ -3,7 +3,6 @@ channels:
   - robostack
   - robostack-staging
   - pytorch
-  - pytorch3d
   - nvidia
 dependencies:
   - python=3.9.*
