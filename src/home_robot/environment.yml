@@ -35,7 +35,7 @@ dependencies:
     - natsort
     - frozendict
     # Robots
-    - cv2
+    - opencv-python
     - pin==2.6.17
     # Neural networks
     - openai-clip

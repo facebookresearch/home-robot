@@ -4,6 +4,7 @@ channels:
   - robostack-staging
   - pytorch
   - nvidia
+  - pyg
 dependencies:
   - python=3.9.*
   - ros-noetic-desktop
@@ -16,6 +17,11 @@ dependencies:
   - pytorch-cuda=11.8
   - torchvision
   - torchaudio
+  - pyg
+  - pytorch-cluster
+  - pytorch-scatter
+  - exa # optional: nice ls
+  - fzf # optional: fancy ctrl + R
   - pip
   - pip:
     - numpy <1.24 # certain deprecated operations were used in other deps
@@ -32,6 +38,7 @@ dependencies:
     - natsort
     - frozendict
     # Robots
+    - opencv-python
     - pin==2.6.17
     # Neural networks
     - openai-clip
