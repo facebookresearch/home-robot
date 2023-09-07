@@ -782,6 +782,8 @@ class GoatAgent(Agent):
                 language_goal=current_task["instruction"],
                 use_full_image=True,
                 categories=[current_task["semantic_id"]],
+                aggregate_feats=self.goal_policy_config.aggregate_feats_lang,
+                feat_agg_fn=self.goal_policy_config.feat_agg_fn_lang,
             )
             stats = {
                 i: {
@@ -811,6 +813,8 @@ class GoatAgent(Agent):
                 goal_image_keypoints=self.goal_image_keypoints,
                 use_full_image=True,
                 categories=[current_task["semantic_id"]],
+                aggregate_feats=self.goal_policy_config.aggregate_feats_image,
+                feat_agg_fn=self.goal_policy_config.feat_agg_fn_image,
             )
             stats = {
                 i: {
