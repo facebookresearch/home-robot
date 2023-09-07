@@ -90,6 +90,7 @@ class GoatMatching(Matching):
                 use_full_image=use_full_image,
                 image_goal=image_goal,
                 language_goal=language_goal,
+                aggregate_feats=False,
                 **kwargs,
             )
         return np.array([matches]), np.array([confidences]), np.array([instance_ids])
@@ -385,7 +386,7 @@ class GoatMatching(Matching):
         self,
         views_orig,
         language_goal,
-        aggregate_feats=True,
+        aggregate_feats=False,
         feat_agg_fn="mean",
         instance_view_counts=None,
         **kwargs,
