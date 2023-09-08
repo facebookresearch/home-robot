@@ -24,6 +24,8 @@
 #    endorse or promote products derived from this software without specific
 #    prior written permission.
 
+import warnings
+
 # THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND
 # ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED
 # WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
@@ -1007,7 +1009,7 @@ def get_box_bounds_from_verts(
     return torch.stack([verts.min(dim=1)[0], verts.max(dim=1)[0]], dim=-1)
 
 
-def box3d_overlap_from_bounds(bounds1: Tensor, bounds2: Tensor):
+def box3d_overlap_from_bounds(bounds1: Tensor, bounds2: Tensor, tol: float = 1e-4):
     """Calculates box overlap
 
     Args:
@@ -1020,6 +1022,16 @@ def box3d_overlap_from_bounds(bounds1: Tensor, bounds2: Tensor):
     """
     corners1 = get_box_verts_from_bounds(bounds1)
     corners2 = get_box_verts_from_bounds(bounds2)
+    if torch.any(bounds1 == bounds2):
+        warnings.warn(
+            f"zero-size bounding box detected with mins = {bounds1}, maxs = {bounds2}"
+        )
+        # Bounds 1 mins and maxs
+        bounds1[:, :, 0] -= tol
+        bounds1[:, :, 1] += tol
+        # Bounds 2 mins and maxs
+        bounds2[:, :, 0] -= tol
+        bounds2[:, :, 1] += tol
     return box3d_overlap(corners1, corners2)
 
 
