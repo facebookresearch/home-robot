@@ -18,8 +18,9 @@ class Node(ABC):
 class ConfigurationSpace(ABC):
     """class defining a region over which we can sample parameters"""
 
-    def __init__(self, dof: int, mins, maxs):
+    def __init__(self, dof: int, mins, maxs, step_size: float = 0.1):
         self.dof = dof
+        self.step_size = step_size
         self.update_bounds(mins, maxs)
 
     def update_bounds(self, mins, maxs):
@@ -34,12 +35,18 @@ class ConfigurationSpace(ABC):
 
     def distance(self, q0, q1) -> float:
         """Return distance between q0 and q1."""
-        return np.linalg.norm(q1 - q1)
+        return np.linalg.norm(q0 - q1)
 
-    @abstractmethod
-    def extend(self, q0, q1, step_size=0.1):
+    def extend(self, q0, q1):
         """extend towards another configuration in this space"""
-        raise NotImplementedError()
+        dq = q1 - q0
+        step = dq / np.linalg.norm(dq) * self.step_size
+        if self.distance(q0, q1) > self.step_size:
+            qi = q0 + step
+            while self.distance(qi, q1) > self.step_size:
+                qi = qi + step
+                yield qi
+        yield q1
 
     def closest_node_to_state(self, state, nodes: List[Node]):
         """returns closest node to a given state"""
