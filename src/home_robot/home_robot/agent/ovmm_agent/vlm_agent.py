@@ -48,7 +48,7 @@ class VLMAgent(OpenVocabManipAgent):
         # if config.GROUND_TRUTH_SEMANTICS == 0 or self.store_all_categories_in_map:
         #     raise NotImplementedError
         from minigpt4_example import Predictor
-        if args.task:
+        if args and hasattr(args, "task"):
             print("Reset the agent task to " + args.task)
             self.set_task(args.task)
         self.vlm = Predictor(args)
@@ -153,7 +153,9 @@ class VLMAgent(OpenVocabManipAgent):
         plan = self.vlm.evaluate(sample)
         return plan
 
-    def get_obj_centric_world_representation(self):
+    def get_obj_centric_world_representation(self, external_instance_memory=None):
+        if external_instance_memory:
+            self.instance_memory = external_instance_memory
         crops = []
         for global_id, instance in self.instance_memory.instance_views[0].items():
             instance_crops = instance.instance_views
@@ -161,16 +163,17 @@ class VLMAgent(OpenVocabManipAgent):
                 instance_crops, 1)[0].cropped_image))
         # TODO: the model currenly can only handle 20 crops
         if len(crops) > self.max_context_length:
+            print("Warning: this version of minigpt4 can only handle limited size of crops -- sampling a subset of crops from the instance memory...")
             crops = random.sample(crops, self.max_context_length)
         import shutil
         debug_path = "crops_for_planning/"
         shutil.rmtree(debug_path, ignore_errors=True)
         os.mkdir(debug_path)
         ret = []
-        for crop in crops:
+        for id, crop in enumerate(crops):
             Image.fromarray(crop[1], "RGB").save(
-                debug_path+str(crop[0])+'.png')
-            ret.append(str(crop[0])+'.png')
+                debug_path+str(id)+'.png')
+            ret.append(str(id)+'.png')
         return ret
 
     def _pick(

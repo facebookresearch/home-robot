@@ -25,6 +25,14 @@ SEMANTIC_MAP:
   dilate_iter: 1
   record_instance_ids: True
   max_instances: 0
+  exploration_type: hull
+  gaze_width: 40
+  gaze_distance: 1.5
+  # not sure what these are
+  depth_filtering: True
+  depth_filter_range_cm: 100        # 1m about the depth median (+/- 50cm)
+  preprojection_kp_dilation: 15 
+  goal_filtering: True
 
 SKILLS:
   GAZE_OBJ:
@@ -166,3 +174,5 @@ PLANNER:
   map_update_frequency: 1             # compute fmm distance map every n steps 
   discrete_actions: True         # discrete motion planner output space or not
   verbose: False                 # display debug information during planning
+  explored_area_dilation_radius: 1  # radius (in cells) of goal dilation structuring element
+  explored_area_erosion_radius: 1
