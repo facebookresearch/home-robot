@@ -9,6 +9,7 @@ This file contains versions of the helpers in point_cloud.py that use pytorch di
 to allow operations to be done on the GPU for speed.
 """
 
+import warnings
 from typing import List, Optional, Union
 
 import cv2
@@ -238,7 +239,7 @@ def get_one_point_per_voxel_from_pointcloud(
     return unique_grid_xyz_indices
 
 
-def get_bounds(points: Tensor):
+def get_bounds(points: Tensor, tol: float = 1e-4):
     """Returns min and max along each dimension
 
     Args:
@@ -247,4 +248,11 @@ def get_bounds(points: Tensor):
     Returns:
         mins_and_maxes: [3, 2]
     """
-    return torch.stack([points.min(dim=0)[0], points.max(dim=0)[0]], dim=-1)
+    mins = points.min(dim=0)[0]
+    maxs = points.max(dim=0)[0]
+    if not torch.all(maxs > mins):
+        # TODO: we should really catch this and return an error
+        warnings.warn(RuntimeError("Zero-volume bounds detected in get_bounds"))
+        maxs += tol
+        mins -= tol
+    return torch.stack([mins, maxs], dim=-1)
