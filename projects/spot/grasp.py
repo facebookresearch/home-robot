@@ -1,7 +1,6 @@
 from home_robot.utils.config import get_config
 from home_robot_hw.env.spot_goat_env import SpotGoatEnv
 from spot_wrapper.spot import Spot, SpotCamIds
-from home_robot.agent.goat_agent.goat_agent import GoatAgent
 import numpy as np
 import cv2
 import time
@@ -65,14 +64,22 @@ class GraspController():
                 print(f" > Could not find object from the labels, tries left: {count - k}")
             if k == count:
                 print("> Ending trial as target trials reached")
-                retry = input("Would you like to retry? y/n: ")
+                retry = input("Would you like to retry? y/n, or enter 'c' to enter a new label and retry: ")
                 if retry == "y":
                     #@JAY add a look around script and then replace with gaze
+                    continue
+                if retry == "c":
+                    new_label = input("Enter new label: ")
+                    self.update_label(new_label)
+                    k = 0
                     continue
                 else:
                     break
         print('Sucess')
         time.sleep(1)
+    def update_label(self, new_label):
+        self.labels.append(new_label)
+        self.owl = OwlVit(self.labels, self.confidence, self.show_img)
 
 
 if __name__ == "__main__":
@@ -82,7 +89,7 @@ if __name__ == "__main__":
     spot = Spot("RealNavEnv")
     gaze_arm_joint_angles = np.deg2rad(config.GAZE_ARM_JOINT_ANGLES)
     place_arm_joint_angles = np.deg2rad(config.PLACE_ARM_JOINT_ANGLES)
-    gaze = GraspController(spot=spot, objects=[["lion plush", "apple macbook", "bottle of water"]], confidence=0.05, show_img=False, top_grasp=False, hor_grasp=True)
+    gaze = GraspController(spot=spot, objects=[["bottle of water"]], confidence=0.05, show_img=True, top_grasp=False, hor_grasp=True)
     with spot.get_lease(hijack=True):
         spot.power_on()
         try:
