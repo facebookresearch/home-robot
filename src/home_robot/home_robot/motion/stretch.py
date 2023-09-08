@@ -251,8 +251,7 @@ class HelloStretchKinematics(Robot):
 
     def get_footprint(self) -> Footprint:
         """Return footprint for the robot. This is expected to be a mask."""
-        # return Footprint(width=0.34, length=0.33, width_offset=0.0, length_offset=0.1)
-        return Footprint(width=0.34, length=0.6, width_offset=0.0, length_offset=0.1)
+        return Footprint(width=0.34, length=0.33, width_offset=0.0, length_offset=0.1)
 
     def _create_ik_solvers(self, ik_type: str = "pinocchio", visualize: bool = False):
         """Create ik solvers using physics backends such as pybullet or pinocchio."""

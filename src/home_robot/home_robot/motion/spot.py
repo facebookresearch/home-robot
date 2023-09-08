@@ -4,6 +4,7 @@
 # LICENSE file in the root directory of this source tree.
 import numpy as np
 
+from home_robot.motion.base import Footprint
 from home_robot.motion.robot import Robot
 
 
@@ -35,4 +36,4 @@ class SimpleSpotKinematics(Robot):
 
     def get_footprint(self) -> np.ndarray:
         """return a footprint mask that we can check 2d collisions against"""
-        raise NotImplementedError("TODO: return footprint for this robot.")
+        return Footprint(width=0.5, length=1.2, width_offset=0.0, length_offset=0.0)
