@@ -17,6 +17,7 @@ GOALS = {
     "object_tv": {"type": "objectnav", "target": "tv"},
     "object_table": {"type": "objectnav", "target": "dining table"},
     "object_bear": {"type": "objectnav", "target": "teddy bear"},
+    "object_book": {"type": "objectnav", "target": "book"},
     "object_oven": {"type": "objectnav", "target": "oven"},
     "object_sink": {"type": "objectnav", "target": "sink"},
     "object_refrigerator": {"type": "objectnav", "target": "refrigerator"},
@@ -30,7 +31,7 @@ GOALS = {
         "type": "languagenav",
         "target": "teddy bear",
         "landmarks": [],
-        "instruction": "The green dinosaur stuffed toy.",
+        "instruction": "The beige teddy bear.",
     },
     "language_bear2": {
         "type": "languagenav",
@@ -42,55 +43,61 @@ GOALS = {
         "type": "languagenav",
         "target": "teddy bear",
         "landmarks": [],
-        "instruction": "The beige teddy bear.",
+        "instruction": "The green dinosaur stuffed toy.",
     },
     "language_bed1": {
         "type": "languagenav",
         "target": "bed",
         "landmarks": [],
-        "instruction": "The with the blue and yellow painting above it and plant on the right side.",
+        "instruction": "The bunk bed with stars on the blanket.",
     },
     "language_bed2": {
         "type": "languagenav",
         "target": "bed",
         "landmarks": [],
-        "instruction": "The bed with the green teddy bear on it.",
+        "instruction": "The bed with blue and white sheets.",
     },
-    "language_bed3": {
+    "language_book1": {
         "type": "languagenav",
-        "target": "bed",
+        "target": "book",
         "landmarks": [],
-        "instruction": "The bed with the stuffed lion and towel on it.",
+        "instruction": "The green cover book on the coffee table.",
+    },
+    "language_book2": {
+        "type": "languagenav",
+        "target": "book",
+        "landmarks": [],
+        "instruction": "The book on the desk. It has a car on the cover.",
     },
     "language_bowl1": {
         "type": "languagenav",
         "target": "bowl",
         "landmarks": [],
-        "instruction": "The light blue bowl on the kitchen counter",
+        "instruction": "The light blue bowl on the coffee table.",
     },
-    "language_bowl2": {
-        "type": "languagenav",
-        "target": "bowl",
-        "landmarks": [],
-        "instruction": "The bowl on the wood desk",
-    },
+    # "language_bowl2": {
+        # "type": "languagenav",
+        # "target": "bowl",
+        # "landmarks": [],
+        # "instruction": "The bowl on the wood desk",
+    # },
     "language_chair1": {
         "type": "languagenav",
         "target": "chair",
         "landmarks": [],
-        "instruction": "The white plastic chair with the red cup on it.",
+        "instruction": "The metal chair with a wooden seat.",
     },
     "language_chair2": {
         "type": "languagenav",
         "target": "chair",
         "landmarks": [],
-        "instruction": "The black office chair",
+        "instruction": "The grey cloth chair near the table.",
     },
     "language_chair3": {
         "type": "languagenav",
         "target": "chair",
         "landmarks": [],
-        "instruction": "The green lawn chair",
+        "instruction": "The bar-height chair at the kitchen island.",
     },
     # "language_chair4": {
         # "type": "languagenav",
@@ -102,7 +109,7 @@ GOALS = {
         "type": "languagenav",
         "target": "couch",
         "landmarks": [],
-        "instruction": "The green couch",
+        "instruction": "The large grey couch.",
     },
     # "language_couch2": {
         # "type": "languagenav",
@@ -114,45 +121,44 @@ GOALS = {
         "type": "languagenav",
         "target": "cup",
         "landmarks": [],
-        "instruction": "The grey cup on the nightstand.",
+        "instruction": "The red plastic cup on the table.",
     },
     "language_cup2": {
         "type": "languagenav",
         "target": "cup",
         "landmarks": [],
-        "instruction": "The light blue cup in the bathroom.",
+        "instruction": "The green mug on the kitchen island.",
     },
     "language_cup3": {
         "type": "languagenav",
         "target": "cup",
         "landmarks": [],
-        "instruction": "The red cup on the plastic chair",
+        "instruction": "The light blue cup.",
     },
-
-    "language_cup4": {
-        "type": "languagenav",
-        "target": "cup",
-        "landmarks": [],
-        "instruction": "The green mug on the plastic chair",
-    },
+    # "language_cup4": {
+        # "type": "languagenav",
+        # "target": "cup",
+        # "landmarks": [],
+        # "instruction": "The green mug on the plastic chair",
+    # },
     "language_oven1": {
         "type": "languagenav",
         "target": "oven",
         "landmarks": [],
         "instruction": "The oven.",
     },
-    "language_plant1": {
-        "type": "languagenav",
-        "target": "potted plant",
-        "landmarks": [],
-        "instruction": "The potted plant next to the bed",
-    },
-    "language_plant2": {
-        "type": "languagenav",
-        "target": "potted plant",
-        "landmarks": [],
-        "instruction": "The potted plant in the living room",
-    },
+    # "language_plant1": {
+        # "type": "languagenav",
+        # "target": "potted plant",
+        # "landmarks": [],
+        # "instruction": "The potted plant next to the bed",
+    # },
+    # "language_plant2": {
+        # "type": "languagenav",
+        # "target": "potted plant",
+        # "landmarks": [],
+        # "instruction": "The potted plant in the living room",
+    # },
     "language_refrigerator1": {
         "type": "languagenav",
         "target": "refrigerator",
@@ -165,27 +171,28 @@ GOALS = {
         "landmarks": [],
         "instruction": "The bathroom sink.",
     },
-    "language_sink2": {
-        "type": "languagenav",
-        "target": "sink",
-        "landmarks": [],
-        "instruction": "The kitchen sink.",
-    },
+    # "language_sink2": {
+        # "type": "languagenav",
+        # "target": "sink",
+        # "landmarks": [],
+        # "instruction": "The kitchen sink.",
+    # },
     "language_toilet1": {
         "type": "languagenav",
         "target": "sink",
         "landmarks": [],
         "instruction": "The toilet.",
     },
-    "language_tv1": {
-        "type": "languagenav",
-        "target": "sink",
-        "landmarks": [],
-        "instruction": "The television.",
-    },
+    # "language_tv1": {
+        # "type": "languagenav",
+        # "target": "sink",
+        # "landmarks": [],
+        # "instruction": "The television.",
+    # },
 }
+
 replace = {'bear': 'teddy bear', 'table': 'dining table','plant':'potted plant'}
-folder = f"{str(Path(__file__).resolve().parent)}/airbnb7_goals"
+folder = f"{str(Path(__file__).resolve().parent)}/airbnb8_goals"
 import os
 for img in os.listdir(folder):
     if img.endswith(".jpg"):
