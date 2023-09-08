@@ -15,6 +15,7 @@
 > and SuperGlue
 
 ```
+git submodule sync
 git submodule update --init --recursive src/home_robot/home_robot/perception/detection/detic/Detic src/third_party/detectron2 src/third_party/contact_graspnet  src/third_party/habitat-lab src/third_party/spot-sim2real src/third_party/MiDaS src/home_robot/home_robot/agent/imagenav_agent/SuperGluePretrainedNetwork
 ```
 
@@ -40,9 +41,8 @@ cd ../spot_rl_experiments
 python generate_executables.py
 pip install -e .
 
-### The following is a minimal set of dependencies needed to use the functionalities that GOAT uses from spotsim2real
-pip install bosdyn-api transforms3d einops gym==0.23.1 vtk
-
+### The following is a minimal set of dependencies needed to use the functionalities that GOAT uses from spotsim2real + some home-robot deps
+pip install bosdyn-api bosdyn-client transforms3d einops gym==0.23.1 vtk scikit-image open3d natsort scikit-fmm imutils
 ```
 
 

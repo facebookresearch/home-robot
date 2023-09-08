@@ -40,6 +40,10 @@ python -m pip install -e src/home_robot
 echo "Install home_robot ROS..."
 python -m pip install -e src/home_robot_hw
 
+echo ""
+echo "Submodule checks"
+git submodule update -f src/home_robot/home_robot/perception/detection/detic/Detic src/third_party/detectron2 src/third_party/contact_graspnet  src/third_party/habitat-lab src/third_party/spot-sim2real src/third_party/MiDaS src/home_robot/home_robot/agent/imagenav_agent/SuperGluePretrainedNetwork
+
 echo "WARNING! we should include this elsewhere"
 python -m pip install torch_scatter torch_cluster -f https://data.pyg.org/whl/torch-2.0.0+118.html
 
