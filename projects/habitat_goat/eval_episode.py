@@ -73,6 +73,18 @@ if __name__ == "__main__":
         scene_id = env.habitat_env.current_episode.scene_id.split("/")[-1].split(".")[0]
         episode = env.habitat_env.current_episode
         episode_id = episode.episode_id
+
+        if i < 2:
+            continue
+
+        # if scene_id != 'oEPjPNSPmzL': 
+        # if scene_id != 'qk9eeNeR4vw': 
+        # if scene_id != 'HkseAnWCgqk': 
+            # continue
+        
+        # if episode_id != '2':
+        #     continue
+
         agent.planner.set_vis_dir(scene_id, f"{episode_id}_{agent.current_task_idx}")
         agent.imagenav_visualizer.set_vis_dir(
             f"{scene_id}_{episode_id}_{agent.current_task_idx}"
@@ -100,7 +112,7 @@ if __name__ == "__main__":
             action, info = agent.act(obs)
             env.apply_action(action, info=info)
             pbar.set_description(
-                f"Action: {str(action).split('.')[-1]} (sub-task: {agent.current_task_idx})"
+                f"{scene_id}_{episode_id}_{agent.current_task_idx}"
             )
             pbar.update(1)
 

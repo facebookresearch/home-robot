@@ -43,8 +43,9 @@ class GoatAgent(Agent):
 
     def __init__(self, config, device_id: int = 0):
         # self.max_steps = config.AGENT.max_steps
+        self.max_steps = [900, 900, 900, 900, 900, 500, 500, 500, 500, 500, 500]
         # self.max_steps = [500, 400, 300, 200, 200, 200, 200, 200, 200, 200, 200]
-        self.max_steps = [400, 300, 200, 200, 200, 200, 200, 200, 200, 200, 200]
+        # self.max_steps = [400, 300, 200, 200, 200, 200, 200, 200, 200, 200, 200]
         self.num_environments = config.NUM_ENVIRONMENTS
         self.store_all_categories_in_map = getattr(
             config.AGENT, "store_all_categories", False
@@ -566,12 +567,13 @@ class GoatAgent(Agent):
             print("Reached max number of steps for subgoal, calling STOP")
             action = DiscreteNavigationAction.STOP
 
-        if could_not_find_path:
+        if could_not_find_path and action != DiscreteNavigationAction.STOP:
             # This doesn't help
             # print("Resetting explored area")
             # self.semantic_map.local_map[0, MC.EXPLORED_MAP] *= 0
             # self.semantic_map.global_map[0, MC.EXPLORED_MAP] *= 0
 
+            # TODO: is this accurate?
             print("Can't find a path. Map fully explored.")
             self.fully_explored[0] = True
             self.force_match_against_memory = True
@@ -683,7 +685,7 @@ class GoatAgent(Agent):
                     image_goal=self.goal_image,
                     goal_image_keypoints=self.goal_image_keypoints,
                     categories=[current_task["semantic_id"]],
-                    use_full_image=False,
+                    use_full_image=True,
                 )
 
                 print(local_instance_ids, len(matches[0]))
@@ -698,7 +700,7 @@ class GoatAgent(Agent):
                     self.total_timesteps[0],
                     language_goal=current_task["instruction"],
                     categories=[current_task["semantic_id"]],
-                    use_full_image=False,
+                    use_full_image=True,
                 )
         semantic = self.one_hot_encoding[torch.from_numpy(semantic).to(self.device)]
 
@@ -771,6 +773,7 @@ class GoatAgent(Agent):
         )
 
     def _match_against_memory(self, task_type: str, current_task: Dict):
+        print("--------Matching against memory!--------")
         if task_type == "languagenav":
             (
                 all_matches,

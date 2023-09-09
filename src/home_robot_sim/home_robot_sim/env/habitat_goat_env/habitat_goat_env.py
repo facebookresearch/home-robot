@@ -77,14 +77,21 @@ class HabitatGoatEnv(HabitatEnv):
         from home_robot.perception.detection.detic.detic_perception import (
             DeticPerception,
         )
+        from home_robot.perception.detection.maskrcnn.maskrcnn_perception import (
+            MaskRCNNPerception,
+        )
 
-        self.segmentation = DeticPerception(
-            vocabulary="custom",
-            custom_vocabulary=",".join(vocabulary),
+        # self.segmentation = DeticPerception(
+        #     vocabulary="custom",
+        #     custom_vocabulary=",".join(vocabulary),
+        #     sem_gpu_id=(-1 if self.config.NO_GPU else self.habitat_env.sim.gpu_device),
+        # )
+
+        self.segmentation = MaskRCNNPerception(
+            sem_pred_prob_thr=0.8,
             sem_gpu_id=(-1 if self.config.NO_GPU else self.habitat_env.sim.gpu_device),
         )
 
-        print("Initializing perception module with vocabulary:", vocabulary)
 
     def _preprocess_obs(
         self, habitat_obs: habitat.core.simulator.Observations
@@ -115,6 +122,7 @@ class HabitatGoatEnv(HabitatEnv):
         vocabulary,
     ) -> home_robot.core.interfaces.Observations:
         if self.ground_truth_semantics:
+            raise NotImplementedError
             instance_id_to_category_id = (
                 self.semantic_category_mapping.instance_id_to_category_id
             )
@@ -129,6 +137,16 @@ class HabitatGoatEnv(HabitatEnv):
                             obj_cat
                         )
                         obs.semantic[obs.semantic == idx] = -1 * (idx_cat + 1)
+                    else:
+
+                        all_categories = [x for x in self.semantic_category_mapping.all_hm3d_categories if type(x) == str]
+                        useful_categories = [x for x in all_categories if x in obj_cat or obj_cat in x]
+                        # print(obj_cat, useful_categories)
+                        for cat in useful_categories:
+                            idx = self.semantic_category_mapping.all_hm3d_categories.index(cat)
+                            obs.semantic[obs.semantic == idx] = -1 * (idx_cat + 1)
+                        # print("Object category not found:", obj_cat)
+                        # import pdb;pdb.set_trace()
                 except Exception as e:
                     print(e)
                     import pdb
@@ -164,21 +182,25 @@ class HabitatGoatEnv(HabitatEnv):
             if task["task_type"] == "objectnav":
                 goal["target"] = task["object_category"]
             elif task["task_type"] == "languagenav":
-                target = task["llm_response"]["target"]
-                landmarks = task["llm_response"]["landmark"]
-                if target in landmarks:
-                    landmarks.remove(target)
+                if "llm_response" in task.keys():
+                    target = task["llm_response"]["target"]
+                    landmarks = task["llm_response"]["landmark"]
+                    if target in landmarks:
+                        landmarks.remove(target)
 
-                if "wall" in landmarks:
-                    landmarks.remove("wall")  # unhelpful landmark
+                    if "wall" in landmarks:
+                        landmarks.remove("wall")  # unhelpful landmark
 
-                target = "_".join(target.split())
-                landmarks = ["_".join(landmark.split()) for landmark in landmarks]
+                    target = "_".join(target.split())
+                    landmarks = ["_".join(landmark.split()) for landmark in landmarks]
 
-                goal["target"] = target
-                goal["landmarks"] = landmarks
-                if "instructions" in task:
-                    goal["instruction"] = task["instructions"][0]
+                    goal["target"] = target
+                    goal["landmarks"] = landmarks
+                    if "instructions" in task:
+                        goal["instruction"] = task["instructions"][0]
+                else:
+                    goal["target"] = task["object_category"]
+                    goal["instruction"] = task["instructions"][0].split('Instruction: Find ')[-1]
             elif task["task_type"] == "imagenav":
                 goal["target"] = task["object_category"]
                 goal["image"] = habitat_obs["multigoal"][idx]["image"]
@@ -189,7 +211,20 @@ class HabitatGoatEnv(HabitatEnv):
                 if goal["landmarks"] not in vocabulary:
                     vocabulary += goal["landmarks"]
 
-            goal["semantic_id"] = vocabulary.index(goal["target"]) + 1
+            from home_robot.perception.detection.maskrcnn.coco_categories import coco_categories
+            
+            if goal["target"] in coco_categories.keys():
+                goal["semantic_id"] = coco_categories[goal["target"]] + 1
+            else:
+                for cat in coco_categories.keys():
+                    if cat in goal["target"] or goal["target"] in cat:
+                        goal["semantic_id"] = coco_categories[cat] + 1
+                        break
+
+            if "semantic_id" not in goal.keys():
+                print("Object category not found:", goal["target"])
+                import pdb;pdb.set_trace()
+            # goal["semantic_id"] = vocabulary.index(goal["target"]) + 1
             goals.append(goal)
         return goals, vocabulary
 
