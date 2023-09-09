@@ -40,6 +40,9 @@ python -m pip install -e src/home_robot
 echo "Install home_robot ROS..."
 python -m pip install -e src/home_robot_hw
 
+echo "WARNING! we should include this elsewhere"
+python -m pip install torch_scatter torch_cluster -f https://data.pyg.org/whl/torch-2.0.0+118.html
+
 echo ""
 echo "Install habitat dependencies..."
 git submodule update --init --recursive src/third_party/habitat-lab
@@ -61,7 +64,7 @@ echo ""
 echo "Download DETIC checkpoint..."
 cd $HOME_ROBOT_ROOT/src/home_robot/home_robot/perception/detection/detic/Detic
 mkdir models
-wget https://dl.fbaipublicfiles.com/detic/Detic_LCOCOI21k_CLIP_SwinB_896b32_4x_ft4x_max-size.pth -O models/Detic_LCOCOI21k_CLIP_SwinB_896b32_4x_ft4x_max-size.pth
+wget --no-check-certificate https://dl.fbaipublicfiles.com/detic/Detic_LCOCOI21k_CLIP_SwinB_896b32_4x_ft4x_max-size.pth -O models/Detic_LCOCOI21k_CLIP_SwinB_896b32_4x_ft4x_max-size.pth
 
 cd $HOME_ROBOT_ROOT
 echo ""
@@ -81,21 +84,21 @@ python -m pip install opencv-python pycocotools matplotlib ipykernel
 mkdir $HOME_ROBOT_ROOT/src/home_robot/home_robot/perception/detection/grounded_sam/checkpoints/
 
 echo "Downloading MobileSAM checkpoint..."
-wget -P $HOME_ROBOT_ROOT/src/home_robot/home_robot/perception/detection/grounded_sam/checkpoints/ https://github.com/ChaoningZhang/MobileSAM/raw/master/weights/mobile_sam.pt
+wget --no-check-certificate -P $HOME_ROBOT_ROOT/src/home_robot/home_robot/perception/detection/grounded_sam/checkpoints/ https://github.com/ChaoningZhang/MobileSAM/raw/master/weights/mobile_sam.pt
 
 echo "Downloading SAM checkpoint..."
-wget -P $HOME_ROBOT_ROOT/src/home_robot/home_robot/perception/detection/grounded_sam/checkpoints/ https://dl.fbaipublicfiles.com/segment_anything/sam_vit_h_4b8939.pth
+wget --no-check-certificate -P $HOME_ROBOT_ROOT/src/home_robot/home_robot/perception/detection/grounded_sam/checkpoints/ https://dl.fbaipublicfiles.com/segment_anything/sam_vit_h_4b8939.pth
 
 echo "Downloading GroundedDINO checkpoints.."
-wget -P $HOME_ROBOT_ROOT/src/home_robot/home_robot/perception/detection/grounded_sam/checkpoints/ https://huggingface.co/ShilongLiu/GroundingDINO/resolve/main/groundingdino_swint_ogc.pth
-wget -P $HOME_ROBOT_ROOT/src/home_robot/home_robot/perception/detection/grounded_sam/checkpoints/ https://huggingface.co/ShilongLiu/GroundingDINO/resolve/main/groundingdino_swinb_cogcoor.pth
+wget --no-check-certificate -P $HOME_ROBOT_ROOT/src/home_robot/home_robot/perception/detection/grounded_sam/checkpoints/ https://huggingface.co/ShilongLiu/GroundingDINO/resolve/main/groundingdino_swint_ogc.pth
+wget --no-check-certificate -P $HOME_ROBOT_ROOT/src/home_robot/home_robot/perception/detection/grounded_sam/checkpoints/ https://huggingface.co/ShilongLiu/GroundingDINO/resolve/main/groundingdino_swinb_cogcoor.pth
 
 echo ""
 echo "Downloading pretrained skills..."
 cd $HOME_ROBOT_ROOT
 mkdir -p $HOME_ROBOT_ROOT/data/checkpoints
 cd $HOME_ROBOT_ROOT/data/checkpoints
-wget https://dl.fbaipublicfiles.com/habitat/data/baselines/v1/ovmm_baseline_home_robot_challenge_2023.zip
+wget --no-check-certificate https://dl.fbaipublicfiles.com/habitat/data/baselines/v1/ovmm_baseline_home_robot_challenge_2023.zip
 unzip ovmm_baseline_home_robot_challenge_2023.zip
 cd $HOME_ROBOT_ROOT
 

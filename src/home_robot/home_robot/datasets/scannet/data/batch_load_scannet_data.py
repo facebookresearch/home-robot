@@ -78,9 +78,9 @@ def export_one_scan(
         num_instances = len(np.unique(instance_labels))
         print(f"Num of instances: {num_instances}")
 
-        bbox_mask = np.in1d(unaligned_bboxes[:, -1], OBJ_CLASS_IDS)
+        bbox_mask = np.in1d(unaligned_bboxes[:, -2], OBJ_CLASS_IDS)
         unaligned_bboxes = unaligned_bboxes[bbox_mask, :]
-        bbox_mask = np.in1d(aligned_bboxes[:, -1], OBJ_CLASS_IDS)
+        bbox_mask = np.in1d(aligned_bboxes[:, -2], OBJ_CLASS_IDS)
         aligned_bboxes = aligned_bboxes[bbox_mask, :]
         assert unaligned_bboxes.shape[0] == aligned_bboxes.shape[0]
         print(f"Num of care instances: {unaligned_bboxes.shape[0]}")
@@ -140,6 +140,7 @@ def batch_export(
             )
         except Exception:
             print(f"Failed export scan: {scan_name}")
+            raise
         print("-" * 20 + "done")
 
 

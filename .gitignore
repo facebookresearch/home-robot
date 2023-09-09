@@ -26,6 +26,7 @@ datadump/
 */datasets/
 !/src/home_robot/home_robot/datasets
 data/
+/models/
 
 # Archive files
 *.pkl

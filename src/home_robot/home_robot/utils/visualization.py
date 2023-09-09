@@ -2,10 +2,11 @@
 #
 # This source code is licensed under the MIT license found in the
 # LICENSE file in the root directory of this source tree.
-from typing import Tuple
+from typing import List, Tuple
 
 import matplotlib.pyplot as plt
 import numpy as np
+import torch
 
 
 def show_image(rgb):
@@ -78,3 +79,16 @@ def create_disk(radius: float, size: int):
     disk = distance_map <= radius
 
     return disk
+
+
+def get_x_and_y_from_path(path: List[torch.Tensor]) -> Tuple[List[float]]:
+    x_list, y_list = zip(
+        *[
+            (t[0].item(), t[1].item())
+            if t.dim() == 1
+            else (t[0, 0].item(), t[0, 1].item())
+            for t in path
+        ]
+    )
+    assert len(x_list) == len(y_list), "problem parsing tensors"
+    return x_list, y_list

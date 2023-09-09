@@ -35,3 +35,8 @@ repos:
                 | src/home_robot_sim/
                 | src/home_robot_hw/
             ) | setup.py$
+
+  - repo: https://github.com/kynan/nbstripout
+    rev: 0.6.1
+    hooks:
+      - id: nbstripout
