@@ -222,8 +222,11 @@ class HabitatGoatEnv(HabitatEnv):
                         break
 
             if "semantic_id" not in goal.keys():
-                print("Object category not found:", goal["target"])
-                import pdb;pdb.set_trace()
+                if goal["target"] == "sofa":
+                    goal["target"] = "couch"
+                else:
+                    print("Object category not found:", goal["target"])
+
             # goal["semantic_id"] = vocabulary.index(goal["target"]) + 1
             goals.append(goal)
         return goals, vocabulary
