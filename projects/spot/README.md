@@ -63,7 +63,7 @@ pip install bosdyn-api  bosdyn-client transforms3d einops gym==0.23.1 vtk scikit
 #### Install MiDaS
 + Make sure you are on the master branch
 ```
-cd src/third_party/MiDaS
+cd ../../../../src/third_party/MiDaS
 git checkout master
 git pull origin
 ```
@@ -82,7 +82,7 @@ pip install imutils
 
 #### Install Habitat-sim
 ```
-cd src/third_party/habitat-lab
+cd ../../../src/third_party/habitat-lab
 pip install -e habitat-lab
 mamba install habitat-sim headless -c conda-forge -c aihabitat --yes
 ```
@@ -107,6 +107,7 @@ python demo.py --config-file configs/Detic_LCOCOI21k_CLIP_SwinB_896b32_4x_ft4x_m
 #### Additional installtions
 
 ```
+cd ../../../../../../..
 pip install -e src/third_party/detectron2/.
 ```
 ##### Issues with installing detectron2
