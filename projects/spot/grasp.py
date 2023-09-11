@@ -1,5 +1,4 @@
 from home_robot.utils.config import get_config
-from home_robot_hw.env.spot_goat_env import SpotGoatEnv
 from spot_wrapper.spot import Spot, SpotCamIds
 import numpy as np
 import cv2
@@ -8,17 +7,25 @@ from spot_rl.models import OwlVit
 from spot_wrapper.spot import image_response_to_cv2 as imcv2
 
 class GraspController():
-    def __init__(self, spot=None, objects=[['ball', 'lion']], confidence=0.05, show_img=False, top_grasp=False, hor_grasp=False):
+    def __init__(self, config=get_config("projects/spot/configs/config.yaml"), spot=None, objects=[['ball', 'lion']], confidence=0.05, show_img=False, top_grasp=False, hor_grasp=False):
         self.spot = spot
         self.labels = [f'an image of {y}' for x in objects for y in x]
         self.confidence = confidence
         self.show_img = show_img
         self.top_grasp = top_grasp
         self.hor_grasp = hor_grasp
-        self.stow = np.deg2rad([0, -170, 120, 0, 75, 0])
         self.owl = OwlVit(self.labels, self.confidence, self.show_img)
+        self.look = np.deg2rad(config.GAZE_ARM_JOINT_ANGLES)
+        self.stow = np.deg2rad(config.PLACE_ARM_JOINT_ANGLES)
         
+    def reset_to_look(self):
+        self.spot.set_arm_joint_positions(self.look, travel_time=1.0)
+        time.sleep(1) 
+    def reset_to_stow(self):   
+        self.spot.set_arm_joint_positions(self.stow, travel_time=1.0)
+        time.sleep(1)  
     def find_obj(self, img) -> np.ndarray:
+        self.reset_to_look()
         if isinstance(img, np.ndarray) or isinstance(img, list):
             if isinstance(img, list):
                 img = np.asarray(img)
@@ -46,10 +53,10 @@ class GraspController():
         #image_responses = spot.get_image_responses([SpotCamIds.HAND_COLOR])
         hand_image_response = image_responses[0]  # only expecting one image
         img = imcv2(hand_image_response)
-        pixels = self.find_obj(img=img)
-        print(f" > Grasping object at {pixels}")
         k = 0
         while True:
+            pixels = self.find_obj(img=img)
+            print(f" > Grasping object at {pixels}")
             success = self.spot.grasp_point_in_image(hand_image_response, 
                                                 pixel_xy=pixels, 
                                                 timeout=timeout,
@@ -57,7 +64,8 @@ class GraspController():
                                                 horizontal_grasp=self.hor_grasp
                                                 )
             if success:
-                self.spot.set_arm_joint_positions(self.stow, travel_time=1.0)
+                self.reset_to_stow()
+                time.sleep(1)
                 break
             else:
                 k = k + 1
@@ -67,12 +75,13 @@ class GraspController():
                 retry = input("Would you like to retry? y/n, or enter 'c' to enter a new label and retry: ")
                 if retry == "y":
                     #@JAY add a look around script and then replace with gaze
+                    k = 0
                     continue
                 if retry == "c":
                     new_label = input("Enter new label: ")
                     self.update_label(new_label)
                     k = 0
-                    continue
+                    count = 0
                 else:
                     break
         print('Sucess')
@@ -87,9 +96,7 @@ if __name__ == "__main__":
     config, config_str = get_config(config_path)
     config.defrost()
     spot = Spot("RealNavEnv")
-    gaze_arm_joint_angles = np.deg2rad(config.GAZE_ARM_JOINT_ANGLES)
-    place_arm_joint_angles = np.deg2rad(config.PLACE_ARM_JOINT_ANGLES)
-    gaze = GraspController(spot=spot, objects=[["bottle of water"]], confidence=0.05, show_img=True, top_grasp=False, hor_grasp=True)
+    gaze = GraspController(config=config, spot=spot, objects=[["bottle of water"]], confidence=0.05, show_img=True, top_grasp=False, hor_grasp=True)
     with spot.get_lease(hijack=True):
         spot.power_on()
         try:
@@ -97,7 +104,7 @@ if __name__ == "__main__":
         except:
             spot.blocking_stand()
         time.sleep(1)
-        spot.set_arm_joint_positions(gaze_arm_joint_angles, travel_time=1.0)
+        #spot.set_arm_joint_positions(gaze_arm_joint_angles, travel_time=1.0)
         spot.open_gripper()
         time.sleep(1)
         print("Resetting environment...")
