@@ -7,8 +7,8 @@ channels:
 dependencies:
   - python==3.9.*
   - cmake
-    # - jupyter
-    # - nbconvert
+  - jupyter
+  - nbconvert
   - pybind11
   - pytorch=2.0.0
   - pytorch-cuda=11.8
@@ -16,11 +16,11 @@ dependencies:
   - torchvision
   - torchaudio
   - pyg
-    # - pytorch-cluster
-    # - pytorch-scatter
+  - pytorch-cluster
+  - pytorch-scatter
   - pinocchio
-    # - exa # optional: nice ls
-    # - fzf # optional: fancy ctrl + R
+  - exa # optional: nice ls
+  - fzf # optional: fancy ctrl + R
   - pip
   - pip:
     - numpy <1.24 # certain deprecated operations were used in other deps
