@@ -145,6 +145,12 @@ python projects/vlm_planning/offline_minigpt4_planning.py --instance_memory ~/Do
 
 GOAT tests (navigation + data collection):
 ```
+python projects/spot/goat.py --goals language_cup1
+python projects/spot/goat.py --goals object_chair,object_table
+```
+
+Grasping tests:
+```
 ```
 
 ### ROS - Deprecated
