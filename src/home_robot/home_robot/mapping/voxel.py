@@ -2,10 +2,11 @@
 #
 # This source code is licensed under the MIT license found in the
 # LICENSE file in the root directory of this source tree.
+import copy
 import pickle
 from collections import namedtuple
 from pathlib import Path
-from typing import List, Optional, Sequence, Tuple, Union
+from typing import Any, Dict, List, Optional, Sequence, Tuple, Union
 
 import numpy as np
 import open3d as open3d
@@ -50,6 +51,11 @@ def ensure_tensor(arr):
 class SparseVoxelMap(object):
     """Create a voxel map object which captures 3d information."""
 
+    DEFAULT_INSTANCE_MAP_KWARGS = dict(
+        du_scale=1,
+        instance_association="bbox_iou",
+    )
+
     def __init__(
         self,
         resolution=0.01,
@@ -64,6 +70,8 @@ class SparseVoxelMap(object):
         min_depth: float = 0.1,
         max_depth: float = 4.0,
         background_instance_label: int = -1,
+        instance_memory_kwargs: Dict[str, Any] = {},
+        voxel_kwargs: Dict[str, Any] = {},
     ):
         # TODO: We an use fastai.store_attr() to get rid of this boilerplate code
         self.resolution = resolution
@@ -76,6 +84,10 @@ class SparseVoxelMap(object):
         self.min_depth = min_depth
         self.max_depth = max_depth
         self.background_instance_label = background_instance_label
+        self.instance_memory_kwargs = update(
+            copy.deepcopy(self.DEFAULT_INSTANCE_MAP_KWARGS), instance_memory_kwargs
+        )
+        self.voxel_kwargs = voxel_kwargs
 
         # TODO: This 2D map code could be moved to another class or helper function
         #   This class could use that code via containment (same as InstanceMemory or VoxelizedPointcloud)
@@ -106,7 +118,8 @@ class SparseVoxelMap(object):
         self.observations = []
         # Create an instance memory to associate bounding boxes in space
         self.instances = InstanceMemory(
-            num_envs=1, du_scale=1, instance_association="bbox_iou"
+            num_envs=1,
+            **self.instance_memory_kwargs,
         )
         # Create voxelized pointcloud
         self.voxel_pcd = VoxelizedPointcloud(
@@ -114,6 +127,7 @@ class SparseVoxelMap(object):
             dim_mins=None,
             dim_maxs=None,
             feature_pool_method="mean",
+            **self.voxel_kwargs,
         )
 
         self._seq = 0
@@ -137,7 +151,7 @@ class SparseVoxelMap(object):
 
     def get_instances(self) -> List[InstanceView]:
         """Return a list of all viewable instances"""
-        return tuple(self.instances.instance_views[0].values())
+        return tuple(self.instances.instances[0].values())
 
     def add(
         self,
@@ -171,7 +185,9 @@ class SparseVoxelMap(object):
         # TODO: we should remove the xyz/feats maybe? just use observations as input?
         # TODO: switch to using just Obs struct?
         # Shape checking
-        assert rgb.ndim == 3 and rgb.shape[:2] == depth.shape
+        assert (
+            rgb.ndim == 3 and rgb.shape[:2] == depth.shape
+        ), f"{rgb.shape=} {depth.shape=}"
         H, W, _ = rgb.shape
         assert xyz is not None or (camera_K is not None and depth is not None)
         if xyz is not None:
@@ -232,7 +248,7 @@ class SparseVoxelMap(object):
 
         # Add instance views to memory
         instance = instance_image.clone()
-        instance[~valid_depth] = -1
+        # instance[~valid_depth] = -1
         self.instances.process_instances_for_env(
             env_id=0,
             instance_seg=instance,
@@ -242,6 +258,7 @@ class SparseVoxelMap(object):
             instance_scores=instance_scores,
             mask_out_object=False,  # Save the whole image here? Or is this with background?
             background_instance_label=self.background_instance_label,
+            valid_points=valid_depth,
         )
         self.instances.associate_instances_to_memory()
 
@@ -440,31 +457,42 @@ class SparseVoxelMap(object):
     ) -> Tuple[np.ndarray, np.ndarray]:
         """Display the aggregated point cloud."""
         if backend == "open3d":
-            return self._show_open3d(**backend_kwargs)
+            return self._show_open3d(instances, **backend_kwargs)
         elif backend == "pytorch3d":
-            return self._show_pytorch3d(**backend_kwargs)
+            return self._show_pytorch3d(instances, **backend_kwargs)
         else:
             raise NotImplementedError(
                 f"Uknown backend {backend}, must be 'open3d' or 'pytorch3d"
             )
 
-    def _show_pytorch3d(self, **plot_scene_kwargs):
+    def _show_pytorch3d(self, instances: bool = True, **plot_scene_kwargs):
         from pytorch3d.vis.plotly_vis import AxisArgs, plot_scene
 
         from home_robot.utils.bboxes_3d_plotly import plot_scene_with_bboxes
 
         points, _, _, rgb = self.voxel_pcd.get_pointcloud()
 
+        traces = {}
+
         # Show points
         ptc = Pointclouds(points=[points], features=[rgb])
+        traces["Points"] = ptc
 
         # Show instances
-        bounds, names = zip(*[(v.bounds, v.category_id) for v in self.get_instances()])
-        detected_boxes = BBoxes3D(
-            bounds=[torch.stack(bounds, dim=0)],
-            # features = [colors],
-            names=[torch.stack(names, dim=0).unsqueeze(-1)],
-        )
+        if instances:
+            bounds, names = zip(
+                *[(v.bounds, v.category_id) for v in self.get_instances()]
+            )
+            detected_boxes = BBoxes3D(
+                bounds=[torch.stack(bounds, dim=0)],
+                # features = [colors],
+                names=[torch.stack(names, dim=0).unsqueeze(-1)],
+            )
+            traces["IB"] = detected_boxes
+
+        # Show cameras
+        # "Fused boxes": global_boxes,
+        # "cameras": cameras,
 
         _default_plot_args = dict(
             xaxis={"backgroundcolor": "rgb(200, 200, 230)"},
@@ -477,20 +505,12 @@ class SparseVoxelMap(object):
             boxes_wireframe_width=3,
         )
         fig = plot_scene_with_bboxes(
-            plots={
-                "Global scene": {
-                    "Points": ptc,
-                    "Instance boxes": detected_boxes,
-                    # "Fused boxes": global_boxes,
-                    # "cameras": cameras,
-                },
-                # Could add keyframes or instances here.
-            },
+            plots={"Global scene": traces},
             **update(_default_plot_args, plot_scene_kwargs),
         )
         return fig
 
-    def _show_open3d(self, instances: bool, **backend_kwargs):
+    def _show_open3d(self, instances: bool = True, **backend_kwargs):
         """Show and return bounding box information and rgb color information from an explored point cloud. Uses open3d."""
 
         # Create a combined point cloud
