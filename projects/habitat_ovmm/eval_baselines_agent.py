@@ -84,11 +84,13 @@ if __name__ == "__main__":
     # merge env config and baseline config to create agent config
     agent_config = create_agent_config(env_config, baseline_config)
 
+    device_id = env_config.habitat.simulator.habitat_sim_v0.gpu_device_id
+
     # create agent
     if args.agent_type == "random":
-        agent = RandomAgent(agent_config)
+        agent = RandomAgent(agent_config, device_id=device_id)
     else:
-        agent = OpenVocabManipAgent(agent_config)
+        agent = OpenVocabManipAgent(agent_config, device_id=device_id)
 
     # create evaluator
     evaluator = OVMMEvaluator(env_config)
