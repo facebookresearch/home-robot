@@ -44,6 +44,7 @@ pip install -e .
 ### The following is a minimal set of dependencies needed to use the functionalities that GOAT uses from spotsim2real + some home-robot deps
 pip install bosdyn-api bosdyn-client transforms3d einops gym==0.23.1 vtk scikit-image open3d natsort scikit-fmm imutils
 ```
+Version for `bosdyn-api` should be >= 3.3 - tested with 3.3.0 and 3.3.1 as of 2023-09-11.
 
 #### MiDaS
 
@@ -135,12 +136,16 @@ git pull origin/master
    1. Run `python projects/spot/objectnav.py` for the objectnav entrypoint
    2. Run `python projects/spot/goat` for the goat entrypoint
 
-### Basic
+### Example Commands
 
+Instance memory test (no robot):
 ```
-pip install bosdyn-api
+python projects/vlm_planning/offline_minigpt4_planning.py --instance_memory ~/Downloads/instance_memory_64.pk
 ```
-Version should be >= 3.3 - tested with 3.3.0 and 3.3.1
+
+GOAT tests (navigation + data collection):
+```
+```
 
 ### ROS - Deprecated
 
