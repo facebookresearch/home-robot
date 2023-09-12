@@ -5,13 +5,14 @@
 import sys
 import timeit
 from pathlib import Path
-from typing import Tuple
+from typing import Optional, Tuple
 
 import click
 import matplotlib.pyplot as plt
 import numpy as np
 import open3d
 import rospy
+import torch
 
 import home_robot.utils.depth as du
 from home_robot.agent.ovmm_agent import (
@@ -19,14 +20,20 @@ from home_robot.agent.ovmm_agent import (
     build_vocab_from_category_map,
     read_category_map_file,
 )
-from home_robot.mapping.voxel import SparseVoxelMap
-from home_robot.motion.stretch import STRETCH_NAVIGATION_Q, HelloStretchKinematics
+from home_robot.mapping import SparseVoxelMap, SparseVoxelMapNavigationSpace
+
+# Import planning tools for exploration
+from home_robot.motion.rrt_connect import RRTConnect
+from home_robot.motion.shortcut import Shortcut
+from home_robot.motion.stretch import HelloStretchKinematics
 from home_robot.utils.geometry import xyt2sophus
 from home_robot.utils.image import Camera
 from home_robot.utils.point_cloud import numpy_to_pcd, pcd_to_numpy, show_point_cloud
 from home_robot.utils.pose import convert_pose_habitat_to_opencv, to_pos_quat
+from home_robot.utils.visualization import get_x_and_y_from_path
 from home_robot_hw.env.stretch_pick_and_place_env import StretchPickandPlaceEnv
 from home_robot_hw.remote import StretchClient
+from home_robot_hw.ros.visualizer import Visualizer
 from home_robot_hw.utils.config import load_config
 
 
@@ -54,33 +61,26 @@ class RosMapDataCollector(object):
         self.semantic_sensor = semantic_sensor
         self.started = False
         self.robot_model = HelloStretchKinematics(visualize=visualize_planner)
-        self.voxel_map = SparseVoxelMap(resolution=voxel_size)
+        self.voxel_map = SparseVoxelMap(resolution=voxel_size, local_radius=0.1)
+
+    def get_planning_space(self) -> SparseVoxelMapNavigationSpace:
+        """return space for motion planning"""
+        return SparseVoxelMapNavigationSpace(
+            self.voxel_map, self.robot_model, step_size=0.1
+        )
 
     def step(self, visualize_map=False):
         """Step the collector. Get a single observation of the world. Remove bad points, such as
         those from too far or too near the camera."""
         obs = self.robot.get_observation()
 
-        rgb = obs.rgb
-        depth = obs.depth
-        xyz = obs.xyz
-        camera_pose = obs.camera_pose
-        base_pose = np.array([obs.gps[0], obs.gps[1], obs.compass[0]])
-
         # Semantic prediction
         obs = self.semantic_sensor.predict(obs)
 
-        # TODO: remove debug code
-        # For now you can use this to visualize a single frame
-        # show_point_cloud(xyz, rgb / 255, orig=np.zeros(3))
-        self.voxel_map.add(
-            camera_pose,
-            xyz,
-            rgb,
-            depth=depth,
-            base_pose=base_pose,
-            obs=obs,
-            K=self.robot.head._ros_client.rgb_cam.K,
+        # Add observation - helper function will unpack it
+        self.voxel_map.add_obs(
+            obs,
+            K=torch.from_numpy(self.robot.head._ros_client.rgb_cam.K).float(),
         )
         if visualize_map:
             # Now draw 2d
@@ -90,9 +90,9 @@ class RosMapDataCollector(object):
         """Get 2d obstacle map for low level motion planning and frontier-based exploration"""
         return self.voxel_map.get_2d_map()
 
-    def show(self) -> Tuple[np.ndarray, np.ndarray]:
+    def show(self, orig: Optional[np.ndarray] = None) -> Tuple[np.ndarray, np.ndarray]:
         """Display the aggregated point cloud."""
-        return self.voxel_map.show()
+        return self.voxel_map.show(orig=orig)
 
 
 def create_semantic_sensor(
@@ -115,9 +115,134 @@ def create_semantic_sensor(
     return config, semantic_sensor
 
 
+def run_fixed_trajectory(
+    collector: RosMapDataCollector,
+    robot: StretchClient,
+    rate: int = 10,
+    manual_wait: bool = False,
+):
+    """Go through a fixed robot trajectory"""
+    trajectory = [
+        (0, 0, 0),
+        (0.4, 0, 0),
+        (0.75, 0.15, np.pi / 4),
+        (0.85, 0.3, np.pi / 4),
+        (0.95, 0.5, np.pi / 2),
+        (1.0, 0.55, np.pi),
+        (0.6, 0.45, 5 * np.pi / 4),
+        (0.0, 0.3, -np.pi / 2),
+        (0, 0, 0),
+        (0.2, 0, 0),
+        (0.5, 0, 0),
+        (0.7, 0.2, np.pi / 4),
+        (0.7, 0.4, np.pi / 2),
+        (0.5, 0.4, np.pi),
+        (0.2, 0.2, -np.pi / 4),
+        (0, 0, -np.pi / 2),
+        (0, 0, 0),
+    ]
+
+    # Sequence information if we are executing the trajectory
+    step = 0
+    # Number of frames collected
+    frames = 0
+    # Spin rate
+    rate = rospy.Rate(rate)
+
+    t0 = rospy.Time.now()
+    while not rospy.is_shutdown():
+        ti = (rospy.Time.now() - t0).to_sec()
+        print("t =", ti, trajectory[step])
+        robot.nav.navigate_to(trajectory[step])
+        print("... done navigating.")
+        if manual_wait:
+            input("... press enter ...")
+        print("... capturing frame!")
+        step += 1
+
+        # Append latest observations
+        collector.step()
+
+        frames += 1
+        if step >= len(trajectory):
+            break
+
+        rate.sleep()
+
+
+def run_exploration(
+    collector: RosMapDataCollector,
+    robot: StretchClient,
+    rate: int = 10,
+    manual_wait: bool = False,
+    explore_iter: int = 10,
+    dry_run: bool = False,
+):
+    """Go through exploration. We use the voxel_grid map created by our collector to sample free space, and then use our motion planner (RRT for now) to get there. At the end, we plan back to (0,0,0)."""
+    rate = rospy.Rate(rate)
+
+    # Create planning space
+    space = collector.get_planning_space()
+
+    # Create a simple motion planner
+    planner = Shortcut(RRTConnect(space, space.is_valid))
+
+    print("Go to (0, 0, 0) to start with...")
+    robot.nav.navigate_to([0, 0, 0])
+
+    # Explore some number of times
+    for i in range(explore_iter):
+        print("\n" * 2)
+        print("-" * 20, i, "-" * 20)
+        # sample a goal
+        goal = space.sample_frontier().cpu().numpy()
+        if goal is None:
+            print(" ------ sampling failed!")
+        start = robot.get_base_pose()
+        print("       Start:", start)
+        print("Sampled Goal:", goal)
+        show_goal = np.zeros(3)
+        show_goal[:2] = goal[:2]
+        print("Start is valid:", collector.voxel_map.xyt_is_safe(start))
+        print(" Goal is valid:", collector.voxel_map.xyt_is_safe(goal))
+        # plan to the sampled goal
+        res = planner.plan(start, goal)
+        print("Found plan:", res.success)
+        obstacles, explored = collector.get_2d_map()
+        img = (10 * obstacles) + explored
+        space.draw_state_on_grid(img, start, weight=5)
+        space.draw_state_on_grid(img, goal, weight=5)
+        plt.imshow(img)
+        if res.success:
+            path = collector.voxel_map.plan_to_grid_coords(res)
+            x, y = get_x_and_y_from_path(path)
+            plt.plot(y, x)
+        else:
+            continue
+
+        # Display goal
+        plt.show()
+        collector.show(orig=show_goal)
+
+        # if it fails, skip; else, execute a trajectory to this position
+        if res.success:
+            print("Full plan:")
+            for i, pt in enumerate(res.trajectory):
+                print("-", i, pt.state)
+            if not dry_run:
+                robot.nav.execute_trajectory([pt.state for pt in res.trajectory])
+
+        # Append latest observations
+        collector.step()
+
+        if manual_wait:
+            input("... press enter ...")
+
+    # Finally - plan back to (0,0,0)
+
+
 def collect_data(
     rate,
-    max_frames,
     visualize,
     manual_wait,
     pcd_filename,
@@ -125,9 +250,10 @@ def collect_data(
     voxel_size: float = 0.01,
     device_id: int = 0,
     verbose: bool = True,
-    visualize_map_at_start: bool = True,
-    visualize_map: bool = True,
+    visualize_map_at_start: bool = False,
+    visualize_map: bool = False,
     blocking: bool = True,
+    explore: bool = False,
     **kwargs,
 ):
     """Collect data from a Stretch robot. Robot will move through a preset trajectory, stopping repeatedly."""
@@ -146,62 +272,17 @@ def collect_data(
     print("Sending arm to  home...")
     robot.switch_to_manipulation_mode()
 
-    robot.head.look_front(blocking=False)
-    robot.manip.goto_joint_positions(
-        robot.manip._extract_joint_pos(STRETCH_NAVIGATION_Q)
-    )
+    robot.move_to_nav_posture()
+    robot.head.look_close(blocking=False)
     print("... done.")
-
-    rate = rospy.Rate(rate)
 
     # Move the robot
     robot.switch_to_navigation_mode()
-    # Sequence information if we are executing the trajectory
-    step = 0
-    # Number of frames collected
-    frames = 0
-
-    trajectory = [
-        (0, 0, 0),
-        (0.4, 0, 0),
-        (0.75, 0.15, np.pi / 4),
-        (0.85, 0.3, np.pi / 4),
-        (0.95, 0.5, np.pi / 2),
-        (1.0, 0.55, np.pi),
-        (0.6, 0.45, 5 * np.pi / 4),
-        (0.0, 0.3, -np.pi / 2),
-        (0, 0, 0),
-        # (0.2, 0, 0),
-        # (0.5, 0, 0),
-        # (0.7, 0.2, np.pi / 4),
-        # (0.7, 0.4, np.pi / 2),
-        # (0.5, 0.4, np.pi),
-        # (0.2, 0.2, -np.pi / 4),
-        # (0, 0, -np.pi / 2),
-        # (0, 0, 0),
-    ]
-
     collector.step(visualize_map=visualize_map_at_start)  # Append latest observations
-
-    t0 = rospy.Time.now()
-    while not rospy.is_shutdown():
-        ti = (rospy.Time.now() - t0).to_sec()
-        print("t =", ti, trajectory[step])
-        robot.nav.navigate_to(trajectory[step])
-        print("... done navigating.")
-        if manual_wait:
-            input("... press enter ...")
-        print("... capturing frame!")
-        step += 1
-
-        # Append latest observations
-        collector.step()
-
-        frames += 1
-        if max_frames > 0 and frames >= max_frames or step >= len(trajectory):
-            break
-
-        rate.sleep()
+    if explore:
+        run_exploration(collector, robot, rate, manual_wait)
+    else:
+        run_fixed_trajectory(collector, robot, rate, manual_wait)
 
     print("Done collecting data.")
     robot.nav.navigate_to((0, 0, 0))
@@ -236,12 +317,13 @@ DATA_MODES = ["ros", "pkl", "dir"]
     "--mode", type=click.Choice(DATA_MODES), default="ros"
 )  # help="Choose data source. ROS requires connecting to a real stretch robot")
 @click.option("--rate", default=5, type=int)
-@click.option("--max-frames", default=20, type=int)
 @click.option("--visualize", default=False, is_flag=True)
 @click.option("--manual_wait", default=False, is_flag=True)
 @click.option("--output-pcd-filename", default="output.ply", type=str)
 @click.option("--output-pkl-filename", default="output.pkl", type=str)
-@click.option("--from-ros", default=False, is_flag=True)
+@click.option("--explore", default=False, is_flag=True)
+@click.option("--show-maps", default=False, is_flag=True)
+@click.option("--show-paths", default=False, is_flag=True)
 @click.option(
     "--input-path",
     type=click.Path(),
@@ -251,26 +333,29 @@ DATA_MODES = ["ros", "pkl", "dir"]
 def main(
     mode,
     rate,
-    max_frames,
     visualize,
     manual_wait,
     output_pcd_filename,
     output_pkl_filename,
+    explore: bool = False,
     input_path: str = ".",
     voxel_size: float = 0.01,
     device_id: int = 0,
     verbose: bool = True,
+    show_maps: bool = False,
+    show_paths: bool = False,
     **kwargs,
 ):
-
     click.echo(f"Processing data in mode: {mode}")
     click.echo(f"Using input path: {input_path}")
+
+    if explore and not (mode == "ros" or mode == "pkl"):
+        raise RuntimeError("explore cannot be used without a robot to interact with")
 
     if mode == "ros":
         click.echo("Will connect to a Stretch robot and collect a short trajectory.")
         collect_data(
             rate,
-            max_frames,
             visualize,
             manual_wait,
             output_pcd_filename,
@@ -278,6 +363,7 @@ def main(
             voxel_size,
             device_id,
             verbose,
+            explore=explore,
             **kwargs,
         )
     elif mode == "dir":
@@ -378,7 +464,61 @@ def main(
         input_path = Path(input_path)
         voxel_map = SparseVoxelMap(resolution=voxel_size)
         voxel_map.read_from_pickle(input_path)
-        voxel_map.show(instances=True)
+        if show_maps:
+            voxel_map.show(instances=True)
+        voxel_map.get_2d_map(debug=show_maps)
+
+        if explore:
+            print(
+                "Running exploration test on offline data. Will plan to various waypoints"
+            )
+            robot_model = HelloStretchKinematics()
+            space = SparseVoxelMapNavigationSpace(voxel_map, robot_model, step_size=0.2)
+            planner = Shortcut(RRTConnect(space, space.is_valid))
+
+            rospy.init_node("build_3d_map")
+            goal_visualizer = Visualizer("goto_controller/goal_abs")
+            for i in range(10):
+                print("-" * 10, i, "-" * 10)
+                # NOTE: this is how you can sample a random free location
+                # goal = space.sample_valid_location().cpu().numpy()
+                # This lets you sample a free location only on the frontier
+                goal = space.sample_frontier().cpu().numpy()
+                if goal is None:
+                    print(" ------ sampling failed!")
+                start = np.zeros(3)
+                print("       Start:", start)
+                print("Sampled Goal:", goal)
+                print("Start is valid:", voxel_map.xyt_is_safe(start))
+                print(" Goal is valid:", voxel_map.xyt_is_safe(goal))
+                res = planner.plan(start, goal)
+                print("Found plan:", res.success)
+
+                if show_paths:
+                    obstacles, explored = voxel_map.get_2d_map()
+                    H, W = obstacles.shape
+                    img = np.zeros((H, W, 3))
+                    img[:, :, 0] = obstacles
+                    img[:, :, 2] = explored
+                    import torch
+
+                    states = torch.zeros_like(obstacles).float()
+                    space.draw_state_on_grid(states, start, weight=5)
+                    space.draw_state_on_grid(states, goal, weight=5)
+                    img[:, :, 1] = states.cpu().numpy()
+                    plt.imshow(img)
+                    if res.success:
+                        path = voxel_map.plan_to_grid_coords(res)
+                        x, y = get_x_and_y_from_path(path)
+                        plt.plot(y, x)
+                    plt.show()
+                    show_orig = np.zeros(3)
+                    show_orig[:2] = goal[:2]
+
+                    # Send it to ROS
+                    pose_goal = xyt2sophus(goal)
+                    goal_visualizer(pose_goal.matrix())
+                    voxel_map.show(orig=show_orig)
     else:
         raise NotImplementedError(f"- data mode {mode} not supported or recognized")
 

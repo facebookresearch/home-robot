@@ -78,6 +78,11 @@ class StretchHeadClient(AbstractControlModule):
         if blocking:
             self.wait()
 
+    def look_close(self, blocking: bool = True):
+        """Point camera sideways towards the gripper"""
+        pan, tilt = self._robot_model.look_close
+        self.set_pan_tilt(pan, tilt, blocking=blocking)
+
     def look_at_ee(self, blocking: bool = True):
         """Point camera sideways towards the gripper"""
         pan, tilt = self._robot_model.look_at_ee

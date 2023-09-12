@@ -2,7 +2,7 @@
 #
 # This source code is licensed under the MIT license found in the
 # LICENSE file in the root directory of this source tree.
-from typing import Iterable
+from typing import Iterable, List
 
 import numpy as np
 import rospy
@@ -10,7 +10,12 @@ from geometry_msgs.msg import Twist
 from std_srvs.srv import SetBoolRequest, TriggerRequest
 
 from home_robot.motion.robot import Robot
-from home_robot.utils.geometry import sophus2xyt, xyt2sophus, xyt_base_to_global
+from home_robot.utils.geometry import (
+    angle_difference,
+    sophus2xyt,
+    xyt2sophus,
+    xyt_base_to_global,
+)
 from home_robot_hw.constants import T_LOC_STABILIZE
 from home_robot_hw.ros.utils import matrix_to_pose_msg
 
@@ -66,7 +71,8 @@ class StretchNavigationClient(AbstractControlModule):
         xyt: np.ndarray,
         rate: int = 10,
         pos_err_threshold: float = 0.2,
-        verbose: bool = True,
+        rot_err_threshold: float = 0.3,
+        verbose: bool = False,
         timeout: float = 10.0,
     ) -> bool:
         """Wait until the robot has reached a configuration... but only roughly. Used for trajectory execution.
@@ -90,17 +96,43 @@ class StretchNavigationClient(AbstractControlModule):
             # Loop until we get there (or time out)
             curr = self.get_base_pose()
             pos_err = np.linalg.norm(xy - curr[:2])
+            rot_err = angle_difference(curr[-1], xyt[2])
             if verbose:
-                print("- curr pose =", curr, "target =", xyt, "err =", pos_err)
-            if pos_err < pos_err_threshold:
+                print(f"- {curr=} target {xyt=} {pos_err=} {rot_err=}")
+            if pos_err < pos_err_threshold and rot_err < rot_err_threshold:
                 # We reached the goal position
                 return True
             t1 = rospy.Time.now()
             if (t1 - t0).to_sec() > timeout:
-                if verbose:
-                    rospy.logerr("Could not reach goal: " + str(xyt))
+                rospy.logerr("Could not reach goal in time: " + str(xyt))
                 return False
             rate.sleep()
+
+    @enforce_enabled
+    def execute_trajectory(
+        self,
+        trajectory: List[np.ndarray],
+        pos_err_threshold: float = 0.2,
+        spin_rate: int = 10,
+        verbose: bool = True,
+        per_waypoint_timeout: float = 10.0,
+        relative: bool = False,
+    ):
+        """Execute a multi-step trajectory; this is always blocking since it waits to reach each one in turn."""
+        for i, pt in enumerate(trajectory):
+            assert (
+                len(pt) == 3 or len(pt) == 2
+            ), "base trajectory needs to be 2-3 dimensions: x, y, and (optionally) theta"
+            just_xy = len(pt) == 2
+            self.navigate_to(pt, relative, position_only=just_xy, blocking=False)
+            self.wait_for_waypoint(
+                pt,
+                pos_err_threshold=pos_err_threshold,
+                rate=spin_rate,
+                verbose=verbose,
+                timeout=per_waypoint_timeout,
+            )
+        self.navigate_to(pt, blocking=True)
 
     @enforce_enabled
     def set_velocity(self, v, w):
@@ -172,19 +204,20 @@ class StretchNavigationClient(AbstractControlModule):
                 break
             rate.sleep()
 
-    def _wait_for_goal_reached(self):
+    def _wait_for_goal_reached(self, verbose: bool = False):
         """Wait until goal is reached"""
         rospy.sleep(self._ros_client.msg_delay_t)
         rate = rospy.Rate(self.block_spin_rate)
         t0 = rospy.Time.now()
         while not rospy.is_shutdown():
             t1 = rospy.Time.now()
-            print(
-                "...waited for controller",
-                (t1 - t0).to_sec(),
-                "is at goal =",
-                self.at_goal(),
-            )
+            if verbose:
+                print(
+                    "...waited for controller",
+                    (t1 - t0).to_sec(),
+                    "is at goal =",
+                    self.at_goal(),
+                )
             # Verify that we are at goal and perception is synchronized with pose
             if self.at_goal() and self._ros_client.recent_depth_image(
                 self._ros_client.msg_delay_t
