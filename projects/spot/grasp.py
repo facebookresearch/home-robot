@@ -14,7 +14,7 @@ class GraspController():
         self.show_img = show_img
         self.top_grasp = top_grasp
         self.hor_grasp = hor_grasp
-        self.owl = OwlVit(self.labels, self.confidence, self.show_img)
+        self.detector = OwlVit(self.labels, self.confidence, self.show_img)
         self.look = np.deg2rad(config.GAZE_ARM_JOINT_ANGLES)
         self.stow = np.deg2rad(config.PLACE_ARM_JOINT_ANGLES)
         
@@ -30,7 +30,7 @@ class GraspController():
             if isinstance(img, list):
                 img = np.asarray(img)
                 print(f" > Converted img from list -> {type(img)}")
-            coords = self.owl.run_inference(img)
+            coords = self.detector.run_inference(img)
             if len(coords)>0:
                 print(f" > Result -- {coords}")
                 bounding_box = coords[0][2]
@@ -44,6 +44,8 @@ class GraspController():
                     cv2.imwrite(filename, img)
                     print(f" > Saved {filename}")
                 return center
+            else:
+                raise NotImplementedError(f'Cannot find an object in the image')
         else:
             raise TypeError(f"img is of type {type(img)}, expected is numpy array") 
         
@@ -56,39 +58,41 @@ class GraspController():
         k = 0
         while True:
             pixels = self.find_obj(img=img)
-            print(f" > Grasping object at {pixels}")
-            success = self.spot.grasp_point_in_image(hand_image_response, 
-                                                pixel_xy=pixels, 
-                                                timeout=timeout,
-                                                top_down_grasp=self.top_grasp, 
-                                                horizontal_grasp=self.hor_grasp
-                                                )
-            if success:
-                self.reset_to_stow()
-                time.sleep(1)
-                break
-            else:
-                k = k + 1
-                print(f" > Could not find object from the labels, tries left: {count - k}")
-            if k == count:
-                print("> Ending trial as target trials reached")
-                retry = input("Would you like to retry? y/n, or enter 'c' to enter a new label and retry: ")
-                if retry == "y":
-                    #@JAY add a look around script and then replace with gaze
-                    k = 0
-                    continue
-                if retry == "c":
-                    new_label = input("Enter new label: ")
-                    self.update_label(new_label)
-                    k = 0
-                    count = 0
-                else:
+            if pixels is not None:
+                print(f" > Grasping object at {pixels}")
+                success = self.spot.grasp_point_in_image(hand_image_response, 
+                                                    pixel_xy=pixels, 
+                                                    timeout=timeout,
+                                                    top_down_grasp=self.top_grasp, 
+                                                    horizontal_grasp=self.hor_grasp
+                                                    )
+                if success:
+                    print(' > Sucess')
+                    self.reset_to_stow()
+                    time.sleep(3)
                     break
-        print('Sucess')
-        time.sleep(1)
+                else:
+                    k = k + 1
+                    print(f" > Could not find object from the labels, tries left: {count - k}")
+                if k >= count:
+                    print(" > Ending trial as target trials reached")
+                    retry = input(" > Would you like to retry? y/n, or enter 'c' to enter a new label and retry: ")
+                    if retry == "y":
+                        #@JAY add a look around script and then replace with gaze
+                        k = 0
+                        continue
+                    if retry == "c":
+                        new_label = input(" > Enter new label: ")
+                        self.update_label(new_label)
+                        time.sleep(2)
+                        k = 0
+                        continue
+                    else:
+                        break
+        time.sleep(3)
     def update_label(self, new_label):
-        self.labels.append(new_label)
-        self.owl = OwlVit(self.labels, self.confidence, self.show_img)
+        self.labels.append(f"an image of {new_label}")
+        self.detector = OwlVit(self.labels, self.confidence, self.show_img)
 
 
 if __name__ == "__main__":
