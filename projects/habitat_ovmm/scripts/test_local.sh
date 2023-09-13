@@ -24,4 +24,5 @@ docker run \
       --runtime=nvidia \
       --gpus all \
       -e "AGENT_EVALUATION_TYPE=local" \
+      -e "LOCAL_ARGS='habitat.dataset.split=minival'" \
       ${DOCKER_NAME}

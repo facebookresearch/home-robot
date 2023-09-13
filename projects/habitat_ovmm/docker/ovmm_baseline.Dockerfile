@@ -38,10 +38,13 @@ ADD scripts/submission.sh /home-robot/submission.sh
 # set evaluation type to remote
 ENV AGENT_EVALUATION_TYPE remote
 
+# additional command line arguments for local evaluations (empty for remote evaluation)
+ENV LOCAL_ARGS ""
+
 # run submission script
 CMD /bin/bash -c "\
     . activate home-robot \
     && cd /home-robot \
     && export PYTHONPATH=/evalai_remote_evaluation:$PYTHONPATH \
-    && bash submission.sh \
+    && bash submission.sh $LOCAL_ARGS \
     "
