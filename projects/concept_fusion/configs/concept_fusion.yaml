@@ -9,11 +9,6 @@ bbox_area_thresh: 0.0005
 points_per_side: 32
 
 # Data params
-# episode_file: "/srv/flash1/kyadav32/datasets/gunshi/habitat_dataset/128x128_0750/0001.h5"
-# episode_file: "/srv/flash1/kyadav32/datasets/gunshi/habitat_dataset/128x128_0750_pose_depth/0001.h5"
-episode_file: "/srv/flash1/kyadav32/datasets/ovmm/hm3d_512x512/0001.h5"
-# Stride (number of frames to skip between successive fusion steps)
-stride: 20
 # Desired image width and height
 desired_height: 256
 desired_width: 256

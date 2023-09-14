@@ -1,6 +1,9 @@
 import os
 from pathlib import Path
-from typing import List
+from tqdm import trange
+from typing import List, Sequence, Dict, Any
+import warnings
+
 
 import h5py
 import hydra
@@ -8,13 +11,20 @@ import matplotlib
 import numpy as np
 from omegaconf import DictConfig
 import open_clip
-import torch
-
 from PIL import Image
-from segment_anything import SamAutomaticMaskGenerator, SamPredictor, sam_model_registry
-from tqdm import trange
-
+from sklearn.cluster import DBSCAN
 import seaborn as sns
+import torch
+from torchvision import transforms
+
+from home_robot.utils.voxel import VoxelizedPointcloud
+import home_robot.utils.image as im
+from segment_anything import SamAutomaticMaskGenerator, SamPredictor, sam_model_registry
+
+from home_robot.utils.bboxes_3d import box3d_volume_from_bounds
+from home_robot.mapping.semantic.instance_tracking_modules import InstanceView, Instance
+
+from utils import COLOR_LIST
 
 custom_palette = sns.color_palette("viridis", 24)
 
@@ -59,6 +69,35 @@ def save_data(
     file_path = os.path.join(save_path, "concept_fusion_features_" + str(idx) + ".pt")
     torch.save(outfeat.detach().cpu(), file_path)
 
+
+def convert_pose_to_real_world_axis(hab_pose):
+    """Update axis convention of habitat pose to match the real-world axis convention"""
+    hab_pose[[1, 2]] = hab_pose[[2, 1]]
+    hab_pose[:, [1, 2]] = hab_pose[:, [2, 1]]
+
+    return hab_pose
+
+def get_bounding_boxes(args, data, color_data):
+    db = DBSCAN(eps=args.epsilon, min_samples=args.min_samples).fit(data)
+    labels = db.labels_
+
+    num_clusters = len(np.unique(labels))
+    num_noise = np.sum(np.array(labels) == -1, axis=0)
+
+    print('Estimated no. of clusters: %d' % num_clusters)
+    print('Estimated no. of noise points: %d' % num_noise)
+
+    # get max and min x, y, z values for each cluster
+    bb_coords = np.zeros((num_clusters, 3, 2))
+    for i in range(num_clusters-1):
+        cluster = data[labels == i]
+        bb_coords[i, :, 0] = torch.min(cluster, axis=0)[0]
+        bb_coords[i, :, 1] = torch.max(cluster, axis=0)[0]
+
+        # use different bright colors for points in different clusters
+        color_data[labels == i] = torch.tensor(COLOR_LIST[i % len(COLOR_LIST)]).float()
+    return bb_coords, color_data, labels
+
 class ConceptFusion:
     def __init__(
             self,
@@ -98,6 +137,19 @@ class ConceptFusion:
         self.cosine_similarity = torch.nn.CosineSimilarity(dim=-1)
 
         self.feat_dim = None
+
+        self.camera = im.Camera.from_width_height_fov(
+            width=args.desired_width,
+            height=args.desired_height,
+            fov_degrees=90,
+            near_val=0.1,
+            far_val=4.0,
+        )
+
+        self.voxel_map = VoxelizedPointcloud()
+
+        self.transform = transforms.Resize((self.args.desired_height, self.args.desired_width), interpolation=Image.NEAREST)
+
     
     def generate_mask(self, img):
         masks = self.mask_generator.generate(img)
@@ -106,6 +158,18 @@ class ConceptFusion:
         masks = list(filter(lambda x: x["bbox"][2] * x["bbox"][3] != 0, masks))
         
         return masks
+    
+    def resize_images(self, rgb, depth):
+        """Resize images using torch."""
+        # RGB images have the weird requirement that they need to be in numpy format for input to concept fusion
+        rgb = Image.fromarray(rgb)
+
+        rgb = self.transform(rgb)
+        depth = self.transform(depth)
+
+        rgb = np.array(rgb)
+
+        return rgb, depth
     
     def generate_global_features(
         self,
@@ -232,41 +296,147 @@ class ConceptFusion:
 
             map_colors = 0.5 * map_colors + 0.5 * similarity_colormap
 
-        return map_colors, selected_inds.detach().cpu().numpy()
+        return map_colors, selected_inds.detach().cpu().numpy(), similarity.squeeze()
 
+    def build_scene(self, scene_obs: Dict[str, Any]):
+        """
+        Build scene and get pointcloud.
 
-@hydra.main(config_path="configs", config_name="concept_fusion")
-def main(args: DictConfig):
-    """
-    Generate concept fusion features for a given episode file.
+        Args:
+            scene_obs (Dict[str, Any]): Scene observations.
+
+        Returns:
+            torch.Tensor: Pointcloud xyz.
+            torch.Tensor: Pointcloud features.
+            torch.Tensor: Pointcloud TODO.
+            torch.Tensor: Pointcloud rgb.
+        """
+        print("Building scene with {} images".format(len(scene_obs["images"])))
+        for i in trange(len(scene_obs["images"])):
+            if i > 10:
+                break # To run things faster
+            img = scene_obs["images"][i]
+            depth = torch.tensor(scene_obs["depths"][i]).unsqueeze(0)
+            camera_pose = torch.tensor(scene_obs["poses"][i]).float()
+            img, depth = self.resize_images(img, depth)
+
+            masks = self.generate_mask(img)
+
+            # CLIP features global
+            global_feat = self.generate_global_features(img)
+
+            # CLIP features per ROI
+            outfeat = self.generate_local_features(img, masks, global_feat)
+
+            camera_pose = convert_pose_to_real_world_axis(camera_pose)
+
+            xyz = torch.Tensor(self.camera.depth_to_xyz(depth.numpy())).reshape(-1, 3)[:, [0, 2, 1]]
+            xyz[:, 1] *= -1
+            xyz = (
+                torch.cat([xyz, torch.ones_like(xyz[..., [0]])], axis=1) @ camera_pose.T
+            )
+            self.voxel_map.add(
+                points=xyz[:, :3],
+                features=outfeat.reshape(-1, 1024),
+                rgb=torch.tensor(img).reshape(-1, 3),
+            )
+
+        return self.voxel_map.get_pointcloud()
+
+    def build_scene_and_get_instances_for_queries(
+        self,
+        scene_obs: Dict[str, Any],
+        queries: Sequence[str]
+    ):
+        pc_xyz, pc_feat, _, _ = self.build_scene(scene_obs)
+
+        breakpoint()
+        instances_dict = {}
+        category_id = 0 # TODO: Fix this hardcoding
+        for class_name in queries:
+            print("Querying for class: {}".format(class_name))
+            pc_rgb_after_query, selected_inds, similarity_score = self.text_query(class_name, pc_feat)
+
+            pc_feat_objects = pc_feat[selected_inds]
+            pc_rgb_objects = torch.tensor(pc_rgb_after_query[selected_inds].squeeze()).float()
+            pc_xyz_objects = pc_xyz[selected_inds].squeeze()
+            similarity_score_objects = similarity_score[selected_inds].squeeze()
+            bounding_boxes, pc_rgb_after_query[selected_inds], labels  = get_bounding_boxes(self.args, pc_xyz_objects, pc_rgb_objects)
+
+            global_instance = Instance(score_aggregation_method='max')
+
+            for idx in range(len(bounding_boxes)):
+                bounds = torch.tensor(bounding_boxes[idx])
+
+                volume = float(box3d_volume_from_bounds(bounds).squeeze())
+
+                if volume < 1e-6:
+                    warnings.warn(
+                        f"Skipping box with bounding box {bounds} and {volume} volume",
+                        UserWarning,
+                    )
+                else:
+                    # get instance view
+                    instance_view = InstanceView(
+                        bbox=None,
+                        bounds=bounds,
+                        timestep=0,
+                        embedding=pc_feat_objects[labels == idx].mean(axis=0),
+                        point_cloud=pc_xyz_objects[labels == idx],
+                        point_cloud_rgb=pc_rgb_objects[labels == idx],
+                        category_id=category_id,
+                        score=similarity_score_objects[labels == idx].max()
+                    )
+                    # append instance view to list of instance views
+                    global_instance.add_instance_view(instance_view)
+
+            instances_dict[class_name] = global_instance
+
+            category_id += 1
+
+        return instances_dict
     
-    Args:
-        args (DictConfig): Hydra config.
-    """
+    def _show_point_cloud_pytorch3d(
+            self,
+            detected_boxes = None,
+            **plot_scene_kwargs
+        ):
+        """Visualize the created pointcloud using pytorch3d.
 
-    torch.autograd.set_grad_enabled(False)
+        Args:
+            idx (int): Instance index
 
-    dataset = h5py.File(args.episode_file, "r")["images"]
+        Returns:
+            ptc_fig: Plotly visualization of pointcloud
+        """
+        from pytorch3d.structures import Pointclouds
+        from pytorch3d.vis.plotly_vis import AxisArgs, plot_scene
 
-    # initialize concept fusion model
-    concept_fusion = ConceptFusion(args)
+        from home_robot.utils.bboxes_3d_plotly import plot_scene_with_bboxes
+        from home_robot.utils.data_tools.dict import update
 
-    print("Extracting SAM masks...")
-    for idx in trange(len(dataset)):
-        img = dataset[idx]
-        
-        masks = concept_fusion.generate_mask(img)
+        pc_xyz, _, _, pc_rgb = self.voxel_map.get_pointcloud()
 
-        # CLIP features global
-        global_feat = concept_fusion.generate_global_features(img)
+        ptc = Pointclouds(points=[pc_xyz], features=[pc_rgb / 255.0])
 
-        # CLIP features per ROI
-        outfeat = concept_fusion.generate_local_features(img, masks, global_feat)
-
-        # save data
-        save_data(img, masks, outfeat, idx, args.save_path)
-        
-
-
-if __name__ == "__main__":
-    main()
+        _default_plot_args = dict(
+            xaxis={"backgroundcolor": "rgb(200, 200, 230)"},
+            yaxis={"backgroundcolor": "rgb(230, 200, 200)"},
+            zaxis={"backgroundcolor": "rgb(200, 230, 200)"},
+            axis_args=AxisArgs(showgrid=True),
+            pointcloud_marker_size=3,
+            pointcloud_max_points=200_000,
+        )
+        fig = plot_scene(
+            plots={
+                f"Conceptfusion Pointcloud": {
+                    "Points": ptc,
+                    "Instance boxes": detected_boxes,
+                    # "Fused boxes": global_boxes,
+                    # "cameras": cameras,
+                },
+                # Could add keyframes or instances here.
+            },
+            **update(_default_plot_args, plot_scene_kwargs),
+        )
+        return fig
