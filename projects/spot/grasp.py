@@ -38,9 +38,6 @@ class GraspController:
         self.spot.set_arm_joint_positions(self.stow, travel_time=1.0)
         time.sleep(1)
 
-    def move_gripper_right(self):
-        curr_pos = spot.get_xy_yaw()
-
     def find_obj(self, img) -> np.ndarray:
         self.reset_to_look()
         if isinstance(img, np.ndarray) or isinstance(img, list):
@@ -73,7 +70,7 @@ class GraspController:
                     print(f" > Saved {filename}")
                 return center
             else:
-                return None
+                raise NotImplementedError(f"Cannot find an object in the image")
         else:
             raise TypeError(f"img is of type {type(img)}, expected is numpy array")
 
@@ -122,9 +119,6 @@ class GraspController:
                         continue
                     else:
                         break
-            else:
-                print(" > Object not found retrying in a different pose")
-
         time.sleep(3)
 
     def update_label(self, new_label):
@@ -153,7 +147,6 @@ if __name__ == "__main__":
         except:
             spot.blocking_stand()
         time.sleep(1)
-        breakpoint
         # spot.set_arm_joint_positions(gaze_arm_joint_angles, travel_time=1.0)
         spot.open_gripper()
         time.sleep(1)

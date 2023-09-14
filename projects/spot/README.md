@@ -15,6 +15,11 @@ git clone https://github.com/facebookresearch/home-robot.git --recursive
 ```
 
 ```
+echo 'alias HOME_ROBOT_ROOT=/home/jaydv/Documents/home-robot' >> ~/.bashrc 
+source ~/.bashrc
+```
+
+```
 git submodule update --init --recursive src/home_robot/home_robot/perception/detection/detic/Detic src/third_party/detectron2 src/third_party/contact_graspnet  src/third_party/habitat-lab src/third_party/spot-sim2real src/third_party/MiDaS src/home_robot/home_robot/agent/imagenav_agent/SuperGluePretrainedNetwork
 ``` 
 
@@ -63,7 +68,7 @@ pip install bosdyn-api  bosdyn-client transforms3d einops gym==0.23.1 vtk scikit
 #### Install MiDaS
 + Make sure you are on the master branch
 ```
-cd ../../../../src/third_party/MiDaS
+cd $HOME_ROBOT_ROOT/src/third_party/MiDaS
 git checkout master
 git pull origin
 ```
@@ -82,7 +87,7 @@ pip install imutils
 
 #### Install Habitat-sim
 ```
-cd ../../../src/third_party/habitat-lab
+cd $HOME_ROBOT_ROOT/src/third_party/habitat-lab
 pip install -e habitat-lab
 mamba install habitat-sim headless -c conda-forge -c aihabitat --yes
 ```
@@ -107,7 +112,7 @@ python demo.py --config-file configs/Detic_LCOCOI21k_CLIP_SwinB_896b32_4x_ft4x_m
 #### Additional installtions
 
 ```
-cd ../../../../../../..
+cd $HOME_ROBOT_ROOT
 pip install -e src/third_party/detectron2/.
 ```
 ##### Issues with installing detectron2
