@@ -22,8 +22,8 @@ Make sure you have [Docker](https://docs.docker.com/engine/install/ubuntu/) with
    ```
    cd projects/habitat_ovmm
    ```
-1. Implement your own agent or try our baseline agent, located in [projects/habitat_ovmm/eval_baselines_agent.py](projects/habitat_ovmm/eval_baselines_agent.py). 
-1. Modify the provided [projects/habitat_ovmm/docker/ovmm_baseline.Dockerfile](docker/ovmm_baseline.Dockerfile) if you need custom modifications. Let’s say your code needs `<some extra package>`, this dependency should be pip installed inside a conda environment called `home-robot` that is shipped with our HomeRobot challenge docker, as shown below:
+1. Implement your own agent or try our baseline agent, located in [projects/habitat_ovmm/eval_baselines_agent.py](../projects/habitat_ovmm/eval_baselines_agent.py).
+1. Modify the provided [projects/habitat_ovmm/docker/ovmm_baseline.Dockerfile](../projects/habitat_ovmm/docker/ovmm_baseline.Dockerfile) if you need custom modifications. Let’s say your code needs `<some extra package>`, this dependency should be pip installed inside a conda environment called `home-robot` that is shipped with our HomeRobot challenge docker, as shown below:
     ```dockerfile
     FROM fairembodied/habitat-challenge:homerobot-ovmm-challenge-2023
 
@@ -70,7 +70,7 @@ Make sure you have [Docker](https://docs.docker.com/engine/install/ubuntu/) with
     ```
     *Note 2:* You can modify `submission.sh` file if your agent needs any custom modifications (e.g. command-line arguments). For example, agent type may be changed by changing `--agent_type` (and corresponding `--baseline_config_path`) argument in the `./scripts/test_local.sh` or `projects/habitat_ovmm/eval_baselines_agent.py`. Otherwise, nothing to do. Default submission.sh is simply a call to agent in `agent.py`
 
-   For evaluating an agent taking random actions, build a Docker image using [projects/habitat_ovmm/docker/ovmm_random_agent.Dockerfile](docker/ovmm_random_agent.Dockerfile) as follows:
+   For evaluating an agent taking random actions, build a Docker image using [projects/habitat_ovmm/docker/ovmm_random_agent.Dockerfile](../projects/habitat_ovmm/docker/ovmm_random_agent.Dockerfile) as follows:
 
     ```bash
     docker build . \
