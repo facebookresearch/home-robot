@@ -46,5 +46,5 @@ CMD /bin/bash -c "\
     . activate home-robot \
     && cd /home-robot \
     && export PYTHONPATH=/evalai_remote_evaluation:$PYTHONPATH \
-    && bash submission.sh $LOCAL_ARGS \
+    && bash submission.sh --agent_type random $LOCAL_ARGS \
     "

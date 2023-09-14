@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 
 DOCKER_NAME="ovmm_baseline_submission"
+SPLIT="minival"
 
 while [[ $# -gt 0 ]]
 do
@@ -11,6 +12,11 @@ case $key in
       shift
       DOCKER_NAME="${1}"
 	  shift
+      ;;
+      --split)
+      shift
+      SPLIT="${1}"
+      shift
       ;;
     *)
       echo unkown arg ${1}
@@ -24,5 +30,5 @@ docker run \
       --runtime=nvidia \
       --gpus all \
       -e "AGENT_EVALUATION_TYPE=local" \
-      -e "LOCAL_ARGS='habitat.dataset.split=minival'" \
+      -e "LOCAL_ARGS='habitat.dataset.split=${SPLIT}'" \
       ${DOCKER_NAME}
