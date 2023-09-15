@@ -3,7 +3,7 @@
 # This source code is licensed under the MIT license found in the
 # LICENSE file in the root directory of this source tree.
 
-from typing import Dict, List
+from typing import Dict, List, Optional
 
 from home_robot.agent.ovmm_agent import (
     OvmmPerception,
@@ -21,7 +21,7 @@ from home_robot.utils.config import get_config, load_config
 from home_robot_spot import SpotClient
 
 
-def main(dock: int = 52):
+def main(dock: Optional[int] = None):
     spot_config = get_config("src/home_robot_spot/configs/default_config.yaml")[0]
 
     # TODO move these parameters to config
