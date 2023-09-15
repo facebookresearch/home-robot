@@ -557,7 +557,17 @@ class SpotClient:
         obs.compass = relative_compass
 
         K = obs.camera_K
-        print(obs.camera_pose)
+        print("Camera pose is:", obs.camera_pose)
+        # Camera pose
+        obs.camera_pose = np.zeros((4, 4))
+        obs.camera_pose[:2, 3] = self.hand_camera_position[:2] + obs.gps
+        obs.camera_pose[2, 3] = self.hand_camera_position[2] + self.base_height
+        rel_rot = t3d.quaternions.quat2mat(self.hand_camera_rotation)
+        abs_rot = yaw_rotation_matrix_3D(obs.compass[0]) @ rel_rot
+        obs.camera_pose[:3, :3] = abs_rot
+        obs.camera_pose = torch.Tensor(obs.camera_pose)
+        print("Camera pose v2 is:", obs.camera_pose)
+
         full_world_xyz = unproject_masked_depth_to_xyz_coordinates(  # Batchable!
             depth=obs.depth.unsqueeze(0).unsqueeze(1),
             pose=obs.camera_pose.unsqueeze(0),
