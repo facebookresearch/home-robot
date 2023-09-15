@@ -77,13 +77,20 @@ class Footprint:
 class Robot(abc.ABC):
     """placeholder"""
 
-    def __init__(self, name="robot", urdf_path=None, visualize=False, assets_path=None):
+    def __init__(
+        self,
+        name="robot",
+        urdf_path: Optional[str] = None,
+        visualize=False,
+        assets_path=None,
+    ):
         # Load and create planner
         self.backend = hrb.PbClient(visualize=visualize)
-        # Create object reference
-        self.ref = self.backend.add_articulated_object(
-            name, urdf_path, assets_path=assets_path
-        )
+        if urdf_path is not None:
+            # Create object reference
+            self.ref = self.backend.add_articulated_object(
+                name, urdf_path, assets_path=assets_path
+            )
 
     def get_backend(self) -> hrb.PbClient:
         """Return model of the robot in bullet - environment for 3d collision checks"""

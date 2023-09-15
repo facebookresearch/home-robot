@@ -26,11 +26,6 @@ from pytorch3d.vis.plotly_vis import AxisArgs
 from spot_wrapper.basic_streaming_visualizer_numpy import obstacle_grid_points
 from spot_wrapper.spot import Spot, build_image_request, image_response_to_cv2
 
-from home_robot.agent.ovmm_agent import (
-    OvmmPerception,
-    build_vocab_from_category_map,
-    read_category_map_file,
-)
 from home_robot.core.interfaces import Action, Observations
 from home_robot.utils.bboxes_3d_plotly import plot_scene_with_bboxes
 from home_robot.utils.config import get_config
@@ -537,7 +532,7 @@ class SpotClient:
         )
         return home_robot_obs
 
-    def get_rgbd_obs(self, semantic_sensor: Optional[OvmmPerception] = None):
+    def get_rgbd_obs(self, verbose: bool = False) -> Observations:
         """Get information from the Spot sensors with pose and other information"""
         depth_response = self.raw_observations["responses"][
             4
@@ -546,8 +541,6 @@ class SpotClient:
             5
         ]  # frontleft_fisheye_image
         obs = build_obs_from_spot_image_responses(depth_response, color_response)
-        if semantic_sensor is not None:
-            obs = semantic_sensor.predict(obs)
         # keep_mask = (0.4 < obs.depth) & (obs.depth < 4.0)
 
         # Normalize GPS
@@ -570,9 +563,11 @@ class SpotClient:
         )
         obs.xyz = full_world_xyz.view(*list(obs.rgb.shape))
         obs.rgb = obs.rgb * 255
-        print("xyz.shape =", obs.xyz.shape)
-        print("rgb.shape =", obs.rgb.shape)
-        print("depth.shape =", obs.depth.shape)
+        if verbose:
+            print("--- SHAPE INFO ---")
+            print("xyz.shape =", obs.xyz.shape)
+            print("rgb.shape =", obs.rgb.shape)
+            print("depth.shape =", obs.depth.shape)
 
         # TODO: apply keep mask to instance and semantic classification channels in the observations as well
 
@@ -689,17 +684,17 @@ if __name__ == "__main__":
         config = get_config("projects/spot/configs/config.yaml")[0]
         spot = SpotClient(config=config)
 
+        from home_robot.agent.ovmm_agent import (
+            OvmmPerception,
+            build_vocab_from_category_map,
+            read_category_map_file,
+        )
         from home_robot.mapping.voxel import SparseVoxelMap  # Aggregate 3d information
-
-        # from home_robot.mapping.voxel_map import SparseVoxelMapNavigationSpace  # Sample positions in free space for our robot to move to
-        # from home_robot.motion.spot import SimpleSpotKinematics  # Just saves the Spot robot footprint for kinematic planning
         from home_robot_hw.utils.config import load_config
 
         # TODO move these parameters to config
         voxel_size = 0.05
         voxel_map = SparseVoxelMap(resolution=voxel_size, local_radius=0.1)
-        # robot_model = SimpleSpotKinematics()
-        # navigation_space = SparseVoxelMapNavigationSpace(voxel_map=voxel_map, robot_model=robot_model, step_size=0.1)
 
         # Create segmentation sensor and load config. Returns config from file, as well as a OvmmPerception object that can be used to label scenes.
         print("- Loading configuration")
@@ -740,7 +735,8 @@ if __name__ == "__main__":
             except Exception:
                 print("Error -- try again")
 
-            obs = spot.get_rgbd_obs(semantic_sensor)
+            obs = spot.get_rgbd_obs()
+            obs = semantic_sensor.predict(obs)
             voxel_map.add_obs(obs, xyz_frame="world")
             print("added, now display something")
             voxel_map.show(backend="open3d", instances=False)

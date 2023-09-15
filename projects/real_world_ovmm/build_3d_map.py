@@ -26,6 +26,7 @@ from home_robot.mapping import SparseVoxelMap, SparseVoxelMapNavigationSpace
 from home_robot.motion.rrt_connect import RRTConnect
 from home_robot.motion.shortcut import Shortcut
 from home_robot.motion.stretch import HelloStretchKinematics
+from home_robot.utils.config import load_config
 from home_robot.utils.geometry import xyt2sophus
 from home_robot.utils.image import Camera
 from home_robot.utils.point_cloud import numpy_to_pcd, pcd_to_numpy, show_point_cloud
@@ -33,7 +34,6 @@ from home_robot.utils.pose import convert_pose_habitat_to_opencv, to_pos_quat
 from home_robot.utils.visualization import get_x_and_y_from_path
 from home_robot_hw.remote import StretchClient
 from home_robot_hw.ros.visualizer import Visualizer
-from home_robot_hw.utils.config import load_config
 
 
 class RosMapDataCollector(object):
