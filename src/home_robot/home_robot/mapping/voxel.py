@@ -155,7 +155,13 @@ class SparseVoxelMap(object):
         """Return a list of all viewable instances"""
         return tuple(self.instances.instance_views[0].values())
 
-    def add_obs(self, obs: Observations, *args, **kwargs):
+    def add_obs(
+        self,
+        obs: Observations,
+        camera_K: Optional[torch.Tensor] = None,
+        *args,
+        **kwargs,
+    ):
         """Unpack an observation and convert it properly, then add to memory. Pass all other inputs into the add() function as provided."""
         rgb = torch.from_numpy(obs.rgb).float()
         depth = torch.from_numpy(obs.depth).float()
@@ -164,6 +170,7 @@ class SparseVoxelMap(object):
         base_pose = torch.from_numpy(
             np.array([obs.gps[0], obs.gps[1], obs.compass[0]])
         ).float()
+        K = torch.from_numpy(obs.camera_K).float() if camera_K is None else camera_K
 
         self.add(
             camera_pose=camera_pose,
@@ -173,6 +180,7 @@ class SparseVoxelMap(object):
             base_pose=base_pose,
             obs=obs,
             xyz_frame="camera",
+            camera_K=K,
             *args,
             **kwargs,
         )

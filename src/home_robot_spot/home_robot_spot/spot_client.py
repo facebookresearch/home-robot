@@ -5,7 +5,9 @@
 
 import time
 from threading import Event, Thread
+from typing import Dict, List, Optional
 
+import bosdyn.client.frame_helpers as frame_helpers
 import cv2
 import numpy as np
 import torch
@@ -19,11 +21,16 @@ from bosdyn.client.frame_helpers import (
     get_a_tform_b,
     get_vision_tform_body,
 )
+from pytorch3d.structures import Pointclouds
+from pytorch3d.vis.plotly_vis import AxisArgs
 from spot_wrapper.basic_streaming_visualizer_numpy import obstacle_grid_points
 from spot_wrapper.spot import Spot, build_image_request, image_response_to_cv2
 
 from home_robot.core.interfaces import Action, Observations
+from home_robot.utils.bboxes_3d_plotly import plot_scene_with_bboxes
 from home_robot.utils.config import get_config
+from home_robot.utils.image import Camera as PinholeCamera
+from home_robot.utils.point_cloud_torch import unproject_masked_depth_to_xyz_coordinates
 
 RGB_FORMAT = image_pb2.Image.PixelFormat.PIXEL_FORMAT_RGB_U8
 DEPTH_FORMAT = image_pb2.Image.PixelFormat.PIXEL_FORMAT_DEPTH_U16
@@ -84,6 +91,7 @@ class SpotPublishers:
             )
             for name, format, _, _ in self.sources
         ]
+        self.observations: Dict[str, torch.Tensor] = {}
         self.rotate = rotate
         self.finished_initial_capture = False
         self.verbose = verbose
@@ -231,6 +239,166 @@ def put_angle_in_interval(angle):
     return angle
 
 
+def get_camera_from_spot_image_response(response: image_pb2.ImageResponse):
+    # parent_tform_child	SE3Pose		Transform representing the pose of the child frame in the parent's frame.
+    # https://dev.bostondynamics.com/protos/bosdyn/api/proto_reference.html#bosdyn-api-FrameTreeSnapshot
+    # Build camera model
+    tform_snap = response.shot.transforms_snapshot
+    body_tform_camera = frame_helpers.get_a_tform_b(
+        tform_snap, frame_helpers.BODY_FRAME_NAME, response.shot.frame_name_image_sensor
+    ).to_matrix()
+    body_tform_vision = frame_helpers.get_a_tform_b(
+        tform_snap, frame_helpers.BODY_FRAME_NAME, frame_helpers.VISION_FRAME_NAME
+    ).to_matrix()
+    cam_to_world = torch.from_numpy(body_tform_vision).inverse() @ torch.from_numpy(
+        body_tform_camera
+    )
+    height = response.shot.image.rows
+    width = response.shot.image.cols
+    camera = PinholeCamera(
+        pos=cam_to_world[:3, 3],
+        orn=cam_to_world[:3, :3],
+        height=height,
+        width=width,
+        fx=response.source.pinhole.intrinsics.focal_length.x,
+        fy=response.source.pinhole.intrinsics.focal_length.y,
+        px=response.source.pinhole.intrinsics.principal_point.x,
+        py=response.source.pinhole.intrinsics.principal_point.y,
+        near_val=None,
+        far_val=None,
+        pose_matrix=None,
+        proj_matrix=None,
+        view_matrix=None,
+        fov=None,
+    )
+
+    # # Later on we can try converting between conventions. Here's a non-working example
+    # from home_robot.utils.camera_view_conventions import convert_camera_view_coordinate_system, CameraViewCoordSystem
+    # SPOT = {'up': '-Y', 'right': '+X', 'forward': '+Z'}
+    # M = convert_camera_view_coordinate_system(M, source_convention=SPOT, output_convention=CameraViewCoordSystem.OPENGL.value).transformedRT
+    # cams = cameras_from_opencv_projection(
+    #     R=M[:, :3, :3], # .permute([0,2,1])
+    #     tvec=M[:, :3, 3],
+    #     # tvec = torch.stack(tvecs).float(),
+    #     camera_matrix=torch.stack(intrinsics).float(),
+    #     image_size=torch.stack(image_sizes).float()
+    # )
+    # # cams = PerspectiveCameras(
+    # #     device="cpu",
+    # #     R=M[:, :3, :3].permute([0,2,1]),
+    # #     T=M[:, :3, 3],
+    # #     K=torch.stack(intrinsics).float())
+    return camera
+
+
+def torch_image_from_spot_image_response(
+    image_response: image_pb2.ImageResponse, reorient=False
+):
+    is_depth = (
+        image_response.shot.image.pixel_format == image_pb2.Image.PIXEL_FORMAT_DEPTH_U16
+    )
+    if is_depth:
+        dtype = np.uint16
+    else:
+        dtype = np.uint8
+        # scale = None
+    # img = np.fromstring(image_response.shot.image.data, dtype=dtype)
+    img = np.frombuffer(image_response.shot.image.data, dtype=dtype)
+
+    if image_response.shot.image.format == image_pb2.Image.FORMAT_RAW:
+        img = img.reshape(
+            image_response.shot.image.rows, image_response.shot.image.cols
+        )
+    else:
+        img = cv2.imdecode(img, cv2.IMREAD_UNCHANGED) / 255.0  # -1
+
+    if reorient:
+        img = np.rot90(img, k=3)
+
+    if is_depth:
+        img = img * 1.0 / image_response.source.depth_scale
+    return torch.from_numpy(img).float()
+
+
+def build_obs_from_spot_image_responses(
+    depth_response: image_pb2.ImageResponse,
+    color_response: Optional[image_pb2.ImageResponse],
+):
+    # Get camera parameters
+    camera: PinholeCamera = get_camera_from_spot_image_response(depth_response)
+    cam_to_world = torch.eye(4)
+    cam_to_world[:3, :3] = camera.orn
+    cam_to_world[:3, 3] = camera.pos
+
+    # get images
+    color = None
+    if color_response is not None:
+        color = torch_image_from_spot_image_response(color_response)
+    depth = torch_image_from_spot_image_response(depth_response)
+
+    # Other metadata
+    timestamp = depth_response.shot.acquisition_time.ToDatetime()
+
+    # Build obs
+    return Observations(
+        gps=None,
+        compass=None,
+        rgb=color,
+        depth=depth,
+        camera_pose=cam_to_world,
+        camera_K=camera.K[:3, :3],
+        task_observations={"timestamp": timestamp},
+    )
+
+
+def create_triad_pointclouds(R, T, n_points=1, scale=0.1):
+    """This will move to home_robot.utils"""
+    batch_size = R.shape[0]
+    # Define the coordinates of the triad
+    triad_coords = torch.tensor(
+        [
+            [0.0, 0.0, 0.0, 1.0],  # Origin
+            [1.0, 0.0, 0.0, 1.0],  # X-axis
+            [0.0, 1.0, 0.0, 1.0],  # Y-axis
+            [0.0, 0.0, 1.0, 1.0],
+        ]
+    )  # Z-axis
+    triad_coords = torch.cat(
+        [triad_coords * (scale * 1.0 / n_points * i) for i in range(1, n_points + 1)],
+        dim=0,
+    )
+    triad_coords[:, 3] = 1.0
+    M = torch.zeros((batch_size, 4, 4))
+
+    M[:, :3, :3] = R
+    M[:, :3, 3] = T
+    M[:, -1, -1] = 1.0
+
+    triad_coords = triad_coords.unsqueeze(0).expand(
+        batch_size, *triad_coords.shape[-2:]
+    )
+    triad_coords = torch.bmm(triad_coords, M.permute([0, 2, 1]))
+    triad_coords = triad_coords[..., :3]
+    # triad_coords += T.unsqueeze(1)
+
+    # Create colors for each point (red, green, blue)
+    colors = torch.tensor(
+        [
+            [0.0, 0.0, 0.0],  # White
+            [1.0, 0.0, 0.0],  # Red
+            [0.0, 1.0, 0.0],  # Green
+            [0.0, 0.0, 1.0],  # Blue
+        ]
+    )
+    colors = (
+        colors.unsqueeze(0)
+        .unsqueeze(0)
+        .expand(batch_size, n_points, 4, 3)
+        .reshape(batch_size, n_points * 4, 3)
+    )
+    return Pointclouds(points=triad_coords[..., :3], features=colors)
+
+
 class SpotClient:
     def __init__(self, config, name="home_robot_spot"):
         self.spot = Spot(name)
@@ -364,6 +532,88 @@ class SpotClient:
         )
         return home_robot_obs
 
+    def get_rgbd_obs(self):
+        """Get information from the Spot sensors with pose and other information"""
+        depth_response = self.raw_observations["responses"][
+            4
+        ]  # frontleft_depth_in_visual_frame
+        color_response = self.raw_observations["responses"][
+            5
+        ]  # frontleft_fisheye_image
+
+        return build_obs_from_spot_image_responses(depth_response, color_response)
+
+    def make_3d_viz(self, viz_data):
+        xyz = viz_data["xyz"]
+        colors = viz_data["colors"]
+        depths = viz_data["depths"]
+        Rs = viz_data["Rs"]
+        tvecs = viz_data["tvecs"]
+        intrinsics = viz_data["intrinsics"]
+
+        depth_response = self.raw_observations["responses"][
+            4
+        ]  # frontleft_depth_in_visual_frame
+        color_response = self.raw_observations["responses"][
+            5
+        ]  # frontleft_fisheye_image
+
+        obs = build_obs_from_spot_image_responses(depth_response, color_response)
+
+        # unproject, to visualize pointcloud, but this could build a map
+        depth = obs.depth
+        color = obs.rgb
+        cam_to_world = obs.camera_pose
+        K = obs.camera_K
+        keep_mask = (0.4 < depth) & (depth < 4.0)
+        full_world_xyz = unproject_masked_depth_to_xyz_coordinates(  # Batchable!
+            depth=depth.unsqueeze(0).unsqueeze(1),
+            pose=cam_to_world.unsqueeze(0),
+            mask=~keep_mask.unsqueeze(0).unsqueeze(1),
+            inv_intrinsics=torch.linalg.inv(torch.tensor(K[:3, :3])).unsqueeze(0),
+        )
+
+        xyz.append(full_world_xyz.view(-1, 3))
+        colors.append(color[keep_mask])
+        depths.append(obs.depth)
+        Rs.append(cam_to_world[:3, :3])
+        tvecs.append(cam_to_world[:3, 3])
+        intrinsics.append(torch.from_numpy(K[:3, :3]))
+
+        # Pointcloud
+        pointclouds = Pointclouds(points=xyz, features=colors)
+        triads = create_triad_pointclouds(
+            torch.stack(Rs, dim=0), torch.stack(tvecs, dim=0), n_points=20, scale=0.2
+        )
+
+        fig = plot_scene_with_bboxes(
+            plots={
+                "Scene": {
+                    "Camera Triads": triads,
+                    "points": pointclouds
+                    # "Cameras": cams,
+                }
+            },
+            xaxis={"backgroundcolor": "rgb(230, 200, 200)"},
+            yaxis={"backgroundcolor": "rgb(200, 230, 200)"},
+            zaxis={"backgroundcolor": "rgb(200, 200, 230)"},
+            axis_args=AxisArgs(showgrid=True),
+            pointcloud_marker_size=3,
+            pointcloud_max_points=20_000,
+            height=1000,
+            # width=1000,
+        )
+        fig.show()
+
+        return {
+            "xyz": xyz,
+            "colors": colors,
+            "depths": depths,
+            "Rs": Rs,
+            "tvecs": tvecs,
+            "intrinsics": intrinsics,
+        }
+
     def __del__(self):
         self.stop()
         self.publishers.stop()
@@ -375,6 +625,8 @@ class SpotClient:
             print(e)
 
         self.spot.power_off()
+
+        # How do we close the lease
         self.lease.close()
         self.lease = None
 
@@ -394,7 +646,6 @@ class SpotClient:
         base_action = np.array([lin, 0, ang])
         scaled = np.clip(base_action, -1, 1) * scaling_factor
         self.spot.set_base_velocity(*scaled, self.MAX_CMD_DURATION)
-
         return self.raw_observations
 
 
@@ -402,11 +653,70 @@ if __name__ == "__main__":
     try:
         config = get_config("projects/spot/configs/config.yaml")[0]
         spot = SpotClient(config=config)
+
+        # from home_robot.mapping.voxel_map import SparseVoxelMapNavigationSpace  # Sample positions in free space for our robot to move to
+        # from home_robot.motion.spot import SimpleSpotKinematics  # Just saves the Spot robot footprint for kinematic planning
+        from home_robot.agent.ovmm_agent import (
+            OvmmPerception,
+            build_vocab_from_category_map,
+            read_category_map_file,
+        )
+        from home_robot.mapping.voxel import SparseVoxelMap  # Aggregate 3d information
+        from home_robot_hw.utils.config import load_config
+
+        # TODO move these parameters to config
+        voxel_size = 0.05
+        voxel_map = SparseVoxelMap(resolution=voxel_size, local_radius=0.1)
+        # robot_model = SimpleSpotKinematics()
+        # navigation_space = SparseVoxelMapNavigationSpace(voxel_map=voxel_map, robot_model=robot_model, step_size=0.1)
+
+        # Create segmentation sensor and load config. Returns config from file, as well as a OvmmPerception object that can be used to label scenes.
+        print("- Loading configuration")
+        config = load_config(visualize=False)
+
+        print("- Create and load vocabulary and perception model")
+        semantic_sensor = OvmmPerception(config, 0, True, module="detic")
+        obj_name_to_id, rec_name_to_id = read_category_map_file(
+            config.ENVIRONMENT.category_map_file
+        )
+        vocab = build_vocab_from_category_map(obj_name_to_id, rec_name_to_id)
+        semantic_sensor.update_vocabulary_list(vocab, 0)
+        semantic_sensor.set_vocabulary(0)
+
+        # Turn on the robot using the client above
         spot.start()
         print("Got all images")
 
-        # spot.move_base(0.5, 0.0)
-        breakpoint()
+        spot.move_base(0.0, 0.0)
+        # breakpoint()
+        # print(INSTRUCTIONS)
+
+        linear = input("Input Linear: ")
+        angular = input("Input Angular: ")
+
+        viz_data: Dict[str, List] = {
+            "xyz": [],
+            "colors": [],
+            "depths": [],
+            "Rs": [],
+            "tvecs": [],
+            "intrinsics": [],
+        }
+
+        while linear != "" and angular != "":
+            try:
+                spot.move_base(float(linear), float(angular))
+            except Exception:
+                print("Error -- try again")
+
+            obs = spot.get_rgbd_obs()
+            obs = semantic_sensor.predict(obs)
+            voxel_map.add_obs(obs)
+            voxel_map.show(backend="open3d", instances=True)
+
+            linear = input("Input Linear: ")
+            angular = input("Input Angular: ")
+            # viz_data = spot.make_3d_viz(viz_data)
 
     except Exception as e:
         print(e)
