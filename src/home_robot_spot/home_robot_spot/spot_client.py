@@ -156,8 +156,20 @@ class SpotPublishers:
             py=intrins.principal_point.y,
         )
 
-    def get_cam_observations(self):
-        responses = self.spot.image_client.get_image(self.reqs)
+    def get_cam_observations(self, debug: bool = False):
+        if debug:
+            response_dict = {}
+            for req in self.reqs:
+                try:
+                    response = self.spot.image_client.get_image([req])[0]
+                    response_dict[req.image_source_name] = response
+                except Exception as e:
+                    print(
+                        f"-----------------\n{req=}\nException: {e}\n-----------------"
+                    )
+            responses = list(response_dict.values())
+        else:
+            responses = self.spot.image_client.get_image(self.reqs)
 
         snapshots = [res.shot.transforms_snapshot for res in responses]
 
@@ -540,8 +552,14 @@ class SpotClient:
     def get_rgbd_obs(self, verbose: bool = False) -> Observations:
         """Get information from the Spot sensors with pose and other information"""
         # Get hand depth and color responses
+        # depth_response = self.raw_observations["responses"]["hand_depth_in_hand_color_frame"]
+        # color_response = self.raw_observations["responses"]["hand_color_image"]
         depth_response = self.raw_observations["responses"][0]
         color_response = self.raw_observations["responses"][1]
+        # Get hand depth and color responses
+        # depth_response = self.raw_observations["responses"][4]
+        # color_response = self.raw_observations["responses"][5]
+        # update observations
         obs = build_obs_from_spot_image_responses(depth_response, color_response)
         # keep_mask = (0.4 < obs.depth) & (obs.depth < 4.0)
 
@@ -558,15 +576,6 @@ class SpotClient:
 
         K = obs.camera_K
         print("Camera pose is:", obs.camera_pose)
-        # Camera pose
-        obs.camera_pose = np.zeros((4, 4))
-        obs.camera_pose[:2, 3] = self.hand_camera_position[:2] + obs.gps
-        obs.camera_pose[2, 3] = self.hand_camera_position[2] + self.base_height
-        rel_rot = t3d.quaternions.quat2mat(self.hand_camera_rotation)
-        abs_rot = yaw_rotation_matrix_3D(obs.compass[0]) @ rel_rot
-        obs.camera_pose[:3, :3] = abs_rot
-        obs.camera_pose = torch.Tensor(obs.camera_pose)
-        print("Camera pose v2 is:", obs.camera_pose)
 
         full_world_xyz = unproject_masked_depth_to_xyz_coordinates(  # Batchable!
             depth=obs.depth.unsqueeze(0).unsqueeze(1),
@@ -729,8 +738,6 @@ if __name__ == "__main__":
         print("Got all images")
 
         spot.move_base(0.0, 0.0)
-        # breakpoint()
-        # print(INSTRUCTIONS)
 
         linear = input("Input Linear: ")
         angular = input("Input Angular: ")
