@@ -21,7 +21,7 @@ from home_robot.utils.config import get_config, load_config
 from home_robot_spot import SpotClient
 
 
-def main():
+def main(dock: int = 52):
     spot_config = get_config("src/home_robot_spot/configs/default_config.yaml")[0]
 
     # TODO move these parameters to config
@@ -51,7 +51,7 @@ def main():
     semantic_sensor.update_vocabulary_list(vocab, 0)
     semantic_sensor.set_vocabulary(0)
 
-    spot = SpotClient(config=spot_config, dock_id=53)
+    spot = SpotClient(config=spot_config, dock_id=dock)
     try:
         # Turn on the robot using the client above
         spot.start()
@@ -78,12 +78,10 @@ def main():
             # viz_data = spot.make_3d_viz(viz_data)
 
     except Exception as e:
+        print("Exception caught:")
         print(e)
+    finally:
         spot.stop()
-        raise e
-
-    # finally:
-    #     spot.stop()
 
 
 if __name__ == "__main__":

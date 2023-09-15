@@ -557,6 +557,7 @@ class SpotClient:
         obs.compass = relative_compass
 
         K = obs.camera_K
+        print(obs.camera_pose)
         full_world_xyz = unproject_masked_depth_to_xyz_coordinates(  # Batchable!
             depth=obs.depth.unsqueeze(0).unsqueeze(1),
             pose=obs.camera_pose.unsqueeze(0),
