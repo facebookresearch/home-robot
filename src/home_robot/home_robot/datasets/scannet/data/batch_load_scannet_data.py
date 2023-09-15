@@ -1,33 +1,39 @@
-# This script is supposed to process downloaded scannet files into a format usable with ScanNet dataset.
-# Code is as-is and hasn't been tested with edge cases/other data.
-# Modified from
-#   https://github.com/open-mmlab/mmdetection3d/blob/1.0/data/scannet/batch_load_scannet_data.py # noqa
-#   which was modified from https://github.com/facebookresearch/votenet/blob/master/scannet/batch_load_scannet_data.py
-
-# MIT License
 # Copyright (c) Meta Platforms, Inc. and affiliates.
-# Permission is hereby granted, free of charge, to any person obtaining a copy
-# of this software and associated documentation files (the "Software"), to deal
-# in the Software without restriction, including without limitation the rights
-# to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-# copies of the Software, and to permit persons to whom the Software is
-# furnished to do so, subject to the following conditions:
-
-# The above copyright notice and this permission notice shall be included in all
-# copies or substantial portions of the Software.
-
-# THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-# IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-# FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-# AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-# LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-# OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-# SOFTWARE.
-"""Batch mode in loading Scannet scenes with vertices and ground truth labels
-for semantic and instance segmentations.
-
-Usage example: python ./batch_load_scannet_data.py
+#
+# This source code is licensed under the MIT license found in the
+# LICENSE file in the root directory of this source tree.
 """
+    This script is supposed to process downloaded scannet files into a format usable with ScanNet dataset.
+    Batch mode in loading Scannet scenes with vertices and ground truth labels for semantic and instance segmentations.
+    Code is as-is and hasn't been tested with edge cases/other data.
+    Usage example: python ./batch_load_scannet_data.py
+
+    # Modified from
+    #   https://github.com/open-mmlab/mmdetection3d/blob/1.0/data/scannet/batch_load_scannet_data.py # noqa
+    #   which was modified from https://github.com/facebookresearch/votenet/blob/master/scannet/batch_load_scannet_data.py
+
+    Which has:
+    # MIT License
+    # Copyright (c) Meta Platforms, Inc. and affiliates.
+    # Permission is hereby granted, free of charge, to any person obtaining a copy
+    # of this software and associated documentation files (the "Software"), to deal
+    # in the Software without restriction, including without limitation the rights
+    # to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+    # copies of the Software, and to permit persons to whom the Software is
+    # furnished to do so, subject to the following conditions:
+
+    # The above copyright notice and this permission notice shall be included in all
+    # copies or substantial portions of the Software.
+
+    # THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+    # IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+    # FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+    # AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+    # LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+    # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+    # SOFTWARE.
+"""
+
 import argparse
 import datetime
 import os
@@ -78,10 +84,12 @@ def export_one_scan(
         num_instances = len(np.unique(instance_labels))
         print(f"Num of instances: {num_instances}")
 
-        bbox_mask = np.in1d(unaligned_bboxes[:, -2], OBJ_CLASS_IDS)
-        unaligned_bboxes = unaligned_bboxes[bbox_mask, :]
-        bbox_mask = np.in1d(aligned_bboxes[:, -2], OBJ_CLASS_IDS)
-        aligned_bboxes = aligned_bboxes[bbox_mask, :]
+        # # This can be used to only save bboxes of specific classes.
+        # # We will save everything and handle class remapping in the dataloader
+        # bbox_mask = np.in1d(unaligned_bboxes[:, -2], OBJ_CLASS_IDS)
+        # unaligned_bboxes = unaligned_bboxes[bbox_mask, :]
+        # bbox_mask = np.in1d(aligned_bboxes[:, -2], OBJ_CLASS_IDS)
+        # aligned_bboxes = aligned_bboxes[bbox_mask, :]
         assert unaligned_bboxes.shape[0] == aligned_bboxes.shape[0]
         print(f"Num of care instances: {unaligned_bboxes.shape[0]}")
 
@@ -125,10 +133,10 @@ def batch_export(
         print(datetime.datetime.now())
         print(scan_name)
         output_filename_prefix = osp.join(output_folder, scan_name)
-        if osp.isfile(f"{output_filename_prefix}_vert.npy"):
-            print("File already exists. skipping.")
-            print("-" * 20 + "done")
-            continue
+        # if osp.isfile(f"{output_filename_prefix}_vert.npy"):
+        #     print("File already exists. skipping.")
+        #     print("-" * 20 + "done")
+        #     continue
         try:
             export_one_scan(
                 scan_name,

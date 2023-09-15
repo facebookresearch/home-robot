@@ -13,7 +13,10 @@ from pytorch3d.ops import box3d_overlap
 from terminaltables import AsciiTable
 from torch import Tensor
 
-from home_robot.utils.bboxes_3d import get_box_verts_from_bounds
+from home_robot.utils.bboxes_3d import (
+    box3d_intersection_from_bounds,
+    get_box_verts_from_bounds,
+)
 
 
 def average_precision(recalls, precisions, mode="area"):
@@ -134,17 +137,27 @@ def get_det_assigments_to_gt(
 
     iou_thr = torch.tensor(iou_thr, device=box_gt_bounds.device)
 
-    box_gt_corners = get_box_verts_from_bounds(box_gt_bounds).float()
-    box_pred_corners = get_box_verts_from_bounds(box_pred_bounds).float()
-
     max_match_iou, matches = [], []
     # Go down the detections list in order of descending confidence, and associate to GT
-    for i, cur_box_pred_corners in enumerate(box_pred_corners):
-        _, box_iou = box3d_overlap(
-            cur_box_pred_corners.unsqueeze(0),
-            box_gt_corners,
-            eps,
-        )  # (1, N_gt)
+
+    # # This code would work for oriented bounding boxes, but we would have to do more stringent checking for small bboxes
+    # # Since box3d_overlap likes to throw errors when box3d volume < eps.
+    # box_gt_corners = get_box_verts_from_bounds(box_gt_bounds).float()
+    # box_pred_corners = get_box_verts_from_bounds(box_pred_bounds).float()
+    # for i, cur_box_pred_corners in enumerate(box_pred_corners):
+    #     # It's just too irritating to use box3d_overlap
+    #     _, box_iou = box3d_overlap(
+    #         cur_box_pred_corners.unsqueeze(0),
+    #         box_gt_corners,
+    #         eps,
+    #     )  # (1, N_gt)
+
+    # Instead, all our boxes are axis-aligned so we can just use this code which is probably slightly faster anyway.
+    for i, cur_box_pred_bounds in enumerate(box_pred_bounds):
+        _, box_iou, _ = box3d_intersection_from_bounds(
+            cur_box_pred_bounds.unsqueeze(0), box_gt_bounds, eps
+        )
+
         box_iou = box_iou[0]  # We are only evaluating one detection at a time
         max_iou, gt_match_idx = box_iou.max(dim=0)  # (N_gt)
         max_match_iou.append(max_iou)

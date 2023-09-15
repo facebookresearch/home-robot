@@ -258,20 +258,31 @@ class SparseVoxelMapAgent:
 
 
 def compress_instance_bounds_(
-    instances: Sequence[Instance], drop_prop: float, voxel_size: float
+    instances: Sequence[Instance],
+    drop_prop: float,
+    voxel_size: float,
+    min_voxels_to_compress: int = 3,
+    min_vol: float = 1e-6,
 ):
     """Trailing _ in torch indicate in-place"""
     for instance in instances:
         reduced_points = drop_smallest_weight_points(
-            instance.point_cloud, drop_prop=drop_prop, voxel_size=voxel_size
+            instance.point_cloud,
+            drop_prop=drop_prop,
+            voxel_size=voxel_size,
+            min_points_after_drop=min_voxels_to_compress,
         )
         new_bounds = get_bounds(reduced_points)
-        instance.bounds = new_bounds
+        if box3d_volume_from_bounds(new_bounds) >= min_vol:
+            instance.bounds = new_bounds
     return instances
 
 
 def drop_smallest_weight_points(
-    points: Tensor, voxel_size: float = 0.01, drop_prop: float = 0.1
+    points: Tensor,
+    voxel_size: float = 0.01,
+    drop_prop: float = 0.1,
+    min_points_after_drop: int = 3,
 ):
     voxel_pcd = VoxelizedPointcloud(
         voxel_size=voxel_size,
@@ -293,29 +304,10 @@ def drop_smallest_weight_points(
     weights_cumsum = torch.cumsum(weights_sorted, dim=0)
     above_cutoff = weights_cumsum >= (drop_prop * weights_cumsum[-1])
     cutoff_idx = int(above_cutoff.max(dim=0).indices)
+    if len(points_sorted[cutoff_idx:]) < min_points_after_drop:
+        return orig_points
     # print(f"Reduced {len(orig_points)} -> {len(points)} -> {above_cutoff.sum()}")
     return points_sorted[cutoff_idx:]
-
-
-# TODO: use this code to create semantic sensor
-# def create_semantic_sensor(
-#     device_id: int = 0,
-#     verbose: bool = True,
-#     **kwargs,
-# ):
-#     """Create segmentation sensor and load config. Returns config from file, as well as a OvmmPerception object that can be used to label scenes."""
-#     print("- Loading configuration")
-#     config = load_config(visualize=False, **kwargs)
-
-#     print("- Create and load vocabulary and perception model")
-#     semantic_sensor = OvmmPerception(config, device_id, verbose, module="detic")
-#     obj_name_to_id, rec_name_to_id = read_category_map_file(
-#         config.ENVIRONMENT.category_map_file
-#     )
-#     vocab = build_vocab_from_category_map(obj_name_to_id, rec_name_to_id)
-#     semantic_sensor.update_vocabulary_list(vocab, 0)
-#     semantic_sensor.set_vocabulary(0)
-#     return config, semantic_sensor
 
 
 if __name__ == "__main__":

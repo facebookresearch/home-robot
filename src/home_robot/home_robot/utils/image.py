@@ -29,7 +29,10 @@ class Camera(object):
     ):
         """Create a simple pinhole camera given minimal information only. Fov is in degrees"""
         horizontal_fov_rad = np.radians(fov_degrees)
-        focal_length = width / (2 * np.tan(horizontal_fov_rad / 2))
+        h_focal_length = width / (2 * np.tan(horizontal_fov_rad / 2))
+        v_focal_length = width / (
+            2 * np.tan(horizontal_fov_rad / 2) * float(height) / width
+        )
         principal_point_x = (width - 1.0) / 2
         principal_point_y = (height - 1.0) / 2
         return Camera(
@@ -37,8 +40,8 @@ class Camera(object):
             (0, 0, 0, 1),
             height,
             width,
-            focal_length,
-            focal_length,
+            h_focal_length,
+            v_focal_length,
             principal_point_x,
             principal_point_y,
             near_val,

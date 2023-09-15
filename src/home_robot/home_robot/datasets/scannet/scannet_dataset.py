@@ -20,80 +20,16 @@ from PIL import Image
 from tqdm import tqdm
 
 from .referit3d_data import ReferIt3dDataConfig, load_referit3d_data
+from .scannet_constants import (
+    SCANNET_DATASET_CLASS_IDS,
+    SCANNET_DATASET_CLASS_LABELS,
+    SCANNET_DATASET_COLOR_MAPS,
+)
 from .scanrefer_data import ScanReferDataConfig, load_scanrefer_data
 
 
 class ScanNetDataset(object):
-    # Segmentation data
-    METAINFO = {
-        "classes": (
-            # "wall",
-            # "floor",
-            "cabinet",
-            "bed",
-            "chair",
-            "sofa",
-            "table",
-            "door",
-            "window",
-            "bookshelf",
-            "picture",
-            "counter",
-            "desk",
-            "curtain",
-            "refrigerator",
-            "shower curtain",
-            "toilet",
-            "sink",
-            "bathtub",
-            "furniture",  # other furniture
-        ),
-        "palette": [
-            [174, 199, 232],
-            [152, 223, 138],
-            [31, 119, 180],
-            [255, 187, 120],
-            [188, 189, 34],
-            [140, 86, 75],
-            [255, 152, 150],
-            [214, 39, 40],
-            [197, 176, 213],
-            [148, 103, 189],
-            [196, 156, 148],
-            [23, 190, 207],
-            [247, 182, 210],
-            [219, 219, 141],
-            [255, 127, 14],
-            [158, 218, 229],
-            [44, 160, 44],
-            [112, 128, 144],
-            [227, 119, 194],
-            [82, 84, 163],
-        ],
-        "seg_valid_class_ids": (
-            # 1,
-            # 2,
-            3,
-            4,
-            5,
-            6,
-            7,
-            8,
-            9,
-            10,
-            11,
-            12,
-            14,
-            16,
-            24,
-            28,
-            33,
-            34,
-            36,
-            39,
-        ),
-        "seg_all_class_ids": tuple(range(41)),
-    }
+
     DEPTH_SCALE_FACTOR = 0.001  # to MM
     DEFAULT_HEIGHT = 968.0
     DEFAULT_WIDTH = 1296.0
@@ -112,6 +48,7 @@ class ScanNetDataset(object):
         referit3d_config: Optional[ReferIt3dDataConfig] = None,
         scanrefer_config: Optional[ScanReferDataConfig] = None,
         show_load_progress: bool = False,
+        n_classes: int = 20,
     ):
         """
 
@@ -164,6 +101,7 @@ class ScanNetDataset(object):
         ├── scannet_infos_test.pkl
 
         """
+        # Set up directories and metadata
         assert split in ["train", "val", "test"]
         self.root_dir = Path(root_dir)
         self.posed_dir = self.root_dir / "posed_images"
@@ -177,6 +115,12 @@ class ScanNetDataset(object):
 
         assert (self.height is None) == (self.width is None)  # Neither or both
         self.frame_skip = frame_skip
+
+        self.METADATA = {
+            "COLOR_MAP": SCANNET_DATASET_COLOR_MAPS[n_classes],
+            "CLASS_NAMES": SCANNET_DATASET_CLASS_LABELS[n_classes],
+            "CLASS_IDS": SCANNET_DATASET_CLASS_IDS[n_classes],
+        }
 
         # Create scene list
         with open(self.root_dir / "meta_data" / f"scannetv2_{split}.txt", "rb") as f:

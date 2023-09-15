@@ -60,6 +60,7 @@ from pytorch3d.vis.plotly_vis import (
     _scale_camera_to_bounds,
     _update_axes_bounds,
 )
+from torch import Tensor
 
 from .bboxes_3d import BBoxes3D
 
@@ -318,6 +319,7 @@ def plot_scene_with_bboxes(
     boxes_plot_together: bool = False,
     height: int = None,
     width: int = None,
+    use_orthographic: bool = False,
     **kwargs,
 ):  # pragma: no cover
     """
@@ -613,7 +615,7 @@ def plot_scene_with_bboxes(
             camera["eye"] = {"x": eye_x, "y": eye_y, "z": eye_z}
             camera["center"] = {"x": at_x, "y": at_y, "z": at_z}
             camera["up"] = {"x": up_x, "y": up_y, "z": up_z}
-
+            camera["projection"] = {"type": "orthographic"}
         current_layout.update(
             {
                 "xaxis": xaxis,
@@ -624,6 +626,9 @@ def plot_scene_with_bboxes(
             }
         )
     fig.update_layout(width=width, height=height)
+    if use_orthographic:
+        # fig.update_scenes(aspectmode='data')
+        fig.layout.scene.camera.projection.type = "orthographic"
     return fig
 
 
@@ -660,3 +665,82 @@ def _gen_fig_with_subplots(
         column_widths=[1.0] * fig_cols,
     )
     return fig
+
+
+def create_triad_pointclouds(
+    R: Tensor, T: Tensor, n_points: int = 1, scale: float = 0.1
+):
+    """
+    Create a batch of 3D triads (coordinate systems) represented as point clouds.
+
+    This function generates 3D point clouds for each instance in a batch. Each point cloud
+    represents a triad, or a 3D coordinate system, that has been transformed by the given
+    rotation matrices and translation vectors.
+
+    Parameters:
+    -----------
+    R : torch.Tensor
+        Batch of rotation matrices of shape (batch_size, 3, 3).
+    T : torch.Tensor
+        Batch of translation vectors of shape (batch_size, 3).
+    n_points : int, optional
+        Number of points along each axis in the triad. Default is 1.
+    scale : float, optional
+        Scaling factor for the size of the triads. Default is 0.1.
+
+    Returns:
+    --------
+    Pointclouds : pytorch3d.structures.Pointclouds
+        A batch of point clouds, each representing a transformed triad.
+        The point clouds contain both the coordinates and the colors of the points.
+
+    Example:
+    --------
+    >>> R = torch.eye(3).unsqueeze(0)
+    >>> T = torch.tensor([[0.0, 0.0, 0.0]])
+    >>> pointclouds = create_triad_pointclouds(R, T)
+    """
+    batch_size = R.shape[0]
+    # Define the coordinates of the triad
+    triad_coords = torch.tensor(
+        [
+            [0.0, 0.0, 0.0, 1.0],  # Origin
+            [1.0, 0.0, 0.0, 1.0],  # X-axis
+            [0.0, 1.0, 0.0, 1.0],  # Y-axis
+            [0.0, 0.0, 1.0, 1.0],
+        ]
+    )  # Z-axis
+    triad_coords = torch.cat(
+        [triad_coords * (scale * 1.0 / n_points * i) for i in range(1, n_points + 1)],
+        dim=0,
+    )
+    triad_coords[:, 3] = 1.0
+    M = torch.zeros((batch_size, 4, 4))
+
+    M[:, :3, :3] = R
+    M[:, :3, 3] = T
+    M[:, -1, -1] = 1.0
+
+    triad_coords = triad_coords.unsqueeze(0).expand(
+        batch_size, *triad_coords.shape[-2:]
+    )
+    triad_coords = torch.bmm(triad_coords, M.permute([0, 2, 1]))
+    triad_coords = triad_coords[..., :3]
+    # triad_coords += T.unsqueeze(1)
+
+    # Create colors for each point (red, green, blue)
+    colors = torch.tensor(
+        [
+            [0.0, 0.0, 0.0],  # White
+            [1.0, 0.0, 0.0],  # Red
+            [0.0, 1.0, 0.0],  # Green
+            [0.0, 0.0, 1.0],  # Blue
+        ]
+    )
+    colors = (
+        colors.unsqueeze(0)
+        .unsqueeze(0)
+        .expand(batch_size, n_points, 4, 3)
+        .reshape(batch_size, n_points * 4, 3)
+    )
+    return Pointclouds(points=triad_coords[..., :3], features=colors)
