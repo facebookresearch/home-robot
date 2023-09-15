@@ -37,6 +37,7 @@ DEPTH_FORMAT = image_pb2.Image.PixelFormat.PIXEL_FORMAT_DEPTH_U16
 BODY_THERSH = 10000 / 255
 HAND_THERSH = 6000 / 255
 RGB_THRESH = 1
+RGB_TO_BGR = [2, 1, 0]
 CAMERA_SOURCES = [
     ("hand_depth_in_hand_color_frame", DEPTH_FORMAT, HAND_THERSH, None),
     ("hand_color_image", RGB_FORMAT, RGB_THRESH, None),
@@ -561,6 +562,7 @@ class SpotClient:
         # color_response = self.raw_observations["responses"][5]
         # update observations
         obs = build_obs_from_spot_image_responses(depth_response, color_response)
+        obs.rgb = obs.rgb[..., RGB_TO_BGR]
         # keep_mask = (0.4 < obs.depth) & (obs.depth < 4.0)
 
         # Normalize GPS
