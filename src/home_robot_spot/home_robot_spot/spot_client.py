@@ -569,6 +569,7 @@ class SpotClient:
             inv_intrinsics=torch.linalg.inv(torch.tensor(K[:3, :3])).unsqueeze(0),
         )
         obs.xyz = full_world_xyz.view(*list(obs.rgb.shape))
+        obs.rgb = obs.rgb * 255
         print("xyz.shape =", obs.xyz.shape)
         print("rgb.shape =", obs.rgb.shape)
         print("depth.shape =", obs.depth.shape)
@@ -742,7 +743,7 @@ if __name__ == "__main__":
             obs = spot.get_rgbd_obs(semantic_sensor)
             voxel_map.add_obs(obs, xyz_frame="world")
             print("added, now display something")
-            voxel_map.show(backend="open3d", instances=True)
+            voxel_map.show(backend="open3d", instances=False)
 
             linear = input("Input Linear: ")
             angular = input("Input Angular: ")
