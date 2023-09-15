@@ -539,12 +539,9 @@ class SpotClient:
 
     def get_rgbd_obs(self, verbose: bool = False) -> Observations:
         """Get information from the Spot sensors with pose and other information"""
-        depth_response = self.raw_observations["responses"][
-            4
-        ]  # frontleft_depth_in_visual_frame
-        color_response = self.raw_observations["responses"][
-            5
-        ]  # frontleft_fisheye_image
+        # Get hand depth and color responses
+        depth_response = self.raw_observations["responses"][0]
+        color_response = self.raw_observations["responses"][1]
         obs = build_obs_from_spot_image_responses(depth_response, color_response)
         # keep_mask = (0.4 < obs.depth) & (obs.depth < 4.0)
 
