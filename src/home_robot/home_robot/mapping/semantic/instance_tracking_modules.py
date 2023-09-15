@@ -265,8 +265,7 @@ class InstanceMemory:
                         env_id, local_instance_id
                     )
                     if global_instance_id is None:
-                        global_instance_id = len(
-                            self.instance_views[env_id]) + 1
+                        global_instance_id = len(self.instance_views[env_id]) + 1
                     self.add_view_to_instance(
                         env_id, local_instance_id, global_instance_id
                     )
@@ -290,8 +289,7 @@ class InstanceMemory:
             instance_view (Optional[InstanceView]): The instance view associated with the specified local instance in the given environment,
                 or None if no matching instance view is found.
         """
-        instance_view = self.unprocessed_views[env_id].get(
-            local_instance_id, None)
+        instance_view = self.unprocessed_views[env_id].get(local_instance_id, None)
         if instance_view is None and self.debug_visualize:
             print(
                 "instance view with local instance id",
@@ -327,8 +325,7 @@ class InstanceMemory:
         instance_view = self.get_local_instance_view(env_id, local_instance_id)
 
         # get global instance
-        global_instance = self.instance_views[env_id].get(
-            global_instance_id, None)
+        global_instance = self.instance_views[env_id].get(global_instance_id, None)
         if global_instance is None:
             # create a new global instance
             global_instance = Instance()
@@ -366,8 +363,7 @@ class InstanceMemory:
             # overlay mask on image
             mask = np.zeros(full_image.shape, full_image.dtype)
             mask[:, :] = (0, 0, 255)
-            mask = cv2.bitwise_and(
-                mask, mask, mask=instance_view.mask.astype(np.uint8))
+            mask = cv2.bitwise_and(mask, mask, mask=instance_view.mask.astype(np.uint8))
             masked_image = cv2.addWeighted(mask, 1, full_image, 1, 0)
             cv2.imwrite(
                 os.path.join(
@@ -436,8 +432,7 @@ class InstanceMemory:
             self.point_cloud[env_id] = point_cloud.unsqueeze(0).detach().cpu()
         else:
             self.point_cloud[env_id] = torch.cat(
-                [self.point_cloud[env_id],
-                    point_cloud.unsqueeze(0).detach().cpu()],
+                [self.point_cloud[env_id], point_cloud.unsqueeze(0).detach().cpu()],
                 dim=0,
             )
         # unique instances
@@ -487,6 +482,8 @@ class InstanceMemory:
                     .squeeze(0)
                     .bool()
                 )
+            else:
+                instance_mask_downsampled = instance_mask
 
             if self.mask_cropped_instances:
                 masked_image = image * instance_mask
@@ -494,7 +491,7 @@ class InstanceMemory:
                 masked_image = image
 
             # get cropped image
-            p = self.padding_cropped_instances
+            # p = self.padding_cropped_instances
             h, w = masked_image.shape[1:]
             # cropped_image = (
             #     masked_image[
@@ -514,8 +511,7 @@ class InstanceMemory:
             embedding = None
 
             # get point cloud
-            point_cloud_instance = point_cloud[instance_mask_downsampled.cpu(
-            ).numpy()]
+            point_cloud_instance = point_cloud[instance_mask_downsampled.cpu().numpy()]
             point_cloud_instance = point_cloud_instance.cpu().numpy()
 
             object_coverage = np.sum(instance_mask) / instance_mask.size
@@ -539,8 +535,7 @@ class InstanceMemory:
                     object_coverage=object_coverage,
                 )
                 # append instance view to list of instance views
-                self.unprocessed_views[env_id][instance_id.item(
-                )] = instance_view
+                self.unprocessed_views[env_id][instance_id.item()] = instance_view
 
             # save cropped image with timestep in filename
             if self.debug_visualize:
@@ -619,17 +614,16 @@ class InstanceMemory:
         y = bbox[0, 0]
         w = bbox[1, 1] - x
         h = bbox[1, 0] - y
-        x = 0 if (x-(padding-1)*w /
-                  2) < 0 else int(x-(padding-1)*w/2)
-        y = 0 if (y-(padding-1)*h /
-                  2) < 0 else int(y-(padding-1)*h/2)
-        y2 = im_h if y + \
-            int(h*padding) >= im_h else y+int(h*padding)
-        x2 = im_w if x + \
-            int(w*padding) >= im_w else x+int(w*padding)
+        x = 0 if (x - (padding - 1) * w / 2) < 0 else int(x - (padding - 1) * w / 2)
+        y = 0 if (y - (padding - 1) * h / 2) < 0 else int(y - (padding - 1) * h / 2)
+        y2 = im_h if y + int(h * padding) >= im_h else y + int(h * padding)
+        x2 = im_w if x + int(w * padding) >= im_w else x + int(w * padding)
         cropped_image = (
-            image[:,  y: y2, x: x2,
-                  ]
+            image[
+                :,
+                y:y2,
+                x:x2,
+            ]
             .permute(1, 2, 0)
             .cpu()
             .numpy()

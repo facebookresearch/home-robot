@@ -155,6 +155,14 @@ class SparseVoxelMap(object):
         """Return a list of all viewable instances"""
         return tuple(self.instances.instance_views[0].values())
 
+    def fix_type(self, tensor: Union[np.ndarray, torch.Tensor]) -> torch.Tensor:
+        """Convert to tensor and float"""
+        if tensor is None:
+            return None
+        if isinstance(tensor, np.ndarray):
+            tensor = torch.from_numpy(tensor)
+        return tensor.float()
+
     def add_obs(
         self,
         obs: Observations,
@@ -163,14 +171,14 @@ class SparseVoxelMap(object):
         **kwargs,
     ):
         """Unpack an observation and convert it properly, then add to memory. Pass all other inputs into the add() function as provided."""
-        rgb = torch.from_numpy(obs.rgb).float()
-        depth = torch.from_numpy(obs.depth).float()
-        xyz = torch.from_numpy(obs.xyz).float()
-        camera_pose = torch.from_numpy(obs.camera_pose).float()
+        rgb = self.fix_type(obs.rgb)
+        depth = self.fix_type(obs.depth)
+        xyz = self.fix_type(obs.xyz)
+        camera_pose = self.fix_type(obs.camera_pose)
         base_pose = torch.from_numpy(
             np.array([obs.gps[0], obs.gps[1], obs.compass[0]])
         ).float()
-        K = torch.from_numpy(obs.camera_K).float() if camera_K is None else camera_K
+        K = self.fix_type(obs.camera_K) if camera_K is None else camera_K
 
         self.add(
             camera_pose=camera_pose,
@@ -179,7 +187,6 @@ class SparseVoxelMap(object):
             depth=depth,
             base_pose=base_pose,
             obs=obs,
-            xyz_frame="camera",
             camera_K=K,
             *args,
             **kwargs,
@@ -218,9 +225,10 @@ class SparseVoxelMap(object):
         # TODO: we should remove the xyz/feats maybe? just use observations as input?
         # TODO: switch to using just Obs struct?
         # Shape checking
+        assert rgb.ndim == 3, f"{rgb.ndim=}"
         assert (
-            rgb.ndim == 3 and rgb.shape[:2] == depth.shape
-        ), f"{rgb.shape=} {depth.shape=}"
+            rgb.shape[:-1] == depth.shape
+        ), f"depth and rgb image sizes must match; got {rgb.shape=} {depth.shape=}"
         H, W, _ = rgb.shape
         assert xyz is not None or (camera_K is not None and depth is not None)
         if xyz is not None:
@@ -238,7 +246,7 @@ class SparseVoxelMap(object):
             else:
                 pass
         if depth is not None:
-            assert depth.ndim == 2
+            assert depth.ndim == 2 or xyz_frame == "world"
         if camera_K is not None:
             assert camera_K.ndim == 2
         if instance_image is None:
@@ -260,9 +268,15 @@ class SparseVoxelMap(object):
 
         # Get full_world_xyz
         if xyz is not None:
-            full_world_xyz = (
-                torch.cat([xyz, torch.ones_like(xyz[..., [0]])], dim=-1) @ camera_pose.T
-            )[:, :, :3]
+            if xyz_frame == "camera":
+                full_world_xyz = (
+                    torch.cat([xyz, torch.ones_like(xyz[..., [0]])], dim=-1)
+                    @ camera_pose.T
+                )[:, :, :3]
+            elif xyz_frame == "world":
+                full_world_xyz = xyz
+            else:
+                raise NotImplementedError(f"Unknown xyz_frame {xyz_frame}")
             # trimesh.transform_points(xyz, camera_pose)
         else:
             full_world_xyz = unproject_masked_depth_to_xyz_coordinates(  # Batchable!
@@ -301,10 +315,11 @@ class SparseVoxelMap(object):
             instance_seg=instance,
             point_cloud=full_world_xyz.reshape(H, W, 3),
             image=rgb.permute(2, 0, 1),
-            instance_classes=instance_classes,
-            instance_scores=instance_scores,
+            pose=base_pose,
+            # instance_classes=instance_classes,
+            # instance_scores=instance_scores,
             mask_out_object=False,  # Save the whole image here? Or is this with background?
-            background_instance_label=self.background_instance_label,
+            background_class_labels=[self.background_instance_label],
         )
         self.instances.associate_instances_to_memory()
 

@@ -5,7 +5,7 @@
 
 import time
 from threading import Event, Thread
-from typing import Dict, List, Optional
+from typing import Dict, List, Optional, Sequence, Tuple, Union
 
 import bosdyn.client.frame_helpers as frame_helpers
 import cv2
@@ -26,6 +26,11 @@ from pytorch3d.vis.plotly_vis import AxisArgs
 from spot_wrapper.basic_streaming_visualizer_numpy import obstacle_grid_points
 from spot_wrapper.spot import Spot, build_image_request, image_response_to_cv2
 
+from home_robot.agent.ovmm_agent import (
+    OvmmPerception,
+    build_vocab_from_category_map,
+    read_category_map_file,
+)
 from home_robot.core.interfaces import Action, Observations
 from home_robot.utils.bboxes_3d_plotly import plot_scene_with_bboxes
 from home_robot.utils.config import get_config
@@ -91,7 +96,7 @@ class SpotPublishers:
             )
             for name, format, _, _ in self.sources
         ]
-        self.observations: Dict[str, torch.Tensor] = {}
+        self.observations: Dict[str, torch.tensor_split] = {}
         self.rotate = rotate
         self.finished_initial_capture = False
         self.verbose = verbose
@@ -532,7 +537,7 @@ class SpotClient:
         )
         return home_robot_obs
 
-    def get_rgbd_obs(self):
+    def get_rgbd_obs(self, semantic_sensor: Optional[OvmmPerception] = None):
         """Get information from the Spot sensors with pose and other information"""
         depth_response = self.raw_observations["responses"][
             4
@@ -540,8 +545,37 @@ class SpotClient:
         color_response = self.raw_observations["responses"][
             5
         ]  # frontleft_fisheye_image
+        obs = build_obs_from_spot_image_responses(depth_response, color_response)
+        if semantic_sensor is not None:
+            obs = semantic_sensor.predict(obs)
+        # keep_mask = (0.4 < obs.depth) & (obs.depth < 4.0)
 
-        return build_obs_from_spot_image_responses(depth_response, color_response)
+        # Normalize GPS
+        relative_gps = self.gps - self.start_gps
+        relative_gps = self.rot_compass @ relative_gps
+
+        # Normalize compass
+        relative_compass = np.array(
+            [put_angle_in_interval(self.compass - self.start_compass)]
+        )
+        obs.gps = relative_gps
+        obs.compass = relative_compass
+
+        K = obs.camera_K
+        full_world_xyz = unproject_masked_depth_to_xyz_coordinates(  # Batchable!
+            depth=obs.depth.unsqueeze(0).unsqueeze(1),
+            pose=obs.camera_pose.unsqueeze(0),
+            # mask=~keep_mask.unsqueeze(0).unsqueeze(1),
+            inv_intrinsics=torch.linalg.inv(torch.tensor(K[:3, :3])).unsqueeze(0),
+        )
+        obs.xyz = full_world_xyz.view(*list(obs.rgb.shape))
+        print("xyz.shape =", obs.xyz.shape)
+        print("rgb.shape =", obs.rgb.shape)
+        print("depth.shape =", obs.depth.shape)
+
+        # TODO: apply keep mask to instance and semantic classification channels in the observations as well
+
+        return obs
 
     def make_3d_viz(self, viz_data):
         xyz = viz_data["xyz"]
@@ -654,14 +688,10 @@ if __name__ == "__main__":
         config = get_config("projects/spot/configs/config.yaml")[0]
         spot = SpotClient(config=config)
 
+        from home_robot.mapping.voxel import SparseVoxelMap  # Aggregate 3d information
+
         # from home_robot.mapping.voxel_map import SparseVoxelMapNavigationSpace  # Sample positions in free space for our robot to move to
         # from home_robot.motion.spot import SimpleSpotKinematics  # Just saves the Spot robot footprint for kinematic planning
-        from home_robot.agent.ovmm_agent import (
-            OvmmPerception,
-            build_vocab_from_category_map,
-            read_category_map_file,
-        )
-        from home_robot.mapping.voxel import SparseVoxelMap  # Aggregate 3d information
         from home_robot_hw.utils.config import load_config
 
         # TODO move these parameters to config
@@ -709,9 +739,9 @@ if __name__ == "__main__":
             except Exception:
                 print("Error -- try again")
 
-            obs = spot.get_rgbd_obs()
-            obs = semantic_sensor.predict(obs)
-            voxel_map.add_obs(obs)
+            obs = spot.get_rgbd_obs(semantic_sensor)
+            voxel_map.add_obs(obs, xyz_frame="world")
+            print("added, now display something")
             voxel_map.show(backend="open3d", instances=True)
 
             linear = input("Input Linear: ")
