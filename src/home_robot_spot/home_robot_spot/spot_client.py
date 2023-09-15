@@ -341,7 +341,7 @@ def build_obs_from_spot_image_responses(
     color_response: Optional[image_pb2.ImageResponse],
 ):
     # Get camera parameters
-    camera: PinholeCamera = get_camera_from_spot_image_response(depth_response)
+    camera: PinholeCamera = get_camera_from_spot_image_response(color_response)
     cam_to_world = torch.eye(4)
     cam_to_world[:3, :3] = camera.orn
     cam_to_world[:3, 3] = camera.pos
