@@ -1,5 +1,13 @@
 device: "cuda"
 
+# Data params
+# Image width and height before passing to models
+desired_height: 256
+desired_width: 256
+
+# Voxel params
+voxel_size: 0.05
+
 # SAM params
 SAM_checkpoint_path: "/srv/flash1/kyadav32/datasets/ovmm/sam/sam_vit_h_4b8939.pth"
 model_type: "vit_h"
@@ -8,22 +16,17 @@ bbox_area_thresh: 0.0005
 # Number of query points (grid size) to be sampled by SAM
 points_per_side: 32
 
-# Data params
-# Desired image width and height
-desired_height: 256
-desired_width: 256
-
 # CLIP model paramsß
 open_clip_model: "ViT-H-14"
 open_clip_pretrained_dataset: "laion2b_s32b_b79k"
 
 # DBSCAN params
-epsilon: 1.0
-min_samples: 5
+epsilon: 0.3
+min_samples: 25
 
 # Similarity params
-viz_type: "topk" # "topk" or "thresh"
-similarity_thresh: 0.6
+viz_type: "thresh" # "topk" or "thresh"
+similarity_thresh: 0.9
 topk: 1000
 
 # Directory to save extracted features

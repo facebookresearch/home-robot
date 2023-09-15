@@ -1,19 +1,14 @@
-import os
 from pathlib import Path
 from tqdm import trange
 from typing import List, Sequence, Dict, Any
 import warnings
 
-
-import h5py
-import hydra
 import matplotlib
 import numpy as np
 from omegaconf import DictConfig
 import open_clip
 from PIL import Image
 from sklearn.cluster import DBSCAN
-import seaborn as sns
 import torch
 from torchvision import transforms
 
@@ -25,50 +20,6 @@ from home_robot.utils.bboxes_3d import box3d_volume_from_bounds
 from home_robot.mapping.semantic.instance_tracking_modules import InstanceView, Instance
 
 from utils import COLOR_LIST
-
-custom_palette = sns.color_palette("viridis", 24)
-
-
-def save_data(
-        original_image: torch.Tensor,
-        masks: List[dict],
-        outfeat: torch.Tensor,
-        idx: int,
-        save_path: str,
-    ):
-    """
-    Save original image, segmentation masks, and concept fusion features.
-
-    Args:
-        original_image (torch.Tensor): Original image.
-        masks (list[dict]): List of segmentation masks.
-        outfeat (torch.Tensor): Concept fusion features.
-        idx (int): Index of image.
-        save_path (str): Path to save data.
-    """
-    # create directory
-    if not os.path.exists(save_path):
-        os.makedirs(save_path)
-
-    # save original image
-    original_image = Image.fromarray(original_image)
-    file_path = os.path.join(save_path, "original_" + str(idx) + ".png")
-    original_image.save(file_path)
-
-    # save segmentation masks
-    segmentation_image = torch.zeros(original_image.size[0], original_image.size[0], 3)
-    for i, mask in enumerate(masks):
-        segmentation_image += torch.from_numpy(mask["segmentation"]).unsqueeze(-1).repeat(1, 1, 3).float() * \
-            torch.tensor(custom_palette[i%24]) * 255.0
-
-    mask = Image.fromarray(segmentation_image.numpy().astype("uint8"))
-    file_path = os.path.join(save_path, "mask_" + str(idx) + ".png")
-    mask.save(file_path)
-
-    # save concept fusion features
-    file_path = os.path.join(save_path, "concept_fusion_features_" + str(idx) + ".pt")
-    torch.save(outfeat.detach().cpu(), file_path)
-
 
 def convert_pose_to_real_world_axis(hab_pose):
     """Update axis convention of habitat pose to match the real-world axis convention"""
@@ -85,7 +36,7 @@ def get_bounding_boxes(args, data, color_data):
     num_noise = np.sum(np.array(labels) == -1, axis=0)
 
     print('Estimated no. of clusters: %d' % num_clusters)
-    print('Estimated no. of noise points: %d' % num_noise)
+    print('Estimated no. of noisy points: %d' % num_noise)
 
     # get max and min x, y, z values for each cluster
     bb_coords = np.zeros((num_clusters, 3, 2))
@@ -146,7 +97,9 @@ class ConceptFusion:
             far_val=4.0,
         )
 
-        self.voxel_map = VoxelizedPointcloud()
+        self.voxel_map = VoxelizedPointcloud(
+            voxel_size=args.voxel_size,
+        )
 
         self.transform = transforms.Resize((self.args.desired_height, self.args.desired_width), interpolation=Image.NEAREST)
 
@@ -272,7 +225,11 @@ class ConceptFusion:
 
         similarity = self.cosine_similarity(textfeat, map_features)
 
-        print("Max similarity: {}".format(similarity.max()))
+        # We use relative similarity
+        similarity = (similarity - similarity.min()) / (
+            similarity.max() - similarity.min() + 1e-12
+        )
+
         map_colors = np.zeros((similarity.shape[1], 3))
 
         if self.args.viz_type == "topk":
@@ -283,16 +240,11 @@ class ConceptFusion:
 
         elif self.args.viz_type == "thresh":
             # Viz thresholded "relative" attention scores
-            similarity = (similarity + 1.0) / 2.0  # scale from [-1, 1] to [0, 1]
-            # similarity = similarity.clamp(0., 1.)
-            similarity_rel = (similarity - similarity.min()) / (
-                similarity.max() - similarity.min() + 1e-12
-            )
-            similarity_rel[similarity_rel < self.args.similarity_thresh] = 0.0
-            selected_inds = torch.nonzero(similarity_rel).squeeze(1)
+            similarity[similarity < self.args.similarity_thresh] = 0.0
+            selected_inds = torch.nonzero(similarity.squeeze()).squeeze(1)
 
             cmap = matplotlib.cm.get_cmap("jet")
-            similarity_colormap = cmap(similarity_rel[0].detach().cpu().numpy())[:, :3]
+            similarity_colormap = cmap(similarity[0].detach().cpu().numpy())[:, :3]
 
             map_colors = 0.5 * map_colors + 0.5 * similarity_colormap
 
@@ -313,8 +265,6 @@ class ConceptFusion:
         """
         print("Building scene with {} images".format(len(scene_obs["images"])))
         for i in trange(len(scene_obs["images"])):
-            if i > 10:
-                break # To run things faster
             img = scene_obs["images"][i]
             depth = torch.tensor(scene_obs["depths"][i]).unsqueeze(0)
             camera_pose = torch.tensor(scene_obs["poses"][i]).float()
@@ -343,19 +293,23 @@ class ConceptFusion:
 
         return self.voxel_map.get_pointcloud()
 
-    def build_scene_and_get_instances_for_queries(
+    def get_instances_for_queries(
         self,
-        scene_obs: Dict[str, Any],
         queries: Sequence[str]
     ):
-        pc_xyz, pc_feat, _, _ = self.build_scene(scene_obs)
-
-        breakpoint()
+        pc_xyz, pc_feat, _, pc_rgb = self.voxel_map.get_pointcloud()
         instances_dict = {}
         category_id = 0 # TODO: Fix this hardcoding
         for class_name in queries:
             print("Querying for class: {}".format(class_name))
             pc_rgb_after_query, selected_inds, similarity_score = self.text_query(class_name, pc_feat)
+
+            if selected_inds.shape[0] <= 1:
+                warnings.warn(
+                    f"No points found for class {class_name}",
+                    UserWarning,
+                )
+                continue
 
             pc_feat_objects = pc_feat[selected_inds]
             pc_rgb_objects = torch.tensor(pc_rgb_after_query[selected_inds].squeeze()).float()
@@ -363,20 +317,22 @@ class ConceptFusion:
             similarity_score_objects = similarity_score[selected_inds].squeeze()
             bounding_boxes, pc_rgb_after_query[selected_inds], labels  = get_bounding_boxes(self.args, pc_xyz_objects, pc_rgb_objects)
 
-            global_instance = Instance(score_aggregation_method='max')
-
+            instances_per_class = []
             for idx in range(len(bounding_boxes)):
                 bounds = torch.tensor(bounding_boxes[idx])
 
                 volume = float(box3d_volume_from_bounds(bounds).squeeze())
+                min_dim = (bounds[:, 1] - bounds[:, 0]).min()
 
-                if volume < 1e-6:
+                if volume < 1e-6 or min_dim < 0.01:
                     warnings.warn(
-                        f"Skipping box with bounding box {bounds} and {volume} volume",
+                        f"Skipping box with bounding box {bounds}, volume {volume} and min_dim {min_dim}",
                         UserWarning,
                     )
                 else:
-                    # get instance view
+                    instance = Instance(score_aggregation_method='max')
+
+                    # TODO: get rid of the instance view altogether
                     instance_view = InstanceView(
                         bbox=None,
                         bounds=bounds,
@@ -388,17 +344,27 @@ class ConceptFusion:
                         score=similarity_score_objects[labels == idx].max()
                     )
                     # append instance view to list of instance views
-                    global_instance.add_instance_view(instance_view)
+                    instance.add_instance_view(instance_view)
+                    instances_per_class.append(instance)
 
-            instances_dict[class_name] = global_instance
+            instances_dict[class_name] = instances_per_class
 
             category_id += 1
 
         return instances_dict
-    
+
+    def build_scene_and_get_instances_for_queries(
+        self,
+        scene_obs: Dict[str, Any],
+        queries: Sequence[str]
+    ):
+        self.build_scene(scene_obs)
+
+        return self.get_instances_for_queries(queries)
+
     def _show_point_cloud_pytorch3d(
             self,
-            detected_boxes = None,
+            instances_dict = None,
             **plot_scene_kwargs
         ):
         """Visualize the created pointcloud using pytorch3d.
@@ -410,14 +376,36 @@ class ConceptFusion:
             ptc_fig: Plotly visualization of pointcloud
         """
         from pytorch3d.structures import Pointclouds
-        from pytorch3d.vis.plotly_vis import AxisArgs, plot_scene
+        from pytorch3d.vis.plotly_vis import AxisArgs
+        from home_robot.utils.bboxes_3d import BBoxes3D
 
         from home_robot.utils.bboxes_3d_plotly import plot_scene_with_bboxes
         from home_robot.utils.data_tools.dict import update
 
+        traces = {}
+
         pc_xyz, _, _, pc_rgb = self.voxel_map.get_pointcloud()
 
-        ptc = Pointclouds(points=[pc_xyz], features=[pc_rgb / 255.0])
+        traces["Points"] = Pointclouds(points=[pc_xyz], features=[pc_rgb / 255.0])
+
+        # Show instances
+        if instances_dict:
+            idx = 0
+            for class_name, instances in instances_dict.items():
+                if len(instances) == 0:
+                    continue
+                bounds, names, colors = [], [], []
+                for instance in instances:
+                    bounds.append(instance.bounds)
+                    names.append(torch.tensor(instance.category_id))
+                    colors.append(torch.tensor(COLOR_LIST[idx % len(COLOR_LIST)]))
+                detected_boxes = BBoxes3D(
+                    bounds=[torch.stack(bounds, dim=0)],
+                    features=[torch.stack(colors, dim=0)],
+                    names=[torch.stack(names, dim=0).unsqueeze(-1)],
+                )
+                traces[class_name + "_bbox"] = detected_boxes
+                idx += 1
 
         _default_plot_args = dict(
             xaxis={"backgroundcolor": "rgb(200, 200, 230)"},
@@ -425,18 +413,16 @@ class ConceptFusion:
             zaxis={"backgroundcolor": "rgb(200, 230, 200)"},
             axis_args=AxisArgs(showgrid=True),
             pointcloud_marker_size=3,
-            pointcloud_max_points=200_000,
+            pointcloud_max_points=500_000,
+            boxes_plot_together=False,
+            boxes_wireframe_width=3,
         )
-        fig = plot_scene(
-            plots={
-                f"Conceptfusion Pointcloud": {
-                    "Points": ptc,
-                    "Instance boxes": detected_boxes,
-                    # "Fused boxes": global_boxes,
-                    # "cameras": cameras,
-                },
-                # Could add keyframes or instances here.
-            },
+        fig = plot_scene_with_bboxes(
+            plots={f"Conceptfusion Pointcloud": traces},
             **update(_default_plot_args, plot_scene_kwargs),
+        )
+        fig.update_layout(
+            height=800,
+            width=1600,
         )
         return fig
