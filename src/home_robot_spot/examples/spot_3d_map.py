@@ -21,6 +21,7 @@ from home_robot.utils.config import get_config, load_config
 from home_robot_spot import SpotClient
 
 
+# def main(dock: Optional[int] = 549):
 def main(dock: Optional[int] = None):
     spot_config = get_config("src/home_robot_spot/configs/default_config.yaml")[0]
 
