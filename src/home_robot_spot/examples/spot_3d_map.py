@@ -68,7 +68,7 @@ def main(dock: Optional[int] = None):
             except Exception:
                 print("Error -- try again")
 
-            obs = spot.get_rgbd_obs(semantic_sensor)
+            obs = spot.get_rgbd_obs()
             obs = semantic_sensor.predict(obs)
             voxel_map.add_obs(obs, xyz_frame="world")
             print("added, now display something")
