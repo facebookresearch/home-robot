@@ -35,8 +35,8 @@ from home_robot_hw.env.spot_goat_env import SpotGoatEnv
 
 RGB_FORMAT = image_pb2.Image.PixelFormat.PIXEL_FORMAT_RGB_U8
 DEPTH_FORMAT = image_pb2.Image.PixelFormat.PIXEL_FORMAT_DEPTH_U16
-BODY_THERSH = 10000 / 255
-HAND_THERSH = 6000 / 255
+BODY_THRESH = 10000 / 255
+HAND_THRESH = 6000 / 255
 RGB_THRESH = 1
 """
 back_depth
@@ -61,19 +61,19 @@ right_depth_in_visual_frame
 right_fisheye_image
 """
 GOAT_SOURCES = [
-    # ("hand_depth_in_hand",DEPTH_FORMAT,HAND_THERSH,None),
-    ("hand_depth", DEPTH_FORMAT, HAND_THERSH, None),
+    # ("hand_depth_in_hand",DEPTH_FORMAT,HAND_THRESH,None),
+    ("hand_depth", DEPTH_FORMAT, HAND_THRESH, None),
     ("hand_color_image", RGB_FORMAT, RGB_THRESH, None),
-    ("hand_depth_in_hand_color_frame", DEPTH_FORMAT, HAND_THERSH, None),
-    ("back_depth", DEPTH_FORMAT, BODY_THERSH, None),
+    ("hand_depth_in_hand_color_frame", DEPTH_FORMAT, HAND_THRESH, None),
+    ("back_depth", DEPTH_FORMAT, BODY_THRESH, None),
     # ("back_fisheye_image",RGB_FORMAT,RGB_THRESH,None),
-    ("frontleft_depth", DEPTH_FORMAT, BODY_THERSH, cv2.ROTATE_90_CLOCKWISE),
+    ("frontleft_depth", DEPTH_FORMAT, BODY_THRESH, cv2.ROTATE_90_CLOCKWISE),
     # ("frontleft_fisheye_image",RGB_FORMAT,RGB_THRESH,cv2.ROTATE_90_CLOCKWISE),
-    ("frontright_depth", DEPTH_FORMAT, BODY_THERSH, cv2.ROTATE_90_CLOCKWISE),
+    ("frontright_depth", DEPTH_FORMAT, BODY_THRESH, cv2.ROTATE_90_CLOCKWISE),
     # ("frontright_fisheye_image",RGB_FORMAT,RGB_THRESH,cv2.ROTATE_90_CLOCKWISE),
-    ("left_depth", DEPTH_FORMAT, BODY_THERSH, None),
+    ("left_depth", DEPTH_FORMAT, BODY_THRESH, None),
     # ("left_fisheye_image",RGB_FORMAT,RGB_THRESH,None),
-    ("right_depth", DEPTH_FORMAT, BODY_THERSH, cv2.ROTATE_180),
+    ("right_depth", DEPTH_FORMAT, BODY_THRESH, cv2.ROTATE_180),
     # ("right_fisheye_image",RGB_FORMAT,RGB_THRESH,cv2.ROTATE_180),
 ]
 

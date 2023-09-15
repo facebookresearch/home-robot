@@ -51,7 +51,7 @@ def main():
     semantic_sensor.update_vocabulary_list(vocab, 0)
     semantic_sensor.set_vocabulary(0)
 
-    spot = SpotClient(config=spot_config)
+    spot = SpotClient(config=spot_config, dock_id=53)
     try:
         # Turn on the robot using the client above
         spot.start()

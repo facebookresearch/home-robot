@@ -40,6 +40,8 @@ RGB_THRESH = 1
 CAMERA_SOURCES = [
     ("hand_depth_in_hand_color_frame", DEPTH_FORMAT, HAND_THERSH, None),
     ("hand_color_image", RGB_FORMAT, RGB_THRESH, None),
+]
+IGNORED_SOURCES = [
     ("back_depth_in_visual_frame", DEPTH_FORMAT, BODY_THERSH, None),
     ("back_fisheye_image", RGB_FORMAT, RGB_THRESH, None),
     (
@@ -65,6 +67,8 @@ CAMERA_SOURCES = [
 SENSOR_FRAME_NAMES = [
     "hand_color_image_sensor",
     "hand_color_image_sensor",
+]
+IGNORED_NAMES = [
     "back_fisheye",
     "back_fisheye",
     "frontleft_fisheye",
@@ -400,16 +404,17 @@ def create_triad_pointclouds(R, T, n_points=1, scale=0.1):
 
 
 class SpotClient:
-    def __init__(self, config, name="home_robot_spot"):
+    def __init__(self, config, name="home_robot_spot", dock_id: Optional[int] = None):
         self.spot = Spot(name)
         self.lease = None
         self.publishers = SpotPublishers(self.spot, verbose=False)
+        self.dock_id = dock_id
 
         # Parameters from Config
         self.config = config
         self.gaze_arm_joint_angles = np.deg2rad(config.SPOT.GAZE_ARM_JOINT_ANGLES)
         self.place_arm_joint_angles = np.deg2rad(config.SPOT.PLACE_ARM_JOINT_ANGLES)
-        self.MAX_CMD_DURATION = config.SPOT.MAX_CMD_DURATION
+        self.max_cmd_duration = config.SPOT.MAX_CMD_DURATION
         self.hand_depth_threshold = config.SPOT.HAND_DEPTH_THRESHOLD
         self.base_height = config.SPOT.BASE_HEIGHT
 
@@ -649,15 +654,17 @@ class SpotClient:
         self.publishers.stop()
 
     def stop(self):
-        try:
-            self.spot.dock()
-        except Exception as e:
-            print(e)
+        """Try to safely stop the robot."""
+        if self.dock_id is not None:
+            try:
+                self.spot.dock(self.dock_id)
+            except Exception as e:
+                print(e)
 
         self.spot.power_off()
 
         # How do we close the lease
-        self.lease.close()
+        self.lease.__exit__(None, None, None)
         self.lease = None
 
     def move_base_point(self, xyt: np.ndarray):
@@ -675,7 +682,7 @@ class SpotClient:
     def move_base(self, lin, ang, scaling_factor=0.5):
         base_action = np.array([lin, 0, ang])
         scaled = np.clip(base_action, -1, 1) * scaling_factor
-        self.spot.set_base_velocity(*scaled, self.MAX_CMD_DURATION)
+        self.spot.set_base_velocity(*scaled, self.max_cmd_duration)
         return self.raw_observations
 
 
