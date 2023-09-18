@@ -17,8 +17,8 @@ from torch import Tensor
 
 from home_robot.core.interfaces import Observations
 from home_robot.mapping.semantic.instance_tracking_modules import (
+    Instance,
     InstanceMemory,
-    InstanceView,
 )
 from home_robot.motion import PlanResult, Robot
 from home_robot.utils.bboxes_3d import BBoxes3D
@@ -167,7 +167,7 @@ class SparseVoxelMap(object):
         # This is computed from our various point clouds
         self._map2d = None
 
-    def get_instances(self) -> List[InstanceView]:
+    def get_instances(self) -> List[Instance]:
         """Return a list of all viewable instances"""
         return tuple(self.instances.instances[0].values())
 
@@ -643,7 +643,8 @@ class SparseVoxelMap(object):
             )
             detected_boxes = BBoxes3D(
                 bounds=[torch.stack(bounds, dim=0)],
-                # features = [colors],
+                # At some point we can color the boxes according to class, but that's not implemented yet
+                # features = [categorcolors],
                 names=[torch.stack(names, dim=0).unsqueeze(-1)],
             )
             traces["IB"] = detected_boxes

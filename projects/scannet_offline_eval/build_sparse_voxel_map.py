@@ -5,11 +5,11 @@
 """
     Creates a SparseVoxelMap of a ScanNet scene and evaluates it on that scene
 """
+import logging
 from enum import IntEnum, auto
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Sequence, Tuple, Union
 
-import click
 import matplotlib.pyplot as plt
 import numpy as np
 import torch
@@ -24,6 +24,8 @@ from home_robot.datasets.scannet import ScanNetDataset
 from home_robot.mapping.semantic.instance_tracking_modules import Instance
 from home_robot.mapping.voxel import SparseVoxelMap
 from home_robot.perception.constants import RearrangeDETICCategories
+
+logger = logging.getLogger(__name__)
 
 
 class SemanticVocab(IntEnum):
@@ -111,6 +113,7 @@ class SparseVoxelMapAgent:
     def step_trajectory(
         self, obs_list: Sequence[Observations], cache_key: Optional[str] = None
     ):
+        """Tkes a list of observations and adds them all to the instance map"""
         if cache_key is not None:
             # load from cache
             assert self.cache_dir is not None
@@ -121,7 +124,7 @@ class SparseVoxelMapAgent:
             if self.cache_dir is not None:
                 # Save to cache
                 raise NotImplementedError
-        print(f"Found {len(self.voxel_map.get_instances())} instances")
+        logger.debug(f"Found {len(self.voxel_map.get_instances())} instances")
 
     ##############################################
     # Language queries that return instances
@@ -153,10 +156,10 @@ class SparseVoxelMapAgent:
                 - Poses
                 - Intrinsics
                 - scan_name -- str that could be used for caching (but we probably also want to pass in dataset or sth in case we change resoluton, frame_skip, etc)
-            queries (Sequence[str]): _description_
+            queries (Sequence[str]): Text queries, processed independently
 
         Returns:
-            _type_: _description_
+            Dict[str, List[Instance]]: mapping queries to instances
         """
         # Build scene representation
         obs_list = []
