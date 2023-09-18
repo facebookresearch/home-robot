@@ -5,6 +5,9 @@
 
 from typing import Dict, List, Optional
 
+import numpy as np
+import open3d
+
 from home_robot.agent.ovmm_agent import (
     OvmmPerception,
     build_vocab_from_category_map,
@@ -18,6 +21,7 @@ from home_robot.motion.spot import (  # Just saves the Spot robot footprint for 
     SimpleSpotKinematics,
 )
 from home_robot.utils.config import get_config, load_config
+from home_robot.utils.point_cloud import numpy_to_pcd
 from home_robot_spot import SpotClient
 
 
@@ -81,7 +85,25 @@ def main(dock: Optional[int] = None):
     except Exception as e:
         print("Exception caught:")
         print(e)
+
     finally:
+        print("Writing data...")
+        pc_xyz, pc_rgb = voxel_map.show(
+            backend="open3d", instances=False, orig=np.zeros(3)
+        )
+        pcd_filename = "spot_output.pcd"
+        pkl_filename = "spot_output.pkl"
+
+        # Create pointcloud
+        if len(pcd_filename) > 0:
+            pcd = numpy_to_pcd(pc_xyz, pc_rgb / 255)
+            open3d.io.write_point_cloud(pcd_filename, pcd)
+            print(f"... wrote pcd to {pcd_filename}")
+        if len(pkl_filename) > 0:
+            voxel_map.write_to_pickle(pkl_filename)
+            print(f"... wrote pkl to {pkl_filename}")
+
+        print("Safely stop the robot...")
         spot.stop()
 
 
