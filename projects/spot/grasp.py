@@ -69,6 +69,30 @@ class GraspController:
         self.spot.set_arm_joint_positions(self.stow, travel_time=1.0)
         time.sleep(1)
 
+    def spot_is_disappointed(self):
+        """
+        Perform a disappointed arm motion with Spot's arm.
+
+        This method moves Spot's arm back and forth three times to create
+        a disappointed motion.
+
+        Returns:
+            None
+        """
+        # Define the angles for disappointed motion
+        disappointed_angles = [-np.pi / 8, np.pi / 8]
+
+        for _ in range(3):
+            for angle in disappointed_angles:
+                self.look[3] = angle
+                self.spot.set_arm_joint_positions(self.look, travel_time=1)
+                time.sleep(1)
+
+        # Reset the arm to its original position
+        self.look[3] = 0
+        self.spot.set_arm_joint_positions(self.look, travel_time=1)
+        time.sleep(0.5)
+
     def find_obj(self, img) -> np.ndarray:
         """
         Detect and locate an object in an image.
@@ -107,7 +131,7 @@ class GraspController:
                         (bounding_box[1] + bounding_box[3]) / 2,
                     ]
                 )
-                cv2.circle(img, (int(center[0]), int(center[1])), 20, (0, 0, 255), -1)
+                cv2.circle(img, (int(center[0]), int(center[1])), 10, (0, 0, 255), -1)
                 cv2.rectangle(
                     img,
                     (bounding_box[0], bounding_box[1]),
@@ -118,7 +142,7 @@ class GraspController:
                 if self.show_img:
                     cv2.imshow("img", img)
                 else:
-                    filename = f"{coords[0][0].replace(' ', '_')}.jpg"
+                    filename = f"{coords[0].replace(' ', '_')}.jpg"
                     cv2.imwrite(filename, img)
                     print(f" > Saved {filename}")
                 return center
