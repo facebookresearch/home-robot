@@ -57,6 +57,9 @@ if __name__ == "__main__":
         choices=["baseline", "random"],
         help="Agent to evaluate",
     )
+    parser.add_argument("--ep_start", type=int, default=None)
+    parser.add_argument("--ep_end", type=int, default=None)
+
     parser.add_argument(
         "overrides",
         default=None,
@@ -64,7 +67,10 @@ if __name__ == "__main__":
         help="Modify config options from command line",
     )
     args = parser.parse_args()
-
+    if args.ep_start is not None and args.ep_end is not None:
+        args.overrides.append(
+            f'habitat.dataset.episode_ids=[{",".join([str(i) for i in range(args.ep_start, args.ep_end)])}]'
+        )
     # get habitat config
     habitat_config, _ = get_habitat_config(
         args.habitat_config_path, overrides=args.overrides
