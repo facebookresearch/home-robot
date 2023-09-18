@@ -66,9 +66,10 @@ class Midas:
 
 class SpotGoatEnv(SpotEnv):
     def __init__(
-        self, position_control: bool = False, estimated_depth_threshold: float = 5
+        self, spot, position_control: bool = False, estimated_depth_threshold: float = 5
     ):
-        super().__init__()
+        super().__init__(spot)
+        self.spot = spot
         self.position_control = position_control
 
         self.sem_categories = list(coco_categories.keys())

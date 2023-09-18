@@ -3,16 +3,18 @@
 # This source code is licensed under the MIT license found in the
 # LICENSE file in the root directory of this source tree.
 
-import pickle
 import argparse
-# from evaluator import OVMMEvaluator
-from home_robot.agent.ovmm_agent.vlm_agent import VLMAgent
+import pickle
+
 from utils.config_utils import (
     create_agent_config,
     create_env_config,
     get_habitat_config,
     get_omega_config,
 )
+
+# from evaluator import OVMMEvaluator
+from home_robot.agent.ovmm_agent.vlm_agent import VLMAgent
 
 
 def main():
@@ -84,10 +86,14 @@ def main():
         help="Max idx of episode",
     )
 
-    parser.add_argument("--cfg-path", default="src/home_robot/home_robot/perception/detection/minigpt4/MiniGPT-4/eval_configs/ovmm_test.yaml",
-                        help="path to configuration file.")
-    parser.add_argument("--gpu-id", type=int, default=1,
-                        help="specify the gpu to load the model.")
+    parser.add_argument(
+        "--cfg-path",
+        default="src/home_robot/home_robot/perception/detection/minigpt4/MiniGPT-4/eval_configs/ovmm_test.yaml",
+        help="path to configuration file.",
+    )
+    parser.add_argument(
+        "--gpu-id", type=int, default=0, help="specify the gpu to load the model."
+    )
 
     parser.add_argument(
         "--instance_memory",
@@ -128,20 +134,25 @@ def main():
 
     # merge env config and baseline config to create agent config
     agent_config = create_agent_config(env_config, baseline_config)
-    with open(parsed_args.instance_memory, 'rb') as f:
+    with open(parsed_args.instance_memory, "rb") as f:
         instance_memory = pickle.load(f)
     agent = VLMAgent(config=agent_config, args=parsed_args)
 
     while True:
         world_representation = agent.get_obj_centric_world_representation(
-            external_instance_memory=instance_memory)
+            external_instance_memory=instance_memory
+        )
         print(
-            "Saving the object crops (as world represenation) into crops_for_planning/ ...")
+            "Saving the object crops (as world represenation) into crops_for_planning/ ..."
+        )
         task = input("task: ")
         agent.set_task(task)
         plan = agent.ask_vlm_for_plan(world_representation)
         print("Plan: " + str(plan))
-        print("(Don't forget to check the crops_for_planning/ folder to see if the above plan makes sense to you)")
+        print(
+            "(Don't forget to check the crops_for_planning/ folder to see if the above plan makes sense to you)"
+        )
+        input("Hit enter if the check is over and you want to continue testing")
 
 
 if __name__ == "__main__":
