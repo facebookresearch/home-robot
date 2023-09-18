@@ -6,7 +6,6 @@
 from typing import Dict, List, Optional
 
 import numpy as np
-import open3d
 
 from home_robot.agent.ovmm_agent import (
     OvmmPerception,
@@ -97,6 +96,8 @@ def main(dock: Optional[int] = None):
         # Create pointcloud
         if len(pcd_filename) > 0:
             pcd = numpy_to_pcd(pc_xyz, pc_rgb / 255)
+            import open3d
+
             open3d.io.write_point_cloud(pcd_filename, pcd)
             print(f"... wrote pcd to {pcd_filename}")
         if len(pkl_filename) > 0:
