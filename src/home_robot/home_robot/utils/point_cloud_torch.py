@@ -239,7 +239,7 @@ def get_one_point_per_voxel_from_pointcloud(
     return unique_grid_xyz_indices
 
 
-def get_bounds(points: Tensor):
+def get_bounds(points: Tensor, tol: float = 1e-4):
     """Returns min and max along each dimension
 
     Args:
