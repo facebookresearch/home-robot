@@ -244,6 +244,7 @@ class GraspController:
         """
         if self.pick_location is not None:
             return self.pick_location
+        return None
 
     def gaze_and_grasp(self):
         image_response = self.spot.get_image_responses([SpotCamIds.HAND_COLOR])
