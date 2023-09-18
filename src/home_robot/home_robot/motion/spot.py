@@ -4,8 +4,7 @@
 # LICENSE file in the root directory of this source tree.
 import numpy as np
 
-from home_robot.motion.base import Footprint
-from home_robot.motion.robot import Robot
+from home_robot.motion.robot import Footprint, Robot
 
 
 class SimpleSpotKinematics(Robot):

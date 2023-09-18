@@ -26,11 +26,6 @@ from pytorch3d.vis.plotly_vis import AxisArgs
 from spot_wrapper.basic_streaming_visualizer_numpy import obstacle_grid_points
 from spot_wrapper.spot import Spot, build_image_request, image_response_to_cv2
 
-from home_robot.agent.ovmm_agent import (
-    OvmmPerception,
-    build_vocab_from_category_map,
-    read_category_map_file,
-)
 from home_robot.core.interfaces import Action, Observations
 from home_robot.utils.bboxes_3d_plotly import plot_scene_with_bboxes
 from home_robot.utils.config import get_config
@@ -42,9 +37,12 @@ DEPTH_FORMAT = image_pb2.Image.PixelFormat.PIXEL_FORMAT_DEPTH_U16
 BODY_THERSH = 10000 / 255
 HAND_THERSH = 6000 / 255
 RGB_THRESH = 1
+RGB_TO_BGR = [2, 1, 0]
 CAMERA_SOURCES = [
     ("hand_depth_in_hand_color_frame", DEPTH_FORMAT, HAND_THERSH, None),
     ("hand_color_image", RGB_FORMAT, RGB_THRESH, None),
+]
+IGNORED_SOURCES = [
     ("back_depth_in_visual_frame", DEPTH_FORMAT, BODY_THERSH, None),
     ("back_fisheye_image", RGB_FORMAT, RGB_THRESH, None),
     (
@@ -70,6 +68,8 @@ CAMERA_SOURCES = [
 SENSOR_FRAME_NAMES = [
     "hand_color_image_sensor",
     "hand_color_image_sensor",
+]
+IGNORED_NAMES = [
     "back_fisheye",
     "back_fisheye",
     "frontleft_fisheye",
@@ -112,6 +112,7 @@ class SpotPublishers:
             thread.start()
 
         self.updated = False
+        self.observation_index = 0
 
         print("waiting for first observation")
         while not self.updated:
@@ -129,7 +130,7 @@ class SpotPublishers:
         last_update = time.time()
         while True:
             self.observations = self.get_cam_observations()
-            self.observations.update(self.get_obstacle_map())
+            self.observation_index += 1
             self.updated = True
             if self.verbose:
                 print("FPS: ", 1 / (time.time() - last_update))
@@ -157,8 +158,20 @@ class SpotPublishers:
             py=intrins.principal_point.y,
         )
 
-    def get_cam_observations(self):
-        responses = self.spot.image_client.get_image(self.reqs)
+    def get_cam_observations(self, debug: bool = False):
+        if debug:
+            response_dict = {}
+            for req in self.reqs:
+                try:
+                    response = self.spot.image_client.get_image([req])[0]
+                    response_dict[req.image_source_name] = response
+                except Exception as e:
+                    print(
+                        f"-----------------\n{req=}\nException: {e}\n-----------------"
+                    )
+            responses = list(response_dict.values())
+        else:
+            responses = self.spot.image_client.get_image(self.reqs)
 
         snapshots = [res.shot.transforms_snapshot for res in responses]
 
@@ -330,7 +343,7 @@ def build_obs_from_spot_image_responses(
     color_response: Optional[image_pb2.ImageResponse],
 ):
     # Get camera parameters
-    camera: PinholeCamera = get_camera_from_spot_image_response(depth_response)
+    camera: PinholeCamera = get_camera_from_spot_image_response(color_response)
     cam_to_world = torch.eye(4)
     cam_to_world[:3, :3] = camera.orn
     cam_to_world[:3, 3] = camera.pos
@@ -405,16 +418,17 @@ def create_triad_pointclouds(R, T, n_points=1, scale=0.1):
 
 
 class SpotClient:
-    def __init__(self, config, name="home_robot_spot"):
+    def __init__(self, config, name="home_robot_spot", dock_id: Optional[int] = None):
         self.spot = Spot(name)
         self.lease = None
         self.publishers = SpotPublishers(self.spot, verbose=False)
+        self.dock_id = dock_id
 
         # Parameters from Config
         self.config = config
         self.gaze_arm_joint_angles = np.deg2rad(config.SPOT.GAZE_ARM_JOINT_ANGLES)
         self.place_arm_joint_angles = np.deg2rad(config.SPOT.PLACE_ARM_JOINT_ANGLES)
-        self.MAX_CMD_DURATION = config.SPOT.MAX_CMD_DURATION
+        self.max_cmd_duration = config.SPOT.MAX_CMD_DURATION
         self.hand_depth_threshold = config.SPOT.HAND_DEPTH_THRESHOLD
         self.base_height = config.SPOT.BASE_HEIGHT
 
@@ -537,17 +551,19 @@ class SpotClient:
         )
         return home_robot_obs
 
-    def get_rgbd_obs(self, semantic_sensor: Optional[OvmmPerception] = None):
+    def get_rgbd_obs(self, verbose: bool = False) -> Observations:
         """Get information from the Spot sensors with pose and other information"""
-        depth_response = self.raw_observations["responses"][
-            4
-        ]  # frontleft_depth_in_visual_frame
-        color_response = self.raw_observations["responses"][
-            5
-        ]  # frontleft_fisheye_image
+        # Get hand depth and color responses
+        # depth_response = self.raw_observations["responses"]["hand_depth_in_hand_color_frame"]
+        # color_response = self.raw_observations["responses"]["hand_color_image"]
+        depth_response = self.raw_observations["responses"][0]
+        color_response = self.raw_observations["responses"][1]
+        # Get hand depth and color responses
+        # depth_response = self.raw_observations["responses"][4]
+        # color_response = self.raw_observations["responses"][5]
+        # update observations
         obs = build_obs_from_spot_image_responses(depth_response, color_response)
-        if semantic_sensor is not None:
-            obs = semantic_sensor.predict(obs)
+        obs.rgb = obs.rgb[..., RGB_TO_BGR]
         # keep_mask = (0.4 < obs.depth) & (obs.depth < 4.0)
 
         # Normalize GPS
@@ -562,6 +578,8 @@ class SpotClient:
         obs.compass = relative_compass
 
         K = obs.camera_K
+        # print("Camera pose is:", obs.camera_pose)
+
         full_world_xyz = unproject_masked_depth_to_xyz_coordinates(  # Batchable!
             depth=obs.depth.unsqueeze(0).unsqueeze(1),
             pose=obs.camera_pose.unsqueeze(0),
@@ -570,9 +588,11 @@ class SpotClient:
         )
         obs.xyz = full_world_xyz.view(*list(obs.rgb.shape))
         obs.rgb = obs.rgb * 255
-        print("xyz.shape =", obs.xyz.shape)
-        print("rgb.shape =", obs.rgb.shape)
-        print("depth.shape =", obs.depth.shape)
+        if verbose:
+            print("--- SHAPE INFO ---")
+            print("xyz.shape =", obs.xyz.shape)
+            print("rgb.shape =", obs.rgb.shape)
+            print("depth.shape =", obs.depth.shape)
 
         # TODO: apply keep mask to instance and semantic classification channels in the observations as well
 
@@ -654,15 +674,17 @@ class SpotClient:
         self.publishers.stop()
 
     def stop(self):
-        try:
-            self.spot.dock()
-        except Exception as e:
-            print(e)
+        """Try to safely stop the robot."""
+        if self.dock_id is not None:
+            try:
+                self.spot.dock(self.dock_id)
+            except Exception as e:
+                print(e)
 
         self.spot.power_off()
 
         # How do we close the lease
-        self.lease.close()
+        self.lease.__exit__(None, None, None)
         self.lease = None
 
     def move_base_point(self, xyt: np.ndarray):
@@ -680,8 +702,40 @@ class SpotClient:
     def move_base(self, lin, ang, scaling_factor=0.5):
         base_action = np.array([lin, 0, ang])
         scaled = np.clip(base_action, -1, 1) * scaling_factor
-        self.spot.set_base_velocity(*scaled, self.MAX_CMD_DURATION)
+        self.spot.set_base_velocity(*scaled, self.max_cmd_duration)
         return self.raw_observations
+
+
+class VoxelMapSubscriber:
+    """
+    This class is used to update the voxel map with spot observations, runs on a separate thread
+    """
+
+    def __init__(self, spot, voxel_map, semantic_sensor):
+        self.spot = spot
+        self.voxel_map = voxel_map
+        self.semantic_sensor = semantic_sensor
+        self.current_obs = 0
+
+    def start(self):
+        self.thread = Thread(target=self.update)
+        self.thread.daemon = True
+        self.thread.start()
+
+    def update(self, verbose=False):
+        last_update = time.time()
+        while True:
+            if self.current_obs < self.spot.publishers.observation_index:
+                obs = self.spot.get_rgbd_obs()
+                obs = self.semantic_sensor.predict(obs)
+                self.voxel_map.add_obs(obs, xyz_frame="world")
+
+                # FPS ( tested at ~.8)
+                if verbose:
+                    print("Added observation to voxel map")
+                    print("FPS: ", 1 / (time.time() - last_update))
+                last_update = time.time()
+                self.current_obs += 1
 
 
 if __name__ == "__main__":
@@ -689,17 +743,17 @@ if __name__ == "__main__":
         config = get_config("projects/spot/configs/config.yaml")[0]
         spot = SpotClient(config=config)
 
+        from home_robot.agent.ovmm_agent import (
+            OvmmPerception,
+            build_vocab_from_category_map,
+            read_category_map_file,
+        )
         from home_robot.mapping.voxel import SparseVoxelMap  # Aggregate 3d information
-
-        # from home_robot.mapping.voxel_map import SparseVoxelMapNavigationSpace  # Sample positions in free space for our robot to move to
-        # from home_robot.motion.spot import SimpleSpotKinematics  # Just saves the Spot robot footprint for kinematic planning
         from home_robot_hw.utils.config import load_config
 
         # TODO move these parameters to config
         voxel_size = 0.05
         voxel_map = SparseVoxelMap(resolution=voxel_size, local_radius=0.1)
-        # robot_model = SimpleSpotKinematics()
-        # navigation_space = SparseVoxelMapNavigationSpace(voxel_map=voxel_map, robot_model=robot_model, step_size=0.1)
 
         # Create segmentation sensor and load config. Returns config from file, as well as a OvmmPerception object that can be used to label scenes.
         print("- Loading configuration")
@@ -716,11 +770,10 @@ if __name__ == "__main__":
 
         # Turn on the robot using the client above
         spot.start()
-        print("Got all images")
 
-        spot.move_base(0.0, 0.0)
-        # breakpoint()
-        # print(INSTRUCTIONS)
+        # Start thread to update voxel map
+        voxel_map_subscriber = VoxelMapSubscriber(spot, voxel_map, semantic_sensor)
+        voxel_map_subscriber.start()
 
         linear = input("Input Linear: ")
         angular = input("Input Angular: ")
@@ -734,20 +787,29 @@ if __name__ == "__main__":
             "intrinsics": [],
         }
 
+        action_index, visualization_frequency = 0, 5
         while linear != "" and angular != "":
             try:
                 spot.move_base(float(linear), float(angular))
             except Exception:
                 print("Error -- try again")
 
-            obs = spot.get_rgbd_obs(semantic_sensor)
-            voxel_map.add_obs(obs, xyz_frame="world")
+            # obs = spot.get_rgbd_obs()
+            # obs = semantic_sensor.predict(obs)
+            # voxel_map.add_obs(obs, xyz_frame="world")
             print("added, now display something")
-            voxel_map.show(backend="open3d", instances=False)
+            if action_index % visualization_frequency == 0 and action_index > 0:
+                print(
+                    "Observations processed for the map so far: ",
+                    voxel_map_subscriber.current_obs,
+                )
+                print("Actions taken so far: ", action_index)
+                voxel_map.show(backend="open3d", instances=False)
 
             linear = input("Input Linear: ")
             angular = input("Input Angular: ")
             # viz_data = spot.make_3d_viz(viz_data)
+            action_index += 1
 
     except Exception as e:
         print(e)
