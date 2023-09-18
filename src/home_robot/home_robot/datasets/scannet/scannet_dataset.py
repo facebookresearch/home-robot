@@ -101,6 +101,17 @@ class ScanNetDataset(object):
         ├── scannet_infos_test.pkl
 
         """
+        assert (
+            n_classes in SCANNET_DATASET_COLOR_MAPS
+        ), f"{n_classes=} must be in {SCANNET_DATASET_COLOR_MAPS.keys()}"
+        self.METAINFO = {
+            "COLOR_MAP": SCANNET_DATASET_COLOR_MAPS[n_classes],
+            "CLASS_NAMES": SCANNET_DATASET_CLASS_LABELS[n_classes],
+            "CLASS_IDS": SCANNET_DATASET_CLASS_IDS[n_classes],
+        }
+
+        self.class_ids_ten = torch.tensor(self.METAINFO["CLASS_IDS"])
+
         # Set up directories and metadata
         assert split in ["train", "val", "test"]
         self.root_dir = Path(root_dir)
@@ -115,12 +126,6 @@ class ScanNetDataset(object):
 
         assert (self.height is None) == (self.width is None)  # Neither or both
         self.frame_skip = frame_skip
-
-        self.METADATA = {
-            "COLOR_MAP": SCANNET_DATASET_COLOR_MAPS[n_classes],
-            "CLASS_NAMES": SCANNET_DATASET_CLASS_LABELS[n_classes],
-            "CLASS_IDS": SCANNET_DATASET_CLASS_IDS[n_classes],
-        }
 
         # Create scene list
         with open(self.root_dir / "meta_data" / f"scannetv2_{split}.txt", "rb") as f:
@@ -271,6 +276,12 @@ class ScanNetDataset(object):
         boxes_aligned, box_classes, box_obj_ids = load_3d_bboxes(
             data["bboxs_aligned_path"]
         )
+        keep_boxes = (box_classes.unsqueeze(1) == self.class_ids_ten.unsqueeze(0)).any(
+            dim=1
+        )
+        boxes_aligned = boxes_aligned[keep_boxes]
+        box_classes = box_classes[keep_boxes]
+        box_obj_ids = box_obj_ids[keep_boxes]
 
         if len(boxes_aligned) == 0:
             raise RuntimeError(f"No GT boxes for scene {scan_name}")

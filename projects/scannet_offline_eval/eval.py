@@ -38,8 +38,8 @@ def eval_runner(
     # SETUP EVAL
     class_id_to_class_names = dict(
         zip(
-            dataset.METAINFO["seg_valid_class_ids"],  # IDs [1, 3, 4, 5, ..., 65]
-            dataset.METAINFO["classes"],  # [wall, floor, cabinet, ...]
+            dataset.METAINFO["CLASS_IDS"],  # IDs [1, 3, 4, 5, ..., 65]
+            dataset.METAINFO["CLASS_NAMES"],  # [wall, floor, cabinet, ...]
         )
     )
     # If this is an open-vocab detector, they sometimes require a vocab

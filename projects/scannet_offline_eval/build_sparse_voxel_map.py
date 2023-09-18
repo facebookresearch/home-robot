@@ -3,13 +3,8 @@
 # This source code is licensed under the MIT license found in the
 # LICENSE file in the root directory of this source tree.
 """
-    Placeholder code to create 3D map from a scannet scene
-    Currently not functional
+    Creates a SparseVoxelMap of a ScanNet scene and evaluates it on that scene
 """
-import argparse
-import dataclasses
-import sys
-import timeit
 from enum import IntEnum, auto
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Sequence, Tuple, Union
@@ -19,6 +14,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 import torch
 from evaluation.obj_det import eval_bboxes_and_print
+from hydra_zen import store, zen
 from torch import Tensor
 from tqdm import tqdm
 
@@ -28,13 +24,6 @@ from home_robot.datasets.scannet import ScanNetDataset
 from home_robot.mapping.semantic.instance_tracking_modules import Instance
 from home_robot.mapping.voxel import SparseVoxelMap
 from home_robot.perception.constants import RearrangeDETICCategories
-from home_robot.utils.bboxes_3d import (
-    box3d_intersection_from_bounds,
-    box3d_volume_from_bounds,
-)
-from home_robot.utils.config import get_config
-from home_robot.utils.point_cloud_torch import get_bounds
-from home_robot.utils.voxel import VoxelizedPointcloud
 
 
 class SemanticVocab(IntEnum):
@@ -63,25 +52,12 @@ class SparseVoxelMapAgent:
         visualize_planner=False,
         device="cpu",
         cache_dir: Optional[Union[Path, str]] = None,
-        global_nms_thresh: float = 0.0,
-        instance_box_compression_resolution: float = 0.01,
-        instance_box_compression_drop_prop: float = 0.1,
     ):
         self.device = device
         self.semantic_sensor = semantic_sensor
         self.voxel_map = voxel_map
         self.visualize_planner = visualize_planner
         self.cache_dir = cache_dir
-        self.global_nms_thresh = global_nms_thresh
-        self.instance_box_compression_resolution = instance_box_compression_resolution
-        self.instance_box_compression_drop_prop = instance_box_compression_drop_prop
-
-        if voxel_map is None:
-            _default_args = dict(
-                resolution=0.01,
-                background_instance_label=-1,
-            )
-            self.voxel_map = SparseVoxelMap(**_default_args)
 
     def reset(self):
         self.voxel_map.reset()
@@ -167,7 +143,7 @@ class SparseVoxelMapAgent:
 
     def build_scene_and_get_instances_for_queries(
         self, scene_obs: Dict[str, Any], queries: Sequence[str]
-    ):
+    ) -> Dict[str, List[Instance]]:
         """_summary_
 
         Args:
@@ -201,34 +177,7 @@ class SparseVoxelMapAgent:
             )
             obs_list.append(obs)
         self.step_trajectory(obs_list)
-
-        # Do NMS on global bboxes
-        if self.global_nms_thresh > 0.0 and len(self.voxel_map.get_instances()) > 0:
-            # Loop this since when we combine bboxes, they are now bigger.
-            # And some bounding boxes might be inside the new larger bboxes
-            last_n_instances = -1
-            while len(self.voxel_map.get_instances()) != last_n_instances:
-                if self.instance_box_compression_drop_prop > 0.0:
-                    compress_instance_bounds_(
-                        instances=self.voxel_map.get_instances(),
-                        drop_prop=self.instance_box_compression_drop_prop,
-                        voxel_size=self.instance_box_compression_resolution,
-                    )
-                last_n_instances = len(self.voxel_map.get_instances())
-                self.voxel_map.instances.global_instance_nms(
-                    0, within_category=True, nms_iou_thresh=self.global_nms_thresh
-                )
-
-        # Compute tighter boxes by dropping lowest-weight points
-        if (
-            self.instance_box_compression_drop_prop > 0.0
-            and len(self.voxel_map.get_instances()) > 0
-        ):
-            compress_instance_bounds_(
-                instances=self.voxel_map.get_instances(),
-                drop_prop=self.instance_box_compression_drop_prop,
-                voxel_size=self.instance_box_compression_resolution,
-            )
+        self.voxel_map.postprocess_instances()
 
         # Get query results
         instances_dict = {}
@@ -257,198 +206,54 @@ class SparseVoxelMapAgent:
         )
 
 
-def compress_instance_bounds_(
-    instances: Sequence[Instance],
-    drop_prop: float,
-    voxel_size: float,
-    min_voxels_to_compress: int = 3,
-    min_vol: float = 1e-6,
+@store(name="main")
+@torch.no_grad()
+def main(
+    model: SparseVoxelMapAgent,
+    dataset: ScanNetDataset,
+    scene_name: str = "scene0192_00",
+    show_backend: Optional[str] = "open3d",
+    torch_device: str = "cuda",
 ):
-    """Trailing _ in torch indicate in-place"""
-    for instance in instances:
-        reduced_points = drop_smallest_weight_points(
-            instance.point_cloud,
-            drop_prop=drop_prop,
-            voxel_size=voxel_size,
-            min_points_after_drop=min_voxels_to_compress,
-        )
-        new_bounds = get_bounds(reduced_points)
-        if box3d_volume_from_bounds(new_bounds) >= min_vol:
-            instance.bounds = new_bounds
-    return instances
+    """Builds a SparseVoxelMap for a ScanNetScene and evaluates object detection against GT
 
-
-def drop_smallest_weight_points(
-    points: Tensor,
-    voxel_size: float = 0.01,
-    drop_prop: float = 0.1,
-    min_points_after_drop: int = 3,
-):
-    voxel_pcd = VoxelizedPointcloud(
-        voxel_size=voxel_size,
-        dim_mins=None,
-        dim_maxs=None,
-        feature_pool_method="mean",
-    )
-    voxel_pcd.add(
-        points=points,
-        features=None,  # instance.point_cloud_features,
-        rgb=None,  # instance.point_cloud_rgb,
-    )
-    orig_points = points
-    points = voxel_pcd._points
-    weights = voxel_pcd._weights
-    assert len(points) > 0, points.shape
-    weights_sorted, sort_idxs = torch.sort(weights, dim=0)
-    points_sorted = points[sort_idxs]
-    weights_cumsum = torch.cumsum(weights_sorted, dim=0)
-    above_cutoff = weights_cumsum >= (drop_prop * weights_cumsum[-1])
-    cutoff_idx = int(above_cutoff.max(dim=0).indices)
-    if len(points_sorted[cutoff_idx:]) < min_points_after_drop:
-        return orig_points
-    # print(f"Reduced {len(orig_points)} -> {len(points)} -> {above_cutoff.sum()}")
-    return points_sorted[cutoff_idx:]
-
-
-if __name__ == "__main__":
-    from evaluation.obj_det import eval_bboxes_and_print
-
-    from home_robot.perception.detection.detic.detic_perception import DeticPerception
-
-    parser = argparse.ArgumentParser(
-        prog="build_3d_map",
-        description="Builds 3D map of a scannet scene from a RGBD trajectory and evaluates object detection",
-    )
-
-    parser.add_argument(
-        "--scannet-dir",
-        default="/private/home/ssax/home-robot/src/home_robot/home_robot/datasets/scannet/data",
-        help="Directory where scannet dataset lives",
-    )
-    parser.add_argument(
-        "-f",
-        "--frame-skip",
-        type=int,
-        default=180,
-        help="Subsample every frame-skip frames in the trajectory",
-    )
-    parser.add_argument(
-        "-s",
-        "--scene-name",
-        type=str,
-        default="scene0192_00",
-        help="Which ScanNet scene to load. scene0192_00 is a small scene, scene0000_00 is a large scene",
-    )
-    parser.add_argument(
-        "--detector-config",
-        type=str,
-        default=None,
-        help="Location of detector config file",
-    )
-    parser.add_argument(
-        "-d",
-        "--device",
-        type=int,
-        default=0,
-        help="Which device to use for torch operations. -1 for cpu",
-    )
-    parser.add_argument(
-        "--show-open3d",
-        action="store_true",
-        help="Display the scene in an Open3D visualizer window",
-    )
-    args = parser.parse_args()
-    torch_device = "cpu" if args.device == -1 else f"cuda:{args.device}"
-
-    # Load specific scene
-    data = ScanNetDataset(
-        root_dir=args.scannet_dir,
-        frame_skip=args.frame_skip,
-        # referit3d_config = ReferIt3dDataConfig(),
-        # scanrefer_config = ScanReferDataConfig(),
-    )
-    idx = data.scene_list.index(args.scene_name)
-    scene_obs = data.__getitem__(idx, show_progress=True)
-    print(
-        f"--Finished loading scannet scene: images of (h: {data.height}, w: {data.width}) - resized from ({data.DEFAULT_HEIGHT},{data.DEFAULT_WIDTH})"
-    )
-
-    # Set up detector
-    # TODO: Instantiate this from config file and allow using detectors besides detic
-    segmenter = DeticPerception(
-        config_file=None,
-        vocabulary="custom",
-        custom_vocabulary=",".join(data.METAINFO["classes"]),
-        checkpoint_file=None,
-        sem_gpu_id=args.device,
-    )
-
-    # Get detections
-    scene_obs["instance_map"] = []
-    scene_obs["instance_classes"] = []
-    scene_obs["instance_scores"] = []
-    with torch.no_grad():
-        instance_map, instance_classes, instance_scores = [], [], []
-        semantic_frames = []
-        for im in tqdm(
-            scene_obs["images"].cpu().numpy(),
-            desc="Running semantic_sensor one image at a time...",
-        ):
-            obs = Observations(rgb=im * 255, gps=None, compass=None, depth=None)
-            res = segmenter.predict(obs).task_observations
-            instance_map.append(
-                torch.from_numpy(res["instance_map"]).int().to(torch_device)
-            )
-            instance_classes.append(
-                torch.from_numpy(res["instance_classes"]).int().to(torch_device)
-            )
-            instance_scores.append(
-                torch.from_numpy(res["instance_scores"]).float().to(torch_device)
-            )
-            semantic_frames.append(torch.from_numpy(res["semantic_frame"]).int())
-        scene_obs["instance_map"] = torch.stack(instance_map, dim=0)
-        scene_obs["instance_classes"] = instance_classes
-        scene_obs["instance_scores"] = instance_scores
-        scene_obs["semantic_frame"] = semantic_frames
-
+    Args:
+        model (SparseVoxelMapAgent): _description_
+        dataset (ScanNetDataset): _description_
+        scene_name (str, optional): _description_. Defaults to 'scene0192_00'.
+        show_backend (Optional[str], optional): _description_. Defaults to 'open3d'.
+        torch_device (str, optional): _description_. Defaults to 'cuda'.
+    """
+    idx = dataset.scene_list.index(scene_name)
+    scene_obs = dataset.__getitem__(idx, show_progress=True)
     # Move other keys to device
     for key in ["images", "depths", "intrinsics", "poses"]:
         scene_obs[key] = scene_obs[key].to(torch_device)
 
     # Add to ScanNetSparseVoxelMap
-    sn_svm = SparseVoxelMapAgent(
-        background_instance_label=-1,
-        resolution=0.01,
-    )
     n_frames = len(scene_obs["images"])
     with torch.no_grad():
         for i in tqdm(range(n_frames), desc="Adding observations to map"):
             obs = Observations(
-                gps=None,  # (x, y) where positive x is forward, positive y is translation to left in meters
-                compass=None,  # positive theta is rotation to left in radians - consistent with robot
-                rgb=scene_obs["images"][i]
-                * 255,  # (camera_height, camera_width, 3) in [0, 255]
-                depth=scene_obs["depths"][i],  # (camera_height, camera_width) in meters
-                semantic=semantic_frames[
-                    i
-                ],  # (camera_height, camera_width) in [0, num_sem_categories - 1]
-                # Instance IDs per observation frame
-                # Size: (camera_height, camera_width)
-                # Range: 0 to max int
+                gps=None,
+                compass=None,
+                rgb=scene_obs["images"][i] * 255,
+                depth=scene_obs["depths"][i],
+                semantic=None,
                 instance=scene_obs["instance_map"][i],
                 # Pose of the camera in world coordinates
                 camera_pose=scene_obs["poses"][i],
                 camera_K=scene_obs["intrinsics"][i],
                 task_observations={
-                    "instance_classes": scene_obs["instance_classes"][i],
-                    "instance_scores": scene_obs["instance_scores"][i],
-                    "features": scene_obs["images"][i],
+                    # "instance_classes": scene_obs["instance_classes"][i],
+                    # "instance_scores": scene_obs["instance_scores"][i],
+                    # "features": scene_obs["images"][i],
                 },
             )
-            sn_svm.step(obs)
+            model.step(obs)
 
     # Evaluate against GT object detection + localization
-    instances = sn_svm.voxel_map.get_instances()
+    instances = model.voxel_map.get_instances()
     bounds = torch.stack([inst.bounds.cpu() for inst in instances])
     scores = torch.stack(
         [
@@ -457,7 +262,7 @@ if __name__ == "__main__":
         ]
     )
     classes = torch.stack([inst.category_id.cpu() for inst in instances])
-    detic_to_scannet_classes = torch.tensor(data.METAINFO["seg_valid_class_ids"])
+    detic_to_scannet_classes = torch.tensor(dataset.METAINFO["CLASS_IDS"])
     classes = detic_to_scannet_classes[classes]
 
     eval_bboxes_and_print(
@@ -471,5 +276,17 @@ if __name__ == "__main__":
         # label_to_cat=
     )
 
-    if args.show_open3d:
-        sn_svm.voxel_map.show(backend="open3d")
+    if show_backend:
+        model.voxel_map.show(backend=show_backend)
+
+
+if __name__ == "__main__":
+    import warnings
+
+    warnings.simplefilter("default")
+    store.add_to_hydra_store()
+    zen(main).hydra_main(
+        version_base="1.3",
+        config_name="eval.yaml",
+        config_path="configs",
+    )
