@@ -13,6 +13,10 @@ os.environ["MAGNUM_LOG"] = "quiet"
 os.environ["HABITAT_SIM_LOG"] = "quiet"
 
 
+def euclidean(v1, v2):
+    return sum((p - q) ** 2 for p, q in zip(v1, v2)) ** 0.5
+
+
 class ShortestPathFollowerAgent(Agent):
     r"""Implementation of the :ref:`habitat.core.agent.Agent` interface that
     uses :ref`habitat.tasks.nav.shortest_path_follower.ShortestPathFollower` utility class
@@ -47,7 +51,18 @@ class ShortestPathFollowerAgent(Agent):
             goal_radius=goal_radius,
             return_one_hot=False,
         )
-        self.goal_coordinates = goal_coordinates
+
+        filtered_goal_coordinates = []
+        final_reference_goal = goal_coordinates[-1]
+        for goal in goal_coordinates:
+            euclidean_distance_to_final_goal = euclidean(goal, final_reference_goal)
+            if euclidean_distance_to_final_goal < 4:
+                # only add the goal if it is within 4m of the final goal
+                filtered_goal_coordinates.append(goal)
+        if not len(filtered_goal_coordinates) and len(goal_coordinates):
+            filtered_goal_coordinates = goal_coordinates
+
+        self.goal_coordinates = filtered_goal_coordinates
         self.current_goal = (
             0  # index of the current goal in the list of goal coordinates
         )
@@ -58,15 +73,16 @@ class ShortestPathFollowerAgent(Agent):
                 self.goal_coordinates[self.current_goal]
             )
         ]
-        print(f"Oracle action: {action}")
-        print(f"Goal: {self.goal_coordinates[self.current_goal]}")
-        print(f"Agent: {self.shortest_path_follower._sim.robot.base_pos}")
+        # print(f"Oracle action: {action}")
+        # print(f"Goal: {self.goal_coordinates[self.current_goal]}")
+        # print(f"Agent: {self.shortest_path_follower._sim.robot.base_pos}")
 
         terminate = False
         if action == DiscreteNavigationAction.STOP:
             if self.current_goal >= len(self.goal_coordinates) - 1:
                 terminate = True  # completed all goals
             else:
+                print()
                 print("Reached goal! Moving to next goal...")
                 print(f"Curr goal: {self.goal_coordinates[self.current_goal]}")
                 print(f"Next goal: {self.goal_coordinates[self.current_goal+1]}")

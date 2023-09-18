@@ -13,12 +13,13 @@ from typing import TYPE_CHECKING, Any, Dict, Optional
 import cv2
 import numpy as np
 import pandas as pd
+from habitat.utils.visualizations.utils import build_text_image, images_to_video
 from habitat_baselines.rl.ppo.ppo_trainer import PPOTrainer
 from omegaconf import DictConfig
 from tqdm import tqdm
 from utils.env_utils import create_ovmm_env_fn
 from utils.metrics_utils import get_stats_from_episode_metrics
-from utils.video_utils import record_video
+from utils.video_utils import get_snapshots_from_disk, record_video
 
 if TYPE_CHECKING:
     from habitat.core.dataset import BaseEpisode
@@ -239,7 +240,7 @@ class OVMMEvaluator(PPOTrainer):
         with open(f"{self.results_dir}/summary_results.json", "w") as f:
             json.dump(average_metrics, f, indent=4)
 
-    def get_episode_completion_stage(self, metrics_at_episode_end):
+    def _get_episode_completion_stage(self, metrics_at_episode_end):
         # TODO: temporary
         if metrics_at_episode_end["END.ovmm_place_success"] == 1:
             return "0_overall_success"
@@ -252,6 +253,20 @@ class OVMMEvaluator(PPOTrainer):
         elif metrics_at_episode_end["END.ovmm_find_object_phase_success"] == 1:
             return "4_nav_to_object_success_but_pick_failure"
         return "5_nav_to_object_failure"
+
+    def get_episode_completion_stage(self, metrics_at_episode_end, coarse=False):
+        episode_completion_stage = self._get_episode_completion_stage(
+            metrics_at_episode_end
+        )
+        if coarse:
+            coarse_stage = (
+                "success"
+                if episode_completion_stage
+                in ["0_overall_success", "1_place_anywhere_on_goal_success"]
+                else "failure"
+            )
+            return coarse_stage
+        return episode_completion_stage
 
     def get_all_episode_completion_stages(self):
         # TODO: temporary: should be an Enum if productionized
@@ -316,16 +331,21 @@ class OVMMEvaluator(PPOTrainer):
             if skip_computed:
                 computed_episodes = []
                 for completion_stage in self.get_all_episode_completion_stages():
-                    target_dir = os.path.join(
+                    target_dir_experiment = os.path.join(
                         self.videos_dir, completion_stage, self.config.EXPERIMENT.type
                     )
-                    target_file = f"split_{self.config.EVAL_VECTORIZED.split}_scene_{current_scene_name}_episode_{current_episode.episode_id}"
-                    if os.path.exists(f"{target_dir}/{target_file}.json"):
+                    target_file_experiment = f"split_{self.config.EVAL_VECTORIZED.split}_scene_{current_scene_name}_episode_{current_episode.episode_id}"
+                    if os.path.exists(
+                        f"{target_dir_experiment}/{target_file_experiment}.json"
+                    ):
                         computed_episodes.append(current_episode_key)
                         break
                 if current_episode_key in computed_episodes:
                     try:
-                        with open(f"{target_dir}/{target_file}.json", "r") as f:
+                        with open(
+                            f"{target_dir_experiment}/{target_file_experiment}.json",
+                            "r",
+                        ) as f:
                             episode_metrics[current_episode_key] = json.load(f)
                         print(
                             f"Skipping episode {current_episode.episode_id} because it has already been computed"
@@ -340,11 +360,12 @@ class OVMMEvaluator(PPOTrainer):
                             target_dir_annotation = os.path.join(
                                 "video_dir_annotation",
                                 self.get_episode_completion_stage(
-                                    episode_metrics[current_episode_key]
+                                    episode_metrics[current_episode_key],
+                                    coarse=True,
                                 ),
                                 f"scene_{current_scene_name}",
                             )
-                            target_file_annotation = f"split_{self.config.EVAL_VECTORIZED.split}_episode_{current_episode.episode_id}_exp_{self.config.EXP_NAME.split('_')[-1]}"
+                            target_file_annotation = f"split_{self.config.EVAL_VECTORIZED.split}_episode_{current_episode.episode_id}"
                             os.makedirs(target_dir_annotation, exist_ok=True)
                             with open(
                                 f"{target_dir_annotation}/{target_file_annotation}.json",
@@ -357,7 +378,7 @@ class OVMMEvaluator(PPOTrainer):
                             import shutil
 
                             shutil.copyfile(
-                                f"{target_dir}/{target_file}.mp4",
+                                f"{target_dir_experiment}/{target_file_experiment}.mp4",
                                 f"{target_dir_annotation}/{target_file_annotation}.mp4",
                             )
 
@@ -368,26 +389,43 @@ class OVMMEvaluator(PPOTrainer):
                         )
 
             steps, max_steps = -1, 2000
+            max_nav_obj_steps = 800
             start_time = time.time()
 
             while not done and steps < max_steps:
                 steps += 1
-                print(f"\nTimestep:\t{steps}")
                 action, info, _ = agent.act(observations)
                 observations, done, hab_info = self._env.apply_action(action, info)
-                print(f"Current skill: {info['curr_skill']}")
                 print(
-                    f"info['ovmm_dist_to_pick_goal']:\t{hab_info['ovmm_dist_to_pick_goal']:.4f}"
+                    f"Timestep:\t{steps}\t{info['curr_skill']}\t({hab_info['ovmm_dist_to_pick_goal']:.4f},\t{hab_info['ovmm_dist_to_place_goal']:.4f})",
+                    end="\r",
                 )
-                print(
-                    f"info['ovmm_dist_to_keep_goal']:\t{hab_info['ovmm_dist_to_place_goal']:.4f}"
-                )
+                # print(f"Current skill: {info['curr_skill']}")
+                # print(
+                #     f"info['ovmm_dist_to_pick_goal']:\t{hab_info['ovmm_dist_to_pick_goal']:.4f}"
+                # )
+                # print(
+                #     f"info['ovmm_dist_to_keep_goal']:\t{hab_info['ovmm_dist_to_place_goal']:.4f}"
+                # )
+
+                if info["curr_skill"] == "NAV_TO_OBJ" and steps > max_nav_obj_steps:
+                    print("Nav to obj is taking too long, moving to next episode")
+                    break
 
                 if "skill_done" in info and info["skill_done"] != "":
                     metrics = self._extract_scalars_from_info(hab_info)
                     metrics_at_skill_end = {
                         f"{info['skill_done']}." + k: v for k, v in metrics.items()
                     }
+                    if (
+                        info["curr_skill"] == "NAV_TO_REC"
+                        and info["skill_done"] == "PICK"
+                        and metrics_at_skill_end["PICK.ovmm_pick_object_phase_success"]
+                        == 0
+                    ):
+                        print("Pick failure, the rest of the episode is moot")
+                        break
+
                     current_episode_metrics = {
                         **metrics_at_skill_end,
                         **current_episode_metrics,
@@ -406,37 +444,101 @@ class OVMMEvaluator(PPOTrainer):
                 **metrics_at_episode_end,
                 **current_episode_metrics,
             }
-            current_episode_metrics["episode_id"] = current_episode.episode_id
-            current_episode_metrics["scene_name"] = current_scene_name
             current_episode_metrics["data_split"] = self.config.EVAL_VECTORIZED.split
+            current_episode_metrics["scene_name"] = current_scene_name
+            current_episode_metrics["episode_id"] = current_episode.episode_id
+            current_episode_metrics[
+                "episode_completion_stage"
+            ] = self.get_episode_completion_stage(current_episode_metrics)
+            current_episode_metrics["experiment_name"] = self.config.EXP_NAME
+            current_episode_metrics["experiment_type"] = self.config.EXPERIMENT.type
             if "goal_name" in info:
                 current_episode_metrics["goal_name"] = info["goal_name"]
 
-            if self.config.EVAL_VECTORIZED.record_videos:
-                source_dir = os.path.join(self.images_dir, current_episode_key)
-                target_dir = os.path.join(
-                    self.videos_dir,
-                    self.get_episode_completion_stage(current_episode_metrics),
-                    self.config.EXPERIMENT.type,
-                )
-                target_file = f"split_{self.config.EVAL_VECTORIZED.split}_scene_{current_scene_name}_episode_{current_episode.episode_id}"
-                os.makedirs(target_dir, exist_ok=True)
-                with open(f"{target_dir}/{target_file}.json", "w") as f:
-                    json.dump(current_episode_metrics, f, indent=4)
-                record_video(source_dir, target_dir, target_file)
+            source_dir = os.path.join(self.images_dir, current_episode_key)
+            target_dir_experiment = os.path.join(
+                self.videos_dir,
+                self.get_episode_completion_stage(
+                    current_episode_metrics, coarse=False
+                ),
+                self.config.EXPERIMENT.type,
+            )
+            target_file_experiment = f"split_{self.config.EVAL_VECTORIZED.split}_scene_{current_scene_name}_episode_{current_episode.episode_id}"
 
-                target_dir_annotation = os.path.join(
-                    "video_dir_annotation",
-                    self.get_episode_completion_stage(current_episode_metrics),
-                    f"scene_{current_scene_name}",
+            target_dir_annotation = os.path.join(
+                "video_dir_annotation",
+                self.get_episode_completion_stage(current_episode_metrics, coarse=True),
+                f"scene_{current_scene_name}",
+            )
+            target_file_annotation = f"split_{self.config.EVAL_VECTORIZED.split}_episode_{current_episode.episode_id}"
+
+            save_down_videos = self.config.EVAL_VECTORIZED.record_videos
+            # try:
+            #     # if the episode has already been computed, and the new episode run is not better than the older, don't save down videos
+            #     # the definition of better is (1) new computation results in overall success, (2) new computation has less steps than older one.
+            #     metrics_from_earlier_run_of_same_episode = None
+            #     with open(f"""{os.path.join("video_dir_annotation", "success", f"scene_{current_scene_name}")}/{target_file_annotation}.json""", "r") as f:
+            #         metrics_from_earlier_run_of_same_episode = json.load(f)
+            #     if (
+            #         metrics_from_earlier_run_of_same_episode is not None and (
+            #             metrics_from_earlier_run_of_same_episode["END.num_steps"] <= current_episode_metrics["END.num_steps"]
+            #             or self.get_episode_completion_stage(current_episode_metrics, coarse=True) != "success"
+            #         )
+            #     ):
+            #         save_down_videos = False
+            # except Exception:
+            #     pass
+
+            if (
+                "v8" not in self.config.EXP_NAME
+                and self.get_episode_completion_stage(
+                    current_episode_metrics, coarse=True
                 )
-                target_file_annotation = f"split_{self.config.EVAL_VECTORIZED.split}_episode_{current_episode.episode_id}_exp_{self.config.EXP_NAME.split('_')[-1]}"
+                == "failure"
+            ):
+                save_down_videos = False
+
+            if save_down_videos:
+                os.makedirs(target_dir_experiment, exist_ok=True)
+                with open(
+                    f"{target_dir_experiment}/{target_file_experiment}.json", "w"
+                ) as f:
+                    json.dump(current_episode_metrics, f, indent=4)
+                # frames = get_snapshots_from_disk(source_dir, snapshot_file_prefix="tp_snapshot")
+                # if frames is not None and len(frames) > 0:
+                #     images_to_video(frames, target_dir_experiment, target_file_experiment, fps=24, quality=5)
+
                 os.makedirs(target_dir_annotation, exist_ok=True)
                 with open(
                     f"{target_dir_annotation}/{target_file_annotation}.json", "w"
                 ) as f:
                     json.dump(current_episode_metrics, f, indent=4)
-                record_video(source_dir, target_dir_annotation, target_file_annotation)
+
+                episode_frames = self._env.habitat_env.env._env._env._task._frames
+                if episode_frames is not None and len(episode_frames) > 0:
+                    robot_goal_text = build_text_image(
+                        episode_frames[0],
+                        f"Robot's goal: {current_episode_metrics['goal_name'].replace('_', ' ')}",
+                        color="black",
+                    )
+                    human_goal_text = build_text_image(
+                        episode_frames[0],
+                        "Your goal: Say the actions the robot is performing in natural language.",
+                        color="black",
+                    )
+                    episode_frames = [
+                        np.concatenate(
+                            (robot_goal_text, frame, human_goal_text), axis=0
+                        )
+                        for frame in episode_frames
+                    ]
+                    images_to_video(
+                        episode_frames,
+                        target_dir_annotation,
+                        target_file_annotation,
+                        fps=24,
+                        quality=5,
+                    )
 
             episode_metrics[current_episode_key] = current_episode_metrics
             count_episodes += 1

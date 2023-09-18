@@ -22,7 +22,15 @@ def aggregate_metrics(episode_metrics_df: pd.DataFrame) -> pd.DataFrame:
     """
     # Drop the columns with string values
     episode_metrics_df = episode_metrics_df.drop(
-        columns=["episode_id", "goal_name", "data_split", "scene_name", "episode_id"],
+        columns=[
+            "episode_id",
+            "goal_name",
+            "data_split",
+            "scene_name",
+            "episode_completion_stage",
+            "experiment_name",
+            "experiment_type",
+        ],
         errors="ignore",
     )
 

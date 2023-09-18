@@ -486,11 +486,11 @@ class ExplorationVisualizer:
             cv2.imshow("Visualization", self.image_vis)
             cv2.waitKey(1)
 
-        if self.print_images:
-            cv2.imwrite(
-                os.path.join(self.vis_dir, "snapshot_{:04d}.png".format(timestep)),
-                self.image_vis,
-            )
+        # if self.print_images:
+        #     cv2.imwrite(
+        #         os.path.join(self.vis_dir, "snapshot_{:04d}.png".format(timestep)),
+        #         self.image_vis,
+        #     )
 
     def _init_vis_image(self, goal_name: str):
         vis_image = np.ones((655, 1165, 3)).astype(np.uint8) * 255
