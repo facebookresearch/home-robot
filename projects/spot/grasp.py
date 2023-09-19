@@ -91,7 +91,7 @@ class GraspController:
         # Reset the arm to its original position
         self.look[3] = 0
         self.spot.set_arm_joint_positions(self.look, travel_time=1)
-        time.sleep(1)
+        time.sleep(0.5)
 
     def find_obj(self, img) -> np.ndarray:
         """
@@ -141,7 +141,7 @@ class GraspController:
                 )
                 if self.show_img:
                     cv2.imshow("img", img)
-                    
+
                 filename = f"{coords[0][0].replace(' ', '_')}.jpg"
                 cv2.imwrite(filename, img)
                 print(f" > Saved {filename}")
@@ -277,7 +277,7 @@ class GraspController:
         image_response = self.spot.get_image_responses([SpotCamIds.HAND_COLOR])
         hand_image_response = image_response[0]
         pixels = self.find_obj(img=imcv2(hand_image_response))
-        #print(f" > Finding object at {self.spot.get_arm_proprioception()}")
+        # print(f" > Finding object at {self.spot.get_arm_proprioception()}")
         if pixels is not None:
             print(f" > Found object at {pixels}, grasping it")
             success = self.grasp(hand_image_response=hand_image_response, pixels=pixels)
