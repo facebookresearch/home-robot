@@ -3,6 +3,7 @@
 # This source code is licensed under the MIT license found in the
 # LICENSE file in the root directory of this source tree.
 
+import time
 from typing import Dict, List, Optional
 
 import numpy as np
@@ -17,11 +18,14 @@ from home_robot.mapping.voxel import SparseVoxelMap  # Aggregate 3d information
 from home_robot.mapping.voxel_map import (  # Sample positions in free space for our robot to move to
     SparseVoxelMapNavigationSpace,
 )
+from home_robot.motion.rrt_connect import RRTConnect
+from home_robot.motion.shortcut import Shortcut
 from home_robot.motion.spot import (  # Just saves the Spot robot footprint for kinematic planning
     SimpleSpotKinematics,
 )
 from home_robot.utils.config import get_config, load_config
 from home_robot.utils.point_cloud import numpy_to_pcd
+from home_robot.utils.visualization import get_x_and_y_from_path
 from home_robot_spot import SpotClient, VoxelMapSubscriber
 
 
@@ -56,7 +60,13 @@ def main(dock: Optional[int] = None):
     semantic_sensor.update_vocabulary_list(vocab, 0)
     semantic_sensor.set_vocabulary(0)
 
+    planner = Shortcut(RRTConnect(navigation_space, navigation_space.is_valid))
+
     spot = SpotClient(config=spot_config, dock_id=dock)
+
+    # reset origin to current position
+    spot.spot.home_robot()
+    time.sleep(1)
     try:
         # Turn on the robot using the client above
         spot.start()
@@ -65,35 +75,45 @@ def main(dock: Optional[int] = None):
         voxel_map_subscriber = VoxelMapSubscriber(spot, voxel_map, semantic_sensor)
         voxel_map_subscriber.start()
 
-        spot.move_base(0.0, 0.0)
-        # breakpoint()
+        print("Go to (0, 0, 0) to start with...")
+        spot.navigate_to([0, 0, 0], blocking=True)
+        time.sleep(10)
 
-        linear = input("Input Linear: ")
-        angular = input("Input Angular: ")
-        action_index, visualization_frequency = 0, 10
-        while linear != "" and angular != "":
-            try:
-                spot.move_base(float(linear), float(angular))
-            except Exception:
-                print("Error -- try again")
+        exploration_steps = 1000
+        for step in range(exploration_steps):
 
-            if action_index % visualization_frequency == 0 and action_index > 0:
+            goal = navigation_space.sample_frontier().cpu().numpy()
+            start = spot.position
+            print("Start is valid:", voxel_map.xyt_is_safe(start))
+            print(" Goal is valid:", voxel_map.xyt_is_safe(goal))
+
+            res = planner.plan(start, goal)
+            print("Res success:", res.success)
+
+            if res.success:
+                path = voxel_map.plan_to_grid_coords(res)
+                x, y = get_x_and_y_from_path(path)
+            else:
+                continue
+
+            print(res.success)
+            print(res.trajectory)
+
+            for node in res.trajectory:
+                print(node.state)
+                spot.navigate_to(node.state, blocking=True)
+
+            if step % 5 == 0:
                 print(
                     "Observations processed for the map so far: ",
                     voxel_map_subscriber.current_obs,
                 )
-                print("Actions taken so far: ", action_index)
                 voxel_map.show(backend="open3d", instances=False)
-
-            linear = input("Input Linear: ")
-            angular = input("Input Angular: ")
-            action_index += 1
-
-            # viz_data = spot.make_3d_viz(viz_data)
 
     except Exception as e:
         print("Exception caught:")
         print(e)
+        raise e
 
     finally:
         print("Writing data...")

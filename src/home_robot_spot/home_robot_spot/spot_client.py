@@ -124,6 +124,9 @@ class SpotPublishers:
         for thread in self.threads:
             thread.join()
 
+        # kill threads
+        del self.threads
+
     def update_obs(
         self,
     ):
@@ -473,6 +476,10 @@ class SpotClient:
         return self.raw_observations["base_xyt"][0][0][2]
 
     @property
+    def position(self):
+        return self.raw_observations["base_xyt"][0][0][:3]
+
+    @property
     def hand_depth(self):
         return self.raw_observations["images"][0]
 
@@ -687,7 +694,7 @@ class SpotClient:
         self.lease.__exit__(None, None, None)
         self.lease = None
 
-    def move_base_point(self, xyt: np.ndarray):
+    def navigate_to(self, xyt: np.ndarray, blocking=False):
         """Move the base to a new position.
 
         Args:
@@ -695,7 +702,13 @@ class SpotClient:
         """
         assert self.lease is not None, "Must call start() first."
         self.spot.set_base_position(
-            x_pos=xyt[0], y_pos=xyt[1], yaw=xyt[2], end_time=100
+            x_pos=xyt[0],
+            y_pos=xyt[1],
+            yaw=xyt[2],
+            end_time=1000,
+            max_fwd_vel=0.5,
+            max_hor_vel=0.5,
+            blocking=blocking,
         )
         return self.raw_observations
 
