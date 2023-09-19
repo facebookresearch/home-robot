@@ -41,3 +41,6 @@
 [submodule "src/home_robot/home_robot/perception/detection/minigpt4/Llama-2-7b-chat-hf"]
 	path = src/home_robot/home_robot/perception/detection/minigpt4/Llama-2-7b-chat-hf
 	url = https://huggingface.co/meta-llama/Llama-2-7b-chat-hf
+[submodule "src/third_party/spot-sim2real"]
+	path = src/third_party/spot-sim2real
+	url = git@github.com:Jdvakil/spot-sim2real.git
