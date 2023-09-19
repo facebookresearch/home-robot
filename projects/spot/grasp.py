@@ -81,7 +81,7 @@ class GraspController:
         """
         # Define the angles for disappointed motion
         disappointed_angles = [-np.pi / 8, np.pi / 8]
-
+        self.reset_to_look()
         for _ in range(3):
             for angle in disappointed_angles:
                 self.look[3] = angle
@@ -141,10 +141,10 @@ class GraspController:
                 )
                 if self.show_img:
                     cv2.imshow("img", img)
-                else:
-                    filename = f"{coords[0].replace(' ', '_')}.jpg"
-                    cv2.imwrite(filename, img)
-                    print(f" > Saved {filename}")
+
+                filename = f"{coords[0][0].replace(' ', '_')}.jpg"
+                cv2.imwrite(filename, img)
+                print(f" > Saved {filename}")
                 return center
             else:
                 return None
@@ -170,20 +170,47 @@ class GraspController:
             new_look[0] = angle
             print(f" > Moving to a new position at angle {angle}")
             self.spot.set_arm_joint_positions(new_look, travel_time=1)
-            time.sleep(0.5)
+            time.sleep(1.0)
             responses = self.spot.get_image_responses([SpotCamIds.HAND_COLOR])
             print(" > Looking for the object")
             pixel = self.find_obj(img=imcv2(responses[0]))
-            if pixel:
+            if pixel is not None:
                 print(
                     f" > Object found at {pixel} with spot coords: {self.spot.get_arm_proprioception()}"
                 )
-                return pixel
-        return None
+                return responses[0], pixel
+        return None, None
 
     def grasp(self, hand_image_response, pixels, timeout=10, count=3):
-        # hand_image_response = image_responses_local[0]  # only expecting one image
-        # img = imcv2(hand_image_response)
+        """
+        Attempt to grasp an object using the robot's hand.
+
+        Parameters:
+            - hand_image_response (object): The image response containing the object to grasp.
+            - pixels (tuple or None): The pixel coordinates (x, y) of the object in the image.
+                                    If set to None, the function will return None.
+            - timeout (int, optional): Maximum time (in seconds) to wait for the grasp to succeed.
+                                    Defaults to 10 seconds.
+            - count (int, optional): Maximum number of grasp attempts before giving up.
+                                    Defaults to 3 attempts.
+
+        Returns:
+            - success (bool or None): True if the grasp was successful, False if not, None if no pixels provided.
+
+        Note:
+            This function attempts to grasp an object located at the specified pixel coordinates in the image.
+            It uses the 'spot.grasp_point_in_image' method to perform the grasp operation. If successful, it sets
+            the 'pick_location' attribute and then resets the robot's arm to a stow position. The function
+            allows for multiple attempts (up to 'count' times) to grasp the object within the specified 'timeout'.
+            If 'pixels' is None, the function returns None.
+
+        Example Usage:
+            success = robot.grasp(image_response, (320, 240))
+            if success:
+                print("Grasp successful!")
+            else:
+                print("Grasp failed.")
+        """
         k = 0
         while True:
             if pixels is not None:
@@ -250,15 +277,15 @@ class GraspController:
         image_response = self.spot.get_image_responses([SpotCamIds.HAND_COLOR])
         hand_image_response = image_response[0]
         pixels = self.find_obj(img=imcv2(hand_image_response))
-        print(f" > Finding object at {self.spot.get_arm_proprioception()}")
-        if pixels:
+        # print(f" > Finding object at {self.spot.get_arm_proprioception()}")
+        if pixels is not None:
             print(f" > Found object at {pixels}, grasping it")
             success = self.grasp(hand_image_response=hand_image_response, pixels=pixels)
             return success
         else:
-            print(f" > Unable to find the object at initial pose, sweeping through")
-            pixels = self.sweep()
-            if pixels:
+            print(" > Unable to find the object at initial pose, sweeping through")
+            hand_image_response, pixels = self.sweep()
+            if pixels is not None:
                 print(
                     f" > Object found at {pixels} with spot coords: {self.spot.get_arm_proprioception()}"
                 )
@@ -282,8 +309,8 @@ if __name__ == "__main__":
         config=config,
         spot=spot,
         objects=[["penguin plush"]],
-        confidence=0.05,
-        show_img=False,
+        confidence=0.1,
+        show_img=True,
         top_grasp=False,
         hor_grasp=True,
     )
@@ -298,11 +325,7 @@ if __name__ == "__main__":
         spot.open_gripper()
         time.sleep(1)
         print("Resetting environment...")
-        image_responses = spot.get_image_responses([SpotCamIds.HAND_COLOR])
-        pixel = gaze.find_obj(img=imcv2(image_responses[0]))
-        breakpoint()
-        gaze.grasp(hand_image_response=image_responses[0], pixels=pixel)
-        time.sleep(1)
+        success = gaze.gaze_and_grasp()
         pick = gaze.get_pick_location()
         spot.set_arm_joint_positions(pick, travel_time=1)
         time.sleep(1)
