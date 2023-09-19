@@ -1,0 +1,13 @@
+_target_: home_robot.agent.ovmm_agent.ovmm_perception.OvmmPerception
+config:
+  ENVIRONMENT:
+    use_detic_viz: False
+  AGENT:
+    detection_module: grounded_sam
+    module_kwargs: 
+      box_threshold: 0.5
+      text_threshold: null # Defaults to box_threshold
+      nms_threshold: 0.8
+
+# This shouldn't be an arg in init() -- model should implement .to(device)
+gpu_device_id: 0

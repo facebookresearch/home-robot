@@ -5,7 +5,7 @@
 
 
 import json
-from typing import Dict, Tuple
+from typing import Any, Dict, Tuple
 
 from home_robot.core.interfaces import Observations
 from home_robot.perception.constants import RearrangeDETICCategories
@@ -63,7 +63,8 @@ class OvmmPerception:
         config,
         gpu_device_id: int = 0,
         verbose: bool = False,
-        module="grounded_sam",
+        module: str = "grounded_sam",
+        module_kwargs: Dict[str, Any] = {},
     ):
         self.config = config
         self._use_detic_viz = config.ENVIRONMENT.use_detic_viz
@@ -79,6 +80,7 @@ class OvmmPerception:
                 custom_vocabulary=".",
                 sem_gpu_id=gpu_device_id,
                 verbose=verbose,
+                **module_kwargs
             )
         elif self._detection_module == "grounded_sam":
             from home_robot.perception.detection.grounded_sam.grounded_sam_perception import (
@@ -89,6 +91,7 @@ class OvmmPerception:
                 custom_vocabulary=".",
                 sem_gpu_id=gpu_device_id,
                 verbose=verbose,
+                **module_kwargs
             )
         else:
             raise NotImplementedError
@@ -114,12 +117,18 @@ class OvmmPerception:
         Set given vocabulary ID to be the active vocabulary that the segmentation model uses.
         """
         vocabulary = self._vocabularies[vocabulary_id]
-        self._segmentation.reset_vocab(
+        self.segmenter_classes = (
             ["."] + list(vocabulary.goal_id_to_goal_name.values()) + ["other"]
         )
+        self._segmentation.reset_vocab(self.segmenter_classes)
+
         self.vocabulary_name_to_id = {
             name: id for id, name in vocabulary.goal_id_to_goal_name.items()
         }
+        self.vocabulary_id_to_name = vocabulary.goal_id_to_goal_name
+        self.seg_id_to_name = dict(enumerate(self.segmenter_classes))
+        self.name_to_seg_id = {v: k for k, v in self.seg_id_to_name.items()}
+
         self._current_vocabulary = vocabulary
         self._current_vocabulary_id = vocabulary_id
 

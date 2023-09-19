@@ -1,0 +1,2 @@
+_target_: evaluation.refer_exp.eval_obj_selection_bboxes
+iou_thr: [0.25, 0.5, 0.75]
