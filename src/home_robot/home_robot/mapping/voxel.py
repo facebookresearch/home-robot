@@ -348,7 +348,7 @@ class SparseVoxelMap(object):
             instance_seg=instance,
             point_cloud=full_world_xyz.reshape(H, W, 3),
             image=rgb.permute(2, 0, 1),
-            pose=base_pose,
+            cam_to_world=base_pose,
             instance_classes=instance_classes,
             instance_scores=instance_scores,
             mask_out_object=False,  # Save the whole image here? Or is this with background?
