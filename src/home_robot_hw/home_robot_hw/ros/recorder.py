@@ -3,6 +3,7 @@
 # This source code is licensed under the MIT license found in the
 # LICENSE file in the root directory of this source tree.
 import argparse
+from datetime import datetime
 
 import cv2
 import h5py
@@ -10,10 +11,12 @@ import numpy as np
 import rospy
 from tqdm import tqdm
 
+from home_robot.motion.stretch import STRETCH_CAMERA_FRAME
 from home_robot.utils.data_tools.image import img_from_bytes
 from home_robot.utils.data_tools.writer import DataWriter
 from home_robot.utils.pose import to_pos_quat
 from home_robot_hw.env.stretch_manipulation_env import StretchManipulationEnv
+from home_robot_hw.remote import StretchClient
 
 
 class Recorder(object):
@@ -22,32 +25,36 @@ class Recorder(object):
     def __init__(self, filename, start_recording=False, model=None, robot=None):
         """Collect information"""
         print("Connecting to robot environment...")
-        self.robot = StretchManipulationEnv(init_cameras=True)
+        # self.robot = StretchManipulationEnv(init_cameras=True)
+        self.robot = StretchClient()
+        self.robot.switch_to_manipulation_mode()
         print("... done connecting to robot environment")
-        self.rgb_cam = self.robot.rgb_cam
-        self.dpt_cam = self.robot.dpt_cam
         self.writer = DataWriter(filename)
         self.idx = 0
         self._recording_started = start_recording
         self._filename = filename
 
     def start_recording(self, task_name):
+        print("Wait as the robot resets to manip-position")
+        self.robot.switch_to_manipulation_mode()
+        self.robot.move_to_pre_demo_posture()
         self._recording_started = True
-        # add camera-info as config
-        color_camera_info = self._construct_camera_info(self.robot.rgb_cam)
-        depth_camera_info = self._construct_camera_info(self.robot.dpt_cam)
-        self.writer.add_config(
-            color_camera_info=color_camera_info,
-            depth_camera_info=depth_camera_info,
-            task_name=task_name,
+        self.writer.add_config(task_name=task_name)
+        print(
+            f"Ready to record demonstration to file: {self._filename}. Press BACK to tag a keyframe"
         )
 
-        print(f"Ready to record demonstration to file: {self._filename}")
-
-    def finish_recording(self):
-        print(f"... done recording trial named: {self.idx}.")
-        self.writer.write_trial(self.idx)
+    def finish_recording(self) -> int:
+        demo_status = int(input("Was this trial a success (1) or a failure (0)?"))
+        self.writer.add_config(demo_status=demo_status)
+        date_time = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
+        filename = f"{date_time}_index{self.idx}"
+        self.writer.write_trial(filename)
+        print(f"... done recording trial named: {filename}.")
         self.idx += 1
+        print("Ready for next episode...Press START to begin ")
+        self.robot.switch_to_navigation_mode()
+        return demo_status
 
     def _construct_camera_info(self, camera):
         return {
@@ -70,20 +77,17 @@ class Recorder(object):
         8. end-effector pose
         """
         # record rgb and depth
-        rgb, depth, xyz = self.robot.get_images(compute_xyz=True)
-        q, dq = self.robot.update()
+        rgb, depth, xyz = self.robot.head.get_images(compute_xyz=True)
+        q = self.robot.manip.get_joint_positions()
         # TODO get the following from TF lookup
         # ee_pose = self.robot.model.manip_fk(q)
-        ee_pose = self.robot.get_pose("link_straight_gripper", "base_link")
-        # output of above is a tuple of two ndarrays
-        # ee-pose should be 1 ndarray of 7 values
-        ee_pose = to_pos_quat(ee_pose)
+        ee_pose = self.robot.manip.get_ee_pose()
         ee_pose = np.concatenate(ee_pose)
-        gripper_state = np.array(self.robot.get_gripper_state(q))
+        gripper_state = np.array(self.robot.manip.get_gripper_position())
         # elements in following are of type: Tuple(Tuple(x,y,theta), rospy.Time)
         # change to ndarray with 4 floats
-        base_pose = self.robot.get_base_pose()
-        camera_pose = self.robot.get_camera_pose_matrix()
+        base_pose = self.robot.nav.get_base_pose()
+        camera_pose = self.robot.head.get_pose_in_base_coords(True)
         if is_keyframe:
             user_keyframe = np.array([1])
         else:
@@ -93,7 +97,7 @@ class Recorder(object):
         )
         self.writer.add_frame(
             q=q,
-            dq=dq,
+            # dq=dq,
             ee_pose=ee_pose,
             gripper_state=gripper_state,
             base_pose=base_pose,
@@ -102,7 +106,7 @@ class Recorder(object):
             head_xyz=xyz,
         )
 
-        return rgb, depth, q, dq
+        return rgb, depth, q
 
     def spin(self, rate=10):
         rate = rospy.Rate(rate)
@@ -124,7 +128,6 @@ def png_to_mp4(group: h5py.Group, key: str, name: str, fps=10):
     """
     Write key out as a gif
     """
-    gif = []
     print("Writing gif to file:", name)
     img_stream = group[key]
     writer = None

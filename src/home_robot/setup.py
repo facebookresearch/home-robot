@@ -12,9 +12,12 @@ install_requires = [
     "h5py",
     "pybullet",
     "pygifsicle",
-    "numpy-quaternion",
-    "pybind11-global",
-    "sophuspy",
+    "open3d",
+    "trimesh",
+    "pin==2.6.17",
+    "torch_geometric",
+    "torch_cluster",
+    "torch_scatter",
 ]
 
 setup(

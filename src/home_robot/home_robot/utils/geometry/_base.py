@@ -11,6 +11,10 @@ from scipy.spatial.transform import Rotation
 from home_robot.core.interfaces import Pose
 
 
+def normalize_ang_error(ang):
+    return (ang + np.pi) % (2 * np.pi) - np.pi
+
+
 def xyt_global_to_base(XYT, current_pose):
     """
     Transforms the point cloud into geocentric frame to account for
@@ -87,3 +91,27 @@ def sophus2obs(pose_sp):
         position=pose_sp.translation(),
         orientation=Rotation.from_matrix(pose_sp.so3().matrix()).as_quat(),
     )
+
+
+def angle_difference(angle1: float, angle2: float):
+    """angle difference"""
+
+    # Calculate the absolute angular difference
+    abs_diff = np.abs(angle1 - angle2)
+
+    # Calculate the wrapped angular difference
+    wrapped_diff = np.minimum(abs_diff, 2 * np.pi - abs_diff)
+
+    return wrapped_diff
+
+
+def interpolate_angles(start_angle, end_angle, step_size: float = 0.1):
+    diff = end_angle - start_angle
+
+    if diff >= np.pi:
+        end_angle -= 2 * np.pi
+    elif diff <= -np.pi:
+        end_angle += 2 * np.pi
+
+    interpolated_angle = start_angle + step_size * np.sign(end_angle - start_angle)
+    return interpolated_angle

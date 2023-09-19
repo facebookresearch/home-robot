@@ -35,11 +35,13 @@ from home_robot_hw.constants import (
     ROS_WRIST_YAW,
 )
 from home_robot_hw.ros.camera import RosCamera
+from home_robot_hw.ros.lidar import RosLidar
 from home_robot_hw.ros.utils import matrix_from_pose_msg
 from home_robot_hw.ros.visualizer import Visualizer
 
 DEFAULT_COLOR_TOPIC = "/camera/color"
 DEFAULT_DEPTH_TOPIC = "/camera/aligned_depth_to_color"
+DEFAULT_LIDAR_TOPIC = "/scan"
 
 
 class StretchRosInterface:
@@ -49,7 +51,7 @@ class StretchRosInterface:
     base_link = "base_link"
 
     goal_time_tolerance = 1.0
-    msg_delay_t = 0.25
+    msg_delay_t = 0.1
 
     # 3 for base position + rotation, 2 for lift + extension, 3 for rpy, 1 for gripper, 2 for head
     dof = 3 + 2 + 3 + 1 + 2
@@ -72,7 +74,13 @@ class StretchRosInterface:
         color_topic: Optional[str] = None,
         depth_topic: Optional[str] = None,
         depth_buffer_size: Optional[int] = None,
+        init_lidar: bool = True,
+        lidar_topic: Optional[str] = None,
+        verbose: bool = False,
     ):
+        # Verbosity for the ROS client
+        self.verbose = verbose
+
         # Initialize caches
         self.current_mode: Optional[str] = None
 
@@ -94,6 +102,7 @@ class StretchRosInterface:
         self.curr_visualizer = Visualizer("current_pose", rgba=[0.0, 0.0, 1.0, 0.5])
 
         # Initialize ros communication
+        self._safety_check()
         self._create_pubs_subs()
         self._create_services()
 
@@ -104,12 +113,16 @@ class StretchRosInterface:
         # Initialize cameras
         self._color_topic = DEFAULT_COLOR_TOPIC if color_topic is None else color_topic
         self._depth_topic = DEFAULT_DEPTH_TOPIC if depth_topic is None else depth_topic
+        self._lidar_topic = DEFAULT_LIDAR_TOPIC if lidar_topic is None else lidar_topic
         self._depth_buffer_size = depth_buffer_size
 
         self.rgb_cam, self.dpt_cam = None, None
         if init_cameras:
-            self._create_cameras(color_topic, depth_topic)
+            self._create_cameras()
             self._wait_for_cameras()
+        if init_lidar:
+            self._lidar = RosLidar(self._lidar_topic)
+            self._lidar.wait_for_scan()
 
     # Interfaces
 
@@ -156,10 +169,19 @@ class StretchRosInterface:
     def wait_for_trajectory_action(self):
         self.trajectory_client.wait_for_result()
 
-    def recent_depth_image(self, seconds):
+    def recent_depth_image(self, seconds, print_delay_timers: bool = False):
         """Return true if we have up to date depth."""
         # Make sure we have a goal and our poses and depths are synced up - we need to have
         # received depth after we stopped moving
+        if print_delay_timers:
+            print(
+                " - 1",
+                (rospy.Time.now() - self._goal_reset_t).to_sec(),
+                self.msg_delay_t,
+            )
+            print(
+                " - 2", (self.dpt_cam.get_time() - self._goal_reset_t).to_sec(), seconds
+            )
         if (
             self._goal_reset_t is not None
             and (rospy.Time.now() - self._goal_reset_t).to_sec() > self.msg_delay_t
@@ -168,16 +190,46 @@ class StretchRosInterface:
         else:
             return False
 
-    def config_to_ros_trajectory_goal(self, q: np.ndarray) -> FollowJointTrajectoryGoal:
+    def config_to_ros_trajectory_goal(
+        self, q: np.ndarray, dq: np.ndarray = None, ddq: np.ndarray = None
+    ) -> FollowJointTrajectoryGoal:
         """Create a joint trajectory goal to move the arm."""
         trajectory_goal = FollowJointTrajectoryGoal()
         trajectory_goal.goal_time_tolerance = rospy.Time(self.goal_time_tolerance)
         trajectory_goal.trajectory.joint_names = self.ros_joint_names
-        trajectory_goal.trajectory.points = [self._config_to_ros_msg(q)]
+        trajectory_goal.trajectory.points = [self._config_to_ros_msg(q, dq, ddq)]
         trajectory_goal.trajectory.header.stamp = rospy.Time.now()
         return trajectory_goal
 
     # Helper functions
+
+    def _safety_check(self, max_time: float = 30.0):
+        """Make sure we can actually execute code on the robot as a quality of life measure"""
+        run_stopped = rospy.wait_for_message("is_runstopped", Bool, timeout=max_time)
+        if run_stopped is None:
+            rospy.logwarn(
+                "is_runstopped not received; you might have out of date stretch_ros"
+            )
+        elif run_stopped.data is True:
+            rospy.logerr("Runstop is pressed! Cannot execute!")
+            raise RuntimeError("Stretch is runstopped")
+        calibrated = rospy.wait_for_message("is_calibrated", Bool, timeout=max_time)
+        if calibrated is None:
+            rospy.logwarn(
+                "is_calibrated not received; you might have out of date stretch_ros"
+            )
+        elif calibrated.data is False:
+            rospy.logwarn("Robot is not calibrated!")
+        homed = rospy.wait_for_message("is_homed", Bool, timeout=max_time)
+        if homed is None:
+            rospy.logwarn(
+                "is_homed not received; you might have out of date stretch_ros"
+            )
+        elif homed.data is False:
+            rospy.logerr(
+                "Robot is not homed! Cannot execute! Run stretch_robot_home.py"
+            )
+            raise RuntimeError("Stretch is not homed!")
 
     def _create_services(self):
         """Create services to activate/deactive robot modes"""
@@ -253,7 +305,7 @@ class StretchRosInterface:
         for i in range(3, self.dof):
             self.ros_joint_names += CONFIG_TO_ROS[i]
 
-    def _create_cameras(self, color_topic=None, depth_topic=None):
+    def _create_cameras(self):
         if self.rgb_cam is not None or self.dpt_cam is not None:
             raise RuntimeError("Already created cameras")
         print("Creating cameras...")
@@ -267,6 +319,10 @@ class StretchRosInterface:
         )
         self.filter_depth = self._depth_buffer_size is not None
 
+    def _wait_for_lidar(self):
+        """wait until lidar has a message"""
+        self._lidar.wait_for_scan()
+
     def _wait_for_cameras(self):
         if self.rgb_cam is None or self.dpt_cam is None:
             raise RuntimeError("cameras not initialized")
@@ -275,15 +331,20 @@ class StretchRosInterface:
         print("Waiting for depth camera images...")
         self.dpt_cam.wait_for_image()
         print("..done.")
-        print("rgb frame =", self.rgb_cam.get_frame())
-        print("dpt frame =", self.dpt_cam.get_frame())
+        if self.verbose:
+            print("rgb frame =", self.rgb_cam.get_frame())
+            print("dpt frame =", self.dpt_cam.get_frame())
         if self.rgb_cam.get_frame() != self.dpt_cam.get_frame():
             raise RuntimeError("issue with camera setup; depth and rgb not aligned")
 
-    def _config_to_ros_msg(self, q):
+    def _config_to_ros_msg(self, q, dq=None, ddq=None):
         """convert into a joint state message"""
         msg = JointTrajectoryPoint()
         msg.positions = [0.0] * len(self._ros_joint_names)
+        if dq is not None:
+            msg.velocities = [0.0] * len(self._ros_joint_names)
+        if ddq is not None:
+            msg.accelerations = [0.0] * len(self._ros_joint_names)
         idx = 0
         for i in range(3, self.dof):
             names = CONFIG_TO_ROS[i]
@@ -293,6 +354,10 @@ class StretchRosInterface:
                     msg.positions[idx] = q[i] / len(names)
                 else:
                     msg.positions[idx] = q[i]
+                if dq is not None:
+                    msg.velocities[idx] = dq[i]
+                if ddq is not None:
+                    msg.accelerations[idx] = ddq[i]
                 idx += 1
         return msg
 

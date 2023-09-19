@@ -24,7 +24,7 @@ if __name__ == "__main__":
     robot.head.look_at_ee()
     robot.head.look_front()
 
-    print(f"Confirm that the robot head has moved accordingly.")
+    print("Confirm that the robot head has moved accordingly.")
     input("(press enter to continue)")
 
     # Navigation
@@ -34,9 +34,17 @@ if __name__ == "__main__":
     xyt_goal = [0.25, 0.25, -np.pi / 2]
     robot.nav.navigate_to(xyt_goal)
 
+    # Sometimes the robot will time out before done moving.
+    print("Make sure orientation is correct...")
+    for _ in range(3):
+        print("- sending the command again to guard against timeouts...")
+        robot.nav.navigate_to(xyt_goal)
     xyt_curr = robot.nav.get_base_pose()
-    assert np.allclose(xyt_curr[:2], xyt_goal[:2], atol=POS_TOL)
+
+    print("Current orientation:", xyt_curr[2], "goal was", xyt_goal[2])
     assert np.allclose(xyt_curr[2], xyt_goal[2], atol=YAW_TOL)
+    print("Current location:", xyt_curr[:2], "goal was", xyt_goal[:2])
+    assert np.allclose(xyt_curr[:2], xyt_goal[:2], atol=POS_TOL)
 
     print(f"Confirm that the robot moved to {xyt_goal} (forward left, facing right)")
     input("(press enter to continue)")
@@ -53,4 +61,4 @@ if __name__ == "__main__":
     )
     input("(press enter to continue)")
 
-    print(f"Test complete!")
+    print("Test complete!")

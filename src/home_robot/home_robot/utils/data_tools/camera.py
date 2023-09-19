@@ -18,7 +18,7 @@ import trimesh
 import trimesh.transformations as tra
 
 
-class Camera(object):
+class Camera:
     """Camera object storing information about a single camera.
     Includes projection and pose information."""
 
@@ -55,6 +55,8 @@ class Camera(object):
         self.pose_matrix = pose_matrix
         self.pos = pos
         self.orn = orn
+        for k, v in kwargs.items():
+            setattr(self, k, v)
 
     def to_dict(self):
         """create a dictionary so that we can extract the necessary information for

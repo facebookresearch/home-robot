@@ -1,3 +1,9 @@
+# Copyright (c) Meta Platforms, Inc. and affiliates.
+#
+# This source code is licensed under the MIT license found in the
+# LICENSE file in the root directory of this source tree.
+
+
 import numpy as np
 
 from home_robot.motion.stretch import STRETCH_HOME_Q, HelloStretchKinematics
@@ -60,7 +66,11 @@ if __name__ == "__main__":
     pos_desired = np.array([-0.1, -0.1, -0.1])
     robot.manip.goto_ee_pose(pos_desired, relative=True)
 
-    # Command the robot arm 4: For backward compatibility
+    # Command the robot arm 4: Simple EE rotations
+    #   (rotates around Z axis by 0.5 radians)
+    robot.manip.rotate_ee(axis=2, angle=0.5)
+
+    # Command the robot arm 5: For backward compatibility
     robot.manip.goto(STRETCH_HOME_Q)
 
     # Gripper commands

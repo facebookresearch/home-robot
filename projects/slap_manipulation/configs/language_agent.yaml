@@ -1,0 +1,257 @@
+BASE_TASK_CONFIG_PATH: projects/stretch_ovmm/configs/task/floorplanner_val.yaml
+
+NO_GPU: 1                 # 1: ignore IDs above and run on CPU, 0: run on GPUs with IDs above
+NUM_ENVIRONMENTS: 35      # number of environments (per agent process)
+DUMP_LOCATION: datadump   # path to dump models and log
+EXP_NAME: eval_floorplanner       # experiment name
+VISUALIZE: 0              # 1: render observation and predicted semantic map, 0: no visualization
+PRINT_IMAGES: 1           # 1: save visualization as images, 0: no image saving
+GROUND_TRUTH_SEMANTICS: 0 # 1: use ground-truth semantics (for debugging / ablations)
+seed: 0
+
+ENVIRONMENT:
+  forward: 0.25           # forward motion (in meters)
+  turn_angle: 30.0        # agent turn angle (in degrees)
+  frame_height: 640       # first-person frame height (in pixels)
+  frame_width: 480        # first-person frame width (in pixels)
+  camera_height: 0.88     # camera sensor height (in metres)
+  hfov: 42.0              # horizontal field of view (in degrees)
+  min_depth: 0.5          # minimum depth for depth sensor (in metres)
+  max_depth: 5.0          # maximum depth for depth sensor (in metres)
+  use_detic_viz: True
+  category_map_file: projects/real_world_ovmm/configs/example_cat_map.json
+
+AGENT:
+  max_steps: 500          # maximum number of steps before stopping an episode
+  panorama_start: 1       # 1: turn around 360 degrees when starting an episode, 0: don't
+  exploration_strategy: seen_frontier  # exploration strategy ("seen_frontier", "been_close_to_frontier")
+  radius: 0.17            # robot radius (in meters)
+  clip_embeddings_file: data/objects/clip_embeddings.pickle
+  task_information_file: projects/slap_manipulation/assets/task_information.yaml
+  language_file: projects/slap_manipulation/assets/language.yaml
+  dry_run: False
+
+  SEMANTIC_MAP:
+    semantic_categories: mukul_indoor # map semantic channel categories ("coco_indoor", "longtail_indoor", "mukul_indoor")
+    num_sem_categories: 5             # number of map semantic channel categories (16, 257, 35)
+    map_size_cm: 4800        # global map size (in centimeters)
+    map_resolution: 5        # size of map bins (in centimeters)
+    vision_range: 100        # diameter of local map region visible by the agent (in cells)
+    global_downscaling: 2    # ratio of global over local map
+    du_scale: 4              # frame downscaling before projecting to point cloud
+    cat_pred_threshold: 1.0  # number of depth points to be in bin to classify it as a certain semantic category
+    exp_pred_threshold: 1.0  # number of depth points to be in bin to consider it as explored
+    map_pred_threshold: 1.0  # number of depth points to be in bin to consider it as obstacle
+    been_close_to_radius: 200  # radius (in centimeters) of been close to region
+    explored_radius: 150       # radius (in centimeters) of visually explored region
+    must_explore_close: False
+    min_obs_height_cm: 10    # minimum height (in centimeters) of obstacle to be considered as obstacle
+    dilate_obstacles: True
+    dilate_size: 3
+    dilate_iter: 1
+
+  SKILLS:
+    GAZE:
+      checkpoint_path: data/checkpoints/ovmm/gaze.pth
+      rl_config: projects/habitat_ovmm/configs/agent/gaze_rl.yaml # with continuous actions
+      gym_obs_keys:
+        - robot_head_depth
+        - object_embedding
+        - object_segmentation
+        - joint
+        - is_holding
+        - relative_resting_position
+      allowed_actions:
+        - arm_action
+        - base_velocity
+      arm_joint_mask: [0, 0, 0, 0, 0, 0, 1] # the arm joints that the policy can control
+      max_forward: 0.25
+      max_turn: 0.1745
+
+  PLANNER:
+    collision_threshold: 0.20       # forward move distance under which we consider there's a collision (in meters)
+    # obs_dilation_selem_radius: 3    # radius (in cells) of obstacle dilation structuring element
+    # goal_dilation_selem_radius: 10  # radius (in cells) of goal dilation structuring element
+    min_obs_dilation_selem_radius: 3    # radius (in cells) of obstacle dilation structuring element
+    obs_dilation_selem_radius: 5    # radius (in cells) of obstacle dilation structuring element
+    goal_dilation_selem_radius: 10  # radius (in cells) of goal dilation structuring element
+    step_size: 10                    # maximum distance of the short-term goal selected by the planner
+    use_dilation_for_stg: False      # use dilated goals for estimating short-term goals - or just reaching
+    map_downsample_factor: 1            # optional downsampling of traversible and goal map before fmm distance call (1 for no downsampling, 2 for halving resolution)
+    map_update_frequency: 1             # compute fmm distance map every n steps 
+    discrete_actions: False         # discrete motion planner output space or not
+    min_goal_distance_cm: 50
+    continuous_angle_tolerance: 15
+    verbose: True
+
+EVAL_VECTORIZED:
+  simulator_gpu_ids: [1, 2, 3, 4, 5, 6, 7] # IDs of GPUs to use for vectorized environments
+  specific_episodes: 0      # 1: eval on specific episodes (for debugging), 0: eval on split normally
+  goal_on_same_floor: 0     # 1: restrict to episodes with a goal on the same floor as the starting position
+  split: val                # eval split
+  num_episodes_per_env: 100 # number of eval episodes per environment
+  record_videos: 0          # 1: record videos from printed images, 0: don't
+  record_planner_videos: 0  # 1: record planner videos (if record videos), 0: don't
+
+CORLAGENT:
+  llm_run: False           # switch b/w using GT plans and LLM plans
+  per_skill: True        # switch b/w running longitudinal plans and per-skill plans (only SLAP)
+  verbose: True
+
+SLAP:
+  dry_run: False                # whether to run SLAP Agent in dry_run mode
+  min_depth: 0.3                # minimum depth for filtering observations
+  max_depth: 1.5                # maximum depth for filtering observations
+  z_min: 0.15                   # minimum height for filtering observations (everything below base is cut-off, i.e.  inaccessible by gripper)
+  voxel_size_1: 0.001           # resolution for voxelization used for removal of duplicate/overlapping points
+  voxel_size_2: 0.01            # resolution for final voxelization used for prediction
+  visualize: True               # whether to visualize the results
+  save_logs: True               # whether to save results as np files
+  IPM:
+    validate: False             # training/validation: whether validation is performed (accesses GT)
+    datadir: False              # training/validation: path to dataset
+    template: "*.h5"            # training/validation: template for dataset files
+    load: False                 # training/validation: whether to load a checkpoint
+    resume: False               # training: whether to resume training
+    debug: False                # training/validation: whether to run in debug mode
+    learning_rate: 1e-3         # training: learning rate for LAMB
+    task_name: open_drawer      # training/validation: task name, useful when saving checkpoints
+    source: stretch             # training/validation: source of data
+    run_for: -1                 # time-based termination, -1 means iter based termination is used
+    wandb: False                # training/validation: whether to use wandb
+    split: False                # training/validation: placeholder for split file provided from cmd-line
+    data_augmentation: True     # training/validation: whether to use data augmentation
+    color_jitter: False         # training/validation: whether to use color jitter
+    loss_fn: "xent"             # training/validation: loss function to use (supports xent, bce)
+    max_iter: 30                # training/validation: maximum number of training iterations
+    path: data/checkpoints/corl/ipm.pth  # execution/validation: path to checkpoint for experiments
+  APM:
+    task_name: test         # training/validation: (placeholder) task name, useful when saving checkpoints
+    action_idx: -1          # training/validation: (placeholder) action index to train/validate on; useful for debugging
+    datadir: False          # training/validation: path to dataset (placeholder)
+    split: False            # training/validation: placeholder for split file provided from cmd-line
+    load: False             # training/validation: path to checkpoint
+    max_actions: 6          # maximum number of actions APM supports for prediction
+    path: data/checkpoints/corl/apm.pth  # execution/validation: path to checkpoint for experiments
+
+    num_pts: 8000           # number of points to sample from the point cloud
+    orientation_type: "quaternion"  # quaternion, rpy, or euler
+    learning_rate: 1e-4     # training: learning rate for Adam
+    lambda_weight_l2: 0.00001  # training: weight for L2 regularization
+    optim: adam             # training: optimizer to use (supports adam, LAMB)
+    multi_step: True        # training: whether to use multi-step loss
+    num_heads: 1            # training: number of heads for multi-step loss
+    crop_size: 0.1          # training/validation: crop size for cropping point cloud for IPM
+    query_radius: 0.16      # training/validation/execution: radius for cropping point cloud for APM
+    k: 3  # (placeholder) number of actions in trajectory (read from task_information.yaml)
+    lang_max_seq_len: 77    # maximum sequence length for language tokens
+    clip_model: "ViT-B/32"  # clip model to use
+    max_iter: 50            # training: maximum number of training iterations
+    dry_run: False          # whether to run APM Agent in dry_run mode
+    validate: False         # training/validation: whether validation is performed (accesses GT)
+    template: "*.h5"        # training/validation: template for dataset files
+    data_augmentation: True  # training/validation: whether to use data augmentation
+    source: "stretch"       # training/validation: source of data
+    wandb: False            # training/validation: whether to use wandb
+    debug: False            # training/validation: whether to run in debug mode
+
+    # following describes the architecture of the APM model
+    dims:
+      proprio_in: 8
+      proprio_out: 64
+      image_in: 4
+      lang_emb_out: 512
+      position: 3
+      orientation: 4
+
+    handover_weights:    # weights for noisier trajectories (handover, pouring)
+      position: 1e-1
+      orientation: 1e-1
+      gripper: 1e-4
+
+    weights:            # weights for cleaner trajectories (opening/closing drawer, taking bottle)
+      position: 1.0
+      orientation: 1e-3
+      gripper: 1e-4
+
+    model:
+      sa1_mlp: [7, 64, 128]
+      sa2_mlp: [131, 128, 256]
+      sa3_mlp: [259, 256,512]
+      proprio_mlp: [64, 256, 512]
+      lang_mlp: [512, 512, 512]
+      time_mlp: [6, 256, 512]
+      pre_process_mlp: [2048, 1024, 1024, 512, 512]
+      post_process_mlp: [512, 512, 256, 256, 128, 64]
+      gru_dim: 512
+
+    regression_head:
+      final_dim: 64
+      pos_mlp: [256, 128, 64]
+      ori_mlp: [256, 128, 64]
+      gripper_mlp: [1536, 512, 64]
+      pos_in_channels: 3
+
+    per_action_cmd: False # different string description for each action (reads from per_cmd_language.yaml)
+    gru_hidden_dim: 512   # hidden dimension of GRU
+    gru_hidden_layers: 2  # number of hidden layers in GRU
+    use_mdn: False        # whether to use mixture density network for regression (not supported)
+    skill_to_action_file: projects/slap_manipulation/configs/per_cmd_language.yaml
+
+
+EVAL:  # ordered list of tasks, implicated object (for Detic) and actions in demo trajectory
+  task_name:
+    - take-bottle
+    - open-object-drawer
+    - close-object-drawer
+    - handover-to-person
+    - pour-into-bowl
+  object_list:
+    - bottle
+    - drawer, drawer handle
+    - drawer, drawer handle
+    - person
+    - bowl
+  num_keypoints:
+    - 4
+    - 3
+    - 3
+    - 3
+    - 4
+
+# baseline, all parameters are defaults except the ones annotated
+PERACT:
+  scene_bounds: [ -0.75 , -0.75 , -0.75 , 0.75 , 0.75 , 0.75]  # scene-bounds for peract to create VoxelGrid
+  cameras: ["head"]       # cameras to extract information from
+  model_path: data/checkpoints/corl_peract/peract_latest.pth  # checkpoint path
+  voxel_sizes: [100]      
+  num_latents: 256        
+  dim_latents: 512        
+  depth: 6
+  iterations: 1
+  initial_dim: 10
+  low_dim_size: 3
+  layer: 0
+  num_rotation_classes: 72
+  num_grip_classes: 2
+  num_collision_classes: 2
+  cross_heads: 1
+  latent_heads: 8
+  cross_dim_head: 64
+  latent_dim_head: 64
+  weight_tie_layers: False
+  activation: "lrelu"
+  input_dropout: 0.1
+  attn_dropout: 0.1
+  decoder_dropout: 0.0
+  voxel_patch_size: 5
+  voxel_patch_stride: 5
+  final_dim: 64 
+  rotation_resolution: 5
+  voxel_feature_size: 3
+  num_pts: 8000
+  lr: 0.0001
+  lambda_weight_l2: 0.000001
+  optimizer_type: "lamb"
+  transform_augmentation: False
+

@@ -1,0 +1,21 @@
+validate: False
+datadir: ../../datasets/corl_experiment/
+template: "*/*.h5"
+load: False
+resume: False
+debug: False
+task_name: corl_experiment
+source: stretch
+run_for: -1
+wandb: False
+split: assets/corl_experiments/combined_split.yaml
+data_augmentation: True
+color_jitter: False
+loss_fn: "xent"
+max_iter: 20
+
+learning_rate: 1e-3
+locality_loss_wt: 1.0
+latent_num: 256
+latent_dim: 512
+

@@ -1,10 +1,17 @@
-import time
+# Copyright (c) Meta Platforms, Inc. and affiliates.
+#
+# This source code is licensed under the MIT license found in the
+# LICENSE file in the root directory of this source tree.
+
+
+from typing import Optional
 
 import torch.nn as nn
 
 from home_robot.mapping.semantic.categorical_2d_semantic_map_module import (
     Categorical2DSemanticMapModule,
 )
+from home_robot.mapping.semantic.instance_tracking_modules import InstanceMemory
 from home_robot.navigation_policy.object_navigation.objectnav_frontier_exploration_policy import (
     ObjectNavFrontierExplorationPolicy,
 )
@@ -14,9 +21,9 @@ debug_frontier_map = False
 
 
 class ObjectNavAgentModule(nn.Module):
-    def __init__(self, config):
+    def __init__(self, config, instance_memory: Optional[InstanceMemory] = None):
         super().__init__()
-
+        self.instance_memory = instance_memory
         self.semantic_map_module = Categorical2DSemanticMapModule(
             frame_height=config.ENVIRONMENT.frame_height,
             frame_width=config.ENVIRONMENT.frame_width,
@@ -33,6 +40,22 @@ class ObjectNavAgentModule(nn.Module):
             cat_pred_threshold=config.AGENT.SEMANTIC_MAP.cat_pred_threshold,
             exp_pred_threshold=config.AGENT.SEMANTIC_MAP.exp_pred_threshold,
             map_pred_threshold=config.AGENT.SEMANTIC_MAP.map_pred_threshold,
+            must_explore_close=config.AGENT.SEMANTIC_MAP.must_explore_close,
+            min_obs_height_cm=config.AGENT.SEMANTIC_MAP.min_obs_height_cm,
+            dilate_obstacles=config.AGENT.SEMANTIC_MAP.dilate_obstacles,
+            dilate_size=config.AGENT.SEMANTIC_MAP.dilate_size,
+            dilate_iter=config.AGENT.SEMANTIC_MAP.dilate_iter,
+            record_instance_ids=getattr(
+                config.AGENT.SEMANTIC_MAP, "record_instance_ids", False
+            ),
+            instance_memory=instance_memory,
+            max_instances=getattr(config.AGENT.SEMANTIC_MAP, "max_instances", 0),
+            instance_association=getattr(
+                config.AGENT.SEMANTIC_MAP, "instance_association", "map_overlap"
+            ),
+            evaluate_instance_tracking=getattr(
+                config.ENVIRONMENT, "evaluate_instance_tracking", False
+            ),
         )
         self.policy = ObjectNavFrontierExplorationPolicy(
             exploration_strategy=config.AGENT.exploration_strategy
@@ -56,19 +79,19 @@ class ObjectNavAgentModule(nn.Module):
         init_lmb,
         init_origins,
         seq_object_goal_category=None,
-        seq_recep_goal_category=None,
+        seq_start_recep_goal_category=None,
+        seq_end_recep_goal_category=None,
+        seq_nav_to_recep=None,
     ):
         """Update maps and poses with a sequence of observations, and predict
         high-level goals from map features.
 
         Arguments:
-            seq_obs: sequence of frames containing (RGB, depth, segmentation)
-             of shape (batch_size, sequence_length, 3 + 1 + num_sem_categories,
+            seq_obs: sequence of frames containing (RGB, depth, semantic_segmentation, instance_segmentation)
+             of shape (batch_size, sequence_length, 3 + 1 + num_sem_categories + 1),
              frame_height, frame_width)
             seq_pose_delta: sequence of delta in pose since last frame of shape
              (batch_size, sequence_length, 3)
-            seq_goal_category: sequence of goal categories of shape
-             (batch_size, sequence_length, 1)
             seq_dones: sequence of (batch_size, sequence_length) done flags that
              indicate episode restarts
             seq_update_global: sequence of (batch_size, sequence_length) binary
@@ -84,7 +107,14 @@ class ObjectNavAgentModule(nn.Module):
              (batch_size, 3)
             init_lmb: initial local map boundaries of shape (batch_size, 4)
             init_origins: initial local map origins of shape (batch_size, 3)
-
+            seq_object_goal_category: sequence of object goal categories of shape
+             (batch_size, sequence_length, 1)
+            seq_start_recep_goal_category: sequence of start recep goal categories of shape
+             (batch_size, sequence_length, 1)
+            seq_end_recep_goal_category: sequence of end recep goal categories of shape
+             (batch_size, sequence_length, 1)
+            seq_nav_to_recep: sequence of binary digits indicating if navigation is to object or end receptacle of shape
+             (batch_size, 1)
         Returns:
             seq_goal_map: sequence of binary maps encoding goal(s) of shape
              (batch_size, sequence_length, M, M)
@@ -137,10 +167,17 @@ class ObjectNavAgentModule(nn.Module):
         map_features = seq_map_features.flatten(0, 1)
         if seq_object_goal_category is not None:
             seq_object_goal_category = seq_object_goal_category.flatten(0, 1)
-        if seq_recep_goal_category is not None:
-            seq_recep_goal_category = seq_recep_goal_category.flatten(0, 1)
+        if seq_start_recep_goal_category is not None:
+            seq_start_recep_goal_category = seq_start_recep_goal_category.flatten(0, 1)
+        if seq_end_recep_goal_category is not None:
+            seq_end_recep_goal_category = seq_end_recep_goal_category.flatten(0, 1)
+        # Compute the goal map
         goal_map, found_goal = self.policy(
-            map_features, seq_object_goal_category, seq_recep_goal_category
+            map_features,
+            seq_object_goal_category,
+            seq_start_recep_goal_category,
+            seq_end_recep_goal_category,
+            seq_nav_to_recep,
         )
         seq_goal_map = goal_map.view(batch_size, sequence_length, *goal_map.shape[-2:])
         seq_found_goal = found_goal.view(batch_size, sequence_length)

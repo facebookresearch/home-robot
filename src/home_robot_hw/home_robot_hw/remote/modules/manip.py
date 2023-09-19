@@ -48,7 +48,7 @@ class StretchManipulationClient(AbstractControlModule):
 
     # Interface methods
 
-    def get_ee_pose(self, world_frame=False):
+    def get_ee_pose(self, world_frame=False, matrix=False):
         q, _, _ = self._ros_client.get_joint_state()
         pos_base, quat_base = self._robot_model.manip_fk(q)
         pos_base[0] += self.base_x
@@ -62,8 +62,11 @@ class StretchManipulationClient(AbstractControlModule):
 
         else:
             pos, quat = pos_base, quat_base
-
-        return pos, quat
+        if matrix:
+            pose = posquat2sophus(pos, quat)
+            return pose.matrix()
+        else:
+            return pos, quat
 
     def get_joint_positions(self):
         q, _, _ = self._ros_client.get_joint_state()
@@ -76,12 +79,26 @@ class StretchManipulationClient(AbstractControlModule):
             q[HelloStretchIdx.WRIST_ROLL],
         ]
 
+    def get_gripper_position(self) -> float:
+        """get current gripper position as a float"""
+        q, _, _ = self._ros_client.get_joint_state()
+        return q[HelloStretchIdx.GRIPPER]
+
     @enforce_enabled
-    def goto(self, q, move_base=False, wait=True, max_wait_t=10.0, verbose=False):
+    def goto(
+        self,
+        q,
+        dq: List = None,
+        ddq: List = None,
+        move_base=False,
+        wait=True,
+        max_wait_t=10.0,
+        verbose=False,
+    ):
         """Directly command the robot using generalized coordinates
         some of these params are unsupported
         """
-        goal = self._ros_client.config_to_ros_trajectory_goal(q)
+        goal = self._ros_client.config_to_ros_trajectory_goal(q, dq, ddq)
         self._ros_client.trajectory_client.send_goal(goal)
 
         self._register_wait(self._ros_client.wait_for_trajectory_action)
@@ -101,6 +118,7 @@ class StretchManipulationClient(AbstractControlModule):
         relative: bool = False,
         blocking: bool = True,
         debug: bool = False,
+        move_base: bool = True,
     ):
         """
         list of robot arm joint positions:
@@ -127,13 +145,16 @@ class StretchManipulationClient(AbstractControlModule):
         # Construct command
         #   (note: base translation joint command is relative)
         joint_goals = {
-            self._ros_client.BASE_TRANSLATION_JOINT: joint_pos_goal[0] - self.base_x,
             self._ros_client.LIFT_JOINT: joint_pos_goal[1],
             self._ros_client.ARM_JOINT: joint_pos_goal[2],
             self._ros_client.WRIST_YAW: joint_pos_goal[3],
             self._ros_client.WRIST_PITCH: joint_pos_goal[4],
             self._ros_client.WRIST_ROLL: joint_pos_goal[5],
         }
+        if move_base:
+            joint_goals[self._ros_client.BASE_TRANSLATION_JOINT] = (
+                joint_pos_goal[0] - self.base_x
+            )
         self.base_x = joint_pos_goal[0]
 
         # Send command to trajectory server
@@ -187,7 +208,12 @@ class StretchManipulationClient(AbstractControlModule):
         debug: bool = False,
     ) -> Optional[np.ndarray]:
         """Solve inverse kinematics appropriately (or at least try to) and get the joint position
-        that we will be moving to."""
+        that we will be moving to.
+
+        Note: When relative==True, the delta orientation is still defined in the world frame
+
+        Returns None if no solution is found, else returns an executable solution
+        """
 
         pos_ee_curr, quat_ee_curr = self.get_ee_pose(world_frame=world_frame)
         if quat is None:
@@ -205,7 +231,13 @@ class StretchManipulationClient(AbstractControlModule):
 
         if relative:
             pose_base2ee_curr = posquat2sophus(pos_ee_curr, quat_ee_curr)
-            pose_base2ee_desired = pose_desired * pose_base2ee_curr
+
+            pos_desired = pos_ee_curr + pose_input.translation()
+            so3_desired = pose_input.so3() * pose_base2ee_curr.so3()
+            quat_desired = R.from_matrix(so3_desired.matrix()).as_quat()
+
+            pose_base2ee_desired = posquat2sophus(pos_desired, quat_desired)
+
         else:
             pose_base2ee_desired = pose_desired
 
@@ -215,15 +247,18 @@ class StretchManipulationClient(AbstractControlModule):
         if debug:
             print("=== EE goto command ===")
             print(f"Initial EE pose: pos={pos_ee_curr}; quat={quat_ee_curr}")
+            print(f"Input EE pose: pos={np.array(pos)}; quat={np.array(quat)}")
             print(f"Desired EE pose: pos={pos_ik_goal}; quat={quat_ik_goal}")
 
         # Perform IK
         full_body_cfg, ik_success, ik_debug_info = self._robot_model.manip_ik(
             (pos_ik_goal, quat_ik_goal), q0=initial_cfg
         )
-        if full_body_cfg is None:
-            return None
 
+        # Expected to return None if we did not get a solution
+        if not ik_success or full_body_cfg is None:
+            return None
+        # Return a valid solution to the IK problem here
         return full_body_cfg
 
     @enforce_enabled
@@ -268,6 +303,17 @@ class StretchManipulationClient(AbstractControlModule):
         return True
 
     @enforce_enabled
+    def rotate_ee(self, axis: int, angle: float, **kwargs) -> bool:
+        """Rotates the gripper by one of 3 principal axes (X, Y, Z)"""
+        assert axis in [0, 1, 2], "'axis' must be 0, 1, or 2! (x, y, z)"
+
+        r = np.zeros(3)
+        r[axis] = angle
+        quat_desired = R.from_rotvec(r).as_quat().tolist()
+
+        return self.goto_ee_pose([0, 0, 0], quat_desired, relative=True, **kwargs)
+
+    @enforce_enabled
     def open_gripper(self, blocking: bool = True):
         gripper_target = self._robot_model.range[HelloStretchIdx.GRIPPER][1]
         self.move_gripper(gripper_target, blocking=blocking)
@@ -299,11 +345,5 @@ class StretchManipulationClient(AbstractControlModule):
         return (l0_pose.inverse() * l1_pose).translation()[0]
 
     def _extract_joint_pos(self, q):
-        return [
-            q[HelloStretchIdx.BASE_X],
-            q[HelloStretchIdx.LIFT],
-            q[HelloStretchIdx.ARM],
-            q[HelloStretchIdx.WRIST_YAW],
-            q[HelloStretchIdx.WRIST_PITCH],
-            q[HelloStretchIdx.WRIST_ROLL],
-        ]
+        """Helper to convert from the general-purpose config including full robot state, into the command space used in just the manip controller. Extracts just lift/arm/wrist information."""
+        return self._robot_model.config_to_manip_command(q)

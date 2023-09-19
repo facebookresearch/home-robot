@@ -1,3 +1,9 @@
+# Copyright (c) Meta Platforms, Inc. and affiliates.
+#
+# This source code is licensed under the MIT license found in the
+# LICENSE file in the root directory of this source tree.
+
+
 """
 This script is intended to run from the "src" root:
 python home_robot/experimental/theo/habitat_projects/tasks/object_navigation/eval_scripts/eval_vectorized.py \
@@ -98,7 +104,6 @@ class VectorizedEvaluator:
         num_episodes_per_env=None,
         episode_keys=None,
     ):
-
         # The stopping condition is either specified through
         # num_episodes_per_env (stop after each environment
         # finishes a certain number of episodes) or episode_keys

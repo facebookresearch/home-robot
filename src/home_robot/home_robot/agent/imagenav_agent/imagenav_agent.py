@@ -1,3 +1,9 @@
+# Copyright (c) Meta Platforms, Inc. and affiliates.
+#
+# This source code is licensed under the MIT license found in the
+# LICENSE file in the root directory of this source tree.
+
+
 from typing import Any, Dict, List, Optional, Tuple
 
 import numpy as np
@@ -42,11 +48,18 @@ class IINAgentModule(nn.Module):
             map_size_cm=config.semantic_map.map_size_cm,
             map_resolution=config.semantic_map.map_resolution,
             vision_range=config.semantic_map.vision_range,
+            explored_radius=config.semantic_map.explored_radius,
+            been_close_to_radius=config.semantic_map.been_close_to_radius,
             global_downscaling=config.semantic_map.global_downscaling,
             du_scale=config.semantic_map.du_scale,
             cat_pred_threshold=config.semantic_map.cat_pred_threshold,
             exp_pred_threshold=config.semantic_map.exp_pred_threshold,
             map_pred_threshold=config.semantic_map.map_pred_threshold,
+            must_explore_close=config.semantic_map.must_explore_close,
+            min_obs_height_cm=config.semantic_map.min_obs_height_cm,
+            dilate_obstacles=config.semantic_map.dilate_obstacles,
+            dilate_size=config.semantic_map.dilate_size,
+            dilate_iter=config.semantic_map.dilate_iter,
         )
         self.goal_policy_config = config.superglue
         self.exploration_policy = FrontierExplorationPolicy()
@@ -186,9 +199,13 @@ class IINAgentModule(nn.Module):
         )
 
         # Predict high-level goals from map features.
+        map_features = seq_map_features.flatten(0, 1)
+
         # the last channel of map_features is cut off -- used for goal det/loc.
-        explore_map = self.exploration_policy(seq_map_features.flatten(0, 1)[:, :-1])
-        seq_goal_map[seq_found_goal[:, 0] == 0] = explore_map[seq_found_goal[:, 0] == 0]
+        frontier_map = self.exploration_policy(map_features[:, :-1])
+        seq_goal_map[seq_found_goal[:, 0] == 0] = frontier_map[
+            seq_found_goal[:, 0] == 0
+        ]
 
         # predict if the goal is found and where it is.
         seq_goal_map, seq_found_goal = self.superglue(
@@ -198,9 +215,14 @@ class IINAgentModule(nn.Module):
             batch_size, sequence_length, *seq_goal_map.shape[-2:]
         )
 
+        seq_frontier_map = frontier_map.view(
+            batch_size, sequence_length, *frontier_map.shape[-2:]
+        )
+
         return (
             seq_goal_map,
             seq_found_goal,
+            seq_frontier_map,
             final_local_map,
             final_global_map,
             seq_local_pose,
@@ -222,6 +244,9 @@ class ImageNavAgent(Agent):
 
         self._module = IINAgentModule(config).to(self.device)
 
+        self.use_dilation_for_stg = config.planner.use_dilation_for_stg
+        self.verbose = config.planner.verbose
+
         self.semantic_map = Categorical2DSemanticMapState(
             device=self.device,
             num_environments=self.num_environments,
@@ -230,9 +255,14 @@ class ImageNavAgent(Agent):
             map_size_cm=config.semantic_map.map_size_cm,
             global_downscaling=config.semantic_map.global_downscaling,
         )
+        agent_radius_cm = config.habitat.simulator.agents.main_agent.radius * 100.0
+        agent_cell_radius = int(
+            np.ceil(agent_radius_cm / config.semantic_map.map_resolution)
+        )
         self.planner = DiscretePlanner(
             turn_angle=config.habitat.simulator.turn_angle,
             collision_threshold=config.planner.collision_threshold,
+            step_size=config.planner.step_size,
             obs_dilation_selem_radius=config.planner.obs_dilation_selem_radius,
             goal_dilation_selem_radius=config.planner.goal_dilation_selem_radius,
             map_size_cm=config.semantic_map.map_size_cm,
@@ -241,6 +271,11 @@ class ImageNavAgent(Agent):
             print_images=False,
             dump_location=config.dump_location,
             exp_name=config.exp_name,
+            agent_cell_radius=agent_cell_radius,
+            min_obs_dilation_selem_radius=config.planner.min_obs_dilation_selem_radius,
+            map_downsample_factor=config.planner.map_downsample_factor,
+            map_update_frequency=config.planner.map_update_frequency,
+            discrete_actions=config.planner.discrete_actions,
         )
 
         self.goal_filtering = config.semantic_prediction.goal_filtering
@@ -300,7 +335,11 @@ class ImageNavAgent(Agent):
         if self.timesteps[0] >= (self.max_steps - 1):
             action = DiscreteNavigationAction.STOP
         else:
-            action, closest_goal_map = self.planner.plan(**planner_inputs[0])
+            action, closest_goal_map, _, _ = self.planner.plan(
+                **planner_inputs[0],
+                use_dilation_for_stg=self.use_dilation_for_stg,
+                debug=self.verbose,
+            )
 
         if self.visualizer is not None:
             collision = obs.task_observations.get("collisions")
@@ -343,6 +382,7 @@ class ImageNavAgent(Agent):
         (
             self.goal_map,
             self.found_goal,
+            frontier_map,
             self.semantic_map.local_map,
             self.semantic_map.global_map,
             seq_local_pose,
@@ -374,6 +414,7 @@ class ImageNavAgent(Agent):
 
         goal_map = self._prep_goal_map_input()
         for e in range(self.num_environments):
+            self.semantic_map.update_frontier_map(e, frontier_map[e][0].cpu().numpy())
             if self.found_goal[e].item():
                 self.semantic_map.update_global_goal_for_env(e, goal_map[e])
             elif self.timesteps_before_goal_update[e] == 0:
@@ -390,6 +431,7 @@ class ImageNavAgent(Agent):
             {
                 "obstacle_map": self.semantic_map.get_obstacle_map(e),
                 "goal_map": self.semantic_map.get_goal_map(e),
+                "frontier_map": self.semantic_map.get_frontier_map(e),
                 "sensor_pose": self.semantic_map.get_planner_pose_inputs(e),
                 "found_goal": self.found_goal[e].item(),
             }
@@ -438,4 +480,4 @@ class ImageNavAgent(Agent):
             if goal_map_.sum() > 0:
                 goal_map[e] = goal_map_
 
-        return goal_map
+        return np.ceil(goal_map)

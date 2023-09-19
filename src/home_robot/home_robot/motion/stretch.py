@@ -2,6 +2,7 @@
 #
 # This source code is licensed under the MIT license found in the
 # LICENSE file in the root directory of this source tree.
+import math
 import os
 from typing import List, Optional, Tuple
 
@@ -9,16 +10,16 @@ import numpy as np
 import pybullet as pb
 
 import home_robot.utils.bullet as hrb
+from home_robot.core.interfaces import ContinuousFullBodyAction
 from home_robot.motion.pinocchio_ik_solver import PinocchioIKSolver, PositionIKOptimizer
-from home_robot.motion.robot import Robot
+from home_robot.motion.robot import Footprint, Robot
 from home_robot.utils.bullet import PybulletIKSolver
 from home_robot.utils.pose import to_matrix
 
 # Stretch stuff
 DEFAULT_STRETCH_URDF = "assets/hab_stretch/urdf/stretch_dex_wrist_simplified.urdf"
-# PLANNER_STRETCH_URDF =  'assets/hab_stretch/urdf/planner_stretch_dex_wrist_simplified.urdf'
 PLANNER_STRETCH_URDF = "assets/hab_stretch/urdf/planner_calibrated.urdf"
-MANIP_STRETCH_URDF = "assets/hab_stretch/urdf/planner_calibrated_manipulation_mode.urdf"
+MANIP_STRETCH_URDF = "assets/hab_stretch/urdf/stretch_manip_mode.urdf"
 
 STRETCH_HOME_Q = np.array(
     [
@@ -35,36 +36,75 @@ STRETCH_HOME_Q = np.array(
         0.0,
     ]
 )
+
+# look down in navigation mode for doing manipulation post-navigation
+STRETCH_POSTNAV_Q = np.array(
+    [
+        0,  # x
+        0,  # y
+        0,  # theta
+        0.78,  # lift
+        0.01,  # arm
+        0.0,  # gripper rpy
+        0.0,  # wrist roll
+        -1.5,  # wrist pitch
+        0.0,  # wrist yaw
+        0.0,
+        math.radians(-45),
+    ]
+)
+
+# Gripper pointed down, for a top-down grasp
 STRETCH_PREGRASP_Q = np.array(
     [
         0,  # x
         0,  # y
         0,  # theta
-        0.6,  # lift
+        0.78,  # lift
         0.01,  # arm
         0.0,  # gripper rpy
         0.0,  # wrist roll
-        -1.51,  # wrist pitch
-        1.57,  # wrist yaw
-        0.0,
-        0.0,
+        -1.5,  # wrist pitch
+        0.0,  # wrist yaw
+        -np.pi / 2,  # head pan, camera to face the arm
+        -np.pi / 4,
     ]
 )
+
+# Gripper straight out, lowered arm for clear vision
+STRETCH_PREDEMO_Q = np.array(
+    [
+        0,  # x
+        0,  # y
+        0,  # theta
+        0.4,  # lift
+        0.01,  # arm
+        0.0,  # gripper rpy
+        0.0,  # wrist roll
+        0.0,  # wrist pitch
+        0.0,  # wrist yaw
+        -np.pi / 2,  # head pan, camera to face the arm
+        -np.pi / 4,
+    ]
+)
+# Navigation should not be fully folded up against the arm - in case its holding something
 STRETCH_NAVIGATION_Q = np.array(
     [
         0,  # x
         0,  # y
         0,  # theta
-        0.5,  # lift
+        0.78,  # lift
         0.01,  # arm
         0.0,  # gripper rpy
         0.0,  # wrist roll
-        0.0,  # wrist pitch
-        3.0,  # wrist yaw
+        -1.5,  # wrist pitch
+        0.0,  # wrist yaw
         0.0,
-        -np.pi / 4,
+        math.radians(-30),
     ]
 )
+
+
 PIN_CONTROLLED_JOINTS = [
     "base_x_joint",
     "joint_lift",
@@ -76,6 +116,21 @@ PIN_CONTROLLED_JOINTS = [
     "joint_wrist_pitch",
     "joint_wrist_roll",
 ]
+
+
+# used for mapping joint states in STRETCH_*_Q to match the sim/real joint action space
+def map_joint_q_state_to_action_space(q):
+    return np.array(
+        [
+            q[4],  # arm_0
+            q[3],  # lift
+            q[8],  # yaw
+            q[7],  # pitch
+            q[6],  # roll
+            q[9],  # head pan
+            q[10],  # head tilt
+        ]
+    )
 
 
 # This is the gripper, and the distance in the gripper frame to where the fingers will roughly meet
@@ -99,6 +154,10 @@ STRETCH_GRIPPER_CLOSE = -0.2
 STRETCH_HEAD_CAMERA_ROTATIONS = (
     3  # number of counterclockwise rotations for the head camera
 )
+
+# For EXTEND_ARM action
+STRETCH_ARM_EXTENSION = 0.8
+STRETCH_ARM_LIFT = 0.8
 
 
 class HelloStretchIdx:
@@ -155,8 +214,11 @@ class HelloStretchKinematics(Robot):
     )
     # look_at_ee = np.array([-np.pi/2, -np.pi/8])
     look_at_ee = np.array([-np.pi / 2, -np.pi / 4])
-    look_front = np.array([0.0, -np.pi / 4])
+    look_front = np.array([0.0, math.radians(-30)])
     look_ahead = np.array([0.0, 0.0])
+    look_close = np.array([0.0, math.radians(-45)])
+
+    max_arm_height = 1.2
 
     # For inverse kinematics mode
     default_ee_link_name = "link_straight_gripper"
@@ -187,8 +249,14 @@ class HelloStretchKinematics(Robot):
         "joint_wrist_roll",
     ]
 
-    def _create_ik_solvers(self, ik_type: str = "pybullet", visualize: bool = False):
-        """Create ik solvers using pybullet or something else."""
+    def get_footprint(self) -> Footprint:
+        """Return footprint for the robot. This is expected to be a mask."""
+        # Note: close to the actual measurements
+        # return Footprint(width=0.34, length=0.33, width_offset=0.0, length_offset=0.1)
+        return Footprint(width=0.4, length=0.5, width_offset=0.0, length_offset=0.1)
+
+    def _create_ik_solvers(self, ik_type: str = "pinocchio", visualize: bool = False):
+        """Create ik solvers using physics backends such as pybullet or pinocchio."""
         # You can set one of the visualize flags to true to debug IK issues
         # This is not exposed manually - only one though or it will fail
         assert ik_type in [
@@ -231,7 +299,7 @@ class HelloStretchKinematics(Robot):
         urdf_path: str = "",
         visualize: bool = False,
         root: str = ".",
-        ik_type: str = "pybullet",
+        ik_type: str = "pinocchio",
         ee_link_name: Optional[str] = None,
         grasp_frame: Optional[str] = None,
         joint_tolerance: float = 0.01,
@@ -262,6 +330,7 @@ class HelloStretchKinematics(Robot):
         #      3 for base x/y/theta
         #      2 for head
         self.dof = 3 + 2 + 4 + 2
+        self.joints_dof = 10  # from habitat spec
         self.base_height = self.DEFAULT_BASE_HEIGHT
 
         # ranges for joints
@@ -698,7 +767,7 @@ class HelloStretchKinematics(Robot):
             pos, quat, q0, num_attempts=num_attempts, verbose=verbose
         )
 
-        if q is not None:
+        if q is not None and success:
             q = self._from_manip_format(q, default_q)
             self.set_config(q)
 
@@ -819,6 +888,128 @@ class HelloStretchKinematics(Robot):
                     print("colliding with", name)
                 return False
         return True
+
+    def create_action_from_config(self, q: np.ndarray) -> ContinuousFullBodyAction:
+        """Create a default interface action from this"""
+        xyt = np.zeros(3)
+        xyt[0] = q[HelloStretchIdx.BASE_X]
+        xyt[1] = q[HelloStretchIdx.BASE_Y]
+        xyt[2] = q[HelloStretchIdx.BASE_THETA]
+        return self.create_action(
+            lift=q[HelloStretchIdx.LIFT],
+            arm=q[HelloStretchIdx.ARM],
+            pitch=q[HelloStretchIdx.WRIST_PITCH],
+            roll=q[HelloStretchIdx.WRIST_ROLL],
+            yaw=q[HelloStretchIdx.WRIST_YAW],
+            xyt=xyt,
+        )
+
+    def create_action(
+        self,
+        lift=None,
+        arm=None,
+        roll=None,
+        pitch=None,
+        yaw=None,
+        pan=None,
+        tilt=None,
+        xyt=None,
+        defaults: np.ndarray = None,
+    ) -> ContinuousFullBodyAction:
+        """
+        Original Arm Action Space: We define the action space that jointly controls (1) arm extension (horizontal), (2) arm height (vertical), (3) gripper wrist’s roll, pitch, and yaw, and (4) the camera’s yaw and pitch. The resulting size of the action space is 10.
+        - Arm extension (size: 4): It consists of 4 motors that extend the arm: joint_arm_l0 (index 28 in robot interface), joint_arm_l1 (27), joint_arm_l2 (26), joint_arm_l3 (25)
+        - Arm height (size: 1): It consists of 1 motor that moves the arm vertically: joint_lift (23)
+        - Gripper wrist (size: 3): It consists of 3 motors that control the roll, pitch, and yaw of the gripper wrist: joint_wrist_yaw (31),  joint_wrist_pitch (39),  joint_wrist_roll (40)
+        - Camera (size 2): It consists of 2 motors that control the yaw and pitch of the camera: joint_head_pan (7), joint_head_tilt (8)
+
+        As a result, the original action space is the order of [joint_arm_l0, joint_arm_l1, joint_arm_l2, joint_arm_l3, joint_lift, joint_wrist_yaw, joint_wrist_pitch, joint_wrist_roll, joint_head_pan, joint_head_tilt] defined in habitat/robots/stretch_robot.py
+        """
+        assert self.joints_dof == 10
+        if defaults is None:
+            joints = np.zeros(self.joints_dof)
+        else:
+            assert len(defaults) == self.joints_dof
+            joints = defaults.copy()
+        if arm is not None:
+            joints[:4] = np.ones(4) * (arm / 4.0)
+        if lift is not None:
+            joints[4] = lift
+        if roll is not None:
+            joints[5] = roll
+        if pitch is not None:
+            joints[6] = pitch
+        if yaw is not None:
+            joints[7] = yaw
+        if pan is not None:
+            joints[8] = pan
+        if tilt is not None:
+            joints[9] = tilt
+        return ContinuousFullBodyAction(joints=joints, xyt=xyt)
+
+    def delta_hab_to_position_command(self, cmd, pan, tilt, deltas) -> List:
+        """Compute deltas"""
+        assert len(deltas) == 10
+        arm = deltas[0] + deltas[1] + deltas[2] + deltas[3]
+        lift = deltas[4]
+        roll = deltas[5]
+        pitch = deltas[6]
+        yaw = deltas[7]
+        pan, tilt = self.head.get_pan_tilt()
+        positions = [
+            0,  # This is the robot's base x axis - not currently used
+            cmd[1] + lift,
+            cmd[2] + arm,
+            cmd[3] + yaw,
+            cmd[4] + pitch,
+            cmd[5] + roll,
+        ]
+        pan = pan + deltas[8]
+        tilt = tilt + deltas[9]
+        return positions, pan, tilt
+
+    def config_to_manip_command(self, q):
+        """convert from general representation into arm manip command. This extracts just the information used for end-effector control: base x motion, arm lift, and wrist variables."""
+        return [
+            q[HelloStretchIdx.BASE_X],
+            q[HelloStretchIdx.LIFT],
+            q[HelloStretchIdx.ARM],
+            q[HelloStretchIdx.WRIST_YAW],
+            q[HelloStretchIdx.WRIST_PITCH],
+            q[HelloStretchIdx.WRIST_ROLL],
+        ]
+
+    def config_to_hab(self, q: np.ndarray) -> np.ndarray:
+        """Convert default configuration into habitat commands. This is a slightly different format that strips out x, y, and theta."""
+        hab = np.zeros(10)
+        hab[0] = q[HelloStretchIdx.ARM]
+        hab[4] = q[HelloStretchIdx.LIFT]
+        hab[5] = q[HelloStretchIdx.WRIST_ROLL]
+        hab[6] = q[HelloStretchIdx.WRIST_PITCH]
+        hab[7] = q[HelloStretchIdx.WRIST_YAW]
+        hab[8] = q[HelloStretchIdx.HEAD_PAN]
+        hab[9] = q[HelloStretchIdx.HEAD_TILT]
+        return hab
+
+    def hab_to_position_command(self, hab_positions) -> List:
+        """Compute hab_positions"""
+        assert len(hab_positions) == 10
+        arm = hab_positions[0] + hab_positions[1] + hab_positions[2] + hab_positions[3]
+        lift = hab_positions[4]
+        roll = hab_positions[5]
+        pitch = hab_positions[6]
+        yaw = hab_positions[7]
+        positions = [
+            0,  # This is the robot's base x axis - not currently used
+            lift,
+            arm,
+            yaw,
+            pitch,
+            roll,
+        ]
+        pan = hab_positions[8]
+        tilt = hab_positions[9]
+        return positions, pan, tilt
 
 
 if __name__ == "__main__":

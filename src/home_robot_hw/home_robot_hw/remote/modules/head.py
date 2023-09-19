@@ -36,7 +36,12 @@ class StretchHeadClient(AbstractControlModule):
 
     def get_pose(self, rotated=True):
         """get matrix version of the camera pose"""
-        return self._ros_client.se3_camera_pose.matrix()
+        mat = self._ros_client.se3_camera_pose.matrix()
+        if rotated:
+            # If we are using the rotated versions of the images
+            return mat @ tra.euler_matrix(0, np.pi / 2, 0)
+        else:
+            return mat
 
     def get_pose_in_base_coords(self, rotated=True):
         """Use /tf to get the pose from base to camera coordinates. Useful for computing grasps in particular."""
@@ -50,6 +55,10 @@ class StretchHeadClient(AbstractControlModule):
     def get_pan_tilt(self) -> Tuple[float, float]:
         q, _, _ = self._ros_client.get_joint_state()
         return q[HelloStretchIdx.HEAD_PAN], q[HelloStretchIdx.HEAD_TILT]
+
+    def intrinsics(self) -> np.ndarray:
+        """Return 3x3 intrinsics matrics"""
+        return self._ros_client.rgb_cam.K
 
     def set_pan_tilt(
         self,
@@ -68,6 +77,11 @@ class StretchHeadClient(AbstractControlModule):
         self._register_wait(self._ros_client.wait_for_trajectory_action)
         if blocking:
             self.wait()
+
+    def look_close(self, blocking: bool = True):
+        """Point camera sideways towards the gripper"""
+        pan, tilt = self._robot_model.look_close
+        self.set_pan_tilt(pan, tilt, blocking=blocking)
 
     def look_at_ee(self, blocking: bool = True):
         """Point camera sideways towards the gripper"""
@@ -104,11 +118,18 @@ class StretchHeadClient(AbstractControlModule):
 
         return imgs
 
+    def depth_to_xyz(self, dpt: np.ndarray) -> np.ndarray:
+        """Convert depth to xyz coordinates"""
+        xyz = self._ros_client.dpt_cam.depth_to_xyz(
+            self._ros_client.dpt_cam.fix_depth(dpt)
+        )
+        return xyz
+
     # Helper methods
 
     def _process_depth(self, depth):
-        depth[depth < self.min_depth_val] = MIN_DEPTH_REPLACEMENT_VALUE
-        depth[depth > self.max_depth_val] = MAX_DEPTH_REPLACEMENT_VALUE
+        # depth[depth < self.min_depth_val] = MIN_DEPTH_REPLACEMENT_VALUE
+        # depth[depth > self.max_depth_val] = MAX_DEPTH_REPLACEMENT_VALUE
         return depth
 
     def _enable_hook(self) -> bool:

@@ -1,4 +1,12 @@
+# Copyright (c) Meta Platforms, Inc. and affiliates.
+#
+# This source code is licensed under the MIT license found in the
+# LICENSE file in the root directory of this source tree.
+
 from enum import Enum
+from typing import Dict, List, Union
+
+import numpy as np
 
 from home_robot.motion.stretch import HelloStretchIdx
 
@@ -13,7 +21,7 @@ ROS_WRIST_PITCH = "joint_wrist_pitch"
 ROS_WRIST_ROLL = "joint_wrist_roll"
 
 
-ROS_TO_CONFIG = {
+ROS_TO_CONFIG: Dict[str, HelloStretchIdx] = {
     ROS_LIFT_JOINT: HelloStretchIdx.LIFT,
     ROS_GRIPPER_FINGER: HelloStretchIdx.GRIPPER,
     # ROS_GRIPPER_FINGER2: HelloStretchIdx.GRIPPER,
@@ -24,7 +32,7 @@ ROS_TO_CONFIG = {
     ROS_HEAD_TILT: HelloStretchIdx.HEAD_TILT,
 }
 
-CONFIG_TO_ROS = {}
+CONFIG_TO_ROS: Dict[HelloStretchIdx, List[str]] = {}
 for k, v in ROS_TO_CONFIG.items():
     if v not in CONFIG_TO_ROS:
         CONFIG_TO_ROS[v] = []
@@ -40,3 +48,7 @@ class ControlMode(Enum):
     VELOCITY = 1
     NAVIGATION = 2
     MANIPULATION = 3
+
+
+# Relative resting pose for creating observations
+relative_resting_position = np.array([0.3878479, 0.12924957, 0.4224413])

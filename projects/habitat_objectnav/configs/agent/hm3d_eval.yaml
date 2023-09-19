@@ -1,12 +1,14 @@
 BASE_TASK_CONFIG_PATH: configs/task/hm3d_challenge2022_val.yaml
 
-NO_GPU: 1                 # 1: ignore IDs above and run on CPU, 0: run on GPUs with IDs above
-NUM_ENVIRONMENTS: 35      # number of environments (per agent process)
+NO_GPU: 0                 # 1: ignore IDs above and run on CPU, 0: run on GPUs with IDs above
+NUM_ENVIRONMENTS: 1      # number of environments (per agent process)
 DUMP_LOCATION: datadump   # path to dump models and log
 EXP_NAME: eval_hm3d       # experiment name
 VISUALIZE: 0              # 1: render observation and predicted semantic map, 0: no visualization
 PRINT_IMAGES: 1           # 1: save visualization as images, 0: no image saving
 GROUND_TRUTH_SEMANTICS: 1 # 1: use ground-truth semantics (for debugging / ablations)
+seed: 0
+SHOW_RL_OBS: False         # whether to show the observations passed to RL policices, for debugging
 
 ENVIRONMENT:
   turn_angle: 30.0        # agent turn angle (in degrees)
@@ -16,10 +18,14 @@ ENVIRONMENT:
   hfov: 79.0              # horizontal field of view (in degrees)
   min_depth: 0.5          # minimum depth for depth sensor (in metres)
   max_depth: 5.0          # maximum depth for depth sensor (in metres)
+  evaluate_instance_tracking: False # whether to evaluate the built instance map against groundtruth instance ids
 
 AGENT:
   max_steps: 500          # maximum number of steps before stopping an episode
   panorama_start: 1       # 1: turn around 360 degrees when starting an episode, 0: don't
+  exploration_strategy: seen_frontier  # exploration strategy ("seen_frontier", "been_close_to_frontier")
+  radius: 0.05            # robot radius (in meters)
+  store_all_categories: True  # whether to store all semantic categories in the map or just task-relevant ones
 
   SEMANTIC_MAP:
     semantic_categories: coco_indoor # map semantic channel categories ("coco_indoor", "longtail_indoor", "mukul_indoor")
@@ -32,12 +38,29 @@ AGENT:
     cat_pred_threshold: 5.0  # number of depth points to be in bin to classify it as a certain semantic category
     exp_pred_threshold: 1.0  # number of depth points to be in bin to consider it as explored
     map_pred_threshold: 1.0  # number of depth points to be in bin to consider it as obstacle
+    explored_radius: 150     # radius (in centimeters) of visually explored region
+    been_close_to_radius: 200  # radius (in centimeters) of been close to region
+    must_explore_close: False
+    min_obs_height_cm: 10    # minimum height (in centimeters) of obstacle to be considered as obstacle
+    # erosion and filtering to reduce the number of spurious artifacts
+    dilate_obstacles: False
+    dilate_size: 3
+    dilate_iter: 1
+    # instance mapping
+    record_instance_ids: False  # whether to predict and store instance ids in the map
+    max_instances: 800
 
   PLANNER:
     collision_threshold: 0.20       # forward move distance under which we consider there's a collision (in meters)
+    min_obs_dilation_selem_radius: 3    # radius (in cells) of obstacle dilation structuring element
     obs_dilation_selem_radius: 3    # radius (in cells) of obstacle dilation structuring element
     goal_dilation_selem_radius: 10  # radius (in cells) of goal dilation structuring element
+    use_dilation_for_stg: False      # use dilated goals for estimating short-term goals - or just reaching
+    map_downsample_factor: 1            # optional downsampling of traversible and goal map before fmm distance call (1 for no downsampling, 2 for halving resolution)
+    map_update_frequency: 1             # compute fmm distance map every n steps 
     step_size: 5                    # maximum distance of the short-term goal selected by the planner
+    discrete_actions: True         # discrete motion planner output space or not
+    verbose: False
 
 EVAL_VECTORIZED:
   simulator_gpu_ids: [1, 2, 3, 4, 5, 6, 7] # IDs of GPUs to use for vectorized environments

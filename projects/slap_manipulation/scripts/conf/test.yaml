@@ -1,7 +1,0 @@
-dry_run: True
-num_keypoints: 3
-local_problem_size: 0.1
-num_pts: 8000
-execution:
-  predict_action: False
-

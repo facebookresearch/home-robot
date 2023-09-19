@@ -1,3 +1,9 @@
+# Copyright (c) Meta Platforms, Inc. and affiliates.
+#
+# This source code is licensed under the MIT license found in the
+# LICENSE file in the root directory of this source tree.
+
+
 from abc import ABC, abstractmethod
 from typing import Any, Dict, Optional
 
@@ -10,7 +16,12 @@ class Env(ABC):
         pass
 
     @abstractmethod
-    def apply_action(self, action: Action, info: Optional[Dict[str, Any]] = None):
+    def apply_action(
+        self,
+        action: Action,
+        info: Optional[Dict[str, Any]] = None,
+        prev_obs: Optional[Observations] = None,
+    ):
         pass
 
     @abstractmethod

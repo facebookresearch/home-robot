@@ -1,8 +1,16 @@
+# Copyright (c) Meta Platforms, Inc. and affiliates.
+#
+# This source code is licensed under the MIT license found in the
+# LICENSE file in the root directory of this source tree.
+
+
 import argparse
+import pathlib
 import sys
 from pathlib import Path
-from typing import Optional
+from typing import List, Optional, Tuple
 
+import cv2
 import numpy as np
 import torch
 from detectron2.config import get_cfg
@@ -12,6 +20,7 @@ from detectron2.utils.visualizer import ColorMode, Visualizer
 
 from home_robot.core.abstract_perception import PerceptionModule
 from home_robot.core.interfaces import Observations
+from home_robot.perception.detection.utils import filter_depth, overlay_masks
 
 sys.path.insert(
     0, str(Path(__file__).resolve().parent / "Detic/third_party/CenterNet2/")
@@ -63,6 +72,7 @@ class DeticPerception(PerceptionModule):
         custom_vocabulary="",
         checkpoint_file=None,
         sem_gpu_id=0,
+        verbose: bool = False,
     ):
         """Load trained Detic model for inference.
 
@@ -74,7 +84,9 @@ class DeticPerception(PerceptionModule):
              list of classes (as a single string)
             checkpoint_file: path to model checkpoint
             sem_gpu_id: GPU ID to load the model on, -1 for CPU
+            verbose: whether to print out debug information
         """
+        self.verbose = verbose
         if config_file is None:
             config_file = str(
                 Path(__file__).resolve().parent
@@ -85,9 +97,10 @@ class DeticPerception(PerceptionModule):
                 Path(__file__).resolve().parent
                 / "Detic/models/Detic_LCOCOI21k_CLIP_SwinB_896b32_4x_ft4x_max-size.pth"
             )
-        print(
-            f"Loading Detic with config={config_file} and checkpoint={checkpoint_file}"
-        )
+        if self.verbose:
+            print(
+                f"Loading Detic with config={config_file} and checkpoint={checkpoint_file}"
+            )
 
         string_args = f"""
             --config-file {config_file} --vocabulary {vocabulary}
@@ -106,7 +119,7 @@ class DeticPerception(PerceptionModule):
 
         string_args = string_args.split()
         args = get_parser().parse_args(string_args)
-        cfg = setup_cfg(args)
+        cfg = setup_cfg(args, verbose=verbose)
 
         assert vocabulary in ["coco", "custom"]
         if args.vocabulary == "custom":
@@ -142,14 +155,46 @@ class DeticPerception(PerceptionModule):
         self.cpu_device = torch.device("cpu")
         self.instance_mode = ColorMode.IMAGE
         self.predictor = DefaultPredictor(cfg)
+
+        if type(classifier) == pathlib.PosixPath:
+            classifier = str(classifier)
+        reset_cls_test(self.predictor.model, classifier, num_classes)
+
+    def reset_vocab(self, new_vocab: List[str], vocab_type="custom"):
+        """Resets the vocabulary of Detic model allowing you to change detection on
+        the fly. Note that previous vocabulary is not preserved.
+        Args:
+            new_vocab: list of strings representing the new vocabulary
+            vocab_type: one of "custom" or "coco"; only "custom" supported right now
+        """
+        if self.verbose:
+            print(f"Resetting vocabulary to {new_vocab}")
+        MetadataCatalog.remove("__unused")
+        if vocab_type == "custom":
+            self.metadata = MetadataCatalog.get("__unused")
+            self.metadata.thing_classes = new_vocab
+            classifier = get_clip_embeddings(self.metadata.thing_classes)
+            self.categories_mapping = {
+                i: i for i in range(len(self.metadata.thing_classes))
+            }
+        else:
+            raise NotImplementedError(
+                "Detic does not have support for resetting from custom to coco vocab"
+            )
+        self.num_sem_categories = len(self.categories_mapping)
+
+        num_classes = len(self.metadata.thing_classes)
         reset_cls_test(self.predictor.model, classifier, num_classes)
 
     def predict(
-        self, obs: Observations, depth_threshold: Optional[float] = None
+        self,
+        obs: Observations,
+        depth_threshold: Optional[float] = None,
+        draw_instance_predictions: bool = True,
     ) -> Observations:
         """
         Arguments:
-            obs.rgb: image of shape (H, W, 3) (in BGR order)
+            obs.rgb: image of shape (H, W, 3) (in RGB order - Detic expects BGR)
             obs.depth: depth frame of shape (H, W), used for depth filtering
             depth_threshold: if specified, the depth threshold per instance
 
@@ -159,48 +204,50 @@ class DeticPerception(PerceptionModule):
             obs.task_observations["semantic_frame"]: segmentation visualization
              image of shape (H, W, 3)
         """
-        image, depth = obs.rgb, obs.depth
+        image = cv2.cvtColor(obs.rgb, cv2.COLOR_RGB2BGR)
+        depth = obs.depth
         height, width, _ = image.shape
 
         pred = self.predictor(image)
 
-        visualizer = Visualizer(
-            image[:, :, ::-1], self.metadata, instance_mode=self.instance_mode
-        )
-        visualization = visualizer.draw_instance_predictions(
-            predictions=pred["instances"].to(self.cpu_device)
-        ).get_image()
+        if obs.task_observations is None:
+            obs.task_observations = {}
 
-        prediction = np.zeros((height, width))
-        for j, class_idx in enumerate(pred["instances"].pred_classes.cpu().numpy()):
-            if class_idx in self.categories_mapping:
-                idx = self.categories_mapping[class_idx]
-                obj_mask = pred["instances"].pred_masks[j] * 1.0
-                obj_mask = obj_mask.cpu().numpy()
+        if draw_instance_predictions:
+            visualizer = Visualizer(
+                image[:, :, ::-1], self.metadata, instance_mode=self.instance_mode
+            )
+            visualization = visualizer.draw_instance_predictions(
+                predictions=pred["instances"].to(self.cpu_device)
+            ).get_image()
+            obs.task_observations["semantic_frame"] = visualization
+        else:
+            obs.task_observations["semantic_frame"] = None
 
-                if depth_threshold is not None and depth is not None:
-                    md = np.median(depth[obj_mask == 1])
-                    if md == 0:
-                        filter_mask = np.ones_like(obj_mask, dtype=bool)
-                    else:
-                        # Restrict objects to 1m depth
-                        filter_mask = (depth >= md + depth_threshold) | (
-                            depth <= md - depth_threshold
-                        )
-                    # print(
-                    #     f"Median object depth: {md.item()}, filtering out "
-                    #     f"{np.count_nonzero(filter_mask)} pixels"
-                    # )
-                    obj_mask[filter_mask] = 0.0
+        # Sort instances by mask size
+        masks = pred["instances"].pred_masks.cpu().numpy()
+        class_idcs = pred["instances"].pred_classes.cpu().numpy()
+        scores = pred["instances"].scores.cpu().numpy()
 
-                prediction[obj_mask.astype(bool)] = idx
+        if depth_threshold is not None and depth is not None:
+            masks = np.array(
+                [filter_depth(mask, depth, depth_threshold) for mask in masks]
+            )
 
-        obs.semantic = prediction.astype(int)
-        obs.task_observations["semantic_frame"] = visualization
+        semantic_map, instance_map = overlay_masks(masks, class_idcs, (height, width))
+
+        obs.semantic = semantic_map.astype(int)
+        obs.instance = instance_map.astype(int)
+        if obs.task_observations is None:
+            obs.task_observations = dict()
+        obs.task_observations["instance_map"] = instance_map
+        obs.task_observations["instance_classes"] = class_idcs
+        obs.task_observations["instance_scores"] = scores
+
         return obs
 
 
-def setup_cfg(args):
+def setup_cfg(args, verbose: bool = False):
     cfg = get_cfg()
     if args.cpu:
         cfg.MODEL.DEVICE = "cpu"
@@ -214,6 +261,8 @@ def setup_cfg(args):
     cfg.MODEL.PANOPTIC_FPN.COMBINE.INSTANCES_CONFIDENCE_THRESH = (
         args.confidence_threshold
     )
+    if verbose:
+        print("[DETIC] Confidence threshold =", args.confidence_threshold)
     cfg.MODEL.ROI_BOX_HEAD.ZEROSHOT_WEIGHT_PATH = "rand"  # load later
     if not args.pred_all_class:
         cfg.MODEL.ROI_HEADS.ONE_CLASS_PER_PROPOSAL = True
@@ -262,7 +311,7 @@ def get_parser():
     parser.add_argument(
         "--confidence-threshold",
         type=float,
-        default=0.5,
+        default=0.45,
         help="Minimum score for instance predictions to be shown",
     )
     parser.add_argument(

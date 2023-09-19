@@ -1,31 +1,43 @@
-# Simulation backend for the Hello Stretch
+# Home-Robot Simulation
 
-- WIP
-- Contains a minimal, dummy simulation for (debugging & automated testing), to be replaced with Habitat simulation
-- Habitat simulation: wrapper around [habitat-sim](https://github.com/facebookresearch/habitat-sim), not yet implemented
-- Same interface as home_robot_hw
+## Table of contents
+   1. [Environment setup](#environment-setup)
+   2. [Supported tasks](#supported-tasks)
 
-## Installation
+## Environment setup
 
-After installing [home_robot](../home_robot):
+These setup instructions are meant to be followed after reaching step 7 in the main [README.md](../../README.md) file. If you haven't completed those instructions yet, please refer to the main [README.md](../../README.md) and complete the steps mentioned there before continuing.
 
-```sh
-# Install simulation deps
-mamba install -c conda-forge -c aihabitat habitat-sim withbullet
-git submodule update --init
-pip install -e src/third_party/habitat-lab  # NOTE: Habitat-lab@v0.2.2 only works in editable mode
+### On an Ubuntu machine with GPU:
 
-# If needed, update submodules
-git submodule update --init
 
-# Install sim
+1. Install `habitat_sim` and other dependencies
+
+```
+mamba env update -f src/home_robot_sim/environment.yml
+```
+
+2. Fetch submodules
+```
+git submodule update --init --recursive src/third_party/habitat-lab
+```
+
+3. Install `habitat-lab`, `habitat-baselines` and `pytorch3d`.
+```
+python -m pip install -e src/third_party/habitat-lab/habitat-lab
+python -m pip install -e src/third_party/habitat-lab/habitat-baselines
+python -m pip install "git+https://github.com/facebookresearch/pytorch3d.git"
+```
+
+4. Install home_robot_sim library
+```
+# Install home robot sim interfaces
 pip install -e src/home_robot_sim
 ```
 
-## Usage
+## Supported tasks
 
-### Launching a minimal kinematic simulation (no camera yet)
-
-```sh
-python -m home_robot_sim.nodes.fake_stretch_robot
-```
+Please follow the links below for instructions on setting up the data directory, training policies and running evaluations for our supported tasks.
+1. [Open Vocab Mobile Manipulation (OVMM) in Habitat](../../projects/habitat_ovmm/README.md)
+2. [ObjectNav in Habitat](../../projects/habitat_objectnav/README.md)
+3. ImageNav in Habitat [WIP]

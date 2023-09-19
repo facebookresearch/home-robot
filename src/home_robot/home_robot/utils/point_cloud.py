@@ -31,10 +31,21 @@ def pcd_to_numpy(pcd: o3d.geometry.PointCloud) -> (np.ndarray, np.ndarray):
 
 
 def show_point_cloud(
-    xyz: np.ndarray, rgb: np.ndarray = None, orig=None, R=None, save=None, grasps=None
+    xyz: np.ndarray,
+    rgb: np.ndarray = None,
+    orig: np.ndarray = None,
+    R: np.ndarray = None,
+    save: str = None,
+    grasps: list = None,
+    size: float = 0.1,
 ):
+    """Shows the point-cloud described by np.ndarrays xyz & rgb.
+    Optional origin and rotation params are for showing origin coordinate.
+    Optional grasps param for showing a list of 6D poses as coordinate frames.
+    size controls scale of coordinate frame's size
+    """
     pcd = numpy_to_pcd(xyz, rgb)
-    show_pcd(pcd, orig, R, save, grasps)
+    show_pcd(pcd, orig=orig, R=R, save=save, grasps=grasps, size=size)
 
 
 def show_pcd(
@@ -43,8 +54,15 @@ def show_pcd(
     R: np.ndarray = None,
     save: str = None,
     grasps: list = None,
+    size: float = 0.1,
 ):
-    geoms = create_visualization_geometries(pcd=pcd, orig=orig, R=R, grasps=grasps)
+    """Shows the point-cloud described by open3d.geometry.PointCloud pcd
+    Optional origin and rotation params are for showing origin coordinate.
+    Optional grasps param for showing a list of 6D poses as coordinate frames.
+    """
+    geoms = create_visualization_geometries(
+        pcd=pcd, orig=orig, R=R, grasps=grasps, size=size
+    )
     o3d.visualization.draw_geometries(geoms)
 
     if save is not None:
@@ -410,54 +428,3 @@ def dropout_random_ellipses(
         depth_img[mask == 1] = 0
 
     return depth_img
-
-
-def get_xyz_coordinates(
-    depth: torch.Tensor,
-    mask: torch.Tensor,
-    pose: torch.Tensor,
-    inv_intrinsics: torch.Tensor,
-) -> torch.Tensor:
-    """Returns the XYZ coordinates for a posed RGBD image.
-
-    Args:
-        depth: The depth tensor, with shape (B, 1, H, W)
-        mask: The mask tensor, with the same shape as the depth tensor,
-            where True means that the point should be masked (not included)
-        inv_intrinsics: The inverse intrinsics, with shape (B, 3, 3)
-        pose: The poses, with shape (B, 4, 4)
-
-    Returns:
-        XYZ coordinates, with shape (N, 3) where N is the number of points in
-        the depth image which are unmasked
-    """
-
-    bsz, _, height, width = depth.shape
-    flipped_mask = ~mask
-
-    # Gets the pixel grid.
-    xs, ys = torch.meshgrid(
-        torch.arange(0, width), torch.arange(0, height), indexing="xy"
-    )
-    xy = torch.stack([xs, ys], dim=-1)[None, :, :].repeat_interleave(bsz, dim=0)
-    xy = xy[flipped_mask.squeeze(1)]
-    xyz = torch.cat((xy, torch.ones_like(xy[..., :1])), dim=-1)
-
-    # Associates poses and intrinsics with XYZ coordinates.
-    inv_intrinsics = inv_intrinsics[:, None, None, :, :].expand(
-        bsz, height, width, 3, 3
-    )[flipped_mask.squeeze(1)]
-    pose = pose[:, None, None, :, :].expand(bsz, height, width, 4, 4)[
-        flipped_mask.squeeze(1)
-    ]
-    depth = depth[flipped_mask]
-
-    # Applies intrinsics and extrinsics.
-    xyz = xyz.to(inv_intrinsics).unsqueeze(1) @ inv_intrinsics
-    xyz = xyz * depth[:, None, None]
-    xyz = (xyz[..., None, :] * pose[..., None, :3, :3]).sum(dim=-1) + pose[
-        ..., None, :3, 3
-    ]
-    xyz = xyz.squeeze(1)
-
-    return xyz

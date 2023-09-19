@@ -1,3 +1,9 @@
+# Copyright (c) Meta Platforms, Inc. and affiliates.
+#
+# This source code is licensed under the MIT license found in the
+# LICENSE file in the root directory of this source tree.
+
+
 from typing import Any, Dict, Optional
 
 import numpy as np
@@ -67,7 +73,12 @@ class StretchObjectNavEnv(StretchEnv):
         # home_q = self.robot_model.update_look_ahead(home_q.copy())
         self.goto(home_q, move_base=False, wait=True)
 
-    def apply_action(self, action: Action, info: Optional[Dict[str, Any]] = None):
+    def apply_action(
+        self,
+        action: Action,
+        info: Optional[Dict[str, Any]] = None,
+        prev_obs: Optional[Observations] = None,
+    ):
         """Discrete action space. make predictions for where the robot should go, move by a fixed
         amount forward or rotationally."""
         if self.visualizer is not None:

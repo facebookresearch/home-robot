@@ -1,139 +1,166 @@
+# Habitat OVMM
+
 ## Table of contents
-   1. [Environment setup](#environment-setup)
-   2. [Dataset setup](#dataset-setup)
-   3. [Demo setup](#demo-setup)
-   4. [DETIC setup](#install-detic)
-   5. [Run!](#run)
+   1. [Dataset setup](#dataset-setup)
+   2. [Demo setup](#demo-setup)
+   3. [Training DD-PPO skills](#training-dd-ppo-skills)
+   4. [Running evaluations](#running-evaluations)
 
-## Environment Setup
-
-On an Ubuntu machine with GPU:
-```
-conda env create -n home-robot --file=src/home_robot/environment.yml
-conda activate home-robot
-
-git clone https://github.com/3dlg-hcvc/habitat-sim --branch floorplanner
-cd habitat-sim
-python -m pip install -r requirements.txt
-python setup.py install --headless --with-bullet
-# (if the above commands runs out of memory) 
-# python setup.py build_ext --parallel 8 install --headless
-cd ..
-
-git clone --branch modular_nav_obj_on_rec https://github.com/facebookresearch/habitat-lab.git
-cd habitat-lab
-python -m pip install -e ./habitat-baselines
-cd habitat-lab
-python -m pip install -r requirements.txt
-python -m pip install -e .
-cd ../..
-```
-
-On Mac:
-```
-conda create -n home-robot python=3.10 cmake
-conda activate home-robot
-
-conda install pytorch torchvision torchaudio -c pytorch
-
-git clone https://github.com/3dlg-hcvc/habitat-sim --branch floorplanner
-cd habitat-sim
-pip install -r requirements.txt
-python setup.py install --with-bullet
-cd ..
-
-git clone --branch modular_nav_obj_on_rec https://github.com/facebookresearch/habitat-lab.git
-cd habitat-lab
-pip install -e habitat-baselines
-cd habitat-lab
-pip install -r requirements.txt
-# Not clear if this should have --all or just be a pip install .
-python setup.py develop
-cd ../..
-
-pip install natsort scikit-image scikit-fmm pandas trimesh scikit-learn
-```
-
-**[IMPORTANT]: Add habitat-lab path to PYTHONPATH**:
-
-```
-export PYTHONPATH=$PYTHONPATH:/path/to/home-robot-dev/habitat-lab/
-```
-
-[TEMPORARY]: Until we port to habitat v0.2.3.
-
-> Comment out L36 in habitat-lab/habitat/tasks/rearrange/rearrange_sim.py
 
 ## Dataset Setup
 
-### Scene dataset setup (v0.2.0)
+Run `git lfs install` to install Git LFS, which is used to manage the OVMM dataset. Please sign in [here](https://huggingface.co/datasets/hssd/hssd-hab/tree/ovmm) and accept the license for using HSSD scenes.
 
+You can then use the following command to download data:
 ```
-wget --no-check-certificate https://aspis.cmpt.sfu.ca/projects/scenebuilder/fphab/v0.2.0/fphab-v0.2.0.zip -O datasets/scene_datasets/fphab-v0.2.0.zip
-unzip datasets/scene_datasets/fphab-v0.2.0.zip -d datasets/scene_datasets/
-mkdir -p datasets/scene_datasets/floorplanner
-mv datasets/scene_datasets/fphab-v0.2.0 datasets/scene_datasets/floorplanner/v0.2.0
+$HOME_ROBOT_ROOT/projects/habitat_ovmm/install.sh
 ```
 
-The google scanned objects and amazon berkeley objects will need to be in `data/objects/google_object_dataset` and `data/objects/amazon_berkeley` respectively.
+### Detailed Explanation
 
-### Other instructions
+If anything goes wrong, you can check out this explanation of the different steps.
 
-Rough notes; some things were missing for configuring a new environment:
-  - Download the objects into `HOME_ROBOT_ROOT/data`
-  - Download the urdf into `HOME_ROBOT_ROOT/data/robots/hab_stretch` - robot should be at `data/robots/hab_stretch/urdf/` - robot from [the FAIR distribution here in zip format](http://dl.fbaipublicfiles.com/habitat/robots/hab_stretch_v1.0.zip)
+#### Scene dataset setup 
 
-
-### Episode dataset setup
-
+Please sign in [here](https://huggingface.co/datasets/hssd/hssd-hab/tree/ovmm) and accept the license for using HSSD scenes before proceeding to download them. You will need your login information to proceed.
 ```
-mkdir -p datasets/episode_datasets/floorplanner/indoor_only/
-wget https://www.dropbox.com/s/n1g1s6uvowo4tbm/v0.2.0_receptacle_cat_indoor_only_val.zip -O datasets/episode_datasets/floorplanner/indoor_only/v0.2.0_receptacle_cat_indoor_only_val.zip
-unzip datasets/episode_datasets/floorplanner/indoor_only/v0.2.0_receptacle_cat_indoor_only_val.zip -d datasets/episode_datasets/floorplanner/indoor_only/
+# Download the scenes
+git submodule update --init data/hssd-hab
+
+# Download the objects and metadata
+git submodule update --init data/objects
 ```
 
-## Create episode symlink
-
-For example:
+If this didn't trigger a download of the datasets, you may be running an older version of git. Either upgrade your git version, or try the following commands:
 ```
-ln -s ~/src/habitat-lab/data/datasets/floorplanner/v0.2.0/ ~/src/home-robot/data/datasets/floorplanner/v0.2.0
+cd data/hssd-hab
+git lfs pull
+cd -
+
+cd data/objects
+git lfs pull
+cd -
 ```
 
+#### Download the Episodes
+
+These describe where objects are and where the robot starts:
+
+```
+git submodule update --init data/datasets/ovmm
+```
+
+Similar to the scene dataset setup, you may need to run the following commands if this didn't download the episodes:
+```
+cd data/datasets/ovmm
+git lfs pull
+cd -
+```
+
+
+#### Download the Robot Model
+
+Download and unzip the robot model:
+```
+mkdir -p data/robots/hab_stretch
+cd data/robots/hab_stretch
+
+wget http://dl.fbaipublicfiles.com/habitat/robots/hab_stretch_v1.0.zip
+unzip hab_stretch_v1.0.zip
+```
 
 ## Demo setup
 
 Run
 ```
-python eval_episode.py
+python projects/habitat_ovmm/eval_baselines_agent.py --env_config projects/habitat_ovmm/configs/env/hssd_demo.yaml
 ```
 
-Results are saved to `datadump/images/debug`.
+Results are saved to `datadump/images/eval_hssd/`.
 
-## Install Detic
-TODO Fix these instructions to start by downloading submodule
+
+## Training DD-PPO skills
+
+First setup data directory
 ```
-cd /path/to/home-robot-dev/src/home_robot/home_robot/agent/perception/detection/detic
-python -m pip install 'git+https://github.com/facebookresearch/detectron2.git'
-pip install -r requirements.txt
-mkdir models
-wget https://dl.fbaipublicfiles.com/detic/Detic_LCOCOI21k_CLIP_SwinB_896b32_4x_ft4x_max-size.pth -O models/Detic_LCOCOI21k_CLIP_SwinB_896b32_4x_ft4x_max-size.pth
+cd /path/to/home-robot/src/third_party/habitat-lab/
 
-# Test it with
-wget https://web.eecs.umich.edu/~fouhey/fun/desk/desk.jpg
-python demo.py --config-file configs/Detic_LCOCOI21k_CLIP_SwinB_896b32_4x_ft4x_max-size.yaml --input desk.jpg --output out.jpg --vocabulary lvis --opts MODEL.WEIGHTS models/Detic_LCOCOI21k_CLIP_SwinB_896b32_4x_ft4x_max-size.pth
+# create soft link to data/ directory
+ln -s /path/to/home-robot/data data
 ```
 
-## Run
-
-> Note: Ensure `GROUND_TRUTH_SEMANTICS:0` in `configs/agent/floorplanner_eval.yaml` to test DETIC perception.
-
+To train on a single machine use the following script:
 ```
-cd /path/to/home-robot
+#/bin/bash
 
-# Single episode to debug (ensuring)
+export MAGNUM_LOG=quiet
 export HABITAT_SIM_LOG=quiet
-python project/habitat_ovmm/eval_episode.py
 
-# Vectorized evaluation
-sbatch eval_vectorized.sh --config_path configs/agent/floorplanner_eval.yaml
+set -x
+python -u -m habitat_baselines.run \
+   --exp-config habitat-baselines/habitat_baselines/config/ovmm/rl_skill.yaml \
+   --run-type train benchmark/ovmm=<skill_name> \
+   habitat_baselines.checkpoint_folder=data/new_checkpoints/ovmm/<skill_name>
 ```
+Here `<skill_name>` should be one of `gaze`, `place`, `nav_to_obj` or `nav_to_rec`.
+
+To run on a cluster with SLURM using distributed training run the following script. While this is not necessary, if you have access to a cluster, it can significantly speed up training. To run on multiple machines in a SLURM cluster run the following script: change `#SBATCH --nodes $NUM_OF_MACHINES` to the number of machines and `#SBATCH --ntasks-per-node $NUM_OF_GPUS` and `$SBATCH --gres $NUM_OF_GPUS` to specify the number of GPUS to use per requested machine.
+
+```
+#!/bin/bash
+#SBATCH --job-name=ddppo
+#SBATCH --output=logs.ddppo.out
+#SBATCH --error=logs.ddppo.err
+#SBATCH --gres gpu:1
+#SBATCH --nodes 1
+#SBATCH --cpus-per-task 10
+#SBATCH --ntasks-per-node 1
+#SBATCH --mem=60GB
+#SBATCH --time=12:00
+#SBATCH --signal=USR1@600
+#SBATCH --partition=dev
+
+export MAGNUM_LOG=quiet
+export HABITAT_SIM_LOG=quiet
+set -x
+python -u -m habitat_baselines.run \
+   --exp-config habitat-baselines/habitat_baselines/config/ovmm/rl_skill.yaml \
+   --run-type train benchmark/ovmm=<skill_name> \
+   habitat_baselines.checkpoint_folder=data/new_checkpoints/ovmm/<skill_name>
+```
+
+
+## Running evaluations
+
+
+### Evaluate with ground truth semantics
+```
+# Evaluation on complete episode dataset with GT semantics
+python projects/habitat_ovmm/eval_baselines_agent.py
+
+# Print out the metrics
+python projects/habitat_ovmm/scripts/summarize_metrics.py
+```
+
+### Evaluate with DETIC
+Ensure `GROUND_TRUTH_SEMANTICS:0` in `configs/env/hssd_eval.yaml` before running the above command
+
+### Evaluate on specific episodes
+```
+python projects/habitat_ovmm/eval_baselines_agent.py habitat.dataset.episode_ids="[151,182]"
+```
+
+### Evaluate all baseline variants
+1. First generate all possible configs using the base config `configs/agent/hssd_eval.yaml`. Configs will be saved under `projects/habitat_ovmm/configs/agent/generated`
+```
+python projects/habitat_ovmm/scripts/gen_configs.py
+```
+
+2. Run evaluation using the generated config files
+```
+python projects/habitat_ovmm/eval_baselines_agent.py --baseline_config_path projects/habitat_ovmm/configs/agent/generated/<dir_name>/<manip>_m_<nav>_n_<perception><viz?>.yaml
+```
+
+Here `<manip>/<nav>` are to be set to 'h' or 'r' for heuristic and RL skills respectively. `<perception>` is one of 'gt'/'detic'. Append `<viz?>=_viz` for saving images.
+
+In case you run into issues, please prepend your python command with `HABITAT_ENV_DEBUG=1` to get a better error message.

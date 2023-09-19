@@ -84,9 +84,12 @@ def to_pos_quat(matrix):
     return pos, np.array([x, y, z, w])
 
 
-def to_matrix(pos, rot) -> np.ndarray:
+def to_matrix(pos, rot, trimesh_format=False) -> np.ndarray:
     """converts pos, quat to matrix format"""
-    x, y, z, w = rot
+    if trimesh_format:
+        w, x, y, z = rot
+    else:
+        x, y, z, w = rot
     T = tra.quaternion_matrix([w, x, y, z])
     T[:3, 3] = pos
     return T
@@ -158,3 +161,22 @@ def normalize_angle(angle_in_degrees):
     if angle_in_degrees > 180:
         angle_in_degrees -= 360
     return angle_in_degrees
+
+
+def normalize_radians(angle_in_radians):
+    angle_in_radians = angle_in_radians % (2 * np.pi)
+    if angle_in_radians > np.pi:
+        angle_in_radians -= 2 * np.pi
+    return angle_in_radians
+
+
+def convert_pose_habitat_to_opencv(hab_pose: np.ndarray) -> np.ndarray:
+    """Update axis convention of habitat pose to match the real-world axis convention"""
+    hab_pose[[1, 2]] = hab_pose[[2, 1]]
+    hab_pose[:, [1, 2]] = hab_pose[:, [2, 1]]
+
+    hab_pose[0, 0] = -hab_pose[0, 0]
+    hab_pose[1, 1] = -hab_pose[1, 1]
+    hab_pose[0, 3] = -hab_pose[0, 3]
+
+    return hab_pose
