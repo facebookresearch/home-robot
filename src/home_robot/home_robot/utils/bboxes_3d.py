@@ -932,6 +932,10 @@ def join_boxes_as_scene(boxes: Union[BBoxes3D, List[BBoxes3D]]) -> BBoxes3D:
     return boxescene
 
 
+##############################################################
+# Box utilities
+
+
 def get_box_verts_from_bounds(
     bounds: torch.Tensor,  # (N, 3, 2)
     R: Optional[torch.Tensor] = None,
@@ -1009,7 +1013,7 @@ def get_box_bounds_from_verts(
     return torch.stack([verts.min(dim=1)[0], verts.max(dim=1)[0]], dim=-1)
 
 
-def box3d_overlap_from_bounds(bounds1: Tensor, bounds2: Tensor, tol: float = 1e-4):
+def box3d_overlap_from_bounds(bounds1: Tensor, bounds2: Tensor, eps=1e-4):
     """Calculates box overlap
 
     Args:
@@ -1022,20 +1026,70 @@ def box3d_overlap_from_bounds(bounds1: Tensor, bounds2: Tensor, tol: float = 1e-
     """
     corners1 = get_box_verts_from_bounds(bounds1)
     corners2 = get_box_verts_from_bounds(bounds2)
-    if torch.any(bounds1 == bounds2):
-        warnings.warn(
-            f"zero-size bounding box detected with mins = {bounds1}, maxs = {bounds2}"
-        )
-        # Bounds 1 mins and maxs
-        bounds1[:, :, 0] -= tol
-        bounds1[:, :, 1] += tol
-        # Bounds 2 mins and maxs
-        bounds2[:, :, 0] -= tol
-        bounds2[:, :, 1] += tol
-    return box3d_overlap(corners1, corners2)
+    return box3d_overlap(corners1, corners2, eps=eps)
 
 
-def nms3d(bounding_boxes, confidence_score, iou_threshold=0.3):
+def box3d_intersection_from_bounds(boxes1: Tensor, boxes2: Tensor, eps: float = 1e-4):
+    """
+    Calculate Intersection over Union (IoU) scores between a local 3D bounding box and a list of global 3D bounding boxes.
+
+    Args:
+        boxes1 (Tuple[np.ndarray, np.ndarray]): Bounding box of a point cloud obtained from the local instance in the current frame.
+        boxes2 (List[Tuple[np.ndarray, np.ndarray]]): List of bounding boxes of instances obtained by aggregating point clouds across different views.
+
+    Returns:
+        vol_intersection:
+        ious (np.ndarray): IoU scores between the boxes1 and each of the boxes2.
+        intersection_bounds
+    """
+    if boxes1.ndim == 2:
+        boxes1 = boxes1.unsqueeze(0)
+    if boxes2.ndim == 2:
+        boxes2 = boxes2.unsqueeze(0)
+    n_boxes1 = len(boxes1)
+    n_boxes2 = len(boxes2)
+
+    assert (
+        boxes1.ndim == 3 and boxes1.shape[-1] == 2 and boxes1.shape[-2] == 3
+    ), boxes1.shape
+    assert (
+        boxes2.ndim == 3 and boxes2.shape[-1] == 2 and boxes2.shape[-2] == 3
+    ), boxes2.shape
+    boxes1_min, boxes1_max = torch.unbind(boxes1, dim=-1)
+    boxes2_min, boxes2_max = torch.unbind(boxes2, dim=-1)
+    intersection_min = torch.maximum(
+        boxes1_min.unsqueeze(1).expand(n_boxes1, n_boxes2, 3),
+        boxes2_min.unsqueeze(0).expand(n_boxes1, n_boxes2, 3),
+    )
+    intersection_max = torch.minimum(
+        boxes1_max.unsqueeze(1).expand(n_boxes1, n_boxes2, 3),
+        boxes2_max.unsqueeze(0).expand(n_boxes1, n_boxes2, 3),
+    )
+    zero_iou = (intersection_min > intersection_max).any(dim=-1)
+
+    intersection_bounds = torch.stack([intersection_min, intersection_max], dim=-1)
+    intersection = torch.prod(intersection_max - intersection_min, dim=-1)
+    union = (
+        torch.prod(boxes1_max - boxes1_min, dim=-1).unsqueeze(1)
+        + torch.prod(boxes2_max - boxes2_min, dim=-1).unsqueeze(0)
+        - intersection
+    )
+
+    intersection[zero_iou] = 0.0
+    intersection[torch.isnan(intersection)] = 0.0
+    ious = intersection / union
+    return intersection, ious, intersection_bounds
+
+
+def box3d_volume_from_bounds(bounds: Tensor):
+    assert bounds.shape[-1] == 2 and bounds.shape[-2] == 3, bounds.shape
+    if bounds.ndim == 2:
+        bounds = bounds.unsqueeze(0)
+    mins, maxs = bounds.unbind(dim=-1)
+    return torch.prod(maxs - mins, dim=-1)
+
+
+def box3d_nms(bounding_boxes, confidence_score, iou_threshold=0.3):
     """
     Non-max suppression
 
@@ -1045,19 +1099,20 @@ def nms3d(bounding_boxes, confidence_score, iou_threshold=0.3):
       iou_threshold: Suppress boxes whose IoU > iou_threshold
 
     Returns:
-      keep, vol, iou
+      keep, vol, iou, assignments
       keep: indexes into N of which bounding boxes to keep
       vol: (N, N) tensor of the volume of the intersecting convex shapes
       iou: (N, M) tensor of the intersection over union which is
           defined as: `iou = vol / (vol1 + vol2 - vol)`
+      assignments: superbox_idx -> List[boxes_to_delete]
     """
-    if len(bounding_boxes) == 0:
-        return []
+    assert len(bounding_boxes) > 0, bounding_boxes.shape
 
     order = torch.argsort(confidence_score)
 
     vol, iou = box3d_overlap(bounding_boxes, bounding_boxes)
     keep = []
+    assignments = {}
     while len(order) > 0:
 
         idx = order[-1]  # Highest confidence (S)
@@ -1075,8 +1130,9 @@ def nms3d(bounding_boxes, confidence_score, iou_threshold=0.3):
         # keep the boxes with IoU less than thresh_iou
         # _, iou = box3d_overlap(bounding_boxes[idx].unsqueeze(0), bounding_boxes[order])
         mask = iou[idx, order] < iou_threshold
+        assignments[idx] = order[~mask]
         order = order[mask]
-    return torch.tensor(keep), vol, iou
+    return torch.tensor(keep), vol, iou, assignments
 
 
 # def get_cuboid_verts_faces(box3d=None, R=None):

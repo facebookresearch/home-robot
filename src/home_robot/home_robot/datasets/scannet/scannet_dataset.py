@@ -20,80 +20,16 @@ from PIL import Image
 from tqdm import tqdm
 
 from .referit3d_data import ReferIt3dDataConfig, load_referit3d_data
+from .scannet_constants import (
+    SCANNET_DATASET_CLASS_IDS,
+    SCANNET_DATASET_CLASS_LABELS,
+    SCANNET_DATASET_COLOR_MAPS,
+)
 from .scanrefer_data import ScanReferDataConfig, load_scanrefer_data
 
 
 class ScanNetDataset(object):
-    # Segmentation data
-    METAINFO = {
-        "classes": (
-            "wall",
-            "floor",
-            "cabinet",
-            "bed",
-            "chair",
-            "sofa",
-            "table",
-            "door",
-            "window",
-            "bookshelf",
-            "picture",
-            "counter",
-            "desk",
-            "curtain",
-            "refrigerator",
-            "showercurtrain",
-            "toilet",
-            "sink",
-            "bathtub",
-            "otherfurniture",
-        ),
-        "palette": [
-            [174, 199, 232],
-            [152, 223, 138],
-            [31, 119, 180],
-            [255, 187, 120],
-            [188, 189, 34],
-            [140, 86, 75],
-            [255, 152, 150],
-            [214, 39, 40],
-            [197, 176, 213],
-            [148, 103, 189],
-            [196, 156, 148],
-            [23, 190, 207],
-            [247, 182, 210],
-            [219, 219, 141],
-            [255, 127, 14],
-            [158, 218, 229],
-            [44, 160, 44],
-            [112, 128, 144],
-            [227, 119, 194],
-            [82, 84, 163],
-        ],
-        "seg_valid_class_ids": (
-            1,
-            2,
-            3,
-            4,
-            5,
-            6,
-            7,
-            8,
-            9,
-            10,
-            11,
-            12,
-            14,
-            16,
-            24,
-            28,
-            33,
-            34,
-            36,
-            39,
-        ),
-        "seg_all_class_ids": tuple(range(41)),
-    }
+
     DEPTH_SCALE_FACTOR = 0.001  # to MM
     DEFAULT_HEIGHT = 968.0
     DEFAULT_WIDTH = 1296.0
@@ -103,6 +39,8 @@ class ScanNetDataset(object):
         root_dir: Union[str, Path],
         split: str = "train",
         keep_only_scenes: Optional[List[str]] = None,
+        keep_only_first_k_scenes: int = -1,
+        skip_first_k_scenes: int = 0,
         frame_skip: int = 1,
         height: Optional[int] = 480,
         width: Optional[int] = 640,
@@ -110,6 +48,7 @@ class ScanNetDataset(object):
         referit3d_config: Optional[ReferIt3dDataConfig] = None,
         scanrefer_config: Optional[ScanReferDataConfig] = None,
         show_load_progress: bool = False,
+        n_classes: int = 20,
     ):
         """
 
@@ -162,6 +101,18 @@ class ScanNetDataset(object):
         ├── scannet_infos_test.pkl
 
         """
+        assert (
+            n_classes in SCANNET_DATASET_COLOR_MAPS
+        ), f"{n_classes=} must be in {SCANNET_DATASET_COLOR_MAPS.keys()}"
+        self.METAINFO = {
+            "COLOR_MAP": SCANNET_DATASET_COLOR_MAPS[n_classes],
+            "CLASS_NAMES": SCANNET_DATASET_CLASS_LABELS[n_classes],
+            "CLASS_IDS": SCANNET_DATASET_CLASS_IDS[n_classes],
+        }
+
+        self.class_ids_ten = torch.tensor(self.METAINFO["CLASS_IDS"])
+
+        # Set up directories and metadata
         assert split in ["train", "val", "test"]
         self.root_dir = Path(root_dir)
         self.posed_dir = self.root_dir / "posed_images"
@@ -176,11 +127,18 @@ class ScanNetDataset(object):
         assert (self.height is None) == (self.width is None)  # Neither or both
         self.frame_skip = frame_skip
 
+        # Create scene list
         with open(self.root_dir / "meta_data" / f"scannetv2_{split}.txt", "rb") as f:
             self.scene_list = [line.rstrip().decode() for line in f]
         if keep_only_scenes is not None:
             self.scene_list = [s for s in self.scene_list if s in keep_only_scenes]
         self.scene_list = natsorted(self.scene_list)
+        print(
+            f"ScanNetDataset: Keeping next {keep_only_first_k_scenes} scenes starting at idx {skip_first_k_scenes}"
+        )
+        self.scene_list = self.scene_list[skip_first_k_scenes:][
+            :keep_only_first_k_scenes
+        ]
         assert len(self.scene_list) > 0
 
         # Referit3d
@@ -234,8 +192,13 @@ class ScanNetDataset(object):
                 ]
             )
         )[:: self.frame_skip]
-        assert len(img_names) == len(depth_names)
-        assert len(img_names) == len(pose_names)
+        assert len(img_names) > 0, f"Found zero images for scene {scan_name}"
+        assert len(img_names) == len(
+            depth_names
+        ), f"Unequal number of color and depth images for scene {scan_name} ({len(img_names)} != ({len(depth_names)}))"
+        assert len(img_names) == len(
+            pose_names
+        ), f"Unequal number of color and poses for scene {scan_name} ({len(img_names)} != ({len(pose_names)}))"
 
         # 2D instance masks
         #   Not implemented yet
@@ -259,7 +222,7 @@ class ScanNetDataset(object):
 
         data = self.find_data(scan_name)
 
-        # 2D information
+        # Intrinsics shared across images
         K = torch.from_numpy(np.loadtxt(data["intrinsic_path"]).astype(np.float32))
         axis_align_mat = torch.from_numpy(np.load(data["axis_align_path"])).float()
         K[0] *= float(self.width) / self.DEFAULT_WIDTH  # scale_x
@@ -268,9 +231,12 @@ class ScanNetDataset(object):
         poses, intrinsics, images, depths = [], [], [], []
         boxes_aligned, axis_align_mats = [], []
         image_paths = []
+
+        # Load all images
+        # for i, (img, depth, pose) in enumerate(zip(data["img_paths"], data["depth_paths"], data["pose_paths"])):
         for i, (img, depth, pose) in enumerate(
             maybe_show_progress(
-                zip(data["img_paths"], data["depth_paths"], data["pose_paths"]),
+                list(zip(data["img_paths"], data["depth_paths"], data["pose_paths"])),
                 description=f"Loading scene {scan_name}",
                 length=len(data["img_paths"]),
                 show=show_progress,
@@ -282,7 +248,8 @@ class ScanNetDataset(object):
             # pose[:3, 2] *= -1
             pose = axis_align_mat @ torch.from_numpy(pose.astype(np.float32)).float()
             # We cannot accept files directly, as some of the poses are invalid
-            if np.isinf(pose).any():
+            if torch.any(torch.isnan(pose)):
+                # print(f"Found inf pose in {scan_name}")
                 continue
 
             image_paths.append(img)
@@ -305,10 +272,19 @@ class ScanNetDataset(object):
         depths = torch.stack(depths).float()
         axis_align_mats = torch.stack(axis_align_mats).float()
 
-        # 3D information
+        # Load bounding boxes
         boxes_aligned, box_classes, box_obj_ids = load_3d_bboxes(
             data["bboxs_aligned_path"]
         )
+        keep_boxes = (box_classes.unsqueeze(1) == self.class_ids_ten.unsqueeze(0)).any(
+            dim=1
+        )
+        boxes_aligned = boxes_aligned[keep_boxes]
+        box_classes = box_classes[keep_boxes]
+        box_obj_ids = box_obj_ids[keep_boxes]
+
+        if len(boxes_aligned) == 0:
+            raise RuntimeError(f"No GT boxes for scene {scan_name}")
 
         # Referring expressions
         column_names = [
@@ -334,6 +310,7 @@ class ScanNetDataset(object):
             ][column_names]
             ref_expr_df = pd.concat([scanrefer_expr, r3d_expr])
 
+        # Return as dict
         return dict(
             # Pose
             poses=poses,
@@ -353,12 +330,17 @@ class ScanNetDataset(object):
             ref_expr=ref_expr_df,
         )
 
+    def __len__(self):
+        return len(self.scene_list)
+
 
 def maybe_show_progress(iterable, description, length, show=False):
-    if not show:
-        return iterable
-    for x in tqdm(iterable, desc=description, total=length):
-        yield x
+    if show:
+        for x in tqdm(iterable, desc=description, total=length):
+            yield x
+    else:
+        for x in iterable:
+            yield x
 
 
 ##################################
@@ -455,8 +437,8 @@ def load_3d_bboxes(path) -> Tuple[torch.Tensor, torch.Tensor]:
     """
     bboxes = np.load(path)
     bbox_coords = torch.from_numpy(bboxes[:, :6])
-    labels = torch.from_numpy(bboxes[:, -2])
-    obj_ids = torch.from_numpy(bboxes[:, -1])
+    labels = torch.from_numpy(bboxes[:, -2]).int()
+    obj_ids = torch.from_numpy(bboxes[:, -1]).int()
     centers, lengths = bbox_coords[:, :3], bbox_coords[:, 3:6]
     mins = centers - lengths / 2.0
     maxs = centers + lengths / 2.0
