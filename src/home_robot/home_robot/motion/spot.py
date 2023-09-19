@@ -35,4 +35,4 @@ class SimpleSpotKinematics(Robot):
 
     def get_footprint(self) -> np.ndarray:
         """return a footprint mask that we can check 2d collisions against"""
-        return Footprint(width=0.5, length=1.2, width_offset=0.0, length_offset=0.0)
+        return Footprint(width=0.5, length=1.0, width_offset=0.0, length_offset=0.0)
