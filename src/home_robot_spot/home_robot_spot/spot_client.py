@@ -112,6 +112,7 @@ class SpotPublishers:
             thread.start()
 
         self.updated = False
+        self.observation_index = 0
 
         print("waiting for first observation")
         while not self.updated:
@@ -123,13 +124,16 @@ class SpotPublishers:
         for thread in self.threads:
             thread.join()
 
+        # kill threads
+        del self.threads
+
     def update_obs(
         self,
     ):
         last_update = time.time()
         while True:
             self.observations = self.get_cam_observations()
-            self.observations.update(self.get_obstacle_map())
+            self.observation_index += 1
             self.updated = True
             if self.verbose:
                 print("FPS: ", 1 / (time.time() - last_update))
@@ -472,6 +476,10 @@ class SpotClient:
         return self.raw_observations["base_xyt"][0][0][2]
 
     @property
+    def position(self):
+        return self.raw_observations["base_xyt"][0][0][:3]
+
+    @property
     def hand_depth(self):
         return self.raw_observations["images"][0]
 
@@ -577,7 +585,7 @@ class SpotClient:
         obs.compass = relative_compass
 
         K = obs.camera_K
-        print("Camera pose is:", obs.camera_pose)
+        # print("Camera pose is:", obs.camera_pose)
 
         full_world_xyz = unproject_masked_depth_to_xyz_coordinates(  # Batchable!
             depth=obs.depth.unsqueeze(0).unsqueeze(1),
@@ -686,7 +694,7 @@ class SpotClient:
         self.lease.__exit__(None, None, None)
         self.lease = None
 
-    def move_base_point(self, xyt: np.ndarray):
+    def navigate_to(self, xyt: np.ndarray, blocking=False):
         """Move the base to a new position.
 
         Args:
@@ -694,7 +702,13 @@ class SpotClient:
         """
         assert self.lease is not None, "Must call start() first."
         self.spot.set_base_position(
-            x_pos=xyt[0], y_pos=xyt[1], yaw=xyt[2], end_time=100
+            x_pos=xyt[0],
+            y_pos=xyt[1],
+            yaw=xyt[2],
+            end_time=1000,
+            max_fwd_vel=0.5,
+            max_hor_vel=0.5,
+            blocking=blocking,
         )
         return self.raw_observations
 
@@ -703,6 +717,38 @@ class SpotClient:
         scaled = np.clip(base_action, -1, 1) * scaling_factor
         self.spot.set_base_velocity(*scaled, self.max_cmd_duration)
         return self.raw_observations
+
+
+class VoxelMapSubscriber:
+    """
+    This class is used to update the voxel map with spot observations, runs on a separate thread
+    """
+
+    def __init__(self, spot, voxel_map, semantic_sensor):
+        self.spot = spot
+        self.voxel_map = voxel_map
+        self.semantic_sensor = semantic_sensor
+        self.current_obs = 0
+
+    def start(self):
+        self.thread = Thread(target=self.update)
+        self.thread.daemon = True
+        self.thread.start()
+
+    def update(self, verbose=False):
+        last_update = time.time()
+        while True:
+            if self.current_obs < self.spot.publishers.observation_index:
+                obs = self.spot.get_rgbd_obs()
+                obs = self.semantic_sensor.predict(obs)
+                self.voxel_map.add_obs(obs, xyz_frame="world")
+
+                # FPS ( tested at ~.8)
+                if verbose:
+                    print("Added observation to voxel map")
+                    print("FPS: ", 1 / (time.time() - last_update))
+                last_update = time.time()
+                self.current_obs += 1
 
 
 if __name__ == "__main__":
@@ -737,9 +783,10 @@ if __name__ == "__main__":
 
         # Turn on the robot using the client above
         spot.start()
-        print("Got all images")
 
-        spot.move_base(0.0, 0.0)
+        # Start thread to update voxel map
+        voxel_map_subscriber = VoxelMapSubscriber(spot, voxel_map, semantic_sensor)
+        voxel_map_subscriber.start()
 
         linear = input("Input Linear: ")
         angular = input("Input Angular: ")
@@ -753,21 +800,29 @@ if __name__ == "__main__":
             "intrinsics": [],
         }
 
+        action_index, visualization_frequency = 0, 5
         while linear != "" and angular != "":
             try:
                 spot.move_base(float(linear), float(angular))
             except Exception:
                 print("Error -- try again")
 
-            obs = spot.get_rgbd_obs()
-            obs = semantic_sensor.predict(obs)
-            voxel_map.add_obs(obs, xyz_frame="world")
+            # obs = spot.get_rgbd_obs()
+            # obs = semantic_sensor.predict(obs)
+            # voxel_map.add_obs(obs, xyz_frame="world")
             print("added, now display something")
-            voxel_map.show(backend="open3d", instances=False)
+            if action_index % visualization_frequency == 0 and action_index > 0:
+                print(
+                    "Observations processed for the map so far: ",
+                    voxel_map_subscriber.current_obs,
+                )
+                print("Actions taken so far: ", action_index)
+                voxel_map.show(backend="open3d", instances=False)
 
             linear = input("Input Linear: ")
             angular = input("Input Angular: ")
             # viz_data = spot.make_3d_viz(viz_data)
+            action_index += 1
 
     except Exception as e:
         print(e)
