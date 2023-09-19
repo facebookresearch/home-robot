@@ -316,10 +316,7 @@ if __name__ == "__main__":
     )
     with spot.get_lease(hijack=True):
         spot.power_on()
-        try:
-            spot.undock()
-        except:
-            spot.blocking_stand()
+        spot.blocking_stand()
         time.sleep(1)
         # spot.set_arm_joint_positions(gaze_arm_joint_angles, travel_time=1.0)
         spot.open_gripper()
