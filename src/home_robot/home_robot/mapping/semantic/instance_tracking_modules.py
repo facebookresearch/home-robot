@@ -249,8 +249,8 @@ class InstanceMemory:
         self.instance_association_within_class = instance_association_within_class
         if config is not None:
             log_dir = os.path.join(config.DUMP_LOCATION, "instances", config.EXP_NAME)
-        if log_dir is not None and os.makedirs(log_dir, exist_ok=log_dir_overwrite_ok):
-            shutil.rmtree(self.save_dir, ignore_errors=True)
+        if log_dir is not None:
+            shutil.rmtree(log_dir, ignore_errors=True)
             os.makedirs(log_dir, exist_ok=log_dir_overwrite_ok)
         self.log_dir = log_dir
         self.reset()
@@ -673,7 +673,7 @@ class InstanceMemory:
                 else self.category_id_to_category_name[cat_id]
             )
             instance_write_path = os.path.join(
-                self.save_dir, f"{global_instance_id}_{category_name}.png"
+                self.log_dir, f"{global_instance_id}_{category_name}.png"
             )
             os.makedirs(instance_write_path, exist_ok=True)
 
@@ -1028,7 +1028,7 @@ class InstanceMemory:
         import shutil
 
         # if self.debug_visualize:
-        #     shutil.rmtree(self.save_dir, ignore_errors=True)
+        #     shutil.rmtree(self.log_dir, ignore_errors=True)
 
     def global_box_compression_and_nms(
         self,
