@@ -35,33 +35,38 @@ padding = 1.5
 logger = logging.getLogger(__name__)
 
 
+@dataclass
 class InstanceView:
     """
-    Stores information about a single view of an instance
-
-    bbox: bounding box of instance in the current image
-    timestep: timestep at which the current view was recorded
-    cropped_image: cropped image of instance in the current image
-    embedding: embedding of instance in the current image
-    mask: mask of instance in the current image
-    point_cloud: point cloud of instance in the current image
-    bounds: The bounding box of the point cloud inferred in the current image
-    category_id: category id of instance in the current image
+    Stores information about a single view of a single instance
     """
 
-    bbox: Tuple[int, int, int, int]
+    # Required: 2D and 3D bbox. Should we unify the names?
+    bbox: Tensor
+    """ [4,] bbox: bounding box of instance in the current image """
+    bounds: Tensor
+    """[3, 2] xyz mins and maxes"""
+    """TODO: rename to bounds_3d"""
     timestep: int
-    cropped_image: Optional[np.ndarray] = None
-    embedding: Optional[np.ndarray] = None
-    # mask of instance in the current image
-    mask: np.ndarray = None
-    # point cloud of instance in the current image
-    point_cloud: np.ndarray = None
-    bounds: Tuple[np.ndarray, np.ndarray]
+    """ timestep: timestep at which the current view was recorded """
+
+    # View info
+    cropped_image: Optional[Tensor] = None
+    """ cropped_image: cropped image of instance in the current image"""
+    embedding: Optional[Tensor] = None
+    """ embedding: embedding of instance in the current image """
+    mask: Tensor = None
+    """ mask: mask of instance in the current (uncropped) image """
+    image_instance_id: Optional[int] = None
+    """ID of this instance in the image"""
+
+    # Detection info
+    global_instance_id: Optional[int] = None
+    """ID of this instance in the scene (across views)"""
     category_id: Optional[int] = None
-    pose: np.ndarray = None
-    instance_id: Optional[int] = None
-    object_coverage: Optional[int] = None
+    """category_id: category id of instance in the current image"""
+    score: Optional[float] = None
+    """score: confidence of the detection (used for NMS)"""
 
     # 3D info (rename point_cloud to points_3d?)
     point_cloud: Tensor = None
@@ -155,16 +160,17 @@ class Instance:
                     ],
                     dim=0,
                 )
-            if self.score_aggregation_method == "max":
-                self.score = max(self.score, instance_view.score)
-            elif self.score_aggregation_method == "mean":
-                self.score = (
-                    self.score * len(self.instance_views) + instance_view.score
-                ) / (len(self.instance_views) + 1)
-            else:
-                raise NotImplementedError(
-                    f'Unknown score_aggregation_method "{self.score_aggregation_method}"'
-                )
+            if self.score is not None:
+                if self.score_aggregation_method == "max":
+                    self.score = max(self.score, instance_view.score)
+                elif self.score_aggregation_method == "mean":
+                    self.score = (
+                        self.score * len(self.instance_views) + instance_view.score
+                    ) / (len(self.instance_views) + 1)
+                else:
+                    raise NotImplementedError(
+                        f'Unknown score_aggregation_method "{self.score_aggregation_method}"'
+                    )
 
             # add instance view to global instance
             # do this last because we use the current length for computing average score above
