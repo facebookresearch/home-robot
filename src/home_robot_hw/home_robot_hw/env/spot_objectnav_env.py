@@ -1,8 +1,8 @@
 import math
 from typing import Any, Dict, Optional
+from bosdyn.client import math_helpers
 
 import numpy as np
-from bosdyn.client import math_helpers
 
 from home_robot.core.interfaces import Action, DiscreteNavigationAction, Observations
 from home_robot.perception.detection.maskrcnn.coco_categories import (
@@ -50,22 +50,16 @@ class SpotObjectNavEnv(SpotEnv):
             # in robot global frame
             cx, cy, yaw = self.spot.get_xy_yaw()
             angle = math.atan2((yg - cy), (xg - cx)) % (2 * np.pi)
-            rotation_speed = np.pi / 8
-            yaw_diff = math_helpers.angle_diff(angle, yaw)
-            time = max(np.abs(yaw_diff) / rotation_speed, 0.5)
-            print(angle, yaw, yaw_diff, time)
+            rotation_speed = np.pi/8
+            yaw_diff = math_helpers.angle_diff(angle,yaw)
+            time=max(np.abs(yaw_diff)/rotation_speed,0.5)
+            print(angle,yaw,yaw_diff,time)
             assert time > 0
-            self.env.set_arm_yaw(yaw_diff, time=time)
+            self.env.set_arm_yaw(yaw_diff,time=time)
 
             action = [xg, yg, angle]
             print("ObjectNavAgent point action", action)
-            self.env.act_point(
-                action,
-                blocking=False,
-                max_fwd_vel=0.5,
-                max_ang_vel=np.pi / 10,
-                max_hor_vel=0.4,
-            )
+            self.env.act_point(action, blocking=False,max_fwd_vel=0.5,max_ang_vel=np.pi/10,max_hor_vel=0.4 )
         else:
             self.env.step(base_action=action)
             if action == DiscreteNavigationAction.STOP:

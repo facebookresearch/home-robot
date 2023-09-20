@@ -137,7 +137,7 @@ class GoatMatching(Matching):
         """
         instance_memory = self.instance_memory
         all_matches, all_confidences = [], []
-        instances = instance_memory.instances[0]
+        instances = instance_memory.instance_views[0]
         all_views = []
         instance_view_counts = []
         steps_per_view = []
@@ -506,7 +506,9 @@ class GoatMatching(Matching):
             found_goal[0] = True
             if self.goto_past_pose:
                 instance_memory = self.instance_memory
-                instance_views = instance_memory.instances[0][goal_inst].instance_views
+                instance_views = instance_memory.instance_views[0][
+                    goal_inst
+                ].instance_views
                 # pick a view with maximum object coverage
                 best_view = np.argmax([view.object_coverage for view in instance_views])
                 pose = instance_views[best_view].pose

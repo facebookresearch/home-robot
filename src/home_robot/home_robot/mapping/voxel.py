@@ -2,11 +2,10 @@
 #
 # This source code is licensed under the MIT license found in the
 # LICENSE file in the root directory of this source tree.
-import copy
 import pickle
 from collections import namedtuple
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Sequence, Tuple, Union
+from typing import List, Optional, Sequence, Tuple, Union
 
 import numpy as np
 import open3d as open3d
@@ -17,8 +16,8 @@ from torch import Tensor
 
 from home_robot.core.interfaces import Observations
 from home_robot.mapping.semantic.instance_tracking_modules import (
-    Instance,
     InstanceMemory,
+    InstanceView,
 )
 from home_robot.motion import PlanResult, Robot
 from home_robot.utils.bboxes_3d import BBoxes3D
@@ -43,8 +42,6 @@ Frame = namedtuple(
         "feats",
         "depth",
         "instance",
-        "instance_classes",
-        "instance_scores",
         "base_pose",
         "info",
         "obs",
@@ -67,12 +64,6 @@ def ensure_tensor(arr):
 class SparseVoxelMap(object):
     """Create a voxel map object which captures 3d information."""
 
-    DEFAULT_INSTANCE_MAP_KWARGS = dict(
-        du_scale=1,
-        instance_association="bbox_iou",
-        mask_cropped_instances="False",
-    )
-
     def __init__(
         self,
         resolution=0.01,
@@ -87,8 +78,6 @@ class SparseVoxelMap(object):
         min_depth: float = 0.1,
         max_depth: float = 4.0,
         background_instance_label: int = -1,
-        instance_memory_kwargs: Dict[str, Any] = {},
-        voxel_kwargs: Dict[str, Any] = {},
     ):
         # TODO: We an use fastai.store_attr() to get rid of this boilerplate code
         self.resolution = resolution
@@ -101,10 +90,6 @@ class SparseVoxelMap(object):
         self.min_depth = min_depth
         self.max_depth = max_depth
         self.background_instance_label = background_instance_label
-        self.instance_memory_kwargs = update(
-            copy.deepcopy(self.DEFAULT_INSTANCE_MAP_KWARGS), instance_memory_kwargs
-        )
-        self.voxel_kwargs = voxel_kwargs
 
         # TODO: This 2D map code could be moved to another class or helper function
         #   This class could use that code via containment (same as InstanceMemory or VoxelizedPointcloud)
@@ -137,8 +122,7 @@ class SparseVoxelMap(object):
         self.observations = []
         # Create an instance memory to associate bounding boxes in space
         self.instances = InstanceMemory(
-            num_envs=1,
-            **self.instance_memory_kwargs,
+            num_envs=1, du_scale=1, instance_association="bbox_iou"
         )
         # Create voxelized pointcloud
         self.voxel_pcd = VoxelizedPointcloud(
@@ -146,7 +130,6 @@ class SparseVoxelMap(object):
             dim_mins=None,
             dim_maxs=None,
             feature_pool_method="mean",
-            **self.voxel_kwargs,
         )
 
         self._seq = 0
@@ -168,9 +151,9 @@ class SparseVoxelMap(object):
         # This is computed from our various point clouds
         self._map2d = None
 
-    def get_instances(self) -> List[Instance]:
+    def get_instances(self) -> List[InstanceView]:
         """Return a list of all viewable instances"""
-        return tuple(self.instances.instances[0].values())
+        return tuple(self.instances.instance_views[0].values())
 
     def fix_type(self, tensor: Union[np.ndarray, torch.Tensor]) -> torch.Tensor:
         """Convert to tensor and float"""
@@ -196,18 +179,6 @@ class SparseVoxelMap(object):
             np.array([obs.gps[0], obs.gps[1], obs.compass[0]])
         ).float()
         K = self.fix_type(obs.camera_K) if camera_K is None else camera_K
-        task_obs = obs.task_observations
-
-        # Allow task_observations to provide semantic sensor
-        def _pop_with_task_obs_default(k, default=None):
-            res = kwargs.pop(k, task_obs.get(k, None))
-            if res is not None:
-                res = self.fix_type(res)
-            return res
-
-        instance_image = _pop_with_task_obs_default("instance_image")
-        instance_classes = _pop_with_task_obs_default("instance_classes")
-        instance_scores = _pop_with_task_obs_default("instance_scores")
 
         self.add(
             camera_pose=camera_pose,
@@ -217,9 +188,6 @@ class SparseVoxelMap(object):
             base_pose=base_pose,
             obs=obs,
             camera_K=K,
-            instance_image=instance_image,
-            instance_classes=instance_classes,
-            instance_scores=instance_scores,
             *args,
             **kwargs,
         )
@@ -327,8 +295,6 @@ class SparseVoxelMap(object):
                 feats,
                 depth,
                 instance_image,
-                instance_classes,
-                instance_scores,
                 base_pose,
                 info,
                 obs,
@@ -343,17 +309,17 @@ class SparseVoxelMap(object):
 
         # Add instance views to memory
         instance = instance_image.clone()
-
+        instance[~valid_depth] = -1
         self.instances.process_instances_for_env(
             env_id=0,
             instance_seg=instance,
             point_cloud=full_world_xyz.reshape(H, W, 3),
             image=rgb.permute(2, 0, 1),
             pose=base_pose,
-            instance_classes=instance_classes,
-            instance_scores=instance_scores,
-            background_instance_labels=[self.background_instance_label],
-            valid_points=valid_depth,
+            # instance_classes=instance_classes,
+            # instance_scores=instance_scores,
+            mask_out_object=False,  # Save the whole image here? Or is this with background?
+            background_class_labels=[self.background_instance_label],
         )
         self.instances.associate_instances_to_memory()
 
@@ -617,41 +583,29 @@ class SparseVoxelMap(object):
         if backend == "open3d":
             return self._show_open3d(instances, **backend_kwargs)
         elif backend == "pytorch3d":
-            return self._show_pytorch3d(instances, **backend_kwargs)
+            return self._show_pytorch3d(**backend_kwargs)
         else:
             raise NotImplementedError(
                 f"Uknown backend {backend}, must be 'open3d' or 'pytorch3d"
             )
 
-    def _show_pytorch3d(self, instances: bool = True, **plot_scene_kwargs):
+    def _show_pytorch3d(self, **plot_scene_kwargs):
         from pytorch3d.vis.plotly_vis import AxisArgs, plot_scene
 
         from home_robot.utils.bboxes_3d_plotly import plot_scene_with_bboxes
 
         points, _, _, rgb = self.voxel_pcd.get_pointcloud()
 
-        traces = {}
-
         # Show points
         ptc = Pointclouds(points=[points], features=[rgb])
-        traces["Points"] = ptc
 
         # Show instances
-        if instances:
-            bounds, names = zip(
-                *[(v.bounds, v.category_id) for v in self.get_instances()]
-            )
-            detected_boxes = BBoxes3D(
-                bounds=[torch.stack(bounds, dim=0)],
-                # At some point we can color the boxes according to class, but that's not implemented yet
-                # features = [categorcolors],
-                names=[torch.stack(names, dim=0).unsqueeze(-1)],
-            )
-            traces["IB"] = detected_boxes
-
-        # Show cameras
-        # "Fused boxes": global_boxes,
-        # "cameras": cameras,
+        bounds, names = zip(*[(v.bounds, v.category_id) for v in self.get_instances()])
+        detected_boxes = BBoxes3D(
+            bounds=[torch.stack(bounds, dim=0)],
+            # features = [colors],
+            names=[torch.stack(names, dim=0).unsqueeze(-1)],
+        )
 
         _default_plot_args = dict(
             xaxis={"backgroundcolor": "rgb(200, 200, 230)"},
@@ -664,7 +618,15 @@ class SparseVoxelMap(object):
             boxes_wireframe_width=3,
         )
         fig = plot_scene_with_bboxes(
-            plots={"Global scene": traces},
+            plots={
+                "Global scene": {
+                    "Points": ptc,
+                    "Instance boxes": detected_boxes,
+                    # "Fused boxes": global_boxes,
+                    # "cameras": cameras,
+                },
+                # Could add keyframes or instances here.
+            },
             **update(_default_plot_args, plot_scene_kwargs),
         )
         return fig
@@ -709,9 +671,6 @@ class SparseVoxelMap(object):
                 "not currently checking against robot base geometry"
             )
         return True
-
-    def postprocess_instances(self):
-        self.instances.global_box_compression_and_nms(env_id=0)
 
     def _show_open3d(
         self, instances: bool, orig: Optional[np.ndarray] = None, **backend_kwargs

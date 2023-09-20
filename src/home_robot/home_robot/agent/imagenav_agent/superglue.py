@@ -215,6 +215,7 @@ class Matching(nn.Module):
             small_text=small_text,
         )
 
+
     def _batched_visualize(
         self,
         matcher_inputs: Dict[str, Any],

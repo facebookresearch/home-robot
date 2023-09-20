@@ -202,7 +202,7 @@ class NavVisualizer:
         dilated_obstacle_map: Optional[np.ndarray] = None,
         instance_map: Optional[np.ndarray] = None,
         short_term_goal: Optional[np.ndarray] = None,
-        goal_pose=None,
+        goal_pose = None,
     ) -> None:
         """Visualize frame input and semantic map.
 

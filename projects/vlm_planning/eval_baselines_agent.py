@@ -14,11 +14,10 @@ from utils.config_utils import (
     get_habitat_config,
     get_omega_config,
 )
-
-from home_robot.agent.ovmm_agent.ovmm_agent import OpenVocabManipAgent
-from home_robot.agent.ovmm_agent.random_agent import RandomAgent
 from home_robot.agent.ovmm_agent.vlm_agent import VLMAgent
 from home_robot.agent.ovmm_agent.vlm_exploration_agent import VLMExplorationAgent
+from home_robot.agent.ovmm_agent.ovmm_agent import OpenVocabManipAgent
+from home_robot.agent.ovmm_agent.random_agent import RandomAgent
 
 os.environ["OPENBLAS_NUM_THREADS"] = "1"
 os.environ["NUMEXPR_NUM_THREADS"] = "1"
@@ -99,14 +98,10 @@ if __name__ == "__main__":
         help="Max idx of episode",
     )
 
-    parser.add_argument(
-        "--cfg-path",
-        default="src/home_robot/home_robot/perception/detection/minigpt4/MiniGPT-4/eval_configs/ovmm_test.yaml",
-        help="path to configuration file.",
-    )
-    parser.add_argument(
-        "--gpu-id", type=int, default=1, help="specify the gpu to load the model."
-    )
+    parser.add_argument("--cfg-path", default="src/home_robot/home_robot/perception/detection/minigpt4/MiniGPT-4/eval_configs/ovmm_test.yaml",
+                        help="path to configuration file.")
+    parser.add_argument("--gpu-id", type=int, default=1,
+                        help="specify the gpu to load the model.")
     parser.add_argument(
         "--options",
         nargs="+",
@@ -126,7 +121,8 @@ if __name__ == "__main__":
     episode_idx_list = []
     for idx in range(parsed_args.episode_min, parsed_args.episode_max):
         episode_idx_list.append(idx)
-    parsed_args.overrides.append("habitat.dataset.episode_ids=" + str(episode_idx_list))
+    parsed_args.overrides.append(
+        "habitat.dataset.episode_ids="+str(episode_idx_list))
 
     # get habitat config
     habitat_config, _ = get_habitat_config(
@@ -154,10 +150,7 @@ if __name__ == "__main__":
 
     # create evaluator
     evaluator = OVMMEvaluator(
-        env_config,
-        save_instance_memory=parsed_args.data_collection,
-        save_dir=parsed_args.save_dir,
-    )
+        env_config, save_instance_memory=parsed_args.data_collection, save_dir=parsed_args.save_dir)
 
     # evaluate agent
     metrics = evaluator.evaluate(

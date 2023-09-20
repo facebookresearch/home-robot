@@ -176,4 +176,3 @@ PLANNER:
   verbose: False                 # display debug information during planning
   explored_area_dilation_radius: 1  # radius (in cells) of goal dilation structuring element
   explored_area_erosion_radius: 1
-  planner_type: "old"             # ("old", "new") where "new" is the latest one being used for spot in real world

@@ -230,7 +230,6 @@ class Observations:
 
     # Pose of the camera in world coordinates
     camera_pose: Optional[np.array] = None
-    camera_K: Optional[np.array] = None
 
     # Proprioreception
     joint: Optional[np.array] = None  # joint positions of the robot

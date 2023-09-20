@@ -2,22 +2,15 @@
 #
 # This source code is licensed under the MIT license found in the
 # LICENSE file in the root directory of this source tree.
-import functools
 from typing import List
 
 import cv2
 import numpy as np
-import torch
-import torch.nn.functional as F
 import trimesh.transformations as tra
-from torch import Tensor
 
 
 class Camera(object):
-    """
-    Simple pinhole camera model. Contains parameters for projecting from depth to xyz, and saving information about camera position for planning.
-    TODO: Move this to utils/cameras.py?
-    """
+    """Simple pinhole camera model. Contains parameters for projecting from depth to xyz, and saving information about camera position for planning."""
 
     @staticmethod
     def from_width_height_fov(
@@ -29,10 +22,7 @@ class Camera(object):
     ):
         """Create a simple pinhole camera given minimal information only. Fov is in degrees"""
         horizontal_fov_rad = np.radians(fov_degrees)
-        h_focal_length = width / (2 * np.tan(horizontal_fov_rad / 2))
-        v_focal_length = width / (
-            2 * np.tan(horizontal_fov_rad / 2) * float(height) / width
-        )
+        focal_length = width / (2 * np.tan(horizontal_fov_rad / 2))
         principal_point_x = (width - 1.0) / 2
         principal_point_y = (height - 1.0) / 2
         return Camera(
@@ -40,8 +30,8 @@ class Camera(object):
             (0, 0, 0, 1),
             height,
             width,
-            h_focal_length,
-            v_focal_length,
+            focal_length,
+            focal_length,
             principal_point_x,
             principal_point_y,
             near_val,
@@ -69,7 +59,7 @@ class Camera(object):
         view_matrix,
         fov,
         *args,
-        **kwargs,
+        **kwargs
     ):
         self.pos = pos
         self.orn = orn
@@ -203,148 +193,3 @@ def rotate_image(imgs: List[np.ndarray]) -> List[np.ndarray]:
     """stretch specific routine to flip and rotate sideways images for normal viewing"""
     imgs = [np.rot90(np.fliplr(np.flipud(x))) for x in imgs]
     return imgs
-
-
-def build_mask(
-    target: Tensor, val: float = 0.0, tol: float = 1e-3, mask_extra_radius: int = 5
-) -> Tensor:
-    """Build mask where all channels are (val - tol) <= target <= (val + tol)
-        Optionally, dilate by mask_extra_radius
-
-    Args:
-        target (Tensor): [B, N_channels, H, W] input tensor
-        val (float): Value to use for masking. Defaults to 0.0.
-        tol (float): Tolerance for mask. Defaults to 1e-3.
-        mask_extra_radius (int, optional): Dilate by mask_extra_radius pix . Defaults to 5.
-
-    Returns:
-        _type_: Mask of shape target.shape
-    """
-    assert (
-        target.ndim == 4
-    ), f"target should be of shape [B, N_channels, H, W], was {target.shape}"
-    if target.shape[1] == 1:
-        masks = [target[:, t] for t in range(target.shape[1])]
-        masks = [(t >= val - tol) & (t <= val + tol) for t in masks]
-        mask = functools.reduce(lambda a, b: a & b, masks).unsqueeze(1)
-    else:
-        mask = (target >= val - tol) & (target <= val + tol)
-    mask = 0 != F.conv2d(
-        mask.float(),
-        torch.ones(1, 1, mask_extra_radius, mask_extra_radius, device=mask.device),
-        padding=(mask_extra_radius // 2),
-    )
-    return (~mask).expand_as(target)
-
-
-def dilate_or_erode_mask(mask: Tensor, radius: int, num_iterations=1) -> Tensor:
-    """
-    Dilate or erode a binary mask using a square kernel.
-
-    This function either dilates or erodes a 2D binary mask based on the given radius
-    and number of iterations. A positive radius value will dilate the mask, while a
-    negative radius value will erode it.
-
-    Parameters:
-    -----------
-    mask : torch.Tensor
-        A 2D binary mask of shape (H, W), where H is the height and W is the width.
-        The dtype must be torch.bool.
-    radius : int
-        The radius of the square kernel used for dilation or erosion. A positive value
-        will dilate the mask, while a negative value will erode it.
-    num_iterations : int, optional
-        The number of times the dilation or erosion operation should be applied.
-        Default is 1.
-
-    Returns:
-    --------
-    Tensor : torch.Tensor
-        A dilated or eroded 2D binary mask of the same shape as the input mask.
-
-    Raises:
-    -------
-    AssertionError
-        If the dtype of the input mask is not torch.bool.
-
-    Example:
-    --------
-    >>> mask = torch.tensor([[0, 1, 0], [1, 1, 1], [0, 1, 0]], dtype=torch.bool)
-    >>> dilated_mask = dilate_or_erode_mask(mask, radius=1)
-    >>> eroded_mask = dilate_or_erode_mask(mask, radius=-1)
-
-    """
-    assert mask.dtype == torch.bool, mask.dtype
-    abs_radius = abs(radius)
-    erode = radius < 0
-    if erode:
-        mask = ~mask
-    mask = mask.half()
-    conv_kernel = torch.ones(
-        (1, 1, abs_radius, abs_radius), dtype=mask.dtype, device=mask.device
-    )
-    for _ in range(num_iterations):
-        mask = mask.half()
-        mask = F.conv2d(mask, conv_kernel, padding="same")
-        mask = mask > 0.0
-    if erode:
-        mask = ~mask
-    return mask
-
-
-def get_cropped_image_with_padding(self, image, bbox, padding: float = 1.0):
-    """
-    Crop an image based on a bounding box with optional padding.
-
-    Given an image and a bounding box, this function returns a cropped version of
-    the image. Padding can be applied to extend the area of the cropped region.
-
-    Parameters:
-    -----------
-    image : torch.Tensor
-        Input image tensor of shape (C, H, W), where C is the number of channels,
-        H is the height, and W is the width.
-    bbox : torch.Tensor
-        A bounding box tensor of shape (2, 2), where the first row contains the
-        (y, x) coordinates of the top-left corner, and the second row contains the
-        (y, x) coordinates of the bottom-right corner.
-    padding : float, optional
-        Padding factor applied to the bounding box dimensions. Default is 1.0, which
-        means no padding. A value greater than 1.0 will increase the cropped area.
-
-    Returns:
-    --------
-    cropped_image : torch.Tensor
-        The cropped image tensor of shape (C, H', W'), where H' and W' are the
-        dimensions of the cropped region.
-
-    Example:
-    --------
-    >>> image = torch.rand(3, 100, 100)
-    >>> bbox = torch.tensor([[10, 20], [50, 60]])
-    >>> cropped_image = get_cropped_image_with_padding(image, bbox, padding=1.2)
-
-    Notes:
-    ------
-    The function ensures that the cropped region does not exceed the original image
-    dimensions. If the padded bounding box does, it will be clipped to fit within
-    the image.
-
-    """
-    im_h = image.shape[1]
-    im_w = image.shape[2]
-    # bbox = iv.bbox
-    x = bbox[0, 1]
-    y = bbox[0, 0]
-    w = bbox[1, 1] - x
-    h = bbox[1, 0] - y
-    x = 0 if (x - (padding - 1) * w / 2) < 0 else int(x - (padding - 1) * w / 2)
-    y = 0 if (y - (padding - 1) * h / 2) < 0 else int(y - (padding - 1) * h / 2)
-    y2 = im_h if y + int(h * padding) >= im_h else y + int(h * padding)
-    x2 = im_w if x + int(w * padding) >= im_w else x + int(w * padding)
-    cropped_image = image[
-        :,
-        y:y2,
-        x:x2,
-    ]
-    return cropped_image

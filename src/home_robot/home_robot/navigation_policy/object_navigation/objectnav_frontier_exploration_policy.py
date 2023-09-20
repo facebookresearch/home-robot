@@ -20,26 +20,23 @@ class ObjectNavFrontierExplorationPolicy(nn.Module):
     unexplored region) otherwise.
     """
 
-    def __init__(
-        self,
-        exploration_strategy: str,
-        num_sem_categories: int,
-        explored_area_dilation_radius=10,
-        explored_area_erosion_radius=5,
-    ):
+    def __init__(self, exploration_strategy: str, num_sem_categories: int, explored_area_dilation_radius=10, explored_area_erosion_radius=5):
         super().__init__()
-        assert exploration_strategy in ["seen_frontier", "been_close_to_frontier"]
+        assert exploration_strategy in [
+            "seen_frontier", "been_close_to_frontier"]
         self.exploration_strategy = exploration_strategy
 
         self.dilate_explored_kernel = nn.Parameter(
-            torch.from_numpy(skimage.morphology.disk(explored_area_dilation_radius))
+            torch.from_numpy(skimage.morphology.disk(
+                explored_area_dilation_radius))
             .unsqueeze(0)
             .unsqueeze(0)
             .float(),
             requires_grad=False,
         )
         self.erosion_explored_kernel = nn.Parameter(
-            torch.from_numpy(skimage.morphology.disk(explored_area_erosion_radius))
+            torch.from_numpy(skimage.morphology.disk(
+                explored_area_erosion_radius))
             .unsqueeze(0)
             .unsqueeze(0)
             .float(),
@@ -61,7 +58,8 @@ class ObjectNavFrontierExplorationPolicy(nn.Module):
 
     def reach_single_category(self, map_features, category):
         # if the goal is found, reach it
-        goal_map, found_goal = self.reach_goal_if_in_map(map_features, category)
+        goal_map, found_goal = self.reach_goal_if_in_map(
+            map_features, category)
         # otherwise, do frontier exploration
         goal_map = self.explore_otherwise(map_features, goal_map, found_goal)
         return goal_map, found_goal
@@ -84,7 +82,8 @@ class ObjectNavFrontierExplorationPolicy(nn.Module):
             found_goal=found_goal,
         )
         # Otherwise, set closest frontier as the goal
-        goal_map = self.explore_otherwise(map_features, goal_map, found_rec_goal)
+        goal_map = self.explore_otherwise(
+            map_features, goal_map, found_rec_goal)
         return goal_map, found_goal
 
     def forward(
@@ -117,7 +116,7 @@ class ObjectNavFrontierExplorationPolicy(nn.Module):
         if instance_id is not None:
             instance_map = map_features[0][
                 2 * MC.NON_SEM_CHANNELS
-                + self.num_sem_categories : 2 * MC.NON_SEM_CHANNELS
+                + self.num_sem_categories: 2 * MC.NON_SEM_CHANNELS
                 + 2 * self.num_sem_categories,
                 :,
                 :,
@@ -125,13 +124,15 @@ class ObjectNavFrontierExplorationPolicy(nn.Module):
             inst_map_idx = instance_map == instance_id
             inst_map_idx = torch.argmax(torch.sum(inst_map_idx, axis=(1, 2)))
             goal_map = (
-                (instance_map[inst_map_idx] == instance_id).to(torch.float).unsqueeze(0)
+                (instance_map[inst_map_idx] == instance_id).to(
+                    torch.float).unsqueeze(0)
             )
             if torch.sum(goal_map) == 0:
                 found_goal = torch.tensor([0])
             else:
                 found_goal = torch.tensor([1])
-            goal_map = self.explore_otherwise(map_features, goal_map, found_goal)
+            goal_map = self.explore_otherwise(
+                map_features, goal_map, found_goal)
             return goal_map, found_goal
 
         elif object_category is not None and start_recep_category is not None:
@@ -159,7 +160,8 @@ class ObjectNavFrontierExplorationPolicy(nn.Module):
                     + (1 - nav_to_recep).view(-1, 1, 1) * goal_map_o
                 )
                 found_goal = (
-                    found_goal_r * nav_to_recep + (1 - nav_to_recep) * found_goal_r
+                    found_goal_r * nav_to_recep +
+                    (1 - nav_to_recep) * found_goal_r
                 )
                 return goal_map, found_goal
         else:
@@ -241,11 +243,13 @@ class ObjectNavFrontierExplorationPolicy(nn.Module):
     def get_frontier_map(self, map_features):
         # Select unexplored area
         if self.exploration_strategy == "seen_frontier":
-            frontier_map = (map_features[:, [MC.EXPLORED_MAP], :, :] == 0).float()
+            frontier_map = (
+                map_features[:, [MC.EXPLORED_MAP], :, :] == 0).float()
         elif self.exploration_strategy == "been_close_to_frontier":
-            frontier_map = (map_features[:, [MC.BEEN_CLOSE_MAP], :, :] == 0).float()
+            frontier_map = (
+                map_features[:, [MC.BEEN_CLOSE_MAP], :, :] == 0).float()
         else:
-            raise Exception("not implemented")
+            raise Exception(f'not implemented')
 
         # erode and dilate to remove small components
         # eroded = 1 - binary_erosion(1 - frontier_map,self.erosion_explored_kernel)
@@ -258,7 +262,8 @@ class ObjectNavFrontierExplorationPolicy(nn.Module):
 
         # Select the frontier
         frontier_map = (
-            binary_dilation(frontier_map, self.select_border_kernel) - frontier_map
+            binary_dilation(
+                frontier_map, self.select_border_kernel) - frontier_map
         )
 
         # Remove obstacles from the frontier

@@ -16,6 +16,7 @@ from sklearn.cluster import DBSCAN
 from torch.nn import DataParallel
 
 import home_robot.utils.pose as pu
+
 from home_robot.agent.imagenav_agent.visualizer import NavVisualizer
 from home_robot.core.abstract_agent import Agent
 from home_robot.core.interfaces import DiscreteNavigationAction, Observations
@@ -70,7 +71,7 @@ class GoatAgent(Agent):
                 debug_visualize=config.PRINT_IMAGES,
                 config=config,
                 mask_cropped_instances=False,
-                padding_cropped_instances=200,
+                padding_cropped_instances=200
             )
 
         ## imagenav stuff
@@ -339,7 +340,7 @@ class GoatAgent(Agent):
                 "frontier_map": self.semantic_map.get_frontier_map(e),
                 "sensor_pose": self.semantic_map.get_planner_pose_inputs(e),
                 "found_goal": self.found_goal[e].item(),
-                "goal_pose": self.goal_pose[e] if self.goal_pose is not None else None,
+                "goal_pose": self.goal_pose[e] if self.goal_pose is not None else None
             }
             for e in range(self.num_environments)
         ]

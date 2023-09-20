@@ -27,16 +27,14 @@ from home_robot.perception.detection.utils import (  # noqa: E402
 
 DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
-PARENT_DIR = Path(__file__).resolve().parent
+
 # GroundingDINO config and checkpoint
 GROUNDING_DINO_CONFIG_PATH = str(
-    PARENT_DIR
+    Path(__file__).resolve().parent
     / "Grounded-Segment-Anything/GroundingDINO/groundingdino/config/GroundingDINO_SwinT_OGC.py"
 )
-GROUNDING_DINO_CHECKPOINT_PATH = str(
-    PARENT_DIR / "checkpoints" / "groundingdino_swint_ogc.pth"
-)
-MOBILE_SAM_CHECKPOINT_PATH = str(PARENT_DIR / "checkpoints" / "mobile_sam.pt")
+GROUNDING_DINO_CHECKPOINT_PATH = "./groundingdino_swint_ogc.pth"
+MOBILE_SAM_CHECKPOINT_PATH = "./mobile_sam.pt"
 BOX_THRESHOLD = 0.25
 TEXT_THRESHOLD = 0.25
 NMS_THRESHOLD = 0.8
@@ -50,9 +48,6 @@ class GroundedSAMPerception(PerceptionModule):
         sem_gpu_id=None,
         checkpoint_file: str = MOBILE_SAM_CHECKPOINT_PATH,
         verbose=False,
-        nms_threshold: float = NMS_THRESHOLD,
-        box_threshold: float = BOX_THRESHOLD,
-        text_threshold: float = None,
     ):
         """Load trained Detic model for inference.
 
@@ -64,12 +59,6 @@ class GroundedSAMPerception(PerceptionModule):
             checkpoint_file: path to model checkpoint
             verbose: whether to print out debug information
         """
-        self.nms_threshold = nms_threshold
-        self.box_threshold = box_threshold
-        self.text_threshold = (
-            text_threshold if text_threshold is not None else box_threshold
-        )
-
         # Building GroundingDINO inference model
         self.grounding_dino_model = Model(
             model_config_path=GROUNDING_DINO_CONFIG_PATH,
@@ -116,30 +105,22 @@ class GroundedSAMPerception(PerceptionModule):
             raise NotImplementedError
         # Predict classes and hyper-param for GroundingDINO
         CLASSES = self.custom_vocabulary
+
         height, width, _ = obs.rgb.shape
-
-        # convert to uint8 instead of silently failing by returning no instances
-        image = obs.rgb
-        if not image.dtype == np.uint8:
-            if image.max() <= 1.0:
-                image = image * 255.0
-            image = image.astype(np.uint8)
-
         # detect objects
         detections = self.grounding_dino_model.predict_with_classes(
-            image=image,
+            image=obs.rgb,
             classes=CLASSES,
-            box_threshold=self.box_threshold,
-            text_threshold=self.text_threshold,
+            box_threshold=BOX_THRESHOLD,
+            text_threshold=BOX_THRESHOLD,
         )
-
         # NMS post process
         # print(f"Before NMS: {len(detections.xyxy)} boxes")
         nms_idx = (
             torchvision.ops.nms(
                 torch.from_numpy(detections.xyxy),
                 torch.from_numpy(detections.confidence),
-                self.nms_threshold,
+                NMS_THRESHOLD,
             )
             .numpy()
             .tolist()
@@ -150,7 +131,7 @@ class GroundedSAMPerception(PerceptionModule):
         detections.class_id = detections.class_id[nms_idx]
 
         # convert detections to masks
-        detections.mask = self.segment(image=image, xyxy=detections.xyxy)
+        detections.mask = self.segment(image=obs.rgb, xyxy=detections.xyxy)
 
         if depth_threshold is not None and obs.depth is not None:
             detections.mask = np.array(

@@ -22,8 +22,8 @@ Make sure you have [Docker](https://docs.docker.com/engine/install/ubuntu/) with
    ```
    cd projects/habitat_ovmm
    ```
-1. Implement your own agent or try our baseline agent, located in [projects/habitat_ovmm/eval_baselines_agent.py](../projects/habitat_ovmm/eval_baselines_agent.py).
-1. Modify the provided [projects/habitat_ovmm/docker/ovmm_baseline.Dockerfile](../projects/habitat_ovmm/docker/ovmm_baseline.Dockerfile) if you need custom modifications. Let’s say your code needs `<some extra package>`, this dependency should be pip installed inside a conda environment called `home-robot` that is shipped with our HomeRobot challenge docker, as shown below:
+1. Implement your own agent or try our baseline agent, located in [projects/habitat_ovmm/eval_baselines_agent.py](projects/habitat_ovmm/eval_baselines_agent.py). 
+1. Modify the provided [projects/habitat_ovmm/docker/ovmm_baseline.Dockerfile](projects/habitat_ovmm/docker/ovmm_baseline.Dockerfile) if you need custom modifications. Let’s say your code needs `<some extra package>`, this dependency should be pip installed inside a conda environment called `home-robot` that is shipped with our HomeRobot challenge docker, as shown below: 
     ```dockerfile
     FROM fairembodied/habitat-challenge:homerobot-ovmm-challenge-2023
 
@@ -53,9 +53,8 @@ Make sure you have [Docker](https://docs.docker.com/engine/install/ubuntu/) with
     *Note:* we provide 2 versions of the base Docker image participants may build from:
     - `fairembodied/habitat-challenge:homerobot-ovmm-challenge-2023-ubuntu22.04` (alias of `fairembodied/habitat-challenge:homerobot-ovmm-challenge-2023`)
     - `fairembodied/habitat-challenge:homerobot-ovmm-challenge-2023-ubuntu20.04`
-    - `fairembodied/habitat-challenge:homerobot-ovmm-challenge-2023-cpu` (a ubuntu 22.04 cpu-only version; you will not need GPUs when using this)
 
-    These differ in Ubuntu version and the choice between CPU or GPU for running torch code. Our example baseline Docker image uses `fairembodied/habitat-challenge:homerobot-ovmm-challenge-2023` as a base image. But participants may use any of the base Docker images listed above.
+    where the only difference is the Ubuntu version. Our example baseline Docker image uses `fairembodied/habitat-challenge:homerobot-ovmm-challenge-2023` as a base image. But participants may use any of the base Docker images listed above.
 
 1. Build your Docker image using:
 
@@ -70,26 +69,12 @@ Make sure you have [Docker](https://docs.docker.com/engine/install/ubuntu/) with
     ```
     *Note 2:* You can modify `submission.sh` file if your agent needs any custom modifications (e.g. command-line arguments). For example, agent type may be changed by changing `--agent_type` (and corresponding `--baseline_config_path`) argument in the `./scripts/test_local.sh` or `projects/habitat_ovmm/eval_baselines_agent.py`. Otherwise, nothing to do. Default submission.sh is simply a call to agent in `agent.py`
 
-   For evaluating an agent taking random actions, build a Docker image using [projects/habitat_ovmm/docker/ovmm_random_agent.Dockerfile](../projects/habitat_ovmm/docker/ovmm_random_agent.Dockerfile) as follows:
-
-    ```bash
-    docker build . \
-        -f docker/ovmm_random_agent.Dockerfile \
-        -t ovmm_random_agent_submission
-    ```
-
 1. Download all the required data into the `home-robot/data` directory (see [Habitat OVMM readme](../projects/habitat_ovmm/README.md)). Then in your `docker run` command mount `home-robot/data` data folder to the `home-robot/data` folder in the Docker image (see `./scripts/test_local.sh` for reference).
      
 1. Evaluate your docker container locally:
     ```bash
-    ./scripts/test_local.sh --docker-name ovmm_baseline_submission --split minival
+    ./scripts/test_local.sh --docker-name ovmm_baseline_submission
     ```
-    Similarly, the random agent can be evaluated locally with:
-
-    ```bash
-    ./scripts/test_local.sh --docker-name ovmm_random_agent_submission --split minival
-    ```
-
     If the above command runs successfully (for the random agent) you will get an output similar to:
     ```
     2023-07-18 21:02:10,607 Initializing dataset OVMMDataset-v0

@@ -293,7 +293,7 @@ def get_semantic_map_vis(
                 continue
             if instance_memory is not None:
                 # retrieve name
-                category = instance_memory.instances[0][int(instance)].category_id
+                category = instance_memory.instance_views[0][int(instance)].category_id
                 category_counts[category] += 1
                 instance_to_name[instance] = (
                     coco_category_id_to_coco_category[category]
@@ -803,7 +803,7 @@ def main(base_dir: str, legend_path: str, device: str):
                 semantic_map,
                 goal_image=goal_vis_image,
                 # Visualize the first cropped view of the instance
-                instance_image=instance_memory.instances[0][goal_inst]
+                instance_image=instance_memory.instance_views[0][goal_inst]
                 .instance_views[0]
                 .cropped_image[:, :, ::-1],
                 legend=None,
@@ -832,7 +832,10 @@ def main(base_dir: str, legend_path: str, device: str):
             ),
             "false_negative": int(goal_inst is None),
             "instance_detected": np.any(
-                [inst in instance_memory.instances[0] for inst in correct_instances]
+                [
+                    inst in instance_memory.instance_views[0]
+                    for inst in correct_instances
+                ]
             ),
         }
         metrics.append(metrics_per_goal)

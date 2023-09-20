@@ -1,4 +1,6 @@
 import math
+from spot_wrapper.depth_utils import point_from_depth_image
+from matplotlib import pyplot as plt
 import pickle
 import sys
 import time
@@ -8,9 +10,7 @@ from typing import List
 import cv2
 import numpy as np
 import skimage.morphology
-from matplotlib import pyplot as plt
 from PIL import Image
-from spot_wrapper.depth_utils import point_from_depth_image
 
 # TODO Install home_robot, home_robot_sim and remove this
 sys.path.insert(
@@ -22,7 +22,7 @@ sys.path.insert(
     str(Path(__file__).resolve().parent.parent.parent / "src/home_robot_sim"),
 )
 
-from spot_wrapper.spot import BODY_FRAME_NAME, VISION_FRAME_NAME, Spot
+from spot_wrapper.spot import BODY_FRAME_NAME, Spot, VISION_FRAME_NAME
 
 import home_robot.utils.pose as pu
 import home_robot.utils.visualization as vu
@@ -231,7 +231,7 @@ def get_semantic_map_vis(
     return vis_image
 
 
-def main(spot, args):
+def main(spot,args):
     config_path = "projects/spot/configs/config.yaml"
     config, config_str = get_config(config_path)
 
@@ -265,7 +265,7 @@ def main(spot, args):
     # control with keyboard instead of planner
     keyboard_takeover = args.keyboard
     if pan_warmup:
-        env.env.set_arm_yaw(np.pi + np.pi / 4, time=4, blocking=True)
+        env.env.set_arm_yaw(np.pi+np.pi/4, time=4,blocking=True)
         positions = spot.get_arm_joint_positions()
         print(positions)
 
@@ -286,9 +286,7 @@ def main(spot, args):
         # tra.euler_from_matrix(mat, "rzyx")
         # np.pi/4
         # env.env.initial_joints
-        print(
-            "SHORT_TERM:", info["short_term_goal"], np.where(info["closest_goal_map"])
-        )
+        print("SHORT_TERM:", info["short_term_goal"],np.where(info['closest_goal_map']))
         x, y = info["short_term_goal"]
         x, y = agent.semantic_map.local_to_global(x, y)
         action = ContinuousNavigationAction(np.array([x, y, 0.0]))
@@ -329,35 +327,23 @@ def main(spot, args):
 
         # target object detected in current frame
         if (obs.semantic == env.current_goal_id).sum() > 0:
-            response = obs.raw_obs["depth_response"]
+            response = obs.raw_obs['depth_response']
             mask = obs.semantic == env.current_goal_id
-            mask_points = np.stack(np.where(mask), axis=-1)
+            mask_points = np.stack(np.where(mask),axis=-1)
             centroid = mask_points.mean(axis=0).astype(int)
-            assert mask[centroid[0], centroid[1]]
-            pixel_xy = (centroid[1], centroid[0])
-            point = point_from_depth_image(response, pixel_xy, BODY_FRAME_NAME)
+            assert mask[centroid[0],centroid[1]]
+            pixel_xy = (centroid[1],centroid[0])
+            point = point_from_depth_image(response,pixel_xy,BODY_FRAME_NAME)
             dist = np.linalg.norm(point)
-            print("Distance to object: ", dist)
+            print("Distance to object: ",dist)
             if dist > 1.5 and dist < 3:
                 print("Seeking object")
                 # walk to the point as localized in the depth image
-                global_point = point_from_depth_image(
-                    response, pixel_xy, VISION_FRAME_NAME
-                )[:2]
+                global_point = point_from_depth_image(response,pixel_xy,VISION_FRAME_NAME)[:2]
                 cur_xy = spot.get_xy_yaw()[:2]
-                delta = global_point - cur_xy
-                heading = math.atan2(delta[1], delta[0])
-                spot.set_base_position(
-                    global_point[0],
-                    global_point[1],
-                    heading,
-                    10,
-                    relative=False,
-                    max_fwd_vel=0.5,
-                    max_hor_vel=0.5,
-                    max_ang_vel=np.pi / 4,
-                    blocking=True,
-                )
+                delta = global_point-cur_xy
+                heading = math.atan2(delta[1],delta[0])
+                spot.set_base_position(global_point[0],global_point[1],heading,10,relative=False, max_fwd_vel=0.5, max_hor_vel=0.5, max_ang_vel=np.pi / 4,blocking=True)
         if pan_warmup:
             positions = spot.get_arm_joint_positions()
             env.env.set_arm_yaw(-np.pi, time=15)
@@ -398,12 +384,11 @@ def main(spot, args):
 
 if __name__ == "__main__":
     import argparse
-
-    parser = argparse.ArgumentParser(description="")
-    parser.add_argument("--keyboard", action="store_true")
-    parser.add_argument("--category", default=None)
-    parser.add_argument("--rotate", action="store_true")
+    parser = argparse.ArgumentParser(description='')
+    parser.add_argument('--keyboard',action='store_true')
+    parser.add_argument('--category',default=None)
+    parser.add_argument('--rotate',action='store_true')
     args = parser.parse_args()
     spot = Spot("RealNavEnv")
     with spot.get_lease(hijack=True):
-        main(spot, args)
+        main(spot,args)
