@@ -178,7 +178,7 @@ def run_exploration(
     robot: StretchClient,
     rate: int = 10,
     manual_wait: bool = False,
-    explore_iter: int = 10,
+    explore_iter: int = 20,
     try_to_plan_iter: int = 10,
     dry_run: bool = False,
     random_goals: bool = False,
@@ -216,6 +216,9 @@ def run_exploration(
             tries = 0
             failed = False
             for goal in space.sample_closest_frontier(start):
+                if goal is None:
+                    failed = True
+                    break
                 goal = goal.cpu().numpy()
                 print("Sampled Goal:", goal)
                 show_goal = np.zeros(3)
@@ -251,7 +254,9 @@ def run_exploration(
                 print(" ------ no valid goals found!")
                 failed = True
             if failed:
-                print(" ------ sampling and planning failed!")
+                print(
+                    " ------ sampling and planning failed! Might be no where left to go."
+                )
                 continue
 
         # After doing everything
