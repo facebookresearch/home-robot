@@ -64,9 +64,12 @@ class RosMapDataCollector(object):
         self.voxel_map = SparseVoxelMap(resolution=voxel_size, local_radius=0.1)
 
     def get_planning_space(self) -> SparseVoxelMapNavigationSpace:
-        """return space for motion planning"""
+        """return space for motion planning. Hard codes some parameters for Stretch"""
         return SparseVoxelMapNavigationSpace(
-            self.voxel_map, self.robot_model, step_size=0.1
+            self.voxel_map,
+            self.robot_model,
+            step_size=0.1,
+            dilate_size=12,
         )
 
     def step(self, visualize_map=False):
@@ -197,19 +200,32 @@ def run_exploration(
         print("\n" * 2)
         print("-" * 20, i, "-" * 20)
         start = robot.get_base_pose()
+        start_is_valid = space.is_valid(start)
+        print("Start is valid:", start_is_valid)
+        # if start is not valid move backwards a bit
+        if not start_is_valid:
+            print("Start not valid. back up a bit.")
+            robot.nav.navigate_to([-0.1, 0, 0], relative=True)
+            continue
         print("       Start:", start)
         # sample a goal
         if random_goals:
             goal = next(space.sample_random_frontier()).cpu().numpy()
         else:
             # extract goal using fmm planner
-            for _ in range(try_to_plan_iter):
-                goal = next(space.sample_closest_frontier(start)).cpu().numpy()
+            tries = 0
+            failed = False
+            for goal in space.sample_closest_frontier(start):
+                goal = goal.cpu().numpy()
                 print("Sampled Goal:", goal)
                 show_goal = np.zeros(3)
                 show_goal[:2] = goal[:2]
-                print("Start is valid:", collector.voxel_map.xyt_is_safe(start))
-                print(" Goal is valid:", collector.voxel_map.xyt_is_safe(goal))
+                goal_is_valid = space.is_valid(goal)
+                print("Start is valid:", start_is_valid)
+                print(" Goal is valid:", goal_is_valid)
+                if not goal_is_valid:
+                    print(" -> resample goal.")
+                    continue
                 # plan to the sampled goal
                 res = planner.plan(start, goal)
                 print("Found plan:", res.success)
@@ -226,8 +242,15 @@ def run_exploration(
                     break
                 else:
                     plt.show()
+                    tries += 1
+                    if tries >= try_to_plan_iter:
+                        failed = True
+                        break
                     continue
             else:
+                print(" ------ no valid goals found!")
+                failed = True
+            if failed:
                 print(" ------ sampling and planning failed!")
                 continue
 

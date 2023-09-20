@@ -35,6 +35,7 @@ class SparseVoxelMapNavigationSpace(XYT):
         rotation_step_size: float = 0.5,
         use_orientation: bool = False,
         orientation_resolution: int = 64,
+        dilate_size: int = 12,
     ):
         self.robot = robot
         self.step_size = step_size
@@ -50,7 +51,7 @@ class SparseVoxelMapNavigationSpace(XYT):
             self.dof = 2
 
         self.dilate_explored_kernel = torch.nn.Parameter(
-            torch.from_numpy(skimage.morphology.disk(10))
+            torch.from_numpy(skimage.morphology.disk(dilate_size))
             .unsqueeze(0)
             .unsqueeze(0)
             .float(),
