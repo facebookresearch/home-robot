@@ -9,3 +9,6 @@ instance_memory_kwargs:
     instance_view_score_aggregation_mode: 'max'
     overlap_eps: 1e-6
     min_pixels_for_instance_view: 100
+    global_box_nms_thresh: 0.3
+    instance_box_compression_resolution: 0.01
+    instance_box_compression_drop_prop: 0.2

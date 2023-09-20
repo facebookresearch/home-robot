@@ -5,9 +5,11 @@
 
 import copy
 import dataclasses
+import logging
 import os
 import warnings
 from functools import partial
+from numbers import Number
 from pathlib import Path
 from typing import List, Optional, Tuple, Union
 
@@ -17,15 +19,19 @@ import pandas as pd
 import torch
 from natsort import natsorted
 from PIL import Image
+from torch import Tensor
 from tqdm import tqdm
 
 from .referit3d_data import ReferIt3dDataConfig, load_referit3d_data
 from .scannet_constants import (
+    NUM_CLASSES,
     SCANNET_DATASET_CLASS_IDS,
     SCANNET_DATASET_CLASS_LABELS,
     SCANNET_DATASET_COLOR_MAPS,
 )
 from .scanrefer_data import ScanReferDataConfig, load_scanrefer_data
+
+logger = logging.getLogger(__name__)
 
 
 class ScanNetDataset(object):
@@ -104,13 +110,6 @@ class ScanNetDataset(object):
         assert (
             n_classes in SCANNET_DATASET_COLOR_MAPS
         ), f"{n_classes=} must be in {SCANNET_DATASET_COLOR_MAPS.keys()}"
-        self.METAINFO = {
-            "COLOR_MAP": SCANNET_DATASET_COLOR_MAPS[n_classes],
-            "CLASS_NAMES": SCANNET_DATASET_CLASS_LABELS[n_classes],
-            "CLASS_IDS": SCANNET_DATASET_CLASS_IDS[n_classes],
-        }
-
-        self.class_ids_ten = torch.tensor(self.METAINFO["CLASS_IDS"])
 
         # Set up directories and metadata
         assert split in ["train", "val", "test"]
@@ -120,6 +119,40 @@ class ScanNetDataset(object):
         self.instance_2d_dir = self.root_dir / "scannet_instance_data"
         self.scan_dir = self.root_dir / "scannet_instance_data"
 
+        # Metainfo
+        self.METAINFO = {
+            "COLOR_MAP": SCANNET_DATASET_COLOR_MAPS[n_classes],
+            "CLASS_NAMES": SCANNET_DATASET_CLASS_LABELS[n_classes],
+            "CLASS_IDS": SCANNET_DATASET_CLASS_IDS[n_classes],
+        }
+        # Load class names
+        labels_pd = pd.read_csv(
+            self.root_dir / "meta_data" / "scannetv2-labels.combined.tsv",
+            sep="\t",
+            header=0,
+        )
+        labels_pd.loc[labels_pd.raw_category == "stick", ["category"]] = "object"
+        labels_pd.loc[labels_pd.category == "wardrobe ", ["category"]] = "wardrobe"
+        self.ALL_CLASS_IDS_TO_CLASS_NAMES = dict(
+            zip(labels_pd["id"], labels_pd["category"])
+        )
+        self.ALL_CLASS_NAMES_TO_CLASS_IDS = dict(
+            zip(labels_pd["category"], labels_pd["id"])
+        )
+        # self.METAINFO['CLASS_NAMES'] = [self.ALL_CLASS_IDS_TO_CLASS_NAMES[k] for k in self.METAINFO['CLASS_IDS']]
+        self.METAINFO["CLASS_IDS"] = [
+            self.ALL_CLASS_NAMES_TO_CLASS_IDS[k] for k in self.METAINFO["CLASS_NAMES"]
+        ]
+        # Create tensor lookup table
+        self.class_ids_ten = torch.tensor(self.METAINFO["CLASS_IDS"])
+        self.DROP_CLASS_VAL = -1
+        self.class_ids_lookup = make_lookup_table(
+            self.class_ids_ten,
+            self.class_ids_ten,
+            missing_key_value=self.DROP_CLASS_VAL,
+        )
+
+        # Image metadata
         self.split = split
         self.height = height
         self.width = width
@@ -133,7 +166,7 @@ class ScanNetDataset(object):
         if keep_only_scenes is not None:
             self.scene_list = [s for s in self.scene_list if s in keep_only_scenes]
         self.scene_list = natsorted(self.scene_list)
-        print(
+        logger.info(
             f"ScanNetDataset: Keeping next {keep_only_first_k_scenes} scenes starting at idx {skip_first_k_scenes}"
         )
         self.scene_list = self.scene_list[skip_first_k_scenes:][
@@ -171,7 +204,6 @@ class ScanNetDataset(object):
                 / f"ScanRefer_filtered_{split}.json"
             )
             self.scanrefer_data = load_scanrefer_data(json_fpath)
-        # '/private/home/ssax/home-robot/src/home_robot/home_robot/datasets/scannet/data/scanrefer/ScanRefer_filtered_val.json'
 
     def find_data(self, scan_name: str):
         # RGBD + pose
@@ -276,9 +308,10 @@ class ScanNetDataset(object):
         boxes_aligned, box_classes, box_obj_ids = load_3d_bboxes(
             data["bboxs_aligned_path"]
         )
-        keep_boxes = (box_classes.unsqueeze(1) == self.class_ids_ten.unsqueeze(0)).any(
-            dim=1
-        )
+        # keep_boxes = (box_classes.unsqueeze(1) == self.class_ids_ten.unsqueeze(0)).any(
+        #     dim=1
+        # )
+        keep_boxes = self.class_ids_lookup[box_classes] != self.DROP_CLASS_VAL
         boxes_aligned = boxes_aligned[keep_boxes]
         box_classes = box_classes[keep_boxes]
         box_obj_ids = box_obj_ids[keep_boxes]
@@ -310,6 +343,8 @@ class ScanNetDataset(object):
             ][column_names]
             ref_expr_df = pd.concat([scanrefer_expr, r3d_expr])
 
+        ref_expr_df = filter_ref_exp_by_class(ref_expr_df, box_obj_ids, box_classes)
+
         # Return as dict
         return dict(
             # Pose
@@ -334,17 +369,9 @@ class ScanNetDataset(object):
         return len(self.scene_list)
 
 
-def maybe_show_progress(iterable, description, length, show=False):
-    if show:
-        for x in tqdm(iterable, desc=description, total=length):
-            yield x
-    else:
-        for x in iterable:
-            yield x
-
-
 ##################################
 # Load different modalities
+#################################
 def load_pose_opengl(path):
     pose = np.loadtxt(path)
     pose = np.array(pose).reshape(4, 4)
@@ -445,6 +472,105 @@ def load_3d_bboxes(path) -> Tuple[torch.Tensor, torch.Tensor]:
     return torch.stack([mins, maxs], dim=-1), labels, obj_ids
 
 
+def filter_ref_exp_by_class(
+    ref_expr_df: pd.DataFrame, box_target_ids: Tensor, box_classes: Tensor
+) -> pd.DataFrame:
+    """Keeps only referring expressions where referring expression"""
+    ref_exp_target_ids = torch.tensor(ref_expr_df.target_id.to_numpy())
+
+    # Make lookuptable of lookuptable[target_ids] -> target_class
+    max_key = max(box_target_ids.max(), ref_exp_target_ids.max()) + 1
+    ids_to_classes = make_lookup_table(
+        box_target_ids.long(), box_classes, missing_key_value=-1, key_max=max_key
+    )
+
+    # Keep referring expressions who have targets where class != -1 (i.e. where target is in box_target_ids)
+    ref_exp_classes = ids_to_classes[ref_exp_target_ids]
+    df = ref_expr_df.copy()
+    df["target_class_id"] = ref_exp_classes.cpu().numpy()
+    keep_exp = ref_exp_classes != -1
+    df = df.loc[keep_exp.cpu().numpy()]
+
+    # # Map to class name with something like:
+    # df['instance_type2'] = [class_id_to_name[class_idx] for class_idx in df['target_class_id']]
+    return df
+
+
+#############################################################
+# Utils
+#############################################################
+
+
+def maybe_show_progress(iterable, description, length, show=False):
+    if show:
+        for x in tqdm(iterable, desc=description, total=length):
+            yield x
+    else:
+        for x in iterable:
+            yield x
+
+
+def make_lookup_table(
+    keys: Tensor,
+    values: Tensor,
+    key_max: Optional[int] = None,
+    missing_key_value: Number = torch.nan,
+) -> Tensor:
+    """
+    Create a lookup table using keys and values tensors.
+
+    This function creates a 1D tensor (lookup table) using keys and values.
+    The length of the lookup table is determined by `key_max`. The `keys` tensor
+    specifies the indices in the lookup table that will be populated with the corresponding
+    values from the `values` tensor. Indices not present in `keys` will be filled with
+    `missing_key_value`.
+
+    Parameters:
+    -----------
+    keys : torch.Tensor
+        1D tensor of long integers specifying the indices in the lookup table
+        where values should be placed. Must have dtype of torch.long.
+    values : torch.Tensor
+        1D tensor containing the values to be placed in the lookup table.
+        Must have the same length as `keys`.
+    key_max : int, optional
+        The maximum key value + 1, which determines the length of the lookup table.
+        If None, it is set to the maximum value in `keys` + 1. Default is None.
+    missing_key_value : Number, optional
+        The value to fill in for missing keys in the lookup table. Default is NaN.
+
+    Returns:
+    --------
+    keys_expanded : torch.Tensor
+        The populated lookup table. The dtype will match that of `values`.
+
+    Raises:
+    -------
+    AssertionError
+        If the dtype of the `keys` is not torch.long.
+
+    Example:
+    --------
+    >>> keys = torch.tensor([1, 3, 5], dtype=torch.long)
+    >>> values = torch.tensor([10.0, 30.0, 50.0])
+    >>> make_lookup_table(keys, values)
+    tensor([nan, 10.0, nan, 30.0, nan, 50.0])
+    """
+    if key_max is None:
+        key_max = keys.max().item() + 1
+    assert (
+        keys.dtype == torch.long
+    ), f"keys must have dtype torch.long -- not {keys.dtype}"
+    keys_expanded = torch.full(
+        [key_max],
+        fill_value=missing_key_value,
+        device=values.device,
+        dtype=values.dtype,
+    )
+    keys_expanded.scatter_(dim=0, index=keys, src=values)
+    return keys_expanded
+
+
 if __name__ == "__main__":
     import open3d
 
@@ -456,7 +582,7 @@ if __name__ == "__main__":
     from home_robot.utils.point_cloud_torch import get_xyz_coordinates
 
     data = ScanNetDataset(
-        root_dir="/private/home/ssax/home-robot/projects/eval_scannet/scannet",
+        root_dir="./data/",
         frame_skip=30,
     )
     result = data.__getitem__(0, show_progress=True)

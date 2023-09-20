@@ -53,9 +53,9 @@ def read_aggregation(filename):
         data = json.load(f)
         num_objects = len(data["segGroups"])
         for i in range(num_objects):
-            object_id = (
-                data["segGroups"][i]["objectId"] + 1
-            )  # instance ids should be 1-indexed
+            object_id = data["segGroups"][i][
+                "objectId"
+            ]  # + 1  # instance ids should be 1-indexed
             label = data["segGroups"][i]["label"]
             segs = data["segGroups"][i]["segments"]
             object_id_to_segs[object_id] = segs
@@ -140,7 +140,7 @@ def export(
     """
 
     label_map = scannet_utils.read_label_mapping(
-        label_map_file, label_from="raw_category", label_to="nyu40id"
+        label_map_file, label_from="raw_category", label_to="id"  # nyu40id
     )
     mesh_vertices = scannet_utils.read_mesh_vertices_rgb(mesh_file)
 
@@ -165,10 +165,12 @@ def export(
     # Load semantic and instance labels
     if not test_mode:
         object_id_to_segs, label_to_segs = read_aggregation(agg_file)
+        # print(object_id_to_segs)
         seg_to_verts, num_verts = read_segmentation(seg_file)
         label_ids = np.zeros(shape=(num_verts), dtype=np.uint32)
         object_id_to_label_id = {}
         for label, segs in label_to_segs.items():
+            # print(label, label_map[label])
             label_id = label_map[label]
             for seg in segs:
                 verts = seg_to_verts[seg]
@@ -180,6 +182,7 @@ def export(
                 instance_ids[verts] = object_id
                 if object_id not in object_id_to_label_id:
                     object_id_to_label_id[object_id] = label_ids[verts][0]
+            # print(object_id, object_id_to_label_id[object_id])
         unaligned_bboxes = extract_bbox(
             mesh_vertices, object_id_to_segs, object_id_to_label_id, instance_ids
         )
