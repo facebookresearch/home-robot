@@ -699,6 +699,34 @@ class InstanceMemory:
                 global_instance_id,
             )
 
+    def _interpolate_image(
+        self, image: Tensor, scale_factor: float = 1.0, mode: str = "nearest"
+    ):
+        """
+        Interpolates images by the specified scale_factor using the specific interpolation mode.
+
+        This method uses `torch.nn.functional.interpolate` by temporarily adding batch dimension and channel dimension for 2D inputs.
+
+        image (Tensor): image of shape [3, H, W] or [H, W]
+        scale_factor (float): multiplier for spatial size
+        mode: (str): algorithm for interpolation: 'nearest' (default), 'bicubic' or other interpolation modes at https://pytorch.org/docs/stable/generated/torch.nn.functional.interpolate.html
+        """
+
+        if len(image.shape) == 2:
+            image = image.unsqueeze(0)
+
+        image_downsampled = (
+            torch.nn.functional.interpolate(
+                image.unsqueeze(0).float(),
+                scale_factor=scale_factor,
+                mode=mode,
+            )
+            .squeeze()
+            .squeeze()
+            .bool()
+        )
+        return image_downsampled
+
     def process_instances_for_env(
         self,
         env_id: int,
@@ -764,10 +792,10 @@ class InstanceMemory:
                 dim=0,
             )
 
-        # Valid opints
+        # Valid points
         if valid_points is None:
-            valid_points = torch.full(
-                image.shape[:, 0], True, dtype=torch.bool, device=image.device
+            valid_points = torch.full_like(
+                image[0], True, dtype=torch.bool, device=image.device
             )
         if self.du_scale != 1:
             valid_points_downsampled = (
@@ -829,20 +857,15 @@ class InstanceMemory:
 
             # TODO: If we use du_scale, we should apply this at the beginning to speed things up
             if self.du_scale != 1:
-                # downsample mask by du_scale using "NEAREST": temporarily adds batch and channel dimensions before passing to torch.nn.functional.interpolate function
-                instance_mask_downsampled = (
-                    torch.nn.functional.interpolate(
-                        instance_mask.unsqueeze(0).unsqueeze(0).float(),
-                        scale_factor=1 / self.du_scale,
-                        mode="nearest",
-                    )
-                    .squeeze(0)
-                    .squeeze(0)
-                    .bool()
+                instance_mask_downsampled = self._interpolate_image(
+                    instance_mask, scale_factor=1 / self.du_scale
                 )
-
+                image_downsampled = self._interpolate_image(
+                    image, scale_factor=1 / self.du_scale
+                )
             else:
                 instance_mask_downsampled = instance_mask
+                image_downsampled = image
 
             # Erode instance masks for point cloud
             # TODO: We can do erosion and masking on the downsampled/cropped image to avoid unnecessary computation
@@ -889,7 +912,9 @@ class InstanceMemory:
                 instance_mask_downsampled & valid_points_downsampled
             )
             point_cloud_instance = point_cloud[point_mask_downsampled]
-            point_cloud_rgb_instance = image.permute(1, 2, 0)[point_mask_downsampled]
+            point_cloud_rgb_instance = image_downsampled.permute(1, 2, 0)[
+                point_mask_downsampled
+            ]
 
             n_points = point_mask_downsampled.sum()
             n_mask = instance_mask_downsampled.sum()
