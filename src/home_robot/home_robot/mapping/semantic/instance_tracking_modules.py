@@ -742,6 +742,7 @@ class InstanceMemory:
         instance_scores: Optional[Tensor] = None,
         semantic_seg: Optional[torch.Tensor] = None,
         background_class_labels: List[int] = [0],
+        background_instance_labels: List[int] = [0],
         valid_points: Optional[Tensor] = None,
     ):
         """
@@ -762,7 +763,8 @@ class InstanceMemory:
             semantic_seg (Optional[torch.Tensor]): Semantic segmentation tensor, if available.
             mask_out_object (bool): true if we want to save crops of just objects on black background; false otherwise
                 # If false does it not save crops? Not black background?
-            background_class_label (List[int]): id indicating background points in instance_seg. That view is not saved. (default = 0)
+            background_class_labels (List[int]): ids indicating background classes in semantic_seg. That view is not saved. (default = 0)
+            background_instance_labels (List[int]): ids indicating background points in instance_seg. That view is not saved. (default = 0)
             valid_points (Tensor): [H, W] boolean tensor indicating valid points in the pointcloud
         Note:
             - The method creates instance views for detected instances within the provided data.
@@ -817,7 +819,9 @@ class InstanceMemory:
         # unique instances
         instance_ids = torch.unique(instance_seg)
         for instance_id in instance_ids:
-
+            # skip background
+            if instance_id in background_instance_labels:
+                continue
             # get instance mask
             instance_mask = instance_seg == instance_id
 

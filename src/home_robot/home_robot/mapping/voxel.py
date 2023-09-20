@@ -352,7 +352,7 @@ class SparseVoxelMap(object):
             pose=base_pose,
             instance_classes=instance_classes,
             instance_scores=instance_scores,
-            background_class_labels=[self.background_instance_label],
+            background_instance_labels=[self.background_instance_label],
             valid_points=valid_depth,
         )
         self.instances.associate_instances_to_memory()
