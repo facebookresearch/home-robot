@@ -177,6 +177,7 @@ def run_exploration(
     manual_wait: bool = False,
     explore_iter: int = 10,
     dry_run: bool = False,
+    random_goals: bool = False,
 ):
     """Go through exploration. We use the voxel_grid map created by our collector to sample free space, and then use our motion planner (RRT for now) to get there. At the end, we plan back to (0,0,0)."""
     rate = rospy.Rate(rate)
@@ -194,12 +195,16 @@ def run_exploration(
     for i in range(explore_iter):
         print("\n" * 2)
         print("-" * 20, i, "-" * 20)
-        # sample a goal
-        goal = space.sample_frontier().cpu().numpy()
-        if goal is None:
-            print(" ------ sampling failed!")
         start = robot.get_base_pose()
         print("       Start:", start)
+        # sample a goal
+        if random_goals:
+            goal = space.sample_random_frontier().cpu().numpy()
+        else:
+            # extract goal using fmm planner
+            goal = space.sample_closest_frontier(start).cpu().numpy()
+        if goal is None:
+            print(" ------ sampling failed!")
         print("Sampled Goal:", goal)
         show_goal = np.zeros(3)
         show_goal[:2] = goal[:2]
@@ -468,6 +473,10 @@ def main(
             voxel_map.show(instances=True)
         voxel_map.get_2d_map(debug=show_maps)
 
+        # NOTE: you can set this to True to just sample random goals entirely
+        # TODO: add as a command line option
+        random_goals = False
+
         if explore:
             print(
                 "Running exploration test on offline data. Will plan to various waypoints"
@@ -483,11 +492,14 @@ def main(
                 # NOTE: this is how you can sample a random free location
                 # goal = space.sample_valid_location().cpu().numpy()
                 # This lets you sample a free location only on the frontier
-                goal = space.sample_frontier().cpu().numpy()
-                if goal is None:
-                    print(" ------ sampling failed!")
                 start = np.zeros(3)
                 print("       Start:", start)
+                if random_goals:
+                    goal = space.sample_random_frontier().cpu().numpy()
+                else:
+                    goal = space.sample_closest_frontier(start).cpu().numpy()
+                if goal is None:
+                    print(" ------ sampling failed!")
                 print("Sampled Goal:", goal)
                 print("Start is valid:", voxel_map.xyt_is_safe(start))
                 print(" Goal is valid:", voxel_map.xyt_is_safe(goal))
