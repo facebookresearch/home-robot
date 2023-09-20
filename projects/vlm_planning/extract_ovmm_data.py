@@ -50,7 +50,7 @@ for i, epi in enumerate(os.listdir(dir_path)):
     with open(dir_path + epi + "/info.pkl", "rb") as f:
         info = pickle.load(f)
 
-    for instance_view in instance_memory.instance_views:
+    for instance_view in instance_memory.instances:
         for id in instance_view:
             if instance_view[id].category_id.cpu().numpy() == 1:
                 for iv in instance_view[id].instance_views:
