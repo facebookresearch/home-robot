@@ -1,0 +1,8 @@
+_target_: home_robot.agent.ovmm_agent.ovmm_perception.OvmmPerception
+config:
+  ENVIRONMENT:
+    use_detic_viz: True
+  AGENT:
+    detection_module: detic
+# This shouldn't be an arg in init() -- model should implement .to(device)
+gpu_device_id: 0 

@@ -144,11 +144,11 @@ class ResetNavAgent(Agent):
     # ------------------------------------------------------------------
     def get_goal_map(self):
         gm = np.zeros_like(self.semantic_map.get_goal_map(0))
-        gm[self.target[0],self.target[1]] = 1
+        gm[self.target[0], self.target[1]] = 1
         return gm
-    def set_target(self,target):
-        self.target = target
 
+    def set_target(self, target):
+        self.target = target
 
     @torch.no_grad()
     def prepare_planner_inputs(
@@ -336,12 +336,17 @@ class ResetNavAgent(Agent):
 
     # transform coordiantes from the world frame in meters relatvie to spot start location (at the time the script starts)
     # to local map coordinates
-    def boot_world_to_local_map(self,boot_world_coords):
+    def boot_world_to_local_map(self, boot_world_coords):
         transformed = (boot_world_coords * 100.0 / self.semantic_map.resolution).long()
-        (transformed[:, 0], transformed[:, 1],) = self.semantic_map.global_to_local( transformed[:, 0], transformed[:, 1])
+        (
+            transformed[:, 0],
+            transformed[:, 1],
+        ) = self.semantic_map.global_to_local(transformed[:, 0], transformed[:, 1])
         return transformed
 
-    def act(self, obs: Observations,point_goal) -> Tuple[DiscreteNavigationAction, Dict[str, Any]]:
+    def act(
+        self, obs: Observations, point_goal
+    ) -> Tuple[DiscreteNavigationAction, Dict[str, Any]]:
         """Act end-to-end."""
         # t0 = time.time()
 
@@ -411,7 +416,7 @@ class ResetNavAgent(Agent):
         closest_goal_map = None
         short_term_goal = None
         dilated_obstacle_map = None
-        
+
         if planner_inputs[0]["found_goal"]:
             self.episode_panorama_start_steps = 0
         if self.timesteps[0] < self.episode_panorama_start_steps:
@@ -432,7 +437,7 @@ class ResetNavAgent(Agent):
             )
             # this is just changing the visualization but not the actual performance
             # if self.timesteps_before_goal_update[0] == self.goal_update_steps - 1:
-                # self.closest_goal_map[0] = closest_goal_map
+            # self.closest_goal_map[0] = closest_goal_map
             self.closest_goal_map[0] = closest_goal_map
 
         # t3 = time.time()

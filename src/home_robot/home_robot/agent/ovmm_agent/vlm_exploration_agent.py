@@ -2,19 +2,20 @@
 # -*- coding: utf-8 -*-
 # quick fix for import
 import json
+import os
+import shutil
 import sys
 import warnings
 from enum import IntEnum, auto
 from typing import Any, Dict, Optional, Tuple
-import shutil
-import os
+
 import torch
 from PIL import Image
+
 from home_robot.agent.ovmm_agent.ovmm_agent import OpenVocabManipAgent
 from home_robot.core.interfaces import DiscreteNavigationAction, Observations
 
-sys.path.append(
-    "src/home_robot/home_robot/perception/detection/minigpt4/MiniGPT-4/")
+sys.path.append("src/home_robot/home_robot/perception/detection/minigpt4/MiniGPT-4/")
 
 
 class Skill(IntEnum):
@@ -30,7 +31,9 @@ class Skill(IntEnum):
 
 
 class VLMExplorationAgent(OpenVocabManipAgent):
-    def __init__(self, config, device_id: int = 0, obs_spaces=None, action_spaces=None, args=None):
+    def __init__(
+        self, config, device_id: int = 0, obs_spaces=None, action_spaces=None, args=None
+    ):
         warnings.warn(
             "VLM (MiniGPT-4) agent is currently under development and not fully supported yet."
         )
