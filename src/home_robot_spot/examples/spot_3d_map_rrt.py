@@ -27,6 +27,7 @@ from home_robot.utils.config import get_config, load_config
 from home_robot.utils.point_cloud import numpy_to_pcd
 from home_robot.utils.visualization import get_x_and_y_from_path
 from home_robot_spot import SpotClient, VoxelMapSubscriber
+from home_robot_spot.grasp_env import GraspController
 
 
 # def main(dock: Optional[int] = 549):
@@ -81,7 +82,6 @@ def main(dock: Optional[int] = None):
 
         exploration_steps = 1000
         for step in range(exploration_steps):
-
             goal = navigation_space.sample_frontier().cpu().numpy()
             start = spot.position
             print("Start is valid:", voxel_map.xyt_is_safe(start))
@@ -132,6 +132,22 @@ def main(dock: Optional[int] = None):
             voxel_map.write_to_pickle(pkl_filename)
             print(f"... wrote pkl to {pkl_filename}")
 
+        # I am going to assume the robot is at its goal position here
+        gaze = GraspController(
+            config=config,
+            spot=spot,
+            objects=[["penguin plush"]],
+            confidence=0.1,
+            show_img=True,
+            top_grasp=False,
+            hor_grasp=True,
+        )
+        spot.open_gripper()
+        time.sleep(1)
+        print("Resetting environment...")
+        success = gaze.gaze_and_grasp()
+        time.sleep(2)
+        
         print("Safely stop the robot...")
         spot.stop()
 
