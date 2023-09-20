@@ -182,8 +182,12 @@ def run_exploration(
     try_to_plan_iter: int = 10,
     dry_run: bool = False,
     random_goals: bool = False,
+    visualize: bool = False,
 ):
-    """Go through exploration. We use the voxel_grid map created by our collector to sample free space, and then use our motion planner (RRT for now) to get there. At the end, we plan back to (0,0,0)."""
+    """Go through exploration. We use the voxel_grid map created by our collector to sample free space, and then use our motion planner (RRT for now) to get there. At the end, we plan back to (0,0,0).
+
+    Args:
+        visualize(bool): true if we should do intermediate debug visualizations"""
     rate = rospy.Rate(rate)
 
     # Create planning space
@@ -236,15 +240,18 @@ def run_exploration(
                 img = (10 * obstacles) + explored
                 space.draw_state_on_grid(img, start, weight=5)
                 space.draw_state_on_grid(img, goal, weight=5)
-                plt.imshow(img)
+                if visualize:
+                    plt.imshow(img)
                 if res.success:
                     path = collector.voxel_map.plan_to_grid_coords(res)
                     x, y = get_x_and_y_from_path(path)
-                    plt.plot(y, x)
-                    plt.show()
+                    if visualize:
+                        plt.plot(y, x)
+                        plt.show()
                     break
                 else:
-                    plt.show()
+                    if visualize:
+                        plt.show()
                     tries += 1
                     if tries >= try_to_plan_iter:
                         failed = True
@@ -259,8 +266,9 @@ def run_exploration(
                 )
                 continue
 
-        # After doing everything
-        collector.show(orig=show_goal)
+        if visualize:
+            # After doing everything
+            collector.show(orig=show_goal)
 
         # if it fails, skip; else, execute a trajectory to this position
         if res.success:
