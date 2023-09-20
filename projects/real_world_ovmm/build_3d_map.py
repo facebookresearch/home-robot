@@ -492,14 +492,16 @@ def main(
                 # NOTE: this is how you can sample a random free location
                 # goal = space.sample_valid_location().cpu().numpy()
                 # This lets you sample a free location only on the frontier
-                start = np.zeros(3)
-                print("       Start:", start)
                 if random_goals:
-                    goal = space.sample_random_frontier().cpu().numpy()
+                    # Start at the center
+                    start = np.zeros(3)
+                    goal = next(space.sample_random_frontier()).cpu().numpy()
                 else:
-                    goal = space.sample_closest_frontier(start).cpu().numpy()
+                    start = next(space.sample_valid_location()).cpu().numpy()
+                    goal = next(space.sample_closest_frontier(start)).cpu().numpy()
                 if goal is None:
                     print(" ------ sampling failed!")
+                print("       Start:", start)
                 print("Sampled Goal:", goal)
                 print("Start is valid:", voxel_map.xyt_is_safe(start))
                 print(" Goal is valid:", voxel_map.xyt_is_safe(goal))

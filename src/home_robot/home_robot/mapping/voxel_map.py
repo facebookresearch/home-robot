@@ -236,7 +236,7 @@ class SparseVoxelMapNavigationSpace(XYT):
         expand_size: int = 5,
         debug: bool = False,
         verbose: bool = False,
-        step_dist: float = 1.5,
+        step_dist: float = 0.5,
     ) -> Optional[torch.Tensor]:
         """Sample a valid location on the current frontier using FMM planner to compute geodesic distance. Returns points in order until it finds one that's valid.
 
@@ -365,12 +365,12 @@ class SparseVoxelMapNavigationSpace(XYT):
             if verbose:
                 print("[VOXEL MAP: sampling] sampled", xyt)
             if self.is_valid(xyt):
-                return xyt
+                yield xyt
 
             tries += 1
             if tries > max_tries:
                 break
-        return None
+        yield None
 
     def sample_random_frontier(
         self,
@@ -481,10 +481,10 @@ class SparseVoxelMapNavigationSpace(XYT):
                 if verbose:
                     print("[VOXEL MAP: sampling]", radius, i, "sampled", xyt)
                 if self.is_valid(xyt):
-                    return xyt
+                    yield xyt
 
         # We failed to find anything useful
-        return None
+        yield None
 
     def sample_valid_location(self, max_tries: int = 100) -> Optional[torch.Tensor]:
         """Return a state that's valid and that we can move to.
@@ -501,9 +501,9 @@ class SparseVoxelMapNavigationSpace(XYT):
             point = self.voxel_map.sample_explored()
             xyt[:2] = point
             if self.is_valid(xyt):
-                return xyt
+                yield xyt
         else:
-            return None
+            yield None
 
     def sample(self) -> np.ndarray:
         """Sample any position that corresponds to an "explored" location. Goals are valid if they are within a reasonable distance of explored locations. Paths through free space are ok and don't collide.
