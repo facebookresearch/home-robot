@@ -263,7 +263,7 @@ def collect_data(
     visualize_map_at_start: bool = False,
     visualize_map: bool = False,
     blocking: bool = True,
-    explore: bool = False,
+    run_explore: bool = False,
     **kwargs,
 ):
     """Collect data from a Stretch robot. Robot will move through a preset trajectory, stopping repeatedly."""
@@ -289,7 +289,7 @@ def collect_data(
     # Move the robot
     robot.switch_to_navigation_mode()
     collector.step(visualize_map=visualize_map_at_start)  # Append latest observations
-    if explore:
+    if run_explore:
         run_exploration(collector, robot, rate, manual_wait)
     else:
         run_fixed_trajectory(collector, robot, rate, manual_wait)
@@ -331,7 +331,7 @@ DATA_MODES = ["ros", "pkl", "dir"]
 @click.option("--manual_wait", default=False, is_flag=True)
 @click.option("--output-pcd-filename", default="output.ply", type=str)
 @click.option("--output-pkl-filename", default="output.pkl", type=str)
-@click.option("--explore", default=False, is_flag=True)
+@click.option("--run-explore", default=False, is_flag=True)
 @click.option("--show-maps", default=False, is_flag=True)
 @click.option("--show-paths", default=False, is_flag=True)
 @click.option(
@@ -347,7 +347,7 @@ def main(
     manual_wait,
     output_pcd_filename,
     output_pkl_filename,
-    explore: bool = False,
+    run_explore: bool = False,
     input_path: str = ".",
     voxel_size: float = 0.01,
     device_id: int = 0,
@@ -359,7 +359,7 @@ def main(
     click.echo(f"Processing data in mode: {mode}")
     click.echo(f"Using input path: {input_path}")
 
-    if explore and not (mode == "ros" or mode == "pkl"):
+    if run_explore and not (mode == "ros" or mode == "pkl"):
         raise RuntimeError("explore cannot be used without a robot to interact with")
 
     if mode == "ros":
@@ -373,7 +373,7 @@ def main(
             voxel_size,
             device_id,
             verbose,
-            explore=explore,
+            run_explore=run_explore,
             **kwargs,
         )
     elif mode == "dir":
@@ -482,7 +482,7 @@ def main(
         # TODO: add as a command line option
         random_goals = False
 
-        if explore:
+        if run_explore:
             print(
                 "Running exploration test on offline data. Will plan to various waypoints"
             )
