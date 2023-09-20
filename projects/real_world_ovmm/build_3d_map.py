@@ -199,10 +199,10 @@ def run_exploration(
         print("       Start:", start)
         # sample a goal
         if random_goals:
-            goal = space.sample_random_frontier().cpu().numpy()
+            goal = next(space.sample_random_frontier()).cpu().numpy()
         else:
             # extract goal using fmm planner
-            goal = space.sample_closest_frontier(start).cpu().numpy()
+            goal = next(space.sample_closest_frontier(start)).cpu().numpy()
         if goal is None:
             print(" ------ sampling failed!")
         print("Sampled Goal:", goal)
