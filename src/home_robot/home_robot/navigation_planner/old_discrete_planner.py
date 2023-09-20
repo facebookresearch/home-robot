@@ -237,6 +237,7 @@ class DiscretePlanner:
                 np.zeros(goal_map.shape),
                 (0, 0),
                 np.zeros(goal_map.shape),
+                False,
             )
         # Short term goal is in cm, start_x and start_y are in m
         if debug:
@@ -305,6 +306,7 @@ class DiscretePlanner:
                         closest_goal_map,
                         short_term_goal,
                         dilated_obstacles,
+                        False,
                     )
 
         # Normalize agent angle
