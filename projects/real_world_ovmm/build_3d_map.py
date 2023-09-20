@@ -176,6 +176,7 @@ def run_exploration(
     rate: int = 10,
     manual_wait: bool = False,
     explore_iter: int = 10,
+    try_to_plan_iter: int = 10,
     dry_run: bool = False,
     random_goals: bool = False,
 ):
@@ -202,31 +203,35 @@ def run_exploration(
             goal = next(space.sample_random_frontier()).cpu().numpy()
         else:
             # extract goal using fmm planner
-            goal = next(space.sample_closest_frontier(start)).cpu().numpy()
-        if goal is None:
-            print(" ------ sampling failed!")
-        print("Sampled Goal:", goal)
-        show_goal = np.zeros(3)
-        show_goal[:2] = goal[:2]
-        print("Start is valid:", collector.voxel_map.xyt_is_safe(start))
-        print(" Goal is valid:", collector.voxel_map.xyt_is_safe(goal))
-        # plan to the sampled goal
-        res = planner.plan(start, goal)
-        print("Found plan:", res.success)
-        obstacles, explored = collector.get_2d_map()
-        img = (10 * obstacles) + explored
-        space.draw_state_on_grid(img, start, weight=5)
-        space.draw_state_on_grid(img, goal, weight=5)
-        plt.imshow(img)
-        if res.success:
-            path = collector.voxel_map.plan_to_grid_coords(res)
-            x, y = get_x_and_y_from_path(path)
-            plt.plot(y, x)
-        else:
-            continue
+            for _ in range(try_to_plan_iter):
+                goal = next(space.sample_closest_frontier(start)).cpu().numpy()
+                print("Sampled Goal:", goal)
+                show_goal = np.zeros(3)
+                show_goal[:2] = goal[:2]
+                print("Start is valid:", collector.voxel_map.xyt_is_safe(start))
+                print(" Goal is valid:", collector.voxel_map.xyt_is_safe(goal))
+                # plan to the sampled goal
+                res = planner.plan(start, goal)
+                print("Found plan:", res.success)
+                obstacles, explored = collector.get_2d_map()
+                img = (10 * obstacles) + explored
+                space.draw_state_on_grid(img, start, weight=5)
+                space.draw_state_on_grid(img, goal, weight=5)
+                plt.imshow(img)
+                if res.success:
+                    path = collector.voxel_map.plan_to_grid_coords(res)
+                    x, y = get_x_and_y_from_path(path)
+                    plt.plot(y, x)
+                    plt.show()
+                    break
+                else:
+                    plt.show()
+                    continue
+            else:
+                print(" ------ sampling and planning failed!")
+                continue
 
-        # Display goal
-        plt.show()
+        # After doing everything
         collector.show(orig=show_goal)
 
         # if it fails, skip; else, execute a trajectory to this position
