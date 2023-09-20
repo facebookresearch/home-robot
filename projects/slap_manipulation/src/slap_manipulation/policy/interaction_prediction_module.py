@@ -21,6 +21,7 @@ import open3d as o3d
 import open3d.visualization.gui as gui
 import torch
 import torch.nn as nn
+import wandb
 import yaml
 from perceiver_pytorch.perceiver_io import (
     FeedForward,
@@ -51,7 +52,6 @@ from slap_manipulation.policy.components import (
 from torch_geometric.nn import MLP, Linear, PointNetConv, radius
 from tqdm import tqdm
 
-import wandb
 from home_robot.utils.point_cloud import numpy_to_pcd, show_pcd, show_point_cloud
 
 np.random.seed(0)
