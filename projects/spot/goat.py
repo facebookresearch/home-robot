@@ -14,10 +14,11 @@ from typing import List, Optional
 warnings.filterwarnings("ignore")
 
 from collections import defaultdict
-import torch
+
 import cv2
 import numpy as np
 import skimage.morphology
+import torch
 from habitat_sim.utils.common import d3_40_colors_rgb
 from PIL import Image, ImageDraw, ImageFont
 
@@ -806,12 +807,16 @@ def main(spot=None, args=None):
             visualize_instances=config.AGENT.SEMANTIC_MAP.record_instance_ids,
         )
         instance_mem = agent.instance_memory
-        with open(f"{config.DUMP_LOCATION}/instance_memory/instance_memory_{t}.pkl", "wb") as f:
+        with open(
+            f"{config.DUMP_LOCATION}/instance_memory/instance_memory_{t}.pkl", "wb"
+        ) as f:
             pickle.dump(instance_mem, f)
 
         # Save semantic map
         semantic_map = agent.semantic_map
-        with open(f"{config.DUMP_LOCATION}/semantic_map/semantic_map_{t}.pth", "wb") as f:
+        with open(
+            f"{config.DUMP_LOCATION}/semantic_map/semantic_map_{t}.pth", "wb"
+        ) as f:
             torch.save(semantic_map, f)
 
         vis_images.append(vis_image)

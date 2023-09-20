@@ -2,19 +2,21 @@
 # -*- coding: utf-8 -*-
 # quick fix for import
 import json
-import sys
+import os
 import pdb
+import random
+import shutil
+import sys
 import warnings
 from enum import IntEnum, auto
 from typing import Any, Dict, Optional, Tuple
-import shutil
-import os
+
 import clip
 import matplotlib.pyplot as plt
 import numpy as np
 import torch
 from PIL import Image
-import random
+
 import home_robot.utils.pose as pu
 from home_robot.agent.objectnav_agent.objectnav_agent import ObjectNavAgent
 from home_robot.agent.ovmm_agent.ovmm_agent import OpenVocabManipAgent
@@ -23,8 +25,7 @@ from home_robot.agent.ovmm_agent.vlm_exploration_agent import VLMExplorationAgen
 from home_robot.core.interfaces import DiscreteNavigationAction, Observations
 from home_robot.manipulation import HeuristicPlacePolicy
 
-sys.path.append(
-    "src/home_robot/home_robot/perception/detection/minigpt4/MiniGPT-4/")
+sys.path.append("src/home_robot/home_robot/perception/detection/minigpt4/MiniGPT-4/")
 
 
 class Skill(IntEnum):
@@ -40,7 +41,9 @@ class Skill(IntEnum):
 
 
 class VLMAgent(OpenVocabManipAgent):
-    def __init__(self, config, device_id: int = 0, obs_spaces=None, action_spaces=None, args=None):
+    def __init__(
+        self, config, device_id: int = 0, obs_spaces=None, action_spaces=None, args=None
+    ):
         warnings.warn(
             "VLM (MiniGPT-4) agent is currently under development and not fully supported yet."
         )
@@ -48,6 +51,7 @@ class VLMAgent(OpenVocabManipAgent):
         # if config.GROUND_TRUTH_SEMANTICS == 0 or self.store_all_categories_in_map:
         #     raise NotImplementedError
         from minigpt4_example import Predictor
+
         if args and hasattr(args, "task"):
             print("Reset the agent task to " + args.task)
             self.set_task(args.task)
@@ -136,8 +140,7 @@ class VLMAgent(OpenVocabManipAgent):
     def switch_high_level_action(self):
         self.states = torch.tensor([Skill.EXPLORE] * self.num_environments)
         if self.timesteps[0] >= 20:
-            self.states = torch.tensor(
-                [Skill.NAV_TO_INSTANCE] * self.num_environments)
+            self.states = torch.tensor([Skill.NAV_TO_INSTANCE] * self.num_environments)
         return
 
     def reset_vectorized(self, episodes=None):
@@ -159,21 +162,22 @@ class VLMAgent(OpenVocabManipAgent):
         crops = []
         for global_id, instance in self.instance_memory.instance_views[0].items():
             instance_crops = instance.instance_views
-            crops.append((global_id, random.sample(
-                instance_crops, 1)[0].cropped_image))
+            crops.append((global_id, random.sample(instance_crops, 1)[0].cropped_image))
         # TODO: the model currenly can only handle 20 crops
         if len(crops) > self.max_context_length:
-            print("Warning: this version of minigpt4 can only handle limited size of crops -- sampling a subset of crops from the instance memory...")
+            print(
+                "Warning: this version of minigpt4 can only handle limited size of crops -- sampling a subset of crops from the instance memory..."
+            )
             crops = random.sample(crops, self.max_context_length)
         import shutil
+
         debug_path = "crops_for_planning/"
         shutil.rmtree(debug_path, ignore_errors=True)
         os.mkdir(debug_path)
         ret = []
         for id, crop in enumerate(crops):
-            Image.fromarray(crop[1], "RGB").save(
-                debug_path+str(id)+'.png')
-            ret.append(str(id)+'.png')
+            Image.fromarray(crop[1], "RGB").save(debug_path + str(id) + ".png")
+            ret.append(str(id) + ".png")
         return ret
 
     def _pick(
@@ -270,25 +274,29 @@ class VLMAgent(OpenVocabManipAgent):
             obs.task_observations["semantic_frame"] = None
         info = self._get_info(obs)
 
-        Image.fromarray(obs.rgb, "RGB").save(self.obs_path +
-                                             str(self.timesteps[0])+'.png')
+        Image.fromarray(obs.rgb, "RGB").save(
+            self.obs_path + str(self.timesteps[0]) + ".png"
+        )
 
         self.timesteps[0] += 1
         if not self.high_level_plan:
             if self.timesteps[0] % self.vlm_freq == 0 and self.timesteps[0] != 0:
                 for _ in range(self.planning_times):
-                    self.world_representation = self.get_obj_centric_world_representation()  # a list of images
+                    self.world_representation = (
+                        self.get_obj_centric_world_representation()
+                    )  # a list of images
                     self.high_level_plan = self.ask_vlm_for_plan(
-                        self.world_representation)
+                        self.world_representation
+                    )
                     # self.high_level_plan = "goto(crop_2); pickup(crop_2); goto(crop_11); goto(crop_4); goto(crop_6)"
                     if self.high_level_plan:
                         print("plan found by VLMs!!!!!!!!")
                         print(self.high_level_plan)
-                        self.remaining_actions = self.high_level_plan.split(
-                            "; ")
+                        self.remaining_actions = self.high_level_plan.split("; ")
                         dry_run = input(
-                            "type y if you want to switch to the next task, otherwise will execute the plan: ")
-                        if 'y' in dry_run:
+                            "type y if you want to switch to the next task, otherwise will execute the plan: "
+                        )
+                        if "y" in dry_run:
                             return None, info, obs, True
                         break
 
@@ -297,7 +305,8 @@ class VLMAgent(OpenVocabManipAgent):
             # hard code the first action to be nav_to_instance
             if self.states[0] == Skill.EXPLORE:
                 self.states = torch.tensor(
-                    [Skill.NAV_TO_INSTANCE] * self.num_environments)
+                    [Skill.NAV_TO_INSTANCE] * self.num_environments
+                )
 
         is_finished = False
         action = None
@@ -308,24 +317,51 @@ class VLMAgent(OpenVocabManipAgent):
                 action, info, new_state = self._explore(obs, info)
             elif self.states[0] == Skill.NAV_TO_INSTANCE:
                 current_high_level_action = self.remaining_actions[0]
-                nav_instance_id = int(self.world_representation[int(
-                    current_high_level_action.split('(')[1].split(')')[0].split(', ')[0].split('_')[1])].split('.')[0])
+                nav_instance_id = int(
+                    self.world_representation[
+                        int(
+                            current_high_level_action.split("(")[1]
+                            .split(")")[0]
+                            .split(", ")[0]
+                            .split("_")[1]
+                        )
+                    ].split(".")[0]
+                )
                 obs.task_observations["instance_id"] = nav_instance_id
-                print("Navigating to instance of category: " +
-                      str(nav_instance_id))
+                print("Navigating to instance of category: " + str(nav_instance_id))
                 action, info, new_state = self._nav_to_obj(obs, info)
             elif self.states[0] == Skill.GAZE_AT_OBJ:
                 current_high_level_action = self.remaining_actions[0]
-                pick_instance_id = int(self.world_representation[int(current_high_level_action.split(
-                    '(')[1].split(')')[0].split(', ')[0].split('_')[1])].split('.')[0])
-                category_id = self.instance_memory.instance_views[0][pick_instance_id].category_id
+                pick_instance_id = int(
+                    self.world_representation[
+                        int(
+                            current_high_level_action.split("(")[1]
+                            .split(")")[0]
+                            .split(", ")[0]
+                            .split("_")[1]
+                        )
+                    ].split(".")[0]
+                )
+                category_id = self.instance_memory.instance_views[0][
+                    pick_instance_id
+                ].category_id
                 obs.task_observations["object_goal"] = category_id
                 action, info, new_state = self._gaze_at_obj(obs, info)
             elif self.states[0] == Skill.PICK:
                 current_high_level_action = self.remaining_actions[0]
-                pick_instance_id = int(self.world_representation[int(current_high_level_action.split(
-                    '(')[1].split(')')[0].split(', ')[0].split('_')[1])].split('.')[0])
-                category_id = self.instance_memory.instance_views[0][pick_instance_id].category_id
+                pick_instance_id = int(
+                    self.world_representation[
+                        int(
+                            current_high_level_action.split("(")[1]
+                            .split(")")[0]
+                            .split(", ")[0]
+                            .split("_")[1]
+                        )
+                    ].split(".")[0]
+                )
+                category_id = self.instance_memory.instance_views[0][
+                    pick_instance_id
+                ].category_id
                 obs.task_observations["object_goal"] = category_id
                 # import pdb; pdb.set_trace()
                 action, info, new_state = self._pick(obs, info)

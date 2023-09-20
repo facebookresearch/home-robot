@@ -192,7 +192,7 @@ class Visualizer:
         landmarks: List = None,
         instance_map: Optional[np.ndarray] = None,
         instance_memory: Optional[InstanceMemory] = None,
-        goal_pose = None,
+        goal_pose=None,
         **kwargs,
     ):
         """Visualize frame input and semantic map.

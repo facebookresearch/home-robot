@@ -11,11 +11,12 @@ from typing import Dict, List, Optional, Tuple
 import cv2
 import numpy as np
 import torch
+from omegaconf import DictConfig
+
 from detectron2.config import CfgNode, get_cfg
 from detectron2.data import MetadataCatalog
 from detectron2.engine.defaults import DefaultPredictor
 from detectron2.utils.visualizer import ColorMode, VisImage, Visualizer
-from omegaconf import DictConfig
 
 sys.path.insert(
     0, str(Path(__file__).resolve().parent / "Detic/third_party/CenterNet2/")

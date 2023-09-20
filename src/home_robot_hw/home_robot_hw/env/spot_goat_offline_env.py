@@ -77,6 +77,6 @@ class SpotGoatOfflineEnv(Env):
             if goal["type"] == "languagenav":
                 assert all(land in self.sem_categories for land in goal["landmarks"])
 
-            goal["semantic_id"] = self.sem_categories.index(goal['target'])
+            goal["semantic_id"] = self.sem_categories.index(goal["target"])
 
         self.goals = goals

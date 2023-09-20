@@ -18,7 +18,6 @@ import numpy as np
 import open3d as o3d
 import torch
 import trimesh.transformations as tra
-import wandb
 import yaml
 from omegaconf import OmegaConf, dictconfig
 from slap_manipulation.dataloaders.rlbench_loader import RLBenchDataset
@@ -30,6 +29,8 @@ from slap_manipulation.policy.mdn import MDN, mdn_loss, sample
 from torch.optim.lr_scheduler import ReduceLROnPlateau
 from torch_geometric.nn import MLP, Linear
 from tqdm import tqdm
+
+import wandb
 
 # Default debug dataset paths
 # from home_robot.policy.pt_query import train_dataset_dir, valid_dataset_dir

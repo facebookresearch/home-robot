@@ -62,7 +62,7 @@ class DiscretePlanner:
         agent_cell_radius: int = 1,
         map_downsample_factor: float = 1.0,
         map_update_frequency: int = 1,
-        goal_tolerance: float = 0.01, # for sim
+        goal_tolerance: float = 0.01,  # for sim
         discrete_actions: bool = True,
         continuous_angle_tolerance: float = 30.0,
     ):
@@ -322,10 +322,11 @@ class DiscretePlanner:
 
         if goal_pose is None:
             # Compute angle to the final goal
-            relative_angle_to_closest_goal = pu.normalize_angle(angle_agent - angle_goal)
+            relative_angle_to_closest_goal = pu.normalize_angle(
+                angle_agent - angle_goal
+            )
         else:
             relative_angle_to_closest_goal = pu.normalize_angle(angle_agent - goal_pose)
-
 
         if debug:
             # Actual metric distance to goal
