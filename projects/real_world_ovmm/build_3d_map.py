@@ -69,7 +69,7 @@ class RosMapDataCollector(object):
             self.voxel_map,
             self.robot_model,
             step_size=0.1,
-            dilate_size=12,
+            dilate_size=12,  # 0.6 meters back from every edge
         )
 
     def step(self, visualize_map=False):
