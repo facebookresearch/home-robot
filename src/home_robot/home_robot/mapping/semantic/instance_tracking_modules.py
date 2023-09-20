@@ -218,7 +218,6 @@ class InstanceMemory:
         log_dir: Optional[str] = "instances",
         log_dir_overwrite_ok: bool = False,
         category_id_to_category_name=None,
-        config=None,
     ):
         """See class definition for information about InstanceMemory
 
@@ -253,8 +252,6 @@ class InstanceMemory:
         self.overlap_eps = overlap_eps
         self.min_pixels_for_instance_view = min_pixels_for_instance_view
         self.instance_association_within_class = instance_association_within_class
-        if config is not None:
-            log_dir = os.path.join(config.DUMP_LOCATION, "instances", config.EXP_NAME)
         if log_dir is not None:
             shutil.rmtree(log_dir, ignore_errors=True)
             os.makedirs(log_dir, exist_ok=log_dir_overwrite_ok)
@@ -955,18 +952,16 @@ class InstanceMemory:
 
             # save cropped image with timestep in filename
             if self.debug_visualize:
-                raise NotImplementedError(
-                    "Image saving should be handled with a logger class"
+                # TODO Image saving should be handled with a logger class"
+                import os
+
+                import cv2
+
+                os.makedirs(f"{self.log_dir}/all", exist_ok=True)
+                cv2.imwrite(
+                    f"{self.log_dir}/all/{self.timesteps[env_id]}_{instance_id.item()}.png",
+                    (cropped_image * 255).astype(np.uint8),
                 )
-                # import os
-
-                # import cv2
-
-                # os.makedirs("instances/", exist_ok=True)
-                # cv2.imwrite(
-                #     f"instances/{self.timesteps[env_id]}_{instance_id.item()}.png",
-                #     (cropped_image.cpu().numpy() * 255).astype(np.uint8),
-                # )
 
         # This timestep should be passable (e.g. for Spot we have a Datetime object)
         self.timesteps[env_id] += 1
