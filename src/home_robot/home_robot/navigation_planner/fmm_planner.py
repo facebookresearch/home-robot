@@ -3,7 +3,7 @@
 # This source code is licensed under the MIT license found in the
 # LICENSE file in the root directory of this source tree.
 import os
-from typing import List
+from typing import List, Optional
 
 import cv2
 import matplotlib.pyplot as plt
@@ -11,6 +11,8 @@ import numpy as np
 import skfmm
 import skimage
 from numpy import ma
+
+default_vis_dir = "data/images/planner"
 
 
 class FMMPlanner:
@@ -25,7 +27,7 @@ class FMMPlanner:
         scale: int = 1,
         step_size: int = 5,
         goal_tolerance: float = 2.0,
-        vis_dir: str = "data/images/planner",
+        vis_dir: Optional[str] = None,
         visualize=False,
         print_images=False,
         debug=False,
@@ -40,6 +42,8 @@ class FMMPlanner:
         """
         self.visualize = visualize
         self.print_images = print_images
+        if vis_dir is None:
+            vis_dir = default_vis_dir
         self.vis_dir = vis_dir
         os.makedirs(self.vis_dir, exist_ok=True)
 
@@ -196,6 +200,7 @@ class FMMPlanner:
         subset *= mask
         subset += (1 - mask) * self.fmm_dist.shape[0] ** 2
 
+        visualize = True
         if visualize:
             plt.subplot(232)
             plt.imshow(subset)
