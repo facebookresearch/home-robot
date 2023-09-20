@@ -1,8 +1,5 @@
 import math
-import torch
 import os
-from spot_wrapper.depth_utils import point_from_depth_image
-from matplotlib import pyplot as plt
 import pickle
 import sys
 import time
@@ -12,7 +9,10 @@ from typing import List
 import cv2
 import numpy as np
 import skimage.morphology
+import torch
+from matplotlib import pyplot as plt
 from PIL import Image
+from spot_wrapper.depth_utils import point_from_depth_image
 
 # TODO Install home_robot, home_robot_sim and remove this
 sys.path.insert(
@@ -24,7 +24,7 @@ sys.path.insert(
     str(Path(__file__).resolve().parent.parent.parent / "src/home_robot_sim"),
 )
 
-from spot_wrapper.spot import BODY_FRAME_NAME, Spot, VISION_FRAME_NAME
+from spot_wrapper.spot import BODY_FRAME_NAME, VISION_FRAME_NAME, Spot
 
 import home_robot.utils.pose as pu
 import home_robot.utils.visualization as vu
@@ -234,7 +234,7 @@ def get_semantic_map_vis(
     return vis_image
 
 
-def main(spot,args):
+def main(spot, args):
     home_position = np.load(f"{os.environ['HOME']}/spot_home_position.npy")
     config_path = "projects/spot/configs/config.yaml"
     config, config_str = get_config(config_path)
@@ -251,10 +251,9 @@ def main(spot,args):
     legend = cv2.imread(legend_path)
     vis_images = []
 
-
     env = SpotObjectNavEnv(spot, position_control=True)
     env.reset()
-    env.set_goal('teddy bear')
+    env.set_goal("teddy bear")
 
     agent = ResetNavAgent(config=config)
     agent.reset()
@@ -266,15 +265,16 @@ def main(spot,args):
         print("STEP =", t)
 
         obs = env.get_observation()
-        boot_world = env.spot_world_to_boot_world(home_position[None,...])
+        boot_world = env.spot_world_to_boot_world(home_position[None, ...])
         # flip x and y to get map coords
-        map_boot_world = boot_world[:,::-1].copy()
+        map_boot_world = boot_world[:, ::-1].copy()
         map_location = agent.boot_world_to_local_map(torch.tensor(map_boot_world))[0]
         agent.set_target(map_location)
-        action, info = agent.act(obs,map_location)
-        
+        action, info = agent.act(obs, map_location)
 
-        print("SHORT_TERM:", info["short_term_goal"],np.where(info['closest_goal_map']))
+        print(
+            "SHORT_TERM:", info["short_term_goal"], np.where(info["closest_goal_map"])
+        )
         x, y = info["short_term_goal"]
         x, y = agent.semantic_map.local_to_global(x, y)
         action = ContinuousNavigationAction(np.array([x, y, 0.0]))
@@ -299,7 +299,6 @@ def main(spot,args):
         cv2.imwrite(f"{output_visualization_dir}/{t}.png", vis_image[:, :, ::-1])
         cv2.imshow("vis", vis_image[:, :, ::-1])
         # map is (y,x) (bottom left of image is 0,0)
-
 
         key = cv2.waitKey(1)
 
@@ -339,7 +338,14 @@ def main(spot,args):
             print(diff)
             if np.linalg.norm(diff) < 1:
                 print("finalizing position")
-                env.env.act_point(home_position,MAX_TIME=20,max_fwd_vel=0.3,max_hor_vel=0.3,max_ang_vel=np.pi/6,blocking=True)
+                env.env.act_point(
+                    home_position,
+                    MAX_TIME=20,
+                    max_fwd_vel=0.3,
+                    max_hor_vel=0.3,
+                    max_ang_vel=np.pi / 6,
+                    blocking=True,
+                )
                 break
             if action is not None:
                 env.apply_action(action)
@@ -355,8 +361,9 @@ def main(spot,args):
 
 if __name__ == "__main__":
     import argparse
-    parser = argparse.ArgumentParser(description='')
+
+    parser = argparse.ArgumentParser(description="")
     args = parser.parse_args()
     spot = Spot("RealNavEnv")
     with spot.get_lease(hijack=True):
-        main(spot,args)
+        main(spot, args)

@@ -5,18 +5,19 @@
 # LICENSE file in the root directory of this source tree.
 
 
+import copy
 from datetime import datetime
 from typing import Optional, Tuple
 
 import click
+import numpy as np
 import rospy
-import copy
-from home_robot.agent.ovmm_agent.vlm_agent import VLMAgent
+
 from home_robot.agent.ovmm_agent.ovmm_agent import OpenVocabManipAgent
+from home_robot.agent.ovmm_agent.vlm_agent import VLMAgent
 from home_robot.motion.stretch import STRETCH_HOME_Q
 from home_robot_hw.env.stretch_pick_and_place_env import StretchPickandPlaceEnv
 from home_robot_hw.utils.config import load_config
-import numpy as np
 
 
 @click.command()
@@ -60,8 +61,7 @@ def main(
     rospy.init_node("eval_episode_stretch_objectnav")
 
     print("- Loading configuration")
-    config = load_config(config_path=config_path,
-                         visualize=visualize_maps, **kwargs)
+    config = load_config(config_path=config_path, visualize=visualize_maps, **kwargs)
 
     print("- Creating environment")
     env = StretchPickandPlaceEnv(
@@ -87,8 +87,7 @@ def main(
     print("Agent(s) has been reset")
     if hasattr(agent, "planner"):
         now = datetime.now()
-        agent.planner.set_vis_dir(
-            "real_world", now.strftime("%Y_%m_%d_%H_%M_%S"))
+        agent.planner.set_vis_dir("real_world", now.strftime("%Y_%m_%d_%H_%M_%S"))
     env.reset(start_recep, pick_object, goal_recep, set_goal=True)
     print("Env has been reset")
 
