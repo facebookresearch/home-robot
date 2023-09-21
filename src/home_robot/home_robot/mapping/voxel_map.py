@@ -206,8 +206,12 @@ class SparseVoxelMapNavigationSpace(XYT):
         is_safe = torch.all((crop_exp & mask) | ~mask)
 
         valid = bool((not collision) and is_safe)
+        if collision:
+            print("- state in collision")
+        if not is_safe:
+            print("- not safe")
 
-        if debug:
+        if debug or collision:
             print(f"{valid=}")
             obs = obstacles.cpu().numpy().copy()
             exp = explored.cpu().numpy().copy()

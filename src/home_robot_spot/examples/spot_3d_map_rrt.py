@@ -201,6 +201,7 @@ def main(dock: Optional[int] = None, args=None):
             print("Start xyt:", start)
             start_is_valid = navigation_space.is_valid(start)
             print("Start is valid:", start_is_valid)
+            print("Start is safe:", voxel_map.xyt_is_safe(start))
 
             # TODO do something is start is not valid
             if not start_is_valid:
@@ -212,7 +213,13 @@ def main(dock: Optional[int] = None, args=None):
                 min_size=parameters["min_size"], max_size=parameters["max_size"]
             )
             goal = goal.cpu().numpy()
-            print(" Goal is valid:", navigation_space.is_valid(goal))
+            goal_is_valid = navigation_space.is_valid(goal)
+            print(
+                f" Goal is valid: {goal_is_valid}",
+            )
+            if not goal_is_valid:
+                # really we should sample a new goal
+                continue
 
             #  Build plan
             res = planner.plan(start, goal)
@@ -235,7 +242,9 @@ def main(dock: Optional[int] = None, args=None):
                         "Observations processed for the map so far: ",
                         voxel_map_subscriber.current_obs,
                     )
-                voxel_map.show(backend="open3d", instances=True)
+                robot_center = np.zeros(3)
+                robot_center[:2] = spot.current_relative_position[:2]
+                voxel_map.show(backend="open3d", orig=robot_center, instances=True)
 
                 obstacles, explored = voxel_map.get_2d_map()
                 img = (10 * obstacles) + explored
