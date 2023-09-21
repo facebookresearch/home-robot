@@ -14,10 +14,11 @@ from typing import List, Optional
 warnings.filterwarnings("ignore")
 
 from collections import defaultdict
-import torch
+
 import cv2
 import numpy as np
 import skimage.morphology
+import torch
 from habitat_sim.utils.common import d3_40_colors_rgb
 from PIL import Image, ImageDraw, ImageFont
 
@@ -32,7 +33,7 @@ sys.path.insert(
 )
 
 if not OFFLINE:
-    from spot_wrapper.spot import Spot
+    from spot_wrapper.spot import Spot, SpotCamIds
 
 import home_robot.utils.pose as pu
 import home_robot.utils.visualization as vu
@@ -52,6 +53,9 @@ from home_robot.perception.detection.maskrcnn.coco_categories import (
 from home_robot.utils.config import get_config
 from home_robot_hw.env.spot_goat_env import SpotGoatEnv
 from home_robot_hw.env.spot_goat_offline_env import SpotGoatOfflineEnv
+
+sys.path.append("projects/spot/")
+from grasp import GraspController
 
 
 class PI:
@@ -365,35 +369,36 @@ def get_semantic_map_vis(
     if legend is not None:
         lx, ly, _ = legend.shape
         vis_image[537 : 537 + lx, 155 : 155 + ly, :] = legend[:, :, ::-1]
-    elif visualize_instances:
-        # Name instances as chair-1, chair-2 and so on
-        category_counts = defaultdict(int)
-        instance_to_name = {}
-        for instance in range(1, int(np.max(unique_instances)) + 1):
-            if instance == 0:
-                continue
-            if instance_memory is not None:
-                # retrieve name
-                category = instance_memory.instance_views[0][int(instance)].category_id
-                category_counts[category] += 1
-                instance_to_name[instance] = (
-                    coco_category_id_to_coco_category[category]
-                    + f" - {category_counts[category]}"
-                )
-            else:
-                instance_to_name[instance] = f"Instance - {instance}"
+    # disable visualization for now
+    # elif visualize_instances:
+    #     # Name instances as chair-1, chair-2 and so on
+    #     category_counts = defaultdict(int)
+    #     instance_to_name = {}
+    #     for instance in range(1, int(np.max(unique_instances)) + 1):
+    #         if instance == 0:
+    #             continue
+    #         if instance_memory is not None:
+    #             # retrieve name
+    #             category = instance_memory.instance_views[0][int(instance)].category_id
+    #             category_counts[category] += 1
+    #             instance_to_name[instance] = (
+    #                 coco_category_id_to_coco_category[category]
+    #                 + f" - {category_counts[category]}"
+    #             )
+    #         else:
+    #             instance_to_name[instance] = f"Instance - {instance}"
 
-        vis_image = generate_legend(
-            vis_image,
-            np.array(
-                map_color_palette[3 * PI.SEM_START : (PI.SEM_START + num_instances) * 3]
-            ).reshape(-1, 3),
-            [instance_to_name[i] for i in range(1, num_instances + 1)],
-            155,
-            537,
-            1250,
-            115,
-        )
+    #     vis_image = generate_legend(
+    #         vis_image,
+    #         np.array(
+    #             map_color_palette[3 * PI.SEM_START : (PI.SEM_START + num_instances) * 3]
+    #         ).reshape(-1, 3),
+    #         [instance_to_name[i] for i in range(1, num_instances + 1)],
+    #         155,
+    #         537,
+    #         1250,
+    #         115,
+    #     )
 
     # Draw agent arrow
     curr_x, curr_y, curr_o, gy1, _, gx1, _ = semantic_map.get_planner_pose_inputs(0)
@@ -730,7 +735,7 @@ def main(spot=None, args=None):
     with open(f"{config.DUMP_LOCATION}/goals.json", "w") as f:
         json.dump(goal_strings, f, indent=4)
 
-    agent = GoatAgent(config=config)
+    agent = GoatAgent(config=config, args=args)
     agent.reset()
 
     pan_warmup = False
@@ -745,6 +750,14 @@ def main(spot=None, args=None):
 
     global_start_time = time.time()
     t = 0
+
+    # minigpt parameters -- TODO: move them to the config file
+    high_level_plan = None
+    vlm_freq = 5
+    planning_times = 100
+    world_representation = None
+    remaining_actions = None
+
     while not env.episode_over:
         step_start_time = time.time()
         t += 1
@@ -756,7 +769,7 @@ def main(spot=None, args=None):
 
         if not OFFLINE:
             obs = env.get_observation()
-            obs.task_observations["current_task_idx"] = agent.current_task_idx
+            # obs.task_observations["current_task_idx"] = agent.current_task_idx
             obs.task_observations["timestamp"] = step_start_time - global_start_time
             print(
                 f"Environment (including segmentation) {time.time() - step_start_time:2f}"
@@ -770,7 +783,49 @@ def main(spot=None, args=None):
                 print(f"Could not load obs {t}")
                 break
 
-        action, info = agent.act(obs)
+        if not high_level_plan:
+            obs.task_observations["global_instance_id"] = 1000000  # explore
+            if t % vlm_freq == 0 and t != 0:
+                for _ in range(planning_times):
+                    world_representation = (
+                        agent.get_obj_centric_world_representation()
+                    )  # a list of images
+                    high_level_plan = agent.ask_vlm_for_plan(world_representation)
+                    # self.high_level_plan = "goto(crop_2); pickup(crop_2); goto(crop_11); goto(crop_4); goto(crop_6)"
+                    if high_level_plan and "explore" not in high_level_plan:
+                        print("plan found by VLMs!!!!!!!!")
+                        print(high_level_plan)
+                        remaining_actions = high_level_plan.split("; ")
+                        plan_again = input("plan again? ")
+                        if "y" in plan_again:
+                            continue
+                        else:
+                            break
+                        # dry_run = input(
+                        #     "type anything to confirm"
+                        # )
+                        # if "y" in dry_run:
+                        #     return None, info, obs, True
+                        # break
+        if high_level_plan and "goto" in remaining_actions[0]:
+            current_high_level_action = remaining_actions[0]
+            # print ("This instance is of category: " + str(agent.instance_memory.instance_views[0][7].category_id))
+            nav_instance_id = int(
+                world_representation[
+                    int(
+                        current_high_level_action.split("(")[1]
+                        .split(")")[0]
+                        .split(", ")[0]
+                        .split("_")[1]
+                    )
+                ]
+                .split(".")[0]
+                .split("_")[1]
+            )
+
+            obs.task_observations["global_instance_id"] = nav_instance_id
+
+        action, info, terminate = agent.act(obs)
         print(f"Step time {time.time() - step_start_time:2f}")
         # print("SHORT_TERM:", info["short_term_goal"])
         x, y = info["short_term_goal"]
@@ -778,11 +833,11 @@ def main(spot=None, args=None):
         action = ContinuousNavigationAction(np.array([x, y, 0.0]))
 
         # Visualize map
-        # depth_frame = obs.depth
-        # if depth_frame.max() > 0:
-        #     depth_frame = depth_frame / depth_frame.max()
-        # depth_frame = (depth_frame * 255).astype(np.uint8)
-        # depth_frame = np.repeat(depth_frame[:, :, np.newaxis], 3, axis=2)
+        depth_frame = obs.depth
+        if depth_frame.max() > 0:
+            depth_frame = depth_frame / depth_frame.max()
+        depth_frame = (depth_frame * 255).astype(np.uint8)
+        depth_frame = np.repeat(depth_frame[:, :, np.newaxis], 3, axis=2)
 
         current_goal = goals[agent.current_task_idx]
         if current_goal["type"] == "imagenav":
@@ -805,21 +860,25 @@ def main(spot=None, args=None):
             instance_memory=agent.instance_memory,
             visualize_instances=config.AGENT.SEMANTIC_MAP.record_instance_ids,
         )
-        instance_mem = agent.instance_memory
-        with open(f"{config.DUMP_LOCATION}/instance_memory/instance_memory_{t}.pkl", "wb") as f:
-            pickle.dump(instance_mem, f)
+        # instance_mem = agent.instance_memory
+        # with open(
+        #     f"{config.DUMP_LOCATION}/instance_memory/instance_memory_{t}.pkl", "wb"
+        # ) as f:
+        #     pickle.dump(instance_mem, f)
 
         # Save semantic map
         semantic_map = agent.semantic_map
-        with open(f"{config.DUMP_LOCATION}/semantic_map/semantic_map_{t}.pth", "wb") as f:
+        with open(
+            f"{config.DUMP_LOCATION}/semantic_map/semantic_map_{t}.pth", "wb"
+        ) as f:
             torch.save(semantic_map, f)
 
         vis_images.append(vis_image)
         cv2.imwrite(f"{output_visualization_dir}/{t}.png", vis_image[:, :, ::-1])
 
         if not OFFLINE:
-            cv2.imshow("vis", vis_image[:, :, ::-1])
-            cv2.imshow("depth", obs.depth / obs.depth.max())
+            # cv2.imshow("vis", vis_image[:, :, ::-1])
+            # cv2.imshow("depth", obs.depth / obs.depth.max())
             key = cv2.waitKey(1)
 
             if key == ord("z"):
@@ -854,6 +913,25 @@ def main(spot=None, args=None):
                 else:
                     if action is not None:
                         env.apply_action(action)
+                        if terminate:
+                            # copy from grasp.py
+                            gaze = GraspController(
+                                config=config,
+                                spot=spot,
+                                objects=[["bottle"]],
+                                confidence=0.05,
+                                show_img=False,
+                                top_grasp=False,
+                                hor_grasp=True,
+                            )
+                            spot.open_gripper()
+                            time.sleep(1)
+                            print("Resetting environment...")
+                            image_responses = spot.get_image_responses(
+                                [SpotCamIds.HAND_COLOR]
+                            )
+                            gaze.grasp(image_responses=image_responses)
+                            break
 
     out_dest = f"{output_visualization_dir}/video.mp4"
     print("Writing", out_dest)
@@ -871,7 +949,26 @@ if __name__ == "__main__":
     parser.add_argument("--trajectory", default="trajectory1")
     parser.add_argument("--goals", default="object_chair,object_sink")
     parser.add_argument("--keyboard", action="store_true")
-
+    parser.add_argument(
+        "--task",
+        default=None,
+        help="Specify any task in natural language",
+    )
+    parser.add_argument(
+        "--cfg-path",
+        default="src/home_robot/home_robot/perception/detection/minigpt4/MiniGPT-4/eval_configs/ovmm_test.yaml",
+        help="path to configuration file.",
+    )
+    parser.add_argument(
+        "--gpu-id", type=int, default=1, help="specify the gpu to load the model."
+    )
+    parser.add_argument(
+        "--options",
+        nargs="+",
+        help="override some settings in the used config, the key-value pair "
+        "in xxx=yyy format will be merged into config file (deprecate), "
+        "change to --cfg-options instead.",
+    )
     args = parser.parse_args()
 
     if not OFFLINE:

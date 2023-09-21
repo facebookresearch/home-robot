@@ -4,6 +4,9 @@
 # LICENSE file in the root directory of this source tree.
 
 import json
+import os
+import random
+import sys
 import time
 from pathlib import Path
 from typing import Any, Dict, List, Tuple
@@ -12,11 +15,11 @@ import cv2
 import numpy as np
 import scipy
 import torch
+from PIL import Image
 from sklearn.cluster import DBSCAN
 from torch.nn import DataParallel
 
 import home_robot.utils.pose as pu
-
 from home_robot.agent.imagenav_agent.visualizer import NavVisualizer
 from home_robot.core.abstract_agent import Agent
 from home_robot.core.interfaces import DiscreteNavigationAction, Observations
@@ -31,6 +34,8 @@ from home_robot.perception.detection.maskrcnn.coco_categories import coco_catego
 from .goat_agent_module import GoatAgentModule
 from .goat_matching import GoatMatching
 
+sys.path.append("src/home_robot/home_robot/perception/detection/minigpt4/MiniGPT-4/")
+
 # For visualizing exploration issues
 debug_frontier_map = False
 
@@ -41,7 +46,7 @@ class GoatAgent(Agent):
     # Flag for debugging data flow and task configuraiton
     verbose = False
 
-    def __init__(self, config, device_id: int = 0):
+    def __init__(self, config, device_id: int = 0, args=None):
         # self.max_steps = config.AGENT.max_steps
         # self.max_steps = [500, 400, 300, 200, 200, 200, 200, 200, 200, 200, 200]
         self.max_steps = [400, 300, 200, 200, 200, 200, 200, 200, 200, 200, 200]
@@ -71,7 +76,7 @@ class GoatAgent(Agent):
                 debug_visualize=config.PRINT_IMAGES,
                 config=config,
                 mask_cropped_instances=False,
-                padding_cropped_instances=200
+                padding_cropped_instances=200,
             )
 
         ## imagenav stuff
@@ -81,7 +86,7 @@ class GoatAgent(Agent):
 
         self.goal_policy_config = config.AGENT.SUPERGLUE
 
-        self.instance_seg = Detic(config.AGENT.DETIC)
+        # self.instance_seg = Detic(config.AGENT.DETIC)
         self.matching = GoatMatching(
             device=0,  # config.simulator_gpu_id
             score_func=self.goal_policy_config.score_function,
@@ -203,10 +208,56 @@ class GoatAgent(Agent):
         self.goal_filtering = config.AGENT.SEMANTIC_MAP.goal_filtering
         self.prev_task_type = None
 
+        from minigpt4_example import Predictor
+
+        if args and hasattr(args, "task"):
+            print("Reset the agent task to " + args.task)
+            self.set_task(args.task)
+        self.vlm = Predictor(args)
+        print("VLM planner initialized")
+        # self.vlm_freq = 20
+        # self.high_level_plan = None
+        self.max_context_length = 8
+        # self.planning_times = 1
+        # self.remaining_actions = None
+
     # ------------------------------------------------------------------
     # Inference methods to interact with vectorized simulation
     # environments
     # ------------------------------------------------------------------
+    def set_task(self, task):
+        self.task = task
+
+    def ask_vlm_for_plan(self, world_representation):
+        sample = self.vlm.prepare_sample(self.task, world_representation)
+        plan = self.vlm.evaluate(sample)
+        return plan
+
+    def get_obj_centric_world_representation(self, external_instance_memory=None):
+        if external_instance_memory:
+            self.instance_memory = external_instance_memory
+        crops = []
+        for global_id, instance in self.instance_memory.instance_views[0].items():
+            instance_crops = instance.instance_views
+            crops.append((global_id, random.sample(instance_crops, 1)[0].cropped_image))
+        # TODO: the model currenly can only handle 20 crops
+        if len(crops) > self.max_context_length:
+            print(
+                "\nWarning: this version of minigpt4 can only handle limited size of crops -- sampling a subset of crops from the instance memory..."
+            )
+            crops = random.sample(crops, self.max_context_length)
+        import shutil
+
+        debug_path = "crops_for_planning/"
+        shutil.rmtree(debug_path, ignore_errors=True)
+        os.mkdir(debug_path)
+        ret = []
+        for id, crop in enumerate(crops):
+            Image.fromarray(crop[1], "RGB").save(
+                debug_path + str(id) + "_" + str(crop[0]) + ".png"
+            )
+            ret.append(str(id) + "_" + str(crop[0]) + ".png")
+        return ret
 
     @torch.no_grad()
     def prepare_planner_inputs(
@@ -340,7 +391,7 @@ class GoatAgent(Agent):
                 "frontier_map": self.semantic_map.get_frontier_map(e),
                 "sensor_pose": self.semantic_map.get_planner_pose_inputs(e),
                 "found_goal": self.found_goal[e].item(),
-                "goal_pose": self.goal_pose[e] if self.goal_pose is not None else None
+                "goal_pose": self.goal_pose[e] if self.goal_pose is not None else None,
             }
             for e in range(self.num_environments)
         ]
@@ -622,9 +673,10 @@ class GoatAgent(Agent):
                     **vis_inputs[0],
                     "short_term_goal": short_term_goal,
                 }
-
+        terminate = False
         if action == DiscreteNavigationAction.STOP:
             print("Called STOP action")
+            terminate = True
             if len(obs.task_observations["tasks"]) - 1 > self.current_task_idx:
                 self.current_task_idx += 1
                 self.force_match_against_memory = False
@@ -635,8 +687,9 @@ class GoatAgent(Agent):
                     self.num_environments, 1, dtype=bool, device=self.device
                 )
                 self.reset_sub_episode()
+
         self.prev_task_type = task_type
-        return action, info
+        return action, info, terminate
 
     def _preprocess_obs(self, obs: Observations, task_type: str):
         """Take a home-robot observation, preprocess it to put it into the correct format for the

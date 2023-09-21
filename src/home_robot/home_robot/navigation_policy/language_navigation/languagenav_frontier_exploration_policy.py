@@ -76,6 +76,31 @@ class LanguageNavFrontierExplorationPolicy(nn.Module):
             map_features, object_category, reject_visited_targets
         )
 
+    def reach_global_instance(
+        self, map_features, object_category, reject_visited_targets, global_instance_id
+    ):
+        instance_map = map_features[0][
+            2 * MC.NON_SEM_CHANNELS
+            + self.num_sem_categories : 2 * MC.NON_SEM_CHANNELS
+            + 2 * self.num_sem_categories,
+            :,
+            :,
+        ]
+        inst_map_idx = instance_map == global_instance_id
+        inst_map_idx = torch.argmax(torch.sum(inst_map_idx, axis=(1, 2)))
+        goal_map = (
+            (instance_map[inst_map_idx] == global_instance_id)
+            .to(torch.float)
+            .unsqueeze(0)
+        )
+        if torch.sum(goal_map) == 0:
+            found_goal = torch.tensor([0])
+        else:
+            found_goal = torch.tensor([1])
+            print("found the global instance !!!!!!!!!!!!!")
+        goal_map = self.explore_otherwise(map_features, goal_map, found_goal)
+        return goal_map, found_goal
+
     def cluster_filtering(self, m):
         # m is a 480x480 goal map
         if not m.any():
