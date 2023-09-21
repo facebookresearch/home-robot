@@ -115,14 +115,14 @@ def main(dock: Optional[int] = None, args=None):
     # TODO move these parameters to config
     parameters = {
         "step_size": 2.0,  # (originally .1, we can make it all the way to 2 maybe actually)
-        "visualize": True,
-        "exploration_steps": 10,
+        "visualize": False,
+        "exploration_steps": 6,
         # Voxel map
         "obs_min_height": 0.5,  # Originally .1, floor appears noisy in the 3d map of freemont so we're being super conservative
         "obs_max_height": 1.8,  # Originally 1.8, spot is shorter than stretch tho
         "obs_min_density": 25,  # Originally 10, making it bigger because theres a bunch on noise
         "voxel_size": 0.05,
-        "local_radius": 0.5,  # Can probably be bigger than original (.15)
+        "local_radius": 0.75,  # Can probably be bigger than original (.15)
         # Frontier
         "min_size": 5,  # Can probably be bigger than original (10)
         "max_size": 20,  # Can probably be bigger than original (10)
@@ -195,6 +195,9 @@ def main(dock: Optional[int] = None, args=None):
 
         for step in range(int(parameters["exploration_steps"])):
 
+            print()
+            print("-" * 8, step + 1, "/", int(parameters["exploration_steps"]), "-" * 8)
+
             # Get current position and goal
             start = spot.current_relative_position
             goal = None
@@ -258,6 +261,9 @@ def main(dock: Optional[int] = None, args=None):
                 plt.imsave(f"exploration_step_{step}.png", img)
 
         print("Exploration complete!")
+        robot_center = np.zeros(3)
+        robot_center[:2] = spot.current_relative_position[:2]
+        voxel_map.show(backend="open3d", orig=robot_center, instances=True)
 
         print("Navigating to instance ")
         instances = voxel_map.get_instances()
@@ -275,15 +281,27 @@ def main(dock: Optional[int] = None, args=None):
                 sample = vlm.prepare_sample(args.task, world_representation)
                 plan = vlm.evaluate(sample)
                 print(plan)
-                input()
+                execute = input()
+                if "y" in execute:
+                    current_high_level_action = plan.split("; ")[0]
+                    # print ("This instance is of category: " + str(agent.instance_memory.instance_views[0][7].category_id))
+                    instance_id = int(
+                        world_representation[
+                            int(
+                                current_high_level_action.split("(")[1]
+                                .split(")")[0]
+                                .split(", ")[0]
+                                .split("_")[1]
+                            )
+                        ]
+                        .split(".")[0]
+                        .split("_")[1]
+                    )
+                    break
         else:
             # Navigating to a random instance, add LLM here
             instance_id = np.random.randint(len(instances))
 
-        import pdb
-
-        pdb.set_trace()
-        return
         print(f"Instance id: {instance_id}")
         success = navigate_to_an_instance(
             spot, voxel_map, planner, instance_id, visualize=parameters["visualize"]
@@ -300,6 +318,22 @@ def main(dock: Optional[int] = None, args=None):
             spot, voxel_map, planner, instance_id, visualize=parameters["visualize"]
         )
         print(f"Success: {success}")
+
+        # I am going to assume the robot is at its goal position here
+        # gaze = GraspController(
+        #     config=config,
+        #     spot=spot,
+        #     objects=[["penguin plush"]],
+        #     confidence=0.1,
+        #     show_img=True,
+        #     top_grasp=False,
+        #     hor_grasp=True,
+        # )
+        # spot.open_gripper()
+        # time.sleep(1)
+        # print("Resetting environment...")
+        # success = gaze.gaze_and_grasp()
+        # time.sleep(2)
 
     except Exception as e:
         print("Exception caught:")
@@ -363,11 +397,12 @@ if __name__ == "__main__":
     parser.add_argument(
         "--enable_vlm",
         default=False,
+        type=bool,
         help="Enable loading Minigpt4",
     )
     parser.add_argument(
         "--task",
-        default="find a cup",
+        default="find a green bottle",
         help="Specify any task in natural language for VLM",
     )
     parser.add_argument(
@@ -390,7 +425,7 @@ if __name__ == "__main__":
     )
     parser.add_argument(
         "--context_length",
-        default=10,
+        default=20,
         help="Maximum number of images the vlm can reason about",
     )
     parser.add_argument(

@@ -725,7 +725,7 @@ class SpotClient:
 
         return np.array([gps[0], gps[1], compass])
 
-    def navigate_to(self, xyt: np.ndarray, blocking=False):
+    def navigate_to(self, xyt: np.ndarray, relative: bool = False, blocking=False):
         """Move the base to a new position.
 
         Args:
