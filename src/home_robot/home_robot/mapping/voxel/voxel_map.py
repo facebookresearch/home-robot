@@ -9,14 +9,15 @@ import matplotlib.pyplot as plt
 import numpy as np
 import skfmm
 import skimage
+import skimage.morphology
 import torch
-from skimage.morphology import binary_dilation, disk
 
 from home_robot.mapping.voxel import SparseVoxelMap
 from home_robot.motion.robot import Robot
 from home_robot.motion.space import XYT
 from home_robot.utils.geometry import angle_difference, interpolate_angles
 from home_robot.utils.morphology import (
+    binary_dilation,
     binary_erosion,
     expand_mask,
     find_closest_point_on_mask,
@@ -35,7 +36,8 @@ class SparseVoxelMapNavigationSpace(XYT):
         rotation_step_size: float = 0.5,
         use_orientation: bool = False,
         orientation_resolution: int = 64,
-        dilate_size: int = 12,
+        dilate_frontier_size: int = 12,
+        dilate_obstacle_size: int = 2,
     ):
         self.robot = robot
         self.step_size = step_size
@@ -51,7 +53,14 @@ class SparseVoxelMapNavigationSpace(XYT):
             self.dof = 2
 
         self.dilate_explored_kernel = torch.nn.Parameter(
-            torch.from_numpy(skimage.morphology.disk(dilate_size))
+            torch.from_numpy(skimage.morphology.disk(dilate_frontier_size))
+            .unsqueeze(0)
+            .unsqueeze(0)
+            .float(),
+            requires_grad=False,
+        )
+        self.dilate_obstacles_kernel = torch.nn.Parameter(
+            torch.from_numpy(skimage.morphology.disk(dilate_obstacle_size))
             .unsqueeze(0)
             .unsqueeze(0)
             .float(),
@@ -259,6 +268,9 @@ class SparseVoxelMapNavigationSpace(XYT):
         less_explored = binary_erosion(
             explored.float().unsqueeze(0).unsqueeze(0), self.dilate_explored_kernel
         )[0, 0]
+        obstacles = binary_dilation(
+            obstacles.float().unsqueeze(0).unsqueeze(0), self.dilate_obstacles_kernel
+        )[0, 0].bool()
         edges = get_edges(less_explored)
 
         # Do not explore obstacles any more

@@ -69,7 +69,8 @@ class RosMapDataCollector(object):
             self.voxel_map,
             self.robot_model,
             step_size=0.1,
-            dilate_size=12,  # 0.6 meters back from every edge
+            dilate_frontier_size=12,  # 0.6 meters back from every edge
+            dilate_obstacle_size=2,
         )
 
     def step(self, visualize_map=False):
@@ -242,12 +243,12 @@ def run_exploration(
                     space.draw_state_on_grid(img, start, weight=5)
                     space.draw_state_on_grid(img, goal, weight=5)
                     plt.imshow(img)
-                if res.success:
-                    path = collector.voxel_map.plan_to_grid_coords(res)
-                    x, y = get_x_and_y_from_path(path)
-                    if visualize:
+                    if res.success:
+                        path = collector.voxel_map.plan_to_grid_coords(res)
+                        x, y = get_x_and_y_from_path(path)
                         plt.plot(y, x)
                         plt.show()
+                if res.success:
                     break
                 else:
                     if visualize:
@@ -280,11 +281,24 @@ def run_exploration(
 
         # Append latest observations
         collector.step()
-
         if manual_wait:
             input("... press enter ...")
 
     # Finally - plan back to (0,0,0)
+    print("Go back to (0, 0, 0) to finish...")
+    input("---")
+    start = robot.get_base_pose()
+    goal = np.array([0, 0, 0])
+    res = planner.plan(start, goal)
+    # if it fails, skip; else, execute a trajectory to this position
+    if res.success:
+        print("Full plan to home:")
+        for i, pt in enumerate(res.trajectory):
+            print("-", i, pt.state)
+        if not dry_run:
+            robot.nav.execute_trajectory([pt.state for pt in res.trajectory])
+    else:
+        print("WARNING: planning to home failed!")
 
 
 def collect_data(
