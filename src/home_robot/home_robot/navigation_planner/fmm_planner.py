@@ -161,11 +161,15 @@ class FMMPlanner:
                 )
         return dd
 
-    def get_short_term_goal(self, state: List[float], continuous=True):
+    def get_short_term_goal(
+        self, state: List[float], continuous=True, visualize: bool = False
+    ):
         """Compute the short-term goal closest to the current state.
 
         Arguments:
-            state: current location
+            state(List[float]): 2d, current location
+            debug(bool): print out some text information for debugging
+            visualize(bool): display some local plots for debugging
         """
         scale = self.scale * 1.0
         state = [x / scale for x in state]
@@ -191,7 +195,6 @@ class FMMPlanner:
             subset.shape[0] == 2 * self.du + 1 and subset.shape[1] == 2 * self.du + 1
         ), "Planning error: unexpected subset shape {}".format(subset.shape)
 
-        visualize = False
         if visualize:
             # TODO
             plt.subplot(231)

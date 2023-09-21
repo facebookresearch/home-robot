@@ -236,11 +236,11 @@ def run_exploration(
                 # plan to the sampled goal
                 res = planner.plan(start, goal)
                 print("Found plan:", res.success)
-                obstacles, explored = collector.get_2d_map()
-                img = (10 * obstacles) + explored
-                space.draw_state_on_grid(img, start, weight=5)
-                space.draw_state_on_grid(img, goal, weight=5)
                 if visualize:
+                    obstacles, explored = collector.get_2d_map()
+                    img = (10 * obstacles) + explored
+                    space.draw_state_on_grid(img, start, weight=5)
+                    space.draw_state_on_grid(img, goal, weight=5)
                     plt.imshow(img)
                 if res.success:
                     path = collector.voxel_map.plan_to_grid_coords(res)
@@ -370,6 +370,7 @@ DATA_MODES = ["ros", "pkl", "dir"]
 @click.option("--run-explore", default=False, is_flag=True)
 @click.option("--show-maps", default=False, is_flag=True)
 @click.option("--show-paths", default=False, is_flag=True)
+@click.option("--random-goals", default=False, is_flag=True)
 @click.option(
     "--input-path",
     type=click.Path(),
@@ -390,8 +391,18 @@ def main(
     verbose: bool = True,
     show_maps: bool = False,
     show_paths: bool = False,
+    random_goals: bool = True,
     **kwargs,
 ):
+    """
+    Including only some selected arguments here.
+
+    Args:
+        run_explore(bool): should sample frontier points and path to them; on robot will go there.
+        show_maps(bool): show 2d maps
+        show_paths(bool): display paths after planning
+        random_goals(bool): randomly sample frontier goals instead of looking for closest
+    """
     click.echo(f"Processing data in mode: {mode}")
     click.echo(f"Using input path: {input_path}")
 
@@ -513,10 +524,6 @@ def main(
         if show_maps:
             voxel_map.show(instances=True)
         voxel_map.get_2d_map(debug=show_maps)
-
-        # NOTE: you can set this to True to just sample random goals entirely
-        # TODO: add as a command line option
-        random_goals = False
 
         if run_explore:
             print(
