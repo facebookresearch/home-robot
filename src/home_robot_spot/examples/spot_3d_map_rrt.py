@@ -3,11 +3,16 @@
 # This source code is licensed under the MIT license found in the
 # LICENSE file in the root directory of this source tree.
 
+import os
+import random
+import sys
 import time
 from typing import Dict, List, Optional
 
+import matplotlib.pyplot as plt
 import numpy as np
 import open3d
+from PIL import Image
 
 from home_robot.agent.ovmm_agent import (
     OvmmPerception,
@@ -27,15 +32,112 @@ from home_robot.utils.config import get_config, load_config
 from home_robot.utils.point_cloud import numpy_to_pcd
 from home_robot.utils.visualization import get_x_and_y_from_path
 from home_robot_spot import SpotClient, VoxelMapSubscriber
+from home_robot_spot.grasp_env import GraspController
+
+
+def navigate_to_an_instance(spot, voxel_map, planner, instance_id, visualize=False):
+    instances = voxel_map.get_instances()
+    instance = instances[instance_id]
+
+    # TODO this can be random
+    view = instance.instance_views[0]
+
+    cur_position = spot.current_relative_position
+    goal_position = view.pose
+
+    # This currently yields TypeError: unsupported operand type(s) for -: 'numpy.ndarray' and 'Tensor'
+    # I guess we need to convert view.pose to tensor
+    planner_response = planner.plan(cur_position, goal_position)
+
+    if planner_response.success:
+        path = voxel_map.plan_to_grid_coords(planner_response)
+        x, y = get_x_and_y_from_path(path)
+        print(f"Path: {path}")
+    else:
+        return False
+
+    for node in planner_response.trajectory:
+        spot.navigate_to(node.state, blocking=True)
+
+    if visualize:
+        cropped_image = view.cropped_image
+        plt.imshow(cropped_image)
+        plt.show()
+        plt.imsave(f"instance_{instance_id}.png", cropped_image)
+
+    return True
+
+
+def get_obj_centric_world_representation(instance_memory, max_context_length):
+    crops = []
+    for global_id, instance in enumerate(instance_memory):
+        instance_crops = instance.instance_views
+        crops.append((global_id, random.sample(instance_crops, 1)[0].cropped_image))
+    # TODO: the model currenly can only handle 20 crops
+    if len(crops) > max_context_length:
+        print(
+            "\nWarning: this version of minigpt4 can only handle limited size of crops -- sampling a subset of crops from the instance memory..."
+        )
+        crops = random.sample(crops, max_context_length)
+    import shutil
+
+    debug_path = "crops_for_planning/"
+    shutil.rmtree(debug_path, ignore_errors=True)
+    os.mkdir(debug_path)
+    ret = []
+    for id, crop in enumerate(crops):
+        Image.fromarray(crop[1], "RGB").save(
+            debug_path + str(id) + "_" + str(crop[0]) + ".png"
+        )
+        ret.append(str(id) + "_" + str(crop[0]) + ".png")
+    return ret
 
 
 # def main(dock: Optional[int] = 549):
-def main(dock: Optional[int] = None):
+def main(dock: Optional[int] = None, args=None):
+
+    if args.enable_vlm:
+        sys.path.append(
+            "src/home_robot/home_robot/perception/detection/minigpt4/MiniGPT-4/"
+        )
+        from minigpt4_example import Predictor
+
+        # load VLM
+        vlm = Predictor(args)
+        print("VLM planner initialized")
+
+        # set task
+        print("Reset the agent task to " + args.task)
+
+    # TODO add this to config
     spot_config = get_config("src/home_robot_spot/configs/default_config.yaml")[0]
 
     # TODO move these parameters to config
-    voxel_size = 0.05
-    voxel_map = SparseVoxelMap(resolution=voxel_size, local_radius=0.1)
+    parameters = {
+        "step_size": 2.0,  # (originally .1, we can make it all the way to 2 maybe actually)
+        "visualize": True,
+        "exploration_steps": 10,
+        # Voxel map
+        "obs_min_height": 0.5,  # Originally .1, floor appears noisy in the 3d map of freemont so we're being super conservative
+        "obs_max_height": 1.8,  # Originally 1.8, spot is shorter than stretch tho
+        "obs_min_density": 25,  # Originally 10, making it bigger because theres a bunch on noise
+        "voxel_size": 0.05,
+        "local_radius": 0.5,  # Can probably be bigger than original (.15)
+        # Frontier
+        "min_size": 5,  # Can probably be bigger than original (10)
+        "max_size": 20,  # Can probably be bigger than original (10)
+        # Other parameters tuned (footprint is a third of the real robot size)
+        "use_async_subscriber": False,
+    }
+
+    # Create voxel map
+    voxel_map = SparseVoxelMap(
+        resolution=parameters["voxel_size"],
+        local_radius=parameters["local_radius"],
+        obs_min_height=parameters["obs_min_height"],
+        obs_max_height=parameters["obs_max_height"],
+        obs_min_density=parameters["obs_min_density"],
+    )
 
     # Create kinematic model (very basic for now - just a footprint)
     robot_model = SimpleSpotKinematics()
@@ -72,18 +174,27 @@ def main(dock: Optional[int] = None):
         spot.start()
 
         # Start thread to update voxel map
-        voxel_map_subscriber = VoxelMapSubscriber(spot, voxel_map, semantic_sensor)
-        voxel_map_subscriber.start()
+        if parameters["use_async_subscriber"]:
+            voxel_map_subscriber = VoxelMapSubscriber(spot, voxel_map, semantic_sensor)
+            voxel_map_subscriber.start()
+        else:
+            obs = spot.get_rgbd_obs()
+            obs = semantic_sensor.predict(obs)
+            voxel_map.add_obs(obs, xyz_frame="world")
+            voxel_map.show()
 
         print("Go to (0, 0, 0) to start with...")
         spot.navigate_to([0, 0, 0], blocking=True)
-        time.sleep(10)
+        print("Sleep 1s")
+        time.sleep(1)
+        print("Start exploring")
 
         exploration_steps = 1000
         for step in range(exploration_steps):
 
-            goal = navigation_space.sample_frontier().cpu().numpy()
             start = spot.position
+            print("Start xyt:", start)
+            goal = navigation_space.sample_frontier().cpu().numpy()
             print("Start is valid:", voxel_map.xyt_is_safe(start))
             print(" Goal is valid:", voxel_map.xyt_is_safe(goal))
 
@@ -103,12 +214,63 @@ def main(dock: Optional[int] = None):
                 print(node.state)
                 spot.navigate_to(node.state, blocking=True)
 
-            if step % 5 == 0:
-                print(
-                    "Observations processed for the map so far: ",
-                    voxel_map_subscriber.current_obs,
+            if step % 1 == 0 and parameters["visualize"]:
+                if parameters["use_async_subscriber"]:
+                    print(
+                        "Observations processed for the map so far: ",
+                        voxel_map_subscriber.current_obs,
+                    )
+                voxel_map.show(backend="open3d", instances=True)
+
+                obstacles, explored = voxel_map.get_2d_map()
+                img = (10 * obstacles) + explored
+                start_unnormalized = spot.unnormalize_gps_compass(start)
+                goal_unnormalized = spot.unnormalize_gps_compass(goal)
+
+                navigation_space.draw_state_on_grid(img, start_unnormalized, weight=5)
+                navigation_space.draw_state_on_grid(img, goal_unnormalized, weight=5)
+                plt.imshow(img)
+                plt.show()
+                plt.imsave(f"exploration_step_{step}.png", img)
+
+            if not parameters["use_async_subscriber"]:
+                obs = spot.get_rgbd_obs()
+                obs = semantic_sensor.predict(obs)
+                voxel_map.add_obs(obs, xyz_frame="world")
+                voxel_map.show()
+
+        print("Exploration complete!")
+
+        print("Navigating to instance ")
+        instances = voxel_map.get_instances()
+
+        if args.enable_vlm:
+            # get world_representation for planning
+            import pdb
+
+            pdb.set_trace()
+            while True:
+                world_representation = get_obj_centric_world_representation(
+                    instances, args.context_length
                 )
-                voxel_map.show(backend="open3d", instances=False)
+                # ask vlm for plan
+                sample = vlm.prepare_sample(args.task, world_representation)
+                plan = vlm.evaluate(sample)
+                print(plan)
+                input()
+        else:
+            # Navigating to a random instance, add LLM here
+            instance_id = np.random.randint(len(instances))
+
+        import pdb
+
+        pdb.set_trace()
+        return
+        print(f"Instance id: {instance_id}")
+        success = navigate_to_an_instance(
+            spot, voxel_map, planner, instance_id, visualize=parameters["visualize"]
+        )
+        print(f"Success: {success}")
 
     except Exception as e:
         print("Exception caught:")
@@ -137,4 +299,48 @@ def main(dock: Optional[int] = None):
 
 
 if __name__ == "__main__":
-    main()
+    import argparse
+
+    parser = argparse.ArgumentParser(description="")
+    parser.add_argument(
+        "--enable_vlm",
+        default=False,
+        help="Enable loading Minigpt4",
+    )
+    parser.add_argument(
+        "--task",
+        default="find a cup",
+        help="Specify any task in natural language for VLM",
+    )
+    parser.add_argument(
+        "--cfg-path",
+        default="src/home_robot/home_robot/perception/detection/minigpt4/MiniGPT-4/eval_configs/ovmm_test.yaml",
+        help="path to configuration file.",
+    )
+    parser.add_argument(
+        "--gpu-id", type=int, default=1, help="specify the gpu to load the model."
+    )
+    # parser.add_argument(
+    #     "--vlm_freq",
+    #     default=5,
+    #     help="After and every how many steps (of exploration) you want to call VLM for planning",
+    # )
+    parser.add_argument(
+        "--planning_times",
+        default=1,
+        help="Num of times of calling VLM for inference -- might be useful for long context length",
+    )
+    parser.add_argument(
+        "--context_length",
+        default=10,
+        help="Maximum number of images the vlm can reason about",
+    )
+    parser.add_argument(
+        "--options",
+        nargs="+",
+        help="For minigpt4 configs: override some settings in the used config, the key-value pair "
+        "in xxx=yyy format will be merged into config file (deprecate), "
+        "change to --cfg-options instead.",
+    )
+    args = parser.parse_args()
+    main(args=args)
