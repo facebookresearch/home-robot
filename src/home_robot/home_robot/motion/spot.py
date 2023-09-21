@@ -35,4 +35,6 @@ class SimpleSpotKinematics(Robot):
 
     def get_footprint(self) -> np.ndarray:
         """return a footprint mask that we can check 2d collisions against"""
-        return Footprint(width=0.5, length=1.0, width_offset=0.0, length_offset=0.0)
+        # The dimensions of spot are 0.5m x 1.1m (https://dev.bostondynamics.com/docs/concepts/about_spot)
+        # Currently taking half because the planner is to conservative
+        return Footprint(width=0.25, length=.55, width_offset=0.0, length_offset=0.0)

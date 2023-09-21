@@ -473,11 +473,24 @@ class SpotClient:
 
     @property
     def compass(self):
-        return self.raw_observations["base_xyt"][0][0][2]
+        return self.raw_observations["base_xyt"][0][1][0]
 
     @property
-    def position(self):
-        return self.raw_observations["base_xyt"][0][0][:3]
+    def current_relative_position(self):
+        xy = self.gps
+        compass = self.compass
+        relative_gps = xy - self.start_gps
+        relative_gps = self.rot_compass @ relative_gps
+        relative_compass = put_angle_in_interval(compass - self.start_compass)
+        return np.array([relative_gps[0], relative_gps[1], relative_compass])
+
+        # # return self.raw_observations["base_xyt"][0][0][:3]
+        # x, y, yaw = self.spot.get_xy_yaw()
+        # relative_gps = self.gps - self.start_gps
+        # relative_gps = self.rot_compass @ relative_gps
+
+        # relative_compass = put_angle_in_interval(self.compass - self.start_compass)
+        # return np.array([x, y, relative_compass])
 
     @property
     def hand_depth(self):
@@ -694,6 +707,19 @@ class SpotClient:
         self.lease.__exit__(None, None, None)
         self.lease = None
 
+    def unnormalize_gps_compass(self, xyt):
+        gps = xyt[:2]
+        compass = xyt[2]
+
+        # Transpose is inverse because its an orthonormal matrix
+        gps = self.rot_compass.T @ gps + self.start_gps
+
+        # UnNormalize compass
+        compass = put_angle_in_interval(compass + self.start_compass)
+
+
+        return np.array([gps[0], gps[1], compass])
+
     def navigate_to(self, xyt: np.ndarray, blocking=False):
         """Move the base to a new position.
 
@@ -701,6 +727,11 @@ class SpotClient:
             xyt_position: A tuple of (x, y, theta) in meters and radians.
         """
         assert self.lease is not None, "Must call start() first."
+
+        # Unnormalize GPS and compass
+        xyt = np.array(xyt)
+        xyt = self.unnormalize_gps_compass(xyt)
+
         self.spot.set_base_position(
             x_pos=xyt[0],
             y_pos=xyt[1],
@@ -800,7 +831,7 @@ if __name__ == "__main__":
             "intrinsics": [],
         }
 
-        action_index, visualization_frequency = 0, 5
+        action_index, visualization_frequency = 0, 7
         while linear != "" and angular != "":
             try:
                 spot.move_base(float(linear), float(angular))
@@ -818,6 +849,16 @@ if __name__ == "__main__":
                 )
                 print("Actions taken so far: ", action_index)
                 voxel_map.show(backend="open3d", instances=False)
+
+            # To navigate to an instance
+            # instance_id = <set instance id>
+            # instance_view_id = <set instance view id> (for now it can be random or the first one)
+            # instances = voxel_map.get_instances()
+            # instance = instances[instance_id]
+            # view = instance.instance_views[instance_view_id]
+            # gps, compass = view.gps (or pose?) this wint work is some rough pseudocode
+            # position = np.array([gps[0], gps[1], compass[0]])
+            # spot.navigate_to(position)
 
             linear = input("Input Linear: ")
             angular = input("Input Angular: ")

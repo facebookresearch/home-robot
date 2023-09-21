@@ -144,7 +144,7 @@ def main(dock: Optional[int] = None, args=None):
 
     # Create navigation space example
     navigation_space = SparseVoxelMapNavigationSpace(
-        voxel_map=voxel_map, robot=robot_model, step_size=0.1
+        voxel_map=voxel_map, robot=robot_model, step_size=parameters["step_size"]
     )
     print(" - Created navigation space and environment")
     print(f"   {navigation_space=}")
@@ -165,10 +165,6 @@ def main(dock: Optional[int] = None, args=None):
     planner = Shortcut(RRTConnect(navigation_space, navigation_space.is_valid))
 
     spot = SpotClient(config=spot_config, dock_id=dock)
-
-    # reset origin to current position
-    spot.spot.home_robot()
-    time.sleep(1)
     try:
         # Turn on the robot using the client above
         spot.start()
@@ -189,30 +185,48 @@ def main(dock: Optional[int] = None, args=None):
         time.sleep(1)
         print("Start exploring")
 
-        exploration_steps = 1000
-        for step in range(exploration_steps):
+        # Well do a 360 degree turn to get some observations (this helps debug the robot)
+        # for _ in range(4):
+        #     spot.move_base(0, .5)
+        #     time.sleep(5)
 
-            start = spot.position
+        for step in range(int(parameters["exploration_steps"])):
+
+            # Get current position and goal
+            start = spot.current_relative_position
             print("Start xyt:", start)
-            goal = navigation_space.sample_frontier().cpu().numpy()
             print("Start is valid:", voxel_map.xyt_is_safe(start))
+
+            # TODO do something is start is not valid
+
+            # Sample a goal in the frontier (TODO change to closest frontier)
+            goal = navigation_space.sample_frontier(
+                min_size=parameters["min_size"], max_size=parameters["max_size"]
+            )
+            goal = goal.cpu().numpy()
             print(" Goal is valid:", voxel_map.xyt_is_safe(goal))
 
+            #  Build plan
             res = planner.plan(start, goal)
             print("Res success:", res.success)
 
             if res.success:
+
                 path = voxel_map.plan_to_grid_coords(res)
                 x, y = get_x_and_y_from_path(path)
             else:
                 continue
 
-            print(res.success)
-            print(res.trajectory)
-
-            for node in res.trajectory:
-                print(node.state)
+            # TODO this trajectory is really ineficient, we can interpolate smarter
+            for i, node in enumerate(res.trajectory):
+                print(" - go to", i, "xyt =", node.state)
                 spot.navigate_to(node.state, blocking=True)
+
+            if not parameters["use_async_subscriber"]:
+                print("Synchronous obs update")
+                obs = spot.get_rgbd_obs()
+                obs = semantic_sensor.predict(obs)
+                voxel_map.add_obs(obs, xyz_frame="world")
 
             if step % 1 == 0 and parameters["visualize"]:
                 if parameters["use_async_subscriber"]:
@@ -232,12 +246,6 @@ def main(dock: Optional[int] = None, args=None):
                 plt.imshow(img)
                 plt.show()
                 plt.imsave(f"exploration_step_{step}.png", img)
-
-            if not parameters["use_async_subscriber"]:
-                obs = spot.get_rgbd_obs()
-                obs = semantic_sensor.predict(obs)
-                voxel_map.add_obs(obs, xyz_frame="world")
-                voxel_map.show()
 
         print("Exploration complete!")
 
@@ -272,6 +280,17 @@ def main(dock: Optional[int] = None, args=None):
         )
         print(f"Success: {success}")
 
+        print("Navigating to instance ")
+        instances = voxel_map.get_instances()
+
+        # Navigating to a random instance, add LLM here
+        instance_id = np.random.randint(len(instances))
+        print(f"Instance id: {instance_id}")
+        success = navigate_to_an_instance(
+            spot, voxel_map, planner, instance_id, visualize=parameters["visualize"]
+        )
+        print(f"Success: {success}")
+
     except Exception as e:
         print("Exception caught:")
         print(e)
@@ -293,6 +312,33 @@ def main(dock: Optional[int] = None, args=None):
         if len(pkl_filename) > 0:
             voxel_map.write_to_pickle(pkl_filename)
             print(f"... wrote pkl to {pkl_filename}")
+
+        # TODO dont repeat this code
+        obstacles, explored = voxel_map.get_2d_map()
+        img = (10 * obstacles) + explored
+        start_unnormalized = spot.unnormalize_gps_compass(start)
+        goal_unnormalized = spot.unnormalize_gps_compass(goal)
+        navigation_space.draw_state_on_grid(img, start_unnormalized, weight=5)
+        navigation_space.draw_state_on_grid(img, goal_unnormalized, weight=5)
+        plt.imshow(img)
+        plt.show()
+        plt.imsave("exploration_step_final.png", img)
+
+        # I am going to assume the robot is at its goal position here
+        # gaze = GraspController(
+        #     config=config,
+        #     spot=spot,
+        #     objects=[["penguin plush"]],
+        #     confidence=0.1,
+        #     show_img=True,
+        #     top_grasp=False,
+        #     hor_grasp=True,
+        # )
+        # spot.open_gripper()
+        # time.sleep(1)
+        # print("Resetting environment...")
+        # success = gaze.gaze_and_grasp()
+        # time.sleep(2)
 
         print("Safely stop the robot...")
         spot.stop()
