@@ -43,7 +43,8 @@ def navigate_to_an_instance(spot, voxel_map, planner, instance_id, visualize=Fal
     view = instance.instance_views[0]
 
     cur_position = spot.current_relative_position
-    goal_position = view.pose
+    goal_position = np.asarray(view.pose)
+    print(type(goal_position))
 
     # This currently yields TypeError: unsupported operand type(s) for -: 'numpy.ndarray' and 'Tensor'
     # I guess we need to convert view.pose to tensor

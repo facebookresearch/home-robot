@@ -83,6 +83,52 @@ IGNORED_NAMES = [
 ]
 
 
+class Midas:
+    def __init__(self, device):
+        from midas.model_loader import default_models, load_model
+        super().__init__()
+        # midas params
+        self.device = device
+        self.model_type = "dpt_beit_large_512"
+        self.optimize = False
+        height = None
+        square = False
+        model_path = f"src/third_party/MiDaS/weights/{self.model_type}.pt"
+        self.model, self.transform, self.net_w, self.net_h = load_model(
+            device, model_path, self.model_type, self.optimize, height, square
+        )
+
+    # expects numpy rgb, [0,255]
+    def depth_estimate(self, rgb, depth):
+        image = self.transform({"image": (rgb / 255)})["image"]
+        # compute
+        with torch.no_grad():
+            prediction = process(
+                self.device,
+                self.model,
+                self.model_type,
+                image,
+                (self.net_w, self.net_h),
+                rgb.shape[1::-1],
+                self.optimize,
+                False,
+            )
+        depth_valid = depth > 0
+
+        # solve for MSE for the system of equations Ax = b where b is the observed depth and x is the predicted depth values
+        x = np.stack(
+            (prediction[depth_valid], np.ones_like(prediction[depth_valid])), axis=1
+        ).T
+        b = depth[depth_valid].T
+        # 1 x 2 * 2 x n = 1 x n
+        pinvx = np.linalg.pinv(x)
+        A = b @ pinvx
+
+        adjusted = prediction * A[0] + A[1]
+        mse = ((A @ x - b) ** 2).mean()
+        mean_error = np.abs(A @ x - b).mean()
+        return adjusted, mse, mean_error
+
 class SpotPublishers:
     def __init__(self, spot: Spot, rotate=False, quality_percent=75, verbose=False):
         self.spot = spot
@@ -421,7 +467,7 @@ def create_triad_pointclouds(R, T, n_points=1, scale=0.1):
 
 
 class SpotClient:
-    def __init__(self, config, name="home_robot_spot", dock_id: Optional[int] = None):
+    def __init__(self, config, name="home_robot_spot", dock_id: Optional[int] = None, use_midas = False):
         self.spot = Spot(name)
         self.lease = None
         self.publishers = SpotPublishers(self.spot, verbose=False)
@@ -434,6 +480,10 @@ class SpotClient:
         self.max_cmd_duration = config.SPOT.MAX_CMD_DURATION
         self.hand_depth_threshold = config.SPOT.HAND_DEPTH_THRESHOLD
         self.base_height = config.SPOT.BASE_HEIGHT
+        self.use_midas = use_midas
+        self.midas = None
+        if self.use_midas:
+            self.midas = Midas("cuda:0")
 
     def start(self):
         """Turn on the robot, stand up, etc."""
@@ -451,6 +501,31 @@ class SpotClient:
 
         # Reset
         self.reset()
+
+    def patch_depth(self, rgb, depth):
+        monocular_estimate, mse, mean_error = self.midas.depth_estimate(rgb, depth)
+
+        # clip at 0 if the linear transformation makes some points negative depth
+        monocular_estimate[monocular_estimate < 0] = 0
+
+        # threshold max distance to for estimated depth
+        # monocular_estimate[monocular_estimate > self.estimated_depth_threshold] = 0
+
+        try:
+            # assign estimated depth where there are no values
+            no_depth_mask = depth == 0
+
+            # get a mask for the region of the image which has depth values (skip the blank borders)
+            row, cols = np.where(~no_depth_mask)
+            col_inds = np.indices(depth.shape)[1]
+            depth_region = (col_inds >= cols.min()) & (col_inds <= cols.max())
+            no_depth_mask = no_depth_mask & depth_region
+
+            depth[no_depth_mask] = monocular_estimate[no_depth_mask]
+            return depth
+        except Exception as e:
+            print(f"Initializing Midas depth completion failed: {e}")
+            return depth
 
     def reset(self):
         self.spot.set_arm_joint_positions(self.gaze_arm_joint_angles, travel_time=1.0)
@@ -605,6 +680,11 @@ class SpotClient:
 
         K = obs.camera_K
         # print("Camera pose is:", obs.camera_pose)
+
+        if self.use_midas:
+            rgb, depth = obs.rgb, obs.depth
+            depth = self.patch_depth(rbd, depth)
+            obs.depth = depth
 
         full_world_xyz = unproject_masked_depth_to_xyz_coordinates(  # Batchable!
             depth=obs.depth.unsqueeze(0).unsqueeze(1),
