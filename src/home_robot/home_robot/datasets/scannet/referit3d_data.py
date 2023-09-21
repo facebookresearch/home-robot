@@ -137,9 +137,10 @@ def load_referit3d_data(
     if len(train_token_lens) == 0:
         logger.info(f"No NR3D expressions found for scenes {scans_split['train']}")
     else:
+        pctile = 95
         logger.info(
-            "{}-th percentile of token length for remaining (training) data"
-            " is: {:.1f}".format(95, np.percentile(train_token_lens, 95))
+            f"{pctile}-th percentile of token length for remaining (training) data"
+            + " is: {np.percentile(train_token_lens, 95):.1f}"
         )
     n_original = len(referit_data)
     referit_data = referit_data[
@@ -147,9 +148,7 @@ def load_referit3d_data(
     ]
     referit_data.reset_index(drop=True, inplace=True)
     logger.info(
-        "Dropping utterances with more than {} tokens, {}->{}".format(
-            max_seq_len, n_original, len(referit_data)
-        )
+        f"Dropping utterances with more than {max_seq_len} tokens, {n_original}->{len(referit_data)}"
     )
 
     # do this last, so that all the previous actions remain unchanged
@@ -161,10 +160,10 @@ def load_referit3d_data(
         sr3d["is_train"] = is_train
         sr3d = sr3d[is_train]
         sr3d = sr3d[referit_columns]
-        logger.info("Dataset-size before augmentation:", len(referit_data))
+        logger.info(f"Dataset-size before augmentation: {len(referit_data)}")
         referit_data = pd.concat([referit_data, sr3d], axis=0)
         referit_data.reset_index(inplace=True, drop=True)
-        logger.info("Dataset-size after augmentation:", len(referit_data))
+        logger.info(f"Dataset-size after augmentation: {len(referit_data)}")
 
     context_size = referit_data.stimulus_id.apply(
         lambda x: decode_stimulus_string(x)[2]
