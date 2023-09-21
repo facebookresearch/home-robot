@@ -109,15 +109,17 @@ class SparseVoxelMap(object):
         # TODO: This 2D map code could be moved to another class or helper function
         #   This class could use that code via containment (same as InstanceMemory or VoxelizedPointcloud)
 
-        # Create disk for mapping explored areas near the robot - since camera can't always see it
-        self._disk_size = np.ceil(1.0 / self.grid_resolution)
-        self._visited_disk = torch.from_numpy(
-            create_disk(1.0 / self.grid_resolution, (2 * self._disk_size) + 1)
-        )
-
         # Add points with local_radius to the voxel map at (0,0,0) unless we receive lidar points
         self.add_local_radius_points = add_local_radius_points
         self.local_radius = local_radius
+
+        # Create disk for mapping explored areas near the robot - since camera can't always see it
+        self._disk_size = np.ceil(self.local_radius / self.grid_resolution)
+        print(f"{self._disk_size=}")
+
+        self._visited_disk = torch.from_numpy(
+            create_disk(1.0 / self.grid_resolution, (2 * self._disk_size) + 1)
+        )
 
         if grid_size is not None:
             self.grid_size = [grid_size[0], grid_size[1]]
@@ -532,9 +534,6 @@ class SparseVoxelMap(object):
         explored_soft += self._visited
         explored = explored_soft > 0
 
-        # Frontier consists of floor voxels adjacent to empty voxels
-        # TODO
-
         if debug:
             import matplotlib.pyplot as plt
 
@@ -547,12 +546,16 @@ class SparseVoxelMap(object):
 
             plt.subplot(2, 2, 1)
             plt.imshow(obstacles_soft.detach().cpu().numpy())
+            plt.title("obstacles soft")
             plt.subplot(2, 2, 2)
             plt.imshow(explored_soft.detach().cpu().numpy())
+            plt.title("explored soft")
             plt.subplot(2, 2, 3)
             plt.imshow(obstacles.detach().cpu().numpy())
+            plt.title("obstacles")
             plt.subplot(2, 2, 4)
             plt.imshow(explored.detach().cpu().numpy())
+            plt.title()
             plt.show()
 
         # Update cache

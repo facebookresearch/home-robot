@@ -484,6 +484,12 @@ class SpotClient:
         relative_compass = put_angle_in_interval(compass - self.start_compass)
         return np.array([relative_gps[0], relative_gps[1], relative_compass])
 
+    @property
+    def current_position(self):
+        xy = self.gps
+        compass = self.compass
+        return np.array([xy[0], xy[1], compass])
+
         # # return self.raw_observations["base_xyt"][0][0][:3]
         # x, y, yaw = self.spot.get_xy_yaw()
         # relative_gps = self.gps - self.start_gps
@@ -716,7 +722,6 @@ class SpotClient:
 
         # UnNormalize compass
         compass = put_angle_in_interval(compass + self.start_compass)
-
 
         return np.array([gps[0], gps[1], compass])
 

@@ -169,21 +169,24 @@ def main(dock: Optional[int] = None, args=None):
         # Turn on the robot using the client above
         spot.start()
 
-        # Start thread to update voxel map
-        if parameters["use_async_subscriber"]:
-            voxel_map_subscriber = VoxelMapSubscriber(spot, voxel_map, semantic_sensor)
-            voxel_map_subscriber.start()
-        else:
-            obs = spot.get_rgbd_obs()
-            obs = semantic_sensor.predict(obs)
-            voxel_map.add_obs(obs, xyz_frame="world")
-            voxel_map.show()
-
         print("Go to (0, 0, 0) to start with...")
         spot.navigate_to([0, 0, 0], blocking=True)
         print("Sleep 1s")
         time.sleep(1)
         print("Start exploring")
+
+        # Start thread to update voxel map
+        if parameters["use_async_subscriber"]:
+            voxel_map_subscriber = VoxelMapSubscriber(spot, voxel_map, semantic_sensor)
+            voxel_map_subscriber.start()
+        else:
+            # Alternately, update synchronously
+            obs = spot.get_rgbd_obs()
+            obs = semantic_sensor.predict(obs)
+            # TODO: remove debug code
+            print(obs.gps, obs.compass)
+            voxel_map.add_obs(obs, xyz_frame="world")
+            voxel_map.show()
 
         # Well do a 360 degree turn to get some observations (this helps debug the robot)
         # for _ in range(4):
@@ -194,28 +197,26 @@ def main(dock: Optional[int] = None, args=None):
 
             # Get current position and goal
             start = spot.current_relative_position
+            goal = None
             print("Start xyt:", start)
-            print("Start is valid:", voxel_map.xyt_is_safe(start))
+            start_is_valid = navigation_space.is_valid(start)
+            print("Start is valid:", start_is_valid)
 
             # TODO do something is start is not valid
+            if not start_is_valid:
+                print("!!!!!!!!")
+                break
 
             # Sample a goal in the frontier (TODO change to closest frontier)
             goal = navigation_space.sample_frontier(
                 min_size=parameters["min_size"], max_size=parameters["max_size"]
             )
             goal = goal.cpu().numpy()
-            print(" Goal is valid:", voxel_map.xyt_is_safe(goal))
+            print(" Goal is valid:", navigation_space.is_valid(goal))
 
             #  Build plan
             res = planner.plan(start, goal)
             print("Res success:", res.success)
-
-            if res.success:
-
-                path = voxel_map.plan_to_grid_coords(res)
-                x, y = get_x_and_y_from_path(path)
-            else:
-                continue
 
             # TODO this trajectory is really ineficient, we can interpolate smarter
             for i, node in enumerate(res.trajectory):
@@ -316,10 +317,12 @@ def main(dock: Optional[int] = None, args=None):
         # TODO dont repeat this code
         obstacles, explored = voxel_map.get_2d_map()
         img = (10 * obstacles) + explored
-        start_unnormalized = spot.unnormalize_gps_compass(start)
-        goal_unnormalized = spot.unnormalize_gps_compass(goal)
-        navigation_space.draw_state_on_grid(img, start_unnormalized, weight=5)
-        navigation_space.draw_state_on_grid(img, goal_unnormalized, weight=5)
+        if start is not None:
+            start_unnormalized = spot.unnormalize_gps_compass(start)
+            navigation_space.draw_state_on_grid(img, start_unnormalized, weight=5)
+        if goal is not None:
+            goal_unnormalized = spot.unnormalize_gps_compass(goal)
+            navigation_space.draw_state_on_grid(img, goal_unnormalized, weight=5)
         plt.imshow(img)
         plt.show()
         plt.imsave("exploration_step_final.png", img)
