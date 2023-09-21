@@ -70,8 +70,8 @@ class VoxelizedPointcloud:
     def add(
         self,
         points: Tensor,
-        features: Tensor,
-        rgb: Tensor,
+        features: Optional[Tensor],
+        rgb: Optional[Tensor],
         weights: Optional[Tensor] = None,
     ):
         """Add a feature pointcloud to the voxel grid.
@@ -416,3 +416,35 @@ def scatter3d(
         dim_size=grid_dimensions[0] * grid_dimensions[1] * grid_dimensions[2],
     )
     return voxel_weights.reshape(*grid_dimensions)
+
+
+def drop_smallest_weight_points(
+    points: Tensor,
+    voxel_size: float = 0.01,
+    drop_prop: float = 0.1,
+    min_points_after_drop: int = 3,
+):
+    voxel_pcd = VoxelizedPointcloud(
+        voxel_size=voxel_size,
+        dim_mins=None,
+        dim_maxs=None,
+        feature_pool_method="mean",
+    )
+    voxel_pcd.add(
+        points=points,
+        features=None,  # instance.point_cloud_features,
+        rgb=None,  # instance.point_cloud_rgb,
+    )
+    orig_points = points
+    points = voxel_pcd._points
+    weights = voxel_pcd._weights
+    assert len(points) > 0, points.shape
+    weights_sorted, sort_idxs = torch.sort(weights, dim=0)
+    points_sorted = points[sort_idxs]
+    weights_cumsum = torch.cumsum(weights_sorted, dim=0)
+    above_cutoff = weights_cumsum >= (drop_prop * weights_cumsum[-1])
+    cutoff_idx = int(above_cutoff.max(dim=0).indices)
+    if len(points_sorted[cutoff_idx:]) < min_points_after_drop:
+        return orig_points
+    # print(f"Reduced {len(orig_points)} -> {len(points)} -> {above_cutoff.sum()}")
+    return points_sorted[cutoff_idx:]

@@ -160,7 +160,7 @@ class VLMAgent(OpenVocabManipAgent):
         if external_instance_memory:
             self.instance_memory = external_instance_memory
         crops = []
-        for global_id, instance in self.instance_memory.instance_views[0].items():
+        for global_id, instance in self.instance_memory.instances[0].items():
             instance_crops = instance.instance_views
             crops.append((global_id, random.sample(instance_crops, 1)[0].cropped_image))
         # TODO: the model currenly can only handle 20 crops

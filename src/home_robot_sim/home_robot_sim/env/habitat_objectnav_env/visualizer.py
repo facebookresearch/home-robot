@@ -264,7 +264,7 @@ class Visualizer:
         semantic_map_config=None,
         instance_map: Optional[np.ndarray] = None,
         instance_memory: Optional[InstanceMemory] = None,
-        goal_pose = None,
+        goal_pose=None,
         **kwargs,
     ):
         """Visualize frame input and semantic map.
@@ -502,7 +502,7 @@ class Visualizer:
         '"""
         num_instances_per_category = defaultdict(int)
         num_views_per_instance = defaultdict(list)
-        for instance_id, instance in instance_memory.instance_views[0].items():
+        for instance_id, instance in instance_memory.instances[0].items():
             num_instances_per_category[instance.category_id.item()] += 1
             num_views_per_instance[instance.category_id.item()].append(
                 len(instance.instance_views)

@@ -9,6 +9,7 @@ RUN /bin/bash -c "\
         src/third_party/contact_graspnet \
     && pip install -e src/third_party/detectron2 \
     && pip install -r src/home_robot/home_robot/perception/detection/detic/Detic/requirements.txt \
+    && pip install -e src/home_robot \
     "
 
 # download pretrained Detic checkpoint
@@ -37,10 +38,13 @@ ADD scripts/submission.sh /home-robot/submission.sh
 # set evaluation type to remote
 ENV AGENT_EVALUATION_TYPE remote
 
+# additional command line arguments for local evaluations (empty for remote evaluation)
+ENV LOCAL_ARGS ""
+
 # run submission script
 CMD /bin/bash -c "\
     . activate home-robot \
     && cd /home-robot \
     && export PYTHONPATH=/evalai_remote_evaluation:$PYTHONPATH \
-    && bash submission.sh \
+    && bash submission.sh $LOCAL_ARGS \
     "

@@ -1,0 +1,9 @@
+defaults:
+  - _self_
+  - dataset: scannet
+  - model: instancemap3d_top_down
+  - eval_fn: obj_det
+  - paths: default
+  - hydra: default
+
+task_name: "eval"

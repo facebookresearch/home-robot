@@ -3,7 +3,7 @@
 # This source code is licensed under the MIT license found in the
 # LICENSE file in the root directory of this source tree.
 
-from typing import Any, Dict, List, Tuple, Optional
+from typing import Any, Dict, List, Optional, Tuple
 
 import numpy as np
 import torch
@@ -44,8 +44,7 @@ class ObjectNavAgent(Agent):
             config.AGENT, "store_all_categories", False
         )
         if config.AGENT.panorama_start:
-            self.panorama_start_steps = int(
-                360 / config.ENVIRONMENT.turn_angle)
+            self.panorama_start_steps = int(360 / config.ENVIRONMENT.turn_angle)
         else:
             self.panorama_start_steps = 0
 
@@ -76,8 +75,7 @@ class ObjectNavAgent(Agent):
             self.device = torch.device(f"cuda:{self.device_id}")
             self._module = self._module.to(self.device)
             # Use DataParallel only as a wrapper to move model inputs to GPU
-            self.module = DataParallel(
-                self._module, device_ids=[self.device_id])
+            self.module = DataParallel(self._module, device_ids=[self.device_id])
 
         self.visualize = config.VISUALIZE or config.PRINT_IMAGES
         self.use_dilation_for_stg = config.AGENT.PLANNER.use_dilation_for_stg
@@ -91,8 +89,7 @@ class ObjectNavAgent(Agent):
             record_instance_ids=getattr(
                 config.AGENT.SEMANTIC_MAP, "record_instance_ids", False
             ),
-            max_instances=getattr(
-                config.AGENT.SEMANTIC_MAP, "max_instances", 0),
+            max_instances=getattr(config.AGENT.SEMANTIC_MAP, "max_instances", 0),
             evaluate_instance_tracking=getattr(
                 config.ENVIRONMENT, "evaluate_instance_tracking", False
             ),
@@ -254,8 +251,7 @@ class ObjectNavAgent(Agent):
         found_goal = found_goal.squeeze(1).cpu()
 
         for e in range(self.num_environments):
-            self.semantic_map.update_frontier_map(
-                e, frontier_map[e][0].cpu().numpy())
+            self.semantic_map.update_frontier_map(e, frontier_map[e][0].cpu().numpy())
             if found_goal[e] or self.timesteps_before_goal_update[e] == 0:
                 self.semantic_map.update_global_goal_for_env(e, goal_map[e])
                 if self.timesteps_before_goal_update[e] == 0:
@@ -395,8 +391,8 @@ class ObjectNavAgent(Agent):
         # print(f"[Agent] Obs preprocessing time: {t1 - t0:.2f}")
 
         semantic_max_val = None
-        if 'semantic_max_val' in obs.task_observations:
-            semantic_max_val = obs.task_observations['semantic_max_val']
+        if "semantic_max_val" in obs.task_observations:
+            semantic_max_val = obs.task_observations["semantic_max_val"]
 
         # 2 - Semantic mapping + policy
         planner_inputs, vis_inputs = self.prepare_planner_inputs(
@@ -432,6 +428,7 @@ class ObjectNavAgent(Agent):
                 closest_goal_map,
                 short_term_goal,
                 dilated_obstacle_map,
+                _,
             ) = self.planner.plan(
                 **planner_inputs[0],
                 use_dilation_for_stg=self.use_dilation_for_stg,
@@ -497,8 +494,7 @@ class ObjectNavAgent(Agent):
                 ] = end_recep_idx
         # print (semantic)
         # import pdb; pdb.set_trace()
-        semantic = self.one_hot_encoding[torch.from_numpy(
-            semantic).to(self.device)]
+        semantic = self.one_hot_encoding[torch.from_numpy(semantic).to(self.device)]
 
         obs_preprocessed = torch.cat([rgb, depth, semantic], dim=-1)
         if self.record_instance_ids:
@@ -514,8 +510,7 @@ class ObjectNavAgent(Agent):
                 np.vectorize(instance_id_to_idx.get)(instances)
             ).to(self.device)
             # create a one-hot encoding
-            instances = torch.eye(len(instance_ids), device=self.device)[
-                instances]
+            instances = torch.eye(len(instance_ids), device=self.device)[instances]
             obs_preprocessed = torch.cat([obs_preprocessed, instances], dim=-1)
 
         if self.evaluate_instance_tracking:
@@ -525,8 +520,7 @@ class ObjectNavAgent(Agent):
                 .long()
             )
             gt_instance_ids = self.one_hot_instance_encoding[gt_instance_ids]
-            obs_preprocessed = torch.cat(
-                [obs_preprocessed, gt_instance_ids], dim=-1)
+            obs_preprocessed = torch.cat([obs_preprocessed, gt_instance_ids], dim=-1)
 
         obs_preprocessed = obs_preprocessed.unsqueeze(0).permute(0, 3, 1, 2)
 
@@ -554,15 +548,13 @@ class ObjectNavAgent(Agent):
                     "start_recep goal =",
                     obs.task_observations["start_recep_goal"],
                 )
-            start_recep_goal_category = torch.tensor(
-                start_recep_idx).unsqueeze(0)
+            start_recep_goal_category = torch.tensor(start_recep_idx).unsqueeze(0)
         if (
             "end_recep_goal" in obs.task_observations
             and obs.task_observations["end_recep_goal"] is not None
         ):
             if self.verbose:
-                print("end_recep goal =",
-                      obs.task_observations["end_recep_goal"])
+                print("end_recep goal =", obs.task_observations["end_recep_goal"])
             end_recep_goal_category = torch.tensor(end_recep_idx).unsqueeze(0)
         if (
             "instance_id" in obs.task_observations
