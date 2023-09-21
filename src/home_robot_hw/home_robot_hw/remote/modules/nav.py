@@ -72,7 +72,7 @@ class StretchNavigationClient(AbstractControlModule):
         rate: int = 10,
         pos_err_threshold: float = 0.2,
         rot_err_threshold: float = 0.75,
-        verbose: bool = True,
+        verbose: bool = False,
         timeout: float = 10.0,
     ) -> bool:
         """Wait until the robot has reached a configuration... but only roughly. Used for trajectory execution.
