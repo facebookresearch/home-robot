@@ -158,7 +158,9 @@ class Instance:
                     ],
                     dim=0,
                 )
-            if self.score_aggregation_method == "max":
+            if self.score is None:
+                self.score = instance_view.score
+            elif self.score_aggregation_method == "max":
                 self.score = max(self.score, instance_view.score)
             elif self.score_aggregation_method == "mean":
                 self.score = (
