@@ -182,7 +182,7 @@ def run_exploration(
     robot: StretchClient,
     rate: int = 10,
     manual_wait: bool = False,
-    explore_iter: int = 20,
+    explore_iter: int = 3,
     try_to_plan_iter: int = 10,
     dry_run: bool = False,
     random_goals: bool = False,
