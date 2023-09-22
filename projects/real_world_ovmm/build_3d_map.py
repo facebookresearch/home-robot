@@ -14,12 +14,7 @@ import open3d
 import rospy
 import torch
 
-import home_robot.utils.depth as du
-from home_robot.agent.ovmm_agent import (
-    OvmmPerception,
-    build_vocab_from_category_map,
-    read_category_map_file,
-)
+from home_robot.agent.ovmm_agent import create_semantic_sensor
 from home_robot.mapping import SparseVoxelMap, SparseVoxelMapNavigationSpace
 from home_robot.mapping.voxel import plan_to_frontier
 
@@ -28,98 +23,11 @@ from home_robot.motion.rrt_connect import RRTConnect
 from home_robot.motion.shortcut import Shortcut
 from home_robot.motion.stretch import HelloStretchKinematics
 from home_robot.utils.geometry import xyt2sophus
-from home_robot.utils.image import Camera
-from home_robot.utils.point_cloud import numpy_to_pcd, pcd_to_numpy, show_point_cloud
-from home_robot.utils.pose import convert_pose_habitat_to_opencv, to_pos_quat
+from home_robot.utils.point_cloud import numpy_to_pcd
 from home_robot.utils.visualization import get_x_and_y_from_path
-from home_robot_hw.env.stretch_pick_and_place_env import StretchPickandPlaceEnv
 from home_robot_hw.remote import StretchClient
 from home_robot_hw.ros.visualizer import Visualizer
-from home_robot_hw.utils.config import load_config
-
-
-class RosMapDataCollector(object):
-    """Simple class to collect RGB, Depth, and Pose information for building 3d spatial-semantic
-    maps for the robot. Needs to subscribe to:
-    - color images
-    - depth images
-    - camera info
-    - joint states/head camera pose
-    - base pose (relative to world frame)
-
-    This is an example collecting the data; not necessarily the way you should do it.
-    """
-
-    def __init__(
-        self,
-        robot,
-        semantic_sensor=None,
-        visualize_planner=False,
-        voxel_size: float = 0.01,
-    ):
-        self.robot = robot  # Get the connection to the ROS environment via agent
-        # Run detection here
-        self.semantic_sensor = semantic_sensor
-        self.started = False
-        self.robot_model = HelloStretchKinematics(visualize=visualize_planner)
-        self.voxel_map = SparseVoxelMap(resolution=voxel_size, local_radius=0.1)
-
-    def get_planning_space(self) -> SparseVoxelMapNavigationSpace:
-        """return space for motion planning. Hard codes some parameters for Stretch"""
-        return SparseVoxelMapNavigationSpace(
-            self.voxel_map,
-            self.robot_model,
-            step_size=0.1,
-            dilate_frontier_size=12,  # 0.6 meters back from every edge
-            dilate_obstacle_size=2,
-        )
-
-    def step(self, visualize_map=False):
-        """Step the collector. Get a single observation of the world. Remove bad points, such as
-        those from too far or too near the camera."""
-        obs = self.robot.get_observation()
-
-        # Semantic prediction
-        obs = self.semantic_sensor.predict(obs)
-
-        # Add observation - helper function will unpack it
-        self.voxel_map.add_obs(
-            obs,
-            K=torch.from_numpy(self.robot.head._ros_client.rgb_cam.K).float(),
-        )
-        if visualize_map:
-            # Now draw 2d
-            self.voxel_map.get_2d_map(debug=True)
-
-    def get_2d_map(self):
-        """Get 2d obstacle map for low level motion planning and frontier-based exploration"""
-        return self.voxel_map.get_2d_map()
-
-    def show(self, orig: Optional[np.ndarray] = None) -> Tuple[np.ndarray, np.ndarray]:
-        """Display the aggregated point cloud."""
-        return self.voxel_map.show(orig=orig)
-
-
-def create_semantic_sensor(
-    device_id: int = 0,
-    verbose: bool = True,
-    **kwargs,
-):
-    """Create segmentation sensor and load config. Returns config from file, as well as a OvmmPerception object that can be used to label scenes."""
-    if verbose:
-        print("- Loading configuration")
-    config = load_config(visualize=False, **kwargs)
-
-    if verbose:
-        print("- Create and load vocabulary and perception model")
-    semantic_sensor = OvmmPerception(config, device_id, verbose, module="detic")
-    obj_name_to_id, rec_name_to_id = read_category_map_file(
-        config.ENVIRONMENT.category_map_file
-    )
-    vocab = build_vocab_from_category_map(obj_name_to_id, rec_name_to_id)
-    semantic_sensor.update_vocabulary_list(vocab, 0)
-    semantic_sensor.set_vocabulary(0)
-    return config, semantic_sensor
+from home_robot_hw.utils.collector import RosMapDataCollector
 
 
 def run_fixed_trajectory(
@@ -396,97 +304,6 @@ def main(
             run_explore=run_explore,
             **kwargs,
         )
-    elif mode == "dir":
-        # This is for backwards compatibility with the GOAT data
-        raise NotImplementedError("Output in directory mode not yet working.")
-        input_path = Path(input_path)
-        pkl_files = input_path.glob("*.pkl")
-        sorted_pkl_files = sorted(pkl_files, key=lambda f: int(f.stem))
-        voxel_map = SparseVoxelMap(resolution=voxel_size)
-        camera = None
-        hfov = 60.2
-        for i, pkl_file in enumerate(sorted_pkl_files):
-            print("-", i, pkl_file)
-            obs = np.load(pkl_file, allow_pickle=True)
-            if camera is None:
-                camera = Camera.from_width_height_fov(
-                    obs.rgb.shape[1], obs.rgb.shape[0], hfov
-                )
-            xyt = np.array([obs.gps[0], obs.gps[1], obs.compass[0]])
-            base_pose_matrix = xyt2sophus(xyt).matrix()
-            if obs.xyz is None:
-                # need to find camera matrix K
-                assert obs.depth is not None, "need depth"
-                xyz = camera.depth_to_xyz(obs.depth)
-                # show_point_cloud(xyz, obs.rgb / 255.0, orig=np.zeros(3))
-                import trimesh
-                import trimesh.transformations as tra
-
-                import home_robot.utils.depth as du
-                from home_robot.utils.point_cloud import show_point_cloud
-
-                camera_matrix = du.get_camera_matrix(
-                    obs.rgb.shape[1], obs.rgb.shape[0], hfov
-                )
-                agent_pos = obs.camera_pose[:3, 3]
-                agent_height = agent_pos[2]
-                import torch
-
-                device = torch.device("cpu")
-                point_cloud_t = du.get_point_cloud_from_z_t(
-                    torch.Tensor(obs.depth).unsqueeze(0), camera_matrix, device, scale=1
-                )
-                # show_point_cloud(
-                #    point_cloud_t[0].cpu().numpy(), obs.rgb / 255.0, orig=np.zeros(3)
-                # )
-                # xyz = point_cloud_t[0].cpu().numpy()
-                # Now co
-                import trimesh.transformations as tra
-
-                angles = torch.Tensor(
-                    [tra.euler_from_matrix(obs.camera_pose[:3, :3], "rzyx")]
-                )
-                tilt = angles[:, 1]
-                point_cloud_base = du.transform_camera_view_t(
-                    point_cloud_t,
-                    agent_height,
-                    torch.rad2deg(tilt).cpu().numpy(),
-                    device,
-                )
-                xyz1 = point_cloud_t[0].cpu().numpy()
-                xyz2 = point_cloud_base[0].cpu().numpy()
-                show_point_cloud(xyz1, obs.rgb / 255.0, orig=np.zeros(3))
-                show_point_cloud(xyz2, obs.rgb / 255.0, orig=np.zeros(3))
-                breakpoint()
-
-                camera_pose = convert_pose_habitat_to_opencv(obs.camera_pose)
-                import trimesh.transformations as tra
-
-                angles = torch.Tensor(
-                    [tra.euler_from_matrix(obs.camera_pose[:3, :3], "rzyx")]
-                )
-                angles2 = tra.euler_from_matrix(obs.camera_pose[:3, :3], "rzyx")
-                print("not corrected", angles)
-                print("    corrected", angles2)
-                R = tra.euler_matrix(angles2[0], 0, 0)  # angles2[2])
-                cvt_xyz = trimesh.transform_points(xyz.reshape(-1, 3), R)
-                show_point_cloud(cvt_xyz, obs.rgb / 255.0, orig=np.zeros(3))
-                breakpoint()
-            else:
-                xyz = obs.xyz
-            # For backwards compatibility
-            if obs.instance is None:
-                # This copies instance map out of task data if it exists
-                obs.instance = obs.task_observations["instance_map"]
-            # Put the camera pose into the world frame
-            camera_pose_world_coords = obs.camera_pose @ base_pose_matrix
-            # Now try to create everything
-            voxel_map.add(
-                camera_pose_world_coords, xyz, obs.rgb, None, obs.depth, xyt, obs
-            )
-            if i > 0:
-                break
-        voxel_map.show()
     elif mode == "pkl":
         click.echo(
             f"- Loading pickled observations from a single file at {input_path}."

@@ -10,6 +10,7 @@ from typing import Any, Dict, Tuple
 from home_robot.core.interfaces import Observations
 from home_robot.perception.constants import RearrangeDETICCategories
 from home_robot.perception.detection.detic.detic_perception import DeticPerception
+from home_robot.utils.config import load_config
 
 
 def read_category_map_file(
@@ -80,7 +81,7 @@ class OvmmPerception:
                 custom_vocabulary=".",
                 sem_gpu_id=gpu_device_id,
                 verbose=verbose,
-                **module_kwargs
+                **module_kwargs,
             )
         elif self._detection_module == "grounded_sam":
             from home_robot.perception.detection.grounded_sam.grounded_sam_perception import (
@@ -91,7 +92,7 @@ class OvmmPerception:
                 custom_vocabulary=".",
                 sem_gpu_id=gpu_device_id,
                 verbose=verbose,
-                **module_kwargs
+                **module_kwargs,
             )
         else:
             raise NotImplementedError
@@ -182,3 +183,25 @@ class OvmmPerception:
         obs = self.predict(obs, depth_threshold)
         self._process_obs(obs)
         return obs
+
+
+def create_semantic_sensor(
+    device_id: int = 0,
+    verbose: bool = True,
+    **kwargs,
+):
+    """Create segmentation sensor and load config. Returns config from file, as well as a OvmmPerception object that can be used to label scenes."""
+    if verbose:
+        print("- Loading configuration")
+    config = load_config(visualize=False, **kwargs)
+
+    if verbose:
+        print("- Create and load vocabulary and perception model")
+    semantic_sensor = OvmmPerception(config, device_id, verbose, module="detic")
+    obj_name_to_id, rec_name_to_id = read_category_map_file(
+        config.ENVIRONMENT.category_map_file
+    )
+    vocab = build_vocab_from_category_map(obj_name_to_id, rec_name_to_id)
+    semantic_sensor.update_vocabulary_list(vocab, 0)
+    semantic_sensor.set_vocabulary(0)
+    return config, semantic_sensor
