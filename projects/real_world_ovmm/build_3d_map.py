@@ -21,6 +21,7 @@ from home_robot.agent.ovmm_agent import (
     read_category_map_file,
 )
 from home_robot.mapping import SparseVoxelMap, SparseVoxelMapNavigationSpace
+from home_robot.mapping.voxel import plan_to_frontier
 
 # Import planning tools for exploration
 from home_robot.motion.rrt_connect import RRTConnect
@@ -105,10 +106,12 @@ def create_semantic_sensor(
     **kwargs,
 ):
     """Create segmentation sensor and load config. Returns config from file, as well as a OvmmPerception object that can be used to label scenes."""
-    print("- Loading configuration")
+    if verbose:
+        print("- Loading configuration")
     config = load_config(visualize=False, **kwargs)
 
-    print("- Create and load vocabulary and perception model")
+    if verbose:
+        print("- Create and load vocabulary and perception model")
     semantic_sensor = OvmmPerception(config, device_id, verbose, module="detic")
     obj_name_to_id, rec_name_to_id = read_category_map_file(
         config.ENVIRONMENT.category_map_file
@@ -206,7 +209,6 @@ def run_exploration(
         print("-" * 20, i, "-" * 20)
         start = robot.get_base_pose()
         start_is_valid = space.is_valid(start)
-        print("Start is valid:", start_is_valid)
         # if start is not valid move backwards a bit
         if not start_is_valid:
             print("Start not valid. back up a bit.")
@@ -217,56 +219,14 @@ def run_exploration(
         if random_goals:
             goal = next(space.sample_random_frontier()).cpu().numpy()
         else:
-            # extract goal using fmm planner
-            tries = 0
-            failed = False
-            for goal in space.sample_closest_frontier(start):
-                if goal is None:
-                    failed = True
-                    break
-                goal = goal.cpu().numpy()
-                print("Sampled Goal:", goal)
-                show_goal = np.zeros(3)
-                show_goal[:2] = goal[:2]
-                goal_is_valid = space.is_valid(goal)
-                print("Start is valid:", start_is_valid)
-                print(" Goal is valid:", goal_is_valid)
-                if not goal_is_valid:
-                    print(" -> resample goal.")
-                    continue
-                # plan to the sampled goal
-                res = planner.plan(start, goal)
-                print("Found plan:", res.success)
-                if visualize:
-                    obstacles, explored = collector.get_2d_map()
-                    img = (10 * obstacles) + explored
-                    space.draw_state_on_grid(img, start, weight=5)
-                    space.draw_state_on_grid(img, goal, weight=5)
-                    plt.imshow(img)
-                    if res.success:
-                        path = collector.voxel_map.plan_to_grid_coords(res)
-                        x, y = get_x_and_y_from_path(path)
-                        plt.plot(y, x)
-                        plt.show()
-                if res.success:
-                    break
-                else:
-                    if visualize:
-                        plt.show()
-                    tries += 1
-                    if tries >= try_to_plan_iter:
-                        failed = True
-                        break
-                    continue
-            else:
-                print(" ------ no valid goals found!")
-                failed = True
-            if failed:
-                print(
-                    " ------ sampling and planning failed! Might be no where left to go."
-                )
-                continue
-
+            res = plan_to_frontier(
+                start,
+                planner,
+                space,
+                collector.voxel_map,
+                try_to_plan_iter=try_to_plan_iter,
+                visualize=visualize,
+            )
         if visualize:
             # After doing everything
             collector.show(orig=show_goal)
