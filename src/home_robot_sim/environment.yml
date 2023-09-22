@@ -3,7 +3,7 @@ channels:
   - aihabitat
 dependencies:
   - withbullet
-  - habitat-sim-ovmm-challenge-2023
+  - habitat-sim
   - pip:
     - gym>=0.22.0,<0.23.1
     - yacs>=0.1.8
