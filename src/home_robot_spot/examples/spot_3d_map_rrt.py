@@ -151,7 +151,7 @@ def main(dock: Optional[int] = None, args=None):
 
     planner = Shortcut(RRTConnect(navigation_space, navigation_space.is_valid))
 
-    spot = SpotClient(config=spot_config, dock_id=dock)
+    spot = SpotClient(config=spot_config, dock_id=dock, use_midas=False)
     try:
         # Turn on the robot using the client above
         spot.start()
