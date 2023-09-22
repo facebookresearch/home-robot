@@ -32,7 +32,6 @@
     # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
     # SOFTWARE.
 """
-
 import argparse
 import inspect
 import json
@@ -53,9 +52,9 @@ def read_aggregation(filename):
         data = json.load(f)
         num_objects = len(data["segGroups"])
         for i in range(num_objects):
-            object_id = (
-                data["segGroups"][i]["objectId"] + 1
-            )  # instance ids should be 1-indexed
+            object_id = data["segGroups"][i][
+                "objectId"
+            ]  # + 1  # instance ids should be 1-indexed
             label = data["segGroups"][i]["label"]
             segs = data["segGroups"][i]["segments"]
             object_id_to_segs[object_id] = segs
@@ -140,7 +139,7 @@ def export(
     """
 
     label_map = scannet_utils.read_label_mapping(
-        label_map_file, label_from="raw_category", label_to="nyu40id"
+        label_map_file, label_from="raw_category", label_to="id"  # nyu40id
     )
     mesh_vertices = scannet_utils.read_mesh_vertices_rgb(mesh_file)
 

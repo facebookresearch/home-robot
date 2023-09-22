@@ -7,15 +7,17 @@ from typing import Optional
 
 import matplotlib.pyplot as plt
 import numpy as np
+import skfmm
 import skimage
+import skimage.morphology
 import torch
-from skimage.morphology import binary_dilation, disk
 
 from home_robot.mapping.voxel import SparseVoxelMap
 from home_robot.motion.robot import Robot
 from home_robot.motion.space import XYT
 from home_robot.utils.geometry import angle_difference, interpolate_angles
 from home_robot.utils.morphology import (
+    binary_dilation,
     binary_erosion,
     expand_mask,
     find_closest_point_on_mask,
@@ -34,6 +36,8 @@ class SparseVoxelMapNavigationSpace(XYT):
         rotation_step_size: float = 0.5,
         use_orientation: bool = False,
         orientation_resolution: int = 64,
+        dilate_frontier_size: int = 12,
+        dilate_obstacle_size: int = 2,
     ):
         self.robot = robot
         self.step_size = step_size
@@ -49,7 +53,14 @@ class SparseVoxelMapNavigationSpace(XYT):
             self.dof = 2
 
         self.dilate_explored_kernel = torch.nn.Parameter(
-            torch.from_numpy(skimage.morphology.disk(10))
+            torch.from_numpy(skimage.morphology.disk(dilate_frontier_size))
+            .unsqueeze(0)
+            .unsqueeze(0)
+            .float(),
+            requires_grad=False,
+        )
+        self.dilate_obstacles_kernel = torch.nn.Parameter(
+            torch.from_numpy(skimage.morphology.disk(dilate_obstacle_size))
             .unsqueeze(0)
             .unsqueeze(0)
             .float(),
@@ -232,7 +243,153 @@ class SparseVoxelMapNavigationSpace(XYT):
 
         return valid
 
-    def sample_frontier(
+    def sample_closest_frontier(
+        self,
+        xyt: np.ndarray,
+        max_tries: int = 100,
+        expand_size: int = 5,
+        debug: bool = False,
+        verbose: bool = False,
+        step_dist: float = 0.5,
+    ) -> Optional[torch.Tensor]:
+        """Sample a valid location on the current frontier using FMM planner to compute geodesic distance. Returns points in order until it finds one that's valid.
+
+        Args:
+            xyt(np.ndrray): [x, y, theta] of the agent; must be of size 2 or 3.
+            max_tries(int): number of attempts to make for rejection sampling
+            debug(bool): show visualizations of frontiers
+            step_dist(float): how far apart in geo dist these points should be
+        """
+
+        assert (
+            len(xyt) == 2 or len(xyt) == 3
+        ), f"xyt must be of size 2 or 3 instead of {len(xyt)}"
+
+        # Get the masks from our 3d map
+        obstacles, explored = self.voxel_map.get_2d_map()
+
+        # Extract edges from our explored mask
+        less_explored = binary_erosion(
+            explored.float().unsqueeze(0).unsqueeze(0), self.dilate_explored_kernel
+        )[0, 0]
+        obstacles = binary_dilation(
+            obstacles.float().unsqueeze(0).unsqueeze(0), self.dilate_obstacles_kernel
+        )[0, 0].bool()
+        edges = get_edges(less_explored)
+
+        # Do not explore obstacles any more
+        frontier_edges = edges & ~obstacles
+        traversible = explored & ~obstacles
+        outside_frontier = ~explored & ~obstacles
+
+        if debug:
+            import matplotlib.pyplot as plt
+
+            plt.subplot(221)
+            plt.imshow(frontier_edges.cpu().numpy())
+            plt.subplot(222)
+            # plt.imshow(expanded_frontier.cpu().numpy())
+            # plt.title("expanded frontier")
+            plt.subplot(223)
+            plt.imshow(traversible.cpu().numpy())
+            plt.title("traversible")
+            plt.subplot(224)
+            plt.imshow((less_explored + explored).cpu().numpy())
+            plt.title("explored")
+            plt.show()
+
+        # from scipy.ndimage.morphology import distance_transform_edt
+        m = np.ones_like(traversible)
+        start_x, start_y = self.voxel_map.xy_to_grid_coords(xyt[:2]).int().cpu().numpy()
+        if debug:
+            print("--- Coordinates ---")
+            print(f"{xyt=}")
+            print(f"{start_x=}, {start_y=}")
+
+        m[start_x, start_y] = 0
+        m = np.ma.masked_array(m, ~traversible)
+        distance_map = skfmm.distance(m, dx=1)
+        frontier_map = distance_map.copy()
+        # Masks are the areas we are ignoring - ignore everything but the frontiers
+        frontier_map.mask = np.bitwise_or(
+            frontier_map.mask, ~frontier_edges.cpu().numpy()
+        )
+
+        # Get distances of frontier points
+        distances = frontier_map.compressed()
+        xs, ys = np.where(~frontier_map.mask)
+
+        if debug:
+            plt.subplot(121)
+            plt.imshow(distance_map, interpolation="nearest")
+            plt.title("Distance to start")
+            plt.axis("off")
+
+            plt.subplot(122)
+            plt.imshow(frontier_map, interpolation="nearest")
+            plt.title("Distance to start (edges only)")
+            plt.axis("off")
+            plt.show()
+
+            print(f"-> found {len(distances)} items")
+
+        assert len(xs) == len(ys) and len(xs) == len(distances)
+        tries = 1
+        prev_dist = -1 * float("Inf")
+        for x, y, dist in sorted(zip(xs, ys, distances), key=lambda x: x[2]):
+
+            # Don't explore too close to where we are
+            if dist < prev_dist + step_dist:
+                continue
+            prev_dist = dist
+
+            point_grid_coords = torch.FloatTensor([[x, y]])
+            outside_point = find_closest_point_on_mask(
+                outside_frontier, point_grid_coords
+            )
+
+            if outside_point is None:
+                print(
+                    "[VOXEL MAP: sampling] ERR finding closest pt:",
+                    point_grid_coords,
+                    "closest =",
+                    outside_point,
+                )
+                continue
+
+            # convert back to real-world coordinates
+            point = self.voxel_map.grid_coords_to_xy(point_grid_coords)
+            if point is None:
+                print("[VOXEL MAP: sampling] ERR:", point, point_grid_coords)
+                continue
+
+            theta = math.atan2(
+                outside_point[1] - point_grid_coords[0, 1],
+                outside_point[0] - point_grid_coords[0, 0],
+            )
+            if debug:
+                print(f"{dist=}, {x=}, {y=}, {theta=}")
+
+            # Ensure angle is in 0 to 2 * PI
+            if theta < 0:
+                theta += 2 * np.pi
+
+            xyt = torch.zeros(3)
+            xyt[:2] = point
+            xyt[2] = theta
+
+            # Check to see if this point is valid
+            if verbose:
+                print("[VOXEL MAP: sampling] sampled", xyt)
+            if self.is_valid(xyt):
+                yield xyt
+
+            tries += 1
+            if tries > max_tries:
+                break
+        yield None
+
+    def sample_random_frontier(
         self,
         max_tries_per_size: int = 100,
         min_size: int = 5,
@@ -261,6 +418,9 @@ class SparseVoxelMapNavigationSpace(XYT):
         # Do not explore obstacles any more
         frontier_edges = edges & ~obstacles
 
+        # Mask where we will look at
+        outside_frontier = ~explored & ~obstacles
+
         for radius in range(min_size, max_size + 1):
             # Now we apply this filter and try to sample a goal position
             if verbose:
@@ -269,9 +429,6 @@ class SparseVoxelMapNavigationSpace(XYT):
             # TODO: should we do this or not?
             # Make sure not to sample things that will just be in obstacles
             # expanded_obstacles = expand_mask(obstacles, radius)
-
-            # Mask where we will look at
-            outside_frontier = ~explored & ~obstacles
 
             # Mask where we will sample locations to move to
             expanded_frontier = expanded_frontier & explored & ~obstacles
@@ -341,10 +498,10 @@ class SparseVoxelMapNavigationSpace(XYT):
                 if verbose:
                     print("[VOXEL MAP: sampling]", radius, i, "sampled", xyt)
                 if self.is_valid(xyt):
-                    return xyt
+                    yield xyt
 
         # We failed to find anything useful
-        return None
+        yield None
 
     def sample_valid_location(self, max_tries: int = 100) -> Optional[torch.Tensor]:
         """Return a state that's valid and that we can move to.
@@ -361,9 +518,9 @@ class SparseVoxelMapNavigationSpace(XYT):
             point = self.voxel_map.sample_explored()
             xyt[:2] = point
             if self.is_valid(xyt):
-                return xyt
+                yield xyt
         else:
-            return None
+            yield None
 
     def sample(self) -> np.ndarray:
         """Sample any position that corresponds to an "explored" location. Goals are valid if they are within a reasonable distance of explored locations. Paths through free space are ok and don't collide.
