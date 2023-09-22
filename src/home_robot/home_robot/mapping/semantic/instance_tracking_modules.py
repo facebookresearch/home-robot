@@ -78,6 +78,10 @@ class InstanceView:
     cam_to_world: Tensor = None
     """[4,4] Tensor pose matrix mapping camera space to world space"""
 
+    # Where did we observe this from
+    pose: Tensor = None
+    """ Base pose of the robot when this view was collected"""
+
     @cached_property
     def object_coverage(self):
         return float(self.mask.sum()) / self.mask.size
@@ -950,6 +954,7 @@ class InstanceMemory:
                         category_id=category_id,
                         score=score,
                         bounds=bounds,  # .cpu().numpy(),
+                        pose=pose,
                     )
                     # append instance view to list of instance views
                     self.unprocessed_views[env_id][instance_id.item()] = instance_view

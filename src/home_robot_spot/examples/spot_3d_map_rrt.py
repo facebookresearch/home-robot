@@ -35,30 +35,17 @@ from home_robot_spot import SpotClient, VoxelMapSubscriber
 from home_robot_spot.grasp_env import GraspController
 
 
-def navigate_to_an_instance(spot, voxel_map, planner, instance_id, visualize=False):
+def navigate_to_an_instance(
+    spot, voxel_map, planner, instance_id, visualize=False, n_sample=10
+):
     instances = voxel_map.get_instances()
     instance = instances[instance_id]
 
     # TODO this can be random
     view = instance.instance_views[0]
-
-    cur_position = spot.current_relative_position
     goal_position = np.asarray(view.pose)
-    print(type(goal_position))
-
-    # This currently yields TypeError: unsupported operand type(s) for -: 'numpy.ndarray' and 'Tensor'
-    # I guess we need to convert view.pose to tensor
-    planner_response = planner.plan(cur_position, goal_position)
-
-    if planner_response.success:
-        path = voxel_map.plan_to_grid_coords(planner_response)
-        x, y = get_x_and_y_from_path(path)
-        print(f"Path: {path}")
-    else:
-        return False
-
-    for node in planner_response.trajectory:
-        spot.navigate_to(node.state, blocking=True)
+    print(goal_position)
+    spot.navigate_to(goal_position, blocking=True)
 
     if visualize:
         cropped_image = view.cropped_image
@@ -96,8 +83,7 @@ def get_obj_centric_world_representation(instance_memory, max_context_length):
 
 # def main(dock: Optional[int] = 549):
 def main(dock: Optional[int] = None, args=None):
-
-    if args.enable_vlm:
+    if args.enable_vlm == 1:
         sys.path.append(
             "src/home_robot/home_robot/perception/detection/minigpt4/MiniGPT-4/"
         )
@@ -117,7 +103,7 @@ def main(dock: Optional[int] = None, args=None):
     parameters = {
         "step_size": 2.0,  # (originally .1, we can make it all the way to 2 maybe actually)
         "visualize": False,
-        "exploration_steps": 6,
+        "exploration_steps": 7,
         # Voxel map
         "obs_min_height": 0.5,  # Originally .1, floor appears noisy in the 3d map of freemont so we're being super conservative
         "obs_max_height": 1.8,  # Originally 1.8, spot is shorter than stretch tho
@@ -227,6 +213,7 @@ def main(dock: Optional[int] = None, args=None):
 
             #  Build plan
             res = planner.plan(start, goal)
+            print(goal)
             print("Res success:", res.success)
 
             # TODO this trajectory is really ineficient, we can interpolate smarter
@@ -265,76 +252,73 @@ def main(dock: Optional[int] = None, args=None):
         robot_center = np.zeros(3)
         robot_center[:2] = spot.current_relative_position[:2]
         voxel_map.show(backend="open3d", orig=robot_center, instances=True)
-
-        print("Navigating to instance ")
         instances = voxel_map.get_instances()
-
-        if args.enable_vlm:
-            # get world_representation for planning
-            import pdb
-
-            pdb.set_trace()
-            while True:
-                world_representation = get_obj_centric_world_representation(
-                    instances, args.context_length
-                )
-                # ask vlm for plan
-                sample = vlm.prepare_sample(args.task, world_representation)
-                plan = vlm.evaluate(sample)
-                print(plan)
-                execute = input()
-                if "y" in execute:
-                    current_high_level_action = plan.split("; ")[0]
-                    # print ("This instance is of category: " + str(agent.instance_memory.instance_views[0][7].category_id))
-                    instance_id = int(
-                        world_representation[
-                            int(
-                                current_high_level_action.split("(")[1]
-                                .split(")")[0]
-                                .split(", ")[0]
-                                .split("_")[1]
-                            )
-                        ]
-                        .split(".")[0]
-                        .split("_")[1]
+        success = False
+        while not success:
+            if args.enable_vlm == 1:
+                # get world_representation for planning
+                while True:
+                    world_representation = get_obj_centric_world_representation(
+                        instances, args.context_length
                     )
-                    break
-        else:
-            # Navigating to a random instance, add LLM here
-            instance_id = np.random.randint(len(instances))
+                    # ask vlm for plan
+                    task = input("please type any task you want the robot to do: ")
+                    sample = vlm.prepare_sample(task, world_representation)
+                    plan = vlm.evaluate(sample)
+                    print(plan)
+                    execute = input(
+                        "do you want to execute (replan otherwise)? (y/n): "
+                    )
+                    if "y" in execute:
+                        current_high_level_action = plan.split("; ")[0]
+                        instance_id = int(
+                            world_representation[
+                                int(
+                                    current_high_level_action.split("(")[1]
+                                    .split(")")[0]
+                                    .split(", ")[0]
+                                    .split("_")[1]
+                                )
+                            ]
+                            .split(".")[0]
+                            .split("_")[1]
+                        )
+                        break
+            else:
+                # Navigating to a cup or bottle
+                for i, each_instance in enumerate(instances):
+                    if vocab.goal_id_to_goal_name[
+                        int(each_instance.category_id.item())
+                    ] in ["bottle", "cup"]:
+                        instance_id = i
+                        break
 
-        print(f"Instance id: {instance_id}")
-        success = navigate_to_an_instance(
-            spot, voxel_map, planner, instance_id, visualize=parameters["visualize"]
-        )
-        print(f"Success: {success}")
+            print("Navigating to instance ")
+            print(f"Instance id: {instance_id}")
+            success = navigate_to_an_instance(
+                spot, voxel_map, planner, instance_id, visualize=parameters["visualize"]
+            )
+            print(f"Success: {success}")
 
-        print("Navigating to instance ")
-        instances = voxel_map.get_instances()
-
-        # Navigating to a random instance, add LLM here
-        instance_id = np.random.randint(len(instances))
-        print(f"Instance id: {instance_id}")
-        success = navigate_to_an_instance(
-            spot, voxel_map, planner, instance_id, visualize=parameters["visualize"]
-        )
-        print(f"Success: {success}")
-
-        # I am going to assume the robot is at its goal position here
-        # gaze = GraspController(
-        #     config=config,
-        #     spot=spot,
-        #     objects=[["penguin plush"]],
-        #     confidence=0.1,
-        #     show_img=True,
-        #     top_grasp=False,
-        #     hor_grasp=True,
-        # )
-        # spot.open_gripper()
-        # time.sleep(1)
-        # print("Resetting environment...")
-        # success = gaze.gaze_and_grasp()
-        # time.sleep(2)
+            # try to pick up this instance
+            if success:
+                object_category_name = vocab.goal_id_to_goal_name[
+                    int(instances[instance_id].category_id.item())
+                ]
+                gaze = GraspController(
+                    config=spot_config,
+                    spot=spot.spot,
+                    objects=[[object_category_name]],
+                    confidence=0.1,
+                    show_img=False,
+                    top_grasp=False,
+                    hor_grasp=True,
+                )
+                spot.spot.open_gripper()
+                time.sleep(1)
+                print("Resetting environment...")
+                success = gaze.gaze_and_grasp()
+                time.sleep(2)
 
     except Exception as e:
         print("Exception caught:")
@@ -371,23 +355,8 @@ def main(dock: Optional[int] = None, args=None):
         plt.show()
         plt.imsave("exploration_step_final.png", img)
 
-        # I am going to assume the robot is at its goal position here
-        # gaze = GraspController(
-        #     config=config,
-        #     spot=spot,
-        #     objects=[["penguin plush"]],
-        #     confidence=0.1,
-        #     show_img=True,
-        #     top_grasp=False,
-        #     hor_grasp=True,
-        # )
-        # spot.open_gripper()
-        # time.sleep(1)
-        # print("Resetting environment...")
-        # success = gaze.gaze_and_grasp()
-        # time.sleep(2)
-
         print("Safely stop the robot...")
+        spot.spot.open_gripper()
         spot.stop()
 
 
@@ -397,8 +366,8 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="")
     parser.add_argument(
         "--enable_vlm",
-        default=False,
-        type=bool,
+        default=0,
+        type=int,
         help="Enable loading Minigpt4",
     )
     parser.add_argument(
@@ -414,11 +383,6 @@ if __name__ == "__main__":
     parser.add_argument(
         "--gpu-id", type=int, default=1, help="specify the gpu to load the model."
     )
-    # parser.add_argument(
-    #     "--vlm_freq",
-    #     default=5,
-    #     help="After and every how many steps (of exploration) you want to call VLM for planning",
-    # )
     parser.add_argument(
         "--planning_times",
         default=1,
