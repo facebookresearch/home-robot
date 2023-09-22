@@ -246,7 +246,6 @@ def run_exploration(
 
     # Finally - plan back to (0,0,0)
     print("Go back to (0, 0, 0) to finish...")
-    input("---")
     start = robot.get_base_pose()
     goal = np.array([0, 0, 0])
     res = planner.plan(start, goal)
