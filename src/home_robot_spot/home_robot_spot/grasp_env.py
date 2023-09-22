@@ -12,7 +12,7 @@ from home_robot.utils.config import get_config
 class GraspController:
     def __init__(
         self,
-        config=get_config("projects/spot/configs/config.yaml"),
+        config=None,
         spot=None,
         objects=[["ball", "lion"]],
         confidence=0.05,

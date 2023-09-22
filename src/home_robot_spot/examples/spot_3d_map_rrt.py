@@ -74,10 +74,10 @@ def main(dock: Optional[int] = None):
     parameters = {
         'step_size' : 2.0, # (originally .1, we can make it all the way to 2 maybe actually)
         'visualize': True,
-        'exploration_steps': 10,
+        'exploration_steps': 5,
 
         # Voxel map
-        'obs_min_height': .5, # Originally .1, floor appears noisy in the 3d map of freemont so we're being super conservative
+        'obs_min_height': .5, # Originally .1, floor appears noisy in the 3d map of fremont so we're being super conservative
         'obs_max_height': 1.8, # Originally 1.8, spot is shorter than stretch tho
         'obs_min_density': 25, # Originally 10, making it bigger because theres a bunch on noise
         'voxel_size' : 0.05,
@@ -124,7 +124,7 @@ def main(dock: Optional[int] = None):
 
     planner = Shortcut(RRTConnect(navigation_space, navigation_space.is_valid))
 
-    spot = SpotClient(config=spot_config, dock_id=dock)
+    spot = SpotClient(config=spot_config, dock_id=dock, use_midas=False)
     try:
         # Turn on the robot using the client above
         spot.start()
