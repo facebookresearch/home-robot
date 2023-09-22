@@ -101,6 +101,7 @@ habitat_baselines:
       backbone: resnet18
       rnn_type: LSTM
       num_recurrent_layers: 2
+      normalize_visual_inputs: True
 
 # unused
 habitat:

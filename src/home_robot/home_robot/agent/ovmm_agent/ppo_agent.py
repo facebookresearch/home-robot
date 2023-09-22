@@ -183,13 +183,7 @@ class PPOAgent(Agent):
         if model_path:
             ckpt = torch.load(model_path, map_location=self.device)
             #  Filter only actor_critic weights
-            self.actor_critic.load_state_dict(
-                {
-                    k[len("actor_critic.") :]: v
-                    for k, v in ckpt["state_dict"].items()
-                    if "actor_critic" in k and "running_mean_and_var" not in k
-                }
-            )
+            self.actor_critic.load_state_dict(ckpt["state_dict"])
 
         self.actor_critic.eval()
         self.max_displacement = skill_config.max_displacement
@@ -327,6 +321,9 @@ class PPOAgent(Agent):
                 ).astype(np.uint8),
                 "goal_recep_segmentation": np.expand_dims(
                     obs.semantic == obs.task_observations["end_recep_goal"], -1
+                ).astype(np.uint8),
+                "start_recep_segmentation": np.expand_dims(
+                    obs.semantic == obs.task_observations["start_recep_goal"], -1
                 ).astype(np.uint8),
                 "joint": obs.joint,
                 "relative_resting_position": obs.relative_resting_position,

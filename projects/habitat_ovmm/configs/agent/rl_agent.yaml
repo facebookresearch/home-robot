@@ -36,10 +36,11 @@ SKILLS:
     gym_obs_keys:
       - head_depth
       - object_embedding
+      - start_receptacle
       - object_segmentation
+      - start_receptacle
+      - start_recep_segmentation
       - joint
-      - is_holding
-      - relative_resting_position
     allowed_actions:
       - arm_action
       - base_velocity
@@ -71,7 +72,6 @@ SKILLS:
       - start_receptacle
       - robot_start_gps
       - robot_start_compass
-      - joint
     allowed_actions:
       # - base_velocity
       # - rearrange_stop
@@ -94,7 +94,7 @@ SKILLS:
   NAV_TO_REC:
     type: rl # heuristic (default) or rl
     checkpoint_path: data/checkpoints/ovmm_baseline_home_robot_challenge_2023/nav_to_rec.pth
-    rl_config: projects/habitat_ovmm/configs/agent/skills/nav_to_obj_rl.yaml
+    rl_config: projects/habitat_ovmm/configs/agent/skills/nav_to_rec_rl.yaml
     gym_obs_keys:
       - head_depth
       - ovmm_nav_goal_segmentation
@@ -102,7 +102,6 @@ SKILLS:
       - goal_receptacle
       - robot_start_gps
       - robot_start_compass
-      - joint
     allowed_actions:
       # - base_velocity
       # - rearrange_stop
