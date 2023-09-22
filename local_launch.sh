@@ -11,7 +11,10 @@ rsync -vaz akshara:/home/akshara/asc_demo/home-robot/projects/spot/fremont_traje
 
 rsync -vaz akshara:/home/akshara/asc_demo/home-robot/projects/spot/fremont_trajectories/spot_abnb4_video4/obs ~/data/fremont_trajectories/spot_abnb4_video4
 
-rsync -vazu ~/data/fremont_trajectories devfair:/private/home/matthewchang/spot_trajectories
+rsync -vazu "/Volumes/Extreme Pro/airbnb_data/spot_abnb2_baselines_no_instances6" devfair:/private/home/matthewchang/projects/home-robot/projects/spot/fremont_trajectories
+rsync -vazu devfair:/private/home/matthewchang/projects/home-robot/projects/spot/fremont_trajectories/spot_abnb2_baselines_no_instances6/ "/Volumes/Extreme Pro/airbnb_data/spot_abnb2_baselines_no_instances6" 
+
+rsync -vazu "/Volumes/Extreme Pro/airbnb_data/spot_abnb2_baselines_no_memory2 => far from goals + missing final goal" devfair:/private/home/matthewchang/projects/home-robot/projects/spot/fremont_trajectories/baselines_no_memory
 rsync -vaz akshara-spot:/home/akshara/Desktop/vids_to_copy ~/data/vis/
 
 cd /home/akshara/asc_demo/home-robot
@@ -135,3 +138,28 @@ DISPLAY=:1 python projects/spot/goat.py --trajectory=airbnb7_video1 --goals=imag
 DISPLAY=:1 python projects/spot/goat.py --trajectory=airbnb7_pickplace1 --goals=place_object_bed
 
 DISPLAY=:1 python projects/spot/goat.py --trajectory=airbnb8_video1 --goals=image_bed1,image_chair4,image_chair1,image_bed2,image_chair2 image_couch1,object_oven,object_refrigerator,image_sink1,image_book1,image_bear1,image_cup2,image_book2,image_cup3 image_bowl1,image_bear2,image_cup1,image_bear3
+___________________________
+
+python projects/spot/record_videos.py --trajectory="/Volumes/Extreme Pro/airbnb_data/spot_abnb2_baselines_no_instances6"
+
+rsync -vazu "/Volumes/Extreme Pro/airbnb_data/spot_abnb2_baselines_no_instances6" devfair:/private/home/matthewchang/projects/home-robot/projects/spot/fremont_trajectories
+rsync -vazu devfair:/private/home/matthewchang/projects/home-robot/projects/spot/fremont_trajectories/spot_abnb2_baselines_no_instances6/ "/Volumes/Extreme Pro/airbnb_data/spot_abnb2_baselines_no_instances6" 
+
+
+rsync -vazu "/Volumes/Extreme Pro/airbnb_data/spot_abnb2_baselines_ours" dev ffmpeg -i baseline_cow.m4v -vb 20MB baseline_cow.mp4fair:/private/home/matthewchang/projects/home-robot/projects/spot/fremont_trajectories
+rsync -vazu devfair:/private/home/matthewchang/projects/home-robot/projects/spot/fremont_trajectories/spot_abnb2_baselines_ours "/Volumes/Extreme Pro/airbnb_data" 
+python projects/spot/record_videos.py --trajectory="/Volumes/Extreme Pro/airbnb_data/spot_abnb2_baselines_ours"
+
+
+rsync -vazu --exclude "*.MP4" "/Volumes/Extreme Pro/airbnb_data/spot_abnb2_baselines_cow" devfair:/private/home/matthewchang/projects/home-robot/projects/spot/fremont_trajectories
+rsync -vazu devfair:/private/home/matthewchang/projects/home-robot/projects/spot/fremont_trajectories/spot_abnb2_baselines_cow "/Volumes/Extreme Pro/airbnb_data" 
+
+rsync -vazu --exclude "*.MP4" "/Volumes/Extreme Pro/airbnb_data/spot_abnb2_baselines_no_memory2" devfair:/private/home/matthewchang/projects/home-robot/projects/spot/fremont_trajectories
+rsync -vazu devfair:/private/home/matthewchang/projects/home-robot/projects/spot/fremont_trajectories/spot_abnb2_baselines_no_memory2 "/Volumes/Extreme Pro/airbnb_data" 
+
+python projects/spot/record_videos.py --trajectory="/Volumes/Extreme Pro/airbnb_data/spot_abnb2_baselines_ours"
+python projects/spot/record_videos.py --trajectory="/Volumes/Extreme Pro/airbnb_data/spot_abnb2_baselines_cow"
+python projects/spot/record_videos.py --trajectory="/Volumes/Extreme Pro/airbnb_data/spot_abnb2_baselines_no_memory2"
+
+cd "/Volumes/Extreme Pro/paper_videos"
+ffmpeg -i baseline_nomemory.m4v -vb 20MB baseline_nomemory.mp4

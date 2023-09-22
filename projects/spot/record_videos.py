@@ -1,4 +1,5 @@
 import glob
+import os
 import pickle
 import sys
 from pathlib import Path
@@ -49,14 +50,18 @@ def create_video_aligned(images, output_file, timestamps, fps=30, speedup_factor
 def record_videos(trajectory: str):
     obs_dir = f"{trajectory}/obs/"
     observations = []
-    for path in natsort.natsorted(glob.glob(f"{obs_dir}/*.pkl")):
-        with open(path, "rb") as f:
-            observations.append(pickle.load(f))
 
-    main_vis_dir = f"{trajectory}/main_visualization/"
+    main_vis_dir = f"{trajectory}/vis_without_goal/"
+    # check if the directory exists
+    if not os.path.exists(obs_dir):
+        main_vis_dir = f"{trajectory}/main_visualization/"
     main_vis = []
     for path in natsort.natsorted(glob.glob(f"{main_vis_dir}/*.png")):
         main_vis.append(cv2.imread(path))
+
+    for path in natsort.natsorted(glob.glob(f"{obs_dir}/*.pkl")):
+        with open(path, "rb") as f:
+            observations.append(pickle.load(f))
 
     print(f"Recording videos for {trajectory} with {len(observations)} timesteps")
 
