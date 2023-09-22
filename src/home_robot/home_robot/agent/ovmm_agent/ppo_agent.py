@@ -28,6 +28,7 @@ from habitat_baselines.common.obs_transformers import (
 )
 from habitat_baselines.config.default import get_config as get_habitat_config
 from habitat_baselines.utils.common import batch_obs
+from omegaconf import OmegaConf
 
 import home_robot.utils.pose as pu
 from home_robot.agent.ovmm_agent.complete_obs_space import get_complete_obs_space
@@ -170,6 +171,17 @@ class PPOAgent(Agent):
             self.num_actions = self.vector_action_space.n
             self.actions_dim = 1
 
+        # load checkpoint
+        model_path, ckpt = skill_config.checkpoint_path, None
+        if model_path:
+            ckpt = torch.load(model_path, map_location=self.device)
+
+        # set `normalize_visual_inputs` in config if the checkpoint has running mean and var parameters in the visual encoder
+        OmegaConf.set_readonly(self.rl_config, False)
+        self.rl_config.habitat_baselines.rl.ddppo.normalize_visual_inputs = (
+            "net.visual_encoder.running_mean_and_var._mean" in ckpt["state_dict"].keys()
+        )
+
         # Initialize actor critic using the policy config
         self.actor_critic = policy.from_config(
             self.rl_config,
@@ -177,15 +189,10 @@ class PPOAgent(Agent):
             self.vector_action_space,
         )
         self.actor_critic.to(self.device)
-
-        # load checkpoint
-        model_path = skill_config.checkpoint_path
-        if model_path:
-            ckpt = torch.load(model_path, map_location=self.device)
-            #  Filter only actor_critic weights
+        if ckpt:
             self.actor_critic.load_state_dict(ckpt["state_dict"])
-
         self.actor_critic.eval()
+
         self.max_displacement = skill_config.max_displacement
         self.max_turn = skill_config.max_turn_degrees * np.pi / 180
         self.min_displacement = skill_config.min_displacement
