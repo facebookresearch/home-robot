@@ -12,6 +12,7 @@ import cv2
 import numpy as np
 import torch
 import transforms3d as t3d
+import trimesh.transformations as tra
 from bosdyn.api import image_pb2
 from bosdyn.client import math_helpers
 from bosdyn.client.frame_helpers import (
@@ -29,6 +30,7 @@ from spot_wrapper.spot import Spot, build_image_request, image_response_to_cv2
 from home_robot.core.interfaces import Action, Observations
 from home_robot.utils.bboxes_3d_plotly import plot_scene_with_bboxes
 from home_robot.utils.config import get_config
+from home_robot.utils.geometry import sophus2xyt, xyt2sophus
 from home_robot.utils.image import Camera as PinholeCamera
 from home_robot.utils.point_cloud_torch import unproject_masked_depth_to_xyz_coordinates
 
@@ -86,6 +88,7 @@ IGNORED_NAMES = [
 class Midas:
     def __init__(self, device):
         from midas.model_loader import default_models, load_model
+
         super().__init__()
         # midas params
         self.device = device
@@ -99,35 +102,37 @@ class Midas:
         )
 
     # expects numpy rgb, [0,255]
-    def depth_estimate(self, rgb, depth):
-        image = self.transform({"image": (rgb / 255)})["image"]
-        # compute
-        with torch.no_grad():
-            prediction = process(
-                self.device,
-                self.model,
-                self.model_type,
-                image,
-                (self.net_w, self.net_h),
-                rgb.shape[1::-1],
-                self.optimize,
-                False,
-            )
-        depth_valid = depth > 0
+    # TODO: undefined name "process"
+    # def depth_estimate(self, rgb, depth):
+    #     image = self.transform({"image": (rgb / 255)})["image"]
+    #     # compute
+    #     with torch.no_grad():
+    #         prediction = process(
+    #             self.device,
+    #             self.model,
+    #             self.model_type,
+    #             image,
+    #             (self.net_w, self.net_h),
+    #             rgb.shape[1::-1],
+    #             self.optimize,
+    #             False,
+    #         )
+    #     depth_valid = depth > 0
 
-        # solve for MSE for the system of equations Ax = b where b is the observed depth and x is the predicted depth values
-        x = np.stack(
-            (prediction[depth_valid], np.ones_like(prediction[depth_valid])), axis=1
-        ).T
-        b = depth[depth_valid].T
-        # 1 x 2 * 2 x n = 1 x n
-        pinvx = np.linalg.pinv(x)
-        A = b @ pinvx
+    #     # solve for MSE for the system of equations Ax = b where b is the observed depth and x is the predicted depth values
+    #     x = np.stack(
+    #         (prediction[depth_valid], np.ones_like(prediction[depth_valid])), axis=1
+    #     ).T
+    #     b = depth[depth_valid].T
+    #     # 1 x 2 * 2 x n = 1 x n
+    #     pinvx = np.linalg.pinv(x)
+    #     A = b @ pinvx
 
-        adjusted = prediction * A[0] + A[1]
-        mse = ((A @ x - b) ** 2).mean()
-        mean_error = np.abs(A @ x - b).mean()
-        return adjusted, mse, mean_error
+    #     adjusted = prediction * A[0] + A[1]
+    #     mse = ((A @ x - b) ** 2).mean()
+    #     mean_error = np.abs(A @ x - b).mean()
+    #     return adjusted, mse, mean_error
+
 
 class SpotPublishers:
     def __init__(self, spot: Spot, rotate=False, quality_percent=75, verbose=False):
@@ -467,7 +472,13 @@ def create_triad_pointclouds(R, T, n_points=1, scale=0.1):
 
 
 class SpotClient:
-    def __init__(self, config, name="home_robot_spot", dock_id: Optional[int] = None, use_midas = False):
+    def __init__(
+        self,
+        config,
+        name="home_robot_spot",
+        dock_id: Optional[int] = None,
+        use_midas=False,
+    ):
         self.spot = Spot(name)
         self.lease = None
         self.publishers = SpotPublishers(self.spot, verbose=False)
@@ -531,9 +542,15 @@ class SpotClient:
         self.spot.set_arm_joint_positions(self.gaze_arm_joint_angles, travel_time=1.0)
         self.spot.open_gripper()
 
-        self.start_gps = self.gps
-        self.start_compass = self.compass
-        self.rot_compass = yaw_rotation_matrix_2D(-self.start_compass)
+        # self.start_gps = self.gps
+        # self.start_compass = self.compass
+        self._episode_start_pose = xyt2sophus([self.gps[0], self.gps[1], self.compass])
+
+        # print(self.gps, self.compass)
+        # print(self._episode_start_pose)
+        # print(self.unnormalize_gps_compass([0, 0, 0]))
+        # breakpoint()
+        # self.rot_compass = yaw_rotation_matrix_2D(-self.start_compass)
 
     @property
     def raw_observations(self):
@@ -548,16 +565,21 @@ class SpotClient:
 
     @property
     def compass(self):
-        return self.raw_observations["base_xyt"][0][1][0]
+        quat = self.raw_observations["base_xyt"][0][1]
+        rpy = tra.euler_from_matrix(tra.quaternion_matrix(quat))
+        return rpy[2]
 
     @property
-    def current_relative_position(self):
-        xy = self.gps
-        compass = self.compass
-        relative_gps = xy - self.start_gps
-        relative_gps = self.rot_compass @ relative_gps
-        relative_compass = put_angle_in_interval(compass - self.start_compass)
-        return np.array([relative_gps[0], relative_gps[1], relative_compass])
+    def current_relative_position(self) -> np.ndarray:
+        # xy = self.gps
+        # compass = self.compass
+        current_pose = xyt2sophus([self.gps[0], self.gps[1], self.compass])
+        # relative_gps = xy - self.start_gps
+        # relative_gps = self.rot_compass @ relative_gps
+        # relative_compass = put_angle_in_interval(compass - self.start_compass)
+        # return np.array([relative_gps[0], relative_gps[1], relative_compass])
+        relative_pose = self._episode_start_pose.inverse() * current_pose
+        return sophus2xyt(relative_pose)
 
     @property
     def current_position(self):
@@ -589,6 +611,21 @@ class SpotClient:
     def hand_camera_rotation(self):
         return self.raw_observations["cam_poses"][0][1]
 
+    def _get_relative_gps_compass(self):
+        # Normalize GPS
+        # relative_gps = self.gps - self.start_gps
+        # relative_gps = self.rot_compass @ relative_gps
+        current_pose = xyt2sophus([self.gps[0], self.gps[1], self.compass])
+        # relative_gps = xy - self.start_gps
+        # relative_gps = self.rot_compass @ relative_gps
+        # relative_compass = put_angle_in_interval(compass - self.start_compass)
+        # return np.array([relative_gps[0], relative_gps[1], relative_compass])
+        relative_pose = self._episode_start_pose.inverse() * current_pose
+        xyt = sophus2xyt(relative_pose)
+        relative_gps = xyt[:2]
+        relative_compass = np.array([xyt[2]])
+        return relative_gps, relative_compass
+
     @property
     def observations(self):
         """
@@ -596,14 +633,12 @@ class SpotClient:
         """
         obs = self.raw_observations
 
-        # Normalize GPS
-        relative_gps = self.gps - self.start_gps
-        relative_gps = self.rot_compass @ relative_gps
+        relative_gps, relative_compass = self._get_relative_gps_compass()
 
         # Normalize compass
-        relative_compass = np.array(
-            [put_angle_in_interval(self.compass - self.start_compass)]
-        )
+        # relative_compass = np.array(
+        #    [put_angle_in_interval(self.compass - self.start_compass)]
+        # )
 
         rgb = self.hand_depth
 
@@ -630,7 +665,7 @@ class SpotClient:
         home_robot_obs.camera_pose[:3, :3] = abs_rot
 
         relative_obs_locations = (
-            obs["obstacle_distances"][:, :2] - self.start_gps
+            obs["obstacle_distances"][:, :2] - self._episode_start_pose[:2]
         ).copy()
         relative_obs_locations = (self.rot_compass @ relative_obs_locations.T).T[
             :, ::-1
@@ -668,13 +703,14 @@ class SpotClient:
         # keep_mask = (0.4 < obs.depth) & (obs.depth < 4.0)
 
         # Normalize GPS
-        relative_gps = self.gps - self.start_gps
-        relative_gps = self.rot_compass @ relative_gps
+        # relative_gps = self.gps - self.start_gps
+        # relative_gps = self.rot_compass @ relative_gps
 
         # Normalize compass
-        relative_compass = np.array(
-            [put_angle_in_interval(self.compass - self.start_compass)]
-        )
+        # relative_compass = np.array(
+        #    [put_angle_in_interval(self.compass - self.start_compass)]
+        # )
+        relative_gps, relative_compass = self._get_relative_gps_compass()
         obs.gps = relative_gps
         obs.compass = relative_compass
 
@@ -683,7 +719,7 @@ class SpotClient:
 
         if self.use_midas:
             rgb, depth = obs.rgb, obs.depth
-            depth = self.patch_depth(rbd, depth)
+            depth = self.patch_depth(rgb, depth)
             obs.depth = depth
 
         full_world_xyz = unproject_masked_depth_to_xyz_coordinates(  # Batchable!
@@ -794,16 +830,16 @@ class SpotClient:
         self.lease = None
 
     def unnormalize_gps_compass(self, xyt):
-        gps = xyt[:2]
-        compass = xyt[2]
+        # gps = xyt[:2]
+        # compass = xyt[2]
 
         # Transpose is inverse because its an orthonormal matrix
-        gps = self.rot_compass.T @ gps + self.start_gps
-
+        # gps = self.rot_compass.T @ gps + self.start_gps
         # UnNormalize compass
-        compass = put_angle_in_interval(compass + self.start_compass)
-
-        return np.array([gps[0], gps[1], compass])
+        # compass = put_angle_in_interval(compass + self.pass)
+        # return np.array([gps[0], gps[1], compass])
+        pose = self._episode_start_pose * xyt2sophus(xyt)
+        return sophus2xyt(pose)
 
     def navigate_to(self, xyt: np.ndarray, relative: bool = False, blocking=False):
         """Move the base to a new position.
@@ -814,8 +850,11 @@ class SpotClient:
         assert self.lease is not None, "Must call start() first."
 
         # Unnormalize GPS and compass
-        xyt = np.array(xyt)
+        if not isinstance(xyt, np.ndarray):
+            xyt = np.array(xyt)
+        print("nav to before unnorm", xyt)
         xyt = self.unnormalize_gps_compass(xyt)
+        print("after =", xyt)
 
         self.spot.set_base_position(
             x_pos=xyt[0],

@@ -20,9 +20,10 @@ from home_robot.agent.ovmm_agent import (
     read_category_map_file,
 )
 from home_robot.mapping.voxel import SparseVoxelMap  # Aggregate 3d information
-from home_robot.mapping.voxel_map import (  # Sample positions in free space for our robot to move to
+from home_robot.mapping.voxel import (  # Sample positions in free space for our robot to move to
     SparseVoxelMapNavigationSpace,
 )
+from home_robot.motion import ConfigurationSpace, Planner, PlanResult
 from home_robot.motion.rrt_connect import RRTConnect
 from home_robot.motion.shortcut import Shortcut
 from home_robot.motion.spot import (  # Just saves the Spot robot footprint for kinematic planning
@@ -35,6 +36,70 @@ from home_robot_spot import SpotClient, VoxelMapSubscriber
 from home_robot_spot.grasp_env import GraspController
 
 
+def plan_to_frontier(
+    start: np.ndarray,
+    planner: Planner,
+    space: ConfigurationSpace,
+    voxel_map: SparseVoxelMap,
+    visualize: bool = False,
+    try_to_plan_iter: int = 10,
+) -> PlanResult:
+    # extract goal using fmm planner
+    tries = 0
+    failed = False
+    res = None
+    start_is_valid = space.is_valid(start)
+    print("\n----------- Planning to frontier -----------")
+    print("Start is valid:", start_is_valid)
+    if not start_is_valid:
+        return PlanResult(False, reason="invalid start state")
+    for goal in space.sample_closest_frontier(start, step_dist=1.5, min_dist=1.0):
+        if goal is None:
+            failed = True
+            break
+        goal = goal.cpu().numpy()
+        print("Sampled Goal:", goal)
+        show_goal = np.zeros(3)
+        show_goal[:2] = goal[:2]
+        goal_is_valid = space.is_valid(goal)
+        print("Start is valid:", start_is_valid)
+        print(" Goal is valid:", goal_is_valid)
+        if not goal_is_valid:
+            print(" -> resample goal.")
+            continue
+        # plan to the sampled goal
+        res = planner.plan(start, goal)
+        print("Found plan:", res.success)
+        if visualize:
+            obstacles, explored = voxel_map.get_2d_map()
+            img = (10 * obstacles) + explored
+            space.draw_state_on_grid(img, start, weight=5)
+            space.draw_state_on_grid(img, goal, weight=5)
+            plt.imshow(img)
+            if res.success:
+                path = voxel_map.plan_to_grid_coords(res)
+                x, y = get_x_and_y_from_path(path)
+                plt.plot(y, x)
+                plt.show()
+        if res.success:
+            break
+        else:
+            if visualize:
+                plt.show()
+            tries += 1
+            if tries >= try_to_plan_iter:
+                failed = True
+                break
+            continue
+    else:
+        print(" ------ no valid goals found!")
+        failed = True
+    if failed:
+        print(" ------ sampling and planning failed! Might be no where left to go.")
+        return PlanResult(False, reason="planning to frontier failed")
+    return res
+
+
 def navigate_to_an_instance(
     spot, voxel_map, planner, instance_id, visualize=False, n_sample=10
 ):
@@ -42,8 +107,11 @@ def navigate_to_an_instance(
     instance = instances[instance_id]
 
     # TODO this can be random
-    view = instance.instance_views[0]
+    view = instance.instance_views[-1]
     goal_position = np.asarray(view.pose)
+    import pdb
+
+    pdb.set_trace()
     print(goal_position)
     spot.navigate_to(goal_position, blocking=True)
 
@@ -103,7 +171,7 @@ def main(dock: Optional[int] = None, args=None):
     parameters = {
         "step_size": 2.0,  # (originally .1, we can make it all the way to 2 maybe actually)
         "visualize": False,
-        "exploration_steps": 7,
+        "exploration_steps": 15,
         # Voxel map
         "obs_min_height": 0.5,  # Originally .1, floor appears noisy in the 3d map of freemont so we're being super conservative
         "obs_max_height": 1.8,  # Originally 1.8, spot is shorter than stretch tho
@@ -131,7 +199,12 @@ def main(dock: Optional[int] = None, args=None):
 
     # Create navigation space example
     navigation_space = SparseVoxelMapNavigationSpace(
-        voxel_map=voxel_map, robot=robot_model, step_size=parameters["step_size"]
+        voxel_map=voxel_map,
+        robot=robot_model,
+        step_size=parameters["step_size"],
+        rotation_step_size=4.0,
+        dilate_frontier_size=5,
+        dilate_obstacle_size=0,
     )
     print(" - Created navigation space and environment")
     print(f"   {navigation_space=}")
@@ -198,23 +271,33 @@ def main(dock: Optional[int] = None, args=None):
                 print("!!!!!!!!")
                 break
 
-            # Sample a goal in the frontier (TODO change to closest frontier)
-            goal = navigation_space.sample_frontier(
-                min_size=parameters["min_size"], max_size=parameters["max_size"]
-            )
-            goal = goal.cpu().numpy()
-            goal_is_valid = navigation_space.is_valid(goal)
-            print(
-                f" Goal is valid: {goal_is_valid}",
-            )
-            if not goal_is_valid:
-                # really we should sample a new goal
-                continue
-
-            #  Build plan
-            res = planner.plan(start, goal)
-            print(goal)
-            print("Res success:", res.success)
+            explore_methodical = False
+            if explore_methodical:
+                print("Generating the next closest frontier point...")
+                res = plan_to_frontier(start, planner, navigation_space, voxel_map)
+                if not res.success:
+                    print(res.reason)
+                    break
+            else:
+                print("picking a random frontier point and trying to move there...")
+                # Sample a goal in the frontier (TODO change to closest frontier)
+                goal = next(
+                    navigation_space.sample_random_frontier(
+                        min_size=parameters["min_size"], max_size=parameters["max_size"]
+                    )
+                )
+                goal = goal.cpu().numpy()
+                goal_is_valid = navigation_space.is_valid(goal)
+                print(
+                    f" Goal is valid: {goal_is_valid}",
+                )
+                if not goal_is_valid:
+                    # really we should sample a new goal
+                    continue
+                #  Build plan
+                res = planner.plan(start, goal)
+                print(goal)
+                print("Res success:", res.success)
 
             # TODO this trajectory is really ineficient, we can interpolate smarter
             for i, node in enumerate(res.trajectory):
@@ -223,6 +306,9 @@ def main(dock: Optional[int] = None, args=None):
 
             if not parameters["use_async_subscriber"]:
                 print("Synchronous obs update")
+                import pdb
+
+                pdb.set_trace()
                 obs = spot.get_rgbd_obs()
                 obs = semantic_sensor.predict(obs)
                 voxel_map.add_obs(obs, xyz_frame="world")
@@ -292,6 +378,9 @@ def main(dock: Optional[int] = None, args=None):
                     ] in ["bottle", "cup"]:
                         instance_id = i
                         break
+
+            # for debug
+            spot.navigate_to([0, 0, 0], blocking=True)
 
             print("Navigating to instance ")
             print(f"Instance id: {instance_id}")

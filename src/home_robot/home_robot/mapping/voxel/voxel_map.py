@@ -251,6 +251,7 @@ class SparseVoxelMapNavigationSpace(XYT):
         debug: bool = False,
         verbose: bool = False,
         step_dist: float = 0.5,
+        min_dist: float = 0.5,
     ) -> Optional[torch.Tensor]:
         """Sample a valid location on the current frontier using FMM planner to compute geodesic distance. Returns points in order until it finds one that's valid.
 
@@ -337,6 +338,9 @@ class SparseVoxelMapNavigationSpace(XYT):
         tries = 1
         prev_dist = -1 * float("Inf")
         for x, y, dist in sorted(zip(xs, ys, distances), key=lambda x: x[2]):
+
+            if dist < min_dist:
+                continue
 
             # Don't explore too close to where we are
             if dist < prev_dist + step_dist:
