@@ -109,9 +109,7 @@ def navigate_to_an_instance(
     # TODO this can be random
     view = instance.instance_views[-1]
     goal_position = np.asarray(view.pose)
-    import pdb
 
-    pdb.set_trace()
     print(goal_position)
     spot.navigate_to(goal_position, blocking=True)
 
@@ -171,7 +169,7 @@ def main(dock: Optional[int] = None, args=None):
     parameters = {
         "step_size": 2.0,  # (originally .1, we can make it all the way to 2 maybe actually)
         "visualize": False,
-        "exploration_steps": 15,
+        "exploration_steps": 50,
         # Voxel map
         "obs_min_height": 0.5,  # Originally .1, floor appears noisy in the 3d map of freemont so we're being super conservative
         "obs_max_height": 1.8,  # Originally 1.8, spot is shorter than stretch tho
@@ -306,9 +304,6 @@ def main(dock: Optional[int] = None, args=None):
 
             if not parameters["use_async_subscriber"]:
                 print("Synchronous obs update")
-                import pdb
-
-                pdb.set_trace()
                 obs = spot.get_rgbd_obs()
                 obs = semantic_sensor.predict(obs)
                 voxel_map.add_obs(obs, xyz_frame="world")
@@ -339,8 +334,11 @@ def main(dock: Optional[int] = None, args=None):
         robot_center[:2] = spot.current_relative_position[:2]
         voxel_map.show(backend="open3d", orig=robot_center, instances=True)
         instances = voxel_map.get_instances()
-        success = False
-        while not success:
+
+        while True:
+            # for debug, sending the robot back to original
+            spot.navigate_to([0, 0, 0], blocking=True)
+            success = False
             if args.enable_vlm == 1:
                 # get world_representation for planning
                 while True:
@@ -379,9 +377,6 @@ def main(dock: Optional[int] = None, args=None):
                         instance_id = i
                         break
 
-            # for debug
-            spot.navigate_to([0, 0, 0], blocking=True)
-
             print("Navigating to instance ")
             print(f"Instance id: {instance_id}")
             success = navigate_to_an_instance(
@@ -391,6 +386,8 @@ def main(dock: Optional[int] = None, args=None):
 
             # try to pick up this instance
             if success:
+                # TODO: change the grasp API to be able to grasp from the point cloud / mask of the instance
+                # currently it will fail if there are two instances of the same category sitting close to each other
                 object_category_name = vocab.goal_id_to_goal_name[
                     int(instances[instance_id].category_id.item())
                 ]
@@ -408,6 +405,8 @@ def main(dock: Optional[int] = None, args=None):
                 print("Resetting environment...")
                 success = gaze.gaze_and_grasp()
                 time.sleep(2)
+                input("type enter to release the object...")
+                spot.spot.open_gripper()
 
     except Exception as e:
         print("Exception caught:")
