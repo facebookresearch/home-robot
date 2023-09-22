@@ -529,7 +529,7 @@ def place_object(env,obs,target_semantic_class,target_mask):
     else:
         return 'continue'
 
-from goals_abnb8 import GOALS
+from goals_abnb2 import GOALS
 # breakpoint()
 # print(sorted(GOALS.keys()))
 

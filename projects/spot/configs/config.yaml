@@ -29,7 +29,7 @@ AGENT:
   exploration_strategy: seen_frontier  # exploration strategy ("seen_frontier", "been_close_to_frontier")
   radius: 0.0             # robot radius (in meters)
   store_all_categories: True  # whether to store all semantic categories in the map or just task-relevant ones
-  baseline_without_memory: False  # False for goat, True for baseline without memory
+  baseline_without_memory: True  # False for goat, True for baseline without memory
 
   SEMANTIC_MAP:
     semantic_categories: coco_indoor # map semantic channel categories ("coco_indoor", "longtail_indoor", "mukul_indoor")

@@ -140,7 +140,14 @@ DISPLAY=:1 python projects/spot/goat.py --trajectory=airbnb7_pickplace1 --goals=
 DISPLAY=:1 python projects/spot/goat.py --trajectory=airbnb8_video1 --goals=image_bed1,image_chair4,image_chair1,image_bed2,image_chair2 image_couch1,object_oven,object_refrigerator,image_sink1,image_book1,image_bear1,image_cup2,image_book2,image_cup3 image_bowl1,image_bear2,image_cup1,image_bear3
 ___________________________
 
-python projects/spot/record_videos.py --trajectory="/Volumes/Extreme Pro/airbnb_data/spot_abnb2_baselines_no_instances6"
+
+DISPLAY=:1 python projects/spot/goat.py --trajectory=spot_abnb2_baselines_no_instances6 --goals=object_bed,object_plant,object_plant,object_chair,object_bed,object_chair --offline
+DISPLAY=:1 python projects/spot/goat.py --trajectory=spot_abnb2_baselines_ours --goals=image_bed2,image_plant1,image_plant2,image_chair2,image_bed1,image_chair1 --offline
+DISPLAY=:1 python projects/spot/goat.py --trajectory=spot_abnb2_baselines_cow --goals=image_bed2,image_plant1,image_plant2,image_chair2,image_bed1,image_chair1 --offline
+
+DISPLAY=:1 python projects/spot/goat.py --trajectory=spot_abnb2_baselines_no_memory2 --goals=image_bed2,image_plant1,image_plant2,image_chair2,image_bed1,image_chair1 --offline
+______________
+
 
 rsync -vazu "/Volumes/Extreme Pro/airbnb_data/spot_abnb2_baselines_no_instances6" devfair:/private/home/matthewchang/projects/home-robot/projects/spot/fremont_trajectories
 rsync -vazu devfair:/private/home/matthewchang/projects/home-robot/projects/spot/fremont_trajectories/spot_abnb2_baselines_no_instances6/ "/Volumes/Extreme Pro/airbnb_data/spot_abnb2_baselines_no_instances6" 
@@ -163,3 +170,4 @@ python projects/spot/record_videos.py --trajectory="/Volumes/Extreme Pro/airbnb_
 
 cd "/Volumes/Extreme Pro/paper_videos"
 ffmpeg -i baseline_nomemory.m4v -vb 20MB baseline_nomemory.mp4
+
