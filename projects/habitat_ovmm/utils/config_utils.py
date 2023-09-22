@@ -67,6 +67,9 @@ def create_env_config(
     ) and "head_panoptic" not in env_config.habitat.gym.obs_keys:
         env_config.habitat.gym.obs_keys.append("head_panoptic")
 
+    if env_config.NO_GPU:
+        env_config.habitat.simulator.habitat_sim_v0.gpu_device_id = -1
+
     episode_ids_range = env_config.habitat.dataset.episode_indices_range
     if episode_ids_range is not None:
         env_config.EXP_NAME = os.path.join(

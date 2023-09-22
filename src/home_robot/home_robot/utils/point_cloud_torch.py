@@ -248,11 +248,6 @@ def get_bounds(points: Tensor, tol: float = 1e-4):
     Returns:
         mins_and_maxes: [3, 2]
     """
-    mins = points.min(dim=0)[0]
-    maxs = points.max(dim=0)[0]
-    if not torch.all(maxs > mins):
-        # TODO: we should really catch this and return an error
-        warnings.warn(RuntimeError("Zero-volume bounds detected in get_bounds"))
-        maxs += tol
-        mins -= tol
-    return torch.stack([mins, maxs], dim=-1)
+    assert points.ndim == 2 and points.shape[-1] == 3, points.shape
+    assert points.shape[0] > 1, f"Points is of shape {points.shape}"
+    return torch.stack([points.min(dim=0).values, points.max(dim=0).values], dim=-1)

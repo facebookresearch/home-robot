@@ -1,30 +1,37 @@
-# This script is supposed to process downloaded scannet files into a format usable with ScanNet dataset.
-# Code is as-is and hasn't been tested with edge cases/other data.
-# Modified from
-# https://github.com/facebookresearch/votenet/blob/master/scannet/load_scannet_data.py
-# MIT License
-
 # Copyright (c) Meta Platforms, Inc. and affiliates.
+#
+# This source code is licensed under the MIT license found in the
+# LICENSE file in the root directory of this source tree.
+"""
+    This script is supposed to process downloaded scannet files into a format usable with ScanNet dataset.
+    Load Scannet scenes with vertices and ground truth labels for semantic and
+    instance segmentations.
+    Code is as-is and hasn't been tested with edge cases/other data.
 
-# Permission is hereby granted, free of charge, to any person obtaining a copy
-# of this software and associated documentation files (the "Software"), to deal
-# in the Software without restriction, including without limitation the rights
-# to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-# copies of the Software, and to permit persons to whom the Software is
-# furnished to do so, subject to the following conditions:
+    # Modified from
+    # https://github.com/facebookresearch/votenet/blob/master/scannet/load_scannet_data.py
 
-# The above copyright notice and this permission notice shall be included in all
-# copies or substantial portions of the Software.
+    Which has:
+    # MIT License
+    # Copyright (c) Meta Platforms, Inc. and affiliates.
+    # Permission is hereby granted, free of charge, to any person obtaining a copy
+    # of this software and associated documentation files (the "Software"), to deal
+    # in the Software without restriction, including without limitation the rights
+    # to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+    # copies of the Software, and to permit persons to whom the Software is
+    # furnished to do so, subject to the following conditions:
 
-# THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-# IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-# FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-# AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-# LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-# OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-# SOFTWARE.
-"""Load Scannet scenes with vertices and ground truth labels for semantic and
-instance segmentations."""
+    # The above copyright notice and this permission notice shall be included in all
+    # copies or substantial portions of the Software.
+
+    # THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+    # IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+    # FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+    # AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+    # LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+    # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+    # SOFTWARE.
+"""
 import argparse
 import inspect
 import json
@@ -45,9 +52,9 @@ def read_aggregation(filename):
         data = json.load(f)
         num_objects = len(data["segGroups"])
         for i in range(num_objects):
-            object_id = (
-                data["segGroups"][i]["objectId"] + 1
-            )  # instance ids should be 1-indexed
+            object_id = data["segGroups"][i][
+                "objectId"
+            ]  # + 1  # instance ids should be 1-indexed
             label = data["segGroups"][i]["label"]
             segs = data["segGroups"][i]["segments"]
             object_id_to_segs[object_id] = segs
@@ -132,7 +139,7 @@ def export(
     """
 
     label_map = scannet_utils.read_label_mapping(
-        label_map_file, label_from="raw_category", label_to="nyu40id"
+        label_map_file, label_from="raw_category", label_to="id"  # nyu40id
     )
     mesh_vertices = scannet_utils.read_mesh_vertices_rgb(mesh_file)
 

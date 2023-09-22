@@ -1,0 +1,8 @@
+defaults:
+  - _self_
+  - semantic_sensor: grounded_sam_perception
+  - voxel_map: default
+
+_target_: build_sparse_voxel_map.SparseVoxelMapAgent
+device: 'cuda:0'
+

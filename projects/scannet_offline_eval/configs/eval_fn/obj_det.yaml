@@ -1,0 +1,5 @@
+_target_: evaluation.obj_det.eval_bboxes_and_print
+_partial_: True
+match_within_class: True
+iou_thr: [0.25, 0.5, 0.75]
+eps: 1e-6
