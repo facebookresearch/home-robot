@@ -852,9 +852,9 @@ class SpotClient:
         # Unnormalize GPS and compass
         if not isinstance(xyt, np.ndarray):
             xyt = np.array(xyt)
-        print("nav to before unnorm", xyt)
+        # print("nav to before unnorm", xyt)
         xyt = self.unnormalize_gps_compass(xyt)
-        print("after =", xyt)
+        # print("after =", xyt)
 
         self.spot.set_base_position(
             x_pos=xyt[0],

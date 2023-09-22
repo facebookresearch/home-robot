@@ -53,7 +53,7 @@ def plan_to_frontier(
     print("Start is valid:", start_is_valid)
     if not start_is_valid:
         return PlanResult(False, reason="invalid start state")
-    for goal in space.sample_closest_frontier(start, step_dist=1.5, min_dist=1.0):
+    for goal in space.sample_closest_frontier(start, step_dist=0.5, min_dist=0.5):
         if goal is None:
             failed = True
             break
@@ -169,7 +169,7 @@ def main(dock: Optional[int] = None, args=None):
     parameters = {
         "step_size": 2.0,  # (originally .1, we can make it all the way to 2 maybe actually)
         "visualize": False,
-        "exploration_steps": 50,
+        "exploration_steps": 20,
         # Voxel map
         "obs_min_height": 0.5,  # Originally .1, floor appears noisy in the 3d map of freemont so we're being super conservative
         "obs_max_height": 1.8,  # Originally 1.8, spot is shorter than stretch tho
