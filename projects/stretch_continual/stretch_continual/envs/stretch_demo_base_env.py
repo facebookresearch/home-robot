@@ -51,8 +51,8 @@ class StretchDemoBaseEnv(gym.Env):
 
     def __init__(self, initialize_ros, include_context):
         super().__init__()
-        self._urdf_path = STRETCH_URDF_DIR  # os.path.join(STRETCH_URDF_DIR, "planner_calibrated_manipulation_mode.urdf")  # TODO: pass in urdf path
-        self._initialize_ros = initialize_ros  # TODO: remove?
+        self._urdf_path = STRETCH_URDF_DIR
+        self._initialize_ros = initialize_ros
         self._include_context = include_context
         self._trajectory_cache = {"linked_files": {}}
 
