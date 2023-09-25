@@ -256,11 +256,11 @@ def main(dock: Optional[int] = None, args=None):
         # Turn on the robot using the client above
         spot.start()
 
-        print("Go to (0, 0, 0) to start with...")
-        spot.navigate_to([0, 0, 0], blocking=True)
-        print("Sleep 1s")
-        time.sleep(1)
-        print("Start exploring")
+        # print("Go to (0, 0, 0) to start with...")
+        # spot.navigate_to([0, 0, 0], blocking=True)
+        # print("Sleep 1s")
+        # time.sleep(1)
+        print("Start exploring!")
 
         # Start thread to update voxel map
         if parameters["use_async_subscriber"]:
