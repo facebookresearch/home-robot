@@ -55,7 +55,7 @@ def plan_to_frontier(
     if not start_is_valid:
         return PlanResult(False, reason="invalid start state")
     for goal in space.sample_closest_frontier(
-        start, step_dist=0.5, min_dist=0.25, debug=debug, verbose=debug
+        start, step_dist=0.5, min_dist=0.5, debug=debug, verbose=debug
     ):
         if goal is None:
             failed = True
@@ -200,8 +200,8 @@ def main(dock: Optional[int] = None, args=None):
         "local_radius": 0.6,  # Can probably be bigger than original (.15)
         # 2d parameters
         "explore_methodical": True,
-        "dilate_frontier_size": 5,
-        "dilate_obstacle_size": 0,
+        "dilate_frontier_size": 10,
+        "dilate_obstacle_size": 4,
         # Frontier
         "min_size": 10,  # Can probably be bigger than original (10)
         "max_size": 20,  # Can probably be bigger than original (10)
@@ -258,9 +258,11 @@ def main(dock: Optional[int] = None, args=None):
 
         # print("Go to (0, 0, 0) to start with...")
         # spot.navigate_to([0, 0, 0], blocking=True)
-        # print("Sleep 1s")
-        # time.sleep(1)
+        print("Sleep 1s")
+        time.sleep(1)
         print("Start exploring!")
+        x0, y0, theta0 = spot.current_position
+        spot.navigate_to([x0, y0, theta0], blocking=True)
 
         # Start thread to update voxel map
         if parameters["use_async_subscriber"]:
@@ -275,8 +277,8 @@ def main(dock: Optional[int] = None, args=None):
             voxel_map.add_obs(obs, xyz_frame="world")
 
         # Do a 360 degree turn to get some observations (this helps debug the robot)
-        for i in range(7):
-            spot.navigate_to([0, 0, (i + 1) * np.pi / 4], blocking=True)
+        for i in range(8):
+            spot.navigate_to([x0, y0, theta0 + (i + 1) * np.pi / 4], blocking=True)
             if not parameters["use_async_subscriber"]:
                 obs = spot.get_rgbd_obs()
                 obs = semantic_sensor.predict(obs)
@@ -371,7 +373,7 @@ def main(dock: Optional[int] = None, args=None):
 
         while True:
             # for debug, sending the robot back to original
-            spot.navigate_to([0, 0, 0], blocking=True)
+            spot.navigate_to([x0, y0, theta0], blocking=True)
             success = False
             if args.enable_vlm == 1:
                 # get world_representation for planning
