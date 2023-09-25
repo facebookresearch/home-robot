@@ -13,7 +13,6 @@ from typing import Any, Dict, List, Optional, Sequence, Tuple, Union
 import matplotlib.pyplot as plt
 import numpy as np
 import torch
-from evaluation.obj_det import eval_bboxes_and_print
 from hydra_zen import store, zen
 from torch import Tensor
 from tqdm import tqdm
@@ -238,50 +237,15 @@ def main_runner(
         scene_obs[key] = scene_obs[key].to(torch_device)
 
     # Add to ScanNetSparseVoxelMap
-    n_frames = len(scene_obs["images"])
-    with torch.no_grad():
-        for i in tqdm(range(n_frames), desc="Adding observations to map"):
-            obs = Observations(
-                gps=None,
-                compass=None,
-                rgb=scene_obs["images"][i] * 255,
-                depth=scene_obs["depths"][i],
-                semantic=None,
-                instance=scene_obs["instance_map"][i],
-                # Pose of the camera in world coordinates
-                camera_pose=scene_obs["poses"][i],
-                camera_K=scene_obs["intrinsics"][i],
-                task_observations={
-                    # "instance_classes": scene_obs["instance_classes"][i],
-                    # "instance_scores": scene_obs["instance_scores"][i],
-                    # "features": scene_obs["images"][i],
-                },
-            )
-            model.step(obs)
 
-    # Evaluate against GT object detection + localization
-    instances = model.voxel_map.get_instances()
-    bounds = torch.stack([inst.bounds.cpu() for inst in instances])
-    scores = torch.stack(
-        [
-            torch.mean(torch.stack([v.score for v in ins.instance_views])).cpu()
-            for ins in instances
-        ]
+    class_id_to_class_names = dict(
+        zip(
+            dataset.METAINFO["CLASS_IDS"],  # IDs [1, 3, 4, 5, ..., 65]
+            dataset.METAINFO["CLASS_NAMES"],  # [wall, floor, cabinet, ...]
+        )
     )
-    classes = torch.stack([inst.category_id.cpu() for inst in instances])
-    detic_to_scannet_classes = torch.tensor(dataset.METAINFO["CLASS_IDS"])
-    classes = detic_to_scannet_classes[classes]
-
-    eval_bboxes_and_print(
-        box_gt_bounds=[scene_obs["boxes_aligned"]],
-        box_gt_class=[scene_obs["box_classes"]],
-        box_pred_bounds=[bounds],
-        box_pred_class=[classes],
-        box_pred_scores=[scores],
-        match_within_class=True,
-        iou_thr=(0.25, 0.5, 0.75),
-        # label_to_cat=
-    )
+    model.set_vocabulary(class_id_to_class_names)
+    model.build_scene_and_get_instances_for_queries(scene_obs, queries=[], reset=False)
 
     if show_backend:
         model.voxel_map.show(backend=show_backend)
