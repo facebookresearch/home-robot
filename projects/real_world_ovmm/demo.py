@@ -41,7 +41,7 @@ def run_exploration(
     robot: StretchClient,
     rate: int = 10,
     manual_wait: bool = False,
-    explore_iter: int = 3,
+    explore_iter: int = 20,
     try_to_plan_iter: int = 10,
     dry_run: bool = False,
     random_goals: bool = False,
@@ -119,72 +119,35 @@ def run_exploration(
         print("WARNING: planning to home failed!")
 
 
-def collect_data(
-    rate,
-    visualize,
-    manual_wait,
-    pcd_filename,
-    pkl_filename,
-    voxel_size: float = 0.01,
-    device_id: int = 0,
-    verbose: bool = True,
-    visualize_map_at_start: bool = False,
-    visualize_map: bool = False,
-    blocking: bool = True,
-    **kwargs,
-):
-    """Collect data from a Stretch robot. Robot will move through a preset trajectory, stopping repeatedly."""
-
-    print("- Connect to Stretch")
-    robot = StretchClient()
-
-    config, semantic_sensor = create_semantic_sensor(device_id, verbose)
-
-    print("- Start ROS data collector")
-    collector = RosMapDataCollector(
-        robot, semantic_sensor, visualize, voxel_size=voxel_size
+def run_grasping(robot: StretchClient, semantic_sensor):
+    """Start running grasping code here"""
+    robot.switch_to_manipulation_mode()
+    robot.move_to_manip_posture()
+    robot.manip.goto_joint_positions(
+        [
+            0.0,  # base x
+            0.6,  # Lift
+            0.01,  # Arm
+            0,  # Roll
+            -1.5,  # Pitch
+            0,  # Yaw
+        ]
     )
 
-    # Tuck the arm away
-    print("Sending arm to  home...")
-    robot.switch_to_manipulation_mode()
+    # Get observations from the robot
+    obs = robot.get_observation()
+    # Predict masks
+    obs = semantic_sensor.predict(obs)
 
-    robot.move_to_nav_posture()
-    robot.head.look_close(blocking=False)
-    print("... done.")
+    plt.subplot(131)
+    plt.imshow(obs.rgb)
+    plt.subplot(132)
+    plt.imshow(obs.xyz)
+    plt.subplot(133)
+    plt.imshow(obs.semantic)
+    plt.show()
 
-    # Move the robot
-    robot.switch_to_navigation_mode()
-    collector.step(visualize_map=visualize_map_at_start)  # Append latest observations
-    run_exploration(collector, robot, rate, manual_wait)
-
-    print("Done collecting data.")
-    robot.nav.navigate_to((0, 0, 0))
-    pc_xyz, pc_rgb = collector.show()
-
-    if visualize_map:
-        import matplotlib.pyplot as plt
-
-        obstacles, explored = collector.get_2d_map()
-
-        plt.subplot(1, 2, 1)
-        plt.imshow(obstacles)
-        plt.subplot(1, 2, 2)
-        plt.imshow(explored)
-        plt.show()
-
-    # Create pointcloud
-    if len(pcd_filename) > 0:
-        pcd = numpy_to_pcd(pc_xyz, pc_rgb / 255)
-        open3d.io.write_point_cloud(pcd_filename, pcd)
-    if len(pkl_filename) > 0:
-        collector.voxel_map.write_to_pickle(pkl_filename)
-
-    rospy.signal_shutdown("done")
-
-
-def run_grasping():
-    pass
+    show_point_cloud(obs.xyz, obs.rgb / 255, orig=np.zeros(3))
 
 
 @click.command()
@@ -197,6 +160,7 @@ def run_grasping():
 @click.option("--show-paths", default=False, is_flag=True)
 @click.option("--random-goals", default=False, is_flag=True)
 @click.option("--test-grasping", default=False, is_flag=True)
+@click.option("--explore-iter", default=10)
 @click.option(
     "--input-path",
     type=click.Path(),
@@ -218,6 +182,7 @@ def main(
     show_paths: bool = False,
     random_goals: bool = True,
     test_grasping: bool = False,
+    explore_iter: int = 10,
     **kwargs,
 ):
     """
@@ -231,21 +196,60 @@ def main(
     """
     click.echo(f"Using input path: {input_path}")
 
-    if test_grasping:
-        run_grasping()
-
     click.echo("Will connect to a Stretch robot and collect a short trajectory.")
-    collect_data(
-        rate,
-        visualize,
-        manual_wait,
-        output_pcd_filename,
-        output_pkl_filename,
-        voxel_size,
-        device_id,
-        verbose,
-        **kwargs,
+    print("- Connect to Stretch")
+    robot = StretchClient()
+
+    print("- Create semantic sensor based on detic")
+    config, semantic_sensor = create_semantic_sensor(device_id, verbose)
+
+    # Run grasping test - just grab whatever is in front of the robot
+    if test_grasping:
+        run_grasping(robot, semantic_sensor)
+        rospy.signal_shutdown("done")
+        return
+
+    print("- Start ROS data collector")
+    collector = RosMapDataCollector(
+        robot, semantic_sensor, visualize, voxel_size=voxel_size
     )
+
+    # Tuck the arm away
+    print("Sending arm to  home...")
+    robot.switch_to_manipulation_mode()
+
+    robot.move_to_nav_posture()
+    robot.head.look_close(blocking=False)
+    print("... done.")
+
+    # Move the robot
+    robot.switch_to_navigation_mode()
+    collector.step(visualize_map=show_maps)  # Append latest observations
+    run_exploration(collector, robot, rate, manual_wait, explore_iter=explore_iter)
+
+    print("Done collecting data.")
+    robot.nav.navigate_to((0, 0, 0))
+    pc_xyz, pc_rgb = collector.show()
+
+    if show_maps:
+        import matplotlib.pyplot as plt
+
+        obstacles, explored = collector.get_2d_map()
+
+        plt.subplot(1, 2, 1)
+        plt.imshow(obstacles)
+        plt.subplot(1, 2, 2)
+        plt.imshow(explored)
+        plt.show()
+
+    # Create pointcloud
+    if len(pcd_filename) > 0:
+        pcd = numpy_to_pcd(pc_xyz, pc_rgb / 255)
+        open3d.io.write_point_cloud(pcd_filename, pcd)
+    if len(pkl_filename) > 0:
+        collector.voxel_map.write_to_pickle(pkl_filename)
+
+    rospy.signal_shutdown("done")
 
 
 if __name__ == "__main__":
