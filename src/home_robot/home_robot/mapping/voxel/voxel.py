@@ -540,7 +540,6 @@ class SparseVoxelMap(object):
         explored_soft += self._visited
         explored = explored_soft > 0
 
-        debug = True
         if debug:
             import matplotlib.pyplot as plt
 

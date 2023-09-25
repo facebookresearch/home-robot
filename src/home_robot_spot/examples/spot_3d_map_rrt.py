@@ -404,6 +404,7 @@ def main(dock: Optional[int] = None, args=None):
                         break
             else:
                 # Navigating to a cup or bottle
+                instance_id = None
                 for i, each_instance in enumerate(instances):
                     if vocab.goal_id_to_goal_name[
                         int(each_instance.category_id.item())
@@ -411,12 +412,20 @@ def main(dock: Optional[int] = None, args=None):
                         instance_id = i
                         break
 
-            print("Navigating to instance ")
-            print(f"Instance id: {instance_id}")
-            success = navigate_to_an_instance(
-                spot, voxel_map, planner, instance_id, visualize=parameters["visualize"]
-            )
-            print(f"Success: {success}")
+            if instance_id is None:
+                print("No instances found!")
+                success = False
+            else:
+                print("Navigating to instance ")
+                print(f"Instance id: {instance_id}")
+                success = navigate_to_an_instance(
+                    spot,
+                    voxel_map,
+                    planner,
+                    instance_id,
+                    visualize=parameters["visualize"],
+                )
+                print(f"Success: {success}")
 
             # try to pick up this instance
             if success:
