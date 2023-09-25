@@ -119,7 +119,7 @@ def navigate_to_an_instance(
     # TODO this can be random
     view = instance.instance_views[-1]
     goal_position = np.asarray(view.pose)
-    start = spot.current_relative_position
+    start = spot.current_position
 
     print(goal_position)
     if should_plan:
@@ -281,6 +281,9 @@ def main(dock: Optional[int] = None, args=None):
                 obs = spot.get_rgbd_obs()
                 obs = semantic_sensor.predict(obs)
                 voxel_map.add_obs(obs, xyz_frame="world")
+                print("-", i + 1, "-")
+                print("Camera pose =", obs.camera_pose[:3, 3].cpu().numpy())
+                print("Base pose =", obs.gps, obs.compass)
 
         voxel_map.show()
         for step in range(int(parameters["exploration_steps"])):
@@ -289,7 +292,7 @@ def main(dock: Optional[int] = None, args=None):
             print("-" * 8, step + 1, "/", int(parameters["exploration_steps"]), "-" * 8)
 
             # Get current position and goal
-            start = spot.current_relative_position
+            start = spot.current_position
             goal = None
             print("Start xyt:", start)
             start_is_valid = navigation_space.is_valid(start)
@@ -328,6 +331,7 @@ def main(dock: Optional[int] = None, args=None):
                 print(goal)
                 print("Res success:", res.success)
 
+            # Move to the next location
             spot.execute_plan(res)
 
             if not parameters["use_async_subscriber"]:
@@ -344,19 +348,16 @@ def main(dock: Optional[int] = None, args=None):
                         voxel_map_subscriber.current_obs,
                     )
                 robot_center = np.zeros(3)
-                robot_center[:2] = spot.current_relative_position[:2]
+                robot_center[:2] = spot.current_position[:2]
                 voxel_map.show(backend="open3d", orig=robot_center, instances=True)
 
                 obstacles, explored = voxel_map.get_2d_map()
                 img = (10 * obstacles) + explored
-                start_unnormalized = spot.unnormalize_gps_compass(start)
-                navigation_space.draw_state_on_grid(img, start_unnormalized, weight=5)
-
+                # start_unnormalized = spot.unnormalize_gps_compass(start)
+                navigation_space.draw_state_on_grid(img, start, weight=5)
                 if goal is not None:
-                    goal_unnormalized = spot.unnormalize_gps_compass(goal)
-                    navigation_space.draw_state_on_grid(
-                        img, goal_unnormalized, weight=5
-                    )
+                    # goal_unnormalized = spot.unnormalize_gps_compass(goal)
+                    navigation_space.draw_state_on_grid(img, goal, weight=5)
 
                 plt.imshow(img)
                 plt.show()
@@ -364,7 +365,7 @@ def main(dock: Optional[int] = None, args=None):
 
         print("Exploration complete!")
         robot_center = np.zeros(3)
-        robot_center[:2] = spot.current_relative_position[:2]
+        robot_center[:2] = spot.current_position[:2]
         voxel_map.show(backend="open3d", orig=robot_center, instances=True)
         instances = voxel_map.get_instances()
 
