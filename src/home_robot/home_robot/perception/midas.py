@@ -26,7 +26,11 @@ class Midas:
 
     # expects numpy rgb, [0,255]
     # TODO: undefined name "process"
-    def depth_estimate(self, rgb, depth):
+    def depth_estimate(self, rgb: np.ndarray, depth: np.ndarray):
+        if isinstance(rgb, torch.Tensor):
+            rgb = rgb.cpu().numpy()
+        if isinstance(depth, torch.Tensor):
+            depth = depth.cpu().numpy()
         image = self.transform({"image": (rgb / 255)})["image"]
         # compute
         with torch.no_grad():

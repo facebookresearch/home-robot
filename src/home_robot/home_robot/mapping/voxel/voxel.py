@@ -351,7 +351,7 @@ class SparseVoxelMap(object):
             instance_seg=instance,
             point_cloud=full_world_xyz.reshape(H, W, 3),
             image=rgb.permute(2, 0, 1),
-            cam_to_world=base_pose,
+            cam_to_world=camera_pose,
             instance_classes=instance_classes,
             instance_scores=instance_scores,
             background_instance_labels=[self.background_instance_label],
@@ -369,8 +369,8 @@ class SparseVoxelMap(object):
         # TODO: weights could also be confidence, inv distance from camera, etc
         self.voxel_pcd.add(world_xyz, features=feats, rgb=rgb, weights=None)
 
-        # Visited
         # TODO: just get this from camera_pose?
+        self._update_visited(camera_pose[:3, 3])
         if base_pose is not None:
             self._update_visited(base_pose)
 
@@ -539,7 +539,6 @@ class SparseVoxelMap(object):
         # TODO: make sure lidar is supported here as well; if we do not have lidar assume a certain radius is explored
         explored_soft += self._visited
         explored = explored_soft > 0
-        breakpoint()
 
         debug = True
         if debug:
