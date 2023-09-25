@@ -506,7 +506,11 @@ class SparseVoxelMap(object):
         xyz, _, counts, _ = self.voxel_pcd.get_pointcloud()
         device = xyz.device
         xyz = ((xyz / self.grid_resolution) + self.grid_origin).long()
-        xyz[xyz[:, -1] < 0] = 0
+
+        # from home_robot.utils.point_cloud import show_point_cloud
+        # show_point_cloud(xyz, rgb, orig=np.zeros(3))
+        xyz[xyz[:, -1] < 0, -1] = 0
+        # show_point_cloud(xyz, rgb, orig=np.zeros(3))
 
         # Crop to robot height
         min_height = int(self.obs_min_height / self.grid_resolution)
@@ -535,6 +539,7 @@ class SparseVoxelMap(object):
         # TODO: make sure lidar is supported here as well; if we do not have lidar assume a certain radius is explored
         explored_soft += self._visited
         explored = explored_soft > 0
+        breakpoint()
 
         debug = True
         if debug:
