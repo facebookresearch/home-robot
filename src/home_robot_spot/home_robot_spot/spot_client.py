@@ -28,6 +28,8 @@ from spot_wrapper.basic_streaming_visualizer_numpy import obstacle_grid_points
 from spot_wrapper.spot import Spot, build_image_request, image_response_to_cv2
 
 from home_robot.core.interfaces import Action, Observations
+from home_robot.motion import PlanResult
+from home_robot.perception.midas import Midas
 from home_robot.utils.bboxes_3d_plotly import plot_scene_with_bboxes
 from home_robot.utils.config import get_config
 from home_robot.utils.geometry import sophus2xyt, xyt2sophus
@@ -83,55 +85,6 @@ IGNORED_NAMES = [
     "right_fisheye",
     "right_fisheye",
 ]
-
-
-class Midas:
-    def __init__(self, device):
-        from midas.model_loader import default_models, load_model
-
-        super().__init__()
-        # midas params
-        self.device = device
-        self.model_type = "dpt_beit_large_512"
-        self.optimize = False
-        height = None
-        square = False
-        model_path = f"src/third_party/MiDaS/weights/{self.model_type}.pt"
-        self.model, self.transform, self.net_w, self.net_h = load_model(
-            device, model_path, self.model_type, self.optimize, height, square
-        )
-
-    # expects numpy rgb, [0,255]
-    # TODO: undefined name "process"
-    # def depth_estimate(self, rgb, depth):
-    #     image = self.transform({"image": (rgb / 255)})["image"]
-    #     # compute
-    #     with torch.no_grad():
-    #         prediction = process(
-    #             self.device,
-    #             self.model,
-    #             self.model_type,
-    #             image,
-    #             (self.net_w, self.net_h),
-    #             rgb.shape[1::-1],
-    #             self.optimize,
-    #             False,
-    #         )
-    #     depth_valid = depth > 0
-
-    #     # solve for MSE for the system of equations Ax = b where b is the observed depth and x is the predicted depth values
-    #     x = np.stack(
-    #         (prediction[depth_valid], np.ones_like(prediction[depth_valid])), axis=1
-    #     ).T
-    #     b = depth[depth_valid].T
-    #     # 1 x 2 * 2 x n = 1 x n
-    #     pinvx = np.linalg.pinv(x)
-    #     A = b @ pinvx
-
-    #     adjusted = prediction * A[0] + A[1]
-    #     mse = ((A @ x - b) ** 2).mean()
-    #     mean_error = np.abs(A @ x - b).mean()
-    #     return adjusted, mse, mean_error
 
 
 class SpotPublishers:
@@ -551,6 +504,13 @@ class SpotClient:
         # print(self.unnormalize_gps_compass([0, 0, 0]))
         # breakpoint()
         # self.rot_compass = yaw_rotation_matrix_2D(-self.start_compass)
+
+    def execute_plan(self, plan: PlanResult):
+        """go through a whole plan and execute it"""
+        print("Executing motion plan:")
+        for i, node in enumerate(plan.trajectory):
+            print(" - go to", i, "xyt =", node.state)
+            self.navigate_to(node.state, blocking=True)
 
     @property
     def raw_observations(self):

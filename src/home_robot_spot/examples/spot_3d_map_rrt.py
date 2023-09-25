@@ -53,7 +53,7 @@ def plan_to_frontier(
     print("Start is valid:", start_is_valid)
     if not start_is_valid:
         return PlanResult(False, reason="invalid start state")
-    for goal in space.sample_closest_frontier(start, step_dist=0.5, min_dist=0.5):
+    for goal in space.sample_closest_frontier(start, step_dist=0.5, min_dist=0.25):
         if goal is None:
             failed = True
             break
@@ -101,17 +101,34 @@ def plan_to_frontier(
 
 
 def navigate_to_an_instance(
-    spot, voxel_map, planner, instance_id, visualize=False, n_sample=10
+    spot,
+    voxel_map,
+    planner,
+    instance_id,
+    visualize=False,
+    n_sample=10,
+    should_plan: bool = True,
 ):
+    """Navigate to a specific object instance"""
     instances = voxel_map.get_instances()
     instance = instances[instance_id]
 
     # TODO this can be random
     view = instance.instance_views[-1]
     goal_position = np.asarray(view.pose)
+    start = spot.current_relative_position
 
     print(goal_position)
-    spot.navigate_to(goal_position, blocking=True)
+    if should_plan:
+        res = planner.plan(start, goal_position)
+        print(goal_position)
+        print("Res success:", res.success)
+        if res.success:
+            spot.execute_plan(res)
+        else:
+            print("!!! PLANNING FAILED !!!")
+    else:
+        spot.navigate_to(goal_position, blocking=True)
 
     if visualize:
         cropped_image = view.cropped_image
@@ -177,7 +194,7 @@ def main(dock: Optional[int] = None, args=None):
         "voxel_size": 0.05,
         "local_radius": 0.75,  # Can probably be bigger than original (.15)
         # Frontier
-        "min_size": 5,  # Can probably be bigger than original (10)
+        "min_size": 10,  # Can probably be bigger than original (10)
         "max_size": 20,  # Can probably be bigger than original (10)
         # Other parameters tuned (footprint is a third of the real robot size)
         "use_async_subscriber": False,
@@ -297,10 +314,7 @@ def main(dock: Optional[int] = None, args=None):
                 print(goal)
                 print("Res success:", res.success)
 
-            # TODO this trajectory is really ineficient, we can interpolate smarter
-            for i, node in enumerate(res.trajectory):
-                print(" - go to", i, "xyt =", node.state)
-                spot.navigate_to(node.state, blocking=True)
+            spot.execute_plan(res)
 
             if not parameters["use_async_subscriber"]:
                 print("Synchronous obs update")
