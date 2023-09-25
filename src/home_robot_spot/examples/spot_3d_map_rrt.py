@@ -185,7 +185,8 @@ def main(dock: Optional[int] = None, args=None):
     # TODO move these parameters to config
     parameters = {
         "step_size": 2.0,  # (originally .1, we can make it all the way to 2 maybe actually)
-        "visualize": False,
+        "rotation_step_size": 4.0,
+        "visualize": True,
         "exploration_steps": 20,
         # Voxel map
         "obs_min_height": 0.5,  # Originally .1, floor appears noisy in the 3d map of freemont so we're being super conservative
@@ -193,6 +194,10 @@ def main(dock: Optional[int] = None, args=None):
         "obs_min_density": 25,  # Originally 10, making it bigger because theres a bunch on noise
         "voxel_size": 0.05,
         "local_radius": 0.75,  # Can probably be bigger than original (.15)
+        # 2d
+        "explore_methodical": True,
+        "dilate_frontier_size": 10,
+        "dilate_obstacle_size": 0,
         # Frontier
         "min_size": 10,  # Can probably be bigger than original (10)
         "max_size": 20,  # Can probably be bigger than original (10)
@@ -217,9 +222,9 @@ def main(dock: Optional[int] = None, args=None):
         voxel_map=voxel_map,
         robot=robot_model,
         step_size=parameters["step_size"],
-        rotation_step_size=4.0,
-        dilate_frontier_size=5,
-        dilate_obstacle_size=0,
+        rotation_step_size=parameters["rotation_step_size"],
+        dilate_frontier_size=parameters["dilate_frontier_size"],
+        dilate_obstacle_size=parameters["dilate_obstacle_size"],
     )
     print(" - Created navigation space and environment")
     print(f"   {navigation_space=}")
@@ -286,8 +291,7 @@ def main(dock: Optional[int] = None, args=None):
                 print("!!!!!!!!")
                 break
 
-            explore_methodical = False
-            if explore_methodical:
+            if parameters["explore_methodical"]:
                 print("Generating the next closest frontier point...")
                 res = plan_to_frontier(start, planner, navigation_space, voxel_map)
                 if not res.success:
