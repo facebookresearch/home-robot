@@ -201,7 +201,7 @@ def main(dock: Optional[int] = None, args=None):
         # 2d parameters
         "explore_methodical": True,
         "dilate_frontier_size": 10,
-        "dilate_obstacle_size": 4,
+        "dilate_obstacle_size": 6,
         # Frontier
         "min_size": 10,  # Can probably be bigger than original (10)
         "max_size": 20,  # Can probably be bigger than original (10)
