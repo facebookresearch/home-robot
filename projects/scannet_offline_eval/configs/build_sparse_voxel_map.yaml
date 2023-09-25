@@ -5,5 +5,7 @@ defaults:
   - paths: default
   - hydra: default
 
-scene_name: scene0192_00
-show_backend: open3d
+scene_name: scene0011_00
+show_backend: false # open3d, pytorch3d
+save_instance_map_fpath: ./canned_scannet_scene.pth
+task_name: 'huh'

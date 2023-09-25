@@ -13,6 +13,7 @@ from typing import Any, Dict, List, Optional, Sequence, Tuple, Union
 import matplotlib.pyplot as plt
 import numpy as np
 import torch
+from evaluation.obj_det import eval_bboxes_and_print
 from hydra_zen import store, zen
 from torch import Tensor
 from tqdm import tqdm
@@ -290,7 +291,6 @@ if __name__ == "__main__":
     import warnings
 
     warnings.simplefilter("default")
-    import __main__ as build_sparse_voxel_map
 
     # store.add_to_hydra_store()
     zen(main_runner).hydra_main(

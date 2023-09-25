@@ -633,11 +633,12 @@ class SparseVoxelMap(object):
         traces = {}
 
         # Show points
-        ptc = Pointclouds(points=[points], features=[rgb])
-        traces["Points"] = ptc
+        if points is not None:
+            ptc = Pointclouds(points=[points], features=[rgb])
+            traces["Points"] = ptc
 
         # Show instances
-        if instances:
+        if instances and len(self.get_instances()) > 0:
             bounds, names = zip(
                 *[(v.bounds, v.category_id) for v in self.get_instances()]
             )
