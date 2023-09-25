@@ -118,7 +118,7 @@ class SparseVoxelMap(object):
         print(f"{self._disk_size=}")
 
         self._visited_disk = torch.from_numpy(
-            create_disk(1.0 / self.grid_resolution, (2 * self._disk_size) + 1)
+            create_disk(self._disk_size, (2 * self._disk_size) + 1)
         )
 
         if grid_size is not None:
@@ -506,6 +506,7 @@ class SparseVoxelMap(object):
         xyz, _, counts, _ = self.voxel_pcd.get_pointcloud()
         device = xyz.device
         xyz = ((xyz / self.grid_resolution) + self.grid_origin).long()
+        xyz[xyz[:, -1] < 0] = 0
 
         # Crop to robot height
         min_height = int(self.obs_min_height / self.grid_resolution)
@@ -527,14 +528,15 @@ class SparseVoxelMap(object):
         obstacles = obstacles_soft > self.obs_min_density
 
         # Explored area = only floor mass
-        floor_voxels = voxels[:, :, :min_height]
-        explored_soft = torch.sum(floor_voxels, dim=-1)
+        # floor_voxels = voxels[:, :, :min_height]
+        explored_soft = torch.sum(voxels, dim=-1)
 
         # Add explored radius around the robot, up to min depth
         # TODO: make sure lidar is supported here as well; if we do not have lidar assume a certain radius is explored
         explored_soft += self._visited
         explored = explored_soft > 0
 
+        debug = True
         if debug:
             import matplotlib.pyplot as plt
 
@@ -548,15 +550,19 @@ class SparseVoxelMap(object):
             plt.subplot(2, 2, 1)
             plt.imshow(obstacles_soft.detach().cpu().numpy())
             plt.title("obstacles soft")
+            plt.axis("off")
             plt.subplot(2, 2, 2)
             plt.imshow(explored_soft.detach().cpu().numpy())
             plt.title("explored soft")
+            plt.axis("off")
             plt.subplot(2, 2, 3)
             plt.imshow(obstacles.detach().cpu().numpy())
             plt.title("obstacles")
+            plt.axis("off")
             plt.subplot(2, 2, 4)
             plt.imshow(explored.detach().cpu().numpy())
-            plt.title()
+            plt.axis("off")
+            plt.title("explored")
             plt.show()
 
         # Update cache

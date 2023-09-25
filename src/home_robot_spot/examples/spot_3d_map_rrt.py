@@ -43,6 +43,7 @@ def plan_to_frontier(
     voxel_map: SparseVoxelMap,
     visualize: bool = False,
     try_to_plan_iter: int = 10,
+    debug: bool = True,
 ) -> PlanResult:
     # extract goal using fmm planner
     tries = 0
@@ -53,7 +54,9 @@ def plan_to_frontier(
     print("Start is valid:", start_is_valid)
     if not start_is_valid:
         return PlanResult(False, reason="invalid start state")
-    for goal in space.sample_closest_frontier(start, step_dist=0.5, min_dist=0.25):
+    for goal in space.sample_closest_frontier(
+        start, step_dist=0.5, min_dist=0.25, debug=debug, verbose=debug
+    ):
         if goal is None:
             failed = True
             break
@@ -186,7 +189,7 @@ def main(dock: Optional[int] = None, args=None):
     parameters = {
         "step_size": 2.0,  # (originally .1, we can make it all the way to 2 maybe actually)
         "rotation_step_size": 4.0,
-        "visualize": True,
+        "visualize": False,
         "exploration_steps": 20,
         # Voxel map
         "obs_min_height": 0.5,  # Originally .1, floor appears noisy in the 3d map of freemont so we're being super conservative
@@ -203,6 +206,7 @@ def main(dock: Optional[int] = None, args=None):
         "max_size": 20,  # Can probably be bigger than original (10)
         # Other parameters tuned (footprint is a third of the real robot size)
         "use_async_subscriber": False,
+        "write_data": False,
     }
 
     # Create voxel map
@@ -266,13 +270,16 @@ def main(dock: Optional[int] = None, args=None):
             # TODO: remove debug code
             print(obs.gps, obs.compass)
             voxel_map.add_obs(obs, xyz_frame="world")
-            voxel_map.show()
 
-        # Well do a 360 degree turn to get some observations (this helps debug the robot)
-        # for _ in range(4):
-        #     spot.move_base(0, .5)
-        #     time.sleep(5)
+        # Do a 360 degree turn to get some observations (this helps debug the robot)
+        for i in range(7):
+            spot.navigate_to([0, 0, (i + 1) * np.pi / 4], blocking=True)
+            if not parameters["use_async_subscriber"]:
+                obs = spot.get_rgbd_obs()
+                obs = semantic_sensor.predict(obs)
+                voxel_map.add_obs(obs, xyz_frame="world")
 
+        voxel_map.show()
         for step in range(int(parameters["exploration_steps"])):
 
             print()
@@ -339,10 +346,14 @@ def main(dock: Optional[int] = None, args=None):
                 obstacles, explored = voxel_map.get_2d_map()
                 img = (10 * obstacles) + explored
                 start_unnormalized = spot.unnormalize_gps_compass(start)
-                goal_unnormalized = spot.unnormalize_gps_compass(goal)
-
                 navigation_space.draw_state_on_grid(img, start_unnormalized, weight=5)
-                navigation_space.draw_state_on_grid(img, goal_unnormalized, weight=5)
+
+                if goal is not None:
+                    goal_unnormalized = spot.unnormalize_gps_compass(goal)
+                    navigation_space.draw_state_on_grid(
+                        img, goal_unnormalized, weight=5
+                    )
+
                 plt.imshow(img)
                 plt.show()
                 plt.imsave(f"exploration_step_{step}.png", img)
@@ -432,34 +443,35 @@ def main(dock: Optional[int] = None, args=None):
         raise e
 
     finally:
-        print("Writing data...")
-        pc_xyz, pc_rgb = voxel_map.show(
-            backend="open3d", instances=False, orig=np.zeros(3)
-        )
-        pcd_filename = "spot_output.pcd"
-        pkl_filename = "spot_output.pkl"
+        if parameters["write_data"]:
+            print("Writing data...")
+            pc_xyz, pc_rgb = voxel_map.show(
+                backend="open3d", instances=False, orig=np.zeros(3)
+            )
+            pcd_filename = "spot_output.pcd"
+            pkl_filename = "spot_output.pkl"
 
-        # Create pointcloud
-        if len(pcd_filename) > 0:
-            pcd = numpy_to_pcd(pc_xyz, pc_rgb / 255)
-            open3d.io.write_point_cloud(pcd_filename, pcd)
-            print(f"... wrote pcd to {pcd_filename}")
-        if len(pkl_filename) > 0:
-            voxel_map.write_to_pickle(pkl_filename)
-            print(f"... wrote pkl to {pkl_filename}")
+            # Create pointcloud
+            if len(pcd_filename) > 0:
+                pcd = numpy_to_pcd(pc_xyz, pc_rgb / 255)
+                open3d.io.write_point_cloud(pcd_filename, pcd)
+                print(f"... wrote pcd to {pcd_filename}")
+            if len(pkl_filename) > 0:
+                voxel_map.write_to_pickle(pkl_filename)
+                print(f"... wrote pkl to {pkl_filename}")
 
-        # TODO dont repeat this code
-        obstacles, explored = voxel_map.get_2d_map()
-        img = (10 * obstacles) + explored
-        if start is not None:
-            start_unnormalized = spot.unnormalize_gps_compass(start)
-            navigation_space.draw_state_on_grid(img, start_unnormalized, weight=5)
-        if goal is not None:
-            goal_unnormalized = spot.unnormalize_gps_compass(goal)
-            navigation_space.draw_state_on_grid(img, goal_unnormalized, weight=5)
-        plt.imshow(img)
-        plt.show()
-        plt.imsave("exploration_step_final.png", img)
+            # TODO dont repeat this code
+            obstacles, explored = voxel_map.get_2d_map()
+            img = (10 * obstacles) + explored
+            if start is not None:
+                start_unnormalized = spot.unnormalize_gps_compass(start)
+                navigation_space.draw_state_on_grid(img, start_unnormalized, weight=5)
+            if goal is not None:
+                goal_unnormalized = spot.unnormalize_gps_compass(goal)
+                navigation_space.draw_state_on_grid(img, goal_unnormalized, weight=5)
+            plt.imshow(img)
+            plt.show()
+            plt.imsave("exploration_step_final.png", img)
 
         print("Safely stop the robot...")
         spot.spot.open_gripper()

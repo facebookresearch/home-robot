@@ -279,24 +279,25 @@ class SparseVoxelMapNavigationSpace(XYT):
         edges = get_edges(less_explored)
 
         # Do not explore obstacles any more
-        frontier_edges = edges & ~obstacles
         traversible = explored & ~obstacles
+        frontier_edges = edges & traversible
         outside_frontier = ~explored & ~obstacles
 
         if debug:
             import matplotlib.pyplot as plt
 
             plt.subplot(221)
+            print("highlight only frontier pts")
             plt.imshow(frontier_edges.cpu().numpy())
             plt.subplot(222)
-            # plt.imshow(expanded_frontier.cpu().numpy())
-            # plt.title("expanded frontier")
+            plt.imshow(explored.cpu().numpy())
+            plt.title("explored")
             plt.subplot(223)
-            plt.imshow(traversible.cpu().numpy())
-            plt.title("traversible")
+            plt.imshow((traversible + frontier_edges).cpu().numpy())
+            plt.title("traversible + frontier")
             plt.subplot(224)
             plt.imshow((less_explored + explored).cpu().numpy())
-            plt.title("explored")
+            plt.title("highlight less explored")
             plt.show()
 
         # from scipy.ndimage.morphology import distance_transform_edt
