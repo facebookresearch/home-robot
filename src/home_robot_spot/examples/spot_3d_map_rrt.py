@@ -43,7 +43,7 @@ def plan_to_frontier(
     voxel_map: SparseVoxelMap,
     visualize: bool = False,
     try_to_plan_iter: int = 10,
-    debug: bool = True,
+    debug: bool = False,
 ) -> PlanResult:
     # extract goal using fmm planner
     tries = 0
