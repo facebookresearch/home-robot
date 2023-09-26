@@ -23,6 +23,7 @@ from home_robot.mapping.semantic.instance_tracking_modules import (
 from home_robot.motion import PlanResult, Robot
 from home_robot.utils.bboxes_3d import BBoxes3D
 from home_robot.utils.data_tools.dict import update
+from home_robot.utils.morphology import binary_dilation, binary_erosion
 from home_robot.utils.point_cloud import (
     create_visualization_geometries,
     numpy_to_pcd,
@@ -82,6 +83,7 @@ class SparseVoxelMap(object):
         obs_min_height: float = 0.1,
         obs_max_height: float = 1.8,
         obs_min_density: float = 10,
+        smooth_kernel_size: int = 2,
         add_local_radius_points: bool = True,
         local_radius: float = 0.15,
         min_depth: float = 0.1,
@@ -96,6 +98,7 @@ class SparseVoxelMap(object):
         self.obs_min_height = obs_min_height
         self.obs_max_height = obs_max_height
         self.obs_min_density = obs_min_density
+        self.smooth_kernel_size = smooth_kernel_size
         self.grid_resolution = grid_resolution
         self.voxel_resolution = resolution
         self.min_depth = min_depth
@@ -539,6 +542,15 @@ class SparseVoxelMap(object):
         # TODO: make sure lidar is supported here as well; if we do not have lidar assume a certain radius is explored
         explored_soft += self._visited
         explored = explored_soft > 0
+
+        if self.smooth_kernel_size > 0:
+            print("[SVM] warning: smooth kernel size not implemented")
+            explored = binary_erosion(
+                explored.float().unsqueeze(0).unsqueeze(0), self.smooth_kernel_size
+            )[0, 0]
+            obstacles = binary_erosion(
+                obstacles.float().unsqueeze(0).unsqueeze(0), self.smooth_kernel_size
+            )[0, 0]
 
         if debug:
             import matplotlib.pyplot as plt

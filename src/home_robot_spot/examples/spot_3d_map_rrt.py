@@ -55,7 +55,7 @@ def plan_to_frontier(
     if not start_is_valid:
         return PlanResult(False, reason="invalid start state")
     for goal in space.sample_closest_frontier(
-        start, step_dist=0.5, min_dist=0.25, debug=debug, verbose=debug
+        start, step_dist=0.5, min_dist=0, debug=debug, verbose=debug
     ):
         if goal is None:
             failed = True
@@ -71,7 +71,8 @@ def plan_to_frontier(
             print(" -> resample goal.")
             continue
         # plan to the sampled goal
-        res = planner.plan(start, goal)
+        print("Planning...")
+        res = planner.plan(start, goal, verbose=True)
         print("Found plan:", res.success)
         if visualize:
             obstacles, explored = voxel_map.get_2d_map()
@@ -188,20 +189,20 @@ def main(dock: Optional[int] = None, args=None):
     # TODO move these parameters to config
     parameters = {
         "step_size": 2.0,  # (originally .1, we can make it all the way to 2 maybe actually)
-        "rotation_step_size": 4.0,
+        "rotation_step_size": 3.0,
         "visualize": True,
-        "exploration_steps": 20,
+        "exploration_steps": 50,
         "use_midas": False,
         # Voxel map
-        "obs_min_height": 0.8,  # Originally .1, floor appears noisy in the 3d map of freemont so we're being super conservative
+        "obs_min_height": 0.05,  # Originally .1, floor appears noisy in the 3d map of freemont so we're being super conservative
         "obs_max_height": 1.8,  # Originally 1.8, spot is shorter than stretch tho
-        "obs_min_density": 25,  # Originally 10, making it bigger because theres a bunch on noise
+        "obs_min_density": 10,  # Originally 10, making it bigger because theres a bunch on noise
         "voxel_size": 0.05,
         "local_radius": 0.6,  # Can probably be bigger than original (.15)
         # 2d parameters
         "explore_methodical": True,
-        "dilate_frontier_size": 20,
-        "dilate_obstacle_size": 10,
+        "dilate_frontier_size": 8,
+        "dilate_obstacle_size": 4,
         # Frontier
         "min_size": 10,  # Can probably be bigger than original (10)
         "max_size": 20,  # Can probably be bigger than original (10)
@@ -256,8 +257,6 @@ def main(dock: Optional[int] = None, args=None):
         # Turn on the robot using the client above
         spot.start()
 
-        print("Go to (0, 0, 0) to start with...")
-        spot.navigate_to([0, 0, 0], blocking=True)
         print("Sleep 1s")
         time.sleep(1)
         print("Start exploring!")
@@ -461,7 +460,7 @@ def main(dock: Optional[int] = None, args=None):
                 if success:
                     print("Successfully grasped the object!")
                     # exit out of loop without killing script
-                    break               
+                    break
 
     except Exception as e:
         print("Exception caught:")
