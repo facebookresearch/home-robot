@@ -392,9 +392,8 @@ def main(dock: Optional[int] = None, args=None):
         instances = voxel_map.get_instances()
 
         while True:
-            # for debug, sending the robot back to original
-            # spot.navigate_to([x0, y0, theta0], blocking=True)
-            goto(spot, planner, [x0, y0, theta0])
+            # for debug, sending the robot back to original position
+            goto(spot, planner, np.array([x0, y0, theta0]))
             success = False
             if args.enable_vlm == 1:
                 # get world_representation for planning
