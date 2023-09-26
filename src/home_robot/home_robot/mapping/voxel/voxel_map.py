@@ -283,7 +283,6 @@ class SparseVoxelMapNavigationSpace(XYT):
         )[0, 0].bool()
         outside_frontier = frontier & ~explored
 
-        debug = True
         if debug:
             import matplotlib.pyplot as plt
 
