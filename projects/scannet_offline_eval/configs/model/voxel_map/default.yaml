@@ -1,0 +1,14 @@
+_target_: home_robot.mapping.voxel.SparseVoxelMap
+resolution: 0.01
+background_instance_label: -1
+instance_memory_kwargs:
+    erode_mask_num_pix: 5
+    erode_mask_num_iter: 5
+    iou_threshold: 0.3
+    instance_association: 'bbox_one_sided_iou'
+    instance_view_score_aggregation_mode: 'max'
+    overlap_eps: 1e-6
+    min_pixels_for_instance_view: 100
+    global_box_nms_thresh: 0.3
+    instance_box_compression_resolution: 0.01
+    instance_box_compression_drop_prop: 0.2
