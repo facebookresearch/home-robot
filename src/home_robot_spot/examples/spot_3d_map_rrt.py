@@ -43,7 +43,7 @@ def plan_to_frontier(
     voxel_map: SparseVoxelMap,
     visualize: bool = False,
     try_to_plan_iter: int = 10,
-    debug: bool = False,
+    debug: bool = True,
 ) -> PlanResult:
     # extract goal using fmm planner
     tries = 0
@@ -55,7 +55,7 @@ def plan_to_frontier(
     if not start_is_valid:
         return PlanResult(False, reason="invalid start state")
     for goal in space.sample_closest_frontier(
-        start, step_dist=0.5, min_dist=0.5, debug=debug, verbose=debug
+        start, step_dist=0.5, min_dist=0.25, debug=debug, verbose=debug
     ):
         if goal is None:
             failed = True
@@ -189,19 +189,19 @@ def main(dock: Optional[int] = None, args=None):
     parameters = {
         "step_size": 2.0,  # (originally .1, we can make it all the way to 2 maybe actually)
         "rotation_step_size": 4.0,
-        "visualize": False,
+        "visualize": True,
         "exploration_steps": 20,
         "use_midas": False,
         # Voxel map
-        "obs_min_height": 0.5,  # Originally .1, floor appears noisy in the 3d map of freemont so we're being super conservative
-        "obs_max_height": 1.4,  # Originally 1.8, spot is shorter than stretch tho
+        "obs_min_height": 0.8,  # Originally .1, floor appears noisy in the 3d map of freemont so we're being super conservative
+        "obs_max_height": 1.8,  # Originally 1.8, spot is shorter than stretch tho
         "obs_min_density": 25,  # Originally 10, making it bigger because theres a bunch on noise
         "voxel_size": 0.05,
         "local_radius": 0.6,  # Can probably be bigger than original (.15)
         # 2d parameters
         "explore_methodical": True,
-        "dilate_frontier_size": 10,
-        "dilate_obstacle_size": 6,
+        "dilate_frontier_size": 20,
+        "dilate_obstacle_size": 10,
         # Frontier
         "min_size": 10,  # Can probably be bigger than original (10)
         "max_size": 20,  # Can probably be bigger than original (10)
@@ -256,8 +256,8 @@ def main(dock: Optional[int] = None, args=None):
         # Turn on the robot using the client above
         spot.start()
 
-        # print("Go to (0, 0, 0) to start with...")
-        # spot.navigate_to([0, 0, 0], blocking=True)
+        print("Go to (0, 0, 0) to start with...")
+        spot.navigate_to([0, 0, 0], blocking=True)
         print("Sleep 1s")
         time.sleep(1)
         print("Start exploring!")
@@ -417,6 +417,7 @@ def main(dock: Optional[int] = None, args=None):
             if instance_id is None:
                 print("No instances found!")
                 success = False
+                breakpoint()
             else:
                 print("Navigating to instance ")
                 print(f"Instance id: {instance_id}")
@@ -436,6 +437,7 @@ def main(dock: Optional[int] = None, args=None):
                 object_category_name = vocab.goal_id_to_goal_name[
                     int(instances[instance_id].category_id.item())
                 ]
+                print(f"Grasping {object_category_name}...")
                 gaze = GraspController(
                     config=spot_config,
                     spot=spot.spot,
@@ -451,7 +453,15 @@ def main(dock: Optional[int] = None, args=None):
                 success = gaze.gaze_and_grasp()
                 time.sleep(2)
                 input("type enter to release the object...")
+                pick = gaze.get_pick_location()
+                spot.spot.set_arm_joint_positions(pick, travel_time=1)
+                time.sleep(1)
                 spot.spot.open_gripper()
+                time.sleep(2)
+                if success:
+                    print("Successfully grasped the object!")
+                    # exit out of loop without killing script
+                    break               
 
     except Exception as e:
         print("Exception caught:")
