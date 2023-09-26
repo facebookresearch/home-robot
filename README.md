@@ -58,13 +58,13 @@ To set up your workstation, follow these instructions. HomeRobot requires Python
 If necessary, [install mamba](https://mamba.readthedocs.io/en/latest/installation.html) in your base conda environment. Optionally: [install ROS noetic](http://wiki.ros.org/noetic/Installation/Ubuntu) on your workstation.
 
 ```
-# If using ROS - make sure you dont have PYTHONPATH set
+# If using ROS - make sure you don't have PYTHONPATH set
 unset PYTHONPATH
 
 # Otherwise, use the version in src/home_robot
 mamba env create -n home-robot -f src/home_robot/environment.yml
 
-# Activate teh environment
+# Activate the environment
 conda activate home-robot
 
 # Optionally, update this environment to install ROS
