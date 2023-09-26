@@ -18,7 +18,7 @@ pytorch-mutex             1.0                        cuda    pytorch
 pytorch-scatter           2.1.1           py39_torch_1.13.0_cu117    pyg
 pytorch3d                 0.7.4           py39_cu117_pyt1131    pytorch3d
 torchaudio                0.13.1               py39_cu117    pytorch
-torchvision               0.14.1               py39_cu117    pytorch
+torchvision               0.14.1               py39_cu117    pytorchs
 ```
 
 The numbers after `cu` should be the same, i.e. `cu117`.
