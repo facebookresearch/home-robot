@@ -288,8 +288,8 @@ class SparseVoxelMapNavigationSpace(XYT):
             import matplotlib.pyplot as plt
 
             plt.subplot(221)
-            print("highlight only frontier pts")
-            plt.imshow(frontier_edges.cpu().numpy())
+            print("obstacles")
+            plt.imshow(obstacles.cpu().numpy())
             plt.subplot(222)
             plt.imshow(explored.cpu().numpy())
             plt.title("explored")
@@ -385,7 +385,7 @@ class SparseVoxelMapNavigationSpace(XYT):
             # Check to see if this point is valid
             if verbose:
                 print("[VOXEL MAP: sampling] sampled", xyt)
-            if self.is_valid(xyt):
+            if self.is_valid(xyt, debug=False):
                 yield xyt
 
             tries += 1

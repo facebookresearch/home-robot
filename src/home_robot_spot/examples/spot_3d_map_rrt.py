@@ -36,6 +36,24 @@ from home_robot_spot import SpotClient, VoxelMapSubscriber
 from home_robot_spot.grasp_env import GraspController
 
 
+def goto(spot: SpotClient, planner: Planner, goal):
+    start = spot.current_position
+
+    #  Build plan
+    res = planner.plan(start, goal)
+    print(goal)
+    print("Res success:", res.success)
+
+    # Move to the next location
+    if res.success:
+        print("- follow the plan to goal")
+        spot.execute_plan(res)
+    else:
+        print("- just go ahead and try it anyway")
+        spot.navigate_to(goal)
+    return res
+
+
 def plan_to_frontier(
     start: np.ndarray,
     planner: Planner,
@@ -43,7 +61,7 @@ def plan_to_frontier(
     voxel_map: SparseVoxelMap,
     visualize: bool = False,
     try_to_plan_iter: int = 10,
-    debug: bool = True,
+    debug: bool = False,
 ) -> PlanResult:
     # extract goal using fmm planner
     tries = 0
@@ -201,8 +219,9 @@ def main(dock: Optional[int] = None, args=None):
         "local_radius": 0.6,  # Can probably be bigger than original (.15)
         # 2d parameters
         "explore_methodical": True,
-        "dilate_frontier_size": 8,
-        "dilate_obstacle_size": 4,
+        "dilate_frontier_size": 10,
+        "dilate_obstacle_size": 2,
+        "smooth_kernel_size": 7,
         # Frontier
         "min_size": 10,  # Can probably be bigger than original (10)
         "max_size": 20,  # Can probably be bigger than original (10)
@@ -218,6 +237,7 @@ def main(dock: Optional[int] = None, args=None):
         obs_min_height=parameters["obs_min_height"],
         obs_max_height=parameters["obs_max_height"],
         obs_min_density=parameters["obs_min_density"],
+        smooth_kernel_size=parameters["smooth_kernel_size"],
     )
 
     # Create kinematic model (very basic for now - just a footprint)
@@ -327,6 +347,7 @@ def main(dock: Optional[int] = None, args=None):
                 if not goal_is_valid:
                     # really we should sample a new goal
                     continue
+
                 #  Build plan
                 res = planner.plan(start, goal)
                 print(goal)
@@ -372,7 +393,8 @@ def main(dock: Optional[int] = None, args=None):
 
         while True:
             # for debug, sending the robot back to original
-            spot.navigate_to([x0, y0, theta0], blocking=True)
+            # spot.navigate_to([x0, y0, theta0], blocking=True)
+            goto(spot, planner, [x0, y0, theta0])
             success = False
             if args.enable_vlm == 1:
                 # get world_representation for planning
@@ -416,7 +438,6 @@ def main(dock: Optional[int] = None, args=None):
             if instance_id is None:
                 print("No instances found!")
                 success = False
-                breakpoint()
             else:
                 print("Navigating to instance ")
                 print(f"Instance id: {instance_id}")
