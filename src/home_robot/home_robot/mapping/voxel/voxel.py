@@ -10,6 +10,8 @@ from typing import Any, Dict, List, Optional, Sequence, Tuple, Union
 
 import numpy as np
 import open3d as open3d
+import skimage
+import skimage.morphology
 import torch
 import trimesh
 from pytorch3d.structures import Pointclouds
@@ -99,6 +101,16 @@ class SparseVoxelMap(object):
         self.obs_max_height = obs_max_height
         self.obs_min_density = obs_min_density
         self.smooth_kernel_size = smooth_kernel_size
+        if self.smooth_kernel_size > 0:
+            self.smooth_kernel = torch.nn.Parameter(
+                torch.from_numpy(skimage.morphology.disk(smooth_kernel_size))
+                .unsqueeze(0)
+                .unsqueeze(0)
+                .float(),
+                requires_grad=False,
+            )
+        else:
+            self.smooth_kernel = None
         self.grid_resolution = grid_resolution
         self.voxel_resolution = resolution
         self.min_depth = min_depth
@@ -546,10 +558,10 @@ class SparseVoxelMap(object):
         if self.smooth_kernel_size > 0:
             print("[SVM] warning: smooth kernel size not implemented")
             explored = binary_erosion(
-                explored.float().unsqueeze(0).unsqueeze(0), self.smooth_kernel_size
+                explored.float().unsqueeze(0).unsqueeze(0), self.smooth_kernel
             )[0, 0]
             obstacles = binary_erosion(
-                obstacles.float().unsqueeze(0).unsqueeze(0), self.smooth_kernel_size
+                obstacles.float().unsqueeze(0).unsqueeze(0), self.smooth_kernel
             )[0, 0]
 
         if debug:
