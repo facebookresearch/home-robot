@@ -558,11 +558,17 @@ class SparseVoxelMap(object):
         if self.smooth_kernel_size > 0:
             print("[SVM] warning: smooth kernel size not implemented")
             explored = binary_erosion(
-                explored.float().unsqueeze(0).unsqueeze(0), self.smooth_kernel
-            )[0, 0]
+                binary_dilation(
+                    explored.float().unsqueeze(0).unsqueeze(0), self.smooth_kernel
+                ),
+                self.smooth_kernel,
+            )[0, 0].bool()
             obstacles = binary_erosion(
-                obstacles.float().unsqueeze(0).unsqueeze(0), self.smooth_kernel
-            )[0, 0]
+                binary_dilation(
+                    obstacles.float().unsqueeze(0).unsqueeze(0), self.smooth_kernel
+                ),
+                self.smooth_kernel,
+            )[0, 0].bool()
 
         if debug:
             import matplotlib.pyplot as plt
