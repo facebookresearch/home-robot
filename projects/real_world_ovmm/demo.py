@@ -139,15 +139,22 @@ def run_grasping(robot: StretchClient, semantic_sensor):
     # Predict masks
     obs = semantic_sensor.predict(obs)
 
-    plt.subplot(131)
-    plt.imshow(obs.rgb)
-    plt.subplot(132)
-    plt.imshow(obs.xyz)
-    plt.subplot(133)
-    plt.imshow(obs.semantic)
-    plt.show()
+    for oid in np.unique(obs.semantic):
+        if oid == 0:
+            continue
+        cid, classname = semantic_sensor.current_vocabulary.map_goal_id(oid)
+        print(f"- {oid} {cid} = {classname}")
 
-    show_point_cloud(obs.xyz, obs.rgb / 255, orig=np.zeros(3))
+    # plt.subplot(131)
+    # plt.imshow(obs.rgb)
+    # plt.subplot(132)
+    # plt.imshow(obs.xyz)
+    # plt.subplot(133)
+    # plt.imshow(obs.semantic)
+    # plt.show()
+
+    # show_point_cloud(obs.xyz, obs.rgb / 255, orig=np.zeros(3))
+    # breakpoint()
 
 
 @click.command()
