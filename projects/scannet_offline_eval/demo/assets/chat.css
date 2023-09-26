@@ -1,0 +1,46 @@
+/* 
+Copyright (c) Meta Platforms, Inc. and affiliates.
+
+This source code is licensed under the MIT license found in the
+LICENSE file in the root directory of this source tree.
+*/
+.chat-message-left,
+.chat-message-right {
+    display: flex;
+    flex-shrink: 0
+}
+
+.chat-message-left {
+    margin-right: auto
+}
+
+.chat-message-right {
+    flex-direction: row-reverse;
+    margin-left: auto
+}
+
+.gif-loading {
+    margin: 1rem auto;
+    /* /* width: 1280px; */
+    height: 50px;
+    text-align: left;
+    font-size: 10px;
+    margin-left: 30px !important;
+    background-image: url("images/loading.gif");
+    background-size: contain;
+    background-repeat: no-repeat;
+}
+
+.dash-spinner * {
+    display: none !important;
+  }
+
+.chat_thumbnail_im {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+}
+
+.chat_message_time {
+    font-size: 10px;
+}

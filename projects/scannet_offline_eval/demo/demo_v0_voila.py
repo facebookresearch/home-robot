@@ -1,6 +1,9 @@
+import base64
+import io
 import os
 from datetime import datetime
 
+import numpy as np
 import openai
 from astrowidgets import ImageWidget
 from IPython.display import HTML, display
@@ -12,14 +15,37 @@ from langchain.document_loaders import DirectoryLoader
 from langchain.embeddings.openai import OpenAIEmbeddings
 from langchain.prompts import PromptTemplate
 from langchain.vectorstores import Chroma
+from PIL import Image
 
 
-def make_video_widget(arr):
-    image = ImageWidget()
-    image.load_array(arr)
+def image_from_np(np_arr, format="PNG"):
+    img = Image.fromarray(np_arr)
+    in_mem_file = io.BytesIO()
+    img.save(in_mem_file, format=format)
+    # reset file pointer to start
+    in_mem_file.seek(0)
+    img_bytes = in_mem_file.read()
+
+    # base64_encoded_result_bytes = base64.b64encode(img_bytes)
+    # base64_encoded_result_str = base64_encoded_result_bytes.decode('ascii')
+    return img_bytes
+
+
+def make_video_widget(height=200, width=300):
+    # base_image_np = np.zeros((height, width)).astype(np.uint8)
+    # base_image_np =np.zeros((200, 300)).astype(np.uint8)
+    base_image = image_from_np(np.zeros((height, width)).astype(np.uint8), format="PNG")
+    image = widgets.Image(
+        value=base_image,
+        format="png",
+        width=width,
+        height=height,
+    )
+    image.layout.object_fit = "contain"
+    image.layout.width = "100%"
 
     def update(arr):
-        image.load_array(arr)
+        image.value = convert_image_b64(arr, format="PNG")
 
     return image, update
 
@@ -147,7 +173,7 @@ def make_chat_box_widget():
         [loading_bar, output],
         layout=widgets.Layout(
             width="100%",
-            max_height="500px",
+            # max_height="500px",
             min_height="500px",
             display="inline-flex",
             flex_flow="column-reverse",
@@ -167,7 +193,7 @@ def make_chat_box_widget():
         [chat_title, conversation_history_widget, text_input_widget],
         layout=widgets.Layout(
             width="100%",
-            max_height="700px",
+            # max_height="800px",
             display="flex",
             justify_content="space-between",
         ),
