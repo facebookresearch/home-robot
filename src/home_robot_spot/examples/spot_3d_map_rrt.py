@@ -37,6 +37,7 @@ from home_robot_spot.grasp_env import GraspController
 
 
 def goto(spot: SpotClient, planner: Planner, goal):
+    """Send the spot to the correct location."""
     start = spot.current_position
 
     #  Build plan
@@ -63,6 +64,7 @@ def plan_to_frontier(
     try_to_plan_iter: int = 10,
     debug: bool = False,
 ) -> PlanResult:
+    """Find frontier point to move to."""
     # extract goal using fmm planner
     tries = 0
     failed = False
@@ -208,7 +210,7 @@ def main(dock: Optional[int] = None, args=None):
     parameters = {
         "step_size": 2.0,  # (originally .1, we can make it all the way to 2 maybe actually)
         "rotation_step_size": 3.0,
-        "visualize": True,
+        "visualize": False,
         "exploration_steps": 50,
         "use_midas": False,
         # Voxel map
