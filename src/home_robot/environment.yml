@@ -7,11 +7,9 @@ channels:
 dependencies:
   - python==3.9.*
   - cmake
-  - jupyter
-  - nbconvert
   - pybind11
-  - pytorch=2.0.0
-  - pytorch-cuda=11.8
+  - pytorch=1.13.1
+  - pytorch-cuda=11.7
   - pytorch3d
   - torchvision
   - torchaudio
@@ -37,6 +35,7 @@ dependencies:
     - frozendict
     # Robots
     - opencv-python
+    - pin>=2.6.17
     # Neural networks
     - openai-clip
     - timm
