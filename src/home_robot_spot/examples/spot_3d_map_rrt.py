@@ -8,7 +8,7 @@ import random
 import sys
 import time
 from typing import Dict, List, Optional
-
+import home_robot_spot.nav_client as nc
 import matplotlib.pyplot as plt
 import numpy as np
 import open3d
@@ -43,7 +43,7 @@ def plan_to_frontier(
     voxel_map: SparseVoxelMap,
     visualize: bool = False,
     try_to_plan_iter: int = 10,
-    debug: bool = True,
+    debug: bool = False,
 ) -> PlanResult:
     # extract goal using fmm planner
     tries = 0
@@ -169,6 +169,7 @@ def get_obj_centric_world_representation(instance_memory, max_context_length):
 
 # def main(dock: Optional[int] = 549):
 def main(dock: Optional[int] = None, args=None):
+    data = {}
     if args.enable_vlm == 1:
         sys.path.append(
             "src/home_robot/home_robot/perception/detection/minigpt4/MiniGPT-4/"
@@ -188,26 +189,26 @@ def main(dock: Optional[int] = None, args=None):
     # TODO move these parameters to config
     parameters = {
         "step_size": 2.0,  # (originally .1, we can make it all the way to 2 maybe actually)
-        "rotation_step_size": 4.0,
-        "visualize": True,
+        "rotation_step_size": np.pi,
+        "visualize": False,
         "exploration_steps": 20,
         "use_midas": False,
         # Voxel map
-        "obs_min_height": 0.8,  # Originally .1, floor appears noisy in the 3d map of freemont so we're being super conservative
+        "obs_min_height": 0.2,  # Originally .1, floor appears noisy in the 3d map of freemont so we're being super conservative
         "obs_max_height": 1.8,  # Originally 1.8, spot is shorter than stretch tho
         "obs_min_density": 25,  # Originally 10, making it bigger because theres a bunch on noise
         "voxel_size": 0.05,
         "local_radius": 0.6,  # Can probably be bigger than original (.15)
         # 2d parameters
         "explore_methodical": True,
-        "dilate_frontier_size": 20,
-        "dilate_obstacle_size": 10,
+        "dilate_frontier_size": 10,
+        "dilate_obstacle_size": 5,
         # Frontier
-        "min_size": 10,  # Can probably be bigger than original (10)
-        "max_size": 20,  # Can probably be bigger than original (10)
+        "min_size": 20,  # Can probably be bigger than original (10)
+        "max_size": 40,  # Can probably be bigger than original (10)
         # Other parameters tuned (footprint is a third of the real robot size)
         "use_async_subscriber": False,
-        "write_data": False,
+        "write_data": True,
     }
 
     # Create voxel map
@@ -383,6 +384,8 @@ def main(dock: Optional[int] = None, args=None):
                     )
                     # ask vlm for plan
                     task = input("please type any task you want the robot to do: ")
+                    #task is the prompt, save it
+                    data['prompt'] = task
                     sample = vlm.prepare_sample(task, world_representation)
                     plan = vlm.evaluate(sample)
                     print(plan)
@@ -453,6 +456,15 @@ def main(dock: Optional[int] = None, args=None):
                 success = gaze.gaze_and_grasp()
                 time.sleep(2)
                 input("type enter to release the object...")
+                '''
+                pc_xyz, pc_rgb = voxel_map.show(
+                backend="open3d", instances=False, orig=np.zeros(3)
+                ) 
+                ground_normal = torch.tensor([0.0, 0.0, 1.0])
+                nbr_dist = 1.0
+                residual_thresh = 0.5
+                location, area_prop = nc.find_placeable_location(pc_xyz, ground_normal, nbr_dist, residual_thresh)
+                '''
                 pick = gaze.get_pick_location()
                 spot.spot.set_arm_joint_positions(pick, travel_time=1)
                 time.sleep(1)
@@ -483,7 +495,7 @@ def main(dock: Optional[int] = None, args=None):
                 open3d.io.write_point_cloud(pcd_filename, pcd)
                 print(f"... wrote pcd to {pcd_filename}")
             if len(pkl_filename) > 0:
-                voxel_map.write_to_pickle(pkl_filename)
+                voxel_map.write_to_pickle_add_data(pkl_filename, data)
                 print(f"... wrote pkl to {pkl_filename}")
 
             # TODO dont repeat this code
