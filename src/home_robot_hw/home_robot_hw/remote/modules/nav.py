@@ -71,7 +71,7 @@ class StretchNavigationClient(AbstractControlModule):
         xyt: np.ndarray,
         rate: int = 10,
         pos_err_threshold: float = 0.2,
-        rot_err_threshold: float = 0.3,
+        rot_err_threshold: float = 0.75,
         verbose: bool = False,
         timeout: float = 10.0,
     ) -> bool:
@@ -96,7 +96,7 @@ class StretchNavigationClient(AbstractControlModule):
             # Loop until we get there (or time out)
             curr = self.get_base_pose()
             pos_err = np.linalg.norm(xy - curr[:2])
-            rot_err = angle_difference(curr[-1], xyt[2])
+            rot_err = np.abs(angle_difference(curr[-1], xyt[2]))
             if verbose:
                 print(f"- {curr=} target {xyt=} {pos_err=} {rot_err=}")
             if pos_err < pos_err_threshold and rot_err < rot_err_threshold:
