@@ -25,8 +25,8 @@ from home_robot.mapping.voxel import plan_to_frontier
 
 # Import planning tools for exploration
 from home_robot.motion.stretch import HelloStretchKinematics
-from home_robot.utils.point_cloud import numpy_to_pcd, pcd_to_numpy, show_point_cloud
-from home_robot.utils.pose import convert_pose_habitat_to_opencv, to_pos_quat
+from home_robot.perception.encoders import ClipEncoder
+from home_robot.utils.point_cloud import numpy_to_pcd, show_point_cloud
 from home_robot_hw.remote import StretchClient
 
 
@@ -48,15 +48,17 @@ class RosMapDataCollector(object):
         semantic_sensor=None,
         visualize_planner=False,
         voxel_size: float = 0.01,
+        encoder: Optional[ClipEncoder] = None,
         **kwargs,
     ):
         self.robot = robot  # Get the connection to the ROS environment via agent
         # Run detection here
         self.semantic_sensor = semantic_sensor
+        self.encoder = encoder
         self.started = False
         self.robot_model = HelloStretchKinematics(visualize=visualize_planner)
         self.voxel_map = SparseVoxelMap(
-            resolution=voxel_size, local_radius=0.1, **kwargs
+            resolution=voxel_size, local_radius=0.1, encoder=self.encoder, **kwargs
         )
 
     def get_planning_space(self) -> SparseVoxelMapNavigationSpace:
