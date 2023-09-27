@@ -431,6 +431,7 @@ class SpotClient:
         name="home_robot_spot",
         dock_id: Optional[int] = None,
         use_midas=False,
+        use_zero_depth=False
     ):
         self.spot = Spot(name)
         self.lease = None
@@ -445,9 +446,14 @@ class SpotClient:
         self.hand_depth_threshold = config.SPOT.HAND_DEPTH_THRESHOLD
         self.base_height = config.SPOT.BASE_HEIGHT
         self.use_midas = use_midas
+        self.use_zero_depth = use_zero_depth
         self.midas = None
         if self.use_midas:
             self.midas = Midas("cuda:0")
+        if self.use_zero_depth:
+            self.zero_depth = zerodepth_model = torch.hub.load(
+                "TRI-ML/vidar", "ZeroDepth", pretrained=True, trust_repo=True
+            ).to('cuda:0').eval()
 
     def start(self):
         """Turn on the robot, stand up, etc."""
@@ -660,13 +666,23 @@ class SpotClient:
         # obs.gps = relative_gps
         # obs.compass = relative_compass
         obs.gps, obs.compass = self._get_gps_compass()
+        K = obs.camera_K
 
         if self.use_midas:
             rgb, depth = obs.rgb, obs.depth
             depth = self.patch_depth(rgb, depth)
             obs.depth = depth
+        if self.use_zero_depth:
+            rgb = obs.rgb
+            orig_rgb = rgb / 255.0
+            rgb = torch.FloatTensor(orig_rgb[None]).permute(0, 3, 1, 2)
+            intrinsics = K[:3, :3]
+            intrinsics = torch.FloatTensor(intrinsics[None])
 
-        K = obs.camera_K
+            with torch.no_grad():
+                pred_depth = zerodepth_model(rgb.to('cuda:0'), intrinsics.to('cuda:0'))[0, 0].detach().cpu().numpy()
+            obs.depth = pred_depth
+        
         full_world_xyz = unproject_masked_depth_to_xyz_coordinates(  # Batchable!
             depth=obs.depth.unsqueeze(0).unsqueeze(1),
             pose=obs.camera_pose.unsqueeze(0),
