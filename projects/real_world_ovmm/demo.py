@@ -45,7 +45,9 @@ class DemoAgent:
         self.collector = collector
         self.voxel_map = self.collector.voxel_map
         self.robot_model = self.collector.robot_model
+        self.encoder = self.collector.encoder
         self.semantic_sensor = semantic_sensor
+        self.normalize_embeddings = True
 
         # Create planning space
         self.space = SparseVoxelMapNavigationSpace(
@@ -59,7 +61,7 @@ class DemoAgent:
         # Create a simple motion planner
         self.planner = Shortcut(RRTConnect(self.space, self.space.is_valid))
 
-    def start(self, goal: Optional[str] = None, visualize_map_at_start: bool = True):
+    def start(self, goal: Optional[str] = None, visualize_map_at_start: bool = False):
         # Tuck the arm away
         print("Sending arm to  home...")
         self.robot.switch_to_manipulation_mode()
@@ -75,14 +77,35 @@ class DemoAgent:
         )  # Append latest observations
         return self.check_if_found_goal(goal)
 
-    def check_if_found_goal(self, goal: str) -> Optional[Instance]:
+    def encode_text(self, text: str):
+        """Helper function for getting text embeddings"""
+        emb = self.encoder.encode_text(text)
+        if self.normalize_embeddings:
+            emb = emb / emb.norm(dim=-1, keepdim=True)
+        return emb
+
+    def check_if_found_goal(self, goal: str, debug: bool = False) -> Optional[Instance]:
         """Check to see if goal is in our instance memory or not."""
 
         instances = self.voxel_map.get_instances()
+        goal_emb = self.encode_text(goal)
+        if debug:
+            neg1_emb = self.encode_text("the color purple")
+            neg2_emb = self.encode_text("a blank white wall")
         for instance in instances:
-            print("# views =", len(instance.instance_views))
-            print("    cls =", instance.category_id)
-            instance._show_point_cloud_open3d()
+            if debug:
+                print("# views =", len(instance.instance_views))
+                print("    cls =", instance.category_id)
+            # TODO: remove debug code when not needed for visualization
+            # instance._show_point_cloud_open3d()
+            img_emb = instance.get_image_embedding(
+                aggregation_method="mean", normalize=self.normalize_embeddings
+            )
+            goal_score = torch.matmul(goal_emb, img_emb)
+            if debug:
+                neg1_score = torch.matmul(neg1_emb, img_emb)
+                neg2_score = torch.matmul(neg2_emb, img_emb)
+                print("scores =", goal_score, neg1_score, neg2_score)
 
     def run_exploration(
         rate: int = 10,
@@ -288,7 +311,7 @@ def main(
 
     object_to_find = "cup"
     demo = DemoAgent(robot, collector, semantic_sensor)
-    demo.start(goal=object_to_find)
+    demo.start(goal=object_to_find, visualize_map_at_start=show_intermediate_maps)
 
     res = demo.run_exploration(
         collector,

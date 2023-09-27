@@ -33,6 +33,7 @@ class ClipEncoder:
 
     def encode_text(self, text: str):
         """Return clip vector for text"""
+        text = clip.tokenize([text]).to(self.device)
         with torch.no_grad():
             text_features = self.model.encode_text(text)
         return text_features
