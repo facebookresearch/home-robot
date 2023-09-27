@@ -144,7 +144,7 @@ def find_placeable_location(
             continue
         
         # 3. Check the fit of the oriented plane in that location using fit_plane_to_points
-        nbrhd_plane, tform = transform_basis(points=neighborhood, normal_vector=normal_vec)
+        nbrhd_plane, tform = transform_basis(points=neighborhood, normal_vector=ground_normal)
         bounds = get_bounds(nbrhd_plane)
         mins, maxs = bounds[:2].unbind(dim=-1)
         area = torch.prod(maxs - mins, dim=-1)
