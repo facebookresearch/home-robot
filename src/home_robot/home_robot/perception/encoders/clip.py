@@ -25,9 +25,10 @@ class ClipEncoder:
         if isinstance(image, torch.Tensor):
             image = image.cpu().numpy()
         image = image.astype(np.uint8)
+        pil_image = Image.fromarray(image)
+        processed_image = self.preprocess(pil_image).unsqueeze(0).to(self.device)
         with torch.no_grad():
-            image_features = self.model.encode_image(Image.fromarray(image))
-        breakpoint()
+            image_features = self.model.encode_image(processed_image)
         return image_features
 
     def encode_text(self, text: str):
