@@ -65,7 +65,7 @@ def run_exploration(
     # Explore some number of times
     for i in range(explore_iter):
         print("\n" * 2)
-        print("-" * 20, i, "-" * 20)
+        print("-" * 20, i + 1, "/", explore_iter, "-" * 20)
         start = robot.get_base_pose()
         start_is_valid = space.is_valid(start)
         # if start is not valid move backwards a bit
@@ -168,7 +168,8 @@ def run_grasping(robot: StretchClient, semantic_sensor):
 @click.option("--show-paths", default=False, is_flag=True)
 @click.option("--random-goals", default=False, is_flag=True)
 @click.option("--test-grasping", default=False, is_flag=True)
-@click.option("--explore-iter", default=10)
+@click.option("--explore-iter", default=20)
+@click.option("--navigate-home", default=False, is_flag=True)
 @click.option(
     "--input-path",
     type=click.Path(),
@@ -181,7 +182,7 @@ def main(
     manual_wait,
     output_pcd_filename,
     output_pkl_filename,
-    run_explore: bool = False,
+    navigate_home: bool = True,
     input_path: str = ".",
     voxel_size: float = 0.01,
     device_id: int = 0,
