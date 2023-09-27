@@ -21,6 +21,7 @@ from home_robot.mapping.semantic.instance_tracking_modules import (
     InstanceMemory,
 )
 from home_robot.motion import PlanResult, Robot
+from home_robot.perception.encoders import ClipEncoder
 from home_robot.utils.bboxes_3d import BBoxes3D
 from home_robot.utils.data_tools.dict import update
 from home_robot.utils.point_cloud import (
@@ -88,6 +89,7 @@ class SparseVoxelMap(object):
         background_instance_label: int = -1,
         instance_memory_kwargs: Dict[str, Any] = {},
         voxel_kwargs: Dict[str, Any] = {},
+        encoder: Optional[ClipEncoder] = None,
     ):
         # TODO: We an use fastai.store_attr() to get rid of this boilerplate code
         self.resolution = resolution
@@ -104,9 +106,7 @@ class SparseVoxelMap(object):
             copy.deepcopy(self.DEFAULT_INSTANCE_MAP_KWARGS), instance_memory_kwargs
         )
         self.voxel_kwargs = voxel_kwargs
-
-        # TODO: This 2D map code could be moved to another class or helper function
-        #   This class could use that code via containment (same as InstanceMemory or VoxelizedPointcloud)
+        self.encoder = encoder
 
         # Create disk for mapping explored areas near the robot - since camera can't always see it
         self._disk_size = np.ceil(1.0 / self.grid_resolution)
@@ -354,6 +354,7 @@ class SparseVoxelMap(object):
             mask_out_object=False,  # Save the whole image here? Or is this with background?
             background_instance_label=self.background_instance_label,
             valid_points=valid_depth,
+            encoder=self.encoder,
         )
         self.instances.associate_instances_to_memory()
 

@@ -14,115 +14,162 @@ import open3d
 import rospy
 import torch
 
+# Mapping and perception
 import home_robot.utils.depth as du
 from home_robot.agent.ovmm_agent import create_semantic_sensor
 from home_robot.mapping import SparseVoxelMap, SparseVoxelMapNavigationSpace
+from home_robot.mapping.semantic.instance_tracking_modules import Instance
 from home_robot.mapping.voxel import plan_to_frontier
 
 # Import planning tools for exploration
 from home_robot.motion.rrt_connect import RRTConnect
 from home_robot.motion.shortcut import Shortcut
 from home_robot.motion.stretch import HelloStretchKinematics
+from home_robot.perception.encoders import ClipEncoder
+
+# Other tools
 from home_robot.utils.config import load_config
-from home_robot.utils.geometry import xyt2sophus
-from home_robot.utils.image import Camera
-from home_robot.utils.point_cloud import numpy_to_pcd, pcd_to_numpy, show_point_cloud
-from home_robot.utils.pose import convert_pose_habitat_to_opencv, to_pos_quat
+from home_robot.utils.point_cloud import numpy_to_pcd, show_point_cloud
 from home_robot.utils.visualization import get_x_and_y_from_path
-from home_robot_hw.env.stretch_pick_and_place_env import StretchPickandPlaceEnv
 from home_robot_hw.remote import StretchClient
 from home_robot_hw.ros.grasp_helper import GraspClient as RosGraspClient
 from home_robot_hw.ros.visualizer import Visualizer
 from home_robot_hw.utils.collector import RosMapDataCollector
 
 
-def run_exploration(
-    collector: RosMapDataCollector,
-    robot: StretchClient,
-    rate: int = 10,
-    manual_wait: bool = False,
-    explore_iter: int = 20,
-    try_to_plan_iter: int = 10,
-    dry_run: bool = False,
-    random_goals: bool = False,
-    visualize: bool = False,
-):
-    """Go through exploration. We use the voxel_grid map created by our collector to sample free space, and then use our motion planner (RRT for now) to get there. At the end, we plan back to (0,0,0).
+class DemoAgent:
+    def __init__(
+        self, robot: StretchClient, collector: RosMapDataCollector, semantic_sensor
+    ):
+        self.robot = robot
+        self.collector = collector
+        self.voxel_map = self.collector.voxel_map
+        self.robot_model = self.collector.robot_model
+        self.semantic_sensor = semantic_sensor
 
-    Args:
-        visualize(bool): true if we should do intermediate debug visualizations"""
-    rate = rospy.Rate(rate)
+        # Create planning space
+        self.space = SparseVoxelMapNavigationSpace(
+            self.voxel_map,
+            self.robot_model,
+            step_size=0.1,
+            dilate_frontier_size=12,  # 0.6 meters back from every edge
+            dilate_obstacle_size=6,
+        )
 
-    # Create planning space
-    space = SparseVoxelMapNavigationSpace(
-        collector.voxel_map,
-        collector.robot_model,
-        step_size=0.1,
-        dilate_frontier_size=12,  # 0.6 meters back from every edge
-        dilate_obstacle_size=6,
-    )
+        # Create a simple motion planner
+        self.planner = Shortcut(RRTConnect(self.space, self.space.is_valid))
 
-    # Create a simple motion planner
-    planner = Shortcut(RRTConnect(space, space.is_valid))
+    def start(self, goal: Optional[str] = None, visualize_map_at_start: bool = True):
+        # Tuck the arm away
+        print("Sending arm to  home...")
+        self.robot.switch_to_manipulation_mode()
 
-    print("Go to (0, 0, 0) to start with...")
-    robot.nav.navigate_to([0, 0, 0])
+        self.robot.move_to_nav_posture()
+        self.robot.head.look_close(blocking=False)
+        print("... done.")
 
-    # Explore some number of times
-    for i in range(explore_iter):
-        print("\n" * 2)
-        print("-" * 20, i + 1, "/", explore_iter, "-" * 20)
-        start = robot.get_base_pose()
-        start_is_valid = space.is_valid(start)
-        # if start is not valid move backwards a bit
-        if not start_is_valid:
-            print("Start not valid. back up a bit.")
-            robot.nav.navigate_to([-0.1, 0, 0], relative=True)
-            continue
-        print("       Start:", start)
-        # sample a goal
-        if random_goals:
-            goal = next(space.sample_random_frontier()).cpu().numpy()
-        else:
-            res = plan_to_frontier(
-                start,
-                planner,
-                space,
-                collector.voxel_map,
-                try_to_plan_iter=try_to_plan_iter,
-                visualize=visualize,
-            )
-        if visualize:
-            # After doing everything
-            collector.show(orig=show_goal)
+        # Move the robot into navigation mode
+        self.robot.switch_to_navigation_mode()
+        self.collector.step(
+            visualize_map=visualize_map_at_start
+        )  # Append latest observations
+        return self.check_if_found_goal(goal)
 
-        # if it fails, skip; else, execute a trajectory to this position
-        if res.success:
-            print("Full plan:")
-            for i, pt in enumerate(res.trajectory):
-                print("-", i, pt.state)
-            if not dry_run:
-                robot.nav.execute_trajectory([pt.state for pt in res.trajectory])
+    def check_if_found_goal(self, goal: str) -> Optional[Instance]:
+        """Check to see if goal is in our instance memory or not."""
 
-        # Append latest observations
-        collector.step()
-        if manual_wait:
-            input("... press enter ...")
+        instances = self.voxel_map.get_instances()
+        for instance in instances:
+            print("# views =", len(instance.instance_views))
+            print("    cls =", instance.category_id)
+            instance._show_point_cloud_open3d()
 
-    # Finally - plan back to (0,0,0)
-    print("Go back to (0, 0, 0) to finish...")
-    start = robot.get_base_pose()
-    goal = np.array([0, 0, 0])
-    res = planner.plan(start, goal)
-    # if it fails, skip; else, execute a trajectory to this position
-    if res.success:
-        print("Full plan to home:")
-        for i, pt in enumerate(res.trajectory):
-            print("-", i, pt.state)
-        if not dry_run:
-            robot.nav.execute_trajectory([pt.state for pt in res.trajectory])
-    else:
-        print("WARNING: planning to home failed!")
+    def run_exploration(
+        rate: int = 10,
+        manual_wait: bool = False,
+        explore_iter: int = 3,
+        try_to_plan_iter: int = 10,
+        dry_run: bool = False,
+        random_goals: bool = False,
+        visualize: bool = False,
+        task_goal: str = None,
+        go_home_at_end: bool = False,
+    ) -> Optional[Instance]:
+        """Go through exploration. We use the voxel_grid map created by our collector to sample free space, and then use our motion planner (RRT for now) to get there. At the end, we plan back to (0,0,0).
+
+        Args:
+            visualize(bool): true if we should do intermediate debug visualizations"""
+        rate = rospy.Rate(rate)
+
+        print("Go to (0, 0, 0) to start with...")
+        self.robot.nav.navigate_to([0, 0, 0])
+
+        # Explore some number of times
+        for i in range(explore_iter):
+            print("\n" * 2)
+            print("-" * 20, i + 1, "/", explore_iter, "-" * 20)
+            start = self.robot.get_base_pose()
+            start_is_valid = self.space.is_valid(start)
+            # if start is not valid move backwards a bit
+            if not start_is_valid:
+                print("Start not valid. back up a bit.")
+                self.robot.nav.navigate_to([-0.1, 0, 0], relative=True)
+                continue
+            print("       Start:", start)
+            # sample a goal
+            if random_goals:
+                goal = next(self.space.sample_random_frontier()).cpu().numpy()
+            else:
+                res = plan_to_frontier(
+                    start,
+                    self.planner,
+                    self.space,
+                    self.voxel_map,
+                    try_to_plan_iter=try_to_plan_iter,
+                    visualize=visualize,
+                )
+            if visualize:
+                # After doing everything
+                self.collector.show(orig=show_goal)
+
+            # if it fails, skip; else, execute a trajectory to this position
+            if res.success:
+                print("Full plan:")
+                for i, pt in enumerate(res.trajectory):
+                    print("-", i, pt.state)
+                if not dry_run:
+                    self.robot.nav.execute_trajectory(
+                        [pt.state for pt in res.trajectory]
+                    )
+
+            # Append latest observations
+            self.collector.step()
+            if manual_wait:
+                input("... press enter ...")
+
+            if task_goal is not None:
+                res = self.check_if_found_goal(task_goal)
+                if res is not None:
+                    print("!!! GOAL FOUND! Done exploration. !!!")
+                    break
+
+        if go_home_at_end:
+            # Finally - plan back to (0,0,0)
+            print("Go back to (0, 0, 0) to finish...")
+            start = self.robot.get_base_pose()
+            goal = np.array([0, 0, 0])
+            res = self.planner.plan(start, goal)
+            # if it fails, skip; else, execute a trajectory to this position
+            if res.success:
+                print("Full plan to home:")
+                for i, pt in enumerate(res.trajectory):
+                    print("-", i, pt.state)
+                if not dry_run:
+                    self.robot.nav.execute_trajectory(
+                        [pt.state for pt in res.trajectory]
+                    )
+            else:
+                print("WARNING: planning to home failed!")
 
 
 def run_grasping(robot: StretchClient, semantic_sensor):
@@ -227,6 +274,7 @@ def main(
         return
 
     print("- Start ROS data collector")
+    encoder = ClipEncoder("ViT-B/32")
     collector = RosMapDataCollector(
         robot,
         semantic_sensor,
@@ -235,24 +283,24 @@ def main(
         obs_min_height=0.1,
         obs_max_height=1.8,
         obs_min_density=5,
+        encoder=encoder,
     )
 
-    # Tuck the arm away
-    print("Sending arm to  home...")
-    robot.switch_to_manipulation_mode()
+    object_to_find = "cup"
+    demo = DemoAgent(robot, collector, semantic_sensor)
+    demo.start(goal=object_to_find)
 
-    robot.move_to_nav_posture()
-    robot.head.look_close(blocking=False)
-    print("... done.")
-
-    # Move the robot
-    robot.switch_to_navigation_mode()
-    collector.step(visualize_map=show_intermediate_maps)  # Append latest observations
-    run_exploration(collector, robot, rate, manual_wait, explore_iter=explore_iter)
+    res = demo.run_exploration(
+        collector,
+        robot,
+        rate,
+        manual_wait,
+        explore_iter=explore_iter,
+        task_goal=object_to_find,
+        go_home_at_end=navigate_home,
+    )
 
     print("Done collecting data.")
-    if navigate_home:
-        robot.nav.navigate_to((0, 0, 0))
 
     if show_final_map:
         pc_xyz, pc_rgb = collector.show()

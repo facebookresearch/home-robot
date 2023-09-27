@@ -18,6 +18,7 @@ from pytorch3d.ops import box3d_overlap
 from torch import Tensor
 
 from home_robot.core.interfaces import Observations
+from home_robot.perception.encoders import ClipEncoder
 from home_robot.utils.bboxes_3d import (
     box3d_intersection_from_bounds,
     box3d_nms,
@@ -27,6 +28,7 @@ from home_robot.utils.bboxes_3d import (
     get_box_verts_from_bounds,
 )
 from home_robot.utils.image import dilate_or_erode_mask
+from home_robot.utils.point_cloud import show_point_cloud
 from home_robot.utils.point_cloud_torch import get_bounds
 from home_robot.utils.voxel import drop_smallest_weight_points
 
@@ -176,6 +178,9 @@ class Instance:
             self.instance_views.append(instance_view)
 
             self.bounds = get_bounds(self.point_cloud)
+
+    def _show_point_cloud_open3d(self, **kwargs):
+        show_point_cloud(self.point_cloud, self.point_cloud_rgb / 255.0, **kwargs)
 
     def _show_point_cloud_pytorch3d(self, **plot_scene_kwargs):
         """Visualize an instance in the map
@@ -752,6 +757,7 @@ class InstanceMemory:
         mask_out_object: bool = True,
         background_instance_label: int = 0,
         valid_points: Optional[Tensor] = None,
+        encoder: Optional[ClipEncoder] = None,
     ):
         """
         Process instance information in the current frame and add instance views to the list of unprocessed views for future association.
@@ -905,7 +911,10 @@ class InstanceMemory:
             cropped_image = image_box.permute(1, 2, 0)
 
             # get embedding
-            embedding = None
+            if encoder is not None:
+                embedding = encoder.encode_image(cropped_image)
+            else:
+                embedding = None
 
             # get point cloud
             point_mask_downsampled = (
