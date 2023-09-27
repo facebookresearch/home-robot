@@ -5,7 +5,7 @@
 import sys
 import timeit
 from pathlib import Path
-from typing import Optional, Tuple
+from typing import List, Optional, Tuple
 
 import click
 import matplotlib.pyplot as plt
@@ -61,6 +61,15 @@ class DemoAgent:
         # Create a simple motion planner
         self.planner = Shortcut(RRTConnect(self.space, self.space.is_valid))
 
+    def print_found_classes(self):
+        """Helper. print out what we have found according to detic."""
+        instances = self.voxel_map.get_instances()
+        print("So far, we have found these classes:")
+        for i, instance in enumerate(instances):
+            oid = int(instance.category_id.item())
+            name = self.semantic_sensor.get_class_name_for_id(oid)
+            print(i, name, instance.score)
+
     def start(self, goal: Optional[str] = None, visualize_map_at_start: bool = False):
         # Tuck the arm away
         print("Sending arm to  home...")
@@ -75,7 +84,8 @@ class DemoAgent:
         self.collector.step(
             visualize_map=visualize_map_at_start
         )  # Append latest observations
-        return self.check_if_found_goal(goal)
+        self.print_found_classes()
+        return self.get_found_instances_by_class(goal)
 
     def encode_text(self, text: str):
         """Helper function for getting text embeddings"""
@@ -84,14 +94,27 @@ class DemoAgent:
             emb = emb / emb.norm(dim=-1, keepdim=True)
         return emb
 
-    def check_if_found_goal(self, goal: str, debug: bool = False) -> Optional[Instance]:
-        """Check to see if goal is in our instance memory or not."""
+    def get_found_instances_by_class(
+        self, goal: str, debug: bool = False
+    ) -> Optional[List[Instance]]:
+        """Check to see if goal is in our instance memory or not. Return a list of everything with the correct class."""
+        matching_instances = []
+        instances = self.voxel_map.get_instances()
+        for i, instance in enumerate(instances):
+            oid = int(instance.category_id.item())
+            name = self.semantic_sensor.get_class_name_for_id(oid)
+            if name.lower() == goal.lower():
+                matching_instances.append(instance)
+        return matching_instances
 
+    def choose_best_goal_instance(self, goal: str, debug: bool = False) -> Instance:
         instances = self.voxel_map.get_instances()
         goal_emb = self.encode_text(goal)
         if debug:
             neg1_emb = self.encode_text("the color purple")
             neg2_emb = self.encode_text("a blank white wall")
+        best_instance = None
+        best_score = -float("Inf")
         for instance in instances:
             if debug:
                 print("# views =", len(instance.instance_views))
@@ -101,11 +124,15 @@ class DemoAgent:
             img_emb = instance.get_image_embedding(
                 aggregation_method="mean", normalize=self.normalize_embeddings
             )
-            goal_score = torch.matmul(goal_emb, img_emb)
+            goal_score = torch.matmul(goal_emb, img_emb).item()
             if debug:
-                neg1_score = torch.matmul(neg1_emb, img_emb)
-                neg2_score = torch.matmul(neg2_emb, img_emb)
+                neg1_score = torch.matmul(neg1_emb, img_emb).item()
+                neg2_score = torch.matmul(neg2_emb, img_emb).item()
                 print("scores =", goal_score, neg1_score, neg2_score)
+            if goal_score > best_score:
+                best_instance = instance
+                best_score = goal_score
+        return best_instance
 
     def run_exploration(
         rate: int = 10,
@@ -128,9 +155,11 @@ class DemoAgent:
         self.robot.nav.navigate_to([0, 0, 0])
 
         # Explore some number of times
+        matches = []
         for i in range(explore_iter):
             print("\n" * 2)
             print("-" * 20, i + 1, "/", explore_iter, "-" * 20)
+            self.print_found_classes()
             start = self.robot.get_base_pose()
             start_is_valid = self.space.is_valid(start)
             # if start is not valid move backwards a bit
@@ -171,8 +200,8 @@ class DemoAgent:
                 input("... press enter ...")
 
             if task_goal is not None:
-                res = self.check_if_found_goal(task_goal)
-                if res is not None:
+                matches = self.get_found_instances_by_class(task_goal)
+                if len(matches) > 0:
                     print("!!! GOAL FOUND! Done exploration. !!!")
                     break
 
@@ -193,6 +222,8 @@ class DemoAgent:
                     )
             else:
                 print("WARNING: planning to home failed!")
+
+        return matches
 
 
 def run_grasping(robot: StretchClient, semantic_sensor):
@@ -309,11 +340,11 @@ def main(
         encoder=encoder,
     )
 
-    object_to_find = "cup"
+    object_to_find = "chair"
     demo = DemoAgent(robot, collector, semantic_sensor)
     demo.start(goal=object_to_find, visualize_map_at_start=show_intermediate_maps)
 
-    res = demo.run_exploration(
+    matches = demo.run_exploration(
         collector,
         robot,
         rate,
@@ -324,6 +355,7 @@ def main(
     )
 
     print("Done collecting data.")
+    print("-> Found", len(matches), f"instances of class {object_to_find}.")
 
     if show_final_map:
         pc_xyz, pc_rgb = collector.show()
