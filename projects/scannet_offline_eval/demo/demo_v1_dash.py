@@ -112,7 +112,17 @@ controls = dbc.InputGroup(
 ###########################
 # Pointcloud
 ###########################
-pointcloud = make_pointcloud()
+# pointcloud = make_pointcloud()
+
+import torch
+
+from home_robot.mapping.voxel.voxel import SparseVoxelMap
+
+svm = torch.load(
+    "/private/home/ssax/home-robot/projects/scannet_offline_eval/canned_scannet_scene.pth"
+)
+pointcloud = svm.voxel_map.show(backend="pytorch3d")
+
 ################
 
 
