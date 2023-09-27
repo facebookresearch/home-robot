@@ -54,7 +54,13 @@ def run_exploration(
     rate = rospy.Rate(rate)
 
     # Create planning space
-    space = collector.get_planning_space()
+    space = SparseVoxelMapNavigationSpace(
+        collector.voxel_map,
+        collector.robot_model,
+        step_size=0.1,
+        dilate_frontier_size=12,  # 0.6 meters back from every edge
+        dilate_obstacle_size=6,
+    )
 
     # Create a simple motion planner
     planner = Shortcut(RRTConnect(space, space.is_valid))
@@ -222,7 +228,13 @@ def main(
 
     print("- Start ROS data collector")
     collector = RosMapDataCollector(
-        robot, semantic_sensor, visualize, voxel_size=voxel_size
+        robot,
+        semantic_sensor,
+        visualize,
+        voxel_size=voxel_size,
+        obs_min_height=0.1,
+        obs_max_height=1.8,
+        obs_min_density=5,
     )
 
     # Tuck the arm away
@@ -257,9 +269,11 @@ def main(
 
     # Create pointcloud
     if len(output_pcd_filename) > 0:
+        print(f"Write pcd to {output_pcd_filename}...")
         pcd = numpy_to_pcd(pc_xyz, pc_rgb / 255)
         open3d.io.write_point_cloud(output_pcd_filename, pcd)
     if len(output_pkl_filename) > 0:
+        print(f"Write pkl to {output_pkl_filename}...")
         collector.voxel_map.write_to_pickle(output_pkl_filename)
 
     rospy.signal_shutdown("done")
