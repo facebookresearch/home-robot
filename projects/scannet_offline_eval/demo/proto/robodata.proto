@@ -1,0 +1,43 @@
+syntax = "proto3";
+// To generate:
+// python -m grpc_tools.protoc -I./proto --python_out=python --pyi_out=python --grpc_python_out=python ./proto/robodata.proto
+
+option java_multiple_files = true;
+option java_package = "io.grpc.examples.robotdata";
+option java_outer_classname = "RobotDataProto";
+option objc_class_prefix = "RDT";
+
+package robodata;
+
+// Interface exported by the server.
+service RobotData {
+  rpc GetHistory ( RoboTensor ) returns ( stream RobotSummary ) {}
+  rpc ReceiveRobotData(stream RobotSummary) returns (stream RobotSummary) {}
+}
+
+message GPS_arr {
+  double lat = 1;
+  double long = 2;
+}
+
+message RoboObs {
+  GPS_arr gps = 1;
+}
+
+message RoboTensor {
+  string dtype = 1;
+  int32 d1 = 2;
+  int32 d2  = 3;
+  int32 d3 = 4;
+  bytes tensor_content = 5;
+}
+
+// A RouteNote is a message sent while at a given point.
+message RobotSummary {
+  // The location from which the message is sent.
+  RoboTensor rgb_tensor = 1;
+  RoboTensor depth_tensor = 2;
+  RoboObs robot_obs = 3;
+  // The message to be sent.
+  string message = 4;
+}
