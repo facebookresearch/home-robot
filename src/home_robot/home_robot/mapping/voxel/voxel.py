@@ -375,6 +375,22 @@ class SparseVoxelMap(object):
         # Increment sequence counter
         self._seq += 1
 
+    def mask_from_bounds(self, bounds: np.ndarray, debug: bool = False):
+        """create mask from a set of 3d object bounds"""
+        assert bounds.shape[0] == 3, "bounding boxes in xyz"
+        assert bounds.shape[1] == 2, "min and max"
+        assert (len(bounds.shape)) == 2, "only one bounding box"
+        mins = torch.floor(self.xy_to_grid_coords(bounds[:2, 0])).long()
+        maxs = torch.ceil(self.xy_to_grid_coords(bounds[:2, 1])).long()
+        obstacles, explored = self.get_2d_map()
+        mask = torch.zeros_like(explored)
+        mask[mins[0] : maxs[0] + 1, mins[1] : maxs[1] + 1] = True
+        if debug:
+            import matplotlib.pyplot as plt
+
+            plt.imshow(obstacles.int() + explored.int() + mask.int())
+        return mask
+
     def _update_visited(self, base_pose: Tensor):
         """Update 2d map of where robot has visited"""
         # Add exploration here

@@ -239,6 +239,83 @@ class SparseVoxelMapNavigationSpace(XYT):
 
         return valid
 
+    def sample_near_mask(
+        self,
+        mask: torch.Tensor,
+        radius_m: float = 0.7,
+        max_tries: int = 1000,
+        verbose: bool = True,
+        debug: bool = False,
+    ) -> Optional[np.ndarray]:
+        """Sample a position near the mask and return"""
+
+        obstacles, explored = self.voxel_map.get_2d_map()
+
+        # Extract edges from our explored mask
+        less_explored = binary_erosion(
+            explored.float().unsqueeze(0).unsqueeze(0), self.dilate_explored_kernel
+        )[0, 0]
+
+        # Radius computed from voxel map measurements
+        radius = radius_m / self.voxel_map.grid_resolution
+        expanded_mask = expand_mask(mask, radius)
+        expanded_mask = expanded_mask & less_explored.bool() & ~obstacles
+
+        if debug:
+            import matplotlib.pyplot as plt
+
+            plt.imshow(
+                mask.int() + expanded_mask.int() + explored.int() + obstacles.int() * 5
+            )
+            plt.show()
+
+        # Where can the robot go?
+        valid_indices = torch.nonzero(expanded_mask, as_tuple=False)
+        if valid_indices.size(0) == 0:
+            return None
+
+        # maximum number of tries
+        for i in range(max_tries):
+            random_index = torch.randint(valid_indices.size(0), (1,))
+            point_grid_coords = valid_indices[random_index]
+            outside_point = find_closest_point_on_mask(mask, point_grid_coords.float())
+
+            # convert back
+            point = self.voxel_map.grid_coords_to_xy(point_grid_coords)
+            if point is None:
+                print("[VOXEL MAP: sampling] ERR:", point, point_grid_coords)
+                continue
+            if outside_point is None:
+                print(
+                    "[VOXEL MAP: sampling] ERR finding closest pt:",
+                    point,
+                    point_grid_coords,
+                    "closest =",
+                    outside_point,
+                )
+                continue
+            theta = math.atan2(
+                outside_point[1] - point_grid_coords[0, 1],
+                outside_point[0] - point_grid_coords[0, 0],
+            )
+
+            # Ensure angle is in 0 to 2 * PI
+            if theta < 0:
+                theta += 2 * np.pi
+
+            xyt = torch.zeros(3)
+            xyt[:2] = point
+            xyt[2] = theta
+
+            # Check to see if this point is valid
+            if verbose:
+                print("[VOXEL MAP: sampling]", radius, i, "sampled", xyt)
+            if self.is_valid(xyt):
+                yield xyt
+
+        # We failed to find anything useful
+        return None
+
     def sample_closest_frontier(
         self,
         xyt: np.ndarray,
