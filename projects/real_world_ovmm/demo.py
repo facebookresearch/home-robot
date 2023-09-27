@@ -163,7 +163,7 @@ def run_grasping(robot: StretchClient, semantic_sensor):
 @click.option("--manual_wait", default=False, is_flag=True)
 @click.option("--output-pcd-filename", default="output.ply", type=str)
 @click.option("--output-pkl-filename", default="output.pkl", type=str)
-@click.option("--show-intermediate_map", default=False, is_flag=True)
+@click.option("--show-intermediate-maps", default=False, is_flag=True)
 @click.option("--show-final-map", default=False, is_flag=True)
 @click.option("--show-paths", default=False, is_flag=True)
 @click.option("--random-goals", default=False, is_flag=True)
@@ -241,10 +241,10 @@ def main(
     print("Done collecting data.")
     if navigate_home:
         robot.nav.navigate_to((0, 0, 0))
+
     if show_final_map:
         pc_xyz, pc_rgb = collector.show()
 
-    if show_maps:
         import matplotlib.pyplot as plt
 
         obstacles, explored = collector.get_2d_map()
