@@ -17,7 +17,10 @@ def plan_to_frontier(
     voxel_map: SparseVoxelMap,
     visualize: bool = False,
     try_to_plan_iter: int = 10,
+    debug: bool = True,
+    verbose: bool = True,
 ) -> PlanResult:
+    """Simple helper function for planning to the frontier during exploration."""
     # extract goal using fmm planner
     tries = 0
     failed = False
@@ -27,7 +30,7 @@ def plan_to_frontier(
     print("Start is valid:", start_is_valid)
     if not start_is_valid:
         return PlanResult(False, reason="invalid start state")
-    for goal in space.sample_closest_frontier(start):
+    for goal in space.sample_closest_frontier(start, verbose=verbose, debug=debug):
         if goal is None:
             failed = True
             break

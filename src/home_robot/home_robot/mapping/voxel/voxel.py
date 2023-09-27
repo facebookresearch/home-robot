@@ -503,6 +503,7 @@ class SparseVoxelMap(object):
         xyz, _, counts, _ = self.voxel_pcd.get_pointcloud()
         device = xyz.device
         xyz = ((xyz / self.grid_resolution) + self.grid_origin).long()
+        xyz[xyz[:, -1] < 0, -1] = 0
 
         # Crop to robot height
         min_height = int(self.obs_min_height / self.grid_resolution)

@@ -242,7 +242,7 @@ class SparseVoxelMapNavigationSpace(XYT):
     def sample_closest_frontier(
         self,
         xyt: np.ndarray,
-        max_tries: int = 100,
+        max_tries: int = 1000,
         expand_size: int = 5,
         debug: bool = False,
         verbose: bool = False,
@@ -261,6 +261,7 @@ class SparseVoxelMapNavigationSpace(XYT):
             len(xyt) == 2 or len(xyt) == 3
         ), f"xyt must be of size 2 or 3 instead of {len(xyt)}"
 
+        """
         # Get the masks from our 3d map
         obstacles, explored = self.voxel_map.get_2d_map()
 
@@ -277,21 +278,41 @@ class SparseVoxelMapNavigationSpace(XYT):
         frontier_edges = edges & ~obstacles
         traversible = explored & ~obstacles
         outside_frontier = ~explored & ~obstacles
+        """
+
+        self.voxel_map.show()
+        obstacles, explored = self.voxel_map.get_2d_map()
+        # Extract edges from our explored mask
+        obstacles = binary_dilation(
+            obstacles.float().unsqueeze(0).unsqueeze(0), self.dilate_obstacles_kernel
+        )[0, 0].bool()
+        # Get the masks from our 3d map
+        edges = get_edges(explored)
+
+        # Do not explore obstacles any more
+        traversible = explored & ~obstacles
+        frontier_edges = edges & ~obstacles
+        frontier = binary_dilation(
+            frontier_edges.float().unsqueeze(0).unsqueeze(0),
+            self.dilate_explored_kernel,
+        )[0, 0].bool()
+        outside_frontier = frontier & ~explored
 
         if debug:
             import matplotlib.pyplot as plt
 
             plt.subplot(221)
-            plt.imshow(frontier_edges.cpu().numpy())
+            print("obstacles")
+            plt.imshow(obstacles.cpu().numpy())
             plt.subplot(222)
-            # plt.imshow(expanded_frontier.cpu().numpy())
-            # plt.title("expanded frontier")
-            plt.subplot(223)
-            plt.imshow(traversible.cpu().numpy())
-            plt.title("traversible")
-            plt.subplot(224)
-            plt.imshow((less_explored + explored).cpu().numpy())
+            plt.imshow(explored.bool().cpu().numpy())
             plt.title("explored")
+            plt.subplot(223)
+            plt.imshow((traversible + frontier).cpu().numpy())
+            plt.title("traversible + frontier")
+            plt.subplot(224)
+            plt.imshow((frontier_edges).cpu().numpy())
+            plt.title("just frontiers")
             plt.show()
 
         # from scipy.ndimage.morphology import distance_transform_edt
@@ -377,7 +398,7 @@ class SparseVoxelMapNavigationSpace(XYT):
             # Check to see if this point is valid
             if verbose:
                 print("[VOXEL MAP: sampling] sampled", xyt)
-            if self.is_valid(xyt):
+            if self.is_valid(xyt, debug=debug):
                 yield xyt
 
             tries += 1
