@@ -40,6 +40,7 @@ def plan_to_frontier(
             failed = True
             break
         goal = goal.cpu().numpy()
+        print("       Start:", start)
         print("Sampled Goal:", goal)
         show_goal = np.zeros(3)
         show_goal[:2] = goal[:2]
