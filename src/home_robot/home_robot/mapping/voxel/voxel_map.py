@@ -277,11 +277,12 @@ class SparseVoxelMapNavigationSpace(XYT):
         # Do not explore obstacles any more
         traversible = explored & ~obstacles
         frontier_edges = edges & ~obstacles
-        frontier = binary_dilation(
+        expanded_frontier = binary_dilation(
             frontier_edges.float().unsqueeze(0).unsqueeze(0),
             self.dilate_explored_kernel,
         )[0, 0].bool()
-        outside_frontier = frontier & ~explored
+        outside_frontier = expanded_frontier & ~explored
+        frontier = expanded_frontier & ~obstacles & explored
 
         if debug:
             import matplotlib.pyplot as plt
