@@ -13,3 +13,4 @@ referit3d_config:
 scanrefer_config:
   _target_: home_robot.datasets.scannet.ScanReferDataConfig
 show_load_progress: False
+n_classes: 100
