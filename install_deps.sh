@@ -29,8 +29,8 @@ esac
 
 # Activate conda environment
 # conda activate $ENV
-export CUDA_VERSION=118
-export TORCH_VERSION=2.0.0
+export CUDA_VERSION=117
+export TORCH_VERSION=1.13.1
 
 echo ""
 echo "WARNING! we should include this elsewhere"
