@@ -2,7 +2,7 @@
 #
 # This source code is licensed under the MIT license found in the
 # LICENSE file in the root directory of this source tree.
-
+import datetime
 import os
 import random
 import sys
@@ -13,6 +13,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 import open3d
 from PIL import Image
+import torch
 
 from home_robot.agent.ovmm_agent import (
     OvmmPerception,
@@ -34,6 +35,7 @@ from home_robot.utils.point_cloud import numpy_to_pcd
 from home_robot.utils.visualization import get_x_and_y_from_path
 from home_robot_spot import SpotClient, VoxelMapSubscriber
 from home_robot_spot.grasp_env import GraspController
+from home_robot.utils.geometry import xyt_global_to_base
 
 
 def plan_to_frontier(
@@ -141,6 +143,49 @@ def navigate_to_an_instance(
 
     return True
 
+def place_in_an_instance(instance_id, spot, voxel_map, place_height= 0.3, place_rotation=[0, np.pi/2, 0]):
+    # Parameters for the placing function from the pointcloud
+    ground_normal = torch.tensor([0.0, 0.0, 1])
+    nbr_dist = .15
+    residual_thresh = 0.03
+
+    # Get the pointcloud of the instance
+    pc_xyz = voxel_map.get_instances()[instance_id].point_cloud
+
+    # get the location (in global coordinates) of the placeable location
+    location, area_prop = nc.find_placeable_location(pc_xyz, ground_normal, nbr_dist, residual_thresh)
+
+    # Navigate close to that location
+    k = .5 
+    # TODO solve the system of equations to get k such that the distance is .75 meters
+    # k = 1 - M / (norm(vp - vr)) where M is the distance we want to be from the object
+
+    instance_pose = voxel_map.get_instances()[instance_id].instance_views[-1].pose
+    vr = np.array([instance_pose[0], instance_pose[1]])
+    vp = np.asarray(location[:2])
+    vf = vr + (vp - vr) * k
+    spot.navigate_to(np.array([vf[0], vf[1], instance_pose[2]]), blocking=True)
+
+    # Transform placing position to body frame coordinates
+    x, y, yaw = spot.spot.get_xy_yaw()
+    local_xyt = xyt_global_to_base(location, np.array([x, y, yaw]))
+    
+    # z is the height of the receptacle minus the height of spot + the desired delta for placing
+    z = location[2] - spot.spot.body.z + place_height
+    local_xyz = np.array([local_xyt[0], local_xyt[1], z])
+    rotations = np.array([0, 0, 0])
+
+    # Now we place
+    spot.spot.move_gripper_to_point(local_xyz, rotations)
+    time.sleep(2)
+    breakpoint()
+    spot.spot.rotate_gripper_with_delta(wrist_roll = np.pi / 2)
+    spot.spot.open_gripper()
+
+    # reset arm
+    time.sleep(1)
+    spot.reset_arm()
+
 
 def get_obj_centric_world_representation(instance_memory, max_context_length):
     crops = []
@@ -191,7 +236,7 @@ def main(dock: Optional[int] = None, args=None):
         "step_size": 2.0,  # (originally .1, we can make it all the way to 2 maybe actually)
         "rotation_step_size": np.pi,
         "visualize": False,
-        "exploration_steps": 20,
+        "exploration_steps": 5,
         "use_midas": False,
         # Voxel map
         "obs_min_height": 0.2,  # Originally .1, floor appears noisy in the 3d map of freemont so we're being super conservative
@@ -339,6 +384,7 @@ def main(dock: Optional[int] = None, args=None):
 
             if not parameters["use_async_subscriber"]:
                 print("Synchronous obs update")
+                time.sleep(1)
                 obs = spot.get_rgbd_obs()
                 print("- Observed from coordinates:", obs.gps, obs.compass)
                 obs = semantic_sensor.predict(obs)
@@ -456,20 +502,73 @@ def main(dock: Optional[int] = None, args=None):
                 success = gaze.gaze_and_grasp()
                 time.sleep(2)
                 input("type enter to release the object...")
+                breakpoint()
+                place = place_in_an_instance(5, spot, voxel_map, place_height=0.15)
                 '''
-                pc_xyz, pc_rgb = voxel_map.show(
-                backend="open3d", instances=False, orig=np.zeros(3)
-                ) 
-                ground_normal = torch.tensor([0.0, 0.0, 1.0])
-                nbr_dist = 1.0
-                residual_thresh = 0.5
+                # PLACING 
+
+                # Put here the instance to place
+                instance = 2
+
+                # Parameters for the placing function from the pointcloud
+                ground_normal = torch.tensor([0.0, 0.0, 1])
+                nbr_dist = .15
+                residual_thresh = 0.03
+
+                # Get the pointcloud of the instance
+                pc_xyz = voxel_map.get_instances()[instance].point_cloud
+
+                # get the location (in global coordinates) of the placeable location
                 location, area_prop = nc.find_placeable_location(pc_xyz, ground_normal, nbr_dist, residual_thresh)
+
+                # Navigate close to that location
+                instance_pose = voxel_map.get_instances()[instance].instance_views[-1].pose
+                vr = np.array([instance_pose[0], instance_pose[1]])
+                vp = location[:2]
+                vf = vr + (vp - vr) * 0.5
+                spot.navigate_to(np.array([vf[0], vf[1], instance_pose[2]]), blocking=True)
+
+                # Transform placing position to local coordinates
+                x,y,yaw = spot.get_xy_yaw()
+                local_xyt = xyt_global_to_base(location, np.array([x,y,yaw]))
+                local_xyz = np.array([local_xyt[0], local_xyt[1], location[2]])
+                rotations = np.array([0, np.pi/2, 0])
+                spot.spot.move_gripper_to_point(local_xyz, rotation, blocking=True)
+
+                pc_xyz, _, _, _ = voxel_map.voxel_pcd.get_pointcloud()
+                pc_xyz, pc_rgb = voxel_map.show(backend="open3d", instances=False, orig=np.zeros(3)) 
+
+                instance = 1
+                navigate_to_an_instance(spot, voxel_map, planner, instance, True)
+                ground_normal = torch.tensor([0.0, 0.0, 1])
+                nbr_dist = .15
+                residual_thresh = 0.03
+                pc_xyz = voxel_map.get_instances()[instance].point_cloud
+                location, area_prop = nc.find_placeable_location(pc_xyz, ground_normal, nbr_dist, residual_thresh)
+                ans = spot.navigate_to(np.array([location[0], location[1], 0.0]), blocking=True)
+                print("location:", location)
+
+                # Now transforming from base to world coordinates
+                l
+
+                # visualize pointcloud and add location as red
+                pcd = open3d.geometry.PointCloud()
+                pcd.points = open3d.utility.Vector3dVector(pc_xyz)
+                pcd.colors = open3d.utility.Vector3dVector(pc_rgb)
+                pcd.colors[location] = [1, 0, 0]
+                open3d.visualization.draw_geometries([pcd])
+
+
+                # TODO> Navigate to that point
+                # TODO VISUALIZE THAT POINT
+                # ransform point to base coordinates
+                # Move armjoint with ik to x,y,z+.02
                 '''
-                pick = gaze.get_pick_location()
-                spot.spot.set_arm_joint_positions(pick, travel_time=1)
-                time.sleep(1)
-                spot.spot.open_gripper()
-                time.sleep(2)
+                # pick = gaze.get_pick_location()
+                # spot.spot.set_arm_joint_positions(pick, travel_time=1)
+                # time.sleep(1)
+                # spot.spot.open_gripper()
+                # time.sleep(2)
                 if success:
                     print("Successfully grasped the object!")
                     # exit out of loop without killing script
@@ -486,8 +585,9 @@ def main(dock: Optional[int] = None, args=None):
             pc_xyz, pc_rgb = voxel_map.show(
                 backend="open3d", instances=False, orig=np.zeros(3)
             )
-            pcd_filename = "spot_output.pcd"
-            pkl_filename = "spot_output.pkl"
+            timestamp = f"{datetime.datetime.now():%Y-%m-%d-%H-%M-%S}"
+            pcd_filename = f"spot_output_{timestamp}.pcd"
+            pkl_filename = f"spot_output_{timestamp}.pkl"
 
             # Create pointcloud
             if len(pcd_filename) > 0:
