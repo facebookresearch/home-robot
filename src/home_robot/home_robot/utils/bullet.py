@@ -485,8 +485,6 @@ class PybulletIKSolver(IKSolverBase):
         else:
             random_initialization = True
 
-        verbose = True
-
         if self.visualize:
             self.debug_block.set_pose(pos_desired, quat_desired)
             input("--- Press enter to solve ---")
