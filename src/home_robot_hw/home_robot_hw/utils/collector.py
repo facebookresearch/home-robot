@@ -48,13 +48,16 @@ class RosMapDataCollector(object):
         semantic_sensor=None,
         visualize_planner=False,
         voxel_size: float = 0.01,
+        **kwargs,
     ):
         self.robot = robot  # Get the connection to the ROS environment via agent
         # Run detection here
         self.semantic_sensor = semantic_sensor
         self.started = False
         self.robot_model = HelloStretchKinematics(visualize=visualize_planner)
-        self.voxel_map = SparseVoxelMap(resolution=voxel_size, local_radius=0.1)
+        self.voxel_map = SparseVoxelMap(
+            resolution=voxel_size, local_radius=0.1, **kwargs
+        )
 
     def get_planning_space(self) -> SparseVoxelMapNavigationSpace:
         """return space for motion planning. Hard codes some parameters for Stretch"""
@@ -63,7 +66,7 @@ class RosMapDataCollector(object):
             self.robot_model,
             step_size=0.1,
             dilate_frontier_size=12,  # 0.6 meters back from every edge
-            dilate_obstacle_size=2,
+            dilate_obstacle_size=5,
         )
 
     def step(self, visualize_map=False):
