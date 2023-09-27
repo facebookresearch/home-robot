@@ -491,9 +491,12 @@ class SpotClient:
             print(f"Initializing Midas depth completion failed: {e}")
             return depth
 
-    def reset(self):
+    def reset_arm(self):
         self.spot.set_arm_joint_positions(self.gaze_arm_joint_angles, travel_time=1.0)
         self.spot.open_gripper()
+
+    def reset(self):
+        self.reset_arm()
 
         # self.start_gps = self.gps
         # self.start_compass = self.compass
