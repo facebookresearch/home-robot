@@ -195,42 +195,90 @@ class DemoAgent:
                 print("WARNING: planning to home failed!")
 
 
-def run_grasping(robot: StretchClient, semantic_sensor):
+def run_grasping(
+    robot: StretchClient, semantic_sensor, to_grasp="cup", to_place="chair"
+):
     """Start running grasping code here"""
     robot.switch_to_manipulation_mode()
     robot.move_to_manip_posture()
-    robot.manip.goto_joint_positions(
-        [
-            0.0,  # base x
-            0.6,  # Lift
-            0.01,  # Arm
-            0,  # Roll
-            -1.5,  # Pitch
-            0,  # Yaw
-        ]
-    )
 
+    ### GRASPING ROUTINE
     # Get observations from the robot
     obs = robot.get_observation()
     # Predict masks
     obs = semantic_sensor.predict(obs)
 
+    def within(x, y):
+        return (
+            x >= 0
+            and x < obs.semantic.shape[0]
+            and y >= 0
+            and y < obs.semantic.shape[1]
+        )
+
+    to_grasp_oid = None
     for oid in np.unique(obs.semantic):
         if oid == 0:
             continue
         cid, classname = semantic_sensor.current_vocabulary.map_goal_id(oid)
         print(f"- {oid} {cid} = {classname}")
+        if classname == to_grasp:
+            to_grasp_oid = oid
 
-    # plt.subplot(131)
-    # plt.imshow(obs.rgb)
-    # plt.subplot(132)
-    # plt.imshow(obs.xyz)
-    # plt.subplot(133)
-    # plt.imshow(obs.semantic)
-    # plt.show()
+    x, y = np.mean(np.where(obs.semantic == to_grasp_oid), axis=1)
+    if not within(x, y):
+        print("WARN: to_grasp object not within valid semantic map bounds")
+        return
+    x = int(x)
+    y = int(y)
 
-    # show_point_cloud(obs.xyz, obs.rgb / 255, orig=np.zeros(3))
-    # breakpoint()
+    c_x, c_y, c_z = obs.xyz[x, y]
+    c_pt = np.array([c_x, c_y, c_z, 1.0])
+    m_pt = obs.camera_pose @ c_pt
+    m_x, m_y, m_z, _ = m_pt
+
+    robot._ros_client.trigger_grasp(m_x, m_y, m_z)
+    breakpoint()  # TODO: user lets routine know when grasp finished
+    robot.switch_to_manipulation_mode()
+    robot.move_to_manip_posture()
+    breakpoint()
+
+    ### PLACEMENT ROUTINE
+    # Get observations from the robot
+    obs = robot.get_observation()
+    # Predict masks
+    obs = semantic_sensor.predict(obs)
+
+    def within(x, y):
+        return (
+            x >= 0
+            and x < obs.semantic.shape[0]
+            and y >= 0
+            and y < obs.semantic.shape[1]
+        )
+
+    to_place_oid = None
+    for oid in np.unique(obs.semantic):
+        if oid == 0:
+            continue
+        cid, classname = semantic_sensor.current_vocabulary.map_goal_id(oid)
+        print(f"- {oid} {cid} = {classname}")
+        if classname == to_place:
+            to_place_oid = oid
+
+    x, y = np.mean(np.where(obs.semantic == to_place_oid), axis=1)
+    if not within(x, y):
+        print("WARN: to_place object not within valid semantic map bounds")
+        return
+    x = int(x)
+    y = int(y)
+
+    c_x, c_y, c_z = obs.xyz[x, y]
+    c_pt = np.array([c_x, c_y, c_z, 1.0])
+    m_pt = obs.camera_pose @ c_pt
+    m_x, m_y, m_z, _ = m_pt
+
+    robot._ros_client.trigger_placement(m_x, m_y, m_z)
 
 
 @click.command()

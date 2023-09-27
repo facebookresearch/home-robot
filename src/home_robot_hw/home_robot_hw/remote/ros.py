@@ -13,7 +13,7 @@ import rospy
 import sophus as sp
 import tf2_ros
 from control_msgs.msg import FollowJointTrajectoryAction, FollowJointTrajectoryGoal
-from geometry_msgs.msg import Pose, PoseStamped, Twist
+from geometry_msgs.msg import PointStamped, Pose, PoseStamped, Twist
 from nav_msgs.msg import Odometry
 from sensor_msgs.msg import JointState
 from std_msgs.msg import Bool, String
@@ -253,6 +253,12 @@ class StretchRosInterface:
         # Create command publishers
         self.goal_pub = rospy.Publisher("goto_controller/goal", Pose, queue_size=1)
         self.velocity_pub = rospy.Publisher("stretch/cmd_vel", Twist, queue_size=1)
+        self.grasp_target_point_pub = rospy.Publisher(
+            "grasp_object/grasp_point", PointStamped, queue_size=1
+        )
+        self.place_target_point_pub = rospy.Publisher(
+            "grasp_object/place_point", PointStamped, queue_size=1
+        )
 
         # Create subscribers
         self._odom_sub = rospy.Subscriber(
@@ -609,3 +615,23 @@ class StretchRosInterface:
         if wait:
             self.trajectory_client.wait_for_result()
         return True
+
+    def trigger_grasp(self, x, y, z):
+        """Calls FUNMAP based grasping"""
+        goal_point = PointStamped()
+        goal_point.header.stamp = rospy.Time.now()
+        goal_point.header.frame_id = "map"
+        goal_point.point.x = x
+        goal_point.point.y = y
+        goal_point.point.z = z
+        self.grasp_target_point_pub.publish(goal_point)
+
+    def trigger_placement(self, x, y, z):
+        """Calls FUNMAP based placement"""
+        goal_point = PointStamped()
+        goal_point.header.stamp = rospy.Time.now()
+        goal_point.header.frame_id = "map"
+        goal_point.point.x = x
+        goal_point.point.y = y
+        goal_point.point.z = z
+        self.place_target_point_pub.publish(goal_point)
