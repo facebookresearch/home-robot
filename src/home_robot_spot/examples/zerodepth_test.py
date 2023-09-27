@@ -51,14 +51,14 @@ K = obs.camera_K
 original_xyz = unproject_masked_depth_to_xyz_coordinates( 
     depth=depth.unsqueeze(0).unsqueeze(1),
     pose=obs.camera_pose.unsqueeze(0),
-    inv_intrinsics=torch.linalg.inv(torch.tensor(obs.[:3, :3])).unsqueeze(0),
+    inv_intrinsics=torch.linalg.inv(torch.tensor(K[:3, :3])).unsqueeze(0),
 )
 
 K = obs.camera_K
 pred_xyz = unproject_masked_depth_to_xyz_coordinates( 
     depth=pred_depth.unsqueeze(0).unsqueeze(1),
     pose=obs.camera_pose.unsqueeze(0),
-    inv_intrinsics=torch.linalg.inv(torch.tensor(obs.[:3, :3])).unsqueeze(0),
+    inv_intrinsics=torch.linalg.inv(torch.tensor(K[:3, :3])).unsqueeze(0),
 )
 
 print("Original depth...")
