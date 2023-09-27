@@ -328,9 +328,7 @@ class SparseVoxelMapNavigationSpace(XYT):
         distance_map = skfmm.distance(m, dx=1)
         frontier_map = distance_map.copy()
         # Masks are the areas we are ignoring - ignore everything but the frontiers
-        frontier_map.mask = np.bitwise_or(
-            frontier_map.mask, ~frontier_edges.cpu().numpy()
-        )
+        frontier_map.mask = np.bitwise_or(frontier_map.mask, ~frontier.cpu().numpy())
 
         # Get distances of frontier points
         distances = frontier_map.compressed()
