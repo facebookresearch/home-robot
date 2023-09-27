@@ -17,10 +17,15 @@ def plan_to_frontier(
     voxel_map: SparseVoxelMap,
     visualize: bool = False,
     try_to_plan_iter: int = 10,
-    debug: bool = True,
-    verbose: bool = True,
+    debug: bool = False,
+    verbose: bool = False,
 ) -> PlanResult:
-    """Simple helper function for planning to the frontier during exploration."""
+    """Simple helper function for planning to the frontier during exploration.
+
+    Args:
+        start(np.ndarray): len=3 array containing world x, y, and theta
+        planner(Planner): what we will use to generate motion plans to frontier points
+    """
     # extract goal using fmm planner
     tries = 0
     failed = False

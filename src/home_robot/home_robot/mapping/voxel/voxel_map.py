@@ -261,26 +261,6 @@ class SparseVoxelMapNavigationSpace(XYT):
             len(xyt) == 2 or len(xyt) == 3
         ), f"xyt must be of size 2 or 3 instead of {len(xyt)}"
 
-        """
-        # Get the masks from our 3d map
-        obstacles, explored = self.voxel_map.get_2d_map()
-
-        # Extract edges from our explored mask
-        less_explored = binary_erosion(
-            explored.float().unsqueeze(0).unsqueeze(0), self.dilate_explored_kernel
-        )[0, 0]
-        obstacles = binary_dilation(
-            obstacles.float().unsqueeze(0).unsqueeze(0), self.dilate_obstacles_kernel
-        )[0, 0].bool()
-        edges = get_edges(less_explored)
-
-        # Do not explore obstacles any more
-        frontier_edges = edges & ~obstacles
-        traversible = explored & ~obstacles
-        outside_frontier = ~explored & ~obstacles
-        """
-
-        self.voxel_map.show()
         obstacles, explored = self.voxel_map.get_2d_map()
         # Extract edges from our explored mask
         obstacles = binary_dilation(
@@ -292,11 +272,12 @@ class SparseVoxelMapNavigationSpace(XYT):
         # Do not explore obstacles any more
         traversible = explored & ~obstacles
         frontier_edges = edges & ~obstacles
-        frontier = binary_dilation(
+        expanded_frontier = binary_dilation(
             frontier_edges.float().unsqueeze(0).unsqueeze(0),
             self.dilate_explored_kernel,
         )[0, 0].bool()
-        outside_frontier = frontier & ~explored
+        outside_frontier = expanded_frontier & ~explored
+        frontier = expanded_frontier & ~obstacles & explored
 
         if debug:
             import matplotlib.pyplot as plt

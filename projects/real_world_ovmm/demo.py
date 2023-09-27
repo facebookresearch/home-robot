@@ -163,7 +163,8 @@ def run_grasping(robot: StretchClient, semantic_sensor):
 @click.option("--manual_wait", default=False, is_flag=True)
 @click.option("--output-pcd-filename", default="output.ply", type=str)
 @click.option("--output-pkl-filename", default="output.pkl", type=str)
-@click.option("--show-maps", default=False, is_flag=True)
+@click.option("--show-intermediate_map", default=False, is_flag=True)
+@click.option("--show-final-map", default=False, is_flag=True)
 @click.option("--show-paths", default=False, is_flag=True)
 @click.option("--random-goals", default=False, is_flag=True)
 @click.option("--test-grasping", default=False, is_flag=True)
@@ -185,7 +186,8 @@ def main(
     voxel_size: float = 0.01,
     device_id: int = 0,
     verbose: bool = True,
-    show_maps: bool = False,
+    show_intermediate_maps: bool = False,
+    show_final_map: bool = False,
     show_paths: bool = False,
     random_goals: bool = True,
     test_grasping: bool = False,
@@ -197,7 +199,8 @@ def main(
 
     Args:
         run_explore(bool): should sample frontier points and path to them; on robot will go there.
-        show_maps(bool): show 2d maps
+        show_intermediate_maps(bool): show maps as we explore
+        show_final_map(bool): show the final 3d map after moving around and mapping the world
         show_paths(bool): display paths after planning
         random_goals(bool): randomly sample frontier goals instead of looking for closest
     """
@@ -231,12 +234,14 @@ def main(
 
     # Move the robot
     robot.switch_to_navigation_mode()
-    collector.step(visualize_map=show_maps)  # Append latest observations
+    collector.step(visualize_map=show_intermediate_maps)  # Append latest observations
     run_exploration(collector, robot, rate, manual_wait, explore_iter=explore_iter)
 
     print("Done collecting data.")
-    robot.nav.navigate_to((0, 0, 0))
-    pc_xyz, pc_rgb = collector.show()
+    if navigate_home:
+        robot.nav.navigate_to((0, 0, 0))
+    if show_final_map:
+        pc_xyz, pc_rgb = collector.show()
 
     if show_maps:
         import matplotlib.pyplot as plt
@@ -250,11 +255,11 @@ def main(
         plt.show()
 
     # Create pointcloud
-    if len(pcd_filename) > 0:
+    if len(output_pcd_filename) > 0:
         pcd = numpy_to_pcd(pc_xyz, pc_rgb / 255)
-        open3d.io.write_point_cloud(pcd_filename, pcd)
-    if len(pkl_filename) > 0:
-        collector.voxel_map.write_to_pickle(pkl_filename)
+        open3d.io.write_point_cloud(output_pcd_filename, pcd)
+    if len(output_pkl_filename) > 0:
+        collector.voxel_map.write_to_pickle(output_pkl_filename)
 
     rospy.signal_shutdown("done")
 
