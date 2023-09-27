@@ -82,6 +82,7 @@ def plan_to_frontier(
             failed = True
             break
         goal = goal.cpu().numpy()
+        print("       Start:", start)
         print("Sampled Goal:", goal)
         show_goal = np.zeros(3)
         show_goal[:2] = goal[:2]
@@ -224,9 +225,9 @@ def main(dock: Optional[int] = None, args=None):
         # 2d parameters
         "explore_methodical": True,
         "dilate_frontier_size": 10,
-        # "dilate_obstacle_size": 2,  # Value used in pittsburgh lab
-        "dilate_obstacle_size": 5,
-        "smooth_kernel_size": 7,
+        "dilate_obstacle_size": 2,  # Value used in pittsburgh lab
+        # "dilate_obstacle_size": 5, # value from fremont
+        "smooth_kernel_size": 5,
         # Frontier
         "min_size": 20,  # Can probably be bigger than original (10)
         "max_size": 40,  # Can probably be bigger than original (10)
