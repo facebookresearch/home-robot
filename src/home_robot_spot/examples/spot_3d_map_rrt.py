@@ -422,6 +422,8 @@ def main(dock: Optional[int] = None, args=None):
             # for debug, sending the robot back to original
             spot.navigate_to([x0, y0, theta0], blocking=True)
             success = False
+            pick_instance_id = None
+            place_instance_id = None
             if args.enable_vlm == 1:
                 # get world_representation for planning
                 while True:
@@ -435,12 +437,15 @@ def main(dock: Optional[int] = None, args=None):
                     sample = vlm.prepare_sample(task, world_representation)
                     plan = vlm.evaluate(sample)
                     print(plan)
+
                     execute = input(
                         "do you want to execute (replan otherwise)? (y/n): "
                     )
                     if "y" in execute:
+                        # now it is hacky to get two instance ids TODO: make it more general for all actions
+                        # get pick instance id
                         current_high_level_action = plan.split("; ")[0]
-                        instance_id = int(
+                        pick_instance_id = int(
                             world_representation[
                                 int(
                                     current_high_level_action.split("(")[1]
@@ -452,39 +457,61 @@ def main(dock: Optional[int] = None, args=None):
                             .split(".")[0]
                             .split("_")[1]
                         )
+                        if len(plan.split(': ')) > 2:
+                            # get place instance id
+                            current_high_level_action = plan.split("; ")[2]
+                            place_instance_id = int(
+                                world_representation[
+                                    int(
+                                        current_high_level_action.split("(")[1]
+                                        .split(")")[0]
+                                        .split(", ")[0]
+                                        .split("_")[1]
+                                    )
+                                ]
+                                .split(".")[0]
+                                .split("_")[1]
+                            )                       
                         break
-            else:
+            if not pick_instance_id:
                 # Navigating to a cup or bottle
-                instance_id = None
                 for i, each_instance in enumerate(instances):
                     if vocab.goal_id_to_goal_name[
                         int(each_instance.category_id.item())
                     ] in ["bottle", "cup"]:
-                        instance_id = i
+                        pick_instance_id = i
+                        break
+            if not place_instance_id:   
+                for i, each_instance in enumerate(instances):
+                    if vocab.goal_id_to_goal_name[
+                        int(each_instance.category_id.item())
+                    ] in ["chair"]:
+                        place_instance_id = i
                         break
 
-            if instance_id is None:
+            if pick_instance_id is None or place_instance_id is None:
                 print("No instances found!")
                 success = False
                 breakpoint()
             else:
                 print("Navigating to instance ")
-                print(f"Instance id: {instance_id}")
+                print(f"Instance id: {pick_instance_id}")
                 success = navigate_to_an_instance(
                     spot,
                     voxel_map,
                     planner,
-                    instance_id,
+                    pick_instance_id,
                     visualize=parameters["visualize"],
                 )
                 print(f"Success: {success}")
 
-            # try to pick up this instance
-            if success:
+            # # try to pick up this instance
+            # if success:
+                
                 # TODO: change the grasp API to be able to grasp from the point cloud / mask of the instance
                 # currently it will fail if there are two instances of the same category sitting close to each other
                 object_category_name = vocab.goal_id_to_goal_name[
-                    int(instances[instance_id].category_id.item())
+                    int(instances[pick_instance_id].category_id.item())
                 ]
                 print(f"Grasping {object_category_name}...")
                 gaze = GraspController(
@@ -502,8 +529,20 @@ def main(dock: Optional[int] = None, args=None):
                 success = gaze.gaze_and_grasp()
                 time.sleep(2)
                 input("type enter to release the object...")
+
+                # navigate to the place instance
+                print("Navigating to instance ")
+                print(f"Instance id: {place_instance_id}")
+                success = navigate_to_an_instance(
+                    spot,
+                    voxel_map,
+                    planner,
+                    place_instance_id,
+                    visualize=parameters["visualize"],
+                )
+
                 breakpoint()
-                place = place_in_an_instance(5, spot, voxel_map, place_height=0.15)
+                place = place_in_an_instance(place_instance_id, spot, voxel_map, place_height=0.15)
                 '''
                 # PLACING 
 
