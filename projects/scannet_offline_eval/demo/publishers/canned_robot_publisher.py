@@ -49,7 +49,6 @@ def main(
         torch_device (str, optional): _description_. Defaults to 'cuda'.
     """
     print(dataset.scene_list)
-    idx = dataset.scene_list.index(scene_name)
 
     class_id_to_class_names = dict(
         zip(
@@ -58,8 +57,18 @@ def main(
         )
     )
     model.set_vocabulary(class_id_to_class_names)
-    with open(spot_trajectory_pickle_path, "rb") as f:
-        observations = pickle.load(f)["res"]
+    with open(trajectory_pickle_path, "rb") as f:
+        observations = pickle.load(f)["obs"]
+    for obs in observations:
+        obs.rgb = obs.rgb.to(torch_device)
+        obs.depth = obs.depth.to(torch_device)
+        obs.camera_pose = obs.camera_pose.to(torch_device)
+        obs.camera_K = torch.from_numpy(obs.camera_K).float().to(torch_device)
+
+        # obs.task_observations['instance_map'] = torch.from_numpy(obs.task_observations['instance_map']).to(device)
+        # obs.task_observations['instance_map'] = torch.from_numpy(obs.task_observations['instance_map']).to(device)
+        # obs.task_observations['instance_map'] = torch.from_numpy(obs.task_observations['instance_map']).to(device)
+
     publisher = Publisher()
     publisher.build_representation_and_publish(
         publish_dir=dump_dir,
