@@ -469,6 +469,13 @@ def main(
     matches = demo.get_found_instances_by_class(location_to_place)
     if len(matches) == 0:
         print(f"!!! No location {location_to_place} found !!!")
+        demo.run_exploration(
+            rate,
+            manual_wait,
+            explore_iter=explore_iter,
+            task_goal=location_to_place,
+            go_home_at_end=navigate_home,
+        )
     demo.move_to_any_instance(matches)
 
     # TODO: place here
