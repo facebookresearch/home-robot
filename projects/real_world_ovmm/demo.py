@@ -3,6 +3,7 @@
 # This source code is licensed under the MIT license found in the
 # LICENSE file in the root directory of this source tree.
 import sys
+import time
 import timeit
 from pathlib import Path
 from typing import List, Optional, Tuple
@@ -61,9 +62,56 @@ class DemoAgent:
         # Create a simple motion planner
         self.planner = Shortcut(RRTConnect(self.space, self.space.is_valid))
 
-    def print_found_classes(self):
+    def move_to_any_instance(self, matches: List[Instance]):
+        """Check instances and find one we can move to"""
+
+        start = self.robot.get_base_pose()
+        start_is_valid = self.space.is_valid(start)
+
+        # Find and move to one of these
+        for i, match in enumerate(matches):
+            # TODO: this is a bad name for this variable
+            for j, view in enumerate(match.instance_views):
+                print(i, j, view.cam_to_world)
+            print("at =", match.bounds)
+            res = None
+            mask = self.voxel_map.mask_from_bounds(match.bounds)
+            for goal in self.space.sample_near_mask(mask, radius_m=0.6):
+                goal = goal.cpu().numpy()
+                print("       Start:", start)
+                print("Sampled Goal:", goal)
+                show_goal = np.zeros(3)
+                show_goal[:2] = goal[:2]
+                goal_is_valid = self.space.is_valid(goal)
+                print("Start is valid:", start_is_valid)
+                print(" Goal is valid:", goal_is_valid)
+                if not goal_is_valid:
+                    print(" -> resample goal.")
+                    continue
+
+                # plan to the sampled goal
+                res = self.planner.plan(start, goal)
+                print("Found plan:", res.success)
+                if res.success:
+                    break
+            if res is not None and res.success:
+                break
+
+        if res is not None and res.success:
+            # Now move to this location
+            print("Full plan to object:")
+            for i, pt in enumerate(res.trajectory):
+                print("-", i, pt.state)
+            self.robot.nav.execute_trajectory([pt.state for pt in res.trajectory])
+            time.sleep(1.0)
+            self.robot.nav.navigate_to([0, 0, np.pi / 2], relative=True)
+            self.robot.move_to_manip_posture()
+
+    def print_found_classes(self, goal: Optional[str] = None):
         """Helper. print out what we have found according to detic."""
         instances = self.voxel_map.get_instances()
+        if goal is not None:
+            print(f"Looking for {goal}.")
         print("So far, we have found these classes:")
         for i, instance in enumerate(instances):
             oid = int(instance.category_id.item())
@@ -84,7 +132,7 @@ class DemoAgent:
         self.collector.step(
             visualize_map=visualize_map_at_start
         )  # Append latest observations
-        self.print_found_classes()
+        self.print_found_classes(goal)
         return self.get_found_instances_by_class(goal)
 
     def encode_text(self, text: str):
@@ -135,6 +183,7 @@ class DemoAgent:
         return best_instance
 
     def run_exploration(
+        self,
         rate: int = 10,
         manual_wait: bool = False,
         explore_iter: int = 3,
@@ -159,7 +208,7 @@ class DemoAgent:
         for i in range(explore_iter):
             print("\n" * 2)
             print("-" * 20, i + 1, "/", explore_iter, "-" * 20)
-            self.print_found_classes()
+            self.print_found_classes(task_goal)
             start = self.robot.get_base_pose()
             start_is_valid = self.space.is_valid(start)
             # if start is not valid move backwards a bit
@@ -299,6 +348,7 @@ def main(
     show_paths: bool = False,
     random_goals: bool = True,
     test_grasping: bool = False,
+    force_explore: bool = False,
     explore_iter: int = 10,
     **kwargs,
 ):
@@ -306,7 +356,6 @@ def main(
     Including only some selected arguments here.
 
     Args:
-        run_explore(bool): should sample frontier points and path to them; on robot will go there.
         show_intermediate_maps(bool): show maps as we explore
         show_final_map(bool): show the final 3d map after moving around and mapping the world
         show_paths(bool): display paths after planning
@@ -340,22 +389,42 @@ def main(
         encoder=encoder,
     )
 
-    object_to_find = "chair"
+    object_to_find = "bottle"
+    location_to_place = "chair"
     demo = DemoAgent(robot, collector, semantic_sensor)
     demo.start(goal=object_to_find, visualize_map_at_start=show_intermediate_maps)
+    matches = self.get_found_instances_by_class(object_to_find)
 
-    matches = demo.run_exploration(
-        collector,
-        robot,
-        rate,
-        manual_wait,
-        explore_iter=explore_iter,
-        task_goal=object_to_find,
-        go_home_at_end=navigate_home,
-    )
-
+    if len(matches) == 0 or force_explore:
+        print("Exploring...")
+        demo.run_exploration(
+            rate,
+            manual_wait,
+            explore_iter=explore_iter,
+            task_goal=object_to_find,
+            go_home_at_end=navigate_home,
+        )
     print("Done collecting data.")
+    matches = self.get_found_instances_by_class(object_to_find)
+
+    # Look at all of our instances - choose and move to one
     print("-> Found", len(matches), f"instances of class {object_to_find}.")
+    demo.move_to_any_instance(matches)
+
+    # TODO: grasp here
+    # TODO: grasp here
+    # TODO: grasp here
+    # TODO: grasp here
+
+    matches = self.get_found_instances_by_class(location_to_place)
+    if len(matches) == 0:
+        print(f"!!! No location {location_to_place} found !!!")
+    demo.move_to_any_instance(matches)
+
+    # TODO: place here
+    # TODO: place here
+    # TODO: place here
+    # TODO: place here
 
     if show_final_map:
         pc_xyz, pc_rgb = collector.show()

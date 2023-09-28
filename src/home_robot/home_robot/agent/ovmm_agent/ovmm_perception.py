@@ -133,6 +133,10 @@ class OvmmPerception:
         self._current_vocabulary = vocabulary
         self._current_vocabulary_id = vocabulary_id
 
+    def get_class_name_for_id(self, oid: int) -> str:
+        """return name of a class from a detection"""
+        return self._current_vocabulary.goal_id_to_goal_name[oid]
+
     def _process_obs(self, obs: Observations):
         """
         Process observations. Add pointers to objects and other metadata in segmentation mask.

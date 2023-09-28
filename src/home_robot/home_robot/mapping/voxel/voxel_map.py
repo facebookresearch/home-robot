@@ -246,8 +246,12 @@ class SparseVoxelMapNavigationSpace(XYT):
         max_tries: int = 1000,
         verbose: bool = True,
         debug: bool = False,
+        look_at_any_point: bool = False,
     ) -> Optional[np.ndarray]:
-        """Sample a position near the mask and return"""
+        """Sample a position near the mask and return.
+
+        Args:
+            look_at_any_point(bool): robot should look at the closest point on target mask instead of average pt"""
 
         obstacles, explored = self.voxel_map.get_2d_map()
 
@@ -273,12 +277,19 @@ class SparseVoxelMapNavigationSpace(XYT):
         valid_indices = torch.nonzero(expanded_mask, as_tuple=False)
         if valid_indices.size(0) == 0:
             return None
+        if not look_at_any_point:
+            mask_indices = torch.nonzero(mask, as_tuple=False)
+            outside_point = mask_indices.float().mean(dim=0)
 
         # maximum number of tries
         for i in range(max_tries):
             random_index = torch.randint(valid_indices.size(0), (1,))
             point_grid_coords = valid_indices[random_index]
-            outside_point = find_closest_point_on_mask(mask, point_grid_coords.float())
+
+            if look_at_any_point:
+                outside_point = find_closest_point_on_mask(
+                    mask, point_grid_coords.float()
+                )
 
             # convert back
             point = self.voxel_map.grid_coords_to_xy(point_grid_coords)
