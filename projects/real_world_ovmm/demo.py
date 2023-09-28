@@ -65,6 +65,7 @@ class DemoAgent:
     def move_to_any_instance(self, matches: List[Instance]):
         """Check instances and find one we can move to"""
 
+        self.robot.move_to_nav_posture()
         start = self.robot.get_base_pose()
         start_is_valid = self.space.is_valid(start)
 
@@ -199,6 +200,7 @@ class DemoAgent:
         Args:
             visualize(bool): true if we should do intermediate debug visualizations"""
         rate = rospy.Rate(rate)
+        self.robot.move_to_nav_posture()
 
         print("Go to (0, 0, 0) to start with...")
         self.robot.nav.navigate_to([0, 0, 0])
@@ -296,69 +298,71 @@ def run_grasping(
             and y < obs.semantic.shape[1]
         )
 
-    to_grasp_oid = None
-    for oid in np.unique(obs.semantic):
-        if oid == 0:
-            continue
-        cid, classname = semantic_sensor.current_vocabulary.map_goal_id(oid)
-        print(f"- {oid} {cid} = {classname}")
-        if classname == to_grasp:
-            to_grasp_oid = oid
+    if to_grasp is not None:
+        to_grasp_oid = None
+        for oid in np.unique(obs.semantic):
+            if oid == 0:
+                continue
+            cid, classname = semantic_sensor.current_vocabulary.map_goal_id(oid)
+            print(f"- {oid} {cid} = {classname}")
+            if classname == to_grasp:
+                to_grasp_oid = oid
 
-    x, y = np.mean(np.where(obs.semantic == to_grasp_oid), axis=1)
-    if not within(x, y):
-        print("WARN: to_grasp object not within valid semantic map bounds")
-        return
-    x = int(x)
-    y = int(y)
+        x, y = np.mean(np.where(obs.semantic == to_grasp_oid), axis=1)
+        if not within(x, y):
+            print("WARN: to_grasp object not within valid semantic map bounds")
+            return
+        x = int(x)
+        y = int(y)
 
-    c_x, c_y, c_z = obs.xyz[x, y]
-    c_pt = np.array([c_x, c_y, c_z, 1.0])
-    m_pt = obs.camera_pose @ c_pt
-    m_x, m_y, m_z, _ = m_pt
+        c_x, c_y, c_z = obs.xyz[x, y]
+        c_pt = np.array([c_x, c_y, c_z, 1.0])
+        m_pt = obs.camera_pose @ c_pt
+        m_x, m_y, m_z, _ = m_pt
 
-    robot._ros_client.trigger_grasp(m_x, m_y, m_z)
-    breakpoint()  # TODO: user lets routine know when grasp finished
-    robot.switch_to_manipulation_mode()
-    robot.move_to_manip_posture()
-    breakpoint()
+        robot._ros_client.trigger_grasp(m_x, m_y, m_z)
+        breakpoint()  # TODO: user lets routine know when grasp finished
+        robot.switch_to_manipulation_mode()
+        robot.move_to_manip_posture()
+        breakpoint()
 
-    ### PLACEMENT ROUTINE
-    # Get observations from the robot
-    obs = robot.get_observation()
-    # Predict masks
-    obs = semantic_sensor.predict(obs)
+    if to_place is not None:
+        ### PLACEMENT ROUTINE
+        # Get observations from the robot
+        obs = robot.get_observation()
+        # Predict masks
+        obs = semantic_sensor.predict(obs)
 
-    def within(x, y):
-        return (
-            x >= 0
-            and x < obs.semantic.shape[0]
-            and y >= 0
-            and y < obs.semantic.shape[1]
-        )
+        def within(x, y):
+            return (
+                x >= 0
+                and x < obs.semantic.shape[0]
+                and y >= 0
+                and y < obs.semantic.shape[1]
+            )
 
-    to_place_oid = None
-    for oid in np.unique(obs.semantic):
-        if oid == 0:
-            continue
-        cid, classname = semantic_sensor.current_vocabulary.map_goal_id(oid)
-        print(f"- {oid} {cid} = {classname}")
-        if classname == to_place:
-            to_place_oid = oid
+        to_place_oid = None
+        for oid in np.unique(obs.semantic):
+            if oid == 0:
+                continue
+            cid, classname = semantic_sensor.current_vocabulary.map_goal_id(oid)
+            print(f"- {oid} {cid} = {classname}")
+            if classname == to_place:
+                to_place_oid = oid
 
-    x, y = np.mean(np.where(obs.semantic == to_place_oid), axis=1)
-    if not within(x, y):
-        print("WARN: to_place object not within valid semantic map bounds")
-        return
-    x = int(x)
-    y = int(y)
+        x, y = np.mean(np.where(obs.semantic == to_place_oid), axis=1)
+        if not within(x, y):
+            print("WARN: to_place object not within valid semantic map bounds")
+            return
+        x = int(x)
+        y = int(y)
 
-    c_x, c_y, c_z = obs.xyz[x, y]
-    c_pt = np.array([c_x, c_y, c_z, 1.0])
-    m_pt = obs.camera_pose @ c_pt
-    m_x, m_y, m_z, _ = m_pt
+        c_x, c_y, c_z = obs.xyz[x, y]
+        c_pt = np.array([c_x, c_y, c_z, 1.0])
+        m_pt = obs.camera_pose @ c_pt
+        m_x, m_y, m_z, _ = m_pt
 
-    robot._ros_client.trigger_placement(m_x, m_y, m_z)
+        robot._ros_client.trigger_placement(m_x, m_y, m_z)
 
 
 @click.command()
@@ -441,7 +445,7 @@ def main(
     location_to_place = "chair"
     demo = DemoAgent(robot, collector, semantic_sensor)
     demo.start(goal=object_to_find, visualize_map_at_start=show_intermediate_maps)
-    matches = self.get_found_instances_by_class(object_to_find)
+    matches = demo.get_found_instances_by_class(object_to_find)
 
     if len(matches) == 0 or force_explore:
         print("Exploring...")
@@ -453,26 +457,22 @@ def main(
             go_home_at_end=navigate_home,
         )
     print("Done collecting data.")
-    matches = self.get_found_instances_by_class(object_to_find)
+    matches = demo.get_found_instances_by_class(object_to_find)
 
     # Look at all of our instances - choose and move to one
     print("-> Found", len(matches), f"instances of class {object_to_find}.")
     demo.move_to_any_instance(matches)
 
     # TODO: grasp here
-    # TODO: grasp here
-    # TODO: grasp here
-    # TODO: grasp here
+    run_grasping(robot, semantic_sensor, to_grasp=object_to_find, to_place=None)
 
-    matches = self.get_found_instances_by_class(location_to_place)
+    matches = demo.get_found_instances_by_class(location_to_place)
     if len(matches) == 0:
         print(f"!!! No location {location_to_place} found !!!")
     demo.move_to_any_instance(matches)
 
     # TODO: place here
-    # TODO: place here
-    # TODO: place here
-    # TODO: place here
+    run_grasping(robot, semantic_sensor, to_grasp=None, to_place=location_to_place)
 
     if show_final_map:
         pc_xyz, pc_rgb = collector.show()
