@@ -673,9 +673,16 @@ class SpotClient:
             depth = self.patch_depth(rgb, depth)
             obs.depth = depth
         if self.use_zero_depth:
-            rgb = obs.rgb
-            orig_rgb = rgb / 255.0
-            rgb = torch.FloatTensor(orig_rgb[None]).permute(0, 3, 1, 2)
+            rgb = obs.rgb.copy()
+
+            # Already in 0,1
+            # orig_rgb = rgb / 255.0
+            
+            # Take it to RGB
+            rgb = rgb[..., [2,1,0]]
+
+            # B, C, H, W
+            rgb = torch.FloatTensor(rgb[None]).permute(0, 3, 1, 2)
             intrinsics = K[:3, :3]
             intrinsics = torch.FloatTensor(intrinsics[None])
 
