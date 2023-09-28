@@ -1,6 +1,6 @@
 syntax = "proto3";
 // To generate:
-// python -m grpc_tools.protoc -I./proto --python_out=python --pyi_out=python --grpc_python_out=python ./proto/robodata.proto
+// python -m grpc_tools.protoc -I./proto --python_out=proto_robot --pyi_out=proto_robot --grpc_python_out=proto_robot ./proto/robodata.proto
 
 option java_multiple_files = true;
 option java_package = "io.grpc.examples.robotdata";
@@ -32,12 +32,15 @@ message RoboTensor {
   bytes tensor_content = 5;
 }
 
-// A RouteNote is a message sent while at a given point.
 message RobotSummary {
-  // The location from which the message is sent.
   RoboTensor rgb_tensor = 1;
   RoboTensor depth_tensor = 2;
-  RoboObs robot_obs = 3;
-  // The message to be sent.
-  string message = 4;
+  RoboTensor cam_intrinsics_k = 3;
+  RoboTensor camera_poses = 4;
+  RoboTensor camera_xyz = 5;
+  repeated RoboTensor instance_image = 6;
+  repeated string instance_classes = 7;
+  repeated float instance_scores = 8;
+  RoboObs robot_obs = 9;
+  string message = 10;
 }
