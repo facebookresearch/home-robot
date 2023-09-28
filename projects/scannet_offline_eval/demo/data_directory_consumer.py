@@ -13,7 +13,8 @@ from typing import Callable, Union
 
 import torch
 from atomicwrites import atomic_write
-from timer import TimerClass
+
+from home_robot.utils.threading import Interval
 
 logger = logging.getLogger(__name__)
 
@@ -43,7 +44,7 @@ class DataDirectoryConsumer:
         self.current_obs_number = 0
         self.rate_limit = rate_limit
         self.sleep_time = 1.0 / rate_limit
-        self._timer = TimerClass(self._consume_data, sleep_time=self.sleep_time)
+        self._timer = Interval(self._consume_data, sleep_time=self.sleep_time)
 
     def start(self):
         self._timer.start()

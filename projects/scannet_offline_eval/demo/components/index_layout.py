@@ -1,0 +1,68 @@
+import dash
+import dash_bootstrap_components as dbc
+import openai
+from dash import Patch, dcc, html
+from dash.dependencies import Input, Output, State
+
+from .app import app
+
+
+def make_header_layout():
+    # return dbc.Col([
+    return dbc.Row(
+        [
+            dbc.Col(
+                children=[
+                    html.Button(
+                        f"Begin streaming",
+                        id="get-new-data-3d",
+                        n_clicks=0,
+                        className="button-primary",
+                    ),
+                    html.P(id="stream-counter"),
+                ],
+                md=2,
+            ),
+            dbc.Col(
+                [
+                    html.Div(
+                        children=[
+                            html.Img(
+                                src=app.get_asset_url("images/VC1-cropped.svg"),
+                                style={"height": 60},  # "float": "left",
+                            ),
+                            html.H1(["Accel Cortex Demo: FAIR Conference"]),
+                        ],
+                        className="text-primary text-center",
+                        style={
+                            "margin-top": 25,
+                            "margin-bottom": 25,
+                            "text-align": "center",
+                        },
+                    )
+                ],
+                md=8,
+            ),
+        ]
+    )
+
+
+@app.callback(
+    Output("stream-counter", "children"), [Input("viz3d-interval", "n_intervals")]
+)
+def display_count(n):
+    if n is None:
+        n = 0
+    return f"Interval has fired {n} times"
+
+
+@app.callback(
+    [Output("viz3d-interval", "disabled"), Output("get-new-data-3d", "children")],
+    [Input("get-new-data-3d", "n_clicks")],
+    [State("viz3d-interval", "disabled"), State("get-new-data-3d", "children")],
+)
+def toggle_interval(n, disabled, children):
+    if n:
+        children = ["Stop streaming data", "Begin streaming data"][int(not disabled)]
+        return [not disabled, children]
+    return [disabled, children]

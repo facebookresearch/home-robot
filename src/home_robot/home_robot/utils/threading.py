@@ -8,7 +8,7 @@ import time
 from typing import Callable
 
 
-class TimerClass(threading.Thread):
+class Interval(threading.Thread):
     """
     A Timer class that executes a given function at a specified interval.
 
@@ -52,7 +52,7 @@ class TimerClass(threading.Thread):
         while (self.count is None or self.count > 0) and not self.event.is_set():
             start_time = time.time()
             return_val = self.fn()
-            if return_val == False:
+            if not return_val:
                 self.cancel()
             if self.count is not None:
                 self.count -= 1

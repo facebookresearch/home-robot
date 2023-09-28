@@ -44,3 +44,12 @@ LICENSE file in the root directory of this source tree.
 .chat_message_time {
     font-size: 10px;
 }
+
+.chat-username {
+    font-weight: bold;
+    margin-bottom: -12px;
+    margin-top: 7px;
+    padding-bottom: 0px;
+    margin-left: 15px;
+    margin-right: 15px;
+}
