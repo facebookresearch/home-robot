@@ -39,6 +39,8 @@ from home_robot_hw.utils.collector import RosMapDataCollector
 
 
 class DemoAgent:
+    """Basic demo code. Collects everything that we need to make this work."""
+
     def __init__(
         self, robot: StretchClient, collector: RosMapDataCollector, semantic_sensor
     ):
@@ -56,7 +58,7 @@ class DemoAgent:
             self.robot_model,
             step_size=0.1,
             dilate_frontier_size=12,  # 0.6 meters back from every edge
-            dilate_obstacle_size=6,
+            dilate_obstacle_size=4,
         )
 
         # Create a simple motion planner
@@ -378,6 +380,7 @@ def run_grasping(
 @click.option("--test-grasping", default=False, is_flag=True)
 @click.option("--explore-iter", default=20)
 @click.option("--navigate-home", default=False, is_flag=True)
+@click.option("--no-manip", default=False, is_flag=True)
 @click.option(
     "--input-path",
     type=click.Path(),
@@ -401,6 +404,7 @@ def main(
     random_goals: bool = True,
     test_grasping: bool = False,
     force_explore: bool = False,
+    no_manip: bool = False,
     explore_iter: int = 10,
     **kwargs,
 ):
@@ -438,6 +442,7 @@ def main(
         obs_min_height=0.1,
         obs_max_height=1.8,
         obs_min_density=5,
+        pad_obstacles=2,
         encoder=encoder,
     )
 
@@ -464,7 +469,8 @@ def main(
     demo.move_to_any_instance(matches)
 
     # TODO: grasp here
-    run_grasping(robot, semantic_sensor, to_grasp=object_to_find, to_place=None)
+    if not no_manip:
+        run_grasping(robot, semantic_sensor, to_grasp=object_to_find, to_place=None)
 
     matches = demo.get_found_instances_by_class(location_to_place)
     if len(matches) == 0:
@@ -479,7 +485,8 @@ def main(
     demo.move_to_any_instance(matches)
 
     # TODO: place here
-    run_grasping(robot, semantic_sensor, to_grasp=None, to_place=location_to_place)
+    if not no_manip:
+        run_grasping(robot, semantic_sensor, to_grasp=None, to_place=location_to_place)
 
     if show_final_map:
         pc_xyz, pc_rgb = collector.show()

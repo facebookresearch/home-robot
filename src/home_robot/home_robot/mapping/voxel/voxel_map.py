@@ -208,6 +208,7 @@ class SparseVoxelMapNavigationSpace(XYT):
         y1 = y0 + dim
 
         obstacles, explored = self.voxel_map.get_2d_map()
+
         crop_obs = obstacles[x0:x1, y0:y1]
         crop_exp = explored[x0:x1, y0:y1]
         assert mask.shape == crop_obs.shape
