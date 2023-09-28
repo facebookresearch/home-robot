@@ -673,7 +673,9 @@ class SpotClient:
             depth = self.patch_depth(rgb, depth)
             obs.depth = depth
         if self.use_zero_depth:
-            rgb = obs.rgb.copy()
+            import torch
+            rgb = obs.rgb.clone().detach()
+            #rgb = torch.tensor(obs.rgb)
 
             # Already in 0,1
             # orig_rgb = rgb / 255.0
