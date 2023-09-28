@@ -11,14 +11,14 @@ from home_robot.utils.point_cloud_torch import unproject_masked_depth_to_xyz_coo
 # Create Zero depth model
 zerodepth_model = torch.hub.load(
     "TRI-ML/vidar", "ZeroDepth", pretrained=True, trust_repo=True
-)
-
+).to("cuda:1")
+zerodepth_model = zerodepth_model.eval()
 # Instanciate spot client
 config = get_config("projects/spot/configs/config.yaml")[0]
 spot = SpotClient(config=config)
-
+spot.start()
 # Get obs
-obs = self.spot.get_rgbd_obs()
+obs = spot.get_rgbd_obs()
 intrinsics = obs.camera_K[:3, :3]
 rgb = obs.rgb
 depth = obs.depth
@@ -29,13 +29,14 @@ plt.show()
 
 # Predict depth and show it 
 print("Predicting depth...")
-orig_rgb = rgb / 255.0
-rgb = torch.FloatTensor(orig_rgb[None]).permute(0, 3, 1, 2)
-intrinsics = torch.FloatTensor(intrinsics[None])
-t0 = timeit.default_timer()
-pred_depth = zerodepth_model(rgb, intrinsics)[0, 0].detach().cpu().numpy()
-t1 = timeit.default_timer()
-print("...done. Took", t1 - t0, "seconds.")
+with torch.no_grad():
+    orig_rgb = rgb / 255.0
+    rgb = torch.FloatTensor(orig_rgb[None]).permute(0, 3, 1, 2).to("cuda:1")
+    intrinsics = torch.FloatTensor(intrinsics[None]).to("cuda:1")
+    t0 = timeit.default_timer()
+    pred_depth = zerodepth_model(rgb, intrinsics)[0, 0].detach().cpu().numpy()
+    t1 = timeit.default_timer()
+    print("...done. Took", t1 - t0, "seconds.")
 
 plt.figure()
 plt.subplot(1, 2, 1)

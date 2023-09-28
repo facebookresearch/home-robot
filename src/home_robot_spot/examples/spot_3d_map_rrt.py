@@ -236,10 +236,10 @@ def main(dock: Optional[int] = None, args=None):
         "step_size": 2.0,  # (originally .1, we can make it all the way to 2 maybe actually)
         "rotation_step_size": np.pi,
         "visualize": False,
-        "exploration_steps": 5,
+        "exploration_steps": 20,
         "use_midas": False,
         # Voxel map
-        "obs_min_height": 0.2,  # Originally .1, floor appears noisy in the 3d map of freemont so we're being super conservative
+        "obs_min_height": 0.3,  # Originally .1, floor appears noisy in the 3d map of freemont so we're being super conservative
         "obs_max_height": 1.8,  # Originally 1.8, spot is shorter than stretch tho
         "obs_min_density": 25,  # Originally 10, making it bigger because theres a bunch on noise
         "voxel_size": 0.05,
@@ -254,6 +254,7 @@ def main(dock: Optional[int] = None, args=None):
         # Other parameters tuned (footprint is a third of the real robot size)
         "use_async_subscriber": False,
         "write_data": True,
+        "use_zero_depth": True,
     }
 
     # Create voxel map
@@ -296,7 +297,7 @@ def main(dock: Optional[int] = None, args=None):
     planner = Shortcut(RRTConnect(navigation_space, navigation_space.is_valid))
 
     spot = SpotClient(
-        config=spot_config, dock_id=dock, use_midas=parameters["use_midas"]
+        config=spot_config, dock_id=dock, use_midas=parameters["use_midas"], use_zero_depth=parameters['use_zero_depth']
     )
     try:
         # Turn on the robot using the client above

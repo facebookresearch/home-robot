@@ -431,7 +431,7 @@ class SpotClient:
         name="home_robot_spot",
         dock_id: Optional[int] = None,
         use_midas=False,
-        use_zero_depth=False
+        use_zero_depth=True
     ):
         self.spot = Spot(name)
         self.lease = None
@@ -451,7 +451,7 @@ class SpotClient:
         if self.use_midas:
             self.midas = Midas("cuda:0")
         if self.use_zero_depth:
-            self.zero_depth = zerodepth_model = torch.hub.load(
+            self.zerodepth_model = torch.hub.load(
                 "TRI-ML/vidar", "ZeroDepth", pretrained=True, trust_repo=True
             ).to('cuda:0').eval()
 
@@ -680,9 +680,8 @@ class SpotClient:
             intrinsics = torch.FloatTensor(intrinsics[None])
 
             with torch.no_grad():
-                pred_depth = zerodepth_model(rgb.to('cuda:0'), intrinsics.to('cuda:0'))[0, 0].detach().cpu().numpy()
+                pred_depth = self.zerodepth_model(rgb.to('cuda:0'), intrinsics.to('cuda:0'))[0, 0].detach().cpu()
             obs.depth = pred_depth
-        
         full_world_xyz = unproject_masked_depth_to_xyz_coordinates(  # Batchable!
             depth=obs.depth.unsqueeze(0).unsqueeze(1),
             pose=obs.camera_pose.unsqueeze(0),
@@ -878,7 +877,7 @@ if __name__ == "__main__":
             read_category_map_file,
         )
         from home_robot.mapping.voxel import SparseVoxelMap  # Aggregate 3d information
-        from home_robot_hw.utils.config import load_config
+        from home_robot.utils.config import load_config
 
         # TODO move these parameters to config
         voxel_size = 0.05
