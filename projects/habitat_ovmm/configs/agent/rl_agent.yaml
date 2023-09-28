@@ -36,7 +36,6 @@ SKILLS:
     gym_obs_keys:
       - head_depth
       - object_embedding
-      - start_receptacle
       - object_segmentation
       - start_receptacle
       - start_recep_segmentation
@@ -148,7 +147,7 @@ SKILLS:
     terminate_condition: ungrip
     grip_threshold: -0.8
     manip_mode_threshold: 0.8
-    constraint_base_in_manip_mode: True
+    constraint_base_in_manip_mode: False
     max_joint_delta: 0.1
     min_joint_delta: 0.02
 
