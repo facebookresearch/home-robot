@@ -431,6 +431,7 @@ class SpotClient:
         name="home_robot_spot",
         dock_id: Optional[int] = None,
         use_midas=False,
+        use_zero_depth=True
     ):
         self.spot = Spot(name)
         self.lease = None
@@ -445,9 +446,14 @@ class SpotClient:
         self.hand_depth_threshold = config.SPOT.HAND_DEPTH_THRESHOLD
         self.base_height = config.SPOT.BASE_HEIGHT
         self.use_midas = use_midas
+        self.use_zero_depth = use_zero_depth
         self.midas = None
         if self.use_midas:
             self.midas = Midas("cuda:0")
+        if self.use_zero_depth:
+            self.zerodepth_model = torch.hub.load(
+                "TRI-ML/vidar", "ZeroDepth", pretrained=True, trust_repo=True
+            ).to('cuda:0').eval()
 
     def start(self):
         """Turn on the robot, stand up, etc."""
@@ -491,9 +497,12 @@ class SpotClient:
             print(f"Initializing Midas depth completion failed: {e}")
             return depth
 
-    def reset(self):
+    def reset_arm(self):
         self.spot.set_arm_joint_positions(self.gaze_arm_joint_angles, travel_time=1.0)
         self.spot.open_gripper()
+
+    def reset(self):
+        self.reset_arm()
 
         # self.start_gps = self.gps
         # self.start_compass = self.compass
@@ -657,13 +666,31 @@ class SpotClient:
         # obs.gps = relative_gps
         # obs.compass = relative_compass
         obs.gps, obs.compass = self._get_gps_compass()
+        K = obs.camera_K
 
         if self.use_midas:
             rgb, depth = obs.rgb, obs.depth
             depth = self.patch_depth(rgb, depth)
             obs.depth = depth
+        if self.use_zero_depth:
+            import torch
+            rgb = obs.rgb.clone().detach()
+            #rgb = torch.tensor(obs.rgb)
 
-        K = obs.camera_K
+            # Already in 0,1
+            # orig_rgb = rgb / 255.0
+            
+            # Take it to RGB
+            rgb = rgb[..., [2,1,0]]
+
+            # B, C, H, W
+            rgb = torch.FloatTensor(rgb[None]).permute(0, 3, 1, 2)
+            intrinsics = K[:3, :3]
+            intrinsics = torch.FloatTensor(intrinsics[None])
+
+            with torch.no_grad():
+                pred_depth = self.zerodepth_model(rgb.to('cuda:0'), intrinsics.to('cuda:0'))[0, 0].detach().cpu()
+            obs.depth = pred_depth
         full_world_xyz = unproject_masked_depth_to_xyz_coordinates(  # Batchable!
             depth=obs.depth.unsqueeze(0).unsqueeze(1),
             pose=obs.camera_pose.unsqueeze(0),
@@ -859,7 +886,7 @@ if __name__ == "__main__":
             read_category_map_file,
         )
         from home_robot.mapping.voxel import SparseVoxelMap  # Aggregate 3d information
-        from home_robot_hw.utils.config import load_config
+        from home_robot.utils.config import load_config
 
         # TODO move these parameters to config
         voxel_size = 0.05
