@@ -10,6 +10,8 @@ from typing import Any, Dict, List, Optional, Sequence, Tuple, Union
 
 import numpy as np
 import open3d as open3d
+import skimage
+import skimage.morphology
 import torch
 import trimesh
 from pytorch3d.structures import Pointclouds
@@ -23,6 +25,7 @@ from home_robot.mapping.semantic.instance_tracking_modules import (
 from home_robot.motion import PlanResult, Robot
 from home_robot.utils.bboxes_3d import BBoxes3D
 from home_robot.utils.data_tools.dict import update
+from home_robot.utils.morphology import binary_dilation, binary_erosion
 from home_robot.utils.point_cloud import (
     create_visualization_geometries,
     numpy_to_pcd,
@@ -82,6 +85,7 @@ class SparseVoxelMap(object):
         obs_min_height: float = 0.1,
         obs_max_height: float = 1.8,
         obs_min_density: float = 10,
+        smooth_kernel_size: int = 2,
         add_local_radius_points: bool = True,
         local_radius: float = 0.15,
         min_depth: float = 0.1,
@@ -96,6 +100,17 @@ class SparseVoxelMap(object):
         self.obs_min_height = obs_min_height
         self.obs_max_height = obs_max_height
         self.obs_min_density = obs_min_density
+        self.smooth_kernel_size = smooth_kernel_size
+        if self.smooth_kernel_size > 0:
+            self.smooth_kernel = torch.nn.Parameter(
+                torch.from_numpy(skimage.morphology.disk(smooth_kernel_size))
+                .unsqueeze(0)
+                .unsqueeze(0)
+                .float(),
+                requires_grad=False,
+            )
+        else:
+            self.smooth_kernel = None
         self.grid_resolution = grid_resolution
         self.voxel_resolution = resolution
         self.min_depth = min_depth
@@ -575,6 +590,25 @@ class SparseVoxelMap(object):
         explored_soft += self._visited
         explored = explored_soft > 0
 
+        if self.smooth_kernel_size > 0:
+            explored = binary_erosion(
+                binary_dilation(
+                    explored.float().unsqueeze(0).unsqueeze(0), self.smooth_kernel
+                ),
+                self.smooth_kernel,
+            )[0, 0].bool()
+            explored = binary_erosion(
+                binary_dilation(
+                    explored.float().unsqueeze(0).unsqueeze(0), self.smooth_kernel
+                ),
+                self.smooth_kernel,
+            )[0, 0].bool()
+            obstacles = binary_erosion(
+                binary_dilation(
+                    obstacles.float().unsqueeze(0).unsqueeze(0), self.smooth_kernel
+                ),
+                self.smooth_kernel,
+            )[0, 0].bool()
         if debug:
             import matplotlib.pyplot as plt
 

@@ -8,13 +8,14 @@ import random
 import sys
 import time
 from typing import Dict, List, Optional
-import home_robot_spot.nav_client as nc
+
 import matplotlib.pyplot as plt
 import numpy as np
 import open3d
 from PIL import Image
 import torch
 
+import home_robot_spot.nav_client as nc
 from home_robot.agent.ovmm_agent import (
     OvmmPerception,
     build_vocab_from_category_map,
@@ -38,6 +39,25 @@ from home_robot_spot.grasp_env import GraspController
 from home_robot.utils.geometry import xyt_global_to_base
 
 
+def goto(spot: SpotClient, planner: Planner, goal):
+    """Send the spot to the correct location."""
+    start = spot.current_position
+
+    #  Build plan
+    res = planner.plan(start, goal)
+    print(goal)
+    print("Res success:", res.success)
+
+    # Move to the next location
+    if res.success:
+        print("- follow the plan to goal")
+        spot.execute_plan(res)
+    else:
+        print("- just go ahead and try it anyway")
+        spot.navigate_to(goal)
+    return res
+
+
 def plan_to_frontier(
     start: np.ndarray,
     planner: Planner,
@@ -47,6 +67,7 @@ def plan_to_frontier(
     try_to_plan_iter: int = 10,
     debug: bool = False,
 ) -> PlanResult:
+    """Find frontier point to move to."""
     # extract goal using fmm planner
     tries = 0
     failed = False
@@ -57,12 +78,17 @@ def plan_to_frontier(
     if not start_is_valid:
         return PlanResult(False, reason="invalid start state")
     for goal in space.sample_closest_frontier(
-        start, step_dist=0.5, min_dist=0.25, debug=debug, verbose=debug
+        start,
+        step_dist=0.5,
+        min_dist=0,
+        debug=debug,
+        verbose=True,
     ):
         if goal is None:
             failed = True
             break
         goal = goal.cpu().numpy()
+        print("       Start:", start)
         print("Sampled Goal:", goal)
         show_goal = np.zeros(3)
         show_goal[:2] = goal[:2]
@@ -73,7 +99,8 @@ def plan_to_frontier(
             print(" -> resample goal.")
             continue
         # plan to the sampled goal
-        res = planner.plan(start, goal)
+        print("Planning...")
+        res = planner.plan(start, goal, verbose=True)
         print("Found plan:", res.success)
         if visualize:
             obstacles, explored = voxel_map.get_2d_map()
@@ -241,13 +268,15 @@ def main(dock: Optional[int] = None, args=None):
         # Voxel map
         "obs_min_height": 0.3,  # Originally .1, floor appears noisy in the 3d map of freemont so we're being super conservative
         "obs_max_height": 1.8,  # Originally 1.8, spot is shorter than stretch tho
-        "obs_min_density": 25,  # Originally 10, making it bigger because theres a bunch on noise
+        "obs_min_density": 10,  # Originally 10, making it bigger because theres a bunch on noise
         "voxel_size": 0.05,
         "local_radius": 0.6,  # Can probably be bigger than original (.15)
         # 2d parameters
         "explore_methodical": True,
         "dilate_frontier_size": 10,
-        "dilate_obstacle_size": 5,
+        "dilate_obstacle_size": 2,  # Value used in pittsburgh lab
+        # "dilate_obstacle_size": 5, # value from fremont
+        "smooth_kernel_size": 5,
         # Frontier
         "min_size": 20,  # Can probably be bigger than original (10)
         "max_size": 40,  # Can probably be bigger than original (10)
@@ -264,6 +293,7 @@ def main(dock: Optional[int] = None, args=None):
         obs_min_height=parameters["obs_min_height"],
         obs_max_height=parameters["obs_max_height"],
         obs_min_density=parameters["obs_min_density"],
+        smooth_kernel_size=parameters["smooth_kernel_size"],
     )
 
     # Create kinematic model (very basic for now - just a footprint)
@@ -303,8 +333,6 @@ def main(dock: Optional[int] = None, args=None):
         # Turn on the robot using the client above
         spot.start()
 
-        print("Go to (0, 0, 0) to start with...")
-        spot.navigate_to([0, 0, 0], blocking=True)
         print("Sleep 1s")
         time.sleep(1)
         print("Start exploring!")
@@ -375,6 +403,7 @@ def main(dock: Optional[int] = None, args=None):
                 if not goal_is_valid:
                     # really we should sample a new goal
                     continue
+
                 #  Build plan
                 res = planner.plan(start, goal)
                 print(goal)
@@ -420,8 +449,8 @@ def main(dock: Optional[int] = None, args=None):
         instances = voxel_map.get_instances()
 
         while True:
-            # for debug, sending the robot back to original
-            spot.navigate_to([x0, y0, theta0], blocking=True)
+            # for debug, sending the robot back to original position
+            goto(spot, planner, np.array([x0, y0, theta0]))
             success = False
             pick_instance_id = None
             place_instance_id = None
@@ -433,8 +462,8 @@ def main(dock: Optional[int] = None, args=None):
                     )
                     # ask vlm for plan
                     task = input("please type any task you want the robot to do: ")
-                    #task is the prompt, save it
-                    data['prompt'] = task
+                    # task is the prompt, save it
+                    data["prompt"] = task
                     sample = vlm.prepare_sample(task, world_representation)
                     plan = vlm.evaluate(sample)
                     print(plan)
@@ -493,7 +522,6 @@ def main(dock: Optional[int] = None, args=None):
             if pick_instance_id is None or place_instance_id is None:
                 print("No instances found!")
                 success = False
-                breakpoint()
             else:
                 print("Navigating to instance ")
                 print(f"Instance id: {pick_instance_id}")
@@ -612,7 +640,7 @@ def main(dock: Optional[int] = None, args=None):
                 if success:
                     print("Successfully grasped the object!")
                     # exit out of loop without killing script
-                    break               
+                    break
 
     except Exception as e:
         print("Exception caught:")

@@ -35,7 +35,7 @@ class RRTConnect(RRT):
         self.nodes_rev = []
         self.nodes = None
 
-    def plan(self, start, goal) -> PlanResult:
+    def plan(self, start, goal, verbose: bool = False) -> PlanResult:
         """Plan from start to goal. creates a new tree.
 
         Based on Caelan Garrett's code (MIT licensed):
@@ -65,7 +65,7 @@ class RRTConnect(RRT):
 
         for i in range(self.max_iter):
             # Loop for a certain number of iterations
-            swap = np.random.randint(2) == 0
+            swap = i % 2 == 1
             if swap:
                 nodes0, nodes1 = self.nodes_rev, self.nodes_fwd
             else:
