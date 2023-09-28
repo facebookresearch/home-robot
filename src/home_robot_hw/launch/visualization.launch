@@ -1,7 +1,5 @@
 <?xml version="1.0"?>
 <launch>
   	<!--param name="robot_description" textfile="$(find home_robot_hw)/assets/planner.urdf" /-->
-	<node pkg="rviz" type="rviz" name="rviz" required="true"
-		args="-d $(find home_robot_hw)/launch/mapping_demo.rviz"/>
 	<node pkg="home_robot_hw" type="rotate_images.py" name="rotate_images_from_stretch_head"/>
 </launch>
