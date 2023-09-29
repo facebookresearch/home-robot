@@ -231,7 +231,7 @@ class DemoAgent:
         res = self.planner.plan(start, goal)
         # if it fails, skip; else, execute a trajectory to this position
         if res.success:
-            print("Full plan to home:")
+            print("- executing full plan to home!")
             self.robot.nav.execute_trajectory([pt.state for pt in res.trajectory])
         else:
             print("Can't go home!")
