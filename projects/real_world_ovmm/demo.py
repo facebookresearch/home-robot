@@ -2,6 +2,7 @@
 #
 # This source code is licensed under the MIT license found in the
 # LICENSE file in the root directory of this source tree.
+import datetime
 import sys
 import time
 import timeit
@@ -39,24 +40,44 @@ from home_robot_hw.utils.collector import RosMapDataCollector
 
 
 class DemoAgent:
+    """Basic demo code. Collects everything that we need to make this work."""
+
     def __init__(
-        self, robot: StretchClient, collector: RosMapDataCollector, semantic_sensor
+        self,
+        robot: StretchClient,
+        semantic_sensor,
+        visualize: bool = False,
     ):
         self.robot = robot
-        self.collector = collector
-        self.voxel_map = self.collector.voxel_map
-        self.robot_model = self.collector.robot_model
-        self.encoder = self.collector.encoder
         self.semantic_sensor = semantic_sensor
         self.normalize_embeddings = True
+        self.pos_err_threshold = 0.15
+        self.rot_err_threshold = 0.3
+
+        self.encoder = ClipEncoder("ViT-B/32")
+        # Wrapper for SparseVoxelMap which connects to ROS
+        self.collector = RosMapDataCollector(
+            self.robot,
+            self.semantic_sensor,
+            visualize,
+            voxel_size=0.02,
+            obs_min_height=0.1,
+            obs_max_height=1.8,
+            obs_min_density=5,  # This many points makes it an obstacle
+            pad_obstacles=1,  # Add this many units (voxel_size) to the area around obstacles
+            local_radius=0.15,
+            encoder=self.encoder,
+        )
+        self.voxel_map = self.collector.voxel_map
+        self.robot_model = self.collector.robot_model
 
         # Create planning space
         self.space = SparseVoxelMapNavigationSpace(
             self.voxel_map,
             self.robot_model,
             step_size=0.1,
-            dilate_frontier_size=12,  # 0.6 meters back from every edge
-            dilate_obstacle_size=6,
+            dilate_frontier_size=12,  # 0.6 meters back from every edge = 12 * 0.02 = 0.24
+            dilate_obstacle_size=2,
         )
 
         # Create a simple motion planner
@@ -68,16 +89,30 @@ class DemoAgent:
         self.robot.move_to_nav_posture()
         start = self.robot.get_base_pose()
         start_is_valid = self.space.is_valid(start)
+        start_is_valid_retries = 5
+        while not start_is_valid and start_is_valid_retries > 0:
+            print(f"Start {start} is not valid. back up a bit.")
+            self.robot.nav.navigate_to([-0.1, 0, 0], relative=True)
+            # Get the current position in case we are still invalid
+            start = self.robot.get_base_pose()
+            start_is_valid = self.space.is_valid(start)
+            start_is_valid_retries -= 1
+        res = None
+
+        # Just terminate here - motion planning issues apparently!
+        if not start_is_valid:
+            raise RuntimeError("Invalid start state!")
 
         # Find and move to one of these
         for i, match in enumerate(matches):
+            print("Checking instance", i)
             # TODO: this is a bad name for this variable
             for j, view in enumerate(match.instance_views):
                 print(i, j, view.cam_to_world)
             print("at =", match.bounds)
             res = None
             mask = self.voxel_map.mask_from_bounds(match.bounds)
-            for goal in self.space.sample_near_mask(mask, radius_m=0.6):
+            for goal in self.space.sample_near_mask(mask, radius_m=0.7):
                 goal = goal.cpu().numpy()
                 print("       Start:", start)
                 print("Sampled Goal:", goal)
@@ -95,6 +130,8 @@ class DemoAgent:
                 print("Found plan:", res.success)
                 if res.success:
                     break
+            else:
+                breakpoint()
             if res is not None and res.success:
                 break
 
@@ -103,10 +140,17 @@ class DemoAgent:
             print("Full plan to object:")
             for i, pt in enumerate(res.trajectory):
                 print("-", i, pt.state)
-            self.robot.nav.execute_trajectory([pt.state for pt in res.trajectory])
+            self.robot.nav.execute_trajectory(
+                [pt.state for pt in res.trajectory],
+                pos_err_threshold=self.pos_err_threshold,
+                rot_err_threshold=self.rot_err_threshold,
+            )
             time.sleep(1.0)
             self.robot.nav.navigate_to([0, 0, np.pi / 2], relative=True)
             self.robot.move_to_manip_posture()
+            return True
+
+        return False
 
     def print_found_classes(self, goal: Optional[str] = None):
         """Helper. print out what we have found according to detic."""
@@ -155,6 +199,25 @@ class DemoAgent:
             if name.lower() == goal.lower():
                 matching_instances.append(instance)
         return matching_instances
+
+    def go_home(self):
+        """Simple helper function to send the robot home safely after a trial."""
+        print("Go back to (0, 0, 0) to finish...")
+        print("- change posture and switch to navigation mode")
+        self.robot.move_to_nav_posture()
+        self.robot.head.look_close(blocking=False)
+        self.robot.switch_to_navigation_mode()
+
+        print("- try to motion plan there")
+        start = self.robot.get_base_pose()
+        goal = np.array([0, 0, 0])
+        res = self.planner.plan(start, goal)
+        # if it fails, skip; else, execute a trajectory to this position
+        if res.success:
+            print("Full plan to home:")
+            self.robot.nav.execute_trajectory([pt.state for pt in res.trajectory])
+        else:
+            print("Can't go home!")
 
     def choose_best_goal_instance(self, goal: str, debug: bool = False) -> Instance:
         instances = self.voxel_map.get_instances()
@@ -237,12 +300,15 @@ class DemoAgent:
 
             # if it fails, skip; else, execute a trajectory to this position
             if res.success:
-                print("Full plan:")
-                for i, pt in enumerate(res.trajectory):
-                    print("-", i, pt.state)
+                print("Plan successful!")
+                # print("Full plan:")
+                # for i, pt in enumerate(res.trajectory):
+                #     print("-", i, pt.state)
                 if not dry_run:
                     self.robot.nav.execute_trajectory(
-                        [pt.state for pt in res.trajectory]
+                        [pt.state for pt in res.trajectory],
+                        pos_err_threshold=self.pos_err_threshold,
+                        rot_err_threshold=self.rot_err_threshold,
                     )
 
             # Append latest observations
@@ -282,7 +348,8 @@ def run_grasping(
 ):
     """Start running grasping code here"""
     robot.switch_to_manipulation_mode()
-    robot.move_to_manip_posture()
+    robot.move_to_demo_pregrasp_posture()
+    rospy.sleep(2)
 
     ### GRASPING ROUTINE
     # Get observations from the robot
@@ -298,8 +365,8 @@ def run_grasping(
             and y < obs.semantic.shape[1]
         )
 
-    print("- Try to grasp", to_grasp)
     if to_grasp is not None:
+        print("Try to grasp {to_grasp}:")
         to_grasp_oid = None
         for oid in np.unique(obs.semantic):
             if oid == 0:
@@ -321,9 +388,13 @@ def run_grasping(
         m_pt = obs.camera_pose @ c_pt
         m_x, m_y, m_z, _ = m_pt
 
+        print(f"- Execute grasp at {m_x=}, {m_y=}, {m_z=}.")
         robot._ros_client.trigger_grasp(m_x, m_y, m_z)
         robot.switch_to_manipulation_mode()
-        robot.move_to_manip_posture()
+        print("- Go to grasp posture after executing.")
+        robot.move_to_demo_pregrasp_posture()
+        rospy.sleep(2)
+        print("Done grasping!")
 
     if to_place is not None:
         ### PLACEMENT ROUTINE
@@ -362,14 +433,16 @@ def run_grasping(
         m_x, m_y, m_z, _ = m_pt
 
         robot._ros_client.trigger_placement(m_x, m_y, m_z)
+        robot.switch_to_manipulation_mode()
+        robot.move_to_demo_pregrasp_posture()
+        rospy.sleep(2)
 
 
 @click.command()
 @click.option("--rate", default=5, type=int)
 @click.option("--visualize", default=False, is_flag=True)
 @click.option("--manual_wait", default=False, is_flag=True)
-@click.option("--output-pcd-filename", default="output.ply", type=str)
-@click.option("--output-pkl-filename", default="output.pkl", type=str)
+@click.option("--output-filename", default="stretch_output", type=str)
 @click.option("--show-intermediate-maps", default=False, is_flag=True)
 @click.option("--show-final-map", default=False, is_flag=True)
 @click.option("--show-paths", default=False, is_flag=True)
@@ -377,6 +450,10 @@ def run_grasping(
 @click.option("--test-grasping", default=False, is_flag=True)
 @click.option("--explore-iter", default=20)
 @click.option("--navigate-home", default=False, is_flag=True)
+@click.option("--force-explore", default=False, is_flag=True)
+@click.option("--no-manip", default=False, is_flag=True)
+@click.option("--object-to-find", default="bottle", type=str)
+@click.option("--location-to-place", default="chair", type=str)
 @click.option(
     "--input-path",
     type=click.Path(),
@@ -387,11 +464,8 @@ def main(
     rate,
     visualize,
     manual_wait,
-    output_pcd_filename,
-    output_pkl_filename,
+    output_filename,
     navigate_home: bool = True,
-    input_path: str = ".",
-    voxel_size: float = 0.01,
     device_id: int = 0,
     verbose: bool = True,
     show_intermediate_maps: bool = False,
@@ -400,7 +474,10 @@ def main(
     random_goals: bool = True,
     test_grasping: bool = False,
     force_explore: bool = False,
+    no_manip: bool = False,
     explore_iter: int = 10,
+    object_to_find: str = "bottle",
+    location_to_place: str = "chair",
     **kwargs,
 ):
     """
@@ -412,7 +489,11 @@ def main(
         show_paths(bool): display paths after planning
         random_goals(bool): randomly sample frontier goals instead of looking for closest
     """
-    click.echo(f"Using input path: {input_path}")
+
+    current_datetime = datetime.datetime.now()
+    formatted_datetime = current_datetime.strftime("%Y-%m-%d_%H-%M-%S")
+    output_pcd_filename = output_filename + "_" + formatted_datetime + ".pcd"
+    output_pkl_filename = output_filename + "_" + formatted_datetime + ".pkl"
 
     click.echo("Will connect to a Stretch robot and collect a short trajectory.")
     print("- Connect to Stretch")
@@ -423,31 +504,21 @@ def main(
 
     # Run grasping test - just grab whatever is in front of the robot
     if test_grasping:
-        run_grasping(robot, semantic_sensor)
+        run_grasping(
+            robot, semantic_sensor, to_grasp=object_to_find, to_place=location_to_place
+        )
         rospy.signal_shutdown("done")
         return
 
     print("- Start ROS data collector")
-    encoder = ClipEncoder("ViT-B/32")
-    collector = RosMapDataCollector(
-        robot,
-        semantic_sensor,
-        visualize,
-        voxel_size=voxel_size,
-        obs_min_height=0.1,
-        obs_max_height=1.8,
-        obs_min_density=5,
-        encoder=encoder,
-    )
-
-    object_to_find = "bottle"
-    location_to_place = "chair"
-    demo = DemoAgent(robot, collector, semantic_sensor)
+    demo = DemoAgent(robot, semantic_sensor, visualize=visualize)
     demo.start(goal=object_to_find, visualize_map_at_start=show_intermediate_maps)
+    print(f"\nSearch for {object_to_find} and {location_to_place}")
     matches = demo.get_found_instances_by_class(object_to_find)
+    print(f"Currently {len(matches)} matches for {object_to_find}.")
 
     if len(matches) == 0 or force_explore:
-        print("Exploring...")
+        print(f"Exploring for {object_to_find}, {location_to_place}...")
         demo.run_exploration(
             rate,
             manual_wait,
@@ -457,35 +528,48 @@ def main(
         )
     print("Done collecting data.")
     matches = demo.get_found_instances_by_class(object_to_find)
+    print("-> Found", len(matches), f"instances of class {object_to_find}.")
+    # demo.voxel_map.show(orig=np.zeros(3))
 
     # Look at all of our instances - choose and move to one
-    print("-> Found", len(matches), f"instances of class {object_to_find}.")
-    demo.move_to_any_instance(matches)
+    print(f"- Move to any instance of {object_to_find}")
+    smtai = demo.move_to_any_instance(matches)
+    if not smtai:
+        print("Moving to instance failed!")
+        breakpoint()
+    else:
+        print(f"- Grasp {object_to_find} using FUNMAP")
+        if not no_manip:
+            run_grasping(robot, semantic_sensor, to_grasp=object_to_find, to_place=None)
 
-    # TODO: grasp here
-    run_grasping(robot, semantic_sensor, to_grasp=object_to_find, to_place=None)
+        matches = demo.get_found_instances_by_class(location_to_place)
+        if len(matches) == 0:
+            print(f"!!! No location {location_to_place} found. Exploring !!!")
+            demo.run_exploration(
+                rate,
+                manual_wait,
+                explore_iter=explore_iter,
+                task_goal=location_to_place,
+                go_home_at_end=navigate_home,
+            )
 
-    matches = demo.get_found_instances_by_class(location_to_place)
-    if len(matches) == 0:
-        print(f"!!! No location {location_to_place} found !!!")
-        demo.run_exploration(
-            rate,
-            manual_wait,
-            explore_iter=explore_iter,
-            task_goal=location_to_place,
-            go_home_at_end=navigate_home,
-        )
-    demo.move_to_any_instance(matches)
-
-    # TODO: place here
-    run_grasping(robot, semantic_sensor, to_grasp=None, to_place=location_to_place)
+        print(f"- Move to any instance of {location_to_place}")
+        smtai2 = demo.move_to_any_instance(matches)
+        if not smtai2:
+            print(f"Going to instance of {location_to_place} failed!")
+        else:
+            print(f"- Placing on {location_to_place} using FUNMAP")
+            if not no_manip:
+                run_grasping(
+                    robot, semantic_sensor, to_grasp=None, to_place=location_to_place
+                )
 
     if show_final_map:
-        pc_xyz, pc_rgb = collector.show()
+        pc_xyz, pc_rgb = demo.collector.show()
 
         import matplotlib.pyplot as plt
 
-        obstacles, explored = collector.get_2d_map()
+        obstacles, explored = demo.collector.get_2d_map()
 
         plt.subplot(1, 2, 1)
         plt.imshow(obstacles)
@@ -493,15 +577,16 @@ def main(
         plt.imshow(explored)
         plt.show()
 
-    # Create pointcloud
+    # Create pointcloud and write it out
     if len(output_pcd_filename) > 0:
         print(f"Write pcd to {output_pcd_filename}...")
         pcd = numpy_to_pcd(pc_xyz, pc_rgb / 255)
         open3d.io.write_point_cloud(output_pcd_filename, pcd)
     if len(output_pkl_filename) > 0:
         print(f"Write pkl to {output_pkl_filename}...")
-        collector.voxel_map.write_to_pickle(output_pkl_filename)
+        demo.collector.voxel_map.write_to_pickle(output_pkl_filename)
 
+    demo.go_home()
     rospy.signal_shutdown("done")
 
 

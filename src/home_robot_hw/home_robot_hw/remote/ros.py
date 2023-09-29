@@ -16,7 +16,7 @@ from control_msgs.msg import FollowJointTrajectoryAction, FollowJointTrajectoryG
 from geometry_msgs.msg import PointStamped, Pose, PoseStamped, Twist
 from nav_msgs.msg import Odometry
 from sensor_msgs.msg import JointState
-from std_msgs.msg import Bool, String
+from std_msgs.msg import Bool, Empty, Float32, String
 from std_srvs.srv import SetBool, SetBoolRequest, Trigger, TriggerRequest
 from trajectory_msgs.msg import JointTrajectoryPoint
 
@@ -253,11 +253,34 @@ class StretchRosInterface:
         # Create command publishers
         self.goal_pub = rospy.Publisher("goto_controller/goal", Pose, queue_size=1)
         self.velocity_pub = rospy.Publisher("stretch/cmd_vel", Twist, queue_size=1)
-        self.grasp_target_point_pub = rospy.Publisher(
-            "grasp_object/grasp_point", PointStamped, queue_size=1
+
+        self.grasp_complete = None
+        self.grasp_enable_pub = rospy.Publisher(
+            "grasp_point/enable", Empty, queue_size=1
         )
-        self.place_target_point_pub = rospy.Publisher(
-            "grasp_object/place_point", PointStamped, queue_size=1
+        self.grasp_disable_pub = rospy.Publisher(
+            "grasp_point/disable", Empty, queue_size=1
+        )
+        self.grasp_trigger_pub = rospy.Publisher(
+            "grasp_point/trigger_grasp_point", PointStamped, queue_size=1
+        )
+        self.grasp_result_sub = rospy.Subscriber(
+            "grasp_point/result", Float32, self._grasp_result_callback
+        )
+
+        self.place_complete = None
+        self.location_above_surface_m = None
+        self.place_enable_pub = rospy.Publisher(
+            "place_point/enable", Float32, queue_size=1
+        )
+        self.place_disable_pub = rospy.Publisher(
+            "place_point/disable", Empty, queue_size=1
+        )
+        self.place_trigger_pub = rospy.Publisher(
+            "place_point/trigger_place_point", PointStamped, queue_size=1
+        )
+        self.place_result_sub = rospy.Subscriber(
+            "place_point/result", Empty, self._place_result_callback
         )
 
         # Create subscribers
@@ -616,22 +639,63 @@ class StretchRosInterface:
             self.trajectory_client.wait_for_result()
         return True
 
+    def _grasp_result_callback(self, float_msg):
+        self.location_above_surface_m = float_msg.data
+        self.grasp_complete = True
+
     def trigger_grasp(self, x, y, z):
         """Calls FUNMAP based grasping"""
+        # 1. Enable the correct node
+        assert self.grasp_complete is None
+        assert self.location_above_surface_m is None
+        self.grasp_enable_pub.publish(Empty())
+        self.place_disable_pub.publish(Empty())
+        rospy.sleep(5)
+
+        # 2. Call the trigger topic
         goal_point = PointStamped()
         goal_point.header.stamp = rospy.Time.now()
         goal_point.header.frame_id = "map"
         goal_point.point.x = x
         goal_point.point.y = y
         goal_point.point.z = z
-        self.grasp_target_point_pub.publish(goal_point)
+        self.grasp_trigger_pub.publish(goal_point)
+
+        # 3. Wait for grasp to complete
+        print(" - Waiting for grasp to complete")
+        while self.grasp_complete is None:
+            rospy.sleep(0.2)
+        assert self.location_above_surface_m is not None
+        self.grasp_complete = None
+        return
+
+    def _place_result_callback(self, msg):
+        self.place_complete = True
 
     def trigger_placement(self, x, y, z):
         """Calls FUNMAP based placement"""
+        # 1. Enable the correct node
+        assert self.place_complete is None
+        assert self.location_above_surface_m is not None
+        self.grasp_disable_pub.publish(Empty())
+        msg = Float32()
+        msg.data = self.location_above_surface_m
+        self.place_enable_pub.publish(msg)
+        rospy.sleep(5)
+
+        # 2. Call the trigger topic
         goal_point = PointStamped()
         goal_point.header.stamp = rospy.Time.now()
         goal_point.header.frame_id = "map"
         goal_point.point.x = x
         goal_point.point.y = y
         goal_point.point.z = z
-        self.place_target_point_pub.publish(goal_point)
+        self.place_trigger_pub.publish(goal_point)
+
+        # 3. Wait for grasp to complete
+        print(" - Waiting for place to complete")
+        while self.place_complete is None:
+            rospy.sleep(0.2)
+        self.location_above_surface_m = None
+        self.place_complete = None
+        return

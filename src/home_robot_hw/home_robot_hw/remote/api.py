@@ -10,6 +10,7 @@ import rospy
 from home_robot.core.interfaces import Observations
 from home_robot.motion.robot import Robot
 from home_robot.motion.stretch import (
+    STRETCH_DEMO_PREGRASP_Q,
     STRETCH_NAVIGATION_Q,
     STRETCH_POSTNAV_Q,
     STRETCH_PREDEMO_Q,
@@ -174,6 +175,14 @@ class StretchClient:
             self.manip._extract_joint_pos(STRETCH_PREGRASP_Q)
         )
         print("- Robot switched to manipulation mode.")
+
+    def move_to_demo_pregrasp_posture(self):
+        """Move the arm and head into pre-demo posture: gripper straight, arm way down, head facing the gripper."""
+        self.switch_to_manipulation_mode()
+        self.head.look_at_ee(blocking=False)
+        self.manip.goto_joint_positions(
+            self.manip._extract_joint_pos(STRETCH_DEMO_PREGRASP_Q)
+        )
 
     def move_to_pre_demo_posture(self):
         """Move the arm and head into pre-demo posture: gripper straight, arm way down, head facing the gripper."""
