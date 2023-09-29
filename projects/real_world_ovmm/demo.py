@@ -391,6 +391,8 @@ def run_grasping(
 @click.option("--explore-iter", default=20)
 @click.option("--navigate-home", default=False, is_flag=True)
 @click.option("--no-manip", default=False, is_flag=True)
+@click.option("--object-to-find", default="bottle", type=str)
+@click.option("--location-to-place", default="chair", type=str)
 @click.option(
     "--input-path",
     type=click.Path(),
@@ -416,6 +418,8 @@ def main(
     force_explore: bool = True,
     no_manip: bool = False,
     explore_iter: int = 10,
+    object_to_find: str = "bottle",
+    location_to_place: str = "chair",
     **kwargs,
 ):
     """
@@ -438,7 +442,7 @@ def main(
 
     # Run grasping test - just grab whatever is in front of the robot
     if test_grasping:
-        run_grasping(robot, semantic_sensor)
+        run_grasping(robot, semantic_sensor, to_grasp=object_to_find, to_place=None)
         rospy.signal_shutdown("done")
         return
 
@@ -456,8 +460,6 @@ def main(
         encoder=encoder,
     )
 
-    object_to_find = "bottle"
-    location_to_place = "chair"
     demo = DemoAgent(robot, collector, semantic_sensor)
     demo.start(goal=object_to_find, visualize_map_at_start=show_intermediate_maps)
     matches = demo.get_found_instances_by_class(object_to_find)
