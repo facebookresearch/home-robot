@@ -80,10 +80,13 @@ class DemoAgent:
             dilate_obstacle_size=2,
         )
 
+        # Dictionary storing attempts to visit each object
+        self._object_attempts = {}
+
         # Create a simple motion planner
         self.planner = Shortcut(RRTConnect(self.space, self.space.is_valid))
 
-    def move_to_any_instance(self, matches: List[Instance]):
+    def move_to_any_instance(self, matches: List[Tuple[int, Instance]]):
         """Check instances and find one we can move to"""
 
         self.robot.move_to_nav_posture()
@@ -104,7 +107,7 @@ class DemoAgent:
             raise RuntimeError("Invalid start state!")
 
         # Find and move to one of these
-        for i, match in enumerate(matches):
+        for i, match in matches:
             print("Checking instance", i)
             # TODO: this is a bad name for this variable
             for j, view in enumerate(match.instance_views):
@@ -131,7 +134,13 @@ class DemoAgent:
                 if res.success:
                     break
             else:
-                breakpoint()
+                # TODO: remove debug code
+                # breakpoint()
+                print("-> could not plan to instance", i)
+                if i not in self._object_attempts:
+                    self._object_attempts[i] = 1
+                else:
+                    self._object_attempts[i] += 1
             if res is not None and res.success:
                 break
 
@@ -188,8 +197,8 @@ class DemoAgent:
         return emb
 
     def get_found_instances_by_class(
-        self, goal: str, debug: bool = False
-    ) -> Optional[List[Instance]]:
+        self, goal: str, threshold: int = 0, debug: bool = False
+    ) -> Optional[List[Tuple[int, Instance]]]:
         """Check to see if goal is in our instance memory or not. Return a list of everything with the correct class."""
         matching_instances = []
         instances = self.voxel_map.get_instances()
@@ -197,8 +206,16 @@ class DemoAgent:
             oid = int(instance.category_id.item())
             name = self.semantic_sensor.get_class_name_for_id(oid)
             if name.lower() == goal.lower():
-                matching_instances.append(instance)
-        return matching_instances
+                matching_instances.append((i, instance))
+        return self.filter_matches(matching_instances, threshold=threshold)
+
+    def filter_matches(self, matches: List[Tuple[int, Instance]], threshold: int = 1):
+        """return only things we have not tried {threshold} times"""
+        filtered_matches = []
+        for i, instance in matches:
+            if i not in self._object_attempts or self._object_attempts[i] < threshold:
+                self.filtered_matches.append((i, instance))
+        return filtered_matches
 
     def go_home(self):
         """Simple helper function to send the robot home safely after a trial."""
