@@ -65,7 +65,7 @@
 	<include file="$(find home_robot_hw)/launch/home_robot_nodes.launch"/>
 
 	<!-- Manipulation from FUNMAP -->
-	<node name="funmap_grasping" pkg="stretch_demos" type="grasp_point" />
-	<node name="funmap_placeing" pkg="stretch_demos" type="place_point" />
+	<node name="funmap_grasping" pkg="stretch_demos" type="grasp_point" output="screen" />
+	<node name="funmap_placeing" pkg="stretch_demos" type="place_point" output="screen" />
 
 </launch>
