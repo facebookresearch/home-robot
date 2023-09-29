@@ -387,8 +387,7 @@ def run_grasping(
 @click.option("--rate", default=5, type=int)
 @click.option("--visualize", default=False, is_flag=True)
 @click.option("--manual_wait", default=False, is_flag=True)
-@click.option("--output-pcd-filename", default="output.ply", type=str)
-@click.option("--output-pkl-filename", default="output.pkl", type=str)
+@click.option("--output-filename", default="stretch_output", type=str)
 @click.option("--show-intermediate-maps", default=False, is_flag=True)
 @click.option("--show-final-map", default=False, is_flag=True)
 @click.option("--show-paths", default=False, is_flag=True)
@@ -409,10 +408,8 @@ def main(
     rate,
     visualize,
     manual_wait,
-    output_pcd_filename,
-    output_pkl_filename,
+    output_filename,
     navigate_home: bool = True,
-    input_path: str = ".",
     voxel_size: float = 0.01,
     device_id: int = 0,
     verbose: bool = True,
@@ -437,7 +434,11 @@ def main(
         show_paths(bool): display paths after planning
         random_goals(bool): randomly sample frontier goals instead of looking for closest
     """
-    click.echo(f"Using input path: {input_path}")
+
+    current_datetime = datetime.datetime.now()
+    formatted_datetime = current_datetime.strftime("%Y-%m-%d_%H:%M:%S")
+    output_pcd_filename = output_filename + "_" + formatted_datetime + ".pcd"
+    output_pkl_filename = output_filename + "_" + formatted_datetime + ".pkl"
 
     click.echo("Will connect to a Stretch robot and collect a short trajectory.")
     print("- Connect to Stretch")
