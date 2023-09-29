@@ -2,6 +2,7 @@
 #
 # This source code is licensed under the MIT license found in the
 # LICENSE file in the root directory of this source tree.
+import datetime
 import sys
 import time
 import timeit
@@ -60,7 +61,7 @@ class DemoAgent:
             self.robot_model,
             step_size=0.1,
             dilate_frontier_size=12,  # 0.6 meters back from every edge
-            dilate_obstacle_size=4,
+            dilate_obstacle_size=2,
         )
 
         # Create a simple motion planner
@@ -436,7 +437,7 @@ def main(
     """
 
     current_datetime = datetime.datetime.now()
-    formatted_datetime = current_datetime.strftime("%Y-%m-%d_%H:%M:%S")
+    formatted_datetime = current_datetime.strftime("%Y-%m-%d_%H-%M-%S")
     output_pcd_filename = output_filename + "_" + formatted_datetime + ".pcd"
     output_pkl_filename = output_filename + "_" + formatted_datetime + ".pkl"
 
