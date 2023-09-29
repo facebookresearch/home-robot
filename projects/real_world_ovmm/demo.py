@@ -333,10 +333,8 @@ def run_grasping(
         m_x, m_y, m_z, _ = m_pt
 
         robot._ros_client.trigger_grasp(m_x, m_y, m_z)
-        breakpoint()  # TODO: user lets routine know when grasp finished
         robot.switch_to_manipulation_mode()
         robot.move_to_manip_posture()
-        breakpoint()
 
     if to_place is not None:
         ### PLACEMENT ROUTINE
@@ -442,7 +440,9 @@ def main(
 
     # Run grasping test - just grab whatever is in front of the robot
     if test_grasping:
-        run_grasping(robot, semantic_sensor, to_grasp=object_to_find, to_place=None)
+        run_grasping(
+            robot, semantic_sensor, to_grasp=object_to_find, to_place=location_to_place
+        )
         rospy.signal_shutdown("done")
         return
 
