@@ -1,7 +1,5 @@
 
 ## Installation
 ```
-mamba install -c conda-forge jupyterlab ipywidgets 
-pip install tiktoken openai langchain astrowidgets
-
+pip install openai dash dash-bootstrap-components atomicwrites loguru
 ```
