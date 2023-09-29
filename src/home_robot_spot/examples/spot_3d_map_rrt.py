@@ -107,7 +107,7 @@ def plan_to_frontier(
             failed = True
             break
         goal = goal.cpu().numpy()
-        print("       Start:", start)
+        print("Start:", start)
         print("Sampled Goal:", goal)
         show_goal = np.zeros(3)
         show_goal[:2] = goal[:2]
@@ -276,35 +276,7 @@ def main(dock: Optional[int] = None, args=None):
 
     # TODO add this to config
     spot_config = get_config("src/home_robot_spot/configs/default_config.yaml")[0]
-
-    # TODO move these parameters to config
-    parameters = {
-        "step_size": 2.0,  # (originally .1, we can make it all the way to 2 maybe actually)
-        "rotation_step_size": np.pi,
-        "visualize": False,
-        "exploration_steps": 20,
-        "use_midas": False,
-        # Voxel map
-        "obs_min_height": 0.3,  # Originally .1, floor appears noisy in the 3d map of freemont so we're being super conservative
-        "obs_max_height": 1.8,  # Originally 1.8, spot is shorter than stretch tho
-        "obs_min_density": 10,  # Originally 10, making it bigger because theres a bunch on noise
-        "voxel_size": 0.05,
-        "local_radius": 0.6,  # Can probably be bigger than original (.15)
-        # 2d parameters
-        "explore_methodical": True,
-        "dilate_frontier_size": 10,
-        "dilate_obstacle_size": 2,  # Value used in pittsburgh lab
-        # "dilate_obstacle_size": 5, # value from fremont
-        "smooth_kernel_size": 5,
-        # Frontier
-        "min_size": 20,  # Can probably be bigger than original (10)
-        "max_size": 40,  # Can probably be bigger than original (10)
-        # Other parameters tuned (footprint is a third of the real robot size)
-        "use_async_subscriber": False,
-        "write_data": True,
-        "use_zero_depth": True,
-    }
-
+    parameters = get_config("src/home_robot_spot/configs/parameters.yaml")[0]
     # Create voxel map
     voxel_map = SparseVoxelMap(
         resolution=parameters["voxel_size"],
@@ -585,21 +557,20 @@ def main(dock: Optional[int] = None, args=None):
                 print("Resetting environment...")
                 success = gaze.gaze_and_grasp()
                 time.sleep(2)
-                input("type enter to release the object...")
+                if success:
+                    # navigate to the place instance
+                    print("Navigating to instance ")
+                    print(f"Instance id: {place_instance_id}")
+                    success = navigate_to_an_instance(
+                        spot,
+                        voxel_map,
+                        planner,
+                        place_instance_id,
+                        visualize=parameters["visualize"],
+                    )
 
-                # navigate to the place instance
-                print("Navigating to instance ")
-                print(f"Instance id: {place_instance_id}")
-                success = navigate_to_an_instance(
-                    spot,
-                    voxel_map,
-                    planner,
-                    place_instance_id,
-                    visualize=parameters["visualize"],
-                )
-
-                breakpoint()
-                place = place_in_an_instance(place_instance_id, spot, voxel_map, place_height=0.15)
+                    breakpoint()
+                    place = place_in_an_instance(place_instance_id, spot, voxel_map, place_height=0.15)
                 '''
                 # PLACING 
 
