@@ -92,6 +92,10 @@ class RosMapDataCollector(object):
         """Get 2d obstacle map for low level motion planning and frontier-based exploration"""
         return self.voxel_map.get_2d_map()
 
+    def get_xyz_rgb(self):
+        points, _, _, rgb = self.voxel_map.voxel_pcd.get_pointcloud()
+        return points, rgb
+
     def show(self, orig: Optional[np.ndarray] = None) -> Tuple[np.ndarray, np.ndarray]:
         """Display the aggregated point cloud."""
         return self.voxel_map.show(orig=orig)

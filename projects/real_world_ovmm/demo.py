@@ -63,7 +63,7 @@ class DemoAgent:
             voxel_size=0.02,
             obs_min_height=0.1,
             obs_max_height=1.8,
-            obs_min_density=5,  # This many points makes it an obstacle
+            obs_min_density=10,  # This many points makes it an obstacle
             pad_obstacles=1,  # Add this many units (voxel_size) to the area around obstacles
             local_radius=0.15,
             encoder=self.encoder,
@@ -498,6 +498,7 @@ def main(
     click.echo("Will connect to a Stretch robot and collect a short trajectory.")
     print("- Connect to Stretch")
     robot = StretchClient()
+    robot.nav.navigate_to([0, 0, 0])
 
     print("- Create semantic sensor based on detic")
     config, semantic_sensor = create_semantic_sensor(device_id, verbose)
@@ -576,6 +577,8 @@ def main(
         plt.subplot(1, 2, 2)
         plt.imshow(explored)
         plt.show()
+    else:
+        pc_xyz, pc_rgb = demo.collector.get_xyz_rgb()
 
     # Create pointcloud and write it out
     if len(output_pcd_filename) > 0:

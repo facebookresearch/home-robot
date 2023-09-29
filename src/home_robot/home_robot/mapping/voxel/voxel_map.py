@@ -187,7 +187,11 @@ class SparseVoxelMapNavigationSpace(XYT):
         return self._oriented_masks[theta_idx]
 
     def is_valid(
-        self, state: torch.Tensor, debug: bool = False, verbose: bool = False
+        self,
+        state: torch.Tensor,
+        is_safe_threshold=0.95,
+        debug: bool = False,
+        verbose: bool = False,
     ) -> bool:
         """Check to see if state is valid; i.e. if there's any collisions if mask is at right place"""
         assert len(state) == 3
@@ -217,9 +221,13 @@ class SparseVoxelMapNavigationSpace(XYT):
         assert mask.shape == crop_exp.shape
 
         collision = torch.any(crop_obs & mask)
-        is_safe = torch.all((crop_exp & mask) | ~mask)
+
+        p_is_safe = (
+            torch.sum((crop_exp & mask) | ~mask) / (mask.shape[0] * mask.shape[1])
+        ).item()
+        is_safe = p_is_safe > is_safe_threshold
         if verbose:
-            print(f"{collision=}, {is_safe=}")
+            print(f"{collision=}, {is_safe=}, {p_is_safe=}, {is_safe_threshold=}")
 
         valid = bool((not collision) and is_safe)
 
@@ -256,7 +264,8 @@ class SparseVoxelMapNavigationSpace(XYT):
         """Sample a position near the mask and return.
 
         Args:
-            look_at_any_point(bool): robot should look at the closest point on target mask instead of average pt"""
+            look_at_any_point(bool): robot should look at the closest point on target mask instead of average pt
+        """
 
         obstacles, explored = self.voxel_map.get_2d_map()
 
@@ -435,7 +444,6 @@ class SparseVoxelMapNavigationSpace(XYT):
         tries = 1
         prev_dist = -1 * float("Inf")
         for x, y, dist in sorted(zip(xs, ys, distances), key=lambda x: x[2]):
-
             # Don't explore too close to where we are
             if dist < prev_dist + step_dist:
                 continue
