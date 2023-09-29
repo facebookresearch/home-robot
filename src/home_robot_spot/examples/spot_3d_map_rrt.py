@@ -347,7 +347,7 @@ class SpotDemoAgent:
         print("- Observed from coordinates:", obs.gps, obs.compass)
         obs = self.semantic_sensor.predict(obs)
         timestamp = f"{datetime.datetime.now():%Y-%m-%d-%H-%M-%S}"
-        path = f"/home/jaydv/Documents/home-robot/viz_data/{timestamp}"
+        path = os.path.expanduser(f"~/Documents/home-robot/viz_data/{timestamp}")
         os.makedirs(path, exist_ok=True)
         publish_obs(self.navigation_space, path, step)
         self.voxel_map.add_obs(obs, xyz_frame="world")
