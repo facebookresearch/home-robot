@@ -70,6 +70,7 @@ class DemoAgent:
         self.robot.move_to_nav_posture()
         start = self.robot.get_base_pose()
         start_is_valid = self.space.is_valid(start)
+        res = None
 
         # Find and move to one of these
         for i, match in enumerate(matches):
@@ -109,6 +110,9 @@ class DemoAgent:
             time.sleep(1.0)
             self.robot.nav.navigate_to([0, 0, np.pi / 2], relative=True)
             self.robot.move_to_manip_posture()
+            return True
+
+        return False
 
     def print_found_classes(self, goal: Optional[str] = None):
         """Helper. print out what we have found according to detic."""
@@ -466,9 +470,10 @@ def main(
 
     # Look at all of our instances - choose and move to one
     print("-> Found", len(matches), f"instances of class {object_to_find}.")
-    demo.move_to_any_instance(matches)
+    smtai = demo.move_to_any_instance(matches)
+    if not smtai:
+        return
 
-    # TODO: grasp here
     if not no_manip:
         run_grasping(robot, semantic_sensor, to_grasp=object_to_find, to_place=None)
 
@@ -482,9 +487,10 @@ def main(
             task_goal=location_to_place,
             go_home_at_end=navigate_home,
         )
-    demo.move_to_any_instance(matches)
+    smtai2 = demo.move_to_any_instance(matches)
+    if not smtai2:
+        return
 
-    # TODO: place here
     if not no_manip:
         run_grasping(robot, semantic_sensor, to_grasp=None, to_place=location_to_place)
 
