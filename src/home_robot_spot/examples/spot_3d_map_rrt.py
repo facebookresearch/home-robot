@@ -61,9 +61,10 @@ def goto(spot: SpotClient, planner: Planner, goal):
 
 
 # NOTE: this requires 'pip install atomicwrites'
-def publish_obs(model: SparseVoxelMapNavigationSpace, path: str, timestep: int):
+def publish_obs(model: SparseVoxelMapNavigationSpace, path: str):
+    timestep = len(model.voxel_map.observations) - 1
     with atomic_write(f"{path}/{timestep}.pkl", mode="wb") as f:
-        model_obs = model.voxel_map.observations[timestep]
+        model_obs = model.voxel_map.observations[-1]
         print(f"Saving observation to pickle file...{f'{timestep}.pkl'}")
         pickle.dump(
             dict(
@@ -333,12 +334,7 @@ class SpotDemoAgent:
         for i in range(8):
             self.spot.navigate_to([x0, y0, theta0 + (i + 1) * np.pi / 4], blocking=True)
             if not self.parameters["use_async_subscriber"]:
-                obs = self.spot.get_rgbd_obs()
-                obs = self.semantic_sensor.predict(obs)
-                self.voxel_map.add_obs(obs, xyz_frame="world")
-                print("-", i + 1, "-")
-                print("Camera pose =", obs.camera_pose[:3, 3].cpu().numpy())
-                print("Base pose =", obs.gps, obs.compass)
+                self.update()
 
     def update(self, step=0):
         print("Synchronous obs update")
@@ -349,8 +345,8 @@ class SpotDemoAgent:
         timestamp = f"{datetime.datetime.now():%Y-%m-%d-%H-%M-%S}"
         path = os.path.expanduser(f"~/Documents/home-robot/viz_data/{timestamp}")
         os.makedirs(path, exist_ok=True)
-        publish_obs(self.navigation_space, path, step)
         self.voxel_map.add_obs(obs, xyz_frame="world")
+        publish_obs(self.navigation_space, path)
 
     def visualize(self, start, goal, step):
         """Update visualization for demo"""
@@ -605,6 +601,9 @@ def main(dock: Optional[int] = None, args=None):
 
         # set task
         print("Reset the agent task to " + args.task)
+    else:
+        # No vlm to use, just default behavior
+        vlm = None
 
     # TODO add this to config
     spot_config = get_config("src/home_robot_spot/configs/default_config.yaml")[0]
@@ -633,6 +632,7 @@ def main(dock: Optional[int] = None, args=None):
             demo.update()
 
         demo.rotate_in_place()
+
         voxel_map.show()
         for step in range(int(parameters["exploration_steps"])):
 
