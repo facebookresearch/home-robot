@@ -298,6 +298,7 @@ def run_grasping(
             and y < obs.semantic.shape[1]
         )
 
+    print("- Try to grasp", to_grasp)
     if to_grasp is not None:
         to_grasp_oid = None
         for oid in np.unique(obs.semantic):
@@ -321,10 +322,8 @@ def run_grasping(
         m_x, m_y, m_z, _ = m_pt
 
         robot._ros_client.trigger_grasp(m_x, m_y, m_z)
-        breakpoint()  # TODO: user lets routine know when grasp finished
         robot.switch_to_manipulation_mode()
         robot.move_to_manip_posture()
-        breakpoint()
 
     if to_place is not None:
         ### PLACEMENT ROUTINE
