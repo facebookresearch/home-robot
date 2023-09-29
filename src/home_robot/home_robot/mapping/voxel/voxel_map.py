@@ -186,7 +186,9 @@ class SparseVoxelMapNavigationSpace(XYT):
         theta_idx = self._get_theta_index(theta)
         return self._oriented_masks[theta_idx]
 
-    def is_valid(self, state: torch.Tensor, debug: bool = False) -> bool:
+    def is_valid(
+        self, state: torch.Tensor, debug: bool = False, verbose: bool = False
+    ) -> bool:
         """Check to see if state is valid; i.e. if there's any collisions if mask is at right place"""
         assert len(state) == 3
         if isinstance(state, np.ndarray):
@@ -216,6 +218,8 @@ class SparseVoxelMapNavigationSpace(XYT):
 
         collision = torch.any(crop_obs & mask)
         is_safe = torch.all((crop_exp & mask) | ~mask)
+        if verbose:
+            print(f"{collision=}, {is_safe=}")
 
         valid = bool((not collision) and is_safe)
 
@@ -257,26 +261,35 @@ class SparseVoxelMapNavigationSpace(XYT):
         obstacles, explored = self.voxel_map.get_2d_map()
 
         # Extract edges from our explored mask
-        less_explored = binary_erosion(
-            explored.float().unsqueeze(0).unsqueeze(0), self.dilate_explored_kernel
-        )[0, 0]
+
+        # TODO: we might still need this, but should set it separately when not exploring
+        # less_explored = binary_erosion(
+        #     explored.float().unsqueeze(0).unsqueeze(0), self.dilate_explored_kernel
+        # )[0, 0]
 
         # Radius computed from voxel map measurements
-        radius = radius_m / self.voxel_map.grid_resolution
+        radius = np.ceil(radius_m / self.voxel_map.grid_resolution)
         expanded_mask = expand_mask(mask, radius)
-        expanded_mask = expanded_mask & less_explored.bool() & ~obstacles
+
+        # TODO: was this:
+        # expanded_mask = expanded_mask & less_explored & ~obstacles
+        expanded_mask = expanded_mask & explored & ~obstacles
 
         if debug:
             import matplotlib.pyplot as plt
 
             plt.imshow(
-                mask.int() + expanded_mask.int() + explored.int() + obstacles.int() * 5
+                mask.int()
+                + expanded_mask.int() * 10
+                + explored.int()
+                + obstacles.int() * 5
             )
             plt.show()
 
         # Where can the robot go?
         valid_indices = torch.nonzero(expanded_mask, as_tuple=False)
         if valid_indices.size(0) == 0:
+            print("[VOXEL MAP: sampling] No valid goals near mask!")
             return None
         if not look_at_any_point:
             mask_indices = torch.nonzero(mask, as_tuple=False)
@@ -322,7 +335,7 @@ class SparseVoxelMapNavigationSpace(XYT):
             # Check to see if this point is valid
             if verbose:
                 print("[VOXEL MAP: sampling]", radius, i, "sampled", xyt)
-            if self.is_valid(xyt):
+            if self.is_valid(xyt, verbose=verbose):
                 yield xyt
 
         # We failed to find anything useful

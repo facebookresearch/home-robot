@@ -58,7 +58,7 @@ class RosMapDataCollector(object):
         self.started = False
         self.robot_model = HelloStretchKinematics(visualize=visualize_planner)
         self.voxel_map = SparseVoxelMap(
-            resolution=voxel_size, local_radius=0.1, encoder=self.encoder, **kwargs
+            resolution=voxel_size, encoder=self.encoder, **kwargs
         )
 
     def get_planning_space(self) -> SparseVoxelMapNavigationSpace:
