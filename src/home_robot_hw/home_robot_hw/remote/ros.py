@@ -650,7 +650,7 @@ class StretchRosInterface:
         assert self.location_above_surface_m is None
         self.grasp_enable_pub.publish(Empty())
         self.place_disable_pub.publish(Empty())
-        rospy.sleep(2)
+        rospy.sleep(5)
 
         # 2. Call the trigger topic
         goal_point = PointStamped()
@@ -681,7 +681,7 @@ class StretchRosInterface:
         msg = Float32()
         msg.data = self.location_above_surface_m
         self.place_enable_pub.publish(msg)
-        rospy.sleep(2)
+        rospy.sleep(5)
 
         # 2. Call the trigger topic
         goal_point = PointStamped()
