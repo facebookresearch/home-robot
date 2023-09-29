@@ -58,10 +58,8 @@ def goto(spot: SpotClient, planner: Planner, goal):
     return res
 
 # NOTE: this requires 'pip install atomicwrites'
-def publish_obs(model: SparseVoxelMapNavigationSpace, timestep: int):
-    timestamp = f"{datetime.datetime.now():%Y-%m-%d-%H-%M-%S}"
-    os.makedirs(f"/home/jaydv/Documents/home-robot/viz_data/{timestamp}", exist_ok=True)
-    with atomic_write(f"/home/jaydv/Documents/home-robot/viz_data/{timestamp}/{timestep}.pkl", mode="wb") as f:
+def publish_obs(model: SparseVoxelMapNavigationSpace, path: str, timestep: int):
+    with atomic_write(f"{path}/{timestep}.pkl", mode="wb") as f:
         model_obs = model.voxel_map.observations[timestep]
         print(f"Saving observation to pickle file...{f'{timestep}.pkl'}")
         pickle.dump(
@@ -439,7 +437,10 @@ def main(dock: Optional[int] = None, args=None):
                 obs = spot.get_rgbd_obs()
                 print("- Observed from coordinates:", obs.gps, obs.compass)
                 obs = semantic_sensor.predict(obs)
-                publish_obs(navigation_space, step)
+                timestamp = f"{datetime.datetime.now():%Y-%m-%d-%H-%M-%S}"
+                path = "/home/jaydv/Documents/home-robot/viz_data/{timestamp}"
+                os.makedirs(path, exist_ok=True)
+                publish_obs(navigation_space, path, step)
                 voxel_map.add_obs(obs, xyz_frame="world")
 
             if step % 1 == 0 and parameters["visualize"]:
