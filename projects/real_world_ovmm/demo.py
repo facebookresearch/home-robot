@@ -214,7 +214,7 @@ class DemoAgent:
         filtered_matches = []
         for i, instance in matches:
             if i not in self._object_attempts or self._object_attempts[i] < threshold:
-                self.filtered_matches.append((i, instance))
+                filtered_matches.append((i, instance))
         return filtered_matches
 
     def go_home(self):
