@@ -64,7 +64,8 @@
 	<include file="$(find home_robot_hw)/launch/controller.launch" if="$(arg start_joy_node)"/>
 	<include file="$(find home_robot_hw)/launch/home_robot_nodes.launch"/>
 
-	<!-- Aligned gripper link for Dex Wrist -->
-	<node name="aligned_girpper_link_tf_publisher" pkg="tf" type="static_transform_publisher" args="0 0 0 -0.5 0.5 0.5 0.5 /link_straight_gripper /link_straight_gripper_aligned 100" />
+	<!-- Manipulation from FUNMAP -->
+	<node name="funmap_grasping" pkg="stretch_demos" type="grasp_point" />
+	<node name="funmap_placeing" pkg="stretch_demos" type="place_point" />
 
 </launch>
