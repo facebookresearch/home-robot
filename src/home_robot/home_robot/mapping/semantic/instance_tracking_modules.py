@@ -26,7 +26,7 @@ from home_robot.utils.bboxes_3d import (
     get_box_bounds_from_verts,
     get_box_verts_from_bounds,
 )
-from home_robot.utils.image import dilate_or_erode_mask
+from home_robot.utils.image import dilate_or_erode_mask, interpolate_image
 from home_robot.utils.point_cloud_torch import get_bounds
 from home_robot.utils.voxel import drop_smallest_weight_points
 
@@ -745,32 +745,6 @@ class InstanceMemory:
                 global_instance_id,
             )
 
-    def _interpolate_image(
-        self, image: Tensor, scale_factor: float = 1.0, mode: str = "nearest"
-    ):
-        """
-        Interpolates images by the specified scale_factor using the specific interpolation mode.
-        This method uses `torch.nn.functional.interpolate` by temporarily adding batch dimension and channel dimension for 2D inputs.
-        image (Tensor): image of shape [3, H, W] or [H, W]
-        scale_factor (float): multiplier for spatial size
-        mode: (str): algorithm for interpolation: 'nearest' (default), 'bicubic' or other interpolation modes at https://pytorch.org/docs/stable/generated/torch.nn.functional.interpolate.html
-        """
-
-        if len(image.shape) == 2:
-            image = image.unsqueeze(0)
-
-        image_downsampled = (
-            torch.nn.functional.interpolate(
-                image.unsqueeze(0).float(),
-                scale_factor=scale_factor,
-                mode=mode,
-            )
-            .squeeze()
-            .squeeze()
-            .bool()
-        )
-        return image_downsampled
-
     def process_instances_for_env(
         self,
         env_id: int,
@@ -822,7 +796,7 @@ class InstanceMemory:
         ), "Ensure that RGB images are channels-first and in the right format."
 
         self.unprocessed_views[env_id] = {}
-        # append image to list of images
+        # append image to list of images; move tensors to cpu to prevent memory from blowing up
         if self.images[env_id] is None:
             self.images[env_id] = image.unsqueeze(0).detach().cpu()
         else:
@@ -843,7 +817,7 @@ class InstanceMemory:
                 image[0], True, dtype=torch.bool, device=image.device
             )
         if self.du_scale != 1:
-            valid_points_downsampled = self._interpolate_image(
+            valid_points_downsampled = interpolate_image(
                 valid_points, scale_factor=1 / self.du_scale
             )
         else:
@@ -891,10 +865,10 @@ class InstanceMemory:
 
             # TODO: If we use du_scale, we should apply this at the beginning to speed things up
             if self.du_scale != 1:
-                instance_mask_downsampled = self._interpolate_image(
+                instance_mask_downsampled = interpolate_image(
                     instance_mask, scale_factor=1 / self.du_scale
                 )
-                image_downsampled = self._interpolate_image(
+                image_downsampled = interpolate_image(
                     image, scale_factor=1 / self.du_scale
                 )
             else:
