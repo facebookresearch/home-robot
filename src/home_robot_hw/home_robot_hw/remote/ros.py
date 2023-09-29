@@ -693,7 +693,7 @@ class StretchRosInterface:
         self.place_trigger_pub.publish(goal_point)
 
         # 3. Wait for grasp to complete
-        print(" - Waiting for grasp to complete")
+        print(" - Waiting for place to complete")
         while self.place_complete is None:
             rospy.sleep(0.2)
         self.location_above_surface_m = None

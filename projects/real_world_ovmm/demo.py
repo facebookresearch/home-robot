@@ -330,6 +330,7 @@ def run_grasping(
     """Start running grasping code here"""
     robot.switch_to_manipulation_mode()
     robot.move_to_manip_posture()
+    rospy.sleep(2)
 
     ### GRASPING ROUTINE
     # Get observations from the robot
@@ -370,6 +371,7 @@ def run_grasping(
         robot._ros_client.trigger_grasp(m_x, m_y, m_z)
         robot.switch_to_manipulation_mode()
         robot.move_to_manip_posture()
+        rospy.sleep(2)
 
     if to_place is not None:
         ### PLACEMENT ROUTINE
@@ -408,6 +410,9 @@ def run_grasping(
         m_x, m_y, m_z, _ = m_pt
 
         robot._ros_client.trigger_placement(m_x, m_y, m_z)
+        robot.switch_to_manipulation_mode()
+        robot.move_to_manip_posture()
+        rospy.sleep(2)
 
 
 @click.command()
