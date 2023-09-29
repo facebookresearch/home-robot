@@ -70,6 +70,12 @@ class DemoAgent:
         self.robot.move_to_nav_posture()
         start = self.robot.get_base_pose()
         start_is_valid = self.space.is_valid(start)
+        start_is_valid_retries = 5
+        while not start_is_valid and start_is_valid_retries > 0:
+            print("Start not valid. back up a bit.")
+            self.robot.nav.navigate_to([-0.1, 0, 0], relative=True)
+            start_is_valid = self.space.is_valid(start)
+            start_is_valid_retries -= 1
         res = None
 
         # Find and move to one of these
@@ -407,7 +413,7 @@ def main(
     show_paths: bool = False,
     random_goals: bool = True,
     test_grasping: bool = False,
-    force_explore: bool = False,
+    force_explore: bool = True,
     no_manip: bool = False,
     explore_iter: int = 10,
     **kwargs,
@@ -462,24 +468,27 @@ def main(
             rate,
             manual_wait,
             explore_iter=explore_iter,
-            task_goal=object_to_find,
+            task_goal=None,
             go_home_at_end=navigate_home,
         )
     print("Done collecting data.")
     matches = demo.get_found_instances_by_class(object_to_find)
+    print("-> Found", len(matches), f"instances of class {object_to_find}.")
+    # demo.voxel_map.show(orig=np.zeros(3))
 
     # Look at all of our instances - choose and move to one
-    print("-> Found", len(matches), f"instances of class {object_to_find}.")
+    print(f"- Move to any instance of {object_to_find}")
     smtai = demo.move_to_any_instance(matches)
     if not smtai:
         return
 
+    print(f"- Grasp {object_to_find} using FUNMAP")
     if not no_manip:
         run_grasping(robot, semantic_sensor, to_grasp=object_to_find, to_place=None)
 
     matches = demo.get_found_instances_by_class(location_to_place)
     if len(matches) == 0:
-        print(f"!!! No location {location_to_place} found !!!")
+        print(f"!!! No location {location_to_place} found. Exploring !!!")
         demo.run_exploration(
             rate,
             manual_wait,
@@ -487,10 +496,13 @@ def main(
             task_goal=location_to_place,
             go_home_at_end=navigate_home,
         )
+
+    print(f"- Move to any instance of {location_to_place}")
     smtai2 = demo.move_to_any_instance(matches)
     if not smtai2:
         return
 
+    print(f"- Placing on {location_to_place} using FUNMAP")
     if not no_manip:
         run_grasping(robot, semantic_sensor, to_grasp=None, to_place=location_to_place)
 
@@ -507,14 +519,14 @@ def main(
         plt.imshow(explored)
         plt.show()
 
-    # Create pointcloud
-    if len(output_pcd_filename) > 0:
-        print(f"Write pcd to {output_pcd_filename}...")
-        pcd = numpy_to_pcd(pc_xyz, pc_rgb / 255)
-        open3d.io.write_point_cloud(output_pcd_filename, pcd)
-    if len(output_pkl_filename) > 0:
-        print(f"Write pkl to {output_pkl_filename}...")
-        collector.voxel_map.write_to_pickle(output_pkl_filename)
+        # Create pointcloud
+        if len(output_pcd_filename) > 0:
+            print(f"Write pcd to {output_pcd_filename}...")
+            pcd = numpy_to_pcd(pc_xyz, pc_rgb / 255)
+            open3d.io.write_point_cloud(output_pcd_filename, pcd)
+        if len(output_pkl_filename) > 0:
+            print(f"Write pkl to {output_pkl_filename}...")
+            collector.voxel_map.write_to_pickle(output_pkl_filename)
 
     rospy.signal_shutdown("done")
 
