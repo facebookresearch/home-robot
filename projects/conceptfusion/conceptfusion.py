@@ -1,3 +1,5 @@
+import logging
+import os
 from pathlib import Path
 from tqdm import trange
 from typing import List, Sequence, Dict, Any
@@ -8,6 +10,7 @@ import numpy as np
 from omegaconf import DictConfig
 import open_clip
 from PIL import Image
+import seaborn as sns
 from sklearn.cluster import DBSCAN
 import torch
 from torchvision import transforms
@@ -18,8 +21,13 @@ from segment_anything import SamAutomaticMaskGenerator, SamPredictor, sam_model_
 
 from home_robot.utils.bboxes_3d import box3d_volume_from_bounds
 from home_robot.mapping.semantic.instance_tracking_modules import InstanceView, Instance
+from home_robot.utils.point_cloud_torch import unproject_masked_depth_to_xyz_coordinates
 
-from utils import COLOR_LIST
+from utils import adjust_intrinsics_matrix, COLOR_LIST
+
+custom_palette = sns.color_palette("viridis", 24)
+
+logger = logging.getLogger(__name__)
 
 def convert_pose_to_real_world_axis(hab_pose):
     """Update axis convention of habitat pose to match the real-world axis convention"""
@@ -29,17 +37,17 @@ def convert_pose_to_real_world_axis(hab_pose):
     return hab_pose
 
 def get_bounding_boxes(args, data, color_data):
-    db = DBSCAN(eps=args.epsilon, min_samples=args.min_samples).fit(data)
+    db = DBSCAN(eps=args.epsilon, min_samples=args.min_samples).fit(data.cpu().numpy())
     labels = db.labels_
 
     num_clusters = len(np.unique(labels))
     num_noise = np.sum(np.array(labels) == -1, axis=0)
 
-    print('Estimated no. of clusters: %d' % num_clusters)
-    print('Estimated no. of noisy points: %d' % num_noise)
+    logger.debug('Estimated no. of clusters: %d' % num_clusters)
+    logger.debug('Estimated no. of noisy points: %d' % num_noise)
 
     # get max and min x, y, z values for each cluster
-    bb_coords = np.zeros((num_clusters, 3, 2))
+    bb_coords = torch.zeros((num_clusters, 3, 2), device=data.device)
     for i in range(num_clusters-1):
         cluster = data[labels == i]
         bb_coords[i, :, 0] = torch.min(cluster, axis=0)[0]
@@ -49,61 +57,132 @@ def get_bounding_boxes(args, data, color_data):
         color_data[labels == i] = torch.tensor(COLOR_LIST[i % len(COLOR_LIST)]).float()
     return bb_coords, color_data, labels
 
+class TorchCamera:
+    def __init__(
+        self,
+        width,
+        height,
+        fov_degrees,
+    ):
+        self.width = width
+        self.height = height
+        horizontal_fov_radians = fov_degrees * np.pi / 180.0
+        self.px = (width - 1.0) / 2.0
+        self.py = (height - 1.0) / 2.0
+        self.fx = (width - 1.0) / (2.0 * np.tan(horizontal_fov_radians / 2.0))
+        self.fy = self.fx
+    
+    def update_intrinsics(self, intrinsics):
+        self.px = intrinsics[0, 2]
+        self.py = intrinsics[1, 2]
+        self.fx = intrinsics[0, 0]
+        self.fy = intrinsics[1, 1]
+
+    def depth_to_xyz(self, depth):
+        indices = torch.stack(
+            torch.meshgrid(
+                torch.arange(self.height, dtype=torch.float32),
+                torch.arange(self.width, dtype=torch.float32),
+            ),
+            dim=-1,
+        ).to(depth.device)
+        z = depth
+        x = (indices[:, :, 1] - self.px) * (z / self.fx)
+        y = (indices[:, :, 0] - self.py) * (z / self.fy)
+        xyz = torch.stack([x, y, z], axis=-1)
+        return xyz
+
+    def get_intrinsics(self, inverse=False, device='cuda'):
+        intrinsics = torch.tensor(
+            [
+                [self.fx, 0, self.px],
+                [0, self.fy, self.py],
+                [0, 0, 1],
+            ],
+            dtype=torch.float32,
+            device=device,
+        )
+        if inverse:
+            intrinsics = torch.inverse(intrinsics)
+        return intrinsics
+
 class ConceptFusion:
     def __init__(
             self,
-            args: DictConfig,
+            device: str,
+            sam_params: DictConfig,
+            open_clip_params: DictConfig,
+            data_params: DictConfig,
+            dbscan_params: DictConfig,
+            similarity_params: DictConfig,
+            file_params: DictConfig,
         ) -> None:
         """
         Initialize concept fusion model.
 
         Args:
-            args (DictConfig): Hydra config.
+            device (str): Device to use.
+            sam_params (DictConfig): SAM parameters.
+            open_clip_params (DictConfig): OpenCLIP parameters.
+            data_params (DictConfig): Data parameters.
+            dbscan_params (DictConfig): DBSCAN parameters.
+            similarity_params (DictConfig): Similarity parameters.
+            file_params (DictConfig): File parameters.
         """
-        self.args = args
+        self.device = device
+        self.sam_params = sam_params
+        self.data_params = data_params
+        self.open_clip_params = open_clip_params
+        self.dbscan_params = dbscan_params
+        self.similarity_params = similarity_params
+        self.file_params = file_params
 
-        sam = sam_model_registry[args.model_type](checkpoint=Path(args.SAM_checkpoint_path))
-        sam.to(device=args.device)
+        sam = sam_model_registry[self.sam_params.model_type](checkpoint=Path(self.sam_params.SAM_checkpoint_path))
+        sam.to(device=self.device)
         self.mask_generator = SamAutomaticMaskGenerator(
             model=sam,
-            points_per_side=args.points_per_side,
+            points_per_side=self.sam_params.points_per_side,
             pred_iou_thresh=0.92,
             crop_n_layers=1,
             crop_n_points_downscale_factor=2,
         )
 
-        print(
-            f"Initializing OpenCLIP model: {args.open_clip_model}"
-            f" pre-trained on {args.open_clip_pretrained_dataset}..."
-        )
+        logger.info("Initializing OpenCLIP model: {} pre-trained on {}...".format(
+            self.open_clip_params.open_clip_model,
+            self.open_clip_params.open_clip_pretrained_dataset
+        ))
 
         self.CLIP_model, _, self.CLIP_preprocess = open_clip.create_model_and_transforms(
-            args.open_clip_model, args.open_clip_pretrained_dataset
+            self.open_clip_params.open_clip_model, self.open_clip_params.open_clip_pretrained_dataset
         )
-        self.CLIP_model.cuda()
+        self.CLIP_model.to(device=self.device)
         self.CLIP_model.eval()
 
-        self.tokenizer = open_clip.get_tokenizer(args.open_clip_model)
+        self.tokenizer = open_clip.get_tokenizer(self.open_clip_params.open_clip_model)
 
         self.cosine_similarity = torch.nn.CosineSimilarity(dim=-1)
 
         self.feat_dim = None
 
-        self.camera = im.Camera.from_width_height_fov(
-            width=args.desired_width,
-            height=args.desired_height,
-            fov_degrees=90,
-            near_val=0.1,
-            far_val=4.0,
+        self.camera = TorchCamera(
+            width=self.data_params.desired_width,
+            height=self.data_params.desired_height,
+            fov_degrees=self.data_params.camera_fov_degrees,
         )
 
         self.voxel_map = VoxelizedPointcloud(
-            voxel_size=args.voxel_size,
+            voxel_size=self.data_params.voxel_size,
         )
 
-        self.transform = transforms.Resize((self.args.desired_height, self.args.desired_width), interpolation=Image.NEAREST)
+        self.transform = transforms.Resize((self.data_params.desired_height, self.data_params.desired_width), interpolation=Image.Resampling.NEAREST)
 
-    
+        self.class_id_to_class_names = None
+        self.class_names_to_class_id = None
+
+    def clear(self):
+        self.voxel_map.reset()
+        self.feat_dim = None
+
     def generate_mask(self, img):
         masks = self.mask_generator.generate(img)
         
@@ -111,6 +190,10 @@ class ConceptFusion:
         masks = list(filter(lambda x: x["bbox"][2] * x["bbox"][3] != 0, masks))
         
         return masks
+    
+    def set_vocabulary(self, class_id_to_class_names):
+        self.class_id_to_class_names = class_id_to_class_names
+        self.class_names_to_class_id = {v: k for k, v in class_id_to_class_names.items()}
     
     def resize_images(self, rgb, depth):
         """Resize images using torch."""
@@ -132,10 +215,10 @@ class ConceptFusion:
         global_feat = None
         with torch.cuda.amp.autocast():
             _img = self.CLIP_preprocess(Image.fromarray(img)).unsqueeze(0)
-            global_feat = self.CLIP_model.encode_image(_img.cuda())
+            global_feat = self.CLIP_model.encode_image(_img.to(self.device))
             global_feat /= global_feat.norm(dim=-1, keepdim=True)
 
-        global_feat = global_feat.half().cuda()
+        global_feat = global_feat.half().to(self.device)
         global_feat = torch.nn.functional.normalize(global_feat, dim=-1)  # --> (1, 1024)
 
         if self.feat_dim is None:
@@ -166,7 +249,7 @@ class ConceptFusion:
         feat_per_roi = []
         roi_nonzero_inds = []
         similarity_scores = []
-        outfeat = torch.zeros(load_image_height, load_image_width, self.feat_dim, dtype=torch.half)
+        outfeat = torch.zeros(load_image_height, load_image_width, self.feat_dim, dtype=torch.half, device=self.device)
 
         for mask in masks:
             _x, _y, _w, _h = tuple(mask["bbox"])  # xywh bounding box
@@ -180,7 +263,7 @@ class ConceptFusion:
             img_roi = img[_y : _y + _h, _x : _x + _w, :]
 
             img_roi = Image.fromarray(img_roi)
-            img_roi = self.CLIP_preprocess(img_roi).unsqueeze(0).cuda()
+            img_roi = self.CLIP_preprocess(img_roi).unsqueeze(0).to(self.device)
             roifeat = self.CLIP_model.encode_image(img_roi)
             roifeat = torch.nn.functional.normalize(roifeat, dim=-1)
             feat_per_roi.append(roifeat)
@@ -195,14 +278,14 @@ class ConceptFusion:
 
             _weighted_feat = softmax_scores[maskidx] * global_feat + (1 - softmax_scores[maskidx]) * feat_per_roi[maskidx]
             _weighted_feat = torch.nn.functional.normalize(_weighted_feat, dim=-1)
-            outfeat[roi_nonzero_inds[maskidx][:, 0], roi_nonzero_inds[maskidx][:, 1]] += _weighted_feat[0].detach().cpu().half()
+            outfeat[roi_nonzero_inds[maskidx][:, 0], roi_nonzero_inds[maskidx][:, 1]] += _weighted_feat[0].detach().half()
             outfeat[roi_nonzero_inds[maskidx][:, 0], roi_nonzero_inds[maskidx][:, 1]] = torch.nn.functional.normalize(
                 outfeat[roi_nonzero_inds[maskidx][:, 0], roi_nonzero_inds[maskidx][:, 1]].float(), dim=-1
             ).half()
 
         outfeat = outfeat.unsqueeze(0).float()  # interpolate is not implemented for float yet in pytorch
         outfeat = outfeat.permute(0, 3, 1, 2)  # 1, H, W, feat_dim -> 1, feat_dim, H, W
-        outfeat = torch.nn.functional.interpolate(outfeat, [self.args.desired_height, self.args.desired_width], mode="nearest")
+        outfeat = torch.nn.functional.interpolate(outfeat, [self.data_params.desired_height, self.data_params.desired_width], mode="nearest")
         outfeat = outfeat.permute(0, 2, 3, 1)  # 1, feat_dim, H, W --> 1, H, W, feat_dim
         outfeat = torch.nn.functional.normalize(outfeat, dim=-1)
         outfeat = outfeat[0].half() # --> H, W, feat_dim
@@ -215,12 +298,12 @@ class ConceptFusion:
         map_features: torch.Tensor,
     ):
         text = self.tokenizer([query])
-        textfeat = self.CLIP_model.encode_text(text.cuda())
+        textfeat = self.CLIP_model.encode_text(text.to(self.device))
         textfeat = torch.nn.functional.normalize(textfeat, dim=-1)
         textfeat = textfeat.unsqueeze(0)
 
         # make sure features are on cuda
-        map_features = map_features.cuda()
+        map_features = map_features.to(self.device)
         map_features = torch.nn.functional.normalize(map_features, dim=-1)
 
         similarity = self.cosine_similarity(textfeat, map_features)
@@ -232,18 +315,18 @@ class ConceptFusion:
 
         map_colors = np.zeros((similarity.shape[1], 3))
 
-        if self.args.viz_type == "topk":
+        if self.similarity_params.viz_type == "topk":
             # Viz topk points
-            _, topk_ind = torch.topk(similarity, self.args.topk)
+            _, topk_ind = torch.topk(similarity, self.similarity_params.topk)
             map_colors[topk_ind.detach().cpu().numpy()] = np.array([1.0, 0.0, 0.0])
             selected_inds = topk_ind
 
-        elif self.args.viz_type == "thresh":
+        elif self.similarity_params.viz_type == "thresh":
             # Viz thresholded "relative" attention scores
-            similarity[similarity < self.args.similarity_thresh] = 0.0
+            similarity[similarity < self.similarity_params.similarity_thresh] = 0.0
             selected_inds = torch.nonzero(similarity.squeeze()).squeeze(1)
 
-            cmap = matplotlib.cm.get_cmap("jet")
+            cmap = matplotlib.colormaps["jet"]
             similarity_colormap = cmap(similarity[0].detach().cpu().numpy())[:, :3]
 
             map_colors = 0.5 * map_colors + 0.5 * similarity_colormap
@@ -263,11 +346,12 @@ class ConceptFusion:
             torch.Tensor: Pointcloud TODO.
             torch.Tensor: Pointcloud rgb.
         """
-        print("Building scene with {} images".format(len(scene_obs["images"])))
         for i in trange(len(scene_obs["images"])):
-            img = scene_obs["images"][i]
-            depth = torch.tensor(scene_obs["depths"][i]).unsqueeze(0)
-            camera_pose = torch.tensor(scene_obs["poses"][i]).float()
+            img = (scene_obs["images"][i].cpu().numpy() * 255).astype(np.uint8)
+            depth = scene_obs["depths"][i].permute(2, 0, 1)
+
+            original_image_size = img.shape[:2]
+            camera_pose = scene_obs["poses"][i].float()
             img, depth = self.resize_images(img, depth)
 
             masks = self.generate_mask(img)
@@ -278,17 +362,32 @@ class ConceptFusion:
             # CLIP features per ROI
             outfeat = self.generate_local_features(img, masks, global_feat)
 
-            camera_pose = convert_pose_to_real_world_axis(camera_pose)
+            if self.data_params.habitat_dataset:
+                camera_pose = convert_pose_to_real_world_axis(camera_pose)
 
-            xyz = torch.Tensor(self.camera.depth_to_xyz(depth.numpy())).reshape(-1, 3)[:, [0, 2, 1]]
-            xyz[:, 1] *= -1
-            xyz = (
-                torch.cat([xyz, torch.ones_like(xyz[..., [0]])], axis=1) @ camera_pose.T
-            )
+                xyz = self.camera.depth_to_xyz(depth).reshape(-1, 3)[:, [0, 2, 1]]
+                xyz[:, 1] *= -1 if self.data_params.habitat_dataset else 1
+
+                xyz = (
+                    torch.cat([xyz, torch.ones_like(xyz[..., [0]])], axis=1) @ camera_pose.T
+                )
+            else:
+                original_intrinsics = scene_obs["intrinsics"][i]
+                adjusted_intrinsics = adjust_intrinsics_matrix(
+                    original_intrinsics,
+                    original_image_size,
+                    (self.data_params.desired_height, self.data_params.desired_width),
+                )
+                xyz = unproject_masked_depth_to_xyz_coordinates(
+                    depth.unsqueeze(0),
+                    camera_pose.unsqueeze(0),
+                    adjusted_intrinsics.inverse()[:3, :3].unsqueeze(0),
+                )
+
             self.voxel_map.add(
                 points=xyz[:, :3],
-                features=outfeat.reshape(-1, 1024),
-                rgb=torch.tensor(img).reshape(-1, 3),
+                features=outfeat.reshape(-1, 1024).to(device=self.device),
+                rgb=torch.tensor(img, device=self.device).reshape(-1, 3),
             )
 
         return self.voxel_map.get_pointcloud()
@@ -299,9 +398,8 @@ class ConceptFusion:
     ):
         pc_xyz, pc_feat, _, pc_rgb = self.voxel_map.get_pointcloud()
         instances_dict = {}
-        category_id = 0 # TODO: Fix this hardcoding
         for class_name in queries:
-            print("Querying for class: {}".format(class_name))
+            logger.debug("Querying for class: {}".format(class_name))
             pc_rgb_after_query, selected_inds, similarity_score = self.text_query(class_name, pc_feat)
 
             if selected_inds.shape[0] <= 1:
@@ -312,14 +410,14 @@ class ConceptFusion:
                 continue
 
             pc_feat_objects = pc_feat[selected_inds]
-            pc_rgb_objects = torch.tensor(pc_rgb_after_query[selected_inds].squeeze()).float()
+            pc_rgb_objects = pc_rgb_after_query[selected_inds].squeeze()
             pc_xyz_objects = pc_xyz[selected_inds].squeeze()
             similarity_score_objects = similarity_score[selected_inds].squeeze()
-            bounding_boxes, pc_rgb_after_query[selected_inds], labels  = get_bounding_boxes(self.args, pc_xyz_objects, pc_rgb_objects)
+            bounding_boxes, pc_rgb_after_query[selected_inds], labels = get_bounding_boxes(self.dbscan_params, pc_xyz_objects, pc_rgb_objects)
 
             instances_per_class = []
             for idx in range(len(bounding_boxes)):
-                bounds = torch.tensor(bounding_boxes[idx])
+                bounds = bounding_boxes[idx]
 
                 volume = float(box3d_volume_from_bounds(bounds).squeeze())
                 min_dim = (bounds[:, 1] - bounds[:, 0]).min()
@@ -340,7 +438,7 @@ class ConceptFusion:
                         embedding=pc_feat_objects[labels == idx].mean(axis=0),
                         point_cloud=pc_xyz_objects[labels == idx],
                         point_cloud_rgb=pc_rgb_objects[labels == idx],
-                        category_id=category_id,
+                        category_id=self.class_names_to_class_id[class_name],
                         score=similarity_score_objects[labels == idx].max()
                     )
                     # append instance view to list of instance views
@@ -348,8 +446,6 @@ class ConceptFusion:
                     instances_per_class.append(instance)
 
             instances_dict[class_name] = instances_per_class
-
-            category_id += 1
 
         return instances_dict
 
@@ -362,7 +458,7 @@ class ConceptFusion:
 
         return self.get_instances_for_queries(queries)
 
-    def _show_point_cloud_pytorch3d(
+    def show_point_cloud_pytorch3d(
             self,
             instances_dict = None,
             **plot_scene_kwargs
@@ -390,22 +486,20 @@ class ConceptFusion:
 
         # Show instances
         if instances_dict:
-            idx = 0
             for class_name, instances in instances_dict.items():
                 if len(instances) == 0:
                     continue
                 bounds, names, colors = [], [], []
                 for instance in instances:
                     bounds.append(instance.bounds)
-                    names.append(torch.tensor(instance.category_id))
-                    colors.append(torch.tensor(COLOR_LIST[idx % len(COLOR_LIST)]))
+                    names.append(torch.tensor(instance.category_id, device=self.device))
+                    colors.append(torch.tensor(COLOR_LIST[instance.category_id % len(COLOR_LIST)], device=self.device))
                 detected_boxes = BBoxes3D(
                     bounds=[torch.stack(bounds, dim=0)],
                     features=[torch.stack(colors, dim=0)],
                     names=[torch.stack(names, dim=0).unsqueeze(-1)],
                 )
-                traces[class_name + "_bbox"] = detected_boxes
-                idx += 1
+                traces[class_name + "_bbox_" + str(round(instance.score.item(), 2))] = detected_boxes
 
         _default_plot_args = dict(
             xaxis={"backgroundcolor": "rgb(200, 200, 230)"},
@@ -426,3 +520,39 @@ class ConceptFusion:
             width=1600,
         )
         return fig
+
+    def save_input_data(
+        self,
+        original_image: torch.Tensor,
+        masks: List[dict],
+        idx: int,
+        save_path: str,
+    ):
+        """
+        Save original image and segmentation masks for debugging.
+
+        Args:
+            original_image (torch.Tensor): Original image.
+            masks (list[dict]): List of segmentation masks.
+            outfeat (torch.Tensor): Concept fusion features.
+            idx (int): Index of image.
+            save_path (str): Path to save data.
+        """
+        # create directory
+        if not os.path.exists(save_path):
+            os.makedirs(save_path)
+
+        # save original image
+        original_image = Image.fromarray(original_image)
+        file_path = os.path.join(save_path, "original_" + str(idx) + ".png")
+        original_image.save(file_path)
+
+        # save segmentation masks
+        segmentation_image = torch.zeros(original_image.size[0], original_image.size[0], 3)
+        for i, mask in enumerate(masks):
+            segmentation_image += torch.from_numpy(mask["segmentation"]).unsqueeze(-1).repeat(1, 1, 3).float() * \
+                torch.tensor(custom_palette[i%24]) * 255.0
+
+        mask = Image.fromarray(segmentation_image.numpy().astype("uint8"))
+        file_path = os.path.join(save_path, "mask_" + str(idx) + ".png")
+        mask.save(file_path)
