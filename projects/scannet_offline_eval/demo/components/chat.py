@@ -1,3 +1,4 @@
+import logging
 import os
 from datetime import datetime
 from textwrap import dedent
@@ -13,6 +14,8 @@ from .app import app
 openai.api_key = os.getenv("OPENAI_API_KEY")
 prompt_file = app.get_asset_url("../assets/prompts/demo.txt")
 description = open("assets/prompts/demo.txt", "r").read()
+
+from loguru import logger
 
 
 def make_layout():
@@ -40,7 +43,6 @@ def textbox(text, box="user"):
         "border-radius": 25,
         "margin-bottom": 20,
     }
-    print(box)
     if box == "user":
         style["margin-left"] = "auto"
         style["margin-right"] = 0
@@ -141,7 +143,7 @@ def msg_str_to_arr(msg_history_str):
         for msg in msg_history
     ]
     for m in msg_history:
-        print(m)
+        logger.info(m)
     return msg_history
 
 
@@ -161,7 +163,7 @@ def update_display(chat_history):
     children = [
         textbox(msg["content"], msg["role"]) for msg in msgs if msg["role"] != "system"
     ]
-    print(len(children))
+    logger.info(len(children))
     return children
     return [
         textbox(x, box="user") if i % 2 == 0 else textbox(x, box="AI")

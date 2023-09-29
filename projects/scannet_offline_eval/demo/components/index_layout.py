@@ -4,7 +4,7 @@ import openai
 from dash import Patch, dcc, html
 from dash.dependencies import Input, Output, State
 
-from .app import app
+from .app import app, svm_watcher
 
 
 def make_header_layout():
@@ -48,7 +48,7 @@ def make_header_layout():
 
 
 @app.callback(
-    Output("stream-counter", "children"), [Input("viz3d-interval", "n_intervals")]
+    Output("stream-counter", "children"), [Input("realtime-3d-interval", "n_intervals")]
 )
 def display_count(n):
     if n is None:
@@ -57,12 +57,18 @@ def display_count(n):
 
 
 @app.callback(
-    [Output("viz3d-interval", "disabled"), Output("get-new-data-3d", "children")],
+    [Output("realtime-3d-interval", "disabled"), Output("get-new-data-3d", "children")],
     [Input("get-new-data-3d", "n_clicks")],
-    [State("viz3d-interval", "disabled"), State("get-new-data-3d", "children")],
+    [State("realtime-3d-interval", "disabled"), State("get-new-data-3d", "children")],
 )
 def toggle_interval(n, disabled, children):
     if n:
-        children = ["Stop streaming data", "Begin streaming data"][int(not disabled)]
-        return [not disabled, children]
+        is_now_disabled = not disabled
+        children = ["Stop streaming data", "Begin streaming data"][int(is_now_disabled)]
+        if is_now_disabled:
+            svm_watcher.pause()
+        else:
+            svm_watcher.unpause()
+
+        return [is_now_disabled, children]
     return [disabled, children]

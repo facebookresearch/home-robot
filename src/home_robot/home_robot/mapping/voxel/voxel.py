@@ -3,6 +3,7 @@
 # This source code is licensed under the MIT license found in the
 # LICENSE file in the root directory of this source tree.
 import copy
+import logging
 import pickle
 from collections import namedtuple
 from pathlib import Path
@@ -55,6 +56,8 @@ Frame = namedtuple(
 VALID_FRAMES = ["camera", "world"]
 
 DEFAULT_GRID_SIZE = [1024, 1024]
+
+logger = logging.getLogger(__name__)
 
 
 def ensure_tensor(arr):
@@ -623,7 +626,9 @@ class SparseVoxelMap(object):
                 f"Uknown backend {backend}, must be 'open3d' or 'pytorch3d"
             )
 
-    def _show_pytorch3d(self, instances: bool = True, **plot_scene_kwargs):
+    def _show_pytorch3d(
+        self, instances: bool = True, mock_plot: bool = False, **plot_scene_kwargs
+    ):
         from pytorch3d.vis.plotly_vis import AxisArgs, plot_scene
 
         from home_robot.utils.bboxes_3d_plotly import plot_scene_with_bboxes
@@ -633,11 +638,18 @@ class SparseVoxelMap(object):
         traces = {}
 
         # Show points
-        if points is not None:
+        ptc = None
+        if points is None and mock_plot:
+            ptc = Pointclouds(
+                points=[torch.zeros((2, 3))], features=[torch.zeros((2, 3))]
+            )
+        elif points is not None:
             ptc = Pointclouds(points=[points], features=[rgb])
+        if ptc is not None:
             traces["Points"] = ptc
 
         # Show instances
+        detected_boxes = None
         if instances and len(self.get_instances()) > 0:
             bounds, names = zip(
                 *[(v.bounds, v.category_id) for v in self.get_instances()]
@@ -648,6 +660,14 @@ class SparseVoxelMap(object):
                 # features = [categorcolors],
                 names=[torch.stack(names, dim=0).unsqueeze(-1)],
             )
+        elif instances and len(self.get_instances()) == 0:
+            detected_boxes = BBoxes3D(
+                bounds=[torch.zeros((2, 3, 2))],
+                # At some point we can color the boxes according to class, but that's not implemented yet
+                # features = [categorcolors],
+                names=[torch.zeros((2, 1), dtype=torch.long)],
+            )
+        if detected_boxes is not None:
             traces["IB"] = detected_boxes
 
         # Show cameras
@@ -655,9 +675,9 @@ class SparseVoxelMap(object):
         # "cameras": cameras,
 
         _default_plot_args = dict(
-            xaxis={"backgroundcolor": "rgb(200, 200, 230)"},
-            yaxis={"backgroundcolor": "rgb(230, 200, 200)"},
-            zaxis={"backgroundcolor": "rgb(200, 230, 200)"},
+            xaxis={"backgroundcolor": "rgb(230, 200, 200)"},
+            yaxis={"backgroundcolor": "rgb(200, 230, 200)"},
+            zaxis={"backgroundcolor": "rgb(200, 200, 230)"},
             axis_args=AxisArgs(showgrid=True),
             pointcloud_marker_size=3,
             pointcloud_max_points=200_000,
@@ -736,7 +756,7 @@ class SparseVoxelMap(object):
                     instance_view.bounds[:, 1].cpu().numpy(),
                 )
                 if np.any(maxs - mins < 1e-5):
-                    print("Warning: bad box:", mins, maxs)
+                    logger.info(f"Warning: bad box: {mins} {maxs}")
                     continue
                 width, height, depth = maxs - mins
 

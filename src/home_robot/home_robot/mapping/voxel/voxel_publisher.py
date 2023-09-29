@@ -11,6 +11,7 @@ from functools import partial
 from pathlib import Path
 from typing import Callable, Optional, Union
 
+import torch
 from atomicwrites import atomic_write
 from tqdm import tqdm
 
@@ -25,6 +26,15 @@ logger = logging.getLogger(__name__)
 def publish_obs(model: SparseVoxelMap, publish_dir: Path, timestep: int):
     with atomic_write(publish_dir / f"{timestep}.pkl", mode="wb") as f:
         model_obs = model.voxel_map.observations[timestep]
+
+        instances = model.voxel_map.get_instances()
+        if len(instances) > 0:
+            bounds, names = zip(*[(v.bounds, v.category_id) for v in instances])
+            bounds = torch.stack(bounds, dim=0)
+            names = torch.stack(names, dim=0).unsqueeze(-1)
+        else:
+            bounds = torch.zeros(0, 3, 2)
+            names = torch.zeros(0, 1)
         pickle.dump(
             dict(
                 rgb=model_obs.rgb.cpu().detach(),
@@ -35,12 +45,14 @@ def publish_obs(model: SparseVoxelMap, publish_dir: Path, timestep: int):
                 camera_pose=model_obs.camera_pose.cpu().detach(),
                 camera_K=model_obs.camera_K.cpu().detach(),
                 xyz_frame=model_obs.xyz_frame,
+                box_bounds=bounds,
+                box_names=names,
             ),
             f,
         )
 
 
-class Publisher:
+class FilePublisher:
     """
     A quick + dirty class that builds up a SparseVoxelMap from obserations,
     and publishes them to a directory, with `fps` publishes per second.

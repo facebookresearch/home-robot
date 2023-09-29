@@ -9,17 +9,15 @@ import pickle
 import threading
 import time
 from pathlib import Path
-from typing import Callable, Union
+from typing import Callable, Optional, Union
 
 import torch
-from atomicwrites import atomic_write
+from loguru import logger
 
 from home_robot.utils.threading import Interval
 
-logger = logging.getLogger(__name__)
 
-
-class DataDirectoryConsumer:
+class DirectoryWatcher:
     """
     Watches a directory for new observations and loads them subject to rate-limiting.
     The directory should contain one file per timestep and be structured as:
@@ -35,7 +33,12 @@ class DataDirectoryConsumer:
     in the directory.
     """
 
-    def __init__(self, dir_path: Union[Path, str], rate_limit: int = 30):
+    def __init__(
+        self,
+        dir_path: Union[Path, str],
+        rate_limit: int = 30,
+        on_new_obs_callback: Optional[Callable] = None,
+    ):
         self.dir_path = Path(dir_path)
         if not self.dir_path.is_dir():
             raise ValueError(f"{dir_path} is not a valid directory path")
@@ -44,18 +47,31 @@ class DataDirectoryConsumer:
         self.current_obs_number = 0
         self.rate_limit = rate_limit
         self.sleep_time = 1.0 / rate_limit
+        self.on_new_obs_callback = on_new_obs_callback
         self._timer = Interval(self._consume_data, sleep_time=self.sleep_time)
 
-    def start(self):
-        self._timer.start()
-
     def _consume_data(self):
-        file_path = self.dir_path / f"{self.current_obs_number + 1}.pkl"
-        logger.info(f"reading {file_path}")
+        file_path = (self.dir_path / f"{self.current_obs_number}.pkl").resolve()
         if file_path.exists():
+            logger.info(f"Pulling from {self.current_obs_number}.pkl")
             with open(file_path, "rb") as f:
                 self.observations.append(pickle.load(f))
             self.current_obs_number += 1
+            if self.on_new_obs_callback is not None:
+                self.on_new_obs_callback(self.observations[-1])
+        else:
+            logger.debug(f"No obs at {self.current_obs_number}.pkl")
+
+        return True
+
+    def pause(self):
+        self._timer.pause()
+
+    def unpause(self):
+        self._timer.unpause()
+
+    def start(self):
+        self._timer.start()
 
     def stop(self):
         self._timer.cancel()
@@ -64,8 +80,7 @@ class DataDirectoryConsumer:
 
 # Example Usage
 if __name__ == "__main__":
-    logging.basicConfig(level=logging.INFO)
-    consumer = DataDirectoryConsumer("published_trajectory", rate_limit=1)
+    consumer = DirectoryWatcher("published_trajectory/obs", rate_limit=1)
     logger.info("Starting consumer")
     consumer.start()
     time.sleep(10)  # let it run for 10 seconds

@@ -21,7 +21,7 @@ from home_robot.agent.multitask.sparse_voxel_instance_map import SparseVoxelMapA
 from home_robot.core.interfaces import Observations
 from home_robot.datasets.scannet import ScanNetDataset
 from home_robot.mapping.semantic.instance_tracking_modules import Instance
-from home_robot.mapping.voxel.voxel_publisher import Publisher
+from home_robot.mapping.voxel.voxel_publisher import FilePublisher
 
 logger = logging.getLogger(__name__)
 
@@ -79,7 +79,7 @@ def main(
         )
         for i in range(len(scene_obs["images"]))
     ]
-    publisher = Publisher()
+    publisher = FilePublisher()
     publisher.build_representation_and_publish(
         publish_dir=dump_dir,
         model=model,

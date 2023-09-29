@@ -1,3 +1,4 @@
+import logging
 import os
 import time
 from datetime import datetime
@@ -6,15 +7,21 @@ from textwrap import dedent
 import dash
 import dash_bootstrap_components as dbc
 import openai
-from components.app import app
+from components.app import app, svm_watcher
 from components.chat import make_layout as make_chat_layout
 from components.index_layout import make_header_layout
-from components.viz3d import make_layout as make_viz3d_layout
+from components.realtime_3d import make_layout as make_realtime_3d_layout
 from dash import Patch, dcc, html
 from dash.dependencies import Input, Output, State
+from loguru import logger
+
+os.environ[
+    "LOGURU_FORMAT"
+] = "| <level>{level: <8}</level> |<cyan>{name:^45}</cyan>|<level>{function:^22}</level>| <cyan>{line:<3} |</cyan> - <level>{message}</level> <lg>@ [{time:YYYY-MM-DD HH:mm:ss.SSS}]</lg> "
+# LOGURU_FORMAT=
 
 # Authentication
-
+POINTCLOUD_UPDATE_FREQ_MS = 2000
 
 app.layout = dbc.Container(
     children=[
@@ -22,7 +29,12 @@ app.layout = dbc.Container(
         dbc.Row(
             [
                 dbc.Col(
-                    [make_viz3d_layout()],
+                    [
+                        make_realtime_3d_layout(
+                            svm_watcher.svm.show(backend="pytorch3d", mock_plot=True),
+                            POINTCLOUD_UPDATE_FREQ_MS,
+                        )
+                    ],
                     width=9,
                 ),
                 dbc.Col(
@@ -37,4 +49,8 @@ app.layout = dbc.Container(
 )
 
 if __name__ == "__main__":
-    app.run_server(debug=False, port=8008)
+    logging.basicConfig(level=logging.DEBUG)  # , format=LOGURU_FORMAT)
+    logger.info("working")
+    svm_watcher.pause()
+    svm_watcher.begin()
+    app.run_server(debug=True, port=8008)

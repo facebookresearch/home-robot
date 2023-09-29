@@ -3,9 +3,12 @@
 # This source code is licensed under the MIT license found in the
 # LICENSE file in the root directory of this source tree.
 
+import logging
 import threading
 import time
 from typing import Callable
+
+logger = logging.getLogger(__name__)
 
 
 class Interval(threading.Thread):
@@ -43,6 +46,7 @@ class Interval(threading.Thread):
         self.count = count
         self.sleep_time = sleep_time
         self.unpause_event = threading.Event()
+        self.unpause_event.set()
 
     def run(self):
         """
@@ -51,17 +55,22 @@ class Interval(threading.Thread):
         """
         while (self.count is None or self.count > 0) and not self.event.is_set():
             start_time = time.time()
+            self.unpause_event.wait()
             return_val = self.fn()
+
+            if return_val not in [True, False]:
+                raise ValueError(
+                    "Function run in Interval must return a bool (is_not_finished)"
+                )
             if not return_val:
                 self.cancel()
-            if self.count is not None:
-                self.count -= 1
             if self.sleep_time is None:
                 self.unpause_event.clear()
-                self.unpause_event.wait()
             else:
                 wait_time = self.sleep_time - (time.time() - start_time)
                 self.event.wait(wait_time)
+            if self.count is not None:
+                self.count -= 1
 
     def cancel(self):
         """
@@ -74,3 +83,6 @@ class Interval(threading.Thread):
 
     def unpause(self):
         self.unpause_event.set()
+
+    def pause(self):
+        self.unpause_event.clear()
