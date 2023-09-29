@@ -51,6 +51,8 @@ class DemoAgent:
         self.encoder = self.collector.encoder
         self.semantic_sensor = semantic_sensor
         self.normalize_embeddings = True
+        self.pos_err_threshold = 0.15
+        self.rot_err_threshold = 0.3
 
         # Create planning space
         self.space = SparseVoxelMapNavigationSpace(
@@ -112,7 +114,11 @@ class DemoAgent:
             print("Full plan to object:")
             for i, pt in enumerate(res.trajectory):
                 print("-", i, pt.state)
-            self.robot.nav.execute_trajectory([pt.state for pt in res.trajectory])
+            self.robot.nav.execute_trajectory(
+                [pt.state for pt in res.trajectory],
+                pos_err_threshold=self.pos_err_threshold,
+                rot_err_threshold=self.rot_err_threshold,
+            )
             time.sleep(1.0)
             self.robot.nav.navigate_to([0, 0, np.pi / 2], relative=True)
             self.robot.move_to_manip_posture()
@@ -254,7 +260,9 @@ class DemoAgent:
                     print("-", i, pt.state)
                 if not dry_run:
                     self.robot.nav.execute_trajectory(
-                        [pt.state for pt in res.trajectory]
+                        [pt.state for pt in res.trajectory],
+                        pos_err_threshold=self.pos_err_threshold,
+                        rot_err_threshold=self.rot_err_threshold,
                     )
 
             # Append latest observations
