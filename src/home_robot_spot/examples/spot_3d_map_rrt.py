@@ -470,7 +470,7 @@ def main(dock: Optional[int] = None, args=None):
         robot_center[:2] = spot.current_position[:2]
         voxel_map.show(backend="open3d", orig=robot_center, instances=True)
         instances = voxel_map.get_instances()
-
+        blacklist = []
         while True:
             # for debug, sending the robot back to original position
             goto(spot, planner, np.array([x0, y0, theta0]))
@@ -558,15 +558,19 @@ def main(dock: Optional[int] = None, args=None):
                 )
                 print(f"Success: {success}")
 
-            # # try to pick up this instance
-            # if success:
+                # # try to pick up this instance
+                # if success:
                 
                 # TODO: change the grasp API to be able to grasp from the point cloud / mask of the instance
                 # currently it will fail if there are two instances of the same category sitting close to each other
                 object_category_name = vocab.goal_id_to_goal_name[
                     int(instances[pick_instance_id].category_id.item())
                 ]
-                print(f"Grasping {object_category_name}...")
+                opt = input(f"Grasping {object_category_name}..., y/n?: ")
+                if opt == 'n':
+                    blacklist.append(pick_instance_id)
+                    del instances[pick_instance_id]
+                    continue
                 gaze = GraspController(
                     config=spot_config,
                     spot=spot.spot,
