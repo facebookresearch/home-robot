@@ -348,3 +348,28 @@ def get_cropped_image_with_padding(self, image, bbox, padding: float = 1.0):
         x:x2,
     ]
     return cropped_image
+
+
+def interpolate_image(image: Tensor, scale_factor: float = 1.0, mode: str = "nearest"):
+    """
+    Interpolates images by the specified scale_factor using the specific interpolation mode.
+    This method uses `torch.nn.functional.interpolate` by temporarily adding batch dimension and channel dimension for 2D inputs.
+    image (Tensor): image of shape [3, H, W] or [H, W]
+    scale_factor (float): multiplier for spatial size
+    mode: (str): algorithm for interpolation: 'nearest' (default), 'bicubic' or other interpolation modes at https://pytorch.org/docs/stable/generated/torch.nn.functional.interpolate.html
+    """
+
+    if len(image.shape) == 2:
+        image = image.unsqueeze(0)
+
+    image_downsampled = (
+        torch.nn.functional.interpolate(
+            image.unsqueeze(0).float(),
+            scale_factor=scale_factor,
+            mode=mode,
+        )
+        .squeeze()
+        .squeeze()
+        .bool()
+    )
+    return image_downsampled

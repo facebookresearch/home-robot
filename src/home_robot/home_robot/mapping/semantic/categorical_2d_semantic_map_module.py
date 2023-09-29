@@ -70,7 +70,7 @@ class Categorical2DSemanticMapModule(nn.Module):
         evaluate_instance_tracking: bool = False,
         instance_memory: Optional[InstanceMemory] = None,
         max_instances: int = 0,
-        instance_association: str = "bbox_iou",
+        instance_association: str = "map_overlap",
         dilation_for_instances: int = 5,
         padding_for_instance_overlap: int = 5,
     ):
@@ -816,6 +816,7 @@ class Categorical2DSemanticMapModule(nn.Module):
             extended_dilated_local_map,
             global_instances_within_local,
             max_instance_id,
+            torch.unique(extended_local_map),
         )
 
         # Update the global map with the associated instances from the local map
@@ -838,6 +839,7 @@ class Categorical2DSemanticMapModule(nn.Module):
         extended_local_labels: Tensor,
         global_instances_within_local: Tensor,
         max_instance_id: int,
+        local_instance_ids: Tensor,
     ) -> dict:
         """
         Creates a mapping of local instance IDs to global instance IDs.
@@ -845,14 +847,15 @@ class Categorical2DSemanticMapModule(nn.Module):
         Args:
             extended_local_labels: Labels of instances in the extended local map.
             global_instances_within_local: Instances from the global map within the local map's region.
-
+            max_instance_id: The number of instance ids that are used up
+            local_instance_ids: The local instance ids for which local to global mapping is to be determined
         Returns:
             A mapping of local instance IDs to global instance IDs.
         """
         instance_mapping = {}
 
         # Associate instances in the local map with corresponding instances in the global map
-        for local_instance_id in torch.unique(extended_local_labels):
+        for local_instance_id in local_instance_ids:
             if local_instance_id == 0:
                 # ignore 0 as it does not correspond to an instance
                 continue
@@ -879,7 +882,7 @@ class Categorical2DSemanticMapModule(nn.Module):
             self.instance_memory.add_view_to_instance(
                 env_id, int(local_instance_id.item()), global_instance_id
             )
-        instance_mapping[0] = 0
+        instance_mapping[0.0] = 0
         return instance_mapping
 
     def _update_global_map_instances(
