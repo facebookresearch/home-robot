@@ -6,16 +6,24 @@ import grpc
 import robodata_pb2
 import robodata_pb2_grpc
 import torch
+from PIL import Image
+from torchvision import transforms
 
 stretch_filename = "/private/home/ssax/home-robot/src/home_robot/home_robot/datasets/robot/data/stretch_/2023-09-06-demo01.pkl"
 data = pickle.load(open(stretch_filename, "rb"))
 
+img_filename = "proto_robot/dog.webp"
+test_img = Image.open(img_filename)
+
+convert_tensor = transforms.ToTensor()
+center_crop = transforms.CenterCrop((224, 224))
+test_img_tensor = center_crop(convert_tensor(test_img))
+
 
 def tensor_to_bytes(x):
-    buffer = io.BytesIO()
-    torch.save(x, buffer)
-    bytes = buffer.read()
-    return bytes
+    buff = io.BytesIO()
+    torch.save(x, buff)
+    return buff.getvalue()
 
 
 def tensor_to_robotensor(x):
@@ -59,6 +67,16 @@ def send_robot_data(stub):
             print("Received message %s at %s" % (response.message, response.robot_obs))
 
 
+def test_conversation(stub):
+    new_conv = robodata_pb2.LLMInput()
+    chat = new_conv.conversation.add()
+    chat.role = "User"
+    chat.content = "Hey! Whats up"
+    img = new_conv.imgs.add()
+    img.CopyFrom(tensor_to_robotensor(test_img_tensor))
+    stub.Chat(new_conv)
+
+
 def run():
     # NOTE(gRPC Python Team): .close() is possible on a channel and should be
     # used in circumstances in which the with statement does not fit the needs
@@ -68,6 +86,7 @@ def run():
     channel = grpc.insecure_channel("localhost:50051")
     stub = robodata_pb2_grpc.RobotDataStub(channel)
     send_robot_data(stub)
+    test_conversation(stub)
     channel.close()
 
 
