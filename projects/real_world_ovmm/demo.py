@@ -60,11 +60,11 @@ class DemoAgent:
             self.robot,
             self.semantic_sensor,
             visualize,
-            voxel_size=0.025,
+            voxel_size=0.02,
             obs_min_height=0.1,
             obs_max_height=1.8,
-            obs_min_density=5,
-            pad_obstacles=1,
+            obs_min_density=5,  # This many points makes it an obstacle
+            pad_obstacles=1,  # Add this many units (voxel_size) to the area around obstacles
             local_radius=0.15,
             encoder=self.encoder,
         )
@@ -76,8 +76,8 @@ class DemoAgent:
             self.voxel_map,
             self.robot_model,
             step_size=0.1,
-            dilate_frontier_size=12,  # 0.6 meters back from every edge
-            dilate_obstacle_size=4,
+            dilate_frontier_size=12,  # 0.6 meters back from every edge = 12 * 0.02 = 0.24
+            dilate_obstacle_size=2,
         )
 
         # Create a simple motion planner
@@ -199,6 +199,25 @@ class DemoAgent:
             if name.lower() == goal.lower():
                 matching_instances.append(instance)
         return matching_instances
+
+    def go_home(self):
+        """Simple helper function to send the robot home safely after a trial."""
+        print("Go back to (0, 0, 0) to finish...")
+        print("- change posture and switch to navigation mode")
+        self.robot.move_to_nav_posture()
+        self.robot.head.look_close(blocking=False)
+        self.robot.switch_to_navigation_mode()
+
+        print("- try to motion plan there")
+        start = self.robot.get_base_pose()
+        goal = np.array([0, 0, 0])
+        res = self.planner.plan(start, goal)
+        # if it fails, skip; else, execute a trajectory to this position
+        if res.success:
+            print("Full plan to home:")
+            self.robot.nav.execute_trajectory([pt.state for pt in res.trajectory])
+        else:
+            print("Can't go home!")
 
     def choose_best_goal_instance(self, goal: str, debug: bool = False) -> Instance:
         instances = self.voxel_map.get_instances()
@@ -558,6 +577,7 @@ def main(
         print(f"Write pkl to {output_pkl_filename}...")
         demo.collector.voxel_map.write_to_pickle(output_pkl_filename)
 
+    demo.go_home()
     rospy.signal_shutdown("done")
 
 
