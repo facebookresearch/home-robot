@@ -8,13 +8,13 @@ import random
 import sys
 import time
 from typing import Dict, List, Optional
-
+import pickle
 import matplotlib.pyplot as plt
 import numpy as np
 import open3d
 from PIL import Image
 import torch
-
+from atomicwrites import atomic_write
 import home_robot_spot.nav_client as nc
 from home_robot.agent.ovmm_agent import (
     OvmmPerception,
@@ -58,9 +58,10 @@ def goto(spot: SpotClient, planner: Planner, goal):
     return res
 
 # NOTE: this requires 'pip install atomicwrites'
-def publish_obs(model: SparseVoxelMap, publish_dir: Path, timestep: int):
-    with atomic_write(publish_dir / f"{timestep}.pkl", mode="wb") as f:
+def publish_obs(model: SparseVoxelMapNavigationSpace, timestep: int):
+    with atomic_write(f"/home/jaydv/Documents/home-robot/viz_data/{timestep}.pkl", mode="wb") as f:
         model_obs = model.voxel_map.observations[timestep]
+        print(f"Saving observation to pickle file...{f'{timestep}.pkl'}")
         pickle.dump(
             dict(
                 rgb=model_obs.rgb.cpu().detach(),
@@ -74,6 +75,7 @@ def publish_obs(model: SparseVoxelMap, publish_dir: Path, timestep: int):
             ),
             f,
         )
+    print(" > Done saving observation to pickle file.")
 
 def plan_to_frontier(
     start: np.ndarray,
@@ -435,7 +437,7 @@ def main(dock: Optional[int] = None, args=None):
                 obs = spot.get_rgbd_obs()
                 print("- Observed from coordinates:", obs.gps, obs.compass)
                 obs = semantic_sensor.predict(obs)
-                publish_obs(voxel_map, os.getcwd(), step)
+                publish_obs(navigation_space, step)
                 voxel_map.add_obs(obs, xyz_frame="world")
 
             if step % 1 == 0 and parameters["visualize"]:
