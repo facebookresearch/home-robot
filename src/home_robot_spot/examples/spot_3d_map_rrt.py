@@ -57,6 +57,23 @@ def goto(spot: SpotClient, planner: Planner, goal):
         spot.navigate_to(goal)
     return res
 
+# NOTE: this requires 'pip install atomicwrites'
+def publish_obs(model: SparseVoxelMap, publish_dir: Path, timestep: int):
+    with atomic_write(publish_dir / f"{timestep}.pkl", mode="wb") as f:
+        model_obs = model.voxel_map.observations[timestep]
+        pickle.dump(
+            dict(
+                rgb=model_obs.rgb.cpu().detach(),
+                depth=model_obs.depth.cpu().detach(),
+                instance_image=model_obs.instance.cpu().detach(),
+                instance_classes=model_obs.instance_classes.cpu().detach(),
+                instance_scores=model_obs.instance_scores.cpu().detach(),
+                camera_pose=model_obs.camera_pose.cpu().detach(),
+                camera_K=model_obs.camera_K.cpu().detach(),
+                xyz_frame=model_obs.xyz_frame,
+            ),
+            f,
+        )
 
 def plan_to_frontier(
     start: np.ndarray,
@@ -418,6 +435,7 @@ def main(dock: Optional[int] = None, args=None):
                 obs = spot.get_rgbd_obs()
                 print("- Observed from coordinates:", obs.gps, obs.compass)
                 obs = semantic_sensor.predict(obs)
+                publish_obs(voxel_map, os.getcwd(), step)
                 voxel_map.add_obs(obs, xyz_frame="world")
 
             if step % 1 == 0 and parameters["visualize"]:
