@@ -59,7 +59,9 @@ def goto(spot: SpotClient, planner: Planner, goal):
 
 # NOTE: this requires 'pip install atomicwrites'
 def publish_obs(model: SparseVoxelMapNavigationSpace, timestep: int):
-    with atomic_write(f"/home/jaydv/Documents/home-robot/viz_data/{timestep}.pkl", mode="wb") as f:
+    timestamp = f"{datetime.datetime.now():%Y-%m-%d-%H-%M-%S}"
+    os.makedirs(f"/home/jaydv/Documents/home-robot/viz_data/{timestamp}", exist_ok=True)
+    with atomic_write(f"/home/jaydv/Documents/home-robot/viz_data/{timestamp}/{timestep}.pkl", mode="wb") as f:
         model_obs = model.voxel_map.observations[timestep]
         print(f"Saving observation to pickle file...{f'{timestep}.pkl'}")
         pickle.dump(
@@ -521,7 +523,8 @@ def main(dock: Optional[int] = None, args=None):
                                 ]
                                 .split(".")[0]
                                 .split("_")[1]
-                            )                       
+                            )    
+                            print("place_instance_id", place_instance_id)                   
                         break
             if not pick_instance_id:
                 # Navigating to a cup or bottle
