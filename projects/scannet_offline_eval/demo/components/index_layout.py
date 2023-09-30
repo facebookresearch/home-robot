@@ -3,6 +3,7 @@ import dash_bootstrap_components as dbc
 import openai
 from dash import Patch, dcc, html
 from dash.dependencies import Input, Output, State
+from loguru import logger
 
 from .app import app, svm_watcher
 
@@ -68,6 +69,7 @@ def toggle_interval(n, disabled, children):
         if is_now_disabled:
             svm_watcher.pause()
         else:
+            logger.debug("Unpausing directory watcher...")
             svm_watcher.unpause()
 
         return [is_now_disabled, children]

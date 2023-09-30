@@ -229,7 +229,7 @@ def add_new_points(submit_n_clicks, existing, next_obs):
 
     patched_figure["data"][points_idx]["marker"]["color"].extend(rgb)
 
-    logger.info(f"Adding {len(points)} points")
+    logger.info(f"Adding {len(points)} points from {next_obs=} and {new_next_obs=}")
     # Update bounds
     mins, maxs = bounds.unbind(-1)
     patched_figure["layout"]["scene"]["xaxis"]["range"] = [
@@ -252,11 +252,10 @@ def add_new_points(submit_n_clicks, existing, next_obs):
 
     # Add boxes
     boxes_idx = get_plot_idx_by_name(existing["data"], "IB")
-
     all_box_wires = get_bbox_wireframe(
-        svm.bounds[new_next_obs - 1], add_cross_face_bars=False
+        svm_watcher.box_bounds[new_next_obs - 1], add_cross_face_bars=False
     )
-    all_box_wires = box_wires.detach().cpu()
+    all_box_wires = all_box_wires.detach().cpu()
     if all_box_wires.ndim == 2:
         all_box_wires = all_box_wires.unsqueeze(0)
 
@@ -270,15 +269,14 @@ def add_new_points(submit_n_clicks, existing, next_obs):
         box_wires_padded = torch.cat((box_wires_padded, nan_tensor, wire))
 
     box_x, box_y, box_z = box_wires_padded.detach().cpu().numpy().T.astype(float)
-    patched_figure["data"][points_idx]["x"] = box_x.tolist()
-    patched_figure["data"][points_idx]["y"] = box_y.tolist()
-    patched_figure["data"][points_idx]["z"] = box_z.tolist()
+    patched_figure["data"][boxes_idx]["x"] = box_x.tolist()
+    patched_figure["data"][boxes_idx]["y"] = box_y.tolist()
+    patched_figure["data"][boxes_idx]["z"] = box_z.tolist()
+    logger.info(f"Now {len(all_box_wires)} boxes")
 
-    import pprint
+    # import pprint
 
-    pp = pprint.PrettyPrinter(width=80, compact=True)
-    pp.pprint(existing["data"][boxes_idx])
+    # pp = pprint.PrettyPrinter(width=80, compact=True)
+    # pp.pprint(existing["data"][boxes_idx])
 
     return [patched_figure, new_next_obs]
-    return patched_figure, len(svm_watcher.points)
-    # return {'x': [x], 'y': [y], 'z': [z], 'marker.color': [rgb]}, [points_idx]

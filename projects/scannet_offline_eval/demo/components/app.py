@@ -58,15 +58,14 @@ class SparseVoxelMapDirectoryWatcher:
 
     @torch.no_grad()
     def add_obs(self, obs):
-        logger.warning(f"stepping")
-
         old_points = self.svm.voxel_pcd._points
         old_rgb = self.svm.voxel_pcd._rgb
         self.svm.add(**obs)
-        logger.info(obs.keys())
+
         new_points = self.svm.voxel_pcd._points
+        new_bounds = get_bounds(new_points).cpu()
         new_rgb = self.svm.voxel_pcd._rgb
-        logger.warning(f"n_points: {len(new_points)}")
+        total_points = len(new_points)
         if old_points is not None:
             # Add new points
             voxel_size = self.svm.voxel_pcd.voxel_size
@@ -77,16 +76,18 @@ class SparseVoxelMapDirectoryWatcher:
             voxel_idx_new = voxel_grid(
                 pos=new_points, size=voxel_size, start=mins, end=maxes
             )
-            novel_idxs = torch.isin(voxel_idx_new, voxel_idx_old, invert=False)
-            logger.info(
-                f"{novel_idxs.shape=}, {voxel_idx_old.shape=} {voxel_idx_new.shape=}"
-            )
+            novel_idxs = torch.isin(voxel_idx_new, voxel_idx_old, invert=True)
+
             new_rgb = new_rgb[novel_idxs]
             new_points = new_points[novel_idxs]
 
+            logger.warning(
+                f"{len(old_points)} + {len(new_points)} of {total_points} points ({float(len(new_points)) / total_points * 100:0.2f}%)"
+            )
+
         self.points.append(new_points.cpu())
         self.rgb.append(new_rgb.cpu())
-        self.bounds.append(get_bounds(new_points).cpu())
+        self.bounds.append(new_bounds)
 
         # Record bounding box update
         self.box_bounds.append(obs["box_bounds"].cpu())

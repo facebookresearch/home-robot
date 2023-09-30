@@ -49,8 +49,19 @@ app.layout = dbc.Container(
 )
 
 if __name__ == "__main__":
+    import argparse
+
+    parser = argparse.ArgumentParser()
+    parser.add_argument(
+        "--port",
+        type=int,
+        default=8901,
+        help="The port to use (default: 8901)",
+    )
+    args = parser.parse_args()
+
     logging.basicConfig(level=logging.DEBUG)  # , format=LOGURU_FORMAT)
-    logger.info("working")
+    logger.warning("Starting server. Data consumer is currently paused:")
     svm_watcher.pause()
     svm_watcher.begin()
-    app.run_server(debug=True, port=8008)
+    app.run_server(debug=True, port=args.port)
