@@ -43,9 +43,10 @@ data/
 *.png
 *.npz
 
-# Detic model files
+# Detic/GroundedSAM model files
 *.pth
 *.ply
+*.pt
 
 # Training stuff
 projects/**/wandb

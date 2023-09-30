@@ -7,7 +7,6 @@ from typing import List, Optional, Tuple
 import cv2
 import numpy as np
 import pandas as pd
-import supervision as sv
 import torch
 import torchvision
 from groundingdino.util.inference import Model
@@ -15,8 +14,9 @@ from groundingdino.util.inference import Model
 sys.path.insert(
     0, str(Path(__file__).resolve().parent / "Grounded-Segment-Anything/EfficientSAM")
 )
+
 from MobileSAM.setup_mobile_sam import setup_model  # noqa: E402
-from segment_anything import SamPredictor  # noqa: E402
+from segment_anything import SamPredictor, build_sam  # noqa: E402
 
 from home_robot.core.abstract_perception import PerceptionModule  # noqa: E402
 from home_robot.core.interfaces import Observations  # noqa: E402
@@ -29,14 +29,9 @@ DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 
 # GroundingDINO config and checkpoint
-GROUNDING_DINO_CONFIG_PATH = str(
-    Path(__file__).resolve().parent
-    / "Grounded-Segment-Anything/GroundingDINO/groundingdino/config/GroundingDINO_SwinT_OGC.py"
-)
-GROUNDING_DINO_CHECKPOINT_PATH = "./groundingdino_swint_ogc.pth"
-MOBILE_SAM_CHECKPOINT_PATH = "./mobile_sam.pt"
-BOX_THRESHOLD = 0.25
-TEXT_THRESHOLD = 0.25
+
+BOX_THRESHOLD = 0.5
+TEXT_THRESHOLD = 0.5
 NMS_THRESHOLD = 0.8
 
 
@@ -46,7 +41,7 @@ class GroundedSAMPerception(PerceptionModule):
         config_file=None,
         custom_vocabulary: List[str] = "['', 'dog', 'grass', 'sky']",
         sem_gpu_id=None,
-        checkpoint_file: str = MOBILE_SAM_CHECKPOINT_PATH,
+        variant: str = "default",
         verbose=False,
     ):
         """Load trained Detic model for inference.
@@ -59,19 +54,46 @@ class GroundedSAMPerception(PerceptionModule):
             checkpoint_file: path to model checkpoint
             verbose: whether to print out debug information
         """
+
+        checkpoints_folder = str(Path(__file__).resolve().parent / "checkpoints/")
+        grounded_dino_configs_folder = str(
+            Path(__file__).resolve().parent
+            / "Grounded-Segment-Anything/GroundingDINO/groundingdino/config"
+        )
+        if variant == "mobile":
+            GROUNDING_DINO_CONFIG_PATH = str(
+                Path(grounded_dino_configs_folder) / "GroundingDINO_SwinT_OGC.py"
+            )
+            GROUNDING_DINO_CHECKPOINT_PATH = str(
+                Path(checkpoints_folder) / "groundingdino_swint_ogc.pth"
+            )
+            SAM_CHECKPOINT_PATH = str(Path(checkpoints_folder) / "mobile_sam.pt")
+        else:
+            GROUNDING_DINO_CONFIG_PATH = str(
+                Path(grounded_dino_configs_folder) / "GroundingDINO_SwinB.py"
+            )
+            GROUNDING_DINO_CHECKPOINT_PATH = str(
+                Path(checkpoints_folder) / "groundingdino_swinb_cogcoor.pth"
+            )
+            SAM_CHECKPOINT_PATH = str(Path(checkpoints_folder) / "sam_vit_h_4b8939.pth")
+
         # Building GroundingDINO inference model
         self.grounding_dino_model = Model(
             model_config_path=GROUNDING_DINO_CONFIG_PATH,
             model_checkpoint_path=GROUNDING_DINO_CHECKPOINT_PATH,
         )
 
-        # Building MobileSAM predictor
-        checkpoint = torch.load(MOBILE_SAM_CHECKPOINT_PATH)
-        self.mobile_sam = setup_model()
-        self.mobile_sam.load_state_dict(checkpoint, strict=True)
-        self.mobile_sam.to(device=DEVICE)
+        if variant == "mobile":
+            # Building MobileSAM predictor
+            checkpoint = torch.load(SAM_CHECKPOINT_PATH)
+            self.sam = setup_model()
+            self.sam.load_state_dict(checkpoint, strict=True)
+        else:
+            self.sam = build_sam(checkpoint=SAM_CHECKPOINT_PATH)
+        self.sam.to(device=DEVICE)
+        self.sam_predictor = SamPredictor(self.sam)
+
         self.custom_vocabulary = custom_vocabulary
-        self.sam_predictor = SamPredictor(self.mobile_sam)
 
     def reset_vocab(self, new_vocab: List[str]):
         """Resets the vocabulary of Detic model allowing you to change detection on

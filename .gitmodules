@@ -24,4 +24,4 @@
 	url = https://huggingface.co/datasets/hssd/hssd-hab
 [submodule "src/home_robot/home_robot/perception/detection/grounded_sam/Grounded-Segment-Anything"]
 	path = src/home_robot/home_robot/perception/detection/grounded_sam/Grounded-Segment-Anything
-	url = https://github.com/IDEA-Research/Grounded-Segment-Anything
+	url = https://github.com/IDEA-Research/Grounded-Segment-Anything.git
