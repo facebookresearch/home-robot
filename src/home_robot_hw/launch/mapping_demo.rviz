@@ -523,22 +523,22 @@ Visualization Manager:
       Value: true
     - Alpha: 1
       Class: rviz/Axes
-      Enabled: true
+      Enabled: false
       Length: 0.10000000149011612
       Name: Grasp Center Ideal
       Radius: 0.009999999776482582
       Reference Frame: link_grasp_center
       Show Trail: false
-      Value: true
+      Value: false
     - Alpha: 1
       Class: rviz/Axes
-      Enabled: true
+      Enabled: false
       Length: 0.10000000149011612
       Name: Grasp Center Real
       Radius: 0.009999999776482582
       Reference Frame: link_grasp_center_real
       Show Trail: false
-      Value: true
+      Value: false
     - Alpha: 1
       Autocompute Intensity Bounds: true
       Autocompute Value Bounds:
@@ -687,7 +687,7 @@ Visualization Manager:
   Views:
     Current:
       Class: rviz/XYOrbit
-      Distance: 16.1495304107666
+      Distance: 7.18055534362793
       Enable Stereo Rendering:
         Stereo Eye Separation: 0.05999999865889549
         Stereo Focal Distance: 1
@@ -695,9 +695,9 @@ Visualization Manager:
         Value: false
       Field of View: 0.7853981852531433
       Focal Point:
-        X: -0.19907218217849731
-        Y: -0.989989697933197
-        Z: 1.1772767720685806e-06
+        X: -0.0013269782066345215
+        Y: 0.4337942600250244
+        Z: 3.0846254048810806e-06
       Focal Shape Fixed Size: true
       Focal Shape Size: 0.05000000074505806
       Invert Z Axis: false
@@ -728,4 +728,4 @@ Window Geometry:
     collapsed: false
   Width: 1280
   X: 115
-  Y: 160
+  Y: 27

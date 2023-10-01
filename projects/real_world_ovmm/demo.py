@@ -368,12 +368,6 @@ def run_grasping(
     robot.move_to_demo_pregrasp_posture()
     rospy.sleep(2)
 
-    ### GRASPING ROUTINE
-    # Get observations from the robot
-    obs = robot.get_observation()
-    # Predict masks
-    obs = semantic_sensor.predict(obs)
-
     def within(x, y):
         return (
             x >= 0
@@ -383,7 +377,13 @@ def run_grasping(
         )
 
     if to_grasp is not None:
-        print("Try to grasp {to_grasp}:")
+        ### GRASPING ROUTINE
+        # Get observations from the robot
+        obs = robot.get_observation()
+        # Predict masks
+        obs = semantic_sensor.predict(obs)
+
+        print(f"Try to grasp {to_grasp}:")
         to_grasp_oid = None
         for oid in np.unique(obs.semantic):
             if oid == 0:
@@ -408,10 +408,8 @@ def run_grasping(
         print(f"- Execute grasp at {m_x=}, {m_y=}, {m_z=}.")
         robot._ros_client.trigger_grasp(m_x, m_y, m_z)
         robot.switch_to_manipulation_mode()
-        print("- Go to grasp posture after executing.")
         robot.move_to_demo_pregrasp_posture()
-        rospy.sleep(2)
-        print("Done grasping!")
+        print(" - Done grasping!")
 
     if to_place is not None:
         ### PLACEMENT ROUTINE
@@ -419,14 +417,6 @@ def run_grasping(
         obs = robot.get_observation()
         # Predict masks
         obs = semantic_sensor.predict(obs)
-
-        def within(x, y):
-            return (
-                x >= 0
-                and x < obs.semantic.shape[0]
-                and y >= 0
-                and y < obs.semantic.shape[1]
-            )
 
         to_place_oid = None
         for oid in np.unique(obs.semantic):
@@ -449,10 +439,12 @@ def run_grasping(
         m_pt = obs.camera_pose @ c_pt
         m_x, m_y, m_z, _ = m_pt
 
+        print(f"- Execute place at {m_x=}, {m_y=}, {m_z=}.")
         robot._ros_client.trigger_placement(m_x, m_y, m_z)
         robot.switch_to_manipulation_mode()
         robot.move_to_demo_pregrasp_posture()
         rospy.sleep(2)
+        print(" - Done placing!")
 
 
 @click.command()
@@ -554,7 +546,6 @@ def main(
     smtai = demo.move_to_any_instance(matches)
     if not smtai:
         print("Moving to instance failed!")
-        breakpoint()
     else:
         print(f"- Grasp {object_to_find} using FUNMAP")
         if not no_manip:
