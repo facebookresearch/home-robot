@@ -125,6 +125,7 @@ class GraspController:
             if len(coords) > 0:
                 print(f" > Result -- {coords}")
                 bounding_box = coords[0][2]
+                confidence = coords[0][1]
                 center = np.array(
                     [
                         (bounding_box[0] + bounding_box[2]) / 2,
@@ -145,13 +146,13 @@ class GraspController:
                 filename = f"{coords[0][0].replace(' ', '_')}.jpg"
                 cv2.imwrite(filename, img)
                 print(f" > Saved {filename}")
-                return center
+                return center, confidence
             else:
-                return None
+                return None, None
         else:
             raise TypeError(f"img is of type {type(img)}, expected is numpy array")
 
-    def sweep(self):
+    def sweep(self, finish_sweep_before_deciding=True):
         """
         Perform a sweeping motion while looking for an object.
 
@@ -163,9 +164,11 @@ class GraspController:
             the pixel coordinates of the object. If no object is found, returns None.
         """
         new_look = self.look
-        sweep_angles = [
+        sweep_angles = [0] + [
             -np.pi / 4 + i * np.pi / 8 for i in range(5)
         ]  # Compute sweep angles
+
+        matches = []
         for angle in sweep_angles:
             new_look[0] = angle
             print(f" > Moving to a new position at angle {angle}")
@@ -173,13 +176,26 @@ class GraspController:
             time.sleep(1.0)
             responses = self.spot.get_image_responses([SpotCamIds.HAND_COLOR])
             print(" > Looking for the object")
-            pixel = self.find_obj(img=imcv2(responses[0]))
+            pixel, confidence = self.find_obj(img=imcv2(responses[0]))
             if pixel is not None:
+                matches.append([pixel, responses[0], confidence, new_look])
                 print(
                     f" > Object found at {pixel} with spot coords: {self.spot.get_arm_proprioception()}"
                 )
-                return responses[0], pixel
-        return None, None
+
+                # Return first match
+                if not finish_sweep_before_deciding:
+                    return responses[0], pixel
+
+        # No matches
+        if len(matches) == 0:
+            return None, None
+
+        # Return best match
+        best_match = max(matches, key=lambda match: match[2])
+        self.spot.set_arm_joint_positions(best_match[3], travel_time=1)
+        return best_match[1], best_match[0]
+        
 
     def grasp(self, hand_image_response, pixels, timeout=10, count=3):
         """
@@ -273,31 +289,20 @@ class GraspController:
             return self.pick_location
         return None
 
-    def gaze_and_grasp(self):
-        image_response = self.spot.get_image_responses([SpotCamIds.HAND_COLOR])
-        hand_image_response = image_response[0]
-        pixels = self.find_obj(img=imcv2(hand_image_response))
-        # print(f" > Finding object at {self.spot.get_arm_proprioception()}")
+    def gaze_and_grasp(self, finish_sweep_before_deciding=True):
+        hand_image_response, pixels = self.sweep(finish_sweep_before_deciding)
         if pixels is not None:
-            print(f" > Found object at {pixels}, grasping it")
-            success = self.grasp(hand_image_response=hand_image_response, pixels=pixels)
+            print(
+                f" > Object found at {pixels} with spot coords: {self.spot.get_arm_proprioception()}"
+            )
+            success = self.grasp(
+                hand_image_response=hand_image_response, pixels=pixels
+            )
             return success
         else:
-            print(" > Unable to find the object at initial pose, sweeping through")
-            hand_image_response, pixels = self.sweep()
-            if pixels is not None:
-                print(
-                    f" > Object found at {pixels} with spot coords: {self.spot.get_arm_proprioception()}"
-                )
-                success = self.grasp(
-                    hand_image_response=hand_image_response, pixels=pixels
-                )
-                return success
-            else:
-                print(" > No object found after sweep...BBBBOOOOOOOOOOOOOOOOO :((")
-                self.spot_is_disappointed()
-
-        return None
+            print(" > No object found after sweep...BBBBOOOOOOOOOOOOOOOOO :((")
+            self.spot_is_disappointed()
+            return None
 
 
 if __name__ == "__main__":
