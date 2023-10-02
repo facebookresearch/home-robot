@@ -336,6 +336,7 @@ def main(dock: Optional[int] = None, args=None):
             voxel_map_subscriber.start()
         else:
             # Alternately, update synchronously
+            time.sleep(1.5)
             obs = spot.get_rgbd_obs()
             obs = semantic_sensor.predict(obs)
             # TODO: remove debug code
@@ -346,6 +347,7 @@ def main(dock: Optional[int] = None, args=None):
         for i in range(8):
             spot.navigate_to([x0, y0, theta0 + (i + 1) * np.pi / 4], blocking=True)
             if not parameters["use_async_subscriber"]:
+                time.sleep(1.5)
                 obs = spot.get_rgbd_obs()
                 obs = semantic_sensor.predict(obs)
                 voxel_map.add_obs(obs, xyz_frame="world")
@@ -369,8 +371,11 @@ def main(dock: Optional[int] = None, args=None):
 
             # TODO do something is start is not valid
             if not start_is_valid:
-                print("!!!!!!!!")
-                break
+                print("!!!!!!!!"*10)
+                print("Start is not valid, exiting exploration...")
+                # Move a little bit backwards
+                spot.move_base(-.5,0)
+                #break
 
             if parameters["explore_methodical"]:
                 print("Generating the next closest frontier point...")
@@ -405,12 +410,12 @@ def main(dock: Optional[int] = None, args=None):
 
             if not parameters["use_async_subscriber"]:
                 print("Synchronous obs update")
-                time.sleep(1)
+                time.sleep(1.5)
                 obs = spot.get_rgbd_obs()
                 print("- Observed from coordinates:", obs.gps, obs.compass)
                 obs = semantic_sensor.predict(obs)
                 timestamp = f"{datetime.datetime.now():%Y-%m-%d-%H-%M-%S}"
-                path = "/home/jaydv/Documents/home-robot/viz_data/{timestamp}"
+                path = f"/home/jaydv/Documents/home-robot/viz_data/{timestamp}"
                 os.makedirs(path, exist_ok=True)
                 publish_obs(navigation_space, path, step)
                 voxel_map.add_obs(obs, xyz_frame="world")
@@ -442,7 +447,7 @@ def main(dock: Optional[int] = None, args=None):
         robot_center[:2] = spot.current_position[:2]
         voxel_map.show(backend="open3d", orig=robot_center, instances=True)
         instances = voxel_map.get_instances()
-        blacklist = []
+        blacklist = {}
         while True:
             # for debug, sending the robot back to original position
             goto(spot, planner, np.array([x0, y0, theta0]))
@@ -540,7 +545,7 @@ def main(dock: Optional[int] = None, args=None):
                 ]
                 opt = input(f"Grasping {object_category_name}..., y/n?: ")
                 if opt == 'n':
-                    blacklist.append(pick_instance_id)
+                    blacklist[pick_instance_id] = instances[pick_instance_id]
                     del instances[pick_instance_id]
                     continue
                 gaze = GraspController(
@@ -570,7 +575,7 @@ def main(dock: Optional[int] = None, args=None):
                     )
 
                     breakpoint()
-                    place = place_in_an_instance(place_instance_id, spot, voxel_map, place_height=0.15)
+                    place_in_an_instance(place_instance_id, spot, voxel_map, place_height=0.15)
                 '''
                 # PLACING 
 
@@ -713,7 +718,7 @@ if __name__ == "__main__":
     )
     parser.add_argument(
         "--context_length",
-        default=20,
+        default=10,
         help="Maximum number of images the vlm can reason about",
     )
     parser.add_argument(

@@ -441,7 +441,7 @@ class SpotClient:
         # Parameters from Config
         self.config = config
         self.gaze_arm_joint_angles = np.deg2rad(config.SPOT.GAZE_ARM_JOINT_ANGLES)
-        self.place_arm_joint_angles = np.deg2rad(config.SPOT.PLACE_ARM_JOINT_ANGLES)
+        self.place_arm_joint_angles = np.deg2rad(config.SPOT.PLACE_ARM_JOINT_ANGLES)    
         self.max_cmd_duration = config.SPOT.MAX_CMD_DURATION
         self.hand_depth_threshold = config.SPOT.HAND_DEPTH_THRESHOLD
         self.base_height = config.SPOT.BASE_HEIGHT
@@ -483,6 +483,7 @@ class SpotClient:
 
         try:
             # assign estimated depth where there are no values
+            depth = np.asarray(depth)
             no_depth_mask = depth == 0
 
             # get a mask for the region of the image which has depth values (skip the blank borders)
@@ -492,7 +493,7 @@ class SpotClient:
             no_depth_mask = no_depth_mask & depth_region
 
             depth[no_depth_mask] = monocular_estimate[no_depth_mask]
-            return depth
+            return torch.tensor(depth)
         except Exception as e:
             print(f"Initializing Midas depth completion failed: {e}")
             return depth
@@ -672,8 +673,8 @@ class SpotClient:
             rgb, depth = obs.rgb, obs.depth
             depth = self.patch_depth(rgb, depth)
             obs.depth = depth
+            
         if self.use_zero_depth:
-            import torch
             rgb = obs.rgb.clone().detach()
             #rgb = torch.tensor(obs.rgb)
 
@@ -691,6 +692,32 @@ class SpotClient:
             with torch.no_grad():
                 pred_depth = self.zerodepth_model(rgb.to('cuda:0'), intrinsics.to('cuda:0'))[0, 0].detach().cpu()
             obs.depth = pred_depth
+
+        if True:
+            from spot_rl.utils.depth_map_utils import fill_in_multiscale, fill_in_fast, filter_depth
+            depth = np.asarray(obs.depth)
+
+            # Multiscale is better but slower
+            depth = fill_in_multiscale(depth)[0]
+
+            # Faster but worse
+            # depth = fill_in_fast(depth)
+
+            # Filter depth uses multiscale but also normalizes and whitens the black, not working for us because it discretizes depth
+            # max_depth = 3.5
+            # depth = filter_depth(depth, max_depth)
+
+            depth = torch.tensor(depth)
+
+            # Visualize obs.depth and depth side by side
+            # import matplotlib.pyplot as plt
+            # fig, ax = plt.subplots(1, 2)
+            # ax[0].imshow(obs.depth)
+            # ax[1].imshow(depth)
+            # plt.show()
+
+            obs.depth = depth
+        
         full_world_xyz = unproject_masked_depth_to_xyz_coordinates(  # Batchable!
             depth=obs.depth.unsqueeze(0).unsqueeze(1),
             pose=obs.camera_pose.unsqueeze(0),
