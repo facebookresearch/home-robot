@@ -24,6 +24,7 @@ from tqdm import tqdm
 
 from .referit3d_data import ReferIt3dDataConfig, load_referit3d_data
 from .scannet_constants import (
+    MAX_CLASS_IDX,
     NUM_CLASSES,
     SCANNET_DATASET_CLASS_IDS,
     SCANNET_DATASET_CLASS_LABELS,
@@ -150,6 +151,7 @@ class ScanNetDataset(object):
             self.class_ids_ten,
             self.class_ids_ten,
             missing_key_value=self.DROP_CLASS_VAL,
+            key_max=MAX_CLASS_IDX + 1,
         )
 
         # Image metadata
@@ -253,10 +255,10 @@ class ScanNetDataset(object):
         scan_name = self.scene_list[idx]
 
         data = self.find_data(scan_name)
+        axis_align_mat = torch.from_numpy(np.load(data["axis_align_path"])).float()
 
         # Intrinsics shared across images
         K = torch.from_numpy(np.loadtxt(data["intrinsic_path"]).astype(np.float32))
-        axis_align_mat = torch.from_numpy(np.load(data["axis_align_path"])).float()
         K[0] *= float(self.width) / self.DEFAULT_WIDTH  # scale_x
         K[1] *= float(self.height) / self.DEFAULT_HEIGHT  # scale_y
 
@@ -343,7 +345,10 @@ class ScanNetDataset(object):
             ][column_names]
             ref_expr_df = pd.concat([scanrefer_expr, r3d_expr])
 
-        ref_expr_df = filter_ref_exp_by_class(ref_expr_df, box_obj_ids, box_classes)
+        if len(ref_expr_df) > 0:
+            ref_expr_df = filter_ref_exp_by_class(
+                ref_expr_df, box_obj_ids, box_classes, drop_class=self.DROP_CLASS_VAL
+            )
 
         # Return as dict
         return dict(
@@ -473,10 +478,15 @@ def load_3d_bboxes(path) -> Tuple[torch.Tensor, torch.Tensor]:
 
 
 def filter_ref_exp_by_class(
-    ref_expr_df: pd.DataFrame, box_target_ids: Tensor, box_classes: Tensor
+    ref_expr_df: pd.DataFrame,
+    box_target_ids: Tensor,
+    box_classes: Tensor,
+    drop_class: int = -1,
 ) -> pd.DataFrame:
     """Keeps only referring expressions where referring expression"""
-    ref_exp_target_ids = torch.tensor(ref_expr_df.target_id.to_numpy())
+    ref_exp_target_ids = torch.from_numpy(
+        ref_expr_df.target_id.to_numpy().astype(np.int64)
+    )
 
     # Make lookuptable of lookuptable[target_ids] -> target_class
     max_key = max(box_target_ids.max(), ref_exp_target_ids.max()) + 1
@@ -488,7 +498,7 @@ def filter_ref_exp_by_class(
     ref_exp_classes = ids_to_classes[ref_exp_target_ids]
     df = ref_expr_df.copy()
     df["target_class_id"] = ref_exp_classes.cpu().numpy()
-    keep_exp = ref_exp_classes != -1
+    keep_exp = ref_exp_classes != drop_class
     df = df.loc[keep_exp.cpu().numpy()]
 
     # # Map to class name with something like:
