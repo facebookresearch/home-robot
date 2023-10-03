@@ -63,13 +63,17 @@ To set up your workstation, follow these instructions. HomeRobot requires Python
 If necessary, [install mamba](https://mamba.readthedocs.io/en/latest/installation.html) in your base conda environment. Optionally: [install ROS noetic](http://wiki.ros.org/noetic/Installation/Ubuntu) on your workstation.
 
 ```
-# Create a conda env - use the version in home_robot_hw if you want to run on the robot
-mamba env create -n home-robot -f src/home_robot_hw/environment.yml
+# If using ROS - make sure you don't have PYTHONPATH set
+unset PYTHONPATH
 
 # Otherwise, use the version in src/home_robot
 mamba env create -n home-robot -f src/home_robot/environment.yml
 
+# Activate the environment
 conda activate home-robot
+
+# Optionally, update this environment to install ROS
+mamba env update -f src/home_robot_hw/environment.yml
 ```
 
 This should install pytorch; if you run into trouble, you may need to edit the installation to make sure you have the right CUDA version. See the [pytorch install notes](docs/install_pytorch.md) for more.
@@ -78,11 +82,13 @@ Optionally, setup a [catkin workspace](docs/catkin.md) to use improved ROS visua
 
 #### 2. Run Install Script
 
-Make sure you have the correct environment variables set: `CUDA_HOME` should point to your cuda install, matching the one used by your python environment. We recommend 11.7, and it's what will be automatically installed above. You can download it from [nvidia's downloads page](https://developer.nvidia.com/cuda-11-7-0-download-archive?target_os=Linux&target_arch=x86_64&Distribution=Ubuntu). Download the runfile, and make sure to check the box NOT to install your drivers.
+Make sure you have the correct environment variables set: `CUDA_HOME` should point to your cuda install, matching the one used by your python environment. We recommend 11.7, and it's what will be automatically installed above as a part of the conda environment.
+
+To build some third-party dependencies, you also need the full cuda toolkit with its compiler, `nvcc`. You can download it from [nvidia's downloads page](https://developer.nvidia.com/cuda-11-7-0-download-archive?target_os=Linux&target_arch=x86_64&Distribution=Ubuntu). Download the runfile, and make sure to check the box NOT to install your drivers or update your system cuda version. It will be installed at a separate location.
 
 Then make sure the environment variables are set to something reasonable:
 ```
-HOME_ROBOT_ROOT=$USER/src/home-robot
+HOME_ROBOT_ROOT=$USER/home-robot
 CUDA_HOME=/usr/local/cuda-11.7
 ```
 
