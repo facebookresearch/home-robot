@@ -11,9 +11,13 @@ from textwrap import dedent
 import dash
 import dash_bootstrap_components as dbc
 import openai
-from components.app import app, svm_watcher
+from components.app import app, app_config, svm_watcher
 from components.chat import make_layout as make_chat_layout
-from components.gripper_feed import make_feed
+from components.gripper_feed import (
+    ClientRequestSourceConfig,
+    WebsocketSourceConfig,
+    make_feed,
+)
 from components.index_layout import make_header_layout
 from components.realtime_3d import make_layout as make_realtime_3d_layout
 from dash import Patch, dcc, html
@@ -23,10 +27,6 @@ from loguru import logger
 os.environ[
     "LOGURU_FORMAT"
 ] = "| <level>{level: <8}</level> |<cyan>{name:^45}</cyan>|<level>{function:^22}</level>| <cyan>{line:<3} |</cyan> - <level>{message}</level> <lg>@ [{time:YYYY-MM-DD HH:mm:ss.SSS}]</lg> "
-# LOGURU_FORMAT=
-
-# Authentication
-POINTCLOUD_UPDATE_FREQ_MS = 1000
 
 
 figure = svm_watcher.svm.show(backend="pytorch3d", mock_plot=True)
@@ -40,6 +40,7 @@ figure.update_layout(
     ),
 )
 
+app.config.suppress_callback_exceptions = True
 app.layout = dbc.Container(
     children=[
         make_header_layout(),
@@ -49,7 +50,7 @@ app.layout = dbc.Container(
                     [
                         make_realtime_3d_layout(
                             figure,
-                            POINTCLOUD_UPDATE_FREQ_MS,
+                            app_config.pointcloud_update_freq_ms,
                         )
                     ],
                     width=8,
@@ -57,7 +58,23 @@ app.layout = dbc.Container(
                 dbc.Col(
                     children=[
                         make_feed(
-                            POINTCLOUD_UPDATE_FREQ_MS,
+                            WebsocketSourceConfig(
+                                app=app,
+                                image_id="gripper-feed-img",
+                                trigger_id="gripper-feed-ws",
+                                websocket_url="ws://127.0.0.1:5000/gripper-feed-ws",
+                            ),
+                            # ClientRequestSourceConfig(
+                            #     app=app,
+                            #     image_id='gripper-feed-img',
+                            #     trigger_id='gripper-feed-interval', # realtime-3d
+                            #     trigger_exists=False,
+                            #     svm_watcher = svm_watcher,
+                            #     trigger_interval_kwargs = dict(
+                            #         interval = int(app_config.video_feed_update_freq_ms),
+                            #         disabled = False
+                            #     )
+                            # ),
                         ),
                         make_chat_layout(),
                     ],

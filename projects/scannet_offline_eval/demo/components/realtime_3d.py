@@ -9,6 +9,7 @@ import dash_bootstrap_components as dbc
 import plotly.colors as clrs
 import torch
 from dash import Patch
+from dash.exceptions import PreventUpdate
 
 # from dash.dependencies import Input, Output, State
 from dash_extensions.enrich import Input, Output, State, dcc, html
@@ -86,9 +87,10 @@ def add_new_points(submit_n_clicks, existing, next_obs):
 
     patched_figure = Patch()
     if next_obs >= new_next_obs:
-        logger.info(f"No new obs beyond {next_obs} (only {new_next_obs} obs)")
-        # No new observations
-        return [patched_figure, next_obs]
+        logger.debug(
+            f"[NOOP] Client has current obs (client: {next_obs}, server: {new_next_obs})"
+        )
+        raise PreventUpdate
 
     # Add new points
     points_trace = existing["data"][points_idx]
@@ -109,7 +111,6 @@ def add_new_points(submit_n_clicks, existing, next_obs):
 
     patched_figure["data"][points_idx]["marker"]["color"].extend(rgb)
 
-    logger.info(f"Adding {len(points)} points from {next_obs=} and {new_next_obs=}")
     # Update bounds
     mins, maxs = bounds.unbind(-1)
     patched_figure["layout"]["scene"]["xaxis"]["range"] = [
@@ -152,7 +153,9 @@ def add_new_points(submit_n_clicks, existing, next_obs):
     patched_figure["data"][boxes_idx]["x"] = box_x.tolist()
     patched_figure["data"][boxes_idx]["y"] = box_y.tolist()
     patched_figure["data"][boxes_idx]["z"] = box_z.tolist()
-    logger.info(f"Now {len(all_box_wires)} boxes")
+    logger.debug(
+        f"[UPDATING CLIENT] obs {next_obs=} -> {new_next_obs=} (sending {len(points)} points & {len(all_box_wires)} boxes)"
+    )
 
     # import pprint
 

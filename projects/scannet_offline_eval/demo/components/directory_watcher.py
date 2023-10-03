@@ -53,15 +53,16 @@ class DirectoryWatcher:
     def _consume_data(self):
         file_path = (self.dir_path / f"{self.current_obs_number}.pkl").resolve()
         if file_path.exists():
-            logger.info(f"Pulling from {self.current_obs_number}.pkl")
+            logger.info(f"[LOADING] from {self.current_obs_number}.pkl")
             with open(file_path, "rb") as f:
                 self.observations.append(pickle.load(f))
             self.current_obs_number += 1
             if self.on_new_obs_callback is not None:
                 self.on_new_obs_callback(self.observations[-1])
         else:
-            logger.debug(f"No obs at {self.current_obs_number}.pkl")
-
+            # logger.debug(f"[WAITING] No obs found for timestep {self.current_obs_number}.pkl")
+            if self.on_new_obs_callback is not None:
+                self.on_new_obs_callback(None)
         return True
 
     def pause(self):

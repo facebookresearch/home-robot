@@ -57,6 +57,7 @@ def make_layout(height="50vh"):
                         placeholder="Write to the chatbot...",
                         type="text",
                         debounce=True,
+                        autoComplete="off",
                     ),
                 ],
                 className="chat-input",

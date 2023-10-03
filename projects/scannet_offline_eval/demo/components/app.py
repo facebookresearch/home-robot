@@ -3,6 +3,7 @@
 # This source code is licensed under the MIT license found in the
 # LICENSE file in the root directory of this source tree.
 import logging
+from dataclasses import dataclass
 from pathlib import Path
 from typing import Dict
 
@@ -23,6 +24,18 @@ from home_robot.utils.point_cloud_torch import get_bounds
 
 from .directory_watcher import DirectoryWatcher
 
+
+@dataclass
+class AppConfig:
+    pointcloud_update_freq_ms: int = 2000
+    video_feed_update_freq_ms: int = 300
+
+    directory_watcher_update_freq_ms: int = 300
+    directory_watch_path: str = "publishers/published_trajectory/obs"
+    pointcloud_voxel_size: float = 0.05
+
+
+app_config = AppConfig()
 app = DashProxy(
     __name__,
     external_stylesheets=[dbc.themes.BOOTSTRAP],
@@ -59,7 +72,10 @@ class SparseVoxelMapDirectoryWatcher:
         self.rgb_jpeg = None
 
     @torch.no_grad()
-    def add_obs(self, obs):
+    def add_obs(self, obs) -> bool:
+        if obs is None:
+            return True
+
         old_points = self.svm.voxel_pcd._points
         old_rgb = self.svm.voxel_pcd._rgb
         self.svm.add(**obs)
@@ -83,8 +99,8 @@ class SparseVoxelMapDirectoryWatcher:
             new_rgb = new_rgb[novel_idxs]
             new_points = new_points[novel_idxs]
 
-            logger.warning(
-                f"{len(old_points)} + {len(new_points)} of {total_points} points ({float(len(new_points)) / total_points * 100:0.2f}%)"
+            logger.debug(
+                f"At obs {len(self.points)} PTC now has {total_points} points ({len(old_points)} old, {len(new_points)} new, sending {float(len(new_points)) / total_points * 100:0.2f}%)"
             )
 
         self.points.append(new_points.cpu())
@@ -94,10 +110,10 @@ class SparseVoxelMapDirectoryWatcher:
         # Record bounding box update
         self.box_bounds.append(obs["box_bounds"].cpu())
         self.box_names.append(obs["box_names"].cpu())
-        logger.critical(f"{obs['rgb'].cpu().numpy().max()}")
         self.rgb_jpeg = cv2.imencode(
             ".jpg", (obs["rgb"].cpu().numpy() * 255).astype(np.uint8)
         )[1].tobytes()
+        return True
 
     def get_points_since(self):
         pass
@@ -116,9 +132,9 @@ class SparseVoxelMapDirectoryWatcher:
 
 
 svm_watcher = SparseVoxelMapDirectoryWatcher(
-    watch_dir="publishers/published_trajectory/obs",
-    fps=1,
+    watch_dir=app_config.directory_watch_path,
+    fps=1.0 / (app_config.directory_watcher_update_freq_ms / 1000.0),
     sparse_voxel_map_kwargs=dict(
-        resolution=0.05,
+        resolution=app_config.pointcloud_voxel_size,
     ),
 )
