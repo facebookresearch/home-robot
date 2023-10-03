@@ -13,7 +13,8 @@ package robodata;
 service RobotData {
   rpc GetHistory ( RoboTensor ) returns ( stream RobotSummary ) {}
   rpc ReceiveRobotData(stream RobotSummary) returns (stream RobotSummary) {}
-  rpc Chat ( stream LLMInput ) returns ( stream ChatMsg ) {}
+  rpc PlanHighLevelAction( RobotSummary) returns (stream RobotSummary) {}
+  rpc Chat ( LLMInput ) returns ( stream ChatMsg ) {}
 }
 
 message GPS_arr {

@@ -36,14 +36,37 @@ class RoboDataServicer(robodata_pb2_grpc.RobotDataServicer):
         #     x = robodata_pb2.RobotSummary()
         #     x.message = "hello"
         #     return x
-        breakpoint()
-        return self.obs_history.pop(0)
+        yield self.obs_history.pop(0)
+
+    def PlanHighLevelAction(self, request, context):
+        prompt = "Task: You are a chatbot exploring a home."
+        # TODO something more sophisticated
+        prompt = prompt + request.message
+        obj_crops = []
+        for r in request.instance_imgs:
+            obj_crops.append(self._robotensor_to_tensor(r))
+
+        chat_input = {
+            "prompt": [prompt],
+            "crops": torch.stack(obj_crops, dim=0).unsqueeze(0),
+            "images": [],
+        }
+        with torch.no_grad():
+            response = self.predictor.model._generate_answers(
+                chat_input,
+                num_beams=1,  # self.predictor.num_beams,
+                max_length=self.predictor.max_len,
+                min_length=self.predictor.min_len,
+            )
+            print(response)
+        x = robodata_pb2.RobotSummary()
+        x.message = str(response)
+        yield x
 
     def ReceiveRobotData(self, request, context):
         print("entered ReceiveRobotData")
         for r in request:
-            pass
-            # self.obs_history.append(r)
+            self.obs_history.append(r)
         x = robodata_pb2.RobotSummary()
         x.message = "Robot data received"
         yield x
@@ -116,7 +139,7 @@ if __name__ == "__main__":
         help="path to configuration file.",
     )
     parser.add_argument(
-        "--gpu-id", type=int, default=1, help="specify the gpu to load the model."
+        "--gpu-id", type=int, default=0, help="specify the gpu to load the model."
     )
     parser.add_argument(
         "--planning_times",
