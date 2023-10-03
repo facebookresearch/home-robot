@@ -1,0 +1,303 @@
+#!/usr/bin/env python
+# Copyright (c) Meta Platforms, Inc. and affiliates.
+#
+# This source code is licensed under the MIT license found in the
+# LICENSE file in the root directory of this source tree.
+
+
+from datetime import datetime
+from typing import Optional, Tuple
+
+import click
+import rospy
+
+from home_robot.agent.ovmm_agent.ovmm_agent import OpenVocabManipAgent
+from home_robot.motion.stretch import STRETCH_HOME_Q
+from home_robot_hw.env.stretch_pick_and_place_env import StretchPickandPlaceEnv
+from home_robot_hw.utils.config import load_config
+
+import grpc
+import evaluation_pb2
+import evaluation_pb2_grpc
+
+def grpc_dumps(entity):
+    return pickle.dumps(entity)
+
+def grpc_loads(entity):
+    return pickle.loads(entity)
+
+def metric_show_participant(phase):
+    if phase == "1734" or phase == "1731":
+        return False
+    return True
+
+
+def update_submission_result_and_exit(
+        challenge_pk,
+        phase_pk,
+        submission_pk,
+        metrics,
+        submission_status,
+        submission_error="",
+        stdout="",
+        metadata="",
+    ):
+    print(f"Metrics:\n{metrics}")
+
+    submission_result = json.dumps(
+        [
+            {
+                'split': 'split',
+                'show_to_participant': metric_show_participant(phase_pk),
+                'accuracies': {
+                    "OVERALL_SUCCESS": metrics.get("overall_success", -1),
+                    "PARTIAL_SUCCESS": metrics.get("partial_success", -1),
+                    "NUM_STEPS": metrics.get("num_steps", -1),
+                }
+            }
+        ]
+    )
+    submission_data = {
+        "challenge_phase": phase_pk,
+        "submission":submission_pk,
+        "stdout": stdout,
+        "stderr": submission_error,
+        "submission_status": submission_status,
+        "result": submission_result,
+        "metadata": metadata,
+    }
+    print(f"Submission data:\n{submission_data}")
+
+    evalai_api.update_submission_data(submission_data, challenge_pk)
+    print("Data updated successfully")
+    
+    exit(0)
+
+    
+class Environment(evaluation_pb2_grpc.EnvironmentServicer):
+    def __init__(
+            self,
+            challenge_pk,
+            phase_pk,
+            submission_pk,
+            test_pick=False,
+            reset_nav=False,
+            pick_object="cup",
+            start_recep="table",
+            goal_recep="chair",
+            dry_run=False,
+            visualize_maps=False,
+            visualize_grasping=False,
+            test_place=False,
+            cat_map_file=None,
+            max_num_steps=200,
+            config_path="projects/real_world_ovmm/configs/agent/eval.yaml"
+    ) -> None:
+        super().__init__()
+        self.challenge_pk = challenge_pk
+        self.phase_pk = phase_pk
+        self.submission_pk = submission_pk
+
+        self.test_pick = test_pick
+        self.reset_nav = reset_nav
+        self.pick_object = pick_object
+        self.start_recep = start_recep
+        self.goal_recep = goal_recep
+        self.dry_run = dry_run
+        self.visualize_maps = visualize_maps
+        self.visualize_grasping = visualize_grasping
+        self.test_place = test_place
+        self.cat_map_file = cat_map_file
+        self.max_num_steps = max_num_steps
+        self.config_path = config_path
+        
+        self._env = None
+        self._env_number_of_episodes = None
+        self._episode_metrics = {}
+        self._current_episode_key = None
+        self._current_episode_metrics = {}
+
+        self._t = 0
+
+
+    def init_env(self, request, context):
+        print("- Starting ROS node")
+        rospy.init_node("eval_episode_stretch_objectnav")
+        
+        print("- Loading configuration")
+        config = load_config(config_path=config_path, visualize=self.visualize_maps)
+
+        print("- Creating environment")
+        self._env = StretchPickandPlaceEnv(
+            config=config,
+            test_grasping=self.test_pick,
+            dry_run=self.dry_run,
+            cat_map_file=self.cat_map_file,
+            visualize_grasping=self.visualize_grasping,
+        )
+
+        self._env_number_of_episodes = self._env.number_of_episodes
+        
+        self._robot = self._env.get_robot()
+
+        if self.reset_nav:
+            print("- Sending the robot to [0, 0, 0]")
+            # Send it back to origin position to make testing a bit easier
+            robot.nav.navigate_to([0, 0, 0])
+
+        self._t = 0
+
+        return evaluation_pb2.Package()
+
+    def number_of_episodes(self, request, context):
+        ## does real world have episodes yet? Only looks like one episode
+        return evaluation_pb2.Package(SerializedEntity=grpc_dumps(self._env_number_of_episodes))
+
+    def reset(self, request, context):
+        ## real world robot doesn't seem to have reset so this only works for first episode
+        observations = self._env.get_observation()
+        return evaluation_pb2.Package(SerializedEntity=grpc_dumps(observations))
+
+    def get_current_episode(self, request, context):
+        current_episode = 1 ## real world doesn't seem to have episodes yet
+        return evaluation_pb2.Package(SerializedEntity=grpc_dumps(current_episode))
+    
+    def apply_action(self, request, context):
+        self._t += 1
+        action, info = grpc_loads(request.SerializedEntity)
+        done = env.apply_action(action, info=info) ## is prev_obs required?
+
+        if "skill_done" in info and info["skill_done"] != "":
+            metrics = self._extract_scalars_from_info(hab_info)
+            metrics_at_skill_end = {
+                f"{info['skill_done']}." + k: v for k, v in metrics.items()
+            }
+            self._current_episode_metrics = {
+                **metrics_at_skill_end,
+                **self._current_episode_metrics,
+            }
+            if "goal_name" in info:
+                self._current_episode_metrics["goal_name"] = info["goal_name"]
+
+        if done:
+            metrics = self._extract_scalars_from_info(hab_info)
+            metrics_at_episode_end = {"END." + k: v for k, v in metrics.items()}
+            self._current_episode_metrics = {
+                **metrics_at_episode_end,
+                **self._current_episode_metrics,
+            }
+            if "goal_name" in info:
+                self._current_episode_metrics["goal_name"] = info["goal_name"]
+
+            self._episode_metrics[self._current_episode_key] = self._current_episode_metrics
+            self._current_episode_metrics = {}
+
+        observations = self._env.get_observation()
+        hab_info = None ## not sure what hab_info should be for real world
+        return evaluation_pb2.Package(SerializedEntity=grpc_dumps((observations, done, hab_info)))
+
+    def evalai_update_submission(self, request, context):
+        if len(self._episode_metrics) != self._env_number_of_episodes:
+            raise ValueError(
+                "Not all episodes have been evaluated: "
+                f"number of episodes evaluated ({len(self._episode_metrics)}) != total number of episodes ({self._env_number_of_episodes})."
+            )
+        
+        average_metrics = self._summarize_metrics(self._episode_metrics)
+        self._print_summary(average_metrics)
+        
+        update_submission_result_and_exit(
+            challenge_pk=self.challenge_pk,
+            phase_pk=self.phase_pk,
+            submission_pk=self.submission_pk,
+            metrics=average_metrics,
+            submission_status="FINISHED",
+        )
+        
+    def close(self, request, context):
+        self._env.close()
+        return evaluation_pb2.Package()                    
+    
+@click.command()
+@click.option("--test-pick", default=False, is_flag=True)
+@click.option("--test-gaze", default=False, is_flag=True)
+@click.option("--test-place", default=False, is_flag=True)
+@click.option("--skip-gaze", default=True, is_flag=True)
+@click.option("--reset-nav", default=False, is_flag=True)
+@click.option("--dry-run", default=False, is_flag=True)
+@click.option("--pick-object", default="cup")
+@click.option("--start-recep", default="table")
+@click.option("--goal-recep", default="chair")
+@click.option(
+    "--cat-map-file", default="projects/real_world_ovmm/configs/example_cat_map.json"
+)
+@click.option("--max-num-steps", default=200)
+@click.option("--visualize-maps", default=False, is_flag=True)
+@click.option("--visualize-grasping", default=False, is_flag=True)
+@click.option(
+    "--debug",
+    default=False,
+    is_flag=True,
+    help="Add pauses for debugging manipulation behavior.",
+)
+def main():
+    try:
+        BODY = os.environ.get("BODY")
+        BODY = BODY.replace("'", '"')
+        BODY = json.loads(BODY)
+        print("BODY", BODY)
+
+        challenge_pk = BODY["challenge_pk"]
+        phase_pk = BODY["phase_pk"]
+        submission_pk = BODY["submission_pk"]
+
+        agent_timelimit = int(os.getenv("SUBMISSION_TIME_LIMIT", 172800))
+        print("Submission time limit: ", str(agent_timelimit), " seconds")
+
+        server = grpc.server(
+            thread_pool=futures.ThreadPoolExecutor(max_workers = 1),
+            compression=grpc.Compression.Gzip,
+            options=[
+                (
+                    "grpc.max_receive_message_length",
+                    -1,
+                )  # Unlimited message length that the channel can receive
+            ],
+        )
+        evaluation_pb2_grpc.add_EnvironmentServicer_to_server(
+            servicer=Environment(challenge_pk, phase_pk, submission_pk),
+            server=server
+        )
+        print('Starting server. Listening on port 8085.')
+        server.add_insecure_port('[::]:8085')
+        server.start()
+        try:
+            with Timeout(seconds=agent_timelimit):
+                while True:
+                    time.sleep(4)
+        except KeyboardInterrupt:
+            server.stop(0)
+    except Exception as e:
+        import traceback
+        print("Exception:", e)
+        print(traceback.print_exc())
+        
+        update_submission_result_and_exit(
+            challenge_pk=challenge_pk,
+            phase_pk=phase_pk,
+            submission_pk=submission_pk,
+            metrics={
+                "overall_success": -1.0,
+                "partial_success": -1.0,
+                "num_steps": -1.0,
+            }, 
+            submission_status="FAILED",
+            submission_error=str(e),
+        )
+    
+
+if __name__ == "__main__":
+    print("---- Starting real-world evaluation ----")
+    main()        
+    print("==================================")
+    print("Done real world evaluation.")
