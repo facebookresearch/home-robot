@@ -58,23 +58,24 @@ app.layout = dbc.Container(
                 dbc.Col(
                     children=[
                         make_feed(
-                            WebsocketSourceConfig(
+                            # # Run publisher_server.py to set up server
+                            # WebsocketSourceConfig(
+                            #     app=app,
+                            #     image_id="gripper-feed-img",
+                            #     trigger_id="gripper-feed-ws",
+                            #     websocket_url="ws://127.0.0.1:5000/gripper-feed-ws",
+                            # ),
+                            ClientRequestSourceConfig(
                                 app=app,
                                 image_id="gripper-feed-img",
-                                trigger_id="gripper-feed-ws",
-                                websocket_url="ws://127.0.0.1:5000/gripper-feed-ws",
+                                trigger_id="gripper-feed-interval",  # realtime-3d
+                                trigger_exists=False,
+                                svm_watcher=svm_watcher,
+                                trigger_interval_kwargs=dict(
+                                    interval=int(app_config.video_feed_update_freq_ms),
+                                    disabled=False,
+                                ),
                             ),
-                            # ClientRequestSourceConfig(
-                            #     app=app,
-                            #     image_id='gripper-feed-img',
-                            #     trigger_id='gripper-feed-interval', # realtime-3d
-                            #     trigger_exists=False,
-                            #     svm_watcher = svm_watcher,
-                            #     trigger_interval_kwargs = dict(
-                            #         interval = int(app_config.video_feed_update_freq_ms),
-                            #         disabled = False
-                            #     )
-                            # ),
                         ),
                         make_chat_layout(),
                     ],
