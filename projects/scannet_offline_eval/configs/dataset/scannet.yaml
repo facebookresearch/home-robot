@@ -1,0 +1,16 @@
+_target_: home_robot.datasets.scannet.ScanNetDataset
+root_dir: '/private/home/ssax/home-robot/src/home_robot/home_robot/datasets/scannet/data'
+split: "val"
+keep_only_scenes: null
+keep_only_first_k_scenes: 5
+skip_first_k_scenes: 0
+frame_skip: 30
+height: 480
+width: 640
+# modalities: Tuple[str] = ("rgb", "depth", "pose", "intrinsics"),
+referit3d_config:
+  _target_: home_robot.datasets.scannet.ReferIt3dDataConfig
+scanrefer_config:
+  _target_: home_robot.datasets.scannet.ScanReferDataConfig
+show_load_progress: False
+n_classes: 100

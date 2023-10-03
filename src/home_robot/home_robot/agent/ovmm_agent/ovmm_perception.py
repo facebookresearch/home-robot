@@ -5,7 +5,7 @@
 
 
 import json
-from typing import Dict, Tuple
+from typing import Any, Dict, Tuple
 
 from home_robot.core.interfaces import Observations
 from home_robot.perception.constants import RearrangeDETICCategories
@@ -58,20 +58,43 @@ class OvmmPerception:
     It also maintains a list of vocabularies to use in segmentation and can switch between them at runtime.
     """
 
-    def __init__(self, config, gpu_device_id: int = 0, verbose: bool = False):
+    def __init__(
+        self,
+        config,
+        gpu_device_id: int = 0,
+        verbose: bool = False,
+        module: str = "grounded_sam",
+        module_kwargs: Dict[str, Any] = {},
+    ):
         self.config = config
         self._use_detic_viz = config.ENVIRONMENT.use_detic_viz
+        self._detection_module = getattr(config.AGENT, "detection_module", "detic")
         self._vocabularies: Dict[int, RearrangeDETICCategories] = {}
         self._current_vocabulary: RearrangeDETICCategories = None
         self._current_vocabulary_id: int = None
         self.verbose = verbose
-        # TODO Specify confidence threshold as a parameter
-        self._segmentation = DeticPerception(
-            vocabulary="custom",
-            custom_vocabulary=".",
-            sem_gpu_id=gpu_device_id,
-            verbose=verbose,
-        )
+        if self._detection_module == "detic":
+            # TODO Specify confidence threshold as a parameter
+            self._segmentation = DeticPerception(
+                vocabulary="custom",
+                custom_vocabulary=".",
+                sem_gpu_id=gpu_device_id,
+                verbose=verbose,
+                **module_kwargs
+            )
+        elif self._detection_module == "grounded_sam":
+            from home_robot.perception.detection.grounded_sam.grounded_sam_perception import (
+                GroundedSAMPerception,
+            )
+
+            self._segmentation = GroundedSAMPerception(
+                custom_vocabulary=".",
+                sem_gpu_id=gpu_device_id,
+                verbose=verbose,
+                **module_kwargs
+            )
+        else:
+            raise NotImplementedError
 
     @property
     def current_vocabulary_id(self) -> int:
@@ -94,12 +117,18 @@ class OvmmPerception:
         Set given vocabulary ID to be the active vocabulary that the segmentation model uses.
         """
         vocabulary = self._vocabularies[vocabulary_id]
-        self._segmentation.reset_vocab(
+        self.segmenter_classes = (
             ["."] + list(vocabulary.goal_id_to_goal_name.values()) + ["other"]
         )
+        self._segmentation.reset_vocab(self.segmenter_classes)
+
         self.vocabulary_name_to_id = {
             name: id for id, name in vocabulary.goal_id_to_goal_name.items()
         }
+        self.vocabulary_id_to_name = vocabulary.goal_id_to_goal_name
+        self.seg_id_to_name = dict(enumerate(self.segmenter_classes))
+        self.name_to_seg_id = {v: k for k, v in self.seg_id_to_name.items()}
+
         self._current_vocabulary = vocabulary
         self._current_vocabulary_id = vocabulary_id
 
@@ -138,12 +167,18 @@ class OvmmPerception:
     def __call__(self, obs: Observations) -> Observations:
         return self.forward(obs)
 
-    def forward(self, obs: Observations) -> Observations:
+    def predict(self, obs: Observations, depth_threshold: float = 0.5) -> Observations:
+        """Run with no postprocessing. Updates observation to add semantics."""
+        return self._segmentation.predict(
+            obs,
+            depth_threshold=depth_threshold,
+            draw_instance_predictions=self._use_detic_viz,
+        )
+
+    def forward(self, obs: Observations, depth_threshold: float = 0.5) -> Observations:
         """
         Run segmentation model and preprocess observations for OVMM skills
         """
-        obs = self._segmentation.predict(
-            obs, depth_threshold=0.5, draw_instance_predictions=self._use_detic_viz
-        )
+        obs = self.predict(obs, depth_threshold)
         self._process_obs(obs)
         return obs

@@ -56,6 +56,9 @@ class ObjectNavAgent(Agent):
             self.instance_memory = InstanceMemory(
                 self.num_environments,
                 config.AGENT.SEMANTIC_MAP.du_scale,
+                instance_association=getattr(
+                    config.AGENT.SEMANTIC_MAP, "instance_association", "map_overlap"
+                ),
                 debug_visualize=config.PRINT_IMAGES,
             )
 
@@ -290,6 +293,8 @@ class ObjectNavAgent(Agent):
         self.last_poses = [np.zeros(3)] * self.num_environments
         self.semantic_map.init_map_and_pose()
         self.episode_panorama_start_steps = self.panorama_start_steps
+        if self.record_instance_ids:
+            self.instance_memory.reset()
         self.planner.reset()
 
     def reset_vectorized_for_env(self, e: int):
@@ -299,6 +304,8 @@ class ObjectNavAgent(Agent):
         self.last_poses[e] = np.zeros(3)
         self.semantic_map.init_map_and_pose_for_env(e)
         self.episode_panorama_start_steps = self.panorama_start_steps
+        if self.record_instance_ids:
+            self.instance_memory.reset_for_env(e)
         self.planner.reset()
 
     # ---------------------------------------------------------------------

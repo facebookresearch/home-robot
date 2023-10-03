@@ -56,6 +56,10 @@ class StretchHeadClient(AbstractControlModule):
         q, _, _ = self._ros_client.get_joint_state()
         return q[HelloStretchIdx.HEAD_PAN], q[HelloStretchIdx.HEAD_TILT]
 
+    def intrinsics(self) -> np.ndarray:
+        """Return 3x3 intrinsics matrics"""
+        return self._ros_client.rgb_cam.K
+
     def set_pan_tilt(
         self,
         pan: Optional[float] = None,
@@ -73,6 +77,11 @@ class StretchHeadClient(AbstractControlModule):
         self._register_wait(self._ros_client.wait_for_trajectory_action)
         if blocking:
             self.wait()
+
+    def look_close(self, blocking: bool = True):
+        """Point camera sideways towards the gripper"""
+        pan, tilt = self._robot_model.look_close
+        self.set_pan_tilt(pan, tilt, blocking=blocking)
 
     def look_at_ee(self, blocking: bool = True):
         """Point camera sideways towards the gripper"""
@@ -108,6 +117,13 @@ class StretchHeadClient(AbstractControlModule):
             xyz = None
 
         return imgs
+
+    def depth_to_xyz(self, dpt: np.ndarray) -> np.ndarray:
+        """Convert depth to xyz coordinates"""
+        xyz = self._ros_client.dpt_cam.depth_to_xyz(
+            self._ros_client.dpt_cam.fix_depth(dpt)
+        )
+        return xyz
 
     # Helper methods
 

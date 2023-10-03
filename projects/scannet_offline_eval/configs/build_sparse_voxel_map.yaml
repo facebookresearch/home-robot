@@ -1,0 +1,9 @@
+defaults:
+  - _self_
+  - dataset: scannet
+  - model: instancemap3d_top_down
+  - paths: default
+  - hydra: default
+
+scene_name: scene0192_00
+show_backend: open3d

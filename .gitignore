@@ -24,11 +24,16 @@ datasets/
 scene_datasets/
 datadump/
 */datasets/
+!/src/home_robot/home_robot/datasets
 data/
+/models/
 
 # Archive files
 *.pkl
 *.zip
+
+# Visualizations
+*.ogv
 
 # Git stuff
 *~HEAD
@@ -42,10 +47,23 @@ data/
 *.json
 *.png
 *.npz
+*.pickle
+data/**
+data*/**
 
-# Detic model files
+# Mesh files
+*.stl
+*.STL
+*.mtl
+*.navmesh
+*.obj
+*.dae
+*.DAE
+
+# Detic and other torch model files
 *.pth
 *.ply
+*.pt
 
 # Training stuff
 projects/**/wandb

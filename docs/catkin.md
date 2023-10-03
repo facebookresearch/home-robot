@@ -20,6 +20,8 @@ git clone git@github.com:hello-robot/stretch_ros.git
 Stretch requires `move_base` to be installed:
 ```
 sudo apt install ros-noetic-move-base
+# or
+mamba install ros-noetic-move-base -c robostack
 ```
 
 Now you should be able to build ROS:
