@@ -12,6 +12,7 @@
 #### Home-Robot
 ```
 git clone https://github.com/facebookresearch/home-robot.git --recursive
+cd home-robot && git checkout demo_grasp
 ```
 
 ```
@@ -30,14 +31,16 @@ git submodule update -f src/home_robot/home_robot/perception/detection/detic/Det
 ```
 
 ```
-mamba env create -n home-robot -f src/home_robot_hw/environment.yml
+mamba env create -n home-robot -f src/home_robot_spot/env.yml
 ```
 
  If `mamba` not found, `conda install -c conda-forge mamba --yes`
  
 ```
 conda activate home-robot
+pip install -e src/home_robot/. 
 pip install -e src/home_robot_hw/.
+pip install -e src/home_robot_spot/.
 ```
 
 Change this env variable to your cuda -- `CUDA_HOME=/usr/local/cuda-<version_tag>`
