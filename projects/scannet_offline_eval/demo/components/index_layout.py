@@ -1,3 +1,7 @@
+# Copyright (c) Meta Platforms, Inc. and affiliates.
+#
+# This source code is licensed under the MIT license found in the
+# LICENSE file in the root directory of this source tree.
 import dash
 import dash_bootstrap_components as dbc
 import openai
@@ -28,23 +32,18 @@ def make_header_layout():
                 [
                     html.Div(
                         children=[
-                            html.Img(
-                                src=app.get_asset_url("images/VC1-cropped.svg"),
-                                style={"height": 60},  # "float": "left",
-                            ),
                             html.H1(["Accel Cortex Demo: FAIR Conference"]),
+                            # html.Img(
+                            #     src=app.get_asset_url("images/VC1-cropped.svg"),
+                            # ),
                         ],
                         className="text-primary text-center",
-                        style={
-                            "margin-top": 25,
-                            "margin-bottom": 25,
-                            "text-align": "center",
-                        },
                     )
                 ],
                 md=8,
             ),
-        ]
+        ],
+        className="header",
     )
 
 

@@ -1,10 +1,19 @@
+# Copyright (c) Meta Platforms, Inc. and affiliates.
+#
+# This source code is licensed under the MIT license found in the
+# LICENSE file in the root directory of this source tree.
 import logging
 from pathlib import Path
 from typing import Dict
 
+import cv2
 import dash
 import dash_bootstrap_components as dbc
+import numpy as np
 import torch
+
+# from dash_extensions.websockets import SocketPool, run_server
+from dash_extensions.enrich import BlockingCallbackTransform, DashProxy
 from loguru import logger
 from torch_geometric.nn.pool.voxel_grid import voxel_grid
 
@@ -14,28 +23,20 @@ from home_robot.utils.point_cloud_torch import get_bounds
 
 from .directory_watcher import DirectoryWatcher
 
-app = dash.Dash(
-    __name__, external_stylesheets=[dbc.themes.BOOTSTRAP], assets_folder="../assets"
+app = DashProxy(
+    __name__,
+    external_stylesheets=[dbc.themes.BOOTSTRAP],
+    assets_folder="../assets",
+    prevent_initial_callbacks=True,
+    transforms=[BlockingCallbackTransform(timeout=10)],
 )
+
 server = app.server
 
 
-@torch.no_grad()
-def step_and_return_update(self, obs):
-    old_points = self.svm.voxel_map.voxel_pcd._points
-    old_rgb = self.svm.voxel_map.voxel_pcd._rgb
-    self.svm.step(obs)
-    new_points = self.svm.voxel_map.voxel_pcd._points
-    new_rgb = self.svm.voxel_map.voxel_pcd._rgb
-
-    mins, maxes = get_bounds(new_points).unbind(dim=-1)
-    voxel_idx_old = voxel_grid(pos=old_points, size=voxel_size, start=mins, end=maxes)
-    voxel_idx_new = voxel_grid(pos=new_points, size=voxel_size, start=mins, end=maxes)
-    novel_idxs = torch.isin(voxel_idx_old, voxel_idx_new, invert=False)
-    new_rgb = new_rgb[novel_idxs]
-    new_points = new_points[novel_idxs]
-
-
+#########################################
+# Observation consumer
+#########################################
 class SparseVoxelMapDirectoryWatcher:
     def __init__(
         self,
@@ -55,6 +56,7 @@ class SparseVoxelMapDirectoryWatcher:
         self.bounds = []
         self.box_bounds = []
         self.box_names = []
+        self.rgb_jpeg = None
 
     @torch.no_grad()
     def add_obs(self, obs):
@@ -92,6 +94,10 @@ class SparseVoxelMapDirectoryWatcher:
         # Record bounding box update
         self.box_bounds.append(obs["box_bounds"].cpu())
         self.box_names.append(obs["box_names"].cpu())
+        logger.critical(f"{obs['rgb'].cpu().numpy().max()}")
+        self.rgb_jpeg = cv2.imencode(
+            ".jpg", (obs["rgb"].cpu().numpy() * 255).astype(np.uint8)
+        )[1].tobytes()
 
     def get_points_since(self):
         pass

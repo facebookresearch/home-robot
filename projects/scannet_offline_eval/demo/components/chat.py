@@ -1,3 +1,7 @@
+# Copyright (c) Meta Platforms, Inc. and affiliates.
+#
+# This source code is licensed under the MIT license found in the
+# LICENSE file in the root directory of this source tree.
 import logging
 import os
 from datetime import datetime
@@ -18,20 +22,47 @@ description = open("assets/prompts/demo.txt", "r").read()
 from loguru import logger
 
 
-def make_layout():
-    return dbc.Container(
+def make_layout(height="50vh"):
+    # Define Layout
+    # conversation =
+
+    # controls =
+
+    return dbc.Row(
         [
-            html.H3("Chat with Cortex", className="text-center"),
+            html.Div(
+                html.H2("Chat with Cortex", className="text-center text-secondary"),
+                className="chat-header",
+            ),
             dcc.Store(id="store-conversation", data=""),
-            conversation,
+            html.Div(
+                id="display-conversation",
+                className="chat-conversation",
+                style={
+                    # "overflow-y": "auto",
+                    # "display": "flex",
+                    # "height": f"calc({height} - 140px)",
+                    # "flex-direction": "column-reverse",
+                },
+            ),
             dcc.Loading(
                 html.Div(id="loading-component"),
                 type="default",
                 className="gif-loading",
-                style={"margin-bottom": "132px", "margin-left": 0},
             ),
-            controls,
-        ]
+            dbc.InputGroup(
+                children=[
+                    dbc.Input(
+                        id="user-input",
+                        placeholder="Write to the chatbot...",
+                        type="text",
+                        debounce=True,
+                    ),
+                ],
+                className="chat-input",
+            ),
+        ],
+        className="chat-window",
     )
 
 
@@ -105,29 +136,6 @@ def textbox(text, box="user"):
         raise ValueError("Incorrect option for `box`.")
 
 
-# Define Layout
-conversation = html.Div(
-    html.Div(id="display-conversation"),
-    style={
-        "overflow-y": "auto",
-        "display": "flex",
-        "height": "calc(90vh - 132px)",
-        "flex-direction": "column-reverse",
-    },
-)
-
-controls = dbc.InputGroup(
-    children=[
-        dbc.Input(
-            id="user-input",
-            placeholder="Write to the chatbot...",
-            type="text",
-            debounce=True,
-        ),
-    ]
-)
-
-
 def msg_arr_to_str(msg_history_arr):
     return "<split>".join(
         [f"{msg['role']}<rolesep>{msg['content']}" for msg in msg_history_arr]
@@ -184,9 +192,10 @@ def clear_input(n_submit):
 #     [State("store-conversation", "data")],
 #     [State("user-input", "value"), State("store-conversation", "data")],
 # )
-# def
-# Here we want to show the user message being submitted
-# and the model message loading
+# Here we want to show the following:
+#  1. user message being submitted immediately
+#  2. display loading initially
+#  3. when LLM responds, show that message and remove the loading
 @app.callback(
     [Output("store-conversation", "data"), Output("loading-component", "children")],
     [Input("user-input", "n_submit")],

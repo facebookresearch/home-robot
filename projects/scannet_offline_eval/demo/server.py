@@ -1,3 +1,7 @@
+# Copyright (c) Meta Platforms, Inc. and affiliates.
+#
+# This source code is licensed under the MIT license found in the
+# LICENSE file in the root directory of this source tree.
 import logging
 import os
 import time
@@ -9,6 +13,7 @@ import dash_bootstrap_components as dbc
 import openai
 from components.app import app, svm_watcher
 from components.chat import make_layout as make_chat_layout
+from components.gripper_feed import make_feed
 from components.index_layout import make_header_layout
 from components.realtime_3d import make_layout as make_realtime_3d_layout
 from dash import Patch, dcc, html
@@ -21,7 +26,19 @@ os.environ[
 # LOGURU_FORMAT=
 
 # Authentication
-POINTCLOUD_UPDATE_FREQ_MS = 2000
+POINTCLOUD_UPDATE_FREQ_MS = 1000
+
+
+figure = svm_watcher.svm.show(backend="pytorch3d", mock_plot=True)
+figure.update_layout(
+    autosize=True,
+    margin=dict(
+        l=20,
+        r=20,
+        b=20,
+        t=20,
+    ),
+)
 
 app.layout = dbc.Container(
     children=[
@@ -31,21 +48,27 @@ app.layout = dbc.Container(
                 dbc.Col(
                     [
                         make_realtime_3d_layout(
-                            svm_watcher.svm.show(backend="pytorch3d", mock_plot=True),
+                            figure,
                             POINTCLOUD_UPDATE_FREQ_MS,
                         )
                     ],
-                    width=9,
+                    width=8,
                 ),
                 dbc.Col(
-                    children=[make_chat_layout()],
+                    children=[
+                        make_feed(
+                            POINTCLOUD_UPDATE_FREQ_MS,
+                        ),
+                        make_chat_layout(),
+                    ],
                     width=3,
                 ),
-            ]
+            ],
+            className="main-body",
         ),
     ],
     fluid=True,
-    style={"height": "100vh"},
+    className="h-100",
 )
 
 if __name__ == "__main__":
@@ -64,4 +87,6 @@ if __name__ == "__main__":
     logger.warning("Starting server. Data consumer is currently paused:")
     svm_watcher.pause()
     svm_watcher.begin()
+    # app.run(port=5000)
+
     app.run_server(debug=True, port=args.port)
