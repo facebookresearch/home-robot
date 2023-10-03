@@ -103,8 +103,8 @@ echo "Downloading pretrained skills..."
 cd $HOME_ROBOT_ROOT
 mkdir -p $HOME_ROBOT_ROOT/data/checkpoints
 cd $HOME_ROBOT_ROOT/data/checkpoints
-wget --no-check-certificate https://dl.fbaipublicfiles.com/habitat/data/baselines/v1/ovmm_baseline_home_robot_challenge_2023.zip
-unzip ovmm_baseline_home_robot_challenge_2023.zip
+wget --no-check-certificate https://dl.fbaipublicfiles.com/habitat/data/baselines/v1/ovmm_baseline_home_robot_challenge_2023_v0.2.zip
+unzip ovmm_baseline_home_robot_challenge_2023_v0.2.zip -d  ovmm_baseline_home_robot_challenge_2023_v0.2
 cd $HOME_ROBOT_ROOT
 
 echo ""
