@@ -8,10 +8,13 @@ from datetime import datetime
 from enum import IntEnum, auto
 from typing import Any, Dict, Optional, Tuple
 
+import magnum as mn
 import numpy as np
 import torch
+from habitat.tasks.nav.object_nav_task import ObjectGoal
 
 from home_robot.agent.objectnav_agent.objectnav_agent import ObjectNavAgent
+from home_robot.agent.objectnav_agent.oracle_nav_agent import ShortestPathFollowerAgent
 from home_robot.agent.ovmm_agent.ovmm_perception import (
     OvmmPerception,
     build_vocab_from_category_map,
@@ -20,6 +23,9 @@ from home_robot.agent.ovmm_agent.ovmm_perception import (
 from home_robot.core.interfaces import DiscreteNavigationAction, Observations
 from home_robot.manipulation import HeuristicPickPolicy, HeuristicPlacePolicy
 from home_robot.perception.constants import RearrangeBasicCategories
+from home_robot_sim.env.habitat_ovmm_env.habitat_ovmm_env import (
+    HabitatOpenVocabManipEnv,
+)
 
 
 class Skill(IntEnum):
@@ -59,11 +65,14 @@ class OpenVocabManipAgent(ObjectNavAgent):
         self.gaze_agent = None
         self.nav_to_obj_agent = None
         self.nav_to_rec_agent = None
+        self.nav_to_obj_closeness_check = False
+        self.nav_to_rec_closeness_check = False
         self.pick_agent = None
         self.place_agent = None
         self.pick_policy = None
         self.place_policy = None
         self.semantic_sensor = None
+        self._env = None
 
         if config.GROUND_TRUTH_SEMANTICS == 1 and self.store_all_categories_in_map:
             # currently we get ground truth semantics of only the target object category and all scene receptacles from the simulator
@@ -81,9 +90,7 @@ class OpenVocabManipAgent(ObjectNavAgent):
                 config, self.device, verbose=self.verbose
             )
         if config.AGENT.SKILLS.PLACE.type == "heuristic" and not self.skip_skills.place:
-            self.place_policy = HeuristicPlacePolicy(
-                config, self.device, verbose=self.verbose
-            )
+            self.place_policy = HeuristicPlacePolicy(config, self.device, verbose=True)
         elif config.AGENT.SKILLS.PLACE.type == "rl" and not self.skip_skills.place:
             from home_robot.agent.ovmm_agent.ppo_agent import PPOAgent
 
@@ -113,6 +120,12 @@ class OpenVocabManipAgent(ObjectNavAgent):
                 device_id=device_id,
             )
         if (
+            config.AGENT.SKILLS.NAV_TO_OBJ.type == "oracle"
+            and not self.skip_skills.nav_to_obj
+        ):
+            self.nav_to_obj_agent = ShortestPathFollowerAgent()
+
+        if (
             config.AGENT.SKILLS.NAV_TO_REC.type == "rl"
             and not self.skip_skills.nav_to_rec
         ):
@@ -123,8 +136,95 @@ class OpenVocabManipAgent(ObjectNavAgent):
                 config.AGENT.SKILLS.NAV_TO_REC,
                 device_id=device_id,
             )
+        if (
+            config.AGENT.SKILLS.NAV_TO_REC.type == "oracle"
+            and not self.skip_skills.nav_to_rec
+        ):
+            self.nav_to_rec_agent = ShortestPathFollowerAgent()
+
         self._fall_wait_steps = getattr(config.AGENT, "fall_wait_steps", 0)
         self.config = config
+
+    def get_position_for_max_iou_viewpoint(self, object_goal: ObjectGoal):
+        """
+        Returns the position of the viewpoint with the maximum IOU with the object.
+        """
+        ious = [viewpoint.iou for viewpoint in object_goal.view_points]
+        max_iou_idx = ious.index(max(ious))
+        max_iou_viewpoint_position = object_goal.view_points[
+            max_iou_idx
+        ].agent_state.position
+        return max_iou_viewpoint_position
+
+    def set_oracle_info(self, ovmm_env: HabitatOpenVocabManipEnv):
+        self._env = ovmm_env
+
+        self.use_segmentation = False
+        if "withsegmentation" in self.config.EXPERIMENT.type:
+            self.use_segmentation = True
+
+        if (
+            self.config.AGENT.SKILLS.NAV_TO_OBJ.type == "oracle"
+            and not self.skip_skills.nav_to_obj
+        ):
+            # Extract the habitat_env from the ovmm env and provide it to the agent
+            episode_id = ovmm_env.get_current_episode().episode_id
+            print(
+                f"Providing oracle environment information to NAV_TO_OBJ agent for episode {episode_id}"
+            )
+            object_goal = ovmm_env.habitat_env.env._env.habitat_env.current_episode.candidate_objects[
+                0
+            ]
+            object_vp_nav_goal = self.get_position_for_max_iou_viewpoint(object_goal)
+            object_nav_goal = object_goal.position
+
+            if self.config.EXPERIMENT.NAV_TO_OBJ.goal == "exact":
+                goal_coordinates = [object_nav_goal]
+            elif self.config.EXPERIMENT.NAV_TO_OBJ.goal == "max_iou_viewpoint":
+                goal_coordinates = [object_vp_nav_goal]
+            elif self.config.EXPERIMENT.NAV_TO_OBJ.goal == "vp_then_exact":
+                goal_coordinates = [object_vp_nav_goal, object_nav_goal]
+
+            self.nav_to_obj_agent.set_oracle_info(
+                ovmm_env.habitat_env.env._env,
+                goal_coordinates=goal_coordinates,
+                goal_radius=self.config.EXPERIMENT.NAV_TO_OBJ.goal_radius,
+            )
+
+        if (
+            self.config.AGENT.SKILLS.NAV_TO_REC.type == "oracle"
+            and not self.skip_skills.nav_to_rec
+        ):
+            # Extract the habitat_env from the ovmm env and provide it to the agent
+            print(
+                f"Providing oracle environment information to NAV_TO_REC agent for episode {episode_id}"
+            )
+            # candidate_goal_receps = ovmm_env.habitat_env.env._env.habitat_env.current_episode.candidate_goal_receps
+            # candidate_goal_recep_coords = []
+            # for goal_recep in candidate_goal_receps:
+            #     candidate_goal_recep_coords.append(mn.Vector3(self.get_position_for_max_iou_viewpoint(goal_recep)))
+            # print(f"Candidate goal position: {ovmm_env.habitat_env.env._env.habitat_env.current_episode.candidate_goal_receps[0].position}")
+            # for vp_idx, vp in enumerate(ovmm_env.habitat_env.env._env.habitat_env.current_episode.candidate_goal_receps[0].view_points):
+            #     print(f"Viewpoint {vp_idx}: {vp.agent_state.position}")
+            # exit(1)
+            object_goal = ovmm_env.habitat_env.env._env.habitat_env.current_episode.candidate_goal_receps[
+                0
+            ]
+            object_vp_nav_goal = self.get_position_for_max_iou_viewpoint(object_goal)
+            object_nav_goal = object_goal.position
+
+            if self.config.EXPERIMENT.NAV_TO_REC.goal == "exact":
+                goal_coordinates = [object_nav_goal]
+            elif self.config.EXPERIMENT.NAV_TO_REC.goal == "max_iou_viewpoint":
+                goal_coordinates = [object_vp_nav_goal]
+            elif self.config.EXPERIMENT.NAV_TO_REC.goal == "vp_then_exact":
+                goal_coordinates = [object_vp_nav_goal, object_nav_goal]
+
+            self.nav_to_rec_agent.set_oracle_info(
+                ovmm_env.habitat_env.env._env,
+                goal_coordinates=goal_coordinates,
+                goal_radius=self.config.EXPERIMENT.NAV_TO_REC.goal_radius,
+            )
 
     def _get_info(self, obs: Observations) -> Dict[str, torch.Tensor]:
         """Get inputs for visual skill."""
@@ -331,6 +431,21 @@ class OpenVocabManipAgent(ObjectNavAgent):
             terminate = False
         return action, info, terminate
 
+    def _oracle_nav(
+        self,
+        obs: Observations,
+        info: Dict[str, Any],
+        oracle_agent: ShortestPathFollowerAgent,
+    ) -> Tuple[DiscreteNavigationAction, Any]:
+        if self.use_segmentation:
+            _, planner_info = super().act(obs)
+            # info overwrites planner_info entries for keys with same name
+            info = {**planner_info, **info}
+            self.timesteps[0] -= 1  # objectnav agent increments timestep
+        info["timestep"] = self.timesteps[0]
+        action, terminate = oracle_agent.act(obs, info)
+        return action, info, terminate
+
     def _heuristic_pick(
         self, obs: Observations, info: Dict[str, Any]
     ) -> Tuple[DiscreteNavigationAction, Any]:
@@ -401,6 +516,24 @@ class OpenVocabManipAgent(ObjectNavAgent):
             action, info, terminate = self._heuristic_nav(obs, info)
         elif nav_to_obj_type == "rl":
             action, info, terminate = self.nav_to_obj_agent.act(obs, info)
+        elif nav_to_obj_type == "oracle":
+            action, info, terminate = self._oracle_nav(obs, info, self.nav_to_obj_agent)
+            if (
+                terminate
+                and self.config.EXPERIMENT.NAV_TO_OBJ.fallback == "heuristic_nav"
+            ):  # Fallback to heuristic nav after oracle nav is done
+                print("[OVMM AGENT] Fallback to heuristic nav after oracle nav is done")
+                action, info, terminate = self._heuristic_nav(obs, info)
+            # if not self.nav_to_obj_closeness_check:
+            #     action, info, terminate = self._oracle_nav(obs, info, self.nav_to_obj_agent)
+            #     if terminate:
+            #         terminate = False
+            #         self.nav_to_obj_closeness_check = True
+            # if self.nav_to_obj_closeness_check:  # Fallback to heuristic nav after oracle nav is done
+            #     action, info, terminate = self._heuristic_nav(obs, info)
+            # self.timesteps[0] += 1
+            # info["timestep"] = self.timesteps[0]
+
         else:
             raise ValueError(
                 f"Got unexpected value for NAV_TO_OBJ.type: {nav_to_obj_type}"
@@ -486,6 +619,8 @@ class OpenVocabManipAgent(ObjectNavAgent):
             action, info, terminate = self._heuristic_nav(obs, info)
         elif nav_to_rec_type == "rl":
             action, info, terminate = self.nav_to_rec_agent.act(obs, info)
+        elif nav_to_rec_type == "oracle":
+            action, info, terminate = self._oracle_nav(obs, info, self.nav_to_rec_agent)
         else:
             raise ValueError(
                 f"Got unexpected value for NAV_TO_REC.type: {nav_to_rec_type}"

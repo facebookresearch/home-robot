@@ -449,11 +449,15 @@ class Visualizer:
         if self.show_images:
             cv2.imshow("Visualization", image_vis)
             cv2.waitKey(1)
-        if self.print_images:
-            cv2.imwrite(
-                os.path.join(self.vis_dir, "snapshot_{:03d}.png".format(timestep)),
-                image_vis,
-            )
+        # if self.print_images:
+        #     cv2.imwrite(
+        #         os.path.join(self.vis_dir, "snapshot_{:04d}.png".format(timestep)),
+        #         image_vis,
+        #     )
+        #     cv2.imwrite(
+        #         os.path.join(self.vis_dir, "tp_snapshot_{:04d}.png".format(timestep)),
+        #         image_vis[V.Y1 : V.Y2, V.THIRD_PERSON_X1 : V.THIRD_PERSON_X2],
+        #     )
 
     def _visualize_semantic_frame(
         self, image_vis: np.ndarray, semantic_frame: np.ndarray, palette: List
@@ -506,7 +510,7 @@ class Visualizer:
             num_views_per_instance[instance.category_id.item()].append(
                 len(instance.instance_views)
             )
-        text = "Instance counts"
+        text = "Stretch Robot"
         offset = 48
         y_pos = offset
 

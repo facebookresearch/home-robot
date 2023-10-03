@@ -1,7 +1,7 @@
 NO_GPU: 0                 # 1: ignore IDs above and run on CPU, 0: run on GPUs with IDs above
 NUM_ENVIRONMENTS: 1       # number of environments (per agent process)
 DUMP_LOCATION: datadump   # path to dump models and log
-EXP_NAME: eval_hssd       # experiment name
+EXP_NAME: eval_hssd_v7b       # experiment name
 VISUALIZE: 0              # 1: render observation and predicted semantic map, 0: no visualization
 PRINT_IMAGES: 1           # 1: save visualization as images, 0: no image saving
 GROUND_TRUTH_SEMANTICS: 1 # 1: use ground-truth semantics (for debugging / ablations)
@@ -9,17 +9,19 @@ seed: 0                   # seed
 SHOW_RL_OBS: False         # whether to show the observations passed to RL policices, for debugging
 
 EXPERIMENT: 
-  type: v0_extra_navigation_instructions_here
+  type: v7b__nav-oracle-nosegmentation-heurnearobject__pick-heur-vpthenexact__place-heur-vpthenexact
   NAV_TO_OBJ:
     type: oracle
     segmentation: False
-    fallback: none
-    goal: max_iou_viewpoint
+    fallback: heuristic_nav
+    goal: vp_then_exact
+    goal_radius: 0.3
   NAV_TO_REC:
     type: oracle
     segmentation: False
     fallback: none
-    goal: max_iou_viewpoint
+    goal: vp_then_exact
+    goal_radius: 0.3
 
 ENVIRONMENT:
   forward: 0.10           # forward motion (in meters)  Note: changing this should require a corresponding change in the habitat benchmark config
