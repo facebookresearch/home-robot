@@ -9,6 +9,9 @@ from datetime import datetime
 from typing import Optional, Tuple
 
 import click
+import evaluation_pb2
+import evaluation_pb2_grpc
+import grpc
 import rospy
 
 from home_robot.agent.ovmm_agent.ovmm_agent import OpenVocabManipAgent
@@ -16,15 +19,14 @@ from home_robot.motion.stretch import STRETCH_HOME_Q
 from home_robot_hw.env.stretch_pick_and_place_env import StretchPickandPlaceEnv
 from home_robot_hw.utils.config import load_config
 
-import grpc
-import evaluation_pb2
-import evaluation_pb2_grpc
 
 def grpc_dumps(entity):
     return pickle.dumps(entity)
 
+
 def grpc_loads(entity):
     return pickle.loads(entity)
+
 
 def metric_show_participant(phase):
     if phase == "1734" or phase == "1731":
@@ -33,33 +35,33 @@ def metric_show_participant(phase):
 
 
 def update_submission_result_and_exit(
-        challenge_pk,
-        phase_pk,
-        submission_pk,
-        metrics,
-        submission_status,
-        submission_error="",
-        stdout="",
-        metadata="",
-    ):
+    challenge_pk,
+    phase_pk,
+    submission_pk,
+    metrics,
+    submission_status,
+    submission_error="",
+    stdout="",
+    metadata="",
+):
     print(f"Metrics:\n{metrics}")
 
     submission_result = json.dumps(
         [
             {
-                'split': 'split',
-                'show_to_participant': metric_show_participant(phase_pk),
-                'accuracies': {
+                "split": "split",
+                "show_to_participant": metric_show_participant(phase_pk),
+                "accuracies": {
                     "OVERALL_SUCCESS": metrics.get("overall_success", -1),
                     "PARTIAL_SUCCESS": metrics.get("partial_success", -1),
                     "NUM_STEPS": metrics.get("num_steps", -1),
-                }
+                },
             }
         ]
     )
     submission_data = {
         "challenge_phase": phase_pk,
-        "submission":submission_pk,
+        "submission": submission_pk,
         "stdout": stdout,
         "stderr": submission_error,
         "submission_status": submission_status,
@@ -70,28 +72,28 @@ def update_submission_result_and_exit(
 
     evalai_api.update_submission_data(submission_data, challenge_pk)
     print("Data updated successfully")
-    
+
     exit(0)
 
-    
+
 class Environment(evaluation_pb2_grpc.EnvironmentServicer):
     def __init__(
-            self,
-            challenge_pk,
-            phase_pk,
-            submission_pk,
-            test_pick=False,
-            reset_nav=False,
-            pick_object="cup",
-            start_recep="table",
-            goal_recep="chair",
-            dry_run=False,
-            visualize_maps=False,
-            visualize_grasping=False,
-            test_place=False,
-            cat_map_file=None,
-            max_num_steps=200,
-            config_path="projects/real_world_ovmm/configs/agent/eval.yaml"
+        self,
+        challenge_pk,
+        phase_pk,
+        submission_pk,
+        test_pick=False,
+        reset_nav=False,
+        pick_object="cup",
+        start_recep="table",
+        goal_recep="chair",
+        dry_run=False,
+        visualize_maps=False,
+        visualize_grasping=False,
+        test_place=False,
+        cat_map_file=None,
+        max_num_steps=200,
+        config_path="projects/real_world_ovmm/configs/agent/eval.yaml",
     ) -> None:
         super().__init__()
         self.challenge_pk = challenge_pk
@@ -110,7 +112,7 @@ class Environment(evaluation_pb2_grpc.EnvironmentServicer):
         self.cat_map_file = cat_map_file
         self.max_num_steps = max_num_steps
         self.config_path = config_path
-        
+
         self._env = None
         self._env_number_of_episodes = None
         self._episode_metrics = {}
@@ -119,11 +121,10 @@ class Environment(evaluation_pb2_grpc.EnvironmentServicer):
 
         self._t = 0
 
-
     def init_env(self, request, context):
         print("- Starting ROS node")
         rospy.init_node("eval_episode_stretch_objectnav")
-        
+
         print("- Loading configuration")
         config = load_config(config_path=config_path, visualize=self.visualize_maps)
 
@@ -137,7 +138,7 @@ class Environment(evaluation_pb2_grpc.EnvironmentServicer):
         )
 
         self._env_number_of_episodes = self._env.number_of_episodes
-        
+
         self._robot = self._env.get_robot()
 
         if self.reset_nav:
@@ -151,7 +152,9 @@ class Environment(evaluation_pb2_grpc.EnvironmentServicer):
 
     def number_of_episodes(self, request, context):
         ## does real world have episodes yet? Only looks like one episode
-        return evaluation_pb2.Package(SerializedEntity=grpc_dumps(self._env_number_of_episodes))
+        return evaluation_pb2.Package(
+            SerializedEntity=grpc_dumps(self._env_number_of_episodes)
+        )
 
     def reset(self, request, context):
         ## real world robot doesn't seem to have reset so this only works for first episode
@@ -159,13 +162,13 @@ class Environment(evaluation_pb2_grpc.EnvironmentServicer):
         return evaluation_pb2.Package(SerializedEntity=grpc_dumps(observations))
 
     def get_current_episode(self, request, context):
-        current_episode = 1 ## real world doesn't seem to have episodes yet
+        current_episode = 1  ## real world doesn't seem to have episodes yet
         return evaluation_pb2.Package(SerializedEntity=grpc_dumps(current_episode))
-    
+
     def apply_action(self, request, context):
         self._t += 1
         action, info = grpc_loads(request.SerializedEntity)
-        done = env.apply_action(action, info=info) ## is prev_obs required?
+        done = env.apply_action(action, info=info)  ## is prev_obs required?
 
         if "skill_done" in info and info["skill_done"] != "":
             metrics = self._extract_scalars_from_info(hab_info)
@@ -189,12 +192,16 @@ class Environment(evaluation_pb2_grpc.EnvironmentServicer):
             if "goal_name" in info:
                 self._current_episode_metrics["goal_name"] = info["goal_name"]
 
-            self._episode_metrics[self._current_episode_key] = self._current_episode_metrics
+            self._episode_metrics[
+                self._current_episode_key
+            ] = self._current_episode_metrics
             self._current_episode_metrics = {}
 
         observations = self._env.get_observation()
-        hab_info = None ## not sure what hab_info should be for real world
-        return evaluation_pb2.Package(SerializedEntity=grpc_dumps((observations, done, hab_info)))
+        hab_info = None  ## not sure what hab_info should be for real world
+        return evaluation_pb2.Package(
+            SerializedEntity=grpc_dumps((observations, done, hab_info))
+        )
 
     def evalai_update_submission(self, request, context):
         if len(self._episode_metrics) != self._env_number_of_episodes:
@@ -202,10 +209,10 @@ class Environment(evaluation_pb2_grpc.EnvironmentServicer):
                 "Not all episodes have been evaluated: "
                 f"number of episodes evaluated ({len(self._episode_metrics)}) != total number of episodes ({self._env_number_of_episodes})."
             )
-        
+
         average_metrics = self._summarize_metrics(self._episode_metrics)
         self._print_summary(average_metrics)
-        
+
         update_submission_result_and_exit(
             challenge_pk=self.challenge_pk,
             phase_pk=self.phase_pk,
@@ -213,11 +220,12 @@ class Environment(evaluation_pb2_grpc.EnvironmentServicer):
             metrics=average_metrics,
             submission_status="FINISHED",
         )
-        
+
     def close(self, request, context):
         self._env.close()
-        return evaluation_pb2.Package()                    
-    
+        return evaluation_pb2.Package()
+
+
 @click.command()
 @click.option("--test-pick", default=False, is_flag=True)
 @click.option("--test-gaze", default=False, is_flag=True)
@@ -255,7 +263,7 @@ def main():
         print("Submission time limit: ", str(agent_timelimit), " seconds")
 
         server = grpc.server(
-            thread_pool=futures.ThreadPoolExecutor(max_workers = 1),
+            thread_pool=futures.ThreadPoolExecutor(max_workers=1),
             compression=grpc.Compression.Gzip,
             options=[
                 (
@@ -265,11 +273,10 @@ def main():
             ],
         )
         evaluation_pb2_grpc.add_EnvironmentServicer_to_server(
-            servicer=Environment(challenge_pk, phase_pk, submission_pk),
-            server=server
+            servicer=Environment(challenge_pk, phase_pk, submission_pk), server=server
         )
-        print('Starting server. Listening on port 8085.')
-        server.add_insecure_port('[::]:8085')
+        print("Starting server. Listening on port 8085.")
+        server.add_insecure_port("[::]:8085")
         server.start()
         try:
             with Timeout(seconds=agent_timelimit):
@@ -279,9 +286,10 @@ def main():
             server.stop(0)
     except Exception as e:
         import traceback
+
         print("Exception:", e)
         print(traceback.print_exc())
-        
+
         update_submission_result_and_exit(
             challenge_pk=challenge_pk,
             phase_pk=phase_pk,
@@ -290,14 +298,14 @@ def main():
                 "overall_success": -1.0,
                 "partial_success": -1.0,
                 "num_steps": -1.0,
-            }, 
+            },
             submission_status="FAILED",
             submission_error=str(e),
         )
-    
+
 
 if __name__ == "__main__":
     print("---- Starting real-world evaluation ----")
-    main()        
+    main()
     print("==================================")
     print("Done real world evaluation.")
