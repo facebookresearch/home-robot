@@ -54,7 +54,7 @@ def get_bounding_boxes(args, data, color_data):
         bb_coords[i, :, 1] = torch.max(cluster, axis=0)[0]
 
         # use different bright colors for points in different clusters
-        color_data[labels == i] = torch.tensor(COLOR_LIST[i % len(COLOR_LIST)]).float()
+        color_data[labels == i] = torch.tensor(COLOR_LIST[i % len(COLOR_LIST)], device=data.device).float()
     return bb_coords, color_data, labels
 
 class TorchCamera:
@@ -292,7 +292,7 @@ class ConceptFusion:
 
         return outfeat
 
-    def text_query(
+    def text_query_original(
         self,
         query: str,
         map_features: torch.Tensor,
@@ -332,6 +332,74 @@ class ConceptFusion:
             map_colors = 0.5 * map_colors + 0.5 * similarity_colormap
 
         return map_colors, selected_inds.detach().cpu().numpy(), similarity.squeeze()
+
+    def text_queries(
+        self,
+        queries: Sequence[str],
+    ):
+        pc_xyz, pc_feat, _, pc_rgb = self.voxel_map.get_pointcloud()
+
+        text = self.tokenizer(queries)
+        textfeat = self.CLIP_model.encode_text(text.to(self.device))
+        textfeat = torch.nn.functional.normalize(textfeat, dim=-1)
+
+        pc_feat = pc_feat.to(self.device)
+        pc_feat = torch.nn.functional.normalize(pc_feat, dim=-1)
+
+        # match dimensions to do cosine similarity
+        textfeat = textfeat.unsqueeze(1).repeat(1, pc_feat.shape[0], 1)
+        pc_feat_expanded = pc_feat.unsqueeze(0).repeat(textfeat.shape[0], 1, 1)
+
+        similarity = self.cosine_similarity(textfeat, pc_feat_expanded) # [n_points, n_classes]
+
+        del pc_feat_expanded
+
+        point_class = similarity.argmax(dim=0)
+
+        instances_dict = {}
+        for idx, class_name in enumerate(queries):
+            selected_inds = torch.nonzero((point_class == idx) & (similarity[idx] > self.similarity_params.similarity_thresh)).squeeze(1)
+
+            pc_feat_objects = pc_feat[selected_inds]
+            pc_rgb_objects = pc_rgb[selected_inds]
+            pc_xyz_objects = pc_xyz[selected_inds]
+            similarity_score_objects = similarity[idx, selected_inds].squeeze()
+
+            bounding_boxes, pc_rgb_objects, labels = get_bounding_boxes(self.dbscan_params, pc_xyz_objects, pc_rgb_objects)
+
+            instances_per_class = []
+            for idx in range(len(bounding_boxes)):
+                bounds = bounding_boxes[idx]
+
+                volume = float(box3d_volume_from_bounds(bounds).squeeze())
+                min_dim = (bounds[:, 1] - bounds[:, 0]).min()
+
+                if volume < 1e-6 or min_dim < 0.01:
+                    warnings.warn(
+                        f"Skipping box with bounding box {bounds}, volume {volume} and min_dim {min_dim}",
+                        UserWarning,
+                    )
+                else:
+                    instance = Instance(score_aggregation_method='max')
+
+                    # TODO: get rid of the instance view altogether
+                    instance_view = InstanceView(
+                        bbox=None,
+                        bounds=bounds,
+                        timestep=0,
+                        embedding=pc_feat_objects[labels == idx].mean(axis=0),
+                        point_cloud=pc_xyz_objects[labels == idx],
+                        point_cloud_rgb=pc_rgb_objects[labels == idx],
+                        category_id=self.class_names_to_class_id[class_name],
+                        score=similarity_score_objects[labels == idx].max()
+                    )
+                    # append instance view to list of instance views
+                    instance.add_instance_view(instance_view)
+                    instances_per_class.append(instance)
+
+            instances_dict[class_name] = instances_per_class
+
+        return instances_dict
 
     def build_scene(self, scene_obs: Dict[str, Any]):
         """
@@ -400,7 +468,7 @@ class ConceptFusion:
         instances_dict = {}
         for class_name in queries:
             logger.debug("Querying for class: {}".format(class_name))
-            pc_rgb_after_query, selected_inds, similarity_score = self.text_query(class_name, pc_feat)
+            pc_rgb_after_query, selected_inds, similarity_score = self.text_query_original(class_name, pc_feat)
 
             if selected_inds.shape[0] <= 1:
                 warnings.warn(
@@ -456,7 +524,10 @@ class ConceptFusion:
     ):
         self.build_scene(scene_obs)
 
-        return self.get_instances_for_queries(queries)
+        if self.similarity_params.viz_type == 'classify_all':
+            return self.text_queries(queries)
+        else:
+            return self.get_instances_for_queries(queries)
 
     def show_point_cloud_pytorch3d(
             self,
