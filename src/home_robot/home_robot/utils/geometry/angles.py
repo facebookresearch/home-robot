@@ -13,7 +13,8 @@ def angle_difference(angle1: float, angle2: float) -> float:
     """Calculate the smallest difference between two angles in radians."""
     angle1 = angle1 % PI2
     angle2 = angle2 % PI2
-    return np.abs(angle1 - angle2)
+    diff = np.abs(angle1 - angle2)
+    return min(diff, PI2 - diff)
 
 
 def interpolate_angles(start_angle, end_angle, step_size: float = 0.1):
