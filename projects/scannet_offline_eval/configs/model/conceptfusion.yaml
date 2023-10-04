@@ -26,8 +26,8 @@ dbscan_params:
   min_samples: 30
 
 similarity_params:
-  viz_type: "thresh" # "topk" or "thresh"
-  similarity_thresh: 0.85
+  viz_type: "thresh" # "topk", "thresh", classify_all
+  similarity_thresh: 0.15
   topk: 1000
 
 file_params:
