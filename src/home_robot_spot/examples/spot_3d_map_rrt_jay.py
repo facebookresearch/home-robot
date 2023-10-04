@@ -4,17 +4,20 @@
 # LICENSE file in the root directory of this source tree.
 import datetime
 import os
+import pickle
 import random
 import sys
 import time
+import shutil
 from typing import Dict, List, Optional
-import pickle
+
 import matplotlib.pyplot as plt
 import numpy as np
 import open3d
-from PIL import Image
 import torch
 from atomicwrites import atomic_write
+from PIL import Image
+
 import home_robot_spot.nav_client as nc
 from home_robot.agent.ovmm_agent import (
     OvmmPerception,
@@ -32,12 +35,11 @@ from home_robot.motion.spot import (  # Just saves the Spot robot footprint for 
     SimpleSpotKinematics,
 )
 from home_robot.utils.config import get_config, load_config
+from home_robot.utils.geometry import xyt_global_to_base
 from home_robot.utils.point_cloud import numpy_to_pcd
 from home_robot.utils.visualization import get_x_and_y_from_path
 from home_robot_spot import SpotClient, VoxelMapSubscriber
 from home_robot_spot.grasp_env import GraspController
-from home_robot.utils.geometry import xyt_global_to_base
-
 
 def goto(spot: SpotClient, planner: Planner, goal):
     """Send the spot to the correct location."""
@@ -58,9 +60,10 @@ def goto(spot: SpotClient, planner: Planner, goal):
     return res
 
 # NOTE: this requires 'pip install atomicwrites'
-def publish_obs(model: SparseVoxelMapNavigationSpace, path: str, timestep: int):
+def publish_obs(model: SparseVoxelMapNavigationSpace, path: str):
+    timestep = len(model.voxel_map.observations) - 1
     with atomic_write(f"{path}/{timestep}.pkl", mode="wb") as f:
-        model_obs = model.voxel_map.observations[timestep]
+        model_obs = model.voxel_map.observations[-1]
         print(f"Saving observation to pickle file...{f'{timestep}.pkl'}")
         pickle.dump(
             dict(
@@ -189,33 +192,36 @@ def navigate_to_an_instance(
 
     return True
 
-def place_in_an_instance(instance_id, spot, voxel_map, place_height= 0.3, place_rotation=[0, np.pi/2, 0]):
+def place_in_an_instance(
+    instance_id, spot, voxel_map, place_height=0.3, place_rotation=[0, np.pi / 2, 0]
+):
     # Parameters for the placing function from the pointcloud
     ground_normal = torch.tensor([0.0, 0.0, 1])
-    nbr_dist = .15
+    nbr_dist = 0.15
     residual_thresh = 0.03
 
     # Get the pointcloud of the instance
     pc_xyz = voxel_map.get_instances()[instance_id].point_cloud
 
     # get the location (in global coordinates) of the placeable location
-    location, area_prop = nc.find_placeable_location(pc_xyz, ground_normal, nbr_dist, residual_thresh)
+    location, area_prop = nc.find_placeable_location(
+        pc_xyz, ground_normal, nbr_dist, residual_thresh
+    )
 
     # Navigate close to that location
-    k = .5 
     # TODO solve the system of equations to get k such that the distance is .75 meters
-    # k = 1 - M / (norm(vp - vr)) where M is the distance we want to be from the object
 
     instance_pose = voxel_map.get_instances()[instance_id].instance_views[-1].pose
     vr = np.array([instance_pose[0], instance_pose[1]])
     vp = np.asarray(location[:2])
+    k = 1 - (1 / (np.linalg.norm(vp - vr)))
     vf = vr + (vp - vr) * k
     spot.navigate_to(np.array([vf[0], vf[1], instance_pose[2]]), blocking=True)
 
     # Transform placing position to body frame coordinates
     x, y, yaw = spot.spot.get_xy_yaw()
     local_xyt = xyt_global_to_base(location, np.array([x, y, yaw]))
-    
+
     # z is the height of the receptacle minus the height of spot + the desired delta for placing
     z = location[2] - spot.spot.body.z + place_height
     local_xyz = np.array([local_xyt[0], local_xyt[1], z])
@@ -224,8 +230,7 @@ def place_in_an_instance(instance_id, spot, voxel_map, place_height= 0.3, place_
     # Now we place
     spot.spot.move_gripper_to_point(local_xyz, rotations)
     time.sleep(2)
-    breakpoint()
-    spot.spot.rotate_gripper_with_delta(wrist_roll = np.pi / 2)
+    spot.spot.rotate_gripper_with_delta(wrist_roll=np.pi / 2)
     spot.spot.open_gripper()
 
     # reset arm
@@ -244,7 +249,6 @@ def get_obj_centric_world_representation(instance_memory, max_context_length):
             "\nWarning: this version of minigpt4 can only handle limited size of crops -- sampling a subset of crops from the instance memory..."
         )
         crops = random.sample(crops, max_context_length)
-    import shutil
 
     debug_path = "crops_for_planning/"
     shutil.rmtree(debug_path, ignore_errors=True)
