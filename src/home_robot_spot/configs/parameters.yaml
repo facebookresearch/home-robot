@@ -1,6 +1,6 @@
 
 step_size: 2.0  # (originally .1, we can make it all the way to 2 maybe actually)
-rotation_step_size: np.pi
+rotation_step_size: 3.1415
 visualize": False
 exploration_steps: 20
 use_midas: False
