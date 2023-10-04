@@ -62,7 +62,7 @@ def test6():
 
 def test7():
     print("--- 7 ---")
-    _eval_angle_difference(-np.pi / 2, 0, expected=3 * np.pi / 2, expected_step=-1)
+    _eval_angle_difference(-np.pi / 2, 0, expected=np.pi / 2, expected_step=1)
 
 
 def test8():

@@ -17,10 +17,20 @@ def angle_difference(angle1: float, angle2: float) -> float:
     return min(diff, PI2 - diff)
 
 
-def interpolate_angles(start_angle: float, end_angle: float, step_size: float = 0.1) -> float:
+def interpolate_angles(
+    start_angle: float, end_angle: float, step_size: float = 0.1
+) -> float:
     """Interpolate between two angles in radians with a given step size."""
     start_angle = start_angle % PI2
     end_angle = end_angle % PI2
-    direction = np.sign((end_angle - start_angle + PI2) % PI2 - np.pi)
-    interpolated_angle = start_angle + (step_size * direction)
+    diff1 = (end_angle - start_angle) % PI2
+    diff2 = (start_angle - end_angle) % PI2
+    if diff1 <= diff2:
+        direction = 1
+        delta = diff1
+    else:
+        direction = -1
+        delta = diff2
+    step = min(delta, step_size) * direction
+    interpolated_angle = start_angle + step
     return interpolated_angle % PI2
