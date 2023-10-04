@@ -1,11 +1,18 @@
+import sys
+
+sys.path.append("../../..")
 import io
 import logging
 from concurrent import futures
 
 import grpc
+import numpy as np
 import robodata_pb2
 import robodata_pb2_grpc
 import torch
+from PIL import Image
+
+import home_robot.mapping
 
 
 class RoboDataServicer(robodata_pb2_grpc.RobotDataServicer):
@@ -39,18 +46,27 @@ class RoboDataServicer(robodata_pb2_grpc.RobotDataServicer):
         yield self.obs_history.pop(0)
 
     def PlanHighLevelAction(self, request, context):
+        req_msg = ""
+        obj_crops = []
+        for r in request:
+            req_msg = req_msg + r.message
+            for im in r.instance_image:
+                tensor_img = self._robotensor_to_tensor(im)
+                print(tensor_img.shape)
+                post_img = self.predictor.vis_processor(
+                    Image.fromarray(np.array(tensor_img).astype(np.uint8))
+                )
+                print(post_img.shape)
+                obj_crops.append(post_img)
         prompt = "Task: You are a chatbot exploring a home."
         # TODO something more sophisticated
-        prompt = prompt + request.message
-        obj_crops = []
-        for r in request.instance_imgs:
-            obj_crops.append(self._robotensor_to_tensor(r))
-
+        prompt = prompt + req_msg
         chat_input = {
             "prompt": [prompt],
             "crops": torch.stack(obj_crops, dim=0).unsqueeze(0),
             "images": [],
         }
+        print("len of crops:" + str(len(obj_crops)))
         with torch.no_grad():
             response = self.predictor.model._generate_answers(
                 chat_input,
@@ -76,7 +92,7 @@ class RoboDataServicer(robodata_pb2_grpc.RobotDataServicer):
         prompt = "Task: You are a chatbot exploring a home."
         # TODO something more sophisticated
         prompt = prompt + request.conversation[-1].content
-
+        print("prompt: " + str(prompt))
         imgs = []
         for r in request.imgs:
             imgs.append(self._robotensor_to_tensor(r))
@@ -97,7 +113,7 @@ class RoboDataServicer(robodata_pb2_grpc.RobotDataServicer):
         x = robodata_pb2.ChatMsg()
         x.role = "LLama"
         x.content = "llama llama red pajama"
-        return x
+        yield x
 
 
 def serve(args=None):

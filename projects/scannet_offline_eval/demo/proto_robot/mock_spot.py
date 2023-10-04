@@ -95,6 +95,7 @@ def test_vlm(stub):
     voxel_file = "/private/home/ssilwal/dev/home-robot/spot_output.pkl"
     voxel_map = v.SparseVoxelMap()
     voxel_map.read_from_pickle(voxel_file)
+    print("generated voxel_map")
 
     def get_obj_centric_world_representation(instance_memory, max_context_length):
         crops = []
@@ -120,13 +121,23 @@ def test_vlm(stub):
             ret.append(crop[1].cpu().numpy())  # str(id) + "_" + str(crop[0]) + ".png")
         return ret
 
-    world_rep = get_obj_centric_world_representation(voxel_map.get_instances(), 15)
-    robo_msg = robodata_pb2.RobotSummary()
-    for obj in world_rep:
-        proto_obj = robo_msg.instance_image.add()
-        proto_obj.CopyFrom(tensor_to_robotensor(obj))
-    robo_msg.message = "Where is the cup?"
-    stub.PlanHighLevelAction(robo_msg)
+    world_rep = get_obj_centric_world_representation(voxel_map.get_instances(), 10)
+
+    def get_world_rep_msgs(world_rep):
+        not_sent = True
+        for obj in world_rep:
+            robo_msg = robodata_pb2.RobotSummary()
+            proto_obj = robo_msg.instance_image.add()
+            proto_obj.CopyFrom(tensor_to_robotensor(obj))
+            if not_sent:
+                robo_msg.message = "Where is the cup?"
+                not_sent = False
+            yield robo_msg
+
+    resp = stub.PlanHighLevelAction(get_world_rep_msgs(world_rep))
+    print("response!")
+    for r in resp:
+        print(r)
 
 
 def run():
