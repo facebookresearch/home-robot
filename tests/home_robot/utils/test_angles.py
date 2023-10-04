@@ -36,7 +36,7 @@ def test2():
 
 def test3():
     print("--- 3 ---")
-    _eval_angle_difference(0, 2 * np.pi, 0, expected_step=0)
+    _eval_angle_difference(0, PI2, 0, expected_step=0)
 
 
 def test4():
