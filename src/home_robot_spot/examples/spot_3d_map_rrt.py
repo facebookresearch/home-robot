@@ -374,7 +374,7 @@ def main(dock: Optional[int] = None, args=None):
                 print("!!!!!!!!"*10)
                 print("Start is not valid, exiting exploration...")
                 # Move a little bit backwards
-                spot.move_base(-.5,0)
+                spot.move_base(-0.5,0.5)
                 #break
 
             if parameters["explore_methodical"]:
