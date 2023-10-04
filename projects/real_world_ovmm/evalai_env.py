@@ -67,8 +67,8 @@ class Environment(evaluation_pb2_grpc.EnvironmentServicer):
         self._t = 0
 
     def init_env(self, request, context):
-        """ Initialize robot environment"""
-        
+        """Initialize robot environment"""
+
         print("- Starting ROS node")
         rospy.init_node("eval_episode_stretch_objectnav")
 
@@ -157,7 +157,7 @@ class Environment(evaluation_pb2_grpc.EnvironmentServicer):
 
     def evalai_update_submission(self, request, context):
         pass
-    
+
     def close(self, request, context):
         """Close environment"""
         self._env.close()
