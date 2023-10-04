@@ -16,7 +16,7 @@ import numpy as np
 import torch
 from habitat.core.agent import Agent
 from habitat.core.spaces import EmptySpace
-from habitat.utils.gym_adapter import (
+from habitat.gym.gym_wrapper import (
     continuous_vector_action_to_hab_dict,
     create_action_space,
 )
@@ -28,6 +28,7 @@ from habitat_baselines.common.obs_transformers import (
 )
 from habitat_baselines.config.default import get_config as get_habitat_config
 from habitat_baselines.utils.common import batch_obs
+from omegaconf import OmegaConf
 
 import home_robot.utils.pose as pu
 from home_robot.agent.ovmm_agent.complete_obs_space import get_complete_obs_space
@@ -170,6 +171,17 @@ class PPOAgent(Agent):
             self.num_actions = self.vector_action_space.n
             self.actions_dim = 1
 
+        # load checkpoint
+        model_path, ckpt = skill_config.checkpoint_path, None
+        if model_path:
+            ckpt = torch.load(model_path, map_location=self.device)
+
+        # set `normalize_visual_inputs` in config if the checkpoint has running mean and var parameters in the visual encoder
+        OmegaConf.set_readonly(self.rl_config, False)
+        self.rl_config.habitat_baselines.rl.ddppo.normalize_visual_inputs = (
+            "net.visual_encoder.running_mean_and_var._mean" in ckpt["state_dict"].keys()
+        )
+
         # Initialize actor critic using the policy config
         self.actor_critic = policy.from_config(
             self.rl_config,
@@ -177,20 +189,10 @@ class PPOAgent(Agent):
             self.vector_action_space,
         )
         self.actor_critic.to(self.device)
-
-        # load checkpoint
-        model_path = skill_config.checkpoint_path
-        if model_path:
-            ckpt = torch.load(model_path, map_location=self.device)
-            #  Filter only actor_critic weights
-            self.actor_critic.load_state_dict(
-                {
-                    k[len("actor_critic.") :]: v
-                    for k, v in ckpt["state_dict"].items()
-                    if "actor_critic" in k
-                }
-            )
+        if ckpt:
+            self.actor_critic.load_state_dict(ckpt["state_dict"])
         self.actor_critic.eval()
+
         self.max_displacement = skill_config.max_displacement
         self.max_turn = skill_config.max_turn_degrees * np.pi / 180
         self.min_displacement = skill_config.min_displacement
@@ -319,15 +321,16 @@ class PPOAgent(Agent):
         )
         hab_obs = OrderedDict(
             {
-                "robot_head_depth": np.expand_dims(normalized_depth, -1).astype(
-                    np.float32
-                ),
+                "head_depth": np.expand_dims(normalized_depth, -1).astype(np.float32),
                 "object_embedding": obs.task_observations["object_embedding"],
                 "object_segmentation": np.expand_dims(
                     obs.semantic == obs.task_observations["object_goal"], -1
                 ).astype(np.uint8),
                 "goal_recep_segmentation": np.expand_dims(
                     obs.semantic == obs.task_observations["end_recep_goal"], -1
+                ).astype(np.uint8),
+                "start_recep_segmentation": np.expand_dims(
+                    obs.semantic == obs.task_observations["start_recep_goal"], -1
                 ).astype(np.uint8),
                 "joint": obs.joint,
                 "relative_resting_position": obs.relative_resting_position,
@@ -380,12 +383,11 @@ class PPOAgent(Agent):
                 self.not_done_masks,
                 deterministic=False,
             )
-            (
-                _,
-                actions,
-                _,
-                self.test_recurrent_hidden_states,
-            ) = action_data
+
+            actions, self.test_recurrent_hidden_states = (
+                action_data.actions,
+                action_data.rnn_hidden_states,
+            )
 
             #  Make masks not done till reset (end of episode) will be called
             self.not_done_masks.fill_(True)

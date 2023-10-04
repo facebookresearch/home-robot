@@ -22,11 +22,11 @@ RUN mkdir -p home-robot/src/home_robot/home_robot/perception/detection/detic/Det
 RUN /bin/bash -c "\
     mkdir -p home-robot/data/checkpoints \
     && cd home-robot/data/checkpoints \
-    && wget https://dl.fbaipublicfiles.com/habitat/data/baselines/v1/ovmm_baseline_home_robot_challenge_2023.zip \
-        -O ovmm_baseline_home_robot_challenge_2023.zip \
+    && wget https://dl.fbaipublicfiles.com/habitat/data/baselines/v1/ovmm_baseline_home_robot_challenge_2023_v0.2.zip \
+        -O ovmm_baseline_home_robot_challenge_2023_v0.2.zip \
         --no-check-certificate \
-    && unzip ovmm_baseline_home_robot_challenge_2023.zip \
-    && rm ovmm_baseline_home_robot_challenge_2023.zip \
+    && unzip ovmm_baseline_home_robot_challenge_2023_v0.2.zip -d ovmm_baseline_home_robot_challenge_2023_v0.2 \
+    && rm ovmm_baseline_home_robot_challenge_2023_v0.2.zip \
     "
 
 # add baseline agent code
