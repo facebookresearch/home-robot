@@ -113,8 +113,9 @@ class StretchNavigationClient(AbstractControlModule):
         self,
         trajectory: List[np.ndarray],
         pos_err_threshold: float = 0.2,
+        rot_err_threshold: float = 0.75,
         spin_rate: int = 10,
-        verbose: bool = True,
+        verbose: bool = False,
         per_waypoint_timeout: float = 10.0,
         relative: bool = False,
     ):
@@ -128,6 +129,7 @@ class StretchNavigationClient(AbstractControlModule):
             self.wait_for_waypoint(
                 pt,
                 pos_err_threshold=pos_err_threshold,
+                rot_err_threshold=rot_err_threshold,
                 rate=spin_rate,
                 verbose=verbose,
                 timeout=per_waypoint_timeout,

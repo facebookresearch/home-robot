@@ -1,5 +1,5 @@
 <?xml version="1.0"?>
 <launch>
-	<param name="/use_sim_time" value="true"/>
+	<param name="/use_sim_time" value="false"/>
 	<node name="master_clock" type="clock.py" pkg="home_robot_hw" required="true"/>
 </launch>
