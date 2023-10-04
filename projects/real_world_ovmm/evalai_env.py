@@ -67,6 +67,8 @@ class Environment(evaluation_pb2_grpc.EnvironmentServicer):
         self._t = 0
 
     def init_env(self, request, context):
+        """ Initialize robot environment"""
+        
         print("- Starting ROS node")
         rospy.init_node("eval_episode_stretch_objectnav")
 
@@ -96,21 +98,26 @@ class Environment(evaluation_pb2_grpc.EnvironmentServicer):
         return evaluation_pb2.Package()
 
     def number_of_episodes(self, request, context):
+        """Return number of episodes"""
         ## does real world have episodes yet? Only looks like one episode
         return evaluation_pb2.Package(
             SerializedEntity=grpc_dumps(self._env_number_of_episodes)
         )
 
     def reset(self, request, context):
+        """Start a new episode"""
         ## real world robot doesn't seem to have reset so this only works for first episode
         observations = self._env.get_observation()
         return evaluation_pb2.Package(SerializedEntity=grpc_dumps(observations))
 
     def get_current_episode(self, request, context):
+        """Return current episode id"""
         current_episode = 1  ## real world doesn't seem to have episodes yet
         return evaluation_pb2.Package(SerializedEntity=grpc_dumps(current_episode))
 
     def apply_action(self, request, context):
+        """Recieve action from the agent and execute action on the robot.
+        Return the observations, done boolean and hab_info"""
         self._t += 1
         action, info = grpc_loads(request.SerializedEntity)
         done = env.apply_action(action, info=info)  ## is prev_obs required?
@@ -152,6 +159,7 @@ class Environment(evaluation_pb2_grpc.EnvironmentServicer):
         pass
     
     def close(self, request, context):
+        """Close environment"""
         self._env.close()
         return evaluation_pb2.Package()
 
