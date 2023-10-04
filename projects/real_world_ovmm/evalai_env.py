@@ -28,61 +28,9 @@ def grpc_loads(entity):
     return pickle.loads(entity)
 
 
-def metric_show_participant(phase):
-    if phase == "1734" or phase == "1731":
-        return False
-    return True
-
-
-def update_submission_result_and_exit(
-    challenge_pk,
-    phase_pk,
-    submission_pk,
-    metrics,
-    submission_status,
-    submission_error="",
-    stdout="",
-    metadata="",
-):
-    print(f"Metrics:\n{metrics}")
-
-    submission_result = json.dumps(
-        [
-            {
-                "split": "split",
-                "show_to_participant": metric_show_participant(phase_pk),
-                "accuracies": {
-                    "OVERALL_SUCCESS": metrics.get("overall_success", -1),
-                    "PARTIAL_SUCCESS": metrics.get("partial_success", -1),
-                    "NUM_STEPS": metrics.get("num_steps", -1),
-                },
-            }
-        ]
-    )
-    submission_data = {
-        "challenge_phase": phase_pk,
-        "submission": submission_pk,
-        "stdout": stdout,
-        "stderr": submission_error,
-        "submission_status": submission_status,
-        "result": submission_result,
-        "metadata": metadata,
-    }
-    print(f"Submission data:\n{submission_data}")
-
-    evalai_api.update_submission_data(submission_data, challenge_pk)
-    print("Data updated successfully")
-
-    exit(0)
-
-
 class Environment(evaluation_pb2_grpc.EnvironmentServicer):
     def __init__(
         self,
-        challenge_pk,
-        phase_pk,
-        submission_pk,
-        test_pick=False,
         reset_nav=False,
         pick_object="cup",
         start_recep="table",
@@ -96,9 +44,6 @@ class Environment(evaluation_pb2_grpc.EnvironmentServicer):
         config_path="projects/real_world_ovmm/configs/agent/eval.yaml",
     ) -> None:
         super().__init__()
-        self.challenge_pk = challenge_pk
-        self.phase_pk = phase_pk
-        self.submission_pk = submission_pk
 
         self.test_pick = test_pick
         self.reset_nav = reset_nav
@@ -204,23 +149,8 @@ class Environment(evaluation_pb2_grpc.EnvironmentServicer):
         )
 
     def evalai_update_submission(self, request, context):
-        if len(self._episode_metrics) != self._env_number_of_episodes:
-            raise ValueError(
-                "Not all episodes have been evaluated: "
-                f"number of episodes evaluated ({len(self._episode_metrics)}) != total number of episodes ({self._env_number_of_episodes})."
-            )
-
-        average_metrics = self._summarize_metrics(self._episode_metrics)
-        self._print_summary(average_metrics)
-
-        update_submission_result_and_exit(
-            challenge_pk=self.challenge_pk,
-            phase_pk=self.phase_pk,
-            submission_pk=self.submission_pk,
-            metrics=average_metrics,
-            submission_status="FINISHED",
-        )
-
+        pass
+    
     def close(self, request, context):
         self._env.close()
         return evaluation_pb2.Package()
@@ -250,14 +180,6 @@ class Environment(evaluation_pb2_grpc.EnvironmentServicer):
 )
 def main():
     try:
-        BODY = os.environ.get("BODY")
-        BODY = BODY.replace("'", '"')
-        BODY = json.loads(BODY)
-        print("BODY", BODY)
-
-        challenge_pk = BODY["challenge_pk"]
-        phase_pk = BODY["phase_pk"]
-        submission_pk = BODY["submission_pk"]
 
         agent_timelimit = int(os.getenv("SUBMISSION_TIME_LIMIT", 172800))
         print("Submission time limit: ", str(agent_timelimit), " seconds")
@@ -289,19 +211,6 @@ def main():
 
         print("Exception:", e)
         print(traceback.print_exc())
-
-        update_submission_result_and_exit(
-            challenge_pk=challenge_pk,
-            phase_pk=phase_pk,
-            submission_pk=submission_pk,
-            metrics={
-                "overall_success": -1.0,
-                "partial_success": -1.0,
-                "num_steps": -1.0,
-            },
-            submission_status="FAILED",
-            submission_error=str(e),
-        )
 
 
 if __name__ == "__main__":
