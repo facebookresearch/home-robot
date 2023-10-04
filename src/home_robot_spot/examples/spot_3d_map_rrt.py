@@ -415,7 +415,7 @@ def main(dock: Optional[int] = None, args=None):
                 print("- Observed from coordinates:", obs.gps, obs.compass)
                 obs = semantic_sensor.predict(obs)
                 timestamp = f"{datetime.datetime.now():%Y-%m-%d-%H-%M-%S}"
-                path = f"/home/jaydv/Documents/home-robot/viz_data/{timestamp}"
+                path = f"{os.environ['HOME_ROBOT_ROOT']}/viz_data/{timestamp}"
                 os.makedirs(path, exist_ok=True)
                 publish_obs(navigation_space, path, step)
                 voxel_map.add_obs(obs, xyz_frame="world")
