@@ -16,12 +16,12 @@ def _eval_angle_difference(a, b, expected, expected_step):
     assert result <= PI2
 
     step_size = 0.1
-    expected_step = (a + (expected_step * step_size)) % PI2
-    step = interpolate_angles(a, b, step_size=step_size)
-    print(f"interpolating: {step=}, {expected_step=}")
-    assert np.allclose(step, expected_step)
-    assert step >= 0
-    assert step <= PI2
+    expected_interp = (a + (expected_step * step_size)) % PI2
+    interp = interpolate_angles(a, b, step_size=step_size)
+    print(f"interpolating: {interp=}, {expected_interp=}")
+    assert np.allclose(interp, expected_interp)
+    assert interp >= 0
+    assert interp <= PI2
 
 
 def test1():
@@ -49,7 +49,7 @@ def test4():
 def test5():
     print("--- 5 ---")
     _eval_angle_difference(
-        -2 * np.pi, np.pi + 0.1, expected=np.pi + 0.1, expected_step=1
+        -2 * np.pi, np.pi + 0.1, expected=np.pi - 0.1, expected_step=-1
     )
 
 
@@ -65,10 +65,19 @@ def test7():
     _eval_angle_difference(-np.pi / 2, 0, expected=3 * np.pi / 2, expected_step=-1)
 
 
+def test8():
+    print("--- 8 ---")
+    _eval_angle_difference(0.1, PI2 - 0.1, expected=0.2, expected_step=-1)
+
+
 if __name__ == "__main__":
     # Angle magnitude evals
     test1()
     test2()
     test3()
     test4()
+    test5()
+    test6()
+    test7()
+    test8()
     print("---------------------")
