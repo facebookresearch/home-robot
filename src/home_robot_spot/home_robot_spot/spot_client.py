@@ -431,7 +431,7 @@ class SpotClient:
         name="home_robot_spot",
         dock_id: Optional[int] = None,
         use_midas=False,
-        use_zero_depth=True
+        use_zero_depth=True,
     ):
         self.spot = Spot(name)
         self.lease = None
@@ -441,7 +441,7 @@ class SpotClient:
         # Parameters from Config
         self.config = config
         self.gaze_arm_joint_angles = np.deg2rad(config.SPOT.GAZE_ARM_JOINT_ANGLES)
-        self.place_arm_joint_angles = np.deg2rad(config.SPOT.PLACE_ARM_JOINT_ANGLES)    
+        self.place_arm_joint_angles = np.deg2rad(config.SPOT.PLACE_ARM_JOINT_ANGLES)
         self.max_cmd_duration = config.SPOT.MAX_CMD_DURATION
         self.hand_depth_threshold = config.SPOT.HAND_DEPTH_THRESHOLD
         self.base_height = config.SPOT.BASE_HEIGHT
@@ -451,9 +451,13 @@ class SpotClient:
         if self.use_midas:
             self.midas = Midas("cuda:0")
         if self.use_zero_depth:
-            self.zerodepth_model = torch.hub.load(
-                "TRI-ML/vidar", "ZeroDepth", pretrained=True, trust_repo=True
-            ).to('cuda:0').eval()
+            self.zerodepth_model = (
+                torch.hub.load(
+                    "TRI-ML/vidar", "ZeroDepth", pretrained=True, trust_repo=True
+                )
+                .to("cuda:0")
+                .eval()
+            )
 
     def start(self):
         """Turn on the robot, stand up, etc."""
@@ -483,7 +487,6 @@ class SpotClient:
 
         try:
             # assign estimated depth where there are no values
-            depth = np.asarray(depth)
             no_depth_mask = depth == 0
 
             # get a mask for the region of the image which has depth values (skip the blank borders)
@@ -493,7 +496,7 @@ class SpotClient:
             no_depth_mask = no_depth_mask & depth_region
 
             depth[no_depth_mask] = monocular_estimate[no_depth_mask]
-            return torch.tensor(depth)
+            return depth
         except Exception as e:
             print(f"Initializing Midas depth completion failed: {e}")
             return depth
@@ -673,16 +676,17 @@ class SpotClient:
             rgb, depth = obs.rgb, obs.depth
             depth = self.patch_depth(rgb, depth)
             obs.depth = depth
-            
         if self.use_zero_depth:
+            import torch
+
             rgb = obs.rgb.clone().detach()
-            #rgb = torch.tensor(obs.rgb)
+            # rgb = torch.tensor(obs.rgb)
 
             # Already in 0,1
             # orig_rgb = rgb / 255.0
-            
+
             # Take it to RGB
-            rgb = rgb[..., [2,1,0]]
+            rgb = rgb[..., [2, 1, 0]]
 
             # B, C, H, W
             rgb = torch.FloatTensor(rgb[None]).permute(0, 3, 1, 2)
@@ -690,34 +694,14 @@ class SpotClient:
             intrinsics = torch.FloatTensor(intrinsics[None])
 
             with torch.no_grad():
-                pred_depth = self.zerodepth_model(rgb.to('cuda:0'), intrinsics.to('cuda:0'))[0, 0].detach().cpu()
+                pred_depth = (
+                    self.zerodepth_model(rgb.to("cuda:0"), intrinsics.to("cuda:0"))[
+                        0, 0
+                    ]
+                    .detach()
+                    .cpu()
+                )
             obs.depth = pred_depth
-
-        if True:
-            from spot_rl.utils.depth_map_utils import fill_in_multiscale, fill_in_fast, filter_depth
-            depth = np.asarray(obs.depth)
-
-            # Multiscale is better but slower
-            depth = fill_in_multiscale(depth)[0]
-
-            # Faster but worse
-            # depth = fill_in_fast(depth)
-
-            # Filter depth uses multiscale but also normalizes and whitens the black, not working for us because it discretizes depth
-            # max_depth = 3.5
-            # depth = filter_depth(depth, max_depth)
-
-            depth = torch.tensor(depth)
-
-            # Visualize obs.depth and depth side by side
-            # import matplotlib.pyplot as plt
-            # fig, ax = plt.subplots(1, 2)
-            # ax[0].imshow(obs.depth)
-            # ax[1].imshow(depth)
-            # plt.show()
-
-            obs.depth = depth
-        
         full_world_xyz = unproject_masked_depth_to_xyz_coordinates(  # Batchable!
             depth=obs.depth.unsqueeze(0).unsqueeze(1),
             pose=obs.camera_pose.unsqueeze(0),
@@ -824,6 +808,10 @@ class SpotClient:
         # How do we close the lease
         self.lease.__exit__(None, None, None)
         self.lease = None
+
+    def open_gripper(self):
+        """Open the gripper"""
+        self.spot.open_gripper()
 
     def unnormalize_gps_compass(self, xyt):
         # gps = xyt[:2]
