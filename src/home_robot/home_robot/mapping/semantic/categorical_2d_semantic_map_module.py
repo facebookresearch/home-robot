@@ -20,8 +20,8 @@ import home_robot.mapping.map_utils as mu
 import home_robot.utils.depth as du
 import home_robot.utils.pose as pu
 import home_robot.utils.rotation as ru
+from home_robot.mapping.instance import InstanceMemory
 from home_robot.mapping.semantic.constants import MapConstants as MC
-from home_robot.mapping.semantic.instance_tracking_modules import InstanceMemory
 
 # For debugging input and output maps - shows matplotlib visuals
 debug_maps = False
