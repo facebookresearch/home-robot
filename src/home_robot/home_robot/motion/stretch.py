@@ -71,6 +71,23 @@ STRETCH_PREGRASP_Q = np.array(
     ]
 )
 
+# Gripper pointed down, for a top-down grasp
+STRETCH_DEMO_PREGRASP_Q = np.array(
+    [
+        0,  # x
+        0,  # y
+        0,  # theta
+        0.4,  # lift
+        0.01,  # arm
+        0.0,  # gripper rpy
+        0.0,  # wrist roll
+        -1.5,  # wrist pitch
+        0.0,  # wrist yaw
+        -np.pi / 2,  # head pan, camera to face the arm
+        -np.pi / 4,
+    ]
+)
+
 # Gripper straight out, lowered arm for clear vision
 STRETCH_PREDEMO_Q = np.array(
     [
