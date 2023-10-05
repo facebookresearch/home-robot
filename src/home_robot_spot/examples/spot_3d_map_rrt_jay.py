@@ -41,7 +41,6 @@ from home_robot.utils.point_cloud import numpy_to_pcd
 from home_robot.utils.visualization import get_x_and_y_from_path
 from home_robot_spot import SpotClient, VoxelMapSubscriber
 from home_robot_spot.grasp_env import GraspController
-
 def goto(spot: SpotClient, planner: Planner, goal):
     """Send the spot to the correct location."""
     start = spot.current_position
@@ -273,7 +272,7 @@ def get_obj_centric_world_representation(instance_memory, max_context_length):
 
 
 class SpotDemoAgent:
-    def __init__(self, parameters, spot_config, dock: Optional[int] = None):
+    def __init__(self, parameters, spot_config, dock: Optional[int] = None, path: str = None):
         self.parameters = parameters
         self.voxel_map = SparseVoxelMap(
             resolution=parameters["voxel_size"],
@@ -321,10 +320,7 @@ class SpotDemoAgent:
             use_zero_depth=parameters["use_zero_depth"],
         )
         self.spot_config = spot_config
-        timestamp = f"{datetime.datetime.now():%Y-%m-%d-%H-%M-%S}"
-        self.path = os.path.expanduser(f"~/Documents/home-robot/viz_data/{timestamp}")
-        os.makedirs(self.path, exist_ok=True)
-        logger.info("Saving viz data to {}", self.path)
+        self.path = path
 
     def sample_random_frontier(self) -> np.ndarray:
         """Get a random frontier point"""
@@ -577,7 +573,12 @@ def main(dock: Optional[int] = None, args=None):
     # TODO add this to config
     spot_config = get_config("src/home_robot_spot/configs/default_config.yaml")[0]
     parameters = get_config("src/home_robot_spot/configs/parameters.yaml")[0]
-    demo = SpotDemoAgent(parameters, spot_config, dock)
+    timestamp = f"{datetime.datetime.now():%Y-%m-%d-%H-%M-%S}"
+    path = os.path.expanduser(f"~/Documents/home-robot/viz_data/{timestamp}")
+    logger.add(f"{path}/{timestamp}.log", backtrace=True, diagnose=True)
+    os.makedirs(path, exist_ok=True)
+    logger.info("Saving viz data to {}", path)
+    demo = SpotDemoAgent(parameters, spot_config, dock, path)
     spot = demo.spot
     voxel_map = demo.voxel_map
     semantic_sensor = demo.semantic_sensor
@@ -625,9 +626,8 @@ def main(dock: Optional[int] = None, args=None):
                 logger.info("Generating the next closest frontier point...")
                 res = plan_to_frontier(start, planner, navigation_space, voxel_map)
                 if not res.success:
-                    print(res.reason)
-                    print(res.reason)
-                    print(" > Switching to random exploration")
+                    logger.warning(res.reason)
+                    logger.info("Switching to random exploration")
                     goal = next(
                         navigation_space.sample_random_frontier(
                             min_size=parameters["min_size"], max_size=parameters["max_size"]
@@ -635,8 +635,8 @@ def main(dock: Optional[int] = None, args=None):
                     )
                     goal = goal.cpu().numpy()
                     goal_is_valid = navigation_space.is_valid(goal)
-                    print(
-                        f" Goal is valid: {goal_is_valid}",
+                    logger.info(
+                        f" Goal is valid: {goal_is_valid}"
                     )
                     if not goal_is_valid:
                         # really we should sample a new goal
@@ -644,15 +644,18 @@ def main(dock: Optional[int] = None, args=None):
 
                     #  Build plan
                     res = planner.plan(start, goal)
-                    print(goal)
-                    print("Res success:", res.success)
+                    logger.info(goal)
+                    if res.success:
+                        logger.success("Res success: {}", res.success)
+                    else:
+                        logger.error("Res success: {}", res.success)
                     break
             else:
-                print("picking a random frontier point and trying to move there...")
+                logger.info("picking a random frontier point and trying to move there...")
                 # Sample a goal in the frontier (TODO change to closest frontier)
                 goal = demo.sample_random_frontier()
                 goal_is_valid = navigation_space.is_valid(goal)
-                print(
+                logger.info(
                     f" Goal is valid: {goal_is_valid}",
                 )
                 if not goal_is_valid:
@@ -661,8 +664,11 @@ def main(dock: Optional[int] = None, args=None):
 
                 #  Build plan
                 res = planner.plan(start, goal)
-                print(goal)
-                print("Res success:", res.success)
+                logger.info(goal)
+                if res.success:
+                    logger.success("Res success: {}", res.success)
+                else:
+                    logger.error("Res success: {}", res.success)
 
             # Move to the next location
             spot.execute_plan(res)
@@ -677,28 +683,25 @@ def main(dock: Optional[int] = None, args=None):
         demo.run_task(vlm, center=np.array([x0, y0, theta0]), data=data)
 
     except Exception as e:
-        print("Exception caught:")
-        print(e)
+        logger.critical("Exception caught: ", e)
         raise e
 
     finally:
         if parameters["write_data"]:
-            print("Writing data...")
             pc_xyz, pc_rgb = voxel_map.show(
                 backend="open3d", instances=False, orig=np.zeros(3)
             )
-            timestamp = f"{datetime.datetime.now():%Y-%m-%d-%H-%M-%S}"
-            pcd_filename = f"spot_output_{timestamp}.pcd"
-            pkl_filename = f"spot_output_{timestamp}.pkl"
-
+            pcd_filename = f"{path}/spot_output_{timestamp}.pcd"
+            pkl_filename = f"{path}/spot_output_{timestamp}.pkl"
+            logger.info("Writing data...")
             # Create pointcloud
             if len(pcd_filename) > 0:
                 pcd = numpy_to_pcd(pc_xyz, pc_rgb / 255)
                 open3d.io.write_point_cloud(pcd_filename, pcd)
-                print(f"... wrote pcd to {pcd_filename}")
+                logger.info(f"wrote pcd to {pcd_filename}")
             if len(pkl_filename) > 0:
                 voxel_map.write_to_pickle_add_data(pkl_filename, data)
-                print(f"... wrote pkl to {pkl_filename}")
+                logger.info(f"wrote pkl to {pkl_filename}")
 
             # TODO dont repeat this code
             obstacles, explored = voxel_map.get_2d_map()
@@ -711,10 +714,12 @@ def main(dock: Optional[int] = None, args=None):
                 navigation_space.draw_state_on_grid(img, goal_unnormalized, weight=5)
             plt.imshow(img)
             plt.show()
-            plt.imsave("exploration_step_final.png", img)
+            plt.imsave(f"{path}/exploration_step_final.png", img)
 
-        print("Safely stop the robot...")
-        spot.spot.open_gripper()
+        logger.warning("Safely stop the robot...")
+        spot.spot.close_gripper()
+        spot.spot.sit()
+        spot.spot.power_off()
         spot.stop()
 
 
