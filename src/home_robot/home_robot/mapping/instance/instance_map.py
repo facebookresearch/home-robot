@@ -19,6 +19,11 @@ from torch import Tensor
 
 from home_robot.core.interfaces import Observations
 from home_robot.mapping.instance import Instance, InstanceView
+from home_robot.mapping.instance.matching import (
+    Bbox3dOverlapMethodEnum,
+    dot_product_similarity,
+    get_bbox_similarity,
+)
 from home_robot.perception.encoders import ClipEncoder
 from home_robot.utils.bboxes_3d import (
     box3d_intersection_from_bounds,
@@ -34,6 +39,51 @@ from home_robot.utils.point_cloud_torch import get_bounds
 from home_robot.utils.voxel import drop_smallest_weight_points
 
 logger = logging.getLogger(__name__)
+
+
+@dataclass
+class ViewMatchingConfig:
+    within_class: bool = True
+
+    box_match_mode: Bbox3dOverlapMethodEnum = Bbox3dOverlapMethodEnum.ONE_SIDED_IOU
+    box_overlap_eps: float = 1e-6
+    box_min_iou_thresh: float = 0.0
+    box_overlap_weight: float = 1.0
+
+    visual_similarity_weight: float = 1.0
+    min_similarity_thresh: float = 0.1
+
+
+def get_similarity(
+    instance_bounds1: Tensor,
+    instance_bounds2: Tensor,
+    visual_embedding1: Tensor,
+    visual_embedding2: Tensor,
+    text_embedding1: Optional[Tensor] = None,
+    text_embedding2: Optional[Tensor] = None,
+    view_matching_config: ViewMatchingConfig = ViewMatchingConfig(),
+):
+    # BBox similarity
+    overlap_similarity = get_bbox_similarity(
+        instance_bounds1,
+        instance_bounds2,
+        overlap_eps=view_matching_config.box_overlap_eps,
+        mode=view_matching_config.box_match_mode,
+    )
+
+    visual_similarity = dot_product_similarity(
+        visual_embedding1, visual_embedding2, normalize=False
+    )
+    visual_similarity[
+        overlap_similarity < view_matching_config.box_min_iou_thresh
+    ] = 0.0
+
+    similarity = (
+        overlap_similarity * view_matching_config.box_overlap_weight
+        + visual_similarity * view_matching_config.visual_similarity_weight
+    )
+
+    return similarity
 
 
 class InstanceMemory:
@@ -60,6 +110,7 @@ class InstanceMemory:
         instance_association: str = "bbox_iou",
         instance_association_within_class: bool = True,
         iou_threshold: float = 0.8,
+        overlap_eps: float = 1e-6,
         global_box_nms_thresh: float = 0.0,
         instance_box_compression_drop_prop: float = 0.1,
         instance_box_compression_resolution: float = 0.05,
@@ -67,10 +118,10 @@ class InstanceMemory:
         erode_mask_num_pix: int = 0,
         erode_mask_num_iter: int = 1,
         instance_view_score_aggregation_mode="max",
-        overlap_eps: float = 1e-6,
         min_pixels_for_instance_view=100,
         log_dir: Optional[str] = None,
         log_dir_overwrite_ok: bool = False,
+        view_matching_config: ViewMatchingConfig = ViewMatchingConfig(),
     ):
         """See class definition for information about InstanceMemory
 
@@ -88,18 +139,21 @@ class InstanceMemory:
         self.num_envs = num_envs
         self.du_scale = du_scale
         self.debug_visualize = debug_visualize
-        self.instance_association = instance_association
-        self.iou_threshold = iou_threshold
+        # self.instance_association = instance_association
+        # self.iou_threshold = iou_threshold
         self.erode_mask_num_pix = erode_mask_num_pix
         self.erode_mask_num_iter = erode_mask_num_iter
         self.global_box_nms_thresh = global_box_nms_thresh
         self.instance_box_compression_drop_prop = instance_box_compression_drop_prop
         self.instance_box_compression_resolution = instance_box_compression_resolution
 
+        if isinstance(view_matching_config, dict):
+            view_matching_config = ViewMatchingConfig(**view_matching_config)
+        self.view_matching_config = view_matching_config
+
         self.instance_view_score_aggregation_mode = instance_view_score_aggregation_mode
-        self.overlap_eps = overlap_eps
         self.min_pixels_for_instance_view = min_pixels_for_instance_view
-        self.instance_association_within_class = instance_association_within_class
+        # self.instance_association_within_class = instance_association_within_class
         self.log_dir = log_dir
 
         if log_dir is not None and os.makedirs(log_dir, exist_ok=log_dir_overwrite_ok):
@@ -240,166 +294,6 @@ class InstanceMemory:
             }
         return return_dict
 
-    def find_global_instance_by_bbox_overlap(
-        self,
-        env_id: int,
-        local_instance_id: int,
-        match_within_category: bool = False,
-    ) -> Optional[int]:
-        """
-        Find the global instance with the maximum bounding box IoU overlap above a certain threshold with a local instance in a specific environment.
-
-        This method helps identify the global instance that shares the highest spatial overlap with a local instance across multiple views,
-        based on their 3D bounding boxes and Intersection over Union (IoU) scores.
-
-        Args:
-            env_id (int): Identifier for the environment in which the search is conducted.
-            local_instance_id (int): Identifier for the local instance within the specified environment.
-            iou_threshold (float): Minimum IoU threshold for considering instances as matching candidates.
-            match_within_category (bool): Only associate w/ bboxes of same category_id. Defaults to False.
-
-        Returns:
-            matching_global_instance (Optional[int]): Global instance ID with the maximum bounding box IoU overlap above the threshold,
-                or None if no instances meet the criteria.
-
-        Note:
-            The method calculates IoU scores between the bounding box of the local instance and the bounding boxes of the global instances.
-            It then selects the instance with the highest IoU score above the specified threshold as the matching global instance.
-            If no instances meet the criteria, the method returns None.
-        """
-
-        if len(self.instances[env_id]) == 0:
-            return None
-        # global_instance_ids, global_bounds = zip(
-        #     *[
-        #         (inst_id, instance.bounds)
-        #         for inst_id, instance in self.instances[env_id].items()
-        #     ]
-        # )
-        # get instance view
-        instance_view = self.get_local_instance_view(env_id, local_instance_id)
-        if instance_view is not None:
-            ids_to_instances = self.get_ids_to_instances(
-                env_id,
-            )
-            if len(ids_to_instances) == 0:
-                return None
-            global_bounds = torch.stack(
-                [inst.bounds for inst in ids_to_instances.values()], dim=0
-            )
-
-            _, iou = box3d_overlap_from_bounds(
-                instance_view.bounds.unsqueeze(0),
-                global_bounds,
-                self.overlap_eps,
-            )
-            ious = iou.flatten()
-            if ious.max() > self.iou_threshold:
-                return list(ids_to_instances.keys())[ious.argmax()]
-        return None
-
-    def find_global_instance_by_one_sided_iou(
-        self, env_id: int, local_instance_id: int, match_within_category: bool = False
-    ) -> Optional[int]:
-        """
-        Find the global instance ID that has the maximum one-sided Intersection over Union (IoU)
-        with the local instance identified by the local_instance_id in the environment specified by env_id.
-
-        Args:
-            env_id (int): The environment ID.
-            local_instance_id (int): The local instance ID whose global counterpart needs to be found.
-            match_within_category (bool): Only associate w/ bboxes of same category_id. Defaults to False.
-
-        Returns:
-            Optional[int]: The global instance ID with the maximum one-sided IoU.
-                        Returns None if no such global instance is found or if the maximum IoU
-                        is below the threshold.
-        """
-        # get instance view
-        instance_view = self.get_local_instance_view(env_id, local_instance_id)
-        match_category_id = instance_view.category_id if match_within_category else None
-        volume1 = box3d_volume_from_bounds(instance_view.bounds)
-        assert torch.all(volume1 > 0.0), instance_view.bounds
-
-        if instance_view is not None:
-            ids_to_instances = self.get_ids_to_instances(
-                env_id, category_id=match_category_id
-            )
-            if len(ids_to_instances) == 0:
-                return None
-            global_bounds = torch.stack(
-                [inst.bounds for inst in ids_to_instances.values()], dim=0
-            )
-
-            vol_int, _ = box3d_overlap_from_bounds(
-                instance_view.bounds.unsqueeze(0), global_bounds, self.overlap_eps
-            )
-
-            ious = vol_int / volume1
-            assert ious.ndim == 2 and ious.shape[0] == 1, ious.shape
-            ious = ious.flatten()
-
-            if ious.max() > self.iou_threshold:
-                return list(ids_to_instances.keys())[ious.argmax()]
-        return None
-
-    def find_global_instance_by_pointcloud_overlap(
-        self, env_id: int, local_instance_view_id: int
-    ) -> Optional[int]:
-        """
-        Find the global instance ID that has the most overlapping points in the point cloud
-        with the local instance identified by `local_instance_id` in the environment specified by `env_id`.
-
-        This function performs the following steps to associate the local instance with a global instance:
-        1. Compute the 3D box intersection between the local instance's 3D bounding box and those of all global instances.
-        2. Filter both local and global instance point clouds by this intersection.
-        3. Compute the distance to the nearest global points from the local instance's point cloud.
-                nearest_global_point = knn(instance_view.points_filtered, global_instance.points_filtered)
-        4. Determine the percentage of points in the local instance's filtered point cloud that are near to points in the global instances' point clouds.
-                points_matched = % of instance_view.points_filtered[nearest_point_dist < dist_thresh]
-        5. Associate the local instance with the global instance based on one of the following metrics:
-            - The (% matched points) * one-sided IoU: one_sided_IoU * points_matched.mean()
-            - The sum of matched points * points_matched.sum()
-
-        Args:
-            env_id (int): The environment ID.
-            local_instance_view_id (int): The local instance view ID whose global counterpart needs to be found.
-
-        Returns:
-            Optional[int]: The global instance ID with the most point cloud overlap.
-                        Returns None if no such global instance is found.
-
-        TODO:
-            - Optimize by having global instances store a voxelized point cloud to keep the number of points manageable.
-        """
-        raise NotImplementedError(
-            "Placeholder pending correct implementation of geometry based matching"
-        )
-        # get instance view
-        instance_view = self.get_local_instance_view(env_id, local_instance_view_id)
-        volume1 = box3d_volume_from_bounds(instance_view.bounds)
-
-        if instance_view is not None:
-            global_instance_ids = self.get_global_instance_ids(env_id)
-            if len(global_instance_ids) == 0:
-                return None
-            instances = self.get_instances_by_ids(env_id, global_instance_ids)
-            global_bounds = torch.stack([inst.bounds for inst in instances], dim=0)
-            vol_int, iou, intersection_bounds = box3d_intersection_from_bounds(
-                instance_view.bounds.unsqueeze(0), global_bounds, self.overlap_eps
-            )
-            # 2. Filter by intersection_bounds
-            # 3. nearest_global_point = knn(instance_view.points_filtered, global_instance.points_filtered)
-            # 4. points_matched = % of instance_view.points_filtered[nearest_point_dist < dist_thresh]
-            # 5.
-            ious = vol_int / volume1
-            assert ious.ndim == 2 and ious.shape[0] == 1, ious.shape
-            ious = ious.flatten()
-
-            if ious.max() > self.iou_threshold:
-                return global_instance_ids[ious.argmax()]
-        return None
-
     def associate_instances_to_memory(self):
         """
         Associate instance views with existing instances or create new instances based on matching criteria.
@@ -422,49 +316,82 @@ class InstanceMemory:
         Raises:
             NotImplementedError: When an unrecognized instance association method is specified.
         """
-        # match_category_id = instance_view.category_id if match_within_category else None
-
         for env_id in range(self.num_envs):
-            # instance_view_ids = list(self.unprocessed_ids[env_id].keys())
-            # instance_views = list(self.unprocessed_ids[env_id].values())
-            # instance_ids_to_instances = self.get_ids_to_instances(
-            #     env_id, category_id=match_category_id
-            # )
-            # if len(instance_ids_to_instances) == 0:
-            #     return None
-
             for local_instance_id, instance_view in self.unprocessed_views[
                 env_id
             ].items():
-                if self.instance_association == "bbox_iou":
-                    global_instance_id = self.find_global_instance_by_bbox_overlap(
-                        env_id,
-                        local_instance_id,
-                        match_within_category=self.instance_association_within_class,
+                match_category_id = (
+                    instance_view.category_id
+                    if self.view_matching_config.within_class
+                    else None
+                )
+                if instance_view.embedding is not None:
+                    instance_view_embedding = instance_view.embedding / torch.norm(
+                        instance_view.embedding, dim=-1, keepdim=True
                     )
-                    if global_instance_id is None:
-                        # start ids from 1
-                        global_instance_id = len(self.instances[env_id]) + 1
+                global_ids_to_instances = self.get_ids_to_instances(
+                    env_id, category_id=match_category_id
+                )
+                if len(global_ids_to_instances) == 0:
+                    # Create new global instance
                     self.add_view_to_instance(
-                        env_id, local_instance_id, global_instance_id
+                        env_id, local_instance_id, len(self.instances[env_id])
                     )
-                elif self.instance_association == "bbox_one_sided_iou":
-                    global_instance_id = self.find_global_instance_by_one_sided_iou(
-                        env_id,
-                        local_instance_id,
-                        match_within_category=self.instance_association_within_class,
-                    )
-                    if global_instance_id is None:
-                        # start ids from 1
-                        global_instance_id = len(self.instances[env_id]) + 1
-                    self.add_view_to_instance(
-                        env_id, local_instance_id, global_instance_id
-                    )
-                elif self.instance_association == "map_overlap":
-                    # association happens at the time of global map update
-                    pass
+                    continue
+                global_instance_ids, global_bounds, global_embedding = zip(
+                    *[
+                        (
+                            inst_id,
+                            instance.bounds,
+                            instance.get_image_embedding(aggregation_method="mean"),
+                        )  # Slow since we concatenate all global vectors each time for each image instance
+                        for inst_id, instance in global_ids_to_instances.items()
+                    ]
+                )
+                # global_view_embedding = [view.embedding for view in self.instances[env_id].instance_views]
+                # global_view_text_embedding = [inst.category_id for inst in self.instances[env_id]]
+
+                # # BBox similartit
+                # overlap_similarity = get_bbox_similarity(
+                #     instance_view.bounds.unsqueeze(0),
+                #     global_bounds,
+                #     overlap_eps=self.view_matching_config.box_overlap_eps,
+                #     mode=self.view_matching_config.box_match_mode
+                # )
+
+                # visual_similarity = dot_product_similarity(instance_view_embedding, global_embedding, normalize=False)
+                # visual_similarity[overlap_similarity < self.view_matching_config.box_min_iou_thresh] = 0.0
+
+                # total_weight = self.view_matching_config.visual_similarity_weight + self.view_matching_config.box_overlap_weight
+                # similarity = (
+                #     overlap_similarity * self.view_matching_config.box_overlap_weight
+                #     + visual_similarity.to(overlap_similarity.device) * self.view_matching_config.visual_similarity_weight
+                # )
+                similarity = get_similarity(
+                    instance_bounds1=instance_view.bounds.unsqueeze(0),
+                    instance_bounds2=global_bounds,
+                    visual_embedding1=instance_view_embedding,
+                    visual_embedding2=global_embedding,
+                    text_embedding1=None,
+                    text_embedding2=None,
+                    view_matching_config=self.view_matching_config,
+                )
+
+                max_similarity, matched_idx = similarity.max(dim=1)
+                total_weight = (
+                    self.view_matching_config.visual_similarity_weight
+                    + self.view_matching_config.box_overlap_weight
+                )
+                max_similarity = max_similarity / total_weight
+
+                if max_similarity < self.view_matching_config.min_similarity_thresh:
+                    matched_global_instance_id = len(self.instances[env_id])  # + 1
                 else:
-                    raise NotImplementedError
+                    matched_global_instance_id = list(global_instance_ids)[matched_idx]
+
+                self.add_view_to_instance(
+                    env_id, local_instance_id, matched_global_instance_id
+                )
 
         # # TODO: Add option to do global
         # if self.global_box_nms_thresh > 0.0:
@@ -537,6 +464,53 @@ class InstanceMemory:
                 global_instance_id,
             )
 
+    def process_instances(
+        self,
+        instance_channels: Tensor,
+        point_cloud: Tensor,
+        image: Tensor,
+        cam_to_world: Optional[Tensor] = None,
+        semantic_channels: Optional[Tensor] = None,
+        pose: Optional[Tensor] = None,
+    ):
+        """
+        Process instance information across environments and associate instance views with global instances.
+
+        This method processes instance information from instance channels, point cloud data, and images across different environments.
+        It extracts and prepares instance views based on the provided data for each environment and associates them with global instances.
+
+        Args:
+            instance_channels (Tensor): Tensor containing instance segmentation channels for each environment.
+            point_cloud (Tensor): Tensor containing point cloud data for each environment.
+            image (Tensor): Tensor containing image data for each environment.
+            semantic_channels (Optional[Tensor]): Tensor containing semantic segmentation channels for each environment, if available.
+
+        Note:
+            - Instance views are extracted and prepared for each environment based on the instance channels.
+            - If semantic segmentation channels are provided, each instance view is associated with a semantic category.
+            - Instance views are added to the list of unprocessed views for later association with specific instances.
+            - After processing instance views for all environments, the method associates them with global instances using `associate_instances_to_memory()`.
+
+        Debugging:
+            If the `debug_visualize` flag is enabled, cropped images and visualization data are saved to disk.
+        """
+        instance_segs = instance_channels.argmax(dim=1).int()
+        semantic_segs = None
+        if semantic_channels is not None:
+            semantic_segs = semantic_channels.argmax(dim=1).int()
+        for env_id in range(self.num_envs):
+            semantic_seg = None if semantic_segs is None else semantic_segs[env_id]
+            self.process_instances_for_env(
+                env_id,
+                instance_segs[env_id],
+                point_cloud[env_id],
+                image[env_id],
+                cam_to_world=cam_to_world[env_id] if cam_to_world is not None else None,
+                semantic_seg=semantic_seg,
+                pose=pose[env_id] if pose is not None else None,
+            )
+        self.associate_instances_to_memory()
+
     def process_instances_for_env(
         self,
         env_id: int,
@@ -590,6 +564,8 @@ class InstanceMemory:
 
         self.unprocessed_views[env_id] = {}
         # append image to list of images; move tensors to cpu to prevent memory from blowing up
+        # TODO: This should probably be an option
+
         if self.images[env_id] is None:
             self.images[env_id] = image.unsqueeze(0).detach().cpu()
         else:
@@ -696,7 +672,7 @@ class InstanceMemory:
 
             # get embedding
             if encoder is not None:
-                embedding = encoder.encode_image(cropped_image)
+                embedding = encoder.encode_image(cropped_image).to(cropped_image.device)
             else:
                 embedding = None
 
@@ -746,68 +722,12 @@ class InstanceMemory:
                 raise NotImplementedError(
                     "Image saving should be handled with a logger class"
                 )
-                # import os
-
-                # import cv2
-
-                # os.makedirs("instances/", exist_ok=True)
-                # cv2.imwrite(
-                #     f"instances/{self.timesteps[env_id]}_{instance_id.item()}.png",
-                #     (cropped_image.cpu().numpy() * 255).astype(np.uint8),
-                # )
 
         # This timestep should be passable (e.g. for Spot we have a Datetime object)
         self.timesteps[env_id] += 1
 
     def get_unprocessed_instances_per_env(self, env_id: int):
         return self.unprocessed_views[env_id]
-
-    def process_instances(
-        self,
-        instance_channels: Tensor,
-        point_cloud: Tensor,
-        image: Tensor,
-        cam_to_world: Optional[Tensor] = None,
-        semantic_channels: Optional[Tensor] = None,
-        pose: Optional[Tensor] = None,
-    ):
-        """
-        Process instance information across environments and associate instance views with global instances.
-
-        This method processes instance information from instance channels, point cloud data, and images across different environments.
-        It extracts and prepares instance views based on the provided data for each environment and associates them with global instances.
-
-        Args:
-            instance_channels (Tensor): Tensor containing instance segmentation channels for each environment.
-            point_cloud (Tensor): Tensor containing point cloud data for each environment.
-            image (Tensor): Tensor containing image data for each environment.
-            semantic_channels (Optional[Tensor]): Tensor containing semantic segmentation channels for each environment, if available.
-
-        Note:
-            - Instance views are extracted and prepared for each environment based on the instance channels.
-            - If semantic segmentation channels are provided, each instance view is associated with a semantic category.
-            - Instance views are added to the list of unprocessed views for later association with specific instances.
-            - After processing instance views for all environments, the method associates them with global instances using `associate_instances_to_memory()`.
-
-        Debugging:
-            If the `debug_visualize` flag is enabled, cropped images and visualization data are saved to disk.
-        """
-        instance_segs = instance_channels.argmax(dim=1).int()
-        semantic_segs = None
-        if semantic_channels is not None:
-            semantic_segs = semantic_channels.argmax(dim=1).int()
-        for env_id in range(self.num_envs):
-            semantic_seg = None if semantic_segs is None else semantic_segs[env_id]
-            self.process_instances_for_env(
-                env_id,
-                instance_segs[env_id],
-                point_cloud[env_id],
-                image[env_id],
-                cam_to_world=cam_to_world[env_id] if cam_to_world is not None else None,
-                semantic_seg=semantic_seg,
-                pose=pose[env_id] if pose is not None else None,
-            )
-        self.associate_instances_to_memory()
 
     def reset_for_env(self, env_id: int):
         self.instances[env_id] = {}

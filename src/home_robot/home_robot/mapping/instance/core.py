@@ -120,8 +120,10 @@ class Instance:
         view_embeddings = [view.embedding for view in self.instance_views]
         # Create one tensor for all of these
         view_embeddings = torch.concatenate(view_embeddings, dim=0)
-        if aggregation_method == "max":
-            emb = view_embeddings.max(dim=0)[0]
+        if aggregation_method == "concatenate":
+            emb = view_embeddings
+        elif aggregation_method == "max":
+            emb = view_embeddings.max(dim=0).values
         elif aggregation_method == "mean":
             emb = view_embeddings.mean(dim=0)
         else:
@@ -205,9 +207,9 @@ class Instance:
         ptc = Pointclouds(points=[self.point_cloud], features=features)
 
         _default_plot_args = dict(
-            xaxis={"backgroundcolor": "rgb(200, 200, 230)"},
-            yaxis={"backgroundcolor": "rgb(230, 200, 200)"},
-            zaxis={"backgroundcolor": "rgb(200, 230, 200)"},
+            xaxis={"backgroundcolor": "rgb(230, 200, 200)"},
+            yaxis={"backgroundcolor": "rgb(200, 230, 200)"},
+            zaxis={"backgroundcolor": "rgb(200, 200, 230)"},
             axis_args=AxisArgs(showgrid=True),
             pointcloud_marker_size=3,
             pointcloud_max_points=200_000,
