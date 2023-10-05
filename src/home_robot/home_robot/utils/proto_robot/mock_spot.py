@@ -1,8 +1,10 @@
+import argparse
 import io
 import logging
 import os
 import pickle
 import random
+import shutil
 import sys
 
 import grpc
@@ -12,18 +14,7 @@ import torch
 from PIL import Image
 from torchvision import transforms
 
-sys.path.append("../../../")
 import home_robot.mapping.voxel.voxel as v
-
-spot_filename = "/private/home/ssax/home-robot/src/home_robot/home_robot/datasets/robot/data/spot_/09_18_fre_spot/spot_output.pkl"
-data = pickle.load(open(spot_filename, "rb"))
-
-img_filename = "proto_robot/dog.webp"
-test_img = Image.open(img_filename)
-
-convert_tensor = transforms.ToTensor()
-center_crop = transforms.CenterCrop((224, 224))
-test_img_tensor = center_crop(convert_tensor(test_img))
 
 
 def tensor_to_bytes(x):
@@ -64,7 +55,8 @@ def create_msg_from_file(data, idx):
     yield new_msg
 
 
-def send_robot_data(stub):
+def send_robot_data(stub, spot_filename):
+    data = pickle.load(open(spot_filename, "rb"))
     for d in range(len(data) - 1):
         new_msg = create_msg_from_file(data, d)
         print(new_msg)
@@ -81,7 +73,29 @@ def read_robot_data(stub):
             print(torch.load(io.BytesIO(r.rgb_tensor.tensor_content)))
 
 
-def test_conversation(stub):
+def get_world_rep_msgs(task, world_rep):
+    """Convert world_rep, a list of numpy arrays, into an Iterable of RobotSummary objects"""
+    not_sent = True
+    i = 0
+    for obj in world_rep:
+        robo_msg = robodata_pb2.RobotSummary()
+        proto_obj = robo_msg.instance_image.add()
+        proto_obj.CopyFrom(tensor_to_robotensor(obj))
+        proto_obj.id = i
+        i += 1
+        if not_sent:
+            robo_msg.message = task
+            not_sent = False
+        yield robo_msg
+
+
+def test_conversation(stub, img_filename):
+    test_img = Image.open(img_filename)
+
+    convert_tensor = transforms.ToTensor()
+    center_crop = transforms.CenterCrop((224, 224))
+    test_img_tensor = center_crop(convert_tensor(test_img))
+
     new_conv = robodata_pb2.LLMInput()
     chat = new_conv.conversation.add()
     chat.role = "User"
@@ -91,8 +105,7 @@ def test_conversation(stub):
     stub.Chat(new_conv)
 
 
-def test_vlm(stub):
-    voxel_file = "/private/home/ssilwal/dev/home-robot/spot_output.pkl"
+def test_vlm(stub, voxel_file):
     voxel_map = v.SparseVoxelMap()
     voxel_map.read_from_pickle(voxel_file)
     print("generated voxel_map")
@@ -108,36 +121,38 @@ def test_vlm(stub):
                 "\nWarning: this version of minigpt4 can only handle limited size of crops -- sampling a subset of crops from the instance memory..."
             )
             crops = random.sample(crops, max_context_length)
-        import shutil
-
         debug_path = "crops_for_planning/"
         shutil.rmtree(debug_path, ignore_errors=True)
         os.mkdir(debug_path)
         ret = []
         for id, crop in enumerate(crops):
-            # Image.fromarray(crop[1].cpu().numpy(), "RGB").save(
-            #     debug_path + str(id) + "_" + str(crop[0]) + ".png"
-            # )
-            ret.append(crop[1].cpu().numpy())  # str(id) + "_" + str(crop[0]) + ".png")
+            ret.append(crop[1].cpu().numpy())
         return ret
 
-    world_rep = get_obj_centric_world_representation(voxel_map.get_instances(), 10)
+    world_rep = get_obj_centric_world_representation(voxel_map.get_instances(), 20)
 
-    def get_world_rep_msgs(world_rep):
-        not_sent = True
-        for obj in world_rep:
-            robo_msg = robodata_pb2.RobotSummary()
-            proto_obj = robo_msg.instance_image.add()
-            proto_obj.CopyFrom(tensor_to_robotensor(obj))
-            if not_sent:
-                robo_msg.message = "Where is the cup?"
-                not_sent = False
-            yield robo_msg
-
-    resp = stub.PlanHighLevelAction(get_world_rep_msgs(world_rep))
+    resp = stub.PlanHighLevelAction(get_world_rep_msgs("Where is the cup?", world_rep))
     print("response!")
     for r in resp:
         print(r)
+
+
+def parse_spot_args():
+    parser = argparse.ArgumentParser(description="")
+    parser.add_argument(
+        "--spot-filename",
+        default="/private/home/ssax/home-robot/src/home_robot/home_robot/datasets/robot/data/spot_/09_18_fre_spot/spot_output.pkl",
+        help="Path to a pickle file with robot data contained (RGB frames, camera intrinsics,etc)",
+    )
+    parser.add_argument(
+        "--voxel-filename",
+        default="/private/home/ssilwal/dev/home-robot/spot_output.pkl",
+        help="Path to a pickle file with instances images and data that will be used to build a voxel map.",
+    )
+    parser.add_argument(
+        "--img-filename", default="proto_robot/dog.webp", help="Pass in an image file."
+    )
+    return parser.parse_args()
 
 
 def run():
@@ -155,11 +170,12 @@ def run():
             ("grpc.max_receive_message_length", maxMsgLength),
         ],
     )
+    args = parse_spot_args()
     stub = robodata_pb2_grpc.RobotDataStub(channel)
-    send_robot_data(stub)
+    send_robot_data(stub, args.spot_filename)
     read_robot_data(stub)
-    test_conversation(stub)
-    test_vlm(stub)
+    test_conversation(stub, args.img_filename)
+    test_vlm(stub, args.voxel_filename)
     channel.close()
 
 

@@ -1,8 +1,7 @@
-import sys
-
-sys.path.append("../../..")
+import argparse
 import io
 import logging
+import sys
 from concurrent import futures
 
 import grpc
@@ -10,9 +9,12 @@ import numpy as np
 import robodata_pb2
 import robodata_pb2_grpc
 import torch
+from minigpt4_example import Predictor
 from PIL import Image
 
 import home_robot.mapping
+
+sys.path.append("../../../../src/home_robot/home_robot/perception/minigpt4/MiniGPT-4")
 
 
 class RoboDataServicer(robodata_pb2_grpc.RobotDataServicer):
@@ -23,12 +25,6 @@ class RoboDataServicer(robodata_pb2_grpc.RobotDataServicer):
         pass
 
     def _load_llama(self, args):
-        import sys
-
-        sys.path.append(
-            "../../../src/home_robot/home_robot/perception/minigpt4/MiniGPT-4"
-        )
-        from minigpt4_example import Predictor
 
         # args = ('../../../src/home_robot/home_robot/perception/minigpt4/MiniGPT-4/eval_configs/ovmm_test.yaml')
         print(args)
@@ -94,11 +90,14 @@ class RoboDataServicer(robodata_pb2_grpc.RobotDataServicer):
         prompt = prompt + request.conversation[-1].content
         print("prompt: " + str(prompt))
         imgs = []
+        crop_text = ""
         for r in request.imgs:
             imgs.append(self._robotensor_to_tensor(r))
+            crop_text += f"<crop_{r.id}><crophere_{r.id}></crop_{r.id}>,"
+            crop_text = crop_text[:-1] + ". "
 
         chat_input = {
-            "prompt": [prompt],
+            "prompt": [crop_text + prompt],
             "crops": [],
             "images": torch.stack(imgs, dim=0).unsqueeze(0),
         }
@@ -111,8 +110,8 @@ class RoboDataServicer(robodata_pb2_grpc.RobotDataServicer):
             )
             print(response)
         x = robodata_pb2.ChatMsg()
-        x.role = "LLama"
-        x.content = "llama llama red pajama"
+        x.role = "VLM"
+        x.content = str(response[0])
         yield x
 
 
@@ -134,8 +133,6 @@ def serve(args=None):
 
 
 if __name__ == "__main__":
-    import argparse
-
     parser = argparse.ArgumentParser(description="")
     parser.add_argument(
         "--enable_vlm",

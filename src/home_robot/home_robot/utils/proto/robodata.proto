@@ -28,10 +28,11 @@ message RoboObs {
 
 message RoboTensor {
   string dtype = 1;
-  int32 d1 = 2;
-  int32 d2  = 3;
-  int32 d3 = 4;
-  bytes tensor_content = 5;
+  int32 id = 2;
+  int32 d1 = 3;
+  int32 d2  = 4;
+  int32 d3 = 5;
+  bytes tensor_content = 6;
 }
 
 message RobotSummary {

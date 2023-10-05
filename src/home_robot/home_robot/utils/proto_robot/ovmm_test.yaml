@@ -7,8 +7,8 @@ model:
   end_sym: "###"
   prompt_path: "prompts/alignment.txt"
   prompt_template: '###Human: {} ###Assistant: '
-  #ckpt: '../../../src/home_robot/home_robot/perception/detection/minigpt4/cortex-minigpt4/ckpts/xiaohan/best_lvis_ovmm.pth'
-  llama_model: '../../../src/home_robot/home_robot/perception/minigpt4/Llama-2-7b-chat-hf'
+  ckpt: '/private/home/ssilwal/dev/home-robot/src/home_robot/home_robot/perception/detection/minigpt4/cortex-minigpt4/ckpts/xiaohan/best_lvis_ovmm.pth'
+  llama_model: '/private/home/ssilwal/dev/home-robot/src/home_robot/home_robot/perception/minigpt4/Llama-2-7b-chat-hf'
 
 run:
   task: object_centric
@@ -33,7 +33,7 @@ run:
   test_splits: ["train"]
 
   # distribution-specific
-  device: "cuda:0"
+  device: "cuda"
   world_size: 1
   dist_url: "env://"
   distributed: False
