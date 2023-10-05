@@ -16,6 +16,8 @@ import home_robot.mapping
 
 sys.path.append("../../../../src/home_robot/home_robot/perception/minigpt4/MiniGPT-4")
 
+logger = logging.getLogger(__name__)
+
 
 class RoboDataServicer(robodata_pb2_grpc.RobotDataServicer):
     def __init__(self, args):
@@ -44,18 +46,16 @@ class RoboDataServicer(robodata_pb2_grpc.RobotDataServicer):
             req_msg = req_msg + r.message
             for im in r.instance_image:
                 tensor_img = self._robotensor_to_tensor(im)
-                print(tensor_img.shape)
                 post_img = self.predictor.vis_processor(
                     Image.fromarray(np.array(tensor_img).astype(np.uint8))
                 )
-                print(post_img.shape)
                 obj_crops.append(post_img)
         chat_input = {
             "prompt": [req_msg],
             "crops": torch.stack(obj_crops, dim=0).unsqueeze(0),
             "images": [],
         }
-        print("len of crops:" + str(len(obj_crops)))
+        logger.info("Number of crops:" + str(len(obj_crops)))
         with torch.no_grad():
             response = self.predictor.model._generate_answers(
                 chat_input,
@@ -63,13 +63,12 @@ class RoboDataServicer(robodata_pb2_grpc.RobotDataServicer):
                 max_length=self.predictor.max_len,
                 min_length=self.predictor.min_len,
             )
-            print(response)
+            logger.info("Response:" + str(response[0]))
         x = robodata_pb2.RobotSummary()
         x.message = str(response[0])
         yield x
 
     def ReceiveRobotData(self, request, context):
-        print("entered ReceiveRobotData")
         for r in request:
             self.obs_history.append(r)
         x = robodata_pb2.RobotSummary()
@@ -77,11 +76,10 @@ class RoboDataServicer(robodata_pb2_grpc.RobotDataServicer):
         yield x
 
     def Chat(self, request, context):
-        print("Entered Chat")
         prompt = "Task: You are a chatbot exploring a home."
         # TODO something more sophisticated
         prompt = prompt + request.conversation[-1].content
-        print("prompt: " + str(prompt))
+        logger.info("prompt: " + str(prompt))
         imgs = []
         crop_text = ""
         for r in request.imgs:
@@ -101,7 +99,7 @@ class RoboDataServicer(robodata_pb2_grpc.RobotDataServicer):
                 max_length=self.predictor.max_len,
                 min_length=self.predictor.min_len,
             )
-            print(response)
+            logger.info("Response" + str(response[0]))
         x = robodata_pb2.ChatMsg()
         x.role = "VLM"
         x.content = str(response[0])
@@ -121,7 +119,7 @@ def serve(args=None):
     robodata_pb2_grpc.add_RobotDataServicer_to_server(RoboDataServicer(args), server)
     server.add_insecure_port("[::]:50051")
     server.start()
-    print("started RoboData server")
+    logger.info("Started RoboData server...")
     server.wait_for_termination()
 
 
