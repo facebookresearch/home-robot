@@ -31,7 +31,7 @@ class AppConfig:
     video_feed_update_freq_ms: int = 300
 
     directory_watcher_update_freq_ms: int = 300
-    directory_watch_path: str = "publishers/published_trajectory/obs"
+    directory_watch_path: str = "/home/jaydv/Documents/home-robot/viz_data/2023-10-05-16-07-28"
     pointcloud_voxel_size: float = 0.05
 
 
