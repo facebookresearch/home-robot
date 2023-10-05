@@ -50,9 +50,9 @@ def goto(spot: SpotClient, planner: Planner, goal):
     res = planner.plan(start, goal)
     print(goal)
     if res:
-        logger.success("Res success: {}", res)
+        logger.success("Res success: {}", res.success)
     else:
-        logger.error("Res success: {}", res)
+        logger.error("Res success: {}", res.success)
     # print("Res success:", res.success)
     # Move to the next location
     if res.success:
@@ -196,7 +196,8 @@ def navigate_to_an_instance(
 
     return True
 
-def get_close(instance_id, spot, voxel_map):
+
+def get_close(instance_id, spot, voxel_map, dist=0.75):
     # Parameters for the placing function from the pointcloud
     ground_normal = torch.tensor([0.0, 0.0, 1])
     nbr_dist = 0.15
@@ -216,14 +217,15 @@ def get_close(instance_id, spot, voxel_map):
     instance_pose = voxel_map.get_instances()[instance_id].instance_views[-1].pose
     vr = np.array([instance_pose[0], instance_pose[1]])
     vp = np.asarray(location[:2])
-    k = 1 - (1 / (np.linalg.norm(vp - vr)))
+    k = 1 - (dist / (np.linalg.norm(vp - vr)))
     vf = vr + (vp - vr) * k
-    return vf
+    return instance_pose, location, vf
+
 
 def place_in_an_instance(
-    vf, spot, place_height=0.3, place_rotation=[0, np.pi / 2, 0]
+    instance_pose, location, vf, spot, place_height=0.3, place_rotation=[0, np.pi / 2, 0]
 ):
-    #TODO: Check if vf is correct
+    # TODO: Check if vf is correct
     spot.navigate_to(np.array([vf[0], vf[1], instance_pose[2]]), blocking=True)
 
     # Transform placing position to body frame coordinates
@@ -318,6 +320,11 @@ class SpotDemoAgent:
             use_midas=parameters["use_midas"],
             use_zero_depth=parameters["use_zero_depth"],
         )
+        self.spot_config = spot_config
+        timestamp = f"{datetime.datetime.now():%Y-%m-%d-%H-%M-%S}"
+        self.path = os.path.expanduser(f"~/Documents/home-robot/viz_data/{timestamp}")
+        os.makedirs(self.path, exist_ok=True)
+        logger.info("Saving viz data to {}", self.path)
 
     def sample_random_frontier(self) -> np.ndarray:
         """Get a random frontier point"""
@@ -332,6 +339,7 @@ class SpotDemoAgent:
 
     def rotate_in_place(self):
         # Do a 360 degree turn to get some observations (this helps debug the robot)
+        logger.info("Rotate in place")
         x0, y0, theta0 = self.spot.current_position
         for i in range(8):
             self.spot.navigate_to([x0, y0, theta0 + (i + 1) * np.pi / 4], blocking=True)
@@ -344,11 +352,8 @@ class SpotDemoAgent:
         obs = self.spot.get_rgbd_obs()
         print("- Observed from coordinates:", obs.gps, obs.compass)
         obs = self.semantic_sensor.predict(obs)
-        timestamp = f"{datetime.datetime.now():%Y-%m-%d-%H-%M-%S}"
-        path = os.path.expanduser(f"~/Documents/home-robot/viz_data/{timestamp}")
-        os.makedirs(path, exist_ok=True)
         self.voxel_map.add_obs(obs, xyz_frame="world")
-        publish_obs(self.navigation_space, path)
+        publish_obs(self.navigation_space, self.path)
 
     def visualize(self, start, goal, step):
         """Update visualization for demo"""
@@ -464,7 +469,7 @@ class SpotDemoAgent:
                 #TODO add all the items here
                 objects = {}
                 for i in range(len(instances)):
-                    objects[str((vocab.goal_id_to_goal_name[
+                    objects[str((self.vocab.goal_id_to_goal_name[
                         int(instances[i].category_id.item())
                     ]))] = i
                 print(objects)
@@ -507,9 +512,9 @@ class SpotDemoAgent:
                 self.spot.open_gripper()
                 time.sleep(1)
                 print("Resetting environment...")
-                vf = get_close(pick_instance_id, spot, voxel_map)
+                instance_pose, location, vf = get_close(pick_instance_id, self.spot, self.voxel_map)
                 print(" > Navigating closer to the object")
-                spot.navigate_to(np.array([vf[0], vf[1], instance_pose[2]]), blocking=True)
+                self.spot.navigate_to(np.array([vf[0], vf[1], instance_pose[2]]), blocking=True)
                 time.sleep(1)
                 success = gaze.gaze_and_grasp()
                 time.sleep(1)
@@ -527,10 +532,10 @@ class SpotDemoAgent:
                     )
 
                     breakpoint()
-                    place = place_in_an_instance(
-                        place_instance_id, self.spot, self.voxel_map, place_height=0.15
-                    )
-                    print("place at:", place)
+                    # place = place_in_an_instance(
+                    #     place_instance_id, self.spot, self.voxel_map, place_height=0.15
+                    # )
+                    # print("place at:", place)
                 """
                 # visualize pointcloud and add location as red
                 pcd = open3d.geometry.PointCloud()
@@ -562,10 +567,9 @@ def main(dock: Optional[int] = None, args=None):
 
         # load VLM
         vlm = Predictor(args)
-        print("VLM planner initialized")
-
+        logger.info("VLM planner initialized")
         # set task
-        print("Reset the agent task to " + args.task)
+        logger.info("Reset the agent task to: {}", args.task)
     else:
         # No vlm to use, just default behavior
         vlm = None
@@ -583,10 +587,10 @@ def main(dock: Optional[int] = None, args=None):
     try:
         # Turn on the robot using the client above
         spot.start()
-
-        print("Sleep 1s")
+        logger.success("Spot started")
+        logger.info("Sleep 1s")
         time.sleep(1)
-        print("Start exploring!")
+        logger.info("Start exploring!")
         x0, y0, theta0 = spot.current_position
 
         # Start thread to update voxel map
@@ -601,26 +605,24 @@ def main(dock: Optional[int] = None, args=None):
         voxel_map.show()
         for step in range(int(parameters["exploration_steps"])):
 
-            print()
             print("-" * 8, step + 1, "/", int(parameters["exploration_steps"]), "-" * 8)
 
             # Get current position and goal
             start = spot.current_position
             goal = None
-            print("Start xyt:", start)
+            logger.info("Start xyt: {}", start)
             start_is_valid = navigation_space.is_valid(start)
-            print("Start is valid:", start_is_valid)
-            print("Start is safe:", voxel_map.xyt_is_safe(start))
-
-            # TODO do something is start is not valid
-            # Back up a bit
-            if not start_is_valid:
-                print("!!!!!!!! INVALID START POSITION !!!!!!")
-                spot.navigate_to([-0.1, 0, 0], relative=True)
+            if start_is_valid:
+                logger.success("Start is valid: {}", start_is_valid)
+            else:
+                # TODO do something is start is not valid
+                logger.error("!!!!!!!! INVALID START POSITION !!!!!!")
+                spot.navigate_to([-0.15, 0, 0], relative=True)
                 continue
+            logger.info("Start is safe: {}", voxel_map.xyt_is_safe(start))
 
             if parameters["explore_methodical"]:
-                print("Generating the next closest frontier point...")
+                logger.info("Generating the next closest frontier point...")
                 res = plan_to_frontier(start, planner, navigation_space, voxel_map)
                 if not res.success:
                     print(res.reason)
@@ -714,6 +716,7 @@ def main(dock: Optional[int] = None, args=None):
         print("Safely stop the robot...")
         spot.spot.open_gripper()
         spot.stop()
+
 
 if __name__ == "__main__":
     import argparse

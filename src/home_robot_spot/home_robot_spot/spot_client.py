@@ -524,6 +524,7 @@ class SpotClient:
         for i, node in enumerate(plan.trajectory):
             print(" - go to", i, "xyt =", node.state)
             self.navigate_to(node.state, blocking=True)
+            time.sleep(0.5)
 
     @property
     def raw_observations(self):
@@ -676,8 +677,8 @@ class SpotClient:
             rgb, depth = obs.rgb, obs.depth
             depth = self.patch_depth(rgb, depth)
             obs.depth = depth
+        import torch
         if self.use_zero_depth:
-            import torch
 
             rgb = obs.rgb.clone().detach()
             # rgb = torch.tensor(obs.rgb)
