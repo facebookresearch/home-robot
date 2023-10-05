@@ -1,0 +1,49 @@
+model:
+  arch: mini_gpt4
+  model_type: pretrain_vicuna
+  freeze_vit: True
+  freeze_qformer: True
+  max_txt_len: 160
+  end_sym: "###"
+  prompt_path: "prompts/alignment.txt"
+  prompt_template: '###Human: {} ###Assistant: '
+  #ckpt: '../../../src/home_robot/home_robot/perception/detection/minigpt4/cortex-minigpt4/ckpts/xiaohan/best_lvis_ovmm.pth'
+  llama_model: '../../../src/home_robot/home_robot/perception/minigpt4/Llama-2-7b-chat-hf'
+
+run:
+  task: object_centric
+  # optimization-specific
+  batch_size_train: 1
+  batch_size_eval: 1
+  num_workers: 1
+
+  # inference-specific
+  max_len: 160
+  min_len: 1
+  num_beams: 10
+  inference_method: "generate"
+  prompt: ''
+  num_ans_candidates: 128
+  answer_list: None
+
+  seed: 42
+  output_dir: "output/minigpt4/object_centric_lvis"
+
+  evaluate: True
+  test_splits: ["train"]
+
+  # distribution-specific
+  device: "cuda:0"
+  world_size: 1
+  dist_url: "env://"
+  distributed: False
+
+datasets:
+  cc_sbu_align:
+    vis_processor:
+      train:
+        name: "blip2_image_eval"
+        image_size: 224
+    text_processor:
+      train:
+        name: "blip_caption"

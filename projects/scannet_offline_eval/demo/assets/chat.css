@@ -1,0 +1,124 @@
+/* 
+Copyright (c) Meta Platforms, Inc. and affiliates.
+
+This source code is licensed under the MIT license found in the
+LICENSE file in the root directory of this source tree.
+*/
+.header {
+    height: 90px;
+    align-items: center;
+    background-color: #f4f4f4;
+    margin-bottom: 10px;
+    border: 1px solid #555;
+}
+
+.header img {
+    height: 60px;
+}
+
+.main-body {
+    height: calc(90vh - 100px);
+}
+
+.gripper-img {
+    border: 2px solid #555;
+    max-height: 100%;
+    width: auto;
+}
+
+.gripper-feed {
+    height: 30vh;
+    width: 100%;
+    /* margin-top: 25px; */
+    margin-bottom: 25px;
+    text-align: center;
+}
+
+
+.chat-window {
+    border: 2px solid #555;
+    border-radius: 5px;
+    height: 60vh;
+    width: inherit;
+    position: absolute;
+    bottom: 0;
+    margin-bottom: 10px
+}
+
+.chat-header {
+    background-color: #f4f4f4;
+}
+
+.chat-header h2 {
+    margin-top: 10px;
+    /* margin-bottom: 10px; */
+}
+
+.chat-conversation {
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+    height: calc(60vh - 140px); /* input box + margins */
+    border-top: 1px solid #aaa;
+    padding: 20px;
+    padding-bottom: 0px
+}
+
+.chat-input {
+    margin-bottom: 10px;
+}
+
+.gif-loading {
+    margin: 1rem auto;
+    /* /* width: 1280px; */
+    height: 50px;
+    text-align: left;
+    font-size: 10px;
+    margin-left: 30px !important;
+    margin-bottom: 132px;
+    margin-left: 0;
+    background-image: url("images/loading.gif");
+    background-size: contain;
+    background-repeat: no-repeat;
+    
+}
+
+.dash-spinner * {
+    display: none !important;
+  }
+
+.chat_thumbnail_im {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+}
+
+.chat_message_time {
+    font-size: 10px;
+}
+
+.chat-username {
+    font-weight: bold;
+    margin-bottom: -12px;
+    /* margin-top: 7px; */
+    padding-bottom: 0px;
+    margin-left: 15px;
+    margin-right: 15px;
+}
+
+
+.chat-message-left,
+.chat-message-right {
+    display: flex;
+    flex-shrink: 0
+}
+
+.chat-message-left {
+    margin-right: auto
+}
+
+.chat-message-right {
+    flex-direction: row-reverse;
+    margin-left: auto
+}
+

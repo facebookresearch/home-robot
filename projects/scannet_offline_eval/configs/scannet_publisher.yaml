@@ -7,5 +7,7 @@ defaults:
 
 scene_name: scene0011_00
 show_backend: false # open3d, pytorch3d
-save_instance_map_fpath: ./canned_scannet_scene.pth
+dump_dir: 'published_trajectory'
 task_name: 'huh'
+wait_keypress_for_start: False
+wait_keypress_for_continue: False

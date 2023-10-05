@@ -64,12 +64,44 @@ def goto(spot: SpotClient, planner: Planner, goal):
         spot.navigate_to(goal)
     return res
 
+# def publish_obs(model: SparseVoxelMap, publish_dir: Path, timestep: int):
+#     with atomic_write(publish_dir / f"{timestep}.pkl", mode="wb") as f:
+#         model_obs = model.voxel_map.observations[timestep]
+
+#         instances = model.voxel_map.get_instances()
+#         if len(instances) > 0:
+#             bounds, names = zip(*[(v.bounds, v.category_id) for v in instances])
+#             bounds = torch.stack(bounds, dim=0)
+#             names = torch.stack(names, dim=0).unsqueeze(-1)
+#         else:
+#             bounds = torch.zeros(0, 3, 2)
+#             names = torch.zeros(0, 1)
+#         pickle.dump(
+#             dict(
+#                 rgb=model_obs.rgb.cpu().detach(),
+#                 depth=model_obs.depth.cpu().detach(),
+#                 instance_image=model_obs.instance.cpu().detach(),
+#                 instance_classes=model_obs.instance_classes.cpu().detach(),
+#                 instance_scores=model_obs.instance_scores.cpu().detach(),
+#                 camera_pose=model_obs.camera_pose.cpu().detach(),
+#                 camera_K=model_obs.camera_K.cpu().detach(),
+#                 xyz_frame=model_obs.xyz_frame,
+#                 box_bounds=bounds,
+#                 box_names=names,
+#             ),
+#             f,
+#         )
+
 
 # NOTE: this requires 'pip install atomicwrites'
 def publish_obs(model: SparseVoxelMapNavigationSpace, path: str):
     timestep = len(model.voxel_map.observations) - 1
     with atomic_write(f"{path}/{timestep}.pkl", mode="wb") as f:
+        instances = model.voxel_map.get_instances()
         model_obs = model.voxel_map.observations[-1]
+        bounds, names = zip(*[(v.bounds, v.category_id) for v in instances])
+        bounds = torch.stack(bounds, dim=0)
+        names = torch.stack(names, dim=0).unsqueeze(-1)
         print(f"Saving observation to pickle file...{f'{timestep}.pkl'}")
         pickle.dump(
             dict(
@@ -81,6 +113,8 @@ def publish_obs(model: SparseVoxelMapNavigationSpace, path: str):
                 camera_pose=model_obs.camera_pose.cpu().detach(),
                 camera_K=model_obs.camera_K.cpu().detach(),
                 xyz_frame=model_obs.xyz_frame,
+                box_bounds=bounds,
+                box_names=names,
             ),
             f,
         )

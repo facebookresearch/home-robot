@@ -1,0 +1,57 @@
+syntax = "proto3";
+// To generate:
+// python -m grpc_tools.protoc -I./proto --python_out=proto_robot --pyi_out=proto_robot --grpc_python_out=proto_robot ./proto/robodata.proto
+
+option java_multiple_files = true;
+option java_package = "io.grpc.examples.robotdata";
+option java_outer_classname = "RobotDataProto";
+option objc_class_prefix = "RDT";
+
+package robodata;
+
+// Interface exported by the server.
+service RobotData {
+  rpc GetHistory ( RoboTensor ) returns ( stream RobotSummary ) {}
+  rpc ReceiveRobotData(stream RobotSummary) returns (stream RobotSummary) {}
+  rpc Chat ( stream LLMInput ) returns ( stream ChatMsg ) {}
+}
+
+message GPS_arr {
+  double lat = 1;
+  double long = 2;
+}
+
+message RoboObs {
+  GPS_arr gps = 1;
+}
+
+message RoboTensor {
+  string dtype = 1;
+  int32 d1 = 2;
+  int32 d2  = 3;
+  int32 d3 = 4;
+  bytes tensor_content = 5;
+}
+
+message RobotSummary {
+  RoboTensor rgb_tensor = 1;
+  RoboTensor depth_tensor = 2;
+  RoboTensor cam_intrinsics_k = 3;
+  RoboTensor camera_poses = 4;
+  RoboTensor camera_xyz = 5;
+  repeated RoboTensor instance_image = 6;
+  repeated string instance_classes = 7;
+  repeated float instance_scores = 8;
+  RoboObs robot_obs = 9;
+  string message = 10;
+}
+
+message ChatMsg {
+  string role = 1;
+  string content = 2;
+}
+
+message LLMInput {
+  repeated RoboTensor imgs = 1;
+  repeated ChatMsg conversation = 2;
+}

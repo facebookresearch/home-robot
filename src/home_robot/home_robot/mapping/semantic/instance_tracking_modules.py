@@ -15,8 +15,6 @@ from typing import Dict, List, Optional, Sequence, Tuple, Union
 import cv2
 import numpy as np
 import torch
-from torch import Tensor
-
 from home_robot.core.interfaces import Observations
 from home_robot.utils.bboxes_3d import (
     box3d_intersection_from_bounds,
@@ -29,6 +27,7 @@ from home_robot.utils.bboxes_3d import (
 from home_robot.utils.image import dilate_or_erode_mask, interpolate_image
 from home_robot.utils.point_cloud_torch import get_bounds
 from home_robot.utils.voxel import drop_smallest_weight_points
+from torch import Tensor
 
 padding = 1.5
 
