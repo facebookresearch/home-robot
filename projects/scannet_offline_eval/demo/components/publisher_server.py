@@ -52,7 +52,7 @@ class ObservationDirectoryWatcher(DirectoryWatcher):
 
 
 watcher = ObservationDirectoryWatcher(
-    watch_dir="publishers/published_trajectory/obs",
+    watch_dir="/home/jaydv/Documents/home-robot/viz_data/2023-10-05-16-07-28",
     fps=FPS,
     loop=True,
 )
