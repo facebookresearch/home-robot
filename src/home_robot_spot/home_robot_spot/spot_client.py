@@ -518,13 +518,16 @@ class SpotClient:
         # breakpoint()
         # self.rot_compass = yaw_rotation_matrix_2D(-self.start_compass)
 
-    def execute_plan(self, plan: PlanResult):
+    def execute_plan(self, plan: PlanResult, verbose: bool = False):
         """go through a whole plan and execute it"""
-        print("Executing motion plan:")
+        if verbose:
+            print("Executing motion plan:")
         for i, node in enumerate(plan.trajectory):
-            print(" - go to", i, "xyt =", node.state)
+            if verbose:
+                print(" - go to", i, "xyt =", node.state)
             self.navigate_to(node.state, blocking=True)
-            time.sleep(0.5)
+        # Sleep a bit at the end to make sure it gets there
+        time.sleep(0.5)
 
     @property
     def raw_observations(self):
@@ -678,6 +681,7 @@ class SpotClient:
             depth = self.patch_depth(rgb, depth)
             obs.depth = depth
         import torch
+
         if self.use_zero_depth:
 
             rgb = obs.rgb.clone().detach()

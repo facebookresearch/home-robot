@@ -31,15 +31,15 @@ SEMANTIC_MAP:
 SKILLS:
   GAZE_OBJ:
     type: rl #end_to_end #heuristic #hardcoded
-    checkpoint_path: data/checkpoints/ovmm_baseline_home_robot_challenge_2023/gaze_at_obj.pth
+    checkpoint_path: data/checkpoints/ovmm_baseline_home_robot_challenge_2023_v0.2/gaze_at_obj.pth
     rl_config: projects/habitat_ovmm/configs/agent/skills/gaze_rl.yaml # with continuous actions
     gym_obs_keys:
-      - robot_head_depth
+      - head_depth
       - object_embedding
       - object_segmentation
+      - start_receptacle
+      - start_recep_segmentation
       - joint
-      - is_holding
-      - relative_resting_position
     allowed_actions:
       - arm_action
       - base_velocity
@@ -61,17 +61,16 @@ SKILLS:
 
   NAV_TO_OBJ:
     type: rl # heuristic (default) or rl
-    checkpoint_path: data/checkpoints/ovmm_baseline_home_robot_challenge_2023/nav_to_obj.pth
+    checkpoint_path: data/checkpoints/ovmm_baseline_home_robot_challenge_2023_v0.2/nav_to_obj.pth
     rl_config: projects/habitat_ovmm/configs/agent/skills/nav_to_obj_rl.yaml
     gym_obs_keys:
-      - robot_head_depth
+      - head_depth
       - object_embedding
       - ovmm_nav_goal_segmentation
       - receptacle_segmentation
       - start_receptacle
       - robot_start_gps
       - robot_start_compass
-      - joint
     allowed_actions:
       # - base_velocity
       # - rearrange_stop
@@ -93,16 +92,15 @@ SKILLS:
 
   NAV_TO_REC:
     type: rl # heuristic (default) or rl
-    checkpoint_path: data/checkpoints/ovmm_baseline_home_robot_challenge_2023/nav_to_rec.pth
-    rl_config: projects/habitat_ovmm/configs/agent/skills/nav_to_obj_rl.yaml
+    checkpoint_path: data/checkpoints/ovmm_baseline_home_robot_challenge_2023_v0.2/nav_to_rec.pth
+    rl_config: projects/habitat_ovmm/configs/agent/skills/nav_to_rec_rl.yaml
     gym_obs_keys:
-      - robot_head_depth
+      - head_depth
       - ovmm_nav_goal_segmentation
       - receptacle_segmentation
       - goal_receptacle
       - robot_start_gps
       - robot_start_compass
-      - joint
     allowed_actions:
       # - base_velocity
       # - rearrange_stop
@@ -125,10 +123,10 @@ SKILLS:
 
   PLACE:
     type: rl # "rl" or "heuristic" or "hardcoded"
-    checkpoint_path: data/checkpoints/ovmm_baseline_home_robot_challenge_2023/place.pth
+    checkpoint_path: data/checkpoints/ovmm_baseline_home_robot_challenge_2023_v0.2/place.pth
     rl_config: projects/habitat_ovmm/configs/agent/skills/place_rl.yaml # with continuous actions
     gym_obs_keys:
-      - robot_head_depth
+      - head_depth
       - goal_receptacle
       - joint
       - goal_recep_segmentation
@@ -149,7 +147,7 @@ SKILLS:
     terminate_condition: ungrip
     grip_threshold: -0.8
     manip_mode_threshold: 0.8
-    constraint_base_in_manip_mode: True
+    constraint_base_in_manip_mode: False
     max_joint_delta: 0.1
     min_joint_delta: 0.02
 

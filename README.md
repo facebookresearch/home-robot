@@ -18,7 +18,12 @@ HomeRobot lets you get started running a range of robotics tasks on a low-cost m
 Check out the [Neurips 2023 HomeRobot Open-Vocabulary Mobile Manipulation Challenge!](https://aihabitat.org/challenge/2023_homerobot_ovmm/)
 
 When you're ready, 
-follow [these instructions to participate](docs/challenge.md).
+follow [these instructions to participate](https://github.com/facebookresearch/home-robot/blob/home-robot-ovmm-challenge-2023-v0.1.2/docs/challenge.md).
+
+**Important note for new OVMM challenge participants:** If you are participating in the challenge and starting now, please use the home-robot release `home-robot-ovmm-challenge-2023-v0.1.2`. You can start out by cloning home-robot via:
+```
+git clone https://github.com/facebookresearch/home-robot --branch home-robot-ovmm-challenge-2023-v0.1.2
+```
 
 ## Core Concepts
 

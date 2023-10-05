@@ -14,6 +14,7 @@ from typing import TYPE_CHECKING, Any, Dict, Optional
 import numpy as np
 import pandas as pd
 from habitat_baselines.rl.ppo.ppo_trainer import PPOTrainer
+from habitat_baselines.utils.info_dict import extract_scalars_from_info
 from omegaconf import DictConfig
 from tqdm import tqdm
 from utils.env_utils import create_ovmm_env_fn
@@ -138,7 +139,7 @@ class OVMMEvaluator(PPOTrainer):
                     episode_metrics[episode_key] = {}
                 # Record metrics after each skill finishes. This is useful for debugging.
                 if "skill_done" in info and info["skill_done"] != "":
-                    metrics = self._extract_scalars_from_info(hab_info)
+                    metrics = extract_scalars_from_info(hab_info)
                     metrics_at_skill_end = {
                         f"{info['skill_done']}." + k: v for k, v in metrics.items()
                     }
@@ -149,7 +150,7 @@ class OVMMEvaluator(PPOTrainer):
                     if "goal_name" in episode_metrics[episode_key]:
                         episode_metrics[episode_key]["goal_name"] = info["goal_name"]
                 if done:  # environment times out
-                    metrics = self._extract_scalars_from_info(hab_info)
+                    metrics = extract_scalars_from_info(hab_info)
                     if episode_idxs[e] < num_episodes_per_env[e]:
                         metrics_at_episode_end = {
                             f"END." + k: v for k, v in metrics.items()
@@ -272,7 +273,7 @@ class OVMMEvaluator(PPOTrainer):
                 observations, done, hab_info = self._env.apply_action(action, info)
 
                 if "skill_done" in info and info["skill_done"] != "":
-                    metrics = self._extract_scalars_from_info(hab_info)
+                    metrics = extract_scalars_from_info(hab_info)
                     metrics_at_skill_end = {
                         f"{info['skill_done']}." + k: v for k, v in metrics.items()
                     }
@@ -283,7 +284,7 @@ class OVMMEvaluator(PPOTrainer):
                     if "goal_name" in info:
                         current_episode_metrics["goal_name"] = info["goal_name"]
 
-            metrics = self._extract_scalars_from_info(hab_info)
+            metrics = extract_scalars_from_info(hab_info)
             metrics_at_episode_end = {"END." + k: v for k, v in metrics.items()}
             current_episode_metrics = {
                 **metrics_at_episode_end,
@@ -402,7 +403,7 @@ class OVMMEvaluator(PPOTrainer):
 
                 # record metrics if the current skill finishes
                 if "skill_done" in info and info["skill_done"] != "":
-                    metrics = self._extract_scalars_from_info(hab_info)
+                    metrics = extract_scalars_from_info(hab_info)
                     metrics_at_skill_end = {
                         f"{info['skill_done']}." + k: v for k, v in metrics.items()
                     }
@@ -413,7 +414,7 @@ class OVMMEvaluator(PPOTrainer):
                     if "goal_name" in info:
                         current_episode_metrics["goal_name"] = info["goal_name"]
 
-            metrics = self._extract_scalars_from_info(hab_info)
+            metrics = extract_scalars_from_info(hab_info)
             metrics_at_episode_end = {"END." + k: v for k, v in metrics.items()}
             current_episode_metrics = {
                 **metrics_at_episode_end,

@@ -24,7 +24,7 @@ from home_robot.utils.bboxes_3d import (
     get_box_bounds_from_verts,
     get_box_verts_from_bounds,
 )
-from home_robot.utils.image import dilate_or_erode_mask
+from home_robot.utils.image import dilate_or_erode_mask, interpolate_image
 from home_robot.utils.point_cloud_torch import get_bounds
 from home_robot.utils.voxel import drop_smallest_weight_points
 from torch import Tensor
@@ -587,6 +587,7 @@ class InstanceMemory:
                         match_within_category=self.instance_association_within_class,
                     )
                     if global_instance_id is None:
+                        # start ids from 1
                         global_instance_id = len(self.instances[env_id]) + 1
                     self.add_view_to_instance(
                         env_id, local_instance_id, global_instance_id
@@ -598,6 +599,7 @@ class InstanceMemory:
                         match_within_category=self.instance_association_within_class,
                     )
                     if global_instance_id is None:
+                        # start ids from 1
                         global_instance_id = len(self.instances[env_id]) + 1
                     self.add_view_to_instance(
                         env_id, local_instance_id, global_instance_id
@@ -738,7 +740,6 @@ class InstanceMemory:
         env_id: int,
         instance_seg: Tensor,
         point_cloud: Tensor,
-        pose: torch.Tensor,
         image: Tensor,
         cam_to_world: Optional[Tensor] = None,
         instance_classes: Optional[Tensor] = None,
@@ -747,6 +748,7 @@ class InstanceMemory:
         background_class_labels: List[int] = [0],
         background_instance_labels: List[int] = [0],
         valid_points: Optional[Tensor] = None,
+        pose: Optional[Tensor] = None,
     ):
         """
         Process instance information in the current frame and add instance views to the list of unprocessed views for future association.
@@ -759,7 +761,7 @@ class InstanceMemory:
             instance_seg (Tensor): [H, W] tensor of instance ids at each pixel
             point_cloud (Tensor): Point cloud data in world coordinates.
             image (Tensor): [3, H, W] RGB image
-            pose: 4x4 camera_space_to_world transform
+            cam_to_world: 4x4 camera_space_to_world transform
             instance_classes (Optional[Tensor]): [K,] class ids for each instance in instance seg
                 class_int = instance_classes[instance_id]
             instance_scores (Optional[Tensor]): [K,] detection confidences for each instance in instance_seg
@@ -769,6 +771,7 @@ class InstanceMemory:
             background_class_labels (List[int]): ids indicating background classes in semantic_seg. That view is not saved. (default = 0)
             background_instance_labels (List[int]): ids indicating background points in instance_seg. That view is not saved. (default = 0)
             valid_points (Tensor): [H, W] boolean tensor indicating valid points in the pointcloud
+            pose: (Optional[Tensor]): base pose of the agent at this timestep
         Note:
             - The method creates instance views for detected instances within the provided data.
             - If a semantic segmentation tensor is provided, each instance is associated with a semantic category.
@@ -784,8 +787,8 @@ class InstanceMemory:
         ), "Ensure that RGB images are channels-first and in the right format."
 
         self.unprocessed_views[env_id] = {}
-        self.local_id_to_global_id_map[env_id] = {}
-        # append image to list of images
+        # self.local_id_to_global_id_map[env_id] = {}
+        # append image to list of images; move tensors to cpu to prevent memory from blowing up
         if self.images[env_id] is None:
             self.images[env_id] = image.unsqueeze(0).detach().cpu()
         else:
@@ -806,15 +809,8 @@ class InstanceMemory:
                 image[0], True, dtype=torch.bool, device=image.device
             )
         if self.du_scale != 1:
-            valid_points_downsampled = (
-                torch.nn.functional.interpolate(
-                    valid_points.unsqueeze(0).unsqueeze(0).float(),
-                    scale_factor=1 / self.du_scale,
-                    mode="nearest",
-                )
-                .squeeze(0)
-                .squeeze(0)
-                .bool()
+            valid_points_downsampled = interpolate_image(
+                valid_points, scale_factor=1 / self.du_scale
             )
         else:
             valid_points_downsampled = valid_points
@@ -981,10 +977,11 @@ class InstanceMemory:
         self,
         instance_channels: Tensor,
         point_cloud: Tensor,
-        pose: torch.Tensor,
         image: Tensor,
+        cam_to_world: Optional[Tensor] = None,
         semantic_channels: Optional[Tensor] = None,
         background_class_labels: List[int] = [0],
+        pose: Optional[Tensor] = None,
     ):
         """
         Process instance information across environments and associate instance views with global instances.
@@ -1017,10 +1014,11 @@ class InstanceMemory:
                 env_id,
                 instance_segs[env_id],
                 point_cloud[env_id],
-                pose[env_id],
                 image[env_id],
+                cam_to_world=cam_to_world[env_id] if cam_to_world is not None else None,
                 semantic_seg=semantic_seg,
                 background_class_labels=background_class_labels,
+                pose=pose[env_id] if pose is not None else None,
             )
         self.associate_instances_to_memory()
 

@@ -16,7 +16,7 @@ Make sure you have [Docker](https://docs.docker.com/engine/install/ubuntu/) with
 
 1. Clone the challenge repository
    ```
-   git clone https://github.com/facebookresearch/home-robot.git
+   git clone https://github.com/facebookresearch/home-robot.git --branch home-robot-ovmm-challenge-2023-v0.1.2
    ```
 1. Navigate to `projects/habitat_ovmm`
    ```
