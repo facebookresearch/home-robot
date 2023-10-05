@@ -78,8 +78,8 @@ python demo.py --config-file configs/Detic_LCOCOI21k_CLIP_SwinB_896b32_4x_ft4x_m
 ```
 mkdir -p data/checkpoints
 cd data/checkpoints
-wget https://dl.fbaipublicfiles.com/habitat/data/baselines/v1/ovmm_baseline_home_robot_challenge_2023.zip
-unzip ovmm_baseline_home_robot_challenge_2023.zip
+wget https://dl.fbaipublicfiles.com/habitat/data/baselines/v1/ovmm_baseline_home_robot_challenge_2023_v0.2.zip
+unzip ovmm_baseline_home_robot_challenge_2023_v0.2.zip -d ovmm_baseline_home_robot_challenge_2023_v0.2
 cd ../../
 ```
 

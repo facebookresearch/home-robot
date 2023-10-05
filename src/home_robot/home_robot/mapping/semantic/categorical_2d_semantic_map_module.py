@@ -1019,7 +1019,8 @@ class Categorical2DSemanticMapModule(nn.Module):
         Args:
             extended_local_labels: Labels of instances in the extended local map.
             global_instances_within_local: Instances from the global map within the local map's region.
-
+            max_instance_id: The number of instance ids that are used up
+            local_instance_ids: The local instance ids for which local to global mapping is to be determined
         Returns:
             A mapping of local instance IDs to global instance IDs.
         """

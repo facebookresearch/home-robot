@@ -17,7 +17,7 @@ def get_complete_obs_space(skill_config, baseline_config):
     return spaces.dict.Dict(
         {
             "is_holding": spaces.Box(0.0, 1.0, (1,), np.float32),
-            "robot_head_depth": spaces.Box(
+            "head_depth": spaces.Box(
                 0.0,
                 1.0,
                 (skill_config.sensor_height, skill_config.sensor_width, 1),
@@ -80,6 +80,12 @@ def get_complete_obs_space(skill_config, baseline_config):
                 np.finfo(np.float32).max,
                 (1,),
                 np.float32,
+            ),
+            "start_recep_segmentation": spaces.Box(
+                0.0,
+                1.0,
+                (skill_config.sensor_height, skill_config.sensor_width, 1),
+                np.uint8,
             ),
             "start_receptacle": spaces.Box(
                 0,

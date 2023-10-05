@@ -1,19 +1,24 @@
 channels:
-  - conda-forge
   - pytorch
   - pytorch3d
   - nvidia
+  - conda-forge
+  - pyg
 dependencies:
   - python==3.9.*
   - cmake
-  - jupyter
-  - nbconvert
-  - opencv
   - pybind11
-  - pinocchio
-  - pytorch=2.0.0  # Compatibility with pytorch3d
-  - pytorch-cuda=11.8
+  - pytorch=1.13.1
+  - pytorch-cuda=11.7
   - pytorch3d
+  - torchvision
+  - torchaudio
+  - pyg
+  - pytorch-cluster
+  - pytorch-scatter
+  - pinocchio
+  - exa # optional: nice ls
+  - fzf # optional: fancy ctrl + R
   - pip
   - pip:
     - numpy <1.24 # certain deprecated operations were used in other deps
@@ -28,6 +33,9 @@ dependencies:
     - numpy-quaternion
     - natsort
     - frozendict
+    # Robots
+    - opencv-python
+    - pin>=2.6.17
     # Neural networks
     - openai-clip
     - timm
