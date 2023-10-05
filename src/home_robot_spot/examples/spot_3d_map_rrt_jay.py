@@ -453,6 +453,15 @@ class SpotDemoAgent:
             if pick_instance_id is None or place_instance_id is None:
                 print("No instances found!")
                 success = False
+                #TODO add all the items here
+                objects = {}
+                for i in range(len(instances)):
+                    objects[str((vocab.goal_id_to_goal_name[
+                        int(instances[i].category_id.item())
+                    ]))] = i
+                print(objects)
+                breakpoint()
+                success = False
             else:
                 print("Navigating to instance ")
                 print(f"Instance id: {pick_instance_id}")
@@ -651,6 +660,26 @@ def main(dock: Optional[int] = None, args=None):
                 res = plan_to_frontier(start, planner, navigation_space, voxel_map)
                 if not res.success:
                     print(res.reason)
+                    print(res.reason)
+                    print(" > Switching to random exploration")
+                    goal = next(
+                        navigation_space.sample_random_frontier(
+                            min_size=parameters["min_size"], max_size=parameters["max_size"]
+                        )
+                    )
+                    goal = goal.cpu().numpy()
+                    goal_is_valid = navigation_space.is_valid(goal)
+                    print(
+                        f" Goal is valid: {goal_is_valid}",
+                    )
+                    if not goal_is_valid:
+                        # really we should sample a new goal
+                        continue
+
+                    #  Build plan
+                    res = planner.plan(start, goal)
+                    print(goal)
+                    print("Res success:", res.success)
                     break
             else:
                 print("picking a random frontier point and trying to move there...")
