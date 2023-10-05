@@ -3,9 +3,8 @@
 #
 # This source code is licensed under the MIT license found in the
 # LICENSE file in the root directory of this source tree.
-
-
 import pickle
+from concurrent import futures
 from datetime import datetime
 from typing import Optional, Tuple
 
@@ -125,6 +124,8 @@ class Environment(evaluation_pb2_grpc.EnvironmentServicer):
         action, info = grpc_loads(request.SerializedEntity)
         done = self._env.apply_action(action, info=info)  # is prev_obs required?
 
+        hab_info = {}
+
         if "skill_done" in info and info["skill_done"] != "":
             metrics = self._extract_scalars_from_info(hab_info)
             metrics_at_skill_end = {
@@ -159,7 +160,7 @@ class Environment(evaluation_pb2_grpc.EnvironmentServicer):
         )
 
     def evalai_update_submission(self, request, context):
-        pass
+        return evaluation_pb2.Package()
 
     def close(self, request, context):
         """Close environment"""
@@ -190,7 +191,21 @@ class Environment(evaluation_pb2_grpc.EnvironmentServicer):
     help="Add pauses for debugging manipulation behavior.",
 )
 @click.option("--port", default=8085)
-def main():
+def main(
+    test_pick=False,
+    reset_nav=False,
+    pick_object="cup",
+    start_recep="table",
+    goal_recep="chair",
+    dry_run=False,
+    visualize_maps=False,
+    visualize_grasping=False,
+    test_place=False,
+    cat_map_file=None,
+    max_num_steps=200,
+    config_path="projects/real_world_ovmm/configs/agent/eval.yaml",
+    port=8085,
+):
 
     server = grpc.server(
         thread_pool=futures.ThreadPoolExecutor(max_workers=1),
