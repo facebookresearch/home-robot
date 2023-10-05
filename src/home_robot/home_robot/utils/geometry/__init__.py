@@ -5,3 +5,4 @@
 
 
 from ._base import *
+from .angles import PI2, angle_difference, interpolate_angles
