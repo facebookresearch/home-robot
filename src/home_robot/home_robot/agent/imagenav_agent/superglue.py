@@ -159,7 +159,7 @@ class Matching(nn.Module):
             color=txt_color,
         )
         txt.set_path_effects([patheffects.withStroke(linewidth=2, foreground="w")])
-
+        os.makedirs(os.path.dirname(path), exist_ok=True)
         plt.savefig(str(path), bbox_inches="tight", pad_inches=0)
         plt.close()
 
@@ -175,6 +175,63 @@ class Matching(nn.Module):
 
         data = {**matcher_inputs, **matcher_outputs}
         data = {k: v[0].cpu().numpy() for k, v in data.items()}
+
+        kpts0 = data["keypoints0"]
+        kpts1 = data["keypoints1"]
+        matches = data["matches0"]
+        conf = data["matching_scores0"]
+
+        valid = matches > -1
+        mkpts0 = kpts0[valid]
+        mkpts1 = kpts1[matches[valid]]
+        mconf = conf[valid]
+
+        color = cm.jet(mconf)
+        text = [
+            "SuperGlue",
+            "Keypoints: {}:{}".format(len(kpts0), len(kpts1)),
+            f"Matches: {len(mkpts0)}",
+            f"Match Conf: {mconf.sum():.2f}",
+        ]
+
+        # Display extra parameter info.
+        k_thresh = self.matcher.superpoint.config["keypoint_threshold"]
+        m_thresh = self.matcher.superglue.config["match_threshold"]
+        small_text = [
+            f"Keypoint Threshold: {k_thresh:.4f}",
+            f"Match Threshold: {m_thresh:.2f}",
+        ]
+
+        self._make_matching_plot(
+            data["image0"][0] * 255,
+            data["image1"][0] * 255,
+            kpts0,
+            kpts1,
+            mkpts0,
+            mkpts1,
+            color,
+            text,
+            os.path.join(self.vis_dir, f"superglue_{step+1}.png"),
+            small_text=small_text,
+        )
+
+    def _batched_visualize(
+        self,
+        matcher_inputs: Dict[str, Any],
+        matcher_outputs: Dict[str, Any],
+        step: int,
+        idx: int,
+    ) -> None:
+        """Visualize the input/output of running SuperPoint and SuperGlue inference"""
+        if not self.print_images:
+            return
+        collated_data = {**matcher_inputs, **matcher_outputs}
+        data = {}
+        for k, v in collated_data.items():
+            if len(v) > 1:
+                data[k] = v[idx].cpu().numpy()
+            else:
+                data[k] = v[0].cpu().numpy()
 
         kpts0 = data["keypoints0"]
         kpts1 = data["keypoints1"]

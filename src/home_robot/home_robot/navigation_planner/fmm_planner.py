@@ -143,6 +143,7 @@ class FMMPlanner:
 
         self.fmm_dist = dd
         # self.goal_map = goal_map
+
         if self.visualize or self.print_images and timestep != 0:
             r, c = traversible.shape  # for visualizing (downsampled) traversible map
             dist_vis = np.zeros((r, c * 3))
@@ -216,6 +217,11 @@ class FMMPlanner:
                 subset[self.du, self.du] * 5,
             )
         stop = subset[self.du, self.du] < self.goal_tolerance
+        if self.debug:
+            print("subset[self.du, self.du]", subset[self.du, self.du])
+            print("self.goal_tolerance", self.goal_tolerance)
+            print("stop", stop)
+            print()
 
         subset -= subset[self.du, self.du]
         ratio1 = subset / dist_mask

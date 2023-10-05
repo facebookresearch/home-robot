@@ -217,8 +217,12 @@ class SparseVoxelMapNavigationSpace(XYT):
         is_safe = torch.all((crop_exp & mask) | ~mask)
 
         valid = bool((not collision) and is_safe)
-
         if debug:
+            if collision:
+                print("- state in collision")
+            if not is_safe:
+                print("- not safe")
+
             print(f"{valid=}")
             obs = obstacles.cpu().numpy().copy()
             exp = explored.cpu().numpy().copy()
@@ -247,6 +251,7 @@ class SparseVoxelMapNavigationSpace(XYT):
         debug: bool = False,
         verbose: bool = False,
         step_dist: float = 0.5,
+        min_dist: float = 0.5,
     ) -> Optional[torch.Tensor]:
         """Sample a valid location on the current frontier using FMM planner to compute geodesic distance. Returns points in order until it finds one that's valid.
 
@@ -261,37 +266,39 @@ class SparseVoxelMapNavigationSpace(XYT):
             len(xyt) == 2 or len(xyt) == 3
         ), f"xyt must be of size 2 or 3 instead of {len(xyt)}"
 
-        # Get the masks from our 3d map
         obstacles, explored = self.voxel_map.get_2d_map()
-
         # Extract edges from our explored mask
-        less_explored = binary_erosion(
-            explored.float().unsqueeze(0).unsqueeze(0), self.dilate_explored_kernel
-        )[0, 0]
         obstacles = binary_dilation(
             obstacles.float().unsqueeze(0).unsqueeze(0), self.dilate_obstacles_kernel
         )[0, 0].bool()
-        edges = get_edges(less_explored)
+        # Get the masks from our 3d map
+        edges = get_edges(explored)
 
         # Do not explore obstacles any more
-        frontier_edges = edges & ~obstacles
         traversible = explored & ~obstacles
-        outside_frontier = ~explored & ~obstacles
+        frontier_edges = edges & ~obstacles
+        expanded_frontier = binary_dilation(
+            frontier_edges.float().unsqueeze(0).unsqueeze(0),
+            self.dilate_explored_kernel,
+        )[0, 0].bool()
+        outside_frontier = expanded_frontier & ~explored
+        frontier = expanded_frontier & ~obstacles & explored
 
         if debug:
             import matplotlib.pyplot as plt
 
             plt.subplot(221)
-            plt.imshow(frontier_edges.cpu().numpy())
+            print("obstacles")
+            plt.imshow(obstacles.cpu().numpy())
             plt.subplot(222)
-            # plt.imshow(expanded_frontier.cpu().numpy())
-            # plt.title("expanded frontier")
-            plt.subplot(223)
-            plt.imshow(traversible.cpu().numpy())
-            plt.title("traversible")
-            plt.subplot(224)
-            plt.imshow((less_explored + explored).cpu().numpy())
+            plt.imshow(explored.cpu().numpy())
             plt.title("explored")
+            plt.subplot(223)
+            plt.imshow((traversible + frontier).cpu().numpy())
+            plt.title("traversible + frontier")
+            plt.subplot(224)
+            plt.imshow((frontier_edges).cpu().numpy())
+            plt.title("just frontiers")
             plt.show()
 
         # from scipy.ndimage.morphology import distance_transform_edt
@@ -307,9 +314,7 @@ class SparseVoxelMapNavigationSpace(XYT):
         distance_map = skfmm.distance(m, dx=1)
         frontier_map = distance_map.copy()
         # Masks are the areas we are ignoring - ignore everything but the frontiers
-        frontier_map.mask = np.bitwise_or(
-            frontier_map.mask, ~frontier_edges.cpu().numpy()
-        )
+        frontier_map.mask = np.bitwise_or(frontier_map.mask, ~frontier.cpu().numpy())
 
         # Get distances of frontier points
         distances = frontier_map.compressed()
@@ -333,6 +338,9 @@ class SparseVoxelMapNavigationSpace(XYT):
         tries = 1
         prev_dist = -1 * float("Inf")
         for x, y, dist in sorted(zip(xs, ys, distances), key=lambda x: x[2]):
+
+            if dist < min_dist:
+                continue
 
             # Don't explore too close to where we are
             if dist < prev_dist + step_dist:
@@ -377,7 +385,7 @@ class SparseVoxelMapNavigationSpace(XYT):
             # Check to see if this point is valid
             if verbose:
                 print("[VOXEL MAP: sampling] sampled", xyt)
-            if self.is_valid(xyt):
+            if self.is_valid(xyt, debug=False):
                 yield xyt
 
             tries += 1
