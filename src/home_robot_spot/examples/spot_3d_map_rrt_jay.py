@@ -6,10 +6,9 @@ import datetime
 import os
 import pickle
 import random
+import shutil
 import sys
 import time
-import shutil
-from loguru import logger
 from typing import Dict, List, Optional
 
 import matplotlib.pyplot as plt
@@ -17,6 +16,7 @@ import numpy as np
 import open3d
 import torch
 from atomicwrites import atomic_write
+from loguru import logger
 from PIL import Image
 
 import home_robot_spot.nav_client as nc
@@ -41,6 +41,8 @@ from home_robot.utils.point_cloud import numpy_to_pcd
 from home_robot.utils.visualization import get_x_and_y_from_path
 from home_robot_spot import SpotClient, VoxelMapSubscriber
 from home_robot_spot.grasp_env import GraspController
+
+
 def goto(spot: SpotClient, planner: Planner, goal):
     """Send the spot to the correct location."""
     start = spot.current_position
@@ -62,6 +64,7 @@ def goto(spot: SpotClient, planner: Planner, goal):
         spot.navigate_to(goal)
     return res
 
+
 # NOTE: this requires 'pip install atomicwrites'
 def publish_obs(model: SparseVoxelMapNavigationSpace, path: str):
     timestep = len(model.voxel_map.observations) - 1
@@ -82,79 +85,6 @@ def publish_obs(model: SparseVoxelMapNavigationSpace, path: str):
             f,
         )
     print(" > Done saving observation to pickle file.")
-
-def plan_to_frontier(
-    start: np.ndarray,
-    planner: Planner,
-    space: ConfigurationSpace,
-    voxel_map: SparseVoxelMap,
-    visualize: bool = False,
-    try_to_plan_iter: int = 10,
-    debug: bool = False,
-) -> PlanResult:
-    """Find frontier point to move to."""
-    # extract goal using fmm planner
-    tries = 0
-    failed = False
-    res = None
-    start_is_valid = space.is_valid(start)
-    print("\n----------- Planning to frontier -----------")
-    print("Start is valid:", start_is_valid)
-    if not start_is_valid:
-        return PlanResult(False, reason="invalid start state")
-    for goal in space.sample_closest_frontier(
-        start,
-        step_dist=0.5,
-        min_dist=0,
-        debug=debug,
-        verbose=True,
-    ):
-        if goal is None:
-            failed = True
-            break
-        goal = goal.cpu().numpy()
-        print("Start:", start)
-        print("Sampled Goal:", goal)
-        show_goal = np.zeros(3)
-        show_goal[:2] = goal[:2]
-        goal_is_valid = space.is_valid(goal)
-        print("Start is valid:", start_is_valid)
-        print(" Goal is valid:", goal_is_valid)
-        if not goal_is_valid:
-            print(" -> resample goal.")
-            continue
-        # plan to the sampled goal
-        print("Planning...")
-        res = planner.plan(start, goal, verbose=True)
-        print("Found plan:", res.success)
-        if visualize:
-            obstacles, explored = voxel_map.get_2d_map()
-            img = (10 * obstacles) + explored
-            space.draw_state_on_grid(img, start, weight=5)
-            space.draw_state_on_grid(img, goal, weight=5)
-            plt.imshow(img)
-            if res.success:
-                path = voxel_map.plan_to_grid_coords(res)
-                x, y = get_x_and_y_from_path(path)
-                plt.plot(y, x)
-                plt.show()
-        if res.success:
-            break
-        else:
-            if visualize:
-                plt.show()
-            tries += 1
-            if tries >= try_to_plan_iter:
-                failed = True
-                break
-            continue
-    else:
-        print(" ------ no valid goals found!")
-        failed = True
-    if failed:
-        print(" ------ sampling and planning failed! Might be no where left to go.")
-        return PlanResult(False, reason="planning to frontier failed")
-    return res
 
 
 def navigate_to_an_instance(
@@ -222,7 +152,12 @@ def get_close(instance_id, spot, voxel_map, dist=0.75):
 
 
 def place_in_an_instance(
-    instance_pose, location, vf, spot, place_height=0.3, place_rotation=[0, np.pi / 2, 0]
+    instance_pose,
+    location,
+    vf,
+    spot,
+    place_height=0.3,
+    place_rotation=[0, np.pi / 2, 0],
 ):
     # TODO: Check if vf is correct
     spot.navigate_to(np.array([vf[0], vf[1], instance_pose[2]]), blocking=True)
@@ -272,7 +207,9 @@ def get_obj_centric_world_representation(instance_memory, max_context_length):
 
 
 class SpotDemoAgent:
-    def __init__(self, parameters, spot_config, dock: Optional[int] = None, path: str = None):
+    def __init__(
+        self, parameters, spot_config, dock: Optional[int] = None, path: str = None
+    ):
         self.parameters = parameters
         self.voxel_map = SparseVoxelMap(
             resolution=parameters["voxel_size"],
@@ -321,6 +258,80 @@ class SpotDemoAgent:
         )
         self.spot_config = spot_config
         self.path = path
+
+    def plan_to_frontier(
+        self,
+        start: Optional[np.ndarray] = None,
+        visualize: bool = False,
+        try_to_plan_iter: int = 10,
+        debug: bool = False,
+    ) -> PlanResult:
+        """Find frontier point to move to."""
+        # extract goal using fmm planner
+        tries = 0
+        failed = False
+        res = None
+        start = self.spot.current_position
+        start_is_valid = self.navigation_space.is_valid(start)
+        print("\n----------- Planning to frontier -----------")
+        print("Start is valid:", start_is_valid)
+        if not start_is_valid:
+            return PlanResult(False, reason="invalid start state")
+        for goal in self.navigation_space.sample_closest_frontier(
+            start,
+            step_dist=0.5,
+            min_dist=1.0,
+            debug=debug,
+            verbose=True,
+        ):
+            if goal is None:
+                failed = True
+                break
+            goal = goal.cpu().numpy()
+            print("Start:", start)
+            print("Sampled Goal:", goal)
+            show_goal = np.zeros(3)
+            show_goal[:2] = goal[:2]
+            goal_is_valid = self.navigation_space.is_valid(goal)
+            print("Start is valid:", start_is_valid)
+            print(" Goal is valid:", goal_is_valid)
+            if not goal_is_valid:
+                print(" -> resample goal.")
+                continue
+            # plan to the sampled goal
+            print("Planning...")
+            res = self.planner.plan(start, goal, verbose=True)
+            print("Found plan:", res.success)
+            for i, node in enumerate(res.trajectory):
+                print(i, node.state)
+            if visualize:
+                obstacles, explored = self.voxel_map.get_2d_map()
+                img = (10 * obstacles) + explored
+                self.navigation_space.draw_state_on_grid(img, start, weight=5)
+                self.navigation_space.draw_state_on_grid(img, goal, weight=5)
+                plt.imshow(img)
+                if res.success:
+                    path = self.voxel_map.plan_to_grid_coords(res)
+                    x, y = get_x_and_y_from_path(path)
+                    plt.plot(y, x)
+                    plt.show()
+            if res.success:
+                break
+            else:
+                if visualize:
+                    plt.show()
+                tries += 1
+                if tries >= try_to_plan_iter:
+                    failed = True
+                    break
+                continue
+        else:
+            print(" ------ no valid goals found!")
+            failed = True
+        if failed:
+            print(" ------ sampling and planning failed! Might be no where left to go.")
+            return PlanResult(False, reason="planning to frontier failed")
+        return res
 
     def sample_random_frontier(self) -> np.ndarray:
         """Get a random frontier point"""
@@ -462,12 +473,18 @@ class SpotDemoAgent:
             if pick_instance_id is None or place_instance_id is None:
                 print("No instances found!")
                 success = False
-                #TODO add all the items here
+                # TODO add all the items here
                 objects = {}
                 for i in range(len(instances)):
-                    objects[str((self.vocab.goal_id_to_goal_name[
-                        int(instances[i].category_id.item())
-                    ]))] = i
+                    objects[
+                        str(
+                            (
+                                self.vocab.goal_id_to_goal_name[
+                                    int(instances[i].category_id.item())
+                                ]
+                            )
+                        )
+                    ] = i
                 print(objects)
                 breakpoint()
                 success = False
@@ -508,14 +525,18 @@ class SpotDemoAgent:
                 self.spot.open_gripper()
                 time.sleep(1)
                 print("Resetting environment...")
-                instance_pose, location, vf = get_close(pick_instance_id, self.spot, self.voxel_map)
+                instance_pose, location, vf = get_close(
+                    pick_instance_id, self.spot, self.voxel_map
+                )
                 print(" > Navigating closer to the object")
-                self.spot.navigate_to(np.array([vf[0], vf[1], instance_pose[2]]), blocking=True)
+                self.spot.navigate_to(
+                    np.array([vf[0], vf[1], instance_pose[2]]), blocking=True
+                )
                 time.sleep(1)
                 success = gaze.gaze_and_grasp()
                 time.sleep(1)
                 if success:
-                    #TODO: @JAY make placing cleaner
+                    # TODO: @JAY make placing cleaner
                     # navigate to the place instance
                     print("Navigating to instance ")
                     print(f"Instance id: {place_instance_id}")
@@ -624,20 +645,19 @@ def main(dock: Optional[int] = None, args=None):
 
             if parameters["explore_methodical"]:
                 logger.info("Generating the next closest frontier point...")
-                res = plan_to_frontier(start, planner, navigation_space, voxel_map)
+                res = demo.plan_to_frontier()
                 if not res.success:
                     logger.warning(res.reason)
                     logger.info("Switching to random exploration")
                     goal = next(
                         navigation_space.sample_random_frontier(
-                            min_size=parameters["min_size"], max_size=parameters["max_size"]
+                            min_size=parameters["min_size"],
+                            max_size=parameters["max_size"],
                         )
                     )
                     goal = goal.cpu().numpy()
                     goal_is_valid = navigation_space.is_valid(goal)
-                    logger.info(
-                        f" Goal is valid: {goal_is_valid}"
-                    )
+                    logger.info(f" Goal is valid: {goal_is_valid}")
                     if not goal_is_valid:
                         # really we should sample a new goal
                         continue
@@ -651,7 +671,9 @@ def main(dock: Optional[int] = None, args=None):
                         logger.error("Res success: {}", res.success)
                     break
             else:
-                logger.info("picking a random frontier point and trying to move there...")
+                logger.info(
+                    "picking a random frontier point and trying to move there..."
+                )
                 # Sample a goal in the frontier (TODO change to closest frontier)
                 goal = demo.sample_random_frontier()
                 goal_is_valid = navigation_space.is_valid(goal)
