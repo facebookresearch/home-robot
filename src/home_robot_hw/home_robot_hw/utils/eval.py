@@ -186,39 +186,37 @@ class Environment(evaluation_pb2_grpc.EnvironmentServicer):
     is_flag=True,
     help="Add pauses for debugging manipulation behavior.",
 )
+@click.option("--port", default=8085)
 def main():
-    try:
 
-        agent_timelimit = int(os.getenv("SUBMISSION_TIME_LIMIT", 172800))
-        print("Submission time limit: ", str(agent_timelimit), " seconds")
-
-        server = grpc.server(
-            thread_pool=futures.ThreadPoolExecutor(max_workers=1),
-            compression=grpc.Compression.Gzip,
-            options=[
-                (
-                    "grpc.max_receive_message_length",
-                    -1,
-                )  # Unlimited message length that the channel can receive
-            ],
-        )
-        evaluation_pb2_grpc.add_EnvironmentServicer_to_server(
-            servicer=Environment(challenge_pk, phase_pk, submission_pk), server=server
-        )
-        print("Starting server. Listening on port 8085.")
-        server.add_insecure_port("[::]:8085")
-        server.start()
-        try:
-            with Timeout(seconds=agent_timelimit):
-                while True:
-                    time.sleep(4)
-        except KeyboardInterrupt:
-            server.stop(0)
-    except Exception as e:
-        import traceback
-
-        print("Exception:", e)
-        print(traceback.print_exc())
+    server = grpc.server(
+        thread_pool=futures.ThreadPoolExecutor(max_workers=1),
+        compression=grpc.Compression.Gzip,
+        options=[
+            (
+                "grpc.max_receive_message_length",
+                -1,
+            )  # Unlimited message length that the channel can receive
+        ],
+    )
+    evaluation_pb2_grpc.add_EnvironmentServicer_to_server(
+        servicer=Environment(
+            reset_nav,
+            pick_object,
+            start_recep,
+            goal_recep,
+            dry_run,
+            visualize_maps,
+            visualize_grasping,
+            test_place,
+            cat_map_file,
+            max_num_steps,
+            config_path
+        ), server=server
+    )
+    print(f"Starting server. Listening on port {port}.")
+    server.add_insecure_port(f"[::]:{port}")
+    server.start()
 
 
 if __name__ == "__main__":
