@@ -5,6 +5,7 @@
 # LICENSE file in the root directory of this source tree.
 
 
+import pickle
 from datetime import datetime
 from typing import Optional, Tuple
 
@@ -13,7 +14,6 @@ import evaluation_pb2
 import evaluation_pb2_grpc
 import grpc
 import rospy
-
 from home_robot.agent.ovmm_agent.ovmm_agent import OpenVocabManipAgent
 from home_robot.motion.stretch import STRETCH_HOME_Q
 from home_robot_hw.env.stretch_pick_and_place_env import StretchPickandPlaceEnv
@@ -31,6 +31,7 @@ def grpc_loads(entity):
 class Environment(evaluation_pb2_grpc.EnvironmentServicer):
     def __init__(
         self,
+        test_pick=False,
         reset_nav=False,
         pick_object="cup",
         start_recep="table",
@@ -73,7 +74,9 @@ class Environment(evaluation_pb2_grpc.EnvironmentServicer):
         rospy.init_node("eval_episode_stretch_objectnav")
 
         print("- Loading configuration")
-        config = load_config(config_path=config_path, visualize=self.visualize_maps)
+        config = load_config(
+            config_path=self.config_path, visualize=self.visualize_maps
+        )
 
         print("- Creating environment")
         self._env = StretchPickandPlaceEnv(
@@ -91,7 +94,7 @@ class Environment(evaluation_pb2_grpc.EnvironmentServicer):
         if self.reset_nav:
             print("- Sending the robot to [0, 0, 0]")
             # Send it back to origin position to make testing a bit easier
-            robot.nav.navigate_to([0, 0, 0])
+            self._robot.nav.navigate_to([0, 0, 0])
 
         self._t = 0
 
@@ -112,7 +115,7 @@ class Environment(evaluation_pb2_grpc.EnvironmentServicer):
 
     def get_current_episode(self, request, context):
         """Return current episode id"""
-        current_episode = 1  ## real world doesn't seem to have episodes yet
+        current_episode = 1  # real world doesn't seem to have episodes yet
         return evaluation_pb2.Package(SerializedEntity=grpc_dumps(current_episode))
 
     def apply_action(self, request, context):
@@ -120,7 +123,7 @@ class Environment(evaluation_pb2_grpc.EnvironmentServicer):
         Return the observations, done boolean and hab_info"""
         self._t += 1
         action, info = grpc_loads(request.SerializedEntity)
-        done = env.apply_action(action, info=info)  ## is prev_obs required?
+        done = self._env.apply_action(action, info=info)  # is prev_obs required?
 
         if "skill_done" in info and info["skill_done"] != "":
             metrics = self._extract_scalars_from_info(hab_info)
@@ -150,7 +153,7 @@ class Environment(evaluation_pb2_grpc.EnvironmentServicer):
             self._current_episode_metrics = {}
 
         observations = self._env.get_observation()
-        hab_info = None  ## not sure what hab_info should be for real world
+        hab_info = None  # not sure what hab_info should be for real world
         return evaluation_pb2.Package(
             SerializedEntity=grpc_dumps((observations, done, hab_info))
         )
@@ -201,6 +204,7 @@ def main():
     )
     evaluation_pb2_grpc.add_EnvironmentServicer_to_server(
         servicer=Environment(
+            test_pick,
             reset_nav,
             pick_object,
             start_recep,
@@ -211,8 +215,9 @@ def main():
             test_place,
             cat_map_file,
             max_num_steps,
-            config_path
-        ), server=server
+            config_path,
+        ),
+        server=server,
     )
     print(f"Starting server. Listening on port {port}.")
     server.add_insecure_port(f"[::]:{port}")
