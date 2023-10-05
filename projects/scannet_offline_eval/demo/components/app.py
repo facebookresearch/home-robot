@@ -15,12 +15,11 @@ import torch
 
 # from dash_extensions.websockets import SocketPool, run_server
 from dash_extensions.enrich import BlockingCallbackTransform, DashProxy
-from loguru import logger
-from torch_geometric.nn.pool.voxel_grid import voxel_grid
-
 from home_robot.core.interfaces import Observations
 from home_robot.mapping.voxel.voxel import SparseVoxelMap
 from home_robot.utils.point_cloud_torch import get_bounds
+from loguru import logger
+from torch_geometric.nn.pool.voxel_grid import voxel_grid
 
 from .directory_watcher import DirectoryWatcher
 
@@ -108,8 +107,16 @@ class SparseVoxelMapDirectoryWatcher:
         self.bounds.append(new_bounds)
 
         # Record bounding box update
-        self.box_bounds.append(obs["box_bounds"].cpu())
-        self.box_names.append(obs["box_names"].cpu())
+        if "box_bounds" in obs:
+            self.box_bounds.append(obs["box_bounds"].cpu())
+        else:
+            logger.warning("No box bounds in obs")
+
+        if "box_names" in obs:
+            self.box_names.append(obs["box_names"].cpu())
+        else:
+            logger.warning("No box bounds in obs")
+
         self.rgb_jpeg = cv2.imencode(
             ".jpg", (obs["rgb"].cpu().numpy() * 255).astype(np.uint8)
         )[1].tobytes()
