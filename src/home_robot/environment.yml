@@ -53,3 +53,5 @@ dependencies:
     - pynput
     - git+https://github.com/openai/CLIP.git
     - open3d
+    # For MiDaS
+    - imutils

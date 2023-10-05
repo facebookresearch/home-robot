@@ -76,8 +76,11 @@ if __name__ == "__main__":
     agent = ObjectNavAgent(config=config)
     env = HabitatObjectNavEnv(Env(config=config), config=config)
 
-    agent.reset()
     env.reset()
+    agent.reset()
+
+    scene_id = env.habitat_env.current_episode.scene_id.split("/")[-1].split(".")[0]
+    agent.planner.set_vis_dir(scene_id, env.habitat_env.current_episode.episode_id)
 
     t = 0
 
@@ -98,5 +101,5 @@ if __name__ == "__main__":
 
     if config.AGENT.SEMANTIC_MAP.record_instance_ids:
         # TODO Can we create a visualization of the instance memory here?
-
+        print("Let's generate visualization")
         pass

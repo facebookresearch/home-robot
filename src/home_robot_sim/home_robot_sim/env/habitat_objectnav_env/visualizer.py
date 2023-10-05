@@ -264,6 +264,7 @@ class Visualizer:
         semantic_map_config=None,
         instance_map: Optional[np.ndarray] = None,
         instance_memory: Optional[InstanceMemory] = None,
+        goal_pose=None,
         **kwargs,
     ):
         """Visualize frame input and semantic map.

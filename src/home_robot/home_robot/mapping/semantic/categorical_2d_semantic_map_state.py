@@ -170,6 +170,12 @@ class Categorical2DSemanticMapState:
         """Get map showing regions the agent has been close to"""
         return np.copy(self.local_map[e, MC.BEEN_CLOSE_MAP, :, :].cpu().float().numpy())
 
+    def get_blacklisted_targets_map(self, e) -> np.ndarray:
+        """Get map showing regions the agent has been close to"""
+        return np.copy(
+            self.local_map[e, MC.BLACKLISTED_TARGETS_MAP, :, :].cpu().float().numpy()
+        )
+
     def get_semantic_map(self, e) -> np.ndarray:
         """Get local map of semantic categories for an environment."""
         semantic_map = np.copy(self.local_map[e].cpu().float().numpy())
@@ -211,3 +217,19 @@ class Categorical2DSemanticMapState:
         """Get binary goal map encoding current global goal for an
         environment."""
         return self.goal_map[e]
+
+    # ------------------------------------------------------------------
+    # Conversion
+    # ------------------------------------------------------------------
+
+    def local_to_global(self, row_local, col_local, e: int = 0):
+        lmb = self.lmb[e].cpu()
+        row_global = row_local + lmb[0] - self.global_map_size // 2
+        col_global = col_local + lmb[2] - self.global_map_size // 2
+        return row_global, col_global
+
+    def global_to_local(self, row_global, col_global, e: int = 0):
+        lmb = self.lmb[e].cpu()
+        row_local = row_global - lmb[0] + self.global_map_size // 2
+        col_local = col_global - lmb[2] + self.global_map_size // 2
+        return row_local, col_local

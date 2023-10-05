@@ -56,9 +56,15 @@ class ObjectNavAgentModule(nn.Module):
             evaluate_instance_tracking=getattr(
                 config.ENVIRONMENT, "evaluate_instance_tracking", False
             ),
+            exploration_type=config.AGENT.SEMANTIC_MAP.exploration_type,
+            gaze_width=config.AGENT.SEMANTIC_MAP.gaze_width,
+            gaze_distance=config.AGENT.SEMANTIC_MAP.gaze_distance,
         )
         self.policy = ObjectNavFrontierExplorationPolicy(
-            exploration_strategy=config.AGENT.exploration_strategy
+            exploration_strategy=config.AGENT.exploration_strategy,
+            num_sem_categories=config.AGENT.SEMANTIC_MAP.num_sem_categories,
+            explored_area_dilation_radius=config.AGENT.PLANNER.explored_area_dilation_radius,
+            explored_area_erosion_radius=config.AGENT.PLANNER.explored_area_erosion_radius,
         )
 
     @property
@@ -81,7 +87,11 @@ class ObjectNavAgentModule(nn.Module):
         seq_object_goal_category=None,
         seq_start_recep_goal_category=None,
         seq_end_recep_goal_category=None,
+        seq_instance_id=None,
         seq_nav_to_recep=None,
+        semantic_max_val=None,
+        seq_obstacle_locations=None,
+        seq_free_locations=None,
     ):
         """Update maps and poses with a sequence of observations, and predict
         high-level goals from map features.
@@ -157,6 +167,9 @@ class ObjectNavAgentModule(nn.Module):
             init_global_pose,
             init_lmb,
             init_origins,
+            semantic_max_val=semantic_max_val,
+            seq_obstacle_locations=seq_obstacle_locations,
+            seq_free_locations=seq_free_locations,
         )
 
         # t1 = time.time()
@@ -171,12 +184,15 @@ class ObjectNavAgentModule(nn.Module):
             seq_start_recep_goal_category = seq_start_recep_goal_category.flatten(0, 1)
         if seq_end_recep_goal_category is not None:
             seq_end_recep_goal_category = seq_end_recep_goal_category.flatten(0, 1)
+        if seq_instance_id is not None:
+            seq_instance_id = seq_instance_id.flatten(0, 1)
         # Compute the goal map
         goal_map, found_goal = self.policy(
             map_features,
             seq_object_goal_category,
             seq_start_recep_goal_category,
             seq_end_recep_goal_category,
+            seq_instance_id,
             seq_nav_to_recep,
         )
         seq_goal_map = goal_map.view(batch_size, sequence_length, *goal_map.shape[-2:])
