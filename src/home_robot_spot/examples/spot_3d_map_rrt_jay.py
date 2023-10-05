@@ -9,6 +9,7 @@ import random
 import sys
 import time
 import shutil
+from loguru import logger
 from typing import Dict, List, Optional
 
 import matplotlib.pyplot as plt
@@ -48,8 +49,11 @@ def goto(spot: SpotClient, planner: Planner, goal):
     #  Build plan
     res = planner.plan(start, goal)
     print(goal)
-    print("Res success:", res.success)
-
+    if res:
+        logger.success("Res success: {}", res)
+    else:
+        logger.error("Res success: {}", res)
+    # print("Res success:", res.success)
     # Move to the next location
     if res.success:
         print("- follow the plan to goal")
@@ -545,6 +549,8 @@ class SpotDemoAgent:
                     print("Successfully grasped the object!")
                     # exit out of loop without killing script
                     break
+
+
 # def main(dock: Optional[int] = 549):
 def main(dock: Optional[int] = None, args=None):
     data: Dict[str, List[str]] = {}
