@@ -19,15 +19,11 @@ sys.path.append("../../../../src/home_robot/home_robot/perception/minigpt4/MiniG
 
 class RoboDataServicer(robodata_pb2_grpc.RobotDataServicer):
     def __init__(self, args):
-        # TODO uncomment
         self.obs_history = []
         self._load_llama(args)
         pass
 
     def _load_llama(self, args):
-
-        # args = ('../../../src/home_robot/home_robot/perception/minigpt4/MiniGPT-4/eval_configs/ovmm_test.yaml')
-        print(args)
         self.predictor = Predictor(args)
 
     def _robotensor_to_tensor(self, proto_tensor):
@@ -35,13 +31,13 @@ class RoboDataServicer(robodata_pb2_grpc.RobotDataServicer):
         return tensor
 
     def GetHistory(self, request, context):
-        # if request is not None:
-        #     x = robodata_pb2.RobotSummary()
-        #     x.message = "hello"
-        #     return x
+        """Return the first RobotSummary object in history."""
         yield self.obs_history.pop(0)
 
     def PlanHighLevelAction(self, request, context):
+        """Return text string (action) when given a stream of RobotSummary objects.
+        Each RobotSummary has object crops stored within the instance_image field, and at least one RobotSummary should
+        have the prompt contained in the message field."""
         req_msg = ""
         obj_crops = []
         for r in request:
@@ -54,11 +50,8 @@ class RoboDataServicer(robodata_pb2_grpc.RobotDataServicer):
                 )
                 print(post_img.shape)
                 obj_crops.append(post_img)
-        prompt = "Task: You are a chatbot exploring a home."
-        # TODO something more sophisticated
-        prompt = prompt + req_msg
         chat_input = {
-            "prompt": [prompt],
+            "prompt": [req_msg],
             "crops": torch.stack(obj_crops, dim=0).unsqueeze(0),
             "images": [],
         }
@@ -72,7 +65,7 @@ class RoboDataServicer(robodata_pb2_grpc.RobotDataServicer):
             )
             print(response)
         x = robodata_pb2.RobotSummary()
-        x.message = str(response)
+        x.message = str(response[0])
         yield x
 
     def ReceiveRobotData(self, request, context):

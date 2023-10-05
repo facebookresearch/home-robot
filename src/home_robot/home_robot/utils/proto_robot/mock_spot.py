@@ -4,7 +4,6 @@ import logging
 import os
 import pickle
 import random
-import shutil
 import sys
 
 import grpc
@@ -42,13 +41,14 @@ def create_msg():
 
 
 def create_msg_from_file(data, idx):
+    """Convert data dict with rgb, depth tensors,gps to RobotSummary message."""
     print("generating message for " + str(idx))
     new_msg = robodata_pb2.RobotSummary()
 
     new_msg.rgb_tensor.CopyFrom(tensor_to_robotensor(data["rgb"][idx]))
     new_msg.depth_tensor.CopyFrom(tensor_to_robotensor(data["depth"][idx]))
 
-    new_msg.message = "testing robot data"
+    new_msg.message = "Test Message"
     new_msg.robot_obs.gps.lat = data["obs"][idx].gps[0]
     new_msg.robot_obs.gps.long = data["obs"][idx].gps[1]
 
@@ -56,6 +56,7 @@ def create_msg_from_file(data, idx):
 
 
 def send_robot_data(stub, spot_filename):
+    """Example of sending a RobotSummary message to server."""
     data = pickle.load(open(spot_filename, "rb"))
     for d in range(len(data) - 1):
         new_msg = create_msg_from_file(data, d)
@@ -66,6 +67,7 @@ def send_robot_data(stub, spot_filename):
 
 
 def read_robot_data(stub):
+    """Example of reading oldest RobotSummary message."""
     for i in range(4):
         response = stub.GetHistory(robodata_pb2.RobotSummary())
         print("Getting History...")
@@ -74,7 +76,7 @@ def read_robot_data(stub):
 
 
 def get_world_rep_msgs(task, world_rep):
-    """Convert world_rep, a list of numpy arrays, into an Iterable of RobotSummary objects"""
+    """Convert world_rep (list of numpy arrays) into an Iterable of RobotSummary objects."""
     not_sent = True
     i = 0
     for obj in world_rep:
@@ -90,12 +92,14 @@ def get_world_rep_msgs(task, world_rep):
 
 
 def test_conversation(stub, img_filename):
+    """Example of sending and receiving response from server."""
     test_img = Image.open(img_filename)
 
     convert_tensor = transforms.ToTensor()
     center_crop = transforms.CenterCrop((224, 224))
     test_img_tensor = center_crop(convert_tensor(test_img))
 
+    # Create a LLM Input object which has repeated fields for images and also for role and content.
     new_conv = robodata_pb2.LLMInput()
     chat = new_conv.conversation.add()
     chat.role = "User"
@@ -121,9 +125,6 @@ def test_vlm(stub, voxel_file):
                 "\nWarning: this version of minigpt4 can only handle limited size of crops -- sampling a subset of crops from the instance memory..."
             )
             crops = random.sample(crops, max_context_length)
-        debug_path = "crops_for_planning/"
-        shutil.rmtree(debug_path, ignore_errors=True)
-        os.mkdir(debug_path)
         ret = []
         for id, crop in enumerate(crops):
             ret.append(crop[1].cpu().numpy())
