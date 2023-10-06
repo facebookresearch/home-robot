@@ -225,6 +225,7 @@ class SpotDemoAgent:
         logger.log("DEMO", "\n----------- Planning to frontier -----------")
         if not start_is_valid:
             logger.error("Start is valid: {}", start_is_valid)
+            self.spot.navigate_to([-0.25, 0, 0], relative=True)
             return PlanResult(False, reason="invalid start state")
         else:
             logger.success("Start is valid: {}", start_is_valid)
@@ -248,7 +249,7 @@ class SpotDemoAgent:
             if start_is_valid:
                 logger.success("Start is valid: {}", start_is_valid)
             else:
-                logger.error("Start is valid: {}", start_is_valid)
+                raise RuntimeError(f"Start is not valid: {start_is_valid}, {start=}")
             if goal_is_valid:
                 logger.success("Goal is valid: {}", goal_is_valid)
             if not goal_is_valid:
@@ -362,8 +363,14 @@ class SpotDemoAgent:
         goal_position = np.asarray(view.pose)
         start = self.spot.current_position
 
-        print(goal_position)
+        print(f"{goal_position=}")
+        print(f"{start=}")
+        print(f"{instance.bounds=}")
         if should_plan:
+            start_is_valid = self.navigation_space.is_valid(start)
+            goal_is_valid = self.navigation_space.is_valid(goal_position)
+            print(f"{start_is_valid=}")
+            print(f"{goal_is_valid=}")
             res = self.planner.plan(start, goal_position)
             if res.success:
                 logger.success("Res success: {}", res.success)
@@ -374,7 +381,8 @@ class SpotDemoAgent:
                 )
             else:
                 logger.error("Res success: {}, !!!PLANNING FAILED!!!", res.success)
-        else:
+                should_plan = False
+        if not should_plan:
             logger.info("Navigating to goal position: {}", goal_position)
             self.spot.navigate_to(goal_position, blocking=True)
 
@@ -520,12 +528,16 @@ class SpotDemoAgent:
                 print(objects)
                 # TODO: Add better handling
                 if pick_instance_id is None:
-                    new_id = input("enter a new instance to pick up from the list above: ")
+                    new_id = input(
+                        "enter a new instance to pick up from the list above: "
+                    )
                     if isinstance(new_id, int):
                         pick_instance_id = new_id
                         break
                 if place_instance_id is None:
-                    new_id = input("enter a new instance to place from the list above: ")
+                    new_id = input(
+                        "enter a new instance to place from the list above: "
+                    )
                     if isinstance(new_id, int):
                         place_instance_id = new_id
                         break
@@ -548,7 +560,6 @@ class SpotDemoAgent:
                     int(instances[pick_instance_id].category_id.item())
                 ]
                 opt = input(f"Grasping {object_category_name}..., y/n?: ")
-                breakpoint()
                 if opt == "n":
                     blacklist.append(pick_instance_id)
                     del instances[pick_instance_id]
@@ -568,13 +579,10 @@ class SpotDemoAgent:
                 # TODO: have a better way to reset the environment
 
                 obj_pose = instances[pick_instance_id].instance_views[-1].pose
-                xy = np.array([obj_pose[0], obj_pose[1]])
-                curr_pose = self.spot.current_position
-                vr = np.array([curr_pose[0], curr_pose[1]])
                 distance = np.linalg.norm(
-                    xy - vr
+                    np.asarray(obj_pose) - self.spot.current_position
                 )
-                if distance > 2.5:
+                if distance > 2.0:
                     instance_pose, location, vf = get_close(
                         pick_instance_id, self.spot, self.voxel_map
                     )
@@ -697,7 +705,7 @@ def main(dock: Optional[int] = None, args=None):
             else:
                 # TODO do something is start is not valid
                 logger.error("!!!!!!!! INVALID START POSITION !!!!!!")
-                spot.navigate_to([-0.5, 0, 0.5], relative=True)
+                spot.navigate_to([-0.25, 0, 0], relative=True)
                 continue
             logger.info("Start is safe: {}", voxel_map.xyt_is_safe(start))
 
@@ -750,15 +758,11 @@ def main(dock: Optional[int] = None, args=None):
                     logger.error("Res success: {}", res.success)
 
             # Move to the next location
-            if res.success:
-                spot.execute_plan(
-                    res,
-                    pos_err_threshold=parameters["trajectory_pos_err_threshold"],
-                    rot_err_threshold=parameters["trajectory_rot_err_threshold"],
-                )
-            else:
-                logger.warning("Just go ahead and try it anyway")
-                spot.navigate_to(goal)
+            spot.execute_plan(
+                res,
+                pos_err_threshold=parameters["trajectory_pos_err_threshold"],
+                rot_err_threshold=parameters["trajectory_rot_err_threshold"],
+            )
 
             if not parameters["use_async_subscriber"]:
                 demo.update(step + 1)
