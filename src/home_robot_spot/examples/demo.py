@@ -580,7 +580,7 @@ class SpotDemoAgent:
 
                 obj_pose = instances[pick_instance_id].instance_views[-1].pose
                 distance = np.linalg.norm(
-                    np.asarray(obj_pose) - self.spot.current_relative_position
+                    np.asarray(obj_pose) - self.spot.current_position
                 )
                 if distance > 2.0:
                     instance_pose, location, vf = get_close(
