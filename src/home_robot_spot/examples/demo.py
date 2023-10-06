@@ -11,15 +11,12 @@ import sys
 import time
 from typing import Dict, List, Optional
 
+import home_robot_spot.nav_client as nc
 import matplotlib.pyplot as plt
 import numpy as np
 import open3d
 import torch
 from atomicwrites import atomic_write
-from loguru import logger
-from PIL import Image
-
-import home_robot_spot.nav_client as nc
 from home_robot.agent.ovmm_agent import (
     OvmmPerception,
     build_vocab_from_category_map,
@@ -41,13 +38,16 @@ from home_robot.utils.point_cloud import numpy_to_pcd
 from home_robot.utils.visualization import get_x_and_y_from_path
 from home_robot_spot import SpotClient, VoxelMapSubscriber
 from home_robot_spot.grasp_env import GraspController
+from loguru import logger
+from PIL import Image
 
 ## Temporary hack until we make accel-cortex pip installable
 sys.path.append("path to accel-cortext base folder")
 import grpc
-import src.rpc
 import task_rpc_env_pb2
 from task_rpc_env_pb2_grpc import AgentgRPCStub
+
+import src.rpc
 from src.utils.observations import ObjectImage, Observations, ProtoConverter
 
 
@@ -201,13 +201,13 @@ def place_in_an_instance(
 
 
 def get_obj_centric_world_representation(instance_memory, max_context_length):
-    obs = Observations(object_images = [])
+    obs = Observations(object_images=[])
     for global_id, instance in enumerate(instance_memory):
         instance_crops = instance.instance_views
         obs.object_images.append(
             ObjectImage(
-                crop_id = global_id,
-                image = random.sample(instance_crops, 1)[0].cropped_image
+                crop_id=global_id,
+                image=random.sample(instance_crops, 1)[0].cropped_image,
             )
         )
     # TODO: the model currenly can only handle 20 crops
@@ -273,9 +273,6 @@ class SpotDemoAgent:
         self.spot_config = spot_config
         self.path = path
 
-        self.channel = grpc.insecure_channel("100.96.168.195:50054")
-        self.stub = AgentgRPCStub(channel)
-
     def plan_to_frontier(
         self,
         start: Optional[np.ndarray] = None,
@@ -315,7 +312,7 @@ class SpotDemoAgent:
             goal_is_valid = self.navigation_space.is_valid(goal)
             if start_is_valid:
                 logger.success("Start is valid: {}", start_is_valid)
-            else:   
+            else:
                 logger.error("Start is valid: {}", start_is_valid)
             if goal_is_valid:
                 logger.success("Goal is valid: {}", goal_is_valid)
@@ -414,7 +411,7 @@ class SpotDemoAgent:
         plt.show()
         plt.imsave(f"exploration_step_{step}.png", img)
 
-    def run_task(self, vlm, center, data):
+    def run_task(self, stub, center, data):
         """Actually use VLM to perform task
 
         Args:
@@ -492,16 +489,22 @@ class SpotDemoAgent:
             if not pick_instance_id:
                 # Navigating to a cup or bottle
                 for i, each_instance in enumerate(instances):
-                    if self.vocab.goal_id_to_goal_name[
-                        int(each_instance.category_id.item())
-                    ] in parameters['pick_categories']:
+                    if (
+                        self.vocab.goal_id_to_goal_name[
+                            int(each_instance.category_id.item())
+                        ]
+                        in parameters["pick_categories"]
+                    ):
                         pick_instance_id = i
                         break
             if not place_instance_id:
                 for i, each_instance in enumerate(instances):
-                    if self.vocab.goal_id_to_goal_name[
-                        int(each_instance.category_id.item())
-                    ] in parameters['place_categories']:
+                    if (
+                        self.vocab.goal_id_to_goal_name[
+                            int(each_instance.category_id.item())
+                        ]
+                        in parameters["place_categories"]
+                    ):
                         place_instance_id = i
                         break
 
@@ -521,7 +524,7 @@ class SpotDemoAgent:
                         )
                     ] = i
                 print(objects)
-                #TODO: Add better handling
+                # TODO: Add better handling
                 new_id = input("enter a new instance to pick up from the list above: ")
                 if isinstance(pick_instance_id, int):
                     pick_instance_id = new_id
@@ -567,7 +570,9 @@ class SpotDemoAgent:
                 # TODO: have a better way to reset the environment
 
                 obj_pose = instances[pick_instance_id].instance_views[-1].pose
-                distance = np.linalg.norm(np.asarray(obj_pose) - self.spot.current_relative_position)
+                distance = np.linalg.norm(
+                    np.asarray(obj_pose) - self.spot.current_relative_position
+                )
                 if distance > 2.0:
                     instance_pose, location, vf = get_close(
                         pick_instance_id, self.spot, self.voxel_map
@@ -594,8 +599,14 @@ class SpotDemoAgent:
                     place_location = self.vocab.goal_id_to_goal_name[
                         int(instances[place_instance_id].category_id.item())
                     ]
-                    instance_pose, location, vf = get_close(place_instance_id, self.spot, self.voxel_map, dist=0.5)
-                    logger.info("placing {object} at {place}", object=object_category_name, place=place_location)
+                    instance_pose, location, vf = get_close(
+                        place_instance_id, self.spot, self.voxel_map, dist=0.5
+                    )
+                    logger.info(
+                        "placing {object} at {place}",
+                        object=object_category_name,
+                        place=place_location,
+                    )
                     place_in_an_instance(instance_pose, location, vf, self.spot)
                 """
                 # visualize pointcloud and add location as red
@@ -622,6 +633,14 @@ class SpotDemoAgent:
 def main(dock: Optional[int] = None, args=None):
     level = logger.level("DEMO", no=38, color="<yellow>", icon="🤖")
     data: Dict[str, List[str]] = {}
+    if args.enable_vlm == 1:
+        channel = grpc.insecure_channel(
+            f"{args.vlm_server_addr}:{args.vlm_server_port}"
+        )
+        stub = AgentgRPCStub(channel)
+    else:
+        # No vlm to use, just default behavior
+        stub = None
 
     # TODO add this to config
     spot_config = get_config("src/home_robot_spot/configs/default_config.yaml")[0]
@@ -659,7 +678,9 @@ def main(dock: Optional[int] = None, args=None):
         voxel_map.show()
         for step in range(int(parameters["exploration_steps"])):
             # logger.log("DEMO", "\n----------- Step {} -----------", step + 1)
-            print("-" * 20, step + 1, "/", int(parameters["exploration_steps"]), "-" * 20)
+            print(
+                "-" * 20, step + 1, "/", int(parameters["exploration_steps"]), "-" * 20
+            )
 
             # Get current position and goal
             start = spot.current_position
@@ -733,7 +754,7 @@ def main(dock: Optional[int] = None, args=None):
                 demo.visualize(start, goal, step)
 
         logger.info("Exploration complete!")
-        demo.run_task(vlm, center=np.array([x0, y0, theta0]), data=data)
+        demo.run_task(stub, center=np.array([x0, y0, theta0]), data=data)
 
     except Exception as e:
         logger.critical("Exception caught: {}", e)
@@ -762,10 +783,14 @@ def main(dock: Optional[int] = None, args=None):
                 img = (10 * obstacles) + explored
                 if start is not None:
                     start_unnormalized = spot.unnormalize_gps_compass(start)
-                    navigation_space.draw_state_on_grid(img, start_unnormalized, weight=5)
+                    navigation_space.draw_state_on_grid(
+                        img, start_unnormalized, weight=5
+                    )
                 if goal is not None:
                     goal_unnormalized = spot.unnormalize_gps_compass(goal)
-                    navigation_space.draw_state_on_grid(img, goal_unnormalized, weight=5)
+                    navigation_space.draw_state_on_grid(
+                        img, goal_unnormalized, weight=5
+                    )
                 plt.imshow(img)
                 plt.show()
                 plt.imsave(f"{path}/exploration_step_final.png", img)
@@ -796,9 +821,14 @@ if __name__ == "__main__":
         help="Specify any task in natural language for VLM",
     )
     parser.add_argument(
-        "--cfg-path",
-        default="src/home_robot/home_robot/perception/detection/minigpt4/MiniGPT-4/eval_configs/ovmm_test.yaml",
-        help="path to configuration file.",
+        "--vlm_server_addr",
+        default="localhost",
+        help="ip address or domain name of vlm server.",
+    )
+    parser.add_argument(
+        "--vlm_server_port",
+        default="50054",
+        help="port of vlm server.",
     )
     parser.add_argument(
         "--gpu-id", type=int, default=1, help="specify the gpu to load the model."
