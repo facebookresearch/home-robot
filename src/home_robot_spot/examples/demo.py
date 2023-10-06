@@ -451,7 +451,9 @@ class SpotDemoAgent:
                     data["prompt"] = task
                     output = stub.stream_act_on_observations(
                         ProtoConverter.wrap_obs_iterator(
-                            episode_id=random.randint(1, 1000000), obs=world_representation, goal=task
+                            episode_id=random.randint(1, 1000000),
+                            obs=world_representation,
+                            goal=task,
                         )
                     )
                     plan = output.action
