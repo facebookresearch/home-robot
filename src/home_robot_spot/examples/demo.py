@@ -363,8 +363,14 @@ class SpotDemoAgent:
         goal_position = np.asarray(view.pose)
         start = self.spot.current_position
 
-        print(goal_position)
+        print(f"{goal_position=}")
+        print(f"{start=}")
+        print(f"{instance.bounds=}")
         if should_plan:
+            start_is_valid = self.navigation_space.is_valid(start)
+            goal_is_valid = self.navigation_space.is_valid(goal_position)
+            print(f"{start_is_valid=}")
+            print(f"{goal_is_valid=}")
             res = self.planner.plan(start, goal_position)
             if res.success:
                 logger.success("Res success: {}", res.success)
@@ -375,7 +381,8 @@ class SpotDemoAgent:
                 )
             else:
                 logger.error("Res success: {}, !!!PLANNING FAILED!!!", res.success)
-        else:
+                should_plan = False
+        if not should_plan:
             logger.info("Navigating to goal position: {}", goal_position)
             self.spot.navigate_to(goal_position, blocking=True)
 

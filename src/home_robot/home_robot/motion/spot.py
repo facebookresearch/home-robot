@@ -37,4 +37,4 @@ class SimpleSpotKinematics(Robot):
         """return a footprint mask that we can check 2d collisions against"""
         # The dimensions of spot are 0.5m x 1.1m (https://dev.bostondynamics.com/docs/concepts/about_spot)
         # Currently taking half because the planner is to conservative
-        return Footprint(width=0.3, length=0.8, width_offset=0.0, length_offset=0.0)
+        return Footprint(width=0.5, length=1.1, width_offset=0.0, length_offset=0.0)
