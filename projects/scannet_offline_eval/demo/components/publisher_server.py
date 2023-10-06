@@ -12,7 +12,7 @@ import numpy as np
 from loguru import logger
 from quart import Quart, websocket
 
-from .app import svm_watcher
+from .app import app_config, svm_watcher
 from .directory_watcher import DirectoryWatcher
 
 # Setup small Quart server for streaming via websocket, one for each stream.
@@ -52,7 +52,7 @@ class ObservationDirectoryWatcher(DirectoryWatcher):
 
 
 watcher = ObservationDirectoryWatcher(
-    watch_dir="/home/jaydv/Documents/home-robot/viz_data/2023-10-05-16-07-28",
+    watch_dir=app_config.directory_watch_path,
     fps=FPS,
     loop=True,
 )

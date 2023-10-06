@@ -3,6 +3,7 @@
 # This source code is licensed under the MIT license found in the
 # LICENSE file in the root directory of this source tree.
 
+import glob
 import logging
 import os
 import pickle
@@ -12,9 +13,22 @@ from pathlib import Path
 from typing import Callable, Optional, Union
 
 import torch
+from home_robot.utils.threading import Interval
 from loguru import logger
 
-from home_robot.utils.threading import Interval
+
+def get_most_recent_viz_directory() -> Optional[str]:
+    """
+    Get the path of the most recently created 'viz_data' directory under the '/data/hw_exps/spot' path.
+
+    Returns:
+        str: The path of the most recently created 'viz_data' directory, or None if no such directory exists.
+    """
+    search_path = f"{os.environ['HOME_ROBOT_ROOT']}/data/hw_exps/spot/*/viz_data/"
+    directories = sorted(glob.glob(search_path), key=os.path.getctime, reverse=True)
+    if not directories:
+        logger.warning(f"No viz_data directories found in {search_path}")
+    return directories[0] if directories else None
 
 
 class DirectoryWatcher:
