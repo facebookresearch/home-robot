@@ -590,9 +590,10 @@ class SpotDemoAgent:
                 # TODO: have a better way to reset the environment
 
                 obj_pose = instances[pick_instance_id].instance_views[-1].pose
-                distance = np.linalg.norm(
-                    np.asarray(obj_pose) - self.spot.current_position
-                )
+                xy = np.array([obj_pose[0], obj_pose[1]])
+                curr_pose = self.spot.current_position
+                vr = np.array([curr_pose[0], curr_pose[1]])
+                distance = np.linalg.norm(xy+vr)
                 if distance > 2.0:
                     instance_pose, location, vf = get_close(
                         pick_instance_id, self.spot, self.voxel_map
@@ -764,12 +765,15 @@ def main(dock: Optional[int] = None, args=None):
                 else:
                     logger.error("Res success: {}", res.success)
 
-            # Move to the next location
-            spot.execute_plan(
-                res,
-                pos_err_threshold=parameters["trajectory_pos_err_threshold"],
-                rot_err_threshold=parameters["trajectory_rot_err_threshold"],
-            )
+            if res.success:
+                spot.execute_plan(
+                    res,
+                    pos_err_threshold=parameters["trajectory_pos_err_threshold"],
+                    rot_err_threshold=parameters["trajectory_rot_err_threshold"],
+                )
+            else:
+                logger.warning("Just go ahead and try it anyway")
+                spot.navigate_to(goal)
 
             if not parameters["use_async_subscriber"]:
                 demo.update(step + 1)
