@@ -322,10 +322,9 @@ class SpotDemoAgent:
                 self.update()
 
     def update(self, step=0):
-        print("Synchronous obs update")
-        time.sleep(0.5)
+        time.sleep(0.1)
         obs = self.spot.get_rgbd_obs()
-        print("- Observed from coordinates:", obs.gps, obs.compass)
+        print("Observed from coordinates:", obs.gps, obs.compass)
         obs = self.semantic_sensor.predict(obs)
         self.voxel_map.add_obs(obs, xyz_frame="world")
         filename = f"{self.path}/viz_data/"
@@ -450,12 +449,9 @@ class SpotDemoAgent:
                     task = input("please type any task you want the robot to do: ")
                     # task is the prompt, save it
                     data["prompt"] = task
-                    # world_representation.object_images = world_representation.object_images[:1]
                     output = stub.stream_act_on_observations(
                         ProtoConverter.wrap_obs_iterator(
-                            episode_id=random.randint(1, 1000000),
-                            obs=obs,
-                            goal=task
+                            episode_id=random.randint(1, 1000000), obs=world_representation, goal=task
                         )
                     )
                     plan = output.action
