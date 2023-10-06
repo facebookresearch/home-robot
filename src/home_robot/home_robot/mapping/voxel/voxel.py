@@ -73,6 +73,7 @@ class SparseVoxelMap(object):
     DEFAULT_INSTANCE_MAP_KWARGS = dict(
         du_scale=1,
         instance_association="bbox_iou",
+        log_dir_overwrite_ok=True,
         mask_cropped_instances="False",
     )
 

@@ -125,6 +125,7 @@ class InstanceMemory:
         log_dir: Optional[str] = "instances",
         log_dir_overwrite_ok: bool = False,
         view_matching_config: ViewMatchingConfig = ViewMatchingConfig(),
+        mask_cropped_instances: bool = True,
     ):
         """See class definition for information about InstanceMemory
 
@@ -140,6 +141,7 @@ class InstanceMemory:
             instance_view_score_aggregation_mode (str): When adding views to an instance, how to update instance scores. Defaults to 'max'
             mask_cropped_instances (bool): true if we want to save crops of just objects on black background; false otherwise
         """
+        self.mask_cropped_instances = mask_cropped_instances
         self.num_envs = num_envs
         self.du_scale = du_scale
         self.debug_visualize = debug_visualize
