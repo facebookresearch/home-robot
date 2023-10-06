@@ -14,7 +14,7 @@ SHOW_RL_OBS: False         # whether to show the observations passed to RL polic
 SPOT:
   # GAZE_ARM_JOINT_ANGLES: [0, -160, 100, 0, 90, 0]
   GAZE_ARM_JOINT_ANGLES: [0, -140, 100, 0, 75, 0]
-  PLACE_ARM_JOINT_ANGLES: [0, -170, 120, 0, 75, 0]
+  PLACE_ARM_JOINT_ANGLES: [0, -170, 120, 0,90, 0]
   MAX_CMD_DURATION: 5.0
   HAND_DEPTH_THRESHOLD: 6.0
   BASE_HEIGHT: 0.61

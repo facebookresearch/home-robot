@@ -297,22 +297,26 @@ class SpotDemoAgent:
                 failed = True
                 break
             goal = goal.cpu().numpy()
-            print("Start:", start)
-            print("Sampled Goal:", goal)
+            logger.info("Start: {}", start)
+            logger.info("Sampled Goal: {}", goal)
             show_goal = np.zeros(3)
             show_goal[:2] = goal[:2]
             goal_is_valid = self.navigation_space.is_valid(goal)
-            print("Start is valid:", start_is_valid)
-            print(" Goal is valid:", goal_is_valid)
+            if start_is_valid:
+                logger.success("Start is valid: {}", start_is_valid)
+            else:   
+                logger.error("Start is valid: {}", start_is_valid)
+            if goal_is_valid:
+                logger.success("Goal is valid: {}", goal_is_valid)
             if not goal_is_valid:
-                print(" -> resample goal.")
+                logger.error("Goal is valid: {}, Resampling goal", goal_is_valid)
                 continue
             # plan to the sampled goal
-            print("Planning...")
+            logger.log("DEMO", "Planning...")
             res = self.planner.plan(start, goal, verbose=True)
-            print("Found plan:", res.success)
+            logger.info("Found plan: {}", res.success)
             for i, node in enumerate(res.trajectory):
-                print(i, node.state)
+                logger.info(f"{i}, {node.state}")
             if visualize:
                 obstacles, explored = self.voxel_map.get_2d_map()
                 img = (10 * obstacles) + explored
@@ -535,17 +539,23 @@ class SpotDemoAgent:
                 )
                 self.spot.open_gripper()
                 time.sleep(1)
-                print("Resetting environment...")
-                instance_pose, location, vf = get_close(
-                    pick_instance_id, self.spot, self.voxel_map
-                )
-                print(" > Navigating closer to the object")
+                logger.log("DEMO", "Resetting environment...")
+                # TODO: have a better way to reset the environment
+
+                obj_pose = instances[pick_instance_id].instance_views[-1].pose
+                distance = np.linalg.norm(np.asarray(obj_pose) - self.spot.current_relative_position)
+                if distance > 2.0:
+                    instance_pose, location, vf = get_close(
+                        pick_instance_id, self.spot, self.voxel_map
+                    )
+                logger.info("Navigating closer to the object")
                 self.spot.navigate_to(
                     np.array([vf[0], vf[1], instance_pose[2]]), blocking=True
                 )
-                time.sleep(1)
+                breakpoint()
+                time.sleep(0.5)
                 success = gaze.gaze_and_grasp()
-                time.sleep(1)
+                time.sleep(0.5)
                 if success:
                     # TODO: @JAY make placing cleaner
                     # navigate to the place instance
@@ -579,7 +589,8 @@ class SpotDemoAgent:
                 # Move armjoint with ik to x,y,z+.02
                 """
                 if success:
-                    print("Successfully grasped the object!")
+                    logger.success("Successfully grasped the object!")
+                    goto(self.spot, self.planner, center)
                     # exit out of loop without killing script
                     break
 
@@ -651,7 +662,7 @@ def main(dock: Optional[int] = None, args=None):
             else:
                 # TODO do something is start is not valid
                 logger.error("!!!!!!!! INVALID START POSITION !!!!!!")
-                spot.navigate_to([-0.15, 0, 0], relative=True)
+                spot.navigate_to([-0.5, 0, 0], relative=True)
                 continue
             logger.info("Start is safe: {}", voxel_map.xyt_is_safe(start))
 
@@ -751,6 +762,7 @@ def main(dock: Optional[int] = None, args=None):
                 plt.show()
                 plt.imsave(f"{path}/exploration_step_final.png", img)
 
+        spot.navigate_to(np.array([x0, y0, theta0]))
         logger.warning("Safely stop the robot...")
         spot.spot.close_gripper()
         logger.info("Robot sit down")
