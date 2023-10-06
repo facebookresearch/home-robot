@@ -5,7 +5,7 @@
 import logging
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Dict
+from typing import Dict, Optional
 
 import cv2
 import dash
@@ -21,7 +21,7 @@ from home_robot.utils.point_cloud_torch import get_bounds
 from loguru import logger
 from torch_geometric.nn.pool.voxel_grid import voxel_grid
 
-from .directory_watcher import DirectoryWatcher
+from .directory_watcher import DirectoryWatcher, get_most_recent_viz_directory
 
 
 @dataclass
@@ -30,11 +30,16 @@ class AppConfig:
     video_feed_update_freq_ms: int = 300
 
     directory_watcher_update_freq_ms: int = 300
-    directory_watch_path: str = "/home/jaydv/Documents/home-robot/viz_data/2023-10-05-16-07-28"
+    directory_watch_path: Optional[str] = get_most_recent_viz_directory()
     pointcloud_voxel_size: float = 0.05
 
 
 app_config = AppConfig()
+
+if app_config.directory_watch_path is None:
+    raise ValueError("No directory found with published observations.")
+
+
 app = DashProxy(
     __name__,
     external_stylesheets=[dbc.themes.BOOTSTRAP],
