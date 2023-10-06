@@ -52,7 +52,7 @@ data/
 *.pickle
 data/**
 data*/**
-
+data/***
 # Mesh files
 *.stl
 *.STL

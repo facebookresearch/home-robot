@@ -49,7 +49,7 @@ def goto(spot: SpotClient, planner: Planner, goal):
 
     #  Build plan
     res = planner.plan(start, goal)
-    print(goal)
+    logger.info("Goal: {}", goal)
     if res:
         logger.success("Res success: {}", res.success)
     else:
@@ -57,40 +57,12 @@ def goto(spot: SpotClient, planner: Planner, goal):
     # print("Res success:", res.success)
     # Move to the next location
     if res.success:
-        print("- follow the plan to goal")
+        logger.info("Following the plan to goal")
         spot.execute_plan(res)
     else:
-        print("- just go ahead and try it anyway")
+        logger.warnign("Just go ahead and try it anyway")
         spot.navigate_to(goal)
     return res
-
-# def publish_obs(model: SparseVoxelMap, publish_dir: Path, timestep: int):
-#     with atomic_write(publish_dir / f"{timestep}.pkl", mode="wb") as f:
-#         model_obs = model.voxel_map.observations[timestep]
-
-#         instances = model.voxel_map.get_instances()
-#         if len(instances) > 0:
-#             bounds, names = zip(*[(v.bounds, v.category_id) for v in instances])
-#             bounds = torch.stack(bounds, dim=0)
-#             names = torch.stack(names, dim=0).unsqueeze(-1)
-#         else:
-#             bounds = torch.zeros(0, 3, 2)
-#             names = torch.zeros(0, 1)
-#         pickle.dump(
-#             dict(
-#                 rgb=model_obs.rgb.cpu().detach(),
-#                 depth=model_obs.depth.cpu().detach(),
-#                 instance_image=model_obs.instance.cpu().detach(),
-#                 instance_classes=model_obs.instance_classes.cpu().detach(),
-#                 instance_scores=model_obs.instance_scores.cpu().detach(),
-#                 camera_pose=model_obs.camera_pose.cpu().detach(),
-#                 camera_K=model_obs.camera_K.cpu().detach(),
-#                 xyz_frame=model_obs.xyz_frame,
-#                 box_bounds=bounds,
-#                 box_names=names,
-#             ),
-#             f,
-#         )
 
 
 # NOTE: this requires 'pip install atomicwrites'
@@ -102,7 +74,7 @@ def publish_obs(model: SparseVoxelMapNavigationSpace, path: str):
         bounds, names = zip(*[(v.bounds, v.category_id) for v in instances])
         bounds = torch.stack(bounds, dim=0)
         names = torch.stack(names, dim=0).unsqueeze(-1)
-        print(f"Saving observation to pickle file...{f'{timestep}.pkl'}")
+        logger.info(f"Saving observation to pickle file...{f'{path}/{timestep}.pkl'}")
         pickle.dump(
             dict(
                 rgb=model_obs.rgb.cpu().detach(),
@@ -118,7 +90,7 @@ def publish_obs(model: SparseVoxelMapNavigationSpace, path: str):
             ),
             f,
         )
-    print(" > Done saving observation to pickle file.")
+    logger.success("Done saving observation to pickle file.")
 
 
 def navigate_to_an_instance(
@@ -142,13 +114,13 @@ def navigate_to_an_instance(
     print(goal_position)
     if should_plan:
         res = planner.plan(start, goal_position)
-        print(goal_position)
-        print("Res success:", res.success)
         if res.success:
+            logger.success("Res success: {}", res.success)
             spot.execute_plan(res)
         else:
-            print("!!! PLANNING FAILED !!!")
+            logger.error("Res success: {}, !!!PLANNING FAILED!!!", res.success)
     else:
+        logger.info("Navigating to goal position: {}", goal_position)
         spot.navigate_to(goal_position, blocking=True)
 
     if visualize:
@@ -160,7 +132,7 @@ def navigate_to_an_instance(
     return True
 
 
-def get_close(instance_id, spot, voxel_map, dist=0.75):
+def get_close(instance_id, spot, voxel_map, dist=0.25):
     # Parameters for the placing function from the pointcloud
     ground_normal = torch.tensor([0.0, 0.0, 1])
     nbr_dist = 0.15
@@ -223,7 +195,7 @@ def get_obj_centric_world_representation(instance_memory, max_context_length):
         crops.append((global_id, random.sample(instance_crops, 1)[0].cropped_image))
     # TODO: the model currenly can only handle 20 crops
     if len(crops) > max_context_length:
-        print(
+        logger.warning(
             "\nWarning: this version of minigpt4 can only handle limited size of crops -- sampling a subset of crops from the instance memory..."
         )
         crops = random.sample(crops, max_context_length)
@@ -253,7 +225,7 @@ class SpotDemoAgent:
             obs_min_density=parameters["obs_min_density"],
             smooth_kernel_size=parameters["smooth_kernel_size"],
         )
-        print(" - Created SparseVoxelMap")
+        logger.info("Created SparseVoxelMap")
         # Create kinematic model (very basic for now - just a footprint)
         self.robot_model = SimpleSpotKinematics()
         # Create navigation space example
@@ -265,11 +237,11 @@ class SpotDemoAgent:
             dilate_frontier_size=parameters["dilate_frontier_size"],
             dilate_obstacle_size=parameters["dilate_obstacle_size"],
         )
-        print(" - Created navigation space and environment")
-        print(f"   {self.navigation_space=}")
+        logger.log("DEMO", "Created navigation space and environment")
+        logger.log("DEMO", f"{self.navigation_space}")
 
         # Create segmentation sensor and load config. Returns config from file, as well as a OvmmPerception object that can be used to label scenes.
-        print("- Loading configuration")
+        logger.log("DEMO", "Loading configuration")
         config = load_config(visualize=False)
 
         print("- Create and load vocabulary and perception model")
@@ -307,10 +279,13 @@ class SpotDemoAgent:
         res = None
         start = self.spot.current_position
         start_is_valid = self.navigation_space.is_valid(start)
-        print("\n----------- Planning to frontier -----------")
-        print("Start is valid:", start_is_valid)
+        logger.log("DEMO", "\n----------- Planning to frontier -----------")
         if not start_is_valid:
+            logger.error("Start is valid: {}", start_is_valid)
             return PlanResult(False, reason="invalid start state")
+        else:
+            logger.success("Start is valid: {}", start_is_valid)
+
         for goal in self.navigation_space.sample_closest_frontier(
             start,
             step_dist=0.5,
@@ -394,7 +369,9 @@ class SpotDemoAgent:
         print("- Observed from coordinates:", obs.gps, obs.compass)
         obs = self.semantic_sensor.predict(obs)
         self.voxel_map.add_obs(obs, xyz_frame="world")
-        publish_obs(self.navigation_space, self.path)
+        filename = f"{self.path}/viz_data/"
+        os.makedirs(filename, exist_ok=True)
+        publish_obs(self.navigation_space, filename)
 
     def visualize(self, start, goal, step):
         """Update visualization for demo"""
@@ -609,6 +586,7 @@ class SpotDemoAgent:
 
 # def main(dock: Optional[int] = 549):
 def main(dock: Optional[int] = None, args=None):
+    level = logger.level("DEMO", no=38, color="<yellow>", icon="🤖")
     data: Dict[str, List[str]] = {}
     if args.enable_vlm == 1:
         sys.path.append(
@@ -629,7 +607,7 @@ def main(dock: Optional[int] = None, args=None):
     spot_config = get_config("src/home_robot_spot/configs/default_config.yaml")[0]
     parameters = get_config("src/home_robot_spot/configs/parameters.yaml")[0]
     timestamp = f"{datetime.datetime.now():%Y-%m-%d-%H-%M-%S}"
-    path = os.path.expanduser(f"~/Documents/home-robot/viz_data/{timestamp}")
+    path = os.path.expanduser(f"data/hw_exps/spot/{timestamp}")
     logger.add(f"{path}/{timestamp}.log", backtrace=True, diagnose=True)
     os.makedirs(path, exist_ok=True)
     logger.info("Saving viz data to {}", path)
@@ -735,45 +713,47 @@ def main(dock: Optional[int] = None, args=None):
             if step % 1 == 0 and parameters["visualize"]:
                 demo.visualize(start, goal, step)
 
-        print("Exploration complete!")
+        logger.info("Exploration complete!")
         demo.run_task(vlm, center=np.array([x0, y0, theta0]), data=data)
 
     except Exception as e:
-        logger.critical("Exception caught: ", e)
+        logger.critical("Exception caught: {}", e)
         raise e
 
     finally:
         if parameters["write_data"]:
-            pc_xyz, pc_rgb = voxel_map.show(
-                backend="open3d", instances=False, orig=np.zeros(3)
-            )
-            pcd_filename = f"{path}/spot_output_{timestamp}.pcd"
-            pkl_filename = f"{path}/spot_output_{timestamp}.pkl"
-            logger.info("Writing data...")
-            # Create pointcloud
-            if len(pcd_filename) > 0:
-                pcd = numpy_to_pcd(pc_xyz, pc_rgb / 255)
-                open3d.io.write_point_cloud(pcd_filename, pcd)
-                logger.info(f"wrote pcd to {pcd_filename}")
-            if len(pkl_filename) > 0:
-                voxel_map.write_to_pickle_add_data(pkl_filename, data)
-                logger.info(f"wrote pkl to {pkl_filename}")
+            if voxel_map.get_instances() is not None:
+                pc_xyz, pc_rgb = voxel_map.show(
+                    backend="open3d", instances=False, orig=np.zeros(3)
+                )
+                pcd_filename = f"{path}/spot_output_{timestamp}.pcd"
+                pkl_filename = f"{path}/spot_output_{timestamp}.pkl"
+                logger.info("Writing data...")
+                # Create pointcloud
+                if len(pcd_filename) > 0:
+                    pcd = numpy_to_pcd(pc_xyz, pc_rgb / 255)
+                    open3d.io.write_point_cloud(pcd_filename, pcd)
+                    logger.info(f"wrote pcd to {pcd_filename}")
+                if len(pkl_filename) > 0:
+                    voxel_map.write_to_pickle_add_data(pkl_filename, data)
+                    logger.info(f"wrote pkl to {pkl_filename}")
 
-            # TODO dont repeat this code
-            obstacles, explored = voxel_map.get_2d_map()
-            img = (10 * obstacles) + explored
-            if start is not None:
-                start_unnormalized = spot.unnormalize_gps_compass(start)
-                navigation_space.draw_state_on_grid(img, start_unnormalized, weight=5)
-            if goal is not None:
-                goal_unnormalized = spot.unnormalize_gps_compass(goal)
-                navigation_space.draw_state_on_grid(img, goal_unnormalized, weight=5)
-            plt.imshow(img)
-            plt.show()
-            plt.imsave(f"{path}/exploration_step_final.png", img)
+                # TODO dont repeat this code
+                obstacles, explored = voxel_map.get_2d_map()
+                img = (10 * obstacles) + explored
+                if start is not None:
+                    start_unnormalized = spot.unnormalize_gps_compass(start)
+                    navigation_space.draw_state_on_grid(img, start_unnormalized, weight=5)
+                if goal is not None:
+                    goal_unnormalized = spot.unnormalize_gps_compass(goal)
+                    navigation_space.draw_state_on_grid(img, goal_unnormalized, weight=5)
+                plt.imshow(img)
+                plt.show()
+                plt.imsave(f"{path}/exploration_step_final.png", img)
 
         logger.warning("Safely stop the robot...")
         spot.spot.close_gripper()
+        logger.info("Robot sit down")
         spot.spot.sit()
         spot.spot.power_off()
         spot.stop()
