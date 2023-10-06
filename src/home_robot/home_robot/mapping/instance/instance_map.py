@@ -73,17 +73,16 @@ def get_similarity(
         mode=view_matching_config.box_match_mode,
     )
 
-    visual_similarity = dot_product_similarity(
-        visual_embedding1, visual_embedding2, normalize=False
-    )
-    visual_similarity[
-        overlap_similarity < view_matching_config.box_min_iou_thresh
-    ] = 0.0
+    similarity = overlap_similarity * view_matching_config.box_overlap_weight
 
-    similarity = (
-        overlap_similarity * view_matching_config.box_overlap_weight
-        + visual_similarity * view_matching_config.visual_similarity_weight
-    )
+    if view_matching_config.visual_similarity_weight > 0.0:
+        visual_similarity = dot_product_similarity(
+            visual_embedding1, visual_embedding2, normalize=False
+        )
+        visual_similarity[
+            overlap_similarity < view_matching_config.box_min_iou_thresh
+        ] = 0.0
+        similarity += visual_similarity * view_matching_config.visual_similarity_weight
 
     return similarity
 
@@ -336,6 +335,8 @@ class InstanceMemory:
                     instance_view_embedding = instance_view.embedding / torch.norm(
                         instance_view.embedding, dim=-1, keepdim=True
                     )
+                else:
+                    instance_view_embedding = None
                 global_ids_to_instances = self.get_ids_to_instances(
                     env_id, category_id=match_category_id
                 )

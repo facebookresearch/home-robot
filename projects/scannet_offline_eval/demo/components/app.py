@@ -15,11 +15,12 @@ import torch
 
 # from dash_extensions.websockets import SocketPool, run_server
 from dash_extensions.enrich import BlockingCallbackTransform, DashProxy
+from loguru import logger
+from torch_geometric.nn.pool.voxel_grid import voxel_grid
+
 from home_robot.core.interfaces import Observations
 from home_robot.mapping.voxel.voxel import SparseVoxelMap
 from home_robot.utils.point_cloud_torch import get_bounds
-from loguru import logger
-from torch_geometric.nn.pool.voxel_grid import voxel_grid
 
 from .directory_watcher import DirectoryWatcher, get_most_recent_viz_directory
 
@@ -27,13 +28,15 @@ from .directory_watcher import DirectoryWatcher, get_most_recent_viz_directory
 @dataclass
 class AppConfig:
     pointcloud_update_freq_ms: int = 2000
-    video_feed_update_freq_ms: int = 300
+    video_feed_update_freq_ms: int = 500
 
     directory_watcher_update_freq_ms: int = 300
     directory_watch_path: Optional[str] = get_most_recent_viz_directory()
     pointcloud_voxel_size: float = 0.05
+    convert_rgb_to_bgr: bool = True
 
 
+RGB_TO_BGR = [2, 1, 0]
 app_config = AppConfig()
 
 if app_config.directory_watch_path is None:
@@ -59,6 +62,7 @@ class SparseVoxelMapDirectoryWatcher:
         self,
         watch_dir: Path,
         fps: int = 1,
+        convert_rgb_to_bgr=True,
         sparse_voxel_map_kwargs: Dict = {},
     ):
         self.svm = SparseVoxelMap(**sparse_voxel_map_kwargs)
@@ -74,6 +78,7 @@ class SparseVoxelMapDirectoryWatcher:
         self.box_bounds = []
         self.box_names = []
         self.rgb_jpeg = None
+        self.convert_rgb_to_bgr = convert_rgb_to_bgr
 
     @torch.no_grad()
     def add_obs(self, obs) -> bool:
@@ -82,11 +87,11 @@ class SparseVoxelMapDirectoryWatcher:
 
         old_points = self.svm.voxel_pcd._points
         old_rgb = self.svm.voxel_pcd._rgb
-        self.svm.add(**obs)
+        svm_watcher.svm.add(**obs)
 
         new_points = self.svm.voxel_pcd._points
         new_bounds = get_bounds(new_points).cpu()
-        new_rgb = self.svm.voxel_pcd._rgb / 255.0  # added nomalization
+        new_rgb = self.svm.voxel_pcd._rgb
         total_points = len(new_points)
         if old_points is not None:
             # Add new points
@@ -101,6 +106,8 @@ class SparseVoxelMapDirectoryWatcher:
             novel_idxs = torch.isin(voxel_idx_new, voxel_idx_old, invert=True)
 
             new_rgb = new_rgb[novel_idxs]
+            if new_rgb.max() > 1.0:  # added nomalization
+                new_rgb = new_rgb / 255.0
             new_points = new_points[novel_idxs]
 
             logger.debug(
@@ -130,10 +137,8 @@ class SparseVoxelMapDirectoryWatcher:
 
         # # Encode the RGB image to JPEG format
         # self.rgb_jpeg = cv2.imencode(".jpg", rgb_image.astype(np.uint8))[1].tobytes()
-
-        self.rgb_jpeg = cv2.imencode(
-            ".jpg", (obs["rgb"].cpu().numpy()).astype(np.uint8)
-        )[
+        rgb_ten = obs["rgb"][..., RGB_TO_BGR] if self.convert_rgb_to_bgr else obs["rgb"]
+        self.rgb_jpeg = cv2.imencode(".jpg", (rgb_ten.cpu().numpy()).astype(np.uint8))[
             1
         ].tobytes()  # * 255
 
@@ -162,5 +167,7 @@ svm_watcher = SparseVoxelMapDirectoryWatcher(
     fps=1.0 / (app_config.directory_watcher_update_freq_ms / 1000.0),
     sparse_voxel_map_kwargs=dict(
         resolution=app_config.pointcloud_voxel_size,
+        use_instance_memory=False,
     ),
+    convert_rgb_to_bgr=app_config.convert_rgb_to_bgr,
 )

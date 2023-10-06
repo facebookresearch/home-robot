@@ -5,7 +5,7 @@
 from abc import ABC, abstractmethod
 from typing import Any, Dict, List, Mapping, Sequence
 
-from home_robot.mapping.semantic.instance_tracking_modules import Instance
+from home_robot.mapping.instance import Instance
 
 
 class BaseMultiTaskAgent(ABC):

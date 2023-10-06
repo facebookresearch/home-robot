@@ -1,6 +1,10 @@
 _target_: home_robot.mapping.voxel.SparseVoxelMap
 resolution: 0.01
 background_instance_label: -1
+encoder:
+    _target_: home_robot.perception.encoders.ClipEncoder
+    version: "ViT-B/32"
+    device: 'cuda:0'
 instance_memory_kwargs:
     erode_mask_num_pix: 5
     erode_mask_num_iter: 5
@@ -24,4 +28,4 @@ instance_memory_kwargs:
         box_overlap_weight: 0.3
         box_overlap_eps: 1e-6
         visual_similarity_weight: 1.0
-        min_similarity_thresh: 0.1
+        min_similarity_thresh: 0.6

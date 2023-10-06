@@ -622,12 +622,12 @@ def plot_scene_with_bboxes(
                 "xaxis": xaxis,
                 "yaxis": yaxis,
                 "zaxis": zaxis,
-                "aspectmode": "cube",
+                # "aspectmode": "cube",
                 "camera": camera,
             }
         )
     if width is not None or height is not None:
-        fig.update_layout(width=width, height=height)
+        fig.update_layout(width=width, height=height, aspectmode="data")
     if use_orthographic:
         # fig.update_scenes(aspectmode='data')
         fig.layout.scene.camera.projection.type = "orthographic"

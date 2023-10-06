@@ -97,6 +97,7 @@ class SparseVoxelMap(object):
         voxel_kwargs: Dict[str, Any] = {},
         encoder: Optional[ClipEncoder] = None,
         map_2d_device: str = "cpu",
+        use_instance_memory=True,
     ):
         # TODO: We an use fastai.store_attr() to get rid of this boilerplate code
         self.resolution = resolution
@@ -124,6 +125,7 @@ class SparseVoxelMap(object):
         self.instance_memory_kwargs = update(
             copy.deepcopy(self.DEFAULT_INSTANCE_MAP_KWARGS), instance_memory_kwargs
         )
+        self.use_instance_memory = use_instance_memory
         self.voxel_kwargs = voxel_kwargs
         self.encoder = encoder
         self.map_2d_device = map_2d_device
@@ -373,22 +375,23 @@ class SparseVoxelMap(object):
             valid_depth = (depth > self.min_depth) & (depth < self.max_depth)
 
         # Add instance views to memory
-        instance = instance_image.clone()
+        if self.use_instance_memory:
+            instance = instance_image.clone()
 
-        self.instances.process_instances_for_env(
-            env_id=0,
-            instance_seg=instance,
-            point_cloud=full_world_xyz.reshape(H, W, 3),
-            image=rgb.permute(2, 0, 1),
-            cam_to_world=camera_pose,
-            instance_classes=instance_classes,
-            instance_scores=instance_scores,
-            background_instance_labels=[self.background_instance_label],
-            valid_points=valid_depth,
-            pose=base_pose,
-            encoder=self.encoder,
-        )
-        self.instances.associate_instances_to_memory()
+            self.instances.process_instances_for_env(
+                env_id=0,
+                instance_seg=instance,
+                point_cloud=full_world_xyz.reshape(H, W, 3),
+                image=rgb.permute(2, 0, 1),
+                cam_to_world=camera_pose,
+                instance_classes=instance_classes,
+                instance_scores=instance_scores,
+                background_instance_labels=[self.background_instance_label],
+                valid_points=valid_depth,
+                pose=base_pose,
+                encoder=self.encoder,
+            )
+            self.instances.associate_instances_to_memory()
 
         # Add to voxel grid
         if feats is not None:
