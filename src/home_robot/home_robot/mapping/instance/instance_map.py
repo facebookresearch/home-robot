@@ -837,9 +837,7 @@ class InstanceMemory:
                 x:x2,
             ]
             .permute(1, 2, 0)
-            .cpu()
-            .numpy()
-            .astype(np.uint8)
+            .byte()
         )
         return cropped_image
 
