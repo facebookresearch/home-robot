@@ -42,6 +42,16 @@ from home_robot.utils.visualization import get_x_and_y_from_path
 from home_robot_spot import SpotClient, VoxelMapSubscriber
 from home_robot_spot.grasp_env import GraspController
 
+## Temporary hack until we make accel-cortex pip installable
+# sys.path.append("path to accel-cortext base folder")
+print("Make sure path to accel-cortex base folder is set")
+sys.path.append(os.path.expanduser("~/src/accel-cortex"))
+import grpc
+import src.rpc
+import task_rpc_env_pb2
+from src.utils.observations import ObjectImage, Observations, ProtoConverter
+from task_rpc_env_pb2_grpc import AgentgRPCStub
+
 
 # NOTE: this requires 'pip install atomicwrites'
 def publish_obs(model: SparseVoxelMapNavigationSpace, path: str):
@@ -72,7 +82,7 @@ def publish_obs(model: SparseVoxelMapNavigationSpace, path: str):
             ),
             f,
         )
-    logger.success("Done saving observation to pickle file.")
+    # logger.success("Done saving observation to pickle file.")
 
 
 def get_close(instance_id, spot, voxel_map, dist=0.25):
@@ -132,27 +142,26 @@ def place_in_an_instance(
 
 
 def get_obj_centric_world_representation(instance_memory, max_context_length):
-    crops = []
+    """Get version that LLM can handle - convert images into torch if not already"""
+    obs = Observations(object_images=[])
     for global_id, instance in enumerate(instance_memory):
         instance_crops = instance.instance_views
-        crops.append((global_id, random.sample(instance_crops, 1)[0].cropped_image))
+        obs.object_images.append(
+            ObjectImage(
+                crop_id=global_id,
+                image=torch.from_numpy(
+                    random.sample(instance_crops, 1)[0].cropped_image
+                ),
+            )
+        )
     # TODO: the model currenly can only handle 20 crops
-    if len(crops) > max_context_length:
+    if len(obs.object_images) > max_context_length:
         logger.warning(
             "\nWarning: this version of minigpt4 can only handle limited size of crops -- sampling a subset of crops from the instance memory..."
         )
-        crops = random.sample(crops, max_context_length)
+        obs.object_images = random.sample(obs.object_images, max_context_length)
 
-    debug_path = "crops_for_planning/"
-    shutil.rmtree(debug_path, ignore_errors=True)
-    os.mkdir(debug_path)
-    ret = []
-    for id, crop in enumerate(crops):
-        Image.fromarray(crop[1], "RGB").save(
-            debug_path + str(id) + "_" + str(crop[0]) + ".png"
-        )
-        ret.append(str(id) + "_" + str(crop[0]) + ".png")
-    return ret
+    return obs
 
 
 class SpotDemoAgent:
@@ -314,10 +323,9 @@ class SpotDemoAgent:
                 self.update()
 
     def update(self, step=0):
-        print("Synchronous obs update")
-        time.sleep(0.5)
+        time.sleep(0.1)
         obs = self.spot.get_rgbd_obs()
-        print("- Observed from coordinates:", obs.gps, obs.compass)
+        print("Observed from coordinates:", obs.gps, obs.compass)
         obs = self.semantic_sensor.predict(obs)
         self.voxel_map.add_obs(obs, xyz_frame="world")
         filename = f"{self.path}/viz_data/"
@@ -400,30 +408,31 @@ class SpotDemoAgent:
 
         #  Build plan
         res = self.planner.plan(start, goal)
-        logger.info("Goal: {}", goal)
+        logger.info("[demo.goto] Goal: {}", goal)
         if res:
-            logger.success("Res success: {}", res.success)
+            logger.success("[demo.goto] Res success: {}", res.success)
         else:
-            logger.error("Res success: {}", res.success)
+            logger.error("[demo.goto] Res success: {}", res.success)
         # print("Res success:", res.success)
         # Move to the next location
         if res.success:
-            logger.info("Following the plan to goal")
+            logger.info("[demo.goto] Following the plan to goal")
             self.spot.execute_plan(
                 res,
                 pos_err_threshold=self.parameters["trajectory_pos_err_threshold"],
                 rot_err_threshold=self.parameters["trajectory_rot_err_threshold"],
+                verbose=True,
             )
         else:
-            logger.warning("Just go ahead and try it anyway")
+            logger.warning("[demo.goto] Just go ahead and try it anyway")
             self.spot.navigate_to(goal)
         return res
 
-    def run_task(self, vlm, center, data):
+    def run_task(self, stub, center, data):
         """Actually use VLM to perform task
 
         Args:
-            vlm
+            stub: VLM connection if available
             center: 3d point x y theta in se(2)
             data: used by vlm I guess"""
 
@@ -448,8 +457,14 @@ class SpotDemoAgent:
                     task = input("please type any task you want the robot to do: ")
                     # task is the prompt, save it
                     data["prompt"] = task
-                    sample = vlm.prepare_sample(task, world_representation)
-                    plan = vlm.evaluate(sample)
+                    output = stub.stream_act_on_observations(
+                        ProtoConverter.wrap_obs_iterator(
+                            episode_id=random.randint(1, 1000000),
+                            obs=world_representation,
+                            goal=task,
+                        )
+                    )
+                    plan = output.action
                     print(plan)
 
                     execute = input(
@@ -460,31 +475,27 @@ class SpotDemoAgent:
                         # get pick instance id
                         current_high_level_action = plan.split("; ")[0]
                         pick_instance_id = int(
-                            world_representation[
+                            world_representation.object_images[
                                 int(
                                     current_high_level_action.split("(")[1]
                                     .split(")")[0]
                                     .split(", ")[0]
                                     .split("_")[1]
                                 )
-                            ]
-                            .split(".")[0]
-                            .split("_")[1]
+                            ].crop_id
                         )
                         if len(plan.split(": ")) > 2:
                             # get place instance id
                             current_high_level_action = plan.split("; ")[2]
                             place_instance_id = int(
-                                world_representation[
+                                world_representation.object_images[
                                     int(
                                         current_high_level_action.split("(")[1]
                                         .split(")")[0]
                                         .split(", ")[0]
                                         .split("_")[1]
                                     )
-                                ]
-                                .split(".")[0]
-                                .split("_")[1]
+                                ].crop_id
                             )
                             print("place_instance_id", place_instance_id)
                         break
@@ -641,19 +652,13 @@ def main(dock: Optional[int] = None, args=None):
     print(f"{level=}")
     data: Dict[str, List[str]] = {}
     if args.enable_vlm == 1:
-        sys.path.append(
-            "src/home_robot/home_robot/perception/detection/minigpt4/MiniGPT-4/"
+        channel = grpc.insecure_channel(
+            f"{args.vlm_server_addr}:{args.vlm_server_port}"
         )
-        from minigpt4_example import Predictor
-
-        # load VLM
-        vlm = Predictor(args)
-        logger.info("VLM planner initialized")
-        # set task
-        logger.info("Reset the agent task to: {}", args.task)
+        stub = AgentgRPCStub(channel)
     else:
         # No vlm to use, just default behavior
-        vlm = None
+        stub = None
 
     # TODO add this to config
     spot_config = get_config("src/home_robot_spot/configs/default_config.yaml")[0]
@@ -669,6 +674,8 @@ def main(dock: Optional[int] = None, args=None):
     semantic_sensor = demo.semantic_sensor
     navigation_space = demo.navigation_space
     planner = demo.planner
+    start = None
+    goal = None
 
     try:
         # Turn on the robot using the client above
@@ -771,7 +778,7 @@ def main(dock: Optional[int] = None, args=None):
                 demo.visualize(start, goal, step)
 
         logger.info("Exploration complete!")
-        demo.run_task(vlm, center=np.array([x0, y0, theta0]), data=data)
+        demo.run_task(stub, center=np.array([x0, y0, theta0]), data=data)
 
     except Exception as e:
         logger.critical("Exception caught: {}", e)
@@ -828,9 +835,9 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="")
     parser.add_argument(
         "--enable_vlm",
-        default=0,
+        default=1,
         type=int,
-        help="Enable loading Minigpt4",
+        help="Enable loading Minigpt4. 1 == use vlm, 0 == test without vlm",
     )
     parser.add_argument(
         "--task",
@@ -838,9 +845,14 @@ if __name__ == "__main__":
         help="Specify any task in natural language for VLM",
     )
     parser.add_argument(
-        "--cfg-path",
-        default="src/home_robot/home_robot/perception/detection/minigpt4/MiniGPT-4/eval_configs/ovmm_test.yaml",
-        help="path to configuration file.",
+        "--vlm_server_addr",
+        default="localhost",
+        help="ip address or domain name of vlm server.",
+    )
+    parser.add_argument(
+        "--vlm_server_port",
+        default="50054",
+        help="port of vlm server.",
     )
     parser.add_argument(
         "--gpu-id", type=int, default=1, help="specify the gpu to load the model."
