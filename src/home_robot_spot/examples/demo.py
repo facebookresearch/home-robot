@@ -467,31 +467,27 @@ class SpotDemoAgent:
                         # get pick instance id
                         current_high_level_action = plan.split("; ")[0]
                         pick_instance_id = int(
-                            world_representation[
+                            world_representation.object_images[
                                 int(
                                     current_high_level_action.split("(")[1]
                                     .split(")")[0]
                                     .split(", ")[0]
                                     .split("_")[1]
                                 )
-                            ]
-                            .split(".")[0]
-                            .split("_")[1]
+                            ].crop_id
                         )
                         if len(plan.split(": ")) > 2:
                             # get place instance id
                             current_high_level_action = plan.split("; ")[2]
                             place_instance_id = int(
-                                world_representation[
+                                world_representation.object_images[
                                     int(
                                         current_high_level_action.split("(")[1]
                                         .split(")")[0]
                                         .split(", ")[0]
                                         .split("_")[1]
                                     )
-                                ]
-                                .split(".")[0]
-                                .split("_")[1]
+                                ].crop_id
                             )
                             print("place_instance_id", place_instance_id)
                         break
