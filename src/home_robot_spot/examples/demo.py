@@ -671,6 +671,7 @@ def main(dock: Optional[int] = None, args=None):
     navigation_space = demo.navigation_space
     planner = demo.planner
     start = None
+    goal = None
 
     try:
         # Turn on the robot using the client above
