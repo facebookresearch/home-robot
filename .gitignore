@@ -2,6 +2,7 @@
 .DS_Store
 .vscode
 *.swp
+*.swn
 *.swo
 *.code-workspace
 debug/
@@ -48,6 +49,8 @@ data/
 # used by habitat for object info
 *.json
 *.png
+*.jpg
+*.jpeg
 *.npz
 *.pickle
 data/**
