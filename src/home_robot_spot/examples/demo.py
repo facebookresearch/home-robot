@@ -147,12 +147,13 @@ def get_obj_centric_world_representation(instance_memory, max_context_length):
     obs = Observations(object_images=[])
     for global_id, instance in enumerate(instance_memory):
         instance_crops = instance.instance_views
+        crop = random.sample(instance_crops, 1)[0].cropped_image
+        if isinstance(crop, np.ndarray):
+            crop = torch.from_numpy(crop)
         obs.object_images.append(
             ObjectImage(
                 crop_id=global_id,
-                image=torch.from_numpy(
-                    random.sample(instance_crops, 1)[0].cropped_image
-                ),
+                image=crop,
             )
         )
     # TODO: the model currenly can only handle 20 crops
@@ -596,7 +597,7 @@ class SpotDemoAgent:
                 xy = np.array([obj_pose[0], obj_pose[1]])
                 curr_pose = self.spot.current_position
                 vr = np.array([curr_pose[0], curr_pose[1]])
-                distance = np.linalg.norm(xy+vr)
+                distance = np.linalg.norm(xy + vr)
                 if distance > 2.0:
                     instance_pose, location, vf = get_close(
                         pick_instance_id, self.spot, self.voxel_map
