@@ -33,7 +33,12 @@ from home_robot.motion import PlanResult
 from home_robot.perception.midas import Midas
 from home_robot.utils.bboxes_3d_plotly import plot_scene_with_bboxes
 from home_robot.utils.config import get_config
-from home_robot.utils.geometry import angle_difference, sophus2xyt, xyt2sophus
+from home_robot.utils.geometry import (
+    angle_difference,
+    sophus2xyt,
+    xyt2sophus,
+    xyt_base_to_global,
+)
 from home_robot.utils.image import Camera as PinholeCamera
 from home_robot.utils.point_cloud_torch import unproject_masked_depth_to_xyz_coordinates
 
@@ -541,7 +546,7 @@ class SpotClient:
         # Send us to the final waypoint, but this time actually block - we want to really get there
         self.navigate_to(node.state, blocking=True)
         # Sleep a bit at the end to make sure it gets there
-        time.sleep(0.5)
+        # time.sleep(0.5)
 
     @property
     def raw_observations(self):
@@ -858,6 +863,9 @@ class SpotClient:
         # print("nav to before unnorm", xyt)
         # xyt = self.unnormalize_gps_compass(xyt)
         # print("after =", xyt)
+
+        if relative:
+            xyt = xyt_base_to_global(xyt, self.current_position)
 
         self.spot.set_base_position(
             x_pos=xyt[0],

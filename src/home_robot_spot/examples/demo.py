@@ -225,6 +225,7 @@ class SpotDemoAgent:
         logger.log("DEMO", "\n----------- Planning to frontier -----------")
         if not start_is_valid:
             logger.error("Start is valid: {}", start_is_valid)
+            self.spot.navigate_to([-0.25, 0, 0], relative=True)
             return PlanResult(False, reason="invalid start state")
         else:
             logger.success("Start is valid: {}", start_is_valid)
@@ -248,7 +249,7 @@ class SpotDemoAgent:
             if start_is_valid:
                 logger.success("Start is valid: {}", start_is_valid)
             else:
-                logger.error("Start is valid: {}", start_is_valid)
+                raise RuntimeError(f"Start is not valid: {start_is_valid}, {start=}")
             if goal_is_valid:
                 logger.success("Goal is valid: {}", goal_is_valid)
             if not goal_is_valid:
@@ -520,12 +521,16 @@ class SpotDemoAgent:
                 print(objects)
                 # TODO: Add better handling
                 if pick_instance_id is None:
-                    new_id = input("enter a new instance to pick up from the list above: ")
+                    new_id = input(
+                        "enter a new instance to pick up from the list above: "
+                    )
                     if isinstance(new_id, int):
                         pick_instance_id = new_id
                         break
                 if place_instance_id is None:
-                    new_id = input("enter a new instance to place from the list above: ")
+                    new_id = input(
+                        "enter a new instance to place from the list above: "
+                    )
                     if isinstance(new_id, int):
                         place_instance_id = new_id
                         break
@@ -693,7 +698,7 @@ def main(dock: Optional[int] = None, args=None):
             else:
                 # TODO do something is start is not valid
                 logger.error("!!!!!!!! INVALID START POSITION !!!!!!")
-                spot.navigate_to([-0.5, 0, 0.5], relative=True)
+                spot.navigate_to([-0.25, 0, 0], relative=True)
                 continue
             logger.info("Start is safe: {}", voxel_map.xyt_is_safe(start))
 
