@@ -3,7 +3,7 @@ step_size: 0.5  # (originally .1, we can make it all the way to 2 maybe actually
 # rotation_step_size: 3.141592
 rotation_step_size: 1.0
 visualize: False
-exploration_steps: 20
+exploration_steps: 5
 use_midas: False
 # Frontier search parameters
 frontier_step_dist: 0.5
