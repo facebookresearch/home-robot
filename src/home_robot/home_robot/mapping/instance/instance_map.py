@@ -686,15 +686,11 @@ class InstanceMemory:
             instance_id_to_category_id[instance_id] = category_id
 
             # get bounding box
-            bbox = (
-                torch.stack(
-                    [
-                        instance_mask.nonzero().min(dim=0)[0],
-                        instance_mask.nonzero().max(dim=0)[0] + 1,
-                    ]
-                )
-                .cpu()
-                .numpy()
+            bbox = torch.stack(
+                [
+                    instance_mask.nonzero().min(dim=0)[0],
+                    instance_mask.nonzero().max(dim=0)[0] + 1,
+                ]
             )
             assert bbox.shape == (
                 2,
@@ -748,7 +744,7 @@ class InstanceMemory:
             #     .astype(np.uint8)
             # )
             cropped_image = self.get_cropped_image(image, bbox)
-            instance_mask = instance_mask.cpu().numpy().astype(bool)
+            instance_mask = instance_mask.bool()
 
             # get embedding
             if encoder is not None:

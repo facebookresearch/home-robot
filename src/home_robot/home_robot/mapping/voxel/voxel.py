@@ -96,6 +96,7 @@ class SparseVoxelMap(object):
         instance_memory_kwargs: Dict[str, Any] = {},
         voxel_kwargs: Dict[str, Any] = {},
         encoder: Optional[ClipEncoder] = None,
+        map_2d_device: str = "cpu",
     ):
         # TODO: We an use fastai.store_attr() to get rid of this boilerplate code
         self.resolution = resolution
@@ -125,12 +126,7 @@ class SparseVoxelMap(object):
         )
         self.voxel_kwargs = voxel_kwargs
         self.encoder = encoder
-
-        # Create disk for mapping explored areas near the robot - since camera can't always see it
-        self._disk_size = np.ceil(1.0 / self.grid_resolution)
-        self._visited_disk = torch.from_numpy(
-            create_disk(1.0 / self.grid_resolution, (2 * self._disk_size) + 1)
-        )
+        self.map_2d_device = map_2d_device
 
         if self.pad_obstacles > 0:
             self.dilate_obstacles_kernel = torch.nn.Parameter(
@@ -149,11 +145,10 @@ class SparseVoxelMap(object):
 
         # Create disk for mapping explored areas near the robot - since camera can't always see it
         self._disk_size = np.ceil(self.local_radius / self.grid_resolution)
-        print(f"{self._disk_size=}")
 
         self._visited_disk = torch.from_numpy(
             create_disk(self._disk_size, (2 * self._disk_size) + 1)
-        )
+        ).to(map_2d_device)
 
         if grid_size is not None:
             self.grid_size = [grid_size[0], grid_size[1]]
@@ -161,9 +156,9 @@ class SparseVoxelMap(object):
             self.grid_size = DEFAULT_GRID_SIZE
         # Track the center of the grid - (0, 0) in our coordinate system
         # We then just need to update everything when we want to track obstacles
-        self.grid_origin = Tensor(self.grid_size + [0]) // 2
+        self.grid_origin = Tensor(self.grid_size + [0], device=map_2d_device) // 2
         # Used for tensorized bounds checks
-        self._grid_size_t = Tensor(self.grid_size)
+        self._grid_size_t = Tensor(self.grid_size, device=map_2d_device)
 
         # Init variables
         self.reset()
@@ -193,7 +188,7 @@ class SparseVoxelMap(object):
     def reset_cache(self):
         """Clear some tracked things"""
         # Stores points in 2d coords where robot has been
-        self._visited = torch.zeros(self.grid_size)
+        self._visited = torch.zeros(self.grid_size, device=self.map_2d_device)
 
         # Store instances detected (all of them for now)
         self.instances.reset()
@@ -405,9 +400,9 @@ class SparseVoxelMap(object):
         self.voxel_pcd.add(world_xyz, features=feats, rgb=rgb, weights=None)
 
         # TODO: just get this from camera_pose?
-        self._update_visited(camera_pose[:3, 3])
+        self._update_visited(camera_pose[:3, 3].to(self.map_2d_device))
         if base_pose is not None:
-            self._update_visited(base_pose)
+            self._update_visited(base_pose.to(self.map_2d_device))
 
         # Increment sequence counter
         self._seq += 1
