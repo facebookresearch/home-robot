@@ -43,66 +43,20 @@ from home_robot_spot import SpotClient, VoxelMapSubscriber
 from home_robot_spot.grasp_env import GraspController
 
 
-def goto(spot: SpotClient, planner: Planner, goal):
-    """Send the spot to the correct location."""
-    start = spot.current_position
-
-    #  Build plan
-    res = planner.plan(start, goal)
-    print(goal)
-    if res:
-        logger.success("Res success: {}", res.success)
-    else:
-        logger.error("Res success: {}", res.success)
-    # print("Res success:", res.success)
-    # Move to the next location
-    if res.success:
-        print("- follow the plan to goal")
-        spot.execute_plan(res)
-    else:
-        print("- just go ahead and try it anyway")
-        spot.navigate_to(goal)
-    return res
-
-# def publish_obs(model: SparseVoxelMap, publish_dir: Path, timestep: int):
-#     with atomic_write(publish_dir / f"{timestep}.pkl", mode="wb") as f:
-#         model_obs = model.voxel_map.observations[timestep]
-
-#         instances = model.voxel_map.get_instances()
-#         if len(instances) > 0:
-#             bounds, names = zip(*[(v.bounds, v.category_id) for v in instances])
-#             bounds = torch.stack(bounds, dim=0)
-#             names = torch.stack(names, dim=0).unsqueeze(-1)
-#         else:
-#             bounds = torch.zeros(0, 3, 2)
-#             names = torch.zeros(0, 1)
-#         pickle.dump(
-#             dict(
-#                 rgb=model_obs.rgb.cpu().detach(),
-#                 depth=model_obs.depth.cpu().detach(),
-#                 instance_image=model_obs.instance.cpu().detach(),
-#                 instance_classes=model_obs.instance_classes.cpu().detach(),
-#                 instance_scores=model_obs.instance_scores.cpu().detach(),
-#                 camera_pose=model_obs.camera_pose.cpu().detach(),
-#                 camera_K=model_obs.camera_K.cpu().detach(),
-#                 xyz_frame=model_obs.xyz_frame,
-#                 box_bounds=bounds,
-#                 box_names=names,
-#             ),
-#             f,
-#         )
-
-
 # NOTE: this requires 'pip install atomicwrites'
 def publish_obs(model: SparseVoxelMapNavigationSpace, path: str):
     timestep = len(model.voxel_map.observations) - 1
     with atomic_write(f"{path}/{timestep}.pkl", mode="wb") as f:
         instances = model.voxel_map.get_instances()
         model_obs = model.voxel_map.observations[-1]
-        bounds, names = zip(*[(v.bounds, v.category_id) for v in instances])
-        bounds = torch.stack(bounds, dim=0)
-        names = torch.stack(names, dim=0).unsqueeze(-1)
-        print(f"Saving observation to pickle file...{f'{timestep}.pkl'}")
+        if len(instances) > 0:
+            bounds, names = zip(*[(v.bounds, v.category_id) for v in instances])
+            bounds = torch.stack(bounds, dim=0)
+            names = torch.stack(names, dim=0).unsqueeze(-1)
+        else:
+            bounds = torch.zeros(0, 3, 2)
+            names = torch.zeros(0, 1)
+        logger.info(f"Saving observation to pickle file...{f'{path}/{timestep}.pkl'}")
         pickle.dump(
             dict(
                 rgb=model_obs.rgb.cpu().detach(),
@@ -118,49 +72,10 @@ def publish_obs(model: SparseVoxelMapNavigationSpace, path: str):
             ),
             f,
         )
-    print(" > Done saving observation to pickle file.")
+    logger.success("Done saving observation to pickle file.")
 
 
-def navigate_to_an_instance(
-    spot,
-    voxel_map,
-    planner,
-    instance_id,
-    visualize=False,
-    n_sample=10,
-    should_plan: bool = True,
-):
-    """Navigate to a specific object instance"""
-    instances = voxel_map.get_instances()
-    instance = instances[instance_id]
-
-    # TODO this can be random
-    view = instance.instance_views[-1]
-    goal_position = np.asarray(view.pose)
-    start = spot.current_position
-
-    print(goal_position)
-    if should_plan:
-        res = planner.plan(start, goal_position)
-        print(goal_position)
-        print("Res success:", res.success)
-        if res.success:
-            spot.execute_plan(res)
-        else:
-            print("!!! PLANNING FAILED !!!")
-    else:
-        spot.navigate_to(goal_position, blocking=True)
-
-    if visualize:
-        cropped_image = view.cropped_image
-        plt.imshow(cropped_image)
-        plt.show()
-        plt.imsave(f"instance_{instance_id}.png", cropped_image)
-
-    return True
-
-
-def get_close(instance_id, spot, voxel_map, dist=0.75):
+def get_close(instance_id, spot, voxel_map, dist=0.25):
     # Parameters for the placing function from the pointcloud
     ground_normal = torch.tensor([0.0, 0.0, 1])
     nbr_dist = 0.15
@@ -212,7 +127,7 @@ def place_in_an_instance(
     spot.spot.open_gripper()
 
     # reset arm
-    time.sleep(1)
+    time.sleep(0.5)
     spot.reset_arm()
 
 
@@ -223,7 +138,7 @@ def get_obj_centric_world_representation(instance_memory, max_context_length):
         crops.append((global_id, random.sample(instance_crops, 1)[0].cropped_image))
     # TODO: the model currenly can only handle 20 crops
     if len(crops) > max_context_length:
-        print(
+        logger.warning(
             "\nWarning: this version of minigpt4 can only handle limited size of crops -- sampling a subset of crops from the instance memory..."
         )
         crops = random.sample(crops, max_context_length)
@@ -253,7 +168,7 @@ class SpotDemoAgent:
             obs_min_density=parameters["obs_min_density"],
             smooth_kernel_size=parameters["smooth_kernel_size"],
         )
-        print(" - Created SparseVoxelMap")
+        logger.info("Created SparseVoxelMap")
         # Create kinematic model (very basic for now - just a footprint)
         self.robot_model = SimpleSpotKinematics()
         # Create navigation space example
@@ -265,11 +180,11 @@ class SpotDemoAgent:
             dilate_frontier_size=parameters["dilate_frontier_size"],
             dilate_obstacle_size=parameters["dilate_obstacle_size"],
         )
-        print(" - Created navigation space and environment")
-        print(f"   {self.navigation_space=}")
+        logger.log("DEMO", "Created navigation space and environment")
+        logger.log("DEMO", f"{self.navigation_space}")
 
         # Create segmentation sensor and load config. Returns config from file, as well as a OvmmPerception object that can be used to label scenes.
-        print("- Loading configuration")
+        logger.log("DEMO", "Loading configuration")
         config = load_config(visualize=False)
 
         print("- Create and load vocabulary and perception model")
@@ -307,14 +222,18 @@ class SpotDemoAgent:
         res = None
         start = self.spot.current_position
         start_is_valid = self.navigation_space.is_valid(start)
-        print("\n----------- Planning to frontier -----------")
-        print("Start is valid:", start_is_valid)
+        logger.log("DEMO", "\n----------- Planning to frontier -----------")
         if not start_is_valid:
+            logger.error("Start is valid: {}", start_is_valid)
+            self.spot.navigate_to([-0.25, 0, 0], relative=True)
             return PlanResult(False, reason="invalid start state")
+        else:
+            logger.success("Start is valid: {}", start_is_valid)
+
         for goal in self.navigation_space.sample_closest_frontier(
             start,
-            step_dist=0.5,
-            min_dist=1.0,
+            step_dist=self.parameters["frontier_step_dist"],
+            min_dist=self.parameters["frontier_min_dist"],
             debug=debug,
             verbose=True,
         ):
@@ -322,22 +241,29 @@ class SpotDemoAgent:
                 failed = True
                 break
             goal = goal.cpu().numpy()
-            print("Start:", start)
-            print("Sampled Goal:", goal)
+            logger.info("Start: {}", start)
+            logger.info("Sampled Goal: {}", goal)
             show_goal = np.zeros(3)
             show_goal[:2] = goal[:2]
             goal_is_valid = self.navigation_space.is_valid(goal)
-            print("Start is valid:", start_is_valid)
-            print(" Goal is valid:", goal_is_valid)
+            if start_is_valid:
+                logger.success("Start is valid: {}", start_is_valid)
+            else:
+                raise RuntimeError(f"Start is not valid: {start_is_valid}, {start=}")
+            if goal_is_valid:
+                logger.success("Goal is valid: {}", goal_is_valid)
             if not goal_is_valid:
-                print(" -> resample goal.")
+                logger.error("Goal is valid: {}, Resampling goal", goal_is_valid)
                 continue
             # plan to the sampled goal
-            print("Planning...")
+            logger.log("DEMO", "Planning...")
             res = self.planner.plan(start, goal, verbose=True)
-            print("Found plan:", res.success)
-            for i, node in enumerate(res.trajectory):
-                print(i, node.state)
+            if res.success:
+                logger.success("Found plan: {}", res.success)
+                for i, node in enumerate(res.trajectory):
+                    logger.info(f"{i}, {node.state}")
+            else:
+                logger.error("Found plan: {}", res.success)
             if visualize:
                 obstacles, explored = self.voxel_map.get_2d_map()
                 img = (10 * obstacles) + explored
@@ -389,12 +315,14 @@ class SpotDemoAgent:
 
     def update(self, step=0):
         print("Synchronous obs update")
-        time.sleep(1)
+        time.sleep(0.5)
         obs = self.spot.get_rgbd_obs()
         print("- Observed from coordinates:", obs.gps, obs.compass)
         obs = self.semantic_sensor.predict(obs)
         self.voxel_map.add_obs(obs, xyz_frame="world")
-        publish_obs(self.navigation_space, self.path)
+        filename = f"{self.path}/viz_data/"
+        os.makedirs(filename, exist_ok=True)
+        publish_obs(self.navigation_space, filename)
 
     def visualize(self, start, goal, step):
         """Update visualization for demo"""
@@ -419,6 +347,78 @@ class SpotDemoAgent:
         plt.show()
         plt.imsave(f"exploration_step_{step}.png", img)
 
+    def navigate_to_an_instance(
+        self,
+        instance_id,
+        visualize=False,
+        n_sample=10,
+        should_plan: bool = True,
+    ):
+        """Navigate to a specific object instance"""
+        instances = self.voxel_map.get_instances()
+        instance = instances[instance_id]
+
+        # TODO this can be random
+        view = instance.instance_views[-1]
+        goal_position = np.asarray(view.pose)
+        start = self.spot.current_position
+
+        print(f"{goal_position=}")
+        print(f"{start=}")
+        print(f"{instance.bounds=}")
+        if should_plan:
+            start_is_valid = self.navigation_space.is_valid(start)
+            goal_is_valid = self.navigation_space.is_valid(goal_position)
+            print(f"{start_is_valid=}")
+            print(f"{goal_is_valid=}")
+            res = self.planner.plan(start, goal_position)
+            if res.success:
+                logger.success("Res success: {}", res.success)
+                self.spot.execute_plan(
+                    res,
+                    pos_err_threshold=self.parameters["trajectory_pos_err_threshold"],
+                    rot_err_threshold=self.parameters["trajectory_rot_err_threshold"],
+                )
+            else:
+                logger.error("Res success: {}, !!!PLANNING FAILED!!!", res.success)
+                should_plan = False
+        if not should_plan:
+            logger.info("Navigating to goal position: {}", goal_position)
+            self.spot.navigate_to(goal_position, blocking=True)
+
+        if visualize:
+            cropped_image = view.cropped_image
+            plt.imshow(cropped_image)
+            plt.show()
+            plt.imsave(f"instance_{instance_id}.png", cropped_image)
+
+        return True
+
+    def goto(self, goal: np.ndarray):
+        """Send the spot to the correct location."""
+        start = self.spot.current_position
+
+        #  Build plan
+        res = self.planner.plan(start, goal)
+        logger.info("Goal: {}", goal)
+        if res:
+            logger.success("Res success: {}", res.success)
+        else:
+            logger.error("Res success: {}", res.success)
+        # print("Res success:", res.success)
+        # Move to the next location
+        if res.success:
+            logger.info("Following the plan to goal")
+            self.spot.execute_plan(
+                res,
+                pos_err_threshold=self.parameters["trajectory_pos_err_threshold"],
+                rot_err_threshold=self.parameters["trajectory_rot_err_threshold"],
+            )
+        else:
+            logger.warning("Just go ahead and try it anyway")
+            self.spot.navigate_to(goal)
+        return res
+
     def run_task(self, vlm, center, data):
         """Actually use VLM to perform task
 
@@ -434,7 +434,7 @@ class SpotDemoAgent:
         blacklist = []
         while True:
             # for debug, sending the robot back to original position
-            goto(self.spot, self.planner, center)
+            self.goto(center)
             success = False
             pick_instance_id = None
             place_instance_id = None
@@ -491,16 +491,22 @@ class SpotDemoAgent:
             if not pick_instance_id:
                 # Navigating to a cup or bottle
                 for i, each_instance in enumerate(instances):
-                    if self.vocab.goal_id_to_goal_name[
-                        int(each_instance.category_id.item())
-                    ] in ["bottle", "cup"]:
+                    if (
+                        self.vocab.goal_id_to_goal_name[
+                            int(each_instance.category_id.item())
+                        ]
+                        in self.parameters["pick_categories"]
+                    ):
                         pick_instance_id = i
                         break
             if not place_instance_id:
                 for i, each_instance in enumerate(instances):
-                    if self.vocab.goal_id_to_goal_name[
-                        int(each_instance.category_id.item())
-                    ] in ["chair"]:
+                    if (
+                        self.vocab.goal_id_to_goal_name[
+                            int(each_instance.category_id.item())
+                        ]
+                        in self.parameters["place_categories"]
+                    ):
                         place_instance_id = i
                         break
 
@@ -520,15 +526,26 @@ class SpotDemoAgent:
                         )
                     ] = i
                 print(objects)
-                breakpoint()
+                # TODO: Add better handling
+                if pick_instance_id is None:
+                    new_id = input(
+                        "enter a new instance to pick up from the list above: "
+                    )
+                    if isinstance(new_id, int):
+                        pick_instance_id = new_id
+                        break
+                if place_instance_id is None:
+                    new_id = input(
+                        "enter a new instance to place from the list above: "
+                    )
+                    if isinstance(new_id, int):
+                        place_instance_id = new_id
+                        break
                 success = False
             else:
                 print("Navigating to instance ")
                 print(f"Instance id: {pick_instance_id}")
-                success = navigate_to_an_instance(
-                    self.spot,
-                    self.voxel_map,
-                    self.planner,
+                success = self.navigate_to_an_instance(
                     pick_instance_id,
                     visualize=self.parameters["visualize"],
                 )
@@ -557,36 +574,46 @@ class SpotDemoAgent:
                     hor_grasp=True,
                 )
                 self.spot.open_gripper()
-                time.sleep(1)
-                print("Resetting environment...")
-                instance_pose, location, vf = get_close(
-                    pick_instance_id, self.spot, self.voxel_map
+                time.sleep(0.5)
+                logger.log("DEMO", "Resetting environment...")
+                # TODO: have a better way to reset the environment
+
+                obj_pose = instances[pick_instance_id].instance_views[-1].pose
+                distance = np.linalg.norm(
+                    np.asarray(obj_pose) - self.spot.current_position
                 )
-                print(" > Navigating closer to the object")
-                self.spot.navigate_to(
-                    np.array([vf[0], vf[1], instance_pose[2]]), blocking=True
-                )
-                time.sleep(1)
+                if distance > 2.0:
+                    instance_pose, location, vf = get_close(
+                        pick_instance_id, self.spot, self.voxel_map
+                    )
+                    logger.info("Navigating closer to the object")
+                    self.spot.navigate_to(
+                        np.array([vf[0], vf[1], instance_pose[2]]), blocking=True
+                    )
+                time.sleep(0.5)
                 success = gaze.gaze_and_grasp()
-                time.sleep(1)
+                time.sleep(0.5)
                 if success:
                     # TODO: @JAY make placing cleaner
                     # navigate to the place instance
                     print("Navigating to instance ")
                     print(f"Instance id: {place_instance_id}")
-                    success = navigate_to_an_instance(
-                        self.spot,
-                        self.voxel_map,
-                        self.planner,
+                    success = self.navigate_to_an_instance(
                         place_instance_id,
                         visualize=self.parameters["visualize"],
                     )
-
-                    breakpoint()
-                    # place = place_in_an_instance(
-                    #     place_instance_id, self.spot, self.voxel_map, place_height=0.15
-                    # )
-                    # print("place at:", place)
+                    place_location = self.vocab.goal_id_to_goal_name[
+                        int(instances[place_instance_id].category_id.item())
+                    ]
+                    instance_pose, location, vf = get_close(
+                        place_instance_id, self.spot, self.voxel_map, dist=0.5
+                    )
+                    logger.info(
+                        "placing {object} at {place}",
+                        object=object_category_name,
+                        place=place_location,
+                    )
+                    place_in_an_instance(instance_pose, location, vf, self.spot)
                 """
                 # visualize pointcloud and add location as red
                 pcd = open3d.geometry.PointCloud()
@@ -602,13 +629,16 @@ class SpotDemoAgent:
                 # Move armjoint with ik to x,y,z+.02
                 """
                 if success:
-                    print("Successfully grasped the object!")
+                    logger.success("Successfully grasped the object!")
+                    self.goto(center)
                     # exit out of loop without killing script
                     break
 
 
 # def main(dock: Optional[int] = 549):
 def main(dock: Optional[int] = None, args=None):
+    level = logger.level("DEMO", no=38, color="<yellow>", icon="🤖")
+    print(f"{level=}")
     data: Dict[str, List[str]] = {}
     if args.enable_vlm == 1:
         sys.path.append(
@@ -629,7 +659,7 @@ def main(dock: Optional[int] = None, args=None):
     spot_config = get_config("src/home_robot_spot/configs/default_config.yaml")[0]
     parameters = get_config("src/home_robot_spot/configs/parameters.yaml")[0]
     timestamp = f"{datetime.datetime.now():%Y-%m-%d-%H-%M-%S}"
-    path = os.path.expanduser(f"~/Documents/home-robot/viz_data/{timestamp}")
+    path = os.path.expanduser(f"data/hw_exps/spot/{timestamp}")
     logger.add(f"{path}/{timestamp}.log", backtrace=True, diagnose=True)
     os.makedirs(path, exist_ok=True)
     logger.info("Saving viz data to {}", path)
@@ -645,7 +675,7 @@ def main(dock: Optional[int] = None, args=None):
         spot.start()
         logger.success("Spot started")
         logger.info("Sleep 1s")
-        time.sleep(1)
+        time.sleep(0.5)
         logger.info("Start exploring!")
         x0, y0, theta0 = spot.current_position
 
@@ -660,8 +690,10 @@ def main(dock: Optional[int] = None, args=None):
 
         voxel_map.show()
         for step in range(int(parameters["exploration_steps"])):
-
-            print("-" * 8, step + 1, "/", int(parameters["exploration_steps"]), "-" * 8)
+            # logger.log("DEMO", "\n----------- Step {} -----------", step + 1)
+            print(
+                "-" * 20, step + 1, "/", int(parameters["exploration_steps"]), "-" * 20
+            )
 
             # Get current position and goal
             start = spot.current_position
@@ -673,7 +705,7 @@ def main(dock: Optional[int] = None, args=None):
             else:
                 # TODO do something is start is not valid
                 logger.error("!!!!!!!! INVALID START POSITION !!!!!!")
-                spot.navigate_to([-0.15, 0, 0], relative=True)
+                spot.navigate_to([-0.25, 0, 0], relative=True)
                 continue
             logger.info("Start is safe: {}", voxel_map.xyt_is_safe(start))
 
@@ -682,7 +714,7 @@ def main(dock: Optional[int] = None, args=None):
                 res = demo.plan_to_frontier()
                 if not res.success:
                     logger.warning(res.reason)
-                    logger.info("Switching to random exploration")
+                    logger.debug("Switching to random exploration")
                     goal = next(
                         navigation_space.sample_random_frontier(
                             min_size=parameters["min_size"],
@@ -703,7 +735,6 @@ def main(dock: Optional[int] = None, args=None):
                         logger.success("Res success: {}", res.success)
                     else:
                         logger.error("Res success: {}", res.success)
-                    break
             else:
                 logger.info(
                     "picking a random frontier point and trying to move there..."
@@ -727,7 +758,11 @@ def main(dock: Optional[int] = None, args=None):
                     logger.error("Res success: {}", res.success)
 
             # Move to the next location
-            spot.execute_plan(res)
+            spot.execute_plan(
+                res,
+                pos_err_threshold=parameters["trajectory_pos_err_threshold"],
+                rot_err_threshold=parameters["trajectory_rot_err_threshold"],
+            )
 
             if not parameters["use_async_subscriber"]:
                 demo.update(step + 1)
@@ -735,45 +770,53 @@ def main(dock: Optional[int] = None, args=None):
             if step % 1 == 0 and parameters["visualize"]:
                 demo.visualize(start, goal, step)
 
-        print("Exploration complete!")
+        logger.info("Exploration complete!")
         demo.run_task(vlm, center=np.array([x0, y0, theta0]), data=data)
 
     except Exception as e:
-        logger.critical("Exception caught: ", e)
+        logger.critical("Exception caught: {}", e)
         raise e
 
     finally:
         if parameters["write_data"]:
-            pc_xyz, pc_rgb = voxel_map.show(
-                backend="open3d", instances=False, orig=np.zeros(3)
-            )
-            pcd_filename = f"{path}/spot_output_{timestamp}.pcd"
-            pkl_filename = f"{path}/spot_output_{timestamp}.pkl"
-            logger.info("Writing data...")
-            # Create pointcloud
-            if len(pcd_filename) > 0:
-                pcd = numpy_to_pcd(pc_xyz, pc_rgb / 255)
-                open3d.io.write_point_cloud(pcd_filename, pcd)
-                logger.info(f"wrote pcd to {pcd_filename}")
-            if len(pkl_filename) > 0:
-                voxel_map.write_to_pickle_add_data(pkl_filename, data)
-                logger.info(f"wrote pkl to {pkl_filename}")
+            if voxel_map.get_instances() is not None:
+                pc_xyz, pc_rgb = voxel_map.show(
+                    backend="open3d", instances=False, orig=np.zeros(3)
+                )
+                pcd_filename = f"{path}/spot_output_{timestamp}.pcd"
+                pkl_filename = f"{path}/spot_output_{timestamp}.pkl"
+                logger.info("Writing data...")
+                # Create pointcloud
+                if len(pcd_filename) > 0:
+                    pcd = numpy_to_pcd(pc_xyz, pc_rgb / 255)
+                    open3d.io.write_point_cloud(pcd_filename, pcd)
+                    logger.info(f"wrote pcd to {pcd_filename}")
+                if len(pkl_filename) > 0:
+                    voxel_map.write_to_pickle_add_data(pkl_filename, data)
+                    logger.info(f"wrote pkl to {pkl_filename}")
 
-            # TODO dont repeat this code
-            obstacles, explored = voxel_map.get_2d_map()
-            img = (10 * obstacles) + explored
-            if start is not None:
-                start_unnormalized = spot.unnormalize_gps_compass(start)
-                navigation_space.draw_state_on_grid(img, start_unnormalized, weight=5)
-            if goal is not None:
-                goal_unnormalized = spot.unnormalize_gps_compass(goal)
-                navigation_space.draw_state_on_grid(img, goal_unnormalized, weight=5)
-            plt.imshow(img)
-            plt.show()
-            plt.imsave(f"{path}/exploration_step_final.png", img)
+                # TODO dont repeat this code
+                obstacles, explored = voxel_map.get_2d_map()
+                img = (10 * obstacles) + explored
+                if start is not None:
+                    start_unnormalized = spot.unnormalize_gps_compass(start)
+                    navigation_space.draw_state_on_grid(
+                        img, start_unnormalized, weight=5
+                    )
+                if goal is not None:
+                    goal_unnormalized = spot.unnormalize_gps_compass(goal)
+                    navigation_space.draw_state_on_grid(
+                        img, goal_unnormalized, weight=5
+                    )
+                plt.imshow(img)
+                plt.show()
+                plt.imsave(f"{path}/exploration_step_final.png", img)
 
+        spot.navigate_to(np.array([x0, y0, theta0]))
+        time.sleep(0.5)
         logger.warning("Safely stop the robot...")
         spot.spot.close_gripper()
+        logger.info("Robot sit down")
         spot.spot.sit()
         spot.spot.power_off()
         spot.stop()

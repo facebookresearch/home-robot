@@ -4,6 +4,7 @@
 # LICENSE file in the root directory of this source tree.
 
 import time
+import timeit
 from threading import Event, Thread
 from typing import Dict, List, Optional, Sequence, Tuple, Union
 
@@ -32,7 +33,12 @@ from home_robot.motion import PlanResult
 from home_robot.perception.midas import Midas
 from home_robot.utils.bboxes_3d_plotly import plot_scene_with_bboxes
 from home_robot.utils.config import get_config
-from home_robot.utils.geometry import sophus2xyt, xyt2sophus
+from home_robot.utils.geometry import (
+    angle_difference,
+    sophus2xyt,
+    xyt2sophus,
+    xyt_base_to_global,
+)
 from home_robot.utils.image import Camera as PinholeCamera
 from home_robot.utils.point_cloud_torch import unproject_masked_depth_to_xyz_coordinates
 
@@ -506,28 +512,41 @@ class SpotClient:
         self.spot.open_gripper()
 
     def reset(self):
+        """Put arm back in home position and compute epsiode start pose"""
         self.reset_arm()
-
-        # self.start_gps = self.gps
-        # self.start_compass = self.compass
         self._episode_start_pose = xyt2sophus([self.gps[0], self.gps[1], self.compass])
 
-        # print(self.gps, self.compass)
-        # print(self._episode_start_pose)
-        # print(self.unnormalize_gps_compass([0, 0, 0]))
-        # breakpoint()
-        # self.rot_compass = yaw_rotation_matrix_2D(-self.start_compass)
-
-    def execute_plan(self, plan: PlanResult, verbose: bool = False):
+    def execute_plan(
+        self,
+        plan: PlanResult,
+        verbose: bool = False,
+        pos_err_threshold: float = 0.1,
+        rot_err_threshold: float = 0.3,
+        per_step_timeout: float = 5.0,
+    ):
         """go through a whole plan and execute it"""
         if verbose:
             print("Executing motion plan:")
         for i, node in enumerate(plan.trajectory):
             if verbose:
                 print(" - go to", i, "xyt =", node.state)
-            self.navigate_to(node.state, blocking=True)
+            self.navigate_to(node.state, blocking=False)
+            t0 = timeit.default_timer()
+            while timeit.default_timer() - t0 < per_step_timeout:
+                # Check error
+                pose = self.current_position.copy()
+                pos_err = np.linalg.norm(pose[:2] - node.state[:2])
+                rot_err = angle_difference(pose[2], node.state[2])
+                if pos_err < pos_err_threshold and rot_err < rot_err_threshold:
+                    break
+                time.sleep(0.01)
+            if timeit.default_timer() - t0 > per_step_timeout:
+                print(f"WARNING: robot could not reach waypoint {i}: {node.state}")
+
+        # Send us to the final waypoint, but this time actually block - we want to really get there
+        self.navigate_to(node.state, blocking=True)
         # Sleep a bit at the end to make sure it gets there
-        time.sleep(0.5)
+        # time.sleep(0.5)
 
     @property
     def raw_observations(self):
@@ -844,6 +863,9 @@ class SpotClient:
         # print("nav to before unnorm", xyt)
         # xyt = self.unnormalize_gps_compass(xyt)
         # print("after =", xyt)
+
+        if relative:
+            xyt = xyt_base_to_global(xyt, self.current_position)
 
         self.spot.set_base_position(
             x_pos=xyt[0],
