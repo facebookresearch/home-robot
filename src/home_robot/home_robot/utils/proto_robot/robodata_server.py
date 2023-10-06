@@ -6,15 +6,13 @@ from concurrent import futures
 
 import grpc
 import numpy as np
-import robodata_pb2
-import robodata_pb2_grpc
 import torch
 from minigpt4_example import Predictor
 from PIL import Image
 
 import home_robot.mapping
 
-sys.path.append("../../../../src/home_robot/home_robot/perception/minigpt4/MiniGPT-4")
+from . import robodata_pb2, robodata_pb2_grpc
 
 logger = logging.getLogger(__name__)
 
